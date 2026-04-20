@@ -57,6 +57,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-record-update /tmp/records_test.dat
 ./build/lezac_cpp --debug-record-name-entry /tmp/records_name_test.dat
 ./build/lezac_cpp --debug-record-save-failure /tmp/missing-record-dir/records.dat
+./build/lezac_cpp --debug-end-flow-records /tmp/end_flow_records.dat
 ./build/lezac_cpp --debug-gran
 ./build/lezac_cpp --debug-levels
 ./build/lezac_cpp --debug-level-raw-roundtrip
@@ -102,11 +103,16 @@ Dump the current bomb inventory model and export sprite contact sheets:
   background and one-player playfield-width controls.
 - A first playable two-player reconstruction pass with separate start markers,
   separate controls, split camera views, a central objective panel, per-player
-  bomb inventories/HUD state, zero-life player-out handling, shared objectives,
-  and player-2 bomb placement through the `N` fire key.
+  bomb inventories/HUD/score state, zero-life player-out handling, shared
+  objectives, player-2 bomb placement through the `N` fire key, and queued
+  per-player high-score prompts at end of run.
 - High-score table serialization back to the converted `RECS.DAT.json` resource
-  format, name entry for new records with letter/digit/space/delete handling, and
-  validation coverage that writes only to temporary test files.
+  format, name entry for new records with original-evidence letters/space,
+  Backspace, and Enter handling, and validation coverage that writes only to
+  temporary test files.
+- Game-over and completed-game end states using strings recovered from
+  `1000:1b14..1d42`, with final-level completion entering the completed-game
+  path instead of wrapping directly into level 1.
 - `PROEFS.SON` records synthesize SDL-queued PC-speaker-style square-wave sound
   effects for core gameplay events, with headless render validation.
 
@@ -117,12 +123,12 @@ Dump the current bomb inventory model and export sprite contact sheets:
   deeper reconstruction of the actor update routine around `1000:6053`.
 - PC speaker sound effects now play through an approximate square-wave
   sequencer; exact original timing and tone-field semantics remain unresolved.
-- Two-player split-screen is playable with independent bomb inventories, a
-  central objective panel, and per-player zero-life handling, but exact original
-  panel artwork, reentry flow, and scoring semantics remain approximate.
+- Two-player split-screen is playable with independent bomb inventories, scores,
+  and record prompts, but exact original panel artwork and reentry presentation
+  remain approximate.
 - High scores are persisted with original-evidence name-entry keys
   (letters/space, Backspace, Enter), but exact cursor drawing, typematic repeat,
-  and presentation remain approximate.
+  and name-entry presentation remain approximate.
 - Bomb fuse timing, 2x2 footprint, player blast damage, monster hit-point
   blast damage, visual
   selectors, actor sprite indices, and word-layer damage gating now follow the

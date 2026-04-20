@@ -81,8 +81,8 @@ Dump the current bomb inventory model and export sprite contact sheets:
   score, start positions, teleports, tile triggers, monster spawning, basic
   behavior-specific monster movement/damage, documented monster reward drops,
   four-slot bomb inventory/switching, original bomb actor sprites, player
-  animation, active structure hazard damage, level progression, and
-  records/menu display.
+  animation, active structure hazard damage, bomb blast player damage, level
+  progression, and records/menu display.
 - Menu subpages for info, instructions, and records, plus original-documented
   background and one-player playfield-width controls.
 - A first playable two-player reconstruction pass with separate start markers,
@@ -107,8 +107,8 @@ Dump the current bomb inventory model and export sprite contact sheets:
   flow, and scoring semantics remain approximate.
 - High scores are persisted with name entry, but exact original record-entry
   cursor movement, typematic repeat, and presentation remain approximate.
-- Bomb fuse timing, 2x2 footprint, actor sprite indices, visual selectors, and
-  word-layer damage gating now follow the
+- Bomb fuse timing, 2x2 footprint, player/monster blast damage, visual
+  selectors, actor sprite indices, and word-layer damage gating now follow the
   `1000:414a`/`1000:370e`/expiration analysis. Active collapse/debris records
   now drain player energy, but exact sprite playback and per-frame damage
   timing remain simplified.

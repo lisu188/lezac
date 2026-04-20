@@ -2918,8 +2918,9 @@ private:
             resetClip();
             rect(0, 99, kScreenW, 1, 0xfff0d060u);
             rect(0, 100, kScreenW, 16, 0xcc000000u);
-            text(4, 104, playerHudText(2, energy2_, lives2_, player2Dead_,
-                                        bombInventory2_),
+            text(4, 104, objectiveHudText() + " " +
+                            playerHudText(2, energy2_, lives2_, player2Dead_,
+                                          bombInventory2_),
                  0xffffffffu);
             rect(0, 115, kScreenW, 1, 0xfff0d060u);
         } else {
@@ -3141,14 +3142,13 @@ private:
 
     void drawHud() {
         rect(0, 0, kScreenW, 16, 0xcc000000u);
-        std::string status = "L" + std::to_string(levelIndex_ + 1) +
-                             " B" + std::to_string(collected_) + "/" +
-                             std::to_string(level_.requiredBonus) + " D" +
-                             std::to_string(destructionPercent()) + "/" +
-                             std::to_string(level_.requiredDestruction) +
-                             " S" + std::to_string(score_) + " " +
-                             playerHudText(1, energy_, lives_, playerDead_,
-                                           bombInventory_);
+        std::string status = playerCount_ > 1
+                                 ? playerHudText(1, energy_, lives_, playerDead_,
+                                                 bombInventory_) +
+                                       " S" + std::to_string(score_)
+                                 : objectiveHudText() + " " +
+                                       playerHudText(1, energy_, lives_, playerDead_,
+                                                     bombInventory_);
         if (playerCount_ == 1) {
             status += " V" + std::to_string(gameplayViewWidth_);
         }
@@ -3157,6 +3157,15 @@ private:
             rect(76, 84, 168, 24, 0xee000000u);
             text(92, 92, "LEVEL COMPLETED", 0xffffe060u, false, 0xff301800u);
         }
+    }
+
+    std::string objectiveHudText() const {
+        return "L" + std::to_string(levelIndex_ + 1) +
+               " B" + std::to_string(collected_) + "/" +
+               std::to_string(level_.requiredBonus) +
+               " D" + std::to_string(destructionPercent()) + "/" +
+               std::to_string(level_.requiredDestruction) +
+               " S" + std::to_string(score_);
     }
 
     std::string playerHudText(int index, int energy, int lives, bool dead,

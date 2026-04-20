@@ -979,10 +979,14 @@ public:
         onKey(SDLK_e, running);
         onKey(SDLK_s, running);
         onKey(SDLK_t, running);
+        onKey(SDLK_SPACE, running);
+        onKey(SDLK_KP_1, running);
+        onKey(SDLK_DELETE, running);
+        onKey(SDLK_KP_2, running);
         onKey(SDLK_RETURN, running);
         auto reloaded = loadRecords(path);
         if (reloaded.empty() || reloaded[0].score != 999999u ||
-            reloaded[0].name != "TEST") {
+            reloaded[0].name != "TEST 2") {
             throw std::runtime_error("name-entry record did not save");
         }
         std::cout << "record_name_entry=ok top=" << reloaded[0].score
@@ -1790,7 +1794,7 @@ private:
             finalizePendingRecord();
             return;
         }
-        if (key == SDLK_BACKSPACE) {
+        if (key == SDLK_BACKSPACE || key == SDLK_DELETE) {
             if (!pendingRecordName_.empty()) pendingRecordName_.pop_back();
             return;
         }
@@ -1811,6 +1815,22 @@ private:
         }
         if (key >= SDLK_0 && key <= SDLK_9) {
             return static_cast<char>('0' + (key - SDLK_0));
+        }
+        if (key == SDLK_SPACE) {
+            return ' ';
+        }
+        switch (key) {
+            case SDLK_KP_0: return '0';
+            case SDLK_KP_1: return '1';
+            case SDLK_KP_2: return '2';
+            case SDLK_KP_3: return '3';
+            case SDLK_KP_4: return '4';
+            case SDLK_KP_5: return '5';
+            case SDLK_KP_6: return '6';
+            case SDLK_KP_7: return '7';
+            case SDLK_KP_8: return '8';
+            case SDLK_KP_9: return '9';
+            default: break;
         }
         return '\0';
     }
@@ -3261,8 +3281,8 @@ private:
         std::string name = pendingRecordName_;
         while (name.size() < 8) name.push_back('_');
         text(58, 112, "NAME " + name, 0xffffffffu, false, 0xff101010u);
-        text(42, 148, "TYPE LETTERS OR NUMBERS", 0xffffffffu, false, 0xff101010u);
-        text(42, 160, "ENTER: SAVE. ESC: PLAYER", 0xff90ffb0u, false, 0xff101010u);
+        text(42, 148, "TYPE LETTERS NUMBERS SPACE", 0xffffffffu, false, 0xff101010u);
+        text(42, 160, "ENTER SAVE. DEL ERASES", 0xff90ffb0u, false, 0xff101010u);
     }
 
     void drawRecordLine(size_t i, int y) {

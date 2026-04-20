@@ -89,8 +89,8 @@ Dump the current bomb inventory model and export sprite contact sheets:
   bomb inventories/HUD state, shared objectives, and player-2 bomb placement
   through the `N` fire key.
 - High-score table serialization back to the original `RECS.DAT` record format,
-  name entry for new records, and validation coverage that writes only to
-  temporary test files.
+  name entry for new records with letter/digit/space/delete handling, and
+  validation coverage that writes only to temporary test files.
 - `PROEFS.SON` records synthesize SDL-queued PC-speaker-style square-wave sound
   effects for core gameplay events, with headless render validation.
 
@@ -105,7 +105,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
   central objective panel, but exact original panel artwork, reentry/game-over
   flow, and scoring semantics remain approximate.
 - High scores are persisted with name entry, but exact original record-entry
-  presentation and keyboard editing semantics remain approximate.
+  cursor movement, typematic repeat, and presentation remain approximate.
 - Bomb fuse timing, 2x2 footprint, visual selectors, and word-layer damage
   gating now follow the `1000:414a`/`1000:370e`/expiration analysis, but the
   exact sprite playback for explosion and collapse/debris animations is still

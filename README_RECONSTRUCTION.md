@@ -54,6 +54,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-fixed
 ./build/lezac_cpp --debug-sounds
 ./build/lezac_cpp --debug-sound-render
+./build/lezac_cpp --debug-record-save-failure /tmp/missing-record-dir/records.dat
 ./build/lezac_cpp --debug-gran
 ./build/lezac_cpp --debug-levels
 ./build/lezac_cpp --debug-word-layer
@@ -66,6 +67,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-passable-objects
 ./build/lezac_cpp --debug-trigger-accounting
 ./build/lezac_cpp --debug-portal-cooldowns
+./build/lezac_cpp --debug-collision-pushout
 ./build/lezac_cpp --export-sprites BOMOMIMK.SPR /tmp/bomomimk.ppm
 ```
 

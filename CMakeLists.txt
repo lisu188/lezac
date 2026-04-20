@@ -69,6 +69,12 @@ if(BUILD_TESTING)
     set_tests_properties(records_name_entry_temp PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+    add_test(NAME records_save_failure_temp
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-save-failure
+                ${CMAKE_CURRENT_BINARY_DIR}/missing_records_dir/records_test.dat)
+    set_tests_properties(records_save_failure_temp PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
     add_test(NAME sound_render COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-render)
     set_tests_properties(sound_render PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
@@ -104,6 +110,12 @@ if(BUILD_TESTING)
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-portal-cooldowns)
     set_tests_properties(portal_cooldowns PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+    add_test(NAME collision_pushout
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-collision-pushout)
+    set_tests_properties(collision_pushout PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        TIMEOUT 5)
 
     find_program(BASH_EXECUTABLE bash)
     find_program(XVFB_RUN_EXECUTABLE xvfb-run)

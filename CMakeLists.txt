@@ -71,6 +71,16 @@ if(BUILD_TESTING)
     set_tests_properties(passable_objects PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+    add_test(NAME trigger_accounting
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-trigger-accounting)
+    set_tests_properties(trigger_accounting PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+    add_test(NAME portal_cooldowns
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-portal-cooldowns)
+    set_tests_properties(portal_cooldowns PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
     find_program(BASH_EXECUTABLE bash)
     find_program(XVFB_RUN_EXECUTABLE xvfb-run)
     find_program(XDOTOOL_EXECUTABLE xdotool)

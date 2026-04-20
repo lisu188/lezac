@@ -845,10 +845,32 @@ public:
             throw std::runtime_error("N key did not consume bomb inventory");
         }
 
+        energy_ = 100;
+        DebrisRecord debris;
+        debris.tileIndex = (static_cast<int>(player_.y + 8.0f) / 8) * level_.width +
+                           (static_cast<int>(player_.x + 6.0f) / 8);
+        debris.timer = 2;
+        debrisQueue_.push_back(debris);
+        updateFlashes();
+        if (energy_ >= 100) {
+            throw std::runtime_error("active debris did not drain player energy");
+        }
+
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
         if (bombs_.size() != bombCount + 1) {
             throw std::runtime_error("duplicate bomb placed on occupied tile");
+        }
+
+        energy_ = 100;
+        BombProfile contactProfile = bombProfile(BombType::Small);
+        Bomb contactBomb{static_cast<int>(player_.x + 6.0f) / 8,
+                         static_cast<int>(player_.y + 12.0f) / 8,
+                         contactProfile.fuseTicks, BombType::Small,
+                         contactProfile.fuseTicks};
+        explode(contactBomb);
+        if (energy_ >= 100) {
+            throw std::runtime_error("bomb explosion did not drain player energy");
         }
 
         bool background = showBackground_;
@@ -979,10 +1001,14 @@ public:
         onKey(SDLK_e, running);
         onKey(SDLK_s, running);
         onKey(SDLK_t, running);
+        onKey(SDLK_SPACE, running);
+        onKey(SDLK_KP_1, running);
+        onKey(SDLK_DELETE, running);
+        onKey(SDLK_KP_2, running);
         onKey(SDLK_RETURN, running);
         auto reloaded = loadRecords(path);
         if (reloaded.empty() || reloaded[0].score != 999999u ||
-            reloaded[0].name != "TEST") {
+            reloaded[0].name != "TEST 2") {
             throw std::runtime_error("name-entry record did not save");
         }
         std::cout << "record_name_entry=ok top=" << reloaded[0].score
@@ -1790,7 +1816,7 @@ private:
             finalizePendingRecord();
             return;
         }
-        if (key == SDLK_BACKSPACE) {
+        if (key == SDLK_BACKSPACE || key == SDLK_DELETE) {
             if (!pendingRecordName_.empty()) pendingRecordName_.pop_back();
             return;
         }
@@ -1811,6 +1837,22 @@ private:
         }
         if (key >= SDLK_0 && key <= SDLK_9) {
             return static_cast<char>('0' + (key - SDLK_0));
+        }
+        if (key == SDLK_SPACE) {
+            return ' ';
+        }
+        switch (key) {
+            case SDLK_KP_0: return '0';
+            case SDLK_KP_1: return '1';
+            case SDLK_KP_2: return '2';
+            case SDLK_KP_3: return '3';
+            case SDLK_KP_4: return '4';
+            case SDLK_KP_5: return '5';
+            case SDLK_KP_6: return '6';
+            case SDLK_KP_7: return '7';
+            case SDLK_KP_8: return '8';
+            case SDLK_KP_9: return '9';
+            default: break;
         }
         return '\0';
     }
@@ -2375,6 +2417,31 @@ private:
         if (energy == 0) beginPlayerDeath(player, energy, lives, dead, timer, startMarker);
     }
 
+    bool playerOverlapsTileArea(const Player& player, int tx0, int ty0,
+                                int tx1, int ty1) const {
+        float x = static_cast<float>(tx0 * kTileSize);
+        float y = static_cast<float>(ty0 * kTileSize);
+        float w = static_cast<float>((tx1 - tx0 + 1) * kTileSize);
+        float h = static_cast<float>((ty1 - ty0 + 1) * kTileSize);
+        return playerOverlaps(player, x, y, w, h);
+    }
+
+    void damagePlayersInTileArea(int tx0, int ty0, int tx1, int ty1) {
+        tx0 = std::clamp(tx0, 0, std::max(0, level_.width - 1));
+        tx1 = std::clamp(tx1, 0, std::max(0, level_.width - 1));
+        ty0 = std::clamp(ty0, 0, std::max(0, level_.height - 1));
+        ty1 = std::clamp(ty1, 0, std::max(0, level_.height - 1));
+        if (tx0 > tx1) std::swap(tx0, tx1);
+        if (ty0 > ty1) std::swap(ty0, ty1);
+        if (!playerDead_ && playerOverlapsTileArea(player_, tx0, ty0, tx1, ty1)) {
+            damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
+        }
+        if (playerCount_ > 1 && !player2Dead_ &&
+            playerOverlapsTileArea(player2_, tx0, ty0, tx1, ty1)) {
+            damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2);
+        }
+    }
+
     void beginPlayerDeath(Player& player, int& energy, int& lives, bool& dead,
                           int& timer, uint8_t startMarker) {
         if (lives > 0) --lives;
@@ -2702,6 +2769,7 @@ private:
             }
         }
         damageMonstersInExplosion(tiles);
+        damagePlayersInExplosion(tiles);
     }
 
     void damageMonstersInExplosion(const std::vector<std::array<int, 2>>& tiles) {
@@ -2713,6 +2781,29 @@ private:
                 monster.hp = 0;
                 enterMonsterDeath(monster);
             }
+        }
+    }
+
+    bool playerOverlapsAnyExplosionTile(const Player& player,
+                                        const std::vector<std::array<int, 2>>& tiles) const {
+        for (const auto& tile : tiles) {
+            float x = static_cast<float>(tile[0] * kTileSize);
+            float y = static_cast<float>(tile[1] * kTileSize);
+            if (playerOverlaps(player, x, y, static_cast<float>(kTileSize),
+                               static_cast<float>(kTileSize))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void damagePlayersInExplosion(const std::vector<std::array<int, 2>>& tiles) {
+        if (!playerDead_ && playerOverlapsAnyExplosionTile(player_, tiles)) {
+            damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
+        }
+        if (playerCount_ > 1 && !player2Dead_ &&
+            playerOverlapsAnyExplosionTile(player2_, tiles)) {
+            damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2);
         }
     }
 
@@ -2834,11 +2925,29 @@ private:
         explosionEffects_.erase(std::remove_if(explosionEffects_.begin(), explosionEffects_.end(),
                                                [](const ExplosionEffect& e) { return e.timer <= 0; }),
                                 explosionEffects_.end());
-        for (DebrisRecord& debris : debrisQueue_) --debris.timer;
+        for (DebrisRecord& debris : debrisQueue_) {
+            --debris.timer;
+            if (level_.width > 0) {
+                int tx = debris.tileIndex % level_.width;
+                int ty = debris.tileIndex / level_.width;
+                damagePlayersInTileArea(tx, ty, tx, ty);
+            }
+        }
         debrisQueue_.erase(std::remove_if(debrisQueue_.begin(), debrisQueue_.end(),
                                           [](const DebrisRecord& debris) { return debris.timer <= 0; }),
                            debrisQueue_.end());
-        for (CollapseRecord& collapse : collapseQueue_) --collapse.timer;
+        for (CollapseRecord& collapse : collapseQueue_) {
+            --collapse.timer;
+            if (level_.width > 0) {
+                int startCell = collapse.startOffsetBytes / 2;
+                int endCell = collapse.endOffsetBytes / 2;
+                int tx0 = startCell % level_.width;
+                int ty0 = startCell / level_.width;
+                int tx1 = endCell % level_.width;
+                int ty1 = endCell / level_.width;
+                damagePlayersInTileArea(tx0, ty0, tx1, ty1);
+            }
+        }
         collapseQueue_.erase(std::remove_if(collapseQueue_.begin(), collapseQueue_.end(),
                                             [](const CollapseRecord& collapse) { return collapse.timer <= 0; }),
                              collapseQueue_.end());
@@ -2988,6 +3097,11 @@ private:
         for (const Bomb& b : bombs_) {
             int x = b.x * 8 - camX;
             int y = b.y * 8 - camY;
+            int index = static_cast<int>(bombProfile(b.type).spriteBase);
+            if (index >= 0 && index < static_cast<int>(sprites_.sprites.size())) {
+                drawSprite(sprites_.sprites[static_cast<size_t>(index)], x, y);
+                continue;
+            }
             int flashWindow = std::clamp(b.fuseTicks / 4, 6, 28);
             uint32_t body = b.timer <= flashWindow ? 0xfffff070u : bombColor(b.type);
             rect(x + 1, y + 1, 6, 6, body);
@@ -3261,8 +3375,8 @@ private:
         std::string name = pendingRecordName_;
         while (name.size() < 8) name.push_back('_');
         text(58, 112, "NAME " + name, 0xffffffffu, false, 0xff101010u);
-        text(42, 148, "TYPE LETTERS OR NUMBERS", 0xffffffffu, false, 0xff101010u);
-        text(42, 160, "ENTER: SAVE. ESC: PLAYER", 0xff90ffb0u, false, 0xff101010u);
+        text(42, 148, "TYPE LETTERS NUMBERS SPACE", 0xffffffffu, false, 0xff101010u);
+        text(42, 160, "ENTER SAVE. DEL ERASES", 0xff90ffb0u, false, 0xff101010u);
     }
 
     void drawRecordLine(size_t i, int y) {

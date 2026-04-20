@@ -811,6 +811,22 @@ public:
             throw std::runtime_error("N key did not consume player 2 inventory only");
         }
 
+        energy2_ = 1;
+        lives_ = 3;
+        lives2_ = 1;
+        damageCooldown2_ = 0;
+        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                     damageCooldown2_, 2);
+        if (menu_ || !player2Dead_ || lives2_ != 0 || lives_ != 3 || playerDead_) {
+            throw std::runtime_error("player 2 zero lives ended two-player game");
+        }
+        size_t afterPlayer2OutBombs = bombs_.size();
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (!player2Dead_ || bombs_.size() != afterPlayer2OutBombs) {
+            throw std::runtime_error("player 2 reentered or fired with zero lives");
+        }
+
         pushKeyDown(SDLK_ESCAPE);
         processEvents(running);
         if (!menu_) {
@@ -1769,6 +1785,10 @@ private:
             player2_.x = std::min(player_.x + 16.0f, std::max(16.0f, level_.width * 8.0f - 16.0f));
             player2_.y = player_.y;
         }
+        if (playerCount_ > 1) {
+            playerDead_ = lives_ <= 0;
+            player2Dead_ = lives2_ <= 0;
+        }
     }
 
     const LevelPortal* findStartPortal(uint8_t marker) const {
@@ -2500,13 +2520,20 @@ private:
         player.vy = 0.0f;
         player.grounded = false;
         if (lives == 0) {
-            beginGameOver();
+            dead = true;
+            timer = 0;
+            playSound(3);
+            if (allPlayersOutOfLives()) beginGameOver();
             return;
         }
         dead = true;
         timer = canReenterLevel() ? kReentryTicks : 1;
         playSound(3);
         (void)startMarker;
+    }
+
+    bool allPlayersOutOfLives() const {
+        return playerCount_ <= 1 ? lives_ <= 0 : lives_ <= 0 && lives2_ <= 0;
     }
 
     bool canReenterLevel() const {
@@ -2521,7 +2548,7 @@ private:
     void updateReentry(Player& player, int& energy, int& lives, bool& dead,
                        int& timer, uint8_t startMarker) {
         (void)energy;
-        (void)lives;
+        if (lives <= 0) return;
         if (timer > 0) --timer;
         if (timer <= 0) {
             restartCurrentLevelAfterDeath();
@@ -2536,9 +2563,10 @@ private:
         (void)startMarker;
     }
 
-    void tryReenterPlayer(Player& player, int& energy, int&, bool& dead,
+    void tryReenterPlayer(Player& player, int& energy, int& lives, bool& dead,
                           int& timer, int& damageCooldown, uint8_t startMarker) {
         if (!dead) return;
+        if (lives <= 0) return;
         if (!canReenterLevel()) {
             restartCurrentLevelAfterDeath();
             return;
@@ -3346,7 +3374,7 @@ private:
                std::to_string(inventory.counts[1]) + "/" +
                std::to_string(inventory.counts[2]) + "/" +
                std::to_string(inventory.counts[3]) +
-               (dead ? " WAIT" : "");
+               (dead ? (lives <= 0 ? " OUT" : " WAIT") : "");
     }
 
     void drawMenu() {

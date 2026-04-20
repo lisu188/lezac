@@ -799,6 +799,15 @@ public:
             throw std::runtime_error("two-player key did not start two-player mode");
         }
 
+        int twoPlayerViewWidth = gameplayViewWidth_;
+        pushKeyDown(SDLK_r);
+        processEvents(running);
+        pushKeyDown(SDLK_e);
+        processEvents(running);
+        if (gameplayViewWidth_ != twoPlayerViewWidth) {
+            throw std::runtime_error("two-player game changed one-player view width");
+        }
+
         size_t twoPlayerBombs = bombs_.size();
         int player2BombX = static_cast<int>(player2_.x + 6.0f) / 8;
         int player2BombY = static_cast<int>(player2_.y + 12.0f) / 8;
@@ -1927,9 +1936,9 @@ private:
             }
         } else if (!menu_ && key == SDLK_s) {
             showBackground_ = !showBackground_;
-        } else if (!menu_ && key == SDLK_r) {
+        } else if (!menu_ && key == SDLK_r && playerCount_ == 1) {
             adjustGameplayViewWidth(-32);
-        } else if (!menu_ && key == SDLK_e) {
+        } else if (!menu_ && key == SDLK_e && playerCount_ == 1) {
             adjustGameplayViewWidth(32);
         } else if (!menu_ && key == SDLK_F5) {
             resetLevel(levelIndex_);

@@ -1,41 +1,37 @@
 # Recovery Status
 
 Last reviewed: 2026-04-20
-Branch: `codex/autonomous-recovery-iteration`
-Baseline: `3c127fc` / `origin/main`
+Branch: `codex/sound-latch-recovery`
+Baseline: `f7927e1` / `origin/main`
 
 ## Completed This Iteration
 
 - Spawned five focused recovery subagents for disassembly, gameplay, rendering
   and audio, verification, and integration/docs.
-- Recovered the `1000:1b14..1d42` post-game dispatcher into the C++ state
-  machine: game-over and completed-game terminal pages, final-level completion
-  routing, and per-player record prompting.
-- Added separate player 2 scoring for objective collection, bonus collection,
-  and bomb-object points through bomb ownership.
-- Added a pending record candidate queue that checks player 1 first, then
-  re-checks player 2 against the updated high-score table before prompting.
-- Added `--debug-end-flow-records` and CTest `end_flow_records_temp` covering
-  mid-level completion, one-player records, non-qualifying game over,
-  player-2-only records, double qualifiers, and final-level completion.
-- Aligned sprite contact-sheet export with runtime blitting by drawing
-  palette index `0xff`; only index `0` is transparent.
-- Updated README, Ghidra notes, and subagent notes with addresses, mapped C++
-  functions, validation, and remaining unknowns.
+- Mapped `PROEFS.SON` loading at `1000:0630..06aa` as 130 six-byte sound
+  steps, while preserving the existing JSON chunk container.
+- Added the original `1000:165a..167d` sound request priority latch with
+  `DS:2074`, `DS:799f`, `DS:799e`, `DS:78c0`, and `DS:79c4` semantics.
+- Routed bomb explosion sound requests through the latch using the recovered
+  direct PC-speaker sweep cursors `0xea74`, `0xea7e`, `0xea88`, and `0xeace`.
+- Added direct-sweep synthesis for the `DS:78c0 > 0xea60` tick-routine branch.
+- Added `--debug-son-raw-roundtrip`, `--debug-sound-priority-latch`, and
+  `--debug-sound-selector-map`, with CTest coverage.
+- Updated README, Ghidra notes, and subagent notes with sound evidence,
+  implementation mapping, validation, and remaining unknowns.
 
 ## Validation
 
 - `cmake -S . -B build` passed.
-- `cmake --build build` passed with a transient clock-skew warning from the
-  OneDrive-backed filesystem.
-- `ctest --test-dir build --output-on-failure` passed: 19/19.
+- `cmake --build build` passed.
+- `ctest --test-dir build --output-on-failure` passed: 22/22.
 - `./build/lezac_cpp --validate` passed.
 - Focused checks passed after implementation:
-  - `./build/lezac_cpp --debug-end-flow-records build/end_flow_manual.dat`
-  - `./build/lezac_cpp --debug-sprite-transparency`
-  - `./build/lezac_cpp --debug-record-name-entry build/records_name_manual.dat`
-  - `./build/lezac_cpp --debug-bonuses`
-  - `./build/lezac_cpp --debug-bomb-fuse`
+  - `./build/lezac_cpp --debug-son-raw-roundtrip`
+  - `./build/lezac_cpp --debug-sound-priority-latch`
+  - `./build/lezac_cpp --debug-sound-selector-map`
+  - `./build/lezac_cpp --debug-explosions`
+  - `./build/lezac_cpp --debug-sound-render`
   - `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-ui 3`
   - `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-controls`
   - `git diff --check`
@@ -44,8 +40,9 @@ Baseline: `3c127fc` / `origin/main`
 
 - Exact actor update behavior around `1000:6053..777f`, especially monster AI
   and object/terrain interactions.
-- Exact `PROEFS.SON` playback semantics and sound latch/tick routine around
-  `1000:1500..166a`.
+- Exact non-explosion `PROEFS.SON` step playback semantics around
+  `1000:0fbe..1088`: six-byte gate/period fields, stop handling, and mapping
+  of all non-explosion callsites to `DS:2074`/`DS:799f`.
 - Exact post-game presentation details beyond the recovered strings and record
   prompt order: cursor drawing, key wait timing, and completed-game flag side
   effects.
@@ -56,6 +53,6 @@ Baseline: `3c127fc` / `origin/main`
 
 ## Next Planned Target
 
-Map the `1000:165a` sound priority latch and `PROEFS.SON` offset/selector
-semantics, then route high-confidence gameplay sound requests through the
-original priority model.
+Map the remaining direct callsites to `1000:165a`, replace provisional
+non-explosion `playSound(index)` calls with evidence-backed cursor/priority
+requests, and then refine the `PROEFS.SON` six-byte step renderer.

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
@@ -156,6 +157,14 @@ struct SoundEffectRecord {
 struct SoundBank {
     uint16_t recordSize = 0;
     std::vector<SoundEffectRecord> records;
+};
+
+struct SoundLatch {
+    bool active = false;
+    uint8_t currentSelector = 0;
+    uint16_t latchedOffset = 0;
+    size_t recordIndex = 0;
+    bool directSweep = false;
 };
 
 struct GranRecord {
@@ -758,10 +767,17 @@ SoundBank loadSon(const std::string& path) {
     auto json = readTextFile(path);
     SoundBank bank;
     bank.recordSize = static_cast<uint16_t>(extractInt(json, "record_size"));
+    int declaredCount = extractInt(json, "record_count", -1);
     auto recordObjects = extractObjectArray(json, "records");
+    if (declaredCount >= 0 && declaredCount != static_cast<int>(recordObjects.size())) {
+        throw std::runtime_error(path + " record_count does not match records array");
+    }
     for (const auto& recJson : recordObjects) {
         SoundEffectRecord record;
         record.bytes = parseHexByteList(extractString(recJson, "bytes_hex"));
+        if (record.bytes.size() != bank.recordSize) {
+            throw std::runtime_error(path + " record length does not match record_size");
+        }
         bank.records.push_back(std::move(record));
     }
     return bank;
@@ -1774,6 +1790,92 @@ public:
                   << " nonzero:" << totalNonZero << '\n';
     }
 
+    void debugSonRawRoundtrip() {
+        load();
+        auto rawBytes = readFile("PROEFS.SON");
+        if (rawBytes.size() < 2) {
+            throw std::runtime_error("PROEFS.SON is too small");
+        }
+        uint16_t stepCount = le16(rawBytes, 0);
+        size_t payloadSize = rawBytes.size() - 2;
+        if (stepCount != 0x82 || payloadSize != static_cast<size_t>(stepCount) * 6) {
+            throw std::runtime_error("PROEFS.SON raw step layout mismatch");
+        }
+        std::vector<uint8_t> jsonPayload;
+        for (const SoundEffectRecord& record : sounds_.records) {
+            jsonPayload.insert(jsonPayload.end(), record.bytes.begin(), record.bytes.end());
+        }
+        if (jsonPayload.size() != payloadSize ||
+            !std::equal(jsonPayload.begin(), jsonPayload.end(), rawBytes.begin() + 2)) {
+            throw std::runtime_error("PROEFS.SON raw/json payload mismatch");
+        }
+        std::cout << "son_raw_roundtrip=ok raw_size=" << rawBytes.size()
+                  << " step_count=" << stepCount
+                  << " payload_size=" << payloadSize
+                  << " json_chunks=" << sounds_.records.size() << '\n';
+    }
+
+    void debugSoundPriorityLatch() {
+        load();
+        auto printCase = [&](const std::string& name, bool accepted) {
+            std::cout << "sound_latch case=" << name
+                      << " accepted=" << (accepted ? 1 : 0)
+                      << " active=" << (soundLatch_.active ? 1 : 0)
+                      << " priority=" << static_cast<int>(soundLatch_.currentSelector)
+                      << " offset=" << std::showbase << std::hex
+                      << soundLatch_.latchedOffset << std::dec << std::noshowbase
+                      << '\n';
+        };
+
+        clearSoundLatch();
+        printCase("inactive_accept", latchSoundRequest(0xea74, 4));
+        printCase("lower_rejected", latchSoundRequest(0xea7e, 2));
+        printCase("same_refresh", latchSoundRequest(0xea88, 4));
+        printCase("higher_replaces", latchSoundRequest(0xeace, 7));
+        printCase("one_below_high_rejected", latchSoundRequest(0xea88, 6));
+        clearSoundLatch();
+        printCase("cleared_accepts", latchSoundRequest(0xea7e, 1));
+
+        if (!soundLatch_.active || soundLatch_.currentSelector != 1 ||
+            soundLatch_.latchedOffset != 0xea7e || !soundLatch_.directSweep) {
+            throw std::runtime_error("sound latch final state mismatch");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active || lastPumpedSoundRecord_ != 1 ||
+            lastPumpedSoundOffset_ != 0xea7e || lastPumpedSoundSelector_ != 1) {
+            throw std::runtime_error("sound latch pump mismatch");
+        }
+        std::cout << "sound_latch=ok\n";
+    }
+
+    void debugSoundSelectorMap() {
+        load();
+        std::cout << "sound_selector_map records=" << sounds_.records.size() << '\n';
+        for (uint8_t selector = 4; selector <= 7; ++selector) {
+            uint16_t offset = explosionSoundOffset(selector - 3);
+            size_t fallbackIndex = soundIndexForOffsetFallback(offset, selector);
+            std::vector<int16_t> samples = synthesizeDirectSweep(offset);
+            if (samples.empty()) {
+                throw std::runtime_error("mapped direct sweep rendered no samples");
+            }
+            std::cout << "sound_selector_map selector=" << static_cast<int>(selector)
+                      << " offset=" << std::showbase << std::hex << offset
+                      << std::dec << std::noshowbase
+                      << " direct_sweep=1"
+                      << " fallback_record_index=" << fallbackIndex
+                      << " samples=" << samples.size() << '\n';
+        }
+        if (!isDirectSoundSweep(0xea74) || !isDirectSoundSweep(0xea7e) ||
+            !isDirectSoundSweep(0xea88) || !isDirectSoundSweep(0xeace) ||
+            soundIndexForOffsetFallback(0xea74, 4) != 0 ||
+            soundIndexForOffsetFallback(0xea7e, 5) != 1 ||
+            soundIndexForOffsetFallback(0xea88, 6) != 2 ||
+            soundIndexForOffsetFallback(0xeace, 7) != 3) {
+            throw std::runtime_error("explosion selector map mismatch");
+        }
+        std::cout << "sound_selector_map=ok\n";
+    }
+
     void debugGran() {
         load();
         std::cout << "gran_record_size=" << gran_.recordSize
@@ -2665,6 +2767,10 @@ private:
     SDL_AudioDeviceID audioDevice_ = 0;
     SDL_AudioSpec audioSpec_{};
     bool audioEnabled_ = false;
+    SoundLatch soundLatch_;
+    int lastPumpedSoundRecord_ = -1;
+    uint16_t lastPumpedSoundOffset_ = 0;
+    uint8_t lastPumpedSoundSelector_ = 0;
     bool menu_ = true;
     MenuPage menuPage_ = MenuPage::Main;
     bool showBackground_ = true;
@@ -2996,6 +3102,28 @@ private:
         return samples;
     }
 
+    std::vector<int16_t> synthesizeDirectSweep(uint16_t startCursor) const {
+        std::vector<int16_t> samples;
+        if (startCursor <= 0xea60) return samples;
+        double phase = 0.0;
+        for (uint16_t cursor = startCursor; cursor > 0xea60;
+             cursor = static_cast<uint16_t>(cursor - 4)) {
+            uint16_t period = static_cast<uint16_t>(cursor - 0xea42);
+            uint16_t clampedPeriod = std::max<uint16_t>(1, period);
+            double frequency = std::clamp(1193182.0 / static_cast<double>(clampedPeriod),
+                                          80.0, 4200.0);
+            double step = frequency / static_cast<double>(kAudioSampleRate);
+            int amplitude = 7200;
+            for (int i = 0; i < kAudioToneSamples / 2; ++i) {
+                phase += step;
+                if (phase >= 1.0) phase -= std::floor(phase);
+                samples.push_back(phase < 0.5 ? static_cast<int16_t>(amplitude)
+                                               : static_cast<int16_t>(-amplitude));
+            }
+        }
+        return samples;
+    }
+
     size_t soundIndexForSelector(uint8_t selector) const {
         if (sounds_.records.empty()) return 0;
         if (selector >= 4) {
@@ -3004,10 +3132,68 @@ private:
         return static_cast<size_t>(selector) % sounds_.records.size();
     }
 
+    bool isDirectSoundSweep(uint16_t offset) const {
+        return offset > 0xea60;
+    }
+
+    size_t soundIndexForOffsetFallback(uint16_t offset, uint8_t selector) const {
+        if (sounds_.records.empty()) return 0;
+        switch (offset) {
+            case 0xea74: return 0;
+            case 0xea7e: return 1 % sounds_.records.size();
+            case 0xea88: return 2 % sounds_.records.size();
+            case 0xeace: return 3 % sounds_.records.size();
+        }
+        return soundIndexForSelector(selector);
+    }
+
+    bool latchSoundRequest(uint16_t offset, uint8_t selector) {
+        bool accept = !soundLatch_.active ||
+                      static_cast<uint8_t>(soundLatch_.currentSelector - 1u) < selector;
+        if (!accept) return false;
+        soundLatch_.active = true;
+        soundLatch_.currentSelector = selector;
+        soundLatch_.latchedOffset = offset;
+        soundLatch_.directSweep = isDirectSoundSweep(offset);
+        soundLatch_.recordIndex = sounds_.records.empty()
+                                      ? 0
+                                      : soundIndexForOffsetFallback(offset, selector);
+        return true;
+    }
+
+    bool requestSoundOffset(uint16_t offset, uint8_t selector) {
+        return latchSoundRequest(offset, selector);
+    }
+
+    void clearSoundLatch() {
+        soundLatch_ = {};
+    }
+
+    void pumpSoundLatch() {
+        if (!soundLatch_.active) return;
+        size_t recordIndex = soundLatch_.recordIndex;
+        lastPumpedSoundRecord_ = static_cast<int>(recordIndex);
+        lastPumpedSoundOffset_ = soundLatch_.latchedOffset;
+        lastPumpedSoundSelector_ = soundLatch_.currentSelector;
+        bool directSweep = soundLatch_.directSweep;
+        uint16_t offset = soundLatch_.latchedOffset;
+        clearSoundLatch();
+        if (directSweep) {
+            playSoundSamples(synthesizeDirectSweep(offset));
+        } else {
+            playSound(recordIndex);
+        }
+    }
+
     void playSound(size_t index) {
         if (!audioEnabled_ || audioDevice_ == 0 || sounds_.records.empty()) return;
         std::vector<int16_t> samples = synthesizeSound(index % sounds_.records.size());
         if (samples.empty()) return;
+        playSoundSamples(samples);
+    }
+
+    void playSoundSamples(const std::vector<int16_t>& samples) {
+        if (!audioEnabled_ || audioDevice_ == 0 || samples.empty()) return;
         Uint32 bytes = static_cast<Uint32>(samples.size() * sizeof(int16_t));
         if (audioSpec_.format == AUDIO_S16SYS && audioSpec_.channels == 1 &&
             audioSpec_.freq == kAudioSampleRate) {
@@ -3234,6 +3420,7 @@ private:
         updateBonusDrops();
         updateBombs();
         updateLevelCompletion();
+        pumpSoundLatch();
     }
 
     void updateLevelCompletion() {
@@ -3985,7 +4172,7 @@ private:
         effect.computedX = bomb.x * kTileSize;
         effect.computedY = bomb.y * kTileSize;
         explosionEffects_.push_back(effect);
-        playSoundSelector(effect.soundSelector);
+        requestSoundOffset(effect.soundOffset, effect.soundSelector);
     }
 
     bool isBombObjectTile(uint8_t tile) const {
@@ -4973,6 +5160,18 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sound-render") {
             app.debugSoundRender();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-son-raw-roundtrip") {
+            app.debugSonRawRoundtrip();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sound-priority-latch") {
+            app.debugSoundPriorityLatch();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sound-selector-map") {
+            app.debugSoundSelectorMap();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-gran") {

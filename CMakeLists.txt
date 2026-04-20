@@ -92,6 +92,25 @@ if(BUILD_TESTING)
     set_tests_properties(sound_render PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+    add_test(NAME son_raw_roundtrip
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-son-raw-roundtrip)
+    set_tests_properties(son_raw_roundtrip PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^son_raw_roundtrip=ok raw_size=782 step_count=130 payload_size=780 json_chunks=6")
+
+    add_test(NAME sound_priority_latch
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-priority-latch)
+    set_tests_properties(sound_priority_latch PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "sound_latch=ok")
+
+    add_test(NAME sound_selector_map
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-selector-map)
+    set_tests_properties(sound_selector_map PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "sound_selector_map=ok")
+
     add_test(NAME sprite_transparency
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sprite-transparency)
     set_tests_properties(sprite_transparency PROPERTIES

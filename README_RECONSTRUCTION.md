@@ -54,6 +54,9 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-fixed
 ./build/lezac_cpp --debug-sounds
 ./build/lezac_cpp --debug-sound-render
+./build/lezac_cpp --debug-son-raw-roundtrip
+./build/lezac_cpp --debug-sound-priority-latch
+./build/lezac_cpp --debug-sound-selector-map
 ./build/lezac_cpp --debug-record-update /tmp/records_test.dat
 ./build/lezac_cpp --debug-record-name-entry /tmp/records_name_test.dat
 ./build/lezac_cpp --debug-record-save-failure /tmp/missing-record-dir/records.dat
@@ -113,16 +116,19 @@ Dump the current bomb inventory model and export sprite contact sheets:
 - Game-over and completed-game end states using strings recovered from
   `1000:1b14..1d42`, with final-level completion entering the completed-game
   path instead of wrapping directly into level 1.
-- `PROEFS.SON` records synthesize SDL-queued PC-speaker-style square-wave sound
-  effects for core gameplay events, with headless render validation.
+- `PROEFS.SON` payload bytes synthesize SDL-queued PC-speaker-style square-wave
+  sound effects for core gameplay events, while bomb explosion requests now use
+  the recovered direct-sweep cursors and the original `1000:165a` priority
+  latch behavior.
 
 ## Still Approximate
 
 - Monster spawners now create active enemies with original-style 8.8 motion, but
   behavior-specific AI and collision remain implemented hypotheses pending
   deeper reconstruction of the actor update routine around `1000:6053`.
-- PC speaker sound effects now play through an approximate square-wave
-  sequencer; exact original timing and tone-field semantics remain unresolved.
+- PC speaker sound effects now use a recovered request/priority latch and
+  direct sweep path for bomb explosions, but non-explosion `PROEFS.SON`
+  timing/tone-field semantics remain approximate.
 - Two-player split-screen is playable with independent bomb inventories, scores,
   and record prompts, but exact original panel artwork and reentry presentation
   remain approximate.

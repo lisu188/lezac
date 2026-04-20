@@ -17,7 +17,10 @@ bytes targeting `082d:0000` are relocated by Ghidra into memory at
 | Address | Name | Notes |
 | --- | --- | --- |
 | `1000:0c33` | level loader | Opens/seeks in `LIVELS.SCH`, reads the level header, allocates level buffers, reads compressed layers and entity blocks. |
+| `1000:0630` | load PROEFS.SON | Opens `PROEFS.SON`, reads step count `0x0082`, allocates and reads `0x82 * 6` payload bytes. |
 | `1000:0faa` | level loader wrapper | Sets up stack frame and calls `1000:0c33`. |
+| `1000:0fbe` | sound tick / INT 1Ch playback | Uses `DS:79c4`, `DS:78c0`, `DS:79a0..79a2`, and the `DS:79c0` sound-bank far pointer to drive PC speaker output. |
+| `1000:165a` | queue sound if priority allows | Latches pending sound cursor/priority from `DS:2074`/`DS:799f` into `DS:78c0`/`DS:799e` when no sound is active or the new priority can preempt. |
 | `182d:0000` | `rle3_decode` | Decodes the two `LIVELS.SCH` compressed layers from 3-byte run commands. |
 | `1000:2efd` | new game state | Opens `LIVELS.SCH`, initializes player state, lives/energy flags, and level globals. |
 | `1000:3358` | remove actor slot | Compacts 0x26-byte actor records and adjusts ordering in other active lists. |
@@ -65,10 +68,12 @@ quirk.
   colon, semicolon, comma, exclamation, and apostrophe/accent glyphs.
 - `RECS.DAT` starts with an 8-bit record count. Each record is a little-endian
   32-bit score, an 8-bit reached level, and an 8-byte name padded with `:`.
-- `PROEFS.SON` starts with a little-endian 16-bit record size. The shipped file
-  uses 130-byte records and contains six fixed-size records. The bytes are now
-  loaded, dumpable, and approximately synthesized by the SDL port, but the
-  exact playback field semantics are still unresolved.
+- `PROEFS.SON` starts with little-endian word `0x0082`. Disassembly of
+  `1000:0630..06aa` treats this as a count of 130 six-byte sound steps and
+  reads `0x82 * 6 = 780` payload bytes into the sound bank. The converted JSON
+  still preserves the same payload as six 130-byte chunks for compatibility
+  with the earlier approximate renderer; `--debug-son-raw-roundtrip` verifies
+  that no payload bytes are lost.
 - `GRAN.MST` has no observed header in the shipped file. It is seven fixed-size
   57-byte records, likely aligned with the seven shipped levels, but the field
   semantics are still unresolved.
@@ -172,6 +177,44 @@ reverse byte from offsets `+7`/`+5`. The collapse passes at `1000:3bb2` and
 `1000:3d46` write those lanes back through `0x6617`/`0x2097` and
 `0x6618`/`0x2098`, using `0x4e20` as the high-half spill marker.
 
+## Sound Playback Evidence
+
+The original sound loader at `1000:0630..06aa` opens `PROEFS.SON`, reads first
+word `0x0082`, multiplies it by six, and reads 780 payload bytes into the
+sound-bank far pointer at `DS:79c0`. This means the shipped file is better
+understood as 130 six-byte entries than as six original records; the current
+JSON chunking is a compatibility container for those bytes.
+
+The tick routine at `1000:0fbe..1088` uses:
+
+- `DS:79c4`: active/request-present flag.
+- `DS:78c0`: current sound cursor or direct sweep value.
+- `DS:79a0`: tick accumulator.
+- `DS:79a1`: gate/off tick.
+- `DS:79a2`: step period.
+- `DS:79c0`: far pointer to the loaded `PROEFS.SON` payload.
+
+When `DS:78c0 > 0xea60`, the tick routine follows a direct speaker-sweep branch:
+it calls the speaker helper with `DS:78c0 - 0xea42`, subtracts four from
+`DS:78c0`, and stops when the cursor falls to `<= 0xea60`. The bomb explosion
+values `0xea74`, `0xea7e`, `0xea88`, and `0xeace` are therefore direct sweep
+cursors, not offsets into `PROEFS.SON`.
+
+The priority latch at `1000:165a..167d` implements:
+
+```text
+if DS:79c4 != 0 and (DS:799e - 1) >= DS:799f:
+    return
+DS:799e = DS:799f
+DS:78c0 = DS:2074
+DS:79c4 = 1
+```
+
+So an inactive latch accepts every request. While active, same-or-higher numeric
+priority refreshes/replaces the latched cursor, but one-below-or-lower priority
+is rejected. The C++ port maps this to `latchSoundRequest`, `requestSoundOffset`,
+and `pumpSoundLatch`; explosion sounds now enter through this path.
+
 ## Level Embedded Records
 
 - The two words immediately after the decoded tile and word layers are preserved
@@ -249,6 +292,9 @@ opening name entry.
 - Actor 8.8 integration: `integrateAxis8_8`.
 - Bomb expiration and physical damage: `explode`, `queueTileDamage`,
   `damageMonstersInExplosion`.
+- Sound bank loading and latch: `loadSon`, `debugSonRawRoundtrip`,
+  `latchSoundRequest`, `requestSoundOffset`, `pumpSoundLatch`,
+  `synthesizeDirectSweep`.
 - High-score load/save/name entry: `loadRecords`, `saveRecords`,
   `handleNameEntryKey`, `finalizePendingRecord`.
 - End-of-run dispatch and per-player record queue:

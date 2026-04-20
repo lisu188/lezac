@@ -54,6 +54,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-fixed
 ./build/lezac_cpp --debug-sounds
 ./build/lezac_cpp --debug-sound-render
+./build/lezac_cpp --debug-sound-cursor-segments
 ./build/lezac_cpp --debug-son-raw-roundtrip
 ./build/lezac_cpp --debug-sound-priority-latch
 ./build/lezac_cpp --debug-sound-selector-map
@@ -116,19 +117,23 @@ Dump the current bomb inventory model and export sprite contact sheets:
 - Game-over and completed-game end states using strings recovered from
   `1000:1b14..1d42`, with final-level completion entering the completed-game
   path instead of wrapping directly into level 1.
-- `PROEFS.SON` payload bytes synthesize SDL-queued PC-speaker-style square-wave
-  sound effects for core gameplay events, while bomb explosion requests now use
-  the recovered direct-sweep cursors and the original `1000:165a` priority
-  latch behavior.
+- `PROEFS.SON` payload bytes are preserved as the original 130 six-byte
+  playback steps. Non-direct sound synthesis now advances by the recovered
+  `DS:78c0` cursor, honors the `0x7530` stop sentinel, and applies the
+  gate/period bytes used by `1000:0fbe..1088`. Bomb explosion requests use the
+  recovered direct-sweep cursors and the original `1000:165a` priority latch,
+  and bonus pickup audio now queues the recovered cursor `0x0008` at priority
+  `5`.
 
 ## Still Approximate
 
 - Monster spawners now create active enemies with original-style 8.8 motion, but
   behavior-specific AI and collision remain implemented hypotheses pending
   deeper reconstruction of the actor update routine around `1000:6053`.
-- PC speaker sound effects now use a recovered request/priority latch and
-  direct sweep path for bomb explosions, but non-explosion `PROEFS.SON`
-  timing/tone-field semantics remain approximate.
+- PC speaker sound effects now use a recovered request/priority latch,
+  direct-sweep path for bomb explosions, and six-byte cursor stepping for
+  `PROEFS.SON`, but bytes `+4..+5` in each sound step and many non-explosion
+  callsite-to-event mappings remain unresolved.
 - Two-player split-screen is playable with independent bomb inventories, scores,
   and record prompts, but exact original panel artwork and reentry presentation
   remain approximate.

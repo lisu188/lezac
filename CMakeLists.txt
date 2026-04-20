@@ -92,6 +92,12 @@ if(BUILD_TESTING)
     set_tests_properties(sound_render PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+    add_test(NAME sound_cursor_segments
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-cursor-segments)
+    set_tests_properties(sound_cursor_segments PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "sound_cursor_segments=ok")
+
     add_test(NAME son_raw_roundtrip
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-son-raw-roundtrip)
     set_tests_properties(son_raw_roundtrip PROPERTIES

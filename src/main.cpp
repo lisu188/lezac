@@ -36,6 +36,21 @@ constexpr uint32_t kFrameDelayMs = 16;
 constexpr int kCollisionPushoutLimit = 1024;
 constexpr int kAudioSampleRate = 22050;
 constexpr int kAudioToneSamples = kAudioSampleRate / 28;
+constexpr size_t kSoundStepSize = 6;
+constexpr uint16_t kSoundStopPeriod = 0x7530;
+constexpr uint16_t kDirectSoundThreshold = 0xea60;
+constexpr uint16_t kDirectSoundPeriodBase = 0xea42;
+constexpr std::array<uint16_t, 6> kCompatibilitySoundCursors{
+    0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0027,
+};
+constexpr std::array<uint16_t, 14> kDebugSoundCursors{
+    0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027,
+    0x002d, 0x0031, 0x0035, 0x003d, 0x0056, 0x0069, 0x0078,
+};
+constexpr std::array<uint16_t, 15> kExpectedSoundStopCursors{
+    0x0005, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027, 0x002d,
+    0x0031, 0x0035, 0x003d, 0x0056, 0x0069, 0x0078, 0x0082,
+};
 
 struct Rgb {
     uint8_t r = 0;
@@ -157,6 +172,8 @@ struct SoundEffectRecord {
 struct SoundBank {
     uint16_t recordSize = 0;
     std::vector<SoundEffectRecord> records;
+    std::vector<uint8_t> payload;
+    size_t stepCount = 0;
 };
 
 struct SoundLatch {
@@ -778,8 +795,13 @@ SoundBank loadSon(const std::string& path) {
         if (record.bytes.size() != bank.recordSize) {
             throw std::runtime_error(path + " record length does not match record_size");
         }
+        bank.payload.insert(bank.payload.end(), record.bytes.begin(), record.bytes.end());
         bank.records.push_back(std::move(record));
     }
+    if (bank.payload.empty() || bank.payload.size() % kSoundStepSize != 0) {
+        throw std::runtime_error(path + " payload is not a whole number of six-byte steps");
+    }
+    bank.stepCount = bank.payload.size() / kSoundStepSize;
     return bank;
 }
 
@@ -1712,8 +1734,25 @@ public:
 
         score_ = 0;
         expectScore(BonusType::BigDiamond, 5000);
+
+        clearSoundLatch();
+        BonusDrop soundDrop;
+        soundDrop.x = collector.x;
+        soundDrop.y = collector.y;
+        soundDrop.type = BonusType::Present;
+        collectBonusDrop(soundDrop, collector, energy, inventory, 1);
+        if (!soundLatch_.active || soundLatch_.latchedOffset != 0x0008 ||
+            soundLatch_.currentSelector != 5 || soundLatch_.directSweep) {
+            throw std::runtime_error("bonus pickup did not queue recovered sound cursor");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active || lastPumpedSoundOffset_ != 0x0008 ||
+            lastPumpedSoundSelector_ != 5) {
+            throw std::runtime_error("bonus pickup sound cursor did not pump");
+        }
         std::cout << "bonuses=ok sprites=" << spriteScores.size()
-                  << " rain=" << bonusDrops_.size() << '\n';
+                  << " rain=" << bonusDrops_.size()
+                  << " sound_cursor=0x8 sound_priority=5\n";
     }
 
     void debugFixed() {
@@ -1737,8 +1776,10 @@ public:
         load();
         std::cout << "sound_record_size=" << sounds_.recordSize
                   << " records=" << sounds_.records.size()
+                  << " steps=" << sounds_.stepCount
                   << " words_per_record=" << (sounds_.recordSize / 2)
-                  << " five_byte_groups=" << (sounds_.recordSize / 5) << '\n';
+                  << " six_byte_steps=" << (sounds_.payload.size() / kSoundStepSize)
+                  << '\n';
         for (size_t i = 0; i < sounds_.records.size(); ++i) {
             const std::vector<uint8_t>& bytes = sounds_.records[i].bytes;
             std::cout << "sound_" << (i + 1)
@@ -1781,13 +1822,54 @@ public:
             totalNonZero += nonZero;
             auto range = std::minmax_element(samples.begin(), samples.end());
             std::cout << "sound_render_" << (i + 1)
-                      << "=samples:" << samples.size()
+                      << "=cursor:" << std::showbase << std::hex
+                      << compatibilitySoundCursor(i) << std::dec << std::noshowbase
+                      << " samples:" << samples.size()
                       << " nonzero:" << nonZero
                       << " min:" << *range.first
                       << " max:" << *range.second << '\n';
         }
         std::cout << "sound_render_total=samples:" << totalSamples
                   << " nonzero:" << totalNonZero << '\n';
+    }
+
+    void debugSoundCursorSegments() {
+        load();
+        std::vector<uint16_t> stopCursors;
+        for (size_t i = 0; i < sounds_.stepCount; ++i) {
+            if (soundStepPeriodWord(i) == kSoundStopPeriod) {
+                stopCursors.push_back(static_cast<uint16_t>(i + 1));
+            }
+        }
+        if (stopCursors.size() != kExpectedSoundStopCursors.size() ||
+            !std::equal(stopCursors.begin(), stopCursors.end(),
+                        kExpectedSoundStopCursors.begin())) {
+            throw std::runtime_error("PROEFS.SON stop cursor map changed");
+        }
+
+        std::cout << "sound_cursor_segments steps=" << sounds_.stepCount
+                  << " stops=" << stopCursors.size()
+                  << " stop_cursors=";
+        for (size_t i = 0; i < stopCursors.size(); ++i) {
+            if (i != 0) std::cout << ',';
+            std::cout << std::showbase << std::hex << stopCursors[i]
+                      << std::dec << std::noshowbase;
+        }
+        std::cout << '\n';
+
+        for (uint16_t cursor : kDebugSoundCursors) {
+            uint16_t stopCursor = soundStopCursorFor(cursor);
+            std::vector<int16_t> samples = synthesizeSoundCursor(cursor);
+            if (samples.empty()) {
+                throw std::runtime_error("PROEFS.SON cursor rendered no samples");
+            }
+            std::cout << "sound_cursor cursor=" << std::showbase << std::hex
+                      << cursor << " stop=" << stopCursor
+                      << std::dec << std::noshowbase
+                      << " steps=" << (stopCursor - cursor)
+                      << " samples=" << samples.size() << '\n';
+        }
+        std::cout << "sound_cursor_segments=ok\n";
     }
 
     void debugSonRawRoundtrip() {
@@ -1845,6 +1927,12 @@ public:
             lastPumpedSoundOffset_ != 0xea7e || lastPumpedSoundSelector_ != 1) {
             throw std::runtime_error("sound latch pump mismatch");
         }
+        std::cout << "sound_pump active=" << (soundLatch_.active ? 1 : 0)
+                  << " last_record=" << lastPumpedSoundRecord_
+                  << " last_offset=" << std::showbase << std::hex
+                  << lastPumpedSoundOffset_ << std::dec << std::noshowbase
+                  << " last_selector=" << static_cast<int>(lastPumpedSoundSelector_)
+                  << '\n';
         std::cout << "sound_latch=ok\n";
     }
 
@@ -3068,58 +3156,98 @@ private:
         return '\0';
     }
 
-    std::vector<int16_t> synthesizeSound(size_t index) const {
-        if (index >= sounds_.records.size()) return {};
-        const std::vector<uint8_t>& bytes = sounds_.records[index].bytes;
+    uint16_t compatibilitySoundCursor(size_t index) const {
+        return kCompatibilitySoundCursors[index % kCompatibilitySoundCursors.size()];
+    }
+
+    uint16_t soundStepPeriodWord(size_t stepIndex) const {
+        size_t off = stepIndex * kSoundStepSize;
+        if (off + 1 >= sounds_.payload.size()) return kSoundStopPeriod;
+        return le16(sounds_.payload, off);
+    }
+
+    uint8_t soundStepGateTick(size_t stepIndex) const {
+        size_t off = stepIndex * kSoundStepSize;
+        return off + 2 < sounds_.payload.size() ? sounds_.payload[off + 2] : 0;
+    }
+
+    uint8_t soundStepPeriodTicks(size_t stepIndex) const {
+        size_t off = stepIndex * kSoundStepSize;
+        return off + 3 < sounds_.payload.size() ? sounds_.payload[off + 3] : 1;
+    }
+
+    uint16_t soundStopCursorFor(uint16_t cursor) const {
+        size_t stepIndex = cursor;
+        while (stepIndex < sounds_.stepCount) {
+            if (soundStepPeriodWord(stepIndex) == kSoundStopPeriod) {
+                return static_cast<uint16_t>(stepIndex + 1);
+            }
+            ++stepIndex;
+        }
+        return static_cast<uint16_t>(sounds_.stepCount);
+    }
+
+    void appendToneSamples(std::vector<int16_t>& samples, uint16_t period,
+                           int sampleCount, int amplitude, double& phase) const {
+        if (sampleCount <= 0) return;
+        if (period < 0x20) {
+            samples.insert(samples.end(), static_cast<size_t>(sampleCount), 0);
+            return;
+        }
+        double frequency = std::clamp(1193182.0 / static_cast<double>(period),
+                                      80.0, 4200.0);
+        double step = frequency / static_cast<double>(kAudioSampleRate);
+        for (int i = 0; i < sampleCount; ++i) {
+            phase += step;
+            if (phase >= 1.0) phase -= std::floor(phase);
+            samples.push_back(phase < 0.5 ? static_cast<int16_t>(amplitude)
+                                           : static_cast<int16_t>(-amplitude));
+        }
+    }
+
+    std::vector<int16_t> synthesizeSoundCursor(uint16_t cursor) const {
+        if (cursor > kDirectSoundThreshold) return synthesizeDirectSweep(cursor);
         std::vector<int16_t> samples;
-        samples.reserve((bytes.size() / 5) * kAudioToneSamples);
+        if (sounds_.payload.empty() || cursor >= sounds_.stepCount) return samples;
+
+        uint16_t stopCursor = soundStopCursorFor(cursor);
+        samples.reserve(static_cast<size_t>(std::max<int>(1, stopCursor - cursor)) *
+                        kAudioToneSamples * 2);
         double phase = 0.0;
-        for (size_t off = 0; off + 4 < bytes.size(); off += 5) {
-            uint16_t periodA = static_cast<uint16_t>(bytes[off] | (bytes[off + 1] << 8));
-            uint16_t periodB = static_cast<uint16_t>(bytes[off + 2] | (bytes[off + 3] << 8));
-            uint8_t durationByte = bytes[off + 4];
-            uint16_t period = static_cast<uint16_t>(periodA & 0x7fffu);
-            uint16_t fallbackPeriod = static_cast<uint16_t>(periodB & 0x7fffu);
-            if (period < 0x20 && fallbackPeriod >= 0x20) {
-                period = fallbackPeriod;
+        for (size_t stepIndex = cursor; stepIndex < sounds_.stepCount; ++stepIndex) {
+            uint16_t period = soundStepPeriodWord(stepIndex);
+            if (period == kSoundStopPeriod) break;
+            uint8_t gateTick = soundStepGateTick(stepIndex);
+            uint8_t periodTicksRaw = soundStepPeriodTicks(stepIndex);
+            int periodTicks = periodTicksRaw == 0 ? 256 : periodTicksRaw;
+            int audibleTicks = periodTicks;
+            if (gateTick != 0 && gateTick < periodTicks) {
+                audibleTicks = gateTick;
             }
-            int sampleCount = std::max(1, (1 + (durationByte & 0x0f)) * kAudioToneSamples / 2);
-            if (period < 0x20 || (periodA == 0 && periodB == 0 && durationByte == 0)) {
-                samples.insert(samples.end(), static_cast<size_t>(sampleCount), 0);
-                continue;
-            }
-            double frequency = std::clamp(1193182.0 / static_cast<double>(period), 80.0, 4200.0);
-            double step = frequency / static_cast<double>(kAudioSampleRate);
-            int amplitude = 1800 + static_cast<int>((periodB & 0x003fu) * 120);
-            amplitude = std::clamp(amplitude, 1800, 9000);
-            for (int i = 0; i < sampleCount; ++i) {
-                phase += step;
-                if (phase >= 1.0) phase -= std::floor(phase);
-                samples.push_back(phase < 0.5 ? static_cast<int16_t>(amplitude)
-                                               : static_cast<int16_t>(-amplitude));
-            }
+            int silentTicks = std::max(0, periodTicks - audibleTicks);
+            appendToneSamples(samples, period,
+                              std::max(1, audibleTicks * kAudioToneSamples),
+                              7200, phase);
+            samples.insert(samples.end(),
+                           static_cast<size_t>(silentTicks * kAudioToneSamples), 0);
         }
         return samples;
     }
 
+    std::vector<int16_t> synthesizeSound(size_t index) const {
+        if (sounds_.records.empty()) return {};
+        return synthesizeSoundCursor(compatibilitySoundCursor(index));
+    }
+
     std::vector<int16_t> synthesizeDirectSweep(uint16_t startCursor) const {
         std::vector<int16_t> samples;
-        if (startCursor <= 0xea60) return samples;
+        if (startCursor <= kDirectSoundThreshold) return samples;
         double phase = 0.0;
-        for (uint16_t cursor = startCursor; cursor > 0xea60;
+        for (uint16_t cursor = startCursor; cursor > kDirectSoundThreshold;
              cursor = static_cast<uint16_t>(cursor - 4)) {
-            uint16_t period = static_cast<uint16_t>(cursor - 0xea42);
+            uint16_t period = static_cast<uint16_t>(cursor - kDirectSoundPeriodBase);
             uint16_t clampedPeriod = std::max<uint16_t>(1, period);
-            double frequency = std::clamp(1193182.0 / static_cast<double>(clampedPeriod),
-                                          80.0, 4200.0);
-            double step = frequency / static_cast<double>(kAudioSampleRate);
-            int amplitude = 7200;
-            for (int i = 0; i < kAudioToneSamples / 2; ++i) {
-                phase += step;
-                if (phase >= 1.0) phase -= std::floor(phase);
-                samples.push_back(phase < 0.5 ? static_cast<int16_t>(amplitude)
-                                               : static_cast<int16_t>(-amplitude));
-            }
+            appendToneSamples(samples, clampedPeriod, kAudioToneSamples / 2, 7200, phase);
         }
         return samples;
     }
@@ -3133,7 +3261,7 @@ private:
     }
 
     bool isDirectSoundSweep(uint16_t offset) const {
-        return offset > 0xea60;
+        return offset > kDirectSoundThreshold;
     }
 
     size_t soundIndexForOffsetFallback(uint16_t offset, uint8_t selector) const {
@@ -3147,22 +3275,26 @@ private:
         return soundIndexForSelector(selector);
     }
 
-    bool latchSoundRequest(uint16_t offset, uint8_t selector) {
+    bool latchSoundRequest(uint16_t cursor, uint8_t selector) {
         bool accept = !soundLatch_.active ||
                       static_cast<uint8_t>(soundLatch_.currentSelector - 1u) < selector;
         if (!accept) return false;
         soundLatch_.active = true;
         soundLatch_.currentSelector = selector;
-        soundLatch_.latchedOffset = offset;
-        soundLatch_.directSweep = isDirectSoundSweep(offset);
+        soundLatch_.latchedOffset = cursor;
+        soundLatch_.directSweep = isDirectSoundSweep(cursor);
         soundLatch_.recordIndex = sounds_.records.empty()
                                       ? 0
-                                      : soundIndexForOffsetFallback(offset, selector);
+                                      : soundIndexForOffsetFallback(cursor, selector);
         return true;
     }
 
+    bool requestSoundCursor(uint16_t cursor, uint8_t selector) {
+        return latchSoundRequest(cursor, selector);
+    }
+
     bool requestSoundOffset(uint16_t offset, uint8_t selector) {
-        return latchSoundRequest(offset, selector);
+        return requestSoundCursor(offset, selector);
     }
 
     void clearSoundLatch() {
@@ -3181,7 +3313,7 @@ private:
         if (directSweep) {
             playSoundSamples(synthesizeDirectSweep(offset));
         } else {
-            playSound(recordIndex);
+            playSoundSamples(synthesizeSoundCursor(offset));
         }
     }
 
@@ -4448,7 +4580,7 @@ private:
         BonusType type = drop.type;
         drop.collected = true;
         applyBonus(type, collector, energy, inventory, playerIndex);
-        playSound(5);
+        requestSoundCursor(0x0008, 5);
     }
 
     void applyBonus(BonusType type, const Player& collector, int& energy,
@@ -5160,6 +5292,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sound-render") {
             app.debugSoundRender();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sound-cursor-segments") {
+            app.debugSoundCursorSegments();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-son-raw-roundtrip") {

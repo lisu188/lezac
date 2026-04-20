@@ -215,6 +215,34 @@ priority refreshes/replaces the latched cursor, but one-below-or-lower priority
 is rejected. The C++ port maps this to `latchSoundRequest`, `requestSoundOffset`,
 and `pumpSoundLatch`; explosion sounds now enter through this path.
 
+Further disassembly of `1000:0fbe..1088` confirms the non-direct `PROEFS.SON`
+step shape. On each step advance the routine increments `DS:78c0`, computes
+`sound_bank + (DS:78c0 * 6) - 6`, and reads a six-byte entry:
+
+- bytes `+0..+1`: speaker period word. `0x7530` is the stop sentinel; when
+  seen, the routine silences the speaker, clears `DS:79c4`, resets `DS:79a0`,
+  and sets `DS:79a2 = 1`.
+- byte `+2`: copied to `DS:79a1`, the tick value that calls the silence helper
+  while the current step is active.
+- byte `+3`: copied to `DS:79a2`, the tick value that advances to the next
+  six-byte step.
+- bytes `+4..+5`: not referenced in this recovered tick window; they are
+  preserved as unknown fields.
+
+The current stop-cursor map from the shipped `PROEFS.SON` payload is:
+`0x0005, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027, 0x002d,
+0x0031, 0x0035, 0x003d, 0x0056, 0x0069, 0x0078, 0x0082`.
+`--debug-sound-cursor-segments` validates these boundaries and renders the
+known non-direct cursor starts through `synthesizeSoundCursor`.
+
+One non-explosion gameplay cue is now mapped to its original queued request:
+the pickup/effect branch around `1000:6e4b..6f8d` applies reward effects and
+then writes `DS:2074 = 0x0008`, `DS:799f = 5`, and calls `1000:165a`.
+The C++ `collectBonusDrop` path mirrors that with `requestSoundCursor(0x0008,
+5)`. Other non-explosion cues are still being mapped; direct `playSound(index)`
+callers remain compatibility hooks until their original cursor/priority writes
+are confirmed.
+
 ## Level Embedded Records
 
 - The two words immediately after the decoded tile and word layers are preserved
@@ -292,9 +320,11 @@ opening name entry.
 - Actor 8.8 integration: `integrateAxis8_8`.
 - Bomb expiration and physical damage: `explode`, `queueTileDamage`,
   `damageMonstersInExplosion`.
-- Sound bank loading and latch: `loadSon`, `debugSonRawRoundtrip`,
-  `latchSoundRequest`, `requestSoundOffset`, `pumpSoundLatch`,
-  `synthesizeDirectSweep`.
+- Sound bank loading and latch: `loadSon` maps `1000:0630..06aa`;
+  `latchSoundRequest`, `requestSoundCursor`, `requestSoundOffset`, and
+  `pumpSoundLatch` map `1000:165a..167d`; `synthesizeDirectSweep` maps the
+  `DS:78c0 > 0xea60` branch; `synthesizeSoundCursor` maps the non-direct
+  six-byte step advance at `1000:0fbe..1088`.
 - High-score load/save/name entry: `loadRecords`, `saveRecords`,
   `handleNameEntryKey`, `finalizePendingRecord`.
 - End-of-run dispatch and per-player record queue:

@@ -27,6 +27,7 @@ constexpr size_t kDebrisCapacity = 0x640;
 constexpr size_t kCollapseCapacity = 0x00fa;
 constexpr size_t kGranRecordSize = 57;
 constexpr int kReentryTicks = 180;
+constexpr int kDamageCooldownTicks = 18;
 constexpr int kAudioSampleRate = 22050;
 constexpr int kAudioToneSamples = kAudioSampleRate / 28;
 
@@ -824,7 +825,8 @@ public:
 
         energy_ = 1;
         lives_ = 3;
-        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
         if (!playerDead_ || lives_ != 2 || reentryTimer_ <= 0) {
             throw std::runtime_error("player death did not enter reentry state");
         }
@@ -846,6 +848,7 @@ public:
         }
 
         energy_ = 100;
+        damageCooldown_ = 0;
         DebrisRecord debris;
         debris.tileIndex = (static_cast<int>(player_.y + 8.0f) / 8) * level_.width +
                            (static_cast<int>(player_.x + 6.0f) / 8);
@@ -855,6 +858,11 @@ public:
         if (energy_ >= 100) {
             throw std::runtime_error("active debris did not drain player energy");
         }
+        int afterDebrisEnergy = energy_;
+        updateFlashes();
+        if (energy_ != afterDebrisEnergy) {
+            throw std::runtime_error("damage cooldown did not block repeated debris damage");
+        }
 
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
@@ -863,6 +871,7 @@ public:
         }
 
         energy_ = 100;
+        damageCooldown_ = 0;
         BombProfile contactProfile = bombProfile(BombType::Small);
         Bomb contactBomb{static_cast<int>(player_.x + 6.0f) / 8,
                          static_cast<int>(player_.y + 12.0f) / 8,
@@ -1600,6 +1609,8 @@ private:
     bool player2Dead_ = false;
     int reentryTimer_ = 0;
     int reentryTimer2_ = 0;
+    int damageCooldown_ = 0;
+    int damageCooldown2_ = 0;
     BombInventory bombInventory_;
     BombInventory bombInventory2_;
     bool weaponSwitchHeld_ = false;
@@ -1717,6 +1728,8 @@ private:
         player2Dead_ = false;
         reentryTimer_ = 0;
         reentryTimer2_ = 0;
+        damageCooldown_ = 0;
+        damageCooldown2_ = 0;
         bombInventory_ = {};
         bombInventory2_ = {};
         weaponSwitchHeld_ = false;
@@ -1777,19 +1790,22 @@ private:
             }
         } else if (!menu_ && (key == SDLK_SPACE || key == SDLK_RCTRL)) {
             if (playerDead_) {
-                tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
+                tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                                 damageCooldown_, 1);
             } else {
                 placeBombAt(player_, bombInventory_);
             }
         } else if (!menu_ && key == SDLK_n) {
             if (playerCount_ > 1) {
                 if (player2Dead_) {
-                    tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2);
+                    tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_,
+                                     reentryTimer2_, damageCooldown2_, 2);
                 } else {
                     placeBombAt(player2_, bombInventory2_);
                 }
             } else if (playerDead_) {
-                tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
+                tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                                 damageCooldown_, 1);
             } else {
                 placeBombAt(player_, bombInventory_);
             }
@@ -2046,6 +2062,7 @@ private:
     void update(float dt) {
         if (menu_) return;
         ++logicTick_;
+        updateDamageCooldowns();
         const uint8_t* keys = SDL_GetKeyboardState(nullptr);
         bool p1Left = keys[SDL_SCANCODE_LEFT] || (playerCount_ == 1 && keys[SDL_SCANCODE_Z]);
         bool p1Right = keys[SDL_SCANCODE_RIGHT] || (playerCount_ == 1 && keys[SDL_SCANCODE_X]);
@@ -2399,11 +2416,13 @@ private:
             monster.y = std::clamp(monster.y, 0, std::max(16, level_.height * 8 - 16));
 
             if (!playerDead_ && playerOverlaps(player_, monster.x, monster.y, 14.0f, 16.0f)) {
-                damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
+                damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                             damageCooldown_, 1);
             }
             if (playerCount_ > 1 && !player2Dead_ &&
                 playerOverlaps(player2_, monster.x, monster.y, 14.0f, 16.0f)) {
-                damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2);
+                damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                             damageCooldown2_, 2);
             }
         }
         monsters_.erase(std::remove_if(monsters_.begin(), monsters_.end(),
@@ -2411,10 +2430,20 @@ private:
                         monsters_.end());
     }
 
+    void updateDamageCooldowns() {
+        if (damageCooldown_ > 0) --damageCooldown_;
+        if (damageCooldown2_ > 0) --damageCooldown2_;
+    }
+
     void damagePlayer(Player& player, int& energy, int& lives, bool& dead,
-                      int& timer, uint8_t startMarker) {
+                      int& timer, int& damageCooldown, uint8_t startMarker) {
+        if (dead || damageCooldown > 0) return;
         energy = std::max(0, energy - 1);
-        if (energy == 0) beginPlayerDeath(player, energy, lives, dead, timer, startMarker);
+        if (energy == 0) {
+            beginPlayerDeath(player, energy, lives, dead, timer, startMarker);
+        } else {
+            damageCooldown = kDamageCooldownTicks;
+        }
     }
 
     bool playerOverlapsTileArea(const Player& player, int tx0, int ty0,
@@ -2434,11 +2463,13 @@ private:
         if (tx0 > tx1) std::swap(tx0, tx1);
         if (ty0 > ty1) std::swap(ty0, ty1);
         if (!playerDead_ && playerOverlapsTileArea(player_, tx0, ty0, tx1, ty1)) {
-            damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
+            damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                         damageCooldown_, 1);
         }
         if (playerCount_ > 1 && !player2Dead_ &&
             playerOverlapsTileArea(player2_, tx0, ty0, tx1, ty1)) {
-            damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2);
+            damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                         damageCooldown2_, 2);
         }
     }
 
@@ -2486,13 +2517,14 @@ private:
     }
 
     void tryReenterPlayer(Player& player, int& energy, int&, bool& dead,
-                          int& timer, uint8_t startMarker) {
+                          int& timer, int& damageCooldown, uint8_t startMarker) {
         if (!dead) return;
         if (!canReenterLevel()) {
             restartCurrentLevelAfterDeath();
             return;
         }
         respawnPlayerAtStart(player, energy, startMarker);
+        damageCooldown = 0;
         dead = false;
         timer = 0;
     }
@@ -2799,11 +2831,13 @@ private:
 
     void damagePlayersInExplosion(const std::vector<std::array<int, 2>>& tiles) {
         if (!playerDead_ && playerOverlapsAnyExplosionTile(player_, tiles)) {
-            damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
+            damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                         damageCooldown_, 1);
         }
         if (playerCount_ > 1 && !player2Dead_ &&
             playerOverlapsAnyExplosionTile(player2_, tiles)) {
-            damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2);
+            damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                         damageCooldown2_, 2);
         }
     }
 

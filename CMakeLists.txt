@@ -14,6 +14,30 @@ target_include_directories(lezac_cpp PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_libraries(lezac_cpp PRIVATE ${SDL2_LIBRARIES})
 target_compile_options(lezac_cpp PRIVATE ${SDL2_CFLAGS_OTHER})
 
+set(LEZAC_JSON_RESOURCES
+    src/BOMPAL.PAL.json
+    src/SFONLEF.ZBG.json
+    src/CARO.CAR.json
+    src/BOMOMIMK.SPR.json
+    src/PROVA.SPR.json
+    src/FONTS.SPR.json
+    src/RECS.DAT.json
+    src/PROEFS.SON.json
+    src/GRAN.MST.json
+    src/LIVELS.SCH.json
+)
+
+foreach(resource IN LISTS LEZAC_JSON_RESOURCES)
+    get_filename_component(resource_name ${resource} NAME)
+    add_custom_command(
+        TARGET lezac_cpp POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${CMAKE_CURRENT_SOURCE_DIR}/${resource}
+                $<TARGET_FILE_DIR:lezac_cpp>/${resource_name}
+        VERBATIM
+    )
+endforeach()
+
 include(CTest)
 
 if(BUILD_TESTING)

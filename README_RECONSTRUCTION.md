@@ -80,8 +80,8 @@ Dump the current bomb inventory model and export sprite contact sheets:
   movement, jumping, objective collection, bomb placement, tile destruction,
   score, start positions, teleports, tile triggers, monster spawning, basic
   behavior-specific monster movement/damage, documented monster reward drops,
-  four-slot bomb inventory/switching, player animation, level progression, and
-  records/menu display.
+  four-slot bomb inventory/switching, player animation, active structure hazard
+  damage, level progression, and records/menu display.
 - Menu subpages for info, instructions, and records, plus original-documented
   background and one-player playfield-width controls.
 - A first playable two-player reconstruction pass with separate start markers,
@@ -107,9 +107,9 @@ Dump the current bomb inventory model and export sprite contact sheets:
 - High scores are persisted with name entry, but exact original record-entry
   presentation and keyboard editing semantics remain approximate.
 - Bomb fuse timing, 2x2 footprint, visual selectors, and word-layer damage
-  gating now follow the `1000:414a`/`1000:370e`/expiration analysis, but the
-  exact sprite playback for explosion and collapse/debris animations is still
-  simplified.
+  gating now follow the `1000:414a`/`1000:370e`/expiration analysis. Active
+  collapse/debris records now drain player energy, but exact sprite playback
+  and per-frame damage timing remain simplified.
 
 See [docs/GHIDRA_NOTES.md](docs/GHIDRA_NOTES.md) for addresses and disassembly
 anchors used in the reconstruction.

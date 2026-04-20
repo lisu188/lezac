@@ -845,6 +845,17 @@ public:
             throw std::runtime_error("N key did not consume bomb inventory");
         }
 
+        energy_ = 100;
+        DebrisRecord debris;
+        debris.tileIndex = (static_cast<int>(player_.y + 8.0f) / 8) * level_.width +
+                           (static_cast<int>(player_.x + 6.0f) / 8);
+        debris.timer = 2;
+        debrisQueue_.push_back(debris);
+        updateFlashes();
+        if (energy_ >= 100) {
+            throw std::runtime_error("active debris did not drain player energy");
+        }
+
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
         if (bombs_.size() != bombCount + 1) {
@@ -2375,6 +2386,31 @@ private:
         if (energy == 0) beginPlayerDeath(player, energy, lives, dead, timer, startMarker);
     }
 
+    bool playerOverlapsTileArea(const Player& player, int tx0, int ty0,
+                                int tx1, int ty1) const {
+        float x = static_cast<float>(tx0 * kTileSize);
+        float y = static_cast<float>(ty0 * kTileSize);
+        float w = static_cast<float>((tx1 - tx0 + 1) * kTileSize);
+        float h = static_cast<float>((ty1 - ty0 + 1) * kTileSize);
+        return playerOverlaps(player, x, y, w, h);
+    }
+
+    void damagePlayersInTileArea(int tx0, int ty0, int tx1, int ty1) {
+        tx0 = std::clamp(tx0, 0, std::max(0, level_.width - 1));
+        tx1 = std::clamp(tx1, 0, std::max(0, level_.width - 1));
+        ty0 = std::clamp(ty0, 0, std::max(0, level_.height - 1));
+        ty1 = std::clamp(ty1, 0, std::max(0, level_.height - 1));
+        if (tx0 > tx1) std::swap(tx0, tx1);
+        if (ty0 > ty1) std::swap(ty0, ty1);
+        if (!playerDead_ && playerOverlapsTileArea(player_, tx0, ty0, tx1, ty1)) {
+            damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
+        }
+        if (playerCount_ > 1 && !player2Dead_ &&
+            playerOverlapsTileArea(player2_, tx0, ty0, tx1, ty1)) {
+            damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2);
+        }
+    }
+
     void beginPlayerDeath(Player& player, int& energy, int& lives, bool& dead,
                           int& timer, uint8_t startMarker) {
         if (lives > 0) --lives;
@@ -2834,11 +2870,29 @@ private:
         explosionEffects_.erase(std::remove_if(explosionEffects_.begin(), explosionEffects_.end(),
                                                [](const ExplosionEffect& e) { return e.timer <= 0; }),
                                 explosionEffects_.end());
-        for (DebrisRecord& debris : debrisQueue_) --debris.timer;
+        for (DebrisRecord& debris : debrisQueue_) {
+            --debris.timer;
+            if (level_.width > 0) {
+                int tx = debris.tileIndex % level_.width;
+                int ty = debris.tileIndex / level_.width;
+                damagePlayersInTileArea(tx, ty, tx, ty);
+            }
+        }
         debrisQueue_.erase(std::remove_if(debrisQueue_.begin(), debrisQueue_.end(),
                                           [](const DebrisRecord& debris) { return debris.timer <= 0; }),
                            debrisQueue_.end());
-        for (CollapseRecord& collapse : collapseQueue_) --collapse.timer;
+        for (CollapseRecord& collapse : collapseQueue_) {
+            --collapse.timer;
+            if (level_.width > 0) {
+                int startCell = collapse.startOffsetBytes / 2;
+                int endCell = collapse.endOffsetBytes / 2;
+                int tx0 = startCell % level_.width;
+                int ty0 = startCell / level_.width;
+                int tx1 = endCell % level_.width;
+                int ty1 = endCell / level_.width;
+                damagePlayersInTileArea(tx0, ty0, tx1, ty1);
+            }
+        }
         collapseQueue_.erase(std::remove_if(collapseQueue_.begin(), collapseQueue_.end(),
                                             [](const CollapseRecord& collapse) { return collapse.timer <= 0; }),
                              collapseQueue_.end());

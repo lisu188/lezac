@@ -15,7 +15,7 @@ cmake -S . -B build
 cmake --build build
 ```
 
-Run from this directory so the original asset files are found:
+Run from this directory so the converted JSON resources are found:
 
 ```sh
 ./build/lezac_cpp
@@ -34,7 +34,7 @@ Smoke-test SDL window creation and menu/control handling:
 ./build/lezac_cpp --smoke-controls
 ```
 
-Run the configured validation and UI smoke tests:
+Run the configured validation, debug, and UI smoke tests:
 
 ```sh
 ctest --test-dir build --output-on-failure
@@ -54,9 +54,13 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-fixed
 ./build/lezac_cpp --debug-sounds
 ./build/lezac_cpp --debug-sound-render
+./build/lezac_cpp --debug-record-update /tmp/records_test.dat
+./build/lezac_cpp --debug-record-name-entry /tmp/records_name_test.dat
 ./build/lezac_cpp --debug-record-save-failure /tmp/missing-record-dir/records.dat
 ./build/lezac_cpp --debug-gran
 ./build/lezac_cpp --debug-levels
+./build/lezac_cpp --debug-level-raw-roundtrip
+./build/lezac_cpp --debug-sprite-transparency
 ./build/lezac_cpp --debug-word-layer
 ./build/lezac_cpp --debug-spawners
 ./build/lezac_cpp --debug-explosions
@@ -109,15 +113,16 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ## Still Approximate
 
 - Monster spawners now create active enemies with original-style 8.8 motion, but
-  behavior-specific AI and monster collision/damage remain approximate pending
+  behavior-specific AI and collision remain implemented hypotheses pending
   deeper reconstruction of the actor update routine around `1000:6053`.
 - PC speaker sound effects now play through an approximate square-wave
   sequencer; exact original timing and tone-field semantics remain unresolved.
 - Two-player split-screen is playable with independent bomb inventories, a
   central objective panel, and per-player zero-life handling, but exact original
   panel artwork, reentry flow, and scoring semantics remain approximate.
-- High scores are persisted with name entry, but exact original record-entry
-  cursor movement, typematic repeat, and presentation remain approximate.
+- High scores are persisted with original-evidence name-entry keys
+  (letters/space, Backspace, Enter), but exact cursor drawing, typematic repeat,
+  and presentation remain approximate.
 - Bomb fuse timing, 2x2 footprint, player blast damage, monster hit-point
   blast damage, visual
   selectors, actor sprite indices, and word-layer damage gating now follow the

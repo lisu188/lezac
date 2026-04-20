@@ -173,6 +173,20 @@ enum class MenuPage {
     Instructions,
     Records,
     NameEntry,
+    GameOver,
+    CompletedGame,
+};
+
+enum class EndReason {
+    GameOver,
+    CompletedGame,
+};
+
+struct PendingRecordEntry {
+    uint32_t score = 0;
+    uint8_t level = 0;
+    uint8_t player = 1;
+    EndReason reason = EndReason::GameOver;
 };
 
 enum class BombType : uint8_t {
@@ -199,6 +213,7 @@ struct Bomb {
     int timer = 95;
     BombType type = BombType::Small;
     int fuseTicks = 20;
+    uint8_t owner = 1;
 };
 
 struct Flash {
@@ -1121,8 +1136,14 @@ public:
         damageCooldown_ = 0;
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
-        if (!menu_ || menuPage_ != MenuPage::Main) {
+        if (!menu_ || menuPage_ != MenuPage::GameOver) {
             throw std::runtime_error("both players out of lives did not end game");
+        }
+
+        pushKeyDown(SDLK_RETURN);
+        processEvents(running);
+        if (!menu_ || menuPage_ != MenuPage::Main) {
+            throw std::runtime_error("game-over confirm did not return to main menu");
         }
 
         pushKeyDown(SDLK_1);
@@ -1404,6 +1425,127 @@ public:
             throw std::runtime_error("record save failure discarded pending entry");
         }
         std::cout << "record_save_failure=ok pending=" << pendingRecordScore_ << '\n';
+    }
+
+    void debugEndFlowRecords(const std::string& path) {
+        load();
+        recordPath_ = path;
+        saveRecords(recordPath_, records_);
+
+        auto containsRecord = [&](uint32_t score, const std::string& name) {
+            auto reloaded = loadRecords(recordPath_);
+            return std::any_of(reloaded.begin(), reloaded.end(),
+                               [&](const Record& record) {
+                                   return record.score == score && record.name == name;
+                               });
+        };
+
+        resetLevel(0);
+        menu_ = false;
+        int startLevel = levelIndex_;
+        collectAllObjectiveTilesForSmoke();
+        damageRequiredTilesForSmoke();
+        if (!isComplete()) {
+            throw std::runtime_error("completion prerequisites did not complete level");
+        }
+        for (int i = 0; i <= 100; ++i) {
+            updateLevelCompletion();
+        }
+        int completionLevel = levelIndex_ + 1;
+        if (levelIndex_ != startLevel + 1 || menu_ || pendingRecordScore_ != 0 ||
+            menuPage_ == MenuPage::NameEntry) {
+            throw std::runtime_error("mid-game completion entered end-flow records");
+        }
+
+        playerCount_ = 1;
+        score_ = 999997u;
+        score2_ = 0;
+        levelIndex_ = 2;
+        beginGameOver();
+        if (!menu_ || menuPage_ != MenuPage::NameEntry ||
+            pendingRecordScore_ != 999997u || pendingRecordLevel_ != 3 ||
+            pendingRecordPlayer_ != 1 || lives_ != 3 || lives2_ != 3 ||
+            levelIndex_ != 0) {
+            throw std::runtime_error("single-player qualifying game-over state mismatch");
+        }
+        pendingRecordName_ = "one";
+        finalizePendingRecord();
+        if (!containsRecord(999997u, "one")) {
+            throw std::runtime_error("single-player record was not committed");
+        }
+
+        score_ = 1u;
+        score2_ = 0;
+        levelIndex_ = 0;
+        beginGameOver();
+        if (!menu_ || menuPage_ != MenuPage::GameOver || pendingRecordScore_ != 0 ||
+            pendingRecordLevel_ != 0 || !pendingRecordName_.empty()) {
+            throw std::runtime_error("non-qualifying game-over did not show terminal state");
+        }
+        bool running = true;
+        onKey(SDLK_RETURN, running);
+        if (menuPage_ != MenuPage::Main || score_ != 0 || score2_ != 0) {
+            throw std::runtime_error("game-over confirm did not clear score state");
+        }
+
+        playerCount_ = 2;
+        score_ = 1u;
+        score2_ = 999998u;
+        levelIndex_ = 4;
+        beginGameOver();
+        if (!menu_ || menuPage_ != MenuPage::NameEntry ||
+            pendingRecordScore_ != 999998u || pendingRecordLevel_ != 5 ||
+            pendingRecordPlayer_ != 2) {
+            throw std::runtime_error("player 2 qualifying score was not prompted");
+        }
+        pendingRecordName_ = "two";
+        finalizePendingRecord();
+        if (!containsRecord(999998u, "two")) {
+            throw std::runtime_error("player 2 record was not committed");
+        }
+
+        playerCount_ = 2;
+        score_ = 999996u;
+        score2_ = 999995u;
+        levelIndex_ = 5;
+        beginGameOver();
+        if (menuPage_ != MenuPage::NameEntry || pendingRecordPlayer_ != 1 ||
+            pendingRecordScore_ != 999996u) {
+            throw std::runtime_error("two-player double qualifier did not start with player 1");
+        }
+        pendingRecordName_ = "cat";
+        finalizePendingRecord();
+        if (menuPage_ != MenuPage::NameEntry || pendingRecordPlayer_ != 2 ||
+            pendingRecordScore_ != 999995u) {
+            throw std::runtime_error("two-player double qualifier did not continue to player 2");
+        }
+        pendingRecordName_ = "dog";
+        finalizePendingRecord();
+        if (menuPage_ != MenuPage::Records || score_ != 0 || score2_ != 0 ||
+            !containsRecord(999996u, "cat") || !containsRecord(999995u, "dog")) {
+            throw std::runtime_error("two-player queued records did not finish cleanly");
+        }
+
+        playerCount_ = 1;
+        resetLevel(static_cast<int>(levels_.size()) - 1);
+        menu_ = false;
+        collectAllObjectiveTilesForSmoke();
+        damageRequiredTilesForSmoke();
+        score_ = 1u;
+        score2_ = 0;
+        for (int i = 0; i <= 100; ++i) {
+            updateLevelCompletion();
+        }
+        if (!menu_ || menuPage_ != MenuPage::CompletedGame ||
+            lastEndReason_ != EndReason::CompletedGame || levelIndex_ != 0 ||
+            pendingRecordScore_ != 0) {
+            throw std::runtime_error("final level completion did not enter completed-game flow");
+        }
+
+        auto finalRecords = loadRecords(recordPath_);
+        std::cout << "end_flow_records=ok completion_level=" << completionLevel
+                  << " p1_record=999997 p2_record=999998 records="
+                  << finalRecords.size() << '\n';
     }
 
     void exportBackground(const std::string& path) {
@@ -2230,7 +2372,7 @@ public:
         flashes_.clear();
         explosionEffects_.clear();
         int beforeSmallBombs = bombInventory_.counts[0];
-        placeBombAt(player_, bombInventory_);
+        placeBombAt(player_, bombInventory_, 1);
         if (bombs_.size() != 1 || bombInventory_.counts[0] != beforeSmallBombs - 1) {
             throw std::runtime_error("bomb placement did not create a timed bomb");
         }
@@ -2431,14 +2573,12 @@ public:
     void exportSprites(const std::string& bankName, const std::string& path) {
         load();
         const SpriteBank* bank = nullptr;
-        bool preserveFontPalette = false;
         if (bankName == "BOMOMIMK.SPR" || bankName == "bomomimk.spr" || bankName == "bomomimk") {
             bank = &sprites_;
         } else if (bankName == "PROVA.SPR" || bankName == "prova.spr" || bankName == "prova") {
             bank = &altSprites_;
         } else if (bankName == "FONTS.SPR" || bankName == "fonts.spr" || bankName == "fonts") {
             bank = &fontSprites_;
-            preserveFontPalette = true;
         } else {
             throw std::runtime_error("unknown sprite bank " + bankName);
         }
@@ -2468,7 +2608,6 @@ public:
                 for (int x = 0; x < sprite.width; ++x) {
                     uint8_t px = sprite.pixels[static_cast<size_t>(y) * sprite.width + x];
                     if (px == 0) continue;
-                    if (!preserveFontPalette && px == 0xff) continue;
                     out[static_cast<size_t>(oy + y) * width + ox + x] = palette_[px];
                 }
             }
@@ -2563,10 +2702,15 @@ private:
     uint32_t logicTick_ = 0;
     uint32_t randomSeed_ = 0x1234abcd;
     uint32_t score_ = 0;
+    uint32_t score2_ = 0;
     std::string recordPath_ = "RECS.DAT.json";
     uint32_t pendingRecordScore_ = 0;
     uint8_t pendingRecordLevel_ = 0;
+    uint8_t pendingRecordPlayer_ = 1;
+    EndReason pendingRecordReason_ = EndReason::GameOver;
     std::string pendingRecordName_;
+    std::vector<PendingRecordEntry> pendingRecordQueue_;
+    EndReason lastEndReason_ = EndReason::GameOver;
 
     void initSdl() {
         if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
@@ -2719,6 +2863,15 @@ private:
         if (menu_) {
             if (menuPage_ == MenuPage::NameEntry) {
                 handleNameEntryKey(key);
+            } else if (menuPage_ == MenuPage::GameOver ||
+                       menuPage_ == MenuPage::CompletedGame) {
+                if (key == SDLK_ESCAPE || key == SDLK_RETURN ||
+                    key == SDLK_KP_ENTER || key == SDLK_SPACE) {
+                    clearRunScores();
+                    pendingRecordQueue_.clear();
+                    clearPendingRecord();
+                    menuPage_ = MenuPage::Main;
+                }
             } else if (key == SDLK_ESCAPE) {
                 if (menuPage_ == MenuPage::Main) running = false;
                 else menuPage_ = MenuPage::Main;
@@ -2726,7 +2879,9 @@ private:
                 playerCount_ = key == SDLK_2 ? 2 : 1;
                 lives_ = 3;
                 lives2_ = 3;
-                score_ = 0;
+                clearRunScores();
+                pendingRecordQueue_.clear();
+                clearPendingRecord();
                 resetLevel(0);
                 menu_ = false;
                 menuPage_ = MenuPage::Main;
@@ -2744,7 +2899,7 @@ private:
                 tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                                  damageCooldown_, 1);
             } else {
-                placeBombAt(player_, bombInventory_);
+                placeBombAt(player_, bombInventory_, 1);
             }
         } else if (!menu_ && key == SDLK_n) {
             if (playerCount_ > 1) {
@@ -2752,13 +2907,13 @@ private:
                     tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_,
                                      reentryTimer2_, damageCooldown2_, 2);
                 } else {
-                    placeBombAt(player2_, bombInventory2_);
+                    placeBombAt(player2_, bombInventory2_, 2);
                 }
             } else if (playerDead_) {
                 tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                                  damageCooldown_, 1);
             } else {
-                placeBombAt(player_, bombInventory_);
+                placeBombAt(player_, bombInventory_, 1);
             }
         } else if (!menu_ && key == SDLK_s) {
             showBackground_ = !showBackground_;
@@ -3059,7 +3214,7 @@ private:
         } else {
             updatePlayer(player_, p1Left, p1Right, p1Jump, p1Switch,
                          playerFacing_, playerAnimTick_, dt);
-            collectObjectiveTiles(player_);
+            collectObjectiveTiles(player_, 1);
             updatePortalsAndTriggers(player_, portalCooldown_, triggerCooldown_);
         }
         if (playerCount_ > 1) {
@@ -3069,7 +3224,7 @@ private:
             } else {
                 updatePlayer(player2_, p2Left, p2Right, p2Jump, p2Switch,
                              player2Facing_, player2AnimTick_, dt);
-                collectObjectiveTiles(player2_);
+                collectObjectiveTiles(player2_, 2);
                 updatePortalsAndTriggers(player2_, portalCooldown2_, triggerCooldown2_);
             }
         }
@@ -3084,7 +3239,13 @@ private:
     void updateLevelCompletion() {
         if (isComplete()) {
             if (completeTimer_ == 0) playSound(5);
-            if (++completeTimer_ > 100) resetLevel(levelIndex_ + 1);
+            if (++completeTimer_ > 100) {
+                if (isFinalLevel()) {
+                    beginEndRun(EndReason::CompletedGame);
+                } else {
+                    resetLevel(levelIndex_ + 1);
+                }
+            }
         } else {
             completeTimer_ = 0;
         }
@@ -3145,7 +3306,7 @@ private:
         player.y = std::clamp(player.y, 0.0f, std::max(16.0f, level_.height * 8.0f - 16.0f));
     }
 
-    void collectObjectiveTiles(const Player& player) {
+    void collectObjectiveTiles(const Player& player, uint8_t playerIndex) {
         int x0 = static_cast<int>(player.x) / 8;
         int x1 = static_cast<int>(player.x + 12.0f) / 8;
         int y0 = static_cast<int>(player.y) / 8;
@@ -3156,7 +3317,7 @@ private:
                     tileAt(x, y) == level_.objectiveTile) {
                     tileRef(x, y) = 1;
                     ++collected_;
-                    score_ += 1000;
+                    addScore(playerIndex, 1000);
                     playSound(0);
                 }
             }
@@ -3537,7 +3698,7 @@ private:
                 if (tileAt(x, y) != level_.objectiveTile) continue;
                 player_.x = static_cast<float>(x * kTileSize);
                 player_.y = static_cast<float>(y * kTileSize);
-                collectObjectiveTiles(player_);
+                collectObjectiveTiles(player_, 1);
             }
         }
     }
@@ -3653,25 +3814,50 @@ private:
                (records_.size() < 7 || score > records_.back().score);
     }
 
+    uint32_t& scoreForPlayer(uint8_t player) {
+        return player == 2 && playerCount_ > 1 ? score2_ : score_;
+    }
+
+    void addScore(uint8_t player, uint32_t amount) {
+        scoreForPlayer(player) += amount;
+    }
+
+    void clearRunScores() {
+        score_ = 0;
+        score2_ = 0;
+    }
+
+    bool isFinalLevel() const {
+        return !levels_.empty() &&
+               levelIndex_ + 1 >= static_cast<int>(levels_.size());
+    }
+
+    MenuPage endMenuPage(EndReason reason) const {
+        return reason == EndReason::CompletedGame ? MenuPage::CompletedGame
+                                                  : MenuPage::GameOver;
+    }
+
     void beginGameOver() {
-        uint32_t finalScore = score_;
+        beginEndRun(EndReason::GameOver);
+    }
+
+    void beginEndRun(EndReason reason) {
         uint8_t finalLevel = static_cast<uint8_t>(std::clamp(levelIndex_ + 1, 1, 255));
+        pendingRecordQueue_.clear();
+        if (score_ != 0) {
+            pendingRecordQueue_.push_back({score_, finalLevel, 1, reason});
+        }
+        if (playerCount_ > 1 && score2_ != 0) {
+            pendingRecordQueue_.push_back({score2_, finalLevel, 2, reason});
+        }
         lives_ = 3;
         lives2_ = 3;
         menu_ = true;
-        if (scoreQualifies(finalScore)) {
-            pendingRecordScore_ = finalScore;
-            pendingRecordLevel_ = finalLevel;
-            pendingRecordName_.clear();
-            menuPage_ = MenuPage::NameEntry;
-        } else {
-            score_ = 0;
-            pendingRecordScore_ = 0;
-            pendingRecordLevel_ = 0;
-            pendingRecordName_.clear();
-            menuPage_ = MenuPage::Main;
-        }
+        lastEndReason_ = reason;
         resetLevel(0);
+        if (!startNextPendingRecord()) {
+            menuPage_ = endMenuPage(reason);
+        }
     }
 
     void finalizePendingRecord() {
@@ -3694,23 +3880,44 @@ private:
         }
         records_ = std::move(updatedRecords);
         clearPendingRecord();
-        score_ = 0;
+        if (startNextPendingRecord()) return;
+        clearRunScores();
         menuPage_ = MenuPage::Records;
     }
 
     void cancelPendingRecord() {
         clearPendingRecord();
-        score_ = 0;
+        if (startNextPendingRecord()) return;
+        clearRunScores();
         menuPage_ = MenuPage::Records;
     }
 
     void clearPendingRecord() {
         pendingRecordScore_ = 0;
         pendingRecordLevel_ = 0;
+        pendingRecordPlayer_ = 1;
+        pendingRecordReason_ = EndReason::GameOver;
         pendingRecordName_.clear();
     }
 
-    void placeBombAt(const Player& player, BombInventory& inventory) {
+    bool startNextPendingRecord() {
+        while (!pendingRecordQueue_.empty()) {
+            PendingRecordEntry entry = pendingRecordQueue_.front();
+            pendingRecordQueue_.erase(pendingRecordQueue_.begin());
+            if (!scoreQualifies(entry.score)) continue;
+            pendingRecordScore_ = entry.score;
+            pendingRecordLevel_ = entry.level;
+            pendingRecordPlayer_ = entry.player;
+            pendingRecordReason_ = entry.reason;
+            pendingRecordName_.clear();
+            menuPage_ = MenuPage::NameEntry;
+            return true;
+        }
+        clearPendingRecord();
+        return false;
+    }
+
+    void placeBombAt(const Player& player, BombInventory& inventory, uint8_t owner) {
         if (!hasBomb(inventory, inventory.selected)) {
             selectNextAvailableBomb(inventory);
             if (!hasBomb(inventory, inventory.selected)) return;
@@ -3722,7 +3929,7 @@ private:
         if (it == bombs_.end()) {
             BombProfile profile = bombProfile(inventory.selected);
             bombs_.push_back({tx, ty, profile.fuseTicks, inventory.selected,
-                              profile.fuseTicks});
+                              profile.fuseTicks, owner});
             playSound(2);
             int& count = inventory.counts[static_cast<size_t>(bombTypeIndex(inventory.selected))];
             count = std::max(0, count - 1);
@@ -3920,7 +4127,7 @@ private:
             int y = pos[1];
             flashes_.push_back({x, y, 12});
             if (consumeBombObjectTile(x, y)) {
-                score_ += 50;
+                addScore(bomb.owner, 50);
                 queueTileDamage(x, y - 1);
             }
         }
@@ -4033,9 +4240,9 @@ private:
             if (p1Overlaps &&
                 (!p2Overlaps ||
                  bonusDistanceSq(player_, drop) <= bonusDistanceSq(player2_, drop))) {
-                collectBonusDrop(drop, player_, energy_, bombInventory_);
+                collectBonusDrop(drop, player_, energy_, bombInventory_, 1);
             } else if (p2Overlaps) {
-                collectBonusDrop(drop, player2_, energy2_, bombInventory2_);
+                collectBonusDrop(drop, player2_, energy2_, bombInventory2_, 2);
             }
         }
         bonusDrops_.erase(std::remove_if(bonusDrops_.begin(), bonusDrops_.end(),
@@ -4050,41 +4257,41 @@ private:
     }
 
     void collectBonusDrop(BonusDrop& drop, const Player& collector, int& energy,
-                          BombInventory& inventory) {
+                          BombInventory& inventory, uint8_t playerIndex) {
         BonusType type = drop.type;
         drop.collected = true;
-        applyBonus(type, collector, energy, inventory);
+        applyBonus(type, collector, energy, inventory, playerIndex);
         playSound(5);
     }
 
     void applyBonus(BonusType type, const Player& collector, int& energy,
-                    BombInventory& inventory) {
+                    BombInventory& inventory, uint8_t playerIndex = 1) {
         switch (type) {
             case BonusType::Present:
-                score_ += 2000;
+                addScore(playerIndex, 2000);
                 break;
             case BonusType::FirstAid:
-                score_ += 1000;
+                addScore(playerIndex, 1000);
                 energy = 100;
                 break;
             case BonusType::HotDog:
-                score_ += 1500;
+                addScore(playerIndex, 1500);
                 energy = std::min(100, energy + 33);
                 break;
             case BonusType::JollyCloud:
-                score_ += 2000;
+                addScore(playerIndex, 2000);
                 spawnBonusRain(collector);
                 break;
             case BonusType::YellowBombBox:
-                score_ += 3000;
+                addScore(playerIndex, 3000);
                 grantNormalBombSet(inventory);
                 break;
             case BonusType::GreenBombBox:
-                score_ += 1000;
+                addScore(playerIndex, 1000);
                 grantSuperBombSet(inventory);
                 break;
             case BonusType::BigDiamond:
-                score_ += 5000;
+                addScore(playerIndex, 5000);
                 break;
         }
     }
@@ -4233,9 +4440,10 @@ private:
             resetClip();
             rect(0, 99, kScreenW, 1, 0xfff0d060u);
             rect(0, 100, kScreenW, 16, 0xcc000000u);
-            text(4, 104, objectiveHudText() + " " +
+            text(4, 104, progressHudText() + " " +
                             playerHudText(2, energy2_, lives2_, player2Dead_,
-                                          bombInventory2_),
+                                          bombInventory2_) +
+                            " S" + std::to_string(score2_),
                  0xffffffffu);
             rect(0, 115, kScreenW, 1, 0xfff0d060u);
         } else {
@@ -4480,12 +4688,16 @@ private:
     }
 
     std::string objectiveHudText() const {
+        return progressHudText() +
+               " S" + std::to_string(score_);
+    }
+
+    std::string progressHudText() const {
         return "L" + std::to_string(levelIndex_ + 1) +
                " B" + std::to_string(collected_) + "/" +
                std::to_string(level_.requiredBonus) +
                " D" + std::to_string(destructionPercent()) + "/" +
-               std::to_string(level_.requiredDestruction) +
-               " S" + std::to_string(score_);
+               std::to_string(level_.requiredDestruction);
     }
 
     std::string playerHudText(int index, int energy, int lives, bool dead,
@@ -4520,6 +4732,12 @@ private:
                 break;
             case MenuPage::NameEntry:
                 drawNameEntryMenu();
+                break;
+            case MenuPage::GameOver:
+                drawGameOverMenu();
+                break;
+            case MenuPage::CompletedGame:
+                drawCompletedGameMenu();
                 break;
         }
     }
@@ -4574,15 +4792,42 @@ private:
 
     void drawNameEntryMenu() {
         text(86, 48, "NEW RECORD", 0xff90ffb0u, false, 0xff101010u);
-        text(58, 70, "SCORE " + std::to_string(pendingRecordScore_),
+        text(58, 64, "PLAYER " + std::to_string(pendingRecordPlayer_),
+             0xffffffffu, false, 0xff101010u);
+        text(58, 78, "SCORE " + std::to_string(pendingRecordScore_),
              0xffffe060u, false, 0xff101010u);
-        text(58, 86, "LEVEL " + std::to_string(pendingRecordLevel_),
+        text(58, 94, "LEVEL " + std::to_string(pendingRecordLevel_),
              0xffffffffu, false, 0xff101010u);
         std::string name = pendingRecordName_;
         while (name.size() < 8) name.push_back('_');
-        text(58, 112, "NAME " + name, 0xffffffffu, false, 0xff101010u);
+        text(58, 120, "NAME " + name, 0xffffffffu, false, 0xff101010u);
         text(42, 148, "TYPE LETTERS OR SPACE", 0xffffffffu, false, 0xff101010u);
         text(42, 160, "ENTER SAVE. BACKSPACE ERASES", 0xff90ffb0u, false, 0xff101010u);
+    }
+
+    void drawGameOverMenu() {
+        text(111, 72, "GAME OVER", 0xffff5050u, true, 0xff301010u);
+        drawFinalScores(104);
+        text(78, 166, "ENTER: MENU", 0xff90ffb0u, false, 0xff101010u);
+    }
+
+    void drawCompletedGameMenu() {
+        text(90, 58, "ECCELLENTE>>>", 0xffffe060u, false, 0xff101010u);
+        text(54, 76, "HAI COMPLETATO IL GIOCO", 0xffffffffu, false, 0xff101010u);
+        drawFinalScores(112);
+        text(78, 166, "ENTER: MENU", 0xff90ffb0u, false, 0xff101010u);
+    }
+
+    void drawFinalScores(int y) {
+        if (score_ != 0) {
+            text(82, y, "P1 FINAL SCORE " + std::to_string(score_),
+                 0xffffe060u, false, 0xff101010u);
+            y += 12;
+        }
+        if (playerCount_ > 1 && score2_ != 0) {
+            text(82, y, "P2 FINAL SCORE " + std::to_string(score2_),
+                 0xffffe060u, false, 0xff101010u);
+        }
     }
 
     void drawRecordLine(size_t i, int y) {
@@ -4700,6 +4945,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-record-save-failure") {
             app.debugRecordSaveFailure(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-end-flow-records") {
+            app.debugEndFlowRecords(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--export-background") {

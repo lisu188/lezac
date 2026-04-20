@@ -213,6 +213,35 @@ eight-byte name with colon padding. The C++ port follows those input rules while
 retaining `Esc` as a reconstruction-only cancel path so failed or accidental
 entries can be abandoned from the SDL menu.
 
+## Game Over and Completed-Game Evidence
+
+Manual byte/disassembly inspection of `1000:1b14..1d42` maps the post-game
+dispatcher. MZ header math confirms its file window as `0x2284..0x24b2` using
+`file_offset = 0x770 + CS_offset`.
+
+- `1000:1b63` reads a byte mode parameter. Mode `1` draws the Pascal string at
+  `CS:1ae1`, `game over`.
+- Mode `2` draws `CS:1aeb`, `eccellente>>>`, and `CS:1af9`,
+  `hai completato il gioco`, then sets `DS:208c = 1`, likely the completed-game
+  flag.
+- `1000:1bf8` starts a loop over player indices `1..2`. Player 1 uses score
+  pointer `DS:785a` and display marker `'1'`; player 2 uses `DS:7888` and
+  display marker `'2'`.
+- `1000:1c4b..1c5e` skips a player display if that player's score dword is
+  zero.
+- `1000:1cf8` waits for one key through the keyboard helper before checking
+  records.
+- `1000:1d18..1d24` compares each player score against the current seventh
+  record score at `DS:1af7 + 7 * 0x0d`.
+- `1000:1d38` calls `1000:1845` with the score dword and player index for each
+  qualifying player. Because the record threshold is read again after a prompt,
+  player 2 is re-evaluated against the table that may already include player 1.
+
+The C++ port maps this to `beginEndRun`, `startNextPendingRecord`, and
+`finalizePendingRecord`. It keeps the original player-check order and re-checks
+queued player scores against the current record table immediately before
+opening name entry.
+
 ## Code Mapping
 
 - Level JSON loading: `loadLevels`; raw binary validation: `loadRawLevels`.
@@ -222,4 +251,7 @@ entries can be abandoned from the SDL menu.
   `damageMonstersInExplosion`.
 - High-score load/save/name entry: `loadRecords`, `saveRecords`,
   `handleNameEntryKey`, `finalizePendingRecord`.
+- End-of-run dispatch and per-player record queue:
+  `updateLevelCompletion`, `beginEndRun`, `startNextPendingRecord`,
+  `cancelPendingRecord`.
 - Debug surface: command dispatch in `main`.

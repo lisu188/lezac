@@ -80,6 +80,14 @@ if(BUILD_TESTING)
     set_tests_properties(records_save_failure_temp PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+    add_test(NAME end_flow_records_temp
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-end-flow-records
+                ${CMAKE_CURRENT_BINARY_DIR}/end_flow_records_test.dat)
+    set_tests_properties(end_flow_records_temp PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^end_flow_records=ok completion_level=2 p1_record=999997 p2_record=999998 records=7")
+
     add_test(NAME sound_render COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-render)
     set_tests_properties(sound_render PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})

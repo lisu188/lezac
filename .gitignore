@@ -1,0 +1,5 @@
+build/
+lezac_cpp
+.codex
+*.ppm
+*.wav

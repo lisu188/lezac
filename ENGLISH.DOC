@@ -1,0 +1,93 @@
+                          LARAX & ZACO  V1.0
+                          ------------------
+                  (Zanobi software, all rights reserved)
+
+        Released Apr.23 1996.
+
+System requirements:
+
+VGA graphic or better,
+DOS version 3 or better,
+About 300 KB of base memory free,
+CPU 386 or better (486 recommended).
+
+"Larax & Zaco" is a platform-strategy game, you can use,copy and distribute it
+freely as long as:
+
+ - You do not require any fee.
+ - You copy every file in its original form.
+
+Moreover, if you are willing to keep this program, remember that a small
+donation will be gratefully accepted, (writing games often requires a lot of
+time and energy) and will allow you to register your copy. 
+For a donation of at least US.$12 I'll send you the ultimate version of the 
+game.
+Make any cheques payable in italian liras to
+
+Stefano Zanobi,
+V. Gramsci 47   
+00015 Monterotondo (Roma)
+Italy.
+
+E-mail: szanobi@pronet.it
+
+Of course, it will be necessary to send me your address and tell me the 
+program version you have got: I'm writing improved versions for registered 
+users.
+
+This software is provided as it is.
+The author disclaims all warranties relating to the use or misuse
+of this software, whether expressed or implied.
+
+Game description & tips:
+------------------------
+
+You can play one or two players game; the game proceeds on different
+levels: you must collect a given number of certain bonuses and destroy
+a given percentage of the existing structures, strategically placing bombs of 
+different power, in order to complete each level. These objectives are
+shown in the central window under the playing screens.
+But this isn't easy: you must be very careful when placing bombs!
+'cause you could end up buried under boulders or destroy the objective-bonuses
+too, thus being forced to give up that level! Moreover, many mutant monster
+will chase you, draining off your energy.
+When your energy drops to zero you will loose a life, then you can
+choose to reenter the level (by pressing fire) or to restart that level
+from the beginning, waiting a few seconds.
+Anyway, you can't reenter a level if there aren't enough objective-bonuses
+to complete it.
+For every monster you destroy, you can earn one of the following
+special-bonuses:
+
+
+ -Present              :      2000 points.
+ -Hot dog              :      1500 points + 1/3 of your energy.
+ -First Aid            :      1000 points + all your energy.   
+ -Yellow bomb box      :      3000 points + normal set of bombs.  
+ -Green bomb box       :      1000 points + super set of bombs.
+ -Jolly cloud          :      2000 points + bonus rain.
+ -Big diamond          :      5000 points.
+
+Four types of bombs are available. Note that the most powerful one 
+(and the most dangerous for your health too) is not available when you 
+start a game, but you can gain it grabbing a green bomb box.
+
+Game speed:
+-----------
+
+The program will automatically adapt itself to your system's speed, 
+(within a few seconds) but if your computer is too slow, 
+you can gain speed by:
+
+- Disabling background scenery (press 's').
+- Or decreasing the playing field width. (keys 'e', 'r').
+  (you can set this width only during one-player game).
+
+Of course, installing the game to the hard disk will speed up every i/o 
+operation.
+
+Any comment or suggestion are well accepted: contact me at my address,
+or via internet, 
+E-Mail:  szanobi@pronet.it
+
+Enjoy your destructive mission!!!

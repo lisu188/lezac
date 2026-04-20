@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -837,6 +838,28 @@ public:
             throw std::runtime_error("two-player restart key did not leave menu");
         }
 
+        energy_ = 1;
+        lives_ = 3;
+        lives2_ = 3;
+        damageCooldown_ = 0;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        int timeoutLevel = levelIndex_;
+        float player2XBeforeTimeout = player2_.x;
+        float player2YBeforeTimeout = player2_.y;
+        for (int i = 0; i < kReentryTicks + 2; ++i) {
+            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+                          playerCount_ == 1 || player2Dead_);
+        }
+        if (levelIndex_ != timeoutLevel || !playerDead_ || player2Dead_ ||
+            reentryTimer_ != 0 || player2_.x != player2XBeforeTimeout ||
+            player2_.y != player2YBeforeTimeout) {
+            throw std::runtime_error("single-player reentry timeout reset two-player level");
+        }
+        lives_ = 3;
+        lives2_ = 3;
+        resetLevel(0);
+
         energy2_ = 1;
         lives_ = 3;
         lives2_ = 3;
@@ -1002,6 +1025,20 @@ public:
             throw std::runtime_error("PageDown did not return to level 1");
         }
 
+        pushKeyDown(SDLK_PAGEUP);
+        processEvents(running);
+        if (levelIndex_ != 1) {
+            throw std::runtime_error("second PageUp did not advance level");
+        }
+
+        pushKeyDown(SDLK_ESCAPE);
+        processEvents(running);
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+            throw std::runtime_error("menu start did not reset to level 1");
+        }
+
         smokeBombObjectDestructionProgress();
         resetLevel(0);
         smokeCompleteCurrentLevelFromMapProgress();
@@ -1041,6 +1078,10 @@ public:
         for (int i = 0; i < frames; ++i) {
             SDL_PumpEvents();
             draw();
+            if (std::all_of(fb_.begin(), fb_.end(),
+                            [&](uint32_t px) { return px == fb_.front(); })) {
+                throw std::runtime_error("smoke UI rendered a uniform frame");
+            }
             SDL_Delay(1);
         }
     }
@@ -1207,6 +1248,21 @@ public:
             bonusDrops_[2].type != BonusType::Present ||
             bonusDrops_[3].type != BonusType::BigDiamond) {
             throw std::runtime_error("jolly cloud did not spawn bonus rain");
+        }
+
+        bonusDrops_.clear();
+        bonusDrops_.shrink_to_fit();
+        BonusDrop cloud;
+        cloud.x = player_.x;
+        cloud.y = player_.y;
+        cloud.type = BonusType::JollyCloud;
+        bonusDrops_.push_back(cloud);
+        bonusDrops_.shrink_to_fit();
+        updateBonusDrops();
+        if (bonusDrops_.size() != 4 ||
+            std::any_of(bonusDrops_.begin(), bonusDrops_.end(),
+                        [](const BonusDrop& drop) { return drop.collected; })) {
+            throw std::runtime_error("jolly cloud collection corrupted bonus drops");
         }
 
         score_ = 0;
@@ -1823,6 +1879,90 @@ public:
         std::cout << "passable_objects=ok\n";
     }
 
+    void debugTriggerAccounting() {
+        load();
+        for (size_t level = 0; level < levels_.size(); ++level) {
+            resetLevel(static_cast<int>(level));
+            for (const TileTriggerRule& rule : level_.tileTriggers) {
+                int expectedDestroyed = 0;
+                size_t count = std::min(level_.tiles.size(), level_.wordLayer.size());
+                for (size_t i = 0; i < count; ++i) {
+                    uint16_t word = static_cast<uint16_t>(level_.wordLayer[i] & 0x7fffu);
+                    if (word < rule.wordRangeFirst || word > rule.wordRangeLast) continue;
+                    uint8_t tile = level_.tiles[i];
+                    for (size_t slot = 0; slot < rule.from.size(); ++slot) {
+                        uint8_t from = rule.from[slot];
+                        if (from == 0 || tile != from) continue;
+                        uint8_t to = rule.to[slot];
+                        if (countsForDestructionProgress(tile, level_.objectiveTile) &&
+                            !countsForDestructionProgress(to, level_.objectiveTile)) {
+                            ++expectedDestroyed;
+                        }
+                        tile = to;
+                    }
+                }
+                if (expectedDestroyed == 0) continue;
+
+                int beforeDestroyed = destroyed_;
+                if (!applyTileTrigger(rule.triggerKey)) {
+                    throw std::runtime_error("trigger accounting test did not rewrite tiles");
+                }
+                if (destroyed_ != beforeDestroyed + expectedDestroyed) {
+                    throw std::runtime_error("trigger rewrite did not update destruction");
+                }
+                std::cout << "trigger_accounting=ok level=" << (level + 1)
+                          << " destroyed=" << expectedDestroyed << '\n';
+                return;
+            }
+        }
+        throw std::runtime_error("no trigger removed destructible tiles");
+    }
+
+    void debugPortalCooldowns() {
+        load();
+        for (size_t level = 0; level < levels_.size(); ++level) {
+            resetLevel(static_cast<int>(level));
+            for (int y = 1; y < level_.height; ++y) {
+                for (int x = 0; x < level_.width; ++x) {
+                    if (tileAt(x, y) != 0x45) continue;
+                    uint16_t key = static_cast<uint16_t>(wordAt(x, y) & 0x7fffu);
+                    if (key == 0) continue;
+                    const LevelPortal* destination = nullptr;
+                    for (const LevelPortal& portal : level_.portals) {
+                        if (portal.key == key) {
+                            destination = &portal;
+                            break;
+                        }
+                    }
+                    if (!destination) continue;
+
+                    playerCount_ = 2;
+                    portalCooldown_ = 0;
+                    portalCooldown2_ = 0;
+                    triggerCooldown_ = 0;
+                    triggerCooldown2_ = 0;
+                    player_.x = static_cast<float>(x * kTileSize);
+                    player_.y = static_cast<float>(y * kTileSize - 8);
+                    player2_ = player_;
+
+                    updatePortalsAndTriggers(player_, portalCooldown_, triggerCooldown_);
+                    updatePortalsAndTriggers(player2_, portalCooldown2_, triggerCooldown2_);
+                    if (player_.x != static_cast<float>(destination->x) ||
+                        player_.y != static_cast<float>(destination->y) ||
+                        player2_.x != static_cast<float>(destination->x) ||
+                        player2_.y != static_cast<float>(destination->y) ||
+                        portalCooldown_ == 0 || portalCooldown2_ == 0) {
+                        throw std::runtime_error("portal cooldown blocked player 2");
+                    }
+                    std::cout << "portal_cooldowns=ok level=" << (level + 1)
+                              << " key=" << key << '\n';
+                    return;
+                }
+            }
+        }
+        throw std::runtime_error("no portal source tile found");
+    }
+
     void exportSprites(const std::string& bankName, const std::string& path) {
         load();
         const SpriteBank* bank = nullptr;
@@ -1919,6 +2059,7 @@ private:
     SDL_Renderer* renderer_ = nullptr;
     SDL_Texture* texture_ = nullptr;
     SDL_AudioDeviceID audioDevice_ = 0;
+    SDL_AudioSpec audioSpec_{};
     bool audioEnabled_ = false;
     bool menu_ = true;
     MenuPage menuPage_ = MenuPage::Main;
@@ -1933,6 +2074,8 @@ private:
     int completeTimer_ = 0;
     int portalCooldown_ = 0;
     int triggerCooldown_ = 0;
+    int portalCooldown2_ = 0;
+    int triggerCooldown2_ = 0;
     int playerFacing_ = 1;
     int player2Facing_ = 1;
     int playerAnimTick_ = 0;
@@ -1998,18 +2141,17 @@ private:
         want.channels = 1;
         want.samples = 1024;
         SDL_AudioSpec have{};
-        audioDevice_ = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0);
+        audioDevice_ = SDL_OpenAudioDevice(nullptr, 0, &want, &have,
+                                           SDL_AUDIO_ALLOW_FREQUENCY_CHANGE |
+                                               SDL_AUDIO_ALLOW_FORMAT_CHANGE |
+                                               SDL_AUDIO_ALLOW_CHANNELS_CHANGE);
         if (audioDevice_ == 0) {
             SDL_ClearError();
             return;
         }
-        audioEnabled_ = have.format == AUDIO_S16SYS && have.channels == 1;
-        if (audioEnabled_) {
-            SDL_PauseAudioDevice(audioDevice_, 0);
-        } else {
-            SDL_CloseAudioDevice(audioDevice_);
-            audioDevice_ = 0;
-        }
+        audioSpec_ = have;
+        audioEnabled_ = true;
+        SDL_PauseAudioDevice(audioDevice_, 0);
     }
 
     void processEvents(bool& running) {
@@ -2054,6 +2196,8 @@ private:
         completeTimer_ = 0;
         portalCooldown_ = 0;
         triggerCooldown_ = 0;
+        portalCooldown2_ = 0;
+        triggerCooldown2_ = 0;
         playerFacing_ = 1;
         player2Facing_ = 1;
         playerAnimTick_ = 0;
@@ -2116,7 +2260,7 @@ private:
                 lives_ = 3;
                 lives2_ = 3;
                 score_ = 0;
-                resetLevel(levelIndex_);
+                resetLevel(0);
                 menu_ = false;
                 menuPage_ = MenuPage::Main;
             } else if (key == SDLK_i) {
@@ -2259,8 +2403,35 @@ private:
         if (!audioEnabled_ || audioDevice_ == 0 || sounds_.records.empty()) return;
         std::vector<int16_t> samples = synthesizeSound(index % sounds_.records.size());
         if (samples.empty()) return;
-        SDL_QueueAudio(audioDevice_, samples.data(),
-                       static_cast<Uint32>(samples.size() * sizeof(int16_t)));
+        Uint32 bytes = static_cast<Uint32>(samples.size() * sizeof(int16_t));
+        if (audioSpec_.format == AUDIO_S16SYS && audioSpec_.channels == 1 &&
+            audioSpec_.freq == kAudioSampleRate) {
+            SDL_QueueAudio(audioDevice_, samples.data(), bytes);
+            return;
+        }
+
+        SDL_AudioCVT cvt{};
+        int build = SDL_BuildAudioCVT(&cvt, AUDIO_S16SYS, 1, kAudioSampleRate,
+                                      audioSpec_.format, audioSpec_.channels,
+                                      audioSpec_.freq);
+        if (build < 0) {
+            SDL_ClearError();
+            return;
+        }
+        if (build == 0) {
+            SDL_QueueAudio(audioDevice_, samples.data(), bytes);
+            return;
+        }
+
+        cvt.len = static_cast<int>(bytes);
+        std::vector<uint8_t> converted(static_cast<size_t>(cvt.len) * cvt.len_mult);
+        std::memcpy(converted.data(), samples.data(), bytes);
+        cvt.buf = converted.data();
+        if (SDL_ConvertAudio(&cvt) != 0) {
+            SDL_ClearError();
+            return;
+        }
+        SDL_QueueAudio(audioDevice_, converted.data(), static_cast<Uint32>(cvt.len_cvt));
     }
 
     void playSoundSelector(uint8_t selector) {
@@ -2422,23 +2593,27 @@ private:
         }
         if (portalCooldown_ > 0) --portalCooldown_;
         if (triggerCooldown_ > 0) --triggerCooldown_;
+        if (portalCooldown2_ > 0) --portalCooldown2_;
+        if (triggerCooldown2_ > 0) --triggerCooldown2_;
 
         if (playerDead_) {
-            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
+            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+                          playerCount_ == 1 || player2Dead_);
         } else {
             updatePlayer(player_, p1Left, p1Right, p1Jump, p1Switch,
                          playerFacing_, playerAnimTick_, dt);
             collectObjectiveTiles(player_);
-            updatePortalsAndTriggers(player_);
+            updatePortalsAndTriggers(player_, portalCooldown_, triggerCooldown_);
         }
         if (playerCount_ > 1) {
             if (player2Dead_) {
-                updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2);
+                updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
+                              playerDead_);
             } else {
                 updatePlayer(player2_, p2Left, p2Right, p2Jump, p2Switch,
                              player2Facing_, player2AnimTick_, dt);
                 collectObjectiveTiles(player2_);
-                updatePortalsAndTriggers(player2_);
+                updatePortalsAndTriggers(player2_, portalCooldown2_, triggerCooldown2_);
             }
         }
         updateFlashes();
@@ -2521,27 +2696,28 @@ private:
         }
     }
 
-    void updatePortalsAndTriggers(Player& player) {
+    void updatePortalsAndTriggers(Player& player, int& portalCooldown,
+                                  int& triggerCooldown) {
         int tx = static_cast<int>(player.x + 6.0f) / 8;
         int ty = static_cast<int>(player.y + 12.0f) / 8;
         int tile = tileAt(tx, ty);
         uint16_t key = static_cast<uint16_t>(wordAt(tx, ty) & 0x7fffu);
 
-        if (tile == 0x45 && key != 0 && portalCooldown_ == 0) {
+        if (tile == 0x45 && key != 0 && portalCooldown == 0) {
             for (const LevelPortal& portal : level_.portals) {
                 if (portal.key == key) {
                     player.x = static_cast<float>(portal.x);
                     player.y = static_cast<float>(portal.y);
                     player.vx = 0.0f;
                     player.vy = 0.0f;
-                    portalCooldown_ = 30;
+                    portalCooldown = 30;
                     playSound(1);
                     break;
                 }
             }
-        } else if (tile == 0x72 && triggerCooldown_ == 0) {
+        } else if (tile == 0x72 && triggerCooldown == 0) {
             if (applyTileTrigger(wordAt(tx, ty))) {
-                triggerCooldown_ = 30;
+                triggerCooldown = 30;
                 playSound(1);
             }
         }
@@ -2558,13 +2734,25 @@ private:
                 for (size_t slot = 0; slot < rule.from.size(); ++slot) {
                     uint8_t from = rule.from[slot];
                     if (from != 0 && level_.tiles[i] == from) {
-                        level_.tiles[i] = rule.to[slot];
+                        uint8_t to = rule.to[slot];
+                        accountTileRewrite(level_.tiles[i], to);
+                        level_.tiles[i] = to;
                         changed = true;
                     }
                 }
             }
         }
         return changed;
+    }
+
+    void accountTileRewrite(uint8_t from, uint8_t to) {
+        bool fromCounts = countsForDestructionProgress(from, level_.objectiveTile);
+        bool toCounts = countsForDestructionProgress(to, level_.objectiveTile);
+        if (fromCounts && !toCounts) {
+            ++destroyed_;
+        } else if (!fromCounts && toCounts) {
+            ++level_.startingDestructibleTiles;
+        }
     }
 
     std::array<int, 2> monsterFrameRange(uint8_t kind) const {
@@ -2940,16 +3128,20 @@ private:
     }
 
     void updateReentry(Player& player, int& energy, int& lives, bool& dead,
-                       int& timer, uint8_t startMarker) {
+                       int& timer, uint8_t startMarker, bool allowLevelRestart) {
         (void)energy;
         if (lives <= 0) return;
-        if (timer > 0) --timer;
-        if (timer <= 0) {
+        if (!canReenterLevel()) {
             restartCurrentLevelAfterDeath();
             return;
         }
-        if (!canReenterLevel()) {
-            restartCurrentLevelAfterDeath();
+        if (timer > 0) --timer;
+        if (timer <= 0) {
+            if (allowLevelRestart) {
+                restartCurrentLevelAfterDeath();
+            } else {
+                timer = 0;
+            }
             return;
         }
         (void)player;
@@ -3328,7 +3520,9 @@ private:
     }
 
     void updateBonusDrops() {
-        for (BonusDrop& drop : bonusDrops_) {
+        size_t initialDrops = bonusDrops_.size();
+        for (size_t i = 0; i < initialDrops && i < bonusDrops_.size(); ++i) {
+            BonusDrop& drop = bonusDrops_[i];
             if (drop.collected) continue;
             ++drop.animTick;
             if (!playerDead_ && playerOverlaps(player_, drop.x, drop.y, 12.0f, 12.0f)) {
@@ -3345,9 +3539,10 @@ private:
 
     void collectBonusDrop(BonusDrop& drop, const Player& collector, int& energy,
                           BombInventory& inventory) {
-        applyBonus(drop.type, collector, energy, inventory);
-        playSound(5);
+        BonusType type = drop.type;
         drop.collected = true;
+        applyBonus(type, collector, energy, inventory);
+        playSound(5);
     }
 
     void applyBonus(BonusType type, const Player& collector, int& energy,
@@ -3487,9 +3682,16 @@ private:
     void draw() {
         if (menu_) drawMenu();
         else drawGame();
-        SDL_UpdateTexture(texture_, nullptr, fb_.data(), kScreenW * sizeof(uint32_t));
-        SDL_RenderClear(renderer_);
-        SDL_RenderCopy(renderer_, texture_, nullptr, nullptr);
+        if (SDL_UpdateTexture(texture_, nullptr, fb_.data(),
+                              kScreenW * sizeof(uint32_t)) != 0) {
+            throw std::runtime_error(SDL_GetError());
+        }
+        if (SDL_RenderClear(renderer_) != 0) {
+            throw std::runtime_error(SDL_GetError());
+        }
+        if (SDL_RenderCopy(renderer_, texture_, nullptr, nullptr) != 0) {
+            throw std::runtime_error(SDL_GetError());
+        }
         SDL_RenderPresent(renderer_);
     }
 
@@ -4046,6 +4248,14 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-passable-objects") {
             app.debugPassableObjects();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-trigger-accounting") {
+            app.debugTriggerAccounting();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-portal-cooldowns") {
+            app.debugPortalCooldowns();
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--export-sprites") {

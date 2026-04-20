@@ -3062,6 +3062,11 @@ private:
         for (const Bomb& b : bombs_) {
             int x = b.x * 8 - camX;
             int y = b.y * 8 - camY;
+            int index = static_cast<int>(bombProfile(b.type).spriteBase);
+            if (index >= 0 && index < static_cast<int>(sprites_.sprites.size())) {
+                drawSprite(sprites_.sprites[static_cast<size_t>(index)], x, y);
+                continue;
+            }
             int flashWindow = std::clamp(b.fuseTicks / 4, 6, 28);
             uint32_t body = b.timer <= flashWindow ? 0xfffff070u : bombColor(b.type);
             rect(x + 1, y + 1, 6, 6, body);

@@ -61,6 +61,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-explosions
 ./build/lezac_cpp --debug-damage-queues
 ./build/lezac_cpp --debug-monster-slots
+./build/lezac_cpp --debug-monster-blast-damage
 ./build/lezac_cpp --export-sprites BOMOMIMK.SPR /tmp/bomomimk.ppm
 ```
 
@@ -83,6 +84,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
   score, start positions, teleports, tile triggers, monster spawning, basic
   behavior-specific monster movement/damage, documented monster reward drops,
   spawner live-slot return after monster death animation removal,
+  bomb-power damage against monster hit points,
   four-slot bomb inventory/switching, original bomb actor sprites, player
   animation, active structure hazard damage, bomb blast player damage,
   post-hit damage cooldown, level progression, and records/menu display.
@@ -110,7 +112,8 @@ Dump the current bomb inventory model and export sprite contact sheets:
   panel artwork, reentry flow, and scoring semantics remain approximate.
 - High scores are persisted with name entry, but exact original record-entry
   cursor movement, typematic repeat, and presentation remain approximate.
-- Bomb fuse timing, 2x2 footprint, player/monster blast damage, visual
+- Bomb fuse timing, 2x2 footprint, player blast damage, monster hit-point
+  blast damage, visual
   selectors, actor sprite indices, and word-layer damage gating now follow the
   `1000:414a`/`1000:370e`/expiration analysis. Active collapse/debris records
   now drain player energy with a short post-hit cooldown, but exact sprite

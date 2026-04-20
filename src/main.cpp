@@ -1710,6 +1710,49 @@ public:
                   << " death_ticks=" << deathTicks << '\n';
     }
 
+    void debugMonsterBlastDamage() {
+        load();
+        resetLevel(0);
+        monsters_.clear();
+        bonusDrops_.clear();
+        ActiveMonster monster;
+        monster.x = 80;
+        monster.y = 80;
+        monster.kind = 1;
+        monster.behavior = 3;
+        monster.hp = 3;
+        monsters_.push_back(monster);
+        std::vector<std::array<int, 2>> tiles{{{10, 11}}};
+
+        damageMonstersInExplosion(tiles, BombType::Small);
+        if (monsters_[0].behavior == 2 || monsters_[0].hp != 2 ||
+            !bonusDrops_.empty()) {
+            throw std::runtime_error("small bomb ignored monster hit points");
+        }
+
+        damageMonstersInExplosion(tiles, BombType::Medium);
+        if (monsters_[0].behavior != 2 || monsters_[0].hp != 0 ||
+            bonusDrops_.size() != 1) {
+            throw std::runtime_error("medium bomb did not finish damaged monster");
+        }
+
+        ActiveMonster tough;
+        tough.x = 96;
+        tough.y = 80;
+        tough.kind = 4;
+        tough.behavior = 3;
+        tough.hp = 4;
+        monsters_.push_back(tough);
+        std::vector<std::array<int, 2>> superTiles{{{12, 11}}};
+        damageMonstersInExplosion(superTiles, BombType::Super);
+        if (monsters_[1].behavior != 2 || monsters_[1].hp != 0 ||
+            bonusDrops_.size() != 2) {
+            throw std::runtime_error("super bomb did not apply full monster damage");
+        }
+
+        std::cout << "monster_blast_damage=ok drops=" << bonusDrops_.size() << '\n';
+    }
+
     void exportSprites(const std::string& bankName, const std::string& path) {
         load();
         const SpriteBank* bank = nullptr;
@@ -3130,19 +3173,32 @@ private:
                 queueTileDamage(x, y - 1);
             }
         }
-        damageMonstersInExplosion(tiles);
+        damageMonstersInExplosion(tiles, bomb.type);
         damagePlayersInExplosion(tiles);
     }
 
-    void damageMonstersInExplosion(const std::vector<std::array<int, 2>>& tiles) {
+    int monsterDamageForBomb(BombType type) const {
+        return std::clamp(bombTypeIndex(type) + 1, 1, 4);
+    }
+
+    void damageMonstersInExplosion(const std::vector<std::array<int, 2>>& tiles,
+                                   BombType type) {
+        int damage = monsterDamageForBomb(type);
         for (ActiveMonster& monster : monsters_) {
             if (!monster.alive) continue;
             int mx = static_cast<int>(monster.x + 7.0f) / 8;
             int my = static_cast<int>(monster.y + 8.0f) / 8;
             if (std::find(tiles.begin(), tiles.end(), std::array<int, 2>{mx, my}) != tiles.end()) {
-                monster.hp = 0;
-                enterMonsterDeath(monster);
+                damageMonster(monster, damage);
             }
+        }
+    }
+
+    void damageMonster(ActiveMonster& monster, int damage) {
+        if (monster.behavior == 2) return;
+        monster.hp = std::max(0, monster.hp - std::max(1, damage));
+        if (monster.hp == 0) {
+            enterMonsterDeath(monster);
         }
     }
 
@@ -3902,6 +3958,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-monster-slots") {
             app.debugMonsterSlots();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-monster-blast-damage") {
+            app.debugMonsterBlastDamage();
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--export-sprites") {

@@ -57,6 +57,11 @@ if(BUILD_TESTING)
     set_tests_properties(bonus_rewards PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+    add_test(NAME monster_blast_damage
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-blast-damage)
+    set_tests_properties(monster_blast_damage PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
     find_program(BASH_EXECUTABLE bash)
     find_program(XVFB_RUN_EXECUTABLE xvfb-run)
     find_program(XDOTOOL_EXECUTABLE xdotool)

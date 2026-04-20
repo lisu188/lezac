@@ -811,6 +811,18 @@ public:
             throw std::runtime_error("N key did not consume player 2 inventory only");
         }
 
+        pushKeyDown(SDLK_ESCAPE);
+        processEvents(running);
+        if (!menu_) {
+            throw std::runtime_error("Escape did not return two-player game to menu");
+        }
+
+        pushKeyDown(SDLK_2);
+        processEvents(running);
+        if (menu_ || playerCount_ != 2) {
+            throw std::runtime_error("two-player restart key did not leave menu");
+        }
+
         energy2_ = 1;
         lives_ = 3;
         lives2_ = 1;
@@ -827,10 +839,13 @@ public:
             throw std::runtime_error("player 2 reentered or fired with zero lives");
         }
 
-        pushKeyDown(SDLK_ESCAPE);
-        processEvents(running);
-        if (!menu_) {
-            throw std::runtime_error("Escape did not return two-player game to menu");
+        energy_ = 1;
+        lives_ = 1;
+        damageCooldown_ = 0;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        if (!menu_ || menuPage_ != MenuPage::Main) {
+            throw std::runtime_error("both players out of lives did not end game");
         }
 
         pushKeyDown(SDLK_1);

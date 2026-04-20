@@ -59,6 +59,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-spawners
 ./build/lezac_cpp --debug-explosions
 ./build/lezac_cpp --debug-damage-queues
+./build/lezac_cpp --debug-monster-slots
 ./build/lezac_cpp --export-sprites BOMOMIMK.SPR /tmp/bomomimk.ppm
 ```
 
@@ -80,6 +81,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
   movement, jumping, objective collection, bomb placement, tile destruction,
   score, start positions, teleports, tile triggers, monster spawning, basic
   behavior-specific monster movement/damage, documented monster reward drops,
+  spawner live-slot return after monster death animation removal,
   four-slot bomb inventory/switching, original bomb actor sprites, player
   animation, active structure hazard damage, bomb blast player damage,
   post-hit damage cooldown, level progression, and records/menu display.

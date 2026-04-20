@@ -1559,6 +1559,46 @@ public:
         if (!printedDebris) std::cout << "debris_sample=missing\n";
     }
 
+    void debugMonsterSlots() {
+        load();
+        resetLevel(0);
+        if (spawnerStates_.empty()) {
+            throw std::runtime_error("level has no spawner state");
+        }
+        int initialSlots = spawnerStates_[0].availableSlots;
+        int initialRemaining = spawnerStates_[0].remaining;
+        updateMonsterSpawners();
+        if (monsters_.empty()) {
+            throw std::runtime_error("monster spawner did not create an actor");
+        }
+        ActiveMonster& monster = monsters_.front();
+        size_t spawnerIndex = monster.spawnerIndex;
+        if (spawnerIndex >= spawnerStates_.size() ||
+            spawnerStates_[spawnerIndex].availableSlots != initialSlots - 1 ||
+            spawnerStates_[spawnerIndex].remaining != initialRemaining - 1) {
+            throw std::runtime_error("monster spawn did not reserve a live slot");
+        }
+
+        enterMonsterDeath(monster);
+        if (spawnerStates_[spawnerIndex].availableSlots != initialSlots - 1) {
+            throw std::runtime_error("monster death returned live slot before removal");
+        }
+        int deathTicks = monster.stateTimer;
+        for (int i = 0; i < deathTicks; ++i) {
+            updateMonsters(0.0f);
+        }
+        if (!monsters_.empty() ||
+            spawnerStates_[spawnerIndex].availableSlots != initialSlots) {
+            throw std::runtime_error("monster removal did not return live slot");
+        }
+        updateMonsters(0.0f);
+        if (spawnerStates_[spawnerIndex].availableSlots != initialSlots) {
+            throw std::runtime_error("monster live slot was returned more than once");
+        }
+        std::cout << "monster_slots=ok initial_slots=" << initialSlots
+                  << " death_ticks=" << deathTicks << '\n';
+    }
+
     void exportSprites(const std::string& bankName, const std::string& path) {
         load();
         const SpriteBank* bank = nullptr;
@@ -2452,7 +2492,10 @@ private:
         for (ActiveMonster& monster : monsters_) {
             if (!monster.alive) continue;
             if (monster.behavior == 2) {
-                if (--monster.stateTimer <= 0) monster.alive = false;
+                if (--monster.stateTimer <= 0) {
+                    releaseMonsterSlot(monster);
+                    monster.alive = false;
+                }
                 continue;
             }
             ++monster.animTick;
@@ -2508,6 +2551,14 @@ private:
         monsters_.erase(std::remove_if(monsters_.begin(), monsters_.end(),
                                        [](const ActiveMonster& monster) { return !monster.alive; }),
                         monsters_.end());
+    }
+
+    void releaseMonsterSlot(ActiveMonster& monster) {
+        if (monster.deathCredited) return;
+        if (monster.spawnerIndex < spawnerStates_.size()) {
+            ++spawnerStates_[monster.spawnerIndex].availableSlots;
+            monster.deathCredited = true;
+        }
     }
 
     void updateDamageCooldowns() {
@@ -3013,10 +3064,6 @@ private:
         flashes_.push_back({static_cast<int>(monster.x + 7.0f) / 8,
                             static_cast<int>(monster.y + 8.0f) / 8, 18});
         playSound(4);
-        if (!monster.deathCredited && monster.spawnerIndex < spawnerStates_.size()) {
-            ++spawnerStates_[monster.spawnerIndex].availableSlots;
-            monster.deathCredited = true;
-        }
     }
 
     void spawnBonusDrop(float x, float y) {
@@ -3727,6 +3774,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-damage-queues") {
             app.debugDamageQueues();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-monster-slots") {
+            app.debugMonsterSlots();
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--export-sprites") {

@@ -52,6 +52,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-bombs
 ./build/lezac_cpp --debug-fixed
 ./build/lezac_cpp --debug-sounds
+./build/lezac_cpp --debug-sound-render
 ./build/lezac_cpp --debug-gran
 ./build/lezac_cpp --debug-levels
 ./build/lezac_cpp --debug-word-layer
@@ -84,21 +85,23 @@ Dump the current bomb inventory model and export sprite contact sheets:
 - Menu subpages for info, instructions, and records, plus original-documented
   background and one-player playfield-width controls.
 - A first playable two-player reconstruction pass with separate start markers,
-  separate controls, split camera views, shared objectives, and player-2 bomb
-  placement through the `N` fire key.
+  separate controls, split camera views, per-player bomb inventories/HUD state,
+  shared objectives, and player-2 bomb placement through the `N` fire key.
 - High-score table serialization back to the original `RECS.DAT` record format,
   name entry for new records, and validation coverage that writes only to
   temporary test files.
+- `PROEFS.SON` records synthesize SDL-queued PC-speaker-style square-wave sound
+  effects for core gameplay events, with headless render validation.
 
 ## Still Approximate
 
 - Monster spawners now create active enemies with original-style 8.8 motion, but
   behavior-specific AI and monster collision/damage remain approximate pending
   deeper reconstruction of the actor update routine around `1000:6053`.
-- PC speaker sound sequencing is parsed as `PROEFS.SON` records but not
-  semantically decoded or replayed.
-- Two-player split-screen is playable, but exact original center-panel HUD,
-  per-player inventory rules, reentry/game-over flow, and scoring semantics
+- PC speaker sound effects now play through an approximate square-wave
+  sequencer; exact original timing and tone-field semantics remain unresolved.
+- Two-player split-screen is playable with independent bomb inventories, but
+  exact original center-panel HUD, reentry/game-over flow, and scoring semantics
   remain approximate.
 - High scores are persisted with name entry, but exact original record-entry
   presentation and keyboard editing semantics remain approximate.

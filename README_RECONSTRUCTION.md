@@ -54,6 +54,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-fixed
 ./build/lezac_cpp --debug-sounds
 ./build/lezac_cpp --debug-sound-render
+./build/lezac_cpp --debug-record-save-failure /tmp/missing-record-dir/records.dat
 ./build/lezac_cpp --debug-gran
 ./build/lezac_cpp --debug-levels
 ./build/lezac_cpp --debug-word-layer
@@ -66,6 +67,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-passable-objects
 ./build/lezac_cpp --debug-trigger-accounting
 ./build/lezac_cpp --debug-portal-cooldowns
+./build/lezac_cpp --debug-collision-pushout
 ./build/lezac_cpp --export-sprites BOMOMIMK.SPR /tmp/bomomimk.ppm
 ```
 
@@ -98,8 +100,8 @@ Dump the current bomb inventory model and export sprite contact sheets:
   separate controls, split camera views, a central objective panel, per-player
   bomb inventories/HUD state, zero-life player-out handling, shared objectives,
   and player-2 bomb placement through the `N` fire key.
-- High-score table serialization back to the original `RECS.DAT` record format,
-  name entry for new records with letter/digit/space/delete handling, and
+- High-score table serialization back to the converted `RECS.DAT.json` resource
+  format, name entry for new records with letter/digit/space/delete handling, and
   validation coverage that writes only to temporary test files.
 - `PROEFS.SON` records synthesize SDL-queued PC-speaker-style square-wave sound
   effects for core gameplay events, with headless render validation.

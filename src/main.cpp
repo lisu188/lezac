@@ -32,6 +32,7 @@ constexpr size_t kGranRecordSize = 57;
 constexpr int kReentryTicks = 180;
 constexpr int kDamageCooldownTicks = 18;
 constexpr uint32_t kFrameDelayMs = 16;
+constexpr int kCollisionPushoutLimit = 1024;
 constexpr int kAudioSampleRate = 22050;
 constexpr int kAudioToneSamples = kAudioSampleRate / 28;
 
@@ -325,6 +326,11 @@ void integrateAxis8_8(int& pos, uint8_t& frac, int16_t velocity) {
 
 std::vector<uint8_t> readFile(const std::string& path) {
     std::ifstream in(path, std::ios::binary);
+    if (!in && path.find('/') == std::string::npos &&
+        path.find('\\') == std::string::npos) {
+        in.clear();
+        in.open("src/" + path, std::ios::binary);
+    }
     if (!in) {
         throw std::runtime_error("cannot open " + path);
     }
@@ -334,6 +340,11 @@ std::vector<uint8_t> readFile(const std::string& path) {
 
 std::string readTextFile(const std::string& path) {
     std::ifstream in(path);
+    if (!in && path.find('/') == std::string::npos &&
+        path.find('\\') == std::string::npos) {
+        in.clear();
+        in.open("src/" + path);
+    }
     if (!in) {
         throw std::runtime_error("cannot open " + path);
     }
@@ -435,6 +446,21 @@ std::string extractString(const std::string& json, const std::string& key,
     return fallback;
 }
 
+std::array<uint8_t, 4> extractU8Array4(const std::string& json, const std::string& key) {
+    std::array<uint8_t, 4> out{};
+    std::regex re("\"" + key + "\"\\s*:\\s*\\[([^\\]]*)\\]");
+    std::smatch m;
+    if (!std::regex_search(json, m, re)) return out;
+    std::regex intRe("(\\d+)");
+    int i = 0;
+    std::string body = m[1].str();
+    for (auto it = std::sregex_iterator(body.begin(), body.end(), intRe);
+         it != std::sregex_iterator() && i < 4; ++it, ++i) {
+        out[static_cast<size_t>(i)] = static_cast<uint8_t>(std::stoi((*it)[1].str()));
+    }
+    return out;
+}
+
 uint16_t le16(const std::vector<uint8_t>& data, size_t off) {
     if (off + 2 > data.size()) {
         throw std::runtime_error("unexpected EOF while reading u16");
@@ -448,13 +474,6 @@ uint32_t le32(const std::vector<uint8_t>& data, size_t off) {
     }
     return static_cast<uint32_t>(data[off] | (data[off + 1] << 8) |
                                  (data[off + 2] << 16) | (data[off + 3] << 24));
-}
-
-void putLe32(std::ostream& out, uint32_t value) {
-    out.put(static_cast<char>(value & 0xffu));
-    out.put(static_cast<char>((value >> 8) & 0xffu));
-    out.put(static_cast<char>((value >> 16) & 0xffu));
-    out.put(static_cast<char>((value >> 24) & 0xffu));
 }
 
 template <size_t N>
@@ -666,18 +685,28 @@ std::string encodeRecordName(const std::string& name) {
 }
 
 void saveRecords(const std::string& path, const std::vector<Record>& records) {
-    std::ofstream out(path, std::ios::binary);
+    std::ofstream out(path);
     if (!out) {
         throw std::runtime_error("cannot create " + path);
     }
     size_t count = std::min<size_t>(records.size(), 255);
-    out.put(static_cast<char>(count));
+    out << "{\n";
+    out << "  \"file\": \"RECS.DAT\",\n";
+    out << "  \"type\": \"high_scores\",\n";
+    out << "  \"record_count\": " << count << ",\n";
+    out << "  \"records\": [\n";
     for (size_t i = 0; i < count; ++i) {
-        putLe32(out, records[i].score);
-        out.put(static_cast<char>(records[i].level));
         std::string name = encodeRecordName(records[i].name);
-        out.write(name.data(), 8);
+        out << "    {\n";
+        out << "      \"index\": " << i << ",\n";
+        out << "      \"score\": " << records[i].score << ",\n";
+        out << "      \"level\": " << static_cast<int>(records[i].level) << ",\n";
+        out << "      \"encoded_name\": " << std::quoted(name) << ",\n";
+        out << "      \"decoded_name\": " << std::quoted(records[i].name) << "\n";
+        out << "    }" << (i + 1 == count ? "\n" : ",\n");
     }
+    out << "  ]\n";
+    out << "}\n";
 }
 
 bool insertRecord(std::vector<Record>& records, Record record, size_t maxRecords = 7) {
@@ -832,18 +861,8 @@ std::vector<Level> loadLevels(const std::string& path) {
             rule.wordRangeFirst = static_cast<uint16_t>(extractInt(triggerJson, "wordRangeFirst"));
             rule.wordRangeLast = static_cast<uint16_t>(extractInt(triggerJson, "wordRangeLast"));
             rule.triggerKey = static_cast<uint16_t>(extractInt(triggerJson, "triggerKey"));
-            std::regex arr4Re("\"(from|to)\"\\s*:\\s*\\[(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\]");
-            for (auto it = std::sregex_iterator(triggerJson.begin(), triggerJson.end(), arr4Re);
-                 it != std::sregex_iterator(); ++it) {
-                std::array<uint8_t, 4> values{
-                    static_cast<uint8_t>(std::stoi((*it)[2].str())),
-                    static_cast<uint8_t>(std::stoi((*it)[3].str())),
-                    static_cast<uint8_t>(std::stoi((*it)[4].str())),
-                    static_cast<uint8_t>(std::stoi((*it)[5].str())),
-                };
-                if ((*it)[1].str() == "from") rule.from = values;
-                else rule.to = values;
-            }
+            rule.from = extractU8Array4(triggerJson, "from");
+            rule.to = extractU8Array4(triggerJson, "to");
             level.tileTriggers.push_back(rule);
         }
 
@@ -1008,7 +1027,7 @@ public:
         pushKeyDown(SDLK_n);
         processEvents(running);
         if (player2Dead_ || energy2_ != 100 || lives2_ != 2 ||
-            bombs_.size() != beforePlayer2ReentryBombs) {
+            bombs_.size() != beforePlayer2ReentryBombs || damageCooldown2_ <= 0) {
             throw std::runtime_error("N key did not reenter player 2 after death");
         }
         size_t afterPlayer2ReentryBombs = bombs_.size();
@@ -1060,7 +1079,7 @@ public:
         }
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
-        if (playerDead_ || energy_ != 100 || lives_ != 2) {
+        if (playerDead_ || energy_ != 100 || lives_ != 2 || damageCooldown_ <= 0) {
             throw std::runtime_error("fire key did not reenter after death");
         }
 
@@ -1280,6 +1299,19 @@ public:
             throw std::runtime_error("high score did not open name entry");
         }
         bool running = true;
+        onKey(SDLK_ESCAPE, running);
+        auto afterCancel = loadRecords(path);
+        if (menuPage_ != MenuPage::Records || pendingRecordScore_ != 0 ||
+            (!afterCancel.empty() && afterCancel[0].score == 999999u)) {
+            throw std::runtime_error("Escape committed pending record instead of cancelling");
+        }
+
+        score_ = 999999u;
+        levelIndex_ = 0;
+        beginGameOver();
+        if (menuPage_ != MenuPage::NameEntry) {
+            throw std::runtime_error("second high score did not open name entry");
+        }
         onKey(SDLK_t, running);
         onKey(SDLK_e, running);
         onKey(SDLK_s, running);
@@ -1296,6 +1328,21 @@ public:
         }
         std::cout << "record_name_entry=ok top=" << reloaded[0].score
                   << " name=" << reloaded[0].name << '\n';
+    }
+
+    void debugRecordSaveFailure(const std::string& path) {
+        load();
+        recordPath_ = path;
+        score_ = 999999u;
+        levelIndex_ = 0;
+        beginGameOver();
+        pendingRecordName_ = "FAIL";
+        finalizePendingRecord();
+        if (menuPage_ != MenuPage::NameEntry || pendingRecordScore_ != 999999u ||
+            pendingRecordName_ != "FAIL") {
+            throw std::runtime_error("record save failure discarded pending entry");
+        }
+        std::cout << "record_save_failure=ok pending=" << pendingRecordScore_ << '\n';
     }
 
     void exportBackground(const std::string& path) {
@@ -1398,6 +1445,27 @@ public:
                         [](const BonusDrop& drop) { return drop.collected; })) {
             throw std::runtime_error("jolly cloud collection corrupted bonus drops");
         }
+
+        playerCount_ = 2;
+        playerDead_ = false;
+        player2Dead_ = false;
+        player_.x = 95.0f;
+        player_.y = 100.0f;
+        player2_.x = 100.0f;
+        player2_.y = 100.0f;
+        energy_ = 50;
+        energy2_ = 50;
+        bonusDrops_.clear();
+        BonusDrop sharedDrop;
+        sharedDrop.x = 100.0f;
+        sharedDrop.y = 100.0f;
+        sharedDrop.type = BonusType::FirstAid;
+        bonusDrops_.push_back(sharedDrop);
+        updateBonusDrops();
+        if (energy_ != 50 || energy2_ != 100 || !bonusDrops_.empty()) {
+            throw std::runtime_error("shared bonus was not awarded to nearest player");
+        }
+        playerCount_ = 1;
 
         score_ = 0;
         inventory = {};
@@ -1926,6 +1994,9 @@ public:
             bonusDrops_.size() != 1) {
             throw std::runtime_error("medium bomb did not finish damaged monster");
         }
+        if (bonusDrops_[0].x != 81.0f || bonusDrops_[0].y != 82.0f) {
+            throw std::runtime_error("monster bonus did not spawn near body center");
+        }
 
         ActiveMonster tough;
         tough.x = 96;
@@ -1939,6 +2010,19 @@ public:
         if (monsters_[1].behavior != 2 || monsters_[1].hp != 0 ||
             bonusDrops_.size() != 2) {
             throw std::runtime_error("super bomb did not apply full monster damage");
+        }
+
+        ActiveMonster edge;
+        edge.x = 89;
+        edge.y = 80;
+        edge.kind = 1;
+        edge.behavior = 3;
+        edge.hp = 2;
+        monsters_.push_back(edge);
+        std::vector<std::array<int, 2>> edgeTiles{{{10, 11}}, {{11, 11}}};
+        damageMonstersInExplosion(edgeTiles, BombType::Small);
+        if (monsters_[2].hp != 1) {
+            throw std::runtime_error("monster blast missed partial overlap");
         }
 
         std::cout << "monster_blast_damage=ok drops=" << bonusDrops_.size() << '\n';
@@ -1971,6 +2055,23 @@ public:
         std::cout << "bomb_fuse=ok fuse=" << fuseTicks
                   << " effects=" << explosionEffects_.size()
                   << " flashes=" << flashes_.size() << '\n';
+
+        resetLevel(0);
+        menu_ = false;
+        energy_ = 1;
+        lives_ = 1;
+        damageCooldown_ = 0;
+        bombs_.clear();
+        flashes_.clear();
+        explosionEffects_.clear();
+        int playerBombX = static_cast<int>(player_.x + 6.0f) / kTileSize;
+        int playerBombY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+        bombs_.push_back({playerBombX, playerBombY, 1, BombType::Small, 1});
+        bombs_.push_back({std::max(0, playerBombX - 4), playerBombY, 1, BombType::Small, 1});
+        updateBombs();
+        if (!menu_ || !bombs_.empty() || !flashes_.empty() || !explosionEffects_.empty()) {
+            throw std::runtime_error("stale expired bomb exploded after reset");
+        }
     }
 
     void debugPassableObjects() {
@@ -2095,6 +2196,44 @@ public:
             }
         }
         throw std::runtime_error("no portal source tile found");
+    }
+
+    void debugCollisionPushout() {
+        load();
+        resetLevel(0);
+        bool found = false;
+        for (int y = 0; y < level_.height && !found; ++y) {
+            for (int x = 0; x < level_.width && !found; ++x) {
+                if (!solidPixel(static_cast<float>(x * kTileSize + 1),
+                                static_cast<float>(y * kTileSize + 1))) {
+                    continue;
+                }
+                player_.x = static_cast<float>(x * kTileSize);
+                player_.y = static_cast<float>(y * kTileSize);
+                movePlayer(player_, 1.0f, 0.0f);
+
+                monsters_.clear();
+                ActiveMonster monster;
+                monster.x = x * kTileSize;
+                monster.y = y * kTileSize;
+                monster.kind = 1;
+                monster.behavior = 3;
+                monster.alive = true;
+                monster.vx8 = 0x0100;
+                monster.vy8 = 0x0100;
+                monster.animDelay = 1;
+                monster.animStart = 43;
+                monster.animEnd = 44;
+                monster.animFrame = 43;
+                monsters_.push_back(monster);
+                updateMonsters(0.0f);
+                found = true;
+            }
+        }
+        if (!found) {
+            throw std::runtime_error("no solid tile found for collision pushout");
+        }
+        std::cout << "collision_pushout=ok\n";
     }
 
     void exportSprites(const std::string& bankName, const std::string& path) {
@@ -2224,6 +2363,7 @@ private:
     int reentryTimer2_ = 0;
     int damageCooldown_ = 0;
     int damageCooldown2_ = 0;
+    int levelResetGeneration_ = 0;
     BombInventory bombInventory_;
     BombInventory bombInventory2_;
     bool weaponSwitchHeld_ = false;
@@ -2313,6 +2453,7 @@ private:
     }
 
     void resetLevel(int index) {
+        ++levelResetGeneration_;
         levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
         level_ = levels_[levelIndex_];
         player_ = {};
@@ -2455,8 +2596,7 @@ private:
             return;
         }
         if (key == SDLK_ESCAPE) {
-            if (pendingRecordName_.empty()) pendingRecordName_ = "PLAYER";
-            finalizePendingRecord();
+            cancelPendingRecord();
             return;
         }
         char ch = recordCharForKey(key);
@@ -2540,7 +2680,7 @@ private:
         Uint32 bytes = static_cast<Uint32>(samples.size() * sizeof(int16_t));
         if (audioSpec_.format == AUDIO_S16SYS && audioSpec_.channels == 1 &&
             audioSpec_.freq == kAudioSampleRate) {
-            SDL_QueueAudio(audioDevice_, samples.data(), bytes);
+            queueAudio(samples.data(), bytes);
             return;
         }
 
@@ -2553,7 +2693,7 @@ private:
             return;
         }
         if (build == 0) {
-            SDL_QueueAudio(audioDevice_, samples.data(), bytes);
+            queueAudio(samples.data(), bytes);
             return;
         }
 
@@ -2565,7 +2705,14 @@ private:
             SDL_ClearError();
             return;
         }
-        SDL_QueueAudio(audioDevice_, converted.data(), static_cast<Uint32>(cvt.len_cvt));
+        queueAudio(converted.data(), static_cast<Uint32>(cvt.len_cvt));
+    }
+
+    void queueAudio(const void* data, Uint32 bytes) {
+        if (SDL_QueueAudio(audioDevice_, data, bytes) != 0) {
+            SDL_ClearError();
+            audioEnabled_ = false;
+        }
     }
 
     void playSoundSelector(uint8_t selector) {
@@ -2791,17 +2938,27 @@ private:
 
     void movePlayer(Player& player, float dx, float dy) {
         if (dx != 0.0f) {
+            float oldX = player.x;
             player.x += dx;
             if (collides(player.x, player.y)) {
                 float step = dx > 0.0f ? -1.0f : 1.0f;
-                while (collides(player.x, player.y)) player.x += step;
+                int pushes = 0;
+                while (collides(player.x, player.y) && pushes++ < kCollisionPushoutLimit) {
+                    player.x += step;
+                }
+                if (collides(player.x, player.y)) player.x = oldX;
             }
         }
         if (dy != 0.0f) {
+            float oldY = player.y;
             player.y += dy;
             if (collides(player.x, player.y)) {
                 float step = dy > 0.0f ? -1.0f : 1.0f;
-                while (collides(player.x, player.y)) player.y += step;
+                int pushes = 0;
+                while (collides(player.x, player.y) && pushes++ < kCollisionPushoutLimit) {
+                    player.y += step;
+                }
+                if (collides(player.x, player.y)) player.y = oldY;
                 player.grounded = dy > 0.0f;
                 player.vy = 0.0f;
             } else {
@@ -3064,20 +3221,30 @@ private:
             }
             updateMonsterMotion(monster, dt);
 
+            int oldX = monster.x;
             integrateAxis8_8(monster.x, monster.fracX, monster.vx8);
             if (monsterCollides(monster.x, monster.y)) {
                 int step = monster.vx8 > 0 ? -1 : 1;
-                while (monsterCollides(monster.x, monster.y)) monster.x += step;
+                int pushes = 0;
+                while (monsterCollides(monster.x, monster.y) && pushes++ < kCollisionPushoutLimit) {
+                    monster.x += step;
+                }
+                if (monsterCollides(monster.x, monster.y)) monster.x = oldX;
                 monster.vx8 = static_cast<int16_t>(-monster.vx8 / (monster.behavior == 4 ? 2 : 1));
                 monster.fracX = 0;
                 if (monster.behavior == 4) monster.motionTimer = 0;
                 refreshMonsterAnimationProfile(monster);
             }
 
+            int oldY = monster.y;
             integrateAxis8_8(monster.y, monster.fracY, monster.vy8);
             if (monsterCollides(monster.x, monster.y)) {
                 int step = monster.vy8 > 0 ? -1 : 1;
-                while (monsterCollides(monster.x, monster.y)) monster.y += step;
+                int pushes = 0;
+                while (monsterCollides(monster.x, monster.y) && pushes++ < kCollisionPushoutLimit) {
+                    monster.y += step;
+                }
+                if (monsterCollides(monster.x, monster.y)) monster.y = oldY;
                 monster.vy8 = monster.behavior == 4 ? static_cast<int16_t>(-monster.vy8 / 2) : 0;
                 monster.fracY = 0;
                 if (monster.behavior == 4) monster.motionTimer = 0;
@@ -3292,7 +3459,7 @@ private:
             return;
         }
         respawnPlayerAtStart(player, energy, startMarker);
-        damageCooldown = 0;
+        damageCooldown = kDamageCooldownTicks;
         dead = false;
         timer = 0;
     }
@@ -3347,17 +3514,31 @@ private:
         record.score = pendingRecordScore_;
         record.level = pendingRecordLevel_;
         record.name = pendingRecordName_.empty() ? "PLAYER" : pendingRecordName_;
-        bool changed = insertRecord(records_, record);
+        std::vector<Record> updatedRecords = records_;
+        bool changed = insertRecord(updatedRecords, record);
         try {
-            if (changed) saveRecords(recordPath_, records_);
+            if (changed) saveRecords(recordPath_, updatedRecords);
         } catch (const std::exception& e) {
             std::cerr << "warning: could not save records: " << e.what() << '\n';
+            menuPage_ = MenuPage::NameEntry;
+            return;
         }
+        records_ = std::move(updatedRecords);
+        clearPendingRecord();
+        score_ = 0;
+        menuPage_ = MenuPage::Records;
+    }
+
+    void cancelPendingRecord() {
+        clearPendingRecord();
+        score_ = 0;
+        menuPage_ = MenuPage::Records;
+    }
+
+    void clearPendingRecord() {
         pendingRecordScore_ = 0;
         pendingRecordLevel_ = 0;
         pendingRecordName_.clear();
-        score_ = 0;
-        menuPage_ = MenuPage::Records;
     }
 
     void placeBombAt(const Player& player, BombInventory& inventory) {
@@ -3388,7 +3569,11 @@ private:
         bombs_.erase(std::remove_if(bombs_.begin(), bombs_.end(),
                                     [](const Bomb& b) { return b.timer <= 0; }),
                      bombs_.end());
-        for (const Bomb& b : expired) explode(b);
+        int generation = levelResetGeneration_;
+        for (const Bomb& b : expired) {
+            if (levelResetGeneration_ != generation) break;
+            explode(b);
+        }
     }
 
     std::vector<std::array<int, 2>> explosionTilesFor(const Bomb& bomb) const {
@@ -3588,12 +3773,29 @@ private:
         int damage = monsterDamageForBomb(type);
         for (ActiveMonster& monster : monsters_) {
             if (!monster.alive) continue;
-            int mx = static_cast<int>(monster.x + 7.0f) / 8;
-            int my = static_cast<int>(monster.y + 8.0f) / 8;
-            if (std::find(tiles.begin(), tiles.end(), std::array<int, 2>{mx, my}) != tiles.end()) {
+            if (monsterOverlapsExplosionTiles(monster, tiles)) {
                 damageMonster(monster, damage);
             }
         }
+    }
+
+    bool monsterOverlapsExplosionTiles(const ActiveMonster& monster,
+                                       const std::vector<std::array<int, 2>>& tiles) const {
+        for (const auto& tile : tiles) {
+            float x = static_cast<float>(tile[0] * kTileSize);
+            float y = static_cast<float>(tile[1] * kTileSize);
+            if (rectsOverlap(static_cast<float>(monster.x), static_cast<float>(monster.y),
+                             14.0f, 16.0f, x, y, static_cast<float>(kTileSize),
+                             static_cast<float>(kTileSize))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool rectsOverlap(float ax, float ay, float aw, float ah,
+                      float bx, float by, float bw, float bh) const {
+        return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
     }
 
     void damageMonster(ActiveMonster& monster, int damage) {
@@ -3631,7 +3833,8 @@ private:
 
     void enterMonsterDeath(ActiveMonster& monster) {
         if (monster.behavior == 2) return;
-        spawnBonusDrop(monster.x, monster.y);
+        spawnBonusDrop(static_cast<float>(monster.x) + 1.0f,
+                       static_cast<float>(monster.y) + 2.0f);
         monster.behavior = 2;
         monster.kind = 0x0c;
         monster.stateTimer = 25;
@@ -3659,16 +3862,27 @@ private:
             BonusDrop& drop = bonusDrops_[i];
             if (drop.collected) continue;
             ++drop.animTick;
-            if (!playerDead_ && playerOverlaps(player_, drop.x, drop.y, 12.0f, 12.0f)) {
+            bool p1Overlaps = !playerDead_ &&
+                              playerOverlaps(player_, drop.x, drop.y, 12.0f, 12.0f);
+            bool p2Overlaps = playerCount_ > 1 && !player2Dead_ &&
+                              playerOverlaps(player2_, drop.x, drop.y, 12.0f, 12.0f);
+            if (p1Overlaps &&
+                (!p2Overlaps ||
+                 bonusDistanceSq(player_, drop) <= bonusDistanceSq(player2_, drop))) {
                 collectBonusDrop(drop, player_, energy_, bombInventory_);
-            } else if (playerCount_ > 1 && !player2Dead_ &&
-                       playerOverlaps(player2_, drop.x, drop.y, 12.0f, 12.0f)) {
+            } else if (p2Overlaps) {
                 collectBonusDrop(drop, player2_, energy2_, bombInventory2_);
             }
         }
         bonusDrops_.erase(std::remove_if(bonusDrops_.begin(), bonusDrops_.end(),
                                          [](const BonusDrop& drop) { return drop.collected; }),
                           bonusDrops_.end());
+    }
+
+    float bonusDistanceSq(const Player& player, const BonusDrop& drop) const {
+        float dx = (player.x + 6.0f) - (drop.x + 6.0f);
+        float dy = (player.y + 8.0f) - (drop.y + 6.0f);
+        return dx * dx + dy * dy;
     }
 
     void collectBonusDrop(BonusDrop& drop, const Player& collector, int& energy,
@@ -4320,6 +4534,10 @@ int main(int argc, char** argv) {
             app.debugRecordNameEntry(argv[2]);
             return 0;
         }
+        if (argc > 2 && std::string(argv[1]) == "--debug-record-save-failure") {
+            app.debugRecordSaveFailure(argv[2]);
+            return 0;
+        }
         if (argc > 2 && std::string(argv[1]) == "--export-background") {
             app.exportBackground(argv[2]);
             return 0;
@@ -4390,6 +4608,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-portal-cooldowns") {
             app.debugPortalCooldowns();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-collision-pushout") {
+            app.debugCollisionPushout();
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--export-sprites") {

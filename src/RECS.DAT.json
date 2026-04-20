@@ -1,0 +1,56 @@
+{
+  "file": "RECS.DAT",
+  "type": "high_scores",
+  "record_count": 7,
+  "records": [
+    {
+      "index": 0,
+      "score": 541200,
+      "level": 8,
+      "encoded_name": "aga:::::",
+      "decoded_name": "aga"
+    },
+    {
+      "index": 1,
+      "score": 516790,
+      "level": 8,
+      "encoded_name": "aga:::::",
+      "decoded_name": "aga"
+    },
+    {
+      "index": 2,
+      "score": 515670,
+      "level": 8,
+      "encoded_name": "aga:::::",
+      "decoded_name": "aga"
+    },
+    {
+      "index": 3,
+      "score": 503260,
+      "level": 8,
+      "encoded_name": "aga:::::",
+      "decoded_name": "aga"
+    },
+    {
+      "index": 4,
+      "score": 479370,
+      "level": 8,
+      "encoded_name": "aga:::::",
+      "decoded_name": "aga"
+    },
+    {
+      "index": 5,
+      "score": 477670,
+      "level": 8,
+      "encoded_name": "aga:::::",
+      "decoded_name": "aga"
+    },
+    {
+      "index": 6,
+      "score": 474930,
+      "level": 8,
+      "encoded_name": "aga:::::",
+      "decoded_name": "aga"
+    }
+  ]
+}

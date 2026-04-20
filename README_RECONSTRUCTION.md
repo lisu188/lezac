@@ -62,6 +62,8 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-damage-queues
 ./build/lezac_cpp --debug-monster-slots
 ./build/lezac_cpp --debug-monster-blast-damage
+./build/lezac_cpp --debug-bomb-fuse
+./build/lezac_cpp --debug-passable-objects
 ./build/lezac_cpp --export-sprites BOMOMIMK.SPR /tmp/bomomimk.ppm
 ```
 

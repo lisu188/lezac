@@ -28,6 +28,7 @@ constexpr size_t kCollapseCapacity = 0x00fa;
 constexpr size_t kGranRecordSize = 57;
 constexpr int kReentryTicks = 180;
 constexpr int kDamageCooldownTicks = 18;
+constexpr uint32_t kFrameDelayMs = 16;
 constexpr int kAudioSampleRate = 22050;
 constexpr int kAudioToneSamples = kAudioSampleRate / 28;
 
@@ -759,7 +760,7 @@ public:
             last = now;
             update(dt);
             draw();
-            SDL_Delay(1);
+            SDL_Delay(kFrameDelayMs);
         }
     }
 
@@ -1753,6 +1754,75 @@ public:
         std::cout << "monster_blast_damage=ok drops=" << bonusDrops_.size() << '\n';
     }
 
+    void debugBombFuse() {
+        load();
+        resetLevel(0);
+        bombs_.clear();
+        flashes_.clear();
+        explosionEffects_.clear();
+        int beforeSmallBombs = bombInventory_.counts[0];
+        placeBombAt(player_, bombInventory_);
+        if (bombs_.size() != 1 || bombInventory_.counts[0] != beforeSmallBombs - 1) {
+            throw std::runtime_error("bomb placement did not create a timed bomb");
+        }
+
+        int fuseTicks = bombs_[0].timer;
+        for (int i = 1; i < fuseTicks; ++i) {
+            updateBombs();
+            if (bombs_.size() != 1 || bombs_[0].timer != fuseTicks - i) {
+                throw std::runtime_error("bomb expired before fuse reached zero");
+            }
+        }
+
+        updateBombs();
+        if (!bombs_.empty() || explosionEffects_.empty() || flashes_.empty()) {
+            throw std::runtime_error("bomb fuse did not produce an explosion");
+        }
+        std::cout << "bomb_fuse=ok fuse=" << fuseTicks
+                  << " effects=" << explosionEffects_.size()
+                  << " flashes=" << flashes_.size() << '\n';
+    }
+
+    void debugPassableObjects() {
+        load();
+        bool sawBombObject = false;
+        bool sawPortal = false;
+        bool sawSolid = false;
+
+        for (size_t level = 0; level < levels_.size(); ++level) {
+            resetLevel(static_cast<int>(level));
+            for (int y = 0; y < level_.height; ++y) {
+                for (int x = 0; x < level_.width; ++x) {
+                    uint8_t tile = static_cast<uint8_t>(tileAt(x, y));
+                    float px = static_cast<float>(x * kTileSize + 1);
+                    float py = static_cast<float>(y * kTileSize + 1);
+                    if (isBombObjectTile(tile)) {
+                        sawBombObject = true;
+                        if (solidPixel(px, py)) {
+                            throw std::runtime_error("bomb object tile blocks movement");
+                        }
+                    } else if (tile == 0x45) {
+                        sawPortal = true;
+                        if (solidPixel(px, py)) {
+                            throw std::runtime_error("portal tile blocks movement");
+                        }
+                    } else if (countsForDestructionProgress(tile, level_.objectiveTile) &&
+                               !isPassableObjectTile(tile)) {
+                        sawSolid = true;
+                        if (!solidPixel(px, py)) {
+                            throw std::runtime_error("solid map tile became passable");
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!sawBombObject || !sawPortal || !sawSolid) {
+            throw std::runtime_error("passable object coverage did not find required tile types");
+        }
+        std::cout << "passable_objects=ok\n";
+    }
+
     void exportSprites(const std::string& bankName, const std::string& path) {
         load();
         const SpriteBank* bank = nullptr;
@@ -2218,7 +2288,9 @@ private:
 
     bool solidPixel(float px, float py) const {
         int tile = tileAt(static_cast<int>(px) / kTileSize, static_cast<int>(py) / kTileSize);
-        return countsForDestructionProgress(static_cast<uint8_t>(tile), level_.objectiveTile);
+        uint8_t tileByte = static_cast<uint8_t>(tile);
+        return countsForDestructionProgress(tileByte, level_.objectiveTile) &&
+               !isPassableObjectTile(tileByte);
     }
 
     bool collides(float x, float y) const {
@@ -3031,6 +3103,10 @@ private:
 
     bool isBombObjectTile(uint8_t tile) const {
         return tile > 0x66 && tile < 0x73;
+    }
+
+    bool isPassableObjectTile(uint8_t tile) const {
+        return tile == 0x45 || isBombObjectTile(tile);
     }
 
     bool consumeBombObjectTile(int tx, int ty) {
@@ -3962,6 +4038,14 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-monster-blast-damage") {
             app.debugMonsterBlastDamage();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-bomb-fuse") {
+            app.debugBombFuse();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-passable-objects") {
+            app.debugPassableObjects();
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--export-sprites") {

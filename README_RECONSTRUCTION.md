@@ -50,6 +50,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 
 ```sh
 ./build/lezac_cpp --debug-bombs
+./build/lezac_cpp --debug-bonuses
 ./build/lezac_cpp --debug-fixed
 ./build/lezac_cpp --debug-sounds
 ./build/lezac_cpp --debug-sound-render
@@ -59,6 +60,10 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-spawners
 ./build/lezac_cpp --debug-explosions
 ./build/lezac_cpp --debug-damage-queues
+./build/lezac_cpp --debug-monster-slots
+./build/lezac_cpp --debug-monster-blast-damage
+./build/lezac_cpp --debug-bomb-fuse
+./build/lezac_cpp --debug-passable-objects
 ./build/lezac_cpp --export-sprites BOMOMIMK.SPR /tmp/bomomimk.ppm
 ```
 
@@ -80,15 +85,17 @@ Dump the current bomb inventory model and export sprite contact sheets:
   movement, jumping, objective collection, bomb placement, tile destruction,
   score, start positions, teleports, tile triggers, monster spawning, basic
   behavior-specific monster movement/damage, documented monster reward drops,
+  spawner live-slot return after monster death animation removal,
+  bomb-power damage against monster hit points,
   four-slot bomb inventory/switching, original bomb actor sprites, player
-  animation, active structure hazard damage, bomb blast player damage, level
-  progression, and records/menu display.
+  animation, active structure hazard damage, bomb blast player damage,
+  post-hit damage cooldown, level progression, and records/menu display.
 - Menu subpages for info, instructions, and records, plus original-documented
   background and one-player playfield-width controls.
 - A first playable two-player reconstruction pass with separate start markers,
   separate controls, split camera views, a central objective panel, per-player
-  bomb inventories/HUD state, shared objectives, and player-2 bomb placement
-  through the `N` fire key.
+  bomb inventories/HUD state, zero-life player-out handling, shared objectives,
+  and player-2 bomb placement through the `N` fire key.
 - High-score table serialization back to the original `RECS.DAT` record format,
   name entry for new records with letter/digit/space/delete handling, and
   validation coverage that writes only to temporary test files.
@@ -102,16 +109,17 @@ Dump the current bomb inventory model and export sprite contact sheets:
   deeper reconstruction of the actor update routine around `1000:6053`.
 - PC speaker sound effects now play through an approximate square-wave
   sequencer; exact original timing and tone-field semantics remain unresolved.
-- Two-player split-screen is playable with independent bomb inventories and a
-  central objective panel, but exact original panel artwork, reentry/game-over
-  flow, and scoring semantics remain approximate.
+- Two-player split-screen is playable with independent bomb inventories, a
+  central objective panel, and per-player zero-life handling, but exact original
+  panel artwork, reentry flow, and scoring semantics remain approximate.
 - High scores are persisted with name entry, but exact original record-entry
   cursor movement, typematic repeat, and presentation remain approximate.
-- Bomb fuse timing, 2x2 footprint, player/monster blast damage, visual
+- Bomb fuse timing, 2x2 footprint, player blast damage, monster hit-point
+  blast damage, visual
   selectors, actor sprite indices, and word-layer damage gating now follow the
   `1000:414a`/`1000:370e`/expiration analysis. Active collapse/debris records
-  now drain player energy, but exact sprite playback and per-frame damage
-  timing remain simplified.
+  now drain player energy with a short post-hit cooldown, but exact sprite
+  playback and per-frame damage timing remain simplified.
 
 See [docs/GHIDRA_NOTES.md](docs/GHIDRA_NOTES.md) for addresses and disassembly
 anchors used in the reconstruction.

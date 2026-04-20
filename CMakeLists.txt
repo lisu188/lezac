@@ -22,13 +22,13 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
     add_test(NAME ui_smoke_dummy
-        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --smoke-ui 3)
     set_tests_properties(ui_smoke_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
     add_test(NAME ui_controls_dummy
-        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --smoke-controls)
     set_tests_properties(ui_controls_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
@@ -49,12 +49,35 @@ if(BUILD_TESTING)
     set_tests_properties(sound_render PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+    add_test(NAME monster_slots COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-slots)
+    set_tests_properties(monster_slots PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+    add_test(NAME bonus_rewards COMMAND $<TARGET_FILE:lezac_cpp> --debug-bonuses)
+    set_tests_properties(bonus_rewards PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+    add_test(NAME monster_blast_damage
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-blast-damage)
+    set_tests_properties(monster_blast_damage PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+    add_test(NAME bomb_fuse COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-fuse)
+    set_tests_properties(bomb_fuse PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+    add_test(NAME passable_objects
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-passable-objects)
+    set_tests_properties(passable_objects PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
     find_program(BASH_EXECUTABLE bash)
     find_program(XVFB_RUN_EXECUTABLE xvfb-run)
     find_program(XDOTOOL_EXECUTABLE xdotool)
     if(BASH_EXECUTABLE AND XVFB_RUN_EXECUTABLE AND XDOTOOL_EXECUTABLE)
         add_test(NAME ui_xdotool_xvfb
-            COMMAND ${XVFB_RUN_EXECUTABLE} -a
+            COMMAND ${CMAKE_COMMAND} -E env SDL_AUDIODRIVER=dummy
+                    ${XVFB_RUN_EXECUTABLE} -a
                     ${BASH_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_ui_xdotool.sh
                     $<TARGET_FILE:lezac_cpp>)

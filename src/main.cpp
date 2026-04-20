@@ -27,6 +27,8 @@ constexpr size_t kDebrisCapacity = 0x640;
 constexpr size_t kCollapseCapacity = 0x00fa;
 constexpr size_t kGranRecordSize = 57;
 constexpr int kReentryTicks = 180;
+constexpr int kDamageCooldownTicks = 18;
+constexpr uint32_t kFrameDelayMs = 16;
 constexpr int kAudioSampleRate = 22050;
 constexpr int kAudioToneSamples = kAudioSampleRate / 28;
 
@@ -123,6 +125,10 @@ struct Level {
     int startingObjectiveTiles = 0;
     int startingDestructibleTiles = 0;
 };
+
+bool countsForDestructionProgress(uint8_t tile, uint8_t objectiveTile) {
+    return tile > 1 && tile != 0xff && tile != objectiveTile;
+}
 
 struct Record {
     uint32_t score = 0;
@@ -714,7 +720,7 @@ std::vector<Level> loadLevels(const std::string& path) {
         for (uint8_t tile : level.tiles) {
             if (tile == level.objectiveTile) {
                 ++level.startingObjectiveTiles;
-            } else if (tile > 1) {
+            } else if (countsForDestructionProgress(tile, level.objectiveTile)) {
                 ++level.startingDestructibleTiles;
             }
         }
@@ -754,7 +760,7 @@ public:
             last = now;
             update(dt);
             draw();
-            SDL_Delay(1);
+            SDL_Delay(kFrameDelayMs);
         }
     }
 
@@ -794,6 +800,15 @@ public:
             throw std::runtime_error("two-player key did not start two-player mode");
         }
 
+        int twoPlayerViewWidth = gameplayViewWidth_;
+        pushKeyDown(SDLK_r);
+        processEvents(running);
+        pushKeyDown(SDLK_e);
+        processEvents(running);
+        if (gameplayViewWidth_ != twoPlayerViewWidth) {
+            throw std::runtime_error("two-player game changed one-player view width");
+        }
+
         size_t twoPlayerBombs = bombs_.size();
         int player2BombX = static_cast<int>(player2_.x + 6.0f) / 8;
         int player2BombY = static_cast<int>(player2_.y + 12.0f) / 8;
@@ -816,6 +831,63 @@ public:
             throw std::runtime_error("Escape did not return two-player game to menu");
         }
 
+        pushKeyDown(SDLK_2);
+        processEvents(running);
+        if (menu_ || playerCount_ != 2) {
+            throw std::runtime_error("two-player restart key did not leave menu");
+        }
+
+        energy2_ = 1;
+        lives_ = 3;
+        lives2_ = 3;
+        damageCooldown2_ = 0;
+        size_t beforePlayer2ReentryBombs = bombs_.size();
+        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                     damageCooldown2_, 2);
+        if (menu_ || !player2Dead_ || lives2_ != 2 || reentryTimer2_ <= 0 ||
+            playerDead_) {
+            throw std::runtime_error("player 2 death did not enter reentry state");
+        }
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (player2Dead_ || energy2_ != 100 || lives2_ != 2 ||
+            bombs_.size() != beforePlayer2ReentryBombs) {
+            throw std::runtime_error("N key did not reenter player 2 after death");
+        }
+        size_t afterPlayer2ReentryBombs = bombs_.size();
+        int player2BombsAfterReentry = bombInventory2_.counts[0];
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.size() != afterPlayer2ReentryBombs + 1 ||
+            bombInventory2_.counts[0] != player2BombsAfterReentry - 1) {
+            throw std::runtime_error("N key did not fire for player 2 after reentry");
+        }
+
+        energy2_ = 1;
+        lives_ = 3;
+        lives2_ = 1;
+        damageCooldown2_ = 0;
+        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                     damageCooldown2_, 2);
+        if (menu_ || !player2Dead_ || lives2_ != 0 || lives_ != 3 || playerDead_) {
+            throw std::runtime_error("player 2 zero lives ended two-player game");
+        }
+        size_t afterPlayer2OutBombs = bombs_.size();
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (!player2Dead_ || bombs_.size() != afterPlayer2OutBombs) {
+            throw std::runtime_error("player 2 reentered or fired with zero lives");
+        }
+
+        energy_ = 1;
+        lives_ = 1;
+        damageCooldown_ = 0;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        if (!menu_ || menuPage_ != MenuPage::Main) {
+            throw std::runtime_error("both players out of lives did not end game");
+        }
+
         pushKeyDown(SDLK_1);
         processEvents(running);
         if (menu_ || playerCount_ != 1) {
@@ -824,7 +896,8 @@ public:
 
         energy_ = 1;
         lives_ = 3;
-        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
         if (!playerDead_ || lives_ != 2 || reentryTimer_ <= 0) {
             throw std::runtime_error("player death did not enter reentry state");
         }
@@ -832,6 +905,23 @@ public:
         processEvents(running);
         if (playerDead_ || energy_ != 100 || lives_ != 2) {
             throw std::runtime_error("fire key did not reenter after death");
+        }
+
+        auto objectivePos = findObjectiveTileForSmoke();
+        if (!consumeBombObjectTile(objectivePos[0], objectivePos[1]) ||
+            canReenterLevel()) {
+            throw std::runtime_error("objective destruction did not block reentry");
+        }
+        energy_ = 1;
+        lives_ = 3;
+        damageCooldown_ = 0;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        pushKeyDown(SDLK_SPACE);
+        processEvents(running);
+        if (playerDead_ || lives_ != 2 ||
+            remainingObjectiveTiles() != level_.startingObjectiveTiles) {
+            throw std::runtime_error("fire reentered instead of restarting unwinnable level");
         }
 
         size_t bombCount = bombs_.size();
@@ -846,6 +936,7 @@ public:
         }
 
         energy_ = 100;
+        damageCooldown_ = 0;
         DebrisRecord debris;
         debris.tileIndex = (static_cast<int>(player_.y + 8.0f) / 8) * level_.width +
                            (static_cast<int>(player_.x + 6.0f) / 8);
@@ -855,6 +946,11 @@ public:
         if (energy_ >= 100) {
             throw std::runtime_error("active debris did not drain player energy");
         }
+        int afterDebrisEnergy = energy_;
+        updateFlashes();
+        if (energy_ != afterDebrisEnergy) {
+            throw std::runtime_error("damage cooldown did not block repeated debris damage");
+        }
 
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
@@ -863,6 +959,7 @@ public:
         }
 
         energy_ = 100;
+        damageCooldown_ = 0;
         BombProfile contactProfile = bombProfile(BombType::Small);
         Bomb contactBomb{static_cast<int>(player_.x + 6.0f) / 8,
                          static_cast<int>(player_.y + 12.0f) / 8,
@@ -903,6 +1000,17 @@ public:
         processEvents(running);
         if (levelIndex_ != 0) {
             throw std::runtime_error("PageDown did not return to level 1");
+        }
+
+        smokeBombObjectDestructionProgress();
+        resetLevel(0);
+        smokeCompleteCurrentLevelFromMapProgress();
+
+        size_t preResetBombs = bombs_.size();
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.size() != preResetBombs + 1) {
+            throw std::runtime_error("pre-reset bomb was not placed");
         }
 
         pushKeyDown(SDLK_F5);
@@ -1044,6 +1152,91 @@ public:
         Bomb bomb{10, 10, profile.fuseTicks, BombType::Super, profile.fuseTicks};
         auto tiles = explosionTilesFor(bomb);
         std::cout << "super_bomb_footprint_tiles=" << tiles.size() << '\n';
+    }
+
+    void debugBonuses() {
+        load();
+        resetLevel(0);
+        Player collector = player_;
+        BombInventory inventory;
+        int energy = 50;
+
+        auto expectScore = [&](BonusType type, uint32_t expectedScore) {
+            uint32_t before = score_;
+            applyBonus(type, collector, energy, inventory);
+            if (score_ != before + expectedScore) {
+                throw std::runtime_error("bonus score table mismatch");
+            }
+        };
+
+        std::array<std::array<int, 2>, 7> spriteScores{{
+            {61, 2000}, {62, 1000}, {63, 1500}, {64, 2000},
+            {65, 3000}, {66, 1000}, {67, 5000},
+        }};
+        for (int i = 0; i < static_cast<int>(spriteScores.size()); ++i) {
+            BonusType type = static_cast<BonusType>(i);
+            if (bonusSpriteIndex(type) != spriteScores[static_cast<size_t>(i)][0]) {
+                throw std::runtime_error("bonus sprite table mismatch");
+            }
+        }
+
+        score_ = 0;
+        energy = 50;
+        expectScore(BonusType::Present, 2000);
+        if (energy != 50) throw std::runtime_error("present changed energy");
+
+        score_ = 0;
+        energy = 20;
+        expectScore(BonusType::FirstAid, 1000);
+        if (energy != 100) throw std::runtime_error("first aid did not restore energy");
+
+        score_ = 0;
+        energy = 50;
+        expectScore(BonusType::HotDog, 1500);
+        if (energy != 83) throw std::runtime_error("hot dog did not add one-third energy");
+        energy = 90;
+        applyBonus(BonusType::HotDog, collector, energy, inventory);
+        if (energy != 100) throw std::runtime_error("hot dog did not clamp energy");
+
+        score_ = 0;
+        bonusDrops_.clear();
+        expectScore(BonusType::JollyCloud, 2000);
+        if (bonusDrops_.size() != 4 ||
+            bonusDrops_[0].type != BonusType::Present ||
+            bonusDrops_[1].type != BonusType::BigDiamond ||
+            bonusDrops_[2].type != BonusType::Present ||
+            bonusDrops_[3].type != BonusType::BigDiamond) {
+            throw std::runtime_error("jolly cloud did not spawn bonus rain");
+        }
+
+        score_ = 0;
+        inventory = {};
+        inventory.counts = {0, 0, 0, 0};
+        inventory.selected = BombType::Super;
+        randomSeed_ = 0x1234abcd;
+        expectScore(BonusType::YellowBombBox, 3000);
+        if (inventory.counts[0] != 200 || inventory.counts[1] <= 0 ||
+            inventory.counts[2] <= 0 || inventory.counts[3] != 0 ||
+            !hasBomb(inventory, inventory.selected)) {
+            throw std::runtime_error("yellow bomb box did not grant normal set");
+        }
+
+        score_ = 0;
+        inventory = {};
+        inventory.counts = {0, 0, 0, 0};
+        inventory.selected = BombType::Super;
+        randomSeed_ = 0x1234abcd;
+        expectScore(BonusType::GreenBombBox, 1000);
+        if (inventory.counts[0] != 200 || inventory.counts[1] <= 0 ||
+            inventory.counts[2] <= 0 || inventory.counts[3] <= 0 ||
+            inventory.selected != BombType::Super) {
+            throw std::runtime_error("green bomb box did not grant super set");
+        }
+
+        score_ = 0;
+        expectScore(BonusType::BigDiamond, 5000);
+        std::cout << "bonuses=ok sprites=" << spriteScores.size()
+                  << " rain=" << bonusDrops_.size() << '\n';
     }
 
     void debugFixed() {
@@ -1478,6 +1671,158 @@ public:
         if (!printedDebris) std::cout << "debris_sample=missing\n";
     }
 
+    void debugMonsterSlots() {
+        load();
+        resetLevel(0);
+        if (spawnerStates_.empty()) {
+            throw std::runtime_error("level has no spawner state");
+        }
+        int initialSlots = spawnerStates_[0].availableSlots;
+        int initialRemaining = spawnerStates_[0].remaining;
+        updateMonsterSpawners();
+        if (monsters_.empty()) {
+            throw std::runtime_error("monster spawner did not create an actor");
+        }
+        ActiveMonster& monster = monsters_.front();
+        size_t spawnerIndex = monster.spawnerIndex;
+        if (spawnerIndex >= spawnerStates_.size() ||
+            spawnerStates_[spawnerIndex].availableSlots != initialSlots - 1 ||
+            spawnerStates_[spawnerIndex].remaining != initialRemaining - 1) {
+            throw std::runtime_error("monster spawn did not reserve a live slot");
+        }
+
+        enterMonsterDeath(monster);
+        if (spawnerStates_[spawnerIndex].availableSlots != initialSlots - 1) {
+            throw std::runtime_error("monster death returned live slot before removal");
+        }
+        int deathTicks = monster.stateTimer;
+        for (int i = 0; i < deathTicks; ++i) {
+            updateMonsters(0.0f);
+        }
+        if (!monsters_.empty() ||
+            spawnerStates_[spawnerIndex].availableSlots != initialSlots) {
+            throw std::runtime_error("monster removal did not return live slot");
+        }
+        updateMonsters(0.0f);
+        if (spawnerStates_[spawnerIndex].availableSlots != initialSlots) {
+            throw std::runtime_error("monster live slot was returned more than once");
+        }
+        std::cout << "monster_slots=ok initial_slots=" << initialSlots
+                  << " death_ticks=" << deathTicks << '\n';
+    }
+
+    void debugMonsterBlastDamage() {
+        load();
+        resetLevel(0);
+        monsters_.clear();
+        bonusDrops_.clear();
+        ActiveMonster monster;
+        monster.x = 80;
+        monster.y = 80;
+        monster.kind = 1;
+        monster.behavior = 3;
+        monster.hp = 3;
+        monsters_.push_back(monster);
+        std::vector<std::array<int, 2>> tiles{{{10, 11}}};
+
+        damageMonstersInExplosion(tiles, BombType::Small);
+        if (monsters_[0].behavior == 2 || monsters_[0].hp != 2 ||
+            !bonusDrops_.empty()) {
+            throw std::runtime_error("small bomb ignored monster hit points");
+        }
+
+        damageMonstersInExplosion(tiles, BombType::Medium);
+        if (monsters_[0].behavior != 2 || monsters_[0].hp != 0 ||
+            bonusDrops_.size() != 1) {
+            throw std::runtime_error("medium bomb did not finish damaged monster");
+        }
+
+        ActiveMonster tough;
+        tough.x = 96;
+        tough.y = 80;
+        tough.kind = 4;
+        tough.behavior = 3;
+        tough.hp = 4;
+        monsters_.push_back(tough);
+        std::vector<std::array<int, 2>> superTiles{{{12, 11}}};
+        damageMonstersInExplosion(superTiles, BombType::Super);
+        if (monsters_[1].behavior != 2 || monsters_[1].hp != 0 ||
+            bonusDrops_.size() != 2) {
+            throw std::runtime_error("super bomb did not apply full monster damage");
+        }
+
+        std::cout << "monster_blast_damage=ok drops=" << bonusDrops_.size() << '\n';
+    }
+
+    void debugBombFuse() {
+        load();
+        resetLevel(0);
+        bombs_.clear();
+        flashes_.clear();
+        explosionEffects_.clear();
+        int beforeSmallBombs = bombInventory_.counts[0];
+        placeBombAt(player_, bombInventory_);
+        if (bombs_.size() != 1 || bombInventory_.counts[0] != beforeSmallBombs - 1) {
+            throw std::runtime_error("bomb placement did not create a timed bomb");
+        }
+
+        int fuseTicks = bombs_[0].timer;
+        for (int i = 1; i < fuseTicks; ++i) {
+            updateBombs();
+            if (bombs_.size() != 1 || bombs_[0].timer != fuseTicks - i) {
+                throw std::runtime_error("bomb expired before fuse reached zero");
+            }
+        }
+
+        updateBombs();
+        if (!bombs_.empty() || explosionEffects_.empty() || flashes_.empty()) {
+            throw std::runtime_error("bomb fuse did not produce an explosion");
+        }
+        std::cout << "bomb_fuse=ok fuse=" << fuseTicks
+                  << " effects=" << explosionEffects_.size()
+                  << " flashes=" << flashes_.size() << '\n';
+    }
+
+    void debugPassableObjects() {
+        load();
+        bool sawBombObject = false;
+        bool sawPortal = false;
+        bool sawSolid = false;
+
+        for (size_t level = 0; level < levels_.size(); ++level) {
+            resetLevel(static_cast<int>(level));
+            for (int y = 0; y < level_.height; ++y) {
+                for (int x = 0; x < level_.width; ++x) {
+                    uint8_t tile = static_cast<uint8_t>(tileAt(x, y));
+                    float px = static_cast<float>(x * kTileSize + 1);
+                    float py = static_cast<float>(y * kTileSize + 1);
+                    if (isBombObjectTile(tile)) {
+                        sawBombObject = true;
+                        if (solidPixel(px, py)) {
+                            throw std::runtime_error("bomb object tile blocks movement");
+                        }
+                    } else if (tile == 0x45) {
+                        sawPortal = true;
+                        if (solidPixel(px, py)) {
+                            throw std::runtime_error("portal tile blocks movement");
+                        }
+                    } else if (countsForDestructionProgress(tile, level_.objectiveTile) &&
+                               !isPassableObjectTile(tile)) {
+                        sawSolid = true;
+                        if (!solidPixel(px, py)) {
+                            throw std::runtime_error("solid map tile became passable");
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!sawBombObject || !sawPortal || !sawSolid) {
+            throw std::runtime_error("passable object coverage did not find required tile types");
+        }
+        std::cout << "passable_objects=ok\n";
+    }
+
     void exportSprites(const std::string& bankName, const std::string& path) {
         load();
         const SpriteBank* bank = nullptr;
@@ -1600,6 +1945,8 @@ private:
     bool player2Dead_ = false;
     int reentryTimer_ = 0;
     int reentryTimer2_ = 0;
+    int damageCooldown_ = 0;
+    int damageCooldown2_ = 0;
     BombInventory bombInventory_;
     BombInventory bombInventory2_;
     bool weaponSwitchHeld_ = false;
@@ -1717,6 +2064,8 @@ private:
         player2Dead_ = false;
         reentryTimer_ = 0;
         reentryTimer2_ = 0;
+        damageCooldown_ = 0;
+        damageCooldown2_ = 0;
         bombInventory_ = {};
         bombInventory2_ = {};
         weaponSwitchHeld_ = false;
@@ -1739,6 +2088,10 @@ private:
         } else {
             player2_.x = std::min(player_.x + 16.0f, std::max(16.0f, level_.width * 8.0f - 16.0f));
             player2_.y = player_.y;
+        }
+        if (playerCount_ > 1) {
+            playerDead_ = lives_ <= 0;
+            player2Dead_ = lives2_ <= 0;
         }
     }
 
@@ -1777,27 +2130,30 @@ private:
             }
         } else if (!menu_ && (key == SDLK_SPACE || key == SDLK_RCTRL)) {
             if (playerDead_) {
-                tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
+                tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                                 damageCooldown_, 1);
             } else {
                 placeBombAt(player_, bombInventory_);
             }
         } else if (!menu_ && key == SDLK_n) {
             if (playerCount_ > 1) {
                 if (player2Dead_) {
-                    tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2);
+                    tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_,
+                                     reentryTimer2_, damageCooldown2_, 2);
                 } else {
                     placeBombAt(player2_, bombInventory2_);
                 }
             } else if (playerDead_) {
-                tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
+                tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                                 damageCooldown_, 1);
             } else {
                 placeBombAt(player_, bombInventory_);
             }
         } else if (!menu_ && key == SDLK_s) {
             showBackground_ = !showBackground_;
-        } else if (!menu_ && key == SDLK_r) {
+        } else if (!menu_ && key == SDLK_r && playerCount_ == 1) {
             adjustGameplayViewWidth(-32);
-        } else if (!menu_ && key == SDLK_e) {
+        } else if (!menu_ && key == SDLK_e && playerCount_ == 1) {
             adjustGameplayViewWidth(32);
         } else if (!menu_ && key == SDLK_F5) {
             resetLevel(levelIndex_);
@@ -1932,7 +2288,9 @@ private:
 
     bool solidPixel(float px, float py) const {
         int tile = tileAt(static_cast<int>(px) / kTileSize, static_cast<int>(py) / kTileSize);
-        return tile > 1 && tile != 0xff && tile != level_.objectiveTile;
+        uint8_t tileByte = static_cast<uint8_t>(tile);
+        return countsForDestructionProgress(tileByte, level_.objectiveTile) &&
+               !isPassableObjectTile(tileByte);
     }
 
     bool collides(float x, float y) const {
@@ -2046,6 +2404,7 @@ private:
     void update(float dt) {
         if (menu_) return;
         ++logicTick_;
+        updateDamageCooldowns();
         const uint8_t* keys = SDL_GetKeyboardState(nullptr);
         bool p1Left = keys[SDL_SCANCODE_LEFT] || (playerCount_ == 1 && keys[SDL_SCANCODE_Z]);
         bool p1Right = keys[SDL_SCANCODE_RIGHT] || (playerCount_ == 1 && keys[SDL_SCANCODE_X]);
@@ -2087,6 +2446,10 @@ private:
         updateMonsters(dt);
         updateBonusDrops();
         updateBombs();
+        updateLevelCompletion();
+    }
+
+    void updateLevelCompletion() {
         if (isComplete()) {
             if (completeTimer_ == 0) playSound(5);
             if (++completeTimer_ > 100) resetLevel(levelIndex_ + 1);
@@ -2355,7 +2718,10 @@ private:
         for (ActiveMonster& monster : monsters_) {
             if (!monster.alive) continue;
             if (monster.behavior == 2) {
-                if (--monster.stateTimer <= 0) monster.alive = false;
+                if (--monster.stateTimer <= 0) {
+                    releaseMonsterSlot(monster);
+                    monster.alive = false;
+                }
                 continue;
             }
             ++monster.animTick;
@@ -2399,11 +2765,13 @@ private:
             monster.y = std::clamp(monster.y, 0, std::max(16, level_.height * 8 - 16));
 
             if (!playerDead_ && playerOverlaps(player_, monster.x, monster.y, 14.0f, 16.0f)) {
-                damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
+                damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                             damageCooldown_, 1);
             }
             if (playerCount_ > 1 && !player2Dead_ &&
                 playerOverlaps(player2_, monster.x, monster.y, 14.0f, 16.0f)) {
-                damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2);
+                damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                             damageCooldown2_, 2);
             }
         }
         monsters_.erase(std::remove_if(monsters_.begin(), monsters_.end(),
@@ -2411,10 +2779,28 @@ private:
                         monsters_.end());
     }
 
+    void releaseMonsterSlot(ActiveMonster& monster) {
+        if (monster.deathCredited) return;
+        if (monster.spawnerIndex < spawnerStates_.size()) {
+            ++spawnerStates_[monster.spawnerIndex].availableSlots;
+            monster.deathCredited = true;
+        }
+    }
+
+    void updateDamageCooldowns() {
+        if (damageCooldown_ > 0) --damageCooldown_;
+        if (damageCooldown2_ > 0) --damageCooldown2_;
+    }
+
     void damagePlayer(Player& player, int& energy, int& lives, bool& dead,
-                      int& timer, uint8_t startMarker) {
+                      int& timer, int& damageCooldown, uint8_t startMarker) {
+        if (dead || damageCooldown > 0) return;
         energy = std::max(0, energy - 1);
-        if (energy == 0) beginPlayerDeath(player, energy, lives, dead, timer, startMarker);
+        if (energy == 0) {
+            beginPlayerDeath(player, energy, lives, dead, timer, startMarker);
+        } else {
+            damageCooldown = kDamageCooldownTicks;
+        }
     }
 
     bool playerOverlapsTileArea(const Player& player, int tx0, int ty0,
@@ -2434,11 +2820,13 @@ private:
         if (tx0 > tx1) std::swap(tx0, tx1);
         if (ty0 > ty1) std::swap(ty0, ty1);
         if (!playerDead_ && playerOverlapsTileArea(player_, tx0, ty0, tx1, ty1)) {
-            damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
+            damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                         damageCooldown_, 1);
         }
         if (playerCount_ > 1 && !player2Dead_ &&
             playerOverlapsTileArea(player2_, tx0, ty0, tx1, ty1)) {
-            damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2);
+            damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                         damageCooldown2_, 2);
         }
     }
 
@@ -2449,13 +2837,20 @@ private:
         player.vy = 0.0f;
         player.grounded = false;
         if (lives == 0) {
-            beginGameOver();
+            dead = true;
+            timer = 0;
+            playSound(3);
+            if (allPlayersOutOfLives()) beginGameOver();
             return;
         }
         dead = true;
         timer = canReenterLevel() ? kReentryTicks : 1;
         playSound(3);
         (void)startMarker;
+    }
+
+    bool allPlayersOutOfLives() const {
+        return playerCount_ <= 1 ? lives_ <= 0 : lives_ <= 0 && lives2_ <= 0;
     }
 
     bool canReenterLevel() const {
@@ -2467,10 +2862,87 @@ private:
                                            level_.objectiveTile));
     }
 
+    std::array<int, 2> findObjectiveTileForSmoke() const {
+        for (int y = 0; y < level_.height; ++y) {
+            for (int x = 0; x < level_.width; ++x) {
+                if (tileAt(x, y) == level_.objectiveTile) return {x, y};
+            }
+        }
+        throw std::runtime_error("level has no objective tile for smoke");
+    }
+
+    void collectAllObjectiveTilesForSmoke() {
+        for (int y = 0; y < level_.height; ++y) {
+            for (int x = 0; x < level_.width; ++x) {
+                if (tileAt(x, y) != level_.objectiveTile) continue;
+                player_.x = static_cast<float>(x * kTileSize);
+                player_.y = static_cast<float>(y * kTileSize);
+                collectObjectiveTiles(player_);
+            }
+        }
+    }
+
+    void damageRequiredTilesForSmoke() {
+        int target = (static_cast<int>(level_.requiredDestruction) *
+                          level_.startingDestructibleTiles +
+                      99) /
+                     100;
+        for (int y = 0; y < level_.height && destroyed_ < target; ++y) {
+            for (int x = 0; x < level_.width && destroyed_ < target; ++x) {
+                if (!countsForDestructionProgress(tileAt(x, y), level_.objectiveTile)) {
+                    continue;
+                }
+                markDamagedTile(x, y);
+            }
+        }
+        if (destroyed_ < target) {
+            throw std::runtime_error("level lacks enough destructible progress tiles");
+        }
+    }
+
+    void smokeCompleteCurrentLevelFromMapProgress() {
+        int startLevel = levelIndex_;
+        collectAllObjectiveTilesForSmoke();
+        damageRequiredTilesForSmoke();
+        if (!isComplete()) {
+            throw std::runtime_error("map progress did not satisfy level completion");
+        }
+        for (int i = 0; i <= 100; ++i) {
+            updateLevelCompletion();
+        }
+        int expectedLevel = (startLevel + 1) % static_cast<int>(levels_.size());
+        if (levelIndex_ != expectedLevel) {
+            throw std::runtime_error("level completion did not advance to next level");
+        }
+    }
+
+    void smokeBombObjectDestructionProgress() {
+        for (int y = 0; y < level_.height; ++y) {
+            for (int x = 0; x < level_.width; ++x) {
+                uint8_t tile = tileAt(x, y);
+                if (!isBombObjectTile(tile)) continue;
+                int before = destroyed_;
+                bool shouldCount = countsForDestructionProgress(tile, level_.objectiveTile);
+                if (!consumeBombObjectTile(x, y)) {
+                    throw std::runtime_error("bomb object tile was not consumed");
+                }
+                int expected = before + (shouldCount ? 1 : 0);
+                if (destroyed_ != expected) {
+                    throw std::runtime_error("bomb object consumption did not update destruction");
+                }
+                if (tileAt(x, y) == tile) {
+                    throw std::runtime_error("bomb object tile did not change after consumption");
+                }
+                return;
+            }
+        }
+        throw std::runtime_error("no bomb object tile found for destruction smoke");
+    }
+
     void updateReentry(Player& player, int& energy, int& lives, bool& dead,
                        int& timer, uint8_t startMarker) {
         (void)energy;
-        (void)lives;
+        if (lives <= 0) return;
         if (timer > 0) --timer;
         if (timer <= 0) {
             restartCurrentLevelAfterDeath();
@@ -2485,14 +2957,16 @@ private:
         (void)startMarker;
     }
 
-    void tryReenterPlayer(Player& player, int& energy, int&, bool& dead,
-                          int& timer, uint8_t startMarker) {
+    void tryReenterPlayer(Player& player, int& energy, int& lives, bool& dead,
+                          int& timer, int& damageCooldown, uint8_t startMarker) {
         if (!dead) return;
+        if (lives <= 0) return;
         if (!canReenterLevel()) {
             restartCurrentLevelAfterDeath();
             return;
         }
         respawnPlayerAtStart(player, energy, startMarker);
+        damageCooldown = 0;
         dead = false;
         timer = 0;
     }
@@ -2631,10 +3105,17 @@ private:
         return tile > 0x66 && tile < 0x73;
     }
 
+    bool isPassableObjectTile(uint8_t tile) const {
+        return tile == 0x45 || isBombObjectTile(tile);
+    }
+
     bool consumeBombObjectTile(int tx, int ty) {
         if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return false;
         uint8_t& tile = tileRef(tx, ty);
         if (!isBombObjectTile(tile)) return false;
+        if (countsForDestructionProgress(tile, level_.objectiveTile)) {
+            ++destroyed_;
+        }
         tile = (wordAt(tx, ty) & 0x8000u) != 0 ? 0xff : 0;
         return true;
     }
@@ -2642,7 +3123,7 @@ private:
     bool markDamagedTile(int tx, int ty) {
         if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return false;
         uint8_t& tile = tileRef(tx, ty);
-        bool counted = tile > 1 && tile != 0xff && tile != level_.objectiveTile;
+        bool counted = countsForDestructionProgress(tile, level_.objectiveTile);
         if (tile != level_.objectiveTile) {
             tile = 1;
         }
@@ -2768,19 +3249,32 @@ private:
                 queueTileDamage(x, y - 1);
             }
         }
-        damageMonstersInExplosion(tiles);
+        damageMonstersInExplosion(tiles, bomb.type);
         damagePlayersInExplosion(tiles);
     }
 
-    void damageMonstersInExplosion(const std::vector<std::array<int, 2>>& tiles) {
+    int monsterDamageForBomb(BombType type) const {
+        return std::clamp(bombTypeIndex(type) + 1, 1, 4);
+    }
+
+    void damageMonstersInExplosion(const std::vector<std::array<int, 2>>& tiles,
+                                   BombType type) {
+        int damage = monsterDamageForBomb(type);
         for (ActiveMonster& monster : monsters_) {
             if (!monster.alive) continue;
             int mx = static_cast<int>(monster.x + 7.0f) / 8;
             int my = static_cast<int>(monster.y + 8.0f) / 8;
             if (std::find(tiles.begin(), tiles.end(), std::array<int, 2>{mx, my}) != tiles.end()) {
-                monster.hp = 0;
-                enterMonsterDeath(monster);
+                damageMonster(monster, damage);
             }
+        }
+    }
+
+    void damageMonster(ActiveMonster& monster, int damage) {
+        if (monster.behavior == 2) return;
+        monster.hp = std::max(0, monster.hp - std::max(1, damage));
+        if (monster.hp == 0) {
+            enterMonsterDeath(monster);
         }
     }
 
@@ -2799,11 +3293,13 @@ private:
 
     void damagePlayersInExplosion(const std::vector<std::array<int, 2>>& tiles) {
         if (!playerDead_ && playerOverlapsAnyExplosionTile(player_, tiles)) {
-            damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
+            damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                         damageCooldown_, 1);
         }
         if (playerCount_ > 1 && !player2Dead_ &&
             playerOverlapsAnyExplosionTile(player2_, tiles)) {
-            damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2);
+            damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                         damageCooldown2_, 2);
         }
     }
 
@@ -2820,10 +3316,6 @@ private:
         flashes_.push_back({static_cast<int>(monster.x + 7.0f) / 8,
                             static_cast<int>(monster.y + 8.0f) / 8, 18});
         playSound(4);
-        if (!monster.deathCredited && monster.spawnerIndex < spawnerStates_.size()) {
-            ++spawnerStates_[monster.spawnerIndex].availableSlots;
-            monster.deathCredited = true;
-        }
     }
 
     void spawnBonusDrop(float x, float y) {
@@ -3292,7 +3784,7 @@ private:
                std::to_string(inventory.counts[1]) + "/" +
                std::to_string(inventory.counts[2]) + "/" +
                std::to_string(inventory.counts[3]) +
-               (dead ? " WAIT" : "");
+               (dead ? (lives <= 0 ? " OUT" : " WAIT") : "");
     }
 
     void drawMenu() {
@@ -3500,6 +3992,10 @@ int main(int argc, char** argv) {
             app.debugBombs();
             return 0;
         }
+        if (argc > 1 && std::string(argv[1]) == "--debug-bonuses") {
+            app.debugBonuses();
+            return 0;
+        }
         if (argc > 1 && std::string(argv[1]) == "--debug-fixed") {
             app.debugFixed();
             return 0;
@@ -3534,6 +4030,22 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-damage-queues") {
             app.debugDamageQueues();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-monster-slots") {
+            app.debugMonsterSlots();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-monster-blast-damage") {
+            app.debugMonsterBlastDamage();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-bomb-fuse") {
+            app.debugBombFuse();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-passable-objects") {
+            app.debugPassableObjects();
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--export-sprites") {

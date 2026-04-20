@@ -851,6 +851,17 @@ public:
             throw std::runtime_error("duplicate bomb placed on occupied tile");
         }
 
+        energy_ = 100;
+        BombProfile contactProfile = bombProfile(BombType::Small);
+        Bomb contactBomb{static_cast<int>(player_.x + 6.0f) / 8,
+                         static_cast<int>(player_.y + 12.0f) / 8,
+                         contactProfile.fuseTicks, BombType::Small,
+                         contactProfile.fuseTicks};
+        explode(contactBomb);
+        if (energy_ >= 100) {
+            throw std::runtime_error("bomb explosion did not drain player energy");
+        }
+
         bool background = showBackground_;
         pushKeyDown(SDLK_s);
         processEvents(running);
@@ -2702,6 +2713,7 @@ private:
             }
         }
         damageMonstersInExplosion(tiles);
+        damagePlayersInExplosion(tiles);
     }
 
     void damageMonstersInExplosion(const std::vector<std::array<int, 2>>& tiles) {
@@ -2713,6 +2725,29 @@ private:
                 monster.hp = 0;
                 enterMonsterDeath(monster);
             }
+        }
+    }
+
+    bool playerOverlapsAnyExplosionTile(const Player& player,
+                                        const std::vector<std::array<int, 2>>& tiles) const {
+        for (const auto& tile : tiles) {
+            float x = static_cast<float>(tile[0] * kTileSize);
+            float y = static_cast<float>(tile[1] * kTileSize);
+            if (playerOverlaps(player, x, y, static_cast<float>(kTileSize),
+                               static_cast<float>(kTileSize))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void damagePlayersInExplosion(const std::vector<std::array<int, 2>>& tiles) {
+        if (!playerDead_ && playerOverlapsAnyExplosionTile(player_, tiles)) {
+            damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
+        }
+        if (playerCount_ > 1 && !player2Dead_ &&
+            playerOverlapsAnyExplosionTile(player2_, tiles)) {
+            damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2);
         }
     }
 

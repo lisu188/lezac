@@ -100,8 +100,8 @@ Dump the current bomb inventory model and export sprite contact sheets:
   separate controls, split camera views, a central objective panel, per-player
   bomb inventories/HUD state, zero-life player-out handling, shared objectives,
   and player-2 bomb placement through the `N` fire key.
-- High-score table serialization back to the original `RECS.DAT` record format,
-  name entry for new records with letter/digit/space/delete handling, and
+- High-score table serialization back to the converted `RECS.DAT.json` resource
+  format, name entry for new records with letter/digit/space/delete handling, and
   validation coverage that writes only to temporary test files.
 - `PROEFS.SON` records synthesize SDL-queued PC-speaker-style square-wave sound
   effects for core gameplay events, with headless render validation.

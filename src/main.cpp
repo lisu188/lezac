@@ -326,6 +326,11 @@ void integrateAxis8_8(int& pos, uint8_t& frac, int16_t velocity) {
 
 std::vector<uint8_t> readFile(const std::string& path) {
     std::ifstream in(path, std::ios::binary);
+    if (!in && path.find('/') == std::string::npos &&
+        path.find('\\') == std::string::npos) {
+        in.clear();
+        in.open("src/" + path, std::ios::binary);
+    }
     if (!in) {
         throw std::runtime_error("cannot open " + path);
     }
@@ -335,6 +340,11 @@ std::vector<uint8_t> readFile(const std::string& path) {
 
 std::string readTextFile(const std::string& path) {
     std::ifstream in(path);
+    if (!in && path.find('/') == std::string::npos &&
+        path.find('\\') == std::string::npos) {
+        in.clear();
+        in.open("src/" + path);
+    }
     if (!in) {
         throw std::runtime_error("cannot open " + path);
     }
@@ -436,6 +446,21 @@ std::string extractString(const std::string& json, const std::string& key,
     return fallback;
 }
 
+std::array<uint8_t, 4> extractU8Array4(const std::string& json, const std::string& key) {
+    std::array<uint8_t, 4> out{};
+    std::regex re("\"" + key + "\"\\s*:\\s*\\[([^\\]]*)\\]");
+    std::smatch m;
+    if (!std::regex_search(json, m, re)) return out;
+    std::regex intRe("(\\d+)");
+    int i = 0;
+    std::string body = m[1].str();
+    for (auto it = std::sregex_iterator(body.begin(), body.end(), intRe);
+         it != std::sregex_iterator() && i < 4; ++it, ++i) {
+        out[static_cast<size_t>(i)] = static_cast<uint8_t>(std::stoi((*it)[1].str()));
+    }
+    return out;
+}
+
 uint16_t le16(const std::vector<uint8_t>& data, size_t off) {
     if (off + 2 > data.size()) {
         throw std::runtime_error("unexpected EOF while reading u16");
@@ -449,13 +474,6 @@ uint32_t le32(const std::vector<uint8_t>& data, size_t off) {
     }
     return static_cast<uint32_t>(data[off] | (data[off + 1] << 8) |
                                  (data[off + 2] << 16) | (data[off + 3] << 24));
-}
-
-void putLe32(std::ostream& out, uint32_t value) {
-    out.put(static_cast<char>(value & 0xffu));
-    out.put(static_cast<char>((value >> 8) & 0xffu));
-    out.put(static_cast<char>((value >> 16) & 0xffu));
-    out.put(static_cast<char>((value >> 24) & 0xffu));
 }
 
 template <size_t N>
@@ -667,18 +685,28 @@ std::string encodeRecordName(const std::string& name) {
 }
 
 void saveRecords(const std::string& path, const std::vector<Record>& records) {
-    std::ofstream out(path, std::ios::binary);
+    std::ofstream out(path);
     if (!out) {
         throw std::runtime_error("cannot create " + path);
     }
     size_t count = std::min<size_t>(records.size(), 255);
-    out.put(static_cast<char>(count));
+    out << "{\n";
+    out << "  \"file\": \"RECS.DAT\",\n";
+    out << "  \"type\": \"high_scores\",\n";
+    out << "  \"record_count\": " << count << ",\n";
+    out << "  \"records\": [\n";
     for (size_t i = 0; i < count; ++i) {
-        putLe32(out, records[i].score);
-        out.put(static_cast<char>(records[i].level));
         std::string name = encodeRecordName(records[i].name);
-        out.write(name.data(), 8);
+        out << "    {\n";
+        out << "      \"index\": " << i << ",\n";
+        out << "      \"score\": " << records[i].score << ",\n";
+        out << "      \"level\": " << static_cast<int>(records[i].level) << ",\n";
+        out << "      \"encoded_name\": " << std::quoted(name) << ",\n";
+        out << "      \"decoded_name\": " << std::quoted(records[i].name) << "\n";
+        out << "    }" << (i + 1 == count ? "\n" : ",\n");
     }
+    out << "  ]\n";
+    out << "}\n";
 }
 
 bool insertRecord(std::vector<Record>& records, Record record, size_t maxRecords = 7) {
@@ -833,18 +861,8 @@ std::vector<Level> loadLevels(const std::string& path) {
             rule.wordRangeFirst = static_cast<uint16_t>(extractInt(triggerJson, "wordRangeFirst"));
             rule.wordRangeLast = static_cast<uint16_t>(extractInt(triggerJson, "wordRangeLast"));
             rule.triggerKey = static_cast<uint16_t>(extractInt(triggerJson, "triggerKey"));
-            std::regex arr4Re("\"(from|to)\"\\s*:\\s*\\[(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\]");
-            for (auto it = std::sregex_iterator(triggerJson.begin(), triggerJson.end(), arr4Re);
-                 it != std::sregex_iterator(); ++it) {
-                std::array<uint8_t, 4> values{
-                    static_cast<uint8_t>(std::stoi((*it)[2].str())),
-                    static_cast<uint8_t>(std::stoi((*it)[3].str())),
-                    static_cast<uint8_t>(std::stoi((*it)[4].str())),
-                    static_cast<uint8_t>(std::stoi((*it)[5].str())),
-                };
-                if ((*it)[1].str() == "from") rule.from = values;
-                else rule.to = values;
-            }
+            rule.from = extractU8Array4(triggerJson, "from");
+            rule.to = extractU8Array4(triggerJson, "to");
             level.tileTriggers.push_back(rule);
         }
 

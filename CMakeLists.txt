@@ -22,13 +22,13 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
     add_test(NAME ui_smoke_dummy
-        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --smoke-ui 3)
     set_tests_properties(ui_smoke_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
     add_test(NAME ui_controls_dummy
-        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --smoke-controls)
     set_tests_properties(ui_controls_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
@@ -54,7 +54,8 @@ if(BUILD_TESTING)
     find_program(XDOTOOL_EXECUTABLE xdotool)
     if(BASH_EXECUTABLE AND XVFB_RUN_EXECUTABLE AND XDOTOOL_EXECUTABLE)
         add_test(NAME ui_xdotool_xvfb
-            COMMAND ${XVFB_RUN_EXECUTABLE} -a
+            COMMAND ${CMAKE_COMMAND} -E env SDL_AUDIODRIVER=dummy
+                    ${XVFB_RUN_EXECUTABLE} -a
                     ${BASH_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_ui_xdotool.sh
                     $<TARGET_FILE:lezac_cpp>)

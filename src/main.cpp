@@ -125,6 +125,10 @@ struct Level {
     int startingDestructibleTiles = 0;
 };
 
+bool countsForDestructionProgress(uint8_t tile, uint8_t objectiveTile) {
+    return tile > 1 && tile != 0xff && tile != objectiveTile;
+}
+
 struct Record {
     uint32_t score = 0;
     uint8_t level = 0;
@@ -715,7 +719,7 @@ std::vector<Level> loadLevels(const std::string& path) {
         for (uint8_t tile : level.tiles) {
             if (tile == level.objectiveTile) {
                 ++level.startingObjectiveTiles;
-            } else if (tile > 1) {
+            } else if (countsForDestructionProgress(tile, level.objectiveTile)) {
                 ++level.startingDestructibleTiles;
             }
         }
@@ -945,14 +949,9 @@ public:
             throw std::runtime_error("PageDown did not return to level 1");
         }
 
-        collected_ = level_.requiredBonus;
-        destroyed_ = level_.startingDestructibleTiles;
-        for (int i = 0; i <= 100; ++i) {
-            updateLevelCompletion();
-        }
-        if (levelIndex_ != 1) {
-            throw std::runtime_error("level completion did not advance to level 2");
-        }
+        smokeBombObjectDestructionProgress();
+        resetLevel(0);
+        smokeCompleteCurrentLevelFromMapProgress();
 
         size_t preResetBombs = bombs_.size();
         pushKeyDown(SDLK_n);
@@ -1999,7 +1998,7 @@ private:
 
     bool solidPixel(float px, float py) const {
         int tile = tileAt(static_cast<int>(px) / kTileSize, static_cast<int>(py) / kTileSize);
-        return tile > 1 && tile != 0xff && tile != level_.objectiveTile;
+        return countsForDestructionProgress(static_cast<uint8_t>(tile), level_.objectiveTile);
     }
 
     bool collides(float x, float y) const {
@@ -2560,6 +2559,74 @@ private:
                                            level_.objectiveTile));
     }
 
+    void collectAllObjectiveTilesForSmoke() {
+        for (int y = 0; y < level_.height; ++y) {
+            for (int x = 0; x < level_.width; ++x) {
+                if (tileAt(x, y) != level_.objectiveTile) continue;
+                player_.x = static_cast<float>(x * kTileSize);
+                player_.y = static_cast<float>(y * kTileSize);
+                collectObjectiveTiles(player_);
+            }
+        }
+    }
+
+    void damageRequiredTilesForSmoke() {
+        int target = (static_cast<int>(level_.requiredDestruction) *
+                          level_.startingDestructibleTiles +
+                      99) /
+                     100;
+        for (int y = 0; y < level_.height && destroyed_ < target; ++y) {
+            for (int x = 0; x < level_.width && destroyed_ < target; ++x) {
+                if (!countsForDestructionProgress(tileAt(x, y), level_.objectiveTile)) {
+                    continue;
+                }
+                markDamagedTile(x, y);
+            }
+        }
+        if (destroyed_ < target) {
+            throw std::runtime_error("level lacks enough destructible progress tiles");
+        }
+    }
+
+    void smokeCompleteCurrentLevelFromMapProgress() {
+        int startLevel = levelIndex_;
+        collectAllObjectiveTilesForSmoke();
+        damageRequiredTilesForSmoke();
+        if (!isComplete()) {
+            throw std::runtime_error("map progress did not satisfy level completion");
+        }
+        for (int i = 0; i <= 100; ++i) {
+            updateLevelCompletion();
+        }
+        int expectedLevel = (startLevel + 1) % static_cast<int>(levels_.size());
+        if (levelIndex_ != expectedLevel) {
+            throw std::runtime_error("level completion did not advance to next level");
+        }
+    }
+
+    void smokeBombObjectDestructionProgress() {
+        for (int y = 0; y < level_.height; ++y) {
+            for (int x = 0; x < level_.width; ++x) {
+                uint8_t tile = tileAt(x, y);
+                if (!isBombObjectTile(tile)) continue;
+                int before = destroyed_;
+                bool shouldCount = countsForDestructionProgress(tile, level_.objectiveTile);
+                if (!consumeBombObjectTile(x, y)) {
+                    throw std::runtime_error("bomb object tile was not consumed");
+                }
+                int expected = before + (shouldCount ? 1 : 0);
+                if (destroyed_ != expected) {
+                    throw std::runtime_error("bomb object consumption did not update destruction");
+                }
+                if (tileAt(x, y) == tile) {
+                    throw std::runtime_error("bomb object tile did not change after consumption");
+                }
+                return;
+            }
+        }
+        throw std::runtime_error("no bomb object tile found for destruction smoke");
+    }
+
     void updateReentry(Player& player, int& energy, int& lives, bool& dead,
                        int& timer, uint8_t startMarker) {
         (void)energy;
@@ -2730,6 +2797,9 @@ private:
         if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return false;
         uint8_t& tile = tileRef(tx, ty);
         if (!isBombObjectTile(tile)) return false;
+        if (countsForDestructionProgress(tile, level_.objectiveTile)) {
+            ++destroyed_;
+        }
         tile = (wordAt(tx, ty) & 0x8000u) != 0 ? 0xff : 0;
         return true;
     }
@@ -2737,7 +2807,7 @@ private:
     bool markDamagedTile(int tx, int ty) {
         if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return false;
         uint8_t& tile = tileRef(tx, ty);
-        bool counted = tile > 1 && tile != 0xff && tile != level_.objectiveTile;
+        bool counted = countsForDestructionProgress(tile, level_.objectiveTile);
         if (tile != level_.objectiveTile) {
             tile = 1;
         }

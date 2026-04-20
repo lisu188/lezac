@@ -797,11 +797,17 @@ public:
         size_t twoPlayerBombs = bombs_.size();
         int player2BombX = static_cast<int>(player2_.x + 6.0f) / 8;
         int player2BombY = static_cast<int>(player2_.y + 12.0f) / 8;
+        int player1SmallBombs = bombInventory_.counts[0];
+        int player2SmallBombs = bombInventory2_.counts[0];
         pushKeyDown(SDLK_n);
         processEvents(running);
         if (bombs_.size() != twoPlayerBombs + 1 ||
             bombs_.back().x != player2BombX || bombs_.back().y != player2BombY) {
             throw std::runtime_error("N key did not place player 2 bomb in two-player mode");
+        }
+        if (bombInventory_.counts[0] != player1SmallBombs ||
+            bombInventory2_.counts[0] != player2SmallBombs - 1) {
+            throw std::runtime_error("N key did not consume player 2 inventory only");
         }
 
         pushKeyDown(SDLK_ESCAPE);
@@ -1004,9 +1010,9 @@ public:
         printBombInventory("initial");
         bombInventory_.selected = BombType::Medium;
         printBombInventory("selected_medium");
-        grantNormalBombSet();
+        grantNormalBombSet(bombInventory_);
         printBombInventory("after_yellow_box");
-        grantSuperBombSet();
+        grantSuperBombSet(bombInventory_);
         printBombInventory("after_green_box");
         BombProfile profile = bombProfile(BombType::Super);
         Bomb bomb{10, 10, profile.fuseTicks, BombType::Super, profile.fuseTicks};
@@ -1569,7 +1575,9 @@ private:
     int reentryTimer_ = 0;
     int reentryTimer2_ = 0;
     BombInventory bombInventory_;
+    BombInventory bombInventory2_;
     bool weaponSwitchHeld_ = false;
+    bool weaponSwitchHeld2_ = false;
     uint32_t logicTick_ = 0;
     uint32_t randomSeed_ = 0x1234abcd;
     uint32_t score_ = 0;
@@ -1684,7 +1692,9 @@ private:
         reentryTimer_ = 0;
         reentryTimer2_ = 0;
         bombInventory_ = {};
+        bombInventory2_ = {};
         weaponSwitchHeld_ = false;
+        weaponSwitchHeld2_ = false;
         logicTick_ = 0;
         for (const MonsterSpawner& spawner : level_.monsterSpawners) {
             SpawnerState state;
@@ -1743,19 +1753,19 @@ private:
             if (playerDead_) {
                 tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
             } else {
-                placeBombAt(player_);
+                placeBombAt(player_, bombInventory_);
             }
         } else if (!menu_ && key == SDLK_n) {
             if (playerCount_ > 1) {
                 if (player2Dead_) {
                     tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2);
                 } else {
-                    placeBombAt(player2_);
+                    placeBombAt(player2_, bombInventory2_);
                 }
             } else if (playerDead_) {
                 tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
             } else {
-                placeBombAt(player_);
+                placeBombAt(player_, bombInventory_);
             }
         } else if (!menu_ && key == SDLK_s) {
             showBackground_ = !showBackground_;
@@ -1898,11 +1908,6 @@ private:
                player.y < y + h && player.y + 16.0f > y;
     }
 
-    bool anyPlayerOverlaps(float x, float y, float w, float h) const {
-        return (!playerDead_ && playerOverlaps(player_, x, y, w, h)) ||
-               (playerCount_ > 1 && !player2Dead_ && playerOverlaps(player2_, x, y, w, h));
-    }
-
     int bombTypeIndex(BombType type) const {
         return static_cast<int>(type);
     }
@@ -1965,8 +1970,8 @@ private:
         return 4;
     }
 
-    bool hasBomb(BombType type) const {
-        return bombInventory_.counts[static_cast<size_t>(bombTypeIndex(type))] > 0;
+    bool hasBomb(const BombInventory& inventory, BombType type) const {
+        return inventory.counts[static_cast<size_t>(bombTypeIndex(type))] > 0;
     }
 
     void printBombInventory(const std::string& label) const {
@@ -1978,22 +1983,22 @@ private:
                   << " selected=" << (bombTypeIndex(bombInventory_.selected) + 1) << '\n';
     }
 
-    void selectNextAvailableBomb() {
-        int start = bombTypeIndex(bombInventory_.selected);
+    void selectNextAvailableBomb(BombInventory& inventory) {
+        int start = bombTypeIndex(inventory.selected);
         for (int step = 1; step <= 4; ++step) {
             int idx = (start + step) % 4;
-            if (bombInventory_.counts[static_cast<size_t>(idx)] > 0) {
-                bombInventory_.selected = static_cast<BombType>(idx);
+            if (inventory.counts[static_cast<size_t>(idx)] > 0) {
+                inventory.selected = static_cast<BombType>(idx);
                 return;
             }
         }
     }
 
-    void updateWeaponSwitch(bool pressed) {
-        if (pressed && !weaponSwitchHeld_) {
-            selectNextAvailableBomb();
+    void updateWeaponSwitch(BombInventory& inventory, bool& held, bool pressed) {
+        if (pressed && !held) {
+            selectNextAvailableBomb(inventory);
         }
-        weaponSwitchHeld_ = pressed;
+        held = pressed;
     }
 
     void update(float dt) {
@@ -2008,7 +2013,12 @@ private:
         bool p2Jump = playerCount_ > 1 && keys[SDL_SCANCODE_M];
         bool p1Switch = p1Left && p1Right;
         bool p2Switch = p2Left && p2Right;
-        updateWeaponSwitch(p1Switch || p2Switch);
+        updateWeaponSwitch(bombInventory_, weaponSwitchHeld_, p1Switch);
+        if (playerCount_ > 1) {
+            updateWeaponSwitch(bombInventory2_, weaponSwitchHeld2_, p2Switch);
+        } else {
+            weaponSwitchHeld2_ = false;
+        }
         if (portalCooldown_ > 0) --portalCooldown_;
         if (triggerCooldown_ > 0) --triggerCooldown_;
 
@@ -2483,23 +2493,23 @@ private:
         menuPage_ = MenuPage::Records;
     }
 
-    void placeBombAt(const Player& player) {
-        if (!hasBomb(bombInventory_.selected)) {
-            selectNextAvailableBomb();
-            if (!hasBomb(bombInventory_.selected)) return;
+    void placeBombAt(const Player& player, BombInventory& inventory) {
+        if (!hasBomb(inventory, inventory.selected)) {
+            selectNextAvailableBomb(inventory);
+            if (!hasBomb(inventory, inventory.selected)) return;
         }
         int tx = static_cast<int>(player.x + 6.0f) / 8;
         int ty = static_cast<int>(player.y + 12.0f) / 8;
         auto it = std::find_if(bombs_.begin(), bombs_.end(),
                                [&](const Bomb& b) { return b.x == tx && b.y == ty; });
         if (it == bombs_.end()) {
-            BombProfile profile = bombProfile(bombInventory_.selected);
-            bombs_.push_back({tx, ty, profile.fuseTicks, bombInventory_.selected,
+            BombProfile profile = bombProfile(inventory.selected);
+            bombs_.push_back({tx, ty, profile.fuseTicks, inventory.selected,
                               profile.fuseTicks});
             playSound(2);
-            int& count = bombInventory_.counts[static_cast<size_t>(bombTypeIndex(bombInventory_.selected))];
+            int& count = inventory.counts[static_cast<size_t>(bombTypeIndex(inventory.selected))];
             count = std::max(0, count - 1);
-            if (count == 0) selectNextAvailableBomb();
+            if (count == 0) selectNextAvailableBomb(inventory);
         }
     }
 
@@ -2738,10 +2748,11 @@ private:
         for (BonusDrop& drop : bonusDrops_) {
             if (drop.collected) continue;
             ++drop.animTick;
-            if (anyPlayerOverlaps(drop.x, drop.y, 12.0f, 12.0f)) {
-                applyBonus(drop.type);
-                playSound(5);
-                drop.collected = true;
+            if (!playerDead_ && playerOverlaps(player_, drop.x, drop.y, 12.0f, 12.0f)) {
+                collectBonusDrop(drop, player_, energy_, bombInventory_);
+            } else if (playerCount_ > 1 && !player2Dead_ &&
+                       playerOverlaps(player2_, drop.x, drop.y, 12.0f, 12.0f)) {
+                collectBonusDrop(drop, player2_, energy2_, bombInventory2_);
             }
         }
         bonusDrops_.erase(std::remove_if(bonusDrops_.begin(), bonusDrops_.end(),
@@ -2749,30 +2760,38 @@ private:
                           bonusDrops_.end());
     }
 
-    void applyBonus(BonusType type) {
+    void collectBonusDrop(BonusDrop& drop, const Player& collector, int& energy,
+                          BombInventory& inventory) {
+        applyBonus(drop.type, collector, energy, inventory);
+        playSound(5);
+        drop.collected = true;
+    }
+
+    void applyBonus(BonusType type, const Player& collector, int& energy,
+                    BombInventory& inventory) {
         switch (type) {
             case BonusType::Present:
                 score_ += 2000;
                 break;
             case BonusType::FirstAid:
                 score_ += 1000;
-                energy_ = 100;
+                energy = 100;
                 break;
             case BonusType::HotDog:
                 score_ += 1500;
-                energy_ = std::min(100, energy_ + 33);
+                energy = std::min(100, energy + 33);
                 break;
             case BonusType::JollyCloud:
                 score_ += 2000;
-                spawnBonusRain();
+                spawnBonusRain(collector);
                 break;
             case BonusType::YellowBombBox:
                 score_ += 3000;
-                grantNormalBombSet();
+                grantNormalBombSet(inventory);
                 break;
             case BonusType::GreenBombBox:
                 score_ += 1000;
-                grantSuperBombSet();
+                grantSuperBombSet(inventory);
                 break;
             case BonusType::BigDiamond:
                 score_ += 5000;
@@ -2780,27 +2799,27 @@ private:
         }
     }
 
-    void grantNormalBombSet() {
-        bombInventory_.counts[0] = 200;
-        bombInventory_.counts[1] = std::min(99, bombInventory_.counts[1] + randomInclusive(1, 10));
-        bombInventory_.counts[2] = std::min(99, bombInventory_.counts[2] + randomInclusive(1, 4));
-        if (!hasBomb(bombInventory_.selected)) selectNextAvailableBomb();
+    void grantNormalBombSet(BombInventory& inventory) {
+        inventory.counts[0] = 200;
+        inventory.counts[1] = std::min(99, inventory.counts[1] + randomInclusive(1, 10));
+        inventory.counts[2] = std::min(99, inventory.counts[2] + randomInclusive(1, 4));
+        if (!hasBomb(inventory, inventory.selected)) selectNextAvailableBomb(inventory);
     }
 
-    void grantSuperBombSet() {
-        bombInventory_.counts[0] = 200;
-        bombInventory_.counts[1] = std::min(99, bombInventory_.counts[1] + randomInclusive(1, 13));
-        bombInventory_.counts[2] = std::min(99, bombInventory_.counts[2] + randomInclusive(2, 6));
-        bombInventory_.counts[3] = std::min(99, bombInventory_.counts[3] + randomInclusive(1, 2));
-        if (!hasBomb(bombInventory_.selected)) selectNextAvailableBomb();
+    void grantSuperBombSet(BombInventory& inventory) {
+        inventory.counts[0] = 200;
+        inventory.counts[1] = std::min(99, inventory.counts[1] + randomInclusive(1, 13));
+        inventory.counts[2] = std::min(99, inventory.counts[2] + randomInclusive(2, 6));
+        inventory.counts[3] = std::min(99, inventory.counts[3] + randomInclusive(1, 2));
+        if (!hasBomb(inventory, inventory.selected)) selectNextAvailableBomb(inventory);
     }
 
-    void spawnBonusRain() {
+    void spawnBonusRain(const Player& collector) {
         for (int i = 0; i < 4; ++i) {
             BonusDrop drop;
-            drop.x = std::clamp(player_.x - 24.0f + i * 16.0f, 0.0f,
+            drop.x = std::clamp(collector.x - 24.0f + i * 16.0f, 0.0f,
                                 std::max(16.0f, level_.width * 8.0f - 16.0f));
-            drop.y = std::max(16.0f, player_.y - 48.0f - i * 4.0f);
+            drop.y = std::max(16.0f, collector.y - 48.0f - i * 4.0f);
             drop.type = i % 2 == 0 ? BonusType::Present : BonusType::BigDiamond;
             bonusDrops_.push_back(drop);
         }
@@ -2894,10 +2913,15 @@ private:
     void drawGame() {
         std::fill(fb_.begin(), fb_.end(), argb(palette_, 0));
         if (playerCount_ > 1) {
-            drawWorldView(player_, 0, 16, kScreenW, 92);
-            drawWorldView(player2_, 0, 108, kScreenW, 92);
+            drawWorldView(player_, 0, 16, kScreenW, 84);
+            drawWorldView(player2_, 0, 116, kScreenW, 84);
             resetClip();
-            rect(0, 106, kScreenW, 2, 0xfff0d060u);
+            rect(0, 99, kScreenW, 1, 0xfff0d060u);
+            rect(0, 100, kScreenW, 16, 0xcc000000u);
+            text(4, 104, playerHudText(2, energy2_, lives2_, player2Dead_,
+                                        bombInventory2_),
+                 0xffffffffu);
+            rect(0, 115, kScreenW, 1, 0xfff0d060u);
         } else {
             int viewW = std::clamp(gameplayViewWidth_, 160, kScreenW);
             int viewX = (kScreenW - viewW) / 2;
@@ -3117,29 +3141,35 @@ private:
 
     void drawHud() {
         rect(0, 0, kScreenW, 16, 0xcc000000u);
-        text(4, 4, "L" + std::to_string(levelIndex_ + 1) +
-                       " B" + std::to_string(collected_) + "/" +
-                       std::to_string(level_.requiredBonus) + " D" +
-                       std::to_string(destructionPercent()) + "/" +
-                       std::to_string(level_.requiredDestruction) + " E" +
-                       std::to_string(energy_) + " P" + std::to_string(lives_) +
-                       (playerDead_ ? " WAIT" : "") +
-                       (playerCount_ > 1 ? " E2" + std::to_string(energy2_) +
-                                            " P2" + std::to_string(lives2_) +
-                                            (player2Dead_ ? " WAIT2" : "")
-                                          : "") +
-                       " V" + std::to_string(gameplayViewWidth_) +
-                       " W" + std::to_string(bombTypeIndex(bombInventory_.selected) + 1) +
-                       " " + std::to_string(bombInventory_.counts[0]) + "/" +
-                       std::to_string(bombInventory_.counts[1]) + "/" +
-                       std::to_string(bombInventory_.counts[2]) + "/" +
-                       std::to_string(bombInventory_.counts[3]) +
-                       " S" + std::to_string(score_),
-             0xffffffffu);
+        std::string status = "L" + std::to_string(levelIndex_ + 1) +
+                             " B" + std::to_string(collected_) + "/" +
+                             std::to_string(level_.requiredBonus) + " D" +
+                             std::to_string(destructionPercent()) + "/" +
+                             std::to_string(level_.requiredDestruction) +
+                             " S" + std::to_string(score_) + " " +
+                             playerHudText(1, energy_, lives_, playerDead_,
+                                           bombInventory_);
+        if (playerCount_ == 1) {
+            status += " V" + std::to_string(gameplayViewWidth_);
+        }
+        text(4, 4, status, 0xffffffffu);
         if (isComplete()) {
             rect(76, 84, 168, 24, 0xee000000u);
             text(92, 92, "LEVEL COMPLETED", 0xffffe060u, false, 0xff301800u);
         }
+    }
+
+    std::string playerHudText(int index, int energy, int lives, bool dead,
+                              const BombInventory& inventory) const {
+        return "P" + std::to_string(index) +
+               " E" + std::to_string(energy) +
+               " L" + std::to_string(lives) +
+               " W" + std::to_string(bombTypeIndex(inventory.selected) + 1) +
+               " " + std::to_string(inventory.counts[0]) + "/" +
+               std::to_string(inventory.counts[1]) + "/" +
+               std::to_string(inventory.counts[2]) + "/" +
+               std::to_string(inventory.counts[3]) +
+               (dead ? " WAIT" : "");
     }
 
     void drawMenu() {

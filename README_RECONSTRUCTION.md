@@ -85,8 +85,8 @@ Dump the current bomb inventory model and export sprite contact sheets:
 - Menu subpages for info, instructions, and records, plus original-documented
   background and one-player playfield-width controls.
 - A first playable two-player reconstruction pass with separate start markers,
-  separate controls, split camera views, shared objectives, and player-2 bomb
-  placement through the `N` fire key.
+  separate controls, split camera views, per-player bomb inventories/HUD state,
+  shared objectives, and player-2 bomb placement through the `N` fire key.
 - High-score table serialization back to the original `RECS.DAT` record format,
   name entry for new records, and validation coverage that writes only to
   temporary test files.
@@ -100,8 +100,8 @@ Dump the current bomb inventory model and export sprite contact sheets:
   deeper reconstruction of the actor update routine around `1000:6053`.
 - PC speaker sound effects now play through an approximate square-wave
   sequencer; exact original timing and tone-field semantics remain unresolved.
-- Two-player split-screen is playable, but exact original center-panel HUD,
-  per-player inventory rules, reentry/game-over flow, and scoring semantics
+- Two-player split-screen is playable with independent bomb inventories, but
+  exact original center-panel HUD, reentry/game-over flow, and scoring semantics
   remain approximate.
 - High scores are persisted with name entry, but exact original record-entry
   presentation and keyboard editing semantics remain approximate.

@@ -1062,6 +1062,32 @@ public:
         }
     }
 
+    void debugSoundRender() {
+        load();
+        size_t totalSamples = 0;
+        size_t totalNonZero = 0;
+        for (size_t i = 0; i < sounds_.records.size(); ++i) {
+            std::vector<int16_t> samples = synthesizeSound(i);
+            size_t nonZero = static_cast<size_t>(
+                std::count_if(samples.begin(), samples.end(),
+                              [](int16_t sample) { return sample != 0; }));
+            if (samples.empty() || nonZero == 0) {
+                throw std::runtime_error("sound " + std::to_string(i + 1) +
+                                         " rendered no audible samples");
+            }
+            totalSamples += samples.size();
+            totalNonZero += nonZero;
+            auto range = std::minmax_element(samples.begin(), samples.end());
+            std::cout << "sound_render_" << (i + 1)
+                      << "=samples:" << samples.size()
+                      << " nonzero:" << nonZero
+                      << " min:" << *range.first
+                      << " max:" << *range.second << '\n';
+        }
+        std::cout << "sound_render_total=samples:" << totalSamples
+                  << " nonzero:" << totalNonZero << '\n';
+    }
+
     void debugGran() {
         load();
         std::cout << "gran_record_size=" << gran_.recordSize
@@ -1577,6 +1603,32 @@ private:
         texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_ARGB8888,
                                      SDL_TEXTUREACCESS_STREAMING, kScreenW, kScreenH);
         if (!texture_) throw std::runtime_error(SDL_GetError());
+        initAudio();
+    }
+
+    void initAudio() {
+        if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
+            SDL_ClearError();
+            return;
+        }
+        SDL_AudioSpec want{};
+        want.freq = kAudioSampleRate;
+        want.format = AUDIO_S16SYS;
+        want.channels = 1;
+        want.samples = 1024;
+        SDL_AudioSpec have{};
+        audioDevice_ = SDL_OpenAudioDevice(nullptr, 0, &want, &have, 0);
+        if (audioDevice_ == 0) {
+            SDL_ClearError();
+            return;
+        }
+        audioEnabled_ = have.format == AUDIO_S16SYS && have.channels == 1;
+        if (audioEnabled_) {
+            SDL_PauseAudioDevice(audioDevice_, 0);
+        } else {
+            SDL_CloseAudioDevice(audioDevice_);
+            audioDevice_ = 0;
+        }
     }
 
     void processEvents(bool& running) {
@@ -1751,6 +1803,60 @@ private:
             return static_cast<char>('0' + (key - SDLK_0));
         }
         return '\0';
+    }
+
+    std::vector<int16_t> synthesizeSound(size_t index) const {
+        if (index >= sounds_.records.size()) return {};
+        const std::vector<uint8_t>& bytes = sounds_.records[index].bytes;
+        std::vector<int16_t> samples;
+        samples.reserve((bytes.size() / 5) * kAudioToneSamples);
+        double phase = 0.0;
+        for (size_t off = 0; off + 4 < bytes.size(); off += 5) {
+            uint16_t periodA = static_cast<uint16_t>(bytes[off] | (bytes[off + 1] << 8));
+            uint16_t periodB = static_cast<uint16_t>(bytes[off + 2] | (bytes[off + 3] << 8));
+            uint8_t durationByte = bytes[off + 4];
+            uint16_t period = static_cast<uint16_t>(periodA & 0x7fffu);
+            uint16_t fallbackPeriod = static_cast<uint16_t>(periodB & 0x7fffu);
+            if (period < 0x20 && fallbackPeriod >= 0x20) {
+                period = fallbackPeriod;
+            }
+            int sampleCount = std::max(1, (1 + (durationByte & 0x0f)) * kAudioToneSamples / 2);
+            if (period < 0x20 || (periodA == 0 && periodB == 0 && durationByte == 0)) {
+                samples.insert(samples.end(), static_cast<size_t>(sampleCount), 0);
+                continue;
+            }
+            double frequency = std::clamp(1193182.0 / static_cast<double>(period), 80.0, 4200.0);
+            double step = frequency / static_cast<double>(kAudioSampleRate);
+            int amplitude = 1800 + static_cast<int>((periodB & 0x003fu) * 120);
+            amplitude = std::clamp(amplitude, 1800, 9000);
+            for (int i = 0; i < sampleCount; ++i) {
+                phase += step;
+                if (phase >= 1.0) phase -= std::floor(phase);
+                samples.push_back(phase < 0.5 ? static_cast<int16_t>(amplitude)
+                                               : static_cast<int16_t>(-amplitude));
+            }
+        }
+        return samples;
+    }
+
+    size_t soundIndexForSelector(uint8_t selector) const {
+        if (sounds_.records.empty()) return 0;
+        if (selector >= 4) {
+            return static_cast<size_t>(selector - 4) % sounds_.records.size();
+        }
+        return static_cast<size_t>(selector) % sounds_.records.size();
+    }
+
+    void playSound(size_t index) {
+        if (!audioEnabled_ || audioDevice_ == 0 || sounds_.records.empty()) return;
+        std::vector<int16_t> samples = synthesizeSound(index % sounds_.records.size());
+        if (samples.empty()) return;
+        SDL_QueueAudio(audioDevice_, samples.data(),
+                       static_cast<Uint32>(samples.size() * sizeof(int16_t)));
+    }
+
+    void playSoundSelector(uint8_t selector) {
+        playSound(soundIndexForSelector(selector));
     }
 
     int tileAt(int tx, int ty) const {
@@ -1930,6 +2036,7 @@ private:
         updateBonusDrops();
         updateBombs();
         if (isComplete()) {
+            if (completeTimer_ == 0) playSound(5);
             if (++completeTimer_ > 100) resetLevel(levelIndex_ + 1);
         } else {
             completeTimer_ = 0;
@@ -1993,6 +2100,7 @@ private:
                     tileRef(x, y) = 1;
                     ++collected_;
                     score_ += 1000;
+                    playSound(0);
                 }
             }
         }
@@ -2012,12 +2120,14 @@ private:
                     player.vx = 0.0f;
                     player.vy = 0.0f;
                     portalCooldown_ = 30;
+                    playSound(1);
                     break;
                 }
             }
         } else if (tile == 0x72 && triggerCooldown_ == 0) {
             if (applyTileTrigger(wordAt(tx, ty))) {
                 triggerCooldown_ = 30;
+                playSound(1);
             }
         }
     }
@@ -2267,6 +2377,7 @@ private:
         }
         dead = true;
         timer = canReenterLevel() ? kReentryTicks : 1;
+        playSound(3);
         (void)startMarker;
     }
 
@@ -2385,6 +2496,7 @@ private:
             BombProfile profile = bombProfile(bombInventory_.selected);
             bombs_.push_back({tx, ty, profile.fuseTicks, bombInventory_.selected,
                               profile.fuseTicks});
+            playSound(2);
             int& count = bombInventory_.counts[static_cast<size_t>(bombTypeIndex(bombInventory_.selected))];
             count = std::max(0, count - 1);
             if (count == 0) selectNextAvailableBomb();
@@ -2435,6 +2547,7 @@ private:
         effect.computedX = bomb.x * kTileSize;
         effect.computedY = bomb.y * kTileSize;
         explosionEffects_.push_back(effect);
+        playSoundSelector(effect.soundSelector);
     }
 
     bool isBombObjectTile(uint8_t tile) const {
@@ -2605,6 +2718,7 @@ private:
         monster.fracY = 0;
         flashes_.push_back({static_cast<int>(monster.x + 7.0f) / 8,
                             static_cast<int>(monster.y + 8.0f) / 8, 18});
+        playSound(4);
         if (!monster.deathCredited && monster.spawnerIndex < spawnerStates_.size()) {
             ++spawnerStates_[monster.spawnerIndex].availableSlots;
             monster.deathCredited = true;
@@ -2626,6 +2740,7 @@ private:
             ++drop.animTick;
             if (anyPlayerOverlaps(drop.x, drop.y, 12.0f, 12.0f)) {
                 applyBonus(drop.type);
+                playSound(5);
                 drop.collected = true;
             }
         }
@@ -3238,6 +3353,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sounds") {
             app.debugSounds();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sound-render") {
+            app.debugSoundRender();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-gran") {

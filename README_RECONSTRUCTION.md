@@ -52,6 +52,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-bombs
 ./build/lezac_cpp --debug-fixed
 ./build/lezac_cpp --debug-sounds
+./build/lezac_cpp --debug-sound-render
 ./build/lezac_cpp --debug-gran
 ./build/lezac_cpp --debug-levels
 ./build/lezac_cpp --debug-word-layer
@@ -89,14 +90,16 @@ Dump the current bomb inventory model and export sprite contact sheets:
 - High-score table serialization back to the original `RECS.DAT` record format,
   name entry for new records, and validation coverage that writes only to
   temporary test files.
+- `PROEFS.SON` records synthesize SDL-queued PC-speaker-style square-wave sound
+  effects for core gameplay events, with headless render validation.
 
 ## Still Approximate
 
 - Monster spawners now create active enemies with original-style 8.8 motion, but
   behavior-specific AI and monster collision/damage remain approximate pending
   deeper reconstruction of the actor update routine around `1000:6053`.
-- PC speaker sound sequencing is parsed as `PROEFS.SON` records but not
-  semantically decoded or replayed.
+- PC speaker sound effects now play through an approximate square-wave
+  sequencer; exact original timing and tone-field semantics remain unresolved.
 - Two-player split-screen is playable, but exact original center-panel HUD,
   per-player inventory rules, reentry/game-over flow, and scoring semantics
   remain approximate.

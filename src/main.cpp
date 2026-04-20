@@ -914,6 +914,22 @@ public:
             throw std::runtime_error("PageDown did not return to level 1");
         }
 
+        collected_ = level_.requiredBonus;
+        destroyed_ = level_.startingDestructibleTiles;
+        for (int i = 0; i <= 100; ++i) {
+            updateLevelCompletion();
+        }
+        if (levelIndex_ != 1) {
+            throw std::runtime_error("level completion did not advance to level 2");
+        }
+
+        size_t preResetBombs = bombs_.size();
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.size() != preResetBombs + 1) {
+            throw std::runtime_error("pre-reset bomb was not placed");
+        }
+
         pushKeyDown(SDLK_F5);
         processEvents(running);
         if (!bombs_.empty()) {
@@ -2104,6 +2120,10 @@ private:
         updateMonsters(dt);
         updateBonusDrops();
         updateBombs();
+        updateLevelCompletion();
+    }
+
+    void updateLevelCompletion() {
         if (isComplete()) {
             if (completeTimer_ == 0) playSound(5);
             if (++completeTimer_ > 100) resetLevel(levelIndex_ + 1);

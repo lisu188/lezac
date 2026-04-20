@@ -50,6 +50,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 
 ```sh
 ./build/lezac_cpp --debug-bombs
+./build/lezac_cpp --debug-bonuses
 ./build/lezac_cpp --debug-fixed
 ./build/lezac_cpp --debug-sounds
 ./build/lezac_cpp --debug-sound-render

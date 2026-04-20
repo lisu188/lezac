@@ -1153,6 +1153,91 @@ public:
         std::cout << "super_bomb_footprint_tiles=" << tiles.size() << '\n';
     }
 
+    void debugBonuses() {
+        load();
+        resetLevel(0);
+        Player collector = player_;
+        BombInventory inventory;
+        int energy = 50;
+
+        auto expectScore = [&](BonusType type, uint32_t expectedScore) {
+            uint32_t before = score_;
+            applyBonus(type, collector, energy, inventory);
+            if (score_ != before + expectedScore) {
+                throw std::runtime_error("bonus score table mismatch");
+            }
+        };
+
+        std::array<std::array<int, 2>, 7> spriteScores{{
+            {61, 2000}, {62, 1000}, {63, 1500}, {64, 2000},
+            {65, 3000}, {66, 1000}, {67, 5000},
+        }};
+        for (int i = 0; i < static_cast<int>(spriteScores.size()); ++i) {
+            BonusType type = static_cast<BonusType>(i);
+            if (bonusSpriteIndex(type) != spriteScores[static_cast<size_t>(i)][0]) {
+                throw std::runtime_error("bonus sprite table mismatch");
+            }
+        }
+
+        score_ = 0;
+        energy = 50;
+        expectScore(BonusType::Present, 2000);
+        if (energy != 50) throw std::runtime_error("present changed energy");
+
+        score_ = 0;
+        energy = 20;
+        expectScore(BonusType::FirstAid, 1000);
+        if (energy != 100) throw std::runtime_error("first aid did not restore energy");
+
+        score_ = 0;
+        energy = 50;
+        expectScore(BonusType::HotDog, 1500);
+        if (energy != 83) throw std::runtime_error("hot dog did not add one-third energy");
+        energy = 90;
+        applyBonus(BonusType::HotDog, collector, energy, inventory);
+        if (energy != 100) throw std::runtime_error("hot dog did not clamp energy");
+
+        score_ = 0;
+        bonusDrops_.clear();
+        expectScore(BonusType::JollyCloud, 2000);
+        if (bonusDrops_.size() != 4 ||
+            bonusDrops_[0].type != BonusType::Present ||
+            bonusDrops_[1].type != BonusType::BigDiamond ||
+            bonusDrops_[2].type != BonusType::Present ||
+            bonusDrops_[3].type != BonusType::BigDiamond) {
+            throw std::runtime_error("jolly cloud did not spawn bonus rain");
+        }
+
+        score_ = 0;
+        inventory = {};
+        inventory.counts = {0, 0, 0, 0};
+        inventory.selected = BombType::Super;
+        randomSeed_ = 0x1234abcd;
+        expectScore(BonusType::YellowBombBox, 3000);
+        if (inventory.counts[0] != 200 || inventory.counts[1] <= 0 ||
+            inventory.counts[2] <= 0 || inventory.counts[3] != 0 ||
+            !hasBomb(inventory, inventory.selected)) {
+            throw std::runtime_error("yellow bomb box did not grant normal set");
+        }
+
+        score_ = 0;
+        inventory = {};
+        inventory.counts = {0, 0, 0, 0};
+        inventory.selected = BombType::Super;
+        randomSeed_ = 0x1234abcd;
+        expectScore(BonusType::GreenBombBox, 1000);
+        if (inventory.counts[0] != 200 || inventory.counts[1] <= 0 ||
+            inventory.counts[2] <= 0 || inventory.counts[3] <= 0 ||
+            inventory.selected != BombType::Super) {
+            throw std::runtime_error("green bomb box did not grant super set");
+        }
+
+        score_ = 0;
+        expectScore(BonusType::BigDiamond, 5000);
+        std::cout << "bonuses=ok sprites=" << spriteScores.size()
+                  << " rain=" << bonusDrops_.size() << '\n';
+    }
+
     void debugFixed() {
         auto run = [](int16_t velocity, int ticks) {
             int pos = 0;
@@ -3773,6 +3858,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bombs") {
             app.debugBombs();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-bonuses") {
+            app.debugBonuses();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-fixed") {

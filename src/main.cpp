@@ -829,6 +829,32 @@ public:
 
         energy2_ = 1;
         lives_ = 3;
+        lives2_ = 3;
+        damageCooldown2_ = 0;
+        size_t beforePlayer2ReentryBombs = bombs_.size();
+        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                     damageCooldown2_, 2);
+        if (menu_ || !player2Dead_ || lives2_ != 2 || reentryTimer2_ <= 0 ||
+            playerDead_) {
+            throw std::runtime_error("player 2 death did not enter reentry state");
+        }
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (player2Dead_ || energy2_ != 100 || lives2_ != 2 ||
+            bombs_.size() != beforePlayer2ReentryBombs) {
+            throw std::runtime_error("N key did not reenter player 2 after death");
+        }
+        size_t afterPlayer2ReentryBombs = bombs_.size();
+        int player2BombsAfterReentry = bombInventory2_.counts[0];
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.size() != afterPlayer2ReentryBombs + 1 ||
+            bombInventory2_.counts[0] != player2BombsAfterReentry - 1) {
+            throw std::runtime_error("N key did not fire for player 2 after reentry");
+        }
+
+        energy2_ = 1;
+        lives_ = 3;
         lives2_ = 1;
         damageCooldown2_ = 0;
         damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,

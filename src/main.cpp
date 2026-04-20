@@ -134,6 +134,15 @@ bool countsForDestructionProgress(uint8_t tile, uint8_t objectiveTile) {
     return tile > 1 && tile != 0xff && tile != objectiveTile;
 }
 
+bool countsForPhysicalDamageProgress(uint16_t word) {
+    return word != 0 && (word & kDamagedWordBit) == 0 && word < kDeferredThreshold;
+}
+
+int countPhysicalDamageProgressCells(const std::vector<uint16_t>& words) {
+    return static_cast<int>(std::count_if(words.begin(), words.end(),
+                                          countsForPhysicalDamageProgress));
+}
+
 struct Record {
     uint32_t score = 0;
     uint8_t level = 0;
@@ -795,6 +804,59 @@ TileTriggerRule parseTileTriggerRule(const std::array<uint8_t, 14>& rec) {
     return rule;
 }
 
+std::vector<Level> loadRawLevels(const std::string& path) {
+    std::vector<uint8_t> data = readFile(path);
+    std::vector<Level> levels;
+    size_t off = 0;
+    while (off < data.size()) {
+        Level level;
+        level.fileOffset = off;
+        level.width = getU16(data, off);
+        level.height = getU16(data, off);
+        if (level.width <= 0 || level.height <= 0 || level.width > 300 || level.height > 200) {
+            throw std::runtime_error(path + " has invalid raw level dimensions");
+        }
+        level.objectiveTile = getU8(data, off);
+        level.requiredBonus = getU16(data, off);
+        level.requiredDestruction = getU8(data, off);
+
+        level.tileEncodedSize = getU16(data, off);
+        std::vector<uint8_t> tileEncoded = getBytes(data, off, level.tileEncodedSize);
+        size_t tileCount = static_cast<size_t>(level.width) * level.height;
+        level.tiles = decodeLevelRle3(tileEncoded, tileCount);
+
+        level.wordEncodedSize = getU16(data, off);
+        std::vector<uint8_t> wordEncoded = getBytes(data, off, level.wordEncodedSize);
+        std::vector<uint8_t> wordBytes = decodeLevelRle3(wordEncoded, tileCount * 2);
+        level.wordLayer.reserve(tileCount);
+        for (size_t i = 0; i + 1 < wordBytes.size(); i += 2) {
+            level.wordLayer.push_back(le16(wordBytes, i));
+        }
+
+        level.fieldA = getU16(data, off);
+        level.fieldB = getU16(data, off);
+
+        for (const auto& rec : getFixedRecords<30>(data, off)) {
+            level.monsterSpawners.push_back(parseMonsterSpawner(rec));
+        }
+        for (const auto& rec : getFixedRecords<7>(data, off)) {
+            level.portals.push_back(parseLevelPortal(rec));
+        }
+        for (const auto& rec : getFixedRecords<14>(data, off)) {
+            level.tileTriggers.push_back(parseTileTriggerRule(rec));
+        }
+
+        if (level.tiles.size() != tileCount || level.wordLayer.size() != tileCount) {
+            throw std::runtime_error(path + " raw level arrays are inconsistent");
+        }
+        level.startingObjectiveTiles = static_cast<int>(
+            std::count(level.tiles.begin(), level.tiles.end(), level.objectiveTile));
+        level.startingDestructibleTiles = countPhysicalDamageProgressCells(level.wordLayer);
+        levels.push_back(std::move(level));
+    }
+    return levels;
+}
+
 std::vector<Level> loadLevels(const std::string& path) {
     auto json = readTextFile(path);
     std::vector<Level> levels;
@@ -871,12 +933,11 @@ std::vector<Level> loadLevels(const std::string& path) {
             throw std::runtime_error(path + " level arrays are inconsistent");
         }
 
-        for (uint8_t tile : level.tiles) {
-            if (tile == level.objectiveTile) {
-                ++level.startingObjectiveTiles;
-            } else if (countsForDestructionProgress(tile, level.objectiveTile)) {
-                ++level.startingDestructibleTiles;
-            }
+        level.startingObjectiveTiles = static_cast<int>(
+            std::count(level.tiles.begin(), level.tiles.end(), level.objectiveTile));
+        level.startingDestructibleTiles = countPhysicalDamageProgressCells(level.wordLayer);
+        if (level.fieldB != static_cast<uint16_t>(level.startingDestructibleTiles)) {
+            throw std::runtime_error(path + " fieldB does not match low word-layer damage count");
         }
         levels.push_back(std::move(level));
     }
@@ -1316,14 +1377,14 @@ public:
         onKey(SDLK_e, running);
         onKey(SDLK_s, running);
         onKey(SDLK_t, running);
-        onKey(SDLK_SPACE, running);
         onKey(SDLK_KP_1, running);
         onKey(SDLK_DELETE, running);
-        onKey(SDLK_KP_2, running);
+        onKey(SDLK_x, running);
+        onKey(SDLK_BACKSPACE, running);
         onKey(SDLK_RETURN, running);
         auto reloaded = loadRecords(path);
         if (reloaded.empty() || reloaded[0].score != 999999u ||
-            reloaded[0].name != "TEST 2") {
+            reloaded[0].name != "test") {
             throw std::runtime_error("name-entry record did not save");
         }
         std::cout << "record_name_entry=ok top=" << reloaded[0].score
@@ -1651,6 +1712,140 @@ public:
                 std::cout << '\n';
             }
         }
+    }
+
+    void debugLevelRawRoundtrip() {
+        load();
+        std::vector<Level> rawLevels = loadRawLevels("LIVELS.SCH");
+        const std::array<size_t, 7> expectedOffsets{0, 1242, 4923, 10984,
+                                                     15225, 21546, 36128};
+        if (rawLevels.size() != levels_.size() || rawLevels.size() != expectedOffsets.size()) {
+            throw std::runtime_error("raw level count did not match JSON levels");
+        }
+
+        auto sameSpawner = [](const MonsterSpawner& a, const MonsterSpawner& b) {
+            return a.x == b.x && a.y == b.y && a.tileIndex == b.tileIndex &&
+                   a.savedWordOrLink == b.savedWordOrLink && a.enabled == b.enabled &&
+                   a.spawnBudget == b.spawnBudget && a.liveAllowance == b.liveAllowance &&
+                   a.monsterKind == b.monsterKind && a.param0Base == b.param0Base &&
+                   a.param0Range == b.param0Range && a.param1Base == b.param1Base &&
+                   a.param1Range == b.param1Range && a.param2Base == b.param2Base &&
+                   a.param2Range == b.param2Range && a.randomBase == b.randomBase &&
+                   a.randomRange == b.randomRange && a.spawnArg == b.spawnArg &&
+                   a.cooldown == b.cooldown && a.cooldownReset == b.cooldownReset &&
+                   a.animationDelay == b.animationDelay;
+        };
+        auto samePortal = [](const LevelPortal& a, const LevelPortal& b) {
+            return a.key == b.key && a.x == b.x && a.y == b.y && a.marker == b.marker;
+        };
+        auto sameTrigger = [](const TileTriggerRule& a, const TileTriggerRule& b) {
+            return a.wordRangeFirst == b.wordRangeFirst &&
+                   a.wordRangeLast == b.wordRangeLast &&
+                   a.triggerKey == b.triggerKey &&
+                   a.from == b.from && a.to == b.to;
+        };
+
+        size_t totalCells = 0;
+        size_t totalSpawners = 0;
+        size_t totalPortals = 0;
+        size_t totalTriggers = 0;
+        std::array<int, 256> kindCounts{};
+        std::array<int, 256> behaviorCounts{};
+        for (size_t i = 0; i < rawLevels.size(); ++i) {
+            const Level& raw = rawLevels[i];
+            const Level& json = levels_[i];
+            if (raw.fileOffset != expectedOffsets[i] || raw.fileOffset != json.fileOffset ||
+                raw.width != json.width || raw.height != json.height ||
+                raw.objectiveTile != json.objectiveTile ||
+                raw.requiredBonus != json.requiredBonus ||
+                raw.requiredDestruction != json.requiredDestruction ||
+                raw.tileEncodedSize != json.tileEncodedSize ||
+                raw.wordEncodedSize != json.wordEncodedSize ||
+                raw.fieldA != json.fieldA || raw.fieldB != json.fieldB ||
+                raw.tiles != json.tiles || raw.wordLayer != json.wordLayer) {
+                throw std::runtime_error("raw level " + std::to_string(i + 1) +
+                                         " did not match JSON scalar/layer data");
+            }
+            if (raw.fieldB != static_cast<uint16_t>(countPhysicalDamageProgressCells(raw.wordLayer)) ||
+                raw.startingDestructibleTiles != static_cast<int>(raw.fieldB) ||
+                json.startingDestructibleTiles != static_cast<int>(json.fieldB)) {
+                throw std::runtime_error("raw level physical damage count mismatch");
+            }
+            if (raw.monsterSpawners.size() != json.monsterSpawners.size() ||
+                raw.portals.size() != json.portals.size() ||
+                raw.tileTriggers.size() != json.tileTriggers.size()) {
+                throw std::runtime_error("raw level entity counts did not match JSON");
+            }
+            for (size_t j = 0; j < raw.monsterSpawners.size(); ++j) {
+                if (!sameSpawner(raw.monsterSpawners[j], json.monsterSpawners[j])) {
+                    throw std::runtime_error("raw spawner did not match JSON");
+                }
+                ++kindCounts[raw.monsterSpawners[j].monsterKind];
+                ++behaviorCounts[raw.monsterSpawners[j].spawnArg];
+            }
+            for (size_t j = 0; j < raw.portals.size(); ++j) {
+                if (!samePortal(raw.portals[j], json.portals[j])) {
+                    throw std::runtime_error("raw portal did not match JSON");
+                }
+            }
+            for (size_t j = 0; j < raw.tileTriggers.size(); ++j) {
+                if (!sameTrigger(raw.tileTriggers[j], json.tileTriggers[j])) {
+                    throw std::runtime_error("raw trigger did not match JSON");
+                }
+            }
+            totalCells += static_cast<size_t>(raw.width) * raw.height;
+            totalSpawners += raw.monsterSpawners.size();
+            totalPortals += raw.portals.size();
+            totalTriggers += raw.tileTriggers.size();
+        }
+
+        if (totalCells != 47700 || totalSpawners != 15 ||
+            totalPortals != 21 || totalTriggers != 3) {
+            throw std::runtime_error("raw level aggregate counts changed");
+        }
+        if (rawLevels[0].width != 60 || rawLevels[0].height != 33 ||
+            rawLevels[0].tileEncodedSize != 609 ||
+            rawLevels[0].wordEncodedSize != 570 ||
+            rawLevels[5].monsterSpawners.size() != 4 ||
+            rawLevels[5].tileTriggers.size() != 2 ||
+            !rawLevels[6].monsterSpawners.empty() ||
+            rawLevels[6].tileTriggers.size() != 1) {
+            throw std::runtime_error("raw level fixture assertions changed");
+        }
+        if (kindCounts[1] != 7 || kindCounts[2] != 2 ||
+            kindCounts[3] != 3 || kindCounts[4] != 3 ||
+            behaviorCounts[3] != 9 || behaviorCounts[4] != 6) {
+            throw std::runtime_error("raw spawner kind/behavior counts changed");
+        }
+
+        std::cout << "level_raw_roundtrip=ok levels=" << rawLevels.size()
+                  << " cells=" << totalCells
+                  << " spawners=" << totalSpawners
+                  << " portals=" << totalPortals
+                  << " triggers=" << totalTriggers << '\n';
+    }
+
+    void debugSpriteTransparency() {
+        load();
+        auto countPixels = [](const SpriteBank& bank, uint8_t value) {
+            size_t count = 0;
+            for (const Sprite& sprite : bank.sprites) {
+                count += static_cast<size_t>(
+                    std::count(sprite.pixels.begin(), sprite.pixels.end(), value));
+            }
+            return count;
+        };
+        size_t primaryFf = countPixels(sprites_, 0xff);
+        size_t altFf = countPixels(altSprites_, 0xff);
+        size_t fontFf = countPixels(fontSprites_, 0xff);
+        size_t totalFf = primaryFf + altFf + fontFf;
+        if (totalFf == 0) {
+            throw std::runtime_error("sprite banks no longer exercise 0xff transparency");
+        }
+        std::cout << "sprite_transparency=ok zero_only=1 ff_pixels=" << totalFf
+                  << " primary=" << primaryFf
+                  << " prova=" << altFf
+                  << " fonts=" << fontFf << '\n';
     }
 
     void debugWordLayer() {
@@ -2119,7 +2314,7 @@ public:
         for (size_t level = 0; level < levels_.size(); ++level) {
             resetLevel(static_cast<int>(level));
             for (const TileTriggerRule& rule : level_.tileTriggers) {
-                int expectedDestroyed = 0;
+                int expectedRewrites = 0;
                 size_t count = std::min(level_.tiles.size(), level_.wordLayer.size());
                 for (size_t i = 0; i < count; ++i) {
                     uint16_t word = static_cast<uint16_t>(level_.wordLayer[i] & 0x7fffu);
@@ -2129,28 +2324,25 @@ public:
                         uint8_t from = rule.from[slot];
                         if (from == 0 || tile != from) continue;
                         uint8_t to = rule.to[slot];
-                        if (countsForDestructionProgress(tile, level_.objectiveTile) &&
-                            !countsForDestructionProgress(to, level_.objectiveTile)) {
-                            ++expectedDestroyed;
-                        }
+                        if (tile != to) ++expectedRewrites;
                         tile = to;
                     }
                 }
-                if (expectedDestroyed == 0) continue;
+                if (expectedRewrites == 0) continue;
 
                 int beforeDestroyed = destroyed_;
                 if (!applyTileTrigger(rule.triggerKey)) {
                     throw std::runtime_error("trigger accounting test did not rewrite tiles");
                 }
-                if (destroyed_ != beforeDestroyed + expectedDestroyed) {
-                    throw std::runtime_error("trigger rewrite did not update destruction");
+                if (destroyed_ != beforeDestroyed) {
+                    throw std::runtime_error("trigger rewrite changed physical destruction progress");
                 }
                 std::cout << "trigger_accounting=ok level=" << (level + 1)
-                          << " destroyed=" << expectedDestroyed << '\n';
+                          << " rewrites=" << expectedRewrites << '\n';
                 return;
             }
         }
-        throw std::runtime_error("no trigger removed destructible tiles");
+        throw std::runtime_error("no trigger rewrote tiles");
     }
 
     void debugPortalCooldowns() {
@@ -2591,7 +2783,7 @@ private:
             finalizePendingRecord();
             return;
         }
-        if (key == SDLK_BACKSPACE || key == SDLK_DELETE) {
+        if (key == SDLK_BACKSPACE) {
             if (!pendingRecordName_.empty()) pendingRecordName_.pop_back();
             return;
         }
@@ -2607,26 +2799,10 @@ private:
 
     char recordCharForKey(SDL_Keycode key) const {
         if (key >= SDLK_a && key <= SDLK_z) {
-            return static_cast<char>('A' + (key - SDLK_a));
-        }
-        if (key >= SDLK_0 && key <= SDLK_9) {
-            return static_cast<char>('0' + (key - SDLK_0));
+            return static_cast<char>('a' + (key - SDLK_a));
         }
         if (key == SDLK_SPACE) {
             return ' ';
-        }
-        switch (key) {
-            case SDLK_KP_0: return '0';
-            case SDLK_KP_1: return '1';
-            case SDLK_KP_2: return '2';
-            case SDLK_KP_3: return '3';
-            case SDLK_KP_4: return '4';
-            case SDLK_KP_5: return '5';
-            case SDLK_KP_6: return '6';
-            case SDLK_KP_7: return '7';
-            case SDLK_KP_8: return '8';
-            case SDLK_KP_9: return '9';
-            default: break;
         }
         return '\0';
     }
@@ -3037,13 +3213,8 @@ private:
     }
 
     void accountTileRewrite(uint8_t from, uint8_t to) {
-        bool fromCounts = countsForDestructionProgress(from, level_.objectiveTile);
-        bool toCounts = countsForDestructionProgress(to, level_.objectiveTile);
-        if (fromCounts && !toCounts) {
-            ++destroyed_;
-        } else if (!fromCounts && toCounts) {
-            ++level_.startingDestructibleTiles;
-        }
+        (void)from;
+        (void)to;
     }
 
     std::array<int, 2> monsterFrameRange(uint8_t kind) const {
@@ -3378,10 +3549,10 @@ private:
                      100;
         for (int y = 0; y < level_.height && destroyed_ < target; ++y) {
             for (int x = 0; x < level_.width && destroyed_ < target; ++x) {
-                if (!countsForDestructionProgress(tileAt(x, y), level_.objectiveTile)) {
+                if (!countsForPhysicalDamageProgress(wordAt(x, y))) {
                     continue;
                 }
-                markDamagedTile(x, y);
+                queueTileDamage(x, y);
             }
         }
         if (destroyed_ < target) {
@@ -3411,13 +3582,11 @@ private:
                 uint8_t tile = tileAt(x, y);
                 if (!isBombObjectTile(tile)) continue;
                 int before = destroyed_;
-                bool shouldCount = countsForDestructionProgress(tile, level_.objectiveTile);
                 if (!consumeBombObjectTile(x, y)) {
                     throw std::runtime_error("bomb object tile was not consumed");
                 }
-                int expected = before + (shouldCount ? 1 : 0);
-                if (destroyed_ != expected) {
-                    throw std::runtime_error("bomb object consumption did not update destruction");
+                if (destroyed_ != before) {
+                    throw std::runtime_error("bomb object consumption changed physical destruction");
                 }
                 if (tileAt(x, y) == tile) {
                     throw std::runtime_error("bomb object tile did not change after consumption");
@@ -3624,9 +3793,6 @@ private:
         if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return false;
         uint8_t& tile = tileRef(tx, ty);
         if (!isBombObjectTile(tile)) return false;
-        if (countsForDestructionProgress(tile, level_.objectiveTile)) {
-            ++destroyed_;
-        }
         tile = (wordAt(tx, ty) & 0x8000u) != 0 ? 0xff : 0;
         return true;
     }
@@ -3637,9 +3803,6 @@ private:
         bool counted = countsForDestructionProgress(tile, level_.objectiveTile);
         if (tile != level_.objectiveTile) {
             tile = 1;
-        }
-        if (counted) {
-            ++destroyed_;
         }
         return counted;
     }
@@ -3705,6 +3868,7 @@ private:
             maxY = std::max(maxY, y);
             markDamagedTile(x, y);
         }
+        destroyed_ += static_cast<int>(group.size());
         if (!group.empty() && collapseQueue_.size() < kCollapseCapacity) {
             CollapseRecord record;
             record.x = tx;
@@ -4238,7 +4402,7 @@ private:
         for (int y = 0; y < sprite.height; ++y) {
             for (int x = 0; x < sprite.width; ++x) {
                 uint8_t c = sprite.pixels[static_cast<size_t>(y) * sprite.width + x];
-                if (c != 0 && c != 0xff) pixel(x0 + x, y0 + y, argb(palette_, c));
+                if (c != 0) pixel(x0 + x, y0 + y, argb(palette_, c));
             }
         }
     }
@@ -4417,8 +4581,8 @@ private:
         std::string name = pendingRecordName_;
         while (name.size() < 8) name.push_back('_');
         text(58, 112, "NAME " + name, 0xffffffffu, false, 0xff101010u);
-        text(42, 148, "TYPE LETTERS NUMBERS SPACE", 0xffffffffu, false, 0xff101010u);
-        text(42, 160, "ENTER SAVE. DEL ERASES", 0xff90ffb0u, false, 0xff101010u);
+        text(42, 148, "TYPE LETTERS OR SPACE", 0xffffffffu, false, 0xff101010u);
+        text(42, 160, "ENTER SAVE. BACKSPACE ERASES", 0xff90ffb0u, false, 0xff101010u);
     }
 
     void drawRecordLine(size_t i, int y) {
@@ -4568,6 +4732,14 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-levels") {
             app.debugLevels();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-level-raw-roundtrip") {
+            app.debugLevelRawRoundtrip();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sprite-transparency") {
+            app.debugSpriteTransparency();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-word-layer") {

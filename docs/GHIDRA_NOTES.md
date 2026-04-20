@@ -26,7 +26,7 @@ bytes targeting `082d:0000` are relocated by Ghidra into memory at
 | `1000:1091` | keyboard IRQ handler | Reads port `0x60` and tracks scancodes for both players. |
 | `1000:26e8` | startup/input setup | Sends keyboard typematic commands, saves `INT 09h`/`INT 1Ch`, installs handlers, and allocates runtime buffers. |
 | `1000:6053` | entity update candidate | Updates object animation, positions, controls, and collision/object behavior. |
-| `18ac:00f4` | transparent blit/object draw | Copies sprite pixels with zero treated as transparent. |
+| `18ac:00f4` | transparent blit/object draw | Copies sprite pixels with zero treated as transparent. Palette index `0xff` is visible. |
 
 Ghidra decompilation is not very useful for the Pascal code because of 16-bit
 segmented pointers and runtime helper calls, but disassembly was useful enough
@@ -67,7 +67,8 @@ quirk.
   32-bit score, an 8-bit reached level, and an 8-byte name padded with `:`.
 - `PROEFS.SON` starts with a little-endian 16-bit record size. The shipped file
   uses 130-byte records and contains six fixed-size records. The bytes are now
-  loaded and dumpable, but the playback field semantics are still unresolved.
+  loaded, dumpable, and approximately synthesized by the SDL port, but the
+  exact playback field semantics are still unresolved.
 - `GRAN.MST` has no observed header in the shipped file. It is seven fixed-size
   57-byte records, likely aligned with the seven shipped levels, but the field
   semantics are still unresolved.
@@ -179,8 +180,10 @@ reverse byte from offsets `+7`/`+5`. The collapse passes at `1000:3bb2` and
   `0x4036`/`0x02e3`, level 4 `0x403c`/`0x01b3`, level 5 `0x4066`/`0x03dc`,
   level 6 `0x409f`/`0x0aa4`, and level 7 `0x4041`/`0x014a`.
   The second word exactly matches the count of nonzero low word-layer cells
-  (`word < 0x4000`) in each shipped level, so it is likely a precomputed
-  physical-damage/low-word cell count. The low 14 bits of the first word are
+  (`word < 0x4000`) in each shipped level, so the C++ port now treats it as the
+  original physical-damage progress denominator. Destruction completion advances
+  when low-word collapse groups are damaged, not when visible tile ids or
+  trigger rewrites change. The low 14 bits of the first word are
   close to, but do not always equal, the high-word cell count; its exact meaning
   remains unresolved. It also does not match high-word unique counts or
   connected-component counts in the shipped levels.
@@ -192,3 +195,31 @@ reverse byte from offsets `+7`/`+5`. The collapse passes at `1000:3bb2` and
   replacement tile ids. Tile `0x72` passes its word-layer key to the trigger
   matcher. The scan masks level word-layer values with `0x7fff` before applying
   the word range.
+
+## Raw Level Roundtrip
+
+`--debug-level-raw-roundtrip` parses original `LIVELS.SCH` directly and compares
+the result with `src/LIVELS.SCH.json`. This locks the current file-format
+understanding to the shipped binary asset: seven levels, 47,700 decoded cells,
+15 spawners, 21 portals, and three trigger rules. Confirmed level file offsets
+are `0`, `1242`, `4923`, `10984`, `15225`, `21546`, and `36128`.
+
+## Record Entry Evidence
+
+Manual byte/disassembly inspection of `1000:1845..1ad4` shows the high-score
+name-entry path accepts `A..Z` plus space, stores typed letters by applying
+`or 0x20`, handles Backspace as `0x08`, commits on Enter `0x0d`, and stores the
+eight-byte name with colon padding. The C++ port follows those input rules while
+retaining `Esc` as a reconstruction-only cancel path so failed or accidental
+entries can be abandoned from the SDL menu.
+
+## Code Mapping
+
+- Level JSON loading: `loadLevels`; raw binary validation: `loadRawLevels`.
+- Pascal-compatible level RLE: `decodeLevelRle3`.
+- Actor 8.8 integration: `integrateAxis8_8`.
+- Bomb expiration and physical damage: `explode`, `queueTileDamage`,
+  `damageMonstersInExplosion`.
+- High-score load/save/name entry: `loadRecords`, `saveRecords`,
+  `handleNameEntryKey`, `finalizePendingRecord`.
+- Debug surface: command dispatch in `main`.

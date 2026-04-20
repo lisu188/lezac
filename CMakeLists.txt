@@ -45,6 +45,11 @@ if(BUILD_TESTING)
     set_tests_properties(validate_assets PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+    add_test(NAME level_raw_roundtrip
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-level-raw-roundtrip)
+    set_tests_properties(level_raw_roundtrip PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
     add_test(NAME ui_smoke_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --smoke-ui 3)
@@ -77,6 +82,11 @@ if(BUILD_TESTING)
 
     add_test(NAME sound_render COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-render)
     set_tests_properties(sound_render PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+    add_test(NAME sprite_transparency
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sprite-transparency)
+    set_tests_properties(sprite_transparency PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
     add_test(NAME monster_slots COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-slots)

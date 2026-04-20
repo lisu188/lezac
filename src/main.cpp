@@ -906,6 +906,23 @@ public:
             throw std::runtime_error("fire key did not reenter after death");
         }
 
+        auto objectivePos = findObjectiveTileForSmoke();
+        if (!consumeBombObjectTile(objectivePos[0], objectivePos[1]) ||
+            canReenterLevel()) {
+            throw std::runtime_error("objective destruction did not block reentry");
+        }
+        energy_ = 1;
+        lives_ = 3;
+        damageCooldown_ = 0;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        pushKeyDown(SDLK_SPACE);
+        processEvents(running);
+        if (playerDead_ || lives_ != 2 ||
+            remainingObjectiveTiles() != level_.startingObjectiveTiles) {
+            throw std::runtime_error("fire reentered instead of restarting unwinnable level");
+        }
+
         size_t bombCount = bombs_.size();
         int smallBombs = bombInventory_.counts[0];
         pushKeyDown(SDLK_n);
@@ -2643,6 +2660,15 @@ private:
     int remainingObjectiveTiles() const {
         return static_cast<int>(std::count(level_.tiles.begin(), level_.tiles.end(),
                                            level_.objectiveTile));
+    }
+
+    std::array<int, 2> findObjectiveTileForSmoke() const {
+        for (int y = 0; y < level_.height; ++y) {
+            for (int x = 0; x < level_.width; ++x) {
+                if (tileAt(x, y) == level_.objectiveTile) return {x, y};
+            }
+        }
+        throw std::runtime_error("level has no objective tile for smoke");
     }
 
     void collectAllObjectiveTilesForSmoke() {

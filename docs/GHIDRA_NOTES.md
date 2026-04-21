@@ -235,11 +235,21 @@ The current stop-cursor map from the shipped `PROEFS.SON` payload is:
 `--debug-sound-cursor-segments` validates these boundaries and renders the
 known non-direct cursor starts through `synthesizeSoundCursor`.
 
-One non-explosion gameplay cue is now mapped to its original queued request:
-the pickup/effect branch around `1000:6e4b..6f8d` applies reward effects and
-then writes `DS:2074 = 0x0008`, `DS:799f = 5`, and calls `1000:165a`.
-The C++ `collectBonusDrop` path mirrors that with `requestSoundCursor(0x0008,
-5)`. Other non-explosion cues are still being mapped; direct `playSound(index)`
+Two non-explosion gameplay cues are now mapped to original queued requests:
+
+- The bomb-object destruction scan around `1000:6cb3..6e3f` clears the
+  `DS:2074` score accumulator and `DS:79ab` high-object marker, walks the four
+  bomb footprint offsets, sets `DS:79ab = 1` when a consumed object tile id is
+  above `0x6c`, and after the scan queues priority `3`. The default request
+  leaves `DS:2074 = 0x0000`; high object tiles write `DS:2074 = 0x0012`
+  before the `1000:165a` call. The C++ `explode` path mirrors this with
+  `requestBombObjectScoreSound`.
+- The pickup/effect branch around `1000:6e4b..6f8d` applies reward effects and
+  then writes `DS:2074 = 0x0008`, `DS:799f = 5`, and calls `1000:165a`.
+  The C++ `collectBonusDrop` path mirrors that with
+  `requestSoundCursor(0x0008, 5)`.
+
+Other non-explosion cues are still being mapped; direct `playSound(index)`
 callers remain compatibility hooks until their original cursor/priority writes
 are confirmed.
 

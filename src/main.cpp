@@ -51,6 +51,10 @@ constexpr std::array<uint16_t, 15> kExpectedSoundStopCursors{
     0x0005, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027, 0x002d,
     0x0031, 0x0035, 0x003d, 0x0056, 0x0069, 0x0078, 0x0082,
 };
+constexpr uint16_t kBombObjectDefaultSoundCursor = 0x0000;
+constexpr uint16_t kBombObjectHighSoundCursor = 0x0012;
+constexpr uint8_t kBombObjectSoundPriority = 3;
+constexpr uint8_t kBombObjectHighSoundThreshold = 0x6c;
 
 struct Rgb {
     uint8_t r = 0;
@@ -1962,6 +1966,48 @@ public:
             throw std::runtime_error("explosion selector map mismatch");
         }
         std::cout << "sound_selector_map=ok\n";
+    }
+
+    void debugBombObjectSoundRouting() {
+        load();
+
+        clearSoundLatch();
+        bool lowAccepted = requestBombObjectScoreSound(false);
+        if (!lowAccepted || !soundLatch_.active ||
+            soundLatch_.currentSelector != kBombObjectSoundPriority ||
+            soundLatch_.latchedOffset != kBombObjectDefaultSoundCursor) {
+            throw std::runtime_error("low bomb-object sound request mismatch");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active || lastPumpedSoundOffset_ != kBombObjectDefaultSoundCursor ||
+            lastPumpedSoundSelector_ != kBombObjectSoundPriority) {
+            throw std::runtime_error("low bomb-object sound pump mismatch");
+        }
+
+        clearSoundLatch();
+        bool highAccepted = requestBombObjectScoreSound(true);
+        if (!highAccepted || !soundLatch_.active ||
+            soundLatch_.currentSelector != kBombObjectSoundPriority ||
+            soundLatch_.latchedOffset != kBombObjectHighSoundCursor) {
+            throw std::runtime_error("high bomb-object sound request mismatch");
+        }
+
+        clearSoundLatch();
+        bool explosionAccepted = requestSoundOffset(explosionSoundOffset(1),
+                                                    explosionSoundSelector(1));
+        bool suppressed = !requestBombObjectScoreSound(true);
+        if (!explosionAccepted || !suppressed || !soundLatch_.active ||
+            soundLatch_.currentSelector != explosionSoundSelector(1) ||
+            soundLatch_.latchedOffset != explosionSoundOffset(1)) {
+            throw std::runtime_error("bomb-object sound did not yield to explosion priority");
+        }
+
+        std::cout << "bomb_object_sound=ok low_cursor=" << std::showbase << std::hex
+                  << kBombObjectDefaultSoundCursor
+                  << " high_cursor=" << kBombObjectHighSoundCursor
+                  << std::dec << std::noshowbase
+                  << " priority=" << static_cast<int>(kBombObjectSoundPriority)
+                  << " suppressed_by_explosion=1\n";
     }
 
     void debugGran() {
@@ -4311,8 +4357,18 @@ private:
         return tile > 0x66 && tile < 0x73;
     }
 
+    bool isHighBombObjectSoundTile(uint8_t tile) const {
+        return tile > kBombObjectHighSoundThreshold;
+    }
+
     bool isPassableObjectTile(uint8_t tile) const {
         return tile == 0x45 || isBombObjectTile(tile);
+    }
+
+    bool requestBombObjectScoreSound(bool sawHighObjectTile) {
+        return requestSoundCursor(sawHighObjectTile ? kBombObjectHighSoundCursor
+                                                    : kBombObjectDefaultSoundCursor,
+                                  kBombObjectSoundPriority);
     }
 
     bool consumeBombObjectTile(int tx, int ty) {
@@ -4441,14 +4497,23 @@ private:
     void explode(const Bomb& bomb) {
         auto tiles = explosionTilesFor(bomb);
         spawnExplosionEffect(bomb);
+        bool consumedBombObject = false;
+        bool consumedHighBombObject = false;
         for (const auto& pos : tiles) {
             int x = pos[0];
             int y = pos[1];
             flashes_.push_back({x, y, 12});
+            uint8_t objectTile = static_cast<uint8_t>(tileAt(x, y));
             if (consumeBombObjectTile(x, y)) {
+                consumedBombObject = true;
+                consumedHighBombObject =
+                    consumedHighBombObject || isHighBombObjectSoundTile(objectTile);
                 addScore(bomb.owner, 50);
                 queueTileDamage(x, y - 1);
             }
+        }
+        if (consumedBombObject) {
+            requestBombObjectScoreSound(consumedHighBombObject);
         }
         damageMonstersInExplosion(tiles, bomb.type);
         damagePlayersInExplosion(tiles);
@@ -5308,6 +5373,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sound-selector-map") {
             app.debugSoundSelectorMap();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-bomb-object-sound") {
+            app.debugBombObjectSoundRouting();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-gran") {

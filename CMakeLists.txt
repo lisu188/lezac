@@ -117,6 +117,12 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "sound_selector_map=ok")
 
+    add_test(NAME bomb_object_sound
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-object-sound)
+    set_tests_properties(bomb_object_sound PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "bomb_object_sound=ok")
+
     add_test(NAME sprite_transparency
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sprite-transparency)
     set_tests_properties(sprite_transparency PROPERTIES

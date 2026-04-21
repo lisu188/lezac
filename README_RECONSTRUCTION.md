@@ -122,8 +122,8 @@ Dump the current bomb inventory model and export sprite contact sheets:
   `DS:78c0` cursor, honors the `0x7530` stop sentinel, and applies the
   gate/period bytes used by `1000:0fbe..1088`. Bomb explosion requests use the
   recovered direct-sweep cursors and the original `1000:165a` priority latch,
-  and bonus pickup audio now queues the recovered cursor `0x0008` at priority
-  `5`.
+  bomb-object destruction queues the recovered priority-`3` object cue, and
+  bonus pickup audio now queues the recovered cursor `0x0008` at priority `5`.
 
 ## Still Approximate
 

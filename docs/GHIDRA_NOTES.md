@@ -340,11 +340,16 @@ to that initializer with `DS:006c`, `DS:006d`, delay `3`, and mode `1`, after
 which the helper writes actor state `+0x15 = 2`, countdown `+0x10 = 0x003c`,
 and energy `+0x24 = 0x64`. The actor update routine around
 `1000:6053..6156` consumes `actor + 0x16` as this cursor: when mode is nonzero
-it increments the counter, advances the current frame by signed step after the
-delay, wraps to the minimum after the maximum for non-ping-pong modes, and then
-uses the current frame to select sprite metadata from `DS:c322..c324` before
-writing the visual/effect entry at `DS:c21e`/`DS:c224`. The C++ debug command
-`--debug-original-state2-animation-init` locks the initializer byte order.
+it increments the counter, advances the current frame by signed step when the
+incremented counter is greater than the delay byte, wraps to the minimum after
+the maximum for non-ping-pong modes, negates the step at either bound for mode
+`2`, and copies the wrapped cursor into the secondary animation slot for mode
+`3`. It then uses the current frame to select sprite metadata from
+`DS:c322..c324` before writing the visual/effect entry at
+`DS:c21e`/`DS:c224`. The C++ debug commands
+`--debug-original-state2-animation-init` and
+`--debug-original-state2-animation-advance` lock the initializer byte order and
+cursor advancement rules.
 
 The `DS:c21e + 8 * n` entry is renderer/effect state rather than the animation
 cursor. The mapped state-2 return path at `1000:7df9..7e70` reads entry words
@@ -356,7 +361,9 @@ entry word `+2 > 0x18`, the routine decrements word `+2` before the
 `--debug-original-state2-effect-placement` locks that placement/descent model.
 Exact runtime values for `DS:006a`, `DS:006c`, `DS:006d`, and the frame table
 at `DS:c324` still need DOSBox debugger observation before the live renderer
-can claim faithful death/reentry art.
+can claim faithful death/reentry art. `dosbox-debug` is available in the
+current recovery environment and should be used for that capture rather than
+inferring frame ids from static asset shape.
 
 Unresolved state-2 fallback: `1000:7ef8..7f2a` increments `DS:79b9` when no
 player is active and promotes any `DS:79e5 + player == 2` state byte to `1` at

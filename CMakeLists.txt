@@ -158,6 +158,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "original_state2_animation_init=ok actor_offset=0x16 bytes=12,12,8,6,6,4,1 duplicate_0a=1 duplicate_06=1 terminator=1 ghidra=1000:06ab")
 
+    add_test(NAME state2_animation_advance_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-animation-advance)
+    set_tests_properties(state2_animation_advance_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "original_state2_animation_advance=ok death_start=0x72 death_end=0x79 delay=3 mode1_first_frame=0x73 mode1_after_5=0x74 wrap_frame=0x72 wrap_counter=0 mode2_seq=4,3,2,3 mode2_final_step=1 mode3_backup_frame=5 mode3_backup_mode=3 mode0_unchanged=1 ghidra=1000:6053")
+
     add_test(NAME state2_effect_placement_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-effect-placement)
     set_tests_properties(state2_effect_placement_model PROPERTIES

@@ -63,6 +63,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-player-state2-death-fields
 ./build/lezac_cpp --debug-original-state2-return-model
 ./build/lezac_cpp --debug-original-state2-animation-init
+./build/lezac_cpp --debug-original-state2-animation-advance
 ./build/lezac_cpp --debug-original-state2-effect-placement
 ./build/lezac_cpp --debug-player-state2-return-active
 ./build/lezac_cpp --debug-record-update /tmp/records_test.dat
@@ -142,8 +143,9 @@ Dump the current bomb inventory model and export sprite contact sheets:
   recovered state-2 `0x003c` countdown before returning a player to active
   control. The state-2 death/reentry animation initializer is now documented as
   the seven-byte `actor + 0x16` cursor populated by `1000:06ab`, and the
-  return-placement model tracks the `DS:c21e + 8 * actor[+0x01]` effect-entry
-  descent and blocking checks.
+  actor update model locks the `1000:6053` counter, wrap, ping-pong, and
+  mode-3 backup behavior. The return-placement model tracks the
+  `DS:c21e + 8 * actor[+0x01]` effect-entry descent and blocking checks.
 
 ## Still Approximate
 
@@ -167,9 +169,10 @@ Dump the current bomb inventory model and export sprite contact sheets:
   now drain player energy with a short post-hit cooldown, but exact sprite
   playback, per-frame damage counter cadence, delayed state-2 life-count
   decrement, and death/reentry visual playback remain simplified. The
-  `actor + 0x16` state-2 cursor and `DS:c21e` placement math are locked as
-  deterministic models, but the live renderer still needs the exact runtime
-  frame table values before dead players should be drawn as original art.
+  `actor + 0x16` state-2 cursor, cursor advancement rules, and `DS:c21e`
+  placement math are locked as deterministic models, but the live renderer
+  still needs the exact runtime frame table values before dead players should
+  be drawn as original art.
 
 See [docs/GHIDRA_NOTES.md](docs/GHIDRA_NOTES.md) for addresses and disassembly
 anchors used in the reconstruction.

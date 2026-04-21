@@ -24,6 +24,11 @@ Baseline: `702d1d4` / `origin/main`
   evaluated.
 - Added `--debug-original-state2-animation-init` with CTest coverage for the
   exact initializer byte order: current/start/end/counter/delay/mode/step.
+- Added `--debug-original-state2-animation-advance` with CTest coverage for the
+  `1000:6053` cursor consumer: counter must become greater than delay before
+  advancing, mode `1` wraps, mode `2` flips step at both bounds, mode `3`
+  snapshots the wrapped cursor into the secondary animation slot, and mode `0`
+  remains static.
 - Added `--debug-original-state2-effect-placement` with CTest coverage for
   effect-entry slot addresses, tile math, solid/marker/right-tile blocking,
   floor stopping, and descent-before-gate ordering.
@@ -36,10 +41,11 @@ Baseline: `702d1d4` / `origin/main`
 - `cmake -S . -B build` passed.
 - `cmake --build build` passed. The build emitted a filesystem clock-skew
   warning, but completed successfully.
-- `ctest --test-dir build --output-on-failure -R "state2_animation_init_model|state2_effect_placement_model|original_state2_return_model|player_state2_return_active"` passed: 4/4.
-- `ctest --test-dir build --output-on-failure` passed: 33/33.
+- `ctest --test-dir build --output-on-failure -R "state2_animation_init_model|state2_animation_advance_model|state2_effect_placement_model|original_state2_return_model|player_state2_return_active"` passed: 5/5.
+- `ctest --test-dir build --output-on-failure` passed: 34/34.
 - `./build/lezac_cpp --validate` passed.
 - `./build/lezac_cpp --debug-original-state2-animation-init` passed.
+- `./build/lezac_cpp --debug-original-state2-animation-advance` passed.
 - `./build/lezac_cpp --debug-original-state2-effect-placement` passed.
 - `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-ui 3` passed.
 - `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-controls` passed.
@@ -64,7 +70,10 @@ Baseline: `702d1d4` / `origin/main`
 ## Next Planned Target
 
 Use `dosbox-debug` as an oracle for the state-2 visual path: break after asset
-setup and at the death helper/animation consumer, then dump `DS:0060`,
-`DS:c21e`, and `DS:c324` during death/reentry. Use those runtime values to
+setup and at the death helper/animation consumer, then dump `DS:0060` to
+capture `DS:006a`, `DS:006c`, and `DS:006d`, plus `DS:c21e` and `DS:c324`
+during death/reentry. Record runtime `CS`/`DS`, translate the known breakpoints
+to `CS:3108`, `CS:6148`, `CS:7c89`, and `CS:7ddf`, and only then add exact
+C++ fixtures for the captured frame globals/table. Use those runtime values to
 replace the current skipped-dead-player rendering with the recovered original
 animation range.

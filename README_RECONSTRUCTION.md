@@ -60,6 +60,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-sound-selector-map
 ./build/lezac_cpp --debug-player-damage-sound
 ./build/lezac_cpp --debug-original-damage-counters
+./build/lezac_cpp --debug-player-state2-death-fields
 ./build/lezac_cpp --debug-record-update /tmp/records_test.dat
 ./build/lezac_cpp --debug-record-name-entry /tmp/records_name_test.dat
 ./build/lezac_cpp --debug-record-save-failure /tmp/missing-record-dir/records.dat
@@ -131,7 +132,9 @@ Dump the current bomb inventory model and export sprite contact sheets:
   queues cursor `0x0027` at priority `6`, bonus pickup audio queues cursor
   `0x0008` at priority `5`, accepted player damage queues cursor `0x002d` at
   priority `4`, and player death/life-loss queues cursor `0x0056` at priority
-  `5` while restoring the player energy byte to `100`.
+  `5` while restoring the player energy byte to `100`. Accepted player damage
+  now uses the original unsigned byte underflow death check rather than a
+  modern `energy == 0` clamp.
 
 ## Still Approximate
 
@@ -153,7 +156,8 @@ Dump the current bomb inventory model and export sprite contact sheets:
   selectors, actor sprite indices, and word-layer damage gating now follow the
   `1000:414a`/`1000:370e`/expiration analysis. Active collapse/debris records
   now drain player energy with a short post-hit cooldown, but exact sprite
-  playback and per-frame damage timing remain simplified.
+  playback, per-frame damage counter cadence, state-2 life-count decrement, and
+  death/reentry visuals remain simplified.
 
 See [docs/GHIDRA_NOTES.md](docs/GHIDRA_NOTES.md) for addresses and disassembly
 anchors used in the reconstruction.

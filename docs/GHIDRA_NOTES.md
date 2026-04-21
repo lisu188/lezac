@@ -365,6 +365,14 @@ can claim faithful death/reentry art. `dosbox-debug` is available in the
 current recovery environment and should be used for that capture rather than
 inferring frame ids from static asset shape.
 
+The C++ debug command `--debug-state2-runtime-frame-oracle <dump.txt>` parses a
+normalized saved DOSBox debugger transcript. It expects runtime `CS`/`DS`,
+translated breakpoints, a `D DS:0060` dump for `DS:006a`, `DS:006c`, and
+`DS:006d`, frame-table bytes at `DS:c322 + 4 * frame`, and `DS:c21e` effect
+entry bytes. The checked-in fixture is synthetic and only proves parser
+mechanics, address math, and malformed-segment rejection. A real original-game
+fixture should be added only after live `dosbox-debug` bytes are captured.
+
 Unresolved state-2 fallback: `1000:7ef8..7f2a` increments `DS:79b9` when no
 player is active and promotes any `DS:79e5 + player == 2` state byte to `1` at
 `0xe6`. This path does not visibly perform the same actor state and energy

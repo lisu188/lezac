@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -2466,6 +2467,243 @@ public:
                   << " mode2_seq=4,3,2,3 mode2_final_step=1"
                   << " mode3_backup_frame=5 mode3_backup_mode=3"
                   << " mode0_unchanged=1 ghidra=1000:6053\n";
+    }
+
+    int debugState2RuntimeFrameOracle(const std::string& path, bool expectError) {
+        auto fixtureName = [](const std::string& inputPath) {
+            size_t slash = inputPath.find_last_of("/\\");
+            std::string name =
+                slash == std::string::npos ? inputPath : inputPath.substr(slash + 1);
+            size_t dot = name.find_last_of('.');
+            if (dot != std::string::npos) name = name.substr(0, dot);
+            return name;
+        };
+        const std::string fixture = fixtureName(path);
+
+        auto hex4 = [](uint16_t value) {
+            std::ostringstream oss;
+            oss << "0x" << std::hex << std::nouppercase << std::setw(4)
+                << std::setfill('0') << value;
+            return oss.str();
+        };
+        auto hex2 = [](uint8_t value) {
+            std::ostringstream oss;
+            oss << "0x" << std::hex << std::nouppercase << std::setw(2)
+                << std::setfill('0') << static_cast<int>(value);
+            return oss.str();
+        };
+        auto bareHex4 = [](uint16_t value) {
+            std::ostringstream oss;
+            oss << std::hex << std::nouppercase << std::setw(4)
+                << std::setfill('0') << value;
+            return oss.str();
+        };
+        auto bareHex2 = [](uint8_t value) {
+            std::ostringstream oss;
+            oss << std::hex << std::nouppercase << std::setw(2)
+                << std::setfill('0') << static_cast<int>(value);
+            return oss.str();
+        };
+        auto fail = [&](const std::string& reason) {
+            throw std::runtime_error("state2_runtime_frame_oracle=error fixture=" +
+                                     fixture + " reason=" + reason);
+        };
+        auto parseHex16 = [&](const std::string& token,
+                              const std::string& field) -> uint16_t {
+            if (token.empty() || token.size() > 4 ||
+                !std::all_of(token.begin(), token.end(), [](unsigned char ch) {
+                    return std::isxdigit(ch) != 0;
+                })) {
+                fail("bad_hex16 field=" + field + " token=" + token);
+            }
+            return static_cast<uint16_t>(std::stoul(token, nullptr, 16));
+        };
+        auto parseHexByte = [&](const std::string& token,
+                                uint16_t address) -> uint8_t {
+            if (token.size() != 2 ||
+                !std::all_of(token.begin(), token.end(), [](unsigned char ch) {
+                    return std::isxdigit(ch) != 0;
+                })) {
+                fail("non_hex_byte token=" + token + " address=" +
+                     bareHex4(address));
+            }
+            return static_cast<uint8_t>(std::stoul(token, nullptr, 16));
+        };
+        auto trim = [](std::string value) {
+            while (!value.empty() &&
+                   std::isspace(static_cast<unsigned char>(value.front()))) {
+                value.erase(value.begin());
+            }
+            while (!value.empty() &&
+                   std::isspace(static_cast<unsigned char>(value.back()))) {
+                value.pop_back();
+            }
+            return value;
+        };
+
+        try {
+            std::string text = readTextFile(path);
+            std::vector<uint8_t> memory(0x10000);
+            std::vector<bool> present(0x10000, false);
+            uint16_t runtimeCs = 0;
+            uint16_t runtimeDs = 0;
+            bool haveRuntimeCs = false;
+            bool haveRuntimeDs = false;
+            bool tempCopy = false;
+            int breakCount = 0;
+
+            std::istringstream lines(text);
+            std::string line;
+            std::regex keyRe("^([A-Za-z0-9_]+)=(.*)$");
+            std::regex breakRe(
+                "^break\\s+ghidra=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+"
+                "runtime=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+label=([^\\s]+).*$");
+            std::regex dumpRe("^dump\\s+DS:([0-9A-Fa-f]{4}).*$");
+            std::regex rowRe("^([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+(.+)$");
+            uint16_t currentDump = 0;
+            bool inDump = false;
+            while (std::getline(lines, line)) {
+                line = trim(line);
+                if (line.empty() || line[0] == '#') continue;
+
+                std::smatch match;
+                if (std::regex_match(line, match, keyRe)) {
+                    std::string key = match[1].str();
+                    std::string value = trim(match[2].str());
+                    if (key == "runtime_cs") {
+                        runtimeCs = parseHex16(value, key);
+                        haveRuntimeCs = true;
+                    } else if (key == "runtime_ds") {
+                        runtimeDs = parseHex16(value, key);
+                        haveRuntimeDs = true;
+                    } else if (key == "temp_copy") {
+                        tempCopy = value == "1";
+                    }
+                    continue;
+                }
+
+                if (std::regex_match(line, match, breakRe)) {
+                    if (!haveRuntimeCs) fail("runtime_cs_missing_before_break");
+                    uint16_t ghidraSegment = parseHex16(match[1].str(), "ghidra");
+                    uint16_t ghidraOffset = parseHex16(match[2].str(), "ghidra");
+                    uint16_t runtimeSegment = parseHex16(match[3].str(), "runtime");
+                    uint16_t runtimeOffset = parseHex16(match[4].str(), "runtime");
+                    if (ghidraSegment != 0x1000) {
+                        fail("breakpoint_ghidra_segment expected=0x1000 actual=" +
+                             hex4(ghidraSegment));
+                    }
+                    if (runtimeSegment != runtimeCs) {
+                        fail("breakpoint_segment_mismatch expected=" + hex4(runtimeCs) +
+                             " actual=" + hex4(runtimeSegment));
+                    }
+                    if (runtimeOffset != ghidraOffset) {
+                        fail("breakpoint_offset_mismatch expected=" +
+                             bareHex4(ghidraOffset) + " actual=" +
+                             bareHex4(runtimeOffset));
+                    }
+                    ++breakCount;
+                    continue;
+                }
+
+                if (std::regex_match(line, match, dumpRe)) {
+                    currentDump = parseHex16(match[1].str(), "dump");
+                    inDump = true;
+                    continue;
+                }
+
+                if (std::regex_match(line, match, rowRe)) {
+                    if (!inDump) fail("dump_row_without_header");
+                    if (!haveRuntimeDs) fail("runtime_ds_missing_before_dump");
+                    uint16_t segment = parseHex16(match[1].str(), "row_segment");
+                    uint16_t address = parseHex16(match[2].str(), "row_address");
+                    if (segment != runtimeDs) {
+                        fail("dump_segment_mismatch expected=" + hex4(runtimeDs) +
+                             " actual=" + hex4(segment) +
+                             " address=" + bareHex4(address));
+                    }
+                    if (address < currentDump) {
+                        fail("dump_address_before_header header=" + bareHex4(currentDump) +
+                             " address=" + bareHex4(address));
+                    }
+                    std::istringstream byteStream(match[3].str());
+                    std::string token;
+                    uint16_t cursor = address;
+                    while (byteStream >> token) {
+                        memory[cursor] = parseHexByte(token, cursor);
+                        present[cursor] = true;
+                        ++cursor;
+                    }
+                    continue;
+                }
+
+                fail("unrecognized_line");
+            }
+
+            if (!haveRuntimeCs) fail("runtime_cs_missing");
+            if (!haveRuntimeDs) fail("runtime_ds_missing");
+            if (breakCount == 0) fail("breakpoints_missing");
+
+            auto requireByte = [&](uint16_t address) -> uint8_t {
+                if (!present[address]) {
+                    fail("missing_byte address=" + bareHex4(address));
+                }
+                return memory[address];
+            };
+            auto rowString = [&](uint16_t address) {
+                std::array<uint8_t, 4> bytes{requireByte(address),
+                                             requireByte(static_cast<uint16_t>(address + 1)),
+                                             requireByte(static_cast<uint16_t>(address + 2)),
+                                             requireByte(static_cast<uint16_t>(address + 3))};
+                return bareHex2(bytes[0]) + "," + bareHex2(bytes[1]) + "," +
+                       bareHex2(bytes[2]) + "," + bareHex2(bytes[3]);
+            };
+
+            uint8_t deathCursor = requireByte(0x006a);
+            uint8_t deathStart = requireByte(0x006c);
+            uint8_t deathEnd = requireByte(0x006d);
+            if (deathEnd < deathStart) {
+                fail("death_frame_range_reversed start=" + hex2(deathStart) +
+                     " end=" + hex2(deathEnd));
+            }
+
+            constexpr uint16_t kFrameEntryBase = 0xc322;
+            uint16_t firstEntry = static_cast<uint16_t>(
+                kFrameEntryBase + static_cast<uint16_t>(deathStart) * 4u);
+            uint16_t lastEntry = static_cast<uint16_t>(
+                kFrameEntryBase + static_cast<uint16_t>(deathEnd) * 4u);
+            int frameRows = static_cast<int>(deathEnd - deathStart + 1);
+            std::string firstRow = rowString(firstEntry);
+            std::string lastRow = rowString(lastEntry);
+            uint16_t effectX = static_cast<uint16_t>(requireByte(0xc21e) |
+                                                     (requireByte(0xc21f) << 8));
+            uint16_t effectY = static_cast<uint16_t>(requireByte(0xc220) |
+                                                     (requireByte(0xc221) << 8));
+
+            std::cout << "state2_runtime_frame_oracle=ok fixture=" << fixture
+                      << " runtime_cs=" << hex4(runtimeCs)
+                      << " runtime_ds=" << hex4(runtimeDs)
+                      << " death_cursor=" << hex2(deathCursor)
+                      << " death_start=" << hex2(deathStart)
+                      << " death_end=" << hex2(deathEnd)
+                      << " table_entry_base=0xc322"
+                      << " first_entry_addr=" << hex4(firstEntry)
+                      << " frame_rows=" << frameRows
+                      << " first_row=" << firstRow
+                      << " last_row=" << lastRow
+                      << " effect0_xy=" << hex4(effectX) << ',' << hex4(effectY)
+                      << " breaks=" << breakCount
+                      << " temp_copy=" << (tempCopy ? 1 : 0)
+                      << " visual_claim=0\n";
+            if (expectError) {
+                std::cout << "state2_runtime_frame_oracle=error fixture=" << fixture
+                          << " reason=expected_error_missing\n";
+                return 1;
+            }
+            return 0;
+        } catch (const std::exception& e) {
+            std::cout << e.what() << '\n';
+            return expectError ? 0 : 1;
+        }
     }
 
     void debugOriginalState2EffectPlacement() {
@@ -6176,6 +6414,10 @@ int main(int argc, char** argv) {
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-animation-advance") {
             app.debugOriginalState2AnimationAdvance();
             return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-state2-runtime-frame-oracle") {
+            bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";
+            return app.debugState2RuntimeFrameOracle(argv[2], expectError);
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-effect-placement") {
             app.debugOriginalState2EffectPlacement();

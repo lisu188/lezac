@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
@@ -35,6 +36,33 @@ constexpr uint32_t kFrameDelayMs = 16;
 constexpr int kCollisionPushoutLimit = 1024;
 constexpr int kAudioSampleRate = 22050;
 constexpr int kAudioToneSamples = kAudioSampleRate / 28;
+constexpr size_t kSoundStepSize = 6;
+constexpr uint16_t kSoundStopPeriod = 0x7530;
+constexpr uint16_t kDirectSoundThreshold = 0xea60;
+constexpr uint16_t kDirectSoundPeriodBase = 0xea42;
+constexpr std::array<uint16_t, 6> kCompatibilitySoundCursors{
+    0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0027,
+};
+constexpr std::array<uint16_t, 14> kDebugSoundCursors{
+    0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027,
+    0x002d, 0x0031, 0x0035, 0x003d, 0x0056, 0x0069, 0x0078,
+};
+constexpr std::array<uint16_t, 15> kExpectedSoundStopCursors{
+    0x0005, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027, 0x002d,
+    0x0031, 0x0035, 0x003d, 0x0056, 0x0069, 0x0078, 0x0082,
+};
+constexpr uint16_t kBombObjectDefaultSoundCursor = 0x0000;
+constexpr uint16_t kBombObjectHighSoundCursor = 0x0012;
+constexpr uint8_t kBombObjectSoundPriority = 3;
+constexpr uint8_t kBombObjectHighSoundThreshold = 0x6c;
+constexpr uint16_t kPortalTeleportSoundCursor = 0x001a;
+constexpr uint8_t kPortalTeleportSoundPriority = 4;
+constexpr uint16_t kTileTriggerSoundCursor = 0x0027;
+constexpr uint8_t kTileTriggerSoundPriority = 6;
+constexpr uint16_t kPlayerDamageSoundCursor = 0x002d;
+constexpr uint8_t kPlayerDamageSoundPriority = 4;
+constexpr uint16_t kPlayerDeathSoundCursor = 0x0056;
+constexpr uint8_t kPlayerDeathSoundPriority = 5;
 
 struct Rgb {
     uint8_t r = 0;
@@ -156,6 +184,16 @@ struct SoundEffectRecord {
 struct SoundBank {
     uint16_t recordSize = 0;
     std::vector<SoundEffectRecord> records;
+    std::vector<uint8_t> payload;
+    size_t stepCount = 0;
+};
+
+struct SoundLatch {
+    bool active = false;
+    uint8_t currentSelector = 0;
+    uint16_t latchedOffset = 0;
+    size_t recordIndex = 0;
+    bool directSweep = false;
 };
 
 struct GranRecord {
@@ -758,12 +796,24 @@ SoundBank loadSon(const std::string& path) {
     auto json = readTextFile(path);
     SoundBank bank;
     bank.recordSize = static_cast<uint16_t>(extractInt(json, "record_size"));
+    int declaredCount = extractInt(json, "record_count", -1);
     auto recordObjects = extractObjectArray(json, "records");
+    if (declaredCount >= 0 && declaredCount != static_cast<int>(recordObjects.size())) {
+        throw std::runtime_error(path + " record_count does not match records array");
+    }
     for (const auto& recJson : recordObjects) {
         SoundEffectRecord record;
         record.bytes = parseHexByteList(extractString(recJson, "bytes_hex"));
+        if (record.bytes.size() != bank.recordSize) {
+            throw std::runtime_error(path + " record length does not match record_size");
+        }
+        bank.payload.insert(bank.payload.end(), record.bytes.begin(), record.bytes.end());
         bank.records.push_back(std::move(record));
     }
+    if (bank.payload.empty() || bank.payload.size() % kSoundStepSize != 0) {
+        throw std::runtime_error(path + " payload is not a whole number of six-byte steps");
+    }
+    bank.stepCount = bank.payload.size() / kSoundStepSize;
     return bank;
 }
 
@@ -1696,8 +1746,25 @@ public:
 
         score_ = 0;
         expectScore(BonusType::BigDiamond, 5000);
+
+        clearSoundLatch();
+        BonusDrop soundDrop;
+        soundDrop.x = collector.x;
+        soundDrop.y = collector.y;
+        soundDrop.type = BonusType::Present;
+        collectBonusDrop(soundDrop, collector, energy, inventory, 1);
+        if (!soundLatch_.active || soundLatch_.latchedOffset != 0x0008 ||
+            soundLatch_.currentSelector != 5 || soundLatch_.directSweep) {
+            throw std::runtime_error("bonus pickup did not queue recovered sound cursor");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active || lastPumpedSoundOffset_ != 0x0008 ||
+            lastPumpedSoundSelector_ != 5) {
+            throw std::runtime_error("bonus pickup sound cursor did not pump");
+        }
         std::cout << "bonuses=ok sprites=" << spriteScores.size()
-                  << " rain=" << bonusDrops_.size() << '\n';
+                  << " rain=" << bonusDrops_.size()
+                  << " sound_cursor=0x8 sound_priority=5\n";
     }
 
     void debugFixed() {
@@ -1721,8 +1788,10 @@ public:
         load();
         std::cout << "sound_record_size=" << sounds_.recordSize
                   << " records=" << sounds_.records.size()
+                  << " steps=" << sounds_.stepCount
                   << " words_per_record=" << (sounds_.recordSize / 2)
-                  << " five_byte_groups=" << (sounds_.recordSize / 5) << '\n';
+                  << " six_byte_steps=" << (sounds_.payload.size() / kSoundStepSize)
+                  << '\n';
         for (size_t i = 0; i < sounds_.records.size(); ++i) {
             const std::vector<uint8_t>& bytes = sounds_.records[i].bytes;
             std::cout << "sound_" << (i + 1)
@@ -1765,13 +1834,321 @@ public:
             totalNonZero += nonZero;
             auto range = std::minmax_element(samples.begin(), samples.end());
             std::cout << "sound_render_" << (i + 1)
-                      << "=samples:" << samples.size()
+                      << "=cursor:" << std::showbase << std::hex
+                      << compatibilitySoundCursor(i) << std::dec << std::noshowbase
+                      << " samples:" << samples.size()
                       << " nonzero:" << nonZero
                       << " min:" << *range.first
                       << " max:" << *range.second << '\n';
         }
         std::cout << "sound_render_total=samples:" << totalSamples
                   << " nonzero:" << totalNonZero << '\n';
+    }
+
+    void debugSoundCursorSegments() {
+        load();
+        std::vector<uint16_t> stopCursors;
+        for (size_t i = 0; i < sounds_.stepCount; ++i) {
+            if (soundStepPeriodWord(i) == kSoundStopPeriod) {
+                stopCursors.push_back(static_cast<uint16_t>(i + 1));
+            }
+        }
+        if (stopCursors.size() != kExpectedSoundStopCursors.size() ||
+            !std::equal(stopCursors.begin(), stopCursors.end(),
+                        kExpectedSoundStopCursors.begin())) {
+            throw std::runtime_error("PROEFS.SON stop cursor map changed");
+        }
+
+        std::cout << "sound_cursor_segments steps=" << sounds_.stepCount
+                  << " stops=" << stopCursors.size()
+                  << " stop_cursors=";
+        for (size_t i = 0; i < stopCursors.size(); ++i) {
+            if (i != 0) std::cout << ',';
+            std::cout << std::showbase << std::hex << stopCursors[i]
+                      << std::dec << std::noshowbase;
+        }
+        std::cout << '\n';
+
+        for (uint16_t cursor : kDebugSoundCursors) {
+            uint16_t stopCursor = soundStopCursorFor(cursor);
+            std::vector<int16_t> samples = synthesizeSoundCursor(cursor);
+            if (samples.empty()) {
+                throw std::runtime_error("PROEFS.SON cursor rendered no samples");
+            }
+            std::cout << "sound_cursor cursor=" << std::showbase << std::hex
+                      << cursor << " stop=" << stopCursor
+                      << std::dec << std::noshowbase
+                      << " steps=" << (stopCursor - cursor)
+                      << " samples=" << samples.size() << '\n';
+        }
+        std::cout << "sound_cursor_segments=ok\n";
+    }
+
+    void debugSonRawRoundtrip() {
+        load();
+        auto rawBytes = readFile("PROEFS.SON");
+        if (rawBytes.size() < 2) {
+            throw std::runtime_error("PROEFS.SON is too small");
+        }
+        uint16_t stepCount = le16(rawBytes, 0);
+        size_t payloadSize = rawBytes.size() - 2;
+        if (stepCount != 0x82 || payloadSize != static_cast<size_t>(stepCount) * 6) {
+            throw std::runtime_error("PROEFS.SON raw step layout mismatch");
+        }
+        std::vector<uint8_t> jsonPayload;
+        for (const SoundEffectRecord& record : sounds_.records) {
+            jsonPayload.insert(jsonPayload.end(), record.bytes.begin(), record.bytes.end());
+        }
+        if (jsonPayload.size() != payloadSize ||
+            !std::equal(jsonPayload.begin(), jsonPayload.end(), rawBytes.begin() + 2)) {
+            throw std::runtime_error("PROEFS.SON raw/json payload mismatch");
+        }
+        std::cout << "son_raw_roundtrip=ok raw_size=" << rawBytes.size()
+                  << " step_count=" << stepCount
+                  << " payload_size=" << payloadSize
+                  << " json_chunks=" << sounds_.records.size() << '\n';
+    }
+
+    void debugSoundPriorityLatch() {
+        load();
+        auto printCase = [&](const std::string& name, bool accepted) {
+            std::cout << "sound_latch case=" << name
+                      << " accepted=" << (accepted ? 1 : 0)
+                      << " active=" << (soundLatch_.active ? 1 : 0)
+                      << " priority=" << static_cast<int>(soundLatch_.currentSelector)
+                      << " offset=" << std::showbase << std::hex
+                      << soundLatch_.latchedOffset << std::dec << std::noshowbase
+                      << '\n';
+        };
+
+        clearSoundLatch();
+        printCase("inactive_accept", latchSoundRequest(0xea74, 4));
+        printCase("lower_rejected", latchSoundRequest(0xea7e, 2));
+        printCase("same_refresh", latchSoundRequest(0xea88, 4));
+        printCase("higher_replaces", latchSoundRequest(0xeace, 7));
+        printCase("one_below_high_rejected", latchSoundRequest(0xea88, 6));
+        clearSoundLatch();
+        printCase("cleared_accepts", latchSoundRequest(0xea7e, 1));
+
+        if (!soundLatch_.active || soundLatch_.currentSelector != 1 ||
+            soundLatch_.latchedOffset != 0xea7e || !soundLatch_.directSweep) {
+            throw std::runtime_error("sound latch final state mismatch");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active || lastPumpedSoundRecord_ != 1 ||
+            lastPumpedSoundOffset_ != 0xea7e || lastPumpedSoundSelector_ != 1) {
+            throw std::runtime_error("sound latch pump mismatch");
+        }
+        std::cout << "sound_pump active=" << (soundLatch_.active ? 1 : 0)
+                  << " last_record=" << lastPumpedSoundRecord_
+                  << " last_offset=" << std::showbase << std::hex
+                  << lastPumpedSoundOffset_ << std::dec << std::noshowbase
+                  << " last_selector=" << static_cast<int>(lastPumpedSoundSelector_)
+                  << '\n';
+        std::cout << "sound_latch=ok\n";
+    }
+
+    void debugSoundSelectorMap() {
+        load();
+        std::cout << "sound_selector_map records=" << sounds_.records.size() << '\n';
+        for (uint8_t selector = 4; selector <= 7; ++selector) {
+            uint16_t offset = explosionSoundOffset(selector - 3);
+            size_t fallbackIndex = soundIndexForOffsetFallback(offset, selector);
+            std::vector<int16_t> samples = synthesizeDirectSweep(offset);
+            if (samples.empty()) {
+                throw std::runtime_error("mapped direct sweep rendered no samples");
+            }
+            std::cout << "sound_selector_map selector=" << static_cast<int>(selector)
+                      << " offset=" << std::showbase << std::hex << offset
+                      << std::dec << std::noshowbase
+                      << " direct_sweep=1"
+                      << " fallback_record_index=" << fallbackIndex
+                      << " samples=" << samples.size() << '\n';
+        }
+        if (!isDirectSoundSweep(0xea74) || !isDirectSoundSweep(0xea7e) ||
+            !isDirectSoundSweep(0xea88) || !isDirectSoundSweep(0xeace) ||
+            soundIndexForOffsetFallback(0xea74, 4) != 0 ||
+            soundIndexForOffsetFallback(0xea7e, 5) != 1 ||
+            soundIndexForOffsetFallback(0xea88, 6) != 2 ||
+            soundIndexForOffsetFallback(0xeace, 7) != 3) {
+            throw std::runtime_error("explosion selector map mismatch");
+        }
+        std::cout << "sound_selector_map=ok\n";
+    }
+
+    void debugBombObjectSoundRouting() {
+        load();
+
+        clearSoundLatch();
+        bool lowAccepted = requestBombObjectScoreSound(false);
+        if (!lowAccepted || !soundLatch_.active ||
+            soundLatch_.currentSelector != kBombObjectSoundPriority ||
+            soundLatch_.latchedOffset != kBombObjectDefaultSoundCursor) {
+            throw std::runtime_error("low bomb-object sound request mismatch");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active || lastPumpedSoundOffset_ != kBombObjectDefaultSoundCursor ||
+            lastPumpedSoundSelector_ != kBombObjectSoundPriority) {
+            throw std::runtime_error("low bomb-object sound pump mismatch");
+        }
+
+        clearSoundLatch();
+        bool highAccepted = requestBombObjectScoreSound(true);
+        if (!highAccepted || !soundLatch_.active ||
+            soundLatch_.currentSelector != kBombObjectSoundPriority ||
+            soundLatch_.latchedOffset != kBombObjectHighSoundCursor) {
+            throw std::runtime_error("high bomb-object sound request mismatch");
+        }
+
+        clearSoundLatch();
+        bool explosionAccepted = requestSoundOffset(explosionSoundOffset(1),
+                                                    explosionSoundSelector(1));
+        bool suppressed = !requestBombObjectScoreSound(true);
+        if (!explosionAccepted || !suppressed || !soundLatch_.active ||
+            soundLatch_.currentSelector != explosionSoundSelector(1) ||
+            soundLatch_.latchedOffset != explosionSoundOffset(1)) {
+            throw std::runtime_error("bomb-object sound did not yield to explosion priority");
+        }
+
+        std::cout << "bomb_object_sound=ok low_cursor=" << std::showbase << std::hex
+                  << kBombObjectDefaultSoundCursor
+                  << " high_cursor=" << kBombObjectHighSoundCursor
+                  << std::dec << std::noshowbase
+                  << " priority=" << static_cast<int>(kBombObjectSoundPriority)
+                  << " suppressed_by_explosion=1\n";
+    }
+
+    void debugPlayerDamageSoundRouting() {
+        load();
+        resetLevel(0);
+
+        energy_ = 100;
+        lives_ = 3;
+        playerDead_ = false;
+        reentryTimer_ = 0;
+        damageCooldown_ = 0;
+        clearSoundLatch();
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        if (energy_ != 99 || playerDead_ || lives_ != 3 ||
+            damageCooldown_ != kDamageCooldownTicks || !soundLatch_.active ||
+            soundLatch_.latchedOffset != kPlayerDamageSoundCursor ||
+            soundLatch_.currentSelector != kPlayerDamageSoundPriority) {
+            throw std::runtime_error("player damage sound request mismatch");
+        }
+        int nonlethalEnergy = energy_;
+        int nonlethalCooldown = damageCooldown_;
+        pumpSoundLatch();
+        if (soundLatch_.active || lastPumpedSoundOffset_ != kPlayerDamageSoundCursor ||
+            lastPumpedSoundSelector_ != kPlayerDamageSoundPriority) {
+            throw std::runtime_error("player damage sound pump mismatch");
+        }
+
+        clearSoundLatch();
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        bool cooldownBlocked = energy_ == 99 && !soundLatch_.active;
+        if (!cooldownBlocked) {
+            throw std::runtime_error("player damage sound ignored cooldown");
+        }
+
+        clearSoundLatch();
+        bool smallExplosionAccepted = requestSoundOffset(explosionSoundOffset(1),
+                                                         explosionSoundSelector(1));
+        bool damageRefreshedSamePriority = requestPlayerDamageSound();
+        if (!smallExplosionAccepted || !damageRefreshedSamePriority ||
+            !soundLatch_.active || soundLatch_.latchedOffset != kPlayerDamageSoundCursor ||
+            soundLatch_.currentSelector != kPlayerDamageSoundPriority) {
+            throw std::runtime_error("player damage sound same-priority latch mismatch");
+        }
+
+        clearSoundLatch();
+        bool mediumExplosionAccepted = requestSoundOffset(explosionSoundOffset(2),
+                                                          explosionSoundSelector(2));
+        bool higherPriorityBlocked = !requestPlayerDamageSound();
+        if (!mediumExplosionAccepted || !higherPriorityBlocked || !soundLatch_.active ||
+            soundLatch_.latchedOffset != explosionSoundOffset(2) ||
+            soundLatch_.currentSelector != explosionSoundSelector(2)) {
+            throw std::runtime_error("player damage sound priority block mismatch");
+        }
+
+        clearSoundLatch();
+        energy_ = 1;
+        lives_ = 3;
+        playerDead_ = false;
+        reentryTimer_ = 0;
+        damageCooldown_ = 0;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        if (energy_ != 100 || !playerDead_ || lives_ != 2 ||
+            reentryTimer_ != kReentryTicks || !soundLatch_.active ||
+            soundLatch_.latchedOffset != kPlayerDeathSoundCursor ||
+            soundLatch_.currentSelector != kPlayerDeathSoundPriority) {
+            throw std::runtime_error("player death sound did not replace hurt sound");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active || lastPumpedSoundOffset_ != kPlayerDeathSoundCursor ||
+            lastPumpedSoundSelector_ != kPlayerDeathSoundPriority) {
+            throw std::runtime_error("player death sound pump mismatch");
+        }
+
+        std::cout << "player_damage_sound=ok nonlethal_energy=" << nonlethalEnergy
+                  << " nonlethal_cooldown=" << nonlethalCooldown
+                  << " death_energy=" << energy_
+                  << " dead=" << (playerDead_ ? 1 : 0)
+                  << " lives=" << lives_
+                  << " cursor=" << std::showbase << std::hex
+                  << kPlayerDamageSoundCursor << std::dec << std::noshowbase
+                  << " priority=" << static_cast<int>(kPlayerDamageSoundPriority)
+                  << " death_cursor=" << std::showbase << std::hex
+                  << kPlayerDeathSoundCursor << std::dec << std::noshowbase
+                  << " death_priority=" << static_cast<int>(kPlayerDeathSoundPriority)
+                  << " pumped=1 cooldown_blocked=1 same_priority_refresh=1"
+                  << " higher_priority_blocks=1 lethal_replaced=1\n";
+    }
+
+    void debugOriginalDamageCounters() {
+        struct DrainResult {
+            uint8_t energy = 0;
+            int hurtRequests = 0;
+            bool deathDispatch = false;
+        };
+
+        auto drain = [](uint8_t energy, uint8_t accumulatedDamage,
+                        bool stateTwo) -> DrainResult {
+            uint8_t updatedEnergy = energy;
+            if (!stateTwo) {
+                updatedEnergy = static_cast<uint8_t>(energy - accumulatedDamage);
+            }
+            return {updatedEnergy, accumulatedDamage > 0 ? 1 : 0,
+                    static_cast<uint16_t>(updatedEnergy) > 0x00c8};
+        };
+
+        DrainResult p1 = drain(100, 3, false);
+        DrainResult p2 = drain(100, 2, false);
+        DrainResult zero = drain(100, 0, false);
+        DrainResult stateTwo = drain(100, 4, true);
+        DrainResult underflow = drain(1, 2, false);
+
+        if (p1.energy != 97 || p1.hurtRequests != 1 || p1.deathDispatch ||
+            p2.energy != 98 || p2.hurtRequests != 1 || p2.deathDispatch ||
+            zero.energy != 100 || zero.hurtRequests != 0 || zero.deathDispatch ||
+            stateTwo.energy != 100 || stateTwo.hurtRequests != 1 ||
+            stateTwo.deathDispatch || underflow.energy != 255 ||
+            underflow.hurtRequests != 1 || !underflow.deathDispatch) {
+            throw std::runtime_error("original damage counter model mismatch");
+        }
+
+        std::cout << "original_damage_counters=ok p1_hits=3 p1_energy="
+                  << static_cast<int>(p1.energy)
+                  << " p1_hurt_requests=" << p1.hurtRequests
+                  << " p2_hits=2 p2_energy=" << static_cast<int>(p2.energy)
+                  << " p2_hurt_requests=" << p2.hurtRequests
+                  << " zero_pass_silent=" << (zero.hurtRequests == 0 ? 1 : 0)
+                  << " state2_hurt_without_subtract=1"
+                  << " underflow_raw=" << static_cast<int>(underflow.energy)
+                  << " death_dispatch=" << (underflow.deathDispatch ? 1 : 0)
+                  << '\n';
     }
 
     void debugGran() {
@@ -2487,6 +2864,107 @@ public:
         throw std::runtime_error("no trigger rewrote tiles");
     }
 
+    void debugTriggerSoundRouting() {
+        load();
+        for (size_t level = 0; level < levels_.size(); ++level) {
+            resetLevel(static_cast<int>(level));
+            for (int y = 1; y < level_.height; ++y) {
+                for (int x = 0; x < level_.width; ++x) {
+                    if (tileAt(x, y) != 0x72) continue;
+                    uint16_t key = static_cast<uint16_t>(wordAt(x, y) & 0x7fffu);
+                    if (key == 0) continue;
+
+                    player_.x = static_cast<float>(x * kTileSize);
+                    player_.y = static_cast<float>(y * kTileSize - 8);
+                    int portalCooldown = 0;
+                    int triggerCooldown = 0;
+                    clearSoundLatch();
+                    updatePortalsAndTriggers(player_, portalCooldown, triggerCooldown);
+
+                    if (triggerCooldown != 30 || !soundLatch_.active ||
+                        soundLatch_.latchedOffset != kTileTriggerSoundCursor ||
+                        soundLatch_.currentSelector != kTileTriggerSoundPriority) {
+                        throw std::runtime_error("trigger sound request mismatch");
+                    }
+
+                    pumpSoundLatch();
+                    if (soundLatch_.active ||
+                        lastPumpedSoundOffset_ != kTileTriggerSoundCursor ||
+                        lastPumpedSoundSelector_ != kTileTriggerSoundPriority) {
+                        throw std::runtime_error("trigger sound pump mismatch");
+                    }
+
+                    std::cout << "trigger_sound=ok level=" << (level + 1)
+                              << " key=" << key
+                              << " cursor=" << std::showbase << std::hex
+                              << kTileTriggerSoundCursor
+                              << std::dec << std::noshowbase
+                              << " priority="
+                              << static_cast<int>(kTileTriggerSoundPriority)
+                              << '\n';
+                    return;
+                }
+            }
+        }
+        throw std::runtime_error("no trigger tile found for sound routing");
+    }
+
+    void debugPortalSoundRouting() {
+        load();
+        for (size_t level = 0; level < levels_.size(); ++level) {
+            resetLevel(static_cast<int>(level));
+            for (int y = 1; y < level_.height; ++y) {
+                for (int x = 0; x < level_.width; ++x) {
+                    if (tileAt(x, y) != 0x45) continue;
+                    uint16_t key = static_cast<uint16_t>(wordAt(x, y) & 0x7fffu);
+                    if (key == 0) continue;
+                    const LevelPortal* destination = nullptr;
+                    for (const LevelPortal& portal : level_.portals) {
+                        if (portal.key == key) {
+                            destination = &portal;
+                            break;
+                        }
+                    }
+                    if (!destination) continue;
+
+                    player_.x = static_cast<float>(x * kTileSize);
+                    player_.y = static_cast<float>(y * kTileSize - 8);
+                    int portalCooldown = 0;
+                    int triggerCooldown = 0;
+                    clearSoundLatch();
+                    updatePortalsAndTriggers(player_, portalCooldown, triggerCooldown);
+
+                    if (portalCooldown != 30 ||
+                        player_.x != static_cast<float>(destination->x) ||
+                        player_.y != static_cast<float>(destination->y) ||
+                        !soundLatch_.active ||
+                        soundLatch_.latchedOffset != kPortalTeleportSoundCursor ||
+                        soundLatch_.currentSelector != kPortalTeleportSoundPriority) {
+                        throw std::runtime_error("portal sound request mismatch");
+                    }
+
+                    pumpSoundLatch();
+                    if (soundLatch_.active ||
+                        lastPumpedSoundOffset_ != kPortalTeleportSoundCursor ||
+                        lastPumpedSoundSelector_ != kPortalTeleportSoundPriority) {
+                        throw std::runtime_error("portal sound pump mismatch");
+                    }
+
+                    std::cout << "portal_sound=ok level=" << (level + 1)
+                              << " key=" << key
+                              << " cursor=" << std::showbase << std::hex
+                              << kPortalTeleportSoundCursor
+                              << std::dec << std::noshowbase
+                              << " priority="
+                              << static_cast<int>(kPortalTeleportSoundPriority)
+                              << '\n';
+                    return;
+                }
+            }
+        }
+        throw std::runtime_error("no portal tile found for sound routing");
+    }
+
     void debugPortalCooldowns() {
         load();
         for (size_t level = 0; level < levels_.size(); ++level) {
@@ -2665,6 +3143,10 @@ private:
     SDL_AudioDeviceID audioDevice_ = 0;
     SDL_AudioSpec audioSpec_{};
     bool audioEnabled_ = false;
+    SoundLatch soundLatch_;
+    int lastPumpedSoundRecord_ = -1;
+    uint16_t lastPumpedSoundOffset_ = 0;
+    uint8_t lastPumpedSoundSelector_ = 0;
     bool menu_ = true;
     MenuPage menuPage_ = MenuPage::Main;
     bool showBackground_ = true;
@@ -2962,36 +3444,98 @@ private:
         return '\0';
     }
 
-    std::vector<int16_t> synthesizeSound(size_t index) const {
-        if (index >= sounds_.records.size()) return {};
-        const std::vector<uint8_t>& bytes = sounds_.records[index].bytes;
+    uint16_t compatibilitySoundCursor(size_t index) const {
+        return kCompatibilitySoundCursors[index % kCompatibilitySoundCursors.size()];
+    }
+
+    uint16_t soundStepPeriodWord(size_t stepIndex) const {
+        size_t off = stepIndex * kSoundStepSize;
+        if (off + 1 >= sounds_.payload.size()) return kSoundStopPeriod;
+        return le16(sounds_.payload, off);
+    }
+
+    uint8_t soundStepGateTick(size_t stepIndex) const {
+        size_t off = stepIndex * kSoundStepSize;
+        return off + 2 < sounds_.payload.size() ? sounds_.payload[off + 2] : 0;
+    }
+
+    uint8_t soundStepPeriodTicks(size_t stepIndex) const {
+        size_t off = stepIndex * kSoundStepSize;
+        return off + 3 < sounds_.payload.size() ? sounds_.payload[off + 3] : 1;
+    }
+
+    uint16_t soundStopCursorFor(uint16_t cursor) const {
+        size_t stepIndex = cursor;
+        while (stepIndex < sounds_.stepCount) {
+            if (soundStepPeriodWord(stepIndex) == kSoundStopPeriod) {
+                return static_cast<uint16_t>(stepIndex + 1);
+            }
+            ++stepIndex;
+        }
+        return static_cast<uint16_t>(sounds_.stepCount);
+    }
+
+    void appendToneSamples(std::vector<int16_t>& samples, uint16_t period,
+                           int sampleCount, int amplitude, double& phase) const {
+        if (sampleCount <= 0) return;
+        if (period < 0x20) {
+            samples.insert(samples.end(), static_cast<size_t>(sampleCount), 0);
+            return;
+        }
+        double frequency = std::clamp(1193182.0 / static_cast<double>(period),
+                                      80.0, 4200.0);
+        double step = frequency / static_cast<double>(kAudioSampleRate);
+        for (int i = 0; i < sampleCount; ++i) {
+            phase += step;
+            if (phase >= 1.0) phase -= std::floor(phase);
+            samples.push_back(phase < 0.5 ? static_cast<int16_t>(amplitude)
+                                           : static_cast<int16_t>(-amplitude));
+        }
+    }
+
+    std::vector<int16_t> synthesizeSoundCursor(uint16_t cursor) const {
+        if (cursor > kDirectSoundThreshold) return synthesizeDirectSweep(cursor);
         std::vector<int16_t> samples;
-        samples.reserve((bytes.size() / 5) * kAudioToneSamples);
+        if (sounds_.payload.empty() || cursor >= sounds_.stepCount) return samples;
+
+        uint16_t stopCursor = soundStopCursorFor(cursor);
+        samples.reserve(static_cast<size_t>(std::max<int>(1, stopCursor - cursor)) *
+                        kAudioToneSamples * 2);
         double phase = 0.0;
-        for (size_t off = 0; off + 4 < bytes.size(); off += 5) {
-            uint16_t periodA = static_cast<uint16_t>(bytes[off] | (bytes[off + 1] << 8));
-            uint16_t periodB = static_cast<uint16_t>(bytes[off + 2] | (bytes[off + 3] << 8));
-            uint8_t durationByte = bytes[off + 4];
-            uint16_t period = static_cast<uint16_t>(periodA & 0x7fffu);
-            uint16_t fallbackPeriod = static_cast<uint16_t>(periodB & 0x7fffu);
-            if (period < 0x20 && fallbackPeriod >= 0x20) {
-                period = fallbackPeriod;
+        for (size_t stepIndex = cursor; stepIndex < sounds_.stepCount; ++stepIndex) {
+            uint16_t period = soundStepPeriodWord(stepIndex);
+            if (period == kSoundStopPeriod) break;
+            uint8_t gateTick = soundStepGateTick(stepIndex);
+            uint8_t periodTicksRaw = soundStepPeriodTicks(stepIndex);
+            int periodTicks = periodTicksRaw == 0 ? 256 : periodTicksRaw;
+            int audibleTicks = periodTicks;
+            if (gateTick != 0 && gateTick < periodTicks) {
+                audibleTicks = gateTick;
             }
-            int sampleCount = std::max(1, (1 + (durationByte & 0x0f)) * kAudioToneSamples / 2);
-            if (period < 0x20 || (periodA == 0 && periodB == 0 && durationByte == 0)) {
-                samples.insert(samples.end(), static_cast<size_t>(sampleCount), 0);
-                continue;
-            }
-            double frequency = std::clamp(1193182.0 / static_cast<double>(period), 80.0, 4200.0);
-            double step = frequency / static_cast<double>(kAudioSampleRate);
-            int amplitude = 1800 + static_cast<int>((periodB & 0x003fu) * 120);
-            amplitude = std::clamp(amplitude, 1800, 9000);
-            for (int i = 0; i < sampleCount; ++i) {
-                phase += step;
-                if (phase >= 1.0) phase -= std::floor(phase);
-                samples.push_back(phase < 0.5 ? static_cast<int16_t>(amplitude)
-                                               : static_cast<int16_t>(-amplitude));
-            }
+            int silentTicks = std::max(0, periodTicks - audibleTicks);
+            appendToneSamples(samples, period,
+                              std::max(1, audibleTicks * kAudioToneSamples),
+                              7200, phase);
+            samples.insert(samples.end(),
+                           static_cast<size_t>(silentTicks * kAudioToneSamples), 0);
+        }
+        return samples;
+    }
+
+    std::vector<int16_t> synthesizeSound(size_t index) const {
+        if (sounds_.records.empty()) return {};
+        return synthesizeSoundCursor(compatibilitySoundCursor(index));
+    }
+
+    std::vector<int16_t> synthesizeDirectSweep(uint16_t startCursor) const {
+        std::vector<int16_t> samples;
+        if (startCursor <= kDirectSoundThreshold) return samples;
+        double phase = 0.0;
+        for (uint16_t cursor = startCursor; cursor > kDirectSoundThreshold;
+             cursor = static_cast<uint16_t>(cursor - 4)) {
+            uint16_t period = static_cast<uint16_t>(cursor - kDirectSoundPeriodBase);
+            uint16_t clampedPeriod = std::max<uint16_t>(1, period);
+            appendToneSamples(samples, clampedPeriod, kAudioToneSamples / 2, 7200, phase);
         }
         return samples;
     }
@@ -3004,10 +3548,72 @@ private:
         return static_cast<size_t>(selector) % sounds_.records.size();
     }
 
+    bool isDirectSoundSweep(uint16_t offset) const {
+        return offset > kDirectSoundThreshold;
+    }
+
+    size_t soundIndexForOffsetFallback(uint16_t offset, uint8_t selector) const {
+        if (sounds_.records.empty()) return 0;
+        switch (offset) {
+            case 0xea74: return 0;
+            case 0xea7e: return 1 % sounds_.records.size();
+            case 0xea88: return 2 % sounds_.records.size();
+            case 0xeace: return 3 % sounds_.records.size();
+        }
+        return soundIndexForSelector(selector);
+    }
+
+    bool latchSoundRequest(uint16_t cursor, uint8_t selector) {
+        bool accept = !soundLatch_.active ||
+                      static_cast<uint8_t>(soundLatch_.currentSelector - 1u) < selector;
+        if (!accept) return false;
+        soundLatch_.active = true;
+        soundLatch_.currentSelector = selector;
+        soundLatch_.latchedOffset = cursor;
+        soundLatch_.directSweep = isDirectSoundSweep(cursor);
+        soundLatch_.recordIndex = sounds_.records.empty()
+                                      ? 0
+                                      : soundIndexForOffsetFallback(cursor, selector);
+        return true;
+    }
+
+    bool requestSoundCursor(uint16_t cursor, uint8_t selector) {
+        return latchSoundRequest(cursor, selector);
+    }
+
+    bool requestSoundOffset(uint16_t offset, uint8_t selector) {
+        return requestSoundCursor(offset, selector);
+    }
+
+    void clearSoundLatch() {
+        soundLatch_ = {};
+    }
+
+    void pumpSoundLatch() {
+        if (!soundLatch_.active) return;
+        size_t recordIndex = soundLatch_.recordIndex;
+        lastPumpedSoundRecord_ = static_cast<int>(recordIndex);
+        lastPumpedSoundOffset_ = soundLatch_.latchedOffset;
+        lastPumpedSoundSelector_ = soundLatch_.currentSelector;
+        bool directSweep = soundLatch_.directSweep;
+        uint16_t offset = soundLatch_.latchedOffset;
+        clearSoundLatch();
+        if (directSweep) {
+            playSoundSamples(synthesizeDirectSweep(offset));
+        } else {
+            playSoundSamples(synthesizeSoundCursor(offset));
+        }
+    }
+
     void playSound(size_t index) {
         if (!audioEnabled_ || audioDevice_ == 0 || sounds_.records.empty()) return;
         std::vector<int16_t> samples = synthesizeSound(index % sounds_.records.size());
         if (samples.empty()) return;
+        playSoundSamples(samples);
+    }
+
+    void playSoundSamples(const std::vector<int16_t>& samples) {
+        if (!audioEnabled_ || audioDevice_ == 0 || samples.empty()) return;
         Uint32 bytes = static_cast<Uint32>(samples.size() * sizeof(int16_t));
         if (audioSpec_.format == AUDIO_S16SYS && audioSpec_.channels == 1 &&
             audioSpec_.freq == kAudioSampleRate) {
@@ -3234,6 +3840,7 @@ private:
         updateBonusDrops();
         updateBombs();
         updateLevelCompletion();
+        pumpSoundLatch();
     }
 
     void updateLevelCompletion() {
@@ -3339,14 +3946,14 @@ private:
                     player.vx = 0.0f;
                     player.vy = 0.0f;
                     portalCooldown = 30;
-                    playSound(1);
+                    requestPortalTeleportSound();
                     break;
                 }
             }
         } else if (tile == 0x72 && triggerCooldown == 0) {
             if (applyTileTrigger(wordAt(tx, ty))) {
                 triggerCooldown = 30;
-                playSound(1);
+                requestTileTriggerSound();
             }
         }
     }
@@ -3617,6 +4224,7 @@ private:
                       int& timer, int& damageCooldown, uint8_t startMarker) {
         if (dead || damageCooldown > 0) return;
         energy = std::max(0, energy - 1);
+        requestPlayerDamageSound();
         if (energy == 0) {
             beginPlayerDeath(player, energy, lives, dead, timer, startMarker);
         } else {
@@ -3654,19 +4262,20 @@ private:
     void beginPlayerDeath(Player& player, int& energy, int& lives, bool& dead,
                           int& timer, uint8_t startMarker) {
         if (lives > 0) --lives;
+        energy = 100;
         player.vx = 0.0f;
         player.vy = 0.0f;
         player.grounded = false;
         if (lives == 0) {
             dead = true;
             timer = 0;
-            playSound(3);
+            requestPlayerDeathSound();
             if (allPlayersOutOfLives()) beginGameOver();
             return;
         }
         dead = true;
         timer = canReenterLevel() ? kReentryTicks : 1;
-        playSound(3);
+        requestPlayerDeathSound();
         (void)startMarker;
     }
 
@@ -3985,15 +4594,41 @@ private:
         effect.computedX = bomb.x * kTileSize;
         effect.computedY = bomb.y * kTileSize;
         explosionEffects_.push_back(effect);
-        playSoundSelector(effect.soundSelector);
+        requestSoundOffset(effect.soundOffset, effect.soundSelector);
     }
 
     bool isBombObjectTile(uint8_t tile) const {
         return tile > 0x66 && tile < 0x73;
     }
 
+    bool isHighBombObjectSoundTile(uint8_t tile) const {
+        return tile > kBombObjectHighSoundThreshold;
+    }
+
     bool isPassableObjectTile(uint8_t tile) const {
         return tile == 0x45 || isBombObjectTile(tile);
+    }
+
+    bool requestBombObjectScoreSound(bool sawHighObjectTile) {
+        return requestSoundCursor(sawHighObjectTile ? kBombObjectHighSoundCursor
+                                                    : kBombObjectDefaultSoundCursor,
+                                  kBombObjectSoundPriority);
+    }
+
+    bool requestPortalTeleportSound() {
+        return requestSoundCursor(kPortalTeleportSoundCursor, kPortalTeleportSoundPriority);
+    }
+
+    bool requestTileTriggerSound() {
+        return requestSoundCursor(kTileTriggerSoundCursor, kTileTriggerSoundPriority);
+    }
+
+    bool requestPlayerDamageSound() {
+        return requestSoundCursor(kPlayerDamageSoundCursor, kPlayerDamageSoundPriority);
+    }
+
+    bool requestPlayerDeathSound() {
+        return requestSoundCursor(kPlayerDeathSoundCursor, kPlayerDeathSoundPriority);
     }
 
     bool consumeBombObjectTile(int tx, int ty) {
@@ -4122,14 +4757,23 @@ private:
     void explode(const Bomb& bomb) {
         auto tiles = explosionTilesFor(bomb);
         spawnExplosionEffect(bomb);
+        bool consumedBombObject = false;
+        bool consumedHighBombObject = false;
         for (const auto& pos : tiles) {
             int x = pos[0];
             int y = pos[1];
             flashes_.push_back({x, y, 12});
+            uint8_t objectTile = static_cast<uint8_t>(tileAt(x, y));
             if (consumeBombObjectTile(x, y)) {
+                consumedBombObject = true;
+                consumedHighBombObject =
+                    consumedHighBombObject || isHighBombObjectSoundTile(objectTile);
                 addScore(bomb.owner, 50);
                 queueTileDamage(x, y - 1);
             }
+        }
+        if (consumedBombObject) {
+            requestBombObjectScoreSound(consumedHighBombObject);
         }
         damageMonstersInExplosion(tiles, bomb.type);
         damagePlayersInExplosion(tiles);
@@ -4261,7 +4905,7 @@ private:
         BonusType type = drop.type;
         drop.collected = true;
         applyBonus(type, collector, energy, inventory, playerIndex);
-        playSound(5);
+        requestSoundCursor(0x0008, 5);
     }
 
     void applyBonus(BonusType type, const Player& collector, int& energy,
@@ -4975,6 +5619,34 @@ int main(int argc, char** argv) {
             app.debugSoundRender();
             return 0;
         }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sound-cursor-segments") {
+            app.debugSoundCursorSegments();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-son-raw-roundtrip") {
+            app.debugSonRawRoundtrip();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sound-priority-latch") {
+            app.debugSoundPriorityLatch();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sound-selector-map") {
+            app.debugSoundSelectorMap();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-bomb-object-sound") {
+            app.debugBombObjectSoundRouting();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-player-damage-sound") {
+            app.debugPlayerDamageSoundRouting();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-original-damage-counters") {
+            app.debugOriginalDamageCounters();
+            return 0;
+        }
         if (argc > 1 && std::string(argv[1]) == "--debug-gran") {
             app.debugGran();
             return 0;
@@ -5025,6 +5697,14 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-trigger-accounting") {
             app.debugTriggerAccounting();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-trigger-sound") {
+            app.debugTriggerSoundRouting();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-portal-sound") {
+            app.debugPortalSoundRouting();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-portal-cooldowns") {

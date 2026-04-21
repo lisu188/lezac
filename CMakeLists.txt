@@ -92,6 +92,51 @@ if(BUILD_TESTING)
     set_tests_properties(sound_render PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+    add_test(NAME sound_cursor_segments
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-cursor-segments)
+    set_tests_properties(sound_cursor_segments PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "sound_cursor_segments=ok")
+
+    add_test(NAME son_raw_roundtrip
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-son-raw-roundtrip)
+    set_tests_properties(son_raw_roundtrip PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^son_raw_roundtrip=ok raw_size=782 step_count=130 payload_size=780 json_chunks=6")
+
+    add_test(NAME sound_priority_latch
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-priority-latch)
+    set_tests_properties(sound_priority_latch PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "sound_latch=ok")
+
+    add_test(NAME sound_selector_map
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-selector-map)
+    set_tests_properties(sound_selector_map PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "sound_selector_map=ok")
+
+    add_test(NAME bomb_object_sound
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-object-sound)
+    set_tests_properties(bomb_object_sound PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "bomb_object_sound=ok")
+
+    add_test(NAME player_damage_sound
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-player-damage-sound)
+    set_tests_properties(player_damage_sound PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "player_damage_sound=ok nonlethal_energy=99 nonlethal_cooldown=18 death_energy=100 dead=1 lives=2 cursor=0x2d priority=4 death_cursor=0x56 death_priority=5")
+
+    add_test(NAME original_damage_counters
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-damage-counters)
+    set_tests_properties(original_damage_counters PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "original_damage_counters=ok p1_hits=3 p1_energy=97 p1_hurt_requests=1 p2_hits=2 p2_energy=98 p2_hurt_requests=1 zero_pass_silent=1 state2_hurt_without_subtract=1 underflow_raw=255 death_dispatch=1")
+
     add_test(NAME sprite_transparency
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sprite-transparency)
     set_tests_properties(sprite_transparency PROPERTIES
@@ -123,6 +168,18 @@ if(BUILD_TESTING)
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-trigger-accounting)
     set_tests_properties(trigger_accounting PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+    add_test(NAME trigger_sound
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-trigger-sound)
+    set_tests_properties(trigger_sound PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "trigger_sound=ok")
+
+    add_test(NAME portal_sound
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-portal-sound)
+    set_tests_properties(portal_sound PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "portal_sound=ok")
 
     add_test(NAME portal_cooldowns
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-portal-cooldowns)

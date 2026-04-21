@@ -17,7 +17,10 @@ bytes targeting `082d:0000` are relocated by Ghidra into memory at
 | Address | Name | Notes |
 | --- | --- | --- |
 | `1000:0c33` | level loader | Opens/seeks in `LIVELS.SCH`, reads the level header, allocates level buffers, reads compressed layers and entity blocks. |
+| `1000:0630` | load PROEFS.SON | Opens `PROEFS.SON`, reads step count `0x0082`, allocates and reads `0x82 * 6` payload bytes. |
 | `1000:0faa` | level loader wrapper | Sets up stack frame and calls `1000:0c33`. |
+| `1000:0fbe` | sound tick / INT 1Ch playback | Uses `DS:79c4`, `DS:78c0`, `DS:79a0..79a2`, and the `DS:79c0` sound-bank far pointer to drive PC speaker output. |
+| `1000:165a` | queue sound if priority allows | Latches pending sound cursor/priority from `DS:2074`/`DS:799f` into `DS:78c0`/`DS:799e` when no sound is active or the new priority can preempt. |
 | `182d:0000` | `rle3_decode` | Decodes the two `LIVELS.SCH` compressed layers from 3-byte run commands. |
 | `1000:2efd` | new game state | Opens `LIVELS.SCH`, initializes player state, lives/energy flags, and level globals. |
 | `1000:3358` | remove actor slot | Compacts 0x26-byte actor records and adjusts ordering in other active lists. |
@@ -65,10 +68,12 @@ quirk.
   colon, semicolon, comma, exclamation, and apostrophe/accent glyphs.
 - `RECS.DAT` starts with an 8-bit record count. Each record is a little-endian
   32-bit score, an 8-bit reached level, and an 8-byte name padded with `:`.
-- `PROEFS.SON` starts with a little-endian 16-bit record size. The shipped file
-  uses 130-byte records and contains six fixed-size records. The bytes are now
-  loaded, dumpable, and approximately synthesized by the SDL port, but the
-  exact playback field semantics are still unresolved.
+- `PROEFS.SON` starts with little-endian word `0x0082`. Disassembly of
+  `1000:0630..06aa` treats this as a count of 130 six-byte sound steps and
+  reads `0x82 * 6 = 780` payload bytes into the sound bank. The converted JSON
+  still preserves the same payload as six 130-byte chunks for compatibility
+  with the earlier approximate renderer; `--debug-son-raw-roundtrip` verifies
+  that no payload bytes are lost.
 - `GRAN.MST` has no observed header in the shipped file. It is seven fixed-size
   57-byte records, likely aligned with the seven shipped levels, but the field
   semantics are still unresolved.
@@ -172,6 +177,117 @@ reverse byte from offsets `+7`/`+5`. The collapse passes at `1000:3bb2` and
 `1000:3d46` write those lanes back through `0x6617`/`0x2097` and
 `0x6618`/`0x2098`, using `0x4e20` as the high-half spill marker.
 
+## Sound Playback Evidence
+
+The original sound loader at `1000:0630..06aa` opens `PROEFS.SON`, reads first
+word `0x0082`, multiplies it by six, and reads 780 payload bytes into the
+sound-bank far pointer at `DS:79c0`. This means the shipped file is better
+understood as 130 six-byte entries than as six original records; the current
+JSON chunking is a compatibility container for those bytes.
+
+The tick routine at `1000:0fbe..1088` uses:
+
+- `DS:79c4`: active/request-present flag.
+- `DS:78c0`: current sound cursor or direct sweep value.
+- `DS:79a0`: tick accumulator.
+- `DS:79a1`: gate/off tick.
+- `DS:79a2`: step period.
+- `DS:79c0`: far pointer to the loaded `PROEFS.SON` payload.
+
+When `DS:78c0 > 0xea60`, the tick routine follows a direct speaker-sweep branch:
+it calls the speaker helper with `DS:78c0 - 0xea42`, subtracts four from
+`DS:78c0`, and stops when the cursor falls to `<= 0xea60`. The bomb explosion
+values `0xea74`, `0xea7e`, `0xea88`, and `0xeace` are therefore direct sweep
+cursors, not offsets into `PROEFS.SON`.
+
+The priority latch at `1000:165a..167d` implements:
+
+```text
+if DS:79c4 != 0 and (DS:799e - 1) >= DS:799f:
+    return
+DS:799e = DS:799f
+DS:78c0 = DS:2074
+DS:79c4 = 1
+```
+
+So an inactive latch accepts every request. While active, same-or-higher numeric
+priority refreshes/replaces the latched cursor, but one-below-or-lower priority
+is rejected. The C++ port maps this to `latchSoundRequest`, `requestSoundOffset`,
+and `pumpSoundLatch`; explosion sounds now enter through this path.
+
+Further disassembly of `1000:0fbe..1088` confirms the non-direct `PROEFS.SON`
+step shape. On each step advance the routine increments `DS:78c0`, computes
+`sound_bank + (DS:78c0 * 6) - 6`, and reads a six-byte entry:
+
+- bytes `+0..+1`: speaker period word. `0x7530` is the stop sentinel; when
+  seen, the routine silences the speaker, clears `DS:79c4`, resets `DS:79a0`,
+  and sets `DS:79a2 = 1`.
+- byte `+2`: copied to `DS:79a1`, the tick value that calls the silence helper
+  while the current step is active.
+- byte `+3`: copied to `DS:79a2`, the tick value that advances to the next
+  six-byte step.
+- bytes `+4..+5`: not referenced in this recovered tick window; they are
+  preserved as unknown fields.
+
+The current stop-cursor map from the shipped `PROEFS.SON` payload is:
+`0x0005, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027, 0x002d,
+0x0031, 0x0035, 0x003d, 0x0056, 0x0069, 0x0078, 0x0082`.
+`--debug-sound-cursor-segments` validates these boundaries and renders the
+known non-direct cursor starts through `synthesizeSoundCursor`.
+
+Six non-explosion gameplay cues are now mapped to original queued requests:
+
+- The bomb-object destruction scan around `1000:6cb3..6e3f` clears the
+  `DS:2074` score accumulator and `DS:79ab` high-object marker, walks the four
+  bomb footprint offsets, sets `DS:79ab = 1` when a consumed object tile id is
+  above `0x6c`, and after the scan queues priority `3`. The default request
+  leaves `DS:2074 = 0x0000`; high object tiles write `DS:2074 = 0x0012`
+  before the `1000:165a` call. The C++ `explode` path mirrors this with
+  `requestBombObjectScoreSound`.
+- The portal record helper at `1000:5999..5a72` scans the 7-byte portal records
+  at `0x7717 + 7 * n` for a matching word-layer key, copies the destination
+  coordinates into the actor frame, writes `DS:2074 = 0x001a`,
+  `DS:799f = 4`, and calls `1000:165a`. The C++ tile `0x45` transfer path
+  mirrors successful portal lookup with `requestPortalTeleportSound`.
+- The tile-trigger rewrite helper at `1000:5740..586e` masks its trigger-key
+  argument with `0x7fff`, saves the previous `DS:2074`, writes
+  `DS:2074 = 0x0027`, `DS:799f = 6`, calls `1000:165a`, restores `DS:2074`,
+  and then scans the 14-byte trigger rewrite records. The C++ tile `0x72`
+  path mirrors successful trigger activation with `requestTileTriggerSound`.
+- The pickup/effect branch around `1000:6e4b..6f8d` applies reward effects and
+  then writes `DS:2074 = 0x0008`, `DS:799f = 5`, and calls `1000:165a`.
+  The C++ `collectBonusDrop` path mirrors that with
+  `requestSoundCursor(0x0008, 5)`.
+- The per-player damage pass around `1000:7f34..804e` calls the actor update
+  routine at `1000:6053`, subtracts accumulated damage from the live player
+  energy byte, and when the damage counter is nonzero writes
+  `DS:2074 = 0x002d`, `DS:799f = 4`, then calls `1000:165a`
+  (`1000:7f84..7f8f`, file offset `0x86f4`). The C++ shared
+  `damagePlayer` gate mirrors accepted damage with `requestPlayerDamageSound`.
+- The following life-loss helper at `1000:30a3` is separate from the hurt cue:
+  it writes `DS:2074 = 0x0056`, `DS:799f = 5`, calls `1000:165a`, then moves
+  the actor into the death/reentry state. The mapped field writes are
+  actor byte `+0x15 = 2`, word `+0x10 = 0x003c`, and energy byte
+  `+0x24 = 0x64` at `1000:3123..3134`. The C++ `beginPlayerDeath` path now
+  mirrors the sound request and energy reset, so fatal damage first queues the
+  priority-`4` hurt cue and then replaces it with the priority-`5`
+  death/life-loss cue through the original latch rule. The `+0x10` countdown
+  remains a visual/state-timing mapping target rather than being treated as the
+  C++ reentry timer.
+
+Other non-explosion cues are still being mapped; direct `playSound(index)`
+callers remain compatibility hooks until their original cursor/priority writes
+are confirmed.
+
+Open damage-timing question: `1000:7f68..7f75` subtracts the full accumulated
+per-player damage byte (`DS:79e8` for player 1, `DS:79e9` for player 2) before
+the `0x002d` hurt request. `1000:63f0` and `1000:6491` increment those counters
+on harmful actor overlap, and the clear sites at `1000:7a57..7a5c` reset them
+once per outer actor pass. `--debug-original-damage-counters` preserves this
+byte-subtraction model, including unsigned underflow death dispatch
+(`energy > 0x00c8` after wrapping), but the live C++ gameplay still applies
+accepted reconstructed damage events through a cooldown gate.
+
 ## Level Embedded Records
 
 - The two words immediately after the decoded tile and word layers are preserved
@@ -249,6 +365,11 @@ opening name entry.
 - Actor 8.8 integration: `integrateAxis8_8`.
 - Bomb expiration and physical damage: `explode`, `queueTileDamage`,
   `damageMonstersInExplosion`.
+- Sound bank loading and latch: `loadSon` maps `1000:0630..06aa`;
+  `latchSoundRequest`, `requestSoundCursor`, `requestSoundOffset`, and
+  `pumpSoundLatch` map `1000:165a..167d`; `synthesizeDirectSweep` maps the
+  `DS:78c0 > 0xea60` branch; `synthesizeSoundCursor` maps the non-direct
+  six-byte step advance at `1000:0fbe..1088`.
 - High-score load/save/name entry: `loadRecords`, `saveRecords`,
   `handleNameEntryKey`, `finalizePendingRecord`.
 - End-of-run dispatch and per-player record queue:

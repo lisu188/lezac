@@ -1,51 +1,61 @@
 # Recovery Status
 
-Last reviewed: 2026-04-20
-Branch: `codex/autonomous-recovery-iteration`
-Baseline: `3c127fc` / `origin/main`
+Last reviewed: 2026-04-21
+Branch: `codex/sound-latch-recovery`
+Baseline: `f7927e1` / `origin/main`
 
 ## Completed This Iteration
 
 - Spawned five focused recovery subagents for disassembly, gameplay, rendering
   and audio, verification, and integration/docs.
-- Recovered the `1000:1b14..1d42` post-game dispatcher into the C++ state
-  machine: game-over and completed-game terminal pages, final-level completion
-  routing, and per-player record prompting.
-- Added separate player 2 scoring for objective collection, bonus collection,
-  and bomb-object points through bomb ownership.
-- Added a pending record candidate queue that checks player 1 first, then
-  re-checks player 2 against the updated high-score table before prompting.
-- Added `--debug-end-flow-records` and CTest `end_flow_records_temp` covering
-  mid-level completion, one-player records, non-qualifying game over,
-  player-2-only records, double qualifiers, and final-level completion.
-- Aligned sprite contact-sheet export with runtime blitting by drawing
-  palette index `0xff`; only index `0` is transparent.
-- Updated README, Ghidra notes, and subagent notes with addresses, mapped C++
-  functions, validation, and remaining unknowns.
+- Re-disassembled the player damage loop around `1000:7f34..804e`. The
+  `1000:7f84..7f8f` block writes `DS:2074 = 0x002d`, `DS:799f = 4`, then
+  calls the recovered sound latch when accumulated player damage is nonzero.
+- Mapped the separate life-loss helper at `1000:30a3`: it writes
+  `DS:2074 = 0x0056`, `DS:799f = 5`, and calls `1000:165a` before moving the
+  actor into the death/reentry state.
+- Routed accepted C++ player damage through `requestPlayerDamageSound` and
+  routed `beginPlayerDeath` through `requestPlayerDeathSound`, so lethal damage
+  first queues the priority-`4` hurt cue and then replaces it with the
+  priority-`5` death cue.
+- Mirrored the mapped death helper energy write at `1000:3134` by restoring
+  player energy to `100` when entering the C++ death/reentry state. The
+  neighboring original `+0x10 = 0x003c` countdown remains documented as a
+  visual/state-timing field, not the current C++ reentry timer.
+- Added `--debug-player-damage-sound` and CTest coverage for nonlethal damage,
+  cooldown suppression, latch priority arbitration, and lethal replacement.
+- Added `--debug-original-damage-counters` and CTest coverage for the original
+  byte counter drain model: multi-hit accumulation, zero-counter silence,
+  state-2 hurt-without-subtract behavior, and unsigned underflow death dispatch.
+- Updated README, Ghidra notes, and a new subagent note with the address range,
+  evidence, implementation mapping, validation, and remaining unknowns.
 
 ## Validation
 
 - `cmake -S . -B build` passed.
-- `cmake --build build` passed with a transient clock-skew warning from the
-  OneDrive-backed filesystem.
-- `ctest --test-dir build --output-on-failure` passed: 19/19.
+- `cmake --build build` passed.
+- `ctest --test-dir build --output-on-failure` passed: 28/28.
+- `ctest --test-dir build --output-on-failure -R "player_damage_sound|original_damage_counters"` passed.
 - `./build/lezac_cpp --validate` passed.
-- Focused checks passed after implementation:
-  - `./build/lezac_cpp --debug-end-flow-records build/end_flow_manual.dat`
-  - `./build/lezac_cpp --debug-sprite-transparency`
-  - `./build/lezac_cpp --debug-record-name-entry build/records_name_manual.dat`
-  - `./build/lezac_cpp --debug-bonuses`
-  - `./build/lezac_cpp --debug-bomb-fuse`
-  - `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-ui 3`
-  - `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-controls`
-  - `git diff --check`
+- `./build/lezac_cpp --debug-player-damage-sound` passed.
+- `./build/lezac_cpp --debug-original-damage-counters` passed.
+- `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-ui 3` passed.
+- `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-controls` passed.
+- `git diff --check` passed.
 
 ## Remaining Top Gaps
 
 - Exact actor update behavior around `1000:6053..777f`, especially monster AI
   and object/terrain interactions.
-- Exact `PROEFS.SON` playback semantics and sound latch/tick routine around
-  `1000:1500..166a`.
+- Exact non-explosion `PROEFS.SON` semantics for bytes `+4..+5` in each
+  six-byte step, plus mapping of the remaining non-explosion callsites to
+  `DS:2074`/`DS:799f` and event labels.
+- Exact original continuous-contact damage accumulation and cooldown timing:
+  the hurt/death sounds are now mapped, but the C++ damage cadence still uses
+  the reconstructed cooldown model.
+- Exact death/reentry state timing: the original death helper writes actor
+  state `+0x15 = 2`, countdown `+0x10 = 0x003c`, and energy `+0x24 = 0x64`;
+  only the sound request and energy reset are currently mirrored directly.
 - Exact post-game presentation details beyond the recovered strings and record
   prompt order: cursor drawing, key wait timing, and completed-game flag side
   effects.
@@ -56,6 +66,8 @@ Baseline: `3c127fc` / `origin/main`
 
 ## Next Planned Target
 
-Map the `1000:165a` sound priority latch and `PROEFS.SON` offset/selector
-semantics, then route high-confidence gameplay sound requests through the
-original priority model.
+Advance from the recovered hurt/death cue mapping into the original damage
+accumulation path: map the `1000:6053` actor overlap increments at
+`1000:63f0`/`1000:6491`, the `DS:79e8`/`DS:79e9` clear cadence, and the
+state-2 life/reentry count handling after `1000:30a3`, then tighten C++ damage
+cooldown behavior only where the evidence supports it.

@@ -42,6 +42,10 @@
 - Call out uncertainty instead of guessing.
 - If the repository is missing a remote or PR creation is not possible, state
   that explicitly.
+- When testing UI, rendering, DOSBox, or live gameplay behavior, use frame
+  inspection whenever possible. Capture screenshots, SDL frame dumps, debugger
+  memory/frame-table bytes, or other visual-frame evidence and record what was
+  inspected; do not rely only on process exit status for visual behavior.
 
 ## DOSBox original-game observation
 

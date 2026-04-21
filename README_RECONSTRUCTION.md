@@ -65,6 +65,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-original-state2-animation-init
 ./build/lezac_cpp --debug-original-state2-animation-advance
 ./build/lezac_cpp --debug-state2-runtime-frame-oracle tests/fixtures/dosbox/state2_runtime_frame_oracle_synthetic.txt
+./build/lezac_cpp --debug-explosion-playback-oracle tests/fixtures/dosbox/explosion_playback_oracle_synthetic.txt
 ./build/lezac_cpp --debug-original-state2-effect-placement
 ./build/lezac_cpp --debug-player-state2-return-active
 ./build/lezac_cpp --debug-record-update /tmp/records_test.dat

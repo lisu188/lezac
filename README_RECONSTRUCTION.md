@@ -65,6 +65,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-original-state2-animation-init
 ./build/lezac_cpp --debug-original-state2-animation-advance
 ./build/lezac_cpp --debug-state2-runtime-frame-oracle tests/fixtures/dosbox/state2_runtime_frame_oracle_synthetic.txt
+./build/lezac_cpp --debug-state2-runtime-frame-oracle tests/fixtures/dosbox/state2_runtime_frame_oracle_original.txt
 ./build/lezac_cpp --debug-original-state2-effect-placement
 ./build/lezac_cpp --debug-player-state2-return-active
 ./build/lezac_cpp --debug-record-update /tmp/records_test.dat
@@ -147,7 +148,10 @@ Dump the current bomb inventory model and export sprite contact sheets:
   actor update model locks the `1000:6053` counter, wrap, ping-pong, and
   mode-3 backup behavior. The runtime-frame oracle parses saved DOSBox debugger
   dumps for `DS:006a`, `DS:006c`, `DS:006d`, the `DS:c322..c324` frame table,
-  and `DS:c21e` effect-entry words without making a visual claim. The
+  and `DS:c21e` effect-entry words without making a visual claim. A real
+  temp-copy `dosbox-debug` capture stopped at runtime `01ED:7C89` now locks one
+  original state-2 countdown sample: `DS=0C8F`, death cursor `0x45`,
+  frame range `0x4a..0x4f`, and effect entry 0 position `0x0068,0x00a8`. The
   return-placement model tracks the `DS:c21e + 8 * actor[+0x01]` effect-entry
   descent and blocking checks.
 
@@ -175,9 +179,9 @@ Dump the current bomb inventory model and export sprite contact sheets:
   decrement, and death/reentry visual playback remain simplified. The
   `actor + 0x16` state-2 cursor, cursor advancement rules, and `DS:c21e`
   placement math are locked as deterministic models, and the runtime-frame
-  oracle can validate captured debugger dumps, but the live renderer still
-  needs exact original `dosbox-debug` bytes before dead players should be drawn
-  as original art.
+  oracle now validates one original state-2 countdown capture, but the live
+  renderer still needs the frame-table interpretation and visual consumption
+  path confirmed before dead players should be drawn as original art.
 
 See [docs/GHIDRA_NOTES.md](docs/GHIDRA_NOTES.md) for addresses and disassembly
 anchors used in the reconstruction.

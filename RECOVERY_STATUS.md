@@ -1,36 +1,40 @@
 # Recovery Status
 
 Last reviewed: 2026-04-21
-Branch: `codex/state2-runtime-frame-oracle`
-Baseline: `39abdc5` / `origin/main`
+Branch: `codex/state2-runtime-frame-oracle-original-fixture`
+Baseline: `ee67978` / `origin/main`
 
 ## Completed This Iteration
 
 - Spawned five focused recovery subagents for debugger/disassembly mapping,
   gameplay fidelity, rendering/assets, verification, and integration/docs.
-- Confirmed PR #21 was merged into `origin/main`, then created this branch from
-  the updated main baseline.
-- Verified `dosbox-debug` is installed and can start its debugger UI. A direct
-  `dosbox-debug -help` invocation is not a help mode; it opens the debugger and
-  must be driven interactively or with a more controlled input setup.
-- Added `--debug-state2-runtime-frame-oracle <dump.txt>`, a strict parser for
-  normalized saved DOSBox debugger transcripts. It records runtime `CS`/`DS`,
-  validates translated breakpoints, parses `D DS:0060` globals, resolves
-  `DS:c322 + 4 * frame` table rows for the death/reentry frame range, and reads
-  the first `DS:c21e` effect-entry position words.
-- Added a synthetic oracle fixture that proves parser mechanics and address
-  math without claiming original runtime frame data.
-- Added a malformed segment fixture and `--expect-error` mode to keep negative
-  parser coverage deterministic in CTest.
-- Updated README and Ghidra notes to document the oracle and to keep live
-  dead-player rendering blocked on real `dosbox-debug` bytes.
+- Created a new branch from updated `origin/main`; PR #23 remains open as a
+  separate oracle-hardening PR and is not required by this branch.
+- Ran baseline build, full CTest, and asset validation before editing.
+- Captured a real temp-copy `dosbox-debug` stop from `LEZAC.EXE` using
+  `TERM=xterm-256color`, `xvfb-run`, `DEBUG LEZAC.EXE`, PTY debugger commands,
+  and xdotool game input.
+- Started a one-player game, placed a bomb with `N`, and stopped at runtime
+  `01ED:7C89`, the original state-2 countdown path.
+- Added `tests/fixtures/dosbox/state2_runtime_frame_oracle_original.txt` with
+  runtime `CS=01ED`, `DS=0C8F`, translated breakpoints, `DS:0060`,
+  `DS:C21E`, and `DS:C440` memory dumps.
+- Registered `state2_runtime_frame_oracle_original` in CTest. The fixture
+  validates death cursor `0x45`, frame range `0x4a..0x4f`,
+  `first_entry_addr=0xc44a`, first row `10,10,7d,43`, last row
+  `10,10,7d,48`, and effect entry 0 `0x0068,0x00a8`, with `visual_claim=0`.
+- Updated README and Ghidra notes to describe the original capture while still
+  blocking live dead-player rendering on frame-table interpretation and visual
+  consumption evidence.
 
 ## Validation
 
 - `cmake -S . -B build` passed.
 - `cmake --build build` passed.
-- `ctest --test-dir build --output-on-failure -R "state2_runtime_frame_oracle|state2_animation_advance_model|state2_effect_placement_model"` passed: 4/4.
-- `ctest --test-dir build --output-on-failure` passed: 36/36.
+- Baseline `ctest --test-dir build --output-on-failure` passed: 36/36 before
+  editing.
+- `ctest --test-dir build --output-on-failure -R "state2_runtime_frame_oracle|state2_animation_advance_model|state2_effect_placement_model|player_state2_return_active|original_state2_return_model"` passed: 7/7.
+- `ctest --test-dir build --output-on-failure` passed: 37/37.
 - `./build/lezac_cpp --validate` passed.
 - `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-ui 3` passed.
 - `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-controls` passed.
@@ -38,11 +42,11 @@ Baseline: `39abdc5` / `origin/main`
 
 ## Remaining Top Gaps
 
-- Capture real runtime values of `DS:006a`, `DS:006c`, `DS:006d`, and the
-  `DS:c322..c324` frame metadata table during death/reentry with
-  `dosbox-debug`.
-- Add an `original` oracle fixture from that capture and only then wire
-  dead-player rendering to recovered original frame data.
+- Interpret the captured state-2 frame-table bytes and confirm the visual
+  consumption path before wiring live dead-player rendering.
+- Capture additional original stops at `1000:3108`, `1000:6148`, and
+  `1000:7ddf`; this fixture stopped at `1000:7c89` with all breakpoints
+  translated but does not prove every path was hit.
 - Exact actor update behavior around `1000:6053..777f`, especially monster AI,
   object/terrain interactions, and mode-specific animation side effects.
 - Exact non-explosion `PROEFS.SON` semantics for bytes `+4..+5` in each
@@ -56,8 +60,8 @@ Baseline: `39abdc5` / `origin/main`
 
 ## Next Planned Target
 
-Drive `dosbox-debug` manually or through a controllable PTY setup in a temp copy
-of the game. Record runtime `CS`/`DS`, break at `CS:3108`, `CS:6148`,
-`CS:7c89`, and `CS:7ddf`, then paste the resulting `D DS:0060`,
-`D DS:C21E`, and frame-table dumps into
-`tests/fixtures/dosbox/state2_runtime_frame_oracle_original.txt`.
+Disassemble and/or dump the `1000:6053..6156` frame-table consumer around the
+captured `0x4a..0x4f` range. Determine whether the true table row begins at
+`DS:c322 + 4 * frame` or an adjacent field inside the same metadata record,
+then add a named debug model for the frame-table field layout before changing
+live dead-player rendering.

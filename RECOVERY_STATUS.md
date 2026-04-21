@@ -18,8 +18,15 @@ Baseline: `f7927e1` / `origin/main`
   routed `beginPlayerDeath` through `requestPlayerDeathSound`, so lethal damage
   first queues the priority-`4` hurt cue and then replaces it with the
   priority-`5` death cue.
+- Mirrored the mapped death helper energy write at `1000:3134` by restoring
+  player energy to `100` when entering the C++ death/reentry state. The
+  neighboring original `+0x10 = 0x003c` countdown remains documented as a
+  visual/state-timing field, not the current C++ reentry timer.
 - Added `--debug-player-damage-sound` and CTest coverage for nonlethal damage,
   cooldown suppression, latch priority arbitration, and lethal replacement.
+- Added `--debug-original-damage-counters` and CTest coverage for the original
+  byte counter drain model: multi-hit accumulation, zero-counter silence,
+  state-2 hurt-without-subtract behavior, and unsigned underflow death dispatch.
 - Updated README, Ghidra notes, and a new subagent note with the address range,
   evidence, implementation mapping, validation, and remaining unknowns.
 
@@ -27,10 +34,11 @@ Baseline: `f7927e1` / `origin/main`
 
 - `cmake -S . -B build` passed.
 - `cmake --build build` passed.
-- `ctest --test-dir build --output-on-failure` passed: 27/27.
-- `ctest --test-dir build --output-on-failure -R player_damage_sound` passed.
+- `ctest --test-dir build --output-on-failure` passed: 28/28.
+- `ctest --test-dir build --output-on-failure -R "player_damage_sound|original_damage_counters"` passed.
 - `./build/lezac_cpp --validate` passed.
 - `./build/lezac_cpp --debug-player-damage-sound` passed.
+- `./build/lezac_cpp --debug-original-damage-counters` passed.
 - `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-ui 3` passed.
 - `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-controls` passed.
 - `git diff --check` passed.
@@ -45,6 +53,9 @@ Baseline: `f7927e1` / `origin/main`
 - Exact original continuous-contact damage accumulation and cooldown timing:
   the hurt/death sounds are now mapped, but the C++ damage cadence still uses
   the reconstructed cooldown model.
+- Exact death/reentry state timing: the original death helper writes actor
+  state `+0x15 = 2`, countdown `+0x10 = 0x003c`, and energy `+0x24 = 0x64`;
+  only the sound request and energy reset are currently mirrored directly.
 - Exact post-game presentation details beyond the recovered strings and record
   prompt order: cursor drawing, key wait timing, and completed-game flag side
   effects.
@@ -58,5 +69,5 @@ Baseline: `f7927e1` / `origin/main`
 Advance from the recovered hurt/death cue mapping into the original damage
 accumulation path: map the `1000:6053` actor overlap increments at
 `1000:63f0`/`1000:6491`, the `DS:79e8`/`DS:79e9` clear cadence, and the
-death/reentry state fields written by `1000:30a3`, then tighten C++ damage
+state-2 life/reentry count handling after `1000:30a3`, then tighten C++ damage
 cooldown behavior only where the evidence supports it.

@@ -2080,7 +2080,7 @@ public:
         damageCooldown_ = 0;
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
-        if (energy_ != 0 || !playerDead_ || lives_ != 2 ||
+        if (energy_ != 100 || !playerDead_ || lives_ != 2 ||
             reentryTimer_ != kReentryTicks || !soundLatch_.active ||
             soundLatch_.latchedOffset != kPlayerDeathSoundCursor ||
             soundLatch_.currentSelector != kPlayerDeathSoundPriority) {
@@ -2094,7 +2094,7 @@ public:
 
         std::cout << "player_damage_sound=ok nonlethal_energy=" << nonlethalEnergy
                   << " nonlethal_cooldown=" << nonlethalCooldown
-                  << " lethal_energy=" << energy_
+                  << " death_energy=" << energy_
                   << " dead=" << (playerDead_ ? 1 : 0)
                   << " lives=" << lives_
                   << " cursor=" << std::showbase << std::hex
@@ -2105,6 +2105,50 @@ public:
                   << " death_priority=" << static_cast<int>(kPlayerDeathSoundPriority)
                   << " pumped=1 cooldown_blocked=1 same_priority_refresh=1"
                   << " higher_priority_blocks=1 lethal_replaced=1\n";
+    }
+
+    void debugOriginalDamageCounters() {
+        struct DrainResult {
+            uint8_t energy = 0;
+            int hurtRequests = 0;
+            bool deathDispatch = false;
+        };
+
+        auto drain = [](uint8_t energy, uint8_t accumulatedDamage,
+                        bool stateTwo) -> DrainResult {
+            uint8_t updatedEnergy = energy;
+            if (!stateTwo) {
+                updatedEnergy = static_cast<uint8_t>(energy - accumulatedDamage);
+            }
+            return {updatedEnergy, accumulatedDamage > 0 ? 1 : 0,
+                    static_cast<uint16_t>(updatedEnergy) > 0x00c8};
+        };
+
+        DrainResult p1 = drain(100, 3, false);
+        DrainResult p2 = drain(100, 2, false);
+        DrainResult zero = drain(100, 0, false);
+        DrainResult stateTwo = drain(100, 4, true);
+        DrainResult underflow = drain(1, 2, false);
+
+        if (p1.energy != 97 || p1.hurtRequests != 1 || p1.deathDispatch ||
+            p2.energy != 98 || p2.hurtRequests != 1 || p2.deathDispatch ||
+            zero.energy != 100 || zero.hurtRequests != 0 || zero.deathDispatch ||
+            stateTwo.energy != 100 || stateTwo.hurtRequests != 1 ||
+            stateTwo.deathDispatch || underflow.energy != 255 ||
+            underflow.hurtRequests != 1 || !underflow.deathDispatch) {
+            throw std::runtime_error("original damage counter model mismatch");
+        }
+
+        std::cout << "original_damage_counters=ok p1_hits=3 p1_energy="
+                  << static_cast<int>(p1.energy)
+                  << " p1_hurt_requests=" << p1.hurtRequests
+                  << " p2_hits=2 p2_energy=" << static_cast<int>(p2.energy)
+                  << " p2_hurt_requests=" << p2.hurtRequests
+                  << " zero_pass_silent=" << (zero.hurtRequests == 0 ? 1 : 0)
+                  << " state2_hurt_without_subtract=1"
+                  << " underflow_raw=" << static_cast<int>(underflow.energy)
+                  << " death_dispatch=" << (underflow.deathDispatch ? 1 : 0)
+                  << '\n';
     }
 
     void debugGran() {
@@ -4218,6 +4262,7 @@ private:
     void beginPlayerDeath(Player& player, int& energy, int& lives, bool& dead,
                           int& timer, uint8_t startMarker) {
         if (lives > 0) --lives;
+        energy = 100;
         player.vx = 0.0f;
         player.vy = 0.0f;
         player.grounded = false;
@@ -5596,6 +5641,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-player-damage-sound") {
             app.debugPlayerDamageSoundRouting();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-original-damage-counters") {
+            app.debugOriginalDamageCounters();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-gran") {

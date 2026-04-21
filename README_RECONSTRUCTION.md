@@ -59,6 +59,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-sound-priority-latch
 ./build/lezac_cpp --debug-sound-selector-map
 ./build/lezac_cpp --debug-player-damage-sound
+./build/lezac_cpp --debug-original-damage-counters
 ./build/lezac_cpp --debug-record-update /tmp/records_test.dat
 ./build/lezac_cpp --debug-record-name-entry /tmp/records_name_test.dat
 ./build/lezac_cpp --debug-record-save-failure /tmp/missing-record-dir/records.dat
@@ -130,7 +131,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
   queues cursor `0x0027` at priority `6`, bonus pickup audio queues cursor
   `0x0008` at priority `5`, accepted player damage queues cursor `0x002d` at
   priority `4`, and player death/life-loss queues cursor `0x0056` at priority
-  `5`.
+  `5` while restoring the player energy byte to `100`.
 
 ## Still Approximate
 

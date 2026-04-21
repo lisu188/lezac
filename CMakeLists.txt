@@ -128,7 +128,14 @@ if(BUILD_TESTING)
     set_tests_properties(player_damage_sound PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "player_damage_sound=ok nonlethal_energy=99 nonlethal_cooldown=18 lethal_energy=0 dead=1 lives=2 cursor=0x2d priority=4 death_cursor=0x56 death_priority=5")
+            "player_damage_sound=ok nonlethal_energy=99 nonlethal_cooldown=18 death_energy=100 dead=1 lives=2 cursor=0x2d priority=4 death_cursor=0x56 death_priority=5")
+
+    add_test(NAME original_damage_counters
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-damage-counters)
+    set_tests_properties(original_damage_counters PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "original_damage_counters=ok p1_hits=3 p1_energy=97 p1_hurt_requests=1 p2_hits=2 p2_energy=98 p2_hurt_requests=1 zero_pass_silent=1 state2_hurt_without_subtract=1 underflow_raw=255 death_dispatch=1")
 
     add_test(NAME sprite_transparency
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sprite-transparency)

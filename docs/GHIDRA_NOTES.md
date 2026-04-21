@@ -266,14 +266,27 @@ Six non-explosion gameplay cues are now mapped to original queued requests:
   `damagePlayer` gate mirrors accepted damage with `requestPlayerDamageSound`.
 - The following life-loss helper at `1000:30a3` is separate from the hurt cue:
   it writes `DS:2074 = 0x0056`, `DS:799f = 5`, calls `1000:165a`, then moves
-  the actor into the death/reentry state. The C++ `beginPlayerDeath` path now
-  mirrors that with `requestPlayerDeathSound`, so fatal damage first queues
-  the priority-`4` hurt cue and then replaces it with the priority-`5`
-  death/life-loss cue through the original latch rule.
+  the actor into the death/reentry state. The mapped field writes are
+  actor byte `+0x15 = 2`, word `+0x10 = 0x003c`, and energy byte
+  `+0x24 = 0x64` at `1000:3123..3134`. The C++ `beginPlayerDeath` path now
+  mirrors the sound request and energy reset, so fatal damage first queues the
+  priority-`4` hurt cue and then replaces it with the priority-`5`
+  death/life-loss cue through the original latch rule. The `+0x10` countdown
+  remains a visual/state-timing mapping target rather than being treated as the
+  C++ reentry timer.
 
 Other non-explosion cues are still being mapped; direct `playSound(index)`
 callers remain compatibility hooks until their original cursor/priority writes
 are confirmed.
+
+Open damage-timing question: `1000:7f68..7f75` subtracts the full accumulated
+per-player damage byte (`DS:79e8` for player 1, `DS:79e9` for player 2) before
+the `0x002d` hurt request. `1000:63f0` and `1000:6491` increment those counters
+on harmful actor overlap, and the clear sites at `1000:7a57..7a5c` reset them
+once per outer actor pass. `--debug-original-damage-counters` preserves this
+byte-subtraction model, including unsigned underflow death dispatch
+(`energy > 0x00c8` after wrapping), but the live C++ gameplay still applies
+accepted reconstructed damage events through a cooldown gate.
 
 ## Level Embedded Records
 

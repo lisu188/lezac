@@ -12,7 +12,9 @@ Date: 2026-04-21
   byte, and only then checks whether damage was nonzero.
 - Confirmed the life-loss helper at `1000:30a3` is separate: it writes
   `DS:2074 = 0x0056`, `DS:799f = 0x05`, calls `1000:165a`, then moves the
-  actor into the death/reentry state.
+  actor into the death/reentry state. The field writes at `1000:3123..3134`
+  set actor byte `+0x15 = 2`, word `+0x10 = 0x003c`, and energy byte
+  `+0x24 = 0x64`.
 
 ## Subagent B - Gameplay Fidelity
 
@@ -28,6 +30,9 @@ Date: 2026-04-21
 - Confirmed cursor `0x002d` is a bounded `PROEFS.SON` cursor already covered by
   the stop map: it stops at cursor `0x0031`, spans four six-byte steps, and
   renders 2361 samples through the current recovered cursor synthesizer.
+- Confirmed cursor `0x0056` is also a bounded `PROEFS.SON` cursor: it stops at
+  cursor `0x0069`, spans 19 six-byte steps, and renders non-empty synthesized
+  output.
 - Confirmed priority `4` means the hurt cue can replace priority `3` cues, tie
   and refresh other priority `4` cues by call order, and lose to priority
   `5+` cues such as death/life-loss, bonus, and stronger explosions.
@@ -37,10 +42,16 @@ Date: 2026-04-21
 - Recommended a command-line debug probe rather than an SDL audio test.
 - The implemented `--debug-player-damage-sound` now asserts nonlethal accepted
   damage latches cursor `0x002d` priority `4`, cooldown blocks repeated damage
-  cues, priority arbitration follows the original latch rule, and lethal damage
-  ends with cursor `0x0056` priority `5`.
+  cues, priority arbitration follows the original latch rule, lethal damage
+  ends with cursor `0x0056` priority `5`, and the death helper restores energy
+  to `100`.
 - Added CTest `player_damage_sound` with a regex over the recovered cursor and
   priority values.
+- Added `--debug-original-damage-counters` and CTest coverage for the original
+  counter-drain model: accumulated per-player byte damage is subtracted once,
+  zero-damage passes are silent, actor state `2` skips subtraction but can still
+  request hurt, and unsigned byte underflow dispatches death when the wrapped
+  energy exceeds `0x00c8`.
 
 ## Subagent E - Integration/Docs
 
@@ -52,7 +63,11 @@ Date: 2026-04-21
 
 ## Integrated Decision
 
-The C++ port now routes accepted damage through `requestPlayerDamageSound` and
-routes `beginPlayerDeath` through `requestPlayerDeathSound`. On fatal damage,
-the hurt request is issued first and then replaced by the higher-priority death
-request, matching the recovered `1000:165a` latch semantics.
+The C++ port now routes accepted damage through `requestPlayerDamageSound`,
+routes `beginPlayerDeath` through `requestPlayerDeathSound`, and restores the
+player energy value to `100` on death. On fatal damage, the hurt request is
+issued first and then replaced by the higher-priority death request, matching
+the recovered `1000:165a` latch semantics. The original `+0x10 = 0x003c`
+countdown is documented but not mapped to the C++ reentry timer yet. The
+original counter model is now locked by a debug probe before changing the live
+cooldown-based gameplay cadence.

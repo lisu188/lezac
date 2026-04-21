@@ -16,6 +16,7 @@ bytes targeting `082d:0000` are relocated by Ghidra into memory at
 
 | Address | Name | Notes |
 | --- | --- | --- |
+| `1000:06ab` | animation state initializer | Writes the seven-byte animation cursor used at `actor + 0x16`: current/start/end/counter/delay/mode/step. |
 | `1000:0c33` | level loader | Opens/seeks in `LIVELS.SCH`, reads the level header, allocates level buffers, reads compressed layers and entity blocks. |
 | `1000:0630` | load PROEFS.SON | Opens `PROEFS.SON`, reads step count `0x0082`, allocates and reads `0x82 * 6` payload bytes. |
 | `1000:0faa` | level loader wrapper | Sets up stack frame and calls `1000:0c33`. |
@@ -319,6 +320,50 @@ requires `DS:79a3 == 1`; on success, `1000:7e85..7e8c` restores actor state
 countdown/action-gate ordering by rejecting manual reentry while
 `deathStateTimer > 0`; effect-entry descent and exact actor-state byte mapping
 remain documented model behavior until the renderer-facing state is recovered.
+
+State-2 animation/effect evidence: `1000:06ab` / file `0x0e1b` initializes a
+seven-byte animation cursor at the far pointer passed by callers. Manual
+inspection of the writes gives this layout:
+
+```text
+anim+0 = arg_0a   current frame
+anim+1 = arg_0a   first/min frame
+anim+2 = arg_08   last/max frame
+anim+3 = arg_06   tick counter
+anim+4 = arg_06   tick threshold / frame delay
+anim+5 = arg_04   playback mode
+anim+6 = 1        signed frame step
+```
+
+The player death/life-loss helper at `1000:3108..311d` passes `actor + 0x16`
+to that initializer with `DS:006c`, `DS:006d`, delay `3`, and mode `1`, after
+which the helper writes actor state `+0x15 = 2`, countdown `+0x10 = 0x003c`,
+and energy `+0x24 = 0x64`. The actor update routine around
+`1000:6053..6156` consumes `actor + 0x16` as this cursor: when mode is nonzero
+it increments the counter, advances the current frame by signed step when the
+incremented counter is greater than the delay byte, wraps to the minimum after
+the maximum for non-ping-pong modes, negates the step at either bound for mode
+`2`, and copies the wrapped cursor into the secondary animation slot for mode
+`3`. It then uses the current frame to select sprite metadata from
+`DS:c322..c324` before writing the visual/effect entry at
+`DS:c21e`/`DS:c224`. The C++ debug commands
+`--debug-original-state2-animation-init` and
+`--debug-original-state2-animation-advance` lock the initializer byte order and
+cursor advancement rules.
+
+The `DS:c21e + 8 * n` entry is renderer/effect state rather than the animation
+cursor. The mapped state-2 return path at `1000:7df9..7e70` reads entry words
+`+0` and `+2`, computes `x_tile = word0 >> 3` and
+`y_tile = ((word2 + 7) >> 3) + 1`, and blocks placement when either the base
+tile or the right tile is `0x01` or `0x4c`. If placement is not blocked and
+entry word `+2 > 0x18`, the routine decrements word `+2` before the
+`DS:79a3` action-gate check. The C++ debug command
+`--debug-original-state2-effect-placement` locks that placement/descent model.
+Exact runtime values for `DS:006a`, `DS:006c`, `DS:006d`, and the frame table
+at `DS:c324` still need DOSBox debugger observation before the live renderer
+can claim faithful death/reentry art. `dosbox-debug` is available in the
+current recovery environment and should be used for that capture rather than
+inferring frame ids from static asset shape.
 
 Unresolved state-2 fallback: `1000:7ef8..7f2a` increments `DS:79b9` when no
 player is active and promotes any `DS:79e5 + player == 2` state byte to `1` at

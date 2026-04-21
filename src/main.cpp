@@ -2366,6 +2366,190 @@ public:
                   << static_cast<int>(outModel.activePlayers) << '\n';
     }
 
+    void debugOriginalState2AnimationInit() {
+        auto initialize = [](uint8_t arg04, uint8_t arg06, uint8_t arg08,
+                             uint8_t arg0a) {
+            return std::array<uint8_t, 7>{arg0a, arg0a, arg08, arg06,
+                                          arg06, arg04, 1};
+        };
+
+        std::array<uint8_t, 7> bytes = initialize(4, 6, 8, 12);
+        const std::array<uint8_t, 7> expected{12, 12, 8, 6, 6, 4, 1};
+        if (bytes != expected || bytes[0] != bytes[1] ||
+            bytes[3] != bytes[4] || bytes[6] != 1) {
+            throw std::runtime_error("original state-2 animation init mismatch");
+        }
+
+        std::cout << "original_state2_animation_init=ok actor_offset=0x16"
+                  << " bytes=12,12,8,6,6,4,1"
+                  << " duplicate_0a=1 duplicate_06=1 terminator=1"
+                  << " ghidra=1000:06ab\n";
+    }
+
+    void debugOriginalState2AnimationAdvance() {
+        struct AnimationCursor {
+            uint8_t current = 0;
+            uint8_t first = 0;
+            uint8_t last = 0;
+            uint8_t counter = 0;
+            uint8_t delay = 0;
+            uint8_t mode = 0;
+            int8_t step = 1;
+        };
+
+        auto packed = [](const AnimationCursor& cursor) {
+            return std::array<uint8_t, 7>{
+                cursor.current, cursor.first, cursor.last, cursor.counter,
+                cursor.delay, cursor.mode, static_cast<uint8_t>(cursor.step)};
+        };
+
+        auto tick = [&](AnimationCursor& cursor,
+                        std::array<uint8_t, 7>* mode3Backup = nullptr) {
+            if (cursor.mode == 0) return;
+            ++cursor.counter;
+            if (cursor.counter <= cursor.delay) return;
+
+            cursor.counter = 0;
+            cursor.current = static_cast<uint8_t>(
+                static_cast<int>(cursor.current) + static_cast<int>(cursor.step));
+
+            if (cursor.mode == 2) {
+                if (cursor.current >= cursor.last || cursor.current <= cursor.first) {
+                    cursor.step = static_cast<int8_t>(-cursor.step);
+                }
+                return;
+            }
+
+            if (cursor.current > cursor.last) {
+                cursor.current = cursor.first;
+                if (cursor.mode == 3 && mode3Backup != nullptr) {
+                    *mode3Backup = packed(cursor);
+                }
+            }
+        };
+
+        AnimationCursor death{0x72, 0x72, 0x79, 3, 3, 1, 1};
+        tick(death);
+        uint8_t mode1FirstFrame = death.current;
+        for (int i = 0; i < 4; ++i) tick(death);
+        uint8_t mode1After5 = death.current;
+
+        AnimationCursor wrap{0x79, 0x72, 0x79, 3, 3, 1, 1};
+        tick(wrap);
+
+        AnimationCursor pingpong{3, 2, 4, 0, 0, 2, 1};
+        std::array<uint8_t, 4> pingpongSequence{};
+        for (uint8_t& frame : pingpongSequence) {
+            tick(pingpong);
+            frame = pingpong.current;
+        }
+
+        AnimationCursor mode3{6, 5, 6, 1, 1, 3, 1};
+        std::array<uint8_t, 7> backup{};
+        tick(mode3, &backup);
+
+        AnimationCursor disabled{8, 8, 9, 9, 1, 0, 1};
+        tick(disabled);
+
+        if (mode1FirstFrame != 0x73 || mode1After5 != 0x74 ||
+            wrap.current != 0x72 || wrap.counter != 0 ||
+            pingpongSequence != std::array<uint8_t, 4>{4, 3, 2, 3} ||
+            pingpong.step != 1 || mode3.current != 5 || backup[0] != 5 ||
+            backup[5] != 3 || disabled.current != 8 || disabled.counter != 9) {
+            throw std::runtime_error("original state-2 animation advance mismatch");
+        }
+
+        std::cout << "original_state2_animation_advance=ok"
+                  << " death_start=0x72 death_end=0x79 delay=3"
+                  << " mode1_first_frame=0x73 mode1_after_5=0x74"
+                  << " wrap_frame=0x72 wrap_counter=0"
+                  << " mode2_seq=4,3,2,3 mode2_final_step=1"
+                  << " mode3_backup_frame=5 mode3_backup_mode=3"
+                  << " mode0_unchanged=1 ghidra=1000:6053\n";
+    }
+
+    void debugOriginalState2EffectPlacement() {
+        constexpr uint16_t kEffectBase = 0xc21e;
+        constexpr int kMapWidth = 60;
+        constexpr int kMapHeight = 10;
+        constexpr uint8_t kSolidTile = 0x01;
+        constexpr uint8_t kPlacementMarker = 0x4c;
+
+        struct EffectEntry {
+            uint16_t x = 24;
+            uint16_t y = 40;
+        };
+
+        struct PlacementResult {
+            uint16_t yAfter = 0;
+            int xTile = 0;
+            int yTile = 0;
+            int mapOffset = 0;
+            bool descended = false;
+            bool blocked = false;
+            bool restored = false;
+        };
+
+        auto slotAddress = [](int slot) {
+            return static_cast<uint16_t>(kEffectBase + 8 * slot);
+        };
+        auto blocksPlacement = [](uint8_t tile) {
+            return tile == kSolidTile || tile == kPlacementMarker;
+        };
+        auto runPlacement = [&](EffectEntry entry,
+                                const std::array<uint8_t, kMapWidth * kMapHeight>&
+                                    map,
+                                bool actionGate) {
+            PlacementResult result;
+            result.xTile = entry.x >> 3;
+            result.yTile = ((entry.y + 7) >> 3) + 1;
+            result.mapOffset = result.yTile * kMapWidth + result.xTile;
+            bool baseBlocked = blocksPlacement(map.at(result.mapOffset));
+            bool rightBlocked = blocksPlacement(map.at(result.mapOffset + 1));
+            result.blocked = baseBlocked || rightBlocked;
+            if (!result.blocked && entry.y > 0x18) {
+                --entry.y;
+                result.descended = true;
+            }
+            result.yAfter = entry.y;
+            result.restored = actionGate && !result.blocked;
+            return result;
+        };
+
+        std::array<uint8_t, kMapWidth * kMapHeight> openMap{};
+        PlacementResult open = runPlacement({24, 40}, openMap, true);
+        PlacementResult floor = runPlacement({24, 24}, openMap, true);
+        std::array<uint8_t, kMapWidth * kMapHeight> solidMap{};
+        solidMap.at(open.mapOffset) = kSolidTile;
+        PlacementResult solid = runPlacement({24, 40}, solidMap, true);
+        std::array<uint8_t, kMapWidth * kMapHeight> markerMap{};
+        markerMap.at(open.mapOffset) = kPlacementMarker;
+        PlacementResult marker = runPlacement({24, 40}, markerMap, true);
+        std::array<uint8_t, kMapWidth * kMapHeight> rightSolidMap{};
+        rightSolidMap.at(open.mapOffset + 1) = kSolidTile;
+        PlacementResult rightSolid =
+            runPlacement({24, 40}, rightSolidMap, true);
+        PlacementResult gate0 = runPlacement({24, 40}, openMap, false);
+
+        if (slotAddress(0) != 0xc21e || slotAddress(1) != 0xc226 ||
+            slotAddress(2) != 0xc22e || open.xTile != 3 || open.yTile != 6 ||
+            open.mapOffset != 363 || !open.descended || open.yAfter != 39 ||
+            floor.descended || floor.yAfter != 24 || !solid.blocked ||
+            solid.descended || !marker.blocked || marker.descended ||
+            !rightSolid.blocked || rightSolid.descended || !gate0.descended ||
+            gate0.restored) {
+            throw std::runtime_error("original state-2 effect placement mismatch");
+        }
+
+        std::cout << "original_state2_effect_placement=ok base=0xc21e"
+                  << " slot0=0xc21e slot1=0xc226 slot2=0xc22e"
+                  << " x_tile=" << open.xTile << " y_tile=" << open.yTile
+                  << " map_offset=" << open.mapOffset
+                  << " open_descended=1 y_after=" << open.yAfter
+                  << " floor_stops=1 solid_blocked=1 marker_blocked=1"
+                  << " right_solid_blocked=1 gate_after_descent=1\n";
+    }
+
     void debugPlayerState2ReturnActive() {
         load();
         resetLevel(0);
@@ -5983,6 +6167,18 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-return-model") {
             app.debugOriginalState2ReturnModel();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-animation-init") {
+            app.debugOriginalState2AnimationInit();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-animation-advance") {
+            app.debugOriginalState2AnimationAdvance();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-effect-placement") {
+            app.debugOriginalState2EffectPlacement();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-player-state2-return-active") {

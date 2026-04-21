@@ -155,6 +155,18 @@ if(BUILD_TESTING)
     set_tests_properties(trigger_accounting PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+    add_test(NAME trigger_sound
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-trigger-sound)
+    set_tests_properties(trigger_sound PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "trigger_sound=ok")
+
+    add_test(NAME portal_sound
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-portal-sound)
+    set_tests_properties(portal_sound PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "portal_sound=ok")
+
     add_test(NAME portal_cooldowns
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-portal-cooldowns)
     set_tests_properties(portal_cooldowns PROPERTIES

@@ -75,6 +75,8 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-bomb-fuse
 ./build/lezac_cpp --debug-passable-objects
 ./build/lezac_cpp --debug-trigger-accounting
+./build/lezac_cpp --debug-trigger-sound
+./build/lezac_cpp --debug-portal-sound
 ./build/lezac_cpp --debug-portal-cooldowns
 ./build/lezac_cpp --debug-collision-pushout
 ./build/lezac_cpp --export-sprites BOMOMIMK.SPR /tmp/bomomimk.ppm
@@ -122,8 +124,10 @@ Dump the current bomb inventory model and export sprite contact sheets:
   `DS:78c0` cursor, honors the `0x7530` stop sentinel, and applies the
   gate/period bytes used by `1000:0fbe..1088`. Bomb explosion requests use the
   recovered direct-sweep cursors and the original `1000:165a` priority latch,
-  bomb-object destruction queues the recovered priority-`3` object cue, and
-  bonus pickup audio now queues the recovered cursor `0x0008` at priority `5`.
+  bomb-object destruction queues the recovered priority-`3` object cue, portal
+  transfer queues cursor `0x001a` at priority `4`, tile-trigger activation
+  queues cursor `0x0027` at priority `6`, and bonus pickup audio queues cursor
+  `0x0008` at priority `5`.
 
 ## Still Approximate
 

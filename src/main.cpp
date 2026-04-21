@@ -55,6 +55,10 @@ constexpr uint16_t kBombObjectDefaultSoundCursor = 0x0000;
 constexpr uint16_t kBombObjectHighSoundCursor = 0x0012;
 constexpr uint8_t kBombObjectSoundPriority = 3;
 constexpr uint8_t kBombObjectHighSoundThreshold = 0x6c;
+constexpr uint16_t kPortalTeleportSoundCursor = 0x001a;
+constexpr uint8_t kPortalTeleportSoundPriority = 4;
+constexpr uint16_t kTileTriggerSoundCursor = 0x0027;
+constexpr uint8_t kTileTriggerSoundPriority = 6;
 
 struct Rgb {
     uint8_t r = 0;
@@ -2723,6 +2727,107 @@ public:
         throw std::runtime_error("no trigger rewrote tiles");
     }
 
+    void debugTriggerSoundRouting() {
+        load();
+        for (size_t level = 0; level < levels_.size(); ++level) {
+            resetLevel(static_cast<int>(level));
+            for (int y = 1; y < level_.height; ++y) {
+                for (int x = 0; x < level_.width; ++x) {
+                    if (tileAt(x, y) != 0x72) continue;
+                    uint16_t key = static_cast<uint16_t>(wordAt(x, y) & 0x7fffu);
+                    if (key == 0) continue;
+
+                    player_.x = static_cast<float>(x * kTileSize);
+                    player_.y = static_cast<float>(y * kTileSize - 8);
+                    int portalCooldown = 0;
+                    int triggerCooldown = 0;
+                    clearSoundLatch();
+                    updatePortalsAndTriggers(player_, portalCooldown, triggerCooldown);
+
+                    if (triggerCooldown != 30 || !soundLatch_.active ||
+                        soundLatch_.latchedOffset != kTileTriggerSoundCursor ||
+                        soundLatch_.currentSelector != kTileTriggerSoundPriority) {
+                        throw std::runtime_error("trigger sound request mismatch");
+                    }
+
+                    pumpSoundLatch();
+                    if (soundLatch_.active ||
+                        lastPumpedSoundOffset_ != kTileTriggerSoundCursor ||
+                        lastPumpedSoundSelector_ != kTileTriggerSoundPriority) {
+                        throw std::runtime_error("trigger sound pump mismatch");
+                    }
+
+                    std::cout << "trigger_sound=ok level=" << (level + 1)
+                              << " key=" << key
+                              << " cursor=" << std::showbase << std::hex
+                              << kTileTriggerSoundCursor
+                              << std::dec << std::noshowbase
+                              << " priority="
+                              << static_cast<int>(kTileTriggerSoundPriority)
+                              << '\n';
+                    return;
+                }
+            }
+        }
+        throw std::runtime_error("no trigger tile found for sound routing");
+    }
+
+    void debugPortalSoundRouting() {
+        load();
+        for (size_t level = 0; level < levels_.size(); ++level) {
+            resetLevel(static_cast<int>(level));
+            for (int y = 1; y < level_.height; ++y) {
+                for (int x = 0; x < level_.width; ++x) {
+                    if (tileAt(x, y) != 0x45) continue;
+                    uint16_t key = static_cast<uint16_t>(wordAt(x, y) & 0x7fffu);
+                    if (key == 0) continue;
+                    const LevelPortal* destination = nullptr;
+                    for (const LevelPortal& portal : level_.portals) {
+                        if (portal.key == key) {
+                            destination = &portal;
+                            break;
+                        }
+                    }
+                    if (!destination) continue;
+
+                    player_.x = static_cast<float>(x * kTileSize);
+                    player_.y = static_cast<float>(y * kTileSize - 8);
+                    int portalCooldown = 0;
+                    int triggerCooldown = 0;
+                    clearSoundLatch();
+                    updatePortalsAndTriggers(player_, portalCooldown, triggerCooldown);
+
+                    if (portalCooldown != 30 ||
+                        player_.x != static_cast<float>(destination->x) ||
+                        player_.y != static_cast<float>(destination->y) ||
+                        !soundLatch_.active ||
+                        soundLatch_.latchedOffset != kPortalTeleportSoundCursor ||
+                        soundLatch_.currentSelector != kPortalTeleportSoundPriority) {
+                        throw std::runtime_error("portal sound request mismatch");
+                    }
+
+                    pumpSoundLatch();
+                    if (soundLatch_.active ||
+                        lastPumpedSoundOffset_ != kPortalTeleportSoundCursor ||
+                        lastPumpedSoundSelector_ != kPortalTeleportSoundPriority) {
+                        throw std::runtime_error("portal sound pump mismatch");
+                    }
+
+                    std::cout << "portal_sound=ok level=" << (level + 1)
+                              << " key=" << key
+                              << " cursor=" << std::showbase << std::hex
+                              << kPortalTeleportSoundCursor
+                              << std::dec << std::noshowbase
+                              << " priority="
+                              << static_cast<int>(kPortalTeleportSoundPriority)
+                              << '\n';
+                    return;
+                }
+            }
+        }
+        throw std::runtime_error("no portal tile found for sound routing");
+    }
+
     void debugPortalCooldowns() {
         load();
         for (size_t level = 0; level < levels_.size(); ++level) {
@@ -3704,14 +3809,14 @@ private:
                     player.vx = 0.0f;
                     player.vy = 0.0f;
                     portalCooldown = 30;
-                    playSound(1);
+                    requestPortalTeleportSound();
                     break;
                 }
             }
         } else if (tile == 0x72 && triggerCooldown == 0) {
             if (applyTileTrigger(wordAt(tx, ty))) {
                 triggerCooldown = 30;
-                playSound(1);
+                requestTileTriggerSound();
             }
         }
     }
@@ -4369,6 +4474,14 @@ private:
         return requestSoundCursor(sawHighObjectTile ? kBombObjectHighSoundCursor
                                                     : kBombObjectDefaultSoundCursor,
                                   kBombObjectSoundPriority);
+    }
+
+    bool requestPortalTeleportSound() {
+        return requestSoundCursor(kPortalTeleportSoundCursor, kPortalTeleportSoundPriority);
+    }
+
+    bool requestTileTriggerSound() {
+        return requestSoundCursor(kTileTriggerSoundCursor, kTileTriggerSoundPriority);
     }
 
     bool consumeBombObjectTile(int tx, int ty) {
@@ -5429,6 +5542,14 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-trigger-accounting") {
             app.debugTriggerAccounting();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-trigger-sound") {
+            app.debugTriggerSoundRouting();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-portal-sound") {
+            app.debugPortalSoundRouting();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-portal-cooldowns") {

@@ -8,31 +8,36 @@ Baseline: `f7927e1` / `origin/main`
 
 - Spawned five focused recovery subagents for disassembly, gameplay, rendering
   and audio, verification, and integration/docs.
-- Re-disassembled the bomb-object scan around `1000:6cb3..6e3f`: it clears
-  `DS:2074` and `DS:79ab`, scans the four bomb footprint offsets, marks
-  consumed object tiles above `0x6c`, and queues a priority-`3` sound request
-  after the scan.
-- Routed C++ bomb-object destruction through the recovered request: cursor
-  `0x0000` for default consumed object tiles, cursor `0x0012` when any consumed
-  object tile is above `0x6c`.
-- Preserved the original priority interaction: the priority-`3` object cue
-  remains lower than an already-latched explosion direct-sweep cue.
-- Added `--debug-bomb-object-sound` and CTest coverage for the default/high
-  object cursors and explosion-priority suppression.
+- Broadened disassembly around remaining `1000:165a` sound-latch candidates.
+  The `1000:4b2c..4b32` candidate is inside debris/collapse playback, so it was
+  not treated as an objective-pickup mapping.
+- Re-disassembled the tile-trigger helper at `1000:5740..586e`: it masks the
+  trigger key, saves/restores `DS:2074`, queues cursor `0x0027` at priority
+  `6`, then scans 14-byte trigger rewrite records.
+- Re-disassembled the portal helper at `1000:5999..5a72`: it scans 7-byte
+  portal records for the word-layer key, copies destination coordinates, and
+  queues cursor `0x001a` at priority `4`.
+- Routed successful C++ tile-trigger activation through the recovered
+  request with `requestTileTriggerSound`.
+- Routed successful C++ portal transfer through the recovered request with
+  `requestPortalTeleportSound`.
+- Added `--debug-trigger-sound`, `--debug-portal-sound`, and CTest coverage
+  that drives real tiles `0x72` and `0x45` through `updatePortalsAndTriggers`,
+  then verifies latched and pumped cursor/priority.
 - Updated README, Ghidra notes, and a new subagent note with the address range,
   evidence, implementation mapping, validation, and remaining unknowns.
 
 ## Validation
 
 - `cmake -S . -B build` passed.
-- `cmake --build build` passed, with a host clock-skew warning after linking.
-- `ctest --test-dir build --output-on-failure` passed: 24/24.
-- `ctest --test-dir build --output-on-failure -R bomb_object_sound` passed.
+- `cmake --build build` passed.
+- `ctest --test-dir build --output-on-failure` passed: 26/26.
+- `ctest --test-dir build --output-on-failure -R "trigger_sound|portal_sound|portal_cooldowns|trigger_accounting"` passed.
 - `./build/lezac_cpp --validate` passed.
-- `./build/lezac_cpp --debug-bomb-object-sound` passed.
-- `./build/lezac_cpp --debug-explosions` passed.
-- `./build/lezac_cpp --debug-bomb-fuse` passed.
-- `./build/lezac_cpp --debug-passable-objects` passed.
+- `./build/lezac_cpp --debug-trigger-sound` passed.
+- `./build/lezac_cpp --debug-portal-sound` passed.
+- `./build/lezac_cpp --debug-trigger-accounting` passed.
+- `./build/lezac_cpp --debug-portal-cooldowns` passed.
 - `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-ui 3` passed.
 - `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-controls` passed.
 - `git diff --check` passed.
@@ -54,7 +59,9 @@ Baseline: `f7927e1` / `origin/main`
 
 ## Next Planned Target
 
-Broaden the surrounding disassembly for the remaining `1000:165a` callsites,
-especially the candidate objective pickup branch near `1000:4b2c..4b32` and
-portal/trigger branch near `1000:7381..738c`, before replacing provisional
-`playSound(index)` compatibility hooks.
+Map the next highest-confidence sound-latch window by proving both the raw
+`DS:2074` / `DS:799f` writes and the surrounding gameplay state transition.
+The player hit/damage path at `1000:7f84..7f8f` is a better next target than
+the rejected `1000:4b2c` debris/collapse candidate, but it needs careful
+alignment with the reconstructed damage cooldown semantics before replacing a
+compatibility hook.

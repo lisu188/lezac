@@ -235,7 +235,7 @@ The current stop-cursor map from the shipped `PROEFS.SON` payload is:
 `--debug-sound-cursor-segments` validates these boundaries and renders the
 known non-direct cursor starts through `synthesizeSoundCursor`.
 
-Two non-explosion gameplay cues are now mapped to original queued requests:
+Four non-explosion gameplay cues are now mapped to original queued requests:
 
 - The bomb-object destruction scan around `1000:6cb3..6e3f` clears the
   `DS:2074` score accumulator and `DS:79ab` high-object marker, walks the four
@@ -244,6 +244,16 @@ Two non-explosion gameplay cues are now mapped to original queued requests:
   leaves `DS:2074 = 0x0000`; high object tiles write `DS:2074 = 0x0012`
   before the `1000:165a` call. The C++ `explode` path mirrors this with
   `requestBombObjectScoreSound`.
+- The portal record helper at `1000:5999..5a72` scans the 7-byte portal records
+  at `0x7717 + 7 * n` for a matching word-layer key, copies the destination
+  coordinates into the actor frame, writes `DS:2074 = 0x001a`,
+  `DS:799f = 4`, and calls `1000:165a`. The C++ tile `0x45` transfer path
+  mirrors successful portal lookup with `requestPortalTeleportSound`.
+- The tile-trigger rewrite helper at `1000:5740..586e` masks its trigger-key
+  argument with `0x7fff`, saves the previous `DS:2074`, writes
+  `DS:2074 = 0x0027`, `DS:799f = 6`, calls `1000:165a`, restores `DS:2074`,
+  and then scans the 14-byte trigger rewrite records. The C++ tile `0x72`
+  path mirrors successful trigger activation with `requestTileTriggerSound`.
 - The pickup/effect branch around `1000:6e4b..6f8d` applies reward effects and
   then writes `DS:2074 = 0x0008`, `DS:799f = 5`, and calls `1000:165a`.
   The C++ `collectBonusDrop` path mirrors that with

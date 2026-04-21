@@ -62,6 +62,14 @@ if(BUILD_TESTING)
     set_tests_properties(ui_controls_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+    add_test(NAME level1_frame_inspection_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-level1-frame-inspection)
+    set_tests_properties(level1_frame_inspection_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "level1_frame_inspection=ok level=1 size=60x33 p1_xy=104,168 p1_bomb_tile=13,22 initial_small=200 after_n_small=199 bombs=1 menu_uniform=0 gameplay_uniform=0 menu_game_different=1 hud_nonempty=1 world_nonempty=1 player_visible=1 bomb_visible=1 explosion_visible=1 completion_visible=1 advanced_level=2")
+
     add_test(NAME records_update_temp
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-update
                 ${CMAKE_CURRENT_BINARY_DIR}/records_test.dat)
@@ -128,14 +136,14 @@ if(BUILD_TESTING)
     set_tests_properties(player_damage_sound PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "player_damage_sound=ok nonlethal_energy=99 nonlethal_cooldown=18 death_energy=100 dead=1 lives=2 cursor=0x2d priority=4 death_cursor=0x56 death_priority=5")
+            "player_damage_sound=ok nonlethal_energy=99 second_energy=98 nonlethal_cooldown=0 death_energy=100 dead=1 lives=2 cursor=0x2d priority=4 death_cursor=0x56 death_priority=5")
 
     add_test(NAME original_damage_counters
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-damage-counters)
     set_tests_properties(original_damage_counters PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "original_damage_counters=ok p1_hits=3 p1_energy=97 p1_hurt_requests=1 p2_hits=2 p2_energy=98 p2_hurt_requests=1 zero_pass_silent=1 state2_hurt_without_subtract=1 underflow_raw=255 death_dispatch=1")
+            "original_damage_counters=ok p1_hits=3 p1_energy=97 p1_hurt_requests=1 p2_hits=2 p2_energy=98 p2_hurt_requests=1 zero_pass_silent=1 state2_hurt_without_subtract=1 underflow_raw=255 death_dispatch=1 live_p1_energy=97 live_p2_energy=98 live_underflow_dead=1 live_state2_energy=100")
 
     add_test(NAME player_state2_death_fields
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-player-state2-death-fields)

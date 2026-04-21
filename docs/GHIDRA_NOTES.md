@@ -263,8 +263,9 @@ Six non-explosion gameplay cues are now mapped to original queued requests:
   routine at `1000:6053`, subtracts accumulated damage from the live player
   energy byte, and when the damage counter is nonzero writes
   `DS:2074 = 0x002d`, `DS:799f = 4`, then calls `1000:165a`
-  (`1000:7f84..7f8f`, file offset `0x86f4`). The C++ shared
-  `damagePlayer` gate mirrors accepted damage with `requestPlayerDamageSound`.
+  (`1000:7f84..7f8f`, file offset `0x86f4`). The C++ live path queues damage
+  through per-player counters and drains them with `drainPlayerDamageCounters`,
+  while direct debug helpers use the same byte-subtraction routine.
 - The following life-loss helper at `1000:30a3` is separate from the hurt cue:
   it writes `DS:2074 = 0x0056`, `DS:799f = 5`, calls `1000:165a`, then moves
   the actor into the death/reentry state. The mapped field writes are
@@ -280,15 +281,17 @@ Other non-explosion cues are still being mapped; direct `playSound(index)`
 callers remain compatibility hooks until their original cursor/priority writes
 are confirmed.
 
-Open damage-timing question: `1000:7f68..7f75` subtracts the full accumulated
+Player damage counter evidence: `1000:7f68..7f75` subtracts the full accumulated
 per-player damage byte (`DS:79e8` for player 1, `DS:79e9` for player 2) before
 the `0x002d` hurt request. `1000:63f0` and `1000:6491` increment those counters
 on harmful actor overlap, and the clear sites at `1000:7a57..7a5c` reset them
 once per outer actor pass. `--debug-original-damage-counters` preserves this
-byte-subtraction model. The live C++ `damagePlayer` now uses the original
-unsigned byte death dispatch (`energy > 0x00c8` after wrapping), but still
-applies accepted reconstructed damage events through a cooldown gate rather
-than the full original counter-clear/increment/drain cadence.
+byte-subtraction model and also verifies the live C++ path. Monster contact,
+active debris/collapse hazard areas, and bomb blasts now increment the
+per-player pending bytes; the update pass drains those bytes once, requests the
+priority-`4` hurt cue once when nonzero, skips energy subtraction for state-2
+players while preserving the hurt request, and dispatches death when unsigned
+byte subtraction wraps above `0x00c8`.
 
 State-2 life/reentry evidence: `1000:30a3` only queues the death/life-loss cue
 and writes the actor death/reentry fields (`+0x15 = 2`, `+0x10 = 0x003c`,
@@ -456,6 +459,9 @@ opening name entry.
 - Actor 8.8 integration: `integrateAxis8_8`.
 - Bomb expiration and physical damage: `explode`, `queueTileDamage`,
   `damageMonstersInExplosion`.
+- Player damage counters: `queuePlayerDamage` mirrors the `DS:79e8`/`DS:79e9`
+  increment sites; `drainPlayerDamageCounters` maps the `1000:7f68..7f8f`
+  byte-subtract and hurt-request pass.
 - Sound bank loading and latch: `loadSon` maps `1000:0630..06aa`;
   `latchSoundRequest`, `requestSoundCursor`, `requestSoundOffset`, and
   `pumpSoundLatch` map `1000:165a..167d`; `synthesizeDirectSweep` maps the

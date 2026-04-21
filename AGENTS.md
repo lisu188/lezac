@@ -82,3 +82,75 @@ If automating DOSBox, keep it best-effort and document the exact command,
 environment, input sequence, and any failure reason. SDL/Xvfb/xdotool tests for
 the C++ port are generally more reliable for regression coverage than DOSBox
 key injection.
+
+## DOSBox debugger workflow
+
+Use `dosbox-debug` when runtime state is needed, such as confirming register
+values, memory bytes, control flow, or whether a routine is reached during
+actual `LEZAC.EXE` play. Prefer the same temporary copy workflow used for normal
+DOSBox runs.
+
+Check availability first:
+
+```sh
+command -v dosbox-debug
+dosbox-debug -version
+```
+
+Launch the original game under the debugger:
+
+```sh
+mkdir -p /tmp/lezac-dosbox
+cp LEZAC.EXE *.DAT *.SPR *.PAL *.SCH *.SON *.MST *.CAR *.ZBG *.DOC /tmp/lezac-dosbox/
+dosbox-debug -c "mount c /tmp/lezac-dosbox" -c "c:" -c "LEZAC.EXE"
+```
+
+Inside the debugger, use `HELP` to confirm the exact commands supported by the
+installed build. Common useful commands are:
+
+- `C` to continue execution.
+- `BP segment:offset` to set a code breakpoint.
+- `BPLIST` to list breakpoints.
+- `BPD` or the debugger's listed delete command to remove breakpoints.
+- `R` to inspect registers.
+- `D segment:offset` to dump memory.
+- `U segment:offset` to disassemble memory.
+- `S` or `T` to single-step, depending on the debugger build.
+
+Do not assume Ghidra's `1000:offset` segment is the exact runtime segment in
+DOSBox. First stop in the program, inspect `CS`/`DS`, and translate Ghidra
+anchors by keeping the offset and using the runtime segment shown by the
+debugger. For example, if the debugger shows the game code running with
+`CS=1234`, investigate Ghidra routine `1000:30a3` as `1234:30a3`.
+
+Useful runtime breakpoints for current recovery work include:
+
+```text
+BP <runtime-cs>:165A  ; sound priority latch
+BP <runtime-cs>:30A3  ; player death/life-loss helper
+BP <runtime-cs>:6053  ; actor update candidate
+BP <runtime-cs>:7C89  ; state-2 countdown/life drain path
+BP <runtime-cs>:7DDF  ; state-2 return-to-active path
+```
+
+When stopped inside the game, use the current `DS` register to inspect mapped
+state bytes from the Ghidra notes:
+
+```text
+D DS:2070  ; nearby sound request globals, including DS:2074
+D DS:7990  ; sound latch/request state around DS:799e/DS:799f
+D DS:79E0  ; player state/life bytes around DS:79e5..79eb
+D DS:C21E  ; visual/effect entries used by state-2 return
+```
+
+For each DOSBox debugger observation, record:
+
+- exact DOSBox command and whether a temp copy was used
+- breakpoint addresses using both Ghidra anchor and runtime segment
+- relevant register values, especially `CS`, `DS`, `ES`, `SS`, and `IP`
+- memory bytes or disassembly that support the conclusion
+- resulting C++ mapping, debug command, or test to add
+
+Keep debugger-derived claims narrow. If a breakpoint confirms that a routine is
+reached or a byte changes, document that fact separately from any hypothesis
+about sprite choice, timing, or gameplay meaning.

@@ -31,6 +31,7 @@ constexpr size_t kDebrisCapacity = 0x640;
 constexpr size_t kCollapseCapacity = 0x00fa;
 constexpr size_t kGranRecordSize = 57;
 constexpr int kReentryTicks = 180;
+constexpr int kDeathStateTicks = 0x003c;
 constexpr int kDamageCooldownTicks = 18;
 constexpr uint32_t kFrameDelayMs = 16;
 constexpr int kCollisionPushoutLimit = 1024;
@@ -1126,7 +1127,7 @@ public:
         int timeoutLevel = levelIndex_;
         float player2XBeforeTimeout = player2_.x;
         float player2YBeforeTimeout = player2_.y;
-        for (int i = 0; i < kReentryTicks + 2; ++i) {
+        for (int i = 0; i < kDeathStateTicks + kReentryTicks + 2; ++i) {
             updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
                           playerCount_ == 1 || player2Dead_);
         }
@@ -1149,6 +1150,16 @@ public:
         if (menu_ || !player2Dead_ || lives2_ != 2 || reentryTimer2_ <= 0 ||
             playerDead_) {
             throw std::runtime_error("player 2 death did not enter reentry state");
+        }
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (!player2Dead_ || energy2_ != 100 ||
+            bombs_.size() != beforePlayer2ReentryBombs || damageCooldown2_ != 0) {
+            throw std::runtime_error("N key bypassed player 2 state-2 death gate");
+        }
+        for (int i = 0; i < kDeathStateTicks; ++i) {
+            updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
+                          playerDead_);
         }
         pushKeyDown(SDLK_n);
         processEvents(running);
@@ -1211,6 +1222,15 @@ public:
         }
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
+        if (!playerDead_ || damageCooldown_ != 0) {
+            throw std::runtime_error("fire key bypassed state-2 death gate");
+        }
+        for (int i = 0; i < kDeathStateTicks; ++i) {
+            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+                          true);
+        }
+        pushKeyDown(SDLK_SPACE);
+        processEvents(running);
         if (playerDead_ || energy_ != 100 || lives_ != 2 || damageCooldown_ <= 0) {
             throw std::runtime_error("fire key did not reenter after death");
         }
@@ -1227,6 +1247,14 @@ public:
                      damageCooldown_, 1);
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
+        if (!playerDead_ || lives_ != 2 ||
+            remainingObjectiveTiles() != level_.startingObjectiveTiles - 1) {
+            throw std::runtime_error("fire bypassed unwinnable state-2 gate");
+        }
+        for (int i = 0; i < kDeathStateTicks; ++i) {
+            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+                          true);
+        }
         if (playerDead_ || lives_ != 2 ||
             remainingObjectiveTiles() != level_.startingObjectiveTiles) {
             throw std::runtime_error("fire reentered instead of restarting unwinnable level");
@@ -2167,13 +2195,32 @@ public:
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
         if (!playerDead_ || lives_ != 2 || energy_ != 100 ||
-            reentryTimer_ != kReentryTicks || deathStateTimer_ != 0x003c ||
+            reentryTimer_ != kReentryTicks ||
+            deathStateTimer_ != kDeathStateTicks ||
             player_.vx != 0.0f || player_.vy != 0.0f || player_.grounded ||
             !soundLatch_.active || soundLatch_.latchedOffset != kPlayerDeathSoundCursor ||
             soundLatch_.currentSelector != kPlayerDeathSoundPriority) {
             throw std::runtime_error("player state-2 death fields mismatch");
         }
         pumpSoundLatch();
+        tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                         damageCooldown_, 1);
+        if (!playerDead_ || lives_ != 2 || energy_ != 100 ||
+            reentryTimer_ != kReentryTicks ||
+            deathStateTimer_ != kDeathStateTicks || damageCooldown_ != 0) {
+            throw std::runtime_error("player state-2 early reentry was accepted");
+        }
+        for (int i = 0; i < 59; ++i) {
+            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+                          true);
+        }
+        tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                         damageCooldown_, 1);
+        if (!playerDead_ || deathStateTimer_ != 1) {
+            throw std::runtime_error("player state-2 59-tick gate mismatch");
+        }
+        updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+                      true);
         tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                          damageCooldown_, 1);
         if (playerDead_ || lives_ != 2 || energy_ != 100 ||
@@ -2195,7 +2242,7 @@ public:
                      damageCooldown2_, 2);
         if (menu_ || playerDead_ || !player2Dead_ || lives_ != 3 || lives2_ != 0 ||
             energy2_ != 100 || reentryTimer2_ != 0 ||
-            deathStateTimer2_ != 0x003c) {
+            deathStateTimer2_ != kDeathStateTicks) {
             throw std::runtime_error("player 2 zero-life state-2 fields mismatch");
         }
         updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
@@ -2212,9 +2259,207 @@ public:
                   << " death_cursor=" << std::showbase << std::hex
                   << kPlayerDeathSoundCursor << std::dec << std::noshowbase
                   << " death_priority=" << static_cast<int>(kPlayerDeathSoundPriority)
-                  << " reentered=1 cooldown=" << kDamageCooldownTicks
+                  << " early_reentry_blocked=1 after_59_blocked=1 reentered=1"
+                  << " cooldown=" << kDamageCooldownTicks
                   << " zero_lives=0 zero_timer=0"
                   << " zero_death_state_after_tick=59 no_gameover_with_p1=1\n";
+    }
+
+    void debugOriginalState2ReturnModel() {
+        struct ReturnModel {
+            struct PlayerSlot {
+                uint16_t countdown = kDeathStateTicks;
+                uint8_t status = 2;
+                uint8_t actorState = 2;
+                uint8_t energy = 100;
+                bool keyByte = false;
+                bool otherKeyByte = true;
+            };
+
+            std::array<PlayerSlot, 2> players{};
+            uint8_t activePlayers = 2;
+
+            void tick(int player) {
+                if (players.at(player).countdown > 0) --players.at(player).countdown;
+            }
+
+            bool returnActive(int player, bool gate, bool effectReady,
+                              bool placementReady) {
+                PlayerSlot& slot = players.at(player);
+                if (slot.status != 2 || slot.countdown != 0 || !gate ||
+                    !effectReady || !placementReady) {
+                    return false;
+                }
+                slot.status = 1;
+                slot.actorState = player == 0 ? 0 : 1;
+                slot.energy = 100;
+                slot.keyByte = false;
+                slot.otherKeyByte = false;
+                return true;
+            }
+
+            void markOut(int player) {
+                PlayerSlot& slot = players.at(player);
+                if (slot.status != 0 && activePlayers > 0) --activePlayers;
+                slot.status = 0;
+            }
+        };
+
+        ReturnModel timerModel;
+        for (int i = 0; i < 59; ++i) timerModel.tick(0);
+        uint16_t after59 = timerModel.players[0].countdown;
+        timerModel.tick(0);
+        uint16_t after60 = timerModel.players[0].countdown;
+
+        ReturnModel gateModel;
+        gateModel.players[0].countdown = 0;
+        bool gate0Blocked = !gateModel.returnActive(0, false, true, true);
+        bool effectWaitBlocked = !gateModel.returnActive(0, true, false, true);
+        bool placementBlocked = !gateModel.returnActive(0, true, true, false);
+        bool gate1Restored = gateModel.returnActive(0, true, true, true);
+
+        ReturnModel playerModel;
+        playerModel.players[0].countdown = 0;
+        playerModel.players[1].countdown = 0;
+        bool p1Restored = playerModel.returnActive(0, true, true, true);
+        bool p2Restored = playerModel.returnActive(1, true, true, true);
+
+        ReturnModel outModel;
+        outModel.markOut(1);
+        uint8_t activeAfterP2Out = outModel.activePlayers;
+        outModel.markOut(0);
+
+        if (after59 != 1 || after60 != 0 || !gate0Blocked ||
+            !effectWaitBlocked || !placementBlocked || !gate1Restored ||
+            !p1Restored || !p2Restored || playerModel.players[0].status != 1 ||
+            playerModel.players[1].status != 1 ||
+            playerModel.players[0].actorState != 0 ||
+            playerModel.players[1].actorState != 1 ||
+            playerModel.players[0].energy != 100 ||
+            playerModel.players[1].energy != 100 ||
+            playerModel.players[0].keyByte || playerModel.players[0].otherKeyByte ||
+            playerModel.players[1].keyByte || playerModel.players[1].otherKeyByte ||
+            outModel.players[1].status != 0 || activeAfterP2Out != 1 ||
+            outModel.activePlayers != 0) {
+            throw std::runtime_error("original state-2 return model mismatch");
+        }
+
+        std::cout << "original_state2_return_model=ok timer_start=60"
+                  << " timer_after_59=" << after59
+                  << " timer_after_60=" << after60
+                  << " gate0_blocked=1 effect_wait_blocked=1"
+                  << " placement_blocked=1 gate1_restored=1"
+                  << " p1_status=" << static_cast<int>(playerModel.players[0].status)
+                  << " p1_actor_state="
+                  << static_cast<int>(playerModel.players[0].actorState)
+                  << " p1_energy=" << static_cast<int>(playerModel.players[0].energy)
+                  << " p1_cleared=1"
+                  << " p2_status=" << static_cast<int>(playerModel.players[1].status)
+                  << " p2_actor_state="
+                  << static_cast<int>(playerModel.players[1].actorState)
+                  << " p2_energy=" << static_cast<int>(playerModel.players[1].energy)
+                  << " p2_cleared=1"
+                  << " zero_life_status=" << static_cast<int>(outModel.players[1].status)
+                  << " active_players_after_p2_out="
+                  << static_cast<int>(activeAfterP2Out)
+                  << " active_players_after_both_out="
+                  << static_cast<int>(outModel.activePlayers) << '\n';
+    }
+
+    void debugPlayerState2ReturnActive() {
+        load();
+        resetLevel(0);
+        menu_ = false;
+        energy_ = 0;
+        lives_ = 3;
+        damageCooldown_ = 0;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        if (!playerDead_ || deathStateTimer_ != kDeathStateTicks ||
+            reentryTimer_ != kReentryTicks) {
+            throw std::runtime_error("player return-active death setup mismatch");
+        }
+        tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                         damageCooldown_, 1);
+        if (!playerDead_ || deathStateTimer_ != kDeathStateTicks ||
+            reentryTimer_ != kReentryTicks || damageCooldown_ != 0) {
+            throw std::runtime_error("player return-active immediate gate mismatch");
+        }
+        for (int i = 0; i < 59; ++i) {
+            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+                          true);
+        }
+        tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                         damageCooldown_, 1);
+        if (!playerDead_ || deathStateTimer_ != 1) {
+            throw std::runtime_error("player return-active 59-tick gate mismatch");
+        }
+        updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+                      true);
+        tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                         damageCooldown_, 1);
+        if (playerDead_ || energy_ != 100 || lives_ != 2 ||
+            deathStateTimer_ != 0 || reentryTimer_ != 0 ||
+            damageCooldown_ != kDamageCooldownTicks) {
+            throw std::runtime_error("player return-active gate restore mismatch");
+        }
+
+        playerCount_ = 2;
+        lives_ = 3;
+        lives2_ = 3;
+        resetLevel(0);
+        menu_ = false;
+        energy2_ = 0;
+        damageCooldown2_ = 0;
+        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                     damageCooldown2_, 2);
+        tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                         damageCooldown2_, 2);
+        if (!player2Dead_ || deathStateTimer2_ != kDeathStateTicks ||
+            damageCooldown2_ != 0) {
+            throw std::runtime_error("player 2 immediate gate mismatch");
+        }
+        for (int i = 0; i < 60; ++i) {
+            updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                          2, playerDead_);
+        }
+        tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                         damageCooldown2_, 2);
+        if (player2Dead_ || energy2_ != 100 || lives2_ != 2 ||
+            deathStateTimer2_ != 0 || reentryTimer2_ != 0 ||
+            damageCooldown2_ != kDamageCooldownTicks) {
+            throw std::runtime_error("player 2 gate restore mismatch");
+        }
+
+        lives_ = 3;
+        lives2_ = 1;
+        resetLevel(0);
+        menu_ = false;
+        energy2_ = 0;
+        damageCooldown2_ = 0;
+        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                     damageCooldown2_, 2);
+        for (int i = 0; i < 60; ++i) {
+            updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                          2, playerDead_);
+        }
+        tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                         damageCooldown2_, 2);
+        if (menu_ || playerDead_ || !player2Dead_ || lives2_ != 0 ||
+            deathStateTimer2_ != 0) {
+            throw std::runtime_error("player 2 zero-life gate mismatch");
+        }
+
+        std::cout << "player_state2_return_active=ok p1_death_timer=60"
+                  << " p1_after_59=1 p1_after_60=0"
+                  << " gate0_dead=1 gate0_energy=100"
+                  << " gate1_reentered=1 p1_energy=100"
+                  << " p1_cooldown=" << kDamageCooldownTicks
+                  << " p1_death_timer_clear=0 p1_reentry_timer_clear=0"
+                  << " p2_gate1_reentered=1 p2_energy=100"
+                  << " p2_cooldown=" << kDamageCooldownTicks
+                  << " p2_death_timer_clear=0 p2_reentry_timer_clear=0"
+                  << " no_gameover_with_p1=1\n";
     }
 
     void debugGran() {
@@ -4335,7 +4580,7 @@ private:
                           int& timer, uint8_t startMarker) {
         if (lives > 0) --lives;
         energy = 100;
-        deathStateTimerFor(startMarker) = 0x003c;
+        deathStateTimerFor(startMarker) = kDeathStateTicks;
         player.vx = 0.0f;
         player.vy = 0.0f;
         player.grounded = false;
@@ -4449,7 +4694,10 @@ private:
                        int& timer, uint8_t startMarker, bool allowLevelRestart) {
         (void)energy;
         int& deathStateTimer = deathStateTimerFor(startMarker);
-        if (deathStateTimer > 0) --deathStateTimer;
+        if (deathStateTimer > 0) {
+            --deathStateTimer;
+            if (deathStateTimer > 0) return;
+        }
         if (lives <= 0) return;
         if (!canReenterLevel()) {
             restartCurrentLevelAfterDeath();
@@ -4472,6 +4720,7 @@ private:
     void tryReenterPlayer(Player& player, int& energy, int& lives, bool& dead,
                           int& timer, int& damageCooldown, uint8_t startMarker) {
         if (!dead) return;
+        if (deathStateTimerFor(startMarker) > 0) return;
         if (lives <= 0) return;
         if (!canReenterLevel()) {
             restartCurrentLevelAfterDeath();
@@ -5730,6 +5979,14 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-player-state2-death-fields") {
             app.debugPlayerState2DeathFields();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-return-model") {
+            app.debugOriginalState2ReturnModel();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-player-state2-return-active") {
+            app.debugPlayerState2ReturnActive();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-gran") {

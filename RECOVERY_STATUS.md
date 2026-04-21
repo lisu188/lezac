@@ -1,8 +1,8 @@
 # Recovery Status
 
 Last reviewed: 2026-04-21
-Branch: `codex/sound-latch-recovery`
-Baseline: `3525245` / `origin/main`
+Branch: `codex/state2-return-gate`
+Baseline: `e35bf06` / `origin/main`
 
 ## Completed This Iteration
 
@@ -15,6 +15,11 @@ Baseline: `3525245` / `origin/main`
   actor `+0x10` is decremented before the Pascal-style `DS:79e9 + player`
   life/reentry counter is drained, player state `DS:79e5 + player` is set to
   `0` on wrap, and active-player count `DS:79b8` is decremented.
+- Mapped the normal state-2 return-to-active path around `1000:7ddf..7ea7`:
+  `DS:79a3` is copied from the player action gate (`DS:1b7b` or `DS:1b80`),
+  effect-entry coordinates at `DS:c21e + 8 * actor[+0x01]` gate placement,
+  and success restores actor state `+0x15`, player state `DS:79e5 + player`,
+  key gate bytes, and energy `+0x24 = 0x64`.
 - Mapped the separate life-loss helper at `1000:30a3`: it writes
   `DS:2074 = 0x0056`, `DS:799f = 5`, and calls `1000:165a` before moving the
   actor into the death/reentry state.
@@ -25,8 +30,9 @@ Baseline: `3525245` / `origin/main`
 - Mirrored the mapped death helper energy write at `1000:3134` by restoring
   player energy to `100` when entering the C++ death/reentry state.
 - Added a separate `deathStateTimer` mirror for the original actor
-  `+0x10 = 0x003c` countdown. It is decremented while dead and cleared on
-  manual reentry, but it does not replace the current C++ reentry timeout yet.
+  `+0x10 = 0x003c` countdown. It is decremented while dead, blocks manual
+  reentry/restart until it reaches zero, and is then cleared on manual return
+  to active control.
 - Updated live C++ `damagePlayer` to use the recovered unsigned byte
   underflow death rule (`energy > 0x00c8` after wrapping) instead of a modern
   `energy == 0` death clamp.
@@ -36,9 +42,18 @@ Baseline: `3525245` / `origin/main`
   byte counter drain model: multi-hit accumulation, zero-counter silence,
   state-2 hurt-without-subtract behavior, and unsigned underflow death dispatch.
 - Added `--debug-player-state2-death-fields` and CTest coverage for the
-  recovered state-2 death fields, manual reentry clearing, and two-player
-  zero-life player-out behavior without immediate game over.
-- Updated README, Ghidra notes, and a new subagent note with the address range,
+  recovered state-2 death fields, early-return blocking, manual reentry
+  clearing after the gate, and two-player zero-life player-out behavior without
+  immediate game over.
+- Added `--debug-original-state2-return-model` to lock the recovered original
+  state byte model: countdown drain, `DS:79a3` action gate, effect/placement
+  blocking, player 1/2 actor-state restore, key-byte clearing, and active-player
+  count behavior when a player is out.
+- Added `--debug-player-state2-return-active` and CTest coverage for the live
+  C++ gate: immediate and 59-tick manual reentry are blocked, the 60th state-2
+  tick enables return, player 2 follows the same gate, and zero-life player-out
+  remains non-fatal while player 1 is still active.
+- Updated README, Ghidra notes, and subagent notes with the address range,
   evidence, implementation mapping, validation, and remaining unknowns.
 - Rebased this branch onto `origin/main` after `3525245` merged the previous
   sound-latch recovery into main; the branch delta now carries the state-2
@@ -48,12 +63,14 @@ Baseline: `3525245` / `origin/main`
 
 - `cmake -S . -B build` passed.
 - `cmake --build build` passed.
-- `ctest --test-dir build --output-on-failure` passed: 29/29.
-- `ctest --test-dir build --output-on-failure -R "player_damage_sound|original_damage_counters|player_state2_death_fields|ui_controls_dummy|bomb_fuse"` passed.
+- `ctest --test-dir build --output-on-failure` passed: 31/31.
+- `ctest --test-dir build --output-on-failure -R "player_damage_sound|original_damage_counters|player_state2_death_fields|original_state2_return_model|player_state2_return_active|ui_controls_dummy|bomb_fuse"` passed: 7/7.
 - `./build/lezac_cpp --validate` passed.
 - `./build/lezac_cpp --debug-player-damage-sound` passed.
 - `./build/lezac_cpp --debug-original-damage-counters` passed.
 - `./build/lezac_cpp --debug-player-state2-death-fields` passed.
+- `./build/lezac_cpp --debug-original-state2-return-model` passed.
+- `./build/lezac_cpp --debug-player-state2-return-active` passed.
 - `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-ui 3` passed.
 - `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-controls` passed.
 - `git diff --check` passed.
@@ -68,10 +85,10 @@ Baseline: `3525245` / `origin/main`
 - Exact original continuous-contact damage accumulation and cooldown timing:
   the hurt/death sounds and unsigned underflow death rule are now mapped, but
   the C++ damage cadence still uses the reconstructed cooldown model.
-- Exact death/reentry state timing and presentation: the original death helper
-  writes actor state `+0x15 = 2`, countdown `+0x10 = 0x003c`, and energy
-  `+0x24 = 0x64`; the countdown is mirrored as diagnostic state but not yet
-  used as the visual/reentry driver.
+- Exact death/reentry presentation: the original death helper writes actor
+  state `+0x15 = 2`, countdown `+0x10 = 0x003c`, and energy `+0x24 = 0x64`.
+  The countdown now gates reentry, but effect-entry descent and recovered
+  death/reentry sprites remain simplified.
 - Exact post-game presentation details beyond the recovered strings and record
   prompt order: cursor drawing, key wait timing, and completed-game flag side
   effects.
@@ -82,8 +99,8 @@ Baseline: `3525245` / `origin/main`
 
 ## Next Planned Target
 
-Map the normal state-2 return-to-active path at `1000:7ddf..7ea7`: confirm the
-`DS:79a3 == 1` gate, effect-entry descent/placement checks, actor state restore
-for both players, and energy reset. Then decide whether the mirrored
-`deathStateTimer` can drive visible death/reentry animation without changing
-the still-approximate manual reentry policy.
+Map the renderer-facing consumers of the state-2 animation data: the
+`1000:06ab` seven-byte initializer at `actor + 0x16`, the `DS:006c`/`DS:006d`
+values used by the death helper, and the visual-effect consumer of
+`DS:c21e + 8 * n`. Use that to recover death/reentry frames instead of drawing
+diagnostic placeholders.

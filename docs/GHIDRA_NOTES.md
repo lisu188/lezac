@@ -300,8 +300,31 @@ zero, decrements the Pascal-style life/reentry counter at `DS:79e9 + player`
 a visual/effect entry, and the normal return-to-active path at `1000:7ddf..7ea7`
 requires the reentry gate before restoring player state `1` and energy `0x64`.
 The C++ port now mirrors the recovered `+0x10` countdown as a separate
-`deathStateTimer` field for diagnostics, but does not yet use it as the
-player-facing reentry timeout or visual animation driver.
+`deathStateTimer` field. Live manual reentry and unwinnable-level restart are
+now blocked until that countdown reaches zero, matching the proven state-2
+delay while keeping the longer C++ compatibility reentry timeout separate.
+
+Return-to-active evidence: `1000:7db5..7dc7` copies the current player's action
+gate into `DS:79a3` from `DS:1b7b` for player 1 or `DS:1b80` for player 2.
+Manual byte inspection maps those source bytes to keyboard IRQ state:
+`DS:1b7b` is set/cleared by scan codes `0x31`/`0xb1`, and `DS:1b80` by
+`0x52`/`0xd2`. `1000:7ddf` only processes players whose `DS:79e5 + player`
+state byte is `2`. The path reads an 8-byte effect entry at
+`DS:c21e + 8 * actor[+0x01]`, computes map occupancy from effect words `+0` and
+`+2`, and may decrement effect `+2` while placement descends. `1000:7e74`
+requires `DS:79a3 == 1`; on success, `1000:7e85..7e8c` restores actor state
+`+0x15` to `0` for player 1 or `1` for player 2, `1000:7e97` writes
+`DS:79e5 + player = 1`, `1000:7e9d..7ea2` clears both gate bytes, and
+`1000:7ea7` restores actor energy `+0x24 = 0x64`. The C++ port mirrors the
+countdown/action-gate ordering by rejecting manual reentry while
+`deathStateTimer > 0`; effect-entry descent and exact actor-state byte mapping
+remain documented model behavior until the renderer-facing state is recovered.
+
+Unresolved state-2 fallback: `1000:7ef8..7f2a` increments `DS:79b9` when no
+player is active and promotes any `DS:79e5 + player == 2` state byte to `1` at
+`0xe6`. This path does not visibly perform the same actor state and energy
+restore as `1000:7e85..7ea7`, so the C++ port does not treat it as a normal
+respawn yet.
 
 ## Level Embedded Records
 

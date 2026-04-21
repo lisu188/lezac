@@ -1,106 +1,70 @@
 # Recovery Status
 
 Last reviewed: 2026-04-21
-Branch: `codex/state2-return-gate`
-Baseline: `e35bf06` / `origin/main`
+Branch: `codex/state2-animation-model`
+Baseline: `702d1d4` / `origin/main`
 
 ## Completed This Iteration
 
-- Spawned five focused recovery subagents for disassembly, gameplay, rendering
-  and audio, verification, and integration/docs.
-- Re-disassembled the player damage loop around `1000:7f34..804e`. The
-  `1000:7f84..7f8f` block writes `DS:2074 = 0x002d`, `DS:799f = 4`, then
-  calls the recovered sound latch when accumulated player damage is nonzero.
-- Re-disassembled the state-2 life/reentry path around `1000:7c89..7db5`:
-  actor `+0x10` is decremented before the Pascal-style `DS:79e9 + player`
-  life/reentry counter is drained, player state `DS:79e5 + player` is set to
-  `0` on wrap, and active-player count `DS:79b8` is decremented.
-- Mapped the normal state-2 return-to-active path around `1000:7ddf..7ea7`:
-  `DS:79a3` is copied from the player action gate (`DS:1b7b` or `DS:1b80`),
-  effect-entry coordinates at `DS:c21e + 8 * actor[+0x01]` gate placement,
-  and success restores actor state `+0x15`, player state `DS:79e5 + player`,
-  key gate bytes, and energy `+0x24 = 0x64`.
-- Mapped the separate life-loss helper at `1000:30a3`: it writes
-  `DS:2074 = 0x0056`, `DS:799f = 5`, and calls `1000:165a` before moving the
-  actor into the death/reentry state.
-- Routed accepted C++ player damage through `requestPlayerDamageSound` and
-  routed `beginPlayerDeath` through `requestPlayerDeathSound`, so lethal damage
-  first queues the priority-`4` hurt cue and then replaces it with the
-  priority-`5` death cue.
-- Mirrored the mapped death helper energy write at `1000:3134` by restoring
-  player energy to `100` when entering the C++ death/reentry state.
-- Added a separate `deathStateTimer` mirror for the original actor
-  `+0x10 = 0x003c` countdown. It is decremented while dead, blocks manual
-  reentry/restart until it reaches zero, and is then cleared on manual return
-  to active control.
-- Updated live C++ `damagePlayer` to use the recovered unsigned byte
-  underflow death rule (`energy > 0x00c8` after wrapping) instead of a modern
-  `energy == 0` death clamp.
-- Added `--debug-player-damage-sound` and CTest coverage for nonlethal damage,
-  cooldown suppression, latch priority arbitration, and lethal replacement.
-- Added `--debug-original-damage-counters` and CTest coverage for the original
-  byte counter drain model: multi-hit accumulation, zero-counter silence,
-  state-2 hurt-without-subtract behavior, and unsigned underflow death dispatch.
-- Added `--debug-player-state2-death-fields` and CTest coverage for the
-  recovered state-2 death fields, early-return blocking, manual reentry
-  clearing after the gate, and two-player zero-life player-out behavior without
-  immediate game over.
-- Added `--debug-original-state2-return-model` to lock the recovered original
-  state byte model: countdown drain, `DS:79a3` action gate, effect/placement
-  blocking, player 1/2 actor-state restore, key-byte clearing, and active-player
-  count behavior when a player is out.
-- Added `--debug-player-state2-return-active` and CTest coverage for the live
-  C++ gate: immediate and 59-tick manual reentry are blocked, the 60th state-2
-  tick enables return, player 2 follows the same gate, and zero-life player-out
-  remains non-fatal while player 1 is still active.
-- Updated README, Ghidra notes, and subagent notes with the address range,
-  evidence, implementation mapping, validation, and remaining unknowns.
-- Rebased this branch onto `origin/main` after `3525245` merged the previous
-  sound-latch recovery into main; the branch delta now carries the state-2
-  death/reentry slice.
+- Spawned five focused recovery subagents for disassembly mapping, gameplay
+  fidelity, rendering/assets, verification, and integration/docs.
+- Mapped `1000:06ab` / file `0x0e1b` as the seven-byte animation initializer
+  used by `actor + 0x16`.
+- Mapped the player death/life-loss animation setup at
+  `1000:3108..311d`: it targets `actor + 0x16`, uses `DS:006c` and
+  `DS:006d` as the frame range, passes delay `3`, mode `1`, and leaves the
+  actor in state `+0x15 = 2` with countdown `+0x10 = 0x003c`.
+- Mapped the actor update consumer around `1000:6053..6156`: it advances the
+  `actor + 0x16` cursor and resolves the current frame through the sprite/effect
+  metadata tables before writing the visual/effect entry.
+- Mapped state-2 return placement math for `DS:c21e + 8 * actor[+0x01]`:
+  `x_tile = word0 >> 3`, `y_tile = ((word2 + 7) >> 3) + 1`, tiles `0x01` and
+  `0x4c` block placement, the right tile is checked too, and unblocked entries
+  decrement word `+2` while it is greater than `0x18` before the action gate is
+  evaluated.
+- Added `--debug-original-state2-animation-init` with CTest coverage for the
+  exact initializer byte order: current/start/end/counter/delay/mode/step.
+- Added `--debug-original-state2-effect-placement` with CTest coverage for
+  effect-entry slot addresses, tile math, solid/marker/right-tile blocking,
+  floor stopping, and descent-before-gate ordering.
+- Updated README, Ghidra notes, and subagent recovery notes with addresses,
+  evidence, mapped C++ debug commands, and the remaining runtime-frame
+  uncertainty.
 
 ## Validation
 
 - `cmake -S . -B build` passed.
-- `cmake --build build` passed.
-- `ctest --test-dir build --output-on-failure` passed: 31/31.
-- `ctest --test-dir build --output-on-failure -R "player_damage_sound|original_damage_counters|player_state2_death_fields|original_state2_return_model|player_state2_return_active|ui_controls_dummy|bomb_fuse"` passed: 7/7.
+- `cmake --build build` passed. The build emitted a filesystem clock-skew
+  warning, but completed successfully.
+- `ctest --test-dir build --output-on-failure -R "state2_animation_init_model|state2_effect_placement_model|original_state2_return_model|player_state2_return_active"` passed: 4/4.
+- `ctest --test-dir build --output-on-failure` passed: 33/33.
 - `./build/lezac_cpp --validate` passed.
-- `./build/lezac_cpp --debug-player-damage-sound` passed.
-- `./build/lezac_cpp --debug-original-damage-counters` passed.
-- `./build/lezac_cpp --debug-player-state2-death-fields` passed.
-- `./build/lezac_cpp --debug-original-state2-return-model` passed.
-- `./build/lezac_cpp --debug-player-state2-return-active` passed.
+- `./build/lezac_cpp --debug-original-state2-animation-init` passed.
+- `./build/lezac_cpp --debug-original-state2-effect-placement` passed.
 - `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-ui 3` passed.
 - `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-controls` passed.
 - `git diff --check` passed.
 
 ## Remaining Top Gaps
 
-- Exact actor update behavior around `1000:6053..777f`, especially monster AI
-  and object/terrain interactions.
+- Exact runtime values of `DS:006a`, `DS:006c`, `DS:006d`, and the
+  `DS:c324` frame metadata table during death/reentry. These are needed before
+  dead-player rendering can claim original art fidelity.
+- Exact actor update behavior around `1000:6053..777f`, especially monster AI,
+  object/terrain interactions, and mode-specific animation side effects.
 - Exact non-explosion `PROEFS.SON` semantics for bytes `+4..+5` in each
-  six-byte step, plus mapping of the remaining non-explosion callsites to
-  `DS:2074`/`DS:799f` and event labels.
-- Exact original continuous-contact damage accumulation and cooldown timing:
-  the hurt/death sounds and unsigned underflow death rule are now mapped, but
-  the C++ damage cadence still uses the reconstructed cooldown model.
-- Exact death/reentry presentation: the original death helper writes actor
-  state `+0x15 = 2`, countdown `+0x10 = 0x003c`, and energy `+0x24 = 0x64`.
-  The countdown now gates reentry, but effect-entry descent and recovered
-  death/reentry sprites remain simplified.
-- Exact post-game presentation details beyond the recovered strings and record
-  prompt order: cursor drawing, key wait timing, and completed-game flag side
-  effects.
-- Explosion, debris, and collapse sprite playback around `1000:3a56..4d3b`;
-  current gameplay carries the mapped records but still renders simplified
-  effects.
+  six-byte step, plus mapping of remaining sound callsites to events.
+- Exact original continuous-contact damage cadence, delayed state-2 life-count
+  decrement, `DS:79b9` fallback behavior, and active-player accounting edge
+  cases.
+- Exact two-player panel artwork and full death/reentry presentation.
+- Explosion, debris, and collapse sprite playback around `1000:3a56..4d3b`.
 - `GRAN.MST` field semantics.
 
 ## Next Planned Target
 
-Map the renderer-facing consumers of the state-2 animation data: the
-`1000:06ab` seven-byte initializer at `actor + 0x16`, the `DS:006c`/`DS:006d`
-values used by the death helper, and the visual-effect consumer of
-`DS:c21e + 8 * n`. Use that to recover death/reentry frames instead of drawing
-diagnostic placeholders.
+Use `dosbox-debug` as an oracle for the state-2 visual path: break after asset
+setup and at the death helper/animation consumer, then dump `DS:0060`,
+`DS:c21e`, and `DS:c324` during death/reentry. Use those runtime values to
+replace the current skipped-dead-player rendering with the recovered original
+animation range.

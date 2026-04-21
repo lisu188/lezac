@@ -151,6 +151,20 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "original_state2_return_model=ok timer_start=60 timer_after_59=1 timer_after_60=0 gate0_blocked=1 effect_wait_blocked=1 placement_blocked=1 gate1_restored=1 p1_status=1 p1_actor_state=0 p1_energy=100 p1_cleared=1 p2_status=1 p2_actor_state=1 p2_energy=100 p2_cleared=1 zero_life_status=0 active_players_after_p2_out=1 active_players_after_both_out=0")
 
+    add_test(NAME state2_animation_init_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-animation-init)
+    set_tests_properties(state2_animation_init_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "original_state2_animation_init=ok actor_offset=0x16 bytes=12,12,8,6,6,4,1 duplicate_0a=1 duplicate_06=1 terminator=1 ghidra=1000:06ab")
+
+    add_test(NAME state2_effect_placement_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-effect-placement)
+    set_tests_properties(state2_effect_placement_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "original_state2_effect_placement=ok base=0xc21e slot0=0xc21e slot1=0xc226 slot2=0xc22e x_tile=3 y_tile=6 map_offset=363 open_descended=1 y_after=39 floor_stops=1 solid_blocked=1 marker_blocked=1 right_solid_blocked=1 gate_after_descent=1")
+
     add_test(NAME player_state2_return_active
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-player-state2-return-active)
     set_tests_properties(player_state2_return_active PROPERTIES

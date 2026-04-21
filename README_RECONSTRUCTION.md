@@ -56,6 +56,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-sound-render
 ./build/lezac_cpp --debug-sound-cursor-segments
 ./build/lezac_cpp --debug-son-raw-roundtrip
+./build/lezac_cpp --debug-son-step-fields
 ./build/lezac_cpp --debug-sound-priority-latch
 ./build/lezac_cpp --debug-sound-selector-map
 ./build/lezac_cpp --debug-player-damage-sound
@@ -147,7 +148,10 @@ Dump the current bomb inventory model and export sprite contact sheets:
   actor update model locks the `1000:6053` counter, wrap, ping-pong, and
   mode-3 backup behavior. The runtime-frame oracle parses saved DOSBox debugger
   dumps for `DS:006a`, `DS:006c`, `DS:006d`, the `DS:c322..c324` frame table,
-  and `DS:c21e` effect-entry words without making a visual claim. The
+  and `DS:c21e` effect-entry words without making a visual claim.
+  `--debug-son-step-fields` exposes each recovered six-byte sound step as
+  `period_word`, `gate_tick`, `period_ticks`, `unknown4`, and `unknown5` while
+  keeping bytes `+4..+5` explicitly uninterpreted. The
   return-placement model tracks the `DS:c21e + 8 * actor[+0x01]` effect-entry
   descent and blocking checks.
 
@@ -158,8 +162,9 @@ Dump the current bomb inventory model and export sprite contact sheets:
   deeper reconstruction of the actor update routine around `1000:6053`.
 - PC speaker sound effects now use a recovered request/priority latch,
   direct-sweep path for bomb explosions, and six-byte cursor stepping for
-  `PROEFS.SON`, but bytes `+4..+5` in each sound step and many non-explosion
-  callsite-to-event mappings remain unresolved.
+  `PROEFS.SON`. Field diagnostics preserve bytes `+4..+5` as raw unknowns, and
+  their semantic meaning plus many non-explosion callsite-to-event mappings
+  remain unresolved.
 - Two-player split-screen is playable with independent bomb inventories, scores,
   and record prompts, but exact original panel artwork and reentry presentation
   remain approximate.

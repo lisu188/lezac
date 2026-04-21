@@ -105,6 +105,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^son_raw_roundtrip=ok raw_size=782 step_count=130 payload_size=780 json_chunks=6")
 
+    add_test(NAME son_step_fields
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-son-step-fields)
+    set_tests_properties(son_step_fields PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "son_step_fields=ok steps=130 first_period=0x00f7 first_stop_cursor=0x0005 final_stop_cursor=0x0082 unknown_pair_nonzero_steps=118")
+
     add_test(NAME sound_priority_latch
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-priority-latch)
     set_tests_properties(sound_priority_latch PROPERTIES

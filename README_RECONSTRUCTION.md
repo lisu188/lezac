@@ -58,6 +58,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-son-raw-roundtrip
 ./build/lezac_cpp --debug-sound-priority-latch
 ./build/lezac_cpp --debug-sound-selector-map
+./build/lezac_cpp --debug-player-damage-sound
 ./build/lezac_cpp --debug-record-update /tmp/records_test.dat
 ./build/lezac_cpp --debug-record-name-entry /tmp/records_name_test.dat
 ./build/lezac_cpp --debug-record-save-failure /tmp/missing-record-dir/records.dat
@@ -126,8 +127,10 @@ Dump the current bomb inventory model and export sprite contact sheets:
   recovered direct-sweep cursors and the original `1000:165a` priority latch,
   bomb-object destruction queues the recovered priority-`3` object cue, portal
   transfer queues cursor `0x001a` at priority `4`, tile-trigger activation
-  queues cursor `0x0027` at priority `6`, and bonus pickup audio queues cursor
-  `0x0008` at priority `5`.
+  queues cursor `0x0027` at priority `6`, bonus pickup audio queues cursor
+  `0x0008` at priority `5`, accepted player damage queues cursor `0x002d` at
+  priority `4`, and player death/life-loss queues cursor `0x0056` at priority
+  `5`.
 
 ## Still Approximate
 

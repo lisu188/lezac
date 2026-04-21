@@ -235,7 +235,7 @@ The current stop-cursor map from the shipped `PROEFS.SON` payload is:
 `--debug-sound-cursor-segments` validates these boundaries and renders the
 known non-direct cursor starts through `synthesizeSoundCursor`.
 
-Four non-explosion gameplay cues are now mapped to original queued requests:
+Six non-explosion gameplay cues are now mapped to original queued requests:
 
 - The bomb-object destruction scan around `1000:6cb3..6e3f` clears the
   `DS:2074` score accumulator and `DS:79ab` high-object marker, walks the four
@@ -258,6 +258,18 @@ Four non-explosion gameplay cues are now mapped to original queued requests:
   then writes `DS:2074 = 0x0008`, `DS:799f = 5`, and calls `1000:165a`.
   The C++ `collectBonusDrop` path mirrors that with
   `requestSoundCursor(0x0008, 5)`.
+- The per-player damage pass around `1000:7f34..804e` calls the actor update
+  routine at `1000:6053`, subtracts accumulated damage from the live player
+  energy byte, and when the damage counter is nonzero writes
+  `DS:2074 = 0x002d`, `DS:799f = 4`, then calls `1000:165a`
+  (`1000:7f84..7f8f`, file offset `0x86f4`). The C++ shared
+  `damagePlayer` gate mirrors accepted damage with `requestPlayerDamageSound`.
+- The following life-loss helper at `1000:30a3` is separate from the hurt cue:
+  it writes `DS:2074 = 0x0056`, `DS:799f = 5`, calls `1000:165a`, then moves
+  the actor into the death/reentry state. The C++ `beginPlayerDeath` path now
+  mirrors that with `requestPlayerDeathSound`, so fatal damage first queues
+  the priority-`4` hurt cue and then replaces it with the priority-`5`
+  death/life-loss cue through the original latch rule.
 
 Other non-explosion cues are still being mapped; direct `playSound(index)`
 callers remain compatibility hooks until their original cursor/priority writes

@@ -123,6 +123,13 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "bomb_object_sound=ok")
 
+    add_test(NAME player_damage_sound
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-player-damage-sound)
+    set_tests_properties(player_damage_sound PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "player_damage_sound=ok nonlethal_energy=99 nonlethal_cooldown=18 lethal_energy=0 dead=1 lives=2 cursor=0x2d priority=4 death_cursor=0x56 death_priority=5")
+
     add_test(NAME sprite_transparency
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sprite-transparency)
     set_tests_properties(sprite_transparency PROPERTIES

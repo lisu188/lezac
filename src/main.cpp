@@ -59,6 +59,10 @@ constexpr uint16_t kPortalTeleportSoundCursor = 0x001a;
 constexpr uint8_t kPortalTeleportSoundPriority = 4;
 constexpr uint16_t kTileTriggerSoundCursor = 0x0027;
 constexpr uint8_t kTileTriggerSoundPriority = 6;
+constexpr uint16_t kPlayerDamageSoundCursor = 0x002d;
+constexpr uint8_t kPlayerDamageSoundPriority = 4;
+constexpr uint16_t kPlayerDeathSoundCursor = 0x0056;
+constexpr uint8_t kPlayerDeathSoundPriority = 5;
 
 struct Rgb {
     uint8_t r = 0;
@@ -2012,6 +2016,95 @@ public:
                   << std::dec << std::noshowbase
                   << " priority=" << static_cast<int>(kBombObjectSoundPriority)
                   << " suppressed_by_explosion=1\n";
+    }
+
+    void debugPlayerDamageSoundRouting() {
+        load();
+        resetLevel(0);
+
+        energy_ = 100;
+        lives_ = 3;
+        playerDead_ = false;
+        reentryTimer_ = 0;
+        damageCooldown_ = 0;
+        clearSoundLatch();
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        if (energy_ != 99 || playerDead_ || lives_ != 3 ||
+            damageCooldown_ != kDamageCooldownTicks || !soundLatch_.active ||
+            soundLatch_.latchedOffset != kPlayerDamageSoundCursor ||
+            soundLatch_.currentSelector != kPlayerDamageSoundPriority) {
+            throw std::runtime_error("player damage sound request mismatch");
+        }
+        int nonlethalEnergy = energy_;
+        int nonlethalCooldown = damageCooldown_;
+        pumpSoundLatch();
+        if (soundLatch_.active || lastPumpedSoundOffset_ != kPlayerDamageSoundCursor ||
+            lastPumpedSoundSelector_ != kPlayerDamageSoundPriority) {
+            throw std::runtime_error("player damage sound pump mismatch");
+        }
+
+        clearSoundLatch();
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        bool cooldownBlocked = energy_ == 99 && !soundLatch_.active;
+        if (!cooldownBlocked) {
+            throw std::runtime_error("player damage sound ignored cooldown");
+        }
+
+        clearSoundLatch();
+        bool smallExplosionAccepted = requestSoundOffset(explosionSoundOffset(1),
+                                                         explosionSoundSelector(1));
+        bool damageRefreshedSamePriority = requestPlayerDamageSound();
+        if (!smallExplosionAccepted || !damageRefreshedSamePriority ||
+            !soundLatch_.active || soundLatch_.latchedOffset != kPlayerDamageSoundCursor ||
+            soundLatch_.currentSelector != kPlayerDamageSoundPriority) {
+            throw std::runtime_error("player damage sound same-priority latch mismatch");
+        }
+
+        clearSoundLatch();
+        bool mediumExplosionAccepted = requestSoundOffset(explosionSoundOffset(2),
+                                                          explosionSoundSelector(2));
+        bool higherPriorityBlocked = !requestPlayerDamageSound();
+        if (!mediumExplosionAccepted || !higherPriorityBlocked || !soundLatch_.active ||
+            soundLatch_.latchedOffset != explosionSoundOffset(2) ||
+            soundLatch_.currentSelector != explosionSoundSelector(2)) {
+            throw std::runtime_error("player damage sound priority block mismatch");
+        }
+
+        clearSoundLatch();
+        energy_ = 1;
+        lives_ = 3;
+        playerDead_ = false;
+        reentryTimer_ = 0;
+        damageCooldown_ = 0;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        if (energy_ != 0 || !playerDead_ || lives_ != 2 ||
+            reentryTimer_ != kReentryTicks || !soundLatch_.active ||
+            soundLatch_.latchedOffset != kPlayerDeathSoundCursor ||
+            soundLatch_.currentSelector != kPlayerDeathSoundPriority) {
+            throw std::runtime_error("player death sound did not replace hurt sound");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active || lastPumpedSoundOffset_ != kPlayerDeathSoundCursor ||
+            lastPumpedSoundSelector_ != kPlayerDeathSoundPriority) {
+            throw std::runtime_error("player death sound pump mismatch");
+        }
+
+        std::cout << "player_damage_sound=ok nonlethal_energy=" << nonlethalEnergy
+                  << " nonlethal_cooldown=" << nonlethalCooldown
+                  << " lethal_energy=" << energy_
+                  << " dead=" << (playerDead_ ? 1 : 0)
+                  << " lives=" << lives_
+                  << " cursor=" << std::showbase << std::hex
+                  << kPlayerDamageSoundCursor << std::dec << std::noshowbase
+                  << " priority=" << static_cast<int>(kPlayerDamageSoundPriority)
+                  << " death_cursor=" << std::showbase << std::hex
+                  << kPlayerDeathSoundCursor << std::dec << std::noshowbase
+                  << " death_priority=" << static_cast<int>(kPlayerDeathSoundPriority)
+                  << " pumped=1 cooldown_blocked=1 same_priority_refresh=1"
+                  << " higher_priority_blocks=1 lethal_replaced=1\n";
     }
 
     void debugGran() {
@@ -4087,6 +4180,7 @@ private:
                       int& timer, int& damageCooldown, uint8_t startMarker) {
         if (dead || damageCooldown > 0) return;
         energy = std::max(0, energy - 1);
+        requestPlayerDamageSound();
         if (energy == 0) {
             beginPlayerDeath(player, energy, lives, dead, timer, startMarker);
         } else {
@@ -4130,13 +4224,13 @@ private:
         if (lives == 0) {
             dead = true;
             timer = 0;
-            playSound(3);
+            requestPlayerDeathSound();
             if (allPlayersOutOfLives()) beginGameOver();
             return;
         }
         dead = true;
         timer = canReenterLevel() ? kReentryTicks : 1;
-        playSound(3);
+        requestPlayerDeathSound();
         (void)startMarker;
     }
 
@@ -4482,6 +4576,14 @@ private:
 
     bool requestTileTriggerSound() {
         return requestSoundCursor(kTileTriggerSoundCursor, kTileTriggerSoundPriority);
+    }
+
+    bool requestPlayerDamageSound() {
+        return requestSoundCursor(kPlayerDamageSoundCursor, kPlayerDamageSoundPriority);
+    }
+
+    bool requestPlayerDeathSound() {
+        return requestSoundCursor(kPlayerDeathSoundCursor, kPlayerDeathSoundPriority);
     }
 
     bool consumeBombObjectTile(int tx, int ty) {
@@ -5490,6 +5592,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-object-sound") {
             app.debugBombObjectSoundRouting();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-player-damage-sound") {
+            app.debugPlayerDamageSoundRouting();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-gran") {

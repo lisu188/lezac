@@ -178,6 +178,15 @@ reverse byte from offsets `+7`/`+5`. The collapse passes at `1000:3bb2` and
 `1000:3d46` write those lanes back through `0x6617`/`0x2097` and
 `0x6618`/`0x2098`, using `0x4e20` as the high-half spill marker.
 
+Diagnostic coverage now asserts metadata only for this area: dispatcher states
+`4..7`, direct-sweep offsets `0xea74`/`0xea7e`/`0xea88`/`0xeace`, debris stride
+`0x0b`, collapse stride `0x0f`, damaged bit `0x8000`, threshold `0x4000`,
+forward/reverse phase lookup sources, and real-asset bomb-object explosion
+cases that leave consumed object tiles passable while routing the tile above
+the footprint into collapse or debris queues. This is not evidence for exact
+rendered sprites or original frame timing; keep those claims blocked on a full
+mapping or runtime capture of `1000:3a56..4d3b`.
+
 ## Sound Playback Evidence
 
 The original sound loader at `1000:0630..06aa` opens `PROEFS.SON`, reads first

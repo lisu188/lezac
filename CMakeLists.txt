@@ -218,6 +218,27 @@ if(BUILD_TESTING)
     set_tests_properties(bomb_fuse PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+    add_test(NAME explosion_profiles
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosions)
+    set_tests_properties(explosion_profiles PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_profiles=ok types=4 states=4,5,6,7 sound_offsets=0xea74,0xea7e,0xea88,0xeace")
+
+    add_test(NAME damage_queues
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-damage-queues)
+    set_tests_properties(damage_queues PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "damage_queues=ok debris_stride=11 collapse_stride=15 damaged_bit=0x8000 deferred_threshold=0x4000 collapse_flagged=0x8006 debris_flagged=0xc000 collapse_count=7 collapse_forward=2 collapse_reverse=3 debris_lookup=107 debris_forward=4 debris_reverse=5")
+
+    add_test(NAME bomb_object_explosion_effects
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-object-explosion-effects)
+    set_tests_properties(bomb_object_explosion_effects PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "bomb_object_explosion_effects=ok cases=2 .*score_each=50 sound_offset=0xea74")
+
     add_test(NAME passable_objects
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-passable-objects)
     set_tests_properties(passable_objects PROPERTIES

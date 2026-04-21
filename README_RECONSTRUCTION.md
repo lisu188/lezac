@@ -149,7 +149,10 @@ Dump the current bomb inventory model and export sprite contact sheets:
   dumps for `DS:006a`, `DS:006c`, `DS:006d`, the `DS:c322..c324` frame table,
   and `DS:c21e` effect-entry words without making a visual claim. The
   return-placement model tracks the `DS:c21e + 8 * actor[+0x01]` effect-entry
-  descent and blocking checks.
+  descent and blocking checks. Explosion/debris/collapse diagnostics now lock
+  the recovered dispatcher selector/state/sound-offset table, queued
+  debris/collapse payload fields, and bomb-object passability/routing side
+  effects without claiming exact original sprite playback.
 
 ## Still Approximate
 
@@ -167,12 +170,13 @@ Dump the current bomb inventory model and export sprite contact sheets:
   (letters/space, Backspace, Enter), but exact cursor drawing, typematic repeat,
   and name-entry presentation remain approximate.
 - Bomb fuse timing, 2x2 footprint, player blast damage, monster hit-point
-  blast damage, visual selectors, actor sprite indices, and word-layer damage
-  gating now follow the
-  `1000:414a`/`1000:370e`/expiration analysis. Active collapse/debris records
-  now drain player energy with a short post-hit cooldown, but exact sprite
-  playback, per-frame damage counter cadence, delayed state-2 life-count
-  decrement, and death/reentry visual playback remain simplified. The
+  blast damage, visual selectors, actor sprite indices, word-layer damage
+  gating, bomb-object passability after explosion, and queued debris/collapse
+  metadata now follow the `1000:414a`/`1000:370e`/expiration analysis. Active
+  collapse/debris records now drain player energy with a short post-hit
+  cooldown, but exact sprite playback around `1000:3a56..4d3b`, per-frame
+  damage counter cadence, delayed state-2 life-count decrement, and
+  death/reentry visual playback remain simplified. The
   `actor + 0x16` state-2 cursor, cursor advancement rules, and `DS:c21e`
   placement math are locked as deterministic models, and the runtime-frame
   oracle can validate captured debugger dumps, but the live renderer still

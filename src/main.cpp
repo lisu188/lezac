@@ -1117,7 +1117,7 @@ public:
             throw std::runtime_error("two-player restart key did not leave menu");
         }
 
-        energy_ = 1;
+        energy_ = 0;
         lives_ = 3;
         lives2_ = 3;
         damageCooldown_ = 0;
@@ -1139,7 +1139,7 @@ public:
         lives2_ = 3;
         resetLevel(0);
 
-        energy2_ = 1;
+        energy2_ = 0;
         lives_ = 3;
         lives2_ = 3;
         damageCooldown2_ = 0;
@@ -1165,7 +1165,7 @@ public:
             throw std::runtime_error("N key did not fire for player 2 after reentry");
         }
 
-        energy2_ = 1;
+        energy2_ = 0;
         lives_ = 3;
         lives2_ = 1;
         damageCooldown2_ = 0;
@@ -1181,7 +1181,7 @@ public:
             throw std::runtime_error("player 2 reentered or fired with zero lives");
         }
 
-        energy_ = 1;
+        energy_ = 0;
         lives_ = 1;
         damageCooldown_ = 0;
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
@@ -1202,7 +1202,7 @@ public:
             throw std::runtime_error("start key did not leave menu");
         }
 
-        energy_ = 1;
+        energy_ = 0;
         lives_ = 3;
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
@@ -1220,7 +1220,7 @@ public:
             canReenterLevel()) {
             throw std::runtime_error("objective destruction did not block reentry");
         }
-        energy_ = 1;
+        energy_ = 0;
         lives_ = 3;
         damageCooldown_ = 0;
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
@@ -2073,7 +2073,7 @@ public:
         }
 
         clearSoundLatch();
-        energy_ = 1;
+        energy_ = 0;
         lives_ = 3;
         playerDead_ = false;
         reentryTimer_ = 0;
@@ -2149,6 +2149,72 @@ public:
                   << " underflow_raw=" << static_cast<int>(underflow.energy)
                   << " death_dispatch=" << (underflow.deathDispatch ? 1 : 0)
                   << '\n';
+    }
+
+    void debugPlayerState2DeathFields() {
+        load();
+        resetLevel(0);
+        menu_ = false;
+
+        player_.vx = 12.0f;
+        player_.vy = -9.0f;
+        player_.grounded = true;
+        energy_ = 0;
+        lives_ = 3;
+        damageCooldown_ = 0;
+        deathStateTimer_ = 0;
+        clearSoundLatch();
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        if (!playerDead_ || lives_ != 2 || energy_ != 100 ||
+            reentryTimer_ != kReentryTicks || deathStateTimer_ != 0x003c ||
+            player_.vx != 0.0f || player_.vy != 0.0f || player_.grounded ||
+            !soundLatch_.active || soundLatch_.latchedOffset != kPlayerDeathSoundCursor ||
+            soundLatch_.currentSelector != kPlayerDeathSoundPriority) {
+            throw std::runtime_error("player state-2 death fields mismatch");
+        }
+        pumpSoundLatch();
+        tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                         damageCooldown_, 1);
+        if (playerDead_ || lives_ != 2 || energy_ != 100 ||
+            reentryTimer_ != 0 || deathStateTimer_ != 0 ||
+            damageCooldown_ != kDamageCooldownTicks || player_.vx != 0.0f ||
+            player_.vy != 0.0f || player_.grounded) {
+            throw std::runtime_error("player state-2 reentry clear mismatch");
+        }
+
+        playerCount_ = 2;
+        lives_ = 3;
+        lives2_ = 1;
+        resetLevel(0);
+        menu_ = false;
+        energy2_ = 0;
+        damageCooldown2_ = 0;
+        deathStateTimer2_ = 0;
+        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                     damageCooldown2_, 2);
+        if (menu_ || playerDead_ || !player2Dead_ || lives_ != 3 || lives2_ != 0 ||
+            energy2_ != 100 || reentryTimer2_ != 0 ||
+            deathStateTimer2_ != 0x003c) {
+            throw std::runtime_error("player 2 zero-life state-2 fields mismatch");
+        }
+        updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
+                      playerDead_);
+        if (menu_ || !player2Dead_ || lives2_ != 0 ||
+            deathStateTimer2_ != 0x003b) {
+            throw std::runtime_error("player 2 zero-life state-2 timer mismatch");
+        }
+
+        std::cout << "player_state2_death_fields=ok reentry_dead=1"
+                  << " reentry_lives=2 reentry_energy=100"
+                  << " reentry_timer=" << kReentryTicks
+                  << " death_state_timer=60 vx=0 vy=0 grounded=0"
+                  << " death_cursor=" << std::showbase << std::hex
+                  << kPlayerDeathSoundCursor << std::dec << std::noshowbase
+                  << " death_priority=" << static_cast<int>(kPlayerDeathSoundPriority)
+                  << " reentered=1 cooldown=" << kDamageCooldownTicks
+                  << " zero_lives=0 zero_timer=0"
+                  << " zero_death_state_after_tick=59 no_gameover_with_p1=1\n";
     }
 
     void debugGran() {
@@ -2772,7 +2838,7 @@ public:
 
         resetLevel(0);
         menu_ = false;
-        energy_ = 1;
+        energy_ = 0;
         lives_ = 1;
         damageCooldown_ = 0;
         bombs_.clear();
@@ -3174,6 +3240,8 @@ private:
     bool player2Dead_ = false;
     int reentryTimer_ = 0;
     int reentryTimer2_ = 0;
+    int deathStateTimer_ = 0;
+    int deathStateTimer2_ = 0;
     int damageCooldown_ = 0;
     int damageCooldown2_ = 0;
     int levelResetGeneration_ = 0;
@@ -3301,6 +3369,8 @@ private:
         player2Dead_ = false;
         reentryTimer_ = 0;
         reentryTimer2_ = 0;
+        deathStateTimer_ = 0;
+        deathStateTimer2_ = 0;
         damageCooldown_ = 0;
         damageCooldown2_ = 0;
         bombInventory_ = {};
@@ -4223,9 +4293,11 @@ private:
     void damagePlayer(Player& player, int& energy, int& lives, bool& dead,
                       int& timer, int& damageCooldown, uint8_t startMarker) {
         if (dead || damageCooldown > 0) return;
-        energy = std::max(0, energy - 1);
+        uint8_t updatedEnergy =
+            static_cast<uint8_t>(std::clamp(energy, 0, 255) - 1);
+        energy = static_cast<int>(updatedEnergy);
         requestPlayerDamageSound();
-        if (energy == 0) {
+        if (static_cast<uint16_t>(updatedEnergy) > 0x00c8) {
             beginPlayerDeath(player, energy, lives, dead, timer, startMarker);
         } else {
             damageCooldown = kDamageCooldownTicks;
@@ -4263,6 +4335,7 @@ private:
                           int& timer, uint8_t startMarker) {
         if (lives > 0) --lives;
         energy = 100;
+        deathStateTimerFor(startMarker) = 0x003c;
         player.vx = 0.0f;
         player.vy = 0.0f;
         player.grounded = false;
@@ -4281,6 +4354,11 @@ private:
 
     bool allPlayersOutOfLives() const {
         return playerCount_ <= 1 ? lives_ <= 0 : lives_ <= 0 && lives2_ <= 0;
+    }
+
+    int& deathStateTimerFor(uint8_t startMarker) {
+        return startMarker == 2 && playerCount_ > 1 ? deathStateTimer2_
+                                                     : deathStateTimer_;
     }
 
     bool canReenterLevel() const {
@@ -4370,6 +4448,8 @@ private:
     void updateReentry(Player& player, int& energy, int& lives, bool& dead,
                        int& timer, uint8_t startMarker, bool allowLevelRestart) {
         (void)energy;
+        int& deathStateTimer = deathStateTimerFor(startMarker);
+        if (deathStateTimer > 0) --deathStateTimer;
         if (lives <= 0) return;
         if (!canReenterLevel()) {
             restartCurrentLevelAfterDeath();
@@ -4398,6 +4478,7 @@ private:
             return;
         }
         respawnPlayerAtStart(player, energy, startMarker);
+        deathStateTimerFor(startMarker) = 0;
         damageCooldown = kDamageCooldownTicks;
         dead = false;
         timer = 0;
@@ -5645,6 +5726,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-damage-counters") {
             app.debugOriginalDamageCounters();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-player-state2-death-fields") {
+            app.debugPlayerState2DeathFields();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-gran") {

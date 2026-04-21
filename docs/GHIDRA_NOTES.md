@@ -284,9 +284,24 @@ per-player damage byte (`DS:79e8` for player 1, `DS:79e9` for player 2) before
 the `0x002d` hurt request. `1000:63f0` and `1000:6491` increment those counters
 on harmful actor overlap, and the clear sites at `1000:7a57..7a5c` reset them
 once per outer actor pass. `--debug-original-damage-counters` preserves this
-byte-subtraction model, including unsigned underflow death dispatch
-(`energy > 0x00c8` after wrapping), but the live C++ gameplay still applies
-accepted reconstructed damage events through a cooldown gate.
+byte-subtraction model. The live C++ `damagePlayer` now uses the original
+unsigned byte death dispatch (`energy > 0x00c8` after wrapping), but still
+applies accepted reconstructed damage events through a cooldown gate rather
+than the full original counter-clear/increment/drain cadence.
+
+State-2 life/reentry evidence: `1000:30a3` only queues the death/life-loss cue
+and writes the actor death/reentry fields (`+0x15 = 2`, `+0x10 = 0x003c`,
+`+0x24 = 0x64`). The later state-2 handler around `1000:7c89..7db5` owns the
+next transition. It decrements actor word `+0x10` at `1000:7c93`, waits for
+zero, decrements the Pascal-style life/reentry counter at `DS:79e9 + player`
+(`DS:79ea` for player 1, `DS:79eb` for player 2), marks
+`DS:79e5 + player = 0` on wrap to `0xff`, and decrements active-player count
+`DS:79b8`. When lives remain it later sets `DS:79e5 + player = 2`, initializes
+a visual/effect entry, and the normal return-to-active path at `1000:7ddf..7ea7`
+requires the reentry gate before restoring player state `1` and energy `0x64`.
+The C++ port now mirrors the recovered `+0x10` countdown as a separate
+`deathStateTimer` field for diagnostics, but does not yet use it as the
+player-facing reentry timeout or visual animation driver.
 
 ## Level Embedded Records
 

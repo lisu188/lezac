@@ -165,6 +165,23 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "original_state2_animation_advance=ok death_start=0x72 death_end=0x79 delay=3 mode1_first_frame=0x73 mode1_after_5=0x74 wrap_frame=0x72 wrap_counter=0 mode2_seq=4,3,2,3 mode2_final_step=1 mode3_backup_frame=5 mode3_backup_mode=3 mode0_unchanged=1 ghidra=1000:6053")
 
+    add_test(NAME state2_runtime_frame_oracle_synthetic
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-state2-runtime-frame-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/state2_runtime_frame_oracle_synthetic.txt)
+    set_tests_properties(state2_runtime_frame_oracle_synthetic PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "state2_runtime_frame_oracle=ok fixture=state2_runtime_frame_oracle_synthetic runtime_cs=0x1a2b runtime_ds=0x2b3c death_cursor=0x56 death_start=0x72 death_end=0x79 table_entry_base=0xc322 first_entry_addr=0xc4ea frame_rows=8 first_row=10,18,20,00 last_row=17,18,20,00 effect0_xy=0x0018,0x0028 breaks=4 temp_copy=1 visual_claim=0")
+
+    add_test(NAME state2_runtime_frame_oracle_bad_segment
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-state2-runtime-frame-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/state2_runtime_frame_oracle_bad_segment.txt
+                --expect-error)
+    set_tests_properties(state2_runtime_frame_oracle_bad_segment PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "state2_runtime_frame_oracle=error fixture=state2_runtime_frame_oracle_bad_segment reason=dump_segment_mismatch expected=0x2b3c actual=0xffff address=0060")
+
     add_test(NAME state2_effect_placement_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-effect-placement)
     set_tests_properties(state2_effect_placement_model PROPERTIES

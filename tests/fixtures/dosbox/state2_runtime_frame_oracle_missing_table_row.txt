@@ -1,0 +1,22 @@
+# LEZAC state-2 runtime frame oracle malformed fixture.
+capture=state2_death_frame_table
+source=dosbox-debug
+temp_copy=1
+
+runtime_cs=1A2B
+runtime_ds=2B3C
+
+break ghidra=1000:3108 runtime=1A2B:3108 label=state2_death_helper
+break ghidra=1000:6148 runtime=1A2B:6148 label=actor_frame_consumer
+break ghidra=1000:7C89 runtime=1A2B:7C89 label=state2_countdown
+break ghidra=1000:7DDF runtime=1A2B:7DDF label=state2_return_active
+
+dump DS:0060
+2B3C:0060  00 00 00 00 00 00 00 00 00 00 56 00 72 79 00 00
+2B3C:0070  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
+dump DS:C4EA
+2B3C:C4EA  10 18 20 00 11 18 20 00 12 18 20 00 13 18 20 00
+
+dump DS:C21E
+2B3C:C21E  18 00 28 00 72 00 00 00 18 00 28 00 73 00 00 00

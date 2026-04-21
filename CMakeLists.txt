@@ -171,7 +171,7 @@ if(BUILD_TESTING)
     set_tests_properties(state2_runtime_frame_oracle_synthetic PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "state2_runtime_frame_oracle=ok fixture=state2_runtime_frame_oracle_synthetic runtime_cs=0x1a2b runtime_ds=0x2b3c death_cursor=0x56 death_start=0x72 death_end=0x79 table_entry_base=0xc322 first_entry_addr=0xc4ea frame_rows=8 first_row=10,18,20,00 last_row=17,18,20,00 effect0_xy=0x0018,0x0028 breaks=4 temp_copy=1 visual_claim=0")
+            "state2_runtime_frame_oracle=ok fixture=state2_runtime_frame_oracle_synthetic runtime_cs=0x1a2b runtime_ds=0x2b3c death_cursor=0x56 death_start=0x72 death_end=0x79 table_entry_base=0xc322 first_entry_addr=0xc4ea frame_rows=8 first_row=10,18,20,00 last_row=17,18,20,00 rows=72@c4ea:10,18,20,00;73@c4ee:11,18,20,00;74@c4f2:12,18,20,00;75@c4f6:13,18,20,00;76@c4fa:14,18,20,00;77@c4fe:15,18,20,00;78@c502:16,18,20,00;79@c506:17,18,20,00 effect0_xy=0x0018,0x0028 breaks=4 temp_copy=1 visual_claim=0")
 
     add_test(NAME state2_runtime_frame_oracle_bad_segment
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-state2-runtime-frame-oracle
@@ -181,6 +181,33 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "state2_runtime_frame_oracle=error fixture=state2_runtime_frame_oracle_bad_segment reason=dump_segment_mismatch expected=0x2b3c actual=0xffff address=0060")
+
+    add_test(NAME state2_runtime_frame_oracle_bad_breakpoint
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-state2-runtime-frame-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/state2_runtime_frame_oracle_bad_breakpoint.txt
+                --expect-error)
+    set_tests_properties(state2_runtime_frame_oracle_bad_breakpoint PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "state2_runtime_frame_oracle=error fixture=state2_runtime_frame_oracle_bad_breakpoint reason=breakpoint_offset_mismatch expected=3108 actual=3109")
+
+    add_test(NAME state2_runtime_frame_oracle_missing_global_byte
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-state2-runtime-frame-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/state2_runtime_frame_oracle_missing_global_byte.txt
+                --expect-error)
+    set_tests_properties(state2_runtime_frame_oracle_missing_global_byte PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "state2_runtime_frame_oracle=error fixture=state2_runtime_frame_oracle_missing_global_byte reason=missing_byte address=006a")
+
+    add_test(NAME state2_runtime_frame_oracle_missing_table_row
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-state2-runtime-frame-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/state2_runtime_frame_oracle_missing_table_row.txt
+                --expect-error)
+    set_tests_properties(state2_runtime_frame_oracle_missing_table_row PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "state2_runtime_frame_oracle=error fixture=state2_runtime_frame_oracle_missing_table_row reason=missing_byte address=c506")
 
     add_test(NAME state2_effect_placement_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-effect-placement)

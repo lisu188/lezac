@@ -2674,6 +2674,14 @@ public:
             int frameRows = static_cast<int>(deathEnd - deathStart + 1);
             std::string firstRow = rowString(firstEntry);
             std::string lastRow = rowString(lastEntry);
+            std::ostringstream rows;
+            for (int frame = deathStart; frame <= deathEnd; ++frame) {
+                uint16_t entry = static_cast<uint16_t>(
+                    kFrameEntryBase + static_cast<uint16_t>(frame) * 4u);
+                if (frame != deathStart) rows << ';';
+                rows << bareHex2(static_cast<uint8_t>(frame)) << '@'
+                     << bareHex4(entry) << ':' << rowString(entry);
+            }
             uint16_t effectX = static_cast<uint16_t>(requireByte(0xc21e) |
                                                      (requireByte(0xc21f) << 8));
             uint16_t effectY = static_cast<uint16_t>(requireByte(0xc220) |
@@ -2690,6 +2698,7 @@ public:
                       << " frame_rows=" << frameRows
                       << " first_row=" << firstRow
                       << " last_row=" << lastRow
+                      << " rows=" << rows.str()
                       << " effect0_xy=" << hex4(effectX) << ',' << hex4(effectY)
                       << " breaks=" << breakCount
                       << " temp_copy=" << (tempCopy ? 1 : 0)

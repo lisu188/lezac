@@ -147,7 +147,8 @@ Dump the current bomb inventory model and export sprite contact sheets:
   actor update model locks the `1000:6053` counter, wrap, ping-pong, and
   mode-3 backup behavior. The runtime-frame oracle parses saved DOSBox debugger
   dumps for `DS:006a`, `DS:006c`, `DS:006d`, the `DS:c322..c324` frame table,
-  and `DS:c21e` effect-entry words without making a visual claim. The
+  and `DS:c21e` effect-entry words without making a visual claim, and reports
+  each captured frame-table row in deterministic raw-byte form. The
   return-placement model tracks the `DS:c21e + 8 * actor[+0x01]` effect-entry
   descent and blocking checks.
 

@@ -132,6 +132,19 @@ logic at `1000:73e5..741b`: add the low velocity byte to the fractional byte,
 then add the signed high velocity byte plus carry to the integer position. This
 preserves the original floor-style behavior for negative fractional velocities.
 
+The C++ collision/passability model currently treats destruction-progress tiles
+as solid except passable objects: portal tile `0x45` and bomb-object tiles
+`0x67..0x72`. Player collision samples a 12x16 footprint; monster collision
+samples a 14x16 footprint. `--debug-passable-objects` verifies the decoded
+levels contain portal, bomb-object, and solid examples, then checks full actor
+footprints and consumed bomb-object tiles against the passability helper.
+`--debug-collision-pushout` locks the current model by forcing horizontal and
+vertical player/monster collisions into a synthetic solid tile, then asserting
+the actors finish clear. It covers behavior-3 full horizontal reversal/vertical
+stop and behavior-4 half reversal with retarget timer reset. Exact original
+clearance rules inside
+`1000:6053..777f` still need more disassembly or DOSBox-debug runtime evidence.
+
 ## Bomb Inventory
 
 The original tracks four bomb counts rather than a single radius. New-game setup

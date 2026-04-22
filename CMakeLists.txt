@@ -221,7 +221,9 @@ if(BUILD_TESTING)
     add_test(NAME passable_objects
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-passable-objects)
     set_tests_properties(passable_objects PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^passable_objects=ok bomb=1 portal=1 solid=1 footprint_clear=1 consumed_clear=1")
 
     add_test(NAME trigger_accounting
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-trigger-accounting)
@@ -249,7 +251,9 @@ if(BUILD_TESTING)
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-collision-pushout)
     set_tests_properties(collision_pushout PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        TIMEOUT 5)
+        TIMEOUT 5
+        PASS_REGULAR_EXPRESSION
+            "^collision_pushout=ok player_h_clear=1 player_v_clear=1 monster_h_clear=1 monster_v_clear=1 monster_b4_half=1 passable_clear=1 solid_tile=2")
 
     find_program(BASH_EXECUTABLE bash)
     find_program(XVFB_RUN_EXECUTABLE xvfb-run)

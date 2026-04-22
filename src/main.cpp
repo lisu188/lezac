@@ -3558,7 +3558,30 @@ public:
         if (!sawBombObject || !sawPortal || !sawSolid) {
             throw std::runtime_error("passable object coverage did not find required tile types");
         }
-        std::cout << "passable_objects=ok\n";
+
+        resetLevel(0);
+        std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+        std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+        constexpr int kPassableX = 6;
+        constexpr int kPassableY = 6;
+        tileRef(kPassableX, kPassableY) = 0x45;
+        tileRef(kPassableX + 1, kPassableY) = 0x67;
+        tileRef(kPassableX, kPassableY + 1) = 0x6d;
+        tileRef(kPassableX + 1, kPassableY + 1) = 0x72;
+        if (collides(static_cast<float>(kPassableX * kTileSize),
+                     static_cast<float>(kPassableY * kTileSize)) ||
+            monsterCollides(kPassableX * kTileSize, kPassableY * kTileSize)) {
+            throw std::runtime_error("passable object footprint blocks movement");
+        }
+        if (!consumeBombObjectTile(kPassableX + 1, kPassableY) ||
+            solidPixel(static_cast<float>((kPassableX + 1) * kTileSize + 1),
+                       static_cast<float>(kPassableY * kTileSize + 1))) {
+            throw std::runtime_error("consumed bomb object tile blocks movement");
+        }
+
+        std::cout << "passable_objects=ok"
+                  << " bomb=1 portal=1 solid=1"
+                  << " footprint_clear=1 consumed_clear=1\n";
     }
 
     void debugTriggerAccounting() {
@@ -3746,39 +3769,145 @@ public:
     void debugCollisionPushout() {
         load();
         resetLevel(0);
-        bool found = false;
-        for (int y = 0; y < level_.height && !found; ++y) {
-            for (int x = 0; x < level_.width && !found; ++x) {
-                if (!solidPixel(static_cast<float>(x * kTileSize + 1),
-                                static_cast<float>(y * kTileSize + 1))) {
-                    continue;
-                }
-                player_.x = static_cast<float>(x * kTileSize);
-                player_.y = static_cast<float>(y * kTileSize);
-                movePlayer(player_, 1.0f, 0.0f);
+        std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+        std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
 
-                monsters_.clear();
-                ActiveMonster monster;
-                monster.x = x * kTileSize;
-                monster.y = y * kTileSize;
-                monster.kind = 1;
-                monster.behavior = 3;
-                monster.alive = true;
-                monster.vx8 = 0x0100;
-                monster.vy8 = 0x0100;
-                monster.animDelay = 1;
-                monster.animStart = 43;
-                monster.animEnd = 44;
-                monster.animFrame = 43;
-                monsters_.push_back(monster);
-                updateMonsters(0.0f);
-                found = true;
+        auto setTile = [&](int x, int y, uint8_t tile) {
+            if (x < 0 || y < 0 || x >= level_.width || y >= level_.height) {
+                throw std::runtime_error("synthetic collision tile outside level bounds");
             }
+            tileRef(x, y) = tile;
+        };
+        auto makeMonster = [](int x, int y, int16_t vx8, int16_t vy8) {
+            ActiveMonster monster;
+            monster.x = x;
+            monster.y = y;
+            monster.kind = 1;
+            monster.behavior = 3;
+            monster.alive = true;
+            monster.vx8 = vx8;
+            monster.vy8 = vy8;
+            monster.ai0 = static_cast<uint16_t>(std::abs(vx8));
+            monster.animDelay = 1;
+            monster.animStart = 43;
+            monster.animEnd = 44;
+            monster.animFrame = 43;
+            return monster;
+        };
+
+        constexpr uint8_t kSolidDebugTile = 2;
+        constexpr int kSolidX = 5;
+        constexpr int kSolidY = 5;
+        setTile(kSolidX, kSolidY, kSolidDebugTile);
+
+        player_.x = static_cast<float>(kSolidX * kTileSize - 12);
+        player_.y = static_cast<float>(kSolidY * kTileSize);
+        if (collides(player_.x, player_.y)) {
+            throw std::runtime_error("player horizontal fixture starts blocked");
         }
-        if (!found) {
-            throw std::runtime_error("no solid tile found for collision pushout");
+        movePlayer(player_, 2.0f, 0.0f);
+        if (collides(player_.x, player_.y) ||
+            player_.x != static_cast<float>(kSolidX * kTileSize - 12)) {
+            throw std::runtime_error("player horizontal pushout did not clear collision");
         }
-        std::cout << "collision_pushout=ok\n";
+
+        constexpr int kFloorX = 10;
+        constexpr int kFloorY = 8;
+        setTile(kFloorX, kFloorY, kSolidDebugTile);
+        player_.x = static_cast<float>(kFloorX * kTileSize);
+        player_.y = static_cast<float>(kFloorY * kTileSize - 16);
+        player_.grounded = false;
+        player_.vy = 12.0f;
+        if (collides(player_.x, player_.y)) {
+            throw std::runtime_error("player vertical fixture starts blocked");
+        }
+        movePlayer(player_, 0.0f, 2.0f);
+        if (collides(player_.x, player_.y) ||
+            player_.y != static_cast<float>(kFloorY * kTileSize - 16) ||
+            !player_.grounded || player_.vy != 0.0f) {
+            throw std::runtime_error("player vertical pushout did not land cleanly");
+        }
+
+        playerDead_ = true;
+        player2Dead_ = true;
+        monsters_.clear();
+        monsters_.push_back(makeMonster(kSolidX * kTileSize - 14,
+                                        kSolidY * kTileSize, 0x0200, 0));
+        if (monsterCollides(monsters_.front().x, monsters_.front().y)) {
+            throw std::runtime_error("monster horizontal fixture starts blocked");
+        }
+        updateMonsters(0.0f);
+        if (monsters_.empty() ||
+            monsterCollides(monsters_.front().x, monsters_.front().y) ||
+            monsters_.front().x != kSolidX * kTileSize - 14 ||
+            monsters_.front().vx8 >= 0) {
+            throw std::runtime_error("monster horizontal pushout did not clear collision");
+        }
+
+        monsters_.clear();
+        monsters_.push_back(makeMonster(kFloorX * kTileSize,
+                                        kFloorY * kTileSize - 16, 0, 0x0200));
+        if (monsterCollides(monsters_.front().x, monsters_.front().y)) {
+            throw std::runtime_error("monster vertical fixture starts blocked");
+        }
+        updateMonsters(0.0f);
+        if (monsters_.empty() ||
+            monsterCollides(monsters_.front().x, monsters_.front().y) ||
+            monsters_.front().y != kFloorY * kTileSize - 16 ||
+            monsters_.front().vy8 != 0) {
+            throw std::runtime_error("monster vertical pushout did not clear collision");
+        }
+
+        monsters_.clear();
+        ActiveMonster behavior4X = makeMonster(kSolidX * kTileSize - 14,
+                                               kSolidY * kTileSize, 0x0400, 0);
+        behavior4X.behavior = 4;
+        behavior4X.motionTimer = 2;
+        monsters_.push_back(behavior4X);
+        updateMonsters(0.0f);
+        if (monsters_.empty() ||
+            monsterCollides(monsters_.front().x, monsters_.front().y) ||
+            monsters_.front().x != kSolidX * kTileSize - 14 ||
+            monsters_.front().vx8 != -0x0200 ||
+            monsters_.front().motionTimer != 0) {
+            throw std::runtime_error("behavior-4 horizontal half reversal failed");
+        }
+
+        monsters_.clear();
+        ActiveMonster behavior4Y = makeMonster(kFloorX * kTileSize,
+                                               kFloorY * kTileSize - 16, 0, 0x0400);
+        behavior4Y.behavior = 4;
+        behavior4Y.motionTimer = 2;
+        monsters_.push_back(behavior4Y);
+        updateMonsters(0.0f);
+        if (monsters_.empty() ||
+            monsterCollides(monsters_.front().x, monsters_.front().y) ||
+            monsters_.front().y != kFloorY * kTileSize - 16 ||
+            monsters_.front().vy8 != -0x0200 ||
+            monsters_.front().motionTimer != 0) {
+            throw std::runtime_error("behavior-4 vertical half reversal failed");
+        }
+
+        constexpr int kPassableX = 15;
+        constexpr int kPassableY = 5;
+        setTile(kPassableX, kPassableY, 0x67);
+        setTile(kPassableX + 1, kPassableY, 0x45);
+        setTile(kPassableX, kPassableY + 1, 0x6d);
+        setTile(kPassableX + 1, kPassableY + 1, 0x72);
+        if (collides(static_cast<float>(kPassableX * kTileSize),
+                     static_cast<float>(kPassableY * kTileSize)) ||
+            monsterCollides(kPassableX * kTileSize, kPassableY * kTileSize)) {
+            throw std::runtime_error("passable object footprint blocked movement");
+        }
+
+        std::cout << "collision_pushout=ok"
+                  << " player_h_clear=1"
+                  << " player_v_clear=1"
+                  << " monster_h_clear=1"
+                  << " monster_v_clear=1"
+                  << " monster_b4_half=1"
+                  << " passable_clear=1"
+                  << " solid_tile=" << static_cast<int>(kSolidDebugTile) << '\n';
     }
 
     void exportSprites(const std::string& bankName, const std::string& path) {

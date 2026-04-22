@@ -50,6 +50,13 @@ if(BUILD_TESTING)
     set_tests_properties(level_raw_roundtrip PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+    add_test(NAME fixed_point_integration
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-fixed)
+    set_tests_properties(fixed_point_integration PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "vel=64 ticks=4 pos=1 frac=0[ \n\r\t]+vel=-64 ticks=1 pos=-1 frac=192[ \n\r\t]+vel=-64 ticks=4 pos=-1 frac=0[ \n\r\t]+vel=256 ticks=4 pos=4 frac=0[ \n\r\t]+vel=-256 ticks=4 pos=-4 frac=0")
+
     add_test(NAME ui_smoke_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --smoke-ui 3)
@@ -277,7 +284,16 @@ if(BUILD_TESTING)
 
     add_test(NAME monster_slots COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-slots)
     set_tests_properties(monster_slots PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "monster_slots=ok initial_slots=2 returned_immediate=1 death_ticks=25")
+
+    add_test(NAME monster_motion_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-motion-model)
+    set_tests_properties(monster_motion_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "monster_motion_model=ok carry_pos=11 carry_frac=4 neg_pos=9 neg_frac=254 b3_init_vx=256 b3_init_frame=45-46 b3_ledge_vx=-256 b3_ledge_vy=64 b3_ledge_frame=43-44 b4_chase_vx=512 b4_chase_vy=0 b4_timer=6 b4_frame=39-41")
 
     add_test(NAME spawners_summary
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-spawners)

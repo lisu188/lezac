@@ -90,8 +90,11 @@ loader reads three counted fixed-size blocks:
   `1000:7a6b-7c2c` checks enabled/budget/live-count/cooldown fields and creates
   active 0x26-byte actor records. Observed monster kinds are `1`, `2`, `3`, `4`,
   `6`, and `9`. Spawned actors retain a source-spawner id so actor removal can
-  return the live slot to the spawner, matching the behavior seen around
-  `1000:74f9`.
+  return the live slot to the spawner. The fatal damage branch at
+  `1000:74a6..7513` sets state `2`, kind `0x0c`, timer `0x19`, and, when
+  `actor+0x25 > 0`, immediately returns the source live slot around
+  `1000:74e6..74f9`; the later death-timer removal must not return it a second
+  time.
   The last two bytes are split in runtime use: byte `0x1c` reloads the spawner
   cooldown and byte `0x1d` is passed to the actor animation initializer as a
   delay value.
@@ -133,6 +136,11 @@ fractional accumulator bytes. The integration helper mirrors the byte-carry
 logic at `1000:73e5..741b`: add the low velocity byte to the fractional byte,
 then add the signed high velocity byte plus carry to the integer position. This
 preserves the original floor-style behavior for negative fractional velocities.
+`--debug-monster-motion-model` now locks that 8.8 carry behavior and the current
+behavior `3`/`4` branch hypotheses in a synthetic fixture, including kind-1
+directional frame selection and behavior-4 countdown retargeting. This is a
+regression oracle for the current reconstruction model, not proof that the
+remaining AI/collision rules are exact.
 
 ## Bomb Inventory
 

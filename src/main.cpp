@@ -352,6 +352,7 @@ struct ActiveMonster {
     uint8_t animMode = 1;
     int8_t animStep = 1;
     size_t spawnerIndex = 0;
+    bool hasSpawner = false;
     int hp = 1;
     int stateTimer = 0;
     int motionTimer = 0;
@@ -4021,8 +4022,8 @@ public:
         }
 
         enterMonsterDeath(monster);
-        if (spawnerStates_[spawnerIndex].availableSlots != initialSlots - 1) {
-            throw std::runtime_error("monster death returned live slot before removal");
+        if (spawnerStates_[spawnerIndex].availableSlots != initialSlots) {
+            throw std::runtime_error("monster death did not immediately return live slot");
         }
         int deathTicks = monster.stateTimer;
         for (int i = 0; i < deathTicks; ++i) {
@@ -4037,7 +4038,93 @@ public:
             throw std::runtime_error("monster live slot was returned more than once");
         }
         std::cout << "monster_slots=ok initial_slots=" << initialSlots
+                  << " returned_immediate=1"
                   << " death_ticks=" << deathTicks << '\n';
+    }
+
+    void debugMonsterMotionModel() {
+        load();
+
+        int carryPos = 10;
+        uint8_t carryFrac = 250;
+        integrateAxis8_8(carryPos, carryFrac, 0x000a);
+        if (carryPos != 11 || carryFrac != 4) {
+            throw std::runtime_error("8.8 positive carry integration changed");
+        }
+
+        int negativePos = 10;
+        uint8_t negativeFrac = 0;
+        integrateAxis8_8(negativePos, negativeFrac, static_cast<int16_t>(0xffff));
+        integrateAxis8_8(negativePos, negativeFrac, static_cast<int16_t>(0xffff));
+        if (negativePos != 9 || negativeFrac != 254) {
+            throw std::runtime_error("8.8 negative fractional integration changed");
+        }
+
+        prepareMonsterMotionDebugLevel(false);
+        ActiveMonster walker;
+        walker.x = 40;
+        walker.y = 24;
+        walker.kind = 1;
+        walker.behavior = 3;
+        walker.ai0 = 0x0100;
+        initializeMonsterMotion(walker);
+        if (walker.vx8 != 0x0100 || walker.vy8 != 0 ||
+            walker.animStart != 45 || walker.animEnd != 46) {
+            throw std::runtime_error("behavior 3 initialization changed");
+        }
+
+        prepareMonsterMotionDebugLevel(true);
+        ActiveMonster ledgeWalker = walker;
+        ledgeWalker.x = 40;
+        ledgeWalker.y = 24;
+        ledgeWalker.vx8 = 0x0100;
+        ledgeWalker.vy8 = 0;
+        ledgeWalker.fracX = 0;
+        ledgeWalker.fracY = 0;
+        updateMonsterMotion(ledgeWalker, 0.0f);
+        if (ledgeWalker.vx8 != -0x0100 || ledgeWalker.vy8 != 0x0040 ||
+            ledgeWalker.animStart != 43 || ledgeWalker.animEnd != 44) {
+            throw std::runtime_error("behavior 3 ledge turn changed");
+        }
+
+        prepareMonsterMotionDebugLevel(false);
+        player_.x = 80.0f;
+        player_.y = 24.0f;
+        ActiveMonster flyer;
+        flyer.x = 40;
+        flyer.y = 24;
+        flyer.kind = 2;
+        flyer.behavior = 4;
+        flyer.ai0 = 7;
+        flyer.ai1 = 0x0200;
+        flyer.ai2 = 100;
+        initializeMonsterMotion(flyer);
+        if (flyer.vx8 != 0x0200 || flyer.vy8 != 0 || flyer.motionTimer != 7 ||
+            flyer.animStart != 39 || flyer.animEnd != 41) {
+            throw std::runtime_error("behavior 4 chase initialization changed");
+        }
+        updateMonsterMotion(flyer, 0.0f);
+        if (flyer.motionTimer != 6 || flyer.vx8 != 0x0200 || flyer.vy8 != 0) {
+            throw std::runtime_error("behavior 4 countdown tick changed");
+        }
+
+        std::cout << "monster_motion_model=ok"
+                  << " carry_pos=" << carryPos
+                  << " carry_frac=" << static_cast<int>(carryFrac)
+                  << " neg_pos=" << negativePos
+                  << " neg_frac=" << static_cast<int>(negativeFrac)
+                  << " b3_init_vx=" << walker.vx8
+                  << " b3_init_frame=" << static_cast<int>(walker.animStart)
+                  << '-' << static_cast<int>(walker.animEnd)
+                  << " b3_ledge_vx=" << ledgeWalker.vx8
+                  << " b3_ledge_vy=" << ledgeWalker.vy8
+                  << " b3_ledge_frame=" << static_cast<int>(ledgeWalker.animStart)
+                  << '-' << static_cast<int>(ledgeWalker.animEnd)
+                  << " b4_chase_vx=" << flyer.vx8
+                  << " b4_chase_vy=" << flyer.vy8
+                  << " b4_timer=" << flyer.motionTimer
+                  << " b4_frame=" << static_cast<int>(flyer.animStart)
+                  << '-' << static_cast<int>(flyer.animEnd) << '\n';
     }
 
     void debugMonsterBlastDamage() {
@@ -5506,6 +5593,28 @@ private:
         (void)to;
     }
 
+    void prepareMonsterMotionDebugLevel(bool ledgeAhead) {
+        level_ = {};
+        level_.width = 12;
+        level_.height = 8;
+        level_.objectiveTile = 108;
+        level_.tiles.assign(static_cast<size_t>(level_.width) * level_.height, 1);
+        level_.wordLayer.assign(level_.tiles.size(), 0);
+        for (int x = 0; x < level_.width; ++x) {
+            tileRef(x, 5) = 2;
+        }
+        if (ledgeAhead) {
+            tileRef(6, 5) = 1;
+        }
+        playerCount_ = 1;
+        playerDead_ = false;
+        player2Dead_ = true;
+        player_ = {};
+        player2_ = {};
+        monsters_.clear();
+        randomSeed_ = 0x1234abcd;
+    }
+
     std::array<int, 2> monsterFrameRange(uint8_t kind) const {
         switch (kind) {
             case 1: return {43, 44};
@@ -5635,6 +5744,7 @@ private:
             monster.y = spawner.y;
             monster.kind = spawner.monsterKind;
             monster.spawnerIndex = i;
+            monster.hasSpawner = true;
             monster.behavior = spawner.spawnArg;
             monster.ai0 = randomRangeValue(spawner.param0Base, spawner.param0Range);
             monster.ai1 = randomRangeValue(spawner.param1Base, spawner.param1Range);
@@ -5727,10 +5837,11 @@ private:
     }
 
     void releaseMonsterSlot(ActiveMonster& monster) {
-        if (monster.deathCredited) return;
+        if (!monster.hasSpawner || monster.deathCredited) return;
         if (monster.spawnerIndex < spawnerStates_.size()) {
             ++spawnerStates_[monster.spawnerIndex].availableSlots;
             monster.deathCredited = true;
+            monster.hasSpawner = false;
         }
     }
 
@@ -6414,6 +6525,7 @@ private:
         monster.behavior = 2;
         monster.kind = 0x0c;
         monster.stateTimer = 25;
+        releaseMonsterSlot(monster);
         monster.vx8 = 0;
         monster.vy8 = 0;
         monster.fracX = 0;
@@ -7282,6 +7394,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-monster-slots") {
             app.debugMonsterSlots();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-monster-motion-model") {
+            app.debugMonsterMotionModel();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-monster-blast-damage") {

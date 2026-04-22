@@ -20,10 +20,13 @@ Baseline: `ee67978` / `origin/main`
   inspection from #28.
 - Integrated `GRAN.MST` raw/json roundtrip and spawner summary coverage from
   #29, preserving GRAN field semantics as unresolved while locking file shape.
+- Integrated monster motion/spawner lifecycle coverage from #30, including the
+  behavior-3/behavior-4 motion fixture and immediate source-spawner slot return.
 - Preserved synthetic parser-hardening coverage, original `01ED:7C89` state-2
   capture, sound step diagnostics, explosion/object metadata coverage,
   explosion debugger capture instructions, live damage-counter coverage,
-  level-1 frame inspection, GRAN roundtrip coverage, and the spawner fixture.
+  level-1 frame inspection, GRAN roundtrip coverage, spawner fixture, and
+  monster motion fixture.
 
 ## Validation
 
@@ -38,9 +41,9 @@ Baseline: `ee67978` / `origin/main`
 - Semantic meaning of `PROEFS.SON` bytes `+4..+5` remains unknown; current
   diagnostics preserve them as raw fields only.
 - Many non-explosion sound callsites still need exact cursor/priority mapping.
-- Exact actor update behavior around `1000:6053..777f`, especially monster AI,
-  collision contact flags, passability thresholds, and behavior-specific
-  movement response.
+- Exact actor update behavior around `1000:6053..777f`, especially original
+  contact flags, passability thresholds, tile snapping, behavior-3 ledge/wall
+  handling, and behavior-4 collision response.
 - Exact state-2 life-count decrement, `DS:79b9` fallback behavior,
   active-player accounting edge cases, and live dead-player visual playback
   from original frame bytes.
@@ -51,5 +54,5 @@ Baseline: `ee67978` / `origin/main`
 
 ## Next Planned Target
 
-Finish consolidating PRs #30 through #33, run full validation, close the
+Finish consolidating PRs #31 through #33, run full validation, close the
 individual draft PRs, and merge the consolidated result into `main`.

@@ -359,20 +359,24 @@ tile or the right tile is `0x01` or `0x4c`. If placement is not blocked and
 entry word `+2 > 0x18`, the routine decrements word `+2` before the
 `DS:79a3` action-gate check. The C++ debug command
 `--debug-original-state2-effect-placement` locks that placement/descent model.
-Exact runtime values for `DS:006a`, `DS:006c`, `DS:006d`, and the frame table
-at `DS:c324` still need DOSBox debugger observation before the live renderer
-can claim faithful death/reentry art. `dosbox-debug` is available in the
-current recovery environment and should be used for that capture rather than
-inferring frame ids from static asset shape.
+One real `dosbox-debug` capture now stops the original game at runtime
+`01ED:7C89` after a one-player bomb death. At that stop `DS=0C8F`,
+`DS:006a = 0x45`, `DS:006c = 0x4a`, `DS:006d = 0x4f`, and the first effect
+entry at `DS:c21e` is `x = 0x0068`, `y = 0x00a8`. The current oracle formula
+`DS:c322 + 4 * frame` yields `first_entry_addr = 0xc44a`, six rows, first row
+`10,10,7d,43`, and last row `10,10,7d,48`. This is original runtime evidence
+for the countdown state, but the live renderer still needs the frame-table
+field interpretation and visual consumption path confirmed before it can claim
+faithful death/reentry art.
 
 The C++ debug command `--debug-state2-runtime-frame-oracle <dump.txt>` parses a
 normalized saved DOSBox debugger transcript. It expects runtime `CS`/`DS`,
 translated breakpoints, a `D DS:0060` dump for `DS:006a`, `DS:006c`, and
 `DS:006d`, frame-table bytes at `DS:c322 + 4 * frame`, and `DS:c21e` effect
-entry bytes. The checked-in fixture is synthetic and only proves parser
-mechanics, address math, complete raw row reporting, and malformed-input
-rejection. A real original-game fixture should be added only after live
-`dosbox-debug` bytes are captured.
+entry bytes. The synthetic fixture proves parser mechanics, address math,
+complete raw row reporting, and malformed-input rejection. The original fixture
+captures a temp-copy `dosbox-debug` stop at `01ED:7C89` with runtime `CS=01ED`
+and `DS=0C8F`; it keeps `visual_claim=0`.
 
 Unresolved state-2 fallback: `1000:7ef8..7f2a` increments `DS:79b9` when no
 player is active and promotes any `DS:79e5 + player == 2` state byte to `1` at

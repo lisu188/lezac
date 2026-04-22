@@ -173,6 +173,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "state2_runtime_frame_oracle=ok fixture=state2_runtime_frame_oracle_synthetic runtime_cs=0x1a2b runtime_ds=0x2b3c death_cursor=0x56 death_start=0x72 death_end=0x79 table_entry_base=0xc322 first_entry_addr=0xc4ea frame_rows=8 first_row=10,18,20,00 last_row=17,18,20,00 rows=72@c4ea:10,18,20,00;73@c4ee:11,18,20,00;74@c4f2:12,18,20,00;75@c4f6:13,18,20,00;76@c4fa:14,18,20,00;77@c4fe:15,18,20,00;78@c502:16,18,20,00;79@c506:17,18,20,00 effect0_xy=0x0018,0x0028 breaks=4 temp_copy=1 visual_claim=0")
 
+    add_test(NAME state2_runtime_frame_oracle_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-state2-runtime-frame-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/state2_runtime_frame_oracle_original.txt)
+    set_tests_properties(state2_runtime_frame_oracle_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "state2_runtime_frame_oracle=ok fixture=state2_runtime_frame_oracle_original runtime_cs=0x01ed runtime_ds=0x0c8f death_cursor=0x45 death_start=0x4a death_end=0x4f table_entry_base=0xc322 first_entry_addr=0xc44a frame_rows=6 first_row=10,10,7d,43 last_row=10,10,7d,48 effect0_xy=0x0068,0x00a8 breaks=5 temp_copy=1 visual_claim=0")
+
     add_test(NAME state2_runtime_frame_oracle_bad_segment
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-state2-runtime-frame-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/state2_runtime_frame_oracle_bad_segment.txt

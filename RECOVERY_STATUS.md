@@ -1,48 +1,32 @@
 # Recovery Status
 
 Last reviewed: 2026-04-22
-Branch: `codex/consolidated-recovery`
-Baseline: `ee67978` / `origin/main`
+Branch: `codex/explosion-runtime-capture`
+Baseline: `14f4319` / `origin/main`
 
-## Completed This Consolidation
+## Completed This Iteration
 
-- Consolidated open draft recovery PRs #23 through #33 into one integration
-  branch for merge to `main`.
-- Integrated state-2 runtime oracle hardening from #23 and the original
-  temp-copy `dosbox-debug` state-2 fixture from #24.
-- Integrated `PROEFS.SON` six-byte step field diagnostics from #25 while
-  preserving bytes `+4..+5` as raw uninterpreted fields.
-- Integrated explosion object debug coverage from #26.
-- Integrated the explosion playback oracle harness and DOSBox capture attempt
-  notes from #27, keeping the checked-in fixtures as parser coverage with
-  `visual_claim=0`.
-- Integrated original per-player damage counters and level-1 dummy-SDL frame
-  inspection from #28.
-- Integrated `GRAN.MST` raw/json roundtrip and spawner summary coverage from
-  #29, preserving GRAN field semantics as unresolved while locking file shape.
-- Integrated monster motion/spawner lifecycle coverage from #30, including the
-  behavior-3/behavior-4 motion fixture and immediate source-spawner slot return.
-- Integrated raw `.SPR` roundtrip coverage from #31 and the sprite blit
-  zero-transparency contract from #32.
-- Integrated passable-object footprint and collision clearance coverage from
-  #33, including behavior-4 half-speed reversal checks.
-- Preserved synthetic parser-hardening coverage, original `01ED:7C89` state-2
-  capture, sound step diagnostics, explosion/object metadata coverage,
-  explosion debugger capture instructions, live damage-counter coverage,
-  level-1 frame inspection, GRAN roundtrip coverage, spawner fixture, monster
-  motion fixture, sprite raw-bank guards, `0xff`-visible blit contract, and
-  collision/passability clearance guards.
+- Spawned five recovery workstreams for the requested explosion runtime capture
+  target: disassembly mapping, gameplay route, rendering/assets evidence,
+  verification harness, and integration/docs.
+- Rebuilt the temp-copy `dosbox-debug` launch for original `LEZAC.EXE` and
+  confirmed the program entry stop again reaches `CS=01ED`, `DS=01DD`,
+  `IP=7783` at `01ED:7783 9A00000D0B call 0B0D:0000`.
+- Confirmed the xterm F5 sequence (`\x1b[15~`) continues execution from the
+  debugger UI into the original game.
+- Retried debugger command entry through raw PTY, piped stdin, and a real Xvfb
+  `zutty` terminal captured with `script`. In all paths printable command
+  characters reached the `->` prompt, but Return, keypad Enter, CR, LF,
+  Ctrl-J, and Ctrl-M did not execute the pending debugger command.
+- Preserved the exact breakpoint/dump plan for the level-1 bomb-object collapse
+  route and documented the current environment blocker. No original
+  explosion/debris/collapse playback bytes were captured in this iteration, and
+  no `visual_claim` was made.
 
 ## Validation
 
 - `cmake -S . -B build` passed.
-- `cmake --build build` passed with the known WSL/OneDrive clock-skew warning.
-- Initial `ctest --test-dir build --output-on-failure` found one consolidation
-  regex mismatch in `state2_runtime_frame_oracle_original`; the command output
-  included the row dump added by #23 while the #24 regex expected the older
-  shorter form.
-- Updated the original state-2 fixture regex to include all six raw frame-table
-  rows.
+- `cmake --build build` passed.
 - `ctest --test-dir build --output-on-failure` passed: 53/53.
 - `./build/lezac_cpp --validate` passed.
 - `git diff --check` passed.
@@ -72,5 +56,8 @@ Baseline: `ee67978` / `origin/main`
 
 ## Next Planned Target
 
-Run full validation, close draft PRs #23 through #33 as consolidated, push this
-branch, and merge the consolidated result into `main`.
+Use a debugger control path where Enter works, or another DOSBox debugger
+automation method, to set the `01ED:75F1`, `01ED:414A`, `01ED:370E`,
+`01ED:3A7E`, `01ED:3B18`, `01ED:3BB2`, and `01ED:3D46` breakpoints; then run
+the level-1 `(24,22)` bomb route and normalize the live dumps into
+`tests/fixtures/dosbox/explosion_playback_oracle_original.txt`.

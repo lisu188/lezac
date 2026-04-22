@@ -128,8 +128,23 @@ installed build. Common useful commands are:
 - `S` or `T` to single-step, depending on the debugger build.
 
 The debugger prompt is `->` in current local runs. Commands sent through a PTY
-need carriage returns (`\r`). The xterm F5 key sequence (`\x1b[15~`) continues
-execution from the debugger UI in current local runs.
+may need carriage returns (`\r`), but this local DOSBox debugger build has also
+shown an input-path failure where printable command characters reach `->` while
+Return, keypad Enter, CR, LF, Ctrl-J, and Ctrl-M do not submit the command. The
+xterm F5 key sequence (`\x1b[15~`) continues execution from the debugger UI in
+current local runs. If command submission fails, document the exact terminal,
+input sequence, and failure reason instead of treating it as game behavior.
+
+For terminal-log evidence, a real X terminal can be run under Xvfb and captured
+with `script`:
+
+```sh
+xvfb-run -a bash -lc '
+zutty -title LEZACDBG -geometry 100x50 \
+  -e script -q -f /tmp/lezac-debug-zutty.log \
+  -c "env TERM=xterm-256color dosbox-debug -c \"mount c /tmp/lezac-dosbox\" -c \"c:\" -c \"DEBUG LEZAC.EXE\""
+'
+```
 
 Do not assume Ghidra's `1000:offset` segment is the exact runtime segment in
 DOSBox. First stop in the program, inspect `CS`/`DS`, and translate Ghidra

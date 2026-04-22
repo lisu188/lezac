@@ -35,7 +35,17 @@ Baseline: `ee67978` / `origin/main`
 
 ## Validation
 
-- Pending final consolidated build and test run.
+- `cmake -S . -B build` passed.
+- `cmake --build build` passed with the known WSL/OneDrive clock-skew warning.
+- Initial `ctest --test-dir build --output-on-failure` found one consolidation
+  regex mismatch in `state2_runtime_frame_oracle_original`; the command output
+  included the row dump added by #23 while the #24 regex expected the older
+  shorter form.
+- Updated the original state-2 fixture regex to include all six raw frame-table
+  rows.
+- `ctest --test-dir build --output-on-failure` passed: 53/53.
+- `./build/lezac_cpp --validate` passed.
+- `git diff --check` passed.
 
 ## Remaining Top Gaps
 

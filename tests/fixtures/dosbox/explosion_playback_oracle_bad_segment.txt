@@ -1,0 +1,15 @@
+# LEZAC explosion playback oracle malformed fixture.
+capture=explosion_playback
+source=dosbox-debug
+temp_copy=1
+visual_claim=0
+
+runtime_cs=1A2B
+runtime_ds=2B3C
+
+break ghidra=1000:414A runtime=1A2B:414A label=explosion_dispatcher
+break ghidra=1000:370E runtime=1A2B:370E label=tile_damage_queue
+break ghidra=1000:3A7E runtime=1A2B:3A7E label=damage_forward_lookup
+
+dump DS:2090
+FFFF:2090  00 00 00 93 03 00 c0 04 05 00 00 00 6b 00 00 00

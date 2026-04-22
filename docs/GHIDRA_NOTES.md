@@ -187,6 +187,39 @@ the footprint into collapse or debris queues. This is not evidence for exact
 rendered sprites or original frame timing; keep those claims blocked on a full
 mapping or runtime capture of `1000:3a56..4d3b`.
 
+### Explosion Runtime Capture Target
+
+Use `dosbox-debug` from a temporary copy when runtime bytes are needed for
+explosion/debris/collapse playback. Start with:
+
+```text
+dosbox-debug -c "mount c /tmp/lezac-dosbox-explosion" -c "c:" -c "DEBUG LEZAC.EXE"
+```
+
+The `DEBUG LEZAC.EXE` wrapper stops at program entry; a current capture attempt
+recorded `CS=01ed`, `DS=01dd`, `IP=7783` there. In this environment the
+debugger's curses input accepted printable characters through tmux, but Enter
+and Backspace were not delivered as debugger commands, so no explosion
+breakpoint was reached automatically. Treat that as an environment limitation,
+not original-game evidence.
+
+When a controllable debugger session is available, translate Ghidra anchors by
+keeping the offset and using the runtime `CS`. Useful breakpoints are
+`1000:75f1`, `1000:414a`, `1000:370e`, `1000:3a7e`, `1000:3b18`,
+`1000:3bb2`, `1000:3d46`, `1000:3fa6`, and `1000:432a`. For the immediate
+level-1 collapse route, start a one-player game, move to bomb tile `(24,22)`,
+and place a player-1 bomb with `N`; the target tile above is `(24,21)` with
+word `0x0009`, expected to flag as `0x8009` and enqueue a two-cell collapse
+group.
+
+Record `R`, `U CS:IP`, `D SS:SP`, `D DS:2070`, `D DS:7990`, `D DS:2090`,
+`D DS:6610`, `D DS:c1e0`, `D DS:c21e`, and `D DS:c320` after relevant stops.
+Normalize the transcript into
+`tests/fixtures/dosbox/explosion_playback_oracle_original.txt` only after live
+bytes are captured. The checked-in `--debug-explosion-playback-oracle` fixtures
+are synthetic parser coverage and keep `visual_claim=0`; they must not be used
+as evidence for exact sprite playback.
+
 ## Sound Playback Evidence
 
 The original sound loader at `1000:0630..06aa` opens `PROEFS.SON`, reads first

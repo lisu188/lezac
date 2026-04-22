@@ -61,6 +61,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-sound-selector-map
 ./build/lezac_cpp --debug-player-damage-sound
 ./build/lezac_cpp --debug-original-damage-counters
+./build/lezac_cpp --debug-level1-frame-inspection
 ./build/lezac_cpp --debug-player-state2-death-fields
 ./build/lezac_cpp --debug-original-state2-return-model
 ./build/lezac_cpp --debug-original-state2-animation-init
@@ -141,12 +142,14 @@ Dump the current bomb inventory model and export sprite contact sheets:
   queues cursor `0x0027` at priority `6`, bonus pickup audio queues cursor
   `0x0008` at priority `5`, accepted player damage queues cursor `0x002d` at
   priority `4`, and player death/life-loss queues cursor `0x0056` at priority
-  `5` while restoring the player energy byte to `100`. Accepted player damage
-  now uses the original unsigned byte underflow death check rather than a
-  modern `energy == 0` clamp, and manual reentry/restart now waits for the
-  recovered state-2 `0x003c` countdown before returning a player to active
-  control. The state-2 death/reentry animation initializer is now documented as
-  the seven-byte `actor + 0x16` cursor populated by `1000:06ab`, and the
+  `5` while restoring the player energy byte to `100`. Live player damage now
+  accumulates per-player damage bytes and drains them once per update pass,
+  matching the recovered `DS:79e8`/`DS:79e9` model and original unsigned byte
+  underflow death check rather than a modern one-hit cooldown gate. Manual
+  reentry/restart still waits for the recovered state-2 `0x003c` countdown
+  before returning a player to active control. The state-2 death/reentry
+  animation initializer is now documented as the seven-byte `actor + 0x16`
+  cursor populated by `1000:06ab`, and the
   actor update model locks the `1000:6053` counter, wrap, ping-pong, and
   mode-3 backup behavior. The runtime-frame oracle parses saved DOSBox debugger
   dumps for `DS:006a`, `DS:006c`, `DS:006d`, the `DS:c322..c324` frame table,
@@ -184,10 +187,10 @@ Dump the current bomb inventory model and export sprite contact sheets:
   blast damage, visual selectors, actor sprite indices, word-layer damage
   gating, bomb-object passability after explosion, and queued debris/collapse
   metadata now follow the `1000:414a`/`1000:370e`/expiration analysis. Active
-  collapse/debris records now drain player energy with a short post-hit
-  cooldown, but exact sprite playback around `1000:3a56..4d3b`, per-frame
-  damage counter cadence, delayed state-2 life-count decrement, and
-  death/reentry visual playback remain simplified. The
+  collapse/debris records
+  now queue into the same per-player damage counters as monster contact and
+  bomb blasts, but exact sprite playback, delayed state-2 life-count
+  decrement, and death/reentry visual playback remain simplified. The
   `actor + 0x16` state-2 cursor, cursor advancement rules, and `DS:c21e`
   placement math are locked as deterministic models, and the runtime-frame
   oracle now validates one original state-2 countdown capture, but the live

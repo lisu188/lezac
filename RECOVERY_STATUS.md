@@ -16,9 +16,12 @@ Baseline: `ee67978` / `origin/main`
 - Integrated the explosion playback oracle harness and DOSBox capture attempt
   notes from #27, keeping the checked-in fixtures as parser coverage with
   `visual_claim=0`.
+- Integrated original per-player damage counters and level-1 dummy-SDL frame
+  inspection from #28.
 - Preserved synthetic parser-hardening coverage, original `01ED:7C89` state-2
-  capture, sound step diagnostics, explosion/object metadata coverage, and
-  explosion debugger capture instructions.
+  capture, sound step diagnostics, explosion/object metadata coverage,
+  explosion debugger capture instructions, live damage-counter coverage, and
+  level-1 frame inspection.
 
 ## Validation
 
@@ -36,9 +39,9 @@ Baseline: `ee67978` / `origin/main`
 - Exact actor update behavior around `1000:6053..777f`, especially monster AI,
   collision contact flags, passability thresholds, and behavior-specific
   movement response.
-- Exact original continuous-contact damage cadence, delayed state-2 life-count
-  decrement, `DS:79b9` fallback behavior, and active-player accounting edge
-  cases.
+- Exact state-2 life-count decrement, `DS:79b9` fallback behavior,
+  active-player accounting edge cases, and live dead-player visual playback
+  from original frame bytes.
 - Exact two-player panel artwork and full death/reentry presentation.
 - Exact sprite frame tables for impact/death/reward frames remain unresolved.
 - `GRAN.MST` field semantics remain only partially decoded until the GRAN
@@ -46,5 +49,5 @@ Baseline: `ee67978` / `origin/main`
 
 ## Next Planned Target
 
-Finish consolidating PRs #28 through #33, run full validation, close the
+Finish consolidating PRs #29 through #33, run full validation, close the
 individual draft PRs, and merge the consolidated result into `main`.

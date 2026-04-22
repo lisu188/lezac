@@ -314,6 +314,11 @@ struct DamagePhaseLookup {
     bool debris = false;
 };
 
+struct FrameInspection {
+    size_t changedPixels = 0;
+    uint64_t hash = 0;
+};
+
 struct Player {
     float x = 24.0f;
     float y = 24.0f;
@@ -1280,13 +1285,15 @@ public:
         debris.timer = 2;
         debrisQueue_.push_back(debris);
         updateFlashes();
+        drainPlayerDamageCounters();
         if (energy_ >= 100) {
             throw std::runtime_error("active debris did not drain player energy");
         }
         int afterDebrisEnergy = energy_;
         updateFlashes();
-        if (energy_ != afterDebrisEnergy) {
-            throw std::runtime_error("damage cooldown did not block repeated debris damage");
+        drainPlayerDamageCounters();
+        if (energy_ >= afterDebrisEnergy) {
+            throw std::runtime_error("active debris did not drain on the next pass");
         }
 
         pushKeyDown(SDLK_SPACE);
@@ -1303,6 +1310,7 @@ public:
                          contactProfile.fuseTicks, BombType::Small,
                          contactProfile.fuseTicks};
         explode(contactBomb);
+        drainPlayerDamageCounters();
         if (energy_ >= 100) {
             throw std::runtime_error("bomb explosion did not drain player energy");
         }
@@ -1391,13 +1399,163 @@ public:
         frames = std::max(1, frames);
         for (int i = 0; i < frames; ++i) {
             SDL_PumpEvents();
-            draw();
-            if (std::all_of(fb_.begin(), fb_.end(),
-                            [&](uint32_t px) { return px == fb_.front(); })) {
-                throw std::runtime_error("smoke UI rendered a uniform frame");
-            }
+            inspectRenderedFrame("smoke-ui");
             SDL_Delay(1);
         }
+    }
+
+    void debugLevel1FrameInspection() {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        int initialPlayerX = static_cast<int>(player_.x);
+        int initialPlayerY = static_cast<int>(player_.y);
+        FrameInspection menuFrame = inspectRenderedFrame("level1-menu");
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 0 ||
+            level_.width != 60 || level_.height != 33 ||
+            initialPlayerX != 104 || initialPlayerY != 168 ||
+            bombInventory_.counts[0] != 200) {
+            throw std::runtime_error("level1 frame smoke did not start one-player level 1");
+        }
+        FrameInspection playFrame = inspectRenderedFrame("level1-start");
+        std::vector<uint32_t> playPixels = fb_;
+        if (playFrame.hash == menuFrame.hash) {
+            throw std::runtime_error("level1 start frame did not differ from menu frame");
+        }
+        if (!regionHasVariation(0, 0, kScreenW, 16)) {
+            throw std::runtime_error("level1 HUD band did not contain visible glyphs");
+        }
+        if (!regionHasVariation(0, 16, kScreenW, kScreenH - 16)) {
+            throw std::runtime_error("level1 world band did not contain visible pixels");
+        }
+        if (!regionHasVariation(initialPlayerX - 2, initialPlayerY - 64 - 2, 16, 20)) {
+            throw std::runtime_error("level1 player sprite region was not visible");
+        }
+
+        size_t bombsBefore = bombs_.size();
+        int smallBombsBefore = bombInventory_.counts[0];
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.size() != bombsBefore + 1 ||
+            bombInventory_.counts[0] != smallBombsBefore - 1) {
+            throw std::runtime_error("level1 N key did not place and consume a bomb");
+        }
+        FrameInspection bombFrame = inspectRenderedFrame("level1-n-bomb");
+        int bombTileX = bombs_.back().x;
+        int bombTileY = bombs_.back().y;
+        int smallBombsAfterN = bombInventory_.counts[0];
+        if (bombFrame.hash == playFrame.hash) {
+            throw std::runtime_error("level1 bomb placement did not change the frame");
+        }
+        if (!regionChanged(playPixels, bombTileX * kTileSize, bombTileY * kTileSize - 64,
+                           kTileSize, kTileSize)) {
+            throw std::runtime_error("level1 bomb tile region did not change after N");
+        }
+
+        int fuse = bombs_.back().timer;
+        for (int i = 0; i < fuse; ++i) {
+            update(1.0f / 60.0f);
+        }
+        if (!bombs_.empty() || explosionEffects_.empty() || flashes_.empty()) {
+            throw std::runtime_error("level1 N bomb did not explode through update loop");
+        }
+        FrameInspection explosionFrame = inspectRenderedFrame("level1-n-explosion");
+        if (explosionFrame.hash == bombFrame.hash) {
+            throw std::runtime_error("level1 explosion did not change the frame");
+        }
+
+        collectAllObjectiveTilesForSmoke();
+        damageRequiredTilesForSmoke();
+        if (!isComplete()) {
+            throw std::runtime_error("level1 map progress did not complete the level");
+        }
+        FrameInspection completeFrame = inspectRenderedFrame("level1-complete");
+        if (completeFrame.hash == explosionFrame.hash) {
+            throw std::runtime_error("level1 completion did not change the frame");
+        }
+        for (int i = 0; i <= 100; ++i) {
+            update(1.0f / 60.0f);
+        }
+        if (levelIndex_ != 1) {
+            throw std::runtime_error("level1 frame smoke did not advance to level 2");
+        }
+        FrameInspection nextLevelFrame = inspectRenderedFrame("level2-start");
+        if (nextLevelFrame.hash == completeFrame.hash) {
+            throw std::runtime_error("level transition did not change the frame");
+        }
+
+        std::cout << "level1_frame_inspection=ok"
+                  << " level=1 size=60x33"
+                  << " p1_xy=" << initialPlayerX << ',' << initialPlayerY
+                  << " p1_bomb_tile=" << bombTileX << ',' << bombTileY
+                  << " initial_small=" << smallBombsBefore
+                  << " after_n_small=" << smallBombsAfterN
+                  << " bombs=1 menu_uniform=0 gameplay_uniform=0"
+                  << " menu_game_different=" << (menuFrame.hash != playFrame.hash ? 1 : 0)
+                  << " hud_nonempty=1 world_nonempty=1 player_visible=1"
+                  << " bomb_visible=1 explosion_visible=1 completion_visible=1"
+                  << " advanced_level=" << (levelIndex_ + 1)
+                  << '\n';
+    }
+
+    FrameInspection inspectRenderedFrame(const std::string& label) {
+        draw();
+        if (fb_.empty()) {
+            throw std::runtime_error(label + " frame buffer is empty");
+        }
+        FrameInspection inspection;
+        uint32_t first = fb_.front();
+        uint64_t hash = 1469598103934665603ull;
+        for (uint32_t pixelValue : fb_) {
+            if (pixelValue != first) ++inspection.changedPixels;
+            hash ^= static_cast<uint64_t>(pixelValue);
+            hash *= 1099511628211ull;
+        }
+        inspection.hash = hash;
+        if (inspection.changedPixels == 0) {
+            throw std::runtime_error(label + " rendered a uniform frame");
+        }
+        return inspection;
+    }
+
+    bool regionHasVariation(int x, int y, int w, int h) const {
+        int x0 = std::clamp(x, 0, kScreenW);
+        int y0 = std::clamp(y, 0, kScreenH);
+        int x1 = std::clamp(x + w, 0, kScreenW);
+        int y1 = std::clamp(y + h, 0, kScreenH);
+        if (x0 >= x1 || y0 >= y1) return false;
+        uint32_t first = fb_[static_cast<size_t>(y0) * kScreenW + x0];
+        for (int yy = y0; yy < y1; ++yy) {
+            for (int xx = x0; xx < x1; ++xx) {
+                if (fb_[static_cast<size_t>(yy) * kScreenW + xx] != first) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    bool regionChanged(const std::vector<uint32_t>& before, int x, int y,
+                       int w, int h) const {
+        if (before.size() != fb_.size()) return false;
+        int x0 = std::clamp(x, 0, kScreenW);
+        int y0 = std::clamp(y, 0, kScreenH);
+        int x1 = std::clamp(x + w, 0, kScreenW);
+        int y1 = std::clamp(y + h, 0, kScreenH);
+        if (x0 >= x1 || y0 >= y1) return false;
+        for (int yy = y0; yy < y1; ++yy) {
+            for (int xx = x0; xx < x1; ++xx) {
+                size_t idx = static_cast<size_t>(yy) * kScreenW + xx;
+                if (fb_[idx] != before[idx]) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     void validate() {
@@ -2149,13 +2307,12 @@ public:
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
         if (energy_ != 99 || playerDead_ || lives_ != 3 ||
-            damageCooldown_ != kDamageCooldownTicks || !soundLatch_.active ||
+            damageCooldown_ != 0 || !soundLatch_.active ||
             soundLatch_.latchedOffset != kPlayerDamageSoundCursor ||
             soundLatch_.currentSelector != kPlayerDamageSoundPriority) {
             throw std::runtime_error("player damage sound request mismatch");
         }
         int nonlethalEnergy = energy_;
-        int nonlethalCooldown = damageCooldown_;
         pumpSoundLatch();
         if (soundLatch_.active || lastPumpedSoundOffset_ != kPlayerDamageSoundCursor ||
             lastPumpedSoundSelector_ != kPlayerDamageSoundPriority) {
@@ -2165,10 +2322,12 @@ public:
         clearSoundLatch();
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
-        bool cooldownBlocked = energy_ == 99 && !soundLatch_.active;
-        if (!cooldownBlocked) {
-            throw std::runtime_error("player damage sound ignored cooldown");
+        bool secondDamageAccepted = energy_ == 98 && soundLatch_.active &&
+                                    soundLatch_.latchedOffset == kPlayerDamageSoundCursor;
+        if (!secondDamageAccepted) {
+            throw std::runtime_error("player damage sound did not accept second hit");
         }
+        int secondEnergy = energy_;
 
         clearSoundLatch();
         bool smallExplosionAccepted = requestSoundOffset(explosionSoundOffset(1),
@@ -2211,7 +2370,8 @@ public:
         }
 
         std::cout << "player_damage_sound=ok nonlethal_energy=" << nonlethalEnergy
-                  << " nonlethal_cooldown=" << nonlethalCooldown
+                  << " second_energy=" << secondEnergy
+                  << " nonlethal_cooldown=0"
                   << " death_energy=" << energy_
                   << " dead=" << (playerDead_ ? 1 : 0)
                   << " lives=" << lives_
@@ -2221,8 +2381,9 @@ public:
                   << " death_cursor=" << std::showbase << std::hex
                   << kPlayerDeathSoundCursor << std::dec << std::noshowbase
                   << " death_priority=" << static_cast<int>(kPlayerDeathSoundPriority)
-                  << " pumped=1 cooldown_blocked=1 same_priority_refresh=1"
-                  << " higher_priority_blocks=1 lethal_replaced=1\n";
+                  << " pumped=1 cooldown_gate_removed=1 same_priority_refresh=1"
+                  << " second_damage_accepted=1 higher_priority_blocks=1"
+                  << " lethal_replaced=1\n";
     }
 
     void debugOriginalDamageCounters() {
@@ -2257,6 +2418,58 @@ public:
             throw std::runtime_error("original damage counter model mismatch");
         }
 
+        load();
+        playerCount_ = 2;
+        resetLevel(0);
+        menu_ = false;
+        energy_ = 100;
+        energy2_ = 100;
+        lives_ = 3;
+        lives2_ = 3;
+        playerDead_ = false;
+        player2Dead_ = false;
+        clearSoundLatch();
+        queuePlayerDamage(1);
+        queuePlayerDamage(1);
+        queuePlayerDamage(1);
+        queuePlayerDamage(2);
+        queuePlayerDamage(2);
+        drainPlayerDamageCounters();
+        if (energy_ != 97 || energy2_ != 98 || pendingDamage_ != 0 ||
+            pendingDamage2_ != 0 || playerDead_ || player2Dead_ ||
+            !soundLatch_.active ||
+            soundLatch_.latchedOffset != kPlayerDamageSoundCursor ||
+            soundLatch_.currentSelector != kPlayerDamageSoundPriority) {
+            throw std::runtime_error("live damage counter drain mismatch");
+        }
+
+        clearSoundLatch();
+        energy_ = 1;
+        lives_ = 3;
+        playerDead_ = false;
+        deathStateTimer_ = 0;
+        queuePlayerDamage(1, 2);
+        drainPlayerDamageCounters();
+        if (!playerDead_ || lives_ != 2 || energy_ != 100 ||
+            deathStateTimer_ != kDeathStateTicks || pendingDamage_ != 0 ||
+            !soundLatch_.active ||
+            soundLatch_.latchedOffset != kPlayerDeathSoundCursor ||
+            soundLatch_.currentSelector != kPlayerDeathSoundPriority) {
+            throw std::runtime_error("live damage counter underflow mismatch");
+        }
+
+        clearSoundLatch();
+        energy_ = 100;
+        playerDead_ = true;
+        queuePlayerDamage(1, 4);
+        drainPlayerDamageCounters();
+        if (energy_ != 100 || !playerDead_ || pendingDamage_ != 0 ||
+            !soundLatch_.active ||
+            soundLatch_.latchedOffset != kPlayerDamageSoundCursor ||
+            soundLatch_.currentSelector != kPlayerDamageSoundPriority) {
+            throw std::runtime_error("live state-2 damage counter mismatch");
+        }
+
         std::cout << "original_damage_counters=ok p1_hits=3 p1_energy="
                   << static_cast<int>(p1.energy)
                   << " p1_hurt_requests=" << p1.hurtRequests
@@ -2266,6 +2479,8 @@ public:
                   << " state2_hurt_without_subtract=1"
                   << " underflow_raw=" << static_cast<int>(underflow.energy)
                   << " death_dispatch=" << (underflow.deathDispatch ? 1 : 0)
+                  << " live_p1_energy=97 live_p2_energy=98"
+                  << " live_underflow_dead=1 live_state2_energy=100"
                   << '\n';
     }
 
@@ -4434,6 +4649,8 @@ private:
     int deathStateTimer2_ = 0;
     int damageCooldown_ = 0;
     int damageCooldown2_ = 0;
+    uint8_t pendingDamage_ = 0;
+    uint8_t pendingDamage2_ = 0;
     int levelResetGeneration_ = 0;
     BombInventory bombInventory_;
     BombInventory bombInventory2_;
@@ -4563,6 +4780,8 @@ private:
         deathStateTimer2_ = 0;
         damageCooldown_ = 0;
         damageCooldown2_ = 0;
+        pendingDamage_ = 0;
+        pendingDamage2_ = 0;
         bombInventory_ = {};
         bombInventory2_ = {};
         weaponSwitchHeld_ = false;
@@ -5099,6 +5318,7 @@ private:
         updateMonsters(dt);
         updateBonusDrops();
         updateBombs();
+        drainPlayerDamageCounters();
         updateLevelCompletion();
         pumpSoundLatch();
     }
@@ -5453,13 +5673,11 @@ private:
             monster.y = std::clamp(monster.y, 0, std::max(16, level_.height * 8 - 16));
 
             if (!playerDead_ && playerOverlaps(player_, monster.x, monster.y, 14.0f, 16.0f)) {
-                damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                             damageCooldown_, 1);
+                queuePlayerDamage(1);
             }
             if (playerCount_ > 1 && !player2Dead_ &&
                 playerOverlaps(player2_, monster.x, monster.y, 14.0f, 16.0f)) {
-                damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                             damageCooldown2_, 2);
+                queuePlayerDamage(2);
             }
         }
         monsters_.erase(std::remove_if(monsters_.begin(), monsters_.end(),
@@ -5480,18 +5698,49 @@ private:
         if (damageCooldown2_ > 0) --damageCooldown2_;
     }
 
-    void damagePlayer(Player& player, int& energy, int& lives, bool& dead,
-                      int& timer, int& damageCooldown, uint8_t startMarker) {
-        if (dead || damageCooldown > 0) return;
-        uint8_t updatedEnergy =
-            static_cast<uint8_t>(std::clamp(energy, 0, 255) - 1);
-        energy = static_cast<int>(updatedEnergy);
+    void queuePlayerDamage(uint8_t startMarker, uint8_t amount = 1) {
+        if (amount == 0) return;
+        bool secondPlayer = startMarker == 2 && playerCount_ > 1;
+        bool dead = secondPlayer ? player2Dead_ : playerDead_;
+        int cooldown = secondPlayer ? damageCooldown2_ : damageCooldown_;
+        if (!dead && cooldown > 0) return;
+        uint8_t& pending = secondPlayer ? pendingDamage2_ : pendingDamage_;
+        pending = static_cast<uint8_t>(pending + amount);
+    }
+
+    void drainPlayerDamageCounters() {
+        drainPlayerDamageCounter(player_, energy_, lives_, playerDead_, reentryTimer_,
+                                 pendingDamage_, 1);
+        if (playerCount_ > 1) {
+            drainPlayerDamageCounter(player2_, energy2_, lives2_, player2Dead_,
+                                     reentryTimer2_, pendingDamage2_, 2);
+        } else {
+            pendingDamage2_ = 0;
+        }
+    }
+
+    void drainPlayerDamageCounter(Player& player, int& energy, int& lives,
+                                  bool& dead, int& timer, uint8_t& pending,
+                                  uint8_t startMarker) {
+        uint8_t amount = pending;
+        pending = 0;
+        if (amount == 0) return;
         requestPlayerDamageSound();
+        if (dead) return;
+        uint8_t updatedEnergy =
+            static_cast<uint8_t>(std::clamp(energy, 0, 255) - amount);
+        energy = static_cast<int>(updatedEnergy);
         if (static_cast<uint16_t>(updatedEnergy) > 0x00c8) {
             beginPlayerDeath(player, energy, lives, dead, timer, startMarker);
-        } else {
-            damageCooldown = kDamageCooldownTicks;
         }
+    }
+
+    void damagePlayer(Player& player, int& energy, int& lives, bool& dead,
+                      int& timer, int& damageCooldown, uint8_t startMarker) {
+        (void)damageCooldown;
+        uint8_t immediateDamage = 1;
+        drainPlayerDamageCounter(player, energy, lives, dead, timer,
+                                 immediateDamage, startMarker);
     }
 
     bool playerOverlapsTileArea(const Player& player, int tx0, int ty0,
@@ -5510,14 +5759,11 @@ private:
         ty1 = std::clamp(ty1, 0, std::max(0, level_.height - 1));
         if (tx0 > tx1) std::swap(tx0, tx1);
         if (ty0 > ty1) std::swap(ty0, ty1);
-        if (!playerDead_ && playerOverlapsTileArea(player_, tx0, ty0, tx1, ty1)) {
-            damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                         damageCooldown_, 1);
+        if (playerOverlapsTileArea(player_, tx0, ty0, tx1, ty1)) {
+            queuePlayerDamage(1);
         }
-        if (playerCount_ > 1 && !player2Dead_ &&
-            playerOverlapsTileArea(player2_, tx0, ty0, tx1, ty1)) {
-            damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                         damageCooldown2_, 2);
+        if (playerCount_ > 1 && playerOverlapsTileArea(player2_, tx0, ty0, tx1, ty1)) {
+            queuePlayerDamage(2);
         }
     }
 
@@ -5833,6 +6079,7 @@ private:
         for (const Bomb& b : expired) {
             if (levelResetGeneration_ != generation) break;
             explode(b);
+            drainPlayerDamageCounters();
         }
     }
 
@@ -6111,13 +6358,11 @@ private:
 
     void damagePlayersInExplosion(const std::vector<std::array<int, 2>>& tiles) {
         if (!playerDead_ && playerOverlapsAnyExplosionTile(player_, tiles)) {
-            damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                         damageCooldown_, 1);
+            queuePlayerDamage(1);
         }
         if (playerCount_ > 1 && !player2Dead_ &&
             playerOverlapsAnyExplosionTile(player2_, tiles)) {
-            damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                         damageCooldown2_, 2);
+            queuePlayerDamage(2);
         }
     }
 
@@ -7040,6 +7285,10 @@ int main(int argc, char** argv) {
                 frames = std::stoi(argv[2]);
             }
             app.smokeUi(frames);
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-level1-frame-inspection") {
+            app.debugLevel1FrameInspection();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--smoke-controls") {

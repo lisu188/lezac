@@ -1938,6 +1938,95 @@ public:
                   << " json_chunks=" << sounds_.records.size() << '\n';
     }
 
+    void debugSonStepFields() {
+        load();
+        if (sounds_.stepCount != 0x82 ||
+            sounds_.payload.size() != sounds_.stepCount * kSoundStepSize) {
+            throw std::runtime_error("PROEFS.SON step field layout mismatch");
+        }
+
+        auto hex2 = [](uint8_t value) {
+            std::ostringstream oss;
+            oss << "0x" << std::hex << std::nouppercase << std::setw(2)
+                << std::setfill('0') << static_cast<int>(value);
+            return oss.str();
+        };
+        auto hex4 = [](uint16_t value) {
+            std::ostringstream oss;
+            oss << "0x" << std::hex << std::nouppercase << std::setw(4)
+                << std::setfill('0') << value;
+            return oss.str();
+        };
+
+        struct StepFields {
+            uint16_t periodWord = 0;
+            uint8_t gateTick = 0;
+            uint8_t periodTicks = 0;
+            uint8_t unknown4 = 0;
+            uint8_t unknown5 = 0;
+        };
+
+        auto step = [&](size_t stepIndex) {
+            size_t off = stepIndex * kSoundStepSize;
+            if (off + 5 >= sounds_.payload.size()) {
+                throw std::runtime_error("PROEFS.SON step index out of range");
+            }
+            return StepFields{le16(sounds_.payload, off), sounds_.payload[off + 2],
+                              sounds_.payload[off + 3], sounds_.payload[off + 4],
+                              sounds_.payload[off + 5]};
+        };
+
+        std::vector<uint16_t> stopCursors;
+        int unknownPairNonzeroSteps = 0;
+        for (size_t i = 0; i < sounds_.stepCount; ++i) {
+            StepFields fields = step(i);
+            if (fields.periodWord == kSoundStopPeriod) {
+                stopCursors.push_back(static_cast<uint16_t>(i + 1));
+            }
+            if (fields.unknown4 != 0 || fields.unknown5 != 0) {
+                ++unknownPairNonzeroSteps;
+            }
+        }
+        if (stopCursors.size() != kExpectedSoundStopCursors.size() ||
+            !std::equal(stopCursors.begin(), stopCursors.end(),
+                        kExpectedSoundStopCursors.begin())) {
+            throw std::runtime_error("PROEFS.SON step stop cursor map changed");
+        }
+
+        auto printStep = [&](const std::string& label, size_t stepIndex) {
+            StepFields fields = step(stepIndex);
+            std::cout << "son_step_fields " << label
+                      << " step_index=" << stepIndex
+                      << " cursor=" << hex4(static_cast<uint16_t>(stepIndex + 1))
+                      << " period_word=" << hex4(fields.periodWord)
+                      << " gate_tick=" << static_cast<int>(fields.gateTick)
+                      << " period_ticks=" << static_cast<int>(fields.periodTicks)
+                      << " unknown4=" << hex2(fields.unknown4)
+                      << " unknown5=" << hex2(fields.unknown5)
+                      << " stop=" << (fields.periodWord == kSoundStopPeriod ? 1 : 0)
+                      << '\n';
+        };
+
+        std::cout << "son_step_fields=summary steps=" << sounds_.stepCount
+                  << " step_size=" << kSoundStepSize
+                  << " stop_sentinels=" << stopCursors.size()
+                  << " unknown_pair_nonzero_steps=" << unknownPairNonzeroSteps
+                  << " period_word=bytes0-1"
+                  << " gate_tick=byte2"
+                  << " period_ticks=byte3"
+                  << " unknown4=byte4"
+                  << " unknown5=byte5\n";
+        printStep("first", 0);
+        printStep("first_stop", stopCursors.front() - 1);
+        printStep("final_stop", stopCursors.back() - 1);
+        std::cout << "son_step_fields=ok steps=" << sounds_.stepCount
+                  << " first_period=" << hex4(step(0).periodWord)
+                  << " first_stop_cursor=" << hex4(stopCursors.front())
+                  << " final_stop_cursor=" << hex4(stopCursors.back())
+                  << " unknown_pair_nonzero_steps=" << unknownPairNonzeroSteps
+                  << '\n';
+    }
+
     void debugSoundPriorityLatch() {
         load();
         auto printCase = [&](const std::string& name, bool accepted) {
@@ -6386,6 +6475,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-son-raw-roundtrip") {
             app.debugSonRawRoundtrip();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-son-step-fields") {
+            app.debugSonStepFields();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sound-priority-latch") {

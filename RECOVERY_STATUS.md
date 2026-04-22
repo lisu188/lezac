@@ -10,8 +10,10 @@ Baseline: `ee67978` / `origin/main`
   branch before merging to `main`.
 - Integrated state-2 runtime oracle hardening from #23 and the original
   temp-copy `dosbox-debug` state-2 fixture from #24.
+- Integrated `PROEFS.SON` six-byte step field diagnostics from #25 while
+  preserving bytes `+4..+5` as raw uninterpreted fields.
 - Preserved both synthetic parser-hardening coverage and the original
-  `01ED:7C89` capture with `visual_claim=0`.
+  `01ED:7C89` state-2 capture with `visual_claim=0`.
 
 ## Validation
 
@@ -21,11 +23,12 @@ Baseline: `ee67978` / `origin/main`
 
 - Interpret captured state-2 frame-table bytes and confirm the visual
   consumption path before wiring live dead-player rendering.
+- Semantic meaning of `PROEFS.SON` bytes `+4..+5` remains unknown; current
+  diagnostics preserve them as raw fields only.
+- Many non-explosion sound callsites still need exact cursor/priority mapping.
 - Exact actor update behavior around `1000:6053..777f`, especially monster AI,
   collision contact flags, passability thresholds, and behavior-specific
   movement response.
-- Exact non-explosion `PROEFS.SON` semantics for bytes `+4..+5` in each
-  six-byte step, plus mapping of remaining sound callsites to events.
 - Exact original continuous-contact damage cadence, delayed state-2 life-count
   decrement, `DS:79b9` fallback behavior, and active-player accounting edge
   cases.
@@ -37,5 +40,5 @@ Baseline: `ee67978` / `origin/main`
 
 ## Next Planned Target
 
-Finish consolidating PRs #25 through #33, run full validation, close the
+Finish consolidating PRs #26 through #33, run full validation, close the
 individual draft PRs, and merge the consolidated result into `main`.

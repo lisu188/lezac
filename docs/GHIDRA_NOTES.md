@@ -235,6 +235,15 @@ The current stop-cursor map from the shipped `PROEFS.SON` payload is:
 0x0031, 0x0035, 0x003d, 0x0056, 0x0069, 0x0078, 0x0082`.
 `--debug-sound-cursor-segments` validates these boundaries and renders the
 known non-direct cursor starts through `synthesizeSoundCursor`.
+`--debug-son-step-fields` is a field-only diagnostic for the same raw bank:
+it keeps the JSON schema byte-preserving and prints each sampled six-byte step
+as `step_index`, `period_word`, `gate_tick`, `period_ticks`, `unknown4`, and
+`unknown5`. In the shipped bank, the first step is cursor `0x0001` with
+`period_word=0x00f7`, `gate_tick=1`, `period_ticks=1`, `unknown4=0x01`, and
+`unknown5=0x02`; the first stop sentinel is cursor `0x0005`, and the final
+stop sentinel is cursor `0x0082`. 118 of 130 steps have a nonzero
+`unknown4`/`unknown5` pair, but the tick routine window above still does not
+interpret those bytes.
 
 Six non-explosion gameplay cues are now mapped to original queued requests:
 

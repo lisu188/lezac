@@ -120,6 +120,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "son_step_fields=ok steps=130 first_period=0x00f7 first_stop_cursor=0x0005 final_stop_cursor=0x0082 unknown_pair_nonzero_steps=118")
 
+    add_test(NAME gran_raw_roundtrip
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran-raw-roundtrip)
+    set_tests_properties(gran_raw_roundtrip PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^gran_raw_roundtrip=ok raw_size=399 record_size=57 records=7 payload_size=399 json_records=7")
+
     add_test(NAME sound_priority_latch
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-priority-latch)
     set_tests_properties(sound_priority_latch PROPERTIES
@@ -271,6 +278,13 @@ if(BUILD_TESTING)
     add_test(NAME monster_slots COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-slots)
     set_tests_properties(monster_slots PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+    add_test(NAME spawners_summary
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-spawners)
+    set_tests_properties(spawners_summary PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "spawner_total=15[ \n\r\t]+monster_kind_counts=1:7,2:2,3:3,4:3[ \n\r\t]+behavior_counts=3:9,4:6")
 
     add_test(NAME bonus_rewards COMMAND $<TARGET_FILE:lezac_cpp> --debug-bonuses)
     set_tests_properties(bonus_rewards PROPERTIES

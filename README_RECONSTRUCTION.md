@@ -76,6 +76,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-record-save-failure /tmp/missing-record-dir/records.dat
 ./build/lezac_cpp --debug-end-flow-records /tmp/end_flow_records.dat
 ./build/lezac_cpp --debug-gran
+./build/lezac_cpp --debug-gran-raw-roundtrip
 ./build/lezac_cpp --debug-levels
 ./build/lezac_cpp --debug-level-raw-roundtrip
 ./build/lezac_cpp --debug-sprite-transparency

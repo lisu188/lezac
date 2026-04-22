@@ -18,10 +18,12 @@ Baseline: `ee67978` / `origin/main`
   `visual_claim=0`.
 - Integrated original per-player damage counters and level-1 dummy-SDL frame
   inspection from #28.
+- Integrated `GRAN.MST` raw/json roundtrip and spawner summary coverage from
+  #29, preserving GRAN field semantics as unresolved while locking file shape.
 - Preserved synthetic parser-hardening coverage, original `01ED:7C89` state-2
   capture, sound step diagnostics, explosion/object metadata coverage,
-  explosion debugger capture instructions, live damage-counter coverage, and
-  level-1 frame inspection.
+  explosion debugger capture instructions, live damage-counter coverage,
+  level-1 frame inspection, GRAN roundtrip coverage, and the spawner fixture.
 
 ## Validation
 
@@ -44,10 +46,10 @@ Baseline: `ee67978` / `origin/main`
   from original frame bytes.
 - Exact two-player panel artwork and full death/reentry presentation.
 - Exact sprite frame tables for impact/death/reward frames remain unresolved.
-- `GRAN.MST` field semantics remain only partially decoded until the GRAN
-  coverage PR is integrated.
+- `GRAN.MST` field semantics remain unknown; consolidation only locks file
+  shape and raw/json byte preservation.
 
 ## Next Planned Target
 
-Finish consolidating PRs #29 through #33, run full validation, close the
+Finish consolidating PRs #30 through #33, run full validation, close the
 individual draft PRs, and merge the consolidated result into `main`.

@@ -828,10 +828,19 @@ GranBank loadGran(const std::string& path) {
     auto json = readTextFile(path);
     GranBank bank;
     bank.recordSize = static_cast<size_t>(extractInt(json, "record_size", static_cast<int>(kGranRecordSize)));
+    if (bank.recordSize != kGranRecordSize) {
+        throw std::runtime_error(path + " record_size does not match GRAN.MST fixed record size");
+    }
     auto recordObjects = extractObjectArray(json, "records");
+    if (recordObjects.size() != 7) {
+        throw std::runtime_error(path + " records array does not contain seven records");
+    }
     for (const auto& recJson : recordObjects) {
         GranRecord record;
         record.bytes = parseHexByteList(extractString(recJson, "bytes_hex"));
+        if (record.bytes.size() != bank.recordSize) {
+            throw std::runtime_error(path + " record length does not match record_size");
+        }
         bank.records.push_back(std::move(record));
     }
     return bank;
@@ -2183,6 +2192,38 @@ public:
                   << " final_stop_cursor=" << hex4(stopCursors.back())
                   << " unknown_pair_nonzero_steps=" << unknownPairNonzeroSteps
                   << '\n';
+    }
+
+    void debugGranRawRoundtrip() {
+        load();
+        auto rawBytes = readFile("GRAN.MST");
+        constexpr size_t kExpectedGranRecords = 7;
+        constexpr size_t kExpectedGranPayloadSize = kExpectedGranRecords * kGranRecordSize;
+        if (rawBytes.size() != kExpectedGranPayloadSize) {
+            throw std::runtime_error("GRAN.MST raw size mismatch");
+        }
+        if (gran_.recordSize != kGranRecordSize ||
+            gran_.records.size() != kExpectedGranRecords) {
+            throw std::runtime_error("GRAN.MST JSON shape mismatch");
+        }
+
+        std::vector<uint8_t> jsonPayload;
+        jsonPayload.reserve(kExpectedGranPayloadSize);
+        for (const GranRecord& record : gran_.records) {
+            if (record.bytes.size() != kGranRecordSize) {
+                throw std::runtime_error("GRAN.MST JSON record length mismatch");
+            }
+            jsonPayload.insert(jsonPayload.end(), record.bytes.begin(), record.bytes.end());
+        }
+        if (jsonPayload.size() != rawBytes.size() ||
+            !std::equal(jsonPayload.begin(), jsonPayload.end(), rawBytes.begin())) {
+            throw std::runtime_error("GRAN.MST raw/json payload mismatch");
+        }
+        std::cout << "gran_raw_roundtrip=ok raw_size=" << rawBytes.size()
+                  << " record_size=" << gran_.recordSize
+                  << " records=" << kExpectedGranRecords
+                  << " payload_size=" << jsonPayload.size()
+                  << " json_records=" << gran_.records.size() << '\n';
     }
 
     void debugSoundPriorityLatch() {
@@ -7149,6 +7190,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-son-step-fields") {
             app.debugSonStepFields();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-gran-raw-roundtrip") {
+            app.debugGranRawRoundtrip();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sound-priority-latch") {

@@ -81,6 +81,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-level-raw-roundtrip
 ./build/lezac_cpp --debug-sprite-transparency
 ./build/lezac_cpp --debug-sprite-raw-roundtrip
+./build/lezac_cpp --debug-sprite-blit-contract
 ./build/lezac_cpp --debug-word-layer
 ./build/lezac_cpp --debug-spawners
 ./build/lezac_cpp --debug-explosions

@@ -291,6 +291,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^sprite_raw_roundtrip=ok banks=3 raw_bytes=46843 sprites=250 pixels=46340 zero=21396 nonzero=24944 ff=369 max=48x20 bomomimk=91 prova=91 fonts=68")
 
+    add_test(NAME sprite_blit_contract
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sprite-blit-contract)
+    set_tests_properties(sprite_blit_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^sprite_blit_contract=ok width=4 height=2 drawn=6 skipped_zero=2 ff_visible=2 bg_preserved=2 outside_preserved=2")
+
     add_test(NAME monster_slots COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-slots)
     set_tests_properties(monster_slots PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}

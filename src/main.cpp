@@ -3789,6 +3789,68 @@ public:
                   << '\n';
     }
 
+    void debugSpriteBlitContract() {
+        load();
+        resetClip();
+        constexpr uint32_t kSentinel = 0x11223344u;
+        std::fill(fb_.begin(), fb_.end(), kSentinel);
+
+        Sprite sprite;
+        sprite.width = 4;
+        sprite.height = 2;
+        sprite.pixels = {0, 1, 0xff, 2,
+                         3, 0, 4,    0xff};
+        constexpr int x0 = 5;
+        constexpr int y0 = 7;
+        drawSprite(sprite, x0, y0);
+
+        auto pixelAt = [&](int x, int y) {
+            return fb_[static_cast<size_t>(y) * kScreenW + x];
+        };
+
+        int drawn = 0;
+        int skippedZero = 0;
+        int ffVisible = 0;
+        int backgroundPreserved = 0;
+        for (int y = 0; y < sprite.height; ++y) {
+            for (int x = 0; x < sprite.width; ++x) {
+                uint8_t index = sprite.pixels[static_cast<size_t>(y) * sprite.width + x];
+                uint32_t got = pixelAt(x0 + x, y0 + y);
+                if (index == 0) {
+                    if (got != kSentinel) {
+                        throw std::runtime_error("drawSprite overwrote a transparent zero pixel");
+                    }
+                    ++skippedZero;
+                    ++backgroundPreserved;
+                    continue;
+                }
+                if (got != argb(palette_, index)) {
+                    throw std::runtime_error("drawSprite did not draw an indexed pixel");
+                }
+                ++drawn;
+                if (index == 0xff) ++ffVisible;
+            }
+        }
+
+        int outsidePreserved = 0;
+        for (std::array<int, 2> pos : {std::array<int, 2>{x0 - 1, y0},
+                                       std::array<int, 2>{x0 + sprite.width, y0 + 1}}) {
+            if (pixelAt(pos[0], pos[1]) != kSentinel) {
+                throw std::runtime_error("drawSprite wrote outside sprite bounds");
+            }
+            ++outsidePreserved;
+        }
+
+        std::cout << "sprite_blit_contract=ok"
+                  << " width=" << sprite.width
+                  << " height=" << sprite.height
+                  << " drawn=" << drawn
+                  << " skipped_zero=" << skippedZero
+                  << " ff_visible=" << ffVisible
+                  << " bg_preserved=" << backgroundPreserved
+                  << " outside_preserved=" << outsidePreserved << '\n';
+    }
+
     void debugWordLayer() {
         load();
         for (size_t levelIndex = 0; levelIndex < levels_.size(); ++levelIndex) {
@@ -7480,6 +7542,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sprite-raw-roundtrip") {
             app.debugSpriteRawRoundtrip();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sprite-blit-contract") {
+            app.debugSpriteBlitContract();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-word-layer") {

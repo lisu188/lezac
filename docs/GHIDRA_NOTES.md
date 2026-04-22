@@ -77,7 +77,9 @@ quirk.
   that no payload bytes are lost.
 - `GRAN.MST` has no observed header in the shipped file. It is seven fixed-size
   57-byte records, likely aligned with the seven shipped levels, but the field
-  semantics are still unresolved.
+  semantics are still unresolved. Runtime JSON loading now rejects any converted
+  shape other than `7 * 57` bytes, and `--debug-gran-raw-roundtrip` verifies
+  the converted JSON bytes exactly match the shipped 399-byte file.
 
 ## Level Entity Blocks
 

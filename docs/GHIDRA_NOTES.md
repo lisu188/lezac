@@ -32,6 +32,10 @@ bytes targeting `082d:0000` are relocated by Ghidra into memory at
 | `1000:6053` | entity update candidate | Updates object animation, positions, controls, and collision/object behavior. |
 | `18ac:00f4` | transparent blit/object draw | Copies sprite pixels with zero treated as transparent. Palette index `0xff` is visible. |
 
+`--debug-sprite-blit-contract` exercises that blit rule through the C++ renderer:
+source index `0` preserves the destination framebuffer, while every nonzero
+source index is copied through the active palette, including visible `0xff`.
+
 Ghidra decompilation is not very useful for the Pascal code because of 16-bit
 segmented pointers and runtime helper calls, but disassembly was useful enough
 to confirm the file and RLE formats used by this port.

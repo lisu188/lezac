@@ -201,6 +201,13 @@ if(BUILD_TESTING)
     set_tests_properties(sprite_transparency PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+    add_test(NAME sprite_blit_contract
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sprite-blit-contract)
+    set_tests_properties(sprite_blit_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^sprite_blit_contract=ok width=4 height=2 drawn=6 skipped_zero=2 ff_visible=2 bg_preserved=2 outside_preserved=2")
+
     add_test(NAME monster_slots COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-slots)
     set_tests_properties(monster_slots PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})

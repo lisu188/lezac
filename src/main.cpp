@@ -314,6 +314,11 @@ struct DamagePhaseLookup {
     bool debris = false;
 };
 
+struct FrameInspection {
+    size_t changedPixels = 0;
+    uint64_t hash = 0;
+};
+
 struct Player {
     float x = 24.0f;
     float y = 24.0f;
@@ -347,6 +352,7 @@ struct ActiveMonster {
     uint8_t animMode = 1;
     int8_t animStep = 1;
     size_t spawnerIndex = 0;
+    bool hasSpawner = false;
     int hp = 1;
     int stateTimer = 0;
     int motionTimer = 0;
@@ -725,6 +731,39 @@ SpriteBank loadSprites(const std::string& path) {
     return bank;
 }
 
+SpriteBank loadRawSprites(const std::string& path) {
+    auto data = readFile(path);
+    if (data.empty()) {
+        throw std::runtime_error(path + " is empty");
+    }
+    SpriteBank bank;
+    size_t offset = 0;
+    uint8_t count = data[offset++];
+    bank.sprites.reserve(count);
+    for (uint8_t i = 0; i < count; ++i) {
+        if (offset + 2 > data.size()) {
+            throw std::runtime_error(path + " truncated sprite header");
+        }
+        Sprite sprite;
+        sprite.width = data[offset++];
+        sprite.height = data[offset++];
+        size_t pixelCount = static_cast<size_t>(sprite.width) * sprite.height;
+        if (offset + pixelCount > data.size()) {
+            throw std::runtime_error(path + " truncated sprite pixels");
+        }
+        sprite.pixels.insert(sprite.pixels.end(),
+                             data.begin() + static_cast<std::ptrdiff_t>(offset),
+                             data.begin() +
+                                 static_cast<std::ptrdiff_t>(offset + pixelCount));
+        offset += pixelCount;
+        bank.sprites.push_back(std::move(sprite));
+    }
+    if (offset != data.size()) {
+        throw std::runtime_error(path + " trailing sprite bytes");
+    }
+    return bank;
+}
+
 std::vector<Record> loadRecords(const std::string& path) {
     auto json = readTextFile(path);
     std::vector<Record> records;
@@ -823,10 +862,19 @@ GranBank loadGran(const std::string& path) {
     auto json = readTextFile(path);
     GranBank bank;
     bank.recordSize = static_cast<size_t>(extractInt(json, "record_size", static_cast<int>(kGranRecordSize)));
+    if (bank.recordSize != kGranRecordSize) {
+        throw std::runtime_error(path + " record_size does not match GRAN.MST fixed record size");
+    }
     auto recordObjects = extractObjectArray(json, "records");
+    if (recordObjects.size() != 7) {
+        throw std::runtime_error(path + " records array does not contain seven records");
+    }
     for (const auto& recJson : recordObjects) {
         GranRecord record;
         record.bytes = parseHexByteList(extractString(recJson, "bytes_hex"));
+        if (record.bytes.size() != bank.recordSize) {
+            throw std::runtime_error(path + " record length does not match record_size");
+        }
         bank.records.push_back(std::move(record));
     }
     return bank;
@@ -1280,13 +1328,15 @@ public:
         debris.timer = 2;
         debrisQueue_.push_back(debris);
         updateFlashes();
+        drainPlayerDamageCounters();
         if (energy_ >= 100) {
             throw std::runtime_error("active debris did not drain player energy");
         }
         int afterDebrisEnergy = energy_;
         updateFlashes();
-        if (energy_ != afterDebrisEnergy) {
-            throw std::runtime_error("damage cooldown did not block repeated debris damage");
+        drainPlayerDamageCounters();
+        if (energy_ >= afterDebrisEnergy) {
+            throw std::runtime_error("active debris did not drain on the next pass");
         }
 
         pushKeyDown(SDLK_SPACE);
@@ -1303,6 +1353,7 @@ public:
                          contactProfile.fuseTicks, BombType::Small,
                          contactProfile.fuseTicks};
         explode(contactBomb);
+        drainPlayerDamageCounters();
         if (energy_ >= 100) {
             throw std::runtime_error("bomb explosion did not drain player energy");
         }
@@ -1391,13 +1442,163 @@ public:
         frames = std::max(1, frames);
         for (int i = 0; i < frames; ++i) {
             SDL_PumpEvents();
-            draw();
-            if (std::all_of(fb_.begin(), fb_.end(),
-                            [&](uint32_t px) { return px == fb_.front(); })) {
-                throw std::runtime_error("smoke UI rendered a uniform frame");
-            }
+            inspectRenderedFrame("smoke-ui");
             SDL_Delay(1);
         }
+    }
+
+    void debugLevel1FrameInspection() {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        int initialPlayerX = static_cast<int>(player_.x);
+        int initialPlayerY = static_cast<int>(player_.y);
+        FrameInspection menuFrame = inspectRenderedFrame("level1-menu");
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 0 ||
+            level_.width != 60 || level_.height != 33 ||
+            initialPlayerX != 104 || initialPlayerY != 168 ||
+            bombInventory_.counts[0] != 200) {
+            throw std::runtime_error("level1 frame smoke did not start one-player level 1");
+        }
+        FrameInspection playFrame = inspectRenderedFrame("level1-start");
+        std::vector<uint32_t> playPixels = fb_;
+        if (playFrame.hash == menuFrame.hash) {
+            throw std::runtime_error("level1 start frame did not differ from menu frame");
+        }
+        if (!regionHasVariation(0, 0, kScreenW, 16)) {
+            throw std::runtime_error("level1 HUD band did not contain visible glyphs");
+        }
+        if (!regionHasVariation(0, 16, kScreenW, kScreenH - 16)) {
+            throw std::runtime_error("level1 world band did not contain visible pixels");
+        }
+        if (!regionHasVariation(initialPlayerX - 2, initialPlayerY - 64 - 2, 16, 20)) {
+            throw std::runtime_error("level1 player sprite region was not visible");
+        }
+
+        size_t bombsBefore = bombs_.size();
+        int smallBombsBefore = bombInventory_.counts[0];
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.size() != bombsBefore + 1 ||
+            bombInventory_.counts[0] != smallBombsBefore - 1) {
+            throw std::runtime_error("level1 N key did not place and consume a bomb");
+        }
+        FrameInspection bombFrame = inspectRenderedFrame("level1-n-bomb");
+        int bombTileX = bombs_.back().x;
+        int bombTileY = bombs_.back().y;
+        int smallBombsAfterN = bombInventory_.counts[0];
+        if (bombFrame.hash == playFrame.hash) {
+            throw std::runtime_error("level1 bomb placement did not change the frame");
+        }
+        if (!regionChanged(playPixels, bombTileX * kTileSize, bombTileY * kTileSize - 64,
+                           kTileSize, kTileSize)) {
+            throw std::runtime_error("level1 bomb tile region did not change after N");
+        }
+
+        int fuse = bombs_.back().timer;
+        for (int i = 0; i < fuse; ++i) {
+            update(1.0f / 60.0f);
+        }
+        if (!bombs_.empty() || explosionEffects_.empty() || flashes_.empty()) {
+            throw std::runtime_error("level1 N bomb did not explode through update loop");
+        }
+        FrameInspection explosionFrame = inspectRenderedFrame("level1-n-explosion");
+        if (explosionFrame.hash == bombFrame.hash) {
+            throw std::runtime_error("level1 explosion did not change the frame");
+        }
+
+        collectAllObjectiveTilesForSmoke();
+        damageRequiredTilesForSmoke();
+        if (!isComplete()) {
+            throw std::runtime_error("level1 map progress did not complete the level");
+        }
+        FrameInspection completeFrame = inspectRenderedFrame("level1-complete");
+        if (completeFrame.hash == explosionFrame.hash) {
+            throw std::runtime_error("level1 completion did not change the frame");
+        }
+        for (int i = 0; i <= 100; ++i) {
+            update(1.0f / 60.0f);
+        }
+        if (levelIndex_ != 1) {
+            throw std::runtime_error("level1 frame smoke did not advance to level 2");
+        }
+        FrameInspection nextLevelFrame = inspectRenderedFrame("level2-start");
+        if (nextLevelFrame.hash == completeFrame.hash) {
+            throw std::runtime_error("level transition did not change the frame");
+        }
+
+        std::cout << "level1_frame_inspection=ok"
+                  << " level=1 size=60x33"
+                  << " p1_xy=" << initialPlayerX << ',' << initialPlayerY
+                  << " p1_bomb_tile=" << bombTileX << ',' << bombTileY
+                  << " initial_small=" << smallBombsBefore
+                  << " after_n_small=" << smallBombsAfterN
+                  << " bombs=1 menu_uniform=0 gameplay_uniform=0"
+                  << " menu_game_different=" << (menuFrame.hash != playFrame.hash ? 1 : 0)
+                  << " hud_nonempty=1 world_nonempty=1 player_visible=1"
+                  << " bomb_visible=1 explosion_visible=1 completion_visible=1"
+                  << " advanced_level=" << (levelIndex_ + 1)
+                  << '\n';
+    }
+
+    FrameInspection inspectRenderedFrame(const std::string& label) {
+        draw();
+        if (fb_.empty()) {
+            throw std::runtime_error(label + " frame buffer is empty");
+        }
+        FrameInspection inspection;
+        uint32_t first = fb_.front();
+        uint64_t hash = 1469598103934665603ull;
+        for (uint32_t pixelValue : fb_) {
+            if (pixelValue != first) ++inspection.changedPixels;
+            hash ^= static_cast<uint64_t>(pixelValue);
+            hash *= 1099511628211ull;
+        }
+        inspection.hash = hash;
+        if (inspection.changedPixels == 0) {
+            throw std::runtime_error(label + " rendered a uniform frame");
+        }
+        return inspection;
+    }
+
+    bool regionHasVariation(int x, int y, int w, int h) const {
+        int x0 = std::clamp(x, 0, kScreenW);
+        int y0 = std::clamp(y, 0, kScreenH);
+        int x1 = std::clamp(x + w, 0, kScreenW);
+        int y1 = std::clamp(y + h, 0, kScreenH);
+        if (x0 >= x1 || y0 >= y1) return false;
+        uint32_t first = fb_[static_cast<size_t>(y0) * kScreenW + x0];
+        for (int yy = y0; yy < y1; ++yy) {
+            for (int xx = x0; xx < x1; ++xx) {
+                if (fb_[static_cast<size_t>(yy) * kScreenW + xx] != first) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    bool regionChanged(const std::vector<uint32_t>& before, int x, int y,
+                       int w, int h) const {
+        if (before.size() != fb_.size()) return false;
+        int x0 = std::clamp(x, 0, kScreenW);
+        int y0 = std::clamp(y, 0, kScreenH);
+        int x1 = std::clamp(x + w, 0, kScreenW);
+        int y1 = std::clamp(y + h, 0, kScreenH);
+        if (x0 >= x1 || y0 >= y1) return false;
+        for (int yy = y0; yy < y1; ++yy) {
+            for (int xx = x0; xx < x1; ++xx) {
+                size_t idx = static_cast<size_t>(yy) * kScreenW + xx;
+                if (fb_[idx] != before[idx]) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     void validate() {
@@ -1938,6 +2139,127 @@ public:
                   << " json_chunks=" << sounds_.records.size() << '\n';
     }
 
+    void debugSonStepFields() {
+        load();
+        if (sounds_.stepCount != 0x82 ||
+            sounds_.payload.size() != sounds_.stepCount * kSoundStepSize) {
+            throw std::runtime_error("PROEFS.SON step field layout mismatch");
+        }
+
+        auto hex2 = [](uint8_t value) {
+            std::ostringstream oss;
+            oss << "0x" << std::hex << std::nouppercase << std::setw(2)
+                << std::setfill('0') << static_cast<int>(value);
+            return oss.str();
+        };
+        auto hex4 = [](uint16_t value) {
+            std::ostringstream oss;
+            oss << "0x" << std::hex << std::nouppercase << std::setw(4)
+                << std::setfill('0') << value;
+            return oss.str();
+        };
+
+        struct StepFields {
+            uint16_t periodWord = 0;
+            uint8_t gateTick = 0;
+            uint8_t periodTicks = 0;
+            uint8_t unknown4 = 0;
+            uint8_t unknown5 = 0;
+        };
+
+        auto step = [&](size_t stepIndex) {
+            size_t off = stepIndex * kSoundStepSize;
+            if (off + 5 >= sounds_.payload.size()) {
+                throw std::runtime_error("PROEFS.SON step index out of range");
+            }
+            return StepFields{le16(sounds_.payload, off), sounds_.payload[off + 2],
+                              sounds_.payload[off + 3], sounds_.payload[off + 4],
+                              sounds_.payload[off + 5]};
+        };
+
+        std::vector<uint16_t> stopCursors;
+        int unknownPairNonzeroSteps = 0;
+        for (size_t i = 0; i < sounds_.stepCount; ++i) {
+            StepFields fields = step(i);
+            if (fields.periodWord == kSoundStopPeriod) {
+                stopCursors.push_back(static_cast<uint16_t>(i + 1));
+            }
+            if (fields.unknown4 != 0 || fields.unknown5 != 0) {
+                ++unknownPairNonzeroSteps;
+            }
+        }
+        if (stopCursors.size() != kExpectedSoundStopCursors.size() ||
+            !std::equal(stopCursors.begin(), stopCursors.end(),
+                        kExpectedSoundStopCursors.begin())) {
+            throw std::runtime_error("PROEFS.SON step stop cursor map changed");
+        }
+
+        auto printStep = [&](const std::string& label, size_t stepIndex) {
+            StepFields fields = step(stepIndex);
+            std::cout << "son_step_fields " << label
+                      << " step_index=" << stepIndex
+                      << " cursor=" << hex4(static_cast<uint16_t>(stepIndex + 1))
+                      << " period_word=" << hex4(fields.periodWord)
+                      << " gate_tick=" << static_cast<int>(fields.gateTick)
+                      << " period_ticks=" << static_cast<int>(fields.periodTicks)
+                      << " unknown4=" << hex2(fields.unknown4)
+                      << " unknown5=" << hex2(fields.unknown5)
+                      << " stop=" << (fields.periodWord == kSoundStopPeriod ? 1 : 0)
+                      << '\n';
+        };
+
+        std::cout << "son_step_fields=summary steps=" << sounds_.stepCount
+                  << " step_size=" << kSoundStepSize
+                  << " stop_sentinels=" << stopCursors.size()
+                  << " unknown_pair_nonzero_steps=" << unknownPairNonzeroSteps
+                  << " period_word=bytes0-1"
+                  << " gate_tick=byte2"
+                  << " period_ticks=byte3"
+                  << " unknown4=byte4"
+                  << " unknown5=byte5\n";
+        printStep("first", 0);
+        printStep("first_stop", stopCursors.front() - 1);
+        printStep("final_stop", stopCursors.back() - 1);
+        std::cout << "son_step_fields=ok steps=" << sounds_.stepCount
+                  << " first_period=" << hex4(step(0).periodWord)
+                  << " first_stop_cursor=" << hex4(stopCursors.front())
+                  << " final_stop_cursor=" << hex4(stopCursors.back())
+                  << " unknown_pair_nonzero_steps=" << unknownPairNonzeroSteps
+                  << '\n';
+    }
+
+    void debugGranRawRoundtrip() {
+        load();
+        auto rawBytes = readFile("GRAN.MST");
+        constexpr size_t kExpectedGranRecords = 7;
+        constexpr size_t kExpectedGranPayloadSize = kExpectedGranRecords * kGranRecordSize;
+        if (rawBytes.size() != kExpectedGranPayloadSize) {
+            throw std::runtime_error("GRAN.MST raw size mismatch");
+        }
+        if (gran_.recordSize != kGranRecordSize ||
+            gran_.records.size() != kExpectedGranRecords) {
+            throw std::runtime_error("GRAN.MST JSON shape mismatch");
+        }
+
+        std::vector<uint8_t> jsonPayload;
+        jsonPayload.reserve(kExpectedGranPayloadSize);
+        for (const GranRecord& record : gran_.records) {
+            if (record.bytes.size() != kGranRecordSize) {
+                throw std::runtime_error("GRAN.MST JSON record length mismatch");
+            }
+            jsonPayload.insert(jsonPayload.end(), record.bytes.begin(), record.bytes.end());
+        }
+        if (jsonPayload.size() != rawBytes.size() ||
+            !std::equal(jsonPayload.begin(), jsonPayload.end(), rawBytes.begin())) {
+            throw std::runtime_error("GRAN.MST raw/json payload mismatch");
+        }
+        std::cout << "gran_raw_roundtrip=ok raw_size=" << rawBytes.size()
+                  << " record_size=" << gran_.recordSize
+                  << " records=" << kExpectedGranRecords
+                  << " payload_size=" << jsonPayload.size()
+                  << " json_records=" << gran_.records.size() << '\n';
+    }
+
     void debugSoundPriorityLatch() {
         load();
         auto printCase = [&](const std::string& name, bool accepted) {
@@ -2060,13 +2382,12 @@ public:
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
         if (energy_ != 99 || playerDead_ || lives_ != 3 ||
-            damageCooldown_ != kDamageCooldownTicks || !soundLatch_.active ||
+            damageCooldown_ != 0 || !soundLatch_.active ||
             soundLatch_.latchedOffset != kPlayerDamageSoundCursor ||
             soundLatch_.currentSelector != kPlayerDamageSoundPriority) {
             throw std::runtime_error("player damage sound request mismatch");
         }
         int nonlethalEnergy = energy_;
-        int nonlethalCooldown = damageCooldown_;
         pumpSoundLatch();
         if (soundLatch_.active || lastPumpedSoundOffset_ != kPlayerDamageSoundCursor ||
             lastPumpedSoundSelector_ != kPlayerDamageSoundPriority) {
@@ -2076,10 +2397,12 @@ public:
         clearSoundLatch();
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
-        bool cooldownBlocked = energy_ == 99 && !soundLatch_.active;
-        if (!cooldownBlocked) {
-            throw std::runtime_error("player damage sound ignored cooldown");
+        bool secondDamageAccepted = energy_ == 98 && soundLatch_.active &&
+                                    soundLatch_.latchedOffset == kPlayerDamageSoundCursor;
+        if (!secondDamageAccepted) {
+            throw std::runtime_error("player damage sound did not accept second hit");
         }
+        int secondEnergy = energy_;
 
         clearSoundLatch();
         bool smallExplosionAccepted = requestSoundOffset(explosionSoundOffset(1),
@@ -2122,7 +2445,8 @@ public:
         }
 
         std::cout << "player_damage_sound=ok nonlethal_energy=" << nonlethalEnergy
-                  << " nonlethal_cooldown=" << nonlethalCooldown
+                  << " second_energy=" << secondEnergy
+                  << " nonlethal_cooldown=0"
                   << " death_energy=" << energy_
                   << " dead=" << (playerDead_ ? 1 : 0)
                   << " lives=" << lives_
@@ -2132,8 +2456,9 @@ public:
                   << " death_cursor=" << std::showbase << std::hex
                   << kPlayerDeathSoundCursor << std::dec << std::noshowbase
                   << " death_priority=" << static_cast<int>(kPlayerDeathSoundPriority)
-                  << " pumped=1 cooldown_blocked=1 same_priority_refresh=1"
-                  << " higher_priority_blocks=1 lethal_replaced=1\n";
+                  << " pumped=1 cooldown_gate_removed=1 same_priority_refresh=1"
+                  << " second_damage_accepted=1 higher_priority_blocks=1"
+                  << " lethal_replaced=1\n";
     }
 
     void debugOriginalDamageCounters() {
@@ -2168,6 +2493,58 @@ public:
             throw std::runtime_error("original damage counter model mismatch");
         }
 
+        load();
+        playerCount_ = 2;
+        resetLevel(0);
+        menu_ = false;
+        energy_ = 100;
+        energy2_ = 100;
+        lives_ = 3;
+        lives2_ = 3;
+        playerDead_ = false;
+        player2Dead_ = false;
+        clearSoundLatch();
+        queuePlayerDamage(1);
+        queuePlayerDamage(1);
+        queuePlayerDamage(1);
+        queuePlayerDamage(2);
+        queuePlayerDamage(2);
+        drainPlayerDamageCounters();
+        if (energy_ != 97 || energy2_ != 98 || pendingDamage_ != 0 ||
+            pendingDamage2_ != 0 || playerDead_ || player2Dead_ ||
+            !soundLatch_.active ||
+            soundLatch_.latchedOffset != kPlayerDamageSoundCursor ||
+            soundLatch_.currentSelector != kPlayerDamageSoundPriority) {
+            throw std::runtime_error("live damage counter drain mismatch");
+        }
+
+        clearSoundLatch();
+        energy_ = 1;
+        lives_ = 3;
+        playerDead_ = false;
+        deathStateTimer_ = 0;
+        queuePlayerDamage(1, 2);
+        drainPlayerDamageCounters();
+        if (!playerDead_ || lives_ != 2 || energy_ != 100 ||
+            deathStateTimer_ != kDeathStateTicks || pendingDamage_ != 0 ||
+            !soundLatch_.active ||
+            soundLatch_.latchedOffset != kPlayerDeathSoundCursor ||
+            soundLatch_.currentSelector != kPlayerDeathSoundPriority) {
+            throw std::runtime_error("live damage counter underflow mismatch");
+        }
+
+        clearSoundLatch();
+        energy_ = 100;
+        playerDead_ = true;
+        queuePlayerDamage(1, 4);
+        drainPlayerDamageCounters();
+        if (energy_ != 100 || !playerDead_ || pendingDamage_ != 0 ||
+            !soundLatch_.active ||
+            soundLatch_.latchedOffset != kPlayerDamageSoundCursor ||
+            soundLatch_.currentSelector != kPlayerDamageSoundPriority) {
+            throw std::runtime_error("live state-2 damage counter mismatch");
+        }
+
         std::cout << "original_damage_counters=ok p1_hits=3 p1_energy="
                   << static_cast<int>(p1.energy)
                   << " p1_hurt_requests=" << p1.hurtRequests
@@ -2177,6 +2554,8 @@ public:
                   << " state2_hurt_without_subtract=1"
                   << " underflow_raw=" << static_cast<int>(underflow.energy)
                   << " death_dispatch=" << (underflow.deathDispatch ? 1 : 0)
+                  << " live_p1_energy=97 live_p2_energy=98"
+                  << " live_underflow_dead=1 live_state2_energy=100"
                   << '\n';
     }
 
@@ -2674,6 +3053,14 @@ public:
             int frameRows = static_cast<int>(deathEnd - deathStart + 1);
             std::string firstRow = rowString(firstEntry);
             std::string lastRow = rowString(lastEntry);
+            std::ostringstream rows;
+            for (int frame = deathStart; frame <= deathEnd; ++frame) {
+                uint16_t entry = static_cast<uint16_t>(
+                    kFrameEntryBase + static_cast<uint16_t>(frame) * 4u);
+                if (frame != deathStart) rows << ';';
+                rows << bareHex2(static_cast<uint8_t>(frame)) << '@'
+                     << bareHex4(entry) << ':' << rowString(entry);
+            }
             uint16_t effectX = static_cast<uint16_t>(requireByte(0xc21e) |
                                                      (requireByte(0xc21f) << 8));
             uint16_t effectY = static_cast<uint16_t>(requireByte(0xc220) |
@@ -2690,12 +3077,245 @@ public:
                       << " frame_rows=" << frameRows
                       << " first_row=" << firstRow
                       << " last_row=" << lastRow
+                      << " rows=" << rows.str()
                       << " effect0_xy=" << hex4(effectX) << ',' << hex4(effectY)
                       << " breaks=" << breakCount
                       << " temp_copy=" << (tempCopy ? 1 : 0)
                       << " visual_claim=0\n";
             if (expectError) {
                 std::cout << "state2_runtime_frame_oracle=error fixture=" << fixture
+                          << " reason=expected_error_missing\n";
+                return 1;
+            }
+            return 0;
+        } catch (const std::exception& e) {
+            std::cout << e.what() << '\n';
+            return expectError ? 0 : 1;
+        }
+    }
+
+    int debugExplosionPlaybackOracle(const std::string& path, bool expectError) {
+        auto fixtureName = [](const std::string& inputPath) {
+            size_t slash = inputPath.find_last_of("/\\");
+            std::string name =
+                slash == std::string::npos ? inputPath : inputPath.substr(slash + 1);
+            size_t dot = name.find_last_of('.');
+            if (dot != std::string::npos) name = name.substr(0, dot);
+            return name;
+        };
+        const std::string fixture = fixtureName(path);
+
+        auto hex4 = [](uint16_t value) {
+            std::ostringstream oss;
+            oss << "0x" << std::hex << std::nouppercase << std::setw(4)
+                << std::setfill('0') << value;
+            return oss.str();
+        };
+        auto hexByte = [](uint8_t value) {
+            std::ostringstream oss;
+            oss << std::hex << std::nouppercase << std::setw(2)
+                << std::setfill('0') << static_cast<int>(value);
+            return oss.str();
+        };
+        auto bareHex4 = [](uint16_t value) {
+            std::ostringstream oss;
+            oss << std::hex << std::nouppercase << std::setw(4)
+                << std::setfill('0') << value;
+            return oss.str();
+        };
+        auto fail = [&](const std::string& reason) {
+            throw std::runtime_error("explosion_playback_oracle=error fixture=" +
+                                     fixture + " reason=" + reason);
+        };
+        auto parseHex16 = [&](const std::string& token,
+                              const std::string& field) -> uint16_t {
+            if (token.empty() || token.size() > 4 ||
+                !std::all_of(token.begin(), token.end(), [](unsigned char ch) {
+                    return std::isxdigit(ch) != 0;
+                })) {
+                fail("bad_hex16 field=" + field + " token=" + token);
+            }
+            return static_cast<uint16_t>(std::stoul(token, nullptr, 16));
+        };
+        auto parseHexByte = [&](const std::string& token,
+                                uint16_t address) -> uint8_t {
+            if (token.size() != 2 ||
+                !std::all_of(token.begin(), token.end(), [](unsigned char ch) {
+                    return std::isxdigit(ch) != 0;
+                })) {
+                fail("non_hex_byte token=" + token + " address=" +
+                     bareHex4(address));
+            }
+            return static_cast<uint8_t>(std::stoul(token, nullptr, 16));
+        };
+        auto trim = [](std::string value) {
+            while (!value.empty() &&
+                   std::isspace(static_cast<unsigned char>(value.front()))) {
+                value.erase(value.begin());
+            }
+            while (!value.empty() &&
+                   std::isspace(static_cast<unsigned char>(value.back()))) {
+                value.pop_back();
+            }
+            return value;
+        };
+
+        try {
+            std::string text = readTextFile(path);
+            std::vector<uint8_t> memory(0x10000);
+            std::vector<bool> present(0x10000, false);
+            uint16_t runtimeCs = 0;
+            uint16_t runtimeDs = 0;
+            bool haveRuntimeCs = false;
+            bool haveRuntimeDs = false;
+            bool tempCopy = false;
+            bool visualClaim = false;
+            int dispatcherBreaks = 0;
+            int damageBreaks = 0;
+            int playbackBreaks = 0;
+
+            std::istringstream lines(text);
+            std::string line;
+            std::regex keyRe("^([A-Za-z0-9_]+)=(.*)$");
+            std::regex breakRe(
+                "^break\\s+ghidra=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+"
+                "runtime=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+label=([^\\s]+).*$");
+            std::regex dumpRe("^dump\\s+DS:([0-9A-Fa-f]{4}).*$");
+            std::regex rowRe("^([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+(.+)$");
+            uint16_t currentDump = 0;
+            bool inDump = false;
+            while (std::getline(lines, line)) {
+                line = trim(line);
+                if (line.empty() || line[0] == '#') continue;
+
+                std::smatch match;
+                if (std::regex_match(line, match, keyRe)) {
+                    std::string key = match[1].str();
+                    std::string value = trim(match[2].str());
+                    if (key == "runtime_cs") {
+                        runtimeCs = parseHex16(value, key);
+                        haveRuntimeCs = true;
+                    } else if (key == "runtime_ds") {
+                        runtimeDs = parseHex16(value, key);
+                        haveRuntimeDs = true;
+                    } else if (key == "temp_copy") {
+                        tempCopy = value == "1";
+                    } else if (key == "visual_claim") {
+                        visualClaim = value != "0";
+                    }
+                    continue;
+                }
+
+                if (std::regex_match(line, match, breakRe)) {
+                    if (!haveRuntimeCs) fail("runtime_cs_missing_before_break");
+                    uint16_t ghidraSegment = parseHex16(match[1].str(), "ghidra");
+                    uint16_t ghidraOffset = parseHex16(match[2].str(), "ghidra");
+                    uint16_t runtimeSegment = parseHex16(match[3].str(), "runtime");
+                    uint16_t runtimeOffset = parseHex16(match[4].str(), "runtime");
+                    if (ghidraSegment != 0x1000) {
+                        fail("breakpoint_ghidra_segment expected=0x1000 actual=" +
+                             hex4(ghidraSegment));
+                    }
+                    if (runtimeSegment != runtimeCs) {
+                        fail("breakpoint_segment_mismatch expected=" + hex4(runtimeCs) +
+                             " actual=" + hex4(runtimeSegment));
+                    }
+                    if (runtimeOffset != ghidraOffset) {
+                        fail("breakpoint_offset_mismatch expected=" +
+                             bareHex4(ghidraOffset) + " actual=" +
+                             bareHex4(runtimeOffset));
+                    }
+                    if (ghidraOffset == 0x414a) ++dispatcherBreaks;
+                    if (ghidraOffset == 0x370e) ++damageBreaks;
+                    if (ghidraOffset == 0x3a7e || ghidraOffset == 0x3b18 ||
+                        ghidraOffset == 0x3bb2 || ghidraOffset == 0x3d46) {
+                        ++playbackBreaks;
+                    }
+                    continue;
+                }
+
+                if (std::regex_match(line, match, dumpRe)) {
+                    currentDump = parseHex16(match[1].str(), "dump");
+                    inDump = true;
+                    continue;
+                }
+
+                if (std::regex_match(line, match, rowRe)) {
+                    if (!inDump) fail("dump_row_without_header");
+                    if (!haveRuntimeDs) fail("runtime_ds_missing_before_dump");
+                    uint16_t segment = parseHex16(match[1].str(), "row_segment");
+                    uint16_t address = parseHex16(match[2].str(), "row_address");
+                    if (segment != runtimeDs) {
+                        fail("dump_segment_mismatch expected=" + hex4(runtimeDs) +
+                             " actual=" + hex4(segment) +
+                             " address=" + bareHex4(address));
+                    }
+                    if (address < currentDump) {
+                        fail("dump_address_before_header header=" + bareHex4(currentDump) +
+                             " address=" + bareHex4(address));
+                    }
+                    std::istringstream byteStream(match[3].str());
+                    std::string token;
+                    uint16_t cursor = address;
+                    while (byteStream >> token) {
+                        memory[cursor] = parseHexByte(token, cursor);
+                        present[cursor] = true;
+                        ++cursor;
+                    }
+                    continue;
+                }
+
+                fail("unrecognized_line");
+            }
+
+            if (!haveRuntimeCs) fail("runtime_cs_missing");
+            if (!haveRuntimeDs) fail("runtime_ds_missing");
+            if (!tempCopy) fail("temp_copy_required");
+            if (visualClaim) fail("visual_claim_not_allowed");
+            if (dispatcherBreaks == 0) fail("dispatcher_break_missing");
+            if (damageBreaks == 0) fail("damage_break_missing");
+            if (playbackBreaks == 0) fail("playback_break_missing");
+
+            auto requireByte = [&](uint16_t address) -> uint8_t {
+                if (!present[address]) {
+                    fail("missing_byte address=" + bareHex4(address));
+                }
+                return memory[address];
+            };
+            auto byteList = [&](uint16_t address, int len) {
+                std::ostringstream oss;
+                for (int i = 0; i < len; ++i) {
+                    if (i > 0) oss << ',';
+                    oss << hexByte(requireByte(static_cast<uint16_t>(address + i)));
+                }
+                return oss.str();
+            };
+
+            constexpr uint16_t kDebrisBase = 0x2093;
+            constexpr uint16_t kCollapseBase = 0x6611;
+            constexpr uint16_t kLookupBase = 0xc1e0;
+            constexpr uint16_t kEffectBase = 0xc21e;
+            std::string debris0 = byteList(kDebrisBase, static_cast<int>(kDebrisStride));
+            std::string collapse0 = byteList(kCollapseBase, static_cast<int>(kCollapseStride));
+            std::string effect0 = byteList(kEffectBase, 8);
+            uint8_t lookup0 = requireByte(kLookupBase);
+
+            std::cout << "explosion_playback_oracle=ok fixture=" << fixture
+                      << " runtime_cs=" << hex4(runtimeCs)
+                      << " runtime_ds=" << hex4(runtimeDs)
+                      << " dispatcher_break=" << dispatcherBreaks
+                      << " damage_break=" << damageBreaks
+                      << " playback_breaks=" << playbackBreaks
+                      << " debris_base=0x2093 debris_stride=" << kDebrisStride
+                      << " debris0=" << debris0
+                      << " collapse_base=0x6611 collapse_stride=" << kCollapseStride
+                      << " collapse0=" << collapse0
+                      << " lookup_base=0xc1e0 lookup0=0x" << hexByte(lookup0)
+                      << " effect_base=0xc21e effect0=" << effect0
+                      << " temp_copy=" << (tempCopy ? 1 : 0)
+                      << " visual_claim=0\n";
+            if (expectError) {
+                std::cout << "explosion_playback_oracle=error fixture=" << fixture
                           << " reason=expected_error_missing\n";
                 return 1;
             }
@@ -3100,6 +3720,137 @@ public:
                   << " fonts=" << fontFf << '\n';
     }
 
+    void debugSpriteRawRoundtrip() {
+        load();
+
+        struct BankCheck {
+            const char* rawPath;
+            const SpriteBank* jsonBank;
+            const char* countLabel;
+        };
+        const std::array<BankCheck, 3> banks{{
+            {"BOMOMIMK.SPR", &sprites_, "bomomimk"},
+            {"PROVA.SPR", &altSprites_, "prova"},
+            {"FONTS.SPR", &fontSprites_, "fonts"},
+        }};
+
+        size_t totalRawBytes = 0;
+        size_t totalSprites = 0;
+        size_t totalPixels = 0;
+        size_t zeroPixels = 0;
+        size_t ffPixels = 0;
+        int maxWidth = 0;
+        int maxHeight = 0;
+        std::array<size_t, 3> bankSpriteCounts{};
+
+        for (size_t bankIndex = 0; bankIndex < banks.size(); ++bankIndex) {
+            const BankCheck& check = banks[bankIndex];
+            auto rawBytes = readFile(check.rawPath);
+            SpriteBank rawBank = loadRawSprites(check.rawPath);
+            const SpriteBank& jsonBank = *check.jsonBank;
+            if (rawBank.sprites.size() != jsonBank.sprites.size()) {
+                throw std::runtime_error(std::string(check.rawPath) +
+                                         " raw/json sprite count mismatch");
+            }
+            totalRawBytes += rawBytes.size();
+            bankSpriteCounts[bankIndex] = rawBank.sprites.size();
+            for (size_t i = 0; i < rawBank.sprites.size(); ++i) {
+                const Sprite& rawSprite = rawBank.sprites[i];
+                const Sprite& jsonSprite = jsonBank.sprites[i];
+                if (rawSprite.width != jsonSprite.width ||
+                    rawSprite.height != jsonSprite.height ||
+                    rawSprite.pixels != jsonSprite.pixels) {
+                    throw std::runtime_error(std::string(check.rawPath) +
+                                             " raw/json sprite payload mismatch");
+                }
+                ++totalSprites;
+                totalPixels += rawSprite.pixels.size();
+                maxWidth = std::max(maxWidth, rawSprite.width);
+                maxHeight = std::max(maxHeight, rawSprite.height);
+                zeroPixels += static_cast<size_t>(
+                    std::count(rawSprite.pixels.begin(), rawSprite.pixels.end(), 0));
+                ffPixels += static_cast<size_t>(
+                    std::count(rawSprite.pixels.begin(), rawSprite.pixels.end(), 0xff));
+            }
+        }
+
+        size_t nonzeroPixels = totalPixels - zeroPixels;
+        std::cout << "sprite_raw_roundtrip=ok banks=" << banks.size()
+                  << " raw_bytes=" << totalRawBytes
+                  << " sprites=" << totalSprites
+                  << " pixels=" << totalPixels
+                  << " zero=" << zeroPixels
+                  << " nonzero=" << nonzeroPixels
+                  << " ff=" << ffPixels
+                  << " max=" << maxWidth << 'x' << maxHeight
+                  << " " << banks[0].countLabel << "=" << bankSpriteCounts[0]
+                  << " " << banks[1].countLabel << "=" << bankSpriteCounts[1]
+                  << " " << banks[2].countLabel << "=" << bankSpriteCounts[2]
+                  << '\n';
+    }
+
+    void debugSpriteBlitContract() {
+        load();
+        resetClip();
+        constexpr uint32_t kSentinel = 0x11223344u;
+        std::fill(fb_.begin(), fb_.end(), kSentinel);
+
+        Sprite sprite;
+        sprite.width = 4;
+        sprite.height = 2;
+        sprite.pixels = {0, 1, 0xff, 2,
+                         3, 0, 4,    0xff};
+        constexpr int x0 = 5;
+        constexpr int y0 = 7;
+        drawSprite(sprite, x0, y0);
+
+        auto pixelAt = [&](int x, int y) {
+            return fb_[static_cast<size_t>(y) * kScreenW + x];
+        };
+
+        int drawn = 0;
+        int skippedZero = 0;
+        int ffVisible = 0;
+        int backgroundPreserved = 0;
+        for (int y = 0; y < sprite.height; ++y) {
+            for (int x = 0; x < sprite.width; ++x) {
+                uint8_t index = sprite.pixels[static_cast<size_t>(y) * sprite.width + x];
+                uint32_t got = pixelAt(x0 + x, y0 + y);
+                if (index == 0) {
+                    if (got != kSentinel) {
+                        throw std::runtime_error("drawSprite overwrote a transparent zero pixel");
+                    }
+                    ++skippedZero;
+                    ++backgroundPreserved;
+                    continue;
+                }
+                if (got != argb(palette_, index)) {
+                    throw std::runtime_error("drawSprite did not draw an indexed pixel");
+                }
+                ++drawn;
+                if (index == 0xff) ++ffVisible;
+            }
+        }
+
+        int outsidePreserved = 0;
+        for (std::array<int, 2> pos : {std::array<int, 2>{x0 - 1, y0},
+                                       std::array<int, 2>{x0 + sprite.width, y0 + 1}}) {
+            if (pixelAt(pos[0], pos[1]) != kSentinel) {
+                throw std::runtime_error("drawSprite wrote outside sprite bounds");
+            }
+            ++outsidePreserved;
+        }
+
+        std::cout << "sprite_blit_contract=ok"
+                  << " width=" << sprite.width
+                  << " height=" << sprite.height
+                  << " drawn=" << drawn
+                  << " skipped_zero=" << skippedZero
+                  << " ff_visible=" << ffVisible
+                  << " bg_preserved=" << backgroundPreserved
+                  << " outside_preserved=" << outsidePreserved << '\n';
+    }
+
     void debugWordLayer() {
         load();
         for (size_t levelIndex = 0; levelIndex < levels_.size(); ++levelIndex) {
@@ -3292,6 +4043,13 @@ public:
                       << " sound_selector=" << static_cast<int>(explosionSoundSelector(visualType))
                       << '\n';
         }
+        std::cout << "explosion_profiles=ok types=4 states=4,5,6,7 sound_offsets="
+                  << std::showbase << std::hex
+                  << explosionSoundOffset(1) << ','
+                  << explosionSoundOffset(2) << ','
+                  << explosionSoundOffset(3) << ','
+                  << explosionSoundOffset(4)
+                  << std::dec << std::noshowbase << '\n';
     }
 
     void debugDamageQueues() {
@@ -3328,6 +4086,14 @@ public:
 
         bool printedCollapse = false;
         bool printedDebris = false;
+        uint16_t collapseFlagged = 0;
+        int collapseCount = 0;
+        int collapseForwardPhase = 0;
+        int collapseReversePhase = 0;
+        uint16_t debrisFlagged = 0;
+        int debrisLookup = 0;
+        int debrisForwardPhase = 0;
+        int debrisReversePhase = 0;
         for (size_t levelIndex = 0; levelIndex < levels_.size() && (!printedCollapse || !printedDebris); ++levelIndex) {
             if (!printedCollapse) {
                 auto pos = findWord(static_cast<int>(levelIndex), false);
@@ -3336,6 +4102,10 @@ public:
                     queueTileDamage(pos[0], pos[1], 2, 3);
                     if (!collapseQueue_.empty()) {
                         const CollapseRecord& record = collapseQueue_.back();
+                        collapseFlagged = record.flaggedWord;
+                        collapseCount = record.count;
+                        collapseForwardPhase = static_cast<int>(record.forwardPhase);
+                        collapseReversePhase = static_cast<int>(record.reversePhase);
                         std::cout << "collapse_level=" << (levelIndex + 1)
                                   << " tile=" << pos[0] << ',' << pos[1]
                                   << " word=" << std::showbase << std::hex << word
@@ -3358,6 +4128,10 @@ public:
                     queueTileDamage(pos[0], pos[1], 4, 5);
                     if (!debrisQueue_.empty()) {
                         const DebrisRecord& record = debrisQueue_.back();
+                        debrisFlagged = record.flaggedWord;
+                        debrisLookup = static_cast<int>(record.lookup);
+                        debrisForwardPhase = static_cast<int>(record.forwardPhase);
+                        debrisReversePhase = static_cast<int>(record.reversePhase);
                         std::cout << "debris_level=" << (levelIndex + 1)
                                   << " tile=" << pos[0] << ',' << pos[1]
                                   << " tile_index=" << record.tileIndex
@@ -3374,6 +4148,21 @@ public:
         }
         if (!printedCollapse) std::cout << "collapse_sample=missing\n";
         if (!printedDebris) std::cout << "debris_sample=missing\n";
+        if (printedCollapse && printedDebris) {
+            std::cout << "damage_queues=ok debris_stride=" << kDebrisStride
+                      << " collapse_stride=" << kCollapseStride
+                      << " damaged_bit=" << std::showbase << std::hex << kDamagedWordBit
+                      << " deferred_threshold=" << kDeferredThreshold
+                      << " collapse_flagged=" << collapseFlagged
+                      << " debris_flagged=" << debrisFlagged
+                      << std::dec << std::noshowbase
+                      << " collapse_count=" << collapseCount
+                      << " collapse_forward=" << collapseForwardPhase
+                      << " collapse_reverse=" << collapseReversePhase
+                      << " debris_lookup=" << debrisLookup
+                      << " debris_forward=" << debrisForwardPhase
+                      << " debris_reverse=" << debrisReversePhase << '\n';
+        }
     }
 
     void debugMonsterSlots() {
@@ -3397,8 +4186,8 @@ public:
         }
 
         enterMonsterDeath(monster);
-        if (spawnerStates_[spawnerIndex].availableSlots != initialSlots - 1) {
-            throw std::runtime_error("monster death returned live slot before removal");
+        if (spawnerStates_[spawnerIndex].availableSlots != initialSlots) {
+            throw std::runtime_error("monster death did not immediately return live slot");
         }
         int deathTicks = monster.stateTimer;
         for (int i = 0; i < deathTicks; ++i) {
@@ -3413,7 +4202,93 @@ public:
             throw std::runtime_error("monster live slot was returned more than once");
         }
         std::cout << "monster_slots=ok initial_slots=" << initialSlots
+                  << " returned_immediate=1"
                   << " death_ticks=" << deathTicks << '\n';
+    }
+
+    void debugMonsterMotionModel() {
+        load();
+
+        int carryPos = 10;
+        uint8_t carryFrac = 250;
+        integrateAxis8_8(carryPos, carryFrac, 0x000a);
+        if (carryPos != 11 || carryFrac != 4) {
+            throw std::runtime_error("8.8 positive carry integration changed");
+        }
+
+        int negativePos = 10;
+        uint8_t negativeFrac = 0;
+        integrateAxis8_8(negativePos, negativeFrac, static_cast<int16_t>(0xffff));
+        integrateAxis8_8(negativePos, negativeFrac, static_cast<int16_t>(0xffff));
+        if (negativePos != 9 || negativeFrac != 254) {
+            throw std::runtime_error("8.8 negative fractional integration changed");
+        }
+
+        prepareMonsterMotionDebugLevel(false);
+        ActiveMonster walker;
+        walker.x = 40;
+        walker.y = 24;
+        walker.kind = 1;
+        walker.behavior = 3;
+        walker.ai0 = 0x0100;
+        initializeMonsterMotion(walker);
+        if (walker.vx8 != 0x0100 || walker.vy8 != 0 ||
+            walker.animStart != 45 || walker.animEnd != 46) {
+            throw std::runtime_error("behavior 3 initialization changed");
+        }
+
+        prepareMonsterMotionDebugLevel(true);
+        ActiveMonster ledgeWalker = walker;
+        ledgeWalker.x = 40;
+        ledgeWalker.y = 24;
+        ledgeWalker.vx8 = 0x0100;
+        ledgeWalker.vy8 = 0;
+        ledgeWalker.fracX = 0;
+        ledgeWalker.fracY = 0;
+        updateMonsterMotion(ledgeWalker, 0.0f);
+        if (ledgeWalker.vx8 != -0x0100 || ledgeWalker.vy8 != 0x0040 ||
+            ledgeWalker.animStart != 43 || ledgeWalker.animEnd != 44) {
+            throw std::runtime_error("behavior 3 ledge turn changed");
+        }
+
+        prepareMonsterMotionDebugLevel(false);
+        player_.x = 80.0f;
+        player_.y = 24.0f;
+        ActiveMonster flyer;
+        flyer.x = 40;
+        flyer.y = 24;
+        flyer.kind = 2;
+        flyer.behavior = 4;
+        flyer.ai0 = 7;
+        flyer.ai1 = 0x0200;
+        flyer.ai2 = 100;
+        initializeMonsterMotion(flyer);
+        if (flyer.vx8 != 0x0200 || flyer.vy8 != 0 || flyer.motionTimer != 7 ||
+            flyer.animStart != 39 || flyer.animEnd != 41) {
+            throw std::runtime_error("behavior 4 chase initialization changed");
+        }
+        updateMonsterMotion(flyer, 0.0f);
+        if (flyer.motionTimer != 6 || flyer.vx8 != 0x0200 || flyer.vy8 != 0) {
+            throw std::runtime_error("behavior 4 countdown tick changed");
+        }
+
+        std::cout << "monster_motion_model=ok"
+                  << " carry_pos=" << carryPos
+                  << " carry_frac=" << static_cast<int>(carryFrac)
+                  << " neg_pos=" << negativePos
+                  << " neg_frac=" << static_cast<int>(negativeFrac)
+                  << " b3_init_vx=" << walker.vx8
+                  << " b3_init_frame=" << static_cast<int>(walker.animStart)
+                  << '-' << static_cast<int>(walker.animEnd)
+                  << " b3_ledge_vx=" << ledgeWalker.vx8
+                  << " b3_ledge_vy=" << ledgeWalker.vy8
+                  << " b3_ledge_frame=" << static_cast<int>(ledgeWalker.animStart)
+                  << '-' << static_cast<int>(ledgeWalker.animEnd)
+                  << " b4_chase_vx=" << flyer.vx8
+                  << " b4_chase_vy=" << flyer.vy8
+                  << " b4_timer=" << flyer.motionTimer
+                  << " b4_frame=" << static_cast<int>(flyer.animStart)
+                  << '-' << static_cast<int>(flyer.animEnd) << '\n';
     }
 
     void debugMonsterBlastDamage() {
@@ -3521,6 +4396,161 @@ public:
         }
     }
 
+    void debugBombObjectExplosionEffects() {
+        load();
+
+        struct Probe {
+            int level = 0;
+            int x = 0;
+            int y = 0;
+            uint8_t tile = 0;
+            uint16_t objectWord = 0;
+            uint16_t aboveWord = 0;
+        };
+
+        auto findProbe = [&](bool wantHighWord, Probe& out) {
+            for (size_t level = 0; level < levels_.size(); ++level) {
+                resetLevel(static_cast<int>(level));
+                for (int y = 1; y + 1 < level_.height; ++y) {
+                    for (int x = 0; x + 1 < level_.width; ++x) {
+                        uint8_t tile = static_cast<uint8_t>(tileAt(x, y));
+                        if (!isBombObjectTile(tile)) continue;
+                        uint16_t objectWord = wordAt(x, y);
+                        uint16_t aboveWord = wordAt(x, y - 1);
+                        if (aboveWord == 0 || (aboveWord & kDamagedWordBit) != 0 ||
+                            objectWord == aboveWord) {
+                            continue;
+                        }
+                        if ((aboveWord >= kDeferredThreshold) != wantHighWord) continue;
+
+                        Bomb bomb{x, y, 1, BombType::Small, 1, 1};
+                        int bombObjectsInFootprint = 0;
+                        bool onlyCandidateObject = true;
+                        for (const auto& pos : explosionTilesFor(bomb)) {
+                            if (!isBombObjectTile(static_cast<uint8_t>(tileAt(pos[0], pos[1])))) {
+                                continue;
+                            }
+                            ++bombObjectsInFootprint;
+                            onlyCandidateObject =
+                                onlyCandidateObject && pos[0] == x && pos[1] == y;
+                        }
+                        if (bombObjectsInFootprint != 1 || !onlyCandidateObject) continue;
+
+                        out = {static_cast<int>(level), x, y, tile, objectWord, aboveWord};
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+
+        auto runProbe = [&](const Probe& probe, bool expectDebris) -> int {
+            resetLevel(probe.level);
+            clearRunScores();
+            clearSoundLatch();
+            monsters_.clear();
+            bonusDrops_.clear();
+            bombs_.clear();
+            flashes_.clear();
+            explosionEffects_.clear();
+            debrisQueue_.clear();
+            collapseQueue_.clear();
+            playerDead_ = true;
+            player2Dead_ = true;
+
+            if (static_cast<uint8_t>(tileAt(probe.x, probe.y)) != probe.tile ||
+                wordAt(probe.x, probe.y) != probe.objectWord ||
+                wordAt(probe.x, probe.y - 1) != probe.aboveWord) {
+                throw std::runtime_error("bomb object probe changed before explosion");
+            }
+            if (solidPixel(static_cast<float>(probe.x * kTileSize + 1),
+                           static_cast<float>(probe.y * kTileSize + 1))) {
+                throw std::runtime_error("bomb object was not passable before explosion");
+            }
+
+            Bomb bomb{probe.x, probe.y, 1, BombType::Small, 1, 1};
+            explode(bomb);
+
+            uint8_t expectedTile =
+                (probe.objectWord & kDamagedWordBit) != 0 ? 0xff : 0;
+            if (static_cast<uint8_t>(tileAt(probe.x, probe.y)) != expectedTile) {
+                throw std::runtime_error("bomb object consumed to unexpected tile");
+            }
+            if (solidPixel(static_cast<float>(probe.x * kTileSize + 1),
+                           static_cast<float>(probe.y * kTileSize + 1))) {
+                throw std::runtime_error("consumed bomb object blocked movement");
+            }
+            if (score_ != 50) {
+                throw std::runtime_error("bomb object explosion did not award one object score");
+            }
+            if (flashes_.size() != 4 || explosionEffects_.size() != 1) {
+                throw std::runtime_error("bomb object explosion footprint/effect mismatch");
+            }
+            if (!soundLatch_.active ||
+                soundLatch_.latchedOffset != explosionSoundOffset(1) ||
+                soundLatch_.currentSelector != explosionSoundSelector(1)) {
+                throw std::runtime_error("bomb object explosion sound priority mismatch");
+            }
+
+            uint16_t flaggedAbove = static_cast<uint16_t>(probe.aboveWord | kDamagedWordBit);
+            if (wordAt(probe.x, probe.y - 1) != flaggedAbove) {
+                throw std::runtime_error("bomb object explosion did not flag above word");
+            }
+            DamagePhaseLookup forward = resolveDamagePhase(flaggedAbove, false);
+            DamagePhaseLookup reverse = resolveDamagePhase(flaggedAbove, true);
+            if (forward.phase != 0 || reverse.phase != 0) {
+                throw std::runtime_error("bomb object default damage phases changed");
+            }
+
+            if (expectDebris) {
+                if (debrisQueue_.size() != 1 || !collapseQueue_.empty() ||
+                    destroyed_ != 0 || !forward.debris || !reverse.debris) {
+                    throw std::runtime_error("bomb object high-word routing mismatch");
+                }
+                const DebrisRecord& record = debrisQueue_.front();
+                int expectedIndex = (probe.y - 1) * level_.width + probe.x;
+                if (record.tileIndex != expectedIndex ||
+                    record.flaggedWord != flaggedAbove) {
+                    throw std::runtime_error("bomb object debris record mismatch");
+                }
+                return static_cast<int>(record.lookup);
+            }
+
+            if (collapseQueue_.size() != 1 || !debrisQueue_.empty() ||
+                forward.debris || reverse.debris) {
+                throw std::runtime_error("bomb object low-word routing mismatch");
+            }
+            const CollapseRecord& record = collapseQueue_.front();
+            if (record.flaggedWord != flaggedAbove || destroyed_ != record.count ||
+                record.count <= 0) {
+                throw std::runtime_error("bomb object collapse record mismatch");
+            }
+            return record.count;
+        };
+
+        Probe collapseProbe;
+        Probe debrisProbe;
+        if (!findProbe(false, collapseProbe)) {
+            throw std::runtime_error("no low-word bomb object explosion probe found");
+        }
+        if (!findProbe(true, debrisProbe)) {
+            throw std::runtime_error("no high-word bomb object explosion probe found");
+        }
+
+        int collapseCount = runProbe(collapseProbe, false);
+        int debrisLookup = runProbe(debrisProbe, true);
+        std::cout << "bomb_object_explosion_effects=ok cases=2"
+                  << " collapse_level=" << (collapseProbe.level + 1)
+                  << " collapse_tile=" << collapseProbe.x << ',' << collapseProbe.y
+                  << " collapse_count=" << collapseCount
+                  << " debris_level=" << (debrisProbe.level + 1)
+                  << " debris_tile=" << debrisProbe.x << ',' << debrisProbe.y
+                  << " debris_lookup=" << debrisLookup
+                  << " score_each=50 sound_offset=" << std::showbase << std::hex
+                  << explosionSoundOffset(1)
+                  << std::dec << std::noshowbase << '\n';
+    }
+
     void debugPassableObjects() {
         load();
         bool sawBombObject = false;
@@ -3558,7 +4588,30 @@ public:
         if (!sawBombObject || !sawPortal || !sawSolid) {
             throw std::runtime_error("passable object coverage did not find required tile types");
         }
-        std::cout << "passable_objects=ok\n";
+
+        resetLevel(0);
+        std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+        std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+        constexpr int kPassableX = 6;
+        constexpr int kPassableY = 6;
+        tileRef(kPassableX, kPassableY) = 0x45;
+        tileRef(kPassableX + 1, kPassableY) = 0x67;
+        tileRef(kPassableX, kPassableY + 1) = 0x6d;
+        tileRef(kPassableX + 1, kPassableY + 1) = 0x72;
+        if (collides(static_cast<float>(kPassableX * kTileSize),
+                     static_cast<float>(kPassableY * kTileSize)) ||
+            monsterCollides(kPassableX * kTileSize, kPassableY * kTileSize)) {
+            throw std::runtime_error("passable object footprint blocks movement");
+        }
+        if (!consumeBombObjectTile(kPassableX + 1, kPassableY) ||
+            solidPixel(static_cast<float>((kPassableX + 1) * kTileSize + 1),
+                       static_cast<float>(kPassableY * kTileSize + 1))) {
+            throw std::runtime_error("consumed bomb object tile blocks movement");
+        }
+
+        std::cout << "passable_objects=ok"
+                  << " bomb=1 portal=1 solid=1"
+                  << " footprint_clear=1 consumed_clear=1\n";
     }
 
     void debugTriggerAccounting() {
@@ -3746,39 +4799,145 @@ public:
     void debugCollisionPushout() {
         load();
         resetLevel(0);
-        bool found = false;
-        for (int y = 0; y < level_.height && !found; ++y) {
-            for (int x = 0; x < level_.width && !found; ++x) {
-                if (!solidPixel(static_cast<float>(x * kTileSize + 1),
-                                static_cast<float>(y * kTileSize + 1))) {
-                    continue;
-                }
-                player_.x = static_cast<float>(x * kTileSize);
-                player_.y = static_cast<float>(y * kTileSize);
-                movePlayer(player_, 1.0f, 0.0f);
+        std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
+        std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
 
-                monsters_.clear();
-                ActiveMonster monster;
-                monster.x = x * kTileSize;
-                monster.y = y * kTileSize;
-                monster.kind = 1;
-                monster.behavior = 3;
-                monster.alive = true;
-                monster.vx8 = 0x0100;
-                monster.vy8 = 0x0100;
-                monster.animDelay = 1;
-                monster.animStart = 43;
-                monster.animEnd = 44;
-                monster.animFrame = 43;
-                monsters_.push_back(monster);
-                updateMonsters(0.0f);
-                found = true;
+        auto setTile = [&](int x, int y, uint8_t tile) {
+            if (x < 0 || y < 0 || x >= level_.width || y >= level_.height) {
+                throw std::runtime_error("synthetic collision tile outside level bounds");
             }
+            tileRef(x, y) = tile;
+        };
+        auto makeMonster = [](int x, int y, int16_t vx8, int16_t vy8) {
+            ActiveMonster monster;
+            monster.x = x;
+            monster.y = y;
+            monster.kind = 1;
+            monster.behavior = 3;
+            monster.alive = true;
+            monster.vx8 = vx8;
+            monster.vy8 = vy8;
+            monster.ai0 = static_cast<uint16_t>(std::abs(vx8));
+            monster.animDelay = 1;
+            monster.animStart = 43;
+            monster.animEnd = 44;
+            monster.animFrame = 43;
+            return monster;
+        };
+
+        constexpr uint8_t kSolidDebugTile = 2;
+        constexpr int kSolidX = 5;
+        constexpr int kSolidY = 5;
+        setTile(kSolidX, kSolidY, kSolidDebugTile);
+
+        player_.x = static_cast<float>(kSolidX * kTileSize - 12);
+        player_.y = static_cast<float>(kSolidY * kTileSize);
+        if (collides(player_.x, player_.y)) {
+            throw std::runtime_error("player horizontal fixture starts blocked");
         }
-        if (!found) {
-            throw std::runtime_error("no solid tile found for collision pushout");
+        movePlayer(player_, 2.0f, 0.0f);
+        if (collides(player_.x, player_.y) ||
+            player_.x != static_cast<float>(kSolidX * kTileSize - 12)) {
+            throw std::runtime_error("player horizontal pushout did not clear collision");
         }
-        std::cout << "collision_pushout=ok\n";
+
+        constexpr int kFloorX = 10;
+        constexpr int kFloorY = 8;
+        setTile(kFloorX, kFloorY, kSolidDebugTile);
+        player_.x = static_cast<float>(kFloorX * kTileSize);
+        player_.y = static_cast<float>(kFloorY * kTileSize - 16);
+        player_.grounded = false;
+        player_.vy = 12.0f;
+        if (collides(player_.x, player_.y)) {
+            throw std::runtime_error("player vertical fixture starts blocked");
+        }
+        movePlayer(player_, 0.0f, 2.0f);
+        if (collides(player_.x, player_.y) ||
+            player_.y != static_cast<float>(kFloorY * kTileSize - 16) ||
+            !player_.grounded || player_.vy != 0.0f) {
+            throw std::runtime_error("player vertical pushout did not land cleanly");
+        }
+
+        playerDead_ = true;
+        player2Dead_ = true;
+        monsters_.clear();
+        monsters_.push_back(makeMonster(kSolidX * kTileSize - 14,
+                                        kSolidY * kTileSize, 0x0200, 0));
+        if (monsterCollides(monsters_.front().x, monsters_.front().y)) {
+            throw std::runtime_error("monster horizontal fixture starts blocked");
+        }
+        updateMonsters(0.0f);
+        if (monsters_.empty() ||
+            monsterCollides(monsters_.front().x, monsters_.front().y) ||
+            monsters_.front().x != kSolidX * kTileSize - 14 ||
+            monsters_.front().vx8 >= 0) {
+            throw std::runtime_error("monster horizontal pushout did not clear collision");
+        }
+
+        monsters_.clear();
+        monsters_.push_back(makeMonster(kFloorX * kTileSize,
+                                        kFloorY * kTileSize - 16, 0, 0x0200));
+        if (monsterCollides(monsters_.front().x, monsters_.front().y)) {
+            throw std::runtime_error("monster vertical fixture starts blocked");
+        }
+        updateMonsters(0.0f);
+        if (monsters_.empty() ||
+            monsterCollides(monsters_.front().x, monsters_.front().y) ||
+            monsters_.front().y != kFloorY * kTileSize - 16 ||
+            monsters_.front().vy8 != 0) {
+            throw std::runtime_error("monster vertical pushout did not clear collision");
+        }
+
+        monsters_.clear();
+        ActiveMonster behavior4X = makeMonster(kSolidX * kTileSize - 14,
+                                               kSolidY * kTileSize, 0x0400, 0);
+        behavior4X.behavior = 4;
+        behavior4X.motionTimer = 2;
+        monsters_.push_back(behavior4X);
+        updateMonsters(0.0f);
+        if (monsters_.empty() ||
+            monsterCollides(monsters_.front().x, monsters_.front().y) ||
+            monsters_.front().x != kSolidX * kTileSize - 14 ||
+            monsters_.front().vx8 != -0x0200 ||
+            monsters_.front().motionTimer != 0) {
+            throw std::runtime_error("behavior-4 horizontal half reversal failed");
+        }
+
+        monsters_.clear();
+        ActiveMonster behavior4Y = makeMonster(kFloorX * kTileSize,
+                                               kFloorY * kTileSize - 16, 0, 0x0400);
+        behavior4Y.behavior = 4;
+        behavior4Y.motionTimer = 2;
+        monsters_.push_back(behavior4Y);
+        updateMonsters(0.0f);
+        if (monsters_.empty() ||
+            monsterCollides(monsters_.front().x, monsters_.front().y) ||
+            monsters_.front().y != kFloorY * kTileSize - 16 ||
+            monsters_.front().vy8 != -0x0200 ||
+            monsters_.front().motionTimer != 0) {
+            throw std::runtime_error("behavior-4 vertical half reversal failed");
+        }
+
+        constexpr int kPassableX = 15;
+        constexpr int kPassableY = 5;
+        setTile(kPassableX, kPassableY, 0x67);
+        setTile(kPassableX + 1, kPassableY, 0x45);
+        setTile(kPassableX, kPassableY + 1, 0x6d);
+        setTile(kPassableX + 1, kPassableY + 1, 0x72);
+        if (collides(static_cast<float>(kPassableX * kTileSize),
+                     static_cast<float>(kPassableY * kTileSize)) ||
+            monsterCollides(kPassableX * kTileSize, kPassableY * kTileSize)) {
+            throw std::runtime_error("passable object footprint blocked movement");
+        }
+
+        std::cout << "collision_pushout=ok"
+                  << " player_h_clear=1"
+                  << " player_v_clear=1"
+                  << " monster_h_clear=1"
+                  << " monster_v_clear=1"
+                  << " monster_b4_half=1"
+                  << " passable_clear=1"
+                  << " solid_tile=" << static_cast<int>(kSolidDebugTile) << '\n';
     }
 
     void exportSprites(const std::string& bankName, const std::string& path) {
@@ -3911,6 +5070,8 @@ private:
     int deathStateTimer2_ = 0;
     int damageCooldown_ = 0;
     int damageCooldown2_ = 0;
+    uint8_t pendingDamage_ = 0;
+    uint8_t pendingDamage2_ = 0;
     int levelResetGeneration_ = 0;
     BombInventory bombInventory_;
     BombInventory bombInventory2_;
@@ -4040,6 +5201,8 @@ private:
         deathStateTimer2_ = 0;
         damageCooldown_ = 0;
         damageCooldown2_ = 0;
+        pendingDamage_ = 0;
+        pendingDamage2_ = 0;
         bombInventory_ = {};
         bombInventory2_ = {};
         weaponSwitchHeld_ = false;
@@ -4576,6 +5739,7 @@ private:
         updateMonsters(dt);
         updateBonusDrops();
         updateBombs();
+        drainPlayerDamageCounters();
         updateLevelCompletion();
         pumpSoundLatch();
     }
@@ -4722,6 +5886,28 @@ private:
         (void)to;
     }
 
+    void prepareMonsterMotionDebugLevel(bool ledgeAhead) {
+        level_ = {};
+        level_.width = 12;
+        level_.height = 8;
+        level_.objectiveTile = 108;
+        level_.tiles.assign(static_cast<size_t>(level_.width) * level_.height, 1);
+        level_.wordLayer.assign(level_.tiles.size(), 0);
+        for (int x = 0; x < level_.width; ++x) {
+            tileRef(x, 5) = 2;
+        }
+        if (ledgeAhead) {
+            tileRef(6, 5) = 1;
+        }
+        playerCount_ = 1;
+        playerDead_ = false;
+        player2Dead_ = true;
+        player_ = {};
+        player2_ = {};
+        monsters_.clear();
+        randomSeed_ = 0x1234abcd;
+    }
+
     std::array<int, 2> monsterFrameRange(uint8_t kind) const {
         switch (kind) {
             case 1: return {43, 44};
@@ -4851,6 +6037,7 @@ private:
             monster.y = spawner.y;
             monster.kind = spawner.monsterKind;
             monster.spawnerIndex = i;
+            monster.hasSpawner = true;
             monster.behavior = spawner.spawnArg;
             monster.ai0 = randomRangeValue(spawner.param0Base, spawner.param0Range);
             monster.ai1 = randomRangeValue(spawner.param1Base, spawner.param1Range);
@@ -4930,13 +6117,11 @@ private:
             monster.y = std::clamp(monster.y, 0, std::max(16, level_.height * 8 - 16));
 
             if (!playerDead_ && playerOverlaps(player_, monster.x, monster.y, 14.0f, 16.0f)) {
-                damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                             damageCooldown_, 1);
+                queuePlayerDamage(1);
             }
             if (playerCount_ > 1 && !player2Dead_ &&
                 playerOverlaps(player2_, monster.x, monster.y, 14.0f, 16.0f)) {
-                damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                             damageCooldown2_, 2);
+                queuePlayerDamage(2);
             }
         }
         monsters_.erase(std::remove_if(monsters_.begin(), monsters_.end(),
@@ -4945,10 +6130,11 @@ private:
     }
 
     void releaseMonsterSlot(ActiveMonster& monster) {
-        if (monster.deathCredited) return;
+        if (!monster.hasSpawner || monster.deathCredited) return;
         if (monster.spawnerIndex < spawnerStates_.size()) {
             ++spawnerStates_[monster.spawnerIndex].availableSlots;
             monster.deathCredited = true;
+            monster.hasSpawner = false;
         }
     }
 
@@ -4957,18 +6143,49 @@ private:
         if (damageCooldown2_ > 0) --damageCooldown2_;
     }
 
-    void damagePlayer(Player& player, int& energy, int& lives, bool& dead,
-                      int& timer, int& damageCooldown, uint8_t startMarker) {
-        if (dead || damageCooldown > 0) return;
-        uint8_t updatedEnergy =
-            static_cast<uint8_t>(std::clamp(energy, 0, 255) - 1);
-        energy = static_cast<int>(updatedEnergy);
+    void queuePlayerDamage(uint8_t startMarker, uint8_t amount = 1) {
+        if (amount == 0) return;
+        bool secondPlayer = startMarker == 2 && playerCount_ > 1;
+        bool dead = secondPlayer ? player2Dead_ : playerDead_;
+        int cooldown = secondPlayer ? damageCooldown2_ : damageCooldown_;
+        if (!dead && cooldown > 0) return;
+        uint8_t& pending = secondPlayer ? pendingDamage2_ : pendingDamage_;
+        pending = static_cast<uint8_t>(pending + amount);
+    }
+
+    void drainPlayerDamageCounters() {
+        drainPlayerDamageCounter(player_, energy_, lives_, playerDead_, reentryTimer_,
+                                 pendingDamage_, 1);
+        if (playerCount_ > 1) {
+            drainPlayerDamageCounter(player2_, energy2_, lives2_, player2Dead_,
+                                     reentryTimer2_, pendingDamage2_, 2);
+        } else {
+            pendingDamage2_ = 0;
+        }
+    }
+
+    void drainPlayerDamageCounter(Player& player, int& energy, int& lives,
+                                  bool& dead, int& timer, uint8_t& pending,
+                                  uint8_t startMarker) {
+        uint8_t amount = pending;
+        pending = 0;
+        if (amount == 0) return;
         requestPlayerDamageSound();
+        if (dead) return;
+        uint8_t updatedEnergy =
+            static_cast<uint8_t>(std::clamp(energy, 0, 255) - amount);
+        energy = static_cast<int>(updatedEnergy);
         if (static_cast<uint16_t>(updatedEnergy) > 0x00c8) {
             beginPlayerDeath(player, energy, lives, dead, timer, startMarker);
-        } else {
-            damageCooldown = kDamageCooldownTicks;
         }
+    }
+
+    void damagePlayer(Player& player, int& energy, int& lives, bool& dead,
+                      int& timer, int& damageCooldown, uint8_t startMarker) {
+        (void)damageCooldown;
+        uint8_t immediateDamage = 1;
+        drainPlayerDamageCounter(player, energy, lives, dead, timer,
+                                 immediateDamage, startMarker);
     }
 
     bool playerOverlapsTileArea(const Player& player, int tx0, int ty0,
@@ -4987,14 +6204,11 @@ private:
         ty1 = std::clamp(ty1, 0, std::max(0, level_.height - 1));
         if (tx0 > tx1) std::swap(tx0, tx1);
         if (ty0 > ty1) std::swap(ty0, ty1);
-        if (!playerDead_ && playerOverlapsTileArea(player_, tx0, ty0, tx1, ty1)) {
-            damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                         damageCooldown_, 1);
+        if (playerOverlapsTileArea(player_, tx0, ty0, tx1, ty1)) {
+            queuePlayerDamage(1);
         }
-        if (playerCount_ > 1 && !player2Dead_ &&
-            playerOverlapsTileArea(player2_, tx0, ty0, tx1, ty1)) {
-            damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                         damageCooldown2_, 2);
+        if (playerCount_ > 1 && playerOverlapsTileArea(player2_, tx0, ty0, tx1, ty1)) {
+            queuePlayerDamage(2);
         }
     }
 
@@ -5310,6 +6524,7 @@ private:
         for (const Bomb& b : expired) {
             if (levelResetGeneration_ != generation) break;
             explode(b);
+            drainPlayerDamageCounters();
         }
     }
 
@@ -5588,13 +6803,11 @@ private:
 
     void damagePlayersInExplosion(const std::vector<std::array<int, 2>>& tiles) {
         if (!playerDead_ && playerOverlapsAnyExplosionTile(player_, tiles)) {
-            damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                         damageCooldown_, 1);
+            queuePlayerDamage(1);
         }
         if (playerCount_ > 1 && !player2Dead_ &&
             playerOverlapsAnyExplosionTile(player2_, tiles)) {
-            damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                         damageCooldown2_, 2);
+            queuePlayerDamage(2);
         }
     }
 
@@ -5605,6 +6818,7 @@ private:
         monster.behavior = 2;
         monster.kind = 0x0c;
         monster.stateTimer = 25;
+        releaseMonsterSlot(monster);
         monster.vx8 = 0;
         monster.vy8 = 0;
         monster.fracX = 0;
@@ -6379,6 +7593,14 @@ int main(int argc, char** argv) {
             app.debugSonRawRoundtrip();
             return 0;
         }
+        if (argc > 1 && std::string(argv[1]) == "--debug-son-step-fields") {
+            app.debugSonStepFields();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-gran-raw-roundtrip") {
+            app.debugGranRawRoundtrip();
+            return 0;
+        }
         if (argc > 1 && std::string(argv[1]) == "--debug-sound-priority-latch") {
             app.debugSoundPriorityLatch();
             return 0;
@@ -6419,6 +7641,10 @@ int main(int argc, char** argv) {
             bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";
             return app.debugState2RuntimeFrameOracle(argv[2], expectError);
         }
+        if (argc > 2 && std::string(argv[1]) == "--debug-explosion-playback-oracle") {
+            bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";
+            return app.debugExplosionPlaybackOracle(argv[2], expectError);
+        }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-effect-placement") {
             app.debugOriginalState2EffectPlacement();
             return 0;
@@ -6443,6 +7669,14 @@ int main(int argc, char** argv) {
             app.debugSpriteTransparency();
             return 0;
         }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sprite-raw-roundtrip") {
+            app.debugSpriteRawRoundtrip();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sprite-blit-contract") {
+            app.debugSpriteBlitContract();
+            return 0;
+        }
         if (argc > 1 && std::string(argv[1]) == "--debug-word-layer") {
             app.debugWordLayer();
             return 0;
@@ -6463,12 +7697,20 @@ int main(int argc, char** argv) {
             app.debugMonsterSlots();
             return 0;
         }
+        if (argc > 1 && std::string(argv[1]) == "--debug-monster-motion-model") {
+            app.debugMonsterMotionModel();
+            return 0;
+        }
         if (argc > 1 && std::string(argv[1]) == "--debug-monster-blast-damage") {
             app.debugMonsterBlastDamage();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-fuse") {
             app.debugBombFuse();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-bomb-object-explosion-effects") {
+            app.debugBombObjectExplosionEffects();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-passable-objects") {
@@ -6505,6 +7747,10 @@ int main(int argc, char** argv) {
                 frames = std::stoi(argv[2]);
             }
             app.smokeUi(frames);
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-level1-frame-inspection") {
+            app.debugLevel1FrameInspection();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--smoke-controls") {

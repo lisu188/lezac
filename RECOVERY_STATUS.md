@@ -1,63 +1,76 @@
 # Recovery Status
 
-Last reviewed: 2026-04-21
-Branch: `codex/state2-runtime-frame-oracle`
-Baseline: `39abdc5` / `origin/main`
+Last reviewed: 2026-04-22
+Branch: `codex/consolidated-recovery`
+Baseline: `ee67978` / `origin/main`
 
-## Completed This Iteration
+## Completed This Consolidation
 
-- Spawned five focused recovery subagents for debugger/disassembly mapping,
-  gameplay fidelity, rendering/assets, verification, and integration/docs.
-- Confirmed PR #21 was merged into `origin/main`, then created this branch from
-  the updated main baseline.
-- Verified `dosbox-debug` is installed and can start its debugger UI. A direct
-  `dosbox-debug -help` invocation is not a help mode; it opens the debugger and
-  must be driven interactively or with a more controlled input setup.
-- Added `--debug-state2-runtime-frame-oracle <dump.txt>`, a strict parser for
-  normalized saved DOSBox debugger transcripts. It records runtime `CS`/`DS`,
-  validates translated breakpoints, parses `D DS:0060` globals, resolves
-  `DS:c322 + 4 * frame` table rows for the death/reentry frame range, and reads
-  the first `DS:c21e` effect-entry position words.
-- Added a synthetic oracle fixture that proves parser mechanics and address
-  math without claiming original runtime frame data.
-- Added a malformed segment fixture and `--expect-error` mode to keep negative
-  parser coverage deterministic in CTest.
-- Updated README and Ghidra notes to document the oracle and to keep live
-  dead-player rendering blocked on real `dosbox-debug` bytes.
+- Consolidated open draft recovery PRs #23 through #33 into one integration
+  branch for merge to `main`.
+- Integrated state-2 runtime oracle hardening from #23 and the original
+  temp-copy `dosbox-debug` state-2 fixture from #24.
+- Integrated `PROEFS.SON` six-byte step field diagnostics from #25 while
+  preserving bytes `+4..+5` as raw uninterpreted fields.
+- Integrated explosion object debug coverage from #26.
+- Integrated the explosion playback oracle harness and DOSBox capture attempt
+  notes from #27, keeping the checked-in fixtures as parser coverage with
+  `visual_claim=0`.
+- Integrated original per-player damage counters and level-1 dummy-SDL frame
+  inspection from #28.
+- Integrated `GRAN.MST` raw/json roundtrip and spawner summary coverage from
+  #29, preserving GRAN field semantics as unresolved while locking file shape.
+- Integrated monster motion/spawner lifecycle coverage from #30, including the
+  behavior-3/behavior-4 motion fixture and immediate source-spawner slot return.
+- Integrated raw `.SPR` roundtrip coverage from #31 and the sprite blit
+  zero-transparency contract from #32.
+- Integrated passable-object footprint and collision clearance coverage from
+  #33, including behavior-4 half-speed reversal checks.
+- Preserved synthetic parser-hardening coverage, original `01ED:7C89` state-2
+  capture, sound step diagnostics, explosion/object metadata coverage,
+  explosion debugger capture instructions, live damage-counter coverage,
+  level-1 frame inspection, GRAN roundtrip coverage, spawner fixture, monster
+  motion fixture, sprite raw-bank guards, `0xff`-visible blit contract, and
+  collision/passability clearance guards.
 
 ## Validation
 
 - `cmake -S . -B build` passed.
-- `cmake --build build` passed.
-- `ctest --test-dir build --output-on-failure -R "state2_runtime_frame_oracle|state2_animation_advance_model|state2_effect_placement_model"` passed: 4/4.
-- `ctest --test-dir build --output-on-failure` passed: 36/36.
+- `cmake --build build` passed with the known WSL/OneDrive clock-skew warning.
+- Initial `ctest --test-dir build --output-on-failure` found one consolidation
+  regex mismatch in `state2_runtime_frame_oracle_original`; the command output
+  included the row dump added by #23 while the #24 regex expected the older
+  shorter form.
+- Updated the original state-2 fixture regex to include all six raw frame-table
+  rows.
+- `ctest --test-dir build --output-on-failure` passed: 53/53.
 - `./build/lezac_cpp --validate` passed.
-- `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-ui 3` passed.
-- `timeout 10s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp --smoke-controls` passed.
 - `git diff --check` passed.
 
 ## Remaining Top Gaps
 
-- Capture real runtime values of `DS:006a`, `DS:006c`, `DS:006d`, and the
-  `DS:c322..c324` frame metadata table during death/reentry with
-  `dosbox-debug`.
-- Add an `original` oracle fixture from that capture and only then wire
-  dead-player rendering to recovered original frame data.
-- Exact actor update behavior around `1000:6053..777f`, especially monster AI,
-  object/terrain interactions, and mode-specific animation side effects.
-- Exact non-explosion `PROEFS.SON` semantics for bytes `+4..+5` in each
-  six-byte step, plus mapping of remaining sound callsites to events.
-- Exact original continuous-contact damage cadence, delayed state-2 life-count
-  decrement, `DS:79b9` fallback behavior, and active-player accounting edge
-  cases.
+- Interpret captured state-2 frame-table bytes and confirm the visual
+  consumption path before wiring live dead-player rendering.
+- Exact explosion/debris/collapse sprite playback around `1000:3a56..4d3b`
+  remains blocked on live debugger bytes from an explosion event.
+- Semantic meaning of `PROEFS.SON` bytes `+4..+5` remains unknown; current
+  diagnostics preserve them as raw fields only.
+- Many non-explosion sound callsites still need exact cursor/priority mapping.
+- Exact actor update behavior around `1000:6053..777f`, especially original
+  contact flags, passability thresholds, tile snapping, behavior-3 ledge/wall
+  handling, and behavior-4 collision response.
+- The probable contact scanner around `1000:5cb0..604f` needs naming,
+  cross-reference mapping, and runtime confirmation before the C++ clearance
+  model can be called original-faithful.
+- Exact state-2 life-count decrement, `DS:79b9` fallback behavior,
+  active-player accounting edge cases, and live dead-player visual playback
+  from original frame bytes.
 - Exact two-player panel artwork and full death/reentry presentation.
-- Explosion, debris, and collapse sprite playback around `1000:3a56..4d3b`.
-- `GRAN.MST` field semantics.
+- Exact sprite frame tables for impact/death/reward frames remain unresolved.
+- `GRAN.MST` field semantics remain unknown; consolidation only locks file
+  shape and raw/json byte preservation.
 
 ## Next Planned Target
 
-Drive `dosbox-debug` manually or through a controllable PTY setup in a temp copy
-of the game. Record runtime `CS`/`DS`, break at `CS:3108`, `CS:6148`,
-`CS:7c89`, and `CS:7ddf`, then paste the resulting `D DS:0060`,
-`D DS:C21E`, and frame-table dumps into
-`tests/fixtures/dosbox/state2_runtime_frame_oracle_original.txt`.
+Run full validation, close draft PRs #23 through #33 as consolidated, push this
+branch, and merge the consolidated result into `main`.

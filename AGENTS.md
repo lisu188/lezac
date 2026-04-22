@@ -42,6 +42,10 @@
 - Call out uncertainty instead of guessing.
 - If the repository is missing a remote or PR creation is not possible, state
   that explicitly.
+- When testing UI, rendering, DOSBox, or live gameplay behavior, use frame
+  inspection whenever possible. Capture screenshots, SDL frame dumps, debugger
+  memory/frame-table bytes, or other visual-frame evidence and record what was
+  inspected; do not rely only on process exit status for visual behavior.
 
 ## DOSBox original-game observation
 
@@ -94,15 +98,19 @@ Check availability first:
 
 ```sh
 command -v dosbox-debug
-dosbox-debug -version
 ```
 
-Launch the original game under the debugger:
+Launch the original game under the debugger. In this environment the reliable
+shape is to set a real terminal type, run under Xvfb, and start the DOS `DEBUG`
+loader inside DOSBox:
 
 ```sh
 mkdir -p /tmp/lezac-dosbox
 cp LEZAC.EXE *.DAT *.SPR *.PAL *.SCH *.SON *.MST *.CAR *.ZBG *.DOC /tmp/lezac-dosbox/
-dosbox-debug -c "mount c /tmp/lezac-dosbox" -c "c:" -c "LEZAC.EXE"
+env TERM=xterm-256color xvfb-run -a dosbox-debug \
+  -c "mount c /tmp/lezac-dosbox" \
+  -c "c:" \
+  -c "DEBUG LEZAC.EXE"
 ```
 
 Inside the debugger, use `HELP` to confirm the exact commands supported by the
@@ -114,8 +122,14 @@ installed build. Common useful commands are:
 - `BPD` or the debugger's listed delete command to remove breakpoints.
 - `R` to inspect registers.
 - `D segment:offset` to dump memory.
+- `MEMDUMP segment:offset length` to write `MEMDUMP.TXT` in the mounted DOS
+  directory when the installed debugger supports it.
 - `U segment:offset` to disassemble memory.
 - `S` or `T` to single-step, depending on the debugger build.
+
+The debugger prompt is `->` in current local runs. Commands sent through a PTY
+need carriage returns (`\r`). The xterm F5 key sequence (`\x1b[15~`) continues
+execution from the debugger UI in current local runs.
 
 Do not assume Ghidra's `1000:offset` segment is the exact runtime segment in
 DOSBox. First stop in the program, inspect `CS`/`DS`, and translate Ghidra

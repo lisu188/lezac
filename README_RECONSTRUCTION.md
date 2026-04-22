@@ -56,15 +56,19 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-sound-render
 ./build/lezac_cpp --debug-sound-cursor-segments
 ./build/lezac_cpp --debug-son-raw-roundtrip
+./build/lezac_cpp --debug-son-step-fields
 ./build/lezac_cpp --debug-sound-priority-latch
 ./build/lezac_cpp --debug-sound-selector-map
 ./build/lezac_cpp --debug-player-damage-sound
 ./build/lezac_cpp --debug-original-damage-counters
+./build/lezac_cpp --debug-level1-frame-inspection
 ./build/lezac_cpp --debug-player-state2-death-fields
 ./build/lezac_cpp --debug-original-state2-return-model
 ./build/lezac_cpp --debug-original-state2-animation-init
 ./build/lezac_cpp --debug-original-state2-animation-advance
 ./build/lezac_cpp --debug-state2-runtime-frame-oracle tests/fixtures/dosbox/state2_runtime_frame_oracle_synthetic.txt
+./build/lezac_cpp --debug-state2-runtime-frame-oracle tests/fixtures/dosbox/state2_runtime_frame_oracle_original.txt
+./build/lezac_cpp --debug-explosion-playback-oracle tests/fixtures/dosbox/explosion_playback_oracle_synthetic.txt
 ./build/lezac_cpp --debug-original-state2-effect-placement
 ./build/lezac_cpp --debug-player-state2-return-active
 ./build/lezac_cpp --debug-record-update /tmp/records_test.dat
@@ -72,14 +76,18 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-record-save-failure /tmp/missing-record-dir/records.dat
 ./build/lezac_cpp --debug-end-flow-records /tmp/end_flow_records.dat
 ./build/lezac_cpp --debug-gran
+./build/lezac_cpp --debug-gran-raw-roundtrip
 ./build/lezac_cpp --debug-levels
 ./build/lezac_cpp --debug-level-raw-roundtrip
 ./build/lezac_cpp --debug-sprite-transparency
+./build/lezac_cpp --debug-sprite-raw-roundtrip
+./build/lezac_cpp --debug-sprite-blit-contract
 ./build/lezac_cpp --debug-word-layer
 ./build/lezac_cpp --debug-spawners
 ./build/lezac_cpp --debug-explosions
 ./build/lezac_cpp --debug-damage-queues
 ./build/lezac_cpp --debug-monster-slots
+./build/lezac_cpp --debug-monster-motion-model
 ./build/lezac_cpp --debug-monster-blast-damage
 ./build/lezac_cpp --debug-bomb-fuse
 ./build/lezac_cpp --debug-passable-objects
@@ -114,6 +122,8 @@ Dump the current bomb inventory model and export sprite contact sheets:
   four-slot bomb inventory/switching, original bomb actor sprites, player
   animation, active structure hazard damage, bomb blast player damage,
   post-hit damage cooldown, level progression, and records/menu display.
+  Deterministic debug coverage exercises the current passable-object
+  classification and player/monster collision pushout model.
 - Menu subpages for info, instructions, and records, plus original-documented
   background and one-player playfield-width controls.
 - A first playable two-player reconstruction pass with separate start markers,
@@ -138,28 +148,43 @@ Dump the current bomb inventory model and export sprite contact sheets:
   queues cursor `0x0027` at priority `6`, bonus pickup audio queues cursor
   `0x0008` at priority `5`, accepted player damage queues cursor `0x002d` at
   priority `4`, and player death/life-loss queues cursor `0x0056` at priority
-  `5` while restoring the player energy byte to `100`. Accepted player damage
-  now uses the original unsigned byte underflow death check rather than a
-  modern `energy == 0` clamp, and manual reentry/restart now waits for the
-  recovered state-2 `0x003c` countdown before returning a player to active
-  control. The state-2 death/reentry animation initializer is now documented as
-  the seven-byte `actor + 0x16` cursor populated by `1000:06ab`, and the
+  `5` while restoring the player energy byte to `100`. Live player damage now
+  accumulates per-player damage bytes and drains them once per update pass,
+  matching the recovered `DS:79e8`/`DS:79e9` model and original unsigned byte
+  underflow death check rather than a modern one-hit cooldown gate. Manual
+  reentry/restart still waits for the recovered state-2 `0x003c` countdown
+  before returning a player to active control. The state-2 death/reentry
+  animation initializer is now documented as the seven-byte `actor + 0x16`
+  cursor populated by `1000:06ab`, and the
   actor update model locks the `1000:6053` counter, wrap, ping-pong, and
   mode-3 backup behavior. The runtime-frame oracle parses saved DOSBox debugger
   dumps for `DS:006a`, `DS:006c`, `DS:006d`, the `DS:c322..c324` frame table,
-  and `DS:c21e` effect-entry words without making a visual claim. The
+  and `DS:c21e` effect-entry words without making a visual claim, and reports
+  each captured frame-table row in deterministic raw-byte form. A real temp-copy
+  `dosbox-debug` capture stopped at runtime `01ED:7C89` now locks one original
+  state-2 countdown sample: `DS=0C8F`, death cursor `0x45`, frame range
+  `0x4a..0x4f`, and effect entry 0 position `0x0068,0x00a8`.
+  `--debug-son-step-fields` exposes each recovered six-byte sound step as
+  `period_word`, `gate_tick`, `period_ticks`, `unknown4`, and `unknown5` while
+  keeping bytes `+4..+5` explicitly uninterpreted. The
   return-placement model tracks the `DS:c21e + 8 * actor[+0x01]` effect-entry
-  descent and blocking checks.
+  descent and blocking checks. Explosion/debris/collapse diagnostics now lock
+  the recovered dispatcher selector/state/sound-offset table, queued
+  debris/collapse payload fields, and bomb-object passability/routing side
+  effects without claiming exact original sprite playback.
 
 ## Still Approximate
 
-- Monster spawners now create active enemies with original-style 8.8 motion, but
-  behavior-specific AI and collision remain implemented hypotheses pending
-  deeper reconstruction of the actor update routine around `1000:6053`.
+- Monster spawners now create active enemies with original-style 8.8 motion, and
+  debug coverage locks the current collision/passability model, but
+  behavior-specific AI and exact original collision clearance remain implemented
+  hypotheses pending deeper reconstruction of the actor update routine around
+  `1000:6053`.
 - PC speaker sound effects now use a recovered request/priority latch,
   direct-sweep path for bomb explosions, and six-byte cursor stepping for
-  `PROEFS.SON`, but bytes `+4..+5` in each sound step and many non-explosion
-  callsite-to-event mappings remain unresolved.
+  `PROEFS.SON`. Field diagnostics preserve bytes `+4..+5` as raw unknowns, and
+  their semantic meaning plus many non-explosion callsite-to-event mappings
+  remain unresolved.
 - Two-player split-screen is playable with independent bomb inventories, scores,
   and record prompts, but exact original panel artwork and reentry presentation
   remain approximate.
@@ -167,17 +192,18 @@ Dump the current bomb inventory model and export sprite contact sheets:
   (letters/space, Backspace, Enter), but exact cursor drawing, typematic repeat,
   and name-entry presentation remain approximate.
 - Bomb fuse timing, 2x2 footprint, player blast damage, monster hit-point
-  blast damage, visual selectors, actor sprite indices, and word-layer damage
-  gating now follow the
-  `1000:414a`/`1000:370e`/expiration analysis. Active collapse/debris records
-  now drain player energy with a short post-hit cooldown, but exact sprite
-  playback, per-frame damage counter cadence, delayed state-2 life-count
+  blast damage, visual selectors, actor sprite indices, word-layer damage
+  gating, bomb-object passability after explosion, and queued debris/collapse
+  metadata now follow the `1000:414a`/`1000:370e`/expiration analysis. Active
+  collapse/debris records
+  now queue into the same per-player damage counters as monster contact and
+  bomb blasts, but exact sprite playback, delayed state-2 life-count
   decrement, and death/reentry visual playback remain simplified. The
   `actor + 0x16` state-2 cursor, cursor advancement rules, and `DS:c21e`
   placement math are locked as deterministic models, and the runtime-frame
-  oracle can validate captured debugger dumps, but the live renderer still
-  needs exact original `dosbox-debug` bytes before dead players should be drawn
-  as original art.
+  oracle now validates one original state-2 countdown capture, but the live
+  renderer still needs the frame-table interpretation and visual consumption
+  path confirmed before dead players should be drawn as original art.
 
 See [docs/GHIDRA_NOTES.md](docs/GHIDRA_NOTES.md) for addresses and disassembly
 anchors used in the reconstruction.

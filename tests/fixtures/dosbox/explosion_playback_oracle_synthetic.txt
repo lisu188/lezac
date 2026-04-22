@@ -1,0 +1,30 @@
+# LEZAC explosion playback oracle fixture v1
+# Synthetic parser fixture: verifies transcript parsing and address math only.
+capture=explosion_playback
+source=dosbox-debug
+temp_copy=1
+visual_claim=0
+command=dosbox-debug -c "mount c /tmp/lezac-dosbox-explosion" -c "c:" -c "DEBUG LEZAC.EXE"
+
+runtime_cs=1A2B
+runtime_ds=2B3C
+
+break ghidra=1000:75F1 runtime=1A2B:75F1 label=bomb_expire_dispatch_call
+break ghidra=1000:414A runtime=1A2B:414A label=explosion_dispatcher
+break ghidra=1000:370E runtime=1A2B:370E label=tile_damage_queue
+break ghidra=1000:3A7E runtime=1A2B:3A7E label=damage_forward_lookup
+break ghidra=1000:3B18 runtime=1A2B:3B18 label=damage_reverse_lookup
+break ghidra=1000:3BB2 runtime=1A2B:3BB2 label=collapse_forward_pass
+break ghidra=1000:3D46 runtime=1A2B:3D46 label=collapse_reverse_pass
+
+dump DS:2090
+2B3C:2090  00 00 00 93 03 00 c0 04 05 00 00 00 6b 00 00 00
+
+dump DS:6610
+2B3C:6610  00 06 0a 08 0a 09 00 02 03 05 00 04 02 00 00 00
+
+dump DS:C1E0
+2B3C:C1E0  6b 6c 6d 6e 6f 70 71 72 00 00 00 00 00 00 00 00
+
+dump DS:C21E
+2B3C:C21E  18 00 28 00 84 75 08 05 20 00 30 00 85 75 09 05

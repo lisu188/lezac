@@ -32,6 +32,10 @@ bytes targeting `082d:0000` are relocated by Ghidra into memory at
 | `1000:6053` | entity update candidate | Updates object animation, positions, controls, and collision/object behavior. |
 | `18ac:00f4` | transparent blit/object draw | Copies sprite pixels with zero treated as transparent. Palette index `0xff` is visible. |
 
+`--debug-sprite-blit-contract` exercises that blit rule through the C++ renderer:
+source index `0` preserves the destination framebuffer, while every nonzero
+source index is copied through the active palette, including visible `0xff`.
+
 Ghidra decompilation is not very useful for the Pascal code because of 16-bit
 segmented pointers and runtime helper calls, but disassembly was useful enough
 to confirm the file and RLE formats used by this port.
@@ -67,6 +71,10 @@ quirk.
   count. Each sprite then has 8-bit width, 8-bit height, and raw indexed pixels.
   `FONTS.SPR` stores large `A-Z`, compact `A-Z`, compact `0-9`, then period,
   colon, semicolon, comma, exclamation, and apostrophe/accent glyphs.
+  `--debug-sprite-raw-roundtrip` verifies the converted JSON for all three
+  sprite banks matches the shipped raw layout byte-for-byte: 250 sprites,
+  46,843 raw bytes, 46,340 pixel bytes, 21,396 zero pixels, 24,944 nonzero
+  pixels, and 369 visible `0xff` pixels.
 - `RECS.DAT` starts with an 8-bit record count. Each record is a little-endian
   32-bit score, an 8-bit reached level, and an 8-byte name padded with `:`.
 - `PROEFS.SON` starts with little-endian word `0x0082`. Disassembly of
@@ -77,7 +85,9 @@ quirk.
   that no payload bytes are lost.
 - `GRAN.MST` has no observed header in the shipped file. It is seven fixed-size
   57-byte records, likely aligned with the seven shipped levels, but the field
-  semantics are still unresolved.
+  semantics are still unresolved. Runtime JSON loading now rejects any converted
+  shape other than `7 * 57` bytes, and `--debug-gran-raw-roundtrip` verifies
+  the converted JSON bytes exactly match the shipped 399-byte file.
 
 ## Level Entity Blocks
 
@@ -88,8 +98,11 @@ loader reads three counted fixed-size blocks:
   `1000:7a6b-7c2c` checks enabled/budget/live-count/cooldown fields and creates
   active 0x26-byte actor records. Observed monster kinds are `1`, `2`, `3`, `4`,
   `6`, and `9`. Spawned actors retain a source-spawner id so actor removal can
-  return the live slot to the spawner, matching the behavior seen around
-  `1000:74f9`.
+  return the live slot to the spawner. The fatal damage branch at
+  `1000:74a6..7513` sets state `2`, kind `0x0c`, timer `0x19`, and, when
+  `actor+0x25 > 0`, immediately returns the source live slot around
+  `1000:74e6..74f9`; the later death-timer removal must not return it a second
+  time.
   The last two bytes are split in runtime use: byte `0x1c` reloads the spawner
   cooldown and byte `0x1d` is passed to the actor animation initializer as a
   delay value.
@@ -131,6 +144,24 @@ fractional accumulator bytes. The integration helper mirrors the byte-carry
 logic at `1000:73e5..741b`: add the low velocity byte to the fractional byte,
 then add the signed high velocity byte plus carry to the integer position. This
 preserves the original floor-style behavior for negative fractional velocities.
+`--debug-monster-motion-model` now locks that 8.8 carry behavior and the current
+behavior `3`/`4` branch hypotheses in a synthetic fixture, including kind-1
+directional frame selection and behavior-4 countdown retargeting. This is a
+regression oracle for the current reconstruction model, not proof that the
+remaining AI/collision rules are exact.
+
+The C++ collision/passability model currently treats destruction-progress tiles
+as solid except passable objects: portal tile `0x45` and bomb-object tiles
+`0x67..0x72`. Player collision samples a 12x16 footprint; monster collision
+samples a 14x16 footprint. `--debug-passable-objects` verifies the decoded
+levels contain portal, bomb-object, and solid examples, then checks full actor
+footprints and consumed bomb-object tiles against the passability helper.
+`--debug-collision-pushout` locks the current model by forcing horizontal and
+vertical player/monster collisions into a synthetic solid tile, then asserting
+the actors finish clear. It covers behavior-3 full horizontal reversal/vertical
+stop and behavior-4 half reversal with retarget timer reset. Exact original
+clearance rules inside
+`1000:6053..777f` still need more disassembly or DOSBox-debug runtime evidence.
 
 ## Bomb Inventory
 
@@ -177,6 +208,48 @@ load the forward byte from collapse/debris record offsets `+6`/`+4` and the
 reverse byte from offsets `+7`/`+5`. The collapse passes at `1000:3bb2` and
 `1000:3d46` write those lanes back through `0x6617`/`0x2097` and
 `0x6618`/`0x2098`, using `0x4e20` as the high-half spill marker.
+
+Diagnostic coverage now asserts metadata only for this area: dispatcher states
+`4..7`, direct-sweep offsets `0xea74`/`0xea7e`/`0xea88`/`0xeace`, debris stride
+`0x0b`, collapse stride `0x0f`, damaged bit `0x8000`, threshold `0x4000`,
+forward/reverse phase lookup sources, and real-asset bomb-object explosion
+cases that leave consumed object tiles passable while routing the tile above
+the footprint into collapse or debris queues. This is not evidence for exact
+rendered sprites or original frame timing; keep those claims blocked on a full
+mapping or runtime capture of `1000:3a56..4d3b`.
+
+### Explosion Runtime Capture Target
+
+Use `dosbox-debug` from a temporary copy when runtime bytes are needed for
+explosion/debris/collapse playback. Start with:
+
+```text
+dosbox-debug -c "mount c /tmp/lezac-dosbox-explosion" -c "c:" -c "DEBUG LEZAC.EXE"
+```
+
+The `DEBUG LEZAC.EXE` wrapper stops at program entry; a current capture attempt
+recorded `CS=01ed`, `DS=01dd`, `IP=7783` there. In this environment the
+debugger's curses input accepted printable characters through tmux, but Enter
+and Backspace were not delivered as debugger commands, so no explosion
+breakpoint was reached automatically. Treat that as an environment limitation,
+not original-game evidence.
+
+When a controllable debugger session is available, translate Ghidra anchors by
+keeping the offset and using the runtime `CS`. Useful breakpoints are
+`1000:75f1`, `1000:414a`, `1000:370e`, `1000:3a7e`, `1000:3b18`,
+`1000:3bb2`, `1000:3d46`, `1000:3fa6`, and `1000:432a`. For the immediate
+level-1 collapse route, start a one-player game, move to bomb tile `(24,22)`,
+and place a player-1 bomb with `N`; the target tile above is `(24,21)` with
+word `0x0009`, expected to flag as `0x8009` and enqueue a two-cell collapse
+group.
+
+Record `R`, `U CS:IP`, `D SS:SP`, `D DS:2070`, `D DS:7990`, `D DS:2090`,
+`D DS:6610`, `D DS:c1e0`, `D DS:c21e`, and `D DS:c320` after relevant stops.
+Normalize the transcript into
+`tests/fixtures/dosbox/explosion_playback_oracle_original.txt` only after live
+bytes are captured. The checked-in `--debug-explosion-playback-oracle` fixtures
+are synthetic parser coverage and keep `visual_claim=0`; they must not be used
+as evidence for exact sprite playback.
 
 ## Sound Playback Evidence
 
@@ -235,6 +308,15 @@ The current stop-cursor map from the shipped `PROEFS.SON` payload is:
 0x0031, 0x0035, 0x003d, 0x0056, 0x0069, 0x0078, 0x0082`.
 `--debug-sound-cursor-segments` validates these boundaries and renders the
 known non-direct cursor starts through `synthesizeSoundCursor`.
+`--debug-son-step-fields` is a field-only diagnostic for the same raw bank:
+it keeps the JSON schema byte-preserving and prints each sampled six-byte step
+as `step_index`, `period_word`, `gate_tick`, `period_ticks`, `unknown4`, and
+`unknown5`. In the shipped bank, the first step is cursor `0x0001` with
+`period_word=0x00f7`, `gate_tick=1`, `period_ticks=1`, `unknown4=0x01`, and
+`unknown5=0x02`; the first stop sentinel is cursor `0x0005`, and the final
+stop sentinel is cursor `0x0082`. 118 of 130 steps have a nonzero
+`unknown4`/`unknown5` pair, but the tick routine window above still does not
+interpret those bytes.
 
 Six non-explosion gameplay cues are now mapped to original queued requests:
 
@@ -263,8 +345,9 @@ Six non-explosion gameplay cues are now mapped to original queued requests:
   routine at `1000:6053`, subtracts accumulated damage from the live player
   energy byte, and when the damage counter is nonzero writes
   `DS:2074 = 0x002d`, `DS:799f = 4`, then calls `1000:165a`
-  (`1000:7f84..7f8f`, file offset `0x86f4`). The C++ shared
-  `damagePlayer` gate mirrors accepted damage with `requestPlayerDamageSound`.
+  (`1000:7f84..7f8f`, file offset `0x86f4`). The C++ live path queues damage
+  through per-player counters and drains them with `drainPlayerDamageCounters`,
+  while direct debug helpers use the same byte-subtraction routine.
 - The following life-loss helper at `1000:30a3` is separate from the hurt cue:
   it writes `DS:2074 = 0x0056`, `DS:799f = 5`, calls `1000:165a`, then moves
   the actor into the death/reentry state. The mapped field writes are
@@ -280,15 +363,17 @@ Other non-explosion cues are still being mapped; direct `playSound(index)`
 callers remain compatibility hooks until their original cursor/priority writes
 are confirmed.
 
-Open damage-timing question: `1000:7f68..7f75` subtracts the full accumulated
+Player damage counter evidence: `1000:7f68..7f75` subtracts the full accumulated
 per-player damage byte (`DS:79e8` for player 1, `DS:79e9` for player 2) before
 the `0x002d` hurt request. `1000:63f0` and `1000:6491` increment those counters
 on harmful actor overlap, and the clear sites at `1000:7a57..7a5c` reset them
 once per outer actor pass. `--debug-original-damage-counters` preserves this
-byte-subtraction model. The live C++ `damagePlayer` now uses the original
-unsigned byte death dispatch (`energy > 0x00c8` after wrapping), but still
-applies accepted reconstructed damage events through a cooldown gate rather
-than the full original counter-clear/increment/drain cadence.
+byte-subtraction model and also verifies the live C++ path. Monster contact,
+active debris/collapse hazard areas, and bomb blasts now increment the
+per-player pending bytes; the update pass drains those bytes once, requests the
+priority-`4` hurt cue once when nonzero, skips energy subtraction for state-2
+players while preserving the hurt request, and dispatches death when unsigned
+byte subtraction wraps above `0x00c8`.
 
 State-2 life/reentry evidence: `1000:30a3` only queues the death/life-loss cue
 and writes the actor death/reentry fields (`+0x15 = 2`, `+0x10 = 0x003c`,
@@ -359,19 +444,24 @@ tile or the right tile is `0x01` or `0x4c`. If placement is not blocked and
 entry word `+2 > 0x18`, the routine decrements word `+2` before the
 `DS:79a3` action-gate check. The C++ debug command
 `--debug-original-state2-effect-placement` locks that placement/descent model.
-Exact runtime values for `DS:006a`, `DS:006c`, `DS:006d`, and the frame table
-at `DS:c324` still need DOSBox debugger observation before the live renderer
-can claim faithful death/reentry art. `dosbox-debug` is available in the
-current recovery environment and should be used for that capture rather than
-inferring frame ids from static asset shape.
+One real `dosbox-debug` capture now stops the original game at runtime
+`01ED:7C89` after a one-player bomb death. At that stop `DS=0C8F`,
+`DS:006a = 0x45`, `DS:006c = 0x4a`, `DS:006d = 0x4f`, and the first effect
+entry at `DS:c21e` is `x = 0x0068`, `y = 0x00a8`. The current oracle formula
+`DS:c322 + 4 * frame` yields `first_entry_addr = 0xc44a`, six rows, first row
+`10,10,7d,43`, and last row `10,10,7d,48`. This is original runtime evidence
+for the countdown state, but the live renderer still needs the frame-table
+field interpretation and visual consumption path confirmed before it can claim
+faithful death/reentry art.
 
 The C++ debug command `--debug-state2-runtime-frame-oracle <dump.txt>` parses a
 normalized saved DOSBox debugger transcript. It expects runtime `CS`/`DS`,
 translated breakpoints, a `D DS:0060` dump for `DS:006a`, `DS:006c`, and
 `DS:006d`, frame-table bytes at `DS:c322 + 4 * frame`, and `DS:c21e` effect
-entry bytes. The checked-in fixture is synthetic and only proves parser
-mechanics, address math, and malformed-segment rejection. A real original-game
-fixture should be added only after live `dosbox-debug` bytes are captured.
+entry bytes. The synthetic fixture proves parser mechanics, address math,
+complete raw row reporting, and malformed-input rejection. The original fixture
+captures a temp-copy `dosbox-debug` stop at `01ED:7C89` with runtime `CS=01ED`
+and `DS=0C8F`; it keeps `visual_claim=0`.
 
 Unresolved state-2 fallback: `1000:7ef8..7f2a` increments `DS:79b9` when no
 player is active and promotes any `DS:79e5 + player == 2` state byte to `1` at
@@ -456,6 +546,9 @@ opening name entry.
 - Actor 8.8 integration: `integrateAxis8_8`.
 - Bomb expiration and physical damage: `explode`, `queueTileDamage`,
   `damageMonstersInExplosion`.
+- Player damage counters: `queuePlayerDamage` mirrors the `DS:79e8`/`DS:79e9`
+  increment sites; `drainPlayerDamageCounters` maps the `1000:7f68..7f8f`
+  byte-subtract and hurt-request pass.
 - Sound bank loading and latch: `loadSon` maps `1000:0630..06aa`;
   `latchSoundRequest`, `requestSoundCursor`, `requestSoundOffset`, and
   `pumpSoundLatch` map `1000:165a..167d`; `synthesizeDirectSweep` maps the

@@ -22,11 +22,12 @@ Baseline: `ee67978` / `origin/main`
   #29, preserving GRAN field semantics as unresolved while locking file shape.
 - Integrated monster motion/spawner lifecycle coverage from #30, including the
   behavior-3/behavior-4 motion fixture and immediate source-spawner slot return.
+- Integrated raw `.SPR` roundtrip coverage from #31.
 - Preserved synthetic parser-hardening coverage, original `01ED:7C89` state-2
   capture, sound step diagnostics, explosion/object metadata coverage,
   explosion debugger capture instructions, live damage-counter coverage,
-  level-1 frame inspection, GRAN roundtrip coverage, spawner fixture, and
-  monster motion fixture.
+  level-1 frame inspection, GRAN roundtrip coverage, spawner fixture, monster
+  motion fixture, and sprite raw-bank guards.
 
 ## Validation
 
@@ -54,5 +55,5 @@ Baseline: `ee67978` / `origin/main`
 
 ## Next Planned Target
 
-Finish consolidating PRs #31 through #33, run full validation, close the
-individual draft PRs, and merge the consolidated result into `main`.
+Finish consolidating PRs #32 and #33, run full validation, close the individual
+draft PRs, and merge the consolidated result into `main`.

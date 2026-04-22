@@ -122,6 +122,8 @@ Dump the current bomb inventory model and export sprite contact sheets:
   four-slot bomb inventory/switching, original bomb actor sprites, player
   animation, active structure hazard damage, bomb blast player damage,
   post-hit damage cooldown, level progression, and records/menu display.
+  Deterministic debug coverage exercises the current passable-object
+  classification and player/monster collision pushout model.
 - Menu subpages for info, instructions, and records, plus original-documented
   background and one-player playfield-width controls.
 - A first playable two-player reconstruction pass with separate start markers,
@@ -173,9 +175,11 @@ Dump the current bomb inventory model and export sprite contact sheets:
 
 ## Still Approximate
 
-- Monster spawners now create active enemies with original-style 8.8 motion, but
-  behavior-specific AI and collision remain implemented hypotheses pending
-  deeper reconstruction of the actor update routine around `1000:6053`.
+- Monster spawners now create active enemies with original-style 8.8 motion, and
+  debug coverage locks the current collision/passability model, but
+  behavior-specific AI and exact original collision clearance remain implemented
+  hypotheses pending deeper reconstruction of the actor update routine around
+  `1000:6053`.
 - PC speaker sound effects now use a recovered request/priority latch,
   direct-sweep path for bomb explosions, and six-byte cursor stepping for
   `PROEFS.SON`. Field diagnostics preserve bytes `+4..+5` as raw unknowns, and

@@ -6,8 +6,8 @@ Baseline: `ee67978` / `origin/main`
 
 ## Completed This Consolidation
 
-- Consolidating open draft recovery PRs #23 through #33 into one integration
-  branch before merging to `main`.
+- Consolidated open draft recovery PRs #23 through #33 into one integration
+  branch for merge to `main`.
 - Integrated state-2 runtime oracle hardening from #23 and the original
   temp-copy `dosbox-debug` state-2 fixture from #24.
 - Integrated `PROEFS.SON` six-byte step field diagnostics from #25 while
@@ -24,15 +24,18 @@ Baseline: `ee67978` / `origin/main`
   behavior-3/behavior-4 motion fixture and immediate source-spawner slot return.
 - Integrated raw `.SPR` roundtrip coverage from #31 and the sprite blit
   zero-transparency contract from #32.
+- Integrated passable-object footprint and collision clearance coverage from
+  #33, including behavior-4 half-speed reversal checks.
 - Preserved synthetic parser-hardening coverage, original `01ED:7C89` state-2
   capture, sound step diagnostics, explosion/object metadata coverage,
   explosion debugger capture instructions, live damage-counter coverage,
   level-1 frame inspection, GRAN roundtrip coverage, spawner fixture, monster
-  motion fixture, sprite raw-bank guards, and the `0xff`-visible blit contract.
+  motion fixture, sprite raw-bank guards, `0xff`-visible blit contract, and
+  collision/passability clearance guards.
 
 ## Validation
 
-- Pending until all draft PRs are consolidated and conflicts are resolved.
+- Pending final consolidated build and test run.
 
 ## Remaining Top Gaps
 
@@ -46,6 +49,9 @@ Baseline: `ee67978` / `origin/main`
 - Exact actor update behavior around `1000:6053..777f`, especially original
   contact flags, passability thresholds, tile snapping, behavior-3 ledge/wall
   handling, and behavior-4 collision response.
+- The probable contact scanner around `1000:5cb0..604f` needs naming,
+  cross-reference mapping, and runtime confirmation before the C++ clearance
+  model can be called original-faithful.
 - Exact state-2 life-count decrement, `DS:79b9` fallback behavior,
   active-player accounting edge cases, and live dead-player visual playback
   from original frame bytes.
@@ -56,5 +62,5 @@ Baseline: `ee67978` / `origin/main`
 
 ## Next Planned Target
 
-Finish consolidating PR #33, run full validation, close the individual draft
-PRs, and merge the consolidated result into `main`.
+Run full validation, close draft PRs #23 through #33 as consolidated, push this
+branch, and merge the consolidated result into `main`.

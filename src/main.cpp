@@ -725,6 +725,39 @@ SpriteBank loadSprites(const std::string& path) {
     return bank;
 }
 
+SpriteBank loadRawSprites(const std::string& path) {
+    auto data = readFile(path);
+    if (data.empty()) {
+        throw std::runtime_error(path + " is empty");
+    }
+    SpriteBank bank;
+    size_t offset = 0;
+    uint8_t count = data[offset++];
+    bank.sprites.reserve(count);
+    for (uint8_t i = 0; i < count; ++i) {
+        if (offset + 2 > data.size()) {
+            throw std::runtime_error(path + " truncated sprite header");
+        }
+        Sprite sprite;
+        sprite.width = data[offset++];
+        sprite.height = data[offset++];
+        size_t pixelCount = static_cast<size_t>(sprite.width) * sprite.height;
+        if (offset + pixelCount > data.size()) {
+            throw std::runtime_error(path + " truncated sprite pixels");
+        }
+        sprite.pixels.insert(sprite.pixels.end(),
+                             data.begin() + static_cast<std::ptrdiff_t>(offset),
+                             data.begin() +
+                                 static_cast<std::ptrdiff_t>(offset + pixelCount));
+        offset += pixelCount;
+        bank.sprites.push_back(std::move(sprite));
+    }
+    if (offset != data.size()) {
+        throw std::runtime_error(path + " trailing sprite bytes");
+    }
+    return bank;
+}
+
 std::vector<Record> loadRecords(const std::string& path) {
     auto json = readTextFile(path);
     std::vector<Record> records;
@@ -3098,6 +3131,75 @@ public:
                   << " primary=" << primaryFf
                   << " prova=" << altFf
                   << " fonts=" << fontFf << '\n';
+    }
+
+    void debugSpriteRawRoundtrip() {
+        load();
+
+        struct BankCheck {
+            const char* rawPath;
+            const SpriteBank* jsonBank;
+            const char* countLabel;
+        };
+        const std::array<BankCheck, 3> banks{{
+            {"BOMOMIMK.SPR", &sprites_, "bomomimk"},
+            {"PROVA.SPR", &altSprites_, "prova"},
+            {"FONTS.SPR", &fontSprites_, "fonts"},
+        }};
+
+        size_t totalRawBytes = 0;
+        size_t totalSprites = 0;
+        size_t totalPixels = 0;
+        size_t zeroPixels = 0;
+        size_t ffPixels = 0;
+        int maxWidth = 0;
+        int maxHeight = 0;
+        std::array<size_t, 3> bankSpriteCounts{};
+
+        for (size_t bankIndex = 0; bankIndex < banks.size(); ++bankIndex) {
+            const BankCheck& check = banks[bankIndex];
+            auto rawBytes = readFile(check.rawPath);
+            SpriteBank rawBank = loadRawSprites(check.rawPath);
+            const SpriteBank& jsonBank = *check.jsonBank;
+            if (rawBank.sprites.size() != jsonBank.sprites.size()) {
+                throw std::runtime_error(std::string(check.rawPath) +
+                                         " raw/json sprite count mismatch");
+            }
+            totalRawBytes += rawBytes.size();
+            bankSpriteCounts[bankIndex] = rawBank.sprites.size();
+            for (size_t i = 0; i < rawBank.sprites.size(); ++i) {
+                const Sprite& rawSprite = rawBank.sprites[i];
+                const Sprite& jsonSprite = jsonBank.sprites[i];
+                if (rawSprite.width != jsonSprite.width ||
+                    rawSprite.height != jsonSprite.height ||
+                    rawSprite.pixels != jsonSprite.pixels) {
+                    throw std::runtime_error(std::string(check.rawPath) +
+                                             " raw/json sprite payload mismatch");
+                }
+                ++totalSprites;
+                totalPixels += rawSprite.pixels.size();
+                maxWidth = std::max(maxWidth, rawSprite.width);
+                maxHeight = std::max(maxHeight, rawSprite.height);
+                zeroPixels += static_cast<size_t>(
+                    std::count(rawSprite.pixels.begin(), rawSprite.pixels.end(), 0));
+                ffPixels += static_cast<size_t>(
+                    std::count(rawSprite.pixels.begin(), rawSprite.pixels.end(), 0xff));
+            }
+        }
+
+        size_t nonzeroPixels = totalPixels - zeroPixels;
+        std::cout << "sprite_raw_roundtrip=ok banks=" << banks.size()
+                  << " raw_bytes=" << totalRawBytes
+                  << " sprites=" << totalSprites
+                  << " pixels=" << totalPixels
+                  << " zero=" << zeroPixels
+                  << " nonzero=" << nonzeroPixels
+                  << " ff=" << ffPixels
+                  << " max=" << maxWidth << 'x' << maxHeight
+                  << " " << banks[0].countLabel << "=" << bankSpriteCounts[0]
+                  << " " << banks[1].countLabel << "=" << bankSpriteCounts[1]
+                  << " " << banks[2].countLabel << "=" << bankSpriteCounts[2]
+                  << '\n';
     }
 
     void debugWordLayer() {
@@ -6441,6 +6543,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sprite-transparency") {
             app.debugSpriteTransparency();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sprite-raw-roundtrip") {
+            app.debugSpriteRawRoundtrip();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-word-layer") {

@@ -67,6 +67,10 @@ quirk.
   count. Each sprite then has 8-bit width, 8-bit height, and raw indexed pixels.
   `FONTS.SPR` stores large `A-Z`, compact `A-Z`, compact `0-9`, then period,
   colon, semicolon, comma, exclamation, and apostrophe/accent glyphs.
+  `--debug-sprite-raw-roundtrip` verifies the converted JSON for all three
+  sprite banks matches the shipped raw layout byte-for-byte: 250 sprites,
+  46,843 raw bytes, 46,340 pixel bytes, 21,396 zero pixels, 24,944 nonzero
+  pixels, and 369 visible `0xff` pixels.
 - `RECS.DAT` starts with an 8-bit record count. Each record is a little-endian
   32-bit score, an 8-bit reached level, and an 8-byte name padded with `:`.
 - `PROEFS.SON` starts with little-endian word `0x0082`. Disassembly of

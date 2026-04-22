@@ -199,7 +199,16 @@ if(BUILD_TESTING)
     add_test(NAME sprite_transparency
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sprite-transparency)
     set_tests_properties(sprite_transparency PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^sprite_transparency=ok zero_only=1 ff_pixels=369 primary=104 prova=114 fonts=151")
+
+    add_test(NAME sprite_raw_roundtrip
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sprite-raw-roundtrip)
+    set_tests_properties(sprite_raw_roundtrip PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^sprite_raw_roundtrip=ok banks=3 raw_bytes=46843 sprites=250 pixels=46340 zero=21396 nonzero=24944 ff=369 max=48x20 bomomimk=91 prova=91 fonts=68")
 
     add_test(NAME monster_slots COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-slots)
     set_tests_properties(monster_slots PROPERTIES

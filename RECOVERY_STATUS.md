@@ -12,8 +12,9 @@ Baseline: `ee67978` / `origin/main`
   temp-copy `dosbox-debug` state-2 fixture from #24.
 - Integrated `PROEFS.SON` six-byte step field diagnostics from #25 while
   preserving bytes `+4..+5` as raw uninterpreted fields.
-- Preserved both synthetic parser-hardening coverage and the original
-  `01ED:7C89` state-2 capture with `visual_claim=0`.
+- Integrated explosion object debug coverage from #26.
+- Preserved synthetic parser-hardening coverage, original `01ED:7C89` state-2
+  capture, sound step diagnostics, and explosion/object metadata coverage.
 
 ## Validation
 
@@ -40,5 +41,5 @@ Baseline: `ee67978` / `origin/main`
 
 ## Next Planned Target
 
-Finish consolidating PRs #26 through #33, run full validation, close the
+Finish consolidating PRs #27 through #33, run full validation, close the
 individual draft PRs, and merge the consolidated result into `main`.

@@ -3390,6 +3390,13 @@ public:
                       << " sound_selector=" << static_cast<int>(explosionSoundSelector(visualType))
                       << '\n';
         }
+        std::cout << "explosion_profiles=ok types=4 states=4,5,6,7 sound_offsets="
+                  << std::showbase << std::hex
+                  << explosionSoundOffset(1) << ','
+                  << explosionSoundOffset(2) << ','
+                  << explosionSoundOffset(3) << ','
+                  << explosionSoundOffset(4)
+                  << std::dec << std::noshowbase << '\n';
     }
 
     void debugDamageQueues() {
@@ -3426,6 +3433,14 @@ public:
 
         bool printedCollapse = false;
         bool printedDebris = false;
+        uint16_t collapseFlagged = 0;
+        int collapseCount = 0;
+        int collapseForwardPhase = 0;
+        int collapseReversePhase = 0;
+        uint16_t debrisFlagged = 0;
+        int debrisLookup = 0;
+        int debrisForwardPhase = 0;
+        int debrisReversePhase = 0;
         for (size_t levelIndex = 0; levelIndex < levels_.size() && (!printedCollapse || !printedDebris); ++levelIndex) {
             if (!printedCollapse) {
                 auto pos = findWord(static_cast<int>(levelIndex), false);
@@ -3434,6 +3449,10 @@ public:
                     queueTileDamage(pos[0], pos[1], 2, 3);
                     if (!collapseQueue_.empty()) {
                         const CollapseRecord& record = collapseQueue_.back();
+                        collapseFlagged = record.flaggedWord;
+                        collapseCount = record.count;
+                        collapseForwardPhase = static_cast<int>(record.forwardPhase);
+                        collapseReversePhase = static_cast<int>(record.reversePhase);
                         std::cout << "collapse_level=" << (levelIndex + 1)
                                   << " tile=" << pos[0] << ',' << pos[1]
                                   << " word=" << std::showbase << std::hex << word
@@ -3456,6 +3475,10 @@ public:
                     queueTileDamage(pos[0], pos[1], 4, 5);
                     if (!debrisQueue_.empty()) {
                         const DebrisRecord& record = debrisQueue_.back();
+                        debrisFlagged = record.flaggedWord;
+                        debrisLookup = static_cast<int>(record.lookup);
+                        debrisForwardPhase = static_cast<int>(record.forwardPhase);
+                        debrisReversePhase = static_cast<int>(record.reversePhase);
                         std::cout << "debris_level=" << (levelIndex + 1)
                                   << " tile=" << pos[0] << ',' << pos[1]
                                   << " tile_index=" << record.tileIndex
@@ -3472,6 +3495,21 @@ public:
         }
         if (!printedCollapse) std::cout << "collapse_sample=missing\n";
         if (!printedDebris) std::cout << "debris_sample=missing\n";
+        if (printedCollapse && printedDebris) {
+            std::cout << "damage_queues=ok debris_stride=" << kDebrisStride
+                      << " collapse_stride=" << kCollapseStride
+                      << " damaged_bit=" << std::showbase << std::hex << kDamagedWordBit
+                      << " deferred_threshold=" << kDeferredThreshold
+                      << " collapse_flagged=" << collapseFlagged
+                      << " debris_flagged=" << debrisFlagged
+                      << std::dec << std::noshowbase
+                      << " collapse_count=" << collapseCount
+                      << " collapse_forward=" << collapseForwardPhase
+                      << " collapse_reverse=" << collapseReversePhase
+                      << " debris_lookup=" << debrisLookup
+                      << " debris_forward=" << debrisForwardPhase
+                      << " debris_reverse=" << debrisReversePhase << '\n';
+        }
     }
 
     void debugMonsterSlots() {
@@ -3617,6 +3655,161 @@ public:
         if (!menu_ || !bombs_.empty() || !flashes_.empty() || !explosionEffects_.empty()) {
             throw std::runtime_error("stale expired bomb exploded after reset");
         }
+    }
+
+    void debugBombObjectExplosionEffects() {
+        load();
+
+        struct Probe {
+            int level = 0;
+            int x = 0;
+            int y = 0;
+            uint8_t tile = 0;
+            uint16_t objectWord = 0;
+            uint16_t aboveWord = 0;
+        };
+
+        auto findProbe = [&](bool wantHighWord, Probe& out) {
+            for (size_t level = 0; level < levels_.size(); ++level) {
+                resetLevel(static_cast<int>(level));
+                for (int y = 1; y + 1 < level_.height; ++y) {
+                    for (int x = 0; x + 1 < level_.width; ++x) {
+                        uint8_t tile = static_cast<uint8_t>(tileAt(x, y));
+                        if (!isBombObjectTile(tile)) continue;
+                        uint16_t objectWord = wordAt(x, y);
+                        uint16_t aboveWord = wordAt(x, y - 1);
+                        if (aboveWord == 0 || (aboveWord & kDamagedWordBit) != 0 ||
+                            objectWord == aboveWord) {
+                            continue;
+                        }
+                        if ((aboveWord >= kDeferredThreshold) != wantHighWord) continue;
+
+                        Bomb bomb{x, y, 1, BombType::Small, 1, 1};
+                        int bombObjectsInFootprint = 0;
+                        bool onlyCandidateObject = true;
+                        for (const auto& pos : explosionTilesFor(bomb)) {
+                            if (!isBombObjectTile(static_cast<uint8_t>(tileAt(pos[0], pos[1])))) {
+                                continue;
+                            }
+                            ++bombObjectsInFootprint;
+                            onlyCandidateObject =
+                                onlyCandidateObject && pos[0] == x && pos[1] == y;
+                        }
+                        if (bombObjectsInFootprint != 1 || !onlyCandidateObject) continue;
+
+                        out = {static_cast<int>(level), x, y, tile, objectWord, aboveWord};
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+
+        auto runProbe = [&](const Probe& probe, bool expectDebris) -> int {
+            resetLevel(probe.level);
+            clearRunScores();
+            clearSoundLatch();
+            monsters_.clear();
+            bonusDrops_.clear();
+            bombs_.clear();
+            flashes_.clear();
+            explosionEffects_.clear();
+            debrisQueue_.clear();
+            collapseQueue_.clear();
+            playerDead_ = true;
+            player2Dead_ = true;
+
+            if (static_cast<uint8_t>(tileAt(probe.x, probe.y)) != probe.tile ||
+                wordAt(probe.x, probe.y) != probe.objectWord ||
+                wordAt(probe.x, probe.y - 1) != probe.aboveWord) {
+                throw std::runtime_error("bomb object probe changed before explosion");
+            }
+            if (solidPixel(static_cast<float>(probe.x * kTileSize + 1),
+                           static_cast<float>(probe.y * kTileSize + 1))) {
+                throw std::runtime_error("bomb object was not passable before explosion");
+            }
+
+            Bomb bomb{probe.x, probe.y, 1, BombType::Small, 1, 1};
+            explode(bomb);
+
+            uint8_t expectedTile =
+                (probe.objectWord & kDamagedWordBit) != 0 ? 0xff : 0;
+            if (static_cast<uint8_t>(tileAt(probe.x, probe.y)) != expectedTile) {
+                throw std::runtime_error("bomb object consumed to unexpected tile");
+            }
+            if (solidPixel(static_cast<float>(probe.x * kTileSize + 1),
+                           static_cast<float>(probe.y * kTileSize + 1))) {
+                throw std::runtime_error("consumed bomb object blocked movement");
+            }
+            if (score_ != 50) {
+                throw std::runtime_error("bomb object explosion did not award one object score");
+            }
+            if (flashes_.size() != 4 || explosionEffects_.size() != 1) {
+                throw std::runtime_error("bomb object explosion footprint/effect mismatch");
+            }
+            if (!soundLatch_.active ||
+                soundLatch_.latchedOffset != explosionSoundOffset(1) ||
+                soundLatch_.currentSelector != explosionSoundSelector(1)) {
+                throw std::runtime_error("bomb object explosion sound priority mismatch");
+            }
+
+            uint16_t flaggedAbove = static_cast<uint16_t>(probe.aboveWord | kDamagedWordBit);
+            if (wordAt(probe.x, probe.y - 1) != flaggedAbove) {
+                throw std::runtime_error("bomb object explosion did not flag above word");
+            }
+            DamagePhaseLookup forward = resolveDamagePhase(flaggedAbove, false);
+            DamagePhaseLookup reverse = resolveDamagePhase(flaggedAbove, true);
+            if (forward.phase != 0 || reverse.phase != 0) {
+                throw std::runtime_error("bomb object default damage phases changed");
+            }
+
+            if (expectDebris) {
+                if (debrisQueue_.size() != 1 || !collapseQueue_.empty() ||
+                    destroyed_ != 0 || !forward.debris || !reverse.debris) {
+                    throw std::runtime_error("bomb object high-word routing mismatch");
+                }
+                const DebrisRecord& record = debrisQueue_.front();
+                int expectedIndex = (probe.y - 1) * level_.width + probe.x;
+                if (record.tileIndex != expectedIndex ||
+                    record.flaggedWord != flaggedAbove) {
+                    throw std::runtime_error("bomb object debris record mismatch");
+                }
+                return static_cast<int>(record.lookup);
+            }
+
+            if (collapseQueue_.size() != 1 || !debrisQueue_.empty() ||
+                forward.debris || reverse.debris) {
+                throw std::runtime_error("bomb object low-word routing mismatch");
+            }
+            const CollapseRecord& record = collapseQueue_.front();
+            if (record.flaggedWord != flaggedAbove || destroyed_ != record.count ||
+                record.count <= 0) {
+                throw std::runtime_error("bomb object collapse record mismatch");
+            }
+            return record.count;
+        };
+
+        Probe collapseProbe;
+        Probe debrisProbe;
+        if (!findProbe(false, collapseProbe)) {
+            throw std::runtime_error("no low-word bomb object explosion probe found");
+        }
+        if (!findProbe(true, debrisProbe)) {
+            throw std::runtime_error("no high-word bomb object explosion probe found");
+        }
+
+        int collapseCount = runProbe(collapseProbe, false);
+        int debrisLookup = runProbe(debrisProbe, true);
+        std::cout << "bomb_object_explosion_effects=ok cases=2"
+                  << " collapse_level=" << (collapseProbe.level + 1)
+                  << " collapse_tile=" << collapseProbe.x << ',' << collapseProbe.y
+                  << " collapse_count=" << collapseCount
+                  << " debris_level=" << (debrisProbe.level + 1)
+                  << " debris_tile=" << debrisProbe.x << ',' << debrisProbe.y
+                  << " debris_lookup=" << debrisLookup
+                  << " score_each=50 sound_offset=" << std::showbase << std::hex
+                  << explosionSoundOffset(1)
+                  << std::dec << std::noshowbase << '\n';
     }
 
     void debugPassableObjects() {
@@ -6571,6 +6764,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-fuse") {
             app.debugBombFuse();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-bomb-object-explosion-effects") {
+            app.debugBombObjectExplosionEffects();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-passable-objects") {

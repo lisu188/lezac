@@ -76,12 +76,26 @@ cycles=fixed 6000
 EOF_CONF
 
 log="$out_dir/original_capture.log"
+manifest="$out_dir/manifest.txt"
 : >"$log"
+: >"$manifest"
 echo "capture=original_dosbox" >>"$log"
+echo "scenario=level1_bomb_route" >>"$log"
+echo "route=autoplayer_aligned" >>"$log"
 echo "asset_dir=$asset_dir" >>"$log"
 echo "run_dir=$run_dir" >>"$log"
 echo "captures=$out_dir" >>"$log"
 echo "command=dosbox -conf $conf -c \"mount c $run_dir\" -c \"c:\" -c \"LEZAC.EXE\"" >>"$log"
+{
+    echo "scenario=level1_bomb_route"
+    echo "source=LEZAC.EXE via DOSBox"
+    echo "route=autoplayer_aligned"
+    echo "startup_seconds=${LEZAC_ORIGINAL_STARTUP_SECONDS:-6.0}"
+    echo "level_start_seconds=${LEZAC_ORIGINAL_LEVEL_START_SECONDS:-1.5}"
+    echo "right_hold_seconds=${LEZAC_ORIGINAL_ROUTE_RIGHT_SECONDS:-0.95}"
+    echo "start_key=${LEZAC_ORIGINAL_START_KEY:-1}"
+    echo "start_text=${LEZAC_ORIGINAL_START_TEXT:-}"
+} >>"$manifest"
 
 dosbox -conf "$conf" \
     -c "mount c $run_dir" \
@@ -104,39 +118,91 @@ if [[ -z "$win" ]]; then
 fi
 
 focus() {
-    xdotool windowfocus "$win"
+    xdotool windowactivate --sync "$win" 2>/dev/null || xdotool windowfocus "$win"
     sleep 0.1
+}
+
+press() {
+    focus
+    xdotool keydown --window "$win" "$@"
+    sleep 0.08
+    xdotool keyup --window "$win" "$@"
+    sleep 0.1
+}
+
+type_text() {
+    focus
+    xdotool type --window "$win" --delay 50 "$1"
+    sleep 0.1
+}
+
+key_down() {
+    focus
+    xdotool keydown --window "$win" "$@"
+}
+
+key_up() {
+    focus
+    xdotool keyup --window "$win" "$@"
+}
+
+snapshot_files() {
+    find "$out_dir" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.bmp' \) \
+        -printf '%f\n' | sort
 }
 
 capture() {
     local label=$1
+    local before="$run_dir/before-$label.txt"
+    local after="$run_dir/after-$label.txt"
+    snapshot_files >"$before"
     focus
     echo "checkpoint=$label time=$(date -Is)" >>"$log"
     xdotool key --clearmodifiers ctrl+F5
-    sleep 0.25
+    sleep 0.35
+    snapshot_files >"$after"
+    local new_file
+    new_file=$(comm -13 "$before" "$after" | tail -n 1 || true)
+    if [[ -n "$new_file" ]]; then
+        local ext=${new_file##*.}
+        ext=${ext,,}
+        local target="$label.$ext"
+        mv -f "$out_dir/$new_file" "$out_dir/$target"
+        echo "frame label=$label file=$target" >>"$manifest"
+        echo "captured=$target" >>"$log"
+    else
+        echo "frame label=$label file=missing" >>"$manifest"
+        echo "capture_missing=$label" >>"$log"
+    fi
 }
 
-sleep 2.0
+sleep "${LEZAC_ORIGINAL_STARTUP_SECONDS:-6.0}"
 capture 000_menu
-xdotool key --clearmodifiers 1
-sleep 1.0
+if [[ -n "${LEZAC_ORIGINAL_START_TEXT:-}" ]]; then
+    type_text "$LEZAC_ORIGINAL_START_TEXT"
+else
+    press "${LEZAC_ORIGINAL_START_KEY:-1}"
+fi
+sleep "${LEZAC_ORIGINAL_LEVEL_START_SECONDS:-1.5}"
 capture 010_level1_start
-xdotool keydown Right
-sleep 1.25
-xdotool keyup Right
+key_down Right
+sleep "${LEZAC_ORIGINAL_ROUTE_RIGHT_SECONDS:-0.95}"
+key_up Right
 sleep 0.25
-capture 020_level1_tile24_approx
-xdotool key --clearmodifiers n
+capture 020_level1_tile24_aligned
+press n
 sleep 0.30
-capture 030_level1_bomb
+capture 030_level1_tile24_bomb
 sleep 0.75
-capture 040_level1_explosion_candidate
+capture 040_level1_tile24_explosion
 sleep 0.25
-capture 050_level1_playback_candidate
+capture 050_level1_tile24_playback_4
+sleep 0.25
+capture 060_level1_tile24_playback_12
 
-xdotool key --clearmodifiers Escape
+press Escape
 sleep 0.1
-xdotool key --clearmodifiers Escape
+press Escape
 sleep 0.2
 
 echo "original_frames=$out_dir"

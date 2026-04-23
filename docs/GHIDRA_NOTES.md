@@ -162,6 +162,8 @@ collision samples a 14x16 footprint. `--debug-passable-objects` verifies the
 decoded levels contain portal, bomb-object, low-word object, high-word solid,
 and solid examples, then checks full actor footprints, consumed bomb-object
 tiles, and a level 1 start-route movement probe against the passability helper.
+`--debug-autoplayer level1_bomb_route` drives that route through the update
+helpers and frame-inspects the route, bomb, and explosion checkpoints.
 `--debug-collision-pushout` locks the current model by forcing horizontal and
 vertical player/monster collisions into a synthetic solid tile, then asserting
 the actors finish clear. It covers behavior-3 full horizontal reversal/vertical
@@ -461,6 +463,15 @@ entry at `DS:c21e` is `x = 0x0068`, `y = 0x00a8`. The current oracle formula
 for the countdown state, but the live renderer still needs the frame-table
 field interpretation and visual consumption path confirmed before it can claim
 faithful death/reentry art.
+
+Current C++ mapping: `State2VisualCursor` in `src/main.cpp` mirrors the
+recovered initializer and mode-1 advancement with start frame `0x4a`, end frame
+`0x4f`, delay `3`, initial counter `3`, and step `+1`. `beginPlayerDeath`
+seeds that cursor, the update loop advances it while a player is in state 2,
+and `drawState2PlayerVisual` renders a provisional visible state-2 frame so
+autoplayer/UI tests can inspect live death playback. This remains a
+`visual_claim=0` implementation until the `DS:c322` row fields and final
+renderer consumption path are fully mapped.
 
 The C++ debug command `--debug-state2-runtime-frame-oracle <dump.txt>` parses a
 normalized saved DOSBox debugger transcript. It expects runtime `CS`/`DS`,

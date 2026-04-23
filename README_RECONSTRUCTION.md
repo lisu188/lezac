@@ -37,6 +37,7 @@ Smoke-test SDL window creation and menu/control handling:
 Dump deterministic C++ frames for comparison against original DOSBox captures:
 
 ```sh
+./build/lezac_cpp --debug-autoplayer level1_bomb_route
 ./build/lezac_cpp --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames
 tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-frames
 ```
@@ -69,6 +70,13 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-player-damage-sound
 ./build/lezac_cpp --debug-original-damage-counters
 ./build/lezac_cpp --debug-level1-frame-inspection
+./build/lezac_cpp --debug-autoplayer level1_bomb_route
+./build/lezac_cpp --debug-autoplayer death_reentry
+./build/lezac_cpp --debug-autoplayer death_visuals
+./build/lezac_cpp --debug-autoplayer level_transition
+./build/lezac_cpp --debug-autoplayer records_flow
+./build/lezac_cpp --debug-autoplayer two_player_route
+./build/lezac_cpp --debug-autoplayer two_player_progression
 ./build/lezac_cpp --debug-player-state2-death-fields
 ./build/lezac_cpp --debug-original-state2-return-model
 ./build/lezac_cpp --debug-original-state2-animation-init
@@ -111,21 +119,30 @@ Dump the current bomb inventory model and export sprite contact sheets:
 
 The reconstruction can emit named 320x200 PPM frames and a `manifest.txt` for
 the semantic level-1 bomb route. The current sequence captures the menu, level-1
-start, the player aligned to bomb tile `(24,22)`, bomb placement with `N`, and
-three explosion/playback checkpoints.
+start, the deterministic autoplayer reaching bomb tile `(24,22)`, bomb
+placement, and three explosion/playback checkpoints.
 
 ```sh
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer level1_bomb_route
 tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-frames
 ```
 
 Original-game captures are best-effort because DOSBox timing, focus, and
 keyboard injection vary by environment. This script runs `LEZAC.EXE` from a
 temporary copy under DOSBox/Xvfb, uses DOSBox's Ctrl-F5 screenshot command at
-matching checkpoints, and writes `original_capture.log` next to the screenshots:
+matching checkpoints, renames the screenshots to the same semantic labels used
+by the C++ frame sequence, and writes `manifest.txt` and `original_capture.log`
+next to the screenshots:
 
 ```sh
 tools/capture_original_dosbox_frames.sh /tmp/lezac-original-frames .
 ```
+
+Always inspect the resulting original frames before comparing them. If local
+DOSBox input stays on the menu or misses a checkpoint, rerun with adjusted
+`LEZAC_ORIGINAL_STARTUP_SECONDS`, `LEZAC_ORIGINAL_START_KEY`,
+`LEZAC_ORIGINAL_START_TEXT`, or `LEZAC_ORIGINAL_ROUTE_RIGHT_SECONDS`.
 
 Compare paired frames with:
 
@@ -168,8 +185,10 @@ numbers.
   animation, active structure hazard damage, bomb blast player damage,
   post-hit damage cooldown, level progression, and records/menu display.
   Deterministic debug coverage exercises the current cell-aware passable-object
-  classification, including the level-1 low-word object route, and the
-  player/monster collision pushout model.
+  classification, including the level-1 low-word object route, level-1
+  autoplayer bomb route, death/reentry, record-entry, two-player movement/bomb
+  checkpoints, frame-harness checkpoints, and player/monster collision pushout
+  model.
 - Menu subpages for info, instructions, and records, plus original-documented
   background and one-player playfield-width controls.
 - A first playable two-player reconstruction pass with separate start markers,
@@ -243,13 +262,13 @@ numbers.
   metadata now follow the `1000:414a`/`1000:370e`/expiration analysis. Active
   collapse/debris records
   now queue into the same per-player damage counters as monster contact and
-  bomb blasts, but exact sprite playback, delayed state-2 life-count
-  decrement, and death/reentry visual playback remain simplified. The
-  `actor + 0x16` state-2 cursor, cursor advancement rules, and `DS:c21e`
-  placement math are locked as deterministic models, and the runtime-frame
-  oracle now validates one original state-2 countdown capture, but the live
-  renderer still needs the frame-table interpretation and visual consumption
-  path confirmed before dead players should be drawn as original art.
+  bomb blasts, but exact sprite playback and delayed state-2 life-count
+  decrement remain simplified. The `actor + 0x16` state-2 cursor, cursor
+  advancement rules, and `DS:c21e` placement math are locked as deterministic
+  models. The live renderer now has provisional state-2 visual playback keyed
+  to the recovered `0x4a..0x4f` cursor range and tested by
+  `--debug-autoplayer death_visuals`, but it still reports `visual_claim=0`
+  because the original frame-table field interpretation is not fully mapped.
 
 See [docs/GHIDRA_NOTES.md](docs/GHIDRA_NOTES.md) for addresses and disassembly
 anchors used in the reconstruction.

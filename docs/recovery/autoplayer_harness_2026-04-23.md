@@ -12,6 +12,19 @@ The frame-sequence harness now uses this autoplayer route instead of directly
 teleporting the player to tile `(24,22)`. This makes the frame sequence a
 gameplay reachability check as well as a visual capture tool.
 
+Additional deterministic autoplayer scenarios now cover:
+
+- `death_reentry`: starts one-player level 1, forces a lethal hit through the
+  same damage helper used in play, verifies state-2 countdown blocks early
+  reentry, then confirms reentry after `60` ticks restores active control with
+  lives and energy updated.
+- `records_flow`: drives the high-score name-entry path into a temporary record
+  file, enters `bot`, reloads the file, and verifies the records page displays
+  the saved score without touching shipped `RECS.DAT`.
+- `two_player_route`: starts two-player mode, moves player 2 independently,
+  places a player-2 bomb through the shared bomb helper, and verifies player 1
+  did not move.
+
 ## Route Evidence
 
 - Autoplayer route start: `p1_xy=104,168`.
@@ -34,6 +47,15 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer level1_bomb_route
 
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer death_reentry
+
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer records_flow
+
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer two_player_route
+
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames
 ```
 
@@ -42,9 +64,20 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
 the manifest hashes and route metadata for CI/debug evidence, and inspect or
 compare the images when working on presentation fidelity.
 
+`tools/capture_original_dosbox_frames.sh /tmp/lezac-original-frames .` now tries
+to produce the original `LEZAC.EXE` version of the same semantic level-1 route
+labels and records timing/input settings in `manifest.txt`. This is only an
+oracle after frame inspection. In local Xvfb/xdotool runs the script produced
+named DOSBox screenshots, but the injected menu key did not reliably enter
+gameplay, so the frames stayed on the menu. Treat that as an automation limit,
+not as gameplay evidence, and rerun with adjusted `LEZAC_ORIGINAL_*` settings
+when using original frames for comparison.
+
 ## Open Uncertainty
 
 This locks the current C++ route and frame-harness behavior. Exact original
 collision/passability around `1000:6053..777f` still needs DOSBox or debugger
 evidence before the low-word passable-object rule can be called fully
-original-faithful.
+original-faithful. The death/reentry, records, and two-player autoplayer
+scenarios are regression coverage for the current C++ behavior; their exact
+presentation and edge-case timing still need original runtime confirmation.

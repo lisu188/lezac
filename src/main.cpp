@@ -1715,10 +1715,20 @@ public:
     }
 
     void debugAutoplayer(const std::string& scenario) {
-        if (scenario != "level1_bomb_route") {
+        if (scenario == "level1_bomb_route") {
+            debugAutoplayerLevel1BombRoute(scenario);
+        } else if (scenario == "death_reentry") {
+            debugAutoplayerDeathReentry(scenario);
+        } else if (scenario == "records_flow") {
+            debugAutoplayerRecordsFlow(scenario);
+        } else if (scenario == "two_player_route") {
+            debugAutoplayerTwoPlayerRoute(scenario);
+        } else {
             throw std::runtime_error("unknown autoplayer scenario " + scenario);
         }
+    }
 
+    void debugAutoplayerLevel1BombRoute(const std::string& scenario) {
         load();
         initSdl();
         resetLevel(0);
@@ -1775,6 +1785,174 @@ public:
                   << " final_xy=" << route.finalX << ',' << route.finalY
                   << " p1_bomb_tile=" << route.bombTileX << ',' << route.bombTileY
                   << " bombs=1 explosion=1 frame_inspection=1\n";
+    }
+
+    void debugAutoplayerDeathReentry(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+            throw std::runtime_error("death autoplayer failed to start one-player level 1");
+        }
+
+        FrameInspection startFrame = inspectRenderedFrame("autoplayer-death-start");
+        energy_ = 0;
+        lives_ = 3;
+        damageCooldown_ = 0;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        if (!playerDead_ || lives_ != 2 || energy_ != 100 ||
+            reentryTimer_ != kReentryTicks || deathStateTimer_ != kDeathStateTicks) {
+            throw std::runtime_error("death autoplayer did not enter state-2");
+        }
+
+        FrameInspection deathFrame = inspectRenderedFrame("autoplayer-death-state2");
+        if (deathFrame.hash == startFrame.hash) {
+            throw std::runtime_error("death autoplayer state-2 frame did not change");
+        }
+
+        pushKeyDown(SDLK_SPACE);
+        processEvents(running);
+        if (!playerDead_ || damageCooldown_ != 0) {
+            throw std::runtime_error("death autoplayer early reentry was accepted");
+        }
+
+        FrameControls idle;
+        for (int i = 0; i < kDeathStateTicks; ++i) {
+            updateWithControls(idle, 1.0f / 60.0f);
+        }
+        pushKeyDown(SDLK_SPACE);
+        processEvents(running);
+        if (playerDead_ || energy_ != 100 || lives_ != 2 ||
+            deathStateTimer_ != 0 || reentryTimer_ != 0 || damageCooldown_ <= 0) {
+            throw std::runtime_error("death autoplayer did not reenter after countdown");
+        }
+
+        FrameInspection reentryFrame = inspectRenderedFrame("autoplayer-reentered");
+        if (reentryFrame.hash == deathFrame.hash) {
+            throw std::runtime_error("death autoplayer reentry frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " death_state_ticks=" << kDeathStateTicks
+                  << " lives=" << lives_
+                  << " energy=" << energy_
+                  << " reentered=1 frame_inspection=1\n";
+    }
+
+    void debugAutoplayerRecordsFlow(const std::string& scenario) {
+        load();
+        initSdl();
+        std::filesystem::path recordPath =
+            std::filesystem::temp_directory_path() /
+            ("lezac_autoplayer_records_" + std::to_string(SDL_GetTicks()) + ".json");
+        std::filesystem::remove(recordPath);
+        recordPath_ = recordPath.string();
+        saveRecords(recordPath_, records_);
+
+        resetLevel(0);
+        FrameInspection menuFrame = inspectRenderedFrame("autoplayer-record-menu");
+        playerCount_ = 1;
+        score_ = 999999u;
+        levelIndex_ = 2;
+        beginGameOver();
+        if (!menu_ || menuPage_ != MenuPage::NameEntry ||
+            pendingRecordScore_ != 999999u || pendingRecordLevel_ != 3 ||
+            pendingRecordPlayer_ != 1) {
+            throw std::runtime_error("records autoplayer did not open name entry");
+        }
+
+        FrameInspection nameFrame = inspectRenderedFrame("autoplayer-record-name-entry");
+        if (nameFrame.hash == menuFrame.hash) {
+            throw std::runtime_error("records autoplayer name-entry frame did not change");
+        }
+
+        bool running = true;
+        for (SDL_Keycode key : {SDLK_b, SDLK_o, SDLK_t, SDLK_RETURN}) {
+            pushKeyDown(key);
+            processEvents(running);
+        }
+        auto reloaded = loadRecords(recordPath_);
+        if (menuPage_ != MenuPage::Records || reloaded.empty() ||
+            reloaded[0].score != 999999u || reloaded[0].level != 3 ||
+            reloaded[0].name != "bot") {
+            throw std::runtime_error("records autoplayer did not save entered record");
+        }
+
+        FrameInspection recordsFrame = inspectRenderedFrame("autoplayer-records-page");
+        if (recordsFrame.hash == nameFrame.hash) {
+            throw std::runtime_error("records autoplayer records frame did not change");
+        }
+        std::filesystem::remove(recordPath);
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " record_score=" << reloaded[0].score
+                  << " record_level=" << static_cast<int>(reloaded[0].level)
+                  << " name=" << reloaded[0].name
+                  << " frame_inspection=1\n";
+    }
+
+    void debugAutoplayerTwoPlayerRoute(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_2);
+        processEvents(running);
+        if (menu_ || playerCount_ != 2 || playerDead_ || player2Dead_) {
+            throw std::runtime_error("two-player autoplayer failed to start");
+        }
+
+        FrameInspection startFrame = inspectRenderedFrame("autoplayer-two-player-start");
+        int p1StartX = static_cast<int>(player_.x);
+        int p2StartX = static_cast<int>(player2_.x);
+        int p2StartY = static_cast<int>(player2_.y);
+        FrameControls controls;
+        controls.p2Right = true;
+        for (int i = 0; i < 24; ++i) {
+            updateWithControls(controls, 1.0f / 60.0f);
+        }
+        if (static_cast<int>(player2_.x) <= p2StartX + 12 ||
+            static_cast<int>(player_.x) != p1StartX || collides(player2_.x, player2_.y)) {
+            throw std::runtime_error("two-player autoplayer did not move player 2 cleanly");
+        }
+
+        FrameInspection movedFrame = inspectRenderedFrame("autoplayer-two-player-moved");
+        if (movedFrame.hash == startFrame.hash) {
+            throw std::runtime_error("two-player autoplayer movement frame did not change");
+        }
+
+        size_t bombsBefore = bombs_.size();
+        int p2SmallBefore = bombInventory2_.counts[0];
+        int bombTileX = static_cast<int>(player2_.x + 6.0f) / kTileSize;
+        int bombTileY = static_cast<int>(player2_.y + 12.0f) / kTileSize;
+        placeBombAt(player2_, bombInventory2_, 2);
+        if (bombs_.size() != bombsBefore + 1 || bombs_.back().owner != 2 ||
+            bombs_.back().x != bombTileX || bombs_.back().y != bombTileY ||
+            bombInventory2_.counts[0] != p2SmallBefore - 1) {
+            throw std::runtime_error("two-player autoplayer did not place player 2 bomb");
+        }
+
+        FrameInspection bombFrame = inspectRenderedFrame("autoplayer-two-player-bomb");
+        if (bombFrame.hash == movedFrame.hash) {
+            throw std::runtime_error("two-player autoplayer bomb frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " p1_x=" << p1StartX
+                  << " p2_start_xy=" << p2StartX << ',' << p2StartY
+                  << " p2_final_xy=" << static_cast<int>(player2_.x) << ','
+                  << static_cast<int>(player2_.y)
+                  << " p2_bomb_tile=" << bombTileX << ',' << bombTileY
+                  << " bombs=1 frame_inspection=1\n";
     }
 
     FrameInspection inspectRenderedFrame(const std::string& label) {

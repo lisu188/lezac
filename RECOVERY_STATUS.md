@@ -7,14 +7,20 @@ Baseline: `1705ebd` / `origin/main`
 ## Completed This Iteration
 
 - Added a deterministic `--debug-autoplayer level1_bomb_route` command.
+- Extended `--debug-autoplayer` with `death_reentry`, `records_flow`, and
+  `two_player_route` scenarios so state-2 reentry, record-entry saving, and
+  player-2 movement/bomb controls are covered without live input.
 - Refactored the game update path so the autoplayer can drive the same movement
   helpers with injected controls instead of relying on live keyboard state.
 - Changed `--capture-frame-sequence level1_bomb_route <out-dir>` to reach tile
   `(24,22)` through the autoplayer route instead of teleporting the player.
-- Added CTest coverage for the autoplayer route and kept the frame-sequence
-  capture coverage on the same scenario.
-- Updated `AGENTS.md`, README, and recovery docs with the autoplayer/frame
-  inspection workflow.
+- Added CTest coverage for all autoplayer scenarios and kept the frame-sequence
+  capture coverage on the level-1 route.
+- Expanded `tools/capture_original_dosbox_frames.sh` so original DOSBox
+  screenshots are renamed to the C++ semantic labels and accompanied by a
+  manifest with input/timing settings.
+- Updated `AGENTS.md`, README, and recovery docs with the autoplayer, original
+  DOSBox capture, and frame-inspection workflows.
 
 ## Validation
 
@@ -24,13 +30,26 @@ Baseline: `1705ebd` / `origin/main`
   --debug-autoplayer level1_bomb_route` passed with route length `55`, start
   `(104,168)`, final `(186,168)`, and bomb tile `(24,22)`.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer death_reentry` passed with state-2 countdown `60`, lives
+  `2`, energy `100`, and reentry confirmed.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer records_flow` passed with temporary record score
+  `999999`, level `3`, and name `bot`.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer two_player_route` passed with player-2 movement and one
+  player-2 bomb placed.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --capture-frame-sequence level1_bomb_route /tmp/lezac-autoplayer-frames`
   passed and wrote seven PPM frames plus `manifest.txt`.
 - `tools/capture_cpp_frames.sh ./build/lezac_cpp
   /tmp/lezac-autoplayer-frames-wrapper` passed.
+- `bash -n tools/capture_original_dosbox_frames.sh` passed. A local DOSBox run
+  produced correctly named screenshots and manifest entries, but visual
+  inspection showed xdotool input remained on the original menu; these captures
+  are automation diagnostics until rerun with working menu input.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
-- `ctest --test-dir build --output-on-failure` passed: 56/56.
+- `ctest --test-dir build --output-on-failure` passed: 59/59.
 - `./build/lezac_cpp --validate` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --smoke-controls` passed.
@@ -46,6 +65,8 @@ Baseline: `1705ebd` / `origin/main`
 - Confirm the low-word passable-object route and level-1 bomb-route timing
   against original `LEZAC.EXE` with DOSBox frame inspection or debugger/runtime
   evidence.
+- Make DOSBox original capture input reliable enough to leave the menu in this
+  environment, then compare the named original frames against the C++ sequence.
 - Interpret captured state-2 frame-table bytes and confirm the visual
   consumption path before wiring live dead-player rendering.
 - Exact explosion/debris/collapse sprite playback around `1000:3a56..4d3b`

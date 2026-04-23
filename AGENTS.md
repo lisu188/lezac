@@ -60,12 +60,36 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer level1_bomb_route
 ```
 
+Additional deterministic scenarios cover death/reentry, record entry, and a
+two-player movement/bomb route:
+
+```sh
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer death_reentry
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer records_flow
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer two_player_route
+```
+
 Use the frame harness when a visual checkpoint or comparison artifact is needed:
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames
 ```
+
+Original DOSBox captures for comparison should use the same semantic frame
+labels and write a manifest:
+
+```sh
+tools/capture_original_dosbox_frames.sh /tmp/lezac-original-frames .
+```
+
+DOSBox key injection remains best-effort. Always inspect the produced frames and
+`original_capture.log`; if the original did not leave the menu, adjust
+`LEZAC_ORIGINAL_STARTUP_SECONDS`, `LEZAC_ORIGINAL_START_KEY`,
+`LEZAC_ORIGINAL_START_TEXT`, or `LEZAC_ORIGINAL_ROUTE_RIGHT_SECONDS` and rerun.
 
 For route/gameplay regressions, prefer adding a deterministic autoplayer
 scenario or extending an existing one. The harness should inspect rendered

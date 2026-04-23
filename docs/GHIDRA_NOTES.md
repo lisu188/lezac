@@ -229,10 +229,12 @@ dosbox-debug -c "mount c /tmp/lezac-dosbox-explosion" -c "c:" -c "DEBUG LEZAC.EX
 
 The `DEBUG LEZAC.EXE` wrapper stops at program entry; a current capture attempt
 recorded `CS=01ed`, `DS=01dd`, `IP=7783` there. In this environment the
-debugger's curses input accepted printable characters through tmux, but Enter
-and Backspace were not delivered as debugger commands, so no explosion
-breakpoint was reached automatically. Treat that as an environment limitation,
-not original-game evidence.
+debugger's curses input accepted printable characters through raw PTY, piped
+stdin, tmux, and an Xvfb `zutty` terminal captured with `script`, but Enter,
+keypad Enter, CR, LF, Ctrl-J, and Ctrl-M were not delivered as debugger command
+submissions. The xterm F5 sequence (`\x1b[15~`) did continue into the game. No
+explosion breakpoint was reached automatically; treat this as an environment
+limitation, not original-game evidence.
 
 When a controllable debugger session is available, translate Ghidra anchors by
 keeping the offset and using the runtime `CS`. Useful breakpoints are

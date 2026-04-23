@@ -41,6 +41,8 @@ endforeach()
 include(CTest)
 
 if(BUILD_TESTING)
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+
     add_test(NAME validate_assets COMMAND $<TARGET_FILE:lezac_cpp> --validate)
     set_tests_properties(validate_assets PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
@@ -76,6 +78,27 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "level1_frame_inspection=ok level=1 size=60x33 p1_xy=104,168 p1_bomb_tile=13,22 initial_small=200 after_n_small=199 bombs=1 menu_uniform=0 gameplay_uniform=0 menu_game_different=1 hud_nonempty=1 world_nonempty=1 player_visible=1 bomb_visible=1 explosion_visible=1 completion_visible=1 advanced_level=2")
+
+    add_test(NAME frame_sequence_capture_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --capture-frame-sequence level1_bomb_route
+                ${CMAKE_CURRENT_BINARY_DIR}/frame_sequence_capture)
+    set_tests_properties(frame_sequence_capture_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^frame_sequence=ok scenario=level1_bomb_route frames=7 size=320x200")
+
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME frame_compare_identical
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/frame_compare.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/frame_compare/a.pnm
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/frame_compare/b.pnm)
+        set_tests_properties(frame_compare_identical PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^frame_compare=ok size=2x2 normalized=none pixels=4 exact_match=1 exact_different_pixels=0 threshold=0 threshold_different_pixels=0 max_delta=0")
+    endif()
 
     add_test(NAME records_update_temp
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-update

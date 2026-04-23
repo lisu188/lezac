@@ -1,34 +1,43 @@
 # Recovery Status
 
-Last reviewed: 2026-04-22
-Branch: `codex/explosion-runtime-capture`
-Baseline: `14f4319` / `origin/main`
+Last reviewed: 2026-04-23
+Branch: `codex/frame-comparison-harness`
+Baseline: `20bb2ad` / `origin/main`
 
 ## Completed This Iteration
 
-- Spawned five recovery workstreams for the requested explosion runtime capture
-  target: disassembly mapping, gameplay route, rendering/assets evidence,
-  verification harness, and integration/docs.
-- Rebuilt the temp-copy `dosbox-debug` launch for original `LEZAC.EXE` and
-  confirmed the program entry stop again reaches `CS=01ED`, `DS=01DD`,
-  `IP=7783` at `01ED:7783 9A00000D0B call 0B0D:0000`.
-- Confirmed the xterm F5 sequence (`\x1b[15~`) continues execution from the
-  debugger UI into the original game.
-- Retried debugger command entry through raw PTY, piped stdin, and a real Xvfb
-  `zutty` terminal captured with `script`. In all paths printable command
-  characters reached the `->` prompt, but Return, keypad Enter, CR, LF,
-  Ctrl-J, and Ctrl-M did not execute the pending debugger command.
-- Preserved the exact breakpoint/dump plan for the level-1 bomb-object collapse
-  route and documented the current environment blocker. No original
-  explosion/debris/collapse playback bytes were captured in this iteration, and
-  no `visual_claim` was made.
+- Added `--capture-frame-sequence level1_bomb_route <out-dir>` to emit
+  deterministic 320x200 C++ PPM frames plus a manifest for menu, level-1 start,
+  tile `(24,22)` alignment, bomb placement, and explosion/playback checkpoints.
+- Added `tools/capture_cpp_frames.sh` as a dummy-SDL wrapper for the C++ frame
+  sequence.
+- Added `tools/capture_original_dosbox_frames.sh` as a best-effort DOSBox/Xvfb
+  capture driver that uses a temp copy of `LEZAC.EXE` assets and DOSBox Ctrl-F5
+  screenshots at matching semantic checkpoints.
+- Added `tools/frame_compare.py`, a no-required-dependency PPM/BMP comparator
+  with optional Pillow fallback for DOSBox PNG screenshots, threshold metrics,
+  and visual diff output.
+- Added CTest coverage for the C++ capture command and the frame comparator's
+  identical-frame fixture.
 
 ## Validation
 
 - `cmake -S . -B build` passed.
 - `cmake --build build` passed.
-- `ctest --test-dir build --output-on-failure` passed: 53/53.
+- `ctest --test-dir build --output-on-failure` passed: 55/55.
 - `./build/lezac_cpp --validate` passed.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames-test`
+  passed and wrote seven PPM frames plus `manifest.txt`.
+- `tools/capture_cpp_frames.sh ./build/lezac_cpp
+  /tmp/lezac-cpp-frames-wrapper-test` passed.
+- `timeout 20s tools/capture_original_dosbox_frames.sh
+  /tmp/lezac-original-frames-test .` passed and produced six DOSBox PNG
+  screenshots plus `original_capture.log`.
+- `tools/frame_compare.py /tmp/lezac-cpp-frames-test/000_menu.ppm
+  /tmp/lezac-original-frames-test/lezac_000.png --max-diff-pixels 64000
+  --diff /tmp/lezac-menu-diff.ppm` passed, including automatic 640x400 to
+  320x200 normalization.
 - `git diff --check` passed.
 
 ## Remaining Top Gaps
@@ -56,8 +65,6 @@ Baseline: `14f4319` / `origin/main`
 
 ## Next Planned Target
 
-Use a debugger control path where Enter works, or another DOSBox debugger
-automation method, to set the `01ED:75F1`, `01ED:414A`, `01ED:370E`,
-`01ED:3A7E`, `01ED:3B18`, `01ED:3BB2`, and `01ED:3D46` breakpoints; then run
-the level-1 `(24,22)` bomb route and normalize the live dumps into
-`tests/fixtures/dosbox/explosion_playback_oracle_original.txt`.
+Use the new frame harness to collect paired original/C++ level-1 checkpoints,
+then prioritize the largest visual diffs around bomb-object explosion,
+collapse/debris playback, and player/death frame-table consumption.

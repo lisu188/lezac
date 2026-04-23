@@ -167,8 +167,9 @@ numbers.
   four-slot bomb inventory/switching, original bomb actor sprites, player
   animation, active structure hazard damage, bomb blast player damage,
   post-hit damage cooldown, level progression, and records/menu display.
-  Deterministic debug coverage exercises the current passable-object
-  classification and player/monster collision pushout model.
+  Deterministic debug coverage exercises the current cell-aware passable-object
+  classification, including the level-1 low-word object route, and the
+  player/monster collision pushout model.
 - Menu subpages for info, instructions, and records, plus original-documented
   background and one-player playfield-width controls.
 - A first playable two-player reconstruction pass with separate start markers,

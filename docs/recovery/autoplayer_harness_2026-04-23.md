@@ -36,6 +36,15 @@ Additional deterministic autoplayer scenarios now cover:
 - `monster_bomb_reward`: places a bomb through `N`, detonates it against a
   deterministic live monster fixture, verifies the death/reward state, then
   collects the spawned bonus through the normal update loop.
+- `monster_behavior3_multihit`: uses a synthetic grounded fixture to verify a
+  live behavior-3 walker advances before taking damage, survives the first
+  small-bomb hit, dies to the second medium-bomb hit, and yields a collectible
+  reward.
+- `monster_behavior4_chase`: uses a synthetic fixture to verify a live
+  behavior-4 chaser advances toward the player before a medium bomb kills it.
+- `monster_spawner_cycle`: uses the actual level-1 spawner to verify slot
+  reservation on spawn, immediate slot return on death, and deterministic
+  respawn after resetting the recovered spawner cooldown.
 - `collapse_playback_route`: reaches level-1 bomb tile `(24,22)` through the
   route autoplayer, places the route bomb through `N`, verifies collapse queue
   creation, and checks the current `24`-frame playback lifetime.
@@ -84,6 +93,15 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
 
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer monster_bomb_reward
+
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer monster_behavior3_multihit
+
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer monster_behavior4_chase
+
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer monster_spawner_cycle
 
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer collapse_playback_route

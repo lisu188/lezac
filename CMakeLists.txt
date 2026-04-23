@@ -144,6 +144,30 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^autoplayer=ok scenario=monster_bomb_reward monster_dead=1 reward_collected=1 score_delta=[0-9]+ frame_inspection=1")
 
+    add_test(NAME autoplayer_monster_behavior3_multihit_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer monster_behavior3_multihit)
+    set_tests_properties(autoplayer_monster_behavior3_multihit_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=monster_behavior3_multihit moved_px=[0-9]+ first_hit_hp=2 second_hit_kill=1 reward_collected=1 score_delta=[0-9]+ frame_inspection=1")
+
+    add_test(NAME autoplayer_monster_behavior4_chase_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer monster_behavior4_chase)
+    set_tests_properties(autoplayer_monster_behavior4_chase_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=monster_behavior4_chase chase_dx=[0-9]+ timer_after=1 killed=1 frame_inspection=1")
+
+    add_test(NAME autoplayer_monster_spawner_cycle_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer monster_spawner_cycle)
+    set_tests_properties(autoplayer_monster_spawner_cycle_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=monster_spawner_cycle spawner_index=1 reserved_slot=1 released_slot=1 respawned=1 frame_inspection=1")
+
     add_test(NAME autoplayer_collapse_playback_route_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-autoplayer collapse_playback_route)

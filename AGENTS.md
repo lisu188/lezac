@@ -62,7 +62,8 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
 
 Additional deterministic scenarios cover death/reentry, provisional state-2
 visual cursor playback, level transition, weapon switching, portal traversal,
-monster bomb rewards, collapse playback, record entry, and two-player
+monster bomb rewards, monster behavior-3 multi-hit kills, behavior-4 chase
+movement, spawner lifecycle, collapse playback, record entry, and two-player
 movement/progression routes:
 
 ```sh
@@ -78,6 +79,12 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer records_flow
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer monster_bomb_reward
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer monster_behavior3_multihit
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer monster_behavior4_chase
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer monster_spawner_cycle
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer collapse_playback_route
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \

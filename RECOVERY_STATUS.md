@@ -2,7 +2,7 @@
 
 Last reviewed: 2026-04-23
 Branch: `codex/autoplayer-harness`
-Baseline: `1705ebd` / `origin/main`
+Baseline: `e89ada5` / `origin/main`
 
 ## Completed This Iteration
 
@@ -19,6 +19,10 @@ Baseline: `1705ebd` / `origin/main`
   coverage to weapon switching through the left+right chord, medium bomb
   placement through `N`, decoded portal traversal, bomb-killed monster rewards,
   reward pickup sounds, and level-1 collapse playback duration.
+- Added `monster_behavior3_multihit`, `monster_behavior4_chase`, and
+  `monster_spawner_cycle` autoplayer scenarios. These extend the headless
+  matrix to grounded behavior-3 walkers, behavior-4 chase movement, spawner
+  slot release/respawn, and multi-hit bomb damage across live update loops.
 - Added provisional live state-2 rendering keyed to the recovered `0x4a..0x4f`
   cursor range. It is intentionally documented as `visual_claim=0` until the
   original `DS:c322` frame-table fields are fully interpreted.
@@ -65,6 +69,16 @@ Baseline: `1705ebd` / `origin/main`
   --debug-autoplayer monster_bomb_reward` passed with a bomb-killed monster,
   reward collection, and score delta `3000`.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer monster_behavior3_multihit` passed with one-pixel
+  behavior-3 movement, first-hit HP `2`, second-hit kill, and reward
+  collection.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer monster_behavior4_chase` passed with behavior-4 chase
+  movement `2`, timer `1`, and medium-bomb kill.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer monster_spawner_cycle` passed with level-1 spawner slot
+  reservation, immediate release on death, and deterministic respawn.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --debug-autoplayer collapse_playback_route` passed with collapse queue count
   `2` and playback duration `24` frames.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
@@ -85,7 +99,9 @@ Baseline: `1705ebd` / `origin/main`
   are automation diagnostics until rerun with working menu input.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
-- `ctest --test-dir build --output-on-failure` passed: 65/65.
+- `ctest --test-dir build -R "autoplayer|frame_sequence_capture"
+  --output-on-failure` passed: 14/14.
+- `ctest --test-dir build --output-on-failure` passed: 68/68.
 - `./build/lezac_cpp --validate` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --smoke-controls` passed.
@@ -126,6 +142,6 @@ Baseline: `1705ebd` / `origin/main`
 
 ## Next Planned Target
 
-Run paired original/C++ frame captures for the autoplayer-aligned level-1 route,
-then prioritize the largest visual diffs around bomb-object explosion,
-collapse/debris playback, and player/death frame-table consumption.
+Use DOSBox frame/debugger evidence to compare these recovered behavior-3,
+behavior-4, and spawner-lifecycle monster slices against original runtime
+movement, damage, and respawn timing.

@@ -77,6 +77,9 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-autoplayer portal_weapon_route
 ./build/lezac_cpp --debug-autoplayer records_flow
 ./build/lezac_cpp --debug-autoplayer monster_bomb_reward
+./build/lezac_cpp --debug-autoplayer monster_behavior3_multihit
+./build/lezac_cpp --debug-autoplayer monster_behavior4_chase
+./build/lezac_cpp --debug-autoplayer monster_spawner_cycle
 ./build/lezac_cpp --debug-autoplayer collapse_playback_route
 ./build/lezac_cpp --debug-autoplayer two_player_route
 ./build/lezac_cpp --debug-autoplayer two_player_progression

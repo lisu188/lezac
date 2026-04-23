@@ -4,9 +4,9 @@
 
 The C++ port now has a deterministic `level1_bomb_route` autoplayer. It starts
 one-player level 1, moves from the original start marker `(104,168)` to the
-bomb-object route checkpoint at bomb tile `(24,22)`, places a bomb with the same
-placement helper used by controls, advances the fuse, and requires visible frame
-changes through route, bomb, and explosion checkpoints.
+bomb-object route checkpoint at bomb tile `(24,22)`, places the bomb through the
+same `N` key event path used by live controls, advances the fuse, and requires
+visible frame changes through route, bomb, and explosion checkpoints.
 
 The frame-sequence harness now uses this autoplayer route instead of directly
 teleporting the player to tile `(24,22)`. This makes the frame sequence a

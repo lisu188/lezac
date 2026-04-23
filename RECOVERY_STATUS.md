@@ -21,6 +21,9 @@ Baseline: `1705ebd` / `origin/main`
   helpers with injected controls instead of relying on live keyboard state.
 - Changed `--capture-frame-sequence level1_bomb_route <out-dir>` to reach tile
   `(24,22)` through the autoplayer route instead of teleporting the player.
+- Changed the level-1 bomb route autoplayer and frame-sequence capture to place
+  the route bomb through the actual `N` key event path instead of calling the
+  placement helper directly.
 - Added CTest coverage for all autoplayer scenarios and kept the frame-sequence
   capture coverage on the level-1 route.
 - Expanded `tools/capture_original_dosbox_frames.sh` so original DOSBox
@@ -35,7 +38,8 @@ Baseline: `1705ebd` / `origin/main`
 - `cmake --build build` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --debug-autoplayer level1_bomb_route` passed with route length `55`, start
-  `(104,168)`, final `(186,168)`, and bomb tile `(24,22)`.
+  `(104,168)`, final `(186,168)`, bomb tile `(24,22)`, and route bomb
+  placement through the `N` key event path.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --debug-autoplayer death_reentry` passed with state-2 countdown `60`, lives
   `2`, energy `100`, and reentry confirmed.
@@ -56,7 +60,8 @@ Baseline: `1705ebd` / `origin/main`
   player-2 bomb placement, and player-2 score `1000`.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --capture-frame-sequence level1_bomb_route /tmp/lezac-autoplayer-frames`
-  passed and wrote seven PPM frames plus `manifest.txt`.
+  passed and wrote seven PPM frames plus `manifest.txt`; route bomb placement
+  also uses the `N` key event path.
 - `tools/capture_cpp_frames.sh ./build/lezac_cpp
   /tmp/lezac-autoplayer-frames-wrapper` passed.
 - `bash -n tools/capture_original_dosbox_frames.sh` passed. A local DOSBox run

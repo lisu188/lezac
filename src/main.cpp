@@ -1671,9 +1671,11 @@ public:
         }
         capture("020_level1_tile24_aligned");
 
-        placeBombAt(player_, bombInventory_, 1);
+        pushKeyDown(SDLK_n);
+        processEvents(running);
         if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 22) {
-            throw std::runtime_error("frame sequence did not place the level-1 tile 24,22 bomb");
+            throw std::runtime_error(
+                "frame sequence N key did not place the level-1 tile 24,22 bomb");
         }
         capture("030_level1_tile24_bomb");
 
@@ -1773,10 +1775,11 @@ public:
 
         size_t bombsBefore = bombs_.size();
         int smallBombsBefore = bombInventory_.counts[0];
-        placeBombAt(player_, bombInventory_, 1);
+        pushKeyDown(SDLK_n);
+        processEvents(running);
         if (bombs_.size() != bombsBefore + 1 || bombs_.back().x != 24 ||
             bombs_.back().y != 22 || bombInventory_.counts[0] != smallBombsBefore - 1) {
-            throw std::runtime_error("autoplayer did not place a level-1 route bomb");
+            throw std::runtime_error("autoplayer N key did not place a level-1 route bomb");
         }
 
         FrameInspection bombFrame = inspectRenderedFrame("autoplayer-level1-bomb");

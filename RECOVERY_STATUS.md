@@ -23,6 +23,11 @@ Baseline: `e89ada5` / `origin/main`
   `monster_spawner_cycle` autoplayer scenarios. These extend the headless
   matrix to grounded behavior-3 walkers, behavior-4 chase movement, spawner
   slot release/respawn, and multi-hit bomb damage across live update loops.
+- Added `monster_spawner_behavior4_level2`,
+  `monster_spawner_behavior4_level3`, and
+  `monster_behavior4_target_selection` autoplayer scenarios. These extend the
+  live monster harness to actual level-2/3 behavior-4 spawner data and
+  two-player nearest-target selection across alive/dead player states.
 - Added provisional live state-2 rendering keyed to the recovered `0x4a..0x4f`
   cursor range. It is intentionally documented as `visual_claim=0` until the
   original `DS:c322` frame-table fields are fully interpreted.
@@ -79,6 +84,17 @@ Baseline: `e89ada5` / `origin/main`
   --debug-autoplayer monster_spawner_cycle` passed with level-1 spawner slot
   reservation, immediate release on death, and deterministic respawn.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer monster_spawner_behavior4_level2` passed with level-2
+  behavior-4 spawner fields `ai0=13 ai1=271 ai2=62 hp=3` and positive `vx8`.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer monster_spawner_behavior4_level3` passed with level-3
+  behavior-4 spawner fields `ai0=20 ai1=214 ai2=66 hp=4` and diagonal
+  `vx8/vy8 = 178/-119`.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer monster_behavior4_target_selection` passed with initial
+  player-2 targeting, retarget to player 1 when player 2 is dead, and retarget
+  back to player 2 when player 1 is dead.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --debug-autoplayer collapse_playback_route` passed with collapse queue count
   `2` and playback duration `24` frames.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
@@ -100,8 +116,8 @@ Baseline: `e89ada5` / `origin/main`
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"
-  --output-on-failure` passed: 14/14.
-- `ctest --test-dir build --output-on-failure` passed: 68/68.
+  --output-on-failure` passed: 17/17.
+- `ctest --test-dir build --output-on-failure` passed: 71/71.
 - `./build/lezac_cpp --validate` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --smoke-controls` passed.
@@ -143,5 +159,5 @@ Baseline: `e89ada5` / `origin/main`
 ## Next Planned Target
 
 Use DOSBox frame/debugger evidence to compare these recovered behavior-3,
-behavior-4, and spawner-lifecycle monster slices against original runtime
-movement, damage, and respawn timing.
+behavior-4, target-selection, and spawner-lifecycle monster slices against
+original runtime movement, damage, targeting, and respawn timing.

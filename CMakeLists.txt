@@ -168,6 +168,30 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^autoplayer=ok scenario=monster_spawner_cycle spawner_index=1 reserved_slot=1 released_slot=1 respawned=1 frame_inspection=1")
 
+    add_test(NAME autoplayer_monster_spawner_behavior4_level2_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer monster_spawner_behavior4_level2)
+    set_tests_properties(autoplayer_monster_spawner_behavior4_level2_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=monster_spawner_behavior4_level2 level=2 spawner_index=[0-9]+ ai0=[0-9]+ ai1=[0-9]+ ai2=[0-9]+ hp=[0-9]+ vx8=[0-9-]+ vy8=[0-9-]+ frame_inspection=1")
+
+    add_test(NAME autoplayer_monster_spawner_behavior4_level3_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer monster_spawner_behavior4_level3)
+    set_tests_properties(autoplayer_monster_spawner_behavior4_level3_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=monster_spawner_behavior4_level3 level=3 spawner_index=[0-9]+ ai0=[0-9]+ ai1=[0-9]+ ai2=[0-9]+ hp=[0-9]+ vx8=[0-9-]+ vy8=[0-9-]+ frame_inspection=1")
+
+    add_test(NAME autoplayer_monster_behavior4_target_selection_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer monster_behavior4_target_selection)
+    set_tests_properties(autoplayer_monster_behavior4_target_selection_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=monster_behavior4_target_selection level=3 spawner_index=[0-9]+ initial_target=2 retarget_p1=1 retarget_p2=1 frame_inspection=1")
+
     add_test(NAME autoplayer_collapse_playback_route_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-autoplayer collapse_playback_route)

@@ -1751,6 +1751,12 @@ public:
             debugAutoplayerMonsterBehavior4Chase(scenario);
         } else if (scenario == "monster_spawner_cycle") {
             debugAutoplayerMonsterSpawnerCycle(scenario);
+        } else if (scenario == "monster_spawner_behavior4_level2") {
+            debugAutoplayerMonsterSpawnerBehavior4Level2(scenario);
+        } else if (scenario == "monster_spawner_behavior4_level3") {
+            debugAutoplayerMonsterSpawnerBehavior4Level3(scenario);
+        } else if (scenario == "monster_behavior4_target_selection") {
+            debugAutoplayerMonsterBehavior4TargetSelection(scenario);
         } else if (scenario == "collapse_playback_route") {
             debugAutoplayerCollapsePlaybackRoute(scenario);
         } else if (scenario == "two_player_route") {
@@ -2497,6 +2503,262 @@ public:
         std::cout << "autoplayer=ok"
                   << " scenario=" << scenario
                   << " spawner_index=1 reserved_slot=1 released_slot=1 respawned=1"
+                  << " frame_inspection=1\n";
+    }
+
+    void debugAutoplayerMonsterSpawnerBehavior4Level2(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1) {
+            throw std::runtime_error("monster behavior-4 level2 autoplayer failed to start");
+        }
+        resetLevel(1);
+        if (levelIndex_ != 1) {
+            throw std::runtime_error("monster behavior-4 level2 autoplayer did not load level 2");
+        }
+
+        auto spanUpper = [](uint16_t base, uint16_t range) {
+            return static_cast<uint16_t>(base + std::max<uint16_t>(1, range));
+        };
+        size_t spawnerIndex = level_.monsterSpawners.size();
+        for (size_t i = 0; i < level_.monsterSpawners.size(); ++i) {
+            if (level_.monsterSpawners[i].spawnArg == 4) {
+                spawnerIndex = i;
+                break;
+            }
+        }
+        if (spawnerIndex >= level_.monsterSpawners.size()) {
+            throw std::runtime_error("monster behavior-4 level2 autoplayer found no spawner");
+        }
+        for (size_t i = 0; i < spawnerStates_.size(); ++i) {
+            if (i != spawnerIndex) {
+                spawnerStates_[i].remaining = 0;
+                spawnerStates_[i].availableSlots = 0;
+            }
+        }
+        const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
+        randomSeed_ = 0x1234abcd;
+        player_.x = static_cast<float>(spawner.x + 40);
+        player_.y = static_cast<float>(spawner.y);
+        player_.vy = -6.0f;
+        player_.grounded = false;
+        spawnerStates_[spawnerIndex].cooldown = 0;
+
+        FrameInspection startFrame =
+            inspectRenderedFrame("autoplayer-monster-spawner-b4-level2-start");
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (monsters_.size() != 1) {
+            throw std::runtime_error("monster behavior-4 level2 autoplayer did not spawn one actor");
+        }
+        const ActiveMonster& monster = monsters_.front();
+        if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
+            monster.kind != spawner.monsterKind || monster.behavior != 4 ||
+            monster.animDelay != std::max<uint8_t>(1, spawner.animationDelay) ||
+            monster.ai0 < spawner.param0Base || monster.ai0 >= spanUpper(spawner.param0Base, spawner.param0Range) ||
+            monster.ai1 < spawner.param1Base || monster.ai1 >= spanUpper(spawner.param1Base, spawner.param1Range) ||
+            monster.ai2 < spawner.param2Base || monster.ai2 >= spanUpper(spawner.param2Base, spawner.param2Range) ||
+            monster.hp < spawner.randomBase || monster.hp >= spanUpper(spawner.randomBase, spawner.randomRange) ||
+            monster.motionTimer != std::max<int>(1, monster.ai0) - 1 ||
+            monster.vx8 <= 0 || monster.vy8 != 0 || monster.x <= spawner.x) {
+            throw std::runtime_error("monster behavior-4 level2 autoplayer spawn fields mismatched");
+        }
+        FrameInspection spawnFrame =
+            inspectRenderedFrame("autoplayer-monster-spawner-b4-level2-live");
+        if (spawnFrame.hash == startFrame.hash) {
+            throw std::runtime_error("monster behavior-4 level2 frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " level=2 spawner_index=" << (spawnerIndex + 1)
+                  << " ai0=" << monster.ai0
+                  << " ai1=" << monster.ai1
+                  << " ai2=" << monster.ai2
+                  << " hp=" << monster.hp
+                  << " vx8=" << monster.vx8
+                  << " vy8=" << monster.vy8
+                  << " frame_inspection=1\n";
+    }
+
+    void debugAutoplayerMonsterSpawnerBehavior4Level3(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1) {
+            throw std::runtime_error("monster behavior-4 level3 autoplayer failed to start");
+        }
+        resetLevel(2);
+        if (levelIndex_ != 2) {
+            throw std::runtime_error("monster behavior-4 level3 autoplayer did not load level 3");
+        }
+
+        auto spanUpper = [](uint16_t base, uint16_t range) {
+            return static_cast<uint16_t>(base + std::max<uint16_t>(1, range));
+        };
+        size_t spawnerIndex = level_.monsterSpawners.size();
+        for (size_t i = 0; i < level_.monsterSpawners.size(); ++i) {
+            if (level_.monsterSpawners[i].spawnArg == 4) {
+                spawnerIndex = i;
+                break;
+            }
+        }
+        if (spawnerIndex >= level_.monsterSpawners.size()) {
+            throw std::runtime_error("monster behavior-4 level3 autoplayer found no spawner");
+        }
+        for (size_t i = 0; i < spawnerStates_.size(); ++i) {
+            if (i != spawnerIndex) {
+                spawnerStates_[i].remaining = 0;
+                spawnerStates_[i].availableSlots = 0;
+            }
+        }
+        const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
+        randomSeed_ = 0x1234abcd;
+        player_.x = static_cast<float>(spawner.x + 24);
+        player_.y = static_cast<float>(spawner.y - 16);
+        player_.vy = -6.0f;
+        player_.grounded = false;
+        spawnerStates_[spawnerIndex].cooldown = 0;
+
+        FrameInspection startFrame =
+            inspectRenderedFrame("autoplayer-monster-spawner-b4-level3-start");
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (monsters_.size() != 1) {
+            throw std::runtime_error("monster behavior-4 level3 autoplayer did not spawn one actor");
+        }
+        const ActiveMonster& monster = monsters_.front();
+        if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
+            monster.kind != spawner.monsterKind || monster.behavior != 4 ||
+            monster.animDelay != std::max<uint8_t>(1, spawner.animationDelay) ||
+            monster.ai0 < spawner.param0Base || monster.ai0 >= spanUpper(spawner.param0Base, spawner.param0Range) ||
+            monster.ai1 < spawner.param1Base || monster.ai1 >= spanUpper(spawner.param1Base, spawner.param1Range) ||
+            monster.ai2 < spawner.param2Base || monster.ai2 >= spanUpper(spawner.param2Base, spawner.param2Range) ||
+            monster.hp < spawner.randomBase || monster.hp >= spanUpper(spawner.randomBase, spawner.randomRange) ||
+            monster.motionTimer != std::max<int>(1, monster.ai0) - 1 ||
+            monster.vx8 <= 0 || monster.vy8 >= 0) {
+            throw std::runtime_error("monster behavior-4 level3 autoplayer spawn fields mismatched");
+        }
+        FrameInspection spawnFrame =
+            inspectRenderedFrame("autoplayer-monster-spawner-b4-level3-live");
+        if (spawnFrame.hash == startFrame.hash) {
+            throw std::runtime_error("monster behavior-4 level3 frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " level=3 spawner_index=" << (spawnerIndex + 1)
+                  << " ai0=" << monster.ai0
+                  << " ai1=" << monster.ai1
+                  << " ai2=" << monster.ai2
+                  << " hp=" << monster.hp
+                  << " vx8=" << monster.vx8
+                  << " vy8=" << monster.vy8
+                  << " frame_inspection=1\n";
+    }
+
+    void debugAutoplayerMonsterBehavior4TargetSelection(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_2);
+        processEvents(running);
+        if (menu_ || playerCount_ != 2 || playerDead_ || player2Dead_) {
+            throw std::runtime_error("monster behavior-4 target autoplayer failed to start");
+        }
+        resetLevel(2);
+        if (levelIndex_ != 2) {
+            throw std::runtime_error("monster behavior-4 target autoplayer did not load level 3");
+        }
+
+        size_t spawnerIndex = level_.monsterSpawners.size();
+        for (size_t i = 0; i < level_.monsterSpawners.size(); ++i) {
+            if (level_.monsterSpawners[i].spawnArg == 4) {
+                spawnerIndex = i;
+                break;
+            }
+        }
+        if (spawnerIndex >= level_.monsterSpawners.size()) {
+            throw std::runtime_error("monster behavior-4 target autoplayer found no spawner");
+        }
+        for (size_t i = 0; i < spawnerStates_.size(); ++i) {
+            if (i != spawnerIndex) {
+                spawnerStates_[i].remaining = 0;
+                spawnerStates_[i].availableSlots = 0;
+            }
+        }
+        const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
+        randomSeed_ = 0x1234abcd;
+        spawnerStates_[spawnerIndex].cooldown = 0;
+        player_.x = static_cast<float>(spawner.x + 40);
+        player_.y = static_cast<float>(spawner.y);
+        player_.vy = -6.0f;
+        player2_.x = static_cast<float>(spawner.x - 16);
+        player2_.y = static_cast<float>(spawner.y);
+        player2_.vy = -6.0f;
+        playerDead_ = false;
+        player2Dead_ = false;
+
+        FrameInspection startFrame =
+            inspectRenderedFrame("autoplayer-monster-b4-target-start");
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (monsters_.size() != 1 || monsters_.front().behavior != 4 ||
+            monsters_.front().vx8 >= 0 || monsters_.front().x >= spawner.x) {
+            throw std::runtime_error("monster behavior-4 target autoplayer did not prefer player 2");
+        }
+        int xAfterP2 = monsters_.front().x;
+        FrameInspection p2Frame =
+            inspectRenderedFrame("autoplayer-monster-b4-target-p2");
+        if (p2Frame.hash == startFrame.hash) {
+            throw std::runtime_error("monster behavior-4 target player-2 frame did not change");
+        }
+
+        player2Dead_ = true;
+        player_.x = static_cast<float>(monsters_.front().x + 24);
+        player_.y = static_cast<float>(monsters_.front().y);
+        monsters_.front().motionTimer = 1;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (monsters_.front().vx8 <= 0 || monsters_.front().x <= xAfterP2) {
+            throw std::runtime_error("monster behavior-4 target autoplayer did not retarget player 1");
+        }
+        int xAfterP1 = monsters_.front().x;
+        FrameInspection p1Frame =
+            inspectRenderedFrame("autoplayer-monster-b4-target-p1");
+        if (p1Frame.hash == p2Frame.hash) {
+            throw std::runtime_error("monster behavior-4 target player-1 frame did not change");
+        }
+
+        playerDead_ = true;
+        player2Dead_ = false;
+        player2_.x = static_cast<float>(monsters_.front().x - 24);
+        player2_.y = static_cast<float>(monsters_.front().y);
+        monsters_.front().motionTimer = 1;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (monsters_.front().vx8 >= 0 || monsters_.front().x >= xAfterP1) {
+            throw std::runtime_error("monster behavior-4 target autoplayer did not retarget back to player 2");
+        }
+        FrameInspection p2ReturnFrame =
+            inspectRenderedFrame("autoplayer-monster-b4-target-p2-return");
+        if (p2ReturnFrame.hash == p1Frame.hash) {
+            throw std::runtime_error("monster behavior-4 target return frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " level=3 spawner_index=" << (spawnerIndex + 1)
+                  << " initial_target=2 retarget_p1=1 retarget_p2=1"
                   << " frame_inspection=1\n";
     }
 

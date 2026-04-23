@@ -45,6 +45,16 @@ Additional deterministic autoplayer scenarios now cover:
 - `monster_spawner_cycle`: uses the actual level-1 spawner to verify slot
   reservation on spawn, immediate slot return on death, and deterministic
   respawn after resetting the recovered spawner cooldown.
+- `monster_spawner_behavior4_level2`: uses the actual level-2 behavior-4
+  spawner, locks the decoded AI/hit-point fields into deterministic ranges,
+  and verifies horizontal chase velocity through the live update loop.
+- `monster_spawner_behavior4_level3`: uses the actual level-3 behavior-4
+  spawner, locks the decoded AI/hit-point fields into deterministic ranges,
+  and verifies diagonal chase velocity through the live update loop.
+- `monster_behavior4_target_selection`: starts two-player mode on level 3 and
+  verifies that a live behavior-4 spawner first targets the nearer player 2,
+  retargets player 1 when player 2 is dead, and retargets player 2 again when
+  player 1 is dead.
 - `collapse_playback_route`: reaches level-1 bomb tile `(24,22)` through the
   route autoplayer, places the route bomb through `N`, verifies collapse queue
   creation, and checks the current `24`-frame playback lifetime.
@@ -102,6 +112,15 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
 
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer monster_spawner_cycle
+
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer monster_spawner_behavior4_level2
+
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer monster_spawner_behavior4_level3
+
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer monster_behavior4_target_selection
 
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer collapse_playback_route

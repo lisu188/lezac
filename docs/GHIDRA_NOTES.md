@@ -162,6 +162,8 @@ collision samples a 14x16 footprint. `--debug-passable-objects` verifies the
 decoded levels contain portal, bomb-object, low-word object, high-word solid,
 and solid examples, then checks full actor footprints, consumed bomb-object
 tiles, and a level 1 start-route movement probe against the passability helper.
+`--debug-autoplayer level1_bomb_route` drives that route through the update
+helpers and frame-inspects the route, bomb, and explosion checkpoints.
 `--debug-collision-pushout` locks the current model by forcing horizontal and
 vertical player/monster collisions into a synthetic solid tile, then asserting
 the actors finish clear. It covers behavior-3 full horizontal reversal/vertical

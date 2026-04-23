@@ -37,6 +37,7 @@ Smoke-test SDL window creation and menu/control handling:
 Dump deterministic C++ frames for comparison against original DOSBox captures:
 
 ```sh
+./build/lezac_cpp --debug-autoplayer level1_bomb_route
 ./build/lezac_cpp --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames
 tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-frames
 ```
@@ -69,6 +70,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-player-damage-sound
 ./build/lezac_cpp --debug-original-damage-counters
 ./build/lezac_cpp --debug-level1-frame-inspection
+./build/lezac_cpp --debug-autoplayer level1_bomb_route
 ./build/lezac_cpp --debug-player-state2-death-fields
 ./build/lezac_cpp --debug-original-state2-return-model
 ./build/lezac_cpp --debug-original-state2-animation-init
@@ -111,10 +113,12 @@ Dump the current bomb inventory model and export sprite contact sheets:
 
 The reconstruction can emit named 320x200 PPM frames and a `manifest.txt` for
 the semantic level-1 bomb route. The current sequence captures the menu, level-1
-start, the player aligned to bomb tile `(24,22)`, bomb placement with `N`, and
-three explosion/playback checkpoints.
+start, the deterministic autoplayer reaching bomb tile `(24,22)`, bomb
+placement, and three explosion/playback checkpoints.
 
 ```sh
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer level1_bomb_route
 tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-frames
 ```
 
@@ -168,8 +172,9 @@ numbers.
   animation, active structure hazard damage, bomb blast player damage,
   post-hit damage cooldown, level progression, and records/menu display.
   Deterministic debug coverage exercises the current cell-aware passable-object
-  classification, including the level-1 low-word object route, and the
-  player/monster collision pushout model.
+  classification, including the level-1 low-word object route, level-1
+  autoplayer bomb route, frame-harness checkpoints, and player/monster
+  collision pushout model.
 - Menu subpages for info, instructions, and records, plus original-documented
   background and one-player playfield-width controls.
 - A first playable two-player reconstruction pass with separate start markers,

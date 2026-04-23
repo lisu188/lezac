@@ -1089,6 +1089,25 @@ std::vector<Level> loadLevels(const std::string& path) {
 }
 
 class App {
+    struct FrameControls {
+        bool p1Left = false;
+        bool p1Right = false;
+        bool p1Jump = false;
+        bool p2Left = false;
+        bool p2Right = false;
+        bool p2Jump = false;
+    };
+
+    struct AutoplayRouteResult {
+        int frames = 0;
+        int startX = 0;
+        int startY = 0;
+        int finalX = 0;
+        int finalY = 0;
+        int bombTileX = 0;
+        int bombTileY = 0;
+    };
+
 public:
     void load() {
         palette_ = loadPaletteFile("BOMPAL.PAL.json");
@@ -1632,17 +1651,13 @@ public:
         }
         capture("010_level1_start");
 
-        player_.x = static_cast<float>(24 * kTileSize - 6);
-        player_.y = 168.0f;
-        player_.vx = 0.0f;
-        player_.vy = 0.0f;
-        player_.grounded = true;
-        playerFacing_ = 1;
-        playerAnimTick_ = 0;
+        AutoplayRouteResult route = autoplayLevel1BombRoute();
+        if (route.bombTileX != 24 || route.bombTileY != 22) {
+            throw std::runtime_error("frame sequence autoplayer missed level-1 tile 24,22");
+        }
         capture("020_level1_tile24_aligned");
 
-        pushKeyDown(SDLK_n);
-        processEvents(running);
+        placeBombAt(player_, bombInventory_, 1);
         if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 22) {
             throw std::runtime_error("frame sequence did not place the level-1 tile 24,22 bomb");
         }
@@ -1697,6 +1712,69 @@ public:
                   << " size=" << kScreenW << 'x' << kScreenH
                   << " out=" << outDir
                   << " manifest=manifest.txt\n";
+    }
+
+    void debugAutoplayer(const std::string& scenario) {
+        if (scenario != "level1_bomb_route") {
+            throw std::runtime_error("unknown autoplayer scenario " + scenario);
+        }
+
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+            throw std::runtime_error("autoplayer failed to start one-player level 1");
+        }
+
+        FrameInspection startFrame = inspectRenderedFrame("autoplayer-level1-start");
+        AutoplayRouteResult route = autoplayLevel1BombRoute();
+        if (route.bombTileX != 24 || route.bombTileY != 22) {
+            throw std::runtime_error("autoplayer missed level-1 tile 24,22");
+        }
+
+        FrameInspection routeFrame = inspectRenderedFrame("autoplayer-level1-route");
+        if (routeFrame.hash == startFrame.hash) {
+            throw std::runtime_error("autoplayer route did not change the rendered frame");
+        }
+
+        size_t bombsBefore = bombs_.size();
+        int smallBombsBefore = bombInventory_.counts[0];
+        placeBombAt(player_, bombInventory_, 1);
+        if (bombs_.size() != bombsBefore + 1 || bombs_.back().x != 24 ||
+            bombs_.back().y != 22 || bombInventory_.counts[0] != smallBombsBefore - 1) {
+            throw std::runtime_error("autoplayer did not place a level-1 route bomb");
+        }
+
+        FrameInspection bombFrame = inspectRenderedFrame("autoplayer-level1-bomb");
+        if (bombFrame.hash == routeFrame.hash) {
+            throw std::runtime_error("autoplayer bomb placement did not change frame");
+        }
+
+        int fuse = bombs_.back().timer;
+        FrameControls idle;
+        for (int i = 0; i < fuse; ++i) {
+            updateWithControls(idle, 1.0f / 60.0f);
+        }
+        if (!bombs_.empty() || explosionEffects_.empty()) {
+            throw std::runtime_error("autoplayer route bomb did not explode");
+        }
+
+        FrameInspection explosionFrame = inspectRenderedFrame("autoplayer-level1-explosion");
+        if (explosionFrame.hash == bombFrame.hash) {
+            throw std::runtime_error("autoplayer explosion did not change frame");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " route_frames=" << route.frames
+                  << " start_xy=" << route.startX << ',' << route.startY
+                  << " final_xy=" << route.finalX << ',' << route.finalY
+                  << " p1_bomb_tile=" << route.bombTileX << ',' << route.bombTileY
+                  << " bombs=1 explosion=1 frame_inspection=1\n";
     }
 
     FrameInspection inspectRenderedFrame(const std::string& label) {
@@ -4775,12 +4853,10 @@ public:
             throw std::runtime_error("level 1 high-word floor marker became passable");
         }
 
-        float routeStartX = player_.x;
-        for (int frame = 0; frame < 120; ++frame) {
-            updatePlayer(player_, false, true, false, false,
-                         playerFacing_, playerAnimTick_, 1.0f / 60.0f);
-        }
-        if (player_.x < routeStartX + 96.0f || collides(player_.x, player_.y)) {
+        menu_ = false;
+        playerCount_ = 1;
+        AutoplayRouteResult route = autoplayLevel1BombRoute();
+        if (route.bombTileX != 24 || route.bombTileY != 22) {
             throw std::runtime_error("level 1 passable-object route remains blocked");
         }
 
@@ -5870,17 +5946,26 @@ private:
 
     void update(float dt) {
         if (menu_) return;
+        const uint8_t* keys = SDL_GetKeyboardState(nullptr);
+        FrameControls controls;
+        controls.p1Left = keys[SDL_SCANCODE_LEFT] ||
+                          (playerCount_ == 1 && keys[SDL_SCANCODE_Z]);
+        controls.p1Right = keys[SDL_SCANCODE_RIGHT] ||
+                           (playerCount_ == 1 && keys[SDL_SCANCODE_X]);
+        controls.p1Jump = keys[SDL_SCANCODE_UP] ||
+                          (playerCount_ == 1 && keys[SDL_SCANCODE_M]);
+        controls.p2Left = playerCount_ > 1 && keys[SDL_SCANCODE_Z];
+        controls.p2Right = playerCount_ > 1 && keys[SDL_SCANCODE_X];
+        controls.p2Jump = playerCount_ > 1 && keys[SDL_SCANCODE_M];
+        updateWithControls(controls, dt);
+    }
+
+    void updateWithControls(const FrameControls& controls, float dt) {
+        if (menu_) return;
         ++logicTick_;
         updateDamageCooldowns();
-        const uint8_t* keys = SDL_GetKeyboardState(nullptr);
-        bool p1Left = keys[SDL_SCANCODE_LEFT] || (playerCount_ == 1 && keys[SDL_SCANCODE_Z]);
-        bool p1Right = keys[SDL_SCANCODE_RIGHT] || (playerCount_ == 1 && keys[SDL_SCANCODE_X]);
-        bool p1Jump = keys[SDL_SCANCODE_UP] || (playerCount_ == 1 && keys[SDL_SCANCODE_M]);
-        bool p2Left = playerCount_ > 1 && keys[SDL_SCANCODE_Z];
-        bool p2Right = playerCount_ > 1 && keys[SDL_SCANCODE_X];
-        bool p2Jump = playerCount_ > 1 && keys[SDL_SCANCODE_M];
-        bool p1Switch = p1Left && p1Right;
-        bool p2Switch = p2Left && p2Right;
+        bool p1Switch = controls.p1Left && controls.p1Right;
+        bool p2Switch = controls.p2Left && controls.p2Right;
         updateWeaponSwitch(bombInventory_, weaponSwitchHeld_, p1Switch);
         if (playerCount_ > 1) {
             updateWeaponSwitch(bombInventory2_, weaponSwitchHeld2_, p2Switch);
@@ -5896,7 +5981,8 @@ private:
             updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
                           playerCount_ == 1 || player2Dead_);
         } else {
-            updatePlayer(player_, p1Left, p1Right, p1Jump, p1Switch,
+            updatePlayer(player_, controls.p1Left, controls.p1Right,
+                         controls.p1Jump, p1Switch,
                          playerFacing_, playerAnimTick_, dt);
             collectObjectiveTiles(player_, 1);
             updatePortalsAndTriggers(player_, portalCooldown_, triggerCooldown_);
@@ -5906,7 +5992,8 @@ private:
                 updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
                               playerDead_);
             } else {
-                updatePlayer(player2_, p2Left, p2Right, p2Jump, p2Switch,
+                updatePlayer(player2_, controls.p2Left, controls.p2Right,
+                             controls.p2Jump, p2Switch,
                              player2Facing_, player2AnimTick_, dt);
                 collectObjectiveTiles(player2_, 2);
                 updatePortalsAndTriggers(player2_, portalCooldown2_, triggerCooldown2_);
@@ -5957,6 +6044,60 @@ private:
         player.vy = std::min(160.0f, player.vy + 360.0f * dt);
         movePlayer(player, player.vx * dt, 0.0f);
         movePlayer(player, 0.0f, player.vy * dt);
+    }
+
+    AutoplayRouteResult autoplayLevel1BombRoute() {
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+            throw std::runtime_error("level1 autoplayer requires active one-player level 1");
+        }
+
+        constexpr int kTargetBombX = 24;
+        constexpr int kTargetBombY = 22;
+        constexpr int kMaxRouteFrames = 180;
+        constexpr float kDt = 1.0f / 60.0f;
+        AutoplayRouteResult result;
+        result.startX = static_cast<int>(player_.x);
+        result.startY = static_cast<int>(player_.y);
+
+        int stagnantFrames = 0;
+        int lastX = static_cast<int>(player_.x);
+        for (int frame = 0; frame < kMaxRouteFrames; ++frame) {
+            result.bombTileX = static_cast<int>(player_.x + 6.0f) / kTileSize;
+            result.bombTileY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+            if (result.bombTileX == kTargetBombX &&
+                result.bombTileY == kTargetBombY) {
+                break;
+            }
+
+            FrameControls controls;
+            controls.p1Right = result.bombTileX < kTargetBombX;
+            controls.p1Left = result.bombTileX > kTargetBombX;
+            updateWithControls(controls, kDt);
+            ++result.frames;
+
+            int currentX = static_cast<int>(player_.x);
+            if (std::abs(currentX - lastX) <= 1) {
+                ++stagnantFrames;
+            } else {
+                stagnantFrames = 0;
+                lastX = currentX;
+            }
+            if (stagnantFrames > 45) {
+                throw std::runtime_error("level1 autoplayer stalled before target tile");
+            }
+        }
+
+        result.finalX = static_cast<int>(player_.x);
+        result.finalY = static_cast<int>(player_.y);
+        result.bombTileX = static_cast<int>(player_.x + 6.0f) / kTileSize;
+        result.bombTileY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+        if (result.bombTileX != kTargetBombX || result.bombTileY != kTargetBombY) {
+            throw std::runtime_error("level1 autoplayer did not reach target tile");
+        }
+        if (collides(player_.x, player_.y)) {
+            throw std::runtime_error("level1 autoplayer finished inside collision");
+        }
+        return result;
     }
 
     void movePlayer(Player& player, float dx, float dy) {
@@ -7939,6 +8080,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 3 && std::string(argv[1]) == "--capture-frame-sequence") {
             app.captureFrameSequence(argv[2], argv[3]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-autoplayer") {
+            app.debugAutoplayer(argv[2]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--smoke-controls") {

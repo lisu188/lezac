@@ -88,6 +88,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^frame_sequence=ok scenario=level1_bomb_route frames=7 size=320x200")
 
+    add_test(NAME autoplayer_level1_bomb_route_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer level1_bomb_route)
+    set_tests_properties(autoplayer_level1_bomb_route_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=level1_bomb_route route_frames=[0-9]+ .*p1_bomb_tile=24,22 bombs=1 explosion=1 frame_inspection=1")
+
     if(Python3_Interpreter_FOUND)
         add_test(NAME frame_compare_identical
             COMMAND ${Python3_EXECUTABLE}

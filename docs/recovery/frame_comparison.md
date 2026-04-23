@@ -4,7 +4,9 @@ The frame comparison workflow has three parts:
 
 1. `--capture-frame-sequence level1_bomb_route <out-dir>` in the C++ port emits
    deterministic 320x200 PPM frames plus a manifest. It uses dummy SDL cleanly,
-   so it is suitable for CTest and headless runs.
+   so it is suitable for CTest and headless runs. The C++ sequence uses the
+   deterministic level-1 autoplayer to reach tile `(24,22)` instead of
+   teleporting the player to the checkpoint.
 2. `tools/capture_original_dosbox_frames.sh <out-dir> [asset-dir]` is a
    best-effort original-game capture driver. It copies original assets to a
    temporary directory, runs `LEZAC.EXE` in DOSBox under Xvfb, drives the window
@@ -23,6 +25,13 @@ The current C++ sequence writes these checkpoints:
 050_level1_tile24_playback_4.ppm
 060_level1_tile24_playback_12.ppm
 manifest.txt
+```
+
+The route can also be tested without writing frame files:
+
+```sh
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer level1_bomb_route
 ```
 
 This is not yet a proof of original visual fidelity. The C++ frames are

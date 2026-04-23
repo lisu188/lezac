@@ -1,49 +1,51 @@
 # Recovery Status
 
 Last reviewed: 2026-04-23
-Branch: `codex/level1-passable-objects`
-Baseline: `4493397` / `origin/main`
+Branch: `codex/autoplayer-harness`
+Baseline: `1705ebd` / `origin/main`
 
 ## Completed This Iteration
 
-- Fixed level 1 passable-object collision by making `solidPixel` use a
-  cell-aware helper instead of a tile-id-only helper.
-- Kept portal tile `0x45` and bomb-object tiles `0x67..0x72` passable, and
-  added low word-layer physical-object cells (`word != 0`, undamaged,
-  `word < 0x4000`) as passable object cells.
-- Preserved high word-layer floor/link markers as solid unless their tile id is
-  already a known passable object.
-- Extended `--debug-passable-objects` and CTest coverage to assert the real
-  level 1 object column at `(17,22)` is passable, the high-word floor marker
-  `(53,23)` remains solid, and holding right from the level 1 start advances
-  through the formerly blocked route.
-- Documented the implemented model and remaining original-evidence gap in
-  `docs/GHIDRA_NOTES.md` and
-  `docs/recovery/level1_passable_objects_2026-04-23.md`.
+- Added a deterministic `--debug-autoplayer level1_bomb_route` command.
+- Refactored the game update path so the autoplayer can drive the same movement
+  helpers with injected controls instead of relying on live keyboard state.
+- Changed `--capture-frame-sequence level1_bomb_route <out-dir>` to reach tile
+  `(24,22)` through the autoplayer route instead of teleporting the player.
+- Added CTest coverage for the autoplayer route and kept the frame-sequence
+  capture coverage on the same scenario.
+- Updated `AGENTS.md`, README, and recovery docs with the autoplayer/frame
+  inspection workflow.
 
 ## Validation
 
 - `cmake -S . -B build` passed.
 - `cmake --build build` passed.
-- `ctest --test-dir build --output-on-failure` passed: 55/55.
-- `./build/lezac_cpp --validate` passed.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer level1_bomb_route` passed with route length `55`, start
+  `(104,168)`, final `(186,168)`, and bomb tile `(24,22)`.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --capture-frame-sequence level1_bomb_route /tmp/lezac-autoplayer-frames`
+  passed and wrote seven PPM frames plus `manifest.txt`.
+- `tools/capture_cpp_frames.sh ./build/lezac_cpp
+  /tmp/lezac-autoplayer-frames-wrapper` passed.
 - `./build/lezac_cpp --debug-passable-objects` passed with
-  `level1_word_clear=1`, `high_word_solid=1`, and `level1_route_clear=1`.
-- Direct live `./build/lezac_cpp --smoke-controls` was attempted and hung in
-  this SDL/audio environment after `pa_write() failed...`; the process was
-  killed and the dummy-SDL equivalent was run instead.
+  `level1_route_clear=1`.
+- `ctest --test-dir build --output-on-failure` passed: 56/56.
+- `./build/lezac_cpp --validate` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --smoke-controls` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
-  --debug-level1-frame-inspection` passed and confirmed level 1 gameplay,
-  bomb placement with `N`, explosion visibility, and level advancement.
+  --debug-level1-frame-inspection` passed.
+- Frame inspection performed on generated checkpoints
+  `020_level1_tile24_aligned` and `040_level1_tile24_explosion` after converting
+  temporary PPM files to PNG for local viewing.
 - `git diff --check` passed.
 
 ## Remaining Top Gaps
 
-- Confirm the low-word passable-object cell rule against original
-  `LEZAC.EXE`, ideally by DOSBox frame inspection or debugger/runtime collision
-  evidence around `1000:6053..777f`.
+- Confirm the low-word passable-object route and level-1 bomb-route timing
+  against original `LEZAC.EXE` with DOSBox frame inspection or debugger/runtime
+  evidence.
 - Interpret captured state-2 frame-table bytes and confirm the visual
   consumption path before wiring live dead-player rendering.
 - Exact explosion/debris/collapse sprite playback around `1000:3a56..4d3b`
@@ -67,6 +69,6 @@ Baseline: `4493397` / `origin/main`
 
 ## Next Planned Target
 
-Use DOSBox/frame inspection on the original level 1 start route to confirm the
-low-word object passability rule, then continue with paired original/C++
-checkpoint comparison around bomb-object explosion and collapse/debris playback.
+Run paired original/C++ frame captures for the autoplayer-aligned level-1 route,
+then prioritize the largest visual diffs around bomb-object explosion,
+collapse/debris playback, and player/death frame-table consumption.

@@ -14,6 +14,11 @@ Baseline: `1705ebd` / `origin/main`
   autoplayer scenarios. These lock provisional state-2 visual cursor playback,
   level-1 completion into level 2, player-2 death/reentry, post-reentry bombs,
   and player-2 scoring.
+- Added `portal_weapon_route`, `monster_bomb_reward`, and
+  `collapse_playback_route` autoplayer scenarios. These broaden deterministic
+  coverage to weapon switching through the left+right chord, medium bomb
+  placement through `N`, decoded portal traversal, bomb-killed monster rewards,
+  reward pickup sounds, and level-1 collapse playback duration.
 - Added provisional live state-2 rendering keyed to the recovered `0x4a..0x4f`
   cursor range. It is intentionally documented as `visual_claim=0` until the
   original `DS:c322` frame-table fields are fully interpreted.
@@ -50,8 +55,18 @@ Baseline: `1705ebd` / `origin/main`
   --debug-autoplayer level_transition` passed with level-1 completion after
   `101` transition frames and level 2 loaded.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer portal_weapon_route` passed on decoded portal level `3`
+  with medium weapon switch, medium bomb placement, portal key `31`, and
+  cooldown `30`.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --debug-autoplayer records_flow` passed with temporary record score
   `999999`, level `3`, and name `bot`.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer monster_bomb_reward` passed with a bomb-killed monster,
+  reward collection, and score delta `3000`.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer collapse_playback_route` passed with collapse queue count
+  `2` and playback duration `24` frames.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --debug-autoplayer two_player_route` passed with player-2 movement and one
   player-2 bomb placed.
@@ -70,7 +85,7 @@ Baseline: `1705ebd` / `origin/main`
   are automation diagnostics until rerun with working menu input.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
-- `ctest --test-dir build --output-on-failure` passed: 62/62.
+- `ctest --test-dir build --output-on-failure` passed: 65/65.
 - `./build/lezac_cpp --validate` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --smoke-controls` passed.

@@ -1739,8 +1739,14 @@ public:
             debugAutoplayerDeathVisuals(scenario);
         } else if (scenario == "level_transition") {
             debugAutoplayerLevelTransition(scenario);
+        } else if (scenario == "portal_weapon_route") {
+            debugAutoplayerPortalWeaponRoute(scenario);
         } else if (scenario == "records_flow") {
             debugAutoplayerRecordsFlow(scenario);
+        } else if (scenario == "monster_bomb_reward") {
+            debugAutoplayerMonsterBombReward(scenario);
+        } else if (scenario == "collapse_playback_route") {
+            debugAutoplayerCollapsePlaybackRoute(scenario);
         } else if (scenario == "two_player_route") {
             debugAutoplayerTwoPlayerRoute(scenario);
         } else if (scenario == "two_player_progression") {
@@ -1984,6 +1990,117 @@ public:
                   << " frame_inspection=1\n";
     }
 
+    void debugAutoplayerPortalWeaponRoute(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+            throw std::runtime_error("portal/weapon autoplayer failed to start level 1");
+        }
+
+        int portalLevel = -1;
+        int sourceX = -1;
+        int sourceY = -1;
+        uint16_t portalKey = 0;
+        const LevelPortal* destination = nullptr;
+        auto findPortalSource = [&]() {
+            sourceX = -1;
+            sourceY = -1;
+            portalKey = 0;
+            destination = nullptr;
+            for (int y = 1; y < level_.height && !destination; ++y) {
+                for (int x = 0; x < level_.width && !destination; ++x) {
+                    if (tileAt(x, y) != 0x45) continue;
+                    uint16_t key = static_cast<uint16_t>(wordAt(x, y) & 0x7fffu);
+                    if (key == 0) continue;
+                    for (const LevelPortal& portal : level_.portals) {
+                        if (portal.key == key) {
+                            sourceX = x;
+                            sourceY = y;
+                            portalKey = key;
+                            destination = &portal;
+                            break;
+                        }
+                    }
+                }
+            }
+            return destination != nullptr;
+        };
+
+        if (!findPortalSource()) {
+            for (size_t level = 1; level < levels_.size(); ++level) {
+                resetLevel(static_cast<int>(level));
+                if (findPortalSource()) {
+                    portalLevel = static_cast<int>(level);
+                    break;
+                }
+            }
+        } else {
+            portalLevel = levelIndex_;
+        }
+        if (portalLevel < 0) {
+            throw std::runtime_error("portal/weapon autoplayer found no portal source");
+        }
+        menu_ = false;
+
+        FrameInspection startFrame = inspectRenderedFrame("autoplayer-portal-weapon-start");
+        FrameControls switchControls;
+        switchControls.p1Left = true;
+        switchControls.p1Right = true;
+        updateWithControls(switchControls, 1.0f / 60.0f);
+        if (bombInventory_.selected != BombType::Medium) {
+            throw std::runtime_error("portal/weapon autoplayer did not switch to medium bomb");
+        }
+
+        size_t bombsBefore = bombs_.size();
+        int mediumBefore = bombInventory_.counts[1];
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.size() != bombsBefore + 1 ||
+            bombs_.back().type != BombType::Medium ||
+            bombInventory_.counts[1] != mediumBefore - 1) {
+            throw std::runtime_error("portal/weapon autoplayer did not place medium bomb");
+        }
+        FrameInspection bombFrame = inspectRenderedFrame("autoplayer-portal-weapon-bomb");
+        if (bombFrame.hash == startFrame.hash) {
+            throw std::runtime_error("portal/weapon bomb frame did not change");
+        }
+
+        player_.x = static_cast<float>(sourceX * kTileSize);
+        player_.y = static_cast<float>(sourceY * kTileSize - kTileSize);
+        clearSoundLatch();
+        lastPumpedSoundOffset_ = 0;
+        lastPumpedSoundSelector_ = 0;
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (player_.x != static_cast<float>(destination->x) ||
+            player_.y != static_cast<float>(destination->y) ||
+            portalCooldown_ != 30 || soundLatch_.active ||
+            lastPumpedSoundOffset_ != kPortalTeleportSoundCursor ||
+            lastPumpedSoundSelector_ != kPortalTeleportSoundPriority) {
+            throw std::runtime_error("portal/weapon autoplayer did not trigger portal");
+        }
+
+        FrameInspection portalFrame = inspectRenderedFrame("autoplayer-portal-weapon-portal");
+        if (portalFrame.hash == bombFrame.hash) {
+            throw std::runtime_error("portal/weapon portal frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " level=" << (levelIndex_ + 1)
+                  << " switched_weapon=2 medium_bomb=1"
+                  << " portal_key=" << portalKey
+                  << " portal_from=" << sourceX << ',' << sourceY
+                  << " portal_to=" << destination->x << ',' << destination->y
+                  << " cooldown=" << portalCooldown_
+                  << " frame_inspection=1\n";
+    }
+
     void debugAutoplayerRecordsFlow(const std::string& scenario) {
         load();
         initSdl();
@@ -2034,6 +2151,146 @@ public:
                   << " record_score=" << reloaded[0].score
                   << " record_level=" << static_cast<int>(reloaded[0].level)
                   << " name=" << reloaded[0].name
+                  << " frame_inspection=1\n";
+    }
+
+    void debugAutoplayerMonsterBombReward(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+            throw std::runtime_error("monster reward autoplayer failed to start level 1");
+        }
+
+        FrameInspection startFrame = inspectRenderedFrame("autoplayer-monster-reward-start");
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.empty() || bombs_.back().owner != 1) {
+            throw std::runtime_error("monster reward autoplayer did not place bomb");
+        }
+        bombs_.back().timer = 1;
+        Bomb placed = bombs_.back();
+        auto tiles = explosionTilesFor(placed);
+        std::array<int, 2> monsterTile = tiles.front();
+        for (const auto& tile : tiles) {
+            if (!monsterCollides(tile[0] * kTileSize, tile[1] * kTileSize - kTileSize)) {
+                monsterTile = tile;
+                break;
+            }
+        }
+
+        ActiveMonster monster;
+        monster.x = monsterTile[0] * kTileSize;
+        monster.y = monsterTile[1] * kTileSize - kTileSize;
+        monster.kind = 2;
+        monster.behavior = 3;
+        monster.ai0 = 0;
+        monster.ai1 = 0;
+        monster.ai2 = 1;
+        monster.hp = 1;
+        monster.animDelay = 1;
+        refreshMonsterAnimationProfile(monster);
+        initializeMonsterMotion(monster);
+        monsters_.push_back(monster);
+
+        player_.x = static_cast<float>(
+            std::min(level_.width * kTileSize - 24, (placed.x + 5) * kTileSize));
+        player_.y = static_cast<float>(placed.y * kTileSize);
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (bombs_.size() != 0 || monsters_.empty() ||
+            monsters_.front().behavior != 2 || bonusDrops_.empty()) {
+            throw std::runtime_error("monster reward autoplayer did not kill monster");
+        }
+        FrameInspection deathFrame = inspectRenderedFrame("autoplayer-monster-reward-death");
+        if (deathFrame.hash == startFrame.hash) {
+            throw std::runtime_error("monster reward death frame did not change");
+        }
+
+        uint32_t scoreBefore = score_;
+        BonusDrop drop = bonusDrops_.front();
+        player_.x = drop.x;
+        player_.y = drop.y;
+        clearSoundLatch();
+        lastPumpedSoundOffset_ = 0;
+        lastPumpedSoundSelector_ = 0;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (score_ <= scoreBefore || soundLatch_.active ||
+            lastPumpedSoundOffset_ != 0x0008 || lastPumpedSoundSelector_ != 5) {
+            throw std::runtime_error("monster reward autoplayer did not collect reward");
+        }
+        FrameInspection collectFrame =
+            inspectRenderedFrame("autoplayer-monster-reward-collect");
+        if (collectFrame.hash == deathFrame.hash) {
+            throw std::runtime_error("monster reward collection frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " monster_dead=1 reward_collected=1"
+                  << " score_delta=" << (score_ - scoreBefore)
+                  << " frame_inspection=1\n";
+    }
+
+    void debugAutoplayerCollapsePlaybackRoute(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+            throw std::runtime_error("collapse autoplayer failed to start level 1");
+        }
+
+        AutoplayRouteResult route = autoplayLevel1BombRoute();
+        if (route.bombTileX != 24 || route.bombTileY != 22) {
+            throw std::runtime_error("collapse autoplayer missed level-1 tile 24,22");
+        }
+        FrameInspection routeFrame = inspectRenderedFrame("autoplayer-collapse-route");
+
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 22) {
+            throw std::runtime_error("collapse autoplayer did not place route bomb");
+        }
+        int fuse = bombs_.back().timer;
+        FrameControls idle;
+        for (int i = 0; i < fuse; ++i) {
+            updateWithControls(idle, 1.0f / 60.0f);
+        }
+        if (!bombs_.empty() || explosionEffects_.empty() || collapseQueue_.empty()) {
+            throw std::runtime_error("collapse autoplayer did not start collapse playback");
+        }
+        int collapseCount = collapseQueue_.front().count;
+        FrameInspection explosionFrame =
+            inspectRenderedFrame("autoplayer-collapse-explosion");
+        if (explosionFrame.hash == routeFrame.hash) {
+            throw std::runtime_error("collapse explosion frame did not change");
+        }
+
+        int playbackFrames = 0;
+        while (!collapseQueue_.empty() && playbackFrames < 32) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            ++playbackFrames;
+        }
+        if (!collapseQueue_.empty() || playbackFrames != 24) {
+            throw std::runtime_error("collapse autoplayer playback duration mismatch");
+        }
+        FrameInspection clearFrame = inspectRenderedFrame("autoplayer-collapse-clear");
+        if (clearFrame.hash == explosionFrame.hash) {
+            throw std::runtime_error("collapse clear frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " collapse_started=1 collapse_count=" << collapseCount
+                  << " playback_frames=" << playbackFrames
                   << " frame_inspection=1\n";
     }
 

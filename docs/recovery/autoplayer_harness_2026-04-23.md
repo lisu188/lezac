@@ -26,9 +26,19 @@ Additional deterministic autoplayer scenarios now cover:
 - `level_transition`: completes level 1 through deterministic map-progress
   helpers, inspects the completion overlay, advances the normal update loop for
   `101` frames, and verifies level 2 is loaded.
+- `portal_weapon_route`: starts from live one-player input, switches from small
+  to medium bombs through the left+right weapon chord, places the medium bomb
+  through the `N` key path, then drives the first decoded portal source through
+  the normal update loop and checks the recovered portal sound/cooldown fields.
 - `records_flow`: drives the high-score name-entry path into a temporary record
   file, enters `bot`, reloads the file, and verifies the records page displays
   the saved score without touching shipped `RECS.DAT`.
+- `monster_bomb_reward`: places a bomb through `N`, detonates it against a
+  deterministic live monster fixture, verifies the death/reward state, then
+  collects the spawned bonus through the normal update loop.
+- `collapse_playback_route`: reaches level-1 bomb tile `(24,22)` through the
+  route autoplayer, places the route bomb through `N`, verifies collapse queue
+  creation, and checks the current `24`-frame playback lifetime.
 - `two_player_route`: starts two-player mode, moves player 2 independently,
   places a player-2 bomb through the shared bomb helper, and verifies player 1
   did not move.
@@ -67,7 +77,16 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer level_transition
 
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer portal_weapon_route
+
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer records_flow
+
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer monster_bomb_reward
+
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer collapse_playback_route
 
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer two_player_route

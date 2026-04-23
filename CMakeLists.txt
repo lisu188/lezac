@@ -120,6 +120,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^autoplayer=ok scenario=level_transition start_level=1 completed_bonus=[0-9]+ completed_destruction=[0-9]+ transition_frames=101 advanced_level=2 frame_inspection=1")
 
+    add_test(NAME autoplayer_portal_weapon_route_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer portal_weapon_route)
+    set_tests_properties(autoplayer_portal_weapon_route_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=portal_weapon_route level=[0-9]+ switched_weapon=2 medium_bomb=1 portal_key=[0-9]+ portal_from=[0-9]+,[0-9]+ portal_to=[0-9]+,[0-9]+ cooldown=30 frame_inspection=1")
+
     add_test(NAME autoplayer_records_flow_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-autoplayer records_flow)
@@ -127,6 +135,22 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^autoplayer=ok scenario=records_flow record_score=999999 record_level=3 name=bot frame_inspection=1")
+
+    add_test(NAME autoplayer_monster_bomb_reward_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer monster_bomb_reward)
+    set_tests_properties(autoplayer_monster_bomb_reward_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=monster_bomb_reward monster_dead=1 reward_collected=1 score_delta=[0-9]+ frame_inspection=1")
+
+    add_test(NAME autoplayer_collapse_playback_route_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer collapse_playback_route)
+    set_tests_properties(autoplayer_collapse_playback_route_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=collapse_playback_route collapse_started=1 collapse_count=[0-9]+ playback_frames=24 frame_inspection=1")
 
     add_test(NAME autoplayer_two_player_route_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

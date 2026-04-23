@@ -74,7 +74,10 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-autoplayer death_reentry
 ./build/lezac_cpp --debug-autoplayer death_visuals
 ./build/lezac_cpp --debug-autoplayer level_transition
+./build/lezac_cpp --debug-autoplayer portal_weapon_route
 ./build/lezac_cpp --debug-autoplayer records_flow
+./build/lezac_cpp --debug-autoplayer monster_bomb_reward
+./build/lezac_cpp --debug-autoplayer collapse_playback_route
 ./build/lezac_cpp --debug-autoplayer two_player_route
 ./build/lezac_cpp --debug-autoplayer two_player_progression
 ./build/lezac_cpp --debug-player-state2-death-fields

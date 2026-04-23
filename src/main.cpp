@@ -4729,7 +4729,7 @@ public:
                             throw std::runtime_error("portal tile blocks movement");
                         }
                     } else if (countsForDestructionProgress(tile, level_.objectiveTile) &&
-                               !isPassableObjectTile(tile)) {
+                               !isPassableObjectCell(x, y)) {
                         sawSolid = true;
                         if (!solidPixel(px, py)) {
                             throw std::runtime_error("solid map tile became passable");
@@ -4763,9 +4763,32 @@ public:
             throw std::runtime_error("consumed bomb object tile blocks movement");
         }
 
+        resetLevel(0);
+        if (!isPassableObjectCell(17, 22) ||
+            solidPixel(static_cast<float>(17 * kTileSize + 1),
+                       static_cast<float>(22 * kTileSize + 1))) {
+            throw std::runtime_error("level 1 low-word object tile blocks movement");
+        }
+        if (isPassableObjectCell(53, 23) ||
+            !solidPixel(static_cast<float>(53 * kTileSize + 1),
+                        static_cast<float>(23 * kTileSize + 1))) {
+            throw std::runtime_error("level 1 high-word floor marker became passable");
+        }
+
+        float routeStartX = player_.x;
+        for (int frame = 0; frame < 120; ++frame) {
+            updatePlayer(player_, false, true, false, false,
+                         playerFacing_, playerAnimTick_, 1.0f / 60.0f);
+        }
+        if (player_.x < routeStartX + 96.0f || collides(player_.x, player_.y)) {
+            throw std::runtime_error("level 1 passable-object route remains blocked");
+        }
+
         std::cout << "passable_objects=ok"
                   << " bomb=1 portal=1 solid=1"
-                  << " footprint_clear=1 consumed_clear=1\n";
+                  << " footprint_clear=1 consumed_clear=1"
+                  << " level1_word_clear=1 high_word_solid=1"
+                  << " level1_route_clear=1\n";
     }
 
     void debugTriggerAccounting() {
@@ -5730,10 +5753,11 @@ private:
     }
 
     bool solidPixel(float px, float py) const {
-        int tile = tileAt(static_cast<int>(px) / kTileSize, static_cast<int>(py) / kTileSize);
-        uint8_t tileByte = static_cast<uint8_t>(tile);
+        int tx = static_cast<int>(px) / kTileSize;
+        int ty = static_cast<int>(py) / kTileSize;
+        uint8_t tileByte = static_cast<uint8_t>(tileAt(tx, ty));
         return countsForDestructionProgress(tileByte, level_.objectiveTile) &&
-               !isPassableObjectTile(tileByte);
+               !isPassableObjectCell(tx, ty);
     }
 
     bool collides(float x, float y) const {
@@ -6728,6 +6752,12 @@ private:
 
     bool isPassableObjectTile(uint8_t tile) const {
         return tile == 0x45 || isBombObjectTile(tile);
+    }
+
+    bool isPassableObjectCell(int tx, int ty) const {
+        uint8_t tile = static_cast<uint8_t>(tileAt(tx, ty));
+        if (isPassableObjectTile(tile)) return true;
+        return countsForPhysicalDamageProgress(wordAt(tx, ty));
     }
 
     bool requestBombObjectScoreSound(bool sawHighObjectTile) {

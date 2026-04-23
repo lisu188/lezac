@@ -380,7 +380,7 @@ if(BUILD_TESTING)
     set_tests_properties(passable_objects PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^passable_objects=ok bomb=1 portal=1 solid=1 footprint_clear=1 consumed_clear=1")
+            "^passable_objects=ok bomb=1 portal=1 solid=1 footprint_clear=1 consumed_clear=1 level1_word_clear=1 high_word_solid=1 level1_route_clear=1")
 
     add_test(NAME trigger_accounting
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-trigger-accounting)

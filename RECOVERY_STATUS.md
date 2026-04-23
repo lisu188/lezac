@@ -1,24 +1,25 @@
 # Recovery Status
 
 Last reviewed: 2026-04-23
-Branch: `codex/frame-comparison-harness`
-Baseline: `20bb2ad` / `origin/main`
+Branch: `codex/level1-passable-objects`
+Baseline: `4493397` / `origin/main`
 
 ## Completed This Iteration
 
-- Added `--capture-frame-sequence level1_bomb_route <out-dir>` to emit
-  deterministic 320x200 C++ PPM frames plus a manifest for menu, level-1 start,
-  tile `(24,22)` alignment, bomb placement, and explosion/playback checkpoints.
-- Added `tools/capture_cpp_frames.sh` as a dummy-SDL wrapper for the C++ frame
-  sequence.
-- Added `tools/capture_original_dosbox_frames.sh` as a best-effort DOSBox/Xvfb
-  capture driver that uses a temp copy of `LEZAC.EXE` assets and DOSBox Ctrl-F5
-  screenshots at matching semantic checkpoints.
-- Added `tools/frame_compare.py`, a no-required-dependency PPM/BMP comparator
-  with optional Pillow fallback for DOSBox PNG screenshots, threshold metrics,
-  and visual diff output.
-- Added CTest coverage for the C++ capture command and the frame comparator's
-  identical-frame fixture.
+- Fixed level 1 passable-object collision by making `solidPixel` use a
+  cell-aware helper instead of a tile-id-only helper.
+- Kept portal tile `0x45` and bomb-object tiles `0x67..0x72` passable, and
+  added low word-layer physical-object cells (`word != 0`, undamaged,
+  `word < 0x4000`) as passable object cells.
+- Preserved high word-layer floor/link markers as solid unless their tile id is
+  already a known passable object.
+- Extended `--debug-passable-objects` and CTest coverage to assert the real
+  level 1 object column at `(17,22)` is passable, the high-word floor marker
+  `(53,23)` remains solid, and holding right from the level 1 start advances
+  through the formerly blocked route.
+- Documented the implemented model and remaining original-evidence gap in
+  `docs/GHIDRA_NOTES.md` and
+  `docs/recovery/level1_passable_objects_2026-04-23.md`.
 
 ## Validation
 
@@ -26,22 +27,23 @@ Baseline: `20bb2ad` / `origin/main`
 - `cmake --build build` passed.
 - `ctest --test-dir build --output-on-failure` passed: 55/55.
 - `./build/lezac_cpp --validate` passed.
+- `./build/lezac_cpp --debug-passable-objects` passed with
+  `level1_word_clear=1`, `high_word_solid=1`, and `level1_route_clear=1`.
+- Direct live `./build/lezac_cpp --smoke-controls` was attempted and hung in
+  this SDL/audio environment after `pa_write() failed...`; the process was
+  killed and the dummy-SDL equivalent was run instead.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
-  --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames-test`
-  passed and wrote seven PPM frames plus `manifest.txt`.
-- `tools/capture_cpp_frames.sh ./build/lezac_cpp
-  /tmp/lezac-cpp-frames-wrapper-test` passed.
-- `timeout 20s tools/capture_original_dosbox_frames.sh
-  /tmp/lezac-original-frames-test .` passed and produced six DOSBox PNG
-  screenshots plus `original_capture.log`.
-- `tools/frame_compare.py /tmp/lezac-cpp-frames-test/000_menu.ppm
-  /tmp/lezac-original-frames-test/lezac_000.png --max-diff-pixels 64000
-  --diff /tmp/lezac-menu-diff.ppm` passed, including automatic 640x400 to
-  320x200 normalization.
+  --smoke-controls` passed.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-level1-frame-inspection` passed and confirmed level 1 gameplay,
+  bomb placement with `N`, explosion visibility, and level advancement.
 - `git diff --check` passed.
 
 ## Remaining Top Gaps
 
+- Confirm the low-word passable-object cell rule against original
+  `LEZAC.EXE`, ideally by DOSBox frame inspection or debugger/runtime collision
+  evidence around `1000:6053..777f`.
 - Interpret captured state-2 frame-table bytes and confirm the visual
   consumption path before wiring live dead-player rendering.
 - Exact explosion/debris/collapse sprite playback around `1000:3a56..4d3b`
@@ -65,6 +67,6 @@ Baseline: `20bb2ad` / `origin/main`
 
 ## Next Planned Target
 
-Use the new frame harness to collect paired original/C++ level-1 checkpoints,
-then prioritize the largest visual diffs around bomb-object explosion,
-collapse/debris playback, and player/death frame-table consumption.
+Use DOSBox/frame inspection on the original level 1 start route to confirm the
+low-word object passability rule, then continue with paired original/C++
+checkpoint comparison around bomb-object explosion and collapse/debris playback.

@@ -151,11 +151,17 @@ regression oracle for the current reconstruction model, not proof that the
 remaining AI/collision rules are exact.
 
 The C++ collision/passability model currently treats destruction-progress tiles
-as solid except passable objects: portal tile `0x45` and bomb-object tiles
-`0x67..0x72`. Player collision samples a 12x16 footprint; monster collision
-samples a 14x16 footprint. `--debug-passable-objects` verifies the decoded
-levels contain portal, bomb-object, and solid examples, then checks full actor
-footprints and consumed bomb-object tiles against the passability helper.
+as solid except passable object cells. A cell is passable when its tile is the
+portal tile `0x45`, a bomb-object tile `0x67..0x72`, or when its decoded
+word-layer value is a nonzero low physical-object word (`word < 0x4000` and not
+flagged damaged). The low-word rule is a gameplay-model fix for level 1 object
+columns and panels that visually belong to pass-through object groups; high
+word-layer floor/link markers remain solid unless their tile id is already a
+known passable object. Player collision samples a 12x16 footprint; monster
+collision samples a 14x16 footprint. `--debug-passable-objects` verifies the
+decoded levels contain portal, bomb-object, low-word object, high-word solid,
+and solid examples, then checks full actor footprints, consumed bomb-object
+tiles, and a level 1 start-route movement probe against the passability helper.
 `--debug-collision-pushout` locks the current model by forcing horizontal and
 vertical player/monster collisions into a synthetic solid tile, then asserting
 the actors finish clear. It covers behavior-3 full horizontal reversal/vertical

@@ -34,6 +34,13 @@ Smoke-test SDL window creation and menu/control handling:
 ./build/lezac_cpp --smoke-controls
 ```
 
+Dump deterministic C++ frames for comparison against original DOSBox captures:
+
+```sh
+./build/lezac_cpp --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames
+tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-frames
+```
+
 Run the configured validation, debug, and UI smoke tests:
 
 ```sh
@@ -96,8 +103,46 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-portal-sound
 ./build/lezac_cpp --debug-portal-cooldowns
 ./build/lezac_cpp --debug-collision-pushout
+./build/lezac_cpp --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames
 ./build/lezac_cpp --export-sprites BOMOMIMK.SPR /tmp/bomomimk.ppm
 ```
+
+## Frame Comparison
+
+The reconstruction can emit named 320x200 PPM frames and a `manifest.txt` for
+the semantic level-1 bomb route. The current sequence captures the menu, level-1
+start, the player aligned to bomb tile `(24,22)`, bomb placement with `N`, and
+three explosion/playback checkpoints.
+
+```sh
+tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-frames
+```
+
+Original-game captures are best-effort because DOSBox timing, focus, and
+keyboard injection vary by environment. This script runs `LEZAC.EXE` from a
+temporary copy under DOSBox/Xvfb, uses DOSBox's Ctrl-F5 screenshot command at
+matching checkpoints, and writes `original_capture.log` next to the screenshots:
+
+```sh
+tools/capture_original_dosbox_frames.sh /tmp/lezac-original-frames .
+```
+
+Compare paired frames with:
+
+```sh
+tools/frame_compare.py \
+  /tmp/lezac-cpp-frames/010_level1_start.ppm \
+  /tmp/lezac-original-frames/<dosbox-screenshot>.png \
+  --diff /tmp/lezac-frame-diff.ppm
+```
+
+`tools/frame_compare.py` reads PPM/PNM and uncompressed BMP files without extra
+dependencies. If Pillow is installed, it can also read DOSBox PNG screenshots.
+When one frame is an integer-scaled version of the other, such as DOSBox
+640x400 screenshots compared with 320x200 C++ frames, the larger frame is
+downscaled automatically before metrics are computed.
+For exact oracle work, compare semantic checkpoints rather than elapsed frame
+numbers.
 
 ## Implemented
 

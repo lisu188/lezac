@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -632,6 +633,34 @@ uint32_t argb(const Palette& palette, uint8_t index) {
     const Rgb c = palette[index];
     return 0xff000000u | (static_cast<uint32_t>(c.r) << 16) |
            (static_cast<uint32_t>(c.g) << 8) | c.b;
+}
+
+std::string hex64(uint64_t value) {
+    std::ostringstream oss;
+    oss << "0x" << std::hex << std::nouppercase << std::setw(16)
+        << std::setfill('0') << value;
+    return oss.str();
+}
+
+std::string joinPath(const std::string& dir, const std::string& name) {
+    return (std::filesystem::path(dir) / name).string();
+}
+
+void writeArgbPpm(const std::string& path, const std::vector<uint32_t>& pixels,
+                  int width, int height) {
+    if (pixels.size() != static_cast<size_t>(width) * height) {
+        throw std::runtime_error("frame buffer size mismatch while writing " + path);
+    }
+    std::ofstream out(path, std::ios::binary);
+    if (!out) {
+        throw std::runtime_error("cannot create " + path);
+    }
+    out << "P6\n" << width << ' ' << height << "\n255\n";
+    for (uint32_t pixelValue : pixels) {
+        out.put(static_cast<char>((pixelValue >> 16) & 0xffu));
+        out.put(static_cast<char>((pixelValue >> 8) & 0xffu));
+        out.put(static_cast<char>(pixelValue & 0xffu));
+    }
 }
 
 std::vector<uint8_t> decodeLevelRle3(const std::vector<uint8_t>& encoded, size_t targetSize) {
@@ -1543,6 +1572,131 @@ public:
                   << " bomb_visible=1 explosion_visible=1 completion_visible=1"
                   << " advanced_level=" << (levelIndex_ + 1)
                   << '\n';
+    }
+
+    void captureFrameSequence(const std::string& scenario, const std::string& outDir) {
+        if (scenario != "level1_bomb_route") {
+            throw std::runtime_error("unknown frame sequence scenario " + scenario);
+        }
+
+        load();
+        initSdl();
+        resetLevel(0);
+        std::filesystem::create_directories(outDir);
+
+        struct CapturedFrame {
+            std::string label;
+            std::string file;
+            FrameInspection inspection;
+            int menu = 0;
+            int level = 0;
+            int p1x = 0;
+            int p1y = 0;
+            int p1BombX = 0;
+            int p1BombY = 0;
+            size_t bombs = 0;
+            size_t flashes = 0;
+            size_t explosions = 0;
+            size_t debris = 0;
+            size_t collapse = 0;
+        };
+
+        std::vector<CapturedFrame> captures;
+        auto capture = [&](const std::string& label) {
+            CapturedFrame frame;
+            frame.label = label;
+            frame.file = label + ".ppm";
+            frame.inspection = inspectRenderedFrame(label);
+            frame.menu = menu_ ? 1 : 0;
+            frame.level = levelIndex_ + 1;
+            frame.p1x = static_cast<int>(player_.x);
+            frame.p1y = static_cast<int>(player_.y);
+            frame.p1BombX = static_cast<int>(player_.x + 6.0f) / kTileSize;
+            frame.p1BombY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+            frame.bombs = bombs_.size();
+            frame.flashes = flashes_.size();
+            frame.explosions = explosionEffects_.size();
+            frame.debris = debrisQueue_.size();
+            frame.collapse = collapseQueue_.size();
+            writeArgbPpm(joinPath(outDir, frame.file), fb_, kScreenW, kScreenH);
+            captures.push_back(std::move(frame));
+        };
+
+        bool running = true;
+        capture("000_menu");
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+            throw std::runtime_error("frame sequence failed to start one-player level 1");
+        }
+        capture("010_level1_start");
+
+        player_.x = static_cast<float>(24 * kTileSize - 6);
+        player_.y = 168.0f;
+        player_.vx = 0.0f;
+        player_.vy = 0.0f;
+        player_.grounded = true;
+        playerFacing_ = 1;
+        playerAnimTick_ = 0;
+        capture("020_level1_tile24_aligned");
+
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 22) {
+            throw std::runtime_error("frame sequence did not place the level-1 tile 24,22 bomb");
+        }
+        capture("030_level1_tile24_bomb");
+
+        int fuse = bombs_.back().timer;
+        for (int i = 0; i < fuse; ++i) {
+            update(1.0f / 60.0f);
+        }
+        if (!bombs_.empty() || explosionEffects_.empty()) {
+            throw std::runtime_error("frame sequence bomb did not reach explosion playback");
+        }
+        capture("040_level1_tile24_explosion");
+
+        for (int i = 0; i < 4; ++i) {
+            update(1.0f / 60.0f);
+        }
+        capture("050_level1_tile24_playback_4");
+
+        for (int i = 0; i < 8; ++i) {
+            update(1.0f / 60.0f);
+        }
+        capture("060_level1_tile24_playback_12");
+
+        std::ofstream manifest(joinPath(outDir, "manifest.txt"));
+        if (!manifest) {
+            throw std::runtime_error("cannot create " + joinPath(outDir, "manifest.txt"));
+        }
+        manifest << "scenario=" << scenario << '\n';
+        manifest << "source=lezac_cpp\n";
+        manifest << "size=" << kScreenW << 'x' << kScreenH << '\n';
+        manifest << "frame_count=" << captures.size() << '\n';
+        for (const CapturedFrame& frame : captures) {
+            manifest << "frame label=" << frame.label
+                     << " file=" << frame.file
+                     << " hash=" << hex64(frame.inspection.hash)
+                     << " changed_pixels=" << frame.inspection.changedPixels
+                     << " menu=" << frame.menu
+                     << " level=" << frame.level
+                     << " p1_xy=" << frame.p1x << ',' << frame.p1y
+                     << " p1_bomb_tile=" << frame.p1BombX << ',' << frame.p1BombY
+                     << " bombs=" << frame.bombs
+                     << " flashes=" << frame.flashes
+                     << " explosions=" << frame.explosions
+                     << " debris=" << frame.debris
+                     << " collapse=" << frame.collapse << '\n';
+        }
+
+        std::cout << "frame_sequence=ok"
+                  << " scenario=" << scenario
+                  << " frames=" << captures.size()
+                  << " size=" << kScreenW << 'x' << kScreenH
+                  << " out=" << outDir
+                  << " manifest=manifest.txt\n";
     }
 
     FrameInspection inspectRenderedFrame(const std::string& label) {
@@ -7751,6 +7905,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-level1-frame-inspection") {
             app.debugLevel1FrameInspection();
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--capture-frame-sequence") {
+            app.captureFrameSequence(argv[2], argv[3]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--smoke-controls") {

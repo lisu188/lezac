@@ -104,6 +104,22 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^autoplayer=ok scenario=death_reentry death_state_ticks=60 lives=2 energy=100 reentered=1 frame_inspection=1")
 
+    add_test(NAME autoplayer_death_visuals_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer death_visuals)
+    set_tests_properties(autoplayer_death_visuals_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=death_visuals death_state_ticks=60 start_frame=0x4a tick1_frame=0x4b tick5_frame=0x4c frame_inspection=1 visual_claim=0")
+
+    add_test(NAME autoplayer_level_transition_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer level_transition)
+    set_tests_properties(autoplayer_level_transition_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=level_transition start_level=1 completed_bonus=[0-9]+ completed_destruction=[0-9]+ transition_frames=101 advanced_level=2 frame_inspection=1")
+
     add_test(NAME autoplayer_records_flow_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-autoplayer records_flow)
@@ -119,6 +135,14 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^autoplayer=ok scenario=two_player_route .*p2_bomb_tile=[0-9]+,[0-9]+ bombs=1 frame_inspection=1")
+
+    add_test(NAME autoplayer_two_player_progression_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer two_player_progression)
+    set_tests_properties(autoplayer_two_player_progression_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=two_player_progression p1_moved=1 p2_death_timer=60 p2_reentered=1 p2_bomb_tile=[0-9]+,[0-9]+ p2_score=1000 collected=1 frame_inspection=1")
 
     if(Python3_Interpreter_FOUND)
         add_test(NAME frame_compare_identical

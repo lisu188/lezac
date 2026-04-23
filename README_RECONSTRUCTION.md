@@ -72,8 +72,11 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-level1-frame-inspection
 ./build/lezac_cpp --debug-autoplayer level1_bomb_route
 ./build/lezac_cpp --debug-autoplayer death_reentry
+./build/lezac_cpp --debug-autoplayer death_visuals
+./build/lezac_cpp --debug-autoplayer level_transition
 ./build/lezac_cpp --debug-autoplayer records_flow
 ./build/lezac_cpp --debug-autoplayer two_player_route
+./build/lezac_cpp --debug-autoplayer two_player_progression
 ./build/lezac_cpp --debug-player-state2-death-fields
 ./build/lezac_cpp --debug-original-state2-return-model
 ./build/lezac_cpp --debug-original-state2-animation-init
@@ -259,13 +262,13 @@ numbers.
   metadata now follow the `1000:414a`/`1000:370e`/expiration analysis. Active
   collapse/debris records
   now queue into the same per-player damage counters as monster contact and
-  bomb blasts, but exact sprite playback, delayed state-2 life-count
-  decrement, and death/reentry visual playback remain simplified. The
-  `actor + 0x16` state-2 cursor, cursor advancement rules, and `DS:c21e`
-  placement math are locked as deterministic models, and the runtime-frame
-  oracle now validates one original state-2 countdown capture, but the live
-  renderer still needs the frame-table interpretation and visual consumption
-  path confirmed before dead players should be drawn as original art.
+  bomb blasts, but exact sprite playback and delayed state-2 life-count
+  decrement remain simplified. The `actor + 0x16` state-2 cursor, cursor
+  advancement rules, and `DS:c21e` placement math are locked as deterministic
+  models. The live renderer now has provisional state-2 visual playback keyed
+  to the recovered `0x4a..0x4f` cursor range and tested by
+  `--debug-autoplayer death_visuals`, but it still reports `visual_claim=0`
+  because the original frame-table field interpretation is not fully mapped.
 
 See [docs/GHIDRA_NOTES.md](docs/GHIDRA_NOTES.md) for addresses and disassembly
 anchors used in the reconstruction.

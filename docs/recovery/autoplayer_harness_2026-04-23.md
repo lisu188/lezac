@@ -18,12 +18,23 @@ Additional deterministic autoplayer scenarios now cover:
   same damage helper used in play, verifies state-2 countdown blocks early
   reentry, then confirms reentry after `60` ticks restores active control with
   lives and energy updated.
+- `death_visuals`: verifies the live provisional state-2 visual cursor starts
+  at recovered frame `0x4a`, advances to `0x4b` on the first update, reaches
+  `0x4c` on the fifth update, and changes the rendered frame at each checked
+  point. The command reports `visual_claim=0` until the original frame-table
+  fields are fully interpreted.
+- `level_transition`: completes level 1 through deterministic map-progress
+  helpers, inspects the completion overlay, advances the normal update loop for
+  `101` frames, and verifies level 2 is loaded.
 - `records_flow`: drives the high-score name-entry path into a temporary record
   file, enters `bot`, reloads the file, and verifies the records page displays
   the saved score without touching shipped `RECS.DAT`.
 - `two_player_route`: starts two-player mode, moves player 2 independently,
   places a player-2 bomb through the shared bomb helper, and verifies player 1
   did not move.
+- `two_player_progression`: moves both players, kills and reenters player 2
+  through the recovered state-2 gate, places a player-2 bomb after reentry, and
+  verifies a player-2 objective pickup increments only player 2's score.
 
 ## Route Evidence
 
@@ -50,10 +61,19 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer death_reentry
 
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer death_visuals
+
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer level_transition
+
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer records_flow
 
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer two_player_route
+
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer two_player_progression
 
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames
@@ -78,6 +98,7 @@ when using original frames for comparison.
 This locks the current C++ route and frame-harness behavior. Exact original
 collision/passability around `1000:6053..777f` still needs DOSBox or debugger
 evidence before the low-word passable-object rule can be called fully
-original-faithful. The death/reentry, records, and two-player autoplayer
-scenarios are regression coverage for the current C++ behavior; their exact
-presentation and edge-case timing still need original runtime confirmation.
+original-faithful. The death/reentry, provisional state-2 visual, records,
+level-transition, and two-player autoplayer scenarios are regression coverage
+for the current C++ behavior; exact presentation and edge-case timing still
+need original runtime confirmation.

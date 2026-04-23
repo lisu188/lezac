@@ -34,6 +34,9 @@ constexpr size_t kCollapseCapacity = 0x00fa;
 constexpr size_t kGranRecordSize = 57;
 constexpr int kReentryTicks = 180;
 constexpr int kDeathStateTicks = 0x003c;
+constexpr uint8_t kState2VisualStartFrame = 0x4a;
+constexpr uint8_t kState2VisualEndFrame = 0x4f;
+constexpr uint8_t kState2VisualDelay = 3;
 constexpr int kDamageCooldownTicks = 18;
 constexpr uint32_t kFrameDelayMs = 16;
 constexpr int kCollisionPushoutLimit = 1024;
@@ -1108,6 +1111,17 @@ class App {
         int bombTileY = 0;
     };
 
+    struct State2VisualCursor {
+        uint8_t current = kState2VisualStartFrame;
+        uint8_t first = kState2VisualStartFrame;
+        uint8_t last = kState2VisualEndFrame;
+        uint8_t counter = kState2VisualDelay;
+        uint8_t delay = kState2VisualDelay;
+        uint8_t mode = 1;
+        int8_t step = 1;
+        bool active = false;
+    };
+
 public:
     void load() {
         palette_ = loadPaletteFile("BOMPAL.PAL.json");
@@ -1719,10 +1733,16 @@ public:
             debugAutoplayerLevel1BombRoute(scenario);
         } else if (scenario == "death_reentry") {
             debugAutoplayerDeathReentry(scenario);
+        } else if (scenario == "death_visuals") {
+            debugAutoplayerDeathVisuals(scenario);
+        } else if (scenario == "level_transition") {
+            debugAutoplayerLevelTransition(scenario);
         } else if (scenario == "records_flow") {
             debugAutoplayerRecordsFlow(scenario);
         } else if (scenario == "two_player_route") {
             debugAutoplayerTwoPlayerRoute(scenario);
+        } else if (scenario == "two_player_progression") {
+            debugAutoplayerTwoPlayerProgression(scenario);
         } else {
             throw std::runtime_error("unknown autoplayer scenario " + scenario);
         }
@@ -1845,6 +1865,122 @@ public:
                   << " reentered=1 frame_inspection=1\n";
     }
 
+    void debugAutoplayerDeathVisuals(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+            throw std::runtime_error("death visual autoplayer failed to start level 1");
+        }
+
+        FrameInspection startFrame = inspectRenderedFrame("autoplayer-death-visual-start");
+        energy_ = 0;
+        lives_ = 3;
+        damageCooldown_ = 0;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        if (!playerDead_ || !state2Visual_.active ||
+            state2Visual_.current != kState2VisualStartFrame ||
+            deathStateTimer_ != kDeathStateTicks) {
+            throw std::runtime_error("death visual autoplayer did not seed state-2 cursor");
+        }
+
+        FrameInspection deathStartFrame =
+            inspectRenderedFrame("autoplayer-death-visual-frame-4a");
+        if (deathStartFrame.hash == startFrame.hash) {
+            throw std::runtime_error("death visual initial frame did not change rendering");
+        }
+
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (state2Visual_.current != static_cast<uint8_t>(kState2VisualStartFrame + 1) ||
+            deathStateTimer_ != kDeathStateTicks - 1) {
+            throw std::runtime_error("death visual cursor did not advance on first tick");
+        }
+        FrameInspection tick1Frame =
+            inspectRenderedFrame("autoplayer-death-visual-frame-4b");
+        if (tick1Frame.hash == deathStartFrame.hash) {
+            throw std::runtime_error("death visual first tick frame did not change");
+        }
+
+        for (int i = 0; i < kState2VisualDelay + 1; ++i) {
+            updateWithControls(idle, 1.0f / 60.0f);
+        }
+        if (state2Visual_.current != static_cast<uint8_t>(kState2VisualStartFrame + 2)) {
+            throw std::runtime_error("death visual cursor did not reach the third frame");
+        }
+        FrameInspection tick5Frame =
+            inspectRenderedFrame("autoplayer-death-visual-frame-4c");
+        if (tick5Frame.hash == tick1Frame.hash) {
+            throw std::runtime_error("death visual third frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " death_state_ticks=" << kDeathStateTicks
+                  << " start_frame=0x" << std::hex << static_cast<int>(kState2VisualStartFrame)
+                  << " tick1_frame=0x" << static_cast<int>(kState2VisualStartFrame + 1)
+                  << " tick5_frame=0x" << static_cast<int>(kState2VisualStartFrame + 2)
+                  << std::dec
+                  << " frame_inspection=1 visual_claim=0\n";
+    }
+
+    void debugAutoplayerLevelTransition(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+            throw std::runtime_error("level transition autoplayer failed to start level 1");
+        }
+
+        FrameInspection startFrame = inspectRenderedFrame("autoplayer-transition-start");
+        int requiredBonus = level_.requiredBonus;
+        int requiredDestruction = level_.requiredDestruction;
+        collectAllObjectiveTilesForSmoke();
+        damageRequiredTilesForSmoke();
+        if (!isComplete() || collected_ < requiredBonus ||
+            destructionPercent() < requiredDestruction) {
+            throw std::runtime_error("level transition autoplayer did not satisfy progress");
+        }
+
+        FrameInspection completeFrame = inspectRenderedFrame("autoplayer-transition-complete");
+        if (completeFrame.hash == startFrame.hash) {
+            throw std::runtime_error("level transition completion frame did not change");
+        }
+
+        FrameControls idle;
+        int frames = 0;
+        while (levelIndex_ == 0 && frames <= 101) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            ++frames;
+        }
+        if (levelIndex_ != 1 || menu_ || frames != 101 || collected_ != 0 ||
+            completeTimer_ != 0) {
+            throw std::runtime_error("level transition autoplayer did not enter level 2");
+        }
+
+        FrameInspection nextFrame = inspectRenderedFrame("autoplayer-transition-level2");
+        if (nextFrame.hash == completeFrame.hash) {
+            throw std::runtime_error("level transition next-level frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " start_level=1 completed_bonus=" << requiredBonus
+                  << " completed_destruction=" << requiredDestruction
+                  << " transition_frames=" << frames
+                  << " advanced_level=" << (levelIndex_ + 1)
+                  << " frame_inspection=1\n";
+    }
+
     void debugAutoplayerRecordsFlow(const std::string& scenario) {
         load();
         initSdl();
@@ -1953,6 +2089,114 @@ public:
                   << static_cast<int>(player2_.y)
                   << " p2_bomb_tile=" << bombTileX << ',' << bombTileY
                   << " bombs=1 frame_inspection=1\n";
+    }
+
+    void debugAutoplayerTwoPlayerProgression(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_2);
+        processEvents(running);
+        if (menu_ || playerCount_ != 2 || playerDead_ || player2Dead_) {
+            throw std::runtime_error("two-player progression autoplayer failed to start");
+        }
+
+        FrameInspection startFrame = inspectRenderedFrame("autoplayer-two-progress-start");
+        int p1StartX = static_cast<int>(player_.x);
+        int p2StartX = static_cast<int>(player2_.x);
+
+        FrameControls bothRight;
+        bothRight.p1Right = true;
+        bothRight.p2Right = true;
+        for (int i = 0; i < 18; ++i) {
+            updateWithControls(bothRight, 1.0f / 60.0f);
+        }
+        if (static_cast<int>(player_.x) <= p1StartX + 8 ||
+            static_cast<int>(player2_.x) <= p2StartX + 8) {
+            throw std::runtime_error("two-player progression did not move both players");
+        }
+        FrameInspection movedFrame = inspectRenderedFrame("autoplayer-two-progress-moved");
+        if (movedFrame.hash == startFrame.hash) {
+            throw std::runtime_error("two-player progression movement frame did not change");
+        }
+
+        energy2_ = 0;
+        lives2_ = 3;
+        damageCooldown2_ = 0;
+        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                     damageCooldown2_, 2);
+        if (!player2Dead_ || lives2_ != 2 ||
+            deathStateTimer2_ != kDeathStateTicks || !state2Visual2_.active) {
+            throw std::runtime_error("two-player progression did not enter player-2 state-2");
+        }
+        FrameInspection p2DeathFrame = inspectRenderedFrame("autoplayer-two-progress-p2-death");
+        if (p2DeathFrame.hash == movedFrame.hash) {
+            throw std::runtime_error("two-player progression p2 death frame did not change");
+        }
+
+        FrameControls p1Only;
+        p1Only.p1Right = true;
+        int p1BeforeSolo = static_cast<int>(player_.x);
+        int p2DeadX = static_cast<int>(player2_.x);
+        for (int i = 0; i < 10; ++i) {
+            updateWithControls(p1Only, 1.0f / 60.0f);
+        }
+        if (static_cast<int>(player_.x) <= p1BeforeSolo ||
+            static_cast<int>(player2_.x) != p2DeadX || !player2Dead_) {
+            throw std::runtime_error("two-player progression p1 did not remain active");
+        }
+
+        FrameControls idle;
+        while (deathStateTimer2_ > 0) {
+            updateWithControls(idle, 1.0f / 60.0f);
+        }
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (player2Dead_ || lives2_ != 2 || energy2_ != 100 ||
+            damageCooldown2_ <= 0 || state2Visual2_.active) {
+            throw std::runtime_error("two-player progression did not reenter player 2");
+        }
+        FrameInspection reentryFrame = inspectRenderedFrame("autoplayer-two-progress-reentry");
+        if (reentryFrame.hash == p2DeathFrame.hash) {
+            throw std::runtime_error("two-player progression reentry frame did not change");
+        }
+
+        size_t bombsBefore = bombs_.size();
+        int p2SmallBefore = bombInventory2_.counts[0];
+        int p2BombX = static_cast<int>(player2_.x + 6.0f) / kTileSize;
+        int p2BombY = static_cast<int>(player2_.y + 12.0f) / kTileSize;
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.size() != bombsBefore + 1 || bombs_.back().owner != 2 ||
+            bombs_.back().x != p2BombX || bombs_.back().y != p2BombY ||
+            bombInventory2_.counts[0] != p2SmallBefore - 1) {
+            throw std::runtime_error("two-player progression did not place p2 bomb after reentry");
+        }
+
+        auto objective = findObjectiveTileForSmoke();
+        player2_.x = static_cast<float>(objective[0] * kTileSize);
+        player2_.y = static_cast<float>(objective[1] * kTileSize);
+        uint32_t p1ScoreBefore = score_;
+        uint32_t p2ScoreBefore = score2_;
+        collectObjectiveTiles(player2_, 2);
+        if (collected_ != 1 || score_ != p1ScoreBefore ||
+            score2_ != p2ScoreBefore + 1000) {
+            throw std::runtime_error("two-player progression p2 objective score mismatch");
+        }
+        FrameInspection scoreFrame = inspectRenderedFrame("autoplayer-two-progress-score");
+        if (scoreFrame.hash == reentryFrame.hash) {
+            throw std::runtime_error("two-player progression score frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " p1_moved=1 p2_death_timer=" << kDeathStateTicks
+                  << " p2_reentered=1 p2_bomb_tile=" << p2BombX << ',' << p2BombY
+                  << " p2_score=" << score2_
+                  << " collected=" << collected_
+                  << " frame_inspection=1\n";
     }
 
     FrameInspection inspectRenderedFrame(const std::string& label) {
@@ -5499,6 +5743,8 @@ private:
     int reentryTimer2_ = 0;
     int deathStateTimer_ = 0;
     int deathStateTimer2_ = 0;
+    State2VisualCursor state2Visual_;
+    State2VisualCursor state2Visual2_;
     int damageCooldown_ = 0;
     int damageCooldown2_ = 0;
     uint8_t pendingDamage_ = 0;
@@ -5630,6 +5876,8 @@ private:
         reentryTimer2_ = 0;
         deathStateTimer_ = 0;
         deathStateTimer2_ = 0;
+        state2Visual_ = {};
+        state2Visual2_ = {};
         damageCooldown_ = 0;
         damageCooldown2_ = 0;
         pendingDamage_ = 0;
@@ -6156,6 +6404,7 @@ private:
         if (triggerCooldown2_ > 0) --triggerCooldown2_;
 
         if (playerDead_) {
+            updateState2VisualCursor(state2Visual_);
             updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
                           playerCount_ == 1 || player2Dead_);
         } else {
@@ -6167,6 +6416,7 @@ private:
         }
         if (playerCount_ > 1) {
             if (player2Dead_) {
+                updateState2VisualCursor(state2Visual2_);
                 updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
                               playerDead_);
             } else {
@@ -6714,6 +6964,7 @@ private:
         if (lives > 0) --lives;
         energy = 100;
         deathStateTimerFor(startMarker) = kDeathStateTicks;
+        resetState2VisualCursor(state2VisualCursorFor(startMarker));
         player.vx = 0.0f;
         player.vy = 0.0f;
         player.grounded = false;
@@ -6728,6 +6979,40 @@ private:
         timer = canReenterLevel() ? kReentryTicks : 1;
         requestPlayerDeathSound();
         (void)startMarker;
+    }
+
+    State2VisualCursor& state2VisualCursorFor(uint8_t startMarker) {
+        return startMarker == 2 && playerCount_ > 1 ? state2Visual2_
+                                                     : state2Visual_;
+    }
+
+    void resetState2VisualCursor(State2VisualCursor& cursor) {
+        cursor.current = kState2VisualStartFrame;
+        cursor.first = kState2VisualStartFrame;
+        cursor.last = kState2VisualEndFrame;
+        cursor.counter = kState2VisualDelay;
+        cursor.delay = kState2VisualDelay;
+        cursor.mode = 1;
+        cursor.step = 1;
+        cursor.active = true;
+    }
+
+    void updateState2VisualCursor(State2VisualCursor& cursor) {
+        if (!cursor.active || cursor.mode == 0) return;
+        ++cursor.counter;
+        if (cursor.counter <= cursor.delay) return;
+        cursor.counter = 0;
+        cursor.current = static_cast<uint8_t>(
+            static_cast<int>(cursor.current) + static_cast<int>(cursor.step));
+        if (cursor.mode == 2) {
+            if (cursor.current >= cursor.last || cursor.current <= cursor.first) {
+                cursor.step = static_cast<int8_t>(-cursor.step);
+            }
+            return;
+        }
+        if (cursor.current > cursor.last) {
+            cursor.current = cursor.first;
+        }
     }
 
     bool allPlayersOutOfLives() const {
@@ -6861,6 +7146,7 @@ private:
         }
         respawnPlayerAtStart(player, energy, startMarker);
         deathStateTimerFor(startMarker) = 0;
+        state2VisualCursorFor(startMarker).active = false;
         damageCooldown = kDamageCooldownTicks;
         dead = false;
         timer = 0;
@@ -7592,9 +7878,14 @@ private:
         drawMonsters(drawCamX, drawCamY);
         if (!playerDead_) {
             drawPlayer(player_, playerFacing_, playerAnimTick_, drawCamX, drawCamY, 0);
+        } else if (deathStateTimer_ > 0 && state2Visual_.active) {
+            drawState2PlayerVisual(player_, state2Visual_, drawCamX, drawCamY);
         }
         if (playerCount_ > 1 && !player2Dead_) {
             drawPlayer(player2_, player2Facing_, player2AnimTick_, drawCamX, drawCamY, 19);
+        } else if (playerCount_ > 1 && deathStateTimer2_ > 0 &&
+                   state2Visual2_.active) {
+            drawState2PlayerVisual(player2_, state2Visual2_, drawCamX, drawCamY);
         }
     }
 
@@ -7779,6 +8070,20 @@ private:
         } else {
             rect(x0, y0, 12, 16, 0xff60e0a0u);
         }
+    }
+
+    void drawState2PlayerVisual(const Player& player, const State2VisualCursor& cursor,
+                                int camX, int camY) {
+        int x0 = static_cast<int>(player.x) - camX;
+        int y0 = static_cast<int>(player.y) - camY;
+        int index = static_cast<int>(cursor.current);
+        if (index >= 0 && index < static_cast<int>(sprites_.sprites.size())) {
+            drawSprite(sprites_.sprites[static_cast<size_t>(index)], x0, y0);
+            return;
+        }
+        uint32_t color = 0xfff0c050u + ((cursor.current & 0x07u) << 8);
+        rect(x0, y0 + 4, 14, 8, color);
+        rect(x0 + 3, y0, 8, 16, 0xff703020u);
     }
 
     void drawHud() {

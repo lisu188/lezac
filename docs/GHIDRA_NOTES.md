@@ -464,6 +464,15 @@ for the countdown state, but the live renderer still needs the frame-table
 field interpretation and visual consumption path confirmed before it can claim
 faithful death/reentry art.
 
+Current C++ mapping: `State2VisualCursor` in `src/main.cpp` mirrors the
+recovered initializer and mode-1 advancement with start frame `0x4a`, end frame
+`0x4f`, delay `3`, initial counter `3`, and step `+1`. `beginPlayerDeath`
+seeds that cursor, the update loop advances it while a player is in state 2,
+and `drawState2PlayerVisual` renders a provisional visible state-2 frame so
+autoplayer/UI tests can inspect live death playback. This remains a
+`visual_claim=0` implementation until the `DS:c322` row fields and final
+renderer consumption path are fully mapped.
+
 The C++ debug command `--debug-state2-runtime-frame-oracle <dump.txt>` parses a
 normalized saved DOSBox debugger transcript. It expects runtime `CS`/`DS`,
 translated breakpoints, a `D DS:0060` dump for `DS:006a`, `DS:006c`, and

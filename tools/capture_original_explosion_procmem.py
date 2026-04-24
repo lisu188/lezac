@@ -991,6 +991,11 @@ def main() -> int:
         type=parse_int_auto,
         help="with runtime freeze patching, wait for selected_effect_base to equal this DS offset",
     )
+    parser.add_argument(
+        "--runtime-freeze-require-high-debris-target-byte",
+        type=parse_int_auto,
+        help="with runtime freeze patching, wait for the sampled high-debris target byte",
+    )
     args = parser.parse_args()
 
     if not args.approve_procmem:
@@ -1024,6 +1029,7 @@ def main() -> int:
         or args.runtime_freeze_require_debris_base is not None
         or args.runtime_freeze_require_collapse_base is not None
         or args.runtime_freeze_require_effect_base is not None
+        or args.runtime_freeze_require_high_debris_target_byte is not None
     )
     if args.runtime_freeze_after_bomb_seconds is not None:
         if args.runtime_freeze_after_bomb_seconds < 0:
@@ -1036,10 +1042,16 @@ def main() -> int:
         "runtime_freeze_require_debris_base",
         "runtime_freeze_require_collapse_base",
         "runtime_freeze_require_effect_base",
+        "runtime_freeze_require_high_debris_target_byte",
     ]:
         value = getattr(args, arg_name)
         if value is not None and value < 0:
             raise RuntimeError(f"--{arg_name.replace('_', '-')} must be non-negative")
+    if (
+        args.runtime_freeze_require_high_debris_target_byte is not None
+        and args.runtime_freeze_require_high_debris_target_byte > 0xFF
+    ):
+        raise RuntimeError("--runtime-freeze-require-high-debris-target-byte must fit in a byte")
     if runtime_freeze and not args.freeze_ghidra_offset:
         raise RuntimeError("runtime freeze patching requires --freeze-ghidra-offset")
     if runtime_freeze and not args.approve_runtime_instrumentation:
@@ -1204,6 +1216,11 @@ def main() -> int:
             )
             records.append(record)
             current_fields = decode_sample(record)
+            if args.runtime_freeze_require_high_debris_target_byte is not None:
+                try:
+                    current_fields.update(resolve_high_debris_target(pid, base, record))
+                except OSError:
+                    pass
             current_score = sample_score(record)
             after_bomb_ok = (
                 args.runtime_freeze_after_bomb_seconds is None
@@ -1243,6 +1260,14 @@ def main() -> int:
                 or int(current_fields["selected_effect_base"])
                 == args.runtime_freeze_require_effect_base
             )
+            high_debris_target_byte_ok = (
+                args.runtime_freeze_require_high_debris_target_byte is None
+                or (
+                    "high_debris_target_byte" in current_fields
+                    and int(current_fields["high_debris_target_byte"])
+                    == args.runtime_freeze_require_high_debris_target_byte
+                )
+            )
             if (
                 runtime_freeze
                 and freeze_patch is not None
@@ -1255,6 +1280,7 @@ def main() -> int:
                 and debris_base_ok
                 and collapse_base_ok
                 and effect_base_ok
+                and high_debris_target_byte_ok
             ):
                 patch_offset = int(freeze_patch["ghidra_offset"])
                 freeze_loaded_before_runtime_patch = read_emulated(
@@ -1445,6 +1471,10 @@ def main() -> int:
                         "runtime_freeze_require_effect_base="
                         f"{optional_hex_text(args.runtime_freeze_require_effect_base)}\n"
                     )
+                    out.write(
+                        "runtime_freeze_require_high_debris_target_byte="
+                        f"{optional_hex_text(args.runtime_freeze_require_high_debris_target_byte)}\n"
+                    )
                     if runtime_freeze_patch_elapsed is not None:
                         out.write(
                             "runtime_freeze_patch_elapsed_after_bomb="
@@ -1469,12 +1499,18 @@ def main() -> int:
                             "selected_debris_base",
                             "selected_collapse_base",
                             "selected_effect_base",
+                            "high_debris_target_offset",
+                            "high_debris_target_byte",
+                            "high_debris_word_layer_value",
                         ]:
-                            value = int(runtime_freeze_patch_fields[field])
-                            if field.startswith("selected_"):
-                                out.write(f"runtime_freeze_patch_{field}=0x{value:04x}\n")
-                            else:
-                                out.write(f"runtime_freeze_patch_{field}={value}\n")
+                            if field in runtime_freeze_patch_fields:
+                                value = int(runtime_freeze_patch_fields[field])
+                                if field == "high_debris_target_byte":
+                                    out.write(f"runtime_freeze_patch_{field}=0x{value:02x}\n")
+                                elif field.startswith("selected_") or field.startswith("high_debris_"):
+                                    out.write(f"runtime_freeze_patch_{field}=0x{value:04x}\n")
+                                else:
+                                    out.write(f"runtime_freeze_patch_{field}={value}\n")
                 out.write(
                     f"instrumentation=freeze_loop_patch "
                     f"mode={'runtime_child_memory_patch' if runtime_freeze else 'temp_copy_exe_patch'} "
@@ -1613,6 +1649,8 @@ def main() -> int:
                     f"{optional_hex_text(args.runtime_freeze_require_collapse_base)}\n"
                     "freeze_runtime_require_effect_base="
                     f"{optional_hex_text(args.runtime_freeze_require_effect_base)}\n"
+                    "freeze_runtime_require_high_debris_target_byte="
+                    f"{optional_hex_text(args.runtime_freeze_require_high_debris_target_byte)}\n"
                     f"freeze_runtime_patch_elapsed_after_bomb={patch_elapsed}\n"
                 )
                 instrumentation_manifest += (
@@ -1631,9 +1669,18 @@ def main() -> int:
                         "selected_debris_base",
                         "selected_collapse_base",
                         "selected_effect_base",
+                        "high_debris_target_offset",
+                        "high_debris_target_byte",
+                        "high_debris_word_layer_value",
                     ]:
+                        if field not in runtime_freeze_patch_fields:
+                            continue
                         value = int(runtime_freeze_patch_fields[field])
-                        if field.startswith("selected_"):
+                        if field == "high_debris_target_byte":
+                            instrumentation_manifest += (
+                                f"freeze_runtime_patch_{field}=0x{value:02x}\n"
+                            )
+                        elif field.startswith("selected_") or field.startswith("high_debris_"):
                             instrumentation_manifest += (
                                 f"freeze_runtime_patch_{field}=0x{value:04x}\n"
                             )

@@ -386,6 +386,11 @@ offset, lookup segment at `DS:c1fe`, word-layer pointer at `DS:6612`,
 at the byte gate with target offset `0x0541`, target byte `0x00`, word-layer
 value `0x0000`, and `DS:c204=0x003c`; by the static `cmpb $0x0,-0x11(%bp)` /
 `je 4b6a` pair, that frozen state chooses the zero-target branch at `4b6a`.
+The capture helper can now gate runtime child-memory patching on that decoded
+target byte, but two `1000:4b6a` runtime-patch attempts selected the same
+counter-derived debris slot later in the route with target byte `0x33`, so no
+patch was applied. That makes the target-byte sample a time-sensitive playback
+state and leaves `4b6a` execution itself unproven.
 
 ## Sound Playback Evidence
 

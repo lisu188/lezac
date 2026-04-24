@@ -287,6 +287,10 @@ Baseline: `origin/main`
   at the target-byte gate with target offset `0x0541`, target byte `0x00`,
   word-layer value `0x0000`, and `DS:c204=0x003c`, identifying the next static
   branch as the zero-target path at `1000:4B6A`.
+  The helper can now require that decoded target byte before applying a runtime
+  child-memory patch; two gated `1000:4B6A` probes reached the later `DS:292b`
+  route state with target byte `0x33`, so they intentionally did not patch and
+  are recorded as timing evidence rather than executed-branch evidence.
   The inspected captures remain instrumentation evidence with
   `visual_claim=0`; no original fixture was promoted.
 - `./build/lezac_cpp --debug-passable-objects` passed with

@@ -362,6 +362,22 @@ zero-target path. Frame inspection of `041_sample_2p00s.png`,
 `090_after_sampling.png`, and `091_tail_freeze_check.png` showed the same
 visible blast frame and matching hashes.
 
+The helper now also accepts
+`--runtime-freeze-require-high-debris-target-byte`, which resolves the selected
+high-debris target before applying a runtime child-memory freeze patch. Two
+follow-up runtime-patch probes tried to stop at the confirmed zero-target
+branch, `1000:4B6A`, only when the selected high-debris slot was `DS:292b` and
+the decoded target byte was `0x00`. The late-collapse run at
+`/tmp/lezac-4b6a-target-byte-gated-runtime-20260424-codex-1` did not patch:
+the chosen `DS:292b` sample had target offset `0x05b8`, target byte `0x33`,
+and word-layer value `0x0000`. A second run without late-collapse thresholds at
+`/tmp/lezac-4b6a-target-byte-gated-runtime-20260424-codex-2` also did not
+patch, again selecting `DS:292b` with target byte `0x33`. These are useful
+negative/timing captures: the `4B61` freeze proves a visible-blast state whose
+sample chooses `4B6A`, but the current polling route reaches later `DS:292b`
+states after the target byte has drifted away from zero. Do not claim executed
+`4B6A` evidence yet.
+
 This is useful route evidence, but it is still not enough to promote an
 explosion runtime oracle fixture by itself; the unresolved fixture still needs
 runtime bytes or debugger/process-memory samples tied to the relevant
@@ -376,7 +392,10 @@ Use the now-working `45FA`/`492F`/`4B3F`/`4B61` visible-playback freezes plus
 the high-counter `4C96` patch-loaded/no-freeze result to follow the confirmed
 zero-target branch at `1000:4B6A`. Prefer gating those attempts on route-state
 rows, selected queue bases, target byte `0x00`, and nonzero explosion queue
-growth instead of fixed sleeps alone. Only promote
+growth instead of fixed sleeps alone. The target-byte-gated `4B6A` runtime
+patch is now available, but it still needs a tighter route-state or faster
+polling window to reproduce the `0x00` target-byte frame seen at `4B61`. Only
+promote
 `explosion_playback_oracle_original.txt` after screenshots show the intended
 bomb/object event and the sampled bytes prove the exact runtime window and
 field semantics.

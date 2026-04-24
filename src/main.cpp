@@ -1749,6 +1749,66 @@ public:
                 update(1.0f / 60.0f);
             }
             capture("060_level1_tile24_playback_12");
+        } else if (scenario == "monster_bomb_reward") {
+            pushKeyDown(SDLK_1);
+            processEvents(running);
+            if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+                throw std::runtime_error("frame sequence failed to start monster bomb route");
+            }
+            capture("010_monster_bomb_start");
+
+            pushKeyDown(SDLK_n);
+            processEvents(running);
+            if (bombs_.empty() || bombs_.back().owner != 1) {
+                throw std::runtime_error("frame sequence monster bomb did not place bomb");
+            }
+            bombs_.back().timer = 1;
+            Bomb placed = bombs_.back();
+            auto tiles = explosionTilesFor(placed);
+            std::array<int, 2> monsterTile = tiles.front();
+            for (const auto& tile : tiles) {
+                if (!monsterCollides(tile[0] * kTileSize, tile[1] * kTileSize - kTileSize)) {
+                    monsterTile = tile;
+                    break;
+                }
+            }
+
+            ActiveMonster monster;
+            monster.x = monsterTile[0] * kTileSize;
+            monster.y = monsterTile[1] * kTileSize - kTileSize;
+            monster.kind = 2;
+            monster.behavior = 3;
+            monster.ai0 = 0;
+            monster.ai1 = 0;
+            monster.ai2 = 1;
+            monster.hp = 1;
+            monster.animDelay = 1;
+            refreshMonsterAnimationProfile(monster);
+            initializeMonsterMotion(monster);
+            monsters_.push_back(monster);
+
+            player_.x = static_cast<float>(
+                std::min(level_.width * kTileSize - 24, (placed.x + 5) * kTileSize));
+            player_.y = static_cast<float>(placed.y * kTileSize);
+            capture("020_monster_bomb_armed");
+
+            FrameControls idle;
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (!bombs_.empty() || monsters_.empty() ||
+                monsters_.front().behavior != 2 || bonusDrops_.empty()) {
+                throw std::runtime_error("frame sequence monster bomb did not kill monster");
+            }
+            capture("030_monster_bomb_death");
+
+            uint32_t scoreBefore = score_;
+            BonusDrop drop = bonusDrops_.front();
+            player_.x = drop.x;
+            player_.y = drop.y;
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (score_ <= scoreBefore) {
+                throw std::runtime_error("frame sequence monster reward was not collected");
+            }
+            capture("040_monster_bomb_reward_collected");
         } else if (scenario == "monster_spawner_behavior4_level2") {
             pushKeyDown(SDLK_1);
             processEvents(running);

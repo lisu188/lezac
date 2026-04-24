@@ -271,7 +271,13 @@ Normalize the transcript into
 `tests/fixtures/dosbox/explosion_playback_oracle_original.txt` only after live
 bytes are captured. The checked-in `--debug-explosion-playback-oracle` fixtures
 are synthetic parser coverage and keep `visual_claim=0`; they must not be used
-as evidence for exact sprite playback.
+as evidence for exact sprite playback. The oracle now decodes the first raw
+debris, collapse, and effect records into named fields such as
+`debris0_tile_index`, `debris0_flagged`, `collapse0_start`,
+`collapse0_word`, `collapse0_flagged`, `effect0_xy`, `effect0_sprite`,
+`effect0_timer`, and `effect0_variant`, while still printing the raw byte
+lists. `explosion_playback_oracle_missing_effect_byte` verifies incomplete
+effect-entry dumps fail instead of producing partial visual claims.
 
 ## Sound Playback Evidence
 
@@ -399,6 +405,12 @@ byte subtraction wraps above `0x00c8`.
 `--debug-player-damage-death-live` exercises that live path with a rendered
 hazard fixture, verifies a visible HP decrement, and advances until one life is
 consumed and reentry completes.
+`--debug-monster-contact-damage-live` extends the same model through active
+monster overlap: multiple same-pass contacts accumulate in pending bytes before
+drain, the hurt cue is latched once, state-2 players preserve energy while still
+requesting the hurt cue, and fatal contact underflow is promoted to the
+life-loss helper. This is a damage-counter cadence regression, not proof of the
+exact original collision-clearance geometry inside `1000:6053..777f`.
 
 State-2 life/reentry evidence: `1000:30a3` only queues the death/life-loss cue
 and writes the actor death/reentry fields (`+0x15 = 2`, `+0x10 = 0x003c`,

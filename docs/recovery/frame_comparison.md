@@ -5,16 +5,20 @@ The frame comparison workflow has three parts:
 1. `--capture-frame-sequence <scenario> <out-dir>` in the C++ port emits
    deterministic 320x200 PPM frames plus a manifest. It uses dummy SDL cleanly,
    so it is suitable for CTest and headless runs. Current built-in capture
-   scenarios are `level1_bomb_route`, `monster_spawner_behavior4_level2`,
-   `monster_spawner_behavior4_level3`, and
+   scenarios are `level1_bomb_route`, `monster_bomb_reward`,
+   `monster_spawner_behavior4_level2`, `monster_spawner_behavior4_level3`, and
    `monster_behavior4_target_selection`.
-2. `tools/capture_original_dosbox_frames.sh <out-dir> [asset-dir]` is a
-   best-effort original-game capture driver for the original semantic
-   `level1_bomb_route` only. It copies original assets to a temporary
+2. `tools/capture_original_dosbox_frames.sh <out-dir> [asset-dir] [scenario]`
+   is a best-effort original-game capture driver for the original semantic
+   `level1_bomb_route` and partial `monster_bomb_reward` starts. It copies
+   original assets to a temporary
    directory, runs `LEZAC.EXE` in DOSBox under Xvfb, drives the window with
    `xdotool`, asks DOSBox to save screenshots with Ctrl-F5, renames the
-   screenshots to semantic labels matching the C++ level-1 route sequence, and
-   writes a manifest.
+   screenshots to semantic labels matching the C++ sequence where possible, and
+   writes a manifest. The monster-bomb original path intentionally stops at
+   the keyboard-reproducible armed-bomb checkpoint; C++ death/reward frames in
+   that sequence are debugger-seeded synthetic evidence until an original route
+   or debugger setup can prove them.
 3. `tools/frame_compare.py <left> <right> [--diff out.ppm]` compares paired
    frames and reports exact and thresholded pixel-difference metrics.
 
@@ -36,6 +40,13 @@ level1_bomb_route:
 040_level1_tile24_explosion.ppm
 050_level1_tile24_playback_4.ppm
 060_level1_tile24_playback_12.ppm
+
+monster_bomb_reward:
+000_menu.ppm
+010_monster_bomb_start.ppm
+020_monster_bomb_armed.ppm
+030_monster_bomb_death.ppm
+040_monster_bomb_reward_collected.ppm
 
 monster_spawner_behavior4_level2:
 000_menu.ppm
@@ -75,6 +86,22 @@ manifest.txt
 original_capture.log
 ```
 
+For `monster_bomb_reward`, DOSBox currently attempts only:
+
+```text
+000_menu.png
+010_monster_bomb_start.png
+020_monster_bomb_armed.png
+manifest.txt
+original_capture.log
+```
+
+The manifest records `not_captured` placeholders for
+`030_monster_bomb_death` and `040_monster_bomb_reward_collected` because those
+current C++ frames rely on synthetic monster placement and reward collection.
+Missing original frames should remain visible in `frame_compare_summary.txt`
+instead of being papered over.
+
 These scenarios can also be tested without writing frame files:
 
 ```sh
@@ -107,14 +134,16 @@ Example:
 ```sh
 cmake --build build
 tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-frames level1_bomb_route
+tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-monster monster_bomb_reward
 tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-b4-level2 monster_spawner_behavior4_level2
-tools/capture_original_dosbox_frames.sh /tmp/lezac-original-frames .
+tools/capture_original_dosbox_frames.sh /tmp/lezac-original-frames . level1_bomb_route
 tools/frame_compare.py \
   /tmp/lezac-cpp-frames/010_level1_start.ppm \
   /tmp/lezac-original-frames/<matching-original-frame>.png \
   --diff /tmp/lezac-start-diff.ppm
 
 tools/compare_original_cpp_frames.sh /tmp/lezac-frame-compare .
+tools/compare_original_cpp_frames.sh /tmp/lezac-frame-compare-monster . monster_bomb_reward
 ```
 
 `tools/frame_compare.py` has built-in PPM/PNM and uncompressed BMP readers. It

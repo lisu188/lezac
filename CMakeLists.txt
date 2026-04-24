@@ -88,6 +88,15 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^frame_sequence=ok scenario=level1_bomb_route frames=7 size=320x200")
 
+    add_test(NAME frame_sequence_capture_monster_bomb_reward_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --capture-frame-sequence monster_bomb_reward
+                ${CMAKE_CURRENT_BINARY_DIR}/frame_sequence_capture_monster_bomb_reward)
+    set_tests_properties(frame_sequence_capture_monster_bomb_reward_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^frame_sequence=ok scenario=monster_bomb_reward frames=5 size=320x200")
+
     add_test(NAME frame_sequence_capture_monster_spawner_behavior4_level2_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --capture-frame-sequence
@@ -433,7 +442,7 @@ if(BUILD_TESTING)
     set_tests_properties(explosion_playback_oracle_synthetic PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_synthetic runtime_cs=0x1a2b runtime_ds=0x2b3c dispatcher_break=1 damage_break=1 playback_breaks=4 debris_base=0x2093 debris_stride=11 .* collapse_base=0x6611 collapse_stride=15 .* temp_copy=1 visual_claim=0")
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_synthetic .*debris0_tile_index=0x0393 debris0_flagged=0xc000 debris0_forward=0x04 debris0_reverse=0x05 debris0_lookup=0x6b .*collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_word=0x0009 collapse0_flagged=0x8009 collapse0_forward=0x02 collapse0_reverse=0x03 .*effect0_xy=0x0018,0x0028 effect0_sprite=0x84 effect0_detail=0x75 effect0_timer=0x08 effect0_variant=0x05 temp_copy=1 visual_claim=0")
 
     add_test(NAME explosion_playback_oracle_bad_segment
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
@@ -443,6 +452,15 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "explosion_playback_oracle=error fixture=explosion_playback_oracle_bad_segment reason=dump_segment_mismatch expected=0x2b3c actual=0xffff address=2090")
+
+    add_test(NAME explosion_playback_oracle_missing_effect_byte
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_missing_effect_byte.txt
+                --expect-error)
+    set_tests_properties(explosion_playback_oracle_missing_effect_byte PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=error fixture=explosion_playback_oracle_missing_effect_byte reason=missing_byte address=c225")
 
     add_test(NAME state2_effect_placement_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-effect-placement)
@@ -585,6 +603,14 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^player_damage_death_live=ok first_energy=99 frames_to_life_loss=[0-9]+ lives=2 reentry_state=1 frame_inspection=1")
+
+    add_test(NAME monster_contact_damage_live
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-monster-contact-damage-live)
+    set_tests_properties(monster_contact_damage_live PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^monster_contact_damage_live=ok p1_pending=2 p2_pending=1 p1_energy=98 p2_energy=99 hurt_cue=0x002d death_cue=0x0056 state2_preserved=1 fatal_dead=1 frame_inspection=1")
 
     add_test(NAME object_collision_jump_live
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

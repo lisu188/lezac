@@ -1749,6 +1749,66 @@ public:
                 update(1.0f / 60.0f);
             }
             capture("060_level1_tile24_playback_12");
+        } else if (scenario == "monster_bomb_reward") {
+            pushKeyDown(SDLK_1);
+            processEvents(running);
+            if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+                throw std::runtime_error("frame sequence failed to start monster bomb route");
+            }
+            capture("010_monster_bomb_start");
+
+            pushKeyDown(SDLK_n);
+            processEvents(running);
+            if (bombs_.empty() || bombs_.back().owner != 1) {
+                throw std::runtime_error("frame sequence monster bomb did not place bomb");
+            }
+            bombs_.back().timer = 1;
+            Bomb placed = bombs_.back();
+            auto tiles = explosionTilesFor(placed);
+            std::array<int, 2> monsterTile = tiles.front();
+            for (const auto& tile : tiles) {
+                if (!monsterCollides(tile[0] * kTileSize, tile[1] * kTileSize - kTileSize)) {
+                    monsterTile = tile;
+                    break;
+                }
+            }
+
+            ActiveMonster monster;
+            monster.x = monsterTile[0] * kTileSize;
+            monster.y = monsterTile[1] * kTileSize - kTileSize;
+            monster.kind = 2;
+            monster.behavior = 3;
+            monster.ai0 = 0;
+            monster.ai1 = 0;
+            monster.ai2 = 1;
+            monster.hp = 1;
+            monster.animDelay = 1;
+            refreshMonsterAnimationProfile(monster);
+            initializeMonsterMotion(monster);
+            monsters_.push_back(monster);
+
+            player_.x = static_cast<float>(
+                std::min(level_.width * kTileSize - 24, (placed.x + 5) * kTileSize));
+            player_.y = static_cast<float>(placed.y * kTileSize);
+            capture("020_monster_bomb_armed");
+
+            FrameControls idle;
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (!bombs_.empty() || monsters_.empty() ||
+                monsters_.front().behavior != 2 || bonusDrops_.empty()) {
+                throw std::runtime_error("frame sequence monster bomb did not kill monster");
+            }
+            capture("030_monster_bomb_death");
+
+            uint32_t scoreBefore = score_;
+            BonusDrop drop = bonusDrops_.front();
+            player_.x = drop.x;
+            player_.y = drop.y;
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (score_ <= scoreBefore) {
+                throw std::runtime_error("frame sequence monster reward was not collected");
+            }
+            capture("040_monster_bomb_reward_collected");
         } else if (scenario == "monster_spawner_behavior4_level2") {
             pushKeyDown(SDLK_1);
             processEvents(running);
@@ -4784,6 +4844,9 @@ public:
                 << std::setfill('0') << static_cast<int>(value);
             return oss.str();
         };
+        auto hexBytePrefix = [&](uint8_t value) {
+            return "0x" + hexByte(value);
+        };
         auto bareHex4 = [](uint16_t value) {
             std::ostringstream oss;
             oss << std::hex << std::nouppercase << std::setw(4)
@@ -4957,6 +5020,11 @@ public:
                 }
                 return oss.str();
             };
+            auto requireLe16 = [&](uint16_t address) {
+                return static_cast<uint16_t>(
+                    requireByte(address) |
+                    (requireByte(static_cast<uint16_t>(address + 1)) << 8));
+            };
 
             constexpr uint16_t kDebrisBase = 0x2093;
             constexpr uint16_t kCollapseBase = 0x6611;
@@ -4966,6 +5034,27 @@ public:
             std::string collapse0 = byteList(kCollapseBase, static_cast<int>(kCollapseStride));
             std::string effect0 = byteList(kEffectBase, 8);
             uint8_t lookup0 = requireByte(kLookupBase);
+            uint16_t debrisTileIndex = requireLe16(kDebrisBase);
+            uint16_t debrisFlagged = requireLe16(static_cast<uint16_t>(kDebrisBase + 2));
+            uint8_t debrisForward = requireByte(static_cast<uint16_t>(kDebrisBase + 4));
+            uint8_t debrisReverse = requireByte(static_cast<uint16_t>(kDebrisBase + 5));
+            uint8_t debrisLookup = requireByte(static_cast<uint16_t>(kDebrisBase + 9));
+            uint16_t collapseStart = requireLe16(kCollapseBase);
+            uint16_t collapseEnd = requireLe16(static_cast<uint16_t>(kCollapseBase + 2));
+            uint16_t collapseWord = requireLe16(static_cast<uint16_t>(kCollapseBase + 4));
+            uint16_t collapseFlagged = static_cast<uint16_t>(collapseWord | kDamagedWordBit);
+            uint8_t collapseForward = requireByte(static_cast<uint16_t>(kCollapseBase + 6));
+            uint8_t collapseReverse = requireByte(static_cast<uint16_t>(kCollapseBase + 7));
+            uint16_t collapseMagnitude = requireLe16(static_cast<uint16_t>(kCollapseBase + 8));
+            uint8_t collapseAffectedBytes =
+                requireByte(static_cast<uint16_t>(kCollapseBase + 10));
+            uint8_t collapseCount = requireByte(static_cast<uint16_t>(kCollapseBase + 11));
+            uint16_t effectX = requireLe16(kEffectBase);
+            uint16_t effectY = requireLe16(static_cast<uint16_t>(kEffectBase + 2));
+            uint8_t effectSprite = requireByte(static_cast<uint16_t>(kEffectBase + 4));
+            uint8_t effectDetail = requireByte(static_cast<uint16_t>(kEffectBase + 5));
+            uint8_t effectTimer = requireByte(static_cast<uint16_t>(kEffectBase + 6));
+            uint8_t effectVariant = requireByte(static_cast<uint16_t>(kEffectBase + 7));
 
             std::cout << "explosion_playback_oracle=ok fixture=" << fixture
                       << " runtime_cs=" << hex4(runtimeCs)
@@ -4975,10 +5064,30 @@ public:
                       << " playback_breaks=" << playbackBreaks
                       << " debris_base=0x2093 debris_stride=" << kDebrisStride
                       << " debris0=" << debris0
+                      << " debris0_tile_index=" << hex4(debrisTileIndex)
+                      << " debris0_flagged=" << hex4(debrisFlagged)
+                      << " debris0_forward=" << hexBytePrefix(debrisForward)
+                      << " debris0_reverse=" << hexBytePrefix(debrisReverse)
+                      << " debris0_lookup=" << hexBytePrefix(debrisLookup)
                       << " collapse_base=0x6611 collapse_stride=" << kCollapseStride
                       << " collapse0=" << collapse0
+                      << " collapse0_start=" << hex4(collapseStart)
+                      << " collapse0_end=" << hex4(collapseEnd)
+                      << " collapse0_word=" << hex4(collapseWord)
+                      << " collapse0_flagged=" << hex4(collapseFlagged)
+                      << " collapse0_forward=" << hexBytePrefix(collapseForward)
+                      << " collapse0_reverse=" << hexBytePrefix(collapseReverse)
+                      << " collapse0_magnitude=" << hex4(collapseMagnitude)
+                      << " collapse0_affected_bytes="
+                      << hexBytePrefix(collapseAffectedBytes)
+                      << " collapse0_count=" << hexBytePrefix(collapseCount)
                       << " lookup_base=0xc1e0 lookup0=0x" << hexByte(lookup0)
                       << " effect_base=0xc21e effect0=" << effect0
+                      << " effect0_xy=" << hex4(effectX) << ',' << hex4(effectY)
+                      << " effect0_sprite=" << hexBytePrefix(effectSprite)
+                      << " effect0_detail=" << hexBytePrefix(effectDetail)
+                      << " effect0_timer=" << hexBytePrefix(effectTimer)
+                      << " effect0_variant=" << hexBytePrefix(effectVariant)
                       << " temp_copy=" << (tempCopy ? 1 : 0)
                       << " visual_claim=0\n";
             if (expectError) {
@@ -6766,6 +6875,106 @@ public:
                   << " lives=" << lives_
                   << " reentry_state=" << (playerDead_ ? 0 : 1)
                   << " frame_inspection=1\n";
+    }
+
+    void debugMonsterContactDamageLive() {
+        load();
+        initSdl();
+        prepareAutoplayerMonsterFixtureLevel();
+        playerCount_ = 2;
+        playerDead_ = false;
+        player2Dead_ = false;
+        player_.x = 40.0f;
+        player_.y = 24.0f;
+        player2_.x = 80.0f;
+        player2_.y = 24.0f;
+        energy_ = 100;
+        energy2_ = 100;
+        lives_ = 3;
+        lives2_ = 3;
+
+        auto makeContactMonster = [&](int x, int y) {
+            ActiveMonster monster;
+            monster.x = x;
+            monster.y = y;
+            monster.kind = 1;
+            monster.behavior = 3;
+            monster.ai0 = 0;
+            monster.hp = 3;
+            monster.animDelay = 1;
+            refreshMonsterAnimationProfile(monster);
+            initializeMonsterMotion(monster);
+            monster.vx8 = 0;
+            monster.vy8 = 0;
+            return monster;
+        };
+
+        monsters_.push_back(makeContactMonster(40, 24));
+        monsters_.push_back(makeContactMonster(48, 24));
+        monsters_.push_back(makeContactMonster(80, 24));
+
+        FrameInspection startFrame = inspectRenderedFrame("monster-contact-damage-start");
+        updateMonsters(0.0f);
+        if (pendingDamage_ != 2 || pendingDamage2_ != 1 ||
+            energy_ != 100 || energy2_ != 100) {
+            std::ostringstream oss;
+            oss << "monster contact did not accumulate expected pending damage"
+                << " p1_pending=" << static_cast<int>(pendingDamage_)
+                << " p2_pending=" << static_cast<int>(pendingDamage2_)
+                << " p1_energy=" << energy_
+                << " p2_energy=" << energy2_;
+            throw std::runtime_error(oss.str());
+        }
+
+        drainPlayerDamageCounters();
+        if (pendingDamage_ != 0 || pendingDamage2_ != 0 ||
+            energy_ != 98 || energy2_ != 99 || playerDead_ || player2Dead_ ||
+            !soundLatch_.active || soundLatch_.latchedOffset != kPlayerDamageSoundCursor ||
+            soundLatch_.currentSelector != kPlayerDamageSoundPriority) {
+            throw std::runtime_error("monster contact drain cadence changed");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active || lastPumpedSoundOffset_ != kPlayerDamageSoundCursor ||
+            lastPumpedSoundSelector_ != kPlayerDamageSoundPriority) {
+            throw std::runtime_error("monster contact hurt cue did not pump");
+        }
+        FrameInspection hurtFrame = inspectRenderedFrame("monster-contact-damage-hurt");
+        if (hurtFrame.hash == startFrame.hash) {
+            throw std::runtime_error("monster contact hurt frame did not change");
+        }
+
+        playerDead_ = true;
+        energy_ = 100;
+        pendingDamage_ = 3;
+        clearSoundLatch();
+        drainPlayerDamageCounters();
+        if (energy_ != 100 || !playerDead_ || pendingDamage_ != 0 ||
+            !soundLatch_.active || soundLatch_.latchedOffset != kPlayerDamageSoundCursor) {
+            throw std::runtime_error("state-2 contact damage did not preserve energy with hurt cue");
+        }
+
+        playerDead_ = false;
+        energy_ = 1;
+        lives_ = 3;
+        pendingDamage_ = 2;
+        deathStateTimer_ = 0;
+        clearSoundLatch();
+        drainPlayerDamageCounters();
+        if (!playerDead_ || lives_ != 2 || energy_ != 100 ||
+            deathStateTimer_ != kDeathStateTicks || pendingDamage_ != 0 ||
+            !soundLatch_.active || soundLatch_.latchedOffset != kPlayerDeathSoundCursor ||
+            soundLatch_.currentSelector != kPlayerDeathSoundPriority) {
+            throw std::runtime_error("fatal monster contact did not dispatch death");
+        }
+
+        std::cout << "monster_contact_damage_live=ok"
+                  << " p1_pending=2 p2_pending=1"
+                  << " p1_energy=98 p2_energy=99"
+                  << " hurt_cue=0x" << std::hex << std::setw(4) << std::setfill('0')
+                  << kPlayerDamageSoundCursor
+                  << " death_cue=0x" << std::setw(4) << kPlayerDeathSoundCursor
+                  << std::dec << std::setfill(' ')
+                  << " state2_preserved=1 fatal_dead=1 frame_inspection=1\n";
     }
 
     void debugObjectCollisionJumpLive() {
@@ -9876,6 +10085,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-player-damage-death-live") {
             app.debugPlayerDamageDeathLive();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-monster-contact-damage-live") {
+            app.debugMonsterContactDamageLive();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-object-collision-jump-live") {

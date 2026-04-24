@@ -40,12 +40,15 @@ mkdir -p "$cpp_dir" "$original_dir" "$diff_dir"
 
 "$repo_dir/tools/capture_cpp_frames.sh" "$cpp_exe" "$cpp_dir" "$scenario"
 
-if [[ "$scenario" != "level1_bomb_route" ]]; then
-    echo "original capture currently supports level1_bomb_route only" >&2
-    exit 65
-fi
+case "$scenario" in
+    level1_bomb_route|monster_bomb_reward) ;;
+    *)
+        echo "original capture currently supports level1_bomb_route and monster_bomb_reward only" >&2
+        exit 65
+        ;;
+esac
 
-"$repo_dir/tools/capture_original_dosbox_frames.sh" "$original_dir" "$asset_dir"
+"$repo_dir/tools/capture_original_dosbox_frames.sh" "$original_dir" "$asset_dir" "$scenario"
 
 summary="$out_dir/frame_compare_summary.txt"
 : >"$summary"

@@ -31,6 +31,9 @@ Regression coverage:
   damage, death-state entry, reward presence, and death actor removal.
 - `--debug-player-damage-death-live` locks live hazard HP drain through the
   recovered damage-counter path until a life is consumed and reentry completes.
+- `--debug-monster-contact-damage-live` locks integrated monster-contact
+  pending damage accumulation, once-per-drain hurt sound behavior, state-2
+  energy preservation, fatal underflow death dispatch, and visible HUD change.
 - `--debug-object-collision-jump-live` locks object-cell jump support while
   preserving the level-1 bomb route.
 - `--debug-hud-stats-live` frame-inspects the HUD band, HP meter, bomb icons,

@@ -1420,6 +1420,7 @@ def main() -> int:
                 ("1000:3FA6", 0x3FA6, "effect_constructor_candidate"),
                 ("1000:45FA", 0x45FA, "effect_debris_update_entry"),
                 ("1000:432A", 0x432A, "effect_playback_candidate"),
+                ("1000:492F", 0x492F, "high_debris_loop_entry"),
                 ("1000:4C96", 0x4C96, "effect_forward_pass_call"),
                 ("1000:4CA9", 0x4CA9, "effect_reverse_pass_call"),
             ]:

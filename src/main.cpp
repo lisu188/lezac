@@ -4990,8 +4990,8 @@ public:
                     if (ghidraOffset == 0x370e) ++damageBreaks;
                     if (ghidraOffset == 0x3a7e || ghidraOffset == 0x3b18 ||
                         ghidraOffset == 0x3bb2 || ghidraOffset == 0x3d46 ||
-                        ghidraOffset == 0x45fa || ghidraOffset == 0x4c96 ||
-                        ghidraOffset == 0x4ca9) {
+                        ghidraOffset == 0x45fa || ghidraOffset == 0x492f ||
+                        ghidraOffset == 0x4c96 || ghidraOffset == 0x4ca9) {
                         ++playbackBreaks;
                     }
                     continue;

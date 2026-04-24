@@ -17,6 +17,7 @@ break ghidra=1000:3B18 runtime=1A2B:3B18 label=damage_reverse_lookup
 break ghidra=1000:3BB2 runtime=1A2B:3BB2 label=collapse_forward_pass
 break ghidra=1000:3D46 runtime=1A2B:3D46 label=collapse_reverse_pass
 break ghidra=1000:45FA runtime=1A2B:45FA label=effect_debris_update_entry
+break ghidra=1000:492F runtime=1A2B:492F label=high_debris_loop_entry
 break ghidra=1000:4C96 runtime=1A2B:4C96 label=effect_forward_pass_call
 break ghidra=1000:4CA9 runtime=1A2B:4CA9 label=effect_reverse_pass_call
 

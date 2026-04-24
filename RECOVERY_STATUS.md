@@ -55,6 +55,11 @@ Baseline: `origin/main`
   placement, and shows explosion playback in the original.
 - Extended the guarded explosion process-memory helper to expose and record
   the same start/right/fire route controls in candidate fixture manifests.
+- Extended the explosion process-memory helper with timed sample screenshots,
+  `sample_summary.tsv`, selected debris/collapse/effect queue-slot detection,
+  and selected-base fixture fields for later original oracle promotion.
+- Extended `--debug-explosion-playback-oracle` so fixtures can decode selected
+  debris/collapse/effect bases while keeping the existing slot-zero defaults.
 - Updated `AGENTS.md`, README, and recovery docs with the autoplayer, original
   DOSBox capture, and frame-inspection workflows.
 
@@ -143,10 +148,19 @@ Baseline: `origin/main`
 - `python3 tools/capture_original_explosion_procmem.py --help` passed and
   lists the route-input options.
 - `ctest --test-dir build -R explosion_playback_oracle --output-on-failure`
-  passed: 3/3.
+  passed: 4/4.
 - `tools/compare_original_cpp_frames.sh
   /tmp/lezac-frame-compare-improved-20260424-codex-1812 .
   level1_bomb_route` passed and wrote paired C++/original frames plus diffs.
+- `python3 tools/capture_original_explosion_procmem.py
+  /tmp/lezac-explosion-procmem-selected-20260424-codex-3 .
+  --approve-procmem --mode regular --level-start-seconds 1.5
+  --sample-seconds 5.0 --sample-interval 0.04
+  --sample-screenshot-seconds 0.5,1.0,1.5,2.0,3.0
+  --right-hold-seconds 2.0 --bomb-hold-seconds 0.25` passed under WSL/Xvfb.
+  Visual inspection showed bomb placement, visible explosion at `1.5s`, and
+  smoke playback at `2.0s`; the generated candidate decoded selected
+  `DS:662F` collapse bytes through the C++ oracle with `visual_claim=0`.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"
@@ -174,7 +188,9 @@ Baseline: `origin/main`
 - Interpret captured state-2 frame-table bytes and confirm the exact visual
   consumption path for the provisional live dead-player renderer.
 - Exact explosion/debris/collapse sprite playback around `1000:3a56..4d3b`
-  remains blocked on live debugger bytes from an explosion event.
+  remains blocked on live debugger bytes or an instrumented freeze proving a
+  stop inside the playback window. Process-memory sampling now captures useful
+  original queue bytes and frames, but it is still not promoted as a fixture.
 - Semantic meaning of `PROEFS.SON` bytes `+4..+5` remains unknown; current
   diagnostics preserve them as raw fields only.
 - Many non-explosion sound callsites still need exact cursor/priority mapping.

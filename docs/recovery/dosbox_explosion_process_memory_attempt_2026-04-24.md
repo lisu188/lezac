@@ -25,6 +25,12 @@ ranges, and writes `explosion_playback_oracle_original_candidate.txt` plus a
 manifest in the requested output directory. Candidate output must be inspected
 before any fixture is promoted into `tests/fixtures/dosbox`.
 
+The helper also writes `sample_summary.tsv` and optional timed screenshots
+during the post-bomb sampling window. The summary decodes candidate
+debris/collapse/effect slots and records the selected addresses as
+`selected_debris_base`, `selected_collapse_base`, and `selected_effect_base`
+when useful data is not in slot zero.
+
 ## Working Evidence
 
 - `dosbox-debug` launched through `DEBUG LEZAC.EXE` still reaches the entry
@@ -82,15 +88,24 @@ semantic route frames. Visual inspection confirmed gameplay at
 `020_level1_tile24_aligned`, a visible placed bomb at `030_level1_tile24_bomb`,
 and visible explosion playback by `060_level1_tile24_playback_12`.
 
+A later process-memory run using the same route and timed sample screenshots
+captured visible explosion playback at `1.5s` and smoke playback at `2.0s`
+after the bomb input. The generated candidate selected `DS:662F` as the best
+collapse slot and decoded it through the C++ oracle, proving that the selected
+slot machinery works on original bytes.
+
 This is useful route evidence, but it is still not enough to promote an
 explosion runtime oracle fixture by itself; the unresolved fixture still needs
 runtime bytes or debugger/process-memory samples tied to the relevant
-`1000:3a56..4d3b` execution window.
+`1000:3a56..4d3b` execution window. The process-memory samples do not prove a
+breakpoint stop inside the playback routines, and the sampled effect table
+still needs exact semantic interpretation.
 
 ## Next Step
 
-Use the helper with a better original input route or a clearly labeled
-instrumented temporary copy that freezes after a target address is reached.
-Only promote `explosion_playback_oracle_original.txt` after screenshots show
-the intended bomb/object event and the sampled bytes prove the relevant
-runtime window was reached.
+Use the now-working route with a clearly labeled instrumented temporary copy
+that freezes after a target address is reached, or with a debugger session that
+can submit breakpoint commands. Only promote
+`explosion_playback_oracle_original.txt` after screenshots show the intended
+bomb/object event and the sampled bytes prove the relevant runtime window was
+reached.

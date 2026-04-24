@@ -42,6 +42,15 @@ RUNTIME_CS = 0x01ED
 RUNTIME_DS = 0x0C8F
 ENTRY_IP = 0x7783
 DATA_STRING_OFFSET = 0x008B
+DEBRIS_BASE = 0x2093
+DEBRIS_STRIDE = 0x0B
+COLLAPSE_BASE = 0x6611
+COLLAPSE_STRIDE = 0x0F
+EFFECT_BASE = 0xC21E
+EFFECT_STRIDE = 0x08
+
+
+SampleRecord = tuple[float, bytes, bytes, bytes, bytes, bytes]
 
 
 def run(args: list[str], env: dict[str, str], check: bool = True) -> str:
@@ -184,13 +193,242 @@ def read_emulated(pid: int, base: int, segment: int, offset: int, length: int) -
         return mem.read(length)
 
 
-def choose_sample(records: list[tuple[float, bytes, bytes, bytes, bytes, bytes]]):
+def parse_time_list(value: str) -> list[float]:
+    if not value:
+        return []
+    times: list[float] = []
+    for item in value.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        parsed = float(item)
+        if parsed < 0:
+            raise ValueError("sample screenshot times must be non-negative")
+        times.append(parsed)
+    return sorted(set(times))
+
+
+def le16(data: bytes, index: int) -> int:
+    if index + 1 >= len(data):
+        return 0
+    return data[index] | (data[index + 1] << 8)
+
+
+def nonzero_count(data: bytes) -> int:
+    return sum(1 for value in data if value != 0)
+
+
+def debris_slot_fields(dump2090: bytes, slot: int) -> dict[str, int]:
+    index = (DEBRIS_BASE - 0x2090) + slot * DEBRIS_STRIDE
+    return {
+        "slot": slot,
+        "addr": DEBRIS_BASE + slot * DEBRIS_STRIDE,
+        "tile_index": le16(dump2090, index),
+        "flagged": le16(dump2090, index + 2),
+        "forward": dump2090[index + 4] if index + 4 < len(dump2090) else 0,
+        "reverse": dump2090[index + 5] if index + 5 < len(dump2090) else 0,
+        "lookup": dump2090[index + 9] if index + 9 < len(dump2090) else 0,
+    }
+
+
+def collapse_slot_fields(dump6610: bytes, slot: int) -> dict[str, int]:
+    index = (COLLAPSE_BASE - 0x6610) + slot * COLLAPSE_STRIDE
+    return {
+        "slot": slot,
+        "addr": COLLAPSE_BASE + slot * COLLAPSE_STRIDE,
+        "start": le16(dump6610, index),
+        "end": le16(dump6610, index + 2),
+        "word": le16(dump6610, index + 4),
+        "forward": dump6610[index + 6] if index + 6 < len(dump6610) else 0,
+        "reverse": dump6610[index + 7] if index + 7 < len(dump6610) else 0,
+        "magnitude": le16(dump6610, index + 8),
+        "affected": dump6610[index + 10] if index + 10 < len(dump6610) else 0,
+        "count": dump6610[index + 11] if index + 11 < len(dump6610) else 0,
+    }
+
+
+def effect_slot_fields(dumpc21e: bytes, slot: int) -> dict[str, int]:
+    index = slot * EFFECT_STRIDE
+    return {
+        "slot": slot,
+        "addr": EFFECT_BASE + slot * EFFECT_STRIDE,
+        "x": le16(dumpc21e, index),
+        "y": le16(dumpc21e, index + 2),
+        "sprite": dumpc21e[index + 4] if index + 4 < len(dumpc21e) else 0,
+        "detail": dumpc21e[index + 5] if index + 5 < len(dumpc21e) else 0,
+        "timer": dumpc21e[index + 6] if index + 6 < len(dumpc21e) else 0,
+        "variant": dumpc21e[index + 7] if index + 7 < len(dumpc21e) else 0,
+    }
+
+
+def debris_slot_score(fields: dict[str, int]) -> int:
+    score = 0
+    if 0 < fields["tile_index"] < 0x4000 and (fields["flagged"] & 0x8000):
+        score += 30
+    if fields["forward"] or fields["reverse"]:
+        score += 10
+    if fields["lookup"]:
+        score += 10
+    return score
+
+
+def collapse_slot_score(fields: dict[str, int]) -> int:
+    score = 0
+    if 0 < fields["start"] <= fields["end"] < 0x4000:
+        score += 35
+    if 0 < fields["count"] <= 16:
+        score += 20
+    if 0 < (fields["word"] & 0x7FFF) < 0x4000:
+        score += 20
+    if (fields["word"] & 0x7FFF) == 0x0009:
+        score += 40
+    if fields["word"] & 0x8000:
+        score += 15
+    if fields["forward"] or fields["reverse"]:
+        score += 10
+    return score
+
+
+def effect_slot_score(fields: dict[str, int]) -> int:
+    score = 0
+    if 0x84 <= fields["sprite"] <= 0x89:
+        score += 50
+    if fields["detail"] == 0x75:
+        score += 30
+    if fields["timer"] or fields["variant"]:
+        score += 10
+    return score
+
+
+def best_scored_slot(
+    values: list[dict[str, int]], scorer
+) -> tuple[dict[str, int], int]:
+    best = max(values, key=scorer)
+    return best, scorer(best)
+
+
+def decode_sample(record: SampleRecord) -> dict[str, int | float]:
+    elapsed, dump2070, dump2090, dump6610, dumpc1e0, dumpc21e = record
+    del dump2070
+    debris, debris_score = best_scored_slot(
+        [debris_slot_fields(dump2090, slot) for slot in range(4)], debris_slot_score
+    )
+    collapse, collapse_score = best_scored_slot(
+        [collapse_slot_fields(dump6610, slot) for slot in range(4)],
+        collapse_slot_score,
+    )
+    effect, effect_score = best_scored_slot(
+        [effect_slot_fields(dumpc21e, slot) for slot in range(8)], effect_slot_score
+    )
+    return {
+        "elapsed": elapsed,
+        "selected_debris_base": debris["addr"],
+        "selected_collapse_base": collapse["addr"],
+        "selected_effect_base": effect["addr"],
+        "selected_debris_slot": debris["slot"],
+        "selected_collapse_slot": collapse["slot"],
+        "selected_effect_slot": effect["slot"],
+        "debris_score": debris_score,
+        "collapse_score": collapse_score,
+        "effect_score": effect_score,
+        "debris_nonzero": nonzero_count(dump2090),
+        "collapse_nonzero": nonzero_count(dump6610),
+        "lookup_nonzero": nonzero_count(dumpc1e0),
+        "effect_nonzero": nonzero_count(dumpc21e),
+        "debris_tile_index": debris["tile_index"],
+        "debris_flagged": debris["flagged"],
+        "debris_forward": debris["forward"],
+        "debris_reverse": debris["reverse"],
+        "debris_lookup": debris["lookup"],
+        "collapse_start": collapse["start"],
+        "collapse_end": collapse["end"],
+        "collapse_word": collapse["word"],
+        "collapse_forward": collapse["forward"],
+        "collapse_reverse": collapse["reverse"],
+        "collapse_magnitude": collapse["magnitude"],
+        "collapse_affected": collapse["affected"],
+        "collapse_count": collapse["count"],
+        "effect_x": effect["x"],
+        "effect_y": effect["y"],
+        "effect_sprite": effect["sprite"],
+        "effect_detail": effect["detail"],
+        "effect_timer": effect["timer"],
+        "effect_variant": effect["variant"],
+    }
+
+
+def sample_score(record: SampleRecord) -> int:
+    fields = decode_sample(record)
+    score = 0
+    score += int(fields["debris_score"])
+    score += int(fields["collapse_score"])
+    score += int(fields["effect_score"])
+    return score
+
+
+def choose_sample(records: list[SampleRecord]) -> SampleRecord:
+    scored = [(sample_score(record), record) for record in records]
+    best_score, best_record = max(scored, key=lambda item: item[0])
+    if best_score > 0:
+        return best_record
     for record in records:
         _, _, debris, _, lookup, effect = record
         del lookup
         if any(debris[3:14]) or any(effect[:16]):
             return record
     return max(records, key=lambda item: sum(1 for value in item[3] if value))
+
+
+def write_sample_summary(path: Path, records: list[SampleRecord]) -> None:
+    fields = [
+        "elapsed",
+        "score",
+        "selected_debris_base",
+        "selected_collapse_base",
+        "selected_effect_base",
+        "selected_debris_slot",
+        "selected_collapse_slot",
+        "selected_effect_slot",
+        "debris_score",
+        "collapse_score",
+        "effect_score",
+        "debris_nonzero",
+        "collapse_nonzero",
+        "lookup_nonzero",
+        "effect_nonzero",
+        "debris_tile_index",
+        "debris_flagged",
+        "debris_forward",
+        "debris_reverse",
+        "debris_lookup",
+        "collapse_start",
+        "collapse_end",
+        "collapse_word",
+        "collapse_forward",
+        "collapse_reverse",
+        "collapse_magnitude",
+        "collapse_affected",
+        "collapse_count",
+        "effect_x",
+        "effect_y",
+        "effect_sprite",
+        "effect_detail",
+        "effect_timer",
+        "effect_variant",
+    ]
+    with path.open("w", encoding="ascii") as out:
+        out.write("\t".join(fields) + "\n")
+        for record in records:
+            decoded = decode_sample(record)
+            values: list[str] = []
+            for field in fields:
+                if field == "score":
+                    values.append(str(sample_score(record)))
+                elif field == "elapsed":
+                    values.append(f"{float(decoded[field]):.3f}")
+                else:
+                    values.append(f"0x{int(decoded[field]):04x}")
+            out.write("\t".join(values) + "\n")
 
 
 def main() -> int:
@@ -216,6 +454,11 @@ def main() -> int:
     )
     parser.add_argument("--sample-seconds", type=float, default=8.0)
     parser.add_argument("--sample-interval", type=float, default=0.08)
+    parser.add_argument(
+        "--sample-screenshot-seconds",
+        default="0.5,1.0,1.5,2.0,3.0",
+        help="comma-separated seconds after bomb input for visual checkpoints",
+    )
     parser.add_argument("--bomb-key", default="n")
     parser.add_argument("--bomb-hold-seconds", type=float, default=0.25)
     args = parser.parse_args()
@@ -236,6 +479,7 @@ def main() -> int:
     if repo_dir in out_dir.parents or out_dir == repo_dir:
         raise RuntimeError("choose an output directory outside the repository")
     out_dir.mkdir(parents=True, exist_ok=True)
+    sample_screenshot_seconds = parse_time_list(args.sample_screenshot_seconds)
     run_dir = out_dir / "run"
     run_dir.mkdir(parents=True, exist_ok=True)
     copy_assets(asset_dir, run_dir)
@@ -332,7 +576,9 @@ def main() -> int:
         time.sleep(0.3)
         snapshot(env, out_dir, game, "030_bomb_key")
 
-        records = []
+        records: list[SampleRecord] = []
+        captured_sample_screenshots: list[str] = []
+        pending_screenshots = list(sample_screenshot_seconds)
         started = time.time()
         while time.time() - started < args.sample_seconds:
             elapsed = time.time() - started
@@ -346,16 +592,40 @@ def main() -> int:
                     read_emulated(pid, base, RUNTIME_DS, 0xC21E, 0x40),
                 )
             )
+            while pending_screenshots and elapsed >= pending_screenshots[0]:
+                target_seconds = pending_screenshots.pop(0)
+                label_seconds = f"{target_seconds:.2f}".replace(".", "p")
+                label = f"{40 + len(captured_sample_screenshots):03d}_sample_{label_seconds}s"
+                snapshot(env, out_dir, game, label)
+                captured_sample_screenshots.append(label)
             time.sleep(args.sample_interval)
         snapshot(env, out_dir, game, "090_after_sampling")
 
         chosen = choose_sample(records)
+        sample_summary = out_dir / "sample_summary.tsv"
+        write_sample_summary(sample_summary, records)
+        chosen_score = sample_score(chosen)
+        chosen_fields = decode_sample(chosen)
         elapsed, dump2070, dump2090, dump6610, dumpc1e0, dumpc21e = chosen
         fixture = out_dir / "explosion_playback_oracle_original_candidate.txt"
         with fixture.open("w", encoding="ascii") as out:
             out.write("# LEZAC original explosion playback oracle candidate.\n")
             out.write("# Candidate only: inspect frames before promoting to tests/fixtures.\n")
             out.write(f"# chosen_sample_seconds_after_bomb={elapsed:.2f}\n")
+            out.write(f"# chosen_sample_score={chosen_score}\n")
+            out.write(
+                "# chosen_selected_bases="
+                f"debris:{int(chosen_fields['selected_debris_base']):04X},"
+                f"collapse:{int(chosen_fields['selected_collapse_base']):04X},"
+                f"effect:{int(chosen_fields['selected_effect_base']):04X}\n"
+            )
+            out.write(f"# sample_summary={sample_summary.name}\n")
+            if captured_sample_screenshots:
+                out.write(
+                    "# sample_screenshots="
+                    + ",".join(f"{label}.png" for label in captured_sample_screenshots)
+                    + "\n"
+                )
             out.write("capture=explosion_playback\n")
             out.write(f"source=dosbox-{args.mode}-process-memory\n")
             out.write("temp_copy=1\nvisual_claim=0\n")
@@ -369,6 +639,9 @@ def main() -> int:
             out.write(f"input_bomb_hold_seconds={args.bomb_hold_seconds:.2f}\n")
             out.write(f"runtime_cs={RUNTIME_CS:04X}\n")
             out.write(f"runtime_ds={RUNTIME_DS:04X}\n")
+            out.write(f"selected_debris_base={int(chosen_fields['selected_debris_base']):04X}\n")
+            out.write(f"selected_collapse_base={int(chosen_fields['selected_collapse_base']):04X}\n")
+            out.write(f"selected_effect_base={int(chosen_fields['selected_effect_base']):04X}\n")
             for ghidra, offset, label in [
                 ("1000:75F1", 0x75F1, "bomb_expire_dispatch_call"),
                 ("1000:414A", 0x414A, "explosion_dispatcher"),
@@ -408,6 +681,16 @@ def main() -> int:
             f"input_right_hold_seconds={args.right_hold_seconds:.2f}\n"
             f"input_bomb_key={args.bomb_key}\n"
             f"input_bomb_hold_seconds={args.bomb_hold_seconds:.2f}\n"
+            f"sample_seconds={args.sample_seconds:.2f}\n"
+            f"sample_interval={args.sample_interval:.3f}\n"
+            f"sample_summary={sample_summary}\n"
+            f"sample_screenshots="
+            f"{','.join(label + '.png' for label in captured_sample_screenshots)}\n"
+            f"chosen_sample_seconds_after_bomb={elapsed:.2f}\n"
+            f"chosen_sample_score={chosen_score}\n"
+            f"selected_debris_base={int(chosen_fields['selected_debris_base']):04X}\n"
+            f"selected_collapse_base={int(chosen_fields['selected_collapse_base']):04X}\n"
+            f"selected_effect_base={int(chosen_fields['selected_effect_base']):04X}\n"
             f"visual_claim=0\n",
             encoding="ascii",
         )

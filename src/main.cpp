@@ -4903,6 +4903,9 @@ public:
             int dispatcherBreaks = 0;
             int damageBreaks = 0;
             int playbackBreaks = 0;
+            uint16_t selectedDebrisBase = 0x2093;
+            uint16_t selectedCollapseBase = 0x6611;
+            uint16_t selectedEffectBase = 0xc21e;
 
             std::istringstream lines(text);
             std::string line;
@@ -4932,6 +4935,12 @@ public:
                         tempCopy = value == "1";
                     } else if (key == "visual_claim") {
                         visualClaim = value != "0";
+                    } else if (key == "selected_debris_base") {
+                        selectedDebrisBase = parseHex16(value, key);
+                    } else if (key == "selected_collapse_base") {
+                        selectedCollapseBase = parseHex16(value, key);
+                    } else if (key == "selected_effect_base") {
+                        selectedEffectBase = parseHex16(value, key);
                     }
                     continue;
                 }
@@ -5026,35 +5035,48 @@ public:
                     (requireByte(static_cast<uint16_t>(address + 1)) << 8));
             };
 
-            constexpr uint16_t kDebrisBase = 0x2093;
-            constexpr uint16_t kCollapseBase = 0x6611;
             constexpr uint16_t kLookupBase = 0xc1e0;
-            constexpr uint16_t kEffectBase = 0xc21e;
-            std::string debris0 = byteList(kDebrisBase, static_cast<int>(kDebrisStride));
-            std::string collapse0 = byteList(kCollapseBase, static_cast<int>(kCollapseStride));
-            std::string effect0 = byteList(kEffectBase, 8);
+            std::string debris0 =
+                byteList(selectedDebrisBase, static_cast<int>(kDebrisStride));
+            std::string collapse0 =
+                byteList(selectedCollapseBase, static_cast<int>(kCollapseStride));
+            std::string effect0 = byteList(selectedEffectBase, 8);
             uint8_t lookup0 = requireByte(kLookupBase);
-            uint16_t debrisTileIndex = requireLe16(kDebrisBase);
-            uint16_t debrisFlagged = requireLe16(static_cast<uint16_t>(kDebrisBase + 2));
-            uint8_t debrisForward = requireByte(static_cast<uint16_t>(kDebrisBase + 4));
-            uint8_t debrisReverse = requireByte(static_cast<uint16_t>(kDebrisBase + 5));
-            uint8_t debrisLookup = requireByte(static_cast<uint16_t>(kDebrisBase + 9));
-            uint16_t collapseStart = requireLe16(kCollapseBase);
-            uint16_t collapseEnd = requireLe16(static_cast<uint16_t>(kCollapseBase + 2));
-            uint16_t collapseWord = requireLe16(static_cast<uint16_t>(kCollapseBase + 4));
+            uint16_t debrisTileIndex = requireLe16(selectedDebrisBase);
+            uint16_t debrisFlagged =
+                requireLe16(static_cast<uint16_t>(selectedDebrisBase + 2));
+            uint8_t debrisForward =
+                requireByte(static_cast<uint16_t>(selectedDebrisBase + 4));
+            uint8_t debrisReverse =
+                requireByte(static_cast<uint16_t>(selectedDebrisBase + 5));
+            uint8_t debrisLookup =
+                requireByte(static_cast<uint16_t>(selectedDebrisBase + 9));
+            uint16_t collapseStart = requireLe16(selectedCollapseBase);
+            uint16_t collapseEnd =
+                requireLe16(static_cast<uint16_t>(selectedCollapseBase + 2));
+            uint16_t collapseWord =
+                requireLe16(static_cast<uint16_t>(selectedCollapseBase + 4));
             uint16_t collapseFlagged = static_cast<uint16_t>(collapseWord | kDamagedWordBit);
-            uint8_t collapseForward = requireByte(static_cast<uint16_t>(kCollapseBase + 6));
-            uint8_t collapseReverse = requireByte(static_cast<uint16_t>(kCollapseBase + 7));
-            uint16_t collapseMagnitude = requireLe16(static_cast<uint16_t>(kCollapseBase + 8));
+            uint8_t collapseForward =
+                requireByte(static_cast<uint16_t>(selectedCollapseBase + 6));
+            uint8_t collapseReverse =
+                requireByte(static_cast<uint16_t>(selectedCollapseBase + 7));
+            uint16_t collapseMagnitude =
+                requireLe16(static_cast<uint16_t>(selectedCollapseBase + 8));
             uint8_t collapseAffectedBytes =
-                requireByte(static_cast<uint16_t>(kCollapseBase + 10));
-            uint8_t collapseCount = requireByte(static_cast<uint16_t>(kCollapseBase + 11));
-            uint16_t effectX = requireLe16(kEffectBase);
-            uint16_t effectY = requireLe16(static_cast<uint16_t>(kEffectBase + 2));
-            uint8_t effectSprite = requireByte(static_cast<uint16_t>(kEffectBase + 4));
-            uint8_t effectDetail = requireByte(static_cast<uint16_t>(kEffectBase + 5));
-            uint8_t effectTimer = requireByte(static_cast<uint16_t>(kEffectBase + 6));
-            uint8_t effectVariant = requireByte(static_cast<uint16_t>(kEffectBase + 7));
+                requireByte(static_cast<uint16_t>(selectedCollapseBase + 10));
+            uint8_t collapseCount =
+                requireByte(static_cast<uint16_t>(selectedCollapseBase + 11));
+            uint16_t effectX = requireLe16(selectedEffectBase);
+            uint16_t effectY = requireLe16(static_cast<uint16_t>(selectedEffectBase + 2));
+            uint8_t effectSprite =
+                requireByte(static_cast<uint16_t>(selectedEffectBase + 4));
+            uint8_t effectDetail =
+                requireByte(static_cast<uint16_t>(selectedEffectBase + 5));
+            uint8_t effectTimer =
+                requireByte(static_cast<uint16_t>(selectedEffectBase + 6));
+            uint8_t effectVariant =
+                requireByte(static_cast<uint16_t>(selectedEffectBase + 7));
 
             std::cout << "explosion_playback_oracle=ok fixture=" << fixture
                       << " runtime_cs=" << hex4(runtimeCs)
@@ -5062,14 +5084,16 @@ public:
                       << " dispatcher_break=" << dispatcherBreaks
                       << " damage_break=" << damageBreaks
                       << " playback_breaks=" << playbackBreaks
-                      << " debris_base=0x2093 debris_stride=" << kDebrisStride
+                      << " debris_base=" << hex4(selectedDebrisBase)
+                      << " debris_stride=" << kDebrisStride
                       << " debris0=" << debris0
                       << " debris0_tile_index=" << hex4(debrisTileIndex)
                       << " debris0_flagged=" << hex4(debrisFlagged)
                       << " debris0_forward=" << hexBytePrefix(debrisForward)
                       << " debris0_reverse=" << hexBytePrefix(debrisReverse)
                       << " debris0_lookup=" << hexBytePrefix(debrisLookup)
-                      << " collapse_base=0x6611 collapse_stride=" << kCollapseStride
+                      << " collapse_base=" << hex4(selectedCollapseBase)
+                      << " collapse_stride=" << kCollapseStride
                       << " collapse0=" << collapse0
                       << " collapse0_start=" << hex4(collapseStart)
                       << " collapse0_end=" << hex4(collapseEnd)
@@ -5082,7 +5106,8 @@ public:
                       << hexBytePrefix(collapseAffectedBytes)
                       << " collapse0_count=" << hexBytePrefix(collapseCount)
                       << " lookup_base=0xc1e0 lookup0=0x" << hexByte(lookup0)
-                      << " effect_base=0xc21e effect0=" << effect0
+                      << " effect_base=" << hex4(selectedEffectBase)
+                      << " effect0=" << effect0
                       << " effect0_xy=" << hex4(effectX) << ',' << hex4(effectY)
                       << " effect0_sprite=" << hexBytePrefix(effectSprite)
                       << " effect0_detail=" << hexBytePrefix(effectDetail)

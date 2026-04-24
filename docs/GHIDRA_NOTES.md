@@ -278,13 +278,19 @@ debris, collapse, and effect records into named fields such as
 `effect0_timer`, and `effect0_variant`, while still printing the raw byte
 lists. `explosion_playback_oracle_missing_effect_byte` verifies incomplete
 effect-entry dumps fail instead of producing partial visual claims.
+Fixtures may optionally include `selected_debris_base`,
+`selected_collapse_base`, or `selected_effect_base` when original runtime
+queues contain useful data in a later slot. Without those keys, the parser
+keeps the original slot-zero defaults `DS:2093`, `DS:6611`, and `DS:c21e`.
 
 An approved process-memory attempt on 2026-04-24 proved a fallback way to find
 the LEZAC image/data bytes in a child DOSBox process (`CS=01ED`, gameplay
 `DS=0C8F`, data string at `DS:008B`) and added
-`tools/capture_original_explosion_procmem.py`. That run did not promote an
-original fixture: frame inspection showed the automated route still failed to
-prove visible bomb placement at the intended level-1 explosion site. See
+`tools/capture_original_explosion_procmem.py`. Later route hardening made the
+helper reach level 1, place a visible bomb, and capture visible explosion/smoke
+playback with selected queue-slot bytes, but that still did not promote an
+original fixture because process-memory sampling has not proven a stop inside
+`1000:3a56..4d3b`. See
 `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md`.
 
 ## Sound Playback Evidence

@@ -1,14 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -lt 1 || $# -gt 2 ]]; then
-    echo "usage: $0 out_dir [asset_dir]" >&2
+if [[ $# -lt 1 || $# -gt 3 ]]; then
+    echo "usage: $0 out_dir [asset_dir] [scenario]" >&2
     exit 64
 fi
 
 mkdir -p "$1"
 out_dir=$(cd "$1" && pwd)
 asset_dir=$(realpath "${2:-.}")
+scenario=${3:-level1_bomb_route}
+
+case "$scenario" in
+    level1_bomb_route|monster_bomb_reward) ;;
+    *)
+        echo "unsupported original capture scenario: $scenario" >&2
+        exit 65
+        ;;
+esac
 
 require() {
     if ! command -v "$1" >/dev/null 2>&1; then
@@ -22,7 +31,7 @@ require xdotool
 require xvfb-run
 
 if [[ "${LEZAC_ORIGINAL_CAPTURE_INSIDE_XVFB:-0}" != "1" ]]; then
-    LEZAC_ORIGINAL_CAPTURE_INSIDE_XVFB=1 exec xvfb-run -a "$0" "$out_dir" "$asset_dir"
+    LEZAC_ORIGINAL_CAPTURE_INSIDE_XVFB=1 exec xvfb-run -a "$0" "$out_dir" "$asset_dir" "$scenario"
 fi
 
 run_dir=$(mktemp -d /tmp/lezac-original-frame-capture.XXXXXX)
@@ -80,16 +89,21 @@ manifest="$out_dir/manifest.txt"
 : >"$log"
 : >"$manifest"
 echo "capture=original_dosbox" >>"$log"
-echo "scenario=level1_bomb_route" >>"$log"
-echo "route=autoplayer_aligned" >>"$log"
+echo "scenario=$scenario" >>"$log"
+if [[ "$scenario" == "monster_bomb_reward" ]]; then
+    route="keyboard_partial"
+else
+    route="autoplayer_aligned"
+fi
+echo "route=$route" >>"$log"
 echo "asset_dir=$asset_dir" >>"$log"
 echo "run_dir=$run_dir" >>"$log"
 echo "captures=$out_dir" >>"$log"
 echo "command=dosbox -conf $conf -c \"mount c $run_dir\" -c \"c:\" -c \"LEZAC.EXE\"" >>"$log"
 {
-    echo "scenario=level1_bomb_route"
+    echo "scenario=$scenario"
     echo "source=LEZAC.EXE via DOSBox"
-    echo "route=autoplayer_aligned"
+    echo "route=$route"
     echo "startup_seconds=${LEZAC_ORIGINAL_STARTUP_SECONDS:-6.0}"
     echo "level_start_seconds=${LEZAC_ORIGINAL_LEVEL_START_SECONDS:-1.5}"
     echo "right_hold_seconds=${LEZAC_ORIGINAL_ROUTE_RIGHT_SECONDS:-0.95}"
@@ -176,29 +190,57 @@ capture() {
     fi
 }
 
-sleep "${LEZAC_ORIGINAL_STARTUP_SECONDS:-6.0}"
-capture 000_menu
-if [[ -n "${LEZAC_ORIGINAL_START_TEXT:-}" ]]; then
-    type_text "$LEZAC_ORIGINAL_START_TEXT"
+start_level() {
+    sleep "${LEZAC_ORIGINAL_STARTUP_SECONDS:-6.0}"
+    capture 000_menu
+    if [[ -n "${LEZAC_ORIGINAL_START_TEXT:-}" ]]; then
+        type_text "$LEZAC_ORIGINAL_START_TEXT"
+    else
+        press "${LEZAC_ORIGINAL_START_KEY:-1}"
+    fi
+    sleep "${LEZAC_ORIGINAL_LEVEL_START_SECONDS:-1.5}"
+}
+
+capture_level1_bomb_route() {
+    start_level
+    capture 010_level1_start
+    key_down Right
+    sleep "${LEZAC_ORIGINAL_ROUTE_RIGHT_SECONDS:-0.95}"
+    key_up Right
+    sleep 0.25
+    capture 020_level1_tile24_aligned
+    press n
+    sleep 0.30
+    capture 030_level1_tile24_bomb
+    sleep 0.75
+    capture 040_level1_tile24_explosion
+    sleep 0.25
+    capture 050_level1_tile24_playback_4
+    sleep 0.25
+    capture 060_level1_tile24_playback_12
+}
+
+capture_monster_bomb_reward() {
+    start_level
+    capture 010_monster_bomb_start
+    press n
+    sleep 0.30
+    capture 020_monster_bomb_armed
+    {
+        echo "frame label=030_monster_bomb_death file=not_captured reason=synthetic_cpp_fixture_requires_debugger_seed"
+        echo "frame label=040_monster_bomb_reward_collected file=not_captured reason=synthetic_cpp_fixture_requires_debugger_seed"
+    } >>"$manifest"
+    {
+        echo "capture_skipped=030_monster_bomb_death reason=synthetic_cpp_fixture_requires_debugger_seed"
+        echo "capture_skipped=040_monster_bomb_reward_collected reason=synthetic_cpp_fixture_requires_debugger_seed"
+    } >>"$log"
+}
+
+if [[ "$scenario" == "monster_bomb_reward" ]]; then
+    capture_monster_bomb_reward
 else
-    press "${LEZAC_ORIGINAL_START_KEY:-1}"
+    capture_level1_bomb_route
 fi
-sleep "${LEZAC_ORIGINAL_LEVEL_START_SECONDS:-1.5}"
-capture 010_level1_start
-key_down Right
-sleep "${LEZAC_ORIGINAL_ROUTE_RIGHT_SECONDS:-0.95}"
-key_up Right
-sleep 0.25
-capture 020_level1_tile24_aligned
-press n
-sleep 0.30
-capture 030_level1_tile24_bomb
-sleep 0.75
-capture 040_level1_tile24_explosion
-sleep 0.25
-capture 050_level1_tile24_playback_4
-sleep 0.25
-capture 060_level1_tile24_playback_12
 
 press Escape
 sleep 0.1

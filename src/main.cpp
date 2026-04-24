@@ -6828,6 +6828,106 @@ public:
                   << " frame_inspection=1\n";
     }
 
+    void debugMonsterContactDamageLive() {
+        load();
+        initSdl();
+        prepareAutoplayerMonsterFixtureLevel();
+        playerCount_ = 2;
+        playerDead_ = false;
+        player2Dead_ = false;
+        player_.x = 40.0f;
+        player_.y = 24.0f;
+        player2_.x = 80.0f;
+        player2_.y = 24.0f;
+        energy_ = 100;
+        energy2_ = 100;
+        lives_ = 3;
+        lives2_ = 3;
+
+        auto makeContactMonster = [&](int x, int y) {
+            ActiveMonster monster;
+            monster.x = x;
+            monster.y = y;
+            monster.kind = 1;
+            monster.behavior = 3;
+            monster.ai0 = 0;
+            monster.hp = 3;
+            monster.animDelay = 1;
+            refreshMonsterAnimationProfile(monster);
+            initializeMonsterMotion(monster);
+            monster.vx8 = 0;
+            monster.vy8 = 0;
+            return monster;
+        };
+
+        monsters_.push_back(makeContactMonster(40, 24));
+        monsters_.push_back(makeContactMonster(48, 24));
+        monsters_.push_back(makeContactMonster(80, 24));
+
+        FrameInspection startFrame = inspectRenderedFrame("monster-contact-damage-start");
+        updateMonsters(0.0f);
+        if (pendingDamage_ != 2 || pendingDamage2_ != 1 ||
+            energy_ != 100 || energy2_ != 100) {
+            std::ostringstream oss;
+            oss << "monster contact did not accumulate expected pending damage"
+                << " p1_pending=" << static_cast<int>(pendingDamage_)
+                << " p2_pending=" << static_cast<int>(pendingDamage2_)
+                << " p1_energy=" << energy_
+                << " p2_energy=" << energy2_;
+            throw std::runtime_error(oss.str());
+        }
+
+        drainPlayerDamageCounters();
+        if (pendingDamage_ != 0 || pendingDamage2_ != 0 ||
+            energy_ != 98 || energy2_ != 99 || playerDead_ || player2Dead_ ||
+            !soundLatch_.active || soundLatch_.latchedOffset != kPlayerDamageSoundCursor ||
+            soundLatch_.currentSelector != kPlayerDamageSoundPriority) {
+            throw std::runtime_error("monster contact drain cadence changed");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active || lastPumpedSoundOffset_ != kPlayerDamageSoundCursor ||
+            lastPumpedSoundSelector_ != kPlayerDamageSoundPriority) {
+            throw std::runtime_error("monster contact hurt cue did not pump");
+        }
+        FrameInspection hurtFrame = inspectRenderedFrame("monster-contact-damage-hurt");
+        if (hurtFrame.hash == startFrame.hash) {
+            throw std::runtime_error("monster contact hurt frame did not change");
+        }
+
+        playerDead_ = true;
+        energy_ = 100;
+        pendingDamage_ = 3;
+        clearSoundLatch();
+        drainPlayerDamageCounters();
+        if (energy_ != 100 || !playerDead_ || pendingDamage_ != 0 ||
+            !soundLatch_.active || soundLatch_.latchedOffset != kPlayerDamageSoundCursor) {
+            throw std::runtime_error("state-2 contact damage did not preserve energy with hurt cue");
+        }
+
+        playerDead_ = false;
+        energy_ = 1;
+        lives_ = 3;
+        pendingDamage_ = 2;
+        deathStateTimer_ = 0;
+        clearSoundLatch();
+        drainPlayerDamageCounters();
+        if (!playerDead_ || lives_ != 2 || energy_ != 100 ||
+            deathStateTimer_ != kDeathStateTicks || pendingDamage_ != 0 ||
+            !soundLatch_.active || soundLatch_.latchedOffset != kPlayerDeathSoundCursor ||
+            soundLatch_.currentSelector != kPlayerDeathSoundPriority) {
+            throw std::runtime_error("fatal monster contact did not dispatch death");
+        }
+
+        std::cout << "monster_contact_damage_live=ok"
+                  << " p1_pending=2 p2_pending=1"
+                  << " p1_energy=98 p2_energy=99"
+                  << " hurt_cue=0x" << std::hex << std::setw(4) << std::setfill('0')
+                  << kPlayerDamageSoundCursor
+                  << " death_cue=0x" << std::setw(4) << kPlayerDeathSoundCursor
+                  << std::dec << std::setfill(' ')
+                  << " state2_preserved=1 fatal_dead=1 frame_inspection=1\n";
+    }
+
     void debugObjectCollisionJumpLive() {
         load();
         initSdl();
@@ -9936,6 +10036,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-player-damage-death-live") {
             app.debugPlayerDamageDeathLive();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-monster-contact-damage-live") {
+            app.debugMonsterContactDamageLive();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-object-collision-jump-live") {

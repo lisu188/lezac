@@ -442,7 +442,7 @@ if(BUILD_TESTING)
     set_tests_properties(explosion_playback_oracle_synthetic PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_synthetic .*playback_breaks=8 .*debris0_tile_index=0x0393 debris0_flagged=0xc000 debris0_forward=0x04 debris0_reverse=0x05 debris0_lookup=0x6b .*collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_word=0x0009 collapse0_flagged=0x8009 collapse0_forward=0x02 collapse0_reverse=0x03 .*effect0_xy=0x0018,0x0028 effect0_sprite=0x84 effect0_detail=0x75 effect0_timer=0x08 effect0_variant=0x05 temp_copy=1 visual_claim=0")
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_synthetic .*playback_breaks=12 .*debris0_tile_index=0x0393 debris0_flagged=0xc000 debris0_forward=0x04 debris0_reverse=0x05 debris0_lookup=0x6b .*collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_word=0x0009 collapse0_flagged=0x8009 collapse0_forward=0x02 collapse0_reverse=0x03 .*effect0_xy=0x0018,0x0028 effect0_sprite=0x84 effect0_detail=0x75 effect0_timer=0x08 effect0_variant=0x05 temp_copy=1 visual_claim=0")
 
     add_test(NAME explosion_playback_oracle_selected_bases
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle

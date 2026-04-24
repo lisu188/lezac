@@ -280,6 +280,9 @@ Baseline: `origin/main`
   Replaying the earlier high-counter route timing patched `1000:4C96` while
   `DS:207e=0x00c8` and `selected_debris_base=DS:292b`, but the frame sequence
   advanced through the tail screenshots with `instrumented_freeze_observed=0`.
+  A route-tuned temp-copy patch at `1000:4B3F` then froze on the visible blast
+  frame with `DS:207e=0x00c8`, proving the high-debris interior reaches the
+  target-byte sample before the unresolved `4B6A`/`4C20`/`4C75` branch path.
   The inspected captures remain instrumentation evidence with
   `visual_claim=0`; no original fixture was promoted.
 - `./build/lezac_cpp --debug-passable-objects` passed with

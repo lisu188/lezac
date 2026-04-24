@@ -1421,6 +1421,10 @@ def main() -> int:
                 ("1000:45FA", 0x45FA, "effect_debris_update_entry"),
                 ("1000:432A", 0x432A, "effect_playback_candidate"),
                 ("1000:492F", 0x492F, "high_debris_loop_entry"),
+                ("1000:4B3F", 0x4B3F, "high_debris_target_sample"),
+                ("1000:4B6A", 0x4B6A, "high_debris_zero_target_branch"),
+                ("1000:4C20", 0x4C20, "high_debris_nonzero_target_branch"),
+                ("1000:4C75", 0x4C75, "high_debris_word_gate"),
                 ("1000:4C96", 0x4C96, "effect_forward_pass_call"),
                 ("1000:4CA9", 0x4CA9, "effect_reverse_pass_call"),
             ]:

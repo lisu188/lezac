@@ -373,6 +373,13 @@ Replaying the earlier high-counter route timing with
 playback advanced through the tail screenshots, so this run proves the
 high-counter queue state and loaded `4c96` patch, not execution of the
 lane-call instruction after the patch point.
+The next static fork is `1000:4b3f`: after `1000:4b35` confirms nonzero
+`DS:2090`, `4b3f..4b5e` samples the target byte that chooses `4b6a`
+(zero-target branch) or `4c20` (nonzero-target branch), and `4c75` later gates
+the `4c96`/`4ca9` calls on a positive word-layer value. A route-tuned
+temp-copy patch at `1000:4b3f` froze on the visible explosion frame with
+`DS:207e=0x00c8` and selected debris base `DS:292b`, proving the high-debris
+interior reaches the target-byte sample before the unresolved lane-call branch.
 
 ## Sound Playback Evidence
 

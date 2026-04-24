@@ -88,6 +88,15 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^frame_sequence=ok scenario=level1_bomb_route frames=7 size=320x200")
 
+    add_test(NAME frame_sequence_capture_monster_bomb_reward_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --capture-frame-sequence monster_bomb_reward
+                ${CMAKE_CURRENT_BINARY_DIR}/frame_sequence_capture_monster_bomb_reward)
+    set_tests_properties(frame_sequence_capture_monster_bomb_reward_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^frame_sequence=ok scenario=monster_bomb_reward frames=5 size=320x200")
+
     add_test(NAME frame_sequence_capture_monster_spawner_behavior4_level2_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --capture-frame-sequence

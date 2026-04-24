@@ -37,6 +37,13 @@ level1_bomb_route:
 050_level1_tile24_playback_4.ppm
 060_level1_tile24_playback_12.ppm
 
+monster_bomb_reward:
+000_menu.ppm
+010_monster_bomb_start.ppm
+020_monster_bomb_armed.ppm
+030_monster_bomb_death.ppm
+040_monster_bomb_reward_collected.ppm
+
 monster_spawner_behavior4_level2:
 000_menu.ppm
 010_level2_start.ppm

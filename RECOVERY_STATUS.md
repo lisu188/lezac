@@ -271,6 +271,11 @@ Baseline: `origin/main`
   passes at `1000:4c96`/`1000:4ca9`. `--debug-damage-queues` locks those
   addresses, the `1000:3a7e`/`1000:3b18` lookup helpers, one-based queue slot
   tags, first-slot lane write offsets, and collapse span weight metadata.
+- Runtime child-memory probes now show `1000:4C96` can be patched after queue
+  growth but is not reached by the current level-1 route, while `1000:45FA`
+  freezes on a visible explosion/playback frame with selected bases `DS:209e`,
+  `DS:6620`, and `DS:c22e`. The inspected capture remains instrumentation
+  evidence with `visual_claim=0`; no original fixture was promoted.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"

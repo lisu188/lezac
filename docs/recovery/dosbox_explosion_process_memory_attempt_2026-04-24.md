@@ -161,7 +161,7 @@ plus manifest hashes unless intermediate screenshots are the point of the run.
 
 To make these probes repeatable, `--runtime-freeze-preset late-collapse` now
 sets the late queue-growth gates (`score >= 100`, debris/collapse/effect
-nonzero thresholds `10/20/20`) and disables timed screenshots unless the caller
+nonzero thresholds `10/18/20`) and disables timed screenshots unless the caller
 explicitly overrides the screenshot list. A `1000:3BB2` run showed that the
 default effect threshold can still be too strict for some routes, so the tuned
 probe used `--runtime-freeze-min-effect-nonzero 16`. With that override,
@@ -279,20 +279,34 @@ the four dispatcher profiles and sound cursors (`0xea74`, `0xea7e`, `0xea88`,
 `0xeace`). The C++ `damage_queues` diagnostic now locks these static addresses
 and first-slot write offsets as metadata coverage.
 
+Follow-up runtime child-memory probes used the same level-1 route with the
+tuned late-collapse gate. Patching `1000:4C96` applied successfully, with
+runtime bytes `e819 -> ebfe`, but both early and late gates continued through
+visible playback without a frozen frame. Patching the enclosing update entry at
+`1000:45FA` is a stronger positive: an early gate froze before visible
+explosion playback, and the later gate at
+`/tmp/lezac-45fa-late-runtime-20260424-codex-1` applied at `1.365s` after bomb
+input with score `160`, selected bases `DS:209e`, `DS:6620`, `DS:c22e`, and
+runtime bytes `5589 -> ebfe`. Frame inspection of `030_bomb_key.png`,
+`090_after_sampling.png`, and `091_tail_freeze_check.png` showed the same
+visible explosion/playback frame in the final two screenshots, and the matching
+hashes confirmed the freeze. The generated candidate parsed through
+`--debug-explosion-playback-oracle` with `visual_claim=0`.
+
 This is useful route evidence, but it is still not enough to promote an
 explosion runtime oracle fixture by itself; the unresolved fixture still needs
 runtime bytes or debugger/process-memory samples tied to the relevant
-`1000:3a56..4d3b` execution window. The process-memory samples do not prove a
-breakpoint stop inside the playback routines, and the sampled effect table
-still needs exact semantic interpretation.
+`1000:3a56..4d3b` execution window. The `45FA` freeze proves entry into the
+effect/debris update pass during visible playback, but it is still
+instrumented process-memory evidence rather than a debugger breakpoint stop,
+and the sampled effect table still needs exact semantic interpretation.
 
 ## Next Step
 
-Use the now-working route with a clearly labeled instrumented temporary copy
-that freezes after a target address is reached, or with a debugger session that
-can submit breakpoint commands. Prefer gating those attempts on route-state
-rows, such as level loaded, player-control state, and nonzero explosion queue
-growth, instead of fixed sleeps alone. Only promote
+Use the now-working `45FA` visible-playback freeze to target narrower interior
+addresses or to align a debugger session that can submit breakpoint commands.
+Prefer gating those attempts on route-state rows, selected queue bases, and
+nonzero explosion queue growth instead of fixed sleeps alone. Only promote
 `explosion_playback_oracle_original.txt` after screenshots show the intended
-bomb/object event and the sampled bytes prove the relevant runtime window was
-reached.
+bomb/object event and the sampled bytes prove the exact runtime window and
+field semantics.

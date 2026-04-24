@@ -748,6 +748,12 @@ def main() -> int:
     parser.add_argument("--sample-seconds", type=float, default=8.0)
     parser.add_argument("--sample-interval", type=float, default=0.08)
     parser.add_argument(
+        "--tail-freeze-check-seconds",
+        type=float,
+        default=0.5,
+        help="seconds between final tail screenshots used to detect a frozen frame; 0 disables",
+    )
+    parser.add_argument(
         "--route-state-interval",
         type=float,
         default=0.25,
@@ -847,6 +853,8 @@ def main() -> int:
     repo_dir = Path.cwd().resolve()
     if args.route_state_interval < 0:
         raise RuntimeError("--route-state-interval must be non-negative")
+    if args.tail_freeze_check_seconds < 0:
+        raise RuntimeError("--tail-freeze-check-seconds must be non-negative")
     if repo_dir in out_dir.parents or out_dir == repo_dir:
         raise RuntimeError("choose an output directory outside the repository")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -1134,6 +1142,9 @@ def main() -> int:
                 captured_sample_screenshots.append(label)
             time.sleep(args.sample_interval)
         snapshot(env, out_dir, game, "090_after_sampling")
+        if args.tail_freeze_check_seconds > 0:
+            time.sleep(args.tail_freeze_check_seconds)
+            snapshot(env, out_dir, game, "091_tail_freeze_check")
         route_state_records.append(
             capture_route_state(
                 pid,
@@ -1158,8 +1169,14 @@ def main() -> int:
             (digest for name, digest in screenshot_hashes if name == "090_after_sampling.png"),
             "",
         )
+        tail_confirm_hash = next(
+            (digest for name, digest in screenshot_hashes if name == "091_tail_freeze_check.png"),
+            "",
+        )
         tail_match_frame = ""
-        if after_hash:
+        if after_hash and tail_confirm_hash and after_hash == tail_confirm_hash:
+            tail_match_frame = "091_tail_freeze_check.png"
+        elif after_hash:
             for name, digest in reversed(screenshot_hashes):
                 if name != "090_after_sampling.png" and digest == after_hash:
                     tail_match_frame = name
@@ -1424,6 +1441,7 @@ def main() -> int:
             f"input_bomb_hold_seconds={args.bomb_hold_seconds:.2f}\n"
             f"sample_seconds={args.sample_seconds:.2f}\n"
             f"sample_interval={args.sample_interval:.3f}\n"
+            f"tail_freeze_check_seconds={args.tail_freeze_check_seconds:.3f}\n"
             f"sample_summary={sample_summary}\n"
             f"route_state_interval={args.route_state_interval:.3f}\n"
             f"route_state_samples={route_state_summary}\n"

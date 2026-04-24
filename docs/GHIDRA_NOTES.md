@@ -308,7 +308,9 @@ later patched `1000:432a` after selected collapse base `DS:6620` became active;
 the patch loaded but did not freeze while visible playback continued. The same
 late-collapse gate, with a route-tuned effect threshold, also patched
 `1000:3bb2` and `1000:3d46`; both loaded successfully and neither froze while
-visible playback continued. See
+visible playback continued. Tail-confirmed early-gated probes then froze at
+`1000:75f1` and `1000:414a` on armed-bomb frames, while `1000:370e` froze on a
+visible explosion frame. See
 `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md`.
 
 ## Sound Playback Evidence

@@ -172,6 +172,27 @@ freeze while visible playback continued. The sibling reverse-pass probe at
 also did not freeze while visible playback continued. These are useful
 late-window negatives for the level-1 route, not fixture-promoting stops.
 
+The helper now captures a second tail screenshot after `090_after_sampling`;
+matching `090`/`091_tail_freeze_check` hashes are used as the freeze signal
+when timed sample screenshots are disabled. With that confirmation in place,
+early post-bomb runtime patches mapped the dispatch chain:
+
+```text
+1000:75F1  patch applied at 0.121s, old 2d0c -> ebfe; freeze confirmed on an
+           armed-bomb frame before visible explosion playback.
+1000:414A  patch applied at 0.121s, old 5589 -> ebfe; freeze confirmed on an
+           armed-bomb frame before visible explosion playback.
+1000:370E  patch applied at 0.121s, old 5589 -> ebfe; freeze confirmed on a
+           visible explosion frame, with selected bases DS:209e, DS:6611,
+           DS:c22e and score 60.
+```
+
+This is the first runtime-freeze result in this series that is both tied to an
+address and visually inside the explosion frame window. It still remains
+instrumentation evidence and `visual_claim=0`; the next promotion step needs
+the exact bytes and disassembly around the `370E` stop interpreted against the
+effect/debris/collapse queues.
+
 Instrumented temporary-copy freeze attempts then tested several playback-window
 anchors:
 

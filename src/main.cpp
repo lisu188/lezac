@@ -1608,10 +1608,6 @@ public:
     }
 
     void captureFrameSequence(const std::string& scenario, const std::string& outDir) {
-        if (scenario != "level1_bomb_route") {
-            throw std::runtime_error("unknown frame sequence scenario " + scenario);
-        }
-
         load();
         initSdl();
         resetLevel(0);
@@ -1623,15 +1619,30 @@ public:
             FrameInspection inspection;
             int menu = 0;
             int level = 0;
+            int playerCount = 0;
             int p1x = 0;
             int p1y = 0;
             int p1BombX = 0;
             int p1BombY = 0;
+            int p1Dead = 0;
+            int p2x = -1;
+            int p2y = -1;
+            int p2BombX = -1;
+            int p2BombY = -1;
+            int p2Dead = 0;
             size_t bombs = 0;
             size_t flashes = 0;
             size_t explosions = 0;
             size_t debris = 0;
             size_t collapse = 0;
+            size_t monsters = 0;
+            int monsterX = -1;
+            int monsterY = -1;
+            int monsterVx8 = 0;
+            int monsterVy8 = 0;
+            int monsterBehavior = -1;
+            int monsterHp = 0;
+            int monsterSpawner = 0;
         };
 
         std::vector<CapturedFrame> captures;
@@ -1642,61 +1653,266 @@ public:
             frame.inspection = inspectRenderedFrame(label);
             frame.menu = menu_ ? 1 : 0;
             frame.level = levelIndex_ + 1;
+            frame.playerCount = playerCount_;
             frame.p1x = static_cast<int>(player_.x);
             frame.p1y = static_cast<int>(player_.y);
             frame.p1BombX = static_cast<int>(player_.x + 6.0f) / kTileSize;
             frame.p1BombY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+            frame.p1Dead = playerDead_ ? 1 : 0;
+            if (playerCount_ > 1) {
+                frame.p2x = static_cast<int>(player2_.x);
+                frame.p2y = static_cast<int>(player2_.y);
+                frame.p2BombX = static_cast<int>(player2_.x + 6.0f) / kTileSize;
+                frame.p2BombY = static_cast<int>(player2_.y + 12.0f) / kTileSize;
+            }
+            frame.p2Dead = player2Dead_ ? 1 : 0;
             frame.bombs = bombs_.size();
             frame.flashes = flashes_.size();
             frame.explosions = explosionEffects_.size();
             frame.debris = debrisQueue_.size();
             frame.collapse = collapseQueue_.size();
+            frame.monsters = monsters_.size();
+            if (!monsters_.empty()) {
+                const ActiveMonster& monster = monsters_.front();
+                frame.monsterX = monster.x;
+                frame.monsterY = monster.y;
+                frame.monsterVx8 = monster.vx8;
+                frame.monsterVy8 = monster.vy8;
+                frame.monsterBehavior = monster.behavior;
+                frame.monsterHp = monster.hp;
+                frame.monsterSpawner = monster.hasSpawner ? static_cast<int>(monster.spawnerIndex) + 1 : 0;
+            }
             writeArgbPpm(joinPath(outDir, frame.file), fb_, kScreenW, kScreenH);
             captures.push_back(std::move(frame));
         };
 
         bool running = true;
+        auto spanUpper = [](uint16_t base, uint16_t range) {
+            return static_cast<uint16_t>(base + std::max<uint16_t>(1, range));
+        };
+        auto findSpawnerByBehavior = [&](uint8_t behavior) {
+            for (size_t i = 0; i < level_.monsterSpawners.size(); ++i) {
+                if (level_.monsterSpawners[i].spawnArg == behavior) {
+                    return i;
+                }
+            }
+            return level_.monsterSpawners.size();
+        };
+        auto disableOtherSpawners = [&](size_t keepIndex) {
+            for (size_t i = 0; i < spawnerStates_.size(); ++i) {
+                if (i != keepIndex) {
+                    spawnerStates_[i].remaining = 0;
+                    spawnerStates_[i].availableSlots = 0;
+                }
+            }
+        };
+
         capture("000_menu");
 
-        pushKeyDown(SDLK_1);
-        processEvents(running);
-        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
-            throw std::runtime_error("frame sequence failed to start one-player level 1");
-        }
-        capture("010_level1_start");
+        if (scenario == "level1_bomb_route") {
+            pushKeyDown(SDLK_1);
+            processEvents(running);
+            if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+                throw std::runtime_error("frame sequence failed to start one-player level 1");
+            }
+            capture("010_level1_start");
 
-        AutoplayRouteResult route = autoplayLevel1BombRoute();
-        if (route.bombTileX != 24 || route.bombTileY != 22) {
-            throw std::runtime_error("frame sequence autoplayer missed level-1 tile 24,22");
-        }
-        capture("020_level1_tile24_aligned");
+            AutoplayRouteResult route = autoplayLevel1BombRoute();
+            if (route.bombTileX != 24 || route.bombTileY != 22) {
+                throw std::runtime_error("frame sequence autoplayer missed level-1 tile 24,22");
+            }
+            capture("020_level1_tile24_aligned");
 
-        pushKeyDown(SDLK_n);
-        processEvents(running);
-        if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 22) {
-            throw std::runtime_error(
-                "frame sequence N key did not place the level-1 tile 24,22 bomb");
-        }
-        capture("030_level1_tile24_bomb");
+            pushKeyDown(SDLK_n);
+            processEvents(running);
+            if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 22) {
+                throw std::runtime_error(
+                    "frame sequence N key did not place the level-1 tile 24,22 bomb");
+            }
+            capture("030_level1_tile24_bomb");
 
-        int fuse = bombs_.back().timer;
-        for (int i = 0; i < fuse; ++i) {
-            update(1.0f / 60.0f);
-        }
-        if (!bombs_.empty() || explosionEffects_.empty()) {
-            throw std::runtime_error("frame sequence bomb did not reach explosion playback");
-        }
-        capture("040_level1_tile24_explosion");
+            int fuse = bombs_.back().timer;
+            for (int i = 0; i < fuse; ++i) {
+                update(1.0f / 60.0f);
+            }
+            if (!bombs_.empty() || explosionEffects_.empty()) {
+                throw std::runtime_error("frame sequence bomb did not reach explosion playback");
+            }
+            capture("040_level1_tile24_explosion");
 
-        for (int i = 0; i < 4; ++i) {
-            update(1.0f / 60.0f);
-        }
-        capture("050_level1_tile24_playback_4");
+            for (int i = 0; i < 4; ++i) {
+                update(1.0f / 60.0f);
+            }
+            capture("050_level1_tile24_playback_4");
 
-        for (int i = 0; i < 8; ++i) {
-            update(1.0f / 60.0f);
+            for (int i = 0; i < 8; ++i) {
+                update(1.0f / 60.0f);
+            }
+            capture("060_level1_tile24_playback_12");
+        } else if (scenario == "monster_spawner_behavior4_level2") {
+            pushKeyDown(SDLK_1);
+            processEvents(running);
+            if (menu_ || playerCount_ != 1) {
+                throw std::runtime_error("frame sequence failed to start one-player level 2");
+            }
+            resetLevel(1);
+            if (levelIndex_ != 1) {
+                throw std::runtime_error("frame sequence did not load level 2");
+            }
+            capture("010_level2_start");
+
+            size_t spawnerIndex = findSpawnerByBehavior(4);
+            if (spawnerIndex >= level_.monsterSpawners.size()) {
+                throw std::runtime_error("frame sequence found no level-2 behavior-4 spawner");
+            }
+            disableOtherSpawners(spawnerIndex);
+            const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
+            randomSeed_ = 0x1234abcd;
+            player_.x = static_cast<float>(spawner.x + 40);
+            player_.y = static_cast<float>(spawner.y);
+            player_.vy = -6.0f;
+            player_.grounded = false;
+            spawnerStates_[spawnerIndex].cooldown = 0;
+            capture("020_level2_behavior4_spawner_armed");
+
+            FrameControls idle;
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (monsters_.size() != 1) {
+                throw std::runtime_error("frame sequence did not spawn level-2 behavior-4 actor");
+            }
+            const ActiveMonster& monster = monsters_.front();
+            if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
+                monster.kind != spawner.monsterKind || monster.behavior != 4 ||
+                monster.animDelay != std::max<uint8_t>(1, spawner.animationDelay) ||
+                monster.ai0 < spawner.param0Base ||
+                monster.ai0 >= spanUpper(spawner.param0Base, spawner.param0Range) ||
+                monster.ai1 < spawner.param1Base ||
+                monster.ai1 >= spanUpper(spawner.param1Base, spawner.param1Range) ||
+                monster.ai2 < spawner.param2Base ||
+                monster.ai2 >= spanUpper(spawner.param2Base, spawner.param2Range) ||
+                monster.hp < spawner.randomBase ||
+                monster.hp >= spanUpper(spawner.randomBase, spawner.randomRange) ||
+                monster.motionTimer != std::max<int>(1, monster.ai0) - 1 ||
+                monster.vx8 <= 0 || monster.vy8 != 0 || monster.x <= spawner.x) {
+                throw std::runtime_error(
+                    "frame sequence level-2 behavior-4 spawn fields mismatched");
+            }
+            capture("030_level2_behavior4_spawned");
+        } else if (scenario == "monster_spawner_behavior4_level3") {
+            pushKeyDown(SDLK_1);
+            processEvents(running);
+            if (menu_ || playerCount_ != 1) {
+                throw std::runtime_error("frame sequence failed to start one-player level 3");
+            }
+            resetLevel(2);
+            if (levelIndex_ != 2) {
+                throw std::runtime_error("frame sequence did not load level 3");
+            }
+            capture("010_level3_start");
+
+            size_t spawnerIndex = findSpawnerByBehavior(4);
+            if (spawnerIndex >= level_.monsterSpawners.size()) {
+                throw std::runtime_error("frame sequence found no level-3 behavior-4 spawner");
+            }
+            disableOtherSpawners(spawnerIndex);
+            const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
+            randomSeed_ = 0x1234abcd;
+            player_.x = static_cast<float>(spawner.x + 24);
+            player_.y = static_cast<float>(spawner.y - 16);
+            player_.vy = -6.0f;
+            player_.grounded = false;
+            spawnerStates_[spawnerIndex].cooldown = 0;
+            capture("020_level3_behavior4_spawner_armed");
+
+            FrameControls idle;
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (monsters_.size() != 1) {
+                throw std::runtime_error("frame sequence did not spawn level-3 behavior-4 actor");
+            }
+            const ActiveMonster& monster = monsters_.front();
+            if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
+                monster.kind != spawner.monsterKind || monster.behavior != 4 ||
+                monster.animDelay != std::max<uint8_t>(1, spawner.animationDelay) ||
+                monster.ai0 < spawner.param0Base ||
+                monster.ai0 >= spanUpper(spawner.param0Base, spawner.param0Range) ||
+                monster.ai1 < spawner.param1Base ||
+                monster.ai1 >= spanUpper(spawner.param1Base, spawner.param1Range) ||
+                monster.ai2 < spawner.param2Base ||
+                monster.ai2 >= spanUpper(spawner.param2Base, spawner.param2Range) ||
+                monster.hp < spawner.randomBase ||
+                monster.hp >= spanUpper(spawner.randomBase, spawner.randomRange) ||
+                monster.motionTimer != std::max<int>(1, monster.ai0) - 1 ||
+                monster.vx8 <= 0 || monster.vy8 >= 0) {
+                throw std::runtime_error(
+                    "frame sequence level-3 behavior-4 spawn fields mismatched");
+            }
+            capture("030_level3_behavior4_spawned");
+        } else if (scenario == "monster_behavior4_target_selection") {
+            pushKeyDown(SDLK_2);
+            processEvents(running);
+            if (menu_ || playerCount_ != 2 || playerDead_ || player2Dead_) {
+                throw std::runtime_error("frame sequence failed to start two-player level 3");
+            }
+            resetLevel(2);
+            if (levelIndex_ != 2) {
+                throw std::runtime_error("frame sequence did not load level 3");
+            }
+            capture("010_level3_two_player_start");
+
+            size_t spawnerIndex = findSpawnerByBehavior(4);
+            if (spawnerIndex >= level_.monsterSpawners.size()) {
+                throw std::runtime_error("frame sequence found no level-3 behavior-4 spawner");
+            }
+            disableOtherSpawners(spawnerIndex);
+            const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
+            randomSeed_ = 0x1234abcd;
+            spawnerStates_[spawnerIndex].cooldown = 0;
+            player_.x = static_cast<float>(spawner.x + 40);
+            player_.y = static_cast<float>(spawner.y);
+            player_.vy = -6.0f;
+            player2_.x = static_cast<float>(spawner.x - 16);
+            player2_.y = static_cast<float>(spawner.y);
+            player2_.vy = -6.0f;
+            playerDead_ = false;
+            player2Dead_ = false;
+            capture("020_level3_behavior4_target_armed");
+
+            FrameControls idle;
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (monsters_.size() != 1 || monsters_.front().behavior != 4 ||
+                monsters_.front().vx8 >= 0 || monsters_.front().x >= spawner.x) {
+                throw std::runtime_error(
+                    "frame sequence behavior-4 target did not prefer player 2");
+            }
+            int xAfterP2 = monsters_.front().x;
+            capture("030_level3_behavior4_target_p2");
+
+            player2Dead_ = true;
+            player_.x = static_cast<float>(monsters_.front().x + 24);
+            player_.y = static_cast<float>(monsters_.front().y);
+            monsters_.front().motionTimer = 1;
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (monsters_.front().vx8 <= 0 || monsters_.front().x <= xAfterP2) {
+                throw std::runtime_error(
+                    "frame sequence behavior-4 target did not retarget player 1");
+            }
+            int xAfterP1 = monsters_.front().x;
+            capture("040_level3_behavior4_target_p1");
+
+            playerDead_ = true;
+            player2Dead_ = false;
+            player2_.x = static_cast<float>(monsters_.front().x - 24);
+            player2_.y = static_cast<float>(monsters_.front().y);
+            monsters_.front().motionTimer = 1;
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (monsters_.front().vx8 >= 0 || monsters_.front().x >= xAfterP1) {
+                throw std::runtime_error(
+                    "frame sequence behavior-4 target did not retarget back to player 2");
+            }
+            capture("050_level3_behavior4_target_p2_return");
+        } else {
+            throw std::runtime_error("unknown frame sequence scenario " + scenario);
         }
-        capture("060_level1_tile24_playback_12");
 
         std::ofstream manifest(joinPath(outDir, "manifest.txt"));
         if (!manifest) {
@@ -1713,13 +1929,24 @@ public:
                      << " changed_pixels=" << frame.inspection.changedPixels
                      << " menu=" << frame.menu
                      << " level=" << frame.level
+                     << " players=" << frame.playerCount
                      << " p1_xy=" << frame.p1x << ',' << frame.p1y
                      << " p1_bomb_tile=" << frame.p1BombX << ',' << frame.p1BombY
+                     << " p1_dead=" << frame.p1Dead
+                     << " p2_xy=" << frame.p2x << ',' << frame.p2y
+                     << " p2_bomb_tile=" << frame.p2BombX << ',' << frame.p2BombY
+                     << " p2_dead=" << frame.p2Dead
                      << " bombs=" << frame.bombs
                      << " flashes=" << frame.flashes
                      << " explosions=" << frame.explosions
                      << " debris=" << frame.debris
-                     << " collapse=" << frame.collapse << '\n';
+                     << " collapse=" << frame.collapse
+                     << " monsters=" << frame.monsters
+                     << " monster_xy=" << frame.monsterX << ',' << frame.monsterY
+                     << " monster_v8=" << frame.monsterVx8 << ',' << frame.monsterVy8
+                     << " monster_behavior=" << frame.monsterBehavior
+                     << " monster_hp=" << frame.monsterHp
+                     << " monster_spawner=" << frame.monsterSpawner << '\n';
         }
 
         std::cout << "frame_sequence=ok"

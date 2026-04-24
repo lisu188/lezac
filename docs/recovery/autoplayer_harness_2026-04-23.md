@@ -133,21 +133,28 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
 
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --capture-frame-sequence monster_spawner_behavior4_level2 /tmp/lezac-cpp-b4-level2
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --capture-frame-sequence monster_spawner_behavior4_level3 /tmp/lezac-cpp-b4-level3
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --capture-frame-sequence monster_behavior4_target_selection /tmp/lezac-cpp-b4-target
 ```
 
 `--debug-autoplayer` performs frame inspection internally. The
 `--capture-frame-sequence` command writes PPM frames plus `manifest.txt`; use
-the manifest hashes and route metadata for CI/debug evidence, and inspect or
+the manifest hashes and scenario metadata for CI/debug evidence, and inspect or
 compare the images when working on presentation fidelity.
 
 `tools/capture_original_dosbox_frames.sh /tmp/lezac-original-frames .` now tries
 to produce the original `LEZAC.EXE` version of the same semantic level-1 route
-labels and records timing/input settings in `manifest.txt`. This is only an
-oracle after frame inspection. In local Xvfb/xdotool runs the script produced
-named DOSBox screenshots, but the injected menu key did not reliably enter
-gameplay, so the frames stayed on the menu. Treat that as an automation limit,
-not as gameplay evidence, and rerun with adjusted `LEZAC_ORIGINAL_*` settings
-when using original frames for comparison.
+labels and records timing/input settings in `manifest.txt`. This remains the
+only automated original-side frame route. It is only an oracle after frame
+inspection. In local Xvfb/xdotool runs the script produced named DOSBox
+screenshots, but the injected menu key did not reliably enter gameplay, so the
+frames stayed on the menu. Treat that as an automation limit, not as gameplay
+evidence, and rerun with adjusted `LEZAC_ORIGINAL_*` settings when using
+original frames for comparison.
 
 ## Open Uncertainty
 

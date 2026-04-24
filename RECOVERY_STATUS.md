@@ -1,6 +1,6 @@
 # Recovery Status
 
-Last reviewed: 2026-04-23
+Last reviewed: 2026-04-24
 Branch: `codex/autoplayer-harness`
 Baseline: `e89ada5` / `origin/main`
 
@@ -28,6 +28,12 @@ Baseline: `e89ada5` / `origin/main`
   `monster_behavior4_target_selection` autoplayer scenarios. These extend the
   live monster harness to actual level-2/3 behavior-4 spawner data and
   two-player nearest-target selection across alive/dead player states.
+- Extended `--capture-frame-sequence` with
+  `monster_spawner_behavior4_level2`,
+  `monster_spawner_behavior4_level3`, and
+  `monster_behavior4_target_selection`. The frame harness now exports
+  deterministic behavior-4 spawn/retarget checkpoints plus manifest metadata
+  for player count/dead flags and first-monster position/velocity/behavior.
 - Added provisional live state-2 rendering keyed to the recovered `0x4a..0x4f`
   cursor range. It is intentionally documented as `visual_claim=0` until the
   original `DS:c322` frame-table fields are fully interpreted.
@@ -38,8 +44,8 @@ Baseline: `e89ada5` / `origin/main`
 - Changed the level-1 bomb route autoplayer and frame-sequence capture to place
   the route bomb through the actual `N` key event path instead of calling the
   placement helper directly.
-- Added CTest coverage for all autoplayer scenarios and kept the frame-sequence
-  capture coverage on the level-1 route.
+- Added CTest coverage for all autoplayer scenarios and for the behavior-4
+  frame-sequence capture scenarios alongside the level-1 route.
 - Expanded `tools/capture_original_dosbox_frames.sh` so original DOSBox
   screenshots are renamed to the C++ semantic labels and accompanied by a
   manifest with input/timing settings.
@@ -107,6 +113,18 @@ Baseline: `e89ada5` / `origin/main`
   --capture-frame-sequence level1_bomb_route /tmp/lezac-autoplayer-frames`
   passed and wrote seven PPM frames plus `manifest.txt`; route bomb placement
   also uses the `N` key event path.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --capture-frame-sequence monster_spawner_behavior4_level2
+  /tmp/lezac-capture-b4-level2` passed and wrote four PPM frames plus
+  `manifest.txt` with live spawner/monster fields.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --capture-frame-sequence monster_spawner_behavior4_level3
+  /tmp/lezac-capture-b4-level3` passed and wrote four PPM frames plus
+  `manifest.txt` with diagonal behavior-4 spawn state.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --capture-frame-sequence monster_behavior4_target_selection
+  /tmp/lezac-capture-b4-target` passed and wrote six PPM frames plus
+  `manifest.txt` with player-dead flags and retarget direction changes.
 - `tools/capture_cpp_frames.sh ./build/lezac_cpp
   /tmp/lezac-autoplayer-frames-wrapper` passed.
 - `bash -n tools/capture_original_dosbox_frames.sh` passed. A local DOSBox run
@@ -116,8 +134,8 @@ Baseline: `e89ada5` / `origin/main`
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"
-  --output-on-failure` passed: 17/17.
-- `ctest --test-dir build --output-on-failure` passed: 71/71.
+  --output-on-failure` passed: 20/20.
+- `ctest --test-dir build --output-on-failure` passed: 74/74.
 - `./build/lezac_cpp --validate` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --smoke-controls` passed.
@@ -134,7 +152,8 @@ Baseline: `e89ada5` / `origin/main`
   against original `LEZAC.EXE` with DOSBox frame inspection or debugger/runtime
   evidence.
 - Make DOSBox original capture input reliable enough to leave the menu in this
-  environment, then compare the named original frames against the C++ sequence.
+  environment, then compare the named original level-1 frames against the C++
+  sequence and extend original capture beyond the level-1 route.
 - Interpret captured state-2 frame-table bytes and confirm the exact visual
   consumption path for the provisional live dead-player renderer.
 - Exact explosion/debris/collapse sprite playback around `1000:3a56..4d3b`
@@ -158,6 +177,7 @@ Baseline: `e89ada5` / `origin/main`
 
 ## Next Planned Target
 
-Use DOSBox frame/debugger evidence to compare these recovered behavior-3,
-behavior-4, target-selection, and spawner-lifecycle monster slices against
-original runtime movement, damage, targeting, and respawn timing.
+Use DOSBox frame/debugger evidence to compare the new behavior-4 frame
+sequences and monster autoplayer slices against original runtime movement,
+targeting, and respawn timing, then extend original-side capture beyond the
+level-1 route.

@@ -39,7 +39,10 @@ Dump deterministic C++ frames for comparison against original DOSBox captures:
 ```sh
 ./build/lezac_cpp --debug-autoplayer level1_bomb_route
 ./build/lezac_cpp --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames
-tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-frames
+./build/lezac_cpp --capture-frame-sequence monster_spawner_behavior4_level2 /tmp/lezac-cpp-b4-level2
+./build/lezac_cpp --capture-frame-sequence monster_spawner_behavior4_level3 /tmp/lezac-cpp-b4-level3
+./build/lezac_cpp --capture-frame-sequence monster_behavior4_target_selection /tmp/lezac-cpp-b4-target
+tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-frames level1_bomb_route
 ```
 
 Run the configured validation, debug, and UI smoke tests:
@@ -121,28 +124,38 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-portal-cooldowns
 ./build/lezac_cpp --debug-collision-pushout
 ./build/lezac_cpp --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames
+./build/lezac_cpp --capture-frame-sequence monster_spawner_behavior4_level2 /tmp/lezac-cpp-b4-level2
+./build/lezac_cpp --capture-frame-sequence monster_spawner_behavior4_level3 /tmp/lezac-cpp-b4-level3
+./build/lezac_cpp --capture-frame-sequence monster_behavior4_target_selection /tmp/lezac-cpp-b4-target
 ./build/lezac_cpp --export-sprites BOMOMIMK.SPR /tmp/bomomimk.ppm
 ```
 
 ## Frame Comparison
 
 The reconstruction can emit named 320x200 PPM frames and a `manifest.txt` for
-the semantic level-1 bomb route. The current sequence captures the menu, level-1
-start, the deterministic autoplayer reaching bomb tile `(24,22)`, bomb
-placement, and three explosion/playback checkpoints.
+deterministic gameplay scenarios. Current built-in frame exports cover
+`level1_bomb_route`, `monster_spawner_behavior4_level2`,
+`monster_spawner_behavior4_level3`, and
+`monster_behavior4_target_selection`. The level-1 route sequence captures the
+menu, level-1 start, the deterministic autoplayer reaching bomb tile `(24,22)`,
+bomb placement, and three explosion/playback checkpoints. The behavior-4
+sequences capture spawn/retarget checkpoints plus manifest metadata for player
+state and first-monster position/velocity/behavior.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer level1_bomb_route
-tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-frames
+tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-frames level1_bomb_route
+tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-b4-level2 monster_spawner_behavior4_level2
 ```
 
 Original-game captures are best-effort because DOSBox timing, focus, and
-keyboard injection vary by environment. This script runs `LEZAC.EXE` from a
-temporary copy under DOSBox/Xvfb, uses DOSBox's Ctrl-F5 screenshot command at
-matching checkpoints, renames the screenshots to the same semantic labels used
-by the C++ frame sequence, and writes `manifest.txt` and `original_capture.log`
-next to the screenshots:
+keyboard injection vary by environment. The current DOSBox screenshot driver is
+still route-specific: it runs `LEZAC.EXE` from a temporary copy under
+DOSBox/Xvfb, uses DOSBox's Ctrl-F5 screenshot command at matching level-1 route
+checkpoints, renames the screenshots to the same semantic labels used by the
+C++ route sequence, and writes `manifest.txt` and `original_capture.log` next
+to the screenshots:
 
 ```sh
 tools/capture_original_dosbox_frames.sh /tmp/lezac-original-frames .

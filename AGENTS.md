@@ -105,10 +105,16 @@ Use the frame harness when a visual checkpoint or comparison artifact is needed:
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --capture-frame-sequence monster_spawner_behavior4_level2 /tmp/lezac-cpp-b4-level2
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --capture-frame-sequence monster_spawner_behavior4_level3 /tmp/lezac-cpp-b4-level3
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --capture-frame-sequence monster_behavior4_target_selection /tmp/lezac-cpp-b4-target
 ```
 
-Original DOSBox captures for comparison should use the same semantic frame
-labels and write a manifest:
+Original DOSBox captures for comparison currently automate the same semantic
+labels for `level1_bomb_route` only and write a manifest:
 
 ```sh
 tools/capture_original_dosbox_frames.sh /tmp/lezac-original-frames .
@@ -121,10 +127,11 @@ DOSBox key injection remains best-effort. Always inspect the produced frames and
 
 For route/gameplay regressions, prefer adding a deterministic autoplayer
 scenario or extending an existing one. The harness should inspect rendered
-frames and record route metadata such as player coordinates, bomb tile,
-explosion/effect counts, and manifest hashes. Avoid replacing autoplayer
-coverage with direct player teleports unless the test is explicitly about
-rendering a state that cannot yet be reached through implemented gameplay.
+frames and record scenario metadata such as player coordinates, player-dead
+flags, bomb/effect counts, monster position/velocity/behavior, and manifest
+hashes. Avoid replacing autoplayer coverage with direct player teleports unless
+the test is explicitly about rendering a state that cannot yet be reached
+through implemented gameplay.
 
 ## DOSBox original-game observation
 

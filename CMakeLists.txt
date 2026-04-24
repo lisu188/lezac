@@ -88,6 +88,36 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^frame_sequence=ok scenario=level1_bomb_route frames=7 size=320x200")
 
+    add_test(NAME frame_sequence_capture_monster_spawner_behavior4_level2_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --capture-frame-sequence
+                monster_spawner_behavior4_level2
+                ${CMAKE_CURRENT_BINARY_DIR}/frame_sequence_capture_monster_spawner_behavior4_level2)
+    set_tests_properties(frame_sequence_capture_monster_spawner_behavior4_level2_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^frame_sequence=ok scenario=monster_spawner_behavior4_level2 frames=4 size=320x200")
+
+    add_test(NAME frame_sequence_capture_monster_spawner_behavior4_level3_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --capture-frame-sequence
+                monster_spawner_behavior4_level3
+                ${CMAKE_CURRENT_BINARY_DIR}/frame_sequence_capture_monster_spawner_behavior4_level3)
+    set_tests_properties(frame_sequence_capture_monster_spawner_behavior4_level3_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^frame_sequence=ok scenario=monster_spawner_behavior4_level3 frames=4 size=320x200")
+
+    add_test(NAME frame_sequence_capture_monster_behavior4_target_selection_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --capture-frame-sequence
+                monster_behavior4_target_selection
+                ${CMAKE_CURRENT_BINARY_DIR}/frame_sequence_capture_monster_behavior4_target_selection)
+    set_tests_properties(frame_sequence_capture_monster_behavior4_target_selection_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^frame_sequence=ok scenario=monster_behavior4_target_selection frames=6 size=320x200")
+
     add_test(NAME autoplayer_level1_bomb_route_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-autoplayer level1_bomb_route)

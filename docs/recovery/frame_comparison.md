@@ -2,23 +2,26 @@
 
 The frame comparison workflow has three parts:
 
-1. `--capture-frame-sequence level1_bomb_route <out-dir>` in the C++ port emits
+1. `--capture-frame-sequence <scenario> <out-dir>` in the C++ port emits
    deterministic 320x200 PPM frames plus a manifest. It uses dummy SDL cleanly,
-   so it is suitable for CTest and headless runs. The C++ sequence uses the
-   deterministic level-1 autoplayer to reach tile `(24,22)` instead of
-   teleporting the player to the checkpoint.
+   so it is suitable for CTest and headless runs. Current built-in capture
+   scenarios are `level1_bomb_route`, `monster_spawner_behavior4_level2`,
+   `monster_spawner_behavior4_level3`, and
+   `monster_behavior4_target_selection`.
 2. `tools/capture_original_dosbox_frames.sh <out-dir> [asset-dir]` is a
-   best-effort original-game capture driver. It copies original assets to a
-   temporary directory, runs `LEZAC.EXE` in DOSBox under Xvfb, drives the window
-   with `xdotool`, asks DOSBox to save screenshots with Ctrl-F5, renames the
-   screenshots to semantic labels matching the C++ sequence, and writes a
-   manifest.
+   best-effort original-game capture driver for the original semantic
+   `level1_bomb_route` only. It copies original assets to a temporary
+   directory, runs `LEZAC.EXE` in DOSBox under Xvfb, drives the window with
+   `xdotool`, asks DOSBox to save screenshots with Ctrl-F5, renames the
+   screenshots to semantic labels matching the C++ level-1 route sequence, and
+   writes a manifest.
 3. `tools/frame_compare.py <left> <right> [--diff out.ppm]` compares paired
    frames and reports exact and thresholded pixel-difference metrics.
 
-The current C++ sequence writes these checkpoints:
+The current C++ sequences write these checkpoints:
 
 ```text
+level1_bomb_route:
 000_menu.ppm
 010_level1_start.ppm
 020_level1_tile24_aligned.ppm
@@ -26,11 +29,32 @@ The current C++ sequence writes these checkpoints:
 040_level1_tile24_explosion.ppm
 050_level1_tile24_playback_4.ppm
 060_level1_tile24_playback_12.ppm
+
+monster_spawner_behavior4_level2:
+000_menu.ppm
+010_level2_start.ppm
+020_level2_behavior4_spawner_armed.ppm
+030_level2_behavior4_spawned.ppm
+
+monster_spawner_behavior4_level3:
+000_menu.ppm
+010_level3_start.ppm
+020_level3_behavior4_spawner_armed.ppm
+030_level3_behavior4_spawned.ppm
+
+monster_behavior4_target_selection:
+000_menu.ppm
+010_level3_two_player_start.ppm
+020_level3_behavior4_target_armed.ppm
+030_level3_behavior4_target_p2.ppm
+040_level3_behavior4_target_p1.ppm
+050_level3_behavior4_target_p2_return.ppm
+
 manifest.txt
 ```
 
-The DOSBox capture driver attempts to write the same labels without the `.ppm`
-extension:
+The DOSBox capture driver attempts to write the same labels for
+`level1_bomb_route` without the `.ppm` extension:
 
 ```text
 000_menu.png
@@ -44,11 +68,17 @@ manifest.txt
 original_capture.log
 ```
 
-The route can also be tested without writing frame files:
+These scenarios can also be tested without writing frame files:
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer level1_bomb_route
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer monster_spawner_behavior4_level2
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer monster_spawner_behavior4_level3
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer monster_behavior4_target_selection
 ```
 
 This is not yet a proof of original visual fidelity. The C++ frames are
@@ -60,13 +90,17 @@ visually inspected before being used as oracle evidence. If needed, tune
 `LEZAC_ORIGINAL_STARTUP_SECONDS`, `LEZAC_ORIGINAL_START_KEY`,
 `LEZAC_ORIGINAL_START_TEXT`, or `LEZAC_ORIGINAL_ROUTE_RIGHT_SECONDS` and rerun.
 For faithful reconstruction work, pair frames by semantic checkpoint and use
-the diff metrics to guide targeted investigations.
+the diff metrics to guide targeted investigations. `manifest.txt` now records
+player count/death flags and first-monster position/velocity/behavior for the
+monster scenarios; `changed_pixels` is a within-frame non-uniformity count, not
+a diff-vs-previous-frame metric.
 
 Example:
 
 ```sh
 cmake --build build
-tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-frames
+tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-frames level1_bomb_route
+tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-b4-level2 monster_spawner_behavior4_level2
 tools/capture_original_dosbox_frames.sh /tmp/lezac-original-frames .
 tools/frame_compare.py \
   /tmp/lezac-cpp-frames/010_level1_start.ppm \

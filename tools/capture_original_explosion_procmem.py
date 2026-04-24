@@ -1365,7 +1365,10 @@ def main() -> int:
                 if name != "090_after_sampling.png" and digest == after_hash:
                     tail_match_frame = name
                     break
-        freeze_observed = freeze_patch is not None and bool(tail_match_frame)
+        patch_active = freeze_patch is not None and (
+            not runtime_freeze or runtime_freeze_patch_elapsed is not None
+        )
+        freeze_observed = patch_active and bool(tail_match_frame)
         chosen_score = sample_score(chosen)
         chosen_fields = decode_sample(chosen)
         try:

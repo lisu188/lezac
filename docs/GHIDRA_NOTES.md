@@ -397,14 +397,16 @@ state. A faster process-memory run using `--sample-interval 0.005` and
 screenshots matched the visible blast frame, so the zero-target branch is now
 runtime-observed, though still as instrumentation evidence with
 `visual_claim=0`.
-Follow-up fast gated probes patched `1000:4c75` and `1000:4c96` in sampled
-`DS:292b` zero-target states with word-layer value `0x0000`, but neither
-froze. A paired `1000:4ca9` probe did freeze after `1.576s`; its post-freeze
-candidate selected debris base `DS:292b`, collapse base `DS:663e`, target
-offset `0x05b9`, target byte `0x00`, and word-layer value `0x0000`. This makes
-`4ca9` the first runtime-observed lane-call site for the captured zero-target
-high-debris route, while `4c75` and `4c96` remain patch-loaded/no-freeze
-evidence for their sampled states.
+Static code at `1000:4c64..4ca9` loads a word through the `DS:6612` far pointer
+into `[bp-4]`, checks it at `1000:4c75`, skips to `4cae` when the word is
+zero-or-negative, and otherwise calls the forward lane helper from `4c96` and
+the reverse lane helper from `4ca9` after OR-ing the word with `0x8000`.
+Follow-up fast gated probes now freeze both `1000:4c75` and `1000:4ca9` in the
+captured high-debris route. The promoted fixture summaries still show sampled
+target bytes and word-layer values from queue state, not the live `[bp-4]`
+local at the frozen instruction; by static control flow, the `4ca9` freeze
+means some live iteration took the positive side of the `4c75` gate. `4c96`
+still needs an earlier or local-aware probe.
 
 ## Sound Playback Evidence
 

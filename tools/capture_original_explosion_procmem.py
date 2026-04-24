@@ -508,7 +508,7 @@ def apply_runtime_freeze_preset(args: argparse.Namespace) -> None:
     if args.runtime_freeze_min_debris_nonzero is None:
         args.runtime_freeze_min_debris_nonzero = 10
     if args.runtime_freeze_min_collapse_nonzero is None:
-        args.runtime_freeze_min_collapse_nonzero = 20
+        args.runtime_freeze_min_collapse_nonzero = 18
     if args.runtime_freeze_min_effect_nonzero is None:
         args.runtime_freeze_min_effect_nonzero = 20
     if args.sample_screenshot_seconds == DEFAULT_SAMPLE_SCREENSHOTS:
@@ -1418,7 +1418,10 @@ def main() -> int:
                 ("1000:3BB2", 0x3BB2, "collapse_forward_pass"),
                 ("1000:3D46", 0x3D46, "collapse_reverse_pass"),
                 ("1000:3FA6", 0x3FA6, "effect_constructor_candidate"),
+                ("1000:45FA", 0x45FA, "effect_debris_update_entry"),
                 ("1000:432A", 0x432A, "effect_playback_candidate"),
+                ("1000:4C96", 0x4C96, "effect_forward_pass_call"),
+                ("1000:4CA9", 0x4CA9, "effect_reverse_pass_call"),
             ]:
                 observed = "process_memory_sampling_no_debugger_break"
                 if freeze_patch is not None and offset == int(freeze_patch["ghidra_offset"]):

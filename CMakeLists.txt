@@ -570,6 +570,38 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^collision_pushout=ok player_h_clear=1 player_v_clear=1 monster_h_clear=1 monster_v_clear=1 monster_b4_half=1 passable_clear=1 solid_tile=2")
 
+    add_test(NAME monster_bomb_kill_live
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-monster-bomb-kill-live)
+    set_tests_properties(monster_bomb_kill_live PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^monster_bomb_kill_live=ok bomb_type=4 damage=4 killed=1 removed=1 reward=1 frame_inspection=1")
+
+    add_test(NAME player_damage_death_live
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-player-damage-death-live)
+    set_tests_properties(player_damage_death_live PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^player_damage_death_live=ok first_energy=99 frames_to_life_loss=[0-9]+ lives=2 reentry_state=1 frame_inspection=1")
+
+    add_test(NAME object_collision_jump_live
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-object-collision-jump-live)
+    set_tests_properties(object_collision_jump_live PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^object_collision_jump_live=ok support_cell=17,22 jump_vy=-[0-9]+ route_clear=1 frame_inspection=1")
+
+    add_test(NAME hud_stats_live
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-hud-stats-live)
+    set_tests_properties(hud_stats_live PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^hud_stats_live=ok hp_visible=1 lives_visible=1 bombs_visible=1 progress_visible=1 frame_inspection=1")
+
     find_program(BASH_EXECUTABLE bash)
     find_program(XVFB_RUN_EXECUTABLE xvfb-run)
     find_program(XDOTOOL_EXECUTABLE xdotool)

@@ -365,6 +365,15 @@ still instrumentation evidence with `visual_claim=0`, not a promoted pristine
 fixture. See
 `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md`.
 
+Replaying the earlier high-counter route timing with
+`--runtime-freeze-require-debris-base 0x292b` let the helper patch
+`1000:4c96` while the selected debris slot was counter-derived:
+`DS:207e=0x00c8`, selected debris base `DS:292b`, and record bytes
+`41 05 04 c0 26 00 1c 00 00 67 80`. The patch loaded at runtime but visible
+playback advanced through the tail screenshots, so this run proves the
+high-counter queue state and loaded `4c96` patch, not execution of the
+lane-call instruction after the patch point.
+
 ## Sound Playback Evidence
 
 The original sound loader at `1000:0630..06aa` opens `PROEFS.SON`, reads first

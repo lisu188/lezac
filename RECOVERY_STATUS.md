@@ -277,6 +277,9 @@ Baseline: `origin/main`
   `DS:6620`, and `DS:c22e`. A follow-up `1000:492F` probe froze on the same
   visible playback window with `DS:207e=0x00c7`, explaining the `4C96` skip:
   static code requires `DS:207e >= 0x00c8` before entering that interior path.
+  Replaying the earlier high-counter route timing patched `1000:4C96` while
+  `DS:207e=0x00c8` and `selected_debris_base=DS:292b`, but the frame sequence
+  advanced through the tail screenshots with `instrumented_freeze_observed=0`.
   The inspected captures remain instrumentation evidence with
   `visual_claim=0`; no original fixture was promoted.
 - `./build/lezac_cpp --debug-passable-objects` passed with

@@ -304,6 +304,29 @@ the `0x00c7` exit-before-interior path. Therefore the current level-1 route
 proves the `45FA` update entry and `492F` high-loop gate during visible
 playback, but not the `4C96`/`4CA9` lane-call path.
 
+The high-counter timing from `/tmp/lezac-wide-debris-20260424-codex-1` was then
+replayed with runtime child-memory patching for `1000:4C96`:
+`--level-start-seconds 1.5`, `--sample-interval 0.04`, `--sample-seconds 2.5`,
+`--route-state-interval 0.5`, and `--runtime-freeze-require-debris-base
+0x292b`. The default-delay rerun
+`/tmp/lezac-4c96-highdebris-runtime-20260424-codex-1` did not reach the
+counter-selected slot and stayed at `DS:207e=0x00c7`. The route-tuned rerun
+`/tmp/lezac-4c96-highdebris-runtime-20260424-codex-2` did reach the intended
+gate: the runtime patch loaded at `1.995s` after bomb input with queue score
+`200`, `DS:207e=0x00c8`, selected debris base `DS:292b`, collapse base
+`DS:663e`, and effect base `DS:c22e`. The selected high debris record was
+`41 05 04 c0 26 00 1c 00 00 67 80`, decoded as tile index `0x0541`, flagged
+word `0xc004`, forward byte `0x26`, reverse byte `0x00`, and lookup byte
+`0x67`. Frame inspection of `040_sample_1p50s.png`, `041_sample_2p00s.png`,
+`090_after_sampling.png`, and `091_tail_freeze_check.png` showed visible
+explosion/smoke playback advancing, and the manifest recorded
+`instrumented_freeze_observed=0`. A matching `1000:4CA9` run at
+`/tmp/lezac-4ca9-highdebris-runtime-20260424-codex-1` did not reproduce the
+`DS:292b` gate and left the runtime patch unapplied. These results narrow the
+next question: `4C96` can be patched while the high-counter slot is selected,
+but this route still does not prove execution of the lane-call instruction
+after the patch is installed.
+
 This is useful route evidence, but it is still not enough to promote an
 explosion runtime oracle fixture by itself; the unresolved fixture still needs
 runtime bytes or debugger/process-memory samples tied to the relevant
@@ -314,10 +337,12 @@ and the sampled effect table still needs exact semantic interpretation.
 
 ## Next Step
 
-Use the now-working `45FA`/`492F` visible-playback freezes to target a route or
-seeded setup where `DS:207e >= 0x00c8`, then re-probe `4C96`/`4CA9`. Prefer
-gating those attempts on route-state rows, selected queue bases, and nonzero
-explosion queue growth instead of fixed sleeps alone. Only promote
+Use the now-working `45FA`/`492F` visible-playback freezes plus the
+high-counter `4C96` patch-loaded/no-freeze result to align an earlier stop
+inside `1000:45fa..4d3b`, preferably before the lane-call decision for the
+selected `DS:292b` record. Prefer gating those attempts on route-state rows,
+selected queue bases, and nonzero explosion queue growth instead of fixed
+sleeps alone. Only promote
 `explosion_playback_oracle_original.txt` after screenshots show the intended
 bomb/object event and the sampled bytes prove the exact runtime window and
 field semantics.

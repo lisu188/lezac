@@ -283,6 +283,10 @@ Baseline: `origin/main`
   A route-tuned temp-copy patch at `1000:4B3F` then froze on the visible blast
   frame with `DS:207e=0x00c8`, proving the high-debris interior reaches the
   target-byte sample before the unresolved `4B6A`/`4C20`/`4C75` branch path.
+  The helper now emits target fields; a follow-up `1000:4B61` freeze stopped
+  at the target-byte gate with target offset `0x0541`, target byte `0x00`,
+  word-layer value `0x0000`, and `DS:c204=0x003c`, identifying the next static
+  branch as the zero-target path at `1000:4B6A`.
   The inspected captures remain instrumentation evidence with
   `visual_claim=0`; no original fixture was promoted.
 - `./build/lezac_cpp --debug-passable-objects` passed with

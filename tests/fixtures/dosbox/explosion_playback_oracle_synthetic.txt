@@ -8,6 +8,15 @@ command=dosbox-debug -c "mount c /tmp/lezac-dosbox-explosion" -c "c:" -c "DEBUG 
 
 runtime_cs=1A2B
 runtime_ds=2B3C
+high_debris_target_delta=0001
+high_debris_target_offset=0394
+high_debris_lookup_segment=3EF4
+high_debris_word_layer_offset=0000
+high_debris_word_layer_segment=3F71
+high_debris_word_layer_address=0728
+high_debris_c204=0010
+high_debris_target_byte=75
+high_debris_word_layer_value=8009
 
 break ghidra=1000:75F1 runtime=1A2B:75F1 label=bomb_expire_dispatch_call
 break ghidra=1000:414A runtime=1A2B:414A label=explosion_dispatcher
@@ -19,6 +28,7 @@ break ghidra=1000:3D46 runtime=1A2B:3D46 label=collapse_reverse_pass
 break ghidra=1000:45FA runtime=1A2B:45FA label=effect_debris_update_entry
 break ghidra=1000:492F runtime=1A2B:492F label=high_debris_loop_entry
 break ghidra=1000:4B3F runtime=1A2B:4B3F label=high_debris_target_sample
+break ghidra=1000:4B61 runtime=1A2B:4B61 label=high_debris_target_byte_gate
 break ghidra=1000:4B6A runtime=1A2B:4B6A label=high_debris_zero_target_branch
 break ghidra=1000:4C20 runtime=1A2B:4C20 label=high_debris_nonzero_target_branch
 break ghidra=1000:4C75 runtime=1A2B:4C75 label=high_debris_word_gate

@@ -380,6 +380,12 @@ the `4c96`/`4ca9` calls on a positive word-layer value. A route-tuned
 temp-copy patch at `1000:4b3f` froze on the visible explosion frame with
 `DS:207e=0x00c8` and selected debris base `DS:292b`, proving the high-debris
 interior reaches the target-byte sample before the unresolved lane-call branch.
+The helper now decodes the target fields directly: `DS:2090` delta, target
+offset, lookup segment at `DS:c1fe`, word-layer pointer at `DS:6612`,
+`DS:c204`, target byte, and target word. A follow-up `1000:4b61` freeze stopped
+at the byte gate with target offset `0x0541`, target byte `0x00`, word-layer
+value `0x0000`, and `DS:c204=0x003c`; by the static `cmpb $0x0,-0x11(%bp)` /
+`je 4b6a` pair, that frozen state chooses the zero-target branch at `4b6a`.
 
 ## Sound Playback Evidence
 

@@ -4885,6 +4885,13 @@ public:
             }
             return static_cast<uint16_t>(std::stoul(token, nullptr, 16));
         };
+        auto parseHex16Auto = [&](std::string token,
+                                  const std::string& field) -> uint16_t {
+            if (token.rfind("0x", 0) == 0 || token.rfind("0X", 0) == 0) {
+                token = token.substr(2);
+            }
+            return parseHex16(token, field);
+        };
         auto parseHexByte = [&](const std::string& token,
                                 uint16_t address) -> uint8_t {
             if (token.size() != 2 ||
@@ -4926,6 +4933,18 @@ public:
             uint16_t selectedEffectBase = 0xc21e;
             bool haveSelectedDebrisBase = false;
             bool haveSelectedCollapseBase = false;
+            uint16_t highDebrisTargetDelta = 0;
+            uint16_t highDebrisTargetOffset = 0;
+            uint16_t highDebrisLookupSegment = 0;
+            uint16_t highDebrisWordLayerOffset = 0;
+            uint16_t highDebrisWordLayerSegment = 0;
+            uint16_t highDebrisWordLayerAddress = 0;
+            uint16_t highDebrisC204 = 0;
+            uint8_t highDebrisTargetByte = 0;
+            uint16_t highDebrisWordLayerValue = 0;
+            bool haveHighDebrisTargetOffset = false;
+            bool haveHighDebrisTargetByte = false;
+            bool haveHighDebrisWordLayerValue = false;
 
             std::istringstream lines(text);
             std::string line;
@@ -4963,6 +4982,28 @@ public:
                         haveSelectedCollapseBase = true;
                     } else if (key == "selected_effect_base") {
                         selectedEffectBase = parseHex16(value, key);
+                    } else if (key == "high_debris_target_delta") {
+                        highDebrisTargetDelta = parseHex16Auto(value, key);
+                    } else if (key == "high_debris_target_offset") {
+                        highDebrisTargetOffset = parseHex16Auto(value, key);
+                        haveHighDebrisTargetOffset = true;
+                    } else if (key == "high_debris_lookup_segment") {
+                        highDebrisLookupSegment = parseHex16Auto(value, key);
+                    } else if (key == "high_debris_word_layer_offset") {
+                        highDebrisWordLayerOffset = parseHex16Auto(value, key);
+                    } else if (key == "high_debris_word_layer_segment") {
+                        highDebrisWordLayerSegment = parseHex16Auto(value, key);
+                    } else if (key == "high_debris_word_layer_address") {
+                        highDebrisWordLayerAddress = parseHex16Auto(value, key);
+                    } else if (key == "high_debris_c204") {
+                        highDebrisC204 = parseHex16Auto(value, key);
+                    } else if (key == "high_debris_target_byte") {
+                        highDebrisTargetByte = static_cast<uint8_t>(
+                            parseHex16Auto(value, key) & 0xff);
+                        haveHighDebrisTargetByte = true;
+                    } else if (key == "high_debris_word_layer_value") {
+                        highDebrisWordLayerValue = parseHex16Auto(value, key);
+                        haveHighDebrisWordLayerValue = true;
                     }
                     continue;
                 }
@@ -4991,9 +5032,10 @@ public:
                     if (ghidraOffset == 0x3a7e || ghidraOffset == 0x3b18 ||
                         ghidraOffset == 0x3bb2 || ghidraOffset == 0x3d46 ||
                         ghidraOffset == 0x45fa || ghidraOffset == 0x492f ||
-                        ghidraOffset == 0x4b3f || ghidraOffset == 0x4b6a ||
-                        ghidraOffset == 0x4c20 || ghidraOffset == 0x4c75 ||
-                        ghidraOffset == 0x4c96 || ghidraOffset == 0x4ca9) {
+                        ghidraOffset == 0x4b3f || ghidraOffset == 0x4b61 ||
+                        ghidraOffset == 0x4b6a || ghidraOffset == 0x4c20 ||
+                        ghidraOffset == 0x4c75 || ghidraOffset == 0x4c96 ||
+                        ghidraOffset == 0x4ca9) {
                         ++playbackBreaks;
                     }
                     continue;
@@ -5187,6 +5229,29 @@ public:
                       << hexBytePrefix(collapseAffectedBytes)
                       << " collapse0_count=" << hexBytePrefix(collapseCount)
                       << " lookup_base=0xc1e0 lookup0=0x" << hexByte(lookup0)
+                      << (haveHighDebrisTargetOffset
+                              ? std::string(" high_debris_target_delta=") +
+                                    hex4(highDebrisTargetDelta) +
+                                    " high_debris_target_offset=" +
+                                    hex4(highDebrisTargetOffset) +
+                                    " high_debris_lookup_segment=" +
+                                    hex4(highDebrisLookupSegment) +
+                                    " high_debris_word_layer_offset=" +
+                                    hex4(highDebrisWordLayerOffset) +
+                                    " high_debris_word_layer_segment=" +
+                                    hex4(highDebrisWordLayerSegment) +
+                                    " high_debris_word_layer_address=" +
+                                    hex4(highDebrisWordLayerAddress) +
+                                    " high_debris_c204=" + hex4(highDebrisC204)
+                              : "")
+                      << (haveHighDebrisTargetByte
+                              ? std::string(" high_debris_target_byte=") +
+                                    hexBytePrefix(highDebrisTargetByte)
+                              : "")
+                      << (haveHighDebrisWordLayerValue
+                              ? std::string(" high_debris_word_layer_value=") +
+                                    hex4(highDebrisWordLayerValue)
+                              : "")
                       << " effect_base=" << hex4(selectedEffectBase)
                       << " effect0=" << effect0
                       << " effect0_xy=" << hex4(effectX) << ',' << hex4(effectY)

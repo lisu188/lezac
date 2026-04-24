@@ -347,6 +347,21 @@ hashes matched. Route-tuned temp-copy probes at `1000:4B6A` and `1000:4C20`
 did not reproduce the `DS:292b` high-counter state and did not freeze, so they
 do not yet distinguish the zero-target and nonzero-target branches.
 
+The capture helper now emits explicit high-debris target fields for chosen
+samples: the signed `DS:2090` delta, target byte offset, lookup segment from
+`DS:c1fe`, word-layer far pointer from `DS:6612`, `DS:c204`, sampled target
+byte, and target word-layer value. A fresh `1000:4B61` temp-copy probe at
+`/tmp/lezac-4b61-target-gate-20260424-codex-1` froze at the byte gate after
+the target sample. It parsed with `DS:207e=0x00c8`, selected debris base
+`DS:292b`, target delta `0x0001`, target offset `0x0541`, lookup segment
+`0x3ef4`, target byte `0x00`, word-layer address `3f71:0a82`, word-layer value
+`0x0000`, and `DS:c204=0x003c`. Static code at `1000:4b61` compares that
+sampled byte with zero and jumps to `1000:4b6a` when it is zero, so this run
+identifies the next branch for the frozen visible blast state as the
+zero-target path. Frame inspection of `041_sample_2p00s.png`,
+`090_after_sampling.png`, and `091_tail_freeze_check.png` showed the same
+visible blast frame and matching hashes.
+
 This is useful route evidence, but it is still not enough to promote an
 explosion runtime oracle fixture by itself; the unresolved fixture still needs
 runtime bytes or debugger/process-memory samples tied to the relevant
@@ -357,13 +372,11 @@ and the sampled effect table still needs exact semantic interpretation.
 
 ## Next Step
 
-Use the now-working `45FA`/`492F`/`4B3F` visible-playback freezes plus the
-high-counter `4C96` patch-loaded/no-freeze result to align a debugger or
-process-memory stop immediately after `1000:4B3F`, then record the target byte,
-`DS:2090`, `DS:c204`, and word-layer value that choose between `4B6A`,
-`4C20`, and `4C75`. Prefer gating those attempts on route-state rows, selected
-queue bases, and nonzero explosion queue growth instead of fixed sleeps alone.
-Only promote
+Use the now-working `45FA`/`492F`/`4B3F`/`4B61` visible-playback freezes plus
+the high-counter `4C96` patch-loaded/no-freeze result to follow the confirmed
+zero-target branch at `1000:4B6A`. Prefer gating those attempts on route-state
+rows, selected queue bases, target byte `0x00`, and nonzero explosion queue
+growth instead of fixed sleeps alone. Only promote
 `explosion_playback_oracle_original.txt` after screenshots show the intended
 bomb/object event and the sampled bytes prove the exact runtime window and
 field semantics.

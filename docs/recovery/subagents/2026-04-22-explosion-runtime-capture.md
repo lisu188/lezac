@@ -94,7 +94,10 @@ D DS:C320
 ```
 
 Minimum bytes required by the current oracle parser remain `DS:2093..209D`,
-`DS:6611..661F`, `DS:C1E0`, and `DS:C21E..C225`.
+`DS:6611..661F`, `DS:C1E0`, and `DS:C21E..C225`. The parser emits raw byte
+lists and decoded first-record fields for debris, collapse, and effect entries,
+so original fixtures should preserve the full ranges even when only one field
+seems immediately relevant.
 
 ## Input Attempts
 

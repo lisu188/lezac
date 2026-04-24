@@ -271,7 +271,13 @@ Normalize the transcript into
 `tests/fixtures/dosbox/explosion_playback_oracle_original.txt` only after live
 bytes are captured. The checked-in `--debug-explosion-playback-oracle` fixtures
 are synthetic parser coverage and keep `visual_claim=0`; they must not be used
-as evidence for exact sprite playback.
+as evidence for exact sprite playback. The oracle now decodes the first raw
+debris, collapse, and effect records into named fields such as
+`debris0_tile_index`, `debris0_flagged`, `collapse0_start`,
+`collapse0_word`, `collapse0_flagged`, `effect0_xy`, `effect0_sprite`,
+`effect0_timer`, and `effect0_variant`, while still printing the raw byte
+lists. `explosion_playback_oracle_missing_effect_byte` verifies incomplete
+effect-entry dumps fail instead of producing partial visual claims.
 
 ## Sound Playback Evidence
 

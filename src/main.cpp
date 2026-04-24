@@ -4844,6 +4844,9 @@ public:
                 << std::setfill('0') << static_cast<int>(value);
             return oss.str();
         };
+        auto hexBytePrefix = [&](uint8_t value) {
+            return "0x" + hexByte(value);
+        };
         auto bareHex4 = [](uint16_t value) {
             std::ostringstream oss;
             oss << std::hex << std::nouppercase << std::setw(4)
@@ -5017,6 +5020,11 @@ public:
                 }
                 return oss.str();
             };
+            auto requireLe16 = [&](uint16_t address) {
+                return static_cast<uint16_t>(
+                    requireByte(address) |
+                    (requireByte(static_cast<uint16_t>(address + 1)) << 8));
+            };
 
             constexpr uint16_t kDebrisBase = 0x2093;
             constexpr uint16_t kCollapseBase = 0x6611;
@@ -5026,6 +5034,27 @@ public:
             std::string collapse0 = byteList(kCollapseBase, static_cast<int>(kCollapseStride));
             std::string effect0 = byteList(kEffectBase, 8);
             uint8_t lookup0 = requireByte(kLookupBase);
+            uint16_t debrisTileIndex = requireLe16(kDebrisBase);
+            uint16_t debrisFlagged = requireLe16(static_cast<uint16_t>(kDebrisBase + 2));
+            uint8_t debrisForward = requireByte(static_cast<uint16_t>(kDebrisBase + 4));
+            uint8_t debrisReverse = requireByte(static_cast<uint16_t>(kDebrisBase + 5));
+            uint8_t debrisLookup = requireByte(static_cast<uint16_t>(kDebrisBase + 9));
+            uint16_t collapseStart = requireLe16(kCollapseBase);
+            uint16_t collapseEnd = requireLe16(static_cast<uint16_t>(kCollapseBase + 2));
+            uint16_t collapseWord = requireLe16(static_cast<uint16_t>(kCollapseBase + 4));
+            uint16_t collapseFlagged = static_cast<uint16_t>(collapseWord | kDamagedWordBit);
+            uint8_t collapseForward = requireByte(static_cast<uint16_t>(kCollapseBase + 6));
+            uint8_t collapseReverse = requireByte(static_cast<uint16_t>(kCollapseBase + 7));
+            uint16_t collapseMagnitude = requireLe16(static_cast<uint16_t>(kCollapseBase + 8));
+            uint8_t collapseAffectedBytes =
+                requireByte(static_cast<uint16_t>(kCollapseBase + 10));
+            uint8_t collapseCount = requireByte(static_cast<uint16_t>(kCollapseBase + 11));
+            uint16_t effectX = requireLe16(kEffectBase);
+            uint16_t effectY = requireLe16(static_cast<uint16_t>(kEffectBase + 2));
+            uint8_t effectSprite = requireByte(static_cast<uint16_t>(kEffectBase + 4));
+            uint8_t effectDetail = requireByte(static_cast<uint16_t>(kEffectBase + 5));
+            uint8_t effectTimer = requireByte(static_cast<uint16_t>(kEffectBase + 6));
+            uint8_t effectVariant = requireByte(static_cast<uint16_t>(kEffectBase + 7));
 
             std::cout << "explosion_playback_oracle=ok fixture=" << fixture
                       << " runtime_cs=" << hex4(runtimeCs)
@@ -5035,10 +5064,30 @@ public:
                       << " playback_breaks=" << playbackBreaks
                       << " debris_base=0x2093 debris_stride=" << kDebrisStride
                       << " debris0=" << debris0
+                      << " debris0_tile_index=" << hex4(debrisTileIndex)
+                      << " debris0_flagged=" << hex4(debrisFlagged)
+                      << " debris0_forward=" << hexBytePrefix(debrisForward)
+                      << " debris0_reverse=" << hexBytePrefix(debrisReverse)
+                      << " debris0_lookup=" << hexBytePrefix(debrisLookup)
                       << " collapse_base=0x6611 collapse_stride=" << kCollapseStride
                       << " collapse0=" << collapse0
+                      << " collapse0_start=" << hex4(collapseStart)
+                      << " collapse0_end=" << hex4(collapseEnd)
+                      << " collapse0_word=" << hex4(collapseWord)
+                      << " collapse0_flagged=" << hex4(collapseFlagged)
+                      << " collapse0_forward=" << hexBytePrefix(collapseForward)
+                      << " collapse0_reverse=" << hexBytePrefix(collapseReverse)
+                      << " collapse0_magnitude=" << hex4(collapseMagnitude)
+                      << " collapse0_affected_bytes="
+                      << hexBytePrefix(collapseAffectedBytes)
+                      << " collapse0_count=" << hexBytePrefix(collapseCount)
                       << " lookup_base=0xc1e0 lookup0=0x" << hexByte(lookup0)
                       << " effect_base=0xc21e effect0=" << effect0
+                      << " effect0_xy=" << hex4(effectX) << ',' << hex4(effectY)
+                      << " effect0_sprite=" << hexBytePrefix(effectSprite)
+                      << " effect0_detail=" << hexBytePrefix(effectDetail)
+                      << " effect0_timer=" << hexBytePrefix(effectTimer)
+                      << " effect0_variant=" << hexBytePrefix(effectVariant)
                       << " temp_copy=" << (tempCopy ? 1 : 0)
                       << " visual_claim=0\n";
             if (expectError) {

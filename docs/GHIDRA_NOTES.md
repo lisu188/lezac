@@ -294,7 +294,12 @@ original fixture because process-memory sampling has not proven a stop inside
 with an `EB FE` freeze loop at a requested Ghidra offset. Instrumented attempts
 showed `1000:3fa6` is reached before visible explosion playback and `1000:3a7e`
 may be route/timing sensitive, while `1000:3bb2` and `1000:432a` were not
-reached by the current level-1 timed route. See
+reached by the current level-1 timed route. It also emits
+`route_state_samples.tsv` and `route_state_dumps.txt` with timestamped raw
+bytes for known route/control ranges (`DS:1b70`, `DS:78c0`, `DS:7990`,
+`DS:79e0`) plus explosion/effect ranges (`DS:2090`, `DS:6610`, `DS:c1e0`,
+`DS:c21e`, `DS:c320`), so later debugger/freeze attempts can be aligned to
+runtime state rather than fixed sleeps alone. See
 `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md`.
 
 ## Sound Playback Evidence

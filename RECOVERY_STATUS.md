@@ -62,6 +62,10 @@ Baseline: `origin/main`
   helper. It patches only the temporary `LEZAC.EXE` copy with `EB FE`, records
   MZ-derived file offsets, original/loaded bytes, screenshot hashes, and a
   tail-frame freeze observation flag.
+- Added route-state sampling to the process-memory helper. Candidate captures
+  now include `route_state_samples.tsv` and `route_state_dumps.txt` with raw
+  bytes around known input/player/sound/explosion ranges so future original
+  probes can be gated on runtime state instead of fixed sleeps alone.
 - Extended `--debug-explosion-playback-oracle` so fixtures can decode selected
   debris/collapse/effect bases while keeping the existing slot-zero defaults.
 - Updated `AGENTS.md`, README, and recovery docs with the autoplayer, original
@@ -165,6 +169,15 @@ Baseline: `origin/main`
   Visual inspection showed bomb placement, visible explosion at `1.5s`, and
   smoke playback at `2.0s`; the generated candidate decoded selected
   `DS:662F` collapse bytes through the C++ oracle with `visual_claim=0`.
+- `python3 tools/capture_original_explosion_procmem.py
+  /tmp/lezac-route-state-20260424-codex-1 . --approve-procmem --mode regular
+  --level-start-seconds 1.5 --sample-seconds 1.0 --sample-interval 0.12
+  --route-state-interval 0.25 --sample-screenshot-seconds 0.5` passed under
+  WSL/Xvfb. It wrote `route_state_samples.tsv` and `route_state_dumps.txt`;
+  frame inspection of `040_sample_0p50s.png` and `090_after_sampling.png`
+  confirmed level-1 bomb placement and visible explosion playback. The
+  generated candidate still parsed through `--debug-explosion-playback-oracle`
+  with `visual_claim=0`.
 - Instrumented temp-copy runs patched and loaded freeze loops at `1000:3A7E`,
   `1000:3BB2`, `1000:3FA6`, and `1000:432A`. `1000:3FA6` reliably froze, but
   before visible explosion playback; `1000:3A7E` produced one explosion-frame

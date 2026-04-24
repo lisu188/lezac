@@ -13,6 +13,7 @@ not pristine original evidence.
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import hashlib
 import glob
 import os
@@ -54,9 +55,29 @@ COLLAPSE_STRIDE = 0x0F
 EFFECT_BASE = 0xC21E
 EFFECT_STRIDE = 0x08
 FREEZE_PATCH = bytes.fromhex("ebfe")
+ROUTE_STATE_RANGES = [
+    ("DS:0060", 0x0060, 0x80),
+    ("DS:1B70", 0x1B70, 0x20),
+    ("DS:2070", 0x2070, 0x60),
+    ("DS:2090", 0x2090, 0x30),
+    ("DS:6610", 0x6610, 0x30),
+    ("DS:78C0", 0x78C0, 0x20),
+    ("DS:7990", 0x7990, 0x40),
+    ("DS:79E0", 0x79E0, 0x40),
+    ("DS:C1E0", 0xC1E0, 0x20),
+    ("DS:C21E", 0xC21E, 0x40),
+    ("DS:C320", 0xC320, 0x60),
+]
 
 
 SampleRecord = tuple[float, bytes, bytes, bytes, bytes, bytes]
+
+
+@dataclass
+class RouteStateRecord:
+    label: str
+    elapsed_after_bomb: float | None
+    dumps: dict[str, bytes]
 
 
 def run(args: list[str], env: dict[str, str], check: bool = True) -> str:
@@ -242,6 +263,156 @@ def read_emulated(pid: int, base: int, segment: int, offset: int, length: int) -
     with open(f"/proc/{pid}/mem", "rb", buffering=0) as mem:
         mem.seek(host)
         return mem.read(length)
+
+
+def capture_route_state(
+    pid: int, base: int, label: str, elapsed_after_bomb: float | None
+) -> RouteStateRecord:
+    return RouteStateRecord(
+        label=label,
+        elapsed_after_bomb=elapsed_after_bomb,
+        dumps={
+            name: read_emulated(pid, base, RUNTIME_DS, offset, length)
+            for name, offset, length in ROUTE_STATE_RANGES
+        },
+    )
+
+
+def route_bytes(record: RouteStateRecord, offset: int, length: int) -> bytes:
+    for name, start, _ in ROUTE_STATE_RANGES:
+        data = record.dumps[name]
+        if start <= offset and offset + length <= start + len(data):
+            return data[offset - start : offset - start + length]
+    raise KeyError(f"route state did not capture DS:{offset:04X}..{offset + length:04X}")
+
+
+def route_u8(record: RouteStateRecord, offset: int) -> int:
+    return route_bytes(record, offset, 1)[0]
+
+
+def route_u16(record: RouteStateRecord, offset: int) -> int:
+    return le16(route_bytes(record, offset, 2), 0)
+
+
+def route_state_fields(record: RouteStateRecord) -> dict[str, int | str | float | None]:
+    decoded = decode_sample(
+        (
+            record.elapsed_after_bomb or 0.0,
+            record.dumps["DS:2070"],
+            record.dumps["DS:2090"],
+            record.dumps["DS:6610"],
+            record.dumps["DS:C1E0"],
+            record.dumps["DS:C21E"],
+        )
+    )
+    return {
+        "label": record.label,
+        "elapsed_after_bomb": record.elapsed_after_bomb,
+        "p1_input_gate_1b7b": route_u8(record, 0x1B7B),
+        "p2_input_gate_1b80": route_u8(record, 0x1B80),
+        "action_gate_79a3": route_u8(record, 0x79A3),
+        "active_players_79b8": route_u8(record, 0x79B8),
+        "fallback_79b9": route_u8(record, 0x79B9),
+        "sound_cursor_2074": route_u16(record, 0x2074),
+        "sound_current_78c0": route_u16(record, 0x78C0),
+        "sound_active_79c4": route_u8(record, 0x79C4),
+        "sound_pending_priority_799f": route_u8(record, 0x799F),
+        "p1_state_79e5": route_u8(record, 0x79E5),
+        "p2_state_79e6": route_u8(record, 0x79E6),
+        "p1_damage_79e8": route_u8(record, 0x79E8),
+        "p2_damage_79e9": route_u8(record, 0x79E9),
+        "p1_life_counter_79ea": route_u8(record, 0x79EA),
+        "p2_life_counter_79eb": route_u8(record, 0x79EB),
+        "input_nonzero": nonzero_count(record.dumps["DS:1B70"]),
+        "player_state_nonzero": nonzero_count(record.dumps["DS:79E0"]),
+        "debris_nonzero": nonzero_count(record.dumps["DS:2090"]),
+        "collapse_nonzero": nonzero_count(record.dumps["DS:6610"]),
+        "effect_nonzero": nonzero_count(record.dumps["DS:C21E"]),
+        "frame_table_nonzero": nonzero_count(record.dumps["DS:C320"]),
+        "queue_score": sample_score(
+            (
+                record.elapsed_after_bomb or 0.0,
+                record.dumps["DS:2070"],
+                record.dumps["DS:2090"],
+                record.dumps["DS:6610"],
+                record.dumps["DS:C1E0"],
+                record.dumps["DS:C21E"],
+            )
+        ),
+        "selected_debris_base": decoded["selected_debris_base"],
+        "selected_collapse_base": decoded["selected_collapse_base"],
+        "selected_effect_base": decoded["selected_effect_base"],
+        "debris_tile_index": decoded["debris_tile_index"],
+        "collapse_word": decoded["collapse_word"],
+        "effect_sprite": decoded["effect_sprite"],
+    }
+
+
+def write_route_state_samples(
+    tsv_path: Path, dump_path: Path, records: list[RouteStateRecord]
+) -> None:
+    fields = [
+        "label",
+        "elapsed_after_bomb",
+        "p1_input_gate_1b7b",
+        "p2_input_gate_1b80",
+        "action_gate_79a3",
+        "active_players_79b8",
+        "fallback_79b9",
+        "sound_cursor_2074",
+        "sound_current_78c0",
+        "sound_active_79c4",
+        "sound_pending_priority_799f",
+        "p1_state_79e5",
+        "p2_state_79e6",
+        "p1_damage_79e8",
+        "p2_damage_79e9",
+        "p1_life_counter_79ea",
+        "p2_life_counter_79eb",
+        "input_nonzero",
+        "player_state_nonzero",
+        "debris_nonzero",
+        "collapse_nonzero",
+        "effect_nonzero",
+        "frame_table_nonzero",
+        "queue_score",
+        "selected_debris_base",
+        "selected_collapse_base",
+        "selected_effect_base",
+        "debris_tile_index",
+        "collapse_word",
+        "effect_sprite",
+    ]
+    with tsv_path.open("w", encoding="ascii") as out:
+        out.write("\t".join(fields) + "\n")
+        for record in records:
+            decoded = route_state_fields(record)
+            values: list[str] = []
+            for field in fields:
+                value = decoded[field]
+                if value is None:
+                    values.append("")
+                elif field == "label":
+                    values.append(str(value))
+                elif field == "elapsed_after_bomb":
+                    values.append(f"{float(value):.3f}")
+                else:
+                    values.append(f"0x{int(value):04x}")
+            out.write("\t".join(values) + "\n")
+
+    with dump_path.open("w", encoding="ascii") as out:
+        out.write("# LEZAC original process-memory route-state dumps.\n")
+        out.write("# Captured from the temp DOSBox child; raw bytes are evidence, labels are route checkpoints.\n")
+        for record in records:
+            elapsed = (
+                ""
+                if record.elapsed_after_bomb is None
+                else f" elapsed_after_bomb={record.elapsed_after_bomb:.3f}"
+            )
+            out.write(f"\n# route_state label={record.label}{elapsed}\n")
+            for name, offset, _ in ROUTE_STATE_RANGES:
+                out.write(f"\ndump {name}\n")
+                out.write(format_dump(RUNTIME_DS, offset, record.dumps[name]) + "\n")
 
 
 def parse_time_list(value: str) -> list[float]:
@@ -506,6 +677,12 @@ def main() -> int:
     parser.add_argument("--sample-seconds", type=float, default=8.0)
     parser.add_argument("--sample-interval", type=float, default=0.08)
     parser.add_argument(
+        "--route-state-interval",
+        type=float,
+        default=0.25,
+        help="seconds between extra DS route-state snapshots after bomb input; 0 keeps only checkpoints",
+    )
+    parser.add_argument(
         "--sample-screenshot-seconds",
         default="0.5,1.0,1.5,2.0,3.0",
         help="comma-separated seconds after bomb input for visual checkpoints",
@@ -536,6 +713,8 @@ def main() -> int:
     out_dir = Path(args.out_dir).resolve()
     asset_dir = Path(args.asset_dir).resolve()
     repo_dir = Path.cwd().resolve()
+    if args.route_state_interval < 0:
+        raise RuntimeError("--route-state-interval must be non-negative")
     if repo_dir in out_dir.parents or out_dir == repo_dir:
         raise RuntimeError("choose an output directory outside the repository")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -643,13 +822,22 @@ def main() -> int:
 
         game = run(["xdotool", "search", "--name", "DOSBox"], env).split()[0]
         snapshot(env, out_dir, game, "000_menu")
+        route_state_records: list[RouteStateRecord] = [
+            capture_route_state(pid, base, "000_menu", None)
+        ]
         for _ in range(max(args.start_taps, 1)):
             key(env, game, args.start_key)
             time.sleep(0.4)
         time.sleep(args.level_start_seconds)
         snapshot(env, out_dir, game, "010_level_start")
+        route_state_records.append(
+            capture_route_state(pid, base, "010_level_start", None)
+        )
         hold_key(env, game, args.right_key, args.right_hold_seconds)
         snapshot(env, out_dir, game, "020_route_position")
+        route_state_records.append(
+            capture_route_state(pid, base, "020_route_position", None)
+        )
         held_tap(env, game, args.bomb_key, args.bomb_hold_seconds)
         time.sleep(0.3)
         snapshot(env, out_dir, game, "030_bomb_key")
@@ -658,6 +846,10 @@ def main() -> int:
         captured_sample_screenshots: list[str] = []
         pending_screenshots = list(sample_screenshot_seconds)
         started = time.time()
+        route_state_records.append(capture_route_state(pid, base, "030_bomb_key", 0.0))
+        next_route_state_elapsed = (
+            args.route_state_interval if args.route_state_interval > 0 else None
+        )
         while time.time() - started < args.sample_seconds:
             elapsed = time.time() - started
             records.append(
@@ -670,6 +862,21 @@ def main() -> int:
                     read_emulated(pid, base, RUNTIME_DS, 0xC21E, 0x40),
                 )
             )
+            if (
+                next_route_state_elapsed is not None
+                and elapsed >= next_route_state_elapsed
+            ):
+                label_seconds = f"{next_route_state_elapsed:.2f}".replace(".", "p")
+                route_state_records.append(
+                    capture_route_state(
+                        pid,
+                        base,
+                        f"sample_{label_seconds}s",
+                        elapsed,
+                    )
+                )
+                while next_route_state_elapsed <= elapsed:
+                    next_route_state_elapsed += args.route_state_interval
             while pending_screenshots and elapsed >= pending_screenshots[0]:
                 target_seconds = pending_screenshots.pop(0)
                 label_seconds = f"{target_seconds:.2f}".replace(".", "p")
@@ -678,10 +885,23 @@ def main() -> int:
                 captured_sample_screenshots.append(label)
             time.sleep(args.sample_interval)
         snapshot(env, out_dir, game, "090_after_sampling")
+        route_state_records.append(
+            capture_route_state(
+                pid,
+                base,
+                "090_after_sampling",
+                time.time() - started,
+            )
+        )
 
         chosen = choose_sample(records)
         sample_summary = out_dir / "sample_summary.tsv"
         write_sample_summary(sample_summary, records)
+        route_state_summary = out_dir / "route_state_samples.tsv"
+        route_state_dumps = out_dir / "route_state_dumps.txt"
+        write_route_state_samples(
+            route_state_summary, route_state_dumps, route_state_records
+        )
         screenshot_hashes: list[tuple[str, str]] = []
         for image_path in sorted(out_dir.glob("*.png")):
             screenshot_hashes.append((image_path.name, sha256_file(image_path)))
@@ -718,6 +938,8 @@ def main() -> int:
                     + ",".join(f"{label}.png" for label in captured_sample_screenshots)
                     + "\n"
                 )
+            out.write(f"# route_state_samples={route_state_summary.name}\n")
+            out.write(f"# route_state_dumps={route_state_dumps.name}\n")
             out.write("capture=explosion_playback\n")
             out.write(f"source=dosbox-{args.mode}-process-memory\n")
             out.write("temp_copy=1\nvisual_claim=0\n")
@@ -813,6 +1035,9 @@ def main() -> int:
             f"sample_seconds={args.sample_seconds:.2f}\n"
             f"sample_interval={args.sample_interval:.3f}\n"
             f"sample_summary={sample_summary}\n"
+            f"route_state_interval={args.route_state_interval:.3f}\n"
+            f"route_state_samples={route_state_summary}\n"
+            f"route_state_dumps={route_state_dumps}\n"
             f"sample_screenshots="
             f"{','.join(label + '.png' for label in captured_sample_screenshots)}\n"
             f"chosen_sample_seconds_after_bomb={elapsed:.2f}\n"

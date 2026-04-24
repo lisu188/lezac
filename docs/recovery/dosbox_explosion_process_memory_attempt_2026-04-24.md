@@ -110,6 +110,18 @@ after the bomb input. The generated candidate selected `DS:662F` as the best
 collapse slot and decoded it through the C++ oracle, proving that the selected
 slot machinery works on original bytes.
 
+The helper now also writes `route_state_samples.tsv` and
+`route_state_dumps.txt`. These files sample narrow runtime ranges around known
+route and player state bytes (`DS:1b70`, `DS:78c0`, `DS:7990`, `DS:79e0`),
+the explosion queues (`DS:2090`, `DS:6610`, `DS:c1e0`, `DS:c21e`), and the
+state-2 frame table area (`DS:c320`). A short validation capture at
+`/tmp/lezac-route-state-20260424-codex-1` reached level 1, placed a bomb, and
+showed visible explosion playback in `090_after_sampling.png`; its route-state
+rows show `active_players_79b8=1` after level start and rising queue/effect
+nonzero counts by the final sample. These route-state artifacts are raw
+evidence for hardening future timing gates, not promoted gameplay semantics by
+themselves.
+
 Instrumented temporary-copy freeze attempts then tested several playback-window
 anchors:
 
@@ -135,7 +147,9 @@ still needs exact semantic interpretation.
 
 Use the now-working route with a clearly labeled instrumented temporary copy
 that freezes after a target address is reached, or with a debugger session that
-can submit breakpoint commands. Only promote
+can submit breakpoint commands. Prefer gating those attempts on route-state
+rows, such as level loaded, player-control state, and nonzero explosion queue
+growth, instead of fixed sleeps alone. Only promote
 `explosion_playback_oracle_original.txt` after screenshots show the intended
 bomb/object event and the sampled bytes prove the relevant runtime window was
 reached.

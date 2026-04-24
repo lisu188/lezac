@@ -1608,10 +1608,6 @@ public:
     }
 
     void captureFrameSequence(const std::string& scenario, const std::string& outDir) {
-        if (scenario != "level1_bomb_route") {
-            throw std::runtime_error("unknown frame sequence scenario " + scenario);
-        }
-
         load();
         initSdl();
         resetLevel(0);
@@ -1623,15 +1619,30 @@ public:
             FrameInspection inspection;
             int menu = 0;
             int level = 0;
+            int playerCount = 0;
             int p1x = 0;
             int p1y = 0;
             int p1BombX = 0;
             int p1BombY = 0;
+            int p1Dead = 0;
+            int p2x = -1;
+            int p2y = -1;
+            int p2BombX = -1;
+            int p2BombY = -1;
+            int p2Dead = 0;
             size_t bombs = 0;
             size_t flashes = 0;
             size_t explosions = 0;
             size_t debris = 0;
             size_t collapse = 0;
+            size_t monsters = 0;
+            int monsterX = -1;
+            int monsterY = -1;
+            int monsterVx8 = 0;
+            int monsterVy8 = 0;
+            int monsterBehavior = -1;
+            int monsterHp = 0;
+            int monsterSpawner = 0;
         };
 
         std::vector<CapturedFrame> captures;
@@ -1642,61 +1653,266 @@ public:
             frame.inspection = inspectRenderedFrame(label);
             frame.menu = menu_ ? 1 : 0;
             frame.level = levelIndex_ + 1;
+            frame.playerCount = playerCount_;
             frame.p1x = static_cast<int>(player_.x);
             frame.p1y = static_cast<int>(player_.y);
             frame.p1BombX = static_cast<int>(player_.x + 6.0f) / kTileSize;
             frame.p1BombY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+            frame.p1Dead = playerDead_ ? 1 : 0;
+            if (playerCount_ > 1) {
+                frame.p2x = static_cast<int>(player2_.x);
+                frame.p2y = static_cast<int>(player2_.y);
+                frame.p2BombX = static_cast<int>(player2_.x + 6.0f) / kTileSize;
+                frame.p2BombY = static_cast<int>(player2_.y + 12.0f) / kTileSize;
+            }
+            frame.p2Dead = player2Dead_ ? 1 : 0;
             frame.bombs = bombs_.size();
             frame.flashes = flashes_.size();
             frame.explosions = explosionEffects_.size();
             frame.debris = debrisQueue_.size();
             frame.collapse = collapseQueue_.size();
+            frame.monsters = monsters_.size();
+            if (!monsters_.empty()) {
+                const ActiveMonster& monster = monsters_.front();
+                frame.monsterX = monster.x;
+                frame.monsterY = monster.y;
+                frame.monsterVx8 = monster.vx8;
+                frame.monsterVy8 = monster.vy8;
+                frame.monsterBehavior = monster.behavior;
+                frame.monsterHp = monster.hp;
+                frame.monsterSpawner = monster.hasSpawner ? static_cast<int>(monster.spawnerIndex) + 1 : 0;
+            }
             writeArgbPpm(joinPath(outDir, frame.file), fb_, kScreenW, kScreenH);
             captures.push_back(std::move(frame));
         };
 
         bool running = true;
+        auto spanUpper = [](uint16_t base, uint16_t range) {
+            return static_cast<uint16_t>(base + std::max<uint16_t>(1, range));
+        };
+        auto findSpawnerByBehavior = [&](uint8_t behavior) {
+            for (size_t i = 0; i < level_.monsterSpawners.size(); ++i) {
+                if (level_.monsterSpawners[i].spawnArg == behavior) {
+                    return i;
+                }
+            }
+            return level_.monsterSpawners.size();
+        };
+        auto disableOtherSpawners = [&](size_t keepIndex) {
+            for (size_t i = 0; i < spawnerStates_.size(); ++i) {
+                if (i != keepIndex) {
+                    spawnerStates_[i].remaining = 0;
+                    spawnerStates_[i].availableSlots = 0;
+                }
+            }
+        };
+
         capture("000_menu");
 
-        pushKeyDown(SDLK_1);
-        processEvents(running);
-        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
-            throw std::runtime_error("frame sequence failed to start one-player level 1");
-        }
-        capture("010_level1_start");
+        if (scenario == "level1_bomb_route") {
+            pushKeyDown(SDLK_1);
+            processEvents(running);
+            if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+                throw std::runtime_error("frame sequence failed to start one-player level 1");
+            }
+            capture("010_level1_start");
 
-        AutoplayRouteResult route = autoplayLevel1BombRoute();
-        if (route.bombTileX != 24 || route.bombTileY != 22) {
-            throw std::runtime_error("frame sequence autoplayer missed level-1 tile 24,22");
-        }
-        capture("020_level1_tile24_aligned");
+            AutoplayRouteResult route = autoplayLevel1BombRoute();
+            if (route.bombTileX != 24 || route.bombTileY != 22) {
+                throw std::runtime_error("frame sequence autoplayer missed level-1 tile 24,22");
+            }
+            capture("020_level1_tile24_aligned");
 
-        pushKeyDown(SDLK_n);
-        processEvents(running);
-        if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 22) {
-            throw std::runtime_error(
-                "frame sequence N key did not place the level-1 tile 24,22 bomb");
-        }
-        capture("030_level1_tile24_bomb");
+            pushKeyDown(SDLK_n);
+            processEvents(running);
+            if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 22) {
+                throw std::runtime_error(
+                    "frame sequence N key did not place the level-1 tile 24,22 bomb");
+            }
+            capture("030_level1_tile24_bomb");
 
-        int fuse = bombs_.back().timer;
-        for (int i = 0; i < fuse; ++i) {
-            update(1.0f / 60.0f);
-        }
-        if (!bombs_.empty() || explosionEffects_.empty()) {
-            throw std::runtime_error("frame sequence bomb did not reach explosion playback");
-        }
-        capture("040_level1_tile24_explosion");
+            int fuse = bombs_.back().timer;
+            for (int i = 0; i < fuse; ++i) {
+                update(1.0f / 60.0f);
+            }
+            if (!bombs_.empty() || explosionEffects_.empty()) {
+                throw std::runtime_error("frame sequence bomb did not reach explosion playback");
+            }
+            capture("040_level1_tile24_explosion");
 
-        for (int i = 0; i < 4; ++i) {
-            update(1.0f / 60.0f);
-        }
-        capture("050_level1_tile24_playback_4");
+            for (int i = 0; i < 4; ++i) {
+                update(1.0f / 60.0f);
+            }
+            capture("050_level1_tile24_playback_4");
 
-        for (int i = 0; i < 8; ++i) {
-            update(1.0f / 60.0f);
+            for (int i = 0; i < 8; ++i) {
+                update(1.0f / 60.0f);
+            }
+            capture("060_level1_tile24_playback_12");
+        } else if (scenario == "monster_spawner_behavior4_level2") {
+            pushKeyDown(SDLK_1);
+            processEvents(running);
+            if (menu_ || playerCount_ != 1) {
+                throw std::runtime_error("frame sequence failed to start one-player level 2");
+            }
+            resetLevel(1);
+            if (levelIndex_ != 1) {
+                throw std::runtime_error("frame sequence did not load level 2");
+            }
+            capture("010_level2_start");
+
+            size_t spawnerIndex = findSpawnerByBehavior(4);
+            if (spawnerIndex >= level_.monsterSpawners.size()) {
+                throw std::runtime_error("frame sequence found no level-2 behavior-4 spawner");
+            }
+            disableOtherSpawners(spawnerIndex);
+            const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
+            randomSeed_ = 0x1234abcd;
+            player_.x = static_cast<float>(spawner.x + 40);
+            player_.y = static_cast<float>(spawner.y);
+            player_.vy = -6.0f;
+            player_.grounded = false;
+            spawnerStates_[spawnerIndex].cooldown = 0;
+            capture("020_level2_behavior4_spawner_armed");
+
+            FrameControls idle;
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (monsters_.size() != 1) {
+                throw std::runtime_error("frame sequence did not spawn level-2 behavior-4 actor");
+            }
+            const ActiveMonster& monster = monsters_.front();
+            if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
+                monster.kind != spawner.monsterKind || monster.behavior != 4 ||
+                monster.animDelay != std::max<uint8_t>(1, spawner.animationDelay) ||
+                monster.ai0 < spawner.param0Base ||
+                monster.ai0 >= spanUpper(spawner.param0Base, spawner.param0Range) ||
+                monster.ai1 < spawner.param1Base ||
+                monster.ai1 >= spanUpper(spawner.param1Base, spawner.param1Range) ||
+                monster.ai2 < spawner.param2Base ||
+                monster.ai2 >= spanUpper(spawner.param2Base, spawner.param2Range) ||
+                monster.hp < spawner.randomBase ||
+                monster.hp >= spanUpper(spawner.randomBase, spawner.randomRange) ||
+                monster.motionTimer != std::max<int>(1, monster.ai0) - 1 ||
+                monster.vx8 <= 0 || monster.vy8 != 0 || monster.x <= spawner.x) {
+                throw std::runtime_error(
+                    "frame sequence level-2 behavior-4 spawn fields mismatched");
+            }
+            capture("030_level2_behavior4_spawned");
+        } else if (scenario == "monster_spawner_behavior4_level3") {
+            pushKeyDown(SDLK_1);
+            processEvents(running);
+            if (menu_ || playerCount_ != 1) {
+                throw std::runtime_error("frame sequence failed to start one-player level 3");
+            }
+            resetLevel(2);
+            if (levelIndex_ != 2) {
+                throw std::runtime_error("frame sequence did not load level 3");
+            }
+            capture("010_level3_start");
+
+            size_t spawnerIndex = findSpawnerByBehavior(4);
+            if (spawnerIndex >= level_.monsterSpawners.size()) {
+                throw std::runtime_error("frame sequence found no level-3 behavior-4 spawner");
+            }
+            disableOtherSpawners(spawnerIndex);
+            const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
+            randomSeed_ = 0x1234abcd;
+            player_.x = static_cast<float>(spawner.x + 24);
+            player_.y = static_cast<float>(spawner.y - 16);
+            player_.vy = -6.0f;
+            player_.grounded = false;
+            spawnerStates_[spawnerIndex].cooldown = 0;
+            capture("020_level3_behavior4_spawner_armed");
+
+            FrameControls idle;
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (monsters_.size() != 1) {
+                throw std::runtime_error("frame sequence did not spawn level-3 behavior-4 actor");
+            }
+            const ActiveMonster& monster = monsters_.front();
+            if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
+                monster.kind != spawner.monsterKind || monster.behavior != 4 ||
+                monster.animDelay != std::max<uint8_t>(1, spawner.animationDelay) ||
+                monster.ai0 < spawner.param0Base ||
+                monster.ai0 >= spanUpper(spawner.param0Base, spawner.param0Range) ||
+                monster.ai1 < spawner.param1Base ||
+                monster.ai1 >= spanUpper(spawner.param1Base, spawner.param1Range) ||
+                monster.ai2 < spawner.param2Base ||
+                monster.ai2 >= spanUpper(spawner.param2Base, spawner.param2Range) ||
+                monster.hp < spawner.randomBase ||
+                monster.hp >= spanUpper(spawner.randomBase, spawner.randomRange) ||
+                monster.motionTimer != std::max<int>(1, monster.ai0) - 1 ||
+                monster.vx8 <= 0 || monster.vy8 >= 0) {
+                throw std::runtime_error(
+                    "frame sequence level-3 behavior-4 spawn fields mismatched");
+            }
+            capture("030_level3_behavior4_spawned");
+        } else if (scenario == "monster_behavior4_target_selection") {
+            pushKeyDown(SDLK_2);
+            processEvents(running);
+            if (menu_ || playerCount_ != 2 || playerDead_ || player2Dead_) {
+                throw std::runtime_error("frame sequence failed to start two-player level 3");
+            }
+            resetLevel(2);
+            if (levelIndex_ != 2) {
+                throw std::runtime_error("frame sequence did not load level 3");
+            }
+            capture("010_level3_two_player_start");
+
+            size_t spawnerIndex = findSpawnerByBehavior(4);
+            if (spawnerIndex >= level_.monsterSpawners.size()) {
+                throw std::runtime_error("frame sequence found no level-3 behavior-4 spawner");
+            }
+            disableOtherSpawners(spawnerIndex);
+            const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
+            randomSeed_ = 0x1234abcd;
+            spawnerStates_[spawnerIndex].cooldown = 0;
+            player_.x = static_cast<float>(spawner.x + 40);
+            player_.y = static_cast<float>(spawner.y);
+            player_.vy = -6.0f;
+            player2_.x = static_cast<float>(spawner.x - 16);
+            player2_.y = static_cast<float>(spawner.y);
+            player2_.vy = -6.0f;
+            playerDead_ = false;
+            player2Dead_ = false;
+            capture("020_level3_behavior4_target_armed");
+
+            FrameControls idle;
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (monsters_.size() != 1 || monsters_.front().behavior != 4 ||
+                monsters_.front().vx8 >= 0 || monsters_.front().x >= spawner.x) {
+                throw std::runtime_error(
+                    "frame sequence behavior-4 target did not prefer player 2");
+            }
+            int xAfterP2 = monsters_.front().x;
+            capture("030_level3_behavior4_target_p2");
+
+            player2Dead_ = true;
+            player_.x = static_cast<float>(monsters_.front().x + 24);
+            player_.y = static_cast<float>(monsters_.front().y);
+            monsters_.front().motionTimer = 1;
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (monsters_.front().vx8 <= 0 || monsters_.front().x <= xAfterP2) {
+                throw std::runtime_error(
+                    "frame sequence behavior-4 target did not retarget player 1");
+            }
+            int xAfterP1 = monsters_.front().x;
+            capture("040_level3_behavior4_target_p1");
+
+            playerDead_ = true;
+            player2Dead_ = false;
+            player2_.x = static_cast<float>(monsters_.front().x - 24);
+            player2_.y = static_cast<float>(monsters_.front().y);
+            monsters_.front().motionTimer = 1;
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (monsters_.front().vx8 >= 0 || monsters_.front().x >= xAfterP1) {
+                throw std::runtime_error(
+                    "frame sequence behavior-4 target did not retarget back to player 2");
+            }
+            capture("050_level3_behavior4_target_p2_return");
+        } else {
+            throw std::runtime_error("unknown frame sequence scenario " + scenario);
         }
-        capture("060_level1_tile24_playback_12");
 
         std::ofstream manifest(joinPath(outDir, "manifest.txt"));
         if (!manifest) {
@@ -1713,13 +1929,24 @@ public:
                      << " changed_pixels=" << frame.inspection.changedPixels
                      << " menu=" << frame.menu
                      << " level=" << frame.level
+                     << " players=" << frame.playerCount
                      << " p1_xy=" << frame.p1x << ',' << frame.p1y
                      << " p1_bomb_tile=" << frame.p1BombX << ',' << frame.p1BombY
+                     << " p1_dead=" << frame.p1Dead
+                     << " p2_xy=" << frame.p2x << ',' << frame.p2y
+                     << " p2_bomb_tile=" << frame.p2BombX << ',' << frame.p2BombY
+                     << " p2_dead=" << frame.p2Dead
                      << " bombs=" << frame.bombs
                      << " flashes=" << frame.flashes
                      << " explosions=" << frame.explosions
                      << " debris=" << frame.debris
-                     << " collapse=" << frame.collapse << '\n';
+                     << " collapse=" << frame.collapse
+                     << " monsters=" << frame.monsters
+                     << " monster_xy=" << frame.monsterX << ',' << frame.monsterY
+                     << " monster_v8=" << frame.monsterVx8 << ',' << frame.monsterVy8
+                     << " monster_behavior=" << frame.monsterBehavior
+                     << " monster_hp=" << frame.monsterHp
+                     << " monster_spawner=" << frame.monsterSpawner << '\n';
         }
 
         std::cout << "frame_sequence=ok"
@@ -1739,8 +1966,26 @@ public:
             debugAutoplayerDeathVisuals(scenario);
         } else if (scenario == "level_transition") {
             debugAutoplayerLevelTransition(scenario);
+        } else if (scenario == "portal_weapon_route") {
+            debugAutoplayerPortalWeaponRoute(scenario);
         } else if (scenario == "records_flow") {
             debugAutoplayerRecordsFlow(scenario);
+        } else if (scenario == "monster_bomb_reward") {
+            debugAutoplayerMonsterBombReward(scenario);
+        } else if (scenario == "monster_behavior3_multihit") {
+            debugAutoplayerMonsterBehavior3Multihit(scenario);
+        } else if (scenario == "monster_behavior4_chase") {
+            debugAutoplayerMonsterBehavior4Chase(scenario);
+        } else if (scenario == "monster_spawner_cycle") {
+            debugAutoplayerMonsterSpawnerCycle(scenario);
+        } else if (scenario == "monster_spawner_behavior4_level2") {
+            debugAutoplayerMonsterSpawnerBehavior4Level2(scenario);
+        } else if (scenario == "monster_spawner_behavior4_level3") {
+            debugAutoplayerMonsterSpawnerBehavior4Level3(scenario);
+        } else if (scenario == "monster_behavior4_target_selection") {
+            debugAutoplayerMonsterBehavior4TargetSelection(scenario);
+        } else if (scenario == "collapse_playback_route") {
+            debugAutoplayerCollapsePlaybackRoute(scenario);
         } else if (scenario == "two_player_route") {
             debugAutoplayerTwoPlayerRoute(scenario);
         } else if (scenario == "two_player_progression") {
@@ -1984,6 +2229,117 @@ public:
                   << " frame_inspection=1\n";
     }
 
+    void debugAutoplayerPortalWeaponRoute(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+            throw std::runtime_error("portal/weapon autoplayer failed to start level 1");
+        }
+
+        int portalLevel = -1;
+        int sourceX = -1;
+        int sourceY = -1;
+        uint16_t portalKey = 0;
+        const LevelPortal* destination = nullptr;
+        auto findPortalSource = [&]() {
+            sourceX = -1;
+            sourceY = -1;
+            portalKey = 0;
+            destination = nullptr;
+            for (int y = 1; y < level_.height && !destination; ++y) {
+                for (int x = 0; x < level_.width && !destination; ++x) {
+                    if (tileAt(x, y) != 0x45) continue;
+                    uint16_t key = static_cast<uint16_t>(wordAt(x, y) & 0x7fffu);
+                    if (key == 0) continue;
+                    for (const LevelPortal& portal : level_.portals) {
+                        if (portal.key == key) {
+                            sourceX = x;
+                            sourceY = y;
+                            portalKey = key;
+                            destination = &portal;
+                            break;
+                        }
+                    }
+                }
+            }
+            return destination != nullptr;
+        };
+
+        if (!findPortalSource()) {
+            for (size_t level = 1; level < levels_.size(); ++level) {
+                resetLevel(static_cast<int>(level));
+                if (findPortalSource()) {
+                    portalLevel = static_cast<int>(level);
+                    break;
+                }
+            }
+        } else {
+            portalLevel = levelIndex_;
+        }
+        if (portalLevel < 0) {
+            throw std::runtime_error("portal/weapon autoplayer found no portal source");
+        }
+        menu_ = false;
+
+        FrameInspection startFrame = inspectRenderedFrame("autoplayer-portal-weapon-start");
+        FrameControls switchControls;
+        switchControls.p1Left = true;
+        switchControls.p1Right = true;
+        updateWithControls(switchControls, 1.0f / 60.0f);
+        if (bombInventory_.selected != BombType::Medium) {
+            throw std::runtime_error("portal/weapon autoplayer did not switch to medium bomb");
+        }
+
+        size_t bombsBefore = bombs_.size();
+        int mediumBefore = bombInventory_.counts[1];
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.size() != bombsBefore + 1 ||
+            bombs_.back().type != BombType::Medium ||
+            bombInventory_.counts[1] != mediumBefore - 1) {
+            throw std::runtime_error("portal/weapon autoplayer did not place medium bomb");
+        }
+        FrameInspection bombFrame = inspectRenderedFrame("autoplayer-portal-weapon-bomb");
+        if (bombFrame.hash == startFrame.hash) {
+            throw std::runtime_error("portal/weapon bomb frame did not change");
+        }
+
+        player_.x = static_cast<float>(sourceX * kTileSize);
+        player_.y = static_cast<float>(sourceY * kTileSize - kTileSize);
+        clearSoundLatch();
+        lastPumpedSoundOffset_ = 0;
+        lastPumpedSoundSelector_ = 0;
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (player_.x != static_cast<float>(destination->x) ||
+            player_.y != static_cast<float>(destination->y) ||
+            portalCooldown_ != 30 || soundLatch_.active ||
+            lastPumpedSoundOffset_ != kPortalTeleportSoundCursor ||
+            lastPumpedSoundSelector_ != kPortalTeleportSoundPriority) {
+            throw std::runtime_error("portal/weapon autoplayer did not trigger portal");
+        }
+
+        FrameInspection portalFrame = inspectRenderedFrame("autoplayer-portal-weapon-portal");
+        if (portalFrame.hash == bombFrame.hash) {
+            throw std::runtime_error("portal/weapon portal frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " level=" << (levelIndex_ + 1)
+                  << " switched_weapon=2 medium_bomb=1"
+                  << " portal_key=" << portalKey
+                  << " portal_from=" << sourceX << ',' << sourceY
+                  << " portal_to=" << destination->x << ',' << destination->y
+                  << " cooldown=" << portalCooldown_
+                  << " frame_inspection=1\n";
+    }
+
     void debugAutoplayerRecordsFlow(const std::string& scenario) {
         load();
         initSdl();
@@ -2034,6 +2390,660 @@ public:
                   << " record_score=" << reloaded[0].score
                   << " record_level=" << static_cast<int>(reloaded[0].level)
                   << " name=" << reloaded[0].name
+                  << " frame_inspection=1\n";
+    }
+
+    void debugAutoplayerMonsterBombReward(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+            throw std::runtime_error("monster reward autoplayer failed to start level 1");
+        }
+
+        FrameInspection startFrame = inspectRenderedFrame("autoplayer-monster-reward-start");
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.empty() || bombs_.back().owner != 1) {
+            throw std::runtime_error("monster reward autoplayer did not place bomb");
+        }
+        bombs_.back().timer = 1;
+        Bomb placed = bombs_.back();
+        auto tiles = explosionTilesFor(placed);
+        std::array<int, 2> monsterTile = tiles.front();
+        for (const auto& tile : tiles) {
+            if (!monsterCollides(tile[0] * kTileSize, tile[1] * kTileSize - kTileSize)) {
+                monsterTile = tile;
+                break;
+            }
+        }
+
+        ActiveMonster monster;
+        monster.x = monsterTile[0] * kTileSize;
+        monster.y = monsterTile[1] * kTileSize - kTileSize;
+        monster.kind = 2;
+        monster.behavior = 3;
+        monster.ai0 = 0;
+        monster.ai1 = 0;
+        monster.ai2 = 1;
+        monster.hp = 1;
+        monster.animDelay = 1;
+        refreshMonsterAnimationProfile(monster);
+        initializeMonsterMotion(monster);
+        monsters_.push_back(monster);
+
+        player_.x = static_cast<float>(
+            std::min(level_.width * kTileSize - 24, (placed.x + 5) * kTileSize));
+        player_.y = static_cast<float>(placed.y * kTileSize);
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (bombs_.size() != 0 || monsters_.empty() ||
+            monsters_.front().behavior != 2 || bonusDrops_.empty()) {
+            throw std::runtime_error("monster reward autoplayer did not kill monster");
+        }
+        FrameInspection deathFrame = inspectRenderedFrame("autoplayer-monster-reward-death");
+        if (deathFrame.hash == startFrame.hash) {
+            throw std::runtime_error("monster reward death frame did not change");
+        }
+
+        uint32_t scoreBefore = score_;
+        BonusDrop drop = bonusDrops_.front();
+        player_.x = drop.x;
+        player_.y = drop.y;
+        clearSoundLatch();
+        lastPumpedSoundOffset_ = 0;
+        lastPumpedSoundSelector_ = 0;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (score_ <= scoreBefore || soundLatch_.active ||
+            lastPumpedSoundOffset_ != 0x0008 || lastPumpedSoundSelector_ != 5) {
+            throw std::runtime_error("monster reward autoplayer did not collect reward");
+        }
+        FrameInspection collectFrame =
+            inspectRenderedFrame("autoplayer-monster-reward-collect");
+        if (collectFrame.hash == deathFrame.hash) {
+            throw std::runtime_error("monster reward collection frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " monster_dead=1 reward_collected=1"
+                  << " score_delta=" << (score_ - scoreBefore)
+                  << " frame_inspection=1\n";
+    }
+
+    void debugAutoplayerMonsterBehavior3Multihit(const std::string& scenario) {
+        load();
+        initSdl();
+        prepareAutoplayerMonsterFixtureLevel();
+        bool running = true;
+
+        player_.x = 80.0f;
+        player_.y = 24.0f;
+        ActiveMonster monster;
+        monster.x = 40;
+        monster.y = 24;
+        monster.kind = 1;
+        monster.behavior = 3;
+        monster.ai0 = 0x0100;
+        monster.hp = 3;
+        monster.animDelay = 1;
+        refreshMonsterAnimationProfile(monster);
+        initializeMonsterMotion(monster);
+        monsters_.push_back(monster);
+
+        FrameInspection startFrame = inspectRenderedFrame("autoplayer-monster-b3-start");
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (monsters_.empty() || monsters_.front().behavior != 3 ||
+            monsters_.front().x <= 40 || monsters_.front().hp != 3) {
+            throw std::runtime_error("monster behavior-3 autoplayer did not advance walker");
+        }
+        int movedPx = monsters_.front().x - 40;
+        FrameInspection moveFrame = inspectRenderedFrame("autoplayer-monster-b3-move");
+        if (moveFrame.hash == startFrame.hash) {
+            throw std::runtime_error("monster behavior-3 move frame did not change");
+        }
+
+        player_.x = 40.0f;
+        player_.y = 24.0f;
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.empty() || bombs_.back().type != BombType::Small) {
+            throw std::runtime_error("monster behavior-3 autoplayer did not place small bomb");
+        }
+        bombs_.back().timer = 1;
+        player_.x = 88.0f;
+        player_.y = 24.0f;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 3 ||
+            monsters_.front().hp != 2 || !bonusDrops_.empty()) {
+            throw std::runtime_error("monster behavior-3 autoplayer first hit mismatch");
+        }
+        FrameInspection firstHitFrame =
+            inspectRenderedFrame("autoplayer-monster-b3-first-hit");
+        if (firstHitFrame.hash == moveFrame.hash) {
+            throw std::runtime_error("monster behavior-3 first-hit frame did not change");
+        }
+
+        FrameControls switchControls;
+        switchControls.p1Left = true;
+        switchControls.p1Right = true;
+        updateWithControls(switchControls, 1.0f / 60.0f);
+        if (bombInventory_.selected != BombType::Medium) {
+            throw std::runtime_error("monster behavior-3 autoplayer did not switch to medium");
+        }
+
+        player_.x = 40.0f;
+        player_.y = 24.0f;
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.empty() || bombs_.back().type != BombType::Medium) {
+            throw std::runtime_error("monster behavior-3 autoplayer did not place medium bomb");
+        }
+        bombs_.back().timer = 1;
+        player_.x = 88.0f;
+        player_.y = 24.0f;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
+            bonusDrops_.empty()) {
+            throw std::runtime_error("monster behavior-3 autoplayer second hit did not kill");
+        }
+        FrameInspection deathFrame =
+            inspectRenderedFrame("autoplayer-monster-b3-death");
+        if (deathFrame.hash == firstHitFrame.hash) {
+            throw std::runtime_error("monster behavior-3 death frame did not change");
+        }
+
+        uint32_t scoreBefore = score_;
+        BonusDrop drop = bonusDrops_.front();
+        player_.x = drop.x;
+        player_.y = drop.y;
+        clearSoundLatch();
+        lastPumpedSoundRecord_ = -1;
+        lastPumpedSoundOffset_ = 0;
+        lastPumpedSoundSelector_ = 0;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (score_ <= scoreBefore || soundLatch_.active ||
+            lastPumpedSoundOffset_ != 0x0008 || lastPumpedSoundSelector_ != 5) {
+            throw std::runtime_error("monster behavior-3 autoplayer did not collect reward");
+        }
+        FrameInspection collectFrame =
+            inspectRenderedFrame("autoplayer-monster-b3-collect");
+        if (collectFrame.hash == deathFrame.hash) {
+            throw std::runtime_error("monster behavior-3 collect frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " moved_px=" << movedPx
+                  << " first_hit_hp=2 second_hit_kill=1 reward_collected=1"
+                  << " score_delta=" << (score_ - scoreBefore)
+                  << " frame_inspection=1\n";
+    }
+
+    void debugAutoplayerMonsterBehavior4Chase(const std::string& scenario) {
+        load();
+        initSdl();
+        prepareAutoplayerMonsterFixtureLevel();
+        bool running = true;
+
+        player_.x = 80.0f;
+        player_.y = 24.0f;
+        ActiveMonster monster;
+        monster.x = 40;
+        monster.y = 24;
+        monster.kind = 2;
+        monster.behavior = 4;
+        monster.ai0 = 2;
+        monster.ai1 = 0x0200;
+        monster.ai2 = 100;
+        monster.hp = 2;
+        monster.animDelay = 1;
+        refreshMonsterAnimationProfile(monster);
+        initializeMonsterMotion(monster);
+        monsters_.push_back(monster);
+
+        FrameInspection startFrame = inspectRenderedFrame("autoplayer-monster-b4-start");
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (monsters_.empty() || monsters_.front().behavior != 4 ||
+            monsters_.front().motionTimer != 1 || monsters_.front().x <= 40) {
+            throw std::runtime_error("monster behavior-4 autoplayer did not chase");
+        }
+        int chaseDx = monsters_.front().x - 40;
+        FrameInspection chaseFrame = inspectRenderedFrame("autoplayer-monster-b4-chase");
+        if (chaseFrame.hash == startFrame.hash) {
+            throw std::runtime_error("monster behavior-4 chase frame did not change");
+        }
+
+        FrameControls switchControls;
+        switchControls.p1Left = true;
+        switchControls.p1Right = true;
+        updateWithControls(switchControls, 1.0f / 60.0f);
+        if (bombInventory_.selected != BombType::Medium) {
+            throw std::runtime_error("monster behavior-4 autoplayer did not switch to medium");
+        }
+
+        player_.x = static_cast<float>(monsters_.front().x);
+        player_.y = static_cast<float>(monsters_.front().y);
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.empty() || bombs_.back().type != BombType::Medium) {
+            throw std::runtime_error("monster behavior-4 autoplayer did not place medium bomb");
+        }
+        bombs_.back().timer = 1;
+        player_.x = 96.0f;
+        player_.y = 24.0f;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
+            bonusDrops_.empty()) {
+            throw std::runtime_error("monster behavior-4 autoplayer bomb kill mismatch");
+        }
+        FrameInspection deathFrame =
+            inspectRenderedFrame("autoplayer-monster-b4-death");
+        if (deathFrame.hash == chaseFrame.hash) {
+            throw std::runtime_error("monster behavior-4 death frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " chase_dx=" << chaseDx
+                  << " timer_after=1 killed=1 frame_inspection=1\n";
+    }
+
+    void debugAutoplayerMonsterSpawnerCycle(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 0 || spawnerStates_.empty()) {
+            throw std::runtime_error("monster spawner autoplayer failed to start level 1");
+        }
+
+        randomSeed_ = 0x1234abcd;
+        player_.x = 320.0f;
+        player_.y = 168.0f;
+        player_.vy = 0.0f;
+        player_.grounded = true;
+        spawnerStates_[0].cooldown = 0;
+        int initialSlots = spawnerStates_[0].availableSlots;
+        int initialRemaining = spawnerStates_[0].remaining;
+
+        FrameInspection startFrame = inspectRenderedFrame("autoplayer-monster-spawner-start");
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (monsters_.empty() || !monsters_.front().hasSpawner ||
+            monsters_.front().spawnerIndex != 0 || monsters_.front().behavior != 3 ||
+            spawnerStates_[0].availableSlots != initialSlots - 1 ||
+            spawnerStates_[0].remaining != initialRemaining - 1) {
+            throw std::runtime_error("monster spawner autoplayer did not spawn actor");
+        }
+        FrameInspection spawnFrame = inspectRenderedFrame("autoplayer-monster-spawner-live");
+        if (spawnFrame.hash == startFrame.hash) {
+            throw std::runtime_error("monster spawner live frame did not change");
+        }
+
+        player_.x = static_cast<float>(monsters_.front().x);
+        player_.y = static_cast<float>(monsters_.front().y);
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.empty() || bombs_.back().type != BombType::Small) {
+            throw std::runtime_error("monster spawner autoplayer did not place small bomb");
+        }
+        bombs_.back().timer = 1;
+        player_.x = static_cast<float>(monsters_.front().x + 32);
+        player_.y = static_cast<float>(monsters_.front().y);
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (monsters_.empty() || monsters_.front().behavior != 2 ||
+            spawnerStates_[0].availableSlots != initialSlots || bonusDrops_.empty()) {
+            throw std::runtime_error("monster spawner autoplayer did not release slot");
+        }
+        FrameInspection deathFrame = inspectRenderedFrame("autoplayer-monster-spawner-death");
+        if (deathFrame.hash == spawnFrame.hash) {
+            throw std::runtime_error("monster spawner death frame did not change");
+        }
+
+        spawnerStates_[0].cooldown = 0;
+        updateWithControls(idle, 1.0f / 60.0f);
+        int liveSpawnerOwned = static_cast<int>(std::count_if(
+            monsters_.begin(), monsters_.end(),
+            [](const ActiveMonster& monster) {
+                return monster.alive && monster.hasSpawner && monster.behavior != 2;
+            }));
+        if (liveSpawnerOwned != 1 || spawnerStates_[0].availableSlots != initialSlots - 1 ||
+            spawnerStates_[0].remaining != initialRemaining - 2) {
+            throw std::runtime_error("monster spawner autoplayer did not respawn actor");
+        }
+        FrameInspection respawnFrame =
+            inspectRenderedFrame("autoplayer-monster-spawner-respawn");
+        if (respawnFrame.hash == deathFrame.hash) {
+            throw std::runtime_error("monster spawner respawn frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " spawner_index=1 reserved_slot=1 released_slot=1 respawned=1"
+                  << " frame_inspection=1\n";
+    }
+
+    void debugAutoplayerMonsterSpawnerBehavior4Level2(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1) {
+            throw std::runtime_error("monster behavior-4 level2 autoplayer failed to start");
+        }
+        resetLevel(1);
+        if (levelIndex_ != 1) {
+            throw std::runtime_error("monster behavior-4 level2 autoplayer did not load level 2");
+        }
+
+        auto spanUpper = [](uint16_t base, uint16_t range) {
+            return static_cast<uint16_t>(base + std::max<uint16_t>(1, range));
+        };
+        size_t spawnerIndex = level_.monsterSpawners.size();
+        for (size_t i = 0; i < level_.monsterSpawners.size(); ++i) {
+            if (level_.monsterSpawners[i].spawnArg == 4) {
+                spawnerIndex = i;
+                break;
+            }
+        }
+        if (spawnerIndex >= level_.monsterSpawners.size()) {
+            throw std::runtime_error("monster behavior-4 level2 autoplayer found no spawner");
+        }
+        for (size_t i = 0; i < spawnerStates_.size(); ++i) {
+            if (i != spawnerIndex) {
+                spawnerStates_[i].remaining = 0;
+                spawnerStates_[i].availableSlots = 0;
+            }
+        }
+        const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
+        randomSeed_ = 0x1234abcd;
+        player_.x = static_cast<float>(spawner.x + 40);
+        player_.y = static_cast<float>(spawner.y);
+        player_.vy = -6.0f;
+        player_.grounded = false;
+        spawnerStates_[spawnerIndex].cooldown = 0;
+
+        FrameInspection startFrame =
+            inspectRenderedFrame("autoplayer-monster-spawner-b4-level2-start");
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (monsters_.size() != 1) {
+            throw std::runtime_error("monster behavior-4 level2 autoplayer did not spawn one actor");
+        }
+        const ActiveMonster& monster = monsters_.front();
+        if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
+            monster.kind != spawner.monsterKind || monster.behavior != 4 ||
+            monster.animDelay != std::max<uint8_t>(1, spawner.animationDelay) ||
+            monster.ai0 < spawner.param0Base || monster.ai0 >= spanUpper(spawner.param0Base, spawner.param0Range) ||
+            monster.ai1 < spawner.param1Base || monster.ai1 >= spanUpper(spawner.param1Base, spawner.param1Range) ||
+            monster.ai2 < spawner.param2Base || monster.ai2 >= spanUpper(spawner.param2Base, spawner.param2Range) ||
+            monster.hp < spawner.randomBase || monster.hp >= spanUpper(spawner.randomBase, spawner.randomRange) ||
+            monster.motionTimer != std::max<int>(1, monster.ai0) - 1 ||
+            monster.vx8 <= 0 || monster.vy8 != 0 || monster.x <= spawner.x) {
+            throw std::runtime_error("monster behavior-4 level2 autoplayer spawn fields mismatched");
+        }
+        FrameInspection spawnFrame =
+            inspectRenderedFrame("autoplayer-monster-spawner-b4-level2-live");
+        if (spawnFrame.hash == startFrame.hash) {
+            throw std::runtime_error("monster behavior-4 level2 frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " level=2 spawner_index=" << (spawnerIndex + 1)
+                  << " ai0=" << monster.ai0
+                  << " ai1=" << monster.ai1
+                  << " ai2=" << monster.ai2
+                  << " hp=" << monster.hp
+                  << " vx8=" << monster.vx8
+                  << " vy8=" << monster.vy8
+                  << " frame_inspection=1\n";
+    }
+
+    void debugAutoplayerMonsterSpawnerBehavior4Level3(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1) {
+            throw std::runtime_error("monster behavior-4 level3 autoplayer failed to start");
+        }
+        resetLevel(2);
+        if (levelIndex_ != 2) {
+            throw std::runtime_error("monster behavior-4 level3 autoplayer did not load level 3");
+        }
+
+        auto spanUpper = [](uint16_t base, uint16_t range) {
+            return static_cast<uint16_t>(base + std::max<uint16_t>(1, range));
+        };
+        size_t spawnerIndex = level_.monsterSpawners.size();
+        for (size_t i = 0; i < level_.monsterSpawners.size(); ++i) {
+            if (level_.monsterSpawners[i].spawnArg == 4) {
+                spawnerIndex = i;
+                break;
+            }
+        }
+        if (spawnerIndex >= level_.monsterSpawners.size()) {
+            throw std::runtime_error("monster behavior-4 level3 autoplayer found no spawner");
+        }
+        for (size_t i = 0; i < spawnerStates_.size(); ++i) {
+            if (i != spawnerIndex) {
+                spawnerStates_[i].remaining = 0;
+                spawnerStates_[i].availableSlots = 0;
+            }
+        }
+        const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
+        randomSeed_ = 0x1234abcd;
+        player_.x = static_cast<float>(spawner.x + 24);
+        player_.y = static_cast<float>(spawner.y - 16);
+        player_.vy = -6.0f;
+        player_.grounded = false;
+        spawnerStates_[spawnerIndex].cooldown = 0;
+
+        FrameInspection startFrame =
+            inspectRenderedFrame("autoplayer-monster-spawner-b4-level3-start");
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (monsters_.size() != 1) {
+            throw std::runtime_error("monster behavior-4 level3 autoplayer did not spawn one actor");
+        }
+        const ActiveMonster& monster = monsters_.front();
+        if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
+            monster.kind != spawner.monsterKind || monster.behavior != 4 ||
+            monster.animDelay != std::max<uint8_t>(1, spawner.animationDelay) ||
+            monster.ai0 < spawner.param0Base || monster.ai0 >= spanUpper(spawner.param0Base, spawner.param0Range) ||
+            monster.ai1 < spawner.param1Base || monster.ai1 >= spanUpper(spawner.param1Base, spawner.param1Range) ||
+            monster.ai2 < spawner.param2Base || monster.ai2 >= spanUpper(spawner.param2Base, spawner.param2Range) ||
+            monster.hp < spawner.randomBase || monster.hp >= spanUpper(spawner.randomBase, spawner.randomRange) ||
+            monster.motionTimer != std::max<int>(1, monster.ai0) - 1 ||
+            monster.vx8 <= 0 || monster.vy8 >= 0) {
+            throw std::runtime_error("monster behavior-4 level3 autoplayer spawn fields mismatched");
+        }
+        FrameInspection spawnFrame =
+            inspectRenderedFrame("autoplayer-monster-spawner-b4-level3-live");
+        if (spawnFrame.hash == startFrame.hash) {
+            throw std::runtime_error("monster behavior-4 level3 frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " level=3 spawner_index=" << (spawnerIndex + 1)
+                  << " ai0=" << monster.ai0
+                  << " ai1=" << monster.ai1
+                  << " ai2=" << monster.ai2
+                  << " hp=" << monster.hp
+                  << " vx8=" << monster.vx8
+                  << " vy8=" << monster.vy8
+                  << " frame_inspection=1\n";
+    }
+
+    void debugAutoplayerMonsterBehavior4TargetSelection(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_2);
+        processEvents(running);
+        if (menu_ || playerCount_ != 2 || playerDead_ || player2Dead_) {
+            throw std::runtime_error("monster behavior-4 target autoplayer failed to start");
+        }
+        resetLevel(2);
+        if (levelIndex_ != 2) {
+            throw std::runtime_error("monster behavior-4 target autoplayer did not load level 3");
+        }
+
+        size_t spawnerIndex = level_.monsterSpawners.size();
+        for (size_t i = 0; i < level_.monsterSpawners.size(); ++i) {
+            if (level_.monsterSpawners[i].spawnArg == 4) {
+                spawnerIndex = i;
+                break;
+            }
+        }
+        if (spawnerIndex >= level_.monsterSpawners.size()) {
+            throw std::runtime_error("monster behavior-4 target autoplayer found no spawner");
+        }
+        for (size_t i = 0; i < spawnerStates_.size(); ++i) {
+            if (i != spawnerIndex) {
+                spawnerStates_[i].remaining = 0;
+                spawnerStates_[i].availableSlots = 0;
+            }
+        }
+        const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
+        randomSeed_ = 0x1234abcd;
+        spawnerStates_[spawnerIndex].cooldown = 0;
+        player_.x = static_cast<float>(spawner.x + 40);
+        player_.y = static_cast<float>(spawner.y);
+        player_.vy = -6.0f;
+        player2_.x = static_cast<float>(spawner.x - 16);
+        player2_.y = static_cast<float>(spawner.y);
+        player2_.vy = -6.0f;
+        playerDead_ = false;
+        player2Dead_ = false;
+
+        FrameInspection startFrame =
+            inspectRenderedFrame("autoplayer-monster-b4-target-start");
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (monsters_.size() != 1 || monsters_.front().behavior != 4 ||
+            monsters_.front().vx8 >= 0 || monsters_.front().x >= spawner.x) {
+            throw std::runtime_error("monster behavior-4 target autoplayer did not prefer player 2");
+        }
+        int xAfterP2 = monsters_.front().x;
+        FrameInspection p2Frame =
+            inspectRenderedFrame("autoplayer-monster-b4-target-p2");
+        if (p2Frame.hash == startFrame.hash) {
+            throw std::runtime_error("monster behavior-4 target player-2 frame did not change");
+        }
+
+        player2Dead_ = true;
+        player_.x = static_cast<float>(monsters_.front().x + 24);
+        player_.y = static_cast<float>(monsters_.front().y);
+        monsters_.front().motionTimer = 1;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (monsters_.front().vx8 <= 0 || monsters_.front().x <= xAfterP2) {
+            throw std::runtime_error("monster behavior-4 target autoplayer did not retarget player 1");
+        }
+        int xAfterP1 = monsters_.front().x;
+        FrameInspection p1Frame =
+            inspectRenderedFrame("autoplayer-monster-b4-target-p1");
+        if (p1Frame.hash == p2Frame.hash) {
+            throw std::runtime_error("monster behavior-4 target player-1 frame did not change");
+        }
+
+        playerDead_ = true;
+        player2Dead_ = false;
+        player2_.x = static_cast<float>(monsters_.front().x - 24);
+        player2_.y = static_cast<float>(monsters_.front().y);
+        monsters_.front().motionTimer = 1;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (monsters_.front().vx8 >= 0 || monsters_.front().x >= xAfterP1) {
+            throw std::runtime_error("monster behavior-4 target autoplayer did not retarget back to player 2");
+        }
+        FrameInspection p2ReturnFrame =
+            inspectRenderedFrame("autoplayer-monster-b4-target-p2-return");
+        if (p2ReturnFrame.hash == p1Frame.hash) {
+            throw std::runtime_error("monster behavior-4 target return frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " level=3 spawner_index=" << (spawnerIndex + 1)
+                  << " initial_target=2 retarget_p1=1 retarget_p2=1"
+                  << " frame_inspection=1\n";
+    }
+
+    void debugAutoplayerCollapsePlaybackRoute(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+            throw std::runtime_error("collapse autoplayer failed to start level 1");
+        }
+
+        AutoplayRouteResult route = autoplayLevel1BombRoute();
+        if (route.bombTileX != 24 || route.bombTileY != 22) {
+            throw std::runtime_error("collapse autoplayer missed level-1 tile 24,22");
+        }
+        FrameInspection routeFrame = inspectRenderedFrame("autoplayer-collapse-route");
+
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 22) {
+            throw std::runtime_error("collapse autoplayer did not place route bomb");
+        }
+        int fuse = bombs_.back().timer;
+        FrameControls idle;
+        for (int i = 0; i < fuse; ++i) {
+            updateWithControls(idle, 1.0f / 60.0f);
+        }
+        if (!bombs_.empty() || explosionEffects_.empty() || collapseQueue_.empty()) {
+            throw std::runtime_error("collapse autoplayer did not start collapse playback");
+        }
+        int collapseCount = collapseQueue_.front().count;
+        FrameInspection explosionFrame =
+            inspectRenderedFrame("autoplayer-collapse-explosion");
+        if (explosionFrame.hash == routeFrame.hash) {
+            throw std::runtime_error("collapse explosion frame did not change");
+        }
+
+        int playbackFrames = 0;
+        while (!collapseQueue_.empty() && playbackFrames < 32) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            ++playbackFrames;
+        }
+        if (!collapseQueue_.empty() || playbackFrames != 24) {
+            throw std::runtime_error("collapse autoplayer playback duration mismatch");
+        }
+        FrameInspection clearFrame = inspectRenderedFrame("autoplayer-collapse-clear");
+        if (clearFrame.hash == explosionFrame.hash) {
+            throw std::runtime_error("collapse clear frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " collapse_started=1 collapse_count=" << collapseCount
+                  << " playback_frames=" << playbackFrames
                   << " frame_inspection=1\n";
     }
 
@@ -6656,6 +7666,44 @@ private:
         player2_ = {};
         monsters_.clear();
         randomSeed_ = 0x1234abcd;
+    }
+
+    void prepareAutoplayerMonsterFixtureLevel() {
+        prepareMonsterMotionDebugLevel(false);
+        menu_ = false;
+        spawnerStates_.clear();
+        bonusDrops_.clear();
+        bombs_.clear();
+        flashes_.clear();
+        explosionEffects_.clear();
+        debrisQueue_.clear();
+        collapseQueue_.clear();
+        collected_ = 0;
+        destroyed_ = 0;
+        completeTimer_ = 0;
+        portalCooldown_ = 0;
+        triggerCooldown_ = 0;
+        portalCooldown2_ = 0;
+        triggerCooldown2_ = 0;
+        energy_ = 100;
+        energy2_ = 100;
+        damageCooldown_ = 0;
+        damageCooldown2_ = 0;
+        pendingDamage_ = 0;
+        pendingDamage2_ = 0;
+        bombInventory_ = {};
+        bombInventory2_ = {};
+        weaponSwitchHeld_ = false;
+        weaponSwitchHeld2_ = false;
+        playerFacing_ = 1;
+        player2Facing_ = 1;
+        playerAnimTick_ = 0;
+        player2AnimTick_ = 0;
+        logicTick_ = 0;
+        clearSoundLatch();
+        lastPumpedSoundRecord_ = -1;
+        lastPumpedSoundOffset_ = 0;
+        lastPumpedSoundSelector_ = 0;
     }
 
     std::array<int, 2> monsterFrameRange(uint8_t kind) const {

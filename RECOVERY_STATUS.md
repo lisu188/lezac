@@ -1,8 +1,8 @@
 # Recovery Status
 
-Last reviewed: 2026-04-23
+Last reviewed: 2026-04-24
 Branch: `codex/autoplayer-harness`
-Baseline: `1705ebd` / `origin/main`
+Baseline: `e89ada5` / `origin/main`
 
 ## Completed This Iteration
 
@@ -14,6 +14,26 @@ Baseline: `1705ebd` / `origin/main`
   autoplayer scenarios. These lock provisional state-2 visual cursor playback,
   level-1 completion into level 2, player-2 death/reentry, post-reentry bombs,
   and player-2 scoring.
+- Added `portal_weapon_route`, `monster_bomb_reward`, and
+  `collapse_playback_route` autoplayer scenarios. These broaden deterministic
+  coverage to weapon switching through the left+right chord, medium bomb
+  placement through `N`, decoded portal traversal, bomb-killed monster rewards,
+  reward pickup sounds, and level-1 collapse playback duration.
+- Added `monster_behavior3_multihit`, `monster_behavior4_chase`, and
+  `monster_spawner_cycle` autoplayer scenarios. These extend the headless
+  matrix to grounded behavior-3 walkers, behavior-4 chase movement, spawner
+  slot release/respawn, and multi-hit bomb damage across live update loops.
+- Added `monster_spawner_behavior4_level2`,
+  `monster_spawner_behavior4_level3`, and
+  `monster_behavior4_target_selection` autoplayer scenarios. These extend the
+  live monster harness to actual level-2/3 behavior-4 spawner data and
+  two-player nearest-target selection across alive/dead player states.
+- Extended `--capture-frame-sequence` with
+  `monster_spawner_behavior4_level2`,
+  `monster_spawner_behavior4_level3`, and
+  `monster_behavior4_target_selection`. The frame harness now exports
+  deterministic behavior-4 spawn/retarget checkpoints plus manifest metadata
+  for player count/dead flags and first-monster position/velocity/behavior.
 - Added provisional live state-2 rendering keyed to the recovered `0x4a..0x4f`
   cursor range. It is intentionally documented as `visual_claim=0` until the
   original `DS:c322` frame-table fields are fully interpreted.
@@ -24,8 +44,8 @@ Baseline: `1705ebd` / `origin/main`
 - Changed the level-1 bomb route autoplayer and frame-sequence capture to place
   the route bomb through the actual `N` key event path instead of calling the
   placement helper directly.
-- Added CTest coverage for all autoplayer scenarios and kept the frame-sequence
-  capture coverage on the level-1 route.
+- Added CTest coverage for all autoplayer scenarios and for the behavior-4
+  frame-sequence capture scenarios alongside the level-1 route.
 - Expanded `tools/capture_original_dosbox_frames.sh` so original DOSBox
   screenshots are renamed to the C++ semantic labels and accompanied by a
   manifest with input/timing settings.
@@ -50,8 +70,39 @@ Baseline: `1705ebd` / `origin/main`
   --debug-autoplayer level_transition` passed with level-1 completion after
   `101` transition frames and level 2 loaded.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer portal_weapon_route` passed on decoded portal level `3`
+  with medium weapon switch, medium bomb placement, portal key `31`, and
+  cooldown `30`.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --debug-autoplayer records_flow` passed with temporary record score
   `999999`, level `3`, and name `bot`.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer monster_bomb_reward` passed with a bomb-killed monster,
+  reward collection, and score delta `3000`.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer monster_behavior3_multihit` passed with one-pixel
+  behavior-3 movement, first-hit HP `2`, second-hit kill, and reward
+  collection.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer monster_behavior4_chase` passed with behavior-4 chase
+  movement `2`, timer `1`, and medium-bomb kill.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer monster_spawner_cycle` passed with level-1 spawner slot
+  reservation, immediate release on death, and deterministic respawn.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer monster_spawner_behavior4_level2` passed with level-2
+  behavior-4 spawner fields `ai0=13 ai1=271 ai2=62 hp=3` and positive `vx8`.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer monster_spawner_behavior4_level3` passed with level-3
+  behavior-4 spawner fields `ai0=20 ai1=214 ai2=66 hp=4` and diagonal
+  `vx8/vy8 = 178/-119`.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer monster_behavior4_target_selection` passed with initial
+  player-2 targeting, retarget to player 1 when player 2 is dead, and retarget
+  back to player 2 when player 1 is dead.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --debug-autoplayer collapse_playback_route` passed with collapse queue count
+  `2` and playback duration `24` frames.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --debug-autoplayer two_player_route` passed with player-2 movement and one
   player-2 bomb placed.
@@ -62,6 +113,18 @@ Baseline: `1705ebd` / `origin/main`
   --capture-frame-sequence level1_bomb_route /tmp/lezac-autoplayer-frames`
   passed and wrote seven PPM frames plus `manifest.txt`; route bomb placement
   also uses the `N` key event path.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --capture-frame-sequence monster_spawner_behavior4_level2
+  /tmp/lezac-capture-b4-level2` passed and wrote four PPM frames plus
+  `manifest.txt` with live spawner/monster fields.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --capture-frame-sequence monster_spawner_behavior4_level3
+  /tmp/lezac-capture-b4-level3` passed and wrote four PPM frames plus
+  `manifest.txt` with diagonal behavior-4 spawn state.
+- `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
+  --capture-frame-sequence monster_behavior4_target_selection
+  /tmp/lezac-capture-b4-target` passed and wrote six PPM frames plus
+  `manifest.txt` with player-dead flags and retarget direction changes.
 - `tools/capture_cpp_frames.sh ./build/lezac_cpp
   /tmp/lezac-autoplayer-frames-wrapper` passed.
 - `bash -n tools/capture_original_dosbox_frames.sh` passed. A local DOSBox run
@@ -70,7 +133,9 @@ Baseline: `1705ebd` / `origin/main`
   are automation diagnostics until rerun with working menu input.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
-- `ctest --test-dir build --output-on-failure` passed: 62/62.
+- `ctest --test-dir build -R "autoplayer|frame_sequence_capture"
+  --output-on-failure` passed: 20/20.
+- `ctest --test-dir build --output-on-failure` passed: 74/74.
 - `./build/lezac_cpp --validate` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --smoke-controls` passed.
@@ -87,7 +152,8 @@ Baseline: `1705ebd` / `origin/main`
   against original `LEZAC.EXE` with DOSBox frame inspection or debugger/runtime
   evidence.
 - Make DOSBox original capture input reliable enough to leave the menu in this
-  environment, then compare the named original frames against the C++ sequence.
+  environment, then compare the named original level-1 frames against the C++
+  sequence and extend original capture beyond the level-1 route.
 - Interpret captured state-2 frame-table bytes and confirm the exact visual
   consumption path for the provisional live dead-player renderer.
 - Exact explosion/debris/collapse sprite playback around `1000:3a56..4d3b`
@@ -111,6 +177,7 @@ Baseline: `1705ebd` / `origin/main`
 
 ## Next Planned Target
 
-Run paired original/C++ frame captures for the autoplayer-aligned level-1 route,
-then prioritize the largest visual diffs around bomb-object explosion,
-collapse/debris playback, and player/death frame-table consumption.
+Use DOSBox frame/debugger evidence to compare the new behavior-4 frame
+sequences and monster autoplayer slices against original runtime movement,
+targeting, and respawn timing, then extend original-side capture beyond the
+level-1 route.

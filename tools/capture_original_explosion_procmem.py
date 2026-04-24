@@ -4,11 +4,16 @@
 This helper is intentionally guarded because it reads /proc/<pid>/mem from the
 DOSBox child process it starts. Keep output directories outside the repository.
 Candidate fixtures still need frame inspection before promotion.
+
+When --freeze-ghidra-offset is used, the helper also patches only the temporary
+copied executable with an infinite loop. That mode is instrumentation evidence,
+not pristine original evidence.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import glob
 import os
 from pathlib import Path
@@ -48,6 +53,7 @@ COLLAPSE_BASE = 0x6611
 COLLAPSE_STRIDE = 0x0F
 EFFECT_BASE = 0xC21E
 EFFECT_STRIDE = 0x08
+FREEZE_PATCH = bytes.fromhex("ebfe")
 
 
 SampleRecord = tuple[float, bytes, bytes, bytes, bytes, bytes]
@@ -82,6 +88,43 @@ def copy_assets(asset_dir: Path, run_dir: Path) -> None:
             shutil.copy2(src, run_dir / name)
     if not (run_dir / "LEZAC.EXE").exists():
         raise RuntimeError(f"missing {asset_dir / 'LEZAC.EXE'}")
+
+
+def parse_ghidra_offset(value: str) -> int:
+    text = value.strip().lower()
+    if ":" in text:
+        segment, text = text.split(":", 1)
+        if segment not in {"1000", "0x1000"}:
+            raise ValueError(f"freeze offset must use Ghidra segment 1000, got {segment}")
+    if text.startswith("0x"):
+        text = text[2:]
+    if not text or len(text) > 4:
+        raise ValueError(f"bad Ghidra offset: {value}")
+    return int(text, 16)
+
+
+def patch_freeze(run_dir: Path, ghidra_offset: int) -> dict[str, int | str]:
+    exe = run_dir / "LEZAC.EXE"
+    data = bytearray(exe.read_bytes())
+    if data[:2] != b"MZ":
+        raise RuntimeError(f"{exe} is not an MZ executable")
+    header_paragraphs = data[8] | (data[9] << 8)
+    image_base = header_paragraphs * 16
+    file_offset = image_base + ghidra_offset
+    if file_offset < image_base or file_offset + len(FREEZE_PATCH) > len(data):
+        raise RuntimeError(
+            f"freeze offset 1000:{ghidra_offset:04X} maps outside {exe}"
+        )
+    original = bytes(data[file_offset : file_offset + len(FREEZE_PATCH)])
+    data[file_offset : file_offset + len(FREEZE_PATCH)] = FREEZE_PATCH
+    exe.write_bytes(data)
+    return {
+        "ghidra_offset": ghidra_offset,
+        "image_base": image_base,
+        "file_offset": file_offset,
+        "original_bytes": original.hex(),
+        "patch_bytes": FREEZE_PATCH.hex(),
+    }
 
 
 def write_conf(path: Path, capture_dir: Path) -> None:
@@ -184,6 +227,14 @@ def snapshot(env: dict[str, str], out_dir: Path, window: str, label: str) -> Non
     new_files = sorted(set(glob.glob(str(out_dir / "*.png"))) - before)
     if new_files:
         Path(new_files[-1]).rename(out_dir / f"{label}.png")
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as src:
+        for chunk in iter(lambda: src.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def read_emulated(pid: int, base: int, segment: int, offset: int, length: int) -> bytes:
@@ -461,6 +512,15 @@ def main() -> int:
     )
     parser.add_argument("--bomb-key", default="n")
     parser.add_argument("--bomb-hold-seconds", type=float, default=0.25)
+    parser.add_argument(
+        "--approve-instrumentation",
+        action="store_true",
+        help="required with --freeze-ghidra-offset: approve patching the temp copy",
+    )
+    parser.add_argument(
+        "--freeze-ghidra-offset",
+        help="patch temp-copy LEZAC.EXE at Ghidra offset, e.g. 1000:3BB2, to EB FE",
+    )
     args = parser.parse_args()
 
     if not args.approve_procmem:
@@ -480,9 +540,22 @@ def main() -> int:
         raise RuntimeError("choose an output directory outside the repository")
     out_dir.mkdir(parents=True, exist_ok=True)
     sample_screenshot_seconds = parse_time_list(args.sample_screenshot_seconds)
+    freeze_patch: dict[str, int | str] | None = None
+    if args.freeze_ghidra_offset:
+        if not args.approve_instrumentation:
+            print(
+                "refusing to patch the temp copy without --approve-instrumentation",
+                file=sys.stderr,
+            )
+            return 64
+        freeze_patch = {
+            "ghidra_offset": parse_ghidra_offset(args.freeze_ghidra_offset)
+        }
     run_dir = out_dir / "run"
     run_dir.mkdir(parents=True, exist_ok=True)
     copy_assets(asset_dir, run_dir)
+    if freeze_patch is not None:
+        freeze_patch = patch_freeze(run_dir, int(freeze_patch["ghidra_offset"]))
     conf = run_dir / "dosbox.conf"
     write_conf(conf, out_dir)
 
@@ -562,6 +635,11 @@ def main() -> int:
             inferred_ds = RUNTIME_DS
         if inferred_ds != RUNTIME_DS:
             raise RuntimeError(f"unexpected runtime DS 0x{inferred_ds:04x}")
+        freeze_loaded_bytes = b""
+        if freeze_patch is not None:
+            freeze_loaded_bytes = read_emulated(
+                pid, base, RUNTIME_CS, int(freeze_patch["ghidra_offset"]), 8
+            )
 
         game = run(["xdotool", "search", "--name", "DOSBox"], env).split()[0]
         snapshot(env, out_dir, game, "000_menu")
@@ -604,6 +682,20 @@ def main() -> int:
         chosen = choose_sample(records)
         sample_summary = out_dir / "sample_summary.tsv"
         write_sample_summary(sample_summary, records)
+        screenshot_hashes: list[tuple[str, str]] = []
+        for image_path in sorted(out_dir.glob("*.png")):
+            screenshot_hashes.append((image_path.name, sha256_file(image_path)))
+        after_hash = next(
+            (digest for name, digest in screenshot_hashes if name == "090_after_sampling.png"),
+            "",
+        )
+        tail_match_frame = ""
+        if after_hash:
+            for name, digest in reversed(screenshot_hashes):
+                if name != "090_after_sampling.png" and digest == after_hash:
+                    tail_match_frame = name
+                    break
+        freeze_observed = freeze_patch is not None and bool(tail_match_frame)
         chosen_score = sample_score(chosen)
         chosen_fields = decode_sample(chosen)
         elapsed, dump2070, dump2090, dump6610, dumpc1e0, dumpc21e = chosen
@@ -629,6 +721,22 @@ def main() -> int:
             out.write("capture=explosion_playback\n")
             out.write(f"source=dosbox-{args.mode}-process-memory\n")
             out.write("temp_copy=1\nvisual_claim=0\n")
+            if freeze_patch is not None:
+                out.write("instrumented_temp_copy=1\n")
+                out.write(
+                    f"instrumented_freeze_observed={1 if freeze_observed else 0}\n"
+                )
+                if tail_match_frame:
+                    out.write(f"instrumented_freeze_tail_frame={tail_match_frame}\n")
+                out.write(
+                    f"instrumentation=freeze_loop_patch "
+                    f"ghidra=1000:{int(freeze_patch['ghidra_offset']):04X} "
+                    f"runtime={RUNTIME_CS:04X}:{int(freeze_patch['ghidra_offset']):04X} "
+                    f"file_offset=0x{int(freeze_patch['file_offset']):x} "
+                    f"old_bytes={freeze_patch['original_bytes']} "
+                    f"patch_bytes={freeze_patch['patch_bytes']} "
+                    f"loaded_bytes={freeze_loaded_bytes.hex()}\n"
+                )
             out.write(f"command={command}\n")
             out.write("route=focused_no_window_original_controls_process_memory\n")
             out.write(f"input_start_key={args.start_key}\n")
@@ -651,9 +759,16 @@ def main() -> int:
                 ("1000:3BB2", 0x3BB2, "collapse_forward_pass"),
                 ("1000:3D46", 0x3D46, "collapse_reverse_pass"),
             ]:
+                observed = "process_memory_sampling_no_debugger_break"
+                if freeze_patch is not None and offset == int(freeze_patch["ghidra_offset"]):
+                    observed = (
+                        "instrumented_temp_copy_freeze_observed"
+                        if freeze_observed
+                        else "instrumented_temp_copy_patch_loaded_no_freeze_observed"
+                    )
                 out.write(
                     f"break ghidra={ghidra} runtime={RUNTIME_CS:04X}:{offset:04X} "
-                    f"label={label} observed=process_memory_sampling_no_debugger_break\n"
+                    f"label={label} observed={observed}\n"
                 )
             for label, offset, data in [
                 ("DS:2070", 0x2070, dump2070),
@@ -665,6 +780,16 @@ def main() -> int:
                 out.write(f"\ndump {label}\n")
                 out.write(format_dump(RUNTIME_DS, offset, data) + "\n")
 
+        instrumentation_manifest = ""
+        if freeze_patch is not None:
+            instrumentation_manifest = (
+                f"freeze_ghidra=1000:{int(freeze_patch['ghidra_offset']):04X}\n"
+                f"freeze_runtime={RUNTIME_CS:04X}:{int(freeze_patch['ghidra_offset']):04X}\n"
+                f"freeze_file_offset=0x{int(freeze_patch['file_offset']):x}\n"
+                f"freeze_old_bytes={freeze_patch['original_bytes']}\n"
+                f"freeze_patch_bytes={freeze_patch['patch_bytes']}\n"
+                f"freeze_loaded_bytes={freeze_loaded_bytes.hex()}\n"
+            )
         manifest = out_dir / "manifest.txt"
         manifest.write_text(
             f"capture=original_explosion_process_memory\n"
@@ -674,6 +799,10 @@ def main() -> int:
             f"fixture_candidate={fixture}\n"
             f"runtime_cs={RUNTIME_CS:04X}\n"
             f"runtime_ds={RUNTIME_DS:04X}\n"
+            f"instrumented_temp_copy={1 if freeze_patch is not None else 0}\n"
+            f"{instrumentation_manifest}"
+            f"instrumented_freeze_observed={1 if freeze_observed else 0}\n"
+            f"instrumented_freeze_tail_frame={tail_match_frame}\n"
             f"input_start_key={args.start_key}\n"
             f"input_start_taps={max(args.start_taps, 1)}\n"
             f"input_level_start_seconds={args.level_start_seconds:.2f}\n"
@@ -691,6 +820,8 @@ def main() -> int:
             f"selected_debris_base={int(chosen_fields['selected_debris_base']):04X}\n"
             f"selected_collapse_base={int(chosen_fields['selected_collapse_base']):04X}\n"
             f"selected_effect_base={int(chosen_fields['selected_effect_base']):04X}\n"
+            f"screenshot_sha256="
+            f"{','.join(name + ':' + digest for name, digest in screenshot_hashes)}\n"
             f"visual_claim=0\n",
             encoding="ascii",
         )

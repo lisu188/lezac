@@ -31,6 +31,22 @@ debris/collapse/effect slots and records the selected addresses as
 `selected_debris_base`, `selected_collapse_base`, and `selected_effect_base`
 when useful data is not in slot zero.
 
+For explicitly labeled instrumentation runs, the helper accepts:
+
+```sh
+python3 tools/capture_original_explosion_procmem.py \
+  /tmp/lezac-original-explosion-freeze . \
+  --approve-procmem --approve-instrumentation \
+  --freeze-ghidra-offset 1000:3A7E
+```
+
+This patches only the temporary copy of `LEZAC.EXE`, replacing two bytes at
+`MZ_header_paragraphs * 16 + ghidra_offset` with `EB FE`. The manifest records
+the Ghidra/runtime address, file offset, original bytes, patch bytes, loaded
+runtime bytes, screenshot hashes, and whether a repeated tail screenshot
+suggested a visible freeze. These runs are not pristine original evidence; use
+them only to prove that a target address is reached by a route.
+
 ## Working Evidence
 
 - `dosbox-debug` launched through `DEBUG LEZAC.EXE` still reaches the entry
@@ -93,6 +109,20 @@ captured visible explosion playback at `1.5s` and smoke playback at `2.0s`
 after the bomb input. The generated candidate selected `DS:662F` as the best
 collapse slot and decoded it through the C++ oracle, proving that the selected
 slot machinery works on original bytes.
+
+Instrumented temporary-copy freeze attempts then tested several playback-window
+anchors:
+
+```text
+1000:3A7E  patch loaded at file 0x41ee, old 8b16 -> ebfe.
+           One run visually froze on an explosion frame, but the next rerun
+           continued into smoke, so this is useful but not stable enough to
+           promote.
+1000:3BB2  patch loaded at file 0x4322, old 5589 -> ebfe; route continued.
+1000:3FA6  patch loaded at file 0x4716, old 5589 -> ebfe; freeze observed,
+           but on an armed-bomb frame before visible explosion playback.
+1000:432A  patch loaded at file 0x4a9a, old 5589 -> ebfe; route continued.
+```
 
 This is useful route evidence, but it is still not enough to promote an
 explosion runtime oracle fixture by itself; the unresolved fixture still needs

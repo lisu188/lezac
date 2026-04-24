@@ -290,7 +290,11 @@ the LEZAC image/data bytes in a child DOSBox process (`CS=01ED`, gameplay
 helper reach level 1, place a visible bomb, and capture visible explosion/smoke
 playback with selected queue-slot bytes, but that still did not promote an
 original fixture because process-memory sampling has not proven a stop inside
-`1000:3a56..4d3b`. See
+`1000:3a56..4d3b`. The helper can now patch only the temporary executable copy
+with an `EB FE` freeze loop at a requested Ghidra offset. Instrumented attempts
+showed `1000:3fa6` is reached before visible explosion playback and `1000:3a7e`
+may be route/timing sensitive, while `1000:3bb2` and `1000:432a` were not
+reached by the current level-1 timed route. See
 `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md`.
 
 ## Sound Playback Evidence

@@ -58,6 +58,10 @@ Baseline: `origin/main`
 - Extended the explosion process-memory helper with timed sample screenshots,
   `sample_summary.tsv`, selected debris/collapse/effect queue-slot detection,
   and selected-base fixture fields for later original oracle promotion.
+- Added a guarded instrumented temp-copy freeze mode to the process-memory
+  helper. It patches only the temporary `LEZAC.EXE` copy with `EB FE`, records
+  MZ-derived file offsets, original/loaded bytes, screenshot hashes, and a
+  tail-frame freeze observation flag.
 - Extended `--debug-explosion-playback-oracle` so fixtures can decode selected
   debris/collapse/effect bases while keeping the existing slot-zero defaults.
 - Updated `AGENTS.md`, README, and recovery docs with the autoplayer, original
@@ -161,6 +165,11 @@ Baseline: `origin/main`
   Visual inspection showed bomb placement, visible explosion at `1.5s`, and
   smoke playback at `2.0s`; the generated candidate decoded selected
   `DS:662F` collapse bytes through the C++ oracle with `visual_claim=0`.
+- Instrumented temp-copy runs patched and loaded freeze loops at `1000:3A7E`,
+  `1000:3BB2`, `1000:3FA6`, and `1000:432A`. `1000:3FA6` reliably froze, but
+  before visible explosion playback; `1000:3A7E` produced one explosion-frame
+  freeze observation but did not reproduce on the next run; `1000:3BB2` and
+  `1000:432A` continued through the route. No original fixture was promoted.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"
@@ -189,8 +198,9 @@ Baseline: `origin/main`
   consumption path for the provisional live dead-player renderer.
 - Exact explosion/debris/collapse sprite playback around `1000:3a56..4d3b`
   remains blocked on live debugger bytes or an instrumented freeze proving a
-  stop inside the playback window. Process-memory sampling now captures useful
-  original queue bytes and frames, but it is still not promoted as a fixture.
+  stable stop inside the playback window. Process-memory sampling and
+  instrumentation now capture useful original queue bytes and route reachability
+  signals, but no promoted fixture yet.
 - Semantic meaning of `PROEFS.SON` bytes `+4..+5` remains unknown; current
   diagnostics preserve them as raw fields only.
 - Many non-explosion sound callsites still need exact cursor/priority mapping.

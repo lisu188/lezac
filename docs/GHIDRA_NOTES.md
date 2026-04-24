@@ -357,8 +357,12 @@ visible explosion frame. A later process-memory run patched `1000:4c96` after
 queue growth and confirmed the bytes loaded, but the route continued; patching
 the enclosing `1000:45fa` entry with the tuned late-collapse gate froze on a
 visible explosion/playback frame with selected bases `DS:209e`, `DS:6620`, and
-`DS:c22e`. This is still instrumentation evidence with `visual_claim=0`, not a
-promoted pristine fixture. See
+`DS:c22e`. Patching `1000:492f` also froze on a visible playback frame; that
+candidate had `DS:207e=0x00c7`, and static code immediately exits the
+high-debris interior unless `DS:207e >= 0x00c8`, explaining why `4c96` and
+nearby interior branch probes did not freeze on the current route. This is
+still instrumentation evidence with `visual_claim=0`, not a promoted pristine
+fixture. See
 `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md`.
 
 ## Sound Playback Evidence

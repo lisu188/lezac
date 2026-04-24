@@ -417,6 +417,19 @@ base `DS:663e`, target delta `0x0078`, target offset `0x05b9`, target byte
 `091_tail_freeze_check.png` both hashed to
 `af350ff9bcd0815c1814eea3ae5393b425e77f0938afd6286059e34a184b5231`.
 
+A strict `4C96` rerun with the same collapse-base gate did not arm, because
+that run reached selected debris base `DS:292b` later with selected collapse
+base `DS:663e` instead of `DS:6611`. A relaxed rerun at
+`/tmp/lezac-4c96-zero-target-fast-runtime-20260424-codex-3` required only
+selected debris base `DS:292b` and high-debris target byte `0x00`; it patched
+`1000:4C96` after `1.576s` with `DS:207e=0x00c8`, selected collapse base
+`DS:6611`, target offset `0x0540`, target byte `0x00`, and sampled word-layer
+value `0x0000`, then froze at `01ED:4C96`. Its post-freeze chosen candidate
+parsed with selected collapse base `DS:663e`, target delta `0x0078`, target
+offset `0x05b9`, target byte `0x00`, and word-layer value `0x0000`;
+`090_after_sampling.png` and `091_tail_freeze_check.png` both hashed to
+`8f89d267aebcf5f01af32a3c6b3d3916adf0c9246519baea5b7cfe4f4e06cd2f`.
+
 The paired
 `/tmp/lezac-4ca9-zero-target-fast-runtime-20260424-codex-1` patched
 `1000:4CA9` after `1.576s`, when `DS:207e=0x00c8`, selected debris base
@@ -428,27 +441,29 @@ word-layer value `0x0000`. `090_after_sampling.png` and
 `091_tail_freeze_check.png` both hashed to
 `044cead2cc765001150eb117ca5e4f84444c23e854d7531140530ecdcd20c3c6`,
 confirming the held debris/cloud playback frame. This proves the captured
-zero-target route can reach the word gate at `1000:4C75` and the reverse
-lane-call site at `1000:4CA9`. The helper-selected `high_debris_word_layer`
-field is a sampled queue summary, not a capture of the live `[bp-4]` local at
-the frozen instruction; by static control flow, reaching `4CA9` means that
-some live iteration took the positive-word side through the `4C75` gate.
+zero-target route can reach the word gate at `1000:4C75` plus the forward and
+reverse lane-call sites at `1000:4C96` and `1000:4CA9`. The helper-selected
+`high_debris_word_layer` field is a sampled queue summary, not a capture of
+the live `[bp-4]` local at the frozen instruction; by static control flow,
+reaching `4C96` and `4CA9` means that some live iteration took the
+positive-word side through the `4C75` gate.
 
 This is useful branch evidence, but it is still not enough to change live C++
 sprite playback semantics by itself. The promoted oracle fixture should remain
-limited to proving the sampled runtime bytes and `4B6A`/`4C75`/`4CA9` branch
-execution. The `45FA`/`4B6A`/`4C75`/`4CA9` freezes prove entry into the
-effect/debris update path during visible playback, but they are still instrumented
-process-memory evidence rather than debugger breakpoint stops, and the sampled
-effect table still needs exact semantic interpretation.
+limited to proving the sampled runtime bytes and `4B6A`/`4C75`/`4C96`/`4CA9`
+branch execution. The `45FA`/`4B6A`/`4C75`/`4C96`/`4CA9` freezes prove entry
+into the effect/debris update path during visible playback, but they are still
+instrumented process-memory evidence rather than debugger breakpoint stops, and
+the sampled effect table still needs exact semantic interpretation.
 
 ## Next Step
 
-Use the now-working `45FA`/`492F`/`4B3F`/`4B61`/`4B6A`/`4C75`/`4CA9`
+Use the now-working `45FA`/`492F`/`4B3F`/`4B61`/`4B6A`/`4C75`/`4C96`/`4CA9`
 visible-playback freezes to map which live high-debris iteration supplies the
-positive `[bp-4]` word and whether `4C96` can be frozen with an even earlier
-gate. Prefer the fast target-byte-gated route (`--sample-interval 0.005`,
-`--route-state-interval 0`) when probing this window. Only promote
+positive `[bp-4]` word and how the helper-selected lane bytes map back into
+debris/collapse playback. Prefer the fast target-byte-gated route
+(`--sample-interval 0.005`, `--route-state-interval 0`) when probing this
+window. Only promote
 `explosion_playback_oracle_original.txt` after screenshots show the intended
 bomb/object event and the sampled bytes prove the exact runtime window and
 field semantics.

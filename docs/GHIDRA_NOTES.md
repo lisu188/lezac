@@ -401,12 +401,15 @@ Static code at `1000:4c64..4ca9` loads a word through the `DS:6612` far pointer
 into `[bp-4]`, checks it at `1000:4c75`, skips to `4cae` when the word is
 zero-or-negative, and otherwise calls the forward lane helper from `4c96` and
 the reverse lane helper from `4ca9` after OR-ing the word with `0x8000`.
-Follow-up fast gated probes now freeze both `1000:4c75` and `1000:4ca9` in the
-captured high-debris route. The promoted fixture summaries still show sampled
-target bytes and word-layer values from queue state, not the live `[bp-4]`
-local at the frozen instruction; by static control flow, the `4ca9` freeze
-means some live iteration took the positive side of the `4c75` gate. `4c96`
-still needs an earlier or local-aware probe.
+Follow-up fast gated probes now freeze `1000:4c75`, `1000:4c96`, and
+`1000:4ca9` in the captured high-debris route. A strict `4c96` rerun that also
+required collapse base `DS:6611` missed the arming window; relaxing it to the
+durable selected-debris base `DS:292b` plus target byte `0x00` froze the
+forward lane-call site at `01ED:4c96`. The promoted fixture summaries still
+show sampled target bytes and word-layer values from queue state, not the live
+`[bp-4]` local at the frozen instruction; by static control flow, the `4c96`
+and `4ca9` freezes mean some live iteration took the positive side of the
+`4c75` gate.
 
 ## Sound Playback Evidence
 

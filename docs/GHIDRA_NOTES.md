@@ -399,6 +399,12 @@ byte subtraction wraps above `0x00c8`.
 `--debug-player-damage-death-live` exercises that live path with a rendered
 hazard fixture, verifies a visible HP decrement, and advances until one life is
 consumed and reentry completes.
+`--debug-monster-contact-damage-live` extends the same model through active
+monster overlap: multiple same-pass contacts accumulate in pending bytes before
+drain, the hurt cue is latched once, state-2 players preserve energy while still
+requesting the hurt cue, and fatal contact underflow is promoted to the
+life-loss helper. This is a damage-counter cadence regression, not proof of the
+exact original collision-clearance geometry inside `1000:6053..777f`.
 
 State-2 life/reentry evidence: `1000:30a3` only queues the death/life-loss cue
 and writes the actor death/reentry fields (`+0x15 = 2`, `+0x10 = 0x003c`,

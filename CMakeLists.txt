@@ -595,6 +595,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^player_damage_death_live=ok first_energy=99 frames_to_life_loss=[0-9]+ lives=2 reentry_state=1 frame_inspection=1")
 
+    add_test(NAME monster_contact_damage_live
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-monster-contact-damage-live)
+    set_tests_properties(monster_contact_damage_live PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^monster_contact_damage_live=ok p1_pending=2 p2_pending=1 p1_energy=98 p2_energy=99 hurt_cue=0x002d death_cue=0x0056 state2_preserved=1 fatal_dead=1 frame_inspection=1")
+
     add_test(NAME object_collision_jump_live
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-object-collision-jump-live)

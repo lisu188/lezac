@@ -279,6 +279,14 @@ debris, collapse, and effect records into named fields such as
 lists. `explosion_playback_oracle_missing_effect_byte` verifies incomplete
 effect-entry dumps fail instead of producing partial visual claims.
 
+An approved process-memory attempt on 2026-04-24 proved a fallback way to find
+the LEZAC image/data bytes in a child DOSBox process (`CS=01ED`, gameplay
+`DS=0C8F`, data string at `DS:008B`) and added
+`tools/capture_original_explosion_procmem.py`. That run did not promote an
+original fixture: frame inspection showed the automated route still failed to
+prove visible bomb placement at the intended level-1 explosion site. See
+`docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md`.
+
 ## Sound Playback Evidence
 
 The original sound loader at `1000:0630..06aa` opens `PROEFS.SON`, reads first

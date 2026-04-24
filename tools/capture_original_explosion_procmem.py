@@ -60,6 +60,7 @@ COLLAPSE_STRIDE = 0x0F
 EFFECT_BASE = 0xC21E
 EFFECT_STRIDE = 0x08
 FREEZE_PATCH = bytes.fromhex("ebfe")
+DEFAULT_SAMPLE_SCREENSHOTS = "0.5,1.0,1.5,2.0,3.0"
 ROUTE_STATE_RANGES = [
     ("DS:0060", 0x0060, 0x80),
     ("DS:1B70", 0x1B70, 0x20),
@@ -485,6 +486,21 @@ def optional_hex_text(value: int | None) -> str:
     return "" if value is None else f"0x{value:04x}"
 
 
+def apply_runtime_freeze_preset(args: argparse.Namespace) -> None:
+    if args.runtime_freeze_preset != "late-collapse":
+        return
+    if args.runtime_freeze_min_queue_score is None:
+        args.runtime_freeze_min_queue_score = 100
+    if args.runtime_freeze_min_debris_nonzero is None:
+        args.runtime_freeze_min_debris_nonzero = 10
+    if args.runtime_freeze_min_collapse_nonzero is None:
+        args.runtime_freeze_min_collapse_nonzero = 20
+    if args.runtime_freeze_min_effect_nonzero is None:
+        args.runtime_freeze_min_effect_nonzero = 20
+    if args.sample_screenshot_seconds == DEFAULT_SAMPLE_SCREENSHOTS:
+        args.sample_screenshot_seconds = ""
+
+
 def le16(data: bytes, index: int) -> int:
     if index + 1 >= len(data):
         return 0
@@ -739,7 +755,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--sample-screenshot-seconds",
-        default="0.5,1.0,1.5,2.0,3.0",
+        default=DEFAULT_SAMPLE_SCREENSHOTS,
         help="comma-separated seconds after bomb input for visual checkpoints",
     )
     parser.add_argument("--bomb-key", default="n")
@@ -764,6 +780,15 @@ def main() -> int:
         help=(
             "with --freeze-ghidra-offset, write EB FE into child memory only "
             "after this many seconds after bomb input"
+        ),
+    )
+    parser.add_argument(
+        "--runtime-freeze-preset",
+        choices=["late-collapse"],
+        help=(
+            "apply a repeatable runtime gate preset; late-collapse waits for "
+            "queue score >=100 and active debris/collapse/effect bytes, and "
+            "disables timed screenshots unless explicitly overridden"
         ),
     )
     parser.add_argument(
@@ -809,6 +834,7 @@ def main() -> int:
     if not args.approve_procmem:
         print("refusing to read /proc/<pid>/mem without --approve-procmem", file=sys.stderr)
         return 64
+    apply_runtime_freeze_preset(args)
 
     for tool in ["Xvfb", "xdotool", "dosbox", "python3"]:
         require_tool(tool)
@@ -1180,6 +1206,9 @@ def main() -> int:
                         f"{1 if runtime_freeze_patch_elapsed is not None else 0}\n"
                     )
                     out.write(
+                        f"runtime_freeze_preset={args.runtime_freeze_preset or ''}\n"
+                    )
+                    out.write(
                         "runtime_freeze_after_bomb_seconds="
                         f"{args.runtime_freeze_after_bomb_seconds if args.runtime_freeze_after_bomb_seconds is not None else ''}\n"
                     )
@@ -1332,6 +1361,7 @@ def main() -> int:
                     else f"{runtime_freeze_patch_elapsed:.3f}"
                 )
                 instrumentation_manifest += (
+                    f"freeze_runtime_preset={args.runtime_freeze_preset or ''}\n"
                     f"freeze_runtime_after_bomb_seconds={after_bomb_seconds}\n"
                     f"freeze_runtime_min_queue_score={min_queue_score}\n"
                     "freeze_runtime_min_debris_nonzero="

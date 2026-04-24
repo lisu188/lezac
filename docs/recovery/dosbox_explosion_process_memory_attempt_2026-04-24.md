@@ -159,6 +159,19 @@ screenshots inside the sampling loop can delay patching; late-freeze probes
 should usually use `--sample-screenshot-seconds ''` and rely on the final frame
 plus manifest hashes unless intermediate screenshots are the point of the run.
 
+To make these probes repeatable, `--runtime-freeze-preset late-collapse` now
+sets the late queue-growth gates (`score >= 100`, debris/collapse/effect
+nonzero thresholds `10/20/20`) and disables timed screenshots unless the caller
+explicitly overrides the screenshot list. A `1000:3BB2` run showed that the
+default effect threshold can still be too strict for some routes, so the tuned
+probe used `--runtime-freeze-min-effect-nonzero 16`. With that override,
+`3BB2` patched at `1.286s` after bomb input with score `150`, selected bases
+`DS:209e`, `DS:6620`, `DS:c22e`, loaded bytes `5589 -> ebfe`, and did not
+freeze while visible playback continued. The sibling reverse-pass probe at
+`1000:3D46` patched at `1.649s` with score `110`, loaded `5589 -> ebfe`, and
+also did not freeze while visible playback continued. These are useful
+late-window negatives for the level-1 route, not fixture-promoting stops.
+
 Instrumented temporary-copy freeze attempts then tested several playback-window
 anchors:
 

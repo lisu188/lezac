@@ -73,6 +73,9 @@ Baseline: `origin/main`
 - Extended runtime freeze gates with decoded debris/collapse/effect nonzero
   thresholds and selected queue-base predicates, so probes can wait for visible
   playback-adjacent queue growth rather than the early post-bomb state.
+- Added `--runtime-freeze-preset late-collapse` to reuse the current
+  playback-adjacent gate defaults and disable timed screenshots unless
+  explicitly overridden.
 - Extended `--debug-explosion-playback-oracle` so fixtures can decode selected
   debris/collapse/effect bases while keeping the existing slot-zero defaults.
 - Updated `AGENTS.md`, README, and recovery docs with the autoplayer, original
@@ -198,6 +201,12 @@ Baseline: `origin/main`
   final frame inspection still showed visible playback. An earlier `432A` run
   requiring `DS:662F` correctly withheld the patch because this route selected
   `DS:6620`.
+- Tuned late-collapse probes at `1000:3BB2` and `1000:3D46` both loaded
+  runtime child-memory patches after queue growth and did not freeze while
+  visible playback continued. `3BB2` patched at `1.286s` with score `150`;
+  `3D46` patched at `1.649s` with score `110`. The first strict preset run for
+  `3BB2` correctly withheld the patch because this route's effect nonzero count
+  stayed below `20`, so the repeated probe lowered only that threshold to `16`.
 - Instrumented temp-copy runs patched and loaded freeze loops at `1000:3A7E`,
   `1000:3BB2`, `1000:3FA6`, and `1000:432A`. `1000:3FA6` reliably froze, but
   before visible explosion playback; `1000:3A7E` produced one explosion-frame

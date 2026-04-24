@@ -305,7 +305,10 @@ condition; gated probes applied runtime patches at `1000:3a7e` and
 `1000:3fa6` after bomb input. `3a7e` did not freeze in that window, while
 `3fa6` froze before visible explosion playback. Stronger queue-growth gates
 later patched `1000:432a` after selected collapse base `DS:6620` became active;
-the patch loaded but did not freeze while visible playback continued. See
+the patch loaded but did not freeze while visible playback continued. The same
+late-collapse gate, with a route-tuned effect threshold, also patched
+`1000:3bb2` and `1000:3d46`; both loaded successfully and neither froze while
+visible playback continued. See
 `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md`.
 
 ## Sound Playback Evidence

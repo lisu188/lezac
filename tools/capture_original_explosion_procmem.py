@@ -74,7 +74,7 @@ ROUTE_STATE_RANGES = [
     ("DS:78C0", 0x78C0, 0x20),
     ("DS:7990", 0x7990, 0x40),
     ("DS:79E0", 0x79E0, 0x40),
-    ("DS:C1E0", 0xC1E0, 0x20),
+    ("DS:C1E0", 0xC1E0, 0x40),
     ("DS:C21E", 0xC21E, 0x40),
     ("DS:C320", 0xC320, 0x60),
 ]
@@ -391,6 +391,13 @@ def route_state_fields(record: RouteStateRecord) -> dict[str, int | str | float 
         "selected_effect_base": decoded["selected_effect_base"],
         "selected_debris_source": decoded["selected_debris_source"],
         "selected_collapse_source": decoded["selected_collapse_source"],
+        "high_debris_target_delta": decoded["high_debris_target_delta"],
+        "high_debris_target_offset": decoded["high_debris_target_offset"],
+        "high_debris_lookup_segment": decoded["high_debris_lookup_segment"],
+        "high_debris_word_layer_offset": decoded["high_debris_word_layer_offset"],
+        "high_debris_word_layer_segment": decoded["high_debris_word_layer_segment"],
+        "high_debris_word_layer_address": decoded["high_debris_word_layer_address"],
+        "high_debris_c204": decoded["high_debris_c204"],
         "debris_tile_index": decoded["debris_tile_index"],
         "collapse_word": decoded["collapse_word"],
         "effect_sprite": decoded["effect_sprite"],
@@ -432,6 +439,13 @@ def write_route_state_samples(
         "selected_effect_base",
         "selected_debris_source",
         "selected_collapse_source",
+        "high_debris_target_delta",
+        "high_debris_target_offset",
+        "high_debris_lookup_segment",
+        "high_debris_word_layer_offset",
+        "high_debris_word_layer_segment",
+        "high_debris_word_layer_address",
+        "high_debris_c204",
         "debris_tile_index",
         "collapse_word",
         "effect_sprite",
@@ -519,6 +533,11 @@ def le16(data: bytes, index: int) -> int:
     if index + 1 >= len(data):
         return 0
     return data[index] | (data[index + 1] << 8)
+
+
+def i16(value: int) -> int:
+    value &= 0xFFFF
+    return value - 0x10000 if value & 0x8000 else value
 
 
 def nonzero_count(data: bytes) -> int:
@@ -647,6 +666,52 @@ def choose_slot(
     return best, best_score, "score"
 
 
+def high_debris_target_static_fields(record: SampleRecord) -> dict[str, int]:
+    _, dump2070, dump2090, dump6610, dumpc1e0, _ = record
+    debris_queue_count = le16(dump2070, 0x207E - 0x2070)
+    debris_slots = candidate_slots(
+        4,
+        debris_queue_count,
+        DEBRIS_BASE,
+        DEBRIS_DUMP_BASE,
+        dump2090,
+        DEBRIS_STRIDE,
+    )
+    debris, _, _ = choose_slot(
+        [debris_slot_fields(dump2090, slot) for slot in debris_slots],
+        debris_queue_count,
+        debris_slot_score,
+    )
+    target_delta = le16(dump2090, 0)
+    target_offset = (debris["tile_index"] + i16(target_delta)) & 0xFFFF
+    word_layer_offset = le16(dump6610, 0x6612 - 0x6610)
+    return {
+        "high_debris_target_delta": target_delta,
+        "high_debris_target_offset": target_offset,
+        "high_debris_lookup_segment": le16(dumpc1e0, 0xC1FE - 0xC1E0),
+        "high_debris_word_layer_offset": word_layer_offset,
+        "high_debris_word_layer_segment": le16(dump6610, 0x6614 - 0x6610),
+        "high_debris_word_layer_address": (word_layer_offset + target_offset * 2) & 0xFFFF,
+        "high_debris_c204": le16(dumpc1e0, 0xC204 - 0xC1E0),
+    }
+
+
+def resolve_high_debris_target(
+    pid: int, base: int, record: SampleRecord
+) -> dict[str, int]:
+    fields = high_debris_target_static_fields(record)
+    target_offset = fields["high_debris_target_offset"]
+    lookup_segment = fields["high_debris_lookup_segment"]
+    word_layer_segment = fields["high_debris_word_layer_segment"]
+    fields["high_debris_target_byte"] = read_emulated(
+        pid, base, lookup_segment, target_offset, 1
+    )[0]
+    word_offset = fields["high_debris_word_layer_address"]
+    word_bytes = read_emulated(pid, base, word_layer_segment, word_offset, 2)
+    fields["high_debris_word_layer_value"] = le16(word_bytes, 0)
+    return fields
+
+
 def decode_sample(record: SampleRecord) -> dict[str, int | float | str]:
     elapsed, dump2070, dump2090, dump6610, dumpc1e0, dumpc21e = record
     debris_queue_count = le16(dump2070, 0x207E - 0x2070)
@@ -682,6 +747,7 @@ def decode_sample(record: SampleRecord) -> dict[str, int | float | str]:
     )
     return {
         "elapsed": elapsed,
+        **high_debris_target_static_fields(record),
         "selected_debris_base": debris["addr"],
         "selected_collapse_base": collapse["addr"],
         "selected_effect_base": effect["addr"],
@@ -758,6 +824,13 @@ def write_sample_summary(path: Path, records: list[SampleRecord]) -> None:
         "selected_effect_slot",
         "selected_debris_source",
         "selected_collapse_source",
+        "high_debris_target_delta",
+        "high_debris_target_offset",
+        "high_debris_lookup_segment",
+        "high_debris_word_layer_offset",
+        "high_debris_word_layer_segment",
+        "high_debris_word_layer_address",
+        "high_debris_c204",
         "debris_queue_count",
         "collapse_queue_count",
         "debris_score",
@@ -1126,7 +1199,7 @@ def main() -> int:
                 read_emulated(
                     pid, base, RUNTIME_DS, COLLAPSE_DUMP_BASE, COLLAPSE_DUMP_LENGTH
                 ),
-                read_emulated(pid, base, RUNTIME_DS, 0xC1E0, 0x20),
+                read_emulated(pid, base, RUNTIME_DS, 0xC1E0, 0x40),
                 read_emulated(pid, base, RUNTIME_DS, 0xC21E, 0x40),
             )
             records.append(record)
@@ -1269,6 +1342,10 @@ def main() -> int:
         freeze_observed = freeze_patch is not None and bool(tail_match_frame)
         chosen_score = sample_score(chosen)
         chosen_fields = decode_sample(chosen)
+        try:
+            chosen_target_fields = resolve_high_debris_target(pid, base, chosen)
+        except OSError:
+            chosen_target_fields = high_debris_target_static_fields(chosen)
         elapsed, dump2070, dump2090, dump6610, dumpc1e0, dumpc21e = chosen
         fixture = out_dir / "explosion_playback_oracle_original_candidate.txt"
         with fixture.open("w", encoding="ascii") as out:
@@ -1292,6 +1369,22 @@ def main() -> int:
                 f"debris:{chosen_fields['selected_debris_source']},"
                 f"collapse:{chosen_fields['selected_collapse_source']}\n"
             )
+            out.write(
+                "# chosen_high_debris_target="
+                f"delta:{int(chosen_target_fields['high_debris_target_delta']):04X},"
+                f"offset:{int(chosen_target_fields['high_debris_target_offset']):04X},"
+                f"lookup_segment:{int(chosen_target_fields['high_debris_lookup_segment']):04X},"
+                f"word_layer:{int(chosen_target_fields['high_debris_word_layer_segment']):04X}:"
+                f"{int(chosen_target_fields['high_debris_word_layer_address']):04X},"
+                f"c204:{int(chosen_target_fields['high_debris_c204']):04X}"
+            )
+            if "high_debris_target_byte" in chosen_target_fields:
+                out.write(
+                    f",target_byte:{int(chosen_target_fields['high_debris_target_byte']):02X},"
+                    "word:"
+                    f"{int(chosen_target_fields['high_debris_word_layer_value']):04X}"
+                )
+            out.write("\n")
             out.write(f"# sample_summary={sample_summary.name}\n")
             if captured_sample_screenshots:
                 out.write(
@@ -1409,6 +1502,23 @@ def main() -> int:
             out.write(f"selected_effect_base={int(chosen_fields['selected_effect_base']):04X}\n")
             out.write(f"selected_debris_source={chosen_fields['selected_debris_source']}\n")
             out.write(f"selected_collapse_source={chosen_fields['selected_collapse_source']}\n")
+            for field in [
+                "high_debris_target_delta",
+                "high_debris_target_offset",
+                "high_debris_lookup_segment",
+                "high_debris_word_layer_offset",
+                "high_debris_word_layer_segment",
+                "high_debris_word_layer_address",
+                "high_debris_c204",
+                "high_debris_target_byte",
+                "high_debris_word_layer_value",
+            ]:
+                if field in chosen_target_fields:
+                    value = int(chosen_target_fields[field])
+                    if field == "high_debris_target_byte":
+                        out.write(f"{field}=0x{value:02x}\n")
+                    else:
+                        out.write(f"{field}=0x{value:04x}\n")
             for ghidra, offset, label in [
                 ("1000:75F1", 0x75F1, "bomb_expire_dispatch_call"),
                 ("1000:414A", 0x414A, "explosion_dispatcher"),
@@ -1421,6 +1531,11 @@ def main() -> int:
                 ("1000:45FA", 0x45FA, "effect_debris_update_entry"),
                 ("1000:432A", 0x432A, "effect_playback_candidate"),
                 ("1000:492F", 0x492F, "high_debris_loop_entry"),
+                ("1000:4B3F", 0x4B3F, "high_debris_target_sample"),
+                ("1000:4B61", 0x4B61, "high_debris_target_byte_gate"),
+                ("1000:4B6A", 0x4B6A, "high_debris_zero_target_branch"),
+                ("1000:4C20", 0x4C20, "high_debris_nonzero_target_branch"),
+                ("1000:4C75", 0x4C75, "high_debris_word_gate"),
                 ("1000:4C96", 0x4C96, "effect_forward_pass_call"),
                 ("1000:4CA9", 0x4CA9, "effect_reverse_pass_call"),
             ]:
@@ -1526,6 +1641,24 @@ def main() -> int:
                             instrumentation_manifest += (
                                 f"freeze_runtime_patch_{field}={value}\n"
                             )
+        target_manifest = ""
+        for field in [
+            "high_debris_target_delta",
+            "high_debris_target_offset",
+            "high_debris_lookup_segment",
+            "high_debris_word_layer_offset",
+            "high_debris_word_layer_segment",
+            "high_debris_word_layer_address",
+            "high_debris_c204",
+            "high_debris_target_byte",
+            "high_debris_word_layer_value",
+        ]:
+            if field in chosen_target_fields:
+                value = int(chosen_target_fields[field])
+                if field == "high_debris_target_byte":
+                    target_manifest += f"{field}=0x{value:02x}\n"
+                else:
+                    target_manifest += f"{field}=0x{value:04x}\n"
         manifest = out_dir / "manifest.txt"
         manifest.write_text(
             f"capture=original_explosion_process_memory\n"
@@ -1564,6 +1697,7 @@ def main() -> int:
             f"selected_effect_base={int(chosen_fields['selected_effect_base']):04X}\n"
             f"selected_debris_source={chosen_fields['selected_debris_source']}\n"
             f"selected_collapse_source={chosen_fields['selected_collapse_source']}\n"
+            f"{target_manifest}"
             f"screenshot_sha256="
             f"{','.join(name + ':' + digest for name, digest in screenshot_hashes)}\n"
             f"visual_claim=0\n",

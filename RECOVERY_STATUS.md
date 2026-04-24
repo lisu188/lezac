@@ -70,6 +70,9 @@ Baseline: `origin/main`
   helper. It can defer the `EB FE` write until after bomb input and an optional
   decoded queue-score threshold, keeping the temp executable unmodified for
   state-gated reachability probes.
+- Extended runtime freeze gates with decoded debris/collapse/effect nonzero
+  thresholds and selected queue-base predicates, so probes can wait for visible
+  playback-adjacent queue growth rather than the early post-bomb state.
 - Extended `--debug-explosion-playback-oracle` so fixtures can decode selected
   debris/collapse/effect bases while keeping the existing slot-zero defaults.
 - Updated `AGENTS.md`, README, and recovery docs with the autoplayer, original
@@ -188,6 +191,13 @@ Baseline: `origin/main`
   visible explosion playback. `1000:3FA6` loaded `5589 -> ebfe` and froze, but
   frame inspection showed a pre-visible-explosion/armed-bomb state, so this is
   still reachability evidence rather than promoted playback evidence.
+- A late-gated runtime child-memory freeze probe at `1000:432A` used queue
+  score `150`, selected bases `DS:209e`, `DS:6620`, `DS:c22e`, and nonzero
+  debris/collapse/effect counts `28/20/28`. It loaded `5589 -> ebfe` at
+  `1.246s` after bomb input without timed screenshots, did not freeze, and the
+  final frame inspection still showed visible playback. An earlier `432A` run
+  requiring `DS:662F` correctly withheld the patch because this route selected
+  `DS:6620`.
 - Instrumented temp-copy runs patched and loaded freeze loops at `1000:3A7E`,
   `1000:3BB2`, `1000:3FA6`, and `1000:432A`. `1000:3FA6` reliably froze, but
   before visible explosion playback; `1000:3A7E` produced one explosion-frame

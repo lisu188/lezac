@@ -142,6 +142,23 @@ pre-explosion result more precise. It still does not promote original explosion
 playback evidence because the freeze is before visible playback, and `3A7E`
 was not reached after the gated patch.
 
+The runtime gate now also supports decoded queue predicates such as nonzero
+debris/collapse/effect byte counts and selected queue bases. A later `432A`
+probe first required selected collapse base `DS:662F`, but the route selected
+`DS:6620`, so the helper correctly withheld the patch. Rerunning with
+`--runtime-freeze-require-collapse-base 0x6620`,
+`--runtime-freeze-min-queue-score 100`,
+`--runtime-freeze-min-debris-nonzero 10`,
+`--runtime-freeze-min-collapse-nonzero 20`, and
+`--runtime-freeze-min-effect-nonzero 20` applied the patch at `1.246s` after
+bomb input with score `150`, selected bases `DS:209e`, `DS:6620`, and
+`DS:c22e`, and loaded bytes `5589 -> ebfe` at `1000:432A`. No freeze was
+observed and the final inspected frame still showed visible playback, so
+`432A` is not the active playback stop for this route/window. Timed
+screenshots inside the sampling loop can delay patching; late-freeze probes
+should usually use `--sample-screenshot-seconds ''` and rely on the final frame
+plus manifest hashes unless intermediate screenshots are the point of the run.
+
 Instrumented temporary-copy freeze attempts then tested several playback-window
 anchors:
 

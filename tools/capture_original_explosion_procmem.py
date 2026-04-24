@@ -477,6 +477,14 @@ def parse_int_auto(value: str) -> int:
         raise argparse.ArgumentTypeError(f"expected integer, got {value}") from exc
 
 
+def optional_int_text(value: int | None) -> str:
+    return "" if value is None else str(value)
+
+
+def optional_hex_text(value: int | None) -> str:
+    return "" if value is None else f"0x{value:04x}"
+
+
 def le16(data: bytes, index: int) -> int:
     if index + 1 >= len(data):
         return 0
@@ -766,6 +774,36 @@ def main() -> int:
             "is at least this value"
         ),
     )
+    parser.add_argument(
+        "--runtime-freeze-min-debris-nonzero",
+        type=parse_int_auto,
+        help="with runtime freeze patching, wait for at least this many nonzero DS:2090 bytes",
+    )
+    parser.add_argument(
+        "--runtime-freeze-min-collapse-nonzero",
+        type=parse_int_auto,
+        help="with runtime freeze patching, wait for at least this many nonzero DS:6610 bytes",
+    )
+    parser.add_argument(
+        "--runtime-freeze-min-effect-nonzero",
+        type=parse_int_auto,
+        help="with runtime freeze patching, wait for at least this many nonzero DS:C21E bytes",
+    )
+    parser.add_argument(
+        "--runtime-freeze-require-debris-base",
+        type=parse_int_auto,
+        help="with runtime freeze patching, wait for selected_debris_base to equal this DS offset",
+    )
+    parser.add_argument(
+        "--runtime-freeze-require-collapse-base",
+        type=parse_int_auto,
+        help="with runtime freeze patching, wait for selected_collapse_base to equal this DS offset",
+    )
+    parser.add_argument(
+        "--runtime-freeze-require-effect-base",
+        type=parse_int_auto,
+        help="with runtime freeze patching, wait for selected_effect_base to equal this DS offset",
+    )
     args = parser.parse_args()
 
     if not args.approve_procmem:
@@ -790,13 +828,28 @@ def main() -> int:
     runtime_freeze = (
         args.runtime_freeze_after_bomb_seconds is not None
         or args.runtime_freeze_min_queue_score is not None
+        or args.runtime_freeze_min_debris_nonzero is not None
+        or args.runtime_freeze_min_collapse_nonzero is not None
+        or args.runtime_freeze_min_effect_nonzero is not None
+        or args.runtime_freeze_require_debris_base is not None
+        or args.runtime_freeze_require_collapse_base is not None
+        or args.runtime_freeze_require_effect_base is not None
     )
     if args.runtime_freeze_after_bomb_seconds is not None:
         if args.runtime_freeze_after_bomb_seconds < 0:
             raise RuntimeError("--runtime-freeze-after-bomb-seconds must be non-negative")
-    if args.runtime_freeze_min_queue_score is not None:
-        if args.runtime_freeze_min_queue_score < 0:
-            raise RuntimeError("--runtime-freeze-min-queue-score must be non-negative")
+    for arg_name in [
+        "runtime_freeze_min_queue_score",
+        "runtime_freeze_min_debris_nonzero",
+        "runtime_freeze_min_collapse_nonzero",
+        "runtime_freeze_min_effect_nonzero",
+        "runtime_freeze_require_debris_base",
+        "runtime_freeze_require_collapse_base",
+        "runtime_freeze_require_effect_base",
+    ]:
+        value = getattr(args, arg_name)
+        if value is not None and value < 0:
+            raise RuntimeError(f"--{arg_name.replace('_', '-')} must be non-negative")
     if runtime_freeze and not args.freeze_ghidra_offset:
         raise RuntimeError("runtime freeze patching requires --freeze-ghidra-offset")
     if runtime_freeze and not args.approve_runtime_instrumentation:
@@ -911,6 +964,7 @@ def main() -> int:
         runtime_freeze_old_bytes = b""
         runtime_freeze_patch_elapsed: float | None = None
         runtime_freeze_patch_score = 0
+        runtime_freeze_patch_fields: dict[str, int | float] = {}
         if freeze_patch is not None:
             freeze_loaded_bytes = read_emulated(
                 pid, base, RUNTIME_CS, int(freeze_patch["ghidra_offset"]), 8
@@ -957,6 +1011,7 @@ def main() -> int:
                 read_emulated(pid, base, RUNTIME_DS, 0xC21E, 0x40),
             )
             records.append(record)
+            current_fields = decode_sample(record)
             current_score = sample_score(record)
             after_bomb_ok = (
                 args.runtime_freeze_after_bomb_seconds is None
@@ -966,12 +1021,48 @@ def main() -> int:
                 args.runtime_freeze_min_queue_score is None
                 or current_score >= args.runtime_freeze_min_queue_score
             )
+            debris_nonzero_ok = (
+                args.runtime_freeze_min_debris_nonzero is None
+                or int(current_fields["debris_nonzero"])
+                >= args.runtime_freeze_min_debris_nonzero
+            )
+            collapse_nonzero_ok = (
+                args.runtime_freeze_min_collapse_nonzero is None
+                or int(current_fields["collapse_nonzero"])
+                >= args.runtime_freeze_min_collapse_nonzero
+            )
+            effect_nonzero_ok = (
+                args.runtime_freeze_min_effect_nonzero is None
+                or int(current_fields["effect_nonzero"])
+                >= args.runtime_freeze_min_effect_nonzero
+            )
+            debris_base_ok = (
+                args.runtime_freeze_require_debris_base is None
+                or int(current_fields["selected_debris_base"])
+                == args.runtime_freeze_require_debris_base
+            )
+            collapse_base_ok = (
+                args.runtime_freeze_require_collapse_base is None
+                or int(current_fields["selected_collapse_base"])
+                == args.runtime_freeze_require_collapse_base
+            )
+            effect_base_ok = (
+                args.runtime_freeze_require_effect_base is None
+                or int(current_fields["selected_effect_base"])
+                == args.runtime_freeze_require_effect_base
+            )
             if (
                 runtime_freeze
                 and freeze_patch is not None
                 and runtime_freeze_patch_elapsed is None
                 and after_bomb_ok
                 and score_ok
+                and debris_nonzero_ok
+                and collapse_nonzero_ok
+                and effect_nonzero_ok
+                and debris_base_ok
+                and collapse_base_ok
+                and effect_base_ok
             ):
                 patch_offset = int(freeze_patch["ghidra_offset"])
                 freeze_loaded_before_runtime_patch = read_emulated(
@@ -985,6 +1076,7 @@ def main() -> int:
                 )
                 runtime_freeze_patch_elapsed = elapsed
                 runtime_freeze_patch_score = current_score
+                runtime_freeze_patch_fields = dict(current_fields)
                 route_state_records.append(
                     capture_route_state(
                         pid,
@@ -1095,6 +1187,30 @@ def main() -> int:
                         "runtime_freeze_min_queue_score="
                         f"{args.runtime_freeze_min_queue_score if args.runtime_freeze_min_queue_score is not None else ''}\n"
                     )
+                    out.write(
+                        "runtime_freeze_min_debris_nonzero="
+                        f"{optional_int_text(args.runtime_freeze_min_debris_nonzero)}\n"
+                    )
+                    out.write(
+                        "runtime_freeze_min_collapse_nonzero="
+                        f"{optional_int_text(args.runtime_freeze_min_collapse_nonzero)}\n"
+                    )
+                    out.write(
+                        "runtime_freeze_min_effect_nonzero="
+                        f"{optional_int_text(args.runtime_freeze_min_effect_nonzero)}\n"
+                    )
+                    out.write(
+                        "runtime_freeze_require_debris_base="
+                        f"{optional_hex_text(args.runtime_freeze_require_debris_base)}\n"
+                    )
+                    out.write(
+                        "runtime_freeze_require_collapse_base="
+                        f"{optional_hex_text(args.runtime_freeze_require_collapse_base)}\n"
+                    )
+                    out.write(
+                        "runtime_freeze_require_effect_base="
+                        f"{optional_hex_text(args.runtime_freeze_require_effect_base)}\n"
+                    )
                     if runtime_freeze_patch_elapsed is not None:
                         out.write(
                             "runtime_freeze_patch_elapsed_after_bomb="
@@ -1110,6 +1226,19 @@ def main() -> int:
                         out.write(
                             f"runtime_freeze_old_bytes={runtime_freeze_old_bytes.hex()}\n"
                         )
+                        for field in [
+                            "debris_nonzero",
+                            "collapse_nonzero",
+                            "effect_nonzero",
+                            "selected_debris_base",
+                            "selected_collapse_base",
+                            "selected_effect_base",
+                        ]:
+                            value = int(runtime_freeze_patch_fields[field])
+                            if field.startswith("selected_"):
+                                out.write(f"runtime_freeze_patch_{field}=0x{value:04x}\n")
+                            else:
+                                out.write(f"runtime_freeze_patch_{field}={value}\n")
                 out.write(
                     f"instrumentation=freeze_loop_patch "
                     f"mode={'runtime_child_memory_patch' if runtime_freeze else 'temp_copy_exe_patch'} "
@@ -1205,6 +1334,18 @@ def main() -> int:
                 instrumentation_manifest += (
                     f"freeze_runtime_after_bomb_seconds={after_bomb_seconds}\n"
                     f"freeze_runtime_min_queue_score={min_queue_score}\n"
+                    "freeze_runtime_min_debris_nonzero="
+                    f"{optional_int_text(args.runtime_freeze_min_debris_nonzero)}\n"
+                    "freeze_runtime_min_collapse_nonzero="
+                    f"{optional_int_text(args.runtime_freeze_min_collapse_nonzero)}\n"
+                    "freeze_runtime_min_effect_nonzero="
+                    f"{optional_int_text(args.runtime_freeze_min_effect_nonzero)}\n"
+                    "freeze_runtime_require_debris_base="
+                    f"{optional_hex_text(args.runtime_freeze_require_debris_base)}\n"
+                    "freeze_runtime_require_collapse_base="
+                    f"{optional_hex_text(args.runtime_freeze_require_collapse_base)}\n"
+                    "freeze_runtime_require_effect_base="
+                    f"{optional_hex_text(args.runtime_freeze_require_effect_base)}\n"
                     f"freeze_runtime_patch_elapsed_after_bomb={patch_elapsed}\n"
                 )
                 instrumentation_manifest += (
@@ -1213,6 +1354,24 @@ def main() -> int:
                     f"{freeze_loaded_before_runtime_patch.hex()}\n"
                     f"freeze_runtime_old_bytes={runtime_freeze_old_bytes.hex()}\n"
                 )
+                if runtime_freeze_patch_elapsed is not None:
+                    for field in [
+                        "debris_nonzero",
+                        "collapse_nonzero",
+                        "effect_nonzero",
+                        "selected_debris_base",
+                        "selected_collapse_base",
+                        "selected_effect_base",
+                    ]:
+                        value = int(runtime_freeze_patch_fields[field])
+                        if field.startswith("selected_"):
+                            instrumentation_manifest += (
+                                f"freeze_runtime_patch_{field}=0x{value:04x}\n"
+                            )
+                        else:
+                            instrumentation_manifest += (
+                                f"freeze_runtime_patch_{field}={value}\n"
+                            )
         manifest = out_dir / "manifest.txt"
         manifest.write_text(
             f"capture=original_explosion_process_memory\n"

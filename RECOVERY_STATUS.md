@@ -287,8 +287,19 @@ Baseline: `origin/main`
   at the target-byte gate with target offset `0x0541`, target byte `0x00`,
   word-layer value `0x0000`, and `DS:c204=0x003c`, identifying the next static
   branch as the zero-target path at `1000:4B6A`.
-  The inspected captures remain instrumentation evidence with
-  `visual_claim=0`; no original fixture was promoted.
+  The helper can now require that decoded target byte before applying a runtime
+  child-memory patch; two gated `1000:4B6A` probes reached the later `DS:292b`
+  route state with target byte `0x33`, so they intentionally did not patch and
+  are recorded as timing evidence rather than executed-branch evidence.
+  A faster gated run at
+  `/tmp/lezac-4b6a-target-byte-fast-runtime-20260424-codex-1` used
+  `--sample-interval 0.005` and froze `01ED:4B6A` after `1.436s`, with
+  `DS:207e=0x00c8`, selected debris base `DS:292b`, target byte `0x00`, and
+  word-layer value `0x0000`; frozen screenshots matched the visible blast
+  frame hash. A compact original-runtime oracle fixture now covers this
+  zero-target branch evidence.
+  The promoted fixture remains instrumentation evidence with `visual_claim=0`;
+  no live C++ behavior changed from this proof yet.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"

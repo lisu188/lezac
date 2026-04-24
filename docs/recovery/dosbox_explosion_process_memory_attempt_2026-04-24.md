@@ -362,21 +362,56 @@ zero-target path. Frame inspection of `041_sample_2p00s.png`,
 `090_after_sampling.png`, and `091_tail_freeze_check.png` showed the same
 visible blast frame and matching hashes.
 
-This is useful route evidence, but it is still not enough to promote an
-explosion runtime oracle fixture by itself; the unresolved fixture still needs
-runtime bytes or debugger/process-memory samples tied to the relevant
-`1000:3a56..4d3b` execution window. The `45FA` freeze proves entry into the
-effect/debris update pass during visible playback, but it is still
-instrumented process-memory evidence rather than a debugger breakpoint stop,
-and the sampled effect table still needs exact semantic interpretation.
+The helper now also accepts
+`--runtime-freeze-require-high-debris-target-byte`, which resolves the selected
+high-debris target before applying a runtime child-memory freeze patch. Two
+follow-up runtime-patch probes tried to stop at the confirmed zero-target
+branch, `1000:4B6A`, only when the selected high-debris slot was `DS:292b` and
+the decoded target byte was `0x00`. The late-collapse run at
+`/tmp/lezac-4b6a-target-byte-gated-runtime-20260424-codex-1` did not patch:
+the chosen `DS:292b` sample had target offset `0x05b8`, target byte `0x33`,
+and word-layer value `0x0000`. A second run without late-collapse thresholds at
+`/tmp/lezac-4b6a-target-byte-gated-runtime-20260424-codex-2` also did not
+patch, again selecting `DS:292b` with target byte `0x33`. These are useful
+negative/timing captures: the `4B61` freeze proves a visible-blast state whose
+sample chooses `4B6A`, but the current polling route reaches later `DS:292b`
+states after the target byte has drifted away from zero. Do not claim executed
+`4B6A` evidence yet.
+
+A faster runtime-child probe then reproduced the narrow zero-target window:
+`/tmp/lezac-4b6a-target-byte-fast-runtime-20260424-codex-1` used
+`--sample-interval 0.005` and `--route-state-interval 0` with the same
+`DS:292b` and target-byte `0x00` gates. It applied the runtime patch at
+`1.436s` after bomb input, when `DS:207e=0x00c8`, selected debris base
+`DS:292b`, selected effect base `DS:c22e`, target offset `0x0540`, target byte
+`0x00`, and target word-layer value `0x0000`. The run froze at
+`01ED:4B6A`, and `040_sample_1p50s.png`, `041_sample_2p00s.png`,
+`090_after_sampling.png`, and `091_tail_freeze_check.png` all hashed to
+`b8979bb17dff3bb459b2575104476d7e5f77332c73fee761127481ef6b204f12`,
+confirming a held visible explosion frame. Its chosen post-freeze candidate
+parsed with target delta `0x0001`, target offset `0x0541`, lookup segment
+`0x3ea9`, word-layer pointer `3f26:0a82`, `DS:c204=0x003c`, target byte
+`0x00`, and word-layer value `0x0000`. This promotes the earlier static
+branch inference into original runtime evidence that the visible-blast route
+executes the zero-target branch at `1000:4B6A`; it remains instrumented
+process-memory evidence with `visual_claim=0`.
+
+This is useful branch evidence, but it is still not enough to change live C++
+sprite playback semantics by itself. The promoted oracle fixture should remain
+limited to proving the sampled runtime bytes and `4B6A` branch execution. The
+`45FA`/`4B6A` freezes prove entry into the effect/debris update path during
+visible playback, but they are still instrumented process-memory evidence
+rather than debugger breakpoint stops, and the sampled effect table still
+needs exact semantic interpretation.
 
 ## Next Step
 
-Use the now-working `45FA`/`492F`/`4B3F`/`4B61` visible-playback freezes plus
-the high-counter `4C96` patch-loaded/no-freeze result to follow the confirmed
-zero-target branch at `1000:4B6A`. Prefer gating those attempts on route-state
-rows, selected queue bases, target byte `0x00`, and nonzero explosion queue
-growth instead of fixed sleeps alone. Only promote
+Use the now-working `45FA`/`492F`/`4B3F`/`4B61`/`4B6A` visible-playback
+freezes plus the high-counter `4C96` patch-loaded/no-freeze result to follow
+the zero-target branch body toward the later `4C75` word gate and
+`4C96`/`4CA9` lane calls. Prefer the fast target-byte-gated route
+(`--sample-interval 0.005`, `--route-state-interval 0`) when probing this
+window. Only promote
 `explosion_playback_oracle_original.txt` after screenshots show the intended
 bomb/object event and the sampled bytes prove the exact runtime window and
 field semantics.

@@ -386,6 +386,17 @@ offset, lookup segment at `DS:c1fe`, word-layer pointer at `DS:6612`,
 at the byte gate with target offset `0x0541`, target byte `0x00`, word-layer
 value `0x0000`, and `DS:c204=0x003c`; by the static `cmpb $0x0,-0x11(%bp)` /
 `je 4b6a` pair, that frozen state chooses the zero-target branch at `4b6a`.
+The capture helper can now gate runtime child-memory patching on that decoded
+target byte, but two `1000:4b6a` runtime-patch attempts selected the same
+counter-derived debris slot later in the route with target byte `0x33`, so no
+patch was applied. That makes the target-byte sample a time-sensitive playback
+state. A faster process-memory run using `--sample-interval 0.005` and
+`--route-state-interval 0` caught the zero-target window and patched
+`1000:4b6a` at runtime after `1.436s`: `DS:207e=0x00c8`, selected debris base
+`DS:292b`, target byte `0x00`, and word-layer value `0x0000`. The frozen tail
+screenshots matched the visible blast frame, so the zero-target branch is now
+runtime-observed, though still as instrumentation evidence with
+`visual_claim=0`.
 
 ## Sound Playback Evidence
 

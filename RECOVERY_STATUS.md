@@ -80,6 +80,11 @@ Baseline: `origin/main`
   runs without timed sample screenshots can still detect a frozen final frame.
 - Extended `--debug-explosion-playback-oracle` so fixtures can decode selected
   debris/collapse/effect bases while keeping the existing slot-zero defaults.
+- Statically disassembled `1000:370e` from the original MZ image and tightened
+  the explosion capture/oracle path around the proven one-based queue counters:
+  debris records are selected from `0x2093 + 0x0b * DS:207e`, collapse records
+  from `0x6611 + 0x0f * DS:2080`, and collapse payload fields now match the
+  original flagged-word/magnitude/affected-byte offsets.
 - Updated `AGENTS.md`, README, and recovery docs with the autoplayer, original
   DOSBox capture, and frame-inspection workflows.
 
@@ -167,8 +172,12 @@ Baseline: `origin/main`
 - `python3 -m py_compile tools/capture_original_explosion_procmem.py` passed.
 - `python3 tools/capture_original_explosion_procmem.py --help` passed and
   lists the route-input options.
+- `cmake --build build` passed under WSL after the queue-counter oracle update.
 - `ctest --test-dir build -R explosion_playback_oracle --output-on-failure`
-  passed: 4/4.
+  passed: 5/5.
+- `ctest --test-dir build -R
+  "damage_queues|bomb_object_explosion_effects|collapse_playback_route|frame_sequence_capture_dummy"
+  --output-on-failure` passed: 4/4.
 - `tools/compare_original_cpp_frames.sh
   /tmp/lezac-frame-compare-improved-20260424-codex-1812 .
   level1_bomb_route` passed and wrote paired C++/original frames plus diffs.
@@ -224,7 +233,7 @@ Baseline: `origin/main`
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"
   --output-on-failure` passed: 20/20.
-- `ctest --test-dir build --output-on-failure` passed: 74/74.
+- `ctest --test-dir build --output-on-failure` passed under WSL: 83/83.
 - `./build/lezac_cpp --validate` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --smoke-controls` passed.

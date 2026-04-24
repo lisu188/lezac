@@ -193,6 +193,37 @@ instrumentation evidence and `visual_claim=0`; the next promotion step needs
 the exact bytes and disassembly around the `370E` stop interpreted against the
 effect/debris/collapse queues.
 
+## Static `1000:370E` Follow-Up
+
+The follow-up static dump used the MZ image base `0x770` and disassembled from
+file offset `0x770 + 0x370e = 0x3e7e`:
+
+```sh
+dd if=LEZAC.EXE of=/tmp/lezac-static/range_370e_3a6d.bin \
+  bs=1 skip=$((0x770+0x370e)) count=$((0x360))
+objdump -D -b binary -m i8086 --adjust-vma=0x370e \
+  /tmp/lezac-static/range_370e_3a6d.bin
+```
+
+That dump confirms `1000:370e` is the tile damage queue helper reached during
+the visible explosion route, not a direct playback renderer. It reads the word
+layer through the far pointer at `DS:6612`, ignores already damaged words, and
+branches at `0x4000`.
+
+The high-word path increments `DS:207e` before writing a debris record at
+`0x2093 + 0x0b * DS:207e`; therefore the first original-written debris record is
+`DS:209e`. The low-word path increments `DS:2080` before writing a collapse
+record at `0x6611 + 0x0f * DS:2080`; therefore the first original-written
+collapse record is `DS:6620`. The collapse record stores the flagged word at
+`+4`, the two argument bytes at `+6/+7`, a word `abs(arg0) + abs(arg1)` at
+`+0a`, and affected byte count at `+0e`.
+
+The capture helper and C++ oracle now understand these queue counters. New
+candidate captures record `debris_queue_count`, `collapse_queue_count`, and
+whether the selected bases came from counters or scoring; the oracle can derive
+`DS:209e`/`DS:6620` from dumped `DS:2070` bytes even when a fixture omits
+explicit selected bases.
+
 Instrumented temporary-copy freeze attempts then tested several playback-window
 anchors:
 

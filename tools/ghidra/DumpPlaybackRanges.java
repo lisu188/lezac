@@ -19,6 +19,7 @@ public class DumpPlaybackRanges extends GhidraScript {
         File outDir = new File("/tmp/lezac-ghidra-out");
         outDir.mkdirs();
         out = new PrintWriter(new File(outDir, "playback_ranges_dump.txt"));
+        dumpRange("tile_damage_queue_370e", "1000:370e", "1000:3a55");
         dumpRange("debris_lookup_tail_3a56", "1000:3a56", "1000:3a7d");
         dumpRange("debris_scan_3a7e", "1000:3a7e", "1000:3b17");
         dumpRange("debris_scan_reverse_3b18", "1000:3b18", "1000:3bb1");

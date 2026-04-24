@@ -59,6 +59,8 @@ COLLAPSE_BASE = 0x6611
 COLLAPSE_STRIDE = 0x0F
 EFFECT_BASE = 0xC21E
 EFFECT_STRIDE = 0x08
+DEBRIS_DUMP_BASE = 0x2090
+COLLAPSE_DUMP_BASE = 0x6610
 FREEZE_PATCH = bytes.fromhex("ebfe")
 DEFAULT_SAMPLE_SCREENSHOTS = "0.5,1.0,1.5,2.0,3.0"
 ROUTE_STATE_RANGES = [
@@ -380,9 +382,13 @@ def route_state_fields(record: RouteStateRecord) -> dict[str, int | str | float 
                 record.dumps["DS:C21E"],
             )
         ),
+        "debris_queue_count": decoded["debris_queue_count"],
+        "collapse_queue_count": decoded["collapse_queue_count"],
         "selected_debris_base": decoded["selected_debris_base"],
         "selected_collapse_base": decoded["selected_collapse_base"],
         "selected_effect_base": decoded["selected_effect_base"],
+        "selected_debris_source": decoded["selected_debris_source"],
+        "selected_collapse_source": decoded["selected_collapse_source"],
         "debris_tile_index": decoded["debris_tile_index"],
         "collapse_word": decoded["collapse_word"],
         "effect_sprite": decoded["effect_sprite"],
@@ -417,9 +423,13 @@ def write_route_state_samples(
         "effect_nonzero",
         "frame_table_nonzero",
         "queue_score",
+        "debris_queue_count",
+        "collapse_queue_count",
         "selected_debris_base",
         "selected_collapse_base",
         "selected_effect_base",
+        "selected_debris_source",
+        "selected_collapse_source",
         "debris_tile_index",
         "collapse_word",
         "effect_sprite",
@@ -437,6 +447,8 @@ def write_route_state_samples(
                     values.append(str(value))
                 elif field == "elapsed_after_bomb":
                     values.append(f"{float(value):.3f}")
+                elif isinstance(value, str):
+                    values.append(value)
                 else:
                     values.append(f"0x{int(value):04x}")
             out.write("\t".join(values) + "\n")
@@ -512,7 +524,7 @@ def nonzero_count(data: bytes) -> int:
 
 
 def debris_slot_fields(dump2090: bytes, slot: int) -> dict[str, int]:
-    index = (DEBRIS_BASE - 0x2090) + slot * DEBRIS_STRIDE
+    index = (DEBRIS_BASE - DEBRIS_DUMP_BASE) + slot * DEBRIS_STRIDE
     return {
         "slot": slot,
         "addr": DEBRIS_BASE + slot * DEBRIS_STRIDE,
@@ -525,18 +537,23 @@ def debris_slot_fields(dump2090: bytes, slot: int) -> dict[str, int]:
 
 
 def collapse_slot_fields(dump6610: bytes, slot: int) -> dict[str, int]:
-    index = (COLLAPSE_BASE - 0x6610) + slot * COLLAPSE_STRIDE
+    index = (COLLAPSE_BASE - COLLAPSE_DUMP_BASE) + slot * COLLAPSE_STRIDE
+    flagged = le16(dump6610, index + 4)
+    affected = dump6610[index + 0x0E] if index + 0x0E < len(dump6610) else 0
     return {
         "slot": slot,
         "addr": COLLAPSE_BASE + slot * COLLAPSE_STRIDE,
         "start": le16(dump6610, index),
         "end": le16(dump6610, index + 2),
-        "word": le16(dump6610, index + 4),
+        "word": flagged & 0x7FFF,
+        "flagged": flagged,
         "forward": dump6610[index + 6] if index + 6 < len(dump6610) else 0,
         "reverse": dump6610[index + 7] if index + 7 < len(dump6610) else 0,
-        "magnitude": le16(dump6610, index + 8),
-        "affected": dump6610[index + 10] if index + 10 < len(dump6610) else 0,
-        "count": dump6610[index + 11] if index + 11 < len(dump6610) else 0,
+        "lane8": dump6610[index + 8] if index + 8 < len(dump6610) else 0,
+        "lane9": dump6610[index + 9] if index + 9 < len(dump6610) else 0,
+        "magnitude": le16(dump6610, index + 0x0A),
+        "affected": affected,
+        "count": affected // 2,
     }
 
 
@@ -571,11 +588,11 @@ def collapse_slot_score(fields: dict[str, int]) -> int:
         score += 35
     if 0 < fields["count"] <= 16:
         score += 20
-    if 0 < (fields["word"] & 0x7FFF) < 0x4000:
+    if 0 < fields["word"] < 0x4000:
         score += 20
-    if (fields["word"] & 0x7FFF) == 0x0009:
+    if fields["word"] == 0x0009:
         score += 40
-    if fields["word"] & 0x8000:
+    if fields["flagged"] & 0x8000:
         score += 15
     if fields["forward"] or fields["reverse"]:
         score += 10
@@ -600,14 +617,62 @@ def best_scored_slot(
     return best, scorer(best)
 
 
-def decode_sample(record: SampleRecord) -> dict[str, int | float]:
+def slot_is_covered(base: int, dump: bytes, addr: int, stride: int) -> bool:
+    return base <= addr and addr + stride <= base + len(dump)
+
+
+def candidate_slots(
+    first_slots: int, count: int, record_base: int, dump_base: int, dump: bytes, stride: int
+) -> list[int]:
+    slots = list(range(first_slots))
+    addr = record_base + count * stride
+    if count > 0 and slot_is_covered(dump_base, dump, addr, stride):
+        slots.append(count)
+    return sorted(set(slots))
+
+
+def choose_slot(
+    values: list[dict[str, int]], count: int, scorer
+) -> tuple[dict[str, int], int, str]:
+    best, best_score = best_scored_slot(values, scorer)
+    if count > 0:
+        for fields in values:
+            if fields["slot"] == count:
+                score = scorer(fields)
+                if score > 0:
+                    return fields, score, "count"
+                break
+    return best, best_score, "score"
+
+
+def decode_sample(record: SampleRecord) -> dict[str, int | float | str]:
     elapsed, dump2070, dump2090, dump6610, dumpc1e0, dumpc21e = record
-    del dump2070
-    debris, debris_score = best_scored_slot(
-        [debris_slot_fields(dump2090, slot) for slot in range(4)], debris_slot_score
+    debris_queue_count = le16(dump2070, 0x207E - 0x2070)
+    collapse_queue_count = le16(dump2070, 0x2080 - 0x2070)
+    debris_slots = candidate_slots(
+        4,
+        debris_queue_count,
+        DEBRIS_BASE,
+        DEBRIS_DUMP_BASE,
+        dump2090,
+        DEBRIS_STRIDE,
     )
-    collapse, collapse_score = best_scored_slot(
-        [collapse_slot_fields(dump6610, slot) for slot in range(4)],
+    collapse_slots = candidate_slots(
+        4,
+        collapse_queue_count,
+        COLLAPSE_BASE,
+        COLLAPSE_DUMP_BASE,
+        dump6610,
+        COLLAPSE_STRIDE,
+    )
+    debris, debris_score, debris_source = choose_slot(
+        [debris_slot_fields(dump2090, slot) for slot in debris_slots],
+        debris_queue_count,
+        debris_slot_score,
+    )
+    collapse, collapse_score, collapse_source = choose_slot(
+        [collapse_slot_fields(dump6610, slot) for slot in collapse_slots],
+        collapse_queue_count,
         collapse_slot_score,
     )
     effect, effect_score = best_scored_slot(
@@ -621,6 +686,10 @@ def decode_sample(record: SampleRecord) -> dict[str, int | float]:
         "selected_debris_slot": debris["slot"],
         "selected_collapse_slot": collapse["slot"],
         "selected_effect_slot": effect["slot"],
+        "selected_debris_source": debris_source,
+        "selected_collapse_source": collapse_source,
+        "debris_queue_count": debris_queue_count,
+        "collapse_queue_count": collapse_queue_count,
         "debris_score": debris_score,
         "collapse_score": collapse_score,
         "effect_score": effect_score,
@@ -636,8 +705,11 @@ def decode_sample(record: SampleRecord) -> dict[str, int | float]:
         "collapse_start": collapse["start"],
         "collapse_end": collapse["end"],
         "collapse_word": collapse["word"],
+        "collapse_flagged": collapse["flagged"],
         "collapse_forward": collapse["forward"],
         "collapse_reverse": collapse["reverse"],
+        "collapse_lane8": collapse["lane8"],
+        "collapse_lane9": collapse["lane9"],
         "collapse_magnitude": collapse["magnitude"],
         "collapse_affected": collapse["affected"],
         "collapse_count": collapse["count"],
@@ -682,6 +754,10 @@ def write_sample_summary(path: Path, records: list[SampleRecord]) -> None:
         "selected_debris_slot",
         "selected_collapse_slot",
         "selected_effect_slot",
+        "selected_debris_source",
+        "selected_collapse_source",
+        "debris_queue_count",
+        "collapse_queue_count",
         "debris_score",
         "collapse_score",
         "effect_score",
@@ -697,8 +773,11 @@ def write_sample_summary(path: Path, records: list[SampleRecord]) -> None:
         "collapse_start",
         "collapse_end",
         "collapse_word",
+        "collapse_flagged",
         "collapse_forward",
         "collapse_reverse",
+        "collapse_lane8",
+        "collapse_lane9",
         "collapse_magnitude",
         "collapse_affected",
         "collapse_count",
@@ -719,6 +798,8 @@ def write_sample_summary(path: Path, records: list[SampleRecord]) -> None:
                     values.append(str(sample_score(record)))
                 elif field == "elapsed":
                     values.append(f"{float(decoded[field]):.3f}")
+                elif isinstance(decoded[field], str):
+                    values.append(str(decoded[field]))
                 else:
                     values.append(f"0x{int(decoded[field]):04x}")
             out.write("\t".join(values) + "\n")
@@ -1197,6 +1278,16 @@ def main() -> int:
                 f"collapse:{int(chosen_fields['selected_collapse_base']):04X},"
                 f"effect:{int(chosen_fields['selected_effect_base']):04X}\n"
             )
+            out.write(
+                "# chosen_queue_counts="
+                f"debris:{int(chosen_fields['debris_queue_count'])},"
+                f"collapse:{int(chosen_fields['collapse_queue_count'])}\n"
+            )
+            out.write(
+                "# chosen_selected_sources="
+                f"debris:{chosen_fields['selected_debris_source']},"
+                f"collapse:{chosen_fields['selected_collapse_source']}\n"
+            )
             out.write(f"# sample_summary={sample_summary.name}\n")
             if captured_sample_screenshots:
                 out.write(
@@ -1273,6 +1364,8 @@ def main() -> int:
                             f"runtime_freeze_old_bytes={runtime_freeze_old_bytes.hex()}\n"
                         )
                         for field in [
+                            "debris_queue_count",
+                            "collapse_queue_count",
                             "debris_nonzero",
                             "collapse_nonzero",
                             "effect_nonzero",
@@ -1305,9 +1398,13 @@ def main() -> int:
             out.write(f"input_bomb_hold_seconds={args.bomb_hold_seconds:.2f}\n")
             out.write(f"runtime_cs={RUNTIME_CS:04X}\n")
             out.write(f"runtime_ds={RUNTIME_DS:04X}\n")
+            out.write(f"debris_queue_count={int(chosen_fields['debris_queue_count'])}\n")
+            out.write(f"collapse_queue_count={int(chosen_fields['collapse_queue_count'])}\n")
             out.write(f"selected_debris_base={int(chosen_fields['selected_debris_base']):04X}\n")
             out.write(f"selected_collapse_base={int(chosen_fields['selected_collapse_base']):04X}\n")
             out.write(f"selected_effect_base={int(chosen_fields['selected_effect_base']):04X}\n")
+            out.write(f"selected_debris_source={chosen_fields['selected_debris_source']}\n")
+            out.write(f"selected_collapse_source={chosen_fields['selected_collapse_source']}\n")
             for ghidra, offset, label in [
                 ("1000:75F1", 0x75F1, "bomb_expire_dispatch_call"),
                 ("1000:414A", 0x414A, "explosion_dispatcher"),
@@ -1403,6 +1500,8 @@ def main() -> int:
                 )
                 if runtime_freeze_patch_elapsed is not None:
                     for field in [
+                        "debris_queue_count",
+                        "collapse_queue_count",
                         "debris_nonzero",
                         "collapse_nonzero",
                         "effect_nonzero",
@@ -1450,9 +1549,13 @@ def main() -> int:
             f"{','.join(label + '.png' for label in captured_sample_screenshots)}\n"
             f"chosen_sample_seconds_after_bomb={elapsed:.2f}\n"
             f"chosen_sample_score={chosen_score}\n"
+            f"debris_queue_count={int(chosen_fields['debris_queue_count'])}\n"
+            f"collapse_queue_count={int(chosen_fields['collapse_queue_count'])}\n"
             f"selected_debris_base={int(chosen_fields['selected_debris_base']):04X}\n"
             f"selected_collapse_base={int(chosen_fields['selected_collapse_base']):04X}\n"
             f"selected_effect_base={int(chosen_fields['selected_effect_base']):04X}\n"
+            f"selected_debris_source={chosen_fields['selected_debris_source']}\n"
+            f"selected_collapse_source={chosen_fields['selected_collapse_source']}\n"
             f"screenshot_sha256="
             f"{','.join(name + ':' + digest for name, digest in screenshot_hashes)}\n"
             f"visual_claim=0\n",

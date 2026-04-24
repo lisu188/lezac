@@ -217,10 +217,25 @@ leaving exact explosion sprite playback blocked on `1000:3a56..4d3b`.
 `--debug-monster-bomb-kill-live` locks same-frame blast damage, fatal monster
 state entry, reward presence, and death actor removal.
 
-The high-word debris branch in `1000:370e` writes an 11-byte record at
-`0x2093 + 0x0b * count`: word tile index, word `word | 0x8000`, byte argument
-pair, three zero bytes, one lookup byte from `[0xc1e0 + tileIndex]`, and a final
-zero byte. Any reconstruction-only lifetime is separate from that payload.
+Static disassembly of `1000:370e` with the MZ image base at file offset `0x770`
+confirms it is a tile damage queue helper, not a late renderer. It reads the
+word layer through the far pointer at `DS:6612`, skips words already carrying
+bit `0x8000`, and splits the remaining work at threshold `0x4000`.
+
+The high-word debris branch in `1000:370e` increments `DS:207e` before writing
+an 11-byte record at `0x2093 + 0x0b * DS:207e`, so the first original-written
+record is `DS:209e`: word tile index, word `word | 0x8000`, byte argument pair,
+three zero bytes, one lookup byte from the far-pointer source stored at
+`DS:c1e0`, and a final zero byte. Any reconstruction-only lifetime is separate
+from that payload.
+
+The low-word collapse branch increments `DS:2080` before writing a 15-byte
+record at `0x6611 + 0x0f * DS:2080`, so the first original-written record is
+`DS:6620`. The payload is start byte offset, end byte offset, stored flagged
+word, the two argument bytes at `+6/+7`, zero playback lanes at `+8/+9`, a word
+`abs(arg0) + abs(arg1)` at `+0a`, zero bytes at `+0c/+0d`, and affected-byte
+count at `+0e`. The current C++ low-word grouping remains a model until this
+rectangle-growth scan is compared against live original route bytes.
 
 The playback helpers at `1000:3a7e` and `1000:3b18` are forward/reverse lookup
 passes. They split damaged words on bit `0x8000` and threshold `0x4000`, then
@@ -280,8 +295,10 @@ lists. `explosion_playback_oracle_missing_effect_byte` verifies incomplete
 effect-entry dumps fail instead of producing partial visual claims.
 Fixtures may optionally include `selected_debris_base`,
 `selected_collapse_base`, or `selected_effect_base` when original runtime
-queues contain useful data in a later slot. Without those keys, the parser
-keeps the original slot-zero defaults `DS:2093`, `DS:6611`, and `DS:c21e`.
+queues contain useful data in a later slot. When `DS:207e` or `DS:2080` are
+present, the parser first derives the current debris/collapse bases from the
+original one-based counter formulas. Without counters or explicit keys, it
+keeps the slot-zero parser defaults `DS:2093`, `DS:6611`, and `DS:c21e`.
 
 An approved process-memory attempt on 2026-04-24 proved a fallback way to find
 the LEZAC image/data bytes in a child DOSBox process (`CS=01ED`, gameplay

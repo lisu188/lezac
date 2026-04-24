@@ -39,6 +39,8 @@ before any fixture is promoted into `tests/fixtures/dosbox`.
   no-window `xdotool key 1` path and often a second tap.
 - Player-1 right movement in this environment is reliable through the original
   `X` key, while arrow Right did not move the player during debugger runs.
+- Embedded original strings confirm the player-1 controls as left `z`, right
+  `x`, down `c`, jump `m`, and fire `n`.
 
 ## Failed/Unpromoted Evidence
 
@@ -68,6 +70,22 @@ debugger route:
   X hold       -> moves player right
   N/Space/Control_R test frames did not prove visible bomb placement
 ```
+
+`tools/capture_original_dosbox_frames.sh` and
+`tools/capture_original_explosion_procmem.py` now record the start/right/fire
+keys they used in their manifests. The current default route uses the focused
+no-window key path, two `1` taps, `x` for player-1 right, and `n` for player-1
+fire with a short held scancode.
+
+Follow-up frame capture with those defaults reached level 1 and produced the
+semantic route frames. Visual inspection confirmed gameplay at
+`020_level1_tile24_aligned`, a visible placed bomb at `030_level1_tile24_bomb`,
+and visible explosion playback by `060_level1_tile24_playback_12`.
+
+This is useful route evidence, but it is still not enough to promote an
+explosion runtime oracle fixture by itself; the unresolved fixture still needs
+runtime bytes or debugger/process-memory samples tied to the relevant
+`1000:3a56..4d3b` execution window.
 
 ## Next Step
 

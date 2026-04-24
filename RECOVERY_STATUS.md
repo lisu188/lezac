@@ -1,8 +1,8 @@
 # Recovery Status
 
 Last reviewed: 2026-04-24
-Branch: `codex/autoplayer-harness`
-Baseline: `e89ada5` / `origin/main`
+Branch: `codex/recovery-monster-contact-evidence`
+Baseline: `origin/main`
 
 ## Completed This Iteration
 
@@ -49,6 +49,12 @@ Baseline: `e89ada5` / `origin/main`
 - Expanded `tools/capture_original_dosbox_frames.sh` so original DOSBox
   screenshots are renamed to the C++ semantic labels and accompanied by a
   manifest with input/timing settings.
+- Hardened the original DOSBox frame-capture route to use the focused
+  no-window key path, two `1` taps, original player-1 right on `x`, and held
+  player-1 fire on `n`. Local frame inspection now reaches level 1, shows bomb
+  placement, and shows explosion playback in the original.
+- Extended the guarded explosion process-memory helper to expose and record
+  the same start/right/fire route controls in candidate fixture manifests.
 - Updated `AGENTS.md`, README, and recovery docs with the autoplayer, original
   DOSBox capture, and frame-inspection workflows.
 
@@ -128,9 +134,19 @@ Baseline: `e89ada5` / `origin/main`
 - `tools/capture_cpp_frames.sh ./build/lezac_cpp
   /tmp/lezac-autoplayer-frames-wrapper` passed.
 - `bash -n tools/capture_original_dosbox_frames.sh` passed. A local DOSBox run
-  produced correctly named screenshots and manifest entries, but visual
-  inspection showed xdotool input remained on the original menu; these captures
-  are automation diagnostics until rerun with working menu input.
+  produced correctly named screenshots and manifest entries. Earlier visual
+  inspection showed the old `--window` input path remained on the original
+  menu; after switching to focused no-window input with original player-1
+  controls, frame inspection confirmed level-1 gameplay, visible bomb
+  placement, and visible explosion playback.
+- `python3 -m py_compile tools/capture_original_explosion_procmem.py` passed.
+- `python3 tools/capture_original_explosion_procmem.py --help` passed and
+  lists the route-input options.
+- `ctest --test-dir build -R explosion_playback_oracle --output-on-failure`
+  passed: 3/3.
+- `tools/compare_original_cpp_frames.sh
+  /tmp/lezac-frame-compare-improved-20260424-codex-1812 .
+  level1_bomb_route` passed and wrote paired C++/original frames plus diffs.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"
@@ -151,9 +167,10 @@ Baseline: `e89ada5` / `origin/main`
 - Confirm the low-word passable-object route and level-1 bomb-route timing
   against original `LEZAC.EXE` with DOSBox frame inspection or debugger/runtime
   evidence.
-- Make DOSBox original capture input reliable enough to leave the menu in this
-  environment, then compare the named original level-1 frames against the C++
-  sequence and extend original capture beyond the level-1 route.
+- Use the now-working original level-1 keyboard route to tie explosion
+  screenshots to debugger/process-memory bytes from the relevant
+  `1000:3a56..4d3b` execution window, then extend original capture beyond the
+  level-1 route.
 - Interpret captured state-2 frame-table bytes and confirm the exact visual
   consumption path for the provisional live dead-player renderer.
 - Exact explosion/debris/collapse sprite playback around `1000:3a56..4d3b`
@@ -177,7 +194,6 @@ Baseline: `e89ada5` / `origin/main`
 
 ## Next Planned Target
 
-Use DOSBox frame/debugger evidence to compare the new behavior-4 frame
-sequences and monster autoplayer slices against original runtime movement,
-targeting, and respawn timing, then extend original-side capture beyond the
-level-1 route.
+Use the reliable original level-1 route to capture explosion/debris/collapse
+runtime bytes, then return to DOSBox frame/debugger evidence for behavior-4
+movement, targeting, and respawn timing.

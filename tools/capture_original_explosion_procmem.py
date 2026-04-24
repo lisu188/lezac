@@ -159,6 +159,14 @@ def hold_key(env: dict[str, str], window: str, name: str, seconds: float) -> Non
     time.sleep(0.15)
 
 
+def held_tap(env: dict[str, str], window: str, name: str, seconds: float) -> None:
+    activate_window(env, window)
+    run(["xdotool", "keydown", name], env, check=False)
+    time.sleep(seconds)
+    run(["xdotool", "keyup", name], env, check=False)
+    time.sleep(0.2)
+
+
 def snapshot(env: dict[str, str], out_dir: Path, window: str, label: str) -> None:
     before = set(glob.glob(str(out_dir / "*.png")))
     activate_window(env, window)
@@ -195,10 +203,21 @@ def main() -> int:
         help="required: approve reading /proc/<pid>/mem from the child DOSBox process",
     )
     parser.add_argument("--mode", choices=["debug", "regular"], default="debug")
-    parser.add_argument("--x-hold-seconds", type=float, default=2.0)
+    parser.add_argument("--start-key", default="1")
+    parser.add_argument("--start-taps", type=int, default=2)
+    parser.add_argument("--level-start-seconds", type=float, default=3.0)
+    parser.add_argument("--right-key", default="x")
+    parser.add_argument(
+        "--x-hold-seconds",
+        "--right-hold-seconds",
+        dest="right_hold_seconds",
+        type=float,
+        default=2.0,
+    )
     parser.add_argument("--sample-seconds", type=float, default=8.0)
     parser.add_argument("--sample-interval", type=float, default=0.08)
     parser.add_argument("--bomb-key", default="n")
+    parser.add_argument("--bomb-hold-seconds", type=float, default=0.25)
     args = parser.parse_args()
 
     if not args.approve_procmem:
@@ -302,14 +321,14 @@ def main() -> int:
 
         game = run(["xdotool", "search", "--name", "DOSBox"], env).split()[0]
         snapshot(env, out_dir, game, "000_menu")
-        key(env, game, "1")
-        time.sleep(0.4)
-        key(env, game, "1")
-        time.sleep(3.0)
+        for _ in range(max(args.start_taps, 1)):
+            key(env, game, args.start_key)
+            time.sleep(0.4)
+        time.sleep(args.level_start_seconds)
         snapshot(env, out_dir, game, "010_level_start")
-        hold_key(env, game, "x", args.x_hold_seconds)
+        hold_key(env, game, args.right_key, args.right_hold_seconds)
         snapshot(env, out_dir, game, "020_route_position")
-        key(env, game, args.bomb_key)
+        held_tap(env, game, args.bomb_key, args.bomb_hold_seconds)
         time.sleep(0.3)
         snapshot(env, out_dir, game, "030_bomb_key")
 
@@ -341,7 +360,13 @@ def main() -> int:
             out.write(f"source=dosbox-{args.mode}-process-memory\n")
             out.write("temp_copy=1\nvisual_claim=0\n")
             out.write(f"command={command}\n")
-            out.write("route=double_key1_x_route_bomb_key_process_memory\n")
+            out.write("route=focused_no_window_original_controls_process_memory\n")
+            out.write(f"input_start_key={args.start_key}\n")
+            out.write(f"input_start_taps={max(args.start_taps, 1)}\n")
+            out.write(f"input_right_key={args.right_key}\n")
+            out.write(f"input_right_hold_seconds={args.right_hold_seconds:.2f}\n")
+            out.write(f"input_bomb_key={args.bomb_key}\n")
+            out.write(f"input_bomb_hold_seconds={args.bomb_hold_seconds:.2f}\n")
             out.write(f"runtime_cs={RUNTIME_CS:04X}\n")
             out.write(f"runtime_ds={RUNTIME_DS:04X}\n")
             for ghidra, offset, label in [
@@ -376,6 +401,13 @@ def main() -> int:
             f"fixture_candidate={fixture}\n"
             f"runtime_cs={RUNTIME_CS:04X}\n"
             f"runtime_ds={RUNTIME_DS:04X}\n"
+            f"input_start_key={args.start_key}\n"
+            f"input_start_taps={max(args.start_taps, 1)}\n"
+            f"input_level_start_seconds={args.level_start_seconds:.2f}\n"
+            f"input_right_key={args.right_key}\n"
+            f"input_right_hold_seconds={args.right_hold_seconds:.2f}\n"
+            f"input_bomb_key={args.bomb_key}\n"
+            f"input_bomb_hold_seconds={args.bomb_hold_seconds:.2f}\n"
             f"visual_claim=0\n",
             encoding="ascii",
         )

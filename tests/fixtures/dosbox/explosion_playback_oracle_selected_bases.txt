@@ -1,5 +1,5 @@
 # LEZAC explosion playback oracle fixture v1
-# Synthetic parser fixture: verifies transcript parsing and address math only.
+# Synthetic parser fixture: verifies selected nonzero queue slots.
 capture=explosion_playback
 source=dosbox-debug
 temp_copy=1
@@ -8,6 +8,9 @@ command=dosbox-debug -c "mount c /tmp/lezac-dosbox-explosion" -c "c:" -c "DEBUG 
 
 runtime_cs=1A2B
 runtime_ds=2B3C
+selected_debris_base=209E
+selected_collapse_base=662F
+selected_effect_base=C22E
 
 break ghidra=1000:75F1 runtime=1A2B:75F1 label=bomb_expire_dispatch_call
 break ghidra=1000:414A runtime=1A2B:414A label=explosion_dispatcher
@@ -18,13 +21,17 @@ break ghidra=1000:3BB2 runtime=1A2B:3BB2 label=collapse_forward_pass
 break ghidra=1000:3D46 runtime=1A2B:3D46 label=collapse_reverse_pass
 
 dump DS:2090
-2B3C:2090  00 00 00 93 03 00 c0 04 05 00 00 00 6b 00 00 00
+2B3C:2090  00 00 00 00 00 00 00 00 00 00 00 00 00 00 93 03
+2B3C:20A0  00 c0 04 05 00 00 00 6b 00 00 00 00 00 00 00 00
 
 dump DS:6610
-2B3C:6610  00 06 0a 08 0a 09 80 02 03 00 00 05 00 00 00 04
+2B3C:6610  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+2B3C:6620  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 06
+2B3C:6630  0a 08 0a 09 80 02 03 00 00 05 00 00 00 04 00 00
 
 dump DS:C1E0
 2B3C:C1E0  6b 6c 6d 6e 6f 70 71 72 00 00 00 00 00 00 00 00
 
 dump DS:C21E
-2B3C:C21E  18 00 28 00 84 75 08 05 20 00 30 00 85 75 09 05
+2B3C:C21E  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+2B3C:C22E  18 00 28 00 84 75 08 05 20 00 30 00 85 75 09 05

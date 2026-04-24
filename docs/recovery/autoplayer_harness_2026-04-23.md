@@ -150,9 +150,11 @@ compare the images when working on presentation fidelity.
 to produce the original `LEZAC.EXE` version of the same semantic level-1 route
 labels and records timing/input settings in `manifest.txt`. This remains the
 only automated original-side frame route. It is only an oracle after frame
-inspection. In local Xvfb/xdotool runs the script produced named DOSBox
-screenshots, but the injected menu key did not reliably enter gameplay, so the
-frames stayed on the menu. Treat that as an automation limit, not as gameplay
+inspection. Local Xvfb/xdotool runs showed the old `--window` key path could
+remain on the menu, while the focused no-window path with two `1` taps reached
+level 1. The route now defaults to the original player-1 controls (`x` for
+right and `n` for fire) and records those settings in the manifest. Treat any
+menu-stuck or no-bomb frame set as an automation limit, not as gameplay
 evidence, and rerun with adjusted `LEZAC_ORIGINAL_*` settings when using
 original frames for comparison.
 

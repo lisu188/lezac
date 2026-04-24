@@ -93,7 +93,7 @@ echo "scenario=$scenario" >>"$log"
 if [[ "$scenario" == "monster_bomb_reward" ]]; then
     route="keyboard_partial"
 else
-    route="autoplayer_aligned"
+    route="keyboard_original_controls"
 fi
 echo "route=$route" >>"$log"
 echo "asset_dir=$asset_dir" >>"$log"
@@ -106,9 +106,14 @@ echo "command=dosbox -conf $conf -c \"mount c $run_dir\" -c \"c:\" -c \"LEZAC.EX
     echo "route=$route"
     echo "startup_seconds=${LEZAC_ORIGINAL_STARTUP_SECONDS:-6.0}"
     echo "level_start_seconds=${LEZAC_ORIGINAL_LEVEL_START_SECONDS:-1.5}"
-    echo "right_hold_seconds=${LEZAC_ORIGINAL_ROUTE_RIGHT_SECONDS:-0.95}"
     echo "start_key=${LEZAC_ORIGINAL_START_KEY:-1}"
+    echo "start_taps=${LEZAC_ORIGINAL_START_TAPS:-2}"
+    echo "start_tap_gap_seconds=${LEZAC_ORIGINAL_START_TAP_GAP_SECONDS:-0.4}"
     echo "start_text=${LEZAC_ORIGINAL_START_TEXT:-}"
+    echo "right_key=${LEZAC_ORIGINAL_ROUTE_RIGHT_KEY:-x}"
+    echo "right_hold_seconds=${LEZAC_ORIGINAL_ROUTE_RIGHT_SECONDS:-2.0}"
+    echo "fire_key=${LEZAC_ORIGINAL_FIRE_KEY:-n}"
+    echo "fire_hold_seconds=${LEZAC_ORIGINAL_FIRE_HOLD_SECONDS:-0.25}"
 } >>"$manifest"
 
 dosbox -conf "$conf" \
@@ -138,26 +143,39 @@ focus() {
 
 press() {
     focus
-    xdotool keydown --window "$win" "$@"
-    sleep 0.08
-    xdotool keyup --window "$win" "$@"
-    sleep 0.1
+    xdotool key --clearmodifiers "$@"
+    sleep 0.18
 }
 
 type_text() {
     focus
-    xdotool type --window "$win" --delay 50 "$1"
+    xdotool type --delay 50 "$1"
     sleep 0.1
 }
 
 key_down() {
     focus
-    xdotool keydown --window "$win" "$@"
+    xdotool keydown "$@"
 }
 
 key_up() {
     focus
-    xdotool keyup --window "$win" "$@"
+    xdotool keyup "$@"
+    sleep 0.1
+}
+
+hold_key() {
+    local key_name=$1
+    local seconds=$2
+    focus
+    xdotool keydown "$key_name"
+    sleep "$seconds"
+    xdotool keyup "$key_name"
+    sleep 0.1
+}
+
+fire() {
+    hold_key "${LEZAC_ORIGINAL_FIRE_KEY:-n}" "${LEZAC_ORIGINAL_FIRE_HOLD_SECONDS:-0.25}"
 }
 
 snapshot_files() {
@@ -196,7 +214,10 @@ start_level() {
     if [[ -n "${LEZAC_ORIGINAL_START_TEXT:-}" ]]; then
         type_text "$LEZAC_ORIGINAL_START_TEXT"
     else
-        press "${LEZAC_ORIGINAL_START_KEY:-1}"
+        for ((tap = 0; tap < ${LEZAC_ORIGINAL_START_TAPS:-2}; tap++)); do
+            press "${LEZAC_ORIGINAL_START_KEY:-1}"
+            sleep "${LEZAC_ORIGINAL_START_TAP_GAP_SECONDS:-0.4}"
+        done
     fi
     sleep "${LEZAC_ORIGINAL_LEVEL_START_SECONDS:-1.5}"
 }
@@ -204,12 +225,10 @@ start_level() {
 capture_level1_bomb_route() {
     start_level
     capture 010_level1_start
-    key_down Right
-    sleep "${LEZAC_ORIGINAL_ROUTE_RIGHT_SECONDS:-0.95}"
-    key_up Right
+    hold_key "${LEZAC_ORIGINAL_ROUTE_RIGHT_KEY:-x}" "${LEZAC_ORIGINAL_ROUTE_RIGHT_SECONDS:-2.0}"
     sleep 0.25
     capture 020_level1_tile24_aligned
-    press n
+    fire
     sleep 0.30
     capture 030_level1_tile24_bomb
     sleep 0.75
@@ -223,7 +242,7 @@ capture_level1_bomb_route() {
 capture_monster_bomb_reward() {
     start_level
     capture 010_monster_bomb_start
-    press n
+    fire
     sleep 0.30
     capture 020_monster_bomb_armed
     {

@@ -1,8 +1,8 @@
 # Recovery Status
 
 Last reviewed: 2026-04-24
-Branch: `codex/autoplayer-harness`
-Baseline: `e89ada5` / `origin/main`
+Branch: `codex/recovery-monster-contact-evidence`
+Baseline: `origin/main`
 
 ## Completed This Iteration
 
@@ -49,6 +49,42 @@ Baseline: `e89ada5` / `origin/main`
 - Expanded `tools/capture_original_dosbox_frames.sh` so original DOSBox
   screenshots are renamed to the C++ semantic labels and accompanied by a
   manifest with input/timing settings.
+- Hardened the original DOSBox frame-capture route to use the focused
+  no-window key path, two `1` taps, original player-1 right on `x`, and held
+  player-1 fire on `n`. Local frame inspection now reaches level 1, shows bomb
+  placement, and shows explosion playback in the original.
+- Extended the guarded explosion process-memory helper to expose and record
+  the same start/right/fire route controls in candidate fixture manifests.
+- Extended the explosion process-memory helper with timed sample screenshots,
+  `sample_summary.tsv`, selected debris/collapse/effect queue-slot detection,
+  and selected-base fixture fields for later original oracle promotion.
+- Added a guarded instrumented temp-copy freeze mode to the process-memory
+  helper. It patches only the temporary `LEZAC.EXE` copy with `EB FE`, records
+  MZ-derived file offsets, original/loaded bytes, screenshot hashes, and a
+  tail-frame freeze observation flag.
+- Added route-state sampling to the process-memory helper. Candidate captures
+  now include `route_state_samples.tsv` and `route_state_dumps.txt` with raw
+  bytes around known input/player/sound/explosion ranges so future original
+  probes can be gated on runtime state instead of fixed sleeps alone.
+- Added a separately approved runtime child-memory freeze mode to the same
+  helper. It can defer the `EB FE` write until after bomb input and an optional
+  decoded queue-score threshold, keeping the temp executable unmodified for
+  state-gated reachability probes.
+- Extended runtime freeze gates with decoded debris/collapse/effect nonzero
+  thresholds and selected queue-base predicates, so probes can wait for visible
+  playback-adjacent queue growth rather than the early post-bomb state.
+- Added `--runtime-freeze-preset late-collapse` to reuse the current
+  playback-adjacent gate defaults and disable timed screenshots unless
+  explicitly overridden.
+- Added tail-freeze confirmation screenshots to the process-memory helper so
+  runs without timed sample screenshots can still detect a frozen final frame.
+- Extended `--debug-explosion-playback-oracle` so fixtures can decode selected
+  debris/collapse/effect bases while keeping the existing slot-zero defaults.
+- Statically disassembled `1000:370e` from the original MZ image and tightened
+  the explosion capture/oracle path around the proven one-based queue counters:
+  debris records are selected from `0x2093 + 0x0b * DS:207e`, collapse records
+  from `0x6611 + 0x0f * DS:2080`, and collapse payload fields now match the
+  original flagged-word/magnitude/affected-byte offsets.
 - Updated `AGENTS.md`, README, and recovery docs with the autoplayer, original
   DOSBox capture, and frame-inspection workflows.
 
@@ -128,14 +164,76 @@ Baseline: `e89ada5` / `origin/main`
 - `tools/capture_cpp_frames.sh ./build/lezac_cpp
   /tmp/lezac-autoplayer-frames-wrapper` passed.
 - `bash -n tools/capture_original_dosbox_frames.sh` passed. A local DOSBox run
-  produced correctly named screenshots and manifest entries, but visual
-  inspection showed xdotool input remained on the original menu; these captures
-  are automation diagnostics until rerun with working menu input.
+  produced correctly named screenshots and manifest entries. Earlier visual
+  inspection showed the old `--window` input path remained on the original
+  menu; after switching to focused no-window input with original player-1
+  controls, frame inspection confirmed level-1 gameplay, visible bomb
+  placement, and visible explosion playback.
+- `python3 -m py_compile tools/capture_original_explosion_procmem.py` passed.
+- `python3 tools/capture_original_explosion_procmem.py --help` passed and
+  lists the route-input options.
+- `cmake --build build` passed under WSL after the queue-counter oracle update.
+- `ctest --test-dir build -R explosion_playback_oracle --output-on-failure`
+  passed: 5/5.
+- `ctest --test-dir build -R
+  "damage_queues|bomb_object_explosion_effects|collapse_playback_route|frame_sequence_capture_dummy"
+  --output-on-failure` passed: 4/4.
+- `tools/compare_original_cpp_frames.sh
+  /tmp/lezac-frame-compare-improved-20260424-codex-1812 .
+  level1_bomb_route` passed and wrote paired C++/original frames plus diffs.
+- `python3 tools/capture_original_explosion_procmem.py
+  /tmp/lezac-explosion-procmem-selected-20260424-codex-3 .
+  --approve-procmem --mode regular --level-start-seconds 1.5
+  --sample-seconds 5.0 --sample-interval 0.04
+  --sample-screenshot-seconds 0.5,1.0,1.5,2.0,3.0
+  --right-hold-seconds 2.0 --bomb-hold-seconds 0.25` passed under WSL/Xvfb.
+  Visual inspection showed bomb placement, visible explosion at `1.5s`, and
+  smoke playback at `2.0s`; the generated candidate decoded selected
+  `DS:662F` collapse bytes through the C++ oracle with `visual_claim=0`.
+- `python3 tools/capture_original_explosion_procmem.py
+  /tmp/lezac-route-state-20260424-codex-1 . --approve-procmem --mode regular
+  --level-start-seconds 1.5 --sample-seconds 1.0 --sample-interval 0.12
+  --route-state-interval 0.25 --sample-screenshot-seconds 0.5` passed under
+  WSL/Xvfb. It wrote `route_state_samples.tsv` and `route_state_dumps.txt`;
+  frame inspection of `040_sample_0p50s.png` and `090_after_sampling.png`
+  confirmed level-1 bomb placement and visible explosion playback. The
+  generated candidate still parsed through `--debug-explosion-playback-oracle`
+  with `visual_claim=0`.
+- Runtime child-memory freeze probes at `1000:3A7E` and `1000:3FA6` both
+  patched after bomb input at `0.160s` with route queue score `40`.
+  `1000:3A7E` loaded `8b16 -> ebfe` but did not freeze and continued into
+  visible explosion playback. `1000:3FA6` loaded `5589 -> ebfe` and froze, but
+  frame inspection showed a pre-visible-explosion/armed-bomb state, so this is
+  still reachability evidence rather than promoted playback evidence.
+- A late-gated runtime child-memory freeze probe at `1000:432A` used queue
+  score `150`, selected bases `DS:209e`, `DS:6620`, `DS:c22e`, and nonzero
+  debris/collapse/effect counts `28/20/28`. It loaded `5589 -> ebfe` at
+  `1.246s` after bomb input without timed screenshots, did not freeze, and the
+  final frame inspection still showed visible playback. An earlier `432A` run
+  requiring `DS:662F` correctly withheld the patch because this route selected
+  `DS:6620`.
+- Tuned late-collapse probes at `1000:3BB2` and `1000:3D46` both loaded
+  runtime child-memory patches after queue growth and did not freeze while
+  visible playback continued. `3BB2` patched at `1.286s` with score `150`;
+  `3D46` patched at `1.649s` with score `110`. The first strict preset run for
+  `3BB2` correctly withheld the patch because this route's effect nonzero count
+  stayed below `20`, so the repeated probe lowered only that threshold to `16`.
+- Tail-confirmed early runtime freeze probes mapped the dispatch path:
+  `1000:75F1` and `1000:414A` froze on armed-bomb frames before visible
+  playback, while `1000:370E` froze on a visible explosion frame. The `370E`
+  candidate parsed through the C++ oracle with selected bases `DS:209e`,
+  `DS:6611`, and `DS:c22e`, and remains instrumentation evidence with
+  `visual_claim=0`.
+- Instrumented temp-copy runs patched and loaded freeze loops at `1000:3A7E`,
+  `1000:3BB2`, `1000:3FA6`, and `1000:432A`. `1000:3FA6` reliably froze, but
+  before visible explosion playback; `1000:3A7E` produced one explosion-frame
+  freeze observation but did not reproduce on the next run; `1000:3BB2` and
+  `1000:432A` continued through the route. No original fixture was promoted.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"
   --output-on-failure` passed: 20/20.
-- `ctest --test-dir build --output-on-failure` passed: 74/74.
+- `ctest --test-dir build --output-on-failure` passed under WSL: 83/83.
 - `./build/lezac_cpp --validate` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --smoke-controls` passed.
@@ -151,13 +249,17 @@ Baseline: `e89ada5` / `origin/main`
 - Confirm the low-word passable-object route and level-1 bomb-route timing
   against original `LEZAC.EXE` with DOSBox frame inspection or debugger/runtime
   evidence.
-- Make DOSBox original capture input reliable enough to leave the menu in this
-  environment, then compare the named original level-1 frames against the C++
-  sequence and extend original capture beyond the level-1 route.
+- Use the now-working original level-1 keyboard route to tie explosion
+  screenshots to debugger/process-memory bytes from the relevant
+  `1000:3a56..4d3b` execution window, then extend original capture beyond the
+  level-1 route.
 - Interpret captured state-2 frame-table bytes and confirm the exact visual
   consumption path for the provisional live dead-player renderer.
 - Exact explosion/debris/collapse sprite playback around `1000:3a56..4d3b`
-  remains blocked on live debugger bytes from an explosion event.
+  remains blocked on live debugger bytes or an instrumented freeze proving a
+  stable stop inside the playback window. Process-memory sampling and
+  instrumentation now capture useful original queue bytes and route reachability
+  signals, but no promoted fixture yet.
 - Semantic meaning of `PROEFS.SON` bytes `+4..+5` remains unknown; current
   diagnostics preserve them as raw fields only.
 - Many non-explosion sound callsites still need exact cursor/priority mapping.
@@ -177,7 +279,6 @@ Baseline: `e89ada5` / `origin/main`
 
 ## Next Planned Target
 
-Use DOSBox frame/debugger evidence to compare the new behavior-4 frame
-sequences and monster autoplayer slices against original runtime movement,
-targeting, and respawn timing, then extend original-side capture beyond the
-level-1 route.
+Use the reliable original level-1 route to capture explosion/debris/collapse
+runtime bytes, then return to DOSBox frame/debugger evidence for behavior-4
+movement, targeting, and respawn timing.

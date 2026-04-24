@@ -122,7 +122,12 @@ vary. Local runs have produced correctly named DOSBox frames while keyboard
 injection remained on the original menu, so every original capture must be
 visually inspected before being used as oracle evidence. If needed, tune
 `LEZAC_ORIGINAL_STARTUP_SECONDS`, `LEZAC_ORIGINAL_START_KEY`,
-`LEZAC_ORIGINAL_START_TEXT`, or `LEZAC_ORIGINAL_ROUTE_RIGHT_SECONDS` and rerun.
+`LEZAC_ORIGINAL_START_TAPS`, `LEZAC_ORIGINAL_START_TEXT`,
+`LEZAC_ORIGINAL_ROUTE_RIGHT_KEY`, `LEZAC_ORIGINAL_ROUTE_RIGHT_SECONDS`, or
+`LEZAC_ORIGINAL_FIRE_KEY`/`LEZAC_ORIGINAL_FIRE_HOLD_SECONDS` and rerun.
+Current defaults use the focused no-window `xdotool key` path with two `1`
+taps, player-1 right on `x`, and a held player-1 fire on `n`, matching the
+original embedded control text and local Xvfb/DOSBox observations.
 For faithful reconstruction work, pair frames by semantic checkpoint and use
 the diff metrics to guide targeted investigations. `manifest.txt` now records
 player count/death flags and first-monster position/velocity/behavior for the

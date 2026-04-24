@@ -444,6 +444,22 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "explosion_playback_oracle=ok fixture=explosion_playback_oracle_synthetic .*debris0_tile_index=0x0393 debris0_flagged=0xc000 debris0_forward=0x04 debris0_reverse=0x05 debris0_lookup=0x6b .*collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_word=0x0009 collapse0_flagged=0x8009 collapse0_forward=0x02 collapse0_reverse=0x03 .*effect0_xy=0x0018,0x0028 effect0_sprite=0x84 effect0_detail=0x75 effect0_timer=0x08 effect0_variant=0x05 temp_copy=1 visual_claim=0")
 
+    add_test(NAME explosion_playback_oracle_selected_bases
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_selected_bases.txt)
+    set_tests_properties(explosion_playback_oracle_selected_bases PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_selected_bases .*debris_base=0x209e .*debris0_tile_index=0x0393 debris0_flagged=0xc000 .*collapse_base=0x662f .*collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_word=0x0009 .*effect_base=0xc22e .*effect0_xy=0x0018,0x0028 effect0_sprite=0x84 effect0_detail=0x75 effect0_timer=0x08 effect0_variant=0x05 temp_copy=1 visual_claim=0")
+
+    add_test(NAME explosion_playback_oracle_count_selected
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_count_selected.txt)
+    set_tests_properties(explosion_playback_oracle_count_selected PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_count_selected .*debris_count_present=1 debris_count=0x0001 debris_count_base=0x209e debris_base=0x209e .*collapse_count_present=1 collapse_count=0x0001 collapse_count_base=0x6620 collapse_base=0x6620 .*collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_word=0x0009 .*effect_base=0xc22e .*temp_copy=1 visual_claim=0")
+
     add_test(NAME explosion_playback_oracle_bad_segment
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_bad_segment.txt

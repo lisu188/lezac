@@ -217,10 +217,25 @@ leaving exact explosion sprite playback blocked on `1000:3a56..4d3b`.
 `--debug-monster-bomb-kill-live` locks same-frame blast damage, fatal monster
 state entry, reward presence, and death actor removal.
 
-The high-word debris branch in `1000:370e` writes an 11-byte record at
-`0x2093 + 0x0b * count`: word tile index, word `word | 0x8000`, byte argument
-pair, three zero bytes, one lookup byte from `[0xc1e0 + tileIndex]`, and a final
-zero byte. Any reconstruction-only lifetime is separate from that payload.
+Static disassembly of `1000:370e` with the MZ image base at file offset `0x770`
+confirms it is a tile damage queue helper, not a late renderer. It reads the
+word layer through the far pointer at `DS:6612`, skips words already carrying
+bit `0x8000`, and splits the remaining work at threshold `0x4000`.
+
+The high-word debris branch in `1000:370e` increments `DS:207e` before writing
+an 11-byte record at `0x2093 + 0x0b * DS:207e`, so the first original-written
+record is `DS:209e`: word tile index, word `word | 0x8000`, byte argument pair,
+three zero bytes, one lookup byte from the far-pointer source stored at
+`DS:c1e0`, and a final zero byte. Any reconstruction-only lifetime is separate
+from that payload.
+
+The low-word collapse branch increments `DS:2080` before writing a 15-byte
+record at `0x6611 + 0x0f * DS:2080`, so the first original-written record is
+`DS:6620`. The payload is start byte offset, end byte offset, stored flagged
+word, the two argument bytes at `+6/+7`, zero playback lanes at `+8/+9`, a word
+`abs(arg0) + abs(arg1)` at `+0a`, zero bytes at `+0c/+0d`, and affected-byte
+count at `+0e`. The current C++ low-word grouping remains a model until this
+rectangle-growth scan is compared against live original route bytes.
 
 The playback helpers at `1000:3a7e` and `1000:3b18` are forward/reverse lookup
 passes. They split damaged words on bit `0x8000` and threshold `0x4000`, then
@@ -278,6 +293,42 @@ debris, collapse, and effect records into named fields such as
 `effect0_timer`, and `effect0_variant`, while still printing the raw byte
 lists. `explosion_playback_oracle_missing_effect_byte` verifies incomplete
 effect-entry dumps fail instead of producing partial visual claims.
+Fixtures may optionally include `selected_debris_base`,
+`selected_collapse_base`, or `selected_effect_base` when original runtime
+queues contain useful data in a later slot. When `DS:207e` or `DS:2080` are
+present, the parser first derives the current debris/collapse bases from the
+original one-based counter formulas. Without counters or explicit keys, it
+keeps the slot-zero parser defaults `DS:2093`, `DS:6611`, and `DS:c21e`.
+
+An approved process-memory attempt on 2026-04-24 proved a fallback way to find
+the LEZAC image/data bytes in a child DOSBox process (`CS=01ED`, gameplay
+`DS=0C8F`, data string at `DS:008B`) and added
+`tools/capture_original_explosion_procmem.py`. Later route hardening made the
+helper reach level 1, place a visible bomb, and capture visible explosion/smoke
+playback with selected queue-slot bytes, but that still did not promote an
+original fixture because process-memory sampling has not proven a stop inside
+`1000:3a56..4d3b`. The helper can now patch only the temporary executable copy
+with an `EB FE` freeze loop at a requested Ghidra offset. Instrumented attempts
+showed `1000:3fa6` is reached before visible explosion playback and `1000:3a7e`
+may be route/timing sensitive, while `1000:3bb2` and `1000:432a` were not
+reached by the current level-1 timed route. It also emits
+`route_state_samples.tsv` and `route_state_dumps.txt` with timestamped raw
+bytes for known route/control ranges (`DS:1b70`, `DS:78c0`, `DS:7990`,
+`DS:79e0`) plus explosion/effect ranges (`DS:2090`, `DS:6610`, `DS:c1e0`,
+`DS:c21e`, `DS:c320`), so later debugger/freeze attempts can be aligned to
+runtime state rather than fixed sleeps alone. A follow-up child-memory
+instrumentation mode can defer the `EB FE` write until after a route-state
+condition; gated probes applied runtime patches at `1000:3a7e` and
+`1000:3fa6` after bomb input. `3a7e` did not freeze in that window, while
+`3fa6` froze before visible explosion playback. Stronger queue-growth gates
+later patched `1000:432a` after selected collapse base `DS:6620` became active;
+the patch loaded but did not freeze while visible playback continued. The same
+late-collapse gate, with a route-tuned effect threshold, also patched
+`1000:3bb2` and `1000:3d46`; both loaded successfully and neither froze while
+visible playback continued. Tail-confirmed early-gated probes then froze at
+`1000:75f1` and `1000:414a` on armed-bomb frames, while `1000:370e` froze on a
+visible explosion frame. See
+`docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md`.
 
 ## Sound Playback Evidence
 

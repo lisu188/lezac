@@ -224,6 +224,35 @@ whether the selected bases came from counters or scoring; the oracle can derive
 `DS:209e`/`DS:6620` from dumped `DS:2070` bytes even when a fixture omits
 explicit selected bases.
 
+A fresh regular DOSBox process-memory capture at
+`/tmp/lezac-counter-selected-20260424-codex-1` used the corrected helper and
+reached the same inspected level-1 route. Frame inspection of
+`030_bomb_key.png`, `042_sample_1p50s.png`, `043_sample_2p00s.png`, and
+`090_after_sampling.png` showed the placed bomb, visible explosion, and
+smoke/collapse playback. The generated candidate parsed through the C++ oracle
+with `visual_claim=0`.
+
+The useful promoted fact from that run is the first live collapse record:
+`DS:2080=1`, selected base `DS:6620`, `start=0x0a06`, `end=0x0a08`,
+`word=0x0009`, `flagged=0x8009`, and affected byte count `0x04`. The
+deterministic C++ `--debug-bomb-object-explosion-effects` route now prints and
+CTest-locks the same byte offsets for level 1 tile `(24,22)`. The same run left
+`DS:207e=0x00c7`, outside the short `DS:2090` dump window, so debris selection
+is still explicitly labeled as scoring-derived rather than counter-derived.
+
+The helper now widens `DS:2090` reads up to the `DS:6610` collapse queue
+boundary and keeps `DS:6610` at a wider `0x60` bytes. A follow-up capture at
+`/tmp/lezac-wide-debris-20260424-codex-1` used the same inspected level-1 route
+and produced counter-selected debris and collapse bases in one candidate:
+`DS:207e=0x00c8`, debris base `DS:292b`, tile index `0x0540`, flagged word
+`0xc004`, lookup byte `0x67`, and `DS:2080=1`, collapse base `DS:6620`.
+Frame inspection of `030_bomb_key.png`, `040_sample_1p50s.png`,
+`041_sample_2p00s.png`, and `090_after_sampling.png` again showed bomb,
+explosion, and smoke/collapse playback. The checked-in
+`explosion_playback_oracle_sparse_count` fixture is synthetic coverage for this
+high-counter sparse-dump parsing shape; the original widened candidate remains
+outside the repo with `visual_claim=0`.
+
 Instrumented temporary-copy freeze attempts then tested several playback-window
 anchors:
 
@@ -237,6 +266,18 @@ anchors:
            but on an armed-bomb frame before visible explosion playback.
 1000:432A  patch loaded at file 0x4a9a, old 5589 -> ebfe; route continued.
 ```
+
+Static disassembly after those attempts narrowed the playback consumer model.
+`1000:3bb2` and `1000:3d46` are still the forward/reverse lane blenders, but
+`1000:45fa..4d3b` is the longer effect/debris queue update pass that actually
+calls them at `1000:4c96` and `1000:4ca9`. It copies the blended bytes back
+into collapse records at `+6/+7` or debris records at `+4/+5`, uses collapse
+record byte `+0e` as the span weight, tags high-half debris slots by adding
+`0x4e20`, and removes queue entries through `1000:452a`/`1000:458d`.
+`1000:3fa6` constructs the 11-byte effect records, while `1000:414a` selects
+the four dispatcher profiles and sound cursors (`0xea74`, `0xea7e`, `0xea88`,
+`0xeace`). The C++ `damage_queues` diagnostic now locks these static addresses
+and first-slot write offsets as metadata coverage.
 
 This is useful route evidence, but it is still not enough to promote an
 explosion runtime oracle fixture by itself; the unresolved fixture still needs

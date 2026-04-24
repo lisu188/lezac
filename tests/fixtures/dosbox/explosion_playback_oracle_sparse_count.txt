@@ -1,0 +1,36 @@
+# LEZAC explosion playback oracle fixture v1
+# Synthetic parser fixture: high queue counters can select sparse dumped records.
+capture=explosion_playback
+source=dosbox-debug
+temp_copy=1
+visual_claim=0
+command=dosbox-debug -c "mount c /tmp/lezac-dosbox-explosion" -c "c:" -c "DEBUG LEZAC.EXE"
+
+runtime_cs=1A2B
+runtime_ds=2B3C
+selected_effect_base=C22E
+
+break ghidra=1000:75F1 runtime=1A2B:75F1 label=bomb_expire_dispatch_call
+break ghidra=1000:414A runtime=1A2B:414A label=explosion_dispatcher
+break ghidra=1000:370E runtime=1A2B:370E label=tile_damage_queue
+break ghidra=1000:3A7E runtime=1A2B:3A7E label=damage_forward_lookup
+break ghidra=1000:3B18 runtime=1A2B:3B18 label=damage_reverse_lookup
+break ghidra=1000:3BB2 runtime=1A2B:3BB2 label=collapse_forward_pass
+break ghidra=1000:3D46 runtime=1A2B:3D46 label=collapse_reverse_pass
+
+dump DS:2070
+2B3C:2070  b4 9d 0f 00 0f 00 08 00 00 00 20 66 9e 20 c8 00
+2B3C:2080  01 00 02 00 2e 00 01 00 00 00 00 00 00 03 00 00
+
+dump DS:2090
+2B3C:2920  00 00 00 00 00 00 00 00 00 00 00 40 05 04 c0 27
+2B3C:2930  00 27 00 01 67 00 00 00 00 00 00 00 00 00 00 00
+
+dump DS:6610
+2B3C:6620  06 0a 08 0a 09 80 00 f1 00 f1 0f 00 00 01 04 00
+
+dump DS:C1E0
+2B3C:C1E0  00 00 a9 3e 00 00 cf 2a 3c 05 28 00 40 01 a0 00
+
+dump DS:C21E
+2B3C:C22E  bf 00 b0 00 10 10 7d 3f c4 00 b5 00 10 10 7d 40

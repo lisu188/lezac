@@ -232,26 +232,47 @@ from that payload.
 The low-word collapse branch increments `DS:2080` before writing a 15-byte
 record at `0x6611 + 0x0f * DS:2080`, so the first original-written record is
 `DS:6620`. The payload is start byte offset, end byte offset, stored flagged
-word, the two argument bytes at `+6/+7`, zero playback lanes at `+8/+9`, a word
+word, the two argument bytes at `+6/+7`, playback lanes at `+8/+9`, a word
 `abs(arg0) + abs(arg1)` at `+0a`, zero bytes at `+0c/+0d`, and affected-byte
-count at `+0e`. The current C++ low-word grouping remains a model until this
-rectangle-growth scan is compared against live original route bytes.
+count at `+0e`. A fresh original level-1 route capture matched the C++ bomb
+object route for the first collapse rectangle (`0x0a06..0x0a08`, word `0x0009`,
+flagged `0x8009`, affected bytes `4`); broader low-word grouping remains a
+model until more original rectangles are compared.
 
 The playback helpers at `1000:3a7e` and `1000:3b18` are forward/reverse lookup
 passes. They split damaged words on bit `0x8000` and threshold `0x4000`, then
 load the forward byte from collapse/debris record offsets `+6`/`+4` and the
 reverse byte from offsets `+7`/`+5`. The collapse passes at `1000:3bb2` and
 `1000:3d46` write those lanes back through `0x6617`/`0x2097` and
-`0x6618`/`0x2098`, using `0x4e20` as the high-half spill marker.
+`0x6618`/`0x2098`, using `0x4e20` as the high-half spill marker. Static
+disassembly now ties that lane model to the live effect/debris consumer:
+`1000:45fa..4d3b` iterates the 11-byte queue records, calls the forward pass at
+`1000:4c96` with `DS:78d2`, then calls the reverse pass at `1000:4ca9` with
+`DS:78d4` after ORing the current word with `0x8000`. The same routine removes
+expired queue slots through `1000:452a`/`1000:458d`, so the queue lane bytes are
+confirmed as mutable playback state rather than write-only creation metadata.
+`--debug-damage-queues` now locks these original consumer offsets, the
+one-based collapse/debris slot tags, the first-slot lane write addresses
+(`DS:6626`/`DS:6627` and `DS:20a2`/`DS:20a3`), and the collapse span weight
+from record offset `+0e`.
+
+The effect constructor at `1000:3fa6` writes 11-byte effect records at
+`0x2093 + 0x0b * DS:2076` and stores the effect type byte in
+`0x78d5 + DS:2076`. `1000:414a` is the dispatcher profile selector: types
+`1..4` call `1000:3fa6` with different argument triples, latch sound cursors
+`0xea74`, `0xea7e`, `0xea88`, and `0xeace`, and write sound selectors
+`DS:799f=4..7` before calling the sound helper at `1000:165a`. This confirms
+the C++ explosion profile diagnostics as static metadata only; exact rendered
+sprite timing still needs runtime/frame evidence.
 
 Diagnostic coverage now asserts metadata only for this area: dispatcher states
 `4..7`, direct-sweep offsets `0xea74`/`0xea7e`/`0xea88`/`0xeace`, debris stride
 `0x0b`, collapse stride `0x0f`, damaged bit `0x8000`, threshold `0x4000`,
-forward/reverse phase lookup sources, and real-asset bomb-object explosion
-cases that leave consumed object tiles passable while routing the tile above
-the footprint into collapse or debris queues. This is not evidence for exact
-rendered sprites or original frame timing; keep those claims blocked on a full
-mapping or runtime capture of `1000:3a56..4d3b`.
+forward/reverse phase lookup sources and consumers, and real-asset bomb-object
+explosion cases that leave consumed object tiles passable while routing the tile
+above the footprint into collapse or debris queues. This is not evidence for
+exact rendered sprites or original frame timing; keep those claims blocked on a
+full mapping or runtime capture of `1000:3a56..4d3b`.
 
 ### Explosion Runtime Capture Target
 
@@ -299,6 +320,9 @@ queues contain useful data in a later slot. When `DS:207e` or `DS:2080` are
 present, the parser first derives the current debris/collapse bases from the
 original one-based counter formulas. Without counters or explicit keys, it
 keeps the slot-zero parser defaults `DS:2093`, `DS:6611`, and `DS:c21e`.
+`explosion_playback_oracle_sparse_count` verifies that sparse dumps can cover a
+high counter-derived debris slot such as `DS:292b` without requiring every
+intermediate zero row in the fixture.
 
 An approved process-memory attempt on 2026-04-24 proved a fallback way to find
 the LEZAC image/data bytes in a child DOSBox process (`CS=01ED`, gameplay
@@ -316,7 +340,9 @@ reached by the current level-1 timed route. It also emits
 bytes for known route/control ranges (`DS:1b70`, `DS:78c0`, `DS:7990`,
 `DS:79e0`) plus explosion/effect ranges (`DS:2090`, `DS:6610`, `DS:c1e0`,
 `DS:c21e`, `DS:c320`), so later debugger/freeze attempts can be aligned to
-runtime state rather than fixed sleeps alone. A follow-up child-memory
+runtime state rather than fixed sleeps alone. The `DS:2090` dump is widened to
+the `DS:6610` boundary so high debris counters can be selected from original
+bytes instead of score-picked early slots. A follow-up child-memory
 instrumentation mode can defer the `EB FE` write until after a route-state
 condition; gated probes applied runtime patches at `1000:3a7e` and
 `1000:3fa6` after bomb input. `3a7e` did not freeze in that window, while

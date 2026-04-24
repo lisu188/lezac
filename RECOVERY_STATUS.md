@@ -85,6 +85,20 @@ Baseline: `origin/main`
   debris records are selected from `0x2093 + 0x0b * DS:207e`, collapse records
   from `0x6611 + 0x0f * DS:2080`, and collapse payload fields now match the
   original flagged-word/magnitude/affected-byte offsets.
+- Captured a fresh original level-1 bomb route with the corrected counter logic.
+  Frame inspection confirmed visible bomb/explosion/smoke playback, and the
+  live collapse record at `DS:6620` matched the deterministic C++ route for
+  tile `(24,22)` with offsets `0x0a06..0x0a08`, word `0x0009`, flagged word
+  `0x8009`, and affected byte count `4`.
+- Extended `--debug-bomb-object-explosion-effects` output and CTest coverage to
+  lock those original-matched collapse byte offsets in the C++ model.
+- Widened original `DS:2090` process-memory sampling to the `DS:6610` collapse
+  queue boundary, then captured a follow-up original route with counter-selected
+  debris and collapse slots. The widened candidate parsed with
+  `DS:207e=0x00c8`, debris base `DS:292b`, tile index `0x0540`, flagged word
+  `0xc004`, lookup byte `0x67`, and collapse base `DS:6620`.
+- Added sparse high-counter oracle coverage so counter-derived debris records
+  can be tested without checking giant original dumps into the repository.
 - Updated `AGENTS.md`, README, and recovery docs with the autoplayer, original
   DOSBox capture, and frame-inspection workflows.
 
@@ -178,6 +192,29 @@ Baseline: `origin/main`
 - `ctest --test-dir build -R
   "damage_queues|bomb_object_explosion_effects|collapse_playback_route|frame_sequence_capture_dummy"
   --output-on-failure` passed: 4/4.
+- `python3 tools/capture_original_explosion_procmem.py
+  /tmp/lezac-counter-selected-20260424-codex-1 . --approve-procmem
+  --mode regular --level-start-seconds 1.5 --right-hold-seconds 2.0
+  --bomb-hold-seconds 0.25 --sample-seconds 2.5 --sample-interval 0.04
+  --route-state-interval 0.25 --sample-screenshot-seconds 0.5,1.0,1.5,2.0`
+  passed under WSL/Xvfb. Frame inspection showed the placed bomb, visible
+  explosion, and later smoke/collapse playback. The generated candidate parsed
+  through `--debug-explosion-playback-oracle` with `visual_claim=0`.
+- `./build/lezac_cpp --debug-bomb-object-explosion-effects` passed and printed
+  level-1 collapse offsets `0x0a06..0x0a08`, word `0x0009`, flagged word
+  `0x8009`, and affected bytes `4`.
+- `ctest --test-dir build -R
+  "bomb_object_explosion_effects|damage_queues|explosion_playback_oracle"
+  --output-on-failure` passed: 7/7.
+- `python3 tools/capture_original_explosion_procmem.py
+  /tmp/lezac-wide-debris-20260424-codex-1 . --approve-procmem --mode regular
+  --level-start-seconds 1.5 --right-hold-seconds 2.0 --bomb-hold-seconds 0.25
+  --sample-seconds 2.5 --sample-interval 0.04 --route-state-interval 0.5
+  --sample-screenshot-seconds 1.5,2.0` passed under WSL/Xvfb. Frame inspection
+  confirmed bomb, explosion, and smoke/collapse playback, and the generated
+  candidate parsed with counter-selected debris base `DS:292b`.
+- `ctest --test-dir build -R explosion_playback_oracle --output-on-failure`
+  passed after adding sparse high-counter fixture coverage: 6/6.
 - `tools/compare_original_cpp_frames.sh
   /tmp/lezac-frame-compare-improved-20260424-codex-1812 .
   level1_bomb_route` passed and wrote paired C++/original frames plus diffs.
@@ -229,11 +266,16 @@ Baseline: `origin/main`
   before visible explosion playback; `1000:3A7E` produced one explosion-frame
   freeze observation but did not reproduce on the next run; `1000:3BB2` and
   `1000:432A` continued through the route. No original fixture was promoted.
+- Static disassembly now maps the playback consumer bridge: `1000:45fa..4d3b`
+  iterates effect/debris queue records and calls the forward/reverse lane
+  passes at `1000:4c96`/`1000:4ca9`. `--debug-damage-queues` locks those
+  addresses, the `1000:3a7e`/`1000:3b18` lookup helpers, one-based queue slot
+  tags, first-slot lane write offsets, and collapse span weight metadata.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"
   --output-on-failure` passed: 20/20.
-- `ctest --test-dir build --output-on-failure` passed under WSL: 83/83.
+- `ctest --test-dir build --output-on-failure` passed under WSL: 84/84.
 - `./build/lezac_cpp --validate` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --smoke-controls` passed.

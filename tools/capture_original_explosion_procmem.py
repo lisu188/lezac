@@ -61,14 +61,16 @@ EFFECT_BASE = 0xC21E
 EFFECT_STRIDE = 0x08
 DEBRIS_DUMP_BASE = 0x2090
 COLLAPSE_DUMP_BASE = 0x6610
+DEBRIS_DUMP_LENGTH = COLLAPSE_DUMP_BASE - DEBRIS_DUMP_BASE
+COLLAPSE_DUMP_LENGTH = 0x60
 FREEZE_PATCH = bytes.fromhex("ebfe")
 DEFAULT_SAMPLE_SCREENSHOTS = "0.5,1.0,1.5,2.0,3.0"
 ROUTE_STATE_RANGES = [
     ("DS:0060", 0x0060, 0x80),
     ("DS:1B70", 0x1B70, 0x20),
     ("DS:2070", 0x2070, 0x60),
-    ("DS:2090", 0x2090, 0x30),
-    ("DS:6610", 0x6610, 0x30),
+    ("DS:2090", DEBRIS_DUMP_BASE, DEBRIS_DUMP_LENGTH),
+    ("DS:6610", COLLAPSE_DUMP_BASE, COLLAPSE_DUMP_LENGTH),
     ("DS:78C0", 0x78C0, 0x20),
     ("DS:7990", 0x7990, 0x40),
     ("DS:79E0", 0x79E0, 0x40),
@@ -1120,8 +1122,10 @@ def main() -> int:
             record = (
                 elapsed,
                 read_emulated(pid, base, RUNTIME_DS, 0x2070, 0x60),
-                read_emulated(pid, base, RUNTIME_DS, 0x2090, 0x30),
-                read_emulated(pid, base, RUNTIME_DS, 0x6610, 0x30),
+                read_emulated(pid, base, RUNTIME_DS, DEBRIS_DUMP_BASE, DEBRIS_DUMP_LENGTH),
+                read_emulated(
+                    pid, base, RUNTIME_DS, COLLAPSE_DUMP_BASE, COLLAPSE_DUMP_LENGTH
+                ),
                 read_emulated(pid, base, RUNTIME_DS, 0xC1E0, 0x20),
                 read_emulated(pid, base, RUNTIME_DS, 0xC21E, 0x40),
             )

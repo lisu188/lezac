@@ -460,6 +460,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "explosion_playback_oracle=ok fixture=explosion_playback_oracle_count_selected .*debris_count_present=1 debris_count=0x0001 debris_count_base=0x209e debris_base=0x209e .*collapse_count_present=1 collapse_count=0x0001 collapse_count_base=0x6620 collapse_base=0x6620 .*collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_word=0x0009 .*effect_base=0xc22e .*temp_copy=1 visual_claim=0")
 
+    add_test(NAME explosion_playback_oracle_sparse_count
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_sparse_count.txt)
+    set_tests_properties(explosion_playback_oracle_sparse_count PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_sparse_count .*debris_count=0x00c8 debris_count_base=0x292b debris_base=0x292b .*debris0_tile_index=0x0540 debris0_flagged=0xc004 .*debris0_lookup=0x67 .*collapse_count_base=0x6620 collapse_base=0x6620 .*effect_base=0xc22e .*temp_copy=1 visual_claim=0")
+
     add_test(NAME explosion_playback_oracle_bad_segment
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_bad_segment.txt
@@ -558,14 +566,14 @@ if(BUILD_TESTING)
     set_tests_properties(damage_queues PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "damage_queues=ok debris_stride=11 collapse_stride=15 damaged_bit=0x8000 deferred_threshold=0x4000 collapse_flagged=0x8006 debris_flagged=0xc000 collapse_count=7 collapse_forward=2 collapse_reverse=3 debris_lookup=107 debris_forward=4 debris_reverse=5")
+            "damage_queues=ok debris_stride=11 collapse_stride=15 damaged_bit=0x8000 deferred_threshold=0x4000 collapse_flagged=0x8006 debris_flagged=0xc000 collapse_count=7 collapse_forward=2 collapse_reverse=3 debris_lookup=107 debris_forward=4 debris_reverse=5 consumer_forward=0x3bb2 consumer_reverse=0x3d46 lookup_forward=0x3a7e lookup_reverse=0x3b18 effect_update=0x45fa effect_forward_call=0x4c96 effect_reverse_call=0x4ca9 collapse_slot=1 collapse_weight=14 collapse_forward_write=0x6626 collapse_reverse_write=0x6627 debris_slot=1 debris_tag=0x4e21 debris_forward_write=0x20a2 debris_reverse_write=0x20a3")
 
     add_test(NAME bomb_object_explosion_effects
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-object-explosion-effects)
     set_tests_properties(bomb_object_explosion_effects PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "bomb_object_explosion_effects=ok cases=2 .*score_each=50 sound_offset=0xea74")
+            "bomb_object_explosion_effects=ok cases=2 .*collapse_level=1 collapse_tile=24,22 collapse_count=2 collapse_start_off=0x0a06 collapse_end_off=0x0a08 collapse_word=0x0009 collapse_flagged=0x8009 .*collapse_affected_bytes=4 .*score_each=50 sound_offset=0xea74")
 
     add_test(NAME passable_objects
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-passable-objects)

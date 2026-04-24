@@ -29,6 +29,17 @@ constexpr uint16_t kDeferredThreshold = 0x4000;
 constexpr uint16_t kHighHalfBase = 0x4e20;
 constexpr size_t kDebrisStride = 0x0b;
 constexpr size_t kCollapseStride = 0x0f;
+constexpr uint16_t kDamageForwardLookupRoutine = 0x3a7e;
+constexpr uint16_t kDamageReverseLookupRoutine = 0x3b18;
+constexpr uint16_t kDamageForwardPassRoutine = 0x3bb2;
+constexpr uint16_t kDamageReversePassRoutine = 0x3d46;
+constexpr uint16_t kExplosionEffectUpdateRoutine = 0x45fa;
+constexpr uint16_t kExplosionEffectForwardCall = 0x4c96;
+constexpr uint16_t kExplosionEffectReverseCall = 0x4ca9;
+constexpr uint16_t kCollapseForwardLaneBase = 0x6617;
+constexpr uint16_t kCollapseReverseLaneBase = 0x6618;
+constexpr uint16_t kDebrisForwardLaneBase = 0x2097;
+constexpr uint16_t kDebrisReverseLaneBase = 0x2098;
 constexpr size_t kDebrisCapacity = 0x640;
 constexpr size_t kCollapseCapacity = 0x00fa;
 constexpr size_t kGranRecordSize = 57;
@@ -641,6 +652,13 @@ uint32_t argb(const Palette& palette, uint8_t index) {
 std::string hex64(uint64_t value) {
     std::ostringstream oss;
     oss << "0x" << std::hex << std::nouppercase << std::setw(16)
+        << std::setfill('0') << value;
+    return oss.str();
+}
+
+std::string hex4(uint16_t value) {
+    std::ostringstream oss;
+    oss << "0x" << std::hex << std::nouppercase << std::setw(4)
         << std::setfill('0') << value;
     return oss.str();
 }
@@ -5934,9 +5952,8 @@ public:
             return {-1, -1};
         };
 
-        auto printLookup = [&](uint16_t flaggedWord) {
-            DamagePhaseLookup forward = resolveDamagePhase(flaggedWord, false);
-            DamagePhaseLookup reverse = resolveDamagePhase(flaggedWord, true);
+        auto printLookup = [&](const DamagePhaseLookup& forward,
+                               const DamagePhaseLookup& reverse) {
             std::cout << " forward_slot=" << forward.slotIndex
                       << " forward_phase=" << static_cast<int>(forward.phase)
                       << " reverse_slot=" << reverse.slotIndex
@@ -5950,10 +5967,18 @@ public:
         int collapseCount = 0;
         int collapseForwardPhase = 0;
         int collapseReversePhase = 0;
+        int collapseAffectedBytes = 0;
+        int collapseSlot = 0;
+        uint16_t collapseForwardWriteOffset = 0;
+        uint16_t collapseReverseWriteOffset = 0;
         uint16_t debrisFlagged = 0;
         int debrisLookup = 0;
         int debrisForwardPhase = 0;
         int debrisReversePhase = 0;
+        int debrisSlot = 0;
+        uint16_t debrisTaggedSlot = 0;
+        uint16_t debrisForwardWriteOffset = 0;
+        uint16_t debrisReverseWriteOffset = 0;
         for (size_t levelIndex = 0; levelIndex < levels_.size() && (!printedCollapse || !printedDebris); ++levelIndex) {
             if (!printedCollapse) {
                 auto pos = findWord(static_cast<int>(levelIndex), false);
@@ -5966,6 +5991,14 @@ public:
                         collapseCount = record.count;
                         collapseForwardPhase = static_cast<int>(record.forwardPhase);
                         collapseReversePhase = static_cast<int>(record.reversePhase);
+                        collapseAffectedBytes = static_cast<int>(record.affectedBytes);
+                        DamagePhaseLookup forward = resolveDamagePhase(record.flaggedWord, false);
+                        DamagePhaseLookup reverse = resolveDamagePhase(record.flaggedWord, true);
+                        collapseSlot = forward.slotIndex;
+                        collapseForwardWriteOffset = static_cast<uint16_t>(
+                            kCollapseForwardLaneBase + kCollapseStride * collapseSlot);
+                        collapseReverseWriteOffset = static_cast<uint16_t>(
+                            kCollapseReverseLaneBase + kCollapseStride * reverse.slotIndex);
                         std::cout << "collapse_level=" << (levelIndex + 1)
                                   << " tile=" << pos[0] << ',' << pos[1]
                                   << " word=" << std::showbase << std::hex << word
@@ -5975,7 +6008,7 @@ public:
                                   << std::dec << std::noshowbase
                                   << " count=" << record.count
                                   << " affected_bytes=" << static_cast<int>(record.affectedBytes);
-                        printLookup(record.flaggedWord);
+                        printLookup(forward, reverse);
                         std::cout << '\n';
                         printedCollapse = true;
                     }
@@ -5992,6 +6025,14 @@ public:
                         debrisLookup = static_cast<int>(record.lookup);
                         debrisForwardPhase = static_cast<int>(record.forwardPhase);
                         debrisReversePhase = static_cast<int>(record.reversePhase);
+                        DamagePhaseLookup forward = resolveDamagePhase(record.flaggedWord, false);
+                        DamagePhaseLookup reverse = resolveDamagePhase(record.flaggedWord, true);
+                        debrisSlot = forward.slotIndex;
+                        debrisTaggedSlot = static_cast<uint16_t>(kHighHalfBase + debrisSlot);
+                        debrisForwardWriteOffset = static_cast<uint16_t>(
+                            kDebrisForwardLaneBase + kDebrisStride * debrisSlot);
+                        debrisReverseWriteOffset = static_cast<uint16_t>(
+                            kDebrisReverseLaneBase + kDebrisStride * reverse.slotIndex);
                         std::cout << "debris_level=" << (levelIndex + 1)
                                   << " tile=" << pos[0] << ',' << pos[1]
                                   << " tile_index=" << record.tileIndex
@@ -5999,7 +6040,7 @@ public:
                                   << " flagged=" << record.flaggedWord
                                   << std::dec << std::noshowbase
                                   << " lookup=" << static_cast<int>(record.lookup);
-                        printLookup(record.flaggedWord);
+                        printLookup(forward, reverse);
                         std::cout << '\n';
                         printedDebris = true;
                     }
@@ -6021,7 +6062,23 @@ public:
                       << " collapse_reverse=" << collapseReversePhase
                       << " debris_lookup=" << debrisLookup
                       << " debris_forward=" << debrisForwardPhase
-                      << " debris_reverse=" << debrisReversePhase << '\n';
+                      << " debris_reverse=" << debrisReversePhase
+                      << " consumer_forward=" << hex4(kDamageForwardPassRoutine)
+                      << " consumer_reverse=" << hex4(kDamageReversePassRoutine)
+                      << " lookup_forward=" << hex4(kDamageForwardLookupRoutine)
+                      << " lookup_reverse=" << hex4(kDamageReverseLookupRoutine)
+                      << " effect_update=" << hex4(kExplosionEffectUpdateRoutine)
+                      << " effect_forward_call=" << hex4(kExplosionEffectForwardCall)
+                      << " effect_reverse_call=" << hex4(kExplosionEffectReverseCall)
+                      << " collapse_slot=" << collapseSlot
+                      << " collapse_weight=" << collapseAffectedBytes
+                      << " collapse_forward_write=" << hex4(collapseForwardWriteOffset)
+                      << " collapse_reverse_write=" << hex4(collapseReverseWriteOffset)
+                      << " debris_slot=" << debrisSlot
+                      << " debris_tag=" << hex4(debrisTaggedSlot)
+                      << " debris_forward_write=" << hex4(debrisForwardWriteOffset)
+                      << " debris_reverse_write=" << hex4(debrisReverseWriteOffset)
+                      << '\n';
         }
     }
 
@@ -6268,6 +6325,17 @@ public:
             uint16_t aboveWord = 0;
         };
 
+        struct ProbeResult {
+            int count = 0;
+            uint16_t startOffsetBytes = 0;
+            uint16_t endOffsetBytes = 0;
+            uint16_t word = 0;
+            uint16_t flaggedWord = 0;
+            uint16_t argMagnitude = 0;
+            uint8_t affectedBytes = 0;
+            int debrisLookup = 0;
+        };
+
         auto findProbe = [&](bool wantHighWord, Probe& out) {
             for (size_t level = 0; level < levels_.size(); ++level) {
                 resetLevel(static_cast<int>(level));
@@ -6304,7 +6372,7 @@ public:
             return false;
         };
 
-        auto runProbe = [&](const Probe& probe, bool expectDebris) -> int {
+        auto runProbe = [&](const Probe& probe, bool expectDebris) -> ProbeResult {
             resetLevel(probe.level);
             clearRunScores();
             clearSoundLatch();
@@ -6373,7 +6441,12 @@ public:
                     record.flaggedWord != flaggedAbove) {
                     throw std::runtime_error("bomb object debris record mismatch");
                 }
-                return static_cast<int>(record.lookup);
+                ProbeResult result;
+                result.count = 1;
+                result.word = static_cast<uint16_t>(probe.aboveWord & ~kDamagedWordBit);
+                result.flaggedWord = record.flaggedWord;
+                result.debrisLookup = static_cast<int>(record.lookup);
+                return result;
             }
 
             if (collapseQueue_.size() != 1 || !debrisQueue_.empty() ||
@@ -6385,7 +6458,15 @@ public:
                 record.count <= 0) {
                 throw std::runtime_error("bomb object collapse record mismatch");
             }
-            return record.count;
+            ProbeResult result;
+            result.count = record.count;
+            result.startOffsetBytes = record.startOffsetBytes;
+            result.endOffsetBytes = record.endOffsetBytes;
+            result.word = record.word;
+            result.flaggedWord = record.flaggedWord;
+            result.argMagnitude = record.argMagnitude;
+            result.affectedBytes = record.affectedBytes;
+            return result;
         };
 
         Probe collapseProbe;
@@ -6397,15 +6478,21 @@ public:
             throw std::runtime_error("no high-word bomb object explosion probe found");
         }
 
-        int collapseCount = runProbe(collapseProbe, false);
-        int debrisLookup = runProbe(debrisProbe, true);
+        ProbeResult collapse = runProbe(collapseProbe, false);
+        ProbeResult debris = runProbe(debrisProbe, true);
         std::cout << "bomb_object_explosion_effects=ok cases=2"
                   << " collapse_level=" << (collapseProbe.level + 1)
                   << " collapse_tile=" << collapseProbe.x << ',' << collapseProbe.y
-                  << " collapse_count=" << collapseCount
+                  << " collapse_count=" << collapse.count
+                  << " collapse_start_off=" << hex4(collapse.startOffsetBytes)
+                  << " collapse_end_off=" << hex4(collapse.endOffsetBytes)
+                  << " collapse_word=" << hex4(collapse.word)
+                  << " collapse_flagged=" << hex4(collapse.flaggedWord)
+                  << " collapse_arg_magnitude=" << hex4(collapse.argMagnitude)
+                  << " collapse_affected_bytes=" << static_cast<int>(collapse.affectedBytes)
                   << " debris_level=" << (debrisProbe.level + 1)
                   << " debris_tile=" << debrisProbe.x << ',' << debrisProbe.y
-                  << " debris_lookup=" << debrisLookup
+                  << " debris_lookup=" << debris.debrisLookup
                   << " score_each=50 sound_offset=" << std::showbase << std::hex
                   << explosionSoundOffset(1)
                   << std::dec << std::noshowbase << '\n';

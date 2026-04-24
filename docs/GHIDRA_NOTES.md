@@ -397,6 +397,14 @@ state. A faster process-memory run using `--sample-interval 0.005` and
 screenshots matched the visible blast frame, so the zero-target branch is now
 runtime-observed, though still as instrumentation evidence with
 `visual_claim=0`.
+Follow-up fast gated probes patched `1000:4c75` and `1000:4c96` in sampled
+`DS:292b` zero-target states with word-layer value `0x0000`, but neither
+froze. A paired `1000:4ca9` probe did freeze after `1.576s`; its post-freeze
+candidate selected debris base `DS:292b`, collapse base `DS:663e`, target
+offset `0x05b9`, target byte `0x00`, and word-layer value `0x0000`. This makes
+`4ca9` the first runtime-observed lane-call site for the captured zero-target
+high-debris route, while `4c75` and `4c96` remain patch-loaded/no-freeze
+evidence for their sampled states.
 
 ## Sound Playback Evidence
 

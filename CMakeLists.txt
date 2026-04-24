@@ -476,6 +476,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_4b6a_runtime .*playback_breaks=13 .*debris_count=0x00c8 debris_count_base=0x292b debris_base=0x292b .*debris0_tile_index=0x0540 debris0_flagged=0xc004 debris0_forward=0x3b debris0_reverse=0x00 debris0_lookup=0x67 .*collapse_count=0x0002 collapse_count_base=0x662f collapse_base=0x662f .*collapse0_start=0x0916 collapse0_end=0x0918 collapse0_word=0x000a collapse0_flagged=0x800a .*high_debris_target_offset=0x0541 .*high_debris_target_byte=0x00 high_debris_word_layer_value=0x0000 .*effect_base=0xc22e .*effect0_xy=0x00a9,0x00b0 effect0_sprite=0x10 effect0_detail=0x10 effect0_timer=0x7d effect0_variant=0x40 temp_copy=1 visual_claim=0")
 
+    add_test(NAME explosion_playback_oracle_original_4ca9_runtime
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_original_4ca9_runtime.txt)
+    set_tests_properties(explosion_playback_oracle_original_4ca9_runtime PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_4ca9_runtime .*playback_breaks=13 .*debris_count=0x00c8 debris_count_base=0x292b debris_base=0x292b .*debris0_tile_index=0x0541 debris0_flagged=0xc004 debris0_forward=0x3a debris0_reverse=0x00 debris0_lookup=0x67 .*collapse_count=0x0003 collapse_count_base=0x663e collapse_base=0x663e .*collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_word=0x0009 collapse0_flagged=0x8009 .*high_debris_target_offset=0x05b9 .*high_debris_target_byte=0x00 high_debris_word_layer_value=0x0000 .*effect_base=0xc22e .*effect0_xy=0x00af,0x00b0 effect0_sprite=0x10 effect0_detail=0x10 effect0_timer=0x7d effect0_variant=0x40 temp_copy=1 visual_claim=0")
+
     add_test(NAME explosion_playback_oracle_bad_segment
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_bad_segment.txt

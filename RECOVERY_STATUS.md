@@ -298,6 +298,12 @@ Baseline: `origin/main`
   word-layer value `0x0000`; frozen screenshots matched the visible blast
   frame hash. A compact original-runtime oracle fixture now covers this
   zero-target branch evidence.
+  Fast follow-up probes loaded patches at `1000:4C75` and `1000:4C96` in
+  sampled `DS:292b` zero-target states with word-layer value `0x0000`, but did
+  not freeze. A paired `1000:4CA9` probe froze at `01ED:4CA9` after `1.576s`;
+  its post-freeze candidate selected debris base `DS:292b`, collapse base
+  `DS:663e`, target byte `0x00`, and word-layer value `0x0000`. A compact
+  second original-runtime fixture now covers this reverse lane-call evidence.
   The promoted fixture remains instrumentation evidence with `visual_claim=0`;
   no live C++ behavior changed from this proof yet.
 - `./build/lezac_cpp --debug-passable-objects` passed with

@@ -274,8 +274,11 @@ Baseline: `origin/main`
 - Runtime child-memory probes now show `1000:4C96` can be patched after queue
   growth but is not reached by the current level-1 route, while `1000:45FA`
   freezes on a visible explosion/playback frame with selected bases `DS:209e`,
-  `DS:6620`, and `DS:c22e`. The inspected capture remains instrumentation
-  evidence with `visual_claim=0`; no original fixture was promoted.
+  `DS:6620`, and `DS:c22e`. A follow-up `1000:492F` probe froze on the same
+  visible playback window with `DS:207e=0x00c7`, explaining the `4C96` skip:
+  static code requires `DS:207e >= 0x00c8` before entering that interior path.
+  The inspected captures remain instrumentation evidence with
+  `visual_claim=0`; no original fixture was promoted.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"

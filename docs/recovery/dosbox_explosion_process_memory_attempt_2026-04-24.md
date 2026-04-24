@@ -293,6 +293,17 @@ visible explosion/playback frame in the final two screenshots, and the matching
 hashes confirmed the freeze. The generated candidate parsed through
 `--debug-explosion-playback-oracle` with `visual_claim=0`.
 
+The next branch probes explain the negative `4C96` result. Patching
+`1000:492F` froze on the same visible playback frame at
+`/tmp/lezac-492f-runtime-20260424-codex-1`; the oracle candidate parsed with
+`DS:207e=0x00c7`, collapse count `1`, and selected bases `DS:209e`,
+`DS:6620`, `DS:c22e`. Static code at `1000:4934` requires
+`DS:207e >= 0x00c8` before the high-debris loop enters its interior. Probes at
+`1000:4C75` and `1000:4B6A` loaded patches but did not freeze, which matches
+the `0x00c7` exit-before-interior path. Therefore the current level-1 route
+proves the `45FA` update entry and `492F` high-loop gate during visible
+playback, but not the `4C96`/`4CA9` lane-call path.
+
 This is useful route evidence, but it is still not enough to promote an
 explosion runtime oracle fixture by itself; the unresolved fixture still needs
 runtime bytes or debugger/process-memory samples tied to the relevant
@@ -303,10 +314,10 @@ and the sampled effect table still needs exact semantic interpretation.
 
 ## Next Step
 
-Use the now-working `45FA` visible-playback freeze to target narrower interior
-addresses or to align a debugger session that can submit breakpoint commands.
-Prefer gating those attempts on route-state rows, selected queue bases, and
-nonzero explosion queue growth instead of fixed sleeps alone. Only promote
+Use the now-working `45FA`/`492F` visible-playback freezes to target a route or
+seeded setup where `DS:207e >= 0x00c8`, then re-probe `4C96`/`4CA9`. Prefer
+gating those attempts on route-state rows, selected queue bases, and nonzero
+explosion queue growth instead of fixed sleeps alone. Only promote
 `explosion_playback_oracle_original.txt` after screenshots show the intended
 bomb/object event and the sampled bytes prove the exact runtime window and
 field semantics.

@@ -122,6 +122,26 @@ nonzero counts by the final sample. These route-state artifacts are raw
 evidence for hardening future timing gates, not promoted gameplay semantics by
 themselves.
 
+The same helper can also defer `EB FE` freeze instrumentation until after the
+bomb route reaches a runtime condition. This mode writes only to the child
+DOSBox process memory, requires `--approve-runtime-instrumentation`, and keeps
+the temp executable unmodified. Two state-gated probes used
+`--runtime-freeze-after-bomb-seconds 0.10 --runtime-freeze-min-queue-score 40`:
+
+```text
+1000:3A7E  child-memory patch applied at 0.160s after bomb input,
+           old runtime bytes 8b16 -> ebfe; no freeze was observed, and the
+           route continued into visible explosion playback.
+1000:3FA6  child-memory patch applied at 0.160s after bomb input,
+           old runtime bytes 5589 -> ebfe; freeze observed, but the inspected
+           final frame remained pre-visible-explosion/armed-bomb state.
+```
+
+This confirms the runtime patch path works and makes the earlier `3FA6`
+pre-explosion result more precise. It still does not promote original explosion
+playback evidence because the freeze is before visible playback, and `3A7E`
+was not reached after the gated patch.
+
 Instrumented temporary-copy freeze attempts then tested several playback-window
 anchors:
 

@@ -8,6 +8,11 @@ Candidate fixtures still need frame inspection before promotion.
 When --freeze-ghidra-offset is used, the helper also patches only the temporary
 copied executable with an infinite loop. That mode is instrumentation evidence,
 not pristine original evidence.
+
+When --runtime-freeze-after-* is used with --freeze-ghidra-offset, the helper
+instead writes the freeze loop into the child DOSBox process after a route-state
+gate. That mode requires a separate approval flag and is also instrumentation
+evidence, not pristine original evidence.
 """
 
 from __future__ import annotations
@@ -148,6 +153,28 @@ def patch_freeze(run_dir: Path, ghidra_offset: int) -> dict[str, int | str]:
     }
 
 
+def describe_freeze_patch(run_dir: Path, ghidra_offset: int) -> dict[str, int | str]:
+    exe = run_dir / "LEZAC.EXE"
+    data = exe.read_bytes()
+    if data[:2] != b"MZ":
+        raise RuntimeError(f"{exe} is not an MZ executable")
+    header_paragraphs = data[8] | (data[9] << 8)
+    image_base = header_paragraphs * 16
+    file_offset = image_base + ghidra_offset
+    if file_offset < image_base or file_offset + len(FREEZE_PATCH) > len(data):
+        raise RuntimeError(
+            f"freeze offset 1000:{ghidra_offset:04X} maps outside {exe}"
+        )
+    original = data[file_offset : file_offset + len(FREEZE_PATCH)]
+    return {
+        "ghidra_offset": ghidra_offset,
+        "image_base": image_base,
+        "file_offset": file_offset,
+        "original_bytes": original.hex(),
+        "patch_bytes": FREEZE_PATCH.hex(),
+    }
+
+
 def write_conf(path: Path, capture_dir: Path) -> None:
     path.write_text(
         "[sdl]\n"
@@ -263,6 +290,19 @@ def read_emulated(pid: int, base: int, segment: int, offset: int, length: int) -
     with open(f"/proc/{pid}/mem", "rb", buffering=0) as mem:
         mem.seek(host)
         return mem.read(length)
+
+
+def write_emulated(
+    pid: int, base: int, segment: int, offset: int, patch: bytes
+) -> bytes:
+    host = base + ((segment << 4) + offset)
+    with open(f"/proc/{pid}/mem", "r+b", buffering=0) as mem:
+        mem.seek(host)
+        original = mem.read(len(patch))
+        mem.seek(host)
+        mem.write(patch)
+        mem.flush()
+    return original
 
 
 def capture_route_state(
@@ -428,6 +468,13 @@ def parse_time_list(value: str) -> list[float]:
             raise ValueError("sample screenshot times must be non-negative")
         times.append(parsed)
     return sorted(set(times))
+
+
+def parse_int_auto(value: str) -> int:
+    try:
+        return int(value, 0)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"expected integer, got {value}") from exc
 
 
 def le16(data: bytes, index: int) -> int:
@@ -692,11 +739,32 @@ def main() -> int:
     parser.add_argument(
         "--approve-instrumentation",
         action="store_true",
-        help="required with --freeze-ghidra-offset: approve patching the temp copy",
+        help="required with --freeze-ghidra-offset: approve freeze-loop instrumentation",
+    )
+    parser.add_argument(
+        "--approve-runtime-instrumentation",
+        action="store_true",
+        help="required when runtime freeze patching writes to the child DOSBox process",
     )
     parser.add_argument(
         "--freeze-ghidra-offset",
         help="patch temp-copy LEZAC.EXE at Ghidra offset, e.g. 1000:3BB2, to EB FE",
+    )
+    parser.add_argument(
+        "--runtime-freeze-after-bomb-seconds",
+        type=float,
+        help=(
+            "with --freeze-ghidra-offset, write EB FE into child memory only "
+            "after this many seconds after bomb input"
+        ),
+    )
+    parser.add_argument(
+        "--runtime-freeze-min-queue-score",
+        type=parse_int_auto,
+        help=(
+            "with runtime freeze patching, also wait until decoded queue score "
+            "is at least this value"
+        ),
     )
     args = parser.parse_args()
 
@@ -719,11 +787,30 @@ def main() -> int:
         raise RuntimeError("choose an output directory outside the repository")
     out_dir.mkdir(parents=True, exist_ok=True)
     sample_screenshot_seconds = parse_time_list(args.sample_screenshot_seconds)
+    runtime_freeze = (
+        args.runtime_freeze_after_bomb_seconds is not None
+        or args.runtime_freeze_min_queue_score is not None
+    )
+    if args.runtime_freeze_after_bomb_seconds is not None:
+        if args.runtime_freeze_after_bomb_seconds < 0:
+            raise RuntimeError("--runtime-freeze-after-bomb-seconds must be non-negative")
+    if args.runtime_freeze_min_queue_score is not None:
+        if args.runtime_freeze_min_queue_score < 0:
+            raise RuntimeError("--runtime-freeze-min-queue-score must be non-negative")
+    if runtime_freeze and not args.freeze_ghidra_offset:
+        raise RuntimeError("runtime freeze patching requires --freeze-ghidra-offset")
+    if runtime_freeze and not args.approve_runtime_instrumentation:
+        print(
+            "refusing to write a runtime freeze patch without "
+            "--approve-runtime-instrumentation",
+            file=sys.stderr,
+        )
+        return 64
     freeze_patch: dict[str, int | str] | None = None
     if args.freeze_ghidra_offset:
         if not args.approve_instrumentation:
             print(
-                "refusing to patch the temp copy without --approve-instrumentation",
+                "refusing freeze instrumentation without --approve-instrumentation",
                 file=sys.stderr,
             )
             return 64
@@ -734,7 +821,12 @@ def main() -> int:
     run_dir.mkdir(parents=True, exist_ok=True)
     copy_assets(asset_dir, run_dir)
     if freeze_patch is not None:
-        freeze_patch = patch_freeze(run_dir, int(freeze_patch["ghidra_offset"]))
+        if runtime_freeze:
+            freeze_patch = describe_freeze_patch(
+                run_dir, int(freeze_patch["ghidra_offset"])
+            )
+        else:
+            freeze_patch = patch_freeze(run_dir, int(freeze_patch["ghidra_offset"]))
     conf = run_dir / "dosbox.conf"
     write_conf(conf, out_dir)
 
@@ -815,6 +907,10 @@ def main() -> int:
         if inferred_ds != RUNTIME_DS:
             raise RuntimeError(f"unexpected runtime DS 0x{inferred_ds:04x}")
         freeze_loaded_bytes = b""
+        freeze_loaded_before_runtime_patch = b""
+        runtime_freeze_old_bytes = b""
+        runtime_freeze_patch_elapsed: float | None = None
+        runtime_freeze_patch_score = 0
         if freeze_patch is not None:
             freeze_loaded_bytes = read_emulated(
                 pid, base, RUNTIME_CS, int(freeze_patch["ghidra_offset"]), 8
@@ -852,16 +948,51 @@ def main() -> int:
         )
         while time.time() - started < args.sample_seconds:
             elapsed = time.time() - started
-            records.append(
-                (
-                    elapsed,
-                    read_emulated(pid, base, RUNTIME_DS, 0x2070, 0x60),
-                    read_emulated(pid, base, RUNTIME_DS, 0x2090, 0x30),
-                    read_emulated(pid, base, RUNTIME_DS, 0x6610, 0x30),
-                    read_emulated(pid, base, RUNTIME_DS, 0xC1E0, 0x20),
-                    read_emulated(pid, base, RUNTIME_DS, 0xC21E, 0x40),
-                )
+            record = (
+                elapsed,
+                read_emulated(pid, base, RUNTIME_DS, 0x2070, 0x60),
+                read_emulated(pid, base, RUNTIME_DS, 0x2090, 0x30),
+                read_emulated(pid, base, RUNTIME_DS, 0x6610, 0x30),
+                read_emulated(pid, base, RUNTIME_DS, 0xC1E0, 0x20),
+                read_emulated(pid, base, RUNTIME_DS, 0xC21E, 0x40),
             )
+            records.append(record)
+            current_score = sample_score(record)
+            after_bomb_ok = (
+                args.runtime_freeze_after_bomb_seconds is None
+                or elapsed >= args.runtime_freeze_after_bomb_seconds
+            )
+            score_ok = (
+                args.runtime_freeze_min_queue_score is None
+                or current_score >= args.runtime_freeze_min_queue_score
+            )
+            if (
+                runtime_freeze
+                and freeze_patch is not None
+                and runtime_freeze_patch_elapsed is None
+                and after_bomb_ok
+                and score_ok
+            ):
+                patch_offset = int(freeze_patch["ghidra_offset"])
+                freeze_loaded_before_runtime_patch = read_emulated(
+                    pid, base, RUNTIME_CS, patch_offset, 8
+                )
+                runtime_freeze_old_bytes = write_emulated(
+                    pid, base, RUNTIME_CS, patch_offset, FREEZE_PATCH
+                )
+                freeze_loaded_bytes = read_emulated(
+                    pid, base, RUNTIME_CS, patch_offset, 8
+                )
+                runtime_freeze_patch_elapsed = elapsed
+                runtime_freeze_patch_score = current_score
+                route_state_records.append(
+                    capture_route_state(
+                        pid,
+                        base,
+                        "runtime_freeze_patch",
+                        elapsed,
+                    )
+                )
             if (
                 next_route_state_elapsed is not None
                 and elapsed >= next_route_state_elapsed
@@ -944,14 +1075,44 @@ def main() -> int:
             out.write(f"source=dosbox-{args.mode}-process-memory\n")
             out.write("temp_copy=1\nvisual_claim=0\n")
             if freeze_patch is not None:
-                out.write("instrumented_temp_copy=1\n")
+                out.write(f"instrumented_temp_copy={0 if runtime_freeze else 1}\n")
+                out.write(f"instrumented_runtime_child_memory={1 if runtime_freeze else 0}\n")
                 out.write(
                     f"instrumented_freeze_observed={1 if freeze_observed else 0}\n"
                 )
                 if tail_match_frame:
                     out.write(f"instrumented_freeze_tail_frame={tail_match_frame}\n")
+                if runtime_freeze:
+                    out.write(
+                        "runtime_freeze_patch_applied="
+                        f"{1 if runtime_freeze_patch_elapsed is not None else 0}\n"
+                    )
+                    out.write(
+                        "runtime_freeze_after_bomb_seconds="
+                        f"{args.runtime_freeze_after_bomb_seconds if args.runtime_freeze_after_bomb_seconds is not None else ''}\n"
+                    )
+                    out.write(
+                        "runtime_freeze_min_queue_score="
+                        f"{args.runtime_freeze_min_queue_score if args.runtime_freeze_min_queue_score is not None else ''}\n"
+                    )
+                    if runtime_freeze_patch_elapsed is not None:
+                        out.write(
+                            "runtime_freeze_patch_elapsed_after_bomb="
+                            f"{runtime_freeze_patch_elapsed:.3f}\n"
+                        )
+                        out.write(
+                            f"runtime_freeze_patch_queue_score={runtime_freeze_patch_score}\n"
+                        )
+                        out.write(
+                            "runtime_freeze_loaded_before="
+                            f"{freeze_loaded_before_runtime_patch.hex()}\n"
+                        )
+                        out.write(
+                            f"runtime_freeze_old_bytes={runtime_freeze_old_bytes.hex()}\n"
+                        )
                 out.write(
                     f"instrumentation=freeze_loop_patch "
+                    f"mode={'runtime_child_memory_patch' if runtime_freeze else 'temp_copy_exe_patch'} "
                     f"ghidra=1000:{int(freeze_patch['ghidra_offset']):04X} "
                     f"runtime={RUNTIME_CS:04X}:{int(freeze_patch['ghidra_offset']):04X} "
                     f"file_offset=0x{int(freeze_patch['file_offset']):x} "
@@ -980,14 +1141,24 @@ def main() -> int:
                 ("1000:3B18", 0x3B18, "damage_reverse_lookup"),
                 ("1000:3BB2", 0x3BB2, "collapse_forward_pass"),
                 ("1000:3D46", 0x3D46, "collapse_reverse_pass"),
+                ("1000:3FA6", 0x3FA6, "effect_constructor_candidate"),
+                ("1000:432A", 0x432A, "effect_playback_candidate"),
             ]:
                 observed = "process_memory_sampling_no_debugger_break"
                 if freeze_patch is not None and offset == int(freeze_patch["ghidra_offset"]):
-                    observed = (
-                        "instrumented_temp_copy_freeze_observed"
-                        if freeze_observed
-                        else "instrumented_temp_copy_patch_loaded_no_freeze_observed"
+                    mode_label = (
+                        "runtime_child_memory"
+                        if runtime_freeze
+                        else "instrumented_temp_copy"
                     )
+                    if runtime_freeze and runtime_freeze_patch_elapsed is None:
+                        observed = "runtime_child_memory_patch_not_applied"
+                    else:
+                        observed = (
+                            f"{mode_label}_freeze_observed"
+                            if freeze_observed
+                            else f"{mode_label}_patch_loaded_no_freeze_observed"
+                        )
                 out.write(
                     f"break ghidra={ghidra} runtime={RUNTIME_CS:04X}:{offset:04X} "
                     f"label={label} observed={observed}\n"
@@ -1011,7 +1182,37 @@ def main() -> int:
                 f"freeze_old_bytes={freeze_patch['original_bytes']}\n"
                 f"freeze_patch_bytes={freeze_patch['patch_bytes']}\n"
                 f"freeze_loaded_bytes={freeze_loaded_bytes.hex()}\n"
+                f"freeze_runtime_child_memory={1 if runtime_freeze else 0}\n"
+                "freeze_runtime_patch_applied="
+                f"{1 if runtime_freeze_patch_elapsed is not None else 0}\n"
             )
+            if runtime_freeze:
+                after_bomb_seconds = (
+                    ""
+                    if args.runtime_freeze_after_bomb_seconds is None
+                    else f"{args.runtime_freeze_after_bomb_seconds:.3f}"
+                )
+                min_queue_score = (
+                    ""
+                    if args.runtime_freeze_min_queue_score is None
+                    else str(args.runtime_freeze_min_queue_score)
+                )
+                patch_elapsed = (
+                    ""
+                    if runtime_freeze_patch_elapsed is None
+                    else f"{runtime_freeze_patch_elapsed:.3f}"
+                )
+                instrumentation_manifest += (
+                    f"freeze_runtime_after_bomb_seconds={after_bomb_seconds}\n"
+                    f"freeze_runtime_min_queue_score={min_queue_score}\n"
+                    f"freeze_runtime_patch_elapsed_after_bomb={patch_elapsed}\n"
+                )
+                instrumentation_manifest += (
+                    f"freeze_runtime_patch_queue_score={runtime_freeze_patch_score}\n"
+                    "freeze_runtime_loaded_before="
+                    f"{freeze_loaded_before_runtime_patch.hex()}\n"
+                    f"freeze_runtime_old_bytes={runtime_freeze_old_bytes.hex()}\n"
+                )
         manifest = out_dir / "manifest.txt"
         manifest.write_text(
             f"capture=original_explosion_process_memory\n"
@@ -1021,7 +1222,7 @@ def main() -> int:
             f"fixture_candidate={fixture}\n"
             f"runtime_cs={RUNTIME_CS:04X}\n"
             f"runtime_ds={RUNTIME_DS:04X}\n"
-            f"instrumented_temp_copy={1 if freeze_patch is not None else 0}\n"
+            f"instrumented_temp_copy={1 if freeze_patch is not None and not runtime_freeze else 0}\n"
             f"{instrumentation_manifest}"
             f"instrumented_freeze_observed={1 if freeze_observed else 0}\n"
             f"instrumented_freeze_tail_frame={tail_match_frame}\n"

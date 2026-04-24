@@ -299,7 +299,11 @@ reached by the current level-1 timed route. It also emits
 bytes for known route/control ranges (`DS:1b70`, `DS:78c0`, `DS:7990`,
 `DS:79e0`) plus explosion/effect ranges (`DS:2090`, `DS:6610`, `DS:c1e0`,
 `DS:c21e`, `DS:c320`), so later debugger/freeze attempts can be aligned to
-runtime state rather than fixed sleeps alone. See
+runtime state rather than fixed sleeps alone. A follow-up child-memory
+instrumentation mode can defer the `EB FE` write until after a route-state
+condition; gated probes applied runtime patches at `1000:3a7e` and
+`1000:3fa6` after bomb input. `3a7e` did not freeze in that window, while
+`3fa6` froze before visible explosion playback. See
 `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md`.
 
 ## Sound Playback Evidence

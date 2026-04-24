@@ -18,6 +18,13 @@ The frame comparison workflow has three parts:
 3. `tools/frame_compare.py <left> <right> [--diff out.ppm]` compares paired
    frames and reports exact and thresholded pixel-difference metrics.
 
+`tools/compare_original_cpp_frames.sh <out-dir> [asset-dir] [scenario]` wraps
+those steps for the current evidence workflow. It writes C++ frames,
+DOSBox-original frames, PPM diffs, `frame_compare_summary.txt`, and a manifest
+under the requested output directory. Use a temporary path such as
+`/tmp/lezac-frame-compare-*`; the helper intentionally keeps generated original
+evidence outside the repository.
+
 The current C++ sequences write these checkpoints:
 
 ```text
@@ -106,6 +113,8 @@ tools/frame_compare.py \
   /tmp/lezac-cpp-frames/010_level1_start.ppm \
   /tmp/lezac-original-frames/<matching-original-frame>.png \
   --diff /tmp/lezac-start-diff.ppm
+
+tools/compare_original_cpp_frames.sh /tmp/lezac-frame-compare .
 ```
 
 `tools/frame_compare.py` has built-in PPM/PNM and uncompressed BMP readers. It
@@ -113,3 +122,9 @@ uses Pillow only as an optional fallback for formats such as DOSBox PNG
 screenshots. If one frame is an integer-scaled version of the other, for
 example DOSBox 640x400 output versus a 320x200 C++ PPM, the comparator
 downscales the larger frame automatically before reporting metrics.
+
+For the 2026-04-24 gameplay damage/collision/HUD pass, the comparison helper
+successfully captured and paired the level-1 route under WSL/Xvfb. The C++
+renderer is still approximate, so the pixel diffs are large; use the bundle as
+semantic route evidence and visual inspection material, not as a pixel-perfect
+acceptance gate for this slice.

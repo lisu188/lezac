@@ -162,6 +162,11 @@ collision samples a 14x16 footprint. `--debug-passable-objects` verifies the
 decoded levels contain portal, bomb-object, low-word object, high-word solid,
 and solid examples, then checks full actor footprints, consumed bomb-object
 tiles, and a level 1 start-route movement probe against the passability helper.
+The 2026-04-24 live collision pass keeps those cells pass-through while allowing
+bomb-object and low-word object cells to act as jump support when sampled under
+the player's feet. `--debug-object-collision-jump-live` locks that behavior on
+a level-1 object cell and verifies the level-1 bomb route still passes through
+the object columns.
 `--debug-autoplayer level1_bomb_route` drives that route through the update
 helpers and frame-inspects the route, bomb, and explosion checkpoints.
 `--debug-collision-pushout` locks the current model by forcing horizontal and
@@ -204,6 +209,13 @@ reference sprite/effect ids `0x84..0x89` and seed per-variant bytes
 The C++ reconstruction carries these selector/state/offset fields in a typed
 explosion effect and renders a simplified local effect until the exact playback
 routines are fully mapped.
+
+The live C++ update pass now resolves expired bombs before monster movement for
+the current frame. This preserves the original-style blast overlap expectation
+for actors that are already inside the footprint when the fuse expires, while
+leaving exact explosion sprite playback blocked on `1000:3a56..4d3b`.
+`--debug-monster-bomb-kill-live` locks same-frame blast damage, fatal monster
+state entry, reward presence, and death actor removal.
 
 The high-word debris branch in `1000:370e` writes an 11-byte record at
 `0x2093 + 0x0b * count`: word tile index, word `word | 0x8000`, byte argument
@@ -384,6 +396,9 @@ per-player pending bytes; the update pass drains those bytes once, requests the
 priority-`4` hurt cue once when nonzero, skips energy subtraction for state-2
 players while preserving the hurt request, and dispatches death when unsigned
 byte subtraction wraps above `0x00c8`.
+`--debug-player-damage-death-live` exercises that live path with a rendered
+hazard fixture, verifies a visible HP decrement, and advances until one life is
+consumed and reentry completes.
 
 State-2 life/reentry evidence: `1000:30a3` only queues the death/life-loss cue
 and writes the actor death/reentry fields (`+0x15 = 2`, `+0x10 = 0x003c`,

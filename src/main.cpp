@@ -6628,6 +6628,228 @@ public:
                   << " solid_tile=" << static_cast<int>(kSolidDebugTile) << '\n';
     }
 
+    void debugMonsterBombKillLive() {
+        load();
+        initSdl();
+        prepareAutoplayerMonsterFixtureLevel();
+        bool running = true;
+
+        player_.x = 80.0f;
+        player_.y = 24.0f;
+        player_.grounded = true;
+        bombInventory_.counts[3] = 1;
+        bombInventory_.selected = BombType::Super;
+        int superBefore = bombInventory_.counts[3];
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.empty() || bombs_.back().type != BombType::Super ||
+            bombInventory_.counts[3] != superBefore - 1) {
+            throw std::runtime_error("live monster bomb fixture did not place a super bomb");
+        }
+
+        Bomb placed = bombs_.back();
+        bombs_.back().timer = 1;
+        player_.x = 0.0f;
+        player_.y = 0.0f;
+
+        ActiveMonster monster;
+        monster.x = placed.x * kTileSize + kTileSize;
+        monster.y = placed.y * kTileSize - kTileSize;
+        monster.kind = 1;
+        monster.behavior = 3;
+        monster.ai0 = 0x0800;
+        monster.hp = monsterDamageForBomb(BombType::Super);
+        monster.animDelay = 1;
+        refreshMonsterAnimationProfile(monster);
+        initializeMonsterMotion(monster);
+        monster.vx8 = 0x0800;
+        monsters_.push_back(monster);
+
+        FrameInspection armedFrame = inspectRenderedFrame("monster-bomb-kill-live-armed");
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
+            monsters_.front().hp != 0 || bonusDrops_.empty()) {
+            std::ostringstream oss;
+            oss << "live bomb did not kill overlapping moving monster"
+                << " bombs=" << bombs_.size()
+                << " monsters=" << monsters_.size();
+            if (!monsters_.empty()) {
+                oss << " behavior=" << static_cast<int>(monsters_.front().behavior)
+                    << " hp=" << monsters_.front().hp
+                    << " xy=" << monsters_.front().x << ',' << monsters_.front().y;
+            }
+            oss << " drops=" << bonusDrops_.size()
+                << " bomb_tile=" << placed.x << ',' << placed.y;
+            throw std::runtime_error(oss.str());
+        }
+        FrameInspection deathFrame = inspectRenderedFrame("monster-bomb-kill-live-death");
+        if (deathFrame.hash == armedFrame.hash) {
+            throw std::runtime_error("live monster bomb death frame did not change");
+        }
+
+        int deathTicks = monsters_.front().stateTimer;
+        for (int i = 0; i < deathTicks; ++i) {
+            updateWithControls(idle, 1.0f / 60.0f);
+        }
+        if (!monsters_.empty()) {
+            throw std::runtime_error("live monster death actor was not removed");
+        }
+
+        std::cout << "monster_bomb_kill_live=ok"
+                  << " bomb_type=4 damage=" << monsterDamageForBomb(BombType::Super)
+                  << " killed=1 removed=1 reward=1"
+                  << " frame_inspection=1\n";
+    }
+
+    void debugPlayerDamageDeathLive() {
+        load();
+        initSdl();
+        prepareAutoplayerMonsterFixtureLevel();
+        player_.x = 80.0f;
+        player_.y = 24.0f;
+        player_.grounded = true;
+        energy_ = 100;
+        lives_ = 3;
+        damageCooldown_ = 0;
+
+        CollapseRecord hazard;
+        int tx0 = static_cast<int>(player_.x) / kTileSize - 1;
+        int ty0 = static_cast<int>(player_.y) / kTileSize;
+        int tx1 = tx0 + 2;
+        int ty1 = ty0 + 2;
+        hazard.startOffsetBytes = static_cast<uint16_t>((ty0 * level_.width + tx0) * 2);
+        hazard.endOffsetBytes = static_cast<uint16_t>((ty1 * level_.width + tx1) * 2);
+        hazard.timer = 130;
+        hazard.count = 1;
+        collapseQueue_.push_back(hazard);
+
+        FrameInspection startFrame = inspectRenderedFrame("player-damage-live-start");
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        int firstEnergy = energy_;
+        if (firstEnergy >= 100 || playerDead_) {
+            std::ostringstream oss;
+            oss << "live hazard did not drain player HP"
+                << " energy=" << energy_
+                << " pending=" << static_cast<int>(pendingDamage_)
+                << " collapse=" << collapseQueue_.size()
+                << " p_xy=" << static_cast<int>(player_.x) << ','
+                << static_cast<int>(player_.y);
+            throw std::runtime_error(oss.str());
+        }
+
+        int frames = 1;
+        while (lives_ == 3 && frames < 140) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            ++frames;
+        }
+        if (lives_ != 2 || energy_ != 100) {
+            std::ostringstream oss;
+            oss << "live repeated hazard did not consume a life"
+                << " frames=" << frames
+                << " energy=" << energy_
+                << " lives=" << lives_
+                << " dead=" << (playerDead_ ? 1 : 0)
+                << " death_timer=" << deathStateTimer_
+                << " collapse=" << collapseQueue_.size();
+            throw std::runtime_error(oss.str());
+        }
+        FrameInspection deathFrame = inspectRenderedFrame("player-damage-live-death");
+        if (deathFrame.hash == startFrame.hash) {
+            throw std::runtime_error("live player death frame did not change");
+        }
+
+        std::cout << "player_damage_death_live=ok"
+                  << " first_energy=" << firstEnergy
+                  << " frames_to_life_loss=" << frames
+                  << " lives=" << lives_
+                  << " reentry_state=" << (playerDead_ ? 0 : 1)
+                  << " frame_inspection=1\n";
+    }
+
+    void debugObjectCollisionJumpLive() {
+        load();
+        initSdl();
+        resetLevel(0);
+        menu_ = false;
+        playerCount_ = 1;
+        constexpr int kObjectX = 17;
+        constexpr int kObjectY = 22;
+        if (!isObjectJumpSupportCell(kObjectX, kObjectY) ||
+            !isPassableObjectCell(kObjectX, kObjectY)) {
+            throw std::runtime_error("level 1 object support fixture is not a passable object cell");
+        }
+        player_.x = static_cast<float>(kObjectX * kTileSize);
+        player_.y = static_cast<float>(kObjectY * kTileSize - 15);
+        player_.vy = 0.0f;
+        player_.grounded = false;
+        if (collides(player_.x, player_.y)) {
+            throw std::runtime_error("object jump fixture starts blocked");
+        }
+        FrameInspection startFrame = inspectRenderedFrame("object-jump-live-start");
+
+        FrameControls jump;
+        jump.p1Jump = true;
+        float startY = player_.y;
+        updateWithControls(jump, 1.0f / 60.0f);
+        if (player_.vy >= 0.0f || player_.y >= startY || player_.grounded) {
+            throw std::runtime_error("passable object cell did not provide jump support");
+        }
+        int jumpVy = static_cast<int>(std::lround(player_.vy));
+        FrameInspection jumpFrame = inspectRenderedFrame("object-jump-live-airborne");
+        if (jumpFrame.hash == startFrame.hash) {
+            throw std::runtime_error("object jump frame did not change");
+        }
+
+        resetLevel(0);
+        menu_ = false;
+        AutoplayRouteResult route = autoplayLevel1BombRoute();
+        if (route.bombTileX != 24 || route.bombTileY != 22) {
+            throw std::runtime_error("object jump support blocked level 1 bomb route");
+        }
+
+        std::cout << "object_collision_jump_live=ok"
+                  << " support_cell=" << kObjectX << ',' << kObjectY
+                  << " jump_vy=" << jumpVy
+                  << " route_clear=1 frame_inspection=1\n";
+    }
+
+    void debugHudStatsLive() {
+        load();
+        initSdl();
+        resetLevel(0);
+        menu_ = false;
+        playerCount_ = 1;
+        energy_ = 73;
+        lives_ = 2;
+        score_ = 12345;
+        bombInventory_.selected = BombType::Large;
+        bombInventory_.counts = {199, 7, 3, 1};
+
+        FrameInspection first = inspectRenderedFrame("hud-stats-live-first");
+        std::vector<uint32_t> firstPixels = fb_;
+        if (!regionHasVariation(0, 0, kScreenW, 24) ||
+            !regionHasVariation(48, 3, 56, 8) ||
+            !regionHasVariation(154, 2, 132, 12)) {
+            throw std::runtime_error("HUD stats panel did not render visible gauges/icons");
+        }
+
+        energy_ = 21;
+        lives_ = 1;
+        bombInventory_.selected = BombType::Super;
+        bombInventory_.counts[3] = 0;
+        FrameInspection second = inspectRenderedFrame("hud-stats-live-second");
+        if (second.hash == first.hash ||
+            !regionChanged(firstPixels, 0, 0, kScreenW, 24)) {
+            throw std::runtime_error("HUD stats panel did not react to player/bomb stat changes");
+        }
+
+        std::cout << "hud_stats_live=ok"
+                  << " hp_visible=1 lives_visible=1 bombs_visible=1"
+                  << " progress_visible=1 frame_inspection=1\n";
+    }
+
     void exportSprites(const std::string& bankName, const std::string& path) {
         load();
         const SpriteBank* bank = nullptr;
@@ -7441,10 +7663,10 @@ private:
             }
         }
         updateFlashes();
+        updateBombs();
         updateMonsterSpawners();
         updateMonsters(dt);
         updateBonusDrops();
-        updateBombs();
         drainPlayerDamageCounters();
         updateLevelCompletion();
         pumpSoundLatch();
@@ -7478,6 +7700,9 @@ private:
         }
         if (player.vx != 0.0f) ++animTick;
         else animTick = 0;
+        if (!player.grounded && hasObjectJumpSupport(player)) {
+            player.grounded = true;
+        }
         if (jump && player.grounded) {
             player.vy = -135.0f;
             player.grounded = false;
@@ -8416,6 +8641,27 @@ private:
         return countsForPhysicalDamageProgress(wordAt(tx, ty));
     }
 
+    bool isObjectJumpSupportCell(int tx, int ty) const {
+        uint8_t tile = static_cast<uint8_t>(tileAt(tx, ty));
+        return isBombObjectTile(tile) || countsForPhysicalDamageProgress(wordAt(tx, ty));
+    }
+
+    bool objectJumpSupportPixel(float px, float py) const {
+        int tx = static_cast<int>(px) / kTileSize;
+        int ty = static_cast<int>(py) / kTileSize;
+        return isObjectJumpSupportCell(tx, ty);
+    }
+
+    bool hasObjectJumpSupport(const Player& player) const {
+        float left = player.x + 1.0f;
+        float right = player.x + 10.0f;
+        float bottom = player.y + 15.0f;
+        return objectJumpSupportPixel(left, bottom) ||
+               objectJumpSupportPixel(right, bottom) ||
+               objectJumpSupportPixel(left, bottom + 1.0f) ||
+               objectJumpSupportPixel(right, bottom + 1.0f);
+    }
+
     bool requestBombObjectScoreSound(bool sawHighObjectTile) {
         return requestSoundCursor(sawHighObjectTile ? kBombObjectHighSoundCursor
                                                     : kBombObjectDefaultSoundCursor,
@@ -8888,13 +9134,8 @@ private:
             drawWorldView(player_, 0, 16, kScreenW, 84);
             drawWorldView(player2_, 0, 116, kScreenW, 84);
             resetClip();
-            rect(0, 99, kScreenW, 1, 0xfff0d060u);
-            rect(0, 100, kScreenW, 16, 0xcc000000u);
-            text(4, 104, progressHudText() + " " +
-                            playerHudText(2, energy2_, lives2_, player2Dead_,
-                                          bombInventory2_) +
-                            " S" + std::to_string(score2_),
-                 0xffffffffu);
+            drawHudBand(100, 2, energy2_, lives2_, player2Dead_,
+                        bombInventory2_, score2_, false);
             rect(0, 115, kScreenW, 1, 0xfff0d060u);
         } else {
             int viewW = std::clamp(gameplayViewWidth_, 160, kScreenW);
@@ -9137,19 +9378,52 @@ private:
         rect(x0 + 3, y0, 8, 16, 0xff703020u);
     }
 
-    void drawHud() {
-        rect(0, 0, kScreenW, 16, 0xcc000000u);
-        std::string status = playerCount_ > 1
-                                 ? playerHudText(1, energy_, lives_, playerDead_,
-                                                 bombInventory_) +
-                                       " S" + std::to_string(score_)
-                                 : objectiveHudText() + " " +
-                                       playerHudText(1, energy_, lives_, playerDead_,
-                                                     bombInventory_);
-        if (playerCount_ == 1) {
-            status += " V" + std::to_string(gameplayViewWidth_);
+    uint32_t energyColor(int energy) const {
+        if (energy >= 67) return 0xff40d060u;
+        if (energy >= 34) return 0xfff0c040u;
+        return 0xffe04838u;
+    }
+
+    void drawMeter(int x, int y, int w, int h, int value, int maxValue,
+                   uint32_t color) {
+        rect(x - 1, y - 1, w + 2, h + 2, 0xfff0d060u);
+        rect(x, y, w, h, 0xff1c1c1cu);
+        int filled = std::clamp(value, 0, maxValue) * w / std::max(1, maxValue);
+        if (filled > 0) rect(x, y, filled, h, color);
+    }
+
+    void drawBombInventoryIcons(int x, int y, const BombInventory& inventory) {
+        for (int i = 0; i < 4; ++i) {
+            BombType type = static_cast<BombType>(i);
+            int px = x + i * 34;
+            bool selected = inventory.selected == type;
+            rect(px - 1, y - 1, 30, 10, selected ? 0xfff0d060u : 0xff303030u);
+            rect(px, y, 8, 8, bombColor(type));
+            text(px + 10, y + 1, std::to_string(inventory.counts[static_cast<size_t>(i)]),
+                 selected ? 0xff000000u : 0xffffffffu);
         }
-        text(4, 4, status, 0xffffffffu);
+    }
+
+    void drawHudBand(int y, int playerIndex, int energy, int lives, bool dead,
+                     const BombInventory& inventory, uint32_t score,
+                     bool includeProgress) {
+        rect(0, y, kScreenW, 24, 0xdd000000u);
+        rect(0, y + 23, kScreenW, 1, 0xfff0d060u);
+        text(4, y + 3, "P" + std::to_string(playerIndex), 0xffffe060u);
+        text(22, y + 3, dead ? (lives <= 0 ? "OUT" : "WAIT") : "HP", 0xffffffffu);
+        drawMeter(48, y + 4, 54, 6, dead ? 0 : energy, 100, energyColor(energy));
+        text(108, y + 3, std::to_string(std::clamp(energy, 0, 255)), 0xffffffffu);
+        text(132, y + 3, "L" + std::to_string(lives), 0xffffffffu);
+        drawBombInventoryIcons(154, y + 3, inventory);
+        text(4, y + 14, "S" + std::to_string(score), 0xffffffffu);
+        if (includeProgress) {
+            text(72, y + 14, progressHudText(), 0xffd8f0ffu);
+        }
+    }
+
+    void drawHud() {
+        drawHudBand(0, 1, energy_, lives_, playerDead_, bombInventory_, score_,
+                    playerCount_ == 1);
         if (isComplete()) {
             rect(76, 84, 168, 24, 0xee000000u);
             text(92, 92, "LEVEL COMPLETED", 0xffffe060u, false, 0xff301800u);
@@ -9594,6 +9868,22 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-collision-pushout") {
             app.debugCollisionPushout();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-monster-bomb-kill-live") {
+            app.debugMonsterBombKillLive();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-player-damage-death-live") {
+            app.debugPlayerDamageDeathLive();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-object-collision-jump-live") {
+            app.debugObjectCollisionJumpLive();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-hud-stats-live") {
+            app.debugHudStatsLive();
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--export-sprites") {

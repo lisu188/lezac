@@ -1,0 +1,20 @@
+# LEZAC explosion playback oracle malformed fixture.
+# A BP-4 local scratch value is only meaningful when the observed freeze is the
+# high-debris word gate at 1000:4C75. This fixture marks a later call-site stop
+# instead, so the oracle must reject it.
+capture=explosion_playback
+source=dosbox-regular-process-memory
+temp_copy=1
+visual_claim=0
+instrumented_freeze_observed=1
+runtime_freeze_patch_applied=1
+instrumented_bp4_local_present=1
+instrumented_bp4_local_cs_offset=0x4c7e
+instrumented_bp4_local_value=0x0003
+
+runtime_cs=1A2B
+runtime_ds=2B3C
+
+break ghidra=1000:414A runtime=1A2B:414A label=explosion_dispatcher
+break ghidra=1000:370E runtime=1A2B:370E label=tile_damage_queue
+break ghidra=1000:4C96 runtime=1A2B:4C96 label=effect_forward_pass_call observed=runtime_child_memory_freeze_observed

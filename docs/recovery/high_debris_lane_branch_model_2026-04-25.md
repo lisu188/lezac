@@ -69,11 +69,27 @@ The promoted fixtures show that the captured original route can freeze:
 - `1000:4CA9` at `01ED:4CA9`, proving the reverse lane-call site is reached.
 
 Those fixtures also record sampled queue summaries, selected debris/collapse
-bases, high-debris target bytes, and frozen frame hashes. They do not capture
-the live `[BP-4]` local at the exact frozen instruction, and the `4C96`/`4CA9`
-freezes patch the call instruction itself. The positive-word claim for `4C96`
-and `4CA9` is therefore a static-control-flow inference from the branch shape
-above, not a direct local-variable dump or helper-output byte dump.
+bases, high-debris target bytes, and frozen frame hashes. The initial `4C75`
+fixture stopped at the gate but did not capture the live `[BP-4]` local, and
+the `4C96`/`4CA9` freezes patch the call instruction itself. The positive-word
+claim for `4C96` and `4CA9` is therefore a static-control-flow inference from
+the branch shape above, not a helper-output byte dump.
+
+A follow-up runtime-child instrumentation mode now patches `1000:4C75` with:
+
+```text
+8B 46 FC        mov ax,[bp-4]
+2E A3 7E 4C     mov cs:[4c7e],ax
+EB FE           jmp $
+```
+
+The promoted `explosion_playback_oracle_original_4c75_bp4_scratch_runtime.txt`
+fixture froze `01ED:4C75`, matched the final tail screenshots, and records
+`instrumented_bp4_local_cs_offset=0x4c7e` plus
+`instrumented_bp4_local_value=0x0003`. That directly proves one positive
+word-gate local at the freeze. The same fixture's sampled selected word-layer
+summary remains `0x0000`, so the queue summary should be read as surrounding
+sample context, not as the exact loop-local source for the scratch value.
 
 Follow-up temp-copy instrumentation now freezes the post-call instructions:
 
@@ -109,8 +125,8 @@ and the first selected collapse record starts:
 06 0a 08 0a 09 80 00 04 00 00 04 00 00 01 04
 ```
 
-This is post-helper lane evidence for the sampled queue state, while the exact
-live `[BP-4]` local remains unresolved.
+This is post-helper lane evidence for the sampled queue state. It complements,
+but does not replace, the direct `4C75` scratch-local evidence above.
 
 ## C++ Mapping
 
@@ -148,9 +164,10 @@ expectations pin those flags so a fixture cannot silently parse while no longer
 proving the intended instrumented stop. The return flags are used by the
 post-call temp-copy captures because the call-site fixtures freeze before the
 helper body executes. The oracle also reports `observed_freeze_count` and
-`observed_freeze_offset`, and checks consistency with
+`observed_freeze_offset`, reports optional `bp4_local_present`,
+`bp4_local_cs_offset`, and `bp4_local_value`, and checks consistency with
 `instrumented_freeze_observed` and `runtime_freeze_patch_applied` when those
-capture-helper fields are present. Five malformed fixtures cover the
+capture-helper fields are present. Six malformed fixtures cover the
 consistency failures:
 
 - `explosion_playback_oracle_freeze_missing_break.txt`
@@ -158,6 +175,7 @@ consistency failures:
 - `explosion_playback_oracle_freeze_without_runtime_patch.txt`
 - `explosion_playback_oracle_multiple_freeze_breaks.txt`
 - `explosion_playback_oracle_top_freeze_without_runtime_patch.txt`
+- `explosion_playback_oracle_bp4_local_without_word_gate.txt`
 
 The surrounding helper model from `docs/GHIDRA_NOTES.md` remains unchanged:
 the forward/reverse lookup helpers at `1000:3A7E` and `1000:3B18` select
@@ -178,6 +196,6 @@ above: the original mutates lane bytes during the `1000:45FA..4D3B` consumer
 pass before the visible debris/collapse presentation. No gameplay or rendering
 behavior should change from this model alone.
 
-The next evidence step is to derive the exact helper inputs and compare these
-post-call lane bytes to C++ frame captures before replacing the provisional
-queue playback.
+The next evidence step is to compare the proven helper inputs, the `0x0003`
+word-gate local, and the post-call lane bytes to C++ frame captures before
+replacing the provisional queue playback.

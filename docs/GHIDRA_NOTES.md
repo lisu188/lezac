@@ -427,7 +427,13 @@ sampled state. A refreshed capture also dumps `DS:78c0`: both return stops show
 `DS:78d2=0xf7` and `DS:78d4=0xfc`. The sampled staging globals are zero at the
 freezes (`DS:2078=0x00`, `DS:655e=0x0000`, `DS:659a=0x0000`), so the exact
 lifetime of the static pre-call staging fields and the live `[bp-4]` local
-remain unresolved.
+cannot be inferred from the post-call fixtures alone. A narrower runtime-child
+instrumentation mode now patches `1000:4c75` to copy `[bp-4]` into
+`CS:4c7e` before freezing. The promoted `4c75` scratch fixture records
+`instrumented_bp4_local_value=0x0003` while the sampled selected word-layer
+summary is still `0x0000`, proving a positive gate local directly and marking
+the queue-summary fields as sampled context rather than the exact loop-local
+source.
 
 ## Sound Playback Evidence
 

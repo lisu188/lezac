@@ -2,7 +2,7 @@
 # Captured 2026-04-25 from a temporary DOSBox run directory with temp-copy
 # freeze-loop instrumentation at the reverse helper return:
 #   python3 tools/capture_original_explosion_procmem.py \
-#     /tmp/lezac-4cac-temp-copy-20260425-codex-1 . \
+#     /tmp/lezac-4cac-temp-copy-20260425-codex-3 . \
 #     --approve-procmem --mode regular --freeze-ghidra-offset 1000:4CAC \
 #     --approve-instrumentation --level-start-seconds 1.5 \
 #     --sample-seconds 5.0 --sample-interval 0.005 \
@@ -10,8 +10,8 @@
 #     --tail-freeze-check-seconds 0.75
 # Temp-copy instrumentation froze 01ED:4CAC after the reverse helper returned.
 # Screenshots 090_after_sampling.png and 091_tail_freeze_check.png both hashed
-# to 815ff6ee5c6d36e45f8be9599afa1ae65228859922f1881d52e1d696a3225364.
-# chosen_sample_seconds_after_bomb=1.91
+# to 57eb6c39546a459555ee5b36180f4b3af4f434d8dcb44430a1f59a1d9e84e6c4.
+# chosen_sample_seconds_after_bomb=1.92
 # chosen_sample_score=200
 # chosen_selected_bases=debris:292B,collapse:663E,effect:C22E
 # chosen_queue_counts=debris:200,collapse:3
@@ -29,7 +29,7 @@ instrumented_runtime_child_memory=0
 instrumented_freeze_observed=1
 instrumented_freeze_tail_frame=091_tail_freeze_check.png
 instrumentation=freeze_loop_patch mode=temp_copy_exe_patch ghidra=1000:4CAC runtime=01ED:4CAC file_offset=0x541c old_bytes=eb05 patch_bytes=ebfe loaded_bytes=ebfec606d27800eb
-command=dosbox -conf "/tmp/lezac-4cac-temp-copy-20260425-codex-1/run/dosbox.conf" -c "mount c /tmp/lezac-4cac-temp-copy-20260425-codex-1/run" -c "c:" -c "LEZAC.EXE"
+command=dosbox -conf "/tmp/lezac-4cac-temp-copy-20260425-codex-3/run/dosbox.conf" -c "mount c /tmp/lezac-4cac-temp-copy-20260425-codex-3/run" -c "c:" -c "LEZAC.EXE"
 route=focused_no_window_original_controls_process_memory
 input_start_key=1
 input_start_taps=2
@@ -53,6 +53,11 @@ high_debris_word_layer_offset=0x0000
 high_debris_word_layer_segment=0x3f26
 high_debris_word_layer_address=0x0b72
 high_debris_c204=0x003c
+lane_update_flag_value=0x00
+lane_word_global_value=0x0000
+lane_target_offset_global_value=0x0000
+effect_forward_input_global_value=0xf7
+effect_reverse_input_global_value=0xfc
 high_debris_target_byte=0x00
 high_debris_word_layer_value=0x0000
 break ghidra=1000:75F1 runtime=01ED:75F1 label=bomb_expire_dispatch_call observed=process_memory_sampling_no_debugger_break
@@ -1206,14 +1211,19 @@ dump DS:6610
 0C8F:6650  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 0C8F:6660  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
 
+dump DS:78C0
+0C8F:78C0  60 ea 49 00 05 40 42 00 00 00 02 00 0c 00 51 00
+0C8F:78D0  10 00 f7 1c fc 00 01 01 01 01 01 01 01 01 00 00
+0C8F:78E0  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
 dump DS:C1E0
 0C8F:C1E0  00 00 a9 3e 00 00 cf 2a 38 05 28 00 40 01 a0 00
 0C8F:C1F0  94 02 00 00 04 05 00 00 40 01 cf 2a 1e c2 a9 3e
 0C8F:C200  10 00 10 00 3c 00 00 00 74 7f 00 00 00 00 00 00
-0C8F:C210  b4 7f e4 1c 08 00 00 00 58 00 ad 00 5f 00 7b 00
+0C8F:C210  b4 7f e4 1c 08 00 00 00 58 00 9f 00 4f 00 7b 00
 
 dump DS:C21E
 0C8F:C21E  7b 00 a8 00 10 10 00 00 10 27 70 17 10 10 00 00
-0C8F:C22E  a4 00 b0 00 10 10 7d 41 9e 00 af 00 10 10 7d 42
-0C8F:C23E  ae 00 b8 00 10 10 7d 42 00 00 00 00 00 00 00 00
+0C8F:C22E  a4 00 b0 00 10 10 7d 41 a7 00 a4 00 10 10 7d 42
+0C8F:C23E  9e 00 a6 00 10 10 7d 42 00 00 00 00 00 00 00 00
 0C8F:C24E  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00

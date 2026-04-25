@@ -48,6 +48,8 @@ constexpr uint16_t kExplosionEffectReverseReturn = 0x4cac;
 constexpr uint16_t kHighDebrisLaneTargetOffsetGlobal = 0x659a;
 constexpr uint16_t kHighDebrisLaneWordGlobal = 0x655e;
 constexpr uint16_t kHighDebrisLaneUpdateFlag = 0x2078;
+constexpr uint16_t kExplosionEffectForwardInputGlobal = 0x78d2;
+constexpr uint16_t kExplosionEffectReverseInputGlobal = 0x78d4;
 constexpr uint16_t kCollapseForwardLaneBase = 0x6617;
 constexpr uint16_t kCollapseReverseLaneBase = 0x6618;
 constexpr uint16_t kDebrisForwardLaneBase = 0x2097;
@@ -5265,6 +5267,27 @@ public:
                 requireByte(static_cast<uint16_t>(selectedEffectBase + 6));
             uint8_t effectVariant =
                 requireByte(static_cast<uint16_t>(selectedEffectBase + 7));
+            bool haveLaneGlobals =
+                bytesPresent(kHighDebrisLaneUpdateFlag, 1) &&
+                bytesPresent(kHighDebrisLaneWordGlobal, 2) &&
+                bytesPresent(kHighDebrisLaneTargetOffsetGlobal, 2);
+            uint8_t laneUpdateFlag =
+                haveLaneGlobals ? requireByte(kHighDebrisLaneUpdateFlag) : 0;
+            uint16_t laneWordGlobal =
+                haveLaneGlobals ? requireLe16(kHighDebrisLaneWordGlobal) : 0;
+            uint16_t laneTargetOffsetGlobal =
+                haveLaneGlobals ? requireLe16(kHighDebrisLaneTargetOffsetGlobal) : 0;
+            bool haveEffectInputGlobals =
+                bytesPresent(kExplosionEffectForwardInputGlobal, 1) &&
+                bytesPresent(kExplosionEffectReverseInputGlobal, 1);
+            uint8_t effectForwardInputGlobal =
+                haveEffectInputGlobals
+                    ? requireByte(kExplosionEffectForwardInputGlobal)
+                    : 0;
+            uint8_t effectReverseInputGlobal =
+                haveEffectInputGlobals
+                    ? requireByte(kExplosionEffectReverseInputGlobal)
+                    : 0;
 
             std::cout << "explosion_playback_oracle=ok fixture=" << fixture
                       << " runtime_cs=" << hex4(runtimeCs)
@@ -5286,6 +5309,17 @@ public:
                       << (observedEffectForwardReturn ? 1 : 0)
                       << " observed_effect_reverse_return="
                       << (observedEffectReverseReturn ? 1 : 0)
+                      << " lane_globals_present=" << (haveLaneGlobals ? 1 : 0)
+                      << " lane_update_flag=" << hexBytePrefix(laneUpdateFlag)
+                      << " lane_word_global_value=" << hex4(laneWordGlobal)
+                      << " lane_target_offset_global_value="
+                      << hex4(laneTargetOffsetGlobal)
+                      << " effect_input_globals_present="
+                      << (haveEffectInputGlobals ? 1 : 0)
+                      << " effect_forward_input_global_value="
+                      << hexBytePrefix(effectForwardInputGlobal)
+                      << " effect_reverse_input_global_value="
+                      << hexBytePrefix(effectReverseInputGlobal)
                       << " debris_count_present=" << (haveDebrisCount ? 1 : 0)
                       << " debris_count=" << hex4(debrisQueueCount)
                       << " debris_count_base=" << hex4(debrisCountBase)
@@ -6237,6 +6271,10 @@ public:
                       << hex4(kExplosionEffectForwardReturn)
                       << " effect_reverse_return="
                       << hex4(kExplosionEffectReverseReturn)
+                      << " effect_forward_input_global="
+                      << hex4(kExplosionEffectForwardInputGlobal)
+                      << " effect_reverse_input_global="
+                      << hex4(kExplosionEffectReverseInputGlobal)
                       << " lane_target_offset_global="
                       << hex4(kHighDebrisLaneTargetOffsetGlobal)
                       << " lane_word_global=" << hex4(kHighDebrisLaneWordGlobal)

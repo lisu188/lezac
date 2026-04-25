@@ -63,6 +63,8 @@ DEBRIS_DUMP_BASE = 0x2090
 COLLAPSE_DUMP_BASE = 0x6610
 DEBRIS_DUMP_LENGTH = COLLAPSE_DUMP_BASE - DEBRIS_DUMP_BASE
 COLLAPSE_DUMP_LENGTH = 0x60
+EFFECT_INPUT_DUMP_BASE = 0x78C0
+EFFECT_INPUT_DUMP_LENGTH = 0x30
 FREEZE_PATCH = bytes.fromhex("ebfe")
 DEFAULT_SAMPLE_SCREENSHOTS = "0.5,1.0,1.5,2.0,3.0"
 ROUTE_STATE_RANGES = [
@@ -80,7 +82,7 @@ ROUTE_STATE_RANGES = [
 ]
 
 
-SampleRecord = tuple[float, bytes, bytes, bytes, bytes, bytes]
+SampleRecord = tuple[float, bytes, bytes, bytes, bytes, bytes, bytes]
 
 
 @dataclass
@@ -348,6 +350,7 @@ def route_state_fields(record: RouteStateRecord) -> dict[str, int | str | float 
             record.dumps["DS:6610"],
             record.dumps["DS:C1E0"],
             record.dumps["DS:C21E"],
+            record.dumps["DS:78C0"],
         )
     )
     return {
@@ -382,6 +385,7 @@ def route_state_fields(record: RouteStateRecord) -> dict[str, int | str | float 
                 record.dumps["DS:6610"],
                 record.dumps["DS:C1E0"],
                 record.dumps["DS:C21E"],
+                record.dumps["DS:78C0"],
             )
         ),
         "debris_queue_count": decoded["debris_queue_count"],
@@ -667,7 +671,7 @@ def choose_slot(
 
 
 def high_debris_target_static_fields(record: SampleRecord) -> dict[str, int]:
-    _, dump2070, dump2090, dump6610, dumpc1e0, _ = record
+    _, dump2070, dump2090, dump6610, dumpc1e0, _, _ = record
     debris_queue_count = le16(dump2070, 0x207E - 0x2070)
     debris_slots = candidate_slots(
         4,
@@ -713,7 +717,7 @@ def resolve_high_debris_target(
 
 
 def decode_sample(record: SampleRecord) -> dict[str, int | float | str]:
-    elapsed, dump2070, dump2090, dump6610, dumpc1e0, dumpc21e = record
+    elapsed, dump2070, dump2090, dump6610, dumpc1e0, dumpc21e, dump78c0 = record
     debris_queue_count = le16(dump2070, 0x207E - 0x2070)
     collapse_queue_count = le16(dump2070, 0x2080 - 0x2070)
     debris_slots = candidate_slots(
@@ -748,6 +752,17 @@ def decode_sample(record: SampleRecord) -> dict[str, int | float | str]:
     return {
         "elapsed": elapsed,
         **high_debris_target_static_fields(record),
+        "lane_update_flag_value": dump2070[0x2078 - 0x2070],
+        "lane_word_global_value": le16(dump2090, 0x655E - DEBRIS_DUMP_BASE),
+        "lane_target_offset_global_value": le16(
+            dump2090, 0x659A - DEBRIS_DUMP_BASE
+        ),
+        "effect_forward_input_global_value": dump78c0[
+            0x78D2 - EFFECT_INPUT_DUMP_BASE
+        ],
+        "effect_reverse_input_global_value": dump78c0[
+            0x78D4 - EFFECT_INPUT_DUMP_BASE
+        ],
         "selected_debris_base": debris["addr"],
         "selected_collapse_base": collapse["addr"],
         "selected_effect_base": effect["addr"],
@@ -805,7 +820,7 @@ def choose_sample(records: list[SampleRecord]) -> SampleRecord:
     if best_score > 0:
         return best_record
     for record in records:
-        _, _, debris, _, lookup, effect = record
+        _, _, debris, _, lookup, effect, _ = record
         del lookup
         if any(debris[3:14]) or any(effect[:16]):
             return record
@@ -831,6 +846,11 @@ def write_sample_summary(path: Path, records: list[SampleRecord]) -> None:
         "high_debris_word_layer_segment",
         "high_debris_word_layer_address",
         "high_debris_c204",
+        "lane_update_flag_value",
+        "lane_word_global_value",
+        "lane_target_offset_global_value",
+        "effect_forward_input_global_value",
+        "effect_reverse_input_global_value",
         "debris_queue_count",
         "collapse_queue_count",
         "debris_score",
@@ -1213,6 +1233,13 @@ def main() -> int:
                 ),
                 read_emulated(pid, base, RUNTIME_DS, 0xC1E0, 0x40),
                 read_emulated(pid, base, RUNTIME_DS, 0xC21E, 0x40),
+                read_emulated(
+                    pid,
+                    base,
+                    RUNTIME_DS,
+                    EFFECT_INPUT_DUMP_BASE,
+                    EFFECT_INPUT_DUMP_LENGTH,
+                ),
             )
             records.append(record)
             current_fields = decode_sample(record)
@@ -1375,7 +1402,7 @@ def main() -> int:
             chosen_target_fields = resolve_high_debris_target(pid, base, chosen)
         except OSError:
             chosen_target_fields = high_debris_target_static_fields(chosen)
-        elapsed, dump2070, dump2090, dump6610, dumpc1e0, dumpc21e = chosen
+        elapsed, dump2070, dump2090, dump6610, dumpc1e0, dumpc21e, dump78c0 = chosen
         fixture = out_dir / "explosion_playback_oracle_original_candidate.txt"
         with fixture.open("w", encoding="ascii") as out:
             out.write("# LEZAC original explosion playback oracle candidate.\n")
@@ -1541,6 +1568,15 @@ def main() -> int:
             out.write(f"selected_effect_base={int(chosen_fields['selected_effect_base']):04X}\n")
             out.write(f"selected_debris_source={chosen_fields['selected_debris_source']}\n")
             out.write(f"selected_collapse_source={chosen_fields['selected_collapse_source']}\n")
+            chosen_oracle_fields = dict(chosen_target_fields)
+            for field in [
+                "lane_update_flag_value",
+                "lane_word_global_value",
+                "lane_target_offset_global_value",
+                "effect_forward_input_global_value",
+                "effect_reverse_input_global_value",
+            ]:
+                chosen_oracle_fields[field] = chosen_fields[field]
             for field in [
                 "high_debris_target_delta",
                 "high_debris_target_offset",
@@ -1549,12 +1585,22 @@ def main() -> int:
                 "high_debris_word_layer_segment",
                 "high_debris_word_layer_address",
                 "high_debris_c204",
+                "lane_update_flag_value",
+                "lane_word_global_value",
+                "lane_target_offset_global_value",
+                "effect_forward_input_global_value",
+                "effect_reverse_input_global_value",
                 "high_debris_target_byte",
                 "high_debris_word_layer_value",
             ]:
-                if field in chosen_target_fields:
-                    value = int(chosen_target_fields[field])
-                    if field == "high_debris_target_byte":
+                if field in chosen_oracle_fields:
+                    value = int(chosen_oracle_fields[field])
+                    if field in [
+                        "high_debris_target_byte",
+                        "lane_update_flag_value",
+                        "effect_forward_input_global_value",
+                        "effect_reverse_input_global_value",
+                    ]:
                         out.write(f"{field}=0x{value:02x}\n")
                     else:
                         out.write(f"{field}=0x{value:04x}\n")
@@ -1603,6 +1649,7 @@ def main() -> int:
                 ("DS:2070", 0x2070, dump2070),
                 ("DS:2090", 0x2090, dump2090),
                 ("DS:6610", 0x6610, dump6610),
+                ("DS:78C0", EFFECT_INPUT_DUMP_BASE, dump78c0),
                 ("DS:C1E0", 0xC1E0, dumpc1e0),
                 ("DS:C21E", 0xC21E, dumpc21e),
             ]:

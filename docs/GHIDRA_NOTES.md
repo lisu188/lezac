@@ -423,7 +423,11 @@ post-call returns in the high-counter state with selected debris base
 debris bytes `41 05 04 c0 26 00 1c 00 00 67 80`, and first selected collapse
 bytes `06 0a 08 0a 09 80 00 04 00 00 04 00 00 01 04`. These fixtures prove
 helper-return reachability and preserve helper-written lane bytes for that
-sampled state; they still do not expose the live `[bp-4]` local.
+sampled state. A refreshed capture also dumps `DS:78c0`: both return stops show
+`DS:78d2=0xf7` and `DS:78d4=0xfc`. The sampled staging globals are zero at the
+freezes (`DS:2078=0x00`, `DS:655e=0x0000`, `DS:659a=0x0000`), so the exact
+lifetime of the static pre-call staging fields and the live `[bp-4]` local
+remain unresolved.
 
 ## Sound Playback Evidence
 

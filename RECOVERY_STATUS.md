@@ -333,7 +333,16 @@ Baseline: `origin/main`
   with matched tail screenshots. This directly proves one positive local-word
   gate while also showing that the sampled selected word-layer summary
   (`0x0000`) can describe adjacent queue state rather than the exact loop
-  iteration frozen by the patch.
+  iteration frozen by the patch. The C++ frame capture manifest now records
+  first debris/collapse/effect queue fields per checkpoint. A WSL/Xvfb
+  original-vs-C++ level-1 bundle captured all seven route labels; visual
+  inspection confirmed the original reached blast/playback frames. Pixel diffs
+  remain large because the C++ renderer is provisional, but the queue metadata
+  exposes the next concrete mismatch: C++ records the level-1 collapse span
+  `0x0A06..0x0A08`, `flagged=0x8009`, `affected=4`, `count=2` with
+  `collapse0_forward=0`, `collapse0_reverse=0`, while original post-call
+  fixtures preserve the same span with helper-written reverse lane byte
+  `0x04`.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"

@@ -162,3 +162,33 @@ successfully captured and paired the level-1 route under WSL/Xvfb. The C++
 renderer is still approximate, so the pixel diffs are large; use the bundle as
 semantic route evidence and visual inspection material, not as a pixel-perfect
 acceptance gate for this slice.
+
+The C++ frame manifest now also records the first debris, collapse, and
+explosion-effect record fields per checkpoint. These fields are intended to sit
+next to original-runtime oracle fixtures when the rendered pixels are too
+approximate for direct acceptance. A 2026-04-25 WSL/Xvfb comparison run at
+`/tmp/lezac-frame-compare-high-debris-20260425b` captured all seven level-1
+labels. The original route visibly left the menu and reached the blast/playback
+frames, while the C++ route still drew provisional damage blocks. The paired
+pixel diffs remained large:
+
+```text
+040_level1_tile24_explosion exact_different_pixels=55975 mean_abs_delta=80.761042
+050_level1_tile24_playback_4 exact_different_pixels=55974 mean_abs_delta=80.751745
+060_level1_tile24_playback_12 exact_different_pixels=55473 mean_abs_delta=79.061042
+```
+
+The same C++ manifest records one collapse queue entry and no debris queue
+entry for the level-1 blast:
+
+```text
+040_level1_tile24_explosion collapse0_xy=24,21 collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_flagged=0x8009 collapse0_forward=0 collapse0_reverse=0 collapse0_affected=4 collapse0_count=2 collapse0_timer=24 effect0_xy=24,22 effect0_visual=1 effect0_detail=117 effect0_timer=8 effect0_variant=5
+050_level1_tile24_playback_4 collapse0_xy=24,21 collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_flagged=0x8009 collapse0_forward=0 collapse0_reverse=0 collapse0_affected=4 collapse0_count=2 collapse0_timer=20 effect0_xy=24,22 effect0_visual=1 effect0_detail=117 effect0_timer=4 effect0_variant=5
+```
+
+That queue state should be compared with the original high-debris lane fixtures:
+the original post-call stops for the same collapse span preserve helper-written
+lane bytes, including `collapse0_forward=0x00` and `collapse0_reverse=0x04`,
+with helper input globals `DS:78D2=0xF7` and `DS:78D4=0xFC`. This is a concrete
+frame-facing mismatch to investigate before replacing the provisional
+`drawDamageQueues` renderer.

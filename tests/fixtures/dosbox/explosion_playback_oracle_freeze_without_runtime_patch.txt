@@ -1,0 +1,15 @@
+# LEZAC explosion playback oracle malformed fixture.
+# Marks a runtime child-memory frozen breakpoint while the patch-applied flag is 0.
+# Omits the top-level freeze flag so this isolates the observed-break check.
+capture=explosion_playback
+source=dosbox-regular-process-memory
+temp_copy=1
+visual_claim=0
+runtime_freeze_patch_applied=0
+
+runtime_cs=1A2B
+runtime_ds=2B3C
+
+break ghidra=1000:414A runtime=1A2B:414A label=explosion_dispatcher observed=process_memory_sampling_no_debugger_break
+break ghidra=1000:370E runtime=1A2B:370E label=tile_damage_queue observed=process_memory_sampling_no_debugger_break
+break ghidra=1000:4C96 runtime=1A2B:4C96 label=effect_forward_pass_call observed=runtime_child_memory_freeze_observed

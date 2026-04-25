@@ -34,8 +34,18 @@ constexpr uint16_t kDamageReverseLookupRoutine = 0x3b18;
 constexpr uint16_t kDamageForwardPassRoutine = 0x3bb2;
 constexpr uint16_t kDamageReversePassRoutine = 0x3d46;
 constexpr uint16_t kExplosionEffectUpdateRoutine = 0x45fa;
+constexpr uint16_t kHighDebrisTargetSample = 0x4b3f;
+constexpr uint16_t kHighDebrisTargetByteGate = 0x4b61;
+constexpr uint16_t kHighDebrisZeroTargetBranch = 0x4b6a;
+constexpr uint16_t kHighDebrisNonzeroTargetBranch = 0x4c20;
+constexpr uint16_t kHighDebrisWordLoad = 0x4c64;
+constexpr uint16_t kHighDebrisWordGate = 0x4c75;
+constexpr uint16_t kHighDebrisWordGateSkip = 0x4cae;
 constexpr uint16_t kExplosionEffectForwardCall = 0x4c96;
 constexpr uint16_t kExplosionEffectReverseCall = 0x4ca9;
+constexpr uint16_t kHighDebrisLaneTargetOffsetGlobal = 0x659a;
+constexpr uint16_t kHighDebrisLaneWordGlobal = 0x655e;
+constexpr uint16_t kHighDebrisLaneUpdateFlag = 0x2078;
 constexpr uint16_t kCollapseForwardLaneBase = 0x6617;
 constexpr uint16_t kCollapseReverseLaneBase = 0x6618;
 constexpr uint16_t kDebrisForwardLaneBase = 0x2097;
@@ -4925,9 +4935,19 @@ public:
             bool haveRuntimeDs = false;
             bool tempCopy = false;
             bool visualClaim = false;
+            bool instrumentedFreezeObserved = false;
+            bool haveInstrumentedFreezeObserved = false;
+            bool runtimeFreezePatchApplied = false;
+            bool haveRuntimeFreezePatchApplied = false;
             int dispatcherBreaks = 0;
             int damageBreaks = 0;
             int playbackBreaks = 0;
+            int observedFreezeBreaks = 0;
+            uint16_t firstObservedFreezeOffset = 0;
+            bool observedHighZeroBranch = false;
+            bool observedHighWordGate = false;
+            bool observedEffectForwardCall = false;
+            bool observedEffectReverseCall = false;
             uint16_t selectedDebrisBase = 0;
             uint16_t selectedCollapseBase = 0;
             uint16_t selectedEffectBase = 0xc21e;
@@ -4974,6 +4994,12 @@ public:
                         tempCopy = value == "1";
                     } else if (key == "visual_claim") {
                         visualClaim = value != "0";
+                    } else if (key == "instrumented_freeze_observed") {
+                        instrumentedFreezeObserved = value == "1";
+                        haveInstrumentedFreezeObserved = true;
+                    } else if (key == "runtime_freeze_patch_applied") {
+                        runtimeFreezePatchApplied = value == "1";
+                        haveRuntimeFreezePatchApplied = true;
                     } else if (key == "selected_debris_base") {
                         selectedDebrisBase = parseHex16(value, key);
                         haveSelectedDebrisBase = true;
@@ -5029,6 +5055,17 @@ public:
                     }
                     if (ghidraOffset == 0x414a) ++dispatcherBreaks;
                     if (ghidraOffset == 0x370e) ++damageBreaks;
+                    bool freezeObserved =
+                        line.find("observed=runtime_child_memory_freeze_observed") !=
+                            std::string::npos ||
+                        line.find("observed=instrumented_temp_copy_freeze_observed") !=
+                            std::string::npos;
+                    if (freezeObserved) {
+                        if (observedFreezeBreaks == 0) {
+                            firstObservedFreezeOffset = ghidraOffset;
+                        }
+                        ++observedFreezeBreaks;
+                    }
                     if (ghidraOffset == 0x3a7e || ghidraOffset == 0x3b18 ||
                         ghidraOffset == 0x3bb2 || ghidraOffset == 0x3d46 ||
                         ghidraOffset == 0x45fa || ghidraOffset == 0x492f ||
@@ -5037,6 +5074,12 @@ public:
                         ghidraOffset == 0x4c75 || ghidraOffset == 0x4c96 ||
                         ghidraOffset == 0x4ca9) {
                         ++playbackBreaks;
+                    }
+                    if (freezeObserved) {
+                        if (ghidraOffset == 0x4b6a) observedHighZeroBranch = true;
+                        if (ghidraOffset == 0x4c75) observedHighWordGate = true;
+                        if (ghidraOffset == 0x4c96) observedEffectForwardCall = true;
+                        if (ghidraOffset == 0x4ca9) observedEffectReverseCall = true;
                     }
                     continue;
                 }
@@ -5082,6 +5125,25 @@ public:
             if (dispatcherBreaks == 0) fail("dispatcher_break_missing");
             if (damageBreaks == 0) fail("damage_break_missing");
             if (playbackBreaks == 0) fail("playback_break_missing");
+            if (observedFreezeBreaks > 1) {
+                fail("multiple_observed_freeze_breaks");
+            }
+            if (haveInstrumentedFreezeObserved && instrumentedFreezeObserved &&
+                haveRuntimeFreezePatchApplied && !runtimeFreezePatchApplied) {
+                fail("instrumented_freeze_without_runtime_patch");
+            }
+            if (haveInstrumentedFreezeObserved && instrumentedFreezeObserved &&
+                observedFreezeBreaks == 0) {
+                fail("instrumented_freeze_without_observed_break");
+            }
+            if (haveInstrumentedFreezeObserved && !instrumentedFreezeObserved &&
+                observedFreezeBreaks != 0) {
+                fail("observed_break_without_instrumented_freeze");
+            }
+            if (haveRuntimeFreezePatchApplied && !runtimeFreezePatchApplied &&
+                observedFreezeBreaks != 0) {
+                fail("observed_break_without_runtime_patch");
+            }
 
             auto requireByte = [&](uint16_t address) -> uint8_t {
                 if (!present[address]) {
@@ -5199,6 +5261,16 @@ public:
                       << " dispatcher_break=" << dispatcherBreaks
                       << " damage_break=" << damageBreaks
                       << " playback_breaks=" << playbackBreaks
+                      << " observed_freeze_count=" << observedFreezeBreaks
+                      << " observed_freeze_offset=" << hex4(firstObservedFreezeOffset)
+                      << " observed_high_zero_branch="
+                      << (observedHighZeroBranch ? 1 : 0)
+                      << " observed_high_word_gate="
+                      << (observedHighWordGate ? 1 : 0)
+                      << " observed_effect_forward_call="
+                      << (observedEffectForwardCall ? 1 : 0)
+                      << " observed_effect_reverse_call="
+                      << (observedEffectReverseCall ? 1 : 0)
                       << " debris_count_present=" << (haveDebrisCount ? 1 : 0)
                       << " debris_count=" << hex4(debrisQueueCount)
                       << " debris_count_base=" << hex4(debrisCountBase)
@@ -6137,8 +6209,19 @@ public:
                       << " lookup_forward=" << hex4(kDamageForwardLookupRoutine)
                       << " lookup_reverse=" << hex4(kDamageReverseLookupRoutine)
                       << " effect_update=" << hex4(kExplosionEffectUpdateRoutine)
+                      << " high_target_sample=" << hex4(kHighDebrisTargetSample)
+                      << " high_target_byte_gate=" << hex4(kHighDebrisTargetByteGate)
+                      << " high_zero_branch=" << hex4(kHighDebrisZeroTargetBranch)
+                      << " high_nonzero_branch=" << hex4(kHighDebrisNonzeroTargetBranch)
+                      << " high_word_load=" << hex4(kHighDebrisWordLoad)
+                      << " high_word_gate=" << hex4(kHighDebrisWordGate)
+                      << " high_word_gate_skip=" << hex4(kHighDebrisWordGateSkip)
                       << " effect_forward_call=" << hex4(kExplosionEffectForwardCall)
                       << " effect_reverse_call=" << hex4(kExplosionEffectReverseCall)
+                      << " lane_target_offset_global="
+                      << hex4(kHighDebrisLaneTargetOffsetGlobal)
+                      << " lane_word_global=" << hex4(kHighDebrisLaneWordGlobal)
+                      << " lane_update_flag=" << hex4(kHighDebrisLaneUpdateFlag)
                       << " collapse_slot=" << collapseSlot
                       << " collapse_weight=" << collapseAffectedBytes
                       << " collapse_forward_write=" << hex4(collapseForwardWriteOffset)

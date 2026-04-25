@@ -1,0 +1,87 @@
+# LEZAC original explosion playback oracle fixture.
+# Captured 2026-04-24 from a temporary DOSBox run directory with:
+#   python3 tools/capture_original_explosion_procmem.py \
+#     /tmp/lezac-4c96-zero-target-fast-runtime-20260424-codex-3 . \
+#     --approve-procmem --mode regular --freeze-ghidra-offset 1000:4C96 \
+#     --approve-instrumentation --approve-runtime-instrumentation \
+#     --runtime-freeze-require-debris-base 0x292b \
+#     --runtime-freeze-require-high-debris-target-byte 0x00 \
+#     --level-start-seconds 1.5 --sample-seconds 5.0 \
+#     --sample-interval 0.005 --route-state-interval 0 \
+#     --sample-screenshot-seconds '' --tail-freeze-check-seconds 0.75
+# Runtime child-memory patching froze 01ED:4C96 after the selected high-debris
+# target byte matched 0x00. Screenshots 090_after_sampling.png and
+# 091_tail_freeze_check.png both hashed to
+# 8f89d267aebcf5f01af32a3c6b3d3916adf0c9246519baea5b7cfe4f4e06cd2f.
+capture=explosion_playback
+source=dosbox-regular-process-memory
+temp_copy=1
+visual_claim=0
+instrumented_temp_copy=0
+instrumented_runtime_child_memory=1
+instrumented_freeze_observed=1
+instrumented_freeze_tail_frame=091_tail_freeze_check.png
+runtime_freeze_patch_applied=1
+runtime_freeze_require_debris_base=0x292b
+runtime_freeze_require_high_debris_target_byte=0x0000
+runtime_freeze_patch_elapsed_after_bomb=1.576
+runtime_freeze_patch_queue_score=90
+runtime_freeze_patch_selected_debris_base=0x292b
+runtime_freeze_patch_selected_collapse_base=0x6611
+runtime_freeze_patch_selected_effect_base=0xc22e
+runtime_freeze_patch_high_debris_target_offset=0x0540
+runtime_freeze_patch_high_debris_target_byte=0x00
+runtime_freeze_patch_high_debris_word_layer_value=0x0000
+
+runtime_cs=01ED
+runtime_ds=0C8F
+selected_debris_base=292B
+selected_collapse_base=663E
+selected_effect_base=C22E
+
+high_debris_target_delta=0x0078
+high_debris_target_offset=0x05b9
+high_debris_lookup_segment=0x3ea9
+high_debris_word_layer_offset=0x0000
+high_debris_word_layer_segment=0x3f26
+high_debris_word_layer_address=0x0b72
+high_debris_c204=0x003c
+high_debris_target_byte=0x00
+high_debris_word_layer_value=0x0000
+
+break ghidra=1000:75F1 runtime=01ED:75F1 label=bomb_expire_dispatch_call observed=process_memory_sampling_no_debugger_break
+break ghidra=1000:414A runtime=01ED:414A label=explosion_dispatcher observed=process_memory_sampling_no_debugger_break
+break ghidra=1000:370E runtime=01ED:370E label=tile_damage_queue observed=process_memory_sampling_no_debugger_break
+break ghidra=1000:3A7E runtime=01ED:3A7E label=damage_forward_lookup observed=process_memory_sampling_no_debugger_break
+break ghidra=1000:3B18 runtime=01ED:3B18 label=damage_reverse_lookup observed=process_memory_sampling_no_debugger_break
+break ghidra=1000:3BB2 runtime=01ED:3BB2 label=collapse_forward_pass observed=process_memory_sampling_no_debugger_break
+break ghidra=1000:3D46 runtime=01ED:3D46 label=collapse_reverse_pass observed=process_memory_sampling_no_debugger_break
+break ghidra=1000:3FA6 runtime=01ED:3FA6 label=effect_constructor_candidate observed=process_memory_sampling_no_debugger_break
+break ghidra=1000:45FA runtime=01ED:45FA label=effect_debris_update_entry observed=process_memory_sampling_no_debugger_break
+break ghidra=1000:432A runtime=01ED:432A label=effect_playback_candidate observed=process_memory_sampling_no_debugger_break
+break ghidra=1000:492F runtime=01ED:492F label=high_debris_loop_entry observed=process_memory_sampling_no_debugger_break
+break ghidra=1000:4B3F runtime=01ED:4B3F label=high_debris_target_sample observed=process_memory_sampling_no_debugger_break
+break ghidra=1000:4B61 runtime=01ED:4B61 label=high_debris_target_byte_gate observed=process_memory_sampling_no_debugger_break
+break ghidra=1000:4B6A runtime=01ED:4B6A label=high_debris_zero_target_branch observed=process_memory_sampling_no_debugger_break
+break ghidra=1000:4C20 runtime=01ED:4C20 label=high_debris_nonzero_target_branch observed=process_memory_sampling_no_debugger_break
+break ghidra=1000:4C75 runtime=01ED:4C75 label=high_debris_word_gate observed=process_memory_sampling_no_debugger_break
+break ghidra=1000:4C96 runtime=01ED:4C96 label=effect_forward_pass_call observed=runtime_child_memory_freeze_observed
+break ghidra=1000:4CA9 runtime=01ED:4CA9 label=effect_reverse_pass_call observed=process_memory_sampling_no_debugger_break
+
+dump DS:2070
+0C8F:2070  b4 9d 05 00 05 00 08 00 00 00 20 66 9e 20 c8 00
+0C8F:2080  03 00 02 00 2e 00 01 00 00 00 00 00 00 03 00 00
+
+dump DS:2090
+0C8F:2920  00 00 00 00 00 00 00 00 00 00 00 41 05 04 c0 3a
+0C8F:2930  00 09 00 00 67 80 00 00 00 00 00 00 00 00 00 00
+
+dump DS:6610
+0C8F:6630  09 18 09 0a 80 0a f5 0b f5 15 00 00 01 04 06 0a
+0C8F:6640  08 0a 09 80 0e 00 00 00 0e 00 02 01 04 00 00 00
+
+dump DS:C1E0
+0C8F:C1E0  00 00 a9 3e 00 00 cf 2a 39 05 28 00 40 01 a0 00
+
+dump DS:C21E
+0C8F:C22E  af 00 b0 00 10 10 7d 40 b5 00 b0 00 10 10 7d 41

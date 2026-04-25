@@ -396,20 +396,72 @@ branch inference into original runtime evidence that the visible-blast route
 executes the zero-target branch at `1000:4B6A`; it remains instrumented
 process-memory evidence with `visual_claim=0`.
 
+Static disassembly of the later high-debris lane-call area now gives the
+branch shape. `1000:4c64..4c72` reads a word through the far pointer at
+`DS:6612` and stores it in `[bp-4]`. `1000:4c75` compares that local with zero
+and `jbe`s to `1000:4cae`; the positive side sets `DS:2078`, stores the doubled
+target offset at `DS:659a`, stores the word at `DS:655e`, calls the forward
+lane helper from `1000:4c96`, then ORs the word with `0x8000` and calls the
+reverse lane helper from `1000:4ca9`.
+
+The same fast target-byte-gated route was used to probe that static branch.
+The first broad `4C75` and `4C96` runs loaded runtime patches but did not
+freeze, because they patched after the sampled state had already advanced. An
+early-gated `4C75` rerun added `--runtime-freeze-require-collapse-base 0x6611`;
+it patched `1000:4C75` after `1.564s` with `DS:207e=0x00c8`, selected debris
+base `DS:292b`, selected collapse base `DS:6611`, target offset `0x0540`,
+target byte `0x00`, and sampled word-layer value `0x0000`, then froze at
+`01ED:4C75`. Its post-freeze chosen candidate parsed with selected collapse
+base `DS:663e`, target delta `0x0078`, target offset `0x05b9`, target byte
+`0x00`, and word-layer value `0x0000`; `090_after_sampling.png` and
+`091_tail_freeze_check.png` both hashed to
+`af350ff9bcd0815c1814eea3ae5393b425e77f0938afd6286059e34a184b5231`.
+
+A strict `4C96` rerun with the same collapse-base gate did not arm, because
+that run reached selected debris base `DS:292b` later with selected collapse
+base `DS:663e` instead of `DS:6611`. A relaxed rerun at
+`/tmp/lezac-4c96-zero-target-fast-runtime-20260424-codex-3` required only
+selected debris base `DS:292b` and high-debris target byte `0x00`; it patched
+`1000:4C96` after `1.576s` with `DS:207e=0x00c8`, selected collapse base
+`DS:6611`, target offset `0x0540`, target byte `0x00`, and sampled word-layer
+value `0x0000`, then froze at `01ED:4C96`. Its post-freeze chosen candidate
+parsed with selected collapse base `DS:663e`, target delta `0x0078`, target
+offset `0x05b9`, target byte `0x00`, and word-layer value `0x0000`;
+`090_after_sampling.png` and `091_tail_freeze_check.png` both hashed to
+`8f89d267aebcf5f01af32a3c6b3d3916adf0c9246519baea5b7cfe4f4e06cd2f`.
+
+The paired
+`/tmp/lezac-4ca9-zero-target-fast-runtime-20260424-codex-1` patched
+`1000:4CA9` after `1.576s`, when `DS:207e=0x00c8`, selected debris base
+`DS:292b`, selected collapse base `DS:6611`, target offset `0x0540`, target
+byte `0x00`, and word-layer value `0x0000`; it froze at `01ED:4CA9`. The
+post-freeze chosen candidate parsed with selected collapse base `DS:663e`,
+target delta `0x0078`, target offset `0x05b9`, target byte `0x00`, and
+word-layer value `0x0000`. `090_after_sampling.png` and
+`091_tail_freeze_check.png` both hashed to
+`044cead2cc765001150eb117ca5e4f84444c23e854d7531140530ecdcd20c3c6`,
+confirming the held debris/cloud playback frame. This proves the captured
+zero-target route can reach the word gate at `1000:4C75` plus the forward and
+reverse lane-call sites at `1000:4C96` and `1000:4CA9`. The helper-selected
+`high_debris_word_layer` field is a sampled queue summary, not a capture of
+the live `[bp-4]` local at the frozen instruction; by static control flow,
+reaching `4C96` and `4CA9` means that some live iteration took the
+positive-word side through the `4C75` gate.
+
 This is useful branch evidence, but it is still not enough to change live C++
 sprite playback semantics by itself. The promoted oracle fixture should remain
-limited to proving the sampled runtime bytes and `4B6A` branch execution. The
-`45FA`/`4B6A` freezes prove entry into the effect/debris update path during
-visible playback, but they are still instrumented process-memory evidence
-rather than debugger breakpoint stops, and the sampled effect table still
-needs exact semantic interpretation.
+limited to proving the sampled runtime bytes and `4B6A`/`4C75`/`4C96`/`4CA9`
+branch execution. The `45FA`/`4B6A`/`4C75`/`4C96`/`4CA9` freezes prove entry
+into the effect/debris update path during visible playback, but they are still
+instrumented process-memory evidence rather than debugger breakpoint stops, and
+the sampled effect table still needs exact semantic interpretation.
 
 ## Next Step
 
-Use the now-working `45FA`/`492F`/`4B3F`/`4B61`/`4B6A` visible-playback
-freezes plus the high-counter `4C96` patch-loaded/no-freeze result to follow
-the zero-target branch body toward the later `4C75` word gate and
-`4C96`/`4CA9` lane calls. Prefer the fast target-byte-gated route
+Use the now-working `45FA`/`492F`/`4B3F`/`4B61`/`4B6A`/`4C75`/`4C96`/`4CA9`
+visible-playback freezes to map which live high-debris iteration supplies the
+positive `[bp-4]` word and how the helper-selected lane bytes map back into
+debris/collapse playback. Prefer the fast target-byte-gated route
 (`--sample-interval 0.005`, `--route-state-interval 0`) when probing this
 window. Only promote
 `explosion_playback_oracle_original.txt` after screenshots show the intended

@@ -298,8 +298,21 @@ Baseline: `origin/main`
   word-layer value `0x0000`; frozen screenshots matched the visible blast
   frame hash. A compact original-runtime oracle fixture now covers this
   zero-target branch evidence.
-  The promoted fixture remains instrumentation evidence with `visual_claim=0`;
-  no live C++ behavior changed from this proof yet.
+  Static disassembly now maps `1000:4C75` as the `[bp-4] > 0` word gate for
+  the later `4C96`/`4CA9` lane calls. A first broad `4C75`/`4C96` probe loaded
+  patches too late and did not freeze; an early-gated `4C75` rerun froze at
+  `01ED:4C75`. Relaxing the `4C96` gate to the durable selected-debris and
+  target-byte-zero conditions then froze `01ED:4C96`, and the paired `4CA9`
+  probe froze `01ED:4CA9`. Compact original-runtime fixtures now cover the
+  word gate plus forward and reverse lane-call evidence. The promoted fixtures
+  remain instrumentation evidence with `visual_claim=0`; no live C++ behavior
+  changed from this proof yet. The `damage_queues` diagnostic now also locks
+  the `4B3F`/`4B61`/`4B6A`/`4C20`/`4C64`/`4C75`/`4CAE` branch anchors and the
+  `DS:659A`/`DS:655E`/`DS:2078` staging globals; see
+  `docs/recovery/high_debris_lane_branch_model_2026-04-25.md` for the local
+  byte dump and static model. The explosion playback oracle now emits explicit
+  one-hot observed-freeze flags for `4B6A`, `4C75`, `4C96`, and `4CA9`, and
+  CTest pins the expected flag for each promoted original-runtime fixture.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"

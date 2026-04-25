@@ -70,9 +70,35 @@ The promoted fixtures show that the captured original route can freeze:
 
 Those fixtures also record sampled queue summaries, selected debris/collapse
 bases, high-debris target bytes, and frozen frame hashes. They do not capture
-the live `[BP-4]` local at the exact frozen instruction. The positive-word
-claim for `4C96` and `4CA9` is therefore a static-control-flow inference from
-the branch shape above, not a direct local-variable dump.
+the live `[BP-4]` local at the exact frozen instruction, and the `4C96`/`4CA9`
+freezes patch the call instruction itself. The positive-word claim for `4C96`
+and `4CA9` is therefore a static-control-flow inference from the branch shape
+above, not a direct local-variable dump or helper-output byte dump.
+
+Follow-up temp-copy instrumentation now freezes the post-call instructions:
+
+- `1000:4C99`, immediately after the `4C96` call returns from `1000:3BB2`.
+- `1000:4CAC`, immediately after the `4CA9` call returns from `1000:3D46`.
+
+Both stops use a patched temporary `LEZAC.EXE`, not runtime child-memory
+patching, and remain `visual_claim=0`. They preserve helper side effects before
+the patched return instruction executes. The paired fixtures freeze the
+high-counter state with selected debris base `DS:292B`, selected collapse base
+`DS:663E`, target offset `0x05B9`, target byte `0x00`, and word-layer value
+`0x0000`. At the freeze, the first selected debris record is:
+
+```text
+41 05 04 c0 26 00 1c 00 00 67 80
+```
+
+and the first selected collapse record starts:
+
+```text
+06 0a 08 0a 09 80 00 04 00 00 04 00 00 01 04
+```
+
+This is post-helper lane evidence for the sampled queue state, while the exact
+live `[BP-4]` local remains unresolved.
 
 ## C++ Mapping
 
@@ -87,6 +113,8 @@ The `damage_queues` diagnostic now names the static anchors used by this model:
 - `high_word_gate_skip=0x4cae`
 - `effect_forward_call=0x4c96`
 - `effect_reverse_call=0x4ca9`
+- `effect_forward_return=0x4c99`
+- `effect_reverse_return=0x4cac`
 - `lane_target_offset_global=0x659a`
 - `lane_word_global=0x655e`
 - `lane_update_flag=0x2078`
@@ -98,10 +126,14 @@ the promoted high-debris fixtures:
 - `observed_high_word_gate`
 - `observed_effect_forward_call`
 - `observed_effect_reverse_call`
+- `observed_effect_forward_return`
+- `observed_effect_reverse_return`
 
-The original `4B6A`, `4C75`, `4C96`, and `4CA9` CTest expectations pin those
-flags so a fixture cannot silently parse while no longer proving the intended
-instrumented stop. The oracle also reports `observed_freeze_count` and
+The original `4B6A`, `4C75`, `4C96`, `4CA9`, `4C99`, and `4CAC` CTest
+expectations pin those flags so a fixture cannot silently parse while no longer
+proving the intended instrumented stop. The return flags are used by the
+post-call temp-copy captures because the call-site fixtures freeze before the
+helper body executes. The oracle also reports `observed_freeze_count` and
 `observed_freeze_offset`, and checks consistency with
 `instrumented_freeze_observed` and `runtime_freeze_patch_applied` when those
 capture-helper fields are present. Five malformed fixtures cover the
@@ -132,6 +164,6 @@ above: the original mutates lane bytes during the `1000:45FA..4D3B` consumer
 pass before the visible debris/collapse presentation. No gameplay or rendering
 behavior should change from this model alone.
 
-The next evidence step is to capture or otherwise derive the exact helper
-inputs and post-call lane bytes for the `4C96`/`4CA9` calls, then compare those
-bytes to C++ frame captures before replacing the provisional queue playback.
+The next evidence step is to derive the exact helper inputs and compare these
+post-call lane bytes to C++ frame captures before replacing the provisional
+queue playback.

@@ -42,7 +42,9 @@ constexpr uint16_t kHighDebrisWordLoad = 0x4c64;
 constexpr uint16_t kHighDebrisWordGate = 0x4c75;
 constexpr uint16_t kHighDebrisWordGateSkip = 0x4cae;
 constexpr uint16_t kExplosionEffectForwardCall = 0x4c96;
+constexpr uint16_t kExplosionEffectForwardReturn = 0x4c99;
 constexpr uint16_t kExplosionEffectReverseCall = 0x4ca9;
+constexpr uint16_t kExplosionEffectReverseReturn = 0x4cac;
 constexpr uint16_t kHighDebrisLaneTargetOffsetGlobal = 0x659a;
 constexpr uint16_t kHighDebrisLaneWordGlobal = 0x655e;
 constexpr uint16_t kHighDebrisLaneUpdateFlag = 0x2078;
@@ -4948,6 +4950,8 @@ public:
             bool observedHighWordGate = false;
             bool observedEffectForwardCall = false;
             bool observedEffectReverseCall = false;
+            bool observedEffectForwardReturn = false;
+            bool observedEffectReverseReturn = false;
             uint16_t selectedDebrisBase = 0;
             uint16_t selectedCollapseBase = 0;
             uint16_t selectedEffectBase = 0xc21e;
@@ -5072,7 +5076,8 @@ public:
                         ghidraOffset == 0x4b3f || ghidraOffset == 0x4b61 ||
                         ghidraOffset == 0x4b6a || ghidraOffset == 0x4c20 ||
                         ghidraOffset == 0x4c75 || ghidraOffset == 0x4c96 ||
-                        ghidraOffset == 0x4ca9) {
+                        ghidraOffset == 0x4c99 || ghidraOffset == 0x4ca9 ||
+                        ghidraOffset == 0x4cac) {
                         ++playbackBreaks;
                     }
                     if (freezeObserved) {
@@ -5080,6 +5085,12 @@ public:
                         if (ghidraOffset == 0x4c75) observedHighWordGate = true;
                         if (ghidraOffset == 0x4c96) observedEffectForwardCall = true;
                         if (ghidraOffset == 0x4ca9) observedEffectReverseCall = true;
+                        if (ghidraOffset == 0x4c99) {
+                            observedEffectForwardReturn = true;
+                        }
+                        if (ghidraOffset == 0x4cac) {
+                            observedEffectReverseReturn = true;
+                        }
                     }
                     continue;
                 }
@@ -5271,6 +5282,10 @@ public:
                       << (observedEffectForwardCall ? 1 : 0)
                       << " observed_effect_reverse_call="
                       << (observedEffectReverseCall ? 1 : 0)
+                      << " observed_effect_forward_return="
+                      << (observedEffectForwardReturn ? 1 : 0)
+                      << " observed_effect_reverse_return="
+                      << (observedEffectReverseReturn ? 1 : 0)
                       << " debris_count_present=" << (haveDebrisCount ? 1 : 0)
                       << " debris_count=" << hex4(debrisQueueCount)
                       << " debris_count_base=" << hex4(debrisCountBase)
@@ -6218,6 +6233,10 @@ public:
                       << " high_word_gate_skip=" << hex4(kHighDebrisWordGateSkip)
                       << " effect_forward_call=" << hex4(kExplosionEffectForwardCall)
                       << " effect_reverse_call=" << hex4(kExplosionEffectReverseCall)
+                      << " effect_forward_return="
+                      << hex4(kExplosionEffectForwardReturn)
+                      << " effect_reverse_return="
+                      << hex4(kExplosionEffectReverseReturn)
                       << " lane_target_offset_global="
                       << hex4(kHighDebrisLaneTargetOffsetGlobal)
                       << " lane_word_global=" << hex4(kHighDebrisLaneWordGlobal)

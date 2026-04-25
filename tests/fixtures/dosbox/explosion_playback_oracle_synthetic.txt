@@ -33,7 +33,9 @@ break ghidra=1000:4B6A runtime=1A2B:4B6A label=high_debris_zero_target_branch
 break ghidra=1000:4C20 runtime=1A2B:4C20 label=high_debris_nonzero_target_branch
 break ghidra=1000:4C75 runtime=1A2B:4C75 label=high_debris_word_gate
 break ghidra=1000:4C96 runtime=1A2B:4C96 label=effect_forward_pass_call
+break ghidra=1000:4C99 runtime=1A2B:4C99 label=effect_forward_pass_return
 break ghidra=1000:4CA9 runtime=1A2B:4CA9 label=effect_reverse_pass_call
+break ghidra=1000:4CAC runtime=1A2B:4CAC label=effect_reverse_pass_return
 
 dump DS:2090
 2B3C:2090  00 00 00 93 03 00 c0 04 05 00 00 00 6b 00 00 00

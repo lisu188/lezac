@@ -415,7 +415,15 @@ forward lane-call site at `01ED:4c96`. The promoted fixture summaries still
 show sampled target bytes and word-layer values from queue state, not the live
 `[bp-4]` local at the frozen instruction; by static control flow, the `4c96`
 and `4ca9` freezes mean some live iteration took the positive side of the
-`4c75` gate.
+`4c75` gate. The oracle/capture helper now also names the post-call return
+anchors `1000:4c99` and `1000:4cac`. Runtime child-memory attempts at `4c99`
+were sensitive to the route window, but temp-copy instrumentation froze both
+post-call returns in the high-counter state with selected debris base
+`DS:292b`, selected collapse base `DS:663e`, target byte `0x00`, first selected
+debris bytes `41 05 04 c0 26 00 1c 00 00 67 80`, and first selected collapse
+bytes `06 0a 08 0a 09 80 00 04 00 00 04 00 00 01 04`. These fixtures prove
+helper-return reachability and preserve helper-written lane bytes for that
+sampled state; they still do not expose the live `[bp-4]` local.
 
 ## Sound Playback Evidence
 

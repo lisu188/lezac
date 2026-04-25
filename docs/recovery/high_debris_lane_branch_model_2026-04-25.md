@@ -196,6 +196,19 @@ above: the original mutates lane bytes during the `1000:45FA..4D3B` consumer
 pass before the visible debris/collapse presentation. No gameplay or rendering
 behavior should change from this model alone.
 
-The next evidence step is to compare the proven helper inputs, the `0x0003`
-word-gate local, and the post-call lane bytes to C++ frame captures before
-replacing the provisional queue playback.
+A 2026-04-25 WSL/Xvfb frame comparison bundle now pairs original and C++ frames
+for the level-1 bomb route and records C++ queue metadata in the frame manifest.
+The original capture visibly leaves the menu and reaches the blast/playback
+frames, but the current renderer is still approximate enough that pixel diffs
+are large across the whole frame. The useful frame-facing signal is the queue
+metadata: C++ has one collapse record at `start=0x0A06`, `end=0x0A08`,
+`flagged=0x8009`, `affected=4`, `count=2`, with `collapse0_forward=0` and
+`collapse0_reverse=0` at explosion and playback checkpoints. The original
+`4C99`/`4CAC` post-call fixtures preserve the same collapse span with helper
+lane bytes `forward=0x00`, `reverse=0x04` after the lane helpers. That mismatch
+is now explicit evidence for the next rendering/playback recovery step.
+
+The next evidence step is to recover the exact lane-helper mutation rule that
+turns the proven helper inputs, the `0x0003` word-gate local, and the collapse
+record into those original lane bytes before replacing the provisional queue
+playback.

@@ -1667,6 +1667,28 @@ public:
             size_t explosions = 0;
             size_t debris = 0;
             size_t collapse = 0;
+            int firstDebrisTile = -1;
+            uint16_t firstDebrisFlagged = 0;
+            int firstDebrisForward = 0;
+            int firstDebrisReverse = 0;
+            int firstDebrisLookup = 0;
+            int firstDebrisTimer = 0;
+            int firstCollapseX = -1;
+            int firstCollapseY = -1;
+            uint16_t firstCollapseStart = 0;
+            uint16_t firstCollapseEnd = 0;
+            uint16_t firstCollapseFlagged = 0;
+            int firstCollapseForward = 0;
+            int firstCollapseReverse = 0;
+            int firstCollapseAffected = 0;
+            int firstCollapseCount = 0;
+            int firstCollapseTimer = 0;
+            int firstEffectX = -1;
+            int firstEffectY = -1;
+            int firstEffectVisual = 0;
+            int firstEffectDetail = 0;
+            int firstEffectTimer = 0;
+            int firstEffectVariant = 0;
             size_t monsters = 0;
             int monsterX = -1;
             int monsterY = -1;
@@ -1703,6 +1725,37 @@ public:
             frame.explosions = explosionEffects_.size();
             frame.debris = debrisQueue_.size();
             frame.collapse = collapseQueue_.size();
+            if (!debrisQueue_.empty()) {
+                const DebrisRecord& debris = debrisQueue_.front();
+                frame.firstDebrisTile = debris.tileIndex;
+                frame.firstDebrisFlagged = debris.flaggedWord;
+                frame.firstDebrisForward = debris.forwardPhase;
+                frame.firstDebrisReverse = debris.reversePhase;
+                frame.firstDebrisLookup = debris.lookup;
+                frame.firstDebrisTimer = debris.timer;
+            }
+            if (!collapseQueue_.empty()) {
+                const CollapseRecord& collapse = collapseQueue_.front();
+                frame.firstCollapseX = collapse.x;
+                frame.firstCollapseY = collapse.y;
+                frame.firstCollapseStart = collapse.startOffsetBytes;
+                frame.firstCollapseEnd = collapse.endOffsetBytes;
+                frame.firstCollapseFlagged = collapse.flaggedWord;
+                frame.firstCollapseForward = collapse.forwardPhase;
+                frame.firstCollapseReverse = collapse.reversePhase;
+                frame.firstCollapseAffected = collapse.affectedBytes;
+                frame.firstCollapseCount = collapse.count;
+                frame.firstCollapseTimer = collapse.timer;
+            }
+            if (!explosionEffects_.empty()) {
+                const ExplosionEffect& effect = explosionEffects_.front();
+                frame.firstEffectX = effect.x;
+                frame.firstEffectY = effect.y;
+                frame.firstEffectVisual = effect.visualSelector;
+                frame.firstEffectDetail = effect.detailByte;
+                frame.firstEffectTimer = effect.timer;
+                frame.firstEffectVariant = effect.variantByte;
+            }
             frame.monsters = monsters_.size();
             if (!monsters_.empty()) {
                 const ActiveMonster& monster = monsters_.front();
@@ -2033,6 +2086,28 @@ public:
                      << " explosions=" << frame.explosions
                      << " debris=" << frame.debris
                      << " collapse=" << frame.collapse
+                     << " debris0_tile=" << frame.firstDebrisTile
+                     << " debris0_flagged=" << hex4(frame.firstDebrisFlagged)
+                     << " debris0_forward=" << frame.firstDebrisForward
+                     << " debris0_reverse=" << frame.firstDebrisReverse
+                     << " debris0_lookup=" << frame.firstDebrisLookup
+                     << " debris0_timer=" << frame.firstDebrisTimer
+                     << " collapse0_xy=" << frame.firstCollapseX << ','
+                     << frame.firstCollapseY
+                     << " collapse0_start=" << hex4(frame.firstCollapseStart)
+                     << " collapse0_end=" << hex4(frame.firstCollapseEnd)
+                     << " collapse0_flagged=" << hex4(frame.firstCollapseFlagged)
+                     << " collapse0_forward=" << frame.firstCollapseForward
+                     << " collapse0_reverse=" << frame.firstCollapseReverse
+                     << " collapse0_affected=" << frame.firstCollapseAffected
+                     << " collapse0_count=" << frame.firstCollapseCount
+                     << " collapse0_timer=" << frame.firstCollapseTimer
+                     << " effect0_xy=" << frame.firstEffectX << ','
+                     << frame.firstEffectY
+                     << " effect0_visual=" << frame.firstEffectVisual
+                     << " effect0_detail=" << frame.firstEffectDetail
+                     << " effect0_timer=" << frame.firstEffectTimer
+                     << " effect0_variant=" << frame.firstEffectVariant
                      << " monsters=" << frame.monsters
                      << " monster_xy=" << frame.monsterX << ',' << frame.monsterY
                      << " monster_v8=" << frame.monsterVx8 << ',' << frame.monsterVy8

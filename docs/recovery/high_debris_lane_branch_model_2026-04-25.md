@@ -85,7 +85,19 @@ patching, and remain `visual_claim=0`. They preserve helper side effects before
 the patched return instruction executes. The paired fixtures freeze the
 high-counter state with selected debris base `DS:292B`, selected collapse base
 `DS:663E`, target offset `0x05B9`, target byte `0x00`, and word-layer value
-`0x0000`. At the freeze, the first selected debris record is:
+`0x0000`. The refreshed fixtures also dump the helper argument globals at
+`DS:78C0`; both post-call stops show:
+
+- `DS:78D2=0xF7`
+- `DS:78D4=0xFC`
+- `DS:2078=0x00`
+- `DS:655E=0x0000`
+- `DS:659A=0x0000`
+
+So the captured post-call state preserves helper input bytes and queue lane
+outputs, but does not prove that the staging globals still hold the static
+pre-call values at the frozen sample. At the freeze, the first selected debris
+record is:
 
 ```text
 41 05 04 c0 26 00 1c 00 00 67 80
@@ -115,6 +127,8 @@ The `damage_queues` diagnostic now names the static anchors used by this model:
 - `effect_reverse_call=0x4ca9`
 - `effect_forward_return=0x4c99`
 - `effect_reverse_return=0x4cac`
+- `effect_forward_input_global=0x78d2`
+- `effect_reverse_input_global=0x78d4`
 - `lane_target_offset_global=0x659a`
 - `lane_word_global=0x655e`
 - `lane_update_flag=0x2078`

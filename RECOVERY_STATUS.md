@@ -323,6 +323,11 @@ Baseline: `origin/main`
   `41 05 04 c0 26 00 1c 00 00 67 80`, and first selected collapse bytes
   `06 0a 08 0a 09 80 00 04 00 00 04 00 00 01 04`. New fixtures pin the
   `observed_effect_forward_return`/`observed_effect_reverse_return` flags.
+  The refreshed capture helper now includes `DS:78C0`, and both post-call
+  fixtures pin helper inputs `DS:78D2=0xF7` and `DS:78D4=0xFC`; the sampled
+  staging globals are raw-zero at the freezes (`DS:2078=0x00`,
+  `DS:655E=0x0000`, `DS:659A=0x0000`), so the exact lifetime of the static
+  staging fields remains unresolved.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"

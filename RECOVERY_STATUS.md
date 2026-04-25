@@ -306,7 +306,13 @@ Baseline: `origin/main`
   probe froze `01ED:4CA9`. Compact original-runtime fixtures now cover the
   word gate plus forward and reverse lane-call evidence. The promoted fixtures
   remain instrumentation evidence with `visual_claim=0`; no live C++ behavior
-  changed from this proof yet.
+  changed from this proof yet. The `damage_queues` diagnostic now also locks
+  the `4B3F`/`4B61`/`4B6A`/`4C20`/`4C64`/`4C75`/`4CAE` branch anchors and the
+  `DS:659A`/`DS:655E`/`DS:2078` staging globals; see
+  `docs/recovery/high_debris_lane_branch_model_2026-04-25.md` for the local
+  byte dump and static model. The explosion playback oracle now emits explicit
+  one-hot observed-freeze flags for `4B6A`, `4C75`, `4C96`, and `4CA9`, and
+  CTest pins the expected flag for each promoted original-runtime fixture.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"

@@ -401,6 +401,12 @@ Static code at `1000:4c64..4ca9` loads a word through the `DS:6612` far pointer
 into `[bp-4]`, checks it at `1000:4c75`, skips to `4cae` when the word is
 zero-or-negative, and otherwise calls the forward lane helper from `4c96` and
 the reverse lane helper from `4ca9` after OR-ing the word with `0x8000`.
+The `damage_queues` diagnostic now locks the surrounding static anchors as
+named metadata: the `4b3f` target sample, `4b61` byte gate, `4b6a`/`4c20`
+branch targets, `4c64` word load, `4c75` word gate, `4cae` skip target, and
+the `DS:659a`/`DS:655e`/`DS:2078` staging globals used before the lane calls.
+See `docs/recovery/high_debris_lane_branch_model_2026-04-25.md` for the exact
+local byte dump and static interpretation.
 Follow-up fast gated probes now freeze `1000:4c75`, `1000:4c96`, and
 `1000:4ca9` in the captured high-debris route. A strict `4c96` rerun that also
 required collapse base `DS:6611` missed the arming window; relaxing it to the

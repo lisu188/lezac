@@ -313,11 +313,23 @@ Baseline: `origin/main`
   byte dump and static model. The explosion playback oracle now emits explicit
   one-hot observed-freeze flags for `4B6A`, `4C75`, `4C96`, and `4CA9`, and
   CTest pins the expected flag for each promoted original-runtime fixture.
+  The capture helper and oracle now also name post-call return anchors
+  `1000:4C99` and `1000:4CAC`, so the next original probes can stop after the
+  forward/reverse helper calls and preserve helper-written lane bytes. Runtime
+  child-memory attempts at `4C99` were timing-sensitive, but temp-copy
+  instrumentation froze both post-call anchors in the same high-counter state:
+  selected debris base `DS:292B`, selected collapse base `DS:663E`, target byte
+  `0x00`, first selected debris bytes
+  `41 05 04 c0 26 00 1c 00 00 67 80`, and first selected collapse bytes
+  `06 0a 08 0a 09 80 00 04 00 00 04 00 00 01 04`. New fixtures pin the
+  `observed_effect_forward_return`/`observed_effect_reverse_return` flags.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"
   --output-on-failure` passed: 20/20.
-- `ctest --test-dir build --output-on-failure` passed under WSL: 84/84.
+- `ctest --test-dir build -R "explosion_playback_oracle|damage_queues"
+  --output-on-failure` passed under WSL: 18/18.
+- `ctest --test-dir build --output-on-failure` passed under WSL: 95/95.
 - `./build/lezac_cpp --validate` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --smoke-controls` passed.

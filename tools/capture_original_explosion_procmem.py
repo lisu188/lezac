@@ -1576,7 +1576,9 @@ def main() -> int:
                 ("1000:4C20", 0x4C20, "high_debris_nonzero_target_branch"),
                 ("1000:4C75", 0x4C75, "high_debris_word_gate"),
                 ("1000:4C96", 0x4C96, "effect_forward_pass_call"),
+                ("1000:4C99", 0x4C99, "effect_forward_pass_return"),
                 ("1000:4CA9", 0x4CA9, "effect_reverse_pass_call"),
+                ("1000:4CAC", 0x4CAC, "effect_reverse_pass_return"),
             ]:
                 observed = "process_memory_sampling_no_debugger_break"
                 if freeze_patch is not None and offset == int(freeze_patch["ghidra_offset"]):

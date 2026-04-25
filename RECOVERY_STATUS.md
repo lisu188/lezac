@@ -327,7 +327,13 @@ Baseline: `origin/main`
   fixtures pin helper inputs `DS:78D2=0xF7` and `DS:78D4=0xFC`; the sampled
   staging globals are raw-zero at the freezes (`DS:2078=0x00`,
   `DS:655E=0x0000`, `DS:659A=0x0000`), so the exact lifetime of the static
-  staging fields remains unresolved.
+  staging fields remains unresolved. A follow-up runtime-child instrumentation
+  mode for `1000:4C75` now copies the live `[BP-4]` word to `CS:4C7E` before
+  freezing; the promoted fixture records `instrumented_bp4_local_value=0x0003`
+  with matched tail screenshots. This directly proves one positive local-word
+  gate while also showing that the sampled selected word-layer summary
+  (`0x0000`) can describe adjacent queue state rather than the exact loop
+  iteration frozen by the patch.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"

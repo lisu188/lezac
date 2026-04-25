@@ -4971,6 +4971,12 @@ public:
             bool haveHighDebrisTargetOffset = false;
             bool haveHighDebrisTargetByte = false;
             bool haveHighDebrisWordLayerValue = false;
+            bool haveInstrumentedBp4LocalPresent = false;
+            bool instrumentedBp4LocalPresent = false;
+            bool haveInstrumentedBp4LocalOffset = false;
+            bool haveInstrumentedBp4LocalValue = false;
+            uint16_t instrumentedBp4LocalOffset = 0;
+            uint16_t instrumentedBp4LocalValue = 0;
 
             std::istringstream lines(text);
             std::string line;
@@ -5036,6 +5042,15 @@ public:
                     } else if (key == "high_debris_word_layer_value") {
                         highDebrisWordLayerValue = parseHex16Auto(value, key);
                         haveHighDebrisWordLayerValue = true;
+                    } else if (key == "instrumented_bp4_local_present") {
+                        instrumentedBp4LocalPresent = value == "1";
+                        haveInstrumentedBp4LocalPresent = true;
+                    } else if (key == "instrumented_bp4_local_cs_offset") {
+                        instrumentedBp4LocalOffset = parseHex16Auto(value, key);
+                        haveInstrumentedBp4LocalOffset = true;
+                    } else if (key == "instrumented_bp4_local_value") {
+                        instrumentedBp4LocalValue = parseHex16Auto(value, key);
+                        haveInstrumentedBp4LocalValue = true;
                     }
                     continue;
                 }
@@ -5156,6 +5171,21 @@ public:
             if (haveRuntimeFreezePatchApplied && !runtimeFreezePatchApplied &&
                 observedFreezeBreaks != 0) {
                 fail("observed_break_without_runtime_patch");
+            }
+            if (haveInstrumentedBp4LocalPresent && instrumentedBp4LocalPresent) {
+                if (!observedHighWordGate) {
+                    fail("bp4_local_without_word_gate_freeze");
+                }
+                if (!haveInstrumentedBp4LocalOffset) {
+                    fail("bp4_local_offset_missing");
+                }
+                if (!haveInstrumentedBp4LocalValue) {
+                    fail("bp4_local_value_missing");
+                }
+            }
+            if (haveInstrumentedBp4LocalValue &&
+                (!haveInstrumentedBp4LocalPresent || !instrumentedBp4LocalPresent)) {
+                fail("bp4_local_value_without_present");
             }
 
             auto requireByte = [&](uint16_t address) -> uint8_t {
@@ -5309,6 +5339,14 @@ public:
                       << (observedEffectForwardReturn ? 1 : 0)
                       << " observed_effect_reverse_return="
                       << (observedEffectReverseReturn ? 1 : 0)
+                      << " bp4_local_present="
+                      << (instrumentedBp4LocalPresent ? 1 : 0)
+                      << (instrumentedBp4LocalPresent
+                              ? std::string(" bp4_local_cs_offset=") +
+                                    hex4(instrumentedBp4LocalOffset) +
+                                    " bp4_local_value=" +
+                                    hex4(instrumentedBp4LocalValue)
+                              : "")
                       << " lane_globals_present=" << (haveLaneGlobals ? 1 : 0)
                       << " lane_update_flag=" << hexBytePrefix(laneUpdateFlag)
                       << " lane_word_global_value=" << hex4(laneWordGlobal)

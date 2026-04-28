@@ -232,12 +232,12 @@ from that payload.
 The low-word collapse branch increments `DS:2080` before writing a 15-byte
 record at `0x6611 + 0x0f * DS:2080`, so the first original-written record is
 `DS:6620`. The payload is start byte offset, end byte offset, stored flagged
-word, the two argument bytes at `+6/+7`, playback lanes at `+8/+9`, a word
-`abs(arg0) + abs(arg1)` at `+0a`, zero bytes at `+0c/+0d`, and affected-byte
-count at `+0e`. A fresh original level-1 route capture matched the C++ bomb
-object route for the first collapse rectangle (`0x0a06..0x0a08`, word `0x0009`,
-flagged `0x8009`, affected bytes `4`); broader low-word grouping remains a
-model until more original rectangles are compared.
+word, lane/input bytes at `+6/+7`, a word `abs(arg0) + abs(arg1)` at `+0a`,
+and affected-byte count at `+0e`. A fresh original level-1 route capture
+matched the C++ bomb object route for the first collapse rectangle
+(`0x0a06..0x0a08`, word `0x0009`, flagged `0x8009`, affected bytes `4`);
+broader low-word grouping remains a model until more original rectangles are
+compared.
 
 The playback helpers at `1000:3a7e` and `1000:3b18` are forward/reverse lookup
 passes. They split damaged words on bit `0x8000` and threshold `0x4000`, then
@@ -255,6 +255,28 @@ confirmed as mutable playback state rather than write-only creation metadata.
 one-based collapse/debris slot tags, the first-slot lane write addresses
 (`DS:6626`/`DS:6627` and `DS:20a2`/`DS:20a3`), and the collapse span weight
 from record offset `+0e`.
+
+Static disassembly of `1000:3bb2` and `1000:3d46` shows both lane blenders
+take a far pointer at `[BP+4]` and a byte weight at `[BP+8]`, loop over the
+one-based staging count in `DS:2078`, read staging words from `DS:655c + 2*i`
+and target offsets from `DS:6598 + 2*i`, and record selected output tags in
+`DS:65d4 + 2*i`. Tags below `0x4e20` select collapse records; tags at or above
+`0x4e20` select debris records after subtracting the marker. The forward helper
+calls lookup routine `1000:3a7e` and writes the blended byte to
+`DS:6617 + 0x0f*slot` or `DS:2097 + 0x0b*slot`; the reverse helper calls
+`1000:3b18` and writes to `DS:6618 + 0x0f*slot` or
+`DS:2098 + 0x0b*slot`. Both helpers also write the result back through the
+input far pointer. They call far routine `0920:0945` after accumulating signed
+input/weight terms. That far routine is a signed 32-bit division helper:
+callers pass the accumulated numerator in `DX:AX`, pass the positive weight
+sum in `BX:CX`, and consume quotient byte `AL` as the blended lane result.
+The quotient rounds toward zero and the remainder keeps the dividend sign; a
+zero divisor branches through `0920:09ac` with `AX=0x00c8` before entering the
+runtime error path. The lookup helpers store the neighbor lane byte in
+`DS:661e`, and the lane blenders multiply that signed byte by the unsigned
+record weight before adding it to the numerator. `--debug-lane-helper-model`
+locks the data flow and `--debug-lane-blend-arithmetic` locks the division
+contract before any live playback behavior is changed.
 
 The effect constructor at `1000:3fa6` writes 11-byte effect records at
 `0x2093 + 0x0b * DS:2076` and stores the effect type byte in

@@ -48,12 +48,29 @@ constexpr uint16_t kExplosionEffectReverseReturn = 0x4cac;
 constexpr uint16_t kHighDebrisLaneTargetOffsetGlobal = 0x659a;
 constexpr uint16_t kHighDebrisLaneWordGlobal = 0x655e;
 constexpr uint16_t kHighDebrisLaneUpdateFlag = 0x2078;
+constexpr uint16_t kLaneHelperStagingWordBase = 0x655c;
+constexpr uint16_t kLaneHelperStagingTargetBase = 0x6598;
+constexpr uint16_t kLaneHelperStagingTagBase = 0x65d4;
+constexpr uint16_t kLaneHelperSelectorGlobal = 0x2074;
+constexpr uint16_t kLaneHelperDebrisCountGlobal = 0x207e;
+constexpr uint16_t kLaneHelperCollapseCountGlobal = 0x2080;
+constexpr uint16_t kLaneHelperNeighborLaneScratch = 0x661e;
+constexpr uint16_t kLaneHelperCollapseWeightBase = 0x661f;
 constexpr uint16_t kExplosionEffectForwardInputGlobal = 0x78d2;
 constexpr uint16_t kExplosionEffectReverseInputGlobal = 0x78d4;
 constexpr uint16_t kCollapseForwardLaneBase = 0x6617;
 constexpr uint16_t kCollapseReverseLaneBase = 0x6618;
 constexpr uint16_t kDebrisForwardLaneBase = 0x2097;
 constexpr uint16_t kDebrisReverseLaneBase = 0x2098;
+constexpr uint8_t kCollapseForwardLaneRecordOffset = 0x06;
+constexpr uint8_t kCollapseReverseLaneRecordOffset = 0x07;
+constexpr uint8_t kCollapseWeightRecordOffset = 0x0e;
+constexpr uint8_t kDebrisForwardLaneRecordOffset = 0x04;
+constexpr uint8_t kDebrisReverseLaneRecordOffset = 0x05;
+constexpr uint16_t kLaneHelperBlendFarSegment = 0x0920;
+constexpr uint16_t kLaneHelperBlendFarOffset = 0x0945;
+constexpr uint16_t kLaneHelperBlendZeroDivisorOffset = 0x09ac;
+constexpr uint16_t kLaneHelperBlendZeroDivisorError = 0x00c8;
 constexpr size_t kDebrisCapacity = 0x640;
 constexpr size_t kCollapseCapacity = 0x00fa;
 constexpr size_t kGranRecordSize = 57;
@@ -674,6 +691,13 @@ std::string hex4(uint16_t value) {
     std::ostringstream oss;
     oss << "0x" << std::hex << std::nouppercase << std::setw(4)
         << std::setfill('0') << value;
+    return oss.str();
+}
+
+std::string hex2(uint8_t value) {
+    std::ostringstream oss;
+    oss << "0x" << std::hex << std::nouppercase << std::setw(2)
+        << std::setfill('0') << static_cast<int>(value);
     return oss.str();
 }
 
@@ -6404,6 +6428,102 @@ public:
         }
     }
 
+    void debugLaneHelperModel() {
+        std::cout << "lane_helper_model=ok"
+                  << " helper_forward=" << hex4(kDamageForwardPassRoutine)
+                  << " helper_reverse=" << hex4(kDamageReversePassRoutine)
+                  << " lookup_forward=" << hex4(kDamageForwardLookupRoutine)
+                  << " lookup_reverse=" << hex4(kDamageReverseLookupRoutine)
+                  << " input_forward_global=" << hex4(kExplosionEffectForwardInputGlobal)
+                  << " input_reverse_global=" << hex4(kExplosionEffectReverseInputGlobal)
+                  << " ret_bytes=6"
+                  << " input_far_pointer_arg=bp4"
+                  << " weight_byte_arg=bp8"
+                  << " signed_input_byte=1"
+                  << " active_count_global=" << hex4(kHighDebrisLaneUpdateFlag)
+                  << " staging_word_base=" << hex4(kLaneHelperStagingWordBase)
+                  << " staging_word_first=" << hex4(kHighDebrisLaneWordGlobal)
+                  << " staging_target_base=" << hex4(kLaneHelperStagingTargetBase)
+                  << " staging_target_first=" << hex4(kHighDebrisLaneTargetOffsetGlobal)
+                  << " staging_tag_base=" << hex4(kLaneHelperStagingTagBase)
+                  << " staging_tag_first="
+                  << hex4(static_cast<uint16_t>(kLaneHelperStagingTagBase + 2))
+                  << " selector_global=" << hex4(kLaneHelperSelectorGlobal)
+                  << " debris_count_global=" << hex4(kLaneHelperDebrisCountGlobal)
+                  << " collapse_count_global=" << hex4(kLaneHelperCollapseCountGlobal)
+                  << " high_tag_base=" << hex4(kHighHalfBase)
+                  << " neighbor_lane_scratch=" << hex4(kLaneHelperNeighborLaneScratch)
+                  << " collapse_forward_base=" << hex4(kCollapseForwardLaneBase)
+                  << " collapse_reverse_base=" << hex4(kCollapseReverseLaneBase)
+                  << " collapse_weight_base=" << hex4(kLaneHelperCollapseWeightBase)
+                  << " collapse_forward_record_offset="
+                  << static_cast<int>(kCollapseForwardLaneRecordOffset)
+                  << " collapse_reverse_record_offset="
+                  << static_cast<int>(kCollapseReverseLaneRecordOffset)
+                  << " collapse_weight_record_offset="
+                  << static_cast<int>(kCollapseWeightRecordOffset)
+                  << " debris_forward_base=" << hex4(kDebrisForwardLaneBase)
+                  << " debris_reverse_base=" << hex4(kDebrisReverseLaneBase)
+                  << " debris_forward_record_offset="
+                  << static_cast<int>(kDebrisForwardLaneRecordOffset)
+                  << " debris_reverse_record_offset="
+                  << static_cast<int>(kDebrisReverseLaneRecordOffset)
+                  << " blend_far=" << hex4(kLaneHelperBlendFarSegment)
+                  << ':' << hex4(kLaneHelperBlendFarOffset)
+                  << " writes_input_byte=1"
+                  << " writes_staged_tags=1"
+                  << " exact_arithmetic=signed_32_divide_toward_zero"
+                  << '\n';
+    }
+
+    void debugLaneBlendArithmetic() {
+        auto divide = [](int32_t numerator, int32_t denominator) -> int32_t {
+            if (denominator == 0) {
+                throw std::runtime_error("lane blend diagnostic divide by zero sample");
+            }
+            return numerator / denominator;
+        };
+        auto word = [](int32_t value) -> uint16_t {
+            return static_cast<uint16_t>(static_cast<uint32_t>(value) & 0xffffu);
+        };
+        auto byte = [](int32_t value) -> uint8_t {
+            return static_cast<uint8_t>(static_cast<uint32_t>(value) & 0xffu);
+        };
+
+        const int32_t neg9Weight1 = divide(-9, 1);
+        const int32_t neg9Weight2 = divide(-9, 2);
+        const int32_t pos9Weight4 = divide(9, 4);
+        const int32_t neg1Weight2 = divide(-1, 2);
+        std::cout << "lane_blend_arithmetic=ok"
+                  << " routine=" << hex4(kLaneHelperBlendFarSegment)
+                  << ':' << hex4(kLaneHelperBlendFarOffset)
+                  << " operation=signed_32_by_32_divide"
+                  << " dividend_reg=dx:ax"
+                  << " divisor_reg=bx:cx"
+                  << " quotient_reg=dx:ax"
+                  << " quotient_byte=al"
+                  << " remainder_reg=bx:cx"
+                  << " quotient_rounding=toward_zero"
+                  << " remainder_sign=dividend"
+                  << " zero_divisor_branch=" << hex4(kLaneHelperBlendZeroDivisorOffset)
+                  << " zero_divisor_error_ax=" << hex4(kLaneHelperBlendZeroDivisorError)
+                  << " lane_numerator=signed_lane_byte_times_unsigned_weight_sum"
+                  << " lane_denominator=unsigned_weight_sum"
+                  << " caller_forward=" << hex4(kDamageForwardPassRoutine)
+                  << " caller_reverse=" << hex4(kDamageReversePassRoutine)
+                  << " caller_forward_call=" << hex4(0x3ce3)
+                  << " caller_reverse_call=" << hex4(0x3e77)
+                  << " sample_neg9_div1_q=" << hex4(word(neg9Weight1))
+                  << " sample_neg9_div1_al=" << hex2(byte(neg9Weight1))
+                  << " sample_neg9_div2_q=" << hex4(word(neg9Weight2))
+                  << " sample_neg9_div2_al=" << hex2(byte(neg9Weight2))
+                  << " sample_pos9_div4_q=" << hex4(word(pos9Weight4))
+                  << " sample_pos9_div4_al=" << hex2(byte(pos9Weight4))
+                  << " sample_neg1_div2_q=" << hex4(word(neg1Weight2))
+                  << " sample_neg1_div2_al=" << hex2(byte(neg1Weight2))
+                  << '\n';
+    }
+
     void debugMonsterSlots() {
         load();
         resetLevel(0);
@@ -10526,6 +10646,14 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-damage-queues") {
             app.debugDamageQueues();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-lane-helper-model") {
+            app.debugLaneHelperModel();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-lane-blend-arithmetic") {
+            app.debugLaneBlendArithmetic();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-monster-slots") {

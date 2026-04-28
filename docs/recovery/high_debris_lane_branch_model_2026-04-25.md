@@ -149,6 +149,32 @@ The `damage_queues` diagnostic now names the static anchors used by this model:
 - `lane_word_global=0x655e`
 - `lane_update_flag=0x2078`
 
+The companion `lane_helper_model` diagnostic pins the helper bodies themselves:
+`1000:3BB2` and `1000:3D46` consume a far pointer argument (`[BP+4]`) and byte
+weight (`[BP+8]`), walk the one-based staging count at `DS:2078`, read staging
+words from `DS:655C + 2*i` and target offsets from `DS:6598 + 2*i`, and store
+selected tags in `DS:65D4 + 2*i`. Tags below `0x4E20` address collapse records;
+tags at or above `0x4E20` address debris records after subtracting that marker.
+The forward helper uses lookup routine `1000:3A7E`, then writes the result byte
+to collapse lane base `DS:6617` or debris lane base `DS:2097`. The reverse
+helper uses lookup routine `1000:3B18`, then writes the result byte to
+`DS:6618` or `DS:2098`. Both helpers write the same result back through the
+input far pointer. The lookup helpers store the selected neighbor lane in
+`DS:661E`, which the lane blenders multiply by the unsigned selected weight
+before adding it to the numerator.
+
+The `lane_blend_arithmetic` diagnostic now pins the delegated blend helper:
+`0920:0945` divides signed 32-bit numerator `DX:AX` by signed 32-bit divisor
+`BX:CX`, leaves the quotient in `DX:AX`, and uses `AL` as the lane byte. The
+lane helper passes the positive weight sum as `BX:CX`, so this is the arithmetic
+form of `signed_lane_weight_sum / weight_sum`. The quotient rounds toward zero,
+the remainder in `BX:CX` keeps the dividend sign, and the zero-divisor path at
+`0920:09AC` loads `AX=0x00C8` before entering the runtime error handler.
+The post-call fixtures that show `DS:2078`, `DS:655E`, and `DS:659A` as zero
+are therefore compatible with a transient staging lifetime: they preserve the
+helper-written queue bytes after the helper has returned, not a mid-helper view
+of the staging arrays.
+
 The explosion playback oracle output now also exposes one-hot freeze flags for
 the promoted high-debris fixtures:
 
@@ -177,11 +203,11 @@ consistency failures:
 - `explosion_playback_oracle_top_freeze_without_runtime_patch.txt`
 - `explosion_playback_oracle_bp4_local_without_word_gate.txt`
 
-The surrounding helper model from `docs/GHIDRA_NOTES.md` remains unchanged:
+The surrounding helper model from `docs/GHIDRA_NOTES.md` is now explicit:
 the forward/reverse lookup helpers at `1000:3A7E` and `1000:3B18` select
 argument bytes from collapse offsets `+6/+7` and debris offsets `+4/+5`; the
 lane blenders at `1000:3BB2` and `1000:3D46` write playback lanes back through
-collapse offsets `+8/+9` (`DS:6617`/`DS:6618` for slot zero) and debris offsets
+collapse offsets `+6/+7` (`DS:6617`/`DS:6618` for slot zero) and debris offsets
 `+4/+5` (`DS:2097`/`DS:2098` for slot zero), using `0x4E20` as the high-half
 spill marker. The first one-based original-written slots therefore have lane
 write addresses `DS:6626`/`DS:6627` for collapse and `DS:20A2`/`DS:20A3` for
@@ -208,7 +234,7 @@ metadata: C++ has one collapse record at `start=0x0A06`, `end=0x0A08`,
 lane bytes `forward=0x00`, `reverse=0x04` after the lane helpers. That mismatch
 is now explicit evidence for the next rendering/playback recovery step.
 
-The next evidence step is to recover the exact lane-helper mutation rule that
-turns the proven helper inputs, the `0x0003` word-gate local, and the collapse
-record into those original lane bytes before replacing the provisional queue
-playback.
+The next evidence step is to capture a mid-helper staging-table state that
+connects the proven helper inputs, the `0x0003` word-gate local, and the
+selected collapse/debris records to the original lane bytes before replacing
+the provisional queue playback.

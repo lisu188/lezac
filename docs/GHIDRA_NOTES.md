@@ -267,10 +267,16 @@ calls lookup routine `1000:3a7e` and writes the blended byte to
 `1000:3b18` and writes to `DS:6618 + 0x0f*slot` or
 `DS:2098 + 0x0b*slot`. Both helpers also write the result back through the
 input far pointer. They call far routine `0920:0945` after accumulating signed
-input/weight terms, but the exact division/rounding behavior is still
-unresolved, so the current C++ model records the data flow before changing live
-playback arithmetic. `--debug-lane-helper-model` locks these static addresses
-as a separate diagnostic.
+input/weight terms. That far routine is a signed 32-bit division helper:
+callers pass the accumulated numerator in `DX:AX`, pass the positive weight
+sum in `BX:CX`, and consume quotient byte `AL` as the blended lane result.
+The quotient rounds toward zero and the remainder keeps the dividend sign; a
+zero divisor branches through `0920:09ac` with `AX=0x00c8` before entering the
+runtime error path. The lookup helpers store the neighbor lane byte in
+`DS:661e`, and the lane blenders multiply that signed byte by the unsigned
+record weight before adding it to the numerator. `--debug-lane-helper-model`
+locks the data flow and `--debug-lane-blend-arithmetic` locks the division
+contract before any live playback behavior is changed.
 
 The effect constructor at `1000:3fa6` writes 11-byte effect records at
 `0x2093 + 0x0b * DS:2076` and stores the effect type byte in

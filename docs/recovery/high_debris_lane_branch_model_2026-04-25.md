@@ -159,10 +159,17 @@ The forward helper uses lookup routine `1000:3A7E`, then writes the result byte
 to collapse lane base `DS:6617` or debris lane base `DS:2097`. The reverse
 helper uses lookup routine `1000:3B18`, then writes the result byte to
 `DS:6618` or `DS:2098`. Both helpers write the same result back through the
-input far pointer. The diagnostic intentionally reports
-`exact_arithmetic=unresolved` because the final blend is delegated to far
-routine `0920:0945`; this checkpoint locks the data flow and write destinations,
-not the division/rounding rule.
+input far pointer. The lookup helpers store the selected neighbor lane in
+`DS:661E`, which the lane blenders multiply by the unsigned selected weight
+before adding it to the numerator.
+
+The `lane_blend_arithmetic` diagnostic now pins the delegated blend helper:
+`0920:0945` divides signed 32-bit numerator `DX:AX` by signed 32-bit divisor
+`BX:CX`, leaves the quotient in `DX:AX`, and uses `AL` as the lane byte. The
+lane helper passes the positive weight sum as `BX:CX`, so this is the arithmetic
+form of `signed_lane_weight_sum / weight_sum`. The quotient rounds toward zero,
+the remainder in `BX:CX` keeps the dividend sign, and the zero-divisor path at
+`0920:09AC` loads `AX=0x00C8` before entering the runtime error handler.
 The post-call fixtures that show `DS:2078`, `DS:655E`, and `DS:659A` as zero
 are therefore compatible with a transient staging lifetime: they preserve the
 helper-written queue bytes after the helper has returned, not a mid-helper view
@@ -227,7 +234,7 @@ metadata: C++ has one collapse record at `start=0x0A06`, `end=0x0A08`,
 lane bytes `forward=0x00`, `reverse=0x04` after the lane helpers. That mismatch
 is now explicit evidence for the next rendering/playback recovery step.
 
-The next evidence step is to recover the exact lane-helper mutation rule that
-turns the proven helper inputs, the `0x0003` word-gate local, and the collapse
-record into those original lane bytes before replacing the provisional queue
-playback.
+The next evidence step is to capture a mid-helper staging-table state that
+connects the proven helper inputs, the `0x0003` word-gate local, and the
+selected collapse/debris records to the original lane bytes before replacing
+the provisional queue playback.

@@ -347,10 +347,14 @@ Baseline: `origin/main`
   pointer, `[BP+8]` weight byte, one-based `DS:2078` staging loop,
   `DS:655C`/`DS:6598` inputs, `DS:65D4` tag table, `0x4E20` debris marker, and
   forward/reverse write bases `DS:6617`/`DS:2097` and
-  `DS:6618`/`DS:2098`. The exact `0920:0945` blend arithmetic remains
-  unresolved, so live playback behavior is unchanged. This also explains why
-  post-call fixtures can preserve helper-written lane bytes while sampled
-  staging globals are already zero.
+  `DS:6618`/`DS:2098`. The follow-up `--debug-lane-blend-arithmetic`
+  diagnostic now locks `0920:0945` as signed 32-bit division: numerator in
+  `DX:AX`, denominator in `BX:CX`, quotient in `DX:AX`, consumed lane byte in
+  `AL`, truncation toward zero, and zero-divisor branch `0920:09AC` with
+  `AX=0x00C8`. Live playback behavior is unchanged until a mid-helper
+  staging-table capture connects the arithmetic to the sampled original queue
+  bytes. This also explains why post-call fixtures can preserve helper-written
+  lane bytes while sampled staging globals are already zero.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"

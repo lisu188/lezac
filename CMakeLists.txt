@@ -683,7 +683,14 @@ if(BUILD_TESTING)
     set_tests_properties(lane_helper_model PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "lane_helper_model=ok helper_forward=0x3bb2 helper_reverse=0x3d46 lookup_forward=0x3a7e lookup_reverse=0x3b18 input_forward_global=0x78d2 input_reverse_global=0x78d4 ret_bytes=6 input_far_pointer_arg=bp4 weight_byte_arg=bp8 signed_input_byte=1 active_count_global=0x2078 staging_word_base=0x655c staging_word_first=0x655e staging_target_base=0x6598 staging_target_first=0x659a staging_tag_base=0x65d4 staging_tag_first=0x65d6 selector_global=0x2074 debris_count_global=0x207e collapse_count_global=0x2080 high_tag_base=0x4e20 collapse_forward_base=0x6617 collapse_reverse_base=0x6618 collapse_weight_base=0x661f collapse_forward_record_offset=6 collapse_reverse_record_offset=7 collapse_weight_record_offset=14 debris_forward_base=0x2097 debris_reverse_base=0x2098 debris_forward_record_offset=4 debris_reverse_record_offset=5 blend_far=0x0920:0x0945 writes_input_byte=1 writes_staged_tags=1 exact_arithmetic=unresolved")
+            "lane_helper_model=ok helper_forward=0x3bb2 helper_reverse=0x3d46 lookup_forward=0x3a7e lookup_reverse=0x3b18 input_forward_global=0x78d2 input_reverse_global=0x78d4 ret_bytes=6 input_far_pointer_arg=bp4 weight_byte_arg=bp8 signed_input_byte=1 active_count_global=0x2078 staging_word_base=0x655c staging_word_first=0x655e staging_target_base=0x6598 staging_target_first=0x659a staging_tag_base=0x65d4 staging_tag_first=0x65d6 selector_global=0x2074 debris_count_global=0x207e collapse_count_global=0x2080 high_tag_base=0x4e20 neighbor_lane_scratch=0x661e collapse_forward_base=0x6617 collapse_reverse_base=0x6618 collapse_weight_base=0x661f collapse_forward_record_offset=6 collapse_reverse_record_offset=7 collapse_weight_record_offset=14 debris_forward_base=0x2097 debris_reverse_base=0x2098 debris_forward_record_offset=4 debris_reverse_record_offset=5 blend_far=0x0920:0x0945 writes_input_byte=1 writes_staged_tags=1 exact_arithmetic=signed_32_divide_toward_zero")
+
+    add_test(NAME lane_blend_arithmetic
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-lane-blend-arithmetic)
+    set_tests_properties(lane_blend_arithmetic PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "lane_blend_arithmetic=ok routine=0x0920:0x0945 operation=signed_32_by_32_divide dividend_reg=dx:ax divisor_reg=bx:cx quotient_reg=dx:ax quotient_byte=al remainder_reg=bx:cx quotient_rounding=toward_zero remainder_sign=dividend zero_divisor_branch=0x09ac zero_divisor_error_ax=0x00c8 lane_numerator=signed_lane_byte_times_unsigned_weight_sum lane_denominator=unsigned_weight_sum caller_forward=0x3bb2 caller_reverse=0x3d46 caller_forward_call=0x3ce3 caller_reverse_call=0x3e77 sample_neg9_div1_q=0xfff7 sample_neg9_div1_al=0xf7 sample_neg9_div2_q=0xfffc sample_neg9_div2_al=0xfc sample_pos9_div4_q=0x0002 sample_pos9_div4_al=0x02 sample_neg1_div2_q=0x0000 sample_neg1_div2_al=0x00")
 
     add_test(NAME bomb_object_explosion_effects
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-object-explosion-effects)

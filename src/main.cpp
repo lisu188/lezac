@@ -48,12 +48,26 @@ constexpr uint16_t kExplosionEffectReverseReturn = 0x4cac;
 constexpr uint16_t kHighDebrisLaneTargetOffsetGlobal = 0x659a;
 constexpr uint16_t kHighDebrisLaneWordGlobal = 0x655e;
 constexpr uint16_t kHighDebrisLaneUpdateFlag = 0x2078;
+constexpr uint16_t kLaneHelperStagingWordBase = 0x655c;
+constexpr uint16_t kLaneHelperStagingTargetBase = 0x6598;
+constexpr uint16_t kLaneHelperStagingTagBase = 0x65d4;
+constexpr uint16_t kLaneHelperSelectorGlobal = 0x2074;
+constexpr uint16_t kLaneHelperDebrisCountGlobal = 0x207e;
+constexpr uint16_t kLaneHelperCollapseCountGlobal = 0x2080;
+constexpr uint16_t kLaneHelperCollapseWeightBase = 0x661f;
 constexpr uint16_t kExplosionEffectForwardInputGlobal = 0x78d2;
 constexpr uint16_t kExplosionEffectReverseInputGlobal = 0x78d4;
 constexpr uint16_t kCollapseForwardLaneBase = 0x6617;
 constexpr uint16_t kCollapseReverseLaneBase = 0x6618;
 constexpr uint16_t kDebrisForwardLaneBase = 0x2097;
 constexpr uint16_t kDebrisReverseLaneBase = 0x2098;
+constexpr uint8_t kCollapseForwardLaneRecordOffset = 0x06;
+constexpr uint8_t kCollapseReverseLaneRecordOffset = 0x07;
+constexpr uint8_t kCollapseWeightRecordOffset = 0x0e;
+constexpr uint8_t kDebrisForwardLaneRecordOffset = 0x04;
+constexpr uint8_t kDebrisReverseLaneRecordOffset = 0x05;
+constexpr uint16_t kLaneHelperBlendFarSegment = 0x0920;
+constexpr uint16_t kLaneHelperBlendFarOffset = 0x0945;
 constexpr size_t kDebrisCapacity = 0x640;
 constexpr size_t kCollapseCapacity = 0x00fa;
 constexpr size_t kGranRecordSize = 57;
@@ -6404,6 +6418,53 @@ public:
         }
     }
 
+    void debugLaneHelperModel() {
+        std::cout << "lane_helper_model=ok"
+                  << " helper_forward=" << hex4(kDamageForwardPassRoutine)
+                  << " helper_reverse=" << hex4(kDamageReversePassRoutine)
+                  << " lookup_forward=" << hex4(kDamageForwardLookupRoutine)
+                  << " lookup_reverse=" << hex4(kDamageReverseLookupRoutine)
+                  << " input_forward_global=" << hex4(kExplosionEffectForwardInputGlobal)
+                  << " input_reverse_global=" << hex4(kExplosionEffectReverseInputGlobal)
+                  << " ret_bytes=6"
+                  << " input_far_pointer_arg=bp4"
+                  << " weight_byte_arg=bp8"
+                  << " signed_input_byte=1"
+                  << " active_count_global=" << hex4(kHighDebrisLaneUpdateFlag)
+                  << " staging_word_base=" << hex4(kLaneHelperStagingWordBase)
+                  << " staging_word_first=" << hex4(kHighDebrisLaneWordGlobal)
+                  << " staging_target_base=" << hex4(kLaneHelperStagingTargetBase)
+                  << " staging_target_first=" << hex4(kHighDebrisLaneTargetOffsetGlobal)
+                  << " staging_tag_base=" << hex4(kLaneHelperStagingTagBase)
+                  << " staging_tag_first="
+                  << hex4(static_cast<uint16_t>(kLaneHelperStagingTagBase + 2))
+                  << " selector_global=" << hex4(kLaneHelperSelectorGlobal)
+                  << " debris_count_global=" << hex4(kLaneHelperDebrisCountGlobal)
+                  << " collapse_count_global=" << hex4(kLaneHelperCollapseCountGlobal)
+                  << " high_tag_base=" << hex4(kHighHalfBase)
+                  << " collapse_forward_base=" << hex4(kCollapseForwardLaneBase)
+                  << " collapse_reverse_base=" << hex4(kCollapseReverseLaneBase)
+                  << " collapse_weight_base=" << hex4(kLaneHelperCollapseWeightBase)
+                  << " collapse_forward_record_offset="
+                  << static_cast<int>(kCollapseForwardLaneRecordOffset)
+                  << " collapse_reverse_record_offset="
+                  << static_cast<int>(kCollapseReverseLaneRecordOffset)
+                  << " collapse_weight_record_offset="
+                  << static_cast<int>(kCollapseWeightRecordOffset)
+                  << " debris_forward_base=" << hex4(kDebrisForwardLaneBase)
+                  << " debris_reverse_base=" << hex4(kDebrisReverseLaneBase)
+                  << " debris_forward_record_offset="
+                  << static_cast<int>(kDebrisForwardLaneRecordOffset)
+                  << " debris_reverse_record_offset="
+                  << static_cast<int>(kDebrisReverseLaneRecordOffset)
+                  << " blend_far=" << hex4(kLaneHelperBlendFarSegment)
+                  << ':' << hex4(kLaneHelperBlendFarOffset)
+                  << " writes_input_byte=1"
+                  << " writes_staged_tags=1"
+                  << " exact_arithmetic=unresolved"
+                  << '\n';
+    }
+
     void debugMonsterSlots() {
         load();
         resetLevel(0);
@@ -10526,6 +10587,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-damage-queues") {
             app.debugDamageQueues();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-lane-helper-model") {
+            app.debugLaneHelperModel();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-monster-slots") {

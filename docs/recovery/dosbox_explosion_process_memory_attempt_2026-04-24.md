@@ -484,13 +484,23 @@ matching numerator/weight locals. Immediate reverse-helper probes at
 this route; those captures remain failed reachability attempts and are not
 promoted.
 
+The writeback probe then targeted `1000:3D1B`, the forward collapse-lane
+store. A plain two-byte freeze loop proved the route reaches the instruction,
+but the oracle rejected it until the offset was promoted into the known
+breakpoint set. The follow-up `lane-write-cs-scratch` runtime patch froze
+`01ED:3D1B` and promoted
+`explosion_playback_oracle_original_3d1b_lane_write_scratch_runtime.txt`.
+That scratch block records output byte `0x01`, selected tag `0x0003`,
+`DI=0x002D`, active count/index `1`, and result local `0x01`. The tag-to-DI
+relationship matches the original collapse stride exactly:
+`0x0003 * 0x0F = 0x002D`, so the original is about to write to
+`DS:6617 + 0x002D`.
+
 ## Next Step
 
 Use the now-working `45FA`/`492F`/`4B3F`/`4B61`/`4B6A`/`4C75`/`4C96`/`4CA9`
 visible-playback freezes plus the `3CD4`/`3CE3` forward-helper scratch captures
-to find a reverse-helper route/timing gate or the lane writeback point. The
-goal is to connect the proven signed numerator/weight setup to the final
-helper-selected lane bytes in debris/collapse playback. Prefer immediate
-runtime child-memory patching for mid-helper captures and keep promoted
-fixtures explicit about `visual_claim=0` until frame-table/sprite semantics are
-proven.
+and the `3D1B` forward collapse writeback capture to find a reverse-helper
+route/timing gate or a debris-side writeback stop. Prefer immediate runtime
+child-memory patching for mid-helper captures and keep promoted fixtures
+explicit about `visual_claim=0` until frame-table/sprite semantics are proven.

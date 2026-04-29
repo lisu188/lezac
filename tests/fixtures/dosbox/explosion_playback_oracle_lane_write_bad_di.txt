@@ -1,0 +1,25 @@
+# LEZAC explosion playback oracle malformed fixture.
+# Collapse lane writeback tags must map to DI with tag * 0x0f.
+capture=explosion_playback
+source=dosbox-regular-process-memory
+temp_copy=1
+visual_claim=0
+instrumented_freeze_observed=1
+runtime_freeze_patch_applied=1
+instrumented_lane_write_scratch_present=1
+instrumented_lane_write_cs_offset=0x3d6b
+instrumented_lane_write_kind=forward
+instrumented_lane_write_target=collapse
+instrumented_lane_write_output=0x0001
+instrumented_lane_write_di=0x002c
+instrumented_lane_write_tag=0x0003
+instrumented_lane_write_active_count=0x0001
+instrumented_lane_write_loop_index=0x0001
+instrumented_lane_write_result_local=0x0001
+
+runtime_cs=1A2B
+runtime_ds=2B3C
+
+break ghidra=1000:414A runtime=1A2B:414A label=explosion_dispatcher
+break ghidra=1000:370E runtime=1A2B:370E label=tile_damage_queue
+break ghidra=1000:3D1B runtime=1A2B:3D1B label=collapse_forward_lane_write_collapse observed=runtime_child_memory_freeze_observed

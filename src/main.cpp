@@ -5055,6 +5055,10 @@ public:
             bool observedEffectReverseReturn = false;
             bool observedLaneForwardDivide = false;
             bool observedLaneReverseDivide = false;
+            bool observedLaneForwardWrite = false;
+            bool observedLaneReverseWrite = false;
+            bool observedLaneCollapseWrite = false;
+            bool observedLaneDebrisWrite = false;
             uint16_t selectedDebrisBase = 0;
             uint16_t selectedCollapseBase = 0;
             uint16_t selectedEffectBase = 0xc21e;
@@ -5093,6 +5097,26 @@ public:
             auto laneDivFieldIndex = [&](const std::string& name) -> int {
                 for (size_t i = 0; i < kLaneDivFieldNames.size(); ++i) {
                     if (name == kLaneDivFieldNames[i]) return static_cast<int>(i);
+                }
+                return -1;
+            };
+            bool haveInstrumentedLaneWriteScratchPresent = false;
+            bool instrumentedLaneWriteScratchPresent = false;
+            bool haveInstrumentedLaneWriteOffset = false;
+            bool haveInstrumentedLaneWriteKind = false;
+            bool haveInstrumentedLaneWriteTarget = false;
+            std::string instrumentedLaneWriteKind;
+            std::string instrumentedLaneWriteTarget;
+            uint16_t instrumentedLaneWriteOffset = 0;
+            std::array<uint16_t, 6> instrumentedLaneWriteValues{};
+            std::array<bool, 6> haveInstrumentedLaneWriteValues{};
+            constexpr std::array<const char*, 6> kLaneWriteFieldNames{
+                "output", "di", "tag", "active_count", "loop_index",
+                "result_local",
+            };
+            auto laneWriteFieldIndex = [&](const std::string& name) -> int {
+                for (size_t i = 0; i < kLaneWriteFieldNames.size(); ++i) {
+                    if (name == kLaneWriteFieldNames[i]) return static_cast<int>(i);
                 }
                 return -1;
             };
@@ -5193,6 +5217,35 @@ public:
                             parseHex16Auto(value, key);
                         haveInstrumentedLaneDivValues[static_cast<size_t>(index)] =
                             true;
+                    } else if (key == "instrumented_lane_write_scratch_present") {
+                        instrumentedLaneWriteScratchPresent = value == "1";
+                        haveInstrumentedLaneWriteScratchPresent = true;
+                    } else if (key == "instrumented_lane_write_cs_offset") {
+                        instrumentedLaneWriteOffset = parseHex16Auto(value, key);
+                        haveInstrumentedLaneWriteOffset = true;
+                    } else if (key == "instrumented_lane_write_kind") {
+                        if (value != "forward" && value != "reverse") {
+                            fail("bad_lane_write_kind value=" + value);
+                        }
+                        instrumentedLaneWriteKind = value;
+                        haveInstrumentedLaneWriteKind = true;
+                    } else if (key == "instrumented_lane_write_target") {
+                        if (value != "collapse" && value != "debris") {
+                            fail("bad_lane_write_target value=" + value);
+                        }
+                        instrumentedLaneWriteTarget = value;
+                        haveInstrumentedLaneWriteTarget = true;
+                    } else if (key.rfind("instrumented_lane_write_", 0) == 0) {
+                        std::string field =
+                            key.substr(std::string("instrumented_lane_write_").size());
+                        int index = laneWriteFieldIndex(field);
+                        if (index < 0) {
+                            fail("bad_lane_write_field field=" + field);
+                        }
+                        instrumentedLaneWriteValues[static_cast<size_t>(index)] =
+                            parseHex16Auto(value, key);
+                        haveInstrumentedLaneWriteValues[static_cast<size_t>(index)] =
+                            true;
                     }
                     continue;
                 }
@@ -5233,6 +5286,8 @@ public:
                         ghidraOffset == 0x3bb2 || ghidraOffset == 0x3d46 ||
                         ghidraOffset == 0x3cd4 || ghidraOffset == 0x3ce3 ||
                         ghidraOffset == 0x3e68 || ghidraOffset == 0x3e77 ||
+                        ghidraOffset == 0x3d1b || ghidraOffset == 0x3d2d ||
+                        ghidraOffset == 0x3eaf || ghidraOffset == 0x3ec1 ||
                         ghidraOffset == 0x45fa || ghidraOffset == 0x492f ||
                         ghidraOffset == 0x4b3f || ghidraOffset == 0x4b61 ||
                         ghidraOffset == 0x4b6a || ghidraOffset == 0x4c20 ||
@@ -5257,6 +5312,18 @@ public:
                         }
                         if (ghidraOffset == 0x3e68 || ghidraOffset == 0x3e77) {
                             observedLaneReverseDivide = true;
+                        }
+                        if (ghidraOffset == 0x3d1b || ghidraOffset == 0x3d2d) {
+                            observedLaneForwardWrite = true;
+                        }
+                        if (ghidraOffset == 0x3eaf || ghidraOffset == 0x3ec1) {
+                            observedLaneReverseWrite = true;
+                        }
+                        if (ghidraOffset == 0x3d1b || ghidraOffset == 0x3eaf) {
+                            observedLaneCollapseWrite = true;
+                        }
+                        if (ghidraOffset == 0x3d2d || ghidraOffset == 0x3ec1) {
+                            observedLaneDebrisWrite = true;
                         }
                     }
                     continue;
@@ -5380,6 +5447,74 @@ public:
                 (!haveInstrumentedLaneDivScratchPresent ||
                  !instrumentedLaneDivScratchPresent)) {
                 fail("lane_div_field_without_present");
+            }
+            if (haveInstrumentedLaneWriteScratchPresent &&
+                instrumentedLaneWriteScratchPresent) {
+                if (!observedLaneForwardWrite && !observedLaneReverseWrite) {
+                    fail("lane_write_scratch_without_lane_write_freeze");
+                }
+                if (!haveInstrumentedLaneWriteOffset) {
+                    fail("lane_write_offset_missing");
+                }
+                if (!haveInstrumentedLaneWriteKind) {
+                    fail("lane_write_kind_missing");
+                }
+                if (!haveInstrumentedLaneWriteTarget) {
+                    fail("lane_write_target_missing");
+                }
+                if (instrumentedLaneWriteKind == "forward" &&
+                    !observedLaneForwardWrite) {
+                    fail("lane_write_forward_kind_without_forward_freeze");
+                }
+                if (instrumentedLaneWriteKind == "reverse" &&
+                    !observedLaneReverseWrite) {
+                    fail("lane_write_reverse_kind_without_reverse_freeze");
+                }
+                if (instrumentedLaneWriteTarget == "collapse" &&
+                    !observedLaneCollapseWrite) {
+                    fail("lane_write_collapse_target_without_collapse_freeze");
+                }
+                if (instrumentedLaneWriteTarget == "debris" &&
+                    !observedLaneDebrisWrite) {
+                    fail("lane_write_debris_target_without_debris_freeze");
+                }
+                for (size_t i = 0; i < haveInstrumentedLaneWriteValues.size(); ++i) {
+                    if (!haveInstrumentedLaneWriteValues[i]) {
+                        fail(std::string("lane_write_field_missing field=") +
+                             kLaneWriteFieldNames[i]);
+                    }
+                }
+                uint16_t output = instrumentedLaneWriteValues[0];
+                uint16_t di = instrumentedLaneWriteValues[1];
+                uint16_t tag = instrumentedLaneWriteValues[2];
+                uint16_t activeCount = instrumentedLaneWriteValues[3];
+                uint16_t loopIndex = instrumentedLaneWriteValues[4];
+                uint16_t resultLocal = instrumentedLaneWriteValues[5];
+                if (output != resultLocal || (output & 0xff00u) != 0) {
+                    fail("lane_write_output_local_mismatch");
+                }
+                if (loopIndex == 0 || activeCount == 0 || loopIndex > activeCount) {
+                    fail("lane_write_loop_bounds");
+                }
+                if (instrumentedLaneWriteTarget == "collapse") {
+                    if (tag >= 0x4e20u || di != static_cast<uint16_t>(tag * 0x0fu)) {
+                        fail("lane_write_collapse_tag_di_mismatch");
+                    }
+                } else {
+                    if (tag < 0x4e20u ||
+                        di != static_cast<uint16_t>((tag - 0x4e20u) * 0x0bu)) {
+                        fail("lane_write_debris_tag_di_mismatch");
+                    }
+                }
+            }
+            bool haveAnyLaneWriteValueField = false;
+            for (bool haveField : haveInstrumentedLaneWriteValues) {
+                haveAnyLaneWriteValueField = haveAnyLaneWriteValueField || haveField;
+            }
+            if (haveAnyLaneWriteValueField &&
+                (!haveInstrumentedLaneWriteScratchPresent ||
+                 !instrumentedLaneWriteScratchPresent)) {
+                fail("lane_write_field_without_present");
             }
 
             auto requireByte = [&](uint16_t address) -> uint8_t {
@@ -5537,6 +5672,14 @@ public:
                       << (observedLaneForwardDivide ? 1 : 0)
                       << " observed_lane_reverse_divide="
                       << (observedLaneReverseDivide ? 1 : 0)
+                      << " observed_lane_forward_write="
+                      << (observedLaneForwardWrite ? 1 : 0)
+                      << " observed_lane_reverse_write="
+                      << (observedLaneReverseWrite ? 1 : 0)
+                      << " observed_lane_collapse_write="
+                      << (observedLaneCollapseWrite ? 1 : 0)
+                      << " observed_lane_debris_write="
+                      << (observedLaneDebrisWrite ? 1 : 0)
                       << " bp4_local_present="
                       << (instrumentedBp4LocalPresent ? 1 : 0)
                       << (instrumentedBp4LocalPresent
@@ -5570,6 +5713,28 @@ public:
                                     hex4(instrumentedLaneDivValues[7]) +
                                     " lane_div_numerator_high=" +
                                     hex4(instrumentedLaneDivValues[8])
+                              : "")
+                      << " lane_write_scratch_present="
+                      << (instrumentedLaneWriteScratchPresent ? 1 : 0)
+                      << (instrumentedLaneWriteScratchPresent
+                              ? std::string(" lane_write_kind=") +
+                                    instrumentedLaneWriteKind +
+                                    " lane_write_target=" +
+                                    instrumentedLaneWriteTarget +
+                                    " lane_write_cs_offset=" +
+                                    hex4(instrumentedLaneWriteOffset) +
+                                    " lane_write_output=" +
+                                    hex4(instrumentedLaneWriteValues[0]) +
+                                    " lane_write_di=" +
+                                    hex4(instrumentedLaneWriteValues[1]) +
+                                    " lane_write_tag=" +
+                                    hex4(instrumentedLaneWriteValues[2]) +
+                                    " lane_write_active_count=" +
+                                    hex4(instrumentedLaneWriteValues[3]) +
+                                    " lane_write_loop_index=" +
+                                    hex4(instrumentedLaneWriteValues[4]) +
+                                    " lane_write_result_local=" +
+                                    hex4(instrumentedLaneWriteValues[5])
                               : "")
                       << " lane_globals_present=" << (haveLaneGlobals ? 1 : 0)
                       << " lane_update_flag=" << hexBytePrefix(laneUpdateFlag)

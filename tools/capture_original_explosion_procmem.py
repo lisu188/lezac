@@ -69,6 +69,7 @@ FREEZE_LOOP_PATCH = bytes.fromhex("ebfe")
 FREEZE_PATCH_MODE_LOOP = "loop"
 FREEZE_PATCH_MODE_BP4_CS_SCRATCH = "bp4-cs-scratch"
 FREEZE_PATCH_MODE_LANE_DIV_CS_SCRATCH = "lane-div-cs-scratch"
+FREEZE_PATCH_MODE_LANE_WRITE_CS_SCRATCH = "lane-write-cs-scratch"
 DEFAULT_SAMPLE_SCREENSHOTS = "0.5,1.0,1.5,2.0,3.0"
 ROUTE_STATE_RANGES = [
     ("DS:0060", 0x0060, 0x80),
@@ -212,6 +213,38 @@ def build_freeze_patch(
             patch_bytes.extend(mov_ax_to_cs(scratch_offset + scratch_delta))
         patch_bytes.extend([0xEB, 0xFE])
         return bytes(patch_bytes), scratch_offset, 0x12
+    if patch_mode == FREEZE_PATCH_MODE_LANE_WRITE_CS_SCRATCH:
+        if ghidra_offset not in {0x3D1B, 0x3D2D, 0x3EAF, 0x3EC1}:
+            raise RuntimeError(
+                "--freeze-patch-mode lane-write-cs-scratch is only valid at "
+                "1000:3D1B, 1000:3D2D, 1000:3EAF, or 1000:3EC1"
+            )
+        scratch_offset = (ghidra_offset + 0x50) & 0xFFFF
+
+        def mov_ax_to_cs(offset: int) -> list[int]:
+            return [0x2E, 0xA3, offset & 0xFF, offset >> 8]
+
+        def mov_cs_reg(opcode: int, offset: int) -> list[int]:
+            return [0x2E, 0x89, opcode, offset & 0xFF, offset >> 8]
+
+        patch_bytes = []
+        if ghidra_offset in {0x3D1B, 0x3EAF}:
+            patch_bytes.extend([0x30, 0xE4])  # AL holds the lane byte.
+        else:
+            patch_bytes.extend([0x88, 0xD0, 0x30, 0xE4])  # DL holds the lane byte.
+        patch_bytes.extend(mov_ax_to_cs(scratch_offset + 0x00))
+        patch_bytes.extend(mov_cs_reg(0x3E, scratch_offset + 0x02))  # DI write offset.
+        for local_offset, scratch_delta in [
+            (0xF8, 0x04),  # [BP-08] selected tag.
+            (0xF0, 0x06),  # [BP-10] active count.
+            (0xF6, 0x08),  # [BP-0A] writeback loop index.
+        ]:
+            patch_bytes.extend([0x8B, 0x46, local_offset])
+            patch_bytes.extend(mov_ax_to_cs(scratch_offset + scratch_delta))
+        patch_bytes.extend([0x8A, 0x46, 0xF3, 0x30, 0xE4])
+        patch_bytes.extend(mov_ax_to_cs(scratch_offset + 0x0A))
+        patch_bytes.extend([0xEB, 0xFE])
+        return bytes(patch_bytes), scratch_offset, 0x0C
     raise RuntimeError(f"unsupported freeze patch mode: {patch_mode}")
 
 
@@ -1093,6 +1126,7 @@ def main() -> int:
             FREEZE_PATCH_MODE_LOOP,
             FREEZE_PATCH_MODE_BP4_CS_SCRATCH,
             FREEZE_PATCH_MODE_LANE_DIV_CS_SCRATCH,
+            FREEZE_PATCH_MODE_LANE_WRITE_CS_SCRATCH,
         ],
         default=FREEZE_PATCH_MODE_LOOP,
         help=(
@@ -1101,7 +1135,8 @@ def main() -> int:
             "into a nearby CS scratch word before freezing; "
             "lane-div-cs-scratch is valid at 1000:3CD4/3CE3/3E68/3E77 "
             "and stores pre-division registers or equivalent BP locals into "
-            "nearby CS scratch"
+            "nearby CS scratch; lane-write-cs-scratch is valid at "
+            "1000:3D1B/3D2D/3EAF/3EC1 and stores queue writeback state"
         ),
     )
     parser.add_argument(
@@ -1238,6 +1273,14 @@ def main() -> int:
             "patching; the instrumentation body overlaps a relocated far-call "
             "segment word in temp-copy runs"
         )
+    if (
+        args.freeze_patch_mode == FREEZE_PATCH_MODE_LANE_WRITE_CS_SCRATCH
+        and not runtime_freeze
+    ):
+        raise RuntimeError(
+            "--freeze-patch-mode lane-write-cs-scratch requires runtime child-memory "
+            "patching; it is intended to capture live helper writeback registers"
+        )
     freeze_patch: dict[str, int | str] | None = None
     if args.freeze_ghidra_offset:
         if not args.approve_instrumentation:
@@ -1354,6 +1397,7 @@ def main() -> int:
         runtime_freeze_patch_fields: dict[str, int | float] = {}
         runtime_bp4_local_value: int | None = None
         runtime_lane_div_scratch: dict[str, int] | None = None
+        runtime_lane_write_scratch: dict[str, int] | None = None
         patch_bytes = (
             bytes.fromhex(str(freeze_patch["patch_bytes"]))
             if freeze_patch is not None
@@ -1643,6 +1687,25 @@ def main() -> int:
                 "numerator_low": le16(scratch, 0x0E),
                 "numerator_high": le16(scratch, 0x10),
             }
+        if (
+            freeze_observed
+            and freeze_patch is not None
+            and str(freeze_patch.get("patch_mode", ""))
+            == FREEZE_PATCH_MODE_LANE_WRITE_CS_SCRATCH
+        ):
+            scratch_offset = int(freeze_patch["scratch_offset"])
+            scratch_length = int(freeze_patch["scratch_length"])
+            scratch = read_emulated(
+                pid, base, RUNTIME_CS, scratch_offset, scratch_length
+            )
+            runtime_lane_write_scratch = {
+                "output": le16(scratch, 0x00),
+                "di": le16(scratch, 0x02),
+                "tag": le16(scratch, 0x04),
+                "active_count": le16(scratch, 0x06),
+                "loop_index": le16(scratch, 0x08),
+                "result_local": le16(scratch, 0x0A),
+            }
         chosen_score = sample_score(chosen)
         chosen_fields = decode_sample(chosen)
         try:
@@ -1757,6 +1820,44 @@ def main() -> int:
                             out.write(
                                 f"instrumented_lane_div_{field}="
                                 f"0x{runtime_lane_div_scratch[field]:04x}\n"
+                            )
+                if (
+                    str(freeze_patch["patch_mode"])
+                    == FREEZE_PATCH_MODE_LANE_WRITE_CS_SCRATCH
+                ):
+                    ghidra_offset = int(freeze_patch["ghidra_offset"])
+                    lane_kind = (
+                        "forward"
+                        if ghidra_offset in {0x3D1B, 0x3D2D}
+                        else "reverse"
+                    )
+                    lane_target = (
+                        "collapse"
+                        if ghidra_offset in {0x3D1B, 0x3EAF}
+                        else "debris"
+                    )
+                    out.write(
+                        "instrumented_lane_write_scratch_present="
+                        f"{1 if runtime_lane_write_scratch is not None and freeze_observed else 0}\n"
+                    )
+                    out.write(
+                        "instrumented_lane_write_cs_offset="
+                        f"0x{int(freeze_patch['scratch_offset']):04x}\n"
+                    )
+                    out.write(f"instrumented_lane_write_kind={lane_kind}\n")
+                    out.write(f"instrumented_lane_write_target={lane_target}\n")
+                    if runtime_lane_write_scratch is not None:
+                        for field in [
+                            "output",
+                            "di",
+                            "tag",
+                            "active_count",
+                            "loop_index",
+                            "result_local",
+                        ]:
+                            out.write(
+                                f"instrumented_lane_write_{field}="
+                                f"0x{runtime_lane_write_scratch[field]:04x}\n"
                             )
                 if tail_match_frame:
                     out.write(f"instrumented_freeze_tail_frame={tail_match_frame}\n")
@@ -1882,6 +1983,15 @@ def main() -> int:
                         f" scratch_len={int(freeze_patch['scratch_length'])}"
                         f" scratch_old_bytes={freeze_patch['scratch_original_bytes']}"
                     )
+                if (
+                    str(freeze_patch["patch_mode"])
+                    == FREEZE_PATCH_MODE_LANE_WRITE_CS_SCRATCH
+                ):
+                    out.write(
+                        f" scratch_cs={RUNTIME_CS:04X}:{int(freeze_patch['scratch_offset']):04X}"
+                        f" scratch_len={int(freeze_patch['scratch_length'])}"
+                        f" scratch_old_bytes={freeze_patch['scratch_original_bytes']}"
+                    )
                 out.write("\n")
             out.write(f"command={command}\n")
             out.write("route=focused_no_window_original_controls_process_memory\n")
@@ -1945,9 +2055,13 @@ def main() -> int:
                 ("1000:3BB2", 0x3BB2, "collapse_forward_pass"),
                 ("1000:3CD4", 0x3CD4, "collapse_forward_lane_divide_setup"),
                 ("1000:3CE3", 0x3CE3, "collapse_forward_lane_divide"),
+                ("1000:3D1B", 0x3D1B, "collapse_forward_lane_write_collapse"),
+                ("1000:3D2D", 0x3D2D, "collapse_forward_lane_write_debris"),
                 ("1000:3D46", 0x3D46, "collapse_reverse_pass"),
                 ("1000:3E68", 0x3E68, "collapse_reverse_lane_divide_setup"),
                 ("1000:3E77", 0x3E77, "collapse_reverse_lane_divide"),
+                ("1000:3EAF", 0x3EAF, "collapse_reverse_lane_write_collapse"),
+                ("1000:3EC1", 0x3EC1, "collapse_reverse_lane_write_debris"),
                 ("1000:3FA6", 0x3FA6, "effect_constructor_candidate"),
                 ("1000:45FA", 0x45FA, "effect_debris_update_entry"),
                 ("1000:432A", 0x432A, "effect_playback_candidate"),
@@ -2046,6 +2160,30 @@ def main() -> int:
                         instrumentation_manifest += (
                             f"freeze_lane_div_{field}=0x"
                             f"{runtime_lane_div_scratch[field]:04x}\n"
+                        )
+            if (
+                str(freeze_patch["patch_mode"])
+                == FREEZE_PATCH_MODE_LANE_WRITE_CS_SCRATCH
+            ):
+                instrumentation_manifest += (
+                    f"freeze_lane_write_scratch_runtime={RUNTIME_CS:04X}:"
+                    f"{int(freeze_patch['scratch_offset']):04X}\n"
+                    f"freeze_lane_write_scratch_length={int(freeze_patch['scratch_length'])}\n"
+                    "freeze_lane_write_scratch_old_bytes="
+                    f"{freeze_patch['scratch_original_bytes']}\n"
+                )
+                if runtime_lane_write_scratch is not None:
+                    for field in [
+                        "output",
+                        "di",
+                        "tag",
+                        "active_count",
+                        "loop_index",
+                        "result_local",
+                    ]:
+                        instrumentation_manifest += (
+                            f"freeze_lane_write_{field}=0x"
+                            f"{runtime_lane_write_scratch[field]:04x}\n"
                         )
             if runtime_freeze:
                 after_bomb_seconds = (

@@ -299,6 +299,13 @@ records the already-loaded registers `DX:AX=0x0000:0x001c` and
 runtime probes at reverse setup/call sites `1000:3e68` and `1000:3e77` loaded
 their patches but did not freeze on the same route, so no reverse-helper
 scratch fixture is promoted yet.
+A later 2026-04-29 runtime capture freezes the forward collapse writeback at
+`1000:3d1b`, before the original `mov [di+0x6617],al` executes. The promoted
+`explosion_playback_oracle_original_3d1b_lane_write_scratch_runtime.txt`
+fixture records output byte `0x01`, selected tag `0x0003`, loop index/count
+`1/1`, and `DI=0x002d`, matching `tag * 0x0f`. This directly proves one
+original helper lane byte about to be written to collapse offset
+`DS:6617 + 0x002d = DS:6644`.
 
 The effect constructor at `1000:3fa6` writes 11-byte effect records at
 `0x2093 + 0x0b * DS:2076` and stores the effect type byte in
@@ -487,6 +494,10 @@ divided by the positive weight sum.
 The `3ce3` call-site fixture confirms the same register contract after setup
 has completed for a later forward-helper iteration: `DX:AX=0x0000:0x001c` and
 `BX:CX=0x0000:0x0010` at the far divide call.
+The `3d1b` writeback fixture then catches a later forward-helper writeback
+iteration: `AL=0x01`, selected tag `0x0003`, `DI=0x002d`, and result local
+`[BP-0d]=0x01`, proving the original is about to write the quotient byte to
+the collapse lane table via `DS:6617 + DI`.
 
 ## Sound Playback Evidence
 

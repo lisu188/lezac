@@ -13,6 +13,8 @@ Current local validation constraints:
   promotes one original runtime-child-memory mid-helper capture.
 - `explosion_playback_oracle_original_3ce3_lane_div_scratch_runtime.txt`
   promotes one original runtime-child-memory divide call-site capture.
+- `explosion_playback_oracle_original_3d1b_lane_write_scratch_runtime.txt`
+  promotes one original runtime-child-memory forward collapse writeback capture.
 - The evidence remains instrumentation-only (`visual_claim=0`); no live C++
   playback behavior is changed by this note alone.
 
@@ -145,6 +147,27 @@ also loaded their reverse-helper scratch patches on the same route, but they
 did not freeze and are therefore recorded only as failed reachability probes,
 not promoted evidence.
 
+A later runtime-child-memory probe froze the forward collapse writeback at
+`1000:3D1B`, runtime `01ED:3D1B`, immediately before the original
+`mov [di+0x6617],al` instruction executes. The promoted
+`explosion_playback_oracle_original_3d1b_lane_write_scratch_runtime.txt`
+fixture records scratch `CS:3D6B`:
+
+```text
+output/result byte = 0x0001
+DI write offset    = 0x002D
+selected tag       = 0x0003
+active count       = 0x0001
+loop index         = 0x0001
+result local       = 0x0001
+```
+
+The oracle validates that the collapse tag maps to `DI` by `tag * 0x0F`;
+`0x0003 * 0x0F = 0x002D`. This proves one original helper writeback where the
+forward lane byte `0x01` is about to be stored at `DS:6617 + 0x002D`
+(`DS:6644`). The fixture still has `visual_claim=0`; it proves the queue
+writeback arithmetic and destination, not exact sprite timing.
+
 Follow-up temp-copy instrumentation now freezes the post-call instructions:
 
 - `1000:4C99`, immediately after the `4C96` call returns from `1000:3BB2`.
@@ -228,6 +251,9 @@ The original `3CD4` scratch fixture confirms this register contract in a live
 forward-helper setup with `DX:AX=0xFFFF:0xFFF8` and `BX:CX=0x0000:0x0005`;
 the original `3CE3` scratch fixture confirms it again at the actual far divide
 call with `DX:AX=0x0000:0x001C` and `BX:CX=0x0000:0x0010`.
+The original `3D1B` scratch fixture confirms the next step in the same helper
+family: the quotient/result byte is copied from `[BP-0D]` to the lane table
+through the selected tag's collapse record offset.
 The post-call fixtures that show `DS:2078`, `DS:655E`, and `DS:659A` as zero
 are therefore compatible with a transient staging lifetime: they preserve the
 helper-written queue bytes after the helper has returned, not a mid-helper view
@@ -261,6 +287,7 @@ consistency failures:
 - `explosion_playback_oracle_top_freeze_without_runtime_patch.txt`
 - `explosion_playback_oracle_bp4_local_without_word_gate.txt`
 - `explosion_playback_oracle_lane_div_without_divide_freeze.txt`
+- `explosion_playback_oracle_lane_write_bad_di.txt`
 
 The surrounding helper model from `docs/GHIDRA_NOTES.md` is now explicit:
 the forward/reverse lookup helpers at `1000:3A7E` and `1000:3B18` select
@@ -294,7 +321,5 @@ lane bytes `forward=0x00`, `reverse=0x04` after the lane helpers. That mismatch
 is now explicit evidence for the next rendering/playback recovery step.
 
 The next evidence step is to find a route or timing gate that reaches the
-reverse-helper equivalent, or to capture a later writeback stop that connects
-the proven helper inputs, the `0x0003` word-gate local, and the selected
-collapse/debris records to the exact original lane bytes before replacing the
-provisional queue playback.
+reverse-helper equivalent, or to capture debris-side writeback, before
+replacing the provisional queue playback.

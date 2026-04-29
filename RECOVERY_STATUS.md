@@ -365,20 +365,25 @@ Baseline: `origin/main`
   `BX:CX=0x0000:0x0010`, active count/index `1`, and matching
   numerator/weight locals. Immediate reverse-helper probes at `01ED:3E68` and
   `01ED:3E77` loaded their runtime patches but did not freeze on the same
-  route, so they are not promoted. Temp-copy lane-div instrumentation is
+  route, so they are not promoted. A later runtime scratch probe froze the
+  forward collapse writeback at `01ED:3D1B`; the promoted
+  `explosion_playback_oracle_original_3d1b_lane_write_scratch_runtime.txt`
+  fixture records output byte `0x01`, selected tag `0x0003`, `DI=0x002D`,
+  active count/index `1`, and result local `0x01`, proving the original is
+  about to write to `DS:6617 + 0x002D` with collapse stride `0x0F`. Temp-copy
+  lane-div instrumentation is
   intentionally rejected because the larger patch body can overlap DOS
   relocation words near the far-call operand. Live playback behavior is
-  unchanged until the reverse-helper/writeback evidence connects this
-  arithmetic to final original queue lane bytes. This also explains why
-  post-call fixtures can preserve helper-written lane bytes while sampled
-  staging globals are already zero.
+  unchanged until reverse-helper or debris-side writeback evidence rounds out
+  the queue-lane model. This also explains why post-call fixtures can preserve
+  helper-written lane bytes while sampled staging globals are already zero.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"
   --output-on-failure` passed: 20/20.
 - `ctest --test-dir build -R explosion_playback_oracle
-  --output-on-failure` passed under WSL: 23/23.
-- `ctest --test-dir build --output-on-failure` passed under WSL: 103/103.
+  --output-on-failure` passed under WSL: 25/25.
+- `ctest --test-dir build --output-on-failure` passed under WSL: 105/105.
 - `./build/lezac_cpp --validate` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --smoke-controls` passed.
@@ -404,9 +409,10 @@ Baseline: `origin/main`
   remains blocked on frame-table/sprite semantics, but process-memory
   instrumentation has promoted original fixtures for branch reachability,
   post-call lane bytes, the `4C75` live word gate, one `3CD4` mid-helper
-  lane-division setup, and one `3CE3` forward divide call-site register
-  capture. Next evidence should target a reverse-helper route/timing gate or
-  lane writeback before changing live playback behavior.
+  lane-division setup, one `3CE3` forward divide call-site register capture,
+  and one `3D1B` forward collapse writeback capture. Next evidence should
+  target a reverse-helper route/timing gate or debris-side writeback before
+  changing live playback behavior.
 - Semantic meaning of `PROEFS.SON` bytes `+4..+5` remains unknown; current
   diagnostics preserve them as raw fields only.
 - Many non-explosion sound callsites still need exact cursor/priority mapping.

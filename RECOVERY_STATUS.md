@@ -370,20 +370,30 @@ Baseline: `origin/main`
   `explosion_playback_oracle_original_3d1b_lane_write_scratch_runtime.txt`
   fixture records output byte `0x01`, selected tag `0x0003`, `DI=0x002D`,
   active count/index `1`, and result local `0x01`, proving the original is
-  about to write to `DS:6617 + 0x002D` with collapse stride `0x0F`. Temp-copy
-  lane-div instrumentation is
-  intentionally rejected because the larger patch body can overlap DOS
-  relocation words near the far-call operand. Live playback behavior is
-  unchanged until reverse-helper or debris-side writeback evidence rounds out
-  the queue-lane model. This also explains why post-call fixtures can preserve
-  helper-written lane bytes while sampled staging globals are already zero.
+  about to write to `DS:6617 + 0x002D` with collapse stride `0x0F`. A
+  follow-up proved that inline lane-write instrumentation is unsafe for
+  adjacent debris writeback probes because it can overwrite the shared loop
+  join at `1000:3D31`. The capture helper now uses a safe three-byte near-jump
+  trampoline for lane-write probes, with runtime code at `CS:F000` and scratch
+  at `CS:F080`. The promoted trampoline fixtures record a fresh `3D1B`
+  forward collapse stop (`output=0x04`, `tag=0x0004`, `DI=0x003C`) and a
+  `3EAF` reverse collapse stop (`output=0x00`, same tag/DI), proving both
+  `DS:6617 + 0x003C` and `DS:6618 + 0x003C` for the same selected tag. Safe
+  trampoline probes at `3D2D` and `3EC1` loaded but did not freeze on this
+  route, so debris-side writeback still needs a different route or
+  debugger-seeded setup. Temp-copy lane-div instrumentation is intentionally
+  rejected because the larger patch body can overlap DOS relocation words near
+  the far-call operand. Live playback behavior is unchanged until debris-side
+  writeback evidence rounds out the queue-lane model. This also explains why
+  post-call fixtures can preserve helper-written lane bytes while sampled
+  staging globals are already zero.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"
   --output-on-failure` passed: 20/20.
 - `ctest --test-dir build -R explosion_playback_oracle
-  --output-on-failure` passed under WSL: 25/25.
-- `ctest --test-dir build --output-on-failure` passed under WSL: 105/105.
+  --output-on-failure` passed under WSL: 29/29.
+- `ctest --test-dir build --output-on-failure` passed under WSL: 109/109.
 - `./build/lezac_cpp --validate` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
   --smoke-controls` passed.
@@ -410,9 +420,8 @@ Baseline: `origin/main`
   instrumentation has promoted original fixtures for branch reachability,
   post-call lane bytes, the `4C75` live word gate, one `3CD4` mid-helper
   lane-division setup, one `3CE3` forward divide call-site register capture,
-  and one `3D1B` forward collapse writeback capture. Next evidence should
-  target a reverse-helper route/timing gate or debris-side writeback before
-  changing live playback behavior.
+  and collapse writeback captures at `3D1B` and `3EAF`. Next evidence should
+  target debris-side writeback before changing live playback behavior.
 - Semantic meaning of `PROEFS.SON` bytes `+4..+5` remains unknown; current
   diagnostics preserve them as raw fields only.
 - Many non-explosion sound callsites still need exact cursor/priority mapping.

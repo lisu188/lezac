@@ -142,9 +142,13 @@ def parse_ghidra_offset(value: str) -> int:
 
 def build_freeze_patch(
     patch_mode: str, ghidra_offset: int
-) -> tuple[bytes, int | None, int]:
+) -> tuple[bytes, int | None, int, int | None, bytes]:
+    def near_jump(from_offset: int, to_offset: int) -> bytes:
+        delta = (to_offset - ((from_offset + 3) & 0xFFFF)) & 0xFFFF
+        return bytes([0xE9, delta & 0xFF, delta >> 8])
+
     if patch_mode == FREEZE_PATCH_MODE_LOOP:
-        return FREEZE_LOOP_PATCH, None, 0
+        return FREEZE_LOOP_PATCH, None, 0, None, b""
     if patch_mode == FREEZE_PATCH_MODE_BP4_CS_SCRATCH:
         if ghidra_offset != 0x4C75:
             raise RuntimeError("--freeze-patch-mode bp4-cs-scratch is only valid at 1000:4C75")
@@ -165,7 +169,7 @@ def build_freeze_patch(
                 0xFE,
             ]
         )
-        return patch, scratch_offset, 2
+        return patch, scratch_offset, 2, None, b""
     if patch_mode == FREEZE_PATCH_MODE_LANE_DIV_CS_SCRATCH:
         if ghidra_offset not in {0x3CD4, 0x3CE3, 0x3E68, 0x3E77}:
             raise RuntimeError(
@@ -212,14 +216,15 @@ def build_freeze_patch(
             patch_bytes.extend([0x8B, 0x46, local_offset])
             patch_bytes.extend(mov_ax_to_cs(scratch_offset + scratch_delta))
         patch_bytes.extend([0xEB, 0xFE])
-        return bytes(patch_bytes), scratch_offset, 0x12
+        return bytes(patch_bytes), scratch_offset, 0x12, None, b""
     if patch_mode == FREEZE_PATCH_MODE_LANE_WRITE_CS_SCRATCH:
         if ghidra_offset not in {0x3D1B, 0x3D2D, 0x3EAF, 0x3EC1}:
             raise RuntimeError(
                 "--freeze-patch-mode lane-write-cs-scratch is only valid at "
                 "1000:3D1B, 1000:3D2D, 1000:3EAF, or 1000:3EC1"
             )
-        scratch_offset = (ghidra_offset + 0x50) & 0xFFFF
+        body_offset = 0xF000
+        scratch_offset = 0xF080
 
         def mov_ax_to_cs(offset: int) -> list[int]:
             return [0x2E, 0xA3, offset & 0xFF, offset >> 8]
@@ -244,7 +249,7 @@ def build_freeze_patch(
         patch_bytes.extend([0x8A, 0x46, 0xF3, 0x30, 0xE4])
         patch_bytes.extend(mov_ax_to_cs(scratch_offset + 0x0A))
         patch_bytes.extend([0xEB, 0xFE])
-        return bytes(patch_bytes), scratch_offset, 0x0C
+        return near_jump(ghidra_offset, body_offset), scratch_offset, 0x0C, body_offset, bytes(patch_bytes)
     raise RuntimeError(f"unsupported freeze patch mode: {patch_mode}")
 
 
@@ -257,7 +262,9 @@ def patch_freeze(
         raise RuntimeError(f"{exe} is not an MZ executable")
     header_paragraphs = data[8] | (data[9] << 8)
     image_base = header_paragraphs * 16
-    patch, scratch_offset, scratch_length = build_freeze_patch(patch_mode, ghidra_offset)
+    patch, scratch_offset, scratch_length, body_offset, body_patch = build_freeze_patch(
+        patch_mode, ghidra_offset
+    )
     file_offset = image_base + ghidra_offset
     if file_offset < image_base or file_offset + len(patch) > len(data):
         raise RuntimeError(
@@ -269,21 +276,35 @@ def patch_freeze(
             scratch_file_offset < image_base
             or scratch_file_offset + scratch_length > len(data)
         ):
+            scratch_file_offset = -1
+    if body_offset is not None:
+        body_file_offset = image_base + body_offset
+        if (
+            body_file_offset < image_base
+            or body_file_offset + len(body_patch) > len(data)
+        ):
             raise RuntimeError(
-                f"scratch offset 1000:{scratch_offset:04X} maps outside {exe}"
+                f"body offset 1000:{body_offset:04X} maps outside {exe}"
             )
     original = bytes(data[file_offset : file_offset + len(patch)])
     scratch_original = (
         bytes(
             data[
-                image_base + scratch_offset :
-                image_base + scratch_offset + scratch_length
+                scratch_file_offset :
+                scratch_file_offset + scratch_length
             ]
         )
-        if scratch_offset is not None
+        if scratch_offset is not None and scratch_file_offset >= 0
+        else b""
+    )
+    body_original = (
+        bytes(data[body_file_offset : body_file_offset + len(body_patch)])
+        if body_offset is not None
         else b""
     )
     data[file_offset : file_offset + len(patch)] = patch
+    if body_offset is not None:
+        data[body_file_offset : body_file_offset + len(body_patch)] = body_patch
     exe.write_bytes(data)
     return {
         "ghidra_offset": ghidra_offset,
@@ -296,6 +317,10 @@ def patch_freeze(
         "scratch_length": scratch_length,
         "scratch_offset": scratch_offset if scratch_offset is not None else 0,
         "scratch_original_bytes": scratch_original.hex(),
+        "body_offset": body_offset if body_offset is not None else 0,
+        "body_patch_bytes": body_patch.hex(),
+        "body_original_bytes": body_original.hex(),
+        "body_length": len(body_patch),
     }
 
 
@@ -308,7 +333,9 @@ def describe_freeze_patch(
         raise RuntimeError(f"{exe} is not an MZ executable")
     header_paragraphs = data[8] | (data[9] << 8)
     image_base = header_paragraphs * 16
-    patch, scratch_offset, scratch_length = build_freeze_patch(patch_mode, ghidra_offset)
+    patch, scratch_offset, scratch_length, body_offset, body_patch = build_freeze_patch(
+        patch_mode, ghidra_offset
+    )
     file_offset = image_base + ghidra_offset
     if file_offset < image_base or file_offset + len(patch) > len(data):
         raise RuntimeError(
@@ -320,18 +347,26 @@ def describe_freeze_patch(
             scratch_file_offset < image_base
             or scratch_file_offset + scratch_length > len(data)
         ):
-            raise RuntimeError(
-                f"scratch offset 1000:{scratch_offset:04X} maps outside {exe}"
-            )
+            scratch_file_offset = -1
     original = data[file_offset : file_offset + len(patch)]
     scratch_original = (
         data[
-            image_base + scratch_offset :
-            image_base + scratch_offset + scratch_length
+            scratch_file_offset :
+            scratch_file_offset + scratch_length
         ]
-        if scratch_offset is not None
+        if scratch_offset is not None and scratch_file_offset >= 0
         else b""
     )
+    if body_offset is not None:
+        body_file_offset = image_base + body_offset
+        body_original = (
+            data[body_file_offset : body_file_offset + len(body_patch)]
+            if image_base <= body_file_offset
+            and body_file_offset + len(body_patch) <= len(data)
+            else b""
+        )
+    else:
+        body_original = b""
     return {
         "ghidra_offset": ghidra_offset,
         "image_base": image_base,
@@ -343,6 +378,10 @@ def describe_freeze_patch(
         "scratch_length": scratch_length,
         "scratch_offset": scratch_offset if scratch_offset is not None else 0,
         "scratch_original_bytes": scratch_original.hex(),
+        "body_offset": body_offset if body_offset is not None else 0,
+        "body_patch_bytes": body_patch.hex(),
+        "body_original_bytes": body_original.hex(),
+        "body_length": len(body_patch),
     }
 
 
@@ -1390,8 +1429,11 @@ def main() -> int:
         if inferred_ds != RUNTIME_DS:
             raise RuntimeError(f"unexpected runtime DS 0x{inferred_ds:04x}")
         freeze_loaded_bytes = b""
+        freeze_body_loaded_bytes = b""
+        freeze_body_loaded_before_runtime_patch = b""
         freeze_loaded_before_runtime_patch = b""
         runtime_freeze_old_bytes = b""
+        runtime_freeze_body_old_bytes = b""
         runtime_freeze_patch_elapsed: float | None = None
         runtime_freeze_patch_score = 0
         runtime_freeze_patch_fields: dict[str, int | float] = {}
@@ -1400,6 +1442,11 @@ def main() -> int:
         runtime_lane_write_scratch: dict[str, int] | None = None
         patch_bytes = (
             bytes.fromhex(str(freeze_patch["patch_bytes"]))
+            if freeze_patch is not None
+            else b""
+        )
+        body_patch_bytes = (
+            bytes.fromhex(str(freeze_patch.get("body_patch_bytes", "")))
             if freeze_patch is not None
             else b""
         )
@@ -1412,6 +1459,14 @@ def main() -> int:
                 int(freeze_patch["ghidra_offset"]),
                 freeze_probe_length,
             )
+            if body_patch_bytes:
+                freeze_body_loaded_bytes = read_emulated(
+                    pid,
+                    base,
+                    RUNTIME_CS,
+                    int(freeze_patch["body_offset"]),
+                    len(body_patch_bytes),
+                )
 
         game = run(["xdotool", "search", "--name", "DOSBox"], env).split()[0]
         snapshot(env, out_dir, game, "000_menu")
@@ -1475,6 +1530,28 @@ def main() -> int:
             freeze_loaded_before_runtime_patch = read_emulated(
                 pid, base, RUNTIME_CS, patch_offset, freeze_probe_length
             )
+            if body_patch_bytes:
+                freeze_body_loaded_before_runtime_patch = read_emulated(
+                    pid,
+                    base,
+                    RUNTIME_CS,
+                    int(freeze_patch["body_offset"]),
+                    len(body_patch_bytes),
+                )
+                runtime_freeze_body_old_bytes = write_emulated(
+                    pid,
+                    base,
+                    RUNTIME_CS,
+                    int(freeze_patch["body_offset"]),
+                    body_patch_bytes,
+                )
+                freeze_body_loaded_bytes = read_emulated(
+                    pid,
+                    base,
+                    RUNTIME_CS,
+                    int(freeze_patch["body_offset"]),
+                    len(body_patch_bytes),
+                )
             runtime_freeze_old_bytes = write_emulated(
                 pid, base, RUNTIME_CS, patch_offset, patch_bytes
             )
@@ -1573,6 +1650,28 @@ def main() -> int:
                 freeze_loaded_before_runtime_patch = read_emulated(
                     pid, base, RUNTIME_CS, patch_offset, freeze_probe_length
                 )
+                if body_patch_bytes:
+                    freeze_body_loaded_before_runtime_patch = read_emulated(
+                        pid,
+                        base,
+                        RUNTIME_CS,
+                        int(freeze_patch["body_offset"]),
+                        len(body_patch_bytes),
+                    )
+                    runtime_freeze_body_old_bytes = write_emulated(
+                        pid,
+                        base,
+                        RUNTIME_CS,
+                        int(freeze_patch["body_offset"]),
+                        body_patch_bytes,
+                    )
+                    freeze_body_loaded_bytes = read_emulated(
+                        pid,
+                        base,
+                        RUNTIME_CS,
+                        int(freeze_patch["body_offset"]),
+                        len(body_patch_bytes),
+                    )
                 runtime_freeze_old_bytes = write_emulated(
                     pid, base, RUNTIME_CS, patch_offset, patch_bytes
                 )
@@ -1920,6 +2019,15 @@ def main() -> int:
                         out.write(
                             f"runtime_freeze_old_bytes={runtime_freeze_old_bytes.hex()}\n"
                         )
+                        if body_patch_bytes:
+                            out.write(
+                                "runtime_freeze_body_loaded_before="
+                                f"{freeze_body_loaded_before_runtime_patch.hex()}\n"
+                            )
+                            out.write(
+                                "runtime_freeze_body_old_bytes="
+                                f"{runtime_freeze_body_old_bytes.hex()}\n"
+                            )
                         for field in [
                             "debris_queue_count",
                             "collapse_queue_count",
@@ -1966,6 +2074,13 @@ def main() -> int:
                     f"patch_bytes={freeze_patch['patch_bytes']} "
                     f"loaded_bytes={freeze_loaded_bytes.hex()}"
                 )
+                if body_patch_bytes:
+                    out.write(
+                        f" body_cs={RUNTIME_CS:04X}:{int(freeze_patch['body_offset']):04X}"
+                        f" body_old_bytes={freeze_patch['body_original_bytes']}"
+                        f" body_patch_bytes={freeze_patch['body_patch_bytes']}"
+                        f" body_loaded_bytes={freeze_body_loaded_bytes.hex()}"
+                    )
                 if (
                     str(freeze_patch["patch_mode"])
                     == FREEZE_PATCH_MODE_BP4_CS_SCRATCH
@@ -2120,6 +2235,17 @@ def main() -> int:
                 "freeze_runtime_patch_applied="
                 f"{1 if runtime_freeze_patch_elapsed is not None else 0}\n"
             )
+            if body_patch_bytes:
+                instrumentation_manifest += (
+                    f"freeze_body_runtime={RUNTIME_CS:04X}:"
+                    f"{int(freeze_patch['body_offset']):04X}\n"
+                    f"freeze_body_length={int(freeze_patch['body_length'])}\n"
+                    "freeze_body_old_bytes="
+                    f"{freeze_patch['body_original_bytes']}\n"
+                    "freeze_body_patch_bytes="
+                    f"{freeze_patch['body_patch_bytes']}\n"
+                    f"freeze_body_loaded_bytes={freeze_body_loaded_bytes.hex()}\n"
+                )
             if (
                 str(freeze_patch["patch_mode"])
                 == FREEZE_PATCH_MODE_BP4_CS_SCRATCH
@@ -2227,6 +2353,13 @@ def main() -> int:
                     f"{freeze_loaded_before_runtime_patch.hex()}\n"
                     f"freeze_runtime_old_bytes={runtime_freeze_old_bytes.hex()}\n"
                 )
+                if body_patch_bytes:
+                    instrumentation_manifest += (
+                        "freeze_runtime_body_loaded_before="
+                        f"{freeze_body_loaded_before_runtime_patch.hex()}\n"
+                        "freeze_runtime_body_old_bytes="
+                        f"{runtime_freeze_body_old_bytes.hex()}\n"
+                    )
                 if runtime_freeze_patch_elapsed is not None:
                     for field in [
                         "debris_queue_count",

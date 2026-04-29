@@ -524,6 +524,38 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3d1b_lane_write_scratch_runtime .*playback_breaks=23 observed_freeze_count=1 observed_freeze_offset=0x3d1b .*observed_lane_forward_write=1 observed_lane_reverse_write=0 observed_lane_collapse_write=1 observed_lane_debris_write=0 .*lane_write_scratch_present=1 lane_write_kind=forward lane_write_target=collapse lane_write_cs_offset=0x3d6b lane_write_output=0x0001 lane_write_di=0x002d lane_write_tag=0x0003 lane_write_active_count=0x0001 lane_write_loop_index=0x0001 lane_write_result_local=0x0001 .*collapse_count=0x0001 collapse_count_base=0x6620 collapse_base=0x6620 .*collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_word=0x0009 collapse0_flagged=0x8009 collapse0_forward=0x11 collapse0_reverse=0xec .*temp_copy=1 visual_claim=0")
 
+    add_test(NAME explosion_playback_oracle_original_3d1b_lane_write_trampoline_runtime
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_original_3d1b_lane_write_trampoline_runtime.txt)
+    set_tests_properties(explosion_playback_oracle_original_3d1b_lane_write_trampoline_runtime PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3d1b_lane_write_trampoline_runtime .*playback_breaks=23 observed_freeze_count=1 observed_freeze_offset=0x3d1b .*observed_lane_forward_write=1 observed_lane_reverse_write=0 observed_lane_collapse_write=1 observed_lane_debris_write=0 .*lane_write_scratch_present=1 lane_write_kind=forward lane_write_target=collapse lane_write_cs_offset=0xf080 lane_write_output=0x0004 lane_write_di=0x003c lane_write_tag=0x0004 lane_write_active_count=0x0001 lane_write_loop_index=0x0001 lane_write_result_local=0x0004 .*collapse_count=0x0003 collapse_count_base=0x663e collapse_base=0x663e .*collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_word=0x0009 collapse0_flagged=0x8009 collapse0_forward=0x0e collapse0_reverse=0x10 .*temp_copy=1 visual_claim=0")
+
+    add_test(NAME explosion_playback_oracle_original_3d2d_lane_write_trampoline_no_freeze
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_original_3d2d_lane_write_trampoline_no_freeze.txt)
+    set_tests_properties(explosion_playback_oracle_original_3d2d_lane_write_trampoline_no_freeze PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3d2d_lane_write_trampoline_no_freeze .*playback_breaks=23 observed_freeze_count=0 observed_freeze_offset=0x0000 .*observed_lane_forward_write=0 observed_lane_reverse_write=0 observed_lane_collapse_write=0 observed_lane_debris_write=0 .*lane_write_scratch_present=0 .*debris_count=0x00c8 debris_count_base=0x292b debris_base=0x292b .*collapse_count=0x0003 collapse_count_base=0x663e collapse_base=0x663e .*temp_copy=1 visual_claim=0")
+
+    add_test(NAME explosion_playback_oracle_original_3eaf_lane_write_trampoline_runtime
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_original_3eaf_lane_write_trampoline_runtime.txt)
+    set_tests_properties(explosion_playback_oracle_original_3eaf_lane_write_trampoline_runtime PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3eaf_lane_write_trampoline_runtime .*playback_breaks=23 observed_freeze_count=1 observed_freeze_offset=0x3eaf .*observed_lane_forward_write=0 observed_lane_reverse_write=1 observed_lane_collapse_write=1 observed_lane_debris_write=0 .*lane_write_scratch_present=1 lane_write_kind=reverse lane_write_target=collapse lane_write_cs_offset=0xf080 lane_write_output=0x0000 lane_write_di=0x003c lane_write_tag=0x0004 lane_write_active_count=0x0001 lane_write_loop_index=0x0001 lane_write_result_local=0x0000 .*collapse_count=0x0003 collapse_count_base=0x663e collapse_base=0x663e .*collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_word=0x0009 collapse0_flagged=0x8009 collapse0_forward=0x0e collapse0_reverse=0x10 .*temp_copy=1 visual_claim=0")
+
+    add_test(NAME explosion_playback_oracle_original_3ec1_lane_write_trampoline_no_freeze
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_original_3ec1_lane_write_trampoline_no_freeze.txt)
+    set_tests_properties(explosion_playback_oracle_original_3ec1_lane_write_trampoline_no_freeze PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3ec1_lane_write_trampoline_no_freeze .*playback_breaks=23 observed_freeze_count=0 observed_freeze_offset=0x0000 .*observed_lane_forward_write=0 observed_lane_reverse_write=0 observed_lane_collapse_write=0 observed_lane_debris_write=0 .*lane_write_scratch_present=0 .*debris_count=0x00c8 debris_count_base=0x292b debris_base=0x292b .*collapse_count=0x0003 collapse_count_base=0x663e collapse_base=0x663e .*temp_copy=1 visual_claim=0")
+
     add_test(NAME explosion_playback_oracle_original_4c96_runtime
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_original_4c96_runtime.txt)

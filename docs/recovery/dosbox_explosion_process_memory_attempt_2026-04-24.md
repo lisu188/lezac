@@ -496,11 +496,26 @@ relationship matches the original collapse stride exactly:
 `0x0003 * 0x0F = 0x002D`, so the original is about to write to
 `DS:6617 + 0x002D`.
 
+A follow-up targeted the paired debris store at `1000:3D2D` and exposed an
+instrumentation hazard: the inline scratch body overwrote the shared writeback
+join at `1000:3D31`, so the collapse path could jump into the instrumentation
+body and create a false debris-side scratch record. The tooling now uses a safe
+lane-write trampoline: a three-byte near jump at the probed instruction, a
+runtime body at `CS:F000`, and scratch bytes at `CS:F080`.
+
+With that safer patch, the same route re-captured positive collapse writeback
+evidence at `1000:3D1B` (`output=0x04`, `tag=0x0004`, `DI=0x003C`) and added
+positive reverse collapse evidence at `1000:3EAF` (`output=0x00`, same tag and
+DI). Both preserve the collapse stride relation `0x0004 * 0x0F = 0x003C`.
+Safe trampoline probes at `1000:3D2D` and `1000:3EC1` loaded but did not freeze
+on this route, so debris-side writeback remains a reachability problem rather
+than proven original behavior.
+
 ## Next Step
 
 Use the now-working `45FA`/`492F`/`4B3F`/`4B61`/`4B6A`/`4C75`/`4C96`/`4CA9`
 visible-playback freezes plus the `3CD4`/`3CE3` forward-helper scratch captures
-and the `3D1B` forward collapse writeback capture to find a reverse-helper
-route/timing gate or a debris-side writeback stop. Prefer immediate runtime
-child-memory patching for mid-helper captures and keep promoted fixtures
-explicit about `visual_claim=0` until frame-table/sprite semantics are proven.
+and the collapse writeback pair (`3D1B`/`3EAF`) to find a debris-side writeback
+route/timing gate. Prefer safe runtime trampolines for mid-helper writeback
+captures and keep promoted fixtures explicit about `visual_claim=0` until
+frame-table/sprite semantics are proven.

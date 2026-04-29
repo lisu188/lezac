@@ -15,6 +15,13 @@ Current local validation constraints:
   promotes one original runtime-child-memory divide call-site capture.
 - `explosion_playback_oracle_original_3d1b_lane_write_scratch_runtime.txt`
   promotes one original runtime-child-memory forward collapse writeback capture.
+- `explosion_playback_oracle_original_3d1b_lane_write_trampoline_runtime.txt`
+  promotes the same forward collapse writeback with a safe trampoline patch.
+- `explosion_playback_oracle_original_3eaf_lane_write_trampoline_runtime.txt`
+  promotes the reverse collapse writeback with the same safe trampoline patch.
+- `explosion_playback_oracle_original_3d2d_lane_write_trampoline_no_freeze.txt`
+  and `explosion_playback_oracle_original_3ec1_lane_write_trampoline_no_freeze.txt`
+  record that this route did not reach the debris-side writebacks.
 - The evidence remains instrumentation-only (`visual_claim=0`); no live C++
   playback behavior is changed by this note alone.
 
@@ -147,9 +154,9 @@ also loaded their reverse-helper scratch patches on the same route, but they
 did not freeze and are therefore recorded only as failed reachability probes,
 not promoted evidence.
 
-A later runtime-child-memory probe froze the forward collapse writeback at
+A later runtime-child-memory probe first froze the forward collapse writeback at
 `1000:3D1B`, runtime `01ED:3D1B`, immediately before the original
-`mov [di+0x6617],al` instruction executes. The promoted
+`mov [di+0x6617],al` instruction executes. The original promoted
 `explosion_playback_oracle_original_3d1b_lane_write_scratch_runtime.txt`
 fixture records scratch `CS:3D6B`:
 
@@ -167,6 +174,49 @@ The oracle validates that the collapse tag maps to `DI` by `tag * 0x0F`;
 forward lane byte `0x01` is about to be stored at `DS:6617 + 0x002D`
 (`DS:6644`). The fixture still has `visual_claim=0`; it proves the queue
 writeback arithmetic and destination, not exact sprite timing.
+
+The first writeback instrumentation body was intentionally broad and later
+proved unsafe for adjacent mid-branch probes: when placed at `1000:3D2D`, it
+overwrote the shared loop join at `1000:3D31`, allowing the collapse branch to
+jump into the instrumentation body and produce a false debris-side scratch
+record. The safe follow-up uses a three-byte near jump at the probed
+instruction and parks the scratch/freezing body at runtime `CS:F000`, with
+scratch data at `CS:F080`.
+
+Using that trampoline patch, the same route produced a cleaner forward
+collapse writeback fixture,
+`explosion_playback_oracle_original_3d1b_lane_write_trampoline_runtime.txt`:
+
+```text
+offset             = 1000:3D1B
+output/result byte = 0x0004
+DI write offset    = 0x003C
+selected tag       = 0x0004
+active count       = 0x0001
+loop index         = 0x0001
+```
+
+The tag-to-DI relation again matches collapse stride `0x0F`:
+`0x0004 * 0x0F = 0x003C`.
+
+The reverse collapse writeback fixture,
+`explosion_playback_oracle_original_3eaf_lane_write_trampoline_runtime.txt`,
+freezes `1000:3EAF` before `mov [di+0x6618],al`:
+
+```text
+offset             = 1000:3EAF
+output/result byte = 0x0000
+DI write offset    = 0x003C
+selected tag       = 0x0004
+active count       = 0x0001
+loop index         = 0x0001
+```
+
+So the route now proves both collapse writeback bases for the same selected
+tag: forward `DS:6617 + 0x003C` and reverse `DS:6618 + 0x003C`.
+Safe trampoline probes at `1000:3D2D` and `1000:3EC1` loaded successfully but
+did not freeze on this route, so debris writeback still needs a different route
+or debugger-seeded setup before promotion as positive evidence.
 
 Follow-up temp-copy instrumentation now freezes the post-call instructions:
 
@@ -321,5 +371,5 @@ lane bytes `forward=0x00`, `reverse=0x04` after the lane helpers. That mismatch
 is now explicit evidence for the next rendering/playback recovery step.
 
 The next evidence step is to find a route or timing gate that reaches the
-reverse-helper equivalent, or to capture debris-side writeback, before
-replacing the provisional queue playback.
+debris-side writebacks (`1000:3D2D`/`1000:3EC1`), before replacing the
+provisional queue playback.

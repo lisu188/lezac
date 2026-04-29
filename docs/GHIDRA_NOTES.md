@@ -306,6 +306,17 @@ fixture records output byte `0x01`, selected tag `0x0003`, loop index/count
 `1/1`, and `DI=0x002d`, matching `tag * 0x0f`. This directly proves one
 original helper lane byte about to be written to collapse offset
 `DS:6617 + 0x002d = DS:6644`.
+A same-day safer lane-write probe replaces only the target instruction with a
+three-byte near jump and parks the runtime scratch/freezing body at `CS:f000`
+with scratch at `CS:f080`. That removes the earlier risk of overwriting the
+shared writeback loop join. The promoted trampoline fixtures show a forward
+collapse stop at `1000:3d1b` with output `0x04`, tag `0x0004`, and
+`DI=0x003c`, plus a reverse collapse stop at `1000:3eaf` with output `0x00`,
+the same tag, and the same `DI`. The tag relation remains `tag * 0x0f`, so the
+route now proves both collapse writeback bases:
+`DS:6617 + 0x003c` and `DS:6618 + 0x003c`. Safe trampoline probes at
+`1000:3d2d` and `1000:3ec1` loaded but did not freeze on this route; debris
+writeback still needs a different route or debugger-seeded setup.
 
 The effect constructor at `1000:3fa6` writes 11-byte effect records at
 `0x2093 + 0x0b * DS:2076` and stores the effect type byte in

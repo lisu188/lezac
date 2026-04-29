@@ -508,6 +508,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3cd4_lane_div_scratch_runtime .*playback_breaks=19 observed_freeze_count=1 observed_freeze_offset=0x3cd4 .*observed_lane_forward_divide=1 observed_lane_reverse_divide=0 .*lane_div_scratch_present=1 lane_div_kind=forward lane_div_cs_offset=0x3d24 lane_div_ax=0xfff8 lane_div_dx=0xffff lane_div_cx=0x0005 lane_div_bx=0x0000 lane_div_active_count=0x0001 lane_div_loop_index=0x0001 lane_div_weight_local=0x0005 lane_div_numerator_low=0xfff8 lane_div_numerator_high=0xffff .*lane_globals_present=1 lane_update_flag=0x01 lane_word_global_value=0x8009 lane_target_offset_global_value=0x0a7a .*debris_count=0x00ca debris_count_base=0x2941 debris_base=0x2941 .*collapse_count=0x0002 collapse_count_base=0x662f collapse_base=0x662f .*collapse0_start=0x07a0 collapse0_end=0x07be collapse0_word=0x0002 collapse0_flagged=0x8002 .*temp_copy=1 visual_claim=0")
 
+    add_test(NAME explosion_playback_oracle_original_3ce3_lane_div_scratch_runtime
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_original_3ce3_lane_div_scratch_runtime.txt)
+    set_tests_properties(explosion_playback_oracle_original_3ce3_lane_div_scratch_runtime PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3ce3_lane_div_scratch_runtime .*playback_breaks=19 observed_freeze_count=1 observed_freeze_offset=0x3ce3 .*observed_lane_forward_divide=1 observed_lane_reverse_divide=0 .*lane_div_scratch_present=1 lane_div_kind=forward lane_div_cs_offset=0x3d33 lane_div_ax=0x001c lane_div_dx=0x0000 lane_div_cx=0x0010 lane_div_bx=0x0000 lane_div_active_count=0x0001 lane_div_loop_index=0x0001 lane_div_weight_local=0x0010 lane_div_numerator_low=0x001c lane_div_numerator_high=0x0000 .*lane_globals_present=1 lane_update_flag=0x00 lane_word_global_value=0x0000 lane_target_offset_global_value=0x0000 .*debris_count=0x00c8 debris_count_base=0x292b debris_base=0x292b .*collapse_count=0x0001 collapse_count_base=0x6620 collapse_base=0x6620 .*collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_word=0x0009 collapse0_flagged=0x8009 collapse0_forward=0x09 collapse0_reverse=0xf5 .*temp_copy=1 visual_claim=0")
+
     add_test(NAME explosion_playback_oracle_original_4c96_runtime
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_original_4c96_runtime.txt)

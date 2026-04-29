@@ -474,11 +474,21 @@ globals at the same stop are `DS:2078=1`, `DS:655E=0x8009`, and
 runtime evidence, while still leaving exact sprite playback semantics as
 `visual_claim=0`.
 
+The same immediate runtime approach then froze the actual forward far-call site
+at `01ED:3CE3` and promoted
+`explosion_playback_oracle_original_3ce3_lane_div_scratch_runtime.txt`. That
+scratch block records already-loaded division registers
+`DX:AX=0x0000:0x001C`, `BX:CX=0x0000:0x0010`, active count/index `1`, and
+matching numerator/weight locals. Immediate reverse-helper probes at
+`01ED:3E68` and `01ED:3E77` loaded the runtime patches but did not freeze on
+this route; those captures remain failed reachability attempts and are not
+promoted.
+
 ## Next Step
 
 Use the now-working `45FA`/`492F`/`4B3F`/`4B61`/`4B6A`/`4C75`/`4C96`/`4CA9`
-visible-playback freezes plus the `3CD4` mid-helper scratch capture to probe
-the reverse-helper equivalent (`3E68`/`3E77`) or the lane writeback point. The
+visible-playback freezes plus the `3CD4`/`3CE3` forward-helper scratch captures
+to find a reverse-helper route/timing gate or the lane writeback point. The
 goal is to connect the proven signed numerator/weight setup to the final
 helper-selected lane bytes in debris/collapse playback. Prefer immediate
 runtime child-memory patching for mid-helper captures and keep promoted

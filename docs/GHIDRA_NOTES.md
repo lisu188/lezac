@@ -291,6 +291,14 @@ but it directly ties the static signed-divide model to one original
 mid-helper execution. Temp-copy lane-div instrumentation is intentionally
 blocked because the larger scratch body can overlap DOS relocation words near
 the far-call operand; use runtime child-memory patching for these stops.
+A follow-up 2026-04-29 runtime capture freezes the actual forward divide call
+at `1000:3ce3`. The promoted
+`explosion_playback_oracle_original_3ce3_lane_div_scratch_runtime.txt` fixture
+records the already-loaded registers `DX:AX=0x0000:0x001c` and
+`BX:CX=0x0000:0x0010`, with matching numerator/weight locals. Immediate
+runtime probes at reverse setup/call sites `1000:3e68` and `1000:3e77` loaded
+their patches but did not freeze on the same route, so no reverse-helper
+scratch fixture is promoted yet.
 
 The effect constructor at `1000:3fa6` writes 11-byte effect records at
 `0x2093 + 0x0b * DS:2076` and stores the effect type byte in
@@ -476,6 +484,9 @@ it freezes the forward lane blender while `DS:2078=1`, `DS:655e=0x8009`, and
 `DX:AX=0xffff:0xfff8` over divisor `BX:CX=0x0000:0x0005`. This confirms one
 live helper iteration where signed weighted lane accumulation is about to be
 divided by the positive weight sum.
+The `3ce3` call-site fixture confirms the same register contract after setup
+has completed for a later forward-helper iteration: `DX:AX=0x0000:0x001c` and
+`BX:CX=0x0000:0x0010` at the far divide call.
 
 ## Sound Playback Evidence
 

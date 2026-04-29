@@ -11,6 +11,8 @@ Current local validation constraints:
   continuation.
 - `explosion_playback_oracle_original_3cd4_lane_div_scratch_runtime.txt`
   promotes one original runtime-child-memory mid-helper capture.
+- `explosion_playback_oracle_original_3ce3_lane_div_scratch_runtime.txt`
+  promotes one original runtime-child-memory divide call-site capture.
 - The evidence remains instrumentation-only (`visual_claim=0`); no live C++
   playback behavior is changed by this note alone.
 
@@ -122,6 +124,27 @@ to the signed lane numerator and positive weight sum that feed `0920:0945`.
 The fixture still has `visual_claim=0`; it proves runtime arithmetic state, not
 exact sprite timing.
 
+A follow-up runtime-child-memory probe froze the actual forward divide call at
+`1000:3CE3`, runtime `01ED:3CE3`, after the helper loaded the far routine
+registers. The promoted
+`explosion_playback_oracle_original_3ce3_lane_div_scratch_runtime.txt` fixture
+records scratch `CS:3D33`:
+
+```text
+AX numerator low  = 0x001C
+DX numerator high = 0x0000
+CX weight sum     = 0x0010
+BX high divisor   = 0x0000
+active count      = 0x0001
+loop index        = 0x0001
+```
+
+This directly validates the `DX:AX` and `BX:CX` register contract at the far
+divide call itself. Immediate runtime probes at `1000:3E68` and `1000:3E77`
+also loaded their reverse-helper scratch patches on the same route, but they
+did not freeze and are therefore recorded only as failed reachability probes,
+not promoted evidence.
+
 Follow-up temp-copy instrumentation now freezes the post-call instructions:
 
 - `1000:4C99`, immediately after the `4C96` call returns from `1000:3BB2`.
@@ -202,7 +225,9 @@ form of `signed_lane_weight_sum / weight_sum`. The quotient rounds toward zero,
 the remainder in `BX:CX` keeps the dividend sign, and the zero-divisor path at
 `0920:09AC` loads `AX=0x00C8` before entering the runtime error handler.
 The original `3CD4` scratch fixture confirms this register contract in a live
-forward-helper setup with `DX:AX=0xFFFF:0xFFF8` and `BX:CX=0x0000:0x0005`.
+forward-helper setup with `DX:AX=0xFFFF:0xFFF8` and `BX:CX=0x0000:0x0005`;
+the original `3CE3` scratch fixture confirms it again at the actual far divide
+call with `DX:AX=0x0000:0x001C` and `BX:CX=0x0000:0x0010`.
 The post-call fixtures that show `DS:2078`, `DS:655E`, and `DS:659A` as zero
 are therefore compatible with a transient staging lifetime: they preserve the
 helper-written queue bytes after the helper has returned, not a mid-helper view
@@ -268,7 +293,8 @@ metadata: C++ has one collapse record at `start=0x0A06`, `end=0x0A08`,
 lane bytes `forward=0x00`, `reverse=0x04` after the lane helpers. That mismatch
 is now explicit evidence for the next rendering/playback recovery step.
 
-The next evidence step is to capture the reverse-helper equivalent or a later
-writeback stop that connects the proven helper inputs, the `0x0003` word-gate
-local, and the selected collapse/debris records to the exact original lane
-bytes before replacing the provisional queue playback.
+The next evidence step is to find a route or timing gate that reaches the
+reverse-helper equivalent, or to capture a later writeback stop that connects
+the proven helper inputs, the `0x0003` word-gate local, and the selected
+collapse/debris records to the exact original lane bytes before replacing the
+provisional queue playback.

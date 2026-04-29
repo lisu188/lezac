@@ -278,6 +278,20 @@ record weight before adding it to the numerator. `--debug-lane-helper-model`
 locks the data flow and `--debug-lane-blend-arithmetic` locks the division
 contract before any live playback behavior is changed.
 
+A 2026-04-28 original runtime-child-memory capture now freezes the forward
+lane blender at `1000:3cd4`, just before it loads the far division helper
+registers. The promoted
+`explosion_playback_oracle_original_3cd4_lane_div_scratch_runtime.txt` fixture
+records scratch `CS:3d24` with would-be `DX:AX=0xffff:0xfff8`,
+`BX:CX=0x0000:0x0005`, active staging count/index `1`, and the matching
+locals `[BP-8]=0x0005`, `[BP-4]=0xfff8`, `[BP-2]=0xffff`. It also captures live
+lane globals `DS:2074=1`, `DS:655e=0x8009`, and `DS:659a=0x0a7a` in the same
+held playback frame. This is still instrumented evidence with `visual_claim=0`,
+but it directly ties the static signed-divide model to one original
+mid-helper execution. Temp-copy lane-div instrumentation is intentionally
+blocked because the larger scratch body can overlap DOS relocation words near
+the far-call operand; use runtime child-memory patching for these stops.
+
 The effect constructor at `1000:3fa6` writes 11-byte effect records at
 `0x2093 + 0x0b * DS:2076` and stores the effect type byte in
 `0x78d5 + DS:2076`. `1000:414a` is the dispatcher profile selector: types
@@ -456,6 +470,12 @@ instrumentation mode now patches `1000:4c75` to copy `[bp-4]` into
 summary is still `0x0000`, proving a positive gate local directly and marking
 the queue-summary fields as sampled context rather than the exact loop-local
 source.
+The later `3cd4` lane-div scratch fixture goes one step deeper into the helper:
+it freezes the forward lane blender while `DS:2078=1`, `DS:655e=0x8009`, and
+`DS:659a=0x0a7a`, and records the pre-division numerator/weight registers as
+`DX:AX=0xffff:0xfff8` over divisor `BX:CX=0x0000:0x0005`. This confirms one
+live helper iteration where signed weighted lane accumulation is about to be
+divided by the positive weight sum.
 
 ## Sound Playback Evidence
 

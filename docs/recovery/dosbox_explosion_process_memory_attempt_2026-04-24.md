@@ -456,14 +456,31 @@ into the effect/debris update path during visible playback, but they are still
 instrumented process-memory evidence rather than debugger breakpoint stops, and
 the sampled effect table still needs exact semantic interpretation.
 
+A 2026-04-28 continuation added a narrower lane-division scratch mode for the
+forward/reverse lane blenders. Temp-copy attempts at `1000:3CE3` and
+`1000:3CD4` did not produce valid evidence because the larger patch body
+overlaps a relocated far-call segment word in the DOS-loaded image. The helper
+therefore rejects `--freeze-patch-mode lane-div-cs-scratch` unless runtime
+child-memory instrumentation is explicitly approved.
+
+Using immediate runtime patching after bomb input, the route froze at
+`01ED:3CD4` and promoted
+`explosion_playback_oracle_original_3cd4_lane_div_scratch_runtime.txt`. The
+scratch block at `CS:3D24` records one live forward-helper setup with
+`DX:AX=0xFFFF:0xFFF8`, `BX:CX=0x0000:0x0005`, active staging count/index
+`1`, and matching `[BP-8]`, `[BP-4]`, and `[BP-2]` locals. The sampled lane
+globals at the same stop are `DS:2078=1`, `DS:655E=0x8009`, and
+`DS:659A=0x0A7A`. This promotes the signed lane-division setup to original
+runtime evidence, while still leaving exact sprite playback semantics as
+`visual_claim=0`.
+
 ## Next Step
 
 Use the now-working `45FA`/`492F`/`4B3F`/`4B61`/`4B6A`/`4C75`/`4C96`/`4CA9`
-visible-playback freezes to map which live high-debris iteration supplies the
-positive `[bp-4]` word and how the helper-selected lane bytes map back into
-debris/collapse playback. Prefer the fast target-byte-gated route
-(`--sample-interval 0.005`, `--route-state-interval 0`) when probing this
-window. Only promote
-`explosion_playback_oracle_original.txt` after screenshots show the intended
-bomb/object event and the sampled bytes prove the exact runtime window and
-field semantics.
+visible-playback freezes plus the `3CD4` mid-helper scratch capture to probe
+the reverse-helper equivalent (`3E68`/`3E77`) or the lane writeback point. The
+goal is to connect the proven signed numerator/weight setup to the final
+helper-selected lane bytes in debris/collapse playback. Prefer immediate
+runtime child-memory patching for mid-helper captures and keep promoted
+fixtures explicit about `visual_claim=0` until frame-table/sprite semantics are
+proven.

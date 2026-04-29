@@ -1,0 +1,65 @@
+# LEZAC explosion playback oracle fixture v1
+# Synthetic parser fixture: verifies lane division scratch evidence parsing.
+capture=explosion_playback
+source=dosbox-regular-process-memory
+temp_copy=1
+visual_claim=0
+instrumented_freeze_observed=1
+runtime_freeze_patch_applied=1
+instrumented_lane_div_scratch_present=1
+instrumented_lane_div_cs_offset=0x3d23
+instrumented_lane_div_kind=forward
+instrumented_lane_div_ax=0xfff7
+instrumented_lane_div_dx=0xffff
+instrumented_lane_div_cx=0x0001
+instrumented_lane_div_bx=0x0000
+instrumented_lane_div_active_count=0x0001
+instrumented_lane_div_loop_index=0x0001
+instrumented_lane_div_weight_local=0x0001
+instrumented_lane_div_numerator_low=0xfff7
+instrumented_lane_div_numerator_high=0xffff
+command=python3 tools/capture_original_explosion_procmem.py /tmp/lezac-lane-div . --freeze-ghidra-offset 1000:3CE3 --freeze-patch-mode lane-div-cs-scratch
+
+runtime_cs=1A2B
+runtime_ds=2B3C
+high_debris_target_delta=0001
+high_debris_target_offset=0394
+high_debris_lookup_segment=3EF4
+high_debris_word_layer_offset=0000
+high_debris_word_layer_segment=3F71
+high_debris_word_layer_address=0728
+high_debris_c204=0010
+high_debris_target_byte=75
+high_debris_word_layer_value=8009
+
+break ghidra=1000:75F1 runtime=1A2B:75F1 label=bomb_expire_dispatch_call
+break ghidra=1000:414A runtime=1A2B:414A label=explosion_dispatcher
+break ghidra=1000:370E runtime=1A2B:370E label=tile_damage_queue
+break ghidra=1000:3A7E runtime=1A2B:3A7E label=damage_forward_lookup
+break ghidra=1000:3B18 runtime=1A2B:3B18 label=damage_reverse_lookup
+break ghidra=1000:3BB2 runtime=1A2B:3BB2 label=collapse_forward_pass
+break ghidra=1000:3CE3 runtime=1A2B:3CE3 label=collapse_forward_lane_divide observed=runtime_child_memory_freeze_observed
+break ghidra=1000:3D46 runtime=1A2B:3D46 label=collapse_reverse_pass
+break ghidra=1000:45FA runtime=1A2B:45FA label=effect_debris_update_entry
+break ghidra=1000:492F runtime=1A2B:492F label=high_debris_loop_entry
+break ghidra=1000:4B3F runtime=1A2B:4B3F label=high_debris_target_sample
+break ghidra=1000:4B61 runtime=1A2B:4B61 label=high_debris_target_byte_gate
+break ghidra=1000:4B6A runtime=1A2B:4B6A label=high_debris_zero_target_branch
+break ghidra=1000:4C20 runtime=1A2B:4C20 label=high_debris_nonzero_target_branch
+break ghidra=1000:4C75 runtime=1A2B:4C75 label=high_debris_word_gate
+break ghidra=1000:4C96 runtime=1A2B:4C96 label=effect_forward_pass_call
+break ghidra=1000:4C99 runtime=1A2B:4C99 label=effect_forward_pass_return
+break ghidra=1000:4CA9 runtime=1A2B:4CA9 label=effect_reverse_pass_call
+break ghidra=1000:4CAC runtime=1A2B:4CAC label=effect_reverse_pass_return
+
+dump DS:2090
+2B3C:2090  00 00 00 93 03 00 c0 04 05 00 00 00 6b 00 00 00
+
+dump DS:6610
+2B3C:6610  00 06 0a 08 0a 09 80 02 03 00 00 05 00 00 00 04
+
+dump DS:C1E0
+2B3C:C1E0  6b 6c 6d 6e 6f 70 71 72 00 00 00 00 00 00 00 00
+
+dump DS:C21E
+2B3C:C21E  18 00 28 00 84 75 08 05 20 00 30 00 85 75 09 05

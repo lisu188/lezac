@@ -5053,6 +5053,8 @@ public:
             bool observedEffectReverseCall = false;
             bool observedEffectForwardReturn = false;
             bool observedEffectReverseReturn = false;
+            bool observedLaneForwardDivide = false;
+            bool observedLaneReverseDivide = false;
             uint16_t selectedDebrisBase = 0;
             uint16_t selectedCollapseBase = 0;
             uint16_t selectedEffectBase = 0xc21e;
@@ -5076,6 +5078,24 @@ public:
             bool haveInstrumentedBp4LocalValue = false;
             uint16_t instrumentedBp4LocalOffset = 0;
             uint16_t instrumentedBp4LocalValue = 0;
+            bool haveInstrumentedLaneDivScratchPresent = false;
+            bool instrumentedLaneDivScratchPresent = false;
+            bool haveInstrumentedLaneDivOffset = false;
+            bool haveInstrumentedLaneDivKind = false;
+            std::string instrumentedLaneDivKind;
+            uint16_t instrumentedLaneDivOffset = 0;
+            std::array<uint16_t, 9> instrumentedLaneDivValues{};
+            std::array<bool, 9> haveInstrumentedLaneDivValues{};
+            constexpr std::array<const char*, 9> kLaneDivFieldNames{
+                "ax", "dx", "cx", "bx", "active_count", "loop_index",
+                "weight_local", "numerator_low", "numerator_high",
+            };
+            auto laneDivFieldIndex = [&](const std::string& name) -> int {
+                for (size_t i = 0; i < kLaneDivFieldNames.size(); ++i) {
+                    if (name == kLaneDivFieldNames[i]) return static_cast<int>(i);
+                }
+                return -1;
+            };
 
             std::istringstream lines(text);
             std::string line;
@@ -5150,6 +5170,29 @@ public:
                     } else if (key == "instrumented_bp4_local_value") {
                         instrumentedBp4LocalValue = parseHex16Auto(value, key);
                         haveInstrumentedBp4LocalValue = true;
+                    } else if (key == "instrumented_lane_div_scratch_present") {
+                        instrumentedLaneDivScratchPresent = value == "1";
+                        haveInstrumentedLaneDivScratchPresent = true;
+                    } else if (key == "instrumented_lane_div_cs_offset") {
+                        instrumentedLaneDivOffset = parseHex16Auto(value, key);
+                        haveInstrumentedLaneDivOffset = true;
+                    } else if (key == "instrumented_lane_div_kind") {
+                        if (value != "forward" && value != "reverse") {
+                            fail("bad_lane_div_kind value=" + value);
+                        }
+                        instrumentedLaneDivKind = value;
+                        haveInstrumentedLaneDivKind = true;
+                    } else if (key.rfind("instrumented_lane_div_", 0) == 0) {
+                        std::string field =
+                            key.substr(std::string("instrumented_lane_div_").size());
+                        int index = laneDivFieldIndex(field);
+                        if (index < 0) {
+                            fail("bad_lane_div_field field=" + field);
+                        }
+                        instrumentedLaneDivValues[static_cast<size_t>(index)] =
+                            parseHex16Auto(value, key);
+                        haveInstrumentedLaneDivValues[static_cast<size_t>(index)] =
+                            true;
                     }
                     continue;
                 }
@@ -5188,6 +5231,8 @@ public:
                     }
                     if (ghidraOffset == 0x3a7e || ghidraOffset == 0x3b18 ||
                         ghidraOffset == 0x3bb2 || ghidraOffset == 0x3d46 ||
+                        ghidraOffset == 0x3cd4 || ghidraOffset == 0x3ce3 ||
+                        ghidraOffset == 0x3e68 || ghidraOffset == 0x3e77 ||
                         ghidraOffset == 0x45fa || ghidraOffset == 0x492f ||
                         ghidraOffset == 0x4b3f || ghidraOffset == 0x4b61 ||
                         ghidraOffset == 0x4b6a || ghidraOffset == 0x4c20 ||
@@ -5206,6 +5251,12 @@ public:
                         }
                         if (ghidraOffset == 0x4cac) {
                             observedEffectReverseReturn = true;
+                        }
+                        if (ghidraOffset == 0x3cd4 || ghidraOffset == 0x3ce3) {
+                            observedLaneForwardDivide = true;
+                        }
+                        if (ghidraOffset == 0x3e68 || ghidraOffset == 0x3e77) {
+                            observedLaneReverseDivide = true;
                         }
                     }
                     continue;
@@ -5285,6 +5336,50 @@ public:
             if (haveInstrumentedBp4LocalValue &&
                 (!haveInstrumentedBp4LocalPresent || !instrumentedBp4LocalPresent)) {
                 fail("bp4_local_value_without_present");
+            }
+            if (haveInstrumentedLaneDivScratchPresent &&
+                instrumentedLaneDivScratchPresent) {
+                if (!observedLaneForwardDivide && !observedLaneReverseDivide) {
+                    fail("lane_div_scratch_without_lane_divide_freeze");
+                }
+                if (!haveInstrumentedLaneDivOffset) {
+                    fail("lane_div_offset_missing");
+                }
+                if (!haveInstrumentedLaneDivKind) {
+                    fail("lane_div_kind_missing");
+                }
+                if (instrumentedLaneDivKind == "forward" &&
+                    !observedLaneForwardDivide) {
+                    fail("lane_div_forward_kind_without_forward_freeze");
+                }
+                if (instrumentedLaneDivKind == "reverse" &&
+                    !observedLaneReverseDivide) {
+                    fail("lane_div_reverse_kind_without_reverse_freeze");
+                }
+                for (size_t i = 0; i < haveInstrumentedLaneDivValues.size(); ++i) {
+                    if (!haveInstrumentedLaneDivValues[i]) {
+                        fail(std::string("lane_div_field_missing field=") +
+                             kLaneDivFieldNames[i]);
+                    }
+                }
+                if (instrumentedLaneDivValues[0] !=
+                        instrumentedLaneDivValues[7] ||
+                    instrumentedLaneDivValues[1] !=
+                        instrumentedLaneDivValues[8] ||
+                    instrumentedLaneDivValues[2] !=
+                        instrumentedLaneDivValues[6] ||
+                    instrumentedLaneDivValues[3] != 0) {
+                    fail("lane_div_register_local_mismatch");
+                }
+            }
+            bool haveAnyLaneDivValueField = false;
+            for (bool haveField : haveInstrumentedLaneDivValues) {
+                haveAnyLaneDivValueField = haveAnyLaneDivValueField || haveField;
+            }
+            if (haveAnyLaneDivValueField &&
+                (!haveInstrumentedLaneDivScratchPresent ||
+                 !instrumentedLaneDivScratchPresent)) {
+                fail("lane_div_field_without_present");
             }
 
             auto requireByte = [&](uint16_t address) -> uint8_t {
@@ -5438,6 +5533,10 @@ public:
                       << (observedEffectForwardReturn ? 1 : 0)
                       << " observed_effect_reverse_return="
                       << (observedEffectReverseReturn ? 1 : 0)
+                      << " observed_lane_forward_divide="
+                      << (observedLaneForwardDivide ? 1 : 0)
+                      << " observed_lane_reverse_divide="
+                      << (observedLaneReverseDivide ? 1 : 0)
                       << " bp4_local_present="
                       << (instrumentedBp4LocalPresent ? 1 : 0)
                       << (instrumentedBp4LocalPresent
@@ -5445,6 +5544,32 @@ public:
                                     hex4(instrumentedBp4LocalOffset) +
                                     " bp4_local_value=" +
                                     hex4(instrumentedBp4LocalValue)
+                              : "")
+                      << " lane_div_scratch_present="
+                      << (instrumentedLaneDivScratchPresent ? 1 : 0)
+                      << (instrumentedLaneDivScratchPresent
+                              ? std::string(" lane_div_kind=") +
+                                    instrumentedLaneDivKind +
+                                    " lane_div_cs_offset=" +
+                                    hex4(instrumentedLaneDivOffset) +
+                                    " lane_div_ax=" +
+                                    hex4(instrumentedLaneDivValues[0]) +
+                                    " lane_div_dx=" +
+                                    hex4(instrumentedLaneDivValues[1]) +
+                                    " lane_div_cx=" +
+                                    hex4(instrumentedLaneDivValues[2]) +
+                                    " lane_div_bx=" +
+                                    hex4(instrumentedLaneDivValues[3]) +
+                                    " lane_div_active_count=" +
+                                    hex4(instrumentedLaneDivValues[4]) +
+                                    " lane_div_loop_index=" +
+                                    hex4(instrumentedLaneDivValues[5]) +
+                                    " lane_div_weight_local=" +
+                                    hex4(instrumentedLaneDivValues[6]) +
+                                    " lane_div_numerator_low=" +
+                                    hex4(instrumentedLaneDivValues[7]) +
+                                    " lane_div_numerator_high=" +
+                                    hex4(instrumentedLaneDivValues[8])
                               : "")
                       << " lane_globals_present=" << (haveLaneGlobals ? 1 : 0)
                       << " lane_update_flag=" << hexBytePrefix(laneUpdateFlag)

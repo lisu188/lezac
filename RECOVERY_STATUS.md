@@ -351,10 +351,19 @@ Baseline: `origin/main`
   diagnostic now locks `0920:0945` as signed 32-bit division: numerator in
   `DX:AX`, denominator in `BX:CX`, quotient in `DX:AX`, consumed lane byte in
   `AL`, truncation toward zero, and zero-divisor branch `0920:09AC` with
-  `AX=0x00C8`. Live playback behavior is unchanged until a mid-helper
-  staging-table capture connects the arithmetic to the sampled original queue
-  bytes. This also explains why post-call fixtures can preserve helper-written
-  lane bytes while sampled staging globals are already zero.
+  `AX=0x00C8`. A 2026-04-28 runtime child-memory scratch capture now freezes
+  the forward lane blender at `01ED:3CD4`, after immediate runtime patching
+  and before the far division helper registers are loaded. The promoted
+  `explosion_playback_oracle_original_3cd4_lane_div_scratch_runtime.txt`
+  fixture records would-be `DX:AX=0xFFFF:0xFFF8`, `BX:CX=0x0000:0x0005`,
+  active staging count/index `1`, matching numerator/weight locals, and live
+  staging globals `DS:2078=1`, `DS:655E=0x8009`, `DS:659A=0x0A7A`. Temp-copy
+  lane-div instrumentation is intentionally rejected because the larger patch
+  body can overlap DOS relocation words near the far-call operand. Live
+  playback behavior is unchanged until the reverse-helper/writeback evidence
+  connects this arithmetic to final original queue lane bytes. This also
+  explains why post-call fixtures can preserve helper-written lane bytes while
+  sampled staging globals are already zero.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
 - `ctest --test-dir build -R "autoplayer|frame_sequence_capture"
@@ -384,10 +393,11 @@ Baseline: `origin/main`
 - Interpret captured state-2 frame-table bytes and confirm the exact visual
   consumption path for the provisional live dead-player renderer.
 - Exact explosion/debris/collapse sprite playback around `1000:3a56..4d3b`
-  remains blocked on live debugger bytes or an instrumented freeze proving a
-  stable stop inside the playback window. Process-memory sampling and
-  instrumentation now capture useful original queue bytes and route reachability
-  signals, but no promoted fixture yet.
+  remains blocked on frame-table/sprite semantics, but process-memory
+  instrumentation has promoted original fixtures for branch reachability,
+  post-call lane bytes, the `4C75` live word gate, and one `3CD4` mid-helper
+  lane-division setup. Next evidence should target the reverse-helper
+  equivalent or lane writeback before changing live playback behavior.
 - Semantic meaning of `PROEFS.SON` bytes `+4..+5` remains unknown; current
   diagnostics preserve them as raw fields only.
 - Many non-explosion sound callsites still need exact cursor/priority mapping.
@@ -407,6 +417,6 @@ Baseline: `origin/main`
 
 ## Next Planned Target
 
-Use the reliable original level-1 route to capture explosion/debris/collapse
-runtime bytes, then return to DOSBox frame/debugger evidence for behavior-4
-movement, targeting, and respawn timing.
+Use the reliable original level-1 route to finish explosion/debris/collapse
+lane writeback evidence, then return to DOSBox frame/debugger evidence for
+behavior-4 movement, targeting, and respawn timing.

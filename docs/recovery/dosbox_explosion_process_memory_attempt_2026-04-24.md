@@ -511,11 +511,18 @@ Safe trampoline probes at `1000:3D2D` and `1000:3EC1` loaded but did not freeze
 on this route, so debris-side writeback remains a reachability problem rather
 than proven original behavior.
 
+The next pass added a clearly labeled runtime seed at the original helper call
+sites. For `3D2D`, the seed patches `4C96` to set `DS:655E=0xC004` and then
+call the original forward helper. For `3EC1`, the seed patches `4CA9` in the
+same way before calling the original reverse helper. These fixtures are not
+natural-route evidence, but both freeze the original debris writebacks with
+selected tag `0x4EE8` and `DI=0x0898`, proving the debris marker/stride
+calculation `(0x4EE8 - 0x4E20) * 0x0B`.
+
 ## Next Step
 
 Use the now-working `45FA`/`492F`/`4B3F`/`4B61`/`4B6A`/`4C75`/`4C96`/`4CA9`
-visible-playback freezes plus the `3CD4`/`3CE3` forward-helper scratch captures
-and the collapse writeback pair (`3D1B`/`3EAF`) to find a debris-side writeback
-route/timing gate. Prefer safe runtime trampolines for mid-helper writeback
-captures and keep promoted fixtures explicit about `visual_claim=0` until
-frame-table/sprite semantics are proven.
+visible-playback freezes plus the lane-helper/writeback fixtures to find a
+natural debris-side writeback route/timing gate. Prefer safe runtime
+trampolines for mid-helper writeback captures and keep promoted fixtures
+explicit about `visual_claim=0` until frame-table/sprite semantics are proven.

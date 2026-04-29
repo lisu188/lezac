@@ -22,6 +22,9 @@ Current local validation constraints:
 - `explosion_playback_oracle_original_3d2d_lane_write_trampoline_no_freeze.txt`
   and `explosion_playback_oracle_original_3ec1_lane_write_trampoline_no_freeze.txt`
   record that this route did not reach the debris-side writebacks.
+- `explosion_playback_oracle_original_3d2d_lane_write_runtime_seeded.txt`
+  and `explosion_playback_oracle_original_3ec1_lane_write_runtime_seeded.txt`
+  prove the debris writeback arithmetic under labeled runtime seeding.
 - The evidence remains instrumentation-only (`visual_claim=0`); no live C++
   playback behavior is changed by this note alone.
 
@@ -218,6 +221,43 @@ Safe trampoline probes at `1000:3D2D` and `1000:3EC1` loaded successfully but
 did not freeze on this route, so debris writeback still needs a different route
 or debugger-seeded setup before promotion as positive evidence.
 
+The follow-up runtime-seeded fixtures patch the original helper call site only
+long enough to force the staging word `DS:655E=0xC004` before calling the
+original helper body. They are intentionally labeled `runtime_seeded=1`; they
+prove helper mechanics, not full gameplay-route reachability.
+
+`explosion_playback_oracle_original_3d2d_lane_write_runtime_seeded.txt` freezes
+the forward debris write at `1000:3D2D`:
+
+```text
+seed word          = 0xC004
+offset             = 1000:3D2D
+output/result byte = 0x0035
+DI write offset    = 0x0898
+selected tag       = 0x4EE8
+active count       = 0x0001
+loop index         = 0x0001
+```
+
+`explosion_playback_oracle_original_3ec1_lane_write_runtime_seeded.txt` freezes
+the reverse debris write at `1000:3EC1`:
+
+```text
+seed word          = 0xC004
+offset             = 1000:3EC1
+output/result byte = 0x0000
+DI write offset    = 0x0898
+selected tag       = 0x4EE8
+active count       = 0x0001
+loop index         = 0x0001
+```
+
+Both fixtures validate the debris marker/stride relation:
+`(0x4EE8 - 0x4E20) * 0x0B = 0x0898`. Combined with the natural collapse
+writeback fixtures, this proves the original helper's collapse and debris
+writeback address arithmetic. The remaining gap is natural route reachability
+for debris writeback, not the helper's branch math.
+
 Follow-up temp-copy instrumentation now freezes the post-call instructions:
 
 - `1000:4C99`, immediately after the `4C96` call returns from `1000:3BB2`.
@@ -370,6 +410,6 @@ metadata: C++ has one collapse record at `start=0x0A06`, `end=0x0A08`,
 lane bytes `forward=0x00`, `reverse=0x04` after the lane helpers. That mismatch
 is now explicit evidence for the next rendering/playback recovery step.
 
-The next evidence step is to find a route or timing gate that reaches the
-debris-side writebacks (`1000:3D2D`/`1000:3EC1`), before replacing the
-provisional queue playback.
+The next evidence step is to find a natural route or timing gate that reaches
+the debris-side writebacks (`1000:3D2D`/`1000:3EC1`) without runtime seeding,
+before replacing the provisional queue playback.

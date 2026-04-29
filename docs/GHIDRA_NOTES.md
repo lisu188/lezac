@@ -317,6 +317,13 @@ route now proves both collapse writeback bases:
 `DS:6617 + 0x003c` and `DS:6618 + 0x003c`. Safe trampoline probes at
 `1000:3d2d` and `1000:3ec1` loaded but did not freeze on this route; debris
 writeback still needs a different route or debugger-seeded setup.
+Labeled runtime-seeded fixtures then patch the original `4c96`/`4ca9` helper
+call sites to seed `DS:655e=0xc004` before calling the original helper bodies.
+Those fixtures are not full gameplay-route evidence, but they prove the debris
+writeback branch arithmetic: both forward `1000:3d2d` and reverse `1000:3ec1`
+resolve selected tag `0x4ee8` to `DI=0x0898`, matching
+`(0x4ee8 - 0x4e20) * 0x0b`. The forward seeded result byte is `0x35`; the
+reverse seeded result byte is `0x00`.
 
 The effect constructor at `1000:3fa6` writes 11-byte effect records at
 `0x2093 + 0x0b * DS:2076` and stores the effect type byte in

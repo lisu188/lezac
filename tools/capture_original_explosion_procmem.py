@@ -70,6 +70,7 @@ FREEZE_PATCH_MODE_LOOP = "loop"
 FREEZE_PATCH_MODE_BP4_CS_SCRATCH = "bp4-cs-scratch"
 FREEZE_PATCH_MODE_LANE_DIV_CS_SCRATCH = "lane-div-cs-scratch"
 FREEZE_PATCH_MODE_LANE_WRITE_CS_SCRATCH = "lane-write-cs-scratch"
+DEFAULT_SEEDED_DEBRIS_WORD = 0xC004
 DEFAULT_SAMPLE_SCREENSHOTS = "0.5,1.0,1.5,2.0,3.0"
 ROUTE_STATE_RANGES = [
     ("DS:0060", 0x0060, 0x80),
@@ -140,13 +141,19 @@ def parse_ghidra_offset(value: str) -> int:
     return int(text, 16)
 
 
+def near_jump(from_offset: int, to_offset: int) -> bytes:
+    delta = (to_offset - ((from_offset + 3) & 0xFFFF)) & 0xFFFF
+    return bytes([0xE9, delta & 0xFF, delta >> 8])
+
+
+def near_call(from_offset: int, to_offset: int) -> bytes:
+    delta = (to_offset - ((from_offset + 3) & 0xFFFF)) & 0xFFFF
+    return bytes([0xE8, delta & 0xFF, delta >> 8])
+
+
 def build_freeze_patch(
     patch_mode: str, ghidra_offset: int
 ) -> tuple[bytes, int | None, int, int | None, bytes]:
-    def near_jump(from_offset: int, to_offset: int) -> bytes:
-        delta = (to_offset - ((from_offset + 3) & 0xFFFF)) & 0xFFFF
-        return bytes([0xE9, delta & 0xFF, delta >> 8])
-
     if patch_mode == FREEZE_PATCH_MODE_LOOP:
         return FREEZE_LOOP_PATCH, None, 0, None, b""
     if patch_mode == FREEZE_PATCH_MODE_BP4_CS_SCRATCH:
@@ -382,6 +389,51 @@ def describe_freeze_patch(
         "body_patch_bytes": body_patch.hex(),
         "body_original_bytes": body_original.hex(),
         "body_length": len(body_patch),
+    }
+
+
+def build_runtime_seed_debris_writeback_patch(
+    freeze_ghidra_offset: int, seed_word: int
+) -> dict[str, int | str]:
+    if freeze_ghidra_offset == 0x3D2D:
+        call_site = 0x4C96
+        helper_target = 0x3BB2
+        return_offset = 0x4C99
+        body_offset = 0xF120
+        direction = "forward"
+    elif freeze_ghidra_offset == 0x3EC1:
+        call_site = 0x4CA9
+        helper_target = 0x3D46
+        return_offset = 0x4CAC
+        body_offset = 0xF160
+        direction = "reverse"
+    else:
+        raise RuntimeError(
+            "--runtime-seed-debris-writeback is only valid with "
+            "--freeze-ghidra-offset 1000:3D2D or 1000:3EC1"
+        )
+    body = bytes(
+        [
+            0xC7,
+            0x06,
+            0x5E,
+            0x65,
+            seed_word & 0xFF,
+            seed_word >> 8,
+        ]
+    )
+    body += near_call(body_offset + len(body), helper_target)
+    body += near_jump(body_offset + len(body), return_offset)
+    return {
+        "kind": "debris-writeback",
+        "direction": direction,
+        "call_site": call_site,
+        "helper_target": helper_target,
+        "return_offset": return_offset,
+        "body_offset": body_offset,
+        "entry_patch_bytes": near_jump(call_site, body_offset).hex(),
+        "body_patch_bytes": body.hex(),
+        "seed_word": seed_word,
     }
 
 
@@ -1238,6 +1290,25 @@ def main() -> int:
         type=parse_int_auto,
         help="with runtime freeze patching, wait for the sampled high-debris target byte",
     )
+    parser.add_argument(
+        "--runtime-seed-debris-writeback",
+        action="store_true",
+        help=(
+            "with runtime lane-write freeze patching at 1000:3D2D or 1000:3EC1, "
+            "patch the matching 4C96/4CA9 call site to seed DS:655E=0xC004 "
+            "immediately before calling the original helper; labels output as "
+            "runtime-seeded evidence"
+        ),
+    )
+    parser.add_argument(
+        "--runtime-seed-debris-word",
+        type=parse_int_auto,
+        default=DEFAULT_SEEDED_DEBRIS_WORD,
+        help=(
+            "word to place in DS:655E when --runtime-seed-debris-writeback is "
+            "active; defaults to 0xC004"
+        ),
+    )
     args = parser.parse_args()
 
     if not args.approve_procmem:
@@ -1294,6 +1365,18 @@ def main() -> int:
         and args.runtime_freeze_require_high_debris_target_byte > 0xFF
     ):
         raise RuntimeError("--runtime-freeze-require-high-debris-target-byte must fit in a byte")
+    if args.runtime_seed_debris_writeback:
+        if not runtime_freeze:
+            raise RuntimeError("--runtime-seed-debris-writeback requires runtime freeze patching")
+        if not args.freeze_ghidra_offset:
+            raise RuntimeError("--runtime-seed-debris-writeback requires --freeze-ghidra-offset")
+        if args.freeze_patch_mode != FREEZE_PATCH_MODE_LANE_WRITE_CS_SCRATCH:
+            raise RuntimeError(
+                "--runtime-seed-debris-writeback requires "
+                "--freeze-patch-mode lane-write-cs-scratch"
+            )
+        if args.runtime_seed_debris_word < 0 or args.runtime_seed_debris_word > 0xFFFF:
+            raise RuntimeError("--runtime-seed-debris-word must fit in a word")
     if runtime_freeze and not args.freeze_ghidra_offset:
         raise RuntimeError("runtime freeze patching requires --freeze-ghidra-offset")
     if runtime_freeze and not args.approve_runtime_instrumentation:
@@ -1349,6 +1432,14 @@ def main() -> int:
                 int(freeze_patch["ghidra_offset"]),
                 str(args.freeze_patch_mode),
             )
+    runtime_seed_patch: dict[str, int | str] | None = None
+    if args.runtime_seed_debris_writeback:
+        if freeze_patch is None:
+            raise RuntimeError("--runtime-seed-debris-writeback requires a freeze patch")
+        runtime_seed_patch = build_runtime_seed_debris_writeback_patch(
+            int(freeze_patch["ghidra_offset"]),
+            int(args.runtime_seed_debris_word),
+        )
     conf = run_dir / "dosbox.conf"
     write_conf(conf, out_dir)
 
@@ -1434,6 +1525,13 @@ def main() -> int:
         freeze_loaded_before_runtime_patch = b""
         runtime_freeze_old_bytes = b""
         runtime_freeze_body_old_bytes = b""
+        runtime_seed_entry_loaded_before = b""
+        runtime_seed_entry_old_bytes = b""
+        runtime_seed_entry_loaded_bytes = b""
+        runtime_seed_body_loaded_before = b""
+        runtime_seed_body_old_bytes = b""
+        runtime_seed_body_loaded_bytes = b""
+        runtime_seed_patch_applied = False
         runtime_freeze_patch_elapsed: float | None = None
         runtime_freeze_patch_score = 0
         runtime_freeze_patch_fields: dict[str, int | float] = {}
@@ -1448,6 +1546,16 @@ def main() -> int:
         body_patch_bytes = (
             bytes.fromhex(str(freeze_patch.get("body_patch_bytes", "")))
             if freeze_patch is not None
+            else b""
+        )
+        runtime_seed_entry_patch_bytes = (
+            bytes.fromhex(str(runtime_seed_patch["entry_patch_bytes"]))
+            if runtime_seed_patch is not None
+            else b""
+        )
+        runtime_seed_body_patch_bytes = (
+            bytes.fromhex(str(runtime_seed_patch["body_patch_bytes"]))
+            if runtime_seed_patch is not None
             else b""
         )
         freeze_probe_length = max(8, len(patch_bytes) + 4)
@@ -1467,6 +1575,54 @@ def main() -> int:
                     int(freeze_patch["body_offset"]),
                     len(body_patch_bytes),
                 )
+
+        def apply_runtime_seed_patch() -> None:
+            nonlocal runtime_seed_entry_loaded_before
+            nonlocal runtime_seed_entry_old_bytes
+            nonlocal runtime_seed_entry_loaded_bytes
+            nonlocal runtime_seed_body_loaded_before
+            nonlocal runtime_seed_body_old_bytes
+            nonlocal runtime_seed_body_loaded_bytes
+            nonlocal runtime_seed_patch_applied
+            if runtime_seed_patch is None or runtime_seed_patch_applied:
+                return
+            call_site = int(runtime_seed_patch["call_site"])
+            body_offset = int(runtime_seed_patch["body_offset"])
+            runtime_seed_entry_loaded_before = read_emulated(
+                pid, base, RUNTIME_CS, call_site, len(runtime_seed_entry_patch_bytes)
+            )
+            runtime_seed_body_loaded_before = read_emulated(
+                pid,
+                base,
+                RUNTIME_CS,
+                body_offset,
+                len(runtime_seed_body_patch_bytes),
+            )
+            runtime_seed_body_old_bytes = write_emulated(
+                pid,
+                base,
+                RUNTIME_CS,
+                body_offset,
+                runtime_seed_body_patch_bytes,
+            )
+            runtime_seed_entry_old_bytes = write_emulated(
+                pid,
+                base,
+                RUNTIME_CS,
+                call_site,
+                runtime_seed_entry_patch_bytes,
+            )
+            runtime_seed_body_loaded_bytes = read_emulated(
+                pid,
+                base,
+                RUNTIME_CS,
+                body_offset,
+                len(runtime_seed_body_patch_bytes),
+            )
+            runtime_seed_entry_loaded_bytes = read_emulated(
+                pid, base, RUNTIME_CS, call_site, len(runtime_seed_entry_patch_bytes)
+            )
+            runtime_seed_patch_applied = True
 
         game = run(["xdotool", "search", "--name", "DOSBox"], env).split()[0]
         snapshot(env, out_dir, game, "000_menu")
@@ -1530,6 +1686,7 @@ def main() -> int:
             freeze_loaded_before_runtime_patch = read_emulated(
                 pid, base, RUNTIME_CS, patch_offset, freeze_probe_length
             )
+            apply_runtime_seed_patch()
             if body_patch_bytes:
                 freeze_body_loaded_before_runtime_patch = read_emulated(
                     pid,
@@ -1650,6 +1807,7 @@ def main() -> int:
                 freeze_loaded_before_runtime_patch = read_emulated(
                     pid, base, RUNTIME_CS, patch_offset, freeze_probe_length
                 )
+                apply_runtime_seed_patch()
                 if body_patch_bytes:
                     freeze_body_loaded_before_runtime_patch = read_emulated(
                         pid,
@@ -1961,6 +2119,64 @@ def main() -> int:
                 if tail_match_frame:
                     out.write(f"instrumented_freeze_tail_frame={tail_match_frame}\n")
                 if runtime_freeze:
+                    if runtime_seed_patch is not None:
+                        out.write("runtime_seeded=1\n")
+                        out.write(
+                            "runtime_seed_kind="
+                            f"{runtime_seed_patch['kind']}\n"
+                        )
+                        out.write(
+                            "runtime_seed_direction="
+                            f"{runtime_seed_patch['direction']}\n"
+                        )
+                        out.write(
+                            "runtime_seed_word="
+                            f"0x{int(runtime_seed_patch['seed_word']):04x}\n"
+                        )
+                        out.write(
+                            "runtime_seed_call_site="
+                            f"0x{int(runtime_seed_patch['call_site']):04x}\n"
+                        )
+                        out.write(
+                            "runtime_seed_helper_target="
+                            f"0x{int(runtime_seed_patch['helper_target']):04x}\n"
+                        )
+                        out.write(
+                            "runtime_seed_return_offset="
+                            f"0x{int(runtime_seed_patch['return_offset']):04x}\n"
+                        )
+                        out.write(
+                            "runtime_seed_body_offset="
+                            f"0x{int(runtime_seed_patch['body_offset']):04x}\n"
+                        )
+                        out.write(
+                            "runtime_seed_patch_applied="
+                            f"{1 if runtime_seed_patch_applied else 0}\n"
+                        )
+                        out.write(
+                            "runtime_seed_entry_loaded_before="
+                            f"{runtime_seed_entry_loaded_before.hex()}\n"
+                        )
+                        out.write(
+                            "runtime_seed_entry_old_bytes="
+                            f"{runtime_seed_entry_old_bytes.hex()}\n"
+                        )
+                        out.write(
+                            "runtime_seed_entry_loaded_bytes="
+                            f"{runtime_seed_entry_loaded_bytes.hex()}\n"
+                        )
+                        out.write(
+                            "runtime_seed_body_loaded_before="
+                            f"{runtime_seed_body_loaded_before.hex()}\n"
+                        )
+                        out.write(
+                            "runtime_seed_body_old_bytes="
+                            f"{runtime_seed_body_old_bytes.hex()}\n"
+                        )
+                        out.write(
+                            "runtime_seed_body_loaded_bytes="
+                            f"{runtime_seed_body_loaded_bytes.hex()}\n"
+                        )
                     out.write(
                         "runtime_freeze_patch_applied="
                         f"{1 if runtime_freeze_patch_elapsed is not None else 0}\n"
@@ -2245,6 +2461,38 @@ def main() -> int:
                     "freeze_body_patch_bytes="
                     f"{freeze_patch['body_patch_bytes']}\n"
                     f"freeze_body_loaded_bytes={freeze_body_loaded_bytes.hex()}\n"
+                )
+            if runtime_seed_patch is not None:
+                instrumentation_manifest += (
+                    "runtime_seeded=1\n"
+                    f"runtime_seed_kind={runtime_seed_patch['kind']}\n"
+                    f"runtime_seed_direction={runtime_seed_patch['direction']}\n"
+                    f"runtime_seed_word=0x{int(runtime_seed_patch['seed_word']):04x}\n"
+                    "runtime_seed_call_site="
+                    f"{RUNTIME_CS:04X}:{int(runtime_seed_patch['call_site']):04X}\n"
+                    "runtime_seed_helper_target="
+                    f"{RUNTIME_CS:04X}:{int(runtime_seed_patch['helper_target']):04X}\n"
+                    "runtime_seed_return_offset="
+                    f"{RUNTIME_CS:04X}:{int(runtime_seed_patch['return_offset']):04X}\n"
+                    "runtime_seed_body_runtime="
+                    f"{RUNTIME_CS:04X}:{int(runtime_seed_patch['body_offset']):04X}\n"
+                    f"runtime_seed_patch_applied={1 if runtime_seed_patch_applied else 0}\n"
+                    "runtime_seed_entry_patch_bytes="
+                    f"{runtime_seed_patch['entry_patch_bytes']}\n"
+                    "runtime_seed_body_patch_bytes="
+                    f"{runtime_seed_patch['body_patch_bytes']}\n"
+                    "runtime_seed_entry_loaded_before="
+                    f"{runtime_seed_entry_loaded_before.hex()}\n"
+                    "runtime_seed_entry_old_bytes="
+                    f"{runtime_seed_entry_old_bytes.hex()}\n"
+                    "runtime_seed_entry_loaded_bytes="
+                    f"{runtime_seed_entry_loaded_bytes.hex()}\n"
+                    "runtime_seed_body_loaded_before="
+                    f"{runtime_seed_body_loaded_before.hex()}\n"
+                    "runtime_seed_body_old_bytes="
+                    f"{runtime_seed_body_old_bytes.hex()}\n"
+                    "runtime_seed_body_loaded_bytes="
+                    f"{runtime_seed_body_loaded_bytes.hex()}\n"
                 )
             if (
                 str(freeze_patch["patch_mode"])

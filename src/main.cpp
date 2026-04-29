@@ -5120,6 +5120,16 @@ public:
                 }
                 return -1;
             };
+            bool haveRuntimeSeeded = false;
+            bool runtimeSeeded = false;
+            bool haveRuntimeSeedKind = false;
+            bool haveRuntimeSeedDirection = false;
+            bool haveRuntimeSeedWord = false;
+            bool haveRuntimeSeedPatchApplied = false;
+            bool runtimeSeedPatchApplied = false;
+            std::string runtimeSeedKind;
+            std::string runtimeSeedDirection;
+            uint16_t runtimeSeedWord = 0;
 
             std::istringstream lines(text);
             std::string line;
@@ -5155,6 +5165,27 @@ public:
                     } else if (key == "runtime_freeze_patch_applied") {
                         runtimeFreezePatchApplied = value == "1";
                         haveRuntimeFreezePatchApplied = true;
+                    } else if (key == "runtime_seeded") {
+                        runtimeSeeded = value == "1";
+                        haveRuntimeSeeded = true;
+                    } else if (key == "runtime_seed_kind") {
+                        if (value != "debris-writeback") {
+                            fail("bad_runtime_seed_kind value=" + value);
+                        }
+                        runtimeSeedKind = value;
+                        haveRuntimeSeedKind = true;
+                    } else if (key == "runtime_seed_direction") {
+                        if (value != "forward" && value != "reverse") {
+                            fail("bad_runtime_seed_direction value=" + value);
+                        }
+                        runtimeSeedDirection = value;
+                        haveRuntimeSeedDirection = true;
+                    } else if (key == "runtime_seed_word") {
+                        runtimeSeedWord = parseHex16Auto(value, key);
+                        haveRuntimeSeedWord = true;
+                    } else if (key == "runtime_seed_patch_applied") {
+                        runtimeSeedPatchApplied = value == "1";
+                        haveRuntimeSeedPatchApplied = true;
                     } else if (key == "selected_debris_base") {
                         selectedDebrisBase = parseHex16(value, key);
                         haveSelectedDebrisBase = true;
@@ -5516,6 +5547,24 @@ public:
                  !instrumentedLaneWriteScratchPresent)) {
                 fail("lane_write_field_without_present");
             }
+            if (haveRuntimeSeeded && runtimeSeeded) {
+                if (!haveRuntimeSeedKind) {
+                    fail("runtime_seed_kind_missing");
+                }
+                if (!haveRuntimeSeedDirection) {
+                    fail("runtime_seed_direction_missing");
+                }
+                if (!haveRuntimeSeedWord) {
+                    fail("runtime_seed_word_missing");
+                }
+                if (!haveRuntimeSeedPatchApplied || !runtimeSeedPatchApplied) {
+                    fail("runtime_seed_patch_not_applied");
+                }
+                if (haveInstrumentedLaneWriteKind &&
+                    instrumentedLaneWriteKind != runtimeSeedDirection) {
+                    fail("runtime_seed_direction_mismatch");
+                }
+            }
 
             auto requireByte = [&](uint16_t address) -> uint8_t {
                 if (!present[address]) {
@@ -5735,6 +5784,17 @@ public:
                                     hex4(instrumentedLaneWriteValues[4]) +
                                     " lane_write_result_local=" +
                                     hex4(instrumentedLaneWriteValues[5])
+                              : "")
+                      << " runtime_seeded=" << (runtimeSeeded ? 1 : 0)
+                      << (runtimeSeeded
+                              ? std::string(" runtime_seed_kind=") +
+                                    runtimeSeedKind +
+                                    " runtime_seed_direction=" +
+                                    runtimeSeedDirection +
+                                    " runtime_seed_word=" +
+                                    hex4(runtimeSeedWord) +
+                                    " runtime_seed_patch_applied=" +
+                                    std::to_string(runtimeSeedPatchApplied ? 1 : 0)
                               : "")
                       << " lane_globals_present=" << (haveLaneGlobals ? 1 : 0)
                       << " lane_update_flag=" << hexBytePrefix(laneUpdateFlag)

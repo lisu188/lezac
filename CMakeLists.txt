@@ -387,6 +387,18 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^lane_result_route_sweep_output=ok cases=6")
 
+        add_test(NAME behavior4_debug_capture_helper_dry_run
+            COMMAND ${CMAKE_COMMAND} -E env LEZAC_BEHAVIOR4_DEBUG_DRY_RUN=1
+                    bash
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_behavior4_debug.sh
+                    /tmp/lezac-behavior4-debug-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    monster_behavior4_target_selection)
+        set_tests_properties(behavior4_debug_capture_helper_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^behavior4_debug_capture=ok mode=dry_run scenario=monster_behavior4_target_selection route=debugger_seeded .*manifest=.*raw_dump=")
+
         add_test(NAME explosion_lane_result_capture_orchestrator_preflight
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
@@ -670,6 +682,41 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "original_state2_animation_advance=ok death_start=0x72 death_end=0x79 delay=3 mode1_first_frame=0x73 mode1_after_5=0x74 wrap_frame=0x72 wrap_counter=0 mode2_seq=4,3,2,3 mode2_final_step=1 mode3_backup_frame=5 mode3_backup_mode=3 mode0_unchanged=1 ghidra=1000:6053")
+
+    add_test(NAME behavior4_runtime_oracle_synthetic
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-runtime-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/behavior4_runtime_oracle_synthetic.txt)
+    set_tests_properties(behavior4_runtime_oracle_synthetic PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "behavior4_runtime_oracle=ok fixture=behavior4_runtime_oracle_synthetic scenario=monster_behavior4_target_selection level=3 runtime_cs=0x1a2b runtime_ds=0x2b3c spawner_index=5 spawner_behavior=4 spawner_ai=20,214,66 spawner_hp=4 actor_slot=0 before_xy=0x0068,0x00a8 after_xy=0x0069,0x00a8 velocity8=32,0 motion_timer=1 target_before=2 target_after=1 players_dead=0,1 breaks=6 dump_bytes=32 temp_copy=1 visual_claim=0")
+
+    add_test(NAME behavior4_runtime_oracle_bad_segment
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-runtime-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/behavior4_runtime_oracle_bad_segment.txt
+                --expect-error)
+    set_tests_properties(behavior4_runtime_oracle_bad_segment PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "behavior4_runtime_oracle=error fixture=behavior4_runtime_oracle_bad_segment reason=breakpoint_segment_mismatch expected=0x1a2b actual=0xffff")
+
+    add_test(NAME behavior4_runtime_oracle_missing_actor_after
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-runtime-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/behavior4_runtime_oracle_missing_actor_after.txt
+                --expect-error)
+    set_tests_properties(behavior4_runtime_oracle_missing_actor_after PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "behavior4_runtime_oracle=error fixture=behavior4_runtime_oracle_missing_actor_after reason=actor_after_missing")
+
+    add_test(NAME behavior4_runtime_oracle_bad_behavior
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-runtime-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/behavior4_runtime_oracle_bad_behavior.txt
+                --expect-error)
+    set_tests_properties(behavior4_runtime_oracle_bad_behavior PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "behavior4_runtime_oracle=error fixture=behavior4_runtime_oracle_bad_behavior reason=spawner_behavior_not_4 actual=3")
 
     add_test(NAME state2_runtime_frame_oracle_synthetic
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-state2-runtime-frame-oracle

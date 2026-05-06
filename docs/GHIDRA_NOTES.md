@@ -149,6 +149,13 @@ behavior `3`/`4` branch hypotheses in a synthetic fixture, including kind-1
 directional frame selection and behavior-4 countdown retargeting. This is a
 regression oracle for the current reconstruction model, not proof that the
 remaining AI/collision rules are exact.
+`--debug-behavior4-runtime-oracle` is the normalized evidence parser for future
+DOSBox-debug behavior-4 captures. It requires runtime `CS`/`DS`, semantic
+spawner and actor before/after records, target/player-dead state, and
+breakpoints covering the spawner loop `1000:7a6b..7c2c`, behavior-4 branch
+`1000:728c..731b`, and 8.8 integration `1000:73e5..741b`; optional `DS:` dumps
+are segment-checked and byte-counted. Current checked-in fixtures are synthetic
+or malformed parser coverage only and carry `visual_claim=0`.
 
 The C++ collision/passability model currently treats destruction-progress tiles
 as solid except passable object cells. A cell is passable when its tile is the

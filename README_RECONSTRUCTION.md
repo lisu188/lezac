@@ -141,12 +141,23 @@ menu, level-1 start, the deterministic autoplayer reaching bomb tile `(24,22)`,
 bomb placement, and three explosion/playback checkpoints. The behavior-4
 sequences capture spawn/retarget checkpoints plus manifest metadata for player
 state and first-monster position/velocity/behavior.
+Runtime/debugger behavior-4 evidence is normalized with
+`--debug-behavior4-runtime-oracle <fixture> [--expect-error]`. The fixture
+format records scenario/level, runtime `CS`/`DS`, spawner fields, actor
+before/after position and 8.8 velocity, motion timer, target/player-dead state,
+and optional raw `DS:` dump rows while anchoring the transcript to
+`1000:7A6B..7C2C`, `1000:728C..731B`, and `1000:73E5..741B`.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer level1_bomb_route
 tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-frames level1_bomb_route
 tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-b4-level2 monster_spawner_behavior4_level2
+./build/lezac_cpp --debug-behavior4-runtime-oracle \
+  tests/fixtures/dosbox/behavior4_runtime_oracle_synthetic.txt
+LEZAC_BEHAVIOR4_DEBUG_DRY_RUN=1 \
+  tools/capture_original_behavior4_debug.sh \
+  /tmp/lezac-behavior4-debug . monster_behavior4_target_selection
 ```
 
 Original-game captures are best-effort because DOSBox timing, focus, and

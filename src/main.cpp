@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <regex>
 #include <sstream>
 #include <stdexcept>
@@ -4941,6 +4942,391 @@ public:
                       << " visual_claim=0\n";
             if (expectError) {
                 std::cout << "state2_runtime_frame_oracle=error fixture=" << fixture
+                          << " reason=expected_error_missing\n";
+                return 1;
+            }
+            return 0;
+        } catch (const std::exception& e) {
+            std::cout << e.what() << '\n';
+            return expectError ? 0 : 1;
+        }
+    }
+
+    int debugBehavior4RuntimeOracle(const std::string& path, bool expectError) {
+        auto fixtureName = [](const std::string& inputPath) {
+            size_t slash = inputPath.find_last_of("/\\");
+            std::string name =
+                slash == std::string::npos ? inputPath : inputPath.substr(slash + 1);
+            size_t dot = name.find_last_of('.');
+            if (dot != std::string::npos) name = name.substr(0, dot);
+            return name;
+        };
+        const std::string fixture = fixtureName(path);
+
+        auto bareHex4 = [](uint16_t value) {
+            std::ostringstream oss;
+            oss << std::hex << std::nouppercase << std::setw(4)
+                << std::setfill('0') << value;
+            return oss.str();
+        };
+        auto fail = [&](const std::string& reason) {
+            throw std::runtime_error("behavior4_runtime_oracle=error fixture=" +
+                                     fixture + " reason=" + reason);
+        };
+        auto parseHex16 = [&](const std::string& token,
+                              const std::string& field) -> uint16_t {
+            if (token.empty() || token.size() > 4 ||
+                !std::all_of(token.begin(), token.end(), [](unsigned char ch) {
+                    return std::isxdigit(ch) != 0;
+                })) {
+                fail("bad_hex16 field=" + field + " token=" + token);
+            }
+            return static_cast<uint16_t>(std::stoul(token, nullptr, 16));
+        };
+        auto parseHexByte = [&](const std::string& token,
+                                uint16_t address) -> uint8_t {
+            if (token.size() != 2 ||
+                !std::all_of(token.begin(), token.end(), [](unsigned char ch) {
+                    return std::isxdigit(ch) != 0;
+                })) {
+                fail("non_hex_byte token=" + token + " address=" +
+                     bareHex4(address));
+            }
+            return static_cast<uint8_t>(std::stoul(token, nullptr, 16));
+        };
+        auto trim = [](std::string value) {
+            while (!value.empty() &&
+                   std::isspace(static_cast<unsigned char>(value.front()))) {
+                value.erase(value.begin());
+            }
+            while (!value.empty() &&
+                   std::isspace(static_cast<unsigned char>(value.back()))) {
+                value.pop_back();
+            }
+            return value;
+        };
+        auto parseIntAuto = [&](const std::string& token,
+                                const std::string& field) -> int {
+            try {
+                size_t parsed = 0;
+                long value = std::stol(token, &parsed, 0);
+                if (parsed != token.size()) {
+                    fail("bad_int field=" + field + " token=" + token);
+                }
+                return static_cast<int>(value);
+            } catch (const std::exception&) {
+                fail("bad_int field=" + field + " token=" + token);
+            }
+            return 0;
+        };
+        auto parseFields = [&](const std::string& body,
+                               const std::string& record) {
+            std::map<std::string, std::string> fields;
+            std::istringstream stream(body);
+            std::string token;
+            while (stream >> token) {
+                size_t equals = token.find('=');
+                if (equals == std::string::npos || equals == 0 ||
+                    equals + 1 >= token.size()) {
+                    fail("bad_field record=" + record + " token=" + token);
+                }
+                fields[token.substr(0, equals)] = token.substr(equals + 1);
+            }
+            return fields;
+        };
+        auto fieldInt = [&](const std::map<std::string, std::string>& fields,
+                            const std::string& name,
+                            const std::string& record) -> int {
+            auto found = fields.find(name);
+            if (found == fields.end()) {
+                fail("missing_field record=" + record + " field=" + name);
+            }
+            return parseIntAuto(found->second, record + "." + name);
+        };
+        auto optionalFieldInt = [&](const std::map<std::string, std::string>& fields,
+                                    const std::string& name,
+                                    const std::string& record,
+                                    int fallback) -> int {
+            auto found = fields.find(name);
+            if (found == fields.end()) return fallback;
+            return parseIntAuto(found->second, record + "." + name);
+        };
+
+        struct SpawnerRecord {
+            bool present = false;
+            int index = 0;
+            int behavior = 0;
+            int ai0 = 0;
+            int ai1 = 0;
+            int ai2 = 0;
+            int hp = 0;
+            int spawnTimer = 0;
+        };
+        struct ActorRecord {
+            bool present = false;
+            int slot = 0;
+            int behavior = 0;
+            int x = 0;
+            int y = 0;
+            int vx8 = 0;
+            int vy8 = 0;
+            int motionTimer = 0;
+            int target = 0;
+            int hp = 0;
+            int dead = 0;
+        };
+        struct PlayerRecord {
+            bool present = false;
+            int p1Dead = 0;
+            int p2Dead = 0;
+            int p1State = 0;
+            int p2State = 0;
+            int targetBefore = 0;
+            int targetAfter = 0;
+        };
+
+        try {
+            std::string text = readTextFile(path);
+            uint16_t runtimeCs = 0;
+            uint16_t runtimeDs = 0;
+            bool haveRuntimeCs = false;
+            bool haveRuntimeDs = false;
+            bool tempCopy = false;
+            bool visualClaim = false;
+            bool haveScenario = false;
+            bool haveLevel = false;
+            std::string scenario;
+            int level = 0;
+            SpawnerRecord spawner;
+            ActorRecord actorBefore;
+            ActorRecord actorAfter;
+            PlayerRecord players;
+            int breakCount = 0;
+            int dumpBytes = 0;
+            constexpr std::array<uint16_t, 6> kRequiredOffsets{
+                0x7a6b, 0x7c2c, 0x728c, 0x731b, 0x73e5, 0x741b};
+            std::array<bool, 6> sawRequired{};
+
+            std::istringstream lines(text);
+            std::string line;
+            std::regex keyRe("^([A-Za-z0-9_]+)=(.*)$");
+            std::regex breakRe(
+                "^break\\s+ghidra=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+"
+                "runtime=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+label=([^\\s]+).*$");
+            std::regex dumpRe("^dump\\s+DS:([0-9A-Fa-f]{4}).*$");
+            std::regex rowRe("^([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+(.+)$");
+            uint16_t currentDump = 0;
+            bool inDump = false;
+            while (std::getline(lines, line)) {
+                line = trim(line);
+                if (line.empty() || line[0] == '#') continue;
+
+                std::smatch match;
+                if (std::regex_match(line, match, keyRe)) {
+                    std::string key = match[1].str();
+                    std::string value = trim(match[2].str());
+                    if (key == "runtime_cs") {
+                        runtimeCs = parseHex16(value, key);
+                        haveRuntimeCs = true;
+                    } else if (key == "runtime_ds") {
+                        runtimeDs = parseHex16(value, key);
+                        haveRuntimeDs = true;
+                    } else if (key == "temp_copy") {
+                        tempCopy = value == "1";
+                    } else if (key == "visual_claim") {
+                        visualClaim = value != "0";
+                    } else if (key == "scenario") {
+                        scenario = value;
+                        haveScenario = true;
+                    } else if (key == "level") {
+                        level = parseIntAuto(value, key);
+                        haveLevel = true;
+                    }
+                    continue;
+                }
+
+                if (line.rfind("spawner ", 0) == 0) {
+                    auto fields = parseFields(line.substr(8), "spawner");
+                    spawner.present = true;
+                    spawner.index = fieldInt(fields, "index", "spawner");
+                    spawner.behavior = fieldInt(fields, "behavior", "spawner");
+                    spawner.ai0 = fieldInt(fields, "ai0", "spawner");
+                    spawner.ai1 = fieldInt(fields, "ai1", "spawner");
+                    spawner.ai2 = fieldInt(fields, "ai2", "spawner");
+                    spawner.hp = fieldInt(fields, "hp", "spawner");
+                    spawner.spawnTimer =
+                        optionalFieldInt(fields, "spawn_timer", "spawner", 0);
+                    continue;
+                }
+                if (line.rfind("actor_before ", 0) == 0 ||
+                    line.rfind("actor_after ", 0) == 0) {
+                    bool after = line.rfind("actor_after ", 0) == 0;
+                    const std::string record = after ? "actor_after" : "actor_before";
+                    auto fields = parseFields(
+                        line.substr(after ? 12 : 13), record);
+                    ActorRecord parsed;
+                    parsed.present = true;
+                    parsed.slot = fieldInt(fields, "slot", record);
+                    parsed.behavior = fieldInt(fields, "behavior", record);
+                    parsed.x = fieldInt(fields, "x", record);
+                    parsed.y = fieldInt(fields, "y", record);
+                    parsed.vx8 = fieldInt(fields, "vx8", record);
+                    parsed.vy8 = fieldInt(fields, "vy8", record);
+                    parsed.motionTimer = fieldInt(fields, "motion_timer", record);
+                    parsed.target = fieldInt(fields, "target", record);
+                    parsed.hp = fieldInt(fields, "hp", record);
+                    parsed.dead = fieldInt(fields, "dead", record);
+                    if (after) {
+                        actorAfter = parsed;
+                    } else {
+                        actorBefore = parsed;
+                    }
+                    continue;
+                }
+                if (line.rfind("players ", 0) == 0) {
+                    auto fields = parseFields(line.substr(8), "players");
+                    players.present = true;
+                    players.p1Dead = fieldInt(fields, "p1_dead", "players");
+                    players.p2Dead = fieldInt(fields, "p2_dead", "players");
+                    players.p1State = fieldInt(fields, "p1_state", "players");
+                    players.p2State = fieldInt(fields, "p2_state", "players");
+                    players.targetBefore =
+                        fieldInt(fields, "target_before", "players");
+                    players.targetAfter = fieldInt(fields, "target_after", "players");
+                    continue;
+                }
+
+                if (std::regex_match(line, match, breakRe)) {
+                    if (!haveRuntimeCs) fail("runtime_cs_missing_before_break");
+                    uint16_t ghidraSegment = parseHex16(match[1].str(), "ghidra");
+                    uint16_t ghidraOffset = parseHex16(match[2].str(), "ghidra");
+                    uint16_t runtimeSegment = parseHex16(match[3].str(), "runtime");
+                    uint16_t runtimeOffset = parseHex16(match[4].str(), "runtime");
+                    if (ghidraSegment != 0x1000) {
+                        fail("breakpoint_ghidra_segment expected=0x1000 actual=" +
+                             hex4(ghidraSegment));
+                    }
+                    if (runtimeSegment != runtimeCs) {
+                        fail("breakpoint_segment_mismatch expected=" + hex4(runtimeCs) +
+                             " actual=" + hex4(runtimeSegment));
+                    }
+                    if (runtimeOffset != ghidraOffset) {
+                        fail("breakpoint_offset_mismatch expected=" +
+                             bareHex4(ghidraOffset) + " actual=" +
+                             bareHex4(runtimeOffset));
+                    }
+                    ++breakCount;
+                    for (size_t i = 0; i < kRequiredOffsets.size(); ++i) {
+                        if (ghidraOffset == kRequiredOffsets[i]) sawRequired[i] = true;
+                    }
+                    continue;
+                }
+
+                if (std::regex_match(line, match, dumpRe)) {
+                    currentDump = parseHex16(match[1].str(), "dump");
+                    inDump = true;
+                    continue;
+                }
+
+                if (std::regex_match(line, match, rowRe)) {
+                    if (!inDump) fail("dump_row_without_header");
+                    if (!haveRuntimeDs) fail("runtime_ds_missing_before_dump");
+                    uint16_t segment = parseHex16(match[1].str(), "row_segment");
+                    uint16_t address = parseHex16(match[2].str(), "row_address");
+                    if (segment != runtimeDs) {
+                        fail("dump_segment_mismatch expected=" + hex4(runtimeDs) +
+                             " actual=" + hex4(segment) +
+                             " address=" + bareHex4(address));
+                    }
+                    if (address < currentDump) {
+                        fail("dump_address_before_header header=" + bareHex4(currentDump) +
+                             " address=" + bareHex4(address));
+                    }
+                    std::istringstream byteStream(match[3].str());
+                    std::string token;
+                    uint16_t cursor = address;
+                    while (byteStream >> token) {
+                        (void)parseHexByte(token, cursor);
+                        ++cursor;
+                        ++dumpBytes;
+                    }
+                    continue;
+                }
+
+                fail("unrecognized_line");
+            }
+
+            if (!haveRuntimeCs) fail("runtime_cs_missing");
+            if (!haveRuntimeDs) fail("runtime_ds_missing");
+            if (!haveScenario) fail("scenario_missing");
+            if (!haveLevel) fail("level_missing");
+            if (visualClaim) fail("visual_claim_not_supported");
+            if (!spawner.present) fail("spawner_missing");
+            if (!actorBefore.present) fail("actor_before_missing");
+            if (!actorAfter.present) fail("actor_after_missing");
+            if (!players.present) fail("players_missing");
+            for (size_t i = 0; i < kRequiredOffsets.size(); ++i) {
+                if (!sawRequired[i]) {
+                    fail("missing_breakpoint offset=" + bareHex4(kRequiredOffsets[i]));
+                }
+            }
+            if (spawner.behavior != 4) {
+                fail("spawner_behavior_not_4 actual=" +
+                     std::to_string(spawner.behavior));
+            }
+            if (actorBefore.behavior != 4) {
+                fail("actor_before_behavior_not_4 actual=" +
+                     std::to_string(actorBefore.behavior));
+            }
+            if (actorAfter.behavior != 4) {
+                fail("actor_after_behavior_not_4 actual=" +
+                     std::to_string(actorAfter.behavior));
+            }
+            if (actorBefore.slot != actorAfter.slot) {
+                fail("actor_slot_changed before=" + std::to_string(actorBefore.slot) +
+                     " after=" + std::to_string(actorAfter.slot));
+            }
+            if (players.targetBefore != actorBefore.target) {
+                fail("target_before_mismatch actor=" +
+                     std::to_string(actorBefore.target) + " players=" +
+                     std::to_string(players.targetBefore));
+            }
+            if (players.targetAfter != actorAfter.target) {
+                fail("target_after_mismatch actor=" +
+                     std::to_string(actorAfter.target) + " players=" +
+                     std::to_string(players.targetAfter));
+            }
+
+            std::cout << "behavior4_runtime_oracle=ok fixture=" << fixture
+                      << " scenario=" << scenario
+                      << " level=" << level
+                      << " runtime_cs=" << hex4(runtimeCs)
+                      << " runtime_ds=" << hex4(runtimeDs)
+                      << " spawner_index=" << spawner.index
+                      << " spawner_behavior=" << spawner.behavior
+                      << " spawner_ai=" << spawner.ai0 << ',' << spawner.ai1
+                      << ',' << spawner.ai2
+                      << " spawner_hp=" << spawner.hp
+                      << " actor_slot=" << actorAfter.slot
+                      << " before_xy="
+                      << hex4(static_cast<uint16_t>(actorBefore.x)) << ','
+                      << hex4(static_cast<uint16_t>(actorBefore.y))
+                      << " after_xy="
+                      << hex4(static_cast<uint16_t>(actorAfter.x)) << ','
+                      << hex4(static_cast<uint16_t>(actorAfter.y))
+                      << " velocity8=" << actorAfter.vx8 << ','
+                      << actorAfter.vy8
+                      << " motion_timer=" << actorAfter.motionTimer
+                      << " target_before=" << actorBefore.target
+                      << " target_after=" << actorAfter.target
+                      << " players_dead=" << players.p1Dead << ','
+                      << players.p2Dead
+                      << " breaks=" << breakCount
+                      << " dump_bytes=" << dumpBytes
+                      << " temp_copy=" << (tempCopy ? 1 : 0)
+                      << " visual_claim=0\n";
+            if (expectError) {
+                std::cout << "behavior4_runtime_oracle=error fixture=" << fixture
                           << " reason=expected_error_missing\n";
                 return 1;
             }
@@ -11130,6 +11516,10 @@ int main(int argc, char** argv) {
         if (argc > 2 && std::string(argv[1]) == "--debug-state2-runtime-frame-oracle") {
             bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";
             return app.debugState2RuntimeFrameOracle(argv[2], expectError);
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-behavior4-runtime-oracle") {
+            bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";
+            return app.debugBehavior4RuntimeOracle(argv[2], expectError);
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-explosion-playback-oracle") {
             bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";

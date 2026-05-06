@@ -1,0 +1,22 @@
+# LEZAC behavior-4 runtime oracle fixture v1
+capture=behavior4_runtime
+source=dosbox-debug
+temp_copy=1
+visual_claim=0
+scenario=monster_behavior4_target_selection
+level=3
+
+runtime_cs=1A2B
+runtime_ds=2B3C
+
+break ghidra=1000:7A6B runtime=1A2B:7A6B label=spawner_loop_start
+break ghidra=1000:7C2C runtime=1A2B:7C2C label=spawner_loop_end
+break ghidra=1000:728C runtime=1A2B:728C label=behavior4_branch_start
+break ghidra=1000:731B runtime=1A2B:731B label=behavior4_branch_end
+break ghidra=1000:73E5 runtime=1A2B:73E5 label=integration_8_8_start
+break ghidra=1000:741B runtime=1A2B:741B label=integration_8_8_end
+
+spawner index=5 behavior=3 ai0=20 ai1=214 ai2=66 hp=4 spawn_timer=30
+actor_before slot=0 behavior=4 x=0x0068 y=0x00a8 vx8=0 vy8=0 motion_timer=0 target=2 hp=4 dead=0
+actor_after slot=0 behavior=4 x=0x0069 y=0x00a8 vx8=32 vy8=0 motion_timer=1 target=1 hp=4 dead=0
+players p1_dead=0 p2_dead=1 p1_state=0 p2_state=2 target_before=2 target_after=1

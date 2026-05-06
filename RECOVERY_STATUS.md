@@ -169,6 +169,18 @@ Baseline: `origin/main`
   `monster_behavior4_target_selection`. The frame harness now exports
   deterministic behavior-4 spawn/retarget checkpoints plus manifest metadata
   for player count/dead flags and first-monster position/velocity/behavior.
+- Added `--debug-behavior4-runtime-oracle <fixture> [--expect-error]` with
+  synthetic and malformed DOSBox fixture coverage. The parser records
+  scenario/level, runtime `CS`/`DS`, behavior-4 spawner fields, actor
+  before/after position, 8.8 velocity, motion timer, target/player-dead state,
+  optional `DS:` dump rows, and required anchors for the spawner loop
+  `1000:7A6B..7C2C`, behavior-4 branch `1000:728C..731B`, and 8.8 integration
+  `1000:73E5..741B`.
+- Added `tools/capture_original_behavior4_debug.sh <out_dir> [asset_dir]
+  <scenario>` for the level-2 spawner, level-3 spawner, and target-selection
+  behavior-4 scenarios. It writes `manifest.txt`, `raw_debugger_dump.txt`, and
+  `debugger_commands.txt`, labels current captures `debugger_seeded`, and has a
+  dry-run CTest path for environments without DOSBox-debug.
 - Added provisional live state-2 rendering keyed to the recovered `0x4a..0x4f`
   cursor range. It is intentionally documented as `visual_claim=0` until the
   original `DS:c322` frame-table fields are fully interpreted.

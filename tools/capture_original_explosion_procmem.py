@@ -70,6 +70,7 @@ FREEZE_PATCH_MODE_LOOP = "loop"
 FREEZE_PATCH_MODE_BP4_CS_SCRATCH = "bp4-cs-scratch"
 FREEZE_PATCH_MODE_LANE_DIV_CS_SCRATCH = "lane-div-cs-scratch"
 FREEZE_PATCH_MODE_LANE_WRITE_CS_SCRATCH = "lane-write-cs-scratch"
+FREEZE_PATCH_MODE_LANE_RESULT_CS_SCRATCH = "lane-result-cs-scratch"
 DEFAULT_SEEDED_DEBRIS_WORD = 0xC004
 DEFAULT_SAMPLE_SCREENSHOTS = "0.5,1.0,1.5,2.0,3.0"
 ROUTE_STATE_RANGES = [
@@ -257,7 +258,71 @@ def build_freeze_patch(
         patch_bytes.extend(mov_ax_to_cs(scratch_offset + 0x0A))
         patch_bytes.extend([0xEB, 0xFE])
         return near_jump(ghidra_offset, body_offset), scratch_offset, 0x0C, body_offset, bytes(patch_bytes)
+    if patch_mode == FREEZE_PATCH_MODE_LANE_RESULT_CS_SCRATCH:
+        if ghidra_offset not in {0x3D3F, 0x3ED3}:
+            raise RuntimeError(
+                "--freeze-patch-mode lane-result-cs-scratch is only valid at "
+                "1000:3D3F or 1000:3ED3"
+            )
+        body_offset = 0xF200
+        scratch_offset = 0xF280
+
+        def mov_ax_to_cs(offset: int) -> list[int]:
+            return [0x2E, 0xA3, offset & 0xFF, offset >> 8]
+
+        def mov_cs_reg(opcode: int, offset: int) -> list[int]:
+            return [0x2E, 0x89, opcode, offset & 0xFF, offset >> 8]
+
+        patch_bytes = []
+        patch_bytes.extend([0x30, 0xE4])  # AL holds the helper result byte.
+        patch_bytes.extend(mov_ax_to_cs(scratch_offset + 0x00))
+        patch_bytes.extend([0x8C, 0xC0])  # mov ax,es
+        patch_bytes.extend(mov_ax_to_cs(scratch_offset + 0x02))
+        patch_bytes.extend(mov_cs_reg(0x3E, scratch_offset + 0x04))  # DI
+        for local_offset, scratch_delta in [
+            (0x04, 0x06),  # [BP+4] far pointer offset.
+            (0x06, 0x08),  # [BP+6] far pointer segment.
+        ]:
+            patch_bytes.extend([0x8B, 0x46, local_offset])
+            patch_bytes.extend(mov_ax_to_cs(scratch_offset + scratch_delta))
+        patch_bytes.extend([0x8A, 0x46, 0xF3, 0x30, 0xE4])
+        patch_bytes.extend(mov_ax_to_cs(scratch_offset + 0x0A))
+        for local_offset, scratch_delta in [
+            (0xF0, 0x0C),  # [BP-10] active count.
+            (0xF6, 0x0E),  # [BP-0A] writeback loop index.
+        ]:
+            patch_bytes.extend([0x8B, 0x46, local_offset])
+            patch_bytes.extend(mov_ax_to_cs(scratch_offset + scratch_delta))
+        patch_bytes.extend([0x26, 0x8A, 0x05, 0x30, 0xE4])  # mov al,es:[di]
+        patch_bytes.extend(mov_ax_to_cs(scratch_offset + 0x10))
+        patch_bytes.extend([0xEB, 0xFE])
+        return near_jump(ghidra_offset, body_offset), scratch_offset, 0x12, body_offset, bytes(patch_bytes)
     raise RuntimeError(f"unsupported freeze patch mode: {patch_mode}")
+
+
+def expected_freeze_original_bytes(
+    patch_mode: str, ghidra_offset: int
+) -> bytes | None:
+    if (
+        patch_mode == FREEZE_PATCH_MODE_LANE_RESULT_CS_SCRATCH
+        and ghidra_offset in {0x3D3F, 0x3ED3}
+    ):
+        return bytes([0x26, 0x88, 0x05])  # mov es:[di],al
+    return None
+
+
+def require_expected_freeze_original_bytes(
+    patch_mode: str, ghidra_offset: int, original: bytes
+) -> None:
+    expected = expected_freeze_original_bytes(patch_mode, ghidra_offset)
+    if expected is None:
+        return
+    actual = original[: len(expected)]
+    if actual != expected:
+        raise RuntimeError(
+            f"freeze original bytes mismatch at 1000:{ghidra_offset:04X}: "
+            f"expected {expected.hex()} actual {actual.hex()}"
+        )
 
 
 def patch_freeze(
@@ -309,6 +374,7 @@ def patch_freeze(
         if body_offset is not None
         else b""
     )
+    require_expected_freeze_original_bytes(patch_mode, ghidra_offset, original)
     data[file_offset : file_offset + len(patch)] = patch
     if body_offset is not None:
         data[body_file_offset : body_file_offset + len(body_patch)] = body_patch
@@ -317,6 +383,9 @@ def patch_freeze(
         "ghidra_offset": ghidra_offset,
         "image_base": image_base,
         "file_offset": file_offset,
+        "expected_original_bytes": (
+            expected_freeze_original_bytes(patch_mode, ghidra_offset) or b""
+        ).hex(),
         "original_bytes": original.hex(),
         "patch_bytes": patch.hex(),
         "patch_mode": patch_mode,
@@ -356,6 +425,7 @@ def describe_freeze_patch(
         ):
             scratch_file_offset = -1
     original = data[file_offset : file_offset + len(patch)]
+    require_expected_freeze_original_bytes(patch_mode, ghidra_offset, original)
     scratch_original = (
         data[
             scratch_file_offset :
@@ -378,6 +448,9 @@ def describe_freeze_patch(
         "ghidra_offset": ghidra_offset,
         "image_base": image_base,
         "file_offset": file_offset,
+        "expected_original_bytes": (
+            expected_freeze_original_bytes(patch_mode, ghidra_offset) or b""
+        ).hex(),
         "original_bytes": original.hex(),
         "patch_bytes": patch.hex(),
         "patch_mode": patch_mode,
@@ -1212,12 +1285,21 @@ def main() -> int:
         help="patch temp-copy LEZAC.EXE at Ghidra offset, e.g. 1000:3BB2",
     )
     parser.add_argument(
+        "--describe-freeze-patch",
+        action="store_true",
+        help=(
+            "print the freeze patch bytes for --freeze-ghidra-offset and exit "
+            "without launching DOSBox or reading process memory"
+        ),
+    )
+    parser.add_argument(
         "--freeze-patch-mode",
         choices=[
             FREEZE_PATCH_MODE_LOOP,
             FREEZE_PATCH_MODE_BP4_CS_SCRATCH,
             FREEZE_PATCH_MODE_LANE_DIV_CS_SCRATCH,
             FREEZE_PATCH_MODE_LANE_WRITE_CS_SCRATCH,
+            FREEZE_PATCH_MODE_LANE_RESULT_CS_SCRATCH,
         ],
         default=FREEZE_PATCH_MODE_LOOP,
         help=(
@@ -1227,7 +1309,9 @@ def main() -> int:
             "lane-div-cs-scratch is valid at 1000:3CD4/3CE3/3E68/3E77 "
             "and stores pre-division registers or equivalent BP locals into "
             "nearby CS scratch; lane-write-cs-scratch is valid at "
-            "1000:3D1B/3D2D/3EAF/3EC1 and stores queue writeback state"
+            "1000:3D1B/3D2D/3EAF/3EC1 and stores queue writeback state; "
+            "lane-result-cs-scratch is valid at 1000:3D3F/3ED3 and stores "
+            "the final helper far-pointer result write"
         ),
     )
     parser.add_argument(
@@ -1310,6 +1394,50 @@ def main() -> int:
         ),
     )
     args = parser.parse_args()
+
+    if args.describe_freeze_patch:
+        if not args.freeze_ghidra_offset:
+            raise RuntimeError("--describe-freeze-patch requires --freeze-ghidra-offset")
+        asset_dir = Path(args.asset_dir).resolve()
+        try:
+            description = describe_freeze_patch(
+                asset_dir,
+                parse_ghidra_offset(args.freeze_ghidra_offset),
+                str(args.freeze_patch_mode),
+            )
+        except Exception as exc:
+            print(f"freeze_patch_description=error reason={exc}", file=sys.stderr)
+            return 1
+        fields = [
+            "ghidra_offset",
+            "image_base",
+            "file_offset",
+            "patch_mode",
+            "expected_original_bytes",
+            "original_bytes",
+            "patch_bytes",
+            "patch_length",
+            "scratch_offset",
+            "scratch_length",
+            "body_offset",
+            "body_length",
+            "body_original_bytes",
+            "body_patch_bytes",
+        ]
+        print(
+            "freeze_patch_description=ok "
+            + " ".join(
+                f"{field}="
+                + (
+                    f"0x{int(description[field]):04x}"
+                    if isinstance(description[field], int)
+                    and field.endswith(("offset", "base"))
+                    else str(description[field])
+                )
+                for field in fields
+            )
+        )
+        return 0
 
     if not args.approve_procmem:
         print("refusing to read /proc/<pid>/mem without --approve-procmem", file=sys.stderr)
@@ -1402,6 +1530,14 @@ def main() -> int:
         raise RuntimeError(
             "--freeze-patch-mode lane-write-cs-scratch requires runtime child-memory "
             "patching; it is intended to capture live helper writeback registers"
+        )
+    if (
+        args.freeze_patch_mode == FREEZE_PATCH_MODE_LANE_RESULT_CS_SCRATCH
+        and not runtime_freeze
+    ):
+        raise RuntimeError(
+            "--freeze-patch-mode lane-result-cs-scratch requires runtime child-memory "
+            "patching; it captures live ES:DI far-pointer result state"
         )
     freeze_patch: dict[str, int | str] | None = None
     if args.freeze_ghidra_offset:
@@ -1538,6 +1674,7 @@ def main() -> int:
         runtime_bp4_local_value: int | None = None
         runtime_lane_div_scratch: dict[str, int] | None = None
         runtime_lane_write_scratch: dict[str, int] | None = None
+        runtime_lane_result_scratch: dict[str, int] | None = None
         patch_bytes = (
             bytes.fromhex(str(freeze_patch["patch_bytes"]))
             if freeze_patch is not None
@@ -1686,6 +1823,11 @@ def main() -> int:
             freeze_loaded_before_runtime_patch = read_emulated(
                 pid, base, RUNTIME_CS, patch_offset, freeze_probe_length
             )
+            require_expected_freeze_original_bytes(
+                str(freeze_patch["patch_mode"]),
+                patch_offset,
+                freeze_loaded_before_runtime_patch,
+            )
             apply_runtime_seed_patch()
             if body_patch_bytes:
                 freeze_body_loaded_before_runtime_patch = read_emulated(
@@ -1806,6 +1948,11 @@ def main() -> int:
                 patch_offset = int(freeze_patch["ghidra_offset"])
                 freeze_loaded_before_runtime_patch = read_emulated(
                     pid, base, RUNTIME_CS, patch_offset, freeze_probe_length
+                )
+                require_expected_freeze_original_bytes(
+                    str(freeze_patch["patch_mode"]),
+                    patch_offset,
+                    freeze_loaded_before_runtime_patch,
                 )
                 apply_runtime_seed_patch()
                 if body_patch_bytes:
@@ -1963,6 +2110,28 @@ def main() -> int:
                 "loop_index": le16(scratch, 0x08),
                 "result_local": le16(scratch, 0x0A),
             }
+        if (
+            freeze_observed
+            and freeze_patch is not None
+            and str(freeze_patch.get("patch_mode", ""))
+            == FREEZE_PATCH_MODE_LANE_RESULT_CS_SCRATCH
+        ):
+            scratch_offset = int(freeze_patch["scratch_offset"])
+            scratch_length = int(freeze_patch["scratch_length"])
+            scratch = read_emulated(
+                pid, base, RUNTIME_CS, scratch_offset, scratch_length
+            )
+            runtime_lane_result_scratch = {
+                "output": le16(scratch, 0x00),
+                "es": le16(scratch, 0x02),
+                "di": le16(scratch, 0x04),
+                "arg_offset": le16(scratch, 0x06),
+                "arg_segment": le16(scratch, 0x08),
+                "result_local": le16(scratch, 0x0A),
+                "active_count": le16(scratch, 0x0C),
+                "loop_index": le16(scratch, 0x0E),
+                "target_before": le16(scratch, 0x10),
+            }
         chosen_score = sample_score(chosen)
         chosen_fields = decode_sample(chosen)
         try:
@@ -2115,6 +2284,37 @@ def main() -> int:
                             out.write(
                                 f"instrumented_lane_write_{field}="
                                 f"0x{runtime_lane_write_scratch[field]:04x}\n"
+                            )
+                if (
+                    str(freeze_patch["patch_mode"])
+                    == FREEZE_PATCH_MODE_LANE_RESULT_CS_SCRATCH
+                ):
+                    ghidra_offset = int(freeze_patch["ghidra_offset"])
+                    lane_kind = "forward" if ghidra_offset == 0x3D3F else "reverse"
+                    out.write(
+                        "instrumented_lane_result_scratch_present="
+                        f"{1 if runtime_lane_result_scratch is not None and freeze_observed else 0}\n"
+                    )
+                    out.write(
+                        "instrumented_lane_result_cs_offset="
+                        f"0x{int(freeze_patch['scratch_offset']):04x}\n"
+                    )
+                    out.write(f"instrumented_lane_result_kind={lane_kind}\n")
+                    if runtime_lane_result_scratch is not None:
+                        for field in [
+                            "output",
+                            "es",
+                            "di",
+                            "arg_offset",
+                            "arg_segment",
+                            "result_local",
+                            "active_count",
+                            "loop_index",
+                            "target_before",
+                        ]:
+                            out.write(
+                                f"instrumented_lane_result_{field}="
+                                f"0x{runtime_lane_result_scratch[field]:04x}\n"
                             )
                 if tail_match_frame:
                     out.write(f"instrumented_freeze_tail_frame={tail_match_frame}\n")
@@ -2286,6 +2486,7 @@ def main() -> int:
                     f"ghidra=1000:{int(freeze_patch['ghidra_offset']):04X} "
                     f"runtime={RUNTIME_CS:04X}:{int(freeze_patch['ghidra_offset']):04X} "
                     f"file_offset=0x{int(freeze_patch['file_offset']):x} "
+                    f"expected_old_bytes={freeze_patch['expected_original_bytes']} "
                     f"old_bytes={freeze_patch['original_bytes']} "
                     f"patch_bytes={freeze_patch['patch_bytes']} "
                     f"loaded_bytes={freeze_loaded_bytes.hex()}"
@@ -2317,6 +2518,15 @@ def main() -> int:
                 if (
                     str(freeze_patch["patch_mode"])
                     == FREEZE_PATCH_MODE_LANE_WRITE_CS_SCRATCH
+                ):
+                    out.write(
+                        f" scratch_cs={RUNTIME_CS:04X}:{int(freeze_patch['scratch_offset']):04X}"
+                        f" scratch_len={int(freeze_patch['scratch_length'])}"
+                        f" scratch_old_bytes={freeze_patch['scratch_original_bytes']}"
+                    )
+                if (
+                    str(freeze_patch["patch_mode"])
+                    == FREEZE_PATCH_MODE_LANE_RESULT_CS_SCRATCH
                 ):
                     out.write(
                         f" scratch_cs={RUNTIME_CS:04X}:{int(freeze_patch['scratch_offset']):04X}"
@@ -2388,11 +2598,13 @@ def main() -> int:
                 ("1000:3CE3", 0x3CE3, "collapse_forward_lane_divide"),
                 ("1000:3D1B", 0x3D1B, "collapse_forward_lane_write_collapse"),
                 ("1000:3D2D", 0x3D2D, "collapse_forward_lane_write_debris"),
+                ("1000:3D3F", 0x3D3F, "collapse_forward_lane_result_write"),
                 ("1000:3D46", 0x3D46, "collapse_reverse_pass"),
                 ("1000:3E68", 0x3E68, "collapse_reverse_lane_divide_setup"),
                 ("1000:3E77", 0x3E77, "collapse_reverse_lane_divide"),
                 ("1000:3EAF", 0x3EAF, "collapse_reverse_lane_write_collapse"),
                 ("1000:3EC1", 0x3EC1, "collapse_reverse_lane_write_debris"),
+                ("1000:3ED3", 0x3ED3, "collapse_reverse_lane_result_write"),
                 ("1000:3FA6", 0x3FA6, "effect_constructor_candidate"),
                 ("1000:45FA", 0x45FA, "effect_debris_update_entry"),
                 ("1000:432A", 0x432A, "effect_playback_candidate"),
@@ -2444,6 +2656,7 @@ def main() -> int:
                 f"freeze_runtime={RUNTIME_CS:04X}:{int(freeze_patch['ghidra_offset']):04X}\n"
                 f"freeze_file_offset=0x{int(freeze_patch['file_offset']):x}\n"
                 f"freeze_patch_mode={freeze_patch['patch_mode']}\n"
+                f"freeze_expected_old_bytes={freeze_patch['expected_original_bytes']}\n"
                 f"freeze_old_bytes={freeze_patch['original_bytes']}\n"
                 f"freeze_patch_bytes={freeze_patch['patch_bytes']}\n"
                 f"freeze_loaded_bytes={freeze_loaded_bytes.hex()}\n"
@@ -2558,6 +2771,33 @@ def main() -> int:
                         instrumentation_manifest += (
                             f"freeze_lane_write_{field}=0x"
                             f"{runtime_lane_write_scratch[field]:04x}\n"
+                        )
+            if (
+                str(freeze_patch["patch_mode"])
+                == FREEZE_PATCH_MODE_LANE_RESULT_CS_SCRATCH
+            ):
+                instrumentation_manifest += (
+                    f"freeze_lane_result_scratch_runtime={RUNTIME_CS:04X}:"
+                    f"{int(freeze_patch['scratch_offset']):04X}\n"
+                    f"freeze_lane_result_scratch_length={int(freeze_patch['scratch_length'])}\n"
+                    "freeze_lane_result_scratch_old_bytes="
+                    f"{freeze_patch['scratch_original_bytes']}\n"
+                )
+                if runtime_lane_result_scratch is not None:
+                    for field in [
+                        "output",
+                        "es",
+                        "di",
+                        "arg_offset",
+                        "arg_segment",
+                        "result_local",
+                        "active_count",
+                        "loop_index",
+                        "target_before",
+                    ]:
+                        instrumentation_manifest += (
+                            f"freeze_lane_result_{field}=0x"
+                            f"{runtime_lane_result_scratch[field]:04x}\n"
                         )
             if runtime_freeze:
                 after_bomb_seconds = (

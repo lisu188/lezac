@@ -256,6 +256,18 @@ if(BUILD_TESTING)
             "^autoplayer=ok scenario=two_player_progression p1_moved=1 p2_death_timer=60 p2_reentered=1 p2_bomb_tile=[0-9]+,[0-9]+ p2_score=1000 collected=1 frame_inspection=1")
 
     if(Python3_Interpreter_FOUND)
+        add_test(NAME python_tool_syntax_lane_result_preflight
+            COMMAND ${Python3_EXECUTABLE} -B -m py_compile
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_explosion_procmem.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_fixtures.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_layout.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_orchestrator.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_preflight.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_wrapper.py)
+        set_tests_properties(python_tool_syntax_lane_result_preflight PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
         add_test(NAME frame_compare_identical
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/frame_compare.py
@@ -265,6 +277,254 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^frame_compare=ok size=2x2 normalized=none pixels=4 exact_match=1 exact_different_pixels=0 threshold=0 threshold_different_pixels=0 max_delta=0")
+
+        add_test(NAME explosion_freeze_patch_describe_lane_result_3d3f
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_explosion_procmem.py
+                    ${CMAKE_CURRENT_BINARY_DIR}/freeze_patch_describe
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --describe-freeze-patch
+                    --freeze-ghidra-offset 1000:3D3F
+                    --freeze-patch-mode lane-result-cs-scratch)
+        set_tests_properties(explosion_freeze_patch_describe_lane_result_3d3f PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "freeze_patch_description=ok .*ghidra_offset=0x3d3f .*file_offset=0x44af .*patch_mode=lane-result-cs-scratch .*expected_original_bytes=268805 original_bytes=268805 patch_bytes=e9beb4 .*scratch_offset=0xf280 scratch_length=18 body_offset=0xf200 body_length=65")
+
+        add_test(NAME explosion_freeze_patch_describe_lane_result_3ed3
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_explosion_procmem.py
+                    ${CMAKE_CURRENT_BINARY_DIR}/freeze_patch_describe
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --describe-freeze-patch
+                    --freeze-ghidra-offset 1000:3ED3
+                    --freeze-patch-mode lane-result-cs-scratch)
+        set_tests_properties(explosion_freeze_patch_describe_lane_result_3ed3 PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "freeze_patch_description=ok .*ghidra_offset=0x3ed3 .*file_offset=0x4643 .*patch_mode=lane-result-cs-scratch .*expected_original_bytes=268805 original_bytes=268805 patch_bytes=e92ab3 .*scratch_offset=0xf280 scratch_length=18 body_offset=0xf200 body_length=65")
+
+        add_test(NAME explosion_freeze_patch_describe_lane_result_wrong_offset
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_explosion_procmem.py
+                    ${CMAKE_CURRENT_BINARY_DIR}/freeze_patch_describe
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --describe-freeze-patch
+                    --freeze-ghidra-offset 1000:3D2D
+                    --freeze-patch-mode lane-result-cs-scratch)
+        set_tests_properties(explosion_freeze_patch_describe_lane_result_wrong_offset PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "lane-result-cs-scratch is only valid at 1000:3D3F or 1000:3ED3")
+
+        add_test(NAME explosion_lane_result_preflight
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_preflight.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_result_preflight PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_preflight=ok .*offsets=1000:3D3F,1000:3ED3 .*result_tail=1 result_tail_bytes=8b46f63b46f075c58a46f3c47e04268805c9c20600 .*wrong_offset_guard=1")
+
+        add_test(NAME explosion_lane_result_fixture_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_fixtures.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox)
+        set_tests_properties(explosion_lane_result_fixture_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_fixtures=ok files=13 valid=2 malformed=11 cmake_tests=13")
+
+        add_test(NAME explosion_lane_result_layout_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_layout.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_result_layout_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_layout=ok fields=9 writer_loops=2")
+
+        add_test(NAME explosion_lane_result_orchestrator_cmake_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_orchestrator.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt)
+        set_tests_properties(explosion_lane_result_orchestrator_cmake_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_orchestrator_cmake=ok tests=14 will_fail=3")
+
+        add_test(NAME explosion_lane_result_wrapper_output_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_wrapper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_result_wrapper_output_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_wrapper_output=ok cases=13")
+
+        add_test(NAME explosion_lane_result_capture_orchestrator_preflight
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
+                    --preflight-only
+                    --asset-dir ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_result_capture_orchestrator_preflight PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_capture_orchestrator=ok mode=preflight .*result_tail=1 result_tail_bytes=8b46f63b46f075c58a46f3c47e04268805c9c20600 .*wrong_offset_guard=1")
+
+        add_test(NAME explosion_lane_result_capture_orchestrator_preflight_positional
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --preflight-only)
+        set_tests_properties(explosion_lane_result_capture_orchestrator_preflight_positional PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_capture_orchestrator=ok mode=preflight .*result_tail=1 result_tail_bytes=8b46f63b46f075c58a46f3c47e04268805c9c20600 .*wrong_offset_guard=1")
+
+        add_test(NAME explosion_lane_result_capture_orchestrator_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
+                    /tmp/lezac-lane-result-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --skip-oracle)
+        set_tests_properties(explosion_lane_result_capture_orchestrator_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_capture_orchestrator=ok mode=dry_run .*offsets=2 capture_commands=2 oracle_commands=0 offset_labels=3d3f,3ed3 offset_addresses=1000:3D3F,1000:3ED3 .*result_tail=1 result_tail_bytes=8b46f63b46f075c58a46f3c47e04268805c9c20600 .*wrong_offset_guard=1")
+
+        add_test(NAME explosion_lane_result_capture_orchestrator_dry_run_with_oracle
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
+                    /tmp/lezac-lane-result-dry-run-oracle
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --cpp-exe ${CMAKE_CURRENT_BINARY_DIR}/lezac_cpp)
+        set_tests_properties(explosion_lane_result_capture_orchestrator_dry_run_with_oracle PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_capture_orchestrator=ok mode=dry_run .*offsets=2 capture_commands=2 oracle_commands=2 offset_labels=3d3f,3ed3 offset_addresses=1000:3D3F,1000:3ED3 .*result_tail=1 result_tail_bytes=8b46f63b46f075c58a46f3c47e04268805c9c20600 .*wrong_offset_guard=1")
+
+        add_test(NAME explosion_lane_result_capture_orchestrator_dry_run_single_offset
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
+                    /tmp/lezac-lane-result-dry-run-one
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --skip-oracle
+                    --offset 3D3F)
+        set_tests_properties(explosion_lane_result_capture_orchestrator_dry_run_single_offset PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_capture_orchestrator=ok mode=dry_run .*offsets=1 capture_commands=1 oracle_commands=0 offset_labels=3d3f offset_addresses=1000:3D3F .*result_tail=1 result_tail_bytes=8b46f63b46f075c58a46f3c47e04268805c9c20600 .*wrong_offset_guard=1")
+
+        add_test(NAME explosion_lane_result_capture_orchestrator_dry_run_reverse_alias
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
+                    /tmp/lezac-lane-result-dry-run-reverse
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --skip-oracle
+                    --offset reverse)
+        set_tests_properties(explosion_lane_result_capture_orchestrator_dry_run_reverse_alias PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_capture_orchestrator=ok mode=dry_run .*offsets=1 capture_commands=1 oracle_commands=0 offset_labels=3ed3 offset_addresses=1000:3ED3 .*result_tail=1 result_tail_bytes=8b46f63b46f075c58a46f3c47e04268805c9c20600 .*wrong_offset_guard=1")
+
+        add_test(NAME explosion_lane_result_capture_orchestrator_dry_run_mixed_order
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
+                    /tmp/lezac-lane-result-dry-run-mixed-order
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --skip-oracle
+                    --offset reverse
+                    --offset forward)
+        set_tests_properties(explosion_lane_result_capture_orchestrator_dry_run_mixed_order PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_capture_orchestrator=ok mode=dry_run .*offsets=2 capture_commands=2 oracle_commands=0 offset_labels=3ed3,3d3f offset_addresses=1000:3ED3,1000:3D3F .*result_tail=1 result_tail_bytes=8b46f63b46f075c58a46f3c47e04268805c9c20600 .*wrong_offset_guard=1")
+
+        add_test(NAME explosion_lane_result_capture_orchestrator_dry_run_timing_args
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
+                    /tmp/lezac-lane-result-dry-run-timing
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --skip-oracle
+                    --offset forward
+                    --runtime-freeze-after-bomb-seconds 0.125
+                    --level-start-seconds 2.25
+                    --right-hold-seconds 3.5
+                    --sample-seconds 6.75
+                    --sample-interval 0.015
+                    --route-state-interval 0.5
+                    --tail-freeze-check-seconds 1.25)
+        set_tests_properties(explosion_lane_result_capture_orchestrator_dry_run_timing_args PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "--runtime-freeze-after-bomb-seconds 0\\.125 .*--level-start-seconds 2\\.25 .*--right-hold-seconds 3\\.5 .*--sample-seconds 6\\.75 .*--sample-interval 0\\.015 .*--route-state-interval 0\\.5 .*--tail-freeze-check-seconds 1\\.25")
+
+        add_test(NAME explosion_lane_result_capture_orchestrator_dry_run_alias_offsets
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
+                    /tmp/lezac-lane-result-dry-run-aliases
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --skip-oracle
+                    --offset forward
+                    --offset reverse)
+        set_tests_properties(explosion_lane_result_capture_orchestrator_dry_run_alias_offsets PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_capture_orchestrator=ok mode=dry_run .*offsets=2 capture_commands=2 oracle_commands=0 offset_labels=3d3f,3ed3 offset_addresses=1000:3D3F,1000:3ED3 .*result_tail=1 result_tail_bytes=8b46f63b46f075c58a46f3c47e04268805c9c20600 .*wrong_offset_guard=1")
+
+        add_test(NAME explosion_lane_result_capture_orchestrator_dry_run_duplicate_offset
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
+                    /tmp/lezac-lane-result-dry-run-duplicate
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --skip-oracle
+                    --offset 3D3F
+                    --offset 1000:3D3F)
+        set_tests_properties(explosion_lane_result_capture_orchestrator_dry_run_duplicate_offset PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_capture_orchestrator=ok mode=dry_run .*offsets=1 capture_commands=1 oracle_commands=0 offset_labels=3d3f offset_addresses=1000:3D3F .*result_tail=1 result_tail_bytes=8b46f63b46f075c58a46f3c47e04268805c9c20600 .*wrong_offset_guard=1")
+
+        add_test(NAME explosion_lane_result_capture_orchestrator_bad_offset
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
+                    /tmp/lezac-lane-result-dry-run-bad-offset
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --skip-oracle
+                    --offset sideways)
+        set_tests_properties(explosion_lane_result_capture_orchestrator_bad_offset PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            WILL_FAIL TRUE)
+
+        add_test(NAME explosion_lane_result_capture_orchestrator_refuses_repo_output
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/lane-result-runtime-refusal
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --skip-oracle)
+        set_tests_properties(explosion_lane_result_capture_orchestrator_refuses_repo_output PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            WILL_FAIL TRUE)
+
+        add_test(NAME explosion_lane_result_capture_orchestrator_requires_approval
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
+                    /tmp/lezac-lane-result-runtime-refusal
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_result_capture_orchestrator_requires_approval PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            WILL_FAIL TRUE)
     endif()
 
     add_test(NAME records_update_temp
@@ -452,6 +712,121 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "explosion_playback_oracle=ok fixture=explosion_playback_oracle_lane_div_scratch_synthetic .*playback_breaks=16 observed_freeze_count=1 observed_freeze_offset=0x3ce3 .*observed_lane_forward_divide=1 observed_lane_reverse_divide=0 .*lane_div_scratch_present=1 lane_div_kind=forward lane_div_cs_offset=0x3d23 lane_div_ax=0xfff7 lane_div_dx=0xffff lane_div_cx=0x0001 lane_div_bx=0x0000 lane_div_active_count=0x0001 lane_div_loop_index=0x0001 lane_div_weight_local=0x0001 lane_div_numerator_low=0xfff7 lane_div_numerator_high=0xffff .*debris0_tile_index=0x0393 debris0_flagged=0xc000 .*collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_word=0x0009 collapse0_flagged=0x8009 .*temp_copy=1 visual_claim=0")
 
+    add_test(NAME explosion_playback_oracle_lane_result_scratch_synthetic
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_lane_result_scratch_synthetic.txt)
+    set_tests_properties(explosion_playback_oracle_lane_result_scratch_synthetic PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_lane_result_scratch_synthetic .*playback_breaks=16 observed_freeze_count=1 observed_freeze_offset=0x3d3f .*observed_lane_forward_result=1 observed_lane_reverse_result=0 .*lane_result_scratch_present=1 lane_result_kind=forward lane_result_cs_offset=0xf280 lane_result_output=0x0004 lane_result_es=0x2b3c lane_result_di=0x78d2 lane_result_arg_offset=0x78d2 lane_result_arg_segment=0x2b3c lane_result_result_local=0x0004 lane_result_active_count=0x0001 lane_result_loop_index=0x0001 lane_result_target_before=0x0010 .*freeze_expected_old_bytes_present=1 freeze_expected_old_bytes=268805 freeze_old_bytes=268805 .*debris0_tile_index=0x0393 debris0_flagged=0xc000 .*collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_word=0x0009 collapse0_flagged=0x8009 .*temp_copy=1 visual_claim=0")
+
+    add_test(NAME explosion_playback_oracle_lane_result_reverse_scratch_synthetic
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_lane_result_reverse_scratch_synthetic.txt)
+    set_tests_properties(explosion_playback_oracle_lane_result_reverse_scratch_synthetic PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_lane_result_reverse_scratch_synthetic .*playback_breaks=16 observed_freeze_count=1 observed_freeze_offset=0x3ed3 .*observed_lane_forward_result=0 observed_lane_reverse_result=1 .*lane_result_scratch_present=1 lane_result_kind=reverse lane_result_cs_offset=0xf280 lane_result_output=0x0000 lane_result_es=0x2b3c lane_result_di=0x78d4 lane_result_arg_offset=0x78d4 lane_result_arg_segment=0x2b3c lane_result_result_local=0x0000 lane_result_active_count=0x0001 lane_result_loop_index=0x0001 lane_result_target_before=0x0004 .*freeze_expected_old_bytes_present=1 freeze_expected_old_bytes=268805 freeze_old_bytes=268805 .*debris0_tile_index=0x0393 debris0_flagged=0xc000 .*collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_word=0x0009 collapse0_flagged=0x8009 .*temp_copy=1 visual_claim=0")
+
+    add_test(NAME explosion_playback_oracle_lane_result_missing_target_before
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_lane_result_missing_target_before.txt
+                --expect-error)
+    set_tests_properties(explosion_playback_oracle_lane_result_missing_target_before PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=error fixture=explosion_playback_oracle_lane_result_missing_target_before reason=lane_result_field_missing field=target_before")
+
+    add_test(NAME explosion_playback_oracle_lane_result_bad_far_pointer
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_lane_result_bad_far_pointer.txt
+                --expect-error)
+    set_tests_properties(explosion_playback_oracle_lane_result_bad_far_pointer PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=error fixture=explosion_playback_oracle_lane_result_bad_far_pointer reason=lane_result_far_pointer_mismatch")
+
+    add_test(NAME explosion_playback_oracle_lane_result_bad_output_local
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_lane_result_bad_output_local.txt
+                --expect-error)
+    set_tests_properties(explosion_playback_oracle_lane_result_bad_output_local PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=error fixture=explosion_playback_oracle_lane_result_bad_output_local reason=lane_result_output_local_mismatch")
+
+    add_test(NAME explosion_playback_oracle_lane_result_bad_expected_old_bytes
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_lane_result_bad_expected_old_bytes.txt
+                --expect-error)
+    set_tests_properties(explosion_playback_oracle_lane_result_bad_expected_old_bytes PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=error fixture=explosion_playback_oracle_lane_result_bad_expected_old_bytes reason=freeze_expected_old_bytes_mismatch")
+
+    add_test(NAME explosion_playback_oracle_lane_result_expected_without_old_bytes
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_lane_result_expected_without_old_bytes.txt
+                --expect-error)
+    set_tests_properties(explosion_playback_oracle_lane_result_expected_without_old_bytes PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=error fixture=explosion_playback_oracle_lane_result_expected_without_old_bytes reason=freeze_expected_without_old_bytes")
+
+    add_test(NAME explosion_playback_oracle_lane_result_missing_expected_old_bytes
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_lane_result_missing_expected_old_bytes.txt
+                --expect-error)
+    set_tests_properties(explosion_playback_oracle_lane_result_missing_expected_old_bytes PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=error fixture=explosion_playback_oracle_lane_result_missing_expected_old_bytes reason=lane_result_expected_old_bytes_missing")
+
+    add_test(NAME explosion_playback_oracle_lane_result_bad_scratch_offset
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_lane_result_bad_scratch_offset.txt
+                --expect-error)
+    set_tests_properties(explosion_playback_oracle_lane_result_bad_scratch_offset PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=error fixture=explosion_playback_oracle_lane_result_bad_scratch_offset reason=lane_result_scratch_offset_mismatch")
+
+    add_test(NAME explosion_playback_oracle_lane_result_bad_kind
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_lane_result_bad_kind.txt
+                --expect-error)
+    set_tests_properties(explosion_playback_oracle_lane_result_bad_kind PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=error fixture=explosion_playback_oracle_lane_result_bad_kind reason=lane_result_forward_kind_without_forward_freeze")
+
+    add_test(NAME explosion_playback_oracle_lane_result_bad_loop_bounds
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_lane_result_bad_loop_bounds.txt
+                --expect-error)
+    set_tests_properties(explosion_playback_oracle_lane_result_bad_loop_bounds PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=error fixture=explosion_playback_oracle_lane_result_bad_loop_bounds reason=lane_result_loop_bounds")
+
+    add_test(NAME explosion_playback_oracle_lane_result_bad_target_before_width
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_lane_result_bad_target_before_width.txt
+                --expect-error)
+    set_tests_properties(explosion_playback_oracle_lane_result_bad_target_before_width PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=error fixture=explosion_playback_oracle_lane_result_bad_target_before_width reason=lane_result_target_before_width")
+
+    add_test(NAME explosion_playback_oracle_lane_result_field_without_present
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_lane_result_field_without_present.txt
+                --expect-error)
+    set_tests_properties(explosion_playback_oracle_lane_result_field_without_present PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=error fixture=explosion_playback_oracle_lane_result_field_without_present reason=lane_result_field_without_present")
+
     add_test(NAME explosion_playback_oracle_selected_bases
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_selected_bases.txt)
@@ -546,7 +921,7 @@ if(BUILD_TESTING)
     set_tests_properties(explosion_playback_oracle_original_3d2d_lane_write_runtime_seeded PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3d2d_lane_write_runtime_seeded .*playback_breaks=23 observed_freeze_count=1 observed_freeze_offset=0x3d2d .*observed_lane_forward_write=1 observed_lane_reverse_write=0 observed_lane_collapse_write=0 observed_lane_debris_write=1 .*lane_write_scratch_present=1 lane_write_kind=forward lane_write_target=debris lane_write_cs_offset=0xf080 lane_write_output=0x0035 lane_write_di=0x0898 lane_write_tag=0x4ee8 lane_write_active_count=0x0001 lane_write_loop_index=0x0001 lane_write_result_local=0x0035 runtime_seeded=1 runtime_seed_kind=debris-writeback runtime_seed_direction=forward runtime_seed_word=0xc004 runtime_seed_patch_applied=1 .*debris_count=0x00c8 debris_count_base=0x292b debris_base=0x292b .*debris0_tile_index=0x0542 debris0_flagged=0xc004 .*temp_copy=1 visual_claim=0")
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3d2d_lane_write_runtime_seeded .*playback_breaks=23 observed_freeze_count=1 observed_freeze_offset=0x3d2d .*observed_lane_forward_write=1 observed_lane_reverse_write=0 observed_lane_collapse_write=0 observed_lane_debris_write=1 .*lane_write_scratch_present=1 lane_write_kind=forward lane_write_target=debris lane_write_cs_offset=0xf080 lane_write_output=0x0035 lane_write_di=0x0898 lane_write_tag=0x4ee8 lane_write_active_count=0x0001 lane_write_loop_index=0x0001 lane_write_result_local=0x0035 .*runtime_seeded=1 runtime_seed_kind=debris-writeback runtime_seed_direction=forward runtime_seed_word=0xc004 runtime_seed_patch_applied=1 .*debris_count=0x00c8 debris_count_base=0x292b debris_base=0x292b .*debris0_tile_index=0x0542 debris0_flagged=0xc004 .*temp_copy=1 visual_claim=0")
 
     add_test(NAME explosion_playback_oracle_original_3eaf_lane_write_trampoline_runtime
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
@@ -570,7 +945,7 @@ if(BUILD_TESTING)
     set_tests_properties(explosion_playback_oracle_original_3ec1_lane_write_runtime_seeded PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3ec1_lane_write_runtime_seeded .*playback_breaks=23 observed_freeze_count=1 observed_freeze_offset=0x3ec1 .*observed_lane_forward_write=0 observed_lane_reverse_write=1 observed_lane_collapse_write=0 observed_lane_debris_write=1 .*lane_write_scratch_present=1 lane_write_kind=reverse lane_write_target=debris lane_write_cs_offset=0xf080 lane_write_output=0x0000 lane_write_di=0x0898 lane_write_tag=0x4ee8 lane_write_active_count=0x0001 lane_write_loop_index=0x0001 lane_write_result_local=0x0000 runtime_seeded=1 runtime_seed_kind=debris-writeback runtime_seed_direction=reverse runtime_seed_word=0xc004 runtime_seed_patch_applied=1 .*debris_count=0x00c8 debris_count_base=0x292b debris_base=0x292b .*debris0_tile_index=0x0543 debris0_flagged=0xc004 .*temp_copy=1 visual_claim=0")
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3ec1_lane_write_runtime_seeded .*playback_breaks=23 observed_freeze_count=1 observed_freeze_offset=0x3ec1 .*observed_lane_forward_write=0 observed_lane_reverse_write=1 observed_lane_collapse_write=0 observed_lane_debris_write=1 .*lane_write_scratch_present=1 lane_write_kind=reverse lane_write_target=debris lane_write_cs_offset=0xf080 lane_write_output=0x0000 lane_write_di=0x0898 lane_write_tag=0x4ee8 lane_write_active_count=0x0001 lane_write_loop_index=0x0001 lane_write_result_local=0x0000 .*runtime_seeded=1 runtime_seed_kind=debris-writeback runtime_seed_direction=reverse runtime_seed_word=0xc004 runtime_seed_patch_applied=1 .*debris_count=0x00c8 debris_count_base=0x292b debris_base=0x292b .*debris0_tile_index=0x0543 debris0_flagged=0xc004 .*temp_copy=1 visual_claim=0")
 
     add_test(NAME explosion_playback_oracle_original_4c96_runtime
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle

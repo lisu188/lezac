@@ -324,6 +324,28 @@ writeback branch arithmetic: both forward `1000:3d2d` and reverse `1000:3ec1`
 resolve selected tag `0x4ee8` to `DI=0x0898`, matching
 `(0x4ee8 - 0x4e20) * 0x0b`. The forward seeded result byte is `0x35`; the
 reverse seeded result byte is `0x00`.
+The capture helper and explosion playback oracle now also support
+`lane-result-cs-scratch` for the final helper far-pointer result writes at
+`1000:3d3f` and `1000:3ed3` (`mov es:[di],al`). The runtime scratch body is
+parked at `CS:f200`, stores fields at `CS:f280`, and captures the result byte,
+`ES:DI`, `[BP+4]`/`[BP+6]`, `[BP-0d]`, active count/index, and the destination
+byte before the write. The oracle validates that `ES:DI` equals the passed far
+pointer, the stored result byte equals `[BP-0d]`, and the loop count/index are
+in bounds. The process-memory helper also refuses to install this trampoline
+unless the target bytes are exactly `26 88 05` (`mov es:[di],al`). Current
+checked-in coverage is synthetic only, and `--describe-freeze-patch` can
+preflight these bytes without launching DOSBox:
+`explosion_playback_oracle_lane_result_scratch_synthetic.txt` for forward
+`3d3f`, `explosion_playback_oracle_lane_result_reverse_scratch_synthetic.txt`
+for reverse `3ed3`, plus malformed coverage for missing fields, wrong observed
+kind, bad far pointers, bad output/local values, bad target-byte width, bad
+loop bounds, and fields emitted without a scratch-present flag. The oracle also
+checks that fixture `freeze_old_bytes` begin with `freeze_expected_old_bytes`,
+with malformed coverage for mismatched or missing old-byte evidence. Original
+`3d3f`/`3ed3` captures were
+not promoted in the 2026-04-30 no-approval sandbox because WSL/DOSBox
+process-memory execution was blocked with
+`Wsl/Service/CreateInstance/E_ACCESSDENIED`.
 
 The effect constructor at `1000:3fa6` writes 11-byte effect records at
 `0x2093 + 0x0b * DS:2076` and stores the effect type byte in

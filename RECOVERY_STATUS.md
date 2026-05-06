@@ -1,11 +1,109 @@
 # Recovery Status
 
-Last reviewed: 2026-04-24
-Branch: `codex/recovery-monster-contact-evidence`
+Last reviewed: 2026-05-01
+Branch: `codex/lane-helper-model-evidence`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `lane-result-cs-scratch` instrumentation support to
+  `tools/capture_original_explosion_procmem.py` for the final lane-helper
+  result writes at `1000:3D3F` and `1000:3ED3`. The runtime-only trampoline
+  parks code at `CS:F200`, scratch at `CS:F280`, and captures the result byte,
+  `ES:DI`, `[BP+4]`/`[BP+6]`, `[BP-0D]`, active count/index, and the
+  destination byte before `mov es:[di],al`.
+- Hardened that instrumentation with an original-byte guard: both temp-copy
+  and runtime child-memory patching require the target bytes to be `26 88 05`
+  before writing the trampoline, and manifests now record
+  `freeze_expected_old_bytes`.
+- Added `--describe-freeze-patch` to the capture helper so patch bytes,
+  expected original bytes, file offsets, scratch offsets, and body bytes can be
+  preflighted without launching DOSBox or reading process memory.
+- Added Python-backed CTest preflight coverage for
+  `--describe-freeze-patch` at `1000:3D3F` and `1000:3ED3`, pinning the
+  shipped file offsets, expected bytes, trampoline bytes, scratch offset, and
+  body offset.
+- Added a negative preflight CTest for `lane-result-cs-scratch` at wrong
+  offset `1000:3D2D`; the tool now reports a clean
+  `freeze_patch_description=error` line instead of a Python traceback.
+- Added `tools/check_explosion_lane_result_preflight.py`, a no-DOSBox Python
+  verifier that imports the capture helper and checks both lane-result patch
+  descriptions, expected original bytes, exact trampoline body bytes, and the
+  wrong-offset guard in one command.
+- Added `tools/check_explosion_lane_result_fixtures.py`, a no-C++ fixture
+  expectation checker that verifies all checked-in lane-result fixtures still
+  produce their intended parser outcome: two valid synthetic fixtures and eleven
+  malformed fixtures. It also verifies each fixture has matching CMake coverage
+  with the intended success/error regex, and that malformed fixtures are wired
+  with `--expect-error` while valid fixtures are not.
+- Added `tools/check_explosion_lane_result_layout.py`, a no-build consistency
+  checker that locks the lane-result scratch field order across
+  `capture_original_explosion_procmem.py`, `src/main.cpp`, and the fixture
+  expectation helper.
+- Added `tools/check_explosion_lane_result_orchestrator.py`, a no-DOSBox CMake
+  coverage checker for the lane-result capture wrapper tests. It locks the
+  expected orchestrator command shapes, regex fragments, and `WILL_FAIL`
+  settings for 13 capture-wrapper CTest cases plus the wrapper-output checker
+  CTest hook.
+- Added `tools/check_explosion_lane_result_wrapper.py`, a no-DOSBox wrapper
+  output checker that runs the lane-result preflight/dry-run matrix directly,
+  including both preflight forms, default, with-oracle, forward-only,
+  reverse-only, raw reverse-address, mixed-order, duplicate-offset,
+  timing-argument pass-through, bad-offset,
+  repo-output-refusal, and missing-approval cases.
+- Added `tools/capture_original_lane_result_runtime.py`, a guarded wrapper for
+  the pending original `1000:3D3F`/`1000:3ED3` runtime captures. Its
+  `--preflight-only` mode is safe in restricted shells; full capture still
+  requires explicit process-memory and runtime-instrumentation approval. The
+  wrapper accepts both `out_dir [asset_dir]` and `--asset-dir` to match the
+  older capture helper workflow, and `--dry-run` prints the exact capture/oracle
+  commands without launching DOSBox. Full captures write those generated
+  command lines into `manifest.txt` alongside the produced candidate paths,
+  selected offset labels/addresses, approvals, and timing parameters. The repeatable
+  `--offset` option allows retrying only `forward` (`1000:3D3F`) or only
+  `reverse` (`1000:3ED3`), while still accepting the raw `3D3F`/`3ED3` address
+  forms. Dry-run/full-capture success output and manifests now report both
+  `offset_labels` and normalized `offset_addresses`.
+- Added `python_tool_syntax_lane_result_preflight` CTest coverage so the
+  capture helper, lane-result preflight helper, fixture expectation helper,
+  scratch-layout helper, orchestrator expectation helper, and lane-result
+  runtime wrapper are syntax-checked before runtime oracle or DOSBox evidence
+  paths run.
+- Extended `--debug-explosion-playback-oracle` with
+  `observed_lane_forward_result`/`observed_lane_reverse_result` and
+  `lane_result_*` fields. The oracle now validates that the far destination
+  equals the caller argument pointer, the output byte equals the result local,
+  the expected original byte signature is present, the scratch offset is the
+  capture helper's `CS:F280` block, byte-width fields stay byte-sized, and loop
+  bounds are sane.
+- Added synthetic valid and malformed CTest fixtures for lane-result parsing:
+  `explosion_playback_oracle_lane_result_scratch_synthetic.txt`,
+  `explosion_playback_oracle_lane_result_reverse_scratch_synthetic.txt`,
+  `explosion_playback_oracle_lane_result_missing_target_before.txt`,
+  `explosion_playback_oracle_lane_result_bad_far_pointer.txt`,
+  `explosion_playback_oracle_lane_result_bad_output_local.txt`,
+  `explosion_playback_oracle_lane_result_bad_expected_old_bytes.txt`,
+  `explosion_playback_oracle_lane_result_expected_without_old_bytes.txt`,
+  `explosion_playback_oracle_lane_result_missing_expected_old_bytes.txt`,
+  `explosion_playback_oracle_lane_result_bad_scratch_offset.txt`,
+  `explosion_playback_oracle_lane_result_bad_kind.txt`,
+  `explosion_playback_oracle_lane_result_bad_loop_bounds.txt`,
+  `explosion_playback_oracle_lane_result_bad_target_before_width.txt`, and
+  `explosion_playback_oracle_lane_result_field_without_present.txt`.
+- Extended the C++ explosion oracle to parse `freeze_expected_old_bytes` and
+  reject fixtures whose `freeze_old_bytes` do not start with the expected
+  byte sequence.
+- The explosion oracle success line now emits
+  `freeze_expected_old_bytes_present`, `freeze_expected_old_bytes`, and
+  `freeze_old_bytes`; the forward/reverse synthetic lane-result CTest regexes
+  pin `268805`.
+- Original `3D3F`/`3ED3` process-memory captures were not promoted in this
+  checkpoint because the current no-approval sandbox denied WSL startup with
+  `Wsl/Service/CreateInstance/E_ACCESSDENIED`.
+- Added a key/value lane-result handoff checklist to
+  `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
+  the pending WSL preflight/capture commands, expected manifest/candidate paths,
+  alias mapping, byte guard, scratch address, and promotion criteria.
 - Added a deterministic `--debug-autoplayer level1_bomb_route` command.
 - Extended `--debug-autoplayer` with `death_reentry`, `records_flow`, and
   `two_player_route` scenarios so state-2 reentry, record-entry saving, and
@@ -184,6 +282,111 @@ Baseline: `origin/main`
   controls, frame inspection confirmed level-1 gameplay, visible bomb
   placement, and visible explosion playback.
 - `python3 -m py_compile tools/capture_original_explosion_procmem.py` passed.
+- Bundled Windows Python syntax validation also passed with
+  `C:\Users\andrz\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m py_compile tools\capture_original_explosion_procmem.py`.
+- Bundled Windows Python syntax validation now also covers
+  `tools/check_explosion_lane_result_preflight.py`.
+- `tools/check_explosion_lane_result_preflight.py` passed with the bundled
+  Windows Python, both with explicit `.` asset directory and with its default
+  repository-root asset directory. It verified `1000:3D3F`, `1000:3ED3`,
+  expected original bytes `268805`, scratch `0xF280`, body `0xF200`, exact
+  trampoline body bytes, the shared result-write tail
+  `8b46f63b46f075c58a46f3c47e04268805c9c20600`, and the wrong-offset guard.
+- `tools/capture_original_lane_result_runtime.py --preflight-only --asset-dir .`
+  passed with the bundled Windows Python and reported
+  `lane_result_capture_orchestrator=ok mode=preflight`.
+- `tools/capture_original_lane_result_runtime.py --preflight-only .` also
+  passed, verifying the positional asset-dir compatibility path. The CTest
+  suite now covers both preflight-only forms, and the wrapper CTest regexes now
+  pin `result_tail=1` plus the exact `result_tail_bytes` value so wrapper
+  success cannot silently drop or weaken the static tail check.
+- `tools/capture_original_lane_result_runtime.py C:\Temp\lezac-lane-result-dry-run
+  . --dry-run --skip-oracle` passed and reported `offsets=2`,
+  `capture_commands=2`, `oracle_commands=0`, `offset_labels=3d3f,3ed3`, and
+  `offset_addresses=1000:3D3F,1000:3ED3` while printing both generated capture
+  commands.
+- `tools/capture_original_lane_result_runtime.py C:\Temp\lezac-lane-result-dry-run
+  . --dry-run` passed and reported `oracle_commands=2`, verifying the generated
+  C++ oracle command plan as well.
+- `tools/capture_original_lane_result_runtime.py C:\Temp\lezac-lane-result-dry-run
+  . --dry-run --skip-oracle --offset 3D3F` and the equivalent `--offset
+  1000:3ED3` command both passed with one generated capture command; invalid
+  `--offset 3D2D` was rejected by argument parsing.
+- `tools/capture_original_lane_result_runtime.py C:\Temp\lezac-lane-result-dry-run
+  . --dry-run --skip-oracle --offset forward` and the equivalent `--offset
+  reverse` command both passed with one generated capture command; invalid
+  `--offset sideways` was rejected by argument parsing. CTest now locks the
+  single reverse-alias dry-run output as `offset_labels=3ed3` and
+  `offset_addresses=1000:3ED3`.
+- Repeated offset selection, such as `--offset 3D3F --offset 1000:3D3F`, now
+  deduplicates to one generated capture command while preserving user-specified
+  offset order for mixed captures. CTest now locks the mixed-order
+  reverse-then-forward dry-run as `offset_labels=3ed3,3d3f` and
+  `offset_addresses=1000:3ED3,1000:3D3F`.
+- Added `explosion_lane_result_capture_orchestrator_dry_run_timing_args`, which
+  locks dry-run pass-through for the route/runtime timing knobs sent to
+  `tools/capture_original_explosion_procmem.py`.
+- `tools/capture_original_lane_result_runtime.py C:\Temp\lezac-lane-result .`
+  correctly refused runtime capture without both approval flags.
+- Added CTest coverage for the orchestrator safety rails:
+  `explosion_lane_result_capture_orchestrator_bad_offset`,
+  `explosion_lane_result_capture_orchestrator_refuses_repo_output`, and
+  `explosion_lane_result_capture_orchestrator_requires_approval`.
+- `tools/check_explosion_lane_result_wrapper.py .` passed with the bundled
+  Windows Python and reported `lane_result_wrapper_output=ok cases=13`,
+  verifying the wrapper output matrix without DOSBox or process-memory access.
+- `tools/check_explosion_lane_result_orchestrator.py` now also verifies that
+  the wrapper-output checker is wired into CTest; it reports
+  `lane_result_orchestrator_cmake=ok tests=14 will_fail=3`.
+- `tools/check_explosion_lane_result_fixtures.py` passed with the bundled
+  Windows Python and reported `lane_result_fixtures=ok files=13 valid=2
+  malformed=11 cmake_tests=13`.
+- A bundled Python import/assertion check passed for
+  `build_freeze_patch("lane-result-cs-scratch", 0x3D3F/0x3ED3)`: both offsets
+  return a three-byte near jump, scratch `0xF280`, length `0x12`, body
+  `0xF200`, a freezing `EB FE` tail, expected original bytes `268805`, and
+  invalid offset `0x3D2D` is rejected.
+- A direct shipped-EXE byte check passed: with MZ image base `0x0770`,
+  `1000:3D3F` maps to file offset `0x44AF` and `1000:3ED3` maps to
+  `0x4643`; both contain `26 88 05`, matching the new patch guard. The
+  preflight now also pins the surrounding static tail as loop-end compare,
+  `mov al,[bp-0d]`, `les di,[bp+4]`, `mov es:[di],al`, `leave`, `ret 6`.
+- `tools/capture_original_explosion_procmem.py NUL .
+  --describe-freeze-patch --freeze-ghidra-offset 1000:3D3F
+  --freeze-patch-mode lane-result-cs-scratch` passed and printed
+  `freeze_patch_description=ok`, `file_offset=0x44af`,
+  `expected_original_bytes=268805`,
+  `patch_bytes=e9beb4`, `scratch_offset=0xf280`, and `body_offset=0xf200`.
+- The same describe preflight for `1000:3ED3` passed with
+  `file_offset=0x4643`, `expected_original_bytes=268805`,
+  `patch_bytes=e92ab3`, `scratch_offset=0xf280`, and `body_offset=0xf200`.
+- The equivalent CTest entries are now
+  `explosion_freeze_patch_describe_lane_result_3d3f` and
+  `explosion_freeze_patch_describe_lane_result_3ed3`; they still need to run
+  under a WSL/native CTest pass because this sandbox cannot use the configured
+  build tree.
+- The wrong-offset preflight was checked directly and fails cleanly with
+  `freeze_patch_description=error reason=--freeze-patch-mode
+  lane-result-cs-scratch is only valid at 1000:3D3F or 1000:3ED3`.
+- Current WSL validation is blocked in the no-approval sandbox:
+  `wsl.exe` fails with `Wsl/Service/CreateInstance/E_ACCESSDENIED`, so the
+  latest `cmake --build build`, `ctest`, and DOSBox/process-memory lane-result
+  captures could not be rerun during the 2026-04-30 checkpoint.
+- Rechecked on 2026-05-01: `wsl -l -v` still fails with
+  `Wsl/EnumerateDistros/Service/E_ACCESSDENIED`. The lane-result wrapper
+  preflight and dry-run handoff commands still pass with bundled Windows
+  Python, so the blocker remains WSL access rather than patch/orchestrator
+  setup.
+- A native PowerShell `cmake --build build` attempt was also rejected because
+  the existing build tree was configured under `/mnt/c/...` and expects
+  `/usr/bin/gmake`; use WSL or a fresh native build tree for full validation.
+- A fresh native PowerShell configure probe failed because no C++ compiler was
+  available (`No CMAKE_CXX_COMPILER could be found`). The generated
+  `build-win-probe/` directory is ignored as build output because the sandbox
+  blocked recursive cleanup.
+- `git add` is currently blocked by `.git/index.lock: Permission denied`; the
+  main lane-result checkpoint is staged, but the latest ledger/handoff doc
+  notes cannot be staged or committed until local Git index writes are restored.
 - `python3 tools/capture_original_explosion_procmem.py --help` passed and
   lists the route-input options.
 - `cmake --build build` passed under WSL after the queue-counter oracle update.
@@ -428,7 +631,8 @@ Baseline: `origin/main`
   lane-division setup, one `3CE3` forward divide call-site register capture,
   collapse writeback captures at `3D1B` and `3EAF`, and seeded debris
   writeback captures at `3D2D` and `3EC1`. Next evidence should target natural
-  debris-side writeback before changing live playback behavior.
+  debris-side writeback plus final far-pointer result writes at `3D3F` and
+  `3ED3` before changing live playback behavior.
 - Semantic meaning of `PROEFS.SON` bytes `+4..+5` remains unknown; current
   diagnostics preserve them as raw fields only.
 - Many non-explosion sound callsites still need exact cursor/priority mapping.

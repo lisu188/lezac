@@ -4777,7 +4777,6 @@ public:
             }
             return value;
         };
-
         try {
             std::string text = readTextFile(path);
             std::vector<uint8_t> memory(0x10000);
@@ -5027,6 +5026,23 @@ public:
             }
             return value;
         };
+        auto normalizeHexBytes = [&](std::string token,
+                                     const std::string& field) {
+            if (token.rfind("0x", 0) == 0 || token.rfind("0X", 0) == 0) {
+                token = token.substr(2);
+            }
+            if ((token.size() % 2) != 0 ||
+                !std::all_of(token.begin(), token.end(), [](unsigned char ch) {
+                    return std::isxdigit(ch) != 0;
+                })) {
+                fail("bad_hex_bytes field=" + field + " token=" + token);
+            }
+            std::transform(token.begin(), token.end(), token.begin(),
+                           [](unsigned char ch) {
+                               return static_cast<char>(std::tolower(ch));
+                           });
+            return token;
+        };
 
         try {
             std::string text = readTextFile(path);
@@ -5042,6 +5058,10 @@ public:
             bool haveInstrumentedFreezeObserved = false;
             bool runtimeFreezePatchApplied = false;
             bool haveRuntimeFreezePatchApplied = false;
+            bool haveFreezeExpectedOldBytes = false;
+            bool haveFreezeOldBytes = false;
+            std::string freezeExpectedOldBytes;
+            std::string freezeOldBytes;
             int dispatcherBreaks = 0;
             int damageBreaks = 0;
             int playbackBreaks = 0;
@@ -5059,6 +5079,8 @@ public:
             bool observedLaneReverseWrite = false;
             bool observedLaneCollapseWrite = false;
             bool observedLaneDebrisWrite = false;
+            bool observedLaneForwardResult = false;
+            bool observedLaneReverseResult = false;
             uint16_t selectedDebrisBase = 0;
             uint16_t selectedCollapseBase = 0;
             uint16_t selectedEffectBase = 0xc21e;
@@ -5120,6 +5142,24 @@ public:
                 }
                 return -1;
             };
+            bool haveInstrumentedLaneResultScratchPresent = false;
+            bool instrumentedLaneResultScratchPresent = false;
+            bool haveInstrumentedLaneResultOffset = false;
+            bool haveInstrumentedLaneResultKind = false;
+            std::string instrumentedLaneResultKind;
+            uint16_t instrumentedLaneResultOffset = 0;
+            std::array<uint16_t, 9> instrumentedLaneResultValues{};
+            std::array<bool, 9> haveInstrumentedLaneResultValues{};
+            constexpr std::array<const char*, 9> kLaneResultFieldNames{
+                "output", "es", "di", "arg_offset", "arg_segment",
+                "result_local", "active_count", "loop_index", "target_before",
+            };
+            auto laneResultFieldIndex = [&](const std::string& name) -> int {
+                for (size_t i = 0; i < kLaneResultFieldNames.size(); ++i) {
+                    if (name == kLaneResultFieldNames[i]) return static_cast<int>(i);
+                }
+                return -1;
+            };
             bool haveRuntimeSeeded = false;
             bool runtimeSeeded = false;
             bool haveRuntimeSeedKind = false;
@@ -5165,6 +5205,12 @@ public:
                     } else if (key == "runtime_freeze_patch_applied") {
                         runtimeFreezePatchApplied = value == "1";
                         haveRuntimeFreezePatchApplied = true;
+                    } else if (key == "freeze_expected_old_bytes") {
+                        freezeExpectedOldBytes = normalizeHexBytes(value, key);
+                        haveFreezeExpectedOldBytes = true;
+                    } else if (key == "freeze_old_bytes") {
+                        freezeOldBytes = normalizeHexBytes(value, key);
+                        haveFreezeOldBytes = true;
                     } else if (key == "runtime_seeded") {
                         runtimeSeeded = value == "1";
                         haveRuntimeSeeded = true;
@@ -5277,6 +5323,29 @@ public:
                             parseHex16Auto(value, key);
                         haveInstrumentedLaneWriteValues[static_cast<size_t>(index)] =
                             true;
+                    } else if (key == "instrumented_lane_result_scratch_present") {
+                        instrumentedLaneResultScratchPresent = value == "1";
+                        haveInstrumentedLaneResultScratchPresent = true;
+                    } else if (key == "instrumented_lane_result_cs_offset") {
+                        instrumentedLaneResultOffset = parseHex16Auto(value, key);
+                        haveInstrumentedLaneResultOffset = true;
+                    } else if (key == "instrumented_lane_result_kind") {
+                        if (value != "forward" && value != "reverse") {
+                            fail("bad_lane_result_kind value=" + value);
+                        }
+                        instrumentedLaneResultKind = value;
+                        haveInstrumentedLaneResultKind = true;
+                    } else if (key.rfind("instrumented_lane_result_", 0) == 0) {
+                        std::string field =
+                            key.substr(std::string("instrumented_lane_result_").size());
+                        int index = laneResultFieldIndex(field);
+                        if (index < 0) {
+                            fail("bad_lane_result_field field=" + field);
+                        }
+                        instrumentedLaneResultValues[static_cast<size_t>(index)] =
+                            parseHex16Auto(value, key);
+                        haveInstrumentedLaneResultValues[static_cast<size_t>(index)] =
+                            true;
                     }
                     continue;
                 }
@@ -5318,7 +5387,9 @@ public:
                         ghidraOffset == 0x3cd4 || ghidraOffset == 0x3ce3 ||
                         ghidraOffset == 0x3e68 || ghidraOffset == 0x3e77 ||
                         ghidraOffset == 0x3d1b || ghidraOffset == 0x3d2d ||
+                        ghidraOffset == 0x3d3f ||
                         ghidraOffset == 0x3eaf || ghidraOffset == 0x3ec1 ||
+                        ghidraOffset == 0x3ed3 ||
                         ghidraOffset == 0x45fa || ghidraOffset == 0x492f ||
                         ghidraOffset == 0x4b3f || ghidraOffset == 0x4b61 ||
                         ghidraOffset == 0x4b6a || ghidraOffset == 0x4c20 ||
@@ -5355,6 +5426,12 @@ public:
                         }
                         if (ghidraOffset == 0x3d2d || ghidraOffset == 0x3ec1) {
                             observedLaneDebrisWrite = true;
+                        }
+                        if (ghidraOffset == 0x3d3f) {
+                            observedLaneForwardResult = true;
+                        }
+                        if (ghidraOffset == 0x3ed3) {
+                            observedLaneReverseResult = true;
                         }
                     }
                     continue;
@@ -5419,6 +5496,14 @@ public:
             if (haveRuntimeFreezePatchApplied && !runtimeFreezePatchApplied &&
                 observedFreezeBreaks != 0) {
                 fail("observed_break_without_runtime_patch");
+            }
+            if (haveFreezeExpectedOldBytes) {
+                if (!haveFreezeOldBytes) {
+                    fail("freeze_expected_without_old_bytes");
+                }
+                if (freezeOldBytes.rfind(freezeExpectedOldBytes, 0) != 0) {
+                    fail("freeze_expected_old_bytes_mismatch");
+                }
             }
             if (haveInstrumentedBp4LocalPresent && instrumentedBp4LocalPresent) {
                 if (!observedHighWordGate) {
@@ -5546,6 +5631,69 @@ public:
                 (!haveInstrumentedLaneWriteScratchPresent ||
                  !instrumentedLaneWriteScratchPresent)) {
                 fail("lane_write_field_without_present");
+            }
+            if (haveInstrumentedLaneResultScratchPresent &&
+                instrumentedLaneResultScratchPresent) {
+                if (!observedLaneForwardResult && !observedLaneReverseResult) {
+                    fail("lane_result_scratch_without_lane_result_freeze");
+                }
+                if (!haveFreezeExpectedOldBytes ||
+                    freezeExpectedOldBytes != "268805") {
+                    fail("lane_result_expected_old_bytes_missing");
+                }
+                if (!haveInstrumentedLaneResultOffset) {
+                    fail("lane_result_offset_missing");
+                }
+                if (instrumentedLaneResultOffset != 0xf280u) {
+                    fail("lane_result_scratch_offset_mismatch");
+                }
+                if (!haveInstrumentedLaneResultKind) {
+                    fail("lane_result_kind_missing");
+                }
+                if (instrumentedLaneResultKind == "forward" &&
+                    !observedLaneForwardResult) {
+                    fail("lane_result_forward_kind_without_forward_freeze");
+                }
+                if (instrumentedLaneResultKind == "reverse" &&
+                    !observedLaneReverseResult) {
+                    fail("lane_result_reverse_kind_without_reverse_freeze");
+                }
+                for (size_t i = 0; i < haveInstrumentedLaneResultValues.size(); ++i) {
+                    if (!haveInstrumentedLaneResultValues[i]) {
+                        fail(std::string("lane_result_field_missing field=") +
+                             kLaneResultFieldNames[i]);
+                    }
+                }
+                uint16_t output = instrumentedLaneResultValues[0];
+                uint16_t es = instrumentedLaneResultValues[1];
+                uint16_t di = instrumentedLaneResultValues[2];
+                uint16_t argOffset = instrumentedLaneResultValues[3];
+                uint16_t argSegment = instrumentedLaneResultValues[4];
+                uint16_t resultLocal = instrumentedLaneResultValues[5];
+                uint16_t activeCount = instrumentedLaneResultValues[6];
+                uint16_t loopIndex = instrumentedLaneResultValues[7];
+                uint16_t targetBefore = instrumentedLaneResultValues[8];
+                if (output != resultLocal || (output & 0xff00u) != 0) {
+                    fail("lane_result_output_local_mismatch");
+                }
+                if ((targetBefore & 0xff00u) != 0) {
+                    fail("lane_result_target_before_width");
+                }
+                if (es != argSegment || di != argOffset) {
+                    fail("lane_result_far_pointer_mismatch");
+                }
+                if (loopIndex == 0 || activeCount == 0 || loopIndex > activeCount) {
+                    fail("lane_result_loop_bounds");
+                }
+            }
+            bool haveAnyLaneResultValueField = false;
+            for (bool haveField : haveInstrumentedLaneResultValues) {
+                haveAnyLaneResultValueField = haveAnyLaneResultValueField || haveField;
+            }
+            if (haveAnyLaneResultValueField &&
+                (!haveInstrumentedLaneResultScratchPresent ||
+                 !instrumentedLaneResultScratchPresent)) {
+                fail("lane_result_field_without_present");
             }
             if (haveRuntimeSeeded && runtimeSeeded) {
                 if (!haveRuntimeSeedKind) {
@@ -5729,6 +5877,10 @@ public:
                       << (observedLaneCollapseWrite ? 1 : 0)
                       << " observed_lane_debris_write="
                       << (observedLaneDebrisWrite ? 1 : 0)
+                      << " observed_lane_forward_result="
+                      << (observedLaneForwardResult ? 1 : 0)
+                      << " observed_lane_reverse_result="
+                      << (observedLaneReverseResult ? 1 : 0)
                       << " bp4_local_present="
                       << (instrumentedBp4LocalPresent ? 1 : 0)
                       << (instrumentedBp4LocalPresent
@@ -5784,6 +5936,39 @@ public:
                                     hex4(instrumentedLaneWriteValues[4]) +
                                     " lane_write_result_local=" +
                                     hex4(instrumentedLaneWriteValues[5])
+                              : "")
+                      << " lane_result_scratch_present="
+                      << (instrumentedLaneResultScratchPresent ? 1 : 0)
+                      << (instrumentedLaneResultScratchPresent
+                              ? std::string(" lane_result_kind=") +
+                                    instrumentedLaneResultKind +
+                                    " lane_result_cs_offset=" +
+                                    hex4(instrumentedLaneResultOffset) +
+                                    " lane_result_output=" +
+                                    hex4(instrumentedLaneResultValues[0]) +
+                                    " lane_result_es=" +
+                                    hex4(instrumentedLaneResultValues[1]) +
+                                    " lane_result_di=" +
+                                    hex4(instrumentedLaneResultValues[2]) +
+                                    " lane_result_arg_offset=" +
+                                    hex4(instrumentedLaneResultValues[3]) +
+                                    " lane_result_arg_segment=" +
+                                    hex4(instrumentedLaneResultValues[4]) +
+                                    " lane_result_result_local=" +
+                                    hex4(instrumentedLaneResultValues[5]) +
+                                    " lane_result_active_count=" +
+                                    hex4(instrumentedLaneResultValues[6]) +
+                                    " lane_result_loop_index=" +
+                                    hex4(instrumentedLaneResultValues[7]) +
+                                    " lane_result_target_before=" +
+                                    hex4(instrumentedLaneResultValues[8])
+                              : "")
+                      << " freeze_expected_old_bytes_present="
+                      << (haveFreezeExpectedOldBytes ? 1 : 0)
+                      << (haveFreezeExpectedOldBytes
+                              ? std::string(" freeze_expected_old_bytes=") +
+                                    freezeExpectedOldBytes +
+                                    " freeze_old_bytes=" + freezeOldBytes
                               : "")
                       << " runtime_seeded=" << (runtimeSeeded ? 1 : 0)
                       << (runtimeSeeded

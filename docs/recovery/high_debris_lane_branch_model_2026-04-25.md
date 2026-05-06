@@ -25,6 +25,17 @@ Current local validation constraints:
 - `explosion_playback_oracle_original_3d2d_lane_write_runtime_seeded.txt`
   and `explosion_playback_oracle_original_3ec1_lane_write_runtime_seeded.txt`
   prove the debris writeback arithmetic under labeled runtime seeding.
+- `explosion_playback_oracle_lane_result_scratch_synthetic.txt` and
+  `explosion_playback_oracle_lane_result_reverse_scratch_synthetic.txt` cover
+  the final helper far-pointer result-write parser paths for `1000:3D3F` and
+  `1000:3ED3`; the paired malformed fixtures reject incomplete, missing byte
+  signature, mismatched kind, mismatched scratch offset, mismatched far-pointer,
+  mismatched output/local, byte-width, loop-bound, and missing-present-flag
+  scratch records.
+- Original `1000:3D3F`/`1000:3ED3` runtime captures are still pending. The
+  2026-04-30 local sandbox denied WSL startup, so DOSBox/process-memory capture
+  could not be rerun for this checkpoint. The wrapper now accepts
+  `--offset forward`/`--offset reverse` aliases for those two probes.
 - The evidence remains instrumentation-only (`visual_claim=0`); no live C++
   playback behavior is changed by this note alone.
 
@@ -258,6 +269,36 @@ writeback fixtures, this proves the original helper's collapse and debris
 writeback address arithmetic. The remaining gap is natural route reachability
 for debris writeback, not the helper's branch math.
 
+The next helper-output boundary is the final far-pointer result write at
+`1000:3D3F` for the forward helper and `1000:3ED3` for the reverse helper.
+The new `lane-result-cs-scratch` mode uses the same safe runtime-only shape as
+the lane-write trampoline: a three-byte near jump at the probed instruction,
+a scratch/freezing body at `CS:F200`, and captured fields at `CS:F280`. The
+tool verifies the original/live target bytes are `26 88 05` before patching,
+so the mode is tied to the intended `mov es:[di],al` instruction. The
+scratch record stores:
+
+```text
+output/result byte = AL before mov es:[di],al
+ES:DI              = destination used by the write
+[BP+4]/[BP+6]      = caller-provided far pointer
+result local       = [BP-0D]
+active count       = [BP-10]
+loop index         = [BP-0A]
+target before      = byte previously at ES:DI
+```
+
+Current checked-in coverage is deliberately synthetic: it proves that the C++
+oracle validates the expected original byte signature `26 88 05`, the
+`CS:F280` scratch offset, `ES:DI == [BP+4]:[BP+6]`, `output == [BP-0D]`,
+byte-width fields, and loop bounds, but it does not yet claim original runtime
+evidence.
+The no-approval 2026-04-30 sandbox blocked WSL startup with
+`Wsl/Service/CreateInstance/E_ACCESSDENIED`, so the intended DOSBox
+process-memory captures for `3D3F` and `3ED3` remain the next capture step.
+Use the wrapper aliases `--offset forward` and `--offset reverse` for targeted
+single-probe retries.
+
 Follow-up temp-copy instrumentation now freezes the post-call instructions:
 
 - `1000:4C99`, immediately after the `4C96` call returns from `1000:3BB2`.
@@ -330,6 +371,12 @@ input far pointer. The lookup helpers store the selected neighbor lane in
 `DS:661E`, which the lane blenders multiply by the unsigned selected weight
 before adding it to the numerator.
 
+The explosion playback oracle now has a parser path for that final far-pointer
+write. It reports `observed_lane_forward_result`/`observed_lane_reverse_result`
+and, when scratch data is present, emits `lane_result_*` fields for the result
+byte, destination far pointer, caller argument pointer, result local, loop
+state, and prior target byte.
+
 The `lane_blend_arithmetic` diagnostic now pins the delegated blend helper:
 `0920:0945` divides signed 32-bit numerator `DX:AX` by signed 32-bit divisor
 `BX:CX`, leaves the quotient in `DX:AX`, and uses `AL` as the lane byte. The
@@ -367,8 +414,8 @@ helper body executes. The oracle also reports `observed_freeze_count` and
 `observed_freeze_offset`, reports optional `bp4_local_present`,
 `bp4_local_cs_offset`, and `bp4_local_value`, and checks consistency with
 `instrumented_freeze_observed` and `runtime_freeze_patch_applied` when those
-capture-helper fields are present. Six malformed fixtures cover the
-consistency failures:
+capture-helper fields are present. Malformed fixtures cover the consistency
+failures:
 
 - `explosion_playback_oracle_freeze_missing_break.txt`
 - `explosion_playback_oracle_freeze_without_instrumented_flag.txt`
@@ -378,6 +425,17 @@ consistency failures:
 - `explosion_playback_oracle_bp4_local_without_word_gate.txt`
 - `explosion_playback_oracle_lane_div_without_divide_freeze.txt`
 - `explosion_playback_oracle_lane_write_bad_di.txt`
+- `explosion_playback_oracle_lane_result_missing_target_before.txt`
+- `explosion_playback_oracle_lane_result_bad_far_pointer.txt`
+- `explosion_playback_oracle_lane_result_bad_output_local.txt`
+- `explosion_playback_oracle_lane_result_bad_expected_old_bytes.txt`
+- `explosion_playback_oracle_lane_result_expected_without_old_bytes.txt`
+- `explosion_playback_oracle_lane_result_missing_expected_old_bytes.txt`
+- `explosion_playback_oracle_lane_result_bad_scratch_offset.txt`
+- `explosion_playback_oracle_lane_result_bad_kind.txt`
+- `explosion_playback_oracle_lane_result_bad_loop_bounds.txt`
+- `explosion_playback_oracle_lane_result_bad_target_before_width.txt`
+- `explosion_playback_oracle_lane_result_field_without_present.txt`
 
 The surrounding helper model from `docs/GHIDRA_NOTES.md` is now explicit:
 the forward/reverse lookup helpers at `1000:3A7E` and `1000:3B18` select
@@ -411,5 +469,7 @@ lane bytes `forward=0x00`, `reverse=0x04` after the lane helpers. That mismatch
 is now explicit evidence for the next rendering/playback recovery step.
 
 The next evidence step is to find a natural route or timing gate that reaches
-the debris-side writebacks (`1000:3D2D`/`1000:3EC1`) without runtime seeding,
-before replacing the provisional queue playback.
+the debris-side writebacks (`1000:3D2D`/`1000:3EC1`) without runtime seeding and
+to capture the final far-pointer result writes (`1000:3D3F`/`1000:3ED3`) with
+the new runtime scratch mode before replacing the provisional queue playback;
+the wrapper aliases for those final probes are `forward` and `reverse`.

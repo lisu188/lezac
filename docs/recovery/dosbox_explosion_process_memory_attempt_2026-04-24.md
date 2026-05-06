@@ -519,10 +519,108 @@ natural-route evidence, but both freeze the original debris writebacks with
 selected tag `0x4EE8` and `DI=0x0898`, proving the debris marker/stride
 calculation `(0x4EE8 - 0x4E20) * 0x0B`.
 
+A 2026-04-30 parser/tooling checkpoint added `lane-result-cs-scratch` for the
+final helper result writes at `1000:3D3F` and `1000:3ED3`. The mode uses a
+runtime-only near-jump trampoline with body `CS:F200` and scratch `CS:F280`,
+capturing the result byte, `ES:DI`, `[BP+4]`/`[BP+6]`, `[BP-0D]`, active
+count/index, and the destination byte before `mov es:[di],al`. The helper
+refuses to patch unless the target bytes are `26 88 05`, and manifests record
+that expectation as `freeze_expected_old_bytes`. The checked-in fixtures for
+this checkpoint are synthetic parser coverage only. Original process-memory
+capture could not be rerun in the current no-approval sandbox because WSL
+startup failed with `Wsl/Service/CreateInstance/E_ACCESSDENIED`.
+The no-DOSBox preflight also checks the shared static tail at both anchors:
+loop-end compare, `mov al,[bp-0d]`, `les di,[bp+4]`, `mov es:[di],al`,
+`leave`, and `ret 6`. Its status line carries the exact tail as
+`result_tail_bytes=8b46f63b46f075c58a46f3c47e04268805c9c20600`.
+
+Pending WSL capture commands:
+
+```sh
+python3 tools/check_explosion_lane_result_preflight.py .
+python3 tools/check_explosion_lane_result_wrapper.py .
+python3 tools/capture_original_lane_result_runtime.py --preflight-only
+python3 tools/capture_original_lane_result_runtime.py \
+  /tmp/lezac-lane-result-runtime . \
+  --dry-run --skip-oracle
+python3 tools/capture_original_lane_result_runtime.py \
+  /tmp/lezac-lane-result-runtime . \
+  --dry-run --skip-oracle --offset forward
+python3 tools/capture_original_lane_result_runtime.py \
+  /tmp/lezac-lane-result-runtime . \
+  --dry-run --skip-oracle --offset reverse
+
+python3 tools/capture_original_lane_result_runtime.py \
+  /tmp/lezac-lane-result-runtime . \
+  --approve-procmem --approve-runtime-instrumentation
+
+python3 tools/capture_original_explosion_procmem.py /tmp/lezac-preflight . \
+  --describe-freeze-patch \
+  --freeze-ghidra-offset 1000:3D3F \
+  --freeze-patch-mode lane-result-cs-scratch
+python3 tools/capture_original_explosion_procmem.py /tmp/lezac-preflight . \
+  --describe-freeze-patch \
+  --freeze-ghidra-offset 1000:3ED3 \
+  --freeze-patch-mode lane-result-cs-scratch
+
+python3 tools/capture_original_explosion_procmem.py \
+  /tmp/lezac-lane-result-3d3f-runtime . \
+  --approve-procmem --mode regular \
+  --freeze-ghidra-offset 1000:3D3F \
+  --freeze-patch-mode lane-result-cs-scratch \
+  --approve-instrumentation --approve-runtime-instrumentation \
+  --runtime-freeze-after-bomb-seconds 0.0 \
+  --level-start-seconds 1.5 --right-hold-seconds 2.0 \
+  --sample-seconds 5.0 --sample-interval 0.005 \
+  --route-state-interval 0 --tail-freeze-check-seconds 0.75
+./build/lezac_cpp --debug-explosion-playback-oracle \
+  /tmp/lezac-lane-result-3d3f-runtime/explosion_playback_oracle_original_candidate.txt
+
+python3 tools/capture_original_explosion_procmem.py \
+  /tmp/lezac-lane-result-3ed3-runtime . \
+  --approve-procmem --mode regular \
+  --freeze-ghidra-offset 1000:3ED3 \
+  --freeze-patch-mode lane-result-cs-scratch \
+  --approve-instrumentation --approve-runtime-instrumentation \
+  --runtime-freeze-after-bomb-seconds 0.0 \
+  --level-start-seconds 1.5 --right-hold-seconds 2.0 \
+  --sample-seconds 5.0 --sample-interval 0.005 \
+  --route-state-interval 0 --tail-freeze-check-seconds 0.75
+./build/lezac_cpp --debug-explosion-playback-oracle \
+  /tmp/lezac-lane-result-3ed3-runtime/explosion_playback_oracle_original_candidate.txt
+```
+
+The wrapper aliases `--offset forward` and `--offset reverse` select the
+`1000:3D3F` and `1000:3ED3` final result-write probes respectively; raw
+`3D3F`/`3ED3` forms remain accepted for address-level retry notes. Dry-run
+output and full-capture manifests include both `offset_labels=...` and
+`offset_addresses=...` so targeted reruns can be audited from the first status
+line; successful full captures also print the manifest path.
+
+Lane-result handoff checklist:
+
+```text
+lane_result_status=pending_original_runtime_capture
+lane_result_blocker=WSL denied locally with Wsl/Service/CreateInstance/E_ACCESSDENIED
+lane_result_preflight=python3 tools/check_explosion_lane_result_preflight.py .
+lane_result_wrapper_output_check=python3 tools/check_explosion_lane_result_wrapper.py .
+lane_result_wrapper_dry_run=python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . --dry-run --skip-oracle
+lane_result_wrapper_capture=python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . --approve-procmem --approve-runtime-instrumentation
+lane_result_forward_alias=forward -> 1000:3D3F -> expected_old_bytes=268805 -> scratch=CS:F280
+lane_result_reverse_alias=reverse -> 1000:3ED3 -> expected_old_bytes=268805 -> scratch=CS:F280
+lane_result_offset_addresses=default 1000:3D3F,1000:3ED3; reverse,forward 1000:3ED3,1000:3D3F
+lane_result_static_tail=8b46f63b46f075c58a46f3c47e04268805c9c20600
+lane_result_expected_manifest=/tmp/lezac-lane-result-runtime/manifest.txt
+lane_result_expected_forward_candidate=/tmp/lezac-lane-result-runtime/3d3f/explosion_playback_oracle_original_candidate.txt
+lane_result_expected_reverse_candidate=/tmp/lezac-lane-result-runtime/3ed3/explosion_playback_oracle_original_candidate.txt
+lane_result_acceptance=both candidates parse with --debug-explosion-playback-oracle and visual_claim remains 0
+```
+
 ## Next Step
 
 Use the now-working `45FA`/`492F`/`4B3F`/`4B61`/`4B6A`/`4C75`/`4C96`/`4CA9`
 visible-playback freezes plus the lane-helper/writeback fixtures to find a
 natural debris-side writeback route/timing gate. Prefer safe runtime
-trampolines for mid-helper writeback captures and keep promoted fixtures
-explicit about `visual_claim=0` until frame-table/sprite semantics are proven.
+trampolines for mid-helper writeback captures, including the new
+`3D3F`/`3ED3` final result-write probes, and keep promoted fixtures explicit
+about `visual_claim=0` until frame-table/sprite semantics are proven.

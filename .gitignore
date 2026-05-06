@@ -1,5 +1,8 @@
 build/
+build-*/
 lezac_cpp
 .codex
 *.ppm
 *.wav
+__pycache__/
+*.pyc

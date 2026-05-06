@@ -183,6 +183,34 @@ downscaled automatically before metrics are computed.
 For exact oracle work, compare semantic checkpoints rather than elapsed frame
 numbers.
 
+For explosion/debris/collapse process-memory probes, preflight freeze patches
+before running DOSBox. This verifies the shipped `LEZAC.EXE` file offset,
+expected original bytes, trampoline bytes, and scratch/body addresses without
+launching DOSBox or reading `/proc/<pid>/mem`:
+
+```sh
+python3 tools/check_explosion_lane_result_preflight.py .
+python3 tools/check_explosion_lane_result_wrapper.py .
+python3 tools/capture_original_lane_result_runtime.py --preflight-only
+python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . \
+  --dry-run --skip-oracle
+python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . \
+  --dry-run --skip-oracle --offset forward
+python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . \
+  --dry-run --skip-oracle --offset reverse
+
+python3 tools/capture_original_explosion_procmem.py /tmp/lezac-preflight . \
+  --describe-freeze-patch \
+  --freeze-ghidra-offset 1000:3D3F \
+  --freeze-patch-mode lane-result-cs-scratch
+```
+
+The `forward` alias maps to Ghidra `1000:3D3F`, and `reverse` maps to
+`1000:3ED3`; the raw `3D3F`/`3ED3` forms are still accepted for direct
+address-based retries. Dry-run summaries and full-capture manifests report the
+selected `offset_labels` and normalized `offset_addresses` so single-probe
+retries are visible in the log header.
+
 ## Implemented
 
 - VGA palette loading from `BOMPAL.PAL` and `SFONLEF.ZBG`.

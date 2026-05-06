@@ -129,6 +129,11 @@ Baseline: `origin/main`
   live lane globals (`lane_update_flag=0x05`, `lane_word=0x0004`,
   `lane_target_offset=0x072c`, reverse input `0xfb`), so it is useful negative
   evidence for the natural forward-route gap.
+- Added `tools/sweep_original_lane_result_routes.py`, a guarded route-sweep
+  wrapper for repeated natural lane-result probes. Its dry-run mode prints all
+  generated `capture_original_lane_result_runtime.py` commands, defaults to the
+  current `x`, `x,c`, `x,z`, and `x,m` route set, and live capture still
+  requires both process-memory/runtime-instrumentation approval flags.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,

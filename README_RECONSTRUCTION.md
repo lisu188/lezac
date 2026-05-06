@@ -203,6 +203,10 @@ python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-run
   --dry-run --skip-oracle --offset forward \
   --route-step x:2.00 --route-step c:0.50
 
+python3 tools/sweep_original_lane_result_routes.py /tmp/lezac-lane-result-route-sweep . \
+  --dry-run --skip-oracle \
+  --route x:2.00,c:0.50 --route x:1.50,z:0.50
+
 python3 tools/capture_original_explosion_procmem.py /tmp/lezac-preflight . \
   --describe-freeze-patch \
   --freeze-ghidra-offset 1000:3D3F \
@@ -216,7 +220,9 @@ selected `offset_labels` and normalized `offset_addresses` so single-probe
 retries are visible in the log header.
 For route variation, repeat `--route-step KEY:SECONDS`; omitted route steps keep
 the historical default of holding player-1 right (`x`) for
-`--right-hold-seconds`.
+`--right-hold-seconds`. Use `tools/sweep_original_lane_result_routes.py` to
+plan or run repeated natural-route probes while preserving one manifest and
+one command line per route.
 The checked-in original result-write fixtures are
 `tests/fixtures/dosbox/explosion_playback_oracle_original_3ed3_lane_result_runtime.txt`
 for the reverse helper and

@@ -491,4 +491,6 @@ the debris-side writebacks (`1000:3D2D`/`1000:3EC1`) and forward final
 far-pointer result write (`1000:3D3F`) without runtime seeding before replacing
 the provisional queue playback; the wrapper aliases for those final probes are
 `forward` and `reverse`, and route variants can now be recorded with
-`--route-step KEY:SECONDS`.
+`--route-step KEY:SECONDS`. Use `tools/sweep_original_lane_result_routes.py`
+for repeated route-step probes so each run has a stable route label, command
+line, and manifest entry.

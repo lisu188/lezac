@@ -194,6 +194,15 @@ downscaled automatically before metrics are computed.
 For exact oracle work, compare semantic checkpoints rather than elapsed frame
 numbers.
 
+On Windows, the native validation helper configures the local Visual Studio
+Build Tools plus the vcpkg SDL2 package and removes duplicate `PATH`/`Path`
+environment entries before invoking MSBuild:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/run_native_windows_validation.ps1 `
+  -BuildDir build-win-codex-vs3 -Configuration Debug
+```
+
 For explosion/debris/collapse process-memory probes, preflight freeze patches
 before running DOSBox. This verifies the shipped `LEZAC.EXE` file offset,
 expected original bytes, trampoline bytes, and scratch/body addresses without

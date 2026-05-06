@@ -195,6 +195,11 @@ Baseline: `origin/main`
   passed 156/156 CTest tests. The bash-only behavior-4 helper dry-run is now
   registered only when `bash` is available, so the native Windows suite can run
   without a manual exclusion while still preserving the helper's CMake wiring.
+- Added `tools/run_native_windows_validation.ps1` and
+  `tools/check_native_windows_validation_helper.py` to make that native Windows
+  validation recipe repeatable: it sanitizes duplicate `PATH`/`Path` entries,
+  configures Visual Studio Build Tools with the local vcpkg SDL2 package, builds
+  `build-win-codex-vs3`, and runs CTest unless `-SkipTests` is supplied.
 - Added provisional live state-2 rendering keyed to the recovered `0x4a..0x4f`
   cursor range. It is intentionally documented as `visual_claim=0` until the
   original `DS:c322` frame-table fields are fully interpreted.

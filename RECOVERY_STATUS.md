@@ -134,6 +134,9 @@ Baseline: `origin/main`
   generated `capture_original_lane_result_runtime.py` commands, defaults to the
   current `x`, `x,c`, `x,z`, and `x,m` route set, and live capture still
   requires both process-memory/runtime-instrumentation approval flags.
+- Added `tools/check_lane_result_route_sweep.py` and CTest coverage for the
+  route-sweep wrapper's default route labels, custom route labels, approval
+  refusal, repository-output refusal, and malformed route parsing.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,

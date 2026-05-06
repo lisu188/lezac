@@ -184,6 +184,10 @@ Baseline: `origin/main`
 - Added `tools/check_behavior4_runtime_oracle_fixtures.py` so behavior-4
   fixture expectations, CMake wiring, and the C++ oracle command/source
   contract can be validated without DOSBox or a local C++ compiler.
+- Added `tools/check_behavior4_debug_capture_helper.py` to lock the
+  behavior-4 DOSBox-debug helper's supported scenarios, debugger anchors,
+  manifest/raw-output contract, `debugger_seeded` docs, and CMake dry-run
+  wiring without requiring `bash` or DOSBox locally.
 - Added provisional live state-2 rendering keyed to the recovered `0x4a..0x4f`
   cursor range. It is intentionally documented as `visual_claim=0` until the
   original `DS:c322` frame-table fields are fully interpreted.

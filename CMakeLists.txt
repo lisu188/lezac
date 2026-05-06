@@ -260,6 +260,7 @@ if(BUILD_TESTING)
             COMMAND ${Python3_EXECUTABLE} -B -m py_compile
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_explosion_procmem.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_layout.py
@@ -399,6 +400,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^behavior4_debug_capture=ok mode=dry_run scenario=monster_behavior4_target_selection route=debugger_seeded .*manifest=.*raw_dump=")
+
+        add_test(NAME behavior4_debug_capture_helper_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_debug_capture_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(behavior4_debug_capture_helper_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^behavior4_debug_capture_helper=ok scenarios=3 anchors=6 outputs=4 cmake_test=1 docs=2")
 
         add_test(NAME behavior4_runtime_oracle_fixture_expectations
             COMMAND ${Python3_EXECUTABLE}

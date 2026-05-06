@@ -278,6 +278,53 @@ record weight before adding it to the numerator. `--debug-lane-helper-model`
 locks the data flow and `--debug-lane-blend-arithmetic` locks the division
 contract before any live playback behavior is changed.
 
+A 2026-04-28 original runtime-child-memory capture now freezes the forward
+lane blender at `1000:3cd4`, just before it loads the far division helper
+registers. The promoted
+`explosion_playback_oracle_original_3cd4_lane_div_scratch_runtime.txt` fixture
+records scratch `CS:3d24` with would-be `DX:AX=0xffff:0xfff8`,
+`BX:CX=0x0000:0x0005`, active staging count/index `1`, and the matching
+locals `[BP-8]=0x0005`, `[BP-4]=0xfff8`, `[BP-2]=0xffff`. It also captures live
+lane globals `DS:2074=1`, `DS:655e=0x8009`, and `DS:659a=0x0a7a` in the same
+held playback frame. This is still instrumented evidence with `visual_claim=0`,
+but it directly ties the static signed-divide model to one original
+mid-helper execution. Temp-copy lane-div instrumentation is intentionally
+blocked because the larger scratch body can overlap DOS relocation words near
+the far-call operand; use runtime child-memory patching for these stops.
+A follow-up 2026-04-29 runtime capture freezes the actual forward divide call
+at `1000:3ce3`. The promoted
+`explosion_playback_oracle_original_3ce3_lane_div_scratch_runtime.txt` fixture
+records the already-loaded registers `DX:AX=0x0000:0x001c` and
+`BX:CX=0x0000:0x0010`, with matching numerator/weight locals. Immediate
+runtime probes at reverse setup/call sites `1000:3e68` and `1000:3e77` loaded
+their patches but did not freeze on the same route, so no reverse-helper
+scratch fixture is promoted yet.
+A later 2026-04-29 runtime capture freezes the forward collapse writeback at
+`1000:3d1b`, before the original `mov [di+0x6617],al` executes. The promoted
+`explosion_playback_oracle_original_3d1b_lane_write_scratch_runtime.txt`
+fixture records output byte `0x01`, selected tag `0x0003`, loop index/count
+`1/1`, and `DI=0x002d`, matching `tag * 0x0f`. This directly proves one
+original helper lane byte about to be written to collapse offset
+`DS:6617 + 0x002d = DS:6644`.
+A same-day safer lane-write probe replaces only the target instruction with a
+three-byte near jump and parks the runtime scratch/freezing body at `CS:f000`
+with scratch at `CS:f080`. That removes the earlier risk of overwriting the
+shared writeback loop join. The promoted trampoline fixtures show a forward
+collapse stop at `1000:3d1b` with output `0x04`, tag `0x0004`, and
+`DI=0x003c`, plus a reverse collapse stop at `1000:3eaf` with output `0x00`,
+the same tag, and the same `DI`. The tag relation remains `tag * 0x0f`, so the
+route now proves both collapse writeback bases:
+`DS:6617 + 0x003c` and `DS:6618 + 0x003c`. Safe trampoline probes at
+`1000:3d2d` and `1000:3ec1` loaded but did not freeze on this route; debris
+writeback still needs a different route or debugger-seeded setup.
+Labeled runtime-seeded fixtures then patch the original `4c96`/`4ca9` helper
+call sites to seed `DS:655e=0xc004` before calling the original helper bodies.
+Those fixtures are not full gameplay-route evidence, but they prove the debris
+writeback branch arithmetic: both forward `1000:3d2d` and reverse `1000:3ec1`
+resolve selected tag `0x4ee8` to `DI=0x0898`, matching
+`(0x4ee8 - 0x4e20) * 0x0b`. The forward seeded result byte is `0x35`; the
+reverse seeded result byte is `0x00`.
+
 The effect constructor at `1000:3fa6` writes 11-byte effect records at
 `0x2093 + 0x0b * DS:2076` and stores the effect type byte in
 `0x78d5 + DS:2076`. `1000:414a` is the dispatcher profile selector: types
@@ -456,6 +503,19 @@ instrumentation mode now patches `1000:4c75` to copy `[bp-4]` into
 summary is still `0x0000`, proving a positive gate local directly and marking
 the queue-summary fields as sampled context rather than the exact loop-local
 source.
+The later `3cd4` lane-div scratch fixture goes one step deeper into the helper:
+it freezes the forward lane blender while `DS:2078=1`, `DS:655e=0x8009`, and
+`DS:659a=0x0a7a`, and records the pre-division numerator/weight registers as
+`DX:AX=0xffff:0xfff8` over divisor `BX:CX=0x0000:0x0005`. This confirms one
+live helper iteration where signed weighted lane accumulation is about to be
+divided by the positive weight sum.
+The `3ce3` call-site fixture confirms the same register contract after setup
+has completed for a later forward-helper iteration: `DX:AX=0x0000:0x001c` and
+`BX:CX=0x0000:0x0010` at the far divide call.
+The `3d1b` writeback fixture then catches a later forward-helper writeback
+iteration: `AL=0x01`, selected tag `0x0003`, `DI=0x002d`, and result local
+`[BP-0d]=0x01`, proving the original is about to write the quotient byte to
+the collapse lane table via `DS:6617 + DI`.
 
 ## Sound Playback Evidence
 

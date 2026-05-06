@@ -1,0 +1,28 @@
+# LEZAC explosion playback oracle malformed fixture.
+# Lane division scratch values only prove pre-division locals when the observed
+# freeze is the forward/reverse divide callsite at 1000:3CE3 or 1000:3E77.
+capture=explosion_playback
+source=dosbox-regular-process-memory
+temp_copy=1
+visual_claim=0
+instrumented_freeze_observed=1
+runtime_freeze_patch_applied=1
+instrumented_lane_div_scratch_present=1
+instrumented_lane_div_cs_offset=0x3d23
+instrumented_lane_div_kind=forward
+instrumented_lane_div_ax=0xfff7
+instrumented_lane_div_dx=0xffff
+instrumented_lane_div_cx=0x0001
+instrumented_lane_div_bx=0x0000
+instrumented_lane_div_active_count=0x0001
+instrumented_lane_div_loop_index=0x0001
+instrumented_lane_div_weight_local=0x0001
+instrumented_lane_div_numerator_low=0xfff7
+instrumented_lane_div_numerator_high=0xffff
+
+runtime_cs=1A2B
+runtime_ds=2B3C
+
+break ghidra=1000:414A runtime=1A2B:414A label=explosion_dispatcher
+break ghidra=1000:370E runtime=1A2B:370E label=tile_damage_queue
+break ghidra=1000:4C96 runtime=1A2B:4C96 label=effect_forward_pass_call observed=runtime_child_memory_freeze_observed

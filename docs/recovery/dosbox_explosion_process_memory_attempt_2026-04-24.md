@@ -456,14 +456,73 @@ into the effect/debris update path during visible playback, but they are still
 instrumented process-memory evidence rather than debugger breakpoint stops, and
 the sampled effect table still needs exact semantic interpretation.
 
+A 2026-04-28 continuation added a narrower lane-division scratch mode for the
+forward/reverse lane blenders. Temp-copy attempts at `1000:3CE3` and
+`1000:3CD4` did not produce valid evidence because the larger patch body
+overlaps a relocated far-call segment word in the DOS-loaded image. The helper
+therefore rejects `--freeze-patch-mode lane-div-cs-scratch` unless runtime
+child-memory instrumentation is explicitly approved.
+
+Using immediate runtime patching after bomb input, the route froze at
+`01ED:3CD4` and promoted
+`explosion_playback_oracle_original_3cd4_lane_div_scratch_runtime.txt`. The
+scratch block at `CS:3D24` records one live forward-helper setup with
+`DX:AX=0xFFFF:0xFFF8`, `BX:CX=0x0000:0x0005`, active staging count/index
+`1`, and matching `[BP-8]`, `[BP-4]`, and `[BP-2]` locals. The sampled lane
+globals at the same stop are `DS:2078=1`, `DS:655E=0x8009`, and
+`DS:659A=0x0A7A`. This promotes the signed lane-division setup to original
+runtime evidence, while still leaving exact sprite playback semantics as
+`visual_claim=0`.
+
+The same immediate runtime approach then froze the actual forward far-call site
+at `01ED:3CE3` and promoted
+`explosion_playback_oracle_original_3ce3_lane_div_scratch_runtime.txt`. That
+scratch block records already-loaded division registers
+`DX:AX=0x0000:0x001C`, `BX:CX=0x0000:0x0010`, active count/index `1`, and
+matching numerator/weight locals. Immediate reverse-helper probes at
+`01ED:3E68` and `01ED:3E77` loaded the runtime patches but did not freeze on
+this route; those captures remain failed reachability attempts and are not
+promoted.
+
+The writeback probe then targeted `1000:3D1B`, the forward collapse-lane
+store. A plain two-byte freeze loop proved the route reaches the instruction,
+but the oracle rejected it until the offset was promoted into the known
+breakpoint set. The follow-up `lane-write-cs-scratch` runtime patch froze
+`01ED:3D1B` and promoted
+`explosion_playback_oracle_original_3d1b_lane_write_scratch_runtime.txt`.
+That scratch block records output byte `0x01`, selected tag `0x0003`,
+`DI=0x002D`, active count/index `1`, and result local `0x01`. The tag-to-DI
+relationship matches the original collapse stride exactly:
+`0x0003 * 0x0F = 0x002D`, so the original is about to write to
+`DS:6617 + 0x002D`.
+
+A follow-up targeted the paired debris store at `1000:3D2D` and exposed an
+instrumentation hazard: the inline scratch body overwrote the shared writeback
+join at `1000:3D31`, so the collapse path could jump into the instrumentation
+body and create a false debris-side scratch record. The tooling now uses a safe
+lane-write trampoline: a three-byte near jump at the probed instruction, a
+runtime body at `CS:F000`, and scratch bytes at `CS:F080`.
+
+With that safer patch, the same route re-captured positive collapse writeback
+evidence at `1000:3D1B` (`output=0x04`, `tag=0x0004`, `DI=0x003C`) and added
+positive reverse collapse evidence at `1000:3EAF` (`output=0x00`, same tag and
+DI). Both preserve the collapse stride relation `0x0004 * 0x0F = 0x003C`.
+Safe trampoline probes at `1000:3D2D` and `1000:3EC1` loaded but did not freeze
+on this route, so debris-side writeback remains a reachability problem rather
+than proven original behavior.
+
+The next pass added a clearly labeled runtime seed at the original helper call
+sites. For `3D2D`, the seed patches `4C96` to set `DS:655E=0xC004` and then
+call the original forward helper. For `3EC1`, the seed patches `4CA9` in the
+same way before calling the original reverse helper. These fixtures are not
+natural-route evidence, but both freeze the original debris writebacks with
+selected tag `0x4EE8` and `DI=0x0898`, proving the debris marker/stride
+calculation `(0x4EE8 - 0x4E20) * 0x0B`.
+
 ## Next Step
 
 Use the now-working `45FA`/`492F`/`4B3F`/`4B61`/`4B6A`/`4C75`/`4C96`/`4CA9`
-visible-playback freezes to map which live high-debris iteration supplies the
-positive `[bp-4]` word and how the helper-selected lane bytes map back into
-debris/collapse playback. Prefer the fast target-byte-gated route
-(`--sample-interval 0.005`, `--route-state-interval 0`) when probing this
-window. Only promote
-`explosion_playback_oracle_original.txt` after screenshots show the intended
-bomb/object event and the sampled bytes prove the exact runtime window and
-field semantics.
+visible-playback freezes plus the lane-helper/writeback fixtures to find a
+natural debris-side writeback route/timing gate. Prefer safe runtime
+trampolines for mid-helper writeback captures and keep promoted fixtures
+explicit about `visual_claim=0` until frame-table/sprite semantics are proven.

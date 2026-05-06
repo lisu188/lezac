@@ -7,9 +7,26 @@ C++ behavior.
 
 Current local validation constraints:
 
-- WSL/DOSBox access is blocked in this session with `Wsl/Service/CreateInstance/E_ACCESSDENIED`.
-- Native Windows CMake is blocked because `pkg-config sdl2` is not available.
-- Git writes are blocked by `.git/index.lock: Permission denied`.
+- WSL/DOSBox process-memory access was available for the 2026-04-28
+  continuation.
+- `explosion_playback_oracle_original_3cd4_lane_div_scratch_runtime.txt`
+  promotes one original runtime-child-memory mid-helper capture.
+- `explosion_playback_oracle_original_3ce3_lane_div_scratch_runtime.txt`
+  promotes one original runtime-child-memory divide call-site capture.
+- `explosion_playback_oracle_original_3d1b_lane_write_scratch_runtime.txt`
+  promotes one original runtime-child-memory forward collapse writeback capture.
+- `explosion_playback_oracle_original_3d1b_lane_write_trampoline_runtime.txt`
+  promotes the same forward collapse writeback with a safe trampoline patch.
+- `explosion_playback_oracle_original_3eaf_lane_write_trampoline_runtime.txt`
+  promotes the reverse collapse writeback with the same safe trampoline patch.
+- `explosion_playback_oracle_original_3d2d_lane_write_trampoline_no_freeze.txt`
+  and `explosion_playback_oracle_original_3ec1_lane_write_trampoline_no_freeze.txt`
+  record that this route did not reach the debris-side writebacks.
+- `explosion_playback_oracle_original_3d2d_lane_write_runtime_seeded.txt`
+  and `explosion_playback_oracle_original_3ec1_lane_write_runtime_seeded.txt`
+  prove the debris writeback arithmetic under labeled runtime seeding.
+- The evidence remains instrumentation-only (`visual_claim=0`); no live C++
+  playback behavior is changed by this note alone.
 
 ## Byte Window
 
@@ -91,6 +108,156 @@ word-gate local at the freeze. The same fixture's sampled selected word-layer
 summary remains `0x0000`, so the queue summary should be read as surrounding
 sample context, not as the exact loop-local source for the scratch value.
 
+The next runtime-child-memory probe moved inside the forward lane blender and
+froze `1000:3CD4` at runtime `01ED:3CD4`. Temp-copy patching was deliberately
+blocked for this mode after attempts at `3CD4`/`3CE3` showed the DOS loader
+relocating bytes inside the larger instrumentation body near the far-call
+operand. Runtime patching avoids that file-image relocation hazard.
+
+The promoted
+`explosion_playback_oracle_original_3cd4_lane_div_scratch_runtime.txt` fixture
+records the setup-point scratch at `CS:3D24`:
+
+```text
+AX/would-be numerator low  = 0xFFF8
+DX/would-be numerator high = 0xFFFF
+CX/would-be weight sum     = 0x0005
+BX/would-be high divisor   = 0x0000
+active staging count       = 0x0001
+staging loop index         = 0x0001
+[BP-8] weight local        = 0x0005
+[BP-4] numerator low local = 0xFFF8
+[BP-2] numerator high      = 0xFFFF
+```
+
+The same held playback sample has `DS:2078=1`, `DS:655E=0x8009`, and
+`DS:659A=0x0A7A`, so this directly ties one original forward-helper iteration
+to the signed lane numerator and positive weight sum that feed `0920:0945`.
+The fixture still has `visual_claim=0`; it proves runtime arithmetic state, not
+exact sprite timing.
+
+A follow-up runtime-child-memory probe froze the actual forward divide call at
+`1000:3CE3`, runtime `01ED:3CE3`, after the helper loaded the far routine
+registers. The promoted
+`explosion_playback_oracle_original_3ce3_lane_div_scratch_runtime.txt` fixture
+records scratch `CS:3D33`:
+
+```text
+AX numerator low  = 0x001C
+DX numerator high = 0x0000
+CX weight sum     = 0x0010
+BX high divisor   = 0x0000
+active count      = 0x0001
+loop index        = 0x0001
+```
+
+This directly validates the `DX:AX` and `BX:CX` register contract at the far
+divide call itself. Immediate runtime probes at `1000:3E68` and `1000:3E77`
+also loaded their reverse-helper scratch patches on the same route, but they
+did not freeze and are therefore recorded only as failed reachability probes,
+not promoted evidence.
+
+A later runtime-child-memory probe first froze the forward collapse writeback at
+`1000:3D1B`, runtime `01ED:3D1B`, immediately before the original
+`mov [di+0x6617],al` instruction executes. The original promoted
+`explosion_playback_oracle_original_3d1b_lane_write_scratch_runtime.txt`
+fixture records scratch `CS:3D6B`:
+
+```text
+output/result byte = 0x0001
+DI write offset    = 0x002D
+selected tag       = 0x0003
+active count       = 0x0001
+loop index         = 0x0001
+result local       = 0x0001
+```
+
+The oracle validates that the collapse tag maps to `DI` by `tag * 0x0F`;
+`0x0003 * 0x0F = 0x002D`. This proves one original helper writeback where the
+forward lane byte `0x01` is about to be stored at `DS:6617 + 0x002D`
+(`DS:6644`). The fixture still has `visual_claim=0`; it proves the queue
+writeback arithmetic and destination, not exact sprite timing.
+
+The first writeback instrumentation body was intentionally broad and later
+proved unsafe for adjacent mid-branch probes: when placed at `1000:3D2D`, it
+overwrote the shared loop join at `1000:3D31`, allowing the collapse branch to
+jump into the instrumentation body and produce a false debris-side scratch
+record. The safe follow-up uses a three-byte near jump at the probed
+instruction and parks the scratch/freezing body at runtime `CS:F000`, with
+scratch data at `CS:F080`.
+
+Using that trampoline patch, the same route produced a cleaner forward
+collapse writeback fixture,
+`explosion_playback_oracle_original_3d1b_lane_write_trampoline_runtime.txt`:
+
+```text
+offset             = 1000:3D1B
+output/result byte = 0x0004
+DI write offset    = 0x003C
+selected tag       = 0x0004
+active count       = 0x0001
+loop index         = 0x0001
+```
+
+The tag-to-DI relation again matches collapse stride `0x0F`:
+`0x0004 * 0x0F = 0x003C`.
+
+The reverse collapse writeback fixture,
+`explosion_playback_oracle_original_3eaf_lane_write_trampoline_runtime.txt`,
+freezes `1000:3EAF` before `mov [di+0x6618],al`:
+
+```text
+offset             = 1000:3EAF
+output/result byte = 0x0000
+DI write offset    = 0x003C
+selected tag       = 0x0004
+active count       = 0x0001
+loop index         = 0x0001
+```
+
+So the route now proves both collapse writeback bases for the same selected
+tag: forward `DS:6617 + 0x003C` and reverse `DS:6618 + 0x003C`.
+Safe trampoline probes at `1000:3D2D` and `1000:3EC1` loaded successfully but
+did not freeze on this route, so debris writeback still needs a different route
+or debugger-seeded setup before promotion as positive evidence.
+
+The follow-up runtime-seeded fixtures patch the original helper call site only
+long enough to force the staging word `DS:655E=0xC004` before calling the
+original helper body. They are intentionally labeled `runtime_seeded=1`; they
+prove helper mechanics, not full gameplay-route reachability.
+
+`explosion_playback_oracle_original_3d2d_lane_write_runtime_seeded.txt` freezes
+the forward debris write at `1000:3D2D`:
+
+```text
+seed word          = 0xC004
+offset             = 1000:3D2D
+output/result byte = 0x0035
+DI write offset    = 0x0898
+selected tag       = 0x4EE8
+active count       = 0x0001
+loop index         = 0x0001
+```
+
+`explosion_playback_oracle_original_3ec1_lane_write_runtime_seeded.txt` freezes
+the reverse debris write at `1000:3EC1`:
+
+```text
+seed word          = 0xC004
+offset             = 1000:3EC1
+output/result byte = 0x0000
+DI write offset    = 0x0898
+selected tag       = 0x4EE8
+active count       = 0x0001
+loop index         = 0x0001
+```
+
+Both fixtures validate the debris marker/stride relation:
+`(0x4EE8 - 0x4E20) * 0x0B = 0x0898`. Combined with the natural collapse
+writeback fixtures, this proves the original helper's collapse and debris
+writeback address arithmetic. The remaining gap is natural route reachability
+for debris writeback, not the helper's branch math.
+
 Follow-up temp-copy instrumentation now freezes the post-call instructions:
 
 - `1000:4C99`, immediately after the `4C96` call returns from `1000:3BB2`.
@@ -170,6 +337,13 @@ lane helper passes the positive weight sum as `BX:CX`, so this is the arithmetic
 form of `signed_lane_weight_sum / weight_sum`. The quotient rounds toward zero,
 the remainder in `BX:CX` keeps the dividend sign, and the zero-divisor path at
 `0920:09AC` loads `AX=0x00C8` before entering the runtime error handler.
+The original `3CD4` scratch fixture confirms this register contract in a live
+forward-helper setup with `DX:AX=0xFFFF:0xFFF8` and `BX:CX=0x0000:0x0005`;
+the original `3CE3` scratch fixture confirms it again at the actual far divide
+call with `DX:AX=0x0000:0x001C` and `BX:CX=0x0000:0x0010`.
+The original `3D1B` scratch fixture confirms the next step in the same helper
+family: the quotient/result byte is copied from `[BP-0D]` to the lane table
+through the selected tag's collapse record offset.
 The post-call fixtures that show `DS:2078`, `DS:655E`, and `DS:659A` as zero
 are therefore compatible with a transient staging lifetime: they preserve the
 helper-written queue bytes after the helper has returned, not a mid-helper view
@@ -202,6 +376,8 @@ consistency failures:
 - `explosion_playback_oracle_multiple_freeze_breaks.txt`
 - `explosion_playback_oracle_top_freeze_without_runtime_patch.txt`
 - `explosion_playback_oracle_bp4_local_without_word_gate.txt`
+- `explosion_playback_oracle_lane_div_without_divide_freeze.txt`
+- `explosion_playback_oracle_lane_write_bad_di.txt`
 
 The surrounding helper model from `docs/GHIDRA_NOTES.md` is now explicit:
 the forward/reverse lookup helpers at `1000:3A7E` and `1000:3B18` select
@@ -234,7 +410,6 @@ metadata: C++ has one collapse record at `start=0x0A06`, `end=0x0A08`,
 lane bytes `forward=0x00`, `reverse=0x04` after the lane helpers. That mismatch
 is now explicit evidence for the next rendering/playback recovery step.
 
-The next evidence step is to capture a mid-helper staging-table state that
-connects the proven helper inputs, the `0x0003` word-gate local, and the
-selected collapse/debris records to the original lane bytes before replacing
-the provisional queue playback.
+The next evidence step is to find a natural route or timing gate that reaches
+the debris-side writebacks (`1000:3D2D`/`1000:3EC1`) without runtime seeding,
+before replacing the provisional queue playback.

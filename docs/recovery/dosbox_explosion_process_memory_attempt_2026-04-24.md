@@ -525,10 +525,14 @@ runtime-only near-jump trampoline with body `CS:F200` and scratch `CS:F280`,
 capturing the result byte, `ES:DI`, `[BP+4]`/`[BP+6]`, `[BP-0D]`, active
 count/index, and the destination byte before `mov es:[di],al`. The helper
 refuses to patch unless the target bytes are `26 88 05`, and manifests record
-that expectation as `freeze_expected_old_bytes`. The checked-in fixtures for
-this checkpoint are synthetic parser coverage only. Original process-memory
-capture could not be rerun in the current no-approval sandbox because WSL
-startup failed with `Wsl/Service/CreateInstance/E_ACCESSDENIED`.
+that expectation as `freeze_expected_old_bytes`. A 2026-05-06 follow-up fixed
+the candidate writer so promoted fixtures also carry explicit
+`freeze_expected_old_bytes` and `freeze_old_bytes` keys, not only the long
+`instrumentation=` line. The checked-in coverage now includes synthetic parser
+fixtures plus one original reverse result-write fixture:
+`explosion_playback_oracle_original_3ed3_lane_result_runtime.txt`. The default
+route loaded the `1000:3D3F` patch but did not hit the forward result freeze,
+so forward original result-write evidence remains pending.
 The no-DOSBox preflight also checks the shared static tail at both anchors:
 loop-end compare, `mov al,[bp-0d]`, `les di,[bp+4]`, `mov es:[di],al`,
 `leave`, and `ret 6`. Its status line carries the exact tail as
@@ -600,20 +604,23 @@ line; successful full captures also print the manifest path.
 Lane-result handoff checklist:
 
 ```text
-lane_result_status=pending_original_runtime_capture
-lane_result_blocker=WSL denied locally with Wsl/Service/CreateInstance/E_ACCESSDENIED
+lane_result_status=reverse_original_runtime_capture_promoted_forward_pending
+lane_result_blocker=forward 3D3F default route loaded patch but did not freeze
 lane_result_preflight=python3 tools/check_explosion_lane_result_preflight.py .
 lane_result_wrapper_output_check=python3 tools/check_explosion_lane_result_wrapper.py .
 lane_result_wrapper_dry_run=python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . --dry-run --skip-oracle
 lane_result_wrapper_capture=python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . --approve-procmem --approve-runtime-instrumentation
+lane_result_reverse_capture=python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime-20260506-reverse . --approve-procmem --approve-runtime-instrumentation --offset reverse
 lane_result_forward_alias=forward -> 1000:3D3F -> expected_old_bytes=268805 -> scratch=CS:F280
 lane_result_reverse_alias=reverse -> 1000:3ED3 -> expected_old_bytes=268805 -> scratch=CS:F280
+lane_result_reverse_fixture=tests/fixtures/dosbox/explosion_playback_oracle_original_3ed3_lane_result_runtime.txt
+lane_result_reverse_runtime=CS:IP 01ED:3ED3 DS=0C8F scratch=01ED:F280 output=00ef far=18B3:3FE6 target_before=de
 lane_result_offset_addresses=default 1000:3D3F,1000:3ED3; reverse,forward 1000:3ED3,1000:3D3F
 lane_result_static_tail=8b46f63b46f075c58a46f3c47e04268805c9c20600
 lane_result_expected_manifest=/tmp/lezac-lane-result-runtime/manifest.txt
 lane_result_expected_forward_candidate=/tmp/lezac-lane-result-runtime/3d3f/explosion_playback_oracle_original_candidate.txt
 lane_result_expected_reverse_candidate=/tmp/lezac-lane-result-runtime/3ed3/explosion_playback_oracle_original_candidate.txt
-lane_result_acceptance=both candidates parse with --debug-explosion-playback-oracle and visual_claim remains 0
+lane_result_acceptance=promote only candidates that parse with --debug-explosion-playback-oracle and visual_claim remains 0
 ```
 
 ## Next Step

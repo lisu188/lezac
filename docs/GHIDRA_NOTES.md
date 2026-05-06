@@ -341,11 +341,15 @@ for reverse `3ed3`, plus malformed coverage for missing fields, wrong observed
 kind, bad far pointers, bad output/local values, bad target-byte width, bad
 loop bounds, and fields emitted without a scratch-present flag. The oracle also
 checks that fixture `freeze_old_bytes` begin with `freeze_expected_old_bytes`,
-with malformed coverage for mismatched or missing old-byte evidence. Original
-`3d3f`/`3ed3` captures were
-not promoted in the 2026-04-30 no-approval sandbox because WSL/DOSBox
-process-memory execution was blocked with
-`Wsl/Service/CreateInstance/E_ACCESSDENIED`.
+with malformed coverage for mismatched or missing old-byte evidence. The
+original-runtime fixture
+`explosion_playback_oracle_original_3ed3_lane_result_runtime.txt` now promotes
+one reverse result-write capture: runtime `CS:IP=01ed:3ed3`, `DS=0c8f`,
+scratch `01ed:f280`, result byte `0x00ef`, far destination
+`18b3:3fe6`, caller far pointer `18b3:3fe6`, result local `0x00ef`, active
+count/index `1/1`, and target-before byte `0xde`. The default 2026-05-06 route
+loaded the forward `3d3f` patch but did not hit the freeze, so that original
+fixture is still pending.
 
 The effect constructor at `1000:3fa6` writes 11-byte effect records at
 `0x2093 + 0x0b * DS:2076` and stores the effect type byte in

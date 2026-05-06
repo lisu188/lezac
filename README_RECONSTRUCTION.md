@@ -210,6 +210,10 @@ The `forward` alias maps to Ghidra `1000:3D3F`, and `reverse` maps to
 address-based retries. Dry-run summaries and full-capture manifests report the
 selected `offset_labels` and normalized `offset_addresses` so single-probe
 retries are visible in the log header.
+The checked-in reverse result-write fixture is
+`tests/fixtures/dosbox/explosion_playback_oracle_original_3ed3_lane_result_runtime.txt`;
+the matching forward `3D3F` original fixture remains pending because the
+current default route loads the patch but does not reach that freeze.
 
 ## Implemented
 

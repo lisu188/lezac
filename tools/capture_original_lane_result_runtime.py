@@ -101,7 +101,7 @@ def candidate_path_for(out_dir: Path, offset: str) -> Path:
 
 def build_capture_command(args: argparse.Namespace, offset: str, out_dir: Path) -> list[str]:
     root = repo_root()
-    return [
+    command = [
         sys.executable,
         str(root / "tools" / "capture_original_explosion_procmem.py"),
         str(offset_dir_for(out_dir, offset)),
@@ -130,6 +130,9 @@ def build_capture_command(args: argparse.Namespace, offset: str, out_dir: Path) 
         "--tail-freeze-check-seconds",
         args.tail_freeze_check_seconds,
     ]
+    for step in args.route_steps or []:
+        command += ["--route-step", step]
+    return command
 
 
 def build_oracle_command(args: argparse.Namespace, candidate: Path) -> list[str]:
@@ -272,6 +275,12 @@ def main() -> int:
     parser.add_argument("--sample-seconds", default="5.0")
     parser.add_argument("--sample-interval", default="0.005")
     parser.add_argument("--route-state-interval", default="0")
+    parser.add_argument(
+        "--route-step",
+        dest="route_steps",
+        action="append",
+        help="repeatable KEY:SECONDS original-control route step passed to the capture helper",
+    )
     parser.add_argument("--tail-freeze-check-seconds", default="0.75")
     args = parser.parse_args()
 
@@ -350,6 +359,7 @@ def main() -> int:
                 f"{args.runtime_freeze_after_bomb_seconds}",
                 f"level_start_seconds={args.level_start_seconds}",
                 f"right_hold_seconds={args.right_hold_seconds}",
+                "route_steps=" + ",".join(args.route_steps or []),
                 f"sample_seconds={args.sample_seconds}",
                 f"sample_interval={args.sample_interval}",
                 f"route_state_interval={args.route_state_interval}",

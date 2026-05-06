@@ -48,6 +48,11 @@ Current local validation constraints:
 - Natural-route `1000:3D3F` evidence is still pending. The 2026-05-06 default,
   timing-variant, and before-bomb attempts loaded the forward patch but did not
   hit the freeze.
+- `explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze.txt`
+  promotes one natural route-step no-freeze run (`x:2.00,c:0.50`). It loaded
+  the guarded `1000:3D3F` patch (`268805`) without lane-result scratch, while
+  the chosen sample recorded `lane_update_flag=0x05`, `lane_word=0x0004`,
+  `lane_target_offset=0x072c`, and reverse input `0xfb`.
 - The evidence remains instrumentation-only (`visual_claim=0`); no live C++
   playback behavior is changed by this note alone.
 
@@ -301,14 +306,16 @@ target before      = byte previously at ES:DI
 ```
 
 Current checked-in coverage includes synthetic parser fixtures, one original
-reverse result-write fixture, and one labeled runtime-seeded original forward
-result-write fixture. Together they prove that the C++ oracle validates the
-expected original byte signature `26 88 05`, the `CS:F280` scratch offset,
-`ES:DI == [BP+4]:[BP+6]`, `output == [BP-0D]`, byte-width fields, and loop
-bounds. They anchor the reverse `1000:3ED3` case to original runtime bytes and
-the forward `1000:3D3F` case to original helper execution under a seeded
-debris-side writeback trigger. Use `--offset forward` for natural-route `3D3F`
-retries.
+reverse result-write fixture, one labeled runtime-seeded original forward
+result-write fixture, and one natural route-step forward no-freeze fixture.
+Together they prove that the C++ oracle validates the expected original byte
+signature `26 88 05`, the `CS:F280` scratch offset, `ES:DI == [BP+4]:[BP+6]`,
+`output == [BP-0D]`, byte-width fields, and loop bounds. They anchor the
+reverse `1000:3ED3` case to original runtime bytes, the forward `1000:3D3F`
+case to original helper execution under a seeded debris-side writeback trigger,
+and one `x:2.00,c:0.50` natural route to a documented no-freeze state. Use
+`--offset forward` plus repeatable `--route-step KEY:SECONDS` for natural-route
+`3D3F` retries.
 
 Follow-up temp-copy instrumentation now freezes the post-call instructions:
 
@@ -483,4 +490,5 @@ The next evidence step is to find a natural route or timing gate that reaches
 the debris-side writebacks (`1000:3D2D`/`1000:3EC1`) and forward final
 far-pointer result write (`1000:3D3F`) without runtime seeding before replacing
 the provisional queue playback; the wrapper aliases for those final probes are
-`forward` and `reverse`.
+`forward` and `reverse`, and route variants can now be recorded with
+`--route-step KEY:SECONDS`.

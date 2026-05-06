@@ -460,11 +460,13 @@ if(BUILD_TESTING)
                     --sample-seconds 6.75
                     --sample-interval 0.015
                     --route-state-interval 0.5
+                    --route-step x:1.25
+                    --route-step Left:0.50
                     --tail-freeze-check-seconds 1.25)
         set_tests_properties(explosion_lane_result_capture_orchestrator_dry_run_timing_args PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "--runtime-freeze-after-bomb-seconds 0\\.125 .*--level-start-seconds 2\\.25 .*--right-hold-seconds 3\\.5 .*--sample-seconds 6\\.75 .*--sample-interval 0\\.015 .*--route-state-interval 0\\.5 .*--tail-freeze-check-seconds 1\\.25")
+                "--runtime-freeze-after-bomb-seconds 0\\.125 .*--level-start-seconds 2\\.25 .*--right-hold-seconds 3\\.5 .*--sample-seconds 6\\.75 .*--sample-interval 0\\.015 .*--route-state-interval 0\\.5 .*--tail-freeze-check-seconds 1\\.25 .*--route-step x:1\\.25 .*--route-step Left:0\\.50")
 
         add_test(NAME explosion_lane_result_capture_orchestrator_dry_run_alias_offsets
             COMMAND ${Python3_EXECUTABLE}
@@ -735,6 +737,14 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3d3f_lane_result_runtime_seeded .*playback_breaks=25 observed_freeze_count=1 observed_freeze_offset=0x3d3f .*observed_lane_forward_result=1 observed_lane_reverse_result=0 .*lane_result_scratch_present=1 lane_result_kind=forward lane_result_cs_offset=0xf280 lane_result_output=0x00fa lane_result_es=0x0c44 lane_result_di=0x78d2 lane_result_arg_offset=0x78d2 lane_result_arg_segment=0x0c44 lane_result_result_local=0x00fa lane_result_active_count=0x0001 lane_result_loop_index=0x0001 lane_result_target_before=0x00f3 .*freeze_expected_old_bytes_present=1 freeze_expected_old_bytes=268805 freeze_old_bytes=268805 .*runtime_seeded=1 runtime_seed_kind=debris-writeback runtime_seed_direction=forward runtime_seed_word=0xc004 runtime_seed_patch_applied=1 .*lane_globals_present=1 lane_update_flag=0x01 lane_word_global_value=0xc004 lane_target_offset_global_value=0x0a7a effect_input_globals_present=1 effect_forward_input_global_value=0xf3 effect_reverse_input_global_value=0x00 .*debris_count=0x00ca debris_count_base=0x2941 debris_base=0x2941 .*collapse_count=0x0002 collapse_count_base=0x662f collapse_base=0x662f .*collapse0_start=0x07a0 collapse0_end=0x07be collapse0_word=0x0002 collapse0_flagged=0x8002 .*effect0_xy=0x00a8,0x00a8 effect0_sprite=0x10 effect0_detail=0x10 effect0_timer=0x7d effect0_variant=0x45 temp_copy=1 visual_claim=0")
+
+    add_test(NAME explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze.txt)
+    set_tests_properties(explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze .*playback_breaks=25 observed_freeze_count=0 observed_freeze_offset=0x0000 .*observed_lane_forward_result=0 observed_lane_reverse_result=0 .*lane_result_scratch_present=0 freeze_expected_old_bytes_present=1 freeze_expected_old_bytes=268805 freeze_old_bytes=268805 runtime_seeded=0 lane_globals_present=1 lane_update_flag=0x05 lane_word_global_value=0x0004 lane_target_offset_global_value=0x072c effect_input_globals_present=1 effect_forward_input_global_value=0x00 effect_reverse_input_global_value=0xfb .*debris_count=0x00ca debris_count_base=0x2941 debris_base=0x2941 .*debris0_tile_index=0x03a3 debris0_flagged=0xc002 .*collapse_count=0x0004 collapse_count_base=0x664d collapse_base=0x664d .*collapse0_start=0x0562 collapse0_end=0x0742 collapse0_word=0x0005 collapse0_flagged=0x8005 .*effect0_xy=0x00f0,0x00b0 effect0_sprite=0x10 effect0_detail=0x10 effect0_timer=0x7d effect0_variant=0x3f temp_copy=1 visual_claim=0")
 
     add_test(NAME explosion_playback_oracle_original_3ed3_lane_result_runtime
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle

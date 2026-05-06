@@ -98,6 +98,12 @@ class RouteStateRecord:
     dumps: dict[str, bytes]
 
 
+@dataclass(frozen=True)
+class RouteStep:
+    key: str
+    seconds: float
+
+
 def run(args: list[str], env: dict[str, str], check: bool = True) -> str:
     completed = subprocess.run(
         args,
@@ -832,6 +838,34 @@ def parse_time_list(value: str) -> list[float]:
     return sorted(set(times))
 
 
+def parse_route_step(value: str) -> RouteStep:
+    if ":" not in value:
+        raise argparse.ArgumentTypeError("route step must be KEY:SECONDS")
+    key_name, seconds_text = value.split(":", 1)
+    key_name = key_name.strip()
+    if not key_name:
+        raise argparse.ArgumentTypeError("route step key must not be empty")
+    try:
+        seconds = float(seconds_text)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"route step seconds must be numeric: {seconds_text}"
+        ) from exc
+    if seconds < 0:
+        raise argparse.ArgumentTypeError("route step seconds must be non-negative")
+    return RouteStep(key=key_name, seconds=seconds)
+
+
+def route_steps_text(steps: list[RouteStep]) -> str:
+    return ",".join(f"{step.key}:{step.seconds:.2f}" for step in steps)
+
+
+def route_step_label(step: RouteStep, index: int) -> str:
+    key_text = "".join(ch if ch.isalnum() else "_" for ch in step.key.lower())
+    key_text = key_text.strip("_") or "key"
+    return f"020_route_step_{index:02d}_{key_text}"
+
+
 def parse_int_auto(value: str) -> int:
     try:
         return int(value, 0)
@@ -1250,6 +1284,17 @@ def main() -> int:
         type=float,
         default=2.0,
     )
+    parser.add_argument(
+        "--route-step",
+        dest="route_steps",
+        action="append",
+        type=parse_route_step,
+        metavar="KEY:SECONDS",
+        help=(
+            "repeatable original-control hold step before bomb input; "
+            "defaults to --right-key/--right-hold-seconds when omitted"
+        ),
+    )
     parser.add_argument("--sample-seconds", type=float, default=8.0)
     parser.add_argument("--sample-interval", type=float, default=0.08)
     parser.add_argument(
@@ -1468,10 +1513,15 @@ def main() -> int:
         raise RuntimeError("--route-state-interval must be non-negative")
     if args.tail_freeze_check_seconds < 0:
         raise RuntimeError("--tail-freeze-check-seconds must be non-negative")
+    if args.right_hold_seconds < 0:
+        raise RuntimeError("--right-hold-seconds must be non-negative")
     if repo_dir in out_dir.parents or out_dir == repo_dir:
         raise RuntimeError("choose an output directory outside the repository")
     out_dir.mkdir(parents=True, exist_ok=True)
     sample_screenshot_seconds = parse_time_list(args.sample_screenshot_seconds)
+    route_steps = args.route_steps or [
+        RouteStep(key=args.right_key, seconds=args.right_hold_seconds)
+    ]
     runtime_freeze = (
         args.runtime_freeze_before_bomb
         or args.runtime_freeze_after_bomb_seconds is not None
@@ -1811,7 +1861,13 @@ def main() -> int:
         route_state_records.append(
             capture_route_state(pid, base, "010_level_start", None)
         )
-        hold_key(env, game, args.right_key, args.right_hold_seconds)
+        for index, step in enumerate(route_steps, start=1):
+            hold_key(env, game, step.key, step.seconds)
+            route_state_records.append(
+                capture_route_state(
+                    pid, base, route_step_label(step, index), None
+                )
+            )
         snapshot(env, out_dir, game, "020_route_position")
         route_state_records.append(
             capture_route_state(pid, base, "020_route_position", None)
@@ -2642,6 +2698,7 @@ def main() -> int:
             out.write(f"input_start_taps={max(args.start_taps, 1)}\n")
             out.write(f"input_right_key={args.right_key}\n")
             out.write(f"input_right_hold_seconds={args.right_hold_seconds:.2f}\n")
+            out.write(f"input_route_steps={route_steps_text(route_steps)}\n")
             out.write(f"input_bomb_key={args.bomb_key}\n")
             out.write(f"input_bomb_hold_seconds={args.bomb_hold_seconds:.2f}\n")
             out.write(f"runtime_cs={RUNTIME_CS:04X}\n")
@@ -3030,6 +3087,7 @@ def main() -> int:
             f"input_level_start_seconds={args.level_start_seconds:.2f}\n"
             f"input_right_key={args.right_key}\n"
             f"input_right_hold_seconds={args.right_hold_seconds:.2f}\n"
+            f"input_route_steps={route_steps_text(route_steps)}\n"
             f"input_bomb_key={args.bomb_key}\n"
             f"input_bomb_hold_seconds={args.bomb_hold_seconds:.2f}\n"
             f"sample_seconds={args.sample_seconds:.2f}\n"

@@ -117,6 +117,18 @@ Baseline: `origin/main`
   right-hold timing, and before-bomb patch attempts all loaded the runtime patch
   but did not hit the forward result freeze, so the promoted forward fixture is
   intentionally labeled runtime-seeded rather than full gameplay-route evidence.
+- Extended the original process-memory capture route driver with repeatable
+  `--route-step KEY:SECONDS` holds, preserving the old `--right-key` /
+  `--right-hold-seconds` route as the default. The lane-result wrapper passes
+  those route steps through and records them in manifests/candidate fixtures.
+- Promoted
+  `explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze.txt`
+  from a natural original-control route `x:2.00,c:0.50`. It loaded the
+  `1000:3D3F` runtime patch and records byte guard `268805`, but no forward
+  result freeze or lane-result scratch appeared. The chosen sample still shows
+  live lane globals (`lane_update_flag=0x05`, `lane_word=0x0004`,
+  `lane_target_offset=0x072c`, reverse input `0xfb`), so it is useful negative
+  evidence for the natural forward-route gap.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,
@@ -415,6 +427,12 @@ Baseline: `origin/main`
   `1000:3D3F` and produced the promoted
   `explosion_playback_oracle_original_3d3f_lane_result_runtime_seeded.txt`
   fixture. Natural-route forward result-write evidence remains pending.
+- Route-step natural retries under
+  `/tmp/lezac-lane-result-forward-routestep-x1p5-z0p5-20260506`,
+  `/tmp/lezac-lane-result-forward-routestep-x2p0-c0p5-20260506`, and
+  `/tmp/lezac-lane-result-forward-routestep-x2p0-m0p35-20260506` all loaded the
+  `1000:3D3F` patch without freezing. The `x:2.00,c:0.50` run was promoted as
+  a natural no-freeze fixture because it preserves nonzero lane-global state.
 - A native PowerShell `cmake --build build` attempt was also rejected because
   the existing build tree was configured under `/mnt/c/...` and expects
   `/usr/bin/gmake`; use WSL or a fresh native build tree for full validation.

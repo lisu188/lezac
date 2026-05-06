@@ -352,9 +352,14 @@ promotes one forward result-write capture: runtime `CS:IP=01ed:3d3f`,
 `DS=0c8f`, seed call site `01ed:4c96`, helper body `01ed:3bb2`, scratch
 `01ed:f280`, result byte `0x00fa`, far destination `0c44:78d2`, caller far
 pointer `0c44:78d2`, result local `0x00fa`, active count/index `1/1`, and
-target-before byte `0xf3`. The default/timing-variant 2026-05-06 routes loaded
-the forward `3d3f` patch but did not hit the freeze, so natural-route forward
-evidence is still pending.
+target-before byte `0xf3`. The natural route-step fixture
+`explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze.txt`
+records route `x:2.00,c:0.50` loading the forward `3d3f` patch without a
+freeze or scratch record; its chosen sample still has
+`lane_update_flag=0x05`, `lane_word=0x0004`, `lane_target_offset=0x072c`, and
+reverse input `0xfb`. The default/timing-variant/route-step 2026-05-06 routes
+loaded the forward `3d3f` patch but did not hit the freeze, so natural-route
+forward evidence is still pending.
 
 The effect constructor at `1000:3fa6` writes 11-byte effect records at
 `0x2093 + 0x0b * DS:2076` and stores the effect type byte in

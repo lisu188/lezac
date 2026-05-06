@@ -332,9 +332,8 @@ parked at `CS:f200`, stores fields at `CS:f280`, and captures the result byte,
 byte before the write. The oracle validates that `ES:DI` equals the passed far
 pointer, the stored result byte equals `[BP-0d]`, and the loop count/index are
 in bounds. The process-memory helper also refuses to install this trampoline
-unless the target bytes are exactly `26 88 05` (`mov es:[di],al`). Current
-checked-in coverage is synthetic only, and `--describe-freeze-patch` can
-preflight these bytes without launching DOSBox:
+unless the target bytes are exactly `26 88 05` (`mov es:[di],al`).
+`--describe-freeze-patch` can preflight these bytes without launching DOSBox:
 `explosion_playback_oracle_lane_result_scratch_synthetic.txt` for forward
 `3d3f`, `explosion_playback_oracle_lane_result_reverse_scratch_synthetic.txt`
 for reverse `3ed3`, plus malformed coverage for missing fields, wrong observed
@@ -347,9 +346,15 @@ original-runtime fixture
 one reverse result-write capture: runtime `CS:IP=01ed:3ed3`, `DS=0c8f`,
 scratch `01ed:f280`, result byte `0x00ef`, far destination
 `18b3:3fe6`, caller far pointer `18b3:3fe6`, result local `0x00ef`, active
-count/index `1/1`, and target-before byte `0xde`. The default 2026-05-06 route
-loaded the forward `3d3f` patch but did not hit the freeze, so that original
-fixture is still pending.
+count/index `1/1`, and target-before byte `0xde`. The labeled runtime-seeded
+fixture `explosion_playback_oracle_original_3d3f_lane_result_runtime_seeded.txt`
+promotes one forward result-write capture: runtime `CS:IP=01ed:3d3f`,
+`DS=0c8f`, seed call site `01ed:4c96`, helper body `01ed:3bb2`, scratch
+`01ed:f280`, result byte `0x00fa`, far destination `0c44:78d2`, caller far
+pointer `0c44:78d2`, result local `0x00fa`, active count/index `1/1`, and
+target-before byte `0xf3`. The default/timing-variant 2026-05-06 routes loaded
+the forward `3d3f` patch but did not hit the freeze, so natural-route forward
+evidence is still pending.
 
 The effect constructor at `1000:3fa6` writes 11-byte effect records at
 `0x2093 + 0x0b * DS:2076` and stores the effect type byte in

@@ -104,9 +104,19 @@ Baseline: `origin/main`
   output `0x00ef`, `ES:DI=18B3:3FE6`, `[BP+4]/[BP+6]=18B3:3FE6`,
   result local `0x00ef`, active count/index `1/1`, and target-before byte
   `0xde`; the fixture remains `visual_claim=0`.
-- `1000:3D3F` remains pending as original runtime evidence. The 2026-05-06
-  default route loaded the runtime patch but did not hit the forward result
-  freeze, so no forward fixture was promoted.
+- Promoted
+  `explosion_playback_oracle_original_3d3f_lane_result_runtime_seeded.txt`
+  from an approved WSL/DOSBox process-memory run with labeled runtime seeding.
+  The seed patch at runtime `01ED:4C96` writes `DS:655E=0xC004`, calls the
+  original forward helper body at `01ED:3BB2`, returns to `01ED:4C99`, and then
+  freezes `1000:3D3F` at runtime `01ED:3D3F`. The fixture records byte guard
+  `268805`, scratch `01ED:F280`, result/output `0x00fa`,
+  `ES:DI=0C44:78D2`, `[BP+4]/[BP+6]=0C44:78D2`, active count/index `1/1`,
+  target-before byte `0xf3`, and remains `visual_claim=0`.
+- Natural-route `1000:3D3F` evidence remains pending. The 2026-05-06 default,
+  right-hold timing, and before-bomb patch attempts all loaded the runtime patch
+  but did not hit the forward result freeze, so the promoted forward fixture is
+  intentionally labeled runtime-seeded rather than full gameplay-route evidence.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,
@@ -398,7 +408,13 @@ Baseline: `origin/main`
   147/147 tests.
 - The same 2026-05-06 two-offset attempt left the forward `3D3F` candidate as
   `runtime_child_memory_patch_loaded_no_freeze_observed`; this is a route/timing
-  gap, not a parser claim, so forward result-write evidence remains pending.
+  gap, not a parser claim. Later default, right-hold timing, and before-bomb
+  retries also loaded the patch without freezing.
+- A labeled runtime-seeded forward retry under
+  `/tmp/lezac-lane-result-forward-seeded-after-20260506` did freeze
+  `1000:3D3F` and produced the promoted
+  `explosion_playback_oracle_original_3d3f_lane_result_runtime_seeded.txt`
+  fixture. Natural-route forward result-write evidence remains pending.
 - A native PowerShell `cmake --build build` attempt was also rejected because
   the existing build tree was configured under `/mnt/c/...` and expects
   `/usr/bin/gmake`; use WSL or a fresh native build tree for full validation.
@@ -651,9 +667,10 @@ Baseline: `origin/main`
   post-call lane bytes, the `4C75` live word gate, one `3CD4` mid-helper
   lane-division setup, one `3CE3` forward divide call-site register capture,
   collapse writeback captures at `3D1B` and `3EAF`, and seeded debris
-  writeback captures at `3D2D` and `3EC1`. Next evidence should target natural
-  debris-side writeback plus final far-pointer result writes at `3D3F` and
-  `3ED3` before changing live playback behavior.
+  writeback captures at `3D2D` and `3EC1`, plus final far-pointer result-write
+  captures at reverse `3ED3` and seeded forward `3D3F`. Next evidence should
+  target natural debris-side writeback and natural forward `3D3F` before
+  changing live playback behavior.
 - Semantic meaning of `PROEFS.SON` bytes `+4..+5` remains unknown; current
   diagnostics preserve them as raw fields only.
 - Many non-explosion sound callsites still need exact cursor/priority mapping.

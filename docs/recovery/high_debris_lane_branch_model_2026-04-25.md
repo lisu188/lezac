@@ -38,8 +38,16 @@ Current local validation constraints:
   records result byte `0x00ef`, `ES:DI=18B3:3FE6`, caller far pointer
   `18B3:3FE6`, result local `0x00ef`, active count/index `1/1`, and
   target-before byte `0xde`.
-- Original `1000:3D3F` runtime evidence is still pending. The 2026-05-06
-  default route loaded the forward patch but did not hit the freeze.
+- `explosion_playback_oracle_original_3d3f_lane_result_runtime_seeded.txt`
+  promotes one labeled runtime-seeded forward result-write capture. The seed
+  patch at runtime `01ED:4C96` writes `DS:655E=0xC004`, calls the original
+  forward helper at `01ED:3BB2`, and freezes `1000:3D3F` at runtime
+  `01ED:3D3F`. It keeps byte guard `268805` and records result byte `0x00fa`,
+  `ES:DI=0C44:78D2`, caller far pointer `0C44:78D2`, result local `0x00fa`,
+  active count/index `1/1`, and target-before byte `0xf3`.
+- Natural-route `1000:3D3F` evidence is still pending. The 2026-05-06 default,
+  timing-variant, and before-bomb attempts loaded the forward patch but did not
+  hit the freeze.
 - The evidence remains instrumentation-only (`visual_claim=0`); no live C++
   playback behavior is changed by this note alone.
 
@@ -292,12 +300,15 @@ loop index         = [BP-0A]
 target before      = byte previously at ES:DI
 ```
 
-Current checked-in coverage includes synthetic parser fixtures plus one
-original reverse result-write fixture. Together they prove that the C++ oracle
-validates the expected original byte signature `26 88 05`, the `CS:F280`
-scratch offset, `ES:DI == [BP+4]:[BP+6]`, `output == [BP-0D]`, byte-width
-fields, and loop bounds, and they now anchor the reverse `1000:3ED3` case to
-original runtime bytes. Use `--offset forward` for targeted `3D3F` retries.
+Current checked-in coverage includes synthetic parser fixtures, one original
+reverse result-write fixture, and one labeled runtime-seeded original forward
+result-write fixture. Together they prove that the C++ oracle validates the
+expected original byte signature `26 88 05`, the `CS:F280` scratch offset,
+`ES:DI == [BP+4]:[BP+6]`, `output == [BP-0D]`, byte-width fields, and loop
+bounds. They anchor the reverse `1000:3ED3` case to original runtime bytes and
+the forward `1000:3D3F` case to original helper execution under a seeded
+debris-side writeback trigger. Use `--offset forward` for natural-route `3D3F`
+retries.
 
 Follow-up temp-copy instrumentation now freezes the post-call instructions:
 
@@ -469,7 +480,7 @@ lane bytes `forward=0x00`, `reverse=0x04` after the lane helpers. That mismatch
 is now explicit evidence for the next rendering/playback recovery step.
 
 The next evidence step is to find a natural route or timing gate that reaches
-the debris-side writebacks (`1000:3D2D`/`1000:3EC1`) without runtime seeding and
-to capture the final far-pointer result writes (`1000:3D3F`/`1000:3ED3`) with
-the new runtime scratch mode before replacing the provisional queue playback;
-the wrapper aliases for those final probes are `forward` and `reverse`.
+the debris-side writebacks (`1000:3D2D`/`1000:3EC1`) and forward final
+far-pointer result write (`1000:3D3F`) without runtime seeding before replacing
+the provisional queue playback; the wrapper aliases for those final probes are
+`forward` and `reverse`.

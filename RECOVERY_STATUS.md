@@ -181,6 +181,9 @@ Baseline: `origin/main`
   behavior-4 scenarios. It writes `manifest.txt`, `raw_debugger_dump.txt`, and
   `debugger_commands.txt`, labels current captures `debugger_seeded`, and has a
   dry-run CTest path for environments without DOSBox-debug.
+- Added `tools/check_behavior4_runtime_oracle_fixtures.py` so behavior-4
+  fixture expectations, CMake wiring, and the C++ oracle command/source
+  contract can be validated without DOSBox or a local C++ compiler.
 - Added provisional live state-2 rendering keyed to the recovered `0x4a..0x4f`
   cursor range. It is intentionally documented as `visual_claim=0` until the
   original `DS:c322` frame-table fields are fully interpreted.

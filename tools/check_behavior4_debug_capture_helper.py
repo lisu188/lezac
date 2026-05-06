@@ -85,11 +85,12 @@ def check_script(script_path: Path) -> None:
 
 def check_cmake(cmake_path: Path) -> None:
     text = cmake_path.read_text(encoding="utf-8")
+    require(text, "find_program(BASH_EXECUTABLE bash)", "CMake")
     block = test_block(text, "behavior4_debug_capture_helper_dry_run")
     collapsed = collapse_ws(block)
     for snippet in [
         "LEZAC_BEHAVIOR4_DEBUG_DRY_RUN=1",
-        "bash",
+        "${BASH_EXECUTABLE}",
         "tools/capture_original_behavior4_debug.sh",
         "/tmp/lezac-behavior4-debug-dry-run",
         "${CMAKE_CURRENT_SOURCE_DIR}",

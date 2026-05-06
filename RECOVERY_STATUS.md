@@ -192,9 +192,9 @@ Baseline: `origin/main`
   the local vcpkg SDL2 package by propagating `SDL2_LIBRARY_DIRS`, defining
   `SDL_MAIN_HANDLED`, and making the state-2 effect-placement lambdas
   MSVC-compatible. The sanitized native Debug build in `build-win-codex-vs3`
-  passed `ctest --test-dir build-win-codex-vs3 -C Debug -E
-  "^behavior4_debug_capture_helper_dry_run$" --output-on-failure` with
-  156/156 tests; the excluded test is the bash-only behavior-4 helper dry-run.
+  passed 156/156 CTest tests. The bash-only behavior-4 helper dry-run is now
+  registered only when `bash` is available, so the native Windows suite can run
+  without a manual exclusion while still preserving the helper's CMake wiring.
 - Added provisional live state-2 rendering keyed to the recovered `0x4a..0x4f`
   cursor range. It is intentionally documented as `visual_claim=0` until the
   original `DS:c322` frame-table fields are fully interpreted.

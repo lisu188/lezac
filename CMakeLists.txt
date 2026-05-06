@@ -391,17 +391,20 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^lane_result_route_sweep_output=ok cases=6")
 
-        add_test(NAME behavior4_debug_capture_helper_dry_run
-            COMMAND ${CMAKE_COMMAND} -E env LEZAC_BEHAVIOR4_DEBUG_DRY_RUN=1
-                    bash
-                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_behavior4_debug.sh
-                    /tmp/lezac-behavior4-debug-dry-run
-                    ${CMAKE_CURRENT_SOURCE_DIR}
-                    monster_behavior4_target_selection)
-        set_tests_properties(behavior4_debug_capture_helper_dry_run PROPERTIES
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-            PASS_REGULAR_EXPRESSION
-                "^behavior4_debug_capture=ok mode=dry_run scenario=monster_behavior4_target_selection route=debugger_seeded .*manifest=.*raw_dump=")
+        find_program(BASH_EXECUTABLE bash)
+        if(BASH_EXECUTABLE)
+            add_test(NAME behavior4_debug_capture_helper_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_BEHAVIOR4_DEBUG_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_behavior4_debug.sh
+                        /tmp/lezac-behavior4-debug-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        monster_behavior4_target_selection)
+            set_tests_properties(behavior4_debug_capture_helper_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^behavior4_debug_capture=ok mode=dry_run scenario=monster_behavior4_target_selection route=debugger_seeded .*manifest=.*raw_dump=")
+        endif()
 
         add_test(NAME behavior4_debug_capture_helper_expectations
             COMMAND ${Python3_EXECUTABLE}

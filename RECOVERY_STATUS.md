@@ -1,6 +1,6 @@
 # Recovery Status
 
-Last reviewed: 2026-05-01
+Last reviewed: 2026-05-06
 Branch: `codex/lane-helper-model-evidence`
 Baseline: `origin/main`
 
@@ -14,8 +14,8 @@ Baseline: `origin/main`
   destination byte before `mov es:[di],al`.
 - Hardened that instrumentation with an original-byte guard: both temp-copy
   and runtime child-memory patching require the target bytes to be `26 88 05`
-  before writing the trampoline, and manifests now record
-  `freeze_expected_old_bytes`.
+  before writing the trampoline, and manifests/candidate fixtures now record
+  `freeze_expected_old_bytes` plus `freeze_old_bytes`.
 - Added `--describe-freeze-patch` to the capture helper so patch bytes,
   expected original bytes, file offsets, scratch offsets, and body bytes can be
   preflighted without launching DOSBox or reading process memory.
@@ -97,9 +97,16 @@ Baseline: `origin/main`
   `freeze_expected_old_bytes_present`, `freeze_expected_old_bytes`, and
   `freeze_old_bytes`; the forward/reverse synthetic lane-result CTest regexes
   pin `268805`.
-- Original `3D3F`/`3ED3` process-memory captures were not promoted in this
-  checkpoint because the current no-approval sandbox denied WSL startup with
-  `Wsl/Service/CreateInstance/E_ACCESSDENIED`.
+- Promoted
+  `explosion_playback_oracle_original_3ed3_lane_result_runtime.txt` from an
+  approved WSL/DOSBox process-memory run. It freezes `1000:3ED3` at runtime
+  `01ED:3ED3`, records the guarded original bytes `268805`, captures scratch
+  output `0x00ef`, `ES:DI=18B3:3FE6`, `[BP+4]/[BP+6]=18B3:3FE6`,
+  result local `0x00ef`, active count/index `1/1`, and target-before byte
+  `0xde`; the fixture remains `visual_claim=0`.
+- `1000:3D3F` remains pending as original runtime evidence. The 2026-05-06
+  default route loaded the runtime patch but did not hit the forward result
+  freeze, so no forward fixture was promoted.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,
@@ -362,21 +369,36 @@ Baseline: `origin/main`
   `patch_bytes=e92ab3`, `scratch_offset=0xf280`, and `body_offset=0xf200`.
 - The equivalent CTest entries are now
   `explosion_freeze_patch_describe_lane_result_3d3f` and
-  `explosion_freeze_patch_describe_lane_result_3ed3`; they still need to run
-  under a WSL/native CTest pass because this sandbox cannot use the configured
-  build tree.
+  `explosion_freeze_patch_describe_lane_result_3ed3`; both passed under the
+  WSL build tree on 2026-05-06.
 - The wrong-offset preflight was checked directly and fails cleanly with
   `freeze_patch_description=error reason=--freeze-patch-mode
   lane-result-cs-scratch is only valid at 1000:3D3F or 1000:3ED3`.
-- Current WSL validation is blocked in the no-approval sandbox:
-  `wsl.exe` fails with `Wsl/Service/CreateInstance/E_ACCESSDENIED`, so the
-  latest `cmake --build build`, `ctest`, and DOSBox/process-memory lane-result
-  captures could not be rerun during the 2026-04-30 checkpoint.
-- Rechecked on 2026-05-01: `wsl -l -v` still fails with
-  `Wsl/EnumerateDistros/Service/E_ACCESSDENIED`. The lane-result wrapper
-  preflight and dry-run handoff commands still pass with bundled Windows
-  Python, so the blocker remains WSL access rather than patch/orchestrator
-  setup.
+- WSL validation was restored for the 2026-05-06 continuation:
+  `cmake --build build` passed, and `ctest --test-dir build
+  --output-on-failure` passed with 146/146 tests before the promoted reverse
+  fixture was added.
+- The first approved two-offset WSL/DOSBox process-memory run wrote captures
+  under `/tmp/lezac-lane-result-runtime-20260506`. It proved the reverse
+  `3ED3` route reached the runtime-child-memory freeze, but the oracle rejected
+  the candidate because the fixture writer did not emit explicit
+  `freeze_expected_old_bytes` / `freeze_old_bytes` keys. The capture helper now
+  emits both keys in candidate fixtures, and
+  `tools/check_explosion_lane_result_layout.py` verifies that writer contract.
+- The repaired targeted command
+  `python3 tools/capture_original_lane_result_runtime.py
+  /tmp/lezac-lane-result-runtime-20260506-reverse .
+  --approve-procmem --approve-runtime-instrumentation --offset reverse`
+  passed end-to-end, wrote `manifest.txt`, and parsed the promoted
+  `3ED3` candidate with `--debug-explosion-playback-oracle`.
+- After promoting the reverse fixture, `cmake --build build`,
+  `ctest --test-dir build -R lane_result --output-on-failure`, and
+  `ctest --test-dir build --output-on-failure` all passed under WSL. The
+  focused lane-result slice reported 36/36 tests, and the full suite reported
+  147/147 tests.
+- The same 2026-05-06 two-offset attempt left the forward `3D3F` candidate as
+  `runtime_child_memory_patch_loaded_no_freeze_observed`; this is a route/timing
+  gap, not a parser claim, so forward result-write evidence remains pending.
 - A native PowerShell `cmake --build build` attempt was also rejected because
   the existing build tree was configured under `/mnt/c/...` and expects
   `/usr/bin/gmake`; use WSL or a fresh native build tree for full validation.
@@ -384,9 +406,8 @@ Baseline: `origin/main`
   available (`No CMAKE_CXX_COMPILER could be found`). The generated
   `build-win-probe/` directory is ignored as build output because the sandbox
   blocked recursive cleanup.
-- `git add` is currently blocked by `.git/index.lock: Permission denied`; the
-  main lane-result checkpoint is staged, but the latest ledger/handoff doc
-  notes cannot be staged or committed until local Git index writes are restored.
+- The prior `.git/index.lock: Permission denied` staging blocker was resolved
+  before the lane-result checkpoint was rebased and pushed.
 - `python3 tools/capture_original_explosion_procmem.py --help` passed and
   lists the route-input options.
 - `cmake --build build` passed under WSL after the queue-counter oracle update.

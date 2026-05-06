@@ -32,10 +32,14 @@ Current local validation constraints:
   signature, mismatched kind, mismatched scratch offset, mismatched far-pointer,
   mismatched output/local, byte-width, loop-bound, and missing-present-flag
   scratch records.
-- Original `1000:3D3F`/`1000:3ED3` runtime captures are still pending. The
-  2026-04-30 local sandbox denied WSL startup, so DOSBox/process-memory capture
-  could not be rerun for this checkpoint. The wrapper now accepts
-  `--offset forward`/`--offset reverse` aliases for those two probes.
+- `explosion_playback_oracle_original_3ed3_lane_result_runtime.txt` promotes
+  one original runtime-child-memory reverse result-write capture. It freezes
+  `1000:3ED3` at runtime `01ED:3ED3`, keeps the byte guard `268805`, and
+  records result byte `0x00ef`, `ES:DI=18B3:3FE6`, caller far pointer
+  `18B3:3FE6`, result local `0x00ef`, active count/index `1/1`, and
+  target-before byte `0xde`.
+- Original `1000:3D3F` runtime evidence is still pending. The 2026-05-06
+  default route loaded the forward patch but did not hit the freeze.
 - The evidence remains instrumentation-only (`visual_claim=0`); no live C++
   playback behavior is changed by this note alone.
 
@@ -288,16 +292,12 @@ loop index         = [BP-0A]
 target before      = byte previously at ES:DI
 ```
 
-Current checked-in coverage is deliberately synthetic: it proves that the C++
-oracle validates the expected original byte signature `26 88 05`, the
-`CS:F280` scratch offset, `ES:DI == [BP+4]:[BP+6]`, `output == [BP-0D]`,
-byte-width fields, and loop bounds, but it does not yet claim original runtime
-evidence.
-The no-approval 2026-04-30 sandbox blocked WSL startup with
-`Wsl/Service/CreateInstance/E_ACCESSDENIED`, so the intended DOSBox
-process-memory captures for `3D3F` and `3ED3` remain the next capture step.
-Use the wrapper aliases `--offset forward` and `--offset reverse` for targeted
-single-probe retries.
+Current checked-in coverage includes synthetic parser fixtures plus one
+original reverse result-write fixture. Together they prove that the C++ oracle
+validates the expected original byte signature `26 88 05`, the `CS:F280`
+scratch offset, `ES:DI == [BP+4]:[BP+6]`, `output == [BP-0D]`, byte-width
+fields, and loop bounds, and they now anchor the reverse `1000:3ED3` case to
+original runtime bytes. Use `--offset forward` for targeted `3D3F` retries.
 
 Follow-up temp-copy instrumentation now freezes the post-call instructions:
 

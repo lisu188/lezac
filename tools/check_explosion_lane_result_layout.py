@@ -89,6 +89,19 @@ def extract_writer_field_loops(src: str) -> list[list[str]]:
     return loops
 
 
+def require_candidate_freeze_old_byte_fields(src: str) -> None:
+    start = src.find('out.write("capture=explosion_playback\\n")')
+    if start < 0:
+        raise RuntimeError("missing candidate fixture writer")
+    end = src.find('instrumentation_manifest = ""', start)
+    if end < 0:
+        raise RuntimeError("missing instrumentation manifest writer")
+    candidate_writer = src[start:end]
+    for key in ["freeze_expected_old_bytes", "freeze_old_bytes"]:
+        if f'"{key}=' not in candidate_writer and f'f"{key}=' not in candidate_writer:
+            raise RuntimeError(f"candidate writer missing {key}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Check lane-result scratch field layout consistency."
@@ -130,6 +143,7 @@ def main() -> int:
         raise RuntimeError("no lane-result writer loops found")
     for index, fields in enumerate(writer_loops):
         require_equal(fields, EXPECTED_FIELDS, f"capture writer loop {index}")
+    require_candidate_freeze_old_byte_fields(capture)
     for field in EXPECTED_FIELDS:
         if f" lane_result_{field}=" not in main_cpp:
             raise RuntimeError(f"C++ success output missing lane_result_{field}")

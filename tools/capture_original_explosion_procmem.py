@@ -2198,6 +2198,16 @@ def main() -> int:
                 out.write(
                     f"instrumented_freeze_patch_mode={freeze_patch['patch_mode']}\n"
                 )
+                out.write(
+                    "freeze_expected_old_bytes="
+                    f"{freeze_patch['expected_original_bytes']}\n"
+                )
+                freeze_old_bytes = (
+                    runtime_freeze_old_bytes.hex()
+                    if runtime_freeze_old_bytes
+                    else str(freeze_patch["original_bytes"])
+                )
+                out.write(f"freeze_old_bytes={freeze_old_bytes}\n")
                 if (
                     str(freeze_patch["patch_mode"])
                     == FREEZE_PATCH_MODE_BP4_CS_SCRATCH

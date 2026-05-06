@@ -6474,10 +6474,10 @@ public:
             bool restored = false;
         };
 
-        auto slotAddress = [](int slot) {
+        auto slotAddress = [=](int slot) {
             return static_cast<uint16_t>(kEffectBase + 8 * slot);
         };
-        auto blocksPlacement = [](uint8_t tile) {
+        auto blocksPlacement = [=](uint8_t tile) {
             return tile == kSolidTile || tile == kPlacementMarker;
         };
         auto runPlacement = [&](EffectEntry entry,

@@ -10,7 +10,9 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL2 REQUIRED sdl2)
 
 add_executable(lezac_cpp src/main.cpp)
+target_compile_definitions(lezac_cpp PRIVATE SDL_MAIN_HANDLED)
 target_include_directories(lezac_cpp PRIVATE ${SDL2_INCLUDE_DIRS})
+target_link_directories(lezac_cpp PRIVATE ${SDL2_LIBRARY_DIRS})
 target_link_libraries(lezac_cpp PRIVATE ${SDL2_LIBRARIES})
 target_compile_options(lezac_cpp PRIVATE ${SDL2_CFLAGS_OTHER})
 

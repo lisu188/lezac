@@ -432,7 +432,7 @@ if(BUILD_TESTING)
             set_tests_properties(contact_scanner_debug_capture_helper_dry_run PROPERTIES
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 PASS_REGULAR_EXPRESSION
-                    "^contact_scanner_debug_capture=ok mode=dry_run scenario=monster_contact_damage_live route=debugger_seeded .*manifest=.*raw_dump=")
+                    "^contact_scanner_debug_capture=ok mode=dry_run scenario=monster_contact_damage_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=")
         endif()
 
         add_test(NAME behavior4_debug_capture_helper_expectations
@@ -460,7 +460,7 @@ if(BUILD_TESTING)
         set_tests_properties(contact_scanner_debug_capture_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^contact_scanner_debug_capture_helper=ok scenarios=3 anchors=2 outputs=4 cmake_test=1 docs=2")
+                "^contact_scanner_debug_capture_helper=ok scenarios=3 anchors=2 outputs=5 cmake_test=1 docs=2")
 
         add_test(NAME actor_update_runtime_oracle_fixture_expectations
             COMMAND ${Python3_EXECUTABLE}

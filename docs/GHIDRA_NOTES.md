@@ -196,6 +196,8 @@ contact flags, pending damage, runtime `CS`/`DS`, and breakpoints at
 `1000:5cb0` and `1000:604f`. `tools/capture_original_contact_scanner_debug.sh`
 records the scanner-only debugger command plan and keeps those captures labeled
 `debugger_seeded` until a full gameplay route proves the same state naturally.
+Its `candidate_fixture.txt` is a skeleton for transcript normalization, not
+evidence until runtime fields and dump rows are filled.
 
 ## Bomb Inventory
 

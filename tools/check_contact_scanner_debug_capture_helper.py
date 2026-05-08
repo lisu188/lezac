@@ -20,6 +20,7 @@ BREAKPOINTS = ["5CB0", "604F"]
 OUTPUTS = [
     "manifest.txt",
     "raw_debugger_dump.txt",
+    "candidate_fixture.txt",
     "debugger_commands.txt",
     "contact_scanner_debug_capture.log",
 ]
@@ -61,6 +62,12 @@ def check_script(script_path: Path) -> None:
     require(text, "runtime_route=debugger_seeded", "script")
     require(text, "LEZAC_CONTACT_SCANNER_DEBUG_DRY_RUN", "script")
     require(text, "visual_claim=0", "script")
+    require(text, "candidate_fixture=\"$out_dir/candidate_fixture.txt\"", "script")
+    require(text, "capture=contact_scanner_runtime", "script")
+    require(text, "scenario=$scenario", "script")
+    require(text, "route=$runtime_route", "script")
+    require(text, "subject_actor slot=<slot>", "script")
+    require(text, "contact_scan subject_slot=<slot>", "script")
     require(text, "fixture_command=./build/lezac_cpp --debug-contact-scanner-runtime-oracle <candidate-fixture>", "script")
     require(text, "choose an output directory outside the repository", "script")
     require(text, "missing $asset_dir/LEZAC.EXE", "script")
@@ -91,7 +98,7 @@ def check_cmake(cmake_path: Path) -> None:
         "/tmp/lezac-contact-scanner-debug-dry-run",
         "${CMAKE_CURRENT_SOURCE_DIR}",
         "monster_contact_damage_live",
-        "^contact_scanner_debug_capture=ok mode=dry_run scenario=monster_contact_damage_live route=debugger_seeded",
+        "^contact_scanner_debug_capture=ok mode=dry_run scenario=monster_contact_damage_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=",
     ]:
         if collapse_ws(snippet) not in collapsed:
             raise RuntimeError(
@@ -104,7 +111,7 @@ def check_cmake(cmake_path: Path) -> None:
     for snippet in [
         "tools/check_contact_scanner_debug_capture_helper.py",
         "${CMAKE_CURRENT_SOURCE_DIR}",
-        "^contact_scanner_debug_capture_helper=ok scenarios=3 anchors=2 outputs=4 cmake_test=1 docs=2",
+        "^contact_scanner_debug_capture_helper=ok scenarios=3 anchors=2 outputs=5 cmake_test=1 docs=2",
     ]:
         if collapse_ws(snippet) not in collapsed:
             raise RuntimeError(

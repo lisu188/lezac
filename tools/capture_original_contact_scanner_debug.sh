@@ -50,6 +50,7 @@ manifest="$out_dir/manifest.txt"
 raw_dump="$out_dir/raw_debugger_dump.txt"
 log="$out_dir/contact_scanner_debug_capture.log"
 commands_file="$out_dir/debugger_commands.txt"
+candidate_fixture="$out_dir/candidate_fixture.txt"
 
 runtime_route=debugger_seeded
 expected_level=1
@@ -75,9 +76,35 @@ EOF_COMMANDS
     echo "out_dir=$out_dir"
     echo "debugger_commands=$commands_file"
     echo "raw_debugger_dump=$raw_dump"
+    echo "candidate_fixture=$candidate_fixture"
     echo "anchors=1000:5CB0..604F"
     echo "visual_claim=0"
 } >"$manifest"
+
+cat >"$candidate_fixture" <<EOF_FIXTURE
+# LEZAC contact-scanner runtime oracle candidate
+# Fill this from raw DOSBox-debug output before promotion.
+capture=contact_scanner_runtime
+source=dosbox-debug
+temp_copy=1
+visual_claim=0
+scenario=$scenario
+level=$expected_level
+route=$runtime_route
+
+# runtime_cs=<runtime-cs>
+# runtime_ds=<runtime-ds>
+#
+# break ghidra=1000:5CB0 runtime=<runtime-cs>:5CB0 label=contact_scanner_start
+# break ghidra=1000:604F runtime=<runtime-cs>:604F label=contact_scanner_end
+#
+# subject_actor slot=<slot> kind=<kind> state=<state> x=0x0000 y=0x0000 w=<w> h=<h> flags=0x0000
+# other_actor slot=<slot> kind=<kind> state=<state> x=0x0000 y=0x0000 w=<w> h=<h> flags=0x0000
+# contact_scan subject_slot=<slot> other_slot=<slot> flags_before=0x0000 flags_after=0x0000 contact=<0-or-1> player_contact=<0-or-1> monster_contact=<0-or-1> object_contact=<0-or-1> damage_pending=<n> overlap_x=<n> overlap_y=<n>
+#
+# dump DS:7900
+# <runtime-ds>:7900  <bytes>
+EOF_FIXTURE
 
 {
     echo "contact_scanner_debug_capture=planned"
@@ -85,6 +112,7 @@ EOF_COMMANDS
     echo "route=$runtime_route"
     echo "expected_level=$expected_level"
     echo "anchor_contact_scanner=1000:5CB0..604F"
+    echo "candidate_fixture=$candidate_fixture"
     echo "fixture_command=./build/lezac_cpp --debug-contact-scanner-runtime-oracle <candidate-fixture>"
 } >"$raw_dump"
 
@@ -94,6 +122,7 @@ EOF_COMMANDS
     echo "route=$runtime_route"
     echo "manifest=$manifest"
     echo "raw_debugger_dump=$raw_dump"
+    echo "candidate_fixture=$candidate_fixture"
 } >"$log"
 
 if [[ ! -e "$asset_dir/LEZAC.EXE" ]]; then
@@ -102,7 +131,7 @@ if [[ ! -e "$asset_dir/LEZAC.EXE" ]]; then
 fi
 
 if [[ "${LEZAC_CONTACT_SCANNER_DEBUG_DRY_RUN:-0}" == "1" ]]; then
-    echo "contact_scanner_debug_capture=ok mode=dry_run scenario=$scenario route=$runtime_route manifest=$manifest raw_dump=$raw_dump"
+    echo "contact_scanner_debug_capture=ok mode=dry_run scenario=$scenario route=$runtime_route manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture"
     exit 0
 fi
 
@@ -157,4 +186,4 @@ if [[ $status -ne 0 ]]; then
     exit "$status"
 fi
 
-echo "contact_scanner_debug_capture=ok mode=capture scenario=$scenario route=$runtime_route manifest=$manifest raw_dump=$raw_dump"
+echo "contact_scanner_debug_capture=ok mode=capture scenario=$scenario route=$runtime_route manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture"

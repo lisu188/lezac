@@ -160,7 +160,8 @@ Scanner-only transcripts can also be checked with
 state when a debugger stop only captures the scanner window. Use
 `tools/capture_original_contact_scanner_debug.sh` to stage the matching
 DOSBox-debug plan for `monster_contact_damage_live`, `object_collision_jump_live`,
-or `monster_behavior4_chase`.
+or `monster_behavior4_chase`; it writes a `candidate_fixture.txt` skeleton that
+must be filled from runtime output before promotion.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \

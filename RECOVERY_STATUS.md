@@ -225,9 +225,11 @@ Baseline: `origin/main`
 - Added `tools/capture_original_contact_scanner_debug.sh <out_dir> [asset_dir]
   <scenario>` for `monster_contact_damage_live`, `object_collision_jump_live`,
   and `monster_behavior4_chase`. It writes scanner-only `manifest.txt`,
-  `raw_debugger_dump.txt`, `debugger_commands.txt`, and
+  `raw_debugger_dump.txt`, `candidate_fixture.txt`, `debugger_commands.txt`, and
   `contact_scanner_debug_capture.log`, labels current captures
-  `debugger_seeded`, and has CMake/checker coverage for dry-run wiring.
+  `debugger_seeded`, and has CMake/checker coverage for dry-run wiring. The
+  candidate fixture is intentionally a fill-in skeleton until original runtime
+  fields and dump rows are captured.
 - WSL is currently present but blocked from this shell by `E_ACCESSDENIED`, so
   original DOSBox-debug actor-update capture remains pending for an environment
   where WSL service access is allowed.

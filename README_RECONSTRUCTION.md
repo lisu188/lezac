@@ -164,6 +164,8 @@ tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-b4-level2 monster_s
   tests/fixtures/dosbox/behavior4_runtime_oracle_synthetic.txt
 ./build/lezac_cpp --debug-actor-update-runtime-oracle \
   tests/fixtures/dosbox/actor_update_runtime_oracle_synthetic.txt
+python3 tools/check_actor_update_runtime_oracle_fixtures.py \
+  tests/fixtures/dosbox --cmake CMakeLists.txt --source src/main.cpp
 LEZAC_ACTOR_UPDATE_DEBUG_DRY_RUN=1 \
   tools/capture_original_actor_update_debug.sh \
   /tmp/lezac-actor-update-debug . object_collision_jump_live

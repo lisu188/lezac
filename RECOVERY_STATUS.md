@@ -213,6 +213,12 @@ Baseline: `origin/main`
   `raw_debugger_dump.txt`, `debugger_commands.txt`, and
   `actor_update_debug_capture.log`, labels current captures `debugger_seeded`,
   and has a dry-run CTest path for environments with `bash`.
+- Added `tools/check_actor_update_runtime_oracle_fixtures.py` so the
+  actor-update fixture set, expected malformed outcomes, CMake wiring, and C++
+  oracle command/source contract can be validated without DOSBox or a compiler.
+- WSL is currently present but blocked from this shell by `E_ACCESSDENIED`, so
+  original DOSBox-debug actor-update capture remains pending for an environment
+  where WSL service access is allowed.
 - Added provisional live state-2 rendering keyed to the recovered `0x4a..0x4f`
   cursor range. It is intentionally documented as `visual_claim=0` until the
   original `DS:c322` frame-table fields are fully interpreted.

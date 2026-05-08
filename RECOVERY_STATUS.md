@@ -222,6 +222,12 @@ Baseline: `origin/main`
   subject/other actor boxes, overlap size, contact flags, and pending damage.
   `tools/check_contact_scanner_runtime_oracle_fixtures.py` validates fixture
   outcomes, CMake wiring, and the C++ source contract without DOSBox.
+- Added `tools/capture_original_contact_scanner_debug.sh <out_dir> [asset_dir]
+  <scenario>` for `monster_contact_damage_live`, `object_collision_jump_live`,
+  and `monster_behavior4_chase`. It writes scanner-only `manifest.txt`,
+  `raw_debugger_dump.txt`, `debugger_commands.txt`, and
+  `contact_scanner_debug_capture.log`, labels current captures
+  `debugger_seeded`, and has CMake/checker coverage for dry-run wiring.
 - WSL is currently present but blocked from this shell by `E_ACCESSDENIED`, so
   original DOSBox-debug actor-update capture remains pending for an environment
   where WSL service access is allowed.

@@ -157,7 +157,10 @@ best-effort DOSBox-debug capture plans for `object_collision_jump_live`,
 Scanner-only transcripts can also be checked with
 `--debug-contact-scanner-runtime-oracle <fixture> [--expect-error]`; this keeps
 `1000:5CB0..604F` overlap/contact flag evidence separate from full actor update
-state when a debugger stop only captures the scanner window.
+state when a debugger stop only captures the scanner window. Use
+`tools/capture_original_contact_scanner_debug.sh` to stage the matching
+DOSBox-debug plan for `monster_contact_damage_live`, `object_collision_jump_live`,
+or `monster_behavior4_chase`.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
@@ -174,6 +177,9 @@ python3 tools/check_actor_update_runtime_oracle_fixtures.py \
   tests/fixtures/dosbox --cmake CMakeLists.txt --source src/main.cpp
 python3 tools/check_contact_scanner_runtime_oracle_fixtures.py \
   tests/fixtures/dosbox --cmake CMakeLists.txt --source src/main.cpp
+LEZAC_CONTACT_SCANNER_DEBUG_DRY_RUN=1 \
+  tools/capture_original_contact_scanner_debug.sh \
+  /tmp/lezac-contact-scanner-debug . monster_contact_damage_live
 LEZAC_ACTOR_UPDATE_DEBUG_DRY_RUN=1 \
   tools/capture_original_actor_update_debug.sh \
   /tmp/lezac-actor-update-debug . object_collision_jump_live

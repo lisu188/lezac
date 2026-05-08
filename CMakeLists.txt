@@ -266,6 +266,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_runtime_oracle_fixtures.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_scanner_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_scanner_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_layout.py
@@ -420,6 +421,18 @@ if(BUILD_TESTING)
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 PASS_REGULAR_EXPRESSION
                     "^actor_update_debug_capture=ok mode=dry_run scenario=object_collision_jump_live route=debugger_seeded .*manifest=.*raw_dump=")
+
+            add_test(NAME contact_scanner_debug_capture_helper_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_CONTACT_SCANNER_DEBUG_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_contact_scanner_debug.sh
+                        /tmp/lezac-contact-scanner-debug-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        monster_contact_damage_live)
+            set_tests_properties(contact_scanner_debug_capture_helper_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^contact_scanner_debug_capture=ok mode=dry_run scenario=monster_contact_damage_live route=debugger_seeded .*manifest=.*raw_dump=")
         endif()
 
         add_test(NAME behavior4_debug_capture_helper_expectations
@@ -439,6 +452,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^actor_update_debug_capture_helper=ok scenarios=3 anchors=4 outputs=4 cmake_test=1 docs=2")
+
+        add_test(NAME contact_scanner_debug_capture_helper_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_scanner_debug_capture_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(contact_scanner_debug_capture_helper_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^contact_scanner_debug_capture_helper=ok scenarios=3 anchors=2 outputs=4 cmake_test=1 docs=2")
 
         add_test(NAME actor_update_runtime_oracle_fixture_expectations
             COMMAND ${Python3_EXECUTABLE}

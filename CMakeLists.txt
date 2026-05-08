@@ -420,7 +420,7 @@ if(BUILD_TESTING)
             set_tests_properties(actor_update_debug_capture_helper_dry_run PROPERTIES
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 PASS_REGULAR_EXPRESSION
-                    "^actor_update_debug_capture=ok mode=dry_run scenario=object_collision_jump_live route=debugger_seeded .*manifest=.*raw_dump=")
+                    "^actor_update_debug_capture=ok mode=dry_run scenario=object_collision_jump_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=")
 
             add_test(NAME contact_scanner_debug_capture_helper_dry_run
                 COMMAND ${CMAKE_COMMAND} -E env LEZAC_CONTACT_SCANNER_DEBUG_DRY_RUN=1
@@ -451,7 +451,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_update_debug_capture_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_update_debug_capture_helper=ok scenarios=3 anchors=4 outputs=4 cmake_test=1 docs=2")
+                "^actor_update_debug_capture_helper=ok scenarios=3 anchors=4 outputs=5 cmake_test=1 docs=2")
 
         add_test(NAME contact_scanner_debug_capture_helper_expectations
             COMMAND ${Python3_EXECUTABLE}

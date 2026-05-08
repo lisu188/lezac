@@ -189,7 +189,9 @@ parser coverage for runtime `CS`/`DS`, contact scanner anchors
 state, contact flags, tile probes, and raw `DS:` dump rows; they do not claim
 exact original collision geometry. `tools/capture_original_actor_update_debug.sh`
 records the matching debugger command plan and labels current captures
-`debugger_seeded` until full gameplay-route evidence is available.
+`debugger_seeded` until full gameplay-route evidence is available. Its
+`candidate_fixture.txt` is a fill-in normalization skeleton, not evidence until
+runtime fields and dump rows are captured.
 `--debug-contact-scanner-runtime-oracle <fixture> [--expect-error]` narrows that
 contract to the scanner window only: subject/other actor boxes, overlap size,
 contact flags, pending damage, runtime `CS`/`DS`, and breakpoints at

@@ -210,9 +210,11 @@ Baseline: `origin/main`
 - Added `tools/capture_original_actor_update_debug.sh <out_dir> [asset_dir]
   <scenario>` for `object_collision_jump_live`, `monster_contact_damage_live`,
   and `monster_behavior4_chase`. It writes `manifest.txt`,
-  `raw_debugger_dump.txt`, `debugger_commands.txt`, and
+  `raw_debugger_dump.txt`, `candidate_fixture.txt`, `debugger_commands.txt`, and
   `actor_update_debug_capture.log`, labels current captures `debugger_seeded`,
-  and has a dry-run CTest path for environments with `bash`.
+  and has a dry-run CTest path for environments with `bash`. The candidate
+  fixture is intentionally a fill-in skeleton until original runtime fields and
+  dump rows are captured.
 - Added `tools/check_actor_update_runtime_oracle_fixtures.py` so the
   actor-update fixture set, expected malformed outcomes, CMake wiring, and C++
   oracle command/source contract can be validated without DOSBox or a compiler.

@@ -153,7 +153,9 @@ fixtures cover parser behavior only: runtime captures still need to prove exact
 contact scanner and actor-update behavior around `1000:5CB0..604F` and
 `1000:6053..777F`. Use `tools/capture_original_actor_update_debug.sh` to stage
 best-effort DOSBox-debug capture plans for `object_collision_jump_live`,
-`monster_contact_damage_live`, and `monster_behavior4_chase`.
+`monster_contact_damage_live`, and `monster_behavior4_chase`; it writes a
+`candidate_fixture.txt` skeleton that must be filled from runtime output before
+promotion.
 Scanner-only transcripts can also be checked with
 `--debug-contact-scanner-runtime-oracle <fixture> [--expect-error]`; this keeps
 `1000:5CB0..604F` overlap/contact flag evidence separate from full actor update

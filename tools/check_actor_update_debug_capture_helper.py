@@ -23,6 +23,7 @@ BREAKPOINTS = ["5CB0", "604F", "6053", "777F"]
 OUTPUTS = [
     "manifest.txt",
     "raw_debugger_dump.txt",
+    "candidate_fixture.txt",
     "debugger_commands.txt",
     "actor_update_debug_capture.log",
 ]
@@ -64,6 +65,14 @@ def check_script(script_path: Path) -> None:
     require(text, "runtime_route=debugger_seeded", "script")
     require(text, "LEZAC_ACTOR_UPDATE_DEBUG_DRY_RUN", "script")
     require(text, "visual_claim=0", "script")
+    require(text, "candidate_fixture=\"$out_dir/candidate_fixture.txt\"", "script")
+    require(text, "capture=actor_update_runtime", "script")
+    require(text, "scenario=$scenario", "script")
+    require(text, "route=$runtime_route", "script")
+    require(text, "actor_before slot=<slot>", "script")
+    require(text, "actor_after slot=<slot>", "script")
+    require(text, "contact_scan subject_slot=<slot>", "script")
+    require(text, "tile_probe tile_x=<x>", "script")
     require(text, "fixture_command=./build/lezac_cpp --debug-actor-update-runtime-oracle <candidate-fixture>", "script")
     require(text, "choose an output directory outside the repository", "script")
     require(text, "missing $asset_dir/LEZAC.EXE", "script")
@@ -94,7 +103,7 @@ def check_cmake(cmake_path: Path) -> None:
         "/tmp/lezac-actor-update-debug-dry-run",
         "${CMAKE_CURRENT_SOURCE_DIR}",
         "object_collision_jump_live",
-        "^actor_update_debug_capture=ok mode=dry_run scenario=object_collision_jump_live route=debugger_seeded",
+        "^actor_update_debug_capture=ok mode=dry_run scenario=object_collision_jump_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=",
     ]:
         if collapse_ws(snippet) not in collapsed:
             raise RuntimeError(
@@ -107,7 +116,7 @@ def check_cmake(cmake_path: Path) -> None:
     for snippet in [
         "tools/check_actor_update_debug_capture_helper.py",
         "${CMAKE_CURRENT_SOURCE_DIR}",
-        "^actor_update_debug_capture_helper=ok scenarios=3 anchors=4 outputs=4 cmake_test=1 docs=2",
+        "^actor_update_debug_capture_helper=ok scenarios=3 anchors=4 outputs=5 cmake_test=1 docs=2",
     ]:
         if collapse_ws(snippet) not in collapsed:
             raise RuntimeError(

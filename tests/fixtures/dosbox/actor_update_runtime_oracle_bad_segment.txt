@@ -1,0 +1,20 @@
+# LEZAC actor-update runtime oracle fixture v1
+capture=actor_update_runtime
+source=dosbox-debug
+temp_copy=1
+visual_claim=0
+scenario=object_collision_jump_live
+level=1
+
+runtime_cs=1A2B
+runtime_ds=2B3C
+
+break ghidra=1000:5CB0 runtime=FFFF:5CB0 label=contact_scanner_start
+break ghidra=1000:604F runtime=1A2B:604F label=contact_scanner_end
+break ghidra=1000:6053 runtime=1A2B:6053 label=actor_update_start
+break ghidra=1000:777F runtime=1A2B:777F label=actor_update_end
+
+actor_before slot=0 behavior=3 kind=1 state=0 x=0x0068 y=0x00a8 vx8=32 vy8=0 hp=3 flags=0x0000 contact=0 on_ground=1
+actor_after slot=0 behavior=3 kind=1 state=0 x=0x0069 y=0x00a8 vx8=32 vy8=0 hp=3 flags=0x0005 contact=1 on_ground=1
+contact_scan subject_slot=0 other_slot=1 flags_before=0x0000 flags_after=0x0005 contact=1 player_contact=0 monster_contact=0 object_contact=1 damage_pending=0
+tile_probe tile_x=13 tile_y=22 tile=0x0025 object=0x0013 passable=0 standable=1

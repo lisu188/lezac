@@ -1,7 +1,7 @@
 # Recovery Status
 
-Last reviewed: 2026-05-06
-Branch: `codex/lane-helper-model-evidence`
+Last reviewed: 2026-05-08
+Branch: `codex/forward-lane-result-seeded-evidence`
 Baseline: `origin/main`
 
 ## Completed This Iteration
@@ -200,6 +200,13 @@ Baseline: `origin/main`
   validation recipe repeatable: it sanitizes duplicate `PATH`/`Path` entries,
   configures Visual Studio Build Tools with the local vcpkg SDL2 package, builds
   `build-win-codex-vs3`, and runs CTest unless `-SkipTests` is supplied.
+- Added `--debug-actor-update-runtime-oracle <fixture> [--expect-error]` with
+  synthetic and malformed fixture coverage. The parser records scenario/level,
+  runtime `CS`/`DS`, actor before/after state, contact scanner flags, tile probe
+  passability/standability fields, optional `DS:` dump rows, and required
+  anchors for the contact scanner `1000:5CB0..604F` and actor update
+  `1000:6053..777F`. No live gameplay behavior changed from this synthetic
+  parser coverage.
 - Added provisional live state-2 rendering keyed to the recovered `0x4a..0x4f`
   cursor range. It is intentionally documented as `visual_claim=0` until the
   original `DS:c322` frame-table fields are fully interpreted.
@@ -733,10 +740,11 @@ Baseline: `origin/main`
 - Many non-explosion sound callsites still need exact cursor/priority mapping.
 - Exact actor update behavior around `1000:6053..777f`, especially original
   contact flags, passability thresholds, tile snapping, behavior-3 ledge/wall
-  handling, and behavior-4 collision response.
-- The probable contact scanner around `1000:5cb0..604f` needs naming,
-  cross-reference mapping, and runtime confirmation before the C++ clearance
-  model can be called original-faithful.
+  handling, and behavior-4 collision response. The synthetic actor-update oracle
+  is ready; original runtime/debugger fixtures are still pending.
+- The probable contact scanner around `1000:5cb0..604f` has a normalized
+  fixture target, but still needs cross-reference mapping and runtime
+  confirmation before the C++ clearance model can be called original-faithful.
 - Exact state-2 life-count decrement, `DS:79b9` fallback behavior,
   active-player accounting edge cases, and exact dead-player visual playback
   from original frame bytes.

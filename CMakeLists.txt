@@ -755,6 +755,41 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "behavior4_runtime_oracle=error fixture=behavior4_runtime_oracle_bad_behavior reason=spawner_behavior_not_4 actual=3")
 
+    add_test(NAME actor_update_runtime_oracle_synthetic
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-update-runtime-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/actor_update_runtime_oracle_synthetic.txt)
+    set_tests_properties(actor_update_runtime_oracle_synthetic PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "actor_update_runtime_oracle=ok fixture=actor_update_runtime_oracle_synthetic scenario=object_collision_jump_live level=1 runtime_cs=0x1a2b runtime_ds=0x2b3c actor_slot=0 behavior=3 kind=1 before_xy=0x0068,0x00a8 after_xy=0x0069,0x00a8 velocity8=32,0 state=0,0 contact_flags=0x0000,0x0005 scan_subject=0 scan_other=1 scan_contact=1 player_contact=0 monster_contact=0 object_contact=1 damage_pending=0 tile_probe=13,22 tile=0x0025 object=0x0013 passable=0 standable=1 breaks=4 dump_bytes=32 temp_copy=1 visual_claim=0")
+
+    add_test(NAME actor_update_runtime_oracle_bad_segment
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-update-runtime-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/actor_update_runtime_oracle_bad_segment.txt
+                --expect-error)
+    set_tests_properties(actor_update_runtime_oracle_bad_segment PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "actor_update_runtime_oracle=error fixture=actor_update_runtime_oracle_bad_segment reason=breakpoint_segment_mismatch expected=0x1a2b actual=0xffff")
+
+    add_test(NAME actor_update_runtime_oracle_missing_contact_scan
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-update-runtime-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/actor_update_runtime_oracle_missing_contact_scan.txt
+                --expect-error)
+    set_tests_properties(actor_update_runtime_oracle_missing_contact_scan PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "actor_update_runtime_oracle=error fixture=actor_update_runtime_oracle_missing_contact_scan reason=contact_scan_missing")
+
+    add_test(NAME actor_update_runtime_oracle_bad_actor_slot
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-update-runtime-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/actor_update_runtime_oracle_bad_actor_slot.txt
+                --expect-error)
+    set_tests_properties(actor_update_runtime_oracle_bad_actor_slot PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "actor_update_runtime_oracle=error fixture=actor_update_runtime_oracle_bad_actor_slot reason=actor_slot_changed before=0 after=2")
+
     add_test(NAME state2_runtime_frame_oracle_synthetic
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-state2-runtime-frame-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/state2_runtime_frame_oracle_synthetic.txt)

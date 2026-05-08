@@ -147,6 +147,11 @@ format records scenario/level, runtime `CS`/`DS`, spawner fields, actor
 before/after position and 8.8 velocity, motion timer, target/player-dead state,
 and optional raw `DS:` dump rows while anchoring the transcript to
 `1000:7A6B..7C2C`, `1000:728C..731B`, and `1000:73E5..741B`.
+Actor/contact update evidence is normalized with
+`--debug-actor-update-runtime-oracle <fixture> [--expect-error]`. Its synthetic
+fixtures cover parser behavior only: runtime captures still need to prove exact
+contact scanner and actor-update behavior around `1000:5CB0..604F` and
+`1000:6053..777F`.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
@@ -155,6 +160,8 @@ tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-frames level1_bomb_
 tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-b4-level2 monster_spawner_behavior4_level2
 ./build/lezac_cpp --debug-behavior4-runtime-oracle \
   tests/fixtures/dosbox/behavior4_runtime_oracle_synthetic.txt
+./build/lezac_cpp --debug-actor-update-runtime-oracle \
+  tests/fixtures/dosbox/actor_update_runtime_oracle_synthetic.txt
 LEZAC_BEHAVIOR4_DEBUG_DRY_RUN=1 \
   tools/capture_original_behavior4_debug.sh \
   /tmp/lezac-behavior4-debug . monster_behavior4_target_selection

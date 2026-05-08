@@ -266,6 +266,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_runtime_oracle_fixtures.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_scanner_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_layout.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_orchestrator.py
@@ -449,6 +450,17 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^actor_update_runtime_oracle_fixtures=ok files=4 valid=1 malformed=3 cmake_tests=4 source_command=1")
+
+        add_test(NAME contact_scanner_runtime_oracle_fixture_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_scanner_runtime_oracle_fixtures.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox
+                    --cmake ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
+                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+        set_tests_properties(contact_scanner_runtime_oracle_fixture_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^contact_scanner_runtime_oracle_fixtures=ok files=4 valid=1 malformed=3 cmake_tests=4 source_command=1")
 
         add_test(NAME behavior4_runtime_oracle_fixture_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -823,6 +835,41 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "actor_update_runtime_oracle=error fixture=actor_update_runtime_oracle_bad_actor_slot reason=actor_slot_changed before=0 after=2")
+
+    add_test(NAME contact_scanner_runtime_oracle_synthetic
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-contact-scanner-runtime-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/contact_scanner_runtime_oracle_synthetic.txt)
+    set_tests_properties(contact_scanner_runtime_oracle_synthetic PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "contact_scanner_runtime_oracle=ok fixture=contact_scanner_runtime_oracle_synthetic scenario=monster_contact_damage_live level=1 runtime_cs=0x1a2b runtime_ds=0x2b3c subject_slot=0 other_slot=1 subject_kind=0 other_kind=1 subject_xy=0x0068,0x00a8 other_xy=0x0070,0x00aa subject_size=16,24 other_size=16,16 subject_flags=0x0000,0x0003 contact=1 player_contact=1 monster_contact=1 object_contact=0 damage_pending=2 overlap=8,14 breaks=2 dump_bytes=16 temp_copy=1 visual_claim=0")
+
+    add_test(NAME contact_scanner_runtime_oracle_bad_segment
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-contact-scanner-runtime-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/contact_scanner_runtime_oracle_bad_segment.txt
+                --expect-error)
+    set_tests_properties(contact_scanner_runtime_oracle_bad_segment PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "contact_scanner_runtime_oracle=error fixture=contact_scanner_runtime_oracle_bad_segment reason=breakpoint_segment_mismatch expected=0x1a2b actual=0xffff")
+
+    add_test(NAME contact_scanner_runtime_oracle_missing_contact_scan
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-contact-scanner-runtime-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/contact_scanner_runtime_oracle_missing_contact_scan.txt
+                --expect-error)
+    set_tests_properties(contact_scanner_runtime_oracle_missing_contact_scan PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "contact_scanner_runtime_oracle=error fixture=contact_scanner_runtime_oracle_missing_contact_scan reason=contact_scan_missing")
+
+    add_test(NAME contact_scanner_runtime_oracle_bad_subject_flags
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-contact-scanner-runtime-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/contact_scanner_runtime_oracle_bad_subject_flags.txt
+                --expect-error)
+    set_tests_properties(contact_scanner_runtime_oracle_bad_subject_flags PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "contact_scanner_runtime_oracle=error fixture=contact_scanner_runtime_oracle_bad_subject_flags reason=contact_flags_before_mismatch actor=0x0001 scan=0x0000")
 
     add_test(NAME state2_runtime_frame_oracle_synthetic
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-state2-runtime-frame-oracle

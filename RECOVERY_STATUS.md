@@ -216,6 +216,12 @@ Baseline: `origin/main`
 - Added `tools/check_actor_update_runtime_oracle_fixtures.py` so the
   actor-update fixture set, expected malformed outcomes, CMake wiring, and C++
   oracle command/source contract can be validated without DOSBox or a compiler.
+- Added `--debug-contact-scanner-runtime-oracle <fixture> [--expect-error]`
+  with synthetic and malformed fixture coverage. This isolates the probable
+  scanner window `1000:5CB0..604F` from full actor-update evidence by parsing
+  subject/other actor boxes, overlap size, contact flags, and pending damage.
+  `tools/check_contact_scanner_runtime_oracle_fixtures.py` validates fixture
+  outcomes, CMake wiring, and the C++ source contract without DOSBox.
 - WSL is currently present but blocked from this shell by `E_ACCESSDENIED`, so
   original DOSBox-debug actor-update capture remains pending for an environment
   where WSL service access is allowed.
@@ -754,9 +760,10 @@ Baseline: `origin/main`
   contact flags, passability thresholds, tile snapping, behavior-3 ledge/wall
   handling, and behavior-4 collision response. The synthetic actor-update oracle
   is ready; original runtime/debugger fixtures are still pending.
-- The probable contact scanner around `1000:5cb0..604f` has a normalized
-  fixture target, but still needs cross-reference mapping and runtime
-  confirmation before the C++ clearance model can be called original-faithful.
+- The probable contact scanner around `1000:5cb0..604f` has both scanner-only
+  and actor-update fixture targets, but still needs cross-reference mapping and
+  runtime confirmation before the C++ clearance model can be called
+  original-faithful.
 - Exact state-2 life-count decrement, `DS:79b9` fallback behavior,
   active-player accounting edge cases, and exact dead-player visual playback
   from original frame bytes.

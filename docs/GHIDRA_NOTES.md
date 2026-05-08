@@ -190,6 +190,10 @@ state, contact flags, tile probes, and raw `DS:` dump rows; they do not claim
 exact original collision geometry. `tools/capture_original_actor_update_debug.sh`
 records the matching debugger command plan and labels current captures
 `debugger_seeded` until full gameplay-route evidence is available.
+`--debug-contact-scanner-runtime-oracle <fixture> [--expect-error]` narrows that
+contract to the scanner window only: subject/other actor boxes, overlap size,
+contact flags, pending damage, runtime `CS`/`DS`, and breakpoints at
+`1000:5cb0` and `1000:604f`.
 
 ## Bomb Inventory
 

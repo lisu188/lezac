@@ -154,6 +154,10 @@ contact scanner and actor-update behavior around `1000:5CB0..604F` and
 `1000:6053..777F`. Use `tools/capture_original_actor_update_debug.sh` to stage
 best-effort DOSBox-debug capture plans for `object_collision_jump_live`,
 `monster_contact_damage_live`, and `monster_behavior4_chase`.
+Scanner-only transcripts can also be checked with
+`--debug-contact-scanner-runtime-oracle <fixture> [--expect-error]`; this keeps
+`1000:5CB0..604F` overlap/contact flag evidence separate from full actor update
+state when a debugger stop only captures the scanner window.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
@@ -164,7 +168,11 @@ tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-b4-level2 monster_s
   tests/fixtures/dosbox/behavior4_runtime_oracle_synthetic.txt
 ./build/lezac_cpp --debug-actor-update-runtime-oracle \
   tests/fixtures/dosbox/actor_update_runtime_oracle_synthetic.txt
+./build/lezac_cpp --debug-contact-scanner-runtime-oracle \
+  tests/fixtures/dosbox/contact_scanner_runtime_oracle_synthetic.txt
 python3 tools/check_actor_update_runtime_oracle_fixtures.py \
+  tests/fixtures/dosbox --cmake CMakeLists.txt --source src/main.cpp
+python3 tools/check_contact_scanner_runtime_oracle_fixtures.py \
   tests/fixtures/dosbox --cmake CMakeLists.txt --source src/main.cpp
 LEZAC_ACTOR_UPDATE_DEBUG_DRY_RUN=1 \
   tools/capture_original_actor_update_debug.sh \

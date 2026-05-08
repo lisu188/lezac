@@ -5739,6 +5739,365 @@ public:
         }
     }
 
+    int debugContactScannerRuntimeOracle(const std::string& path, bool expectError) {
+        auto fixtureName = [](const std::string& inputPath) {
+            size_t slash = inputPath.find_last_of("/\\");
+            std::string name =
+                slash == std::string::npos ? inputPath : inputPath.substr(slash + 1);
+            size_t dot = name.find_last_of('.');
+            if (dot != std::string::npos) name = name.substr(0, dot);
+            return name;
+        };
+        const std::string fixture = fixtureName(path);
+
+        auto bareHex4 = [](uint16_t value) {
+            std::ostringstream oss;
+            oss << std::hex << std::nouppercase << std::setw(4)
+                << std::setfill('0') << value;
+            return oss.str();
+        };
+        auto hex4 = [&](uint16_t value) { return "0x" + bareHex4(value); };
+        auto fail = [&](const std::string& reason) {
+            throw std::runtime_error("contact_scanner_runtime_oracle=error fixture=" +
+                                     fixture + " reason=" + reason);
+        };
+        auto parseHex16 = [&](const std::string& token,
+                              const std::string& field) -> uint16_t {
+            if (token.empty() || token.size() > 4 ||
+                !std::all_of(token.begin(), token.end(), [](unsigned char ch) {
+                    return std::isxdigit(ch) != 0;
+                })) {
+                fail("bad_hex16 field=" + field + " token=" + token);
+            }
+            return static_cast<uint16_t>(std::stoul(token, nullptr, 16));
+        };
+        auto parseHexByte = [&](const std::string& token,
+                                uint16_t address) -> uint8_t {
+            if (token.size() != 2 ||
+                !std::all_of(token.begin(), token.end(), [](unsigned char ch) {
+                    return std::isxdigit(ch) != 0;
+                })) {
+                fail("non_hex_byte token=" + token + " address=" +
+                     bareHex4(address));
+            }
+            return static_cast<uint8_t>(std::stoul(token, nullptr, 16));
+        };
+        auto trim = [](std::string value) {
+            while (!value.empty() &&
+                   std::isspace(static_cast<unsigned char>(value.front()))) {
+                value.erase(value.begin());
+            }
+            while (!value.empty() &&
+                   std::isspace(static_cast<unsigned char>(value.back()))) {
+                value.pop_back();
+            }
+            return value;
+        };
+        auto parseIntAuto = [&](const std::string& token,
+                                const std::string& field) -> int {
+            try {
+                size_t parsed = 0;
+                long value = std::stol(token, &parsed, 0);
+                if (parsed != token.size()) {
+                    fail("bad_int field=" + field + " token=" + token);
+                }
+                return static_cast<int>(value);
+            } catch (const std::exception&) {
+                fail("bad_int field=" + field + " token=" + token);
+            }
+            return 0;
+        };
+        auto parseFields = [&](const std::string& body,
+                               const std::string& record) {
+            std::map<std::string, std::string> fields;
+            std::istringstream stream(body);
+            std::string token;
+            while (stream >> token) {
+                size_t equals = token.find('=');
+                if (equals == std::string::npos || equals == 0 ||
+                    equals + 1 >= token.size()) {
+                    fail("bad_field record=" + record + " token=" + token);
+                }
+                fields[token.substr(0, equals)] = token.substr(equals + 1);
+            }
+            return fields;
+        };
+        auto fieldInt = [&](const std::map<std::string, std::string>& fields,
+                            const std::string& name,
+                            const std::string& record) -> int {
+            auto found = fields.find(name);
+            if (found == fields.end()) {
+                fail("missing_field record=" + record + " field=" + name);
+            }
+            return parseIntAuto(found->second, record + "." + name);
+        };
+
+        struct ContactActorRecord {
+            bool present = false;
+            int slot = 0;
+            int kind = 0;
+            int state = 0;
+            int x = 0;
+            int y = 0;
+            int w = 0;
+            int h = 0;
+            int flags = 0;
+        };
+        struct ContactRecord {
+            bool present = false;
+            int subjectSlot = 0;
+            int otherSlot = 0;
+            int flagsBefore = 0;
+            int flagsAfter = 0;
+            int contact = 0;
+            int playerContact = 0;
+            int monsterContact = 0;
+            int objectContact = 0;
+            int damagePending = 0;
+            int overlapX = 0;
+            int overlapY = 0;
+        };
+
+        try {
+            std::string text = readTextFile(path);
+            uint16_t runtimeCs = 0;
+            uint16_t runtimeDs = 0;
+            bool haveRuntimeCs = false;
+            bool haveRuntimeDs = false;
+            bool tempCopy = false;
+            bool visualClaim = false;
+            bool haveScenario = false;
+            bool haveLevel = false;
+            std::string scenario;
+            int level = 0;
+            ContactActorRecord subject;
+            ContactActorRecord other;
+            ContactRecord contactScan;
+            int breakCount = 0;
+            int dumpBytes = 0;
+            constexpr std::array<uint16_t, 2> kRequiredOffsets{0x5cb0, 0x604f};
+            std::array<bool, 2> sawRequired{};
+
+            std::istringstream lines(text);
+            std::string line;
+            std::regex keyRe("^([A-Za-z0-9_]+)=(.*)$");
+            std::regex breakRe(
+                "^break\\s+ghidra=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+"
+                "runtime=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+label=([^\\s]+).*$");
+            std::regex dumpRe("^dump\\s+DS:([0-9A-Fa-f]{4}).*$");
+            std::regex rowRe("^([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+(.+)$");
+            uint16_t currentDump = 0;
+            bool inDump = false;
+            while (std::getline(lines, line)) {
+                line = trim(line);
+                if (line.empty() || line[0] == '#') continue;
+
+                std::smatch match;
+                if (std::regex_match(line, match, keyRe)) {
+                    std::string key = match[1].str();
+                    std::string value = trim(match[2].str());
+                    if (key == "runtime_cs") {
+                        runtimeCs = parseHex16(value, key);
+                        haveRuntimeCs = true;
+                    } else if (key == "runtime_ds") {
+                        runtimeDs = parseHex16(value, key);
+                        haveRuntimeDs = true;
+                    } else if (key == "temp_copy") {
+                        tempCopy = value == "1";
+                    } else if (key == "visual_claim") {
+                        visualClaim = value != "0";
+                    } else if (key == "scenario") {
+                        scenario = value;
+                        haveScenario = true;
+                    } else if (key == "level") {
+                        level = parseIntAuto(value, key);
+                        haveLevel = true;
+                    }
+                    continue;
+                }
+
+                if (line.rfind("subject_actor ", 0) == 0 ||
+                    line.rfind("other_actor ", 0) == 0) {
+                    bool isSubject = line.rfind("subject_actor ", 0) == 0;
+                    const std::string record =
+                        isSubject ? "subject_actor" : "other_actor";
+                    auto fields = parseFields(
+                        line.substr(isSubject ? 14 : 12), record);
+                    ContactActorRecord parsed;
+                    parsed.present = true;
+                    parsed.slot = fieldInt(fields, "slot", record);
+                    parsed.kind = fieldInt(fields, "kind", record);
+                    parsed.state = fieldInt(fields, "state", record);
+                    parsed.x = fieldInt(fields, "x", record);
+                    parsed.y = fieldInt(fields, "y", record);
+                    parsed.w = fieldInt(fields, "w", record);
+                    parsed.h = fieldInt(fields, "h", record);
+                    parsed.flags = fieldInt(fields, "flags", record);
+                    if (isSubject) {
+                        subject = parsed;
+                    } else {
+                        other = parsed;
+                    }
+                    continue;
+                }
+                if (line.rfind("contact_scan ", 0) == 0) {
+                    auto fields = parseFields(line.substr(13), "contact_scan");
+                    contactScan.present = true;
+                    contactScan.subjectSlot =
+                        fieldInt(fields, "subject_slot", "contact_scan");
+                    contactScan.otherSlot =
+                        fieldInt(fields, "other_slot", "contact_scan");
+                    contactScan.flagsBefore =
+                        fieldInt(fields, "flags_before", "contact_scan");
+                    contactScan.flagsAfter =
+                        fieldInt(fields, "flags_after", "contact_scan");
+                    contactScan.contact =
+                        fieldInt(fields, "contact", "contact_scan");
+                    contactScan.playerContact =
+                        fieldInt(fields, "player_contact", "contact_scan");
+                    contactScan.monsterContact =
+                        fieldInt(fields, "monster_contact", "contact_scan");
+                    contactScan.objectContact =
+                        fieldInt(fields, "object_contact", "contact_scan");
+                    contactScan.damagePending =
+                        fieldInt(fields, "damage_pending", "contact_scan");
+                    contactScan.overlapX =
+                        fieldInt(fields, "overlap_x", "contact_scan");
+                    contactScan.overlapY =
+                        fieldInt(fields, "overlap_y", "contact_scan");
+                    continue;
+                }
+
+                if (std::regex_match(line, match, breakRe)) {
+                    if (!haveRuntimeCs) fail("runtime_cs_missing_before_break");
+                    uint16_t ghidraSegment = parseHex16(match[1].str(), "ghidra");
+                    uint16_t ghidraOffset = parseHex16(match[2].str(), "ghidra");
+                    uint16_t runtimeSegment = parseHex16(match[3].str(), "runtime");
+                    uint16_t runtimeOffset = parseHex16(match[4].str(), "runtime");
+                    if (ghidraSegment != 0x1000) {
+                        fail("breakpoint_ghidra_segment expected=0x1000 actual=" +
+                             hex4(ghidraSegment));
+                    }
+                    if (runtimeSegment != runtimeCs) {
+                        fail("breakpoint_segment_mismatch expected=" + hex4(runtimeCs) +
+                             " actual=" + hex4(runtimeSegment));
+                    }
+                    if (runtimeOffset != ghidraOffset) {
+                        fail("breakpoint_offset_mismatch expected=" +
+                             bareHex4(ghidraOffset) + " actual=" +
+                             bareHex4(runtimeOffset));
+                    }
+                    ++breakCount;
+                    for (size_t i = 0; i < kRequiredOffsets.size(); ++i) {
+                        if (ghidraOffset == kRequiredOffsets[i]) sawRequired[i] = true;
+                    }
+                    continue;
+                }
+
+                if (std::regex_match(line, match, dumpRe)) {
+                    currentDump = parseHex16(match[1].str(), "dump");
+                    inDump = true;
+                    continue;
+                }
+
+                if (std::regex_match(line, match, rowRe)) {
+                    if (!inDump) fail("dump_row_without_header");
+                    if (!haveRuntimeDs) fail("runtime_ds_missing_before_dump");
+                    uint16_t segment = parseHex16(match[1].str(), "row_segment");
+                    uint16_t address = parseHex16(match[2].str(), "row_address");
+                    if (segment != runtimeDs) {
+                        fail("dump_segment_mismatch expected=" + hex4(runtimeDs) +
+                             " actual=" + hex4(segment) +
+                             " address=" + bareHex4(address));
+                    }
+                    if (address < currentDump) {
+                        fail("dump_address_before_header header=" + bareHex4(currentDump) +
+                             " address=" + bareHex4(address));
+                    }
+                    std::istringstream byteStream(match[3].str());
+                    std::string token;
+                    uint16_t cursor = address;
+                    while (byteStream >> token) {
+                        (void)parseHexByte(token, cursor);
+                        ++cursor;
+                        ++dumpBytes;
+                    }
+                    continue;
+                }
+
+                fail("unrecognized_line");
+            }
+
+            if (!haveRuntimeCs) fail("runtime_cs_missing");
+            if (!haveRuntimeDs) fail("runtime_ds_missing");
+            if (!haveScenario) fail("scenario_missing");
+            if (!haveLevel) fail("level_missing");
+            if (visualClaim) fail("visual_claim_not_supported");
+            if (!subject.present) fail("subject_actor_missing");
+            if (!other.present) fail("other_actor_missing");
+            if (!contactScan.present) fail("contact_scan_missing");
+            for (size_t i = 0; i < kRequiredOffsets.size(); ++i) {
+                if (!sawRequired[i]) {
+                    fail("missing_breakpoint offset=" + bareHex4(kRequiredOffsets[i]));
+                }
+            }
+            if (subject.slot != contactScan.subjectSlot) {
+                fail("contact_scan_subject_mismatch actor=" +
+                     std::to_string(subject.slot) + " scan=" +
+                     std::to_string(contactScan.subjectSlot));
+            }
+            if (other.slot != contactScan.otherSlot) {
+                fail("contact_scan_other_mismatch actor=" +
+                     std::to_string(other.slot) + " scan=" +
+                     std::to_string(contactScan.otherSlot));
+            }
+            if (subject.flags != contactScan.flagsBefore) {
+                fail("contact_flags_before_mismatch actor=" +
+                     hex4(static_cast<uint16_t>(subject.flags)) + " scan=" +
+                     hex4(static_cast<uint16_t>(contactScan.flagsBefore)));
+            }
+
+            std::cout << "contact_scanner_runtime_oracle=ok fixture=" << fixture
+                      << " scenario=" << scenario
+                      << " level=" << level
+                      << " runtime_cs=" << hex4(runtimeCs)
+                      << " runtime_ds=" << hex4(runtimeDs)
+                      << " subject_slot=" << subject.slot
+                      << " other_slot=" << other.slot
+                      << " subject_kind=" << subject.kind
+                      << " other_kind=" << other.kind
+                      << " subject_xy=" << hex4(static_cast<uint16_t>(subject.x))
+                      << ',' << hex4(static_cast<uint16_t>(subject.y))
+                      << " other_xy=" << hex4(static_cast<uint16_t>(other.x))
+                      << ',' << hex4(static_cast<uint16_t>(other.y))
+                      << " subject_size=" << subject.w << ',' << subject.h
+                      << " other_size=" << other.w << ',' << other.h
+                      << " subject_flags="
+                      << hex4(static_cast<uint16_t>(subject.flags)) << ','
+                      << hex4(static_cast<uint16_t>(contactScan.flagsAfter))
+                      << " contact=" << contactScan.contact
+                      << " player_contact=" << contactScan.playerContact
+                      << " monster_contact=" << contactScan.monsterContact
+                      << " object_contact=" << contactScan.objectContact
+                      << " damage_pending=" << contactScan.damagePending
+                      << " overlap=" << contactScan.overlapX << ','
+                      << contactScan.overlapY
+                      << " breaks=" << breakCount
+                      << " dump_bytes=" << dumpBytes
+                      << " temp_copy=" << (tempCopy ? 1 : 0)
+                      << " visual_claim=0\n";
+            if (expectError) {
+                std::cout << "contact_scanner_runtime_oracle=error fixture="
+                          << fixture << " reason=expected_error_missing\n";
+                return 1;
+            }
+            return 0;
+        } catch (const std::exception& e) {
+            std::cout << e.what() << '\n';
+            return expectError ? 0 : 1;
+        }
+    }
+
     int debugExplosionPlaybackOracle(const std::string& path, bool expectError) {
         auto fixtureName = [](const std::string& inputPath) {
             size_t slash = inputPath.find_last_of("/\\");
@@ -11926,6 +12285,10 @@ int main(int argc, char** argv) {
         if (argc > 2 && std::string(argv[1]) == "--debug-actor-update-runtime-oracle") {
             bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";
             return app.debugActorUpdateRuntimeOracle(argv[2], expectError);
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-contact-scanner-runtime-oracle") {
+            bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";
+            return app.debugContactScannerRuntimeOracle(argv[2], expectError);
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-explosion-playback-oracle") {
             bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";

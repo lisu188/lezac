@@ -207,6 +207,12 @@ Baseline: `origin/main`
   anchors for the contact scanner `1000:5CB0..604F` and actor update
   `1000:6053..777F`. No live gameplay behavior changed from this synthetic
   parser coverage.
+- Added `tools/capture_original_actor_update_debug.sh <out_dir> [asset_dir]
+  <scenario>` for `object_collision_jump_live`, `monster_contact_damage_live`,
+  and `monster_behavior4_chase`. It writes `manifest.txt`,
+  `raw_debugger_dump.txt`, `debugger_commands.txt`, and
+  `actor_update_debug_capture.log`, labels current captures `debugger_seeded`,
+  and has a dry-run CTest path for environments with `bash`.
 - Added provisional live state-2 rendering keyed to the recovered `0x4a..0x4f`
   cursor range. It is intentionally documented as `visual_claim=0` until the
   original `DS:c322` frame-table fields are fully interpreted.

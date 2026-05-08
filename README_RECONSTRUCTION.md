@@ -151,7 +151,9 @@ Actor/contact update evidence is normalized with
 `--debug-actor-update-runtime-oracle <fixture> [--expect-error]`. Its synthetic
 fixtures cover parser behavior only: runtime captures still need to prove exact
 contact scanner and actor-update behavior around `1000:5CB0..604F` and
-`1000:6053..777F`.
+`1000:6053..777F`. Use `tools/capture_original_actor_update_debug.sh` to stage
+best-effort DOSBox-debug capture plans for `object_collision_jump_live`,
+`monster_contact_damage_live`, and `monster_behavior4_chase`.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
@@ -162,6 +164,9 @@ tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-b4-level2 monster_s
   tests/fixtures/dosbox/behavior4_runtime_oracle_synthetic.txt
 ./build/lezac_cpp --debug-actor-update-runtime-oracle \
   tests/fixtures/dosbox/actor_update_runtime_oracle_synthetic.txt
+LEZAC_ACTOR_UPDATE_DEBUG_DRY_RUN=1 \
+  tools/capture_original_actor_update_debug.sh \
+  /tmp/lezac-actor-update-debug . object_collision_jump_live
 LEZAC_BEHAVIOR4_DEBUG_DRY_RUN=1 \
   tools/capture_original_behavior4_debug.sh \
   /tmp/lezac-behavior4-debug . monster_behavior4_target_selection

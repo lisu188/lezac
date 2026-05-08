@@ -187,7 +187,9 @@ normalization target for that evidence. Its checked-in fixtures are synthetic
 parser coverage for runtime `CS`/`DS`, contact scanner anchors
 `1000:5cb0..604f`, actor-update anchors `1000:6053..777f`, actor before/after
 state, contact flags, tile probes, and raw `DS:` dump rows; they do not claim
-exact original collision geometry.
+exact original collision geometry. `tools/capture_original_actor_update_debug.sh`
+records the matching debugger command plan and labels current captures
+`debugger_seeded` until full gameplay-route evidence is available.
 
 ## Bomb Inventory
 

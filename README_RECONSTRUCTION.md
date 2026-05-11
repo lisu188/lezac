@@ -184,6 +184,7 @@ LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION=1 \
 The wrapper reuses the proven child-process memory scanner, patches only the
 temporary DOSBox-debug child process, and records `visual_claim=0` instrumentation
 evidence. Supported targets are `actor_update_start`, `actor_update_end`,
+`actor_update_gate5`, `actor_update_gate5_integration`, `actor_update_gate6`,
 `contact_scanner_callsite`, `contact_scanner_start`, and `contact_scanner_end`.
 `contact_scanner_callsite` maps the static near call at `1000:6555` that targets
 `1000:5CB0`; `tools/check_actor_contact_callsite_scan.py` verifies that callsite

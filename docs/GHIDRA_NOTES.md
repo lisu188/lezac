@@ -238,7 +238,10 @@ The same static checker now also locks the neighboring `05` gate at
 `1000:65A2`: its integration path enters through `1000:65D7`, while the
 alternate end path jumps to `1000:777F`. Within `1000:6053..777F`, the only
 direct near jumps to the shared integration entry are now checked as
-`1000:6558` and `1000:65D7`.
+`1000:6558` and `1000:65D7`. These are exposed as
+`capture_original_actor_contact_procmem.sh` targets `actor_update_gate5`,
+`actor_update_gate5_integration`, and `actor_update_gate6` for the next live
+route sweep.
 
 ## Bomb Inventory
 

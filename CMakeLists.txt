@@ -528,7 +528,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_contact_procmem_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_contact_procmem_helper=ok targets=5 cmake_test=1 docs=2")
+                "^actor_contact_procmem_helper=ok targets=8 cmake_test=1 docs=2")
 
         add_test(NAME actor_update_runtime_oracle_fixture_expectations
             COMMAND ${Python3_EXECUTABLE}

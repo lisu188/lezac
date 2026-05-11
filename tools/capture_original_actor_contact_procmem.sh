@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
     echo "usage: $0 out_dir [asset_dir] target" >&2
-    echo "targets: actor_update_start actor_update_end contact_scanner_callsite contact_scanner_start contact_scanner_end" >&2
+    echo "targets: actor_update_start actor_update_end actor_update_gate5 actor_update_gate5_integration actor_update_gate6 contact_scanner_callsite contact_scanner_start contact_scanner_end" >&2
 }
 
 if [[ $# -lt 2 || $# -gt 3 ]]; then
@@ -30,6 +30,21 @@ case "$target" in
         ghidra=1000:777F
         label=actor_update_end
         scenario=object_collision_jump_live
+        ;;
+    actor_update_gate5)
+        ghidra=1000:65A2
+        label=actor_update_gate5
+        scenario=monster_contact_damage_live
+        ;;
+    actor_update_gate5_integration)
+        ghidra=1000:65D7
+        label=actor_update_gate5_integration
+        scenario=monster_contact_damage_live
+        ;;
+    actor_update_gate6)
+        ghidra=1000:654E
+        label=actor_update_gate6
+        scenario=monster_contact_damage_live
         ;;
     contact_scanner_start)
         ghidra=1000:5CB0

@@ -248,7 +248,8 @@ Baseline: `origin/main`
   probes.
 - Added `tools/capture_original_actor_contact_procmem.sh`, a guarded
   process-memory instrumentation wrapper for `actor_update_start`,
-  `actor_update_end`, `contact_scanner_callsite`, `contact_scanner_start`, and
+  `actor_update_end`, `actor_update_gate5`, `actor_update_gate5_integration`,
+  `actor_update_gate6`, `contact_scanner_callsite`, `contact_scanner_start`, and
   `contact_scanner_end`. `contact_scanner_callsite` maps the static near call at
   `1000:6555` that targets `1000:5CB0`; the only direct near call to the scanner
   entry found in the shipped code image is at that callsite. It reuses the
@@ -453,6 +454,11 @@ Baseline: `origin/main`
   jumps to actor-update end `1000:777F`. A scan of direct near jumps to
   `1000:73E5` inside `1000:6053..777F` now locks the pair
   `1000:6558,1000:65D7`.
+- Added process-memory wrapper targets for those gates:
+  `actor_update_gate5` at `1000:65A2`, `actor_update_gate5_integration` at
+  `1000:65D7`, and `actor_update_gate6` at `1000:654E`. The route-sweep helper
+  accepts them too, so the next live DOSBox pass can sweep these branch gates
+  directly.
 - A live `contact_scanner_callsite` pre-route probe at
   `/tmp/lezac-contact-callsite-live-codex-20260511` on route
   `x:5.00,m:0.50,x:4.00` loaded `01ED:6555` with old bytes `e858`,
@@ -484,6 +490,12 @@ Baseline: `origin/main`
   `actor_contact_callsite_context` passed after reconfigure, and full native
   validation passed again: configure/build succeeded and CTest reported
   174/174 tests passing.
+- After adding process-memory probe targets for the `05`/`06` actor-update
+  gates, focused Python checks for `check_actor_contact_procmem_helper.py` and
+  `check_actor_contact_route_sweep.py` passed, focused CTest
+  `actor_contact_route_sweep_output_expectations|actor_contact_procmem_helper_expectations`
+  passed after reconfigure, and full native validation passed again:
+  configure/build succeeded and CTest reported 174/174 tests passing.
 - After adding the actor/contact process-memory wrapper and dry-run CTest,
   `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
   -BuildDir build-win-codex-vs3 -Configuration Debug` passed: configure/build

@@ -90,6 +90,7 @@ right_hold_seconds=${LEZAC_ACTOR_CONTACT_RIGHT_HOLD_SECONDS:-2.0}
 bomb_key=${LEZAC_ACTOR_CONTACT_BOMB_KEY:-n}
 bomb_hold_seconds=${LEZAC_ACTOR_CONTACT_BOMB_HOLD_SECONDS:-0.25}
 route_steps_csv=${LEZAC_ACTOR_CONTACT_ROUTE_STEPS:-}
+runtime_freeze_before_route=${LEZAC_ACTOR_CONTACT_RUNTIME_FREEZE_BEFORE_ROUTE:-0}
 
 procmem_command=(
     python3
@@ -100,7 +101,6 @@ procmem_command=(
     --approve-instrumentation
     --approve-runtime-instrumentation
     --freeze-ghidra-offset "$ghidra"
-    --runtime-freeze-before-bomb
     --start-taps "$start_taps"
     --level-start-seconds "$level_start_seconds"
     --right-key "$right_key"
@@ -113,6 +113,11 @@ procmem_command=(
     --sample-screenshot-seconds ""
     --tail-freeze-check-seconds "$tail_freeze_seconds"
 )
+if [[ "$runtime_freeze_before_route" == "1" ]]; then
+    procmem_command+=(--runtime-freeze-before-route)
+else
+    procmem_command+=(--runtime-freeze-before-bomb)
+fi
 if [[ -n "$route_steps_csv" ]]; then
     IFS=',' read -r -a route_steps <<<"$route_steps_csv"
     for route_step in "${route_steps[@]}"; do
@@ -160,6 +165,7 @@ write_candidate_skeleton() {
         echo "# freeze_patch_bytes=$freeze_patch_bytes"
         echo "# freeze_loaded_bytes=$freeze_loaded_bytes"
         echo "# freeze_runtime_patch_applied=$freeze_runtime_patch_applied"
+        echo "# freeze_runtime_before_route=$runtime_freeze_before_route"
         echo "# instrumented_freeze_tail_frame=$instrumented_freeze_tail_frame"
         if [[ "$oracle_capture" == "contact_scanner_runtime" ]]; then
             echo "# subject_actor slot=<slot> kind=<kind> state=<state> x=0x0000 y=0x0000 w=<w> h=<h> flags=0x0000"
@@ -203,6 +209,7 @@ write_candidate_skeleton
     echo "input_route_steps=$route_steps_csv"
     echo "input_bomb_key=$bomb_key"
     echo "input_bomb_hold_seconds=$bomb_hold_seconds"
+    echo "input_runtime_freeze_before_route=$runtime_freeze_before_route"
     echo "visual_claim=0"
 } >"$manifest"
 

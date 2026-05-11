@@ -1371,6 +1371,15 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--runtime-freeze-before-route",
+        action="store_true",
+        help=(
+            "with --freeze-ghidra-offset, write EB FE into child memory after "
+            "the level starts but before route-step input; intended for helpers "
+            "that may only run during movement/contact"
+        ),
+    )
+    parser.add_argument(
         "--runtime-freeze-before-bomb",
         action="store_true",
         help=(
@@ -1525,7 +1534,8 @@ def main() -> int:
         RouteStep(key=args.right_key, seconds=args.right_hold_seconds)
     ]
     runtime_freeze = (
-        args.runtime_freeze_before_bomb
+        args.runtime_freeze_before_route
+        or args.runtime_freeze_before_bomb
         or args.runtime_freeze_after_bomb_seconds is not None
         or args.runtime_freeze_min_queue_score is not None
         or args.runtime_freeze_min_debris_nonzero is not None
@@ -1536,6 +1546,32 @@ def main() -> int:
         or args.runtime_freeze_require_effect_base is not None
         or args.runtime_freeze_require_high_debris_target_byte is not None
     )
+    if args.runtime_freeze_before_route:
+        if args.runtime_freeze_before_bomb:
+            raise RuntimeError(
+                "--runtime-freeze-before-route cannot be combined with "
+                "--runtime-freeze-before-bomb"
+            )
+        if args.runtime_freeze_after_bomb_seconds is not None:
+            raise RuntimeError(
+                "--runtime-freeze-before-route cannot be combined with "
+                "--runtime-freeze-after-bomb-seconds"
+            )
+        for arg_name in [
+            "runtime_freeze_min_queue_score",
+            "runtime_freeze_min_debris_nonzero",
+            "runtime_freeze_min_collapse_nonzero",
+            "runtime_freeze_min_effect_nonzero",
+            "runtime_freeze_require_debris_base",
+            "runtime_freeze_require_collapse_base",
+            "runtime_freeze_require_effect_base",
+            "runtime_freeze_require_high_debris_target_byte",
+        ]:
+            if getattr(args, arg_name) is not None:
+                raise RuntimeError(
+                    "--runtime-freeze-before-route cannot be combined with "
+                    f"--{arg_name.replace('_', '-')}"
+                )
     if args.runtime_freeze_before_bomb:
         if args.runtime_freeze_after_bomb_seconds is not None:
             raise RuntimeError(
@@ -1758,6 +1794,7 @@ def main() -> int:
         runtime_seed_body_loaded_bytes = b""
         runtime_seed_patch_applied = False
         runtime_freeze_patch_elapsed: float | None = None
+        runtime_freeze_patch_phase = ""
         runtime_freeze_patch_score = 0
         runtime_freeze_patch_fields: dict[str, int | float] = {}
         runtime_bp4_local_value: int | None = None
@@ -1855,25 +1892,6 @@ def main() -> int:
         route_state_records: list[RouteStateRecord] = [
             capture_route_state(pid, base, "000_menu", None)
         ]
-        for _ in range(max(args.start_taps, 1)):
-            key(env, game, args.start_key)
-            time.sleep(0.4)
-        time.sleep(args.level_start_seconds)
-        snapshot(env, out_dir, game, "010_level_start")
-        route_state_records.append(
-            capture_route_state(pid, base, "010_level_start", None)
-        )
-        for index, step in enumerate(route_steps, start=1):
-            hold_key(env, game, step.key, step.seconds)
-            route_state_records.append(
-                capture_route_state(
-                    pid, base, route_step_label(step, index), None
-                )
-            )
-        snapshot(env, out_dir, game, "020_route_position")
-        route_state_records.append(
-            capture_route_state(pid, base, "020_route_position", None)
-        )
 
         def read_sample_record(elapsed: float) -> SampleRecord:
             return (
@@ -1894,7 +1912,15 @@ def main() -> int:
                 ),
             )
 
-        if args.runtime_freeze_before_bomb:
+        for _ in range(max(args.start_taps, 1)):
+            key(env, game, args.start_key)
+            time.sleep(0.4)
+        time.sleep(args.level_start_seconds)
+        snapshot(env, out_dir, game, "010_level_start")
+        route_state_records.append(
+            capture_route_state(pid, base, "010_level_start", None)
+        )
+        if args.runtime_freeze_before_route:
             patch_offset = int(freeze_patch["ghidra_offset"])
             immediate_record = read_sample_record(0.0)
             current_fields = decode_sample(immediate_record)
@@ -1937,6 +1963,70 @@ def main() -> int:
                 pid, base, RUNTIME_CS, patch_offset, freeze_probe_length
             )
             runtime_freeze_patch_elapsed = 0.0
+            runtime_freeze_patch_phase = "before_route"
+            runtime_freeze_patch_score = current_score
+            runtime_freeze_patch_fields = dict(current_fields)
+            route_state_records.append(
+                capture_route_state(
+                    pid, base, "runtime_freeze_patch_before_route", None
+                )
+            )
+        for index, step in enumerate(route_steps, start=1):
+            hold_key(env, game, step.key, step.seconds)
+            route_state_records.append(
+                capture_route_state(
+                    pid, base, route_step_label(step, index), None
+                )
+            )
+        snapshot(env, out_dir, game, "020_route_position")
+        route_state_records.append(
+            capture_route_state(pid, base, "020_route_position", None)
+        )
+
+        if args.runtime_freeze_before_bomb and runtime_freeze_patch_elapsed is None:
+            patch_offset = int(freeze_patch["ghidra_offset"])
+            immediate_record = read_sample_record(0.0)
+            current_fields = decode_sample(immediate_record)
+            current_score = sample_score(immediate_record)
+            freeze_loaded_before_runtime_patch = read_emulated(
+                pid, base, RUNTIME_CS, patch_offset, freeze_probe_length
+            )
+            require_expected_freeze_original_bytes(
+                str(freeze_patch["patch_mode"]),
+                patch_offset,
+                freeze_loaded_before_runtime_patch,
+            )
+            apply_runtime_seed_patch()
+            if body_patch_bytes:
+                freeze_body_loaded_before_runtime_patch = read_emulated(
+                    pid,
+                    base,
+                    RUNTIME_CS,
+                    int(freeze_patch["body_offset"]),
+                    len(body_patch_bytes),
+                )
+                runtime_freeze_body_old_bytes = write_emulated(
+                    pid,
+                    base,
+                    RUNTIME_CS,
+                    int(freeze_patch["body_offset"]),
+                    body_patch_bytes,
+                )
+                freeze_body_loaded_bytes = read_emulated(
+                    pid,
+                    base,
+                    RUNTIME_CS,
+                    int(freeze_patch["body_offset"]),
+                    len(body_patch_bytes),
+                )
+            runtime_freeze_old_bytes = write_emulated(
+                pid, base, RUNTIME_CS, patch_offset, patch_bytes
+            )
+            freeze_loaded_bytes = read_emulated(
+                pid, base, RUNTIME_CS, patch_offset, freeze_probe_length
+            )
+            runtime_freeze_patch_elapsed = 0.0
+            runtime_freeze_patch_phase = "before_bomb"
             runtime_freeze_patch_score = current_score
             runtime_freeze_patch_fields = dict(current_fields)
             route_state_records.append(
@@ -2004,6 +2094,7 @@ def main() -> int:
                 pid, base, RUNTIME_CS, patch_offset, freeze_probe_length
             )
             runtime_freeze_patch_elapsed = 0.0
+            runtime_freeze_patch_phase = "after_bomb"
             runtime_freeze_patch_score = current_score
             runtime_freeze_patch_fields = dict(current_fields)
             route_state_records.append(
@@ -2130,6 +2221,7 @@ def main() -> int:
                     pid, base, RUNTIME_CS, patch_offset, freeze_probe_length
                 )
                 runtime_freeze_patch_elapsed = elapsed
+                runtime_freeze_patch_phase = "after_bomb"
                 runtime_freeze_patch_score = current_score
                 runtime_freeze_patch_fields = dict(current_fields)
                 route_state_records.append(
@@ -2541,6 +2633,10 @@ def main() -> int:
                         f"runtime_freeze_preset={args.runtime_freeze_preset or ''}\n"
                     )
                     out.write(
+                        "runtime_freeze_before_route="
+                        f"{1 if args.runtime_freeze_before_route else 0}\n"
+                    )
+                    out.write(
                         "runtime_freeze_before_bomb="
                         f"{1 if args.runtime_freeze_before_bomb else 0}\n"
                     )
@@ -2581,6 +2677,10 @@ def main() -> int:
                         f"{optional_hex_text(args.runtime_freeze_require_high_debris_target_byte)}\n"
                     )
                     if runtime_freeze_patch_elapsed is not None:
+                        out.write(
+                            "runtime_freeze_patch_phase="
+                            f"{runtime_freeze_patch_phase}\n"
+                        )
                         out.write(
                             "runtime_freeze_patch_elapsed_after_bomb="
                             f"{runtime_freeze_patch_elapsed:.3f}\n"
@@ -2978,6 +3078,7 @@ def main() -> int:
                 )
                 instrumentation_manifest += (
                     f"freeze_runtime_preset={args.runtime_freeze_preset or ''}\n"
+                    f"freeze_runtime_before_route={1 if args.runtime_freeze_before_route else 0}\n"
                     f"freeze_runtime_before_bomb={1 if args.runtime_freeze_before_bomb else 0}\n"
                     f"freeze_runtime_after_bomb_seconds={after_bomb_seconds}\n"
                     f"freeze_runtime_min_queue_score={min_queue_score}\n"
@@ -2995,6 +3096,7 @@ def main() -> int:
                     f"{optional_hex_text(args.runtime_freeze_require_effect_base)}\n"
                     "freeze_runtime_require_high_debris_target_byte="
                     f"{optional_hex_text(args.runtime_freeze_require_high_debris_target_byte)}\n"
+                    f"freeze_runtime_patch_phase={runtime_freeze_patch_phase}\n"
                     f"freeze_runtime_patch_elapsed_after_bomb={patch_elapsed}\n"
                 )
                 instrumentation_manifest += (

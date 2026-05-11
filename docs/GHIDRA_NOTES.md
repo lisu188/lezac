@@ -215,7 +215,10 @@ actor/contact fixture. A first `1000:5CB0` contact-scanner-start probe loaded
 the same `EB FE` runtime patch at `01ED:5CB0` but did not freeze on the default
 level-1 route, so the scanner path still needs a tuned contact/collision route.
 The process-memory route dumps now preserve `DS:7900`, `DS:79E0`, and `DS:7A00`
-for actor/contact candidate scaffolds.
+for actor/contact candidate scaffolds. A longer `x:5.0,m:0.5,x:2.0` scanner
+route reached active level-1 state but still did not freeze `1000:5CB0`; the
+matching pre-route patch run also did not freeze, so the next scanner probe
+should use a different live contact route or revalidate the entry anchor.
 
 ## Bomb Inventory
 

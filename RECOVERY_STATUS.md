@@ -256,7 +256,10 @@ Baseline: `origin/main`
   pristine gameplay-route fixtures. It now writes
   `<target>_runtime_candidate.txt` with runtime metadata and raw route-state
   dumps, and accepts `LEZAC_ACTOR_CONTACT_ROUTE_STEPS` as comma-separated
-  `key:seconds` route holds for scanner-path tuning. A 2026-05-11 live probe at
+  `key:seconds` route holds for scanner-path tuning. It can also set
+  `LEZAC_ACTOR_CONTACT_RUNTIME_FREEZE_BEFORE_ROUTE=1` so the runtime patch is
+  applied immediately after level start, before route movement, for helpers that
+  may only execute during contact positioning. A 2026-05-11 live probe at
   `actor_update_start` froze `1000:6053` at runtime `01ED:6053`, with
   `freeze_old_bytes=5589`, `freeze_patch_bytes=ebfe`,
   `freeze_runtime_patch_applied=1`, `instrumented_freeze_observed=1`, runtime
@@ -396,10 +399,29 @@ Baseline: `origin/main`
   `actor_update_start_runtime_candidate.txt` with runtime `CS=01ED`,
   `DS=0C8F`, freeze metadata, and repeated `DS:7900`/`DS:79E0`/`DS:7A00`
   route-state dump blocks.
+- A tuned `contact_scanner_start` route
+  (`LEZAC_ACTOR_CONTACT_ROUTE_STEPS=x:5.0,m:0.5,x:2.0`) at
+  `/tmp/lezac-contact-scanner-route-x5m-codex-20260511` entered active level-1
+  gameplay and preserved `DS:7900`/`DS:79E0`/`DS:7A00` route-state dumps, but
+  still loaded the `01ED:5CB0` patch without freezing. This makes a pre-route
+  freeze mode the next scanner probe rather than promoting the no-freeze route
+  as semantic contact evidence.
+- The matching pre-route freeze run at
+  `/tmp/lezac-contact-scanner-before-route-codex-20260511` applied the
+  `01ED:5CB0` patch immediately after level start
+  (`freeze_runtime_before_route=1`, `freeze_runtime_patch_phase=before_route`)
+  and then replayed the same `x:5.0,m:0.5,x:2.0` route. It also did not freeze,
+  so the current conclusion is narrow: this level-1 movement route does not hit
+  the scanner start even when the patch is applied before movement. The next
+  contact-scanner probe should target a different route or validate whether
+  `1000:5CB0` is the correct entry anchor for live player/monster contact.
 - Focused native CTest passed for
   `python_tool_syntax_lane_result_preflight|actor_contact_procmem_helper_expectations`
   with 2/2 tests passing. Full native validation then passed again:
   configure/build succeeded and CTest reported 170/170 tests passing.
+- After adding pre-route freeze timing, focused helper validation and full
+  native validation passed again: configure/build succeeded and CTest reported
+  170/170 tests passing.
 - After adding the actor/contact process-memory wrapper and dry-run CTest,
   `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
   -BuildDir build-win-codex-vs3 -Configuration Debug` passed: configure/build

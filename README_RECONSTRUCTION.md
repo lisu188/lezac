@@ -189,7 +189,10 @@ evidence. Supported targets are `actor_update_start`, `actor_update_end`,
 dumps; the candidate is a fill-in scaffold until semantic actor/contact records
 are decoded. Use `LEZAC_ACTOR_CONTACT_ROUTE_STEPS` with comma-separated
 `key:seconds` holds to tune a route, for example
-`LEZAC_ACTOR_CONTACT_ROUTE_STEPS=x:1.0,n:0.2,z:0.5`.
+`LEZAC_ACTOR_CONTACT_ROUTE_STEPS=x:1.0,n:0.2,z:0.5`. Set
+`LEZAC_ACTOR_CONTACT_RUNTIME_FREEZE_BEFORE_ROUTE=1` when probing helpers that
+may only execute during the movement/contact route instead of after route
+positioning.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \

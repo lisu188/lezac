@@ -239,6 +239,22 @@ def summarize(manifest: Manifest, oracle_binary: str) -> tuple[str, list[str]]:
         for status in freezes
         if status.fields.get("candidate_fixture")
     ]
+    freeze_readiness = [
+        (
+            status,
+            status.fields.get("candidate_fixture"),
+            candidate_readiness(status.target, status.fields.get("candidate_fixture")),
+        )
+        for status in freezes
+    ]
+    readiness_counts = {
+        "ready": 0,
+        "incomplete": 0,
+        "missing": 0,
+        "none": 0,
+    }
+    for _, _, readiness in freeze_readiness:
+        readiness_counts[readiness.status] = readiness_counts.get(readiness.status, 0) + 1
     summary = (
         "actor_dispatch_gate_sweep_summary=ok "
         f"manifest={manifest.path} "
@@ -248,14 +264,16 @@ def summarize(manifest: Manifest, oracle_binary: str) -> tuple[str, list[str]]:
         f"route_sweeps={route_sweeps} "
         f"captures={len(statuses)} "
         f"freezes={len(freezes)} "
+        f"ready_candidates={readiness_counts['ready']} "
+        f"incomplete_candidates={readiness_counts['incomplete']} "
+        f"missing_candidates={readiness_counts['missing']} "
+        f"none_candidates={readiness_counts['none']} "
         f"observed_targets={csv_or_none(observed_targets)} "
         f"missing_targets={csv_or_none(missing_targets)} "
         f"candidate_fixtures={csv_or_none(candidate_fixtures)}"
     )
     details = []
-    for status in freezes:
-        candidate_fixture = status.fields.get("candidate_fixture")
-        readiness = candidate_readiness(status.target, candidate_fixture)
+    for status, candidate_fixture, readiness in freeze_readiness:
         details.append(
             "freeze "
             f"target={status.target} "

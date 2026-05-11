@@ -125,6 +125,10 @@ def main() -> int:
             "route_sweeps=2",
             "captures=2",
             "freezes=1",
+            "ready_candidates=0",
+            "incomplete_candidates=0",
+            "missing_candidates=1",
+            "none_candidates=0",
             "observed_targets=actor_update_gate6",
             "missing_targets=actor_update_gate5",
             "candidate_fixtures=/tmp/gate6/candidate_fixture.txt",
@@ -191,6 +195,10 @@ def main() -> int:
         )
         ready = run_summary(root, ready_manifest).stdout
         for snippet in [
+            "ready_candidates=1",
+            "incomplete_candidates=0",
+            "missing_candidates=0",
+            "none_candidates=0",
             "candidate_status=ready",
             "candidate_missing=none",
             "candidate_placeholders=0",
@@ -280,6 +288,10 @@ def main() -> int:
             "route_sweeps=0",
             "captures=0",
             "freezes=0",
+            "ready_candidates=0",
+            "incomplete_candidates=0",
+            "missing_candidates=0",
+            "none_candidates=0",
             "observed_targets=none",
             "missing_targets=actor_update_gate5,actor_update_gate6",
             "candidate_fixtures=none",

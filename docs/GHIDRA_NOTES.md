@@ -251,10 +251,10 @@ the same route and timing inputs. `--debug-actor-update-runtime-oracle` now
 reports optional `dispatch_gates=` names from these breakpoints when they are
 present in a normalized fixture. `tools/summarize_actor_dispatch_gate_sweep.py`
 follows a completed dispatch-sweep manifest and reports capture counts, observed
-freeze targets, missing targets, and candidate fixtures ready for oracle
-normalization; each freeze line also labels candidate readiness, the expected
-runtime oracle flag, and an `oracle_command=` using the configured C++ binary
-path.
+freeze targets, missing targets, candidate readiness counts, and candidate
+fixtures ready for oracle normalization; each freeze line also labels candidate
+readiness, the expected runtime oracle flag, and an `oracle_command=` using the
+configured C++ binary path.
 
 ## Bomb Inventory
 

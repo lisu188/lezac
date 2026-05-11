@@ -259,7 +259,9 @@ oracle commands. Use `tools/run_actor_dispatch_ready_manifest.py <path>
 WSL/native environment to execute the listed C++ oracles with per-candidate
 timeouts and optional logs. The runner validates fixture paths and oracle/flag
 pairs before launching commands; `--allow-missing-fixtures` is only for dry-run
-forensic review after moving manifests between machines.
+forensic review after moving manifests between machines. Add
+`--write-result-manifest <path>` to leave a key/value audit trail for planned
+or executed oracle commands.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \

@@ -146,11 +146,22 @@ def main() -> int:
             ),
         )
 
-        dry = run_ready(root, [str(ready_manifest), "--dry-run"])
+        dry_result_manifest = base / "ready" / "dry_result_manifest.txt"
+        dry = run_ready(
+            root,
+            [
+                str(ready_manifest),
+                "--dry-run",
+                "--write-result-manifest",
+                str(dry_result_manifest),
+            ],
+        )
         for snippet in [
             "actor_dispatch_ready_manifest=ok mode=dry_run",
             "ready_candidates=2",
             "oracle_binary=/tmp/lezac cpp/lezac_cpp",
+            "actor_dispatch_ready_result_manifest=ok",
+            f"path={dry_result_manifest.resolve()}",
             "ready_candidate index=0 target=actor_update_gate6",
             "ghidra=1000:654E runtime_cs=01ED runtime_ds=0F3C",
             "oracle=actor_update oracle_flag=--debug-actor-update-runtime-oracle",
@@ -163,6 +174,25 @@ def main() -> int:
             f"--debug-contact-scanner-runtime-oracle {quoted_scanner_fixture}",
         ]:
             require(dry, snippet, "dry_run")
+        cases += 1
+
+        dry_result_text = dry_result_manifest.read_text(encoding="utf-8")
+        for snippet in [
+            "result=actor_dispatch_ready_manifest",
+            "mode=dry_run",
+            f"source_ready_manifest={ready_manifest.resolve()}",
+            "oracle_binary=/tmp/lezac cpp/lezac_cpp",
+            "ready_candidates=2",
+            "failures=0",
+            "candidate_0_target=actor_update_gate6",
+            "candidate_0_status=planned",
+            "candidate_0_returncode=not_run",
+            "candidate_0_log=none",
+            "candidate_1_target=contact_scanner_start",
+            f"candidate_1_command='/tmp/lezac cpp/lezac_cpp' "
+            f"--debug-contact-scanner-runtime-oracle {quoted_scanner_fixture}",
+        ]:
+            require(dry_result_text, snippet, "dry_result_manifest")
         cases += 1
 
         override = run_ready(
@@ -193,6 +223,7 @@ def main() -> int:
 
         fake_oracle = make_fake_oracle(base / "fake")
         log_dir = base / "logs"
+        live_result_manifest = base / "logs" / "result_manifest.txt"
         live = run_ready(
             root,
             [
@@ -201,6 +232,8 @@ def main() -> int:
                 str(fake_oracle),
                 "--log-dir",
                 str(log_dir),
+                "--write-result-manifest",
+                str(live_result_manifest),
                 "--timeout-seconds",
                 "5",
             ],
@@ -210,6 +243,8 @@ def main() -> int:
             "ready_candidate index=0 target=actor_update_gate6",
             "status=ok returncode=0",
             "ready_candidate index=1 target=contact_scanner_start",
+            "actor_dispatch_ready_result_manifest=ok",
+            f"path={live_result_manifest.resolve()}",
             f"command={shlex.quote(str(fake_oracle))} "
             f"--debug-contact-scanner-runtime-oracle {quoted_scanner_fixture}",
         ]:
@@ -222,6 +257,22 @@ def main() -> int:
                 encoding="utf-8"
             )
             require(log_text, f"fake_oracle flag={flag}", "live_fake_oracle_log")
+        live_result_text = live_result_manifest.read_text(encoding="utf-8")
+        for snippet in [
+            "result=actor_dispatch_ready_manifest",
+            "mode=run",
+            f"source_ready_manifest={ready_manifest.resolve()}",
+            f"oracle_binary={fake_oracle}",
+            "ready_candidates=2",
+            "failures=0",
+            "candidate_0_status=ok",
+            "candidate_0_returncode=0",
+            f"candidate_0_log={log_dir / 'candidate_0_actor_update_gate6.log'}",
+            "candidate_1_status=ok",
+            "candidate_1_returncode=0",
+            f"candidate_1_log={log_dir / 'candidate_1_contact_scanner_start.log'}",
+        ]:
+            require(live_result_text, snippet, "live_result_manifest")
         cases += 1
 
         zero_manifest = base / "zero" / "manifest.txt"

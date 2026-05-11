@@ -146,6 +146,55 @@ def write_log(log_dir: Path | None, candidate: ReadyCandidate, output: str) -> s
     return str(log_path)
 
 
+def candidate_result_lines(
+    candidate: ReadyCandidate,
+    command: list[str],
+    status: str,
+    returncode: str,
+    log_path: str,
+) -> list[str]:
+    prefix = f"candidate_{candidate.index}"
+    return [
+        f"{prefix}_target={candidate.target}",
+        f"{prefix}_route={candidate.route}",
+        f"{prefix}_ghidra={candidate.ghidra}",
+        f"{prefix}_runtime_cs={candidate.runtime_cs}",
+        f"{prefix}_runtime_ds={candidate.runtime_ds}",
+        f"{prefix}_freeze_runtime={candidate.freeze_runtime}",
+        f"{prefix}_fixture={candidate.fixture}",
+        f"{prefix}_oracle={candidate.oracle}",
+        f"{prefix}_oracle_flag={candidate.oracle_flag}",
+        f"{prefix}_status={status}",
+        f"{prefix}_returncode={returncode}",
+        f"{prefix}_log={log_path}",
+        f"{prefix}_command={quote_command(command)}",
+    ]
+
+
+def write_result_manifest(
+    path: Path,
+    mode: str,
+    source_manifest: Path,
+    oracle_binary: str,
+    candidate_count: int,
+    failures: int,
+    candidate_lines: list[str],
+) -> Path:
+    path = path.resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "result=actor_dispatch_ready_manifest",
+        f"mode={mode}",
+        f"source_ready_manifest={source_manifest}",
+        f"oracle_binary={oracle_binary}",
+        f"ready_candidates={candidate_count}",
+        f"failures={failures}",
+        *candidate_lines,
+    ]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
 def run_candidate(
     command: list[str],
     candidate: ReadyCandidate,
@@ -200,6 +249,11 @@ def main() -> int:
         help="allow dry-run review when candidate fixture paths are unavailable",
     )
     parser.add_argument("--log-dir", type=Path, help="write oracle output logs")
+    parser.add_argument(
+        "--write-result-manifest",
+        type=Path,
+        help="write a key/value manifest describing planned or executed oracles",
+    )
     args = parser.parse_args()
 
     manifest_path = args.manifest.resolve()
@@ -229,10 +283,14 @@ def main() -> int:
     )
 
     failures = 0
+    candidate_lines: list[str] = []
     for candidate in candidates:
         command = command_for_candidate(oracle_binary, candidate)
         display = quote_command(command)
         if args.dry_run:
+            candidate_lines.extend(
+                candidate_result_lines(candidate, command, "planned", "not_run", "none")
+            )
             print(
                 "ready_candidate "
                 f"index={candidate.index} "
@@ -255,6 +313,11 @@ def main() -> int:
         status = "ok" if returncode == 0 else "error"
         if returncode != 0:
             failures += 1
+        candidate_lines.extend(
+            candidate_result_lines(
+                candidate, command, status, str(returncode), log_path
+            )
+        )
         print(
             "ready_candidate "
             f"index={candidate.index} "
@@ -268,6 +331,30 @@ def main() -> int:
         )
         if returncode != 0 and args.log_dir is None and output:
             print(output.rstrip())
+
+    if args.write_result_manifest is not None:
+        try:
+            result_manifest = write_result_manifest(
+                args.write_result_manifest,
+                mode,
+                manifest.path,
+                oracle_binary,
+                len(candidates),
+                failures,
+                candidate_lines,
+            )
+        except OSError as exc:
+            print(
+                f"actor_dispatch_ready_result_manifest=error reason={exc}",
+                file=sys.stderr,
+            )
+            return 1
+        print(
+            "actor_dispatch_ready_result_manifest=ok "
+            f"path={result_manifest} "
+            f"ready_candidates={len(candidates)} "
+            f"failures={failures}"
+        )
 
     if failures:
         print(

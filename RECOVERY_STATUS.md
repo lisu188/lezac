@@ -175,6 +175,10 @@ Baseline: `origin/main`
   executed oracle results for promotion gating. Granular CTest helpers now pin
   the runner and result-summary error cases separately from the full pipeline
   check.
+- Added `tools/preflight_original_evidence_environment.py` and synthetic CTest
+  coverage. The preflight reports shipped asset availability and the local
+  `bash`/DOSBox/`dosbox-debug`/Xvfb/`xdotool` toolchain, with require modes that
+  fail before a long original-evidence sweep starts on an unprepared host.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,

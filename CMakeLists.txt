@@ -283,6 +283,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_orchestrator.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_preflight.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_wrapper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_environment.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_pipeline.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_results.py
@@ -291,6 +292,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_native_windows_validation_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_actor_dispatch_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_lane_result_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/preflight_original_evidence_environment.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_actor_dispatch_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_actor_dispatch_gate_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_result_ready_results.py
@@ -336,6 +338,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^actor_dispatch_ready_pipeline_check=ok cases=1")
+
+        add_test(NAME original_evidence_environment_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_environment.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(original_evidence_environment_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^original_evidence_environment_check=ok cases=6")
 
         add_test(NAME frame_compare_identical
             COMMAND ${Python3_EXECUTABLE}

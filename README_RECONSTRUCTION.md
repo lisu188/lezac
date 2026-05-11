@@ -341,6 +341,20 @@ powershell -ExecutionPolicy Bypass -File tools/run_native_windows_validation.ps1
   -BuildDir build-win-codex-vs3 -Configuration Debug
 ```
 
+Before running original DOSBox or process-memory captures on a new host, use the
+environment preflight to verify assets and capture tools:
+
+```sh
+python3 tools/preflight_original_evidence_environment.py . --probe-wsl
+python3 tools/preflight_original_evidence_environment.py . --require-original-capture
+python3 tools/preflight_original_evidence_environment.py . --require-procmem-capture
+```
+
+The non-require mode reports missing tools without failing. The require modes
+fail fast when `bash`, DOSBox, `dosbox-debug`, Xvfb, `xdotool`, or the shipped
+asset files are missing, so long route sweeps do not start on an unprepared
+machine.
+
 For explosion/debris/collapse process-memory probes, preflight freeze patches
 before running DOSBox. This verifies the shipped `LEZAC.EXE` file offset,
 expected original bytes, trampoline bytes, and scratch/body addresses without

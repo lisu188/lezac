@@ -222,7 +222,12 @@ should use a different live contact route or revalidate the entry anchor. The
 actor/contact route sweep added after that result also missed `1000:5CB0` on
 `x:8.00` and `x:5.00,m:0.50,x:4.00`; a `1000:604F` probe on the latter route
 loaded runtime bytes `c9 c2` and did not freeze, consistent with a return-tail
-anchor rather than a useful entry breakpoint.
+anchor rather than a useful entry breakpoint. Static near-call scanning of the
+loaded code image found the scanner entry's only direct call at `1000:6555`
+inside actor update (`e8 58 f7` -> `1000:5CB0`), so
+`contact_scanner_callsite` is now a probe target. The first live callsite probe
+on `x:5.00,m:0.50,x:4.00` loaded `01ED:6555` but also did not freeze,
+indicating that route still does not reach the scanner callsite.
 
 ## Bomb Inventory
 

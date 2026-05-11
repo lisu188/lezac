@@ -248,8 +248,11 @@ Baseline: `origin/main`
   probes.
 - Added `tools/capture_original_actor_contact_procmem.sh`, a guarded
   process-memory instrumentation wrapper for `actor_update_start`,
-  `actor_update_end`, `contact_scanner_start`, and `contact_scanner_end`. It
-  reuses the proven child DOSBox-debug process-memory scanner, requires
+  `actor_update_end`, `contact_scanner_callsite`, `contact_scanner_start`, and
+  `contact_scanner_end`. `contact_scanner_callsite` maps the static near call at
+  `1000:6555` that targets `1000:5CB0`; the only direct near call to the scanner
+  entry found in the shipped code image is at that callsite. It reuses the
+  proven child DOSBox-debug process-memory scanner, requires
   `LEZAC_ACTOR_CONTACT_APPROVE_PROCMEM=1` and
   `LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION=1` for live runs, and
   records `visual_claim=0` because these are reachability probes rather than
@@ -432,6 +435,18 @@ Baseline: `origin/main`
   `01ED:604F` on route `x:5.00,m:0.50,x:4.00` and also did not freeze. The
   runtime bytes at that anchor were `c9c2`, so this is best treated as a
   return-tail probe rather than proof that the scanner body is unreachable.
+- Added `tools/check_actor_contact_callsite_scan.py` to lock the static
+  contact-scanner anchors in `LEZAC.EXE`: entry bytes `55 89` at `1000:5CB0`,
+  return bytes `c9 c2 02` at `1000:604F`, the single direct near call at
+  `1000:6555` (`e8 58 f7`) targeting `1000:5CB0`, and the actor-update entry
+  bytes `55 89` at `1000:6053`.
+- A live `contact_scanner_callsite` pre-route probe at
+  `/tmp/lezac-contact-callsite-live-codex-20260511` on route
+  `x:5.00,m:0.50,x:4.00` loaded `01ED:6555` with old bytes `e858`,
+  `freeze_runtime_before_route=1`, `runtime_cs=01ED`, `runtime_ds=0C8F`, and
+  `instrumented_freeze_observed=0`. Combined with the entry no-freeze probes,
+  this points to the route not reaching the scanner callsite rather than an
+  incorrect `1000:5CB0` entry byte mapping.
 - Focused native CTest passed for
   `python_tool_syntax_lane_result_preflight|actor_contact_procmem_helper_expectations`
   with 2/2 tests passing. Full native validation then passed again:
@@ -442,6 +457,9 @@ Baseline: `origin/main`
 - After adding the actor/contact route-sweep helper, full native validation
   passed again: configure/build succeeded and CTest reported 172/172 tests
   passing.
+- After adding the static callsite scan and `contact_scanner_callsite` probe
+  target, full native validation passed again: configure/build succeeded and
+  CTest reported 173/173 tests passing.
 - After adding the actor/contact process-memory wrapper and dry-run CTest,
   `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
   -BuildDir build-win-codex-vs3 -Configuration Debug` passed: configure/build

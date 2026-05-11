@@ -21,6 +21,7 @@ from pathlib import Path
 TARGETS = [
     "actor_update_start",
     "actor_update_end",
+    "contact_scanner_callsite",
     "contact_scanner_start",
     "contact_scanner_end",
 ]

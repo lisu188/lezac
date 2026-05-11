@@ -10,6 +10,7 @@ from pathlib import Path
 TARGETS = {
     "actor_update_start": "1000:6053",
     "actor_update_end": "1000:777F",
+    "contact_scanner_callsite": "1000:6555",
     "contact_scanner_start": "1000:5CB0",
     "contact_scanner_end": "1000:604F",
 }
@@ -52,6 +53,7 @@ def check_script(script_path: Path) -> None:
     require(text, "source=dosbox-debug-process-memory", "script")
     require(text, "route=focused_no_window_original_controls_process_memory", "script")
     require(text, "visual_claim=0", "script")
+    require(text, "contact_scanner_callsite", "script")
     require(text, "candidate_fixture=\"$out_dir/${target}_runtime_candidate.txt\"", "script")
     require(text, "write_candidate_skeleton", "script")
     require(text, "route_state_dumps.txt", "script")
@@ -99,7 +101,7 @@ def check_cmake(cmake_path: Path) -> None:
     for snippet in [
         "tools/check_actor_contact_procmem_helper.py",
         "${CMAKE_CURRENT_SOURCE_DIR}",
-        "^actor_contact_procmem_helper=ok targets=4 cmake_test=1 docs=2",
+        "^actor_contact_procmem_helper=ok targets=5 cmake_test=1 docs=2",
     ]:
         if collapse_ws(snippet) not in collapsed:
             raise RuntimeError(

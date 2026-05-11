@@ -96,7 +96,7 @@ def main() -> int:
             str(root),
             "--dry-run",
             "--target",
-            "contact_scanner_end",
+            "contact_scanner_callsite",
             "--timing",
             "before_route",
             "--route",
@@ -106,7 +106,7 @@ def main() -> int:
         ],
     )
     for snippet in [
-        "target=contact_scanner_end",
+        "target=contact_scanner_callsite",
         "timings=before_route routes=2",
         "route_labels=x2p00_c0p50,left0p25_space0p75",
         "capture_commands=2",

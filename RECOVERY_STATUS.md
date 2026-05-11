@@ -246,6 +246,21 @@ Baseline: `origin/main`
   command submission and semantic breakpoint seeding are the remaining blocker;
   no original actor/contact runtime fixture has been promoted from these launch
   probes.
+- Added `tools/capture_original_actor_contact_procmem.sh`, a guarded
+  process-memory instrumentation wrapper for `actor_update_start`,
+  `actor_update_end`, `contact_scanner_start`, and `contact_scanner_end`. It
+  reuses the proven child DOSBox-debug process-memory scanner, requires
+  `LEZAC_ACTOR_CONTACT_APPROVE_PROCMEM=1` and
+  `LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION=1` for live runs, and
+  records `visual_claim=0` because these are reachability probes rather than
+  pristine gameplay-route fixtures. A 2026-05-11 live probe at
+  `actor_update_start` froze `1000:6053` at runtime `01ED:6053`, with
+  `freeze_old_bytes=5589`, `freeze_patch_bytes=ebfe`,
+  `freeze_runtime_patch_applied=1`, `instrumented_freeze_observed=1`, runtime
+  `CS=01ED`, and runtime `DS=0C8F`.
+- Added `tools/check_actor_contact_procmem_helper.py` and CMake dry-run
+  coverage so the guarded wrapper's targets, approvals, output contract, and
+  docs are checked without process-memory access.
 - Added provisional live state-2 rendering keyed to the recovered `0x4a..0x4f`
   cursor range. It is intentionally documented as `visual_claim=0` until the
   original `DS:c322` frame-table fields are fully interpreted.
@@ -350,6 +365,21 @@ Baseline: `origin/main`
   `ctest --test-dir build-win-codex-vs3 -C Debug -R
   "actor_update_debug_capture_helper_expectations|contact_scanner_debug_capture_helper_expectations"
   --output-on-failure` reported 2/2 tests passing.
+- Guarded process-memory wrapper smoke evidence: live WSL output under
+  `/tmp/lezac-actor-6053-freeze-procmem-codex-20260511` recorded
+  `instrumented_freeze_observed=1` for `1000:6053`, with matching tail-frame
+  screenshots. The generated candidate remains an explosion-helper artifact and
+  was not promoted as actor/contact semantic evidence.
+- The repeatable wrapper was then verified at
+  `/tmp/lezac-actor-contact-procmem-live-codex-20260511`; its top-level
+  manifest records `target=actor_update_start`, `runtime_cs=01ED`,
+  `runtime_ds=0C8F`, `freeze_runtime=01ED:6053`, `freeze_old_bytes=5589`,
+  `freeze_patch_bytes=ebfe`, `freeze_runtime_patch_applied=1`, and
+  `instrumented_freeze_observed=1`.
+- After adding the actor/contact process-memory wrapper and dry-run CTest,
+  `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
+  -BuildDir build-win-codex-vs3 -Configuration Debug` passed: configure/build
+  succeeded and CTest reported 170/170 tests passing.
 - `cmake -S . -B build` passed.
 - `cmake --build build` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp

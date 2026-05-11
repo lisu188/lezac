@@ -205,6 +205,13 @@ Its `candidate_fixture.txt` is a skeleton for transcript normalization, not
 evidence until runtime fields and dump rows are filled; live launch attempts
 also preserve prompt `runtime_cs`/`runtime_ds` metadata and a concrete runtime
 command plan for later address translation.
+Because command submission to this DOSBox-debug prompt remains unreliable, the
+guarded `tools/capture_original_actor_contact_procmem.sh` wrapper can prove
+reachability by writing a temporary `EB FE` freeze loop into the child
+DOSBox-debug process after the known route starts. A 2026-05-11 probe froze
+`1000:6053` at runtime `01ED:6053` with original bytes `55 89` and runtime
+`DS=0C8F`; this is instrumentation evidence only, not a promoted semantic
+actor/contact fixture.
 
 ## Bomb Inventory
 

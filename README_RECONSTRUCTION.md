@@ -170,6 +170,21 @@ or `monster_behavior4_chase`; it writes a `candidate_fixture.txt` skeleton that
 must be filled from runtime output before promotion, and it preserves prompt
 `runtime_cs`/`runtime_ds` metadata plus `debugger_commands_runtime.txt` the
 same way as the actor-update helper.
+Because this DOSBox-debug build still does not reliably submit debugger
+commands with Return, reachability probes can use the guarded process-memory
+wrapper:
+
+```sh
+LEZAC_ACTOR_CONTACT_APPROVE_PROCMEM=1 \
+LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION=1 \
+  tools/capture_original_actor_contact_procmem.sh \
+  /tmp/lezac-actor-contact-procmem . actor_update_start
+```
+
+The wrapper reuses the proven child-process memory scanner, patches only the
+temporary DOSBox-debug child process, and records `visual_claim=0` instrumentation
+evidence. Supported targets are `actor_update_start`, `actor_update_end`,
+`contact_scanner_start`, and `contact_scanner_end`.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \

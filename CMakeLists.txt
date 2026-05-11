@@ -262,6 +262,7 @@ if(BUILD_TESTING)
             COMMAND ${Python3_EXECUTABLE} -B -m py_compile
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_explosion_procmem.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_procmem_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_debug_capture_helper.py
@@ -433,6 +434,18 @@ if(BUILD_TESTING)
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 PASS_REGULAR_EXPRESSION
                     "^contact_scanner_debug_capture=ok mode=dry_run scenario=monster_contact_damage_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=")
+
+            add_test(NAME actor_contact_procmem_helper_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_contact_procmem.sh
+                        /tmp/lezac-actor-contact-procmem-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        actor_update_start)
+            set_tests_properties(actor_contact_procmem_helper_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_contact_procmem=ok mode=dry_run target=actor_update_start ghidra=1000:6053 .*procmem_out=")
         endif()
 
         add_test(NAME behavior4_debug_capture_helper_expectations
@@ -461,6 +474,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^contact_scanner_debug_capture_helper=ok scenarios=3 anchors=2 outputs=6 cmake_test=1 docs=2")
+
+        add_test(NAME actor_contact_procmem_helper_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_procmem_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_contact_procmem_helper_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_contact_procmem_helper=ok targets=4 cmake_test=1 docs=2")
 
         add_test(NAME actor_update_runtime_oracle_fixture_expectations
             COMMAND ${Python3_EXECUTABLE}

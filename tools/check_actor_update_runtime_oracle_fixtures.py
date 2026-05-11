@@ -12,6 +12,7 @@ REQUIRED_OFFSETS = [0x5CB0, 0x604F, 0x6053, 0x777F]
 
 EXPECTED_OUTCOMES = {
     "actor_update_runtime_oracle_synthetic.txt": "ok",
+    "actor_update_runtime_oracle_dispatch_gates_synthetic.txt": "ok",
     "actor_update_runtime_oracle_bad_segment.txt": (
         "breakpoint_segment_mismatch expected=0x1a2b actual=0xffff"
     ),
@@ -235,6 +236,7 @@ def check_source_contract(source_path: Path) -> None:
         "contact_flags=",
         "tile_probe=",
         "damage_pending=",
+        "dispatch_gates=",
         "visual_claim=0",
     ]:
         if snippet not in text:

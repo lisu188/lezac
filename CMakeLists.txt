@@ -576,7 +576,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_update_runtime_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_update_runtime_oracle_fixtures=ok files=4 valid=1 malformed=3 cmake_tests=4 source_command=1")
+                "^actor_update_runtime_oracle_fixtures=ok files=5 valid=2 malformed=3 cmake_tests=5 source_command=1")
 
         add_test(NAME contact_scanner_runtime_oracle_fixture_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -935,6 +935,14 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "actor_update_runtime_oracle=ok fixture=actor_update_runtime_oracle_synthetic scenario=object_collision_jump_live level=1 runtime_cs=0x1a2b runtime_ds=0x2b3c actor_slot=0 behavior=3 kind=1 before_xy=0x0068,0x00a8 after_xy=0x0069,0x00a8 velocity8=32,0 state=0,0 contact_flags=0x0000,0x0005 scan_subject=0 scan_other=1 scan_contact=1 player_contact=0 monster_contact=0 object_contact=1 damage_pending=0 tile_probe=13,22 tile=0x0025 object=0x0013 passable=0 standable=1 breaks=4 dump_bytes=32 temp_copy=1 visual_claim=0")
+
+    add_test(NAME actor_update_runtime_oracle_dispatch_gates_synthetic
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-update-runtime-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/actor_update_runtime_oracle_dispatch_gates_synthetic.txt)
+    set_tests_properties(actor_update_runtime_oracle_dispatch_gates_synthetic PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "actor_update_runtime_oracle=ok fixture=actor_update_runtime_oracle_dispatch_gates_synthetic scenario=monster_contact_damage_live level=1 runtime_cs=0x1a2b runtime_ds=0x2b3c actor_slot=0 behavior=3 kind=1 before_xy=0x0068,0x00a8 after_xy=0x0069,0x00a8 velocity8=32,0 state=0,0 contact_flags=0x0000,0x0005 scan_subject=0 scan_other=1 scan_contact=1 player_contact=0 monster_contact=0 object_contact=1 damage_pending=0 tile_probe=13,22 tile=0x0025 object=0x0013 passable=0 standable=1 breaks=9 dump_bytes=32 temp_copy=1 visual_claim=0 dispatch_gates=actor_update_gate5,actor_update_gate5_integration,actor_update_gate5_exit,actor_update_gate6,contact_scanner_callsite")
 
     add_test(NAME actor_update_runtime_oracle_bad_segment
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-update-runtime-oracle

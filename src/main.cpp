@@ -5496,6 +5496,15 @@ public:
             constexpr std::array<uint16_t, 4> kRequiredOffsets{
                 0x5cb0, 0x604f, 0x6053, 0x777f};
             std::array<bool, 4> sawRequired{};
+            constexpr std::array<std::pair<uint16_t, const char*>, 5>
+                kDispatchGateOffsets{{
+                    {0x65a2, "actor_update_gate5"},
+                    {0x65d7, "actor_update_gate5_integration"},
+                    {0x7595, "actor_update_gate5_exit"},
+                    {0x654e, "actor_update_gate6"},
+                    {0x6555, "contact_scanner_callsite"},
+                }};
+            std::array<bool, 5> sawDispatchGate{};
 
             std::istringstream lines(text);
             std::string line;
@@ -5623,6 +5632,11 @@ public:
                     for (size_t i = 0; i < kRequiredOffsets.size(); ++i) {
                         if (ghidraOffset == kRequiredOffsets[i]) sawRequired[i] = true;
                     }
+                    for (size_t i = 0; i < kDispatchGateOffsets.size(); ++i) {
+                        if (ghidraOffset == kDispatchGateOffsets[i].first) {
+                            sawDispatchGate[i] = true;
+                        }
+                    }
                     continue;
                 }
 
@@ -5693,6 +5707,13 @@ public:
                      hex4(static_cast<uint16_t>(actorAfter.flags)) + " scan=" +
                      hex4(static_cast<uint16_t>(contactScan.flagsAfter)));
             }
+            std::string dispatchGates;
+            for (size_t i = 0; i < kDispatchGateOffsets.size(); ++i) {
+                if (!sawDispatchGate[i]) continue;
+                if (!dispatchGates.empty()) dispatchGates += ',';
+                dispatchGates += kDispatchGateOffsets[i].second;
+            }
+            if (dispatchGates.empty()) dispatchGates = "none";
 
             std::cout << "actor_update_runtime_oracle=ok fixture=" << fixture
                       << " scenario=" << scenario
@@ -5726,7 +5747,8 @@ public:
                       << " breaks=" << breakCount
                       << " dump_bytes=" << dumpBytes
                       << " temp_copy=" << (tempCopy ? 1 : 0)
-                      << " visual_claim=0\n";
+                      << " visual_claim=0"
+                      << " dispatch_gates=" << dispatchGates << "\n";
             if (expectError) {
                 std::cout << "actor_update_runtime_oracle=error fixture=" << fixture
                           << " reason=expected_error_missing\n";

@@ -473,6 +473,14 @@ Baseline: `origin/main`
   actor/contact route-sweep helper. `tools/check_actor_dispatch_gate_sweep.py`
   locks the default dry-run, custom target/timing routes, live-approval
   refusal, repo-output refusal, and malformed route handling.
+- Extended `--debug-actor-update-runtime-oracle` with optional dispatch-gate
+  reporting. The parser still requires the original actor/scanner start/end
+  anchors, but now appends `dispatch_gates=` with any normalized breakpoints for
+  `actor_update_gate5`, `actor_update_gate5_integration`,
+  `actor_update_gate5_exit`, `actor_update_gate6`, and
+  `contact_scanner_callsite`. Added
+  `actor_update_runtime_oracle_dispatch_gates_synthetic.txt` to prove the field
+  without changing live gameplay behavior.
 - A live `contact_scanner_callsite` pre-route probe at
   `/tmp/lezac-contact-callsite-live-codex-20260511` on route
   `x:5.00,m:0.50,x:4.00` loaded `01ED:6555` with old bytes `e858`,
@@ -523,6 +531,12 @@ Baseline: `origin/main`
   `python_tool_syntax_lane_result_preflight|actor_dispatch_gate_sweep_dry_run|actor_dispatch_gate_sweep_output_expectations`
   passed after reconfigure, and full native validation passed again:
   configure/build succeeded and CTest reported 177/177 tests passing.
+- After extending the actor-update oracle with `dispatch_gates=`, focused
+  fixture validation `check_actor_update_runtime_oracle_fixtures.py` passed with
+  5 fixtures (2 valid, 3 malformed). A direct Visual Studio build hit the known
+  duplicate `Path`/`PATH` MSBuild environment issue, so validation continued
+  through `tools\run_native_windows_validation.ps1`; the wrapper build
+  succeeded and CTest reported 178/178 tests passing.
 - After adding the actor/contact process-memory wrapper and dry-run CTest,
   `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
   -BuildDir build-win-codex-vs3 -Configuration Debug` passed: configure/build

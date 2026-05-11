@@ -247,7 +247,9 @@ the actor-update window for every `cmp [bp-31h], imm` gate and currently locks
 to `1000:777F`; that late gate is exposed as `actor_update_gate5_exit`.
 `tools/sweep_original_actor_dispatch_gates.py` plans or runs the mapped gate
 set as one matrix so the next DOSBox pass can test all gate reachability with
-the same route and timing inputs.
+the same route and timing inputs. `--debug-actor-update-runtime-oracle` now
+reports optional `dispatch_gates=` names from these breakpoints when they are
+present in a normalized fixture.
 
 ## Bomb Inventory
 

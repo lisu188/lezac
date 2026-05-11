@@ -239,6 +239,9 @@ python3 tools/summarize_actor_dispatch_gate_sweep.py \
   /tmp/lezac-actor-dispatch-gates/manifest.txt
 ```
 
+The summary prints `oracle=` and `oracle_flag=` for each observed freeze so the
+candidate fixture can be routed to the matching runtime oracle without guessing.
+
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer level1_bomb_route

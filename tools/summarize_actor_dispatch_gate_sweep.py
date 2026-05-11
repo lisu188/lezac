@@ -82,6 +82,12 @@ def is_freeze_observed(value: str | None) -> bool:
     }
 
 
+def oracle_for_target(target: str) -> tuple[str, str]:
+    if target in {"contact_scanner_start", "contact_scanner_end"}:
+        return "contact_scanner", "--debug-contact-scanner-runtime-oracle"
+    return "actor_update", "--debug-actor-update-runtime-oracle"
+
+
 def route_statuses(manifest: Manifest, default_target: str | None = None) -> list[CaptureStatus]:
     statuses: list[CaptureStatus] = []
     target_from_manifest = default_target or manifest.values.get("target", "")
@@ -186,6 +192,8 @@ def summarize(manifest: Manifest) -> tuple[str, list[str]]:
         f"runtime_ds={status.fields.get('runtime_ds', 'unknown')} "
         f"freeze_runtime={status.fields.get('freeze_runtime', 'unknown')} "
         f"candidate_fixture={status.fields.get('candidate_fixture', 'none')} "
+        f"oracle={oracle_for_target(status.target)[0]} "
+        f"oracle_flag={oracle_for_target(status.target)[1]} "
         f"raw_dump={status.fields.get('raw_dump', 'none')}"
         for status in freezes
     ]

@@ -252,7 +252,7 @@ reports optional `dispatch_gates=` names from these breakpoints when they are
 present in a normalized fixture. `tools/summarize_actor_dispatch_gate_sweep.py`
 follows a completed dispatch-sweep manifest and reports capture counts, observed
 freeze targets, missing targets, and candidate fixtures ready for oracle
-normalization.
+normalization; each freeze line also labels the expected runtime oracle flag.
 
 ## Bomb Inventory
 

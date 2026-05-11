@@ -10,7 +10,8 @@ Baseline: `origin/main`
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports
   observed runtime freezes, lists missing gate targets, and surfaces candidate
-  fixtures for `--debug-actor-update-runtime-oracle` normalization.
+  fixtures for runtime-oracle normalization. It now labels each observed freeze
+  with the matching `actor_update` or `contact_scanner` oracle flag.
 - Added `lane-result-cs-scratch` instrumentation support to
   `tools/capture_original_explosion_procmem.py` for the final lane-helper
   result writes at `1000:3D3F` and `1000:3ED3`. The runtime-only trampoline

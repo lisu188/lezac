@@ -124,6 +124,7 @@ def main() -> int:
             "missing_targets=actor_update_gate5",
             "candidate_fixtures=/tmp/gate6/candidate_fixture.txt",
             "freeze target=actor_update_gate6 route=x3p00 ghidra=1000:654E",
+            "oracle=actor_update oracle_flag=--debug-actor-update-runtime-oracle",
         ]:
             require(result, snippet, "dispatch_manifest")
         cases += 1
@@ -154,8 +155,33 @@ def main() -> int:
             "observed_targets=contact_scanner_callsite",
             "missing_targets=none",
             "candidate_fixtures=/tmp/contact/candidate_fixture.txt",
+            "oracle=actor_update oracle_flag=--debug-actor-update-runtime-oracle",
         ]:
             require(direct, snippet, "direct_route_manifest")
+        cases += 1
+
+        scanner_manifest = base / "scanner" / "manifest.txt"
+        write_text(
+            scanner_manifest,
+            "\n".join(
+                [
+                    "capture=actor_contact_route_sweep",
+                    "target=contact_scanner_start",
+                    "timings=before_route",
+                    "routes=1",
+                    "route_labels=x0p50",
+                    "capture_status_x0p50=actor_contact_procmem=ok mode=capture target=contact_scanner_start ghidra=1000:5CB0 runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:5CB0 freeze_observed=1 raw_dump=/tmp/scanner/raw.txt candidate_fixture=/tmp/scanner/candidate_fixture.txt",
+                    "",
+                ]
+            ),
+        )
+        scanner = run_summary(root, scanner_manifest).stdout
+        for snippet in [
+            "observed_targets=contact_scanner_start",
+            "candidate_fixtures=/tmp/scanner/candidate_fixture.txt",
+            "oracle=contact_scanner oracle_flag=--debug-contact-scanner-runtime-oracle",
+        ]:
+            require(scanner, snippet, "scanner_route_manifest")
         cases += 1
 
         dry_manifest = base / "dry" / "manifest.txt"

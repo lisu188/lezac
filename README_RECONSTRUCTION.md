@@ -220,6 +220,19 @@ python3 tools/sweep_original_actor_contact_routes.py \
   --approve-procmem --approve-runtime-instrumentation
 ```
 
+Use the dispatch-gate sweep planner when the goal is to exercise every mapped
+actor-update gate in one pass. Its default target set is `actor_update_gate5`,
+`actor_update_gate5_integration`, `actor_update_gate5_exit`,
+`actor_update_gate6`, and `contact_scanner_callsite`:
+
+```sh
+python3 tools/sweep_original_actor_dispatch_gates.py \
+  /tmp/lezac-actor-dispatch-gates . --dry-run
+python3 tools/sweep_original_actor_dispatch_gates.py \
+  /tmp/lezac-actor-dispatch-gates . --timing before_route \
+  --approve-procmem --approve-runtime-instrumentation
+```
+
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer level1_bomb_route

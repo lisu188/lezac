@@ -245,6 +245,9 @@ route sweep. `tools/check_actor_update_dispatch_gates.py` additionally scans
 the actor-update window for every `cmp [bp-31h], imm` gate and currently locks
 `1000:654E = 06`, `1000:65A2 = 05`, and the later `1000:7595 = 05` exit gate
 to `1000:777F`; that late gate is exposed as `actor_update_gate5_exit`.
+`tools/sweep_original_actor_dispatch_gates.py` plans or runs the mapped gate
+set as one matrix so the next DOSBox pass can test all gate reachability with
+the same route and timing inputs.
 
 ## Bomb Inventory
 

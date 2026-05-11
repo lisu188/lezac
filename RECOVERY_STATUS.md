@@ -465,6 +465,14 @@ Baseline: `origin/main`
   `1000:654E = 06`, `1000:65A2 = 05`, and the later `1000:7595 = 05` exit gate
   whose equal branch jumps to `1000:777F`. The late exit is exposed as the
   process-memory target `actor_update_gate5_exit`.
+- Added `tools/sweep_original_actor_dispatch_gates.py`, a multi-target planner
+  for the mapped actor-update gates. Its default target set is
+  `actor_update_gate5`, `actor_update_gate5_integration`,
+  `actor_update_gate5_exit`, `actor_update_gate6`, and
+  `contact_scanner_callsite`, delegating each target to the existing guarded
+  actor/contact route-sweep helper. `tools/check_actor_dispatch_gate_sweep.py`
+  locks the default dry-run, custom target/timing routes, live-approval
+  refusal, repo-output refusal, and malformed route handling.
 - A live `contact_scanner_callsite` pre-route probe at
   `/tmp/lezac-contact-callsite-live-codex-20260511` on route
   `x:5.00,m:0.50,x:4.00` loaded `01ED:6555` with old bytes `e858`,
@@ -509,6 +517,12 @@ Baseline: `origin/main`
   `actor_update_dispatch_gates|actor_contact_route_sweep_output_expectations|actor_contact_procmem_helper_expectations`
   passed after reconfigure, and full native validation passed again:
   configure/build succeeded and CTest reported 175/175 tests passing.
+- After adding the actor dispatch-gate sweep planner, focused Python checks for
+  `check_actor_dispatch_gate_sweep.py` and
+  `sweep_original_actor_dispatch_gates.py --dry-run` passed. Focused CTest
+  `python_tool_syntax_lane_result_preflight|actor_dispatch_gate_sweep_dry_run|actor_dispatch_gate_sweep_output_expectations`
+  passed after reconfigure, and full native validation passed again:
+  configure/build succeeded and CTest reported 177/177 tests passing.
 - After adding the actor/contact process-memory wrapper and dry-run CTest,
   `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
   -BuildDir build-win-codex-vs3 -Configuration Debug` passed: configure/build

@@ -257,7 +257,9 @@ to emit a promotion manifest containing only ready candidate fixtures and their
 oracle commands. Use `tools/run_actor_dispatch_ready_manifest.py <path>
 --dry-run` to review that handoff, or omit `--dry-run` in a prepared
 WSL/native environment to execute the listed C++ oracles with per-candidate
-timeouts and optional logs.
+timeouts and optional logs. The runner validates fixture paths and oracle/flag
+pairs before launching commands; `--allow-missing-fixtures` is only for dry-run
+forensic review after moving manifests between machines.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \

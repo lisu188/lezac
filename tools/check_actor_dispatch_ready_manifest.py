@@ -295,6 +295,91 @@ def main() -> int:
         )
         cases += 1
 
+        missing_fixture = base / "missing-fixture" / "manifest.txt"
+        write_text(
+            missing_fixture,
+            "\n".join(
+                [
+                    "promotion=actor_dispatch_gate_ready_candidates",
+                    "oracle_binary=./build/lezac_cpp",
+                    "ready_candidates=1",
+                    "candidate_0_target=actor_update_gate6",
+                    "candidate_0_route=x3p00",
+                    "candidate_0_ghidra=1000:654E",
+                    "candidate_0_runtime_cs=01ED",
+                    "candidate_0_runtime_ds=0F3C",
+                    "candidate_0_freeze_runtime=01ED:654E",
+                    "candidate_0_fixture=missing_candidate.txt",
+                    "candidate_0_oracle=actor_update",
+                    "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",
+                    "",
+                ]
+            ),
+        )
+        missing_fixture_result = run_ready(
+            root, [str(missing_fixture), "--dry-run"], False
+        )
+        require(
+            missing_fixture_result,
+            "candidate fixture not found",
+            "missing_fixture",
+        )
+        missing_fixture_allowed = run_ready(
+            root,
+            [
+                str(missing_fixture),
+                "--dry-run",
+                "--allow-missing-fixtures",
+            ],
+        )
+        require(
+            missing_fixture_allowed,
+            "ready_candidate index=0 target=actor_update_gate6",
+            "missing_fixture_allowed",
+        )
+        cases += 1
+
+        bad_oracle_flag = base / "bad-oracle-flag" / "manifest.txt"
+        write_text(
+            bad_oracle_flag,
+            "\n".join(
+                [
+                    "promotion=actor_dispatch_gate_ready_candidates",
+                    "oracle_binary=./build/lezac_cpp",
+                    "ready_candidates=1",
+                    "candidate_0_target=contact_scanner_start",
+                    "candidate_0_route=x0p50",
+                    "candidate_0_ghidra=1000:5CB0",
+                    "candidate_0_runtime_cs=01ED",
+                    "candidate_0_runtime_ds=0F3C",
+                    "candidate_0_freeze_runtime=01ED:5CB0",
+                    f"candidate_0_fixture={scanner_fixture}",
+                    "candidate_0_oracle=contact_scanner",
+                    "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",
+                    "",
+                ]
+            ),
+        )
+        flag = run_ready(root, [str(bad_oracle_flag), "--dry-run"], False)
+        require(flag, "does not match", "bad_oracle_flag")
+        require(flag, "expected '--debug-contact-scanner-runtime-oracle'", "bad_oracle_flag")
+        cases += 1
+
+        missing_fixture_live = run_ready(
+            root,
+            [
+                str(missing_fixture),
+                "--allow-missing-fixtures",
+            ],
+            False,
+        )
+        require(
+            missing_fixture_live,
+            "--allow-missing-fixtures requires --dry-run",
+            "missing_fixture_live",
+        )
+        cases += 1
+
     print(f"actor_dispatch_ready_manifest_check=ok cases={cases}")
     return 0
 

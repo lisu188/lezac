@@ -13,6 +13,10 @@ import sys
 
 
 EXPECTED_PROMOTION = "actor_dispatch_gate_ready_candidates"
+ORACLE_FLAGS = {
+    "actor_update": "--debug-actor-update-runtime-oracle",
+    "contact_scanner": "--debug-contact-scanner-runtime-oracle",
+}
 
 
 @dataclass(frozen=True)
@@ -76,7 +80,11 @@ def resolve_fixture(raw_fixture: str, manifest_path: Path) -> Path:
     return (manifest_path.parent / path).resolve()
 
 
-def parse_candidates(values: dict[str, str], manifest_path: Path) -> list[ReadyCandidate]:
+def parse_candidates(
+    values: dict[str, str],
+    manifest_path: Path,
+    require_fixtures: bool,
+) -> list[ReadyCandidate]:
     promotion = require(values, "promotion")
     if promotion != EXPECTED_PROMOTION:
         raise ValueError(
@@ -85,18 +93,37 @@ def parse_candidates(values: dict[str, str], manifest_path: Path) -> list[ReadyC
     candidates: list[ReadyCandidate] = []
     for index in range(parse_ready_count(values)):
         prefix = f"candidate_{index}"
+        target = require(values, f"{prefix}_target")
+        route = require(values, f"{prefix}_route")
+        ghidra = require(values, f"{prefix}_ghidra")
+        runtime_cs = require(values, f"{prefix}_runtime_cs")
+        runtime_ds = require(values, f"{prefix}_runtime_ds")
+        freeze_runtime = require(values, f"{prefix}_freeze_runtime")
+        fixture = resolve_fixture(require(values, f"{prefix}_fixture"), manifest_path)
+        oracle = require(values, f"{prefix}_oracle")
+        oracle_flag = require(values, f"{prefix}_oracle_flag")
+        expected_flag = ORACLE_FLAGS.get(oracle)
+        if expected_flag is None:
+            raise ValueError(f"{prefix}_oracle has unsupported value: {oracle!r}")
+        if oracle_flag != expected_flag:
+            raise ValueError(
+                f"{prefix}_oracle_flag={oracle_flag!r} does not match "
+                f"{prefix}_oracle={oracle!r}; expected {expected_flag!r}"
+            )
+        if require_fixtures and not fixture.exists():
+            raise FileNotFoundError(f"candidate fixture not found: {fixture}")
         candidates.append(
             ReadyCandidate(
                 index=index,
-                target=require(values, f"{prefix}_target"),
-                route=require(values, f"{prefix}_route"),
-                ghidra=require(values, f"{prefix}_ghidra"),
-                runtime_cs=require(values, f"{prefix}_runtime_cs"),
-                runtime_ds=require(values, f"{prefix}_runtime_ds"),
-                freeze_runtime=require(values, f"{prefix}_freeze_runtime"),
-                fixture=resolve_fixture(require(values, f"{prefix}_fixture"), manifest_path),
-                oracle=require(values, f"{prefix}_oracle"),
-                oracle_flag=require(values, f"{prefix}_oracle_flag"),
+                target=target,
+                route=route,
+                ghidra=ghidra,
+                runtime_cs=runtime_cs,
+                runtime_ds=runtime_ds,
+                freeze_runtime=freeze_runtime,
+                fixture=fixture,
+                oracle=oracle,
+                oracle_flag=oracle_flag,
             )
         )
     return candidates
@@ -167,13 +194,26 @@ def main() -> int:
         default=30.0,
         help="per-candidate oracle timeout for live runs",
     )
+    parser.add_argument(
+        "--allow-missing-fixtures",
+        action="store_true",
+        help="allow dry-run review when candidate fixture paths are unavailable",
+    )
     parser.add_argument("--log-dir", type=Path, help="write oracle output logs")
     args = parser.parse_args()
 
     manifest_path = args.manifest.resolve()
+    require_fixtures = not args.allow_missing_fixtures
+    if args.allow_missing_fixtures and not args.dry_run:
+        print(
+            "actor_dispatch_ready_manifest=error "
+            "reason=--allow-missing-fixtures requires --dry-run",
+            file=sys.stderr,
+        )
+        return 1
     try:
         manifest = read_manifest(manifest_path)
-        candidates = parse_candidates(manifest.values, manifest.path)
+        candidates = parse_candidates(manifest.values, manifest.path, require_fixtures)
         oracle_binary = args.oracle_binary or require(manifest.values, "oracle_binary")
     except (FileNotFoundError, OSError, ValueError) as exc:
         print(f"actor_dispatch_ready_manifest=error reason={exc}", file=sys.stderr)

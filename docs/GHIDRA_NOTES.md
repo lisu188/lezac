@@ -261,7 +261,8 @@ by returning nonzero whenever an observed freeze has a missing, incomplete, or
 absent candidate fixture. `--write-ready-manifest` writes a small follow-up
 manifest containing only ready fixtures and their oracle commands.
 `tools/run_actor_dispatch_ready_manifest.py` can then dry-run or execute that
-handoff without copying shell lines out of the summary output.
+handoff without copying shell lines out of the summary output; it rejects
+missing fixture paths and mismatched oracle/flag pairs before execution.
 
 ## Bomb Inventory
 

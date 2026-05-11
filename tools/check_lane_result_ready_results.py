@@ -76,6 +76,7 @@ def main() -> int:
                     "result=lane_result_ready_manifest",
                     "mode=run",
                     "source_ready_manifest=/tmp/ready_manifest.txt",
+                    "source_environment_preflight=ok",
                     "oracle_binary=./build/lezac_cpp",
                     "ready_candidates=2",
                     "failures=0",
@@ -112,6 +113,7 @@ def main() -> int:
             "lane_result_ready_result_summary=ok",
             "mode=run",
             "source_ready_manifest=/tmp/ready_manifest.txt",
+            "source_environment_preflight=ok",
             "oracle_binary=./build/lezac_cpp",
             "ready_candidates=2",
             "failures=0",
@@ -127,9 +129,15 @@ def main() -> int:
 
         run_required = run_summary(
             root,
-            [str(run_manifest.parent), "--require-success", "--require-executed"],
+            [
+                str(run_manifest.parent),
+                "--require-success",
+                "--require-executed",
+                "--require-source-environment-preflight",
+            ],
         )
         require(run_required, "ready_candidates=2", "run_required")
+        require(run_required, "source_environment_preflight=ok", "run_required")
         cases += 1
 
         dry_manifest = base / "dry" / "result_manifest.txt"
@@ -158,6 +166,7 @@ def main() -> int:
         dry = run_summary(root, [str(dry_manifest)])
         for snippet in [
             "mode=dry_run",
+            "source_environment_preflight=unknown",
             "ready_candidates=1",
             "planned=1 ok=0 error=0 other=0",
             "executed_candidates=0",
@@ -169,6 +178,23 @@ def main() -> int:
             root, [str(dry_manifest), "--require-executed"], False
         )
         require(dry_required, "reason=candidates_not_executed", "dry_required")
+        cases += 1
+
+        dry_preflight_required = run_summary(
+            root,
+            [str(dry_manifest), "--require-source-environment-preflight"],
+            False,
+        )
+        require(
+            dry_preflight_required,
+            "reason=source_environment_preflight_not_ok",
+            "dry_preflight_required",
+        )
+        require(
+            dry_preflight_required,
+            "source_environment_preflight=unknown",
+            "dry_preflight_required",
+        )
         cases += 1
 
         failure_manifest = base / "failure" / "result_manifest.txt"

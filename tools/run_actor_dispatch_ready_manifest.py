@@ -194,6 +194,8 @@ def write_result_manifest(
     path: Path,
     mode: str,
     source_manifest: Path,
+    source_environment_preflight: str,
+    child_environment_preflights: str,
     oracle_binary: str,
     candidate_count: int,
     failures: int,
@@ -205,6 +207,8 @@ def write_result_manifest(
         "result=actor_dispatch_ready_manifest",
         f"mode={mode}",
         f"source_ready_manifest={source_manifest}",
+        f"source_environment_preflight={source_environment_preflight}",
+        f"child_environment_preflights={child_environment_preflights}",
         f"oracle_binary={oracle_binary}",
         f"ready_candidates={candidate_count}",
         f"failures={failures}",
@@ -278,6 +282,11 @@ def main() -> int:
         action="store_true",
         help="allow --log-dir or --write-result-manifest paths inside the repository",
     )
+    parser.add_argument(
+        "--require-source-environment-preflight",
+        action="store_true",
+        help="exit nonzero unless the ready manifest records source_environment_preflight=ok",
+    )
     args = parser.parse_args()
 
     manifest_path = args.manifest.resolve()
@@ -303,8 +312,27 @@ def main() -> int:
         manifest = read_manifest(manifest_path)
         candidates = parse_candidates(manifest.values, manifest.path, require_fixtures)
         oracle_binary = args.oracle_binary or require(manifest.values, "oracle_binary")
+        source_environment_preflight = manifest.values.get(
+            "source_environment_preflight", "unknown"
+        )
+        child_environment_preflights = manifest.values.get(
+            "child_environment_preflights", "unknown"
+        )
     except (FileNotFoundError, OSError, ValueError) as exc:
         print(f"actor_dispatch_ready_manifest=error reason={exc}", file=sys.stderr)
+        return 1
+
+    if (
+        args.require_source_environment_preflight
+        and source_environment_preflight != "ok"
+    ):
+        print(
+            "actor_dispatch_ready_manifest=error "
+            "reason=source_environment_preflight_not_ok "
+            f"source_environment_preflight={source_environment_preflight} "
+            f"child_environment_preflights={child_environment_preflights}",
+            file=sys.stderr,
+        )
         return 1
 
     mode = "dry_run" if args.dry_run else "run"
@@ -312,6 +340,8 @@ def main() -> int:
         "actor_dispatch_ready_manifest=ok "
         f"mode={mode} "
         f"manifest={manifest.path} "
+        f"source_environment_preflight={source_environment_preflight} "
+        f"child_environment_preflights={child_environment_preflights} "
         f"ready_candidates={len(candidates)} "
         f"oracle_binary={oracle_binary}"
     )
@@ -372,6 +402,8 @@ def main() -> int:
                 args.write_result_manifest,
                 mode,
                 manifest.path,
+                source_environment_preflight,
+                child_environment_preflights,
                 oracle_binary,
                 len(candidates),
                 failures,

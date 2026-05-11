@@ -194,6 +194,10 @@ Baseline: `origin/main`
   `--require-environment-preflight`, so ready-candidate promotion scripts can
   fail explicitly when a manifest came from an unverified or legacy capture
   host.
+- Lane-result and actor dispatch ready-manifest runners now propagate
+  `source_environment_preflight=` into result manifests and support
+  `--require-source-environment-preflight`; the matching result summarizers can
+  require the same field before accepting executed oracle results.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,

@@ -137,12 +137,20 @@ def main() -> int:
         action="store_true",
         help="exit nonzero if any candidate is only planned/not-run",
     )
+    parser.add_argument(
+        "--require-source-environment-preflight",
+        action="store_true",
+        help="exit nonzero unless source_environment_preflight=ok is recorded",
+    )
     args = parser.parse_args()
 
     try:
         manifest = read_manifest(args.manifest)
         mode = require(manifest.values, "mode")
         source_manifest = require(manifest.values, "source_ready_manifest")
+        source_environment_preflight = manifest.values.get(
+            "source_environment_preflight", "unknown"
+        )
         oracle_binary = require(manifest.values, "oracle_binary")
         failures = parse_failures(manifest.values)
         candidates = parse_candidates(manifest.values)
@@ -158,6 +166,7 @@ def main() -> int:
         f"manifest={manifest.path} "
         f"mode={mode} "
         f"source_ready_manifest={source_manifest} "
+        f"source_environment_preflight={source_environment_preflight} "
         f"oracle_binary={oracle_binary} "
         f"ready_candidates={len(candidates)} "
         f"failures={failures} "
@@ -197,6 +206,17 @@ def main() -> int:
             file=sys.stderr,
         )
         return 3
+    if (
+        args.require_source_environment_preflight
+        and source_environment_preflight != "ok"
+    ):
+        print(
+            "lane_result_ready_result_summary=error "
+            "reason=source_environment_preflight_not_ok "
+            f"source_environment_preflight={source_environment_preflight}",
+            file=sys.stderr,
+        )
+        return 4
     return 0
 
 

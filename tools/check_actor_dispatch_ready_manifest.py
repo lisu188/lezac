@@ -121,6 +121,8 @@ def main() -> int:
                 [
                     "promotion=actor_dispatch_gate_ready_candidates",
                     "source_manifest=/tmp/source/manifest.txt",
+                    "source_environment_preflight=ok",
+                    "child_environment_preflights=skipped",
                     "oracle_binary=/tmp/lezac cpp/lezac_cpp",
                     "ready_candidates=2",
                     "candidate_0_target=actor_update_gate6",
@@ -158,6 +160,8 @@ def main() -> int:
         )
         for snippet in [
             "actor_dispatch_ready_manifest=ok mode=dry_run",
+            "source_environment_preflight=ok",
+            "child_environment_preflights=skipped",
             "ready_candidates=2",
             "oracle_binary=/tmp/lezac cpp/lezac_cpp",
             "actor_dispatch_ready_result_manifest=ok",
@@ -181,6 +185,8 @@ def main() -> int:
             "result=actor_dispatch_ready_manifest",
             "mode=dry_run",
             f"source_ready_manifest={ready_manifest.resolve()}",
+            "source_environment_preflight=ok",
+            "child_environment_preflights=skipped",
             "oracle_binary=/tmp/lezac cpp/lezac_cpp",
             "ready_candidates=2",
             "failures=0",
@@ -262,6 +268,8 @@ def main() -> int:
             "result=actor_dispatch_ready_manifest",
             "mode=run",
             f"source_ready_manifest={ready_manifest.resolve()}",
+            "source_environment_preflight=ok",
+            "child_environment_preflights=skipped",
             f"oracle_binary={fake_oracle}",
             "ready_candidates=2",
             "failures=0",
@@ -289,7 +297,48 @@ def main() -> int:
             ),
         )
         zero = run_ready(root, [str(zero_manifest), "--dry-run"])
+        require(
+            zero,
+            "source_environment_preflight=unknown",
+            "zero_candidates",
+        )
         require(zero, "ready_candidates=0", "zero_candidates")
+        cases += 1
+
+        preflight_required = run_ready(
+            root,
+            [
+                str(ready_manifest),
+                "--dry-run",
+                "--require-source-environment-preflight",
+            ],
+        )
+        require(
+            preflight_required,
+            "source_environment_preflight=ok",
+            "preflight_required",
+        )
+        cases += 1
+
+        zero_preflight_required = run_ready(
+            root,
+            [
+                str(zero_manifest),
+                "--dry-run",
+                "--require-source-environment-preflight",
+            ],
+            False,
+        )
+        require(
+            zero_preflight_required,
+            "reason=source_environment_preflight_not_ok",
+            "zero_preflight_required",
+        )
+        require(
+            zero_preflight_required,
+            "source_environment_preflight=unknown",
+            "zero_preflight_required",
+        )
         cases += 1
 
         bad_promotion = base / "bad-promotion" / "manifest.txt"

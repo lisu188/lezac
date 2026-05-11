@@ -270,12 +270,16 @@ oracle commands plus the source preflight status. Use
 `tools/run_actor_dispatch_ready_manifest.py <path>
 --dry-run` to review that handoff, or omit `--dry-run` in a prepared
 WSL/native environment to execute the listed C++ oracles with per-candidate
-timeouts and optional logs. The runner validates fixture paths and oracle/flag
-pairs before launching commands; `--allow-missing-fixtures` is only for dry-run
-forensic review after moving manifests between machines. Add
+timeouts and optional logs. Add `--require-source-environment-preflight` when
+the runner or later result summary should reject ready manifests whose source
+sweep did not record `source_environment_preflight=ok`. The runner validates
+fixture paths and oracle/flag pairs before launching commands;
+`--allow-missing-fixtures` is only for dry-run forensic review after moving
+manifests between machines. Add
 `--write-result-manifest <path>` to leave a key/value audit trail for planned
-or executed oracle commands. Result manifests and oracle logs are refused
-inside the repository unless `--allow-repo-output` is passed deliberately.
+or executed oracle commands, including the source preflight state. Result
+manifests and oracle logs are refused inside the repository unless
+`--allow-repo-output` is passed deliberately.
 Use `tools/summarize_actor_dispatch_ready_results.py <path>` to summarize that
 audit trail, and add `--require-success --require-executed` when promotion
 should fail unless every oracle actually ran and passed. The CTest helper
@@ -434,7 +438,9 @@ also require the sweep's host preflight to be recorded as `ok`.
 ready oracle candidates, writes optional per-candidate logs, and can leave a
 result manifest for
 `tools/summarize_lane_result_ready_results.py --require-success
---require-executed`. Result manifests and logs are refused inside the
+--require-executed --require-source-environment-preflight`. The runner accepts
+the same `--require-source-environment-preflight` guard before planning or
+executing oracle commands. Result manifests and logs are refused inside the
 repository unless `--allow-repo-output` is passed deliberately. The synthetic
 CTest helpers `tools/check_lane_result_ready_manifest.py`,
 `tools/check_lane_result_ready_results.py`, and

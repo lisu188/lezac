@@ -463,7 +463,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_route_sweep_output_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_route_sweep_output=ok cases=6")
+                "^lane_result_route_sweep_output=ok cases=8")
 
         add_test(NAME explosion_lane_result_route_sweep_summary_expectations
             COMMAND ${Python3_EXECUTABLE}

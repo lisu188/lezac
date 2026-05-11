@@ -179,6 +179,10 @@ Baseline: `origin/main`
   coverage. The preflight reports shipped asset availability and the local
   `bash`/DOSBox/`dosbox-debug`/Xvfb/`xdotool` toolchain, with require modes that
   fail before a long original-evidence sweep starts on an unprepared host.
+- `tools/sweep_original_lane_result_routes.py` now prints the environment
+  preflight command in dry-run and runs the process-memory capture preflight
+  once before any live route commands, unless explicitly skipped with
+  `--skip-environment-preflight`.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,

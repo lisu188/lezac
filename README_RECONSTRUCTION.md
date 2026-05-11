@@ -201,7 +201,9 @@ actor-update end `1000:777F`, plus the later `05` exit gate at `1000:7595`.
 The wrapper writes
 `<target>_runtime_candidate.txt` with the runtime metadata plus raw route-state
 dumps; the candidate is a fill-in scaffold until semantic actor/contact records
-are decoded. Use `LEZAC_ACTOR_CONTACT_ROUTE_STEPS` with comma-separated
+are decoded. Gate-target candidates include the required actor-update anchor
+set and a `dispatch_gate_candidate` hint for later `dispatch_gates=` oracle
+promotion. Use `LEZAC_ACTOR_CONTACT_ROUTE_STEPS` with comma-separated
 `key:seconds` holds to tune a route, for example
 `LEZAC_ACTOR_CONTACT_ROUTE_STEPS=x:1.0,n:0.2,z:0.5`. Set
 `LEZAC_ACTOR_CONTACT_RUNTIME_FREEZE_BEFORE_ROUTE=1` when probing helpers that

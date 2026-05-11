@@ -73,6 +73,9 @@ def check_script(script_path: Path) -> None:
     require(text, "--freeze-ghidra-offset \"$ghidra\"", "script")
     require(text, "instrumented_freeze_observed", "script")
     require(text, "freeze_runtime_patch_applied", "script")
+    require(text, "required_actor_update_breaks=1000:5CB0,1000:604F,1000:6053,1000:777F", "script")
+    require(text, "dispatch_gate_candidate=$dispatch_gate_label", "script")
+    require(text, "dispatch_gates=<emitted-by-oracle-after-required-breaks-and-semantic-records>", "script")
     require(text, "choose an output directory outside the repository", "script")
     require(text, "missing $asset_dir/LEZAC.EXE", "script")
     for target, ghidra in TARGETS.items():

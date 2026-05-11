@@ -481,6 +481,12 @@ Baseline: `origin/main`
   `contact_scanner_callsite`. Added
   `actor_update_runtime_oracle_dispatch_gates_synthetic.txt` to prove the field
   without changing live gameplay behavior.
+- Updated `tools/capture_original_actor_contact_procmem.sh` candidate skeletons
+  so actor-update targets list the required oracle anchors
+  `1000:5CB0,1000:604F,1000:6053,1000:777F`. Dispatch-gate targets also record
+  `dispatch_gate_candidate=<label>` and a `dispatch_gates=` promotion hint,
+  making future process-memory captures easier to normalize into oracle
+  fixtures.
 - A live `contact_scanner_callsite` pre-route probe at
   `/tmp/lezac-contact-callsite-live-codex-20260511` on route
   `x:5.00,m:0.50,x:4.00` loaded `01ED:6555` with old bytes `e858`,
@@ -537,6 +543,11 @@ Baseline: `origin/main`
   duplicate `Path`/`PATH` MSBuild environment issue, so validation continued
   through `tools\run_native_windows_validation.ps1`; the wrapper build
   succeeded and CTest reported 178/178 tests passing.
+- After adding dispatch-gate promotion hints to actor/contact process-memory
+  candidate skeletons, focused helper validation
+  `check_actor_contact_procmem_helper.py` passed, and full native validation
+  through `tools\run_native_windows_validation.ps1` passed again:
+  configure/build succeeded and CTest reported 178/178 tests passing.
 - After adding the actor/contact process-memory wrapper and dry-run CTest,
   `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
   -BuildDir build-win-codex-vs3 -Configuration Debug` passed: configure/build

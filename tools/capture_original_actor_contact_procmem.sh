@@ -156,6 +156,12 @@ oracle_capture=actor_update_runtime
 if [[ "$target" == contact_scanner_* ]]; then
     oracle_capture=contact_scanner_runtime
 fi
+dispatch_gate_label=
+case "$target" in
+    actor_update_gate5|actor_update_gate5_integration|actor_update_gate5_exit|actor_update_gate6|contact_scanner_callsite)
+        dispatch_gate_label=$label
+        ;;
+esac
 
 write_candidate_skeleton() {
     local runtime_cs=${1:-}
@@ -186,6 +192,13 @@ write_candidate_skeleton() {
             echo "# runtime_ds=<runtime-ds>"
         fi
         echo "break ghidra=$ghidra runtime=${freeze_runtime_value:-<runtime-cs>:${ghidra#*:}} label=$label observed=process_memory_runtime_freeze_${freeze_observed_value:-unknown}"
+        if [[ "$oracle_capture" == "actor_update_runtime" ]]; then
+            echo "# required_actor_update_breaks=1000:5CB0,1000:604F,1000:6053,1000:777F"
+            if [[ -n "$dispatch_gate_label" ]]; then
+                echo "# dispatch_gate_candidate=$dispatch_gate_label"
+                echo "# dispatch_gates=<emitted-by-oracle-after-required-breaks-and-semantic-records>"
+            fi
+        fi
         echo "# freeze_old_bytes=$freeze_old_bytes"
         echo "# freeze_patch_bytes=$freeze_patch_bytes"
         echo "# freeze_loaded_bytes=$freeze_loaded_bytes"

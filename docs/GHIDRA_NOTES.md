@@ -241,7 +241,10 @@ direct near jumps to the shared integration entry are now checked as
 `1000:6558` and `1000:65D7`. These are exposed as
 `capture_original_actor_contact_procmem.sh` targets `actor_update_gate5`,
 `actor_update_gate5_integration`, and `actor_update_gate6` for the next live
-route sweep.
+route sweep. `tools/check_actor_update_dispatch_gates.py` additionally scans
+the actor-update window for every `cmp [bp-31h], imm` gate and currently locks
+`1000:654E = 06`, `1000:65A2 = 05`, and the later `1000:7595 = 05` exit gate
+to `1000:777F`; that late gate is exposed as `actor_update_gate5_exit`.
 
 ## Bomb Inventory
 

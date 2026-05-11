@@ -266,6 +266,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_callsite_scan.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_procmem_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_dispatch_gates.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_debug_capture_helper.py
@@ -443,6 +444,15 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^actor_contact_callsite_context=ok .*gate=1000:654E .*gate_bytes=807ecf06 .*skip_target=1000:655B .*callsite=1000:6555 .*call_target=1000:5CB0 .*integration=1000:73E5 .*sibling_gate=1000:65A2 .*sibling_end_target=1000:777F .*integration_jumps=1000:6558,1000:65D7")
 
+        add_test(NAME actor_update_dispatch_gates
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_dispatch_gates.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_update_dispatch_gates PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_update_dispatch_gates=ok .*gates=1000:654E=06,1000:65A2=05,1000:7595=05 .*gate6_call_target=1000:5CB0 .*gate5_integration_target=1000:73E5 .*gate5_exit_target=1000:777F")
+
         find_program(BASH_EXECUTABLE bash)
         if(BASH_EXECUTABLE)
             add_test(NAME behavior4_debug_capture_helper_dry_run
@@ -528,7 +538,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_contact_procmem_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_contact_procmem_helper=ok targets=8 cmake_test=1 docs=2")
+                "^actor_contact_procmem_helper=ok targets=9 cmake_test=1 docs=2")
 
         add_test(NAME actor_update_runtime_oracle_fixture_expectations
             COMMAND ${Python3_EXECUTABLE}

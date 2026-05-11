@@ -23,6 +23,7 @@ TARGETS = [
     "actor_update_end",
     "actor_update_gate5",
     "actor_update_gate5_integration",
+    "actor_update_gate5_exit",
     "actor_update_gate6",
     "contact_scanner_callsite",
     "contact_scanner_start",

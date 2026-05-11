@@ -184,8 +184,9 @@ LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION=1 \
 The wrapper reuses the proven child-process memory scanner, patches only the
 temporary DOSBox-debug child process, and records `visual_claim=0` instrumentation
 evidence. Supported targets are `actor_update_start`, `actor_update_end`,
-`actor_update_gate5`, `actor_update_gate5_integration`, `actor_update_gate6`,
-`contact_scanner_callsite`, `contact_scanner_start`, and `contact_scanner_end`.
+`actor_update_gate5`, `actor_update_gate5_integration`,
+`actor_update_gate5_exit`, `actor_update_gate6`, `contact_scanner_callsite`,
+`contact_scanner_start`, and `contact_scanner_end`.
 `contact_scanner_callsite` maps the static near call at `1000:6555` that targets
 `1000:5CB0`; `tools/check_actor_contact_callsite_scan.py` verifies that callsite
 and the entry/return bytes against `LEZAC.EXE`.
@@ -194,7 +195,8 @@ and the entry/return bytes against `LEZAC.EXE`.
 and the matching path runs `push bp; call 1000:5CB0` before jumping to
 `1000:73E5`. It also checks the neighboring `05` gate at `1000:65A2`, whose
 live path can enter shared integration through `1000:65D7` or jump to
-actor-update end `1000:777F`. The wrapper writes
+actor-update end `1000:777F`, plus the later `05` exit gate at `1000:7595`.
+The wrapper writes
 `<target>_runtime_candidate.txt` with the runtime metadata plus raw route-state
 dumps; the candidate is a fill-in scaffold until semantic actor/contact records
 are decoded. Use `LEZAC_ACTOR_CONTACT_ROUTE_STEPS` with comma-separated

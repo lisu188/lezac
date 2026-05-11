@@ -34,6 +34,38 @@ require() {
     fi
 }
 
+append_runtime_registers() {
+    local runtime_cs
+    local runtime_ds
+
+    runtime_cs=$(grep -aoE 'CS=[0-9A-Fa-f]{4}' "$log" 2>/dev/null | tail -n 1 | cut -d= -f2 || true)
+    runtime_ds=$(grep -aoE 'DS=[0-9A-Fa-f]{4}' "$log" 2>/dev/null | tail -n 1 | cut -d= -f2 || true)
+
+    if [[ -z "$runtime_cs" && -z "$runtime_ds" ]]; then
+        return
+    fi
+
+    {
+        echo "runtime_metadata=observed"
+        if [[ -n "$runtime_cs" ]]; then
+            echo "runtime_cs=$runtime_cs"
+        fi
+        if [[ -n "$runtime_ds" ]]; then
+            echo "runtime_ds=$runtime_ds"
+        fi
+        echo "ghidra_segment=1000"
+    } >>"$raw_dump"
+
+    {
+        if [[ -n "$runtime_cs" ]]; then
+            echo "runtime_cs=$runtime_cs"
+        fi
+        if [[ -n "$runtime_ds" ]]; then
+            echo "runtime_ds=$runtime_ds"
+        fi
+    } >>"$manifest"
+}
+
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 mkdir -p "$out_dir"
 out_dir=$(cd "$out_dir" && pwd)
@@ -185,6 +217,7 @@ set +e
 "${dosbox_command[@]}" >>"$log" 2>&1
 status=$?
 set -e
+append_runtime_registers
 echo "dosbox_debug_exit=$status" >>"$manifest"
 echo "dosbox_debug_exit=$status" >>"$raw_dump"
 

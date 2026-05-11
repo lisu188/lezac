@@ -212,7 +212,9 @@ Baseline: `origin/main`
   and `monster_behavior4_chase`. It writes `manifest.txt`,
   `raw_debugger_dump.txt`, `candidate_fixture.txt`, `debugger_commands.txt`, and
   `actor_update_debug_capture.log`, labels current captures `debugger_seeded`,
-  and has a dry-run CTest path for environments with `bash`. The candidate
+  and has a dry-run CTest path for environments with `bash`. Live DOSBox-debug
+  attempts now append any observed debugger prompt `runtime_cs`/`runtime_ds`
+  values to both `manifest.txt` and `raw_debugger_dump.txt`. The candidate
   fixture is intentionally a fill-in skeleton until original runtime fields and
   dump rows are captured.
 - Added `tools/check_actor_update_runtime_oracle_fixtures.py` so the
@@ -229,12 +231,18 @@ Baseline: `origin/main`
   and `monster_behavior4_chase`. It writes scanner-only `manifest.txt`,
   `raw_debugger_dump.txt`, `candidate_fixture.txt`, `debugger_commands.txt`, and
   `contact_scanner_debug_capture.log`, labels current captures
-  `debugger_seeded`, and has CMake/checker coverage for dry-run wiring. The
-  candidate fixture is intentionally a fill-in skeleton until original runtime
-  fields and dump rows are captured.
-- WSL is currently present but blocked from this shell by `E_ACCESSDENIED`, so
-  original DOSBox-debug actor-update capture remains pending for an environment
-  where WSL service access is allowed.
+  `debugger_seeded`, and has CMake/checker coverage for dry-run wiring. Live
+  DOSBox-debug attempts now append any observed debugger prompt
+  `runtime_cs`/`runtime_ds` values to both `manifest.txt` and
+  `raw_debugger_dump.txt`. The candidate fixture is intentionally a fill-in
+  skeleton until original runtime fields and dump rows are captured.
+- WSL/Xvfb/DOSBox-debug launch is unblocked in the approved WSL context. Short
+  2026-05-11 temp-copy probes reached the DOSBox-debug prompt and recorded
+  runtime `CS=01ED`, `DS=01DD` for both contact-scanner and actor-update helper
+  paths. They still time out with DOSBox-debug exit `124` because debugger
+  command submission and semantic breakpoint seeding are the remaining blocker;
+  no original actor/contact runtime fixture has been promoted from these launch
+  probes.
 - Added provisional live state-2 rendering keyed to the recovered `0x4a..0x4f`
   cursor range. It is intentionally documented as `visual_claim=0` until the
   original `DS:c322` frame-table fields are fully interpreted.
@@ -305,6 +313,26 @@ Baseline: `origin/main`
 
 ## Validation
 
+- 2026-05-11 continuation: bundled Python helper/oracle checks passed for
+  `tools/check_actor_update_debug_capture_helper.py`,
+  `tools/check_contact_scanner_debug_capture_helper.py`,
+  `tools/check_actor_update_runtime_oracle_fixtures.py`, and
+  `tools/check_contact_scanner_runtime_oracle_fixtures.py`.
+- `git --git-dir=.codex-git --work-tree=. diff --check` passed; Git reported
+  only existing CRLF normalization warnings for touched Markdown files.
+- WSL syntax checks passed for `tools/capture_original_contact_scanner_debug.sh`
+  and `tools/capture_original_actor_update_debug.sh`.
+- WSL dry-runs wrote complete helper artifacts outside the repository at
+  `/tmp/lezac-contact-scanner-dry-run-codex-20260511` and
+  `/tmp/lezac-actor-update-dry-run-codex-20260511`.
+- Short WSL/Xvfb/DOSBox-debug launch probes wrote temp-copy manifests at
+  `/tmp/lezac-contact-scanner-live2-codex-20260511` and
+  `/tmp/lezac-actor-update-live-codex-20260511`. Both reached the debugger
+  prompt and recorded `runtime_cs=01ED`, `runtime_ds=01DD`; both timed out with
+  DOSBox-debug exit `124` because debugger command submission is still pending.
+- `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
+  -BuildDir build-win-codex-vs3 -Configuration Debug` passed: configure/build
+  succeeded and CTest reported 169/169 tests passing.
 - `cmake -S . -B build` passed.
 - `cmake --build build` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp

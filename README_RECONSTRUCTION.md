@@ -155,7 +155,9 @@ contact scanner and actor-update behavior around `1000:5CB0..604F` and
 best-effort DOSBox-debug capture plans for `object_collision_jump_live`,
 `monster_contact_damage_live`, and `monster_behavior4_chase`; it writes a
 `candidate_fixture.txt` skeleton that must be filled from runtime output before
-promotion.
+promotion. When a live DOSBox-debug launch reaches the debugger prompt, the
+helper copies observed `runtime_cs`/`runtime_ds` values into `manifest.txt` and
+`raw_debugger_dump.txt`, even if command submission later times out.
 Scanner-only transcripts can also be checked with
 `--debug-contact-scanner-runtime-oracle <fixture> [--expect-error]`; this keeps
 `1000:5CB0..604F` overlap/contact flag evidence separate from full actor update
@@ -163,7 +165,8 @@ state when a debugger stop only captures the scanner window. Use
 `tools/capture_original_contact_scanner_debug.sh` to stage the matching
 DOSBox-debug plan for `monster_contact_damage_live`, `object_collision_jump_live`,
 or `monster_behavior4_chase`; it writes a `candidate_fixture.txt` skeleton that
-must be filled from runtime output before promotion.
+must be filled from runtime output before promotion, and it preserves prompt
+`runtime_cs`/`runtime_ds` metadata the same way as the actor-update helper.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \

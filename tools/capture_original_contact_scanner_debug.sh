@@ -34,6 +34,29 @@ require() {
     fi
 }
 
+write_runtime_command_plan() {
+    local runtime_cs=$1
+    local runtime_ds=$2
+    local dump_segment=DS
+
+    if [[ -z "$runtime_cs" ]]; then
+        return
+    fi
+    if [[ -n "$runtime_ds" ]]; then
+        dump_segment=$runtime_ds
+    fi
+
+    {
+        echo "# DOSBox debugger commands expanded from observed runtime registers."
+        echo "# runtime_cs=$runtime_cs"
+        if [[ -n "$runtime_ds" ]]; then
+            echo "# runtime_ds=$runtime_ds"
+        fi
+        grep -v '^#' "$commands_file" |
+            sed -e "s/<CS>/$runtime_cs/g" -e "s/D DS:/D $dump_segment:/g"
+    } >"$runtime_commands_file"
+}
+
 append_runtime_registers() {
     local runtime_cs
     local runtime_ds
@@ -64,6 +87,8 @@ append_runtime_registers() {
             echo "runtime_ds=$runtime_ds"
         fi
     } >>"$manifest"
+
+    write_runtime_command_plan "$runtime_cs" "$runtime_ds"
 }
 
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
@@ -82,6 +107,7 @@ manifest="$out_dir/manifest.txt"
 raw_dump="$out_dir/raw_debugger_dump.txt"
 log="$out_dir/contact_scanner_debug_capture.log"
 commands_file="$out_dir/debugger_commands.txt"
+runtime_commands_file="$out_dir/debugger_commands_runtime.txt"
 candidate_fixture="$out_dir/candidate_fixture.txt"
 
 runtime_route=debugger_seeded
@@ -98,6 +124,11 @@ D DS:7900
 D DS:79E0
 EOF_COMMANDS
 
+cat >"$runtime_commands_file" <<'EOF_RUNTIME_COMMANDS'
+# Runtime DOSBox debugger command plan.
+# A live capture overwrites this after runtime CS/DS is observed.
+EOF_RUNTIME_COMMANDS
+
 {
     echo "capture=contact_scanner_runtime"
     echo "source=dosbox-debug"
@@ -107,6 +138,7 @@ EOF_COMMANDS
     echo "asset_dir=$asset_dir"
     echo "out_dir=$out_dir"
     echo "debugger_commands=$commands_file"
+    echo "debugger_commands_runtime=$runtime_commands_file"
     echo "raw_debugger_dump=$raw_dump"
     echo "candidate_fixture=$candidate_fixture"
     echo "anchors=1000:5CB0..604F"
@@ -145,6 +177,7 @@ EOF_FIXTURE
     echo "expected_level=$expected_level"
     echo "anchor_contact_scanner=1000:5CB0..604F"
     echo "candidate_fixture=$candidate_fixture"
+    echo "debugger_commands_runtime=$runtime_commands_file"
     echo "fixture_command=./build/lezac_cpp --debug-contact-scanner-runtime-oracle <candidate-fixture>"
 } >"$raw_dump"
 
@@ -155,6 +188,7 @@ EOF_FIXTURE
     echo "manifest=$manifest"
     echo "raw_debugger_dump=$raw_dump"
     echo "candidate_fixture=$candidate_fixture"
+    echo "debugger_commands_runtime=$runtime_commands_file"
 } >"$log"
 
 if [[ ! -e "$asset_dir/LEZAC.EXE" ]]; then
@@ -163,7 +197,7 @@ if [[ ! -e "$asset_dir/LEZAC.EXE" ]]; then
 fi
 
 if [[ "${LEZAC_CONTACT_SCANNER_DEBUG_DRY_RUN:-0}" == "1" ]]; then
-    echo "contact_scanner_debug_capture=ok mode=dry_run scenario=$scenario route=$runtime_route manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture"
+    echo "contact_scanner_debug_capture=ok mode=dry_run scenario=$scenario route=$runtime_route manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture debugger_commands_runtime=$runtime_commands_file"
     exit 0
 fi
 

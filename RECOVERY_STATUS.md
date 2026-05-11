@@ -214,9 +214,10 @@ Baseline: `origin/main`
   `actor_update_debug_capture.log`, labels current captures `debugger_seeded`,
   and has a dry-run CTest path for environments with `bash`. Live DOSBox-debug
   attempts now append any observed debugger prompt `runtime_cs`/`runtime_ds`
-  values to both `manifest.txt` and `raw_debugger_dump.txt`. The candidate
-  fixture is intentionally a fill-in skeleton until original runtime fields and
-  dump rows are captured.
+  values to both `manifest.txt` and `raw_debugger_dump.txt`, and write
+  `debugger_commands_runtime.txt` with concrete runtime breakpoint/dump
+  commands. The candidate fixture is intentionally a fill-in skeleton until
+  original runtime fields and dump rows are captured.
 - Added `tools/check_actor_update_runtime_oracle_fixtures.py` so the
   actor-update fixture set, expected malformed outcomes, CMake wiring, and C++
   oracle command/source contract can be validated without DOSBox or a compiler.
@@ -234,8 +235,10 @@ Baseline: `origin/main`
   `debugger_seeded`, and has CMake/checker coverage for dry-run wiring. Live
   DOSBox-debug attempts now append any observed debugger prompt
   `runtime_cs`/`runtime_ds` values to both `manifest.txt` and
-  `raw_debugger_dump.txt`. The candidate fixture is intentionally a fill-in
-  skeleton until original runtime fields and dump rows are captured.
+  `raw_debugger_dump.txt`, and write `debugger_commands_runtime.txt` with
+  concrete runtime breakpoint/dump commands. The candidate fixture is
+  intentionally a fill-in skeleton until original runtime fields and dump rows
+  are captured.
 - WSL/Xvfb/DOSBox-debug launch is unblocked in the approved WSL context. Short
   2026-05-11 temp-copy probes reached the DOSBox-debug prompt and recorded
   runtime `CS=01ED`, `DS=01DD` for both contact-scanner and actor-update helper
@@ -330,9 +333,23 @@ Baseline: `origin/main`
   `/tmp/lezac-actor-update-live-codex-20260511`. Both reached the debugger
   prompt and recorded `runtime_cs=01ED`, `runtime_ds=01DD`; both timed out with
   DOSBox-debug exit `124` because debugger command submission is still pending.
+- Follow-up helper dry-runs now also emit `debugger_commands_runtime.txt` as a
+  placeholder, and live probes overwrite it with runtime-translated debugger
+  commands when `runtime_cs` is observed. Verified live outputs at
+  `/tmp/lezac-contact-runtime-command-live2-codex-20260511` and
+  `/tmp/lezac-actor-runtime-command-live2-codex-20260511` contain concrete
+  `BP 01ED:5CB0`, `BP 01ED:604F`, actor-update `BP 01ED:6053`/`01ED:777F`,
+  and `D 01DD:...` dump commands.
 - `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
   -BuildDir build-win-codex-vs3 -Configuration Debug` passed: configure/build
   succeeded and CTest reported 169/169 tests passing.
+- After adding runtime-translated debugger command files, the same native
+  validation helper passed again: configure/build succeeded and CTest reported
+  169/169 tests passing.
+- Focused native CTest after the artifact cleanup passed:
+  `ctest --test-dir build-win-codex-vs3 -C Debug -R
+  "actor_update_debug_capture_helper_expectations|contact_scanner_debug_capture_helper_expectations"
+  --output-on-failure` reported 2/2 tests passing.
 - `cmake -S . -B build` passed.
 - `cmake --build build` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp

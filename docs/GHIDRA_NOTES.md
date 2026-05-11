@@ -193,7 +193,8 @@ records the matching debugger command plan and labels current captures
 `candidate_fixture.txt` is a fill-in normalization skeleton, not evidence until
 runtime fields and dump rows are captured. Short WSL/Xvfb live launch probes now
 reach the DOSBox-debug prompt and let the helper preserve runtime `CS`/`DS`
-metadata, but semantic breakpoint submission is still pending.
+metadata plus a runtime-translated `debugger_commands_runtime.txt`, but semantic
+breakpoint submission is still pending.
 `--debug-contact-scanner-runtime-oracle <fixture> [--expect-error]` narrows that
 contract to the scanner window only: subject/other actor boxes, overlap size,
 contact flags, pending damage, runtime `CS`/`DS`, and breakpoints at
@@ -202,8 +203,8 @@ records the scanner-only debugger command plan and keeps those captures labeled
 `debugger_seeded` until a full gameplay route proves the same state naturally.
 Its `candidate_fixture.txt` is a skeleton for transcript normalization, not
 evidence until runtime fields and dump rows are filled; live launch attempts
-also preserve prompt `runtime_cs`/`runtime_ds` metadata for later address
-translation.
+also preserve prompt `runtime_cs`/`runtime_ds` metadata and a concrete runtime
+command plan for later address translation.
 
 ## Bomb Inventory
 

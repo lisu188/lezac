@@ -25,6 +25,7 @@ OUTPUTS = [
     "raw_debugger_dump.txt",
     "candidate_fixture.txt",
     "debugger_commands.txt",
+    "debugger_commands_runtime.txt",
     "actor_update_debug_capture.log",
 ]
 
@@ -66,6 +67,10 @@ def check_script(script_path: Path) -> None:
     require(text, "LEZAC_ACTOR_UPDATE_DEBUG_DRY_RUN", "script")
     require(text, "visual_claim=0", "script")
     require(text, "candidate_fixture=\"$out_dir/candidate_fixture.txt\"", "script")
+    require(text, "runtime_commands_file=\"$out_dir/debugger_commands_runtime.txt\"", "script")
+    require(text, "write_runtime_command_plan", "script")
+    require(text, "debugger_commands_runtime=$runtime_commands_file", "script")
+    require(text, "grep -v '^#' \"$commands_file\"", "script")
     require(text, "capture=actor_update_runtime", "script")
     require(text, "scenario=$scenario", "script")
     require(text, "route=$runtime_route", "script")
@@ -116,7 +121,7 @@ def check_cmake(cmake_path: Path) -> None:
     for snippet in [
         "tools/check_actor_update_debug_capture_helper.py",
         "${CMAKE_CURRENT_SOURCE_DIR}",
-        "^actor_update_debug_capture_helper=ok scenarios=3 anchors=4 outputs=5 cmake_test=1 docs=2",
+        "^actor_update_debug_capture_helper=ok scenarios=3 anchors=4 outputs=6 cmake_test=1 docs=2",
     ]:
         if collapse_ws(snippet) not in collapsed:
             raise RuntimeError(

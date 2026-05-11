@@ -207,6 +207,14 @@ def main() -> int:
             require(ready, snippet, "ready_actor_candidate")
         cases += 1
 
+        ready_required = run_summary(
+            root,
+            ready_manifest,
+            extra_args=["--require-ready"],
+        ).stdout
+        require(ready_required, "candidate_status=ready", "ready_required")
+        cases += 1
+
         skeleton_candidate = base / "skeleton" / "actor_update_candidate.txt"
         write_text(
             skeleton_candidate,
@@ -258,6 +266,19 @@ def main() -> int:
             "candidate_placeholders=1",
         ]:
             require(skeleton, snippet, "skeleton_actor_candidate")
+        cases += 1
+
+        skeleton_required = run_summary(
+            root,
+            skeleton_manifest,
+            expect_success=False,
+            extra_args=["--require-ready"],
+        ).stdout
+        for snippet in [
+            "actor_dispatch_gate_sweep_summary=error reason=candidates_not_ready",
+            "ready_candidates=0 incomplete_candidates=1 missing_candidates=0 none_candidates=0",
+        ]:
+            require(skeleton_required, snippet, "skeleton_required")
         cases += 1
 
         direct_manifest = base / "direct" / "manifest.txt"
@@ -350,6 +371,14 @@ def main() -> int:
             "candidate_fixtures=none",
         ]:
             require(dry, snippet, "dry_manifest")
+        cases += 1
+
+        dry_required = run_summary(
+            root,
+            dry_manifest,
+            extra_args=["--require-ready"],
+        ).stdout
+        require(dry_required, "freezes=0", "dry_required")
         cases += 1
 
         missing = run_summary(root, base / "missing" / "manifest.txt", False).stdout

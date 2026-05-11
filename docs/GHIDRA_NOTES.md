@@ -256,7 +256,9 @@ fixtures ready for oracle normalization; each freeze line also labels candidate
 readiness, the expected runtime oracle flag, and an `oracle_command=` using the
 configured C++ binary path. Placeholder detection scans the whole candidate
 file, including commented skeleton hints, while required-record checks only use
-active fixture lines.
+active fixture lines. `--require-ready` turns the summary into a promotion gate
+by returning nonzero whenever an observed freeze has a missing, incomplete, or
+absent candidate fixture.
 
 ## Bomb Inventory
 

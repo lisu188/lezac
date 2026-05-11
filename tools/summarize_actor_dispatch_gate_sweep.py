@@ -215,7 +215,7 @@ def missing_or_none(missing: list[str]) -> str:
     return ",".join(missing)
 
 
-def summarize(manifest: Manifest, oracle_binary: str) -> tuple[str, list[str]]:
+def summarize(manifest: Manifest, oracle_binary: str) -> tuple[str, list[str], dict[str, int]]:
     capture = manifest.values.get("capture", "unknown")
     if capture == CAPTURE_DISPATCH_SWEEP:
         child_manifests = dispatch_child_manifests(manifest)
@@ -300,7 +300,24 @@ def summarize(manifest: Manifest, oracle_binary: str) -> tuple[str, list[str]]:
             f"oracle_command={oracle_command(oracle_binary, status.target, candidate_fixture)} "
             f"raw_dump={status.fields.get('raw_dump', 'none')}"
         )
-    return summary, details
+    return summary, details, readiness_counts
+
+
+def require_ready_error(readiness_counts: dict[str, int]) -> str | None:
+    not_ready = (
+        readiness_counts.get("incomplete", 0)
+        + readiness_counts.get("missing", 0)
+        + readiness_counts.get("none", 0)
+    )
+    if not_ready == 0:
+        return None
+    return (
+        "actor_dispatch_gate_sweep_summary=error reason=candidates_not_ready "
+        f"ready_candidates={readiness_counts.get('ready', 0)} "
+        f"incomplete_candidates={readiness_counts.get('incomplete', 0)} "
+        f"missing_candidates={readiness_counts.get('missing', 0)} "
+        f"none_candidates={readiness_counts.get('none', 0)}"
+    )
 
 
 def main() -> int:
@@ -315,16 +332,28 @@ def main() -> int:
         default="./build/lezac_cpp",
         help="binary path to include in emitted oracle_command fields",
     )
+    parser.add_argument(
+        "--require-ready",
+        action="store_true",
+        help="exit nonzero if any observed freeze lacks a ready candidate fixture",
+    )
     args = parser.parse_args()
 
     try:
-        summary, details = summarize(read_manifest(args.manifest), args.oracle_binary)
+        summary, details, readiness_counts = summarize(
+            read_manifest(args.manifest), args.oracle_binary
+        )
     except (FileNotFoundError, OSError, ValueError) as exc:
         print(f"actor_dispatch_gate_sweep_summary=error reason={exc}", file=sys.stderr)
         return 1
     print(summary)
     for detail in details:
         print(detail)
+    if args.require_ready:
+        error = require_ready_error(readiness_counts)
+        if error is not None:
+            print(error, file=sys.stderr)
+            return 2
     return 0
 
 

@@ -246,7 +246,8 @@ and routed to the matching runtime oracle without guessing. Use
 `candidate_placeholders=1` as a warning that a generated skeleton still has
 fill-in markers in comments or active records. Use `--oracle-binary` when the C++
 executable is not
-`./build/lezac_cpp`.
+`./build/lezac_cpp`, and `--require-ready` when a script should fail until all
+observed freeze candidates are promotable.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \

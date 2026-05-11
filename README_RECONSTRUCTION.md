@@ -235,6 +235,8 @@ python3 tools/sweep_original_actor_dispatch_gates.py \
 python3 tools/sweep_original_actor_dispatch_gates.py \
   /tmp/lezac-actor-dispatch-gates . --timing before_route \
   --approve-procmem --approve-runtime-instrumentation
+python3 tools/summarize_actor_dispatch_gate_sweep.py \
+  /tmp/lezac-actor-dispatch-gates/manifest.txt
 ```
 
 ```sh

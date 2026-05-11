@@ -249,7 +249,10 @@ to `1000:777F`; that late gate is exposed as `actor_update_gate5_exit`.
 set as one matrix so the next DOSBox pass can test all gate reachability with
 the same route and timing inputs. `--debug-actor-update-runtime-oracle` now
 reports optional `dispatch_gates=` names from these breakpoints when they are
-present in a normalized fixture.
+present in a normalized fixture. `tools/summarize_actor_dispatch_gate_sweep.py`
+follows a completed dispatch-sweep manifest and reports capture counts, observed
+freeze targets, missing targets, and candidate fixtures ready for oracle
+normalization.
 
 ## Bomb Inventory
 

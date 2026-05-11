@@ -1,11 +1,16 @@
 # Recovery Status
 
-Last reviewed: 2026-05-08
+Last reviewed: 2026-05-11
 Branch: `codex/forward-lane-result-seeded-evidence`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
+  coverage for completed actor dispatch-gate sweep manifests. The summarizer
+  follows nested route-sweep manifests, counts capture statuses, reports
+  observed runtime freezes, lists missing gate targets, and surfaces candidate
+  fixtures for `--debug-actor-update-runtime-oracle` normalization.
 - Added `lane-result-cs-scratch` instrumentation support to
   `tools/capture_original_explosion_procmem.py` for the final lane-helper
   result writes at `1000:3D3F` and `1000:3ED3`. The runtime-only trampoline

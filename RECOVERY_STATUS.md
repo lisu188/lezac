@@ -167,6 +167,12 @@ Baseline: `origin/main`
   `no_freeze`, `incomplete`, or `missing`, emits
   `--debug-explosion-playback-oracle` commands, and can write a ready-promotion
   manifest for natural `1000:3D3F` or `1000:3ED3` freezes.
+- Added `tools/run_lane_result_ready_manifest.py`,
+  `tools/summarize_lane_result_ready_results.py`, and an end-to-end synthetic
+  lane-result ready-pipeline CTest. The runner validates the ready manifest,
+  refuses repository-local logs/results by default, executes only
+  `--debug-explosion-playback-oracle` candidates, and records planned or
+  executed oracle results for promotion gating.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,

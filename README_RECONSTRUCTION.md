@@ -370,6 +370,15 @@ python3 tools/summarize_lane_result_route_sweep.py \
   /tmp/lezac-lane-result-route-sweep/manifest.txt \
   --require-ready \
   --write-ready-manifest /tmp/lezac-lane-result-route-sweep/ready_manifest.txt
+python3 tools/run_lane_result_ready_manifest.py \
+  /tmp/lezac-lane-result-route-sweep/ready_manifest.txt --dry-run
+python3 tools/run_lane_result_ready_manifest.py \
+  /tmp/lezac-lane-result-route-sweep/ready_manifest.txt \
+  --log-dir /tmp/lezac-lane-result-route-sweep/logs \
+  --write-result-manifest /tmp/lezac-lane-result-route-sweep/result_manifest.txt
+python3 tools/summarize_lane_result_ready_results.py \
+  /tmp/lezac-lane-result-route-sweep/result_manifest.txt \
+  --require-success --require-executed
 
 python3 tools/capture_original_explosion_procmem.py /tmp/lezac-preflight . \
   --describe-freeze-patch \
@@ -391,7 +400,12 @@ the completed sweep manifest to classify each candidate as `ready`, `no_freeze`,
 `incomplete`, or `missing`, and to emit the matching
 `--debug-explosion-playback-oracle` command. Add `--require-ready` when a
 capture pass should fail unless at least one natural lane-result freeze is ready
-for promotion.
+for promotion. `tools/run_lane_result_ready_manifest.py` then dry-runs or
+executes only the ready oracle candidates, writes optional per-candidate logs,
+and can leave a result manifest for
+`tools/summarize_lane_result_ready_results.py --require-success
+--require-executed`. Result manifests and logs are refused inside the
+repository unless `--allow-repo-output` is passed deliberately.
 The checked-in original result-write fixtures are
 `tests/fixtures/dosbox/explosion_playback_oracle_original_3ed3_lane_result_runtime.txt`
 for the reverse helper and

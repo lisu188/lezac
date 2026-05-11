@@ -451,7 +451,11 @@ freeze or scratch record; its chosen sample still has
 `lane_update_flag=0x05`, `lane_word=0x0004`, `lane_target_offset=0x072c`, and
 reverse input `0xfb`. The default/timing-variant/route-step 2026-05-06 routes
 loaded the forward `3d3f` patch but did not hit the freeze, so natural-route
-forward evidence is still pending.
+forward evidence is still pending. `tools/summarize_lane_result_route_sweep.py`
+now classifies completed route-sweep candidates as `ready`, `no_freeze`,
+`incomplete`, or `missing`; `tools/run_lane_result_ready_manifest.py` and
+`tools/summarize_lane_result_ready_results.py` then execute and gate only
+promotable `--debug-explosion-playback-oracle` fixtures.
 
 The effect constructor at `1000:3fa6` writes 11-byte effect records at
 `0x2093 + 0x0b * DS:2076` and stores the effect type byte in

@@ -258,7 +258,8 @@ configured C++ binary path. Placeholder detection scans the whole candidate
 file, including commented skeleton hints, while required-record checks only use
 active fixture lines. `--require-ready` turns the summary into a promotion gate
 by returning nonzero whenever an observed freeze has a missing, incomplete, or
-absent candidate fixture.
+absent candidate fixture. `--write-ready-manifest` writes a small follow-up
+manifest containing only ready fixtures and their oracle commands.
 
 ## Bomb Inventory
 

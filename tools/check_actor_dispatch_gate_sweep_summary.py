@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import subprocess
+import shlex
 import sys
 import tempfile
 
@@ -213,6 +214,37 @@ def main() -> int:
             extra_args=["--require-ready"],
         ).stdout
         require(ready_required, "candidate_status=ready", "ready_required")
+        cases += 1
+
+        ready_promotion_manifest = base / "ready" / "promotion_manifest.txt"
+        ready_promotion = run_summary(
+            root,
+            ready_manifest,
+            extra_args=["--write-ready-manifest", str(ready_promotion_manifest)],
+        ).stdout
+        for snippet in [
+            "actor_dispatch_gate_ready_manifest=ok",
+            f"path={ready_promotion_manifest.resolve()}",
+            "ready_candidates=1",
+        ]:
+            require(ready_promotion, snippet, "ready_promotion_output")
+        promotion_text = ready_promotion_manifest.read_text(encoding="ascii")
+        for snippet in [
+            "promotion=actor_dispatch_gate_ready_candidates",
+            f"source_manifest={ready_manifest.resolve()}",
+            "oracle_binary=./build/lezac_cpp",
+            "ready_candidates=1",
+            "candidate_0_target=actor_update_gate6",
+            "candidate_0_route=x3p00",
+            "candidate_0_ghidra=1000:654E",
+            f"candidate_0_fixture={ready_candidate}",
+            "candidate_0_oracle=actor_update",
+            "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",
+            "candidate_0_oracle_command=./build/lezac_cpp "
+            "--debug-actor-update-runtime-oracle "
+            f"{shlex.quote(str(ready_candidate))}",
+        ]:
+            require(promotion_text, snippet, "ready_promotion_manifest")
         cases += 1
 
         skeleton_candidate = base / "skeleton" / "actor_update_candidate.txt"

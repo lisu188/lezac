@@ -37,6 +37,14 @@ class CandidateReadiness:
     placeholders: bool
 
 
+@dataclass(frozen=True)
+class SummaryResult:
+    summary: str
+    details: list[str]
+    readiness_counts: dict[str, int]
+    ready_manifest_lines: list[str]
+
+
 def read_manifest(path: Path) -> Manifest:
     if path.is_dir():
         path = path / "manifest.txt"
@@ -215,7 +223,50 @@ def missing_or_none(missing: list[str]) -> str:
     return ",".join(missing)
 
 
-def summarize(manifest: Manifest, oracle_binary: str) -> tuple[str, list[str], dict[str, int]]:
+def ready_manifest_records(
+    source_manifest: Path,
+    oracle_binary: str,
+    freeze_readiness: list[tuple[CaptureStatus, str | None, CandidateReadiness]],
+) -> list[str]:
+    ready_entries = [
+        (status, candidate_fixture, readiness)
+        for status, candidate_fixture, readiness in freeze_readiness
+        if readiness.status == "ready" and candidate_fixture
+    ]
+    lines = [
+        "promotion=actor_dispatch_gate_ready_candidates",
+        f"source_manifest={source_manifest}",
+        f"oracle_binary={oracle_binary}",
+        f"ready_candidates={len(ready_entries)}",
+    ]
+    for index, (status, candidate_fixture, _) in enumerate(ready_entries):
+        oracle, flag = oracle_for_target(status.target)
+        prefix = f"candidate_{index}"
+        lines.extend(
+            [
+                f"{prefix}_target={status.target}",
+                f"{prefix}_route={status.route_label}",
+                f"{prefix}_ghidra={status.fields.get('ghidra', 'unknown')}",
+                f"{prefix}_runtime_cs={status.fields.get('runtime_cs', 'unknown')}",
+                f"{prefix}_runtime_ds={status.fields.get('runtime_ds', 'unknown')}",
+                f"{prefix}_freeze_runtime={status.fields.get('freeze_runtime', 'unknown')}",
+                f"{prefix}_fixture={candidate_fixture}",
+                f"{prefix}_oracle={oracle}",
+                f"{prefix}_oracle_flag={flag}",
+                f"{prefix}_oracle_command={oracle_command(oracle_binary, status.target, candidate_fixture)}",
+            ]
+        )
+    return lines
+
+
+def write_ready_manifest(path: Path, lines: list[str]) -> Path:
+    path = path.resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="ascii")
+    return path
+
+
+def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
     capture = manifest.values.get("capture", "unknown")
     if capture == CAPTURE_DISPATCH_SWEEP:
         child_manifests = dispatch_child_manifests(manifest)
@@ -300,7 +351,14 @@ def summarize(manifest: Manifest, oracle_binary: str) -> tuple[str, list[str], d
             f"oracle_command={oracle_command(oracle_binary, status.target, candidate_fixture)} "
             f"raw_dump={status.fields.get('raw_dump', 'none')}"
         )
-    return summary, details, readiness_counts
+    return SummaryResult(
+        summary=summary,
+        details=details,
+        readiness_counts=readiness_counts,
+        ready_manifest_lines=ready_manifest_records(
+            manifest.path, oracle_binary, freeze_readiness
+        ),
+    )
 
 
 def require_ready_error(readiness_counts: dict[str, int]) -> str | None:
@@ -337,20 +395,39 @@ def main() -> int:
         action="store_true",
         help="exit nonzero if any observed freeze lacks a ready candidate fixture",
     )
+    parser.add_argument(
+        "--write-ready-manifest",
+        type=Path,
+        help="write a key/value manifest containing only ready candidate fixtures",
+    )
     args = parser.parse_args()
 
     try:
-        summary, details, readiness_counts = summarize(
-            read_manifest(args.manifest), args.oracle_binary
-        )
+        result = summarize(read_manifest(args.manifest), args.oracle_binary)
     except (FileNotFoundError, OSError, ValueError) as exc:
         print(f"actor_dispatch_gate_sweep_summary=error reason={exc}", file=sys.stderr)
         return 1
-    print(summary)
-    for detail in details:
+    print(result.summary)
+    for detail in result.details:
         print(detail)
+    if args.write_ready_manifest is not None:
+        try:
+            ready_manifest = write_ready_manifest(
+                args.write_ready_manifest, result.ready_manifest_lines
+            )
+        except OSError as exc:
+            print(
+                f"actor_dispatch_gate_ready_manifest=error reason={exc}",
+                file=sys.stderr,
+            )
+            return 1
+        print(
+            "actor_dispatch_gate_ready_manifest=ok "
+            f"path={ready_manifest} "
+            f"ready_candidates={result.readiness_counts.get('ready', 0)}"
+        )
     if args.require_ready:
-        error = require_ready_error(readiness_counts)
+        error = require_ready_error(result.readiness_counts)
         if error is not None:
             print(error, file=sys.stderr)
             return 2

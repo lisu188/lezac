@@ -17,7 +17,9 @@ Baseline: `origin/main`
   includes ready/incomplete/missing/none candidate counts for quick triage.
   Placeholder detection intentionally scans commented skeleton hints as well as
   active fixture records. `--require-ready` now exits nonzero when any observed
-  freeze candidate is not promotable.
+  freeze candidate is not promotable. `--write-ready-manifest` writes a
+  follow-up promotion manifest containing only ready fixtures and oracle
+  commands.
 - Added `lane-result-cs-scratch` instrumentation support to
   `tools/capture_original_explosion_procmem.py` for the final lane-helper
   result writes at `1000:3D3F` and `1000:3ED3`. The runtime-only trampoline

@@ -161,6 +161,12 @@ Baseline: `origin/main`
 - Added `tools/check_lane_result_route_sweep.py` and CTest coverage for the
   route-sweep wrapper's default route labels, custom route labels, approval
   refusal, repository-output refusal, and malformed route parsing.
+- Added `tools/summarize_lane_result_route_sweep.py` and synthetic CTest
+  coverage for completed lane-result route-sweep manifests. The summary follows
+  child runtime manifests, classifies candidate fixtures as `ready`,
+  `no_freeze`, `incomplete`, or `missing`, emits
+  `--debug-explosion-playback-oracle` commands, and can write a ready-promotion
+  manifest for natural `1000:3D3F` or `1000:3ED3` freezes.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,

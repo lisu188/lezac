@@ -364,6 +364,12 @@ python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-run
 python3 tools/sweep_original_lane_result_routes.py /tmp/lezac-lane-result-route-sweep . \
   --dry-run --skip-oracle \
   --route x:2.00,c:0.50 --route x:1.50,z:0.50
+python3 tools/summarize_lane_result_route_sweep.py \
+  /tmp/lezac-lane-result-route-sweep/manifest.txt
+python3 tools/summarize_lane_result_route_sweep.py \
+  /tmp/lezac-lane-result-route-sweep/manifest.txt \
+  --require-ready \
+  --write-ready-manifest /tmp/lezac-lane-result-route-sweep/ready_manifest.txt
 
 python3 tools/capture_original_explosion_procmem.py /tmp/lezac-preflight . \
   --describe-freeze-patch \
@@ -380,7 +386,12 @@ For route variation, repeat `--route-step KEY:SECONDS`; omitted route steps keep
 the historical default of holding player-1 right (`x`) for
 `--right-hold-seconds`. Use `tools/sweep_original_lane_result_routes.py` to
 plan or run repeated natural-route probes while preserving one manifest and
-one command line per route.
+one command line per route. Use `tools/summarize_lane_result_route_sweep.py` on
+the completed sweep manifest to classify each candidate as `ready`, `no_freeze`,
+`incomplete`, or `missing`, and to emit the matching
+`--debug-explosion-playback-oracle` command. Add `--require-ready` when a
+capture pass should fail unless at least one natural lane-result freeze is ready
+for promotion.
 The checked-in original result-write fixtures are
 `tests/fixtures/dosbox/explosion_playback_oracle_original_3ed3_lane_result_runtime.txt`
 for the reverse helper and

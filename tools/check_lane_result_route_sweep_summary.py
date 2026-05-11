@@ -121,6 +121,7 @@ def write_route_sweep(path: Path, labels: list[str], child_manifests: list[Path]
         "offset=forward",
         f"routes={len(labels)}",
         "route_labels=" + ",".join(labels),
+        "environment_preflight=ok",
     ]
     for label, child in zip(labels, child_manifests):
         lines.append(
@@ -168,6 +169,7 @@ def main() -> int:
         for snippet in [
             "lane_result_route_sweep_summary=ok",
             "mode=route",
+            "environment_preflight=ok",
             "routes=2",
             "candidates=2",
             "observed_freezes=1",
@@ -190,6 +192,16 @@ def main() -> int:
         require(required, "ready_candidates=1", "mixed_require_ready")
         cases += 1
 
+        required_preflight = run_summary(
+            root, [str(sweep_manifest), "--require-environment-preflight"]
+        )
+        require(
+            required_preflight,
+            "environment_preflight=ok",
+            "mixed_require_environment_preflight",
+        )
+        cases += 1
+
         promotion_manifest = base / "promotion" / "manifest.txt"
         promoted = run_summary(
             root,
@@ -205,6 +217,7 @@ def main() -> int:
         for snippet in [
             "promotion=lane_result_ready_candidates",
             "ready_candidates=1",
+            "source_environment_preflight=ok",
             "candidate_0_route=ready",
             "candidate_0_offset_label=3d3f",
             "candidate_0_offset_address=1000:3D3F",
@@ -240,8 +253,26 @@ def main() -> int:
 
         direct = run_summary(root, [str(ready_manifest)])
         require(direct, "mode=runtime", "direct_runtime")
+        require(direct, "environment_preflight=unknown", "direct_runtime")
         require(direct, "routes=1", "direct_runtime")
         require(direct, "candidate route=direct offset=3d3f", "direct_runtime")
+        cases += 1
+
+        missing_preflight = run_summary(
+            root,
+            [str(ready_manifest), "--require-environment-preflight"],
+            expect_success=False,
+        )
+        require(
+            missing_preflight,
+            "reason=environment_preflight_not_ok",
+            "missing_environment_preflight",
+        )
+        require(
+            missing_preflight,
+            "environment_preflight=unknown",
+            "missing_environment_preflight",
+        )
         cases += 1
 
     print(f"lane_result_route_sweep_summary_check=ok cases={cases}")

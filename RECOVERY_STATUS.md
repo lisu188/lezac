@@ -189,6 +189,11 @@ Baseline: `origin/main`
   sweeps. Dispatch-gate sweeps run the host check once at the top level and
   pass `--skip-environment-preflight` to child actor/contact sweeps so a single
   matrix does not repeat identical tool probes.
+- Lane-result and actor dispatch-gate sweep summaries now surface
+  `environment_preflight=` state and support
+  `--require-environment-preflight`, so ready-candidate promotion scripts can
+  fail explicitly when a manifest came from an unverified or legacy capture
+  host.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,

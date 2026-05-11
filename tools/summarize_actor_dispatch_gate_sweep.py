@@ -43,6 +43,8 @@ class SummaryResult:
     details: list[str]
     readiness_counts: dict[str, int]
     ready_manifest_lines: list[str]
+    environment_preflight: str
+    child_environment_preflights: list[str]
 
 
 def read_manifest(path: Path) -> Manifest:
@@ -225,6 +227,8 @@ def missing_or_none(missing: list[str]) -> str:
 
 def ready_manifest_records(
     source_manifest: Path,
+    source_environment_preflight: str,
+    child_environment_preflights: list[str],
     oracle_binary: str,
     freeze_readiness: list[tuple[CaptureStatus, str | None, CandidateReadiness]],
 ) -> list[str]:
@@ -236,6 +240,8 @@ def ready_manifest_records(
     lines = [
         "promotion=actor_dispatch_gate_ready_candidates",
         f"source_manifest={source_manifest}",
+        f"source_environment_preflight={source_environment_preflight}",
+        f"child_environment_preflights={csv_or_none(child_environment_preflights)}",
         f"oracle_binary={oracle_binary}",
         f"ready_candidates={len(ready_entries)}",
     ]
@@ -268,11 +274,16 @@ def write_ready_manifest(path: Path, lines: list[str]) -> Path:
 
 def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
     capture = manifest.values.get("capture", "unknown")
+    environment_preflight = manifest.values.get("environment_preflight", "unknown")
+    child_environment_preflights: list[str] = []
     if capture == CAPTURE_DISPATCH_SWEEP:
         child_manifests = dispatch_child_manifests(manifest)
         targets = parse_csv(manifest.values.get("targets"))
         statuses: list[CaptureStatus] = []
         for target, child in child_manifests:
+            child_environment_preflights.append(
+                child.values.get("environment_preflight", "unknown")
+            )
             statuses.extend(route_statuses(child, default_target=target))
         mode = "dispatch"
         route_sweeps = len(child_manifests)
@@ -281,6 +292,7 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         statuses = route_statuses(manifest)
         mode = "route"
         route_sweeps = 1
+        child_environment_preflights = []
     else:
         raise ValueError(
             f"unsupported manifest capture {capture!r}; expected "
@@ -320,6 +332,8 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         f"manifest={manifest.path} "
         f"capture={capture} "
         f"mode={mode} "
+        f"environment_preflight={environment_preflight} "
+        f"child_environment_preflights={csv_or_none(child_environment_preflights)} "
         f"targets={len(targets)} "
         f"route_sweeps={route_sweeps} "
         f"captures={len(statuses)} "
@@ -356,8 +370,14 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         details=details,
         readiness_counts=readiness_counts,
         ready_manifest_lines=ready_manifest_records(
-            manifest.path, oracle_binary, freeze_readiness
+            manifest.path,
+            environment_preflight,
+            child_environment_preflights,
+            oracle_binary,
+            freeze_readiness,
         ),
+        environment_preflight=environment_preflight,
+        child_environment_preflights=child_environment_preflights,
     )
 
 
@@ -375,6 +395,19 @@ def require_ready_error(readiness_counts: dict[str, int]) -> str | None:
         f"incomplete_candidates={readiness_counts.get('incomplete', 0)} "
         f"missing_candidates={readiness_counts.get('missing', 0)} "
         f"none_candidates={readiness_counts.get('none', 0)}"
+    )
+
+
+def require_environment_preflight_error(
+    environment_preflight: str, child_environment_preflights: list[str]
+) -> str | None:
+    if environment_preflight == "ok":
+        return None
+    return (
+        "actor_dispatch_gate_sweep_summary=error "
+        "reason=environment_preflight_not_ok "
+        f"environment_preflight={environment_preflight} "
+        f"child_environment_preflights={csv_or_none(child_environment_preflights)}"
     )
 
 
@@ -399,6 +432,11 @@ def main() -> int:
         "--write-ready-manifest",
         type=Path,
         help="write a key/value manifest containing only ready candidate fixtures",
+    )
+    parser.add_argument(
+        "--require-environment-preflight",
+        action="store_true",
+        help="exit nonzero unless the source sweep manifest records a successful host preflight",
     )
     args = parser.parse_args()
 
@@ -431,6 +469,13 @@ def main() -> int:
         if error is not None:
             print(error, file=sys.stderr)
             return 2
+    if args.require_environment_preflight:
+        error = require_environment_preflight_error(
+            result.environment_preflight, result.child_environment_preflights
+        )
+        if error is not None:
+            print(error, file=sys.stderr)
+            return 3
     return 0
 
 

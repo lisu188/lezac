@@ -310,7 +310,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_dispatch_gate_sweep_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_dispatch_gate_sweep_summary_check=ok cases=12")
+                "^actor_dispatch_gate_sweep_summary_check=ok cases=14")
 
         add_test(NAME actor_dispatch_ready_manifest_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -472,7 +472,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_route_sweep_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_route_sweep_summary_check=ok cases=6")
+                "^lane_result_route_sweep_summary_check=ok cases=8")
 
         add_test(NAME explosion_lane_result_ready_manifest_expectations
             COMMAND ${Python3_EXECUTABLE}

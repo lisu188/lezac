@@ -81,6 +81,7 @@ def main() -> int:
                     "timings=before_route",
                     "routes=1",
                     "route_labels=x2p00",
+                    "environment_preflight=skipped",
                     "capture_status_x2p00=actor_contact_procmem=ok mode=capture target=actor_update_gate5 ghidra=1000:65A2 runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:65A2 freeze_observed=0 manifest=/tmp/gate5/manifest.txt raw_dump=/tmp/gate5/raw.txt candidate_fixture=/tmp/gate5/candidate_fixture.txt procmem_manifest=/tmp/gate5/procmem_manifest.txt",
                     "",
                 ]
@@ -95,6 +96,7 @@ def main() -> int:
                     "timings=before_route",
                     "routes=1",
                     "route_labels=x3p00",
+                    "environment_preflight=skipped",
                     "capture_status_x3p00=actor_contact_procmem=ok mode=capture target=actor_update_gate6 ghidra=1000:654E runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:654E freeze_observed=1 manifest=/tmp/gate6/manifest.txt raw_dump=/tmp/gate6/raw.txt candidate_fixture=/tmp/gate6/candidate_fixture.txt procmem_manifest=/tmp/gate6/procmem_manifest.txt",
                     "",
                 ]
@@ -111,6 +113,7 @@ def main() -> int:
                     "timings=before_route",
                     "routes=1",
                     "route_labels=x2p00",
+                    "environment_preflight=ok",
                     f"sweep_manifest_actor_update_gate5={gate5}",
                     f"sweep_manifest_actor_update_gate6={gate6}",
                     "",
@@ -122,6 +125,8 @@ def main() -> int:
             "actor_dispatch_gate_sweep_summary=ok",
             "capture=actor_dispatch_gate_sweep",
             "mode=dispatch",
+            "environment_preflight=ok",
+            "child_environment_preflights=skipped",
             "targets=2",
             "route_sweeps=2",
             "captures=2",
@@ -139,6 +144,18 @@ def main() -> int:
             "oracle_command=./build/lezac_cpp --debug-actor-update-runtime-oracle /tmp/gate6/candidate_fixture.txt",
         ]:
             require(result, snippet, "dispatch_manifest")
+        cases += 1
+
+        preflight_required = run_summary(
+            root,
+            dispatch_manifest,
+            extra_args=["--require-environment-preflight"],
+        ).stdout
+        require(
+            preflight_required,
+            "environment_preflight=ok",
+            "dispatch_preflight_required",
+        )
         cases += 1
 
         custom_binary = run_summary(
@@ -185,11 +202,12 @@ def main() -> int:
             "\n".join(
                 [
                     "capture=actor_contact_route_sweep",
-                    "target=actor_update_gate6",
-                    "timings=before_route",
-                    "routes=1",
-                    "route_labels=x3p00",
-                    f"capture_status_x3p00=actor_contact_procmem=ok mode=capture target=actor_update_gate6 ghidra=1000:654E runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:654E freeze_observed=1 raw_dump=/tmp/ready/raw.txt candidate_fixture={ready_candidate}",
+            "target=actor_update_gate6",
+            "timings=before_route",
+            "routes=1",
+            "route_labels=x3p00",
+            "environment_preflight=ok",
+            f"capture_status_x3p00=actor_contact_procmem=ok mode=capture target=actor_update_gate6 ghidra=1000:654E runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:654E freeze_observed=1 raw_dump=/tmp/ready/raw.txt candidate_fixture={ready_candidate}",
                     "",
                 ]
             ),
@@ -232,6 +250,8 @@ def main() -> int:
         for snippet in [
             "promotion=actor_dispatch_gate_ready_candidates",
             f"source_manifest={ready_manifest.resolve()}",
+            "source_environment_preflight=ok",
+            "child_environment_preflights=none",
             "oracle_binary=./build/lezac_cpp",
             "ready_candidates=1",
             "candidate_0_target=actor_update_gate6",
@@ -278,11 +298,12 @@ def main() -> int:
             "\n".join(
                 [
                     "capture=actor_contact_route_sweep",
-                    "target=actor_update_gate6",
-                    "timings=before_route",
-                    "routes=1",
-                    "route_labels=x3p00",
-                    f"capture_status_x3p00=actor_contact_procmem=ok mode=capture target=actor_update_gate6 ghidra=1000:654E runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:654E freeze_observed=1 raw_dump=/tmp/skeleton/raw.txt candidate_fixture={skeleton_candidate}",
+            "target=actor_update_gate6",
+            "timings=before_route",
+            "routes=1",
+            "route_labels=x3p00",
+            "environment_preflight=ok",
+            f"capture_status_x3p00=actor_contact_procmem=ok mode=capture target=actor_update_gate6 ghidra=1000:654E runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:654E freeze_observed=1 raw_dump=/tmp/skeleton/raw.txt candidate_fixture={skeleton_candidate}",
                     "",
                 ]
             ),
@@ -323,6 +344,7 @@ def main() -> int:
                     "timings=before_route",
                     "routes=1",
                     "route_labels=x1p50",
+                    "environment_preflight=ok",
                     "capture_status_x1p50=actor_contact_procmem=ok mode=capture target=contact_scanner_callsite ghidra=1000:6555 runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:6555 freeze_observed=runtime_child_memory_freeze_observed raw_dump=/tmp/contact/raw.txt candidate_fixture=/tmp/contact/candidate_fixture.txt",
                     "",
                 ]
@@ -332,6 +354,8 @@ def main() -> int:
         for snippet in [
             "capture=actor_contact_route_sweep",
             "mode=route",
+            "environment_preflight=ok",
+            "child_environment_preflights=none",
             "targets=1",
             "route_sweeps=1",
             "captures=1",
@@ -356,6 +380,7 @@ def main() -> int:
                     "timings=before_route",
                     "routes=1",
                     "route_labels=x0p50",
+                    "environment_preflight=ok",
                     "capture_status_x0p50=actor_contact_procmem=ok mode=capture target=contact_scanner_start ghidra=1000:5CB0 runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:5CB0 freeze_observed=1 raw_dump=/tmp/scanner/raw.txt candidate_fixture=/tmp/scanner/candidate_fixture.txt",
                     "",
                 ]
@@ -383,6 +408,7 @@ def main() -> int:
                     "timings=before_route",
                     "routes=1",
                     "route_labels=x2p00",
+                    "environment_preflight=ok",
                     "",
                 ]
             ),
@@ -390,6 +416,7 @@ def main() -> int:
         dry = run_summary(root, dry_manifest).stdout
         for snippet in [
             "mode=dispatch",
+            "environment_preflight=ok",
             "targets=2",
             "route_sweeps=0",
             "captures=0",
@@ -411,6 +438,34 @@ def main() -> int:
             extra_args=["--require-ready"],
         ).stdout
         require(dry_required, "freezes=0", "dry_required")
+        cases += 1
+
+        missing_preflight_manifest = base / "missing_preflight" / "manifest.txt"
+        write_text(
+            missing_preflight_manifest,
+            "\n".join(
+                [
+                    "capture=actor_contact_route_sweep",
+                    "target=contact_scanner_start",
+                    "timings=before_route",
+                    "routes=1",
+                    "route_labels=x0p50",
+                    "",
+                ]
+            ),
+        )
+        missing_preflight = run_summary(
+            root,
+            missing_preflight_manifest,
+            expect_success=False,
+            extra_args=["--require-environment-preflight"],
+        ).stdout
+        for snippet in [
+            "actor_dispatch_gate_sweep_summary=error reason=environment_preflight_not_ok",
+            "environment_preflight=unknown",
+            "child_environment_preflights=none",
+        ]:
+            require(missing_preflight, snippet, "missing_environment_preflight")
         cases += 1
 
         missing = run_summary(root, base / "missing" / "manifest.txt", False).stdout

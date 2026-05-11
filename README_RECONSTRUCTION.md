@@ -253,17 +253,21 @@ python3 tools/summarize_actor_dispatch_ready_results.py \
   --require-success --require-executed
 ```
 
-The summary prints `ready_candidates=`, `incomplete_candidates=`,
-`missing_candidates=`, `candidate_status=`, `candidate_missing=`, `oracle=`,
-`oracle_flag=`, and `oracle_command=` so the candidate fixture can be completed
-and routed to the matching runtime oracle without guessing. Use
+The summary prints `environment_preflight=`, `child_environment_preflights=`,
+`ready_candidates=`, `incomplete_candidates=`, `missing_candidates=`,
+`candidate_status=`, `candidate_missing=`, `oracle=`, `oracle_flag=`, and
+`oracle_command=` so the candidate fixture can be completed and routed to the
+matching runtime oracle without guessing. Use
 `candidate_placeholders=1` as a warning that a generated skeleton still has
 fill-in markers in comments or active records. Use `--oracle-binary` when the C++
 executable is not
 `./build/lezac_cpp`, and `--require-ready` when a script should fail until all
-observed freeze candidates are promotable. Use `--write-ready-manifest <path>`
+observed freeze candidates are promotable. Add
+`--require-environment-preflight` when promotion should fail unless the source
+sweep recorded a successful host preflight. Use `--write-ready-manifest <path>`
 to emit a promotion manifest containing only ready candidate fixtures and their
-oracle commands. Use `tools/run_actor_dispatch_ready_manifest.py <path>
+oracle commands plus the source preflight status. Use
+`tools/run_actor_dispatch_ready_manifest.py <path>
 --dry-run` to review that handoff, or omit `--dry-run` in a prepared
 WSL/native environment to execute the listed C++ oracles with per-candidate
 timeouts and optional logs. The runner validates fixture paths and oracle/flag
@@ -424,9 +428,11 @@ the completed sweep manifest to classify each candidate as `ready`, `no_freeze`,
 `incomplete`, or `missing`, and to emit the matching
 `--debug-explosion-playback-oracle` command. Add `--require-ready` when a
 capture pass should fail unless at least one natural lane-result freeze is ready
-for promotion. `tools/run_lane_result_ready_manifest.py` then dry-runs or
-executes only the ready oracle candidates, writes optional per-candidate logs,
-and can leave a result manifest for
+for promotion; add `--require-environment-preflight` when that promotion should
+also require the sweep's host preflight to be recorded as `ok`.
+`tools/run_lane_result_ready_manifest.py` then dry-runs or executes only the
+ready oracle candidates, writes optional per-candidate logs, and can leave a
+result manifest for
 `tools/summarize_lane_result_ready_results.py --require-success
 --require-executed`. Result manifests and logs are refused inside the
 repository unless `--allow-repo-output` is passed deliberately. The synthetic

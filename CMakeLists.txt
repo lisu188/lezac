@@ -263,6 +263,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_explosion_procmem.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_ready_pipeline.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_gate_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_gate_sweep_summary.py
@@ -319,6 +320,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^actor_dispatch_ready_results_check=ok cases=7")
+
+        add_test(NAME actor_dispatch_ready_pipeline_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_ready_pipeline.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_dispatch_ready_pipeline_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_dispatch_ready_pipeline_check=ok cases=1")
 
         add_test(NAME frame_compare_identical
             COMMAND ${Python3_EXECUTABLE}

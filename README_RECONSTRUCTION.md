@@ -268,7 +268,9 @@ or executed oracle commands. Result manifests and oracle logs are refused
 inside the repository unless `--allow-repo-output` is passed deliberately.
 Use `tools/summarize_actor_dispatch_ready_results.py <path>` to summarize that
 audit trail, and add `--require-success --require-executed` when promotion
-should fail unless every oracle actually ran and passed.
+should fail unless every oracle actually ran and passed. The CTest helper
+`tools/check_actor_dispatch_ready_pipeline.py` exercises this full handoff with
+a synthetic ready candidate and fake oracle.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \

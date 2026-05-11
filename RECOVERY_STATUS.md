@@ -27,7 +27,9 @@ Baseline: `origin/main`
   manifest for planned or executed oracle commands. Result manifests and logs
   are refused inside the repository unless explicitly allowed.
   `tools/summarize_actor_dispatch_ready_results.py` summarizes those result
-  manifests and can require successful executed oracle runs.
+  manifests and can require successful executed oracle runs. The synthetic
+  `tools/check_actor_dispatch_ready_pipeline.py` check now exercises the full
+  sweep-summary, ready-runner, and result-summary handoff.
 - Added `lane-result-cs-scratch` instrumentation support to
   `tools/capture_original_explosion_procmem.py` for the final lane-helper
   result writes at `1000:3D3F` and `1000:3ED3`. The runtime-only trampoline

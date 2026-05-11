@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import shlex
@@ -49,6 +50,43 @@ def run_ready(
 def write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="ascii")
+
+
+def make_fake_oracle(base: Path) -> Path:
+    if os.name == "nt":
+        fake = base / "fake_oracle.cmd"
+        write_text(
+            fake,
+            "\r\n".join(
+                [
+                    "@echo off",
+                    "echo fake_oracle flag=%1 fixture=%2",
+                    'if "%1"=="--debug-actor-update-runtime-oracle" exit /b 0',
+                    'if "%1"=="--debug-contact-scanner-runtime-oracle" exit /b 0',
+                    "exit /b 7",
+                    "",
+                ]
+            ),
+        )
+        return fake
+
+    fake = base / "fake_oracle.py"
+    write_text(
+        fake,
+        "\n".join(
+            [
+                "#!/usr/bin/env python3",
+                "import sys",
+                "flag = sys.argv[1] if len(sys.argv) > 1 else ''",
+                "fixture = sys.argv[2] if len(sys.argv) > 2 else ''",
+                "print(f'fake_oracle flag={flag} fixture={fixture}')",
+                "sys.exit(0 if flag.startswith('--debug-') else 7)",
+                "",
+            ]
+        ),
+    )
+    fake.chmod(0o755)
+    return fake
 
 
 def require(text: str, snippet: str, case: str) -> None:
@@ -151,6 +189,39 @@ def main() -> int:
             "directory_input",
         )
         require(directory_input, "ready_candidates=2", "directory_input")
+        cases += 1
+
+        fake_oracle = make_fake_oracle(base / "fake")
+        log_dir = base / "logs"
+        live = run_ready(
+            root,
+            [
+                str(ready_manifest),
+                "--oracle-binary",
+                str(fake_oracle),
+                "--log-dir",
+                str(log_dir),
+                "--timeout-seconds",
+                "5",
+            ],
+        )
+        for snippet in [
+            "actor_dispatch_ready_manifest=ok mode=run",
+            "ready_candidate index=0 target=actor_update_gate6",
+            "status=ok returncode=0",
+            "ready_candidate index=1 target=contact_scanner_start",
+            f"command={shlex.quote(str(fake_oracle))} "
+            f"--debug-contact-scanner-runtime-oracle {quoted_scanner_fixture}",
+        ]:
+            require(live, snippet, "live_fake_oracle")
+        for index, target, flag in [
+            (0, "actor_update_gate6", "--debug-actor-update-runtime-oracle"),
+            (1, "contact_scanner_start", "--debug-contact-scanner-runtime-oracle"),
+        ]:
+            log_text = (log_dir / f"candidate_{index}_{target}.log").read_text(
+                encoding="utf-8"
+            )
+            require(log_text, f"fake_oracle flag={flag}", "live_fake_oracle_log")
         cases += 1
 
         zero_manifest = base / "zero" / "manifest.txt"

@@ -141,12 +141,100 @@ menu, level-1 start, the deterministic autoplayer reaching bomb tile `(24,22)`,
 bomb placement, and three explosion/playback checkpoints. The behavior-4
 sequences capture spawn/retarget checkpoints plus manifest metadata for player
 state and first-monster position/velocity/behavior.
+Runtime/debugger behavior-4 evidence is normalized with
+`--debug-behavior4-runtime-oracle <fixture> [--expect-error]`. The fixture
+format records scenario/level, runtime `CS`/`DS`, spawner fields, actor
+before/after position and 8.8 velocity, motion timer, target/player-dead state,
+and optional raw `DS:` dump rows while anchoring the transcript to
+`1000:7A6B..7C2C`, `1000:728C..731B`, and `1000:73E5..741B`.
+Actor/contact update evidence is normalized with
+`--debug-actor-update-runtime-oracle <fixture> [--expect-error]`. Its synthetic
+fixtures cover parser behavior only: runtime captures still need to prove exact
+contact scanner and actor-update behavior around `1000:5CB0..604F` and
+`1000:6053..777F`. Use `tools/capture_original_actor_update_debug.sh` to stage
+best-effort DOSBox-debug capture plans for `object_collision_jump_live`,
+`monster_contact_damage_live`, and `monster_behavior4_chase`; it writes a
+`candidate_fixture.txt` skeleton that must be filled from runtime output before
+promotion. When a live DOSBox-debug launch reaches the debugger prompt, the
+helper copies observed `runtime_cs`/`runtime_ds` values into `manifest.txt` and
+`raw_debugger_dump.txt`, even if command submission later times out. It also
+writes `debugger_commands_runtime.txt` with concrete breakpoint/dump commands
+for the observed runtime segments.
+Scanner-only transcripts can also be checked with
+`--debug-contact-scanner-runtime-oracle <fixture> [--expect-error]`; this keeps
+`1000:5CB0..604F` overlap/contact flag evidence separate from full actor update
+state when a debugger stop only captures the scanner window. Use
+`tools/capture_original_contact_scanner_debug.sh` to stage the matching
+DOSBox-debug plan for `monster_contact_damage_live`, `object_collision_jump_live`,
+or `monster_behavior4_chase`; it writes a `candidate_fixture.txt` skeleton that
+must be filled from runtime output before promotion, and it preserves prompt
+`runtime_cs`/`runtime_ds` metadata plus `debugger_commands_runtime.txt` the
+same way as the actor-update helper.
+Because this DOSBox-debug build still does not reliably submit debugger
+commands with Return, reachability probes can use the guarded process-memory
+wrapper:
+
+```sh
+LEZAC_ACTOR_CONTACT_APPROVE_PROCMEM=1 \
+LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION=1 \
+  tools/capture_original_actor_contact_procmem.sh \
+  /tmp/lezac-actor-contact-procmem . actor_update_start
+```
+
+The wrapper reuses the proven child-process memory scanner, patches only the
+temporary DOSBox-debug child process, and records `visual_claim=0` instrumentation
+evidence. Supported targets are `actor_update_start`, `actor_update_end`,
+`contact_scanner_callsite`, `contact_scanner_start`, and `contact_scanner_end`.
+`contact_scanner_callsite` maps the static near call at `1000:6555` that targets
+`1000:5CB0`; `tools/check_actor_contact_callsite_scan.py` verifies that callsite
+and the entry/return bytes against `LEZAC.EXE`. The wrapper writes
+`<target>_runtime_candidate.txt` with the runtime metadata plus raw route-state
+dumps; the candidate is a fill-in scaffold until semantic actor/contact records
+are decoded. Use `LEZAC_ACTOR_CONTACT_ROUTE_STEPS` with comma-separated
+`key:seconds` holds to tune a route, for example
+`LEZAC_ACTOR_CONTACT_ROUTE_STEPS=x:1.0,n:0.2,z:0.5`. Set
+`LEZAC_ACTOR_CONTACT_RUNTIME_FREEZE_BEFORE_ROUTE=1` when probing helpers that
+may only execute during the movement/contact route instead of after route
+positioning.
+
+Use the route-sweep helper to plan or run several guarded actor/contact probes
+with one manifest. The default target is `contact_scanner_start` and the default
+timing matrix covers both post-route and pre-route freeze timing:
+
+```sh
+python3 tools/sweep_original_actor_contact_routes.py \
+  /tmp/lezac-actor-contact-route-sweep . --dry-run
+python3 tools/sweep_original_actor_contact_routes.py \
+  /tmp/lezac-actor-contact-route-sweep . \
+  --target contact_scanner_start --timing before_route \
+  --route x:8.00 --route x:5.00,m:0.50,x:4.00 \
+  --approve-procmem --approve-runtime-instrumentation
+```
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer level1_bomb_route
 tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-frames level1_bomb_route
 tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-b4-level2 monster_spawner_behavior4_level2
+./build/lezac_cpp --debug-behavior4-runtime-oracle \
+  tests/fixtures/dosbox/behavior4_runtime_oracle_synthetic.txt
+./build/lezac_cpp --debug-actor-update-runtime-oracle \
+  tests/fixtures/dosbox/actor_update_runtime_oracle_synthetic.txt
+./build/lezac_cpp --debug-contact-scanner-runtime-oracle \
+  tests/fixtures/dosbox/contact_scanner_runtime_oracle_synthetic.txt
+python3 tools/check_actor_update_runtime_oracle_fixtures.py \
+  tests/fixtures/dosbox --cmake CMakeLists.txt --source src/main.cpp
+python3 tools/check_contact_scanner_runtime_oracle_fixtures.py \
+  tests/fixtures/dosbox --cmake CMakeLists.txt --source src/main.cpp
+LEZAC_CONTACT_SCANNER_DEBUG_DRY_RUN=1 \
+  tools/capture_original_contact_scanner_debug.sh \
+  /tmp/lezac-contact-scanner-debug . monster_contact_damage_live
+LEZAC_ACTOR_UPDATE_DEBUG_DRY_RUN=1 \
+  tools/capture_original_actor_update_debug.sh \
+  /tmp/lezac-actor-update-debug . object_collision_jump_live
+LEZAC_BEHAVIOR4_DEBUG_DRY_RUN=1 \
+  tools/capture_original_behavior4_debug.sh \
+  /tmp/lezac-behavior4-debug . monster_behavior4_target_selection
 ```
 
 Original-game captures are best-effort because DOSBox timing, focus, and
@@ -183,6 +271,15 @@ downscaled automatically before metrics are computed.
 For exact oracle work, compare semantic checkpoints rather than elapsed frame
 numbers.
 
+On Windows, the native validation helper configures the local Visual Studio
+Build Tools plus the vcpkg SDL2 package and removes duplicate `PATH`/`Path`
+environment entries before invoking MSBuild:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/run_native_windows_validation.ps1 `
+  -BuildDir build-win-codex-vs3 -Configuration Debug
+```
+
 For explosion/debris/collapse process-memory probes, preflight freeze patches
 before running DOSBox. This verifies the shipped `LEZAC.EXE` file offset,
 expected original bytes, trampoline bytes, and scratch/body addresses without
@@ -199,6 +296,14 @@ python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-run
 python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . \
   --dry-run --skip-oracle --offset reverse
 
+python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . \
+  --dry-run --skip-oracle --offset forward \
+  --route-step x:2.00 --route-step c:0.50
+
+python3 tools/sweep_original_lane_result_routes.py /tmp/lezac-lane-result-route-sweep . \
+  --dry-run --skip-oracle \
+  --route x:2.00,c:0.50 --route x:1.50,z:0.50
+
 python3 tools/capture_original_explosion_procmem.py /tmp/lezac-preflight . \
   --describe-freeze-patch \
   --freeze-ghidra-offset 1000:3D3F \
@@ -210,10 +315,21 @@ The `forward` alias maps to Ghidra `1000:3D3F`, and `reverse` maps to
 address-based retries. Dry-run summaries and full-capture manifests report the
 selected `offset_labels` and normalized `offset_addresses` so single-probe
 retries are visible in the log header.
-The checked-in reverse result-write fixture is
-`tests/fixtures/dosbox/explosion_playback_oracle_original_3ed3_lane_result_runtime.txt`;
-the matching forward `3D3F` original fixture remains pending because the
-current default route loads the patch but does not reach that freeze.
+For route variation, repeat `--route-step KEY:SECONDS`; omitted route steps keep
+the historical default of holding player-1 right (`x`) for
+`--right-hold-seconds`. Use `tools/sweep_original_lane_result_routes.py` to
+plan or run repeated natural-route probes while preserving one manifest and
+one command line per route.
+The checked-in original result-write fixtures are
+`tests/fixtures/dosbox/explosion_playback_oracle_original_3ed3_lane_result_runtime.txt`
+for the reverse helper and
+`tests/fixtures/dosbox/explosion_playback_oracle_original_3d3f_lane_result_runtime_seeded.txt`
+for the forward helper under labeled runtime seeding. The natural right/down
+route fixture
+`tests/fixtures/dosbox/explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze.txt`
+records a live `x:2.00,c:0.50` no-freeze run with lane globals present.
+Natural-route forward `3D3F` evidence remains pending because the current
+default/timing/route-step probes load the patch but do not reach that freeze.
 
 ## Implemented
 

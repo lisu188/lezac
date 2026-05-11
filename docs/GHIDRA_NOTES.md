@@ -149,6 +149,13 @@ behavior `3`/`4` branch hypotheses in a synthetic fixture, including kind-1
 directional frame selection and behavior-4 countdown retargeting. This is a
 regression oracle for the current reconstruction model, not proof that the
 remaining AI/collision rules are exact.
+`--debug-behavior4-runtime-oracle` is the normalized evidence parser for future
+DOSBox-debug behavior-4 captures. It requires runtime `CS`/`DS`, semantic
+spawner and actor before/after records, target/player-dead state, and
+breakpoints covering the spawner loop `1000:7a6b..7c2c`, behavior-4 branch
+`1000:728c..731b`, and 8.8 integration `1000:73e5..741b`; optional `DS:` dumps
+are segment-checked and byte-counted. Current checked-in fixtures are synthetic
+or malformed parser coverage only and carry `visual_claim=0`.
 
 The C++ collision/passability model currently treats destruction-progress tiles
 as solid except passable object cells. A cell is passable when its tile is the
@@ -175,6 +182,52 @@ the actors finish clear. It covers behavior-3 full horizontal reversal/vertical
 stop and behavior-4 half reversal with retarget timer reset. Exact original
 clearance rules inside
 `1000:6053..777f` still need more disassembly or DOSBox-debug runtime evidence.
+`--debug-actor-update-runtime-oracle <fixture> [--expect-error]` is now the
+normalization target for that evidence. Its checked-in fixtures are synthetic
+parser coverage for runtime `CS`/`DS`, contact scanner anchors
+`1000:5cb0..604f`, actor-update anchors `1000:6053..777f`, actor before/after
+state, contact flags, tile probes, and raw `DS:` dump rows; they do not claim
+exact original collision geometry. `tools/capture_original_actor_update_debug.sh`
+records the matching debugger command plan and labels current captures
+`debugger_seeded` until full gameplay-route evidence is available. Its
+`candidate_fixture.txt` is a fill-in normalization skeleton, not evidence until
+runtime fields and dump rows are captured. Short WSL/Xvfb live launch probes now
+reach the DOSBox-debug prompt and let the helper preserve runtime `CS`/`DS`
+metadata plus a runtime-translated `debugger_commands_runtime.txt`, but semantic
+breakpoint submission is still pending.
+`--debug-contact-scanner-runtime-oracle <fixture> [--expect-error]` narrows that
+contract to the scanner window only: subject/other actor boxes, overlap size,
+contact flags, pending damage, runtime `CS`/`DS`, and breakpoints at
+`1000:5cb0` and `1000:604f`. `tools/capture_original_contact_scanner_debug.sh`
+records the scanner-only debugger command plan and keeps those captures labeled
+`debugger_seeded` until a full gameplay route proves the same state naturally.
+Its `candidate_fixture.txt` is a skeleton for transcript normalization, not
+evidence until runtime fields and dump rows are filled; live launch attempts
+also preserve prompt `runtime_cs`/`runtime_ds` metadata and a concrete runtime
+command plan for later address translation.
+Because command submission to this DOSBox-debug prompt remains unreliable, the
+guarded `tools/capture_original_actor_contact_procmem.sh` wrapper can prove
+reachability by writing a temporary `EB FE` freeze loop into the child
+DOSBox-debug process after the known route starts. A 2026-05-11 probe froze
+`1000:6053` at runtime `01ED:6053` with original bytes `55 89` and runtime
+`DS=0C8F`; this is instrumentation evidence only, not a promoted semantic
+actor/contact fixture. A first `1000:5CB0` contact-scanner-start probe loaded
+the same `EB FE` runtime patch at `01ED:5CB0` but did not freeze on the default
+level-1 route, so the scanner path still needs a tuned contact/collision route.
+The process-memory route dumps now preserve `DS:7900`, `DS:79E0`, and `DS:7A00`
+for actor/contact candidate scaffolds. A longer `x:5.0,m:0.5,x:2.0` scanner
+route reached active level-1 state but still did not freeze `1000:5CB0`; the
+matching pre-route patch run also did not freeze, so the next scanner probe
+should use a different live contact route or revalidate the entry anchor. The
+actor/contact route sweep added after that result also missed `1000:5CB0` on
+`x:8.00` and `x:5.00,m:0.50,x:4.00`; a `1000:604F` probe on the latter route
+loaded runtime bytes `c9 c2` and did not freeze, consistent with a return-tail
+anchor rather than a useful entry breakpoint. Static near-call scanning of the
+loaded code image found the scanner entry's only direct call at `1000:6555`
+inside actor update (`e8 58 f7` -> `1000:5CB0`), so
+`contact_scanner_callsite` is now a probe target. The first live callsite probe
+on `x:5.00,m:0.50,x:4.00` loaded `01ED:6555` but also did not freeze,
+indicating that route still does not reach the scanner callsite.
 
 ## Bomb Inventory
 
@@ -332,9 +385,8 @@ parked at `CS:f200`, stores fields at `CS:f280`, and captures the result byte,
 byte before the write. The oracle validates that `ES:DI` equals the passed far
 pointer, the stored result byte equals `[BP-0d]`, and the loop count/index are
 in bounds. The process-memory helper also refuses to install this trampoline
-unless the target bytes are exactly `26 88 05` (`mov es:[di],al`). Current
-checked-in coverage is synthetic only, and `--describe-freeze-patch` can
-preflight these bytes without launching DOSBox:
+unless the target bytes are exactly `26 88 05` (`mov es:[di],al`).
+`--describe-freeze-patch` can preflight these bytes without launching DOSBox:
 `explosion_playback_oracle_lane_result_scratch_synthetic.txt` for forward
 `3d3f`, `explosion_playback_oracle_lane_result_reverse_scratch_synthetic.txt`
 for reverse `3ed3`, plus malformed coverage for missing fields, wrong observed
@@ -347,9 +399,20 @@ original-runtime fixture
 one reverse result-write capture: runtime `CS:IP=01ed:3ed3`, `DS=0c8f`,
 scratch `01ed:f280`, result byte `0x00ef`, far destination
 `18b3:3fe6`, caller far pointer `18b3:3fe6`, result local `0x00ef`, active
-count/index `1/1`, and target-before byte `0xde`. The default 2026-05-06 route
-loaded the forward `3d3f` patch but did not hit the freeze, so that original
-fixture is still pending.
+count/index `1/1`, and target-before byte `0xde`. The labeled runtime-seeded
+fixture `explosion_playback_oracle_original_3d3f_lane_result_runtime_seeded.txt`
+promotes one forward result-write capture: runtime `CS:IP=01ed:3d3f`,
+`DS=0c8f`, seed call site `01ed:4c96`, helper body `01ed:3bb2`, scratch
+`01ed:f280`, result byte `0x00fa`, far destination `0c44:78d2`, caller far
+pointer `0c44:78d2`, result local `0x00fa`, active count/index `1/1`, and
+target-before byte `0xf3`. The natural route-step fixture
+`explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze.txt`
+records route `x:2.00,c:0.50` loading the forward `3d3f` patch without a
+freeze or scratch record; its chosen sample still has
+`lane_update_flag=0x05`, `lane_word=0x0004`, `lane_target_offset=0x072c`, and
+reverse input `0xfb`. The default/timing-variant/route-step 2026-05-06 routes
+loaded the forward `3d3f` patch but did not hit the freeze, so natural-route
+forward evidence is still pending.
 
 The effect constructor at `1000:3fa6` writes 11-byte effect records at
 `0x2093 + 0x0b * DS:2076` and stores the effect type byte in

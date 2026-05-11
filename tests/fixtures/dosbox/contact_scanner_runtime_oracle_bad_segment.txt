@@ -1,0 +1,17 @@
+# LEZAC contact-scanner runtime oracle fixture v1
+capture=contact_scanner_runtime
+source=dosbox-debug
+temp_copy=1
+visual_claim=0
+scenario=monster_contact_damage_live
+level=1
+
+runtime_cs=1A2B
+runtime_ds=2B3C
+
+break ghidra=1000:5CB0 runtime=FFFF:5CB0 label=contact_scanner_start
+break ghidra=1000:604F runtime=1A2B:604F label=contact_scanner_end
+
+subject_actor slot=0 kind=0 state=0 x=0x0068 y=0x00a8 w=16 h=24 flags=0x0000
+other_actor slot=1 kind=1 state=0 x=0x0070 y=0x00aa w=16 h=16 flags=0x0000
+contact_scan subject_slot=0 other_slot=1 flags_before=0x0000 flags_after=0x0003 contact=1 player_contact=1 monster_contact=1 object_contact=0 damage_pending=2 overlap_x=8 overlap_y=14

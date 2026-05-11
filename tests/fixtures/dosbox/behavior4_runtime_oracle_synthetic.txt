@@ -1,0 +1,28 @@
+# LEZAC behavior-4 runtime oracle fixture v1
+# Synthetic parser fixture: verifies transcript parsing and address anchors only.
+capture=behavior4_runtime
+source=dosbox-debug
+temp_copy=1
+visual_claim=0
+scenario=monster_behavior4_target_selection
+level=3
+command=dosbox-debug -c "mount c /tmp/lezac-dosbox-behavior4" -c "c:" -c "DEBUG LEZAC.EXE"
+
+runtime_cs=1A2B
+runtime_ds=2B3C
+
+break ghidra=1000:7A6B runtime=1A2B:7A6B label=spawner_loop_start
+break ghidra=1000:7C2C runtime=1A2B:7C2C label=spawner_loop_end
+break ghidra=1000:728C runtime=1A2B:728C label=behavior4_branch_start
+break ghidra=1000:731B runtime=1A2B:731B label=behavior4_branch_end
+break ghidra=1000:73E5 runtime=1A2B:73E5 label=integration_8_8_start
+break ghidra=1000:741B runtime=1A2B:741B label=integration_8_8_end
+
+spawner index=5 behavior=4 ai0=20 ai1=214 ai2=66 hp=4 spawn_timer=30
+actor_before slot=0 behavior=4 x=0x0068 y=0x00a8 vx8=0 vy8=0 motion_timer=0 target=2 hp=4 dead=0
+actor_after slot=0 behavior=4 x=0x0069 y=0x00a8 vx8=32 vy8=0 motion_timer=1 target=1 hp=4 dead=0
+players p1_dead=0 p2_dead=1 p1_state=0 p2_state=2 target_before=2 target_after=1
+
+dump DS:7900
+2B3C:7900  05 04 14 d6 42 04 1e 00 00 00 00 00 00 00 00 00
+2B3C:7910  68 00 a8 00 20 00 00 00 01 01 04 00 00 00 00 00

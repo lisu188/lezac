@@ -1,7 +1,7 @@
 # Recovery Status
 
-Last reviewed: 2026-05-06
-Branch: `codex/lane-helper-model-evidence`
+Last reviewed: 2026-05-08
+Branch: `codex/forward-lane-result-seeded-evidence`
 Baseline: `origin/main`
 
 ## Completed This Iteration
@@ -104,9 +104,39 @@ Baseline: `origin/main`
   output `0x00ef`, `ES:DI=18B3:3FE6`, `[BP+4]/[BP+6]=18B3:3FE6`,
   result local `0x00ef`, active count/index `1/1`, and target-before byte
   `0xde`; the fixture remains `visual_claim=0`.
-- `1000:3D3F` remains pending as original runtime evidence. The 2026-05-06
-  default route loaded the runtime patch but did not hit the forward result
-  freeze, so no forward fixture was promoted.
+- Promoted
+  `explosion_playback_oracle_original_3d3f_lane_result_runtime_seeded.txt`
+  from an approved WSL/DOSBox process-memory run with labeled runtime seeding.
+  The seed patch at runtime `01ED:4C96` writes `DS:655E=0xC004`, calls the
+  original forward helper body at `01ED:3BB2`, returns to `01ED:4C99`, and then
+  freezes `1000:3D3F` at runtime `01ED:3D3F`. The fixture records byte guard
+  `268805`, scratch `01ED:F280`, result/output `0x00fa`,
+  `ES:DI=0C44:78D2`, `[BP+4]/[BP+6]=0C44:78D2`, active count/index `1/1`,
+  target-before byte `0xf3`, and remains `visual_claim=0`.
+- Natural-route `1000:3D3F` evidence remains pending. The 2026-05-06 default,
+  right-hold timing, and before-bomb patch attempts all loaded the runtime patch
+  but did not hit the forward result freeze, so the promoted forward fixture is
+  intentionally labeled runtime-seeded rather than full gameplay-route evidence.
+- Extended the original process-memory capture route driver with repeatable
+  `--route-step KEY:SECONDS` holds, preserving the old `--right-key` /
+  `--right-hold-seconds` route as the default. The lane-result wrapper passes
+  those route steps through and records them in manifests/candidate fixtures.
+- Promoted
+  `explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze.txt`
+  from a natural original-control route `x:2.00,c:0.50`. It loaded the
+  `1000:3D3F` runtime patch and records byte guard `268805`, but no forward
+  result freeze or lane-result scratch appeared. The chosen sample still shows
+  live lane globals (`lane_update_flag=0x05`, `lane_word=0x0004`,
+  `lane_target_offset=0x072c`, reverse input `0xfb`), so it is useful negative
+  evidence for the natural forward-route gap.
+- Added `tools/sweep_original_lane_result_routes.py`, a guarded route-sweep
+  wrapper for repeated natural lane-result probes. Its dry-run mode prints all
+  generated `capture_original_lane_result_runtime.py` commands, defaults to the
+  current `x`, `x,c`, `x,z`, and `x,m` route set, and live capture still
+  requires both process-memory/runtime-instrumentation approval flags.
+- Added `tools/check_lane_result_route_sweep.py` and CTest coverage for the
+  route-sweep wrapper's default route labels, custom route labels, approval
+  refusal, repository-output refusal, and malformed route parsing.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,
@@ -139,6 +169,107 @@ Baseline: `origin/main`
   `monster_behavior4_target_selection`. The frame harness now exports
   deterministic behavior-4 spawn/retarget checkpoints plus manifest metadata
   for player count/dead flags and first-monster position/velocity/behavior.
+- Added `--debug-behavior4-runtime-oracle <fixture> [--expect-error]` with
+  synthetic and malformed DOSBox fixture coverage. The parser records
+  scenario/level, runtime `CS`/`DS`, behavior-4 spawner fields, actor
+  before/after position, 8.8 velocity, motion timer, target/player-dead state,
+  optional `DS:` dump rows, and required anchors for the spawner loop
+  `1000:7A6B..7C2C`, behavior-4 branch `1000:728C..731B`, and 8.8 integration
+  `1000:73E5..741B`.
+- Added `tools/capture_original_behavior4_debug.sh <out_dir> [asset_dir]
+  <scenario>` for the level-2 spawner, level-3 spawner, and target-selection
+  behavior-4 scenarios. It writes `manifest.txt`, `raw_debugger_dump.txt`, and
+  `debugger_commands.txt`, labels current captures `debugger_seeded`, and has a
+  dry-run CTest path for environments without DOSBox-debug.
+- Added `tools/check_behavior4_runtime_oracle_fixtures.py` so behavior-4
+  fixture expectations, CMake wiring, and the C++ oracle command/source
+  contract can be validated without DOSBox or a local C++ compiler.
+- Added `tools/check_behavior4_debug_capture_helper.py` to lock the
+  behavior-4 DOSBox-debug helper's supported scenarios, debugger anchors,
+  manifest/raw-output contract, `debugger_seeded` docs, and CMake dry-run
+  wiring without requiring `bash` or DOSBox locally.
+- Restored a native Windows validation path with Visual Studio Build Tools and
+  the local vcpkg SDL2 package by propagating `SDL2_LIBRARY_DIRS`, defining
+  `SDL_MAIN_HANDLED`, and making the state-2 effect-placement lambdas
+  MSVC-compatible. The sanitized native Debug build in `build-win-codex-vs3`
+  passed 156/156 CTest tests. The bash-only behavior-4 helper dry-run is now
+  registered only when `bash` is available, so the native Windows suite can run
+  without a manual exclusion while still preserving the helper's CMake wiring.
+- Added `tools/run_native_windows_validation.ps1` and
+  `tools/check_native_windows_validation_helper.py` to make that native Windows
+  validation recipe repeatable: it sanitizes duplicate `PATH`/`Path` entries,
+  configures Visual Studio Build Tools with the local vcpkg SDL2 package, builds
+  `build-win-codex-vs3`, and runs CTest unless `-SkipTests` is supplied.
+- Added `--debug-actor-update-runtime-oracle <fixture> [--expect-error]` with
+  synthetic and malformed fixture coverage. The parser records scenario/level,
+  runtime `CS`/`DS`, actor before/after state, contact scanner flags, tile probe
+  passability/standability fields, optional `DS:` dump rows, and required
+  anchors for the contact scanner `1000:5CB0..604F` and actor update
+  `1000:6053..777F`. No live gameplay behavior changed from this synthetic
+  parser coverage.
+- Added `tools/capture_original_actor_update_debug.sh <out_dir> [asset_dir]
+  <scenario>` for `object_collision_jump_live`, `monster_contact_damage_live`,
+  and `monster_behavior4_chase`. It writes `manifest.txt`,
+  `raw_debugger_dump.txt`, `candidate_fixture.txt`, `debugger_commands.txt`, and
+  `actor_update_debug_capture.log`, labels current captures `debugger_seeded`,
+  and has a dry-run CTest path for environments with `bash`. Live DOSBox-debug
+  attempts now append any observed debugger prompt `runtime_cs`/`runtime_ds`
+  values to both `manifest.txt` and `raw_debugger_dump.txt`, and write
+  `debugger_commands_runtime.txt` with concrete runtime breakpoint/dump
+  commands. The candidate fixture is intentionally a fill-in skeleton until
+  original runtime fields and dump rows are captured.
+- Added `tools/check_actor_update_runtime_oracle_fixtures.py` so the
+  actor-update fixture set, expected malformed outcomes, CMake wiring, and C++
+  oracle command/source contract can be validated without DOSBox or a compiler.
+- Added `--debug-contact-scanner-runtime-oracle <fixture> [--expect-error]`
+  with synthetic and malformed fixture coverage. This isolates the probable
+  scanner window `1000:5CB0..604F` from full actor-update evidence by parsing
+  subject/other actor boxes, overlap size, contact flags, and pending damage.
+  `tools/check_contact_scanner_runtime_oracle_fixtures.py` validates fixture
+  outcomes, CMake wiring, and the C++ source contract without DOSBox.
+- Added `tools/capture_original_contact_scanner_debug.sh <out_dir> [asset_dir]
+  <scenario>` for `monster_contact_damage_live`, `object_collision_jump_live`,
+  and `monster_behavior4_chase`. It writes scanner-only `manifest.txt`,
+  `raw_debugger_dump.txt`, `candidate_fixture.txt`, `debugger_commands.txt`, and
+  `contact_scanner_debug_capture.log`, labels current captures
+  `debugger_seeded`, and has CMake/checker coverage for dry-run wiring. Live
+  DOSBox-debug attempts now append any observed debugger prompt
+  `runtime_cs`/`runtime_ds` values to both `manifest.txt` and
+  `raw_debugger_dump.txt`, and write `debugger_commands_runtime.txt` with
+  concrete runtime breakpoint/dump commands. The candidate fixture is
+  intentionally a fill-in skeleton until original runtime fields and dump rows
+  are captured.
+- WSL/Xvfb/DOSBox-debug launch is unblocked in the approved WSL context. Short
+  2026-05-11 temp-copy probes reached the DOSBox-debug prompt and recorded
+  runtime `CS=01ED`, `DS=01DD` for both contact-scanner and actor-update helper
+  paths. They still time out with DOSBox-debug exit `124` because debugger
+  command submission and semantic breakpoint seeding are the remaining blocker;
+  no original actor/contact runtime fixture has been promoted from these launch
+  probes.
+- Added `tools/capture_original_actor_contact_procmem.sh`, a guarded
+  process-memory instrumentation wrapper for `actor_update_start`,
+  `actor_update_end`, `contact_scanner_callsite`, `contact_scanner_start`, and
+  `contact_scanner_end`. `contact_scanner_callsite` maps the static near call at
+  `1000:6555` that targets `1000:5CB0`; the only direct near call to the scanner
+  entry found in the shipped code image is at that callsite. It reuses the
+  proven child DOSBox-debug process-memory scanner, requires
+  `LEZAC_ACTOR_CONTACT_APPROVE_PROCMEM=1` and
+  `LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION=1` for live runs, and
+  records `visual_claim=0` because these are reachability probes rather than
+  pristine gameplay-route fixtures. It now writes
+  `<target>_runtime_candidate.txt` with runtime metadata and raw route-state
+  dumps, and accepts `LEZAC_ACTOR_CONTACT_ROUTE_STEPS` as comma-separated
+  `key:seconds` route holds for scanner-path tuning. It can also set
+  `LEZAC_ACTOR_CONTACT_RUNTIME_FREEZE_BEFORE_ROUTE=1` so the runtime patch is
+  applied immediately after level start, before route movement, for helpers that
+  may only execute during contact positioning. A 2026-05-11 live probe at
+  `actor_update_start` froze `1000:6053` at runtime `01ED:6053`, with
+  `freeze_old_bytes=5589`, `freeze_patch_bytes=ebfe`,
+  `freeze_runtime_patch_applied=1`, `instrumented_freeze_observed=1`, runtime
+  `CS=01ED`, and runtime `DS=0C8F`.
+- Added `tools/check_actor_contact_procmem_helper.py` and CMake dry-run
+  coverage so the guarded wrapper's targets, approvals, output contract, and
+  docs are checked without process-memory access.
 - Added provisional live state-2 rendering keyed to the recovered `0x4a..0x4f`
   cursor range. It is intentionally documented as `visual_claim=0` until the
   original `DS:c322` frame-table fields are fully interpreted.
@@ -209,6 +340,130 @@ Baseline: `origin/main`
 
 ## Validation
 
+- 2026-05-11 continuation: bundled Python helper/oracle checks passed for
+  `tools/check_actor_update_debug_capture_helper.py`,
+  `tools/check_contact_scanner_debug_capture_helper.py`,
+  `tools/check_actor_update_runtime_oracle_fixtures.py`, and
+  `tools/check_contact_scanner_runtime_oracle_fixtures.py`.
+- `git --git-dir=.codex-git --work-tree=. diff --check` passed; Git reported
+  only existing CRLF normalization warnings for touched Markdown files.
+- WSL syntax checks passed for `tools/capture_original_contact_scanner_debug.sh`
+  and `tools/capture_original_actor_update_debug.sh`.
+- WSL dry-runs wrote complete helper artifacts outside the repository at
+  `/tmp/lezac-contact-scanner-dry-run-codex-20260511` and
+  `/tmp/lezac-actor-update-dry-run-codex-20260511`.
+- Short WSL/Xvfb/DOSBox-debug launch probes wrote temp-copy manifests at
+  `/tmp/lezac-contact-scanner-live2-codex-20260511` and
+  `/tmp/lezac-actor-update-live-codex-20260511`. Both reached the debugger
+  prompt and recorded `runtime_cs=01ED`, `runtime_ds=01DD`; both timed out with
+  DOSBox-debug exit `124` because debugger command submission is still pending.
+- Follow-up helper dry-runs now also emit `debugger_commands_runtime.txt` as a
+  placeholder, and live probes overwrite it with runtime-translated debugger
+  commands when `runtime_cs` is observed. Verified live outputs at
+  `/tmp/lezac-contact-runtime-command-live2-codex-20260511` and
+  `/tmp/lezac-actor-runtime-command-live2-codex-20260511` contain concrete
+  `BP 01ED:5CB0`, `BP 01ED:604F`, actor-update `BP 01ED:6053`/`01ED:777F`,
+  and `D 01DD:...` dump commands.
+- `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
+  -BuildDir build-win-codex-vs3 -Configuration Debug` passed: configure/build
+  succeeded and CTest reported 169/169 tests passing.
+- After adding runtime-translated debugger command files, the same native
+  validation helper passed again: configure/build succeeded and CTest reported
+  169/169 tests passing.
+- Focused native CTest after the artifact cleanup passed:
+  `ctest --test-dir build-win-codex-vs3 -C Debug -R
+  "actor_update_debug_capture_helper_expectations|contact_scanner_debug_capture_helper_expectations"
+  --output-on-failure` reported 2/2 tests passing.
+- Guarded process-memory wrapper smoke evidence: live WSL output under
+  `/tmp/lezac-actor-6053-freeze-procmem-codex-20260511` recorded
+  `instrumented_freeze_observed=1` for `1000:6053`, with matching tail-frame
+  screenshots. The generated candidate remains an explosion-helper artifact and
+  was not promoted as actor/contact semantic evidence.
+- The repeatable wrapper was then verified at
+  `/tmp/lezac-actor-contact-procmem-live-codex-20260511`; its top-level
+  manifest records `target=actor_update_start`, `runtime_cs=01ED`,
+  `runtime_ds=0C8F`, `freeze_runtime=01ED:6053`, `freeze_old_bytes=5589`,
+  `freeze_patch_bytes=ebfe`, `freeze_runtime_patch_applied=1`, and
+  `instrumented_freeze_observed=1`.
+- A live `contact_scanner_start` probe at
+  `/tmp/lezac-contact-scanner-start-procmem-live-codex-20260511` loaded the
+  runtime patch at `01ED:5CB0` (`freeze_old_bytes=5589`,
+  `freeze_patch_bytes=ebfe`, `freeze_runtime_patch_applied=1`) but did not
+  freeze (`instrumented_freeze_observed=0`) on the default level-1 route. This
+  is route/timing evidence only; the scanner still needs a tuned collision path.
+- The process-memory sampler now includes actor/contact-oriented route dumps
+  for `DS:7900` and `DS:7A00` alongside the existing `DS:79E0` player-state
+  window.
+- The wrapper now writes `<target>_runtime_candidate.txt` as a non-promoted
+  oracle scaffold. Dry-run route tuning was verified with
+  `LEZAC_ACTOR_CONTACT_ROUTE_STEPS=x:1.0,n:0.2,z:0.5`, and a live
+  `actor_update_start` run at
+  `/tmp/lezac-actor-contact-candidate-live-codex-20260511` produced
+  `actor_update_start_runtime_candidate.txt` with runtime `CS=01ED`,
+  `DS=0C8F`, freeze metadata, and repeated `DS:7900`/`DS:79E0`/`DS:7A00`
+  route-state dump blocks.
+- A tuned `contact_scanner_start` route
+  (`LEZAC_ACTOR_CONTACT_ROUTE_STEPS=x:5.0,m:0.5,x:2.0`) at
+  `/tmp/lezac-contact-scanner-route-x5m-codex-20260511` entered active level-1
+  gameplay and preserved `DS:7900`/`DS:79E0`/`DS:7A00` route-state dumps, but
+  still loaded the `01ED:5CB0` patch without freezing. This makes a pre-route
+  freeze mode the next scanner probe rather than promoting the no-freeze route
+  as semantic contact evidence.
+- The matching pre-route freeze run at
+  `/tmp/lezac-contact-scanner-before-route-codex-20260511` applied the
+  `01ED:5CB0` patch immediately after level start
+  (`freeze_runtime_before_route=1`, `freeze_runtime_patch_phase=before_route`)
+  and then replayed the same `x:5.0,m:0.5,x:2.0` route. It also did not freeze,
+  so the current conclusion is narrow: this level-1 movement route does not hit
+  the scanner start even when the patch is applied before movement. The next
+  contact-scanner probe should target a different route or validate whether
+  `1000:5CB0` is the correct entry anchor for live player/monster contact.
+- Added `tools/sweep_original_actor_contact_routes.py`, a guarded route-sweep
+  planner/runner for `actor_update_start`, `actor_update_end`,
+  `contact_scanner_start`, and `contact_scanner_end`. It expands repeated
+  `--route KEY:SECONDS,...` entries across `before_bomb`, `before_route`, or
+  both runtime-freeze timings, writes one manifest, and forwards approvals to
+  `tools/capture_original_actor_contact_procmem.sh`. Added
+  `tools/check_actor_contact_route_sweep.py` plus CTest dry-run/output coverage.
+- A live `contact_scanner_start` route sweep at
+  `/tmp/lezac-actor-contact-route-sweep-live-codex-20260511` ran pre-route
+  probes for `x:8.00` and `x:5.00,m:0.50,x:4.00`. Both runs loaded
+  `01ED:5CB0` with `runtime_cs=01ED`, `runtime_ds=0C8F`,
+  `freeze_runtime_before_route=1`, and `instrumented_freeze_observed=0`.
+- A matching `contact_scanner_end` pre-route probe at
+  `/tmp/lezac-actor-contact-end-sweep-live-codex-20260511` loaded
+  `01ED:604F` on route `x:5.00,m:0.50,x:4.00` and also did not freeze. The
+  runtime bytes at that anchor were `c9c2`, so this is best treated as a
+  return-tail probe rather than proof that the scanner body is unreachable.
+- Added `tools/check_actor_contact_callsite_scan.py` to lock the static
+  contact-scanner anchors in `LEZAC.EXE`: entry bytes `55 89` at `1000:5CB0`,
+  return bytes `c9 c2 02` at `1000:604F`, the single direct near call at
+  `1000:6555` (`e8 58 f7`) targeting `1000:5CB0`, and the actor-update entry
+  bytes `55 89` at `1000:6053`.
+- A live `contact_scanner_callsite` pre-route probe at
+  `/tmp/lezac-contact-callsite-live-codex-20260511` on route
+  `x:5.00,m:0.50,x:4.00` loaded `01ED:6555` with old bytes `e858`,
+  `freeze_runtime_before_route=1`, `runtime_cs=01ED`, `runtime_ds=0C8F`, and
+  `instrumented_freeze_observed=0`. Combined with the entry no-freeze probes,
+  this points to the route not reaching the scanner callsite rather than an
+  incorrect `1000:5CB0` entry byte mapping.
+- Focused native CTest passed for
+  `python_tool_syntax_lane_result_preflight|actor_contact_procmem_helper_expectations`
+  with 2/2 tests passing. Full native validation then passed again:
+  configure/build succeeded and CTest reported 170/170 tests passing.
+- After adding pre-route freeze timing, focused helper validation and full
+  native validation passed again: configure/build succeeded and CTest reported
+  170/170 tests passing.
+- After adding the actor/contact route-sweep helper, full native validation
+  passed again: configure/build succeeded and CTest reported 172/172 tests
+  passing.
+- After adding the static callsite scan and `contact_scanner_callsite` probe
+  target, full native validation passed again: configure/build succeeded and
+  CTest reported 173/173 tests passing.
+- After adding the actor/contact process-memory wrapper and dry-run CTest,
+  `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
+  -BuildDir build-win-codex-vs3 -Configuration Debug` passed: configure/build
+  succeeded and CTest reported 170/170 tests passing.
 - `cmake -S . -B build` passed.
 - `cmake --build build` passed.
 - `env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp
@@ -398,7 +653,19 @@ Baseline: `origin/main`
   147/147 tests.
 - The same 2026-05-06 two-offset attempt left the forward `3D3F` candidate as
   `runtime_child_memory_patch_loaded_no_freeze_observed`; this is a route/timing
-  gap, not a parser claim, so forward result-write evidence remains pending.
+  gap, not a parser claim. Later default, right-hold timing, and before-bomb
+  retries also loaded the patch without freezing.
+- A labeled runtime-seeded forward retry under
+  `/tmp/lezac-lane-result-forward-seeded-after-20260506` did freeze
+  `1000:3D3F` and produced the promoted
+  `explosion_playback_oracle_original_3d3f_lane_result_runtime_seeded.txt`
+  fixture. Natural-route forward result-write evidence remains pending.
+- Route-step natural retries under
+  `/tmp/lezac-lane-result-forward-routestep-x1p5-z0p5-20260506`,
+  `/tmp/lezac-lane-result-forward-routestep-x2p0-c0p5-20260506`, and
+  `/tmp/lezac-lane-result-forward-routestep-x2p0-m0p35-20260506` all loaded the
+  `1000:3D3F` patch without freezing. The `x:2.00,c:0.50` run was promoted as
+  a natural no-freeze fixture because it preserves nonzero lane-global state.
 - A native PowerShell `cmake --build build` attempt was also rejected because
   the existing build tree was configured under `/mnt/c/...` and expects
   `/usr/bin/gmake`; use WSL or a fresh native build tree for full validation.
@@ -651,18 +918,21 @@ Baseline: `origin/main`
   post-call lane bytes, the `4C75` live word gate, one `3CD4` mid-helper
   lane-division setup, one `3CE3` forward divide call-site register capture,
   collapse writeback captures at `3D1B` and `3EAF`, and seeded debris
-  writeback captures at `3D2D` and `3EC1`. Next evidence should target natural
-  debris-side writeback plus final far-pointer result writes at `3D3F` and
-  `3ED3` before changing live playback behavior.
+  writeback captures at `3D2D` and `3EC1`, plus final far-pointer result-write
+  captures at reverse `3ED3` and seeded forward `3D3F`. Next evidence should
+  target natural debris-side writeback and natural forward `3D3F` before
+  changing live playback behavior.
 - Semantic meaning of `PROEFS.SON` bytes `+4..+5` remains unknown; current
   diagnostics preserve them as raw fields only.
 - Many non-explosion sound callsites still need exact cursor/priority mapping.
 - Exact actor update behavior around `1000:6053..777f`, especially original
   contact flags, passability thresholds, tile snapping, behavior-3 ledge/wall
-  handling, and behavior-4 collision response.
-- The probable contact scanner around `1000:5cb0..604f` needs naming,
-  cross-reference mapping, and runtime confirmation before the C++ clearance
-  model can be called original-faithful.
+  handling, and behavior-4 collision response. The synthetic actor-update oracle
+  is ready; original runtime/debugger fixtures are still pending.
+- The probable contact scanner around `1000:5cb0..604f` has both scanner-only
+  and actor-update fixture targets, but still needs cross-reference mapping and
+  runtime confirmation before the C++ clearance model can be called
+  original-faithful.
 - Exact state-2 life-count decrement, `DS:79b9` fallback behavior,
   active-player accounting edge cases, and exact dead-player visual playback
   from original frame bytes.

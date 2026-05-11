@@ -529,10 +529,16 @@ that expectation as `freeze_expected_old_bytes`. A 2026-05-06 follow-up fixed
 the candidate writer so promoted fixtures also carry explicit
 `freeze_expected_old_bytes` and `freeze_old_bytes` keys, not only the long
 `instrumentation=` line. The checked-in coverage now includes synthetic parser
-fixtures plus one original reverse result-write fixture:
-`explosion_playback_oracle_original_3ed3_lane_result_runtime.txt`. The default
-route loaded the `1000:3D3F` patch but did not hit the forward result freeze,
-so forward original result-write evidence remains pending.
+fixtures, one original reverse result-write fixture
+`explosion_playback_oracle_original_3ed3_lane_result_runtime.txt`, and one
+labeled runtime-seeded forward result-write fixture
+`explosion_playback_oracle_original_3d3f_lane_result_runtime_seeded.txt`. A
+natural right/down route-step fixture,
+`explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze.txt`,
+records `x:2.00,c:0.50` loading the `1000:3D3F` patch without a forward result
+freeze while live lane globals were present. The default/timing-variant and
+route-step routes loaded the `1000:3D3F` patch but did not hit the forward
+result freeze, so natural-route forward result-write evidence remains pending.
 The no-DOSBox preflight also checks the shared static tail at both anchors:
 loop-end compare, `mov al,[bp-0d]`, `les di,[bp+4]`, `mov es:[di],al`,
 `leave`, and `ret 6`. Its status line carries the exact tail as
@@ -604,15 +610,23 @@ line; successful full captures also print the manifest path.
 Lane-result handoff checklist:
 
 ```text
-lane_result_status=reverse_original_runtime_capture_promoted_forward_pending
-lane_result_blocker=forward 3D3F default route loaded patch but did not freeze
+lane_result_status=reverse_original_runtime_capture_promoted_forward_seeded_promoted_natural_forward_pending
+lane_result_blocker=natural forward 3D3F default/timing/before-bomb routes loaded patch but did not freeze
 lane_result_preflight=python3 tools/check_explosion_lane_result_preflight.py .
 lane_result_wrapper_output_check=python3 tools/check_explosion_lane_result_wrapper.py .
 lane_result_wrapper_dry_run=python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . --dry-run --skip-oracle
+lane_result_route_sweep_dry_run=python3 tools/sweep_original_lane_result_routes.py /tmp/lezac-lane-result-route-sweep . --dry-run --skip-oracle --route x:2.00,c:0.50 --route x:1.50,z:0.50
+lane_result_route_sweep_capture=python3 tools/sweep_original_lane_result_routes.py /tmp/lezac-lane-result-route-sweep . --approve-procmem --approve-runtime-instrumentation
 lane_result_wrapper_capture=python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . --approve-procmem --approve-runtime-instrumentation
 lane_result_reverse_capture=python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime-20260506-reverse . --approve-procmem --approve-runtime-instrumentation --offset reverse
+lane_result_forward_seeded_capture=python3 tools/capture_original_explosion_procmem.py /tmp/lezac-lane-result-forward-seeded-after-20260506 . --approve-procmem --mode regular --freeze-ghidra-offset 1000:3D3F --freeze-patch-mode lane-result-cs-scratch --approve-instrumentation --approve-runtime-instrumentation --runtime-freeze-after-bomb-seconds 0.0 --runtime-seed-debris-writeback --level-start-seconds 1.5 --right-hold-seconds 2.0 --sample-seconds 5.0 --sample-interval 0.005 --route-state-interval 0 --tail-freeze-check-seconds 0.75
+lane_result_forward_route_step_capture=python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-forward-routestep-x2p0-c0p5-20260506 . --approve-procmem --approve-runtime-instrumentation --offset forward --route-step x:2.00 --route-step c:0.50 --sample-seconds 5.0 --sample-interval 0.005 --route-state-interval 0 --tail-freeze-check-seconds 0.75
 lane_result_forward_alias=forward -> 1000:3D3F -> expected_old_bytes=268805 -> scratch=CS:F280
 lane_result_reverse_alias=reverse -> 1000:3ED3 -> expected_old_bytes=268805 -> scratch=CS:F280
+lane_result_forward_seeded_fixture=tests/fixtures/dosbox/explosion_playback_oracle_original_3d3f_lane_result_runtime_seeded.txt
+lane_result_forward_seeded_runtime=CS:IP 01ED:3D3F DS=0C8F seed_call=01ED:4C96 seed_helper=01ED:3BB2 scratch=01ED:F280 output=00fa far=0C44:78D2 target_before=f3 visual_claim=0
+lane_result_forward_route_step_fixture=tests/fixtures/dosbox/explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze.txt
+lane_result_forward_route_step_runtime=route=x:2.00,c:0.50 CS=01ED DS=0C8F freeze=0 scratch=0 lane_flag=05 lane_word=0004 lane_target=072c reverse_input=fb visual_claim=0
 lane_result_reverse_fixture=tests/fixtures/dosbox/explosion_playback_oracle_original_3ed3_lane_result_runtime.txt
 lane_result_reverse_runtime=CS:IP 01ED:3ED3 DS=0C8F scratch=01ED:F280 output=00ef far=18B3:3FE6 target_before=de
 lane_result_offset_addresses=default 1000:3D3F,1000:3ED3; reverse,forward 1000:3ED3,1000:3D3F

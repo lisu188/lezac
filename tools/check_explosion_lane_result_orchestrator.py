@@ -91,6 +91,8 @@ EXPECTED_TESTS = {
             "--sample-seconds 6.75",
             "--sample-interval 0.015",
             "--route-state-interval 0.5",
+            "--route-step x:1.25",
+            "--route-step Left:0.50",
             "--tail-freeze-check-seconds 1.25",
         ],
     },

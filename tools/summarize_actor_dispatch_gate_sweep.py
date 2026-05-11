@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
+import shlex
 import sys
 
 
@@ -137,7 +138,14 @@ def csv_or_none(values: list[str]) -> str:
     return ",".join(ordered)
 
 
-def summarize(manifest: Manifest) -> tuple[str, list[str]]:
+def oracle_command(binary: str, target: str, candidate_fixture: str | None) -> str:
+    if not candidate_fixture:
+        return "none"
+    _, flag = oracle_for_target(target)
+    return " ".join(shlex.quote(part) for part in [binary, flag, candidate_fixture])
+
+
+def summarize(manifest: Manifest, oracle_binary: str) -> tuple[str, list[str]]:
     capture = manifest.values.get("capture", "unknown")
     if capture == CAPTURE_DISPATCH_SWEEP:
         child_manifests = dispatch_child_manifests(manifest)
@@ -194,6 +202,7 @@ def summarize(manifest: Manifest) -> tuple[str, list[str]]:
         f"candidate_fixture={status.fields.get('candidate_fixture', 'none')} "
         f"oracle={oracle_for_target(status.target)[0]} "
         f"oracle_flag={oracle_for_target(status.target)[1]} "
+        f"oracle_command={oracle_command(oracle_binary, status.target, status.fields.get('candidate_fixture'))} "
         f"raw_dump={status.fields.get('raw_dump', 'none')}"
         for status in freezes
     ]
@@ -207,10 +216,15 @@ def main() -> int:
         )
     )
     parser.add_argument("manifest", type=Path, help="manifest.txt or sweep output dir")
+    parser.add_argument(
+        "--oracle-binary",
+        default="./build/lezac_cpp",
+        help="binary path to include in emitted oracle_command fields",
+    )
     args = parser.parse_args()
 
     try:
-        summary, details = summarize(read_manifest(args.manifest))
+        summary, details = summarize(read_manifest(args.manifest), args.oracle_binary)
     except (FileNotFoundError, OSError, ValueError) as exc:
         print(f"actor_dispatch_gate_sweep_summary=error reason={exc}", file=sys.stderr)
         return 1

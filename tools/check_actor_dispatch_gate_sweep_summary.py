@@ -15,13 +15,18 @@ def default_repo_root() -> Path:
 
 
 def run_summary(
-    root: Path, manifest: Path, expect_success: bool = True
+    root: Path,
+    manifest: Path,
+    expect_success: bool = True,
+    extra_args: list[str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     command = [
         sys.executable,
         str(root / "tools" / "summarize_actor_dispatch_gate_sweep.py"),
         str(manifest),
     ]
+    if extra_args:
+        command.extend(extra_args)
     result = subprocess.run(
         command,
         cwd=root,
@@ -125,8 +130,22 @@ def main() -> int:
             "candidate_fixtures=/tmp/gate6/candidate_fixture.txt",
             "freeze target=actor_update_gate6 route=x3p00 ghidra=1000:654E",
             "oracle=actor_update oracle_flag=--debug-actor-update-runtime-oracle",
+            "oracle_command=./build/lezac_cpp --debug-actor-update-runtime-oracle /tmp/gate6/candidate_fixture.txt",
         ]:
             require(result, snippet, "dispatch_manifest")
+        cases += 1
+
+        custom_binary = run_summary(
+            root,
+            dispatch_manifest,
+            extra_args=["--oracle-binary", "/tmp/lezac cpp/lezac_cpp"],
+        ).stdout
+        require(
+            custom_binary,
+            "oracle_command='/tmp/lezac cpp/lezac_cpp' "
+            "--debug-actor-update-runtime-oracle /tmp/gate6/candidate_fixture.txt",
+            "custom_oracle_binary",
+        )
         cases += 1
 
         direct_manifest = base / "direct" / "manifest.txt"
@@ -156,6 +175,7 @@ def main() -> int:
             "missing_targets=none",
             "candidate_fixtures=/tmp/contact/candidate_fixture.txt",
             "oracle=actor_update oracle_flag=--debug-actor-update-runtime-oracle",
+            "oracle_command=./build/lezac_cpp --debug-actor-update-runtime-oracle /tmp/contact/candidate_fixture.txt",
         ]:
             require(direct, snippet, "direct_route_manifest")
         cases += 1
@@ -180,6 +200,7 @@ def main() -> int:
             "observed_targets=contact_scanner_start",
             "candidate_fixtures=/tmp/scanner/candidate_fixture.txt",
             "oracle=contact_scanner oracle_flag=--debug-contact-scanner-runtime-oracle",
+            "oracle_command=./build/lezac_cpp --debug-contact-scanner-runtime-oracle /tmp/scanner/candidate_fixture.txt",
         ]:
             require(scanner, snippet, "scanner_route_manifest")
         cases += 1

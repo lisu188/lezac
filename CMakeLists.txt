@@ -262,6 +262,7 @@ if(BUILD_TESTING)
             COMMAND ${Python3_EXECUTABLE} -B -m py_compile
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_explosion_procmem.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_procmem_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_runtime_oracle_fixtures.py
@@ -276,6 +277,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_wrapper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_native_windows_validation_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_contact_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_result_routes.py)
         set_tests_properties(python_tool_syntax_lane_result_preflight PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
@@ -396,6 +398,30 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^lane_result_route_sweep_output=ok cases=6")
+
+        add_test(NAME actor_contact_route_sweep_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_contact_routes.py
+                    /tmp/lezac-actor-contact-route-sweep-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --target contact_scanner_start
+                    --timing before_route
+                    --route x:5.00,m:0.50,x:2.00
+                    --route x:3.00,z:0.50,x:2.00)
+        set_tests_properties(actor_contact_route_sweep_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_contact_route_sweep=ok mode=dry_run .*target=contact_scanner_start timings=before_route routes=2 route_labels=x5p00_m0p50_x2p00,x3p00_z0p50_x2p00 capture_commands=2")
+
+        add_test(NAME actor_contact_route_sweep_output_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_route_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_contact_route_sweep_output_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_contact_route_sweep_output=ok cases=6")
 
         find_program(BASH_EXECUTABLE bash)
         if(BASH_EXECUTABLE)

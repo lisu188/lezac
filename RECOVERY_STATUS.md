@@ -415,6 +415,23 @@ Baseline: `origin/main`
   the scanner start even when the patch is applied before movement. The next
   contact-scanner probe should target a different route or validate whether
   `1000:5CB0` is the correct entry anchor for live player/monster contact.
+- Added `tools/sweep_original_actor_contact_routes.py`, a guarded route-sweep
+  planner/runner for `actor_update_start`, `actor_update_end`,
+  `contact_scanner_start`, and `contact_scanner_end`. It expands repeated
+  `--route KEY:SECONDS,...` entries across `before_bomb`, `before_route`, or
+  both runtime-freeze timings, writes one manifest, and forwards approvals to
+  `tools/capture_original_actor_contact_procmem.sh`. Added
+  `tools/check_actor_contact_route_sweep.py` plus CTest dry-run/output coverage.
+- A live `contact_scanner_start` route sweep at
+  `/tmp/lezac-actor-contact-route-sweep-live-codex-20260511` ran pre-route
+  probes for `x:8.00` and `x:5.00,m:0.50,x:4.00`. Both runs loaded
+  `01ED:5CB0` with `runtime_cs=01ED`, `runtime_ds=0C8F`,
+  `freeze_runtime_before_route=1`, and `instrumented_freeze_observed=0`.
+- A matching `contact_scanner_end` pre-route probe at
+  `/tmp/lezac-actor-contact-end-sweep-live-codex-20260511` loaded
+  `01ED:604F` on route `x:5.00,m:0.50,x:4.00` and also did not freeze. The
+  runtime bytes at that anchor were `c9c2`, so this is best treated as a
+  return-tail probe rather than proof that the scanner body is unreachable.
 - Focused native CTest passed for
   `python_tool_syntax_lane_result_preflight|actor_contact_procmem_helper_expectations`
   with 2/2 tests passing. Full native validation then passed again:
@@ -422,6 +439,9 @@ Baseline: `origin/main`
 - After adding pre-route freeze timing, focused helper validation and full
   native validation passed again: configure/build succeeded and CTest reported
   170/170 tests passing.
+- After adding the actor/contact route-sweep helper, full native validation
+  passed again: configure/build succeeded and CTest reported 172/172 tests
+  passing.
 - After adding the actor/contact process-memory wrapper and dry-run CTest,
   `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
   -BuildDir build-win-codex-vs3 -Configuration Debug` passed: configure/build

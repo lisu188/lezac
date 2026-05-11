@@ -218,7 +218,11 @@ The process-memory route dumps now preserve `DS:7900`, `DS:79E0`, and `DS:7A00`
 for actor/contact candidate scaffolds. A longer `x:5.0,m:0.5,x:2.0` scanner
 route reached active level-1 state but still did not freeze `1000:5CB0`; the
 matching pre-route patch run also did not freeze, so the next scanner probe
-should use a different live contact route or revalidate the entry anchor.
+should use a different live contact route or revalidate the entry anchor. The
+actor/contact route sweep added after that result also missed `1000:5CB0` on
+`x:8.00` and `x:5.00,m:0.50,x:4.00`; a `1000:604F` probe on the latter route
+loaded runtime bytes `c9 c2` and did not freeze, consistent with a return-tail
+anchor rather than a useful entry breakpoint.
 
 ## Bomb Inventory
 

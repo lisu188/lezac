@@ -194,6 +194,20 @@ are decoded. Use `LEZAC_ACTOR_CONTACT_ROUTE_STEPS` with comma-separated
 may only execute during the movement/contact route instead of after route
 positioning.
 
+Use the route-sweep helper to plan or run several guarded actor/contact probes
+with one manifest. The default target is `contact_scanner_start` and the default
+timing matrix covers both post-route and pre-route freeze timing:
+
+```sh
+python3 tools/sweep_original_actor_contact_routes.py \
+  /tmp/lezac-actor-contact-route-sweep . --dry-run
+python3 tools/sweep_original_actor_contact_routes.py \
+  /tmp/lezac-actor-contact-route-sweep . \
+  --target contact_scanner_start --timing before_route \
+  --route x:8.00 --route x:5.00,m:0.50,x:4.00 \
+  --approve-procmem --approve-runtime-instrumentation
+```
+
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer level1_bomb_route

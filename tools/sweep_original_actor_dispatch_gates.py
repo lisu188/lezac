@@ -68,9 +68,21 @@ def build_sweep_command(
         command.append("--approve-procmem")
     if args.approve_runtime_instrumentation:
         command.append("--approve-runtime-instrumentation")
+    command.append("--skip-environment-preflight")
     for route in routes:
         command.extend(["--route", ",".join(route)])
     return command
+
+
+def build_environment_preflight_command(
+    root: Path, args: argparse.Namespace
+) -> list[str]:
+    return [
+        sys.executable,
+        str(root / "tools" / "preflight_original_evidence_environment.py"),
+        str(args.asset_dir),
+        "--require-procmem-capture",
+    ]
 
 
 def run_logged(command: list[str], cwd: Path, log_path: Path) -> subprocess.CompletedProcess[str]:
@@ -87,7 +99,7 @@ def run_logged(command: list[str], cwd: Path, log_path: Path) -> subprocess.Comp
     if completed.returncode != 0:
         raise RuntimeError(
             f"command failed ({completed.returncode}): {quote_command(command)}\n"
-            f"see log: {log_path}"
+            f"see log: {log_path}\n{completed.stdout}"
         )
     return completed
 
@@ -101,6 +113,11 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--approve-procmem", action="store_true")
     parser.add_argument("--approve-runtime-instrumentation", action="store_true")
+    parser.add_argument(
+        "--skip-environment-preflight",
+        action="store_true",
+        help="skip original-evidence host/tool preflight before live capture",
+    )
     parser.add_argument(
         "--target",
         action="append",
@@ -144,6 +161,7 @@ def main() -> int:
         target_out_dir = out_dir / label
         command = build_sweep_command(root, args, target, target_out_dir, routes)
         commands.append((target, target_out_dir, command, quote_command(command)))
+    environment_preflight_command = build_environment_preflight_command(root, args)
 
     print(
         "actor_dispatch_gate_sweep=ok "
@@ -153,8 +171,14 @@ def main() -> int:
         f"timings={','.join(timings)} routes={len(routes)} "
         f"route_labels={','.join(route_labels)} "
         f"sweep_commands={len(commands)} "
-        f"capture_commands={capture_commands}"
+        f"capture_commands={capture_commands} "
+        f"environment_preflight={0 if args.skip_environment_preflight else 1}"
     )
+    if not args.skip_environment_preflight:
+        print(
+            "environment_preflight_command="
+            f"{quote_command(environment_preflight_command)}"
+        )
     for target, _, _, display in commands:
         print(f"sweep_command_{target}={display}")
 
@@ -167,11 +191,18 @@ def main() -> int:
             file=sys.stderr,
         )
         return 64
-    if shutil.which("bash") is None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    environment_preflight = "skipped"
+    if not args.skip_environment_preflight:
+        run_logged(
+            environment_preflight_command,
+            root,
+            out_dir / "environment_preflight.log",
+        )
+        environment_preflight = "ok"
+    elif shutil.which("bash") is None:
         print("missing required command: bash", file=sys.stderr)
         return 69
-
-    out_dir.mkdir(parents=True, exist_ok=True)
     manifest_lines = [
         "capture=actor_dispatch_gate_sweep",
         f"asset_dir={asset_dir}",
@@ -179,7 +210,15 @@ def main() -> int:
         f"timings={','.join(timings)}",
         f"routes={len(routes)}",
         f"route_labels={','.join(route_labels)}",
+        f"environment_preflight={environment_preflight}",
     ]
+    if not args.skip_environment_preflight:
+        manifest_lines.extend(
+            [
+                f"environment_preflight_command={quote_command(environment_preflight_command)}",
+                f"environment_preflight_log={out_dir / 'environment_preflight.log'}",
+            ]
+        )
     for target, target_out_dir, command, display in commands:
         target_out_dir.mkdir(parents=True, exist_ok=True)
         log_path = out_dir / f"{target_label(target)}_sweep.log"

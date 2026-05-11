@@ -212,7 +212,10 @@ positioning.
 
 Use the route-sweep helper to plan or run several guarded actor/contact probes
 with one manifest. The default target is `contact_scanner_start` and the default
-timing matrix covers both post-route and pre-route freeze timing:
+timing matrix covers both post-route and pre-route freeze timing. Live sweeps
+run `tools/preflight_original_evidence_environment.py --require-procmem-capture`
+once before launching captures; use `--skip-environment-preflight` only for
+intentional reruns on an already-verified host:
 
 ```sh
 python3 tools/sweep_original_actor_contact_routes.py \
@@ -227,7 +230,10 @@ python3 tools/sweep_original_actor_contact_routes.py \
 Use the dispatch-gate sweep planner when the goal is to exercise every mapped
 actor-update gate in one pass. Its default target set is `actor_update_gate5`,
 `actor_update_gate5_integration`, `actor_update_gate5_exit`,
-`actor_update_gate6`, and `contact_scanner_callsite`:
+`actor_update_gate6`, and `contact_scanner_callsite`. The planner performs one
+top-level environment preflight and passes `--skip-environment-preflight` to
+child actor/contact sweeps so the same run does not repeat host checks for every
+target:
 
 ```sh
 python3 tools/sweep_original_actor_dispatch_gates.py \

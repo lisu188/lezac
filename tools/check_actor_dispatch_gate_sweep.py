@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -14,7 +15,12 @@ def default_repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-def run_sweep(root: Path, args: list[str], expect_success: bool = True) -> str:
+def run_sweep_env(
+    root: Path,
+    args: list[str],
+    env: dict[str, str] | None,
+    expect_success: bool = True,
+) -> str:
     command = [
         sys.executable,
         str(root / "tools" / "sweep_original_actor_dispatch_gates.py"),
@@ -27,6 +33,7 @@ def run_sweep(root: Path, args: list[str], expect_success: bool = True) -> str:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         check=False,
+        env=env,
     )
     if expect_success and result.returncode != 0:
         raise RuntimeError(
@@ -39,6 +46,16 @@ def run_sweep(root: Path, args: list[str], expect_success: bool = True) -> str:
             f"{result.stdout}"
         )
     return result.stdout
+
+
+def run_sweep(root: Path, args: list[str], expect_success: bool = True) -> str:
+    return run_sweep_env(root, args, None, expect_success)
+
+
+def empty_path_env(empty_dir: Path) -> dict[str, str]:
+    env = os.environ.copy()
+    env["PATH"] = str(empty_dir)
+    return env
 
 
 def require(text: str, snippet: str, case: str) -> None:
@@ -71,9 +88,13 @@ def main() -> int:
         "route_labels=x2p00,x5p00_m0p50_x2p00,x3p00_z0p50_x2p00,x1p50_left0p50_x2p00",
         "sweep_commands=5",
         "capture_commands=20",
+        "environment_preflight=1",
+        "environment_preflight_command=",
+        "--require-procmem-capture",
         "sweep_command_actor_update_gate5=",
         "sweep_command_actor_update_gate5_exit=",
         "sweep_original_actor_contact_routes.py",
+        "--skip-environment-preflight",
         "--target actor_update_gate6",
     ]:
         require(default_dry, snippet, "default_dry_run")
@@ -104,10 +125,32 @@ def main() -> int:
         "route_labels=x2p00_c0p50,left0p25_space0p75",
         "sweep_commands=2",
         "capture_commands=8",
+        "environment_preflight=1",
         "--timing both",
         "--route Left:0.25,space:0.75",
     ]:
         require(custom, snippet, "custom_dry_run")
+    cases += 1
+
+    skip_environment = run_sweep(
+        root,
+        [
+            str(out_base / "skip-environment"),
+            str(root),
+            "--dry-run",
+            "--skip-environment-preflight",
+            "--target",
+            "actor_update_gate6",
+            "--route",
+            "x:2.00",
+        ],
+    )
+    require(skip_environment, "environment_preflight=0", "skip_environment")
+    require_not(
+        skip_environment,
+        "environment_preflight_command=",
+        "skip_environment",
+    )
     cases += 1
 
     live_refusal = run_sweep(
@@ -122,6 +165,31 @@ def main() -> int:
         "live_refusal",
     )
     require_not(live_refusal, "actor_dispatch_gate_sweep_manifest=", "live_refusal")
+    cases += 1
+
+    with tempfile.TemporaryDirectory(prefix="lezac-actor-dispatch-empty-path-") as tmp:
+        live_preflight = run_sweep_env(
+            root,
+            [
+                str(out_base / "live-preflight"),
+                str(root),
+                "--approve-procmem",
+                "--approve-runtime-instrumentation",
+                "--target",
+                "actor_update_gate6",
+                "--route",
+                "x:2.00",
+            ],
+            empty_path_env(Path(tmp)),
+            expect_success=False,
+        )
+    require(live_preflight, "reason=missing_required", "live_preflight")
+    require(live_preflight, "missing_required=", "live_preflight")
+    require_not(
+        live_preflight,
+        "actor_dispatch_gate_sweep_manifest=",
+        "live_preflight",
+    )
     cases += 1
 
     repo_refusal = run_sweep(

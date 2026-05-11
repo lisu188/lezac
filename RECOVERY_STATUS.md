@@ -183,6 +183,12 @@ Baseline: `origin/main`
   preflight command in dry-run and runs the process-memory capture preflight
   once before any live route commands, unless explicitly skipped with
   `--skip-environment-preflight`.
+- `tools/sweep_original_actor_contact_routes.py` and
+  `tools/sweep_original_actor_dispatch_gates.py` now use the same
+  process-memory environment preflight before live actor/contact capture
+  sweeps. Dispatch-gate sweeps run the host check once at the top level and
+  pass `--skip-environment-preflight` to child actor/contact sweeps so a single
+  matrix does not repeat identical tool probes.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,

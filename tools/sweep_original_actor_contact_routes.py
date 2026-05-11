@@ -131,6 +131,16 @@ def build_capture_command(
     return command, env, display
 
 
+def build_environment_preflight_command(args: argparse.Namespace) -> list[str]:
+    root = repo_root()
+    return [
+        sys.executable,
+        str(root / "tools" / "preflight_original_evidence_environment.py"),
+        str(args.asset_dir),
+        "--require-procmem-capture",
+    ]
+
+
 def run_logged(
     command: list[str],
     env_values: dict[str, str],
@@ -152,7 +162,7 @@ def run_logged(
     if completed.returncode != 0:
         raise RuntimeError(
             f"command failed ({completed.returncode}): {quote_command(command)}\n"
-            f"see log: {log_path}"
+            f"see log: {log_path}\n{completed.stdout}"
         )
     return completed
 
@@ -166,6 +176,11 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--approve-procmem", action="store_true")
     parser.add_argument("--approve-runtime-instrumentation", action="store_true")
+    parser.add_argument(
+        "--skip-environment-preflight",
+        action="store_true",
+        help="skip original-evidence host/tool preflight before live capture",
+    )
     parser.add_argument("--target", choices=TARGETS, default="contact_scanner_start")
     parser.add_argument(
         "--timing",
@@ -204,6 +219,7 @@ def main() -> int:
                 args, route, route_out_dir, timing
             )
             capture_entries.append((label, command, env, display, route_out_dir))
+    environment_preflight_command = build_environment_preflight_command(args)
 
     print(
         "actor_contact_route_sweep=ok "
@@ -211,8 +227,14 @@ def main() -> int:
         f"out_dir={out_dir} target={args.target} "
         f"timings={','.join(timings)} routes={len(routes)} "
         f"route_labels={','.join(route_labels)} "
-        f"capture_commands={len(capture_entries)}"
+        f"capture_commands={len(capture_entries)} "
+        f"environment_preflight={0 if args.skip_environment_preflight else 1}"
     )
+    if not args.skip_environment_preflight:
+        print(
+            "environment_preflight_command="
+            f"{quote_command(environment_preflight_command)}"
+        )
     for label, _, _, display, _ in capture_entries:
         print(f"capture_command_{label}={display}")
 
@@ -225,11 +247,19 @@ def main() -> int:
             file=sys.stderr,
         )
         return 64
-    if shutil.which("bash") is None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    environment_preflight = "skipped"
+    if not args.skip_environment_preflight:
+        run_logged(
+            environment_preflight_command,
+            {},
+            root,
+            out_dir / "environment_preflight.log",
+        )
+        environment_preflight = "ok"
+    elif shutil.which("bash") is None:
         print("missing required command: bash", file=sys.stderr)
         return 69
-
-    out_dir.mkdir(parents=True, exist_ok=True)
     manifest_lines = [
         "capture=actor_contact_route_sweep",
         f"asset_dir={asset_dir}",
@@ -237,7 +267,15 @@ def main() -> int:
         f"timings={','.join(timings)}",
         f"routes={len(routes)}",
         f"route_labels={','.join(route_labels)}",
+        f"environment_preflight={environment_preflight}",
     ]
+    if not args.skip_environment_preflight:
+        manifest_lines.extend(
+            [
+                f"environment_preflight_command={quote_command(environment_preflight_command)}",
+                f"environment_preflight_log={out_dir / 'environment_preflight.log'}",
+            ]
+        )
     for label, command, env, display, route_out_dir in capture_entries:
         route_out_dir.mkdir(parents=True, exist_ok=True)
         result = run_logged(command, env, root, out_dir / f"{label}_capture.log")

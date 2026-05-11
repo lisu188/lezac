@@ -523,7 +523,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_contact_route_sweep_output_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_contact_route_sweep_output=ok cases=6")
+                "^actor_contact_route_sweep_output=ok cases=8")
 
         add_test(NAME actor_dispatch_gate_sweep_dry_run
             COMMAND ${Python3_EXECUTABLE}
@@ -548,7 +548,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_dispatch_gate_sweep_output_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_dispatch_gate_sweep_output=ok cases=5")
+                "^actor_dispatch_gate_sweep_output=ok cases=7")
 
         add_test(NAME actor_contact_callsite_scan
             COMMAND ${Python3_EXECUTABLE}

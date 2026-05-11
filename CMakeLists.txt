@@ -441,7 +441,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_contact_callsite_context PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_contact_callsite_context=ok .*gate=1000:654E .*gate_bytes=807ecf06 .*skip_target=1000:655B .*callsite=1000:6555 .*call_target=1000:5CB0 .*integration=1000:73E5")
+                "^actor_contact_callsite_context=ok .*gate=1000:654E .*gate_bytes=807ecf06 .*skip_target=1000:655B .*callsite=1000:6555 .*call_target=1000:5CB0 .*integration=1000:73E5 .*sibling_gate=1000:65A2 .*sibling_end_target=1000:777F .*integration_jumps=1000:6558,1000:65D7")
 
         find_program(BASH_EXECUTABLE bash)
         if(BASH_EXECUTABLE)

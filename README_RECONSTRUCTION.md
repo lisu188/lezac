@@ -191,7 +191,9 @@ and the entry/return bytes against `LEZAC.EXE`.
 `tools/check_actor_contact_callsite_context.py` also pins the surrounding gate:
 `1000:654E` compares `[bp-31h]` with `06`, `1000:6552` skips to `1000:655B`,
 and the matching path runs `push bp; call 1000:5CB0` before jumping to
-`1000:73E5`. The wrapper writes
+`1000:73E5`. It also checks the neighboring `05` gate at `1000:65A2`, whose
+live path can enter shared integration through `1000:65D7` or jump to
+actor-update end `1000:777F`. The wrapper writes
 `<target>_runtime_candidate.txt` with the runtime metadata plus raw route-state
 dumps; the candidate is a fill-in scaffold until semantic actor/contact records
 are decoded. Use `LEZAC_ACTOR_CONTACT_ROUTE_STEPS` with comma-separated

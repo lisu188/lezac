@@ -447,6 +447,12 @@ Baseline: `origin/main`
   `1000:6558` jumps to the shared integration path at `1000:73E5`. This keeps
   the next live probe focused on reaching the gated branch rather than
   rediscovering the scanner entry.
+- Extended that checker to cover the neighboring `05` gate at `1000:65A2`:
+  when the path reaches `1000:65BD`, the branch can enter integration through
+  `1000:65D7`; when it reaches `1000:65CE` and the end condition matches, it
+  jumps to actor-update end `1000:777F`. A scan of direct near jumps to
+  `1000:73E5` inside `1000:6053..777F` now locks the pair
+  `1000:6558,1000:65D7`.
 - A live `contact_scanner_callsite` pre-route probe at
   `/tmp/lezac-contact-callsite-live-codex-20260511` on route
   `x:5.00,m:0.50,x:4.00` loaded `01ED:6555` with old bytes `e858`,
@@ -473,6 +479,11 @@ Baseline: `origin/main`
   `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
   -BuildDir build-win-codex-vs3 -Configuration Debug` passed:
   configure/build succeeded and CTest reported 174/174 tests passing.
+- After extending the callsite-context checker to cover the neighboring `05`
+  gate and both direct `1000:73E5` integration jumps, focused CTest
+  `actor_contact_callsite_context` passed after reconfigure, and full native
+  validation passed again: configure/build succeeded and CTest reported
+  174/174 tests passing.
 - After adding the actor/contact process-memory wrapper and dry-run CTest,
   `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
   -BuildDir build-win-codex-vs3 -Configuration Debug` passed: configure/build

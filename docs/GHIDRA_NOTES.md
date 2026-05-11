@@ -234,6 +234,11 @@ when the value differs, the matching path executes `push bp; call 1000:5CB0`,
 and `1000:6558` jumps into the shared `1000:73E5` integration path. The next
 runtime probe should therefore target a route or seeded state that makes the
 `06` case live before spending more effort on entry-only breakpoints.
+The same static checker now also locks the neighboring `05` gate at
+`1000:65A2`: its integration path enters through `1000:65D7`, while the
+alternate end path jumps to `1000:777F`. Within `1000:6053..777F`, the only
+direct near jumps to the shared integration entry are now checked as
+`1000:6558` and `1000:65D7`.
 
 ## Bomb Inventory
 

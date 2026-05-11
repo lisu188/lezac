@@ -19,7 +19,9 @@ Baseline: `origin/main`
   active fixture records. `--require-ready` now exits nonzero when any observed
   freeze candidate is not promotable. `--write-ready-manifest` writes a
   follow-up promotion manifest containing only ready fixtures and oracle
-  commands.
+  commands, and `tools/run_actor_dispatch_ready_manifest.py` can dry-run or
+  execute that manifest so the next WSL/DOSBox pass can validate promoted
+  candidates without hand-copying summary lines.
 - Added `lane-result-cs-scratch` instrumentation support to
   `tools/capture_original_explosion_procmem.py` for the final lane-helper
   result writes at `1000:3D3F` and `1000:3ED3`. The runtime-only trampoline

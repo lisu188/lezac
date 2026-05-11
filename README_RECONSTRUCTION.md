@@ -237,6 +237,11 @@ python3 tools/sweep_original_actor_dispatch_gates.py \
   --approve-procmem --approve-runtime-instrumentation
 python3 tools/summarize_actor_dispatch_gate_sweep.py \
   /tmp/lezac-actor-dispatch-gates/manifest.txt
+python3 tools/summarize_actor_dispatch_gate_sweep.py \
+  /tmp/lezac-actor-dispatch-gates/manifest.txt \
+  --write-ready-manifest /tmp/lezac-actor-dispatch-gates/ready_manifest.txt
+python3 tools/run_actor_dispatch_ready_manifest.py \
+  /tmp/lezac-actor-dispatch-gates/ready_manifest.txt --dry-run
 ```
 
 The summary prints `ready_candidates=`, `incomplete_candidates=`,
@@ -249,7 +254,10 @@ executable is not
 `./build/lezac_cpp`, and `--require-ready` when a script should fail until all
 observed freeze candidates are promotable. Use `--write-ready-manifest <path>`
 to emit a promotion manifest containing only ready candidate fixtures and their
-oracle commands.
+oracle commands. Use `tools/run_actor_dispatch_ready_manifest.py <path>
+--dry-run` to review that handoff, or omit `--dry-run` in a prepared
+WSL/native environment to execute the listed C++ oracles with per-candidate
+timeouts and optional logs.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \

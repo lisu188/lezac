@@ -207,6 +207,59 @@ def main() -> int:
             require(ready, snippet, "ready_actor_candidate")
         cases += 1
 
+        skeleton_candidate = base / "skeleton" / "actor_update_candidate.txt"
+        write_text(
+            skeleton_candidate,
+            "\n".join(
+                [
+                    "# LEZAC actor/contact process-memory oracle candidate.",
+                    "# Candidate only: fill semantic actor/contact records before promotion.",
+                    "capture=actor_update_runtime",
+                    "source=dosbox-debug-process-memory",
+                    "temp_copy=1",
+                    "visual_claim=0",
+                    "target=actor_update_gate6",
+                    "scenario=object_collision_jump_live",
+                    "runtime_cs=01ED",
+                    "runtime_ds=0F3C",
+                    "break ghidra=1000:5CB0 runtime=01ED:5CB0 label=contact_scanner_start",
+                    "break ghidra=1000:604F runtime=01ED:604F label=contact_scanner_end",
+                    "# actor_before slot=<slot> behavior=<behavior> kind=<kind> state=<state>",
+                    "# actor_after slot=<slot> behavior=<behavior> kind=<kind> state=<state>",
+                    "# contact_scan subject_slot=<slot> other_slot=<slot>",
+                    "# tile_probe tile_x=<x> tile_y=<y>",
+                    "",
+                ]
+            ),
+        )
+        skeleton_manifest = base / "skeleton" / "manifest.txt"
+        write_text(
+            skeleton_manifest,
+            "\n".join(
+                [
+                    "capture=actor_contact_route_sweep",
+                    "target=actor_update_gate6",
+                    "timings=before_route",
+                    "routes=1",
+                    "route_labels=x3p00",
+                    f"capture_status_x3p00=actor_contact_procmem=ok mode=capture target=actor_update_gate6 ghidra=1000:654E runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:654E freeze_observed=1 raw_dump=/tmp/skeleton/raw.txt candidate_fixture={skeleton_candidate}",
+                    "",
+                ]
+            ),
+        )
+        skeleton = run_summary(root, skeleton_manifest).stdout
+        for snippet in [
+            "ready_candidates=0",
+            "incomplete_candidates=1",
+            "missing_candidates=0",
+            "none_candidates=0",
+            "candidate_status=incomplete",
+            "candidate_missing=level,actor_before,actor_after,contact_scan,tile_probe,break_6053,break_777f",
+            "candidate_placeholders=1",
+        ]:
+            require(skeleton, snippet, "skeleton_actor_candidate")
+        cases += 1
+
         direct_manifest = base / "direct" / "manifest.txt"
         write_text(
             direct_manifest,

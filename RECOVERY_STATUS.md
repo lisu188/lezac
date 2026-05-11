@@ -15,6 +15,8 @@ Baseline: `origin/main`
   runnable `oracle_command=` hint, plus `candidate_status=` readiness so skeleton
   fixtures are not mistaken for normalized evidence. The top-level summary now
   includes ready/incomplete/missing/none candidate counts for quick triage.
+  Placeholder detection intentionally scans commented skeleton hints as well as
+  active fixture records.
 - Added `lane-result-cs-scratch` instrumentation support to
   `tools/capture_original_explosion_procmem.py` for the final lane-helper
   result writes at `1000:3D3F` and `1000:3ED3`. The runtime-only trampoline

@@ -243,7 +243,9 @@ The summary prints `ready_candidates=`, `incomplete_candidates=`,
 `missing_candidates=`, `candidate_status=`, `candidate_missing=`, `oracle=`,
 `oracle_flag=`, and `oracle_command=` so the candidate fixture can be completed
 and routed to the matching runtime oracle without guessing. Use
-`--oracle-binary` when the C++ executable is not
+`candidate_placeholders=1` as a warning that a generated skeleton still has
+fill-in markers in comments or active records. Use `--oracle-binary` when the C++
+executable is not
 `./build/lezac_cpp`.
 
 ```sh

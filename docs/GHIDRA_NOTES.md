@@ -254,7 +254,9 @@ follows a completed dispatch-sweep manifest and reports capture counts, observed
 freeze targets, missing targets, candidate readiness counts, and candidate
 fixtures ready for oracle normalization; each freeze line also labels candidate
 readiness, the expected runtime oracle flag, and an `oracle_command=` using the
-configured C++ binary path.
+configured C++ binary path. Placeholder detection scans the whole candidate
+file, including commented skeleton hints, while required-record checks only use
+active fixture lines.
 
 ## Bomb Inventory
 

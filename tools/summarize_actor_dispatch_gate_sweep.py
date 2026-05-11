@@ -107,6 +107,14 @@ def active_fixture_lines(path: Path) -> list[str]:
     return lines
 
 
+def nonempty_fixture_lines(path: Path) -> list[str]:
+    return [
+        raw_line.strip()
+        for raw_line in path.read_text(encoding="utf-8").splitlines()
+        if raw_line.strip()
+    ]
+
+
 def candidate_readiness(target: str, candidate_fixture: str | None) -> CandidateReadiness:
     if not candidate_fixture:
         return CandidateReadiness("none", [], False)
@@ -114,7 +122,8 @@ def candidate_readiness(target: str, candidate_fixture: str | None) -> Candidate
     if not path.exists():
         return CandidateReadiness("missing", ["file"], False)
 
-    lines = active_fixture_lines(path)
+    all_lines = nonempty_fixture_lines(path)
+    lines = [line for line in all_lines if not line.startswith("#")]
     keys = {line.split("=", 1)[0] for line in lines if "=" in line}
     record_names = {
         line.split(" ", 1)[0] for line in lines if " " in line and "=" in line
@@ -139,7 +148,7 @@ def candidate_readiness(target: str, candidate_fixture: str | None) -> Candidate
     missing = [key for key in required_keys if key not in keys]
     missing.extend(record for record in required_records if record not in record_names)
     missing.extend(f"break_{offset}" for offset in required_breaks if offset not in break_offsets)
-    placeholders = any("<" in line or ">" in line for line in lines)
+    placeholders = any("<" in line or ">" in line for line in all_lines)
     status = "ready" if not missing and not placeholders else "incomplete"
     return CandidateReadiness(status, missing, placeholders)
 

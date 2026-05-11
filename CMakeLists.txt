@@ -262,6 +262,7 @@ if(BUILD_TESTING)
             COMMAND ${Python3_EXECUTABLE} -B -m py_compile
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_explosion_procmem.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_callsite_context.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_callsite_scan.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_procmem_helper.py
@@ -432,6 +433,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^actor_contact_callsite_scan=ok .*scanner_entry=1000:5CB0 .*scanner_return=1000:604F .*scanner_calls=1000:6555 .*callsite_bytes=e858f7 .*actor_update_entry=1000:6053")
+
+        add_test(NAME actor_contact_callsite_context
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_callsite_context.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_contact_callsite_context PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_contact_callsite_context=ok .*gate=1000:654E .*gate_bytes=807ecf06 .*skip_target=1000:655B .*callsite=1000:6555 .*call_target=1000:5CB0 .*integration=1000:73E5")
 
         find_program(BASH_EXECUTABLE bash)
         if(BASH_EXECUTABLE)

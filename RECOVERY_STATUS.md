@@ -440,6 +440,13 @@ Baseline: `origin/main`
   return bytes `c9 c2 02` at `1000:604F`, the single direct near call at
   `1000:6555` (`e8 58 f7`) targeting `1000:5CB0`, and the actor-update entry
   bytes `55 89` at `1000:6053`.
+- Added `tools/check_actor_contact_callsite_context.py` to pin the immediate
+  control-flow context around that callsite: `1000:654E` compares the local
+  byte at `[bp-31h]` with `06`, `1000:6552` skips to `1000:655B` when it does
+  not match, `1000:6554..6557` performs `push bp; call 1000:5CB0`, and
+  `1000:6558` jumps to the shared integration path at `1000:73E5`. This keeps
+  the next live probe focused on reaching the gated branch rather than
+  rediscovering the scanner entry.
 - A live `contact_scanner_callsite` pre-route probe at
   `/tmp/lezac-contact-callsite-live-codex-20260511` on route
   `x:5.00,m:0.50,x:4.00` loaded `01ED:6555` with old bytes `e858`,
@@ -460,6 +467,12 @@ Baseline: `origin/main`
 - After adding the static callsite scan and `contact_scanner_callsite` probe
   target, full native validation passed again: configure/build succeeded and
   CTest reported 173/173 tests passing.
+- After adding the static callsite-context checker, focused Python checks for
+  `check_actor_contact_callsite_scan.py` and
+  `check_actor_contact_callsite_context.py` passed, then
+  `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
+  -BuildDir build-win-codex-vs3 -Configuration Debug` passed:
+  configure/build succeeded and CTest reported 174/174 tests passing.
 - After adding the actor/contact process-memory wrapper and dry-run CTest,
   `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
   -BuildDir build-win-codex-vs3 -Configuration Debug` passed: configure/build

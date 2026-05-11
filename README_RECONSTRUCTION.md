@@ -187,7 +187,11 @@ evidence. Supported targets are `actor_update_start`, `actor_update_end`,
 `contact_scanner_callsite`, `contact_scanner_start`, and `contact_scanner_end`.
 `contact_scanner_callsite` maps the static near call at `1000:6555` that targets
 `1000:5CB0`; `tools/check_actor_contact_callsite_scan.py` verifies that callsite
-and the entry/return bytes against `LEZAC.EXE`. The wrapper writes
+and the entry/return bytes against `LEZAC.EXE`.
+`tools/check_actor_contact_callsite_context.py` also pins the surrounding gate:
+`1000:654E` compares `[bp-31h]` with `06`, `1000:6552` skips to `1000:655B`,
+and the matching path runs `push bp; call 1000:5CB0` before jumping to
+`1000:73E5`. The wrapper writes
 `<target>_runtime_candidate.txt` with the runtime metadata plus raw route-state
 dumps; the candidate is a fill-in scaffold until semantic actor/contact records
 are decoded. Use `LEZAC_ACTOR_CONTACT_ROUTE_STEPS` with comma-separated

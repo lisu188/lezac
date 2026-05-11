@@ -228,6 +228,12 @@ inside actor update (`e8 58 f7` -> `1000:5CB0`), so
 `contact_scanner_callsite` is now a probe target. The first live callsite probe
 on `x:5.00,m:0.50,x:4.00` loaded `01ED:6555` but also did not freeze,
 indicating that route still does not reach the scanner callsite.
+`tools/check_actor_contact_callsite_context.py` further pins the local branch:
+`1000:654E` compares `[bp-31h]` with `06`, `1000:6552` skips to `1000:655B`
+when the value differs, the matching path executes `push bp; call 1000:5CB0`,
+and `1000:6558` jumps into the shared `1000:73E5` integration path. The next
+runtime probe should therefore target a route or seeded state that makes the
+`06` case live before spending more effort on entry-only breakpoints.
 
 ## Bomb Inventory
 

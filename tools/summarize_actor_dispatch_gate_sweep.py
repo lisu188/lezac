@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
+import re
 import shlex
 import sys
 
@@ -27,6 +28,13 @@ class CaptureStatus:
     target: str
     fields: dict[str, str]
     source_manifest: Path
+
+
+@dataclass(frozen=True)
+class CandidateReadiness:
+    status: str
+    missing: list[str]
+    placeholders: bool
 
 
 def read_manifest(path: Path) -> Manifest:
@@ -89,6 +97,53 @@ def oracle_for_target(target: str) -> tuple[str, str]:
     return "actor_update", "--debug-actor-update-runtime-oracle"
 
 
+def active_fixture_lines(path: Path) -> list[str]:
+    lines: list[str] = []
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        lines.append(line)
+    return lines
+
+
+def candidate_readiness(target: str, candidate_fixture: str | None) -> CandidateReadiness:
+    if not candidate_fixture:
+        return CandidateReadiness("none", [], False)
+    path = Path(candidate_fixture)
+    if not path.exists():
+        return CandidateReadiness("missing", ["file"], False)
+
+    lines = active_fixture_lines(path)
+    keys = {line.split("=", 1)[0] for line in lines if "=" in line}
+    record_names = {
+        line.split(" ", 1)[0] for line in lines if " " in line and "=" in line
+    }
+    break_offsets: set[str] = set()
+    for line in lines:
+        if not line.startswith("break "):
+            continue
+        match = re.search(r"\bghidra=1000:([0-9a-fA-F]{4})\b", line)
+        if match:
+            break_offsets.add(match.group(1).lower())
+
+    oracle, _ = oracle_for_target(target)
+    required_keys = ["capture", "scenario", "level", "runtime_cs", "runtime_ds"]
+    if oracle == "contact_scanner":
+        required_records = ["subject_actor", "other_actor", "contact_scan"]
+        required_breaks = ["5cb0", "604f"]
+    else:
+        required_records = ["actor_before", "actor_after", "contact_scan", "tile_probe"]
+        required_breaks = ["5cb0", "604f", "6053", "777f"]
+
+    missing = [key for key in required_keys if key not in keys]
+    missing.extend(record for record in required_records if record not in record_names)
+    missing.extend(f"break_{offset}" for offset in required_breaks if offset not in break_offsets)
+    placeholders = any("<" in line or ">" in line for line in lines)
+    status = "ready" if not missing and not placeholders else "incomplete"
+    return CandidateReadiness(status, missing, placeholders)
+
+
 def route_statuses(manifest: Manifest, default_target: str | None = None) -> list[CaptureStatus]:
     statuses: list[CaptureStatus] = []
     target_from_manifest = default_target or manifest.values.get("target", "")
@@ -145,6 +200,12 @@ def oracle_command(binary: str, target: str, candidate_fixture: str | None) -> s
     return " ".join(shlex.quote(part) for part in [binary, flag, candidate_fixture])
 
 
+def missing_or_none(missing: list[str]) -> str:
+    if not missing:
+        return "none"
+    return ",".join(missing)
+
+
 def summarize(manifest: Manifest, oracle_binary: str) -> tuple[str, list[str]]:
     capture = manifest.values.get("capture", "unknown")
     if capture == CAPTURE_DISPATCH_SWEEP:
@@ -191,21 +252,27 @@ def summarize(manifest: Manifest, oracle_binary: str) -> tuple[str, list[str]]:
         f"missing_targets={csv_or_none(missing_targets)} "
         f"candidate_fixtures={csv_or_none(candidate_fixtures)}"
     )
-    details = [
-        "freeze "
-        f"target={status.target} "
-        f"route={status.route_label} "
-        f"ghidra={status.fields.get('ghidra', 'unknown')} "
-        f"runtime_cs={status.fields.get('runtime_cs', 'unknown')} "
-        f"runtime_ds={status.fields.get('runtime_ds', 'unknown')} "
-        f"freeze_runtime={status.fields.get('freeze_runtime', 'unknown')} "
-        f"candidate_fixture={status.fields.get('candidate_fixture', 'none')} "
-        f"oracle={oracle_for_target(status.target)[0]} "
-        f"oracle_flag={oracle_for_target(status.target)[1]} "
-        f"oracle_command={oracle_command(oracle_binary, status.target, status.fields.get('candidate_fixture'))} "
-        f"raw_dump={status.fields.get('raw_dump', 'none')}"
-        for status in freezes
-    ]
+    details = []
+    for status in freezes:
+        candidate_fixture = status.fields.get("candidate_fixture")
+        readiness = candidate_readiness(status.target, candidate_fixture)
+        details.append(
+            "freeze "
+            f"target={status.target} "
+            f"route={status.route_label} "
+            f"ghidra={status.fields.get('ghidra', 'unknown')} "
+            f"runtime_cs={status.fields.get('runtime_cs', 'unknown')} "
+            f"runtime_ds={status.fields.get('runtime_ds', 'unknown')} "
+            f"freeze_runtime={status.fields.get('freeze_runtime', 'unknown')} "
+            f"candidate_fixture={candidate_fixture or 'none'} "
+            f"candidate_status={readiness.status} "
+            f"candidate_missing={missing_or_none(readiness.missing)} "
+            f"candidate_placeholders={1 if readiness.placeholders else 0} "
+            f"oracle={oracle_for_target(status.target)[0]} "
+            f"oracle_flag={oracle_for_target(status.target)[1]} "
+            f"oracle_command={oracle_command(oracle_binary, status.target, candidate_fixture)} "
+            f"raw_dump={status.fields.get('raw_dump', 'none')}"
+        )
     return summary, details
 
 

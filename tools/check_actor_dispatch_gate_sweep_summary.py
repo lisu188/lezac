@@ -129,6 +129,7 @@ def main() -> int:
             "missing_targets=actor_update_gate5",
             "candidate_fixtures=/tmp/gate6/candidate_fixture.txt",
             "freeze target=actor_update_gate6 route=x3p00 ghidra=1000:654E",
+            "candidate_status=missing candidate_missing=file candidate_placeholders=0",
             "oracle=actor_update oracle_flag=--debug-actor-update-runtime-oracle",
             "oracle_command=./build/lezac_cpp --debug-actor-update-runtime-oracle /tmp/gate6/candidate_fixture.txt",
         ]:
@@ -146,6 +147,56 @@ def main() -> int:
             "--debug-actor-update-runtime-oracle /tmp/gate6/candidate_fixture.txt",
             "custom_oracle_binary",
         )
+        cases += 1
+
+        ready_candidate = base / "ready" / "actor_update_candidate.txt"
+        write_text(
+            ready_candidate,
+            "\n".join(
+                [
+                    "capture=actor_update_runtime",
+                    "source=synthetic",
+                    "temp_copy=1",
+                    "visual_claim=0",
+                    "scenario=object_collision_jump_live",
+                    "level=1",
+                    "runtime_cs=01ED",
+                    "runtime_ds=0F3C",
+                    "break ghidra=1000:5CB0 runtime=01ED:5CB0 label=contact_scanner_start",
+                    "break ghidra=1000:604F runtime=01ED:604F label=contact_scanner_end",
+                    "break ghidra=1000:6053 runtime=01ED:6053 label=actor_update_start",
+                    "break ghidra=1000:777F runtime=01ED:777F label=actor_update_end",
+                    "actor_before slot=0 behavior=3 kind=1 state=0 x=0x0068 y=0x00a8 vx8=32 vy8=0 hp=3 flags=0x0000 contact=0 on_ground=1",
+                    "actor_after slot=0 behavior=3 kind=1 state=0 x=0x0069 y=0x00a8 vx8=32 vy8=0 hp=3 flags=0x0005 contact=1 on_ground=1",
+                    "contact_scan subject_slot=0 other_slot=1 flags_before=0x0000 flags_after=0x0005 contact=1 player_contact=0 monster_contact=0 object_contact=1 damage_pending=0",
+                    "tile_probe tile_x=13 tile_y=22 tile=0x0025 object=0x0013 passable=0 standable=1",
+                    "",
+                ]
+            ),
+        )
+        ready_manifest = base / "ready" / "manifest.txt"
+        write_text(
+            ready_manifest,
+            "\n".join(
+                [
+                    "capture=actor_contact_route_sweep",
+                    "target=actor_update_gate6",
+                    "timings=before_route",
+                    "routes=1",
+                    "route_labels=x3p00",
+                    f"capture_status_x3p00=actor_contact_procmem=ok mode=capture target=actor_update_gate6 ghidra=1000:654E runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:654E freeze_observed=1 raw_dump=/tmp/ready/raw.txt candidate_fixture={ready_candidate}",
+                    "",
+                ]
+            ),
+        )
+        ready = run_summary(root, ready_manifest).stdout
+        for snippet in [
+            "candidate_status=ready",
+            "candidate_missing=none",
+            "candidate_placeholders=0",
+            "oracle=actor_update oracle_flag=--debug-actor-update-runtime-oracle",
+        ]:
+            require(ready, snippet, "ready_actor_candidate")
         cases += 1
 
         direct_manifest = base / "direct" / "manifest.txt"
@@ -174,6 +225,7 @@ def main() -> int:
             "observed_targets=contact_scanner_callsite",
             "missing_targets=none",
             "candidate_fixtures=/tmp/contact/candidate_fixture.txt",
+            "candidate_status=missing candidate_missing=file candidate_placeholders=0",
             "oracle=actor_update oracle_flag=--debug-actor-update-runtime-oracle",
             "oracle_command=./build/lezac_cpp --debug-actor-update-runtime-oracle /tmp/contact/candidate_fixture.txt",
         ]:
@@ -199,6 +251,7 @@ def main() -> int:
         for snippet in [
             "observed_targets=contact_scanner_start",
             "candidate_fixtures=/tmp/scanner/candidate_fixture.txt",
+            "candidate_status=missing candidate_missing=file candidate_placeholders=0",
             "oracle=contact_scanner oracle_flag=--debug-contact-scanner-runtime-oracle",
             "oracle_command=./build/lezac_cpp --debug-contact-scanner-runtime-oracle /tmp/scanner/candidate_fixture.txt",
         ]:

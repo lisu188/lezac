@@ -12,7 +12,8 @@ Baseline: `origin/main`
   observed runtime freezes, lists missing gate targets, and surfaces candidate
   fixtures for runtime-oracle normalization. It now labels each observed freeze
   with the matching `actor_update` or `contact_scanner` oracle flag and a
-  runnable `oracle_command=` hint.
+  runnable `oracle_command=` hint, plus `candidate_status=` readiness so skeleton
+  fixtures are not mistaken for normalized evidence.
 - Added `lane-result-cs-scratch` instrumentation support to
   `tools/capture_original_explosion_procmem.py` for the final lane-helper
   result writes at `1000:3D3F` and `1000:3ED3`. The runtime-only trampoline

@@ -261,7 +261,8 @@ timeouts and optional logs. The runner validates fixture paths and oracle/flag
 pairs before launching commands; `--allow-missing-fixtures` is only for dry-run
 forensic review after moving manifests between machines. Add
 `--write-result-manifest <path>` to leave a key/value audit trail for planned
-or executed oracle commands.
+or executed oracle commands. Result manifests and oracle logs are refused
+inside the repository unless `--allow-repo-output` is passed deliberately.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \

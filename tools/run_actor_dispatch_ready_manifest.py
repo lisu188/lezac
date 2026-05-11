@@ -55,6 +55,25 @@ def read_manifest(path: Path) -> ReadyManifest:
     return ReadyManifest(path=path, values=values)
 
 
+def repo_root() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def is_within(path: Path, parent: Path) -> bool:
+    try:
+        path.resolve().relative_to(parent.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def require_output_outside_repo(path: Path, label: str, allow_repo_output: bool) -> None:
+    if allow_repo_output:
+        return
+    if is_within(path, repo_root()):
+        raise ValueError(f"{label} must be outside the repository")
+
+
 def require(values: dict[str, str], key: str) -> str:
     value = values.get(key)
     if value is None or value == "":
@@ -254,6 +273,11 @@ def main() -> int:
         type=Path,
         help="write a key/value manifest describing planned or executed oracles",
     )
+    parser.add_argument(
+        "--allow-repo-output",
+        action="store_true",
+        help="allow --log-dir or --write-result-manifest paths inside the repository",
+    )
     args = parser.parse_args()
 
     manifest_path = args.manifest.resolve()
@@ -266,6 +290,16 @@ def main() -> int:
         )
         return 1
     try:
+        if args.log_dir is not None:
+            require_output_outside_repo(
+                args.log_dir, "--log-dir", args.allow_repo_output
+            )
+        if args.write_result_manifest is not None:
+            require_output_outside_repo(
+                args.write_result_manifest,
+                "--write-result-manifest",
+                args.allow_repo_output,
+            )
         manifest = read_manifest(manifest_path)
         candidates = parse_candidates(manifest.values, manifest.path, require_fixtures)
         oracle_binary = args.oracle_binary or require(manifest.values, "oracle_binary")

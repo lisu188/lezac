@@ -263,7 +263,8 @@ manifest containing only ready fixtures and their oracle commands.
 `tools/run_actor_dispatch_ready_manifest.py` can then dry-run or execute that
 handoff without copying shell lines out of the summary output; it rejects
 missing fixture paths and mismatched oracle/flag pairs before execution, and
-can write a result manifest for the planned or executed oracle commands.
+can write a result manifest for the planned or executed oracle commands. Result
+manifests and logs are expected to stay outside the repository by default.
 
 ## Bomb Inventory
 

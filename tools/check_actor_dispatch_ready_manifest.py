@@ -431,6 +431,23 @@ def main() -> int:
         )
         cases += 1
 
+        repo_output = run_ready(
+            root,
+            [
+                str(ready_manifest),
+                "--dry-run",
+                "--write-result-manifest",
+                str(root / "actor-dispatch-ready-result.txt"),
+            ],
+            False,
+        )
+        require(
+            repo_output,
+            "--write-result-manifest must be outside the repository",
+            "repo_output",
+        )
+        cases += 1
+
     print(f"actor_dispatch_ready_manifest_check=ok cases={cases}")
     return 0
 

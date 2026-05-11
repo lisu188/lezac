@@ -75,6 +75,7 @@ esac
 
 manifest="$out_dir/manifest.txt"
 raw_dump="$out_dir/raw_debugger_dump.txt"
+candidate_fixture="$out_dir/${target}_runtime_candidate.txt"
 procmem_out="$out_dir/procmem"
 procmem_manifest="$procmem_out/manifest.txt"
 procmem_candidate="$procmem_out/explosion_playback_oracle_original_candidate.txt"
@@ -82,6 +83,13 @@ procmem_candidate="$procmem_out/explosion_playback_oracle_original_candidate.txt
 sample_seconds=${LEZAC_ACTOR_CONTACT_PROCMEM_SAMPLE_SECONDS:-0.5}
 sample_interval=${LEZAC_ACTOR_CONTACT_PROCMEM_SAMPLE_INTERVAL:-0.1}
 tail_freeze_seconds=${LEZAC_ACTOR_CONTACT_PROCMEM_TAIL_FREEZE_SECONDS:-0.2}
+start_taps=${LEZAC_ACTOR_CONTACT_START_TAPS:-2}
+level_start_seconds=${LEZAC_ACTOR_CONTACT_LEVEL_START_SECONDS:-3.0}
+right_key=${LEZAC_ACTOR_CONTACT_RIGHT_KEY:-x}
+right_hold_seconds=${LEZAC_ACTOR_CONTACT_RIGHT_HOLD_SECONDS:-2.0}
+bomb_key=${LEZAC_ACTOR_CONTACT_BOMB_KEY:-n}
+bomb_hold_seconds=${LEZAC_ACTOR_CONTACT_BOMB_HOLD_SECONDS:-0.25}
+route_steps_csv=${LEZAC_ACTOR_CONTACT_ROUTE_STEPS:-}
 
 procmem_command=(
     python3
@@ -93,12 +101,86 @@ procmem_command=(
     --approve-runtime-instrumentation
     --freeze-ghidra-offset "$ghidra"
     --runtime-freeze-before-bomb
+    --start-taps "$start_taps"
+    --level-start-seconds "$level_start_seconds"
+    --right-key "$right_key"
+    --right-hold-seconds "$right_hold_seconds"
+    --bomb-key "$bomb_key"
+    --bomb-hold-seconds "$bomb_hold_seconds"
     --sample-seconds "$sample_seconds"
     --sample-interval "$sample_interval"
     --route-state-interval 0
     --sample-screenshot-seconds ""
     --tail-freeze-check-seconds "$tail_freeze_seconds"
 )
+if [[ -n "$route_steps_csv" ]]; then
+    IFS=',' read -r -a route_steps <<<"$route_steps_csv"
+    for route_step in "${route_steps[@]}"; do
+        if [[ -n "$route_step" ]]; then
+            procmem_command+=(--route-step "$route_step")
+        fi
+    done
+fi
+
+oracle_capture=actor_update_runtime
+if [[ "$target" == contact_scanner_* ]]; then
+    oracle_capture=contact_scanner_runtime
+fi
+
+write_candidate_skeleton() {
+    local runtime_cs=${1:-}
+    local runtime_ds=${2:-}
+    local freeze_runtime_value=${3:-}
+    local freeze_observed_value=${4:-}
+
+    {
+        echo "# LEZAC actor/contact process-memory oracle candidate."
+        echo "# Candidate only: fill semantic actor/contact records before promotion."
+        echo "# source_wrapper=$0"
+        echo "capture=$oracle_capture"
+        echo "source=dosbox-debug-process-memory"
+        echo "temp_copy=1"
+        echo "visual_claim=0"
+        echo "instrumented_runtime_child_memory=1"
+        echo "target=$target"
+        echo "scenario=$scenario"
+        echo "route=focused_no_window_original_controls_process_memory"
+        if [[ -n "$runtime_cs" ]]; then
+            echo "runtime_cs=$runtime_cs"
+        else
+            echo "# runtime_cs=<runtime-cs>"
+        fi
+        if [[ -n "$runtime_ds" ]]; then
+            echo "runtime_ds=$runtime_ds"
+        else
+            echo "# runtime_ds=<runtime-ds>"
+        fi
+        echo "break ghidra=$ghidra runtime=${freeze_runtime_value:-<runtime-cs>:${ghidra#*:}} label=$label observed=process_memory_runtime_freeze_${freeze_observed_value:-unknown}"
+        echo "# freeze_old_bytes=$freeze_old_bytes"
+        echo "# freeze_patch_bytes=$freeze_patch_bytes"
+        echo "# freeze_loaded_bytes=$freeze_loaded_bytes"
+        echo "# freeze_runtime_patch_applied=$freeze_runtime_patch_applied"
+        echo "# instrumented_freeze_tail_frame=$instrumented_freeze_tail_frame"
+        if [[ "$oracle_capture" == "contact_scanner_runtime" ]]; then
+            echo "# subject_actor slot=<slot> kind=<kind> state=<state> x=0x0000 y=0x0000 w=<w> h=<h> flags=0x0000"
+            echo "# other_actor slot=<slot> kind=<kind> state=<state> x=0x0000 y=0x0000 w=<w> h=<h> flags=0x0000"
+            echo "# contact_scan subject_slot=<slot> other_slot=<slot> flags_before=0x0000 flags_after=0x0000 contact=<0-or-1> player_contact=<0-or-1> monster_contact=<0-or-1> object_contact=<0-or-1> damage_pending=<n> overlap_x=<n> overlap_y=<n>"
+        else
+            echo "# actor_before slot=<slot> behavior=<behavior> kind=<kind> state=<state> x=0x0000 y=0x0000 vx8=<vx8> vy8=<vy8> hp=<hp> flags=0x0000 contact=<0-or-1> on_ground=<0-or-1>"
+            echo "# actor_after slot=<slot> behavior=<behavior> kind=<kind> state=<state> x=0x0000 y=0x0000 vx8=<vx8> vy8=<vy8> hp=<hp> flags=0x0000 contact=<0-or-1> on_ground=<0-or-1>"
+            echo "# contact_scan subject_slot=<slot> other_slot=<slot> flags_before=0x0000 flags_after=0x0000 contact=<0-or-1> player_contact=<0-or-1> monster_contact=<0-or-1> object_contact=<0-or-1> damage_pending=<n>"
+            echo "# tile_probe tile_x=<x> tile_y=<y> tile=0x0000 object=0x0000 passable=<0-or-1> standable=<0-or-1>"
+        fi
+        echo "# route_state_dumps=$procmem_out/route_state_dumps.txt"
+    } >"$candidate_fixture"
+}
+
+freeze_old_bytes=
+freeze_patch_bytes=
+freeze_loaded_bytes=
+freeze_runtime_patch_applied=
+instrumented_freeze_tail_frame=
+write_candidate_skeleton
 
 {
     echo "capture=actor_contact_process_memory"
@@ -113,6 +195,14 @@ procmem_command=(
     echo "procmem_out=$procmem_out"
     echo "procmem_manifest=$procmem_manifest"
     echo "procmem_candidate=$procmem_candidate"
+    echo "candidate_fixture=$candidate_fixture"
+    echo "input_start_taps=$start_taps"
+    echo "input_level_start_seconds=$level_start_seconds"
+    echo "input_right_key=$right_key"
+    echo "input_right_hold_seconds=$right_hold_seconds"
+    echo "input_route_steps=$route_steps_csv"
+    echo "input_bomb_key=$bomb_key"
+    echo "input_bomb_hold_seconds=$bomb_hold_seconds"
     echo "visual_claim=0"
 } >"$manifest"
 
@@ -125,6 +215,7 @@ procmem_command=(
     echo "procmem_out=$procmem_out"
     echo "procmem_manifest=$procmem_manifest"
     echo "procmem_candidate=$procmem_candidate"
+    echo "candidate_fixture=$candidate_fixture"
     echo "command=${procmem_command[*]}"
 } >"$raw_dump"
 
@@ -134,7 +225,7 @@ if [[ ! -e "$asset_dir/LEZAC.EXE" ]]; then
 fi
 
 if [[ "${LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN:-0}" == "1" ]]; then
-    echo "actor_contact_procmem=ok mode=dry_run target=$target ghidra=$ghidra manifest=$manifest raw_dump=$raw_dump procmem_out=$procmem_out"
+    echo "actor_contact_procmem=ok mode=dry_run target=$target ghidra=$ghidra manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture procmem_out=$procmem_out"
     exit 0
 fi
 
@@ -191,4 +282,12 @@ instrumented_freeze_tail_frame=$(manifest_value instrumented_freeze_tail_frame "
     echo "instrumented_freeze_tail_frame=$instrumented_freeze_tail_frame"
 } >>"$raw_dump"
 
-echo "actor_contact_procmem=ok mode=capture target=$target ghidra=$ghidra runtime_cs=$runtime_cs runtime_ds=$runtime_ds freeze_runtime=$freeze_runtime freeze_observed=$instrumented_freeze_observed manifest=$manifest raw_dump=$raw_dump procmem_manifest=$procmem_manifest"
+write_candidate_skeleton "$runtime_cs" "$runtime_ds" "$freeze_runtime" "$instrumented_freeze_observed"
+if [[ -e "$procmem_out/route_state_dumps.txt" ]]; then
+    {
+        echo
+        cat "$procmem_out/route_state_dumps.txt"
+    } >>"$candidate_fixture"
+fi
+
+echo "actor_contact_procmem=ok mode=capture target=$target ghidra=$ghidra runtime_cs=$runtime_cs runtime_ds=$runtime_ds freeze_runtime=$freeze_runtime freeze_observed=$instrumented_freeze_observed manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture procmem_manifest=$procmem_manifest"

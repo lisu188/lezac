@@ -253,7 +253,10 @@ Baseline: `origin/main`
   `LEZAC_ACTOR_CONTACT_APPROVE_PROCMEM=1` and
   `LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION=1` for live runs, and
   records `visual_claim=0` because these are reachability probes rather than
-  pristine gameplay-route fixtures. A 2026-05-11 live probe at
+  pristine gameplay-route fixtures. It now writes
+  `<target>_runtime_candidate.txt` with runtime metadata and raw route-state
+  dumps, and accepts `LEZAC_ACTOR_CONTACT_ROUTE_STEPS` as comma-separated
+  `key:seconds` route holds for scanner-path tuning. A 2026-05-11 live probe at
   `actor_update_start` froze `1000:6053` at runtime `01ED:6053`, with
   `freeze_old_bytes=5589`, `freeze_patch_bytes=ebfe`,
   `freeze_runtime_patch_applied=1`, `instrumented_freeze_observed=1`, runtime
@@ -376,6 +379,27 @@ Baseline: `origin/main`
   `runtime_ds=0C8F`, `freeze_runtime=01ED:6053`, `freeze_old_bytes=5589`,
   `freeze_patch_bytes=ebfe`, `freeze_runtime_patch_applied=1`, and
   `instrumented_freeze_observed=1`.
+- A live `contact_scanner_start` probe at
+  `/tmp/lezac-contact-scanner-start-procmem-live-codex-20260511` loaded the
+  runtime patch at `01ED:5CB0` (`freeze_old_bytes=5589`,
+  `freeze_patch_bytes=ebfe`, `freeze_runtime_patch_applied=1`) but did not
+  freeze (`instrumented_freeze_observed=0`) on the default level-1 route. This
+  is route/timing evidence only; the scanner still needs a tuned collision path.
+- The process-memory sampler now includes actor/contact-oriented route dumps
+  for `DS:7900` and `DS:7A00` alongside the existing `DS:79E0` player-state
+  window.
+- The wrapper now writes `<target>_runtime_candidate.txt` as a non-promoted
+  oracle scaffold. Dry-run route tuning was verified with
+  `LEZAC_ACTOR_CONTACT_ROUTE_STEPS=x:1.0,n:0.2,z:0.5`, and a live
+  `actor_update_start` run at
+  `/tmp/lezac-actor-contact-candidate-live-codex-20260511` produced
+  `actor_update_start_runtime_candidate.txt` with runtime `CS=01ED`,
+  `DS=0C8F`, freeze metadata, and repeated `DS:7900`/`DS:79E0`/`DS:7A00`
+  route-state dump blocks.
+- Focused native CTest passed for
+  `python_tool_syntax_lane_result_preflight|actor_contact_procmem_helper_expectations`
+  with 2/2 tests passing. Full native validation then passed again:
+  configure/build succeeded and CTest reported 170/170 tests passing.
 - After adding the actor/contact process-memory wrapper and dry-run CTest,
   `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
   -BuildDir build-win-codex-vs3 -Configuration Debug` passed: configure/build

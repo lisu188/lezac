@@ -211,7 +211,11 @@ reachability by writing a temporary `EB FE` freeze loop into the child
 DOSBox-debug process after the known route starts. A 2026-05-11 probe froze
 `1000:6053` at runtime `01ED:6053` with original bytes `55 89` and runtime
 `DS=0C8F`; this is instrumentation evidence only, not a promoted semantic
-actor/contact fixture.
+actor/contact fixture. A first `1000:5CB0` contact-scanner-start probe loaded
+the same `EB FE` runtime patch at `01ED:5CB0` but did not freeze on the default
+level-1 route, so the scanner path still needs a tuned contact/collision route.
+The process-memory route dumps now preserve `DS:7900`, `DS:79E0`, and `DS:7A00`
+for actor/contact candidate scaffolds.
 
 ## Bomb Inventory
 

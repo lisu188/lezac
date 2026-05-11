@@ -52,9 +52,14 @@ def check_script(script_path: Path) -> None:
     require(text, "source=dosbox-debug-process-memory", "script")
     require(text, "route=focused_no_window_original_controls_process_memory", "script")
     require(text, "visual_claim=0", "script")
+    require(text, "candidate_fixture=\"$out_dir/${target}_runtime_candidate.txt\"", "script")
+    require(text, "write_candidate_skeleton", "script")
+    require(text, "route_state_dumps.txt", "script")
     require(text, "LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN", "script")
     require(text, "LEZAC_ACTOR_CONTACT_APPROVE_PROCMEM", "script")
     require(text, "LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION", "script")
+    require(text, "LEZAC_ACTOR_CONTACT_ROUTE_STEPS", "script")
+    require(text, "--route-step \"$route_step\"", "script")
     require(text, "capture_original_explosion_procmem.py", "script")
     require(text, "--runtime-freeze-before-bomb", "script")
     require(text, "--freeze-ghidra-offset \"$ghidra\"", "script")
@@ -108,6 +113,7 @@ def check_docs(root: Path) -> None:
         require(text, "tools/capture_original_actor_contact_procmem.sh", label)
         require(text, "actor_update_start", label)
         require(text, "LEZAC_ACTOR_CONTACT_APPROVE_PROCMEM=1", label)
+        require(text, "candidate", label)
 
 
 def main() -> int:

@@ -184,7 +184,12 @@ LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION=1 \
 The wrapper reuses the proven child-process memory scanner, patches only the
 temporary DOSBox-debug child process, and records `visual_claim=0` instrumentation
 evidence. Supported targets are `actor_update_start`, `actor_update_end`,
-`contact_scanner_start`, and `contact_scanner_end`.
+`contact_scanner_start`, and `contact_scanner_end`. It writes
+`<target>_runtime_candidate.txt` with the runtime metadata plus raw route-state
+dumps; the candidate is a fill-in scaffold until semantic actor/contact records
+are decoded. Use `LEZAC_ACTOR_CONTACT_ROUTE_STEPS` with comma-separated
+`key:seconds` holds to tune a route, for example
+`LEZAC_ACTOR_CONTACT_ROUTE_STEPS=x:1.0,n:0.2,z:0.5`.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \

@@ -265,6 +265,8 @@ handoff without copying shell lines out of the summary output; it rejects
 missing fixture paths and mismatched oracle/flag pairs before execution, and
 can write a result manifest for the planned or executed oracle commands. Result
 manifests and logs are expected to stay outside the repository by default.
+`tools/summarize_actor_dispatch_ready_results.py` summarizes that result
+manifest and can gate promotion on successful executed oracle runs.
 
 ## Bomb Inventory
 

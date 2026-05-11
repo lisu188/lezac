@@ -242,6 +242,9 @@ python3 tools/summarize_actor_dispatch_gate_sweep.py \
   --write-ready-manifest /tmp/lezac-actor-dispatch-gates/ready_manifest.txt
 python3 tools/run_actor_dispatch_ready_manifest.py \
   /tmp/lezac-actor-dispatch-gates/ready_manifest.txt --dry-run
+python3 tools/summarize_actor_dispatch_ready_results.py \
+  /tmp/lezac-actor-dispatch-gates/oracle-results.txt \
+  --require-success --require-executed
 ```
 
 The summary prints `ready_candidates=`, `incomplete_candidates=`,
@@ -263,6 +266,9 @@ forensic review after moving manifests between machines. Add
 `--write-result-manifest <path>` to leave a key/value audit trail for planned
 or executed oracle commands. Result manifests and oracle logs are refused
 inside the repository unless `--allow-repo-output` is passed deliberately.
+Use `tools/summarize_actor_dispatch_ready_results.py <path>` to summarize that
+audit trail, and add `--require-success --require-executed` when promotion
+should fail unless every oracle actually ran and passed.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \

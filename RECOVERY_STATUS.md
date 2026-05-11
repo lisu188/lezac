@@ -26,6 +26,8 @@ Baseline: `origin/main`
   dry-run-only bypass for forensic manifest review, and can write a result
   manifest for planned or executed oracle commands. Result manifests and logs
   are refused inside the repository unless explicitly allowed.
+  `tools/summarize_actor_dispatch_ready_results.py` summarizes those result
+  manifests and can require successful executed oracle runs.
 - Added `lane-result-cs-scratch` instrumentation support to
   `tools/capture_original_explosion_procmem.py` for the final lane-helper
   result writes at `1000:3D3F` and `1000:3ED3`. The runtime-only trampoline

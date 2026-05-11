@@ -405,7 +405,11 @@ executes only the ready oracle candidates, writes optional per-candidate logs,
 and can leave a result manifest for
 `tools/summarize_lane_result_ready_results.py --require-success
 --require-executed`. Result manifests and logs are refused inside the
-repository unless `--allow-repo-output` is passed deliberately.
+repository unless `--allow-repo-output` is passed deliberately. The synthetic
+CTest helpers `tools/check_lane_result_ready_manifest.py`,
+`tools/check_lane_result_ready_results.py`, and
+`tools/check_lane_result_ready_pipeline.py` cover the handoff without requiring
+DOSBox.
 The checked-in original result-write fixtures are
 `tests/fixtures/dosbox/explosion_playback_oracle_original_3ed3_lane_result_runtime.txt`
 for the reverse helper and

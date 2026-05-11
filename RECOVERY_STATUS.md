@@ -172,7 +172,9 @@ Baseline: `origin/main`
   lane-result ready-pipeline CTest. The runner validates the ready manifest,
   refuses repository-local logs/results by default, executes only
   `--debug-explosion-playback-oracle` candidates, and records planned or
-  executed oracle results for promotion gating.
+  executed oracle results for promotion gating. Granular CTest helpers now pin
+  the runner and result-summary error cases separately from the full pipeline
+  check.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,

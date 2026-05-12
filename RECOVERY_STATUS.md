@@ -212,6 +212,12 @@ Baseline: `origin/main`
   a `debugger_commands_runtime.txt` placeholder, and copies observed
   `runtime_cs`/`runtime_ds` metadata into the manifest/raw dump when a live
   DOSBox-debug run exposes registers before timing out.
+- The behavior-4, actor-update, and contact-scanner DOSBox-debug helpers now run
+  the shared `--require-debug-capture` environment preflight before live
+  DOSBox-debug launch, write `environment_preflight.log`, and record the
+  preflight status in their manifests. Dry runs explicitly mark
+  `environment_preflight=dry_run`; per-helper skip environment variables are
+  reserved for already-verified forensic reruns.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,

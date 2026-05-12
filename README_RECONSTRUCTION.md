@@ -154,6 +154,12 @@ It writes a `candidate_fixture.txt` skeleton and
 `debugger_commands_runtime.txt`; when a live run exposes `runtime_cs` or
 `runtime_ds`, the helper copies those values into the manifest/raw dump and
 expands the debugger command plan to the observed runtime segment.
+Live behavior-4, actor-update, and contact-scanner DOSBox-debug helpers run
+`tools/preflight_original_evidence_environment.py --require-debug-capture`
+before launching DOSBox-debug, record `environment_preflight=` in the manifest,
+and keep the preflight output in `environment_preflight.log`. Use the matching
+`LEZAC_*_DEBUG_SKIP_ENVIRONMENT_PREFLIGHT=1` variable only for intentional
+forensic reruns on an already-verified host.
 Actor/contact update evidence is normalized with
 `--debug-actor-update-runtime-oracle <fixture> [--expect-error]`. Its synthetic
 fixtures cover parser behavior only: runtime captures still need to prove exact

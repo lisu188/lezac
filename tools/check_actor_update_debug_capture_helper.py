@@ -26,6 +26,7 @@ OUTPUTS = [
     "candidate_fixture.txt",
     "debugger_commands.txt",
     "debugger_commands_runtime.txt",
+    "environment_preflight.log",
     "actor_update_debug_capture.log",
 ]
 
@@ -65,11 +66,17 @@ def check_script(script_path: Path) -> None:
     require(text, "usage: $0 out_dir [asset_dir] scenario", "script")
     require(text, "runtime_route=debugger_seeded", "script")
     require(text, "LEZAC_ACTOR_UPDATE_DEBUG_DRY_RUN", "script")
+    require(text, "LEZAC_ACTOR_UPDATE_DEBUG_SKIP_ENVIRONMENT_PREFLIGHT", "script")
     require(text, "visual_claim=0", "script")
     require(text, "candidate_fixture=\"$out_dir/candidate_fixture.txt\"", "script")
     require(text, "runtime_commands_file=\"$out_dir/debugger_commands_runtime.txt\"", "script")
+    require(text, "environment_preflight_log=\"$out_dir/environment_preflight.log\"", "script")
+    require(text, "run_environment_preflight", "script")
+    require(text, "preflight_original_evidence_environment.py", "script")
+    require(text, "--require-debug-capture", "script")
     require(text, "write_runtime_command_plan", "script")
     require(text, "debugger_commands_runtime=$runtime_commands_file", "script")
+    require(text, "environment_preflight=dry_run", "script")
     require(text, "grep -v '^#' \"$commands_file\"", "script")
     require(text, "capture=actor_update_runtime", "script")
     require(text, "scenario=$scenario", "script")
@@ -108,7 +115,7 @@ def check_cmake(cmake_path: Path) -> None:
         "/tmp/lezac-actor-update-debug-dry-run",
         "${CMAKE_CURRENT_SOURCE_DIR}",
         "object_collision_jump_live",
-        "^actor_update_debug_capture=ok mode=dry_run scenario=object_collision_jump_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=",
+        "^actor_update_debug_capture=ok mode=dry_run scenario=object_collision_jump_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run",
     ]:
         if collapse_ws(snippet) not in collapsed:
             raise RuntimeError(
@@ -121,7 +128,7 @@ def check_cmake(cmake_path: Path) -> None:
     for snippet in [
         "tools/check_actor_update_debug_capture_helper.py",
         "${CMAKE_CURRENT_SOURCE_DIR}",
-        "^actor_update_debug_capture_helper=ok scenarios=3 anchors=4 outputs=6 cmake_test=1 docs=2",
+        "^actor_update_debug_capture_helper=ok scenarios=3 anchors=4 outputs=7 cmake_test=1 docs=2",
     ]:
         if collapse_ws(snippet) not in collapsed:
             raise RuntimeError(

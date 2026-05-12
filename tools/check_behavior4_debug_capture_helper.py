@@ -24,7 +24,9 @@ BREAKPOINTS = ["7A6B", "7C2C", "728C", "731B", "73E5", "741B"]
 OUTPUTS = [
     "manifest.txt",
     "raw_debugger_dump.txt",
+    "candidate_fixture.txt",
     "debugger_commands.txt",
+    "debugger_commands_runtime.txt",
     "behavior4_debug_capture.log",
 ]
 
@@ -65,6 +67,18 @@ def check_script(script_path: Path) -> None:
     require(text, "runtime_route=debugger_seeded", "script")
     require(text, "LEZAC_BEHAVIOR4_DEBUG_DRY_RUN", "script")
     require(text, "visual_claim=0", "script")
+    require(text, "candidate_fixture=\"$out_dir/candidate_fixture.txt\"", "script")
+    require(text, "runtime_commands_file=\"$out_dir/debugger_commands_runtime.txt\"", "script")
+    require(text, "write_runtime_command_plan", "script")
+    require(text, "debugger_commands_runtime=$runtime_commands_file", "script")
+    require(text, "grep -v '^#' \"$commands_file\"", "script")
+    require(text, "capture=behavior4_runtime", "script")
+    require(text, "scenario=$scenario", "script")
+    require(text, "route=$runtime_route", "script")
+    require(text, "spawner index=<index> behavior=4", "script")
+    require(text, "actor_before slot=<slot> behavior=4", "script")
+    require(text, "actor_after slot=<slot> behavior=4", "script")
+    require(text, "players p1_dead=<0-or-1>", "script")
     require(text, "fixture_command=./build/lezac_cpp --debug-behavior4-runtime-oracle <candidate-fixture>", "script")
     require(text, "choose an output directory outside the repository", "script")
     require(text, "missing $asset_dir/LEZAC.EXE", "script")
@@ -95,7 +109,7 @@ def check_cmake(cmake_path: Path) -> None:
         "/tmp/lezac-behavior4-debug-dry-run",
         "${CMAKE_CURRENT_SOURCE_DIR}",
         "monster_behavior4_target_selection",
-        "^behavior4_debug_capture=ok mode=dry_run scenario=monster_behavior4_target_selection route=debugger_seeded",
+        "^behavior4_debug_capture=ok mode=dry_run scenario=monster_behavior4_target_selection route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=",
     ]:
         if collapse_ws(snippet) not in collapsed:
             raise RuntimeError(

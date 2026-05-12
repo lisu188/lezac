@@ -207,6 +207,11 @@ Baseline: `origin/main`
 - Added the `timeout` command to the full original/debug capture preflight
   requirements because the DOSBox-debug helper scripts wrap their launches with
   `timeout`.
+- Brought `tools/capture_original_behavior4_debug.sh` up to the actor/contact
+  debug-helper handoff shape: it now leaves a `candidate_fixture.txt` skeleton,
+  a `debugger_commands_runtime.txt` placeholder, and copies observed
+  `runtime_cs`/`runtime_ds` metadata into the manifest/raw dump when a live
+  DOSBox-debug run exposes registers before timing out.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,

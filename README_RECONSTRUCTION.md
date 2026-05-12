@@ -147,6 +147,13 @@ format records scenario/level, runtime `CS`/`DS`, spawner fields, actor
 before/after position and 8.8 velocity, motion timer, target/player-dead state,
 and optional raw `DS:` dump rows while anchoring the transcript to
 `1000:7A6B..7C2C`, `1000:728C..731B`, and `1000:73E5..741B`.
+Use `tools/capture_original_behavior4_debug.sh` to stage best-effort
+DOSBox-debug capture plans for `monster_spawner_behavior4_level2`,
+`monster_spawner_behavior4_level3`, and `monster_behavior4_target_selection`.
+It writes a `candidate_fixture.txt` skeleton and
+`debugger_commands_runtime.txt`; when a live run exposes `runtime_cs` or
+`runtime_ds`, the helper copies those values into the manifest/raw dump and
+expands the debugger command plan to the observed runtime segment.
 Actor/contact update evidence is normalized with
 `--debug-actor-update-runtime-oracle <fixture> [--expect-error]`. Its synthetic
 fixtures cover parser behavior only: runtime captures still need to prove exact

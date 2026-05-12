@@ -879,6 +879,15 @@ complete raw row reporting, and malformed-input rejection. The original fixture
 captures a temp-copy `dosbox-debug` stop at `01ED:7C89` with runtime `CS=01ED`
 and `DS=0C8F`; it keeps `visual_claim=0`.
 
+`--debug-visual-table-oracle <fixture> [--expect-error]` is the follow-up
+normalizer for renderer-facing visual evidence. It requires runtime `CS`/`DS`,
+translated breakpoints for the selected scenario, actor animation cursor state,
+an explicit frame-table row at `DS:c322 + 4 * frame`, sprite bank/index
+candidates, draw offsets, and effect-entry before/after bytes. Current fixtures
+are synthetic or malformed parser coverage for the state-2 death-table
+consumption path only; they intentionally keep `visual_claim=0` and do not
+promote the provisional dead-player renderer.
+
 Unresolved state-2 fallback: `1000:7ef8..7f2a` increments `DS:79b9` when no
 player is active and promotes any `DS:79e5 + player == 2` state byte to `1` at
 `0xe6`. This path does not visibly perform the same actor state and energy

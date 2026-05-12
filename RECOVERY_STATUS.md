@@ -6,6 +6,13 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
+  visual-fidelity evidence gate. The v1 parser normalizes visual table
+  fixtures with scenario/runtime metadata, translated breakpoints, actor
+  animation cursor fields, `DS:c322 + 4 * frame` row bytes, sprite bank/index
+  candidates, draw offsets, and effect-entry before/after state. Synthetic and
+  malformed CTest fixtures currently cover the state-2 death table consumption
+  path and keep `visual_claim=0`, so no live renderer behavior changed.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

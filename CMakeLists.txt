@@ -1136,6 +1136,41 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "contact_scanner_runtime_oracle=error fixture=contact_scanner_runtime_oracle_bad_subject_flags reason=contact_flags_before_mismatch actor=0x0001 scan=0x0000")
 
+    add_test(NAME visual_table_oracle_synthetic
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-visual-table-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/visual_table_oracle_synthetic.txt)
+    set_tests_properties(visual_table_oracle_synthetic PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "visual_table_oracle=ok fixture=visual_table_oracle_synthetic scenario=state2_death_table_consumption runtime_cs=0x1a2b runtime_ds=0x2b3c actor_slot=0 actor_state=2 anim_current=0x72 anim_range=0x72..0x79 anim_mode=1 visual_frame=0x72 row_addr=0xc4ea row=10,18,20,00 bank=BOMOMIMK sprite_index=16 sprite_source=row_byte0 draw_offset=24,32 effect_slot=0 effect_before_xy=0x0018,0x0028 effect_after_xy=0x0018,0x0028 effect_after_frame=0x72 breaks=5 temp_copy=1 visual_claim=0")
+
+    add_test(NAME visual_table_oracle_bad_segment
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-visual-table-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/visual_table_oracle_bad_segment.txt
+                --expect-error)
+    set_tests_properties(visual_table_oracle_bad_segment PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "visual_table_oracle=error fixture=visual_table_oracle_bad_segment reason=breakpoint_segment_mismatch expected=0x1a2b actual=0xffff")
+
+    add_test(NAME visual_table_oracle_missing_row_byte
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-visual-table-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/visual_table_oracle_missing_row_byte.txt
+                --expect-error)
+    set_tests_properties(visual_table_oracle_missing_row_byte PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "visual_table_oracle=error fixture=visual_table_oracle_missing_row_byte reason=missing_byte address=c4ed")
+
+    add_test(NAME visual_table_oracle_sprite_without_row
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-visual-table-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/visual_table_oracle_sprite_without_row.txt
+                --expect-error)
+    set_tests_properties(visual_table_oracle_sprite_without_row PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "visual_table_oracle=error fixture=visual_table_oracle_sprite_without_row reason=visual_row_missing_for_sprite")
+
     add_test(NAME state2_runtime_frame_oracle_synthetic
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-state2-runtime-frame-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/state2_runtime_frame_oracle_synthetic.txt)

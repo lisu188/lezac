@@ -218,6 +218,11 @@ Baseline: `origin/main`
   preflight status in their manifests. Dry runs explicitly mark
   `environment_preflight=dry_run`; per-helper skip environment variables are
   reserved for already-verified forensic reruns.
+- Added `tools/summarize_debug_capture.py` plus synthetic coverage so a single
+  behavior-4, actor-update, or contact-scanner DOSBox-debug capture directory
+  can be triaged as ready, incomplete, missing, or environment-failed. The
+  summary prints the matching runtime-oracle command and can require both a
+  promotion-ready fixture and `environment_preflight=ok`.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,

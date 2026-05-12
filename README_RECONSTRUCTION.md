@@ -160,6 +160,13 @@ before launching DOSBox-debug, record `environment_preflight=` in the manifest,
 and keep the preflight output in `environment_preflight.log`. Use the matching
 `LEZAC_*_DEBUG_SKIP_ENVIRONMENT_PREFLIGHT=1` variable only for intentional
 forensic reruns on an already-verified host.
+Summarize any one of those capture directories with
+`python3 tools/summarize_debug_capture.py <capture_dir>`. The summary reports
+`candidate_status=ready|incomplete|missing|none`, missing fixture fields,
+placeholder markers, the preflight state, and the exact runtime-oracle command.
+Add `--require-ready --require-environment-preflight` when a promotion script
+should fail until the capture is backed by a completed fixture and verified
+host preflight.
 Actor/contact update evidence is normalized with
 `--debug-actor-update-runtime-oracle <fixture> [--expect-error]`. Its synthetic
 fixtures cover parser behavior only: runtime captures still need to prove exact

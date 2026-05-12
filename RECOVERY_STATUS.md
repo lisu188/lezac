@@ -1,6 +1,6 @@
 # Recovery Status
 
-Last reviewed: 2026-05-11
+Last reviewed: 2026-05-12
 Branch: `codex/forward-lane-result-seeded-evidence`
 Baseline: `origin/main`
 
@@ -198,6 +198,9 @@ Baseline: `origin/main`
   `source_environment_preflight=` into result manifests and support
   `--require-source-environment-preflight`; the matching result summarizers can
   require the same field before accepting executed oracle results.
+- The lane-result and actor dispatch ready-pipeline CTest helpers now exercise
+  the strict preflight path end to end: sweep summary, ready manifest runner,
+  and result summary all use their corresponding preflight-required flags.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,

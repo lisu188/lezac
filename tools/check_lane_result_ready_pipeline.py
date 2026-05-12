@@ -151,6 +151,7 @@ def write_route_sweep(path: Path, child_manifest: Path) -> None:
                 "offset=forward",
                 "routes=1",
                 "route_labels=x2p00_c0p50",
+                "environment_preflight=ok",
                 "capture_status_x2p00_c0p50=lane_result_capture_orchestrator=ok "
                 "mode=capture out_dir=/tmp/lane candidates=1 "
                 "offset_labels=3d3f offset_addresses=1000:3D3F "
@@ -186,6 +187,7 @@ def main() -> int:
             [
                 str(sweep_manifest),
                 "--require-ready",
+                "--require-environment-preflight",
                 "--write-ready-manifest",
                 str(ready_manifest),
             ],
@@ -201,6 +203,7 @@ def main() -> int:
         ready_text = ready_manifest.read_text(encoding="ascii")
         for snippet in [
             "promotion=lane_result_ready_candidates",
+            "source_environment_preflight=ok",
             "candidate_0_route=x2p00_c0p50",
             "candidate_0_offset_label=3d3f",
             "candidate_0_oracle=explosion_playback",
@@ -215,6 +218,7 @@ def main() -> int:
             [
                 str(ready_manifest),
                 "--dry-run",
+                "--require-source-environment-preflight",
                 "--write-result-manifest",
                 str(dry_result_manifest),
             ],
@@ -222,6 +226,7 @@ def main() -> int:
         for snippet in [
             "lane_result_ready_manifest=ok mode=dry_run",
             "ready_candidates=1",
+            "source_environment_preflight=ok",
             "ready_candidate index=0 route=x2p00_c0p50 offset=3d3f",
             "oracle=explosion_playback",
             "lane_result_ready_result_manifest=ok",
@@ -231,7 +236,7 @@ def main() -> int:
         dry_result = run_tool(
             root,
             "summarize_lane_result_ready_results.py",
-            [str(dry_result_manifest)],
+            [str(dry_result_manifest), "--require-source-environment-preflight"],
         )
         for snippet in [
             "lane_result_ready_result_summary=ok",
@@ -250,6 +255,7 @@ def main() -> int:
             "run_lane_result_ready_manifest.py",
             [
                 str(ready_manifest),
+                "--require-source-environment-preflight",
                 "--oracle-binary",
                 str(fake_oracle),
                 "--log-dir",
@@ -280,7 +286,12 @@ def main() -> int:
         result = run_tool(
             root,
             "summarize_lane_result_ready_results.py",
-            [str(result_manifest), "--require-success", "--require-executed"],
+            [
+                str(result_manifest),
+                "--require-success",
+                "--require-executed",
+                "--require-source-environment-preflight",
+            ],
         )
         for snippet in [
             "lane_result_ready_result_summary=ok",

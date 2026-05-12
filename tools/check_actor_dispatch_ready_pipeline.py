@@ -140,6 +140,7 @@ def main() -> int:
                     "timings=before_route",
                     "routes=1",
                     "route_labels=x3p00",
+                    "environment_preflight=skipped",
                     f"capture_status_x3p00=actor_contact_procmem=ok mode=capture target=actor_update_gate6 ghidra=1000:654E runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:654E freeze_observed=1 raw_dump=/tmp/ready/raw.txt candidate_fixture={ready_candidate}",
                     "",
                 ]
@@ -156,6 +157,7 @@ def main() -> int:
                     "timings=before_route",
                     "routes=1",
                     "route_labels=x3p00",
+                    "environment_preflight=ok",
                     f"sweep_manifest_actor_update_gate6={child_manifest}",
                     "",
                 ]
@@ -169,6 +171,7 @@ def main() -> int:
             [
                 str(dispatch_manifest),
                 "--require-ready",
+                "--require-environment-preflight",
                 "--write-ready-manifest",
                 str(ready_manifest),
             ],
@@ -181,6 +184,12 @@ def main() -> int:
             f"path={ready_manifest.resolve()}",
         ]:
             require(summary, snippet, "pipeline_summary")
+        ready_text = ready_manifest.read_text(encoding="ascii")
+        for snippet in [
+            "source_environment_preflight=ok",
+            "child_environment_preflights=skipped",
+        ]:
+            require(ready_text, snippet, "pipeline_ready_manifest")
 
         fake_oracle = make_fake_oracle(base / "fake")
         log_dir = base / "logs"
@@ -190,6 +199,7 @@ def main() -> int:
             "run_actor_dispatch_ready_manifest.py",
             [
                 str(ready_manifest),
+                "--require-source-environment-preflight",
                 "--oracle-binary",
                 str(fake_oracle),
                 "--log-dir",
@@ -212,7 +222,12 @@ def main() -> int:
         result = run_tool(
             root,
             "summarize_actor_dispatch_ready_results.py",
-            [str(result_manifest), "--require-success", "--require-executed"],
+            [
+                str(result_manifest),
+                "--require-success",
+                "--require-executed",
+                "--require-source-environment-preflight",
+            ],
         )
         for snippet in [
             "actor_dispatch_ready_result_summary=ok",

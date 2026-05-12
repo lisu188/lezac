@@ -223,6 +223,11 @@ Baseline: `origin/main`
   can be triaged as ready, incomplete, missing, or environment-failed. The
   summary prints the matching runtime-oracle command and can require both a
   promotion-ready fixture and `environment_preflight=ok`.
+- Added `tools/summarize_debug_capture_batch.py` plus synthetic coverage for
+  whole WSL evidence batches. The batch summary recursively finds supported
+  debug-capture manifests, counts ready/incomplete/missing candidates, reports
+  environment-preflight and runtime-metadata totals, and can write a compact
+  ready-candidates manifest for the promotable fixtures.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,

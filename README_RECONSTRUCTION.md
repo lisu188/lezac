@@ -167,6 +167,11 @@ placeholder markers, the preflight state, and the exact runtime-oracle command.
 Add `--require-ready --require-environment-preflight` when a promotion script
 should fail until the capture is backed by a completed fixture and verified
 host preflight.
+For a whole WSL evidence batch, use
+`python3 tools/summarize_debug_capture_batch.py <batch_dir>`. It recursively
+finds supported debug-capture manifests, counts ready/incomplete/missing
+candidates, reports unsupported manifests, and can write a compact
+ready-candidates manifest with `--write-ready-manifest <path>`.
 Actor/contact update evidence is normalized with
 `--debug-actor-update-runtime-oracle <fixture> [--expect-error]`. Its synthetic
 fixtures cover parser behavior only: runtime captures still need to prove exact

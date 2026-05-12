@@ -228,6 +228,11 @@ Baseline: `origin/main`
   debug-capture manifests, counts ready/incomplete/missing candidates, reports
   environment-preflight and runtime-metadata totals, and can write a compact
   ready-candidates manifest for the promotable fixtures.
+- Added `tools/run_debug_capture_ready_manifest.py` plus synthetic coverage so
+  ready debug-capture manifests can be dry-run or executed through the matching
+  runtime oracle only. The runner validates oracle/flag pairs, can require
+  per-candidate `environment_preflight=ok`, writes optional logs, and emits a
+  result manifest for promotion review.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,

@@ -279,6 +279,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_scanner_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_scanner_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_batch_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_layout.py
@@ -293,6 +294,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_route_sweep_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_native_windows_validation_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_actor_dispatch_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_debug_capture_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_lane_result_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/preflight_original_evidence_environment.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_actor_dispatch_ready_results.py
@@ -676,6 +678,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^debug_capture_batch_summary_check=ok cases=5")
+
+        add_test(NAME debug_capture_ready_manifest_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(debug_capture_ready_manifest_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^debug_capture_ready_manifest_check=ok cases=5")
 
         add_test(NAME actor_contact_procmem_helper_expectations
             COMMAND ${Python3_EXECUTABLE}

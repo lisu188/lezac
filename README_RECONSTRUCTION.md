@@ -172,6 +172,11 @@ For a whole WSL evidence batch, use
 finds supported debug-capture manifests, counts ready/incomplete/missing
 candidates, reports unsupported manifests, and can write a compact
 ready-candidates manifest with `--write-ready-manifest <path>`.
+Review or execute that manifest with
+`python3 tools/run_debug_capture_ready_manifest.py <ready_manifest> --dry-run`
+or omit `--dry-run` on a prepared host. The runner validates oracle/flag pairs,
+can require per-candidate `environment_preflight=ok`, writes optional logs, and
+can leave a result manifest for later promotion review.
 Actor/contact update evidence is normalized with
 `--debug-actor-update-runtime-oracle <fixture> [--expect-error]`. Its synthetic
 fixtures cover parser behavior only: runtime captures still need to prove exact

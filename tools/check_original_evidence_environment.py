@@ -12,7 +12,14 @@ import sys
 import tempfile
 
 
-FAKE_REQUIRED = ["bash", "dosbox", "dosbox-debug", "xvfb-run", "xdotool"]
+FAKE_REQUIRED = [
+    "bash",
+    "dosbox",
+    "dosbox-debug",
+    "xvfb-run",
+    "xdotool",
+    "timeout",
+]
 FAKE_PROCMEM_REQUIRED = [
     "bash",
     "dosbox",
@@ -136,13 +143,14 @@ def main() -> int:
             "tool_dosbox_debug=found",
             "tool_xvfb_run=found",
             "tool_xdotool=found",
+            "tool_timeout=found",
         ]:
             require(ok, snippet, "fake_original_capture")
         cases += 1
 
         debug_bin = base / "debug-bin"
         debug_bin.mkdir()
-        for name in ["bash", "dosbox-debug", "xvfb-run"]:
+        for name in ["bash", "dosbox-debug", "xvfb-run", "timeout"]:
             make_fake_tool(debug_bin, name)
         debug = run_preflight(
             root,
@@ -151,6 +159,7 @@ def main() -> int:
         )
         require(debug, "required=debug_capture", "debug_capture")
         require(debug, "missing_required=none", "debug_capture")
+        require(debug, "tool_timeout=found", "debug_capture")
         cases += 1
 
         missing_bin = base / "missing-bin"
@@ -162,7 +171,14 @@ def main() -> int:
             expect_success=False,
         )
         require(missing, "reason=missing_required", "missing_required")
-        for name in ["bash", "dosbox", "dosbox-debug", "xvfb-run", "xdotool"]:
+        for name in [
+            "bash",
+            "dosbox",
+            "dosbox-debug",
+            "xvfb-run",
+            "xdotool",
+            "timeout",
+        ]:
             require(missing, name, "missing_required")
         cases += 1
 

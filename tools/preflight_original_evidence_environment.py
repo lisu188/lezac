@@ -30,11 +30,19 @@ TOOL_NAMES = [
     "zutty",
     "script",
     "Xvfb",
+    "timeout",
 ]
 REQUIREMENT_SETS = {
-    "original_capture": ["bash", "dosbox", "dosbox-debug", "xvfb-run", "xdotool"],
+    "original_capture": [
+        "bash",
+        "dosbox",
+        "dosbox-debug",
+        "xvfb-run",
+        "xdotool",
+        "timeout",
+    ],
     "frame_capture": ["bash", "dosbox", "xvfb-run", "xdotool"],
-    "debug_capture": ["bash", "dosbox-debug", "xvfb-run"],
+    "debug_capture": ["bash", "dosbox-debug", "xvfb-run", "timeout"],
     "procmem_capture": [
         "bash",
         "dosbox",

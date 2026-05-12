@@ -204,6 +204,9 @@ Baseline: `origin/main`
 - Tightened `--require-procmem-capture` to match the actual process-memory
   wrapper dependencies: direct `Xvfb`, `zutty`, and `script` are now required
   along with DOSBox-debug, `xdotool`, `python3`, and `pgrep`.
+- Added the `timeout` command to the full original/debug capture preflight
+  requirements because the DOSBox-debug helper scripts wrap their launches with
+  `timeout`.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,

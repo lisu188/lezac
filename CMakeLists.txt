@@ -262,26 +262,97 @@ if(BUILD_TESTING)
             COMMAND ${Python3_EXECUTABLE} -B -m py_compile
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_explosion_procmem.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_ready_pipeline.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_ready_results.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_gate_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_gate_sweep_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_callsite_context.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_callsite_scan.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_procmem_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_dispatch_gates.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_scanner_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_scanner_runtime_oracle_fixtures.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_batch_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_layout.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_orchestrator.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_preflight.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_wrapper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_environment.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_pipeline.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_route_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_route_sweep_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_native_windows_validation_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_actor_dispatch_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_debug_capture_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_lane_result_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/preflight_original_evidence_environment.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_actor_dispatch_ready_results.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_actor_dispatch_gate_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_debug_capture_batch.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_debug_capture.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_result_ready_results.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_result_route_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_dispatch_gates.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_contact_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_result_routes.py)
         set_tests_properties(python_tool_syntax_lane_result_preflight PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+        add_test(NAME actor_dispatch_gate_sweep_summary_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_gate_sweep_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_dispatch_gate_sweep_summary_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_dispatch_gate_sweep_summary_check=ok cases=14")
+
+        add_test(NAME actor_dispatch_ready_manifest_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_dispatch_ready_manifest_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_dispatch_ready_manifest_check=ok cases=15")
+
+        add_test(NAME actor_dispatch_ready_results_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_ready_results.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_dispatch_ready_results_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_dispatch_ready_results_check=ok cases=8")
+
+        add_test(NAME actor_dispatch_ready_pipeline_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_ready_pipeline.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_dispatch_ready_pipeline_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_dispatch_ready_pipeline_check=ok cases=1")
+
+        add_test(NAME original_evidence_environment_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_environment.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(original_evidence_environment_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^original_evidence_environment_check=ok cases=7")
 
         add_test(NAME frame_compare_identical
             COMMAND ${Python3_EXECUTABLE}
@@ -398,7 +469,43 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_route_sweep_output_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_route_sweep_output=ok cases=6")
+                "^lane_result_route_sweep_output=ok cases=8")
+
+        add_test(NAME explosion_lane_result_route_sweep_summary_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_route_sweep_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_result_route_sweep_summary_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_route_sweep_summary_check=ok cases=8")
+
+        add_test(NAME explosion_lane_result_ready_manifest_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_result_ready_manifest_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_ready_manifest_check=ok cases=16")
+
+        add_test(NAME explosion_lane_result_ready_results_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_results.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_result_ready_results_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_ready_results_check=ok cases=9")
+
+        add_test(NAME explosion_lane_result_ready_pipeline_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_pipeline.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_result_ready_pipeline_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_ready_pipeline_check=ok cases=7")
 
         add_test(NAME actor_contact_route_sweep_dry_run
             COMMAND ${Python3_EXECUTABLE}
@@ -422,7 +529,32 @@ if(BUILD_TESTING)
         set_tests_properties(actor_contact_route_sweep_output_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_contact_route_sweep_output=ok cases=6")
+                "^actor_contact_route_sweep_output=ok cases=8")
+
+        add_test(NAME actor_dispatch_gate_sweep_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_dispatch_gates.py
+                    /tmp/lezac-actor-dispatch-gate-sweep-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --target actor_update_gate5
+                    --target actor_update_gate6
+                    --timing both
+                    --route x:2.00,c:0.50
+                    --route Left:0.25,space:0.75)
+        set_tests_properties(actor_dispatch_gate_sweep_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_dispatch_gate_sweep=ok mode=dry_run .*targets=2 .*target_labels=actor_update_gate5,actor_update_gate6 .*timings=before_bomb,before_route routes=2 .*sweep_commands=2 .*capture_commands=8")
+
+        add_test(NAME actor_dispatch_gate_sweep_output_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_gate_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_dispatch_gate_sweep_output_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_dispatch_gate_sweep_output=ok cases=7")
 
         add_test(NAME actor_contact_callsite_scan
             COMMAND ${Python3_EXECUTABLE}
@@ -432,6 +564,24 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^actor_contact_callsite_scan=ok .*scanner_entry=1000:5CB0 .*scanner_return=1000:604F .*scanner_calls=1000:6555 .*callsite_bytes=e858f7 .*actor_update_entry=1000:6053")
+
+        add_test(NAME actor_contact_callsite_context
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_callsite_context.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_contact_callsite_context PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_contact_callsite_context=ok .*gate=1000:654E .*gate_bytes=807ecf06 .*skip_target=1000:655B .*callsite=1000:6555 .*call_target=1000:5CB0 .*integration=1000:73E5 .*sibling_gate=1000:65A2 .*sibling_end_target=1000:777F .*integration_jumps=1000:6558,1000:65D7")
+
+        add_test(NAME actor_update_dispatch_gates
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_dispatch_gates.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_update_dispatch_gates PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_update_dispatch_gates=ok .*gates=1000:654E=06,1000:65A2=05,1000:7595=05 .*gate6_call_target=1000:5CB0 .*gate5_integration_target=1000:73E5 .*gate5_exit_target=1000:777F")
 
         find_program(BASH_EXECUTABLE bash)
         if(BASH_EXECUTABLE)
@@ -445,7 +595,7 @@ if(BUILD_TESTING)
             set_tests_properties(behavior4_debug_capture_helper_dry_run PROPERTIES
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 PASS_REGULAR_EXPRESSION
-                    "^behavior4_debug_capture=ok mode=dry_run scenario=monster_behavior4_target_selection route=debugger_seeded .*manifest=.*raw_dump=")
+                    "^behavior4_debug_capture=ok mode=dry_run scenario=monster_behavior4_target_selection route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
 
             add_test(NAME actor_update_debug_capture_helper_dry_run
                 COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_UPDATE_DEBUG_DRY_RUN=1
@@ -457,7 +607,7 @@ if(BUILD_TESTING)
             set_tests_properties(actor_update_debug_capture_helper_dry_run PROPERTIES
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 PASS_REGULAR_EXPRESSION
-                    "^actor_update_debug_capture=ok mode=dry_run scenario=object_collision_jump_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=")
+                    "^actor_update_debug_capture=ok mode=dry_run scenario=object_collision_jump_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
 
             add_test(NAME contact_scanner_debug_capture_helper_dry_run
                 COMMAND ${CMAKE_COMMAND} -E env LEZAC_CONTACT_SCANNER_DEBUG_DRY_RUN=1
@@ -469,7 +619,7 @@ if(BUILD_TESTING)
             set_tests_properties(contact_scanner_debug_capture_helper_dry_run PROPERTIES
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 PASS_REGULAR_EXPRESSION
-                    "^contact_scanner_debug_capture=ok mode=dry_run scenario=monster_contact_damage_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=")
+                    "^contact_scanner_debug_capture=ok mode=dry_run scenario=monster_contact_damage_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
 
             add_test(NAME actor_contact_procmem_helper_dry_run
                 COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
@@ -491,7 +641,7 @@ if(BUILD_TESTING)
         set_tests_properties(behavior4_debug_capture_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^behavior4_debug_capture_helper=ok scenarios=3 anchors=6 outputs=4 cmake_test=1 docs=2")
+                "^behavior4_debug_capture_helper=ok scenarios=3 anchors=6 outputs=7 cmake_test=1 docs=2")
 
         add_test(NAME actor_update_debug_capture_helper_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -500,7 +650,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_update_debug_capture_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_update_debug_capture_helper=ok scenarios=3 anchors=4 outputs=6 cmake_test=1 docs=2")
+                "^actor_update_debug_capture_helper=ok scenarios=3 anchors=4 outputs=7 cmake_test=1 docs=2")
 
         add_test(NAME contact_scanner_debug_capture_helper_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -509,7 +659,34 @@ if(BUILD_TESTING)
         set_tests_properties(contact_scanner_debug_capture_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^contact_scanner_debug_capture_helper=ok scenarios=3 anchors=2 outputs=6 cmake_test=1 docs=2")
+                "^contact_scanner_debug_capture_helper=ok scenarios=3 anchors=2 outputs=7 cmake_test=1 docs=2")
+
+        add_test(NAME debug_capture_summary_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(debug_capture_summary_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^debug_capture_summary_check=ok cases=5")
+
+        add_test(NAME debug_capture_batch_summary_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_batch_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(debug_capture_batch_summary_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^debug_capture_batch_summary_check=ok cases=5")
+
+        add_test(NAME debug_capture_ready_manifest_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(debug_capture_ready_manifest_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^debug_capture_ready_manifest_check=ok cases=5")
 
         add_test(NAME actor_contact_procmem_helper_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -518,7 +695,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_contact_procmem_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_contact_procmem_helper=ok targets=5 cmake_test=1 docs=2")
+                "^actor_contact_procmem_helper=ok targets=9 cmake_test=1 docs=2")
 
         add_test(NAME actor_update_runtime_oracle_fixture_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -529,7 +706,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_update_runtime_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_update_runtime_oracle_fixtures=ok files=4 valid=1 malformed=3 cmake_tests=4 source_command=1")
+                "^actor_update_runtime_oracle_fixtures=ok files=5 valid=2 malformed=3 cmake_tests=5 source_command=1")
 
         add_test(NAME contact_scanner_runtime_oracle_fixture_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -889,6 +1066,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "actor_update_runtime_oracle=ok fixture=actor_update_runtime_oracle_synthetic scenario=object_collision_jump_live level=1 runtime_cs=0x1a2b runtime_ds=0x2b3c actor_slot=0 behavior=3 kind=1 before_xy=0x0068,0x00a8 after_xy=0x0069,0x00a8 velocity8=32,0 state=0,0 contact_flags=0x0000,0x0005 scan_subject=0 scan_other=1 scan_contact=1 player_contact=0 monster_contact=0 object_contact=1 damage_pending=0 tile_probe=13,22 tile=0x0025 object=0x0013 passable=0 standable=1 breaks=4 dump_bytes=32 temp_copy=1 visual_claim=0")
 
+    add_test(NAME actor_update_runtime_oracle_dispatch_gates_synthetic
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-update-runtime-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/actor_update_runtime_oracle_dispatch_gates_synthetic.txt)
+    set_tests_properties(actor_update_runtime_oracle_dispatch_gates_synthetic PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "actor_update_runtime_oracle=ok fixture=actor_update_runtime_oracle_dispatch_gates_synthetic scenario=monster_contact_damage_live level=1 runtime_cs=0x1a2b runtime_ds=0x2b3c actor_slot=0 behavior=3 kind=1 before_xy=0x0068,0x00a8 after_xy=0x0069,0x00a8 velocity8=32,0 state=0,0 contact_flags=0x0000,0x0005 scan_subject=0 scan_other=1 scan_contact=1 player_contact=0 monster_contact=0 object_contact=1 damage_pending=0 tile_probe=13,22 tile=0x0025 object=0x0013 passable=0 standable=1 breaks=9 dump_bytes=32 temp_copy=1 visual_claim=0 dispatch_gates=actor_update_gate5,actor_update_gate5_integration,actor_update_gate5_exit,actor_update_gate6,contact_scanner_callsite")
+
     add_test(NAME actor_update_runtime_oracle_bad_segment
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-update-runtime-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/actor_update_runtime_oracle_bad_segment.txt
@@ -950,6 +1135,41 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "contact_scanner_runtime_oracle=error fixture=contact_scanner_runtime_oracle_bad_subject_flags reason=contact_flags_before_mismatch actor=0x0001 scan=0x0000")
+
+    add_test(NAME visual_table_oracle_synthetic
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-visual-table-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/visual_table_oracle_synthetic.txt)
+    set_tests_properties(visual_table_oracle_synthetic PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "visual_table_oracle=ok fixture=visual_table_oracle_synthetic scenario=state2_death_table_consumption runtime_cs=0x1a2b runtime_ds=0x2b3c actor_slot=0 actor_state=2 anim_current=0x72 anim_range=0x72..0x79 anim_mode=1 visual_frame=0x72 row_addr=0xc4ea row=10,18,20,00 bank=BOMOMIMK sprite_index=16 sprite_source=row_byte0 draw_offset=24,32 effect_slot=0 effect_before_xy=0x0018,0x0028 effect_after_xy=0x0018,0x0028 effect_after_frame=0x72 breaks=5 temp_copy=1 visual_claim=0")
+
+    add_test(NAME visual_table_oracle_bad_segment
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-visual-table-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/visual_table_oracle_bad_segment.txt
+                --expect-error)
+    set_tests_properties(visual_table_oracle_bad_segment PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "visual_table_oracle=error fixture=visual_table_oracle_bad_segment reason=breakpoint_segment_mismatch expected=0x1a2b actual=0xffff")
+
+    add_test(NAME visual_table_oracle_missing_row_byte
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-visual-table-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/visual_table_oracle_missing_row_byte.txt
+                --expect-error)
+    set_tests_properties(visual_table_oracle_missing_row_byte PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "visual_table_oracle=error fixture=visual_table_oracle_missing_row_byte reason=missing_byte address=c4ed")
+
+    add_test(NAME visual_table_oracle_sprite_without_row
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-visual-table-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/visual_table_oracle_sprite_without_row.txt
+                --expect-error)
+    set_tests_properties(visual_table_oracle_sprite_without_row PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "visual_table_oracle=error fixture=visual_table_oracle_sprite_without_row reason=visual_row_missing_for_sprite")
 
     add_test(NAME state2_runtime_frame_oracle_synthetic
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-state2-runtime-frame-oracle

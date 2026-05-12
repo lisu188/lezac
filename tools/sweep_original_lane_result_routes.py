@@ -103,6 +103,16 @@ def build_capture_command(
     return command
 
 
+def build_environment_preflight_command(args: argparse.Namespace) -> list[str]:
+    root = repo_root()
+    return [
+        sys.executable,
+        str(root / "tools" / "preflight_original_evidence_environment.py"),
+        str(args.asset_dir),
+        "--require-procmem-capture",
+    ]
+
+
 def run_logged(
     command: list[str], cwd: Path, log_path: Path
 ) -> subprocess.CompletedProcess[str]:
@@ -118,7 +128,7 @@ def run_logged(
     if completed.returncode != 0:
         raise RuntimeError(
             f"command failed ({completed.returncode}): {quote_command(command)}\n"
-            f"see log: {log_path}"
+            f"see log: {log_path}\n{completed.stdout}"
         )
     return completed
 
@@ -132,6 +142,11 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--approve-procmem", action="store_true")
     parser.add_argument("--approve-runtime-instrumentation", action="store_true")
+    parser.add_argument(
+        "--skip-environment-preflight",
+        action="store_true",
+        help="skip original-evidence host/tool preflight before live capture",
+    )
     parser.add_argument("--skip-oracle", action="store_true")
     parser.add_argument("--offset", default="forward")
     parser.add_argument(
@@ -162,14 +177,21 @@ def main() -> int:
         build_capture_command(args, route, out_dir / route_labels[index])
         for index, route in enumerate(routes)
     ]
+    environment_preflight_command = build_environment_preflight_command(args)
 
     print(
         "lane_result_route_sweep=ok "
         f"mode={'dry_run' if args.dry_run else 'capture'} "
         f"out_dir={out_dir} offset={args.offset} routes={len(routes)} "
         f"route_labels={','.join(route_labels)} "
-        f"capture_commands={len(commands)}"
+        f"capture_commands={len(commands)} "
+        f"environment_preflight={0 if args.skip_environment_preflight else 1}"
     )
+    if not args.skip_environment_preflight:
+        print(
+            "environment_preflight_command="
+            f"{quote_command(environment_preflight_command)}"
+        )
     for index, command in enumerate(commands):
         print(f"capture_command_{route_labels[index]}={quote_command(command)}")
 
@@ -184,13 +206,29 @@ def main() -> int:
         return 64
 
     out_dir.mkdir(parents=True, exist_ok=True)
+    environment_preflight = "skipped"
+    if not args.skip_environment_preflight:
+        result = run_logged(
+            environment_preflight_command,
+            root,
+            out_dir / "environment_preflight.log",
+        )
+        environment_preflight = "ok"
     manifest_lines = [
         "capture=lane_result_route_sweep",
         f"asset_dir={asset_dir}",
         f"offset={args.offset}",
         f"routes={len(routes)}",
         f"route_labels={','.join(route_labels)}",
+        f"environment_preflight={environment_preflight}",
     ]
+    if not args.skip_environment_preflight:
+        manifest_lines.append(
+            f"environment_preflight_command={quote_command(environment_preflight_command)}"
+        )
+        manifest_lines.append(
+            f"environment_preflight_log={out_dir / 'environment_preflight.log'}"
+        )
     for index, command in enumerate(commands):
         label = route_labels[index]
         route_out_dir = out_dir / label

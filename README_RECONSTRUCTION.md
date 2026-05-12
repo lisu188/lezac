@@ -147,11 +147,43 @@ format records scenario/level, runtime `CS`/`DS`, spawner fields, actor
 before/after position and 8.8 velocity, motion timer, target/player-dead state,
 and optional raw `DS:` dump rows while anchoring the transcript to
 `1000:7A6B..7C2C`, `1000:728C..731B`, and `1000:73E5..741B`.
+Use `tools/capture_original_behavior4_debug.sh` to stage best-effort
+DOSBox-debug capture plans for `monster_spawner_behavior4_level2`,
+`monster_spawner_behavior4_level3`, and `monster_behavior4_target_selection`.
+It writes a `candidate_fixture.txt` skeleton and
+`debugger_commands_runtime.txt`; when a live run exposes `runtime_cs` or
+`runtime_ds`, the helper copies those values into the manifest/raw dump and
+expands the debugger command plan to the observed runtime segment.
+Live behavior-4, actor-update, and contact-scanner DOSBox-debug helpers run
+`tools/preflight_original_evidence_environment.py --require-debug-capture`
+before launching DOSBox-debug, record `environment_preflight=` in the manifest,
+and keep the preflight output in `environment_preflight.log`. Use the matching
+`LEZAC_*_DEBUG_SKIP_ENVIRONMENT_PREFLIGHT=1` variable only for intentional
+forensic reruns on an already-verified host.
+Summarize any one of those capture directories with
+`python3 tools/summarize_debug_capture.py <capture_dir>`. The summary reports
+`candidate_status=ready|incomplete|missing|none`, missing fixture fields,
+placeholder markers, the preflight state, and the exact runtime-oracle command.
+Add `--require-ready --require-environment-preflight` when a promotion script
+should fail until the capture is backed by a completed fixture and verified
+host preflight.
+For a whole WSL evidence batch, use
+`python3 tools/summarize_debug_capture_batch.py <batch_dir>`. It recursively
+finds supported debug-capture manifests, counts ready/incomplete/missing
+candidates, reports unsupported manifests, and can write a compact
+ready-candidates manifest with `--write-ready-manifest <path>`.
+Review or execute that manifest with
+`python3 tools/run_debug_capture_ready_manifest.py <ready_manifest> --dry-run`
+or omit `--dry-run` on a prepared host. The runner validates oracle/flag pairs,
+can require per-candidate `environment_preflight=ok`, writes optional logs, and
+can leave a result manifest for later promotion review.
 Actor/contact update evidence is normalized with
 `--debug-actor-update-runtime-oracle <fixture> [--expect-error]`. Its synthetic
 fixtures cover parser behavior only: runtime captures still need to prove exact
 contact scanner and actor-update behavior around `1000:5CB0..604F` and
-`1000:6053..777F`. Use `tools/capture_original_actor_update_debug.sh` to stage
+`1000:6053..777F`. The oracle now reports optional `dispatch_gates=` evidence
+when fixtures include breakpoints for the mapped gate targets. Use
+`tools/capture_original_actor_update_debug.sh` to stage
 best-effort DOSBox-debug capture plans for `object_collision_jump_live`,
 `monster_contact_damage_live`, and `monster_behavior4_chase`; it writes a
 `candidate_fixture.txt` skeleton that must be filled from runtime output before
@@ -184,13 +216,24 @@ LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION=1 \
 The wrapper reuses the proven child-process memory scanner, patches only the
 temporary DOSBox-debug child process, and records `visual_claim=0` instrumentation
 evidence. Supported targets are `actor_update_start`, `actor_update_end`,
-`contact_scanner_callsite`, `contact_scanner_start`, and `contact_scanner_end`.
+`actor_update_gate5`, `actor_update_gate5_integration`,
+`actor_update_gate5_exit`, `actor_update_gate6`, `contact_scanner_callsite`,
+`contact_scanner_start`, and `contact_scanner_end`.
 `contact_scanner_callsite` maps the static near call at `1000:6555` that targets
 `1000:5CB0`; `tools/check_actor_contact_callsite_scan.py` verifies that callsite
-and the entry/return bytes against `LEZAC.EXE`. The wrapper writes
+and the entry/return bytes against `LEZAC.EXE`.
+`tools/check_actor_contact_callsite_context.py` also pins the surrounding gate:
+`1000:654E` compares `[bp-31h]` with `06`, `1000:6552` skips to `1000:655B`,
+and the matching path runs `push bp; call 1000:5CB0` before jumping to
+`1000:73E5`. It also checks the neighboring `05` gate at `1000:65A2`, whose
+live path can enter shared integration through `1000:65D7` or jump to
+actor-update end `1000:777F`, plus the later `05` exit gate at `1000:7595`.
+The wrapper writes
 `<target>_runtime_candidate.txt` with the runtime metadata plus raw route-state
 dumps; the candidate is a fill-in scaffold until semantic actor/contact records
-are decoded. Use `LEZAC_ACTOR_CONTACT_ROUTE_STEPS` with comma-separated
+are decoded. Gate-target candidates include the required actor-update anchor
+set and a `dispatch_gate_candidate` hint for later `dispatch_gates=` oracle
+promotion. Use `LEZAC_ACTOR_CONTACT_ROUTE_STEPS` with comma-separated
 `key:seconds` holds to tune a route, for example
 `LEZAC_ACTOR_CONTACT_ROUTE_STEPS=x:1.0,n:0.2,z:0.5`. Set
 `LEZAC_ACTOR_CONTACT_RUNTIME_FREEZE_BEFORE_ROUTE=1` when probing helpers that
@@ -199,7 +242,10 @@ positioning.
 
 Use the route-sweep helper to plan or run several guarded actor/contact probes
 with one manifest. The default target is `contact_scanner_start` and the default
-timing matrix covers both post-route and pre-route freeze timing:
+timing matrix covers both post-route and pre-route freeze timing. Live sweeps
+run `tools/preflight_original_evidence_environment.py --require-procmem-capture`
+once before launching captures; use `--skip-environment-preflight` only for
+intentional reruns on an already-verified host:
 
 ```sh
 python3 tools/sweep_original_actor_contact_routes.py \
@@ -210,6 +256,65 @@ python3 tools/sweep_original_actor_contact_routes.py \
   --route x:8.00 --route x:5.00,m:0.50,x:4.00 \
   --approve-procmem --approve-runtime-instrumentation
 ```
+
+Use the dispatch-gate sweep planner when the goal is to exercise every mapped
+actor-update gate in one pass. Its default target set is `actor_update_gate5`,
+`actor_update_gate5_integration`, `actor_update_gate5_exit`,
+`actor_update_gate6`, and `contact_scanner_callsite`. The planner performs one
+top-level environment preflight and passes `--skip-environment-preflight` to
+child actor/contact sweeps so the same run does not repeat host checks for every
+target:
+
+```sh
+python3 tools/sweep_original_actor_dispatch_gates.py \
+  /tmp/lezac-actor-dispatch-gates . --dry-run
+python3 tools/sweep_original_actor_dispatch_gates.py \
+  /tmp/lezac-actor-dispatch-gates . --timing before_route \
+  --approve-procmem --approve-runtime-instrumentation
+python3 tools/summarize_actor_dispatch_gate_sweep.py \
+  /tmp/lezac-actor-dispatch-gates/manifest.txt
+python3 tools/summarize_actor_dispatch_gate_sweep.py \
+  /tmp/lezac-actor-dispatch-gates/manifest.txt \
+  --write-ready-manifest /tmp/lezac-actor-dispatch-gates/ready_manifest.txt
+python3 tools/run_actor_dispatch_ready_manifest.py \
+  /tmp/lezac-actor-dispatch-gates/ready_manifest.txt --dry-run
+python3 tools/summarize_actor_dispatch_ready_results.py \
+  /tmp/lezac-actor-dispatch-gates/oracle-results.txt \
+  --require-success --require-executed
+```
+
+The summary prints `environment_preflight=`, `child_environment_preflights=`,
+`ready_candidates=`, `incomplete_candidates=`, `missing_candidates=`,
+`candidate_status=`, `candidate_missing=`, `oracle=`, `oracle_flag=`, and
+`oracle_command=` so the candidate fixture can be completed and routed to the
+matching runtime oracle without guessing. Use
+`candidate_placeholders=1` as a warning that a generated skeleton still has
+fill-in markers in comments or active records. Use `--oracle-binary` when the C++
+executable is not
+`./build/lezac_cpp`, and `--require-ready` when a script should fail until all
+observed freeze candidates are promotable. Add
+`--require-environment-preflight` when promotion should fail unless the source
+sweep recorded a successful host preflight. Use `--write-ready-manifest <path>`
+to emit a promotion manifest containing only ready candidate fixtures and their
+oracle commands plus the source preflight status. Use
+`tools/run_actor_dispatch_ready_manifest.py <path>
+--dry-run` to review that handoff, or omit `--dry-run` in a prepared
+WSL/native environment to execute the listed C++ oracles with per-candidate
+timeouts and optional logs. Add `--require-source-environment-preflight` when
+the runner or later result summary should reject ready manifests whose source
+sweep did not record `source_environment_preflight=ok`. The runner validates
+fixture paths and oracle/flag pairs before launching commands;
+`--allow-missing-fixtures` is only for dry-run forensic review after moving
+manifests between machines. Add
+`--write-result-manifest <path>` to leave a key/value audit trail for planned
+or executed oracle commands, including the source preflight state. Result
+manifests and oracle logs are refused inside the repository unless
+`--allow-repo-output` is passed deliberately.
+Use `tools/summarize_actor_dispatch_ready_results.py <path>` to summarize that
+audit trail, and add `--require-success --require-executed` when promotion
+should fail unless every oracle actually ran and passed. The CTest helper
+`tools/check_actor_dispatch_ready_pipeline.py` exercises this full handoff with
+a synthetic ready candidate and fake oracle.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
@@ -280,6 +385,23 @@ powershell -ExecutionPolicy Bypass -File tools/run_native_windows_validation.ps1
   -BuildDir build-win-codex-vs3 -Configuration Debug
 ```
 
+Before running original DOSBox or process-memory captures on a new host, use the
+environment preflight to verify assets and capture tools:
+
+```sh
+python3 tools/preflight_original_evidence_environment.py . --probe-wsl
+python3 tools/preflight_original_evidence_environment.py . --require-original-capture
+python3 tools/preflight_original_evidence_environment.py . --require-procmem-capture
+```
+
+The non-require mode reports missing tools without failing. The require modes
+fail fast when the matching DOSBox/Xvfb/xdotool toolchain or the shipped asset
+files are missing, so long route sweeps do not start on an unprepared machine.
+The debugger capture modes include the `timeout` command used by the
+DOSBox-debug shell helpers. The process-memory mode follows the actual debug
+wrapper dependency set: `bash`, DOSBox, DOSBox-debug, direct `Xvfb`, `xdotool`,
+`python3`, `pgrep`, `zutty`, and `script`.
+
 For explosion/debris/collapse process-memory probes, preflight freeze patches
 before running DOSBox. This verifies the shipped `LEZAC.EXE` file offset,
 expected original bytes, trampoline bytes, and scratch/body addresses without
@@ -303,6 +425,21 @@ python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-run
 python3 tools/sweep_original_lane_result_routes.py /tmp/lezac-lane-result-route-sweep . \
   --dry-run --skip-oracle \
   --route x:2.00,c:0.50 --route x:1.50,z:0.50
+python3 tools/summarize_lane_result_route_sweep.py \
+  /tmp/lezac-lane-result-route-sweep/manifest.txt
+python3 tools/summarize_lane_result_route_sweep.py \
+  /tmp/lezac-lane-result-route-sweep/manifest.txt \
+  --require-ready \
+  --write-ready-manifest /tmp/lezac-lane-result-route-sweep/ready_manifest.txt
+python3 tools/run_lane_result_ready_manifest.py \
+  /tmp/lezac-lane-result-route-sweep/ready_manifest.txt --dry-run
+python3 tools/run_lane_result_ready_manifest.py \
+  /tmp/lezac-lane-result-route-sweep/ready_manifest.txt \
+  --log-dir /tmp/lezac-lane-result-route-sweep/logs \
+  --write-result-manifest /tmp/lezac-lane-result-route-sweep/result_manifest.txt
+python3 tools/summarize_lane_result_ready_results.py \
+  /tmp/lezac-lane-result-route-sweep/result_manifest.txt \
+  --require-success --require-executed
 
 python3 tools/capture_original_explosion_procmem.py /tmp/lezac-preflight . \
   --describe-freeze-patch \
@@ -319,7 +456,29 @@ For route variation, repeat `--route-step KEY:SECONDS`; omitted route steps keep
 the historical default of holding player-1 right (`x`) for
 `--right-hold-seconds`. Use `tools/sweep_original_lane_result_routes.py` to
 plan or run repeated natural-route probes while preserving one manifest and
-one command line per route.
+one command line per route. Live route sweeps run
+`tools/preflight_original_evidence_environment.py --require-procmem-capture`
+once before launching any route; use `--skip-environment-preflight` only for
+intentional forensic reruns on already-verified hosts. Use
+`tools/summarize_lane_result_route_sweep.py` on
+the completed sweep manifest to classify each candidate as `ready`, `no_freeze`,
+`incomplete`, or `missing`, and to emit the matching
+`--debug-explosion-playback-oracle` command. Add `--require-ready` when a
+capture pass should fail unless at least one natural lane-result freeze is ready
+for promotion; add `--require-environment-preflight` when that promotion should
+also require the sweep's host preflight to be recorded as `ok`.
+`tools/run_lane_result_ready_manifest.py` then dry-runs or executes only the
+ready oracle candidates, writes optional per-candidate logs, and can leave a
+result manifest for
+`tools/summarize_lane_result_ready_results.py --require-success
+--require-executed --require-source-environment-preflight`. The runner accepts
+the same `--require-source-environment-preflight` guard before planning or
+executing oracle commands. Result manifests and logs are refused inside the
+repository unless `--allow-repo-output` is passed deliberately. The synthetic
+CTest helpers `tools/check_lane_result_ready_manifest.py`,
+`tools/check_lane_result_ready_results.py`, and
+`tools/check_lane_result_ready_pipeline.py` cover the handoff without requiring
+DOSBox.
 The checked-in original result-write fixtures are
 `tests/fixtures/dosbox/explosion_playback_oracle_original_3ed3_lane_result_runtime.txt`
 for the reverse helper and

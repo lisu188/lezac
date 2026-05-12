@@ -1,0 +1,31 @@
+# LEZAC actor-update runtime oracle fixture v1
+# Synthetic parser fixture: verifies optional dispatch-gate breakpoint reporting.
+capture=actor_update_runtime
+source=dosbox-debug
+temp_copy=1
+visual_claim=0
+scenario=monster_contact_damage_live
+level=1
+command=dosbox-debug -c "mount c /tmp/lezac-dosbox-actor-update-gates" -c "c:" -c "DEBUG LEZAC.EXE"
+
+runtime_cs=1A2B
+runtime_ds=2B3C
+
+break ghidra=1000:5CB0 runtime=1A2B:5CB0 label=contact_scanner_start
+break ghidra=1000:604F runtime=1A2B:604F label=contact_scanner_end
+break ghidra=1000:6053 runtime=1A2B:6053 label=actor_update_start
+break ghidra=1000:777F runtime=1A2B:777F label=actor_update_end
+break ghidra=1000:65A2 runtime=1A2B:65A2 label=actor_update_gate5
+break ghidra=1000:65D7 runtime=1A2B:65D7 label=actor_update_gate5_integration
+break ghidra=1000:7595 runtime=1A2B:7595 label=actor_update_gate5_exit
+break ghidra=1000:654E runtime=1A2B:654E label=actor_update_gate6
+break ghidra=1000:6555 runtime=1A2B:6555 label=contact_scanner_callsite
+
+actor_before slot=0 behavior=3 kind=1 state=0 x=0x0068 y=0x00a8 vx8=32 vy8=0 hp=3 flags=0x0000 contact=0 on_ground=1
+actor_after slot=0 behavior=3 kind=1 state=0 x=0x0069 y=0x00a8 vx8=32 vy8=0 hp=3 flags=0x0005 contact=1 on_ground=1
+contact_scan subject_slot=0 other_slot=1 flags_before=0x0000 flags_after=0x0005 contact=1 player_contact=0 monster_contact=0 object_contact=1 damage_pending=0
+tile_probe tile_x=13 tile_y=22 tile=0x0025 object=0x0013 passable=0 standable=1
+
+dump DS:7900
+2B3C:7900  00 03 01 00 68 00 a8 00 20 00 00 00 03 00 00 00
+2B3C:7910  00 00 05 00 69 00 a8 00 20 00 00 00 03 00 01 01

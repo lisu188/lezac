@@ -13,6 +13,7 @@
 #include <iostream>
 #include <map>
 #include <regex>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -4952,6 +4953,455 @@ public:
         }
     }
 
+    int debugVisualTableOracle(const std::string& path, bool expectError) {
+        auto fixtureName = [](const std::string& inputPath) {
+            size_t slash = inputPath.find_last_of("/\\");
+            std::string name =
+                slash == std::string::npos ? inputPath : inputPath.substr(slash + 1);
+            size_t dot = name.find_last_of('.');
+            if (dot != std::string::npos) name = name.substr(0, dot);
+            return name;
+        };
+        const std::string fixture = fixtureName(path);
+
+        auto hex4 = [](uint16_t value) {
+            std::ostringstream oss;
+            oss << "0x" << std::hex << std::nouppercase << std::setw(4)
+                << std::setfill('0') << value;
+            return oss.str();
+        };
+        auto hex2 = [](uint8_t value) {
+            std::ostringstream oss;
+            oss << "0x" << std::hex << std::nouppercase << std::setw(2)
+                << std::setfill('0') << static_cast<int>(value);
+            return oss.str();
+        };
+        auto bareHex4 = [](uint16_t value) {
+            std::ostringstream oss;
+            oss << std::hex << std::nouppercase << std::setw(4)
+                << std::setfill('0') << value;
+            return oss.str();
+        };
+        auto bareHex2 = [](uint8_t value) {
+            std::ostringstream oss;
+            oss << std::hex << std::nouppercase << std::setw(2)
+                << std::setfill('0') << static_cast<int>(value);
+            return oss.str();
+        };
+        auto fail = [&](const std::string& reason) {
+            throw std::runtime_error("visual_table_oracle=error fixture=" +
+                                     fixture + " reason=" + reason);
+        };
+        auto trim = [](std::string value) {
+            while (!value.empty() &&
+                   std::isspace(static_cast<unsigned char>(value.front()))) {
+                value.erase(value.begin());
+            }
+            while (!value.empty() &&
+                   std::isspace(static_cast<unsigned char>(value.back()))) {
+                value.pop_back();
+            }
+            return value;
+        };
+        auto parseHex16 = [&](std::string token,
+                              const std::string& field) -> uint16_t {
+            token = trim(token);
+            if (token.rfind("0x", 0) == 0 || token.rfind("0X", 0) == 0) {
+                token = token.substr(2);
+            }
+            if (token.empty() || token.size() > 4 ||
+                !std::all_of(token.begin(), token.end(), [](unsigned char ch) {
+                    return std::isxdigit(ch) != 0;
+                })) {
+                fail("bad_hex16 field=" + field + " token=" + token);
+            }
+            return static_cast<uint16_t>(std::stoul(token, nullptr, 16));
+        };
+        auto parseHexByte = [&](const std::string& token,
+                                uint16_t address) -> uint8_t {
+            if (token.size() != 2 ||
+                !std::all_of(token.begin(), token.end(), [](unsigned char ch) {
+                    return std::isxdigit(ch) != 0;
+                })) {
+                fail("non_hex_byte token=" + token + " address=" +
+                     bareHex4(address));
+            }
+            return static_cast<uint8_t>(std::stoul(token, nullptr, 16));
+        };
+        auto parseInt = [&](const std::string& token,
+                            const std::string& field) -> int {
+            try {
+                size_t pos = 0;
+                int value = std::stoi(token, &pos, 0);
+                if (pos != token.size()) fail("bad_int field=" + field + " token=" + token);
+                return value;
+            } catch (const std::exception&) {
+                fail("bad_int field=" + field + " token=" + token);
+            }
+            return 0;
+        };
+        auto parseRecord = [&](const std::string& line) {
+            std::istringstream stream(line);
+            std::string record;
+            stream >> record;
+            std::map<std::string, std::string> fields;
+            std::string token;
+            while (stream >> token) {
+                size_t eq = token.find('=');
+                if (eq == std::string::npos || eq == 0 || eq + 1 >= token.size()) {
+                    fail("bad_record_token record=" + record + " token=" + token);
+                }
+                fields[token.substr(0, eq)] = token.substr(eq + 1);
+            }
+            if (fields.empty()) fail("record_without_fields record=" + record);
+            return std::pair<std::string, std::map<std::string, std::string>>{
+                record, fields};
+        };
+        auto requireField = [&](const std::map<std::string, std::string>& fields,
+                                const std::string& name,
+                                const std::string& record) -> std::string {
+            auto it = fields.find(name);
+            if (it == fields.end()) fail(record + "_" + name + "_missing");
+            return it->second;
+        };
+        auto parseRowBytes = [&](const std::string& value,
+                                 const std::string& field) {
+            std::array<uint8_t, 4> bytes{};
+            std::istringstream stream(value);
+            std::string token;
+            int index = 0;
+            while (std::getline(stream, token, ',')) {
+                if (index >= 4) fail("too_many_row_bytes field=" + field);
+                token = trim(token);
+                if (token.rfind("0x", 0) == 0 || token.rfind("0X", 0) == 0) {
+                    token = token.substr(2);
+                }
+                bytes[static_cast<size_t>(index)] =
+                    parseHexByte(token, static_cast<uint16_t>(index));
+                ++index;
+            }
+            if (index != 4) fail("row_byte_count field=" + field);
+            return bytes;
+        };
+        auto rowString = [&](const std::array<uint8_t, 4>& bytes) {
+            return bareHex2(bytes[0]) + "," + bareHex2(bytes[1]) + "," +
+                   bareHex2(bytes[2]) + "," + bareHex2(bytes[3]);
+        };
+        auto normalizeBank = [&](std::string bank) {
+            std::transform(bank.begin(), bank.end(), bank.begin(),
+                           [](unsigned char ch) {
+                               return static_cast<char>(std::toupper(ch));
+                           });
+            if (bank == "BOMOMIMK.SPR") bank = "BOMOMIMK";
+            if (bank == "PROVA.SPR") bank = "PROVA";
+            if (bank == "FONTS.SPR") bank = "FONTS";
+            if (bank != "BOMOMIMK" && bank != "PROVA" && bank != "FONTS") {
+                fail("unknown_sprite_bank value=" + bank);
+            }
+            return bank;
+        };
+        auto bankCount = [&](const std::string& bank) {
+            if (bank == "BOMOMIMK" || bank == "PROVA") return 91;
+            return 68;
+        };
+
+        try {
+            std::string text = readTextFile(path);
+            std::vector<uint8_t> memory(0x10000);
+            std::vector<bool> present(0x10000, false);
+            std::map<std::string, std::string> values;
+            std::map<std::string, std::map<std::string, std::string>> records;
+            std::set<uint16_t> breakOffsets;
+            uint16_t runtimeCs = 0;
+            uint16_t runtimeDs = 0;
+            bool haveRuntimeCs = false;
+            bool haveRuntimeDs = false;
+            bool tempCopy = false;
+            bool visualClaim = false;
+            int breakCount = 0;
+
+            std::istringstream lines(text);
+            std::string line;
+            std::regex keyRe("^([A-Za-z0-9_]+)=(.*)$");
+            std::regex breakRe(
+                "^break\\s+ghidra=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+"
+                "runtime=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+label=([^\\s]+).*$");
+            std::regex dumpRe("^dump\\s+DS:([0-9A-Fa-f]{4}).*$");
+            std::regex rowRe("^([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+(.+)$");
+            uint16_t currentDump = 0;
+            bool inDump = false;
+            while (std::getline(lines, line)) {
+                line = trim(line);
+                if (line.empty() || line[0] == '#') continue;
+
+                std::smatch match;
+                if (std::regex_match(line, match, keyRe)) {
+                    std::string key = match[1].str();
+                    std::string value = trim(match[2].str());
+                    values[key] = value;
+                    if (key == "runtime_cs") {
+                        runtimeCs = parseHex16(value, key);
+                        haveRuntimeCs = true;
+                    } else if (key == "runtime_ds") {
+                        runtimeDs = parseHex16(value, key);
+                        haveRuntimeDs = true;
+                    } else if (key == "temp_copy") {
+                        tempCopy = value == "1";
+                    } else if (key == "visual_claim") {
+                        visualClaim = value != "0";
+                    }
+                    continue;
+                }
+                if (std::regex_match(line, match, breakRe)) {
+                    if (!haveRuntimeCs) fail("runtime_cs_missing_before_break");
+                    uint16_t ghidraSegment = parseHex16(match[1].str(), "ghidra");
+                    uint16_t ghidraOffset = parseHex16(match[2].str(), "ghidra");
+                    uint16_t runtimeSegment = parseHex16(match[3].str(), "runtime");
+                    uint16_t runtimeOffset = parseHex16(match[4].str(), "runtime");
+                    if (ghidraSegment != 0x1000) {
+                        fail("breakpoint_ghidra_segment expected=0x1000 actual=" +
+                             hex4(ghidraSegment));
+                    }
+                    if (runtimeSegment != runtimeCs) {
+                        fail("breakpoint_segment_mismatch expected=" + hex4(runtimeCs) +
+                             " actual=" + hex4(runtimeSegment));
+                    }
+                    if (runtimeOffset != ghidraOffset) {
+                        fail("breakpoint_offset_mismatch expected=" +
+                             bareHex4(ghidraOffset) + " actual=" +
+                             bareHex4(runtimeOffset));
+                    }
+                    breakOffsets.insert(ghidraOffset);
+                    ++breakCount;
+                    continue;
+                }
+                if (std::regex_match(line, match, dumpRe)) {
+                    currentDump = parseHex16(match[1].str(), "dump");
+                    inDump = true;
+                    continue;
+                }
+                if (std::regex_match(line, match, rowRe)) {
+                    if (!inDump) fail("dump_row_without_header");
+                    if (!haveRuntimeDs) fail("runtime_ds_missing_before_dump");
+                    uint16_t segment = parseHex16(match[1].str(), "row_segment");
+                    uint16_t address = parseHex16(match[2].str(), "row_address");
+                    if (segment != runtimeDs) {
+                        fail("dump_segment_mismatch expected=" + hex4(runtimeDs) +
+                             " actual=" + hex4(segment) +
+                             " address=" + bareHex4(address));
+                    }
+                    if (address < currentDump) {
+                        fail("dump_address_before_header header=" + bareHex4(currentDump) +
+                             " address=" + bareHex4(address));
+                    }
+                    std::istringstream byteStream(match[3].str());
+                    std::string token;
+                    uint16_t cursor = address;
+                    while (byteStream >> token) {
+                        memory[cursor] = parseHexByte(token, cursor);
+                        present[cursor] = true;
+                        ++cursor;
+                    }
+                    continue;
+                }
+                if (line.rfind("actor ", 0) == 0 ||
+                    line.rfind("visual ", 0) == 0 ||
+                    line.rfind("effect_before ", 0) == 0 ||
+                    line.rfind("effect_after ", 0) == 0) {
+                    auto parsed = parseRecord(line);
+                    records[parsed.first] = parsed.second;
+                    continue;
+                }
+                fail("unrecognized_line");
+            }
+
+            if (!haveRuntimeCs) fail("runtime_cs_missing");
+            if (!haveRuntimeDs) fail("runtime_ds_missing");
+            if (visualClaim) fail("visual_claim_not_supported");
+            auto scenarioIt = values.find("scenario");
+            if (scenarioIt == values.end()) fail("scenario_missing");
+            const std::string scenario = scenarioIt->second;
+
+            std::vector<uint16_t> requiredBreaks;
+            if (scenario == "state2_death_table_consumption") {
+                requiredBreaks = {0x3108, 0x6053, 0x6148, 0x7c89, 0x7ddf};
+            } else if (scenario == "monster_death_impact_frame") {
+                requiredBreaks = {0x74a6, 0x7513};
+            } else if (scenario == "bonus_reward_drop_frame") {
+                requiredBreaks = {0x6e4b, 0x6f8d};
+            } else if (scenario == "two_player_panel_art" ||
+                       scenario == "records_menu_cursor") {
+                requiredBreaks = {0x1b14, 0x1d42};
+            } else {
+                fail("unknown_scenario value=" + scenario);
+            }
+            for (uint16_t offset : requiredBreaks) {
+                if (breakOffsets.count(offset) == 0) {
+                    fail("missing_breakpoint offset=" + bareHex4(offset));
+                }
+            }
+
+            auto actorIt = records.find("actor");
+            auto visualIt = records.find("visual");
+            auto effectBeforeIt = records.find("effect_before");
+            auto effectAfterIt = records.find("effect_after");
+            if (actorIt == records.end()) fail("actor_missing");
+            if (visualIt == records.end()) fail("visual_missing");
+            if (effectBeforeIt == records.end()) fail("effect_before_missing");
+            if (effectAfterIt == records.end()) fail("effect_after_missing");
+
+            const auto& actor = actorIt->second;
+            const auto& visual = visualIt->second;
+            const auto& effectBefore = effectBeforeIt->second;
+            const auto& effectAfter = effectAfterIt->second;
+            int actorSlot = parseInt(requireField(actor, "slot", "actor"), "actor.slot");
+            int actorState = parseInt(requireField(actor, "state", "actor"), "actor.state");
+            uint8_t animCurrent = static_cast<uint8_t>(
+                parseHex16(requireField(actor, "anim_current", "actor"),
+                           "actor.anim_current"));
+            uint8_t animFirst = static_cast<uint8_t>(
+                parseHex16(requireField(actor, "anim_first", "actor"),
+                           "actor.anim_first"));
+            uint8_t animLast = static_cast<uint8_t>(
+                parseHex16(requireField(actor, "anim_last", "actor"),
+                           "actor.anim_last"));
+            int animMode = parseInt(requireField(actor, "anim_mode", "actor"),
+                                    "actor.anim_mode");
+            uint8_t visualFrame = static_cast<uint8_t>(
+                parseHex16(requireField(visual, "frame", "visual"),
+                           "visual.frame"));
+            if (visualFrame != animCurrent) {
+                fail("visual_frame_mismatch actor=" + hex2(animCurrent) +
+                     " visual=" + hex2(visualFrame));
+            }
+            constexpr uint16_t kFrameEntryBase = 0xc322;
+            uint16_t rowAddress = parseHex16(requireField(visual, "row_addr", "visual"),
+                                             "visual.row_addr");
+            uint16_t expectedRowAddress = static_cast<uint16_t>(
+                kFrameEntryBase + static_cast<uint16_t>(visualFrame) * 4u);
+            if (rowAddress != expectedRowAddress) {
+                fail("row_addr_mismatch expected=" + hex4(expectedRowAddress) +
+                     " actual=" + hex4(rowAddress));
+            }
+            bool hasVisualRow = visual.count("row") != 0;
+            bool hasSpriteIndex = visual.count("sprite_index") != 0;
+            if (hasSpriteIndex && !hasVisualRow) {
+                fail("visual_row_missing_for_sprite");
+            }
+            if (!hasVisualRow) fail("visual_row_missing");
+            std::array<uint8_t, 4> claimedRow =
+                parseRowBytes(requireField(visual, "row", "visual"), "visual.row");
+
+            auto requireByte = [&](uint16_t address) -> uint8_t {
+                if (!present[address]) {
+                    fail("missing_byte address=" + bareHex4(address));
+                }
+                return memory[address];
+            };
+            std::array<uint8_t, 4> memoryRow{
+                requireByte(rowAddress),
+                requireByte(static_cast<uint16_t>(rowAddress + 1)),
+                requireByte(static_cast<uint16_t>(rowAddress + 2)),
+                requireByte(static_cast<uint16_t>(rowAddress + 3)),
+            };
+            if (claimedRow != memoryRow) {
+                fail("visual_row_mismatch expected=" + rowString(memoryRow) +
+                     " actual=" + rowString(claimedRow));
+            }
+
+            std::string bank = normalizeBank(requireField(visual, "bank", "visual"));
+            int spriteIndex = parseInt(requireField(visual, "sprite_index", "visual"),
+                                       "visual.sprite_index");
+            if (spriteIndex < 0 || spriteIndex >= bankCount(bank)) {
+                fail("sprite_index_out_of_range bank=" + bank +
+                     " index=" + std::to_string(spriteIndex));
+            }
+            std::string spriteSource =
+                visual.count("sprite_source") ? visual.at("sprite_source") : "runtime";
+            if (spriteSource == "row_byte0" && spriteIndex != claimedRow[0]) {
+                fail("sprite_index_row0_mismatch row0=" +
+                     std::to_string(static_cast<int>(claimedRow[0])) +
+                     " sprite_index=" + std::to_string(spriteIndex));
+            }
+            if (spriteSource != "row_byte0" && spriteSource != "runtime_draw_call" &&
+                spriteSource != "static_table") {
+                fail("bad_sprite_source value=" + spriteSource);
+            }
+            int drawDx = parseInt(requireField(visual, "draw_dx", "visual"),
+                                  "visual.draw_dx");
+            int drawDy = parseInt(requireField(visual, "draw_dy", "visual"),
+                                  "visual.draw_dy");
+
+            int effectBeforeSlot = parseInt(
+                requireField(effectBefore, "slot", "effect_before"),
+                "effect_before.slot");
+            int effectAfterSlot = parseInt(
+                requireField(effectAfter, "slot", "effect_after"),
+                "effect_after.slot");
+            if (effectBeforeSlot != effectAfterSlot) {
+                fail("effect_slot_changed before=" + std::to_string(effectBeforeSlot) +
+                     " after=" + std::to_string(effectAfterSlot));
+            }
+            uint16_t effectBeforeX =
+                parseHex16(requireField(effectBefore, "x", "effect_before"),
+                           "effect_before.x");
+            uint16_t effectBeforeY =
+                parseHex16(requireField(effectBefore, "y", "effect_before"),
+                           "effect_before.y");
+            uint16_t effectAfterX =
+                parseHex16(requireField(effectAfter, "x", "effect_after"),
+                           "effect_after.x");
+            uint16_t effectAfterY =
+                parseHex16(requireField(effectAfter, "y", "effect_after"),
+                           "effect_after.y");
+            uint8_t effectBeforeFrame = static_cast<uint8_t>(
+                parseHex16(requireField(effectBefore, "frame", "effect_before"),
+                           "effect_before.frame"));
+            uint8_t effectAfterFrame = static_cast<uint8_t>(
+                parseHex16(requireField(effectAfter, "frame", "effect_after"),
+                           "effect_after.frame"));
+            if (effectBeforeFrame != visualFrame) {
+                fail("effect_before_frame_mismatch expected=" + hex2(visualFrame) +
+                     " actual=" + hex2(effectBeforeFrame));
+            }
+
+            std::cout << "visual_table_oracle=ok fixture=" << fixture
+                      << " scenario=" << scenario
+                      << " runtime_cs=" << hex4(runtimeCs)
+                      << " runtime_ds=" << hex4(runtimeDs)
+                      << " actor_slot=" << actorSlot
+                      << " actor_state=" << actorState
+                      << " anim_current=" << hex2(animCurrent)
+                      << " anim_range=" << hex2(animFirst) << ".." << hex2(animLast)
+                      << " anim_mode=" << animMode
+                      << " visual_frame=" << hex2(visualFrame)
+                      << " row_addr=" << hex4(rowAddress)
+                      << " row=" << rowString(memoryRow)
+                      << " bank=" << bank
+                      << " sprite_index=" << spriteIndex
+                      << " sprite_source=" << spriteSource
+                      << " draw_offset=" << drawDx << ',' << drawDy
+                      << " effect_slot=" << effectBeforeSlot
+                      << " effect_before_xy=" << hex4(effectBeforeX) << ','
+                      << hex4(effectBeforeY)
+                      << " effect_after_xy=" << hex4(effectAfterX) << ','
+                      << hex4(effectAfterY)
+                      << " effect_after_frame=" << hex2(effectAfterFrame)
+                      << " breaks=" << breakCount
+                      << " temp_copy=" << (tempCopy ? 1 : 0)
+                      << " visual_claim=0\n";
+            if (expectError) {
+                std::cout << "visual_table_oracle=error fixture=" << fixture
+                          << " reason=expected_error_missing\n";
+                return 1;
+            }
+            return 0;
+        } catch (const std::exception& e) {
+            std::cout << e.what() << '\n';
+            return expectError ? 0 : 1;
+        }
+    }
+
     int debugBehavior4RuntimeOracle(const std::string& path, bool expectError) {
         auto fixtureName = [](const std::string& inputPath) {
             size_t slash = inputPath.find_last_of("/\\");
@@ -5496,6 +5946,15 @@ public:
             constexpr std::array<uint16_t, 4> kRequiredOffsets{
                 0x5cb0, 0x604f, 0x6053, 0x777f};
             std::array<bool, 4> sawRequired{};
+            constexpr std::array<std::pair<uint16_t, const char*>, 5>
+                kDispatchGateOffsets{{
+                    {0x65a2, "actor_update_gate5"},
+                    {0x65d7, "actor_update_gate5_integration"},
+                    {0x7595, "actor_update_gate5_exit"},
+                    {0x654e, "actor_update_gate6"},
+                    {0x6555, "contact_scanner_callsite"},
+                }};
+            std::array<bool, 5> sawDispatchGate{};
 
             std::istringstream lines(text);
             std::string line;
@@ -5623,6 +6082,11 @@ public:
                     for (size_t i = 0; i < kRequiredOffsets.size(); ++i) {
                         if (ghidraOffset == kRequiredOffsets[i]) sawRequired[i] = true;
                     }
+                    for (size_t i = 0; i < kDispatchGateOffsets.size(); ++i) {
+                        if (ghidraOffset == kDispatchGateOffsets[i].first) {
+                            sawDispatchGate[i] = true;
+                        }
+                    }
                     continue;
                 }
 
@@ -5693,6 +6157,13 @@ public:
                      hex4(static_cast<uint16_t>(actorAfter.flags)) + " scan=" +
                      hex4(static_cast<uint16_t>(contactScan.flagsAfter)));
             }
+            std::string dispatchGates;
+            for (size_t i = 0; i < kDispatchGateOffsets.size(); ++i) {
+                if (!sawDispatchGate[i]) continue;
+                if (!dispatchGates.empty()) dispatchGates += ',';
+                dispatchGates += kDispatchGateOffsets[i].second;
+            }
+            if (dispatchGates.empty()) dispatchGates = "none";
 
             std::cout << "actor_update_runtime_oracle=ok fixture=" << fixture
                       << " scenario=" << scenario
@@ -5726,7 +6197,8 @@ public:
                       << " breaks=" << breakCount
                       << " dump_bytes=" << dumpBytes
                       << " temp_copy=" << (tempCopy ? 1 : 0)
-                      << " visual_claim=0\n";
+                      << " visual_claim=0"
+                      << " dispatch_gates=" << dispatchGates << "\n";
             if (expectError) {
                 std::cout << "actor_update_runtime_oracle=error fixture=" << fixture
                           << " reason=expected_error_missing\n";
@@ -12277,6 +12749,10 @@ int main(int argc, char** argv) {
         if (argc > 2 && std::string(argv[1]) == "--debug-state2-runtime-frame-oracle") {
             bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";
             return app.debugState2RuntimeFrameOracle(argv[2], expectError);
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-visual-table-oracle") {
+            bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";
+            return app.debugVisualTableOracle(argv[2], expectError);
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-behavior4-runtime-oracle") {
             bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";

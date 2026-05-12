@@ -34,6 +34,42 @@ require() {
     fi
 }
 
+quote_command() {
+    printf "%q " "$@"
+}
+
+run_environment_preflight() {
+    if [[ "${LEZAC_CONTACT_SCANNER_DEBUG_SKIP_ENVIRONMENT_PREFLIGHT:-0}" == "1" ]]; then
+        {
+            echo "environment_preflight=skipped"
+            echo "environment_preflight_log=$environment_preflight_log"
+        } >>"$manifest"
+        echo "environment_preflight=skipped" >>"$raw_dump"
+        return
+    fi
+
+    set +e
+    "${environment_preflight_command[@]}" >"$environment_preflight_log" 2>&1
+    preflight_status=$?
+    set -e
+
+    {
+        echo "environment_preflight_exit=$preflight_status"
+        echo "environment_preflight_log=$environment_preflight_log"
+    } >>"$manifest"
+    echo "environment_preflight_log=$environment_preflight_log" >>"$raw_dump"
+
+    if [[ $preflight_status -ne 0 ]]; then
+        echo "environment_preflight=error" >>"$manifest"
+        echo "environment_preflight=error" >>"$raw_dump"
+        echo "contact_scanner_debug_capture=error scenario=$scenario reason=environment_preflight_exit_$preflight_status manifest=$manifest raw_dump=$raw_dump environment_preflight_log=$environment_preflight_log"
+        exit "$preflight_status"
+    fi
+
+    echo "environment_preflight=ok" >>"$manifest"
+    echo "environment_preflight=ok" >>"$raw_dump"
+}
+
 write_runtime_command_plan() {
     local runtime_cs=$1
     local runtime_ds=$2
@@ -109,6 +145,13 @@ log="$out_dir/contact_scanner_debug_capture.log"
 commands_file="$out_dir/debugger_commands.txt"
 runtime_commands_file="$out_dir/debugger_commands_runtime.txt"
 candidate_fixture="$out_dir/candidate_fixture.txt"
+environment_preflight_log="$out_dir/environment_preflight.log"
+environment_preflight_command=(
+    python3
+    "$repo_dir/tools/preflight_original_evidence_environment.py"
+    "$asset_dir"
+    --require-debug-capture
+)
 
 runtime_route=debugger_seeded
 expected_level=1
@@ -141,6 +184,8 @@ EOF_RUNTIME_COMMANDS
     echo "debugger_commands_runtime=$runtime_commands_file"
     echo "raw_debugger_dump=$raw_dump"
     echo "candidate_fixture=$candidate_fixture"
+    echo "environment_preflight_command=$(quote_command "${environment_preflight_command[@]}")"
+    echo "environment_preflight_log=$environment_preflight_log"
     echo "anchors=1000:5CB0..604F"
     echo "visual_claim=0"
 } >"$manifest"
@@ -178,6 +223,8 @@ EOF_FIXTURE
     echo "anchor_contact_scanner=1000:5CB0..604F"
     echo "candidate_fixture=$candidate_fixture"
     echo "debugger_commands_runtime=$runtime_commands_file"
+    echo "environment_preflight_command=$(quote_command "${environment_preflight_command[@]}")"
+    echo "environment_preflight_log=$environment_preflight_log"
     echo "fixture_command=./build/lezac_cpp --debug-contact-scanner-runtime-oracle <candidate-fixture>"
 } >"$raw_dump"
 
@@ -189,6 +236,7 @@ EOF_FIXTURE
     echo "raw_debugger_dump=$raw_dump"
     echo "candidate_fixture=$candidate_fixture"
     echo "debugger_commands_runtime=$runtime_commands_file"
+    echo "environment_preflight_log=$environment_preflight_log"
 } >"$log"
 
 if [[ ! -e "$asset_dir/LEZAC.EXE" ]]; then
@@ -197,10 +245,13 @@ if [[ ! -e "$asset_dir/LEZAC.EXE" ]]; then
 fi
 
 if [[ "${LEZAC_CONTACT_SCANNER_DEBUG_DRY_RUN:-0}" == "1" ]]; then
-    echo "contact_scanner_debug_capture=ok mode=dry_run scenario=$scenario route=$runtime_route manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture debugger_commands_runtime=$runtime_commands_file"
+    echo "environment_preflight=dry_run" >>"$manifest"
+    echo "environment_preflight=dry_run" >>"$raw_dump"
+    echo "contact_scanner_debug_capture=ok mode=dry_run scenario=$scenario route=$runtime_route manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture debugger_commands_runtime=$runtime_commands_file environment_preflight=dry_run environment_preflight_log=$environment_preflight_log"
     exit 0
 fi
 
+run_environment_preflight
 require dosbox-debug
 require xvfb-run
 require timeout

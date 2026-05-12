@@ -228,6 +228,45 @@ inside actor update (`e8 58 f7` -> `1000:5CB0`), so
 `contact_scanner_callsite` is now a probe target. The first live callsite probe
 on `x:5.00,m:0.50,x:4.00` loaded `01ED:6555` but also did not freeze,
 indicating that route still does not reach the scanner callsite.
+`tools/check_actor_contact_callsite_context.py` further pins the local branch:
+`1000:654E` compares `[bp-31h]` with `06`, `1000:6552` skips to `1000:655B`
+when the value differs, the matching path executes `push bp; call 1000:5CB0`,
+and `1000:6558` jumps into the shared `1000:73E5` integration path. The next
+runtime probe should therefore target a route or seeded state that makes the
+`06` case live before spending more effort on entry-only breakpoints.
+The same static checker now also locks the neighboring `05` gate at
+`1000:65A2`: its integration path enters through `1000:65D7`, while the
+alternate end path jumps to `1000:777F`. Within `1000:6053..777F`, the only
+direct near jumps to the shared integration entry are now checked as
+`1000:6558` and `1000:65D7`. These are exposed as
+`capture_original_actor_contact_procmem.sh` targets `actor_update_gate5`,
+`actor_update_gate5_integration`, and `actor_update_gate6` for the next live
+route sweep. `tools/check_actor_update_dispatch_gates.py` additionally scans
+the actor-update window for every `cmp [bp-31h], imm` gate and currently locks
+`1000:654E = 06`, `1000:65A2 = 05`, and the later `1000:7595 = 05` exit gate
+to `1000:777F`; that late gate is exposed as `actor_update_gate5_exit`.
+`tools/sweep_original_actor_dispatch_gates.py` plans or runs the mapped gate
+set as one matrix so the next DOSBox pass can test all gate reachability with
+the same route and timing inputs. `--debug-actor-update-runtime-oracle` now
+reports optional `dispatch_gates=` names from these breakpoints when they are
+present in a normalized fixture. `tools/summarize_actor_dispatch_gate_sweep.py`
+follows a completed dispatch-sweep manifest and reports capture counts, observed
+freeze targets, missing targets, candidate readiness counts, and candidate
+fixtures ready for oracle normalization; each freeze line also labels candidate
+readiness, the expected runtime oracle flag, and an `oracle_command=` using the
+configured C++ binary path. Placeholder detection scans the whole candidate
+file, including commented skeleton hints, while required-record checks only use
+active fixture lines. `--require-ready` turns the summary into a promotion gate
+by returning nonzero whenever an observed freeze has a missing, incomplete, or
+absent candidate fixture. `--write-ready-manifest` writes a small follow-up
+manifest containing only ready fixtures and their oracle commands.
+`tools/run_actor_dispatch_ready_manifest.py` can then dry-run or execute that
+handoff without copying shell lines out of the summary output; it rejects
+missing fixture paths and mismatched oracle/flag pairs before execution, and
+can write a result manifest for the planned or executed oracle commands. Result
+manifests and logs are expected to stay outside the repository by default.
+`tools/summarize_actor_dispatch_ready_results.py` summarizes that result
+manifest and can gate promotion on successful executed oracle runs.
 
 ## Bomb Inventory
 
@@ -412,7 +451,11 @@ freeze or scratch record; its chosen sample still has
 `lane_update_flag=0x05`, `lane_word=0x0004`, `lane_target_offset=0x072c`, and
 reverse input `0xfb`. The default/timing-variant/route-step 2026-05-06 routes
 loaded the forward `3d3f` patch but did not hit the freeze, so natural-route
-forward evidence is still pending.
+forward evidence is still pending. `tools/summarize_lane_result_route_sweep.py`
+now classifies completed route-sweep candidates as `ready`, `no_freeze`,
+`incomplete`, or `missing`; `tools/run_lane_result_ready_manifest.py` and
+`tools/summarize_lane_result_ready_results.py` then execute and gate only
+promotable `--debug-explosion-playback-oracle` fixtures.
 
 The effect constructor at `1000:3fa6` writes 11-byte effect records at
 `0x2093 + 0x0b * DS:2076` and stores the effect type byte in
@@ -835,6 +878,15 @@ entry bytes. The synthetic fixture proves parser mechanics, address math,
 complete raw row reporting, and malformed-input rejection. The original fixture
 captures a temp-copy `dosbox-debug` stop at `01ED:7C89` with runtime `CS=01ED`
 and `DS=0C8F`; it keeps `visual_claim=0`.
+
+`--debug-visual-table-oracle <fixture> [--expect-error]` is the follow-up
+normalizer for renderer-facing visual evidence. It requires runtime `CS`/`DS`,
+translated breakpoints for the selected scenario, actor animation cursor state,
+an explicit frame-table row at `DS:c322 + 4 * frame`, sprite bank/index
+candidates, draw offsets, and effect-entry before/after bytes. Current fixtures
+are synthetic or malformed parser coverage for the state-2 death-table
+consumption path only; they intentionally keep `visual_claim=0` and do not
+promote the provisional dead-player renderer.
 
 Unresolved state-2 fallback: `1000:7ef8..7f2a` increments `DS:79b9` when no
 player is active and promotes any `DS:79e5 + player == 2` state byte to `1` at

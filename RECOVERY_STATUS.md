@@ -1,11 +1,42 @@
 # Recovery Status
 
-Last reviewed: 2026-05-08
+Last reviewed: 2026-05-12
 Branch: `codex/forward-lane-result-seeded-evidence`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
+  visual-fidelity evidence gate. The v1 parser normalizes visual table
+  fixtures with scenario/runtime metadata, translated breakpoints, actor
+  animation cursor fields, `DS:c322 + 4 * frame` row bytes, sprite bank/index
+  candidates, draw offsets, and effect-entry before/after state. Synthetic and
+  malformed CTest fixtures currently cover the state-2 death table consumption
+  path and keep `visual_claim=0`, so no live renderer behavior changed.
+- Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
+  coverage for completed actor dispatch-gate sweep manifests. The summarizer
+  follows nested route-sweep manifests, counts capture statuses, reports
+  observed runtime freezes, lists missing gate targets, and surfaces candidate
+  fixtures for runtime-oracle normalization. It now labels each observed freeze
+  with the matching `actor_update` or `contact_scanner` oracle flag and a
+  runnable `oracle_command=` hint, plus `candidate_status=` readiness so skeleton
+  fixtures are not mistaken for normalized evidence. The top-level summary now
+  includes ready/incomplete/missing/none candidate counts for quick triage.
+  Placeholder detection intentionally scans commented skeleton hints as well as
+  active fixture records. `--require-ready` now exits nonzero when any observed
+  freeze candidate is not promotable. `--write-ready-manifest` writes a
+  follow-up promotion manifest containing only ready fixtures and oracle
+  commands, and `tools/run_actor_dispatch_ready_manifest.py` can dry-run or
+  execute that manifest so the next WSL/DOSBox pass can validate promoted
+  candidates without hand-copying summary lines. The runner now rejects missing
+  fixtures and mismatched oracle/flag pairs before execution, with an explicit
+  dry-run-only bypass for forensic manifest review, and can write a result
+  manifest for planned or executed oracle commands. Result manifests and logs
+  are refused inside the repository unless explicitly allowed.
+  `tools/summarize_actor_dispatch_ready_results.py` summarizes those result
+  manifests and can require successful executed oracle runs. The synthetic
+  `tools/check_actor_dispatch_ready_pipeline.py` check now exercises the full
+  sweep-summary, ready-runner, and result-summary handoff.
 - Added `lane-result-cs-scratch` instrumentation support to
   `tools/capture_original_explosion_procmem.py` for the final lane-helper
   result writes at `1000:3D3F` and `1000:3ED3`. The runtime-only trampoline
@@ -137,6 +168,78 @@ Baseline: `origin/main`
 - Added `tools/check_lane_result_route_sweep.py` and CTest coverage for the
   route-sweep wrapper's default route labels, custom route labels, approval
   refusal, repository-output refusal, and malformed route parsing.
+- Added `tools/summarize_lane_result_route_sweep.py` and synthetic CTest
+  coverage for completed lane-result route-sweep manifests. The summary follows
+  child runtime manifests, classifies candidate fixtures as `ready`,
+  `no_freeze`, `incomplete`, or `missing`, emits
+  `--debug-explosion-playback-oracle` commands, and can write a ready-promotion
+  manifest for natural `1000:3D3F` or `1000:3ED3` freezes.
+- Added `tools/run_lane_result_ready_manifest.py`,
+  `tools/summarize_lane_result_ready_results.py`, and an end-to-end synthetic
+  lane-result ready-pipeline CTest. The runner validates the ready manifest,
+  refuses repository-local logs/results by default, executes only
+  `--debug-explosion-playback-oracle` candidates, and records planned or
+  executed oracle results for promotion gating. Granular CTest helpers now pin
+  the runner and result-summary error cases separately from the full pipeline
+  check.
+- Added `tools/preflight_original_evidence_environment.py` and synthetic CTest
+  coverage. The preflight reports shipped asset availability and the local
+  `bash`/DOSBox/`dosbox-debug`/Xvfb/`xdotool` toolchain, with require modes that
+  fail before a long original-evidence sweep starts on an unprepared host.
+- `tools/sweep_original_lane_result_routes.py` now prints the environment
+  preflight command in dry-run and runs the process-memory capture preflight
+  once before any live route commands, unless explicitly skipped with
+  `--skip-environment-preflight`.
+- `tools/sweep_original_actor_contact_routes.py` and
+  `tools/sweep_original_actor_dispatch_gates.py` now use the same
+  process-memory environment preflight before live actor/contact capture
+  sweeps. Dispatch-gate sweeps run the host check once at the top level and
+  pass `--skip-environment-preflight` to child actor/contact sweeps so a single
+  matrix does not repeat identical tool probes.
+- Lane-result and actor dispatch-gate sweep summaries now surface
+  `environment_preflight=` state and support
+  `--require-environment-preflight`, so ready-candidate promotion scripts can
+  fail explicitly when a manifest came from an unverified or legacy capture
+  host.
+- Lane-result and actor dispatch ready-manifest runners now propagate
+  `source_environment_preflight=` into result manifests and support
+  `--require-source-environment-preflight`; the matching result summarizers can
+  require the same field before accepting executed oracle results.
+- The lane-result and actor dispatch ready-pipeline CTest helpers now exercise
+  the strict preflight path end to end: sweep summary, ready manifest runner,
+  and result summary all use their corresponding preflight-required flags.
+- Tightened `--require-procmem-capture` to match the actual process-memory
+  wrapper dependencies: direct `Xvfb`, `zutty`, and `script` are now required
+  along with DOSBox-debug, `xdotool`, `python3`, and `pgrep`.
+- Added the `timeout` command to the full original/debug capture preflight
+  requirements because the DOSBox-debug helper scripts wrap their launches with
+  `timeout`.
+- Brought `tools/capture_original_behavior4_debug.sh` up to the actor/contact
+  debug-helper handoff shape: it now leaves a `candidate_fixture.txt` skeleton,
+  a `debugger_commands_runtime.txt` placeholder, and copies observed
+  `runtime_cs`/`runtime_ds` metadata into the manifest/raw dump when a live
+  DOSBox-debug run exposes registers before timing out.
+- The behavior-4, actor-update, and contact-scanner DOSBox-debug helpers now run
+  the shared `--require-debug-capture` environment preflight before live
+  DOSBox-debug launch, write `environment_preflight.log`, and record the
+  preflight status in their manifests. Dry runs explicitly mark
+  `environment_preflight=dry_run`; per-helper skip environment variables are
+  reserved for already-verified forensic reruns.
+- Added `tools/summarize_debug_capture.py` plus synthetic coverage so a single
+  behavior-4, actor-update, or contact-scanner DOSBox-debug capture directory
+  can be triaged as ready, incomplete, missing, or environment-failed. The
+  summary prints the matching runtime-oracle command and can require both a
+  promotion-ready fixture and `environment_preflight=ok`.
+- Added `tools/summarize_debug_capture_batch.py` plus synthetic coverage for
+  whole WSL evidence batches. The batch summary recursively finds supported
+  debug-capture manifests, counts ready/incomplete/missing candidates, reports
+  environment-preflight and runtime-metadata totals, and can write a compact
+  ready-candidates manifest for the promotable fixtures.
+- Added `tools/run_debug_capture_ready_manifest.py` plus synthetic coverage so
+  ready debug-capture manifests can be dry-run or executed through the matching
+  runtime oracle only. The runner validates oracle/flag pairs, can require
+  per-candidate `environment_preflight=ok`, writes optional logs, and emits a
+  result manifest for promotion review.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,
@@ -248,8 +351,10 @@ Baseline: `origin/main`
   probes.
 - Added `tools/capture_original_actor_contact_procmem.sh`, a guarded
   process-memory instrumentation wrapper for `actor_update_start`,
-  `actor_update_end`, `contact_scanner_callsite`, `contact_scanner_start`, and
-  `contact_scanner_end`. `contact_scanner_callsite` maps the static near call at
+  `actor_update_end`, `actor_update_gate5`, `actor_update_gate5_integration`,
+  `actor_update_gate5_exit`, `actor_update_gate6`, `contact_scanner_callsite`,
+  `contact_scanner_start`, and `contact_scanner_end`. `contact_scanner_callsite`
+  maps the static near call at
   `1000:6555` that targets `1000:5CB0`; the only direct near call to the scanner
   entry found in the shipped code image is at that callsite. It reuses the
   proven child DOSBox-debug process-memory scanner, requires
@@ -440,6 +545,51 @@ Baseline: `origin/main`
   return bytes `c9 c2 02` at `1000:604F`, the single direct near call at
   `1000:6555` (`e8 58 f7`) targeting `1000:5CB0`, and the actor-update entry
   bytes `55 89` at `1000:6053`.
+- Added `tools/check_actor_contact_callsite_context.py` to pin the immediate
+  control-flow context around that callsite: `1000:654E` compares the local
+  byte at `[bp-31h]` with `06`, `1000:6552` skips to `1000:655B` when it does
+  not match, `1000:6554..6557` performs `push bp; call 1000:5CB0`, and
+  `1000:6558` jumps to the shared integration path at `1000:73E5`. This keeps
+  the next live probe focused on reaching the gated branch rather than
+  rediscovering the scanner entry.
+- Extended that checker to cover the neighboring `05` gate at `1000:65A2`:
+  when the path reaches `1000:65BD`, the branch can enter integration through
+  `1000:65D7`; when it reaches `1000:65CE` and the end condition matches, it
+  jumps to actor-update end `1000:777F`. A scan of direct near jumps to
+  `1000:73E5` inside `1000:6053..777F` now locks the pair
+  `1000:6558,1000:65D7`.
+- Added process-memory wrapper targets for those gates:
+  `actor_update_gate5` at `1000:65A2`, `actor_update_gate5_integration` at
+  `1000:65D7`, and `actor_update_gate6` at `1000:654E`. The route-sweep helper
+  accepts them too, so the next live DOSBox pass can sweep these branch gates
+  directly.
+- Added `tools/check_actor_update_dispatch_gates.py` to scan every
+  `cmp [bp-31h], imm` gate in `1000:6053..777F`. It currently locks
+  `1000:654E = 06`, `1000:65A2 = 05`, and the later `1000:7595 = 05` exit gate
+  whose equal branch jumps to `1000:777F`. The late exit is exposed as the
+  process-memory target `actor_update_gate5_exit`.
+- Added `tools/sweep_original_actor_dispatch_gates.py`, a multi-target planner
+  for the mapped actor-update gates. Its default target set is
+  `actor_update_gate5`, `actor_update_gate5_integration`,
+  `actor_update_gate5_exit`, `actor_update_gate6`, and
+  `contact_scanner_callsite`, delegating each target to the existing guarded
+  actor/contact route-sweep helper. `tools/check_actor_dispatch_gate_sweep.py`
+  locks the default dry-run, custom target/timing routes, live-approval
+  refusal, repo-output refusal, and malformed route handling.
+- Extended `--debug-actor-update-runtime-oracle` with optional dispatch-gate
+  reporting. The parser still requires the original actor/scanner start/end
+  anchors, but now appends `dispatch_gates=` with any normalized breakpoints for
+  `actor_update_gate5`, `actor_update_gate5_integration`,
+  `actor_update_gate5_exit`, `actor_update_gate6`, and
+  `contact_scanner_callsite`. Added
+  `actor_update_runtime_oracle_dispatch_gates_synthetic.txt` to prove the field
+  without changing live gameplay behavior.
+- Updated `tools/capture_original_actor_contact_procmem.sh` candidate skeletons
+  so actor-update targets list the required oracle anchors
+  `1000:5CB0,1000:604F,1000:6053,1000:777F`. Dispatch-gate targets also record
+  `dispatch_gate_candidate=<label>` and a `dispatch_gates=` promotion hint,
+  making future process-memory captures easier to normalize into oracle
+  fixtures.
 - A live `contact_scanner_callsite` pre-route probe at
   `/tmp/lezac-contact-callsite-live-codex-20260511` on route
   `x:5.00,m:0.50,x:4.00` loaded `01ED:6555` with old bytes `e858`,
@@ -460,6 +610,47 @@ Baseline: `origin/main`
 - After adding the static callsite scan and `contact_scanner_callsite` probe
   target, full native validation passed again: configure/build succeeded and
   CTest reported 173/173 tests passing.
+- After adding the static callsite-context checker, focused Python checks for
+  `check_actor_contact_callsite_scan.py` and
+  `check_actor_contact_callsite_context.py` passed, then
+  `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
+  -BuildDir build-win-codex-vs3 -Configuration Debug` passed:
+  configure/build succeeded and CTest reported 174/174 tests passing.
+- After extending the callsite-context checker to cover the neighboring `05`
+  gate and both direct `1000:73E5` integration jumps, focused CTest
+  `actor_contact_callsite_context` passed after reconfigure, and full native
+  validation passed again: configure/build succeeded and CTest reported
+  174/174 tests passing.
+- After adding process-memory probe targets for the `05`/`06` actor-update
+  gates, focused Python checks for `check_actor_contact_procmem_helper.py` and
+  `check_actor_contact_route_sweep.py` passed, focused CTest
+  `actor_contact_route_sweep_output_expectations|actor_contact_procmem_helper_expectations`
+  passed after reconfigure, and full native validation passed again:
+  configure/build succeeded and CTest reported 174/174 tests passing.
+- After adding the dispatch-gate scan and `actor_update_gate5_exit` probe
+  target, focused Python checks for `check_actor_update_dispatch_gates.py`,
+  `check_actor_contact_procmem_helper.py`, and
+  `check_actor_contact_route_sweep.py` passed. Focused CTest
+  `actor_update_dispatch_gates|actor_contact_route_sweep_output_expectations|actor_contact_procmem_helper_expectations`
+  passed after reconfigure, and full native validation passed again:
+  configure/build succeeded and CTest reported 175/175 tests passing.
+- After adding the actor dispatch-gate sweep planner, focused Python checks for
+  `check_actor_dispatch_gate_sweep.py` and
+  `sweep_original_actor_dispatch_gates.py --dry-run` passed. Focused CTest
+  `python_tool_syntax_lane_result_preflight|actor_dispatch_gate_sweep_dry_run|actor_dispatch_gate_sweep_output_expectations`
+  passed after reconfigure, and full native validation passed again:
+  configure/build succeeded and CTest reported 177/177 tests passing.
+- After extending the actor-update oracle with `dispatch_gates=`, focused
+  fixture validation `check_actor_update_runtime_oracle_fixtures.py` passed with
+  5 fixtures (2 valid, 3 malformed). A direct Visual Studio build hit the known
+  duplicate `Path`/`PATH` MSBuild environment issue, so validation continued
+  through `tools\run_native_windows_validation.ps1`; the wrapper build
+  succeeded and CTest reported 178/178 tests passing.
+- After adding dispatch-gate promotion hints to actor/contact process-memory
+  candidate skeletons, focused helper validation
+  `check_actor_contact_procmem_helper.py` passed, and full native validation
+  through `tools\run_native_windows_validation.ps1` passed again:
+  configure/build succeeded and CTest reported 178/178 tests passing.
 - After adding the actor/contact process-memory wrapper and dry-run CTest,
   `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
   -BuildDir build-win-codex-vs3 -Configuration Debug` passed: configure/build

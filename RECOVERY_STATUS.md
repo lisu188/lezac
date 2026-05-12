@@ -201,6 +201,9 @@ Baseline: `origin/main`
 - The lane-result and actor dispatch ready-pipeline CTest helpers now exercise
   the strict preflight path end to end: sweep summary, ready manifest runner,
   and result summary all use their corresponding preflight-required flags.
+- Tightened `--require-procmem-capture` to match the actual process-memory
+  wrapper dependencies: direct `Xvfb`, `zutty`, and `script` are now required
+  along with DOSBox-debug, `xdotool`, `python3`, and `pgrep`.
 - Added a key/value lane-result handoff checklist to
   `docs/recovery/dosbox_explosion_process_memory_attempt_2026-04-24.md` with
   the pending WSL preflight/capture commands, expected manifest/candidate paths,

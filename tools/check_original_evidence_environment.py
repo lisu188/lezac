@@ -13,6 +13,17 @@ import tempfile
 
 
 FAKE_REQUIRED = ["bash", "dosbox", "dosbox-debug", "xvfb-run", "xdotool"]
+FAKE_PROCMEM_REQUIRED = [
+    "bash",
+    "dosbox",
+    "dosbox-debug",
+    "Xvfb",
+    "xdotool",
+    "python3",
+    "pgrep",
+    "zutty",
+    "script",
+]
 ASSET_FILES = ["LEZAC.EXE", "BOMPAL.PAL", "LIVELS.SCH", "BOMOMIMK.SPR", "FONTS.SPR"]
 
 
@@ -166,9 +177,24 @@ def main() -> int:
         require(asset_error, "LEZAC.EXE", "missing_assets")
         cases += 1
 
+        incomplete_procmem = run_preflight(
+            root,
+            [str(asset_root), "--require-procmem-capture"],
+            env=fake_env(fake_bin),
+            expect_success=False,
+        )
+        require(
+            incomplete_procmem,
+            "reason=missing_required",
+            "incomplete_procmem_capture",
+        )
+        for name in ["Xvfb", "python3", "pgrep", "zutty", "script"]:
+            require(incomplete_procmem, name, "incomplete_procmem_capture")
+        cases += 1
+
         procmem_bin = base / "procmem-bin"
         procmem_bin.mkdir()
-        for name in [*FAKE_REQUIRED, "python3", "pgrep"]:
+        for name in FAKE_PROCMEM_REQUIRED:
             make_fake_tool(procmem_bin, name)
         procmem = run_preflight(
             root,
@@ -176,8 +202,11 @@ def main() -> int:
             env=fake_env(procmem_bin),
         )
         require(procmem, "required=procmem_capture", "procmem_capture")
+        require(procmem, "tool_Xvfb=found", "procmem_capture")
         require(procmem, "tool_python3=found", "procmem_capture")
         require(procmem, "tool_pgrep=found", "procmem_capture")
+        require(procmem, "tool_zutty=found", "procmem_capture")
+        require(procmem, "tool_script=found", "procmem_capture")
         cases += 1
 
     print(f"original_evidence_environment_check=ok cases={cases}")

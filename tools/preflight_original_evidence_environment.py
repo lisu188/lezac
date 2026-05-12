@@ -39,10 +39,12 @@ REQUIREMENT_SETS = {
         "bash",
         "dosbox",
         "dosbox-debug",
-        "xvfb-run",
+        "Xvfb",
         "xdotool",
         "python3",
         "pgrep",
+        "zutty",
+        "script",
     ],
 }
 

@@ -346,7 +346,7 @@ if(BUILD_TESTING)
         set_tests_properties(original_evidence_environment_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^original_evidence_environment_check=ok cases=6")
+                "^original_evidence_environment_check=ok cases=7")
 
         add_test(NAME frame_compare_identical
             COMMAND ${Python3_EXECUTABLE}

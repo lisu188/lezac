@@ -365,9 +365,11 @@ python3 tools/preflight_original_evidence_environment.py . --require-procmem-cap
 ```
 
 The non-require mode reports missing tools without failing. The require modes
-fail fast when `bash`, DOSBox, `dosbox-debug`, Xvfb, `xdotool`, or the shipped
-asset files are missing, so long route sweeps do not start on an unprepared
-machine.
+fail fast when the matching DOSBox/Xvfb/xdotool toolchain or the shipped asset
+files are missing, so long route sweeps do not start on an unprepared machine.
+The process-memory mode follows the actual debug wrapper dependency set:
+`bash`, DOSBox, DOSBox-debug, direct `Xvfb`, `xdotool`, `python3`, `pgrep`,
+`zutty`, and `script`.
 
 For explosion/debris/collapse process-memory probes, preflight freeze patches
 before running DOSBox. This verifies the shipped `LEZAC.EXE` file offset,

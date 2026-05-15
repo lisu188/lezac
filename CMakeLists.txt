@@ -287,6 +287,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_preflight.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_wrapper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_environment.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_record_flow_evidence_map.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_pipeline.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_results.py
@@ -353,6 +354,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^original_evidence_environment_check=ok cases=7")
+
+        add_test(NAME record_flow_evidence_map
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_record_flow_evidence_map.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(record_flow_evidence_map PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^record_flow_evidence_map=ok ctests=5 commands=5 source_anchors=8 docs=3 resource_records=7")
 
         add_test(NAME frame_compare_identical
             COMMAND ${Python3_EXECUTABLE}
@@ -910,19 +920,25 @@ if(BUILD_TESTING)
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-update
                 ${CMAKE_CURRENT_BINARY_DIR}/records_test.dat)
     set_tests_properties(records_update_temp PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^record_update=ok top=999999 level=9 name=TEST")
 
     add_test(NAME records_name_entry_temp
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-name-entry
                 ${CMAKE_CURRENT_BINARY_DIR}/records_name_test.dat)
     set_tests_properties(records_name_entry_temp PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^record_name_entry=ok top=999999 name=test")
 
     add_test(NAME records_save_failure_temp
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-save-failure
                 ${CMAKE_CURRENT_BINARY_DIR}/missing_records_dir/records_test.dat)
     set_tests_properties(records_save_failure_temp PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "record_save_failure=ok pending=999999")
 
     add_test(NAME end_flow_records_temp
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-end-flow-records

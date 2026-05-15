@@ -420,6 +420,15 @@ python3 tools/summarize_lane_write_route_sweep.py \
   /tmp/lezac-lane-write-route-sweep/manifest.txt \
   --require-ready \
   --write-ready-manifest /tmp/lezac-lane-write-route-sweep/ready_manifest.txt
+python3 tools/run_lane_write_ready_manifest.py \
+  /tmp/lezac-lane-write-route-sweep/ready_manifest.txt --dry-run
+python3 tools/run_lane_write_ready_manifest.py \
+  /tmp/lezac-lane-write-route-sweep/ready_manifest.txt \
+  --log-dir /tmp/lezac-lane-write-route-sweep/logs \
+  --write-result-manifest /tmp/lezac-lane-write-route-sweep/result_manifest.txt
+python3 tools/summarize_lane_write_ready_results.py \
+  /tmp/lezac-lane-write-route-sweep/result_manifest.txt \
+  --require-success --require-executed
 python3 tools/capture_original_lane_result_runtime.py --preflight-only
 python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . \
   --dry-run --skip-oracle
@@ -484,17 +493,20 @@ to emit the matching
 capture pass should fail unless at least one natural lane-result or lane-write
 freeze is ready for promotion; add `--require-environment-preflight` when that
 promotion should also require the sweep's host preflight to be recorded as `ok`.
-`tools/run_lane_result_ready_manifest.py` then dry-runs or executes only the
-ready oracle candidates, writes optional per-candidate logs, and can leave a
-result manifest for
-`tools/summarize_lane_result_ready_results.py --require-success
---require-executed --require-source-environment-preflight`. The runner accepts
-the same `--require-source-environment-preflight` guard before planning or
-executing oracle commands. Result manifests and logs are refused inside the
-repository unless `--allow-repo-output` is passed deliberately. The synthetic
-CTest helpers `tools/check_lane_result_ready_manifest.py`,
-`tools/check_lane_result_ready_results.py`, and
-`tools/check_lane_result_ready_pipeline.py` cover the handoff without requiring
+`tools/run_lane_result_ready_manifest.py` and
+`tools/run_lane_write_ready_manifest.py` then dry-run or execute only the ready
+oracle candidates, write optional per-candidate logs, and can leave a result
+manifest for `tools/summarize_lane_result_ready_results.py` or
+`tools/summarize_lane_write_ready_results.py` with
+`--require-success --require-executed --require-source-environment-preflight`.
+The runners accept the same `--require-source-environment-preflight` guard
+before planning or executing oracle commands. Result manifests and logs are
+refused inside the repository unless `--allow-repo-output` is passed
+deliberately. The synthetic CTest helpers
+`tools/check_lane_result_ready_manifest.py`,
+`tools/check_lane_result_ready_results.py`,
+`tools/check_lane_result_ready_pipeline.py`, and
+`tools/check_lane_write_ready_pipeline.py` cover the handoff without requiring
 DOSBox.
 The checked-in original result-write fixtures are
 `tests/fixtures/dosbox/explosion_playback_oracle_original_3ed3_lane_result_runtime.txt`

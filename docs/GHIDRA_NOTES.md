@@ -424,7 +424,10 @@ scratch block `CS:f080`, scratch length 12, and trampoline body length 45
 before any DOSBox/process-memory capture is attempted.
 `tools/summarize_lane_write_route_sweep.py` classifies completed manifests as
 ready/no-freeze/incomplete/missing and intentionally rejects runtime-seeded
-fixtures as natural-route promotion candidates.
+fixtures as natural-route promotion candidates. The matching
+`tools/run_lane_write_ready_manifest.py` and
+`tools/summarize_lane_write_ready_results.py` wrappers share the lane-result
+ready-candidate runner while preserving lane-write manifest labels.
 The capture helper and explosion playback oracle now also support
 `lane-result-cs-scratch` for the final helper far-pointer result writes at
 `1000:3d3f` and `1000:3ed3` (`mov es:[di],al`). The runtime scratch body is

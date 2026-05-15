@@ -25,6 +25,13 @@ Baseline: `origin/main`
   or `missing`, with ready-manifest output for exact
   `--debug-explosion-playback-oracle` commands. The readiness gate rejects
   runtime-seeded fixtures for natural-route promotion.
+- Added lane-write ready-candidate handoff wrappers:
+  `tools/run_lane_write_ready_manifest.py` and
+  `tools/summarize_lane_write_ready_results.py`. They reuse the lane-result
+  runner/result summarizer with lane-write manifest labels, and
+  `tools/check_lane_write_ready_pipeline.py` verifies dry-run planning, live
+  fake-oracle execution, result summaries, source-preflight gates, and
+  wrong-promotion rejection without DOSBox.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor
@@ -475,6 +482,13 @@ Baseline: `origin/main`
   capture is blocked on this host. The no-WSL continuation added the lane-write
   route-sweep summarizer instead. After refreshing the native build metadata,
   focused CTest passed 58/58 for `lane_write|lane_result|explosion_lane`.
+- 2026-05-15 handoff continuation: direct Python checks passed for
+  `tools/check_lane_write_ready_pipeline.py`,
+  `tools/check_lane_result_ready_manifest.py`, and
+  `tools/check_lane_result_ready_results.py` after making the shared ready
+  runner/result summarizer prefix-configurable. After refreshing native build
+  metadata again, focused CTest passed 59/59 for
+  `lane_write|lane_result|explosion_lane`.
 - 2026-05-11 continuation: bundled Python helper/oracle checks passed for
   `tools/check_actor_update_debug_capture_helper.py`,
   `tools/check_contact_scanner_debug_capture_helper.py`,

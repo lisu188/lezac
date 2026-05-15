@@ -287,6 +287,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_preflight.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_wrapper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_environment.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_map.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_pipeline.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_results.py
@@ -974,6 +975,17 @@ if(BUILD_TESTING)
     set_tests_properties(sound_selector_map PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "sound_selector_map=ok")
+
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME sound_callsite_map
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_map.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(sound_callsite_map PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^sound_callsite_map=ok cues=6 .*direct_sweeps=4 .*priority_latch=1000:165a\\.\\.167d .*tick_window=1000:0fbe\\.\\.1088 .*tests=10")
+    endif()
 
     add_test(NAME bomb_object_sound
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-object-sound)

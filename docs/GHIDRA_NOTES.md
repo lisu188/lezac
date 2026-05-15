@@ -718,6 +718,9 @@ interpret those bytes.
 
 Six non-explosion gameplay cues are now mapped to original queued requests:
 
+`tools/check_sound_callsite_map.py` verifies this handoff stays consistent
+across these address notes, the C++ request sites, and the CTest scenario names.
+
 - The bomb-object destruction scan around `1000:6cb3..6e3f` clears the
   `DS:2074` score accumulator and `DS:79ab` high-object marker, walks the four
   bomb footprint offsets, sets `DS:79ab = 1` when a consumed object tile id is

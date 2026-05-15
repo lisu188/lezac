@@ -1,11 +1,16 @@
 # Recovery Status
 
-Last reviewed: 2026-05-12
-Branch: `codex/forward-lane-result-seeded-evidence`
+Last reviewed: 2026-05-15
+Branch: `codex/gran-data-evidence-handoff`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `tools/check_gran_data_evidence_map.py` and CTest coverage for the
+  `GRAN.MST` opaque-data handoff. The checker verifies the 399-byte raw file
+  hash, seven 57-byte JSON records, raw/json byte preservation, `--debug-gran`
+  and `--debug-gran-raw-roundtrip` CTest wiring, loader guards, and docs that
+  keep `GRAN.MST` field semantics unresolved rather than guessed.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor

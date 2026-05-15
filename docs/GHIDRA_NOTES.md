@@ -88,6 +88,9 @@ quirk.
   semantics are still unresolved. Runtime JSON loading now rejects any converted
   shape other than `7 * 57` bytes, and `--debug-gran-raw-roundtrip` verifies
   the converted JSON bytes exactly match the shipped 399-byte file.
+  `tools/check_gran_data_evidence_map.py` guards this opaque-data contract by
+  checking the raw SHA-256, converted JSON shape, CTest coverage, loader guards,
+  and unresolved semantics wording.
 
 ## Level Entity Blocks
 

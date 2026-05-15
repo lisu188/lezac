@@ -286,6 +286,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_orchestrator.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_preflight.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_wrapper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gran_data_evidence_map.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_environment.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_pipeline.py
@@ -353,6 +354,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^original_evidence_environment_check=ok cases=7")
+
+        add_test(NAME gran_data_evidence_map
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gran_data_evidence_map.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(gran_data_evidence_map PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^gran_data_evidence_map=ok raw_size=399 record_size=57 records=7 sha256=3f0cf17706d557ca863d6e39bfa6641fba777a88815ba3f0a22e5ac89e0e39e2 zero_bytes=150 ctests=2 docs=3 source_guards=5 opaque_claim=1")
 
         add_test(NAME frame_compare_identical
             COMMAND ${Python3_EXECUTABLE}
@@ -962,6 +972,13 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^gran_raw_roundtrip=ok raw_size=399 record_size=57 records=7 payload_size=399 json_records=7")
+
+    add_test(NAME gran_summary
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran)
+    set_tests_properties(gran_summary PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^gran_record_size=57 records=7 words_per_record=28 trailing_byte=yes")
 
     add_test(NAME sound_priority_latch
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-priority-latch)

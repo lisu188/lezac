@@ -281,6 +281,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_batch_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_evidence_map.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_layout.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_orchestrator.py
@@ -447,6 +448,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^lane_result_wrapper_output=ok cases=13")
+
+        add_test(NAME explosion_evidence_map
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_evidence_map.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_evidence_map PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^explosion_evidence_map=ok fixtures=47 playback_ctests=47 lane_result_helper_ctests=24 critical_offsets=16 .*oracle_flag=--debug-explosion-playback-oracle docs=3")
 
         add_test(NAME explosion_lane_result_route_sweep_dry_run
             COMMAND ${Python3_EXECUTABLE}

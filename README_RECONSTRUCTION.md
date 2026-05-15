@@ -416,6 +416,10 @@ python3 tools/capture_original_lane_write_runtime.py /tmp/lezac-lane-write-runti
 python3 tools/sweep_original_lane_write_routes.py /tmp/lezac-lane-write-route-sweep . \
   --dry-run --skip-oracle \
   --route x:2.00,c:0.50 --route x:1.50,z:0.50
+python3 tools/summarize_lane_write_route_sweep.py \
+  /tmp/lezac-lane-write-route-sweep/manifest.txt \
+  --require-ready \
+  --write-ready-manifest /tmp/lezac-lane-write-route-sweep/ready_manifest.txt
 python3 tools/capture_original_lane_result_runtime.py --preflight-only
 python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . \
   --dry-run --skip-oracle
@@ -472,13 +476,14 @@ route. Live route sweeps run
 `tools/preflight_original_evidence_environment.py --require-procmem-capture`
 once before launching any route; use `--skip-environment-preflight` only for
 intentional forensic reruns on already-verified hosts. Use
-`tools/summarize_lane_result_route_sweep.py` on
-the completed sweep manifest to classify each candidate as `ready`, `no_freeze`,
-`incomplete`, or `missing`, and to emit the matching
+`tools/summarize_lane_result_route_sweep.py` or
+`tools/summarize_lane_write_route_sweep.py` on the completed sweep manifest to
+classify each candidate as `ready`, `no_freeze`, `incomplete`, or `missing`, and
+to emit the matching
 `--debug-explosion-playback-oracle` command. Add `--require-ready` when a
-capture pass should fail unless at least one natural lane-result freeze is ready
-for promotion; add `--require-environment-preflight` when that promotion should
-also require the sweep's host preflight to be recorded as `ok`.
+capture pass should fail unless at least one natural lane-result or lane-write
+freeze is ready for promotion; add `--require-environment-preflight` when that
+promotion should also require the sweep's host preflight to be recorded as `ok`.
 `tools/run_lane_result_ready_manifest.py` then dry-runs or executes only the
 ready oracle candidates, writes optional per-candidate logs, and can leave a
 result manifest for

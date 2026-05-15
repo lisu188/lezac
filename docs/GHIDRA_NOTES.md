@@ -422,6 +422,9 @@ capture path for those debris-side writeback offsets. Their safe preflight pins
 the shipped target bytes (`1000:3d2d` = `88 95 97`, `1000:3ec1` = `88 95 98`),
 scratch block `CS:f080`, scratch length 12, and trampoline body length 45
 before any DOSBox/process-memory capture is attempted.
+`tools/summarize_lane_write_route_sweep.py` classifies completed manifests as
+ready/no-freeze/incomplete/missing and intentionally rejects runtime-seeded
+fixtures as natural-route promotion candidates.
 The capture helper and explosion playback oracle now also support
 `lane-result-cs-scratch` for the final helper far-pointer result writes at
 `1000:3d3f` and `1000:3ed3` (`mov es:[di],al`). The runtime scratch body is

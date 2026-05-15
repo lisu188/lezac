@@ -20,6 +20,11 @@ Baseline: `origin/main`
   environment-preflight status, route labels, and child capture statuses in a
   manifest outside the repository. This is evidence tooling only; no live C++
   gameplay behavior changed.
+- Added `tools/summarize_lane_write_route_sweep.py` so completed lane-write
+  sweep/runtime manifests are classified as `ready`, `no_freeze`, `incomplete`,
+  or `missing`, with ready-manifest output for exact
+  `--debug-explosion-playback-oracle` commands. The readiness gate rejects
+  runtime-seeded fixtures for natural-route promotion.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor
@@ -465,6 +470,11 @@ Baseline: `origin/main`
   preflight, wrapper-output, and route-sweep checks plus the existing
   lane-result/explosion oracle guardrails. `git diff --check` passed with only
   existing CRLF normalization warnings on touched text files.
+- 2026-05-15 continuation: WSL was present but no Linux distribution was
+  installed (`WSL_E_DEFAULT_DISTRO_NOT_FOUND`), so live DOSBox/process-memory
+  capture is blocked on this host. The no-WSL continuation added the lane-write
+  route-sweep summarizer instead. After refreshing the native build metadata,
+  focused CTest passed 58/58 for `lane_write|lane_result|explosion_lane`.
 - 2026-05-11 continuation: bundled Python helper/oracle checks passed for
   `tools/check_actor_update_debug_capture_helper.py`,
   `tools/check_contact_scanner_debug_capture_helper.py`,

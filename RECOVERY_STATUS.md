@@ -488,7 +488,9 @@ Baseline: `origin/main`
   `tools/check_lane_result_ready_results.py` after making the shared ready
   runner/result summarizer prefix-configurable. After refreshing native build
   metadata again, focused CTest passed 59/59 for
-  `lane_write|lane_result|explosion_lane`.
+  `lane_write|lane_result|explosion_lane`. Full native Windows CTest then
+  passed 201/201 with `ctest --test-dir build-win-codex-vs3 -C Debug
+  --output-on-failure`.
 - 2026-05-11 continuation: bundled Python helper/oracle checks passed for
   `tools/check_actor_update_debug_capture_helper.py`,
   `tools/check_contact_scanner_debug_capture_helper.py`,

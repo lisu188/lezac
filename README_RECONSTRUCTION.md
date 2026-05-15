@@ -315,6 +315,9 @@ audit trail, and add `--require-success --require-executed` when promotion
 should fail unless every oracle actually ran and passed. The CTest helper
 `tools/check_actor_dispatch_ready_pipeline.py` exercises this full handoff with
 a synthetic ready candidate and fake oracle.
+`tools/check_actor_contact_evidence_map.py` verifies the actor/contact recovery
+handoff stays linked across docs, helper target maps, oracle flags, fixtures,
+and CTest coverage.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \

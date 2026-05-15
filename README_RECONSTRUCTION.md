@@ -410,6 +410,25 @@ launching DOSBox or reading `/proc/<pid>/mem`:
 ```sh
 python3 tools/check_explosion_lane_result_preflight.py .
 python3 tools/check_explosion_lane_result_wrapper.py .
+python3 tools/capture_original_lane_write_runtime.py --preflight-only
+python3 tools/capture_original_lane_write_runtime.py /tmp/lezac-lane-write-runtime . \
+  --dry-run --skip-oracle
+python3 tools/sweep_original_lane_write_routes.py /tmp/lezac-lane-write-route-sweep . \
+  --dry-run --skip-oracle \
+  --route x:2.00,c:0.50 --route x:1.50,z:0.50
+python3 tools/summarize_lane_write_route_sweep.py \
+  /tmp/lezac-lane-write-route-sweep/manifest.txt \
+  --require-ready \
+  --write-ready-manifest /tmp/lezac-lane-write-route-sweep/ready_manifest.txt
+python3 tools/run_lane_write_ready_manifest.py \
+  /tmp/lezac-lane-write-route-sweep/ready_manifest.txt --dry-run
+python3 tools/run_lane_write_ready_manifest.py \
+  /tmp/lezac-lane-write-route-sweep/ready_manifest.txt \
+  --log-dir /tmp/lezac-lane-write-route-sweep/logs \
+  --write-result-manifest /tmp/lezac-lane-write-route-sweep/result_manifest.txt
+python3 tools/summarize_lane_write_ready_results.py \
+  /tmp/lezac-lane-write-route-sweep/result_manifest.txt \
+  --require-success --require-executed
 python3 tools/capture_original_lane_result_runtime.py --preflight-only
 python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . \
   --dry-run --skip-oracle
@@ -449,35 +468,45 @@ python3 tools/capture_original_explosion_procmem.py /tmp/lezac-preflight . \
 
 The `forward` alias maps to Ghidra `1000:3D3F`, and `reverse` maps to
 `1000:3ED3`; the raw `3D3F`/`3ED3` forms are still accepted for direct
-address-based retries. Dry-run summaries and full-capture manifests report the
-selected `offset_labels` and normalized `offset_addresses` so single-probe
-retries are visible in the log header.
+address-based retries. The lane-write wrapper uses the same guarded workflow
+for the debris-side writeback offsets: `forward` maps to `1000:3D2D` and
+`reverse` maps to `1000:3EC1`, with raw `3D2D`/`3EC1` accepted for direct
+retries. It defaults to the `late-collapse` runtime freeze preset because those
+offsets only become useful after the collapse/debris queues are live. Dry-run
+summaries and full-capture manifests report the selected `offset_labels` and
+normalized `offset_addresses` so single-probe retries are visible in the log
+header.
 For route variation, repeat `--route-step KEY:SECONDS`; omitted route steps keep
 the historical default of holding player-1 right (`x`) for
-`--right-hold-seconds`. Use `tools/sweep_original_lane_result_routes.py` to
-plan or run repeated natural-route probes while preserving one manifest and
-one command line per route. Live route sweeps run
+`--right-hold-seconds`. Use `tools/sweep_original_lane_result_routes.py` or
+`tools/sweep_original_lane_write_routes.py` to plan or run repeated
+natural-route probes while preserving one manifest and one command line per
+route. Live route sweeps run
 `tools/preflight_original_evidence_environment.py --require-procmem-capture`
 once before launching any route; use `--skip-environment-preflight` only for
 intentional forensic reruns on already-verified hosts. Use
-`tools/summarize_lane_result_route_sweep.py` on
-the completed sweep manifest to classify each candidate as `ready`, `no_freeze`,
-`incomplete`, or `missing`, and to emit the matching
+`tools/summarize_lane_result_route_sweep.py` or
+`tools/summarize_lane_write_route_sweep.py` on the completed sweep manifest to
+classify each candidate as `ready`, `no_freeze`, `incomplete`, or `missing`, and
+to emit the matching
 `--debug-explosion-playback-oracle` command. Add `--require-ready` when a
-capture pass should fail unless at least one natural lane-result freeze is ready
-for promotion; add `--require-environment-preflight` when that promotion should
-also require the sweep's host preflight to be recorded as `ok`.
-`tools/run_lane_result_ready_manifest.py` then dry-runs or executes only the
-ready oracle candidates, writes optional per-candidate logs, and can leave a
-result manifest for
-`tools/summarize_lane_result_ready_results.py --require-success
---require-executed --require-source-environment-preflight`. The runner accepts
-the same `--require-source-environment-preflight` guard before planning or
-executing oracle commands. Result manifests and logs are refused inside the
-repository unless `--allow-repo-output` is passed deliberately. The synthetic
-CTest helpers `tools/check_lane_result_ready_manifest.py`,
-`tools/check_lane_result_ready_results.py`, and
-`tools/check_lane_result_ready_pipeline.py` cover the handoff without requiring
+capture pass should fail unless at least one natural lane-result or lane-write
+freeze is ready for promotion; add `--require-environment-preflight` when that
+promotion should also require the sweep's host preflight to be recorded as `ok`.
+`tools/run_lane_result_ready_manifest.py` and
+`tools/run_lane_write_ready_manifest.py` then dry-run or execute only the ready
+oracle candidates, write optional per-candidate logs, and can leave a result
+manifest for `tools/summarize_lane_result_ready_results.py` or
+`tools/summarize_lane_write_ready_results.py` with
+`--require-success --require-executed --require-source-environment-preflight`.
+The runners accept the same `--require-source-environment-preflight` guard
+before planning or executing oracle commands. Result manifests and logs are
+refused inside the repository unless `--allow-repo-output` is passed
+deliberately. The synthetic CTest helpers
+`tools/check_lane_result_ready_manifest.py`,
+`tools/check_lane_result_ready_results.py`,
+`tools/check_lane_result_ready_pipeline.py`, and
+`tools/check_lane_write_ready_pipeline.py` cover the handoff without requiring
 DOSBox.
 The checked-in original result-write fixtures are
 `tests/fixtures/dosbox/explosion_playback_oracle_original_3ed3_lane_result_runtime.txt`

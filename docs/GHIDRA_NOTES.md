@@ -416,6 +416,12 @@ writeback branch arithmetic: both forward `1000:3d2d` and reverse `1000:3ec1`
 resolve selected tag `0x4ee8` to `DI=0x0898`, matching
 `(0x4ee8 - 0x4e20) * 0x0b`. The forward seeded result byte is `0x35`; the
 reverse seeded result byte is `0x00`.
+`tools/capture_original_lane_write_runtime.py` and
+`tools/sweep_original_lane_write_routes.py` now provide the guarded natural-route
+capture path for those debris-side writeback offsets. Their safe preflight pins
+the shipped target bytes (`1000:3d2d` = `88 95 97`, `1000:3ec1` = `88 95 98`),
+scratch block `CS:f080`, scratch length 12, and trampoline body length 45
+before any DOSBox/process-memory capture is attempted.
 The capture helper and explosion playback oracle now also support
 `lane-result-cs-scratch` for the final helper far-pointer result writes at
 `1000:3d3f` and `1000:3ed3` (`mov es:[di],al`). The runtime scratch body is

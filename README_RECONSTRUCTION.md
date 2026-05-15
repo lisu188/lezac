@@ -410,6 +410,12 @@ launching DOSBox or reading `/proc/<pid>/mem`:
 ```sh
 python3 tools/check_explosion_lane_result_preflight.py .
 python3 tools/check_explosion_lane_result_wrapper.py .
+python3 tools/capture_original_lane_write_runtime.py --preflight-only
+python3 tools/capture_original_lane_write_runtime.py /tmp/lezac-lane-write-runtime . \
+  --dry-run --skip-oracle
+python3 tools/sweep_original_lane_write_routes.py /tmp/lezac-lane-write-route-sweep . \
+  --dry-run --skip-oracle \
+  --route x:2.00,c:0.50 --route x:1.50,z:0.50
 python3 tools/capture_original_lane_result_runtime.py --preflight-only
 python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . \
   --dry-run --skip-oracle
@@ -449,14 +455,20 @@ python3 tools/capture_original_explosion_procmem.py /tmp/lezac-preflight . \
 
 The `forward` alias maps to Ghidra `1000:3D3F`, and `reverse` maps to
 `1000:3ED3`; the raw `3D3F`/`3ED3` forms are still accepted for direct
-address-based retries. Dry-run summaries and full-capture manifests report the
-selected `offset_labels` and normalized `offset_addresses` so single-probe
-retries are visible in the log header.
+address-based retries. The lane-write wrapper uses the same guarded workflow
+for the debris-side writeback offsets: `forward` maps to `1000:3D2D` and
+`reverse` maps to `1000:3EC1`, with raw `3D2D`/`3EC1` accepted for direct
+retries. It defaults to the `late-collapse` runtime freeze preset because those
+offsets only become useful after the collapse/debris queues are live. Dry-run
+summaries and full-capture manifests report the selected `offset_labels` and
+normalized `offset_addresses` so single-probe retries are visible in the log
+header.
 For route variation, repeat `--route-step KEY:SECONDS`; omitted route steps keep
 the historical default of holding player-1 right (`x`) for
-`--right-hold-seconds`. Use `tools/sweep_original_lane_result_routes.py` to
-plan or run repeated natural-route probes while preserving one manifest and
-one command line per route. Live route sweeps run
+`--right-hold-seconds`. Use `tools/sweep_original_lane_result_routes.py` or
+`tools/sweep_original_lane_write_routes.py` to plan or run repeated
+natural-route probes while preserving one manifest and one command line per
+route. Live route sweeps run
 `tools/preflight_original_evidence_environment.py --require-procmem-capture`
 once before launching any route; use `--skip-environment-preflight` only for
 intentional forensic reruns on already-verified hosts. Use

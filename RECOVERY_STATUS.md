@@ -1,11 +1,25 @@
 # Recovery Status
 
-Last reviewed: 2026-05-12
-Branch: `codex/forward-lane-result-seeded-evidence`
+Last reviewed: 2026-05-15
+Branch: `codex/lane-write-route-sweep`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added guarded natural-route capture tooling for the pending debris-side
+  lane-write offsets `1000:3D2D` and `1000:3EC1`. The new
+  `tools/capture_original_lane_write_runtime.py` wrapper supports safe
+  preflight, dry-run command generation, single-offset retries, optional oracle
+  parsing, and live capture only with explicit process-memory/runtime
+  instrumentation approvals. Its preflight pins shipped target bytes
+  `889597`/`889598`, scratch `CS:F080`, scratch length 12, and trampoline body
+  length 45 before any DOSBox capture is attempted.
+- Added `tools/sweep_original_lane_write_routes.py` plus synthetic output
+  checks for repeated lane-write route probes. The sweep defaults to the
+  `late-collapse` runtime freeze preset and preserves command lines,
+  environment-preflight status, route labels, and child capture statuses in a
+  manifest outside the repository. This is evidence tooling only; no live C++
+  gameplay behavior changed.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor
@@ -445,6 +459,12 @@ Baseline: `origin/main`
 
 ## Validation
 
+- 2026-05-15 lane-write route-sweep checkpoint: native Windows validation
+  helper passed with `-SkipTests`, then focused CTest passed 57/57 for
+  `lane_write|lane_result|explosion_lane`. This covered the new lane-write
+  preflight, wrapper-output, and route-sweep checks plus the existing
+  lane-result/explosion oracle guardrails. `git diff --check` passed with only
+  existing CRLF normalization warnings on touched text files.
 - 2026-05-11 continuation: bundled Python helper/oracle checks passed for
   `tools/check_actor_update_debug_capture_helper.py`,
   `tools/check_contact_scanner_debug_capture_helper.py`,

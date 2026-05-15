@@ -456,6 +456,9 @@ now classifies completed route-sweep candidates as `ready`, `no_freeze`,
 `incomplete`, or `missing`; `tools/run_lane_result_ready_manifest.py` and
 `tools/summarize_lane_result_ready_results.py` then execute and gate only
 promotable `--debug-explosion-playback-oracle` fixtures.
+`tools/check_explosion_evidence_map.py` keeps this explosion/playback handoff
+traceable across these address notes, lane-result capture helpers, fixture
+coverage, source output fields, and CTest wiring.
 
 The effect constructor at `1000:3fa6` writes 11-byte effect records at
 `0x2093 + 0x0b * DS:2076` and stores the effect type byte in

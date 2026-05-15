@@ -1,11 +1,18 @@
 # Recovery Status
 
-Last reviewed: 2026-05-12
-Branch: `codex/forward-lane-result-seeded-evidence`
+Last reviewed: 2026-05-15
+Branch: `codex/record-flow-evidence-handoff`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `tools/check_record_flow_evidence_map.py` and CTest coverage for the
+  high-score record-entry/end-flow handoff. The checker verifies the
+  `RECS.DAT` converted resource shape, `--debug-autoplayer records_flow`,
+  record update/name-entry/save-failure/end-flow debug commands, CTest output
+  contracts, and the `1000:1845..1ad4` / `1000:1b14..1d42` docs anchors. No
+  live menu behavior changed; exact original cursor drawing and typematic
+  repeat remain future work.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor

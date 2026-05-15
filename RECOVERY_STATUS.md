@@ -1,11 +1,17 @@
 # Recovery Status
 
-Last reviewed: 2026-05-12
-Branch: `codex/forward-lane-result-seeded-evidence`
+Last reviewed: 2026-05-15
+Branch: `codex/visual-state2-evidence-handoff`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `tools/check_visual_state2_evidence_map.py` and CTest coverage for the
+  state-2 death/reentry visual evidence handoff. The checker verifies the
+  `--debug-state2-runtime-frame-oracle` and `--debug-visual-table-oracle`
+  fixture sets, model/regression CTests, source command hooks, `DS:c322` /
+  `DS:c21e` docs anchors, and the intentionally unresolved `visual_claim=0`
+  status before future renderer work can promote the visual claim.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor

@@ -887,6 +887,9 @@ candidates, draw offsets, and effect-entry before/after bytes. Current fixtures
 are synthetic or malformed parser coverage for the state-2 death-table
 consumption path only; they intentionally keep `visual_claim=0` and do not
 promote the provisional dead-player renderer.
+`tools/check_visual_state2_evidence_map.py` guards this handoff by checking the
+runtime-frame fixtures, visual-table fixtures, CTest coverage, source commands,
+and the docs anchors before state-2 visuals are promoted.
 
 Unresolved state-2 fallback: `1000:7ef8..7f2a` increments `DS:79b9` when no
 player is active and promotes any `DS:79e5 + player == 2` state byte to `1` at

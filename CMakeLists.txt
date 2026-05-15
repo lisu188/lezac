@@ -287,6 +287,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_preflight.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_wrapper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_environment.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_state2_evidence_map.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_pipeline.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_results.py
@@ -353,6 +354,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^original_evidence_environment_check=ok cases=7")
+
+        add_test(NAME visual_state2_evidence_map
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_state2_evidence_map.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(visual_state2_evidence_map PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^visual_state2_evidence_map=ok state2_fixtures=6 visual_fixtures=4 state2_ctests=6 visual_ctests=4 model_ctests=11 oracle_flags=2 docs=3 checker_ctests=1")
 
         add_test(NAME frame_compare_identical
             COMMAND ${Python3_EXECUTABLE}

@@ -267,6 +267,9 @@ can write a result manifest for the planned or executed oracle commands. Result
 manifests and logs are expected to stay outside the repository by default.
 `tools/summarize_actor_dispatch_ready_results.py` summarizes that result
 manifest and can gate promotion on successful executed oracle runs.
+`tools/check_actor_contact_evidence_map.py` keeps this actor/contact handoff
+traceable across these address notes, capture helpers, runtime oracle flags,
+fixture tests, and CTest wiring.
 
 ## Bomb Inventory
 

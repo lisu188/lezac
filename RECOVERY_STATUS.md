@@ -1,11 +1,17 @@
 # Recovery Status
 
-Last reviewed: 2026-05-12
-Branch: `codex/forward-lane-result-seeded-evidence`
+Last reviewed: 2026-05-15
+Branch: `codex/gran-record-profile`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added a conservative `GRAN.MST` byte-profile diagnostic to `--debug-gran`.
+  The command still treats the file as unresolved/opaque data, but now prints
+  per-record zero-byte counts plus a reversible stride-3 inspection view. CTest
+  pins the shipped profile at seven 57-byte records, 19 groups per record, 113
+  nonzero groups, 20 zero groups, and 150 zero bytes. No live gameplay behavior
+  changed.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor
@@ -445,6 +451,12 @@ Baseline: `origin/main`
 
 ## Validation
 
+- 2026-05-15 GRAN profile checkpoint: native Windows build helper passed with
+  `-SkipTests`, then focused CTest passed 4/4 for
+  `gran|level_raw_roundtrip|validate_assets`, covering `validate_assets`,
+  `level_raw_roundtrip`, `gran_raw_roundtrip`, and the new
+  `gran_record_profile` check. `git diff --check` passed with only existing
+  CRLF normalization warnings on touched Markdown files.
 - 2026-05-11 continuation: bundled Python helper/oracle checks passed for
   `tools/check_actor_update_debug_capture_helper.py`,
   `tools/check_contact_scanner_debug_capture_helper.py`,
@@ -1130,7 +1142,8 @@ Baseline: `origin/main`
 - Exact two-player panel artwork and full death/reentry presentation.
 - Exact sprite frame tables for impact/death/reward frames remain unresolved.
 - `GRAN.MST` field semantics remain unknown; consolidation only locks file
-  shape and raw/json byte preservation.
+  shape, raw/json byte preservation, and a conservative byte-profile diagnostic
+  for future loader/runtime comparisons.
 
 ## Next Planned Target
 

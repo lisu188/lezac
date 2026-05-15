@@ -545,7 +545,10 @@ default/timing/route-step probes load the patch but do not reach that freeze.
   `5` while restoring the player energy byte to `100`. Live player damage now
   accumulates per-player damage bytes and drains them once per update pass,
   matching the recovered `DS:79e8`/`DS:79e9` model and original unsigned byte
-  underflow death check rather than a modern one-hit cooldown gate. Manual
+  underflow death check rather than a modern one-hit cooldown gate.
+  `tools/check_sound_callsite_map.py` keeps those six recovered non-explosion
+  cue claims tied to `docs/GHIDRA_NOTES.md`, `src/main.cpp`, and CTest names.
+  Manual
   reentry/restart still waits for the recovered state-2 `0x003c` countdown
   before returning a player to active control. The state-2 death/reentry
   animation initializer is now documented as the seven-byte `actor + 0x16`

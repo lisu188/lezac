@@ -1,11 +1,17 @@
 # Recovery Status
 
-Last reviewed: 2026-05-12
-Branch: `codex/forward-lane-result-seeded-evidence`
+Last reviewed: 2026-05-15
+Branch: `codex/sound-callsite-evidence-handoff`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `tools/check_sound_callsite_map.py` as a no-DOSBox evidence handoff
+  checker for the six recovered non-explosion gameplay cues. The checker locks
+  the Ghidra anchors, cursor/priority evidence, C++ request sites, README
+  claims, and CTest names for bomb-object destruction, portals, tile triggers,
+  bonus pickups, player damage, and player death, plus the direct explosion
+  sweep cursors and the `1000:165a..167d` sound latch.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor

@@ -20,6 +20,11 @@ Baseline: `origin/main`
   and comparison frame artifacts plus the supporting recovery note. Its CTest
   self-test now exercises a synthetic promoted fixture and verifies missing
   checked-in comparison artifacts are rejected.
+- Added `tools/summarize_debug_capture_ready_results.py` and synthetic coverage
+  so generic debug-capture ready runs now have the same result-review gate as
+  actor-dispatch and lane-result handoffs. The summarizer counts planned,
+  executed, failed, and environment-preflight states and can require successful
+  executed candidates before promotion.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor

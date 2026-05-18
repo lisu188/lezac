@@ -177,6 +177,11 @@ Review or execute that manifest with
 or omit `--dry-run` on a prepared host. The runner validates oracle/flag pairs,
 can require per-candidate `environment_preflight=ok`, writes optional logs, and
 can leave a result manifest for later promotion review.
+Summarize that result manifest with
+`python3 tools/summarize_debug_capture_ready_results.py <result_manifest>`;
+use `--require-success --require-executed --require-source-environment-preflight`
+before promoting generic behavior-4, actor-update, or contact-scanner runtime
+evidence.
 Actor/contact update evidence is normalized with
 `--debug-actor-update-runtime-oracle <fixture> [--expect-error]`. Its synthetic
 fixtures cover parser behavior only: runtime captures still need to prove exact

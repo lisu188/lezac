@@ -278,6 +278,12 @@ can write a result manifest for the planned or executed oracle commands. Result
 manifests and logs are expected to stay outside the repository by default.
 `tools/summarize_actor_dispatch_ready_results.py` summarizes that result
 manifest and can gate promotion on successful executed oracle runs.
+The generic behavior-4/actor-update/contact-scanner debug-capture handoff now
+has the same final review step:
+`tools/summarize_debug_capture_ready_results.py` summarizes result manifests
+from `tools/run_debug_capture_ready_manifest.py` and can require successful
+executed candidates with verified per-candidate environment preflights before
+promotion.
 
 ## Bomb Inventory
 

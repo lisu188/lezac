@@ -757,7 +757,7 @@ if(BUILD_TESTING)
         set_tests_properties(visual_claim_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^visual_claim_guardrail=ok fixtures=70 claim0=70 claim1=0 ctest=1 docs=3")
+                "^visual_claim_guardrail=ok fixtures=70 claim0=70 claim1=0 ledger=1 promoted=0 ctest=1 docs=3")
 
         add_test(NAME explosion_lane_result_capture_orchestrator_preflight
             COMMAND ${Python3_EXECUTABLE}

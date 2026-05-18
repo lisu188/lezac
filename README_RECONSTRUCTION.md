@@ -221,7 +221,10 @@ evidence. Supported targets are `actor_update_start`, `actor_update_end`,
 `contact_scanner_start`, and `contact_scanner_end`.
 `tools/check_visual_claim_guardrail.py` requires every checked-in DOSBox oracle
 fixture to carry an explicit `visual_claim=0` or `visual_claim=1` line so
-instrumentation-only evidence cannot be promoted by omission.
+instrumentation-only evidence cannot be promoted by omission. Promotions to
+`visual_claim=1` must also be recorded in
+`docs/recovery/visual_claim_promotions.md` with original, C++, and comparison
+frame artifacts.
 `contact_scanner_callsite` maps the static near call at `1000:6555` that targets
 `1000:5CB0`; `tools/check_actor_contact_callsite_scan.py` verifies that callsite
 and the entry/return bytes against `LEZAC.EXE`.

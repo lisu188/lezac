@@ -14,7 +14,10 @@ Baseline: `origin/main`
 - Added `tools/check_visual_claim_guardrail.py` and explicit `visual_claim=0`
   lines to the remaining state-2 DOSBox oracle fixtures. All checked-in DOSBox
   fixtures now have a declared visual claim so parser/runtime evidence cannot
-  accidentally masquerade as promoted frame evidence.
+  accidentally masquerade as promoted frame evidence. The checker now also
+  gates any future `visual_claim=1` fixture on
+  `docs/recovery/visual_claim_promotions.md`, which must name original, C++,
+  and comparison frame artifacts plus the supporting recovery note.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor

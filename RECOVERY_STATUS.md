@@ -17,7 +17,9 @@ Baseline: `origin/main`
   accidentally masquerade as promoted frame evidence. The checker now also
   gates any future `visual_claim=1` fixture on
   `docs/recovery/visual_claim_promotions.md`, which must name original, C++,
-  and comparison frame artifacts plus the supporting recovery note.
+  and comparison frame artifacts plus the supporting recovery note. Its CTest
+  self-test now exercises a synthetic promoted fixture and verifies missing
+  checked-in comparison artifacts are rejected.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor

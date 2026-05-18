@@ -165,7 +165,8 @@ fixture to carry an explicit `visual_claim=0` or `visual_claim=1` line; claims
 remain `0` unless original frame/presentation evidence has been promoted.
 Promoted fixture entries must be recorded in
 `docs/recovery/visual_claim_promotions.md` with original, C++, and comparison
-frame artifacts.
+frame artifacts. The CTest self-test for `tools/check_visual_claim_guardrail.py`
+exercises a synthetic promoted fixture and rejects missing checked-in artifacts.
 
 The C++ collision/passability model currently treats destruction-progress tiles
 as solid except passable object cells. A cell is passable when its tile is the

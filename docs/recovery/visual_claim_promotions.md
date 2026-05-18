@@ -23,3 +23,7 @@ Machine-readable promoted entries use this shape:
 
 Current promoted visual fixtures: none. All checked-in DOSBox oracle fixtures
 currently remain `visual_claim=0`.
+
+`tools/check_visual_claim_guardrail.py --self-test` exercises a synthetic
+promoted fixture and confirms the checker rejects a missing comparison artifact
+and a mismatched ledger fixture.

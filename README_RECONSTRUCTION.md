@@ -501,6 +501,9 @@ default/timing/route-step probes load the patch but do not reach that freeze.
   8-byte player name.
 - `PROEFS.SON` parsing as a fixed-size sound-effect bank and `GRAN.MST`
   parsing as seven fixed-size opaque records.
+  `tools/check_gran_usage_guardrail.py` keeps `GRAN.MST` limited to loading,
+  validation, byte-preserving roundtrip/debug output, and stored opaque records
+  until original evidence proves a live gameplay or rendering use.
 - `LIVELS.SCH` seven-level parsing with the Ghidra-confirmed 3-byte level RLE,
   decoded word layer, monster spawner records, portal/start records, and tile
   trigger rules.

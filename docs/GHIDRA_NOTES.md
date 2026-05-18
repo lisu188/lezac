@@ -88,6 +88,10 @@ quirk.
   semantics are still unresolved. Runtime JSON loading now rejects any converted
   shape other than `7 * 57` bytes, and `--debug-gran-raw-roundtrip` verifies
   the converted JSON bytes exactly match the shipped 399-byte file.
+  `tools/check_gran_usage_guardrail.py` confirms the current C++ port only
+  loads, stores, validates, and debug-prints those opaque records; no live
+  gameplay or rendering path may consume `GRAN.MST` without first adding
+  evidence.
 
 ## Level Entity Blocks
 

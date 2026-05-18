@@ -1,11 +1,16 @@
 # Recovery Status
 
-Last reviewed: 2026-05-12
-Branch: `codex/forward-lane-result-seeded-evidence`
+Last reviewed: 2026-05-18
+Branch: `codex/gran-usage-guardrail`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `tools/check_gran_usage_guardrail.py` to keep `GRAN.MST` as explicitly
+  opaque data in the current C++ port. The checker counts all `gran_` source
+  references and permits only loading, member storage, validation, and
+  debug/roundtrip reporting; any new live gameplay or rendering use fails until
+  original evidence proves the semantics.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor

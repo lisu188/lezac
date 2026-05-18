@@ -11,6 +11,10 @@ Baseline: `origin/main`
   references and permits only loading, member storage, validation, and
   debug/roundtrip reporting; any new live gameplay or rendering use fails until
   original evidence proves the semantics.
+- Added `tools/check_visual_claim_guardrail.py` and explicit `visual_claim=0`
+  lines to the remaining state-2 DOSBox oracle fixtures. All checked-in DOSBox
+  fixtures now have a declared visual claim so parser/runtime evidence cannot
+  accidentally masquerade as promoted frame evidence.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor

@@ -280,6 +280,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_scanner_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_batch_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_ready_pipeline.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_fixtures.py
@@ -700,6 +701,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^debug_capture_ready_results_check=ok cases=6")
+
+        add_test(NAME debug_capture_ready_pipeline_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_ready_pipeline.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(debug_capture_ready_pipeline_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^debug_capture_ready_pipeline_check=ok cases=2")
 
         add_test(NAME actor_contact_procmem_helper_expectations
             COMMAND ${Python3_EXECUTABLE}

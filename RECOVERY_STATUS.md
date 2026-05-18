@@ -24,7 +24,9 @@ Baseline: `origin/main`
   so generic debug-capture ready runs now have the same result-review gate as
   actor-dispatch and lane-result handoffs. The summarizer counts planned,
   executed, failed, and environment-preflight states and can require successful
-  executed candidates before promotion.
+  executed candidates before promotion. `tools/check_debug_capture_ready_pipeline.py`
+  now covers the full generic batch-summary, ready-runner, and result-summary
+  handoff with synthetic data.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor

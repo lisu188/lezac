@@ -181,7 +181,8 @@ Summarize that result manifest with
 `python3 tools/summarize_debug_capture_ready_results.py <result_manifest>`;
 use `--require-success --require-executed --require-source-environment-preflight`
 before promoting generic behavior-4, actor-update, or contact-scanner runtime
-evidence.
+evidence. `tools/check_debug_capture_ready_pipeline.py` exercises this full
+batch-summary, ready-runner, and result-summary handoff with synthetic data.
 Actor/contact update evidence is normalized with
 `--debug-actor-update-runtime-oracle <fixture> [--expect-error]`. Its synthetic
 fixtures cover parser behavior only: runtime captures still need to prove exact

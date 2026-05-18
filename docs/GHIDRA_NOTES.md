@@ -283,7 +283,9 @@ has the same final review step:
 `tools/summarize_debug_capture_ready_results.py` summarizes result manifests
 from `tools/run_debug_capture_ready_manifest.py` and can require successful
 executed candidates with verified per-candidate environment preflights before
-promotion.
+promotion. `tools/check_debug_capture_ready_pipeline.py` covers the full
+synthetic handoff so future capture tooling changes cannot break the promotion
+path silently.
 
 ## Bomb Inventory
 

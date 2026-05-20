@@ -122,6 +122,7 @@ def main() -> int:
             "logs_present=1",
             "logs_missing=1",
             "candidate_result index=0 route=x2p00 offset=3d3f",
+            "fixture=/tmp/lane_forward.txt",
             "candidate_result index=1 route=x1p50_z0p50 offset=3ed3",
             "oracle_flag=--debug-explosion-playback-oracle",
         ]:
@@ -155,6 +156,7 @@ def main() -> int:
                     "candidate_0_route=x2p00",
                     "candidate_0_offset_label=3d3f",
                     "candidate_0_offset_address=1000:3D3F",
+                    "candidate_0_fixture=/tmp/lane.txt",
                     "candidate_0_oracle=explosion_playback",
                     "candidate_0_oracle_flag=--debug-explosion-playback-oracle",
                     "candidate_0_status=planned",
@@ -213,6 +215,7 @@ def main() -> int:
                     "candidate_0_route=x2p00",
                     "candidate_0_offset_label=3d3f",
                     "candidate_0_offset_address=1000:3D3F",
+                    "candidate_0_fixture=/tmp/lane.txt",
                     "candidate_0_oracle=explosion_playback",
                     "candidate_0_oracle_flag=--debug-explosion-playback-oracle",
                     "candidate_0_status=error",
@@ -273,6 +276,27 @@ def main() -> int:
         )
         cases += 1
 
+        command_manifest = base / "command" / "result_manifest.txt"
+        write_text(
+            command_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "candidate_1_command=./build/lezac_cpp --debug-explosion-playback-oracle /tmp/lane_reverse.txt",
+                "candidate_1_command=./build/lezac_cpp --debug-explosion-playback-oracle /tmp/wrong_lane_reverse.txt",
+            ),
+        )
+        command = run_summary(root, [str(command_manifest)], False)
+        require(
+            command,
+            "candidate_1_command does not end with oracle flag and fixture",
+            "command",
+        )
+        require(
+            command,
+            "expected ['--debug-explosion-playback-oracle', '/tmp/lane_reverse.txt']",
+            "command",
+        )
+        cases += 1
+
         extra_manifest = base / "extra" / "result_manifest.txt"
         write_text(
             extra_manifest,
@@ -314,6 +338,7 @@ def main() -> int:
                     "candidate_0_route=x2p00",
                     "candidate_0_offset_label=3d3f",
                     "candidate_0_offset_address=1000:3D3F",
+                    "candidate_0_fixture=/tmp/lane.txt",
                     "candidate_0_oracle=explosion_playback",
                     "candidate_0_oracle_flag=--debug-explosion-playback-oracle",
                     "candidate_0_status=skipped",

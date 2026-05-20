@@ -68,8 +68,9 @@ Baseline: `origin/main`
   candidate records appear outside `ready_candidates=`. They now also require
   `mode=run` to contain no planned candidates and `mode=dry_run` to contain
   only planned candidates; mismatched per-candidate oracle flags fail at parse
-  time, and `--require-success` rejects any remaining unknown candidate
-  statuses instead of treating them as promotable evidence.
+  time, recorded commands must end with the matching oracle flag and fixture,
+  and `--require-success` rejects any remaining unknown candidate statuses
+  instead of treating them as promotable evidence.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

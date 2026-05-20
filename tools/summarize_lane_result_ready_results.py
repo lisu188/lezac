@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
+import shlex
 import sys
 
 
@@ -27,6 +28,7 @@ class CandidateResult:
     route: str
     offset_label: str
     offset_address: str
+    fixture: str
     oracle: str
     oracle_flag: str
     status: str
@@ -94,6 +96,24 @@ def parse_oracle_flag(values: dict[str, str], prefix: str) -> tuple[str, str]:
     return oracle, oracle_flag
 
 
+def parse_command(
+    values: dict[str, str], prefix: str, oracle_flag: str, fixture: str
+) -> str:
+    command = require(values, f"{prefix}_command")
+    try:
+        arguments = shlex.split(command)
+    except ValueError as exc:
+        raise ValueError(f"{prefix}_command is not parseable: {exc}") from exc
+    expected_tail = [oracle_flag, fixture]
+    if len(arguments) < len(expected_tail) or arguments[-2:] != expected_tail:
+        actual_tail = arguments[-2:] if len(arguments) >= 2 else arguments
+        raise ValueError(
+            f"{prefix}_command does not end with oracle flag and fixture; "
+            f"expected {expected_tail!r} got {actual_tail!r}"
+        )
+    return command
+
+
 def candidate_indices(values: dict[str, str]) -> set[int]:
     indices: set[int] = set()
     for key in values:
@@ -123,18 +143,21 @@ def parse_candidates(values: dict[str, str]) -> list[CandidateResult]:
     for index in range(count):
         prefix = f"candidate_{index}"
         oracle, oracle_flag = parse_oracle_flag(values, prefix)
+        fixture = require(values, f"{prefix}_fixture")
+        command = parse_command(values, prefix, oracle_flag, fixture)
         candidates.append(
             CandidateResult(
                 index=index,
                 route=require(values, f"{prefix}_route"),
                 offset_label=require(values, f"{prefix}_offset_label"),
                 offset_address=require(values, f"{prefix}_offset_address"),
+                fixture=fixture,
                 oracle=oracle,
                 oracle_flag=oracle_flag,
                 status=require(values, f"{prefix}_status"),
                 returncode=require(values, f"{prefix}_returncode"),
                 log=require(values, f"{prefix}_log"),
-                command=require(values, f"{prefix}_command"),
+                command=command,
             )
         )
     return candidates
@@ -280,6 +303,7 @@ def main() -> int:
             f"route={candidate.route} "
             f"offset={candidate.offset_label} "
             f"offset_address={candidate.offset_address} "
+            f"fixture={candidate.fixture} "
             f"oracle={candidate.oracle} "
             f"oracle_flag={candidate.oracle_flag} "
             f"status={candidate.status} "

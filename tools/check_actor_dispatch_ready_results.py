@@ -126,6 +126,7 @@ def main() -> int:
             "logs_present=1",
             "logs_missing=1",
             "candidate_result index=0 target=actor_update_gate6",
+            "fixture=/tmp/actor_update.txt",
             "candidate_result index=1 target=contact_scanner_start",
             "oracle_flag=--debug-contact-scanner-runtime-oracle",
         ]:
@@ -158,6 +159,7 @@ def main() -> int:
                     "failures=0",
                     "candidate_0_target=actor_update_gate6",
                     "candidate_0_route=x3p00",
+                    "candidate_0_fixture=/tmp/actor_update.txt",
                     "candidate_0_oracle=actor_update",
                     "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",
                     "candidate_0_status=planned",
@@ -216,6 +218,7 @@ def main() -> int:
                     "failures=1",
                     "candidate_0_target=actor_update_gate6",
                     "candidate_0_route=x3p00",
+                    "candidate_0_fixture=/tmp/actor_update.txt",
                     "candidate_0_oracle=actor_update",
                     "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",
                     "candidate_0_status=error",
@@ -275,6 +278,27 @@ def main() -> int:
         )
         cases += 1
 
+        command_manifest = base / "command" / "result_manifest.txt"
+        write_text(
+            command_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "candidate_0_command=./build/lezac_cpp --debug-actor-update-runtime-oracle /tmp/actor_update.txt",
+                "candidate_0_command=./build/lezac_cpp --debug-actor-update-runtime-oracle /tmp/wrong_actor_update.txt",
+            ),
+        )
+        command = run_summary(root, [str(command_manifest)], False)
+        require(
+            command,
+            "candidate_0_command does not end with oracle flag and fixture",
+            "command",
+        )
+        require(
+            command,
+            "expected ['--debug-actor-update-runtime-oracle', '/tmp/actor_update.txt']",
+            "command",
+        )
+        cases += 1
+
         extra_manifest = base / "extra" / "result_manifest.txt"
         write_text(
             extra_manifest,
@@ -315,6 +339,7 @@ def main() -> int:
                     "failures=0",
                     "candidate_0_target=actor_update_gate6",
                     "candidate_0_route=x3p00",
+                    "candidate_0_fixture=/tmp/actor_update.txt",
                     "candidate_0_oracle=actor_update",
                     "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",
                     "candidate_0_status=skipped",

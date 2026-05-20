@@ -166,6 +166,7 @@ def main() -> int:
             "logs_present=1",
             "logs_missing=0",
             "candidate_result index=0 capture=behavior4_runtime",
+            "fixture=/tmp/capture/behavior4.txt",
             "candidate_result index=2 capture=visual_table",
             "oracle=visual_table",
             "oracle_flag=--debug-visual-table-oracle",
@@ -244,6 +245,27 @@ def main() -> int:
         )
         cases += 1
 
+        command_manifest = base / "command" / "result_manifest.txt"
+        write_text(
+            command_manifest,
+            manifest_text(log).replace(
+                "candidate_2_command=/tmp/lezac_cpp --debug-visual-table-oracle /tmp/capture/visual_table.txt",
+                "candidate_2_command=/tmp/lezac_cpp --debug-visual-table-oracle /tmp/capture/wrong_visual_table.txt",
+            ),
+        )
+        command = run_summary(root, [str(command_manifest)], False)
+        require(
+            command,
+            "candidate_2_command does not end with oracle flag and fixture",
+            "command_summary",
+        )
+        require(
+            command,
+            "expected ['--debug-visual-table-oracle', '/tmp/capture/visual_table.txt']",
+            "command_summary",
+        )
+        cases += 1
+
         extra_manifest = base / "extra" / "result_manifest.txt"
         write_text(
             extra_manifest,
@@ -288,6 +310,7 @@ def main() -> int:
                     "candidate_0_runtime_metadata=ok",
                     "candidate_0_oracle=behavior4",
                     "candidate_0_oracle_flag=--debug-behavior4-runtime-oracle",
+                    "candidate_0_fixture=/tmp/capture/behavior4.txt",
                     "candidate_0_status=skipped",
                     "candidate_0_returncode=not_run",
                     "candidate_0_log=none",

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -17,7 +18,12 @@ def default_repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-def run_wrapper(root: Path, args: list[str], expect_success: bool = True) -> str:
+def run_wrapper_env(
+    root: Path,
+    args: list[str],
+    env: dict[str, str] | None = None,
+    expect_success: bool = True,
+) -> str:
     command = [
         sys.executable,
         str(root / "tools" / "capture_original_lane_result_runtime.py"),
@@ -30,6 +36,7 @@ def run_wrapper(root: Path, args: list[str], expect_success: bool = True) -> str
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         check=False,
+        env=env,
     )
     if expect_success and result.returncode != 0:
         raise RuntimeError(
@@ -42,6 +49,16 @@ def run_wrapper(root: Path, args: list[str], expect_success: bool = True) -> str
             f"{result.stdout}"
         )
     return result.stdout
+
+
+def run_wrapper(root: Path, args: list[str], expect_success: bool = True) -> str:
+    return run_wrapper_env(root, args, None, expect_success)
+
+
+def empty_path_env(empty_dir: Path) -> dict[str, str]:
+    env = os.environ.copy()
+    env["PATH"] = str(empty_dir)
+    return env
 
 
 def require(text: str, snippet: str, case: str) -> None:
@@ -110,6 +127,11 @@ def main() -> int:
             "offsets=2 capture_commands=2 oracle_commands=0",
             "offset_labels=3d3f,3ed3",
             "offset_addresses=1000:3D3F,1000:3ED3",
+            "environment_preflight=1",
+            "environment_preflight_command=",
+            "--probe-wsl",
+            "--require-wsl-bash-on-windows",
+            "--require-procmem-capture",
             "capture_command_3d3f=",
             "capture_command_3ed3=",
         ],
@@ -299,6 +321,32 @@ def main() -> int:
     )
     cases += 1
 
+    skip_environment = run_wrapper(
+        root,
+        [
+            str(out_base / "skip-environment"),
+            str(root),
+            "--dry-run",
+            "--skip-oracle",
+            "--skip-environment-preflight",
+        ],
+    )
+    check_success(
+        skip_environment,
+        "skip_environment",
+        [
+            "mode=dry_run",
+            "environment_preflight=0",
+            "offsets=2 capture_commands=2 oracle_commands=0",
+        ],
+    )
+    require_not(
+        skip_environment,
+        "environment_preflight_command=",
+        "skip_environment",
+    )
+    cases += 1
+
     require(
         run_wrapper(
             root,
@@ -341,6 +389,34 @@ def main() -> int:
         ),
         "refusing runtime capture without --approve-procmem",
         "requires_approval",
+    )
+    cases += 1
+
+    with tempfile.TemporaryDirectory(prefix="lezac-lane-wrapper-empty-path-") as tmp:
+        live_preflight = run_wrapper_env(
+            root,
+            [
+                str(out_base / "live-preflight"),
+                str(root),
+                "--approve-procmem",
+                "--approve-runtime-instrumentation",
+                "--skip-oracle",
+            ],
+            env=empty_path_env(Path(tmp)),
+            expect_success=False,
+        )
+    if os.name == "nt":
+        require(live_preflight, "reason=wsl_bash_not_usable", "live_preflight")
+        require(live_preflight, "wsl_bash_required=1", "live_preflight")
+    else:
+        require(live_preflight, "reason=missing_required", "live_preflight")
+        require(live_preflight, "wsl_bash_required=0", "live_preflight")
+    require(live_preflight, "wsl_bash_reason=missing_command", "live_preflight")
+    require(live_preflight, "missing_required=", "live_preflight")
+    require_not(
+        live_preflight,
+        "lane_result_capture_orchestrator=ok mode=capture",
+        "live_preflight",
     )
     cases += 1
 

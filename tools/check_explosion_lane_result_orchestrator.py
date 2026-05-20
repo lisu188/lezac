@@ -37,6 +37,7 @@ EXPECTED_TESTS = {
             "offsets=2 capture_commands=2 oracle_commands=0",
             "offset_labels=3d3f,3ed3",
             "offset_addresses=1000:3D3F,1000:3ED3",
+            "environment_preflight=1",
             "result_tail=1",
             f"result_tail_bytes={EXPECTED_RESULT_TAIL}",
         ],
@@ -140,7 +141,7 @@ EXPECTED_TESTS = {
         "snippets": [
             "check_explosion_lane_result_wrapper.py",
             "${CMAKE_CURRENT_SOURCE_DIR}",
-            "lane_result_wrapper_output=ok cases=13",
+            "lane_result_wrapper_output=ok cases=15",
         ],
     },
 }
@@ -188,6 +189,8 @@ def main() -> int:
         "mode=capture out_dir=",
         "offset_labels={offset_labels(offsets)}",
         "offset_addresses={offset_addresses(offsets)}",
+        "environment_preflight={environment_preflight}",
+        "build_environment_preflight_command",
         "manifest={manifest}",
     ]:
         if snippet not in source:

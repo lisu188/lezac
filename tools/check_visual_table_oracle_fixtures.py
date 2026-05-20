@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check actor-update runtime oracle fixtures and test wiring."""
+"""Check visual-table oracle fixtures and test wiring."""
 
 from __future__ import annotations
 
@@ -8,18 +8,18 @@ from pathlib import Path
 import re
 
 
-REQUIRED_OFFSETS = [0x5CB0, 0x604F, 0x6053, 0x777F]
+REQUIRED_OFFSETS = [0x3108, 0x6053, 0x6148, 0x7C89, 0x7DDF]
+FRAME_ENTRY_BASE = 0xC322
 
 EXPECTED_OUTCOMES = {
-    "actor_update_runtime_oracle_synthetic.txt": "ok",
-    "actor_update_runtime_oracle_dispatch_gates_synthetic.txt": "ok",
-    "actor_update_runtime_oracle_bad_segment.txt": (
+    "visual_table_oracle_synthetic.txt": "ok",
+    "visual_table_oracle_bad_segment.txt": (
         "breakpoint_segment_mismatch expected=0x1a2b actual=0xffff"
     ),
-    "actor_update_runtime_oracle_missing_contact_scan.txt": "contact_scan_missing",
-    "actor_update_runtime_oracle_bad_actor_slot.txt": "actor_slot_changed before=0 after=2",
+    "visual_table_oracle_missing_row_byte.txt": "missing_byte address=c4ed",
+    "visual_table_oracle_sprite_without_row.txt": "visual_row_missing_for_sprite",
 }
-ORIGINAL_PREFIX = "actor_update_runtime_oracle_original"
+ORIGINAL_PREFIX = "visual_table_oracle_original"
 
 
 def expected_outcome_for(name: str) -> str | None:
@@ -43,6 +43,15 @@ def parse_hex16(token: str, field: str) -> int:
     return int(value, 16)
 
 
+def parse_hex_byte(token: str, field: str) -> int:
+    value = token.strip()
+    if value.lower().startswith("0x"):
+        value = value[2:]
+    if not re.fullmatch(r"[0-9a-fA-F]{2}", value):
+        raise RuntimeError(f"bad hex byte field={field} token={token}")
+    return int(value, 16)
+
+
 def parse_int(token: str, field: str) -> int:
     try:
         return int(token, 0)
@@ -63,17 +72,31 @@ def parse_record(line: str) -> tuple[str, dict[str, str]]:
     return record, fields
 
 
-def require_field(fields: dict[str, str], name: str, record: str) -> int:
+def require_field(fields: dict[str, str], name: str, record: str) -> str:
     if name not in fields:
-        return -999999
-    return parse_int(fields[name], f"{record}.{name}")
+        raise RuntimeError(f"{record}_{name}_missing")
+    return fields[name]
 
 
-def parse_fixture(path: Path) -> tuple[dict[str, str], dict[str, dict[str, str]], list[tuple[int, int, int, int]], int]:
+def parse_row_bytes(value: str, field: str) -> list[int]:
+    parts = [part.strip() for part in value.split(",")]
+    if len(parts) != 4:
+        return []
+    return [parse_hex_byte(part, field) for part in parts]
+
+
+def parse_fixture(
+    path: Path,
+) -> tuple[
+    dict[str, str],
+    dict[str, dict[str, str]],
+    list[tuple[int, int, int, int]],
+    dict[int, int],
+]:
     values: dict[str, str] = {}
     records: dict[str, dict[str, str]] = {}
     breaks: list[tuple[int, int, int, int]] = []
-    dump_bytes = 0
+    memory: dict[int, int] = {}
     key_re = re.compile(r"^([A-Za-z0-9_]+)=(.*)$")
     break_re = re.compile(
         r"^break\s+ghidra=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\s+"
@@ -99,7 +122,7 @@ def parse_fixture(path: Path) -> tuple[dict[str, str], dict[str, dict[str, str]]
                 )
             )
             continue
-        if line.startswith(("actor_before ", "actor_after ", "contact_scan ", "tile_probe ")):
+        if line.startswith(("actor ", "visual ", "effect_before ", "effect_after ")):
             record, fields = parse_record(line)
             records[record] = fields
             continue
@@ -109,20 +132,20 @@ def parse_fixture(path: Path) -> tuple[dict[str, str], dict[str, dict[str, str]]
             if "runtime_ds" in values and segment != parse_hex16(
                 values["runtime_ds"], "runtime_ds"
             ):
-                return values, records, breaks, -1
-            for byte_text in match.group(3).split():
-                if not re.fullmatch(r"[0-9a-fA-F]{2}", byte_text):
-                    raise RuntimeError(f"bad dump byte token={byte_text}")
-                dump_bytes += 1
+                memory[-1] = -1
+                continue
+            address = parse_hex16(match.group(2), "row_address")
+            for index, byte_text in enumerate(match.group(3).split()):
+                memory[address + index] = parse_hex_byte(byte_text, "dump")
             continue
-    return values, records, breaks, dump_bytes
+    return values, records, breaks, memory
 
 
 def infer_outcome(
     values: dict[str, str],
     records: dict[str, dict[str, str]],
     breaks: list[tuple[int, int, int, int]],
-    dump_bytes: int,
+    memory: dict[int, int],
 ) -> str:
     if "runtime_cs" not in values:
         return "runtime_cs_missing"
@@ -130,8 +153,6 @@ def infer_outcome(
         return "runtime_ds_missing"
     if "scenario" not in values:
         return "scenario_missing"
-    if "level" not in values:
-        return "level_missing"
     if values.get("visual_claim", "0") != "0":
         return "visual_claim_not_supported"
     runtime_cs = parse_hex16(values["runtime_cs"], "runtime_cs")
@@ -151,42 +172,96 @@ def infer_outcome(
                 "breakpoint_offset_mismatch expected="
                 f"{ghidra_offset:04x} actual={runtime_offset:04x}"
             )
+    if values["scenario"] != "state2_death_table_consumption":
+        return f"unknown_scenario value={values['scenario']}"
     seen_offsets = {ghidra_offset for _, ghidra_offset, _, _ in breaks}
     for offset in REQUIRED_OFFSETS:
         if offset not in seen_offsets:
             return f"missing_breakpoint offset={offset:04x}"
-    if "actor_before" not in records:
-        return "actor_before_missing"
-    if "actor_after" not in records:
-        return "actor_after_missing"
-    if "contact_scan" not in records:
-        return "contact_scan_missing"
-    if "tile_probe" not in records:
-        return "tile_probe_missing"
+    if "actor" not in records:
+        return "actor_missing"
+    if "visual" not in records:
+        return "visual_missing"
+    if "effect_before" not in records:
+        return "effect_before_missing"
+    if "effect_after" not in records:
+        return "effect_after_missing"
 
-    before_slot = require_field(records["actor_before"], "slot", "actor_before")
-    after_slot = require_field(records["actor_after"], "slot", "actor_after")
-    if before_slot != after_slot:
-        return f"actor_slot_changed before={before_slot} after={after_slot}"
-    subject_slot = require_field(records["contact_scan"], "subject_slot", "contact_scan")
-    if before_slot != subject_slot:
-        return f"contact_scan_subject_mismatch actor={before_slot} scan={subject_slot}"
-    before_flags = require_field(records["actor_before"], "flags", "actor_before")
-    scan_before = require_field(records["contact_scan"], "flags_before", "contact_scan")
-    if before_flags != scan_before:
+    actor = records["actor"]
+    visual = records["visual"]
+    effect_before = records["effect_before"]
+    effect_after = records["effect_after"]
+    anim_current = parse_hex16(
+        require_field(actor, "anim_current", "actor"), "actor.anim_current"
+    )
+    visual_frame = parse_hex16(
+        require_field(visual, "frame", "visual"), "visual.frame"
+    )
+    if visual_frame != anim_current:
+        return f"visual_frame_mismatch actor=0x{anim_current:02x} visual=0x{visual_frame:02x}"
+    row_address = parse_hex16(
+        require_field(visual, "row_addr", "visual"), "visual.row_addr"
+    )
+    expected_row_address = FRAME_ENTRY_BASE + visual_frame * 4
+    if row_address != expected_row_address:
         return (
-            "contact_flags_before_mismatch actor="
-            f"0x{before_flags & 0xffff:04x} scan=0x{scan_before & 0xffff:04x}"
+            "row_addr_mismatch expected="
+            f"0x{expected_row_address:04x} actual=0x{row_address:04x}"
         )
-    after_flags = require_field(records["actor_after"], "flags", "actor_after")
-    scan_after = require_field(records["contact_scan"], "flags_after", "contact_scan")
-    if after_flags != scan_after:
-        return (
-            "contact_flags_after_mismatch actor="
-            f"0x{after_flags & 0xffff:04x} scan=0x{scan_after & 0xffff:04x}"
-        )
-    if dump_bytes < 0:
+    has_visual_row = "row" in visual
+    if "sprite_index" in visual and not has_visual_row:
+        return "visual_row_missing_for_sprite"
+    if not has_visual_row:
+        return "visual_row_missing"
+    claimed_row = parse_row_bytes(require_field(visual, "row", "visual"), "visual.row")
+    if len(claimed_row) != 4:
+        return "row_byte_count field=visual.row"
+    if -1 in memory:
         return "dump_segment_mismatch"
+    memory_row: list[int] = []
+    for address in range(row_address, row_address + 4):
+        if address not in memory:
+            return f"missing_byte address={address:04x}"
+        memory_row.append(memory[address])
+    if claimed_row != memory_row:
+        expected = ",".join(f"{byte:02x}" for byte in memory_row)
+        actual = ",".join(f"{byte:02x}" for byte in claimed_row)
+        return f"visual_row_mismatch expected={expected} actual={actual}"
+
+    bank = require_field(visual, "bank", "visual").upper().removesuffix(".SPR")
+    bank_counts = {"BOMOMIMK": 91, "PROVA": 91, "FONTS": 68}
+    if bank not in bank_counts:
+        return f"unknown_sprite_bank value={bank}"
+    sprite_index = parse_int(
+        require_field(visual, "sprite_index", "visual"), "visual.sprite_index"
+    )
+    if sprite_index < 0 or sprite_index >= bank_counts[bank]:
+        return f"sprite_index_out_of_range bank={bank} index={sprite_index}"
+    sprite_source = visual.get("sprite_source", "runtime")
+    if sprite_source == "row_byte0" and sprite_index != claimed_row[0]:
+        return (
+            "sprite_index_row0_mismatch row0="
+            f"{claimed_row[0]} sprite_index={sprite_index}"
+        )
+    if sprite_source not in {"row_byte0", "runtime_draw_call", "static_table"}:
+        return f"bad_sprite_source value={sprite_source}"
+    before_slot = parse_int(
+        require_field(effect_before, "slot", "effect_before"), "effect_before.slot"
+    )
+    after_slot = parse_int(
+        require_field(effect_after, "slot", "effect_after"), "effect_after.slot"
+    )
+    if before_slot != after_slot:
+        return f"effect_slot_changed before={before_slot} after={after_slot}"
+    before_frame = parse_hex16(
+        require_field(effect_before, "frame", "effect_before"),
+        "effect_before.frame",
+    )
+    if before_frame != visual_frame:
+        return (
+            "effect_before_frame_mismatch expected="
+            f"0x{visual_frame:02x} actual=0x{before_frame:02x}"
+        )
     return "ok"
 
 
@@ -207,12 +282,11 @@ def check_cmake_coverage(cmake_path: Path, fixture_names: set[str]) -> int:
     for fixture_name in sorted(fixture_names):
         expected = expected_outcome_for(fixture_name)
         if expected is None:
-            raise RuntimeError(f"unexpected actor-update fixture: {fixture_name}")
+            raise RuntimeError(f"unexpected visual-table fixture: {fixture_name}")
         stem = Path(fixture_name).stem
-        test_name = stem
-        if f"add_test(NAME {test_name}" not in text:
+        if f"add_test(NAME {stem}" not in text:
             raise RuntimeError(f"CMake coverage missing for {fixture_name}: add_test")
-        if f"set_tests_properties({test_name}" not in text:
+        if f"set_tests_properties({stem}" not in text:
             raise RuntimeError(
                 f"CMake coverage missing for {fixture_name}: set_tests_properties"
             )
@@ -221,12 +295,12 @@ def check_cmake_coverage(cmake_path: Path, fixture_names: set[str]) -> int:
                 f"CMake coverage missing for {fixture_name}: fixture path"
             )
         if expected == "ok":
-            required = f"actor_update_runtime_oracle=ok fixture={stem}"
-            if "--expect-error" in test_block(text, test_name):
+            required = f"visual_table_oracle=ok fixture={stem}"
+            if "--expect-error" in test_block(text, stem):
                 raise RuntimeError(f"valid fixture uses --expect-error: {fixture_name}")
         else:
-            required = f"actor_update_runtime_oracle=error fixture={stem} reason={expected}"
-            if "--expect-error" not in test_block(text, test_name):
+            required = f"visual_table_oracle=error fixture={stem} reason={expected}"
+            if "--expect-error" not in test_block(text, stem):
                 raise RuntimeError(
                     f"malformed fixture missing --expect-error: {fixture_name}"
                 )
@@ -240,22 +314,21 @@ def check_cmake_coverage(cmake_path: Path, fixture_names: set[str]) -> int:
 def check_source_contract(source_path: Path) -> None:
     text = source_path.read_text(encoding="utf-8")
     for snippet in [
-        "--debug-actor-update-runtime-oracle",
-        "debugActorUpdateRuntimeOracle",
-        "0x5cb0, 0x604f, 0x6053, 0x777f",
-        "contact_flags=",
-        "tile_probe=",
-        "damage_pending=",
-        "dispatch_gates=",
+        "--debug-visual-table-oracle",
+        "debugVisualTableOracle",
+        "requiredBreaks = {0x3108, 0x6053, 0x6148, 0x7c89, 0x7ddf}",
+        "row_addr=",
+        "sprite_source=",
+        "effect_after_frame=",
         "visual_claim=0",
     ]:
         if snippet not in text:
-            raise RuntimeError(f"C++ actor-update oracle missing snippet: {snippet}")
+            raise RuntimeError(f"C++ visual-table oracle missing snippet: {snippet}")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Check actor-update runtime oracle fixture expectations."
+        description="Check visual-table oracle fixture expectations."
     )
     parser.add_argument(
         "fixture_dir",
@@ -278,24 +351,24 @@ def main() -> int:
     args = parser.parse_args()
 
     fixture_dir = args.fixture_dir.resolve()
-    paths = sorted(fixture_dir.glob("actor_update_runtime_oracle*.txt"))
+    paths = sorted(fixture_dir.glob("visual_table_oracle*.txt"))
     names = {path.name for path in paths}
     missing = sorted(set(EXPECTED_OUTCOMES) - names)
     extra = sorted(name for name in names if expected_outcome_for(name) is None)
     if missing:
-        raise RuntimeError("missing actor-update fixtures: " + ",".join(missing))
+        raise RuntimeError("missing visual-table fixtures: " + ",".join(missing))
     if extra:
-        raise RuntimeError("unexpected actor-update fixtures: " + ",".join(extra))
+        raise RuntimeError("unexpected visual-table fixtures: " + ",".join(extra))
 
     ok_count = 0
     malformed_count = 0
     original_count = 0
     for path in paths:
-        values, records, breaks, dump_bytes = parse_fixture(path)
-        outcome = infer_outcome(values, records, breaks, dump_bytes)
+        values, records, breaks, memory = parse_fixture(path)
+        outcome = infer_outcome(values, records, breaks, memory)
         expected = expected_outcome_for(path.name)
         if expected is None:
-            raise RuntimeError(f"unexpected actor-update fixture: {path.name}")
+            raise RuntimeError(f"unexpected visual-table fixture: {path.name}")
         if outcome != expected:
             raise RuntimeError(
                 f"{path.name} outcome mismatch: expected {expected!r} got {outcome!r}"
@@ -316,7 +389,7 @@ def main() -> int:
         source_command = 1
 
     print(
-        "actor_update_runtime_oracle_fixtures=ok "
+        "visual_table_oracle_fixtures=ok "
         f"files={len(paths)} valid={ok_count} malformed={malformed_count} "
         f"original={original_count} cmake_tests={cmake_count} "
         f"source_command={source_command}"

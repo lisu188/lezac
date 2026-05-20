@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize lane-result ready-manifest oracle result manifests."""
+"""Summarize generic debug-capture ready-manifest oracle result manifests."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 import sys
 
 
-EXPECTED_RESULT = "lane_result_ready_manifest"
+EXPECTED_RESULT = "debug_capture_ready_manifest"
 
 
 @dataclass(frozen=True)
@@ -21,9 +21,11 @@ class ResultManifest:
 @dataclass(frozen=True)
 class CandidateResult:
     index: int
-    route: str
-    offset_label: str
-    offset_address: str
+    capture: str
+    scenario: str
+    level: str
+    environment_preflight: str
+    runtime_metadata: str
     oracle: str
     status: str
     returncode: str
@@ -54,26 +56,15 @@ def require(values: dict[str, str], key: str) -> str:
     return value
 
 
-def parse_count(values: dict[str, str]) -> int:
-    raw_count = require(values, "ready_candidates")
+def parse_nonnegative_int(values: dict[str, str], key: str) -> int:
+    raw_value = require(values, key)
     try:
-        count = int(raw_count, 10)
+        value = int(raw_value, 10)
     except ValueError as exc:
-        raise ValueError(f"invalid ready_candidates value: {raw_count!r}") from exc
-    if count < 0:
-        raise ValueError("ready_candidates must be non-negative")
-    return count
-
-
-def parse_failures(values: dict[str, str]) -> int:
-    raw_failures = require(values, "failures")
-    try:
-        failures = int(raw_failures, 10)
-    except ValueError as exc:
-        raise ValueError(f"invalid failures value: {raw_failures!r}") from exc
-    if failures < 0:
-        raise ValueError("failures must be non-negative")
-    return failures
+        raise ValueError(f"invalid {key} value: {raw_value!r}") from exc
+    if value < 0:
+        raise ValueError(f"{key} must be non-negative")
+    return value
 
 
 def candidate_indices(values: dict[str, str]) -> set[int]:
@@ -93,7 +84,7 @@ def parse_candidates(values: dict[str, str]) -> list[CandidateResult]:
     result = require(values, "result")
     if result != EXPECTED_RESULT:
         raise ValueError(f"unsupported result {result!r}; expected {EXPECTED_RESULT!r}")
-    count = parse_count(values)
+    count = parse_nonnegative_int(values, "ready_candidates")
     extras = sorted(index for index in candidate_indices(values) if index >= count)
     if extras:
         extra_text = ",".join(str(index) for index in extras)
@@ -107,9 +98,13 @@ def parse_candidates(values: dict[str, str]) -> list[CandidateResult]:
         candidates.append(
             CandidateResult(
                 index=index,
-                route=require(values, f"{prefix}_route"),
-                offset_label=require(values, f"{prefix}_offset_label"),
-                offset_address=require(values, f"{prefix}_offset_address"),
+                capture=require(values, f"{prefix}_capture"),
+                scenario=require(values, f"{prefix}_scenario"),
+                level=require(values, f"{prefix}_level"),
+                environment_preflight=require(
+                    values, f"{prefix}_environment_preflight"
+                ),
+                runtime_metadata=require(values, f"{prefix}_runtime_metadata"),
                 oracle=require(values, f"{prefix}_oracle"),
                 status=require(values, f"{prefix}_status"),
                 returncode=require(values, f"{prefix}_returncode"),
@@ -157,6 +152,17 @@ def mode_status_error(mode: str, counts: dict[str, int], candidate_count: int) -
     return f"unsupported_mode={mode} expected=run,dry_run"
 
 
+def environment_counts(candidates: list[CandidateResult]) -> tuple[int, int]:
+    ok = 0
+    not_ok = 0
+    for candidate in candidates:
+        if candidate.environment_preflight == "ok":
+            ok += 1
+        else:
+            not_ok += 1
+    return ok, not_ok
+
+
 def existing_log_count(candidates: list[CandidateResult]) -> tuple[int, int]:
     present = 0
     missing = 0
@@ -172,7 +178,7 @@ def existing_log_count(candidates: list[CandidateResult]) -> tuple[int, int]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Summarize lane-result ready-manifest oracle results."
+        description="Summarize debug-capture ready-manifest oracle results."
     )
     parser.add_argument("manifest", type=Path, help="result manifest or directory")
     parser.add_argument(
@@ -188,7 +194,7 @@ def main() -> int:
     parser.add_argument(
         "--require-source-environment-preflight",
         action="store_true",
-        help="exit nonzero unless source_environment_preflight=ok is recorded",
+        help="exit nonzero unless every candidate has environment_preflight=ok",
     )
     args = parser.parse_args()
 
@@ -196,20 +202,18 @@ def main() -> int:
         manifest = read_manifest(args.manifest)
         mode = require(manifest.values, "mode")
         source_manifest = require(manifest.values, "source_ready_manifest")
-        source_environment_preflight = manifest.values.get(
-            "source_environment_preflight", "unknown"
-        )
+        source_root = manifest.values.get("source_root", "unknown")
         oracle_binary = require(manifest.values, "oracle_binary")
-        failures = parse_failures(manifest.values)
+        failures = parse_nonnegative_int(manifest.values, "failures")
         candidates = parse_candidates(manifest.values)
     except (FileNotFoundError, OSError, ValueError) as exc:
-        print(f"lane_result_ready_result_summary=error reason={exc}", file=sys.stderr)
+        print(f"debug_capture_ready_result_summary=error reason={exc}", file=sys.stderr)
         return 1
 
     counts = status_counts(candidates)
     if failures != counts["error"]:
         print(
-            "lane_result_ready_result_summary=error "
+            "debug_capture_ready_result_summary=error "
             "reason=failure_count_mismatch "
             f"failures={failures} error={counts['error']}",
             file=sys.stderr,
@@ -218,7 +222,7 @@ def main() -> int:
     mode_error = mode_status_error(mode, counts, len(candidates))
     if mode_error is not None:
         print(
-            "lane_result_ready_result_summary=error "
+            "debug_capture_ready_result_summary=error "
             f"reason=mode_status_mismatch {mode_error}",
             file=sys.stderr,
         )
@@ -227,21 +231,22 @@ def main() -> int:
         expected_returncode = returncode_expectation(candidate)
         if expected_returncode is not None:
             print(
-                "lane_result_ready_result_summary=error "
+                "debug_capture_ready_result_summary=error "
                 "reason=status_returncode_mismatch "
                 f"index={candidate.index} status={candidate.status} "
                 f"returncode={candidate.returncode} expected={expected_returncode}",
                 file=sys.stderr,
             )
             return 1
+    env_ok, env_not_ok = environment_counts(candidates)
     logs_present, logs_missing = existing_log_count(candidates)
     executed = len(candidates) - counts["planned"]
     print(
-        "lane_result_ready_result_summary=ok "
+        "debug_capture_ready_result_summary=ok "
         f"manifest={manifest.path} "
         f"mode={mode} "
         f"source_ready_manifest={source_manifest} "
-        f"source_environment_preflight={source_environment_preflight} "
+        f"source_root={source_root} "
         f"oracle_binary={oracle_binary} "
         f"ready_candidates={len(candidates)} "
         f"failures={failures} "
@@ -250,6 +255,8 @@ def main() -> int:
         f"error={counts['error']} "
         f"other={counts['other']} "
         f"executed_candidates={executed} "
+        f"environment_preflight_ok={env_ok} "
+        f"environment_preflight_not_ok={env_not_ok} "
         f"logs_present={logs_present} "
         f"logs_missing={logs_missing}"
     )
@@ -257,9 +264,11 @@ def main() -> int:
         print(
             "candidate_result "
             f"index={candidate.index} "
-            f"route={candidate.route} "
-            f"offset={candidate.offset_label} "
-            f"offset_address={candidate.offset_address} "
+            f"capture={candidate.capture} "
+            f"scenario={candidate.scenario} "
+            f"level={candidate.level} "
+            f"environment_preflight={candidate.environment_preflight} "
+            f"runtime_metadata={candidate.runtime_metadata} "
             f"oracle={candidate.oracle} "
             f"status={candidate.status} "
             f"returncode={candidate.returncode} "
@@ -272,7 +281,7 @@ def main() -> int:
         and (failures != 0 or counts["error"] != 0 or counts["other"] != 0)
     ):
         print(
-            "lane_result_ready_result_summary=error "
+            "debug_capture_ready_result_summary=error "
             "reason=oracle_failures "
             f"failures={failures} error={counts['error']} other={counts['other']}",
             file=sys.stderr,
@@ -280,19 +289,16 @@ def main() -> int:
         return 2
     if args.require_executed and counts["planned"] != 0:
         print(
-            "lane_result_ready_result_summary=error "
+            "debug_capture_ready_result_summary=error "
             f"reason=candidates_not_executed planned={counts['planned']}",
             file=sys.stderr,
         )
         return 3
-    if (
-        args.require_source_environment_preflight
-        and source_environment_preflight != "ok"
-    ):
+    if args.require_source_environment_preflight and env_not_ok != 0:
         print(
-            "lane_result_ready_result_summary=error "
+            "debug_capture_ready_result_summary=error "
             "reason=source_environment_preflight_not_ok "
-            f"source_environment_preflight={source_environment_preflight}",
+            f"environment_preflight_not_ok={env_not_ok}",
             file=sys.stderr,
         )
         return 4

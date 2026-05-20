@@ -33,6 +33,13 @@ CAPTURE_CONFIGS = {
         "required_records": ["subject_actor", "other_actor", "contact_scan"],
         "required_breaks": ["5cb0", "604f"],
     },
+    "visual_table": {
+        "oracle": "visual_table",
+        "flag": "--debug-visual-table-oracle",
+        "required_keys": ["capture", "scenario", "level", "runtime_cs", "runtime_ds"],
+        "required_records": ["actor", "visual", "effect_before", "effect_after"],
+        "required_breaks": ["3108", "6053", "6148", "7c89", "7ddf"],
+    },
 }
 
 

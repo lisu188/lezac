@@ -10,7 +10,12 @@ import subprocess
 import sys
 import tempfile
 
-from check_debug_capture_summary import require, write_actor_ready, write_text
+from check_debug_capture_summary import (
+    require,
+    write_actor_ready,
+    write_text,
+    write_visual_table_ready,
+)
 
 
 def default_repo_root() -> Path:
@@ -53,6 +58,7 @@ def make_fake_oracle(base: Path) -> Path:
                     'if "%1"=="--debug-behavior4-runtime-oracle" exit /b 0',
                     'if "%1"=="--debug-actor-update-runtime-oracle" exit /b 0',
                     'if "%1"=="--debug-contact-scanner-runtime-oracle" exit /b 0',
+                    'if "%1"=="--debug-visual-table-oracle" exit /b 0',
                     "exit /b 7",
                     "",
                 ]
@@ -139,6 +145,38 @@ def main() -> int:
         dry_text = dry_result.read_text(encoding="utf-8")
         require(dry_text, "result=debug_capture_ready_manifest", "dry_result")
         require(dry_text, "candidate_0_status=planned", "dry_result")
+        cases += 1
+
+        visual_ready_manifest = base / "visual-ready" / "ready_manifest.txt"
+        run_tool(
+            root,
+            "summarize_debug_capture_batch.py",
+            [
+                str(write_visual_table_ready(base / "visual-batch")),
+                "--write-ready-manifest",
+                str(visual_ready_manifest),
+            ],
+        )
+        visual_dry = run_tool(
+            root,
+            "run_debug_capture_ready_manifest.py",
+            [
+                str(visual_ready_manifest),
+                "--dry-run",
+                "--oracle-binary",
+                str(fake_oracle),
+            ],
+        )
+        for snippet in [
+            "debug_capture_ready_manifest=ok mode=dry_run",
+            "ready_candidates=1",
+            "capture=visual_table",
+            "scenario=state2_death_table_consumption",
+            "oracle=visual_table",
+            "command=",
+            "--debug-visual-table-oracle",
+        ]:
+            require(visual_dry, snippet, "visual_table_dry_run")
         cases += 1
 
         run_result = base / "results" / "run_result.txt"

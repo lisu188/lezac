@@ -224,6 +224,61 @@ def main() -> int:
         require(failure, "reason=oracle_failures failures=1 error=1", "failure")
         cases += 1
 
+        mismatch_manifest = base / "mismatch" / "result_manifest.txt"
+        write_text(
+            mismatch_manifest,
+            failure_manifest.read_text(encoding="ascii").replace(
+                "failures=1", "failures=0"
+            ),
+        )
+        mismatch = run_summary(root, [str(mismatch_manifest)], False)
+        require(mismatch, "reason=failure_count_mismatch", "mismatch")
+        require(mismatch, "failures=0 error=1", "mismatch")
+        cases += 1
+
+        returncode_manifest = base / "returncode" / "result_manifest.txt"
+        write_text(
+            returncode_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "candidate_1_returncode=0", "candidate_1_returncode=7"
+            ),
+        )
+        returncode = run_summary(root, [str(returncode_manifest)], False)
+        require(returncode, "reason=status_returncode_mismatch", "returncode")
+        require(
+            returncode,
+            "index=1 status=ok returncode=7 expected=0",
+            "returncode",
+        )
+        cases += 1
+
+        extra_manifest = base / "extra" / "result_manifest.txt"
+        write_text(
+            extra_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "ready_candidates=2", "ready_candidates=1"
+            ),
+        )
+        extra = run_summary(root, [str(extra_manifest)], False)
+        require(
+            extra,
+            "candidate index outside ready_candidates: 1 ready_candidates=1",
+            "extra_candidate",
+        )
+        cases += 1
+
+        mode_manifest = base / "mode" / "result_manifest.txt"
+        write_text(
+            mode_manifest,
+            run_manifest.read_text(encoding="ascii")
+            .replace("candidate_1_status=ok", "candidate_1_status=planned")
+            .replace("candidate_1_returncode=0", "candidate_1_returncode=not_run"),
+        )
+        mode_error = run_summary(root, [str(mode_manifest)], False)
+        require(mode_error, "reason=mode_status_mismatch", "mode")
+        require(mode_error, "mode=run planned=1 expected_planned=0", "mode")
+        cases += 1
+
         other_manifest = base / "other" / "result_manifest.txt"
         write_text(
             other_manifest,
@@ -249,6 +304,11 @@ def main() -> int:
         )
         other = run_summary(root, [str(other_manifest)])
         require(other, "planned=0 ok=0 error=0 other=1", "other_status")
+        other_required = run_summary(
+            root, [str(other_manifest), "--require-success"], False
+        )
+        require(other_required, "reason=oracle_failures", "other_required")
+        require(other_required, "failures=0 error=0 other=1", "other_required")
         cases += 1
 
         bad_result = base / "bad" / "result_manifest.txt"

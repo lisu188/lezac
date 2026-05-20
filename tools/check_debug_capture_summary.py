@@ -162,6 +162,62 @@ def write_contact_missing(base: Path) -> Path:
     return capture_dir / "manifest.txt"
 
 
+def write_visual_table_ready(base: Path) -> Path:
+    capture_dir = base / "visual_ready"
+    candidate = capture_dir / "candidate_fixture.txt"
+    write_text(
+        capture_dir / "manifest.txt",
+        "\n".join(
+            [
+                "capture=visual_table",
+                "source=dosbox-debug",
+                "scenario=state2_death_table_consumption",
+                "expected_level=1",
+                "route=debugger_seeded",
+                f"raw_debugger_dump={capture_dir / 'raw_debugger_dump.txt'}",
+                f"debugger_commands_runtime={capture_dir / 'debugger_commands_runtime.txt'}",
+                f"candidate_fixture={candidate}",
+                f"environment_preflight_log={capture_dir / 'environment_preflight.log'}",
+                "environment_preflight=ok",
+                "runtime_metadata=observed",
+                "runtime_cs=1A2B",
+                "runtime_ds=2B3C",
+                "",
+            ]
+        ),
+    )
+    write_text(
+        candidate,
+        "\n".join(
+            [
+                "capture=visual_table",
+                "source=dosbox-debug",
+                "temp_copy=1",
+                "visual_claim=0",
+                "scenario=state2_death_table_consumption",
+                "level=1",
+                "runtime_cs=1A2B",
+                "runtime_ds=2B3C",
+                "break ghidra=1000:3108 runtime=1A2B:3108 label=state2_death_helper",
+                "break ghidra=1000:6053 runtime=1A2B:6053 label=actor_update_animation",
+                "break ghidra=1000:6148 runtime=1A2B:6148 label=actor_frame_consumer",
+                "break ghidra=1000:7C89 runtime=1A2B:7C89 label=state2_countdown",
+                "break ghidra=1000:7DDF runtime=1A2B:7DDF label=state2_return_active",
+                "actor slot=0 kind=player1 state=2 anim_current=0x72 anim_first=0x72 anim_last=0x79 anim_counter=3 anim_delay=3 anim_mode=1 anim_step=1",
+                "visual frame=0x72 row_addr=0xc4ea row=10,18,20,00 bank=BOMOMIMK sprite_index=16 sprite_source=row_byte0 draw_dx=24 draw_dy=32",
+                "effect_before slot=0 x=0x0018 y=0x0028 frame=0x72 flags=0x0000",
+                "effect_after slot=0 x=0x0018 y=0x0028 frame=0x72 flags=0x0000",
+                "dump DS:C4EA",
+                "2B3C:C4EA  10 18 20 00",
+                "dump DS:C21E",
+                "2B3C:C21E  18 00 28 00 72 00 00 00",
+                "",
+            ]
+        ),
+    )
+    return capture_dir
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Check summarize_debug_capture.py behavior."
@@ -241,6 +297,29 @@ def main() -> int:
             "reason=environment_preflight_not_ok environment_preflight=error",
             "contact_require_environment",
         )
+        cases += 1
+
+        visual_dir = write_visual_table_ready(base)
+        visual = run_tool(
+            root,
+            [
+                str(visual_dir),
+                "--require-ready",
+                "--require-environment-preflight",
+            ],
+        )
+        for snippet in [
+            "debug_capture_summary=ok capture=visual_table",
+            "scenario=state2_death_table_consumption",
+            "environment_preflight=ok",
+            "runtime_metadata=observed",
+            "candidate_status=ready",
+            "candidate_missing=none",
+            "oracle=visual_table",
+            "oracle_flag=--debug-visual-table-oracle",
+            "./build/lezac_cpp --debug-visual-table-oracle",
+        ]:
+            require(visual, snippet, "visual_table_ready")
         cases += 1
 
     print(f"debug_capture_summary_check=ok cases={cases}")

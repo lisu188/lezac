@@ -88,6 +88,10 @@ quirk.
   semantics are still unresolved. Runtime JSON loading now rejects any converted
   shape other than `7 * 57` bytes, and `--debug-gran-raw-roundtrip` verifies
   the converted JSON bytes exactly match the shipped 399-byte file.
+  `tools/check_gran_usage_guardrail.py` confirms the current C++ port only
+  loads, stores, validates, and debug-prints those opaque records; no live
+  gameplay or rendering path may consume `GRAN.MST` without first adding
+  evidence.
 
 ## Level Entity Blocks
 
@@ -156,6 +160,26 @@ breakpoints covering the spawner loop `1000:7a6b..7c2c`, behavior-4 branch
 `1000:728c..731b`, and 8.8 integration `1000:73e5..741b`; optional `DS:` dumps
 are segment-checked and byte-counted. Current checked-in fixtures are synthetic
 or malformed parser coverage only and carry `visual_claim=0`.
+`tools/check_behavior4_runtime_oracle_fixtures.py` keeps that fixed synthetic
+baseline while allowing future `behavior4_runtime_oracle_original*.txt`
+fixtures only when they parse as valid runtime evidence and have matching CTest
+coverage.
+`tools/check_optional_original_oracle_fixtures.py` keeps the behavior-4,
+actor-update, and contact-scanner optional-original fixture gates aligned.
+`tools/check_visual_claim_guardrail.py` requires every checked-in DOSBox oracle
+fixture to carry an explicit `visual_claim=0` or `visual_claim=1` line; claims
+remain `0` unless original frame/presentation evidence has been promoted.
+Promoted fixture entries must be recorded in
+`docs/recovery/visual_claim_promotions.md` with original, C++, and comparison
+frame artifacts. The CTest self-test for `tools/check_visual_claim_guardrail.py`
+exercises a synthetic promoted fixture and rejects missing checked-in artifacts.
+Original-runtime fixtures that came from DOSBox/debugger captures are tracked
+separately in `docs/recovery/runtime_evidence_ledger.md`.
+`tools/check_runtime_evidence_guardrail.py` requires every checked-in original
+runtime fixture to remain `temp_copy=1`, include runtime `CS`/`DS`, and keep
+`visual_claim=0` until there is separate rendered-frame evidence. The fixture
+ledger points to `docs/recovery/original_runtime_fixture_notes.md`, and the
+checker requires that supporting note to name each fixture it backs.
 
 The C++ collision/passability model currently treats destruction-progress tiles
 as solid except passable object cells. A cell is passable when its tile is the
@@ -205,6 +229,13 @@ Its `candidate_fixture.txt` is a skeleton for transcript normalization, not
 evidence until runtime fields and dump rows are filled; live launch attempts
 also preserve prompt `runtime_cs`/`runtime_ds` metadata and a concrete runtime
 command plan for later address translation.
+The actor/contact fixture expectation checkers deliberately keep the
+synthetic/malformed parser fixtures fixed while permitting future
+`actor_update_runtime_oracle_original*.txt` and
+`contact_scanner_runtime_oracle_original*.txt` fixtures only when they parse as
+valid runtime evidence and have matching CTest coverage. Any checked-in
+original fixture still remains `visual_claim=0` until the separate visual
+promotion ledger is satisfied.
 Because command submission to this DOSBox-debug prompt remains unreliable, the
 guarded `tools/capture_original_actor_contact_procmem.sh` wrapper can prove
 reachability by writing a temporary `EB FE` freeze loop into the child
@@ -267,6 +298,14 @@ can write a result manifest for the planned or executed oracle commands. Result
 manifests and logs are expected to stay outside the repository by default.
 `tools/summarize_actor_dispatch_ready_results.py` summarizes that result
 manifest and can gate promotion on successful executed oracle runs.
+The generic behavior-4/actor-update/contact-scanner debug-capture handoff now
+has the same final review step:
+`tools/summarize_debug_capture_ready_results.py` summarizes result manifests
+from `tools/run_debug_capture_ready_manifest.py` and can require successful
+executed candidates with verified per-candidate environment preflights before
+promotion. `tools/check_debug_capture_ready_pipeline.py` covers the full
+synthetic handoff so future capture tooling changes cannot break the promotion
+path silently.
 
 ## Bomb Inventory
 
@@ -887,6 +926,16 @@ candidates, draw offsets, and effect-entry before/after bytes. Current fixtures
 are synthetic or malformed parser coverage for the state-2 death-table
 consumption path only; they intentionally keep `visual_claim=0` and do not
 promote the provisional dead-player renderer.
+`tools/capture_original_visual_table_debug.sh <out_dir> [asset_dir]
+state2_death_table_consumption` now stages the matching DOSBox-debug capture
+plan, including the `1000:3108`, `1000:6053`, `1000:6148`, `1000:7C89`, and
+`1000:7DDF` breakpoints, broad `DS:c322`/`DS:c21e` dumps, an
+`environment_preflight=` manifest entry, and a `debugger_seeded` candidate
+fixture for later normalization with `--debug-visual-table-oracle`.
+Promoted original visual-table fixtures should be named
+`visual_table_oracle_original*.txt`; the fixture expectation checker treats
+that prefix as optional original evidence while keeping `visual_claim=0` until
+separate frame comparison promotes presentation.
 
 Unresolved state-2 fallback: `1000:7ef8..7f2a` increments `DS:79b9` when no
 player is active and promotes any `DS:79e5 + player == 2` state byte to `1` at

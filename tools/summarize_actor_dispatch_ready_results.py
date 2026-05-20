@@ -75,12 +75,33 @@ def parse_failures(values: dict[str, str]) -> int:
     return failures
 
 
+def candidate_indices(values: dict[str, str]) -> set[int]:
+    indices: set[int] = set()
+    for key in values:
+        if not key.startswith("candidate_"):
+            continue
+        suffix = key[len("candidate_") :]
+        index_text, separator, _ = suffix.partition("_")
+        if not separator or not index_text.isdecimal():
+            raise ValueError(f"invalid candidate field: {key}")
+        indices.add(int(index_text, 10))
+    return indices
+
+
 def parse_candidates(values: dict[str, str]) -> list[CandidateResult]:
     result = require(values, "result")
     if result != EXPECTED_RESULT:
         raise ValueError(f"unsupported result {result!r}; expected {EXPECTED_RESULT!r}")
+    count = parse_count(values)
+    extras = sorted(index for index in candidate_indices(values) if index >= count)
+    if extras:
+        extra_text = ",".join(str(index) for index in extras)
+        raise ValueError(
+            "candidate index outside ready_candidates: "
+            f"{extra_text} ready_candidates={count}"
+        )
     candidates: list[CandidateResult] = []
-    for index in range(parse_count(values)):
+    for index in range(count):
         prefix = f"candidate_{index}"
         candidates.append(
             CandidateResult(
@@ -105,6 +126,33 @@ def status_counts(candidates: list[CandidateResult]) -> dict[str, int]:
         else:
             counts["other"] += 1
     return counts
+
+
+def returncode_expectation(candidate: CandidateResult) -> str | None:
+    if candidate.status == "planned":
+        return "not_run" if candidate.returncode != "not_run" else None
+    if candidate.status == "ok":
+        return "0" if candidate.returncode != "0" else None
+    if candidate.status == "error":
+        try:
+            returncode = int(candidate.returncode, 10)
+        except ValueError:
+            return "positive_integer"
+        return "positive_integer" if returncode <= 0 else None
+    return None
+
+
+def mode_status_error(mode: str, counts: dict[str, int], candidate_count: int) -> str | None:
+    if mode == "run":
+        if counts["planned"] != 0:
+            return f"mode=run planned={counts['planned']} expected_planned=0"
+        return None
+    if mode == "dry_run":
+        nonplanned = candidate_count - counts["planned"]
+        if nonplanned != 0:
+            return f"mode=dry_run nonplanned={nonplanned} expected_nonplanned=0"
+        return None
+    return f"unsupported_mode={mode} expected=run,dry_run"
 
 
 def existing_log_count(candidates: list[CandidateResult]) -> tuple[int, int]:
@@ -160,6 +208,33 @@ def main() -> int:
         return 1
 
     counts = status_counts(candidates)
+    if failures != counts["error"]:
+        print(
+            "actor_dispatch_ready_result_summary=error "
+            "reason=failure_count_mismatch "
+            f"failures={failures} error={counts['error']}",
+            file=sys.stderr,
+        )
+        return 1
+    mode_error = mode_status_error(mode, counts, len(candidates))
+    if mode_error is not None:
+        print(
+            "actor_dispatch_ready_result_summary=error "
+            f"reason=mode_status_mismatch {mode_error}",
+            file=sys.stderr,
+        )
+        return 1
+    for candidate in candidates:
+        expected_returncode = returncode_expectation(candidate)
+        if expected_returncode is not None:
+            print(
+                "actor_dispatch_ready_result_summary=error "
+                "reason=status_returncode_mismatch "
+                f"index={candidate.index} status={candidate.status} "
+                f"returncode={candidate.returncode} expected={expected_returncode}",
+                file=sys.stderr,
+            )
+            return 1
     logs_present, logs_missing = existing_log_count(candidates)
     executed = len(candidates) - counts["planned"]
     print(
@@ -193,10 +268,14 @@ def main() -> int:
             f"command={candidate.command}"
         )
 
-    if args.require_success and (failures != 0 or counts["error"] != 0):
+    if (
+        args.require_success
+        and (failures != 0 or counts["error"] != 0 or counts["other"] != 0)
+    ):
         print(
             "actor_dispatch_ready_result_summary=error "
-            f"reason=oracle_failures failures={failures} error={counts['error']}",
+            "reason=oracle_failures "
+            f"failures={failures} error={counts['error']} other={counts['other']}",
             file=sys.stderr,
         )
         return 2

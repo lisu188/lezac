@@ -17,6 +17,7 @@ ORACLE_FLAGS = {
     "behavior4": "--debug-behavior4-runtime-oracle",
     "actor_update": "--debug-actor-update-runtime-oracle",
     "contact_scanner": "--debug-contact-scanner-runtime-oracle",
+    "visual_table": "--debug-visual-table-oracle",
 }
 
 

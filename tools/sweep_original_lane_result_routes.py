@@ -98,6 +98,7 @@ def build_capture_command(
         command.append("--approve-procmem")
     if args.approve_runtime_instrumentation:
         command.append("--approve-runtime-instrumentation")
+    command.append("--skip-environment-preflight")
     if args.skip_oracle:
         command.append("--skip-oracle")
     return command
@@ -109,6 +110,8 @@ def build_environment_preflight_command(args: argparse.Namespace) -> list[str]:
         sys.executable,
         str(root / "tools" / "preflight_original_evidence_environment.py"),
         str(args.asset_dir),
+        "--probe-wsl",
+        "--require-wsl-bash-on-windows",
         "--require-procmem-capture",
     ]
 

@@ -85,15 +85,25 @@ def make_assets(root: Path) -> None:
         write_text(root / name, "placeholder\n")
 
 
-def make_fake_tool(bin_dir: Path, name: str) -> None:
+def make_fake_tool(
+    bin_dir: Path,
+    name: str,
+    exit_code: int = 0,
+    message: str | None = None,
+) -> None:
+    if message is None:
+        message = f"fake {name}"
     if os.name == "nt":
         write_text(
             bin_dir / f"{name}.cmd",
-            "\r\n".join(["@echo off", f"echo fake {name}", "exit /b 0", ""]),
+            "\r\n".join(["@echo off", f"echo {message}", f"exit /b {exit_code}", ""]),
         )
         return
     path = bin_dir / name
-    write_text(path, "\n".join(["#!/bin/sh", f"echo fake {name}", "exit 0", ""]))
+    write_text(
+        path,
+        "\n".join(["#!/bin/sh", f"echo '{message}'", f"exit {exit_code}", ""]),
+    )
     mode = path.stat().st_mode
     path.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
@@ -223,6 +233,71 @@ def main() -> int:
         require(procmem, "tool_pgrep=found", "procmem_capture")
         require(procmem, "tool_zutty=found", "procmem_capture")
         require(procmem, "tool_script=found", "procmem_capture")
+        cases += 1
+
+        wsl_ok_bin = base / "wsl-ok-bin"
+        wsl_ok_bin.mkdir()
+        make_fake_tool(wsl_ok_bin, "wsl")
+        wsl_ok = run_preflight(
+            root,
+            [str(asset_root), "--probe-wsl"],
+            env=fake_env(wsl_ok_bin),
+        )
+        require(wsl_ok, "wsl=found", "wsl_ok")
+        require(wsl_ok, "wsl_probe=ok", "wsl_ok")
+        require(wsl_ok, "wsl_bash_probe=ok", "wsl_ok")
+        require(wsl_ok, "wsl_bash_reason=none", "wsl_ok")
+        cases += 1
+
+        wsl_missing_distro_bin = base / "wsl-missing-distro-bin"
+        wsl_missing_distro_bin.mkdir()
+        make_fake_tool(
+            wsl_missing_distro_bin,
+            "wsl",
+            exit_code=1,
+            message="WSL_E_DEFAULT_DISTRO_NOT_FOUND",
+        )
+        wsl_missing_distro = run_preflight(
+            root,
+            [str(asset_root), "--probe-wsl"],
+            env=fake_env(wsl_missing_distro_bin),
+        )
+        require(wsl_missing_distro, "wsl=found", "wsl_missing_distro")
+        require(wsl_missing_distro, "wsl_probe=error_1", "wsl_missing_distro")
+        require(wsl_missing_distro, "wsl_bash_probe=error_1", "wsl_missing_distro")
+        require(
+            wsl_missing_distro,
+            "wsl_bash_reason=no_default_distro",
+            "wsl_missing_distro",
+        )
+        cases += 1
+
+        wsl_missing_distro_required = run_preflight(
+            root,
+            [
+                str(asset_root),
+                "--probe-wsl",
+                "--require-wsl-bash-on-windows",
+            ],
+            env=fake_env(wsl_missing_distro_bin),
+            expect_success=os.name != "nt",
+        )
+        require(
+            wsl_missing_distro_required,
+            f"wsl_bash_required={1 if os.name == 'nt' else 0}",
+            "wsl_missing_distro_required",
+        )
+        require(
+            wsl_missing_distro_required,
+            "wsl_bash_reason=no_default_distro",
+            "wsl_missing_distro_required",
+        )
+        if os.name == "nt":
+            require(
+                wsl_missing_distro_required,
+                "reason=wsl_bash_not_usable",
+                "wsl_missing_distro_required",
+            )
         cases += 1
 
     print(f"original_evidence_environment_check=ok cases={cases}")

@@ -80,10 +80,47 @@ require() {
     fi
 }
 
+quote_command() {
+    printf "%q " "$@"
+}
+
 manifest_value() {
     local key=$1
     local path=$2
     awk -F= -v key="$key" '$1 == key { print substr($0, length(key) + 2); exit }' "$path"
+}
+
+run_environment_preflight() {
+    if [[ "${LEZAC_ACTOR_CONTACT_PROCMEM_SKIP_ENVIRONMENT_PREFLIGHT:-0}" == "1" ]]; then
+        {
+            echo "environment_preflight=skipped"
+            echo "environment_preflight_log=$environment_preflight_log"
+        } >>"$manifest"
+        echo "environment_preflight=skipped" >>"$raw_dump"
+        return
+    fi
+
+    set +e
+    "${environment_preflight_command[@]}" >"$environment_preflight_log" 2>&1
+    preflight_status=$?
+    set -e
+
+    {
+        echo "environment_preflight_exit=$preflight_status"
+        echo "environment_preflight_log=$environment_preflight_log"
+    } >>"$manifest"
+    echo "environment_preflight_log=$environment_preflight_log" >>"$raw_dump"
+
+    if [[ $preflight_status -ne 0 ]]; then
+        echo "environment_preflight=error" >>"$manifest"
+        echo "environment_preflight=error" >>"$raw_dump"
+        cat "$environment_preflight_log"
+        echo "actor_contact_procmem=error target=$target reason=environment_preflight_exit_$preflight_status manifest=$manifest raw_dump=$raw_dump environment_preflight_log=$environment_preflight_log"
+        exit "$preflight_status"
+    fi
+
+    echo "environment_preflight=ok" >>"$manifest"
+    echo "environment_preflight=ok" >>"$raw_dump"
 }
 
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
@@ -104,6 +141,15 @@ candidate_fixture="$out_dir/${target}_runtime_candidate.txt"
 procmem_out="$out_dir/procmem"
 procmem_manifest="$procmem_out/manifest.txt"
 procmem_candidate="$procmem_out/explosion_playback_oracle_original_candidate.txt"
+environment_preflight_log="$out_dir/environment_preflight.log"
+environment_preflight_command=(
+    python3
+    "$repo_dir/tools/preflight_original_evidence_environment.py"
+    "$asset_dir"
+    --probe-wsl
+    --require-wsl-bash-on-windows
+    --require-procmem-capture
+)
 
 sample_seconds=${LEZAC_ACTOR_CONTACT_PROCMEM_SAMPLE_SECONDS:-0.5}
 sample_interval=${LEZAC_ACTOR_CONTACT_PROCMEM_SAMPLE_INTERVAL:-0.1}
@@ -240,6 +286,8 @@ write_candidate_skeleton
     echo "procmem_manifest=$procmem_manifest"
     echo "procmem_candidate=$procmem_candidate"
     echo "candidate_fixture=$candidate_fixture"
+    echo "environment_preflight_command=$(quote_command "${environment_preflight_command[@]}")"
+    echo "environment_preflight_log=$environment_preflight_log"
     echo "input_start_taps=$start_taps"
     echo "input_level_start_seconds=$level_start_seconds"
     echo "input_right_key=$right_key"
@@ -261,6 +309,8 @@ write_candidate_skeleton
     echo "procmem_manifest=$procmem_manifest"
     echo "procmem_candidate=$procmem_candidate"
     echo "candidate_fixture=$candidate_fixture"
+    echo "environment_preflight_command=$(quote_command "${environment_preflight_command[@]}")"
+    echo "environment_preflight_log=$environment_preflight_log"
     echo "command=${procmem_command[*]}"
 } >"$raw_dump"
 
@@ -270,7 +320,9 @@ if [[ ! -e "$asset_dir/LEZAC.EXE" ]]; then
 fi
 
 if [[ "${LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN:-0}" == "1" ]]; then
-    echo "actor_contact_procmem=ok mode=dry_run target=$target ghidra=$ghidra manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture procmem_out=$procmem_out"
+    echo "environment_preflight=dry_run" >>"$manifest"
+    echo "environment_preflight=dry_run" >>"$raw_dump"
+    echo "actor_contact_procmem=ok mode=dry_run target=$target ghidra=$ghidra manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture procmem_out=$procmem_out environment_preflight=dry_run"
     exit 0
 fi
 
@@ -282,6 +334,8 @@ if [[ "${LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION:-0}" != "1" ]]; the
     echo "refusing runtime instrumentation without LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION=1" >&2
     exit 64
 fi
+
+run_environment_preflight
 
 require python3
 

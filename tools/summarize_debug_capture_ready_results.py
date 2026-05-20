@@ -67,12 +67,33 @@ def parse_nonnegative_int(values: dict[str, str], key: str) -> int:
     return value
 
 
+def candidate_indices(values: dict[str, str]) -> set[int]:
+    indices: set[int] = set()
+    for key in values:
+        if not key.startswith("candidate_"):
+            continue
+        suffix = key[len("candidate_") :]
+        index_text, separator, _ = suffix.partition("_")
+        if not separator or not index_text.isdecimal():
+            raise ValueError(f"invalid candidate field: {key}")
+        indices.add(int(index_text, 10))
+    return indices
+
+
 def parse_candidates(values: dict[str, str]) -> list[CandidateResult]:
     result = require(values, "result")
     if result != EXPECTED_RESULT:
         raise ValueError(f"unsupported result {result!r}; expected {EXPECTED_RESULT!r}")
+    count = parse_nonnegative_int(values, "ready_candidates")
+    extras = sorted(index for index in candidate_indices(values) if index >= count)
+    if extras:
+        extra_text = ",".join(str(index) for index in extras)
+        raise ValueError(
+            "candidate index outside ready_candidates: "
+            f"{extra_text} ready_candidates={count}"
+        )
     candidates: list[CandidateResult] = []
-    for index in range(parse_nonnegative_int(values, "ready_candidates")):
+    for index in range(count):
         prefix = f"candidate_{index}"
         candidates.append(
             CandidateResult(

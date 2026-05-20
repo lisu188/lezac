@@ -252,6 +252,21 @@ def main() -> int:
         )
         cases += 1
 
+        extra_manifest = base / "extra" / "result_manifest.txt"
+        write_text(
+            extra_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "ready_candidates=2", "ready_candidates=1"
+            ),
+        )
+        extra = run_summary(root, [str(extra_manifest)], False)
+        require(
+            extra,
+            "candidate index outside ready_candidates: 1 ready_candidates=1",
+            "extra_candidate",
+        )
+        cases += 1
+
         other_manifest = base / "other" / "result_manifest.txt"
         write_text(
             other_manifest,

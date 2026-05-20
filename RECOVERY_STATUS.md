@@ -64,7 +64,8 @@ Baseline: `origin/main`
 - Hardened the ready-result summarizers for actor-dispatch, lane-result, and
   generic debug-capture handoffs so inconsistent manifests fail if their
   aggregate `failures=` count disagrees with per-candidate `status=error`
-  records or if a known status carries an impossible return code.
+  records, if a known status carries an impossible return code, or if indexed
+  candidate records appear outside `ready_candidates=`.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

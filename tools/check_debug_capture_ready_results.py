@@ -218,6 +218,19 @@ def main() -> int:
         )
         cases += 1
 
+        extra_manifest = base / "extra" / "result_manifest.txt"
+        write_text(
+            extra_manifest,
+            manifest_text(log).replace("ready_candidates=3", "ready_candidates=2"),
+        )
+        extra = run_summary(root, [str(extra_manifest)], False)
+        require(
+            extra,
+            "candidate index outside ready_candidates: 2 ready_candidates=2",
+            "extra_candidate",
+        )
+        cases += 1
+
         env_manifest = base / "env" / "result_manifest.txt"
         write_text(
             env_manifest,

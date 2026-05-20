@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import re
+import tempfile
 
 
 LEDGER = Path("docs/recovery/runtime_evidence_ledger.md")
@@ -135,15 +136,101 @@ def check_ledger(root: Path, original_names: list[str]) -> int:
         docs = fields.get("docs")
         if not docs:
             raise RuntimeError(f"{name}:missing_docs")
-        checked_in_doc_path(root, docs, name)
+        doc_path = checked_in_doc_path(root, docs, name)
+        if doc_path.resolve() == ledger_path.resolve():
+            raise RuntimeError(f"{name}:docs_points_to_ledger")
+        doc_text = doc_path.read_text(encoding="utf-8")
+        if name not in doc_text:
+            raise RuntimeError(f"{name}:docs_missing_fixture_name={docs}")
 
     return 1
+
+
+def write_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def self_test() -> int:
+    with tempfile.TemporaryDirectory(prefix="lezac-runtime-evidence-") as tmp:
+        root = Path(tmp)
+        fixture = "sample_original_runtime.txt"
+        write_text(
+            root / "tests/fixtures/dosbox" / fixture,
+            "\n".join(
+                (
+                    "temp_copy=1",
+                    "visual_claim=0",
+                    "runtime_cs=01ED",
+                    "runtime_ds=0C8F",
+                    "",
+                )
+            ),
+        )
+        write_text(
+            root / "docs/recovery/original_runtime_fixture_notes.md",
+            f"# Runtime Notes\n\n{fixture} is named here as supporting evidence.\n",
+        )
+        write_text(
+            root / LEDGER,
+            "\n".join(
+                (
+                    "runtime_evidence_ledger=non_visual",
+                    "original_runtime_fixture_count=1",
+                    "visual_claim=0",
+                    "- fixture=sample_original_runtime.txt visual_claim=0 "
+                    "evidence=runtime_cs_runtime_ds_temp_copy "
+                    "docs=docs/recovery/original_runtime_fixture_notes.md",
+                    "",
+                )
+            ),
+        )
+
+        counts = fixture_counts(root)
+        if counts != (1, 1, 1, 1, 1, [fixture]):
+            raise RuntimeError(f"selftest fixture count mismatch: {counts!r}")
+        check_ledger(root, [fixture])
+
+        write_text(
+            root / "docs/recovery/original_runtime_fixture_notes.md",
+            "# Runtime Notes\n\nThis note omits the fixture filename.\n",
+        )
+        try:
+            check_ledger(root, [fixture])
+        except RuntimeError as exc:
+            if "docs_missing_fixture_name" not in str(exc):
+                raise
+        else:
+            raise RuntimeError("selftest missing fixture doc was not rejected")
+
+        write_text(
+            root / "docs/recovery/original_runtime_fixture_notes.md",
+            f"# Runtime Notes\n\n{fixture} is named here as supporting evidence.\n",
+        )
+        write_text(
+            root / "tests/fixtures/dosbox" / fixture,
+            "temp_copy=1\nvisual_claim=0\nruntime_cs=01EG\nruntime_ds=0C8F\n",
+        )
+        try:
+            fixture_counts(root)
+        except RuntimeError as exc:
+            if "bad_runtime_segments" not in str(exc):
+                raise
+        else:
+            raise RuntimeError("selftest bad runtime segment was not rejected")
+
+    print(
+        "runtime_evidence_guardrail_selftest=ok "
+        "positive=1 missing_fixture_doc=1 bad_segment=1"
+    )
+    return 0
 
 
 def check_cmake(root: Path) -> int:
     cmake = (root / "CMakeLists.txt").read_text(encoding="utf-8")
     require(cmake, "check_runtime_evidence_guardrail.py", "cmake:script")
     require(cmake, "add_test(NAME runtime_evidence_guardrail", "cmake:test")
+    require(cmake, "add_test(NAME runtime_evidence_guardrail_selftest", "cmake:selftest")
     require(cmake, "runtime_evidence_guardrail=ok", "cmake:output")
     return 1
 
@@ -158,6 +245,7 @@ def check_docs(root: Path) -> int:
         text = (root / relative).read_text(encoding="utf-8")
         require(text, "check_runtime_evidence_guardrail.py", relative)
         require(text, str(LEDGER).replace("\\", "/"), relative)
+        require(text, "docs/recovery/original_runtime_fixture_notes.md", relative)
         require(text, "visual_claim=0", relative)
     return len(docs)
 
@@ -166,8 +254,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Check original DOSBox runtime fixtures are explicit non-visual evidence."
     )
+    parser.add_argument(
+        "--self-test",
+        action="store_true",
+        help="exercise fixture metadata and supporting-note validation",
+    )
     parser.add_argument("root", nargs="?", type=Path, default=default_repo_root())
     args = parser.parse_args()
+
+    if args.self_test:
+        return self_test()
 
     root = args.root.resolve()
     fixtures, original, visual_claim0, temp_copy, runtime_segments, names = fixture_counts(root)

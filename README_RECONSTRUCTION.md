@@ -236,7 +236,9 @@ missing checked-in artifacts are rejected before any fixture is promoted.
 original-runtime DOSBox fixtures in
 `docs/recovery/runtime_evidence_ledger.md`: those captures must remain
 `temp_copy=1`, carry runtime `CS`/`DS`, and stay `visual_claim=0` until a
-separate visual promotion proves exact presentation.
+separate visual promotion proves exact presentation. Ledger entries point to
+`docs/recovery/original_runtime_fixture_notes.md`, and the checker requires the
+supporting note to name the fixture explicitly.
 `contact_scanner_callsite` maps the static near call at `1000:6555` that targets
 `1000:5CB0`; `tools/check_actor_contact_callsite_scan.py` verifies that callsite
 and the entry/return bytes against `LEZAC.EXE`.
@@ -526,7 +528,8 @@ default/timing/route-step probes load the patch but do not reach that freeze.
   `tools/check_runtime_evidence_guardrail.py` pins the
   `docs/recovery/runtime_evidence_ledger.md` entries to `temp_copy=1`,
   runtime `CS`/`DS`, and `visual_claim=0` so debugger evidence cannot be
-  confused with promoted visual-frame evidence.
+  confused with promoted visual-frame evidence. Supporting notes live in
+  `docs/recovery/original_runtime_fixture_notes.md`.
 - `LIVELS.SCH` seven-level parsing with the Ghidra-confirmed 3-byte level RLE,
   decoded word layer, monster spawner records, portal/start records, and tile
   trigger rules.

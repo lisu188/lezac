@@ -799,6 +799,15 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^runtime_evidence_guardrail=ok fixtures=70 original_runtime=20 visual_claim0=20 temp_copy=20 runtime_segments=20 ledger=1 ctest=1 docs=3")
 
+        add_test(NAME runtime_evidence_guardrail_selftest
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_runtime_evidence_guardrail.py
+                    --self-test)
+        set_tests_properties(runtime_evidence_guardrail_selftest PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^runtime_evidence_guardrail_selftest=ok positive=1 missing_fixture_doc=1 bad_segment=1")
+
         add_test(NAME explosion_lane_result_capture_orchestrator_preflight
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py

@@ -24,7 +24,10 @@ Baseline: `origin/main`
   `docs/recovery/runtime_evidence_ledger.md` for original-runtime DOSBox
   fixtures. The guardrail requires each checked-in original capture to be from
   a temp copy, carry runtime `CS`/`DS`, and remain `visual_claim=0` until
-  visual-frame evidence is promoted separately.
+  visual-frame evidence is promoted separately. It now also requires each
+  ledger entry to point at
+  `docs/recovery/original_runtime_fixture_notes.md`, where the supporting note
+  must name the fixture explicitly.
 - Added `tools/summarize_debug_capture_ready_results.py` and synthetic coverage
   so generic debug-capture ready runs now have the same result-review gate as
   actor-dispatch and lane-result handoffs. The summarizer counts planned,

@@ -236,6 +236,22 @@ def main() -> int:
         require(mismatch, "failures=0 error=1", "mismatch")
         cases += 1
 
+        returncode_manifest = base / "returncode" / "result_manifest.txt"
+        write_text(
+            returncode_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "candidate_1_returncode=0", "candidate_1_returncode=7"
+            ),
+        )
+        returncode = run_summary(root, [str(returncode_manifest)], False)
+        require(returncode, "reason=status_returncode_mismatch", "returncode")
+        require(
+            returncode,
+            "index=1 status=ok returncode=7 expected=0",
+            "returncode",
+        )
+        cases += 1
+
         other_manifest = base / "other" / "result_manifest.txt"
         write_text(
             other_manifest,

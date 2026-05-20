@@ -104,6 +104,20 @@ def status_counts(candidates: list[CandidateResult]) -> dict[str, int]:
     return counts
 
 
+def returncode_expectation(candidate: CandidateResult) -> str | None:
+    if candidate.status == "planned":
+        return "not_run" if candidate.returncode != "not_run" else None
+    if candidate.status == "ok":
+        return "0" if candidate.returncode != "0" else None
+    if candidate.status == "error":
+        try:
+            returncode = int(candidate.returncode, 10)
+        except ValueError:
+            return "positive_integer"
+        return "positive_integer" if returncode <= 0 else None
+    return None
+
+
 def environment_counts(candidates: list[CandidateResult]) -> tuple[int, int]:
     ok = 0
     not_ok = 0
@@ -171,6 +185,17 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+    for candidate in candidates:
+        expected_returncode = returncode_expectation(candidate)
+        if expected_returncode is not None:
+            print(
+                "debug_capture_ready_result_summary=error "
+                "reason=status_returncode_mismatch "
+                f"index={candidate.index} status={candidate.status} "
+                f"returncode={candidate.returncode} expected={expected_returncode}",
+                file=sys.stderr,
+            )
+            return 1
     env_ok, env_not_ok = environment_counts(candidates)
     logs_present, logs_missing = existing_log_count(candidates)
     executed = len(candidates) - counts["planned"]

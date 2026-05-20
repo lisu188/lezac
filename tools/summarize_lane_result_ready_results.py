@@ -267,10 +267,14 @@ def main() -> int:
             f"command={candidate.command}"
         )
 
-    if args.require_success and (failures != 0 or counts["error"] != 0):
+    if (
+        args.require_success
+        and (failures != 0 or counts["error"] != 0 or counts["other"] != 0)
+    ):
         print(
             "lane_result_ready_result_summary=error "
-            f"reason=oracle_failures failures={failures} error={counts['error']}",
+            "reason=oracle_failures "
+            f"failures={failures} error={counts['error']} other={counts['other']}",
             file=sys.stderr,
         )
         return 2

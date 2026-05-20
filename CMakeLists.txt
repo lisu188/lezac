@@ -343,7 +343,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_dispatch_ready_results_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_dispatch_ready_results_check=ok cases=12")
+                "^actor_dispatch_ready_results_check=ok cases=13")
 
         add_test(NAME actor_dispatch_ready_pipeline_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -725,7 +725,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_ready_results_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_ready_results_check=ok cases=10")
+                "^debug_capture_ready_results_check=ok cases=11")
 
         add_test(NAME debug_capture_ready_pipeline_expectations
             COMMAND ${Python3_EXECUTABLE}

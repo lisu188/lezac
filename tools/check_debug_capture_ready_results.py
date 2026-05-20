@@ -251,6 +251,42 @@ def main() -> int:
         require(mode_error, "mode=run planned=1 expected_planned=0", "mode_summary")
         cases += 1
 
+        other_manifest = base / "other" / "result_manifest.txt"
+        write_text(
+            other_manifest,
+            "\n".join(
+                [
+                    "result=debug_capture_ready_manifest",
+                    "mode=run",
+                    "source_ready_manifest=/tmp/ready_manifest.txt",
+                    "source_root=/tmp/source",
+                    "oracle_binary=/tmp/lezac_cpp",
+                    "ready_candidates=1",
+                    "failures=0",
+                    "candidate_0_capture=behavior4_runtime",
+                    "candidate_0_scenario=monster_behavior4_target_selection",
+                    "candidate_0_level=3",
+                    "candidate_0_environment_preflight=ok",
+                    "candidate_0_runtime_metadata=ok",
+                    "candidate_0_oracle=behavior4",
+                    "candidate_0_status=skipped",
+                    "candidate_0_returncode=not_run",
+                    "candidate_0_log=none",
+                    "candidate_0_command=/tmp/lezac_cpp --debug-behavior4-runtime-oracle /tmp/capture/behavior4.txt",
+                    "",
+                ]
+            ),
+        )
+        other = run_summary(root, [str(other_manifest)])
+        require(other, "planned=0", "other_summary")
+        require(other, "other=1", "other_summary")
+        other_required = run_summary(
+            root, [str(other_manifest), "--require-success"], False
+        )
+        require(other_required, "reason=oracle_failures", "other_required")
+        require(other_required, "failures=0 error=0 other=1", "other_required")
+        cases += 1
+
         env_manifest = base / "env" / "result_manifest.txt"
         write_text(
             env_manifest,

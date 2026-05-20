@@ -67,7 +67,8 @@ Baseline: `origin/main`
   records, if a known status carries an impossible return code, or if indexed
   candidate records appear outside `ready_candidates=`. They now also require
   `mode=run` to contain no planned candidates and `mode=dry_run` to contain
-  only planned candidates.
+  only planned candidates; `--require-success` rejects any remaining unknown
+  candidate statuses instead of treating them as promotable evidence.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

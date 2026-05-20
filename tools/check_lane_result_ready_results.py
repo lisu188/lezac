@@ -304,6 +304,11 @@ def main() -> int:
         )
         other = run_summary(root, [str(other_manifest)])
         require(other, "planned=0 ok=0 error=0 other=1", "other_status")
+        other_required = run_summary(
+            root, [str(other_manifest), "--require-success"], False
+        )
+        require(other_required, "reason=oracle_failures", "other_required")
+        require(other_required, "failures=0 error=0 other=1", "other_required")
         cases += 1
 
         bad_result = base / "bad" / "result_manifest.txt"

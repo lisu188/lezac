@@ -123,6 +123,7 @@ def main() -> int:
             "logs_missing=1",
             "candidate_result index=0 route=x2p00 offset=3d3f",
             "candidate_result index=1 route=x1p50_z0p50 offset=3ed3",
+            "oracle_flag=--debug-explosion-playback-oracle",
         ]:
             require(run_summary_text, snippet, "run_manifest")
         cases += 1
@@ -155,6 +156,7 @@ def main() -> int:
                     "candidate_0_offset_label=3d3f",
                     "candidate_0_offset_address=1000:3D3F",
                     "candidate_0_oracle=explosion_playback",
+                    "candidate_0_oracle_flag=--debug-explosion-playback-oracle",
                     "candidate_0_status=planned",
                     "candidate_0_returncode=not_run",
                     "candidate_0_log=none",
@@ -212,6 +214,7 @@ def main() -> int:
                     "candidate_0_offset_label=3d3f",
                     "candidate_0_offset_address=1000:3D3F",
                     "candidate_0_oracle=explosion_playback",
+                    "candidate_0_oracle_flag=--debug-explosion-playback-oracle",
                     "candidate_0_status=error",
                     "candidate_0_returncode=2",
                     "candidate_0_log=none",
@@ -249,6 +252,24 @@ def main() -> int:
             returncode,
             "index=1 status=ok returncode=7 expected=0",
             "returncode",
+        )
+        cases += 1
+
+        oracle_flag_manifest = base / "oracle_flag" / "result_manifest.txt"
+        write_text(
+            oracle_flag_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "candidate_0_oracle_flag=--debug-explosion-playback-oracle",
+                "candidate_0_oracle_flag=--debug-behavior4-runtime-oracle",
+                1,
+            ),
+        )
+        oracle_flag = run_summary(root, [str(oracle_flag_manifest)], False)
+        require(
+            oracle_flag,
+            "candidate_0_oracle_flag='--debug-behavior4-runtime-oracle' "
+            "does not match candidate_0_oracle='explosion_playback'",
+            "oracle_flag",
         )
         cases += 1
 
@@ -294,6 +315,7 @@ def main() -> int:
                     "candidate_0_offset_label=3d3f",
                     "candidate_0_offset_address=1000:3D3F",
                     "candidate_0_oracle=explosion_playback",
+                    "candidate_0_oracle_flag=--debug-explosion-playback-oracle",
                     "candidate_0_status=skipped",
                     "candidate_0_returncode=not_run",
                     "candidate_0_log=none",

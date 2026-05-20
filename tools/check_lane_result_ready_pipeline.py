@@ -434,6 +434,7 @@ def main() -> int:
                     "candidate_0_offset_label=3d3f",
                     "candidate_0_offset_address=1000:3D3F",
                     "candidate_0_oracle=explosion_playback",
+                    "candidate_0_oracle_flag=--debug-explosion-playback-oracle",
                     "candidate_0_status=error",
                     "candidate_0_returncode=2",
                     "candidate_0_log=none",

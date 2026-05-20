@@ -10,6 +10,9 @@ import sys
 
 
 EXPECTED_RESULT = "lane_result_ready_manifest"
+ORACLE_FLAGS = {
+    "explosion_playback": "--debug-explosion-playback-oracle",
+}
 
 
 @dataclass(frozen=True)
@@ -25,6 +28,7 @@ class CandidateResult:
     offset_label: str
     offset_address: str
     oracle: str
+    oracle_flag: str
     status: str
     returncode: str
     log: str
@@ -76,6 +80,20 @@ def parse_failures(values: dict[str, str]) -> int:
     return failures
 
 
+def parse_oracle_flag(values: dict[str, str], prefix: str) -> tuple[str, str]:
+    oracle = require(values, f"{prefix}_oracle")
+    oracle_flag = require(values, f"{prefix}_oracle_flag")
+    expected_flag = ORACLE_FLAGS.get(oracle)
+    if expected_flag is None:
+        raise ValueError(f"{prefix}_oracle has unsupported value: {oracle!r}")
+    if oracle_flag != expected_flag:
+        raise ValueError(
+            f"{prefix}_oracle_flag={oracle_flag!r} does not match "
+            f"{prefix}_oracle={oracle!r}; expected {expected_flag!r}"
+        )
+    return oracle, oracle_flag
+
+
 def candidate_indices(values: dict[str, str]) -> set[int]:
     indices: set[int] = set()
     for key in values:
@@ -104,13 +122,15 @@ def parse_candidates(values: dict[str, str]) -> list[CandidateResult]:
     candidates: list[CandidateResult] = []
     for index in range(count):
         prefix = f"candidate_{index}"
+        oracle, oracle_flag = parse_oracle_flag(values, prefix)
         candidates.append(
             CandidateResult(
                 index=index,
                 route=require(values, f"{prefix}_route"),
                 offset_label=require(values, f"{prefix}_offset_label"),
                 offset_address=require(values, f"{prefix}_offset_address"),
-                oracle=require(values, f"{prefix}_oracle"),
+                oracle=oracle,
+                oracle_flag=oracle_flag,
                 status=require(values, f"{prefix}_status"),
                 returncode=require(values, f"{prefix}_returncode"),
                 log=require(values, f"{prefix}_log"),
@@ -261,6 +281,7 @@ def main() -> int:
             f"offset={candidate.offset_label} "
             f"offset_address={candidate.offset_address} "
             f"oracle={candidate.oracle} "
+            f"oracle_flag={candidate.oracle_flag} "
             f"status={candidate.status} "
             f"returncode={candidate.returncode} "
             f"log={candidate.log} "

@@ -127,6 +127,7 @@ def main() -> int:
             "logs_missing=1",
             "candidate_result index=0 target=actor_update_gate6",
             "candidate_result index=1 target=contact_scanner_start",
+            "oracle_flag=--debug-contact-scanner-runtime-oracle",
         ]:
             require(run_summary_text, snippet, "run_manifest")
         cases += 1
@@ -158,6 +159,7 @@ def main() -> int:
                     "candidate_0_target=actor_update_gate6",
                     "candidate_0_route=x3p00",
                     "candidate_0_oracle=actor_update",
+                    "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",
                     "candidate_0_status=planned",
                     "candidate_0_returncode=not_run",
                     "candidate_0_log=none",
@@ -215,6 +217,7 @@ def main() -> int:
                     "candidate_0_target=actor_update_gate6",
                     "candidate_0_route=x3p00",
                     "candidate_0_oracle=actor_update",
+                    "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",
                     "candidate_0_status=error",
                     "candidate_0_returncode=2",
                     "candidate_0_log=none",
@@ -252,6 +255,23 @@ def main() -> int:
             returncode,
             "index=1 status=ok returncode=7 expected=0",
             "returncode",
+        )
+        cases += 1
+
+        oracle_flag_manifest = base / "oracle_flag" / "result_manifest.txt"
+        write_text(
+            oracle_flag_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "candidate_1_oracle_flag=--debug-contact-scanner-runtime-oracle",
+                "candidate_1_oracle_flag=--debug-actor-update-runtime-oracle",
+            ),
+        )
+        oracle_flag = run_summary(root, [str(oracle_flag_manifest)], False)
+        require(
+            oracle_flag,
+            "candidate_1_oracle_flag='--debug-actor-update-runtime-oracle' "
+            "does not match candidate_1_oracle='contact_scanner'",
+            "oracle_flag",
         )
         cases += 1
 
@@ -296,6 +316,7 @@ def main() -> int:
                     "candidate_0_target=actor_update_gate6",
                     "candidate_0_route=x3p00",
                     "candidate_0_oracle=actor_update",
+                    "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",
                     "candidate_0_status=skipped",
                     "candidate_0_returncode=not_run",
                     "candidate_0_log=none",

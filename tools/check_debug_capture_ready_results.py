@@ -168,6 +168,7 @@ def main() -> int:
             "candidate_result index=0 capture=behavior4_runtime",
             "candidate_result index=2 capture=visual_table",
             "oracle=visual_table",
+            "oracle_flag=--debug-visual-table-oracle",
             "--debug-visual-table-oracle",
         ]:
             require(run, snippet, "run_summary")
@@ -226,6 +227,23 @@ def main() -> int:
         )
         cases += 1
 
+        oracle_flag_manifest = base / "oracle_flag" / "result_manifest.txt"
+        write_text(
+            oracle_flag_manifest,
+            manifest_text(log).replace(
+                "candidate_1_oracle_flag=--debug-actor-update-runtime-oracle",
+                "candidate_1_oracle_flag=--debug-contact-scanner-runtime-oracle",
+            ),
+        )
+        oracle_flag = run_summary(root, [str(oracle_flag_manifest)], False)
+        require(
+            oracle_flag,
+            "candidate_1_oracle_flag='--debug-contact-scanner-runtime-oracle' "
+            "does not match candidate_1_oracle='actor_update'",
+            "oracle_flag_summary",
+        )
+        cases += 1
+
         extra_manifest = base / "extra" / "result_manifest.txt"
         write_text(
             extra_manifest,
@@ -269,6 +287,7 @@ def main() -> int:
                     "candidate_0_environment_preflight=ok",
                     "candidate_0_runtime_metadata=ok",
                     "candidate_0_oracle=behavior4",
+                    "candidate_0_oracle_flag=--debug-behavior4-runtime-oracle",
                     "candidate_0_status=skipped",
                     "candidate_0_returncode=not_run",
                     "candidate_0_log=none",

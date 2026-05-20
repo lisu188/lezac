@@ -10,6 +10,12 @@ import sys
 
 
 EXPECTED_RESULT = "debug_capture_ready_manifest"
+ORACLE_FLAGS = {
+    "behavior4": "--debug-behavior4-runtime-oracle",
+    "actor_update": "--debug-actor-update-runtime-oracle",
+    "contact_scanner": "--debug-contact-scanner-runtime-oracle",
+    "visual_table": "--debug-visual-table-oracle",
+}
 
 
 @dataclass(frozen=True)
@@ -27,6 +33,7 @@ class CandidateResult:
     environment_preflight: str
     runtime_metadata: str
     oracle: str
+    oracle_flag: str
     status: str
     returncode: str
     log: str
@@ -67,6 +74,20 @@ def parse_nonnegative_int(values: dict[str, str], key: str) -> int:
     return value
 
 
+def parse_oracle_flag(values: dict[str, str], prefix: str) -> tuple[str, str]:
+    oracle = require(values, f"{prefix}_oracle")
+    oracle_flag = require(values, f"{prefix}_oracle_flag")
+    expected_flag = ORACLE_FLAGS.get(oracle)
+    if expected_flag is None:
+        raise ValueError(f"{prefix}_oracle has unsupported value: {oracle!r}")
+    if oracle_flag != expected_flag:
+        raise ValueError(
+            f"{prefix}_oracle_flag={oracle_flag!r} does not match "
+            f"{prefix}_oracle={oracle!r}; expected {expected_flag!r}"
+        )
+    return oracle, oracle_flag
+
+
 def candidate_indices(values: dict[str, str]) -> set[int]:
     indices: set[int] = set()
     for key in values:
@@ -95,6 +116,7 @@ def parse_candidates(values: dict[str, str]) -> list[CandidateResult]:
     candidates: list[CandidateResult] = []
     for index in range(count):
         prefix = f"candidate_{index}"
+        oracle, oracle_flag = parse_oracle_flag(values, prefix)
         candidates.append(
             CandidateResult(
                 index=index,
@@ -105,7 +127,8 @@ def parse_candidates(values: dict[str, str]) -> list[CandidateResult]:
                     values, f"{prefix}_environment_preflight"
                 ),
                 runtime_metadata=require(values, f"{prefix}_runtime_metadata"),
-                oracle=require(values, f"{prefix}_oracle"),
+                oracle=oracle,
+                oracle_flag=oracle_flag,
                 status=require(values, f"{prefix}_status"),
                 returncode=require(values, f"{prefix}_returncode"),
                 log=require(values, f"{prefix}_log"),
@@ -270,6 +293,7 @@ def main() -> int:
             f"environment_preflight={candidate.environment_preflight} "
             f"runtime_metadata={candidate.runtime_metadata} "
             f"oracle={candidate.oracle} "
+            f"oracle_flag={candidate.oracle_flag} "
             f"status={candidate.status} "
             f"returncode={candidate.returncode} "
             f"log={candidate.log} "

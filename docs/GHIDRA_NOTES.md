@@ -160,6 +160,10 @@ breakpoints covering the spawner loop `1000:7a6b..7c2c`, behavior-4 branch
 `1000:728c..731b`, and 8.8 integration `1000:73e5..741b`; optional `DS:` dumps
 are segment-checked and byte-counted. Current checked-in fixtures are synthetic
 or malformed parser coverage only and carry `visual_claim=0`.
+`tools/check_behavior4_runtime_oracle_fixtures.py` keeps that fixed synthetic
+baseline while allowing future `behavior4_runtime_oracle_original*.txt`
+fixtures only when they parse as valid runtime evidence and have matching CTest
+coverage.
 `tools/check_visual_claim_guardrail.py` requires every checked-in DOSBox oracle
 fixture to carry an explicit `visual_claim=0` or `visual_claim=1` line; claims
 remain `0` unless original frame/presentation evidence has been promoted.

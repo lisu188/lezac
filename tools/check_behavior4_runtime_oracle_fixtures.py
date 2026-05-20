@@ -18,6 +18,15 @@ EXPECTED_OUTCOMES = {
     "behavior4_runtime_oracle_missing_actor_after.txt": "actor_after_missing",
     "behavior4_runtime_oracle_bad_behavior.txt": "spawner_behavior_not_4 actual=3",
 }
+ORIGINAL_PREFIX = "behavior4_runtime_oracle_original"
+
+
+def expected_outcome_for(name: str) -> str | None:
+    if name in EXPECTED_OUTCOMES:
+        return EXPECTED_OUTCOMES[name]
+    if name.startswith(ORIGINAL_PREFIX) and name.endswith(".txt"):
+        return "ok"
+    return None
 
 
 def default_repo_root() -> Path:
@@ -183,9 +192,10 @@ def infer_outcome(
 
 def check_cmake_coverage(cmake_path: Path, fixture_names: set[str]) -> int:
     text = cmake_path.read_text(encoding="utf-8")
-    for fixture_name, expected in EXPECTED_OUTCOMES.items():
-        if fixture_name not in fixture_names:
-            continue
+    for fixture_name in sorted(fixture_names):
+        expected = expected_outcome_for(fixture_name)
+        if expected is None:
+            raise RuntimeError(f"unexpected behavior-4 fixture: {fixture_name}")
         stem = Path(fixture_name).stem
         test_name = stem
         if f"add_test(NAME {test_name}" not in text:
@@ -270,7 +280,7 @@ def main() -> int:
     paths = sorted(fixture_dir.glob("behavior4_runtime_oracle*.txt"))
     names = {path.name for path in paths}
     missing = sorted(set(EXPECTED_OUTCOMES) - names)
-    extra = sorted(names - set(EXPECTED_OUTCOMES))
+    extra = sorted(name for name in names if expected_outcome_for(name) is None)
     if missing:
         raise RuntimeError("missing behavior-4 fixtures: " + ",".join(missing))
     if extra:
@@ -278,14 +288,19 @@ def main() -> int:
 
     ok_count = 0
     malformed_count = 0
+    original_count = 0
     for path in paths:
         values, records, breaks, dump_bytes = parse_fixture(path)
         outcome = infer_outcome(values, records, breaks, dump_bytes)
-        expected = EXPECTED_OUTCOMES[path.name]
+        expected = expected_outcome_for(path.name)
+        if expected is None:
+            raise RuntimeError(f"unexpected behavior-4 fixture: {path.name}")
         if outcome != expected:
             raise RuntimeError(
                 f"{path.name} outcome mismatch: expected {expected!r} got {outcome!r}"
             )
+        if path.name not in EXPECTED_OUTCOMES:
+            original_count += 1
         if outcome == "ok":
             ok_count += 1
         else:
@@ -302,7 +317,8 @@ def main() -> int:
     print(
         "behavior4_runtime_oracle_fixtures=ok "
         f"files={len(paths)} valid={ok_count} malformed={malformed_count} "
-        f"cmake_tests={cmake_count} source_command={source_command}"
+        f"original={original_count} cmake_tests={cmake_count} "
+        f"source_command={source_command}"
     )
     return 0
 

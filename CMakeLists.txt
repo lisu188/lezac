@@ -752,7 +752,7 @@ if(BUILD_TESTING)
         set_tests_properties(behavior4_runtime_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^behavior4_runtime_oracle_fixtures=ok files=4 valid=1 malformed=3 cmake_tests=4 source_command=1")
+                "^behavior4_runtime_oracle_fixtures=ok files=4 valid=1 malformed=3 original=0 cmake_tests=4 source_command=1")
 
         add_test(NAME native_windows_validation_helper_expectations
             COMMAND ${Python3_EXECUTABLE}

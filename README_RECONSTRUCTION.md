@@ -369,6 +369,8 @@ fixed, but they also accept future
 parse successfully and have matching CTest coverage. Checked-in original
 fixtures are still governed by the runtime evidence ledger and stay
 `visual_claim=0` until visual evidence is promoted separately.
+The behavior-4 fixture checker follows the same convention for future
+`behavior4_runtime_oracle_original*.txt` captures.
 
 Original-game captures are best-effort because DOSBox timing, focus, and
 keyboard injection vary by environment. The current DOSBox screenshot driver is

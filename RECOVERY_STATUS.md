@@ -315,7 +315,10 @@ Baseline: `origin/main`
   dry-run CTest path for environments without DOSBox-debug.
 - Added `tools/check_behavior4_runtime_oracle_fixtures.py` so behavior-4
   fixture expectations, CMake wiring, and the C++ oracle command/source
-  contract can be validated without DOSBox or a local C++ compiler.
+  contract can be validated without DOSBox or a local C++ compiler. The checker
+  now keeps the fixed synthetic/malformed baseline while allowing future
+  `behavior4_runtime_oracle_original*.txt` captures only when they parse as
+  valid runtime evidence and have matching CTest coverage.
 - Added `tools/check_behavior4_debug_capture_helper.py` to lock the
   behavior-4 DOSBox-debug helper's supported scenarios, debugger anchors,
   manifest/raw-output contract, `debugger_seeded` docs, and CMake dry-run

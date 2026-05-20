@@ -65,7 +65,9 @@ Baseline: `origin/main`
   generic debug-capture handoffs so inconsistent manifests fail if their
   aggregate `failures=` count disagrees with per-candidate `status=error`
   records, if a known status carries an impossible return code, or if indexed
-  candidate records appear outside `ready_candidates=`.
+  candidate records appear outside `ready_candidates=`. They now also require
+  `mode=run` to contain no planned candidates and `mode=dry_run` to contain
+  only planned candidates.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

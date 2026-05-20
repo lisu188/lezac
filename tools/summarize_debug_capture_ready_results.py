@@ -139,6 +139,19 @@ def returncode_expectation(candidate: CandidateResult) -> str | None:
     return None
 
 
+def mode_status_error(mode: str, counts: dict[str, int], candidate_count: int) -> str | None:
+    if mode == "run":
+        if counts["planned"] != 0:
+            return f"mode=run planned={counts['planned']} expected_planned=0"
+        return None
+    if mode == "dry_run":
+        nonplanned = candidate_count - counts["planned"]
+        if nonplanned != 0:
+            return f"mode=dry_run nonplanned={nonplanned} expected_nonplanned=0"
+        return None
+    return f"unsupported_mode={mode} expected=run,dry_run"
+
+
 def environment_counts(candidates: list[CandidateResult]) -> tuple[int, int]:
     ok = 0
     not_ok = 0
@@ -203,6 +216,14 @@ def main() -> int:
             "debug_capture_ready_result_summary=error "
             "reason=failure_count_mismatch "
             f"failures={failures} error={counts['error']}",
+            file=sys.stderr,
+        )
+        return 1
+    mode_error = mode_status_error(mode, counts, len(candidates))
+    if mode_error is not None:
+        print(
+            "debug_capture_ready_result_summary=error "
+            f"reason=mode_status_mismatch {mode_error}",
             file=sys.stderr,
         )
         return 1

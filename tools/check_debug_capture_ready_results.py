@@ -73,8 +73,16 @@ def manifest_text(log: Path, *, mode: str = "run", status: str = "ok") -> str:
             "candidate_0_fixture=/tmp/capture/behavior4.txt",
             "candidate_0_oracle=behavior4",
             "candidate_0_oracle_flag=--debug-behavior4-runtime-oracle",
-            f"candidate_0_status={status}",
-            f"candidate_0_returncode={'7' if status == 'error' else '0'}",
+            (
+                "candidate_0_status=planned"
+                if mode == "dry_run"
+                else f"candidate_0_status={status}"
+            ),
+            (
+                "candidate_0_returncode=not_run"
+                if mode == "dry_run"
+                else f"candidate_0_returncode={'7' if status == 'error' else '0'}"
+            ),
             f"candidate_0_log={log}",
             "candidate_0_command=/tmp/lezac_cpp --debug-behavior4-runtime-oracle /tmp/capture/behavior4.txt",
             "candidate_1_capture=actor_update_runtime",
@@ -169,8 +177,8 @@ def main() -> int:
         write_text(dry_manifest, manifest_text(log, mode="dry_run"))
         dry = run_summary(root, [str(dry_manifest)])
         require(dry, "mode=dry_run", "dry_summary")
-        require(dry, "planned=2", "dry_summary")
-        require(dry, "executed_candidates=1", "dry_summary")
+        require(dry, "planned=3", "dry_summary")
+        require(dry, "executed_candidates=0", "dry_summary")
         dry_required = run_summary(
             root, [str(dry_manifest), "--require-executed"], False
         )
@@ -229,6 +237,18 @@ def main() -> int:
             "candidate index outside ready_candidates: 2 ready_candidates=2",
             "extra_candidate",
         )
+        cases += 1
+
+        mode_manifest = base / "mode" / "result_manifest.txt"
+        write_text(
+            mode_manifest,
+            manifest_text(log)
+            .replace("candidate_1_status=ok", "candidate_1_status=planned")
+            .replace("candidate_1_returncode=0", "candidate_1_returncode=not_run"),
+        )
+        mode_error = run_summary(root, [str(mode_manifest)], False)
+        require(mode_error, "reason=mode_status_mismatch", "mode_summary")
+        require(mode_error, "mode=run planned=1 expected_planned=0", "mode_summary")
         cases += 1
 
         env_manifest = base / "env" / "result_manifest.txt"

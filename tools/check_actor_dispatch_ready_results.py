@@ -270,6 +270,18 @@ def main() -> int:
         )
         cases += 1
 
+        mode_manifest = base / "mode" / "result_manifest.txt"
+        write_text(
+            mode_manifest,
+            run_manifest.read_text(encoding="ascii")
+            .replace("candidate_1_status=ok", "candidate_1_status=planned")
+            .replace("candidate_1_returncode=0", "candidate_1_returncode=not_run"),
+        )
+        mode_error = run_summary(root, [str(mode_manifest)], False)
+        require(mode_error, "reason=mode_status_mismatch", "mode")
+        require(mode_error, "mode=run planned=1 expected_planned=0", "mode")
+        cases += 1
+
         bad_result = base / "bad" / "result_manifest.txt"
         write_text(
             bad_result,

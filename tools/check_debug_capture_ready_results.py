@@ -60,7 +60,7 @@ def manifest_text(log: Path, *, mode: str = "run", status: str = "ok") -> str:
             "source_ready_manifest=/tmp/ready_manifest.txt",
             "source_root=/tmp/source",
             "oracle_binary=/tmp/lezac_cpp",
-            "ready_candidates=2",
+            "ready_candidates=3",
             f"failures={failures}",
             "candidate_0_capture=behavior4_runtime",
             "candidate_0_scenario=monster_behavior4_target_selection",
@@ -100,6 +100,29 @@ def manifest_text(log: Path, *, mode: str = "run", status: str = "ok") -> str:
             ),
             "candidate_1_log=none",
             "candidate_1_command=/tmp/lezac_cpp --debug-actor-update-runtime-oracle /tmp/capture/actor_update.txt",
+            "candidate_2_capture=visual_table",
+            "candidate_2_scenario=state2_death_table_consumption",
+            "candidate_2_level=1",
+            "candidate_2_environment_preflight=ok",
+            "candidate_2_runtime_metadata=ok",
+            "candidate_2_runtime_cs=1A2B",
+            "candidate_2_runtime_ds=2B3C",
+            "candidate_2_manifest=/tmp/capture/visual_table_manifest.txt",
+            "candidate_2_fixture=/tmp/capture/visual_table.txt",
+            "candidate_2_oracle=visual_table",
+            "candidate_2_oracle_flag=--debug-visual-table-oracle",
+            (
+                "candidate_2_status=planned"
+                if mode == "dry_run"
+                else "candidate_2_status=ok"
+            ),
+            (
+                "candidate_2_returncode=not_run"
+                if mode == "dry_run"
+                else "candidate_2_returncode=0"
+            ),
+            "candidate_2_log=none",
+            "candidate_2_command=/tmp/lezac_cpp --debug-visual-table-oracle /tmp/capture/visual_table.txt",
             "",
         )
     )
@@ -125,16 +148,19 @@ def main() -> int:
         for snippet in [
             "debug_capture_ready_result_summary=ok",
             "mode=run",
-            "ready_candidates=2",
+            "ready_candidates=3",
             "failures=0",
             "planned=0",
-            "ok=2",
+            "ok=3",
             "error=0",
-            "executed_candidates=2",
-            "environment_preflight_ok=2",
+            "executed_candidates=3",
+            "environment_preflight_ok=3",
             "logs_present=1",
             "logs_missing=0",
             "candidate_result index=0 capture=behavior4_runtime",
+            "candidate_result index=2 capture=visual_table",
+            "oracle=visual_table",
+            "--debug-visual-table-oracle",
         ]:
             require(run, snippet, "run_summary")
         cases += 1
@@ -143,7 +169,7 @@ def main() -> int:
         write_text(dry_manifest, manifest_text(log, mode="dry_run"))
         dry = run_summary(root, [str(dry_manifest)])
         require(dry, "mode=dry_run", "dry_summary")
-        require(dry, "planned=1", "dry_summary")
+        require(dry, "planned=2", "dry_summary")
         require(dry, "executed_candidates=1", "dry_summary")
         dry_required = run_summary(
             root, [str(dry_manifest), "--require-executed"], False

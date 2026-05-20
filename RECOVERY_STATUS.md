@@ -56,7 +56,9 @@ Baseline: `origin/main`
   coverage as behavior-4, actor-update, and contact-scanner runtime oracles.
 - Extended the generic debug-capture ready-manifest runner coverage with a
   synthetic `capture=visual_table` candidate, so the visual-table oracle flag is
-  exercised before real state-2 visual-table captures are promoted.
+  exercised before real state-2 visual-table captures are promoted. The
+  ready-result summarizer coverage now carries the same visual-table lane
+  through planned/executed result manifests.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

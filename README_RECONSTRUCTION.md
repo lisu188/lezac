@@ -154,12 +154,16 @@ It writes a `candidate_fixture.txt` skeleton and
 `debugger_commands_runtime.txt`; when a live run exposes `runtime_cs` or
 `runtime_ds`, the helper copies those values into the manifest/raw dump and
 expands the debugger command plan to the observed runtime segment.
-Live behavior-4, actor-update, and contact-scanner DOSBox-debug helpers run
+Live behavior-4, actor-update, contact-scanner, and visual-table DOSBox-debug
+helpers run
 `tools/preflight_original_evidence_environment.py --require-debug-capture`
 before launching DOSBox-debug, record `environment_preflight=` in the manifest,
 and keep the preflight output in `environment_preflight.log`. Use the matching
 `LEZAC_*_DEBUG_SKIP_ENVIRONMENT_PREFLIGHT=1` variable only for intentional
-forensic reruns on an already-verified host.
+forensic reruns on an already-verified host. Use
+`tools/capture_original_visual_table_debug.sh <out_dir> [asset_dir]
+state2_death_table_consumption` to stage the next state-2 renderer-facing
+fixture for `--debug-visual-table-oracle`.
 Summarize any one of those capture directories with
 `python3 tools/summarize_debug_capture.py <capture_dir>`. The summary reports
 `candidate_status=ready|incomplete|missing|none`, missing fixture fields,
@@ -180,9 +184,10 @@ can leave a result manifest for later promotion review.
 Summarize that result manifest with
 `python3 tools/summarize_debug_capture_ready_results.py <result_manifest>`;
 use `--require-success --require-executed --require-source-environment-preflight`
-before promoting generic behavior-4, actor-update, or contact-scanner runtime
-evidence. `tools/check_debug_capture_ready_pipeline.py` exercises this full
-batch-summary, ready-runner, and result-summary handoff with synthetic data.
+before promoting generic behavior-4, actor-update, contact-scanner, or
+visual-table runtime evidence. `tools/check_debug_capture_ready_pipeline.py`
+exercises this full batch-summary, ready-runner, and result-summary handoff with
+synthetic data.
 Actor/contact update evidence is normalized with
 `--debug-actor-update-runtime-oracle <fixture> [--expect-error]`. Its synthetic
 fixtures cover parser behavior only: runtime captures still need to prove exact

@@ -926,6 +926,12 @@ candidates, draw offsets, and effect-entry before/after bytes. Current fixtures
 are synthetic or malformed parser coverage for the state-2 death-table
 consumption path only; they intentionally keep `visual_claim=0` and do not
 promote the provisional dead-player renderer.
+`tools/capture_original_visual_table_debug.sh <out_dir> [asset_dir]
+state2_death_table_consumption` now stages the matching DOSBox-debug capture
+plan, including the `1000:3108`, `1000:6053`, `1000:6148`, `1000:7C89`, and
+`1000:7DDF` breakpoints, broad `DS:c322`/`DS:c21e` dumps, an
+`environment_preflight=` manifest entry, and a `debugger_seeded` candidate
+fixture for later normalization with `--debug-visual-table-oracle`.
 
 Unresolved state-2 fallback: `1000:7ef8..7f2a` increments `DS:79b9` when no
 player is active and promotes any `DS:79e5 + player == 2` state byte to `1` at

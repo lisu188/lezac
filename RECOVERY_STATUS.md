@@ -42,6 +42,14 @@ Baseline: `origin/main`
   candidates, draw offsets, and effect-entry before/after state. Synthetic and
   malformed CTest fixtures currently cover the state-2 death table consumption
   path and keep `visual_claim=0`, so no live renderer behavior changed.
+- Added `tools/capture_original_visual_table_debug.sh` for the
+  `state2_death_table_consumption` follow-up capture. It mirrors the existing
+  DOSBox-debug helper shape with `debugger_seeded` output, environment
+  preflight recording, runtime `CS`/`DS` command-plan expansion, and a
+  fill-in candidate for `--debug-visual-table-oracle`. The generic debug
+  capture summary, batch summary, and ready-manifest runner now understand
+  `capture=visual_table`, so promoted visual-table evidence can use the same
+  review path as behavior-4 and actor/contact captures.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports
@@ -266,17 +274,17 @@ Baseline: `origin/main`
   a `debugger_commands_runtime.txt` placeholder, and copies observed
   `runtime_cs`/`runtime_ds` metadata into the manifest/raw dump when a live
   DOSBox-debug run exposes registers before timing out.
-- The behavior-4, actor-update, and contact-scanner DOSBox-debug helpers now run
-  the shared `--require-debug-capture` environment preflight before live
-  DOSBox-debug launch, write `environment_preflight.log`, and record the
-  preflight status in their manifests. Dry runs explicitly mark
+- The behavior-4, actor-update, contact-scanner, and visual-table DOSBox-debug
+  helpers now run the shared `--require-debug-capture` environment preflight
+  before live DOSBox-debug launch, write `environment_preflight.log`, and record
+  the preflight status in their manifests. Dry runs explicitly mark
   `environment_preflight=dry_run`; per-helper skip environment variables are
   reserved for already-verified forensic reruns.
 - Added `tools/summarize_debug_capture.py` plus synthetic coverage so a single
-  behavior-4, actor-update, or contact-scanner DOSBox-debug capture directory
-  can be triaged as ready, incomplete, missing, or environment-failed. The
-  summary prints the matching runtime-oracle command and can require both a
-  promotion-ready fixture and `environment_preflight=ok`.
+  behavior-4, actor-update, contact-scanner, or visual-table DOSBox-debug
+  capture directory can be triaged as ready, incomplete, missing, or
+  environment-failed. The summary prints the matching runtime-oracle command and
+  can require both a promotion-ready fixture and `environment_preflight=ok`.
 - Added `tools/summarize_debug_capture_batch.py` plus synthetic coverage for
   whole WSL evidence batches. The batch summary recursively finds supported
   debug-capture manifests, counts ready/incomplete/missing candidates, reports

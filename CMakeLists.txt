@@ -298,6 +298,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gran_usage_guardrail.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_runtime_evidence_guardrail.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_guardrail.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_native_windows_validation_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_actor_dispatch_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_debug_capture_ready_manifest.py
@@ -628,6 +629,18 @@ if(BUILD_TESTING)
                 PASS_REGULAR_EXPRESSION
                     "^contact_scanner_debug_capture=ok mode=dry_run scenario=monster_contact_damage_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
 
+            add_test(NAME visual_table_debug_capture_helper_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_VISUAL_TABLE_DEBUG_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_visual_table_debug.sh
+                        /tmp/lezac-visual-table-debug-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        state2_death_table_consumption)
+            set_tests_properties(visual_table_debug_capture_helper_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^visual_table_debug_capture=ok mode=dry_run scenario=state2_death_table_consumption route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
+
             add_test(NAME actor_contact_procmem_helper_dry_run
                 COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
                         ${BASH_EXECUTABLE}
@@ -668,6 +681,15 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^contact_scanner_debug_capture_helper=ok scenarios=3 anchors=2 outputs=7 cmake_test=1 docs=2")
 
+        add_test(NAME visual_table_debug_capture_helper_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_debug_capture_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(visual_table_debug_capture_helper_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^visual_table_debug_capture_helper=ok scenarios=1 anchors=5 outputs=7 cmake_test=1 docs=3")
+
         add_test(NAME debug_capture_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_summary.py
@@ -675,7 +697,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_summary_check=ok cases=5")
+                "^debug_capture_summary_check=ok cases=6")
 
         add_test(NAME debug_capture_batch_summary_expectations
             COMMAND ${Python3_EXECUTABLE}

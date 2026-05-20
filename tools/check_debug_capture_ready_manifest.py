@@ -53,6 +53,7 @@ def make_fake_oracle(base: Path) -> Path:
                     'if "%1"=="--debug-behavior4-runtime-oracle" exit /b 0',
                     'if "%1"=="--debug-actor-update-runtime-oracle" exit /b 0',
                     'if "%1"=="--debug-contact-scanner-runtime-oracle" exit /b 0',
+                    'if "%1"=="--debug-visual-table-oracle" exit /b 0',
                     "exit /b 7",
                     "",
                 ]

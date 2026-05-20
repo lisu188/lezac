@@ -10,7 +10,11 @@ import sys
 import tempfile
 
 from check_debug_capture_ready_manifest import make_fake_oracle
-from check_debug_capture_summary import require, write_actor_ready
+from check_debug_capture_summary import (
+    require,
+    write_actor_ready,
+    write_visual_table_ready,
+)
 
 
 def default_repo_root() -> Path:
@@ -54,6 +58,7 @@ def main() -> int:
         base = Path(tmp)
         batch_dir = base / "batch"
         write_actor_ready(batch_dir)
+        write_visual_table_ready(batch_dir)
 
         ready_manifest = base / "ready" / "ready_manifest.txt"
         batch = run_tool(
@@ -69,11 +74,13 @@ def main() -> int:
         )
         for snippet in [
             "debug_capture_batch_summary=ok",
-            "ready=1",
-            "environment_ok=1",
+            "ready=2",
+            "environment_ok=2",
             "debug_capture_ready_manifest=ok",
             f"path={ready_manifest.resolve()}",
-            "ready_candidates=1",
+            "ready_candidates=2",
+            "capture=visual_table",
+            "oracle_flag=--debug-visual-table-oracle",
         ]:
             require(batch, snippet, "batch_to_ready")
 
@@ -96,7 +103,7 @@ def main() -> int:
         )
         for snippet in [
             "debug_capture_ready_manifest=ok mode=run",
-            "ready_candidates=1",
+            "ready_candidates=2",
             "status=ok",
             "returncode=0",
             "debug_capture_ready_result_manifest=ok",
@@ -118,16 +125,19 @@ def main() -> int:
         for snippet in [
             "debug_capture_ready_result_summary=ok",
             "mode=run",
-            "ready_candidates=1",
+            "ready_candidates=2",
             "failures=0",
             "planned=0",
-            "ok=1",
-            "executed_candidates=1",
-            "environment_preflight_ok=1",
-            "logs_present=1",
+            "ok=2",
+            "executed_candidates=2",
+            "environment_preflight_ok=2",
+            "logs_present=2",
             "logs_missing=0",
             "candidate_result index=0",
             "oracle=actor_update",
+            "candidate_result index=1",
+            "oracle=visual_table",
+            "--debug-visual-table-oracle",
             "status=ok",
         ]:
             require(summary, snippet, "result_summary")

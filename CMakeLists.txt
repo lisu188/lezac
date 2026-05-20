@@ -453,7 +453,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_wrapper_output_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_wrapper_output=ok cases=13")
+                "^lane_result_wrapper_output=ok cases=15")
 
         add_test(NAME explosion_lane_result_route_sweep_dry_run
             COMMAND ${Python3_EXECUTABLE}
@@ -848,7 +848,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_capture_orchestrator_dry_run PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_capture_orchestrator=ok mode=dry_run .*offsets=2 capture_commands=2 oracle_commands=0 offset_labels=3d3f,3ed3 offset_addresses=1000:3D3F,1000:3ED3 .*result_tail=1 result_tail_bytes=8b46f63b46f075c58a46f3c47e04268805c9c20600 .*wrong_offset_guard=1")
+                "^lane_result_capture_orchestrator=ok mode=dry_run .*environment_preflight=1 .*offsets=2 capture_commands=2 oracle_commands=0 offset_labels=3d3f,3ed3 offset_addresses=1000:3D3F,1000:3ED3 .*result_tail=1 result_tail_bytes=8b46f63b46f075c58a46f3c47e04268805c9c20600 .*wrong_offset_guard=1")
 
         add_test(NAME explosion_lane_result_capture_orchestrator_dry_run_with_oracle
             COMMAND ${Python3_EXECUTABLE}

@@ -98,6 +98,7 @@ def build_capture_command(
         command.append("--approve-procmem")
     if args.approve_runtime_instrumentation:
         command.append("--approve-runtime-instrumentation")
+    command.append("--skip-environment-preflight")
     if args.skip_oracle:
         command.append("--skip-oracle")
     return command

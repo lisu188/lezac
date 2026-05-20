@@ -227,7 +227,11 @@ Baseline: `origin/main`
   `--skip-environment-preflight`. The route-sweep preflight includes
   `--probe-wsl --require-wsl-bash-on-windows`, so Windows dry-runs and failed
   live starts preserve the exact WSL usability blocker before a DOSBox
-  process-memory batch begins.
+  process-memory batch begins. Direct
+  `tools/capture_original_lane_result_runtime.py` live captures now run the
+  same environment preflight and record `environment_preflight=` in their
+  manifests; route sweeps pass `--skip-environment-preflight` to child direct
+  captures after the top-level check succeeds.
 - `tools/sweep_original_actor_contact_routes.py` and
   `tools/sweep_original_actor_dispatch_gates.py` now use the same
   process-memory environment preflight before live actor/contact capture

@@ -108,6 +108,7 @@ def main() -> int:
         "--route-step z:0.50",
         "--route-step m:0.35",
         "--skip-oracle",
+        "--skip-environment-preflight",
     ]:
         require(default_dry, snippet, "default_dry_run")
     cases += 1

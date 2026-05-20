@@ -491,7 +491,11 @@ The `forward` alias maps to Ghidra `1000:3D3F`, and `reverse` maps to
 `1000:3ED3`; the raw `3D3F`/`3ED3` forms are still accepted for direct
 address-based retries. Dry-run summaries and full-capture manifests report the
 selected `offset_labels` and normalized `offset_addresses` so single-probe
-retries are visible in the log header.
+retries are visible in the log header. Direct lane-result live captures also
+run the shared process-memory environment preflight before touching DOSBox and
+record `environment_preflight=` in their manifest; use
+`--skip-environment-preflight` only when an outer sweep has already verified
+the host.
 For route variation, repeat `--route-step KEY:SECONDS`; omitted route steps keep
 the historical default of holding player-1 right (`x`) for
 `--right-hold-seconds`. Use `tools/sweep_original_lane_result_routes.py` to
@@ -502,7 +506,9 @@ one command line per route. Live route sweeps run
 any route, so Windows hosts that have `wsl.exe` but no usable default distro
 fail with the same `wsl_bash_reason` reported by the standalone preflight; use
 `--skip-environment-preflight` only for intentional forensic reruns on
-already-verified hosts. Use
+already-verified hosts. Route sweeps pass `--skip-environment-preflight` to the
+child direct lane-result captures so a batch performs one host check at the top
+level. Use
 `tools/summarize_lane_result_route_sweep.py` on
 the completed sweep manifest to classify each candidate as `ready`, `no_freeze`,
 `incomplete`, or `missing`, and to emit the matching

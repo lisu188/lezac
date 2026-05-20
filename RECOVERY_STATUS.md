@@ -215,6 +215,9 @@ Baseline: `origin/main`
   coverage. The preflight reports shipped asset availability and the local
   `bash`/DOSBox/`dosbox-debug`/Xvfb/`xdotool` toolchain, with require modes that
   fail before a long original-evidence sweep starts on an unprepared host.
+  The WSL probe now distinguishes a present `wsl.exe` from a usable default
+  Linux distro by running `wsl -e bash -lc true` and reporting
+  `wsl_bash_reason=no_default_distro` for the current no-distro blocker.
 - `tools/sweep_original_lane_result_routes.py` now prints the environment
   preflight command in dry-run and runs the process-memory capture preflight
   once before any live route commands, unless explicitly skipped with

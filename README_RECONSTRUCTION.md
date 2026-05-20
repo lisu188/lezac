@@ -430,6 +430,10 @@ python3 tools/preflight_original_evidence_environment.py . --require-procmem-cap
 The non-require mode reports missing tools without failing. The require modes
 fail fast when the matching DOSBox/Xvfb/xdotool toolchain or the shipped asset
 files are missing, so long route sweeps do not start on an unprepared machine.
+`--probe-wsl` reports both `wsl_probe` and `wsl_bash_probe`; a host with
+`wsl.exe` installed but no default Linux distribution reports
+`wsl_bash_reason=no_default_distro`, which blocks original DOSBox/debugger
+capture until a distro with the capture tools is installed.
 The debugger capture modes include the `timeout` command used by the
 DOSBox-debug shell helpers. The process-memory mode follows the actual debug
 wrapper dependency set: `bash`, DOSBox, DOSBox-debug, direct `Xvfb`, `xdotool`,

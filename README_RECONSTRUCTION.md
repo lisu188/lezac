@@ -371,6 +371,9 @@ fixtures are still governed by the runtime evidence ledger and stay
 `visual_claim=0` until visual evidence is promoted separately.
 The behavior-4 fixture checker follows the same convention for future
 `behavior4_runtime_oracle_original*.txt` captures.
+`tools/check_optional_original_oracle_fixtures.py` keeps these three runtime
+oracle lanes aligned so future original fixtures remain valid-only, covered by
+CTest, and explicitly `visual_claim=0`.
 
 Original-game captures are best-effort because DOSBox timing, focus, and
 keyboard injection vary by environment. The current DOSBox screenshot driver is

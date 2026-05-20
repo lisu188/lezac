@@ -276,6 +276,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_runtime_oracle_fixtures.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_optional_original_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_scanner_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_scanner_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_batch_summary.py
@@ -753,6 +754,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^behavior4_runtime_oracle_fixtures=ok files=4 valid=1 malformed=3 original=0 cmake_tests=4 source_command=1")
+
+        add_test(NAME optional_original_oracle_fixture_conventions
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_optional_original_oracle_fixtures.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(optional_original_oracle_fixture_conventions PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^optional_original_oracle_fixtures=ok lanes=3 scripts=3 prefixes=3 original_counts=3 cmake=3 docs=3")
 
         add_test(NAME native_windows_validation_helper_expectations
             COMMAND ${Python3_EXECUTABLE}

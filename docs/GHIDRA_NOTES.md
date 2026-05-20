@@ -164,6 +164,8 @@ or malformed parser coverage only and carry `visual_claim=0`.
 baseline while allowing future `behavior4_runtime_oracle_original*.txt`
 fixtures only when they parse as valid runtime evidence and have matching CTest
 coverage.
+`tools/check_optional_original_oracle_fixtures.py` keeps the behavior-4,
+actor-update, and contact-scanner optional-original fixture gates aligned.
 `tools/check_visual_claim_guardrail.py` requires every checked-in DOSBox oracle
 fixture to carry an explicit `visual_claim=0` or `visual_claim=1` line; claims
 remain `0` unless original frame/presentation evidence has been promoted.

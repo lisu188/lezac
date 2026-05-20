@@ -319,6 +319,10 @@ Baseline: `origin/main`
   now keeps the fixed synthetic/malformed baseline while allowing future
   `behavior4_runtime_oracle_original*.txt` captures only when they parse as
   valid runtime evidence and have matching CTest coverage.
+- Added `tools/check_optional_original_oracle_fixtures.py` so the behavior-4,
+  actor-update, and contact-scanner runtime-oracle fixture lanes keep the same
+  optional-original convention: original fixtures are valid-only, must have
+  CTest coverage, and remain `visual_claim=0`.
 - Added `tools/check_behavior4_debug_capture_helper.py` to lock the
   behavior-4 DOSBox-debug helper's supported scenarios, debugger anchors,
   manifest/raw-output contract, `debugger_seeded` docs, and CMake dry-run

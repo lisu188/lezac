@@ -105,6 +105,7 @@ def env_for_capture(args: argparse.Namespace, route_steps: list[str], timing: st
         env["LEZAC_ACTOR_CONTACT_APPROVE_PROCMEM"] = "1"
     if args.approve_runtime_instrumentation:
         env["LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION"] = "1"
+    env["LEZAC_ACTOR_CONTACT_PROCMEM_SKIP_ENVIRONMENT_PREFLIGHT"] = "1"
     return env
 
 

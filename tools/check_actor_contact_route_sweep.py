@@ -103,6 +103,7 @@ def main() -> int:
         "--require-wsl-bash-on-windows",
         "--require-procmem-capture",
         "LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1",
+        "LEZAC_ACTOR_CONTACT_PROCMEM_SKIP_ENVIRONMENT_PREFLIGHT=1",
         "LEZAC_ACTOR_CONTACT_RUNTIME_FREEZE_BEFORE_ROUTE=1",
         "capture_original_actor_contact_procmem.sh",
         "contact_scanner_start",

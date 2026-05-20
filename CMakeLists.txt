@@ -638,7 +638,7 @@ if(BUILD_TESTING)
             set_tests_properties(actor_contact_procmem_helper_dry_run PROPERTIES
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 PASS_REGULAR_EXPRESSION
-                    "^actor_contact_procmem=ok mode=dry_run target=actor_update_start ghidra=1000:6053 .*procmem_out=")
+                    "^actor_contact_procmem=ok mode=dry_run target=actor_update_start ghidra=1000:6053 .*procmem_out=.*environment_preflight=dry_run")
         endif()
 
         add_test(NAME behavior4_debug_capture_helper_expectations

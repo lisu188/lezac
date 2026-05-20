@@ -221,7 +221,11 @@ LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION=1 \
 
 The wrapper reuses the proven child-process memory scanner, patches only the
 temporary DOSBox-debug child process, and records `visual_claim=0` instrumentation
-evidence. Supported targets are `actor_update_start`, `actor_update_end`,
+evidence. Direct live runs execute the shared process-memory environment
+preflight first and record `environment_preflight=` in the manifest; route and
+dispatch sweeps pass `LEZAC_ACTOR_CONTACT_PROCMEM_SKIP_ENVIRONMENT_PREFLIGHT=1`
+to child captures after their top-level preflight succeeds. Supported targets
+are `actor_update_start`, `actor_update_end`,
 `actor_update_gate5`, `actor_update_gate5_integration`,
 `actor_update_gate5_exit`, `actor_update_gate6`, `contact_scanner_callsite`,
 `contact_scanner_start`, and `contact_scanner_end`.
@@ -263,9 +267,10 @@ positioning.
 Use the route-sweep helper to plan or run several guarded actor/contact probes
 with one manifest. The default target is `contact_scanner_start` and the default
 timing matrix covers both post-route and pre-route freeze timing. Live sweeps
-run `tools/preflight_original_evidence_environment.py --require-procmem-capture`
-once before launching captures; use `--skip-environment-preflight` only for
-intentional reruns on an already-verified host:
+run `tools/preflight_original_evidence_environment.py --probe-wsl
+--require-wsl-bash-on-windows --require-procmem-capture` once before launching
+captures; use `--skip-environment-preflight` only for intentional reruns on an
+already-verified host:
 
 ```sh
 python3 tools/sweep_original_actor_contact_routes.py \

@@ -238,7 +238,11 @@ Baseline: `origin/main`
   sweeps, also with `--probe-wsl --require-wsl-bash-on-windows`. Dispatch-gate
   sweeps run the host check once at the top level and pass
   `--skip-environment-preflight` to child actor/contact sweeps so a single
-  matrix does not repeat identical tool probes.
+  matrix does not repeat identical tool probes. Direct
+  `tools/capture_original_actor_contact_procmem.sh` live runs also record
+  `environment_preflight=` in their manifests and execute the shared preflight
+  unless `LEZAC_ACTOR_CONTACT_PROCMEM_SKIP_ENVIRONMENT_PREFLIGHT=1` is set by
+  an already-verified parent sweep.
 - Lane-result and actor dispatch-gate sweep summaries now surface
   `environment_preflight=` state and support
   `--require-environment-preflight`, so ready-candidate promotion scripts can
@@ -416,7 +420,9 @@ Baseline: `origin/main`
   `LEZAC_ACTOR_CONTACT_APPROVE_PROCMEM=1` and
   `LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION=1` for live runs, and
   records `visual_claim=0` because these are reachability probes rather than
-  pristine gameplay-route fixtures. It now writes
+  pristine gameplay-route fixtures. Direct live runs now execute the shared
+  process-memory environment preflight before touching DOSBox-debug and record
+  `environment_preflight=` in the manifest. It now writes
   `<target>_runtime_candidate.txt` with runtime metadata and raw route-state
   dumps, and accepts `LEZAC_ACTOR_CONTACT_ROUTE_STEPS` as comma-separated
   `key:seconds` route holds for scanner-path tuning. It can also set

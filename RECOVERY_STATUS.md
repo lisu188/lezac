@@ -61,6 +61,10 @@ Baseline: `origin/main`
   through planned/executed result manifests, and the end-to-end generic
   ready-pipeline check now promotes actor-update and visual-table candidates
   together from batch summary through oracle execution and result review.
+- Hardened the ready-result summarizers for actor-dispatch, lane-result, and
+  generic debug-capture handoffs so inconsistent manifests fail if their
+  aggregate `failures=` count disagrees with per-candidate `status=error`
+  records.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

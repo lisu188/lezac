@@ -224,6 +224,18 @@ def main() -> int:
         require(failure, "reason=oracle_failures failures=1 error=1", "failure")
         cases += 1
 
+        mismatch_manifest = base / "mismatch" / "result_manifest.txt"
+        write_text(
+            mismatch_manifest,
+            failure_manifest.read_text(encoding="ascii").replace(
+                "failures=1", "failures=0"
+            ),
+        )
+        mismatch = run_summary(root, [str(mismatch_manifest)], False)
+        require(mismatch, "reason=failure_count_mismatch", "mismatch")
+        require(mismatch, "failures=0 error=1", "mismatch")
+        cases += 1
+
         other_manifest = base / "other" / "result_manifest.txt"
         write_text(
             other_manifest,

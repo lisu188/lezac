@@ -160,6 +160,14 @@ def main() -> int:
         return 1
 
     counts = status_counts(candidates)
+    if failures != counts["error"]:
+        print(
+            "actor_dispatch_ready_result_summary=error "
+            "reason=failure_count_mismatch "
+            f"failures={failures} error={counts['error']}",
+            file=sys.stderr,
+        )
+        return 1
     logs_present, logs_missing = existing_log_count(candidates)
     executed = len(candidates) - counts["planned"]
     print(

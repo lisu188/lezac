@@ -163,6 +163,14 @@ def main() -> int:
         return 1
 
     counts = status_counts(candidates)
+    if failures != counts["error"]:
+        print(
+            "debug_capture_ready_result_summary=error "
+            "reason=failure_count_mismatch "
+            f"failures={failures} error={counts['error']}",
+            file=sys.stderr,
+        )
+        return 1
     env_ok, env_not_ok = environment_counts(candidates)
     logs_present, logs_missing = existing_log_count(candidates)
     executed = len(candidates) - counts["planned"]

@@ -188,6 +188,16 @@ def main() -> int:
         require(failure_required, "reason=oracle_failures", "failure_required")
         cases += 1
 
+        mismatch_manifest = base / "mismatch" / "result_manifest.txt"
+        write_text(
+            mismatch_manifest,
+            manifest_text(log, status="error").replace("failures=1", "failures=0"),
+        )
+        mismatch = run_summary(root, [str(mismatch_manifest)], False)
+        require(mismatch, "reason=failure_count_mismatch", "mismatch_summary")
+        require(mismatch, "failures=0 error=1", "mismatch_summary")
+        cases += 1
+
         env_manifest = base / "env" / "result_manifest.txt"
         write_text(
             env_manifest,

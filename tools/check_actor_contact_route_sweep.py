@@ -100,6 +100,7 @@ def main() -> int:
         "environment_preflight=1",
         "environment_preflight_command=",
         "--probe-wsl",
+        "--require-wsl-bash-on-windows",
         "--require-procmem-capture",
         "LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1",
         "LEZAC_ACTOR_CONTACT_RUNTIME_FREEZE_BEFORE_ROUTE=1",
@@ -189,7 +190,12 @@ def main() -> int:
             empty_path_env(Path(tmp)),
             expect_success=False,
         )
-    require(live_preflight, "reason=missing_required", "live_preflight")
+    if os.name == "nt":
+        require(live_preflight, "reason=wsl_bash_not_usable", "live_preflight")
+        require(live_preflight, "wsl_bash_required=1", "live_preflight")
+    else:
+        require(live_preflight, "reason=missing_required", "live_preflight")
+        require(live_preflight, "wsl_bash_required=0", "live_preflight")
     require(live_preflight, "wsl_bash_reason=missing_command", "live_preflight")
     require(live_preflight, "missing_required=", "live_preflight")
     require_not(

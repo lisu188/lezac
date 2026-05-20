@@ -82,6 +82,7 @@ def build_environment_preflight_command(
         str(root / "tools" / "preflight_original_evidence_environment.py"),
         str(args.asset_dir),
         "--probe-wsl",
+        "--require-wsl-bash-on-windows",
         "--require-procmem-capture",
     ]
 

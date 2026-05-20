@@ -272,6 +272,34 @@ def main() -> int:
         )
         cases += 1
 
+        wsl_missing_distro_required = run_preflight(
+            root,
+            [
+                str(asset_root),
+                "--probe-wsl",
+                "--require-wsl-bash-on-windows",
+            ],
+            env=fake_env(wsl_missing_distro_bin),
+            expect_success=os.name != "nt",
+        )
+        require(
+            wsl_missing_distro_required,
+            f"wsl_bash_required={1 if os.name == 'nt' else 0}",
+            "wsl_missing_distro_required",
+        )
+        require(
+            wsl_missing_distro_required,
+            "wsl_bash_reason=no_default_distro",
+            "wsl_missing_distro_required",
+        )
+        if os.name == "nt":
+            require(
+                wsl_missing_distro_required,
+                "reason=wsl_bash_not_usable",
+                "wsl_missing_distro_required",
+            )
+        cases += 1
+
     print(f"original_evidence_environment_check=ok cases={cases}")
     return 0
 

@@ -434,6 +434,9 @@ files are missing, so long route sweeps do not start on an unprepared machine.
 `wsl.exe` installed but no default Linux distribution reports
 `wsl_bash_reason=no_default_distro`, which blocks original DOSBox/debugger
 capture until a distro with the capture tools is installed.
+`--require-wsl-bash-on-windows` turns that probe into a Windows-only failure
+when `wsl -e bash -lc true` cannot start; native Linux/WSL hosts ignore the
+requirement.
 The debugger capture modes include the `timeout` command used by the
 DOSBox-debug shell helpers. The process-memory mode follows the actual debug
 wrapper dependency set: `bash`, DOSBox, DOSBox-debug, direct `Xvfb`, `xdotool`,
@@ -495,9 +498,9 @@ the historical default of holding player-1 right (`x`) for
 plan or run repeated natural-route probes while preserving one manifest and
 one command line per route. Live route sweeps run
 `tools/preflight_original_evidence_environment.py --probe-wsl
---require-procmem-capture` once before launching any route, so Windows hosts
-that have `wsl.exe` but no usable default distro fail with the same
-`wsl_bash_reason` reported by the standalone preflight; use
+--require-wsl-bash-on-windows --require-procmem-capture` once before launching
+any route, so Windows hosts that have `wsl.exe` but no usable default distro
+fail with the same `wsl_bash_reason` reported by the standalone preflight; use
 `--skip-environment-preflight` only for intentional forensic reruns on
 already-verified hosts. Use
 `tools/summarize_lane_result_route_sweep.py` on

@@ -353,12 +353,17 @@ Baseline: `origin/main`
 - Added `tools/check_actor_update_runtime_oracle_fixtures.py` so the
   actor-update fixture set, expected malformed outcomes, CMake wiring, and C++
   oracle command/source contract can be validated without DOSBox or a compiler.
+  The checker now keeps the fixed synthetic/malformed baseline while allowing
+  future `actor_update_runtime_oracle_original*.txt` fixtures only if they parse
+  as valid runtime evidence and have matching CTest coverage.
 - Added `--debug-contact-scanner-runtime-oracle <fixture> [--expect-error]`
   with synthetic and malformed fixture coverage. This isolates the probable
   scanner window `1000:5CB0..604F` from full actor-update evidence by parsing
   subject/other actor boxes, overlap size, contact flags, and pending damage.
   `tools/check_contact_scanner_runtime_oracle_fixtures.py` validates fixture
-  outcomes, CMake wiring, and the C++ source contract without DOSBox.
+  outcomes, CMake wiring, and the C++ source contract without DOSBox. It now
+  accepts future `contact_scanner_runtime_oracle_original*.txt` fixtures under
+  the same valid-oracle and CTest-coverage requirements.
 - Added `tools/capture_original_contact_scanner_debug.sh <out_dir> [asset_dir]
   <scenario>` for `monster_contact_damage_live`, `object_collision_jump_live`,
   and `monster_behavior4_chase`. It writes scanner-only `manifest.txt`,

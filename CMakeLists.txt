@@ -730,7 +730,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_update_runtime_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_update_runtime_oracle_fixtures=ok files=5 valid=2 malformed=3 cmake_tests=5 source_command=1")
+                "^actor_update_runtime_oracle_fixtures=ok files=5 valid=2 malformed=3 original=0 cmake_tests=5 source_command=1")
 
         add_test(NAME contact_scanner_runtime_oracle_fixture_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -741,7 +741,7 @@ if(BUILD_TESTING)
         set_tests_properties(contact_scanner_runtime_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^contact_scanner_runtime_oracle_fixtures=ok files=4 valid=1 malformed=3 cmake_tests=4 source_command=1")
+                "^contact_scanner_runtime_oracle_fixtures=ok files=4 valid=1 malformed=3 original=0 cmake_tests=4 source_command=1")
 
         add_test(NAME behavior4_runtime_oracle_fixture_expectations
             COMMAND ${Python3_EXECUTABLE}

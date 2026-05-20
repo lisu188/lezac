@@ -362,6 +362,14 @@ LEZAC_BEHAVIOR4_DEBUG_DRY_RUN=1 \
   /tmp/lezac-behavior4-debug . monster_behavior4_target_selection
 ```
 
+Actor/contact fixture checkers keep the synthetic/malformed parser fixtures
+fixed, but they also accept future
+`actor_update_runtime_oracle_original*.txt` and
+`contact_scanner_runtime_oracle_original*.txt` captures when those fixtures
+parse successfully and have matching CTest coverage. Checked-in original
+fixtures are still governed by the runtime evidence ledger and stay
+`visual_claim=0` until visual evidence is promoted separately.
+
 Original-game captures are best-effort because DOSBox timing, focus, and
 keyboard injection vary by environment. The current DOSBox screenshot driver is
 still route-specific: it runs `LEZAC.EXE` from a temporary copy under

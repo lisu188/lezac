@@ -223,6 +223,13 @@ Its `candidate_fixture.txt` is a skeleton for transcript normalization, not
 evidence until runtime fields and dump rows are filled; live launch attempts
 also preserve prompt `runtime_cs`/`runtime_ds` metadata and a concrete runtime
 command plan for later address translation.
+The actor/contact fixture expectation checkers deliberately keep the
+synthetic/malformed parser fixtures fixed while permitting future
+`actor_update_runtime_oracle_original*.txt` and
+`contact_scanner_runtime_oracle_original*.txt` fixtures only when they parse as
+valid runtime evidence and have matching CTest coverage. Any checked-in
+original fixture still remains `visual_claim=0` until the separate visual
+promotion ledger is satisfied.
 Because command submission to this DOSBox-debug prompt remains unreliable, the
 guarded `tools/capture_original_actor_contact_procmem.sh` wrapper can prove
 reachability by writing a temporary `EB FE` freeze loop into the child

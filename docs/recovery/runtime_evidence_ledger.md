@@ -1,0 +1,39 @@
+# Runtime Evidence Ledger
+
+runtime_evidence_ledger=non_visual
+original_runtime_fixture_count=20
+
+This ledger tracks checked-in DOSBox/debugger fixtures captured from the
+original executable that prove runtime metadata, register segments, memory
+bytes, or control-flow reachability without proving exact rendered
+presentation. These fixtures stay at `visual_claim=0`; promotion to rendered
+frame evidence still goes through `docs/recovery/visual_claim_promotions.md`.
+
+Machine-readable entries use this shape:
+
+```text
+- fixture=<name>.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=<path>
+```
+
+Current original-runtime fixtures:
+
+- fixture=explosion_playback_oracle_original_3cd4_lane_div_scratch_runtime.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=explosion_playback_oracle_original_3ce3_lane_div_scratch_runtime.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=explosion_playback_oracle_original_3d1b_lane_write_scratch_runtime.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=explosion_playback_oracle_original_3d1b_lane_write_trampoline_runtime.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=explosion_playback_oracle_original_3d2d_lane_write_runtime_seeded.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=explosion_playback_oracle_original_3d2d_lane_write_trampoline_no_freeze.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=explosion_playback_oracle_original_3d3f_lane_result_runtime_seeded.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=explosion_playback_oracle_original_3eaf_lane_write_trampoline_runtime.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=explosion_playback_oracle_original_3ec1_lane_write_runtime_seeded.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=explosion_playback_oracle_original_3ec1_lane_write_trampoline_no_freeze.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=explosion_playback_oracle_original_3ed3_lane_result_runtime.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=explosion_playback_oracle_original_4b6a_runtime.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=explosion_playback_oracle_original_4c75_bp4_scratch_runtime.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=explosion_playback_oracle_original_4c75_runtime.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=explosion_playback_oracle_original_4c96_runtime.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=explosion_playback_oracle_original_4c99_temp_copy.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=explosion_playback_oracle_original_4ca9_runtime.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=explosion_playback_oracle_original_4cac_temp_copy.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md
+- fixture=state2_runtime_frame_oracle_original.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/GHIDRA_NOTES.md

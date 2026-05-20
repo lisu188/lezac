@@ -232,6 +232,11 @@ instrumentation-only evidence cannot be promoted by omission. Promotions to
 `docs/recovery/visual_claim_promotions.md` with original, C++, and comparison
 frame artifacts. The guardrail self-test exercises the promoted-fixture path so
 missing checked-in artifacts are rejected before any fixture is promoted.
+`tools/check_runtime_evidence_guardrail.py` separately tracks checked-in
+original-runtime DOSBox fixtures in
+`docs/recovery/runtime_evidence_ledger.md`: those captures must remain
+`temp_copy=1`, carry runtime `CS`/`DS`, and stay `visual_claim=0` until a
+separate visual promotion proves exact presentation.
 `contact_scanner_callsite` maps the static near call at `1000:6555` that targets
 `1000:5CB0`; `tools/check_actor_contact_callsite_scan.py` verifies that callsite
 and the entry/return bytes against `LEZAC.EXE`.
@@ -517,6 +522,11 @@ default/timing/route-step probes load the patch but do not reach that freeze.
   `tools/check_gran_usage_guardrail.py` keeps `GRAN.MST` limited to loading,
   validation, byte-preserving roundtrip/debug output, and stored opaque records
   until original evidence proves a live gameplay or rendering use.
+- Runtime-evidence bookkeeping for checked-in original DOSBox fixtures.
+  `tools/check_runtime_evidence_guardrail.py` pins the
+  `docs/recovery/runtime_evidence_ledger.md` entries to `temp_copy=1`,
+  runtime `CS`/`DS`, and `visual_claim=0` so debugger evidence cannot be
+  confused with promoted visual-frame evidence.
 - `LIVELS.SCH` seven-level parsing with the Ghidra-confirmed 3-byte level RLE,
   decoded word layer, monster spawner records, portal/start records, and tile
   trigger rules.

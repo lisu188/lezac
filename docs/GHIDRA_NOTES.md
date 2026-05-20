@@ -167,6 +167,11 @@ Promoted fixture entries must be recorded in
 `docs/recovery/visual_claim_promotions.md` with original, C++, and comparison
 frame artifacts. The CTest self-test for `tools/check_visual_claim_guardrail.py`
 exercises a synthetic promoted fixture and rejects missing checked-in artifacts.
+Original-runtime fixtures that came from DOSBox/debugger captures are tracked
+separately in `docs/recovery/runtime_evidence_ledger.md`.
+`tools/check_runtime_evidence_guardrail.py` requires every checked-in original
+runtime fixture to remain `temp_copy=1`, include runtime `CS`/`DS`, and keep
+`visual_claim=0` until there is separate rendered-frame evidence.
 
 The C++ collision/passability model currently treats destruction-progress tiles
 as solid except passable object cells. A cell is passable when its tile is the

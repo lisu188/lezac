@@ -20,6 +20,11 @@ Baseline: `origin/main`
   and comparison frame artifacts plus the supporting recovery note. Its CTest
   self-test now exercises a synthetic promoted fixture and verifies missing
   checked-in comparison artifacts are rejected.
+- Added `tools/check_runtime_evidence_guardrail.py` plus
+  `docs/recovery/runtime_evidence_ledger.md` for original-runtime DOSBox
+  fixtures. The guardrail requires each checked-in original capture to be from
+  a temp copy, carry runtime `CS`/`DS`, and remain `visual_claim=0` until
+  visual-frame evidence is promoted separately.
 - Added `tools/summarize_debug_capture_ready_results.py` and synthetic coverage
   so generic debug-capture ready runs now have the same result-review gate as
   actor-dispatch and lane-result handoffs. The summarizer counts planned,

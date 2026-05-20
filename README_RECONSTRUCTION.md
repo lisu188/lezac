@@ -494,9 +494,12 @@ the historical default of holding player-1 right (`x`) for
 `--right-hold-seconds`. Use `tools/sweep_original_lane_result_routes.py` to
 plan or run repeated natural-route probes while preserving one manifest and
 one command line per route. Live route sweeps run
-`tools/preflight_original_evidence_environment.py --require-procmem-capture`
-once before launching any route; use `--skip-environment-preflight` only for
-intentional forensic reruns on already-verified hosts. Use
+`tools/preflight_original_evidence_environment.py --probe-wsl
+--require-procmem-capture` once before launching any route, so Windows hosts
+that have `wsl.exe` but no usable default distro fail with the same
+`wsl_bash_reason` reported by the standalone preflight; use
+`--skip-environment-preflight` only for intentional forensic reruns on
+already-verified hosts. Use
 `tools/summarize_lane_result_route_sweep.py` on
 the completed sweep manifest to classify each candidate as `ready`, `no_freeze`,
 `incomplete`, or `missing`, and to emit the matching

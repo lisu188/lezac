@@ -221,13 +221,16 @@ Baseline: `origin/main`
 - `tools/sweep_original_lane_result_routes.py` now prints the environment
   preflight command in dry-run and runs the process-memory capture preflight
   once before any live route commands, unless explicitly skipped with
-  `--skip-environment-preflight`.
+  `--skip-environment-preflight`. The route-sweep preflight includes
+  `--probe-wsl`, so Windows dry-runs and failed live starts preserve the exact
+  WSL usability blocker before a DOSBox process-memory batch begins.
 - `tools/sweep_original_actor_contact_routes.py` and
   `tools/sweep_original_actor_dispatch_gates.py` now use the same
   process-memory environment preflight before live actor/contact capture
-  sweeps. Dispatch-gate sweeps run the host check once at the top level and
-  pass `--skip-environment-preflight` to child actor/contact sweeps so a single
-  matrix does not repeat identical tool probes.
+  sweeps, also with `--probe-wsl`. Dispatch-gate sweeps run the host check once
+  at the top level and pass `--skip-environment-preflight` to child
+  actor/contact sweeps so a single matrix does not repeat identical tool
+  probes.
 - Lane-result and actor dispatch-gate sweep summaries now surface
   `environment_preflight=` state and support
   `--require-environment-preflight`, so ready-candidate promotion scripts can

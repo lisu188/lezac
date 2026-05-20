@@ -90,6 +90,7 @@ def main() -> int:
         "capture_commands=20",
         "environment_preflight=1",
         "environment_preflight_command=",
+        "--probe-wsl",
         "--require-procmem-capture",
         "sweep_command_actor_update_gate5=",
         "sweep_command_actor_update_gate5_exit=",
@@ -184,6 +185,7 @@ def main() -> int:
             expect_success=False,
         )
     require(live_preflight, "reason=missing_required", "live_preflight")
+    require(live_preflight, "wsl_bash_reason=missing_command", "live_preflight")
     require(live_preflight, "missing_required=", "live_preflight")
     require_not(
         live_preflight,

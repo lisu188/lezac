@@ -54,6 +54,9 @@ Baseline: `origin/main`
   original-fixture convention gate for `visual_table_oracle_original*.txt`.
   Visual-table parser fixtures now have the same fixture/CMake/source-contract
   coverage as behavior-4, actor-update, and contact-scanner runtime oracles.
+- Extended the generic debug-capture ready-manifest runner coverage with a
+  synthetic `capture=visual_table` candidate, so the visual-table oracle flag is
+  exercised before real state-2 visual-table captures are promoted.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

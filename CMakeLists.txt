@@ -716,7 +716,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_ready_manifest_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_ready_manifest_check=ok cases=5")
+                "^debug_capture_ready_manifest_check=ok cases=6")
 
         add_test(NAME debug_capture_ready_results_expectations
             COMMAND ${Python3_EXECUTABLE}

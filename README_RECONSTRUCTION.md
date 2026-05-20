@@ -384,7 +384,9 @@ fixtures are still governed by the runtime evidence ledger and stay
 `visual_claim=0` until visual evidence is promoted separately.
 The behavior-4 fixture checker follows the same convention for future
 `behavior4_runtime_oracle_original*.txt` captures.
-`tools/check_optional_original_oracle_fixtures.py` keeps these three runtime
+The visual-table fixture checker does the same for future
+`visual_table_oracle_original*.txt` captures.
+`tools/check_optional_original_oracle_fixtures.py` keeps these four runtime
 oracle lanes aligned so future original fixtures remain valid-only, covered by
 CTest, and explicitly `visual_claim=0`.
 

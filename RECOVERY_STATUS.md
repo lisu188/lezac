@@ -50,6 +50,10 @@ Baseline: `origin/main`
   capture summary, batch summary, and ready-manifest runner now understand
   `capture=visual_table`, so promoted visual-table evidence can use the same
   review path as behavior-4 and actor/contact captures.
+- Added `tools/check_visual_table_oracle_fixtures.py` and extended the optional
+  original-fixture convention gate for `visual_table_oracle_original*.txt`.
+  Visual-table parser fixtures now have the same fixture/CMake/source-contract
+  coverage as behavior-4, actor-update, and contact-scanner runtime oracles.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

@@ -299,6 +299,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_runtime_evidence_guardrail.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_guardrail.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_debug_capture_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_native_windows_validation_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_actor_dispatch_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_debug_capture_ready_manifest.py
@@ -777,6 +778,17 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^behavior4_runtime_oracle_fixtures=ok files=4 valid=1 malformed=3 original=0 cmake_tests=4 source_command=1")
 
+        add_test(NAME visual_table_oracle_fixture_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_oracle_fixtures.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox
+                    --cmake ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
+                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+        set_tests_properties(visual_table_oracle_fixture_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^visual_table_oracle_fixtures=ok files=4 valid=1 malformed=3 original=0 cmake_tests=4 source_command=1")
+
         add_test(NAME optional_original_oracle_fixture_conventions
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_optional_original_oracle_fixtures.py
@@ -784,7 +796,7 @@ if(BUILD_TESTING)
         set_tests_properties(optional_original_oracle_fixture_conventions PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^optional_original_oracle_fixtures=ok lanes=3 scripts=3 prefixes=3 original_counts=3 cmake=3 docs=3")
+                "^optional_original_oracle_fixtures=ok lanes=4 scripts=4 prefixes=4 original_counts=4 cmake=4 docs=3")
 
         add_test(NAME native_windows_validation_helper_expectations
             COMMAND ${Python3_EXECUTABLE}

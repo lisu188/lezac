@@ -932,6 +932,10 @@ plan, including the `1000:3108`, `1000:6053`, `1000:6148`, `1000:7C89`, and
 `1000:7DDF` breakpoints, broad `DS:c322`/`DS:c21e` dumps, an
 `environment_preflight=` manifest entry, and a `debugger_seeded` candidate
 fixture for later normalization with `--debug-visual-table-oracle`.
+Promoted original visual-table fixtures should be named
+`visual_table_oracle_original*.txt`; the fixture expectation checker treats
+that prefix as optional original evidence while keeping `visual_claim=0` until
+separate frame comparison promotes presentation.
 
 Unresolved state-2 fallback: `1000:7ef8..7f2a` increments `DS:79b9` when no
 player is active and promotes any `DS:79e5 + player == 2` state byte to `1` at

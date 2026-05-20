@@ -164,6 +164,9 @@ forensic reruns on an already-verified host. Use
 `tools/capture_original_visual_table_debug.sh <out_dir> [asset_dir]
 state2_death_table_consumption` to stage the next state-2 renderer-facing
 fixture for `--debug-visual-table-oracle`.
+Future checked-in original visual-table fixtures should use the
+`visual_table_oracle_original*.txt` naming convention so the fixture expectation
+and optional-original guardrails pick them up automatically.
 Summarize any one of those capture directories with
 `python3 tools/summarize_debug_capture.py <capture_dir>`. The summary reports
 `candidate_status=ready|incomplete|missing|none`, missing fixture fields,

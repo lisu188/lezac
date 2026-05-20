@@ -29,6 +29,13 @@ LANES = (
         "summary": "behavior4_runtime_oracle_fixtures=ok",
         "ctest": "behavior4_runtime_oracle_fixture_expectations",
     },
+    {
+        "name": "visual_table",
+        "script": Path("tools/check_visual_table_oracle_fixtures.py"),
+        "prefix": "visual_table_oracle_original",
+        "summary": "visual_table_oracle_fixtures=ok",
+        "ctest": "visual_table_oracle_fixture_expectations",
+    },
 )
 
 

@@ -775,6 +775,102 @@ if(BUILD_TESTING)
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 PASS_REGULAR_EXPRESSION
                     "^actor_contact_procmem=ok mode=dry_run target=actor_update_start ghidra=1000:6053 .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_contact_procmem_helper_actor_update_end_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_contact_procmem.sh
+                        /tmp/lezac-actor-contact-procmem-actor-update-end-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        actor_update_end)
+            set_tests_properties(actor_contact_procmem_helper_actor_update_end_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_contact_procmem=ok mode=dry_run target=actor_update_end ghidra=1000:777F .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_contact_procmem_helper_actor_update_gate5_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_contact_procmem.sh
+                        /tmp/lezac-actor-contact-procmem-gate5-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        actor_update_gate5)
+            set_tests_properties(actor_contact_procmem_helper_actor_update_gate5_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_contact_procmem=ok mode=dry_run target=actor_update_gate5 ghidra=1000:65A2 .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_contact_procmem_helper_actor_update_gate5_integration_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_contact_procmem.sh
+                        /tmp/lezac-actor-contact-procmem-gate5-integration-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        actor_update_gate5_integration)
+            set_tests_properties(actor_contact_procmem_helper_actor_update_gate5_integration_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_contact_procmem=ok mode=dry_run target=actor_update_gate5_integration ghidra=1000:65D7 .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_contact_procmem_helper_actor_update_gate5_exit_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_contact_procmem.sh
+                        /tmp/lezac-actor-contact-procmem-gate5-exit-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        actor_update_gate5_exit)
+            set_tests_properties(actor_contact_procmem_helper_actor_update_gate5_exit_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_contact_procmem=ok mode=dry_run target=actor_update_gate5_exit ghidra=1000:7595 .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_contact_procmem_helper_actor_update_gate6_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_contact_procmem.sh
+                        /tmp/lezac-actor-contact-procmem-gate6-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        actor_update_gate6)
+            set_tests_properties(actor_contact_procmem_helper_actor_update_gate6_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_contact_procmem=ok mode=dry_run target=actor_update_gate6 ghidra=1000:654E .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_contact_procmem_helper_contact_scanner_callsite_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_contact_procmem.sh
+                        /tmp/lezac-actor-contact-procmem-contact-callsite-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        contact_scanner_callsite)
+            set_tests_properties(actor_contact_procmem_helper_contact_scanner_callsite_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_contact_procmem=ok mode=dry_run target=contact_scanner_callsite ghidra=1000:6555 .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_contact_procmem_helper_contact_scanner_start_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_contact_procmem.sh
+                        /tmp/lezac-actor-contact-procmem-contact-start-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        contact_scanner_start)
+            set_tests_properties(actor_contact_procmem_helper_contact_scanner_start_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_contact_procmem=ok mode=dry_run target=contact_scanner_start ghidra=1000:5CB0 .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_contact_procmem_helper_contact_scanner_end_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_contact_procmem.sh
+                        /tmp/lezac-actor-contact-procmem-contact-end-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        contact_scanner_end)
+            set_tests_properties(actor_contact_procmem_helper_contact_scanner_end_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_contact_procmem=ok mode=dry_run target=contact_scanner_end ghidra=1000:604F .*procmem_out=.*environment_preflight=dry_run")
         endif()
 
         add_test(NAME behavior4_debug_capture_helper_expectations
@@ -865,7 +961,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_contact_procmem_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_contact_procmem_helper=ok targets=9 cmake_test=1 docs=2")
+                "^actor_contact_procmem_helper=ok targets=9 cmake_tests=9 docs=2")
 
         add_test(NAME actor_contact_evidence_map
             COMMAND ${Python3_EXECUTABLE}

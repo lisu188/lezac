@@ -109,6 +109,10 @@ Baseline: `origin/main`
   CMake names all three supported `debugger_seeded` plans:
   object-collision jump, monster-contact damage, and behavior-4 chase. These
   are still dry-run capture plans only, not promoted original runtime evidence.
+- Extended actor/contact process-memory helper coverage so CMake names all nine
+  supported freeze targets, from actor-update entry/exit through gate5/gate6
+  and contact-scanner callsite/start/end. These remain guarded dry-run plans
+  until a trusted WSL/DOSBox/procmem host captures runtime evidence.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

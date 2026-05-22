@@ -154,6 +154,36 @@ def manifest_text(log: Path, *, mode: str = "run", status: str = "ok") -> str:
     )
 
 
+def contact_manifest_text(log: Path) -> str:
+    return "\n".join(
+        (
+            "result=debug_capture_ready_manifest",
+            "mode=run",
+            "source_ready_manifest=/tmp/contact_ready_manifest.txt",
+            "source_root=/tmp/contact_source",
+            "oracle_binary=/tmp/lezac_cpp",
+            "ready_candidates=1",
+            "failures=0",
+            "candidate_0_capture=contact_scanner_runtime",
+            "candidate_0_scenario=monster_contact_damage_live",
+            "candidate_0_level=1",
+            "candidate_0_environment_preflight=ok",
+            "candidate_0_runtime_metadata=ok",
+            "candidate_0_runtime_cs=01ED",
+            "candidate_0_runtime_ds=0C8F",
+            "candidate_0_manifest=/tmp/capture/contact_manifest.txt",
+            "candidate_0_fixture=/tmp/capture/contact_scanner.txt",
+            "candidate_0_oracle=contact_scanner",
+            "candidate_0_oracle_flag=--debug-contact-scanner-runtime-oracle",
+            "candidate_0_status=ok",
+            "candidate_0_returncode=0",
+            f"candidate_0_log={log}",
+            "candidate_0_command=/tmp/lezac_cpp --debug-contact-scanner-runtime-oracle /tmp/capture/contact_scanner.txt",
+            "",
+        )
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Check summarize_debug_capture_ready_results.py behavior."
@@ -195,6 +225,30 @@ def main() -> int:
             "--debug-visual-table-oracle",
         ]:
             require(run, snippet, "run_summary")
+        cases += 1
+
+        contact_log = base / "logs" / "contact_scanner.log"
+        write_text(contact_log, "contact scanner oracle ok\n")
+        contact_manifest = base / "contact" / "result_manifest.txt"
+        write_text(contact_manifest, contact_manifest_text(contact_log))
+        contact = run_summary(root, [str(contact_manifest), "--require-success"])
+        for snippet in [
+            "debug_capture_ready_result_summary=ok",
+            "ready_candidates=1",
+            "ok=1",
+            "executed_candidates=1",
+            "environment_preflight_ok=1",
+            "logs_present=1",
+            "candidate_result index=0 capture=contact_scanner_runtime",
+            "scenario=monster_contact_damage_live",
+            "runtime_cs=01ED",
+            "runtime_ds=0C8F",
+            "fixture=/tmp/capture/contact_scanner.txt",
+            "oracle=contact_scanner",
+            "oracle_flag=--debug-contact-scanner-runtime-oracle",
+            "--debug-contact-scanner-runtime-oracle",
+        ]:
+            require(contact, snippet, "contact_summary")
         cases += 1
 
         missing_log_manifest = base / "missing_log" / "result_manifest.txt"

@@ -61,6 +61,12 @@ Baseline: `origin/main`
   through planned/executed result manifests, and the end-to-end generic
   ready-pipeline check now promotes actor-update and visual-table candidates
   together from batch summary through oracle execution and result review.
+- Extended the generic debug-capture ready pipeline with a synthetic ready
+  `capture=contact_scanner_runtime` candidate. The single-capture summary,
+  batch ready-manifest writer, ready-manifest runner, ready-result summarizer,
+  and full batch-to-result pipeline now all prove the
+  `--debug-contact-scanner-runtime-oracle` handoff before contact-scanner
+  DOSBox-debug evidence is promoted.
 - Hardened the ready-result summarizers for actor-dispatch, lane-result, and
   generic debug-capture handoffs so inconsistent manifests fail if their
   aggregate `failures=` count disagrees with per-candidate `status=error`

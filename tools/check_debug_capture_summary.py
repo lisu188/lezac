@@ -162,6 +162,56 @@ def write_contact_missing(base: Path) -> Path:
     return capture_dir / "manifest.txt"
 
 
+def write_contact_ready(base: Path) -> Path:
+    capture_dir = base / "contact_ready"
+    candidate = capture_dir / "candidate_fixture.txt"
+    write_text(
+        capture_dir / "manifest.txt",
+        "\n".join(
+            [
+                "capture=contact_scanner_runtime",
+                "source=dosbox-debug",
+                "scenario=monster_contact_damage_live",
+                "expected_level=1",
+                "route=debugger_seeded",
+                f"raw_debugger_dump={capture_dir / 'raw_debugger_dump.txt'}",
+                f"debugger_commands_runtime={capture_dir / 'debugger_commands_runtime.txt'}",
+                f"candidate_fixture={candidate}",
+                f"environment_preflight_log={capture_dir / 'environment_preflight.log'}",
+                "environment_preflight=ok",
+                "runtime_metadata=observed",
+                "runtime_cs=01ED",
+                "runtime_ds=0C8F",
+                "",
+            ]
+        ),
+    )
+    write_text(
+        candidate,
+        "\n".join(
+            [
+                "capture=contact_scanner_runtime",
+                "source=dosbox-debug",
+                "temp_copy=1",
+                "visual_claim=0",
+                "scenario=monster_contact_damage_live",
+                "level=1",
+                "runtime_cs=01ED",
+                "runtime_ds=0C8F",
+                "break ghidra=1000:5CB0 runtime=01ED:5CB0 label=contact_scanner_start",
+                "break ghidra=1000:604F runtime=01ED:604F label=contact_scanner_end",
+                "subject_actor slot=0 kind=0 state=0 x=0x0068 y=0x00a8 w=16 h=24 flags=0x0000",
+                "other_actor slot=1 kind=1 state=0 x=0x0070 y=0x00aa w=16 h=16 flags=0x0000",
+                "contact_scan subject_slot=0 other_slot=1 flags_before=0x0000 flags_after=0x0003 contact=1 player_contact=1 monster_contact=1 object_contact=0 damage_pending=2 overlap_x=8 overlap_y=14",
+                "dump DS:7900",
+                "0C8F:7900  00 00 00 00 68 00 a8 00 10 18 00 00 03 00 02 00",
+                "",
+            ]
+        ),
+    )
+    return capture_dir
+
+
 def write_visual_table_ready(base: Path) -> Path:
     capture_dir = base / "visual_ready"
     candidate = capture_dir / "candidate_fixture.txt"
@@ -297,6 +347,31 @@ def main() -> int:
             "reason=environment_preflight_not_ok environment_preflight=error",
             "contact_require_environment",
         )
+        cases += 1
+
+        contact_ready_dir = write_contact_ready(base)
+        contact_ready = run_tool(
+            root,
+            [
+                str(contact_ready_dir),
+                "--require-ready",
+                "--require-environment-preflight",
+                "--oracle-binary",
+                "./build/lezac_cpp",
+            ],
+        )
+        for snippet in [
+            "debug_capture_summary=ok capture=contact_scanner_runtime",
+            "scenario=monster_contact_damage_live",
+            "environment_preflight=ok",
+            "runtime_metadata=observed",
+            "candidate_status=ready",
+            "candidate_missing=none",
+            "oracle=contact_scanner",
+            "oracle_flag=--debug-contact-scanner-runtime-oracle",
+            "./build/lezac_cpp --debug-contact-scanner-runtime-oracle",
+        ]:
+            require(contact_ready, snippet, "contact_ready")
         cases += 1
 
         visual_dir = write_visual_table_ready(base)

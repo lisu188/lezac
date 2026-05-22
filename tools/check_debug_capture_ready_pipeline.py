@@ -14,6 +14,7 @@ from check_debug_capture_ready_manifest import make_fake_oracle
 from check_debug_capture_summary import (
     require,
     write_actor_ready,
+    write_contact_ready,
     write_visual_table_ready,
 )
 from ready_result_checker_support import write_original_fixture_tree, write_text
@@ -65,6 +66,7 @@ def main() -> int:
         base = Path(tmp)
         batch_dir = base / "batch"
         write_actor_ready(batch_dir)
+        write_contact_ready(batch_dir)
         write_visual_table_ready(batch_dir)
 
         ready_manifest = base / "ready" / "ready_manifest.txt"
@@ -81,11 +83,13 @@ def main() -> int:
         )
         for snippet in [
             "debug_capture_batch_summary=ok",
-            "ready=2",
-            "environment_ok=2",
+            "ready=3",
+            "environment_ok=3",
             "debug_capture_ready_manifest=ok",
             f"path={ready_manifest.resolve()}",
-            "ready_candidates=2",
+            "ready_candidates=3",
+            "capture=contact_scanner_runtime",
+            "oracle_flag=--debug-contact-scanner-runtime-oracle",
             "capture=visual_table",
             "oracle_flag=--debug-visual-table-oracle",
         ]:
@@ -110,7 +114,7 @@ def main() -> int:
         )
         for snippet in [
             "debug_capture_ready_manifest=ok mode=run",
-            "ready_candidates=2",
+            "ready_candidates=3",
             "status=ok",
             "returncode=0",
             "debug_capture_ready_result_manifest=ok",
@@ -132,17 +136,20 @@ def main() -> int:
         for snippet in [
             "debug_capture_ready_result_summary=ok",
             "mode=run",
-            "ready_candidates=2",
+            "ready_candidates=3",
             "failures=0",
             "planned=0",
-            "ok=2",
-            "executed_candidates=2",
-            "environment_preflight_ok=2",
-            "logs_present=2",
+            "ok=3",
+            "executed_candidates=3",
+            "environment_preflight_ok=3",
+            "logs_present=3",
             "logs_missing=0",
             "candidate_result index=0",
             "oracle=actor_update",
             "candidate_result index=1",
+            "oracle=contact_scanner",
+            "--debug-contact-scanner-runtime-oracle",
+            "candidate_result index=2",
             "oracle=visual_table",
             "--debug-visual-table-oracle",
             "status=ok",

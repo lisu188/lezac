@@ -13,6 +13,7 @@ import tempfile
 from check_debug_capture_summary import (
     require,
     write_actor_ready,
+    write_contact_ready,
     write_text,
     write_visual_table_ready,
 )
@@ -177,6 +178,38 @@ def main() -> int:
             "--debug-visual-table-oracle",
         ]:
             require(visual_dry, snippet, "visual_table_dry_run")
+        cases += 1
+
+        contact_ready_manifest = base / "contact-ready" / "ready_manifest.txt"
+        run_tool(
+            root,
+            "summarize_debug_capture_batch.py",
+            [
+                str(write_contact_ready(base / "contact-batch")),
+                "--write-ready-manifest",
+                str(contact_ready_manifest),
+            ],
+        )
+        contact_dry = run_tool(
+            root,
+            "run_debug_capture_ready_manifest.py",
+            [
+                str(contact_ready_manifest),
+                "--dry-run",
+                "--oracle-binary",
+                str(fake_oracle),
+            ],
+        )
+        for snippet in [
+            "debug_capture_ready_manifest=ok mode=dry_run",
+            "ready_candidates=1",
+            "capture=contact_scanner_runtime",
+            "scenario=monster_contact_damage_live",
+            "oracle=contact_scanner",
+            "command=",
+            "--debug-contact-scanner-runtime-oracle",
+        ]:
+            require(contact_dry, snippet, "contact_scanner_dry_run")
         cases += 1
 
         run_result = base / "results" / "run_result.txt"

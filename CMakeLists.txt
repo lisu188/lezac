@@ -950,7 +950,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_summary_check=ok cases=6")
+                "^debug_capture_summary_check=ok cases=7")
 
         add_test(NAME debug_capture_batch_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -968,7 +968,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_ready_manifest_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_ready_manifest_check=ok cases=6")
+                "^debug_capture_ready_manifest_check=ok cases=7")
 
         add_test(NAME debug_capture_ready_results_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -977,7 +977,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_ready_results_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_ready_results_check=ok cases=21")
+                "^debug_capture_ready_results_check=ok cases=22")
 
         add_test(NAME debug_capture_ready_pipeline_expectations
             COMMAND ${Python3_EXECUTABLE}

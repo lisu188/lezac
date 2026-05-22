@@ -126,6 +126,8 @@ def main() -> int:
             "logs_present=1",
             "logs_missing=1",
             "candidate_result index=0 target=actor_update_gate6",
+            "runtime_cs=01ED",
+            "runtime_ds=0F3C",
             "fixture=/tmp/actor_update.txt",
             "candidate_result index=1 target=contact_scanner_start",
             "oracle_flag=--debug-contact-scanner-runtime-oracle",
@@ -159,6 +161,8 @@ def main() -> int:
                     "failures=0",
                     "candidate_0_target=actor_update_gate6",
                     "candidate_0_route=x3p00",
+                    "candidate_0_runtime_cs=01ED",
+                    "candidate_0_runtime_ds=0F3C",
                     "candidate_0_fixture=/tmp/actor_update.txt",
                     "candidate_0_oracle=actor_update",
                     "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",
@@ -218,6 +222,8 @@ def main() -> int:
                     "failures=1",
                     "candidate_0_target=actor_update_gate6",
                     "candidate_0_route=x3p00",
+                    "candidate_0_runtime_cs=01ED",
+                    "candidate_0_runtime_ds=0F3C",
                     "candidate_0_fixture=/tmp/actor_update.txt",
                     "candidate_0_oracle=actor_update",
                     "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",
@@ -299,6 +305,21 @@ def main() -> int:
         )
         cases += 1
 
+        runtime_manifest = base / "runtime" / "result_manifest.txt"
+        write_text(
+            runtime_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "candidate_0_runtime_ds=0F3C", "candidate_0_runtime_ds=XYZ1"
+            ),
+        )
+        runtime = run_summary(root, [str(runtime_manifest)], False)
+        require(
+            runtime,
+            "candidate_0_runtime_ds must be a 4-digit hexadecimal segment",
+            "runtime",
+        )
+        cases += 1
+
         extra_manifest = base / "extra" / "result_manifest.txt"
         write_text(
             extra_manifest,
@@ -339,6 +360,8 @@ def main() -> int:
                     "failures=0",
                     "candidate_0_target=actor_update_gate6",
                     "candidate_0_route=x3p00",
+                    "candidate_0_runtime_cs=01ED",
+                    "candidate_0_runtime_ds=0F3C",
                     "candidate_0_fixture=/tmp/actor_update.txt",
                     "candidate_0_oracle=actor_update",
                     "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",

@@ -33,6 +33,8 @@ class CandidateResult:
     level: str
     environment_preflight: str
     runtime_metadata: str
+    runtime_cs: str
+    runtime_ds: str
     fixture: str
     oracle: str
     oracle_flag: str
@@ -74,6 +76,17 @@ def parse_nonnegative_int(values: dict[str, str], key: str) -> int:
     if value < 0:
         raise ValueError(f"{key} must be non-negative")
     return value
+
+
+def parse_runtime_segment(values: dict[str, str], key: str) -> str:
+    raw_segment = require(values, key)
+    if len(raw_segment) != 4 or any(
+        character not in "0123456789abcdefABCDEF" for character in raw_segment
+    ):
+        raise ValueError(
+            f"{key} must be a 4-digit hexadecimal segment: {raw_segment!r}"
+        )
+    return raw_segment.upper()
 
 
 def parse_oracle_flag(values: dict[str, str], prefix: str) -> tuple[str, str]:
@@ -137,6 +150,8 @@ def parse_candidates(values: dict[str, str]) -> list[CandidateResult]:
     for index in range(count):
         prefix = f"candidate_{index}"
         oracle, oracle_flag = parse_oracle_flag(values, prefix)
+        runtime_cs = parse_runtime_segment(values, f"{prefix}_runtime_cs")
+        runtime_ds = parse_runtime_segment(values, f"{prefix}_runtime_ds")
         fixture = require(values, f"{prefix}_fixture")
         command = parse_command(values, prefix, oracle_flag, fixture)
         candidates.append(
@@ -149,6 +164,8 @@ def parse_candidates(values: dict[str, str]) -> list[CandidateResult]:
                     values, f"{prefix}_environment_preflight"
                 ),
                 runtime_metadata=require(values, f"{prefix}_runtime_metadata"),
+                runtime_cs=runtime_cs,
+                runtime_ds=runtime_ds,
                 fixture=fixture,
                 oracle=oracle,
                 oracle_flag=oracle_flag,
@@ -315,6 +332,8 @@ def main() -> int:
             f"level={candidate.level} "
             f"environment_preflight={candidate.environment_preflight} "
             f"runtime_metadata={candidate.runtime_metadata} "
+            f"runtime_cs={candidate.runtime_cs} "
+            f"runtime_ds={candidate.runtime_ds} "
             f"fixture={candidate.fixture} "
             f"oracle={candidate.oracle} "
             f"oracle_flag={candidate.oracle_flag} "

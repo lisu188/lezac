@@ -166,6 +166,8 @@ def main() -> int:
             "logs_present=1",
             "logs_missing=0",
             "candidate_result index=0 capture=behavior4_runtime",
+            "runtime_cs=01ED",
+            "runtime_ds=0C8F",
             "fixture=/tmp/capture/behavior4.txt",
             "candidate_result index=2 capture=visual_table",
             "oracle=visual_table",
@@ -266,6 +268,21 @@ def main() -> int:
         )
         cases += 1
 
+        runtime_manifest = base / "runtime" / "result_manifest.txt"
+        write_text(
+            runtime_manifest,
+            manifest_text(log).replace(
+                "candidate_0_runtime_cs=01ED", "candidate_0_runtime_cs=ZZZZ"
+            ),
+        )
+        runtime = run_summary(root, [str(runtime_manifest)], False)
+        require(
+            runtime,
+            "candidate_0_runtime_cs must be a 4-digit hexadecimal segment",
+            "runtime_summary",
+        )
+        cases += 1
+
         extra_manifest = base / "extra" / "result_manifest.txt"
         write_text(
             extra_manifest,
@@ -308,6 +325,8 @@ def main() -> int:
                     "candidate_0_level=3",
                     "candidate_0_environment_preflight=ok",
                     "candidate_0_runtime_metadata=ok",
+                    "candidate_0_runtime_cs=01ED",
+                    "candidate_0_runtime_ds=0C8F",
                     "candidate_0_oracle=behavior4",
                     "candidate_0_oracle_flag=--debug-behavior4-runtime-oracle",
                     "candidate_0_fixture=/tmp/capture/behavior4.txt",

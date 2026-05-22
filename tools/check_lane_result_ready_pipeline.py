@@ -433,6 +433,8 @@ def main() -> int:
                     "candidate_0_route=x2p00",
                     "candidate_0_offset_label=3d3f",
                     "candidate_0_offset_address=1000:3D3F",
+                    "candidate_0_runtime_cs=01ED",
+                    "candidate_0_runtime_ds=0C8F",
                     "candidate_0_fixture=/tmp/lane.txt",
                     "candidate_0_oracle=explosion_playback",
                     "candidate_0_oracle_flag=--debug-explosion-playback-oracle",

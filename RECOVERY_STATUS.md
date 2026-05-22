@@ -77,9 +77,12 @@ Baseline: `origin/main`
   docs notes name the fixture before a ready-result summary can promote them.
   The ready-manifest runners now apply the same fixture provenance guardrail
   before dry-run or live oracle execution, so an unledgered original fixture is
-  rejected before it can produce a result manifest. `--require-success` rejects
-  any remaining unknown candidate statuses or missing executed-candidate logs
-  instead of treating them as promotable evidence.
+  rejected before it can produce a result manifest. The upstream ready-manifest
+  writers for debug-capture batches, actor-dispatch sweeps, and lane-result
+  sweeps also validate ready fixture provenance before writing promotion
+  manifests. `--require-success` rejects any remaining unknown candidate
+  statuses or missing executed-candidate logs instead of treating them as
+  promotable evidence.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

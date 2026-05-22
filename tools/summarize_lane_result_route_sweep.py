@@ -10,6 +10,11 @@ import re
 import shlex
 import sys
 
+from ready_result_fixture_guardrails import (
+    parse_runtime_segment_value,
+    validate_runtime_fixture_evidence,
+)
+
 
 CAPTURE_ROUTE_SWEEP = "lane_result_route_sweep"
 CAPTURE_RUNTIME = "lane_result_runtime"
@@ -344,13 +349,22 @@ def ready_manifest_records(
     ]
     for index, (candidate, readiness) in enumerate(ready_entries):
         prefix = f"candidate_{index}"
+        runtime_cs = parse_runtime_segment_value(
+            f"{prefix}_runtime_cs", readiness.runtime_cs
+        )
+        runtime_ds = parse_runtime_segment_value(
+            f"{prefix}_runtime_ds", readiness.runtime_ds
+        )
+        validate_runtime_fixture_evidence(
+            prefix, str(candidate.fixture), runtime_cs, runtime_ds
+        )
         lines.extend(
             [
                 f"{prefix}_route={candidate.route_label}",
                 f"{prefix}_offset_label={candidate.offset_label}",
                 f"{prefix}_offset_address={candidate.offset_address}",
-                f"{prefix}_runtime_cs={readiness.runtime_cs}",
-                f"{prefix}_runtime_ds={readiness.runtime_ds}",
+                f"{prefix}_runtime_cs={runtime_cs}",
+                f"{prefix}_runtime_ds={runtime_ds}",
                 f"{prefix}_fixture={candidate.fixture}",
                 f"{prefix}_oracle={ORACLE}",
                 f"{prefix}_oracle_flag={ORACLE_FLAG}",

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -17,6 +18,7 @@ from check_debug_capture_summary import (
     write_visual_table_ready,
     write_text,
 )
+from ready_result_checker_support import write_original_fixture_tree
 
 
 def default_repo_root() -> Path:
@@ -27,15 +29,20 @@ def run_batch(
     root: Path,
     args: list[str],
     expect_success: bool = True,
+    env: dict[str, str] | None = None,
 ) -> str:
     command = [
         sys.executable,
         str(root / "tools" / "summarize_debug_capture_batch.py"),
         *args,
     ]
+    process_env = os.environ.copy()
+    if env is not None:
+        process_env.update(env)
     result = subprocess.run(
         command,
         cwd=root,
+        env=process_env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -161,6 +168,52 @@ def main() -> int:
             unsupported_only,
             "reason=no_supported_captures",
             "unsupported_only",
+        )
+        cases += 1
+
+        original_root = base / "original_root"
+        original_fixture = write_original_fixture_tree(
+            original_root,
+            "actor_update_runtime_oracle_original_writer_unledgered.txt",
+            runtime_ds="0F3C",
+            include_ledger_entry=False,
+        )
+        actor_candidate = actor_dir / "candidate_fixture.txt"
+        original_fixture.write_text(actor_candidate.read_text(encoding="ascii"), encoding="ascii")
+        original_capture = base / "original_capture"
+        write_text(
+            original_capture / "manifest.txt",
+            "\n".join(
+                [
+                    "capture=actor_update_runtime",
+                    "source=dosbox-debug",
+                    "scenario=object_collision_jump_live",
+                    "expected_level=1",
+                    "route=debugger_seeded",
+                    f"candidate_fixture={original_fixture}",
+                    "environment_preflight=ok",
+                    "runtime_metadata=observed",
+                    "runtime_cs=01ED",
+                    "runtime_ds=0F3C",
+                    "",
+                ]
+            ),
+        )
+        bad_original = run_batch(
+            root,
+            [
+                str(original_capture),
+                "--write-ready-manifest",
+                str(base / "bad_original_ready.txt"),
+            ],
+            expect_success=False,
+            env={"LEZAC_READY_RESULT_REPO_ROOT": str(original_root)},
+        )
+        require(
+            bad_original,
+            "candidate_0_fixture actor_update_runtime_oracle_original_writer_unledgered.txt "
+            "is missing from runtime evidence ledger",
+            "bad_original_writer_fixture",
         )
         cases += 1
 

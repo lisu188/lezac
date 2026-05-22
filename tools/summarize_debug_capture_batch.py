@@ -18,6 +18,10 @@ from summarize_debug_capture import (
     read_manifest,
     resolve_path,
 )
+from ready_result_fixture_guardrails import (
+    parse_runtime_segment_value,
+    validate_runtime_fixture_evidence,
+)
 
 
 @dataclass(frozen=True)
@@ -93,6 +97,15 @@ def ready_manifest_lines(
     for index, summary in enumerate(ready):
         values = summary.manifest.values
         prefix = f"candidate_{index}"
+        runtime_cs = parse_runtime_segment_value(
+            f"{prefix}_runtime_cs", values.get("runtime_cs", "unknown")
+        )
+        runtime_ds = parse_runtime_segment_value(
+            f"{prefix}_runtime_ds", values.get("runtime_ds", "unknown")
+        )
+        validate_runtime_fixture_evidence(
+            prefix, display_path(summary.candidate), runtime_cs, runtime_ds
+        )
         lines.extend(
             [
                 f"{prefix}_capture={values.get('capture', 'unknown')}",
@@ -100,8 +113,8 @@ def ready_manifest_lines(
                 f"{prefix}_level={values.get('expected_level', values.get('level', 'unknown'))}",
                 f"{prefix}_environment_preflight={values.get('environment_preflight', 'unknown')}",
                 f"{prefix}_runtime_metadata={values.get('runtime_metadata', 'unknown')}",
-                f"{prefix}_runtime_cs={values.get('runtime_cs', 'unknown')}",
-                f"{prefix}_runtime_ds={values.get('runtime_ds', 'unknown')}",
+                f"{prefix}_runtime_cs={runtime_cs}",
+                f"{prefix}_runtime_ds={runtime_ds}",
                 f"{prefix}_manifest={summary.manifest.path}",
                 f"{prefix}_fixture={display_path(summary.candidate)}",
                 f"{prefix}_oracle={summary.oracle}",

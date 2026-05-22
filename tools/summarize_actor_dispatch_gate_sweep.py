@@ -10,6 +10,11 @@ import re
 import shlex
 import sys
 
+from ready_result_fixture_guardrails import (
+    parse_runtime_segment_value,
+    validate_runtime_fixture_evidence,
+)
+
 
 CAPTURE_DISPATCH_SWEEP = "actor_dispatch_gate_sweep"
 CAPTURE_ROUTE_SWEEP = "actor_contact_route_sweep"
@@ -248,13 +253,22 @@ def ready_manifest_records(
     for index, (status, candidate_fixture, _) in enumerate(ready_entries):
         oracle, flag = oracle_for_target(status.target)
         prefix = f"candidate_{index}"
+        runtime_cs = parse_runtime_segment_value(
+            f"{prefix}_runtime_cs", status.fields.get("runtime_cs", "unknown")
+        )
+        runtime_ds = parse_runtime_segment_value(
+            f"{prefix}_runtime_ds", status.fields.get("runtime_ds", "unknown")
+        )
+        validate_runtime_fixture_evidence(
+            prefix, candidate_fixture, runtime_cs, runtime_ds
+        )
         lines.extend(
             [
                 f"{prefix}_target={status.target}",
                 f"{prefix}_route={status.route_label}",
                 f"{prefix}_ghidra={status.fields.get('ghidra', 'unknown')}",
-                f"{prefix}_runtime_cs={status.fields.get('runtime_cs', 'unknown')}",
-                f"{prefix}_runtime_ds={status.fields.get('runtime_ds', 'unknown')}",
+                f"{prefix}_runtime_cs={runtime_cs}",
+                f"{prefix}_runtime_ds={runtime_ds}",
                 f"{prefix}_freeze_runtime={status.fields.get('freeze_runtime', 'unknown')}",
                 f"{prefix}_fixture={candidate_fixture}",
                 f"{prefix}_oracle={oracle}",

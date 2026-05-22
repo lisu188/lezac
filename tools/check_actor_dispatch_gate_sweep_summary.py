@@ -4,11 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import shlex
 import sys
 import tempfile
+
+from ready_result_checker_support import write_original_fixture_tree
 
 
 def default_repo_root() -> Path:
@@ -20,6 +23,7 @@ def run_summary(
     manifest: Path,
     expect_success: bool = True,
     extra_args: list[str] | None = None,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     command = [
         sys.executable,
@@ -28,9 +32,13 @@ def run_summary(
     ]
     if extra_args:
         command.extend(extra_args)
+    process_env = os.environ.copy()
+    if env is not None:
+        process_env.update(env)
     result = subprocess.run(
         command,
         cwd=root,
+        env=process_env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -265,6 +273,50 @@ def main() -> int:
             f"{shlex.quote(str(ready_candidate))}",
         ]:
             require(promotion_text, snippet, "ready_promotion_manifest")
+        cases += 1
+
+        original_root = base / "original_root"
+        original_fixture = write_original_fixture_tree(
+            original_root,
+            "actor_update_runtime_oracle_original_writer_unledgered.txt",
+            runtime_ds="0F3C",
+            include_ledger_entry=False,
+        )
+        original_fixture.write_text(
+            ready_candidate.read_text(encoding="ascii"), encoding="ascii"
+        )
+        bad_original_manifest = base / "bad_original" / "manifest.txt"
+        write_text(
+            bad_original_manifest,
+            "\n".join(
+                [
+                    "capture=actor_contact_route_sweep",
+                    "target=actor_update_gate6",
+                    "timings=before_route",
+                    "routes=1",
+                    "route_labels=x3p00",
+                    "environment_preflight=ok",
+                    f"capture_status_x3p00=actor_contact_procmem=ok mode=capture target=actor_update_gate6 ghidra=1000:654E runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:654E freeze_observed=1 raw_dump=/tmp/original/raw.txt candidate_fixture={original_fixture}",
+                    "",
+                ]
+            ),
+        )
+        bad_original = run_summary(
+            root,
+            bad_original_manifest,
+            expect_success=False,
+            extra_args=[
+                "--write-ready-manifest",
+                str(base / "bad_original" / "promotion_manifest.txt"),
+            ],
+            env={"LEZAC_READY_RESULT_REPO_ROOT": str(original_root)},
+        ).stdout
+        require(
+            bad_original,
+            "candidate_0_fixture actor_update_runtime_oracle_original_writer_unledgered.txt "
+            "is missing from runtime evidence ledger",
+            "bad_original_writer_fixture",
+        )
         cases += 1
 
         skeleton_candidate = base / "skeleton" / "actor_update_candidate.txt"

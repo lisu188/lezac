@@ -4,25 +4,37 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+
+from ready_result_checker_support import write_original_fixture_tree
 
 
 def default_repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-def run_summary(root: Path, args: list[str], expect_success: bool = True) -> str:
+def run_summary(
+    root: Path,
+    args: list[str],
+    expect_success: bool = True,
+    env: dict[str, str] | None = None,
+) -> str:
     command = [
         sys.executable,
         str(root / "tools" / "summarize_lane_result_route_sweep.py"),
         *args,
     ]
+    process_env = os.environ.copy()
+    if env is not None:
+        process_env.update(env)
     result = subprocess.run(
         command,
         cwd=root,
+        env=process_env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -226,6 +238,40 @@ def main() -> int:
             "candidate_0_oracle_flag=--debug-explosion-playback-oracle",
         ]:
             require(promotion_text, snippet, "promotion_manifest")
+        cases += 1
+
+        original_root = base / "original_root"
+        original_fixture = write_original_fixture_tree(
+            original_root,
+            "explosion_playback_oracle_original_writer_unledgered.txt",
+            runtime_ds="0C8F",
+            include_ledger_entry=False,
+        )
+        write_candidate(original_fixture, freeze=True)
+        bad_original_runtime = base / "bad_original" / "manifest.txt"
+        write_runtime_manifest(bad_original_runtime, original_fixture)
+        bad_original_sweep = base / "bad_original_sweep.txt"
+        write_route_sweep(
+            bad_original_sweep,
+            ["original"],
+            [bad_original_runtime],
+        )
+        bad_original = run_summary(
+            root,
+            [
+                str(bad_original_sweep),
+                "--write-ready-manifest",
+                str(base / "bad_original_promotion.txt"),
+            ],
+            expect_success=False,
+            env={"LEZAC_READY_RESULT_REPO_ROOT": str(original_root)},
+        )
+        require(
+            bad_original,
+            "candidate_0_fixture explosion_playback_oracle_original_writer_unledgered.txt "
+            "is missing from runtime evidence ledger",
+            "bad_original_writer_fixture",
+        )
         cases += 1
 
         no_ready_sweep = base / "no_ready_manifest.txt"

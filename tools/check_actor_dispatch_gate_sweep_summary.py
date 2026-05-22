@@ -492,6 +492,42 @@ def main() -> int:
         require(dry_required, "freezes=0", "dry_required")
         cases += 1
 
+        all_targets = (
+            "actor_update_start,actor_update_end,actor_update_gate5,"
+            "actor_update_gate5_integration,actor_update_gate5_exit,"
+            "actor_update_gate6,contact_scanner_callsite,"
+            "contact_scanner_start,contact_scanner_end"
+        )
+        all_targets_manifest = base / "all_targets" / "manifest.txt"
+        write_text(
+            all_targets_manifest,
+            "\n".join(
+                [
+                    "capture=actor_dispatch_gate_sweep",
+                    "asset_dir=/repo",
+                    f"targets={all_targets}",
+                    "timings=before_route",
+                    "routes=4",
+                    "route_labels=x2p00,x5p00_m0p50_x2p00,x3p00_z0p50_x2p00,x1p50_left0p50_x2p00",
+                    "environment_preflight=ok",
+                    "",
+                ]
+            ),
+        )
+        all_targets_summary = run_summary(root, all_targets_manifest).stdout
+        for snippet in [
+            "mode=dispatch",
+            "environment_preflight=ok",
+            "targets=9",
+            "route_sweeps=0",
+            "captures=0",
+            "freezes=0",
+            "observed_targets=none",
+            f"missing_targets={all_targets}",
+        ]:
+            require(all_targets_summary, snippet, "all_targets_dry_manifest")
+        cases += 1
+
         missing_preflight_manifest = base / "missing_preflight" / "manifest.txt"
         write_text(
             missing_preflight_manifest,

@@ -122,6 +122,9 @@ Baseline: `origin/main`
 - Added `--target-set all` to the actor-dispatch sweep planner and pinned it
   with CTest, so one dry-run command now expands all nine actor/contact
   process-memory targets before an approved live capture host is used.
+- Extended actor-dispatch sweep summary coverage with a nine-target dry
+  manifest, keeping downstream missing-target accounting pinned to the
+  all-target planner output.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

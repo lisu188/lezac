@@ -80,9 +80,12 @@ Baseline: `origin/main`
   rejected before it can produce a result manifest. The upstream ready-manifest
   writers for debug-capture batches, actor-dispatch sweeps, and lane-result
   sweeps also validate ready fixture provenance before writing promotion
-  manifests. `--require-success` rejects any remaining unknown candidate
-  statuses or missing executed-candidate logs instead of treating them as
-  promotable evidence.
+  manifests. `docs/recovery/ready_fixture_provenance_contract.md` and
+  `tools/check_ready_fixture_provenance_contract.py` now pin the documented
+  contract to the shared validator and all writer/runner/result-summary call
+  sites. `--require-success` rejects any remaining unknown candidate statuses
+  or missing executed-candidate logs instead of treating them as promotable
+  evidence.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

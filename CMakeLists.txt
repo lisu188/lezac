@@ -301,6 +301,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_route_sweep_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gran_usage_guardrail.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ready_fixture_provenance_contract.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_runtime_evidence_guardrail.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_guardrail.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_debug_capture_helper.py
@@ -851,6 +852,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^gran_usage_guardrail=ok source_refs=16 load_refs=1 debug_refs=14 member_refs=1 live_refs=0 ctest=1 docs=3")
+
+        add_test(NAME ready_fixture_provenance_contract
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ready_fixture_provenance_contract.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(ready_fixture_provenance_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^ready_fixture_provenance_contract=ok docs=1 validator=1 writers=3 runners=3 result_summaries=3")
 
         add_test(NAME visual_claim_guardrail
             COMMAND ${Python3_EXECUTABLE}

@@ -116,6 +116,18 @@ def validate_fixture_runtime_segments(
     if not fixture_path.exists():
         return
     fixture_values = read_fixture_values(fixture_path)
+    visual_claim = fixture_values.get("visual_claim")
+    if visual_claim is not None and visual_claim != "0":
+        raise ValueError(
+            f"{prefix}_fixture visual_claim={visual_claim!r} is not supported "
+            "for runtime ready results"
+        )
+    temp_copy = fixture_values.get("temp_copy")
+    if temp_copy is not None and temp_copy != "1":
+        raise ValueError(
+            f"{prefix}_fixture temp_copy={temp_copy!r} does not identify "
+            "a temp-copy capture"
+        )
     for key, expected in (("runtime_cs", runtime_cs), ("runtime_ds", runtime_ds)):
         if key not in fixture_values:
             continue

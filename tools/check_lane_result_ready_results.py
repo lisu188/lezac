@@ -354,6 +354,48 @@ def main() -> int:
         )
         cases += 1
 
+        visual_claim_path = base / "fixtures" / "lane_forward_visual_claim.txt"
+        write_text(
+            visual_claim_path,
+            "temp_copy=1\nvisual_claim=1\nruntime_cs=01ED\nruntime_ds=0C8F\n",
+        )
+        visual_claim_manifest = base / "visual_claim" / "result_manifest.txt"
+        write_text(
+            visual_claim_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/lane_forward.txt",
+                visual_claim_path.as_posix(),
+            ),
+        )
+        visual_claim = run_summary(root, [str(visual_claim_manifest)], False)
+        require(
+            visual_claim,
+            "candidate_0_fixture visual_claim='1' is not supported",
+            "visual_claim",
+        )
+        cases += 1
+
+        temp_copy_path = base / "fixtures" / "lane_forward_temp_copy.txt"
+        write_text(
+            temp_copy_path,
+            "temp_copy=0\nvisual_claim=0\nruntime_cs=01ED\nruntime_ds=0C8F\n",
+        )
+        temp_copy_manifest = base / "temp_copy" / "result_manifest.txt"
+        write_text(
+            temp_copy_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/lane_forward.txt",
+                temp_copy_path.as_posix(),
+            ),
+        )
+        temp_copy = run_summary(root, [str(temp_copy_manifest)], False)
+        require(
+            temp_copy,
+            "candidate_0_fixture temp_copy='0' does not identify a temp-copy capture",
+            "temp_copy",
+        )
+        cases += 1
+
         extra_manifest = base / "extra" / "result_manifest.txt"
         write_text(
             extra_manifest,

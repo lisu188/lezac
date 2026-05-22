@@ -647,7 +647,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_dispatch_gate_sweep_output_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_dispatch_gate_sweep_output=ok cases=8")
+                "^actor_dispatch_gate_sweep_output=ok cases=9")
 
         add_test(NAME actor_contact_callsite_scan
             COMMAND ${Python3_EXECUTABLE}

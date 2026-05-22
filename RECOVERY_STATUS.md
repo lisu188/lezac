@@ -125,6 +125,8 @@ Baseline: `origin/main`
 - Extended actor-dispatch sweep summary coverage with a nine-target dry
   manifest, keeping downstream missing-target accounting pinned to the
   all-target planner output.
+- Pinned the actor-dispatch sweep override contract: repeated `--target`
+  arguments narrow the run even when `--target-set all` is present.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

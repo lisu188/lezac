@@ -158,6 +158,32 @@ def main() -> int:
         require(all_targets, snippet, "all_targets_dry_run")
     cases += 1
 
+    target_override = run_sweep(
+        root,
+        [
+            str(out_base / "target-override"),
+            str(root),
+            "--dry-run",
+            "--target-set",
+            "all",
+            "--target",
+            "contact_scanner_end",
+            "--route",
+            "x:2.00",
+        ],
+    )
+    for snippet in [
+        "targets=1",
+        "target_labels=contact_scanner_end",
+        "routes=1",
+        "sweep_commands=1",
+        "capture_commands=1",
+        "sweep_command_contact_scanner_end=",
+        "--target contact_scanner_end",
+    ]:
+        require(target_override, snippet, "target_override")
+    cases += 1
+
     skip_environment = run_sweep(
         root,
         [

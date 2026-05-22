@@ -123,6 +123,30 @@ def write_ready_actor_fixture(path: Path) -> None:
     )
 
 
+def write_ready_scanner_fixture(path: Path) -> None:
+    write_text(
+        path,
+        "\n".join(
+            [
+                "capture=contact_scanner_runtime",
+                "source=synthetic",
+                "temp_copy=1",
+                "visual_claim=0",
+                "scenario=monster_contact_damage_live",
+                "level=1",
+                "runtime_cs=01ED",
+                "runtime_ds=0F3C",
+                "break ghidra=1000:5CB0 runtime=01ED:5CB0 label=contact_scanner_start",
+                "break ghidra=1000:604F runtime=01ED:604F label=contact_scanner_end",
+                "subject_actor slot=0 behavior=0 kind=0 state=0 x=0x0068 y=0x00a8 flags=0x0000 contact=0",
+                "other_actor slot=3 behavior=4 kind=2 state=0 x=0x006a y=0x00a8 flags=0x0000 contact=0",
+                "contact_scan subject_slot=0 other_slot=3 flags_before=0x0000 flags_after=0x0002 contact=1 player_contact=1 monster_contact=0 object_contact=0 damage_pending=1",
+                "",
+            ]
+        ),
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Check dispatch ready manifest promotion pipeline."
@@ -247,6 +271,118 @@ def main() -> int:
             "logs_missing=0",
         ]:
             require(result, snippet, "pipeline_result")
+        cases += 1
+
+        ready_scanner_candidate = base / "scanner_candidate" / "contact_scanner_candidate.txt"
+        write_ready_scanner_fixture(ready_scanner_candidate)
+        scanner_child_manifest = (
+            base / "scanner_dispatch" / "contact_scanner_end" / "manifest.txt"
+        )
+        write_text(
+            scanner_child_manifest,
+            "\n".join(
+                [
+                    "capture=actor_contact_route_sweep",
+                    "target=contact_scanner_end",
+                    "timings=before_route",
+                    "routes=1",
+                    "route_labels=x0p50",
+                    "environment_preflight=skipped",
+                    f"capture_status_x0p50=actor_contact_procmem=ok mode=capture target=contact_scanner_end ghidra=1000:604F runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:604F freeze_observed=1 raw_dump=/tmp/scanner_ready/raw.txt candidate_fixture={ready_scanner_candidate}",
+                    "",
+                ]
+            ),
+        )
+        scanner_dispatch_manifest = base / "scanner_dispatch" / "manifest.txt"
+        write_text(
+            scanner_dispatch_manifest,
+            "\n".join(
+                [
+                    "capture=actor_dispatch_gate_sweep",
+                    "asset_dir=/repo",
+                    "targets=contact_scanner_end",
+                    "timings=before_route",
+                    "routes=1",
+                    "route_labels=x0p50",
+                    "environment_preflight=ok",
+                    f"sweep_manifest_contact_scanner_end={scanner_child_manifest}",
+                    "",
+                ]
+            ),
+        )
+
+        scanner_ready_manifest = base / "scanner_ready_manifest.txt"
+        scanner_summary = run_tool(
+            root,
+            "summarize_actor_dispatch_gate_sweep.py",
+            [
+                str(scanner_dispatch_manifest),
+                "--require-ready",
+                "--require-environment-preflight",
+                "--write-ready-manifest",
+                str(scanner_ready_manifest),
+            ],
+        )
+        for snippet in [
+            "actor_dispatch_gate_sweep_summary=ok",
+            "ready_candidates=1",
+            "observed_targets=contact_scanner_end",
+            "oracle=contact_scanner oracle_flag=--debug-contact-scanner-runtime-oracle",
+            "actor_dispatch_gate_ready_manifest=ok",
+            f"path={scanner_ready_manifest.resolve()}",
+        ]:
+            require(scanner_summary, snippet, "scanner_pipeline_summary")
+
+        scanner_log_dir = base / "scanner_logs"
+        scanner_result_manifest = base / "scanner_results" / "result_manifest.txt"
+        scanner_runner = run_tool(
+            root,
+            "run_actor_dispatch_ready_manifest.py",
+            [
+                str(scanner_ready_manifest),
+                "--require-source-environment-preflight",
+                "--oracle-binary",
+                str(fake_oracle),
+                "--log-dir",
+                str(scanner_log_dir),
+                "--write-result-manifest",
+                str(scanner_result_manifest),
+                "--timeout-seconds",
+                "5",
+            ],
+        )
+        for snippet in [
+            "actor_dispatch_ready_manifest=ok mode=run",
+            "ready_candidate index=0 target=contact_scanner_end",
+            "oracle=contact_scanner",
+            "--debug-contact-scanner-runtime-oracle",
+            "status=ok returncode=0",
+            "actor_dispatch_ready_result_manifest=ok",
+            f"path={scanner_result_manifest.resolve()}",
+        ]:
+            require(scanner_runner, snippet, "scanner_pipeline_runner")
+
+        scanner_result = run_tool(
+            root,
+            "summarize_actor_dispatch_ready_results.py",
+            [
+                str(scanner_result_manifest),
+                "--require-success",
+                "--require-executed",
+                "--require-source-environment-preflight",
+            ],
+        )
+        for snippet in [
+            "actor_dispatch_ready_result_summary=ok",
+            "mode=run",
+            "ready_candidates=1",
+            "failures=0",
+            "planned=0 ok=1 error=0 other=0",
+            "executed_candidates=1",
+            "candidate_result index=0 target=contact_scanner_end",
+            "oracle_flag=--debug-contact-scanner-runtime-oracle",
+        ]:
+            require(scanner_result, snippet, "scanner_pipeline_result")
         cases += 1
 
         original_root = base / "original_root"

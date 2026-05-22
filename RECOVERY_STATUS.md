@@ -130,6 +130,9 @@ Baseline: `origin/main`
 - Added ready-candidate summary coverage for a `contact_scanner_end`
   process-memory fixture, including the promoted
   `--debug-contact-scanner-runtime-oracle` handoff.
+- Extended the actor-dispatch ready pipeline check so a ready
+  `contact_scanner_end` fixture now travels end to end through summary,
+  ready-manifest execution, and ready-result summarization.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

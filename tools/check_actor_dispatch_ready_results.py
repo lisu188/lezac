@@ -67,7 +67,9 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="lezac-ready-results-") as tmp:
         base = Path(tmp)
         log0 = base / "logs" / "candidate_0_actor_update_gate6.log"
+        log1 = base / "logs" / "candidate_1_contact_scanner_start.log"
         write_text(log0, "actor_update_runtime_oracle=ok\n")
+        write_text(log1, "contact_scanner_runtime_oracle=ok\n")
         run_manifest = base / "run" / "result_manifest.txt"
         write_text(
             run_manifest,
@@ -105,7 +107,7 @@ def main() -> int:
                     "candidate_1_oracle_flag=--debug-contact-scanner-runtime-oracle",
                     "candidate_1_status=ok",
                     "candidate_1_returncode=0",
-                    "candidate_1_log=/tmp/missing-contact.log",
+                    f"candidate_1_log={log1}",
                     "candidate_1_command=./build/lezac_cpp --debug-contact-scanner-runtime-oracle /tmp/contact_scanner.txt",
                     "",
                 ]
@@ -123,8 +125,8 @@ def main() -> int:
             "failures=0",
             "planned=0 ok=2 error=0 other=0",
             "executed_candidates=2",
-            "logs_present=1",
-            "logs_missing=1",
+            "logs_present=2",
+            "logs_missing=0",
             "candidate_result index=0 target=actor_update_gate6",
             "runtime_cs=01ED",
             "runtime_ds=0F3C",
@@ -133,6 +135,21 @@ def main() -> int:
             "oracle_flag=--debug-contact-scanner-runtime-oracle",
         ]:
             require(run_summary_text, snippet, "run_manifest")
+        cases += 1
+
+        missing_log_manifest = base / "missing_log" / "result_manifest.txt"
+        write_text(
+            missing_log_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                f"candidate_1_log={log1}",
+                "candidate_1_log=/tmp/missing-contact.log",
+            ),
+        )
+        missing_log = run_summary(
+            root, [str(missing_log_manifest), "--require-success"], False
+        )
+        require(missing_log, "reason=candidate_logs_missing", "missing_log")
+        require(missing_log, "logs_missing=1", "missing_log")
         cases += 1
 
         run_required = run_summary(

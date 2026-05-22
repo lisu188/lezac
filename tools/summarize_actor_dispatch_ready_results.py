@@ -220,9 +220,11 @@ def existing_log_count(candidates: list[CandidateResult]) -> tuple[int, int]:
     present = 0
     missing = 0
     for candidate in candidates:
-        if candidate.log == "none":
+        if candidate.status == "planned":
             continue
-        if Path(candidate.log).exists():
+        if candidate.log == "none":
+            missing += 1
+        elif Path(candidate.log).exists():
             present += 1
         else:
             missing += 1
@@ -344,6 +346,14 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
+    if args.require_success and logs_missing != 0:
+        print(
+            "actor_dispatch_ready_result_summary=error "
+            "reason=candidate_logs_missing "
+            f"logs_missing={logs_missing}",
+            file=sys.stderr,
+        )
+        return 5
     if args.require_executed and counts["planned"] != 0:
         print(
             "actor_dispatch_ready_result_summary=error "

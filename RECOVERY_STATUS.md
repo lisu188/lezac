@@ -70,8 +70,9 @@ Baseline: `origin/main`
   only planned candidates; mismatched per-candidate oracle flags fail at parse
   time, runtime `CS`/`DS` fields must be valid four-digit segments, recorded
   commands must end with the matching oracle flag and fixture, and
-  `--require-success` rejects any remaining unknown candidate statuses instead
-  of treating them as promotable evidence.
+  `--require-success` rejects any remaining unknown candidate statuses or
+  missing executed-candidate logs instead of treating them as promotable
+  evidence.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

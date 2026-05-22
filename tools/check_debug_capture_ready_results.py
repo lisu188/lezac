@@ -53,6 +53,8 @@ def run_summary(
 
 def manifest_text(log: Path, *, mode: str = "run", status: str = "ok") -> str:
     failures = "0" if status != "error" else "1"
+    log1 = log.parent / "candidate_1.log"
+    log2 = log.parent / "candidate_2.log"
     return "\n".join(
         (
             "result=debug_capture_ready_manifest",
@@ -106,7 +108,11 @@ def manifest_text(log: Path, *, mode: str = "run", status: str = "ok") -> str:
                 if mode == "dry_run"
                 else "candidate_1_returncode=0"
             ),
-            "candidate_1_log=none",
+            (
+                "candidate_1_log=none"
+                if mode == "dry_run"
+                else f"candidate_1_log={log1}"
+            ),
             "candidate_1_command=/tmp/lezac_cpp --debug-actor-update-runtime-oracle /tmp/capture/actor_update.txt",
             "candidate_2_capture=visual_table",
             "candidate_2_scenario=state2_death_table_consumption",
@@ -129,7 +135,11 @@ def manifest_text(log: Path, *, mode: str = "run", status: str = "ok") -> str:
                 if mode == "dry_run"
                 else "candidate_2_returncode=0"
             ),
-            "candidate_2_log=none",
+            (
+                "candidate_2_log=none"
+                if mode == "dry_run"
+                else f"candidate_2_log={log2}"
+            ),
             "candidate_2_command=/tmp/lezac_cpp --debug-visual-table-oracle /tmp/capture/visual_table.txt",
             "",
         )
@@ -149,6 +159,8 @@ def main() -> int:
         base = Path(tmp)
         log = base / "logs" / "candidate_0.log"
         write_text(log, "oracle ok\n")
+        write_text(log.parent / "candidate_1.log", "actor oracle ok\n")
+        write_text(log.parent / "candidate_2.log", "visual oracle ok\n")
 
         run_manifest = base / "run" / "result_manifest.txt"
         write_text(run_manifest, manifest_text(log))
@@ -163,7 +175,7 @@ def main() -> int:
             "error=0",
             "executed_candidates=3",
             "environment_preflight_ok=3",
-            "logs_present=1",
+            "logs_present=3",
             "logs_missing=0",
             "candidate_result index=0 capture=behavior4_runtime",
             "runtime_cs=01ED",
@@ -175,6 +187,21 @@ def main() -> int:
             "--debug-visual-table-oracle",
         ]:
             require(run, snippet, "run_summary")
+        cases += 1
+
+        missing_log_manifest = base / "missing_log" / "result_manifest.txt"
+        write_text(
+            missing_log_manifest,
+            manifest_text(log).replace(
+                f"candidate_2_log={log.parent / 'candidate_2.log'}",
+                "candidate_2_log=/tmp/missing-visual-table.log",
+            ),
+        )
+        missing_log = run_summary(
+            root, [str(missing_log_manifest), "--require-success"], False
+        )
+        require(missing_log, "reason=candidate_logs_missing", "missing_log")
+        require(missing_log, "logs_missing=1", "missing_log")
         cases += 1
 
         dry_manifest = base / "dry" / "result_manifest.txt"

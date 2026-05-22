@@ -113,6 +113,9 @@ Baseline: `origin/main`
   supported freeze targets, from actor-update entry/exit through gate5/gate6
   and contact-scanner callsite/start/end. These remain guarded dry-run plans
   until a trusted WSL/DOSBox/procmem host captures runtime evidence.
+- Added a CTest dry-run for the default actor-dispatch gate sweep, pinning the
+  five-target matrix across gate5 entry/integration/exit, gate6, and the
+  contact-scanner callsite before any live WSL/DOSBox/procmem run is promoted.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

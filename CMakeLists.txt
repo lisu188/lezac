@@ -606,6 +606,17 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^actor_dispatch_gate_sweep=ok mode=dry_run .*targets=2 .*target_labels=actor_update_gate5,actor_update_gate6 .*timings=before_bomb,before_route routes=2 .*sweep_commands=2 .*capture_commands=8")
 
+        add_test(NAME actor_dispatch_gate_sweep_default_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_dispatch_gates.py
+                    /tmp/lezac-actor-dispatch-gate-sweep-default-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run)
+        set_tests_properties(actor_dispatch_gate_sweep_default_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_dispatch_gate_sweep=ok mode=dry_run .*targets=5 .*target_labels=actor_update_gate5,actor_update_gate5_integration,actor_update_gate5_exit,actor_update_gate6,contact_scanner_callsite .*timings=before_route routes=4 .*route_labels=x2p00,x5p00_m0p50_x2p00,x3p00_z0p50_x2p00,x1p50_left0p50_x2p00 .*sweep_commands=5 .*capture_commands=20 .*environment_preflight=1")
+
         add_test(NAME actor_dispatch_gate_sweep_output_expectations
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_gate_sweep.py

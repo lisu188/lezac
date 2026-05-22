@@ -72,6 +72,10 @@ Baseline: `origin/main`
   behavior-4 skeleton failure case. Batch promotion and ready-manifest runner
   coverage now exercise all four runtime oracle families:
   behavior-4, actor-update, contact-scanner, and visual-table.
+- Aligned `tools/run_debug_capture_ready_manifest.py` with the actor-dispatch
+  and lane-result ready runners: `--allow-missing-fixtures` is now explicitly a
+  dry-run-only forensic bypass, and live generic debug-capture ready runs reject
+  the flag before parsing candidate fixtures.
 - Hardened the ready-result summarizers for actor-dispatch, lane-result, and
   generic debug-capture handoffs so inconsistent manifests fail if their
   aggregate `failures=` count disagrees with per-candidate `status=error`

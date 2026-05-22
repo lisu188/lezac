@@ -311,6 +311,14 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    if args.allow_missing_fixtures and not args.dry_run:
+        print(
+            "debug_capture_ready_manifest=error "
+            "reason=--allow-missing-fixtures requires --dry-run",
+            file=sys.stderr,
+        )
+        return 2
+
     try:
         ready_manifest = read_manifest(args.manifest)
         oracle_binary = args.oracle_binary or require(

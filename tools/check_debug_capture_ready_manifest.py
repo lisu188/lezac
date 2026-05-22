@@ -326,6 +326,22 @@ def main() -> int:
         require(bad_flag, "does not match candidate_0_oracle", "bad_flag")
         cases += 1
 
+        missing_fixture_live = run_tool(
+            root,
+            "run_debug_capture_ready_manifest.py",
+            [
+                str(missing_fixture_manifest),
+                "--allow-missing-fixtures",
+            ],
+            expect_success=False,
+        )
+        require(
+            missing_fixture_live,
+            "--allow-missing-fixtures requires --dry-run",
+            "missing_fixture_live",
+        )
+        cases += 1
+
     print(f"debug_capture_ready_manifest_check=ok cases={cases}")
     return 0
 

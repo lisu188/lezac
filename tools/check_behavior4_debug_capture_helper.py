@@ -31,6 +31,24 @@ OUTPUTS = [
     "behavior4_debug_capture.log",
 ]
 
+CMAKE_TESTS = [
+    (
+        "behavior4_debug_capture_helper_dry_run",
+        "monster_behavior4_target_selection",
+        "/tmp/lezac-behavior4-debug-dry-run",
+    ),
+    (
+        "behavior4_debug_capture_helper_level2_dry_run",
+        "monster_spawner_behavior4_level2",
+        "/tmp/lezac-behavior4-debug-level2-dry-run",
+    ),
+    (
+        "behavior4_debug_capture_helper_level3_dry_run",
+        "monster_spawner_behavior4_level3",
+        "/tmp/lezac-behavior4-debug-level3-dry-run",
+    ),
+]
+
 
 def default_repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
@@ -107,22 +125,24 @@ def check_script(script_path: Path) -> None:
 def check_cmake(cmake_path: Path) -> None:
     text = cmake_path.read_text(encoding="utf-8")
     require(text, "find_program(BASH_EXECUTABLE bash)", "CMake")
-    block = test_block(text, "behavior4_debug_capture_helper_dry_run")
-    collapsed = collapse_ws(block)
-    for snippet in [
-        "LEZAC_BEHAVIOR4_DEBUG_DRY_RUN=1",
-        "${BASH_EXECUTABLE}",
-        "tools/capture_original_behavior4_debug.sh",
-        "/tmp/lezac-behavior4-debug-dry-run",
-        "${CMAKE_CURRENT_SOURCE_DIR}",
-        "monster_behavior4_target_selection",
-        "^behavior4_debug_capture=ok mode=dry_run scenario=monster_behavior4_target_selection route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run",
-    ]:
-        if collapse_ws(snippet) not in collapsed:
-            raise RuntimeError(
-                "behavior4_debug_capture_helper_dry_run missing snippet: "
-                f"{snippet}"
-            )
+    for test_name, scenario, out_dir in CMAKE_TESTS:
+        block = test_block(text, test_name)
+        collapsed = collapse_ws(block)
+        for snippet in [
+            "LEZAC_BEHAVIOR4_DEBUG_DRY_RUN=1",
+            "${BASH_EXECUTABLE}",
+            "tools/capture_original_behavior4_debug.sh",
+            out_dir,
+            "${CMAKE_CURRENT_SOURCE_DIR}",
+            scenario,
+            (
+                "^behavior4_debug_capture=ok mode=dry_run "
+                f"scenario={scenario} route=debugger_seeded "
+                ".*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run"
+            ),
+        ]:
+            if collapse_ws(snippet) not in collapsed:
+                raise RuntimeError(f"{test_name} missing snippet: {snippet}")
 
 
 def check_docs(root: Path) -> None:
@@ -153,7 +173,7 @@ def main() -> int:
     print(
         "behavior4_debug_capture_helper=ok "
         f"scenarios={len(SCENARIOS)} anchors={len(BREAKPOINTS)} "
-        f"outputs={len(OUTPUTS)} cmake_test=1 docs=2"
+        f"outputs={len(OUTPUTS)} cmake_tests={len(CMAKE_TESTS)} docs=2"
     )
     return 0
 

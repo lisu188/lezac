@@ -101,6 +101,10 @@ Baseline: `origin/main`
   the four planned natural-route probes
   `x:2.00`, `x:2.00,c:0.50`, `x:1.50,z:0.50`, and `x:2.00,m:0.35` at the
   build level before any DOSBox/procmem capture is attempted.
+- Extended behavior-4 DOSBox-debug helper coverage so CMake dry-runs all three
+  supported original evidence plans: level-2 spawner, level-3 spawner, and
+  two-player target selection. These remain `debugger_seeded` capture plans
+  with `visual_claim=0` until real DOSBox-debug transcripts are promoted.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

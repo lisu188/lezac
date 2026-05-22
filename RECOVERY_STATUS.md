@@ -86,6 +86,12 @@ Baseline: `origin/main`
   sites. `--require-success` rejects any remaining unknown candidate statuses
   or missing executed-candidate logs instead of treating them as promotable
   evidence.
+- Added `tools/check_frame_compare_workflow.py` to pin the original-vs-C++
+  frame comparison bundle contract. The guardrail verifies that
+  `tools/compare_original_cpp_frames.sh` still captures C++ frames, attempts
+  the DOSBox-original capture, runs `tools/frame_compare.py`, leaves missing
+  original labels visible, writes `frame_compare_summary.txt` and
+  `manifest.txt`, and keeps generated evidence outside the repository.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

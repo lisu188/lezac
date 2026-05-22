@@ -97,6 +97,10 @@ Baseline: `origin/main`
   `1000:3D3F`. This does not promote new evidence, but it keeps the next
   DOSBox/procmem route retry anchored to the documented no-freeze fixture and
   visible in the orchestrator contract.
+- Added a CTest dry-run for the default lane-result route sweep matrix, locking
+  the four planned natural-route probes
+  `x:2.00`, `x:2.00,c:0.50`, `x:1.50,z:0.50`, and `x:2.00,m:0.35` at the
+  build level before any DOSBox/procmem capture is attempted.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

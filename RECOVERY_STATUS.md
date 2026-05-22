@@ -105,6 +105,10 @@ Baseline: `origin/main`
   supported original evidence plans: level-2 spawner, level-3 spawner, and
   two-player target selection. These remain `debugger_seeded` capture plans
   with `visual_claim=0` until real DOSBox-debug transcripts are promoted.
+- Extended actor-update and contact-scanner DOSBox-debug helper contracts so
+  CMake names all three supported `debugger_seeded` plans:
+  object-collision jump, monster-contact damage, and behavior-4 chase. These
+  are still dry-run capture plans only, not promoted original runtime evidence.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

@@ -692,6 +692,30 @@ if(BUILD_TESTING)
                 PASS_REGULAR_EXPRESSION
                     "^actor_update_debug_capture=ok mode=dry_run scenario=object_collision_jump_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
 
+            add_test(NAME actor_update_debug_capture_helper_contact_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_UPDATE_DEBUG_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_update_debug.sh
+                        /tmp/lezac-actor-update-debug-contact-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        monster_contact_damage_live)
+            set_tests_properties(actor_update_debug_capture_helper_contact_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_update_debug_capture=ok mode=dry_run scenario=monster_contact_damage_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_update_debug_capture_helper_behavior4_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_UPDATE_DEBUG_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_update_debug.sh
+                        /tmp/lezac-actor-update-debug-behavior4-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        monster_behavior4_chase)
+            set_tests_properties(actor_update_debug_capture_helper_behavior4_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_update_debug_capture=ok mode=dry_run scenario=monster_behavior4_chase route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
+
             add_test(NAME contact_scanner_debug_capture_helper_dry_run
                 COMMAND ${CMAKE_COMMAND} -E env LEZAC_CONTACT_SCANNER_DEBUG_DRY_RUN=1
                         ${BASH_EXECUTABLE}
@@ -703,6 +727,30 @@ if(BUILD_TESTING)
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 PASS_REGULAR_EXPRESSION
                     "^contact_scanner_debug_capture=ok mode=dry_run scenario=monster_contact_damage_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
+
+            add_test(NAME contact_scanner_debug_capture_helper_object_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_CONTACT_SCANNER_DEBUG_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_contact_scanner_debug.sh
+                        /tmp/lezac-contact-scanner-debug-object-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        object_collision_jump_live)
+            set_tests_properties(contact_scanner_debug_capture_helper_object_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^contact_scanner_debug_capture=ok mode=dry_run scenario=object_collision_jump_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
+
+            add_test(NAME contact_scanner_debug_capture_helper_behavior4_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_CONTACT_SCANNER_DEBUG_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_contact_scanner_debug.sh
+                        /tmp/lezac-contact-scanner-debug-behavior4-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        monster_behavior4_chase)
+            set_tests_properties(contact_scanner_debug_capture_helper_behavior4_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^contact_scanner_debug_capture=ok mode=dry_run scenario=monster_behavior4_chase route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
 
             add_test(NAME visual_table_debug_capture_helper_dry_run
                 COMMAND ${CMAKE_COMMAND} -E env LEZAC_VISUAL_TABLE_DEBUG_DRY_RUN=1
@@ -745,7 +793,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_update_debug_capture_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_update_debug_capture_helper=ok scenarios=3 anchors=4 outputs=7 cmake_test=1 docs=2")
+                "^actor_update_debug_capture_helper=ok scenarios=3 anchors=4 outputs=7 cmake_tests=3 docs=2")
 
         add_test(NAME contact_scanner_debug_capture_helper_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -754,7 +802,7 @@ if(BUILD_TESTING)
         set_tests_properties(contact_scanner_debug_capture_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^contact_scanner_debug_capture_helper=ok scenarios=3 anchors=2 outputs=7 cmake_test=1 docs=2")
+                "^contact_scanner_debug_capture_helper=ok scenarios=3 anchors=2 outputs=7 cmake_tests=3 docs=2")
 
         add_test(NAME visual_table_debug_capture_helper_expectations
             COMMAND ${Python3_EXECUTABLE}

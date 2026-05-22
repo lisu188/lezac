@@ -67,6 +67,11 @@ Baseline: `origin/main`
   and full batch-to-result pipeline now all prove the
   `--debug-contact-scanner-runtime-oracle` handoff before contact-scanner
   DOSBox-debug evidence is promoted.
+- Extended the same generic ready pipeline with a synthetic ready
+  `capture=behavior4_runtime` candidate while preserving the incomplete
+  behavior-4 skeleton failure case. Batch promotion and ready-manifest runner
+  coverage now exercise all four runtime oracle families:
+  behavior-4, actor-update, contact-scanner, and visual-table.
 - Hardened the ready-result summarizers for actor-dispatch, lane-result, and
   generic debug-capture handoffs so inconsistent manifests fail if their
   aggregate `failures=` count disagrees with per-candidate `status=error`

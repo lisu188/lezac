@@ -13,6 +13,7 @@ import tempfile
 from check_debug_capture_summary import (
     require,
     write_actor_ready,
+    write_behavior4_ready,
     write_behavior4_skeleton,
     write_contact_missing,
     write_contact_ready,
@@ -81,6 +82,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="lezac-debug-batch-") as tmp:
         base = Path(tmp)
         write_behavior4_skeleton(base)
+        write_behavior4_ready(base)
         actor_dir = write_actor_ready(base)
         write_contact_missing(base)
         write_contact_ready(base)
@@ -98,21 +100,22 @@ def main() -> int:
         )
         for snippet in [
             "debug_capture_batch_summary=ok",
-            "manifests=6",
-            "supported=5",
+            "manifests=7",
+            "supported=6",
             "unsupported=1",
-            "ready=3",
+            "ready=4",
             "incomplete=1",
             "missing=1",
-            "environment_ok=3",
+            "environment_ok=4",
             "environment_not_ok=2",
-            "runtime_observed=3",
-            "oracle_commands=5",
+            "runtime_observed=4",
+            "oracle_commands=6",
             "debug_capture_batch_candidate index=0",
             "capture=actor_update_runtime",
             "candidate_status=ready",
             "capture=behavior4_runtime",
             "candidate_status=incomplete",
+            "oracle_flag=--debug-behavior4-runtime-oracle",
             "capture=contact_scanner_runtime",
             "candidate_status=missing",
             "oracle_flag=--debug-contact-scanner-runtime-oracle",
@@ -120,20 +123,22 @@ def main() -> int:
             "oracle_flag=--debug-visual-table-oracle",
             "debug_capture_ready_manifest=ok",
             f"path={ready_manifest.resolve()}",
-            "ready_candidates=3",
+            "ready_candidates=4",
         ]:
             require(batch, snippet, "batch_summary")
         ready_text = ready_manifest.read_text(encoding="ascii")
         for snippet in [
             "promotion=debug_capture_ready_candidates",
-            "ready_candidates=3",
+            "ready_candidates=4",
             "candidate_0_capture=actor_update_runtime",
             "candidate_0_environment_preflight=ok",
             "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",
-            "candidate_1_capture=contact_scanner_runtime",
-            "candidate_1_oracle_flag=--debug-contact-scanner-runtime-oracle",
-            "candidate_2_capture=visual_table",
-            "candidate_2_oracle_flag=--debug-visual-table-oracle",
+            "candidate_1_capture=behavior4_runtime",
+            "candidate_1_oracle_flag=--debug-behavior4-runtime-oracle",
+            "candidate_2_capture=contact_scanner_runtime",
+            "candidate_2_oracle_flag=--debug-contact-scanner-runtime-oracle",
+            "candidate_3_capture=visual_table",
+            "candidate_3_oracle_flag=--debug-visual-table-oracle",
         ]:
             require(ready_text, snippet, "ready_manifest")
         cases += 1

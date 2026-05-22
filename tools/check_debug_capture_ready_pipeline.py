@@ -14,6 +14,7 @@ from check_debug_capture_ready_manifest import make_fake_oracle
 from check_debug_capture_summary import (
     require,
     write_actor_ready,
+    write_behavior4_ready,
     write_contact_ready,
     write_visual_table_ready,
 )
@@ -66,6 +67,7 @@ def main() -> int:
         base = Path(tmp)
         batch_dir = base / "batch"
         write_actor_ready(batch_dir)
+        write_behavior4_ready(batch_dir)
         write_contact_ready(batch_dir)
         write_visual_table_ready(batch_dir)
 
@@ -83,11 +85,13 @@ def main() -> int:
         )
         for snippet in [
             "debug_capture_batch_summary=ok",
-            "ready=3",
-            "environment_ok=3",
+            "ready=4",
+            "environment_ok=4",
             "debug_capture_ready_manifest=ok",
             f"path={ready_manifest.resolve()}",
-            "ready_candidates=3",
+            "ready_candidates=4",
+            "capture=behavior4_runtime",
+            "oracle_flag=--debug-behavior4-runtime-oracle",
             "capture=contact_scanner_runtime",
             "oracle_flag=--debug-contact-scanner-runtime-oracle",
             "capture=visual_table",
@@ -114,7 +118,7 @@ def main() -> int:
         )
         for snippet in [
             "debug_capture_ready_manifest=ok mode=run",
-            "ready_candidates=3",
+            "ready_candidates=4",
             "status=ok",
             "returncode=0",
             "debug_capture_ready_result_manifest=ok",
@@ -136,20 +140,23 @@ def main() -> int:
         for snippet in [
             "debug_capture_ready_result_summary=ok",
             "mode=run",
-            "ready_candidates=3",
+            "ready_candidates=4",
             "failures=0",
             "planned=0",
-            "ok=3",
-            "executed_candidates=3",
-            "environment_preflight_ok=3",
-            "logs_present=3",
+            "ok=4",
+            "executed_candidates=4",
+            "environment_preflight_ok=4",
+            "logs_present=4",
             "logs_missing=0",
             "candidate_result index=0",
             "oracle=actor_update",
             "candidate_result index=1",
+            "oracle=behavior4",
+            "--debug-behavior4-runtime-oracle",
+            "candidate_result index=2",
             "oracle=contact_scanner",
             "--debug-contact-scanner-runtime-oracle",
-            "candidate_result index=2",
+            "candidate_result index=3",
             "oracle=visual_table",
             "--debug-visual-table-oracle",
             "status=ok",

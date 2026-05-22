@@ -13,6 +13,7 @@ import tempfile
 from check_debug_capture_summary import (
     require,
     write_actor_ready,
+    write_behavior4_ready,
     write_contact_ready,
     write_text,
     write_visual_table_ready,
@@ -178,6 +179,38 @@ def main() -> int:
             "--debug-visual-table-oracle",
         ]:
             require(visual_dry, snippet, "visual_table_dry_run")
+        cases += 1
+
+        behavior_ready_manifest = base / "behavior-ready" / "ready_manifest.txt"
+        run_tool(
+            root,
+            "summarize_debug_capture_batch.py",
+            [
+                str(write_behavior4_ready(base / "behavior-batch")),
+                "--write-ready-manifest",
+                str(behavior_ready_manifest),
+            ],
+        )
+        behavior_dry = run_tool(
+            root,
+            "run_debug_capture_ready_manifest.py",
+            [
+                str(behavior_ready_manifest),
+                "--dry-run",
+                "--oracle-binary",
+                str(fake_oracle),
+            ],
+        )
+        for snippet in [
+            "debug_capture_ready_manifest=ok mode=dry_run",
+            "ready_candidates=1",
+            "capture=behavior4_runtime",
+            "scenario=monster_behavior4_target_selection",
+            "oracle=behavior4",
+            "command=",
+            "--debug-behavior4-runtime-oracle",
+        ]:
+            require(behavior_dry, snippet, "behavior4_dry_run")
         cases += 1
 
         contact_ready_manifest = base / "contact-ready" / "ready_manifest.txt"

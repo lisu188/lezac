@@ -361,7 +361,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_dispatch_ready_pipeline_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_dispatch_ready_pipeline_check=ok cases=1")
+                "^actor_dispatch_ready_pipeline_check=ok cases=2")
 
         add_test(NAME original_evidence_environment_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -541,7 +541,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_ready_pipeline_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_ready_pipeline_check=ok cases=7")
+                "^lane_result_ready_pipeline_check=ok cases=8")
 
         add_test(NAME actor_contact_route_sweep_dry_run
             COMMAND ${Python3_EXECUTABLE}
@@ -761,7 +761,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_ready_pipeline_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_ready_pipeline_check=ok cases=2")
+                "^debug_capture_ready_pipeline_check=ok cases=3")
 
         add_test(NAME actor_contact_procmem_helper_expectations
             COMMAND ${Python3_EXECUTABLE}

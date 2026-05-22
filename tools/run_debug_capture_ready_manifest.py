@@ -11,6 +11,11 @@ import shlex
 import subprocess
 import sys
 
+from ready_result_fixture_guardrails import (
+    parse_runtime_segment_value,
+    validate_runtime_fixture_evidence,
+)
+
 
 EXPECTED_PROMOTION = "debug_capture_ready_candidates"
 ORACLE_FLAGS = {
@@ -138,6 +143,15 @@ def parse_candidates(
         fixture = resolve_path(require(manifest.values, f"{prefix}_fixture"), manifest.path)
         if require_fixtures and not fixture.exists():
             raise FileNotFoundError(f"candidate fixture not found: {fixture}")
+        runtime_cs = parse_runtime_segment_value(
+            f"{prefix}_runtime_cs", require(manifest.values, f"{prefix}_runtime_cs")
+        )
+        runtime_ds = parse_runtime_segment_value(
+            f"{prefix}_runtime_ds", require(manifest.values, f"{prefix}_runtime_ds")
+        )
+        validate_runtime_fixture_evidence(
+            prefix, str(fixture), runtime_cs, runtime_ds
+        )
         candidates.append(
             ReadyCandidate(
                 index=index,
@@ -146,8 +160,8 @@ def parse_candidates(
                 level=require(manifest.values, f"{prefix}_level"),
                 environment_preflight=environment_preflight,
                 runtime_metadata=require(manifest.values, f"{prefix}_runtime_metadata"),
-                runtime_cs=require(manifest.values, f"{prefix}_runtime_cs"),
-                runtime_ds=require(manifest.values, f"{prefix}_runtime_ds"),
+                runtime_cs=runtime_cs,
+                runtime_ds=runtime_ds,
                 source_manifest=resolve_path(
                     require(manifest.values, f"{prefix}_manifest"), manifest.path
                 ),

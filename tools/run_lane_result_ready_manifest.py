@@ -11,6 +11,11 @@ import shlex
 import subprocess
 import sys
 
+from ready_result_fixture_guardrails import (
+    parse_runtime_segment_value,
+    validate_runtime_fixture_evidence,
+)
+
 
 EXPECTED_PROMOTION = "lane_result_ready_candidates"
 EXPECTED_ORACLE = "explosion_playback"
@@ -125,14 +130,23 @@ def parse_candidates(
             )
         if require_fixtures and not fixture.exists():
             raise FileNotFoundError(f"candidate fixture not found: {fixture}")
+        runtime_cs = parse_runtime_segment_value(
+            f"{prefix}_runtime_cs", require(values, f"{prefix}_runtime_cs")
+        )
+        runtime_ds = parse_runtime_segment_value(
+            f"{prefix}_runtime_ds", require(values, f"{prefix}_runtime_ds")
+        )
+        validate_runtime_fixture_evidence(
+            prefix, str(fixture), runtime_cs, runtime_ds
+        )
         candidates.append(
             ReadyCandidate(
                 index=index,
                 route=require(values, f"{prefix}_route"),
                 offset_label=require(values, f"{prefix}_offset_label"),
                 offset_address=require(values, f"{prefix}_offset_address"),
-                runtime_cs=require(values, f"{prefix}_runtime_cs"),
-                runtime_ds=require(values, f"{prefix}_runtime_ds"),
+                runtime_cs=runtime_cs,
+                runtime_ds=runtime_ds,
                 fixture=fixture,
                 oracle=oracle,
                 oracle_flag=oracle_flag,

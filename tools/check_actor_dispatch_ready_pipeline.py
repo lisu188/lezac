@@ -10,6 +10,8 @@ import subprocess
 import sys
 import tempfile
 
+from ready_result_checker_support import write_original_fixture_tree
+
 
 def default_repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
@@ -20,11 +22,16 @@ def run_tool(
     tool: str,
     args: list[str],
     expect_success: bool = True,
+    env: dict[str, str] | None = None,
 ) -> str:
     command = [sys.executable, str(root / "tools" / tool), *args]
+    process_env = os.environ.copy()
+    if env is not None:
+        process_env.update(env)
     result = subprocess.run(
         command,
         cwd=root,
+        env=process_env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -240,6 +247,51 @@ def main() -> int:
             "logs_missing=0",
         ]:
             require(result, snippet, "pipeline_result")
+        cases += 1
+
+        original_root = base / "original_root"
+        original_fixture = write_original_fixture_tree(
+            original_root,
+            "actor_update_runtime_oracle_original_runner_unledgered.txt",
+            runtime_ds="0F3C",
+            include_ledger_entry=False,
+        )
+        bad_original_manifest = base / "bad_original_ready.txt"
+        write_text(
+            bad_original_manifest,
+            "\n".join(
+                [
+                    "promotion=actor_dispatch_gate_ready_candidates",
+                    "source_environment_preflight=ok",
+                    "child_environment_preflights=skipped",
+                    "oracle_binary=./build/lezac_cpp",
+                    "ready_candidates=1",
+                    "candidate_0_target=actor_update_gate6",
+                    "candidate_0_route=x3p00",
+                    "candidate_0_ghidra=1000:654E",
+                    "candidate_0_runtime_cs=01ED",
+                    "candidate_0_runtime_ds=0F3C",
+                    "candidate_0_freeze_runtime=01ED:654E",
+                    f"candidate_0_fixture={original_fixture}",
+                    "candidate_0_oracle=actor_update",
+                    "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",
+                    "",
+                ]
+            ),
+        )
+        bad_original = run_tool(
+            root,
+            "run_actor_dispatch_ready_manifest.py",
+            [str(bad_original_manifest), "--dry-run"],
+            expect_success=False,
+            env={"LEZAC_READY_RESULT_REPO_ROOT": str(original_root)},
+        )
+        require(
+            bad_original,
+            "candidate_0_fixture actor_update_runtime_oracle_original_runner_unledgered.txt "
+            "is missing from runtime evidence ledger",
+            "bad_original_runner_fixture",
+        )
         cases += 1
 
     print(f"actor_dispatch_ready_pipeline_check=ok cases={cases}")

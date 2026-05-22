@@ -75,9 +75,11 @@ Baseline: `origin/main`
   non-visual temp-copy evidence. Checked-in `*original*` DOSBox fixtures under
   `tests/fixtures/dosbox` must also have runtime-evidence ledger entries whose
   docs notes name the fixture before a ready-result summary can promote them.
-  `--require-success` rejects any remaining unknown candidate statuses or
-  missing executed-candidate logs instead of treating them as promotable
-  evidence.
+  The ready-manifest runners now apply the same fixture provenance guardrail
+  before dry-run or live oracle execution, so an unledgered original fixture is
+  rejected before it can produce a result manifest. `--require-success` rejects
+  any remaining unknown candidate statuses or missing executed-candidate logs
+  instead of treating them as promotable evidence.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

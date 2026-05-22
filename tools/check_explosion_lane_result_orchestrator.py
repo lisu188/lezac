@@ -97,6 +97,24 @@ EXPECTED_TESTS = {
             "--tail-freeze-check-seconds 1.25",
         ],
     },
+    "explosion_lane_result_capture_orchestrator_dry_run_natural_forward": {
+        "snippets": [
+            "--dry-run",
+            "--skip-oracle",
+            "--offset forward",
+            "--route-step x:2.00",
+            "--route-step c:0.50",
+            "--sample-seconds 5.0",
+            "--sample-interval 0.005",
+            "--route-state-interval 0",
+            "--tail-freeze-check-seconds 0.75",
+            "offsets=1 capture_commands=1 oracle_commands=0",
+            "offset_labels=3d3f",
+            "offset_addresses=1000:3D3F",
+            "result_tail=1",
+            f"result_tail_bytes={EXPECTED_RESULT_TAIL}",
+        ],
+    },
     "explosion_lane_result_capture_orchestrator_dry_run_alias_offsets": {
         "snippets": [
             "--offset forward",

@@ -475,7 +475,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_orchestrator_cmake_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_orchestrator_cmake=ok tests=14 will_fail=3")
+                "^lane_result_orchestrator_cmake=ok tests=15 will_fail=3")
 
         add_test(NAME explosion_lane_result_wrapper_output_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -1013,6 +1013,25 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "--runtime-freeze-after-bomb-seconds 0\\.125 .*--level-start-seconds 2\\.25 .*--right-hold-seconds 3\\.5 .*--sample-seconds 6\\.75 .*--sample-interval 0\\.015 .*--route-state-interval 0\\.5 .*--tail-freeze-check-seconds 1\\.25 .*--route-step x:1\\.25 .*--route-step Left:0\\.50")
+
+        add_test(NAME explosion_lane_result_capture_orchestrator_dry_run_natural_forward
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
+                    /tmp/lezac-lane-result-dry-run-natural-forward
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --skip-oracle
+                    --offset forward
+                    --route-step x:2.00
+                    --route-step c:0.50
+                    --sample-seconds 5.0
+                    --sample-interval 0.005
+                    --route-state-interval 0
+                    --tail-freeze-check-seconds 0.75)
+        set_tests_properties(explosion_lane_result_capture_orchestrator_dry_run_natural_forward PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_capture_orchestrator=ok mode=dry_run .*offsets=1 capture_commands=1 oracle_commands=0 offset_labels=3d3f offset_addresses=1000:3D3F .*result_tail=1 result_tail_bytes=8b46f63b46f075c58a46f3c47e04268805c9c20600 .*wrong_offset_guard=1")
 
         add_test(NAME explosion_lane_result_capture_orchestrator_dry_run_alias_offsets
             COMMAND ${Python3_EXECUTABLE}

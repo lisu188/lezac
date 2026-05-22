@@ -537,7 +537,10 @@ For route variation, repeat `--route-step KEY:SECONDS`; omitted route steps keep
 the historical default of holding player-1 right (`x`) for
 `--right-hold-seconds`. Use `tools/sweep_original_lane_result_routes.py` to
 plan or run repeated natural-route probes while preserving one manifest and
-one command line per route. Live route sweeps run
+one command line per route. CTest pins the current pending natural forward
+probe as `explosion_lane_result_capture_orchestrator_dry_run_natural_forward`
+so future route work keeps the `x:2.00,c:0.50` forward `3D3F` retry visible
+before a real DOSBox/procmem run promotes anything. Live route sweeps run
 `tools/preflight_original_evidence_environment.py --probe-wsl
 --require-wsl-bash-on-windows --require-procmem-capture` once before launching
 any route, so Windows hosts that have `wsl.exe` but no usable default distro

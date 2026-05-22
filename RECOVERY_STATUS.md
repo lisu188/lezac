@@ -92,6 +92,11 @@ Baseline: `origin/main`
   the DOSBox-original capture, runs `tools/frame_compare.py`, leaves missing
   original labels visible, writes `frame_compare_summary.txt` and
   `manifest.txt`, and keeps generated evidence outside the repository.
+- Added a dedicated dry-run CTest for the pending natural forward lane-result
+  probe: `--offset forward --route-step x:2.00 --route-step c:0.50` targeting
+  `1000:3D3F`. This does not promote new evidence, but it keeps the next
+  DOSBox/procmem route retry anchored to the documented no-freeze fixture and
+  visible in the orchestrator contract.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports
@@ -921,7 +926,7 @@ Baseline: `origin/main`
   verifying the wrapper output matrix without DOSBox or process-memory access.
 - `tools/check_explosion_lane_result_orchestrator.py` now also verifies that
   the wrapper-output checker is wired into CTest; it reports
-  `lane_result_orchestrator_cmake=ok tests=14 will_fail=3`.
+  `lane_result_orchestrator_cmake=ok tests=15 will_fail=3`.
 - `tools/check_explosion_lane_result_fixtures.py` passed with the bundled
   Windows Python and reported `lane_result_fixtures=ok files=13 valid=2
   malformed=11 cmake_tests=13`.

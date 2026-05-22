@@ -127,6 +127,11 @@ Baseline: `origin/main`
   CMake names all three supported `debugger_seeded` plans:
   object-collision jump, monster-contact damage, and behavior-4 chase. These
   are still dry-run capture plans only, not promoted original runtime evidence.
+- Aligned the behavior-4, actor-update, contact-scanner, and visual-table
+  DOSBox-debug helper preflights with the process-memory wrappers by adding
+  `--probe-wsl --require-wsl-bash-on-windows`. Failed Windows capture starts now
+  preserve the current WSL blocker, such as `wsl_bash_reason=no_default_distro`,
+  in the preflight log before DOSBox-debug is attempted.
 - Extended actor/contact process-memory helper coverage so CMake names all nine
   supported freeze targets, from actor-update entry/exit through gate5/gate6
   and contact-scanner callsite/start/end. These remain guarded dry-run plans

@@ -72,9 +72,12 @@ Baseline: `origin/main`
   commands must end with the matching oracle flag and fixture, existing
   fixtures with `runtime_cs`/`runtime_ds` must match the result metadata, and
   existing fixture `visual_claim`/`temp_copy` metadata must remain
-  non-visual temp-copy evidence. `--require-success` rejects any remaining
-  unknown candidate statuses or missing executed-candidate logs instead of
-  treating them as promotable evidence.
+  non-visual temp-copy evidence. Checked-in `*original*` DOSBox fixtures under
+  `tests/fixtures/dosbox` must also have runtime-evidence ledger entries whose
+  docs notes name the fixture before a ready-result summary can promote them.
+  `--require-success` rejects any remaining unknown candidate statuses or
+  missing executed-candidate logs instead of treating them as promotable
+  evidence.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

@@ -9,6 +9,8 @@ from pathlib import Path
 import shlex
 import sys
 
+from ready_result_fixture_guardrails import validate_runtime_fixture_evidence
+
 
 EXPECTED_RESULT = "lane_result_ready_manifest"
 ORACLE_FLAGS = {
@@ -98,45 +100,10 @@ def parse_runtime_segment(values: dict[str, str], key: str) -> str:
     return parse_runtime_segment_value(key, require(values, key))
 
 
-def read_fixture_values(path: Path) -> dict[str, str]:
-    values: dict[str, str] = {}
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        values[key] = value
-    return values
-
-
 def validate_fixture_runtime_segments(
     prefix: str, fixture: str, runtime_cs: str, runtime_ds: str
 ) -> None:
-    fixture_path = Path(fixture)
-    if not fixture_path.exists():
-        return
-    fixture_values = read_fixture_values(fixture_path)
-    visual_claim = fixture_values.get("visual_claim")
-    if visual_claim is not None and visual_claim != "0":
-        raise ValueError(
-            f"{prefix}_fixture visual_claim={visual_claim!r} is not supported "
-            "for runtime ready results"
-        )
-    temp_copy = fixture_values.get("temp_copy")
-    if temp_copy is not None and temp_copy != "1":
-        raise ValueError(
-            f"{prefix}_fixture temp_copy={temp_copy!r} does not identify "
-            "a temp-copy capture"
-        )
-    for key, expected in (("runtime_cs", runtime_cs), ("runtime_ds", runtime_ds)):
-        if key not in fixture_values:
-            continue
-        actual = parse_runtime_segment_value(key, fixture_values[key])
-        if actual != expected:
-            raise ValueError(
-                f"{prefix}_{key}={expected!r} does not match fixture "
-                f"{key}={actual!r} in {fixture_path}"
-            )
+    validate_runtime_fixture_evidence(prefix, fixture, runtime_cs, runtime_ds)
 
 
 def parse_oracle_flag(values: dict[str, str], prefix: str) -> tuple[str, str]:

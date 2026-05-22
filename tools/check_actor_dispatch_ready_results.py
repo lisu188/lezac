@@ -4,10 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+
+from ready_result_checker_support import write_original_fixture_tree
 
 
 def default_repo_root() -> Path:
@@ -18,15 +21,20 @@ def run_summary(
     root: Path,
     args: list[str],
     expect_success: bool = True,
+    env: dict[str, str] | None = None,
 ) -> str:
     command = [
         sys.executable,
         str(root / "tools" / "summarize_actor_dispatch_ready_results.py"),
         *args,
     ]
+    process_env = os.environ.copy()
+    if env is not None:
+        process_env.update(env)
     result = subprocess.run(
         command,
         cwd=root,
+        env=process_env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -395,6 +403,87 @@ def main() -> int:
             temp_copy,
             "candidate_0_fixture temp_copy='0' does not identify a temp-copy capture",
             "temp_copy",
+        )
+        cases += 1
+
+        original_root = base / "original_root"
+        original_fixture = write_original_fixture_tree(
+            original_root,
+            "actor_update_runtime_oracle_original_ready.txt",
+            runtime_ds="0F3C",
+        )
+        original_manifest = base / "original_fixture" / "result_manifest.txt"
+        write_text(
+            original_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/actor_update.txt", original_fixture.as_posix()
+            ),
+        )
+        original = run_summary(
+            root,
+            [str(original_manifest)],
+            env={"LEZAC_READY_RESULT_REPO_ROOT": str(original_root)},
+        )
+        require(
+            original,
+            f"fixture={original_fixture.as_posix()}",
+            "original_fixture",
+        )
+        cases += 1
+
+        missing_ledger_root = base / "missing_ledger_root"
+        missing_ledger_fixture = write_original_fixture_tree(
+            missing_ledger_root,
+            "actor_update_runtime_oracle_original_unledgered.txt",
+            runtime_ds="0F3C",
+            include_ledger_entry=False,
+        )
+        missing_ledger_manifest = base / "missing_ledger" / "result_manifest.txt"
+        write_text(
+            missing_ledger_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/actor_update.txt", missing_ledger_fixture.as_posix()
+            ),
+        )
+        missing_ledger = run_summary(
+            root,
+            [str(missing_ledger_manifest)],
+            False,
+            {"LEZAC_READY_RESULT_REPO_ROOT": str(missing_ledger_root)},
+        )
+        require(
+            missing_ledger,
+            "candidate_0_fixture actor_update_runtime_oracle_original_unledgered.txt "
+            "is missing from runtime evidence ledger",
+            "missing_ledger",
+        )
+        cases += 1
+
+        missing_note_root = base / "missing_note_root"
+        missing_note_fixture = write_original_fixture_tree(
+            missing_note_root,
+            "actor_update_runtime_oracle_original_missing_note.txt",
+            runtime_ds="0F3C",
+            note_names_fixture=False,
+        )
+        missing_note_manifest = base / "missing_note" / "result_manifest.txt"
+        write_text(
+            missing_note_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/actor_update.txt", missing_note_fixture.as_posix()
+            ),
+        )
+        missing_note = run_summary(
+            root,
+            [str(missing_note_manifest)],
+            False,
+            {"LEZAC_READY_RESULT_REPO_ROOT": str(missing_note_root)},
+        )
+        require(
+            missing_note,
+            "candidate_0_fixture actor_update_runtime_oracle_original_missing_note.txt "
+            "ledger docs does not name fixture",
+            "missing_note",
         )
         cases += 1
 

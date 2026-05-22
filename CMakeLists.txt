@@ -311,6 +311,8 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_lane_result_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_lane_write_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/preflight_original_evidence_environment.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/ready_result_checker_support.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/ready_result_fixture_guardrails.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_actor_dispatch_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_actor_dispatch_gate_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_debug_capture_batch.py
@@ -350,7 +352,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_dispatch_ready_results_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_dispatch_ready_results_check=ok cases=20")
+                "^actor_dispatch_ready_results_check=ok cases=23")
 
         add_test(NAME actor_dispatch_ready_pipeline_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -530,7 +532,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_ready_results_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_ready_results_check=ok cases=20")
+                "^lane_result_ready_results_check=ok cases=23")
 
         add_test(NAME explosion_lane_result_ready_pipeline_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -750,7 +752,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_ready_results_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_ready_results_check=ok cases=18")
+                "^debug_capture_ready_results_check=ok cases=21")
 
         add_test(NAME debug_capture_ready_pipeline_expectations
             COMMAND ${Python3_EXECUTABLE}

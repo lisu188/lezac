@@ -449,6 +449,95 @@ def main() -> int:
             require(scanner, snippet, "scanner_route_manifest")
         cases += 1
 
+        ready_scanner_candidate = base / "ready_scanner" / "contact_scanner_candidate.txt"
+        write_text(
+            ready_scanner_candidate,
+            "\n".join(
+                [
+                    "capture=contact_scanner_runtime",
+                    "source=synthetic",
+                    "temp_copy=1",
+                    "visual_claim=0",
+                    "scenario=monster_contact_damage_live",
+                    "level=1",
+                    "runtime_cs=01ED",
+                    "runtime_ds=0F3C",
+                    "break ghidra=1000:5CB0 runtime=01ED:5CB0 label=contact_scanner_start",
+                    "break ghidra=1000:604F runtime=01ED:604F label=contact_scanner_end",
+                    "subject_actor slot=0 behavior=0 kind=0 state=0 x=0x0068 y=0x00a8 flags=0x0000 contact=0",
+                    "other_actor slot=3 behavior=4 kind=2 state=0 x=0x006a y=0x00a8 flags=0x0000 contact=0",
+                    "contact_scan subject_slot=0 other_slot=3 flags_before=0x0000 flags_after=0x0002 contact=1 player_contact=1 monster_contact=0 object_contact=0 damage_pending=1",
+                    "",
+                ]
+            ),
+        )
+        ready_scanner_manifest = base / "ready_scanner" / "manifest.txt"
+        write_text(
+            ready_scanner_manifest,
+            "\n".join(
+                [
+                    "capture=actor_contact_route_sweep",
+                    "target=contact_scanner_end",
+                    "timings=before_route",
+                    "routes=1",
+                    "route_labels=x0p50",
+                    "environment_preflight=ok",
+                    f"capture_status_x0p50=actor_contact_procmem=ok mode=capture target=contact_scanner_end ghidra=1000:604F runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:604F freeze_observed=1 raw_dump=/tmp/ready_scanner/raw.txt candidate_fixture={ready_scanner_candidate}",
+                    "",
+                ]
+            ),
+        )
+        ready_scanner = run_summary(root, ready_scanner_manifest).stdout
+        for snippet in [
+            "ready_candidates=1",
+            "incomplete_candidates=0",
+            "missing_candidates=0",
+            "none_candidates=0",
+            "observed_targets=contact_scanner_end",
+            "candidate_status=ready",
+            "candidate_missing=none",
+            "oracle=contact_scanner oracle_flag=--debug-contact-scanner-runtime-oracle",
+            "oracle_command=./build/lezac_cpp --debug-contact-scanner-runtime-oracle",
+        ]:
+            require(ready_scanner, snippet, "ready_scanner_candidate")
+        cases += 1
+
+        ready_scanner_promotion_manifest = (
+            base / "ready_scanner" / "promotion_manifest.txt"
+        )
+        ready_scanner_promotion = run_summary(
+            root,
+            ready_scanner_manifest,
+            extra_args=[
+                "--write-ready-manifest",
+                str(ready_scanner_promotion_manifest),
+            ],
+        ).stdout
+        require(
+            ready_scanner_promotion,
+            "actor_dispatch_gate_ready_manifest=ok",
+            "ready_scanner_promotion_output",
+        )
+        ready_scanner_promotion_text = ready_scanner_promotion_manifest.read_text(
+            encoding="ascii"
+        )
+        for snippet in [
+            "candidate_0_target=contact_scanner_end",
+            "candidate_0_ghidra=1000:604F",
+            f"candidate_0_fixture={ready_scanner_candidate}",
+            "candidate_0_oracle=contact_scanner",
+            "candidate_0_oracle_flag=--debug-contact-scanner-runtime-oracle",
+            "candidate_0_oracle_command=./build/lezac_cpp "
+            "--debug-contact-scanner-runtime-oracle "
+            f"{shlex.quote(str(ready_scanner_candidate))}",
+        ]:
+            require(
+                ready_scanner_promotion_text,
+                snippet,
+                "ready_scanner_promotion_manifest",
+            )
+        cases += 1
+
         dry_manifest = base / "dry" / "manifest.txt"
         write_text(
             dry_manifest,

@@ -127,6 +127,9 @@ Baseline: `origin/main`
   all-target planner output.
 - Pinned the actor-dispatch sweep override contract: repeated `--target`
   arguments narrow the run even when `--target-set all` is present.
+- Added ready-candidate summary coverage for a `contact_scanner_end`
+  process-memory fixture, including the promoted
+  `--debug-contact-scanner-runtime-oracle` handoff.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

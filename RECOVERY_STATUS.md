@@ -116,6 +116,9 @@ Baseline: `origin/main`
 - Added a CTest dry-run for the default actor-dispatch gate sweep, pinning the
   five-target matrix across gate5 entry/integration/exit, gate6, and the
   contact-scanner callsite before any live WSL/DOSBox/procmem run is promoted.
+- Added a CTest dry-run for the default actor/contact route sweep, pinning the
+  contact-scanner-start matrix across both pre-bomb and pre-route freeze timing
+  and all four planned route probes.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

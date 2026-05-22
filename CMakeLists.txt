@@ -581,6 +581,17 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^actor_contact_route_sweep=ok mode=dry_run .*target=contact_scanner_start timings=before_route routes=2 route_labels=x5p00_m0p50_x2p00,x3p00_z0p50_x2p00 capture_commands=2")
 
+        add_test(NAME actor_contact_route_sweep_default_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_contact_routes.py
+                    /tmp/lezac-actor-contact-route-sweep-default-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run)
+        set_tests_properties(actor_contact_route_sweep_default_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_contact_route_sweep=ok mode=dry_run .*target=contact_scanner_start timings=before_bomb,before_route routes=4 .*route_labels=x2p00,x5p00_m0p50_x2p00,x3p00_z0p50_x2p00,x1p50_left0p50_x2p00 .*capture_commands=8 .*environment_preflight=1")
+
         add_test(NAME actor_contact_route_sweep_output_expectations
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_route_sweep.py

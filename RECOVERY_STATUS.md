@@ -76,6 +76,9 @@ Baseline: `origin/main`
   and lane-result ready runners: `--allow-missing-fixtures` is now explicitly a
   dry-run-only forensic bypass, and live generic debug-capture ready runs reject
   the flag before parsing candidate fixtures.
+- Updated `docs/recovery/ready_fixture_provenance_contract.md` and its checker
+  so all three ready-manifest runners must document and enforce that
+  dry-run-only missing-fixture bypass rule.
 - Hardened the ready-result summarizers for actor-dispatch, lane-result, and
   generic debug-capture handoffs so inconsistent manifests fail if their
   aggregate `failures=` count disagrees with per-candidate `status=error`

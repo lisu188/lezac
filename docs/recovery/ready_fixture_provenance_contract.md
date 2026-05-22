@@ -51,3 +51,6 @@ All stages call `tools/ready_result_fixture_guardrails.py`, which owns
 contract check in `tools/check_ready_fixture_provenance_contract.py` keeps this
 documentation, the shared validator, and those nine call sites in sync.
 
+`--allow-missing-fixtures` is a dry-run-only forensic bypass for reviewing stale
+or partial manifests. Live ready-manifest runs must reject that flag before
+candidate execution, so missing fixtures cannot be promoted by accident.

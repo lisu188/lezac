@@ -39,6 +39,8 @@ DOC_SNIPPETS = [
     "docs/recovery/visual_claim_promotions.md",
     "runtime_cs_runtime_ds_temp_copy",
     "tools/ready_result_fixture_guardrails.py",
+    "--allow-missing-fixtures",
+    "dry-run-only forensic bypass",
 ]
 
 VALIDATOR_SNIPPETS = [
@@ -90,6 +92,10 @@ def check_call_sites(root: Path) -> None:
     for path in WRITERS + RUNNERS:
         text = read(root, path)
         require(text, "parse_runtime_segment_value", str(path))
+    for path in RUNNERS:
+        text = read(root, path)
+        require(text, "--allow-missing-fixtures", str(path))
+        require(text, "--allow-missing-fixtures requires --dry-run", str(path))
 
 
 def main() -> int:
@@ -108,11 +114,11 @@ def main() -> int:
     check_call_sites(root)
     print(
         "ready_fixture_provenance_contract=ok "
-        "docs=1 validator=1 writers=3 runners=3 result_summaries=3"
+        "docs=1 validator=1 writers=3 runners=3 result_summaries=3 "
+        "dry_run_missing_fixture_bypass=3"
     )
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

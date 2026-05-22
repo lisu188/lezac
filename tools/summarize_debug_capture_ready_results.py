@@ -78,8 +78,7 @@ def parse_nonnegative_int(values: dict[str, str], key: str) -> int:
     return value
 
 
-def parse_runtime_segment(values: dict[str, str], key: str) -> str:
-    raw_segment = require(values, key)
+def parse_runtime_segment_value(key: str, raw_segment: str) -> str:
     if len(raw_segment) != 4 or any(
         character not in "0123456789abcdefABCDEF" for character in raw_segment
     ):
@@ -87,6 +86,39 @@ def parse_runtime_segment(values: dict[str, str], key: str) -> str:
             f"{key} must be a 4-digit hexadecimal segment: {raw_segment!r}"
         )
     return raw_segment.upper()
+
+
+def parse_runtime_segment(values: dict[str, str], key: str) -> str:
+    return parse_runtime_segment_value(key, require(values, key))
+
+
+def read_fixture_values(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key] = value
+    return values
+
+
+def validate_fixture_runtime_segments(
+    prefix: str, fixture: str, runtime_cs: str, runtime_ds: str
+) -> None:
+    fixture_path = Path(fixture)
+    if not fixture_path.exists():
+        return
+    fixture_values = read_fixture_values(fixture_path)
+    for key, expected in (("runtime_cs", runtime_cs), ("runtime_ds", runtime_ds)):
+        if key not in fixture_values:
+            continue
+        actual = parse_runtime_segment_value(key, fixture_values[key])
+        if actual != expected:
+            raise ValueError(
+                f"{prefix}_{key}={expected!r} does not match fixture "
+                f"{key}={actual!r} in {fixture_path}"
+            )
 
 
 def parse_oracle_flag(values: dict[str, str], prefix: str) -> tuple[str, str]:
@@ -153,6 +185,7 @@ def parse_candidates(values: dict[str, str]) -> list[CandidateResult]:
         runtime_cs = parse_runtime_segment(values, f"{prefix}_runtime_cs")
         runtime_ds = parse_runtime_segment(values, f"{prefix}_runtime_ds")
         fixture = require(values, f"{prefix}_fixture")
+        validate_fixture_runtime_segments(prefix, fixture, runtime_cs, runtime_ds)
         command = parse_command(values, prefix, oracle_flag, fixture)
         candidates.append(
             CandidateResult(

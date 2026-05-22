@@ -69,7 +69,8 @@ Baseline: `origin/main`
   `mode=run` to contain no planned candidates and `mode=dry_run` to contain
   only planned candidates; mismatched per-candidate oracle flags fail at parse
   time, runtime `CS`/`DS` fields must be valid four-digit segments, recorded
-  commands must end with the matching oracle flag and fixture, and
+  commands must end with the matching oracle flag and fixture, existing
+  fixtures with `runtime_cs`/`runtime_ds` must match the result metadata, and
   `--require-success` rejects any remaining unknown candidate statuses or
   missing executed-candidate logs instead of treating them as promotable
   evidence.

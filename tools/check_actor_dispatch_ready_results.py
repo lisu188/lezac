@@ -337,6 +337,25 @@ def main() -> int:
         )
         cases += 1
 
+        fixture_mismatch_path = base / "fixtures" / "contact_scanner.txt"
+        write_text(fixture_mismatch_path, "runtime_cs=ABCD\nruntime_ds=0F3C\n")
+        fixture_mismatch_manifest = base / "fixture_mismatch" / "result_manifest.txt"
+        write_text(
+            fixture_mismatch_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/contact_scanner.txt",
+                fixture_mismatch_path.as_posix(),
+            ),
+        )
+        fixture_mismatch = run_summary(root, [str(fixture_mismatch_manifest)], False)
+        require(
+            fixture_mismatch,
+            "candidate_1_runtime_cs='01ED' does not match fixture "
+            "runtime_cs='ABCD'",
+            "fixture_mismatch",
+        )
+        cases += 1
+
         extra_manifest = base / "extra" / "result_manifest.txt"
         write_text(
             extra_manifest,

@@ -310,6 +310,25 @@ def main() -> int:
         )
         cases += 1
 
+        fixture_mismatch_path = base / "fixtures" / "actor_update.txt"
+        write_text(fixture_mismatch_path, "runtime_cs=01ED\nruntime_ds=BEEF\n")
+        fixture_mismatch_manifest = base / "fixture_mismatch" / "result_manifest.txt"
+        write_text(
+            fixture_mismatch_manifest,
+            manifest_text(log).replace(
+                "/tmp/capture/actor_update.txt",
+                fixture_mismatch_path.as_posix(),
+            ),
+        )
+        fixture_mismatch = run_summary(root, [str(fixture_mismatch_manifest)], False)
+        require(
+            fixture_mismatch,
+            "candidate_1_runtime_ds='0C8F' does not match fixture "
+            "runtime_ds='BEEF'",
+            "fixture_mismatch",
+        )
+        cases += 1
+
         extra_manifest = base / "extra" / "result_manifest.txt"
         write_text(
             extra_manifest,

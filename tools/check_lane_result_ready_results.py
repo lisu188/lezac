@@ -335,6 +335,25 @@ def main() -> int:
         )
         cases += 1
 
+        fixture_mismatch_path = base / "fixtures" / "lane_reverse.txt"
+        write_text(fixture_mismatch_path, "runtime_cs=01ED\nruntime_ds=CAFE\n")
+        fixture_mismatch_manifest = base / "fixture_mismatch" / "result_manifest.txt"
+        write_text(
+            fixture_mismatch_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/lane_reverse.txt",
+                fixture_mismatch_path.as_posix(),
+            ),
+        )
+        fixture_mismatch = run_summary(root, [str(fixture_mismatch_manifest)], False)
+        require(
+            fixture_mismatch,
+            "candidate_1_runtime_ds='0C8F' does not match fixture "
+            "runtime_ds='CAFE'",
+            "fixture_mismatch",
+        )
+        cases += 1
+
         extra_manifest = base / "extra" / "result_manifest.txt"
         write_text(
             extra_manifest,

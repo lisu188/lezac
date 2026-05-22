@@ -296,11 +296,15 @@ actor-update gate in one pass. Its default target set is `actor_update_gate5`,
 `actor_update_gate6`, and `contact_scanner_callsite`. The planner performs one
 top-level environment preflight and passes `--skip-environment-preflight` to
 child actor/contact sweeps so the same run does not repeat host checks for every
-target:
+target. Use `--target-set all` to expand every process-memory target supported
+by `tools/capture_original_actor_contact_procmem.sh`, including actor-update
+entry/exit and contact-scanner start/end:
 
 ```sh
 python3 tools/sweep_original_actor_dispatch_gates.py \
   /tmp/lezac-actor-dispatch-gates . --dry-run
+python3 tools/sweep_original_actor_dispatch_gates.py \
+  /tmp/lezac-actor-dispatch-gates-all . --dry-run --target-set all
 python3 tools/sweep_original_actor_dispatch_gates.py \
   /tmp/lezac-actor-dispatch-gates . --timing before_route \
   --approve-procmem --approve-runtime-instrumentation

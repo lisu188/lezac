@@ -119,6 +119,9 @@ Baseline: `origin/main`
 - Added a CTest dry-run for the default actor/contact route sweep, pinning the
   contact-scanner-start matrix across both pre-bomb and pre-route freeze timing
   and all four planned route probes.
+- Added `--target-set all` to the actor-dispatch sweep planner and pinned it
+  with CTest, so one dry-run command now expands all nine actor/contact
+  process-memory targets before an approved live capture host is used.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports

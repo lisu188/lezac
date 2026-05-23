@@ -6,6 +6,17 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `tools/sweep_original_lane_write_routes.py` for the next natural
+  debris-side evidence pass. The guarded dry-run matrix targets
+  `1000:3D2D` and `1000:3EC1` across the existing route variants, defaults to
+  the playback-adjacent `late-collapse` runtime-freeze gate, records stable
+  route/offset labels, and can optionally emit oracle commands for produced
+  `--debug-explosion-playback-oracle` candidates.
+- Added `tools/check_lane_write_route_sweep.py` plus CTest dry-run coverage so
+  the lane-write batch refuses repository output, missing approvals, missing
+  runtime-freeze gates, malformed routes, and invalid lane-result offsets such
+  as `3D3F`. This is capture tooling only; no live C++ playback behavior
+  changed.
 - Recorded the 2026-05-23 Windows original-evidence blocker in
   `docs/recovery/original_evidence_blocked_windows_2026-05-23.md`: original
   assets are present and `wsl.exe` exists, but there is no default WSL distro,

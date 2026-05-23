@@ -489,8 +489,12 @@ is now explicit evidence for the next rendering/playback recovery step.
 The next evidence step is to find a natural route or timing gate that reaches
 the debris-side writebacks (`1000:3D2D`/`1000:3EC1`) and forward final
 far-pointer result write (`1000:3D3F`) without runtime seeding before replacing
-the provisional queue playback; the wrapper aliases for those final probes are
-`forward` and `reverse`, and route variants can now be recorded with
-`--route-step KEY:SECONDS`. Use `tools/sweep_original_lane_result_routes.py`
-for repeated route-step probes so each run has a stable route label, command
-line, and manifest entry.
+the provisional queue playback. Use
+`tools/sweep_original_lane_write_routes.py` for repeated debris-writeback
+route-step probes; its default matrix targets `3D2D`/`3EC1` with the
+`late-collapse` runtime-freeze gate and writes stable route/offset labels,
+commands, logs, and manifest entries. Use
+`tools/sweep_original_lane_result_routes.py --offset forward` for the final
+`3D3F` result-write retries. The sweep wrappers take repeatable
+`--route KEY:SECONDS,...` entries and pass those through to the lower-level
+capture helpers as `--route-step KEY:SECONDS`.

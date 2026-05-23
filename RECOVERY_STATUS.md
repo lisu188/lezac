@@ -132,6 +132,10 @@ Baseline: `origin/main`
   `--probe-wsl --require-wsl-bash-on-windows`. Failed Windows capture starts now
   preserve the current WSL blocker, such as `wsl_bash_reason=no_default_distro`,
   in the preflight log before DOSBox-debug is attempted.
+- Extended the original-evidence environment checker with the observed Windows
+  WSL shape where `wsl --status` succeeds but `wsl -e bash -lc true` fails with
+  `WSL_E_DEFAULT_DISTRO_NOT_FOUND`. This keeps the no-default-distro blocker
+  distinct from a missing `wsl.exe` or a fully failing WSL command.
 - Extended actor/contact process-memory helper coverage so CMake names all nine
   supported freeze targets, from actor-update entry/exit through gate5/gate6
   and contact-scanner callsite/start/end. These remain guarded dry-run plans

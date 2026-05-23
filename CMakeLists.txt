@@ -372,7 +372,7 @@ if(BUILD_TESTING)
         set_tests_properties(original_evidence_environment_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^original_evidence_environment_check=ok cases=10")
+                "^original_evidence_environment_check=ok cases=11")
 
         add_test(NAME gran_data_evidence_map
             COMMAND ${Python3_EXECUTABLE}

@@ -11,6 +11,9 @@ Baseline: `origin/main`
   references and permits only loading, member storage, validation, and
   debug/roundtrip reporting; any new live gameplay or rendering use fails until
   original evidence proves the semantics.
+- Extended the `GRAN.MST` guardrail with a synthetic self-test so the checker
+  proves it rejects accidental live `gran_` gameplay/rendering references,
+  missing debug-only function ranges, and docs that omit the guardrail pointer.
 - Added `tools/check_visual_claim_guardrail.py` and explicit `visual_claim=0`
   lines to the remaining state-2 DOSBox oracle fixtures. All checked-in DOSBox
   fixtures now have a declared visual claim so parser/runtime evidence cannot

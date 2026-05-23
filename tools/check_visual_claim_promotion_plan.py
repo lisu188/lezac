@@ -197,6 +197,21 @@ def main() -> int:
             raise RuntimeError("ready entries included blocked candidate")
         cases += 1
 
+        ledger_write = run_plan(
+            repo_root,
+            root,
+            mixed_manifest,
+            "--write-ready-entries",
+            str(root / "docs" / "recovery" / "visual_claim_promotions.md"),
+            expect_success=False,
+        )
+        require(
+            ledger_write,
+            "refusing_to_overwrite_visual_claim_ledger=docs/recovery/visual_claim_promotions.md",
+            "ledger_write",
+        )
+        cases += 1
+
         mixed_required = run_plan(
             repo_root,
             root,

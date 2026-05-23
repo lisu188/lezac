@@ -1155,7 +1155,7 @@ if(BUILD_TESTING)
         set_tests_properties(visual_claim_promotion_plan_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^visual_claim_promotion_plan_check=ok cases=7")
+                "^visual_claim_promotion_plan_check=ok cases=8")
 
         add_test(NAME runtime_evidence_guardrail
             COMMAND ${Python3_EXECUTABLE}

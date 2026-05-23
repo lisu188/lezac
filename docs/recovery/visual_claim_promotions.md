@@ -63,7 +63,8 @@ The planner validates every candidate with the same read-only checks and prints
 the exact ledger entries for the candidates whose status is `ready`. The
 optional ready-entries file is only a review artifact; promotion still requires
 editing this ledger and letting `tools/check_visual_claim_guardrail.py` validate
-the checked-in fixture and artifact paths.
+the checked-in fixture and artifact paths. The planner refuses to write directly
+to `docs/recovery/visual_claim_promotions.md`.
 
 Current promoted visual fixtures: none. All checked-in DOSBox oracle fixtures
 currently remain `visual_claim=0`.

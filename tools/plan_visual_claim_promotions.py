@@ -20,6 +20,7 @@ from write_visual_claim_promotion_entry import make_entry
 
 PROMOTION_KIND = "visual_claim_candidates"
 CANDIDATE_FIELD_RE = re.compile(r"^candidate_(?P<index>[0-9]+)_(?P<field>.+)$")
+VISUAL_CLAIM_LEDGER = Path("docs/recovery/visual_claim_promotions.md")
 
 
 @dataclass(frozen=True)
@@ -191,6 +192,12 @@ def write_ready_entries(path: Path, results: list[CandidateResult]) -> int:
     return len(ready_entries)
 
 
+def reject_real_ledger_target(root: Path, path: Path) -> None:
+    ledger = (root / VISUAL_CLAIM_LEDGER).resolve()
+    if path.resolve() == ledger:
+        raise RuntimeError(f"refusing_to_overwrite_visual_claim_ledger={VISUAL_CLAIM_LEDGER.as_posix()}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Dry-run a key/value manifest of visual-claim promotion candidates."
@@ -223,6 +230,7 @@ def main() -> int:
     if args.write_ready_entries is not None:
         try:
             entries_path = resolve_arg(root, args.write_ready_entries).resolve()
+            reject_real_ledger_target(root, entries_path)
             written = write_ready_entries(entries_path, results)
         except Exception as exc:
             print(f"visual_claim_ready_entries=error reason={token(exc)}", file=sys.stderr)

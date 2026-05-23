@@ -295,6 +295,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gran_data_evidence_map.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_bundle_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_workflow.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_blocker_note.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_environment.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_record_flow_evidence_map.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_manifest.py
@@ -393,6 +394,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^gran_data_evidence_map=ok raw_size=399 record_size=57 records=7 sha256=3f0cf17706d557ca863d6e39bfa6641fba777a88815ba3f0a22e5ac89e0e39e2 zero_bytes=150 ctests=2 docs=3 source_guards=5 opaque_claim=1")
+
+        add_test(NAME original_evidence_blocker_note_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_blocker_note.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(original_evidence_blocker_note_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^original_evidence_blocker_note=ok docs=1 ctest=1 commands=3 blocker=windows_no_default_wsl_distro")
 
         add_test(NAME frame_compare_identical
             COMMAND ${Python3_EXECUTABLE}

@@ -6,6 +6,16 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Recorded the 2026-05-23 Windows original-evidence blocker in
+  `docs/recovery/original_evidence_blocked_windows_2026-05-23.md`: original
+  assets are present and `wsl.exe` exists, but there is no default WSL distro,
+  so frame capture is missing usable `bash`, `dosbox`, `xvfb-run`, and
+  `xdotool`. The note is explicitly `not_original_evidence=1` /
+  `visual_claim=0` and preserves the preflight, compare, and promotion-ready
+  summary commands for the next WSL/cloud run.
+- Added `tools/check_original_evidence_blocker_note.py` and CTest coverage so
+  that blocker note stays machine-readable and cannot quietly lose the rerun
+  commands or its non-evidence status.
 - Added `tools/check_gran_usage_guardrail.py` to keep `GRAN.MST` as explicitly
   opaque data in the current C++ port. The checker counts all `gran_` source
   references and permits only loading, member storage, validation, and

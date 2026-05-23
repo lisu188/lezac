@@ -17,9 +17,10 @@ Baseline: `origin/main`
   accidentally masquerade as promoted frame evidence. The checker now also
   gates any future `visual_claim=1` fixture on
   `docs/recovery/visual_claim_promotions.md`, which must name original, C++,
-  and comparison frame artifacts plus the supporting recovery note. Its CTest
-  self-test now exercises a synthetic promoted fixture and verifies missing
-  checked-in comparison artifacts are rejected.
+  comparison frame artifacts, a promotion-ready frame-compare bundle, and the
+  supporting recovery note. Its CTest self-test now exercises a synthetic
+  promoted fixture and verifies missing checked-in comparison artifacts and
+  unready bundles are rejected.
 - Added `tools/check_runtime_evidence_guardrail.py` plus
   `docs/recovery/runtime_evidence_ledger.md` for original-runtime DOSBox
   fixtures. The guardrail requires each checked-in original capture to be from
@@ -131,6 +132,11 @@ Baseline: `origin/main`
   `tools/summarize_frame_compare_bundle.py` result is `promotion_ready=1`.
   The visual-claim self-test now rejects missing artifacts, unready bundles, and
   mismatched ledger entries.
+- Added `tools/write_visual_claim_promotion_entry.py` plus synthetic coverage
+  to emit the exact `visual_claim=1` ledger entry from a checked-in,
+  promotion-ready frame-compare bundle. The writer validates fixture/docs paths,
+  selects a compared frame with original/C++/diff artifacts, and rejects unready
+  bundles before printing a promotion line.
 - Added a dedicated dry-run CTest for the pending natural forward lane-result
   probe: `--offset forward --route-step x:2.00 --route-step c:0.50` targeting
   `1000:3D3F`. This does not promote new evidence, but it keeps the next

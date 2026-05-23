@@ -22,6 +22,16 @@ Machine-readable promoted entries use this shape:
 - fixture=<name>.txt visual_claim=1 original_frame=<path> cpp_frame=<path> comparison=<path> frame_compare_bundle=<path> docs=<path>
 ```
 
+Use the entry writer once the bundle is checked in and
+`tools/summarize_frame_compare_bundle.py <bundle> --require-promotion-ready`
+passes:
+
+```sh
+tools/write_visual_claim_promotion_entry.py \
+  <fixture>.txt docs/recovery/frame_compare/<bundle> docs/recovery/<note>.md \
+  --label <semantic-frame-label>
+```
+
 Current promoted visual fixtures: none. All checked-in DOSBox oracle fixtures
 currently remain `visual_claim=0`.
 

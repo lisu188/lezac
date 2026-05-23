@@ -241,9 +241,11 @@ are `actor_update_start`, `actor_update_end`,
 fixture to carry an explicit `visual_claim=0` or `visual_claim=1` line so
 instrumentation-only evidence cannot be promoted by omission. Promotions to
 `visual_claim=1` must also be recorded in
-`docs/recovery/visual_claim_promotions.md` with original, C++, and comparison
-frame artifacts. The guardrail self-test exercises the promoted-fixture path so
-missing checked-in artifacts are rejected before any fixture is promoted.
+`docs/recovery/visual_claim_promotions.md` with original, C++, comparison frame
+artifacts, and a checked-in frame-compare bundle whose summary reports
+`promotion_ready=1`. The guardrail self-test exercises the promoted-fixture path
+so missing checked-in artifacts or unready bundles are rejected before any
+fixture is promoted.
 `tools/check_runtime_evidence_guardrail.py` separately tracks checked-in
 original-runtime DOSBox fixtures in
 `docs/recovery/runtime_evidence_ledger.md`: those captures must remain

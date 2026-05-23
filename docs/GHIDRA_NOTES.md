@@ -170,9 +170,11 @@ actor-update, and contact-scanner optional-original fixture gates aligned.
 fixture to carry an explicit `visual_claim=0` or `visual_claim=1` line; claims
 remain `0` unless original frame/presentation evidence has been promoted.
 Promoted fixture entries must be recorded in
-`docs/recovery/visual_claim_promotions.md` with original, C++, and comparison
-frame artifacts. The CTest self-test for `tools/check_visual_claim_guardrail.py`
-exercises a synthetic promoted fixture and rejects missing checked-in artifacts.
+`docs/recovery/visual_claim_promotions.md` with original, C++, comparison frame
+artifacts, and a checked-in frame-compare bundle whose summary reports
+`promotion_ready=1`. The CTest self-test for
+`tools/check_visual_claim_guardrail.py` exercises a synthetic promoted fixture
+and rejects missing checked-in artifacts or unready bundles.
 Original-runtime fixtures that came from DOSBox/debugger captures are tracked
 separately in `docs/recovery/runtime_evidence_ledger.md`.
 `tools/check_runtime_evidence_guardrail.py` requires every checked-in original

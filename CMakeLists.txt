@@ -400,7 +400,7 @@ if(BUILD_TESTING)
         set_tests_properties(frame_compare_workflow_contract PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^frame_compare_workflow=ok wrapper=1 helpers=3 docs=1 ctest=1 scenarios=2 original_preflight=1")
+                "^frame_compare_workflow=ok wrapper=1 helpers=3 docs=1 ctest=1 scenarios=2 original_preflight=1 failure_manifest=1")
 
         add_test(NAME explosion_freeze_patch_describe_lane_result_3d3f
             COMMAND ${Python3_EXECUTABLE}

@@ -116,6 +116,11 @@ Baseline: `origin/main`
   `environment_preflight=ok/error/skipped` in the original-frame manifest before
   DOSBox is launched, including Windows WSL/bash blockers such as
   `wsl_bash_reason=no_default_distro`.
+- Hardened `tools/compare_original_cpp_frames.sh` so original-frame capture
+  failures still leave a reviewable top-level bundle. The wrapper records
+  `original_capture_driver.log`, `original_capture_exit`, original manifest/log
+  paths, `compare_exit`, and missing-original summary rows before returning a
+  nonzero `frame_compare_bundle=error`.
 - Added a dedicated dry-run CTest for the pending natural forward lane-result
   probe: `--offset forward --route-step x:2.00 --route-step c:0.50` targeting
   `1000:3D3F`. This does not promote new evidence, but it keeps the next

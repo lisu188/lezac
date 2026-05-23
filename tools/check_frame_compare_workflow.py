@@ -26,6 +26,13 @@ WRAPPER_SNIPPETS = [
     "missing_original",
     "level1_bomb_route|monster_bomb_reward",
     "frame_compare_bundle=",
+    "original_capture_driver.log",
+    "original_capture_exit=",
+    "original_capture_failed",
+    "original_capture_manifest=",
+    "original_environment_preflight_log=",
+    "compare_exit=",
+    "frame_compare_bundle=error",
 ]
 
 ORIGINAL_CAPTURE_SNIPPETS = [
@@ -52,6 +59,9 @@ DOC_SNIPPETS = [
     "Missing original frames should remain visible",
     "visually inspected",
     "environment_preflight.log",
+    "original_capture_driver.log",
+    "original_capture_exit",
+    "frame_compare_bundle=error",
     "wsl_bash_reason=no_default_distro",
 ]
 
@@ -116,7 +126,8 @@ def main() -> int:
     check_cmake(root)
     print(
         "frame_compare_workflow=ok "
-        "wrapper=1 helpers=3 docs=1 ctest=1 scenarios=2 original_preflight=1"
+        "wrapper=1 helpers=3 docs=1 ctest=1 scenarios=2 original_preflight=1 "
+        "failure_manifest=1"
     )
     return 0
 

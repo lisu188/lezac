@@ -35,6 +35,15 @@ under the requested output directory. Use a temporary path such as
 `/tmp/lezac-frame-compare-*`; the helper intentionally keeps generated original
 evidence outside the repository.
 
+The wrapper keeps the bundle reviewable even when the original DOSBox leg
+fails. It records the capture process output in `original_capture_driver.log`,
+adds `original_capture_exit`, `original_capture_manifest`,
+`original_capture_log`, `original_environment_preflight_log`, and
+`compare_exit` to the top-level manifest, writes missing-original lines to
+`frame_compare_summary.txt`, prints `frame_compare_bundle=error`, and then
+returns nonzero. This lets WSL/DOSBox blockers remain visible without treating
+the comparison as successful.
+
 The current C++ sequences write these checkpoints:
 
 ```text

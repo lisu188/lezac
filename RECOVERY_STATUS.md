@@ -6,6 +6,12 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Updated `tools/sweep_original_lane_result_routes.py` so natural `3D3F`
+  route sweeps now delegate the selected C++ oracle binary to each per-route
+  capture helper, report oracle command counts during dry-run planning, and
+  preserve `cpp_exe` / `skip_oracle` / delegated oracle commands in the parent
+  sweep manifest. This brings the lane-result route planner in line with the
+  lane-write route planner before the next DOSBox-capable run.
 - Added `tools/summarize_lane_write_ready_results.py` plus synthetic result and
   end-to-end pipeline CTest coverage, completing the lane-write handoff from
   route-sweep promotion through ready-manifest execution into a gated result

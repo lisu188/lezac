@@ -505,6 +505,8 @@ Summarize the executed or planned result manifest with
 when promoting a completed original run.
 Use
 `tools/sweep_original_lane_result_routes.py --offset forward` for the final
-`3D3F` result-write retries. The sweep wrappers take repeatable
+`3D3F` result-write retries; pass `--cpp-exe <lezac_cpp>` when the default
+`build/lezac_cpp` path is not the active build, and inspect the dry-run
+`oracle_commands` count before running the capture. The sweep wrappers take repeatable
 `--route KEY:SECONDS,...` entries and pass those through to the lower-level
 capture helpers as `--route-step KEY:SECONDS`.

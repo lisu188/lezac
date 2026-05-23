@@ -544,7 +544,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_route_sweep_dry_run PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_route_sweep=ok mode=dry_run .*offset=forward routes=2 route_labels=x2p00_c0p50,x1p50_z0p50 capture_commands=2")
+                "^lane_result_route_sweep=ok mode=dry_run .*offset=forward routes=2 route_labels=x2p00_c0p50,x1p50_z0p50 capture_commands=2 oracle_commands=0")
 
         add_test(NAME explosion_lane_result_route_sweep_default_dry_run
             COMMAND ${Python3_EXECUTABLE}
@@ -556,7 +556,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_route_sweep_default_dry_run PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_route_sweep=ok mode=dry_run .*offset=forward routes=4 route_labels=x2p00,x2p00_c0p50,x1p50_z0p50,x2p00_m0p35 capture_commands=4 .*environment_preflight=1")
+                "^lane_result_route_sweep=ok mode=dry_run .*offset=forward routes=4 route_labels=x2p00,x2p00_c0p50,x1p50_z0p50,x2p00_m0p35 capture_commands=4 oracle_commands=0 .*environment_preflight=1")
 
         add_test(NAME explosion_lane_result_route_sweep_output_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -565,7 +565,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_route_sweep_output_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_route_sweep_output=ok cases=8")
+                "^lane_result_route_sweep_output=ok cases=9")
 
         add_test(NAME explosion_lane_result_route_sweep_summary_expectations
             COMMAND ${Python3_EXECUTABLE}

@@ -150,6 +150,9 @@ Baseline: `origin/main`
   frame-compare bundle, docs note, and optional frame label; the planner runs
   the same dry-run checks per candidate, prints ready ledger entries, and can
   fail with `--require-all-ready` when any candidate is blocked.
+- Extended the visual-claim planner with `--write-ready-entries` so a batch
+  review can write only ready ledger lines to a separate review artifact without
+  editing the real promotion ledger or including blocked candidates.
 - Added a dedicated dry-run CTest for the pending natural forward lane-result
   probe: `--offset forward --route-step x:2.00 --route-step c:0.50` targeting
   `1000:3D3F`. This does not promote new evidence, but it keeps the next

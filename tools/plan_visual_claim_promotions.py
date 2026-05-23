@@ -184,6 +184,13 @@ def print_results(root: Path, manifest: Path, results: list[CandidateResult]) ->
     return ready, blocked
 
 
+def write_ready_entries(path: Path, results: list[CandidateResult]) -> int:
+    ready_entries = [result.entry for result in results if result.status == "ready"]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(ready_entries) + ("\n" if ready_entries else ""), encoding="ascii")
+    return len(ready_entries)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Dry-run a key/value manifest of visual-claim promotion candidates."
@@ -194,6 +201,11 @@ def main() -> int:
         "--require-all-ready",
         action="store_true",
         help="exit nonzero if any candidate is blocked",
+    )
+    parser.add_argument(
+        "--write-ready-entries",
+        type=Path,
+        help="write ready ledger entries to this review file without editing the real ledger",
     )
     args = parser.parse_args()
 
@@ -208,6 +220,18 @@ def main() -> int:
 
     results = [validate_candidate(root, candidate) for candidate in candidates]
     ready, blocked = print_results(root, manifest_path, results)
+    if args.write_ready_entries is not None:
+        try:
+            entries_path = resolve_arg(root, args.write_ready_entries).resolve()
+            written = write_ready_entries(entries_path, results)
+        except Exception as exc:
+            print(f"visual_claim_ready_entries=error reason={token(exc)}", file=sys.stderr)
+            return 4
+        print(
+            "visual_claim_ready_entries=ok "
+            f"path={display_path(root, entries_path)} "
+            f"entries={written}"
+        )
     if args.require_all_ready and blocked:
         print(
             "visual_claim_promotion_plan=error "

@@ -181,6 +181,22 @@ def main() -> int:
             require(mixed, snippet, "mixed")
         cases += 1
 
+        ready_entries = root / "docs" / "recovery" / "visual_ready_entries.txt"
+        mixed_written = run_plan(
+            repo_root,
+            root,
+            mixed_manifest,
+            "--write-ready-entries",
+            str(ready_entries),
+        )
+        require(mixed_written, "visual_claim_ready_entries=ok", "mixed_written")
+        require(mixed_written, "entries=1", "mixed_written")
+        ready_entries_text = ready_entries.read_text(encoding="ascii")
+        require(ready_entries_text, "- fixture=ready_original.txt visual_claim=1", "ready_entries")
+        if "blocked_original.txt" in ready_entries_text:
+            raise RuntimeError("ready entries included blocked candidate")
+        cases += 1
+
         mixed_required = run_plan(
             repo_root,
             root,

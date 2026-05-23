@@ -55,11 +55,15 @@ candidate_0_label=<semantic-frame-label>
 
 ```sh
 tools/plan_visual_claim_promotions.py docs/recovery/<candidate-manifest>.txt \
+  --write-ready-entries docs/recovery/<ready-entries-review>.txt \
   --require-all-ready
 ```
 
 The planner validates every candidate with the same read-only checks and prints
-the exact ledger entries for the candidates whose status is `ready`.
+the exact ledger entries for the candidates whose status is `ready`. The
+optional ready-entries file is only a review artifact; promotion still requires
+editing this ledger and letting `tools/check_visual_claim_guardrail.py` validate
+the checked-in fixture and artifact paths.
 
 Current promoted visual fixtures: none. All checked-in DOSBox oracle fixtures
 currently remain `visual_claim=0`.

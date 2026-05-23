@@ -310,6 +310,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_entry.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_plan.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_workflow.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_native_windows_validation_helper.py
@@ -1167,6 +1168,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^visual_claim_promotion_manifest_check=ok cases=6")
+
+        add_test(NAME visual_claim_promotion_workflow
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_workflow.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(visual_claim_promotion_workflow PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^visual_claim_promotion_workflow=ok docs=1 tools=6 ctest=6")
 
         add_test(NAME runtime_evidence_guardrail
             COMMAND ${Python3_EXECUTABLE}

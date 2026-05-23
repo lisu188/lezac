@@ -81,3 +81,6 @@ currently remain `visual_claim=0`.
 `tools/check_visual_claim_guardrail.py --self-test` exercises a synthetic
 promoted fixture and confirms the checker rejects a missing comparison artifact,
 an unready frame-compare bundle, and a mismatched ledger fixture.
+
+`tools/check_visual_claim_promotion_workflow.py` keeps this note, the promotion
+tools, and their CTest registrations in sync.

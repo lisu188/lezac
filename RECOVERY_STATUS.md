@@ -160,6 +160,9 @@ Baseline: `origin/main`
   fixture/bundle/docs/label tuples. The writer validates fixture names, checked
   bundle manifests, recovery-doc paths, and refuses the real visual-claim ledger
   as an output target.
+- Added `tools/check_visual_claim_promotion_workflow.py` to pin the visual
+  promotion docs, summary/guardrail/writer/planner tools, and their CTest
+  registrations together so future promotion workflow drift fails fast.
 - Added a dedicated dry-run CTest for the pending natural forward lane-result
   probe: `--offset forward --route-step x:2.00 --route-step c:0.50` targeting
   `1000:3D3F`. This does not promote new evidence, but it keeps the next

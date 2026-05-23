@@ -15,10 +15,16 @@ The frame comparison workflow has three parts:
    directory, runs `LEZAC.EXE` in DOSBox under Xvfb, drives the window with
    `xdotool`, asks DOSBox to save screenshots with Ctrl-F5, renames the
    screenshots to semantic labels matching the C++ sequence where possible, and
-   writes a manifest. The monster-bomb original path intentionally stops at
-   the keyboard-reproducible armed-bomb checkpoint; C++ death/reward frames in
-   that sequence are debugger-seeded synthetic evidence until an original route
-   or debugger setup can prove them.
+   writes a manifest. Before launching DOSBox, it runs
+   `tools/preflight_original_evidence_environment.py --require-frame-capture
+   --probe-wsl --require-wsl-bash-on-windows`, writes
+   `environment_preflight.log`, and records the preflight command/result in the
+   manifest. On Windows this preserves blockers such as
+   `wsl_bash_reason=no_default_distro` before any screenshot automation is
+   attempted. The monster-bomb original path intentionally stops at the
+   keyboard-reproducible armed-bomb checkpoint; C++ death/reward frames in that
+   sequence are debugger-seeded synthetic evidence until an original route or
+   debugger setup can prove them.
 3. `tools/frame_compare.py <left> <right> [--diff out.ppm]` compares paired
    frames and reports exact and thresholded pixel-difference metrics.
 
@@ -84,6 +90,7 @@ The DOSBox capture driver attempts to write the same labels for
 060_level1_tile24_playback_12.png
 manifest.txt
 original_capture.log
+environment_preflight.log
 ```
 
 For `monster_bomb_reward`, DOSBox currently attempts only:
@@ -94,6 +101,7 @@ For `monster_bomb_reward`, DOSBox currently attempts only:
 020_monster_bomb_armed.png
 manifest.txt
 original_capture.log
+environment_preflight.log
 ```
 
 The manifest records `not_captured` placeholders for

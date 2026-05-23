@@ -28,6 +28,20 @@ WRAPPER_SNIPPETS = [
     "frame_compare_bundle=",
 ]
 
+ORIGINAL_CAPTURE_SNIPPETS = [
+    "preflight_original_evidence_environment.py",
+    "--require-frame-capture",
+    "--probe-wsl",
+    "--require-wsl-bash-on-windows",
+    "environment_preflight_command=",
+    "environment_preflight_log=",
+    "environment_preflight_exit=",
+    "environment_preflight=ok",
+    "environment_preflight=error",
+    "LEZAC_ORIGINAL_FRAME_CAPTURE_SKIP_ENVIRONMENT_PREFLIGHT",
+    "original_frame_capture=error",
+]
+
 DOC_SNIPPETS = [
     "tools/compare_original_cpp_frames.sh <out-dir> [asset-dir] [scenario]",
     "/tmp/lezac-frame-compare",
@@ -37,6 +51,8 @@ DOC_SNIPPETS = [
     "frame_compare_summary.txt",
     "Missing original frames should remain visible",
     "visually inspected",
+    "environment_preflight.log",
+    "wsl_bash_reason=no_default_distro",
 ]
 
 
@@ -65,6 +81,12 @@ def check_wrapper(root: Path) -> None:
             raise RuntimeError(f"missing helper {helper}")
 
 
+def check_original_capture(root: Path) -> None:
+    text = read(root, ORIGINAL_CAPTURE)
+    for snippet in ORIGINAL_CAPTURE_SNIPPETS:
+        require(text, snippet, str(ORIGINAL_CAPTURE))
+
+
 def check_docs(root: Path) -> None:
     text = read(root, DOC)
     for snippet in DOC_SNIPPETS:
@@ -89,15 +111,15 @@ def main() -> int:
     root = Path(args.repo_root).resolve()
 
     check_wrapper(root)
+    check_original_capture(root)
     check_docs(root)
     check_cmake(root)
     print(
         "frame_compare_workflow=ok "
-        "wrapper=1 helpers=3 docs=1 ctest=1 scenarios=2"
+        "wrapper=1 helpers=3 docs=1 ctest=1 scenarios=2 original_preflight=1"
     )
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

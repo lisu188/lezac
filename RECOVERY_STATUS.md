@@ -110,6 +110,12 @@ Baseline: `origin/main`
   the DOSBox-original capture, runs `tools/frame_compare.py`, leaves missing
   original labels visible, writes `frame_compare_summary.txt` and
   `manifest.txt`, and keeps generated evidence outside the repository.
+- Hardened `tools/capture_original_dosbox_frames.sh` with the shared original
+  evidence preflight for screenshot captures. It now records
+  `environment_preflight_command`, `environment_preflight.log`, and
+  `environment_preflight=ok/error/skipped` in the original-frame manifest before
+  DOSBox is launched, including Windows WSL/bash blockers such as
+  `wsl_bash_reason=no_default_distro`.
 - Added a dedicated dry-run CTest for the pending natural forward lane-result
   probe: `--offset forward --route-step x:2.00 --route-step c:0.50` targeting
   `1000:3D3F`. This does not promote new evidence, but it keeps the next

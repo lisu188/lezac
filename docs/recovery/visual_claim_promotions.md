@@ -42,6 +42,25 @@ promotion-ready, emits the candidate ledger entry, and reuses the committed
 guardrail checks for artifact paths, `frame_compare_bundle`, and recovery docs
 before any real ledger edit is made.
 
+Use the batch planner when multiple checked-in bundles are ready to review:
+
+```text
+promotion=visual_claim_candidates
+candidates=1
+candidate_0_fixture=<fixture>.txt
+candidate_0_frame_compare_bundle=docs/recovery/frame_compare/<bundle>
+candidate_0_docs=docs/recovery/<note>.md
+candidate_0_label=<semantic-frame-label>
+```
+
+```sh
+tools/plan_visual_claim_promotions.py docs/recovery/<candidate-manifest>.txt \
+  --require-all-ready
+```
+
+The planner validates every candidate with the same read-only checks and prints
+the exact ledger entries for the candidates whose status is `ready`.
+
 Current promoted visual fixtures: none. All checked-in DOSBox oracle fixtures
 currently remain `visual_claim=0`.
 

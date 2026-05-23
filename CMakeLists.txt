@@ -308,6 +308,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_guardrail.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_candidate.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_entry.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_plan.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_native_windows_validation_helper.py
@@ -330,6 +331,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_contact_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_write_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_result_routes.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/plan_visual_claim_promotions.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_visual_claim_promotion_candidate.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/write_visual_claim_promotion_entry.py)
         set_tests_properties(python_tool_syntax_lane_result_preflight PROPERTIES
@@ -1145,6 +1147,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^visual_claim_promotion_candidate_check=ok cases=5")
+
+        add_test(NAME visual_claim_promotion_plan_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_plan.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(visual_claim_promotion_plan_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^visual_claim_promotion_plan_check=ok cases=6")
 
         add_test(NAME runtime_evidence_guardrail
             COMMAND ${Python3_EXECUTABLE}

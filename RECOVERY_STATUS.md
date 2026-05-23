@@ -145,6 +145,11 @@ Baseline: `origin/main`
   has exactly one declared visual claim, requires a promotion-ready frame bundle,
   generates the candidate entry, and reuses the committed visual-claim guardrail
   checks against the generated line.
+- Added `tools/plan_visual_claim_promotions.py` for batch review of checked-in
+  visual-claim promotion candidates. The key/value manifest names each fixture,
+  frame-compare bundle, docs note, and optional frame label; the planner runs
+  the same dry-run checks per candidate, prints ready ledger entries, and can
+  fail with `--require-all-ready` when any candidate is blocked.
 - Added a dedicated dry-run CTest for the pending natural forward lane-result
   probe: `--offset forward --route-step x:2.00 --route-step c:0.50` targeting
   `1000:3D3F`. This does not promote new evidence, but it keeps the next

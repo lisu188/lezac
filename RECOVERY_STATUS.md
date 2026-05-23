@@ -155,6 +155,11 @@ Baseline: `origin/main`
   editing the real promotion ledger or including blocked candidates. The planner
   now explicitly refuses to use `docs/recovery/visual_claim_promotions.md` as
   that review-file target.
+- Added `tools/write_visual_claim_promotion_manifest.py` so future checked-in
+  visual evidence bundles can be collected into a planner manifest from explicit
+  fixture/bundle/docs/label tuples. The writer validates fixture names, checked
+  bundle manifests, recovery-doc paths, and refuses the real visual-claim ledger
+  as an output target.
 - Added a dedicated dry-run CTest for the pending natural forward lane-result
   probe: `--offset forward --route-step x:2.00 --route-step c:0.50` targeting
   `1000:3D3F`. This does not promote new evidence, but it keeps the next

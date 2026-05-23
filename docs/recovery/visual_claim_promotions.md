@@ -53,6 +53,15 @@ candidate_0_docs=docs/recovery/<note>.md
 candidate_0_label=<semantic-frame-label>
 ```
 
+The manifest can be written from checked-in candidate triples:
+
+```sh
+tools/write_visual_claim_promotion_manifest.py \
+  docs/recovery/<candidate-manifest>.txt \
+  --candidate <fixture>.txt docs/recovery/frame_compare/<bundle> \
+    docs/recovery/<note>.md <semantic-frame-label>
+```
+
 ```sh
 tools/plan_visual_claim_promotions.py docs/recovery/<candidate-manifest>.txt \
   --write-ready-entries docs/recovery/<ready-entries-review>.txt \

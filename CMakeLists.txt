@@ -293,6 +293,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_preflight.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_wrapper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gran_data_evidence_map.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_bundle_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_workflow.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_environment.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_record_flow_evidence_map.py
@@ -320,6 +321,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_debug_capture_batch.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_debug_capture.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_debug_capture_ready_results.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_frame_compare_bundle.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_result_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_result_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_dispatch_gates.py
@@ -400,7 +402,16 @@ if(BUILD_TESTING)
         set_tests_properties(frame_compare_workflow_contract PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^frame_compare_workflow=ok wrapper=1 helpers=3 docs=1 ctest=1 scenarios=2 original_preflight=1 failure_manifest=1")
+                "^frame_compare_workflow=ok wrapper=1 helpers=4 docs=1 ctest=2 scenarios=2 original_preflight=1 failure_manifest=1")
+
+        add_test(NAME frame_compare_bundle_summary_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_bundle_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(frame_compare_bundle_summary_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^frame_compare_bundle_summary_check=ok cases=5")
 
         add_test(NAME explosion_freeze_patch_describe_lane_result_3d3f
             COMMAND ${Python3_EXECUTABLE}

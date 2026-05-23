@@ -44,6 +44,13 @@ adds `original_capture_exit`, `original_capture_manifest`,
 returns nonzero. This lets WSL/DOSBox blockers remain visible without treating
 the comparison as successful.
 
+Use `tools/summarize_frame_compare_bundle.py <bundle-or-manifest>` to turn a
+bundle into one triage line. It reports frame counts, missing original labels,
+compare errors, maximum pixel-difference metrics, original preflight state,
+`wsl_bash_reason`, and `promotion_ready`. Add `--require-promotion-ready` when
+a follow-up script should fail unless the original capture completed, every C++
+checkpoint had a paired original frame, and all frame comparisons were clean.
+
 The current C++ sequences write these checkpoints:
 
 ```text
@@ -166,6 +173,8 @@ tools/frame_compare.py \
 
 tools/compare_original_cpp_frames.sh /tmp/lezac-frame-compare .
 tools/compare_original_cpp_frames.sh /tmp/lezac-frame-compare-monster . monster_bomb_reward
+tools/summarize_frame_compare_bundle.py /tmp/lezac-frame-compare
+tools/summarize_frame_compare_bundle.py /tmp/lezac-frame-compare --require-promotion-ready
 ```
 
 `tools/frame_compare.py` has built-in PPM/PNM and uncompressed BMP readers. It

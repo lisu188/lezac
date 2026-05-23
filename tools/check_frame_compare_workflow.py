@@ -11,6 +11,7 @@ WRAPPER = Path("tools/compare_original_cpp_frames.sh")
 CPP_CAPTURE = Path("tools/capture_cpp_frames.sh")
 ORIGINAL_CAPTURE = Path("tools/capture_original_dosbox_frames.sh")
 COMPARATOR = Path("tools/frame_compare.py")
+SUMMARIZER = Path("tools/summarize_frame_compare_bundle.py")
 DOC = Path("docs/recovery/frame_comparison.md")
 CMAKE = Path("CMakeLists.txt")
 
@@ -62,6 +63,9 @@ DOC_SNIPPETS = [
     "original_capture_driver.log",
     "original_capture_exit",
     "frame_compare_bundle=error",
+    "summarize_frame_compare_bundle.py",
+    "--require-promotion-ready",
+    "promotion_ready",
     "wsl_bash_reason=no_default_distro",
 ]
 
@@ -86,7 +90,7 @@ def check_wrapper(root: Path) -> None:
     text = read(root, WRAPPER)
     for snippet in WRAPPER_SNIPPETS:
         require(text, snippet, str(WRAPPER))
-    for helper in [CPP_CAPTURE, ORIGINAL_CAPTURE, COMPARATOR]:
+    for helper in [CPP_CAPTURE, ORIGINAL_CAPTURE, COMPARATOR, SUMMARIZER]:
         if not (root / helper).exists():
             raise RuntimeError(f"missing helper {helper}")
 
@@ -106,7 +110,9 @@ def check_docs(root: Path) -> None:
 def check_cmake(root: Path) -> None:
     text = read(root, CMAKE)
     require(text, "tools/check_frame_compare_workflow.py", str(CMAKE))
+    require(text, "tools/check_frame_compare_bundle_summary.py", str(CMAKE))
     require(text, "frame_compare_workflow_contract", str(CMAKE))
+    require(text, "frame_compare_bundle_summary_expectations", str(CMAKE))
 
 
 def main() -> int:
@@ -126,7 +132,7 @@ def main() -> int:
     check_cmake(root)
     print(
         "frame_compare_workflow=ok "
-        "wrapper=1 helpers=3 docs=1 ctest=1 scenarios=2 original_preflight=1 "
+        "wrapper=1 helpers=4 docs=1 ctest=2 scenarios=2 original_preflight=1 "
         "failure_manifest=1"
     )
     return 0

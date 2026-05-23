@@ -493,7 +493,10 @@ the provisional queue playback. Use
 `tools/sweep_original_lane_write_routes.py` for repeated debris-writeback
 route-step probes; its default matrix targets `3D2D`/`3EC1` with the
 `late-collapse` runtime-freeze gate and writes stable route/offset labels,
-commands, logs, and manifest entries. Use
+commands, logs, and manifest entries. Summarize its output with
+`tools/summarize_lane_write_route_sweep.py <manifest-or-dir> --require-ready`
+and add `--write-ready-manifest <path>` when a follow-up oracle run should use
+only ready natural debris-write candidates. Use
 `tools/sweep_original_lane_result_routes.py --offset forward` for the final
 `3D3F` result-write retries. The sweep wrappers take repeatable
 `--route KEY:SECONDS,...` entries and pass those through to the lower-level

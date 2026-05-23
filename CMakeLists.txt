@@ -304,6 +304,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_route_sweep_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gran_usage_guardrail.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ready_fixture_provenance_contract.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_runtime_evidence_guardrail.py
@@ -331,6 +332,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_frame_compare_bundle.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_result_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_result_route_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_write_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_dispatch_gates.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_contact_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_write_routes.py
@@ -590,6 +592,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^lane_write_route_sweep_output=ok cases=11")
+
+        add_test(NAME explosion_lane_write_route_sweep_summary_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_write_route_sweep_summary_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_write_route_sweep_summary_check=ok cases=9")
 
         add_test(NAME explosion_lane_result_ready_manifest_expectations
             COMMAND ${Python3_EXECUTABLE}

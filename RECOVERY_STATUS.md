@@ -6,6 +6,12 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `tools/summarize_lane_write_route_sweep.py` and synthetic CTest
+  coverage for lane-write sweep results. The summarizer classifies
+  `3D2D`/`3EC1` candidates as ready, no-freeze, incomplete, or missing, checks
+  the lane-write patch mode, scratch offset, expected kind/target, original
+  runtime bytes, and required scratch fields, and can write a ready-candidate
+  manifest without editing checked-in fixtures.
 - Added `tools/sweep_original_lane_write_routes.py` for the next natural
   debris-side evidence pass. The guarded dry-run matrix targets
   `1000:3D2D` and `1000:3EC1` across the existing route variants, defaults to

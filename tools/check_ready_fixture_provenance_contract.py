@@ -37,6 +37,8 @@ DOC_SNIPPETS = [
     "docs/recovery/runtime_evidence_ledger.md",
     "docs/recovery/original_runtime_fixture_notes.md",
     "docs/recovery/visual_claim_promotions.md",
+    "tools/summarize_frame_compare_bundle.py",
+    "promotion_ready=1",
     "runtime_cs_runtime_ds_temp_copy",
     "tools/ready_result_fixture_guardrails.py",
     "--allow-missing-fixtures",

@@ -26,8 +26,9 @@ Checked-in original fixtures are stricter. Any fixture under
 `visual_claim=0`, use `evidence=runtime_cs_runtime_ds_temp_copy`, and point to a
 note under `docs/recovery/original_runtime_fixture_notes.md` or another recovery
 doc that explicitly names the fixture. A future `visual_claim=1` promotion must
-go through `docs/recovery/visual_claim_promotions.md` with original, C++, and
-comparison-frame artifacts.
+go through `docs/recovery/visual_claim_promotions.md` with original, C++,
+comparison-frame artifacts, and a checked-in frame-compare bundle whose
+`tools/summarize_frame_compare_bundle.py` output reports `promotion_ready=1`.
 
 ## Enforced Stages
 

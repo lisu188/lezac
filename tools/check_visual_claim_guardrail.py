@@ -7,9 +7,12 @@ import argparse
 from pathlib import Path
 import tempfile
 
+from summarize_frame_compare_bundle import summarize
+
 
 LEDGER = Path("docs/recovery/visual_claim_promotions.md")
 ARTIFACT_FIELDS = ("original_frame", "cpp_frame", "comparison")
+BUNDLE_FIELD = "frame_compare_bundle"
 
 
 def default_repo_root() -> Path:
@@ -79,6 +82,15 @@ def checked_in_path(root: Path, value: str, fixture: str, key: str) -> Path:
     return resolved
 
 
+def check_frame_compare_bundle(root: Path, value: str, fixture: str) -> None:
+    bundle_path = checked_in_path(root, value, fixture, BUNDLE_FIELD)
+    summary = summarize(bundle_path)
+    if not summary.promotion_ready:
+        raise RuntimeError(
+            f"{fixture}:frame_compare_bundle_not_ready={value} reason={summary.reason}"
+        )
+
+
 def check_ledger(root: Path, promoted: list[str]) -> int:
     ledger_path = root / LEDGER
     text = ledger_path.read_text(encoding="utf-8")
@@ -109,7 +121,7 @@ def check_ledger(root: Path, promoted: list[str]) -> int:
     if extra:
         raise RuntimeError("ledger entry without promoted fixture: " + ",".join(extra))
 
-    required = ("visual_claim", *ARTIFACT_FIELDS, "docs")
+    required = ("visual_claim", *ARTIFACT_FIELDS, BUNDLE_FIELD, "docs")
     for name in promoted:
         fields = entries[name]
         for key in required:
@@ -119,6 +131,7 @@ def check_ledger(root: Path, promoted: list[str]) -> int:
             raise RuntimeError(f"{name}:ledger_visual_claim={fields['visual_claim']}")
         for key in ARTIFACT_FIELDS:
             checked_in_path(root, fields[key], name, key)
+        check_frame_compare_bundle(root, fields[BUNDLE_FIELD], name)
         doc_path = checked_in_path(root, fields["docs"], name, "docs")
         try:
             doc_path.relative_to((root / "docs" / "recovery").resolve())
@@ -138,12 +151,45 @@ def self_test() -> int:
         fixture = "promoted_fixture.txt"
         write_text(root / "tests/fixtures/dosbox" / fixture, "visual_claim=1\n")
         write_text(root / "docs/recovery/note.md", "# Note\n")
+        bundle = root / "docs/recovery/frame_compare/promoted_fixture"
         for artifact in (
-            "docs/recovery/frames/original.ppm",
-            "docs/recovery/frames/cpp.ppm",
-            "docs/recovery/frames/diff.ppm",
+            "docs/recovery/frame_compare/promoted_fixture/original/010_level1_start.png",
+            "docs/recovery/frame_compare/promoted_fixture/cpp/010_level1_start.ppm",
+            "docs/recovery/frame_compare/promoted_fixture/diff/010_level1_start.ppm",
         ):
             write_text(root / artifact, "P3\n1 1\n255\n0 0 0\n")
+        write_text(
+            bundle / "manifest.txt",
+            "\n".join(
+                (
+                    "scenario=level1_bomb_route",
+                    f"cpp_dir={bundle / 'cpp'}",
+                    f"original_dir={bundle / 'original'}",
+                    f"diff_dir={bundle / 'diff'}",
+                    f"summary={bundle / 'frame_compare_summary.txt'}",
+                    "original_capture_exit=0",
+                    f"original_capture_manifest={bundle / 'original' / 'manifest.txt'}",
+                    f"original_environment_preflight_log={bundle / 'original' / 'environment_preflight.log'}",
+                    "compare_exit=0",
+                    "",
+                )
+            ),
+        )
+        write_text(
+            bundle / "frame_compare_summary.txt",
+            "compare label=010_level1_start frame_compare=ok size=320x200 "
+            "normalized=none pixels=64000 exact_match=1 exact_different_pixels=0 "
+            "threshold=0 threshold_different_pixels=0 max_delta=0 "
+            "mean_abs_delta=0.000000\n",
+        )
+        write_text(
+            bundle / "original" / "manifest.txt",
+            "environment_preflight_exit=0\nenvironment_preflight=ok\n",
+        )
+        write_text(
+            bundle / "original" / "environment_preflight.log",
+            "original_evidence_environment=ok wsl_bash_reason=none\n",
+        )
         write_text(
             root / LEDGER,
             "\n".join(
@@ -151,9 +197,10 @@ def self_test() -> int:
                     "promotion_ledger=visual_claim",
                     "Current baseline mentions visual_claim=0.",
                     "- fixture=promoted_fixture.txt visual_claim=1 "
-                    "original_frame=docs/recovery/frames/original.ppm "
-                    "cpp_frame=docs/recovery/frames/cpp.ppm "
-                    "comparison=docs/recovery/frames/diff.ppm "
+                    "original_frame=docs/recovery/frame_compare/promoted_fixture/original/010_level1_start.png "
+                    "cpp_frame=docs/recovery/frame_compare/promoted_fixture/cpp/010_level1_start.ppm "
+                    "comparison=docs/recovery/frame_compare/promoted_fixture/diff/010_level1_start.ppm "
+                    "frame_compare_bundle=docs/recovery/frame_compare/promoted_fixture "
                     "docs=docs/recovery/note.md",
                     "",
                 )
@@ -164,7 +211,7 @@ def self_test() -> int:
             raise RuntimeError("selftest promoted fixture count mismatch")
         check_ledger(root, promoted)
 
-        (root / "docs/recovery/frames/diff.ppm").unlink()
+        (root / "docs/recovery/frame_compare/promoted_fixture/diff/010_level1_start.ppm").unlink()
         try:
             check_ledger(root, promoted)
         except RuntimeError as exc:
@@ -173,12 +220,37 @@ def self_test() -> int:
         else:
             raise RuntimeError("selftest missing artifact was not rejected")
 
-        write_text(root / "docs/recovery/frames/diff.ppm", "P3\n1 1\n255\n0 0 0\n")
+        write_text(
+            root / "docs/recovery/frame_compare/promoted_fixture/diff/010_level1_start.ppm",
+            "P3\n1 1\n255\n0 0 0\n",
+        )
+        write_text(
+            bundle / "frame_compare_summary.txt",
+            "compare label=010_level1_start status=missing_original\n",
+        )
+        try:
+            check_ledger(root, promoted)
+        except RuntimeError as exc:
+            if "frame_compare_bundle_not_ready" not in str(exc):
+                raise
+        else:
+            raise RuntimeError("selftest unready bundle was not rejected")
+
+        write_text(
+            bundle / "frame_compare_summary.txt",
+            "compare label=010_level1_start frame_compare=ok size=320x200 "
+            "normalized=none pixels=64000 exact_match=1 exact_different_pixels=0 "
+            "threshold=0 threshold_different_pixels=0 max_delta=0 "
+            "mean_abs_delta=0.000000\n",
+        )
         write_text(
             root / LEDGER,
             "promotion_ledger=visual_claim\nvisual_claim=0\n"
-            "- fixture=other.txt visual_claim=1 original_frame=docs/recovery/frames/original.ppm "
-            "cpp_frame=docs/recovery/frames/cpp.ppm comparison=docs/recovery/frames/diff.ppm "
+            "- fixture=other.txt visual_claim=1 "
+            "original_frame=docs/recovery/frame_compare/promoted_fixture/original/010_level1_start.png "
+            "cpp_frame=docs/recovery/frame_compare/promoted_fixture/cpp/010_level1_start.ppm "
+            "comparison=docs/recovery/frame_compare/promoted_fixture/diff/010_level1_start.ppm "
+            "frame_compare_bundle=docs/recovery/frame_compare/promoted_fixture "
             "docs=docs/recovery/note.md\n",
         )
         try:
@@ -189,7 +261,10 @@ def self_test() -> int:
         else:
             raise RuntimeError("selftest mismatched ledger fixture was not rejected")
 
-    print("visual_claim_guardrail_selftest=ok positive=1 missing_artifact=1 mismatch=1")
+    print(
+        "visual_claim_guardrail_selftest=ok "
+        "positive=1 missing_artifact=1 unready_bundle=1 mismatch=1"
+    )
     return 0
 
 

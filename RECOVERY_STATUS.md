@@ -126,6 +126,11 @@ Baseline: `origin/main`
   reports frame counts, missing originals, compare errors, preflight state,
   `wsl_bash_reason`, and `promotion_ready`, with `--require-promotion-ready`
   for future visual-evidence promotion gates.
+- Tightened the visual-claim promotion ledger so future `visual_claim=1`
+  fixtures must also name a checked-in `frame_compare_bundle` whose
+  `tools/summarize_frame_compare_bundle.py` result is `promotion_ready=1`.
+  The visual-claim self-test now rejects missing artifacts, unready bundles, and
+  mismatched ledger entries.
 - Added a dedicated dry-run CTest for the pending natural forward lane-result
   probe: `--offset forward --route-step x:2.00 --route-step c:0.50` targeting
   `1000:3D3F`. This does not promote new evidence, but it keeps the next

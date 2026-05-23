@@ -1113,7 +1113,7 @@ if(BUILD_TESTING)
         set_tests_properties(visual_claim_guardrail_selftest PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^visual_claim_guardrail_selftest=ok positive=1 missing_artifact=1 mismatch=1")
+                "^visual_claim_guardrail_selftest=ok positive=1 missing_artifact=1 unready_bundle=1 mismatch=1")
 
         add_test(NAME runtime_evidence_guardrail
             COMMAND ${Python3_EXECUTABLE}

@@ -14,16 +14,19 @@ WRITERS = [
     Path("tools/summarize_debug_capture_batch.py"),
     Path("tools/summarize_actor_dispatch_gate_sweep.py"),
     Path("tools/summarize_lane_result_route_sweep.py"),
+    Path("tools/summarize_lane_write_route_sweep.py"),
 ]
 RUNNERS = [
     Path("tools/run_debug_capture_ready_manifest.py"),
     Path("tools/run_actor_dispatch_ready_manifest.py"),
     Path("tools/run_lane_result_ready_manifest.py"),
+    Path("tools/run_lane_write_ready_manifest.py"),
 ]
 RESULT_SUMMARIES = [
     Path("tools/summarize_debug_capture_ready_results.py"),
     Path("tools/summarize_actor_dispatch_ready_results.py"),
     Path("tools/summarize_lane_result_ready_results.py"),
+    Path("tools/summarize_lane_write_ready_results.py"),
 ]
 
 DOC_SNIPPETS = [
@@ -116,8 +119,8 @@ def main() -> int:
     check_call_sites(root)
     print(
         "ready_fixture_provenance_contract=ok "
-        "docs=1 validator=1 writers=3 runners=3 result_summaries=3 "
-        "dry_run_missing_fixture_bypass=3"
+        "docs=1 validator=1 writers=4 runners=4 result_summaries=4 "
+        "dry_run_missing_fixture_bypass=4"
     )
     return 0
 

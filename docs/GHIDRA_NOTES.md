@@ -508,7 +508,11 @@ forward evidence is still pending. `tools/summarize_lane_result_route_sweep.py`
 now classifies completed route-sweep candidates as `ready`, `no_freeze`,
 `incomplete`, or `missing`; `tools/run_lane_result_ready_manifest.py` and
 `tools/summarize_lane_result_ready_results.py` then execute and gate only
-promotable `--debug-explosion-playback-oracle` fixtures.
+promotable `--debug-explosion-playback-oracle` fixtures. The matching
+lane-write handoff uses `tools/run_lane_write_ready_manifest.py` and
+`tools/summarize_lane_write_ready_results.py`, preserving the recovered
+lane-write kind/target metadata while applying the same runtime segment,
+fixture provenance, run/dry-run status, and oracle-log gates.
 `tools/check_explosion_evidence_map.py` keeps this explosion/playback handoff
 traceable across these address notes, lane-result capture helpers, fixture
 coverage, source output fields, and CTest wiring.

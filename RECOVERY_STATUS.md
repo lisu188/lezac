@@ -6,6 +6,13 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `tools/summarize_lane_write_ready_results.py` plus synthetic result and
+  end-to-end pipeline CTest coverage, completing the lane-write handoff from
+  route-sweep promotion through ready-manifest execution into a gated result
+  summary. The result summary preserves the lane-write kind/target metadata,
+  validates runtime `CS`/`DS` and fixture provenance, checks run/dry-run status
+  consistency, and gates executed oracle logs before any recovery claim can
+  advance.
 - Added `tools/run_lane_write_ready_manifest.py` and synthetic CTest coverage
   so ready natural debris-write candidates can be dry-run, oracle-checked, and
   logged from the manifest emitted by `summarize_lane_write_route_sweep.py`.

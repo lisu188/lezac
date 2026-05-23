@@ -499,6 +499,10 @@ and add `--write-ready-manifest <path>` when a follow-up oracle run should use
 only ready natural debris-write candidates. Recheck that ready manifest with
 `tools/run_lane_write_ready_manifest.py <manifest> --dry-run` first, then run
 it live with `--log-dir <tmp-dir>` and `--write-result-manifest <tmp-file>`.
+Summarize the executed or planned result manifest with
+`tools/summarize_lane_write_ready_results.py <result-manifest>`, adding
+`--require-success --require-executed --require-source-environment-preflight`
+when promoting a completed original run.
 Use
 `tools/sweep_original_lane_result_routes.py --offset forward` for the final
 `3D3F` result-write retries. The sweep wrappers take repeatable

@@ -137,6 +137,11 @@ Baseline: `origin/main`
   promotion-ready frame-compare bundle. The writer validates fixture/docs paths,
   selects a compared frame with original/C++/diff artifacts, and rejects unready
   bundles before printing a promotion line.
+- Added `tools/validate_visual_claim_promotion_candidate.py` as the read-only
+  promotion checklist before real ledger edits. It confirms the current fixture
+  has exactly one declared visual claim, requires a promotion-ready frame bundle,
+  generates the candidate entry, and reuses the committed visual-claim guardrail
+  checks against the generated line.
 - Added a dedicated dry-run CTest for the pending natural forward lane-result
   probe: `--offset forward --route-step x:2.00 --route-step c:0.50` targeting
   `1000:3D3F`. This does not promote new evidence, but it keeps the next

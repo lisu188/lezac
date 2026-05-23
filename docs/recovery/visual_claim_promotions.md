@@ -27,10 +27,20 @@ Use the entry writer once the bundle is checked in and
 passes:
 
 ```sh
+tools/validate_visual_claim_promotion_candidate.py \
+  <fixture>.txt docs/recovery/frame_compare/<bundle> docs/recovery/<note>.md \
+  --label <semantic-frame-label>
+
 tools/write_visual_claim_promotion_entry.py \
   <fixture>.txt docs/recovery/frame_compare/<bundle> docs/recovery/<note>.md \
   --label <semantic-frame-label>
 ```
+
+The validator is a read-only dry run. It requires the fixture to carry exactly
+one current `visual_claim=0` or `visual_claim=1`, confirms the frame bundle is
+promotion-ready, emits the candidate ledger entry, and reuses the committed
+guardrail checks for artifact paths, `frame_compare_bundle`, and recovery docs
+before any real ledger edit is made.
 
 Current promoted visual fixtures: none. All checked-in DOSBox oracle fixtures
 currently remain `visual_claim=0`.

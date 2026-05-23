@@ -6,6 +6,12 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `tools/run_lane_write_ready_manifest.py` and synthetic CTest coverage
+  so ready natural debris-write candidates can be dry-run, oracle-checked, and
+  logged from the manifest emitted by `summarize_lane_write_route_sweep.py`.
+  The runner validates the `lane_write_ready_candidates` promotion shape,
+  route/offset/kind/target metadata, runtime `CS`/`DS`, fixture guardrails, and
+  output paths before executing any oracle.
 - Added `tools/summarize_lane_write_route_sweep.py` and synthetic CTest
   coverage for lane-write sweep results. The summarizer classifies
   `3D2D`/`3EC1` candidates as ready, no-freeze, incomplete, or missing, checks

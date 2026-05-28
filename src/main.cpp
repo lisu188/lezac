@@ -4850,6 +4850,103 @@ public:
                   << " ghidra=1000:6053\n";
     }
 
+    void debugOriginalState2VisualRowAssets() {
+        load();
+
+        struct SpriteMetrics {
+            int width = 0;
+            int height = 0;
+            int nonzero = 0;
+            int minX = 0;
+            int minY = 0;
+            int maxX = -1;
+            int maxY = -1;
+        };
+
+        auto metricsFor = [&](int index) {
+            if (index < 0 || index >= static_cast<int>(sprites_.sprites.size())) {
+                throw std::runtime_error("state-2 visual sprite index out of range");
+            }
+            const Sprite& sprite = sprites_.sprites[static_cast<size_t>(index)];
+            SpriteMetrics metrics;
+            metrics.width = sprite.width;
+            metrics.height = sprite.height;
+            metrics.minX = sprite.width;
+            metrics.minY = sprite.height;
+            for (int y = 0; y < sprite.height; ++y) {
+                for (int x = 0; x < sprite.width; ++x) {
+                    uint8_t pixelValue =
+                        sprite.pixels[static_cast<size_t>(y) * sprite.width + x];
+                    if (pixelValue == 0) continue;
+                    ++metrics.nonzero;
+                    metrics.minX = std::min(metrics.minX, x);
+                    metrics.minY = std::min(metrics.minY, y);
+                    metrics.maxX = std::max(metrics.maxX, x);
+                    metrics.maxY = std::max(metrics.maxY, y);
+                }
+            }
+            if (metrics.nonzero == 0) {
+                metrics.minX = metrics.minY = metrics.maxX = metrics.maxY = 0;
+            }
+            return metrics;
+        };
+
+        auto metricsText = [](int index, const SpriteMetrics& metrics) {
+            std::ostringstream oss;
+            oss << index << ':' << metrics.width << 'x' << metrics.height
+                << ":nonzero" << metrics.nonzero << ":bbox" << metrics.minX
+                << ',' << metrics.minY << ',' << metrics.maxX << ','
+                << metrics.maxY;
+            return oss.str();
+        };
+
+        std::ostringstream row3Sprites;
+        std::ostringstream row3Nonzero;
+        std::ostringstream cursorSprites;
+        std::ostringstream cursorNonzero;
+        bool row3All16 = true;
+        bool cursorMatchesRow3 = true;
+        int row3MinusFrame = 0;
+        for (uint8_t frame = kState2VisualStartFrame;
+             frame <= kState2VisualEndFrame; ++frame) {
+            State2VisualRow row;
+            if (!originalState2VisualRow(frame, row)) {
+                throw std::runtime_error("state-2 visual row missing");
+            }
+            int row3Index = static_cast<int>(row.row3);
+            int cursorIndex = static_cast<int>(frame);
+            SpriteMetrics row3 = metricsFor(row3Index);
+            SpriteMetrics cursor = metricsFor(cursorIndex);
+            if (frame == kState2VisualStartFrame) {
+                row3MinusFrame = row3Index - cursorIndex;
+            } else {
+                row3Sprites << ';';
+                row3Nonzero << ',';
+                cursorSprites << ';';
+                cursorNonzero << ',';
+            }
+            row3Sprites << metricsText(row3Index, row3);
+            row3Nonzero << row3.nonzero;
+            cursorSprites << metricsText(cursorIndex, cursor);
+            cursorNonzero << cursor.nonzero;
+            row3All16 = row3All16 && row3.width == 16 && row3.height == 16;
+            cursorMatchesRow3 = cursorMatchesRow3 && row3Index == cursorIndex;
+        }
+
+        std::cout << "original_state2_visual_row_assets=ok"
+                  << " bank=BOMOMIMK"
+                  << " row3_sprites=" << row3Sprites.str()
+                  << " row3_nonzero_sequence=" << row3Nonzero.str()
+                  << " row3_all_in_bounds=1"
+                  << " row3_all_16x16=" << (row3All16 ? 1 : 0)
+                  << " cursor_sprites=" << cursorSprites.str()
+                  << " cursor_nonzero_sequence=" << cursorNonzero.str()
+                  << " row3_minus_frame=" << row3MinusFrame
+                  << " cursor_matches_row3=" << (cursorMatchesRow3 ? 1 : 0)
+                  << " visual_claim=0"
+                  << " ghidra=1000:6053\n";
+    }
+
     int debugState2RuntimeFrameOracle(const std::string& path, bool expectError) {
         auto fixtureName = [](const std::string& inputPath) {
             size_t slash = inputPath.find_last_of("/\\");
@@ -12960,6 +13057,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-visual-row-model") {
             app.debugOriginalState2VisualRowModel();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-visual-row-assets") {
+            app.debugOriginalState2VisualRowAssets();
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-state2-runtime-frame-oracle") {

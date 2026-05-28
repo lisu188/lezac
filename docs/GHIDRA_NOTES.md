@@ -941,8 +941,11 @@ renderer consumption path are fully mapped. The debug command
 `--debug-original-state2-visual-row-model` mirrors the original row range as a
 C++ model with rows `4a:10,10,7d,43` through `4f:10,10,7d,48`,
 row-byte-3 sprite candidates `67..72`, draw-offset candidate `16,16`, and
-`visual_claim=0`; live rendering is not switched to that model until the
-remaining field names and frame comparison are proven.
+`visual_claim=0`. `--debug-original-state2-visual-row-assets` then confirms
+those row-byte-3 candidates are in-bounds `BOMOMIMK` sprites, all `16x16`, and
+contrasts them with the current provisional cursor-index sequence `74..79`.
+Live rendering is not switched to that model until the remaining field names
+and frame comparison are proven.
 
 The C++ debug command `--debug-state2-runtime-frame-oracle <dump.txt>` parses a
 normalized saved DOSBox debugger transcript. It expects runtime `CS`/`DS`,

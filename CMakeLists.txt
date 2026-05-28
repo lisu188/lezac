@@ -1611,6 +1611,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "original_state2_visual_row_model=ok frame_range=0x4a..0x4f rows=4a:10,10,7d,43;4b:10,10,7d,44;4c:10,10,7d,45;4d:10,10,7d,46;4e:10,10,7d,47;4f:10,10,7d,48 row0_sequence=10,10,10,10,10,10 row1_sequence=10,10,10,10,10,10 row2_sequence=7d,7d,7d,7d,7d,7d row3_sequence=43,44,45,46,47,48 sprite_bank=BOMOMIMK sprite_source=row_byte3 sprite_candidates=67,68,69,70,71,72 draw_offset_candidate=16,16 row2_constant=0x7d range_guard=1 visual_claim=0 ghidra=1000:6053")
 
+    add_test(NAME state2_visual_row_assets
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-visual-row-assets)
+    set_tests_properties(state2_visual_row_assets PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "original_state2_visual_row_assets=ok bank=BOMOMIMK row3_sprites=67:16x16:nonzero147:bbox0,0,14,15;68:16x16:nonzero39:bbox3,4,11,11;69:16x16:nonzero67:bbox2,2,12,12;70:16x16:nonzero138:bbox0,0,15,15;71:16x16:nonzero145:bbox0,0,15,15;72:16x16:nonzero76:bbox0,0,15,15 row3_nonzero_sequence=147,39,67,138,145,76 row3_all_in_bounds=1 row3_all_16x16=1 cursor_sprites=74:16x16:nonzero140:bbox1,2,15,13;75:16x16:nonzero198:bbox0,0,15,14;76:16x16:nonzero224:bbox0,0,15,15;77:16x16:nonzero197:bbox0,0,15,15;78:16x16:nonzero113:bbox0,0,15,15;79:10x5:nonzero22:bbox0,0,8,4 cursor_nonzero_sequence=140,198,224,197,113,22 row3_minus_frame=-7 cursor_matches_row3=0 visual_claim=0 ghidra=1000:6053")
+
     add_test(NAME behavior4_runtime_oracle_synthetic
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-runtime-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/behavior4_runtime_oracle_synthetic.txt)

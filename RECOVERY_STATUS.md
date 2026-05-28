@@ -117,6 +117,11 @@ Baseline: `origin/main`
   `4f:10,10,7d,48`, row-byte-3 `BOMOMIMK` sprite candidates `67..72`, and
   `visual_claim=0`; live dead-player rendering remains provisional until
   frame-field semantics and visual comparison are proven.
+- Added `--debug-original-state2-visual-row-assets` to verify the row-byte-3
+  candidates against the loaded `BOMOMIMK` asset. It records that sprites
+  `67..72` are in-bounds `16x16` candidates, captures their nonzero-pixel
+  sequence `147,39,67,138,145,76`, and contrasts them with the current
+  provisional cursor-index sequence `74..79`; no live renderer behavior changed.
 - Added `tools/capture_original_visual_table_debug.sh` for the
   `state2_death_table_consumption` follow-up capture. It mirrors the existing
   DOSBox-debug helper shape with `debugger_seeded` output, environment

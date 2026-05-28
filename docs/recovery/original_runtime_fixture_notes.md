@@ -58,7 +58,10 @@ control-flow reachability, not exact rendered presentation.
   `10,10,10,10,10,10`, `7d,7d,7d,7d,7d,7d`, and
   `43,44,45,46,47,48` across frames `0x4a..0x4f`. The C++ diagnostic
   `--debug-original-state2-visual-row-model` mirrors these rows as a
-  conservative model without promoting live visual presentation.
+  conservative model without promoting live visual presentation. The companion
+  `--debug-original-state2-visual-row-assets` diagnostic verifies the row-byte-3
+  candidate sprites against the loaded `BOMOMIMK` bank and records their
+  dimensions, nonzero-pixel counts, and bounds for later frame comparison.
 - `visual_table_oracle_original_state2_runtime.txt` normalizes the same
   original stop into the renderer-facing visual-table oracle. It binds actor
   frame `0x4a` to row address `DS:c44a`, row bytes `10,10,7d,43`, runtime

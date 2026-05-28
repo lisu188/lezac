@@ -944,6 +944,8 @@ row-byte-3 sprite candidates `67..72`, draw-offset candidate `16,16`, and
 `visual_claim=0`. `--debug-original-state2-visual-row-assets` then confirms
 those row-byte-3 candidates are in-bounds `BOMOMIMK` sprites, all `16x16`, and
 contrasts them with the current provisional cursor-index sequence `74..79`.
+`--capture-state2-visual-row-preview <out_dir>` renders both sequences as
+isolated C++ PPM artifacts with a manifest for later original-frame comparison.
 Live rendering is not switched to that model until the remaining field names
 and frame comparison are proven.
 

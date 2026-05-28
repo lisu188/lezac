@@ -4947,6 +4947,137 @@ public:
                   << " ghidra=1000:6053\n";
     }
 
+    void captureState2VisualRowPreview(const std::string& outDir) {
+        load();
+        std::filesystem::create_directories(outDir);
+
+        struct PreviewFrame {
+            uint8_t visualFrame = 0;
+            State2VisualRow row;
+            int row3Sprite = 0;
+            int cursorSprite = 0;
+            std::string row3File;
+            std::string cursorFile;
+            FrameInspection row3Inspection;
+            FrameInspection cursorInspection;
+        };
+
+        auto bareHex2 = [](uint8_t value) {
+            std::ostringstream oss;
+            oss << std::hex << std::nouppercase << std::setw(2)
+                << std::setfill('0') << static_cast<int>(value);
+            return oss.str();
+        };
+        auto rowText = [&](const State2VisualRow& row) {
+            return bareHex2(row.row0) + "," + bareHex2(row.row1) + "," +
+                   bareHex2(row.row2) + "," + bareHex2(row.row3);
+        };
+        auto inspectBuffer = [&](const std::string& label) {
+            if (fb_.empty()) {
+                throw std::runtime_error(label + " frame buffer is empty");
+            }
+            FrameInspection inspection;
+            uint32_t first = fb_.front();
+            uint64_t hash = 1469598103934665603ull;
+            for (uint32_t pixelValue : fb_) {
+                if (pixelValue != first) ++inspection.changedPixels;
+                hash ^= static_cast<uint64_t>(pixelValue);
+                hash *= 1099511628211ull;
+            }
+            inspection.hash = hash;
+            if (inspection.changedPixels == 0) {
+                throw std::runtime_error(label + " rendered a uniform preview");
+            }
+            return inspection;
+        };
+        auto renderSpritePreview = [&](int spriteIndex, const std::string& file) {
+            if (spriteIndex < 0 || spriteIndex >= static_cast<int>(sprites_.sprites.size())) {
+                throw std::runtime_error("state-2 visual preview sprite index out of range");
+            }
+            std::fill(fb_.begin(), fb_.end(), argb(palette_, 0));
+            resetClip();
+            const Sprite& sprite = sprites_.sprites[static_cast<size_t>(spriteIndex)];
+            drawSprite(sprite, (kScreenW - sprite.width) / 2,
+                       (kScreenH - sprite.height) / 2);
+            FrameInspection inspection = inspectBuffer(file);
+            writeArgbPpm(joinPath(outDir, file), fb_, kScreenW, kScreenH);
+            return inspection;
+        };
+
+        std::vector<PreviewFrame> previews;
+        std::ostringstream row3Sequence;
+        std::ostringstream cursorSequence;
+        int row3MinusFrame = 0;
+        bool row3CursorHashMismatch = true;
+        for (uint8_t frame = kState2VisualStartFrame;
+             frame <= kState2VisualEndFrame; ++frame) {
+            PreviewFrame preview;
+            preview.visualFrame = frame;
+            if (!originalState2VisualRow(frame, preview.row)) {
+                throw std::runtime_error("state-2 visual preview row missing");
+            }
+            preview.row3Sprite = static_cast<int>(preview.row.row3);
+            preview.cursorSprite = static_cast<int>(frame);
+            if (frame == kState2VisualStartFrame) {
+                row3MinusFrame = preview.row3Sprite - preview.cursorSprite;
+            } else {
+                row3Sequence << ',';
+                cursorSequence << ',';
+            }
+            row3Sequence << preview.row3Sprite;
+            cursorSequence << preview.cursorSprite;
+
+            std::string frameSuffix = bareHex2(frame);
+            preview.row3File = "state2_row3_" + frameSuffix + ".ppm";
+            preview.cursorFile = "state2_cursor_" + frameSuffix + ".ppm";
+            preview.row3Inspection =
+                renderSpritePreview(preview.row3Sprite, preview.row3File);
+            preview.cursorInspection =
+                renderSpritePreview(preview.cursorSprite, preview.cursorFile);
+            row3CursorHashMismatch =
+                row3CursorHashMismatch &&
+                preview.row3Inspection.hash != preview.cursorInspection.hash;
+            previews.push_back(std::move(preview));
+        }
+
+        std::ofstream manifest(joinPath(outDir, "manifest.txt"));
+        if (!manifest) {
+            throw std::runtime_error("cannot create " + joinPath(outDir, "manifest.txt"));
+        }
+        manifest << "scenario=state2_visual_row_preview\n";
+        manifest << "source=lezac_cpp\n";
+        manifest << "bank=BOMOMIMK\n";
+        manifest << "visual_claim=0\n";
+        manifest << "frame_count=" << previews.size() << '\n';
+        manifest << "output_count=" << (previews.size() * 2) << '\n';
+        for (const PreviewFrame& preview : previews) {
+            manifest << "frame visual_frame=" << hex2(preview.visualFrame)
+                     << " row=" << rowText(preview.row)
+                     << " row3_sprite=" << preview.row3Sprite
+                     << " row3_file=" << preview.row3File
+                     << " row3_hash=" << hex64(preview.row3Inspection.hash)
+                     << " row3_changed_pixels="
+                     << preview.row3Inspection.changedPixels
+                     << " cursor_sprite=" << preview.cursorSprite
+                     << " cursor_file=" << preview.cursorFile
+                     << " cursor_hash=" << hex64(preview.cursorInspection.hash)
+                     << " cursor_changed_pixels="
+                     << preview.cursorInspection.changedPixels << '\n';
+        }
+
+        std::cout << "state2_visual_row_preview=ok"
+                  << " frames=" << previews.size()
+                  << " outputs=" << (previews.size() * 2)
+                  << " row3_sprites=" << row3Sequence.str()
+                  << " cursor_sprites=" << cursorSequence.str()
+                  << " row3_minus_frame=" << row3MinusFrame
+                  << " row3_cursor_hash_mismatch="
+                  << (row3CursorHashMismatch ? 1 : 0)
+                  << " visual_claim=0"
+                  << " out=" << outDir
+                  << " manifest=manifest.txt\n";
+    }
+
     int debugState2RuntimeFrameOracle(const std::string& path, bool expectError) {
         auto fixtureName = [](const std::string& inputPath) {
             size_t slash = inputPath.find_last_of("/\\");
@@ -13061,6 +13192,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-visual-row-assets") {
             app.debugOriginalState2VisualRowAssets();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--capture-state2-visual-row-preview") {
+            app.captureState2VisualRowPreview(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-state2-runtime-frame-oracle") {

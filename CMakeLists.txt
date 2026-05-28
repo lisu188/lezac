@@ -1618,6 +1618,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "original_state2_visual_row_assets=ok bank=BOMOMIMK row3_sprites=67:16x16:nonzero147:bbox0,0,14,15;68:16x16:nonzero39:bbox3,4,11,11;69:16x16:nonzero67:bbox2,2,12,12;70:16x16:nonzero138:bbox0,0,15,15;71:16x16:nonzero145:bbox0,0,15,15;72:16x16:nonzero76:bbox0,0,15,15 row3_nonzero_sequence=147,39,67,138,145,76 row3_all_in_bounds=1 row3_all_16x16=1 cursor_sprites=74:16x16:nonzero140:bbox1,2,15,13;75:16x16:nonzero198:bbox0,0,15,14;76:16x16:nonzero224:bbox0,0,15,15;77:16x16:nonzero197:bbox0,0,15,15;78:16x16:nonzero113:bbox0,0,15,15;79:10x5:nonzero22:bbox0,0,8,4 cursor_nonzero_sequence=140,198,224,197,113,22 row3_minus_frame=-7 cursor_matches_row3=0 visual_claim=0 ghidra=1000:6053")
 
+    add_test(NAME state2_visual_row_preview
+        COMMAND $<TARGET_FILE:lezac_cpp> --capture-state2-visual-row-preview
+                ${CMAKE_CURRENT_BINARY_DIR}/state2_visual_row_preview)
+    set_tests_properties(state2_visual_row_preview PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^state2_visual_row_preview=ok frames=6 outputs=12 row3_sprites=67,68,69,70,71,72 cursor_sprites=74,75,76,77,78,79 row3_minus_frame=-7 row3_cursor_hash_mismatch=1 visual_claim=0 .* manifest=manifest.txt")
+
     add_test(NAME behavior4_runtime_oracle_synthetic
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-runtime-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/behavior4_runtime_oracle_synthetic.txt)

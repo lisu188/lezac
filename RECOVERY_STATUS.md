@@ -122,6 +122,11 @@ Baseline: `origin/main`
   `67..72` are in-bounds `16x16` candidates, captures their nonzero-pixel
   sequence `147,39,67,138,145,76`, and contrasts them with the current
   provisional cursor-index sequence `74..79`; no live renderer behavior changed.
+- Added `--capture-state2-visual-row-preview <out_dir>` to render isolated C++
+  preview frames for both the recovered row-byte-3 candidate sequence and the
+  current provisional cursor-index sequence. The command writes twelve PPMs plus
+  a manifest with hashes and remains `visual_claim=0` until original-frame
+  comparison proves which presentation is faithful.
 - Added `tools/capture_original_visual_table_debug.sh` for the
   `state2_death_table_consumption` follow-up capture. It mirrors the existing
   DOSBox-debug helper shape with `debugger_seeded` output, environment

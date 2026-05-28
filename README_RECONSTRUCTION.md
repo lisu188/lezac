@@ -95,6 +95,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-original-state2-animation-advance
 ./build/lezac_cpp --debug-original-state2-visual-row-model
 ./build/lezac_cpp --debug-original-state2-visual-row-assets
+./build/lezac_cpp --capture-state2-visual-row-preview /tmp/lezac-cpp-state2-row-preview
 ./build/lezac_cpp --debug-state2-runtime-frame-oracle tests/fixtures/dosbox/state2_runtime_frame_oracle_synthetic.txt
 ./build/lezac_cpp --debug-state2-runtime-frame-oracle tests/fixtures/dosbox/state2_runtime_frame_oracle_original.txt
 ./build/lezac_cpp --debug-explosion-playback-oracle tests/fixtures/dosbox/explosion_playback_oracle_synthetic.txt
@@ -697,6 +698,9 @@ default/timing/route-step probes load the patch but do not reach that freeze.
   the loaded sprite bank, reports their dimensions, nonzero-pixel counts, and
   bounding boxes, and contrasts them with the current provisional cursor-index
   sequence `74..79` without changing live rendering.
+  `--capture-state2-visual-row-preview <out_dir>` writes isolated PPM previews
+  for both sequences plus a `manifest.txt`, so later original-frame comparison
+  can target the recovered row-byte-3 candidates directly.
   `--debug-son-step-fields` exposes each recovered six-byte sound step as
   `period_word`, `gate_tick`, `period_ticks`, `unknown4`, and `unknown5` while
   keeping bytes `+4..+5` explicitly uninterpreted. The

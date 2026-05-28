@@ -78,6 +78,8 @@ def read_runtime_ledger_entries(root: Path) -> dict[str, dict[str, str]]:
         for token in stripped[2:].split():
             key, separator, value = token.partition("=")
             if separator:
+                if key in fields:
+                    raise ValueError(f"duplicate runtime evidence ledger field: {key}")
                 fields[key] = value
         fixture = fields.get("fixture")
         if fixture:

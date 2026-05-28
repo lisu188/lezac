@@ -22,8 +22,8 @@ result record that references it:
 
 Checked-in original fixtures are stricter. Any fixture under
 `tests/fixtures/dosbox` whose filename contains `original` must have an entry in
-`docs/recovery/runtime_evidence_ledger.md`. That ledger entry must be unique,
-keep
+`docs/recovery/runtime_evidence_ledger.md`. That ledger entry and each field in
+that entry must be unique, keep
 `visual_claim=0`, use `evidence=runtime_cs_runtime_ds_temp_copy`, and point to a
 note under `docs/recovery/original_runtime_fixture_notes.md` or another recovery
 doc that explicitly names the fixture. A future `visual_claim=1` promotion must

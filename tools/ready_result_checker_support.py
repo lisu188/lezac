@@ -18,6 +18,7 @@ def write_original_fixture_tree(
     runtime_ds: str,
     include_ledger_entry: bool = True,
     duplicate_ledger_entry: bool = False,
+    duplicate_ledger_field: str | None = None,
     note_names_fixture: bool = True,
 ) -> Path:
     fixture = root / "tests" / "fixtures" / "dosbox" / fixture_name
@@ -38,6 +39,8 @@ def write_original_fixture_tree(
         "evidence=runtime_cs_runtime_ds_temp_copy "
         "docs=docs/recovery/original_runtime_fixture_notes.md"
     )
+    if duplicate_ledger_field is not None:
+        entry = f"{entry} {duplicate_ledger_field}=duplicate"
     ledger_lines = [
         "# Runtime Evidence Ledger",
         "",

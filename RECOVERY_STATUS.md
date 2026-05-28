@@ -489,6 +489,9 @@ Baseline: `origin/main`
 - Runtime evidence ledger parsing now rejects duplicate original fixture
   entries, so a checked-in original fixture cannot be accepted from an
   overwritten provenance row.
+- Runtime evidence ledger rows now reject duplicate fields before provenance
+  validation reads them, preventing a second `visual_claim`, `evidence`, or
+  `docs` token from overwriting the reviewed metadata on the same line.
 - The actor-dispatch, lane-result, lane-write, and debug-capture sweep/capture
   summary readers now reject duplicate manifest keys too, extending that
   overwrite guard to the pre-promotion capture layer.

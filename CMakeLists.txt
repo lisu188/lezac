@@ -640,7 +640,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_ready_manifest_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_ready_manifest_check=ok cases=16")
+                "^lane_result_ready_manifest_check=ok cases=17")
 
         add_test(NAME explosion_lane_result_ready_results_expectations
             COMMAND ${Python3_EXECUTABLE}

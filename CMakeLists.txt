@@ -364,7 +364,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_dispatch_ready_manifest_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_dispatch_ready_manifest_check=ok cases=16")
+                "^actor_dispatch_ready_manifest_check=ok cases=17")
 
         add_test(NAME actor_dispatch_ready_results_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -613,7 +613,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_write_ready_manifest_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_write_ready_manifest_check=ok cases=17")
+                "^lane_write_ready_manifest_check=ok cases=18")
 
         add_test(NAME explosion_lane_write_ready_results_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -640,7 +640,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_ready_manifest_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_ready_manifest_check=ok cases=17")
+                "^lane_result_ready_manifest_check=ok cases=18")
 
         add_test(NAME explosion_lane_result_ready_results_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -1062,7 +1062,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_ready_manifest_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_ready_manifest_check=ok cases=10")
+                "^debug_capture_ready_manifest_check=ok cases=11")
 
         add_test(NAME debug_capture_ready_results_expectations
             COMMAND ${Python3_EXECUTABLE}

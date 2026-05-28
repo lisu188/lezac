@@ -475,6 +475,10 @@ Baseline: `origin/main`
   ready-manifest runners now reject stale `candidate_N_*` fields whose index
   is outside `ready_candidates`, matching the result-summary guards so old
   evidence candidates cannot be silently ignored before oracle execution.
+- The same four ready-manifest runners now reject duplicate manifest keys
+  before oracle execution, preventing a later `candidate_N_fixture`,
+  `runtime_cs`, `runtime_ds`, or oracle flag from silently overwriting the
+  evidence metadata that was promoted for review.
 - The lane-result and actor dispatch ready-pipeline CTest helpers now exercise
   the strict preflight path end to end: sweep summary, ready manifest runner,
   and result summary all use their corresponding preflight-required flags.

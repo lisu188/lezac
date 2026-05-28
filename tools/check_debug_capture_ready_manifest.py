@@ -362,6 +362,25 @@ def main() -> int:
         )
         cases += 1
 
+        duplicate_field_manifest = base / "ready" / "duplicate_field.txt"
+        duplicate_field_manifest.write_text(
+            ready_manifest.read_text(encoding="ascii")
+            + "candidate_0_fixture=/tmp/other_debug_capture.txt\n",
+            encoding="ascii",
+        )
+        duplicate_field = run_tool(
+            root,
+            "run_debug_capture_ready_manifest.py",
+            [str(duplicate_field_manifest), "--dry-run"],
+            expect_success=False,
+        )
+        require(
+            duplicate_field,
+            "duplicate manifest field: candidate_0_fixture",
+            "duplicate_field",
+        )
+        cases += 1
+
     print(f"debug_capture_ready_manifest_check=ok cases={cases}")
     return 0
 

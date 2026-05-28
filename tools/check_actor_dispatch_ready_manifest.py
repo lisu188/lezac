@@ -516,6 +516,24 @@ def main() -> int:
         )
         cases += 1
 
+        duplicate_field_manifest = base / "duplicate-field" / "manifest.txt"
+        write_text(
+            duplicate_field_manifest,
+            ready_manifest.read_text(encoding="ascii")
+            + "candidate_0_fixture=/tmp/other_actor_update.txt\n",
+        )
+        duplicate_field = run_ready(
+            root,
+            [str(duplicate_field_manifest), "--dry-run"],
+            False,
+        )
+        require(
+            duplicate_field,
+            "duplicate manifest field: candidate_0_fixture",
+            "duplicate_field",
+        )
+        cases += 1
+
     print(f"actor_dispatch_ready_manifest_check=ok cases={cases}")
     return 0
 

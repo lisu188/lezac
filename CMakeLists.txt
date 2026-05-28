@@ -364,7 +364,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_dispatch_ready_manifest_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_dispatch_ready_manifest_check=ok cases=15")
+                "^actor_dispatch_ready_manifest_check=ok cases=16")
 
         add_test(NAME actor_dispatch_ready_results_expectations
             COMMAND ${Python3_EXECUTABLE}

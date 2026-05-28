@@ -68,6 +68,9 @@ control-flow reachability, not exact rendered presentation.
   `--capture-state2-visual-row-game-preview <out_dir>` writes full gameplay
   frames for the current renderer and the debug-only candidate renderer, giving
   later original-frame comparison the same HUD/world context.
+  `tools/compare_state2_visual_row_game_previews.py` packages those C++ previews
+  and a directory of original frames into the same frame-compare bundle shape
+  used by visual-claim promotion tooling.
 - `visual_table_oracle_original_state2_runtime.txt` normalizes the same
   original stop into the renderer-facing visual-table oracle. It binds actor
   frame `0x4a` to row address `DS:c44a`, row bytes `10,10,7d,43`, runtime

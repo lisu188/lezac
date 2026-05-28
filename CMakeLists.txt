@@ -295,6 +295,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gran_data_evidence_map.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_bundle_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_workflow.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_state2_visual_compare_workflow.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_blocker_note.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_environment.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_record_flow_evidence_map.py
@@ -325,6 +326,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_lane_result_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_lane_write_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/preflight_original_evidence_environment.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/compare_state2_visual_row_game_previews.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/ready_result_checker_support.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/ready_result_fixture_guardrails.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_actor_dispatch_ready_results.py
@@ -438,6 +440,17 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^frame_compare_bundle_summary_check=ok cases=5")
+
+        add_test(NAME state2_visual_compare_workflow
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_state2_visual_compare_workflow.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    $<TARGET_FILE:lezac_cpp>
+                    ${CMAKE_CURRENT_BINARY_DIR}/state2_visual_compare_workflow)
+        set_tests_properties(state2_visual_compare_workflow PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^state2_visual_compare_workflow=ok helpers=2 docs=1 ctest=1 compared=12")
 
         add_test(NAME explosion_freeze_patch_describe_lane_result_3d3f
             COMMAND ${Python3_EXECUTABLE}

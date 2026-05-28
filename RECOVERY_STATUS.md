@@ -131,6 +131,10 @@ Baseline: `origin/main`
   row-byte-3 candidate render switch. It writes full gameplay-context frames for
   both the current provisional renderer (`74..79`) and the candidate renderer
   (`67..72`) while leaving default live state-2 rendering unchanged.
+- Added `tools/compare_state2_visual_row_game_previews.py` and a self-checking
+  CTest workflow. The helper turns the current-versus-row-byte-3 state-2 game
+  previews plus an original-frame directory into a standard frame-compare bundle
+  with promotion-ready labels such as `state2_current_4a` and `state2_row3_4a`.
 - Added `tools/capture_original_visual_table_debug.sh` for the
   `state2_death_table_consumption` follow-up capture. It mirrors the existing
   DOSBox-debug helper shape with `debugger_seeded` output, environment

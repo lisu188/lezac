@@ -97,6 +97,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-original-state2-visual-row-assets
 ./build/lezac_cpp --capture-state2-visual-row-preview /tmp/lezac-cpp-state2-row-preview
 ./build/lezac_cpp --capture-state2-visual-row-game-preview /tmp/lezac-cpp-state2-row-game-preview
+python3 tools/compare_state2_visual_row_game_previews.py /tmp/lezac-state2-visual-compare ./build/lezac_cpp /tmp/lezac-original-state2-visual
 ./build/lezac_cpp --debug-state2-runtime-frame-oracle tests/fixtures/dosbox/state2_runtime_frame_oracle_synthetic.txt
 ./build/lezac_cpp --debug-state2-runtime-frame-oracle tests/fixtures/dosbox/state2_runtime_frame_oracle_original.txt
 ./build/lezac_cpp --debug-explosion-playback-oracle tests/fixtures/dosbox/explosion_playback_oracle_synthetic.txt
@@ -705,6 +706,9 @@ default/timing/route-step probes load the patch but do not reach that freeze.
   `--capture-state2-visual-row-game-preview <out_dir>` writes full gameplay
   frame previews for the current provisional renderer and a debug-only
   row-byte-3 candidate renderer, again without changing default live behavior.
+  `tools/compare_state2_visual_row_game_previews.py` builds a standard
+  frame-compare bundle from those previews and an original-frame directory, with
+  labels such as `state2_current_4a` and `state2_row3_4a`.
   `--debug-son-step-fields` exposes each recovered six-byte sound step as
   `period_word`, `gate_tick`, `period_ticks`, `unknown4`, and `unknown5` while
   keeping bytes `+4..+5` explicitly uninterpreted. The

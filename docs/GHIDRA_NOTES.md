@@ -949,6 +949,9 @@ isolated C++ PPM artifacts with a manifest for later original-frame comparison.
 `--capture-state2-visual-row-game-preview <out_dir>` uses the same row-byte-3
 candidate renderer only inside that debug capture, producing full gameplay
 frames beside the current provisional renderer frames.
+`tools/compare_state2_visual_row_game_previews.py` converts those paired C++
+previews and an original-frame directory into a standard frame-compare bundle
+with labels such as `state2_current_4a` and `state2_row3_4a`.
 Live rendering is not switched to that model until the remaining field names
 and frame comparison are proven.
 

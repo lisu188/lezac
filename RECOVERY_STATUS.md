@@ -108,6 +108,10 @@ Baseline: `origin/main`
   The original fixture now reports `43,44,45,46,47,48` across frames
   `0x4a..0x4f`, tying the whole countdown frame range to the same row-byte-3
   sprite-candidate interpretation.
+- Extended the same oracle with `row0_sequence=...`, `row1_sequence=...`, and
+  `row2_sequence=...`, so the original countdown rows now lock the full raw
+  shape `10,10,7d,43..48` across frames `0x4a..0x4f` before any renderer
+  field names are promoted.
 - Added `tools/capture_original_visual_table_debug.sh` for the
   `state2_death_table_consumption` follow-up capture. It mirrors the existing
   DOSBox-debug helper shape with `debugger_seeded` output, environment

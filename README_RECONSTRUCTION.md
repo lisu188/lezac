@@ -682,8 +682,9 @@ default/timing/route-step probes load the patch but do not reach that freeze.
   each captured frame-table row in deterministic raw-byte form. A real temp-copy
   `dosbox-debug` capture stopped at runtime `01ED:7C89` now locks one original
   state-2 countdown sample: `DS=0C8F`, death cursor `0x45`, frame range
-  `0x4a..0x4f`, row-byte-3 sequence `43,44,45,46,47,48`, and effect entry 0
-  position `0x0068,0x00a8`.
+  `0x4a..0x4f`, row-byte sequences `10,10,10,10,10,10`,
+  `10,10,10,10,10,10`, `7d,7d,7d,7d,7d,7d`,
+  `43,44,45,46,47,48`, and effect entry 0 position `0x0068,0x00a8`.
   `tools/check_visual_state2_evidence_map.py` keeps this death/reentry visual
   handoff tied to source, fixtures, CTest, and the unresolved `visual_claim=0`
   documentation before any future renderer promotion.

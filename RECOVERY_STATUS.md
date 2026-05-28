@@ -509,6 +509,10 @@ Baseline: `origin/main`
 - `tools/check_ready_fixture_provenance_contract.py` now directly self-tests
   valid, missing, duplicate, invalid, negative, and count-mismatched runtime
   evidence ledger metadata at the shared parser layer.
+- Lane-write and lane-result ready-pipeline checks now include source
+  environment preflight refusal cases, so natural debris-write and forward
+  result oracle batches cannot execute from a manifest whose capture sweep
+  recorded `source_environment_preflight=error`.
 - The actor-dispatch, lane-result, lane-write, and debug-capture sweep/capture
   summary readers now reject duplicate manifest keys too, extending that
   overwrite guard to the pre-promotion capture layer.

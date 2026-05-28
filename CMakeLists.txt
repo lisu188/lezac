@@ -631,7 +631,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_write_ready_pipeline_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_write_ready_pipeline_check=ok cases=8")
+                "^lane_write_ready_pipeline_check=ok cases=9")
 
         add_test(NAME explosion_lane_result_ready_manifest_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -658,7 +658,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_ready_pipeline_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_ready_pipeline_check=ok cases=8")
+                "^lane_result_ready_pipeline_check=ok cases=9")
 
         add_test(NAME actor_contact_route_sweep_dry_run
             COMMAND ${Python3_EXECUTABLE}

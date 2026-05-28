@@ -507,6 +507,8 @@ Use
 `tools/sweep_original_lane_result_routes.py --offset forward` for the final
 `3D3F` result-write retries; pass `--cpp-exe <lezac_cpp>` when the default
 `build/lezac_cpp` path is not the active build, and inspect the dry-run
-`oracle_commands` count before running the capture. The sweep wrappers take repeatable
+`oracle_commands` count before running the capture. The lane-result sweep
+accepts only `forward`/`3D3F` and `reverse`/`3ED3` offsets, so bad capture
+plans fail during dry-run review. The sweep wrappers take repeatable
 `--route KEY:SECONDS,...` entries and pass those through to the lower-level
 capture helpers as `--route-step KEY:SECONDS`.

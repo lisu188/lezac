@@ -172,6 +172,29 @@ def main() -> int:
         require(custom, snippet, "custom_routes")
     cases += 1
 
+    raw_offset = run_sweep(
+        root,
+        [
+            str(out_base / "raw-offset"),
+            str(root),
+            "--dry-run",
+            "--skip-oracle",
+            "--offset",
+            "1000:3ED3",
+            "--route",
+            "x:2.00",
+        ],
+    )
+    for snippet in [
+        "offset=reverse routes=1",
+        "route_labels=x2p00",
+        "capture_commands=1",
+        "oracle_commands=0",
+        "--offset reverse",
+    ]:
+        require(raw_offset, snippet, "raw_offset")
+    cases += 1
+
     skip_environment = run_sweep(
         root,
         [
@@ -279,6 +302,20 @@ def main() -> int:
         "route step seconds must be non-negative",
         "negative_route",
     )
+    cases += 1
+
+    bad_offset = run_sweep(
+        root,
+        [
+            str(out_base / "bad-offset"),
+            str(root),
+            "--dry-run",
+            "--offset",
+            "3D1B",
+        ],
+        expect_success=False,
+    )
+    require(bad_offset, "offset must be one of forward, reverse", "bad_offset")
     cases += 1
 
     print(f"lane_result_route_sweep_output=ok cases={cases}")

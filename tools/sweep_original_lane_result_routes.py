@@ -29,6 +29,14 @@ OFFSET_LABELS = {
     "3ed3": "3ed3",
     "1000:3ed3": "3ed3",
 }
+OFFSET_ALIASES = {
+    "FORWARD": "forward",
+    "3D3F": "forward",
+    "1000:3D3F": "forward",
+    "REVERSE": "reverse",
+    "3ED3": "reverse",
+    "1000:3ED3": "reverse",
+}
 
 
 def repo_root() -> Path:
@@ -37,6 +45,16 @@ def repo_root() -> Path:
 
 def quote_command(command: list[str]) -> str:
     return " ".join(shlex.quote(part) for part in command)
+
+
+def normalize_offset(value: str) -> str:
+    token = value.upper()
+    if token not in OFFSET_ALIASES:
+        raise argparse.ArgumentTypeError(
+            "offset must be one of forward, reverse, 1000:3D3F, 1000:3ED3, "
+            "3D3F, or 3ED3"
+        )
+    return OFFSET_ALIASES[token]
 
 
 def parse_route(value: str) -> list[str]:
@@ -184,7 +202,7 @@ def main() -> int:
         default=repo_root() / "build" / "lezac_cpp",
         help="C++ executable delegated to per-route oracle checks",
     )
-    parser.add_argument("--offset", default="forward")
+    parser.add_argument("--offset", type=normalize_offset, default="forward")
     parser.add_argument(
         "--route",
         action="append",

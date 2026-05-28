@@ -104,6 +104,10 @@ Baseline: `origin/main`
   relationship rather than a generic runtime draw-call label. The original
   state-2 fixture now proves row byte 3 `0x43` as the `BOMOMIMK` sprite-index
   candidate, with malformed coverage for mismatched row-byte-3 sprite indices.
+- Extended the state-2 runtime-frame oracle output with `row3_sequence=...`.
+  The original fixture now reports `43,44,45,46,47,48` across frames
+  `0x4a..0x4f`, tying the whole countdown frame range to the same row-byte-3
+  sprite-candidate interpretation.
 - Added `tools/capture_original_visual_table_debug.sh` for the
   `state2_death_table_consumption` follow-up capture. It mirrors the existing
   DOSBox-debug helper shape with `debugger_seeded` output, environment

@@ -4969,12 +4969,18 @@ public:
             std::string firstRow = rowString(firstEntry);
             std::string lastRow = rowString(lastEntry);
             std::ostringstream rows;
+            std::ostringstream row3Sequence;
             for (int frame = deathStart; frame <= deathEnd; ++frame) {
                 uint16_t entry = static_cast<uint16_t>(
                     kFrameEntryBase + static_cast<uint16_t>(frame) * 4u);
-                if (frame != deathStart) rows << ';';
+                if (frame != deathStart) {
+                    rows << ';';
+                    row3Sequence << ',';
+                }
                 rows << bareHex2(static_cast<uint8_t>(frame)) << '@'
                      << bareHex4(entry) << ':' << rowString(entry);
+                row3Sequence << bareHex2(
+                    requireByte(static_cast<uint16_t>(entry + 3)));
             }
             uint16_t effectX = static_cast<uint16_t>(requireByte(0xc21e) |
                                                      (requireByte(0xc21f) << 8));
@@ -4993,6 +4999,7 @@ public:
                       << " first_row=" << firstRow
                       << " last_row=" << lastRow
                       << " rows=" << rows.str()
+                      << " row3_sequence=" << row3Sequence.str()
                       << " effect0_xy=" << hex4(effectX) << ',' << hex4(effectY)
                       << " breaks=" << breakCount
                       << " temp_copy=" << (tempCopy ? 1 : 0)

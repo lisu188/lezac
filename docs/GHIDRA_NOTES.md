@@ -922,9 +922,10 @@ One real `dosbox-debug` capture now stops the original game at runtime
 `DS:006a = 0x45`, `DS:006c = 0x4a`, `DS:006d = 0x4f`, and the first effect
 entry at `DS:c21e` is `x = 0x0068`, `y = 0x00a8`. The current oracle formula
 `DS:c322 + 4 * frame` yields `first_entry_addr = 0xc44a`, six rows, first row
-`10,10,7d,43`, and last row `10,10,7d,48`. This is original runtime evidence
-for the countdown state, but the live renderer still needs the frame-table
-field interpretation and visual consumption path confirmed before it can claim
+`10,10,7d,43`, last row `10,10,7d,48`, and row-byte-3 sequence
+`43,44,45,46,47,48`. This is original runtime evidence for the countdown
+state, but the live renderer still needs the remaining frame-table field
+interpretation and visual consumption path confirmed before it can claim
 faithful death/reentry art.
 
 Current C++ mapping: `State2VisualCursor` in `src/main.cpp` mirrors the

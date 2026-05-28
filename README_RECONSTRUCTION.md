@@ -93,6 +93,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-original-state2-return-model
 ./build/lezac_cpp --debug-original-state2-animation-init
 ./build/lezac_cpp --debug-original-state2-animation-advance
+./build/lezac_cpp --debug-original-state2-visual-row-model
 ./build/lezac_cpp --debug-state2-runtime-frame-oracle tests/fixtures/dosbox/state2_runtime_frame_oracle_synthetic.txt
 ./build/lezac_cpp --debug-state2-runtime-frame-oracle tests/fixtures/dosbox/state2_runtime_frame_oracle_original.txt
 ./build/lezac_cpp --debug-explosion-playback-oracle tests/fixtures/dosbox/explosion_playback_oracle_synthetic.txt
@@ -688,6 +689,9 @@ default/timing/route-step probes load the patch but do not reach that freeze.
   `tools/check_visual_state2_evidence_map.py` keeps this death/reentry visual
   handoff tied to source, fixtures, CTest, and the unresolved `visual_claim=0`
   documentation before any future renderer promotion.
+  `--debug-original-state2-visual-row-model` mirrors that row range as a
+  conservative C++ model, including the row-byte-3 `BOMOMIMK` sprite-index
+  candidates `67..72`, while preserving `visual_claim=0`.
   `--debug-son-step-fields` exposes each recovered six-byte sound step as
   `period_word`, `gate_tick`, `period_ticks`, `unknown4`, and `unknown5` while
   keeping bytes `+4..+5` explicitly uninterpreted. The

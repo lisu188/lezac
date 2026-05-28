@@ -112,6 +112,11 @@ Baseline: `origin/main`
   `row2_sequence=...`, so the original countdown rows now lock the full raw
   shape `10,10,7d,43..48` across frames `0x4a..0x4f` before any renderer
   field names are promoted.
+- Added `--debug-original-state2-visual-row-model`, a conservative C++ model
+  for the original state-2 rows. It reports rows `4a:10,10,7d,43` through
+  `4f:10,10,7d,48`, row-byte-3 `BOMOMIMK` sprite candidates `67..72`, and
+  `visual_claim=0`; live dead-player rendering remains provisional until
+  frame-field semantics and visual comparison are proven.
 - Added `tools/capture_original_visual_table_debug.sh` for the
   `state2_death_table_consumption` follow-up capture. It mirrors the existing
   DOSBox-debug helper shape with `debugger_seeded` output, environment

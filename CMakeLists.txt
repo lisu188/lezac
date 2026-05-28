@@ -1604,6 +1604,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "original_state2_animation_advance=ok death_start=0x72 death_end=0x79 delay=3 mode1_first_frame=0x73 mode1_after_5=0x74 wrap_frame=0x72 wrap_counter=0 mode2_seq=4,3,2,3 mode2_final_step=1 mode3_backup_frame=5 mode3_backup_mode=3 mode0_unchanged=1 ghidra=1000:6053")
 
+    add_test(NAME state2_visual_row_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-visual-row-model)
+    set_tests_properties(state2_visual_row_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "original_state2_visual_row_model=ok frame_range=0x4a..0x4f rows=4a:10,10,7d,43;4b:10,10,7d,44;4c:10,10,7d,45;4d:10,10,7d,46;4e:10,10,7d,47;4f:10,10,7d,48 row0_sequence=10,10,10,10,10,10 row1_sequence=10,10,10,10,10,10 row2_sequence=7d,7d,7d,7d,7d,7d row3_sequence=43,44,45,46,47,48 sprite_bank=BOMOMIMK sprite_source=row_byte3 sprite_candidates=67,68,69,70,71,72 draw_offset_candidate=16,16 row2_constant=0x7d range_guard=1 visual_claim=0 ghidra=1000:6053")
+
     add_test(NAME behavior4_runtime_oracle_synthetic
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-runtime-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/behavior4_runtime_oracle_synthetic.txt)

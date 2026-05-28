@@ -937,7 +937,12 @@ seeds that cursor, the update loop advances it while a player is in state 2,
 and `drawState2PlayerVisual` renders a provisional visible state-2 frame so
 autoplayer/UI tests can inspect live death playback. This remains a
 `visual_claim=0` implementation until the `DS:c322` row fields and final
-renderer consumption path are fully mapped.
+renderer consumption path are fully mapped. The debug command
+`--debug-original-state2-visual-row-model` mirrors the original row range as a
+C++ model with rows `4a:10,10,7d,43` through `4f:10,10,7d,48`,
+row-byte-3 sprite candidates `67..72`, draw-offset candidate `16,16`, and
+`visual_claim=0`; live rendering is not switched to that model until the
+remaining field names and frame comparison are proven.
 
 The C++ debug command `--debug-state2-runtime-frame-oracle <dump.txt>` parses a
 normalized saved DOSBox debugger transcript. It expects runtime `CS`/`DS`,

@@ -1180,6 +1180,27 @@ class App {
         bool active = false;
     };
 
+    struct State2VisualRow {
+        uint8_t frame = 0;
+        uint8_t row0 = 0;
+        uint8_t row1 = 0;
+        uint8_t row2 = 0;
+        uint8_t row3 = 0;
+    };
+
+    static bool originalState2VisualRow(uint8_t frame, State2VisualRow& row) {
+        if (frame < kState2VisualStartFrame || frame > kState2VisualEndFrame) {
+            return false;
+        }
+        row.frame = frame;
+        row.row0 = 0x10;
+        row.row1 = 0x10;
+        row.row2 = 0x7d;
+        row.row3 = static_cast<uint8_t>(
+            0x43 + (frame - kState2VisualStartFrame));
+        return true;
+    }
+
 public:
     void load() {
         palette_ = loadPaletteFile("BOMPAL.PAL.json");
@@ -4762,6 +4783,71 @@ public:
                   << " mode2_seq=4,3,2,3 mode2_final_step=1"
                   << " mode3_backup_frame=5 mode3_backup_mode=3"
                   << " mode0_unchanged=1 ghidra=1000:6053\n";
+    }
+
+    void debugOriginalState2VisualRowModel() {
+        auto bareHex2 = [](uint8_t value) {
+            std::ostringstream oss;
+            oss << std::hex << std::nouppercase << std::setw(2)
+                << std::setfill('0') << static_cast<int>(value);
+            return oss.str();
+        };
+        auto rowText = [&](const State2VisualRow& row) {
+            return bareHex2(row.frame) + ":" + bareHex2(row.row0) + "," +
+                   bareHex2(row.row1) + "," + bareHex2(row.row2) + "," +
+                   bareHex2(row.row3);
+        };
+
+        std::ostringstream rows;
+        std::ostringstream row0Sequence;
+        std::ostringstream row1Sequence;
+        std::ostringstream row2Sequence;
+        std::ostringstream row3Sequence;
+        std::ostringstream spriteCandidates;
+        for (uint8_t frame = kState2VisualStartFrame;
+             frame <= kState2VisualEndFrame; ++frame) {
+            State2VisualRow row;
+            if (!originalState2VisualRow(frame, row)) {
+                throw std::runtime_error("state-2 visual row missing");
+            }
+            if (frame != kState2VisualStartFrame) {
+                rows << ';';
+                row0Sequence << ',';
+                row1Sequence << ',';
+                row2Sequence << ',';
+                row3Sequence << ',';
+                spriteCandidates << ',';
+            }
+            rows << rowText(row);
+            row0Sequence << bareHex2(row.row0);
+            row1Sequence << bareHex2(row.row1);
+            row2Sequence << bareHex2(row.row2);
+            row3Sequence << bareHex2(row.row3);
+            spriteCandidates << static_cast<int>(row.row3);
+        }
+
+        State2VisualRow before;
+        State2VisualRow after;
+        if (originalState2VisualRow(0x49, before) ||
+            originalState2VisualRow(0x50, after)) {
+            throw std::runtime_error("state-2 visual row range guard mismatch");
+        }
+
+        std::cout << "original_state2_visual_row_model=ok"
+                  << " frame_range=0x4a..0x4f"
+                  << " rows=" << rows.str()
+                  << " row0_sequence=" << row0Sequence.str()
+                  << " row1_sequence=" << row1Sequence.str()
+                  << " row2_sequence=" << row2Sequence.str()
+                  << " row3_sequence=" << row3Sequence.str()
+                  << " sprite_bank=BOMOMIMK"
+                  << " sprite_source=row_byte3"
+                  << " sprite_candidates=" << spriteCandidates.str()
+                  << " draw_offset_candidate=16,16"
+                  << " row2_constant=0x7d"
+                  << " range_guard=1"
+                  << " visual_claim=0"
+                  << " ghidra=1000:6053\n";
     }
 
     int debugState2RuntimeFrameOracle(const std::string& path, bool expectError) {
@@ -12870,6 +12956,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-animation-advance") {
             app.debugOriginalState2AnimationAdvance();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-visual-row-model") {
+            app.debugOriginalState2VisualRowModel();
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-state2-runtime-frame-oracle") {

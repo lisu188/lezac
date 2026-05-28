@@ -492,6 +492,25 @@ def main() -> int:
         )
         cases += 1
 
+        extra_candidate_manifest = base / "extra-candidate" / "manifest.txt"
+        write_text(
+            extra_candidate_manifest,
+            ready_manifest.read_text(encoding="ascii").replace(
+                "ready_candidates=1", "ready_candidates=0"
+            ),
+        )
+        extra_candidate = run_ready(
+            root,
+            [str(extra_candidate_manifest), "--dry-run"],
+            False,
+        )
+        require(
+            extra_candidate,
+            "candidate index outside ready_candidates: 0 ready_candidates=0",
+            "extra_candidate",
+        )
+        cases += 1
+
     print(f"lane_write_ready_manifest_check=ok cases={cases}")
     return 0
 

@@ -342,6 +342,26 @@ def main() -> int:
         )
         cases += 1
 
+        extra_candidate_manifest = base / "ready" / "extra_candidate.txt"
+        extra_candidate_manifest.write_text(
+            ready_manifest.read_text(encoding="ascii").replace(
+                "ready_candidates=1", "ready_candidates=0"
+            ),
+            encoding="ascii",
+        )
+        extra_candidate = run_tool(
+            root,
+            "run_debug_capture_ready_manifest.py",
+            [str(extra_candidate_manifest), "--dry-run"],
+            expect_success=False,
+        )
+        require(
+            extra_candidate,
+            "candidate index outside ready_candidates: 0 ready_candidates=0",
+            "extra_candidate",
+        )
+        cases += 1
+
     print(f"debug_capture_ready_manifest_check=ok cases={cases}")
     return 0
 

@@ -96,6 +96,19 @@ def parse_ready_count(values: dict[str, str]) -> int:
     return count
 
 
+def candidate_indices(values: dict[str, str]) -> set[int]:
+    indices: set[int] = set()
+    for key in values:
+        if not key.startswith("candidate_"):
+            continue
+        suffix = key[len("candidate_") :]
+        index_text, separator, _ = suffix.partition("_")
+        if not separator or not index_text.isdecimal():
+            raise ValueError(f"invalid candidate field: {key}")
+        indices.add(int(index_text, 10))
+    return indices
+
+
 def resolve_fixture(raw_fixture: str, manifest_path: Path) -> Path:
     path = Path(raw_fixture)
     if path.is_absolute():
@@ -113,8 +126,16 @@ def parse_candidates(
         raise ValueError(
             f"unsupported promotion {promotion!r}; expected {EXPECTED_PROMOTION!r}"
         )
+    count = parse_ready_count(values)
+    extras = sorted(index for index in candidate_indices(values) if index >= count)
+    if extras:
+        extra_text = ",".join(str(index) for index in extras)
+        raise ValueError(
+            "candidate index outside ready_candidates: "
+            f"{extra_text} ready_candidates={count}"
+        )
     candidates: list[ReadyCandidate] = []
-    for index in range(parse_ready_count(values)):
+    for index in range(count):
         prefix = f"candidate_{index}"
         fixture = resolve_fixture(require(values, f"{prefix}_fixture"), manifest_path)
         oracle = require(values, f"{prefix}_oracle")

@@ -471,10 +471,10 @@ Baseline: `origin/main`
   `source_environment_preflight=` into result manifests and support
   `--require-source-environment-preflight`; the matching result summarizers can
   require the same field before accepting executed oracle results.
-- The lane-result and actor dispatch ready-manifest runners now reject stale
-  `candidate_N_*` fields whose index is outside `ready_candidates`, matching
-  the result-summary guards so old evidence candidates cannot be silently
-  ignored before oracle execution.
+- The lane-write, lane-result, actor dispatch, and generic debug-capture
+  ready-manifest runners now reject stale `candidate_N_*` fields whose index
+  is outside `ready_candidates`, matching the result-summary guards so old
+  evidence candidates cannot be silently ignored before oracle execution.
 - The lane-result and actor dispatch ready-pipeline CTest helpers now exercise
   the strict preflight path end to end: sweep summary, ready manifest runner,
   and result summary all use their corresponding preflight-required flags.

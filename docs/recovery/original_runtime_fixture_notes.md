@@ -54,3 +54,8 @@ control-flow reachability, not exact rendered presentation.
 
 - `state2_runtime_frame_oracle_original.txt` captures the original state-2
   runtime frame-table cursor and global bytes for the dead-player visual path.
+- `visual_table_oracle_original_state2_runtime.txt` normalizes the same
+  original stop into the renderer-facing visual-table oracle. It binds actor
+  frame `0x4a` to row address `DS:c44a`, row bytes `10,10,7d,43`, runtime
+  `CS=01ED` / `DS=0C8F`, and effect placement `0x0068,0x00a8`, while keeping
+  `visual_claim=0` until a paired frame comparison proves presentation.

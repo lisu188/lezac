@@ -94,6 +94,12 @@ Baseline: `origin/main`
   candidates, draw offsets, and effect-entry before/after state. Synthetic and
   malformed CTest fixtures currently cover the state-2 death table consumption
   path and keep `visual_claim=0`, so no live renderer behavior changed.
+- Promoted the existing original state-2 DOSBox-debug stop into
+  `visual_table_oracle_original_state2_runtime.txt`, a renderer-facing
+  visual-table oracle fixture for actor frame `0x4a`. It locks runtime
+  `CS=01ED` / `DS=0C8F`, row address `DS:c44a`, row bytes `10,10,7d,43`,
+  effect placement `0x0068,0x00a8`, and CTest coverage while preserving
+  `visual_claim=0`.
 - Added `tools/capture_original_visual_table_debug.sh` for the
   `state2_death_table_consumption` follow-up capture. It mirrors the existing
   DOSBox-debug helper shape with `debugger_seeded` output, environment

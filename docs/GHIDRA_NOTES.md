@@ -949,10 +949,13 @@ and `DS=0C8F`; it keeps `visual_claim=0`.
 normalizer for renderer-facing visual evidence. It requires runtime `CS`/`DS`,
 translated breakpoints for the selected scenario, actor animation cursor state,
 an explicit frame-table row at `DS:c322 + 4 * frame`, sprite bank/index
-candidates, draw offsets, and effect-entry before/after bytes. Current fixtures
-are synthetic or malformed parser coverage for the state-2 death-table
-consumption path only; they intentionally keep `visual_claim=0` and do not
-promote the provisional dead-player renderer.
+candidates, draw offsets, and effect-entry before/after bytes. Fixtures include
+synthetic/malformed parser coverage plus
+`visual_table_oracle_original_state2_runtime.txt`, which normalizes the
+existing original state-2 stop for actor frame `0x4a`, row address `DS:c44a`,
+row bytes `10,10,7d,43`, runtime `CS=01ED` / `DS=0C8F`, and effect placement
+`0x0068,0x00a8`. They intentionally keep `visual_claim=0` and do not promote
+the provisional dead-player renderer.
 `tools/capture_original_visual_table_debug.sh <out_dir> [asset_dir]
 state2_death_table_consumption` now stages the matching DOSBox-debug capture
 plan, including the `1000:3108`, `1000:6053`, `1000:6148`, `1000:7C89`, and

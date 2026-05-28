@@ -1,7 +1,7 @@
 # Runtime Evidence Ledger
 
 runtime_evidence_ledger=non_visual
-original_runtime_fixture_count=20
+original_runtime_fixture_count=21
 
 This ledger tracks checked-in DOSBox/debugger fixtures captured from the
 original executable that prove runtime metadata, register segments, memory
@@ -37,3 +37,4 @@ Current original-runtime fixtures:
 - fixture=explosion_playback_oracle_original_4ca9_runtime.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/recovery/original_runtime_fixture_notes.md
 - fixture=explosion_playback_oracle_original_4cac_temp_copy.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/recovery/original_runtime_fixture_notes.md
 - fixture=state2_runtime_frame_oracle_original.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/recovery/original_runtime_fixture_notes.md
+- fixture=visual_table_oracle_original_state2_runtime.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=docs/recovery/original_runtime_fixture_notes.md

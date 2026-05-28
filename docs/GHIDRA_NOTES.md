@@ -953,9 +953,12 @@ candidates, draw offsets, and effect-entry before/after bytes. Fixtures include
 synthetic/malformed parser coverage plus
 `visual_table_oracle_original_state2_runtime.txt`, which normalizes the
 existing original state-2 stop for actor frame `0x4a`, row address `DS:c44a`,
-row bytes `10,10,7d,43`, runtime `CS=01ED` / `DS=0C8F`, and effect placement
-`0x0068,0x00a8`. They intentionally keep `visual_claim=0` and do not promote
-the provisional dead-player renderer.
+row bytes `10,10,7d,43`, runtime `CS=01ED` / `DS=0C8F`, row byte 3 as the
+`BOMOMIMK` sprite-index candidate `0x43`, and effect placement
+`0x0068,0x00a8`. The oracle now validates `sprite_source=row_byte3` for this
+fixture, while row bytes 0..2 still need final field names. Fixtures
+intentionally keep `visual_claim=0` and do not promote the provisional
+dead-player renderer.
 `tools/capture_original_visual_table_debug.sh <out_dir> [asset_dir]
 state2_death_table_consumption` now stages the matching DOSBox-debug capture
 plan, including the `1000:3108`, `1000:6053`, `1000:6148`, `1000:7C89`, and

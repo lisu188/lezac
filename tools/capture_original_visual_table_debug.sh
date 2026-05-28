@@ -220,7 +220,7 @@ route=$runtime_route
 # break ghidra=1000:7DDF runtime=<runtime-cs>:7DDF label=state2_return_active
 #
 # actor slot=<slot> kind=player1 state=2 anim_current=0x00 anim_first=0x00 anim_last=0x00 anim_counter=<n> anim_delay=<n> anim_mode=<n> anim_step=<n>
-# visual frame=0x00 row_addr=0xc322 row=00,00,00,00 bank=BOMOMIMK sprite_index=<n> sprite_source=<row_byte0-or-runtime_draw_call> draw_dx=<dx> draw_dy=<dy>
+# visual frame=0x00 row_addr=0xc322 row=00,00,00,00 bank=BOMOMIMK sprite_index=<n> sprite_source=<row_byte0-row_byte3-or-runtime_draw_call> draw_dx=<dx> draw_dy=<dy>
 # effect_before slot=<slot> x=0x0000 y=0x0000 frame=0x00 flags=0x0000
 # effect_after slot=<slot> x=0x0000 y=0x0000 frame=0x00 flags=0x0000
 #

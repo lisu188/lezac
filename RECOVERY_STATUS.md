@@ -100,6 +100,10 @@ Baseline: `origin/main`
   `CS=01ED` / `DS=0C8F`, row address `DS:c44a`, row bytes `10,10,7d,43`,
   effect placement `0x0068,0x00a8`, and CTest coverage while preserving
   `visual_claim=0`.
+- Tightened the visual-table oracle so `sprite_source=row_byte3` is a validated
+  relationship rather than a generic runtime draw-call label. The original
+  state-2 fixture now proves row byte 3 `0x43` as the `BOMOMIMK` sprite-index
+  candidate, with malformed coverage for mismatched row-byte-3 sprite indices.
 - Added `tools/capture_original_visual_table_debug.sh` for the
   `state2_death_table_consumption` follow-up capture. It mirrors the existing
   DOSBox-debug helper shape with `debugger_seeded` output, environment

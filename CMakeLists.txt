@@ -1142,7 +1142,7 @@ if(BUILD_TESTING)
         set_tests_properties(visual_table_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^visual_table_oracle_fixtures=ok files=5 valid=2 malformed=3 original=1 cmake_tests=5 source_command=1")
+                "^visual_table_oracle_fixtures=ok files=6 valid=2 malformed=4 original=1 cmake_tests=6 source_command=1")
 
         add_test(NAME optional_original_oracle_fixture_conventions
             COMMAND ${Python3_EXECUTABLE}
@@ -1196,7 +1196,7 @@ if(BUILD_TESTING)
         set_tests_properties(visual_claim_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^visual_claim_guardrail=ok fixtures=71 claim0=71 claim1=0 ledger=1 promoted=0 ctest=1 docs=3")
+                "^visual_claim_guardrail=ok fixtures=72 claim0=72 claim1=0 ledger=1 promoted=0 ctest=1 docs=3")
 
         add_test(NAME visual_claim_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -1259,7 +1259,7 @@ if(BUILD_TESTING)
         set_tests_properties(runtime_evidence_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^runtime_evidence_guardrail=ok fixtures=71 original_runtime=21 visual_claim0=21 temp_copy=21 runtime_segments=21 ledger=1 ctest=1 docs=3")
+                "^runtime_evidence_guardrail=ok fixtures=72 original_runtime=21 visual_claim0=21 temp_copy=21 runtime_segments=21 ledger=1 ctest=1 docs=3")
 
         add_test(NAME runtime_evidence_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -1731,7 +1731,7 @@ if(BUILD_TESTING)
     set_tests_properties(visual_table_oracle_original_state2_runtime PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "visual_table_oracle=ok fixture=visual_table_oracle_original_state2_runtime scenario=state2_death_table_consumption runtime_cs=0x01ed runtime_ds=0x0c8f actor_slot=0 actor_state=2 anim_current=0x4a anim_range=0x4a..0x4f anim_mode=1 visual_frame=0x4a row_addr=0xc44a row=10,10,7d,43 bank=BOMOMIMK sprite_index=67 sprite_source=runtime_draw_call draw_offset=16,16 effect_slot=0 effect_before_xy=0x0068,0x00a8 effect_after_xy=0x0068,0x00a8 effect_after_frame=0x4a breaks=5 temp_copy=1 visual_claim=0")
+            "visual_table_oracle=ok fixture=visual_table_oracle_original_state2_runtime scenario=state2_death_table_consumption runtime_cs=0x01ed runtime_ds=0x0c8f actor_slot=0 actor_state=2 anim_current=0x4a anim_range=0x4a..0x4f anim_mode=1 visual_frame=0x4a row_addr=0xc44a row=10,10,7d,43 bank=BOMOMIMK sprite_index=67 sprite_source=row_byte3 draw_offset=16,16 effect_slot=0 effect_before_xy=0x0068,0x00a8 effect_after_xy=0x0068,0x00a8 effect_after_frame=0x4a breaks=5 temp_copy=1 visual_claim=0")
 
     add_test(NAME visual_table_oracle_bad_segment
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-visual-table-oracle
@@ -1759,6 +1759,15 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "visual_table_oracle=error fixture=visual_table_oracle_sprite_without_row reason=visual_row_missing_for_sprite")
+
+    add_test(NAME visual_table_oracle_bad_row_byte3_sprite
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-visual-table-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/visual_table_oracle_bad_row_byte3_sprite.txt
+                --expect-error)
+    set_tests_properties(visual_table_oracle_bad_row_byte3_sprite PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "visual_table_oracle=error fixture=visual_table_oracle_bad_row_byte3_sprite reason=sprite_index_row3_mismatch row3=67 sprite_index=66")
 
     add_test(NAME state2_runtime_frame_oracle_synthetic
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-state2-runtime-frame-oracle

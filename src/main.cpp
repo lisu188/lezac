@@ -5379,8 +5379,13 @@ public:
                      std::to_string(static_cast<int>(claimedRow[0])) +
                      " sprite_index=" + std::to_string(spriteIndex));
             }
-            if (spriteSource != "row_byte0" && spriteSource != "runtime_draw_call" &&
-                spriteSource != "static_table") {
+            if (spriteSource == "row_byte3" && spriteIndex != claimedRow[3]) {
+                fail("sprite_index_row3_mismatch row3=" +
+                     std::to_string(static_cast<int>(claimedRow[3])) +
+                     " sprite_index=" + std::to_string(spriteIndex));
+            }
+            if (spriteSource != "row_byte0" && spriteSource != "row_byte3" &&
+                spriteSource != "runtime_draw_call" && spriteSource != "static_table") {
                 fail("bad_sprite_source value=" + spriteSource);
             }
             int drawDx = parseInt(requireField(visual, "draw_dx", "visual"),

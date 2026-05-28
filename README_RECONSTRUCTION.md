@@ -169,6 +169,9 @@ Checked-in original visual-table fixtures use the
 and optional-original guardrails pick them up automatically. The current
 original fixture is `visual_table_oracle_original_state2_runtime.txt`,
 normalized from the original state-2 runtime stop and still `visual_claim=0`.
+It validates row byte 3 as the `BOMOMIMK` sprite-index candidate for frame
+`0x4a`; the remaining row bytes still require final field names before live
+death/reentry art can be claimed.
 Summarize any one of those capture directories with
 `python3 tools/summarize_debug_capture.py <capture_dir>`. The summary reports
 `candidate_status=ready|incomplete|missing|none`, missing fixture fields,
@@ -398,7 +401,9 @@ The behavior-4 fixture checker follows the same convention for future
 The visual-table fixture checker does the same for
 `visual_table_oracle_original*.txt` captures; the current checked-in original
 fixture is `visual_table_oracle_original_state2_runtime.txt`, normalized from
-the original state-2 runtime stop and still `visual_claim=0`.
+the original state-2 runtime stop and still `visual_claim=0`. It validates
+`sprite_source=row_byte3` for the captured state-2 row without promoting the
+live renderer.
 `tools/check_optional_original_oracle_fixtures.py` keeps these four runtime
 oracle lanes aligned so future original fixtures remain valid-only, covered by
 CTest, and explicitly `visual_claim=0`.

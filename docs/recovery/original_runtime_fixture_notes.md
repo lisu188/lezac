@@ -57,5 +57,6 @@ control-flow reachability, not exact rendered presentation.
 - `visual_table_oracle_original_state2_runtime.txt` normalizes the same
   original stop into the renderer-facing visual-table oracle. It binds actor
   frame `0x4a` to row address `DS:c44a`, row bytes `10,10,7d,43`, runtime
-  `CS=01ED` / `DS=0C8F`, and effect placement `0x0068,0x00a8`, while keeping
+  `CS=01ED` / `DS=0C8F`, row byte 3 as the `BOMOMIMK` sprite-index candidate
+  `0x43`, and effect placement `0x0068,0x00a8`, while keeping
   `visual_claim=0` until a paired frame comparison proves presentation.

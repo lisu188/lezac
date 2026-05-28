@@ -774,7 +774,10 @@ as `step_index`, `period_word`, `gate_tick`, `period_ticks`, `unknown4`, and
 `unknown5=0x02`; the first stop sentinel is cursor `0x0005`, and the final
 stop sentinel is cursor `0x0082`. 118 of 130 steps have a nonzero
 `unknown4`/`unknown5` pair, but the tick routine window above still does not
-interpret those bytes.
+interpret those bytes. `--debug-son-tail-field-mutation` mutates bytes `+4..+5`
+for every shipped step and confirms the recovered C++ synthesizer renders the
+same samples for all known non-direct cursor starts, keeping those tail bytes
+preserved but behaviorally unused until original evidence proves otherwise.
 
 Six non-explosion gameplay cues are now mapped to original queued requests:
 

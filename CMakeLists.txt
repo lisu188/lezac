@@ -1512,6 +1512,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "son_step_fields=ok steps=130 first_period=0x00f7 first_stop_cursor=0x0005 final_stop_cursor=0x0082 unknown_pair_nonzero_steps=118")
 
+    add_test(NAME son_tail_field_mutation
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-son-tail-field-mutation)
+    set_tests_properties(son_tail_field_mutation PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^son_tail_fields_mutation=ok steps=130 mutated_steps=130 compared_cursors=14 .* unknown_pair_nonzero_steps=118 ignored_tail_bytes=4,5")
+
     add_test(NAME gran_raw_roundtrip
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran-raw-roundtrip)
     set_tests_properties(gran_raw_roundtrip PROPERTIES

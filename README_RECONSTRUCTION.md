@@ -680,7 +680,10 @@ default/timing/route-step probes load the patch but do not reach that freeze.
   `--debug-son-step-fields` exposes each recovered six-byte sound step as
   `period_word`, `gate_tick`, `period_ticks`, `unknown4`, and `unknown5` while
   keeping bytes `+4..+5` explicitly uninterpreted. The
-  return-placement model tracks the `DS:c21e + 8 * actor[+0x01]` effect-entry
+  `--debug-son-tail-field-mutation` diagnostic mutates those two tail bytes for
+  every shipped step and verifies rendered samples for the known cursor starts
+  are unchanged, matching the recovered tick window that does not read them.
+  The return-placement model tracks the `DS:c21e + 8 * actor[+0x01]` effect-entry
   descent and blocking checks. Explosion/debris/collapse diagnostics now lock
   the recovered dispatcher selector/state/sound-offset table, queued
   debris/collapse payload fields, and bomb-object passability/routing side
@@ -696,8 +699,9 @@ default/timing/route-step probes load the patch but do not reach that freeze.
 - PC speaker sound effects now use a recovered request/priority latch,
   direct-sweep path for bomb explosions, and six-byte cursor stepping for
   `PROEFS.SON`. Field diagnostics preserve bytes `+4..+5` as raw unknowns, and
-  their semantic meaning plus many non-explosion callsite-to-event mappings
-  remain unresolved.
+  mutation coverage proves the current synthesizer ignores them; their original
+  semantic meaning plus many non-explosion callsite-to-event mappings remain
+  unresolved.
 - Two-player split-screen is playable with independent bomb inventories, scores,
   and record prompts, but exact original panel artwork and reentry presentation
   remain approximate.

@@ -516,6 +516,10 @@ Baseline: `origin/main`
 - Actor-dispatch and generic debug-capture ready-pipeline checks now exercise
   the same strict preflight refusal paths for actor/contact/behavior4/visual
   table oracle batches before future original fixtures are promoted.
+- `--debug-son-tail-field-mutation` now mutates `PROEFS.SON` bytes `+4..+5`
+  across all 130 six-byte steps and proves the current recovered synthesizer
+  renders identical samples for the 14 known cursor starts. The bytes stay
+  preserved as raw unknown fields until original evidence assigns semantics.
 - The actor-dispatch, lane-result, lane-write, and debug-capture sweep/capture
   summary readers now reject duplicate manifest keys too, extending that
   overwrite guard to the pre-promotion capture layer.

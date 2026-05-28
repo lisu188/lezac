@@ -4088,6 +4088,62 @@ public:
                   << '\n';
     }
 
+    void debugSonTailFieldMutation() {
+        load();
+        if (sounds_.stepCount != 0x82 ||
+            sounds_.payload.size() != sounds_.stepCount * kSoundStepSize) {
+            throw std::runtime_error("PROEFS.SON step field layout mismatch");
+        }
+
+        std::vector<std::vector<int16_t>> baseline;
+        baseline.reserve(kDebugSoundCursors.size());
+        size_t baselineSamples = 0;
+        for (uint16_t cursor : kDebugSoundCursors) {
+            baseline.push_back(synthesizeSoundCursor(cursor));
+            baselineSamples += baseline.back().size();
+            if (baseline.back().empty()) {
+                throw std::runtime_error("PROEFS.SON cursor rendered no samples");
+            }
+        }
+
+        std::vector<uint8_t> originalPayload = sounds_.payload;
+        int unknownPairNonzeroSteps = 0;
+        int mutatedSteps = 0;
+        for (size_t step = 0; step < sounds_.stepCount; ++step) {
+            size_t off = step * kSoundStepSize;
+            if (sounds_.payload[off + 4] != 0 || sounds_.payload[off + 5] != 0) {
+                ++unknownPairNonzeroSteps;
+            }
+            sounds_.payload[off + 4] =
+                static_cast<uint8_t>(sounds_.payload[off + 4] ^ 0xffu);
+            sounds_.payload[off + 5] =
+                static_cast<uint8_t>(sounds_.payload[off + 5] ^ 0xa5u);
+            ++mutatedSteps;
+        }
+
+        size_t mutatedSamples = 0;
+        for (size_t i = 0; i < kDebugSoundCursors.size(); ++i) {
+            std::vector<int16_t> mutated = synthesizeSoundCursor(kDebugSoundCursors[i]);
+            mutatedSamples += mutated.size();
+            if (mutated != baseline[i]) {
+                std::ostringstream oss;
+                oss << "PROEFS.SON tail field mutation changed cursor 0x"
+                    << std::hex << std::setw(4) << std::setfill('0')
+                    << kDebugSoundCursors[i];
+                throw std::runtime_error(oss.str());
+            }
+        }
+        sounds_.payload = std::move(originalPayload);
+
+        std::cout << "son_tail_fields_mutation=ok steps=" << sounds_.stepCount
+                  << " mutated_steps=" << mutatedSteps
+                  << " compared_cursors=" << kDebugSoundCursors.size()
+                  << " baseline_samples=" << baselineSamples
+                  << " mutated_samples=" << mutatedSamples
+                  << " unknown_pair_nonzero_steps=" << unknownPairNonzeroSteps
+                  << " ignored_tail_bytes=4,5\n";
+    }
+
     void debugGranRawRoundtrip() {
         load();
         auto rawBytes = readFile("GRAN.MST");
@@ -12744,6 +12800,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-son-step-fields") {
             app.debugSonStepFields();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-son-tail-field-mutation") {
+            app.debugSonTailFieldMutation();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-gran-raw-roundtrip") {

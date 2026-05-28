@@ -823,6 +823,14 @@ across these address notes, the C++ request sites, and the CTest scenario names.
   remains a visual/state-timing mapping target rather than being treated as the
   C++ reentry timer.
 
+`--debug-sound-callsite-oracle <fixture> [--expect-error]` is the normalized
+runtime-evidence gate for these callsites. Fixtures record runtime `CS`/`DS`,
+the original request callsite, the `1000:165a` latch breakpoint, the pending
+cursor/priority pair (`DS:2074`, `DS:799f`), the latched current cursor/priority
+(`DS:78c0`, `DS:799e`), and `DS:79c4` active state. The synthetic fixture covers
+the player hurt request and remains `visual_claim=0`; original fixtures should
+only be promoted after a real DOSBox-debug stop supplies those bytes.
+
 Other non-explosion cues are still being mapped; direct `playSound(index)`
 callers remain compatibility hooks until their original cursor/priority writes
 are confirmed.

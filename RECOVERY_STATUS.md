@@ -6,6 +6,12 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `--debug-sound-callsite-oracle <fixture> [--expect-error]` with
+  synthetic and malformed DOSBox fixture coverage. The oracle normalizes
+  original sound request/latch stops around `1000:165a`, checks runtime
+  `CS`/`DS`, callsite breakpoints, `DS:2074`/`DS:799f` pending request bytes,
+  `DS:78c0`/`DS:799e` latched state, and `DS:79c4` active state while keeping
+  the evidence `visual_claim=0`.
 - Updated `tools/sweep_original_lane_result_routes.py` so natural `3D3F`
   route sweeps now delegate the selected C++ oracle binary to each per-route
   capture helper, report oracle command counts during dry-run planning, and
@@ -1513,7 +1519,8 @@ Baseline: `origin/main`
   changing live playback behavior.
 - Semantic meaning of `PROEFS.SON` bytes `+4..+5` remains unknown; current
   diagnostics preserve them as raw fields only.
-- Many non-explosion sound callsites still need exact cursor/priority mapping.
+- Many non-explosion sound callsites still need exact cursor/priority mapping;
+  the sound-callsite oracle is ready for original debugger transcripts.
 - Exact actor update behavior around `1000:6053..777f`, especially original
   contact flags, passability thresholds, tile snapping, behavior-3 ledge/wall
   handling, and behavior-4 collision response. The synthetic actor-update oracle

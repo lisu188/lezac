@@ -71,6 +71,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-sound-priority-latch
 ./build/lezac_cpp --debug-sound-selector-map
 ./build/lezac_cpp --debug-player-damage-sound
+./build/lezac_cpp --debug-sound-callsite-oracle tests/fixtures/dosbox/sound_callsite_oracle_synthetic.txt
 ./build/lezac_cpp --debug-original-damage-counters
 ./build/lezac_cpp --debug-level1-frame-inspection
 ./build/lezac_cpp --debug-autoplayer level1_bomb_route
@@ -676,7 +677,13 @@ default/timing/route-step probes load the patch but do not reach that freeze.
   queues cursor `0x0027` at priority `6`, bonus pickup audio queues cursor
   `0x0008` at priority `5`, accepted player damage queues cursor `0x002d` at
   priority `4`, and player death/life-loss queues cursor `0x0056` at priority
-  `5` while restoring the player energy byte to `100`. Live player damage now
+  `5` while restoring the player energy byte to `100`. Sound-callsite evidence
+  now has a normalized `--debug-sound-callsite-oracle <fixture> [--expect-error]`
+  path for original debugger stops around `1000:165a`: fixtures record
+  runtime `CS`/`DS`, callsite and latch breakpoints, `DS:2074` pending cursor,
+  `DS:799f` pending priority, `DS:78c0` current cursor, `DS:799e` current
+  priority, and `DS:79c4` active flag while staying `visual_claim=0`.
+  Live player damage now
   accumulates per-player damage bytes and drains them once per update pass,
   matching the recovered `DS:79e8`/`DS:79e9` model and original unsigned byte
   underflow death check rather than a modern one-hit cooldown gate.

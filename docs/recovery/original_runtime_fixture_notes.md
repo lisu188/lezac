@@ -50,6 +50,16 @@ control-flow reachability, not exact rendered presentation.
 - `explosion_playback_oracle_original_4cac_temp_copy.txt` captures the reverse
   helper return and helper-written collapse lane bytes.
 
+## Sound Callsites
+
+- `sound_callsite_oracle_synthetic.txt` documents the normalized fixture shape
+  for original stops at a sound request callsite and the shared
+  `1000:165a` priority latch. It records runtime `CS`/`DS`, the pending
+  `DS:2074` cursor, `DS:799f` priority, latched `DS:78c0` cursor,
+  `DS:799e` priority, and `DS:79c4` active flag for the player hurt cue.
+  Malformed fixtures cover segment mismatch, missing request records, and
+  dump bytes that disagree with the normalized cursor.
+
 ## State-2 Runtime Frame Table
 
 - `state2_runtime_frame_oracle_original.txt` captures the original state-2

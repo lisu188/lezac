@@ -7103,6 +7103,418 @@ public:
         }
     }
 
+    int debugSoundCallsiteOracle(const std::string& path, bool expectError) {
+        auto fixtureName = [](const std::string& inputPath) {
+            size_t slash = inputPath.find_last_of("/\\");
+            std::string name =
+                slash == std::string::npos ? inputPath : inputPath.substr(slash + 1);
+            size_t dot = name.find_last_of('.');
+            if (dot != std::string::npos) name = name.substr(0, dot);
+            return name;
+        };
+        const std::string fixture = fixtureName(path);
+
+        auto bareHex4 = [](uint16_t value) {
+            std::ostringstream oss;
+            oss << std::hex << std::nouppercase << std::setw(4)
+                << std::setfill('0') << value;
+            return oss.str();
+        };
+        auto hex4 = [&](uint16_t value) { return "0x" + bareHex4(value); };
+        auto trim = [](std::string value) {
+            while (!value.empty() &&
+                   std::isspace(static_cast<unsigned char>(value.front()))) {
+                value.erase(value.begin());
+            }
+            while (!value.empty() &&
+                   std::isspace(static_cast<unsigned char>(value.back()))) {
+                value.pop_back();
+            }
+            return value;
+        };
+        auto fail = [&](const std::string& reason) {
+            throw std::runtime_error("sound_callsite_oracle=error fixture=" +
+                                     fixture + " reason=" + reason);
+        };
+        auto parseHex16 = [&](std::string token,
+                              const std::string& field) -> uint16_t {
+            token = trim(token);
+            if (token.rfind("0x", 0) == 0 || token.rfind("0X", 0) == 0) {
+                token = token.substr(2);
+            }
+            if (token.empty() || token.size() > 4 ||
+                !std::all_of(token.begin(), token.end(), [](unsigned char ch) {
+                    return std::isxdigit(ch) != 0;
+                })) {
+                fail("bad_hex16 field=" + field + " token=" + token);
+            }
+            return static_cast<uint16_t>(std::stoul(token, nullptr, 16));
+        };
+        auto parseHexByte = [&](const std::string& token,
+                                uint16_t address) -> uint8_t {
+            if (token.size() != 2 ||
+                !std::all_of(token.begin(), token.end(), [](unsigned char ch) {
+                    return std::isxdigit(ch) != 0;
+                })) {
+                fail("non_hex_byte token=" + token + " address=" +
+                     bareHex4(address));
+            }
+            return static_cast<uint8_t>(std::stoul(token, nullptr, 16));
+        };
+        auto parseIntAuto = [&](const std::string& token,
+                                const std::string& field) -> int {
+            try {
+                size_t parsed = 0;
+                long value = std::stol(token, &parsed, 0);
+                if (parsed != token.size()) {
+                    fail("bad_int field=" + field + " token=" + token);
+                }
+                return static_cast<int>(value);
+            } catch (const std::exception&) {
+                fail("bad_int field=" + field + " token=" + token);
+            }
+            return 0;
+        };
+        auto parseFields = [&](const std::string& body,
+                               const std::string& record) {
+            std::map<std::string, std::string> fields;
+            std::istringstream stream(body);
+            std::string token;
+            while (stream >> token) {
+                size_t equals = token.find('=');
+                if (equals == std::string::npos || equals == 0 ||
+                    equals + 1 >= token.size()) {
+                    fail("bad_field record=" + record + " token=" + token);
+                }
+                fields[token.substr(0, equals)] = token.substr(equals + 1);
+            }
+            return fields;
+        };
+        auto requireField = [&](const std::map<std::string, std::string>& fields,
+                                const std::string& name,
+                                const std::string& record) -> std::string {
+            auto found = fields.find(name);
+            if (found == fields.end()) {
+                fail("missing_field record=" + record + " field=" + name);
+            }
+            return found->second;
+        };
+        auto parseFarPointer = [&](const std::string& token,
+                                   const std::string& field) {
+            size_t colon = token.find(':');
+            if (colon == std::string::npos || colon == 0 ||
+                colon + 1 >= token.size()) {
+                fail("bad_far_pointer field=" + field + " token=" + token);
+            }
+            return std::pair<uint16_t, uint16_t>{
+                parseHex16(token.substr(0, colon), field + ".segment"),
+                parseHex16(token.substr(colon + 1), field + ".offset")};
+        };
+
+        struct SoundRequestRecord {
+            bool present = false;
+            std::string label;
+            uint16_t callsiteSegment = 0;
+            uint16_t callsiteOffset = 0;
+            uint16_t latchSegment = 0;
+            uint16_t latchOffset = 0;
+            uint16_t cursor = 0;
+            int priority = 0;
+            int activeBefore = 0;
+            int currentPriorityBefore = 0;
+            uint16_t pendingCursor = 0;
+            int pendingPriority = 0;
+            int accepted = 0;
+            int activeAfter = 0;
+            int currentPriorityAfter = 0;
+            uint16_t currentCursorAfter = 0;
+            int directSweep = 0;
+        };
+
+        try {
+            std::string text = readTextFile(path);
+            std::vector<uint8_t> memory(0x10000);
+            std::vector<bool> present(0x10000, false);
+            uint16_t runtimeCs = 0;
+            uint16_t runtimeDs = 0;
+            bool haveRuntimeCs = false;
+            bool haveRuntimeDs = false;
+            bool tempCopy = false;
+            bool visualClaim = false;
+            bool haveScenario = false;
+            bool haveLevel = false;
+            std::string scenario;
+            int level = 0;
+            SoundRequestRecord request;
+            std::set<uint16_t> breakOffsets;
+            int breakCount = 0;
+            int dumpBytes = 0;
+
+            std::istringstream lines(text);
+            std::string line;
+            std::regex keyRe("^([A-Za-z0-9_]+)=(.*)$");
+            std::regex breakRe(
+                "^break\\s+ghidra=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+"
+                "runtime=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+label=([^\\s]+).*$");
+            std::regex dumpRe("^dump\\s+DS:([0-9A-Fa-f]{4}).*$");
+            std::regex rowRe("^([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+(.+)$");
+            uint16_t currentDump = 0;
+            bool inDump = false;
+            while (std::getline(lines, line)) {
+                line = trim(line);
+                if (line.empty() || line[0] == '#') continue;
+
+                std::smatch match;
+                if (std::regex_match(line, match, keyRe)) {
+                    std::string key = match[1].str();
+                    std::string value = trim(match[2].str());
+                    if (key == "runtime_cs") {
+                        runtimeCs = parseHex16(value, key);
+                        haveRuntimeCs = true;
+                    } else if (key == "runtime_ds") {
+                        runtimeDs = parseHex16(value, key);
+                        haveRuntimeDs = true;
+                    } else if (key == "temp_copy") {
+                        tempCopy = value == "1";
+                    } else if (key == "visual_claim") {
+                        visualClaim = value != "0";
+                    } else if (key == "scenario") {
+                        scenario = value;
+                        haveScenario = true;
+                    } else if (key == "level") {
+                        level = parseIntAuto(value, key);
+                        haveLevel = true;
+                    }
+                    continue;
+                }
+
+                if (line.rfind("sound_request ", 0) == 0) {
+                    auto fields = parseFields(line.substr(14), "sound_request");
+                    request.present = true;
+                    request.label = requireField(fields, "label", "sound_request");
+                    auto callsite = parseFarPointer(
+                        requireField(fields, "callsite", "sound_request"),
+                        "sound_request.callsite");
+                    request.callsiteSegment = callsite.first;
+                    request.callsiteOffset = callsite.second;
+                    auto latch = parseFarPointer(
+                        requireField(fields, "latch", "sound_request"),
+                        "sound_request.latch");
+                    request.latchSegment = latch.first;
+                    request.latchOffset = latch.second;
+                    request.cursor = parseHex16(
+                        requireField(fields, "cursor", "sound_request"),
+                        "sound_request.cursor");
+                    request.priority = parseIntAuto(
+                        requireField(fields, "priority", "sound_request"),
+                        "sound_request.priority");
+                    request.activeBefore = parseIntAuto(
+                        requireField(fields, "active_before", "sound_request"),
+                        "sound_request.active_before");
+                    request.currentPriorityBefore = parseIntAuto(
+                        requireField(fields, "current_priority_before",
+                                     "sound_request"),
+                        "sound_request.current_priority_before");
+                    request.pendingCursor = parseHex16(
+                        requireField(fields, "pending_cursor", "sound_request"),
+                        "sound_request.pending_cursor");
+                    request.pendingPriority = parseIntAuto(
+                        requireField(fields, "pending_priority", "sound_request"),
+                        "sound_request.pending_priority");
+                    request.accepted = parseIntAuto(
+                        requireField(fields, "accepted", "sound_request"),
+                        "sound_request.accepted");
+                    request.activeAfter = parseIntAuto(
+                        requireField(fields, "active_after", "sound_request"),
+                        "sound_request.active_after");
+                    request.currentPriorityAfter = parseIntAuto(
+                        requireField(fields, "current_priority_after",
+                                     "sound_request"),
+                        "sound_request.current_priority_after");
+                    request.currentCursorAfter = parseHex16(
+                        requireField(fields, "current_cursor_after", "sound_request"),
+                        "sound_request.current_cursor_after");
+                    request.directSweep = parseIntAuto(
+                        requireField(fields, "direct_sweep", "sound_request"),
+                        "sound_request.direct_sweep");
+                    continue;
+                }
+
+                if (std::regex_match(line, match, breakRe)) {
+                    if (!haveRuntimeCs) fail("runtime_cs_missing_before_break");
+                    uint16_t ghidraSegment = parseHex16(match[1].str(), "ghidra");
+                    uint16_t ghidraOffset = parseHex16(match[2].str(), "ghidra");
+                    uint16_t runtimeSegment = parseHex16(match[3].str(), "runtime");
+                    uint16_t runtimeOffset = parseHex16(match[4].str(), "runtime");
+                    if (ghidraSegment != 0x1000) {
+                        fail("breakpoint_ghidra_segment expected=0x1000 actual=" +
+                             hex4(ghidraSegment));
+                    }
+                    if (runtimeSegment != runtimeCs) {
+                        fail("breakpoint_segment_mismatch expected=" + hex4(runtimeCs) +
+                             " actual=" + hex4(runtimeSegment));
+                    }
+                    if (runtimeOffset != ghidraOffset) {
+                        fail("breakpoint_offset_mismatch expected=" +
+                             bareHex4(ghidraOffset) + " actual=" +
+                             bareHex4(runtimeOffset));
+                    }
+                    breakOffsets.insert(ghidraOffset);
+                    ++breakCount;
+                    continue;
+                }
+
+                if (std::regex_match(line, match, dumpRe)) {
+                    currentDump = parseHex16(match[1].str(), "dump");
+                    inDump = true;
+                    continue;
+                }
+
+                if (std::regex_match(line, match, rowRe)) {
+                    if (!inDump) fail("dump_row_without_header");
+                    if (!haveRuntimeDs) fail("runtime_ds_missing_before_dump");
+                    uint16_t segment = parseHex16(match[1].str(), "row_segment");
+                    uint16_t address = parseHex16(match[2].str(), "row_address");
+                    if (segment != runtimeDs) {
+                        fail("dump_segment_mismatch expected=" + hex4(runtimeDs) +
+                             " actual=" + hex4(segment) +
+                             " address=" + bareHex4(address));
+                    }
+                    if (address < currentDump) {
+                        fail("dump_address_before_header header=" + bareHex4(currentDump) +
+                             " address=" + bareHex4(address));
+                    }
+                    std::istringstream byteStream(match[3].str());
+                    std::string token;
+                    uint16_t cursor = address;
+                    while (byteStream >> token) {
+                        memory[cursor] = parseHexByte(token, cursor);
+                        present[cursor] = true;
+                        ++cursor;
+                        ++dumpBytes;
+                    }
+                    continue;
+                }
+
+                fail("unrecognized_line");
+            }
+
+            auto requireByteIfPresent = [&](uint16_t address,
+                                            uint8_t expected,
+                                            const std::string& reason) {
+                if (present[address] && memory[address] != expected) {
+                    fail(reason + " expected=" + hex4(expected) +
+                         " actual=" + hex4(memory[address]));
+                }
+            };
+            auto requireWordIfPresent = [&](uint16_t address,
+                                            uint16_t expected,
+                                            const std::string& reason) {
+                if (present[address] && present[static_cast<uint16_t>(address + 1)]) {
+                    uint16_t actual = static_cast<uint16_t>(
+                        memory[address] |
+                        (memory[static_cast<uint16_t>(address + 1)] << 8));
+                    if (actual != expected) {
+                        fail(reason + " expected=" + hex4(expected) +
+                             " actual=" + hex4(actual));
+                    }
+                }
+            };
+
+            if (!haveRuntimeCs) fail("runtime_cs_missing");
+            if (!haveRuntimeDs) fail("runtime_ds_missing");
+            if (!haveScenario) fail("scenario_missing");
+            if (!haveLevel) fail("level_missing");
+            if (visualClaim) fail("visual_claim_not_supported");
+            if (!request.present) fail("sound_request_missing");
+            if (request.callsiteSegment != 0x1000) {
+                fail("callsite_segment_not_1000 actual=" + hex4(request.callsiteSegment));
+            }
+            if (request.latchSegment != 0x1000 || request.latchOffset != 0x165a) {
+                fail("latch_address_mismatch actual=" + hex4(request.latchSegment) +
+                     ":" + bareHex4(request.latchOffset));
+            }
+            if (breakOffsets.count(request.callsiteOffset) == 0) {
+                fail("missing_breakpoint offset=" + bareHex4(request.callsiteOffset));
+            }
+            if (breakOffsets.count(request.latchOffset) == 0) {
+                fail("missing_breakpoint offset=" + bareHex4(request.latchOffset));
+            }
+            if (request.pendingCursor != request.cursor) {
+                fail("pending_cursor_mismatch expected=" + hex4(request.cursor) +
+                     " actual=" + hex4(request.pendingCursor));
+            }
+            if (request.pendingPriority != request.priority) {
+                fail("pending_priority_mismatch expected=" +
+                     std::to_string(request.priority) + " actual=" +
+                     std::to_string(request.pendingPriority));
+            }
+            if (request.accepted != 0) {
+                if (request.activeAfter == 0) fail("accepted_but_inactive_after");
+                if (request.currentPriorityAfter != request.priority) {
+                    fail("accepted_priority_mismatch expected=" +
+                         std::to_string(request.priority) + " actual=" +
+                         std::to_string(request.currentPriorityAfter));
+                }
+                if (request.currentCursorAfter != request.cursor) {
+                    fail("accepted_cursor_mismatch expected=" + hex4(request.cursor) +
+                         " actual=" + hex4(request.currentCursorAfter));
+                }
+            }
+            int expectedDirectSweep = request.cursor > 0xea60 ? 1 : 0;
+            if (request.directSweep != expectedDirectSweep) {
+                fail("direct_sweep_mismatch expected=" +
+                     std::to_string(expectedDirectSweep) + " actual=" +
+                     std::to_string(request.directSweep));
+            }
+
+            requireWordIfPresent(0x2074, request.pendingCursor,
+                                 "pending_cursor_dump_mismatch");
+            requireByteIfPresent(0x799f, static_cast<uint8_t>(request.pendingPriority),
+                                 "pending_priority_dump_mismatch");
+            requireByteIfPresent(0x799e,
+                                 static_cast<uint8_t>(request.currentPriorityAfter),
+                                 "current_priority_dump_mismatch");
+            requireWordIfPresent(0x78c0, request.currentCursorAfter,
+                                 "current_cursor_dump_mismatch");
+            requireByteIfPresent(0x79c4, static_cast<uint8_t>(request.activeAfter),
+                                 "active_flag_dump_mismatch");
+
+            std::cout << "sound_callsite_oracle=ok fixture=" << fixture
+                      << " scenario=" << scenario
+                      << " level=" << level
+                      << " runtime_cs=" << hex4(runtimeCs)
+                      << " runtime_ds=" << hex4(runtimeDs)
+                      << " label=" << request.label
+                      << " callsite=" << hex4(request.callsiteSegment) << ':'
+                      << bareHex4(request.callsiteOffset)
+                      << " latch=" << hex4(request.latchSegment) << ':'
+                      << bareHex4(request.latchOffset)
+                      << " cursor=" << hex4(request.cursor)
+                      << " priority=" << request.priority
+                      << " active_before=" << request.activeBefore
+                      << " current_priority_before=" << request.currentPriorityBefore
+                      << " accepted=" << request.accepted
+                      << " active_after=" << request.activeAfter
+                      << " current_priority_after=" << request.currentPriorityAfter
+                      << " current_cursor_after=" << hex4(request.currentCursorAfter)
+                      << " direct_sweep=" << request.directSweep
+                      << " breaks=" << breakCount
+                      << " dump_bytes=" << dumpBytes
+                      << " temp_copy=" << (tempCopy ? 1 : 0)
+                      << " visual_claim=0\n";
+            if (expectError) {
+                std::cout << "sound_callsite_oracle=error fixture=" << fixture
+                          << " reason=expected_error_missing\n";
+                return 1;
+            }
+            return 0;
+        } catch (const std::exception& e) {
+            std::cout << e.what() << '\n';
+            return expectError ? 0 : 1;
+        }
+    }
+
     int debugExplosionPlaybackOracle(const std::string& path, bool expectError) {
         auto fixtureName = [](const std::string& inputPath) {
             size_t slash = inputPath.find_last_of("/\\");
@@ -13365,6 +13777,10 @@ int main(int argc, char** argv) {
         if (argc > 2 && std::string(argv[1]) == "--debug-contact-scanner-runtime-oracle") {
             bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";
             return app.debugContactScannerRuntimeOracle(argv[2], expectError);
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-sound-callsite-oracle") {
+            bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";
+            return app.debugSoundCallsiteOracle(argv[2], expectError);
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-explosion-playback-oracle") {
             bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";

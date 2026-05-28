@@ -1232,7 +1232,7 @@ if(BUILD_TESTING)
         set_tests_properties(visual_claim_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^visual_claim_guardrail=ok fixtures=72 claim0=72 claim1=0 ledger=1 promoted=0 ctest=1 docs=3")
+                "^visual_claim_guardrail=ok fixtures=76 claim0=76 claim1=0 ledger=1 promoted=0 ctest=1 docs=3")
 
         add_test(NAME visual_claim_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -1295,7 +1295,7 @@ if(BUILD_TESTING)
         set_tests_properties(runtime_evidence_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^runtime_evidence_guardrail=ok fixtures=72 original_runtime=21 visual_claim0=21 temp_copy=21 runtime_segments=21 ledger=1 ctest=1 docs=3")
+                "^runtime_evidence_guardrail=ok fixtures=76 original_runtime=21 visual_claim0=21 temp_copy=21 runtime_segments=21 ledger=1 ctest=1 docs=3")
 
         add_test(NAME runtime_evidence_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -1782,6 +1782,41 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "contact_scanner_runtime_oracle=error fixture=contact_scanner_runtime_oracle_bad_subject_flags reason=contact_flags_before_mismatch actor=0x0001 scan=0x0000")
+
+    add_test(NAME sound_callsite_oracle_synthetic
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-callsite-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/sound_callsite_oracle_synthetic.txt)
+    set_tests_properties(sound_callsite_oracle_synthetic PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "sound_callsite_oracle=ok fixture=sound_callsite_oracle_synthetic scenario=player_damage_sound level=1 runtime_cs=0x1a2b runtime_ds=0x2b3c label=hurt callsite=0x1000:7f9a latch=0x1000:165a cursor=0x002d priority=4 active_before=0 current_priority_before=0 accepted=1 active_after=1 current_priority_after=4 current_cursor_after=0x002d direct_sweep=0 breaks=2 dump_bytes=42 temp_copy=1 visual_claim=0")
+
+    add_test(NAME sound_callsite_oracle_bad_segment
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-callsite-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/sound_callsite_oracle_bad_segment.txt
+                --expect-error)
+    set_tests_properties(sound_callsite_oracle_bad_segment PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "sound_callsite_oracle=error fixture=sound_callsite_oracle_bad_segment reason=breakpoint_segment_mismatch expected=0x1a2b actual=0xffff")
+
+    add_test(NAME sound_callsite_oracle_missing_request
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-callsite-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/sound_callsite_oracle_missing_request.txt
+                --expect-error)
+    set_tests_properties(sound_callsite_oracle_missing_request PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "sound_callsite_oracle=error fixture=sound_callsite_oracle_missing_request reason=sound_request_missing")
+
+    add_test(NAME sound_callsite_oracle_bad_pending_cursor
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-callsite-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/sound_callsite_oracle_bad_pending_cursor.txt
+                --expect-error)
+    set_tests_properties(sound_callsite_oracle_bad_pending_cursor PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "sound_callsite_oracle=error fixture=sound_callsite_oracle_bad_pending_cursor reason=pending_cursor_dump_mismatch expected=0x002d actual=0x002e")
 
     add_test(NAME visual_table_oracle_synthetic
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-visual-table-oracle

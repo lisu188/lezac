@@ -486,6 +486,9 @@ Baseline: `origin/main`
   inside existing runtime evidence fixtures, preventing `runtime_cs`,
   `runtime_ds`, `visual_claim`, or `temp_copy` from being overwritten after a
   candidate manifest has already passed its own duplicate-key guard.
+- Runtime evidence ledger parsing now rejects duplicate original fixture
+  entries, so a checked-in original fixture cannot be accepted from an
+  overwritten provenance row.
 - The actor-dispatch, lane-result, lane-write, and debug-capture sweep/capture
   summary readers now reject duplicate manifest keys too, extending that
   overwrite guard to the pre-promotion capture layer.

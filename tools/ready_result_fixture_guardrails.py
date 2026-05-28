@@ -81,6 +81,8 @@ def read_runtime_ledger_entries(root: Path) -> dict[str, dict[str, str]]:
                 fields[key] = value
         fixture = fields.get("fixture")
         if fixture:
+            if fixture in entries:
+                raise ValueError(f"duplicate runtime evidence ledger fixture: {fixture}")
             entries[fixture] = fields
     return entries
 

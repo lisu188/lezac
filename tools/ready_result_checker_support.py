@@ -17,6 +17,7 @@ def write_original_fixture_tree(
     *,
     runtime_ds: str,
     include_ledger_entry: bool = True,
+    duplicate_ledger_entry: bool = False,
     note_names_fixture: bool = True,
 ) -> Path:
     fixture = root / "tests" / "fixtures" / "dosbox" / fixture_name
@@ -52,6 +53,8 @@ def write_original_fixture_tree(
     ]
     if include_ledger_entry:
         ledger_lines.append(entry)
+        if duplicate_ledger_entry:
+            ledger_lines.append(entry)
     ledger_lines.append("")
     write_text(
         root / "docs" / "recovery" / "runtime_evidence_ledger.md",

@@ -52,6 +52,7 @@ VALIDATOR_SNIPPETS = [
     "def parse_runtime_segment_value",
     "def validate_runtime_fixture_evidence",
     "runtime evidence ledger missing",
+    "duplicate runtime evidence ledger fixture",
     "visual_claim",
     "temp_copy",
     "does not match fixture",

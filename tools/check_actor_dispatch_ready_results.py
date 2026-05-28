@@ -431,6 +431,36 @@ def main() -> int:
         )
         cases += 1
 
+        duplicate_ledger_root = base / "duplicate_ledger_root"
+        duplicate_ledger_fixture = write_original_fixture_tree(
+            duplicate_ledger_root,
+            "actor_update_runtime_oracle_original_duplicate_ledger.txt",
+            runtime_ds="0F3C",
+            duplicate_ledger_entry=True,
+        )
+        duplicate_ledger_manifest = (
+            base / "duplicate_ledger" / "result_manifest.txt"
+        )
+        write_text(
+            duplicate_ledger_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/actor_update.txt", duplicate_ledger_fixture.as_posix()
+            ),
+        )
+        duplicate_ledger = run_summary(
+            root,
+            [str(duplicate_ledger_manifest)],
+            False,
+            {"LEZAC_READY_RESULT_REPO_ROOT": str(duplicate_ledger_root)},
+        )
+        require(
+            duplicate_ledger,
+            "duplicate runtime evidence ledger fixture: "
+            "actor_update_runtime_oracle_original_duplicate_ledger.txt",
+            "duplicate_ledger",
+        )
+        cases += 1
+
         missing_ledger_root = base / "missing_ledger_root"
         missing_ledger_fixture = write_original_fixture_tree(
             missing_ledger_root,

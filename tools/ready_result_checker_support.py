@@ -19,6 +19,7 @@ def write_original_fixture_tree(
     include_ledger_entry: bool = True,
     duplicate_ledger_entry: bool = False,
     duplicate_ledger_field: str | None = None,
+    ledger_count: int | None = None,
     note_names_fixture: bool = True,
 ) -> Path:
     fixture = root / "tests" / "fixtures" / "dosbox" / fixture_name
@@ -41,11 +42,15 @@ def write_original_fixture_tree(
     )
     if duplicate_ledger_field is not None:
         entry = f"{entry} {duplicate_ledger_field}=duplicate"
+    if ledger_count is None:
+        ledger_count = int(include_ledger_entry)
+        if duplicate_ledger_entry:
+            ledger_count += 1
     ledger_lines = [
         "# Runtime Evidence Ledger",
         "",
         "runtime_evidence_ledger=non_visual",
-        "original_runtime_fixture_count=1",
+        f"original_runtime_fixture_count={ledger_count}",
         "",
         "```text",
         "- fixture=<name>.txt visual_claim=0 evidence=runtime_cs_runtime_ds_temp_copy docs=<path>",

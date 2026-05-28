@@ -66,13 +66,29 @@ def read_runtime_ledger_entries(root: Path) -> dict[str, dict[str, str]]:
     if not ledger.exists():
         raise ValueError(f"runtime evidence ledger missing: {ledger}")
     entries: dict[str, dict[str, str]] = {}
+    declared_count: int | None = None
     in_fence = False
     for raw_line in ledger.read_text(encoding="utf-8").splitlines():
         stripped = raw_line.strip()
         if stripped.startswith("```"):
             in_fence = not in_fence
             continue
-        if in_fence or not stripped.startswith("- fixture="):
+        if in_fence:
+            continue
+        if stripped.startswith("original_runtime_fixture_count="):
+            if declared_count is not None:
+                raise ValueError("duplicate original_runtime_fixture_count")
+            raw_count = stripped.split("=", 1)[1]
+            try:
+                declared_count = int(raw_count, 10)
+            except ValueError as exc:
+                raise ValueError(
+                    f"invalid original_runtime_fixture_count: {raw_count!r}"
+                ) from exc
+            if declared_count < 0:
+                raise ValueError("original_runtime_fixture_count must be non-negative")
+            continue
+        if not stripped.startswith("- fixture="):
             continue
         fields: dict[str, str] = {}
         for token in stripped[2:].split():
@@ -86,6 +102,13 @@ def read_runtime_ledger_entries(root: Path) -> dict[str, dict[str, str]]:
             if fixture in entries:
                 raise ValueError(f"duplicate runtime evidence ledger fixture: {fixture}")
             entries[fixture] = fields
+    if declared_count is None:
+        raise ValueError("runtime evidence ledger missing original_runtime_fixture_count")
+    if declared_count != len(entries):
+        raise ValueError(
+            "original_runtime_fixture_count="
+            f"{declared_count} does not match ledger entries={len(entries)}"
+        )
     return entries
 
 

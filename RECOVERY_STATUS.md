@@ -482,6 +482,10 @@ Baseline: `origin/main`
 - The matching ready-result summarizers now reject duplicate manifest keys as
   well, so executed oracle result summaries cannot be built from overwritten
   candidate fixture, runtime-segment, status, or command fields.
+- Shared ready-result fixture validation now rejects duplicate fixture keys
+  inside existing runtime evidence fixtures, preventing `runtime_cs`,
+  `runtime_ds`, `visual_claim`, or `temp_copy` from being overwritten after a
+  candidate manifest has already passed its own duplicate-key guard.
 - The actor-dispatch, lane-result, lane-write, and debug-capture sweep/capture
   summary readers now reject duplicate manifest keys too, extending that
   overwrite guard to the pre-promotion capture layer.

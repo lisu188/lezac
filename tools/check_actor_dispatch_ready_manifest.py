@@ -534,6 +534,31 @@ def main() -> int:
         )
         cases += 1
 
+        duplicate_fixture_path = base / "fixtures" / "actor_update_duplicate.txt"
+        write_text(
+            duplicate_fixture_path,
+            "temp_copy=1\nvisual_claim=0\nruntime_cs=1A2B\n"
+            "runtime_ds=2B3C\nruntime_ds=2B3C\n",
+        )
+        duplicate_fixture_manifest = base / "duplicate-fixture" / "manifest.txt"
+        write_text(
+            duplicate_fixture_manifest,
+            ready_manifest.read_text(encoding="ascii").replace(
+                str(fixture), duplicate_fixture_path.as_posix()
+            ),
+        )
+        duplicate_fixture = run_ready(
+            root,
+            [str(duplicate_fixture_manifest), "--dry-run"],
+            False,
+        )
+        require(
+            duplicate_fixture,
+            "duplicate fixture field: runtime_ds",
+            "duplicate_fixture",
+        )
+        cases += 1
+
     print(f"actor_dispatch_ready_manifest_check=ok cases={cases}")
     return 0
 

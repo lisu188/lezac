@@ -9,6 +9,7 @@ from pathlib import Path
 
 ORIGINAL_FIXTURE_DIR = Path("tests") / "fixtures" / "dosbox"
 RUNTIME_EVIDENCE_LEDGER = Path("docs") / "recovery" / "runtime_evidence_ledger.md"
+SINGLETON_FIXTURE_FIELDS = {"runtime_cs", "runtime_ds", "temp_copy", "visual_claim"}
 
 
 def repo_root() -> Path:
@@ -45,6 +46,8 @@ def read_key_values(path: Path) -> dict[str, str]:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
+        if key in SINGLETON_FIXTURE_FIELDS and key in values:
+            raise ValueError(f"duplicate fixture field: {key} in {path}")
         values[key] = value
     return values
 

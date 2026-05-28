@@ -68,6 +68,11 @@ control-flow reachability, not exact rendered presentation.
   `--capture-state2-visual-row-game-preview <out_dir>` writes full gameplay
   frames for the current renderer and the debug-only candidate renderer, giving
   later original-frame comparison the same HUD/world context.
+  `tools/capture_original_state2_visual_frames.sh <out_dir> [asset_dir]
+  state2_death_table_consumption` stages the matching original-frame directory
+  contract for those comparisons. Its manifest records six expected
+  `state2_game_4a..4f` labels, route `debugger_seeded`, and `visual_claim=0`
+  because the screenshots still require a live DOSBox/debugger-seeded capture.
   `tools/compare_state2_visual_row_game_previews.py` packages those C++ previews
   and a directory of original frames into the same frame-compare bundle shape
   used by visual-claim promotion tooling.

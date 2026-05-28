@@ -984,6 +984,12 @@ plan, including the `1000:3108`, `1000:6053`, `1000:6148`, `1000:7C89`, and
 `1000:7DDF` breakpoints, broad `DS:c322`/`DS:c21e` dumps, an
 `environment_preflight=` manifest entry, and a `debugger_seeded` candidate
 fixture for later normalization with `--debug-visual-table-oracle`.
+`tools/capture_original_state2_visual_frames.sh <out_dir> [asset_dir]
+state2_death_table_consumption` stages the companion original-frame capture
+contract for `tools/compare_state2_visual_row_game_previews.py`: six planned
+`state2_game_4a..4f` screenshots, a manifest, a frame plan, route
+`debugger_seeded`, and `visual_claim=0` until the DOSBox/debugger-seeded frames
+exist.
 Promoted original visual-table fixtures should be named
 `visual_table_oracle_original*.txt`; the fixture expectation checker treats
 that prefix as optional original evidence while keeping `visual_claim=0` until

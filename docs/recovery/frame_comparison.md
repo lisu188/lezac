@@ -183,17 +183,24 @@ current live renderer (`74..79`) and recovered row-byte-3 candidate renderer
 
 ```sh
 ./build/lezac_cpp --capture-state2-visual-row-game-preview /tmp/lezac-cpp-state2-game-preview
+tools/capture_original_state2_visual_frames.sh \
+  /tmp/lezac-original-state2-visual . state2_death_table_consumption
 tools/compare_state2_visual_row_game_previews.py \
   /tmp/lezac-state2-visual-compare ./build/lezac_cpp /tmp/lezac-original-state2-visual
 tools/summarize_frame_compare_bundle.py /tmp/lezac-state2-visual-compare
 ```
 
-The original directory should contain one original frame for each visual cursor,
-using names such as `state2_game_4a.png`, `state2_original_4a.png`, or
-`state2_game_row3_4a.png` through `4f`. The helper writes standard
-frame-compare bundle artifacts with labels such as `state2_current_4a` and
-`state2_row3_4a`, so `tools/write_visual_claim_promotion_entry.py` can later
-select the proven label once a promotion-ready original bundle exists.
+The original capture helper writes a manifest and frame plan for
+`state2_death_table_consumption`; set
+`LEZAC_STATE2_VISUAL_FRAME_CAPTURE_DRY_RUN=1` to validate the workflow without
+launching DOSBox. Live capture is intentionally labeled `debugger_seeded` until
+the state-2 frames can be staged by debugger setup. The resulting original
+directory should contain one original frame for each visual cursor, using names
+such as `state2_game_4a.png`, `state2_original_4a.png`, or
+`state2_game_row3_4a.png` through `4f`. The helper writes standard frame-compare
+bundle artifacts with labels such as `state2_current_4a` and `state2_row3_4a`,
+so `tools/write_visual_claim_promotion_entry.py` can later select the proven
+label once a promotion-ready original bundle exists.
 
 `tools/frame_compare.py` has built-in PPM/PNM and uncompressed BMP readers. It
 uses Pillow only as an optional fallback for formats such as DOSBox PNG

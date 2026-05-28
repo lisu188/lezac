@@ -135,6 +135,11 @@ Baseline: `origin/main`
   CTest workflow. The helper turns the current-versus-row-byte-3 state-2 game
   previews plus an original-frame directory into a standard frame-compare bundle
   with promotion-ready labels such as `state2_current_4a` and `state2_row3_4a`.
+- Added `tools/capture_original_state2_visual_frames.sh` and contract coverage
+  for the state-2 original-frame side of that comparison. The helper writes a
+  manifest plus six-frame plan for `state2_death_table_consumption`, keeps the
+  route labeled `debugger_seeded`, and remains `visual_claim=0` until a live
+  DOSBox/debugger-seeded capture supplies the actual screenshots.
 - Added `tools/capture_original_visual_table_debug.sh` for the
   `state2_death_table_consumption` follow-up capture. It mirrors the existing
   DOSBox-debug helper shape with `debugger_seeded` output, environment

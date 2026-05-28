@@ -97,6 +97,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-original-state2-visual-row-assets
 ./build/lezac_cpp --capture-state2-visual-row-preview /tmp/lezac-cpp-state2-row-preview
 ./build/lezac_cpp --capture-state2-visual-row-game-preview /tmp/lezac-cpp-state2-row-game-preview
+LEZAC_STATE2_VISUAL_FRAME_CAPTURE_DRY_RUN=1 tools/capture_original_state2_visual_frames.sh /tmp/lezac-original-state2-visual . state2_death_table_consumption
 python3 tools/compare_state2_visual_row_game_previews.py /tmp/lezac-state2-visual-compare ./build/lezac_cpp /tmp/lezac-original-state2-visual
 ./build/lezac_cpp --debug-state2-runtime-frame-oracle tests/fixtures/dosbox/state2_runtime_frame_oracle_synthetic.txt
 ./build/lezac_cpp --debug-state2-runtime-frame-oracle tests/fixtures/dosbox/state2_runtime_frame_oracle_original.txt
@@ -169,6 +170,12 @@ forensic reruns on an already-verified host. Use
 `tools/capture_original_visual_table_debug.sh <out_dir> [asset_dir]
 state2_death_table_consumption` to stage the next state-2 renderer-facing
 fixture for `--debug-visual-table-oracle`.
+Use `tools/capture_original_state2_visual_frames.sh <out_dir> [asset_dir]
+state2_death_table_consumption` for the paired original-frame bundle expected
+by `tools/compare_state2_visual_row_game_previews.py`. The helper writes a
+manifest and six-frame plan for `state2_game_4a..4f`, labels the route
+`debugger_seeded`, and keeps `visual_claim=0` until the DOSBox/debugger-seeded
+screenshots are actually captured and compared.
 Checked-in original visual-table fixtures use the
 `visual_table_oracle_original*.txt` naming convention so the fixture expectation
 and optional-original guardrails pick them up automatically. The current

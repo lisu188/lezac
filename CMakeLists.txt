@@ -318,6 +318,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_plan.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_workflow.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_state2_visual_frame_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_native_windows_validation_helper.py
@@ -451,6 +452,16 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^state2_visual_compare_workflow=ok helpers=2 docs=1 ctest=1 compared=12")
+
+        add_test(NAME state2_visual_frame_capture_helper_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_state2_visual_frame_capture_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${CMAKE_CURRENT_BINARY_DIR}/state2_visual_frame_capture_helper)
+        set_tests_properties(state2_visual_frame_capture_helper_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^state2_visual_frame_capture_helper=ok scenarios=1 frames=6 docs=3 ctest=2 dry_run=")
 
         add_test(NAME explosion_freeze_patch_describe_lane_result_3d3f
             COMMAND ${Python3_EXECUTABLE}
@@ -904,6 +915,18 @@ if(BUILD_TESTING)
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 PASS_REGULAR_EXPRESSION
                     "^visual_table_debug_capture=ok mode=dry_run scenario=state2_death_table_consumption route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
+
+            add_test(NAME state2_visual_frame_capture_helper_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_STATE2_VISUAL_FRAME_CAPTURE_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_state2_visual_frames.sh
+                        /tmp/lezac-state2-visual-frame-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        state2_death_table_consumption)
+            set_tests_properties(state2_visual_frame_capture_helper_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^state2_visual_frame_capture=ok mode=dry_run scenario=state2_death_table_consumption route=debugger_seeded expected_frames=6 .*manifest=.*frame_plan=.*environment_preflight=dry_run")
 
             add_test(NAME actor_contact_procmem_helper_dry_run
                 COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1

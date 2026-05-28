@@ -496,6 +496,9 @@ Baseline: `origin/main`
   `original_runtime_fixture_count` to match the parsed machine-readable
   fixture rows before any checked-in original fixture can be promoted through a
   ready-result path.
+- Runtime evidence ledger validation now also requires a single
+  `runtime_evidence_ledger=non_visual` marker, so the shared ready-result
+  provenance path rejects duplicate or wrong top-level ledger kind metadata.
 - The actor-dispatch, lane-result, lane-write, and debug-capture sweep/capture
   summary readers now reject duplicate manifest keys too, extending that
   overwrite guard to the pre-promotion capture layer.

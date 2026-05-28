@@ -9,6 +9,7 @@ from pathlib import Path
 
 ORIGINAL_FIXTURE_DIR = Path("tests") / "fixtures" / "dosbox"
 RUNTIME_EVIDENCE_LEDGER = Path("docs") / "recovery" / "runtime_evidence_ledger.md"
+EXPECTED_RUNTIME_EVIDENCE_LEDGER_KIND = "non_visual"
 SINGLETON_FIXTURE_FIELDS = {"runtime_cs", "runtime_ds", "temp_copy", "visual_claim"}
 
 
@@ -66,6 +67,7 @@ def read_runtime_ledger_entries(root: Path) -> dict[str, dict[str, str]]:
     if not ledger.exists():
         raise ValueError(f"runtime evidence ledger missing: {ledger}")
     entries: dict[str, dict[str, str]] = {}
+    ledger_kind: str | None = None
     declared_count: int | None = None
     in_fence = False
     for raw_line in ledger.read_text(encoding="utf-8").splitlines():
@@ -74,6 +76,16 @@ def read_runtime_ledger_entries(root: Path) -> dict[str, dict[str, str]]:
             in_fence = not in_fence
             continue
         if in_fence:
+            continue
+        if stripped.startswith("runtime_evidence_ledger="):
+            if ledger_kind is not None:
+                raise ValueError("duplicate runtime_evidence_ledger")
+            ledger_kind = stripped.split("=", 1)[1]
+            if ledger_kind != EXPECTED_RUNTIME_EVIDENCE_LEDGER_KIND:
+                raise ValueError(
+                    f"runtime_evidence_ledger={ledger_kind!r}; expected "
+                    f"{EXPECTED_RUNTIME_EVIDENCE_LEDGER_KIND!r}"
+                )
             continue
         if stripped.startswith("original_runtime_fixture_count="):
             if declared_count is not None:
@@ -102,6 +114,8 @@ def read_runtime_ledger_entries(root: Path) -> dict[str, dict[str, str]]:
             if fixture in entries:
                 raise ValueError(f"duplicate runtime evidence ledger fixture: {fixture}")
             entries[fixture] = fields
+    if ledger_kind is None:
+        raise ValueError("runtime evidence ledger missing runtime_evidence_ledger")
     if declared_count is None:
         raise ValueError("runtime evidence ledger missing original_runtime_fixture_count")
     if declared_count != len(entries):

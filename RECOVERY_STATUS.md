@@ -506,6 +506,9 @@ Baseline: `origin/main`
 - Runtime evidence ledger validation now also requires a single
   `runtime_evidence_ledger=non_visual` marker, so the shared ready-result
   provenance path rejects duplicate or wrong top-level ledger kind metadata.
+- `tools/check_ready_fixture_provenance_contract.py` now directly self-tests
+  valid, missing, duplicate, invalid, negative, and count-mismatched runtime
+  evidence ledger metadata at the shared parser layer.
 - The actor-dispatch, lane-result, lane-write, and debug-capture sweep/capture
   summary readers now reject duplicate manifest keys too, extending that
   overwrite guard to the pre-promotion capture layer.

@@ -1187,7 +1187,7 @@ if(BUILD_TESTING)
         set_tests_properties(ready_fixture_provenance_contract PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^ready_fixture_provenance_contract=ok docs=1 validator=1 writers=4 runners=4 result_summaries=4 dry_run_missing_fixture_bypass=4")
+                "^ready_fixture_provenance_contract=ok docs=1 validator=1 writers=4 runners=4 result_summaries=4 dry_run_missing_fixture_bypass=4 ledger_selftests=9")
 
         add_test(NAME visual_claim_guardrail
             COMMAND ${Python3_EXECUTABLE}

@@ -67,6 +67,8 @@ def read_manifest(path: Path) -> Manifest:
         if "=" not in line:
             continue
         key, value = line.split("=", 1)
+        if key in values:
+            raise ValueError(f"duplicate manifest field: {key}")
         values[key] = value
         entries.append((key, value))
     return Manifest(path=path, values=values, entries=entries)

@@ -355,7 +355,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_dispatch_gate_sweep_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_dispatch_gate_sweep_summary_check=ok cases=18")
+                "^actor_dispatch_gate_sweep_summary_check=ok cases=19")
 
         add_test(NAME actor_dispatch_ready_manifest_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -574,7 +574,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_route_sweep_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_route_sweep_summary_check=ok cases=9")
+                "^lane_result_route_sweep_summary_check=ok cases=10")
 
         add_test(NAME explosion_lane_write_route_sweep_default_dry_run
             COMMAND ${Python3_EXECUTABLE}
@@ -604,7 +604,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_write_route_sweep_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_write_route_sweep_summary_check=ok cases=9")
+                "^lane_write_route_sweep_summary_check=ok cases=10")
 
         add_test(NAME explosion_lane_write_ready_manifest_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -1044,7 +1044,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_summary_check=ok cases=8")
+                "^debug_capture_summary_check=ok cases=9")
 
         add_test(NAME debug_capture_batch_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -1053,7 +1053,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_batch_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_batch_summary_check=ok cases=6")
+                "^debug_capture_batch_summary_check=ok cases=7")
 
         add_test(NAME debug_capture_ready_manifest_expectations
             COMMAND ${Python3_EXECUTABLE}

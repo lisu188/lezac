@@ -406,6 +406,25 @@ def main() -> int:
             require(actor, snippet, "actor_ready")
         cases += 1
 
+        duplicate_field_manifest = base / "duplicate_field" / "manifest.txt"
+        duplicate_field_manifest.parent.mkdir(parents=True, exist_ok=True)
+        duplicate_field_manifest.write_text(
+            (actor_dir / "manifest.txt").read_text(encoding="ascii")
+            + "runtime_cs=CAFE\n",
+            encoding="ascii",
+        )
+        duplicate_field = run_tool(
+            root,
+            [str(duplicate_field_manifest)],
+            expect_success=False,
+        )
+        require(
+            duplicate_field,
+            "duplicate manifest field: runtime_cs",
+            "duplicate_field",
+        )
+        cases += 1
+
         contact_manifest = write_contact_missing(base)
         contact = run_tool(root, [str(contact_manifest)])
         for snippet in [

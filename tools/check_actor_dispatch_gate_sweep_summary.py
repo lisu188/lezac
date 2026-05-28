@@ -645,6 +645,34 @@ def main() -> int:
             require(missing_preflight, snippet, "missing_environment_preflight")
         cases += 1
 
+        duplicate_field_manifest = base / "duplicate_field" / "manifest.txt"
+        write_text(
+            duplicate_field_manifest,
+            "\n".join(
+                [
+                    "capture=actor_contact_route_sweep",
+                    "target=contact_scanner_start",
+                    "target=actor_update_gate6",
+                    "timings=before_route",
+                    "routes=1",
+                    "route_labels=x0p50",
+                    "environment_preflight=ok",
+                    "",
+                ]
+            ),
+        )
+        duplicate_field = run_summary(
+            root,
+            duplicate_field_manifest,
+            expect_success=False,
+        ).stdout
+        require(
+            duplicate_field,
+            "duplicate manifest field: target",
+            "duplicate_field",
+        )
+        cases += 1
+
         missing = run_summary(root, base / "missing" / "manifest.txt", False).stdout
         require(missing, "actor_dispatch_gate_sweep_summary=error", "missing_manifest")
         require(missing, "manifest not found", "missing_manifest")

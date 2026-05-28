@@ -482,6 +482,9 @@ Baseline: `origin/main`
 - The matching ready-result summarizers now reject duplicate manifest keys as
   well, so executed oracle result summaries cannot be built from overwritten
   candidate fixture, runtime-segment, status, or command fields.
+- The actor-dispatch, lane-result, lane-write, and debug-capture sweep/capture
+  summary readers now reject duplicate manifest keys too, extending that
+  overwrite guard to the pre-promotion capture layer.
 - The lane-result and actor dispatch ready-pipeline CTest helpers now exercise
   the strict preflight path end to end: sweep summary, ready manifest runner,
   and result summary all use their corresponding preflight-required flags.

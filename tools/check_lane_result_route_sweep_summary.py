@@ -321,6 +321,24 @@ def main() -> int:
         )
         cases += 1
 
+        duplicate_field_manifest = base / "duplicate_field_manifest.txt"
+        write_text(
+            duplicate_field_manifest,
+            ready_manifest.read_text(encoding="ascii")
+            + "capture=lane_result_route_sweep\n",
+        )
+        duplicate_field = run_summary(
+            root,
+            [str(duplicate_field_manifest)],
+            expect_success=False,
+        )
+        require(
+            duplicate_field,
+            "duplicate manifest field: capture",
+            "duplicate_field",
+        )
+        cases += 1
+
     print(f"lane_result_route_sweep_summary_check=ok cases={cases}")
     return 0
 

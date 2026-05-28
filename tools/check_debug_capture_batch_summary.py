@@ -169,6 +169,20 @@ def main() -> int:
         )
         cases += 1
 
+        duplicate_capture = base / "duplicate_capture"
+        write_text(
+            duplicate_capture / "manifest.txt",
+            (actor_dir / "manifest.txt").read_text(encoding="ascii")
+            + "runtime_cs=CAFE\n",
+        )
+        duplicate = run_batch(
+            root,
+            [str(duplicate_capture)],
+            expect_success=False,
+        )
+        require(duplicate, "duplicate manifest field: runtime_cs", "duplicate_field")
+        cases += 1
+
         unsupported_only = run_batch(
             root,
             [str(base / "unsupported")],

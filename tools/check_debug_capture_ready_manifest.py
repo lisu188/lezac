@@ -292,6 +292,38 @@ def main() -> int:
         require(missing, "reason=candidate fixture not found", "missing_fixture")
         cases += 1
 
+        duplicate_fixture_path = base / "fixtures" / "actor_update_duplicate.txt"
+        write_text(
+            duplicate_fixture_path,
+            "temp_copy=1\nvisual_claim=0\nruntime_cs=01ED\n"
+            "runtime_ds=0F3C\nruntime_ds=0F3C\n",
+        )
+        duplicate_fixture_manifest = base / "ready" / "duplicate_fixture.txt"
+        duplicate_fixture_lines = []
+        for line in ready_manifest.read_text(encoding="ascii").splitlines():
+            if line.startswith("candidate_0_fixture="):
+                duplicate_fixture_lines.append(
+                    f"candidate_0_fixture={duplicate_fixture_path.as_posix()}"
+                )
+            else:
+                duplicate_fixture_lines.append(line)
+        duplicate_fixture_manifest.write_text(
+            "\n".join(duplicate_fixture_lines) + "\n",
+            encoding="ascii",
+        )
+        duplicate_fixture = run_tool(
+            root,
+            "run_debug_capture_ready_manifest.py",
+            [str(duplicate_fixture_manifest), "--dry-run"],
+            expect_success=False,
+        )
+        require(
+            duplicate_fixture,
+            "duplicate fixture field: runtime_ds",
+            "duplicate_fixture",
+        )
+        cases += 1
+
         env_manifest = base / "ready" / "bad_environment.txt"
         env_manifest.write_text(ready_manifest.read_text(encoding="ascii"), encoding="ascii")
         replace_text(

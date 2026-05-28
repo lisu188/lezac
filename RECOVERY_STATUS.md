@@ -490,6 +490,9 @@ Baseline: `origin/main`
   checks now all exercise that duplicate runtime fixture-field rejection, so
   every ready-result family proves it cannot summarize overwritten fixture
   segment metadata.
+- The lane-result, lane-write, actor-dispatch, and debug-capture
+  ready-manifest runner checks now exercise the same duplicate runtime
+  fixture-field rejection before oracle execution.
 - Runtime evidence ledger parsing now rejects duplicate original fixture
   entries, so a checked-in original fixture cannot be accepted from an
   overwritten provenance row.

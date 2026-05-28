@@ -409,6 +409,26 @@ def main() -> int:
         )
         cases += 1
 
+        duplicate_fixture_path = base / "fixture" / "lane_write_duplicate.txt"
+        write_text(
+            duplicate_fixture_path,
+            "temp_copy=1\nvisual_claim=0\nruntime_cs=01ED\n"
+            "runtime_ds=0C8F\nruntime_ds=0C8F\n",
+        )
+        duplicate_fixture_manifest = base / "duplicate-fixture" / "manifest.txt"
+        write_ready_manifest(duplicate_fixture_manifest, duplicate_fixture_path)
+        duplicate_fixture = run_ready(
+            root,
+            [str(duplicate_fixture_manifest), "--dry-run"],
+            False,
+        )
+        require(
+            duplicate_fixture,
+            "duplicate fixture field: runtime_ds",
+            "duplicate_fixture",
+        )
+        cases += 1
+
         bad_oracle = base / "bad-oracle" / "manifest.txt"
         write_text(
             bad_oracle,

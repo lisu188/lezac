@@ -527,6 +527,19 @@ def main() -> int:
         )
         cases += 1
 
+        duplicate_field_manifest = base / "duplicate_field" / "result_manifest.txt"
+        write_text(
+            duplicate_field_manifest,
+            manifest_text(log) + "candidate_0_fixture=/tmp/other_debug_capture.txt\n",
+        )
+        duplicate_field = run_summary(root, [str(duplicate_field_manifest)], False)
+        require(
+            duplicate_field,
+            "duplicate manifest field: candidate_0_fixture",
+            "duplicate_field",
+        )
+        cases += 1
+
         mode_manifest = base / "mode" / "result_manifest.txt"
         write_text(
             mode_manifest,

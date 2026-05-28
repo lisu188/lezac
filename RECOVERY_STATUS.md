@@ -479,6 +479,9 @@ Baseline: `origin/main`
   before oracle execution, preventing a later `candidate_N_fixture`,
   `runtime_cs`, `runtime_ds`, or oracle flag from silently overwriting the
   evidence metadata that was promoted for review.
+- The matching ready-result summarizers now reject duplicate manifest keys as
+  well, so executed oracle result summaries cannot be built from overwritten
+  candidate fixture, runtime-segment, status, or command fields.
 - The lane-result and actor dispatch ready-pipeline CTest helpers now exercise
   the strict preflight path end to end: sweep summary, ready manifest runner,
   and result summary all use their corresponding preflight-required flags.

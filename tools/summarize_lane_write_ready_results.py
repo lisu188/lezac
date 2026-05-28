@@ -55,6 +55,8 @@ def read_manifest(path: Path) -> ResultManifest:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
+        if key in values:
+            raise ValueError(f"duplicate manifest field: {key}")
         values[key] = value
     return ResultManifest(path=path, values=values)
 

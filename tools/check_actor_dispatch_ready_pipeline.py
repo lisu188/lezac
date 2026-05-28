@@ -222,6 +222,41 @@ def main() -> int:
         ]:
             require(ready_text, snippet, "pipeline_ready_manifest")
 
+        blocked_ready_manifest = base / "blocked_ready_manifest.txt"
+        write_text(
+            blocked_ready_manifest,
+            ready_text.replace(
+                "source_environment_preflight=ok",
+                "source_environment_preflight=error",
+            ),
+        )
+        blocked = run_tool(
+            root,
+            "run_actor_dispatch_ready_manifest.py",
+            [
+                str(blocked_ready_manifest),
+                "--dry-run",
+                "--require-source-environment-preflight",
+            ],
+            expect_success=False,
+        )
+        require(
+            blocked,
+            "reason=source_environment_preflight_not_ok",
+            "blocked_source_environment_preflight",
+        )
+        require(
+            blocked,
+            "source_environment_preflight=error",
+            "blocked_source_environment_preflight",
+        )
+        require(
+            blocked,
+            "child_environment_preflights=skipped",
+            "blocked_source_environment_preflight",
+        )
+        cases += 1
+
         fake_oracle = make_fake_oracle(base / "fake")
         log_dir = base / "logs"
         result_manifest = base / "results" / "result_manifest.txt"

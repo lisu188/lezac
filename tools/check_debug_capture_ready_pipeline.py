@@ -99,6 +99,32 @@ def main() -> int:
         ]:
             require(batch, snippet, "batch_to_ready")
 
+        blocked_ready_manifest = base / "ready" / "blocked_ready_manifest.txt"
+        ready_text = ready_manifest.read_text(encoding="ascii")
+        write_text(
+            blocked_ready_manifest,
+            ready_text.replace(
+                "candidate_0_environment_preflight=ok",
+                "candidate_0_environment_preflight=error",
+            ),
+        )
+        blocked = run_tool(
+            root,
+            "run_debug_capture_ready_manifest.py",
+            [
+                str(blocked_ready_manifest),
+                "--dry-run",
+                "--require-source-environment-preflight",
+            ],
+            expect_success=False,
+        )
+        require(
+            blocked,
+            "candidate_0_environment_preflight='error'; expected 'ok'",
+            "blocked_candidate_environment_preflight",
+        )
+        cases += 1
+
         fake_oracle = make_fake_oracle(base / "fake")
         result_manifest = base / "results" / "result_manifest.txt"
         logs = base / "logs"

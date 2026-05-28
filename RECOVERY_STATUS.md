@@ -513,6 +513,9 @@ Baseline: `origin/main`
   environment preflight refusal cases, so natural debris-write and forward
   result oracle batches cannot execute from a manifest whose capture sweep
   recorded `source_environment_preflight=error`.
+- Actor-dispatch and generic debug-capture ready-pipeline checks now exercise
+  the same strict preflight refusal paths for actor/contact/behavior4/visual
+  table oracle batches before future original fixtures are promoted.
 - The actor-dispatch, lane-result, lane-write, and debug-capture sweep/capture
   summary readers now reject duplicate manifest keys too, extending that
   overwrite guard to the pre-promotion capture layer.

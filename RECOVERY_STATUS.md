@@ -127,6 +127,10 @@ Baseline: `origin/main`
   current provisional cursor-index sequence. The command writes twelve PPMs plus
   a manifest with hashes and remains `visual_claim=0` until original-frame
   comparison proves which presentation is faithful.
+- Added `--capture-state2-visual-row-game-preview <out_dir>` with a debug-only
+  row-byte-3 candidate render switch. It writes full gameplay-context frames for
+  both the current provisional renderer (`74..79`) and the candidate renderer
+  (`67..72`) while leaving default live state-2 rendering unchanged.
 - Added `tools/capture_original_visual_table_debug.sh` for the
   `state2_death_table_consumption` follow-up capture. It mirrors the existing
   DOSBox-debug helper shape with `debugger_seeded` output, environment

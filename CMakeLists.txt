@@ -1626,6 +1626,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^state2_visual_row_preview=ok frames=6 outputs=12 row3_sprites=67,68,69,70,71,72 cursor_sprites=74,75,76,77,78,79 row3_minus_frame=-7 row3_cursor_hash_mismatch=1 visual_claim=0 .* manifest=manifest.txt")
 
+    add_test(NAME state2_visual_row_game_preview
+        COMMAND $<TARGET_FILE:lezac_cpp> --capture-state2-visual-row-game-preview
+                ${CMAKE_CURRENT_BINARY_DIR}/state2_visual_row_game_preview)
+    set_tests_properties(state2_visual_row_game_preview PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^state2_visual_row_game_preview=ok frames=6 outputs=12 current_sprites=74,75,76,77,78,79 candidate_sprites=67,68,69,70,71,72 candidate_minus_current=-7 candidate_hash_mismatch=1 candidate_renderer=debug_only visual_claim=0 .* manifest=manifest.txt")
+
     add_test(NAME behavior4_runtime_oracle_synthetic
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-runtime-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/behavior4_runtime_oracle_synthetic.txt)

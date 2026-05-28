@@ -946,6 +946,9 @@ those row-byte-3 candidates are in-bounds `BOMOMIMK` sprites, all `16x16`, and
 contrasts them with the current provisional cursor-index sequence `74..79`.
 `--capture-state2-visual-row-preview <out_dir>` renders both sequences as
 isolated C++ PPM artifacts with a manifest for later original-frame comparison.
+`--capture-state2-visual-row-game-preview <out_dir>` uses the same row-byte-3
+candidate renderer only inside that debug capture, producing full gameplay
+frames beside the current provisional renderer frames.
 Live rendering is not switched to that model until the remaining field names
 and frame comparison are proven.
 

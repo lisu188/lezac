@@ -5078,6 +5078,143 @@ public:
                   << " manifest=manifest.txt\n";
     }
 
+    void captureState2VisualRowGamePreview(const std::string& outDir) {
+        load();
+        resetLevel(0);
+        std::filesystem::create_directories(outDir);
+        menu_ = false;
+        playerCount_ = 1;
+        gameplayViewWidth_ = kScreenW;
+        player_.x = 104.0f;
+        player_.y = 168.0f;
+        playerDead_ = true;
+        deathStateTimer_ = kDeathStateTicks;
+        resetState2VisualCursor(state2Visual_);
+
+        struct GamePreviewFrame {
+            uint8_t visualFrame = 0;
+            int currentSprite = 0;
+            int candidateSprite = 0;
+            std::string currentFile;
+            std::string candidateFile;
+            FrameInspection currentInspection;
+            FrameInspection candidateInspection;
+        };
+
+        auto bareHex2 = [](uint8_t value) {
+            std::ostringstream oss;
+            oss << std::hex << std::nouppercase << std::setw(2)
+                << std::setfill('0') << static_cast<int>(value);
+            return oss.str();
+        };
+        auto inspectBuffer = [&](const std::string& label) {
+            if (fb_.empty()) {
+                throw std::runtime_error(label + " frame buffer is empty");
+            }
+            FrameInspection inspection;
+            uint32_t first = fb_.front();
+            uint64_t hash = 1469598103934665603ull;
+            for (uint32_t pixelValue : fb_) {
+                if (pixelValue != first) ++inspection.changedPixels;
+                hash ^= static_cast<uint64_t>(pixelValue);
+                hash *= 1099511628211ull;
+            }
+            inspection.hash = hash;
+            if (inspection.changedPixels == 0) {
+                throw std::runtime_error(label + " rendered a uniform game preview");
+            }
+            return inspection;
+        };
+        auto renderGamePreview = [&](const std::string& file, bool rowCandidate) {
+            state2VisualRowCandidatePreview_ = rowCandidate;
+            drawGame();
+            FrameInspection inspection = inspectBuffer(file);
+            writeArgbPpm(joinPath(outDir, file), fb_, kScreenW, kScreenH);
+            return inspection;
+        };
+
+        std::vector<GamePreviewFrame> previews;
+        std::ostringstream currentSequence;
+        std::ostringstream candidateSequence;
+        int candidateMinusCurrent = 0;
+        bool candidateHashMismatch = true;
+        for (uint8_t frame = kState2VisualStartFrame;
+             frame <= kState2VisualEndFrame; ++frame) {
+            State2VisualRow row;
+            if (!originalState2VisualRow(frame, row)) {
+                throw std::runtime_error("state-2 visual game preview row missing");
+            }
+            GamePreviewFrame preview;
+            preview.visualFrame = frame;
+            preview.currentSprite = static_cast<int>(frame);
+            preview.candidateSprite = static_cast<int>(row.row3);
+            if (frame == kState2VisualStartFrame) {
+                candidateMinusCurrent = preview.candidateSprite - preview.currentSprite;
+            } else {
+                currentSequence << ',';
+                candidateSequence << ',';
+            }
+            currentSequence << preview.currentSprite;
+            candidateSequence << preview.candidateSprite;
+
+            state2Visual_.current = frame;
+            state2Visual_.first = kState2VisualStartFrame;
+            state2Visual_.last = kState2VisualEndFrame;
+            state2Visual_.counter = kState2VisualDelay;
+            state2Visual_.delay = kState2VisualDelay;
+            state2Visual_.active = true;
+            std::string frameSuffix = bareHex2(frame);
+            preview.currentFile = "state2_game_current_" + frameSuffix + ".ppm";
+            preview.candidateFile = "state2_game_row3_" + frameSuffix + ".ppm";
+            preview.currentInspection =
+                renderGamePreview(preview.currentFile, false);
+            preview.candidateInspection =
+                renderGamePreview(preview.candidateFile, true);
+            candidateHashMismatch =
+                candidateHashMismatch &&
+                preview.currentInspection.hash != preview.candidateInspection.hash;
+            previews.push_back(std::move(preview));
+        }
+        state2VisualRowCandidatePreview_ = false;
+
+        std::ofstream manifest(joinPath(outDir, "manifest.txt"));
+        if (!manifest) {
+            throw std::runtime_error("cannot create " + joinPath(outDir, "manifest.txt"));
+        }
+        manifest << "scenario=state2_visual_row_game_preview\n";
+        manifest << "source=lezac_cpp\n";
+        manifest << "bank=BOMOMIMK\n";
+        manifest << "candidate_renderer=debug_only\n";
+        manifest << "visual_claim=0\n";
+        manifest << "frame_count=" << previews.size() << '\n';
+        manifest << "output_count=" << (previews.size() * 2) << '\n';
+        for (const GamePreviewFrame& preview : previews) {
+            manifest << "frame visual_frame=" << hex2(preview.visualFrame)
+                     << " current_sprite=" << preview.currentSprite
+                     << " current_file=" << preview.currentFile
+                     << " current_hash=" << hex64(preview.currentInspection.hash)
+                     << " current_changed_pixels="
+                     << preview.currentInspection.changedPixels
+                     << " candidate_sprite=" << preview.candidateSprite
+                     << " candidate_file=" << preview.candidateFile
+                     << " candidate_hash=" << hex64(preview.candidateInspection.hash)
+                     << " candidate_changed_pixels="
+                     << preview.candidateInspection.changedPixels << '\n';
+        }
+
+        std::cout << "state2_visual_row_game_preview=ok"
+                  << " frames=" << previews.size()
+                  << " outputs=" << (previews.size() * 2)
+                  << " current_sprites=" << currentSequence.str()
+                  << " candidate_sprites=" << candidateSequence.str()
+                  << " candidate_minus_current=" << candidateMinusCurrent
+                  << " candidate_hash_mismatch=" << (candidateHashMismatch ? 1 : 0)
+                  << " candidate_renderer=debug_only"
+                  << " visual_claim=0"
+                  << " out=" << outDir
+                  << " manifest=manifest.txt\n";
+    }
+
     int debugState2RuntimeFrameOracle(const std::string& path, bool expectError) {
         auto fixtureName = [](const std::string& inputPath) {
             size_t slash = inputPath.find_last_of("/\\");
@@ -10392,6 +10529,7 @@ private:
     int deathStateTimer2_ = 0;
     State2VisualCursor state2Visual_;
     State2VisualCursor state2Visual2_;
+    bool state2VisualRowCandidatePreview_ = false;
     int damageCooldown_ = 0;
     int damageCooldown2_ = 0;
     uint8_t pendingDamage_ = 0;
@@ -12781,6 +12919,12 @@ private:
         int x0 = static_cast<int>(player.x) - camX;
         int y0 = static_cast<int>(player.y) - camY;
         int index = static_cast<int>(cursor.current);
+        if (state2VisualRowCandidatePreview_) {
+            State2VisualRow row;
+            if (originalState2VisualRow(cursor.current, row)) {
+                index = static_cast<int>(row.row3);
+            }
+        }
         if (index >= 0 && index < static_cast<int>(sprites_.sprites.size())) {
             drawSprite(sprites_.sprites[static_cast<size_t>(index)], x0, y0);
             return;
@@ -13196,6 +13340,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--capture-state2-visual-row-preview") {
             app.captureState2VisualRowPreview(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--capture-state2-visual-row-game-preview") {
+            app.captureState2VisualRowGamePreview(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-state2-runtime-frame-oracle") {

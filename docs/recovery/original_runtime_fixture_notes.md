@@ -64,7 +64,10 @@ control-flow reachability, not exact rendered presentation.
   dimensions, nonzero-pixel counts, and bounds for later frame comparison.
   `--capture-state2-visual-row-preview <out_dir>` writes matching C++ preview
   frames and a manifest for both the candidate row-byte-3 sequence and the
-  current provisional cursor-index sequence.
+  current provisional cursor-index sequence. The companion
+  `--capture-state2-visual-row-game-preview <out_dir>` writes full gameplay
+  frames for the current renderer and the debug-only candidate renderer, giving
+  later original-frame comparison the same HUD/world context.
 - `visual_table_oracle_original_state2_runtime.txt` normalizes the same
   original stop into the renderer-facing visual-table oracle. It binds actor
   frame `0x4a` to row address `DS:c44a`, row bytes `10,10,7d,43`, runtime

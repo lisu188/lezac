@@ -433,6 +433,34 @@ def main() -> int:
         )
         cases += 1
 
+        duplicate_fixture_path = base / "fixtures" / "behavior4_duplicate.txt"
+        write_text(
+            duplicate_fixture_path,
+            "temp_copy=1\nvisual_claim=0\nruntime_cs=01ED\n"
+            "runtime_ds=0C8F\nruntime_ds=0C8F\n",
+        )
+        duplicate_fixture_manifest = (
+            base / "duplicate_fixture" / "result_manifest.txt"
+        )
+        write_text(
+            duplicate_fixture_manifest,
+            manifest_text(log).replace(
+                "/tmp/capture/behavior4.txt",
+                duplicate_fixture_path.as_posix(),
+            ),
+        )
+        duplicate_fixture = run_summary(
+            root,
+            [str(duplicate_fixture_manifest)],
+            False,
+        )
+        require(
+            duplicate_fixture,
+            "duplicate fixture field: runtime_ds",
+            "duplicate_fixture",
+        )
+        cases += 1
+
         original_root = base / "original_root"
         original_fixture = write_original_fixture_tree(
             original_root,

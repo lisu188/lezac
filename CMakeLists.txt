@@ -622,7 +622,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_write_ready_results_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_write_ready_results_check=ok cases=24")
+                "^lane_write_ready_results_check=ok cases=25")
 
         add_test(NAME explosion_lane_write_ready_pipeline_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -649,7 +649,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_ready_results_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_ready_results_check=ok cases=24")
+                "^lane_result_ready_results_check=ok cases=25")
 
         add_test(NAME explosion_lane_result_ready_pipeline_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -1071,7 +1071,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_ready_results_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_ready_results_check=ok cases=23")
+                "^debug_capture_ready_results_check=ok cases=24")
 
         add_test(NAME debug_capture_ready_pipeline_expectations
             COMMAND ${Python3_EXECUTABLE}

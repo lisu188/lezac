@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
+import time
 
 
 HELPER = Path("tools/compare_state2_visual_row_game_previews.py")
@@ -46,6 +48,36 @@ def run(command: list[str], cwd: Path) -> str:
     return proc.stdout.strip()
 
 
+def remove_tree_best_effort(path: Path) -> bool:
+    def on_error(function, failing_path, _exc_info) -> None:
+        try:
+            os.chmod(failing_path, 0o700)
+            function(failing_path)
+        except OSError:
+            pass
+
+    for _attempt in range(3):
+        try:
+            shutil.rmtree(path, onerror=on_error)
+            return True
+        except PermissionError:
+            time.sleep(0.2)
+        except OSError:
+            time.sleep(0.2)
+    return not path.exists()
+
+
+def fresh_output_dir(out_dir: Path) -> Path:
+    if not out_dir.exists():
+        return out_dir
+    if remove_tree_best_effort(out_dir):
+        return out_dir
+    fallback = out_dir.parent / f"{out_dir.name}-{os.getpid()}"
+    if fallback.exists() and not remove_tree_best_effort(fallback):
+        raise RuntimeError(f"could not prepare output directory {fallback}")
+    return fallback
+
+
 def check_static_contract(root: Path) -> None:
     helper = read(root, HELPER)
     for snippet in (
@@ -78,8 +110,7 @@ def check_static_contract(root: Path) -> None:
 
 
 def check_runtime(root: Path, cpp_exe: Path, out_dir: Path) -> None:
-    if out_dir.exists():
-        shutil.rmtree(out_dir)
+    out_dir = fresh_output_dir(out_dir)
     fake_original = out_dir / "fake_original"
     bundle = out_dir / "bundle"
     fake_original.mkdir(parents=True)

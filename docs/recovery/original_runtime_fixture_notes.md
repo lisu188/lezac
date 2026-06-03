@@ -59,6 +59,11 @@ control-flow reachability, not exact rendered presentation.
   `DS:799e` priority, and `DS:79c4` active flag for the player hurt cue.
   Malformed fixtures cover segment mismatch, missing request records, and
   dump bytes that disagree with the normalized cursor.
+- `tools/capture_original_sound_callsite_debug.sh` stages the matching
+  debugger-seeded original capture plan for the six currently mapped gameplay
+  sound scenarios. Checked-in original sound-callsite fixtures should use the
+  `sound_callsite_oracle_original*.txt` convention once real DOSBox-debug
+  transcripts are normalized.
 
 ## State-2 Runtime Frame Table
 

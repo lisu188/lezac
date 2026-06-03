@@ -319,6 +319,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_plan.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_workflow.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_state2_visual_frame_capture_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_native_windows_validation_helper.py
@@ -916,6 +917,26 @@ if(BUILD_TESTING)
                 PASS_REGULAR_EXPRESSION
                     "^visual_table_debug_capture=ok mode=dry_run scenario=state2_death_table_consumption route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
 
+            foreach(sound_callsite_scenario
+                    bomb_object_sound
+                    portal_teleport_sound
+                    tile_trigger_sound
+                    bonus_pickup_sound
+                    player_damage_sound
+                    player_death_sound)
+                add_test(NAME sound_callsite_debug_capture_helper_${sound_callsite_scenario}_dry_run
+                    COMMAND ${CMAKE_COMMAND} -E env LEZAC_SOUND_CALLSITE_DEBUG_DRY_RUN=1
+                            ${BASH_EXECUTABLE}
+                            ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_sound_callsite_debug.sh
+                            /tmp/lezac-sound-callsite-debug-${sound_callsite_scenario}-dry-run
+                            ${CMAKE_CURRENT_SOURCE_DIR}
+                            ${sound_callsite_scenario})
+                set_tests_properties(sound_callsite_debug_capture_helper_${sound_callsite_scenario}_dry_run PROPERTIES
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                    PASS_REGULAR_EXPRESSION
+                        "^sound_callsite_debug_capture=ok mode=dry_run scenario=${sound_callsite_scenario} route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
+            endforeach()
+
             add_test(NAME state2_visual_frame_capture_helper_dry_run
                 COMMAND ${CMAKE_COMMAND} -E env LEZAC_STATE2_VISUAL_FRAME_CAPTURE_DRY_RUN=1
                         ${BASH_EXECUTABLE}
@@ -1072,6 +1093,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^visual_table_debug_capture_helper=ok scenarios=1 anchors=5 outputs=7 cmake_test=1 docs=3")
+
+        add_test(NAME sound_callsite_debug_capture_helper_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_debug_capture_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(sound_callsite_debug_capture_helper_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^sound_callsite_debug_capture_helper=ok scenarios=6 anchors=7 outputs=7 cmake_tests=6 docs=3")
 
         add_test(NAME debug_capture_summary_expectations
             COMMAND ${Python3_EXECUTABLE}

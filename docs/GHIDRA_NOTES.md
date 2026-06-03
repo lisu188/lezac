@@ -830,6 +830,12 @@ cursor/priority pair (`DS:2074`, `DS:799f`), the latched current cursor/priority
 (`DS:78c0`, `DS:799e`), and `DS:79c4` active state. The synthetic fixture covers
 the player hurt request and remains `visual_claim=0`; original fixtures should
 only be promoted after a real DOSBox-debug stop supplies those bytes.
+`tools/capture_original_sound_callsite_debug.sh <out_dir> [asset_dir]
+<scenario>` stages that original debugger pass for `bomb_object_sound`,
+`portal_teleport_sound`, `tile_trigger_sound`, `bonus_pickup_sound`,
+`player_damage_sound`, and `player_death_sound`, writing a manifest, raw dump,
+debugger command plan, runtime command plan, and fill-in `sound_callsite`
+candidate fixture.
 
 Other non-explosion cues are still being mapped; direct `playSound(index)`
 callers remain compatibility hooks until their original cursor/priority writes

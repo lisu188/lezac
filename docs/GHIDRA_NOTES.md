@@ -788,6 +788,11 @@ So an inactive latch accepts every request. While active, same-or-higher numeric
 priority refreshes/replaces the latched cursor, but one-below-or-lower priority
 is rejected. The C++ port maps this to `latchSoundRequest`, `requestSoundOffset`,
 and `pumpSoundLatch`; explosion sounds now enter through this path.
+`--debug-sound-latch-static-model` validates the shipped bytes at
+`1000:165a..167d`, including the inactive jump to `1000:166c`, the active
+`(DS:799e - 1) >= DS:799f` reject jump to the `1000:167d` return, and the
+accepted-request copies from `DS:799f`/`DS:2074` into `DS:799e`/`DS:78c0`
+before setting `DS:79c4 = 1`.
 
 Further disassembly of `1000:0fbe..1088` confirms the non-direct `PROEFS.SON`
 step shape. On each step advance the routine increments `DS:78c0`, computes

@@ -5321,6 +5321,84 @@ public:
                   << " ignored_tail_bytes=4,5\n";
     }
 
+    void debugSoundLatchStaticModel() {
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for sound latch scan");
+        }
+        constexpr uint16_t kLatchStart = 0x165a;
+        constexpr uint16_t kInactiveAcceptBranch = 0x165f;
+        constexpr uint16_t kRejectBranch = 0x166a;
+        constexpr uint16_t kAcceptPath = 0x166c;
+        constexpr uint16_t kRejectRet = 0x167d;
+
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " bytes changed");
+                }
+            }
+        };
+        auto shortJumpTarget = [&](uint16_t offset, const std::string& label) {
+            size_t p = imageBase + offset;
+            if (p + 2 > exeBytes.size()) {
+                throw std::runtime_error(label + " jump extends past LEZAC.EXE");
+            }
+            uint8_t raw = exeBytes[p + 1];
+            int displacement = raw < 0x80 ? raw : static_cast<int>(raw) - 0x100;
+            return static_cast<uint16_t>(offset + 2 + displacement);
+        };
+
+        requireBytes(kLatchStart,
+                     "a0 c4 79 3c 00 74 0b a0 9e 79 fe c8 3a 06 9f 79 "
+                     "7d 11 a0 9f 79 a2 9e 79 a1 74 20 a3 c0 78 c6 06 "
+                     "c4 79 01 c3",
+                     "sound latch routine");
+        requireBytes(kLatchStart, "a0 c4 79 3c 00 74 0b",
+                     "sound latch active gate");
+        requireBytes(0x1661, "a0 9e 79 fe c8 3a 06 9f 79 7d 11",
+                     "sound latch priority compare");
+        requireBytes(kAcceptPath, "a0 9f 79 a2 9e 79",
+                     "sound latch priority copy");
+        requireBytes(0x1672, "a1 74 20 a3 c0 78",
+                     "sound latch cursor copy");
+        requireBytes(0x1678, "c6 06 c4 79 01 c3",
+                     "sound latch active flag set");
+
+        uint16_t inactiveAcceptTarget =
+            shortJumpTarget(kInactiveAcceptBranch, "sound latch inactive accept");
+        uint16_t rejectTarget = shortJumpTarget(kRejectBranch, "sound latch reject");
+        if (inactiveAcceptTarget != kAcceptPath || rejectTarget != kRejectRet) {
+            throw std::runtime_error("sound latch branch target changed");
+        }
+
+        std::cout << "sound_latch_static_model=ok"
+                  << " routine=" << hex4(kLatchStart) << ".." << hex4(kRejectRet)
+                  << " active_flag=0x79c4"
+                  << " current_priority=0x799e"
+                  << " pending_priority=0x799f"
+                  << " pending_cursor=0x2074"
+                  << " current_cursor=0x78c0"
+                  << " inactive_accept=1"
+                  << " reject_branch=" << hex4(rejectTarget)
+                  << " accept_branch=" << hex4(inactiveAcceptTarget)
+                  << " current_minus_one_compare=1"
+                  << " copies_priority=1"
+                  << " copies_cursor=1"
+                  << " sets_active=1\n";
+    }
+
     void debugGranRawRoundtrip() {
         load();
         auto rawBytes = readFile("GRAN.MST");
@@ -15907,6 +15985,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sound-tick-static-model") {
             app.debugSoundTickStaticModel();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sound-latch-static-model") {
+            app.debugSoundLatchStaticModel();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-gran-raw-roundtrip") {

@@ -731,6 +731,8 @@ python3 tools/sweep_original_lane_write_routes.py \
   `DS:78c0` cursor, honors the `0x7530` stop sentinel, and applies the
   gate/period bytes used by `1000:0fbe..1088`. Bomb explosion requests use the
   recovered direct-sweep cursors and the original `1000:165a` priority latch,
+  with `--debug-sound-latch-static-model` pinning the latch bytes, branch
+  targets, priority comparison, and accepted-request copies in `LEZAC.EXE`,
   bomb placement queues the recovered direct-sweep cursor `0xea74` at priority
   `3`, bomb-object destruction queues the recovered priority-`3` object cue,
   monster death/reward queues cursor `0x003d` at priority `12`, portal

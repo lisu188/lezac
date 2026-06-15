@@ -1758,6 +1758,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^sound_tick_static_model=ok routine=0x0fbe..0x1088 direct_sweep_threshold=0xea60 direct_sweep_subtract=0xea42 direct_sweep_step=4 cursor_increment=0x1014 entry_stride=6 entry_base=sound_bank\\+cursor\\*6-6 stop_sentinel=0x7530 period_word_offsets=0 gate_byte_offset=2 period_byte_offset=3 word_entry_reads=2 byte_entry_reads=2 tail_read_patterns=0 ignored_tail_bytes=4,5")
 
+    add_test(NAME sound_latch_static_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-latch-static-model)
+    set_tests_properties(sound_latch_static_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^sound_latch_static_model=ok routine=0x165a..0x167d active_flag=0x79c4 current_priority=0x799e pending_priority=0x799f pending_cursor=0x2074 current_cursor=0x78c0 inactive_accept=1 reject_branch=0x167d accept_branch=0x166c current_minus_one_compare=1 copies_priority=1 copies_cursor=1 sets_active=1")
+
     add_test(NAME gran_raw_roundtrip
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran-raw-roundtrip)
     set_tests_properties(gran_raw_roundtrip PROPERTIES

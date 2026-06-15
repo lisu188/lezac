@@ -6,6 +6,11 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `--debug-sound-latch-static-model` to pin the original
+  `1000:165A..167D` priority latch against shipped executable bytes. The
+  diagnostic validates the inactive accept jump, active
+  `(DS:799e - 1) >= DS:799f` reject jump, accepted cursor/priority copies from
+  `DS:2074`/`DS:799f`, and final `DS:79c4 = 1` active-flag write.
 - Added `--debug-sound-tick-static-model` to pin the original
   `1000:0FBE..1088` PC-speaker tick routine against shipped executable bytes.
   The diagnostic validates the direct-sweep branch, `cursor * 6 - 6`

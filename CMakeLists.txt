@@ -49,6 +49,13 @@ if(BUILD_TESTING)
     set_tests_properties(validate_assets PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+    add_test(NAME core_resource_raw_roundtrip
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-core-resource-raw-roundtrip)
+    set_tests_properties(core_resource_raw_roundtrip PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^core_resource_raw_roundtrip=ok palette_size=768 palette_sum=20767 palette_weighted=6683027 palette_xor=0x31 background_raw_size=34292 background_sum=2442898 background_weighted=37574726726 background_xor=0x30 background_pixels=124548 background_pixel_sum=12770002 background_pixel_nonzero=108702 background_pixel_xor=0xd2 tile_raw_size=8450 tile_count=132 tile_payload=8448 tile_sum=601303 tile_weighted=2783120138 tile_xor=0x01")
+
     add_test(NAME level_raw_roundtrip
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-level-raw-roundtrip)
     set_tests_properties(level_raw_roundtrip PROPERTIES

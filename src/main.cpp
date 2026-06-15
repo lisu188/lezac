@@ -3637,6 +3637,128 @@ public:
                   << '\n';
     }
 
+    void debugCoreResourceRawRoundtrip() {
+        load();
+        auto metrics = [](const std::vector<uint8_t>& bytes) {
+            struct Metrics {
+                uint64_t sum = 0;
+                uint64_t weighted = 0;
+                int nonzero = 0;
+                uint8_t xorValue = 0;
+            } result;
+            for (size_t i = 0; i < bytes.size(); ++i) {
+                uint8_t byte = bytes[i];
+                result.sum += byte;
+                result.weighted += static_cast<uint64_t>(i + 1) * byte;
+                if (byte != 0) ++result.nonzero;
+                result.xorValue = static_cast<uint8_t>(result.xorValue ^ byte);
+            }
+            return result;
+        };
+        auto samePalette = [](const Palette& a, const Palette& b) {
+            for (size_t i = 0; i < a.size(); ++i) {
+                if (a[i].r != b[i].r || a[i].g != b[i].g || a[i].b != b[i].b) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        auto decodeRawBackground = [](const std::vector<uint8_t>& data) {
+            std::vector<uint8_t> pixels;
+            if (data.size() < 768) {
+                throw std::runtime_error("SFONLEF.ZBG raw file is too small");
+            }
+            size_t off = 768;
+            while (off < data.size()) {
+                uint8_t cmd = data[off++];
+                if (cmd >= 0xc0) {
+                    if (off >= data.size()) {
+                        throw std::runtime_error("SFONLEF.ZBG raw RLE run is truncated");
+                    }
+                    pixels.insert(pixels.end(), cmd & 0x3f, data[off++]);
+                } else {
+                    pixels.push_back(cmd);
+                }
+            }
+            return pixels;
+        };
+
+        auto paletteRaw = readFile("BOMPAL.PAL");
+        auto backgroundRaw = readFile("SFONLEF.ZBG");
+        auto tilesRaw = readFile("CARO.CAR");
+        if (paletteRaw.size() != 768 || backgroundRaw.size() < 768 ||
+            tilesRaw.size() < 2) {
+            throw std::runtime_error("core raw resource size preflight failed");
+        }
+
+        Palette rawPalette = loadPalette(paletteRaw, 0);
+        Palette rawBackgroundPalette = loadPalette(backgroundRaw, 0);
+        if (!samePalette(rawPalette, palette_) ||
+            !samePalette(rawBackgroundPalette, backgroundPalette_)) {
+            throw std::runtime_error("raw palette data does not match JSON resources");
+        }
+
+        std::vector<uint8_t> backgroundPixels = decodeRawBackground(backgroundRaw);
+        if (background_.width != kBackgroundW || background_.height != kBackgroundH ||
+            backgroundPixels.size() != static_cast<size_t>(kBackgroundW) * kBackgroundH ||
+            background_.pixels != backgroundPixels) {
+            throw std::runtime_error("raw background data does not match JSON resource");
+        }
+
+        int rawTileCount = static_cast<int>((tilesRaw[0] << 8) | tilesRaw[1]);
+        size_t tilePayloadSize = tilesRaw.size() - 2;
+        if (rawTileCount != 132 || tiles_.count != rawTileCount ||
+            tilePayloadSize != static_cast<size_t>(rawTileCount) * kTileSize * kTileSize ||
+            tiles_.pixels.size() != tilePayloadSize ||
+            !std::equal(tiles_.pixels.begin(), tiles_.pixels.end(), tilesRaw.begin() + 2)) {
+            throw std::runtime_error("raw tile data does not match JSON resource");
+        }
+
+        auto paletteMetrics = metrics(paletteRaw);
+        auto backgroundMetrics = metrics(backgroundRaw);
+        auto backgroundPixelMetrics = metrics(backgroundPixels);
+        auto tileMetrics = metrics(tilesRaw);
+        if (paletteMetrics.sum != 20767 || paletteMetrics.weighted != 6683027 ||
+            paletteMetrics.xorValue != 0x31 ||
+            backgroundMetrics.sum != 2442898 ||
+            backgroundMetrics.weighted != 37574726726ull ||
+            backgroundMetrics.xorValue != 0x30 ||
+            backgroundPixelMetrics.sum != 12770002 ||
+            backgroundPixelMetrics.xorValue != 0xd2 ||
+            tileMetrics.sum != 601303 || tileMetrics.weighted != 2783120138ull ||
+            tileMetrics.xorValue != 0x01) {
+            throw std::runtime_error("core raw resource aggregate changed");
+        }
+
+        std::cout << "core_resource_raw_roundtrip=ok"
+                  << " palette_size=" << paletteRaw.size()
+                  << " palette_sum=" << paletteMetrics.sum
+                  << " palette_weighted=" << paletteMetrics.weighted
+                  << " palette_xor=0x" << std::hex << std::setw(2)
+                  << std::setfill('0') << static_cast<int>(paletteMetrics.xorValue)
+                  << std::dec << std::setfill(' ')
+                  << " background_raw_size=" << backgroundRaw.size()
+                  << " background_sum=" << backgroundMetrics.sum
+                  << " background_weighted=" << backgroundMetrics.weighted
+                  << " background_xor=0x" << std::hex << std::setw(2)
+                  << std::setfill('0') << static_cast<int>(backgroundMetrics.xorValue)
+                  << std::dec << std::setfill(' ')
+                  << " background_pixels=" << backgroundPixels.size()
+                  << " background_pixel_sum=" << backgroundPixelMetrics.sum
+                  << " background_pixel_nonzero=" << backgroundPixelMetrics.nonzero
+                  << " background_pixel_xor=0x" << std::hex << std::setw(2)
+                  << std::setfill('0') << static_cast<int>(backgroundPixelMetrics.xorValue)
+                  << std::dec << std::setfill(' ')
+                  << " tile_raw_size=" << tilesRaw.size()
+                  << " tile_count=" << rawTileCount
+                  << " tile_payload=" << tilePayloadSize
+                  << " tile_sum=" << tileMetrics.sum
+                  << " tile_weighted=" << tileMetrics.weighted
+                  << " tile_xor=0x" << std::hex << std::setw(2)
+                  << std::setfill('0') << static_cast<int>(tileMetrics.xorValue)
+                  << std::dec << std::setfill(' ') << '\n';
+    }
+
     void debugRecordNameEntry(const std::string& path) {
         load();
         recordPath_ = path;
@@ -14158,6 +14280,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-records-raw-roundtrip") {
             app.debugRecordsRawRoundtrip();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-core-resource-raw-roundtrip") {
+            app.debugCoreResourceRawRoundtrip();
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-record-name-entry") {

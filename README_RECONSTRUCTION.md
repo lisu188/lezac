@@ -106,6 +106,7 @@ python3 tools/compare_state2_visual_row_game_previews.py /tmp/lezac-state2-visua
 ./build/lezac_cpp --debug-explosion-playback-oracle tests/fixtures/dosbox/explosion_playback_oracle_synthetic.txt
 ./build/lezac_cpp --debug-original-state2-effect-placement
 ./build/lezac_cpp --debug-player-state2-return-active
+./build/lezac_cpp --debug-core-resource-raw-roundtrip
 ./build/lezac_cpp --debug-record-update /tmp/records_test.dat
 ./build/lezac_cpp --debug-records-raw-roundtrip
 ./build/lezac_cpp --debug-record-name-entry /tmp/records_name_test.dat
@@ -639,6 +640,9 @@ python3 tools/sweep_original_lane_write_routes.py \
 - VGA palette loading from `BOMPAL.PAL` and `SFONLEF.ZBG`.
 - `SFONLEF.ZBG` PCX-style RLE background decoding as a 321x388 image.
 - `CARO.CAR` 132-tile 8x8 tile bank loading.
+  `--debug-core-resource-raw-roundtrip` verifies those three original binary
+  files against the converted JSON resources, including the background RLE
+  expansion to 124,548 pixels and the 8,448-byte CARO tile payload.
 - `FONTS.SPR`, `PROVA.SPR`, and `BOMOMIMK.SPR` sprite-bank loading.
 - Text rendering from the original `FONTS.SPR` glyph sprites.
 - `RECS.DAT` high-score parsing as score, reached level, and colon-padded

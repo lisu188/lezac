@@ -36,6 +36,11 @@ Baseline: `origin/main`
   recovered eight-byte storage behavior in addition to accepted keys: short
   names are colon padded, spaces serialize as colons in `encoded_name`, and
   overlong input is capped at eight stored characters.
+- Added `--debug-core-resource-raw-roundtrip` to pin `BOMPAL.PAL`,
+  `SFONLEF.ZBG`, and `CARO.CAR` against their converted JSON resources. It
+  compares decoded palettes, background RLE expansion, and tile payload bytes,
+  then locks palette size/sum/XOR, background raw size `34292`, decoded pixel
+  count `124548`, tile count `132`, and CARO payload size `8448` in CTest.
 - Added `--debug-records-raw-roundtrip` to pin original `RECS.DAT` against the
   converted JSON resource: raw size `92`, seven 13-byte records, top score
   `541200`, cutoff `474930`, score sum `3508890`, all level `8`, all encoded

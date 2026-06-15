@@ -67,6 +67,11 @@ quirk.
   for a 321x388 indexed background.
 - `CARO.CAR` starts with a big-endian 16-bit tile count, followed by raw 8x8
   indexed tiles.
+  `--debug-core-resource-raw-roundtrip` verifies all three raw files against
+  the converted JSON resources: `BOMPAL.PAL` size `768`, `SFONLEF.ZBG` size
+  `34292`, decoded background pixels `124548`, `CARO.CAR` size `8450`, tile
+  count `132`, tile payload `8448`, and checksum-style sums/XORs pinned in
+  CTest.
 - `FONTS.SPR`, `PROVA.SPR`, and `BOMOMIMK.SPR` start with an 8-bit sprite
   count. Each sprite then has 8-bit width, 8-bit height, and raw indexed pixels.
   `FONTS.SPR` stores large `A-Z`, compact `A-Z`, compact `0-9`, then period,

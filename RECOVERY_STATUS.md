@@ -6,6 +6,12 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `--debug-sound-tick-static-model` to pin the original
+  `1000:0FBE..1088` PC-speaker tick routine against shipped executable bytes.
+  The diagnostic validates the direct-sweep branch, `cursor * 6 - 6`
+  `PROEFS.SON` step address calculation, stop sentinel `0x7530`, entry reads at
+  offsets `+0`, `+2`, and `+3`, and zero checked tail-read patterns for
+  preserved bytes `+4..+5`.
 - Extended `--debug-shipped-file-manifest` to verify the original executable's
   lowercase runtime filename anchors. The diagnostic now pins ten unique names,
   15 total references, `proefs.son` at `1000:0626`, `gran.mst` at

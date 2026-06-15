@@ -1751,6 +1751,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^son_tail_fields_mutation=ok steps=130 mutated_steps=130 compared_cursors=14 .* unknown_pair_nonzero_steps=118 ignored_tail_bytes=4,5")
 
+    add_test(NAME sound_tick_static_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-tick-static-model)
+    set_tests_properties(sound_tick_static_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^sound_tick_static_model=ok routine=0x0fbe..0x1088 direct_sweep_threshold=0xea60 direct_sweep_subtract=0xea42 direct_sweep_step=4 cursor_increment=0x1014 entry_stride=6 entry_base=sound_bank\\+cursor\\*6-6 stop_sentinel=0x7530 period_word_offsets=0 gate_byte_offset=2 period_byte_offset=3 word_entry_reads=2 byte_entry_reads=2 tail_read_patterns=0 ignored_tail_bytes=4,5")
+
     add_test(NAME gran_raw_roundtrip
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran-raw-roundtrip)
     set_tests_properties(gran_raw_roundtrip PROPERTIES

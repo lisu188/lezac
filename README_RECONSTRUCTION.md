@@ -848,11 +848,15 @@ python3 tools/sweep_original_lane_write_routes.py \
   `1000:6053`.
 - PC speaker sound effects now use a recovered request/priority latch,
   direct-sweep path for bomb explosions, and six-byte cursor stepping for
-  `PROEFS.SON`. Field diagnostics preserve bytes `+4..+5` as raw unknowns, and
-  mutation coverage proves the current synthesizer ignores them; their original
-  semantic meaning plus many non-explosion callsite-to-event mappings remain
-  unresolved. Remaining direct `playSound(index)` callers are compatibility
-  hooks until original cursor/priority writes are recovered.
+  `PROEFS.SON`. `--debug-sound-tick-static-model` pins the original
+  `1000:0FBE..1088` tick routine's cursor stride, direct-sweep branch, stop
+  sentinel, and table reads: word offset `+0`, byte offset `+2`, byte offset
+  `+3`, with no checked read of tail bytes `+4..+5`. Field diagnostics preserve
+  those tail bytes as raw unknowns, and mutation coverage proves the current
+  synthesizer ignores them; their original semantic meaning plus many
+  non-explosion callsite-to-event mappings remain unresolved. Remaining direct
+  `playSound(index)` callers are compatibility hooks until original
+  cursor/priority writes are recovered.
 - Two-player split-screen is playable with independent bomb inventories, scores,
   and record prompts, but exact original panel artwork and reentry presentation
   remain approximate.

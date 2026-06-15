@@ -803,6 +803,13 @@ step shape. On each step advance the routine increments `DS:78c0`, computes
 - bytes `+4..+5`: not referenced in this recovered tick window; they are
   preserved as unknown fields.
 
+`--debug-sound-tick-static-model` now validates that instruction window against
+the shipped executable bytes. It pins the direct-sweep threshold/subtract
+(`0xea60`/`0xea42`), the `DS:78c0` increment at `1000:1014`, the `cursor * 6`
+address calculation, the `0x7530` stop sentinel, two word reads at entry
+offset `+0`, byte reads at `+2` and `+3`, and no checked tail-read pattern for
+offsets `+4..+5`.
+
 The current stop-cursor map from the shipped `PROEFS.SON` payload is:
 `0x0005, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027, 0x002d,
 0x0031, 0x0035, 0x003d, 0x0056, 0x0069, 0x0078, 0x0082`.

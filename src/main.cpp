@@ -5218,6 +5218,109 @@ public:
                   << " ignored_tail_bytes=4,5\n";
     }
 
+    void debugSoundTickStaticModel() {
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for sound tick scan");
+        }
+        constexpr uint16_t kTickStart = 0x0fbe;
+        constexpr uint16_t kTickRet = 0x1088;
+        constexpr uint16_t kDirectSweepBranch = 0x0fd9;
+        constexpr uint16_t kStepAdvance = 0x1014;
+        constexpr uint16_t kStepAddress = 0x1023;
+        constexpr uint16_t kStopCompare = 0x1033;
+        constexpr uint16_t kPeriodPush = 0x1053;
+        constexpr uint16_t kGateByteRead = 0x105e;
+        constexpr uint16_t kPeriodByteRead = 0x1068;
+
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " bytes changed");
+                }
+            }
+        };
+        auto containsBytes = [&](const std::vector<uint8_t>& expected) {
+            auto begin = exeBytes.begin() + static_cast<long>(imageBase + kTickStart);
+            auto end = exeBytes.begin() + static_cast<long>(imageBase + kTickRet);
+            return std::search(begin, end, expected.begin(), expected.end()) != end;
+        };
+        auto countBytes = [&](const std::string& hex) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            int count = 0;
+            auto begin = exeBytes.begin() + static_cast<long>(imageBase + kTickStart);
+            auto end = exeBytes.begin() + static_cast<long>(imageBase + kTickRet);
+            for (auto it = begin; it != end;) {
+                it = std::search(it, end, expected.begin(), expected.end());
+                if (it == end) break;
+                ++count;
+                ++it;
+            }
+            return count;
+        };
+
+        requireBytes(kTickStart, "50 53 51 52 56 57 1e 06 c8 04 00 00",
+                     "sound tick prologue");
+        requireBytes(kDirectSweepBranch,
+                     "81 3e c0 78 60 ea 76 26 a1 c0 78 2d 42 ea 50",
+                     "sound tick direct sweep branch");
+        requireBytes(kStepAdvance,
+                     "ff 06 c0 78 a1 c0 78 d1 e0 8b f0 d1 e0 01 f0",
+                     "sound tick cursor stride");
+        requireBytes(kStepAddress, "c4 3e c0 79 03 f8 81 c7 fa ff",
+                     "sound tick step address");
+        requireBytes(kStopCompare, "c4 7e fc 26 81 3d 30 75",
+                     "sound tick stop compare");
+        requireBytes(kPeriodPush, "c4 7e fc 26 ff 35 9a c9 02 4a 08",
+                     "sound tick period push");
+        requireBytes(kGateByteRead, "c4 7e fc 26 8a 45 02 a2 a1 79",
+                     "sound tick gate byte read");
+        requireBytes(kPeriodByteRead, "c4 7e fc 26 8a 45 03 a2 a2 79",
+                     "sound tick period byte read");
+        requireBytes(kTickRet - 1, "c9", "sound tick leave");
+
+        int byteReads = countBytes("26 8a 45");
+        int wordReads = countBytes("26 81 3d") + countBytes("26 ff 35");
+        int tailReadPatterns = 0;
+        for (const std::string& pattern : {
+                 "26 8a 45 04", "26 8a 45 05", "26 8b 45 04",
+                 "26 8b 45 05", "26 ff 75 04", "26 ff 75 05",
+             }) {
+            if (containsBytes(parseHexByteList(pattern))) ++tailReadPatterns;
+        }
+        if (byteReads != 2 || wordReads != 2 || tailReadPatterns != 0) {
+            throw std::runtime_error("sound tick step read model changed");
+        }
+
+        std::cout << "sound_tick_static_model=ok"
+                  << " routine=" << hex4(kTickStart) << ".." << hex4(kTickRet)
+                  << " direct_sweep_threshold=0xea60"
+                  << " direct_sweep_subtract=0xea42"
+                  << " direct_sweep_step=4"
+                  << " cursor_increment=" << hex4(kStepAdvance)
+                  << " entry_stride=6"
+                  << " entry_base=sound_bank+cursor*6-6"
+                  << " stop_sentinel=0x7530"
+                  << " period_word_offsets=0"
+                  << " gate_byte_offset=2"
+                  << " period_byte_offset=3"
+                  << " word_entry_reads=" << wordReads
+                  << " byte_entry_reads=" << byteReads
+                  << " tail_read_patterns=" << tailReadPatterns
+                  << " ignored_tail_bytes=4,5\n";
+    }
+
     void debugGranRawRoundtrip() {
         load();
         auto rawBytes = readFile("GRAN.MST");
@@ -15800,6 +15903,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-son-tail-field-mutation") {
             app.debugSonTailFieldMutation();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sound-tick-static-model") {
+            app.debugSoundTickStaticModel();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-gran-raw-roundtrip") {

@@ -38,6 +38,12 @@ EXPECTED_RECOVERED_HOOK_SNIPPETS = [
     "requestMonsterDeathSound();",
 ]
 
+EXPECTED_REJECTED_OBJECTIVE_CANDIDATES = [
+    "0x4b2c:collapse_playback",
+    "0x6d75:bomb_object_high_gate",
+    "0x6924:non_objective_tile_gate",
+]
+
 
 def default_repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
@@ -62,6 +68,12 @@ def check_source(source_path: Path) -> None:
     for snippet in EXPECTED_RECOVERED_HOOK_SNIPPETS:
         require(text, snippet, "source")
     for snippet in EXPECTED_LIVE_HOOKS.values():
+        require(text, snippet, "source")
+    require(text, "kRemainingSoundCompatibilityHooks", "source")
+    require(text, "kRejectedObjectiveSoundCandidates", "source")
+    require(text, "remaining_compat_hooks=", "source")
+    require(text, "objective_pickup,level_complete", "source")
+    for snippet in EXPECTED_REJECTED_OBJECTIVE_CANDIDATES:
         require(text, snippet, "source")
 
     call_lines = []
@@ -94,6 +106,13 @@ def check_docs(root: Path) -> None:
         require_collapsed(text, "direct `playSound(index)`", label)
         require_collapsed(text, "compatibility hooks", label)
         require_collapsed(text, "original cursor/priority", label)
+        require_collapsed(
+            text,
+            "remaining_compat_hooks=objective_pickup,level_complete",
+            label,
+        )
+        for snippet in EXPECTED_REJECTED_OBJECTIVE_CANDIDATES:
+            require_collapsed(text, snippet, label)
 
 
 def check_cmake(cmake_path: Path) -> None:
@@ -102,7 +121,7 @@ def check_cmake(cmake_path: Path) -> None:
     require(text, "tools/check_sound_compatibility_hooks.py", "CMake")
     require(
         text,
-        "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=2 helpers=12 docs=3",
+        "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=2 helpers=12 docs=3 rejected_objective_candidates=3",
         "CMake",
     )
 
@@ -123,7 +142,8 @@ def main() -> int:
         f"live_hooks={len(EXPECTED_LIVE_HOOKS)} "
         "recovered_hooks=2 "
         f"helpers={len(EXPECTED_HELPER_SNIPPETS) + len(EXPECTED_RECOVERED_HOOK_SNIPPETS)} "
-        "docs=3"
+        "docs=3 "
+        f"rejected_objective_candidates={len(EXPECTED_REJECTED_OBJECTIVE_CANDIDATES)}"
     )
     return 0
 

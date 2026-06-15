@@ -105,6 +105,18 @@ constexpr std::array<uint16_t, 6> kCompatibilitySoundCursors{
 };
 constexpr size_t kCompatibilityObjectivePickupSound = 0;
 constexpr size_t kCompatibilityLevelCompleteSound = 5;
+constexpr std::array<const char*, 2> kRemainingSoundCompatibilityHooks{
+    "objective_pickup", "level_complete",
+};
+struct RejectedSoundCandidate {
+    uint16_t offset;
+    const char* reason;
+};
+constexpr std::array<RejectedSoundCandidate, 3> kRejectedObjectiveSoundCandidates{{
+    {0x4b2c, "collapse_playback"},
+    {0x6d75, "bomb_object_high_gate"},
+    {0x6924, "non_objective_tile_gate"},
+}};
 constexpr std::array<uint16_t, 14> kDebugSoundCursors{
     0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027,
     0x002d, 0x0031, 0x0035, 0x003d, 0x0056, 0x0069, 0x0078,
@@ -5296,6 +5308,32 @@ public:
             nearLatchCallCount(0x5c9e) != 1) {
             throw std::runtime_error("static sound request summary changed");
         }
+        auto remainingHookList = [] {
+            std::ostringstream out;
+            for (size_t i = 0; i < kRemainingSoundCompatibilityHooks.size(); ++i) {
+                if (i != 0) out << ',';
+                out << kRemainingSoundCompatibilityHooks[i];
+            }
+            return out.str();
+        };
+        auto rejectedObjectiveCandidateList = [] {
+            std::ostringstream out;
+            for (size_t i = 0; i < kRejectedObjectiveSoundCandidates.size(); ++i) {
+                if (i != 0) out << ',';
+                const RejectedSoundCandidate& candidate =
+                    kRejectedObjectiveSoundCandidates[i];
+                out << hex4(candidate.offset) << ':' << candidate.reason;
+            }
+            return out.str();
+        };
+        std::string remainingHooks = remainingHookList();
+        std::string rejectedObjectiveCandidates = rejectedObjectiveCandidateList();
+        if (remainingHooks != "objective_pickup,level_complete" ||
+            rejectedObjectiveCandidates !=
+                "0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,"
+                "0x6924:non_objective_tile_gate") {
+            throw std::runtime_error("sound compatibility recovery notes changed");
+        }
 
         std::cout << "static_sound_requests=ok writes=" << writes.size()
                   << " image_base=0x0770"
@@ -5311,6 +5349,9 @@ public:
                   << " monster_death=" << hex4(0x5c9e) << ':'
                   << hex4(kMonsterDeathSoundCursor)
                   << "/p" << static_cast<int>(kMonsterDeathSoundPriority)
+                  << " remaining_compat_hooks=" << remainingHooks
+                  << " rejected_objective_candidates="
+                  << rejectedObjectiveCandidates
                   << " cursor_writes=" << list.str() << '\n';
     }
 

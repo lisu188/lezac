@@ -746,7 +746,13 @@ python3 tools/sweep_original_lane_write_routes.py \
   `--debug-static-sound-requests` pins all 27 static immediate writes to
   `DS:2074` in the shipped executable so remaining direct `playSound(index)`
   compatibility hooks cannot be confused with original cursor/priority
-  mappings.
+  mappings. It also reports
+  `remaining_compat_hooks=objective_pickup,level_complete` and the rejected
+  objective-sound candidates
+  `0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate`,
+  keeping the collapse playback branch, the bomb-object high gate, and the
+  non-objective tile gate out of the objective-pickup mapping until new
+  original evidence proves otherwise.
   Live player damage now
   accumulates per-player damage bytes and drains them once per update pass,
   matching the recovered `DS:79e8`/`DS:79e9` model and original unsigned byte

@@ -892,6 +892,13 @@ portal, trigger, bonus, player hurt, and player death callsites. The
 bomb-object default cue is covered by the surrounding scan that leaves
 `DS:2074 = 0x0000`; 15 immediate-write candidates remain unlabeled static
 recovery targets.
+The diagnostic also prints
+`remaining_compat_hooks=objective_pickup,level_complete` and records rejected
+objective-sound candidates as
+`0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate`.
+Those labels prevent the known collapse playback branch, the bomb-object high
+gate around the `0x6c` threshold, and the non-objective tile gate near
+`1000:6924` from being reused as objective-pickup evidence.
 
 Other non-explosion cues are still being mapped; direct `playSound(index)`
 callers remain compatibility hooks until their original cursor/priority writes

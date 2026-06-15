@@ -15,7 +15,7 @@ Baseline: `origin/main`
 - Added `--debug-static-sound-requests` to scan the shipped `LEZAC.EXE` image
   and lock all 27 immediate writes to `DS:2074`. The diagnostic pins
   21 near-latch candidates, 22 near-latch call references, five direct-sweep
-  writes, 11 mapped callsites, and 16 remaining unlabeled static sound
+  writes, 12 mapped callsites, and 15 remaining unlabeled static sound
   candidates for future recovery.
 - Extended `tools/capture_original_sound_callsite_debug.sh` and its guardrail
   to stage `bomb_place_sound` runtime captures alongside the existing mapped
@@ -108,6 +108,12 @@ Baseline: `origin/main`
 - Added `tools/check_sound_compatibility_hooks.py` to keep the two remaining
   direct `playSound(index)` callers explicit as named compatibility hooks until
   original cursor/priority writes are recovered.
+- Extended the static sound diagnostic and compatibility-hook checker to report
+  `remaining_compat_hooks=objective_pickup,level_complete` and the rejected
+  objective-sound candidates
+  `0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate`.
+  This keeps the known collapse playback branch, bomb-object high gate, and
+  non-objective tile gate from being reused as objective-pickup mappings.
 - Extended `--debug-end-flow-records` with the original-style two-player
   threshold re-check: player 2 can qualify against the old seventh-place score,
   but is skipped after player 1 inserts a higher record and raises the table

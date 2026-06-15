@@ -89,14 +89,14 @@ control-flow reachability, not exact rendered presentation.
   candidate sprites against the loaded `BOMOMIMK` bank and records their
   dimensions, nonzero-pixel counts, and bounds for later frame comparison.
   `--capture-state2-visual-row-preview <out_dir>` writes matching C++ preview
-  frames and a manifest for both the candidate row-byte-3 sequence and the
-  current provisional cursor-index sequence. The companion
+  frames and a manifest for both the recovered row-byte-3 sequence and the old
+  cursor-index sequence. The companion
   `--capture-state2-visual-row-game-preview <out_dir>` writes full gameplay
-  frames for the current renderer and the debug-only candidate renderer, giving
-  later original-frame comparison the same HUD/world context.
-  `--debug-autoplayer death_visuals` now exercises that debug-only row-byte-3
-  candidate path on the actual live state-2 route for frames `0x4a..0x4c`,
-  while keeping `visual_claim=0`.
+  frames for the current row-byte-3 renderer and the debug-only legacy cursor
+  renderer, giving later original-frame comparison the same HUD/world context.
+  `--debug-autoplayer death_visuals` now exercises the live row-byte-3 renderer
+  on the actual state-2 route for frames `0x4a..0x4c`, while keeping
+  `visual_claim=0`.
   `tools/capture_original_state2_visual_frames.sh <out_dir> [asset_dir]
   state2_death_table_consumption` stages the matching original-frame directory
   contract for those comparisons. Its manifest records six expected

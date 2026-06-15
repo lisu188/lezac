@@ -2629,10 +2629,10 @@ public:
             deathStateTimer_ != kDeathStateTicks) {
             throw std::runtime_error("death visual autoplayer did not seed state-2 cursor");
         }
-        auto candidateFrame = [&](const std::string& label) {
-            state2VisualRowCandidatePreview_ = true;
+        auto cursorPreviewFrame = [&](const std::string& label) {
+            state2VisualCursorPreview_ = true;
             FrameInspection inspection = inspectRenderedFrame(label);
-            state2VisualRowCandidatePreview_ = false;
+            state2VisualCursorPreview_ = false;
             return inspection;
         };
         auto row3SpriteFor = [&](uint8_t frame) {
@@ -2648,10 +2648,10 @@ public:
         if (deathStartFrame.hash == startFrame.hash) {
             throw std::runtime_error("death visual initial frame did not change rendering");
         }
-        FrameInspection candidateStartFrame =
-            candidateFrame("autoplayer-death-visual-row3-frame-4a");
-        if (candidateStartFrame.hash == deathStartFrame.hash) {
-            throw std::runtime_error("death visual row-byte-3 frame 4a matched provisional frame");
+        FrameInspection cursorStartFrame =
+            cursorPreviewFrame("autoplayer-death-visual-cursor-frame-4a");
+        if (cursorStartFrame.hash == deathStartFrame.hash) {
+            throw std::runtime_error("death visual cursor frame 4a matched live row-byte-3 frame");
         }
 
         FrameControls idle;
@@ -2665,11 +2665,11 @@ public:
         if (tick1Frame.hash == deathStartFrame.hash) {
             throw std::runtime_error("death visual first tick frame did not change");
         }
-        FrameInspection candidateTick1Frame =
-            candidateFrame("autoplayer-death-visual-row3-frame-4b");
-        if (candidateTick1Frame.hash == tick1Frame.hash ||
-            candidateTick1Frame.hash == candidateStartFrame.hash) {
-            throw std::runtime_error("death visual row-byte-3 frame 4b did not advance");
+        FrameInspection cursorTick1Frame =
+            cursorPreviewFrame("autoplayer-death-visual-cursor-frame-4b");
+        if (cursorTick1Frame.hash == tick1Frame.hash ||
+            cursorTick1Frame.hash == cursorStartFrame.hash) {
+            throw std::runtime_error("death visual cursor frame 4b did not advance");
         }
 
         for (int i = 0; i < kState2VisualDelay + 1; ++i) {
@@ -2683,24 +2683,24 @@ public:
         if (tick5Frame.hash == tick1Frame.hash) {
             throw std::runtime_error("death visual third frame did not change");
         }
-        FrameInspection candidateTick5Frame =
-            candidateFrame("autoplayer-death-visual-row3-frame-4c");
-        if (candidateTick5Frame.hash == tick5Frame.hash ||
-            candidateTick5Frame.hash == candidateTick1Frame.hash) {
-            throw std::runtime_error("death visual row-byte-3 frame 4c did not advance");
+        FrameInspection cursorTick5Frame =
+            cursorPreviewFrame("autoplayer-death-visual-cursor-frame-4c");
+        if (cursorTick5Frame.hash == tick5Frame.hash ||
+            cursorTick5Frame.hash == cursorTick1Frame.hash) {
+            throw std::runtime_error("death visual cursor frame 4c did not advance");
         }
-        if (state2VisualRowCandidatePreview_) {
-            throw std::runtime_error("death visual candidate preview flag leaked");
+        if (state2VisualCursorPreview_) {
+            throw std::runtime_error("death visual cursor preview flag leaked");
         }
 
-        int current4a = static_cast<int>(kState2VisualStartFrame);
-        int current4b = static_cast<int>(kState2VisualStartFrame + 1);
-        int current4c = static_cast<int>(kState2VisualStartFrame + 2);
+        int cursor4a = static_cast<int>(kState2VisualStartFrame);
+        int cursor4b = static_cast<int>(kState2VisualStartFrame + 1);
+        int cursor4c = static_cast<int>(kState2VisualStartFrame + 2);
         int row3_4a = row3SpriteFor(kState2VisualStartFrame);
         int row3_4b = row3SpriteFor(static_cast<uint8_t>(kState2VisualStartFrame + 1));
         int row3_4c = row3SpriteFor(static_cast<uint8_t>(kState2VisualStartFrame + 2));
         if (row3_4a != 67 || row3_4b != 68 || row3_4c != 69 ||
-            current4a != 74 || current4b != 75 || current4c != 76) {
+            cursor4a != 74 || cursor4b != 75 || cursor4c != 76) {
             throw std::runtime_error("death visual sprite sequence mismatch");
         }
 
@@ -2711,12 +2711,12 @@ public:
                   << " tick1_frame=0x" << static_cast<int>(kState2VisualStartFrame + 1)
                   << " tick5_frame=0x" << static_cast<int>(kState2VisualStartFrame + 2)
                   << std::dec
-                  << " current_sprites=" << current4a << ',' << current4b
-                  << ',' << current4c
-                  << " row3_candidate_sprites=" << row3_4a << ',' << row3_4b
+                  << " live_sprites=" << row3_4a << ',' << row3_4b
                   << ',' << row3_4c
-                  << " row3_candidate_hash_mismatch=1"
-                  << " row3_candidate_debug_only=1"
+                  << " cursor_legacy_sprites=" << cursor4a << ',' << cursor4b
+                  << ',' << cursor4c
+                  << " cursor_legacy_hash_mismatch=1"
+                  << " row3_live_renderer=1"
                   << " frame_inspection=1 visual_claim=0\n";
     }
 
@@ -6895,11 +6895,11 @@ public:
         struct GamePreviewFrame {
             uint8_t visualFrame = 0;
             int currentSprite = 0;
-            int candidateSprite = 0;
+            int cursorSprite = 0;
             std::string currentFile;
-            std::string candidateFile;
+            std::string cursorFile;
             FrameInspection currentInspection;
-            FrameInspection candidateInspection;
+            FrameInspection cursorInspection;
         };
 
         auto bareHex2 = [](uint8_t value) {
@@ -6926,8 +6926,8 @@ public:
             }
             return inspection;
         };
-        auto renderGamePreview = [&](const std::string& file, bool rowCandidate) {
-            state2VisualRowCandidatePreview_ = rowCandidate;
+        auto renderGamePreview = [&](const std::string& file, bool cursorPreview) {
+            state2VisualCursorPreview_ = cursorPreview;
             drawGame();
             FrameInspection inspection = inspectBuffer(file);
             writeArgbPpm(joinPath(outDir, file), fb_, kScreenW, kScreenH);
@@ -6936,9 +6936,9 @@ public:
 
         std::vector<GamePreviewFrame> previews;
         std::ostringstream currentSequence;
-        std::ostringstream candidateSequence;
-        int candidateMinusCurrent = 0;
-        bool candidateHashMismatch = true;
+        std::ostringstream cursorSequence;
+        int cursorMinusCurrent = 0;
+        bool cursorHashMismatch = true;
         for (uint8_t frame = kState2VisualStartFrame;
              frame <= kState2VisualEndFrame; ++frame) {
             State2VisualRow row;
@@ -6947,16 +6947,16 @@ public:
             }
             GamePreviewFrame preview;
             preview.visualFrame = frame;
-            preview.currentSprite = static_cast<int>(frame);
-            preview.candidateSprite = static_cast<int>(row.row3);
+            preview.currentSprite = static_cast<int>(row.row3);
+            preview.cursorSprite = static_cast<int>(frame);
             if (frame == kState2VisualStartFrame) {
-                candidateMinusCurrent = preview.candidateSprite - preview.currentSprite;
+                cursorMinusCurrent = preview.cursorSprite - preview.currentSprite;
             } else {
                 currentSequence << ',';
-                candidateSequence << ',';
+                cursorSequence << ',';
             }
             currentSequence << preview.currentSprite;
-            candidateSequence << preview.candidateSprite;
+            cursorSequence << preview.cursorSprite;
 
             state2Visual_.current = frame;
             state2Visual_.first = kState2VisualStartFrame;
@@ -6966,17 +6966,17 @@ public:
             state2Visual_.active = true;
             std::string frameSuffix = bareHex2(frame);
             preview.currentFile = "state2_game_current_" + frameSuffix + ".ppm";
-            preview.candidateFile = "state2_game_row3_" + frameSuffix + ".ppm";
+            preview.cursorFile = "state2_game_cursor_" + frameSuffix + ".ppm";
             preview.currentInspection =
                 renderGamePreview(preview.currentFile, false);
-            preview.candidateInspection =
-                renderGamePreview(preview.candidateFile, true);
-            candidateHashMismatch =
-                candidateHashMismatch &&
-                preview.currentInspection.hash != preview.candidateInspection.hash;
+            preview.cursorInspection =
+                renderGamePreview(preview.cursorFile, true);
+            cursorHashMismatch =
+                cursorHashMismatch &&
+                preview.currentInspection.hash != preview.cursorInspection.hash;
             previews.push_back(std::move(preview));
         }
-        state2VisualRowCandidatePreview_ = false;
+        state2VisualCursorPreview_ = false;
 
         std::ofstream manifest(joinPath(outDir, "manifest.txt"));
         if (!manifest) {
@@ -6985,7 +6985,8 @@ public:
         manifest << "scenario=state2_visual_row_game_preview\n";
         manifest << "source=lezac_cpp\n";
         manifest << "bank=BOMOMIMK\n";
-        manifest << "candidate_renderer=debug_only\n";
+        manifest << "current_renderer=row_byte3\n";
+        manifest << "cursor_renderer=debug_only\n";
         manifest << "visual_claim=0\n";
         manifest << "frame_count=" << previews.size() << '\n';
         manifest << "output_count=" << (previews.size() * 2) << '\n';
@@ -6996,21 +6997,22 @@ public:
                      << " current_hash=" << hex64(preview.currentInspection.hash)
                      << " current_changed_pixels="
                      << preview.currentInspection.changedPixels
-                     << " candidate_sprite=" << preview.candidateSprite
-                     << " candidate_file=" << preview.candidateFile
-                     << " candidate_hash=" << hex64(preview.candidateInspection.hash)
-                     << " candidate_changed_pixels="
-                     << preview.candidateInspection.changedPixels << '\n';
+                     << " cursor_sprite=" << preview.cursorSprite
+                     << " cursor_file=" << preview.cursorFile
+                     << " cursor_hash=" << hex64(preview.cursorInspection.hash)
+                     << " cursor_changed_pixels="
+                     << preview.cursorInspection.changedPixels << '\n';
         }
 
         std::cout << "state2_visual_row_game_preview=ok"
                   << " frames=" << previews.size()
                   << " outputs=" << (previews.size() * 2)
                   << " current_sprites=" << currentSequence.str()
-                  << " candidate_sprites=" << candidateSequence.str()
-                  << " candidate_minus_current=" << candidateMinusCurrent
-                  << " candidate_hash_mismatch=" << (candidateHashMismatch ? 1 : 0)
-                  << " candidate_renderer=debug_only"
+                  << " cursor_sprites=" << cursorSequence.str()
+                  << " cursor_minus_current=" << cursorMinusCurrent
+                  << " cursor_hash_mismatch=" << (cursorHashMismatch ? 1 : 0)
+                  << " current_renderer=row_byte3"
+                  << " cursor_renderer=debug_only"
                   << " visual_claim=0"
                   << " out=" << outDir
                   << " manifest=manifest.txt\n";
@@ -12916,7 +12918,7 @@ private:
     bool pendingLifeLoss2_ = false;
     State2VisualCursor state2Visual_;
     State2VisualCursor state2Visual2_;
-    bool state2VisualRowCandidatePreview_ = false;
+    bool state2VisualCursorPreview_ = false;
     int damageCooldown_ = 0;
     int damageCooldown2_ = 0;
     uint8_t pendingDamage_ = 0;
@@ -15346,7 +15348,7 @@ private:
         int x0 = static_cast<int>(player.x) - camX;
         int y0 = static_cast<int>(player.y) - camY;
         int index = static_cast<int>(cursor.current);
-        if (state2VisualRowCandidatePreview_) {
+        if (!state2VisualCursorPreview_) {
             State2VisualRow row;
             if (originalState2VisualRow(cursor.current, row)) {
                 index = static_cast<int>(row.row3);

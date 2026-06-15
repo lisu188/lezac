@@ -44,8 +44,10 @@ def copy_file(src: Path, dst: Path) -> None:
 def original_candidates(original_dir: Path, suffix: str) -> list[Path]:
     stems = (
         f"state2_game_{suffix}",
+        f"state2_game_current_{suffix}",
         f"state2_original_{suffix}",
         f"state2_game_original_{suffix}",
+        f"state2_game_cursor_{suffix}",
         f"state2_game_row3_{suffix}",
         f"state2_row3_{suffix}",
     )
@@ -109,7 +111,8 @@ def write_manifest(
             [
                 "scenario=state2_visual_row_game_preview",
                 "source=lezac_cpp",
-                "candidate_renderer=debug_only",
+                "current_renderer=row_byte3",
+                "cursor_renderer=debug_only",
                 "visual_claim=0",
                 f"original_source_dir={original_source_dir}",
                 f"cpp_dir={cpp_dir}",
@@ -159,7 +162,7 @@ def build_bundle(
         original_frame = find_original_frame(original_source_dir, suffix)
         for variant, source_stem in (
             ("current", f"state2_game_current_{suffix}"),
-            ("row3", f"state2_game_row3_{suffix}"),
+            ("cursor", f"state2_game_cursor_{suffix}"),
         ):
             label = f"state2_{variant}_{suffix}"
             cpp_src = raw_cpp_dir / f"{source_stem}.ppm"

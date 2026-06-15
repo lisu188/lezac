@@ -800,21 +800,23 @@ python3 tools/sweep_original_lane_write_routes.py \
   candidates `67..72`, while preserving `visual_claim=0`.
   `--debug-original-state2-visual-row-assets` verifies those candidates against
   the loaded sprite bank, reports their dimensions, nonzero-pixel counts, and
-  bounding boxes, and contrasts them with the current provisional cursor-index
-  sequence `74..79` without changing live rendering.
+  bounding boxes, and contrasts them with the old cursor-index sequence
+  `74..79`. Live state-2 death rendering now uses the recovered row-byte-3
+  sprites `67..72`; this improves the C++ port but still keeps the separate
+  visual-claim promotion workflow at `visual_claim=0` until paired original
+  screenshots are promoted.
   `--capture-state2-visual-row-preview <out_dir>` writes isolated PPM previews
   for both sequences plus a `manifest.txt`, so later original-frame comparison
   can target the recovered row-byte-3 candidates directly. The companion
   `--capture-state2-visual-row-game-preview <out_dir>` writes full gameplay
-  frame previews for the current provisional renderer and a debug-only
-  row-byte-3 candidate renderer, again without changing default live behavior.
+  frame previews for the current row-byte-3 renderer and a debug-only legacy
+  cursor-index renderer.
   `tools/compare_state2_visual_row_game_previews.py` builds a standard
   frame-compare bundle from those previews and an original-frame directory, with
-  labels such as `state2_current_4a` and `state2_row3_4a`. The live
-  `--debug-autoplayer death_visuals` route now also renders the debug-only
-  row-byte-3 candidate for frames `0x4a..0x4c`, verifies it differs from the
-  current provisional sprites `74..76`, and reports candidate sprites `67..69`
-  while still keeping `visual_claim=0`.
+  labels such as `state2_current_4a` and `state2_cursor_4a`. The live
+  `--debug-autoplayer death_visuals` route verifies frames `0x4a..0x4c` now
+  render live sprites `67..69` and differ from the old cursor-index sprites
+  `74..76`, while still keeping `visual_claim=0`.
   `--debug-original-state2-return-model` now also locks the static
   `1000:7ef8..7f2a` fallback model: no active players increments the
   `DS:79b9` counter and promotes status byte `2` to `1` without doing the

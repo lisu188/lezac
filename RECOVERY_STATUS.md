@@ -29,6 +29,11 @@ Baseline: `origin/main`
   writes, two preceding priority writes, four no-local-priority cases, three
   no-latch cases, and the two `0x2710` cursor writes without treating any of
   them as a recovered live gameplay cue.
+- Switched live state-2 death rendering to the recovered row-byte-3
+  `BOMOMIMK` sprite sequence `67..72` for frames `0x4a..0x4f`. The
+  `death_visuals` autoplayer now pins live sprites `67,68,69` against the old
+  cursor-index sequence `74,75,76`, while the frame-comparison workflow keeps
+  `visual_claim=0` until paired original screenshots are promoted separately.
 - Extended `tools/capture_original_sound_callsite_debug.sh` and its guardrail
   to stage `bomb_place_sound` runtime captures alongside the existing mapped
   sound-callsite scenarios.
@@ -194,10 +199,10 @@ Baseline: `origin/main`
   plans, raw dumps, and fill-in `sound_callsite` candidate fixtures for
   `--debug-sound-callsite-oracle`.
 - Tightened `--debug-autoplayer death_visuals` so the live death-route
-  regression now inspects the debug-only row-byte-3 state-2 visual candidates
-  for frames `0x4a..0x4c`. The command pins current provisional sprites
-  `74,75,76`, row-byte-3 candidate sprites `67,68,69`, and hash mismatches
-  between the two render paths while preserving `visual_claim=0`.
+  regression now inspects the recovered row-byte-3 state-2 visual renderer for
+  frames `0x4a..0x4c`. The command pins live sprites `67,68,69`, old
+  cursor-index sprites `74,75,76`, and hash mismatches between the two render
+  paths while preserving `visual_claim=0`.
 - Updated `tools/sweep_original_lane_result_routes.py` so natural `3D3F`
   route sweeps now delegate the selected C++ oracle binary to each per-route
   capture helper, report oracle command counts during dry-run planning, and
@@ -323,26 +328,27 @@ Baseline: `origin/main`
 - Added `--debug-original-state2-visual-row-model`, a conservative C++ model
   for the original state-2 rows. It reports rows `4a:10,10,7d,43` through
   `4f:10,10,7d,48`, row-byte-3 `BOMOMIMK` sprite candidates `67..72`, and
-  `visual_claim=0`; live dead-player rendering remains provisional until
-  frame-field semantics and visual comparison are proven.
+  `visual_claim=0`; live dead-player rendering now consumes that row-byte-3
+  sprite sequence, while the broader visual claim still waits on paired
+  original-frame comparison.
 - Added `--debug-original-state2-visual-row-assets` to verify the row-byte-3
   candidates against the loaded `BOMOMIMK` asset. It records that sprites
   `67..72` are in-bounds `16x16` candidates, captures their nonzero-pixel
-  sequence `147,39,67,138,145,76`, and contrasts them with the current
-  provisional cursor-index sequence `74..79`; no live renderer behavior changed.
+  sequence `147,39,67,138,145,76`, and contrasts them with the old
+  cursor-index sequence `74..79`.
 - Added `--capture-state2-visual-row-preview <out_dir>` to render isolated C++
-  preview frames for both the recovered row-byte-3 candidate sequence and the
-  current provisional cursor-index sequence. The command writes twelve PPMs plus
+  preview frames for both the recovered row-byte-3 sequence and the old
+  cursor-index sequence. The command writes twelve PPMs plus
   a manifest with hashes and remains `visual_claim=0` until original-frame
   comparison proves which presentation is faithful.
 - Added `--capture-state2-visual-row-game-preview <out_dir>` with a debug-only
-  row-byte-3 candidate render switch. It writes full gameplay-context frames for
-  both the current provisional renderer (`74..79`) and the candidate renderer
-  (`67..72`) while leaving default live state-2 rendering unchanged.
+  cursor-index legacy render switch. It writes full gameplay-context frames for
+  both the current row-byte-3 renderer (`67..72`) and the old cursor renderer
+  (`74..79`).
 - Added `tools/compare_state2_visual_row_game_previews.py` and a self-checking
-  CTest workflow. The helper turns the current-versus-row-byte-3 state-2 game
+  CTest workflow. The helper turns the current-versus-cursor state-2 game
   previews plus an original-frame directory into a standard frame-compare bundle
-  with promotion-ready labels such as `state2_current_4a` and `state2_row3_4a`.
+  with promotion-ready labels such as `state2_current_4a` and `state2_cursor_4a`.
 - Added `tools/capture_original_state2_visual_frames.sh` and contract coverage
   for the state-2 original-frame side of that comparison. The helper writes a
   manifest plus six-frame plan for `state2_death_table_consumption`, keeps the
@@ -961,13 +967,13 @@ Baseline: `origin/main`
 - Added `tools/check_actor_contact_procmem_helper.py` and CMake dry-run
   coverage so the guarded wrapper's targets, approvals, output contract, and
   docs are checked without process-memory access.
-- Added provisional live state-2 rendering keyed to the recovered `0x4a..0x4f`
-  cursor range. It is intentionally documented as `visual_claim=0` until the
-  original `DS:c322` frame-table fields are fully interpreted.
-- Tightened the `death_visuals` autoplayer to exercise the debug-only
-  row-byte-3 candidate renderer on the actual state-2 route for frames
-  `0x4a..0x4c`, pinning candidate sprites `67,68,69` against the current
-  provisional sprites `74,75,76` without changing live rendering.
+- Added live state-2 rendering keyed to the recovered `0x4a..0x4f` cursor
+  range; the current live renderer consumes the original row-byte-3 sprite
+  sequence `67..72`. It remains documented as `visual_claim=0` until paired
+  original frame evidence is promoted.
+- Tightened the `death_visuals` autoplayer on the actual state-2 route for
+  frames `0x4a..0x4c`, pinning live row-byte-3 sprites `67,68,69` against the
+  old cursor-index sprites `74,75,76`.
 - Refactored the game update path so the autoplayer can drive the same movement
   helpers with injected controls instead of relying on live keyboard state.
 - Changed `--capture-frame-sequence level1_bomb_route <out-dir>` to reach tile

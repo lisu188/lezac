@@ -18,13 +18,12 @@ Additional deterministic autoplayer scenarios now cover:
   same damage helper used in play, verifies state-2 countdown blocks early
   reentry, then confirms reentry after `60` ticks restores active control with
   lives and energy updated.
-- `death_visuals`: verifies the live provisional state-2 visual cursor starts
+- `death_visuals`: verifies the live state-2 visual cursor starts
   at recovered frame `0x4a`, advances to `0x4b` on the first update, reaches
   `0x4c` on the fifth update, and changes the rendered frame at each checked
-  point. The command reports `visual_claim=0` until the original frame-table
-  fields are fully interpreted. It also renders the debug-only row-byte-3
-  candidate path on the same live route, pinning current provisional sprites
-  `74,75,76` against candidate sprites `67,68,69`.
+  point. The command reports `visual_claim=0` until paired original frames are
+  promoted. It pins live row-byte-3 sprites `67,68,69` against the old
+  cursor-index sprites `74,75,76`.
 - `level_transition`: completes level 1 through deterministic map-progress
   helpers, inspects the completion overlay, advances the normal update loop for
   `101` frames, and verifies level 2 is loaded.

@@ -268,7 +268,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_death_visuals_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=death_visuals death_state_ticks=60 start_frame=0x4a tick1_frame=0x4b tick5_frame=0x4c current_sprites=74,75,76 row3_candidate_sprites=67,68,69 row3_candidate_hash_mismatch=1 row3_candidate_debug_only=1 frame_inspection=1 visual_claim=0")
+            "^autoplayer=ok scenario=death_visuals death_state_ticks=60 start_frame=0x4a tick1_frame=0x4b tick5_frame=0x4c live_sprites=67,68,69 cursor_legacy_sprites=74,75,76 cursor_legacy_hash_mismatch=1 row3_live_renderer=1 frame_inspection=1 visual_claim=0")
 
     add_test(NAME autoplayer_level_transition_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -1921,7 +1921,7 @@ if(BUILD_TESTING)
     set_tests_properties(state2_visual_row_game_preview PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^state2_visual_row_game_preview=ok frames=6 outputs=12 current_sprites=74,75,76,77,78,79 candidate_sprites=67,68,69,70,71,72 candidate_minus_current=-7 candidate_hash_mismatch=1 candidate_renderer=debug_only visual_claim=0 .* manifest=manifest.txt")
+            "^state2_visual_row_game_preview=ok frames=6 outputs=12 current_sprites=67,68,69,70,71,72 cursor_sprites=74,75,76,77,78,79 cursor_minus_current=7 cursor_hash_mismatch=1 current_renderer=row_byte3 cursor_renderer=debug_only visual_claim=0 .* manifest=manifest.txt")
 
     add_test(NAME behavior4_runtime_oracle_synthetic
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-runtime-oracle

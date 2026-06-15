@@ -83,13 +83,14 @@ def check_static_contract(root: Path) -> None:
     for snippet in (
         "state2_visual_row_game_preview",
         "state2_game_current_",
-        "state2_game_row3_",
+        "state2_game_cursor_",
         "state2_{variant}_{suffix}",
         "(\"current\",",
-        "(\"row3\",",
+        "(\"cursor\",",
         "frame_compare_summary.txt",
         "missing_original",
-        "candidate_renderer=debug_only",
+        "current_renderer=row_byte3",
+        "cursor_renderer=debug_only",
         "visual_claim=0",
     ):
         require(helper, snippet, str(HELPER))
@@ -97,9 +98,9 @@ def check_static_contract(root: Path) -> None:
     doc = read(root, DOC)
     for snippet in (
         "tools/compare_state2_visual_row_game_previews.py",
-        "state2_game_row3_4a",
+        "state2_game_cursor_4a",
         "state2_current_4a",
-        "state2_row3_4a",
+        "state2_cursor_4a",
     ):
         require(doc, snippet, str(DOC))
 

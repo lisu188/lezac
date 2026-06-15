@@ -197,8 +197,9 @@ launching DOSBox. Live capture is intentionally labeled `debugger_seeded` until
 the state-2 frames can be staged by debugger setup. The resulting original
 directory should contain one original frame for each visual cursor, using names
 such as `state2_game_4a.png`, `state2_original_4a.png`, or
-`state2_game_row3_4a.png` through `4f`. The helper writes standard frame-compare
-bundle artifacts with labels such as `state2_current_4a` and `state2_row3_4a`,
+`state2_game_current_4a.png` through `4f`; the C++ contrast preview writes
+`state2_game_cursor_4a.ppm` through `4f`. The helper writes standard frame-compare
+bundle artifacts with labels such as `state2_current_4a` and `state2_cursor_4a`,
 so `tools/write_visual_claim_promotion_entry.py` can later select the proven
 label once a promotion-ready original bundle exists.
 

@@ -1058,30 +1058,27 @@ Current C++ mapping: `State2VisualCursor` in `src/main.cpp` mirrors the
 recovered initializer and mode-1 advancement with start frame `0x4a`, end frame
 `0x4f`, delay `3`, initial counter `3`, and step `+1`. `beginPlayerDeath`
 seeds that cursor, the update loop advances it while a player is in state 2,
-and `drawState2PlayerVisual` renders a provisional visible state-2 frame so
-autoplayer/UI tests can inspect live death playback. This remains a
-`visual_claim=0` implementation until the `DS:c322` row fields and final
-renderer consumption path are fully mapped. The debug command
+and `drawState2PlayerVisual` now renders the recovered row-byte-3
+`BOMOMIMK` sprite sequence `67..72` for live death playback. This remains a
+`visual_claim=0` implementation until paired original-frame evidence promotes
+the full presentation. The debug command
 `--debug-original-state2-visual-row-model` mirrors the original row range as a
 C++ model with rows `4a:10,10,7d,43` through `4f:10,10,7d,48`,
 row-byte-3 sprite candidates `67..72`, draw-offset candidate `16,16`, and
 `visual_claim=0`. `--debug-original-state2-visual-row-assets` then confirms
 those row-byte-3 candidates are in-bounds `BOMOMIMK` sprites, all `16x16`, and
-contrasts them with the current provisional cursor-index sequence `74..79`.
+contrasts them with the old cursor-index sequence `74..79`.
 `--capture-state2-visual-row-preview <out_dir>` renders both sequences as
 isolated C++ PPM artifacts with a manifest for later original-frame comparison.
-`--capture-state2-visual-row-game-preview <out_dir>` uses the same row-byte-3
-candidate renderer only inside that debug capture, producing full gameplay
-frames beside the current provisional renderer frames.
+`--capture-state2-visual-row-game-preview <out_dir>` writes full gameplay
+frames for the current row-byte-3 renderer beside a debug-only legacy cursor
+renderer.
 `tools/compare_state2_visual_row_game_previews.py` converts those paired C++
 previews and an original-frame directory into a standard frame-compare bundle
-with labels such as `state2_current_4a` and `state2_row3_4a`.
-The live `death_visuals` autoplayer also exercises that debug-only row-byte-3
-candidate renderer on the actual state-2 route for frames `0x4a..0x4c`,
-pinning current provisional sprites `74,75,76` against candidate sprites
-`67,68,69` while preserving `visual_claim=0`.
-Live rendering is not switched to that model until the remaining field names
-and frame comparison are proven.
+with labels such as `state2_current_4a` and `state2_cursor_4a`.
+The live `death_visuals` autoplayer exercises frames `0x4a..0x4c`, pinning
+live sprites `67,68,69` against old cursor sprites `74,75,76` while preserving
+`visual_claim=0`.
 
 The C++ debug command `--debug-state2-runtime-frame-oracle <dump.txt>` parses a
 normalized saved DOSBox debugger transcript. It expects runtime `CS`/`DS`,

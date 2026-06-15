@@ -643,9 +643,9 @@ captures natural route `x:2.00,m:0.35` reaching reverse debris writeback
 `tests/fixtures/dosbox/explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze.txt`
 records a live `x:2.00,c:0.50` no-freeze run with lane globals present.
 Natural forward debris writeback at `3D2D` remains the next lane-write evidence
-target before live queue playback changes. For the next DOSBox-capable pass,
-use the reviewed forward-debris matrix instead of hand-entering the timing
-variants:
+target before live queue playback changes. The reviewed forward-debris matrix
+has already produced ten valid `no_freeze` candidates, so do not repeat it as
+the next step:
 
 ```sh
 python3 tools/sweep_original_lane_write_routes.py \
@@ -665,10 +665,33 @@ The 2026-06-15 local WSL pass of that unchanged matrix completed ten natural
 `3D2D` captures, and the native Windows oracle parsed them as valid
 `no_freeze` candidates. Do not repeat the same matrix blindly. If the same
 host split is used again, run the summarizer from Windows; it translates
-`/mnt/c/...` manifest paths back to `C:\...` paths. The next useful capture
-should narrow the runtime patch gate, for example by forwarding
-`--runtime-freeze-require-high-debris-target-byte` and the selected base/count
-filters through `tools/sweep_original_lane_write_routes.py`.
+`/mnt/c/...` manifest paths back to `C:\...` paths. Two narrower retries on
+route `x:2.00,c:0.50` are also negative evidence: a `0x01` target-byte gate
+never loaded the runtime patch (`no_patch`), and a later observed-state gate
+`2941/665c/c22e` plus target byte `0xde` loaded the patch at `4.452` seconds
+but still did not freeze or capture the natural lane write.
+
+The next useful capture should target the earlier decoded `209e/6620/c22e`
+state that was present in the latest oracle sample, using both the target-byte
+and word-layer gates:
+
+```sh
+python3 tools/sweep_original_lane_write_routes.py \
+  /tmp/lezac-lane-write-forward-word-gated . \
+  --route x:2.00,c:0.50 --offset forward-debris \
+  --runtime-freeze-preset none \
+  --runtime-freeze-min-queue-score 0x90 \
+  --runtime-freeze-min-debris-nonzero 0x20 \
+  --runtime-freeze-min-collapse-nonzero 0x10 \
+  --runtime-freeze-min-effect-nonzero 0x10 \
+  --runtime-freeze-require-debris-base 0x209e \
+  --runtime-freeze-require-collapse-base 0x6620 \
+  --runtime-freeze-require-effect-base 0xc22e \
+  --runtime-freeze-require-high-debris-target-byte 0x00 \
+  --runtime-freeze-require-high-debris-word-layer-value 0x0005 \
+  --approve-procmem --approve-runtime-instrumentation \
+  --cpp-exe ./build/lezac_cpp --continue-on-oracle-error
+```
 
 `--debug-lane-write-static-model` pins the shipped executable bytes behind
 that plan: forward/reverse collapse stores at `1000:3D1B`/`1000:3EAF`,

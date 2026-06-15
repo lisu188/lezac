@@ -150,6 +150,7 @@ def runtime_freeze_gate_enabled(args: argparse.Namespace) -> bool:
         or args.runtime_freeze_require_collapse_base is not None
         or args.runtime_freeze_require_effect_base is not None
         or args.runtime_freeze_require_high_debris_target_byte is not None
+        or args.runtime_freeze_require_high_debris_word_layer_value is not None
     )
 
 
@@ -229,6 +230,10 @@ def build_capture_command(
         (
             "--runtime-freeze-require-high-debris-target-byte",
             args.runtime_freeze_require_high_debris_target_byte,
+        ),
+        (
+            "--runtime-freeze-require-high-debris-word-layer-value",
+            args.runtime_freeze_require_high_debris_word_layer_value,
         ),
     ]:
         if value is not None:
@@ -357,6 +362,7 @@ def main() -> int:
     parser.add_argument("--runtime-freeze-require-collapse-base")
     parser.add_argument("--runtime-freeze-require-effect-base")
     parser.add_argument("--runtime-freeze-require-high-debris-target-byte")
+    parser.add_argument("--runtime-freeze-require-high-debris-word-layer-value")
     parser.add_argument("--level-start-seconds", default="3.0")
     parser.add_argument("--right-hold-seconds", default="2.0")
     parser.add_argument("--sample-seconds", default="8.0")

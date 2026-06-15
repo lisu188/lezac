@@ -90,6 +90,7 @@ def write_candidate(
     offset_label: str,
     freeze: bool,
     placeholder: bool = False,
+    patch_applied: bool = True,
 ) -> None:
     _, kind, target, old_bytes = OFFSET_MODEL[offset_label]
     lane_lines = []
@@ -107,6 +108,9 @@ def write_candidate(
         lane_lines = ["instrumented_lane_write_scratch_present=0"]
     if placeholder:
         lane_lines.append("# fill me: <instrumented_lane_write_output>")
+    patch_lines = [f"runtime_freeze_patch_applied={1 if patch_applied else 0}"]
+    if patch_applied:
+        patch_lines.append(f"runtime_freeze_old_bytes={old_bytes}")
     write_text(
         path,
         "\n".join(
@@ -120,8 +124,7 @@ def write_candidate(
                 "instrumented_lane_write_cs_offset=0xf080",
                 f"instrumented_lane_write_kind={kind}",
                 f"instrumented_lane_write_target={target}",
-                "runtime_freeze_patch_applied=1",
-                f"runtime_freeze_old_bytes={old_bytes}",
+                *patch_lines,
                 "runtime_cs=01ED",
                 "runtime_ds=0C8F",
                 *lane_lines,
@@ -187,16 +190,20 @@ def main() -> int:
         base = Path(tmp)
         ready_candidate = base / "ready" / "candidate.txt"
         no_freeze_candidate = base / "no_freeze" / "candidate.txt"
+        no_patch_candidate = base / "no_patch" / "candidate.txt"
         incomplete_candidate = base / "incomplete" / "candidate.txt"
         write_candidate(ready_candidate, "3d2d", freeze=True)
         write_candidate(no_freeze_candidate, "3ec1", freeze=False)
+        write_candidate(no_patch_candidate, "3d2d", freeze=False, patch_applied=False)
         write_candidate(incomplete_candidate, "3d2d", freeze=True, placeholder=True)
 
         ready_manifest = base / "ready" / "manifest.txt"
         no_freeze_manifest = base / "no_freeze" / "manifest.txt"
+        no_patch_manifest = base / "no_patch" / "manifest.txt"
         incomplete_manifest = base / "incomplete" / "manifest.txt"
         write_runtime_manifest(ready_manifest, ready_candidate)
         write_runtime_manifest(no_freeze_manifest, no_freeze_candidate)
+        write_runtime_manifest(no_patch_manifest, no_patch_candidate)
         write_runtime_manifest(incomplete_manifest, incomplete_candidate)
 
         sweep_manifest = base / "manifest.txt"
@@ -320,6 +327,21 @@ def main() -> int:
         )
         require(no_ready, "reason=no_ready_candidates", "no_ready_required")
         require(no_ready, "no_freeze_candidates=1", "no_ready_required")
+        cases += 1
+
+        no_patch_sweep = base / "no_patch_manifest.txt"
+        write_route_sweep(
+            no_patch_sweep,
+            [("no_patch", "3d2d", no_patch_manifest, no_patch_candidate)],
+            ["3d2d"],
+        )
+        no_patch = run_summary(
+            root, [str(no_patch_sweep), "--require-ready"], expect_success=False
+        )
+        require(no_patch, "reason=no_ready_candidates", "no_patch_required")
+        require(no_patch, "no_patch_candidates=1", "no_patch_required")
+        require(no_patch, "candidate_status=no_patch", "no_patch_required")
+        require(no_patch, "patch_applied=0", "no_patch_required")
         cases += 1
 
         incomplete_sweep = base / "incomplete_manifest.txt"

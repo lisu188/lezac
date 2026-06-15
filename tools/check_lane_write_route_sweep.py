@@ -260,6 +260,8 @@ def main() -> int:
             "0xc22e",
             "--runtime-freeze-require-high-debris-target-byte",
             "0x05",
+            "--runtime-freeze-require-high-debris-word-layer-value",
+            "0x0005",
             "--route",
             "x:2.00",
         ],
@@ -276,6 +278,7 @@ def main() -> int:
         "--runtime-freeze-require-collapse-base 0x6620",
         "--runtime-freeze-require-effect-base 0xc22e",
         "--runtime-freeze-require-high-debris-target-byte 0x05",
+        "--runtime-freeze-require-high-debris-word-layer-value 0x0005",
     ]:
         require(gated, snippet, "gated_runtime_freeze")
     cases += 1

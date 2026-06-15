@@ -724,7 +724,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_route_sweep_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_route_sweep_summary_check=ok cases=11")
+                "^lane_result_route_sweep_summary_check=ok cases=12")
 
         add_test(NAME explosion_lane_write_static_model
             COMMAND $<TARGET_FILE:lezac_cpp> --debug-lane-write-static-model)
@@ -777,7 +777,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_write_route_sweep_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_write_route_sweep_summary_check=ok cases=11")
+                "^lane_write_route_sweep_summary_check=ok cases=12")
 
         add_test(NAME explosion_lane_write_ready_manifest_expectations
             COMMAND ${Python3_EXECUTABLE}

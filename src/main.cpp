@@ -3638,12 +3638,20 @@ public:
         load();
         recordPath_ = path;
         saveRecords(recordPath_, records_);
+        const std::vector<Record> baselineRecords = records_;
 
         auto containsRecord = [&](uint32_t score, const std::string& name) {
             auto reloaded = loadRecords(recordPath_);
             return std::any_of(reloaded.begin(), reloaded.end(),
                                [&](const Record& record) {
                                    return record.score == score && record.name == name;
+                               });
+        };
+        auto containsScore = [&](uint32_t score) {
+            auto reloaded = loadRecords(recordPath_);
+            return std::any_of(reloaded.begin(), reloaded.end(),
+                               [&](const Record& record) {
+                                   return record.score == score;
                                });
         };
 
@@ -3733,6 +3741,28 @@ public:
             throw std::runtime_error("two-player queued records did not finish cleanly");
         }
 
+        records_ = baselineRecords;
+        saveRecords(recordPath_, records_);
+        if (records_.size() < 7 || records_[5].score <= records_[6].score + 1) {
+            throw std::runtime_error("baseline records cannot exercise p2 re-check");
+        }
+        playerCount_ = 2;
+        score_ = records_.front().score + 1000u;
+        score2_ = records_[6].score + 1u;
+        levelIndex_ = 4;
+        beginGameOver();
+        if (menuPage_ != MenuPage::NameEntry || pendingRecordPlayer_ != 1 ||
+            pendingRecordScore_ != score_) {
+            throw std::runtime_error("threshold re-check did not start with player 1");
+        }
+        uint32_t recheckP2Score = score2_;
+        pendingRecordName_ = "top";
+        finalizePendingRecord();
+        if (menuPage_ != MenuPage::Records || pendingRecordScore_ != 0 ||
+            containsScore(recheckP2Score)) {
+            throw std::runtime_error("player 2 was not re-checked after player 1 insert");
+        }
+
         playerCount_ = 1;
         resetLevel(static_cast<int>(levels_.size()) - 1);
         menu_ = false;
@@ -3752,7 +3782,8 @@ public:
         auto finalRecords = loadRecords(recordPath_);
         std::cout << "end_flow_records=ok completion_level=" << completionLevel
                   << " p1_record=999997 p2_record=999998 records="
-                  << finalRecords.size() << '\n';
+                  << finalRecords.size()
+                  << " p2_recheck_skipped=1\n";
     }
 
     void exportBackground(const std::string& path) {

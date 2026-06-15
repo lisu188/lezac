@@ -676,7 +676,8 @@ python3 tools/sweep_original_lane_write_routes.py \
   separate controls, split camera views, a central objective panel, per-player
   bomb inventories/HUD/score state, zero-life player-out handling, shared
   objectives, player-2 bomb placement through the `N` fire key, and queued
-  per-player high-score prompts at end of run.
+  per-player high-score prompts at end of run, including re-checking player 2
+  against the updated table after player 1 inserts a qualifying record.
 - High-score table serialization back to the converted `RECS.DAT.json` resource
   format, name entry for new records with original-evidence letters/space,
   Backspace, Enter handling, eight-character truncation, and colon-padded

@@ -1101,7 +1101,9 @@ dispatcher. MZ header math confirms its file window as `0x2284..0x24b2` using
 The C++ port maps this to `beginEndRun`, `startNextPendingRecord`, and
 `finalizePendingRecord`. It keeps the original player-check order and re-checks
 queued player scores against the current record table immediately before
-opening name entry.
+opening name entry. `--debug-end-flow-records` now includes a threshold case
+where player 2 would qualify against the old seventh record but is skipped after
+player 1 is inserted and the table cutoff rises.
 `tools/check_record_flow_evidence_map.py` guards this handoff by checking the
 `RECS.DAT` converted resource shape, record/name/end-flow debug commands, CTest
 output contracts, and the `1000:1845..1ad4` / `1000:1b14..1d42` docs anchors.

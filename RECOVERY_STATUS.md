@@ -36,6 +36,10 @@ Baseline: `origin/main`
   recovered eight-byte storage behavior in addition to accepted keys: short
   names are colon padded, spaces serialize as colons in `encoded_name`, and
   overlong input is capped at eight stored characters.
+- Extended `--debug-end-flow-records` with the original-style two-player
+  threshold re-check: player 2 can qualify against the old seventh-place score,
+  but is skipped after player 1 inserts a higher record and raises the table
+  cutoff.
 - Promoted natural, non-seeded original-runtime evidence for forward final
   lane-result writeback: `explosion_playback_oracle_original_3d3f_lane_result_runtime_natural.txt`
   captures route `x:2.00` reaching `1000:3D3F` with runtime

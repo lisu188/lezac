@@ -1568,7 +1568,7 @@ if(BUILD_TESTING)
     set_tests_properties(end_flow_records_temp PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^end_flow_records=ok completion_level=2 p1_record=999997 p2_record=999998 records=7")
+            "^end_flow_records=ok completion_level=2 p1_record=999997 p2_record=999998 records=7 p2_recheck_skipped=1")
 
     add_test(NAME sound_render COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-render)
     set_tests_properties(sound_render PROPERTIES

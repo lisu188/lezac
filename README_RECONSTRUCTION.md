@@ -529,7 +529,8 @@ default/timing/route-step probes load the patch but do not reach that freeze.
 - `RECS.DAT` high-score parsing as score, reached level, and colon-padded
   8-byte player name.
 - `PROEFS.SON` parsing as a fixed-size sound-effect bank and `GRAN.MST`
-  parsing as seven fixed-size opaque records.
+  parsing as seven fixed-size opaque records with raw round-trip and
+  conservative byte-profile diagnostics.
 - `LIVELS.SCH` seven-level parsing with the Ghidra-confirmed 3-byte level RLE,
   decoded word layer, monster spawner records, portal/start records, and tile
   trigger rules.

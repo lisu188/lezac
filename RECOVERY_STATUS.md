@@ -1176,7 +1176,8 @@ Baseline: `origin/main`
 - Exact two-player panel artwork and full death/reentry presentation.
 - Exact sprite frame tables for impact/death/reward frames remain unresolved.
 - `GRAN.MST` field semantics remain unknown; consolidation only locks file
-  shape and raw/json byte preservation.
+  shape, raw/json byte preservation, and a conservative byte-profile diagnostic
+  for future loader/runtime comparisons.
 
 ## Next Planned Target
 

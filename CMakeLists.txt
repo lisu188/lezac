@@ -1044,6 +1044,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^gran_raw_roundtrip=ok raw_size=399 record_size=57 records=7 payload_size=399 json_records=7")
 
+    add_test(NAME gran_record_profile
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran)
+    set_tests_properties(gran_record_profile PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "gran_record_profile=ok records=7 record_size=57 groups_per_record=19 total_nonzero_groups=113 total_zero_groups=20 total_zero_bytes=150")
+
     add_test(NAME sound_priority_latch
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-priority-latch)
     set_tests_properties(sound_priority_latch PROPERTIES

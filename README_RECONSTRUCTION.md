@@ -77,6 +77,7 @@ LEZAC_LOAD_ORIGINAL_ASSETS=1 ./build/lezac_cpp --validate
 ./build/lezac_cpp --debug-son-step-fields
 ./build/lezac_cpp --debug-sound-priority-latch
 ./build/lezac_cpp --debug-sound-selector-map
+./build/lezac_cpp --debug-static-sound-contexts
 ./build/lezac_cpp --debug-player-damage-sound
 ./build/lezac_cpp --debug-sound-callsite-oracle tests/fixtures/dosbox/sound_callsite_oracle_synthetic.txt
 LEZAC_SOUND_CALLSITE_DEBUG_DRY_RUN=1 tools/capture_original_sound_callsite_debug.sh /tmp/lezac-sound-callsite-debug . player_damage_sound
@@ -752,7 +753,11 @@ python3 tools/sweep_original_lane_write_routes.py \
   `0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate`,
   keeping the collapse playback branch, the bomb-object high gate, and the
   non-objective tile gate out of the objective-pickup mapping until new
-  original evidence proves otherwise.
+  original evidence proves otherwise. `--debug-static-sound-contexts` separately
+  pins the original bytes and nearby strings that place `0x1857`, `0x1a44`,
+  `0x1d9c`, `0x202d`, and `0x2083` in name-entry/record UI regions rather than
+  in the `1000:1b14..1d42` completed-game dispatcher, so the current
+  level-complete hook also stays explicitly unresolved.
   Live player damage now
   accumulates per-player damage bytes and drains them once per update pass,
   matching the recovered `DS:79e8`/`DS:79e9` model and original unsigned byte

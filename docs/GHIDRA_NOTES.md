@@ -899,6 +899,15 @@ objective-sound candidates as
 Those labels prevent the known collapse playback branch, the bomb-object high
 gate around the `0x6c` threshold, and the non-objective tile gate near
 `1000:6924` from being reused as objective-pickup evidence.
+`--debug-static-sound-contexts` pins the currently rejected level-complete
+static candidates by byte context: the post-game dispatcher returns at
+`1000:1d42`, while the immediate writes at `1000:1857`, `1000:1a44`,
+`1000:1d9c`, `1000:202d`, and `1000:2083` sit in name-entry, post-end-flow
+record, or record-table UI regions with nearby strings `inserisci il tuo nome`,
+`bomba bonus`, and `punteggi migliori`. The diagnostic reports
+`level_complete_static_candidate=none`, keeping the live level-complete
+`playSound(index)` hook unresolved until a same-location original request is
+confirmed.
 
 Other non-explosion cues are still being mapped; direct `playSound(index)`
 callers remain compatibility hooks until their original cursor/priority writes

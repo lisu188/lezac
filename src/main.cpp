@@ -117,6 +117,21 @@ constexpr std::array<RejectedSoundCandidate, 3> kRejectedObjectiveSoundCandidate
     {0x6d75, "bomb_object_high_gate"},
     {0x6924, "non_objective_tile_gate"},
 }};
+constexpr uint16_t kEndFlowDispatcherStart = 0x1b14;
+constexpr uint16_t kEndFlowDispatcherRet = 0x1d42;
+struct StaticSoundContext {
+    uint16_t offset;
+    uint16_t cursor;
+    uint8_t priority;
+    const char* context;
+};
+constexpr std::array<StaticSoundContext, 5> kRecordUiSoundContexts{{
+    {0x1857, 0x0078, 11, "name_entry_region"},
+    {0x1a44, 0x0008, 11, "name_entry_region"},
+    {0x1d9c, 0x003d, 10, "post_end_flow_record_region"},
+    {0x202d, 0x0021, 0, "record_table_region"},
+    {0x2083, 0x0024, 2, "record_table_region"},
+}};
 constexpr std::array<uint16_t, 14> kDebugSoundCursors{
     0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027,
     0x002d, 0x0031, 0x0035, 0x003d, 0x0056, 0x0069, 0x0078,
@@ -5353,6 +5368,90 @@ public:
                   << " rejected_objective_candidates="
                   << rejectedObjectiveCandidates
                   << " cursor_writes=" << list.str() << '\n';
+    }
+
+    void debugStaticSoundContexts() {
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for sound context scan");
+        }
+
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " context extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " context bytes changed");
+                }
+            }
+        };
+        auto imageContainsAscii = [&](const std::string& needle) {
+            std::vector<uint8_t> bytes(needle.begin(), needle.end());
+            return std::search(exeBytes.begin() + static_cast<long>(imageBase),
+                               exeBytes.end(), bytes.begin(), bytes.end()) != exeBytes.end();
+        };
+        auto priorityString = [](uint8_t priority) {
+            if (priority == 0) return std::string("deferred");
+            return std::string("p") + std::to_string(static_cast<int>(priority));
+        };
+
+        requireBytes(0x1857, "c7 06 74 20 78 00 c6 06 9f 79 0b e8 f5 fd",
+                     "name-entry 0x1857 sound write");
+        requireBytes(0x1a44, "c7 06 74 20 08 00 c6 06 9f 79 0b e8 08 fc",
+                     "name-entry 0x1a44 sound write");
+        requireBytes(0x1d42, "c2 02 00", "end-flow dispatcher return");
+        requireBytes(0x1d45, "09 66 6f 6e 74 73 2e 73 70 72 0b 62 6f 6d 62 61 20 62 6f 6e 75 73",
+                     "post-end-flow font/bonus strings");
+        requireBytes(0x1d9c, "c7 06 74 20 3d 00 c6 06 9f 79 0a e8 b0 f8",
+                     "post-end-flow 0x1d9c sound write");
+        requireBytes(0x202d, "c7 06 74 20 21 00 e8 24 f6",
+                     "record-table 0x202d sound write");
+        requireBytes(0x2083, "c7 06 74 20 24 00 c6 06 9f 79 02 e8 c9 f5",
+                     "record-table 0x2083 sound write");
+
+        if (!imageContainsAscii("inserisci il tuo nome;") ||
+            !imageContainsAscii("punteggi migliori") ||
+            !imageContainsAscii("bomba bonus")) {
+            throw std::runtime_error("record/menu sound context strings changed");
+        }
+        for (const StaticSoundContext& context : kRecordUiSoundContexts) {
+            if (context.offset >= kEndFlowDispatcherStart &&
+                context.offset <= kEndFlowDispatcherRet) {
+                throw std::runtime_error("record UI sound context overlaps end-flow dispatcher");
+            }
+        }
+        if (!(0x1d9c > kEndFlowDispatcherRet && 0x1d9c < 0x202d)) {
+            throw std::runtime_error("post-end-flow sound context ordering changed");
+        }
+
+        std::ostringstream recordContexts;
+        for (size_t i = 0; i < kRecordUiSoundContexts.size(); ++i) {
+            if (i != 0) recordContexts << ',';
+            const StaticSoundContext& context = kRecordUiSoundContexts[i];
+            recordContexts << hex4(context.offset) << ':' << hex4(context.cursor)
+                           << '/' << priorityString(context.priority) << ':'
+                           << context.context;
+        }
+
+        std::cout << "static_sound_contexts=ok"
+                  << " image_base=0x0770"
+                  << " end_flow_dispatcher=" << hex4(kEndFlowDispatcherStart)
+                  << ".." << hex4(kEndFlowDispatcherRet)
+                  << " first_post_end_flow_sound=" << hex4(0x1d9c)
+                  << " level_complete_static_candidate=none"
+                  << " record_ui_writes=" << recordContexts.str()
+                  << " strings=inserisci_il_tuo_nome,punteggi_migliori,bomba_bonus"
+                  << " remaining_compat_hooks=objective_pickup,level_complete"
+                  << '\n';
     }
 
     void debugBombPlaceSoundRouting() {
@@ -15130,6 +15229,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-static-sound-requests") {
             app.debugStaticSoundRequests();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-static-sound-contexts") {
+            app.debugStaticSoundContexts();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-place-sound") {

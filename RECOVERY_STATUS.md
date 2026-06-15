@@ -114,6 +114,13 @@ Baseline: `origin/main`
   `0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate`.
   This keeps the known collapse playback branch, bomb-object high gate, and
   non-objective tile gate from being reused as objective-pickup mappings.
+- Added `--debug-static-sound-contexts` to pin the original byte contexts for
+  `0x1857`, `0x1a44`, `0x1d9c`, `0x202d`, and `0x2083` as
+  name-entry/post-end-flow-record/record-table UI sound writes. It verifies the
+  `1000:1b14..1d42` end-flow dispatcher boundary and nearby strings
+  `inserisci il tuo nome`, `bomba bonus`, and `punteggi migliori`, then reports
+  `level_complete_static_candidate=none` so the live level-complete
+  compatibility hook cannot be replaced by those unrelated static writes.
 - Extended `--debug-end-flow-records` with the original-style two-player
   threshold re-check: player 2 can qualify against the old seventh-place score,
   but is skipped after player 1 inserts a higher record and raises the table
@@ -1715,7 +1722,9 @@ Baseline: `origin/main`
   the sound-callsite oracle and DOSBox-debug capture planner are ready for
   original debugger transcripts. The remaining direct `playSound(index)`
   callers are compatibility hooks until original cursor/priority writes are
-  recovered.
+  recovered; the current static context audit rules out the name-entry,
+  record-table, post-end-flow-record, collapse playback, bomb-object high-gate,
+  and non-objective tile-gate candidates for those two live hooks.
 - Exact actor update behavior around `1000:6053..777f`, especially original
   contact flags, passability thresholds, tile snapping, behavior-3 ledge/wall
   handling, and behavior-4 collision response. The synthetic actor-update oracle

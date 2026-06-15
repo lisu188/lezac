@@ -1784,6 +1784,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^static_sound_requests=ok writes=27 image_base=0x0770 latch=0x165a latch_candidates=21 latch_refs=22 priority_candidates=21 direct_sweep=5 mapped=12 unresolved=15 bomb_place=0x557b:0xea74/p3 monster_death=0x5c9e:0x003d/p12 remaining_compat_hooks=objective_pickup,level_complete rejected_objective_candidates=0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate")
 
+    add_test(NAME static_sound_contexts
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-static-sound-contexts)
+    set_tests_properties(static_sound_contexts PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^static_sound_contexts=ok image_base=0x0770 end_flow_dispatcher=0x1b14..0x1d42 first_post_end_flow_sound=0x1d9c level_complete_static_candidate=none record_ui_writes=0x1857:0x0078/p11:name_entry_region,0x1a44:0x0008/p11:name_entry_region,0x1d9c:0x003d/p10:post_end_flow_record_region,0x202d:0x0021/deferred:record_table_region,0x2083:0x0024/p2:record_table_region")
+
     add_test(NAME bomb_place_sound
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-place-sound)
     set_tests_properties(bomb_place_sound PROPERTIES

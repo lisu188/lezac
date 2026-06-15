@@ -46,11 +46,11 @@ Baseline: `origin/main`
   CTest now fails if any source file fingerprint drifts, and the command also
   locks `LEZAC.EXE` as an MZ binary with size `52384`, image base `0x0770`,
   and image size `50480`.
-- Added a tested original-asset runtime loading path. Setting
-  `LEZAC_LOAD_ORIGINAL_ASSETS=1` now loads palettes, background, tiles, sprite
-  banks, records, `PROEFS.SON`, `GRAN.MST`, and `LIVELS.SCH` directly from the
-  shipped binary files; `--debug-original-asset-load` proves that state matches
-  the JSON compatibility loader exactly.
+- Made the tested original-asset path the default runtime loader and copy the
+  shipped resources beside the built executable. `LEZAC_LOAD_JSON_ASSETS=1`
+  still forces the JSON compatibility path, while `--debug-original-asset-load`
+  proves both paths match exactly for palettes, background, tiles, sprite banks,
+  records, `PROEFS.SON`, `GRAN.MST`, and `LIVELS.SCH`.
 - Added `--debug-records-raw-roundtrip` to pin original `RECS.DAT` against the
   converted JSON resource: raw size `92`, seven 13-byte records, top score
   `541200`, cutoff `474930`, score sum `3508890`, all level `8`, all encoded

@@ -111,11 +111,11 @@ quirk.
   loads, stores, validates, and debug-prints those opaque records; no live
   gameplay or rendering path may consume `GRAN.MST` without first adding
   evidence.
-- `LEZAC_LOAD_ORIGINAL_ASSETS=1` switches the C++ loader from converted JSON
-  resources to the shipped files themselves. `--debug-original-asset-load`
-  verifies that this original-asset path produces the same runtime palettes,
-  background, tiles, sprites, records, sound payload, GRAN bytes, and level
-  structures as the JSON path.
+- The C++ loader now defaults to the shipped files themselves, while
+  `LEZAC_LOAD_JSON_ASSETS=1` keeps the converted JSON path available for
+  diagnostics. `--debug-original-asset-load` verifies that the original-asset
+  path produces the same runtime palettes, background, tiles, sprites, records,
+  sound payload, GRAN bytes, and level structures as the JSON path.
 
 ## Level Entity Blocks
 

@@ -1364,11 +1364,13 @@ public:
     }
 
     void load() {
+        const char* jsonAssets = std::getenv("LEZAC_LOAD_JSON_ASSETS");
         const char* originalAssets = std::getenv("LEZAC_LOAD_ORIGINAL_ASSETS");
-        if (originalAssets != nullptr && std::string(originalAssets) != "0") {
-            loadOriginalAssets();
-        } else {
+        if ((jsonAssets != nullptr && std::string(jsonAssets) != "0") ||
+            (originalAssets != nullptr && std::string(originalAssets) == "0")) {
             loadJsonAssets();
+        } else {
+            loadOriginalAssets();
         }
     }
 

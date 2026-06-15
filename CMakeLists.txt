@@ -29,6 +29,19 @@ set(LEZAC_JSON_RESOURCES
     src/LIVELS.SCH.json
 )
 
+set(LEZAC_ORIGINAL_RESOURCES
+    BOMOMIMK.SPR
+    BOMPAL.PAL
+    CARO.CAR
+    FONTS.SPR
+    GRAN.MST
+    LIVELS.SCH
+    PROEFS.SON
+    PROVA.SPR
+    RECS.DAT
+    SFONLEF.ZBG
+)
+
 foreach(resource IN LISTS LEZAC_JSON_RESOURCES)
     get_filename_component(resource_name ${resource} NAME)
     add_custom_command(
@@ -36,6 +49,16 @@ foreach(resource IN LISTS LEZAC_JSON_RESOURCES)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 ${CMAKE_CURRENT_SOURCE_DIR}/${resource}
                 $<TARGET_FILE_DIR:lezac_cpp>/${resource_name}
+        VERBATIM
+    )
+endforeach()
+
+foreach(resource IN LISTS LEZAC_ORIGINAL_RESOURCES)
+    add_custom_command(
+        TARGET lezac_cpp POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${CMAKE_CURRENT_SOURCE_DIR}/${resource}
+                $<TARGET_FILE_DIR:lezac_cpp>/${resource}
         VERBATIM
     )
 endforeach()
@@ -48,6 +71,21 @@ if(BUILD_TESTING)
     add_test(NAME validate_assets COMMAND $<TARGET_FILE:lezac_cpp> --validate)
     set_tests_properties(validate_assets PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+    add_test(NAME validate_json_assets
+        COMMAND ${CMAKE_COMMAND} -E env LEZAC_LOAD_JSON_ASSETS=1
+                $<TARGET_FILE:lezac_cpp> --validate)
+    set_tests_properties(validate_json_assets PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "level_7=140x52 objective_tile=106 required_bonus=1 destruction=10 spawners=0 portals=2 triggers=1")
+
+    add_test(NAME validate_build_dir_original_assets
+        COMMAND ${CMAKE_COMMAND} -E chdir $<TARGET_FILE_DIR:lezac_cpp>
+                $<TARGET_FILE:lezac_cpp> --validate)
+    set_tests_properties(validate_build_dir_original_assets PROPERTIES
+        PASS_REGULAR_EXPRESSION
+            "level_7=140x52 objective_tile=106 required_bonus=1 destruction=10 spawners=0 portals=2 triggers=1")
 
     add_test(NAME core_resource_raw_roundtrip
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-core-resource-raw-roundtrip)

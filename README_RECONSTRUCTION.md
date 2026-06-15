@@ -15,11 +15,15 @@ cmake -S . -B build
 cmake --build build
 ```
 
-Run from this directory so the converted JSON resources are found:
+Run from this directory so the shipped original assets are found:
 
 ```sh
 ./build/lezac_cpp
 ```
+
+The build also copies the shipped resources beside the executable, so running
+from the build output directory works. Set `LEZAC_LOAD_JSON_ASSETS=1` to force
+the converted JSON compatibility resources for diagnostics.
 
 Validate every decoded original data file without opening a window:
 
@@ -643,10 +647,11 @@ python3 tools/sweep_original_lane_write_routes.py \
 - `--debug-shipped-file-manifest` pins the 14 shipped original files used as
   conversion/disassembly evidence, including `LEZAC.EXE` size `52384`, MZ
   image base `0x0770`, image size `50480`, and aggregate byte fingerprints.
-- `LEZAC_LOAD_ORIGINAL_ASSETS=1` loads runtime resources directly from the
-  shipped binary files. `--debug-original-asset-load` compares that path against
-  the JSON compatibility path across palettes, background, tiles, sprites,
-  records, `PROEFS.SON`, `GRAN.MST`, and all seven levels.
+- The runtime loader now defaults to the shipped binary files. Set
+  `LEZAC_LOAD_JSON_ASSETS=1` or `LEZAC_LOAD_ORIGINAL_ASSETS=0` to force the JSON
+  compatibility path. `--debug-original-asset-load` compares both paths across
+  palettes, background, tiles, sprites, records, `PROEFS.SON`, `GRAN.MST`, and
+  all seven levels.
 - VGA palette loading from `BOMPAL.PAL` and `SFONLEF.ZBG`.
 - `SFONLEF.ZBG` PCX-style RLE background decoding as a 321x388 image.
 - `CARO.CAR` 132-tile 8x8 tile bank loading.

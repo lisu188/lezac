@@ -70,6 +70,30 @@ case "$scenario" in
         cursor=0x0056
         priority=5
         ;;
+    record_name_prompt_sound)
+        request_label=record_name_prompt
+        callsite_offset=1857
+        cursor=0x0078
+        priority=11
+        ;;
+    record_name_commit_sound)
+        request_label=record_name_commit
+        callsite_offset=1A44
+        cursor=0x0008
+        priority=11
+        ;;
+    post_end_flow_record_sound)
+        request_label=post_end_flow_record
+        callsite_offset=1D9C
+        cursor=0x003d
+        priority=10
+        ;;
+    records_page_sound)
+        request_label=records_page
+        callsite_offset=2083
+        cursor=0x0024
+        priority=2
+        ;;
     *)
         echo "unsupported sound-callsite scenario: $scenario" >&2
         exit 65

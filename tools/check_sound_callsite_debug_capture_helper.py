@@ -16,6 +16,10 @@ SCENARIOS = {
     "bonus_pickup_sound": ("6E4B", "0x0008", "5"),
     "player_damage_sound": ("7F84", "0x002d", "4"),
     "player_death_sound": ("30A3", "0x0056", "5"),
+    "record_name_prompt_sound": ("1857", "0x0078", "11"),
+    "record_name_commit_sound": ("1A44", "0x0008", "11"),
+    "post_end_flow_record_sound": ("1D9C", "0x003d", "10"),
+    "records_page_sound": ("2083", "0x0024", "2"),
 }
 
 OUTPUTS = [
@@ -126,7 +130,7 @@ def check_cmake(cmake_path: Path) -> None:
     for snippet in [
         "tools/check_sound_callsite_debug_capture_helper.py",
         "${CMAKE_CURRENT_SOURCE_DIR}",
-        "^sound_callsite_debug_capture_helper=ok scenarios=8 anchors=9 outputs=7 cmake_tests=8 docs=3",
+        "^sound_callsite_debug_capture_helper=ok scenarios=12 anchors=13 outputs=7 cmake_tests=12 docs=3",
     ]:
         if collapse_ws(snippet) not in collapsed:
             raise RuntimeError(
@@ -148,6 +152,10 @@ def check_docs(root: Path) -> None:
         require(text, "bomb_place_sound", label)
         require(text, "monster_death_sound", label)
         require(text, "player_damage_sound", label)
+        require(text, "record_name_prompt_sound", label)
+        require(text, "record_name_commit_sound", label)
+        require(text, "post_end_flow_record_sound", label)
+        require(text, "records_page_sound", label)
         require(text, "sound_callsite", label)
     require(status, "debugger_seeded", "RECOVERY_STATUS")
 
@@ -170,7 +178,8 @@ def main() -> int:
     check_docs(root)
     print(
         "sound_callsite_debug_capture_helper=ok "
-        f"scenarios={len(SCENARIOS)} anchors=9 outputs={len(OUTPUTS)} "
+        f"scenarios={len(SCENARIOS)} anchors={len(SCENARIOS) + 1} "
+        f"outputs={len(OUTPUTS)} "
         f"cmake_tests={len(SCENARIOS)} docs=3"
     )
     return 0

@@ -743,7 +743,9 @@ python3 tools/sweep_original_lane_write_routes.py \
   <scenario>` stages debugger-seeded manifests and candidate fixtures for
   `bomb_object_sound`, `bomb_place_sound`, `monster_death_sound`,
   `portal_teleport_sound`, `tile_trigger_sound`, `bonus_pickup_sound`,
-  `player_damage_sound`, and `player_death_sound`.
+  `player_damage_sound`, `player_death_sound`, `record_name_prompt_sound`,
+  `record_name_commit_sound`, `post_end_flow_record_sound`, and
+  `records_page_sound`.
   `--debug-static-sound-requests` pins all 27 static immediate writes to
   `DS:2074` in the shipped executable so remaining direct `playSound(index)`
   compatibility hooks cannot be confused with original cursor/priority

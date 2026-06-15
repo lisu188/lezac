@@ -68,10 +68,13 @@ control-flow reachability, not exact rendered presentation.
   Malformed fixtures cover segment mismatch, missing request records, and
   dump bytes that disagree with the normalized cursor.
 - `tools/capture_original_sound_callsite_debug.sh` stages the matching
-  debugger-seeded original capture plan for the six currently mapped gameplay
-  sound scenarios. Checked-in original sound-callsite fixtures should use the
+  debugger-seeded original capture plan for the mapped gameplay sound scenarios
+  plus the statically pinned record/name-entry UI sound candidates. Checked-in
+  original sound-callsite fixtures should use the
   `sound_callsite_oracle_original*.txt` convention once real DOSBox-debug
-  transcripts are normalized.
+  transcripts are normalized. The cursor-only record-table write at
+  `1000:202d` is intentionally not a helper scenario yet because local static
+  evidence has not proven the pending priority at that callsite.
 
 ## State-2 Runtime Frame Table
 

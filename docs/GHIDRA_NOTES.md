@@ -882,8 +882,11 @@ only be promoted after a real DOSBox-debug stop supplies those bytes.
 <scenario>` stages that original debugger pass for `bomb_object_sound`,
 `bomb_place_sound`, `monster_death_sound`, `portal_teleport_sound`,
 `tile_trigger_sound`, `bonus_pickup_sound`, `player_damage_sound`, and
-`player_death_sound`, writing a manifest, raw dump, debugger command plan,
-runtime command plan, and fill-in `sound_callsite` candidate fixture.
+`player_death_sound`. It also stages the statically pinned record/name-entry UI
+candidates `record_name_prompt_sound`, `record_name_commit_sound`,
+`post_end_flow_record_sound`, and `records_page_sound`, writing a manifest, raw
+dump, debugger command plan, runtime command plan, and fill-in `sound_callsite`
+candidate fixture.
 `--debug-static-sound-requests` separately
 pins all 27 static `DS:2074` immediate writes found in the shipped
 `LEZAC.EXE`; the mapped set now includes the four explosion direct sweeps,

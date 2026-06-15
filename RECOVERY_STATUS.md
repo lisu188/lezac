@@ -121,6 +121,12 @@ Baseline: `origin/main`
   `inserisci il tuo nome`, `bomba bonus`, and `punteggi migliori`, then reports
   `level_complete_static_candidate=none` so the live level-complete
   compatibility hook cannot be replaced by those unrelated static writes.
+- Extended `tools/capture_original_sound_callsite_debug.sh`, its checker, and
+  dry-run CTest matrix for the statically pinned record/name-entry sound
+  callsites `record_name_prompt_sound`, `record_name_commit_sound`,
+  `post_end_flow_record_sound`, and `records_page_sound`. The cursor-only
+  `0x202d` record-table write remains unstaged until runtime evidence proves
+  the pending priority at that callsite.
 - Extended `--debug-end-flow-records` with the original-style two-player
   threshold re-check: player 2 can qualify against the old seventh-place score,
   but is skipped after player 1 inserts a higher record and raises the table
@@ -153,12 +159,14 @@ Baseline: `origin/main`
   `DS:78c0`/`DS:799e` latched state, and `DS:79c4` active state while keeping
   the evidence `visual_claim=0`.
 - Added `tools/capture_original_sound_callsite_debug.sh` plus checker and
-  dry-run CTest coverage for eight mapped sound scenarios:
+  dry-run CTest coverage for twelve mapped or statically pinned sound scenarios:
   `bomb_object_sound`, `bomb_place_sound`, `monster_death_sound`,
   `portal_teleport_sound`, `tile_trigger_sound`, `bonus_pickup_sound`,
-  `player_damage_sound`, and `player_death_sound`. The
-  helper writes debugger-seeded manifests, command plans, raw dumps, and fill-in
-  `sound_callsite` candidate fixtures for `--debug-sound-callsite-oracle`.
+  `player_damage_sound`, `player_death_sound`, `record_name_prompt_sound`,
+  `record_name_commit_sound`, `post_end_flow_record_sound`, and
+  `records_page_sound`. The helper writes debugger-seeded manifests, command
+  plans, raw dumps, and fill-in `sound_callsite` candidate fixtures for
+  `--debug-sound-callsite-oracle`.
 - Updated `tools/sweep_original_lane_result_routes.py` so natural `3D3F`
   route sweeps now delegate the selected C++ oracle binary to each per-route
   capture helper, report oracle command counts during dry-run planning, and

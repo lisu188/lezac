@@ -1045,7 +1045,11 @@ if(BUILD_TESTING)
                     tile_trigger_sound
                     bonus_pickup_sound
                     player_damage_sound
-                    player_death_sound)
+                    player_death_sound
+                    record_name_prompt_sound
+                    record_name_commit_sound
+                    post_end_flow_record_sound
+                    records_page_sound)
                 add_test(NAME sound_callsite_debug_capture_helper_${sound_callsite_scenario}_dry_run
                     COMMAND ${CMAKE_COMMAND} -E env LEZAC_SOUND_CALLSITE_DEBUG_DRY_RUN=1
                             ${BASH_EXECUTABLE}
@@ -1223,7 +1227,7 @@ if(BUILD_TESTING)
         set_tests_properties(sound_callsite_debug_capture_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^sound_callsite_debug_capture_helper=ok scenarios=8 anchors=9 outputs=7 cmake_tests=8 docs=3")
+                "^sound_callsite_debug_capture_helper=ok scenarios=12 anchors=13 outputs=7 cmake_tests=12 docs=3")
 
         add_test(NAME sound_compatibility_hooks
             COMMAND ${Python3_EXECUTABLE}

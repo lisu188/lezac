@@ -1,17 +1,16 @@
 # Recovery Status
 
 Last reviewed: 2026-05-15
-Branch: `codex/actor-contact-evidence-handoff`
+Branch: `codex/explosion-evidence-handoff`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
-- Added `tools/check_actor_contact_evidence_map.py` as a no-DOSBox consistency
-  guard for the actor/contact recovery handoff. It locks the nine process-memory
-  probe targets, the five dispatch-gate targets, actor-update/contact-scanner
-  runtime oracle flags and fixture sets, route-sweep promotion tools, C++
-  output fields, docs, and CTest wiring so the next original-runtime pass can
-  promote candidates without re-discovering the map.
+- Added `tools/check_explosion_evidence_map.py` as a no-DOSBox consistency
+  guard for the explosion/debris/collapse recovery handoff. It locks the 47
+  `--debug-explosion-playback-oracle` fixtures, the lane-result preflight and
+  promotion helpers, the 16 critical lane/high-debris/effect offsets, C++
+  oracle output fields, docs, and CTest wiring.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor

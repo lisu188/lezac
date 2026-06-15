@@ -511,6 +511,9 @@ deliberately. The synthetic CTest helpers
 `tools/check_lane_result_ready_pipeline.py`, and
 `tools/check_lane_write_ready_pipeline.py` cover the handoff without requiring
 DOSBox.
+`tools/check_explosion_evidence_map.py` keeps the explosion/playback recovery
+handoff linked across the capture helpers, lane-result promotion tools,
+oracle fixtures, C++ output fields, docs, and CTest wiring.
 The checked-in original result-write fixtures are
 `tests/fixtures/dosbox/explosion_playback_oracle_original_3ed3_lane_result_runtime.txt`
 for the reverse helper and

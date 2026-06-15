@@ -1799,6 +1799,7 @@ public:
             inspectRenderedFrame("smoke-ui");
             SDL_Delay(1);
         }
+        std::cout << "ui_smoke=ok frames=" << frames << " frame_inspection=1\n";
     }
 
     void debugLevel1FrameInspection() {

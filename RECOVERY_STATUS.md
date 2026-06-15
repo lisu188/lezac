@@ -71,6 +71,9 @@ Baseline: `origin/main`
 - Tightened the default `--validate` CTest entry so the original-asset default
   path must report the same level-7 shape already pinned by the explicit JSON
   and original-asset validation modes.
+- Made `--smoke-ui` report its inspected frame count and pinned both headless
+  UI smoke checks in CTest, so dummy-SDL rendering/control regressions no
+  longer pass on exit status alone.
 - Extended `--debug-end-flow-records` with the original-style two-player
   threshold re-check: player 2 can qualify against the old seventh-place score,
   but is skipped after player 1 inserts a higher record and raises the table

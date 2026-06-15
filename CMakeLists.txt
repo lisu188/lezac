@@ -143,13 +143,15 @@ if(BUILD_TESTING)
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --smoke-ui 3)
     set_tests_properties(ui_smoke_dummy PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^ui_smoke=ok frames=3 frame_inspection=1")
 
     add_test(NAME ui_controls_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --smoke-controls)
     set_tests_properties(ui_controls_dummy PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^control_smoke=ok")
 
     add_test(NAME level1_frame_inspection_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

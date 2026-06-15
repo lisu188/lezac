@@ -992,6 +992,9 @@ The C++ port maps this to `beginEndRun`, `startNextPendingRecord`, and
 `finalizePendingRecord`. It keeps the original player-check order and re-checks
 queued player scores against the current record table immediately before
 opening name entry.
+`tools/check_record_flow_evidence_map.py` guards this handoff by checking the
+`RECS.DAT` converted resource shape, record/name/end-flow debug commands, CTest
+output contracts, and the `1000:1845..1ad4` / `1000:1b14..1d42` docs anchors.
 
 ## Code Mapping
 

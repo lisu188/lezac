@@ -564,7 +564,10 @@ default/timing/route-step probes load the patch but do not reach that freeze.
 - High-score table serialization back to the converted `RECS.DAT.json` resource
   format, name entry for new records with original-evidence letters/space,
   Backspace, and Enter handling, and validation coverage that writes only to
-  temporary test files.
+  temporary test files. `tools/check_record_flow_evidence_map.py` keeps the
+  record-entry/end-flow handoff tied to `RECS.DAT` structure, debug commands,
+  CTest output contracts, and the disassembly anchors before cursor/typematic
+  presentation is refined.
 - Game-over and completed-game end states using strings recovered from
   `1000:1b14..1d42`, with final-level completion entering the completed-game
   path instead of wrapping directly into level 1.

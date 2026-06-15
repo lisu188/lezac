@@ -866,11 +866,11 @@ python3 tools/sweep_original_lane_write_routes.py \
   reentry diagnostics. Exact sprite playback remains approximate: the
   `actor + 0x16` state-2 cursor, cursor advancement rules, and `DS:c21e`
   placement math are locked as deterministic models, and the live renderer now
-  has provisional state-2 visual playback keyed to the recovered `0x4a..0x4f`
-  cursor range and tested by `--debug-autoplayer death_visuals`; that route also
-  inspects debug-only row-byte-3 candidate sprites `67..69`. It still reports
-  `visual_claim=0` because paired original-frame comparison has not promoted
-  exact presentation.
+  consumes the recovered row-byte-3 `BOMOMIMK` sprite sequence `67..72` for the
+  `0x4a..0x4f` state-2 frame range. `--debug-autoplayer death_visuals` verifies
+  the live row-byte-3 sprites `67..69` against the debug-only legacy
+  cursor-index contrast path `74..76`. It still reports `visual_claim=0`
+  because paired original-frame comparison has not promoted exact presentation.
 
 See [docs/GHIDRA_NOTES.md](docs/GHIDRA_NOTES.md) for addresses and disassembly
 anchors used in the reconstruction.

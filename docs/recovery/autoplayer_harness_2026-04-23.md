@@ -164,7 +164,7 @@ original frames for comparison.
 This locks the current C++ route and frame-harness behavior. Exact original
 collision/passability around `1000:6053..777f` still needs DOSBox or debugger
 evidence before the low-word passable-object rule can be called fully
-original-faithful. The death/reentry, provisional state-2 visual, records,
+original-faithful. The death/reentry, row-byte-3 state-2 visual, records,
 level-transition, and two-player autoplayer scenarios are regression coverage
 for the current C++ behavior; exact presentation and edge-case timing still
 need original runtime confirmation.

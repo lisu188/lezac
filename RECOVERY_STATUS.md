@@ -827,9 +827,9 @@ Baseline: `origin/main`
   `two_player_route` scenarios so state-2 reentry, record-entry saving, and
   player-2 movement/bomb controls are covered without live input.
 - Added `death_visuals`, `level_transition`, and `two_player_progression`
-  autoplayer scenarios. These lock provisional state-2 visual cursor playback,
-  level-1 completion into level 2, player-2 death/reentry, post-reentry bombs,
-  and player-2 scoring.
+  autoplayer scenarios. These lock the current row-byte-3 state-2 death
+  renderer, level-1 completion into level 2, player-2 death/reentry,
+  post-reentry bombs, and player-2 scoring.
 - Added `portal_weapon_route`, `monster_bomb_reward`, and
   `collapse_playback_route` autoplayer scenarios. These broaden deterministic
   coverage to weapon switching through the left+right chord, medium bomb
@@ -1752,8 +1752,8 @@ Baseline: `origin/main`
   screenshots to debugger/process-memory bytes from the relevant
   `1000:3a56..4d3b` execution window, then extend original capture beyond the
   level-1 route.
-- Interpret captured state-2 frame-table bytes and confirm the exact visual
-  consumption path for the provisional live dead-player renderer.
+- Finish paired original-frame comparison for the recovered row-byte-3 state-2
+  death renderer before promoting exact live dead-player presentation.
 - Exact explosion/debris/collapse sprite playback around `1000:3a56..4d3b`
   remains blocked on frame-table/sprite semantics, but process-memory
   instrumentation has promoted original fixtures for branch reachability,

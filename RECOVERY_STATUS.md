@@ -20,6 +20,10 @@ Baseline: `origin/main`
   `61..67` with the recovered reward scores. This narrows the exact
   impact/death/reward frame-table gap but remains asset/table evidence with
   `visual_claim=0`.
+- Added a live central objective/progress line to the two-player HUD band and
+  `--debug-two-player-hud-panel` frame inspection. The diagnostic pins both
+  split world views, both player HUD bands, the central objective panel region,
+  and progress/stat redraw behavior while keeping `original_art_claim=0`.
 - Ran the reviewed `forward-debris-expanded` lane-write sweep against natural
   `1000:3D2D` under WSL/DOSBox, writing the bundle to
   `C:\Users\andrz\AppData\Local\Temp\lezac-lane-write-forward-expanded-34076294c39340d1beaaaa48bb1b85fb`.
@@ -1924,7 +1928,10 @@ Baseline: `origin/main`
   cases, and exact dead-player visual playback from original frame bytes remain
   unresolved now that the delayed state-2 life-count decrement and fallback
   disassembly model are covered.
-- Exact two-player panel artwork and full death/reentry presentation.
+- Exact original two-player panel artwork and full death/reentry presentation
+  remain unresolved. The current C++ central objective panel is covered by
+  `--debug-two-player-hud-panel`, but original frame comparison is still
+  required before the artwork/layout can be promoted.
 - Exact original runtime consumption of impact/death/reward sprite frames
   remains unresolved. The current static candidate table is pinned by
   `--debug-monster-sprite-table-model`, but original frame/debugger evidence is

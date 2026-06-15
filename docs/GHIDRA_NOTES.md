@@ -1176,6 +1176,12 @@ State-2 fallback caveat: the `1000:7ef8..7f2a` model above is static
 disassembly behavior only. Runtime circumstances that reach it, active-player
 count edge cases, and any visible result still need DOSBox/debugger evidence.
 
+Two-player panel caveat: the current C++ split-screen renderer now has
+frame-inspected coverage for both world views, both player HUD bands, and the
+central objective/progress line through `--debug-two-player-hud-panel`. This is
+current-port evidence only; exact original panel artwork and layout still need
+original frame comparison before they can be promoted.
+
 ## Level Embedded Records
 
 - The two words immediately after the decoded tile and word layers are preserved

@@ -2852,6 +2852,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^hud_stats_live=ok hp_visible=1 lives_visible=1 bombs_visible=1 progress_visible=1 frame_inspection=1")
 
+    add_test(NAME two_player_hud_panel
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-two-player-hud-panel)
+    set_tests_properties(two_player_hud_panel PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^two_player_hud_panel=ok split_views=2 p1_hud_visible=1 p1_world_visible=1 p2_hud_visible=1 p2_world_visible=1 objective_panel_visible=1 objective_panel_changed=1 panel_y=100 panel_h=24 progress_region=72,114,150,9 frame_inspection=1 original_art_claim=0")
+
     find_program(BASH_EXECUTABLE bash)
     find_program(XVFB_RUN_EXECUTABLE xvfb-run)
     find_program(XDOTOOL_EXECUTABLE xdotool)

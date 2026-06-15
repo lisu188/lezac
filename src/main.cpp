@@ -14092,6 +14092,65 @@ public:
                   << " progress_visible=1 frame_inspection=1\n";
     }
 
+    void debugTwoPlayerHudPanel() {
+        load();
+        initSdl();
+        resetLevel(0);
+        menu_ = false;
+        playerCount_ = 2;
+        player_.x = 96.0f;
+        player_.y = 168.0f;
+        player2_.x = 152.0f;
+        player2_.y = 168.0f;
+        energy_ = 88;
+        energy2_ = 41;
+        lives_ = 3;
+        lives2_ = 1;
+        score_ = 1234;
+        score2_ = 5678;
+        collected_ = 2;
+        destroyed_ = std::max(1, level_.startingDestructibleTiles / 3);
+        bombInventory_.selected = BombType::Medium;
+        bombInventory_.counts = {199, 4, 2, 1};
+        bombInventory2_.selected = BombType::Super;
+        bombInventory2_.counts = {188, 3, 1, 0};
+
+        FrameInspection first = inspectRenderedFrame("two-player-hud-panel-first");
+        std::vector<uint32_t> firstPixels = fb_;
+        if (!regionHasVariation(0, 0, kScreenW, 24) ||
+            !regionHasVariation(0, 24, kScreenW, 74) ||
+            !regionHasVariation(0, 100, kScreenW, 24) ||
+            !regionHasVariation(72, 114, 150, 9) ||
+            !regionHasVariation(0, 124, kScreenW, 76)) {
+            throw std::runtime_error("two-player HUD panel did not render visible split UI");
+        }
+
+        ++collected_;
+        destroyed_ = std::min(level_.startingDestructibleTiles,
+                              destroyed_ + std::max(1, level_.startingDestructibleTiles / 5));
+        score2_ += 250;
+        energy2_ = 7;
+        FrameInspection second = inspectRenderedFrame("two-player-hud-panel-second");
+        if (second.hash == first.hash ||
+            !regionChanged(firstPixels, 0, 100, kScreenW, 24) ||
+            !regionChanged(firstPixels, 72, 114, 150, 9)) {
+            throw std::runtime_error("two-player HUD panel did not react to progress/stat changes");
+        }
+
+        std::cout << "two_player_hud_panel=ok"
+                  << " split_views=2"
+                  << " p1_hud_visible=1"
+                  << " p1_world_visible=1"
+                  << " p2_hud_visible=1"
+                  << " p2_world_visible=1"
+                  << " objective_panel_visible=1"
+                  << " objective_panel_changed=1"
+                  << " panel_y=100 panel_h=24"
+                  << " progress_region=72,114,150,9"
+                  << " frame_inspection=1"
+                  << " original_art_claim=0\n";
+    }
+
     void exportSprites(const std::string& bankName, const std::string& path) {
         load();
         const SpriteBank* bank = nullptr;
@@ -16420,7 +16479,7 @@ private:
             drawWorldView(player2_, 0, 116, kScreenW, 84);
             resetClip();
             drawHudBand(100, 2, energy2_, lives2_, player2Dead_,
-                        bombInventory2_, score2_, false);
+                        bombInventory2_, score2_, true);
             rect(0, 115, kScreenW, 1, 0xfff0d060u);
         } else {
             int viewW = std::clamp(gameplayViewWidth_, 160, kScreenW);
@@ -17315,6 +17374,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-hud-stats-live") {
             app.debugHudStatsLive();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-two-player-hud-panel") {
+            app.debugTwoPlayerHudPanel();
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--export-sprites") {

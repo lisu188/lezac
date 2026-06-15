@@ -146,6 +146,8 @@ python3 tools/compare_state2_visual_row_game_previews.py /tmp/lezac-state2-visua
 ./build/lezac_cpp --debug-portal-sound
 ./build/lezac_cpp --debug-portal-cooldowns
 ./build/lezac_cpp --debug-collision-pushout
+./build/lezac_cpp --debug-hud-stats-live
+./build/lezac_cpp --debug-two-player-hud-panel
 ./build/lezac_cpp --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames
 ./build/lezac_cpp --capture-frame-sequence monster_spawner_behavior4_level2 /tmp/lezac-cpp-b4-level2
 ./build/lezac_cpp --capture-frame-sequence monster_spawner_behavior4_level3 /tmp/lezac-cpp-b4-level3
@@ -945,8 +947,9 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   `playSound(index)` callers are compatibility hooks until original
   cursor/priority writes are recovered.
 - Two-player split-screen is playable with independent bomb inventories, scores,
-  and record prompts, but exact original panel artwork and reentry presentation
-  remain approximate.
+  record prompts, and a central objective/progress panel that is covered by
+  `--debug-two-player-hud-panel`, but exact original panel artwork and reentry
+  presentation remain approximate.
 - High scores are persisted with original-evidence name-entry keys
   (letters/space, Backspace, Enter), the recovered eight-character cap, and
   colon-padded storage. Empty submissions now preserve the original eight-colon

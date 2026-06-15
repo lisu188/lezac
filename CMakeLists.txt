@@ -70,7 +70,9 @@ if(BUILD_TESTING)
 
     add_test(NAME validate_assets COMMAND $<TARGET_FILE:lezac_cpp> --validate)
     set_tests_properties(validate_assets PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "level_7=140x52 objective_tile=106 required_bonus=1 destruction=10 spawners=0 portals=2 triggers=1")
 
     add_test(NAME validate_json_assets
         COMMAND ${CMAKE_COMMAND} -E env LEZAC_LOAD_JSON_ASSETS=1

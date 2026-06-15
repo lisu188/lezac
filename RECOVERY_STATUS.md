@@ -68,6 +68,9 @@ Baseline: `origin/main`
 - Pinned `--debug-sound-render` CTest output for all six compatibility cursor
   starts plus aggregate sample/nonzero counts, keeping recovered `PROEFS.SON`
   synthesis from drifting silently.
+- Tightened the default `--validate` CTest entry so the original-asset default
+  path must report the same level-7 shape already pinned by the explicit JSON
+  and original-asset validation modes.
 - Extended `--debug-end-flow-records` with the original-style two-player
   threshold re-check: player 2 can qualify against the old seventh-place score,
   but is skipped after player 1 inserts a higher record and raises the table

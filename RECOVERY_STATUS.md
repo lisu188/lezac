@@ -1,37 +1,17 @@
 # Recovery Status
 
 Last reviewed: 2026-05-15
-Branch: `codex/lane-write-route-sweep`
+Branch: `codex/sound-callsite-evidence-handoff`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
-- Added guarded natural-route capture tooling for the pending debris-side
-  lane-write offsets `1000:3D2D` and `1000:3EC1`. The new
-  `tools/capture_original_lane_write_runtime.py` wrapper supports safe
-  preflight, dry-run command generation, single-offset retries, optional oracle
-  parsing, and live capture only with explicit process-memory/runtime
-  instrumentation approvals. Its preflight pins shipped target bytes
-  `889597`/`889598`, scratch `CS:F080`, scratch length 12, and trampoline body
-  length 45 before any DOSBox capture is attempted.
-- Added `tools/sweep_original_lane_write_routes.py` plus synthetic output
-  checks for repeated lane-write route probes. The sweep defaults to the
-  `late-collapse` runtime freeze preset and preserves command lines,
-  environment-preflight status, route labels, and child capture statuses in a
-  manifest outside the repository. This is evidence tooling only; no live C++
-  gameplay behavior changed.
-- Added `tools/summarize_lane_write_route_sweep.py` so completed lane-write
-  sweep/runtime manifests are classified as `ready`, `no_freeze`, `incomplete`,
-  or `missing`, with ready-manifest output for exact
-  `--debug-explosion-playback-oracle` commands. The readiness gate rejects
-  runtime-seeded fixtures for natural-route promotion.
-- Added lane-write ready-candidate handoff wrappers:
-  `tools/run_lane_write_ready_manifest.py` and
-  `tools/summarize_lane_write_ready_results.py`. They reuse the lane-result
-  runner/result summarizer with lane-write manifest labels, and
-  `tools/check_lane_write_ready_pipeline.py` verifies dry-run planning, live
-  fake-oracle execution, result summaries, source-preflight gates, and
-  wrong-promotion rejection without DOSBox.
+- Added `tools/check_sound_callsite_map.py` as a no-DOSBox evidence handoff
+  checker for the six recovered non-explosion gameplay cues. The checker locks
+  the Ghidra anchors, cursor/priority evidence, C++ request sites, README
+  claims, and CTest names for bomb-object destruction, portals, tile triggers,
+  bonus pickups, player damage, and player death, plus the direct explosion
+  sweep cursors and the `1000:165a..167d` sound latch.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor

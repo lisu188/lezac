@@ -266,6 +266,7 @@ struct Record {
     uint32_t score = 0;
     uint8_t level = 0;
     std::string name;
+    std::string encodedName;
 };
 
 struct SoundEffectRecord {
@@ -952,6 +953,7 @@ std::vector<Record> parseJsonRecords(const std::string& json) {
         r.score = static_cast<uint32_t>(extractInt(recJson, "score"));
         r.level = static_cast<uint8_t>(extractInt(recJson, "level"));
         r.name = extractString(recJson, "decoded_name", "nessuno");
+        r.encodedName = extractString(recJson, "encoded_name", "");
         records.push_back(r);
     }
     return records;
@@ -985,6 +987,7 @@ std::vector<Record> parseRawRecords(const std::vector<uint8_t>& data,
         std::string encoded(data.begin() + static_cast<std::ptrdiff_t>(off + 5),
                             data.begin() + static_cast<std::ptrdiff_t>(off + 13));
         record.name = decodeRawRecordName(encoded);
+        record.encodedName = encoded;
         records.push_back(std::move(record));
     }
     return records;
@@ -1006,12 +1009,28 @@ std::vector<Record> loadRecords(const std::string& path) {
 }
 
 std::string encodeRecordName(const std::string& name) {
-    std::string out = name.empty() ? "PLAYER" : name;
+    std::string out = name;
     out.resize(8, ':');
     for (char& ch : out) {
         if (ch == ' ') ch = ':';
     }
     return out;
+}
+
+std::string encodedRecordName(const Record& record) {
+    if (record.encodedName.size() == 8) {
+        return record.encodedName;
+    }
+    return encodeRecordName(record.name);
+}
+
+Record makeRecord(uint32_t score, uint8_t level, const std::string& enteredName) {
+    Record record;
+    record.score = score;
+    record.level = level;
+    record.encodedName = encodeRecordName(enteredName);
+    record.name = decodeRawRecordName(record.encodedName);
+    return record;
 }
 
 bool isJsonRecordPath(const std::string& path) {
@@ -1037,7 +1056,7 @@ void saveRecords(const std::string& path, const std::vector<Record>& records) {
             out.put(static_cast<char>((score >> 16) & 0xffu));
             out.put(static_cast<char>((score >> 24) & 0xffu));
             out.put(static_cast<char>(records[i].level));
-            std::string name = encodeRecordName(records[i].name);
+            std::string name = encodedRecordName(records[i]);
             out.write(name.data(), static_cast<std::streamsize>(name.size()));
         }
         return;
@@ -1054,7 +1073,7 @@ void saveRecords(const std::string& path, const std::vector<Record>& records) {
     out << "  \"record_count\": " << count << ",\n";
     out << "  \"records\": [\n";
     for (size_t i = 0; i < count; ++i) {
-        std::string name = encodeRecordName(records[i].name);
+        std::string name = encodedRecordName(records[i]);
         out << "    {\n";
         out << "      \"index\": " << i << ",\n";
         out << "      \"score\": " << records[i].score << ",\n";
@@ -1081,7 +1100,8 @@ bool insertRecord(std::vector<Record>& records, Record record, size_t maxRecords
     for (size_t i = 0; i < records.size(); ++i) {
         if (records[i].score != before[i].score ||
             records[i].level != before[i].level ||
-            records[i].name != before[i].name) {
+            records[i].name != before[i].name ||
+            encodedRecordName(records[i]) != encodedRecordName(before[i])) {
             return true;
         }
     }
@@ -3821,7 +3841,7 @@ public:
     void debugRecordUpdate(const std::string& path) {
         load();
         std::vector<Record> testRecords = records_;
-        bool changed = insertRecord(testRecords, {999999u, 9u, "TEST"});
+        bool changed = insertRecord(testRecords, makeRecord(999999u, 9u, "TEST"));
         if (!changed) {
             throw std::runtime_error("test record was not inserted");
         }
@@ -4197,7 +4217,8 @@ public:
             if (a.size() != b.size()) return false;
             for (size_t i = 0; i < a.size(); ++i) {
                 if (a[i].score != b[i].score || a[i].level != b[i].level ||
-                    a[i].name != b[i].name) {
+                    a[i].name != b[i].name ||
+                    encodedRecordName(a[i]) != encodedRecordName(b[i])) {
                     return false;
                 }
             }
@@ -4421,10 +4442,50 @@ public:
             encodedNameAt(path, 0) != "ab:cdefg") {
             throw std::runtime_error("name-entry cap or space encoding changed");
         }
+
+        score_ = 1000001u;
+        levelIndex_ = 0;
+        beginGameOver();
+        if (menuPage_ != MenuPage::NameEntry) {
+            throw std::runtime_error("fourth high score did not open name entry");
+        }
+        onKey(SDLK_RETURN, running);
+        auto emptyName = loadRecords(path);
+        std::string emptyNameEncoding = encodedNameAt(path, 0);
+        if (emptyName.empty() || emptyName[0].score != 1000001u ||
+            emptyName[0].name != "nessuno" || emptyNameEncoding != "::::::::") {
+            throw std::runtime_error("empty name-entry encoding changed");
+        }
+
+        score_ = 1000002u;
+        levelIndex_ = 0;
+        beginGameOver();
+        if (menuPage_ != MenuPage::NameEntry) {
+            throw std::runtime_error("fifth high score did not open name entry");
+        }
+        onKey(SDLK_n, running);
+        onKey(SDLK_e, running);
+        onKey(SDLK_s, running);
+        onKey(SDLK_s, running);
+        onKey(SDLK_u, running);
+        onKey(SDLK_n, running);
+        onKey(SDLK_o, running);
+        onKey(SDLK_RETURN, running);
+        auto typedNessuno = loadRecords(path);
+        if (typedNessuno.empty() || typedNessuno[0].score != 1000002u ||
+            typedNessuno[0].name != "nessuno" ||
+            encodedNameAt(path, 0) != "nessuno:" ||
+            encodedNameAt(path, 1) != "::::::::") {
+            throw std::runtime_error("typed nessuno and empty name encodings collapsed");
+        }
         std::cout << "record_name_entry=ok top=" << reloaded[0].score
                   << " name=" << reloaded[0].name
                   << " padded=test:::: capped=" << capped[0].name
-                  << " encoded_space=ab:cdefg\n";
+                  << " encoded_space=ab:cdefg"
+                  << " empty=" << emptyName[0].name
+                  << " empty_encoded=" << emptyNameEncoding
+                  << " typed_nessuno_encoded=nessuno:"
+                  << " preserved_empty=::::::::\n";
     }
 
     void debugRecordSaveFailure(const std::string& path) {
@@ -14000,10 +14061,8 @@ private:
             menuPage_ = MenuPage::Records;
             return;
         }
-        Record record;
-        record.score = pendingRecordScore_;
-        record.level = pendingRecordLevel_;
-        record.name = pendingRecordName_.empty() ? "PLAYER" : pendingRecordName_;
+        Record record = makeRecord(pendingRecordScore_, pendingRecordLevel_,
+                                   pendingRecordName_);
         std::vector<Record> updatedRecords = records_;
         bool changed = insertRecord(updatedRecords, record);
         try {

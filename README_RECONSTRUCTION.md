@@ -840,8 +840,9 @@ python3 tools/sweep_original_lane_write_routes.py \
   remain approximate.
 - High scores are persisted with original-evidence name-entry keys
   (letters/space, Backspace, Enter), the recovered eight-character cap, and
-  colon-padded storage, but exact cursor drawing, typematic repeat, and
-  name-entry presentation remain approximate.
+  colon-padded storage. Empty submissions now preserve the original eight-colon
+  raw template and decode as `nessuno`; exact cursor drawing, typematic repeat,
+  and name-entry presentation remain approximate.
 - Bomb fuse timing, 2x2 footprint, player blast damage, monster hit-point
   blast damage, visual selectors, actor sprite indices, word-layer damage
   gating, bomb-object passability after explosion, and queued debris/collapse

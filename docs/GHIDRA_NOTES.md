@@ -1142,12 +1142,18 @@ are `0`, `1242`, `4923`, `10984`, `15225`, `21546`, and `36128`.
 Manual byte/disassembly inspection of `1000:1845..1ad4` shows the high-score
 name-entry path accepts `A..Z` plus space, stores typed letters by applying
 `or 0x20`, handles Backspace as `0x08`, commits on Enter `0x0d`, and stores the
-eight-byte name with colon padding. The C++ port follows those input rules while
-retaining `Esc` as a reconstruction-only cancel path so failed or accidental
-entries can be abandoned from the SDL menu. `--debug-record-name-entry` now
-locks cancel, ignored non-letter keys, Backspace, lowercase storage,
-eight-character truncation, space-to-colon encoding, and short-name colon
-padding against a temporary binary `RECS.DAT`-format file.
+eight-byte name with colon padding. The byte window immediately before the
+routine contains the name prompt and the initial template at `CS:183c`: length
+`0x08` followed by eight colons. The routine copies that template into its local
+name buffer before reading keys, so pressing Enter on an untouched prompt stores
+raw `::::::::` rather than a default name. The C++ port follows those input
+rules while retaining `Esc` as a reconstruction-only cancel path so failed or
+accidental entries can be abandoned from the SDL menu.
+`--debug-record-name-entry` now locks cancel, ignored non-letter keys,
+Backspace, lowercase storage, eight-character truncation, space-to-colon
+encoding, short-name colon padding, empty-name `::::::::` storage decoded as
+`nessuno`, and preservation of a typed `nessuno:` record as distinct raw bytes
+against a temporary binary `RECS.DAT`-format file.
 `--debug-record-update` writes both temporary `.dat` and `.json` tables: the
 default `.dat` path is pinned to the original 92-byte binary layout, while the
 `.json` path remains a diagnostics-only compatibility serializer.

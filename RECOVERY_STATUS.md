@@ -61,7 +61,10 @@ Baseline: `origin/main`
 - Tightened `--debug-record-name-entry` so high-score entry now locks the
   recovered eight-byte storage behavior in addition to accepted keys: short
   names are colon padded, spaces serialize as colons in `encoded_name`, and
-  overlong input is capped at eight stored characters.
+  overlong input is capped at eight stored characters. The diagnostic now also
+  pins the original empty-name template from `CS:183c`: pressing Enter on an
+  untouched prompt stores raw `::::::::`, which decodes as `nessuno`, while a
+  typed `nessuno` preserves distinct raw bytes `nessuno:`.
 - Added `--debug-core-resource-raw-roundtrip` to pin `BOMPAL.PAL`,
   `SFONLEF.ZBG`, and `CARO.CAR` against their converted JSON resources. It
   compares decoded palettes, background RLE expansion, and tile payload bytes,

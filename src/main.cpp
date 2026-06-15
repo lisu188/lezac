@@ -7865,30 +7865,70 @@ public:
 
     void debugGran() {
         load();
-        std::cout << "gran_record_size=" << gran_.recordSize
+        constexpr size_t kGranProfileStride = 3;
+        constexpr size_t kGranProfileGroupsPerRecord = kGranRecordSize / kGranProfileStride;
+        if (kGranRecordSize % kGranProfileStride != 0) {
+            throw std::runtime_error("GRAN.MST record is not divisible by profile stride");
+        }
+
+        auto hexByte = [](uint8_t value) {
+            std::ostringstream oss;
+            oss << std::hex << std::nouppercase << std::setw(2)
+                << std::setfill('0') << static_cast<int>(value);
+            return oss.str();
+        };
+        auto printStrideGroup = [&](const std::vector<uint8_t>& bytes, size_t groupIndex) {
+            const size_t off = groupIndex * kGranProfileStride;
+            std::cout << hexByte(bytes[off]) << hexByte(bytes[off + 1])
+                      << hexByte(bytes[off + 2]);
+        };
+
+        size_t totalZeroBytes = 0;
+        size_t totalNonzeroGroups = 0;
+        std::cout << "gran_record_profile=summary"
+                  << " record_size=" << gran_.recordSize
                   << " records=" << gran_.records.size()
-                  << " words_per_record=" << (gran_.recordSize / 2)
-                  << " trailing_byte=yes\n";
+                  << " stride=" << kGranProfileStride
+                  << " groups_per_record=" << kGranProfileGroupsPerRecord << '\n';
         for (size_t i = 0; i < gran_.records.size(); ++i) {
             const std::vector<uint8_t>& bytes = gran_.records[i].bytes;
-            std::cout << "gran_" << (i + 1)
-                      << "=bytes:" << bytes.size()
-                      << " zero_bytes:" << std::count(bytes.begin(), bytes.end(), 0)
-                      << " first_bytes:";
-            for (size_t off = 0; off < bytes.size() && off < 12; ++off) {
-                if (off != 0) std::cout << '-';
-                std::cout << std::hex << std::setw(2) << std::setfill('0')
-                          << static_cast<int>(bytes[off])
-                          << std::dec << std::setfill(' ');
+            if (bytes.size() != kGranRecordSize) {
+                throw std::runtime_error("GRAN.MST profile record length mismatch");
             }
-            std::cout << " first_words:";
-            for (size_t off = 0; off + 1 < bytes.size() && off < 12; off += 2) {
-                if (off != 0) std::cout << ',';
-                std::cout << std::showbase << std::hex << le16(bytes, off)
-                          << std::dec << std::noshowbase;
+            const size_t zeroBytes = static_cast<size_t>(
+                std::count(bytes.begin(), bytes.end(), 0));
+            size_t nonzeroGroups = 0;
+            for (size_t group = 0; group < kGranProfileGroupsPerRecord; ++group) {
+                const size_t off = group * kGranProfileStride;
+                if (bytes[off] != 0 || bytes[off + 1] != 0 || bytes[off + 2] != 0) {
+                    ++nonzeroGroups;
+                }
             }
-            std::cout << " last_byte=" << static_cast<int>(bytes.back()) << '\n';
+            totalZeroBytes += zeroBytes;
+            totalNonzeroGroups += nonzeroGroups;
+
+            std::cout << "gran_record_profile record=" << (i + 1)
+                      << " bytes=" << bytes.size()
+                      << " zero_bytes=" << zeroBytes
+                      << " nonzero_groups=" << nonzeroGroups
+                      << " zero_groups=" << (kGranProfileGroupsPerRecord - nonzeroGroups)
+                      << " first_groups=";
+            for (size_t group = 0; group < 4; ++group) {
+                if (group != 0) std::cout << ',';
+                printStrideGroup(bytes, group);
+            }
+            std::cout << " last_group=";
+            printStrideGroup(bytes, kGranProfileGroupsPerRecord - 1);
+            std::cout << '\n';
         }
+        std::cout << "gran_record_profile=ok"
+                  << " records=" << gran_.records.size()
+                  << " record_size=" << gran_.recordSize
+                  << " groups_per_record=" << kGranProfileGroupsPerRecord
+                  << " total_nonzero_groups=" << totalNonzeroGroups
+                  << " total_zero_groups="
+                  << (gran_.records.size() * kGranProfileGroupsPerRecord - totalNonzeroGroups)
+                  << " total_zero_bytes=" << totalZeroBytes << '\n';
     }
 
     void debugLevels() {

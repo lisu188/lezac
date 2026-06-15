@@ -107,6 +107,7 @@ python3 tools/compare_state2_visual_row_game_previews.py /tmp/lezac-state2-visua
 ./build/lezac_cpp --debug-original-state2-effect-placement
 ./build/lezac_cpp --debug-player-state2-return-active
 ./build/lezac_cpp --debug-record-update /tmp/records_test.dat
+./build/lezac_cpp --debug-records-raw-roundtrip
 ./build/lezac_cpp --debug-record-name-entry /tmp/records_name_test.dat
 ./build/lezac_cpp --debug-record-save-failure /tmp/missing-record-dir/records.dat
 ./build/lezac_cpp --debug-end-flow-records /tmp/end_flow_records.dat
@@ -641,7 +642,9 @@ python3 tools/sweep_original_lane_write_routes.py \
 - `FONTS.SPR`, `PROVA.SPR`, and `BOMOMIMK.SPR` sprite-bank loading.
 - Text rendering from the original `FONTS.SPR` glyph sprites.
 - `RECS.DAT` high-score parsing as score, reached level, and colon-padded
-  8-byte player name.
+  8-byte player name. `--debug-records-raw-roundtrip` pins the shipped binary
+  table against the converted JSON: seven 13-byte records, top score `541200`,
+  cutoff `474930`, score sum `3508890`, and colon-padded `aga:::::` names.
 - `PROEFS.SON` parsing as a fixed-size sound-effect bank and `GRAN.MST`
   parsing as seven fixed-size opaque records. The GRAN roundtrip now pins
   record-level byte fingerprints for later comparison while keeping every

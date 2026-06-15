@@ -36,6 +36,10 @@ Baseline: `origin/main`
   recovered eight-byte storage behavior in addition to accepted keys: short
   names are colon padded, spaces serialize as colons in `encoded_name`, and
   overlong input is capped at eight stored characters.
+- Added `--debug-records-raw-roundtrip` to pin original `RECS.DAT` against the
+  converted JSON resource: raw size `92`, seven 13-byte records, top score
+  `541200`, cutoff `474930`, score sum `3508890`, all level `8`, all encoded
+  names `aga:::::`, byte sum `6047`, weighted sum `278918`, and XOR `0xdd`.
 - Extended `--debug-end-flow-records` with the original-style two-player
   threshold re-check: player 2 can qualify against the old seventh-place score,
   but is skipped after player 1 inserts a higher record and raises the table

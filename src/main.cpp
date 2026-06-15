@@ -3546,6 +3546,97 @@ public:
                   << " name=" << reloaded[0].name << '\n';
     }
 
+    void debugRecordsRawRoundtrip() {
+        load();
+        auto rawBytes = readFile("RECS.DAT");
+        constexpr size_t kRecordSize = 13;
+        if (rawBytes.empty()) {
+            throw std::runtime_error("RECS.DAT raw file is empty");
+        }
+        uint8_t rawCount = rawBytes[0];
+        if (rawCount != 7 ||
+            rawBytes.size() != 1 + static_cast<size_t>(rawCount) * kRecordSize) {
+            throw std::runtime_error("RECS.DAT raw layout mismatch");
+        }
+
+        auto jsonRecords = extractObjectArray(readTextFile("RECS.DAT.json"), "records");
+        if (jsonRecords.size() != rawCount || records_.size() != rawCount) {
+            throw std::runtime_error("RECS.DAT JSON record count mismatch");
+        }
+        auto decodeRawName = [](std::string encoded) {
+            std::replace(encoded.begin(), encoded.end(), ':', ' ');
+            while (!encoded.empty() && encoded.back() == ' ') {
+                encoded.pop_back();
+            }
+            return encoded.empty() ? std::string("nessuno") : encoded;
+        };
+
+        uint64_t scoreSum = 0;
+        int level8Count = 0;
+        int decodedAgaCount = 0;
+        int encodedColonPaddedCount = 0;
+        int byteSum = 0;
+        int weightedSum = 0;
+        uint8_t xorValue = 0;
+        uint32_t previousScore = UINT32_MAX;
+        for (size_t i = 0; i < rawBytes.size(); ++i) {
+            uint8_t byte = rawBytes[i];
+            byteSum += byte;
+            weightedSum += static_cast<int>((i + 1) * byte);
+            xorValue = static_cast<uint8_t>(xorValue ^ byte);
+        }
+
+        for (size_t i = 0; i < rawCount; ++i) {
+            size_t off = 1 + i * kRecordSize;
+            uint32_t rawScore = le32(rawBytes, off);
+            uint8_t rawLevel = rawBytes[off + 4];
+            std::string rawEncoded(rawBytes.begin() + static_cast<std::ptrdiff_t>(off + 5),
+                                   rawBytes.begin() + static_cast<std::ptrdiff_t>(off + 13));
+            std::string rawDecoded = decodeRawName(rawEncoded);
+
+            const std::string& recJson = jsonRecords[i];
+            uint32_t jsonScore = static_cast<uint32_t>(extractInt(recJson, "score"));
+            uint8_t jsonLevel = static_cast<uint8_t>(extractInt(recJson, "level"));
+            std::string jsonEncoded = extractString(recJson, "encoded_name");
+            std::string jsonDecoded = extractString(recJson, "decoded_name");
+            if (rawScore != jsonScore || rawLevel != jsonLevel ||
+                rawEncoded != jsonEncoded || rawDecoded != jsonDecoded ||
+                records_[i].score != rawScore || records_[i].level != rawLevel ||
+                records_[i].name != rawDecoded) {
+                throw std::runtime_error("RECS.DAT raw/json record mismatch");
+            }
+            if (i != 0 && rawScore > previousScore) {
+                throw std::runtime_error("RECS.DAT scores are no longer descending");
+            }
+            previousScore = rawScore;
+            scoreSum += rawScore;
+            if (rawLevel == 8) ++level8Count;
+            if (rawDecoded == "aga") ++decodedAgaCount;
+            if (rawEncoded == "aga:::::") ++encodedColonPaddedCount;
+        }
+        if (scoreSum != 3508890 || byteSum != 6047 ||
+            weightedSum != 278918 || xorValue != 0xdd ||
+            level8Count != 7 || decodedAgaCount != 7 ||
+            encodedColonPaddedCount != 7) {
+            throw std::runtime_error("RECS.DAT raw aggregate changed");
+        }
+
+        std::cout << "records_raw_roundtrip=ok raw_size=" << rawBytes.size()
+                  << " count=" << static_cast<int>(rawCount)
+                  << " record_size=" << kRecordSize
+                  << " score_sum=" << scoreSum
+                  << " top=" << records_.front().score
+                  << " cutoff=" << records_.back().score
+                  << " level8_count=" << level8Count
+                  << " decoded_aga=" << decodedAgaCount
+                  << " encoded_colon_padded=" << encodedColonPaddedCount
+                  << " byte_sum=" << byteSum
+                  << " weighted_sum=" << weightedSum
+                  << " xor=0x" << std::hex << std::setw(2) << std::setfill('0')
+                  << static_cast<int>(xorValue) << std::dec << std::setfill(' ')
+                  << '\n';
+    }
+
     void debugRecordNameEntry(const std::string& path) {
         load();
         recordPath_ = path;
@@ -14063,6 +14154,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-record-update") {
             app.debugRecordUpdate(argv[2]);
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-records-raw-roundtrip") {
+            app.debugRecordsRawRoundtrip();
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-record-name-entry") {

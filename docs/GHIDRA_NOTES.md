@@ -77,6 +77,10 @@ quirk.
   pixels, and 369 visible `0xff` pixels.
 - `RECS.DAT` starts with an 8-bit record count. Each record is a little-endian
   32-bit score, an 8-bit reached level, and an 8-byte name padded with `:`.
+  `--debug-records-raw-roundtrip` verifies the shipped 92-byte file against
+  `src/RECS.DAT.json`: seven 13-byte records, all level `8`, all encoded names
+  `aga:::::`, score sum `3508890`, top `541200`, cutoff `474930`, byte sum
+  `6047`, weighted byte sum `278918`, and XOR `0xdd`.
 - `PROEFS.SON` starts with little-endian word `0x0082`. Disassembly of
   `1000:0630..06aa` treats this as a count of 130 six-byte sound steps and
   reads `0x82 * 6 = 780` payload bytes into the sound bank. The converted JSON

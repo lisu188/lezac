@@ -6,6 +6,13 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `--debug-end-flow-static-model` to pin the original
+  `1000:1B14..1D42` post-game dispatcher against shipped executable bytes. The
+  diagnostic validates the game-over/completed-game string branches,
+  `DS:208c` completed-game flag write, player score pointers
+  `DS:785a`/`DS:7888`, display markers, key latch `DS:2058`, strict seventh
+  record cutoff comparison against `DS:1b52`/`DS:1b54`, and the near call back
+  to `1000:1845` for qualifying name-entry prompts.
 - Added `--debug-record-entry-static-model` to pin the original
   `1000:1845..1AD6` high-score entry/storage byte model. The diagnostic
   validates the `CS:183c` eight-colon empty-name template, 13-byte record

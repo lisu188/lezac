@@ -1732,6 +1732,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^end_flow_records=ok completion_level=2 p1_record=999997 p2_record=999998 records=7 cutoff_equal_skipped=1 p2_recheck_skipped=1")
 
+    add_test(NAME end_flow_static_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-end-flow-static-model)
+    set_tests_properties(end_flow_static_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^end_flow_static_model=ok routine=0x1b14..0x1d42 game_over_string=0x1ae1 completed_strings=0x1aeb,0x1af9 mode_param=bp\\+4 completed_flag=0x208c player_score_ptrs=0x785a,0x7888 player_markers=0x31,0x32 key_latch=0x2058 record_cutoff=0x1b52/0x1b54 record_stride=13 record_entry_call=0x1845 strict_cutoff=1 player_order=1,2")
+
     add_test(NAME sound_render COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-render)
     set_tests_properties(sound_render PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}

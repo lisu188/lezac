@@ -731,7 +731,9 @@ python3 tools/sweep_original_lane_write_routes.py \
   entry state across a failed save so the same record can be retried.
 - Game-over and completed-game end states using strings recovered from
   `1000:1b14..1d42`, with final-level completion entering the completed-game
-  path instead of wrapping directly into level 1.
+  path instead of wrapping directly into level 1. `--debug-end-flow-static-model`
+  pins the dispatcher bytes for mode strings, the completed-game flag, per-player
+  score pointers, seventh-record cutoff comparison, and record-entry call.
 - `PROEFS.SON` payload bytes are preserved as the original 130 six-byte
   playback steps. Non-direct sound synthesis now advances by the recovered
   `DS:78c0` cursor, honors the `0x7530` stop sentinel, and applies the

@@ -1241,6 +1241,12 @@ dispatcher. MZ header math confirms its file window as `0x2284..0x24b2` using
   qualifying player. Because the record threshold is read again after a prompt,
   player 2 is re-evaluated against the table that may already include player 1.
 
+`--debug-end-flow-static-model` validates those dispatcher bytes directly:
+mode string branches, the `DS:208c` completed-game flag write, player score
+pointers `DS:785a`/`DS:7888`, display markers `'1'`/`'2'`, the key latch at
+`DS:2058`, the strict seventh-record cutoff compare against
+`DS:1b52`/`DS:1b54`, and the near call back to `1000:1845`.
+
 The C++ port maps this to `beginEndRun`, `startNextPendingRecord`, and
 `finalizePendingRecord`. It keeps the original player-check order and re-checks
 queued player scores against the current record table immediately before

@@ -4863,6 +4863,103 @@ public:
                   << " p2_recheck_skipped=1\n";
     }
 
+    void debugEndFlowStaticModel() {
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for end-flow scan");
+        }
+
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " bytes changed");
+                }
+            }
+        };
+        auto nearTarget = [&](uint16_t offset, const std::string& label) {
+            size_t p = imageBase + offset;
+            if (p + 3 > exeBytes.size() || exeBytes[p] != 0xe8) {
+                throw std::runtime_error(label + " is not a near call");
+            }
+            int rel = static_cast<int>(le16(exeBytes, p + 1));
+            if (rel >= 0x8000) rel -= 0x10000;
+            return static_cast<uint16_t>(offset + 3 + rel);
+        };
+
+        requireBytes(0x1ae1, "09 67 61 6d 65 20 6f 76 65 72",
+                     "game-over string");
+        requireBytes(0x1aeb, "0d 65 63 63 65 6c 6c 65 6e 74 65 3e 3e 3e",
+                     "completed-game title string");
+        requireBytes(0x1af9,
+                     "17 68 61 69 20 63 6f 6d 70 6c 65 74 61 74 6f "
+                     "20 69 6c 20 67 69 6f 63 6f",
+                     "completed-game body string");
+        requireBytes(kEndFlowDispatcherStart,
+                     "55 89 e5 b8 0c 03 9a df 04 20 09 81 ec 0c 03",
+                     "end-flow dispatcher prologue");
+        requireBytes(0x1b63,
+                     "8a 46 04 3c 01 75 1e 6a 3c 6a 4d bf e1 1a",
+                     "end-flow mode-1 branch");
+        requireBytes(0x1b88,
+                     "3c 02 75 3d 6a 3c 6a 37 bf eb 1a",
+                     "end-flow mode-2 branch");
+        requireBytes(0x1bc4, "c6 06 8c 20 01", "completed-game flag write");
+        requireBytes(0x1bf8,
+                     "c7 46 fc 01 00 eb 03 ff 46 fc 83 7e fc 01 75 13 "
+                     "b8 5a 78 8c da a3 b6 78 89 16 b8 78 c6 06 58 "
+                     "20 31 eb 11 b8 88 78 8c da a3 b6 78 89 16 b8 "
+                     "78 c6 06 58 20 32",
+                     "end-flow player score pointer setup");
+        requireBytes(0x1c4b,
+                     "83 bb f2 fe 00 7f 0f 7d 03 e9 98 00 83 bb f0 "
+                     "fe 00 77 03 e9 8e 00",
+                     "end-flow zero-score skip");
+        requireBytes(0x1cf8, "9a 0f 03 4a 08 a2 58 20",
+                     "end-flow key wait");
+        requireBytes(0x1d00, "c7 46 fc 01 00 eb 03 ff 46 fc",
+                     "end-flow record loop");
+        requireBytes(0x1d18,
+                     "3b 16 54 1b 7f 08 7c 1b 3b 06 52 1b 72 15",
+                     "end-flow seventh-record cutoff compare");
+        requireBytes(0x1d2c,
+                     "ff b3 f2 fe ff b3 f0 fe ff 76 fc 55 e8 0a fb",
+                     "end-flow record-entry call setup");
+        requireBytes(0x1d3b, "83 7e fc 02 75 c6 c9 c2 02 00",
+                     "end-flow record loop return");
+
+        uint16_t recordEntryTarget = nearTarget(0x1d38, "end-flow record-entry call");
+        if (recordEntryTarget != 0x1845) {
+            throw std::runtime_error("end-flow record-entry target changed");
+        }
+
+        std::cout << "end_flow_static_model=ok"
+                  << " routine=" << hex4(kEndFlowDispatcherStart)
+                  << ".." << hex4(kEndFlowDispatcherRet)
+                  << " game_over_string=0x1ae1"
+                  << " completed_strings=0x1aeb,0x1af9"
+                  << " mode_param=bp+4"
+                  << " completed_flag=0x208c"
+                  << " player_score_ptrs=0x785a,0x7888"
+                  << " player_markers=0x31,0x32"
+                  << " key_latch=0x2058"
+                  << " record_cutoff=0x1b52/0x1b54"
+                  << " record_stride=13"
+                  << " record_entry_call=" << hex4(recordEntryTarget)
+                  << " strict_cutoff=1"
+                  << " player_order=1,2\n";
+    }
+
     void exportBackground(const std::string& path) {
         load();
         std::ofstream out(path, std::ios::binary);
@@ -16199,6 +16296,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-end-flow-records") {
             app.debugEndFlowRecords(argv[2]);
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-end-flow-static-model") {
+            app.debugEndFlowStaticModel();
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--export-background") {

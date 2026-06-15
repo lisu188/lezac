@@ -531,6 +531,8 @@ python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-run
 python3 tools/sweep_original_lane_result_routes.py /tmp/lezac-lane-result-route-sweep . \
   --dry-run --skip-oracle \
   --route x:2.00,c:0.50 --route x:1.50,z:0.50
+python3 tools/sweep_original_lane_result_routes.py /tmp/lezac-lane-result-route-sweep . \
+  --dry-run --cpp-exe ./build/lezac_cpp --offset forward
 python3 tools/summarize_lane_result_route_sweep.py \
   /tmp/lezac-lane-result-route-sweep/manifest.txt
 python3 tools/summarize_lane_result_route_sweep.py \
@@ -566,10 +568,10 @@ For route variation, repeat `--route-step KEY:SECONDS`; omitted route steps keep
 the historical default of holding player-1 right (`x`) for
 `--right-hold-seconds`. Use `tools/sweep_original_lane_result_routes.py` to
 plan or run repeated natural-route probes while preserving one manifest and
-one command line per route. CTest pins the current pending natural forward
-probe as `explosion_lane_result_capture_orchestrator_dry_run_natural_forward`
+one command line per route. CTest pins the historical natural forward
+route-step probe as `explosion_lane_result_capture_orchestrator_dry_run_natural_forward`
 so future route work keeps the `x:2.00,c:0.50` forward `3D3F` retry visible
-before a real DOSBox/procmem run promotes anything. Live route sweeps run
+beside the promoted `x:2.00` natural capture. Live route sweeps run
 `tools/preflight_original_evidence_environment.py --probe-wsl
 --require-wsl-bash-on-windows --require-procmem-capture` once before launching
 any route, so Windows hosts that have `wsl.exe` but no usable default distro
@@ -577,7 +579,9 @@ fail with the same `wsl_bash_reason` reported by the standalone preflight; use
 `--skip-environment-preflight` only for intentional forensic reruns on
 already-verified hosts. Route sweeps pass `--skip-environment-preflight` to the
 child direct lane-result captures so a batch performs one host check at the top
-level. Use
+level. Pass `--cpp-exe <lezac_cpp>` and omit `--skip-oracle` when the dry-run or
+live sweep should also record the follow-up `--debug-explosion-playback-oracle`
+commands for each candidate. Use
 `tools/summarize_lane_result_route_sweep.py` on
 the completed sweep manifest to classify each candidate as `ready`, `no_freeze`,
 `incomplete`, or `missing`, and to emit the matching
@@ -607,12 +611,17 @@ The checked-in original result-write fixtures are
 `tests/fixtures/dosbox/explosion_playback_oracle_original_3ed3_lane_result_runtime.txt`
 for the reverse helper and
 `tests/fixtures/dosbox/explosion_playback_oracle_original_3d3f_lane_result_runtime_seeded.txt`
-for the forward helper under labeled runtime seeding. The natural right/down
-route fixture
+for the forward helper under labeled runtime seeding.
+`tests/fixtures/dosbox/explosion_playback_oracle_original_3d3f_lane_result_runtime_natural.txt`
+now captures natural route `x:2.00` reaching the forward `3D3F` result write
+without runtime seeding, and
+`tests/fixtures/dosbox/explosion_playback_oracle_original_3ec1_lane_write_runtime_natural.txt`
+captures natural route `x:2.00,m:0.35` reaching reverse debris writeback
+`3EC1` without runtime seeding. The natural right/down route fixture
 `tests/fixtures/dosbox/explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze.txt`
 records a live `x:2.00,c:0.50` no-freeze run with lane globals present.
-Natural-route forward `3D3F` evidence remains pending because the current
-default/timing/route-step probes load the patch but do not reach that freeze.
+Natural forward debris writeback at `3D2D` remains the next lane-write evidence
+target before live queue playback changes.
 
 ## Implemented
 

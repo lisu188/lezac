@@ -1,11 +1,28 @@
 # Recovery Status
 
-Last reviewed: 2026-05-18
-Branch: `codex/gran-usage-guardrail`
+Last reviewed: 2026-06-15
+Branch: `codex/forward-lane-result-seeded-evidence`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Promoted natural, non-seeded original-runtime evidence for forward final
+  lane-result writeback: `explosion_playback_oracle_original_3d3f_lane_result_runtime_natural.txt`
+  captures route `x:2.00` reaching `1000:3D3F` with runtime
+  `CS=01ED` / `DS=0C8F`, scratch `CS:F280`, result output `0x0002`,
+  far destination `0C44:78D2`, target-before byte `0x21`, and
+  `visual_claim=0`.
+- Promoted natural, non-seeded original-runtime evidence for reverse debris
+  lane writeback:
+  `explosion_playback_oracle_original_3ec1_lane_write_runtime_natural.txt`
+  captures route `x:2.00,m:0.35` reaching `1000:3EC1` with runtime
+  `CS=01ED` / `DS=0C8F`, scratch `CS:F080`, output `0x00fb`, tag
+  `0x4ee8`, `DI=0x0898`, active/loop counters `0x0005`/`0x0002`, and
+  `visual_claim=0`.
+- Updated `docs/recovery/runtime_evidence_ledger.md`,
+  `docs/recovery/original_runtime_fixture_notes.md`, CMake oracle tests, and
+  recovery notes so the new fixtures remain non-visual temp-copy runtime
+  evidence and are covered by the ready-result and runtime-ledger guardrails.
 - Added `--debug-sound-callsite-oracle <fixture> [--expect-error]` with
   synthetic and malformed DOSBox fixture coverage. The oracle normalizes
   original sound request/latch stops around `1000:165a`, checks runtime
@@ -835,6 +852,26 @@ Baseline: `origin/main`
 
 ## Validation
 
+- 2026-06-15 WSL original-evidence preflight passed from the repo mount:
+  `python3 tools/preflight_original_evidence_environment.py .
+  --require-frame-capture --require-debug-capture` found `dosbox`,
+  `dosbox-debug`, `xvfb-run`, `xdotool`, `python3`, and supporting tools.
+- 2026-06-15 WSL lane-write sweep passed:
+  `python3 tools/sweep_original_lane_write_routes.py
+  /tmp/lezac-lane-write-natural-codex-20260615-1205 .
+  --approve-procmem --approve-runtime-instrumentation --cpp-exe
+  /tmp/lezac-wsl-build/lezac_cpp`. Summary reported 8 candidates, 1 observed
+  freeze, and 1 ready candidate: route `x2p00_m0p35`, offset `3ec1`.
+- 2026-06-15 WSL lane-result sweep passed:
+  `python3 tools/sweep_original_lane_result_routes.py
+  /tmp/lezac-lane-result-forward-natural-codex-20260615-1205 .
+  --offset forward --approve-procmem --approve-runtime-instrumentation
+  --cpp-exe /tmp/lezac-wsl-build/lezac_cpp`. Summary reported 4 candidates,
+  1 observed freeze, and 1 ready candidate: route `x2p00`, offset `3d3f`.
+- 2026-06-15 ready-manifest runner and result-summary gates passed for both
+  new ready candidates with `--require-source-environment-preflight`,
+  `--require-success`, and `--require-executed`; each oracle log returned
+  `status=ok` / `returncode=0`.
 - 2026-05-15 lane-write route-sweep checkpoint: native Windows validation
   helper passed with `-SkipTests`, then focused CTest passed 57/57 for
   `lane_write|lane_result|explosion_lane`. This covered the new lane-write
@@ -1479,11 +1516,13 @@ Baseline: `origin/main`
   at `3D2D` (`output=0x35`, `tag=0x4EE8`, `DI=0x0898`) and reverse debris
   writeback at `3EC1` (`output=0x00`, same tag/DI), proving the debris marker
   relation `(0x4EE8 - 0x4E20) * 0x0B = 0x0898`. They are not natural-route
-  evidence; natural debris reachability remains open. Temp-copy lane-div
+  evidence. The 2026-06-15 route sweep later promoted natural reverse `3EC1`,
+  leaving natural forward `3D2D` as the remaining debris writeback target.
+  Temp-copy lane-div
   instrumentation is intentionally rejected because the larger patch body can
   overlap DOS relocation words near the far-call operand. Live playback
-  behavior is unchanged until natural debris-side writeback evidence rounds out
-  the queue-lane model. This also explains why post-call fixtures can preserve
+  behavior is unchanged until natural forward debris-side writeback evidence
+  rounds out the queue-lane model. This also explains why post-call fixtures can preserve
   helper-written lane bytes while sampled staging globals are already zero.
 - `./build/lezac_cpp --debug-passable-objects` passed with
   `level1_route_clear=1`.
@@ -1520,9 +1559,10 @@ Baseline: `origin/main`
   lane-division setup, one `3CE3` forward divide call-site register capture,
   collapse writeback captures at `3D1B` and `3EAF`, and seeded debris
   writeback captures at `3D2D` and `3EC1`, plus final far-pointer result-write
-  captures at reverse `3ED3` and seeded forward `3D3F`. Next evidence should
-  target natural debris-side writeback and natural forward `3D3F` before
-  changing live playback behavior.
+  captures at reverse `3ED3`, seeded forward `3D3F`, natural forward `3D3F`,
+  and natural reverse debris writeback at `3EC1`. Next evidence should target
+  natural forward debris writeback at `3D2D` before changing live playback
+  behavior.
 - Semantic meaning of `PROEFS.SON` bytes `+4..+5` remains unknown; current
   diagnostics preserve them as raw fields only.
 - Many non-explosion sound callsites still need exact cursor/priority mapping;
@@ -1547,6 +1587,6 @@ Baseline: `origin/main`
 
 ## Next Planned Target
 
-Use the reliable original level-1 route to finish explosion/debris/collapse
-lane writeback evidence, then return to DOSBox frame/debugger evidence for
-behavior-4 movement, targeting, and respawn timing.
+Use the reliable original level-1 route to finish the remaining natural forward
+debris writeback at `1000:3D2D`, then return to DOSBox frame/debugger evidence
+for behavior-4 movement, targeting, and respawn timing.

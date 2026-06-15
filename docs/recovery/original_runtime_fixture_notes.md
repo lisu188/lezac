@@ -22,6 +22,10 @@ control-flow reachability, not exact rendered presentation.
   captures the seeded forward debris lane writeback path.
 - `explosion_playback_oracle_original_3d2d_lane_write_trampoline_no_freeze.txt`
   records a no-freeze trampoline attempt for the forward debris writeback.
+- `explosion_playback_oracle_original_3d3f_lane_result_runtime_natural.txt`
+  captures the natural `x:2.00` forward final lane-result writeback at
+  `1000:3D3F`, with runtime `CS=01ED`, `DS=0C8F`, no runtime seeding,
+  result output `0x0002`, and target-before byte `0x21`.
 - `explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze.txt`
   records a natural route-step attempt that armed the forward result patch but
   did not freeze.
@@ -29,6 +33,10 @@ control-flow reachability, not exact rendered presentation.
   captures the seeded forward final result writeback path.
 - `explosion_playback_oracle_original_3eaf_lane_write_trampoline_runtime.txt`
   captures the safe-trampoline reverse collapse lane writeback.
+- `explosion_playback_oracle_original_3ec1_lane_write_runtime_natural.txt`
+  captures the natural `x:2.00,m:0.35` reverse debris lane writeback at
+  `1000:3EC1`, with runtime `CS=01ED`, `DS=0C8F`, no runtime seeding,
+  lane-write output `0x00fb`, and active/loop counters `0x0005`/`0x0002`.
 - `explosion_playback_oracle_original_3ec1_lane_write_runtime_seeded.txt`
   captures the seeded reverse debris lane writeback path.
 - `explosion_playback_oracle_original_3ec1_lane_write_trampoline_no_freeze.txt`

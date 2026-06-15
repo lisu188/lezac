@@ -486,10 +486,11 @@ metadata: C++ has one collapse record at `start=0x0A06`, `end=0x0A08`,
 lane bytes `forward=0x00`, `reverse=0x04` after the lane helpers. That mismatch
 is now explicit evidence for the next rendering/playback recovery step.
 
-The next evidence step is to find a natural route or timing gate that reaches
-the debris-side writebacks (`1000:3D2D`/`1000:3EC1`) and forward final
-far-pointer result write (`1000:3D3F`) without runtime seeding before replacing
-the provisional queue playback. Use
+The 2026-06-15 WSL route sweeps promoted natural non-seeded evidence for the
+reverse debris writeback (`1000:3EC1`) and the forward final far-pointer result
+write (`1000:3D3F`). Natural forward debris writeback (`1000:3D2D`) remains
+the next lane-write evidence target before replacing the provisional queue
+playback. Use
 `tools/sweep_original_lane_write_routes.py` for repeated debris-writeback
 route-step probes; its default matrix targets `3D2D`/`3EC1` with the
 `late-collapse` runtime-freeze gate and writes stable route/offset labels,
@@ -505,7 +506,7 @@ Summarize the executed or planned result manifest with
 when promoting a completed original run.
 Use
 `tools/sweep_original_lane_result_routes.py --offset forward` for the final
-`3D3F` result-write retries; pass `--cpp-exe <lezac_cpp>` when the default
+`3D3F` result-write retries or regression reruns; pass `--cpp-exe <lezac_cpp>` when the default
 `build/lezac_cpp` path is not the active build, and inspect the dry-run
 `oracle_commands` count before running the capture. The lane-result sweep
 accepts only `forward`/`3D3F` and `reverse`/`3ED3` offsets, so bad capture

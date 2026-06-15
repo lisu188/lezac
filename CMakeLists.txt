@@ -1262,7 +1262,7 @@ if(BUILD_TESTING)
         set_tests_properties(visual_claim_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^visual_claim_guardrail=ok fixtures=76 claim0=76 claim1=0 ledger=1 promoted=0 ctest=1 docs=3")
+                "^visual_claim_guardrail=ok fixtures=78 claim0=78 claim1=0 ledger=1 promoted=0 ctest=1 docs=3")
 
         add_test(NAME visual_claim_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -1325,7 +1325,7 @@ if(BUILD_TESTING)
         set_tests_properties(runtime_evidence_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^runtime_evidence_guardrail=ok fixtures=76 original_runtime=21 visual_claim0=21 temp_copy=21 runtime_segments=21 ledger=1 ctest=1 docs=3")
+                "^runtime_evidence_guardrail=ok fixtures=78 original_runtime=23 visual_claim0=23 temp_copy=23 runtime_segments=23 ledger=1 ctest=1 docs=3")
 
         add_test(NAME runtime_evidence_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -2000,6 +2000,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze .*playback_breaks=25 observed_freeze_count=0 observed_freeze_offset=0x0000 .*observed_lane_forward_result=0 observed_lane_reverse_result=0 .*lane_result_scratch_present=0 freeze_expected_old_bytes_present=1 freeze_expected_old_bytes=268805 freeze_old_bytes=268805 runtime_seeded=0 lane_globals_present=1 lane_update_flag=0x05 lane_word_global_value=0x0004 lane_target_offset_global_value=0x072c effect_input_globals_present=1 effect_forward_input_global_value=0x00 effect_reverse_input_global_value=0xfb .*debris_count=0x00ca debris_count_base=0x2941 debris_base=0x2941 .*debris0_tile_index=0x03a3 debris0_flagged=0xc002 .*collapse_count=0x0004 collapse_count_base=0x664d collapse_base=0x664d .*collapse0_start=0x0562 collapse0_end=0x0742 collapse0_word=0x0005 collapse0_flagged=0x8005 .*effect0_xy=0x00f0,0x00b0 effect0_sprite=0x10 effect0_detail=0x10 effect0_timer=0x7d effect0_variant=0x3f temp_copy=1 visual_claim=0")
 
+    add_test(NAME explosion_playback_oracle_original_3d3f_lane_result_runtime_natural
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_original_3d3f_lane_result_runtime_natural.txt)
+    set_tests_properties(explosion_playback_oracle_original_3d3f_lane_result_runtime_natural PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3d3f_lane_result_runtime_natural .*playback_breaks=25 observed_freeze_count=1 observed_freeze_offset=0x3d3f .*observed_lane_forward_result=1 observed_lane_reverse_result=0 .*lane_result_scratch_present=1 lane_result_kind=forward lane_result_cs_offset=0xf280 lane_result_output=0x0002 lane_result_es=0x0c44 lane_result_di=0x78d2 lane_result_arg_offset=0x78d2 lane_result_arg_segment=0x0c44 lane_result_result_local=0x0002 lane_result_active_count=0x0001 lane_result_loop_index=0x0001 lane_result_target_before=0x0021 .*freeze_expected_old_bytes_present=1 freeze_expected_old_bytes=268805 freeze_old_bytes=268805 runtime_seeded=0 .*lane_globals_present=1 lane_update_flag=0x00 lane_word_global_value=0x0000 lane_target_offset_global_value=0x0000 effect_input_globals_present=1 effect_forward_input_global_value=0xf8 effect_reverse_input_global_value=0xfc .*debris_count=0x00c8 debris_count_base=0x292b debris_base=0x292b .*debris0_tile_index=0x0541 debris0_flagged=0xc004 debris0_forward=0x26 debris0_reverse=0x00 debris0_lookup=0x67 .*collapse_count=0x0003 collapse_count_base=0x663e collapse_base=0x663e .*collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_word=0x0009 collapse0_flagged=0x8009 collapse0_forward=0x00 collapse0_reverse=0x08 .*effect0_xy=0x00a4,0x00b0 effect0_sprite=0x10 effect0_detail=0x10 effect0_timer=0x7d effect0_variant=0x42 temp_copy=1 visual_claim=0")
+
     add_test(NAME explosion_playback_oracle_original_3ed3_lane_result_runtime
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_original_3ed3_lane_result_runtime.txt)
@@ -2226,6 +2234,14 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3ec1_lane_write_runtime_seeded .*playback_breaks=23 observed_freeze_count=1 observed_freeze_offset=0x3ec1 .*observed_lane_forward_write=0 observed_lane_reverse_write=1 observed_lane_collapse_write=0 observed_lane_debris_write=1 .*lane_write_scratch_present=1 lane_write_kind=reverse lane_write_target=debris lane_write_cs_offset=0xf080 lane_write_output=0x0000 lane_write_di=0x0898 lane_write_tag=0x4ee8 lane_write_active_count=0x0001 lane_write_loop_index=0x0001 lane_write_result_local=0x0000 .*runtime_seeded=1 runtime_seed_kind=debris-writeback runtime_seed_direction=reverse runtime_seed_word=0xc004 runtime_seed_patch_applied=1 .*debris_count=0x00c8 debris_count_base=0x292b debris_base=0x292b .*debris0_tile_index=0x0543 debris0_flagged=0xc004 .*temp_copy=1 visual_claim=0")
+
+    add_test(NAME explosion_playback_oracle_original_3ec1_lane_write_runtime_natural
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_original_3ec1_lane_write_runtime_natural.txt)
+    set_tests_properties(explosion_playback_oracle_original_3ec1_lane_write_runtime_natural PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3ec1_lane_write_runtime_natural .*playback_breaks=25 observed_freeze_count=1 observed_freeze_offset=0x3ec1 .*observed_lane_forward_write=0 observed_lane_reverse_write=1 observed_lane_collapse_write=0 observed_lane_debris_write=1 .*lane_write_scratch_present=1 lane_write_kind=reverse lane_write_target=debris lane_write_cs_offset=0xf080 lane_write_output=0x00fb lane_write_di=0x0898 lane_write_tag=0x4ee8 lane_write_active_count=0x0005 lane_write_loop_index=0x0002 lane_write_result_local=0x00fb .*runtime_seeded=0 lane_globals_present=1 lane_update_flag=0x00 lane_word_global_value=0x0000 lane_target_offset_global_value=0x0000 effect_input_globals_present=1 effect_forward_input_global_value=0x00 effect_reverse_input_global_value=0x00 .*debris_count=0x00c7 debris_count_base=0x2920 debris_base=0x209e .*debris0_tile_index=0x044f debris0_flagged=0x0000 debris0_forward=0x4f debris0_reverse=0x00 debris0_lookup=0x75 .*collapse_count=0x0001 collapse_count_base=0x6620 collapse_base=0x6620 .*collapse0_start=0x0a7e collapse0_end=0x0a80 collapse0_word=0x0009 collapse0_flagged=0x8009 .*effect0_xy=0x00b4,0x0090 effect0_sprite=0x10 effect0_detail=0x10 effect0_timer=0x7d effect0_variant=0x3f temp_copy=1 visual_claim=0")
 
     add_test(NAME explosion_playback_oracle_original_4c96_runtime
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle

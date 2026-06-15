@@ -503,8 +503,18 @@ records route `x:2.00,c:0.50` loading the forward `3d3f` patch without a
 freeze or scratch record; its chosen sample still has
 `lane_update_flag=0x05`, `lane_word=0x0004`, `lane_target_offset=0x072c`, and
 reverse input `0xfb`. The default/timing-variant/route-step 2026-05-06 routes
-loaded the forward `3d3f` patch but did not hit the freeze, so natural-route
-forward evidence is still pending. `tools/summarize_lane_result_route_sweep.py`
+loaded the forward `3d3f` patch but did not hit the freeze. A 2026-06-15 WSL
+route sweep then promoted
+`explosion_playback_oracle_original_3d3f_lane_result_runtime_natural.txt`:
+natural route `x:2.00`, runtime `CS:IP=01ed:3d3f`, `DS=0c8f`, scratch
+`01ed:f280`, result byte `0x0002`, far destination `0c44:78d2`, active
+count/index `1/1`, target-before byte `0x21`, and `runtime_seeded=0`. The same
+pass promoted
+`explosion_playback_oracle_original_3ec1_lane_write_runtime_natural.txt`:
+natural route `x:2.00,m:0.35`, runtime `CS:IP=01ed:3ec1`, `DS=0c8f`, reverse
+debris lane-write output `0x00fb`, `DI=0x0898`, tag `0x4ee8`, active
+count/index `5/2`, and `runtime_seeded=0`. Natural forward debris writeback at
+`1000:3d2d` remains pending. `tools/summarize_lane_result_route_sweep.py`
 now classifies completed route-sweep candidates as `ready`, `no_freeze`,
 `incomplete`, or `missing`; `tools/run_lane_result_ready_manifest.py` and
 `tools/summarize_lane_result_ready_results.py` then execute and gate only

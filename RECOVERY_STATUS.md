@@ -62,8 +62,9 @@ Baseline: `origin/main`
   control-flow anchors for the actor/contact recovery path from the C++
   diagnostic binary: scanner entry/return `1000:5CB0..604F`, actor-update
   entry/return `1000:6053..777F`, the three `[bp-31h]` dispatch gates
-  `1000:654E=06`, `1000:65A2=05`, and `1000:7595=05`, the sole scanner call at
-  `1000:6555`, and the direct integration jumps to `1000:73E5`.
+  `1000:654E=06`, `1000:65A2=05`, and `1000:7595=05`, `scanner_call_count=1`
+  for the sole scanner call at `1000:6555` in the `06` gate context, and the
+  direct integration jumps to `1000:73E5`.
 - Added `--debug-lane-write-static-model` to pin the original executable bytes
   behind the four lane writeback stores: forward/reverse collapse at
   `1000:3D1B`/`1000:3EAF`, forward/reverse debris at
@@ -1900,10 +1901,11 @@ Baseline: `origin/main`
   contact flags, passability thresholds, tile snapping, behavior-3 ledge/wall
   handling, and behavior-4 collision response. The synthetic actor-update oracle
   is ready; original runtime/debugger fixtures are still pending.
-- The probable contact scanner around `1000:5cb0..604f` has both scanner-only
-  and actor-update fixture targets, but still needs cross-reference mapping and
-  runtime confirmation before the C++ clearance model can be called
-  original-faithful.
+- The probable contact scanner around `1000:5cb0..604f` has scanner-only and
+  actor-update fixture targets, and its static cross-reference is pinned as the
+  sole direct actor-update call at `1000:6555` in the `06` gate context. It
+  still needs runtime contact-route confirmation before the C++ clearance model
+  can be called original-faithful.
 - Runtime reachability of the `DS:79b9` fallback, active-player accounting edge
   cases, and exact dead-player visual playback from original frame bytes remain
   unresolved now that the delayed state-2 life-count decrement and fallback

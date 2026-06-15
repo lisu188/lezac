@@ -948,7 +948,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_contact_static_model PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_contact_static_model=ok image_base=0x0770 scanner=0x5cb0..0x604f scanner_entry_bytes=5589 scanner_return_bytes=c9c20200 actor_update=0x6053..0x777f actor_entry_bytes=5589 actor_return_bytes=c9c20400 gates=3 bp31=0x654e:0x0006,0x65a2:0x0005,0x7595:0x0005 scanner_calls=0x6555 gate6_skip=0x655b gate6_call=0x5cb0 gate6_integration=0x73e5 gate5_skip=0x65da gate5_integration=0x73e5 gate5_exit_skip=0x759e gate5_exit=0x777f integration_jumps=0x6558,0x65d7")
+                "^actor_contact_static_model=ok image_base=0x0770 scanner=0x5cb0..0x604f scanner_entry_bytes=5589 scanner_return_bytes=c9c20200 actor_update=0x6053..0x777f actor_entry_bytes=5589 actor_return_bytes=c9c20400 gates=3 bp31=0x654e:0x0006,0x65a2:0x0005,0x7595:0x0005 scanner_call_count=1 scanner_calls=0x6555 scanner_call_context=gate6 gate6_skip=0x655b gate6_call=0x5cb0 gate6_integration=0x73e5 gate5_skip=0x65da gate5_integration=0x73e5 gate5_exit_skip=0x759e gate5_exit=0x777f integration_jumps=0x6558,0x65d7")
 
         find_program(BASH_EXECUTABLE bash)
         if(BASH_EXECUTABLE)

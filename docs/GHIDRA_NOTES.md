@@ -296,10 +296,11 @@ actor/contact route sweep added after that result also missed `1000:5CB0` on
 loaded runtime bytes `c9 c2` and did not freeze, consistent with a return-tail
 anchor rather than a useful entry breakpoint. Static near-call scanning of the
 loaded code image found the scanner entry's only direct call at `1000:6555`
-inside actor update (`e8 58 f7` -> `1000:5CB0`), so
-`contact_scanner_callsite` is now a probe target. The first live callsite probe
-on `x:5.00,m:0.50,x:4.00` loaded `01ED:6555` but also did not freeze,
-indicating that route still does not reach the scanner callsite.
+inside actor update (`e8 58 f7` -> `1000:5CB0`); the C++ static diagnostic now
+reports this as `scanner_call_count=1` with `scanner_call_context=gate6`, so
+`contact_scanner_callsite` is the cross-referenced probe target. The first live
+callsite probe on `x:5.00,m:0.50,x:4.00` loaded `01ED:6555` but also did not
+freeze, indicating that route still does not reach the scanner callsite.
 `tools/check_actor_contact_callsite_context.py` further pins the local branch:
 `1000:654E` compares `[bp-31h]` with `06`, `1000:6552` skips to `1000:655B`
 when the value differs, the matching path executes `push bp; call 1000:5CB0`,

@@ -297,8 +297,8 @@ live path can enter shared integration through `1000:65D7` or jump to
 actor-update end `1000:777F`, plus the later `05` exit gate at `1000:7595`.
 `--debug-actor-contact-static-model` mirrors those original-byte checks in the
 C++ diagnostic binary: scanner entry/return, actor-update entry/return, all
-three `[bp-31h]` gates, the sole scanner callsite, and the direct integration
-jumps.
+three `[bp-31h]` gates, `scanner_call_count=1`, the sole scanner callsite in
+the `06` gate context, and the direct integration jumps.
 The wrapper writes
 `<target>_runtime_candidate.txt` with the runtime metadata plus raw route-state
 dumps; the candidate is a fill-in scaffold until semantic actor/contact records

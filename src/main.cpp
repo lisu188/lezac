@@ -11381,7 +11381,9 @@ public:
                   << " actor_return_bytes=" << bytesToHex(kActorUpdateEnd, 4)
                   << " gates=" << gates.size()
                   << " bp31=" << gateList.str()
+                  << " scanner_call_count=" << scannerCalls.size()
                   << " scanner_calls=" << scannerCallList.str()
+                  << " scanner_call_context=gate6"
                   << " gate6_skip=" << hex4(rel8Target(kGate6Skip))
                   << " gate6_call=" << hex4(rel16Target(kScannerCallsite))
                   << " gate6_integration=" << hex4(rel16Target(kGate6IntegrationJump))

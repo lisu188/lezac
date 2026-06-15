@@ -67,6 +67,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-bombs
 ./build/lezac_cpp --debug-bonuses
 ./build/lezac_cpp --debug-bonus-reward-static-model
+./build/lezac_cpp --debug-monster-sprite-table-model
 ./build/lezac_cpp --debug-fixed
 ./build/lezac_cpp --debug-shipped-file-manifest
 ./build/lezac_cpp --debug-original-asset-load
@@ -758,7 +759,8 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   score, start positions, teleports, tile triggers, monster spawning, basic
   behavior-specific monster movement/damage, documented monster reward drops,
   static bonus-score table evidence from `LEZAC.EXE` via
-  `--debug-bonus-reward-static-model`,
+  `--debug-bonus-reward-static-model`, current monster sprite table candidate
+  coverage via `--debug-monster-sprite-table-model`,
   spawner live-slot return after monster death animation removal,
   bomb-power damage against monster hit points,
   four-slot bomb inventory/switching, original bomb actor sprites, player

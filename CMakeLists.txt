@@ -2719,6 +2719,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "bonus_reward_static_model=ok image_base=0x0770 score_table_file=0xb1c6 score_table_ghidra=0xaa56 rewards=7 scores=2000,1000,1500,2000,3000,1000,5000 sprite_indices=61,62,63,64,65,66,67 bomomimk_sprites=91 sprite_in_bounds=7 score_sum=15500 top_score=5000 pickup_sound=0x0008/p5")
 
+    add_test(NAME monster_sprite_table_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-sprite-table-model)
+    set_tests_properties(monster_sprite_table_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^monster_sprite_table_model=ok bank=BOMOMIMK normal_ranges=k1_left:43-44,k1_right:45-46,k2:39-41,k3:49-51,k4:53-55 normal_frames=39,40,41,43,44,45,46,49,50,51,53,54,55 impact_candidates=42,47,48,52,56 death_current_renderer=18 reward_frames=61,62,63,64,65,66,67 reward_scores=2000,1000,1500,2000,3000,1000,5000 normal_nonzero=122,118,115,126,124,126,124,159,160,155,138,135,136 impact_nonzero=130,114,114,166,150 death_nonzero=121 reward_nonzero=87,156,135,121,149,153,147 normal_dims=16x16,16x16,16x16,17x10,17x10,17x10,17x10,16x16,16x16,16x16,16x16,16x16,16x16 impact_dims=16x16,17x10,17x10,16x16,16x16 death_dims=16x16 reward_dims=10x12,16x10,16x10,16x10,16x10,16x10,16x16 frame_count=26 frames_16x16=14 death_runtime_claim=0 visual_claim=0 ghidra=1000:70bc..7513")
+
     add_test(NAME monster_blast_damage
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-blast-damage)
     set_tests_properties(monster_blast_damage PROPERTIES

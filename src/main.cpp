@@ -5208,6 +5208,123 @@ public:
                   << '\n';
     }
 
+    void debugMonsterSpriteTableModel() {
+        load();
+        if (sprites_.sprites.size() != 91) {
+            throw std::runtime_error("BOMOMIMK sprite count changed");
+        }
+
+        struct SpriteMetrics {
+            int width = 0;
+            int height = 0;
+            int nonzero = 0;
+        };
+
+        auto metricsFor = [&](int index) {
+            if (index < 0 || index >= static_cast<int>(sprites_.sprites.size())) {
+                throw std::runtime_error("monster sprite table index out of bounds");
+            }
+            const Sprite& sprite = sprites_.sprites[static_cast<size_t>(index)];
+            SpriteMetrics metrics;
+            metrics.width = sprite.width;
+            metrics.height = sprite.height;
+            for (uint8_t pixelValue : sprite.pixels) {
+                if (pixelValue != 0) ++metrics.nonzero;
+            }
+            return metrics;
+        };
+        auto joinInts = [](const std::vector<int>& values) {
+            std::ostringstream oss;
+            for (size_t i = 0; i < values.size(); ++i) {
+                if (i != 0) oss << ',';
+                oss << values[i];
+            }
+            return oss.str();
+        };
+        auto nonzeroList = [&](const std::vector<int>& indices) {
+            std::vector<int> values;
+            values.reserve(indices.size());
+            for (int index : indices) values.push_back(metricsFor(index).nonzero);
+            return joinInts(values);
+        };
+        auto dimensionList = [&](const std::vector<int>& indices) {
+            std::ostringstream oss;
+            for (size_t i = 0; i < indices.size(); ++i) {
+                if (i != 0) oss << ',';
+                SpriteMetrics metrics = metricsFor(indices[i]);
+                oss << metrics.width << 'x' << metrics.height;
+            }
+            return oss.str();
+        };
+        auto count16x16 = [&](const std::vector<int>& indices) {
+            return static_cast<int>(std::count_if(
+                indices.begin(), indices.end(), [&](int index) {
+                    SpriteMetrics metrics = metricsFor(index);
+                    return metrics.width == 16 && metrics.height == 16;
+                }));
+        };
+
+        const std::array<int, 2> kind1Left = monsterDirectionalFrameRange(1, -0x0100);
+        const std::array<int, 2> kind1Right = monsterDirectionalFrameRange(1, 0x0100);
+        const std::array<int, 2> kind2 = monsterFrameRange(2);
+        const std::array<int, 2> kind3 = monsterFrameRange(3);
+        const std::array<int, 2> kind4 = monsterFrameRange(4);
+        if (kind1Left != std::array<int, 2>{43, 44} ||
+            kind1Right != std::array<int, 2>{45, 46} ||
+            kind2 != std::array<int, 2>{39, 41} ||
+            kind3 != std::array<int, 2>{49, 51} ||
+            kind4 != std::array<int, 2>{53, 55}) {
+            throw std::runtime_error("monster normal frame ranges changed");
+        }
+
+        constexpr std::array<uint16_t, 7> kRewardScores{{
+            2000, 1000, 1500, 2000, 3000, 1000, 5000,
+        }};
+        std::vector<int> rewardFrames;
+        for (int i = 0; i < static_cast<int>(kRewardScores.size()); ++i) {
+            int spriteIndex = bonusSpriteIndex(static_cast<BonusType>(i));
+            if (spriteIndex != 61 + i) {
+                throw std::runtime_error("monster reward sprite table changed");
+            }
+            rewardFrames.push_back(spriteIndex);
+        }
+
+        std::vector<int> normalFrames{39, 40, 41, 43, 44, 45, 46,
+                                      49, 50, 51, 53, 54, 55};
+        std::vector<int> impactCandidates{42, 47, 48, 52, 56};
+        std::vector<int> deathCurrent{18};
+        std::vector<int> allFrames = normalFrames;
+        allFrames.insert(allFrames.end(), impactCandidates.begin(),
+                         impactCandidates.end());
+        allFrames.insert(allFrames.end(), deathCurrent.begin(),
+                         deathCurrent.end());
+        allFrames.insert(allFrames.end(), rewardFrames.begin(),
+                         rewardFrames.end());
+
+        std::vector<int> scores(kRewardScores.begin(), kRewardScores.end());
+        std::cout << "monster_sprite_table_model=ok"
+                  << " bank=BOMOMIMK"
+                  << " normal_ranges=k1_left:43-44,k1_right:45-46,k2:39-41,k3:49-51,k4:53-55"
+                  << " normal_frames=" << joinInts(normalFrames)
+                  << " impact_candidates=" << joinInts(impactCandidates)
+                  << " death_current_renderer=" << joinInts(deathCurrent)
+                  << " reward_frames=" << joinInts(rewardFrames)
+                  << " reward_scores=" << joinInts(scores)
+                  << " normal_nonzero=" << nonzeroList(normalFrames)
+                  << " impact_nonzero=" << nonzeroList(impactCandidates)
+                  << " death_nonzero=" << nonzeroList(deathCurrent)
+                  << " reward_nonzero=" << nonzeroList(rewardFrames)
+                  << " normal_dims=" << dimensionList(normalFrames)
+                  << " impact_dims=" << dimensionList(impactCandidates)
+                  << " death_dims=" << dimensionList(deathCurrent)
+                  << " reward_dims=" << dimensionList(rewardFrames)
+                  << " frame_count=" << allFrames.size()
+                  << " frames_16x16=" << count16x16(allFrames)
+                  << " death_runtime_claim=0"
+                  << " visual_claim=0"
+                  << " ghidra=1000:70bc..7513\n";
+    }
+
     void debugFixed() {
         auto run = [](int16_t velocity, int ticks) {
             int pos = 0;
@@ -16906,6 +17023,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bonus-reward-static-model") {
             app.debugBonusRewardStaticModel();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-monster-sprite-table-model") {
+            app.debugMonsterSpriteTableModel();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-fixed") {

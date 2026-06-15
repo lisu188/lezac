@@ -13,6 +13,13 @@ Baseline: `origin/main`
   `BOMOMIMK` sprite-index range `0x43..0x48`. This is still
   `visual_claim=0`; paired original-frame comparison is required before the
   full death/reentry presentation can be promoted.
+- Added `--debug-monster-sprite-table-model` to pin the current monster sprite
+  table candidates against the loaded `BOMOMIMK` bank: normal frames
+  `39..41`, `43..46`, `49..51`, `53..55`, adjacent impact candidates
+  `42,47,48,52,56`, current death renderer sprite `18`, and reward frames
+  `61..67` with the recovered reward scores. This narrows the exact
+  impact/death/reward frame-table gap but remains asset/table evidence with
+  `visual_claim=0`.
 - Ran the reviewed `forward-debris-expanded` lane-write sweep against natural
   `1000:3D2D` under WSL/DOSBox, writing the bundle to
   `C:\Users\andrz\AppData\Local\Temp\lezac-lane-write-forward-expanded-34076294c39340d1beaaaa48bb1b85fb`.
@@ -1918,7 +1925,10 @@ Baseline: `origin/main`
   unresolved now that the delayed state-2 life-count decrement and fallback
   disassembly model are covered.
 - Exact two-player panel artwork and full death/reentry presentation.
-- Exact sprite frame tables for impact/death/reward frames remain unresolved.
+- Exact original runtime consumption of impact/death/reward sprite frames
+  remains unresolved. The current static candidate table is pinned by
+  `--debug-monster-sprite-table-model`, but original frame/debugger evidence is
+  still required before those presentation details can be promoted.
 - `GRAN.MST` field semantics remain unknown; consolidation only locks file
   shape, raw/json byte preservation, and a conservative byte-profile diagnostic
   for future loader/runtime comparisons.

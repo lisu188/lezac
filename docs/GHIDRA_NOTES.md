@@ -165,6 +165,12 @@ loader reads three counted fixed-size blocks:
   diamond `67`/5000. `--debug-bonus-reward-static-model` validates those seven
   score words directly from `LEZAC.EXE` and separately verifies that the C++
   sprite mapping `61..67` is in-bounds in the loaded `BOMOMIMK.SPR` bank.
+  `--debug-monster-sprite-table-model` pins the broader current sprite table:
+  normal monster frames `39..41`, `43..46`, `49..51`, and `53..55`, adjacent
+  impact candidates `42,47,48,52,56`, the current death renderer sprite `18`,
+  and reward frames `61..67`. This is asset/table evidence only; exact original
+  runtime consumption of the impact/death/reward frames remains
+  `visual_claim=0`.
 
 ## Actor Movement Behaviors
 

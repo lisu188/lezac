@@ -6,6 +6,10 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Hardened `tools/run_native_windows_validation.ps1` against missing
+  `SDL2.dll` launch failures on Windows by copying the validated vcpkg runtime
+  beside the freshly built `lezac_cpp.exe` after MSBuild and printing the
+  `runnable_exe=...` path to launch directly.
 - Added `--debug-end-flow-static-model` to pin the original
   `1000:1B14..1D42` post-game dispatcher against shipped executable bytes. The
   diagnostic validates the game-over/completed-game string branches,

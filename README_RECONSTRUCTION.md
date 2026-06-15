@@ -475,6 +475,10 @@ powershell -ExecutionPolicy Bypass -File tools/run_native_windows_validation.ps1
   -BuildDir build-win-codex-vs3 -Configuration Debug
 ```
 
+The helper copies the validated vcpkg `SDL2.dll` next to the generated
+`lezac_cpp.exe` after the build and prints `runnable_exe=...`; launch that path
+directly on Windows to avoid missing-runtime-DLL dialogs.
+
 Before running original DOSBox or process-memory captures on a new host, use the
 environment preflight to verify assets and capture tools:
 

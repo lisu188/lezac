@@ -1069,7 +1069,10 @@ name-entry path accepts `A..Z` plus space, stores typed letters by applying
 `or 0x20`, handles Backspace as `0x08`, commits on Enter `0x0d`, and stores the
 eight-byte name with colon padding. The C++ port follows those input rules while
 retaining `Esc` as a reconstruction-only cancel path so failed or accidental
-entries can be abandoned from the SDL menu.
+entries can be abandoned from the SDL menu. `--debug-record-name-entry` now
+locks cancel, ignored non-letter keys, Backspace, lowercase storage,
+eight-character truncation, space-to-colon encoding, and short-name colon
+padding against a temporary `RECS.DAT.json` file.
 
 ## Game Over and Completed-Game Evidence
 

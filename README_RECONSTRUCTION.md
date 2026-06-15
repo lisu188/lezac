@@ -679,11 +679,11 @@ python3 tools/sweep_original_lane_write_routes.py \
   per-player high-score prompts at end of run.
 - High-score table serialization back to the converted `RECS.DAT.json` resource
   format, name entry for new records with original-evidence letters/space,
-  Backspace, and Enter handling, and validation coverage that writes only to
-  temporary test files. `tools/check_record_flow_evidence_map.py` keeps the
-  record-entry/end-flow handoff tied to `RECS.DAT` structure, debug commands,
-  CTest output contracts, and the disassembly anchors before cursor/typematic
-  presentation is refined.
+  Backspace, Enter handling, eight-character truncation, and colon-padded
+  storage, with validation coverage that writes only to temporary test files.
+  `tools/check_record_flow_evidence_map.py` keeps the record-entry/end-flow
+  handoff tied to `RECS.DAT` structure, debug commands, CTest output contracts,
+  and the disassembly anchors before cursor/typematic presentation is refined.
 - Game-over and completed-game end states using strings recovered from
   `1000:1b14..1d42`, with final-level completion entering the completed-game
   path instead of wrapping directly into level 1.
@@ -781,8 +781,9 @@ python3 tools/sweep_original_lane_write_routes.py \
   and record prompts, but exact original panel artwork and reentry presentation
   remain approximate.
 - High scores are persisted with original-evidence name-entry keys
-  (letters/space, Backspace, Enter), but exact cursor drawing, typematic repeat,
-  and name-entry presentation remain approximate.
+  (letters/space, Backspace, Enter), the recovered eight-character cap, and
+  colon-padded storage, but exact cursor drawing, typematic repeat, and
+  name-entry presentation remain approximate.
 - Bomb fuse timing, 2x2 footprint, player blast damage, monster hit-point
   blast damage, visual selectors, actor sprite indices, word-layer damage
   gating, bomb-object passability after explosion, and queued debris/collapse

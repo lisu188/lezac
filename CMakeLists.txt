@@ -1552,7 +1552,7 @@ if(BUILD_TESTING)
     set_tests_properties(records_name_entry_temp PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^record_name_entry=ok top=999999 name=test")
+            "^record_name_entry=ok top=999999 name=test padded=test:::: capped=ab cdefg encoded_space=ab:cdefg")
 
     add_test(NAME records_save_failure_temp
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-save-failure

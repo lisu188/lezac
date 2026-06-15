@@ -3584,8 +3584,39 @@ public:
             reloaded[0].name != "test") {
             throw std::runtime_error("name-entry record did not save");
         }
+        std::string savedText = readTextFile(path);
+        if (savedText.find("\"encoded_name\": \"test::::\"") == std::string::npos) {
+            throw std::runtime_error("short name did not use colon padding");
+        }
+
+        score_ = 1000000u;
+        levelIndex_ = 0;
+        beginGameOver();
+        if (menuPage_ != MenuPage::NameEntry) {
+            throw std::runtime_error("third high score did not open name entry");
+        }
+        onKey(SDLK_a, running);
+        onKey(SDLK_b, running);
+        onKey(SDLK_SPACE, running);
+        onKey(SDLK_c, running);
+        onKey(SDLK_d, running);
+        onKey(SDLK_e, running);
+        onKey(SDLK_f, running);
+        onKey(SDLK_g, running);
+        onKey(SDLK_h, running);
+        onKey(SDLK_i, running);
+        onKey(SDLK_RETURN, running);
+        auto capped = loadRecords(path);
+        savedText = readTextFile(path);
+        if (capped.empty() || capped[0].score != 1000000u ||
+            capped[0].name != "ab cdefg" ||
+            savedText.find("\"encoded_name\": \"ab:cdefg\"") == std::string::npos) {
+            throw std::runtime_error("name-entry cap or space encoding changed");
+        }
         std::cout << "record_name_entry=ok top=" << reloaded[0].score
-                  << " name=" << reloaded[0].name << '\n';
+                  << " name=" << reloaded[0].name
+                  << " padded=test:::: capped=" << capped[0].name
+                  << " encoded_space=ab:cdefg\n";
     }
 
     void debugRecordSaveFailure(const std::string& path) {

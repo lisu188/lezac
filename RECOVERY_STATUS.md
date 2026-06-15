@@ -32,6 +32,10 @@ Baseline: `origin/main`
   counter only with no active players, promotes state byte `2` to `1`, and
   preserves actor state/energy because it is not the normal
   `1000:7e85..7ea7` return-to-active restore.
+- Tightened `--debug-record-name-entry` so high-score entry now locks the
+  recovered eight-byte storage behavior in addition to accepted keys: short
+  names are colon padded, spaces serialize as colons in `encoded_name`, and
+  overlong input is capped at eight stored characters.
 - Promoted natural, non-seeded original-runtime evidence for forward final
   lane-result writeback: `explosion_playback_oracle_original_3d3f_lane_result_runtime_natural.txt`
   captures route `x:2.00` reaching `1000:3D3F` with runtime

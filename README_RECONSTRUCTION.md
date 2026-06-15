@@ -726,11 +726,12 @@ python3 tools/sweep_original_lane_write_routes.py \
   recovered direct-sweep cursors and the original `1000:165a` priority latch,
   bomb placement queues the recovered direct-sweep cursor `0xea74` at priority
   `3`, bomb-object destruction queues the recovered priority-`3` object cue,
-  portal transfer queues cursor `0x001a` at priority `4`, tile-trigger
-  activation queues cursor `0x0027` at priority `6`, bonus pickup audio queues
-  cursor `0x0008` at priority `5`, accepted player damage queues cursor
-  `0x002d` at priority `4`, and player death/life-loss queues cursor `0x0056`
-  at priority `5` while restoring the player energy byte to `100`.
+  monster death/reward queues cursor `0x003d` at priority `12`, portal
+  transfer queues cursor `0x001a` at priority `4`, tile-trigger activation
+  queues cursor `0x0027` at priority `6`, bonus pickup audio queues cursor
+  `0x0008` at priority `5`, accepted player damage queues cursor `0x002d` at
+  priority `4`, and player death/life-loss queues cursor `0x0056` at priority
+  `5` while restoring the player energy byte to `100`.
   Sound-callsite evidence
   now has a normalized `--debug-sound-callsite-oracle <fixture> [--expect-error]`
   path for original debugger stops around `1000:165a`: fixtures record
@@ -739,12 +740,13 @@ python3 tools/sweep_original_lane_write_routes.py \
   priority, and `DS:79c4` active flag while staying `visual_claim=0`.
   `tools/capture_original_sound_callsite_debug.sh <out_dir> [asset_dir]
   <scenario>` stages debugger-seeded manifests and candidate fixtures for
-  `bomb_object_sound`, `bomb_place_sound`, `portal_teleport_sound`,
-  `tile_trigger_sound`, `bonus_pickup_sound`, `player_damage_sound`, and
-  `player_death_sound`. `--debug-static-sound-requests` pins all 27 static
-  immediate writes to `DS:2074` in the shipped executable so remaining direct
-  `playSound(index)` compatibility hooks cannot be confused with original
-  cursor/priority mappings.
+  `bomb_object_sound`, `bomb_place_sound`, `monster_death_sound`,
+  `portal_teleport_sound`, `tile_trigger_sound`, `bonus_pickup_sound`,
+  `player_damage_sound`, and `player_death_sound`.
+  `--debug-static-sound-requests` pins all 27 static immediate writes to
+  `DS:2074` in the shipped executable so remaining direct `playSound(index)`
+  compatibility hooks cannot be confused with original cursor/priority
+  mappings.
   Live player damage now
   accumulates per-player damage bytes and drains them once per update pass,
   matching the recovered `DS:79e8`/`DS:79e9` model and original unsigned byte

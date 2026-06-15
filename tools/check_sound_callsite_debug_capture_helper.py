@@ -10,6 +10,7 @@ from pathlib import Path
 SCENARIOS = {
     "bomb_object_sound": ("6CB3", "0x0000", "3"),
     "bomb_place_sound": ("557B", "0xea74", "3"),
+    "monster_death_sound": ("5C9E", "0x003d", "12"),
     "portal_teleport_sound": ("5999", "0x001a", "4"),
     "tile_trigger_sound": ("5740", "0x0027", "6"),
     "bonus_pickup_sound": ("6E4B", "0x0008", "5"),
@@ -125,7 +126,7 @@ def check_cmake(cmake_path: Path) -> None:
     for snippet in [
         "tools/check_sound_callsite_debug_capture_helper.py",
         "${CMAKE_CURRENT_SOURCE_DIR}",
-        "^sound_callsite_debug_capture_helper=ok scenarios=7 anchors=8 outputs=7 cmake_tests=7 docs=3",
+        "^sound_callsite_debug_capture_helper=ok scenarios=8 anchors=9 outputs=7 cmake_tests=8 docs=3",
     ]:
         if collapse_ws(snippet) not in collapsed:
             raise RuntimeError(
@@ -145,6 +146,7 @@ def check_docs(root: Path) -> None:
     ]:
         require(text, "tools/capture_original_sound_callsite_debug.sh", label)
         require(text, "bomb_place_sound", label)
+        require(text, "monster_death_sound", label)
         require(text, "player_damage_sound", label)
         require(text, "sound_callsite", label)
     require(status, "debugger_seeded", "RECOVERY_STATUS")
@@ -168,7 +170,7 @@ def main() -> int:
     check_docs(root)
     print(
         "sound_callsite_debug_capture_helper=ok "
-        f"scenarios={len(SCENARIOS)} anchors=8 outputs={len(OUTPUTS)} "
+        f"scenarios={len(SCENARIOS)} anchors=9 outputs={len(OUTPUTS)} "
         f"cmake_tests={len(SCENARIOS)} docs=3"
     )
     return 0

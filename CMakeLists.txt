@@ -1040,6 +1040,7 @@ if(BUILD_TESTING)
             foreach(sound_callsite_scenario
                     bomb_object_sound
                     bomb_place_sound
+                    monster_death_sound
                     portal_teleport_sound
                     tile_trigger_sound
                     bonus_pickup_sound
@@ -1222,7 +1223,7 @@ if(BUILD_TESTING)
         set_tests_properties(sound_callsite_debug_capture_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^sound_callsite_debug_capture_helper=ok scenarios=7 anchors=8 outputs=7 cmake_tests=7 docs=3")
+                "^sound_callsite_debug_capture_helper=ok scenarios=8 anchors=9 outputs=7 cmake_tests=8 docs=3")
 
         add_test(NAME sound_compatibility_hooks
             COMMAND ${Python3_EXECUTABLE}
@@ -1231,7 +1232,7 @@ if(BUILD_TESTING)
         set_tests_properties(sound_compatibility_hooks PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^sound_compatibility_hooks=ok live_hooks=3 recovered_hooks=1 helpers=9 docs=3")
+                "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=2 helpers=12 docs=3")
 
         add_test(NAME debug_capture_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -1781,7 +1782,7 @@ if(BUILD_TESTING)
     set_tests_properties(static_sound_requests PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^static_sound_requests=ok writes=27 image_base=0x0770 latch=0x165a latch_candidates=21 latch_refs=22 priority_candidates=21 direct_sweep=5 mapped=11 unresolved=16 bomb_place=0x557b:0xea74/p3")
+            "^static_sound_requests=ok writes=27 image_base=0x0770 latch=0x165a latch_candidates=21 latch_refs=22 priority_candidates=21 direct_sweep=5 mapped=12 unresolved=15 bomb_place=0x557b:0xea74/p3 monster_death=0x5c9e:0x003d/p12")
 
     add_test(NAME bomb_place_sound
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-place-sound)
@@ -1789,6 +1790,13 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^bomb_place_sound=ok cursor=0xea74 priority=3 direct_sweep=1 placed=1 pumped=1 ghidra=1000:557b latch=1000:165a")
+
+    add_test(NAME monster_death_sound
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-death-sound)
+    set_tests_properties(monster_death_sound PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^monster_death_sound=ok cursor=0x003d priority=12 direct_sweep=0 state=2 death_ticks=25 reward=1 pumped=1 ghidra=1000:5c9e latch=1000:165a")
 
     add_test(NAME bomb_object_sound
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-object-sound)

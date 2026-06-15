@@ -18,12 +18,10 @@ EXPECTED_LIVE_HOOKS = {
         "if (completeTimer_ == 0) playSound(kCompatibilityLevelCompleteSound);"
     ),
     "objective_pickup": "playSound(kCompatibilityObjectivePickupSound);",
-    "monster_death": "playSound(kCompatibilityMonsterDeathSound);",
 }
 
 EXPECTED_HELPER_SNIPPETS = [
     "constexpr size_t kCompatibilityObjectivePickupSound = 0;",
-    "constexpr size_t kCompatibilityMonsterDeathSound = 4;",
     "constexpr size_t kCompatibilityLevelCompleteSound = 5;",
     "void playSound(size_t index)",
     "playSound(soundIndexForSelector(selector));",
@@ -34,6 +32,10 @@ EXPECTED_RECOVERED_HOOK_SNIPPETS = [
     "constexpr uint8_t kBombPlaceSoundPriority = 3;",
     "bool requestBombPlaceSound()",
     "requestBombPlaceSound();",
+    "constexpr uint16_t kMonsterDeathSoundCursor = 0x003d;",
+    "constexpr uint8_t kMonsterDeathSoundPriority = 12;",
+    "bool requestMonsterDeathSound()",
+    "requestMonsterDeathSound();",
 ]
 
 
@@ -100,7 +102,7 @@ def check_cmake(cmake_path: Path) -> None:
     require(text, "tools/check_sound_compatibility_hooks.py", "CMake")
     require(
         text,
-        "^sound_compatibility_hooks=ok live_hooks=3 recovered_hooks=1 helpers=9 docs=3",
+        "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=2 helpers=12 docs=3",
         "CMake",
     )
 
@@ -119,7 +121,7 @@ def main() -> int:
     print(
         "sound_compatibility_hooks=ok "
         f"live_hooks={len(EXPECTED_LIVE_HOOKS)} "
-        "recovered_hooks=1 "
+        "recovered_hooks=2 "
         f"helpers={len(EXPECTED_HELPER_SNIPPETS) + len(EXPECTED_RECOVERED_HOOK_SNIPPETS)} "
         "docs=3"
     )

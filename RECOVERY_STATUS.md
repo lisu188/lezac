@@ -20,6 +20,15 @@ Baseline: `origin/main`
 - Extended `tools/capture_original_sound_callsite_debug.sh` and its guardrail
   to stage `bomb_place_sound` runtime captures alongside the existing mapped
   sound-callsite scenarios.
+- Recovered the static monster-death/reward sound request at
+  `1000:5c9e..5ca9`: the surrounding original helper writes death-state actor
+  fields, pushes the `0x03e8` score value, then writes
+  `DS:2074 = 0x003d`, `DS:799f = 12`, and calls `1000:165a`. The live C++
+  `enterMonsterDeath` path now uses `requestMonsterDeathSound`, and
+  `--debug-monster-death-sound` pins the queued non-direct request.
+- Extended the static sound request diagnostic and sound-callsite capture
+  helper for `monster_death_sound`; the static map now has 12 recovered
+  immediate-write callsites and 15 remaining unlabeled candidates.
 - Fixed the native Windows build packaging path by copying the discovered
   `SDL2.dll` beside `lezac_cpp.exe` after build, so CTest and manual launches no
   longer depend on an external `PATH` entry for SDL2.
@@ -96,7 +105,7 @@ Baseline: `origin/main`
 - Made `--smoke-ui` report its inspected frame count and pinned both headless
   UI smoke checks in CTest, so dummy-SDL rendering/control regressions no
   longer pass on exit status alone.
-- Added `tools/check_sound_compatibility_hooks.py` to keep the three remaining
+- Added `tools/check_sound_compatibility_hooks.py` to keep the two remaining
   direct `playSound(index)` callers explicit as named compatibility hooks until
   original cursor/priority writes are recovered.
 - Extended `--debug-end-flow-records` with the original-style two-player
@@ -131,9 +140,10 @@ Baseline: `origin/main`
   `DS:78c0`/`DS:799e` latched state, and `DS:79c4` active state while keeping
   the evidence `visual_claim=0`.
 - Added `tools/capture_original_sound_callsite_debug.sh` plus checker and
-  dry-run CTest coverage for six mapped sound scenarios:
-  `bomb_object_sound`, `portal_teleport_sound`, `tile_trigger_sound`,
-  `bonus_pickup_sound`, `player_damage_sound`, and `player_death_sound`. The
+  dry-run CTest coverage for eight mapped sound scenarios:
+  `bomb_object_sound`, `bomb_place_sound`, `monster_death_sound`,
+  `portal_teleport_sound`, `tile_trigger_sound`, `bonus_pickup_sound`,
+  `player_damage_sound`, and `player_death_sound`. The
   helper writes debugger-seeded manifests, command plans, raw dumps, and fill-in
   `sound_callsite` candidate fixtures for `--debug-sound-callsite-oracle`.
 - Updated `tools/sweep_original_lane_result_routes.py` so natural `3D3F`

@@ -98,11 +98,12 @@ constexpr std::array<uint16_t, 4> kExplosionDirectSweepSoundOffsets{
 constexpr std::array<uint8_t, 4> kExplosionSoundSelectors{4, 5, 6, 7};
 constexpr uint16_t kBombPlaceSoundCursor = 0xea74;
 constexpr uint8_t kBombPlaceSoundPriority = 3;
+constexpr uint16_t kMonsterDeathSoundCursor = 0x003d;
+constexpr uint8_t kMonsterDeathSoundPriority = 12;
 constexpr std::array<uint16_t, 6> kCompatibilitySoundCursors{
     0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0027,
 };
 constexpr size_t kCompatibilityObjectivePickupSound = 0;
-constexpr size_t kCompatibilityMonsterDeathSound = 4;
 constexpr size_t kCompatibilityLevelCompleteSound = 5;
 constexpr std::array<uint16_t, 14> kDebugSoundCursors{
     0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027,
@@ -5195,9 +5196,9 @@ public:
             {0x6924, 0x0035}, {0x6e34, 0x0012}, {0x6f82, 0x0008},
             {0x7386, 0x0021}, {0x789c, 0x0001}, {0x7f84, 0x002d},
         }};
-        static const std::array<uint16_t, 11> kMappedWrites{
+        static const std::array<uint16_t, 12> kMappedWrites{
             0x30b1, 0x41a9, 0x41ed, 0x4231, 0x431d, 0x557b,
-            0x575d, 0x5a0e, 0x6e34, 0x6f82, 0x7f84,
+            0x575d, 0x5a0e, 0x5c9e, 0x6e34, 0x6f82, 0x7f84,
         };
 
         std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
@@ -5290,7 +5291,9 @@ public:
             priorityCandidates != 21 || directSweepWrites != 5 ||
             mappedWrites != static_cast<int>(kMappedWrites.size()) ||
             priorityAt(0x5581) != kBombPlaceSoundPriority ||
-            nearLatchCallCount(0x557b) != 1) {
+            nearLatchCallCount(0x557b) != 1 ||
+            priorityAt(0x5ca4) != kMonsterDeathSoundPriority ||
+            nearLatchCallCount(0x5c9e) != 1) {
             throw std::runtime_error("static sound request summary changed");
         }
 
@@ -5305,6 +5308,9 @@ public:
                   << " unresolved=" << (static_cast<int>(writes.size()) - mappedWrites)
                   << " bomb_place=" << hex4(0x557b) << ':' << hex4(kBombPlaceSoundCursor)
                   << "/p" << static_cast<int>(kBombPlaceSoundPriority)
+                  << " monster_death=" << hex4(0x5c9e) << ':'
+                  << hex4(kMonsterDeathSoundCursor)
+                  << "/p" << static_cast<int>(kMonsterDeathSoundPriority)
                   << " cursor_writes=" << list.str() << '\n';
     }
 
@@ -5335,6 +5341,38 @@ public:
                   << " priority=" << static_cast<int>(kBombPlaceSoundPriority)
                   << " direct_sweep=1 placed=1 pumped=1"
                   << " ghidra=1000:557b latch=1000:165a\n";
+    }
+
+    void debugMonsterDeathSoundRouting() {
+        load();
+        resetLevel(0);
+        ActiveMonster monster;
+        monster.x = 40;
+        monster.y = 24;
+        monster.kind = 1;
+        monster.behavior = 3;
+        monster.hp = 1;
+        refreshMonsterAnimationProfile(monster);
+        clearSoundLatch();
+        enterMonsterDeath(monster);
+        if (monster.behavior != 2 || monster.stateTimer != 25 ||
+            !soundLatch_.active ||
+            soundLatch_.latchedOffset != kMonsterDeathSoundCursor ||
+            soundLatch_.currentSelector != kMonsterDeathSoundPriority ||
+            soundLatch_.directSweep) {
+            throw std::runtime_error("monster death sound request mismatch");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active ||
+            lastPumpedSoundOffset_ != kMonsterDeathSoundCursor ||
+            lastPumpedSoundSelector_ != kMonsterDeathSoundPriority) {
+            throw std::runtime_error("monster death sound pump mismatch");
+        }
+        std::cout << "monster_death_sound=ok cursor="
+                  << hex4(kMonsterDeathSoundCursor)
+                  << " priority=" << static_cast<int>(kMonsterDeathSoundPriority)
+                  << " direct_sweep=0 state=2 death_ticks=" << monster.stateTimer
+                  << " reward=1 pumped=1 ghidra=1000:5c9e latch=1000:165a\n";
     }
 
     void debugBombObjectSoundRouting() {
@@ -13945,6 +13983,10 @@ private:
         return requestSoundOffset(kBombPlaceSoundCursor, kBombPlaceSoundPriority);
     }
 
+    bool requestMonsterDeathSound() {
+        return requestSoundCursor(kMonsterDeathSoundCursor, kMonsterDeathSoundPriority);
+    }
+
     bool requestPortalTeleportSound() {
         return requestSoundCursor(kPortalTeleportSoundCursor, kPortalTeleportSoundPriority);
     }
@@ -14188,7 +14230,7 @@ private:
         monster.fracY = 0;
         flashes_.push_back({static_cast<int>(monster.x + 7.0f) / 8,
                             static_cast<int>(monster.y + 8.0f) / 8, 18});
-        playSound(kCompatibilityMonsterDeathSound);
+        requestMonsterDeathSound();
     }
 
     void spawnBonusDrop(float x, float y) {
@@ -15051,6 +15093,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-place-sound") {
             app.debugBombPlaceSoundRouting();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-monster-death-sound") {
+            app.debugMonsterDeathSoundRouting();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-object-sound") {

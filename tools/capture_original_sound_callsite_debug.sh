@@ -34,6 +34,12 @@ case "$scenario" in
         cursor=0xea74
         priority=3
         ;;
+    monster_death_sound)
+        request_label=monster_death
+        callsite_offset=5C9E
+        cursor=0x003d
+        priority=12
+        ;;
     portal_teleport_sound)
         request_label=portal
         callsite_offset=5999

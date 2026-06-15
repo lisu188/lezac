@@ -4108,6 +4108,10 @@ public:
             int nonzero = 0;
             uint8_t xorValue = 0;
         };
+        struct ExpectedExeFilename {
+            const char* name;
+            std::vector<size_t> fileOffsets;
+        };
         static const std::array<ExpectedFile, 14> kExpectedFiles{{
             {"BOMOMIMK.SPR", 20168, 721398, 8117120635ull, 10865, 0xb6},
             {"BOMPAL.PAL", 768, 20767, 6683027ull, 653, 0x31},
@@ -4124,6 +4128,18 @@ public:
             {"SETUP.LOG", 566, 38565, 10906350ull, 566, 0x13},
             {"SFONLEF.ZBG", 34292, 2442898, 37574726726ull, 28451, 0x30},
         }};
+        static const std::array<ExpectedExeFilename, 10> kExpectedExeFilenames{{
+            {"proefs.son", {0x0d96}},
+            {"recs.dat", {0x1def, 0x2cf6}},
+            {"fonts.spr", {0x2248, 0x24b6, 0x2abc, 0x2e4f, 0x3223}},
+            {"sfonlef.zbg", {0x2ac6}},
+            {"caro.car", {0x2e46}},
+            {"bompal.pal", {0x3218}},
+            {"bomomimk.spr", {0x322d}},
+            {"prova.spr", {0x323a}},
+            {"gran.mst", {0x3244}},
+            {"livels.sch", {0x3663}},
+        }};
 
         auto metrics = [](const std::vector<uint8_t>& bytes) {
             Metrics result;
@@ -4135,6 +4151,24 @@ public:
                 result.xorValue = static_cast<uint8_t>(result.xorValue ^ byte);
             }
             return result;
+        };
+        auto findAscii = [](const std::vector<uint8_t>& haystack,
+                            const std::string& needle) {
+            std::vector<size_t> hits;
+            if (needle.empty() || haystack.size() < needle.size()) return hits;
+            for (size_t offset = 0; offset <= haystack.size() - needle.size();
+                 ++offset) {
+                bool match = true;
+                for (size_t i = 0; i < needle.size(); ++i) {
+                    if (haystack[offset + i] !=
+                        static_cast<uint8_t>(needle[i])) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) hits.push_back(offset);
+            }
+            return hits;
         };
 
         size_t totalSize = 0;
@@ -4178,6 +4212,26 @@ public:
             imageSize != 50480) {
             throw std::runtime_error("LEZAC.EXE MZ layout changed");
         }
+        size_t exeFilenameRefs = 0;
+        std::map<std::string, std::vector<size_t>> exeFilenameAnchors;
+        for (const ExpectedExeFilename& expected : kExpectedExeFilenames) {
+            std::vector<size_t> hits = findAscii(exeBytes, expected.name);
+            if (hits != expected.fileOffsets) {
+                throw std::runtime_error(std::string("LEZAC.EXE filename anchors changed: ") +
+                                         expected.name);
+            }
+            exeFilenameRefs += hits.size();
+            exeFilenameAnchors.emplace(expected.name, hits);
+        }
+        auto ghidraAnchor = [&](const char* name, size_t index = 0) {
+            const auto found = exeFilenameAnchors.find(name);
+            if (found == exeFilenameAnchors.end() ||
+                index >= found->second.size() || found->second[index] < imageBase) {
+                throw std::runtime_error(std::string("missing LEZAC.EXE filename anchor: ") +
+                                         name);
+            }
+            return found->second[index] - imageBase;
+        };
 
         std::cout << "shipped_file_manifest=ok"
                   << " files=" << kExpectedFiles.size()
@@ -4192,6 +4246,19 @@ public:
                   << std::setfill('0') << imageBase
                   << std::dec << std::setfill(' ')
                   << " exe_image_size=" << imageSize
+                  << " exe_filename_names=" << kExpectedExeFilenames.size()
+                  << " exe_filename_refs=" << exeFilenameRefs
+                  << " exe_sound_anchor=1000:" << std::hex << std::setw(4)
+                  << std::setfill('0') << ghidraAnchor("proefs.son")
+                  << " exe_gran_anchor=1000:" << std::setw(4)
+                  << ghidraAnchor("gran.mst")
+                  << " exe_level_anchor=1000:" << std::setw(4)
+                  << ghidraAnchor("livels.sch")
+                  << std::dec << std::setfill(' ')
+                  << " exe_record_refs="
+                  << exeFilenameAnchors.at("recs.dat").size()
+                  << " exe_font_refs="
+                  << exeFilenameAnchors.at("fonts.spr").size()
                   << " docs=2 setup_log=566" << '\n';
     }
 

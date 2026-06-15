@@ -648,6 +648,10 @@ python3 tools/sweep_original_lane_write_routes.py \
 - `--debug-shipped-file-manifest` pins the 14 shipped original files used as
   conversion/disassembly evidence, including `LEZAC.EXE` size `52384`, MZ
   image base `0x0770`, image size `50480`, and aggregate byte fingerprints.
+  It also scans the executable image for the original lowercase runtime
+  filename anchors: ten unique names and 15 references, including
+  `proefs.son` at `1000:0626`, `gran.mst` at `1000:2AD4`, and `livels.sch` at
+  `1000:2EF3`.
 - The runtime loader now defaults to the shipped binary files. Set
   `LEZAC_LOAD_JSON_ASSETS=1` or `LEZAC_LOAD_ORIGINAL_ASSETS=0` to force the JSON
   compatibility path. `--debug-original-asset-load` compares both paths across
@@ -668,7 +672,9 @@ python3 tools/sweep_original_lane_write_routes.py \
 - `PROEFS.SON` parsing as a fixed-size sound-effect bank and `GRAN.MST`
   parsing as seven fixed-size opaque records. The GRAN roundtrip now pins
   record-level byte fingerprints for later comparison while keeping every
-  field semantic unresolved.
+  field semantic unresolved. The shipped executable references the file through
+  the lowercase `gran.mst` string at `1000:2AD4`, but no decoded live consumer
+  has been recovered yet.
   `tools/check_gran_usage_guardrail.py` keeps `GRAN.MST` limited to loading,
   validation, byte-preserving roundtrip/debug output, and stored opaque records
   until original evidence proves a live gameplay or rendering use.

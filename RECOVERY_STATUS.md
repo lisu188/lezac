@@ -6,6 +6,11 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Extended `--debug-shipped-file-manifest` to verify the original executable's
+  lowercase runtime filename anchors. The diagnostic now pins ten unique names,
+  15 total references, `proefs.son` at `1000:0626`, `gran.mst` at
+  `1000:2AD4`, `livels.sch` at `1000:2EF3`, two `recs.dat` references, and
+  five `fonts.spr` references without changing `GRAN.MST` from opaque data.
 - Recovered the static bomb-placement sound request at
   `1000:557b..5586`: the original writes `DS:2074 = 0xea74`,
   `DS:799f = 3`, and calls the `1000:165a` latch after the successful

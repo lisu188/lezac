@@ -138,7 +138,7 @@ if(BUILD_TESTING)
     set_tests_properties(shipped_file_manifest PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^shipped_file_manifest=ok files=14 total_size=193537 total_sum=13037980 total_weighted=235960201921 total_xor=0x6e exe_size=52384 exe_image_base=0x0770 exe_image_size=50480 docs=2 setup_log=566")
+            "^shipped_file_manifest=ok files=14 total_size=193537 total_sum=13037980 total_weighted=235960201921 total_xor=0x6e exe_size=52384 exe_image_base=0x0770 exe_image_size=50480 exe_filename_names=10 exe_filename_refs=15 exe_sound_anchor=1000:0626 exe_gran_anchor=1000:2ad4 exe_level_anchor=1000:2ef3 exe_record_refs=2 exe_font_refs=5 docs=2 setup_log=566")
 
     add_test(NAME original_asset_load
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-asset-load)
@@ -1384,7 +1384,7 @@ if(BUILD_TESTING)
         set_tests_properties(gran_usage_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^gran_usage_guardrail=ok source_refs=20 load_refs=2 debug_refs=17 member_refs=1 live_refs=0 ctest=1 docs=3")
+                "^gran_usage_guardrail=ok source_refs=21 load_refs=2 debug_refs=18 member_refs=1 live_refs=0 ctest=1 docs=3")
 
         add_test(NAME gran_usage_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}

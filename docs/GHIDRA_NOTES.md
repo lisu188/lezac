@@ -11,7 +11,9 @@ Ghidra 12.0.4 imports `LEZAC.EXE` as:
 14 shipped files, aggregate size `193537`, `LEZAC.EXE` size `52384`, MZ header
 paragraphs `119`, image base `0x0770`, and image size `50480`. This keeps
 Ghidra offset-to-file-offset assumptions tied to the exact binary currently in
-the repository.
+the repository. It also scans lowercase runtime filename anchors in the
+executable image: ten unique names and 15 references, including `proefs.son` at
+`1000:0626`, `gran.mst` at `1000:2AD4`, and `livels.sch` at `1000:2EF3`.
 
 The executable is a Borland/Turbo Pascal DOS program. The original on-disk far
 segment references are relocated by the MZ loader. For example, the on-disk call
@@ -107,6 +109,9 @@ quirk.
   aggregate `byte_sum=12560`, `weighted_sum=337318`, `nonzero_bytes=249`,
   `zero_bytes=150`, `xor=0x0c`, and record sums
   `631,2230,1389,1242,1780,2720,2568`.
+  The original executable contains the lowercase `gran.mst` filename at
+  `1000:2AD4`, immediately before a routine prologue/load sequence, but no
+  decoded field consumer has been promoted.
   `tools/check_gran_usage_guardrail.py` confirms the current C++ port only
   loads, stores, validates, and debug-prints those opaque records; no live
   gameplay or rendering path may consume `GRAN.MST` without first adding

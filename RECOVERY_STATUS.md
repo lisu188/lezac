@@ -6,6 +6,12 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `--debug-actor-contact-static-model` to pin the shipped executable
+  control-flow anchors for the actor/contact recovery path from the C++
+  diagnostic binary: scanner entry/return `1000:5CB0..604F`, actor-update
+  entry/return `1000:6053..777F`, the three `[bp-31h]` dispatch gates
+  `1000:654E=06`, `1000:65A2=05`, and `1000:7595=05`, the sole scanner call at
+  `1000:6555`, and the direct integration jumps to `1000:73E5`.
 - Added `--debug-lane-write-static-model` to pin the original executable bytes
   behind the four lane writeback stores: forward/reverse collapse at
   `1000:3D1B`/`1000:3EAF`, forward/reverse debris at

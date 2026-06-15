@@ -82,6 +82,7 @@ LEZAC_LOAD_ORIGINAL_ASSETS=1 ./build/lezac_cpp --validate
 ./build/lezac_cpp --debug-sound-callsite-oracle tests/fixtures/dosbox/sound_callsite_oracle_synthetic.txt
 LEZAC_SOUND_CALLSITE_DEBUG_DRY_RUN=1 tools/capture_original_sound_callsite_debug.sh /tmp/lezac-sound-callsite-debug . player_damage_sound
 ./build/lezac_cpp --debug-lane-write-static-model
+./build/lezac_cpp --debug-actor-contact-static-model
 ./build/lezac_cpp --debug-original-damage-counters
 ./build/lezac_cpp --debug-level1-frame-inspection
 ./build/lezac_cpp --debug-autoplayer level1_bomb_route
@@ -293,6 +294,10 @@ and the matching path runs `push bp; call 1000:5CB0` before jumping to
 `1000:73E5`. It also checks the neighboring `05` gate at `1000:65A2`, whose
 live path can enter shared integration through `1000:65D7` or jump to
 actor-update end `1000:777F`, plus the later `05` exit gate at `1000:7595`.
+`--debug-actor-contact-static-model` mirrors those original-byte checks in the
+C++ diagnostic binary: scanner entry/return, actor-update entry/return, all
+three `[bp-31h]` gates, the sole scanner callsite, and the direct integration
+jumps.
 The wrapper writes
 `<target>_runtime_candidate.txt` with the runtime metadata plus raw route-state
 dumps; the candidate is a fill-in scaffold until semantic actor/contact records

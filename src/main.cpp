@@ -11128,6 +11128,170 @@ public:
                   << '\n';
     }
 
+    void debugActorContactStaticModel() {
+        constexpr uint16_t kScannerEntry = 0x5cb0;
+        constexpr uint16_t kScannerReturn = 0x604f;
+        constexpr uint16_t kActorUpdateStart = 0x6053;
+        constexpr uint16_t kActorUpdateEnd = 0x777f;
+        constexpr uint16_t kGate6 = 0x654e;
+        constexpr uint16_t kGate6Skip = 0x6552;
+        constexpr uint16_t kScannerCallsite = 0x6555;
+        constexpr uint16_t kGate6IntegrationJump = 0x6558;
+        constexpr uint16_t kGate6SkipTarget = 0x655b;
+        constexpr uint16_t kGate5Integration = 0x65a2;
+        constexpr uint16_t kGate5IntegrationSkip = 0x65a6;
+        constexpr uint16_t kGate5IntegrationSkipTarget = 0x65da;
+        constexpr uint16_t kGate5IntegrationJump = 0x65d7;
+        constexpr uint16_t kGate5Exit = 0x7595;
+        constexpr uint16_t kGate5ExitSkip = 0x7599;
+        constexpr uint16_t kGate5ExitSkipTarget = 0x759e;
+        constexpr uint16_t kGate5ExitJump = 0x759b;
+        constexpr uint16_t kSharedIntegration = 0x73e5;
+
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for actor/contact scan");
+        }
+
+        auto codeByte = [&](uint16_t offset) {
+            size_t p = imageBase + offset;
+            if (p >= exeBytes.size()) {
+                throw std::runtime_error("actor/contact offset extends past LEZAC.EXE");
+            }
+            return exeBytes[p];
+        };
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " bytes changed");
+                }
+            }
+        };
+        auto rel8Target = [&](uint16_t offset) {
+            int rel = static_cast<int8_t>(codeByte(static_cast<uint16_t>(offset + 1)));
+            return static_cast<uint16_t>(static_cast<int>(offset) + 2 + rel);
+        };
+        auto rel16Target = [&](uint16_t offset) {
+            uint16_t raw = le16(exeBytes, imageBase + offset + 1);
+            int rel = raw >= 0x8000u ? static_cast<int>(raw) - 0x10000
+                                     : static_cast<int>(raw);
+            return static_cast<uint16_t>(static_cast<int>(offset) + 3 + rel);
+        };
+        auto bytesToHex = [&](uint16_t offset, size_t length) {
+            std::ostringstream oss;
+            for (size_t i = 0; i < length; ++i) {
+                oss << std::hex << std::nouppercase
+                    << std::setw(2) << std::setfill('0')
+                    << static_cast<int>(codeByte(static_cast<uint16_t>(offset + i)));
+            }
+            return oss.str();
+        };
+
+        requireBytes(kScannerEntry, "55 89", "contact scanner entry");
+        requireBytes(kScannerReturn, "c9 c2 02 00", "contact scanner return");
+        requireBytes(kActorUpdateStart, "55 89", "actor update entry");
+        requireBytes(kActorUpdateEnd, "c9 c2 04 00", "actor update return");
+        requireBytes(kGate6, "80 7e cf 06 75 07 55 e8 58 f7 e9 8a 0e",
+                     "actor contact gate6 snippet");
+        requireBytes(kGate5Integration, "80 7e cf 05 75 32",
+                     "actor gate5 integration snippet");
+        requireBytes(kGate5Exit, "80 7e cf 05 75 03 e9 e1 01",
+                     "actor gate5 exit snippet");
+
+        if (rel8Target(kGate6Skip) != kGate6SkipTarget ||
+            rel16Target(kScannerCallsite) != kScannerEntry ||
+            rel16Target(kGate6IntegrationJump) != kSharedIntegration ||
+            rel8Target(kGate5IntegrationSkip) != kGate5IntegrationSkipTarget ||
+            rel16Target(kGate5IntegrationJump) != kSharedIntegration ||
+            rel8Target(kGate5ExitSkip) != kGate5ExitSkipTarget ||
+            rel16Target(kGate5ExitJump) != kActorUpdateEnd) {
+            throw std::runtime_error("actor/contact static branch target changed");
+        }
+
+        std::vector<std::pair<uint16_t, uint8_t>> gates;
+        for (uint16_t offset = kActorUpdateStart; offset < kActorUpdateEnd - 3; ++offset) {
+            if (codeByte(offset) == 0x80 &&
+                codeByte(static_cast<uint16_t>(offset + 1)) == 0x7e &&
+                codeByte(static_cast<uint16_t>(offset + 2)) == 0xcf) {
+                gates.push_back({offset, codeByte(static_cast<uint16_t>(offset + 3))});
+            }
+        }
+        const std::vector<std::pair<uint16_t, uint8_t>> expectedGates{
+            {kGate6, 0x06},
+            {kGate5Integration, 0x05},
+            {kGate5Exit, 0x05},
+        };
+        if (gates != expectedGates) {
+            throw std::runtime_error("actor/contact bp-31h gate list changed");
+        }
+
+        std::vector<uint16_t> scannerCalls;
+        std::vector<uint16_t> integrationJumps;
+        for (uint16_t offset = kActorUpdateStart; offset < kActorUpdateEnd - 2; ++offset) {
+            uint8_t opcode = codeByte(offset);
+            if (opcode == 0xe8 && rel16Target(offset) == kScannerEntry) {
+                scannerCalls.push_back(offset);
+            }
+            if (opcode == 0xe9 && rel16Target(offset) == kSharedIntegration) {
+                integrationJumps.push_back(offset);
+            }
+        }
+        if (scannerCalls != std::vector<uint16_t>{kScannerCallsite} ||
+            integrationJumps !=
+                (std::vector<uint16_t>{kGate6IntegrationJump, kGate5IntegrationJump})) {
+            throw std::runtime_error("actor/contact call or integration jump list changed");
+        }
+
+        std::ostringstream gateList;
+        for (size_t i = 0; i < gates.size(); ++i) {
+            if (i != 0) gateList << ',';
+            gateList << hex4(gates[i].first) << ':' << hex4(gates[i].second);
+        }
+        std::ostringstream scannerCallList;
+        for (size_t i = 0; i < scannerCalls.size(); ++i) {
+            if (i != 0) scannerCallList << ',';
+            scannerCallList << hex4(scannerCalls[i]);
+        }
+        std::ostringstream integrationJumpList;
+        for (size_t i = 0; i < integrationJumps.size(); ++i) {
+            if (i != 0) integrationJumpList << ',';
+            integrationJumpList << hex4(integrationJumps[i]);
+        }
+
+        std::cout << "actor_contact_static_model=ok"
+                  << " image_base=0x0770"
+                  << " scanner=" << hex4(kScannerEntry) << ".." << hex4(kScannerReturn)
+                  << " scanner_entry_bytes=" << bytesToHex(kScannerEntry, 2)
+                  << " scanner_return_bytes=" << bytesToHex(kScannerReturn, 4)
+                  << " actor_update=" << hex4(kActorUpdateStart) << ".."
+                  << hex4(kActorUpdateEnd)
+                  << " actor_entry_bytes=" << bytesToHex(kActorUpdateStart, 2)
+                  << " actor_return_bytes=" << bytesToHex(kActorUpdateEnd, 4)
+                  << " gates=" << gates.size()
+                  << " bp31=" << gateList.str()
+                  << " scanner_calls=" << scannerCallList.str()
+                  << " gate6_skip=" << hex4(rel8Target(kGate6Skip))
+                  << " gate6_call=" << hex4(rel16Target(kScannerCallsite))
+                  << " gate6_integration=" << hex4(rel16Target(kGate6IntegrationJump))
+                  << " gate5_skip=" << hex4(rel8Target(kGate5IntegrationSkip))
+                  << " gate5_integration=" << hex4(rel16Target(kGate5IntegrationJump))
+                  << " gate5_exit_skip=" << hex4(rel8Target(kGate5ExitSkip))
+                  << " gate5_exit=" << hex4(rel16Target(kGate5ExitJump))
+                  << " integration_jumps=" << integrationJumpList.str()
+                  << '\n';
+    }
+
     void debugOriginalState2EffectPlacement() {
         constexpr uint16_t kEffectBase = 0xc21e;
         constexpr int kMapWidth = 60;
@@ -16767,6 +16931,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-lane-write-static-model") {
             app.debugLaneWriteStaticModel();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-actor-contact-static-model") {
+            app.debugActorContactStaticModel();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-effect-placement") {

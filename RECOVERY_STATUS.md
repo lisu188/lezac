@@ -55,6 +55,10 @@ Baseline: `origin/main`
   converted JSON resource: raw size `92`, seven 13-byte records, top score
   `541200`, cutoff `474930`, score sum `3508890`, all level `8`, all encoded
   names `aga:::::`, byte sum `6047`, weighted sum `278918`, and XOR `0xdd`.
+- Switched high-score persistence to original binary `RECS.DAT` format for
+  non-`.json` paths, including the default runtime path. `--debug-record-update`
+  now locks the 92-byte temp `.dat` output and retains explicit `.json`
+  compatibility coverage.
 - Extended `--debug-end-flow-records` with the original-style two-player
   threshold re-check: player 2 can qualify against the old seventh-place score,
   but is skipped after player 1 inserts a higher record and raises the table

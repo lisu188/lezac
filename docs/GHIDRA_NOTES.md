@@ -1102,7 +1102,10 @@ retaining `Esc` as a reconstruction-only cancel path so failed or accidental
 entries can be abandoned from the SDL menu. `--debug-record-name-entry` now
 locks cancel, ignored non-letter keys, Backspace, lowercase storage,
 eight-character truncation, space-to-colon encoding, and short-name colon
-padding against a temporary `RECS.DAT.json` file.
+padding against a temporary binary `RECS.DAT`-format file.
+`--debug-record-update` writes both temporary `.dat` and `.json` tables: the
+default `.dat` path is pinned to the original 92-byte binary layout, while the
+`.json` path remains a diagnostics-only compatibility serializer.
 
 ## Game Over and Completed-Game Evidence
 

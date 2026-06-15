@@ -705,10 +705,11 @@ python3 tools/sweep_original_lane_write_routes.py \
   objectives, player-2 bomb placement through the `N` fire key, and queued
   per-player high-score prompts at end of run, including re-checking player 2
   against the updated table after player 1 inserts a qualifying record.
-- High-score table serialization back to the converted `RECS.DAT.json` resource
-  format, name entry for new records with original-evidence letters/space,
-  Backspace, Enter handling, eight-character truncation, and colon-padded
-  storage, with validation coverage that writes only to temporary test files.
+- High-score table serialization back to original binary `RECS.DAT` format by
+  default, with JSON compatibility retained for `.json` diagnostics. Name
+  entry for new records follows original-evidence letters/space, Backspace,
+  Enter handling, eight-character truncation, and colon-padded storage, with
+  validation coverage that writes only to temporary test files.
   `tools/check_record_flow_evidence_map.py` keeps the record-entry/end-flow
   handoff tied to `RECS.DAT` structure, debug commands, CTest output contracts,
   and the disassembly anchors before cursor/typematic presentation is refined.

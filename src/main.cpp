@@ -905,8 +905,7 @@ SpriteBank loadRawSprites(const std::string& path) {
     return bank;
 }
 
-std::vector<Record> loadRecords(const std::string& path) {
-    auto json = readTextFile(path);
+std::vector<Record> parseJsonRecords(const std::string& json) {
     std::vector<Record> records;
     auto recordObjects = extractObjectArray(json, "records");
     for (const auto& recJson : recordObjects) {
@@ -927,8 +926,8 @@ std::string decodeRawRecordName(std::string encoded) {
     return encoded.empty() ? std::string("nessuno") : encoded;
 }
 
-std::vector<Record> loadRawRecords(const std::string& path) {
-    auto data = readFile(path);
+std::vector<Record> parseRawRecords(const std::vector<uint8_t>& data,
+                                    const std::string& path) {
     constexpr size_t kRecordSize = 13;
     if (data.empty()) {
         throw std::runtime_error(path + " is empty");
@@ -952,6 +951,21 @@ std::vector<Record> loadRawRecords(const std::string& path) {
     return records;
 }
 
+std::vector<Record> loadRawRecords(const std::string& path) {
+    return parseRawRecords(readFile(path), path);
+}
+
+std::vector<Record> loadRecords(const std::string& path) {
+    auto data = readFile(path);
+    auto first = std::find_if(data.begin(), data.end(), [](uint8_t byte) {
+        return !std::isspace(static_cast<unsigned char>(byte));
+    });
+    if (first != data.end() && *first == '{') {
+        return parseJsonRecords(std::string(data.begin(), data.end()));
+    }
+    return parseRawRecords(data, path);
+}
+
 std::string encodeRecordName(const std::string& name) {
     std::string out = name.empty() ? "PLAYER" : name;
     out.resize(8, ':');
@@ -961,7 +975,35 @@ std::string encodeRecordName(const std::string& name) {
     return out;
 }
 
+bool isJsonRecordPath(const std::string& path) {
+    std::string ext = std::filesystem::path(path).extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return ext == ".json";
+}
+
 void saveRecords(const std::string& path, const std::vector<Record>& records) {
+    if (!isJsonRecordPath(path)) {
+        std::ofstream out(path, std::ios::binary);
+        if (!out) {
+            throw std::runtime_error("cannot create " + path);
+        }
+        size_t count = std::min<size_t>(records.size(), 255);
+        out.put(static_cast<char>(count));
+        for (size_t i = 0; i < count; ++i) {
+            uint32_t score = records[i].score;
+            out.put(static_cast<char>(score & 0xffu));
+            out.put(static_cast<char>((score >> 8) & 0xffu));
+            out.put(static_cast<char>((score >> 16) & 0xffu));
+            out.put(static_cast<char>((score >> 24) & 0xffu));
+            out.put(static_cast<char>(records[i].level));
+            std::string name = encodeRecordName(records[i].name);
+            out.write(name.data(), static_cast<std::streamsize>(name.size()));
+        }
+        return;
+    }
+
     std::ofstream out(path);
     if (!out) {
         throw std::runtime_error("cannot create " + path);
@@ -3697,9 +3739,27 @@ public:
             reloaded[0].level != 9u || reloaded[0].name != "TEST") {
             throw std::runtime_error("saved test record did not round-trip");
         }
+        int binary = isJsonRecordPath(path) ? 0 : 1;
+        size_t rawSize = 0;
+        std::string encodedName = encodeRecordName(reloaded[0].name);
+        if (binary) {
+            auto bytes = readFile(path);
+            rawSize = bytes.size();
+            if (bytes.size() != 92 || bytes[0] != 7 || le32(bytes, 1) != 999999u ||
+                bytes[5] != 9u) {
+                throw std::runtime_error("saved raw test record layout changed");
+            }
+            encodedName = std::string(bytes.begin() + 6, bytes.begin() + 14);
+            if (encodedName != "TEST::::") {
+                throw std::runtime_error("saved raw test record name encoding changed");
+            }
+        }
         std::cout << "record_update=ok top=" << reloaded[0].score
                   << " level=" << static_cast<int>(reloaded[0].level)
-                  << " name=" << reloaded[0].name << '\n';
+                  << " name=" << reloaded[0].name
+                  << " binary=" << binary
+                  << " raw_size=" << rawSize
+                  << " encoded=" << encodedName << '\n';
     }
 
     void debugRecordsRawRoundtrip() {
@@ -4197,6 +4257,17 @@ public:
         load();
         recordPath_ = path;
         saveRecords(recordPath_, records_);
+        auto encodedNameAt = [](const std::string& recordPath, size_t index) {
+            auto bytes = readFile(recordPath);
+            constexpr size_t kRecordSize = 13;
+            if (bytes.empty() || index >= bytes[0] ||
+                bytes.size() < 1 + (index + 1) * kRecordSize) {
+                throw std::runtime_error("record table too small for encoded-name check");
+            }
+            size_t off = 1 + index * kRecordSize + 5;
+            return std::string(bytes.begin() + static_cast<std::ptrdiff_t>(off),
+                               bytes.begin() + static_cast<std::ptrdiff_t>(off + 8));
+        };
         score_ = 999999u;
         levelIndex_ = 0;
         beginGameOver();
@@ -4231,8 +4302,7 @@ public:
             reloaded[0].name != "test") {
             throw std::runtime_error("name-entry record did not save");
         }
-        std::string savedText = readTextFile(path);
-        if (savedText.find("\"encoded_name\": \"test::::\"") == std::string::npos) {
+        if (encodedNameAt(path, 0) != "test::::") {
             throw std::runtime_error("short name did not use colon padding");
         }
 
@@ -4254,10 +4324,9 @@ public:
         onKey(SDLK_i, running);
         onKey(SDLK_RETURN, running);
         auto capped = loadRecords(path);
-        savedText = readTextFile(path);
         if (capped.empty() || capped[0].score != 1000000u ||
             capped[0].name != "ab cdefg" ||
-            savedText.find("\"encoded_name\": \"ab:cdefg\"") == std::string::npos) {
+            encodedNameAt(path, 0) != "ab:cdefg") {
             throw std::runtime_error("name-entry cap or space encoding changed");
         }
         std::cout << "record_name_entry=ok top=" << reloaded[0].score
@@ -11995,7 +12064,7 @@ private:
     uint32_t randomSeed_ = 0x1234abcd;
     uint32_t score_ = 0;
     uint32_t score2_ = 0;
-    std::string recordPath_ = "RECS.DAT.json";
+    std::string recordPath_ = "RECS.DAT";
     uint32_t pendingRecordScore_ = 0;
     uint8_t pendingRecordLevel_ = 0;
     uint8_t pendingRecordPlayer_ = 1;

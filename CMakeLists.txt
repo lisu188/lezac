@@ -1620,7 +1620,15 @@ if(BUILD_TESTING)
     set_tests_properties(records_update_temp PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^record_update=ok top=999999 level=9 name=TEST")
+            "^record_update=ok top=999999 level=9 name=TEST binary=1 raw_size=92 encoded=TEST::::")
+
+    add_test(NAME records_update_json_temp
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-update
+                ${CMAKE_CURRENT_BINARY_DIR}/records_test.json)
+    set_tests_properties(records_update_json_temp PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^record_update=ok top=999999 level=9 name=TEST binary=0 raw_size=0 encoded=TEST::::")
 
     add_test(NAME records_raw_roundtrip
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-records-raw-roundtrip)

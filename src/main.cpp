@@ -5329,6 +5329,10 @@ public:
             uint16_t offset;
             uint16_t cursor;
         };
+        struct MappedStaticSoundWrite {
+            uint16_t offset;
+            const char* label;
+        };
         static const std::array<StaticSoundWrite, 27> kExpectedWrites{{
             {0x1857, 0x0078}, {0x1a44, 0x0008}, {0x1d9c, 0x003d},
             {0x202d, 0x0021}, {0x2083, 0x0024}, {0x2c04, 0x0078},
@@ -5340,11 +5344,23 @@ public:
             {0x6924, 0x0035}, {0x6e34, 0x0012}, {0x6f82, 0x0008},
             {0x7386, 0x0021}, {0x789c, 0x0001}, {0x7f84, 0x002d},
         }};
-        static const std::array<uint16_t, 15> kMappedWrites{
-            0x1857, 0x1a44, 0x2083, 0x30b1, 0x41a9, 0x41ed,
-            0x4231, 0x431d, 0x557b, 0x575d, 0x5a0e, 0x5c9e,
-            0x6e34, 0x6f82, 0x7f84,
-        };
+        static const std::array<MappedStaticSoundWrite, 15> kMappedWrites{{
+            {0x1857, "record_name_prompt"},
+            {0x1a44, "record_name_commit"},
+            {0x2083, "records_page"},
+            {0x30b1, "player_death"},
+            {0x41a9, "explosion_small"},
+            {0x41ed, "explosion_medium"},
+            {0x4231, "explosion_large"},
+            {0x431d, "explosion_super"},
+            {0x557b, "bomb_place"},
+            {0x575d, "tile_trigger"},
+            {0x5a0e, "portal_teleport"},
+            {0x5c9e, "monster_death"},
+            {0x6e34, "bomb_object_high"},
+            {0x6f82, "bonus_pickup"},
+            {0x7f84, "player_damage"},
+        }};
 
         std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
         if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
@@ -5419,15 +5435,26 @@ public:
         int directSweepWrites = 0;
         int mappedWrites = 0;
         std::ostringstream list;
+        std::ostringstream mappedLabels;
+        std::ostringstream unresolvedCandidates;
         for (size_t i = 0; i < writes.size(); ++i) {
             int calls = nearLatchCallCount(writes[i].offset);
             if (calls > 0) ++latchCandidates;
             latchRefs += calls;
             if (nearPriorityWrite(writes[i].offset)) ++priorityCandidates;
             if (isDirectSoundSweep(writes[i].cursor)) ++directSweepWrites;
-            if (std::find(kMappedWrites.begin(), kMappedWrites.end(),
-                          writes[i].offset) != kMappedWrites.end()) {
+            auto mappedIt = std::find_if(
+                kMappedWrites.begin(), kMappedWrites.end(),
+                [&](const MappedStaticSoundWrite& mapped) {
+                    return mapped.offset == writes[i].offset;
+                });
+            if (mappedIt != kMappedWrites.end()) {
                 ++mappedWrites;
+                if (mappedLabels.tellp() > 0) mappedLabels << ',';
+                mappedLabels << hex4(mappedIt->offset) << ':' << mappedIt->label;
+            } else {
+                if (unresolvedCandidates.tellp() > 0) unresolvedCandidates << ',';
+                unresolvedCandidates << hex4(writes[i].offset);
             }
             if (i != 0) list << ',';
             list << hex4(writes[i].offset) << ':' << hex4(writes[i].cursor);
@@ -5467,11 +5494,27 @@ public:
         };
         std::string remainingHooks = remainingHookList();
         std::string rejectedObjectiveCandidates = rejectedObjectiveCandidateList();
+        std::string mappedLabelList = mappedLabels.str();
+        std::string unresolvedCandidateList = unresolvedCandidates.str();
         if (remainingHooks != "objective_pickup,level_complete" ||
             rejectedObjectiveCandidates !=
                 "0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,"
                 "0x6924:non_objective_tile_gate") {
             throw std::runtime_error("sound compatibility recovery notes changed");
+        }
+        if (mappedLabelList !=
+                "0x1857:record_name_prompt,0x1a44:record_name_commit,"
+                "0x2083:records_page,0x30b1:player_death,"
+                "0x41a9:explosion_small,0x41ed:explosion_medium,"
+                "0x4231:explosion_large,0x431d:explosion_super,"
+                "0x557b:bomb_place,0x575d:tile_trigger,"
+                "0x5a0e:portal_teleport,0x5c9e:monster_death,"
+                "0x6e34:bomb_object_high,0x6f82:bonus_pickup,"
+                "0x7f84:player_damage" ||
+            unresolvedCandidateList !=
+                "0x1d9c,0x202d,0x2c04,0x49bd,0x4b2c,0x4d3c,"
+                "0x4dd3,0x5e81,0x6844,0x6924,0x7386,0x789c") {
+            throw std::runtime_error("static sound mapping ledger changed");
         }
 
         std::cout << "static_sound_requests=ok writes=" << writes.size()
@@ -5497,6 +5540,8 @@ public:
                   << " monster_death=" << hex4(0x5c9e) << ':'
                   << hex4(kMonsterDeathSoundCursor)
                   << "/p" << static_cast<int>(kMonsterDeathSoundPriority)
+                  << " mapped_labels=" << mappedLabelList
+                  << " unresolved_candidates=" << unresolvedCandidateList
                   << " remaining_compat_hooks=" << remainingHooks
                   << " rejected_objective_candidates="
                   << rejectedObjectiveCandidates

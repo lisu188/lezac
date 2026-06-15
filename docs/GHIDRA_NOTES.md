@@ -891,9 +891,13 @@ candidate fixture.
 pins all 27 static `DS:2074` immediate writes found in the shipped
 `LEZAC.EXE`; the mapped set now includes the four explosion direct sweeps,
 bomb placement, monster death/reward, the bomb-object high-cursor branch,
-portal, trigger, bonus, player hurt, and player death callsites. The
+portal, trigger, bonus, player hurt, player death, name-entry prompt/commit,
+and records-page callsites. The command prints a mapped-label ledger and keeps
+the remaining unresolved offsets explicit:
+`0x1d9c,0x202d,0x2c04,0x49bd,0x4b2c,0x4d3c,0x4dd3,0x5e81,0x6844,0x6924,0x7386,0x789c`.
+The
 bomb-object default cue is covered by the surrounding scan that leaves
-`DS:2074 = 0x0000`; 15 immediate-write candidates remain unlabeled static
+`DS:2074 = 0x0000`; 12 immediate-write candidates remain unlabeled static
 recovery targets.
 The diagnostic also prints
 `remaining_compat_hooks=objective_pickup,level_complete` and records rejected

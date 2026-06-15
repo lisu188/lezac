@@ -1,17 +1,37 @@
 # Recovery Status
 
 Last reviewed: 2026-05-15
-Branch: `codex/gran-record-profile`
+Branch: `codex/lane-write-route-sweep`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
-- Added a conservative `GRAN.MST` byte-profile diagnostic to `--debug-gran`.
-  The command still treats the file as unresolved/opaque data, but now prints
-  per-record zero-byte counts plus a reversible stride-3 inspection view. CTest
-  pins the shipped profile at seven 57-byte records, 19 groups per record, 113
-  nonzero groups, 20 zero groups, and 150 zero bytes. No live gameplay behavior
-  changed.
+- Added guarded natural-route capture tooling for the pending debris-side
+  lane-write offsets `1000:3D2D` and `1000:3EC1`. The new
+  `tools/capture_original_lane_write_runtime.py` wrapper supports safe
+  preflight, dry-run command generation, single-offset retries, optional oracle
+  parsing, and live capture only with explicit process-memory/runtime
+  instrumentation approvals. Its preflight pins shipped target bytes
+  `889597`/`889598`, scratch `CS:F080`, scratch length 12, and trampoline body
+  length 45 before any DOSBox capture is attempted.
+- Added `tools/sweep_original_lane_write_routes.py` plus synthetic output
+  checks for repeated lane-write route probes. The sweep defaults to the
+  `late-collapse` runtime freeze preset and preserves command lines,
+  environment-preflight status, route labels, and child capture statuses in a
+  manifest outside the repository. This is evidence tooling only; no live C++
+  gameplay behavior changed.
+- Added `tools/summarize_lane_write_route_sweep.py` so completed lane-write
+  sweep/runtime manifests are classified as `ready`, `no_freeze`, `incomplete`,
+  or `missing`, with ready-manifest output for exact
+  `--debug-explosion-playback-oracle` commands. The readiness gate rejects
+  runtime-seeded fixtures for natural-route promotion.
+- Added lane-write ready-candidate handoff wrappers:
+  `tools/run_lane_write_ready_manifest.py` and
+  `tools/summarize_lane_write_ready_results.py`. They reuse the lane-result
+  runner/result summarizer with lane-write manifest labels, and
+  `tools/check_lane_write_ready_pipeline.py` verifies dry-run planning, live
+  fake-oracle execution, result summaries, source-preflight gates, and
+  wrong-promotion rejection without DOSBox.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor
@@ -451,12 +471,26 @@ Baseline: `origin/main`
 
 ## Validation
 
-- 2026-05-15 GRAN profile checkpoint: native Windows build helper passed with
-  `-SkipTests`, then focused CTest passed 4/4 for
-  `gran|level_raw_roundtrip|validate_assets`, covering `validate_assets`,
-  `level_raw_roundtrip`, `gran_raw_roundtrip`, and the new
-  `gran_record_profile` check. `git diff --check` passed with only existing
-  CRLF normalization warnings on touched Markdown files.
+- 2026-05-15 lane-write route-sweep checkpoint: native Windows validation
+  helper passed with `-SkipTests`, then focused CTest passed 57/57 for
+  `lane_write|lane_result|explosion_lane`. This covered the new lane-write
+  preflight, wrapper-output, and route-sweep checks plus the existing
+  lane-result/explosion oracle guardrails. `git diff --check` passed with only
+  existing CRLF normalization warnings on touched text files.
+- 2026-05-15 continuation: WSL was present but no Linux distribution was
+  installed (`WSL_E_DEFAULT_DISTRO_NOT_FOUND`), so live DOSBox/process-memory
+  capture is blocked on this host. The no-WSL continuation added the lane-write
+  route-sweep summarizer instead. After refreshing the native build metadata,
+  focused CTest passed 58/58 for `lane_write|lane_result|explosion_lane`.
+- 2026-05-15 handoff continuation: direct Python checks passed for
+  `tools/check_lane_write_ready_pipeline.py`,
+  `tools/check_lane_result_ready_manifest.py`, and
+  `tools/check_lane_result_ready_results.py` after making the shared ready
+  runner/result summarizer prefix-configurable. After refreshing native build
+  metadata again, focused CTest passed 59/59 for
+  `lane_write|lane_result|explosion_lane`. Full native Windows CTest then
+  passed 201/201 with `ctest --test-dir build-win-codex-vs3 -C Debug
+  --output-on-failure`.
 - 2026-05-11 continuation: bundled Python helper/oracle checks passed for
   `tools/check_actor_update_debug_capture_helper.py`,
   `tools/check_contact_scanner_debug_capture_helper.py`,

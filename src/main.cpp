@@ -5073,6 +5073,92 @@ public:
                   << " json_chunks=" << sounds_.records.size() << '\n';
     }
 
+    void debugSoundLoaderStaticModel() {
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for sound loader scan");
+        }
+        constexpr uint16_t kFilenameAnchor = 0x0625;
+        constexpr uint16_t kLoaderStart = 0x0630;
+        constexpr uint16_t kCountConstant = 0x0633;
+        constexpr uint16_t kFilenameCopy = 0x0644;
+        constexpr uint16_t kCountRead = 0x065f;
+        constexpr uint16_t kSoundBankRead = 0x0675;
+        constexpr uint16_t kCountTimesSix = 0x067b;
+        constexpr uint16_t kCloseFile = 0x0691;
+        constexpr uint16_t kLoaderRet = 0x06aa;
+
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " bytes changed");
+                }
+            }
+        };
+        auto countBytes = [&](const std::string& hex) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            int count = 0;
+            auto begin = exeBytes.begin() + static_cast<long>(imageBase + kLoaderStart);
+            auto end = exeBytes.begin() + static_cast<long>(imageBase + kLoaderRet);
+            for (auto it = begin; it != end;) {
+                it = std::search(it, end, expected.begin(), expected.end());
+                if (it == end) break;
+                ++count;
+                ++it;
+            }
+            return count;
+        };
+
+        requireBytes(kFilenameAnchor, "0a 70 72 6f 65 66 73 2e 73 6f 6e",
+                     "PROEFS.SON filename anchor");
+        requireBytes(kLoaderStart, "55 89 e5", "sound loader prologue");
+        requireBytes(kCountConstant, "b8 82 00", "sound loader count constant");
+        requireBytes(0x063b, "81 ec 82 00", "sound loader local buffer size");
+        requireBytes(kFilenameCopy, "bf 25 06 0e 57 9a ca 15 20 09",
+                     "sound loader filename copy");
+        requireBytes(0x0653, "6a 01 9a f8 15 20 09", "sound loader open call");
+        requireBytes(kCountRead, "8d be 7e ff 16 57 6a 02 31 c0 50 50 9a e3 16 20 09",
+                     "sound loader count read");
+        requireBytes(kSoundBankRead, "c4 3e c0 79 06 57",
+                     "sound loader sound-bank pointer");
+        requireBytes(kCountTimesSix, "8b 86 7e ff d1 e0 8b f0 d1 e0 01 f0 50",
+                     "sound loader count times six");
+        requireBytes(0x068c, "9a e3 16 20 09", "sound loader payload read");
+        requireBytes(kCloseFile, "8d 7e 80 16 57 9a 79 16 20 09",
+                     "sound loader close call");
+        requireBytes(0x069b, "9a a2 04 20 09 09 c0 74 05 6a 01 e8 fa f9 c9 c3",
+                     "sound loader io result tail");
+
+        int readCalls = countBytes("9a e3 16 20 09");
+        if (readCalls != 2) {
+            throw std::runtime_error("sound loader read-call count changed");
+        }
+
+        std::cout << "sound_loader_static_model=ok"
+                  << " routine=" << hex4(kLoaderStart) << ".." << hex4(kLoaderRet)
+                  << " filename=proefs.son"
+                  << " filename_anchor=" << hex4(kFilenameAnchor)
+                  << " step_count=0x0082"
+                  << " step_size=6"
+                  << " payload_bytes=780"
+                  << " count_read_bytes=2"
+                  << " sound_bank_ptr=0x79c0"
+                  << " count_local=bp-0x82"
+                  << " count_times_six=1"
+                  << " read_calls=" << readCalls << '\n';
+    }
+
     void debugSonStepFields() {
         load();
         if (sounds_.stepCount != 0x82 ||
@@ -16036,6 +16122,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-son-raw-roundtrip") {
             app.debugSonRawRoundtrip();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sound-loader-static-model") {
+            app.debugSoundLoaderStaticModel();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-son-step-fields") {

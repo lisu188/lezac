@@ -731,7 +731,10 @@ python3 tools/sweep_original_lane_write_routes.py \
 - `PROEFS.SON` payload bytes are preserved as the original 130 six-byte
   playback steps. Non-direct sound synthesis now advances by the recovered
   `DS:78c0` cursor, honors the `0x7530` stop sentinel, and applies the
-  gate/period bytes used by `1000:0fbe..1088`. Bomb explosion requests use the
+  gate/period bytes used by `1000:0fbe..1088`. `--debug-sound-loader-static-model`
+  pins the original `1000:0630..06aa` loader bytes that read the `0x0082`
+  count and then load `0x82 * 6` payload bytes through `DS:79c0`. Bomb explosion
+  requests use the
   recovered direct-sweep cursors and the original `1000:165a` priority latch,
   with `--debug-sound-latch-static-model` pinning the latch bytes, branch
   targets, priority comparison, and accepted-request copies in `LEZAC.EXE`,

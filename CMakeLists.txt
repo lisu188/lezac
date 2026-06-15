@@ -1744,6 +1744,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^son_raw_roundtrip=ok raw_size=782 step_count=130 payload_size=780 json_chunks=6")
 
+    add_test(NAME sound_loader_static_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-loader-static-model)
+    set_tests_properties(sound_loader_static_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^sound_loader_static_model=ok routine=0x0630..0x06aa filename=proefs.son filename_anchor=0x0625 step_count=0x0082 step_size=6 payload_bytes=780 count_read_bytes=2 sound_bank_ptr=0x79c0 count_local=bp-0x82 count_times_six=1 read_calls=2")
+
     add_test(NAME son_step_fields
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-son-step-fields)
     set_tests_properties(son_step_fields PROPERTIES

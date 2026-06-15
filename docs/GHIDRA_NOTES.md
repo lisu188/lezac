@@ -99,7 +99,10 @@ quirk.
   reads `0x82 * 6 = 780` payload bytes into the sound bank. The converted JSON
   still preserves the same payload as six 130-byte chunks for compatibility
   with the earlier approximate renderer; `--debug-son-raw-roundtrip` verifies
-  that no payload bytes are lost.
+  that no payload bytes are lost. `--debug-sound-loader-static-model` pins the
+  shipped loader bytes that copy `proefs.son`, read the two-byte count into
+  `[BP-0x82]`, multiply that count by six, and read the resulting 780 payload
+  bytes through the `DS:79c0` sound-bank pointer.
 - `GRAN.MST` has no observed header in the shipped file. It is seven fixed-size
   57-byte records, likely aligned with the seven shipped levels, but the field
   semantics are still unresolved. Runtime JSON loading now rejects any converted
@@ -758,6 +761,10 @@ word `0x0082`, multiplies it by six, and reads 780 payload bytes into the
 sound-bank far pointer at `DS:79c0`. This means the shipped file is better
 understood as 130 six-byte entries than as six original records; the current
 JSON chunking is a compatibility container for those bytes.
+`--debug-sound-loader-static-model` validates that byte window against
+`LEZAC.EXE`, including the Pascal filename anchor at `1000:0625`, the
+`step_count = 0x0082` constant, the two-byte count read, the `count * 6`
+instruction sequence, and the second block read through `DS:79c0`.
 
 The tick routine at `1000:0fbe..1088` uses:
 

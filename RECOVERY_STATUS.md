@@ -6,6 +6,12 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `--debug-sound-loader-static-model` to pin the original
+  `1000:0630..06AA` `PROEFS.SON` loader against shipped executable bytes. The
+  diagnostic validates the `proefs.son` filename anchor, `0x0082` step-count
+  constant, two-byte count read into `[BP-0x82]`, `count * 6` payload-size
+  sequence, and second block read through `DS:79c0`, matching the 130 six-byte
+  sound-step model used by the C++ port.
 - Added `--debug-level-completion-denominator` to pin the live level-completion
   gate to the recovered `LIVELS.SCH` `fieldB` denominator. With objective counts
   forced complete, the diagnostic verifies that every shipped level remains

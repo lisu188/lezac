@@ -1236,7 +1236,7 @@ if(BUILD_TESTING)
         set_tests_properties(sound_compatibility_hooks PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=2 helpers=12 docs=3 rejected_objective_candidates=3")
+                "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=4 helpers=20 docs=3 rejected_objective_candidates=3")
 
         add_test(NAME debug_capture_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -1794,6 +1794,14 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^static_sound_contexts=ok image_base=0x0770 end_flow_dispatcher=0x1b14..0x1d42 first_post_end_flow_sound=0x1d9c level_complete_static_candidate=none record_ui_writes=0x1857:0x0078/p11:name_entry_region,0x1a44:0x0008/p11:name_entry_region,0x1d9c:0x003d/p10:post_end_flow_record_region,0x202d:0x0021/deferred:record_table_region,0x2083:0x0024/p2:record_table_region")
+
+    add_test(NAME record_name_sound
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-name-sound
+                ${CMAKE_CURRENT_BINARY_DIR}/records_name_sound_test.dat)
+    set_tests_properties(record_name_sound PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^record_name_sound=ok prompt_cursor=0x0078 prompt_priority=11 commit_cursor=0x0008 commit_priority=11 direct_sweep=0 ghidra_prompt=1000:1857 ghidra_commit=1000:1a44 latch=1000:165a")
 
     add_test(NAME bomb_place_sound
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-place-sound)

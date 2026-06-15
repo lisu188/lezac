@@ -882,8 +882,8 @@ only be promoted after a real DOSBox-debug stop supplies those bytes.
 <scenario>` stages that original debugger pass for `bomb_object_sound`,
 `bomb_place_sound`, `monster_death_sound`, `portal_teleport_sound`,
 `tile_trigger_sound`, `bonus_pickup_sound`, `player_damage_sound`, and
-`player_death_sound`. It also stages the statically pinned record/name-entry UI
-candidates `record_name_prompt_sound`, `record_name_commit_sound`,
+`player_death_sound`. It also stages record/menu UI captures for
+`record_name_prompt_sound`, `record_name_commit_sound`,
 `post_end_flow_record_sound`, and `records_page_sound`, writing a manifest, raw
 dump, debugger command plan, runtime command plan, and fill-in `sound_callsite`
 candidate fixture.
@@ -911,6 +911,11 @@ record, or record-table UI regions with nearby strings `inserisci il tuo nome`,
 `level_complete_static_candidate=none`, keeping the live level-complete
 `playSound(index)` hook unresolved until a same-location original request is
 confirmed.
+The first two name-entry writes are now live: opening the high-score name prompt
+queues cursor `0x0078` at priority `11` from `1000:1857`, and pressing Enter
+queues cursor `0x0008` at priority `11` from `1000:1a44` before the record is
+stored. `--debug-record-name-sound` pins both requests and pumps them through
+the recovered `1000:165a` latch.
 
 Other non-explosion cues are still being mapped; direct `playSound(index)`
 callers remain compatibility hooks until their original cursor/priority writes

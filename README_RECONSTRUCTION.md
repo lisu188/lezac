@@ -759,7 +759,10 @@ python3 tools/sweep_original_lane_write_routes.py \
   pins the original bytes and nearby strings that place `0x1857`, `0x1a44`,
   `0x1d9c`, `0x202d`, and `0x2083` in name-entry/record UI regions rather than
   in the `1000:1b14..1d42` completed-game dispatcher, so the current
-  level-complete hook also stays explicitly unresolved.
+  level-complete hook also stays explicitly unresolved. The first two
+  name-entry writes are now live: high-score prompt opens with cursor `0x0078`
+  at priority `11`, and Enter commits with cursor `0x0008` at priority `11`.
+  `--debug-record-name-sound` pins both requests through the recovered latch.
   Live player damage now
   accumulates per-player damage bytes and drains them once per update pass,
   matching the recovered `DS:79e8`/`DS:79e9` model and original unsigned byte

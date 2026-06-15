@@ -150,6 +150,10 @@ constexpr uint16_t kTileTriggerSoundCursor = 0x0027;
 constexpr uint8_t kTileTriggerSoundPriority = 6;
 constexpr uint16_t kBonusPickupSoundCursor = 0x0008;
 constexpr uint8_t kBonusPickupSoundPriority = 5;
+constexpr uint16_t kRecordNamePromptSoundCursor = 0x0078;
+constexpr uint8_t kRecordNamePromptSoundPriority = 11;
+constexpr uint16_t kRecordNameCommitSoundCursor = 0x0008;
+constexpr uint8_t kRecordNameCommitSoundPriority = 11;
 constexpr uint16_t kPlayerDamageSoundCursor = 0x002d;
 constexpr uint8_t kPlayerDamageSoundPriority = 4;
 constexpr uint16_t kPlayerDeathSoundCursor = 0x0056;
@@ -5562,6 +5566,69 @@ public:
                   << " record_ui_writes=" << recordContexts.str()
                   << " strings=inserisci_il_tuo_nome,punteggi_migliori,bomba_bonus"
                   << " remaining_compat_hooks=objective_pickup,level_complete"
+                  << '\n';
+    }
+
+    void debugRecordNameSoundRouting(const std::string& path) {
+        load();
+        recordPath_ = path;
+        saveRecords(recordPath_, records_);
+        clearSoundLatch();
+        lastPumpedSoundOffset_ = 0;
+        lastPumpedSoundSelector_ = 0;
+
+        score_ = 999999u;
+        levelIndex_ = 0;
+        beginGameOver();
+        if (menuPage_ != MenuPage::NameEntry ||
+            !soundLatch_.active ||
+            soundLatch_.latchedOffset != kRecordNamePromptSoundCursor ||
+            soundLatch_.currentSelector != kRecordNamePromptSoundPriority ||
+            soundLatch_.directSweep) {
+            throw std::runtime_error("record name prompt sound request mismatch");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active ||
+            lastPumpedSoundOffset_ != kRecordNamePromptSoundCursor ||
+            lastPumpedSoundSelector_ != kRecordNamePromptSoundPriority) {
+            throw std::runtime_error("record name prompt sound pump mismatch");
+        }
+
+        bool running = true;
+        onKey(SDLK_o, running);
+        onKey(SDLK_k, running);
+        onKey(SDLK_RETURN, running);
+        if (menuPage_ != MenuPage::Records ||
+            !soundLatch_.active ||
+            soundLatch_.latchedOffset != kRecordNameCommitSoundCursor ||
+            soundLatch_.currentSelector != kRecordNameCommitSoundPriority ||
+            soundLatch_.directSweep) {
+            throw std::runtime_error("record name commit sound request mismatch");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active ||
+            lastPumpedSoundOffset_ != kRecordNameCommitSoundCursor ||
+            lastPumpedSoundSelector_ != kRecordNameCommitSoundPriority) {
+            throw std::runtime_error("record name commit sound pump mismatch");
+        }
+
+        auto reloaded = loadRecords(recordPath_);
+        if (reloaded.empty() || reloaded[0].score != 999999u ||
+            reloaded[0].name != "ok") {
+            throw std::runtime_error("record name sound route did not commit record");
+        }
+
+        std::cout << "record_name_sound=ok"
+                  << " prompt_cursor=" << hex4(kRecordNamePromptSoundCursor)
+                  << " prompt_priority="
+                  << static_cast<int>(kRecordNamePromptSoundPriority)
+                  << " commit_cursor=" << hex4(kRecordNameCommitSoundCursor)
+                  << " commit_priority="
+                  << static_cast<int>(kRecordNameCommitSoundPriority)
+                  << " direct_sweep=0"
+                  << " ghidra_prompt=1000:1857"
+                  << " ghidra_commit=1000:1a44"
+                  << " latch=1000:165a"
                   << '\n';
     }
 
@@ -12778,6 +12845,7 @@ private:
 
     void handleNameEntryKey(SDL_Keycode key) {
         if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+            requestRecordNameCommitSound();
             finalizePendingRecord();
             return;
         }
@@ -14105,6 +14173,7 @@ private:
             pendingRecordReason_ = entry.reason;
             pendingRecordName_.clear();
             menuPage_ = MenuPage::NameEntry;
+            requestRecordNamePromptSound();
             return true;
         }
         clearPendingRecord();
@@ -14234,6 +14303,16 @@ private:
 
     bool requestMonsterDeathSound() {
         return requestSoundCursor(kMonsterDeathSoundCursor, kMonsterDeathSoundPriority);
+    }
+
+    bool requestRecordNamePromptSound() {
+        return requestSoundCursor(kRecordNamePromptSoundCursor,
+                                  kRecordNamePromptSoundPriority);
+    }
+
+    bool requestRecordNameCommitSound() {
+        return requestSoundCursor(kRecordNameCommitSoundCursor,
+                                  kRecordNameCommitSoundPriority);
     }
 
     bool requestPortalTeleportSound() {
@@ -15342,6 +15421,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-static-sound-contexts") {
             app.debugStaticSoundContexts();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-record-name-sound") {
+            app.debugRecordNameSoundRouting(argv[2]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-place-sound") {

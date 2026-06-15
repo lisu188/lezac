@@ -130,6 +130,11 @@ Baseline: `origin/main`
   `post_end_flow_record_sound`, and `records_page_sound`. The cursor-only
   `0x202d` record-table write remains unstaged until runtime evidence proves
   the pending priority at that callsite.
+- Recovered the live high-score name-entry sound requests from those static
+  contexts: entering the prompt queues cursor `0x0078` at priority `11`
+  (`1000:1857`), and pressing Enter queues cursor `0x0008` at priority `11`
+  (`1000:1a44`) before the record table update. `--debug-record-name-sound`
+  now pumps and asserts both requests through the recovered `1000:165a` latch.
 - Extended `--debug-end-flow-records` with the original-style two-player
   threshold re-check: player 2 can qualify against the old seventh-place score,
   but is skipped after player 1 inserts a higher record and raises the table

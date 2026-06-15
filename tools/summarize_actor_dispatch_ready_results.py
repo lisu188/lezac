@@ -6,10 +6,15 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
+import shlex
 import sys
 
 
 EXPECTED_RESULT = "actor_dispatch_ready_manifest"
+ORACLE_FLAGS = {
+    "actor_update": "--debug-actor-update-runtime-oracle",
+    "contact_scanner": "--debug-contact-scanner-runtime-oracle",
+}
 
 
 @dataclass(frozen=True)
@@ -23,7 +28,9 @@ class CandidateResult:
     index: int
     target: str
     route: str
+    fixture: str
     oracle: str
+    oracle_flag: str
     status: str
     returncode: str
     log: str
@@ -75,23 +82,81 @@ def parse_failures(values: dict[str, str]) -> int:
     return failures
 
 
+def parse_oracle_flag(values: dict[str, str], prefix: str) -> tuple[str, str]:
+    oracle = require(values, f"{prefix}_oracle")
+    oracle_flag = require(values, f"{prefix}_oracle_flag")
+    expected_flag = ORACLE_FLAGS.get(oracle)
+    if expected_flag is None:
+        raise ValueError(f"{prefix}_oracle has unsupported value: {oracle!r}")
+    if oracle_flag != expected_flag:
+        raise ValueError(
+            f"{prefix}_oracle_flag={oracle_flag!r} does not match "
+            f"{prefix}_oracle={oracle!r}; expected {expected_flag!r}"
+        )
+    return oracle, oracle_flag
+
+
+def parse_command(
+    values: dict[str, str], prefix: str, oracle_flag: str, fixture: str
+) -> str:
+    command = require(values, f"{prefix}_command")
+    try:
+        arguments = shlex.split(command)
+    except ValueError as exc:
+        raise ValueError(f"{prefix}_command is not parseable: {exc}") from exc
+    expected_tail = [oracle_flag, fixture]
+    if len(arguments) < len(expected_tail) or arguments[-2:] != expected_tail:
+        actual_tail = arguments[-2:] if len(arguments) >= 2 else arguments
+        raise ValueError(
+            f"{prefix}_command does not end with oracle flag and fixture; "
+            f"expected {expected_tail!r} got {actual_tail!r}"
+        )
+    return command
+
+
+def candidate_indices(values: dict[str, str]) -> set[int]:
+    indices: set[int] = set()
+    for key in values:
+        if not key.startswith("candidate_"):
+            continue
+        suffix = key[len("candidate_") :]
+        index_text, separator, _ = suffix.partition("_")
+        if not separator or not index_text.isdecimal():
+            raise ValueError(f"invalid candidate field: {key}")
+        indices.add(int(index_text, 10))
+    return indices
+
+
 def parse_candidates(values: dict[str, str]) -> list[CandidateResult]:
     result = require(values, "result")
     if result != EXPECTED_RESULT:
         raise ValueError(f"unsupported result {result!r}; expected {EXPECTED_RESULT!r}")
+    count = parse_count(values)
+    extras = sorted(index for index in candidate_indices(values) if index >= count)
+    if extras:
+        extra_text = ",".join(str(index) for index in extras)
+        raise ValueError(
+            "candidate index outside ready_candidates: "
+            f"{extra_text} ready_candidates={count}"
+        )
     candidates: list[CandidateResult] = []
-    for index in range(parse_count(values)):
+    for index in range(count):
         prefix = f"candidate_{index}"
+        oracle, oracle_flag = parse_oracle_flag(values, prefix)
+        fixture = require(values, f"{prefix}_fixture")
+        command = parse_command(values, prefix, oracle_flag, fixture)
         candidates.append(
             CandidateResult(
                 index=index,
                 target=require(values, f"{prefix}_target"),
                 route=require(values, f"{prefix}_route"),
-                oracle=require(values, f"{prefix}_oracle"),
+                fixture=fixture,
+                oracle=oracle,
+                oracle_flag=oracle_flag,
                 status=require(values, f"{prefix}_status"),
                 returncode=require(values, f"{prefix}_returncode"),
                 log=require(values, f"{prefix}_log"),
-                command=require(values, f"{prefix}_command"),
+                command=command,
             )
         )
     return candidates
@@ -105,6 +170,33 @@ def status_counts(candidates: list[CandidateResult]) -> dict[str, int]:
         else:
             counts["other"] += 1
     return counts
+
+
+def returncode_expectation(candidate: CandidateResult) -> str | None:
+    if candidate.status == "planned":
+        return "not_run" if candidate.returncode != "not_run" else None
+    if candidate.status == "ok":
+        return "0" if candidate.returncode != "0" else None
+    if candidate.status == "error":
+        try:
+            returncode = int(candidate.returncode, 10)
+        except ValueError:
+            return "positive_integer"
+        return "positive_integer" if returncode <= 0 else None
+    return None
+
+
+def mode_status_error(mode: str, counts: dict[str, int], candidate_count: int) -> str | None:
+    if mode == "run":
+        if counts["planned"] != 0:
+            return f"mode=run planned={counts['planned']} expected_planned=0"
+        return None
+    if mode == "dry_run":
+        nonplanned = candidate_count - counts["planned"]
+        if nonplanned != 0:
+            return f"mode=dry_run nonplanned={nonplanned} expected_nonplanned=0"
+        return None
+    return f"unsupported_mode={mode} expected=run,dry_run"
 
 
 def existing_log_count(candidates: list[CandidateResult]) -> tuple[int, int]:
@@ -160,6 +252,33 @@ def main() -> int:
         return 1
 
     counts = status_counts(candidates)
+    if failures != counts["error"]:
+        print(
+            "actor_dispatch_ready_result_summary=error "
+            "reason=failure_count_mismatch "
+            f"failures={failures} error={counts['error']}",
+            file=sys.stderr,
+        )
+        return 1
+    mode_error = mode_status_error(mode, counts, len(candidates))
+    if mode_error is not None:
+        print(
+            "actor_dispatch_ready_result_summary=error "
+            f"reason=mode_status_mismatch {mode_error}",
+            file=sys.stderr,
+        )
+        return 1
+    for candidate in candidates:
+        expected_returncode = returncode_expectation(candidate)
+        if expected_returncode is not None:
+            print(
+                "actor_dispatch_ready_result_summary=error "
+                "reason=status_returncode_mismatch "
+                f"index={candidate.index} status={candidate.status} "
+                f"returncode={candidate.returncode} expected={expected_returncode}",
+                file=sys.stderr,
+            )
+            return 1
     logs_present, logs_missing = existing_log_count(candidates)
     executed = len(candidates) - counts["planned"]
     print(
@@ -186,17 +305,23 @@ def main() -> int:
             f"index={candidate.index} "
             f"target={candidate.target} "
             f"route={candidate.route} "
+            f"fixture={candidate.fixture} "
             f"oracle={candidate.oracle} "
+            f"oracle_flag={candidate.oracle_flag} "
             f"status={candidate.status} "
             f"returncode={candidate.returncode} "
             f"log={candidate.log} "
             f"command={candidate.command}"
         )
 
-    if args.require_success and (failures != 0 or counts["error"] != 0):
+    if (
+        args.require_success
+        and (failures != 0 or counts["error"] != 0 or counts["other"] != 0)
+    ):
         print(
             "actor_dispatch_ready_result_summary=error "
-            f"reason=oracle_failures failures={failures} error={counts['error']}",
+            "reason=oracle_failures "
+            f"failures={failures} error={counts['error']} other={counts['other']}",
             file=sys.stderr,
         )
         return 2

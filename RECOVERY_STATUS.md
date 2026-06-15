@@ -1,16 +1,40 @@
 # Recovery Status
 
-Last reviewed: 2026-05-15
-Branch: `codex/gran-data-evidence-handoff`
+Last reviewed: 2026-05-18
+Branch: `codex/gran-usage-guardrail`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
-- Added `tools/check_gran_data_evidence_map.py` and CTest coverage for the
-  `GRAN.MST` opaque-data handoff. The checker verifies the 399-byte raw file
-  hash, seven 57-byte JSON records, raw/json byte preservation, `--debug-gran`
-  and `--debug-gran-raw-roundtrip` CTest wiring, loader guards, and docs that
-  keep `GRAN.MST` field semantics unresolved rather than guessed.
+- Added `tools/check_gran_usage_guardrail.py` to keep `GRAN.MST` as explicitly
+  opaque data in the current C++ port. The checker counts all `gran_` source
+  references and permits only loading, member storage, validation, and
+  debug/roundtrip reporting; any new live gameplay or rendering use fails until
+  original evidence proves the semantics.
+- Added `tools/check_visual_claim_guardrail.py` and explicit `visual_claim=0`
+  lines to the remaining state-2 DOSBox oracle fixtures. All checked-in DOSBox
+  fixtures now have a declared visual claim so parser/runtime evidence cannot
+  accidentally masquerade as promoted frame evidence. The checker now also
+  gates any future `visual_claim=1` fixture on
+  `docs/recovery/visual_claim_promotions.md`, which must name original, C++,
+  and comparison frame artifacts plus the supporting recovery note. Its CTest
+  self-test now exercises a synthetic promoted fixture and verifies missing
+  checked-in comparison artifacts are rejected.
+- Added `tools/check_runtime_evidence_guardrail.py` plus
+  `docs/recovery/runtime_evidence_ledger.md` for original-runtime DOSBox
+  fixtures. The guardrail requires each checked-in original capture to be from
+  a temp copy, carry runtime `CS`/`DS`, and remain `visual_claim=0` until
+  visual-frame evidence is promoted separately. It now also requires each
+  ledger entry to point at
+  `docs/recovery/original_runtime_fixture_notes.md`, where the supporting note
+  must name the fixture explicitly.
+- Added `tools/summarize_debug_capture_ready_results.py` and synthetic coverage
+  so generic debug-capture ready runs now have the same result-review gate as
+  actor-dispatch and lane-result handoffs. The summarizer counts planned,
+  executed, failed, and environment-preflight states and can require successful
+  executed candidates before promotion. `tools/check_debug_capture_ready_pipeline.py`
+  now covers the full generic batch-summary, ready-runner, and result-summary
+  handoff with synthetic data.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor
@@ -18,6 +42,35 @@ Baseline: `origin/main`
   candidates, draw offsets, and effect-entry before/after state. Synthetic and
   malformed CTest fixtures currently cover the state-2 death table consumption
   path and keep `visual_claim=0`, so no live renderer behavior changed.
+- Added `tools/capture_original_visual_table_debug.sh` for the
+  `state2_death_table_consumption` follow-up capture. It mirrors the existing
+  DOSBox-debug helper shape with `debugger_seeded` output, environment
+  preflight recording, runtime `CS`/`DS` command-plan expansion, and a
+  fill-in candidate for `--debug-visual-table-oracle`. The generic debug
+  capture summary, batch summary, and ready-manifest runner now understand
+  `capture=visual_table`, so promoted visual-table evidence can use the same
+  review path as behavior-4 and actor/contact captures.
+- Added `tools/check_visual_table_oracle_fixtures.py` and extended the optional
+  original-fixture convention gate for `visual_table_oracle_original*.txt`.
+  Visual-table parser fixtures now have the same fixture/CMake/source-contract
+  coverage as behavior-4, actor-update, and contact-scanner runtime oracles.
+- Extended the generic debug-capture ready-manifest runner coverage with a
+  synthetic `capture=visual_table` candidate, so the visual-table oracle flag is
+  exercised before real state-2 visual-table captures are promoted. The
+  ready-result summarizer coverage now carries the same visual-table lane
+  through planned/executed result manifests, and the end-to-end generic
+  ready-pipeline check now promotes actor-update and visual-table candidates
+  together from batch summary through oracle execution and result review.
+- Hardened the ready-result summarizers for actor-dispatch, lane-result, and
+  generic debug-capture handoffs so inconsistent manifests fail if their
+  aggregate `failures=` count disagrees with per-candidate `status=error`
+  records, if a known status carries an impossible return code, or if indexed
+  candidate records appear outside `ready_candidates=`. They now also require
+  `mode=run` to contain no planned candidates and `mode=dry_run` to contain
+  only planned candidates; mismatched per-candidate oracle flags fail at parse
+  time, recorded commands must end with the matching oracle flag and fixture,
+  and `--require-success` rejects any remaining unknown candidate statuses
+  instead of treating them as promotable evidence.
 - Added `tools/summarize_actor_dispatch_gate_sweep.py` and synthetic CTest
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports
@@ -191,16 +244,34 @@ Baseline: `origin/main`
   coverage. The preflight reports shipped asset availability and the local
   `bash`/DOSBox/`dosbox-debug`/Xvfb/`xdotool` toolchain, with require modes that
   fail before a long original-evidence sweep starts on an unprepared host.
+  The WSL probe now distinguishes a present `wsl.exe` from a usable default
+  Linux distro by running `wsl -e bash -lc true` and reporting
+  `wsl_bash_reason=no_default_distro` for the current no-distro blocker.
+  `--require-wsl-bash-on-windows` promotes that probe to a Windows-only
+  `reason=wsl_bash_not_usable` failure while leaving native Linux/WSL preflights
+  free to pass without a nested `wsl.exe`.
 - `tools/sweep_original_lane_result_routes.py` now prints the environment
   preflight command in dry-run and runs the process-memory capture preflight
   once before any live route commands, unless explicitly skipped with
-  `--skip-environment-preflight`.
+  `--skip-environment-preflight`. The route-sweep preflight includes
+  `--probe-wsl --require-wsl-bash-on-windows`, so Windows dry-runs and failed
+  live starts preserve the exact WSL usability blocker before a DOSBox
+  process-memory batch begins. Direct
+  `tools/capture_original_lane_result_runtime.py` live captures now run the
+  same environment preflight and record `environment_preflight=` in their
+  manifests; route sweeps pass `--skip-environment-preflight` to child direct
+  captures after the top-level check succeeds.
 - `tools/sweep_original_actor_contact_routes.py` and
   `tools/sweep_original_actor_dispatch_gates.py` now use the same
   process-memory environment preflight before live actor/contact capture
-  sweeps. Dispatch-gate sweeps run the host check once at the top level and
-  pass `--skip-environment-preflight` to child actor/contact sweeps so a single
-  matrix does not repeat identical tool probes.
+  sweeps, also with `--probe-wsl --require-wsl-bash-on-windows`. Dispatch-gate
+  sweeps run the host check once at the top level and pass
+  `--skip-environment-preflight` to child actor/contact sweeps so a single
+  matrix does not repeat identical tool probes. Direct
+  `tools/capture_original_actor_contact_procmem.sh` live runs also record
+  `environment_preflight=` in their manifests and execute the shared preflight
+  unless `LEZAC_ACTOR_CONTACT_PROCMEM_SKIP_ENVIRONMENT_PREFLIGHT=1` is set by
+  an already-verified parent sweep.
 - Lane-result and actor dispatch-gate sweep summaries now surface
   `environment_preflight=` state and support
   `--require-environment-preflight`, so ready-candidate promotion scripts can
@@ -224,17 +295,17 @@ Baseline: `origin/main`
   a `debugger_commands_runtime.txt` placeholder, and copies observed
   `runtime_cs`/`runtime_ds` metadata into the manifest/raw dump when a live
   DOSBox-debug run exposes registers before timing out.
-- The behavior-4, actor-update, and contact-scanner DOSBox-debug helpers now run
-  the shared `--require-debug-capture` environment preflight before live
-  DOSBox-debug launch, write `environment_preflight.log`, and record the
-  preflight status in their manifests. Dry runs explicitly mark
+- The behavior-4, actor-update, contact-scanner, and visual-table DOSBox-debug
+  helpers now run the shared `--require-debug-capture` environment preflight
+  before live DOSBox-debug launch, write `environment_preflight.log`, and record
+  the preflight status in their manifests. Dry runs explicitly mark
   `environment_preflight=dry_run`; per-helper skip environment variables are
   reserved for already-verified forensic reruns.
 - Added `tools/summarize_debug_capture.py` plus synthetic coverage so a single
-  behavior-4, actor-update, or contact-scanner DOSBox-debug capture directory
-  can be triaged as ready, incomplete, missing, or environment-failed. The
-  summary prints the matching runtime-oracle command and can require both a
-  promotion-ready fixture and `environment_preflight=ok`.
+  behavior-4, actor-update, contact-scanner, or visual-table DOSBox-debug
+  capture directory can be triaged as ready, incomplete, missing, or
+  environment-failed. The summary prints the matching runtime-oracle command and
+  can require both a promotion-ready fixture and `environment_preflight=ok`.
 - Added `tools/summarize_debug_capture_batch.py` plus synthetic coverage for
   whole WSL evidence batches. The batch summary recursively finds supported
   debug-capture manifests, counts ready/incomplete/missing candidates, reports
@@ -291,7 +362,14 @@ Baseline: `origin/main`
   dry-run CTest path for environments without DOSBox-debug.
 - Added `tools/check_behavior4_runtime_oracle_fixtures.py` so behavior-4
   fixture expectations, CMake wiring, and the C++ oracle command/source
-  contract can be validated without DOSBox or a local C++ compiler.
+  contract can be validated without DOSBox or a local C++ compiler. The checker
+  now keeps the fixed synthetic/malformed baseline while allowing future
+  `behavior4_runtime_oracle_original*.txt` captures only when they parse as
+  valid runtime evidence and have matching CTest coverage.
+- Added `tools/check_optional_original_oracle_fixtures.py` so the behavior-4,
+  actor-update, and contact-scanner runtime-oracle fixture lanes keep the same
+  optional-original convention: original fixtures are valid-only, must have
+  CTest coverage, and remain `visual_claim=0`.
 - Added `tools/check_behavior4_debug_capture_helper.py` to lock the
   behavior-4 DOSBox-debug helper's supported scenarios, debugger anchors,
   manifest/raw-output contract, `debugger_seeded` docs, and CMake dry-run
@@ -329,12 +407,17 @@ Baseline: `origin/main`
 - Added `tools/check_actor_update_runtime_oracle_fixtures.py` so the
   actor-update fixture set, expected malformed outcomes, CMake wiring, and C++
   oracle command/source contract can be validated without DOSBox or a compiler.
+  The checker now keeps the fixed synthetic/malformed baseline while allowing
+  future `actor_update_runtime_oracle_original*.txt` fixtures only if they parse
+  as valid runtime evidence and have matching CTest coverage.
 - Added `--debug-contact-scanner-runtime-oracle <fixture> [--expect-error]`
   with synthetic and malformed fixture coverage. This isolates the probable
   scanner window `1000:5CB0..604F` from full actor-update evidence by parsing
   subject/other actor boxes, overlap size, contact flags, and pending damage.
   `tools/check_contact_scanner_runtime_oracle_fixtures.py` validates fixture
-  outcomes, CMake wiring, and the C++ source contract without DOSBox.
+  outcomes, CMake wiring, and the C++ source contract without DOSBox. It now
+  accepts future `contact_scanner_runtime_oracle_original*.txt` fixtures under
+  the same valid-oracle and CTest-coverage requirements.
 - Added `tools/capture_original_contact_scanner_debug.sh <out_dir> [asset_dir]
   <scenario>` for `monster_contact_damage_live`, `object_collision_jump_live`,
   and `monster_behavior4_chase`. It writes scanner-only `manifest.txt`,
@@ -366,7 +449,9 @@ Baseline: `origin/main`
   `LEZAC_ACTOR_CONTACT_APPROVE_PROCMEM=1` and
   `LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION=1` for live runs, and
   records `visual_claim=0` because these are reachability probes rather than
-  pristine gameplay-route fixtures. It now writes
+  pristine gameplay-route fixtures. Direct live runs now execute the shared
+  process-memory environment preflight before touching DOSBox-debug and record
+  `environment_preflight=` in the manifest. It now writes
   `<target>_runtime_candidate.txt` with runtime metadata and raw route-state
   dumps, and accepts `LEZAC_ACTOR_CONTACT_ROUTE_STEPS` as comma-separated
   `key:seconds` route holds for scanner-path tuning. It can also set

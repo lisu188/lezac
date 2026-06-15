@@ -105,6 +105,7 @@ def env_for_capture(args: argparse.Namespace, route_steps: list[str], timing: st
         env["LEZAC_ACTOR_CONTACT_APPROVE_PROCMEM"] = "1"
     if args.approve_runtime_instrumentation:
         env["LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION"] = "1"
+    env["LEZAC_ACTOR_CONTACT_PROCMEM_SKIP_ENVIRONMENT_PREFLIGHT"] = "1"
     return env
 
 
@@ -137,6 +138,8 @@ def build_environment_preflight_command(args: argparse.Namespace) -> list[str]:
         sys.executable,
         str(root / "tools" / "preflight_original_evidence_environment.py"),
         str(args.asset_dir),
+        "--probe-wsl",
+        "--require-wsl-bash-on-windows",
         "--require-procmem-capture",
     ]
 

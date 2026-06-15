@@ -278,10 +278,13 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_runtime_oracle_fixtures.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_optional_original_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_scanner_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_scanner_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_batch_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_ready_pipeline.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_evidence_map.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_fixtures.py
@@ -297,6 +300,11 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_route_sweep_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gran_usage_guardrail.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_runtime_evidence_guardrail.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_guardrail.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_debug_capture_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_native_windows_validation_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_actor_dispatch_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_debug_capture_ready_manifest.py
@@ -307,8 +315,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_actor_dispatch_gate_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_debug_capture_batch.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_debug_capture.py
-                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_write_route_sweep.py
-                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_write_ready_results.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_debug_capture_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_result_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_result_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_dispatch_gates.py
@@ -343,7 +350,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_dispatch_ready_results_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_dispatch_ready_results_check=ok cases=8")
+                "^actor_dispatch_ready_results_check=ok cases=15")
 
         add_test(NAME actor_dispatch_ready_pipeline_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -361,7 +368,7 @@ if(BUILD_TESTING)
         set_tests_properties(original_evidence_environment_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^original_evidence_environment_check=ok cases=7")
+                "^original_evidence_environment_check=ok cases=10")
 
         add_test(NAME gran_data_evidence_map
             COMMAND ${Python3_EXECUTABLE}
@@ -464,7 +471,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_wrapper_output_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_wrapper_output=ok cases=13")
+                "^lane_result_wrapper_output=ok cases=15")
 
         add_test(NAME explosion_evidence_map
             COMMAND ${Python3_EXECUTABLE}
@@ -523,7 +530,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_ready_results_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_ready_results_check=ok cases=9")
+                "^lane_result_ready_results_check=ok cases=15")
 
         add_test(NAME explosion_lane_result_ready_pipeline_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -648,6 +655,18 @@ if(BUILD_TESTING)
                 PASS_REGULAR_EXPRESSION
                     "^contact_scanner_debug_capture=ok mode=dry_run scenario=monster_contact_damage_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
 
+            add_test(NAME visual_table_debug_capture_helper_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_VISUAL_TABLE_DEBUG_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_visual_table_debug.sh
+                        /tmp/lezac-visual-table-debug-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        state2_death_table_consumption)
+            set_tests_properties(visual_table_debug_capture_helper_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^visual_table_debug_capture=ok mode=dry_run scenario=state2_death_table_consumption route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
+
             add_test(NAME actor_contact_procmem_helper_dry_run
                 COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
                         ${BASH_EXECUTABLE}
@@ -658,7 +677,7 @@ if(BUILD_TESTING)
             set_tests_properties(actor_contact_procmem_helper_dry_run PROPERTIES
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 PASS_REGULAR_EXPRESSION
-                    "^actor_contact_procmem=ok mode=dry_run target=actor_update_start ghidra=1000:6053 .*procmem_out=")
+                    "^actor_contact_procmem=ok mode=dry_run target=actor_update_start ghidra=1000:6053 .*procmem_out=.*environment_preflight=dry_run")
         endif()
 
         add_test(NAME behavior4_debug_capture_helper_expectations
@@ -688,6 +707,15 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^contact_scanner_debug_capture_helper=ok scenarios=3 anchors=2 outputs=7 cmake_test=1 docs=2")
 
+        add_test(NAME visual_table_debug_capture_helper_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_debug_capture_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(visual_table_debug_capture_helper_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^visual_table_debug_capture_helper=ok scenarios=1 anchors=5 outputs=7 cmake_test=1 docs=3")
+
         add_test(NAME debug_capture_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_summary.py
@@ -695,7 +723,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_summary_check=ok cases=5")
+                "^debug_capture_summary_check=ok cases=6")
 
         add_test(NAME debug_capture_batch_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -713,7 +741,25 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_ready_manifest_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_ready_manifest_check=ok cases=5")
+                "^debug_capture_ready_manifest_check=ok cases=6")
+
+        add_test(NAME debug_capture_ready_results_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_ready_results.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(debug_capture_ready_results_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^debug_capture_ready_results_check=ok cases=13")
+
+        add_test(NAME debug_capture_ready_pipeline_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_ready_pipeline.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(debug_capture_ready_pipeline_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^debug_capture_ready_pipeline_check=ok cases=2")
 
         add_test(NAME actor_contact_procmem_helper_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -742,7 +788,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_update_runtime_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_update_runtime_oracle_fixtures=ok files=5 valid=2 malformed=3 cmake_tests=5 source_command=1")
+                "^actor_update_runtime_oracle_fixtures=ok files=5 valid=2 malformed=3 original=0 cmake_tests=5 source_command=1")
 
         add_test(NAME contact_scanner_runtime_oracle_fixture_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -753,7 +799,7 @@ if(BUILD_TESTING)
         set_tests_properties(contact_scanner_runtime_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^contact_scanner_runtime_oracle_fixtures=ok files=4 valid=1 malformed=3 cmake_tests=4 source_command=1")
+                "^contact_scanner_runtime_oracle_fixtures=ok files=4 valid=1 malformed=3 original=0 cmake_tests=4 source_command=1")
 
         add_test(NAME behavior4_runtime_oracle_fixture_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -764,7 +810,27 @@ if(BUILD_TESTING)
         set_tests_properties(behavior4_runtime_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^behavior4_runtime_oracle_fixtures=ok files=4 valid=1 malformed=3 cmake_tests=4 source_command=1")
+                "^behavior4_runtime_oracle_fixtures=ok files=4 valid=1 malformed=3 original=0 cmake_tests=4 source_command=1")
+
+        add_test(NAME visual_table_oracle_fixture_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_oracle_fixtures.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox
+                    --cmake ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
+                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+        set_tests_properties(visual_table_oracle_fixture_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^visual_table_oracle_fixtures=ok files=4 valid=1 malformed=3 original=0 cmake_tests=4 source_command=1")
+
+        add_test(NAME optional_original_oracle_fixture_conventions
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_optional_original_oracle_fixtures.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(optional_original_oracle_fixture_conventions PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^optional_original_oracle_fixtures=ok lanes=4 scripts=4 prefixes=4 original_counts=4 cmake=4 docs=3")
 
         add_test(NAME native_windows_validation_helper_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -774,6 +840,51 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^native_windows_validation_helper=ok script=1 cmake=1 docs=2")
+
+        add_test(NAME gran_usage_guardrail
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gran_usage_guardrail.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(gran_usage_guardrail PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^gran_usage_guardrail=ok source_refs=16 load_refs=1 debug_refs=14 member_refs=1 live_refs=0 ctest=1 docs=3")
+
+        add_test(NAME visual_claim_guardrail
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_guardrail.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(visual_claim_guardrail PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^visual_claim_guardrail=ok fixtures=70 claim0=70 claim1=0 ledger=1 promoted=0 ctest=1 docs=3")
+
+        add_test(NAME visual_claim_guardrail_selftest
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_guardrail.py
+                    --self-test)
+        set_tests_properties(visual_claim_guardrail_selftest PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^visual_claim_guardrail_selftest=ok positive=1 missing_artifact=1 mismatch=1")
+
+        add_test(NAME runtime_evidence_guardrail
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_runtime_evidence_guardrail.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(runtime_evidence_guardrail PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^runtime_evidence_guardrail=ok fixtures=70 original_runtime=20 visual_claim0=20 temp_copy=20 runtime_segments=20 ledger=1 ctest=1 docs=3")
+
+        add_test(NAME runtime_evidence_guardrail_selftest
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_runtime_evidence_guardrail.py
+                    --self-test)
+        set_tests_properties(runtime_evidence_guardrail_selftest PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^runtime_evidence_guardrail_selftest=ok positive=1 missing_fixture_doc=1 bad_segment=1")
 
         add_test(NAME explosion_lane_result_capture_orchestrator_preflight
             COMMAND ${Python3_EXECUTABLE}
@@ -805,7 +916,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_capture_orchestrator_dry_run PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_capture_orchestrator=ok mode=dry_run .*offsets=2 capture_commands=2 oracle_commands=0 offset_labels=3d3f,3ed3 offset_addresses=1000:3D3F,1000:3ED3 .*result_tail=1 result_tail_bytes=8b46f63b46f075c58a46f3c47e04268805c9c20600 .*wrong_offset_guard=1")
+                "^lane_result_capture_orchestrator=ok mode=dry_run .*environment_preflight=1 .*offsets=2 capture_commands=2 oracle_commands=0 offset_labels=3d3f,3ed3 offset_addresses=1000:3D3F,1000:3ED3 .*result_tail=1 result_tail_bytes=8b46f63b46f075c58a46f3c47e04268805c9c20600 .*wrong_offset_guard=1")
 
         add_test(NAME explosion_lane_result_capture_orchestrator_dry_run_with_oracle
             COMMAND ${Python3_EXECUTABLE}

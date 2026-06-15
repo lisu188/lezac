@@ -68,7 +68,10 @@ def run_logged(command: list[str], cwd: Path, log_path: Path) -> subprocess.Comp
         encoding="utf-8",
     )
     if result.returncode != 0:
-        raise RuntimeError(f"command failed; see {log_path}")
+        raise RuntimeError(
+            f"command failed ({result.returncode}): {quote_command(command)}\n"
+            f"see log: {log_path}\n{result.stdout}"
+        )
     return result
 
 
@@ -133,6 +136,18 @@ def build_capture_command(args: argparse.Namespace, offset: str, out_dir: Path) 
     for step in args.route_steps or []:
         command += ["--route-step", step]
     return command
+
+
+def build_environment_preflight_command(args: argparse.Namespace) -> list[str]:
+    root = repo_root()
+    return [
+        sys.executable,
+        str(root / "tools" / "preflight_original_evidence_environment.py"),
+        str(args.asset_dir),
+        "--probe-wsl",
+        "--require-wsl-bash-on-windows",
+        "--require-procmem-capture",
+    ]
 
 
 def build_oracle_command(args: argparse.Namespace, candidate: Path) -> list[str]:
@@ -205,14 +220,22 @@ def selected_offsets(args: argparse.Namespace) -> list[str]:
 def print_dry_run(
     args: argparse.Namespace, out_dir: Path, preflight: str, offsets: list[str]
 ) -> None:
+    environment_preflight_command = build_environment_preflight_command(args)
     print(
         "lane_result_capture_orchestrator=ok "
-        f"mode=dry_run out_dir={out_dir} offsets={len(offsets)} "
+        f"mode=dry_run out_dir={out_dir} "
+        f"environment_preflight={0 if args.skip_environment_preflight else 1} "
+        f"offsets={len(offsets)} "
         f"capture_commands={len(offsets)} "
         f"oracle_commands={0 if args.skip_oracle else len(offsets)} "
         f"offset_labels={offset_labels(offsets)} "
         f"offset_addresses={offset_addresses(offsets)} {preflight}"
     )
+    if not args.skip_environment_preflight:
+        print(
+            "environment_preflight_command="
+            f"{quote_command(environment_preflight_command)}"
+        )
     for offset in offsets:
         label = offset_label(offset)
         print(
@@ -257,6 +280,11 @@ def main() -> int:
     parser.add_argument("--preflight-only", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--skip-oracle", action="store_true")
+    parser.add_argument(
+        "--skip-environment-preflight",
+        action="store_true",
+        help="skip original-evidence host/tool preflight before live capture",
+    )
     parser.add_argument(
         "--offset",
         dest="offsets",
@@ -320,6 +348,16 @@ def main() -> int:
         return 64
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    environment_preflight = "skipped"
+    environment_preflight_command = build_environment_preflight_command(args)
+    if not args.skip_environment_preflight:
+        run_logged(
+            environment_preflight_command,
+            root,
+            out_dir / "environment_preflight.log",
+        )
+        environment_preflight = "ok"
+
     preflight = run_preflight(args.asset_dir, out_dir)
     candidates: list[Path] = []
     offsets = selected_offsets(args)
@@ -330,6 +368,14 @@ def main() -> int:
 
     manifest = out_dir / "manifest.txt"
     command_lines: list[str] = []
+    environment_lines = [f"environment_preflight={environment_preflight}"]
+    if not args.skip_environment_preflight:
+        environment_lines.extend(
+            [
+                f"environment_preflight_command={quote_command(environment_preflight_command)}",
+                f"environment_preflight_log={out_dir / 'environment_preflight.log'}",
+            ]
+        )
     for offset in offsets:
         label = offset_label(offset)
         command_lines.append(
@@ -352,6 +398,7 @@ def main() -> int:
                 f"offsets={len(offsets)}",
                 f"offset_labels={offset_labels(offsets)}",
                 f"offset_addresses={offset_addresses(offsets)}",
+                *environment_lines,
                 f"preflight={preflight}",
                 "approve_procmem=1",
                 "approve_runtime_instrumentation=1",
@@ -378,6 +425,7 @@ def main() -> int:
     print(
         "lane_result_capture_orchestrator=ok "
         f"mode=capture out_dir={out_dir} candidates={len(candidates)} "
+        f"environment_preflight={environment_preflight} "
         f"offset_labels={offset_labels(offsets)} "
         f"offset_addresses={offset_addresses(offsets)} manifest={manifest}"
     )

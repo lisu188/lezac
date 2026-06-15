@@ -154,12 +154,19 @@ It writes a `candidate_fixture.txt` skeleton and
 `debugger_commands_runtime.txt`; when a live run exposes `runtime_cs` or
 `runtime_ds`, the helper copies those values into the manifest/raw dump and
 expands the debugger command plan to the observed runtime segment.
-Live behavior-4, actor-update, and contact-scanner DOSBox-debug helpers run
+Live behavior-4, actor-update, contact-scanner, and visual-table DOSBox-debug
+helpers run
 `tools/preflight_original_evidence_environment.py --require-debug-capture`
 before launching DOSBox-debug, record `environment_preflight=` in the manifest,
 and keep the preflight output in `environment_preflight.log`. Use the matching
 `LEZAC_*_DEBUG_SKIP_ENVIRONMENT_PREFLIGHT=1` variable only for intentional
-forensic reruns on an already-verified host.
+forensic reruns on an already-verified host. Use
+`tools/capture_original_visual_table_debug.sh <out_dir> [asset_dir]
+state2_death_table_consumption` to stage the next state-2 renderer-facing
+fixture for `--debug-visual-table-oracle`.
+Future checked-in original visual-table fixtures should use the
+`visual_table_oracle_original*.txt` naming convention so the fixture expectation
+and optional-original guardrails pick them up automatically.
 Summarize any one of those capture directories with
 `python3 tools/summarize_debug_capture.py <capture_dir>`. The summary reports
 `candidate_status=ready|incomplete|missing|none`, missing fixture fields,
@@ -177,6 +184,13 @@ Review or execute that manifest with
 or omit `--dry-run` on a prepared host. The runner validates oracle/flag pairs,
 can require per-candidate `environment_preflight=ok`, writes optional logs, and
 can leave a result manifest for later promotion review.
+Summarize that result manifest with
+`python3 tools/summarize_debug_capture_ready_results.py <result_manifest>`;
+use `--require-success --require-executed --require-source-environment-preflight`
+before promoting generic behavior-4, actor-update, contact-scanner, or
+visual-table runtime evidence. `tools/check_debug_capture_ready_pipeline.py`
+exercises this full batch-summary, ready-runner, and result-summary handoff with
+synthetic data.
 Actor/contact update evidence is normalized with
 `--debug-actor-update-runtime-oracle <fixture> [--expect-error]`. Its synthetic
 fixtures cover parser behavior only: runtime captures still need to prove exact
@@ -215,10 +229,28 @@ LEZAC_ACTOR_CONTACT_APPROVE_RUNTIME_INSTRUMENTATION=1 \
 
 The wrapper reuses the proven child-process memory scanner, patches only the
 temporary DOSBox-debug child process, and records `visual_claim=0` instrumentation
-evidence. Supported targets are `actor_update_start`, `actor_update_end`,
+evidence. Direct live runs execute the shared process-memory environment
+preflight first and record `environment_preflight=` in the manifest; route and
+dispatch sweeps pass `LEZAC_ACTOR_CONTACT_PROCMEM_SKIP_ENVIRONMENT_PREFLIGHT=1`
+to child captures after their top-level preflight succeeds. Supported targets
+are `actor_update_start`, `actor_update_end`,
 `actor_update_gate5`, `actor_update_gate5_integration`,
 `actor_update_gate5_exit`, `actor_update_gate6`, `contact_scanner_callsite`,
 `contact_scanner_start`, and `contact_scanner_end`.
+`tools/check_visual_claim_guardrail.py` requires every checked-in DOSBox oracle
+fixture to carry an explicit `visual_claim=0` or `visual_claim=1` line so
+instrumentation-only evidence cannot be promoted by omission. Promotions to
+`visual_claim=1` must also be recorded in
+`docs/recovery/visual_claim_promotions.md` with original, C++, and comparison
+frame artifacts. The guardrail self-test exercises the promoted-fixture path so
+missing checked-in artifacts are rejected before any fixture is promoted.
+`tools/check_runtime_evidence_guardrail.py` separately tracks checked-in
+original-runtime DOSBox fixtures in
+`docs/recovery/runtime_evidence_ledger.md`: those captures must remain
+`temp_copy=1`, carry runtime `CS`/`DS`, and stay `visual_claim=0` until a
+separate visual promotion proves exact presentation. Ledger entries point to
+`docs/recovery/original_runtime_fixture_notes.md`, and the checker requires the
+supporting note to name the fixture explicitly.
 `contact_scanner_callsite` maps the static near call at `1000:6555` that targets
 `1000:5CB0`; `tools/check_actor_contact_callsite_scan.py` verifies that callsite
 and the entry/return bytes against `LEZAC.EXE`.
@@ -243,9 +275,10 @@ positioning.
 Use the route-sweep helper to plan or run several guarded actor/contact probes
 with one manifest. The default target is `contact_scanner_start` and the default
 timing matrix covers both post-route and pre-route freeze timing. Live sweeps
-run `tools/preflight_original_evidence_environment.py --require-procmem-capture`
-once before launching captures; use `--skip-environment-preflight` only for
-intentional reruns on an already-verified host:
+run `tools/preflight_original_evidence_environment.py --probe-wsl
+--require-wsl-bash-on-windows --require-procmem-capture` once before launching
+captures; use `--skip-environment-preflight` only for intentional reruns on an
+already-verified host:
 
 ```sh
 python3 tools/sweep_original_actor_contact_routes.py \
@@ -345,6 +378,21 @@ LEZAC_BEHAVIOR4_DEBUG_DRY_RUN=1 \
   /tmp/lezac-behavior4-debug . monster_behavior4_target_selection
 ```
 
+Actor/contact fixture checkers keep the synthetic/malformed parser fixtures
+fixed, but they also accept future
+`actor_update_runtime_oracle_original*.txt` and
+`contact_scanner_runtime_oracle_original*.txt` captures when those fixtures
+parse successfully and have matching CTest coverage. Checked-in original
+fixtures are still governed by the runtime evidence ledger and stay
+`visual_claim=0` until visual evidence is promoted separately.
+The behavior-4 fixture checker follows the same convention for future
+`behavior4_runtime_oracle_original*.txt` captures.
+The visual-table fixture checker does the same for future
+`visual_table_oracle_original*.txt` captures.
+`tools/check_optional_original_oracle_fixtures.py` keeps these four runtime
+oracle lanes aligned so future original fixtures remain valid-only, covered by
+CTest, and explicitly `visual_claim=0`.
+
 Original-game captures are best-effort because DOSBox timing, focus, and
 keyboard injection vary by environment. The current DOSBox screenshot driver is
 still route-specific: it runs `LEZAC.EXE` from a temporary copy under
@@ -400,6 +448,13 @@ python3 tools/preflight_original_evidence_environment.py . --require-procmem-cap
 The non-require mode reports missing tools without failing. The require modes
 fail fast when the matching DOSBox/Xvfb/xdotool toolchain or the shipped asset
 files are missing, so long route sweeps do not start on an unprepared machine.
+`--probe-wsl` reports both `wsl_probe` and `wsl_bash_probe`; a host with
+`wsl.exe` installed but no default Linux distribution reports
+`wsl_bash_reason=no_default_distro`, which blocks original DOSBox/debugger
+capture until a distro with the capture tools is installed.
+`--require-wsl-bash-on-windows` turns that probe into a Windows-only failure
+when `wsl -e bash -lc true` cannot start; native Linux/WSL hosts ignore the
+requirement.
 The debugger capture modes include the `timeout` command used by the
 DOSBox-debug shell helpers. The process-memory mode follows the actual debug
 wrapper dependency set: `bash`, DOSBox, DOSBox-debug, direct `Xvfb`, `xdotool`,
@@ -471,27 +526,29 @@ python3 tools/capture_original_explosion_procmem.py /tmp/lezac-preflight . \
 
 The `forward` alias maps to Ghidra `1000:3D3F`, and `reverse` maps to
 `1000:3ED3`; the raw `3D3F`/`3ED3` forms are still accepted for direct
-address-based retries. The lane-write wrapper uses the same guarded workflow
-for the debris-side writeback offsets: `forward` maps to `1000:3D2D` and
-`reverse` maps to `1000:3EC1`, with raw `3D2D`/`3EC1` accepted for direct
-retries. It defaults to the `late-collapse` runtime freeze preset because those
-offsets only become useful after the collapse/debris queues are live. Dry-run
-summaries and full-capture manifests report the selected `offset_labels` and
-normalized `offset_addresses` so single-probe retries are visible in the log
-header.
+address-based retries. Dry-run summaries and full-capture manifests report the
+selected `offset_labels` and normalized `offset_addresses` so single-probe
+retries are visible in the log header. Direct lane-result live captures also
+run the shared process-memory environment preflight before touching DOSBox and
+record `environment_preflight=` in their manifest; use
+`--skip-environment-preflight` only when an outer sweep has already verified
+the host.
 For route variation, repeat `--route-step KEY:SECONDS`; omitted route steps keep
 the historical default of holding player-1 right (`x`) for
-`--right-hold-seconds`. Use `tools/sweep_original_lane_result_routes.py` or
-`tools/sweep_original_lane_write_routes.py` to plan or run repeated
-natural-route probes while preserving one manifest and one command line per
-route. Live route sweeps run
-`tools/preflight_original_evidence_environment.py --require-procmem-capture`
-once before launching any route; use `--skip-environment-preflight` only for
-intentional forensic reruns on already-verified hosts. Use
-`tools/summarize_lane_result_route_sweep.py` or
-`tools/summarize_lane_write_route_sweep.py` on the completed sweep manifest to
-classify each candidate as `ready`, `no_freeze`, `incomplete`, or `missing`, and
-to emit the matching
+`--right-hold-seconds`. Use `tools/sweep_original_lane_result_routes.py` to
+plan or run repeated natural-route probes while preserving one manifest and
+one command line per route. Live route sweeps run
+`tools/preflight_original_evidence_environment.py --probe-wsl
+--require-wsl-bash-on-windows --require-procmem-capture` once before launching
+any route, so Windows hosts that have `wsl.exe` but no usable default distro
+fail with the same `wsl_bash_reason` reported by the standalone preflight; use
+`--skip-environment-preflight` only for intentional forensic reruns on
+already-verified hosts. Route sweeps pass `--skip-environment-preflight` to the
+child direct lane-result captures so a batch performs one host check at the top
+level. Use
+`tools/summarize_lane_result_route_sweep.py` on
+the completed sweep manifest to classify each candidate as `ready`, `no_freeze`,
+`incomplete`, or `missing`, and to emit the matching
 `--debug-explosion-playback-oracle` command. Add `--require-ready` when a
 capture pass should fail unless at least one natural lane-result or lane-write
 freeze is ready for promotion; add `--require-environment-preflight` when that
@@ -535,9 +592,16 @@ default/timing/route-step probes load the patch but do not reach that freeze.
 - `RECS.DAT` high-score parsing as score, reached level, and colon-padded
   8-byte player name.
 - `PROEFS.SON` parsing as a fixed-size sound-effect bank and `GRAN.MST`
-  parsing as seven fixed-size opaque records. `tools/check_gran_data_evidence_map.py`
-  keeps the raw `GRAN.MST` bytes, converted JSON, CTest wiring, and unresolved
-  opaque-data claim aligned until field semantics are proven.
+  parsing as seven fixed-size opaque records.
+  `tools/check_gran_usage_guardrail.py` keeps `GRAN.MST` limited to loading,
+  validation, byte-preserving roundtrip/debug output, and stored opaque records
+  until original evidence proves a live gameplay or rendering use.
+- Runtime-evidence bookkeeping for checked-in original DOSBox fixtures.
+  `tools/check_runtime_evidence_guardrail.py` pins the
+  `docs/recovery/runtime_evidence_ledger.md` entries to `temp_copy=1`,
+  runtime `CS`/`DS`, and `visual_claim=0` so debugger evidence cannot be
+  confused with promoted visual-frame evidence. Supporting notes live in
+  `docs/recovery/original_runtime_fixture_notes.md`.
 - `LIVELS.SCH` seven-level parsing with the Ghidra-confirmed 3-byte level RLE,
   decoded word layer, monster spawner records, portal/start records, and tile
   trigger rules.

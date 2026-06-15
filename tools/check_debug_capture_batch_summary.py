@@ -14,6 +14,7 @@ from check_debug_capture_summary import (
     write_actor_ready,
     write_behavior4_skeleton,
     write_contact_missing,
+    write_visual_table_ready,
     write_text,
 )
 
@@ -74,6 +75,7 @@ def main() -> int:
         write_behavior4_skeleton(base)
         actor_dir = write_actor_ready(base)
         write_contact_missing(base)
+        write_visual_table_ready(base)
         write_unsupported(base)
 
         ready_manifest = base / "ready" / "ready_manifest.txt"
@@ -87,16 +89,16 @@ def main() -> int:
         )
         for snippet in [
             "debug_capture_batch_summary=ok",
-            "manifests=4",
-            "supported=3",
+            "manifests=5",
+            "supported=4",
             "unsupported=1",
-            "ready=1",
+            "ready=2",
             "incomplete=1",
             "missing=1",
-            "environment_ok=1",
+            "environment_ok=2",
             "environment_not_ok=2",
-            "runtime_observed=1",
-            "oracle_commands=3",
+            "runtime_observed=2",
+            "oracle_commands=4",
             "debug_capture_batch_candidate index=0",
             "capture=actor_update_runtime",
             "candidate_status=ready",
@@ -104,18 +106,22 @@ def main() -> int:
             "candidate_status=incomplete",
             "capture=contact_scanner_runtime",
             "candidate_status=missing",
+            "capture=visual_table",
+            "oracle_flag=--debug-visual-table-oracle",
             "debug_capture_ready_manifest=ok",
             f"path={ready_manifest.resolve()}",
-            "ready_candidates=1",
+            "ready_candidates=2",
         ]:
             require(batch, snippet, "batch_summary")
         ready_text = ready_manifest.read_text(encoding="ascii")
         for snippet in [
             "promotion=debug_capture_ready_candidates",
-            "ready_candidates=1",
+            "ready_candidates=2",
             "candidate_0_capture=actor_update_runtime",
             "candidate_0_environment_preflight=ok",
             "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",
+            "candidate_1_capture=visual_table",
+            "candidate_1_oracle_flag=--debug-visual-table-oracle",
         ]:
             require(ready_text, snippet, "ready_manifest")
         cases += 1

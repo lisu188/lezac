@@ -83,9 +83,11 @@ def clean_output(raw: bytes) -> str:
 
 
 def run_command(command: list[str], timeout_seconds: float = 5.0) -> tuple[int, str]:
+    resolved = shutil.which(command[0])
+    actual_command = [resolved, *command[1:]] if resolved else command
     try:
         result = subprocess.run(
-            command,
+            actual_command,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             check=False,
@@ -94,6 +96,19 @@ def run_command(command: list[str], timeout_seconds: float = 5.0) -> tuple[int, 
     except (OSError, subprocess.TimeoutExpired) as exc:
         return 127, str(exc)
     return result.returncode, clean_output(result.stdout)
+
+
+def wsl_reason(output: str) -> str:
+    lowered = output.lower()
+    if "wsl_e_default_distro_not_found" in lowered:
+        return "no_default_distro"
+    if "no installed distributions" in lowered:
+        return "no_default_distro"
+    if "not recognized" in lowered or "not found" in lowered:
+        return "missing_command"
+    if not output:
+        return "none"
+    return "other"
 
 
 def tool_status(name: str) -> tuple[str, str]:
@@ -164,16 +179,41 @@ def main() -> int:
         action="store_true",
         help="also run `wsl --status` when the wsl command exists",
     )
+    parser.add_argument(
+        "--require-wsl-bash-on-windows",
+        action="store_true",
+        help=(
+            "on Windows, exit nonzero unless `wsl -e bash -lc true` succeeds; "
+            "ignored on native Linux/WSL hosts"
+        ),
+    )
     args = parser.parse_args()
 
+    host = host_label()
     root = args.root.resolve()
     assets, missing_assets = asset_status(root)
     tools = {name: tool_status(name) for name in TOOL_NAMES}
     wsl_status, wsl_path = tool_status("wsl")
     wsl_probe = "not_run"
-    if args.probe_wsl and wsl_status == "found":
-        code, _ = run_command(["wsl", "--status"])
+    wsl_bash_probe = "not_run"
+    wsl_bash_reason = "not_run"
+    should_probe_wsl = args.probe_wsl or (
+        args.require_wsl_bash_on_windows and host == "windows"
+    )
+    if should_probe_wsl and wsl_status == "found":
+        code, status_output = run_command(["wsl", "--status"])
         wsl_probe = "ok" if code == 0 else f"error_{code}"
+        bash_code, bash_output = run_command(["wsl", "-e", "bash", "-lc", "true"])
+        wsl_bash_probe = "ok" if bash_code == 0 else f"error_{bash_code}"
+        wsl_bash_reason = wsl_reason(bash_output)
+        if wsl_bash_probe == "ok":
+            wsl_bash_reason = "none"
+        elif wsl_bash_reason == "none":
+            wsl_bash_reason = wsl_reason(status_output)
+    elif should_probe_wsl:
+        wsl_bash_probe = "missing"
+        wsl_bash_reason = "missing_command"
+    wsl_bash_required = args.require_wsl_bash_on_windows and host == "windows"
 
     required_sets = requirement_names(args)
     required_tools: list[str] = []
@@ -188,7 +228,7 @@ def main() -> int:
 
     summary_fields = [
         "original_evidence_environment=ok",
-        f"host={host_label()}",
+        f"host={host}",
         f"root={root}",
         f"assets={assets}",
         f"missing_assets={csv_or_none(missing_assets)}",
@@ -196,6 +236,9 @@ def main() -> int:
         f"missing_required={csv_or_none(missing_required)}",
         f"wsl={wsl_status}",
         f"wsl_probe={wsl_probe}",
+        f"wsl_bash_probe={wsl_bash_probe}",
+        f"wsl_bash_reason={wsl_bash_reason}",
+        f"wsl_bash_required={1 if wsl_bash_required else 0}",
     ]
     for name in TOOL_NAMES:
         status, path = tools[name]
@@ -210,6 +253,16 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
+    if wsl_bash_required and wsl_bash_probe != "ok":
+        print(
+            "original_evidence_environment=error "
+            "reason=wsl_bash_not_usable "
+            f"wsl_bash_probe={wsl_bash_probe} "
+            f"wsl_bash_reason={wsl_bash_reason} "
+            f"missing_required={csv_or_none(missing_required)}",
+            file=sys.stderr,
+        )
+        return 4
     if missing_required:
         print(
             "original_evidence_environment=error "

@@ -9,6 +9,7 @@
 capture=state2_death_frame_table
 source=dosbox-debug
 temp_copy=1
+visual_claim=0
 
 runtime_cs=01ED
 runtime_ds=0C8F

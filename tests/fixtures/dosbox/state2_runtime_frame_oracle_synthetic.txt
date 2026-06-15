@@ -3,6 +3,7 @@
 capture=state2_death_frame_table
 source=dosbox-debug
 temp_copy=1
+visual_claim=0
 command=dosbox-debug -c "mount c /tmp/lezac-dosbox" -c "c:" -c "LEZAC.EXE"
 
 runtime_cs=1A2B

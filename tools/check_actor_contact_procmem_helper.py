@@ -59,6 +59,15 @@ def check_script(script_path: Path) -> None:
     require(text, "visual_claim=0", "script")
     require(text, "contact_scanner_callsite", "script")
     require(text, "candidate_fixture=\"$out_dir/${target}_runtime_candidate.txt\"", "script")
+    require(text, "environment_preflight_log=\"$out_dir/environment_preflight.log\"", "script")
+    require(text, "preflight_original_evidence_environment.py", "script")
+    require(text, "--probe-wsl", "script")
+    require(text, "--require-wsl-bash-on-windows", "script")
+    require(text, "--require-procmem-capture", "script")
+    require(text, "run_environment_preflight", "script")
+    require(text, "environment_preflight=dry_run", "script")
+    require(text, "environment_preflight=skipped", "script")
+    require(text, "environment_preflight=ok", "script")
     require(text, "write_candidate_skeleton", "script")
     require(text, "route_state_dumps.txt", "script")
     require(text, "LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN", "script")
@@ -96,6 +105,7 @@ def check_cmake(cmake_path: Path) -> None:
         "${CMAKE_CURRENT_SOURCE_DIR}",
         "actor_update_start",
         "^actor_contact_procmem=ok mode=dry_run target=actor_update_start ghidra=1000:6053 .*procmem_out=",
+        "environment_preflight=dry_run",
     ]:
         if collapse_ws(snippet) not in collapsed:
             raise RuntimeError(
@@ -124,6 +134,7 @@ def check_docs(root: Path) -> None:
         require(text, "tools/capture_original_actor_contact_procmem.sh", label)
         require(text, "actor_update_start", label)
         require(text, "LEZAC_ACTOR_CONTACT_APPROVE_PROCMEM=1", label)
+        require(text, "environment_preflight", label)
         require(text, "candidate", label)
 
 

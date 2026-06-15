@@ -158,10 +158,13 @@ loader reads three counted fixed-size blocks:
   2: two, kind 3: three, and kind 4: three. Behavior values are behavior 3:
   nine records and behavior 4: six records.
 - Monster reward sprites follow `BOMOMIMK.SPR` indices `61..67`, matching the
-  score table sequence found near executable file offset `0xb1c6`:
+  score table sequence found at executable file offset `0xb1c6`, which maps
+  through the pinned MZ image base `0x0770` to Ghidra offset `1000:aa56`:
   present `61`/2000, first aid `62`/1000, hot dog `63`/1500, jolly cloud
   `64`/2000, yellow bomb box `65`/3000, green bomb box `66`/1000, and big
-  diamond `67`/5000.
+  diamond `67`/5000. `--debug-bonus-reward-static-model` validates those seven
+  score words directly from `LEZAC.EXE` and separately verifies that the C++
+  sprite mapping `61..67` is in-bounds in the loaded `BOMOMIMK.SPR` bank.
 
 ## Actor Movement Behaviors
 

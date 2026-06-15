@@ -6,6 +6,12 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `--debug-bonus-reward-static-model` to pin the monster reward score
+  table against shipped `LEZAC.EXE` bytes. The diagnostic validates MZ image
+  base `0x0770`, file offset `0xb1c6` / Ghidra offset `1000:aa56`, the seven
+  little-endian scores `2000,1000,1500,2000,3000,1000,5000`, the current C++
+  bonus sprite mapping `61..67`, and `BOMOMIMK.SPR` bounds for those reward
+  sprites.
 - Added `--debug-actor-contact-static-model` to pin the shipped executable
   control-flow anchors for the actor/contact recovery path from the C++
   diagnostic binary: scanner entry/return `1000:5CB0..604F`, actor-update

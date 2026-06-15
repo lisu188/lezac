@@ -2712,6 +2712,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^bonuses=ok sprites=7 rain=0 sound_cursor=0x8 sound_priority=5")
 
+    add_test(NAME bonus_reward_static_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-bonus-reward-static-model)
+    set_tests_properties(bonus_reward_static_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "bonus_reward_static_model=ok image_base=0x0770 score_table_file=0xb1c6 score_table_ghidra=0xaa56 rewards=7 scores=2000,1000,1500,2000,3000,1000,5000 sprite_indices=61,62,63,64,65,66,67 bomomimk_sprites=91 sprite_in_bounds=7 score_sum=15500 top_score=5000 pickup_sound=0x0008/p5")
+
     add_test(NAME monster_blast_damage
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-blast-damage)
     set_tests_properties(monster_blast_damage PROPERTIES

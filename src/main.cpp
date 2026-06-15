@@ -5133,6 +5133,81 @@ public:
                   << static_cast<int>(kBonusPickupSoundPriority) << '\n';
     }
 
+    void debugBonusRewardStaticModel() {
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for bonus reward scan");
+        }
+
+        constexpr uint16_t kScoreTableGhidraOffset = 0xaa56;
+        constexpr uint16_t kScoreTableFileOffset = 0xb1c6;
+        if (imageBase + kScoreTableGhidraOffset != kScoreTableFileOffset) {
+            throw std::runtime_error("bonus reward score-table offset mapping changed");
+        }
+        constexpr std::array<uint16_t, 7> expectedScores{{
+            2000, 1000, 1500, 2000, 3000, 1000, 5000,
+        }};
+        constexpr std::array<int, 7> expectedSpriteIndices{{61, 62, 63, 64, 65, 66, 67}};
+
+        std::ostringstream scoreList;
+        uint32_t scoreSum = 0;
+        uint16_t topScore = 0;
+        for (size_t i = 0; i < expectedScores.size(); ++i) {
+            const uint16_t score = le16(exeBytes, kScoreTableFileOffset + i * 2);
+            if (score != expectedScores[i]) {
+                throw std::runtime_error("bonus reward score table changed");
+            }
+            if (i != 0) scoreList << ',';
+            scoreList << score;
+            scoreSum += score;
+            topScore = std::max(topScore, score);
+        }
+
+        load();
+        std::ostringstream spriteList;
+        int spriteInBounds = 0;
+        for (size_t i = 0; i < expectedSpriteIndices.size(); ++i) {
+            BonusType type = static_cast<BonusType>(i);
+            const int spriteIndex = bonusSpriteIndex(type);
+            if (spriteIndex != expectedSpriteIndices[i]) {
+                throw std::runtime_error("bonus reward sprite mapping changed");
+            }
+            if (spriteIndex < 0 ||
+                spriteIndex >= static_cast<int>(sprites_.sprites.size())) {
+                throw std::runtime_error("bonus reward sprite index out of bounds");
+            }
+            const Sprite& sprite = sprites_.sprites[static_cast<size_t>(spriteIndex)];
+            if (sprite.width <= 0 || sprite.height <= 0 ||
+                sprite.pixels.size() !=
+                    static_cast<size_t>(sprite.width) * static_cast<size_t>(sprite.height)) {
+                throw std::runtime_error("bonus reward sprite payload changed");
+            }
+            if (i != 0) spriteList << ',';
+            spriteList << spriteIndex;
+            ++spriteInBounds;
+        }
+
+        std::cout << "bonus_reward_static_model=ok"
+                  << " image_base=0x0770"
+                  << " score_table_file=" << hex4(kScoreTableFileOffset)
+                  << " score_table_ghidra=" << hex4(kScoreTableGhidraOffset)
+                  << " rewards=" << expectedScores.size()
+                  << " scores=" << scoreList.str()
+                  << " sprite_indices=" << spriteList.str()
+                  << " bomomimk_sprites=" << sprites_.sprites.size()
+                  << " sprite_in_bounds=" << spriteInBounds
+                  << " score_sum=" << scoreSum
+                  << " top_score=" << topScore
+                  << " pickup_sound=" << hex4(kBonusPickupSoundCursor)
+                  << "/p" << static_cast<int>(kBonusPickupSoundPriority)
+                  << '\n';
+    }
+
     void debugFixed() {
         auto run = [](int16_t velocity, int ticks) {
             int pos = 0;
@@ -16775,6 +16850,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bonuses") {
             app.debugBonuses();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-bonus-reward-static-model") {
+            app.debugBonusRewardStaticModel();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-fixed") {

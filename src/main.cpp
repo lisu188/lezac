@@ -4247,6 +4247,12 @@ public:
         auto rawBytes = readFile("GRAN.MST");
         constexpr size_t kExpectedGranRecords = 7;
         constexpr size_t kExpectedGranPayloadSize = kExpectedGranRecords * kGranRecordSize;
+        const std::array<int, 7> expectedSums{631, 2230, 1389, 1242, 1780, 2720, 2568};
+        const std::array<int, 7> expectedWeightedSums{
+            18094, 59871, 40052, 35568, 63621, 65838, 54274};
+        const std::array<int, 7> expectedNonzero{31, 41, 29, 30, 33, 41, 44};
+        const std::array<uint8_t, 7> expectedXor{
+            0x83, 0x08, 0x53, 0x80, 0xd0, 0xda, 0x5e};
         if (rawBytes.size() != kExpectedGranPayloadSize) {
             throw std::runtime_error("GRAN.MST raw size mismatch");
         }
@@ -4267,11 +4273,70 @@ public:
             !std::equal(jsonPayload.begin(), jsonPayload.end(), rawBytes.begin())) {
             throw std::runtime_error("GRAN.MST raw/json payload mismatch");
         }
+        auto joinedInts = [](const auto& values) {
+            std::ostringstream oss;
+            for (size_t i = 0; i < values.size(); ++i) {
+                if (i != 0) oss << ',';
+                oss << static_cast<int>(values[i]);
+            }
+            return oss.str();
+        };
+        auto joinedHexBytes = [](const auto& values) {
+            std::ostringstream oss;
+            for (size_t i = 0; i < values.size(); ++i) {
+                if (i != 0) oss << ',';
+                oss << "0x" << std::hex << std::setw(2) << std::setfill('0')
+                    << static_cast<int>(values[i]);
+            }
+            return oss.str();
+        };
+        int totalSum = 0;
+        int totalWeightedSum = 0;
+        int totalNonzero = 0;
+        uint8_t totalXor = 0;
+        for (size_t i = 0; i < kExpectedGranRecords; ++i) {
+            const size_t base = i * kGranRecordSize;
+            int byteSum = 0;
+            int weightedSum = 0;
+            int nonzero = 0;
+            uint8_t xorValue = 0;
+            for (size_t j = 0; j < kGranRecordSize; ++j) {
+                uint8_t byte = jsonPayload[base + j];
+                byteSum += byte;
+                weightedSum += static_cast<int>((j + 1) * byte);
+                if (byte != 0) ++nonzero;
+                xorValue = static_cast<uint8_t>(xorValue ^ byte);
+            }
+            if (byteSum != expectedSums[i] ||
+                weightedSum != expectedWeightedSums[i] ||
+                nonzero != expectedNonzero[i] ||
+                xorValue != expectedXor[i]) {
+                throw std::runtime_error("GRAN.MST record fingerprint mismatch");
+            }
+            totalSum += byteSum;
+            totalWeightedSum += weightedSum;
+            totalNonzero += nonzero;
+            totalXor = static_cast<uint8_t>(totalXor ^ xorValue);
+        }
+        if (totalSum != 12560 || totalWeightedSum != 337318 ||
+            totalNonzero != 249 || totalXor != 0x0c) {
+            throw std::runtime_error("GRAN.MST aggregate fingerprint mismatch");
+        }
         std::cout << "gran_raw_roundtrip=ok raw_size=" << rawBytes.size()
                   << " record_size=" << gran_.recordSize
                   << " records=" << kExpectedGranRecords
                   << " payload_size=" << jsonPayload.size()
-                  << " json_records=" << gran_.records.size() << '\n';
+                  << " json_records=" << gran_.records.size()
+                  << " byte_sum=" << totalSum
+                  << " weighted_sum=" << totalWeightedSum
+                  << " nonzero_bytes=" << totalNonzero
+                  << " zero_bytes=" << (static_cast<int>(jsonPayload.size()) - totalNonzero)
+                  << " xor=0x" << std::hex << std::setw(2) << std::setfill('0')
+                  << static_cast<int>(totalXor) << std::dec << std::setfill(' ')
+                  << " record_sums=" << joinedInts(expectedSums)
+                  << " record_weighted_sums=" << joinedInts(expectedWeightedSums)
+                  << " record_nonzero=" << joinedInts(expectedNonzero)
+                  << " record_xor=" << joinedHexBytes(expectedXor) << '\n';
     }
 
     void debugSoundPriorityLatch() {
@@ -8964,6 +9029,17 @@ public:
             if (bytes.size() != kGranRecordSize) {
                 throw std::runtime_error("GRAN.MST profile record length mismatch");
             }
+            int byteSum = 0;
+            int weightedSum = 0;
+            int nonzero = 0;
+            uint8_t xorValue = 0;
+            for (size_t off = 0; off < bytes.size(); ++off) {
+                uint8_t byte = bytes[off];
+                byteSum += byte;
+                weightedSum += static_cast<int>((off + 1) * byte);
+                if (byte != 0) ++nonzero;
+                xorValue = static_cast<uint8_t>(xorValue ^ byte);
+            }
             const size_t zeroBytes = static_cast<size_t>(
                 std::count(bytes.begin(), bytes.end(), 0));
             size_t nonzeroGroups = 0;
@@ -8979,6 +9055,11 @@ public:
             std::cout << "gran_record_profile record=" << (i + 1)
                       << " bytes=" << bytes.size()
                       << " zero_bytes=" << zeroBytes
+                      << " nonzero_bytes=" << nonzero
+                      << " byte_sum=" << byteSum
+                      << " weighted_sum=" << weightedSum
+                      << " xor=0x" << std::hex << std::setw(2) << std::setfill('0')
+                      << static_cast<int>(xorValue) << std::dec << std::setfill(' ')
                       << " nonzero_groups=" << nonzeroGroups
                       << " zero_groups=" << (kGranProfileGroupsPerRecord - nonzeroGroups)
                       << " first_groups=";

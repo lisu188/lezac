@@ -133,6 +133,14 @@ Baseline: `origin/main`
 - Extended the `GRAN.MST` guardrail with a synthetic self-test so the checker
   proves it rejects accidental live `gran_` gameplay/rendering references,
   missing debug-only function ranges, and docs that omit the guardrail pointer.
+- Extended `--debug-gran-raw-roundtrip` and `--debug-gran` with opaque
+  record-level byte fingerprints. CTest now pins the shipped 399-byte payload's
+  aggregate `byte_sum=12560`, `weighted_sum=337318`, `nonzero_bytes=249`,
+  `zero_bytes=150`, `xor=0x0c`, record sums
+  `631,2230,1389,1242,1780,2720,2568`, weighted sums
+  `18094,59871,40052,35568,63621,65838,54274`, nonzero counts
+  `31,41,29,30,33,41,44`, and per-record XOR bytes while still treating
+  `GRAN.MST` as opaque data.
 - Added `tools/check_visual_claim_guardrail.py` and explicit `visual_claim=0`
   lines to the remaining state-2 DOSBox oracle fixtures. All checked-in DOSBox
   fixtures now have a declared visual claim so parser/runtime evidence cannot

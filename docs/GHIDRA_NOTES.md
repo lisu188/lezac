@@ -87,7 +87,11 @@ quirk.
   57-byte records, likely aligned with the seven shipped levels, but the field
   semantics are still unresolved. Runtime JSON loading now rejects any converted
   shape other than `7 * 57` bytes, and `--debug-gran-raw-roundtrip` verifies
-  the converted JSON bytes exactly match the shipped 399-byte file.
+  the converted JSON bytes exactly match the shipped 399-byte file. The
+  roundtrip also pins an opaque byte profile for comparison work only:
+  aggregate `byte_sum=12560`, `weighted_sum=337318`, `nonzero_bytes=249`,
+  `zero_bytes=150`, `xor=0x0c`, and record sums
+  `631,2230,1389,1242,1780,2720,2568`.
   `tools/check_gran_usage_guardrail.py` confirms the current C++ port only
   loads, stores, validates, and debug-prints those opaque records; no live
   gameplay or rendering path may consume `GRAN.MST` without first adding

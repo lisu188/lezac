@@ -643,7 +643,9 @@ python3 tools/sweep_original_lane_write_routes.py \
 - `RECS.DAT` high-score parsing as score, reached level, and colon-padded
   8-byte player name.
 - `PROEFS.SON` parsing as a fixed-size sound-effect bank and `GRAN.MST`
-  parsing as seven fixed-size opaque records.
+  parsing as seven fixed-size opaque records. The GRAN roundtrip now pins
+  record-level byte fingerprints for later comparison while keeping every
+  field semantic unresolved.
   `tools/check_gran_usage_guardrail.py` keeps `GRAN.MST` limited to loading,
   validation, byte-preserving roundtrip/debug output, and stored opaque records
   until original evidence proves a live gameplay or rendering use.

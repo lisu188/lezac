@@ -1615,7 +1615,14 @@ if(BUILD_TESTING)
     set_tests_properties(gran_raw_roundtrip PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^gran_raw_roundtrip=ok raw_size=399 record_size=57 records=7 payload_size=399 json_records=7")
+            "^gran_raw_roundtrip=ok raw_size=399 record_size=57 records=7 payload_size=399 json_records=7 byte_sum=12560 weighted_sum=337318 nonzero_bytes=249 zero_bytes=150 xor=0x0c record_sums=631,2230,1389,1242,1780,2720,2568 record_weighted_sums=18094,59871,40052,35568,63621,65838,54274 record_nonzero=31,41,29,30,33,41,44 record_xor=0x83,0x08,0x53,0x80,0xd0,0xda,0x5e")
+
+    add_test(NAME gran_profile
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran)
+    set_tests_properties(gran_profile PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "gran_record_profile record=7 bytes=57 zero_bytes=13 nonzero_bytes=44 byte_sum=2568 weighted_sum=54274 xor=0x5e")
 
     add_test(NAME gran_summary
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran)

@@ -74,6 +74,9 @@ Baseline: `origin/main`
 - Made `--smoke-ui` report its inspected frame count and pinned both headless
   UI smoke checks in CTest, so dummy-SDL rendering/control regressions no
   longer pass on exit status alone.
+- Added `tools/check_sound_compatibility_hooks.py` to keep the four remaining
+  direct `playSound(index)` callers explicit as compatibility hooks until
+  original cursor/priority writes are recovered.
 - Extended `--debug-end-flow-records` with the original-style two-player
   threshold re-check: player 2 can qualify against the old seventh-place score,
   but is skipped after player 1 inserts a higher record and raises the table
@@ -1672,7 +1675,9 @@ Baseline: `origin/main`
   diagnostics preserve them as raw fields only.
 - Many non-explosion sound callsites still need exact cursor/priority mapping;
   the sound-callsite oracle and DOSBox-debug capture planner are ready for
-  original debugger transcripts.
+  original debugger transcripts. The remaining direct `playSound(index)`
+  callers are compatibility hooks until original cursor/priority writes are
+  recovered.
 - Exact actor update behavior around `1000:6053..777f`, especially original
   contact flags, passability thresholds, tile snapping, behavior-3 ledge/wall
   handling, and behavior-4 collision response. The synthetic actor-update oracle

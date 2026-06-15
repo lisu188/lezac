@@ -808,7 +808,8 @@ python3 tools/sweep_original_lane_write_routes.py \
   `PROEFS.SON`. Field diagnostics preserve bytes `+4..+5` as raw unknowns, and
   mutation coverage proves the current synthesizer ignores them; their original
   semantic meaning plus many non-explosion callsite-to-event mappings remain
-  unresolved.
+  unresolved. Remaining direct `playSound(index)` callers are compatibility
+  hooks until original cursor/priority writes are recovered.
 - Two-player split-screen is playable with independent bomb inventories, scores,
   and record prompts, but exact original panel artwork and reentry presentation
   remain approximate.

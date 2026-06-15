@@ -400,6 +400,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_workflow.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_state2_visual_frame_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_debug_capture_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_compatibility_hooks.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_native_windows_validation_helper.py
@@ -1198,6 +1199,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^sound_callsite_debug_capture_helper=ok scenarios=6 anchors=7 outputs=7 cmake_tests=6 docs=3")
+
+        add_test(NAME sound_compatibility_hooks
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_compatibility_hooks.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(sound_compatibility_hooks PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^sound_compatibility_hooks=ok live_hooks=4 helpers=2 docs=3")
 
         add_test(NAME debug_capture_summary_expectations
             COMMAND ${Python3_EXECUTABLE}

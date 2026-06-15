@@ -85,9 +85,14 @@ quirk.
   that no payload bytes are lost.
 - `GRAN.MST` has no observed header in the shipped file. It is seven fixed-size
   57-byte records, likely aligned with the seven shipped levels, but the field
-  semantics are still unresolved. Runtime JSON loading now rejects any converted
-  shape other than `7 * 57` bytes, and `--debug-gran-raw-roundtrip` verifies
-  the converted JSON bytes exactly match the shipped 399-byte file.
+  semantics are still unresolved. `--debug-gran` now reports a conservative
+  byte-profile diagnostic: record length, zero-byte counts, and a reversible
+  stride-3 grouping view for inspection only (113 nonzero groups, 20 zero
+  groups, and 150 zero bytes across the shipped file). This grouping is not yet
+  a semantic claim about the original loader. Runtime JSON loading still rejects
+  any converted shape other than `7 * 57` bytes, and
+  `--debug-gran-raw-roundtrip` verifies the converted JSON bytes exactly match
+  the shipped 399-byte file.
 
 ## Level Entity Blocks
 
@@ -416,6 +421,18 @@ writeback branch arithmetic: both forward `1000:3d2d` and reverse `1000:3ec1`
 resolve selected tag `0x4ee8` to `DI=0x0898`, matching
 `(0x4ee8 - 0x4e20) * 0x0b`. The forward seeded result byte is `0x35`; the
 reverse seeded result byte is `0x00`.
+`tools/capture_original_lane_write_runtime.py` and
+`tools/sweep_original_lane_write_routes.py` now provide the guarded natural-route
+capture path for those debris-side writeback offsets. Their safe preflight pins
+the shipped target bytes (`1000:3d2d` = `88 95 97`, `1000:3ec1` = `88 95 98`),
+scratch block `CS:f080`, scratch length 12, and trampoline body length 45
+before any DOSBox/process-memory capture is attempted.
+`tools/summarize_lane_write_route_sweep.py` classifies completed manifests as
+ready/no-freeze/incomplete/missing and intentionally rejects runtime-seeded
+fixtures as natural-route promotion candidates. The matching
+`tools/run_lane_write_ready_manifest.py` and
+`tools/summarize_lane_write_ready_results.py` wrappers share the lane-result
+ready-candidate runner while preserving lane-write manifest labels.
 The capture helper and explosion playback oracle now also support
 `lane-result-cs-scratch` for the final helper far-pointer result writes at
 `1000:3d3f` and `1000:3ed3` (`mov es:[di],al`). The runtime scratch body is

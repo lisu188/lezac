@@ -261,6 +261,7 @@ if(BUILD_TESTING)
         add_test(NAME python_tool_syntax_lane_result_preflight
             COMMAND ${Python3_EXECUTABLE} -B -m py_compile
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_write_runtime.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_explosion_procmem.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_ready_pipeline.py
@@ -286,6 +287,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_orchestrator.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_preflight.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_wrapper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_write_wrapper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_environment.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_map.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_manifest.py
@@ -297,15 +299,19 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_actor_dispatch_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_debug_capture_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_lane_result_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_lane_write_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/preflight_original_evidence_environment.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_actor_dispatch_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_actor_dispatch_gate_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_debug_capture_batch.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_debug_capture.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_write_route_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_write_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_result_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_result_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_dispatch_gates.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_contact_routes.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_write_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_result_routes.py)
         set_tests_properties(python_tool_syntax_lane_result_preflight PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
@@ -448,6 +454,78 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^lane_result_wrapper_output=ok cases=13")
+
+        add_test(NAME explosion_lane_write_capture_orchestrator_preflight
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_write_runtime.py
+                    --preflight-only
+                    --asset-dir ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_write_capture_orchestrator_preflight PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_write_capture_orchestrator=ok mode=preflight .*offsets=1000:3D2D,1000:3EC1 .*original_bytes=3d2d:889597,3ec1:889598 .*scratch_offset=0xf080 scratch_length=12 body_length=45")
+
+        add_test(NAME explosion_lane_write_capture_orchestrator_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_write_runtime.py
+                    /tmp/lezac-lane-write-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --skip-oracle)
+        set_tests_properties(explosion_lane_write_capture_orchestrator_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_write_capture_orchestrator=ok mode=dry_run .*offsets=2 capture_commands=2 oracle_commands=0 offset_labels=3d2d,3ec1 offset_addresses=1000:3D2D,1000:3EC1 .*original_bytes=3d2d:889597,3ec1:889598")
+
+        add_test(NAME explosion_lane_write_wrapper_output_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_write_wrapper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_write_wrapper_output_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_write_wrapper_output=ok cases=9")
+
+        add_test(NAME explosion_lane_write_route_sweep_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_write_routes.py
+                    /tmp/lezac-lane-write-route-sweep-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --skip-oracle
+                    --route x:2.00,c:0.50
+                    --route x:1.50,z:0.50)
+        set_tests_properties(explosion_lane_write_route_sweep_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_write_route_sweep=ok mode=dry_run .*offset=forward routes=2 route_labels=x2p00_c0p50,x1p50_z0p50 capture_commands=2 runtime_freeze_preset=late-collapse")
+
+        add_test(NAME explosion_lane_write_route_sweep_output_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_write_route_sweep_output_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_write_route_sweep_output=ok cases=8")
+
+        add_test(NAME explosion_lane_write_route_sweep_summary_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_write_route_sweep_summary_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_write_route_sweep_summary_check=ok cases=10")
+
+        add_test(NAME explosion_lane_write_ready_pipeline_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_ready_pipeline.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_write_ready_pipeline_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_write_ready_pipeline_check=ok cases=7")
 
         add_test(NAME explosion_lane_result_route_sweep_dry_run
             COMMAND ${Python3_EXECUTABLE}
@@ -963,6 +1041,13 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^gran_raw_roundtrip=ok raw_size=399 record_size=57 records=7 payload_size=399 json_records=7")
+
+    add_test(NAME gran_record_profile
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran)
+    set_tests_properties(gran_record_profile PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "gran_record_profile=ok records=7 record_size=57 groups_per_record=19 total_nonzero_groups=113 total_zero_groups=20 total_zero_bytes=150")
 
     add_test(NAME sound_priority_latch
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-priority-latch)

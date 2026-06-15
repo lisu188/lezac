@@ -1663,7 +1663,9 @@ if(BUILD_TESTING)
 
     add_test(NAME sound_render COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-render)
     set_tests_properties(sound_render PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "sound_render_1=cursor:0 samples:3148 nonzero:3148 min:-7200 max:7200[ \n\r\t]+sound_render_2=cursor:0x8 samples:14166 nonzero:14166 min:-7200 max:7200[ \n\r\t]+sound_render_3=cursor:0x12 samples:11018 nonzero:5509 min:-7200 max:7200[ \n\r\t]+sound_render_4=cursor:0x1a samples:4722 nonzero:4722 min:-7200 max:7200[ \n\r\t]+sound_render_5=cursor:0x21 samples:1574 nonzero:1574 min:-7200 max:7200[ \n\r\t]+sound_render_6=cursor:0x27 samples:7870 nonzero:7870 min:-7200 max:7200[ \n\r\t]+sound_render_total=samples:42498 nonzero:36989")
 
     add_test(NAME sound_cursor_segments
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-cursor-segments)

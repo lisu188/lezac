@@ -65,6 +65,9 @@ Baseline: `origin/main`
 - Pinned deterministic CTest output for monster blast rewards, trigger rewrite
   accounting, and portal cooldown/key handling so those recovered gameplay
   diagnostics no longer rely on exit status alone.
+- Pinned `--debug-sound-render` CTest output for all six compatibility cursor
+  starts plus aggregate sample/nonzero counts, keeping recovered `PROEFS.SON`
+  synthesis from drifting silently.
 - Extended `--debug-end-flow-records` with the original-style two-player
   threshold re-check: player 2 can qualify against the old seventh-place score,
   but is skipped after player 1 inserts a higher record and raises the table

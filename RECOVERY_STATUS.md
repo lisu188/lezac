@@ -40,6 +40,10 @@ Baseline: `origin/main`
   threshold re-check: player 2 can qualify against the old seventh-place score,
   but is skipped after player 1 inserts a higher record and raises the table
   cutoff.
+- Tightened record failure/cutoff diagnostics: `--debug-end-flow-records` now
+  locks that a score equal to the current seventh-place record does not qualify,
+  and `--debug-record-save-failure` verifies that a failed save preserves the
+  pending name-entry score/name until a later writable-path retry commits it.
 - Promoted natural, non-seeded original-runtime evidence for forward final
   lane-result writeback: `explosion_playback_oracle_original_3d3f_lane_result_runtime_natural.txt`
   captures route `x:2.00` reaching `1000:3D3F` with runtime

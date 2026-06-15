@@ -3631,7 +3631,24 @@ public:
             pendingRecordName_ != "FAIL") {
             throw std::runtime_error("record save failure discarded pending entry");
         }
-        std::cout << "record_save_failure=ok pending=" << pendingRecordScore_ << '\n';
+
+        std::filesystem::path retryPath = std::filesystem::path(path).parent_path()
+                                             .parent_path() /
+                                         "records_save_failure_retry.dat";
+        if (retryPath.empty()) {
+            retryPath = "records_save_failure_retry.dat";
+        }
+        recordPath_ = retryPath.string();
+        saveRecords(recordPath_, records_);
+        finalizePendingRecord();
+        auto reloaded = loadRecords(recordPath_);
+        if (menuPage_ != MenuPage::Records || pendingRecordScore_ != 0 ||
+            !pendingRecordName_.empty() || reloaded.empty() ||
+            reloaded[0].score != 999999u || reloaded[0].name != "FAIL") {
+            throw std::runtime_error("record save retry did not commit pending entry");
+        }
+        std::cout << "record_save_failure=ok pending_preserved=999999"
+                  << " retry_committed=1 name=" << reloaded[0].name << '\n';
     }
 
     void debugEndFlowRecords(const std::string& path) {
@@ -3701,6 +3718,18 @@ public:
         onKey(SDLK_RETURN, running);
         if (menuPage_ != MenuPage::Main || score_ != 0 || score2_ != 0) {
             throw std::runtime_error("game-over confirm did not clear score state");
+        }
+
+        records_ = baselineRecords;
+        saveRecords(recordPath_, records_);
+        playerCount_ = 1;
+        score_ = records_.back().score;
+        score2_ = 0;
+        levelIndex_ = 2;
+        beginGameOver();
+        if (!menu_ || menuPage_ != MenuPage::GameOver || pendingRecordScore_ != 0 ||
+            pendingRecordLevel_ != 0 || !pendingRecordName_.empty()) {
+            throw std::runtime_error("score equal to record cutoff qualified");
         }
 
         playerCount_ = 2;
@@ -3783,6 +3812,7 @@ public:
         std::cout << "end_flow_records=ok completion_level=" << completionLevel
                   << " p1_record=999997 p2_record=999998 records="
                   << finalRecords.size()
+                  << " cutoff_equal_skipped=1"
                   << " p2_recheck_skipped=1\n";
     }
 

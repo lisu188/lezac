@@ -1113,7 +1113,12 @@ The C++ port maps this to `beginEndRun`, `startNextPendingRecord`, and
 queued player scores against the current record table immediately before
 opening name entry. `--debug-end-flow-records` now includes a threshold case
 where player 2 would qualify against the old seventh record but is skipped after
-player 1 is inserted and the table cutoff rises.
+player 1 is inserted and the table cutoff rises. It also locks the strict
+cutoff comparison: a score equal to the current seventh record does not open
+name entry.
+`--debug-record-save-failure` verifies that a failed write leaves the pending
+entry on the name-entry page and that retrying with a writable record path
+commits the same pending score/name instead of discarding it.
 `tools/check_record_flow_evidence_map.py` guards this handoff by checking the
 `RECS.DAT` converted resource shape, record/name/end-flow debug commands, CTest
 output contracts, and the `1000:1845..1ad4` / `1000:1b14..1d42` docs anchors.

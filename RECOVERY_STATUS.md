@@ -62,6 +62,9 @@ Baseline: `origin/main`
 - Tightened `bonus_rewards` CTest coverage so the recovered bonus-pickup sound
   request is pinned as cursor `0x0008` at priority `5`, matching the
   `1000:6e4b..6f8d` evidence path already used by `collectBonusDrop`.
+- Pinned deterministic CTest output for monster blast rewards, trigger rewrite
+  accounting, and portal cooldown/key handling so those recovered gameplay
+  diagnostics no longer rely on exit status alone.
 - Extended `--debug-end-flow-records` with the original-style two-player
   threshold re-check: player 2 can qualify against the old seventh-place score,
   but is skipped after player 1 inserts a higher record and raises the table

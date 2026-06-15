@@ -2543,7 +2543,8 @@ if(BUILD_TESTING)
     add_test(NAME monster_blast_damage
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-blast-damage)
     set_tests_properties(monster_blast_damage PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^monster_blast_damage=ok drops=2")
 
     add_test(NAME bomb_fuse COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-fuse)
     set_tests_properties(bomb_fuse PROPERTIES
@@ -2596,7 +2597,8 @@ if(BUILD_TESTING)
     add_test(NAME trigger_accounting
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-trigger-accounting)
     set_tests_properties(trigger_accounting PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^trigger_accounting=ok level=6 rewrites=2")
 
     add_test(NAME trigger_sound
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-trigger-sound)
@@ -2613,7 +2615,8 @@ if(BUILD_TESTING)
     add_test(NAME portal_cooldowns
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-portal-cooldowns)
     set_tests_properties(portal_cooldowns PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^portal_cooldowns=ok level=3 key=31")
 
     add_test(NAME collision_pushout
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-collision-pushout)

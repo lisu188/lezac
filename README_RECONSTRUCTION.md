@@ -597,6 +597,9 @@ default/timing/route-step probes load the patch but do not reach that freeze.
   `dosbox-debug` capture stopped at runtime `01ED:7C89` now locks one original
   state-2 countdown sample: `DS=0C8F`, death cursor `0x45`, frame range
   `0x4a..0x4f`, and effect entry 0 position `0x0068,0x00a8`.
+  `tools/check_visual_state2_evidence_map.py` keeps this death/reentry visual
+  handoff tied to source, fixtures, CTest, and the unresolved `visual_claim=0`
+  documentation before any future renderer promotion.
   `--debug-son-step-fields` exposes each recovered six-byte sound step as
   `period_word`, `gate_tick`, `period_ticks`, `unknown4`, and `unknown5` while
   keeping bytes `+4..+5` explicitly uninterpreted. The

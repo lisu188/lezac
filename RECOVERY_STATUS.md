@@ -15,10 +15,14 @@ Baseline: `origin/main`
 - Added `--debug-static-sound-requests` to scan the shipped `LEZAC.EXE` image
   and lock all 27 immediate writes to `DS:2074`. The diagnostic pins
   21 near-latch candidates, 22 near-latch call references, five direct-sweep
-  writes, 15 mapped callsites, and 12 remaining unlabeled static sound
+  writes, 15 mapped callsites, and 12 remaining unpromoted static sound
   candidates for future recovery. It now prints the full mapped-label ledger
   and the exact unresolved queue:
   `0x1d9c,0x202d,0x2c04,0x49bd,0x4b2c,0x4d3c,0x4dd3,0x5e81,0x6844,0x6924,0x7386,0x789c`.
+  Each unresolved write is now classified with a factual label such as
+  `post_end_flow_record_region`, `record_table_cursor_only`,
+  `collapse_playback_rejected`, `non_objective_tile_gate_rejected`, or its
+  cursor/priority shape.
 - Extended `tools/capture_original_sound_callsite_debug.sh` and its guardrail
   to stage `bomb_place_sound` runtime captures alongside the existing mapped
   sound-callsite scenarios.

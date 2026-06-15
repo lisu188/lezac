@@ -895,9 +895,15 @@ portal, trigger, bonus, player hurt, player death, name-entry prompt/commit,
 and records-page callsites. The command prints a mapped-label ledger and keeps
 the remaining unresolved offsets explicit:
 `0x1d9c,0x202d,0x2c04,0x49bd,0x4b2c,0x4d3c,0x4dd3,0x5e81,0x6844,0x6924,0x7386,0x789c`.
-The
+Those unresolved writes are also pinned by factual labels:
+`post_end_flow_record_region`, `record_table_cursor_only`,
+`cursor_0078_priority11`, `cursor_0027_priority5`,
+`collapse_playback_rejected`, two `cursor_2710` entries,
+`cursor_0069_priority4`, `cursor_0024_priority2`,
+`non_objective_tile_gate_rejected`, `cursor_0021_priority1`, and
+`cursor_0001_no_latch`. The
 bomb-object default cue is covered by the surrounding scan that leaves
-`DS:2074 = 0x0000`; 12 immediate-write candidates remain unlabeled static
+`DS:2074 = 0x0000`; 12 immediate-write candidates remain unpromoted static
 recovery targets.
 The diagnostic also prints
 `remaining_compat_hooks=objective_pickup,level_complete` and records rejected

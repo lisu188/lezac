@@ -5333,6 +5333,10 @@ public:
             uint16_t offset;
             const char* label;
         };
+        struct UnresolvedStaticSoundWrite {
+            uint16_t offset;
+            const char* label;
+        };
         static const std::array<StaticSoundWrite, 27> kExpectedWrites{{
             {0x1857, 0x0078}, {0x1a44, 0x0008}, {0x1d9c, 0x003d},
             {0x202d, 0x0021}, {0x2083, 0x0024}, {0x2c04, 0x0078},
@@ -5360,6 +5364,20 @@ public:
             {0x6e34, "bomb_object_high"},
             {0x6f82, "bonus_pickup"},
             {0x7f84, "player_damage"},
+        }};
+        static const std::array<UnresolvedStaticSoundWrite, 12> kUnresolvedWrites{{
+            {0x1d9c, "post_end_flow_record_region"},
+            {0x202d, "record_table_cursor_only"},
+            {0x2c04, "cursor_0078_priority11"},
+            {0x49bd, "cursor_0027_priority5"},
+            {0x4b2c, "collapse_playback_rejected"},
+            {0x4d3c, "cursor_2710"},
+            {0x4dd3, "cursor_2710"},
+            {0x5e81, "cursor_0069_priority4"},
+            {0x6844, "cursor_0024_priority2"},
+            {0x6924, "non_objective_tile_gate_rejected"},
+            {0x7386, "cursor_0021_priority1"},
+            {0x789c, "cursor_0001_no_latch"},
         }};
 
         std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
@@ -5437,6 +5455,7 @@ public:
         std::ostringstream list;
         std::ostringstream mappedLabels;
         std::ostringstream unresolvedCandidates;
+        std::ostringstream unresolvedLabels;
         for (size_t i = 0; i < writes.size(); ++i) {
             int calls = nearLatchCallCount(writes[i].offset);
             if (calls > 0) ++latchCandidates;
@@ -5453,8 +5472,19 @@ public:
                 if (mappedLabels.tellp() > 0) mappedLabels << ',';
                 mappedLabels << hex4(mappedIt->offset) << ':' << mappedIt->label;
             } else {
+                auto unresolvedIt = std::find_if(
+                    kUnresolvedWrites.begin(), kUnresolvedWrites.end(),
+                    [&](const UnresolvedStaticSoundWrite& unresolved) {
+                        return unresolved.offset == writes[i].offset;
+                    });
+                if (unresolvedIt == kUnresolvedWrites.end()) {
+                    throw std::runtime_error("unclassified static sound write");
+                }
                 if (unresolvedCandidates.tellp() > 0) unresolvedCandidates << ',';
                 unresolvedCandidates << hex4(writes[i].offset);
+                if (unresolvedLabels.tellp() > 0) unresolvedLabels << ',';
+                unresolvedLabels << hex4(unresolvedIt->offset) << ':'
+                                 << unresolvedIt->label;
             }
             if (i != 0) list << ',';
             list << hex4(writes[i].offset) << ':' << hex4(writes[i].cursor);
@@ -5496,6 +5526,7 @@ public:
         std::string rejectedObjectiveCandidates = rejectedObjectiveCandidateList();
         std::string mappedLabelList = mappedLabels.str();
         std::string unresolvedCandidateList = unresolvedCandidates.str();
+        std::string unresolvedLabelList = unresolvedLabels.str();
         if (remainingHooks != "objective_pickup,level_complete" ||
             rejectedObjectiveCandidates !=
                 "0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,"
@@ -5515,6 +5546,21 @@ public:
                 "0x1d9c,0x202d,0x2c04,0x49bd,0x4b2c,0x4d3c,"
                 "0x4dd3,0x5e81,0x6844,0x6924,0x7386,0x789c") {
             throw std::runtime_error("static sound mapping ledger changed");
+        }
+        if (unresolvedLabelList !=
+                "0x1d9c:post_end_flow_record_region,"
+                "0x202d:record_table_cursor_only,"
+                "0x2c04:cursor_0078_priority11,"
+                "0x49bd:cursor_0027_priority5,"
+                "0x4b2c:collapse_playback_rejected,"
+                "0x4d3c:cursor_2710,"
+                "0x4dd3:cursor_2710,"
+                "0x5e81:cursor_0069_priority4,"
+                "0x6844:cursor_0024_priority2,"
+                "0x6924:non_objective_tile_gate_rejected,"
+                "0x7386:cursor_0021_priority1,"
+                "0x789c:cursor_0001_no_latch") {
+            throw std::runtime_error("static sound unresolved labels changed");
         }
 
         std::cout << "static_sound_requests=ok writes=" << writes.size()
@@ -5542,6 +5588,7 @@ public:
                   << "/p" << static_cast<int>(kMonsterDeathSoundPriority)
                   << " mapped_labels=" << mappedLabelList
                   << " unresolved_candidates=" << unresolvedCandidateList
+                  << " unresolved_labels=" << unresolvedLabelList
                   << " remaining_compat_hooks=" << remainingHooks
                   << " rejected_objective_candidates="
                   << rejectedObjectiveCandidates

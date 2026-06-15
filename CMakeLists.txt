@@ -254,7 +254,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_death_visuals_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=death_visuals death_state_ticks=60 start_frame=0x4a tick1_frame=0x4b tick5_frame=0x4c frame_inspection=1 visual_claim=0")
+            "^autoplayer=ok scenario=death_visuals death_state_ticks=60 start_frame=0x4a tick1_frame=0x4b tick5_frame=0x4c current_sprites=74,75,76 row3_candidate_sprites=67,68,69 row3_candidate_hash_mismatch=1 row3_candidate_debug_only=1 frame_inspection=1 visual_claim=0")
 
     add_test(NAME autoplayer_level_transition_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

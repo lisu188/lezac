@@ -22,7 +22,9 @@ Additional deterministic autoplayer scenarios now cover:
   at recovered frame `0x4a`, advances to `0x4b` on the first update, reaches
   `0x4c` on the fifth update, and changes the rendered frame at each checked
   point. The command reports `visual_claim=0` until the original frame-table
-  fields are fully interpreted.
+  fields are fully interpreted. It also renders the debug-only row-byte-3
+  candidate path on the same live route, pinning current provisional sprites
+  `74,75,76` against candidate sprites `67,68,69`.
 - `level_transition`: completes level 1 through deterministic map-progress
   helpers, inspects the completion overlay, advances the normal update loop for
   `101` frames, and verifies level 2 is loaded.

@@ -167,6 +167,11 @@ Baseline: `origin/main`
   `records_page_sound`. The helper writes debugger-seeded manifests, command
   plans, raw dumps, and fill-in `sound_callsite` candidate fixtures for
   `--debug-sound-callsite-oracle`.
+- Tightened `--debug-autoplayer death_visuals` so the live death-route
+  regression now inspects the debug-only row-byte-3 state-2 visual candidates
+  for frames `0x4a..0x4c`. The command pins current provisional sprites
+  `74,75,76`, row-byte-3 candidate sprites `67,68,69`, and hash mismatches
+  between the two render paths while preserving `visual_claim=0`.
 - Updated `tools/sweep_original_lane_result_routes.py` so natural `3D3F`
   route sweeps now delegate the selected C++ oracle binary to each per-route
   capture helper, report oracle command counts during dry-run planning, and
@@ -933,6 +938,10 @@ Baseline: `origin/main`
 - Added provisional live state-2 rendering keyed to the recovered `0x4a..0x4f`
   cursor range. It is intentionally documented as `visual_claim=0` until the
   original `DS:c322` frame-table fields are fully interpreted.
+- Tightened the `death_visuals` autoplayer to exercise the debug-only
+  row-byte-3 candidate renderer on the actual state-2 route for frames
+  `0x4a..0x4c`, pinning candidate sprites `67,68,69` against the current
+  provisional sprites `74,75,76` without changing live rendering.
 - Refactored the game update path so the autoplayer can drive the same movement
   helpers with injected controls instead of relying on live keyboard state.
 - Changed `--capture-frame-sequence level1_bomb_route <out-dir>` to reach tile

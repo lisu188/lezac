@@ -94,6 +94,9 @@ control-flow reachability, not exact rendered presentation.
   `--capture-state2-visual-row-game-preview <out_dir>` writes full gameplay
   frames for the current renderer and the debug-only candidate renderer, giving
   later original-frame comparison the same HUD/world context.
+  `--debug-autoplayer death_visuals` now exercises that debug-only row-byte-3
+  candidate path on the actual live state-2 route for frames `0x4a..0x4c`,
+  while keeping `visual_claim=0`.
   `tools/capture_original_state2_visual_frames.sh <out_dir> [asset_dir]
   state2_death_table_consumption` stages the matching original-frame directory
   contract for those comparisons. Its manifest records six expected

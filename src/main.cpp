@@ -2603,11 +2603,29 @@ public:
             deathStateTimer_ != kDeathStateTicks) {
             throw std::runtime_error("death visual autoplayer did not seed state-2 cursor");
         }
+        auto candidateFrame = [&](const std::string& label) {
+            state2VisualRowCandidatePreview_ = true;
+            FrameInspection inspection = inspectRenderedFrame(label);
+            state2VisualRowCandidatePreview_ = false;
+            return inspection;
+        };
+        auto row3SpriteFor = [&](uint8_t frame) {
+            State2VisualRow row;
+            if (!originalState2VisualRow(frame, row)) {
+                throw std::runtime_error("death visual row-byte-3 candidate missing");
+            }
+            return static_cast<int>(row.row3);
+        };
 
         FrameInspection deathStartFrame =
             inspectRenderedFrame("autoplayer-death-visual-frame-4a");
         if (deathStartFrame.hash == startFrame.hash) {
             throw std::runtime_error("death visual initial frame did not change rendering");
+        }
+        FrameInspection candidateStartFrame =
+            candidateFrame("autoplayer-death-visual-row3-frame-4a");
+        if (candidateStartFrame.hash == deathStartFrame.hash) {
+            throw std::runtime_error("death visual row-byte-3 frame 4a matched provisional frame");
         }
 
         FrameControls idle;
@@ -2621,6 +2639,12 @@ public:
         if (tick1Frame.hash == deathStartFrame.hash) {
             throw std::runtime_error("death visual first tick frame did not change");
         }
+        FrameInspection candidateTick1Frame =
+            candidateFrame("autoplayer-death-visual-row3-frame-4b");
+        if (candidateTick1Frame.hash == tick1Frame.hash ||
+            candidateTick1Frame.hash == candidateStartFrame.hash) {
+            throw std::runtime_error("death visual row-byte-3 frame 4b did not advance");
+        }
 
         for (int i = 0; i < kState2VisualDelay + 1; ++i) {
             updateWithControls(idle, 1.0f / 60.0f);
@@ -2633,6 +2657,26 @@ public:
         if (tick5Frame.hash == tick1Frame.hash) {
             throw std::runtime_error("death visual third frame did not change");
         }
+        FrameInspection candidateTick5Frame =
+            candidateFrame("autoplayer-death-visual-row3-frame-4c");
+        if (candidateTick5Frame.hash == tick5Frame.hash ||
+            candidateTick5Frame.hash == candidateTick1Frame.hash) {
+            throw std::runtime_error("death visual row-byte-3 frame 4c did not advance");
+        }
+        if (state2VisualRowCandidatePreview_) {
+            throw std::runtime_error("death visual candidate preview flag leaked");
+        }
+
+        int current4a = static_cast<int>(kState2VisualStartFrame);
+        int current4b = static_cast<int>(kState2VisualStartFrame + 1);
+        int current4c = static_cast<int>(kState2VisualStartFrame + 2);
+        int row3_4a = row3SpriteFor(kState2VisualStartFrame);
+        int row3_4b = row3SpriteFor(static_cast<uint8_t>(kState2VisualStartFrame + 1));
+        int row3_4c = row3SpriteFor(static_cast<uint8_t>(kState2VisualStartFrame + 2));
+        if (row3_4a != 67 || row3_4b != 68 || row3_4c != 69 ||
+            current4a != 74 || current4b != 75 || current4c != 76) {
+            throw std::runtime_error("death visual sprite sequence mismatch");
+        }
 
         std::cout << "autoplayer=ok"
                   << " scenario=" << scenario
@@ -2641,6 +2685,12 @@ public:
                   << " tick1_frame=0x" << static_cast<int>(kState2VisualStartFrame + 1)
                   << " tick5_frame=0x" << static_cast<int>(kState2VisualStartFrame + 2)
                   << std::dec
+                  << " current_sprites=" << current4a << ',' << current4b
+                  << ',' << current4c
+                  << " row3_candidate_sprites=" << row3_4a << ',' << row3_4b
+                  << ',' << row3_4c
+                  << " row3_candidate_hash_mismatch=1"
+                  << " row3_candidate_debug_only=1"
                   << " frame_inspection=1 visual_claim=0\n";
     }
 

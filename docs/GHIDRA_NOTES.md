@@ -1048,6 +1048,10 @@ frames beside the current provisional renderer frames.
 `tools/compare_state2_visual_row_game_previews.py` converts those paired C++
 previews and an original-frame directory into a standard frame-compare bundle
 with labels such as `state2_current_4a` and `state2_row3_4a`.
+The live `death_visuals` autoplayer also exercises that debug-only row-byte-3
+candidate renderer on the actual state-2 route for frames `0x4a..0x4c`,
+pinning current provisional sprites `74,75,76` against candidate sprites
+`67,68,69` while preserving `visual_claim=0`.
 Live rendering is not switched to that model until the remaining field names
 and frame comparison are proven.
 

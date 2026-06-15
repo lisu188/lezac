@@ -800,7 +800,11 @@ python3 tools/sweep_original_lane_write_routes.py \
   row-byte-3 candidate renderer, again without changing default live behavior.
   `tools/compare_state2_visual_row_game_previews.py` builds a standard
   frame-compare bundle from those previews and an original-frame directory, with
-  labels such as `state2_current_4a` and `state2_row3_4a`.
+  labels such as `state2_current_4a` and `state2_row3_4a`. The live
+  `--debug-autoplayer death_visuals` route now also renders the debug-only
+  row-byte-3 candidate for frames `0x4a..0x4c`, verifies it differs from the
+  current provisional sprites `74..76`, and reports candidate sprites `67..69`
+  while still keeping `visual_claim=0`.
   `--debug-original-state2-return-model` now also locks the static
   `1000:7ef8..7f2a` fallback model: no active players increments the
   `DS:79b9` counter and promotes status byte `2` to `1` without doing the
@@ -850,9 +854,10 @@ python3 tools/sweep_original_lane_write_routes.py \
   `actor + 0x16` state-2 cursor, cursor advancement rules, and `DS:c21e`
   placement math are locked as deterministic models, and the live renderer now
   has provisional state-2 visual playback keyed to the recovered `0x4a..0x4f`
-  cursor range and tested by `--debug-autoplayer death_visuals`, but it still
-  reports `visual_claim=0` because the original frame-table field
-  interpretation is not fully mapped.
+  cursor range and tested by `--debug-autoplayer death_visuals`; that route also
+  inspects debug-only row-byte-3 candidate sprites `67..69`. It still reports
+  `visual_claim=0` because paired original-frame comparison has not promoted
+  exact presentation.
 
 See [docs/GHIDRA_NOTES.md](docs/GHIDRA_NOTES.md) for addresses and disassembly
 anchors used in the reconstruction.

@@ -1,18 +1,16 @@
 # Recovery Status
 
 Last reviewed: 2026-05-15
-Branch: `codex/record-flow-evidence-handoff`
+Branch: `codex/gran-data-evidence-handoff`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
-- Added `tools/check_record_flow_evidence_map.py` and CTest coverage for the
-  high-score record-entry/end-flow handoff. The checker verifies the
-  `RECS.DAT` converted resource shape, `--debug-autoplayer records_flow`,
-  record update/name-entry/save-failure/end-flow debug commands, CTest output
-  contracts, and the `1000:1845..1ad4` / `1000:1b14..1d42` docs anchors. No
-  live menu behavior changed; exact original cursor drawing and typematic
-  repeat remain future work.
+- Added `tools/check_gran_data_evidence_map.py` and CTest coverage for the
+  `GRAN.MST` opaque-data handoff. The checker verifies the 399-byte raw file
+  hash, seven 57-byte JSON records, raw/json byte preservation, `--debug-gran`
+  and `--debug-gran-raw-roundtrip` CTest wiring, loader guards, and docs that
+  keep `GRAN.MST` field semantics unresolved rather than guessed.
 - Added `--debug-visual-table-oracle <fixture> [--expect-error]` as the next
   visual-fidelity evidence gate. The v1 parser normalizes visual table
   fixtures with scenario/runtime metadata, translated breakpoints, actor

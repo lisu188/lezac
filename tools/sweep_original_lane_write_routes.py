@@ -22,6 +22,22 @@ DEFAULT_ROUTES = [
     "x:1.50,z:0.50",
     "x:2.00,m:0.35",
 ]
+FORWARD_DEBRIS_EXPANDED_ROUTES = [
+    "x:2.00",
+    "x:1.75",
+    "x:2.25",
+    "x:2.00,c:0.25",
+    "x:2.00,c:0.50",
+    "x:2.00,c:0.75",
+    "x:2.00,m:0.35",
+    "x:5.00,m:0.50,x:2.00",
+    "x:3.00,z:0.50,x:2.00",
+    "x:1.50,left:0.50,x:2.00",
+]
+ROUTE_PRESETS = {
+    "default": DEFAULT_ROUTES,
+    "forward-debris-expanded": FORWARD_DEBRIS_EXPANDED_ROUTES,
+}
 DEFAULT_OFFSETS = ["1000:3D2D", "1000:3EC1"]
 OFFSET_ALIASES = {
     "FORWARD-COLLAPSE": "1000:3D1B",
@@ -264,6 +280,16 @@ def main() -> int:
         help="comma-separated KEY:SECONDS route; repeat for multiple route captures",
     )
     parser.add_argument(
+        "--route-preset",
+        choices=sorted(ROUTE_PRESETS),
+        default="default",
+        help=(
+            "named route matrix to use when --route is omitted; "
+            "forward-debris-expanded keeps the pending 1000:3D2D search "
+            "anchored to a reviewed dry-run plan"
+        ),
+    )
+    parser.add_argument(
         "--runtime-freeze-preset",
         choices=["late-collapse", "none"],
         default="late-collapse",
@@ -294,7 +320,8 @@ def main() -> int:
             "--runtime-freeze-before-bomb, or --runtime-freeze-after-bomb-seconds"
         )
 
-    routes = args.route or [parse_route(route) for route in DEFAULT_ROUTES]
+    route_preset = "custom" if args.route else args.route_preset
+    routes = args.route or [parse_route(route) for route in ROUTE_PRESETS[route_preset]]
     route_labels = [route_label(route) for route in routes]
     offsets = selected_offsets(args)
     offset_labels = [offset_label(offset) for offset in offsets]
@@ -322,7 +349,8 @@ def main() -> int:
         f"capture_commands={len(capture_items)} "
         f"oracle_commands={0 if args.skip_oracle else len(capture_items)} "
         f"runtime_freeze_preset={args.runtime_freeze_preset} "
-        f"environment_preflight={0 if args.skip_environment_preflight else 1}"
+        f"environment_preflight={0 if args.skip_environment_preflight else 1} "
+        f"route_preset={route_preset}"
     )
     environment_preflight_command = build_environment_preflight_command(args)
     if not args.skip_environment_preflight:
@@ -368,6 +396,7 @@ def main() -> int:
         f"offset_addresses={','.join(offsets)}",
         f"routes={len(routes)}",
         f"route_labels={','.join(route_labels)}",
+        f"route_preset={route_preset}",
         f"runtime_freeze_preset={args.runtime_freeze_preset}",
         f"environment_preflight={environment_preflight}",
     ]

@@ -1,11 +1,21 @@
 # Recovery Status
 
 Last reviewed: 2026-06-15
-Branch: `codex/forward-lane-result-seeded-evidence`
+Branch: `codex/gran-usage-guardrail`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `--route-preset forward-debris-expanded` to
+  `tools/sweep_original_lane_write_routes.py` and pinned its dry-run command
+  matrix in CTest. The preset keeps the remaining natural forward debris
+  writeback target (`1000:3D2D`) focused on a reviewed ten-route plan when
+  combined with `--offset forward-debris`, while the existing default
+  `3D2D`/`3EC1` matrix remains unchanged.
+- Live DOSBox capture for that `3D2D` target was not attempted in this local
+  continuation because `wsl.exe -d Ubuntu` reports
+  `WSL_E_DISTRO_NOT_FOUND`; the expanded matrix is ready for the next
+  DOSBox/process-memory-capable run.
 - Promoted natural, non-seeded original-runtime evidence for forward final
   lane-result writeback: `explosion_playback_oracle_original_3d3f_lane_result_runtime_natural.txt`
   captures route `x:2.00` reaching `1000:3D3F` with runtime
@@ -1587,6 +1597,8 @@ Baseline: `origin/main`
 
 ## Next Planned Target
 
-Use the reliable original level-1 route to finish the remaining natural forward
-debris writeback at `1000:3D2D`, then return to DOSBox frame/debugger evidence
-for behavior-4 movement, targeting, and respawn timing.
+Use the reviewed expanded route matrix to finish the remaining natural forward
+debris writeback at `1000:3D2D`:
+`python3 tools/sweep_original_lane_write_routes.py /tmp/lezac-lane-write-forward-expanded . --route-preset forward-debris-expanded --offset forward-debris --approve-procmem --approve-runtime-instrumentation --cpp-exe ./build/lezac_cpp`.
+Then return to DOSBox frame/debugger evidence for behavior-4 movement,
+targeting, and respawn timing.

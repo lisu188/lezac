@@ -620,6 +620,7 @@ lane_result_wrapper_output_check=python3 tools/check_explosion_lane_result_wrapp
 lane_result_wrapper_dry_run=python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . --dry-run --skip-oracle
 lane_result_route_sweep_dry_run=python3 tools/sweep_original_lane_result_routes.py /tmp/lezac-lane-result-route-sweep . --dry-run --skip-oracle --route x:2.00,c:0.50 --route x:1.50,z:0.50
 lane_result_route_sweep_oracle_dry_run=python3 tools/sweep_original_lane_result_routes.py /tmp/lezac-lane-result-route-sweep . --dry-run --cpp-exe ./build/lezac_cpp --offset forward
+lane_write_forward_debris_expanded_sweep=python3 tools/sweep_original_lane_write_routes.py /tmp/lezac-lane-write-forward-expanded . --route-preset forward-debris-expanded --offset forward-debris --approve-procmem --approve-runtime-instrumentation --cpp-exe ./build/lezac_cpp
 lane_result_route_sweep_capture=python3 tools/sweep_original_lane_result_routes.py /tmp/lezac-lane-result-route-sweep . --approve-procmem --approve-runtime-instrumentation
 lane_result_wrapper_capture=python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . --approve-procmem --approve-runtime-instrumentation
 lane_result_reverse_capture=python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime-20260506-reverse . --approve-procmem --approve-runtime-instrumentation --offset reverse

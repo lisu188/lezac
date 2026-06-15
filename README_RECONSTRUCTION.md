@@ -621,7 +621,17 @@ captures natural route `x:2.00,m:0.35` reaching reverse debris writeback
 `tests/fixtures/dosbox/explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze.txt`
 records a live `x:2.00,c:0.50` no-freeze run with lane globals present.
 Natural forward debris writeback at `3D2D` remains the next lane-write evidence
-target before live queue playback changes.
+target before live queue playback changes. For the next DOSBox-capable pass,
+use the reviewed forward-debris matrix instead of hand-entering the timing
+variants:
+
+```sh
+python3 tools/sweep_original_lane_write_routes.py \
+  /tmp/lezac-lane-write-forward-expanded . \
+  --route-preset forward-debris-expanded --offset forward-debris \
+  --approve-procmem --approve-runtime-instrumentation \
+  --cpp-exe ./build/lezac_cpp
+```
 
 ## Implemented
 

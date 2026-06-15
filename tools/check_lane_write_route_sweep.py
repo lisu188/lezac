@@ -100,6 +100,7 @@ def main() -> int:
         "oracle_commands=0",
         "runtime_freeze_preset=late-collapse",
         "environment_preflight=1",
+        "route_preset=default",
         "environment_preflight_command=",
         "--probe-wsl",
         "--require-wsl-bash-on-windows",
@@ -119,6 +120,54 @@ def main() -> int:
         "--route-step m:0.35",
     ]:
         require(default_dry, snippet, "default_dry_run")
+    cases += 1
+
+    forward_expanded = run_sweep(
+        root,
+        [
+            str(out_base / "forward-expanded"),
+            str(root),
+            "--dry-run",
+            "--skip-oracle",
+            "--route-preset",
+            "forward-debris-expanded",
+            "--offset",
+            "forward-debris",
+        ],
+    )
+    expanded_routes = (
+        "route_labels=x2p00,x1p75,x2p25,x2p00_c0p25,x2p00_c0p50,"
+        "x2p00_c0p75,x2p00_m0p35,x5p00_m0p50_x2p00,"
+        "x3p00_z0p50_x2p00,x1p50_left0p50_x2p00"
+    )
+    for snippet in [
+        "offsets=1",
+        "offset_labels=3d2d",
+        "offset_addresses=1000:3D2D",
+        "routes=10",
+        expanded_routes,
+        "capture_commands=10",
+        "oracle_commands=0",
+        "route_preset=forward-debris-expanded",
+        "capture_command_x1p75_3d2d=",
+        "capture_command_x2p00_c0p25_3d2d=",
+        "capture_command_x2p00_c0p75_3d2d=",
+        "capture_command_x5p00_m0p50_x2p00_3d2d=",
+        "capture_command_x1p50_left0p50_x2p00_3d2d=",
+        "--freeze-ghidra-offset 1000:3D2D",
+        "--route-step x:1.75",
+        "--route-step x:2.25",
+        "--route-step c:0.25",
+        "--route-step c:0.75",
+        "--route-step x:5.00",
+        "--route-step left:0.50",
+    ]:
+        require(forward_expanded, snippet, "forward_expanded")
+    require_not(
+        forward_expanded,
+        "--freeze-ghidra-offset 1000:3EC1",
+        "forward_expanded",
+    )
     cases += 1
 
     with_oracle = run_sweep(

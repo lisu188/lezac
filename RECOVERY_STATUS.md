@@ -26,6 +26,12 @@ Baseline: `origin/main`
   final delayed decrement. The live collapse-hazard frame diagnostic now pins
   its fixture incomplete-but-reenterable, inspects rendered frames, reaches
   state 2 at frame 101, and observes life consumption after the 60-tick delay.
+- Extended `--debug-original-state2-return-model` to cover the static
+  `1000:7ef8..7f2a` fallback path. The model now asserts that the fallback is
+  blocked while `DS:79b8` has active players, increments the `DS:79b9`
+  counter only with no active players, promotes state byte `2` to `1`, and
+  preserves actor state/energy because it is not the normal
+  `1000:7e85..7ea7` return-to-active restore.
 - Promoted natural, non-seeded original-runtime evidence for forward final
   lane-result writeback: `explosion_playback_oracle_original_3d3f_lane_result_runtime_natural.txt`
   captures route `x:2.00` reaching `1000:3D3F` with runtime
@@ -1609,9 +1615,10 @@ Baseline: `origin/main`
   and actor-update fixture targets, but still needs cross-reference mapping and
   runtime confirmation before the C++ clearance model can be called
   original-faithful.
-- `DS:79b9` fallback behavior, active-player accounting edge cases, and exact
-  dead-player visual playback from original frame bytes remain unresolved now
-  that the delayed state-2 life-count decrement itself is implemented.
+- Runtime reachability of the `DS:79b9` fallback, active-player accounting edge
+  cases, and exact dead-player visual playback from original frame bytes remain
+  unresolved now that the delayed state-2 life-count decrement and fallback
+  disassembly model are covered.
 - Exact two-player panel artwork and full death/reentry presentation.
 - Exact sprite frame tables for impact/death/reward frames remain unresolved.
 - `GRAN.MST` field semantics remain unknown; consolidation only locks file

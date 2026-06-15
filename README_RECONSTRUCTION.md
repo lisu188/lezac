@@ -748,6 +748,10 @@ python3 tools/sweep_original_lane_write_routes.py \
   `tools/compare_state2_visual_row_game_previews.py` builds a standard
   frame-compare bundle from those previews and an original-frame directory, with
   labels such as `state2_current_4a` and `state2_row3_4a`.
+  `--debug-original-state2-return-model` now also locks the static
+  `1000:7ef8..7f2a` fallback model: no active players increments the
+  `DS:79b9` counter and promotes status byte `2` to `1` without doing the
+  normal actor-state or energy restore.
   `--debug-son-step-fields` exposes each recovered six-byte sound step as
   `period_word`, `gate_tick`, `period_ticks`, `unknown4`, and `unknown5` while
   keeping bytes `+4..+5` explicitly uninterpreted. The

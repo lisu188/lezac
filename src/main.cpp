@@ -4617,6 +4617,7 @@ public:
 
             std::array<PlayerSlot, 2> players{};
             uint8_t activePlayers = 2;
+            uint8_t fallbackCounter = 0;
 
             void tick(int player) {
                 if (players.at(player).countdown > 0) --players.at(player).countdown;
@@ -4641,6 +4642,19 @@ public:
                 PlayerSlot& slot = players.at(player);
                 if (slot.status != 0 && activePlayers > 0) --activePlayers;
                 slot.status = 0;
+            }
+
+            bool fallbackNoActivePlayers() {
+                if (activePlayers != 0) return false;
+                ++fallbackCounter;
+                bool promoted = false;
+                for (PlayerSlot& slot : players) {
+                    if (slot.status == 2) {
+                        slot.status = 1;
+                        promoted = true;
+                    }
+                }
+                return promoted;
             }
         };
 
@@ -4668,6 +4682,18 @@ public:
         uint8_t activeAfterP2Out = outModel.activePlayers;
         outModel.markOut(0);
 
+        ReturnModel fallbackBlockedModel;
+        fallbackBlockedModel.activePlayers = 1;
+        bool fallbackBlocked = !fallbackBlockedModel.fallbackNoActivePlayers();
+
+        ReturnModel fallbackModel;
+        fallbackModel.activePlayers = 0;
+        fallbackModel.players[0].status = 2;
+        fallbackModel.players[1].status = 0;
+        fallbackModel.players[0].actorState = 2;
+        fallbackModel.players[0].energy = 77;
+        bool fallbackPromoted = fallbackModel.fallbackNoActivePlayers();
+
         if (after59 != 1 || after60 != 0 || !gate0Blocked ||
             !effectWaitBlocked || !placementBlocked || !gate1Restored ||
             !p1Restored || !p2Restored || playerModel.players[0].status != 1 ||
@@ -4679,7 +4705,12 @@ public:
             playerModel.players[0].keyByte || playerModel.players[0].otherKeyByte ||
             playerModel.players[1].keyByte || playerModel.players[1].otherKeyByte ||
             outModel.players[1].status != 0 || activeAfterP2Out != 1 ||
-            outModel.activePlayers != 0) {
+            outModel.activePlayers != 0 || !fallbackBlocked ||
+            !fallbackPromoted || fallbackModel.fallbackCounter != 1 ||
+            fallbackModel.players[0].status != 1 ||
+            fallbackModel.players[0].actorState != 2 ||
+            fallbackModel.players[0].energy != 77 ||
+            fallbackModel.players[1].status != 0) {
             throw std::runtime_error("original state-2 return model mismatch");
         }
 
@@ -4702,7 +4733,16 @@ public:
                   << " active_players_after_p2_out="
                   << static_cast<int>(activeAfterP2Out)
                   << " active_players_after_both_out="
-                  << static_cast<int>(outModel.activePlayers) << '\n';
+                  << static_cast<int>(outModel.activePlayers)
+                  << " fallback_blocked_with_active=1"
+                  << " fallback_counter="
+                  << static_cast<int>(fallbackModel.fallbackCounter)
+                  << " fallback_promoted_status="
+                  << static_cast<int>(fallbackModel.players[0].status)
+                  << " fallback_actor_state_preserved="
+                  << static_cast<int>(fallbackModel.players[0].actorState)
+                  << " fallback_energy_preserved="
+                  << static_cast<int>(fallbackModel.players[0].energy) << '\n';
     }
 
     void debugOriginalState2AnimationInit() {

@@ -903,6 +903,12 @@ requires `DS:79a3 == 1`; on success, `1000:7e85..7e8c` restores actor state
 countdown/action-gate ordering by rejecting manual reentry while
 `deathStateTimer > 0`; effect-entry descent and exact actor-state byte mapping
 remain documented model behavior until the renderer-facing state is recovered.
+The fallback block at `1000:7ef8..7f2a` is now represented in
+`--debug-original-state2-return-model`: it only runs when `DS:79b8` reports no
+active players, increments `DS:79b9`, and promotes any player status byte
+`DS:79e5 + player == 2` to `1` at `0xe6` without performing the normal actor
+state or energy restore. The live C++ respawn path does not use this as a
+normal return-to-active shortcut.
 
 State-2 animation/effect evidence: `1000:06ab` / file `0x0e1b` initializes a
 seven-byte animation cursor at the far pointer passed by callers. Manual
@@ -1020,11 +1026,9 @@ Promoted original visual-table fixtures should be named
 that prefix as optional original evidence while keeping `visual_claim=0` until
 separate frame comparison promotes presentation.
 
-Unresolved state-2 fallback: `1000:7ef8..7f2a` increments `DS:79b9` when no
-player is active and promotes any `DS:79e5 + player == 2` state byte to `1` at
-`0xe6`. This path does not visibly perform the same actor state and energy
-restore as `1000:7e85..7ea7`, so the C++ port does not treat it as a normal
-respawn yet.
+State-2 fallback caveat: the `1000:7ef8..7f2a` model above is static
+disassembly behavior only. Runtime circumstances that reach it, active-player
+count edge cases, and any visible result still need DOSBox/debugger evidence.
 
 ## Level Embedded Records
 

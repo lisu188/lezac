@@ -1649,21 +1649,21 @@ if(BUILD_TESTING)
     set_tests_properties(player_damage_sound PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "player_damage_sound=ok nonlethal_energy=99 second_energy=98 nonlethal_cooldown=0 death_energy=100 dead=1 lives=2 cursor=0x2d priority=4 death_cursor=0x56 death_priority=5")
+            "player_damage_sound=ok nonlethal_energy=99 second_energy=98 nonlethal_cooldown=0 death_energy=100 dead=1 lives=3 pending_life_loss=1 cursor=0x2d priority=4 death_cursor=0x56 death_priority=5")
 
     add_test(NAME original_damage_counters
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-damage-counters)
     set_tests_properties(original_damage_counters PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "original_damage_counters=ok p1_hits=3 p1_energy=97 p1_hurt_requests=1 p2_hits=2 p2_energy=98 p2_hurt_requests=1 zero_pass_silent=1 state2_hurt_without_subtract=1 underflow_raw=255 death_dispatch=1 live_p1_energy=97 live_p2_energy=98 live_underflow_dead=1 live_state2_energy=100")
+            "original_damage_counters=ok p1_hits=3 p1_energy=97 p1_hurt_requests=1 p2_hits=2 p2_energy=98 p2_hurt_requests=1 zero_pass_silent=1 state2_hurt_without_subtract=1 underflow_raw=255 death_dispatch=1 live_p1_energy=97 live_p2_energy=98 live_underflow_dead=1 live_state2_energy=100 live_pending_life_loss=1")
 
     add_test(NAME player_state2_death_fields
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-player-state2-death-fields)
     set_tests_properties(player_state2_death_fields PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "player_state2_death_fields=ok reentry_dead=1 reentry_lives=2 reentry_energy=100 reentry_timer=180 death_state_timer=60 vx=0 vy=0 grounded=0 death_cursor=0x56 death_priority=5 early_reentry_blocked=1 after_59_blocked=1 reentered=1 cooldown=18 zero_lives=0 zero_timer=0 zero_death_state_after_tick=59 no_gameover_with_p1=1")
+            "player_state2_death_fields=ok reentry_dead=1 reentry_lives_during_countdown=3 reentry_lives_after=2 reentry_energy=100 pending_life_loss=1 reentry_timer=180 death_state_timer=60 vx=0 vy=0 grounded=0 death_cursor=0x56 death_priority=5 early_reentry_blocked=1 after_59_blocked=1 reentered=1 cooldown=18 zero_lives_during_countdown=1 zero_lives_after=0 zero_timer=0 zero_death_state_after_60=0 no_gameover_with_p1=1")
 
     add_test(NAME original_state2_return_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-return-model)
@@ -2447,7 +2447,9 @@ if(BUILD_TESTING)
 
     add_test(NAME bomb_fuse COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-fuse)
     set_tests_properties(bomb_fuse PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "bomb_fuse=ok fuse=20 effects=1 flashes=4 delayed_final_life=1 stale_reset_guard=1")
 
     add_test(NAME explosion_profiles
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosions)
@@ -2535,7 +2537,7 @@ if(BUILD_TESTING)
     set_tests_properties(player_damage_death_live PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^player_damage_death_live=ok first_energy=99 frames_to_life_loss=[0-9]+ lives=2 reentry_state=1 frame_inspection=1")
+            "^player_damage_death_live=ok first_energy=99 frames_to_life_loss=[0-9]+ lives=2 reentry_state=1 frame_inspection=1 frames_to_state2=[0-9]+ delayed_life_loss=1")
 
     add_test(NAME monster_contact_damage_live
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

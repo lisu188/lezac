@@ -863,8 +863,9 @@ priority-`4` hurt cue once when nonzero, skips energy subtraction for state-2
 players while preserving the hurt request, and dispatches death when unsigned
 byte subtraction wraps above `0x00c8`.
 `--debug-player-damage-death-live` exercises that live path with a rendered
-hazard fixture, verifies a visible HP decrement, and advances until one life is
-consumed and reentry completes.
+hazard fixture, verifies a visible HP decrement, advances into state 2 with the
+life count still unchanged, waits through the 60-tick countdown until the
+pending life is consumed, and then reenters.
 `--debug-monster-contact-damage-live` extends the same model through active
 monster overlap: multiple same-pass contacts accumulate in pending bytes before
 drain, the hurt cue is latched once, state-2 players preserve energy while still

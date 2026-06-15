@@ -713,9 +713,10 @@ python3 tools/sweep_original_lane_write_routes.py \
   underflow death check rather than a modern one-hit cooldown gate.
   `tools/check_sound_callsite_map.py` keeps those six recovered non-explosion
   cue claims tied to `docs/GHIDRA_NOTES.md`, `src/main.cpp`, and CTest names.
-  Manual
-  reentry/restart still waits for the recovered state-2 `0x003c` countdown
-  before returning a player to active control. The state-2 death/reentry
+  Fatal
+  damage now keeps the visible life count unchanged while the recovered
+  state-2 `0x003c` countdown runs, then consumes the pending life before
+  manual reentry or restart can proceed. The state-2 death/reentry
   animation initializer is now documented as the seven-byte `actor + 0x16`
   cursor populated by `1000:06ab`, and the
   actor update model locks the `1000:6053` counter, wrap, ping-pong, and
@@ -784,13 +785,15 @@ python3 tools/sweep_original_lane_write_routes.py \
   metadata now follow the `1000:414a`/`1000:370e`/expiration analysis. Active
   collapse/debris records
   now queue into the same per-player damage counters as monster contact and
-  bomb blasts, but exact sprite playback and delayed state-2 life-count
-  decrement remain simplified. The `actor + 0x16` state-2 cursor, cursor
-  advancement rules, and `DS:c21e` placement math are locked as deterministic
-  models. The live renderer now has provisional state-2 visual playback keyed
-  to the recovered `0x4a..0x4f` cursor range and tested by
-  `--debug-autoplayer death_visuals`, but it still reports `visual_claim=0`
-  because the original frame-table field interpretation is not fully mapped.
+  bomb blasts. The delayed state-2 life-count decrement now follows the
+  recovered `+0x10 = 0x003c` countdown in live damage, monster contact, and
+  reentry diagnostics. Exact sprite playback remains approximate: the
+  `actor + 0x16` state-2 cursor, cursor advancement rules, and `DS:c21e`
+  placement math are locked as deterministic models, and the live renderer now
+  has provisional state-2 visual playback keyed to the recovered `0x4a..0x4f`
+  cursor range and tested by `--debug-autoplayer death_visuals`, but it still
+  reports `visual_claim=0` because the original frame-table field
+  interpretation is not fully mapped.
 
 See [docs/GHIDRA_NOTES.md](docs/GHIDRA_NOTES.md) for addresses and disassembly
 anchors used in the reconstruction.

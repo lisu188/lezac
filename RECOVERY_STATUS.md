@@ -16,6 +16,16 @@ Baseline: `origin/main`
   continuation because `wsl.exe -d Ubuntu` reports
   `WSL_E_DISTRO_NOT_FOUND`; the expanded matrix is ready for the next
   DOSBox/process-memory-capable run.
+- Implemented the recovered delayed state-2 life decrement in the live C++
+  port. Fatal damage now enters state 2 with the visible life count unchanged,
+  keeps a pending life-loss flag while the `0x003c` death countdown runs, and
+  consumes the life only when that countdown reaches zero before manual reentry
+  or restart can proceed.
+- Updated death/reentry, damage-sound, monster-contact, two-player, smoke, and
+  active collapse-hazard diagnostics so they assert the pending-life window and
+  final delayed decrement. The live collapse-hazard frame diagnostic now pins
+  its fixture incomplete-but-reenterable, inspects rendered frames, reaches
+  state 2 at frame 101, and observes life consumption after the 60-tick delay.
 - Promoted natural, non-seeded original-runtime evidence for forward final
   lane-result writeback: `explosion_playback_oracle_original_3d3f_lane_result_runtime_natural.txt`
   captures route `x:2.00` reaching `1000:3D3F` with runtime
@@ -882,6 +892,19 @@ Baseline: `origin/main`
   new ready candidates with `--require-source-environment-preflight`,
   `--require-success`, and `--require-executed`; each oracle log returned
   `status=ok` / `returncode=0`.
+- 2026-06-15 local Windows delayed state-2 life-loss validation passed with the
+  cleaned `Path` MSBuild workaround: `cmake --build build-win-codex-vs3
+  --config Debug --target lezac_cpp`, direct
+  `--debug-player-damage-death-live` output
+  `frames_to_state2=101 delayed_life_loss=1`, and focused CTest
+  `ctest --test-dir build-win-codex-vs3 -C Debug -R
+  "(death|state2|player_damage|monster_contact|two_player_progression|original_damage_counters)"
+  --output-on-failure` passed 26/26 tests.
+- 2026-06-15 full native Windows validation passed after adapting
+  `bomb_fuse` to the delayed final-life path:
+  `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
+  -BuildDir build-win-codex-vs3 -Configuration Debug` configured, built, and
+  reported CTest 242/242 passing.
 - 2026-05-15 lane-write route-sweep checkpoint: native Windows validation
   helper passed with `-SkipTests`, then focused CTest passed 57/57 for
   `lane_write|lane_result|explosion_lane`. This covered the new lane-write
@@ -1586,9 +1609,9 @@ Baseline: `origin/main`
   and actor-update fixture targets, but still needs cross-reference mapping and
   runtime confirmation before the C++ clearance model can be called
   original-faithful.
-- Exact state-2 life-count decrement, `DS:79b9` fallback behavior,
-  active-player accounting edge cases, and exact dead-player visual playback
-  from original frame bytes.
+- `DS:79b9` fallback behavior, active-player accounting edge cases, and exact
+  dead-player visual playback from original frame bytes remain unresolved now
+  that the delayed state-2 life-count decrement itself is implemented.
 - Exact two-player panel artwork and full death/reentry presentation.
 - Exact sprite frame tables for impact/death/reward frames remain unresolved.
 - `GRAN.MST` field semantics remain unknown; consolidation only locks file

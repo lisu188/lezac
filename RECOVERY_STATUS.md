@@ -61,7 +61,9 @@ Baseline: `origin/main`
   compatibility coverage.
 - Tightened `bonus_rewards` CTest coverage so the recovered bonus-pickup sound
   request is pinned as cursor `0x0008` at priority `5`, matching the
-  `1000:6e4b..6f8d` evidence path already used by `collectBonusDrop`.
+  `1000:6e4b..6f8d` evidence path already used by `collectBonusDrop`. The live
+  path now uses `kBonusPickupSoundCursor` and `kBonusPickupSoundPriority`
+  instead of raw literals.
 - Pinned deterministic CTest output for monster blast rewards, trigger rewrite
   accounting, and portal cooldown/key handling so those recovered gameplay
   diagnostics no longer rely on exit status alone.

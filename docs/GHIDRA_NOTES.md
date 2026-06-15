@@ -838,7 +838,7 @@ across these address notes, the C++ request sites, and the CTest scenario names.
 - The pickup/effect branch around `1000:6e4b..6f8d` applies reward effects and
   then writes `DS:2074 = 0x0008`, `DS:799f = 5`, and calls `1000:165a`.
   The C++ `collectBonusDrop` path mirrors that with
-  `requestSoundCursor(0x0008, 5)`.
+  `requestSoundCursor(kBonusPickupSoundCursor, kBonusPickupSoundPriority)`.
 - The per-player damage pass around `1000:7f34..804e` calls the actor update
   routine at `1000:6053`, subtracts accumulated damage from the live player
   energy byte, and when the damage counter is nonzero writes

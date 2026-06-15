@@ -115,6 +115,8 @@ constexpr uint16_t kPortalTeleportSoundCursor = 0x001a;
 constexpr uint8_t kPortalTeleportSoundPriority = 4;
 constexpr uint16_t kTileTriggerSoundCursor = 0x0027;
 constexpr uint8_t kTileTriggerSoundPriority = 6;
+constexpr uint16_t kBonusPickupSoundCursor = 0x0008;
+constexpr uint8_t kBonusPickupSoundPriority = 5;
 constexpr uint16_t kPlayerDamageSoundCursor = 0x002d;
 constexpr uint8_t kPlayerDamageSoundPriority = 4;
 constexpr uint16_t kPlayerDeathSoundCursor = 0x0056;
@@ -2891,7 +2893,8 @@ public:
         lastPumpedSoundSelector_ = 0;
         updateWithControls(idle, 1.0f / 60.0f);
         if (score_ <= scoreBefore || soundLatch_.active ||
-            lastPumpedSoundOffset_ != 0x0008 || lastPumpedSoundSelector_ != 5) {
+            lastPumpedSoundOffset_ != kBonusPickupSoundCursor ||
+            lastPumpedSoundSelector_ != kBonusPickupSoundPriority) {
             throw std::runtime_error("monster reward autoplayer did not collect reward");
         }
         FrameInspection collectFrame =
@@ -3000,7 +3003,8 @@ public:
         lastPumpedSoundSelector_ = 0;
         updateWithControls(idle, 1.0f / 60.0f);
         if (score_ <= scoreBefore || soundLatch_.active ||
-            lastPumpedSoundOffset_ != 0x0008 || lastPumpedSoundSelector_ != 5) {
+            lastPumpedSoundOffset_ != kBonusPickupSoundCursor ||
+            lastPumpedSoundSelector_ != kBonusPickupSoundPriority) {
             throw std::runtime_error("monster behavior-3 autoplayer did not collect reward");
         }
         FrameInspection collectFrame =
@@ -4692,18 +4696,22 @@ public:
         soundDrop.y = collector.y;
         soundDrop.type = BonusType::Present;
         collectBonusDrop(soundDrop, collector, energy, inventory, 1);
-        if (!soundLatch_.active || soundLatch_.latchedOffset != 0x0008 ||
-            soundLatch_.currentSelector != 5 || soundLatch_.directSweep) {
+        if (!soundLatch_.active || soundLatch_.latchedOffset != kBonusPickupSoundCursor ||
+            soundLatch_.currentSelector != kBonusPickupSoundPriority ||
+            soundLatch_.directSweep) {
             throw std::runtime_error("bonus pickup did not queue recovered sound cursor");
         }
         pumpSoundLatch();
-        if (soundLatch_.active || lastPumpedSoundOffset_ != 0x0008 ||
-            lastPumpedSoundSelector_ != 5) {
+        if (soundLatch_.active || lastPumpedSoundOffset_ != kBonusPickupSoundCursor ||
+            lastPumpedSoundSelector_ != kBonusPickupSoundPriority) {
             throw std::runtime_error("bonus pickup sound cursor did not pump");
         }
         std::cout << "bonuses=ok sprites=" << spriteScores.size()
                   << " rain=" << bonusDrops_.size()
-                  << " sound_cursor=0x8 sound_priority=5\n";
+                  << " sound_cursor=" << std::showbase << std::hex
+                  << kBonusPickupSoundCursor << std::dec << std::noshowbase
+                  << " sound_priority="
+                  << static_cast<int>(kBonusPickupSoundPriority) << '\n';
     }
 
     void debugFixed() {
@@ -14055,7 +14063,7 @@ private:
         BonusType type = drop.type;
         drop.collected = true;
         applyBonus(type, collector, energy, inventory, playerIndex);
-        requestSoundCursor(0x0008, 5);
+        requestSoundCursor(kBonusPickupSoundCursor, kBonusPickupSoundPriority);
     }
 
     void applyBonus(BonusType type, const Player& collector, int& energy,

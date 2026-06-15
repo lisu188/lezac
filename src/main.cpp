@@ -92,6 +92,10 @@ constexpr size_t kSoundStepSize = 6;
 constexpr uint16_t kSoundStopPeriod = 0x7530;
 constexpr uint16_t kDirectSoundThreshold = 0xea60;
 constexpr uint16_t kDirectSoundPeriodBase = 0xea42;
+constexpr std::array<uint16_t, 4> kExplosionDirectSweepSoundOffsets{
+    0xea74, 0xea7e, 0xea88, 0xeace,
+};
+constexpr std::array<uint8_t, 4> kExplosionSoundSelectors{4, 5, 6, 7};
 constexpr std::array<uint16_t, 6> kCompatibilitySoundCursors{
     0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0027,
 };
@@ -328,8 +332,8 @@ struct ExplosionEffect {
     bool inactive = false;
     int timer = 8;
     int totalTimer = 8;
-    uint16_t soundOffset = 0xea74;
-    uint8_t soundSelector = 4;
+    uint16_t soundOffset = kExplosionDirectSweepSoundOffsets[0];
+    uint8_t soundSelector = kExplosionSoundSelectors[0];
     uint8_t seedTicksByte = 8;
     uint8_t detailByte = 0x75;
     uint8_t variantByte = 5;
@@ -5111,21 +5115,29 @@ public:
         };
 
         clearSoundLatch();
-        printCase("inactive_accept", latchSoundRequest(0xea74, 4));
-        printCase("lower_rejected", latchSoundRequest(0xea7e, 2));
-        printCase("same_refresh", latchSoundRequest(0xea88, 4));
-        printCase("higher_replaces", latchSoundRequest(0xeace, 7));
-        printCase("one_below_high_rejected", latchSoundRequest(0xea88, 6));
+        printCase("inactive_accept",
+                  latchSoundRequest(kExplosionDirectSweepSoundOffsets[0], 4));
+        printCase("lower_rejected",
+                  latchSoundRequest(kExplosionDirectSweepSoundOffsets[1], 2));
+        printCase("same_refresh",
+                  latchSoundRequest(kExplosionDirectSweepSoundOffsets[2], 4));
+        printCase("higher_replaces",
+                  latchSoundRequest(kExplosionDirectSweepSoundOffsets[3], 7));
+        printCase("one_below_high_rejected",
+                  latchSoundRequest(kExplosionDirectSweepSoundOffsets[2], 6));
         clearSoundLatch();
-        printCase("cleared_accepts", latchSoundRequest(0xea7e, 1));
+        printCase("cleared_accepts",
+                  latchSoundRequest(kExplosionDirectSweepSoundOffsets[1], 1));
 
         if (!soundLatch_.active || soundLatch_.currentSelector != 1 ||
-            soundLatch_.latchedOffset != 0xea7e || !soundLatch_.directSweep) {
+            soundLatch_.latchedOffset != kExplosionDirectSweepSoundOffsets[1] ||
+            !soundLatch_.directSweep) {
             throw std::runtime_error("sound latch final state mismatch");
         }
         pumpSoundLatch();
         if (soundLatch_.active || lastPumpedSoundRecord_ != 1 ||
-            lastPumpedSoundOffset_ != 0xea7e || lastPumpedSoundSelector_ != 1) {
+            lastPumpedSoundOffset_ != kExplosionDirectSweepSoundOffsets[1] ||
+            lastPumpedSoundSelector_ != 1) {
             throw std::runtime_error("sound latch pump mismatch");
         }
         std::cout << "sound_pump active=" << (soundLatch_.active ? 1 : 0)
@@ -5154,12 +5166,13 @@ public:
                       << " fallback_record_index=" << fallbackIndex
                       << " samples=" << samples.size() << '\n';
         }
-        if (!isDirectSoundSweep(0xea74) || !isDirectSoundSweep(0xea7e) ||
-            !isDirectSoundSweep(0xea88) || !isDirectSoundSweep(0xeace) ||
-            soundIndexForOffsetFallback(0xea74, 4) != 0 ||
-            soundIndexForOffsetFallback(0xea7e, 5) != 1 ||
-            soundIndexForOffsetFallback(0xea88, 6) != 2 ||
-            soundIndexForOffsetFallback(0xeace, 7) != 3) {
+        if (!std::all_of(kExplosionDirectSweepSoundOffsets.begin(),
+                         kExplosionDirectSweepSoundOffsets.end(),
+                         [&](uint16_t offset) { return isDirectSoundSweep(offset); }) ||
+            soundIndexForOffsetFallback(kExplosionDirectSweepSoundOffsets[0], 4) != 0 ||
+            soundIndexForOffsetFallback(kExplosionDirectSweepSoundOffsets[1], 5) != 1 ||
+            soundIndexForOffsetFallback(kExplosionDirectSweepSoundOffsets[2], 6) != 2 ||
+            soundIndexForOffsetFallback(kExplosionDirectSweepSoundOffsets[3], 7) != 3) {
             throw std::runtime_error("explosion selector map mismatch");
         }
         std::cout << "sound_selector_map=ok\n";
@@ -12454,11 +12467,10 @@ private:
 
     size_t soundIndexForOffsetFallback(uint16_t offset, uint8_t selector) const {
         if (sounds_.records.empty()) return 0;
-        switch (offset) {
-            case 0xea74: return 0;
-            case 0xea7e: return 1 % sounds_.records.size();
-            case 0xea88: return 2 % sounds_.records.size();
-            case 0xeace: return 3 % sounds_.records.size();
+        for (size_t i = 0; i < kExplosionDirectSweepSoundOffsets.size(); ++i) {
+            if (offset == kExplosionDirectSweepSoundOffsets[i]) {
+                return i % sounds_.records.size();
+            }
         }
         return soundIndexForSelector(selector);
     }
@@ -12641,23 +12653,19 @@ private:
     }
 
     uint16_t explosionSoundOffset(int visualType) const {
-        switch (visualType) {
-            case 1: return 0xea74;
-            case 2: return 0xea7e;
-            case 3: return 0xea88;
-            case 4: return 0xeace;
+        if (visualType >= 1 &&
+            visualType <= static_cast<int>(kExplosionDirectSweepSoundOffsets.size())) {
+            return kExplosionDirectSweepSoundOffsets[static_cast<size_t>(visualType - 1)];
         }
-        return 0xea74;
+        return kExplosionDirectSweepSoundOffsets[0];
     }
 
     uint8_t explosionSoundSelector(int visualType) const {
-        switch (visualType) {
-            case 1: return 4;
-            case 2: return 5;
-            case 3: return 6;
-            case 4: return 7;
+        if (visualType >= 1 &&
+            visualType <= static_cast<int>(kExplosionSoundSelectors.size())) {
+            return kExplosionSoundSelectors[static_cast<size_t>(visualType - 1)];
         }
-        return 4;
+        return kExplosionSoundSelectors[0];
     }
 
     bool hasBomb(const BombInventory& inventory, BombType type) const {

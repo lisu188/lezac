@@ -565,7 +565,10 @@ Diagnostic coverage now asserts metadata only for this area: dispatcher states
 `0x0b`, collapse stride `0x0f`, damaged bit `0x8000`, threshold `0x4000`,
 forward/reverse phase lookup sources and consumers, and real-asset bomb-object
 explosion cases that leave consumed object tiles passable while routing the tile
-above the footprint into collapse or debris queues. This is not evidence for
+above the footprint into collapse or debris queues. The live C++ path reads the
+recovered sound values through `kExplosionDirectSweepSoundOffsets` and
+`kExplosionSoundSelectors`, keeping the `1000:414a` mapping centralized. This is
+not evidence for
 exact rendered sprites or original frame timing; keep those claims blocked on a
 full mapping or runtime capture of `1000:3a56..4d3b`.
 

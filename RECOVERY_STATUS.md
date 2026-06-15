@@ -70,6 +70,9 @@ Baseline: `origin/main`
 - Pinned `--debug-sound-render` CTest output for all six compatibility cursor
   starts plus aggregate sample/nonzero counts, keeping recovered `PROEFS.SON`
   synthesis from drifting silently.
+- Centralized the recovered explosion direct-sweep offsets and selectors in
+  `kExplosionDirectSweepSoundOffsets` and `kExplosionSoundSelectors` so the
+  `1000:414a` sound mapping no longer lives as repeated raw literals.
 - Tightened the default `--validate` CTest entry so the original-asset default
   path must report the same level-7 shape already pinned by the explicit JSON
   and original-asset validation modes.

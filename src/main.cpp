@@ -96,11 +96,12 @@ constexpr std::array<uint16_t, 4> kExplosionDirectSweepSoundOffsets{
     0xea74, 0xea7e, 0xea88, 0xeace,
 };
 constexpr std::array<uint8_t, 4> kExplosionSoundSelectors{4, 5, 6, 7};
+constexpr uint16_t kBombPlaceSoundCursor = 0xea74;
+constexpr uint8_t kBombPlaceSoundPriority = 3;
 constexpr std::array<uint16_t, 6> kCompatibilitySoundCursors{
     0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0027,
 };
 constexpr size_t kCompatibilityObjectivePickupSound = 0;
-constexpr size_t kCompatibilityBombPlaceSound = 2;
 constexpr size_t kCompatibilityMonsterDeathSound = 4;
 constexpr size_t kCompatibilityLevelCompleteSound = 5;
 constexpr std::array<uint16_t, 14> kDebugSoundCursors{
@@ -5176,6 +5177,164 @@ public:
             throw std::runtime_error("explosion selector map mismatch");
         }
         std::cout << "sound_selector_map=ok\n";
+    }
+
+    void debugStaticSoundRequests() {
+        struct StaticSoundWrite {
+            uint16_t offset;
+            uint16_t cursor;
+        };
+        static const std::array<StaticSoundWrite, 27> kExpectedWrites{{
+            {0x1857, 0x0078}, {0x1a44, 0x0008}, {0x1d9c, 0x003d},
+            {0x202d, 0x0021}, {0x2083, 0x0024}, {0x2c04, 0x0078},
+            {0x30b1, 0x0056}, {0x41a9, 0xea74}, {0x41ed, 0xea7e},
+            {0x4231, 0xea88}, {0x431d, 0xeace}, {0x49bd, 0x0027},
+            {0x4b2c, 0x0021}, {0x4d3c, 0x2710}, {0x4dd3, 0x2710},
+            {0x557b, 0xea74}, {0x575d, 0x0027}, {0x5a0e, 0x001a},
+            {0x5c9e, 0x003d}, {0x5e81, 0x0069}, {0x6844, 0x0024},
+            {0x6924, 0x0035}, {0x6e34, 0x0012}, {0x6f82, 0x0008},
+            {0x7386, 0x0021}, {0x789c, 0x0001}, {0x7f84, 0x002d},
+        }};
+        static const std::array<uint16_t, 11> kMappedWrites{
+            0x30b1, 0x41a9, 0x41ed, 0x4231, 0x431d, 0x557b,
+            0x575d, 0x5a0e, 0x6e34, 0x6f82, 0x7f84,
+        };
+
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for sound scan");
+        }
+        size_t imageSize = exeBytes.size() - imageBase;
+        std::vector<StaticSoundWrite> writes;
+        for (size_t off = 0; off + 6 <= imageSize; ++off) {
+            size_t p = imageBase + off;
+            if (exeBytes[p] == 0xc7 && exeBytes[p + 1] == 0x06 &&
+                exeBytes[p + 2] == 0x74 && exeBytes[p + 3] == 0x20) {
+                writes.push_back({
+                    static_cast<uint16_t>(off),
+                    le16(exeBytes, p + 4),
+                });
+            }
+        }
+        if (writes.size() != kExpectedWrites.size()) {
+            throw std::runtime_error("static sound request write count changed");
+        }
+        for (size_t i = 0; i < writes.size(); ++i) {
+            if (writes[i].offset != kExpectedWrites[i].offset ||
+                writes[i].cursor != kExpectedWrites[i].cursor) {
+                throw std::runtime_error("static sound request table changed");
+            }
+        }
+
+        auto nearLatchCallCount = [&](uint16_t offset) {
+            int count = 0;
+            for (size_t relOff = 0; relOff < 160; ++relOff) {
+                size_t callOff = static_cast<size_t>(offset) + relOff;
+                size_t p = imageBase + callOff;
+                if (p + 3 > exeBytes.size() || exeBytes[p] != 0xe8) continue;
+                uint16_t rawRel = le16(exeBytes, p + 1);
+                int signedRel = rawRel >= 0x8000u
+                                    ? static_cast<int>(rawRel) - 0x10000
+                                    : static_cast<int>(rawRel);
+                uint16_t target = static_cast<uint16_t>(callOff + 3 + signedRel);
+                if (target == 0x165a) ++count;
+            }
+            return count;
+        };
+        auto nearPriorityWrite = [&](uint16_t offset) {
+            for (size_t relOff = 0; relOff < 160; ++relOff) {
+                size_t p = imageBase + static_cast<size_t>(offset) + relOff;
+                if (p + 5 > exeBytes.size()) break;
+                if (exeBytes[p] == 0xc6 && exeBytes[p + 1] == 0x06 &&
+                    exeBytes[p + 2] == 0x9f && exeBytes[p + 3] == 0x79) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        auto priorityAt = [&](uint16_t offset) {
+            size_t p = imageBase + offset;
+            if (p + 5 > exeBytes.size() || exeBytes[p] != 0xc6 ||
+                exeBytes[p + 1] != 0x06 || exeBytes[p + 2] != 0x9f ||
+                exeBytes[p + 3] != 0x79) {
+                throw std::runtime_error("expected static priority write missing");
+            }
+            return exeBytes[p + 4];
+        };
+
+        int latchCandidates = 0;
+        int latchRefs = 0;
+        int priorityCandidates = 0;
+        int directSweepWrites = 0;
+        int mappedWrites = 0;
+        std::ostringstream list;
+        for (size_t i = 0; i < writes.size(); ++i) {
+            int calls = nearLatchCallCount(writes[i].offset);
+            if (calls > 0) ++latchCandidates;
+            latchRefs += calls;
+            if (nearPriorityWrite(writes[i].offset)) ++priorityCandidates;
+            if (isDirectSoundSweep(writes[i].cursor)) ++directSweepWrites;
+            if (std::find(kMappedWrites.begin(), kMappedWrites.end(),
+                          writes[i].offset) != kMappedWrites.end()) {
+                ++mappedWrites;
+            }
+            if (i != 0) list << ',';
+            list << hex4(writes[i].offset) << ':' << hex4(writes[i].cursor);
+        }
+        if (latchCandidates != 21 || latchRefs != 22 ||
+            priorityCandidates != 21 || directSweepWrites != 5 ||
+            mappedWrites != static_cast<int>(kMappedWrites.size()) ||
+            priorityAt(0x5581) != kBombPlaceSoundPriority ||
+            nearLatchCallCount(0x557b) != 1) {
+            throw std::runtime_error("static sound request summary changed");
+        }
+
+        std::cout << "static_sound_requests=ok writes=" << writes.size()
+                  << " image_base=0x0770"
+                  << " latch=0x165a"
+                  << " latch_candidates=" << latchCandidates
+                  << " latch_refs=" << latchRefs
+                  << " priority_candidates=" << priorityCandidates
+                  << " direct_sweep=" << directSweepWrites
+                  << " mapped=" << mappedWrites
+                  << " unresolved=" << (static_cast<int>(writes.size()) - mappedWrites)
+                  << " bomb_place=" << hex4(0x557b) << ':' << hex4(kBombPlaceSoundCursor)
+                  << "/p" << static_cast<int>(kBombPlaceSoundPriority)
+                  << " cursor_writes=" << list.str() << '\n';
+    }
+
+    void debugBombPlaceSoundRouting() {
+        load();
+        resetLevel(0);
+        bombInventory_.selected = BombType::Small;
+        grantNormalBombSet(bombInventory_);
+        clearSoundLatch();
+        size_t beforeBombs = bombs_.size();
+        int beforeSmallBombs = bombInventory_.counts[0];
+        placeBombAt(player_, bombInventory_, 1);
+        if (bombs_.size() != beforeBombs + 1 ||
+            bombInventory_.counts[0] != beforeSmallBombs - 1 ||
+            !soundLatch_.active ||
+            soundLatch_.latchedOffset != kBombPlaceSoundCursor ||
+            soundLatch_.currentSelector != kBombPlaceSoundPriority ||
+            !soundLatch_.directSweep) {
+            throw std::runtime_error("bomb placement sound request mismatch");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active ||
+            lastPumpedSoundOffset_ != kBombPlaceSoundCursor ||
+            lastPumpedSoundSelector_ != kBombPlaceSoundPriority) {
+            throw std::runtime_error("bomb placement sound pump mismatch");
+        }
+        std::cout << "bomb_place_sound=ok cursor=" << hex4(kBombPlaceSoundCursor)
+                  << " priority=" << static_cast<int>(kBombPlaceSoundPriority)
+                  << " direct_sweep=1 placed=1 pumped=1"
+                  << " ghidra=1000:557b latch=1000:165a\n";
     }
 
     void debugBombObjectSoundRouting() {
@@ -13678,7 +13837,7 @@ private:
             BombProfile profile = bombProfile(inventory.selected);
             bombs_.push_back({tx, ty, profile.fuseTicks, inventory.selected,
                               profile.fuseTicks, owner});
-            playSound(kCompatibilityBombPlaceSound);
+            requestBombPlaceSound();
             int& count = inventory.counts[static_cast<size_t>(bombTypeIndex(inventory.selected))];
             count = std::max(0, count - 1);
             if (count == 0) selectNextAvailableBomb(inventory);
@@ -13780,6 +13939,10 @@ private:
         return requestSoundCursor(sawHighObjectTile ? kBombObjectHighSoundCursor
                                                     : kBombObjectDefaultSoundCursor,
                                   kBombObjectSoundPriority);
+    }
+
+    bool requestBombPlaceSound() {
+        return requestSoundOffset(kBombPlaceSoundCursor, kBombPlaceSoundPriority);
     }
 
     bool requestPortalTeleportSound() {
@@ -14880,6 +15043,14 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sound-selector-map") {
             app.debugSoundSelectorMap();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-static-sound-requests") {
+            app.debugStaticSoundRequests();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-bomb-place-sound") {
+            app.debugBombPlaceSoundRouting();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-object-sound") {

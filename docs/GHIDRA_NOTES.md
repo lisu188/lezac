@@ -816,7 +816,7 @@ for every shipped step and confirms the recovered C++ synthesizer renders the
 same samples for all known non-direct cursor starts, keeping those tail bytes
 preserved but behaviorally unused until original evidence proves otherwise.
 
-Six non-explosion gameplay cues are now mapped to original queued requests:
+Seven non-explosion gameplay cues are now mapped to original queued requests:
 
 `tools/check_sound_callsite_map.py` verifies this handoff stays consistent
 across these address notes, the C++ request sites, and the CTest scenario names.
@@ -828,6 +828,12 @@ across these address notes, the C++ request sites, and the CTest scenario names.
   leaves `DS:2074 = 0x0000`; high object tiles write `DS:2074 = 0x0012`
   before the `1000:165a` call. The C++ `explode` path mirrors this with
   `requestBombObjectScoreSound`.
+- The bomb-placement path around `1000:5530..5687` stages the bomb runtime
+  record and, on the successful placement branch, writes `DS:2074 = 0xea74`,
+  `DS:799f = 3`, and calls `1000:165a` at `1000:557b..5586`. The C++
+  `placeBombAt` path mirrors this with `requestBombPlaceSound`, using the
+  direct-sweep cursor at priority `3` instead of a compatibility
+  `playSound(index)` call.
 - The portal record helper at `1000:5999..5a72` scans the 7-byte portal records
   at `0x7717 + 7 * n` for a matching word-layer key, copies the destination
   coordinates into the actor frame, writes `DS:2074 = 0x001a`,
@@ -869,10 +875,16 @@ the player hurt request and remains `visual_claim=0`; original fixtures should
 only be promoted after a real DOSBox-debug stop supplies those bytes.
 `tools/capture_original_sound_callsite_debug.sh <out_dir> [asset_dir]
 <scenario>` stages that original debugger pass for `bomb_object_sound`,
-`portal_teleport_sound`, `tile_trigger_sound`, `bonus_pickup_sound`,
-`player_damage_sound`, and `player_death_sound`, writing a manifest, raw dump,
-debugger command plan, runtime command plan, and fill-in `sound_callsite`
-candidate fixture.
+`bomb_place_sound`, `portal_teleport_sound`, `tile_trigger_sound`,
+`bonus_pickup_sound`, `player_damage_sound`, and `player_death_sound`, writing
+a manifest, raw dump, debugger command plan, runtime command plan, and fill-in
+`sound_callsite` candidate fixture. `--debug-static-sound-requests` separately
+pins all 27 static `DS:2074` immediate writes found in the shipped
+`LEZAC.EXE`; the mapped set now includes the four explosion direct sweeps,
+bomb placement, the bomb-object high-cursor branch, portal, trigger, bonus,
+player hurt, and player death callsites. The bomb-object default cue is covered
+by the surrounding scan that leaves `DS:2074 = 0x0000`; 16 immediate-write
+candidates remain unlabeled static recovery targets.
 
 Other non-explosion cues are still being mapped; direct `playSound(index)`
 callers remain compatibility hooks until their original cursor/priority writes

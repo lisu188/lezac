@@ -18,17 +18,22 @@ EXPECTED_LIVE_HOOKS = {
         "if (completeTimer_ == 0) playSound(kCompatibilityLevelCompleteSound);"
     ),
     "objective_pickup": "playSound(kCompatibilityObjectivePickupSound);",
-    "bomb_place": "playSound(kCompatibilityBombPlaceSound);",
     "monster_death": "playSound(kCompatibilityMonsterDeathSound);",
 }
 
 EXPECTED_HELPER_SNIPPETS = [
     "constexpr size_t kCompatibilityObjectivePickupSound = 0;",
-    "constexpr size_t kCompatibilityBombPlaceSound = 2;",
     "constexpr size_t kCompatibilityMonsterDeathSound = 4;",
     "constexpr size_t kCompatibilityLevelCompleteSound = 5;",
     "void playSound(size_t index)",
     "playSound(soundIndexForSelector(selector));",
+]
+
+EXPECTED_RECOVERED_HOOK_SNIPPETS = [
+    "constexpr uint16_t kBombPlaceSoundCursor = 0xea74;",
+    "constexpr uint8_t kBombPlaceSoundPriority = 3;",
+    "bool requestBombPlaceSound()",
+    "requestBombPlaceSound();",
 ]
 
 
@@ -51,6 +56,8 @@ def require_collapsed(text: str, snippet: str, label: str) -> None:
 def check_source(source_path: Path) -> None:
     text = source_path.read_text(encoding="utf-8")
     for snippet in EXPECTED_HELPER_SNIPPETS:
+        require(text, snippet, "source")
+    for snippet in EXPECTED_RECOVERED_HOOK_SNIPPETS:
         require(text, snippet, "source")
     for snippet in EXPECTED_LIVE_HOOKS.values():
         require(text, snippet, "source")
@@ -93,7 +100,7 @@ def check_cmake(cmake_path: Path) -> None:
     require(text, "tools/check_sound_compatibility_hooks.py", "CMake")
     require(
         text,
-        "^sound_compatibility_hooks=ok live_hooks=4 helpers=6 docs=3",
+        "^sound_compatibility_hooks=ok live_hooks=3 recovered_hooks=1 helpers=9 docs=3",
         "CMake",
     )
 
@@ -112,7 +119,9 @@ def main() -> int:
     print(
         "sound_compatibility_hooks=ok "
         f"live_hooks={len(EXPECTED_LIVE_HOOKS)} "
-        f"helpers={len(EXPECTED_HELPER_SNIPPETS)} docs=3"
+        "recovered_hooks=1 "
+        f"helpers={len(EXPECTED_HELPER_SNIPPETS) + len(EXPECTED_RECOVERED_HOOK_SNIPPETS)} "
+        "docs=3"
     )
     return 0
 

@@ -28,6 +28,12 @@ case "$scenario" in
         cursor=0x0000
         priority=3
         ;;
+    bomb_place_sound)
+        request_label=bomb_place
+        callsite_offset=557B
+        cursor=0xea74
+        priority=3
+        ;;
     portal_teleport_sound)
         request_label=portal
         callsite_offset=5999

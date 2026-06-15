@@ -16,6 +16,29 @@ target_link_directories(lezac_cpp PRIVATE ${SDL2_LIBRARY_DIRS})
 target_link_libraries(lezac_cpp PRIVATE ${SDL2_LIBRARIES})
 target_compile_options(lezac_cpp PRIVATE ${SDL2_CFLAGS_OTHER})
 
+if(WIN32)
+    set(LEZAC_SDL2_RUNTIME_HINTS)
+    foreach(sdl2_library_dir IN LISTS SDL2_LIBRARY_DIRS)
+        list(APPEND LEZAC_SDL2_RUNTIME_HINTS "${sdl2_library_dir}/../bin")
+    endforeach()
+    foreach(sdl2_include_dir IN LISTS SDL2_INCLUDE_DIRS)
+        list(APPEND LEZAC_SDL2_RUNTIME_HINTS "${sdl2_include_dir}/../bin")
+        list(APPEND LEZAC_SDL2_RUNTIME_HINTS "${sdl2_include_dir}/../../bin")
+    endforeach()
+    find_file(LEZAC_SDL2_RUNTIME_DLL NAMES SDL2.dll HINTS ${LEZAC_SDL2_RUNTIME_HINTS})
+    if(LEZAC_SDL2_RUNTIME_DLL)
+        add_custom_command(
+            TARGET lezac_cpp POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${LEZAC_SDL2_RUNTIME_DLL}
+                    $<TARGET_FILE_DIR:lezac_cpp>/SDL2.dll
+            VERBATIM
+        )
+    else()
+        message(WARNING "SDL2.dll was not found; lezac_cpp.exe may need SDL2.dll on PATH")
+    endif()
+endif()
+
 set(LEZAC_JSON_RESOURCES
     src/BOMPAL.PAL.json
     src/SFONLEF.ZBG.json
@@ -1016,6 +1039,7 @@ if(BUILD_TESTING)
 
             foreach(sound_callsite_scenario
                     bomb_object_sound
+                    bomb_place_sound
                     portal_teleport_sound
                     tile_trigger_sound
                     bonus_pickup_sound
@@ -1198,7 +1222,7 @@ if(BUILD_TESTING)
         set_tests_properties(sound_callsite_debug_capture_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^sound_callsite_debug_capture_helper=ok scenarios=6 anchors=7 outputs=7 cmake_tests=6 docs=3")
+                "^sound_callsite_debug_capture_helper=ok scenarios=7 anchors=8 outputs=7 cmake_tests=7 docs=3")
 
         add_test(NAME sound_compatibility_hooks
             COMMAND ${Python3_EXECUTABLE}
@@ -1207,7 +1231,7 @@ if(BUILD_TESTING)
         set_tests_properties(sound_compatibility_hooks PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^sound_compatibility_hooks=ok live_hooks=4 helpers=6 docs=3")
+                "^sound_compatibility_hooks=ok live_hooks=3 recovered_hooks=1 helpers=9 docs=3")
 
         add_test(NAME debug_capture_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -1751,6 +1775,20 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^sound_callsite_map=ok cues=6 .*direct_sweeps=4 .*priority_latch=1000:165a\\.\\.167d .*tick_window=1000:0fbe\\.\\.1088 .*tests=10")
     endif()
+
+    add_test(NAME static_sound_requests
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-static-sound-requests)
+    set_tests_properties(static_sound_requests PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^static_sound_requests=ok writes=27 image_base=0x0770 latch=0x165a latch_candidates=21 latch_refs=22 priority_candidates=21 direct_sweep=5 mapped=11 unresolved=16 bomb_place=0x557b:0xea74/p3")
+
+    add_test(NAME bomb_place_sound
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-place-sound)
+    set_tests_properties(bomb_place_sound PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^bomb_place_sound=ok cursor=0xea74 priority=3 direct_sweep=1 placed=1 pumped=1 ghidra=1000:557b latch=1000:165a")
 
     add_test(NAME bomb_object_sound
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-object-sound)

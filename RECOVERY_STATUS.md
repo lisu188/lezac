@@ -6,6 +6,23 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Recovered the static bomb-placement sound request at
+  `1000:557b..5586`: the original writes `DS:2074 = 0xea74`,
+  `DS:799f = 3`, and calls the `1000:165a` latch after the successful
+  placement branch. The live C++ `placeBombAt` path now uses
+  `requestBombPlaceSound` instead of a direct compatibility `playSound(index)`
+  call, and `--debug-bomb-place-sound` pins the queued direct-sweep request.
+- Added `--debug-static-sound-requests` to scan the shipped `LEZAC.EXE` image
+  and lock all 27 immediate writes to `DS:2074`. The diagnostic pins
+  21 near-latch candidates, 22 near-latch call references, five direct-sweep
+  writes, 11 mapped callsites, and 16 remaining unlabeled static sound
+  candidates for future recovery.
+- Extended `tools/capture_original_sound_callsite_debug.sh` and its guardrail
+  to stage `bomb_place_sound` runtime captures alongside the existing mapped
+  sound-callsite scenarios.
+- Fixed the native Windows build packaging path by copying the discovered
+  `SDL2.dll` beside `lezac_cpp.exe` after build, so CTest and manual launches no
+  longer depend on an external `PATH` entry for SDL2.
 - Added `--route-preset forward-debris-expanded` to
   `tools/sweep_original_lane_write_routes.py` and pinned its dry-run command
   matrix in CTest. The preset keeps the remaining natural forward debris
@@ -79,7 +96,7 @@ Baseline: `origin/main`
 - Made `--smoke-ui` report its inspected frame count and pinned both headless
   UI smoke checks in CTest, so dummy-SDL rendering/control regressions no
   longer pass on exit status alone.
-- Added `tools/check_sound_compatibility_hooks.py` to keep the four remaining
+- Added `tools/check_sound_compatibility_hooks.py` to keep the three remaining
   direct `playSound(index)` callers explicit as named compatibility hooks until
   original cursor/priority writes are recovered.
 - Extended `--debug-end-flow-records` with the original-style two-player

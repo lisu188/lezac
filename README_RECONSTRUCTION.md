@@ -655,7 +655,10 @@ python3 tools/sweep_original_lane_write_routes.py \
   `docs/recovery/original_runtime_fixture_notes.md`.
 - `LIVELS.SCH` seven-level parsing with the Ghidra-confirmed 3-byte level RLE,
   decoded word layer, monster spawner records, portal/start records, and tile
-  trigger rules.
+  trigger rules. The raw-level roundtrip also pins the shipped embedded
+  `fieldA`/`fieldB` words, treats `fieldB` as the low physical-word damage
+  denominator, and keeps `fieldA` unresolved with aggregate negative-candidate
+  coverage in `--debug-word-layer`.
 - A playable one-player reconstruction loop using original maps and graphics:
   movement, jumping, objective collection, bomb placement, tile destruction,
   score, start positions, teleports, tile triggers, monster spawning, basic

@@ -52,7 +52,16 @@ if(BUILD_TESTING)
     add_test(NAME level_raw_roundtrip
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-level-raw-roundtrip)
     set_tests_properties(level_raw_roundtrip PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "level_raw_roundtrip=ok levels=7 cells=47700 spawners=15 portals=21 triggers=3 fieldA_prefix=0x4000 fieldA_words=0x4005,0x401e,0x4036,0x403c,0x4066,0x409f,0x4041 fieldA_payloads=5,30,54,60,102,159,65 fieldB_words=0x0042,0x0189,0x02e3,0x01b3,0x03dc,0x0aa4,0x014a fieldB_total=5675")
+
+    add_test(NAME word_layer_embedded_fields
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-word-layer)
+    set_tests_properties(word_layer_embedded_fields PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "word_layer=ok levels=7 low=5675 high=501 high_unique=501 high_components=268 high_same_word_components=501 fieldB_total=5675 fieldB_matches_low=7 fieldA_payload_matches_high=1 fieldA_payload_matches_high_unique=1 fieldA_payload_matches_high_components=0 fieldA_payload_matches_high_same_word_components=1")
 
     add_test(NAME fixed_point_integration
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-fixed)

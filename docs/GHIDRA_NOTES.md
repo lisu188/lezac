@@ -1045,6 +1045,12 @@ count edge cases, and any visible result still need DOSBox/debugger evidence.
   close to, but do not always equal, the high-word cell count; its exact meaning
   remains unresolved. It also does not match high-word unique counts or
   connected-component counts in the shipped levels.
+  `--debug-level-raw-roundtrip` pins these raw words and their low-14-bit
+  payloads against the shipped `LIVELS.SCH`, while `--debug-word-layer`
+  summarizes the negative candidates: across all seven levels, `fieldB` matches
+  the low physical-word count seven times, but `fieldA & 0x3fff` matches the
+  high-word/high-unique/high-same-word-component counts only once and the
+  high-component count zero times.
 - 7-byte records are start and teleport destinations: `u16 key`, `u16 x`,
   `u16 y`, `u8 marker`. Key `0` records with marker `1` and `2` are player
   starts. Tile `0x45` uses the word-layer key to select a nonzero destination.

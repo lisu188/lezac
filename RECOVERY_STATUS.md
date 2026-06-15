@@ -77,6 +77,14 @@ Baseline: `origin/main`
   dry-run planning, rejecting non-lane-result offsets before any capture plan is
   trusted. This brings the lane-result route planner in line with the lane-write
   route planner before the next DOSBox-capable run.
+- Locked the shipped `LIVELS.SCH` embedded level words in
+  `--debug-level-raw-roundtrip`: `fieldA` stays raw with `0x4000` prefix and
+  payloads `5,30,54,60,102,159,65`, while `fieldB` is pinned to
+  `0x0042,0x0189,0x02e3,0x01b3,0x03dc,0x0aa4,0x014a` and total `5675`.
+  Added CTest coverage for `--debug-word-layer` to keep the negative
+  `fieldA` candidates explicit: the low physical-word count matches `fieldB`
+  on all seven levels, but the `fieldA & 0x3fff` payload matches high-word
+  counts only once and high connected components zero times.
 - Added `tools/summarize_lane_write_ready_results.py` plus synthetic result and
   end-to-end pipeline CTest coverage, completing the lane-write handoff from
   route-sweep promotion through ready-manifest execution into a gated result

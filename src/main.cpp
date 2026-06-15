@@ -9059,9 +9059,31 @@ public:
         std::vector<Level> rawLevels = loadRawLevels("LIVELS.SCH");
         const std::array<size_t, 7> expectedOffsets{0, 1242, 4923, 10984,
                                                      15225, 21546, 36128};
+        const std::array<uint16_t, 7> expectedFieldA{
+            0x4005, 0x401e, 0x4036, 0x403c, 0x4066, 0x409f, 0x4041};
+        const std::array<uint16_t, 7> expectedFieldB{
+            0x0042, 0x0189, 0x02e3, 0x01b3, 0x03dc, 0x0aa4, 0x014a};
         if (rawLevels.size() != levels_.size() || rawLevels.size() != expectedOffsets.size()) {
             throw std::runtime_error("raw level count did not match JSON levels");
         }
+
+        auto hexWordList = [](const auto& words) {
+            std::ostringstream oss;
+            for (size_t i = 0; i < words.size(); ++i) {
+                if (i != 0) oss << ',';
+                oss << "0x" << std::hex << std::setw(4) << std::setfill('0')
+                    << static_cast<int>(words[i]);
+            }
+            return oss.str();
+        };
+        auto fieldAPayloadList = [&]() {
+            std::ostringstream oss;
+            for (size_t i = 0; i < expectedFieldA.size(); ++i) {
+                if (i != 0) oss << ',';
+                oss << static_cast<int>(expectedFieldA[i] & 0x3fffu);
+            }
+            return oss.str();
+        };
 
         auto sameSpawner = [](const MonsterSpawner& a, const MonsterSpawner& b) {
             return a.x == b.x && a.y == b.y && a.tileIndex == b.tileIndex &&
@@ -9089,6 +9111,7 @@ public:
         size_t totalSpawners = 0;
         size_t totalPortals = 0;
         size_t totalTriggers = 0;
+        int totalFieldB = 0;
         std::array<int, 256> kindCounts{};
         std::array<int, 256> behaviorCounts{};
         for (size_t i = 0; i < rawLevels.size(); ++i) {
@@ -9105,6 +9128,11 @@ public:
                 raw.tiles != json.tiles || raw.wordLayer != json.wordLayer) {
                 throw std::runtime_error("raw level " + std::to_string(i + 1) +
                                          " did not match JSON scalar/layer data");
+            }
+            if (raw.fieldA != expectedFieldA[i] || raw.fieldB != expectedFieldB[i] ||
+                (raw.fieldA & 0xc000u) != kDeferredThreshold) {
+                throw std::runtime_error("raw level " + std::to_string(i + 1) +
+                                         " embedded field words changed");
             }
             if (raw.fieldB != static_cast<uint16_t>(countPhysicalDamageProgressCells(raw.wordLayer)) ||
                 raw.startingDestructibleTiles != static_cast<int>(raw.fieldB) ||
@@ -9137,6 +9165,7 @@ public:
             totalSpawners += raw.monsterSpawners.size();
             totalPortals += raw.portals.size();
             totalTriggers += raw.tileTriggers.size();
+            totalFieldB += raw.fieldB;
         }
 
         if (totalCells != 47700 || totalSpawners != 15 ||
@@ -9162,7 +9191,12 @@ public:
                   << " cells=" << totalCells
                   << " spawners=" << totalSpawners
                   << " portals=" << totalPortals
-                  << " triggers=" << totalTriggers << '\n';
+                  << " triggers=" << totalTriggers
+                  << " fieldA_prefix=0x4000"
+                  << " fieldA_words=" << hexWordList(expectedFieldA)
+                  << " fieldA_payloads=" << fieldAPayloadList()
+                  << " fieldB_words=" << hexWordList(expectedFieldB)
+                  << " fieldB_total=" << totalFieldB << '\n';
     }
 
     void debugSpriteTransparency() {
@@ -9321,6 +9355,18 @@ public:
 
     void debugWordLayer() {
         load();
+        int levelsSeen = 0;
+        int totalLowWords = 0;
+        int totalHighWords = 0;
+        int totalHighUnique = 0;
+        int totalHighComponents = 0;
+        int totalHighSameWordComponents = 0;
+        int totalFieldB = 0;
+        int fieldBMatchesLow = 0;
+        int fieldAPayloadMatchesHigh = 0;
+        int fieldAPayloadMatchesHighUnique = 0;
+        int fieldAPayloadMatchesHighComponents = 0;
+        int fieldAPayloadMatchesHighSameWordComponents = 0;
         for (size_t levelIndex = 0; levelIndex < levels_.size(); ++levelIndex) {
             const Level& level = levels_[levelIndex];
             std::array<int, 65536> counts{};
@@ -9402,6 +9448,20 @@ public:
                 return counts[word];
             };
             int fieldAPayload = static_cast<int>(level.fieldA & 0x3fffu);
+            ++levelsSeen;
+            totalLowWords += lowWords;
+            totalHighWords += highWords;
+            totalHighUnique += highUnique;
+            totalHighComponents += highComponents;
+            totalHighSameWordComponents += highSameWordComponents;
+            totalFieldB += level.fieldB;
+            if (static_cast<int>(level.fieldB) == lowWords) ++fieldBMatchesLow;
+            if (fieldAPayload == highWords) ++fieldAPayloadMatchesHigh;
+            if (fieldAPayload == highUnique) ++fieldAPayloadMatchesHighUnique;
+            if (fieldAPayload == highComponents) ++fieldAPayloadMatchesHighComponents;
+            if (fieldAPayload == highSameWordComponents) {
+                ++fieldAPayloadMatchesHighSameWordComponents;
+            }
             std::cout << "word_layer level=" << (levelIndex + 1)
                       << " cells=" << level.wordLayer.size()
                       << " nonzero=" << nonzero
@@ -9439,6 +9499,30 @@ public:
             }
             std::cout << '\n';
         }
+        if (levelsSeen != 7 || totalLowWords != 5675 || totalHighWords != 501 ||
+            totalHighUnique != 501 || totalHighComponents != 268 ||
+            totalHighSameWordComponents != 501 || totalFieldB != 5675 ||
+            fieldBMatchesLow != 7 || fieldAPayloadMatchesHigh != 1 ||
+            fieldAPayloadMatchesHighUnique != 1 ||
+            fieldAPayloadMatchesHighComponents != 0 ||
+            fieldAPayloadMatchesHighSameWordComponents != 1) {
+            throw std::runtime_error("word-layer embedded field summary changed");
+        }
+        std::cout << "word_layer=ok levels=" << levelsSeen
+                  << " low=" << totalLowWords
+                  << " high=" << totalHighWords
+                  << " high_unique=" << totalHighUnique
+                  << " high_components=" << totalHighComponents
+                  << " high_same_word_components=" << totalHighSameWordComponents
+                  << " fieldB_total=" << totalFieldB
+                  << " fieldB_matches_low=" << fieldBMatchesLow
+                  << " fieldA_payload_matches_high=" << fieldAPayloadMatchesHigh
+                  << " fieldA_payload_matches_high_unique="
+                  << fieldAPayloadMatchesHighUnique
+                  << " fieldA_payload_matches_high_components="
+                  << fieldAPayloadMatchesHighComponents
+                  << " fieldA_payload_matches_high_same_word_components="
+                  << fieldAPayloadMatchesHighSameWordComponents << '\n';
     }
 
     void debugSpawners() {

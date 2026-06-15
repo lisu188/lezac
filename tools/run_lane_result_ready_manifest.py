@@ -15,6 +15,7 @@ import sys
 EXPECTED_PROMOTION = "lane_result_ready_candidates"
 EXPECTED_ORACLE = "explosion_playback"
 EXPECTED_ORACLE_FLAG = "--debug-explosion-playback-oracle"
+TOOL_PREFIX = "lane_result"
 
 
 @dataclass(frozen=True)
@@ -201,7 +202,7 @@ def write_result_manifest(
     path = path.resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
-        "result=lane_result_ready_manifest",
+        f"result={TOOL_PREFIX}_ready_manifest",
         f"mode={mode}",
         f"source_ready_manifest={source_manifest}",
         f"source_environment_preflight={source_environment_preflight}",
@@ -289,7 +290,7 @@ def main() -> int:
     require_fixtures = not args.allow_missing_fixtures
     if args.allow_missing_fixtures and not args.dry_run:
         print(
-            "lane_result_ready_manifest=error "
+            f"{TOOL_PREFIX}_ready_manifest=error "
             "reason=--allow-missing-fixtures requires --dry-run",
             file=sys.stderr,
         )
@@ -312,7 +313,7 @@ def main() -> int:
             "source_environment_preflight", "unknown"
         )
     except (FileNotFoundError, OSError, ValueError) as exc:
-        print(f"lane_result_ready_manifest=error reason={exc}", file=sys.stderr)
+        print(f"{TOOL_PREFIX}_ready_manifest=error reason={exc}", file=sys.stderr)
         return 1
 
     if (
@@ -320,7 +321,7 @@ def main() -> int:
         and source_environment_preflight != "ok"
     ):
         print(
-            "lane_result_ready_manifest=error "
+            f"{TOOL_PREFIX}_ready_manifest=error "
             "reason=source_environment_preflight_not_ok "
             f"source_environment_preflight={source_environment_preflight}",
             file=sys.stderr,
@@ -329,7 +330,7 @@ def main() -> int:
 
     mode = "dry_run" if args.dry_run else "run"
     print(
-        "lane_result_ready_manifest=ok "
+        f"{TOOL_PREFIX}_ready_manifest=ok "
         f"mode={mode} "
         f"manifest={manifest.path} "
         f"source_environment_preflight={source_environment_preflight} "
@@ -399,10 +400,13 @@ def main() -> int:
                 candidate_lines,
             )
         except OSError as exc:
-            print(f"lane_result_ready_result_manifest=error reason={exc}", file=sys.stderr)
+            print(
+                f"{TOOL_PREFIX}_ready_result_manifest=error reason={exc}",
+                file=sys.stderr,
+            )
             return 1
         print(
-            "lane_result_ready_result_manifest=ok "
+            f"{TOOL_PREFIX}_ready_result_manifest=ok "
             f"path={result_manifest} "
             f"ready_candidates={len(candidates)} "
             f"failures={failures}"
@@ -410,7 +414,7 @@ def main() -> int:
 
     if failures:
         print(
-            "lane_result_ready_manifest=error "
+            f"{TOOL_PREFIX}_ready_manifest=error "
             f"reason=oracle_failures failures={failures}",
             file=sys.stderr,
         )

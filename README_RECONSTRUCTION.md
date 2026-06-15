@@ -755,7 +755,11 @@ python3 tools/sweep_original_lane_write_routes.py \
   `0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate`,
   keeping the collapse playback branch, the bomb-object high gate, and the
   non-objective tile gate out of the objective-pickup mapping until new
-  original evidence proves otherwise. `--debug-static-sound-contexts` separately
+  original evidence proves otherwise. `--debug-static-sound-unresolved-contexts`
+  also pins the exact byte windows for those 12 unresolved writes and separates
+  their local request shapes: nine local latch calls, six inline priorities,
+  two preceding priorities, four no-local-priority cases, three no-latch cases,
+  and two `0x2710` cursor writes. `--debug-static-sound-contexts` separately
   pins the original bytes and nearby strings that place `0x1857`, `0x1a44`,
   `0x1d9c`, `0x202d`, and `0x2083` in name-entry/record UI regions rather than
   in the `1000:1b14..1d42` completed-game dispatcher, so the current

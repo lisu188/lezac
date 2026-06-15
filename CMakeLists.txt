@@ -1809,6 +1809,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^static_sound_contexts=ok image_base=0x0770 end_flow_dispatcher=0x1b14..0x1d42 first_post_end_flow_sound=0x1d9c level_complete_static_candidate=none record_ui_writes=0x1857:0x0078/p11:name_entry_region,0x1a44:0x0008/p11:name_entry_region,0x1d9c:0x003d/p10:post_end_flow_record_region,0x202d:0x0021/deferred:record_table_region,0x2083:0x0024/p2:record_table_region")
 
+    add_test(NAME static_sound_unresolved_contexts
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-static-sound-unresolved-contexts)
+    set_tests_properties(static_sound_unresolved_contexts PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^static_sound_unresolved_contexts=ok writes=12 image_base=0x0770 latch=0x165a local_latch=9 local_latch_refs=9 inline_priority=6 preceding_priority=2 no_priority=4 no_latch=3 direct_sweep=0 cursor_2710=2 contexts=0x1d9c:0x003d/p10:inline:latch1:post_end_flow_record_region,0x202d:0x0021/no_priority:none:latch1:record_table_cursor_only,0x2c04:0x0078/p11:inline:latch1:cursor_0078_priority11,0x49bd:0x0027/p5:inline:latch1:cursor_0027_priority5,0x4b2c:0x0021/p2:preceding:latch1:collapse_playback_rejected,0x4d3c:0x2710/no_priority:none:latch0:cursor_2710,0x4dd3:0x2710/no_priority:none:latch0:cursor_2710,0x5e81:0x0069/p4:inline:latch1:cursor_0069_priority4,0x6844:0x0024/p2:inline:latch1:cursor_0024_priority2,0x6924:0x0035/p5:inline:latch1:non_objective_tile_gate_rejected,0x7386:0x0021/p1:preceding:latch1:cursor_0021_priority1,0x789c:0x0001/no_priority:none:latch0:cursor_0001_no_latch")
+
     add_test(NAME record_name_sound
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-name-sound
                 ${CMAKE_CURRENT_BINARY_DIR}/records_name_sound_test.dat)

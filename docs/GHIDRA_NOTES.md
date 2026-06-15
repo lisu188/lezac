@@ -905,6 +905,13 @@ Those unresolved writes are also pinned by factual labels:
 bomb-object default cue is covered by the surrounding scan that leaves
 `DS:2074 = 0x0000`; 12 immediate-write candidates remain unpromoted static
 recovery targets.
+`--debug-static-sound-unresolved-contexts` narrows that queue further by
+checking each unpromoted write's exact shipped byte window and local request
+shape. It currently pins nine local `1000:165a` calls, six inline priority
+writes, two preceding priority writes, four no-local-priority cases, three
+no-latch cases, and the two `0x2710` cursor writes. These are byte-context
+facts only; they are not promoted as live gameplay cues without same-location
+runtime evidence.
 The diagnostic also prints
 `remaining_compat_hooks=objective_pickup,level_complete` and records rejected
 objective-sound candidates as

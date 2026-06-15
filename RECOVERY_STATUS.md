@@ -23,6 +23,12 @@ Baseline: `origin/main`
   `post_end_flow_record_region`, `record_table_cursor_only`,
   `collapse_playback_rejected`, `non_objective_tile_gate_rejected`, or its
   cursor/priority shape.
+- Added `--debug-static-sound-unresolved-contexts` to pin the byte windows and
+  local latch/priority shape for those 12 unpromoted writes individually. The
+  command verifies nine local `1000:165a` latch calls, six inline priority
+  writes, two preceding priority writes, four no-local-priority cases, three
+  no-latch cases, and the two `0x2710` cursor writes without treating any of
+  them as a recovered live gameplay cue.
 - Extended `tools/capture_original_sound_callsite_debug.sh` and its guardrail
   to stage `bomb_place_sound` runtime captures alongside the existing mapped
   sound-callsite scenarios.

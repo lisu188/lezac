@@ -5679,6 +5679,186 @@ public:
                   << '\n';
     }
 
+    void debugStaticSoundUnresolvedContexts() {
+        struct UnresolvedContext {
+            uint16_t offset;
+            uint16_t cursor;
+            int priority;
+            uint16_t priorityOffset;
+            const char* priorityPlacement;
+            int expectedLocalLatchCalls;
+            const char* label;
+            const char* bytes;
+        };
+        static const std::array<UnresolvedContext, 12> kContexts{{
+            {0x1d9c, 0x003d, 10, 0x1da2, "inline", 1,
+             "post_end_flow_record_region",
+             "c7 06 74 20 3d 00 c6 06 9f 79 0a e8 b0 f8"},
+            {0x202d, 0x0021, -1, 0x0000, "none", 1,
+             "record_table_cursor_only",
+             "c7 06 74 20 21 00 e8 24 f6"},
+            {0x2c04, 0x0078, 11, 0x2c0a, "inline", 1,
+             "cursor_0078_priority11",
+             "c7 06 74 20 78 00 c6 06 9f 79 0b e8 48 ea"},
+            {0x49bd, 0x0027, 5, 0x49c3, "inline", 1,
+             "cursor_0027_priority5",
+             "c7 06 74 20 27 00 c6 06 9f 79 05 e8 8f cc"},
+            {0x4b2c, 0x0021, 2, 0x4b27, "preceding", 1,
+             "collapse_playback_rejected",
+             "c7 06 74 20 21 00 e8 25 cb"},
+            {0x4d3c, 0x2710, -1, 0x0000, "none", 0,
+             "cursor_2710",
+             "c7 06 74 20 10 27 c7 06 72 20 00 00 c6 06 1e 66 00"},
+            {0x4dd3, 0x2710, -1, 0x0000, "none", 0,
+             "cursor_2710",
+             "c7 06 74 20 10 27 c7 06 72 20 00 00 c6 06 1e 66 00"},
+            {0x5e81, 0x0069, 4, 0x5e87, "inline", 1,
+             "cursor_0069_priority4",
+             "c7 06 74 20 69 00 c6 06 9f 79 04 e8 cb b7"},
+            {0x6844, 0x0024, 2, 0x684a, "inline", 1,
+             "cursor_0024_priority2",
+             "c7 06 74 20 24 00 c6 06 9f 79 02 e8 08 ae"},
+            {0x6924, 0x0035, 5, 0x692a, "inline", 1,
+             "non_objective_tile_gate_rejected",
+             "c7 06 74 20 35 00 c6 06 9f 79 05 e8 28 ad"},
+            {0x7386, 0x0021, 1, 0x7381, "preceding", 1,
+             "cursor_0021_priority1",
+             "c7 06 74 20 21 00 e8 cb a2"},
+            {0x789c, 0x0001, -1, 0x0000, "none", 0,
+             "cursor_0001_no_latch",
+             "c7 06 74 20 01 00 eb 04 ff 06 74 20"},
+        }};
+
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for unresolved sound scan");
+        }
+
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " bytes changed");
+                }
+            }
+        };
+        auto localLatchCallCount = [&](uint16_t offset) {
+            int count = 0;
+            for (size_t relOff = 0; relOff < 24; ++relOff) {
+                size_t callOff = static_cast<size_t>(offset) + relOff;
+                size_t p = imageBase + callOff;
+                if (p + 3 > exeBytes.size() || exeBytes[p] != 0xe8) continue;
+                uint16_t rawRel = le16(exeBytes, p + 1);
+                int signedRel = rawRel >= 0x8000u
+                                    ? static_cast<int>(rawRel) - 0x10000
+                                    : static_cast<int>(rawRel);
+                uint16_t target = static_cast<uint16_t>(callOff + 3 + signedRel);
+                if (target == 0x165a) ++count;
+            }
+            return count;
+        };
+        auto requirePriority = [&](const UnresolvedContext& context) {
+            if (context.priority < 0) return;
+            size_t p = imageBase + context.priorityOffset;
+            if (p + 5 > exeBytes.size() || exeBytes[p] != 0xc6 ||
+                exeBytes[p + 1] != 0x06 || exeBytes[p + 2] != 0x9f ||
+                exeBytes[p + 3] != 0x79 ||
+                exeBytes[p + 4] != static_cast<uint8_t>(context.priority)) {
+                throw std::runtime_error(std::string(context.label) +
+                                         " priority bytes changed");
+            }
+        };
+
+        int localLatch = 0;
+        int localLatchRefs = 0;
+        int inlinePriority = 0;
+        int precedingPriority = 0;
+        int noPriority = 0;
+        int noLatch = 0;
+        int directSweep = 0;
+        int cursor2710 = 0;
+        std::ostringstream contexts;
+        for (size_t i = 0; i < kContexts.size(); ++i) {
+            const UnresolvedContext& context = kContexts[i];
+            requireBytes(context.offset, context.bytes, context.label);
+            requirePriority(context);
+            int calls = localLatchCallCount(context.offset);
+            if (calls != context.expectedLocalLatchCalls) {
+                throw std::runtime_error(std::string(context.label) +
+                                         " local latch call count changed");
+            }
+            if (calls > 0) ++localLatch;
+            else ++noLatch;
+            localLatchRefs += calls;
+            if (std::string(context.priorityPlacement) == "inline") {
+                ++inlinePriority;
+            } else if (std::string(context.priorityPlacement) == "preceding") {
+                ++precedingPriority;
+            } else {
+                ++noPriority;
+            }
+            if (isDirectSoundSweep(context.cursor)) ++directSweep;
+            if (context.cursor == 0x2710) ++cursor2710;
+
+            if (i != 0) contexts << ',';
+            contexts << hex4(context.offset) << ':' << hex4(context.cursor) << '/';
+            if (context.priority >= 0) {
+                contexts << 'p' << context.priority;
+            } else {
+                contexts << "no_priority";
+            }
+            contexts << ':' << context.priorityPlacement
+                     << ":latch" << calls << ':' << context.label;
+        }
+
+        std::string contextList = contexts.str();
+        if (localLatch != 9 || localLatchRefs != 9 || inlinePriority != 6 ||
+            precedingPriority != 2 || noPriority != 4 || noLatch != 3 ||
+            directSweep != 0 || cursor2710 != 2) {
+            throw std::runtime_error("unresolved static sound context summary changed");
+        }
+        if (contextList !=
+                "0x1d9c:0x003d/p10:inline:latch1:post_end_flow_record_region,"
+                "0x202d:0x0021/no_priority:none:latch1:record_table_cursor_only,"
+                "0x2c04:0x0078/p11:inline:latch1:cursor_0078_priority11,"
+                "0x49bd:0x0027/p5:inline:latch1:cursor_0027_priority5,"
+                "0x4b2c:0x0021/p2:preceding:latch1:collapse_playback_rejected,"
+                "0x4d3c:0x2710/no_priority:none:latch0:cursor_2710,"
+                "0x4dd3:0x2710/no_priority:none:latch0:cursor_2710,"
+                "0x5e81:0x0069/p4:inline:latch1:cursor_0069_priority4,"
+                "0x6844:0x0024/p2:inline:latch1:cursor_0024_priority2,"
+                "0x6924:0x0035/p5:inline:latch1:non_objective_tile_gate_rejected,"
+                "0x7386:0x0021/p1:preceding:latch1:cursor_0021_priority1,"
+                "0x789c:0x0001/no_priority:none:latch0:cursor_0001_no_latch") {
+            throw std::runtime_error("unresolved static sound context list changed");
+        }
+
+        std::cout << "static_sound_unresolved_contexts=ok"
+                  << " writes=" << kContexts.size()
+                  << " image_base=0x0770"
+                  << " latch=0x165a"
+                  << " local_latch=" << localLatch
+                  << " local_latch_refs=" << localLatchRefs
+                  << " inline_priority=" << inlinePriority
+                  << " preceding_priority=" << precedingPriority
+                  << " no_priority=" << noPriority
+                  << " no_latch=" << noLatch
+                  << " direct_sweep=" << directSweep
+                  << " cursor_2710=" << cursor2710
+                  << " contexts=" << contextList
+                  << '\n';
+    }
+
     void debugRecordNameSoundRouting(const std::string& path) {
         load();
         recordPath_ = path;
@@ -15571,6 +15751,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-static-sound-contexts") {
             app.debugStaticSoundContexts();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-static-sound-unresolved-contexts") {
+            app.debugStaticSoundUnresolvedContexts();
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-record-name-sound") {

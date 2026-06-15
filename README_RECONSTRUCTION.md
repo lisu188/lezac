@@ -64,6 +64,8 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-bonuses
 ./build/lezac_cpp --debug-fixed
 ./build/lezac_cpp --debug-shipped-file-manifest
+./build/lezac_cpp --debug-original-asset-load
+LEZAC_LOAD_ORIGINAL_ASSETS=1 ./build/lezac_cpp --validate
 ./build/lezac_cpp --debug-sounds
 ./build/lezac_cpp --debug-sound-render
 ./build/lezac_cpp --debug-sound-cursor-segments
@@ -641,6 +643,10 @@ python3 tools/sweep_original_lane_write_routes.py \
 - `--debug-shipped-file-manifest` pins the 14 shipped original files used as
   conversion/disassembly evidence, including `LEZAC.EXE` size `52384`, MZ
   image base `0x0770`, image size `50480`, and aggregate byte fingerprints.
+- `LEZAC_LOAD_ORIGINAL_ASSETS=1` loads runtime resources directly from the
+  shipped binary files. `--debug-original-asset-load` compares that path against
+  the JSON compatibility path across palettes, background, tiles, sprites,
+  records, `PROEFS.SON`, `GRAN.MST`, and all seven levels.
 - VGA palette loading from `BOMPAL.PAL` and `SFONLEF.ZBG`.
 - `SFONLEF.ZBG` PCX-style RLE background decoding as a 321x388 image.
 - `CARO.CAR` 132-tile 8x8 tile bank loading.

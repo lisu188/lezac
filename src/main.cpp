@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -784,6 +785,39 @@ IndexedImage loadBackground(const std::string& path, Palette& paletteOut) {
     return image;
 }
 
+IndexedImage loadRawBackground(const std::string& path, Palette& paletteOut) {
+    auto data = readFile(path);
+    if (data.size() < 768) {
+        throw std::runtime_error(path + " is too small for a palette");
+    }
+    paletteOut = loadPalette(data, 0);
+
+    IndexedImage image;
+    image.width = kBackgroundW;
+    image.height = kBackgroundH;
+    image.pixels.reserve(static_cast<size_t>(kBackgroundW) * kBackgroundH);
+    size_t off = 768;
+    while (off < data.size()) {
+        uint8_t cmd = data[off++];
+        if (cmd >= 0xc0) {
+            if (off >= data.size()) {
+                throw std::runtime_error(path + " raw RLE run is truncated");
+            }
+            image.pixels.insert(image.pixels.end(), cmd & 0x3f, data[off++]);
+        } else {
+            image.pixels.push_back(cmd);
+        }
+    }
+    if (image.pixels.size() != static_cast<size_t>(image.width) * image.height) {
+        throw std::runtime_error(path + " raw RLE decoded to " +
+                                 std::to_string(image.pixels.size()) +
+                                 " bytes, expected " +
+                                 std::to_string(static_cast<size_t>(image.width) *
+                                                image.height));
+    }
+    return image;
+}
+
 TileBank loadTiles(const std::string& path) {
     auto json = readTextFile(path);
     TileBank bank;
@@ -798,6 +832,22 @@ TileBank loadTiles(const std::string& path) {
             bank.pixels.insert(bank.pixels.end(), bytes.begin(), bytes.end());
         }
     }
+    return bank;
+}
+
+TileBank loadRawTiles(const std::string& path) {
+    auto data = readFile(path);
+    if (data.size() < 2) {
+        throw std::runtime_error(path + " is too small for a tile header");
+    }
+    TileBank bank;
+    bank.count = static_cast<int>((data[0] << 8) | data[1]);
+    size_t payloadSize = data.size() - 2;
+    size_t expectedSize = static_cast<size_t>(bank.count) * kTileSize * kTileSize;
+    if (bank.count <= 0 || payloadSize != expectedSize) {
+        throw std::runtime_error(path + " raw tile payload size mismatch");
+    }
+    bank.pixels.insert(bank.pixels.end(), data.begin() + 2, data.end());
     return bank;
 }
 
@@ -865,6 +915,39 @@ std::vector<Record> loadRecords(const std::string& path) {
         r.level = static_cast<uint8_t>(extractInt(recJson, "level"));
         r.name = extractString(recJson, "decoded_name", "nessuno");
         records.push_back(r);
+    }
+    return records;
+}
+
+std::string decodeRawRecordName(std::string encoded) {
+    std::replace(encoded.begin(), encoded.end(), ':', ' ');
+    while (!encoded.empty() && encoded.back() == ' ') {
+        encoded.pop_back();
+    }
+    return encoded.empty() ? std::string("nessuno") : encoded;
+}
+
+std::vector<Record> loadRawRecords(const std::string& path) {
+    auto data = readFile(path);
+    constexpr size_t kRecordSize = 13;
+    if (data.empty()) {
+        throw std::runtime_error(path + " is empty");
+    }
+    uint8_t count = data[0];
+    if (data.size() != 1 + static_cast<size_t>(count) * kRecordSize) {
+        throw std::runtime_error(path + " raw record table size mismatch");
+    }
+    std::vector<Record> records;
+    records.reserve(count);
+    for (size_t i = 0; i < count; ++i) {
+        size_t off = 1 + i * kRecordSize;
+        Record record;
+        record.score = le32(data, off);
+        record.level = data[off + 4];
+        std::string encoded(data.begin() + static_cast<std::ptrdiff_t>(off + 5),
+                            data.begin() + static_cast<std::ptrdiff_t>(off + 13));
+        record.name = decodeRawRecordName(encoded);
+        records.push_back(std::move(record));
     }
     return records;
 }
@@ -949,6 +1032,33 @@ SoundBank loadSon(const std::string& path) {
     return bank;
 }
 
+SoundBank loadRawSon(const std::string& path) {
+    auto data = readFile(path);
+    if (data.size() < 2) {
+        throw std::runtime_error(path + " is too small for a sound header");
+    }
+    SoundBank bank;
+    bank.stepCount = le16(data, 0);
+    size_t payloadSize = bank.stepCount * kSoundStepSize;
+    if (data.size() != 2 + payloadSize) {
+        throw std::runtime_error(path + " raw payload size mismatch");
+    }
+    bank.payload.insert(bank.payload.end(), data.begin() + 2, data.end());
+    bank.recordSize = 130;
+    if (bank.payload.size() % bank.recordSize != 0) {
+        throw std::runtime_error(path + " raw payload cannot be split into JSON chunks");
+    }
+    for (size_t off = 0; off < bank.payload.size(); off += bank.recordSize) {
+        SoundEffectRecord record;
+        record.bytes.insert(record.bytes.end(),
+                            bank.payload.begin() + static_cast<std::ptrdiff_t>(off),
+                            bank.payload.begin() +
+                                static_cast<std::ptrdiff_t>(off + bank.recordSize));
+        bank.records.push_back(std::move(record));
+    }
+    return bank;
+}
+
 GranBank loadGran(const std::string& path) {
     auto json = readTextFile(path);
     GranBank bank;
@@ -966,6 +1076,24 @@ GranBank loadGran(const std::string& path) {
         if (record.bytes.size() != bank.recordSize) {
             throw std::runtime_error(path + " record length does not match record_size");
         }
+        bank.records.push_back(std::move(record));
+    }
+    return bank;
+}
+
+GranBank loadRawGran(const std::string& path) {
+    auto data = readFile(path);
+    if (data.size() != 7 * kGranRecordSize) {
+        throw std::runtime_error(path + " raw size does not match seven GRAN records");
+    }
+    GranBank bank;
+    bank.recordSize = kGranRecordSize;
+    for (size_t off = 0; off < data.size(); off += kGranRecordSize) {
+        GranRecord record;
+        record.bytes.insert(record.bytes.end(),
+                            data.begin() + static_cast<std::ptrdiff_t>(off),
+                            data.begin() +
+                                static_cast<std::ptrdiff_t>(off + kGranRecordSize));
         bank.records.push_back(std::move(record));
     }
     return bank;
@@ -1203,7 +1331,7 @@ class App {
     }
 
 public:
-    void load() {
+    void loadJsonAssets() {
         palette_ = loadPaletteFile("BOMPAL.PAL.json");
         background_ = loadBackground("SFONLEF.ZBG.json", backgroundPalette_);
         tiles_ = loadTiles("CARO.CAR.json");
@@ -1216,6 +1344,31 @@ public:
         levels_ = loadLevels("LIVELS.SCH.json");
         if (levels_.empty()) {
             throw std::runtime_error("no levels");
+        }
+    }
+
+    void loadOriginalAssets() {
+        palette_ = loadPalette(readFile("BOMPAL.PAL"), 0);
+        background_ = loadRawBackground("SFONLEF.ZBG", backgroundPalette_);
+        tiles_ = loadRawTiles("CARO.CAR");
+        sprites_ = loadRawSprites("BOMOMIMK.SPR");
+        altSprites_ = loadRawSprites("PROVA.SPR");
+        fontSprites_ = loadRawSprites("FONTS.SPR");
+        records_ = loadRawRecords("RECS.DAT");
+        sounds_ = loadRawSon("PROEFS.SON");
+        gran_ = loadRawGran("GRAN.MST");
+        levels_ = loadRawLevels("LIVELS.SCH");
+        if (levels_.empty()) {
+            throw std::runtime_error("no levels");
+        }
+    }
+
+    void load() {
+        const char* originalAssets = std::getenv("LEZAC_LOAD_ORIGINAL_ASSETS");
+        if (originalAssets != nullptr && std::string(originalAssets) != "0") {
+            loadOriginalAssets();
+        } else {
+            loadJsonAssets();
         }
     }
 
@@ -3860,6 +4013,182 @@ public:
                   << std::dec << std::setfill(' ')
                   << " exe_image_size=" << imageSize
                   << " docs=2 setup_log=566" << '\n';
+    }
+
+    void debugOriginalAssetLoad() {
+        auto fail = [](const std::string& what) {
+            throw std::runtime_error("original asset load mismatch: " + what);
+        };
+        auto samePalette = [](const Palette& a, const Palette& b) {
+            for (size_t i = 0; i < a.size(); ++i) {
+                if (a[i].r != b[i].r || a[i].g != b[i].g || a[i].b != b[i].b) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        auto sameSprites = [](const SpriteBank& a, const SpriteBank& b) {
+            if (a.sprites.size() != b.sprites.size()) return false;
+            for (size_t i = 0; i < a.sprites.size(); ++i) {
+                if (a.sprites[i].width != b.sprites[i].width ||
+                    a.sprites[i].height != b.sprites[i].height ||
+                    a.sprites[i].pixels != b.sprites[i].pixels) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        auto sameRecords = [](const std::vector<Record>& a,
+                              const std::vector<Record>& b) {
+            if (a.size() != b.size()) return false;
+            for (size_t i = 0; i < a.size(); ++i) {
+                if (a[i].score != b[i].score || a[i].level != b[i].level ||
+                    a[i].name != b[i].name) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        auto sameSound = [](const SoundBank& a, const SoundBank& b) {
+            if (a.recordSize != b.recordSize || a.payload != b.payload ||
+                a.stepCount != b.stepCount || a.records.size() != b.records.size()) {
+                return false;
+            }
+            for (size_t i = 0; i < a.records.size(); ++i) {
+                if (a.records[i].bytes != b.records[i].bytes) return false;
+            }
+            return true;
+        };
+        auto sameGran = [](const GranBank& a, const GranBank& b) {
+            if (a.recordSize != b.recordSize || a.records.size() != b.records.size()) {
+                return false;
+            }
+            for (size_t i = 0; i < a.records.size(); ++i) {
+                if (a.records[i].bytes != b.records[i].bytes) return false;
+            }
+            return true;
+        };
+        auto sameSpawner = [](const MonsterSpawner& a, const MonsterSpawner& b) {
+            return a.x == b.x && a.y == b.y && a.tileIndex == b.tileIndex &&
+                   a.savedWordOrLink == b.savedWordOrLink && a.enabled == b.enabled &&
+                   a.spawnBudget == b.spawnBudget && a.liveAllowance == b.liveAllowance &&
+                   a.monsterKind == b.monsterKind && a.param0Base == b.param0Base &&
+                   a.param0Range == b.param0Range && a.param1Base == b.param1Base &&
+                   a.param1Range == b.param1Range && a.param2Base == b.param2Base &&
+                   a.param2Range == b.param2Range && a.randomBase == b.randomBase &&
+                   a.randomRange == b.randomRange && a.spawnArg == b.spawnArg &&
+                   a.cooldown == b.cooldown && a.cooldownReset == b.cooldownReset &&
+                   a.animationDelay == b.animationDelay;
+        };
+        auto samePortal = [](const LevelPortal& a, const LevelPortal& b) {
+            return a.key == b.key && a.x == b.x && a.y == b.y && a.marker == b.marker;
+        };
+        auto sameTrigger = [](const TileTriggerRule& a, const TileTriggerRule& b) {
+            return a.wordRangeFirst == b.wordRangeFirst &&
+                   a.wordRangeLast == b.wordRangeLast &&
+                   a.triggerKey == b.triggerKey && a.from == b.from && a.to == b.to;
+        };
+        auto sameLevels = [&](const std::vector<Level>& a,
+                              const std::vector<Level>& b) {
+            if (a.size() != b.size()) return false;
+            for (size_t i = 0; i < a.size(); ++i) {
+                const Level& left = a[i];
+                const Level& right = b[i];
+                if (left.fileOffset != right.fileOffset ||
+                    left.width != right.width || left.height != right.height ||
+                    left.objectiveTile != right.objectiveTile ||
+                    left.requiredBonus != right.requiredBonus ||
+                    left.requiredDestruction != right.requiredDestruction ||
+                    left.tileEncodedSize != right.tileEncodedSize ||
+                    left.wordEncodedSize != right.wordEncodedSize ||
+                    left.fieldA != right.fieldA || left.fieldB != right.fieldB ||
+                    left.tiles != right.tiles || left.wordLayer != right.wordLayer ||
+                    left.startingObjectiveTiles != right.startingObjectiveTiles ||
+                    left.startingDestructibleTiles != right.startingDestructibleTiles ||
+                    left.monsterSpawners.size() != right.monsterSpawners.size() ||
+                    left.portals.size() != right.portals.size() ||
+                    left.tileTriggers.size() != right.tileTriggers.size()) {
+                    return false;
+                }
+                for (size_t j = 0; j < left.monsterSpawners.size(); ++j) {
+                    if (!sameSpawner(left.monsterSpawners[j],
+                                     right.monsterSpawners[j])) {
+                        return false;
+                    }
+                }
+                for (size_t j = 0; j < left.portals.size(); ++j) {
+                    if (!samePortal(left.portals[j], right.portals[j])) return false;
+                }
+                for (size_t j = 0; j < left.tileTriggers.size(); ++j) {
+                    if (!sameTrigger(left.tileTriggers[j], right.tileTriggers[j])) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        };
+
+        loadJsonAssets();
+        Palette jsonPalette = palette_;
+        Palette jsonBackgroundPalette = backgroundPalette_;
+        IndexedImage jsonBackground = background_;
+        TileBank jsonTiles = tiles_;
+        SpriteBank jsonSprites = sprites_;
+        SpriteBank jsonAltSprites = altSprites_;
+        SpriteBank jsonFontSprites = fontSprites_;
+        std::vector<Record> jsonRecords = records_;
+        SoundBank jsonSounds = sounds_;
+        GranBank jsonGran = gran_;
+        std::vector<Level> jsonLevels = levels_;
+
+        loadOriginalAssets();
+        if (!samePalette(palette_, jsonPalette)) fail("BOMPAL.PAL palette");
+        if (!samePalette(backgroundPalette_, jsonBackgroundPalette)) {
+            fail("SFONLEF.ZBG palette");
+        }
+        if (background_.width != jsonBackground.width ||
+            background_.height != jsonBackground.height ||
+            background_.pixels != jsonBackground.pixels) {
+            fail("SFONLEF.ZBG background pixels");
+        }
+        if (tiles_.count != jsonTiles.count || tiles_.pixels != jsonTiles.pixels) {
+            fail("CARO.CAR tiles");
+        }
+        if (!sameSprites(sprites_, jsonSprites)) fail("BOMOMIMK.SPR sprites");
+        if (!sameSprites(altSprites_, jsonAltSprites)) fail("PROVA.SPR sprites");
+        if (!sameSprites(fontSprites_, jsonFontSprites)) fail("FONTS.SPR sprites");
+        if (!sameRecords(records_, jsonRecords)) fail("RECS.DAT records");
+        if (!sameSound(sounds_, jsonSounds)) fail("PROEFS.SON sound bank");
+        if (!sameGran(gran_, jsonGran)) fail("GRAN.MST records");
+        if (!sameLevels(levels_, jsonLevels)) fail("LIVELS.SCH levels");
+
+        size_t totalSprites = sprites_.sprites.size() + altSprites_.sprites.size() +
+                              fontSprites_.sprites.size();
+        size_t cells = 0;
+        size_t spawners = 0;
+        size_t portals = 0;
+        size_t triggers = 0;
+        for (const Level& level : levels_) {
+            cells += level.tiles.size();
+            spawners += level.monsterSpawners.size();
+            portals += level.portals.size();
+            triggers += level.tileTriggers.size();
+        }
+        std::cout << "original_asset_load=ok"
+                  << " palettes=2"
+                  << " background=" << background_.width << 'x' << background_.height
+                  << " pixels=" << background_.pixels.size()
+                  << " tiles=" << tiles_.count
+                  << " sprites=" << totalSprites
+                  << " records=" << records_.size()
+                  << " sound_steps=" << sounds_.stepCount
+                  << " sound_chunks=" << sounds_.records.size()
+                  << " gran_records=" << gran_.records.size()
+                  << " levels=" << levels_.size()
+                  << " cells=" << cells
+                  << " spawners=" << spawners
+                  << " portals=" << portals
+                  << " triggers=" << triggers << '\n';
     }
 
     void debugRecordNameEntry(const std::string& path) {
@@ -14391,6 +14720,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-shipped-file-manifest") {
             app.debugShippedFileManifest();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-original-asset-load") {
+            app.debugOriginalAssetLoad();
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-record-name-entry") {

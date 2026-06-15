@@ -9,7 +9,12 @@ import re
 import tempfile
 
 
-DEBUG_FUNCTIONS = ("validate", "debugGranRawRoundtrip", "debugGran")
+DEBUG_FUNCTIONS = (
+    "validate",
+    "debugGranRawRoundtrip",
+    "debugGran",
+    "debugOriginalAssetLoad",
+)
 
 
 def default_repo_root() -> Path:
@@ -59,7 +64,10 @@ def check_source(root: Path) -> tuple[int, int, int, int]:
         if "gran_" not in line:
             continue
         source_refs += 1
-        if 'gran_ = loadGran("GRAN.MST.json")' in line:
+        if (
+            'gran_ = loadGran("GRAN.MST.json")' in line
+            or 'gran_ = loadRawGran("GRAN.MST")' in line
+        ):
             load_refs += 1
             continue
         if "GranBank gran_;" in line:
@@ -72,7 +80,7 @@ def check_source(root: Path) -> tuple[int, int, int, int]:
 
     if live_refs:
         raise RuntimeError("unexpected live GRAN references: " + "; ".join(live_refs))
-    if load_refs != 1 or member_refs != 1:
+    if load_refs != 2 or member_refs != 1:
         raise RuntimeError(
             f"unexpected GRAN load/member counts: load={load_refs} member={member_refs}"
         )
@@ -147,6 +155,11 @@ def write_source(root: Path, live_line: str = "", include_debug: bool = True) ->
                 "        dump(gran_.recordSize);",
                 "    }",
                 "",
+                "    void debugOriginalAssetLoad() {",
+                "        auto jsonGran = gran_;",
+                "        dump(gran_.records.size());",
+                "    }",
+                "",
             )
         )
         if include_debug
@@ -159,6 +172,7 @@ def write_source(root: Path, live_line: str = "", include_debug: bool = True) ->
                 "class Game {",
                 "    void loadAssets() {",
                 '        gran_ = loadGran("GRAN.MST.json");',
+                '        gran_ = loadRawGran("GRAN.MST");',
                 "    }",
                 "",
                 debug_functions,
@@ -180,7 +194,7 @@ def self_test() -> int:
         write_contract_files(root)
         write_source(root)
         source_refs, load_refs, debug_refs, member_refs = check_source(root)
-        if (source_refs, load_refs, debug_refs, member_refs) != (5, 1, 3, 1):
+        if (source_refs, load_refs, debug_refs, member_refs) != (8, 2, 5, 1):
             raise RuntimeError("selftest positive source counts mismatch")
         check_cmake(root)
         check_docs(root)

@@ -63,6 +63,21 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^shipped_file_manifest=ok files=14 total_size=193537 total_sum=13037980 total_weighted=235960201921 total_xor=0x6e exe_size=52384 exe_image_base=0x0770 exe_image_size=50480 docs=2 setup_log=566")
 
+    add_test(NAME original_asset_load
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-asset-load)
+    set_tests_properties(original_asset_load PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^original_asset_load=ok palettes=2 background=321x388 pixels=124548 tiles=132 sprites=250 records=7 sound_steps=130 sound_chunks=6 gran_records=7 levels=7 cells=47700 spawners=15 portals=21 triggers=3")
+
+    add_test(NAME validate_original_assets
+        COMMAND ${CMAKE_COMMAND} -E env LEZAC_LOAD_ORIGINAL_ASSETS=1
+                $<TARGET_FILE:lezac_cpp> --validate)
+    set_tests_properties(validate_original_assets PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "level_7=140x52 objective_tile=106 required_bonus=1 destruction=10 spawners=0 portals=2 triggers=1")
+
     add_test(NAME level_raw_roundtrip
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-level-raw-roundtrip)
     set_tests_properties(level_raw_roundtrip PROPERTIES
@@ -1274,7 +1289,7 @@ if(BUILD_TESTING)
         set_tests_properties(gran_usage_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^gran_usage_guardrail=ok source_refs=16 load_refs=1 debug_refs=14 member_refs=1 live_refs=0 ctest=1 docs=3")
+                "^gran_usage_guardrail=ok source_refs=20 load_refs=2 debug_refs=17 member_refs=1 live_refs=0 ctest=1 docs=3")
 
         add_test(NAME gran_usage_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}

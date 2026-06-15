@@ -87,7 +87,11 @@ quirk.
   `--debug-sprite-raw-roundtrip` verifies the converted JSON for all three
   sprite banks matches the shipped raw layout byte-for-byte: 250 sprites,
   46,843 raw bytes, 46,340 pixel bytes, 21,396 zero pixels, 24,944 nonzero
-  pixels, and 369 visible `0xff` pixels.
+  pixels, and 369 visible `0xff` pixels. `--debug-sprite-layout-static-model`
+  independently walks the original `.SPR` count/header/payload streams and
+  pins per-bank sizes, first/last sprite dimensions, max dimensions, and
+  zero-trailing-byte consumption for `BOMOMIMK.SPR`, `PROVA.SPR`, and
+  `FONTS.SPR`.
 - `RECS.DAT` starts with an 8-bit record count. Each record is a little-endian
   32-bit score, an 8-bit reached level, and an 8-byte name padded with `:`.
   `--debug-records-raw-roundtrip` verifies the shipped 92-byte file against

@@ -11585,6 +11585,146 @@ public:
                   << '\n';
     }
 
+    void debugSpriteLayoutStaticModel() {
+        struct ExpectedBank {
+            const char* rawPath;
+            const char* label;
+            size_t rawBytes;
+            int sprites;
+            size_t pixels;
+            size_t zero;
+            size_t ff;
+            int maxWidth;
+            int maxHeight;
+            int firstWidth;
+            int firstHeight;
+            int lastWidth;
+            int lastHeight;
+        };
+
+        const std::array<ExpectedBank, 3> banks{{
+            {"BOMOMIMK.SPR", "bomomimk", 20168, 91, 19985, 9303, 104, 21, 16, 16, 16, 12, 10},
+            {"PROVA.SPR", "prova", 21250, 91, 21067, 9363, 114, 48, 20, 16, 16, 12, 10},
+            {"FONTS.SPR", "fonts", 5425, 68, 5288, 2730, 151, 10, 10, 10, 10, 8, 8},
+        }};
+
+        size_t totalRawBytes = 0;
+        size_t totalSprites = 0;
+        size_t totalPixels = 0;
+        size_t totalZero = 0;
+        size_t totalFf = 0;
+        int globalMaxWidth = 0;
+        int globalMaxHeight = 0;
+        std::ostringstream bankSummary;
+
+        for (const ExpectedBank& expected : banks) {
+            std::vector<uint8_t> bytes = readFile(expected.rawPath);
+            if (bytes.size() != expected.rawBytes) {
+                throw std::runtime_error(std::string(expected.rawPath) + " raw byte size changed");
+            }
+            if (bytes.empty()) {
+                throw std::runtime_error(std::string(expected.rawPath) + " empty raw sprite bank");
+            }
+
+            size_t offset = 0;
+            const int spriteCount = bytes[offset++];
+            if (spriteCount != expected.sprites) {
+                throw std::runtime_error(std::string(expected.rawPath) + " sprite count changed");
+            }
+
+            size_t pixels = 0;
+            size_t zero = 0;
+            size_t ff = 0;
+            int maxWidth = 0;
+            int maxHeight = 0;
+            int firstWidth = 0;
+            int firstHeight = 0;
+            int lastWidth = 0;
+            int lastHeight = 0;
+
+            for (int i = 0; i < spriteCount; ++i) {
+                if (offset + 2 > bytes.size()) {
+                    throw std::runtime_error(std::string(expected.rawPath) + " truncated sprite header");
+                }
+                const int width = bytes[offset++];
+                const int height = bytes[offset++];
+                if (width <= 0 || height <= 0) {
+                    throw std::runtime_error(std::string(expected.rawPath) + " zero-sized sprite");
+                }
+                if (i == 0) {
+                    firstWidth = width;
+                    firstHeight = height;
+                }
+                lastWidth = width;
+                lastHeight = height;
+                maxWidth = std::max(maxWidth, width);
+                maxHeight = std::max(maxHeight, height);
+
+                const size_t spritePixels = static_cast<size_t>(width) * static_cast<size_t>(height);
+                if (offset + spritePixels > bytes.size()) {
+                    throw std::runtime_error(std::string(expected.rawPath) + " truncated sprite payload");
+                }
+                for (size_t j = 0; j < spritePixels; ++j) {
+                    const uint8_t value = bytes[offset + j];
+                    if (value == 0) {
+                        ++zero;
+                    }
+                    if (value == 0xff) {
+                        ++ff;
+                    }
+                }
+                offset += spritePixels;
+                pixels += spritePixels;
+            }
+
+            if (offset != bytes.size()) {
+                throw std::runtime_error(std::string(expected.rawPath) + " raw sprite trailing bytes");
+            }
+            if (pixels != expected.pixels || zero != expected.zero || ff != expected.ff ||
+                maxWidth != expected.maxWidth || maxHeight != expected.maxHeight ||
+                firstWidth != expected.firstWidth || firstHeight != expected.firstHeight ||
+                lastWidth != expected.lastWidth || lastHeight != expected.lastHeight) {
+                throw std::runtime_error(std::string(expected.rawPath) + " raw sprite layout changed");
+            }
+
+            totalRawBytes += bytes.size();
+            totalSprites += static_cast<size_t>(spriteCount);
+            totalPixels += pixels;
+            totalZero += zero;
+            totalFf += ff;
+            globalMaxWidth = std::max(globalMaxWidth, maxWidth);
+            globalMaxHeight = std::max(globalMaxHeight, maxHeight);
+
+            bankSummary << ' ' << expected.label
+                        << "=bytes:" << bytes.size()
+                        << ",sprites:" << spriteCount
+                        << ",pixels:" << pixels
+                        << ",zero:" << zero
+                        << ",ff:" << ff
+                        << ",max:" << maxWidth << 'x' << maxHeight
+                        << ",first:" << firstWidth << 'x' << firstHeight
+                        << ",last:" << lastWidth << 'x' << lastHeight;
+        }
+
+        if (totalRawBytes != 46843 || totalSprites != 250 || totalPixels != 46340 ||
+            totalZero != 21396 || totalFf != 369 ||
+            globalMaxWidth != 48 || globalMaxHeight != 20) {
+            throw std::runtime_error("raw sprite aggregate layout changed");
+        }
+
+        std::cout << "sprite_layout_static_model=ok banks=" << banks.size()
+                  << " raw_bytes=" << totalRawBytes
+                  << " sprites=" << totalSprites
+                  << " pixels=" << totalPixels
+                  << " zero=" << totalZero
+                  << " nonzero=" << (totalPixels - totalZero)
+                  << " ff=" << totalFf
+                  << " max=" << globalMaxWidth << 'x' << globalMaxHeight
+                  << " trailing=0"
+                  << bankSummary.str()
+                  << '\n';
+    }
+
     void debugSpriteBlitContract() {
         load();
         resetClip();
@@ -16496,6 +16636,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sprite-raw-roundtrip") {
             app.debugSpriteRawRoundtrip();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sprite-layout-static-model") {
+            app.debugSpriteLayoutStaticModel();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sprite-blit-contract") {

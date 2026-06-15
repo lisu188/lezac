@@ -2658,6 +2658,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^sprite_raw_roundtrip=ok banks=3 raw_bytes=46843 sprites=250 pixels=46340 zero=21396 nonzero=24944 ff=369 max=48x20 bomomimk=91 prova=91 fonts=68")
 
+    add_test(NAME sprite_layout_static_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sprite-layout-static-model)
+    set_tests_properties(sprite_layout_static_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^sprite_layout_static_model=ok banks=3 raw_bytes=46843 sprites=250 pixels=46340 zero=21396 nonzero=24944 ff=369 max=48x20 trailing=0 bomomimk=bytes:20168,sprites:91,pixels:19985,zero:9303,ff:104,max:21x16,first:16x16,last:12x10 prova=bytes:21250,sprites:91,pixels:21067,zero:9363,ff:114,max:48x20,first:16x16,last:12x10 fonts=bytes:5425,sprites:68,pixels:5288,zero:2730,ff:151,max:10x10,first:10x10,last:8x8")
+
     add_test(NAME sprite_blit_contract
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sprite-blit-contract)
     set_tests_properties(sprite_blit_contract PROPERTIES

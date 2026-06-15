@@ -6,6 +6,12 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `--debug-sprite-layout-static-model` to pin the original `.SPR` bank
+  count/header/payload layout directly from shipped `BOMOMIMK.SPR`,
+  `PROVA.SPR`, and `FONTS.SPR` bytes. The diagnostic validates per-bank file
+  sizes, sprite counts, pixel/zero/`0xff` counts, first/last dimensions, max
+  dimensions, aggregate totals, and zero trailing bytes independently of the
+  JSON round-trip loader.
 - Hardened `tools/run_native_windows_validation.ps1` against missing
   `SDL2.dll` launch failures on Windows by copying the validated vcpkg runtime
   beside the freshly built `lezac_cpp.exe` after MSBuild and printing the

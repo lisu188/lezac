@@ -126,6 +126,7 @@ python3 tools/compare_state2_visual_row_game_previews.py /tmp/lezac-state2-visua
 ./build/lezac_cpp --debug-level-raw-roundtrip
 ./build/lezac_cpp --debug-sprite-transparency
 ./build/lezac_cpp --debug-sprite-raw-roundtrip
+./build/lezac_cpp --debug-sprite-layout-static-model
 ./build/lezac_cpp --debug-sprite-blit-contract
 ./build/lezac_cpp --debug-word-layer
 ./build/lezac_cpp --debug-spawners
@@ -667,7 +668,10 @@ python3 tools/sweep_original_lane_write_routes.py \
   `--debug-core-resource-raw-roundtrip` verifies those three original binary
   files against the converted JSON resources, including the background RLE
   expansion to 124,548 pixels and the 8,448-byte CARO tile payload.
-- `FONTS.SPR`, `PROVA.SPR`, and `BOMOMIMK.SPR` sprite-bank loading.
+- `FONTS.SPR`, `PROVA.SPR`, and `BOMOMIMK.SPR` sprite-bank loading. The
+  `--debug-sprite-layout-static-model` diagnostic pins the original raw
+  count/header/payload walk for all three banks, including exact per-bank byte
+  counts and no trailing data.
 - Text rendering from the original `FONTS.SPR` glyph sprites.
 - `RECS.DAT` high-score parsing as score, reached level, and colon-padded
   8-byte player name. `--debug-records-raw-roundtrip` pins the shipped binary

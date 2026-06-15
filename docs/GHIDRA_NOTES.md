@@ -950,9 +950,12 @@ recovery targets.
 checking each unpromoted write's exact shipped byte window and local request
 shape. It currently pins nine local `1000:165a` calls, six inline priority
 writes, two preceding priority writes, four no-local-priority cases, three
-no-latch cases, and the two `0x2710` cursor writes. These are byte-context
-facts only; they are not promoted as live gameplay cues without same-location
-runtime evidence.
+no-latch cases, and the two `0x2710` cursor writes. The diagnostic also buckets
+the unresolved writes by static region: `record_ui:2`,
+`pre_new_game_setup:1`, `explosion_playback:2`, `effect_extent_scan:2`,
+`contact_scanner:1`, `actor_update:3`, and
+`post_actor_update_no_latch:1`. These are byte-context facts only; they are not
+promoted as live gameplay cues without same-location runtime evidence.
 The diagnostic also prints
 `remaining_compat_hooks=objective_pickup,level_complete` and records rejected
 objective-sound candidates as

@@ -838,7 +838,12 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   also pins the exact byte windows for those 12 unresolved writes and separates
   their local request shapes: nine local latch calls, six inline priorities,
   two preceding priorities, four no-local-priority cases, three no-latch cases,
-  and two `0x2710` cursor writes. `--debug-static-sound-contexts` separately
+  and two `0x2710` cursor writes. It now also buckets the unresolved writes by
+  static code region:
+  `record_ui:2`, `pre_new_game_setup:1`, `explosion_playback:2`,
+  `effect_extent_scan:2`, `contact_scanner:1`, `actor_update:3`, and
+  `post_actor_update_no_latch:1`; these region labels are static byte-context
+  facts, not live cue promotions. `--debug-static-sound-contexts` separately
   pins the original bytes and nearby strings that place `0x1857`, `0x1a44`,
   `0x1d9c`, `0x202d`, and `0x2083` in name-entry/record UI regions rather than
   in the `1000:1b14..1d42` completed-game dispatcher, so the current

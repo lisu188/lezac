@@ -143,8 +143,12 @@ Baseline: `origin/main`
   local latch/priority shape for those 12 unpromoted writes individually. The
   command verifies nine local `1000:165a` latch calls, six inline priority
   writes, two preceding priority writes, four no-local-priority cases, three
-  no-latch cases, and the two `0x2710` cursor writes without treating any of
-  them as a recovered live gameplay cue.
+  no-latch cases, and the two `0x2710` cursor writes. It now also prints
+  static region buckets for those candidates:
+  `record_ui:2`, `pre_new_game_setup:1`, `explosion_playback:2`,
+  `effect_extent_scan:2`, `contact_scanner:1`, `actor_update:3`, and
+  `post_actor_update_no_latch:1`, without treating any of them as a recovered
+  live gameplay cue.
 - Switched live state-2 death rendering to the recovered row-byte-3
   `BOMOMIMK` sprite sequence `67..72` for frames `0x4a..0x4f`. The
   `death_visuals` autoplayer now pins live sprites `67,68,69` against the old

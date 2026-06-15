@@ -6298,45 +6298,46 @@ public:
             uint16_t priorityOffset;
             const char* priorityPlacement;
             int expectedLocalLatchCalls;
+            const char* region;
             const char* label;
             const char* bytes;
         };
         static const std::array<UnresolvedContext, 12> kContexts{{
             {0x1d9c, 0x003d, 10, 0x1da2, "inline", 1,
-             "post_end_flow_record_region",
+             "record_ui", "post_end_flow_record_region",
              "c7 06 74 20 3d 00 c6 06 9f 79 0a e8 b0 f8"},
             {0x202d, 0x0021, -1, 0x0000, "none", 1,
-             "record_table_cursor_only",
+             "record_ui", "record_table_cursor_only",
              "c7 06 74 20 21 00 e8 24 f6"},
             {0x2c04, 0x0078, 11, 0x2c0a, "inline", 1,
-             "cursor_0078_priority11",
+             "pre_new_game_setup", "cursor_0078_priority11",
              "c7 06 74 20 78 00 c6 06 9f 79 0b e8 48 ea"},
             {0x49bd, 0x0027, 5, 0x49c3, "inline", 1,
-             "cursor_0027_priority5",
+             "explosion_playback", "cursor_0027_priority5",
              "c7 06 74 20 27 00 c6 06 9f 79 05 e8 8f cc"},
             {0x4b2c, 0x0021, 2, 0x4b27, "preceding", 1,
-             "collapse_playback_rejected",
+             "explosion_playback", "collapse_playback_rejected",
              "c7 06 74 20 21 00 e8 25 cb"},
             {0x4d3c, 0x2710, -1, 0x0000, "none", 0,
-             "cursor_2710",
+             "effect_extent_scan", "cursor_2710",
              "c7 06 74 20 10 27 c7 06 72 20 00 00 c6 06 1e 66 00"},
             {0x4dd3, 0x2710, -1, 0x0000, "none", 0,
-             "cursor_2710",
+             "effect_extent_scan", "cursor_2710",
              "c7 06 74 20 10 27 c7 06 72 20 00 00 c6 06 1e 66 00"},
             {0x5e81, 0x0069, 4, 0x5e87, "inline", 1,
-             "cursor_0069_priority4",
+             "contact_scanner", "cursor_0069_priority4",
              "c7 06 74 20 69 00 c6 06 9f 79 04 e8 cb b7"},
             {0x6844, 0x0024, 2, 0x684a, "inline", 1,
-             "cursor_0024_priority2",
+             "actor_update", "cursor_0024_priority2",
              "c7 06 74 20 24 00 c6 06 9f 79 02 e8 08 ae"},
             {0x6924, 0x0035, 5, 0x692a, "inline", 1,
-             "non_objective_tile_gate_rejected",
+             "actor_update", "non_objective_tile_gate_rejected",
              "c7 06 74 20 35 00 c6 06 9f 79 05 e8 28 ad"},
             {0x7386, 0x0021, 1, 0x7381, "preceding", 1,
-             "cursor_0021_priority1",
+             "actor_update", "cursor_0021_priority1",
              "c7 06 74 20 21 00 e8 cb a2"},
             {0x789c, 0x0001, -1, 0x0000, "none", 0,
-             "cursor_0001_no_latch",
+             "post_actor_update_no_latch", "cursor_0001_no_latch",
              "c7 06 74 20 01 00 eb 04 ff 06 74 20"},
         }};
 
@@ -6398,11 +6399,13 @@ public:
         int noLatch = 0;
         int directSweep = 0;
         int cursor2710 = 0;
+        std::map<std::string, int> regionCounts;
         std::ostringstream contexts;
         for (size_t i = 0; i < kContexts.size(); ++i) {
             const UnresolvedContext& context = kContexts[i];
             requireBytes(context.offset, context.bytes, context.label);
             requirePriority(context);
+            ++regionCounts[context.region];
             int calls = localLatchCallCount(context.offset);
             if (calls != context.expectedLocalLatchCalls) {
                 throw std::runtime_error(std::string(context.label) +
@@ -6429,28 +6432,46 @@ public:
                 contexts << "no_priority";
             }
             contexts << ':' << context.priorityPlacement
-                     << ":latch" << calls << ':' << context.label;
+                     << ":latch" << calls << ':' << context.region << ':'
+                     << context.label;
         }
 
+        auto regionCountText = [&] {
+            std::ostringstream out;
+            bool first = true;
+            for (const auto& entry : regionCounts) {
+                if (!first) out << ',';
+                first = false;
+                out << entry.first << ':' << entry.second;
+            }
+            return out.str();
+        };
         std::string contextList = contexts.str();
+        std::string regionCountsList = regionCountText();
         if (localLatch != 9 || localLatchRefs != 9 || inlinePriority != 6 ||
             precedingPriority != 2 || noPriority != 4 || noLatch != 3 ||
             directSweep != 0 || cursor2710 != 2) {
             throw std::runtime_error("unresolved static sound context summary changed");
         }
+        if (regionCountsList !=
+                "actor_update:3,contact_scanner:1,effect_extent_scan:2,"
+                "explosion_playback:2,post_actor_update_no_latch:1,"
+                "pre_new_game_setup:1,record_ui:2") {
+            throw std::runtime_error("unresolved static sound region counts changed");
+        }
         if (contextList !=
-                "0x1d9c:0x003d/p10:inline:latch1:post_end_flow_record_region,"
-                "0x202d:0x0021/no_priority:none:latch1:record_table_cursor_only,"
-                "0x2c04:0x0078/p11:inline:latch1:cursor_0078_priority11,"
-                "0x49bd:0x0027/p5:inline:latch1:cursor_0027_priority5,"
-                "0x4b2c:0x0021/p2:preceding:latch1:collapse_playback_rejected,"
-                "0x4d3c:0x2710/no_priority:none:latch0:cursor_2710,"
-                "0x4dd3:0x2710/no_priority:none:latch0:cursor_2710,"
-                "0x5e81:0x0069/p4:inline:latch1:cursor_0069_priority4,"
-                "0x6844:0x0024/p2:inline:latch1:cursor_0024_priority2,"
-                "0x6924:0x0035/p5:inline:latch1:non_objective_tile_gate_rejected,"
-                "0x7386:0x0021/p1:preceding:latch1:cursor_0021_priority1,"
-                "0x789c:0x0001/no_priority:none:latch0:cursor_0001_no_latch") {
+                "0x1d9c:0x003d/p10:inline:latch1:record_ui:post_end_flow_record_region,"
+                "0x202d:0x0021/no_priority:none:latch1:record_ui:record_table_cursor_only,"
+                "0x2c04:0x0078/p11:inline:latch1:pre_new_game_setup:cursor_0078_priority11,"
+                "0x49bd:0x0027/p5:inline:latch1:explosion_playback:cursor_0027_priority5,"
+                "0x4b2c:0x0021/p2:preceding:latch1:explosion_playback:collapse_playback_rejected,"
+                "0x4d3c:0x2710/no_priority:none:latch0:effect_extent_scan:cursor_2710,"
+                "0x4dd3:0x2710/no_priority:none:latch0:effect_extent_scan:cursor_2710,"
+                "0x5e81:0x0069/p4:inline:latch1:contact_scanner:cursor_0069_priority4,"
+                "0x6844:0x0024/p2:inline:latch1:actor_update:cursor_0024_priority2,"
+                "0x6924:0x0035/p5:inline:latch1:actor_update:non_objective_tile_gate_rejected,"
+                "0x7386:0x0021/p1:preceding:latch1:actor_update:cursor_0021_priority1,"
+                "0x789c:0x0001/no_priority:none:latch0:post_actor_update_no_latch:cursor_0001_no_latch") {
             throw std::runtime_error("unresolved static sound context list changed");
         }
 
@@ -6466,6 +6487,7 @@ public:
                   << " no_latch=" << noLatch
                   << " direct_sweep=" << directSweep
                   << " cursor_2710=" << cursor2710
+                  << " region_counts=" << regionCountsList
                   << " contexts=" << contextList
                   << '\n';
     }

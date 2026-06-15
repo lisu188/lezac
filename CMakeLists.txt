@@ -261,12 +261,14 @@ if(BUILD_TESTING)
         add_test(NAME python_tool_syntax_lane_result_preflight
             COMMAND ${Python3_EXECUTABLE} -B -m py_compile
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_write_runtime.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_explosion_procmem.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_ready_pipeline.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_gate_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_gate_sweep_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_evidence_map.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_callsite_context.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_callsite_scan.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_route_sweep.py
@@ -284,12 +286,15 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_ready_pipeline.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_evidence_map.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_layout.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_orchestrator.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_preflight.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_wrapper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gran_data_evidence_map.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_environment.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_record_flow_evidence_map.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_pipeline.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_results.py
@@ -304,6 +309,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_actor_dispatch_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_debug_capture_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_lane_result_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_lane_write_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/preflight_original_evidence_environment.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_actor_dispatch_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_actor_dispatch_gate_sweep.py
@@ -314,6 +320,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_result_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_dispatch_gates.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_contact_routes.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_write_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_result_routes.py)
         set_tests_properties(python_tool_syntax_lane_result_preflight PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
@@ -362,6 +369,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^original_evidence_environment_check=ok cases=10")
+
+        add_test(NAME gran_data_evidence_map
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gran_data_evidence_map.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(gran_data_evidence_map PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^gran_data_evidence_map=ok raw_size=399 record_size=57 records=7 sha256=3f0cf17706d557ca863d6e39bfa6641fba777a88815ba3f0a22e5ac89e0e39e2 zero_bytes=150 ctests=2 docs=3 source_guards=5 opaque_claim=1")
 
         add_test(NAME frame_compare_identical
             COMMAND ${Python3_EXECUTABLE}
@@ -456,6 +472,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^lane_result_wrapper_output=ok cases=15")
+
+        add_test(NAME explosion_evidence_map
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_evidence_map.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_evidence_map PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^explosion_evidence_map=ok fixtures=47 playback_ctests=47 lane_result_helper_ctests=24 critical_offsets=16 .*oracle_flag=--debug-explosion-playback-oracle docs=3")
 
         add_test(NAME explosion_lane_result_route_sweep_dry_run
             COMMAND ${Python3_EXECUTABLE}
@@ -745,6 +770,15 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^actor_contact_procmem_helper=ok targets=9 cmake_test=1 docs=2")
 
+        add_test(NAME actor_contact_evidence_map
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_evidence_map.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(actor_contact_evidence_map PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_contact_evidence_map=ok targets=9 gate_targets=5 actor_update_fixtures=5 contact_scanner_fixtures=4 ctests=26 oracle_flags=2 docs=3")
+
         add_test(NAME actor_update_runtime_oracle_fixture_expectations
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_runtime_oracle_fixtures.py
@@ -1023,19 +1057,25 @@ if(BUILD_TESTING)
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-update
                 ${CMAKE_CURRENT_BINARY_DIR}/records_test.dat)
     set_tests_properties(records_update_temp PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^record_update=ok top=999999 level=9 name=TEST")
 
     add_test(NAME records_name_entry_temp
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-name-entry
                 ${CMAKE_CURRENT_BINARY_DIR}/records_name_test.dat)
     set_tests_properties(records_name_entry_temp PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^record_name_entry=ok top=999999 name=test")
 
     add_test(NAME records_save_failure_temp
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-save-failure
                 ${CMAKE_CURRENT_BINARY_DIR}/missing_records_dir/records_test.dat)
     set_tests_properties(records_save_failure_temp PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "record_save_failure=ok pending=999999")
 
     add_test(NAME end_flow_records_temp
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-end-flow-records
@@ -1076,6 +1116,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^gran_raw_roundtrip=ok raw_size=399 record_size=57 records=7 payload_size=399 json_records=7")
 
+    add_test(NAME gran_summary
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran)
+    set_tests_properties(gran_summary PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^gran_record_size=57 records=7 words_per_record=28 trailing_byte=yes")
+
     add_test(NAME sound_priority_latch
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-priority-latch)
     set_tests_properties(sound_priority_latch PROPERTIES
@@ -1087,6 +1134,17 @@ if(BUILD_TESTING)
     set_tests_properties(sound_selector_map PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "sound_selector_map=ok")
+
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME sound_callsite_map
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_map.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(sound_callsite_map PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^sound_callsite_map=ok cues=6 .*direct_sweeps=4 .*priority_latch=1000:165a\\.\\.167d .*tick_window=1000:0fbe\\.\\.1088 .*tests=10")
+    endif()
 
     add_test(NAME bomb_object_sound
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-object-sound)

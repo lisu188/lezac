@@ -455,6 +455,18 @@ writeback branch arithmetic: both forward `1000:3d2d` and reverse `1000:3ec1`
 resolve selected tag `0x4ee8` to `DI=0x0898`, matching
 `(0x4ee8 - 0x4e20) * 0x0b`. The forward seeded result byte is `0x35`; the
 reverse seeded result byte is `0x00`.
+`tools/capture_original_lane_write_runtime.py` and
+`tools/sweep_original_lane_write_routes.py` now provide the guarded natural-route
+capture path for those debris-side writeback offsets. Their safe preflight pins
+the shipped target bytes (`1000:3d2d` = `88 95 97`, `1000:3ec1` = `88 95 98`),
+scratch block `CS:f080`, scratch length 12, and trampoline body length 45
+before any DOSBox/process-memory capture is attempted.
+`tools/summarize_lane_write_route_sweep.py` classifies completed manifests as
+ready/no-freeze/incomplete/missing and intentionally rejects runtime-seeded
+fixtures as natural-route promotion candidates. The matching
+`tools/run_lane_write_ready_manifest.py` and
+`tools/summarize_lane_write_ready_results.py` wrappers share the lane-result
+ready-candidate runner while preserving lane-write manifest labels.
 The capture helper and explosion playback oracle now also support
 `lane-result-cs-scratch` for the final helper far-pointer result writes at
 `1000:3d3f` and `1000:3ed3` (`mov es:[di],al`). The runtime scratch body is
@@ -495,6 +507,9 @@ now classifies completed route-sweep candidates as `ready`, `no_freeze`,
 `incomplete`, or `missing`; `tools/run_lane_result_ready_manifest.py` and
 `tools/summarize_lane_result_ready_results.py` then execute and gate only
 promotable `--debug-explosion-playback-oracle` fixtures.
+`tools/check_explosion_evidence_map.py` keeps this explosion/playback handoff
+traceable across these address notes, lane-result capture helpers, fixture
+coverage, source output fields, and CTest wiring.
 
 The effect constructor at `1000:3fa6` writes 11-byte effect records at
 `0x2093 + 0x0b * DS:2076` and stores the effect type byte in
@@ -757,6 +772,9 @@ interpret those bytes.
 
 Six non-explosion gameplay cues are now mapped to original queued requests:
 
+`tools/check_sound_callsite_map.py` verifies this handoff stays consistent
+across these address notes, the C++ request sites, and the CTest scenario names.
+
 - The bomb-object destruction scan around `1000:6cb3..6e3f` clears the
   `DS:2074` score accumulator and `DS:79ab` high-object marker, walks the four
   bomb footprint offsets, sets `DS:79ab = 1` when a consumed object tile id is
@@ -1012,6 +1030,9 @@ The C++ port maps this to `beginEndRun`, `startNextPendingRecord`, and
 `finalizePendingRecord`. It keeps the original player-check order and re-checks
 queued player scores against the current record table immediately before
 opening name entry.
+`tools/check_record_flow_evidence_map.py` guards this handoff by checking the
+`RECS.DAT` converted resource shape, record/name/end-flow debug commands, CTest
+output contracts, and the `1000:1845..1ad4` / `1000:1b14..1d42` docs anchors.
 
 ## Code Mapping
 

@@ -246,7 +246,10 @@ def main() -> int:
         failures = parse_failures(manifest.values)
         candidates = parse_candidates(manifest.values)
     except (FileNotFoundError, OSError, ValueError) as exc:
-        print(f"lane_result_ready_result_summary=error reason={exc}", file=sys.stderr)
+        print(
+            f"{TOOL_PREFIX}_ready_result_summary=error reason={exc}",
+            file=sys.stderr,
+        )
         return 1
 
     counts = status_counts(candidates)
@@ -280,7 +283,7 @@ def main() -> int:
     logs_present, logs_missing = existing_log_count(candidates)
     executed = len(candidates) - counts["planned"]
     print(
-        "lane_result_ready_result_summary=ok "
+        f"{TOOL_PREFIX}_ready_result_summary=ok "
         f"manifest={manifest.path} "
         f"mode={mode} "
         f"source_ready_manifest={source_manifest} "
@@ -325,7 +328,7 @@ def main() -> int:
         return 2
     if args.require_executed and counts["planned"] != 0:
         print(
-            "lane_result_ready_result_summary=error "
+            f"{TOOL_PREFIX}_ready_result_summary=error "
             f"reason=candidates_not_executed planned={counts['planned']}",
             file=sys.stderr,
         )
@@ -335,7 +338,7 @@ def main() -> int:
         and source_environment_preflight != "ok"
     ):
         print(
-            "lane_result_ready_result_summary=error "
+            f"{TOOL_PREFIX}_ready_result_summary=error "
             "reason=source_environment_preflight_not_ok "
             f"source_environment_preflight={source_environment_preflight}",
             file=sys.stderr,

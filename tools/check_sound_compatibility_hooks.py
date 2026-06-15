@@ -14,13 +14,19 @@ from pathlib import Path
 
 
 EXPECTED_LIVE_HOOKS = {
-    "level_complete": "if (completeTimer_ == 0) playSound(5);",
-    "objective_pickup": "playSound(0);",
-    "bomb_place": "playSound(2);",
-    "monster_death": "playSound(4);",
+    "level_complete": (
+        "if (completeTimer_ == 0) playSound(kCompatibilityLevelCompleteSound);"
+    ),
+    "objective_pickup": "playSound(kCompatibilityObjectivePickupSound);",
+    "bomb_place": "playSound(kCompatibilityBombPlaceSound);",
+    "monster_death": "playSound(kCompatibilityMonsterDeathSound);",
 }
 
 EXPECTED_HELPER_SNIPPETS = [
+    "constexpr size_t kCompatibilityObjectivePickupSound = 0;",
+    "constexpr size_t kCompatibilityBombPlaceSound = 2;",
+    "constexpr size_t kCompatibilityMonsterDeathSound = 4;",
+    "constexpr size_t kCompatibilityLevelCompleteSound = 5;",
     "void playSound(size_t index)",
     "playSound(soundIndexForSelector(selector));",
 ]
@@ -87,7 +93,7 @@ def check_cmake(cmake_path: Path) -> None:
     require(text, "tools/check_sound_compatibility_hooks.py", "CMake")
     require(
         text,
-        "^sound_compatibility_hooks=ok live_hooks=4 helpers=2 docs=3",
+        "^sound_compatibility_hooks=ok live_hooks=4 helpers=6 docs=3",
         "CMake",
     )
 

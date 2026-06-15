@@ -95,6 +95,10 @@ constexpr uint16_t kDirectSoundPeriodBase = 0xea42;
 constexpr std::array<uint16_t, 6> kCompatibilitySoundCursors{
     0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0027,
 };
+constexpr size_t kCompatibilityObjectivePickupSound = 0;
+constexpr size_t kCompatibilityBombPlaceSound = 2;
+constexpr size_t kCompatibilityMonsterDeathSound = 4;
+constexpr size_t kCompatibilityLevelCompleteSound = 5;
 constexpr std::array<uint16_t, 14> kDebugSoundCursors{
     0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027,
     0x002d, 0x0031, 0x0035, 0x003d, 0x0056, 0x0069, 0x0078,
@@ -12748,7 +12752,7 @@ private:
 
     void updateLevelCompletion() {
         if (isComplete()) {
-            if (completeTimer_ == 0) playSound(5);
+            if (completeTimer_ == 0) playSound(kCompatibilityLevelCompleteSound);
             if (++completeTimer_ > 100) {
                 if (isFinalLevel()) {
                     beginEndRun(EndReason::CompletedGame);
@@ -12885,7 +12889,7 @@ private:
                     tileRef(x, y) = 1;
                     ++collected_;
                     addScore(playerIndex, 1000);
-                    playSound(0);
+                    playSound(kCompatibilityObjectivePickupSound);
                 }
             }
         }
@@ -13658,7 +13662,7 @@ private:
             BombProfile profile = bombProfile(inventory.selected);
             bombs_.push_back({tx, ty, profile.fuseTicks, inventory.selected,
                               profile.fuseTicks, owner});
-            playSound(2);
+            playSound(kCompatibilityBombPlaceSound);
             int& count = inventory.counts[static_cast<size_t>(bombTypeIndex(inventory.selected))];
             count = std::max(0, count - 1);
             if (count == 0) selectNextAvailableBomb(inventory);
@@ -14005,7 +14009,7 @@ private:
         monster.fracY = 0;
         flashes_.push_back({static_cast<int>(monster.x + 7.0f) / 8,
                             static_cast<int>(monster.y + 8.0f) / 8, 18});
-        playSound(4);
+        playSound(kCompatibilityMonsterDeathSound);
     }
 
     void spawnBonusDrop(float x, float y) {

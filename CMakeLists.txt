@@ -1207,7 +1207,7 @@ if(BUILD_TESTING)
         set_tests_properties(sound_compatibility_hooks PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^sound_compatibility_hooks=ok live_hooks=4 helpers=2 docs=3")
+                "^sound_compatibility_hooks=ok live_hooks=4 helpers=6 docs=3")
 
         add_test(NAME debug_capture_summary_expectations
             COMMAND ${Python3_EXECUTABLE}

@@ -75,7 +75,7 @@ Baseline: `origin/main`
   UI smoke checks in CTest, so dummy-SDL rendering/control regressions no
   longer pass on exit status alone.
 - Added `tools/check_sound_compatibility_hooks.py` to keep the four remaining
-  direct `playSound(index)` callers explicit as compatibility hooks until
+  direct `playSound(index)` callers explicit as named compatibility hooks until
   original cursor/priority writes are recovered.
 - Extended `--debug-end-flow-records` with the original-style two-player
   threshold re-check: player 2 can qualify against the old seventh-place score,

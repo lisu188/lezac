@@ -452,6 +452,26 @@ Baseline: `origin/main`
 
 ## Validation
 
+- 2026-05-15 lane-write route-sweep checkpoint: native Windows validation
+  helper passed with `-SkipTests`, then focused CTest passed 57/57 for
+  `lane_write|lane_result|explosion_lane`. This covered the new lane-write
+  preflight, wrapper-output, and route-sweep checks plus the existing
+  lane-result/explosion oracle guardrails. `git diff --check` passed with only
+  existing CRLF normalization warnings on touched text files.
+- 2026-05-15 continuation: WSL was present but no Linux distribution was
+  installed (`WSL_E_DEFAULT_DISTRO_NOT_FOUND`), so live DOSBox/process-memory
+  capture is blocked on this host. The no-WSL continuation added the lane-write
+  route-sweep summarizer instead. After refreshing the native build metadata,
+  focused CTest passed 58/58 for `lane_write|lane_result|explosion_lane`.
+- 2026-05-15 handoff continuation: direct Python checks passed for
+  `tools/check_lane_write_ready_pipeline.py`,
+  `tools/check_lane_result_ready_manifest.py`, and
+  `tools/check_lane_result_ready_results.py` after making the shared ready
+  runner/result summarizer prefix-configurable. After refreshing native build
+  metadata again, focused CTest passed 59/59 for
+  `lane_write|lane_result|explosion_lane`. Full native Windows CTest then
+  passed 201/201 with `ctest --test-dir build-win-codex-vs3 -C Debug
+  --output-on-failure`.
 - 2026-05-11 continuation: bundled Python helper/oracle checks passed for
   `tools/check_actor_update_debug_capture_helper.py`,
   `tools/check_contact_scanner_debug_capture_helper.py`,
@@ -1137,7 +1157,8 @@ Baseline: `origin/main`
 - Exact two-player panel artwork and full death/reentry presentation.
 - Exact sprite frame tables for impact/death/reward frames remain unresolved.
 - `GRAN.MST` field semantics remain unknown; consolidation only locks file
-  shape and raw/json byte preservation.
+  shape, raw/json byte preservation, and a conservative byte-profile diagnostic
+  for future loader/runtime comparisons.
 
 ## Next Planned Target
 

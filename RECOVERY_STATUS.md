@@ -6,6 +6,12 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `--debug-record-entry-static-model` to pin the original
+  `1000:1845..1AD6` high-score entry/storage byte model. The diagnostic
+  validates the `CS:183c` eight-colon empty-name template, 13-byte record
+  stride calculations, 13-byte table shift copy, 8-byte name copy to record
+  offset `+4`, dword score writes at offset `+0`, Backspace/Enter key checks,
+  and prompt/commit sound requests.
 - Added `--debug-sound-loader-static-model` to pin the original
   `1000:0630..06AA` `PROEFS.SON` loader against shipped executable bytes. The
   diagnostic validates the `proefs.son` filename anchor, `0x0082` step-count

@@ -3971,6 +3971,111 @@ public:
                   << '\n';
     }
 
+    void debugRecordEntryStaticModel() {
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for record entry scan");
+        }
+        constexpr uint16_t kTemplate = 0x183c;
+        constexpr uint16_t kRoutineStart = 0x1845;
+        constexpr uint16_t kPromptSound = 0x1857;
+        constexpr uint16_t kBackspaceCheck = 0x1a07;
+        constexpr uint16_t kEnterCheck = 0x1a3a;
+        constexpr uint16_t kCommitSound = 0x1a44;
+        constexpr uint16_t kRecordShift = 0x1a76;
+        constexpr uint16_t kStoredRecordPointer = 0x1a9e;
+        constexpr uint16_t kNameCopy = 0x1aab;
+        constexpr uint16_t kScoreWrite = 0x1ac0;
+        constexpr uint16_t kRoutineRet = 0x1ad6;
+
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " bytes changed");
+                }
+            }
+        };
+        auto countBytes = [&](const std::string& hex) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            int count = 0;
+            auto begin = exeBytes.begin() + static_cast<long>(imageBase + kRoutineStart);
+            auto end = exeBytes.begin() + static_cast<long>(imageBase + kRoutineRet + 1);
+            for (auto it = begin; it != end;) {
+                it = std::search(it, end, expected.begin(), expected.end());
+                if (it == end) break;
+                ++count;
+                ++it;
+            }
+            return count;
+        };
+
+        requireBytes(kTemplate, "08 3a 3a 3a 3a 3a 3a 3a 3a",
+                     "record empty-name template");
+        requireBytes(kRoutineStart, "55 89 e5 b8 10 02 9a df 04 20 09",
+                     "record entry prologue");
+        requireBytes(kPromptSound,
+                     "c7 06 74 20 78 00 c6 06 9f 79 0b e8 f5 fd",
+                     "record prompt sound request");
+        requireBytes(kBackspaceCheck, "80 3e 58 20 08",
+                     "record backspace key check");
+        requireBytes(kEnterCheck, "80 3e 58 20 0d 74 03 e9 3c ff",
+                     "record enter key check");
+        requireBytes(kCommitSound,
+                     "c7 06 74 20 08 00 c6 06 9f 79 0b e8 08 fc",
+                     "record commit sound request");
+        requireBytes(kRecordShift,
+                     "6b f8 0d 81 c7 f7 1a 1e 57 6b 3e 82 20 0d "
+                     "81 c7 f7 1a 1e 57 6a 0d 9a 0e 09 20 09",
+                     "record table shift copy");
+        requireBytes(kStoredRecordPointer, "6b f8 0d 81 c7 f7 1a",
+                     "record stored pointer stride");
+        requireBytes(kNameCopy,
+                     "8d 7e f0 16 57 c4 7e ec 81 c7 04 00 06 57 "
+                     "6a 08 9a f4 09 20 09",
+                     "record name copy");
+        requireBytes(kScoreWrite,
+                     "8b 46 08 8b 56 0a c4 7e ec 26 89 05 26 89 55 02",
+                     "record score dword write");
+        requireBytes(kRoutineRet - 3, "c9 c2 08 00", "record entry return");
+
+        int strideImulCount = countBytes("6b f8 0d");
+        int copy13Count = countBytes("6a 0d 9a 0e 09 20 09");
+        int copy8Count = countBytes("6a 08 9a f4 09 20 09");
+        if (strideImulCount != 3 || copy13Count != 1 || copy8Count != 2) {
+            throw std::runtime_error("record entry stride/copy model changed");
+        }
+
+        std::cout << "record_entry_static_model=ok"
+                  << " routine=" << hex4(kRoutineStart) << ".." << hex4(kRoutineRet)
+                  << " template=" << hex4(kTemplate)
+                  << " template_len=8"
+                  << " template_byte=0x3a"
+                  << " record_stride=13"
+                  << " stride_imuls=" << strideImulCount
+                  << " shift_copy_bytes=13"
+                  << " shift_copies=" << copy13Count
+                  << " name_offset=4"
+                  << " name_copy_bytes=8"
+                  << " name_copies=" << copy8Count
+                  << " score_offset=0"
+                  << " score_bytes=4"
+                  << " backspace_key=0x08"
+                  << " enter_key=0x0d"
+                  << " prompt_sound=0x0078/p11"
+                  << " commit_sound=0x0008/p11\n";
+    }
+
     void debugCoreResourceRawRoundtrip() {
         load();
         auto metrics = [](const std::vector<uint8_t>& bytes) {
@@ -16066,6 +16171,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-records-raw-roundtrip") {
             app.debugRecordsRawRoundtrip();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-record-entry-static-model") {
+            app.debugRecordEntryStaticModel();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-core-resource-raw-roundtrip") {

@@ -1208,6 +1208,11 @@ Backspace, lowercase storage, eight-character truncation, space-to-colon
 encoding, short-name colon padding, empty-name `::::::::` storage decoded as
 `nessuno`, and preservation of a typed `nessuno:` record as distinct raw bytes
 against a temporary binary `RECS.DAT`-format file.
+`--debug-record-entry-static-model` pins the executable bytes behind the same
+layout: the `CS:183c` `0x08` plus eight-colon template, three `* 13` record
+stride calculations, the 13-byte table shift copy, the 8-byte name copy to
+record offset `+4`, dword score writes at record offset `+0`, Backspace/Enter
+key checks, and the prompt/commit sound requests.
 `--debug-record-update` writes both temporary `.dat` and `.json` tables: the
 default `.dat` path is pinned to the original 92-byte binary layout, while the
 `.json` path remains a diagnostics-only compatibility serializer.

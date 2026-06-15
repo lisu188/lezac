@@ -1701,6 +1701,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^records_raw_roundtrip=ok raw_size=92 count=7 record_size=13 score_sum=3508890 top=541200 cutoff=474930 level8_count=7 decoded_aga=7 encoded_colon_padded=7 byte_sum=6047 weighted_sum=278918 xor=0xdd")
 
+    add_test(NAME record_entry_static_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-entry-static-model)
+    set_tests_properties(record_entry_static_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^record_entry_static_model=ok routine=0x1845..0x1ad6 template=0x183c template_len=8 template_byte=0x3a record_stride=13 stride_imuls=3 shift_copy_bytes=13 shift_copies=1 name_offset=4 name_copy_bytes=8 name_copies=2 score_offset=0 score_bytes=4 backspace_key=0x08 enter_key=0x0d prompt_sound=0x0078/p11 commit_sound=0x0008/p11")
+
     add_test(NAME records_name_entry_temp
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-name-entry
                 ${CMAKE_CURRENT_BINARY_DIR}/records_name_test.dat)

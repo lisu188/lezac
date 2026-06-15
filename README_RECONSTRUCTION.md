@@ -722,6 +722,10 @@ python3 tools/sweep_original_lane_write_routes.py \
   `tools/check_record_flow_evidence_map.py` keeps the record-entry/end-flow
   handoff tied to `RECS.DAT` structure, debug commands, CTest output contracts,
   and the disassembly anchors before cursor/typematic presentation is refined.
+  `--debug-record-entry-static-model` also pins the original
+  `1000:1845..1ad6` byte model for the eight-colon empty template, 13-byte
+  record stride, 8-byte name copy, dword score write, and Backspace/Enter
+  checks.
   Record prompting uses the recovered strict seventh-place cutoff, re-checks
   queued two-player scores after each insertion, and preserves pending name
   entry state across a failed save so the same record can be retried.

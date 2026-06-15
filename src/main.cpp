@@ -11142,6 +11142,69 @@ public:
                   << " fieldB_total=" << totalFieldB << '\n';
     }
 
+    void debugLevelCompletionDenominator() {
+        load();
+        const std::array<int, 7> expectedFieldB{66, 393, 739, 435, 988, 2724, 330};
+        const std::array<int, 7> expectedRequired{50, 60, 20, 70, 65, 40, 10};
+        const std::array<int, 7> expectedThresholds{33, 236, 148, 305, 643, 1090, 33};
+
+        auto joinInts = [](const auto& values) {
+            std::ostringstream oss;
+            for (size_t i = 0; i < values.size(); ++i) {
+                if (i != 0) oss << ',';
+                oss << values[i];
+            }
+            return oss.str();
+        };
+
+        int blockedBeforeThreshold = 0;
+        int completedAtThreshold = 0;
+        int totalFieldB = 0;
+        for (size_t i = 0; i < expectedFieldB.size(); ++i) {
+            resetLevel(static_cast<int>(i));
+            int denominator = level_.startingDestructibleTiles;
+            int rawFieldB = static_cast<int>(level_.fieldB);
+            int required = static_cast<int>(level_.requiredDestruction);
+            int threshold = (required * denominator + 99) / 100;
+            if (denominator != rawFieldB ||
+                denominator != expectedFieldB[i] ||
+                required != expectedRequired[i] ||
+                threshold != expectedThresholds[i]) {
+                throw std::runtime_error("level completion denominator fixture changed");
+            }
+            collected_ = level_.requiredBonus;
+            destroyed_ = std::max(0, threshold - 1);
+            if (isComplete()) {
+                throw std::runtime_error("level completed before fieldB threshold");
+            }
+            ++blockedBeforeThreshold;
+            destroyed_ = threshold;
+            if (!isComplete()) {
+                throw std::runtime_error("level did not complete at fieldB threshold");
+            }
+            ++completedAtThreshold;
+            destroyed_ = denominator;
+            if (destructionPercent() != 100 || !isComplete()) {
+                throw std::runtime_error("level destruction percent did not saturate at fieldB");
+            }
+            totalFieldB += denominator;
+        }
+
+        if (blockedBeforeThreshold != 7 || completedAtThreshold != 7 ||
+            totalFieldB != 5675) {
+            throw std::runtime_error("level completion denominator summary changed");
+        }
+        std::cout << "level_completion_denominator=ok"
+                  << " levels=" << expectedFieldB.size()
+                  << " fieldB_denominators=" << joinInts(expectedFieldB)
+                  << " required_destruction=" << joinInts(expectedRequired)
+                  << " thresholds=" << joinInts(expectedThresholds)
+                  << " before_blocked=" << blockedBeforeThreshold
+                  << " at_complete=" << completedAtThreshold
+                  << " fieldB_total=" << totalFieldB
+                  << " percent_model=integer_floor\n";
+    }
+
     void debugSpriteTransparency() {
         load();
         auto countPixels = [](const SpriteBank& bank, uint8_t value) {
@@ -16121,6 +16184,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-level-raw-roundtrip") {
             app.debugLevelRawRoundtrip();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-level-completion-denominator") {
+            app.debugLevelCompletionDenominator();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sprite-transparency") {

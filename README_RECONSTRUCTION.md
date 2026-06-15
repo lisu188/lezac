@@ -689,7 +689,9 @@ python3 tools/sweep_original_lane_write_routes.py \
   trigger rules. The raw-level roundtrip also pins the shipped embedded
   `fieldA`/`fieldB` words, treats `fieldB` as the low physical-word damage
   denominator, and keeps `fieldA` unresolved with aggregate negative-candidate
-  coverage in `--debug-word-layer`.
+  coverage in `--debug-word-layer`. `--debug-level-completion-denominator`
+  verifies live completion thresholds for all seven levels against
+  `ceil(requiredDestruction * fieldB / 100)`.
 - A playable one-player reconstruction loop using original maps and graphics:
   movement, jumping, objective collection, bomb placement, tile destruction,
   score, start positions, teleports, tile triggers, monster spawning, basic

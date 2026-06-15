@@ -1162,6 +1162,11 @@ count edge cases, and any visible result still need DOSBox/debugger evidence.
   the low physical-word count seven times, but `fieldA & 0x3fff` matches the
   high-word/high-unique/high-same-word-component counts only once and the
   high-component count zero times.
+  `--debug-level-completion-denominator` now pins the live completion gate to
+  that `fieldB` denominator: with required objectives forced complete, each
+  shipped level remains incomplete one physical-damage count before
+  `ceil(requiredDestruction * fieldB / 100)` and completes exactly at that
+  threshold.
 - 7-byte records are start and teleport destinations: `u16 key`, `u16 x`,
   `u16 y`, `u8 marker`. Key `0` records with marker `1` and `2` are player
   starts. Tile `0x45` uses the word-layer key to select a nonzero destination.

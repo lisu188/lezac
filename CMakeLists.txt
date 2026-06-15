@@ -169,6 +169,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "word_layer=ok levels=7 low=5675 high=501 high_unique=501 high_components=268 high_same_word_components=501 fieldB_total=5675 fieldB_matches_low=7 fieldA_payload_matches_high=1 fieldA_payload_matches_high_unique=1 fieldA_payload_matches_high_components=0 fieldA_payload_matches_high_same_word_components=1")
 
+    add_test(NAME level_completion_denominator
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-level-completion-denominator)
+    set_tests_properties(level_completion_denominator PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^level_completion_denominator=ok levels=7 fieldB_denominators=66,393,739,435,988,2724,330 required_destruction=50,60,20,70,65,40,10 thresholds=33,236,148,305,643,1090,33 before_blocked=7 at_complete=7 fieldB_total=5675 percent_model=integer_floor")
+
     add_test(NAME fixed_point_integration
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-fixed)
     set_tests_properties(fixed_point_integration PROPERTIES

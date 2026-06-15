@@ -6,6 +6,12 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `--debug-level-completion-denominator` to pin the live level-completion
+  gate to the recovered `LIVELS.SCH` `fieldB` denominator. With objective counts
+  forced complete, the diagnostic verifies that every shipped level remains
+  incomplete one physical-damage count before
+  `ceil(requiredDestruction * fieldB / 100)` and completes exactly at that
+  threshold, while keeping `fieldA` semantically unresolved.
 - Added `--debug-sound-latch-static-model` to pin the original
   `1000:165A..167D` priority latch against shipped executable bytes. The
   diagnostic validates the inactive accept jump, active

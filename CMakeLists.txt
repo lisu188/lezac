@@ -570,7 +570,7 @@ if(BUILD_TESTING)
         set_tests_properties(state2_visual_compare_workflow PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^state2_visual_compare_workflow=ok helpers=2 docs=1 ctest=1 compared=12")
+                "^state2_visual_compare_workflow=ok helpers=2 docs=4 ctest=1 compared=12")
 
         add_test(NAME state2_visual_frame_capture_helper_expectations
             COMMAND ${Python3_EXECUTABLE}

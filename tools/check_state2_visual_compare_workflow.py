@@ -15,6 +15,26 @@ import time
 HELPER = Path("tools/compare_state2_visual_row_game_previews.py")
 SUMMARIZER = Path("tools/summarize_frame_compare_bundle.py")
 DOC = Path("docs/recovery/frame_comparison.md")
+RENDERER_DOC_CLAIMS = (
+    (
+        Path("README_RECONSTRUCTION.md"),
+        "recovered row-byte-3 `BOMOMIMK` sprite sequence `67..72`",
+    ),
+    (
+        Path("RECOVERY_STATUS.md"),
+        "current row-byte-3 state-2 death",
+    ),
+    (
+        Path("docs/recovery/autoplayer_harness_2026-04-23.md"),
+        "row-byte-3 state-2 visual",
+    ),
+)
+STALE_RENDERER_CLAIMS = (
+    "provisional state-2 visual",
+    "state-2 visual cursor playback",
+    "provisional live dead-player renderer",
+    "debug-only row-byte-3 candidate",
+)
 CMAKE = Path("CMakeLists.txt")
 
 
@@ -28,6 +48,11 @@ def read(root: Path, path: Path) -> str:
 def require(text: str, snippet: str, label: str) -> None:
     if snippet not in text:
         raise RuntimeError(f"{label} missing snippet {snippet!r}")
+
+
+def reject(text: str, snippet: str, label: str) -> None:
+    if snippet in text:
+        raise RuntimeError(f"{label} contains stale snippet {snippet!r}")
 
 
 def run(command: list[str], cwd: Path) -> str:
@@ -104,6 +129,12 @@ def check_static_contract(root: Path) -> None:
     ):
         require(doc, snippet, str(DOC))
 
+    for path, required_snippet in RENDERER_DOC_CLAIMS:
+        text = read(root, path)
+        require(text, required_snippet, str(path))
+        for stale_snippet in STALE_RENDERER_CLAIMS:
+            reject(text, stale_snippet, str(path))
+
     cmake = read(root, CMAKE)
     require(cmake, "tools/check_state2_visual_compare_workflow.py", str(CMAKE))
     require(cmake, "tools/compare_state2_visual_row_game_previews.py", str(CMAKE))
@@ -173,7 +204,7 @@ def main() -> int:
 
     check_static_contract(root)
     check_runtime(root, cpp_exe, args.out_dir.resolve())
-    print("state2_visual_compare_workflow=ok helpers=2 docs=1 ctest=1 compared=12")
+    print("state2_visual_compare_workflow=ok helpers=2 docs=4 ctest=1 compared=12")
     return 0
 
 

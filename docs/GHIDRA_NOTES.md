@@ -830,7 +830,7 @@ step shape. On each step advance the routine increments `DS:78c0`, computes
 - byte `+3`: copied to `DS:79a2`, the tick value that advances to the next
   six-byte step.
 - bytes `+4..+5`: not referenced in this recovered tick window; they are
-  preserved as unknown fields.
+  preserved as playback-unused tail fields.
 
 `--debug-sound-tick-static-model` now validates that instruction window against
 the shipped executable bytes. It pins the direct-sweep threshold/subtract
@@ -846,16 +846,16 @@ The current stop-cursor map from the shipped `PROEFS.SON` payload is:
 known non-direct cursor starts through `synthesizeSoundCursor`.
 `--debug-son-step-fields` is a field-only diagnostic for the same raw bank:
 it keeps the JSON schema byte-preserving and prints each sampled six-byte step
-as `step_index`, `period_word`, `gate_tick`, `period_ticks`, `unknown4`, and
-`unknown5`. In the shipped bank, the first step is cursor `0x0001` with
-`period_word=0x00f7`, `gate_tick=1`, `period_ticks=1`, `unknown4=0x01`, and
-`unknown5=0x02`; the first stop sentinel is cursor `0x0005`, and the final
+as `step_index`, `period_word`, `gate_tick`, `period_ticks`, `tail4`, and
+`tail5`. In the shipped bank, the first step is cursor `0x0001` with
+`period_word=0x00f7`, `gate_tick=1`, `period_ticks=1`, `tail4=0x01`, and
+`tail5=0x02`; the first stop sentinel is cursor `0x0005`, and the final
 stop sentinel is cursor `0x0082`. 118 of 130 steps have a nonzero
-`unknown4`/`unknown5` pair, but the tick routine window above still does not
+`tail4`/`tail5` pair, but the tick routine window above still does not
 interpret those bytes. `--debug-son-tail-field-mutation` mutates bytes `+4..+5`
 for every shipped step and confirms the recovered C++ synthesizer renders the
 same samples for all known non-direct cursor starts, keeping those tail bytes
-preserved but behaviorally unused until original evidence proves otherwise.
+preserved but playback-unused.
 
 Eight non-explosion gameplay cues are now mapped to original queued requests:
 

@@ -116,7 +116,7 @@ Baseline: `origin/main`
   The diagnostic validates the direct-sweep branch, `cursor * 6 - 6`
   `PROEFS.SON` step address calculation, stop sentinel `0x7530`, entry reads at
   offsets `+0`, `+2`, and `+3`, and zero checked tail-read patterns for
-  preserved bytes `+4..+5`.
+  preserved playback-unused bytes `+4..+5`.
 - Extended `--debug-shipped-file-manifest` to verify the original executable's
   lowercase runtime filename anchors. The diagnostic now pins ten unique names,
   15 total references, `proefs.son` at `1000:0626`, `gran.mst` at
@@ -1885,8 +1885,10 @@ Baseline: `origin/main`
   and natural reverse debris writeback at `3EC1`. Next evidence should target
   natural forward debris writeback at `3D2D` before changing live playback
   behavior.
-- Semantic meaning of `PROEFS.SON` bytes `+4..+5` remains unknown; current
-  diagnostics preserve them as raw fields only.
+- `PROEFS.SON` bytes `+4..+5` are now classified as preserved but
+  playback-unused by the recovered `1000:0FBE..1088` tick routine and C++
+  mutation diagnostics. Any source/editor meaning outside playback remains
+  unknown.
 - Many non-explosion sound callsites still need exact cursor/priority mapping;
   the sound-callsite oracle and DOSBox-debug capture planner are ready for
   original debugger transcripts. The remaining direct `playSound(index)`

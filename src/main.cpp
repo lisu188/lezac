@@ -5460,8 +5460,8 @@ public:
             uint16_t periodWord = 0;
             uint8_t gateTick = 0;
             uint8_t periodTicks = 0;
-            uint8_t unknown4 = 0;
-            uint8_t unknown5 = 0;
+            uint8_t tail4 = 0;
+            uint8_t tail5 = 0;
         };
 
         auto step = [&](size_t stepIndex) {
@@ -5475,14 +5475,14 @@ public:
         };
 
         std::vector<uint16_t> stopCursors;
-        int unknownPairNonzeroSteps = 0;
+        int tailPairNonzeroSteps = 0;
         for (size_t i = 0; i < sounds_.stepCount; ++i) {
             StepFields fields = step(i);
             if (fields.periodWord == kSoundStopPeriod) {
                 stopCursors.push_back(static_cast<uint16_t>(i + 1));
             }
-            if (fields.unknown4 != 0 || fields.unknown5 != 0) {
-                ++unknownPairNonzeroSteps;
+            if (fields.tail4 != 0 || fields.tail5 != 0) {
+                ++tailPairNonzeroSteps;
             }
         }
         if (stopCursors.size() != kExpectedSoundStopCursors.size() ||
@@ -5499,8 +5499,8 @@ public:
                       << " period_word=" << hex4(fields.periodWord)
                       << " gate_tick=" << static_cast<int>(fields.gateTick)
                       << " period_ticks=" << static_cast<int>(fields.periodTicks)
-                      << " unknown4=" << hex2(fields.unknown4)
-                      << " unknown5=" << hex2(fields.unknown5)
+                      << " tail4=" << hex2(fields.tail4)
+                      << " tail5=" << hex2(fields.tail5)
                       << " stop=" << (fields.periodWord == kSoundStopPeriod ? 1 : 0)
                       << '\n';
         };
@@ -5508,12 +5508,13 @@ public:
         std::cout << "son_step_fields=summary steps=" << sounds_.stepCount
                   << " step_size=" << kSoundStepSize
                   << " stop_sentinels=" << stopCursors.size()
-                  << " unknown_pair_nonzero_steps=" << unknownPairNonzeroSteps
+                  << " tail_pair_nonzero_steps=" << tailPairNonzeroSteps
                   << " period_word=bytes0-1"
                   << " gate_tick=byte2"
                   << " period_ticks=byte3"
-                  << " unknown4=byte4"
-                  << " unknown5=byte5\n";
+                  << " tail4=byte4"
+                  << " tail5=byte5"
+                  << " tail_behavior=preserved_playback_unused\n";
         printStep("first", 0);
         printStep("first_stop", stopCursors.front() - 1);
         printStep("final_stop", stopCursors.back() - 1);
@@ -5521,7 +5522,8 @@ public:
                   << " first_period=" << hex4(step(0).periodWord)
                   << " first_stop_cursor=" << hex4(stopCursors.front())
                   << " final_stop_cursor=" << hex4(stopCursors.back())
-                  << " unknown_pair_nonzero_steps=" << unknownPairNonzeroSteps
+                  << " tail_pair_nonzero_steps=" << tailPairNonzeroSteps
+                  << " tail_behavior=preserved_playback_unused"
                   << '\n';
     }
 
@@ -5544,12 +5546,12 @@ public:
         }
 
         std::vector<uint8_t> originalPayload = sounds_.payload;
-        int unknownPairNonzeroSteps = 0;
+        int tailPairNonzeroSteps = 0;
         int mutatedSteps = 0;
         for (size_t step = 0; step < sounds_.stepCount; ++step) {
             size_t off = step * kSoundStepSize;
             if (sounds_.payload[off + 4] != 0 || sounds_.payload[off + 5] != 0) {
-                ++unknownPairNonzeroSteps;
+                ++tailPairNonzeroSteps;
             }
             sounds_.payload[off + 4] =
                 static_cast<uint8_t>(sounds_.payload[off + 4] ^ 0xffu);
@@ -5577,8 +5579,9 @@ public:
                   << " compared_cursors=" << kDebugSoundCursors.size()
                   << " baseline_samples=" << baselineSamples
                   << " mutated_samples=" << mutatedSamples
-                  << " unknown_pair_nonzero_steps=" << unknownPairNonzeroSteps
-                  << " ignored_tail_bytes=4,5\n";
+                  << " tail_pair_nonzero_steps=" << tailPairNonzeroSteps
+                  << " ignored_tail_bytes=4,5"
+                  << " tail_behavior=preserved_playback_unused\n";
     }
 
     void debugSoundTickStaticModel() {
@@ -5681,7 +5684,8 @@ public:
                   << " word_entry_reads=" << wordReads
                   << " byte_entry_reads=" << byteReads
                   << " tail_read_patterns=" << tailReadPatterns
-                  << " ignored_tail_bytes=4,5\n";
+                  << " ignored_tail_bytes=4,5"
+                  << " tail_behavior=preserved_playback_unused\n";
     }
 
     void debugSoundLatchStaticModel() {

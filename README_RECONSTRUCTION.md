@@ -906,8 +906,9 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   `DS:79b9` counter and promotes status byte `2` to `1` without doing the
   normal actor-state or energy restore.
   `--debug-son-step-fields` exposes each recovered six-byte sound step as
-  `period_word`, `gate_tick`, `period_ticks`, `unknown4`, and `unknown5` while
-  keeping bytes `+4..+5` explicitly uninterpreted. The
+  `period_word`, `gate_tick`, `period_ticks`, `tail4`, and `tail5`. Bytes
+  `+4..+5` are preserved from the shipped bank but are playback-unused in the
+  recovered `1000:0FBE..1088` tick window. The
   `--debug-son-tail-field-mutation` diagnostic mutates those two tail bytes for
   every shipped step and verifies rendered samples for the known cursor starts
   are unchanged, matching the recovered tick window that does not read them.
@@ -930,9 +931,10 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   `1000:0FBE..1088` tick routine's cursor stride, direct-sweep branch, stop
   sentinel, and table reads: word offset `+0`, byte offset `+2`, byte offset
   `+3`, with no checked read of tail bytes `+4..+5`. Field diagnostics preserve
-  those tail bytes as raw unknowns, and mutation coverage proves the current
-  synthesizer ignores them; their original semantic meaning plus many
-  non-explosion callsite-to-event mappings remain unresolved. Remaining direct
+  those tail bytes as raw data, and mutation coverage proves the current
+  synthesizer ignores them, so their playback effect is recovered as unused.
+  Any source/editor meaning outside playback plus many non-explosion
+  callsite-to-event mappings remain unresolved. Remaining direct
   `playSound(index)` callers are compatibility hooks until original
   cursor/priority writes are recovered.
 - Two-player split-screen is playable with independent bomb inventories, scores,

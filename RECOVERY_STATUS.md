@@ -59,6 +59,9 @@ Baseline: `origin/main`
   non-`.json` paths, including the default runtime path. `--debug-record-update`
   now locks the 92-byte temp `.dat` output and retains explicit `.json`
   compatibility coverage.
+- Tightened `bonus_rewards` CTest coverage so the recovered bonus-pickup sound
+  request is pinned as cursor `0x0008` at priority `5`, matching the
+  `1000:6e4b..6f8d` evidence path already used by `collectBonusDrop`.
 - Extended `--debug-end-flow-records` with the original-style two-player
   threshold re-check: player 2 can qualify against the old seventh-place score,
   but is skipped after player 1 inserts a higher record and raises the table

@@ -5340,9 +5340,10 @@ public:
             {0x6924, 0x0035}, {0x6e34, 0x0012}, {0x6f82, 0x0008},
             {0x7386, 0x0021}, {0x789c, 0x0001}, {0x7f84, 0x002d},
         }};
-        static const std::array<uint16_t, 12> kMappedWrites{
-            0x30b1, 0x41a9, 0x41ed, 0x4231, 0x431d, 0x557b,
-            0x575d, 0x5a0e, 0x5c9e, 0x6e34, 0x6f82, 0x7f84,
+        static const std::array<uint16_t, 15> kMappedWrites{
+            0x1857, 0x1a44, 0x2083, 0x30b1, 0x41a9, 0x41ed,
+            0x4231, 0x431d, 0x557b, 0x575d, 0x5a0e, 0x5c9e,
+            0x6e34, 0x6f82, 0x7f84,
         };
 
         std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
@@ -5434,6 +5435,12 @@ public:
         if (latchCandidates != 21 || latchRefs != 22 ||
             priorityCandidates != 21 || directSweepWrites != 5 ||
             mappedWrites != static_cast<int>(kMappedWrites.size()) ||
+            priorityAt(0x185d) != kRecordNamePromptSoundPriority ||
+            nearLatchCallCount(0x1857) != 1 ||
+            priorityAt(0x1a4a) != kRecordNameCommitSoundPriority ||
+            nearLatchCallCount(0x1a44) != 1 ||
+            priorityAt(0x2089) != kRecordsPageSoundPriority ||
+            nearLatchCallCount(0x2083) != 1 ||
             priorityAt(0x5581) != kBombPlaceSoundPriority ||
             nearLatchCallCount(0x557b) != 1 ||
             priorityAt(0x5ca4) != kMonsterDeathSoundPriority ||
@@ -5476,6 +5483,15 @@ public:
                   << " direct_sweep=" << directSweepWrites
                   << " mapped=" << mappedWrites
                   << " unresolved=" << (static_cast<int>(writes.size()) - mappedWrites)
+                  << " record_prompt=" << hex4(0x1857) << ':'
+                  << hex4(kRecordNamePromptSoundCursor)
+                  << "/p" << static_cast<int>(kRecordNamePromptSoundPriority)
+                  << " record_commit=" << hex4(0x1a44) << ':'
+                  << hex4(kRecordNameCommitSoundCursor)
+                  << "/p" << static_cast<int>(kRecordNameCommitSoundPriority)
+                  << " records_page=" << hex4(0x2083) << ':'
+                  << hex4(kRecordsPageSoundCursor)
+                  << "/p" << static_cast<int>(kRecordsPageSoundPriority)
                   << " bomb_place=" << hex4(0x557b) << ':' << hex4(kBombPlaceSoundCursor)
                   << "/p" << static_cast<int>(kBombPlaceSoundPriority)
                   << " monster_death=" << hex4(0x5c9e) << ':'

@@ -1786,7 +1786,7 @@ if(BUILD_TESTING)
     set_tests_properties(static_sound_requests PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^static_sound_requests=ok writes=27 image_base=0x0770 latch=0x165a latch_candidates=21 latch_refs=22 priority_candidates=21 direct_sweep=5 mapped=12 unresolved=15 bomb_place=0x557b:0xea74/p3 monster_death=0x5c9e:0x003d/p12 remaining_compat_hooks=objective_pickup,level_complete rejected_objective_candidates=0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate")
+            "^static_sound_requests=ok writes=27 image_base=0x0770 latch=0x165a latch_candidates=21 latch_refs=22 priority_candidates=21 direct_sweep=5 mapped=15 unresolved=12 record_prompt=0x1857:0x0078/p11 record_commit=0x1a44:0x0008/p11 records_page=0x2083:0x0024/p2 bomb_place=0x557b:0xea74/p3 monster_death=0x5c9e:0x003d/p12 remaining_compat_hooks=objective_pickup,level_complete rejected_objective_candidates=0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate")
 
     add_test(NAME static_sound_contexts
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-static-sound-contexts)

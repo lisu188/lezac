@@ -15,7 +15,7 @@ Baseline: `origin/main`
 - Added `--debug-static-sound-requests` to scan the shipped `LEZAC.EXE` image
   and lock all 27 immediate writes to `DS:2074`. The diagnostic pins
   21 near-latch candidates, 22 near-latch call references, five direct-sweep
-  writes, 12 mapped callsites, and 15 remaining unlabeled static sound
+  writes, 15 mapped callsites, and 12 remaining unlabeled static sound
   candidates for future recovery.
 - Extended `tools/capture_original_sound_callsite_debug.sh` and its guardrail
   to stage `bomb_place_sound` runtime captures alongside the existing mapped
@@ -27,8 +27,9 @@ Baseline: `origin/main`
   `enterMonsterDeath` path now uses `requestMonsterDeathSound`, and
   `--debug-monster-death-sound` pins the queued non-direct request.
 - Extended the static sound request diagnostic and sound-callsite capture
-  helper for `monster_death_sound`; the static map now has 12 recovered
-  immediate-write callsites and 15 remaining unlabeled candidates.
+  helper for `monster_death_sound`; the static map now has 15 recovered
+  immediate-write callsites and 12 remaining unlabeled candidates after the
+  record/name-entry and records-page UI sound routes were promoted.
 - Fixed the native Windows build packaging path by copying the discovered
   `SDL2.dll` beside `lezac_cpp.exe` after build, so CTest and manual launches no
   longer depend on an external `PATH` entry for SDL2.

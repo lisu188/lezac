@@ -225,20 +225,35 @@ def parse_candidate(stdout: str, default_path: Path) -> Path:
 def run_logged(
     command: list[str], cwd: Path, log_path: Path
 ) -> subprocess.CompletedProcess[str]:
-    completed = subprocess.run(
-        command,
-        cwd=cwd,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        check=False,
-    )
-    log_path.write_text(completed.stdout, encoding="utf-8")
+    completed = run_logged_optional(command, cwd, log_path)
     if completed.returncode != 0:
         raise RuntimeError(
             f"command failed ({completed.returncode}): {quote_command(command)}\n"
             f"see log: {log_path}\n{completed.stdout}"
         )
+    return completed
+
+
+def run_logged_optional(
+    command: list[str], cwd: Path, log_path: Path
+) -> subprocess.CompletedProcess[str]:
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=cwd,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+    except OSError as exc:
+        output = (
+            f"command launch failed: {quote_command(command)}\n"
+            f"{exc.__class__.__name__}: {exc}\n"
+        )
+        log_path.write_text(output, encoding="utf-8")
+        return subprocess.CompletedProcess(command, 127, output)
+    log_path.write_text(completed.stdout, encoding="utf-8")
     return completed
 
 
@@ -257,6 +272,14 @@ def main() -> int:
         help="skip original-evidence host/tool preflight before live capture",
     )
     parser.add_argument("--skip-oracle", action="store_true")
+    parser.add_argument(
+        "--continue-on-oracle-error",
+        action="store_true",
+        help=(
+            "record oracle launch/parse failures in the sweep manifest and "
+            "continue collecting route captures"
+        ),
+    )
     parser.add_argument(
         "--cpp-exe",
         type=Path,
@@ -426,13 +449,24 @@ def main() -> int:
         )
         if not args.skip_oracle:
             oracle_command = build_oracle_command(args, candidate)
-            oracle_result = run_logged(
-                oracle_command, root, out_dir / f"{label}_oracle.log"
-            )
+            oracle_log = out_dir / f"{label}_oracle.log"
             manifest_lines.append(
                 f"oracle_command_{label}={quote_command(oracle_command)}"
             )
-            manifest_lines.append(f"oracle_log_{label}={out_dir / (label + '_oracle.log')}")
+            manifest_lines.append(f"oracle_log_{label}={oracle_log}")
+            oracle_result = run_logged_optional(oracle_command, root, oracle_log)
+            if oracle_result.returncode != 0:
+                manifest_lines.append(
+                    f"oracle_status_{label}=oracle_error "
+                    f"returncode={oracle_result.returncode} log={oracle_log}"
+                )
+                if not args.continue_on_oracle_error:
+                    raise RuntimeError(
+                        f"oracle command failed ({oracle_result.returncode}): "
+                        f"{quote_command(oracle_command)}\n"
+                        f"see log: {oracle_log}\n{oracle_result.stdout}"
+                    )
+                continue
             for line in oracle_result.stdout.splitlines():
                 if line.startswith("explosion_playback_oracle=ok"):
                     manifest_lines.append(f"oracle_status_{label}={line}")

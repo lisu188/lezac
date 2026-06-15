@@ -652,8 +652,14 @@ python3 tools/sweep_original_lane_write_routes.py \
   /tmp/lezac-lane-write-forward-expanded . \
   --route-preset forward-debris-expanded --offset forward-debris \
   --approve-procmem --approve-runtime-instrumentation \
-  --cpp-exe ./build/lezac_cpp
+  --cpp-exe ./build/lezac_cpp --continue-on-oracle-error
 ```
+
+Use `--continue-on-oracle-error` when the DOSBox/process-memory host can run
+captures but the C++ oracle binary is unavailable from that host. The sweep
+then records `oracle_error` lines in the manifest and preserves candidate
+fixtures for a later `--debug-explosion-playback-oracle` pass with a rebuilt
+Linux oracle or the native Windows executable.
 
 `--debug-lane-write-static-model` pins the shipped executable bytes behind
 that plan: forward/reverse collapse stores at `1000:3D1B`/`1000:3EAF`,

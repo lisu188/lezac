@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import os
 from pathlib import Path
 import subprocess
@@ -66,6 +67,18 @@ def empty_path_env(empty_dir: Path) -> dict[str, str]:
     env = os.environ.copy()
     env["PATH"] = str(empty_dir)
     return env
+
+
+def load_sweep_module(root: Path):
+    module_path = root / "tools" / "sweep_original_lane_write_routes.py"
+    spec = importlib.util.spec_from_file_location(
+        "sweep_original_lane_write_routes", module_path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def main() -> int:
@@ -252,6 +265,20 @@ def main() -> int:
         "live_refusal",
     )
     require_not(live_refusal, "lane_write_route_sweep_manifest=", "live_refusal")
+    cases += 1
+
+    sweep_module = load_sweep_module(root)
+    optional_log = out_base / "optional-oracle-error.log"
+    optional = sweep_module.run_logged_optional(
+        [str(out_base / "missing-oracle-binary")],
+        root,
+        optional_log,
+    )
+    if optional.returncode == 0:
+        raise RuntimeError("optional oracle failure unexpectedly succeeded")
+    require(optional.stdout, "command launch failed:", "optional_oracle_error")
+    require(optional_log.read_text(encoding="utf-8"), "command launch failed:",
+            "optional_oracle_error")
     cases += 1
 
     with tempfile.TemporaryDirectory(prefix="lezac-lane-write-empty-path-") as tmp:

@@ -6,6 +6,14 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `--continue-on-oracle-error` to
+  `tools/sweep_original_lane_write_routes.py`. Capture failures still stop the
+  sweep, but a missing or unrunnable C++ oracle now writes an `oracle_error`
+  status and keeps route captures/candidate fixtures for later parsing. This
+  matches the local WSL attempt where route `x:2.00` produced a `1000:3D2D`
+  candidate bundle under `/tmp/lezac-lane-write-forward-expanded`, but the
+  stale Linux `./build/lezac_cpp` on the Windows mount failed with
+  `Input/output error`.
 - Added `--debug-bonus-reward-static-model` to pin the monster reward score
   table against shipped `LEZAC.EXE` bytes. The diagnostic validates MZ image
   base `0x0770`, file offset `0xb1c6` / Ghidra offset `1000:aa56`, the seven
@@ -1866,6 +1874,6 @@ Baseline: `origin/main`
 
 Use the reviewed expanded route matrix to finish the remaining natural forward
 debris writeback at `1000:3D2D`:
-`python3 tools/sweep_original_lane_write_routes.py /tmp/lezac-lane-write-forward-expanded . --route-preset forward-debris-expanded --offset forward-debris --approve-procmem --approve-runtime-instrumentation --cpp-exe ./build/lezac_cpp`.
+`python3 tools/sweep_original_lane_write_routes.py /tmp/lezac-lane-write-forward-expanded . --route-preset forward-debris-expanded --offset forward-debris --approve-procmem --approve-runtime-instrumentation --cpp-exe ./build/lezac_cpp --continue-on-oracle-error`.
 Then return to DOSBox frame/debugger evidence for behavior-4 movement,
 targeting, and respawn timing.

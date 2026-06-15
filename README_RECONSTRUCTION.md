@@ -661,6 +661,15 @@ then records `oracle_error` lines in the manifest and preserves candidate
 fixtures for a later `--debug-explosion-playback-oracle` pass with a rebuilt
 Linux oracle or the native Windows executable.
 
+The 2026-06-15 local WSL pass of that unchanged matrix completed ten natural
+`3D2D` captures, and the native Windows oracle parsed them as valid
+`no_freeze` candidates. Do not repeat the same matrix blindly. If the same
+host split is used again, run the summarizer from Windows; it translates
+`/mnt/c/...` manifest paths back to `C:\...` paths. The next useful capture
+should narrow the runtime patch gate, for example by forwarding
+`--runtime-freeze-require-high-debris-target-byte` and the selected base/count
+filters through `tools/sweep_original_lane_write_routes.py`.
+
 `--debug-lane-write-static-model` pins the shipped executable bytes behind
 that plan: forward/reverse collapse stores at `1000:3D1B`/`1000:3EAF`,
 forward/reverse debris stores at `1000:3D2D`/`1000:3EC1`, the `0x4E20`

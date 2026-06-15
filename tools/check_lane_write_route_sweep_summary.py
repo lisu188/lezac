@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import os
 from pathlib import Path
 import subprocess
@@ -69,6 +70,19 @@ def write_text(path: Path, text: str) -> None:
 def require(text: str, snippet: str, case: str) -> None:
     if snippet not in text:
         raise RuntimeError(f"{case} missing snippet {snippet!r}\n{text}")
+
+
+def load_summary_module(root: Path):
+    module_path = root / "tools" / "summarize_lane_write_route_sweep.py"
+    spec = importlib.util.spec_from_file_location(
+        "summarize_lane_write_route_sweep", module_path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def write_candidate(
@@ -369,6 +383,19 @@ def main() -> int:
             duplicate_field,
             "duplicate manifest field: capture",
             "duplicate_field",
+        )
+        cases += 1
+
+        summary_module = load_summary_module(root)
+        converted = summary_module.wsl_drive_mount_to_windows_path(
+            "/mnt/c/Users/andrz/AppData/Local/Temp/candidate.txt"
+        )
+        if converted is None:
+            raise RuntimeError("wsl mount path did not convert")
+        require(
+            converted.as_posix(),
+            "C:/Users/andrz/AppData/Local/Temp/candidate.txt",
+            "wsl_mount_conversion",
         )
         cases += 1
 

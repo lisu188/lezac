@@ -116,7 +116,20 @@ def parse_csv(value: str | None) -> list[str]:
     return [part for part in value.split(",") if part]
 
 
+def wsl_drive_mount_to_windows_path(raw_path: str) -> Path | None:
+    normalized = raw_path.replace("\\", "/")
+    match = re.match(r"^/mnt/([A-Za-z])(?:/(.*))?$", normalized)
+    if match is None:
+        return None
+    drive = match.group(1).upper()
+    rest = match.group(2) or ""
+    return Path(f"{drive}:/{rest}")
+
+
 def resolve_child_path(raw_path: str, parent_manifest: Path) -> Path:
+    translated = wsl_drive_mount_to_windows_path(raw_path)
+    if translated is not None and sys.platform == "win32":
+        return translated
     path = Path(raw_path)
     if path.is_absolute():
         return path

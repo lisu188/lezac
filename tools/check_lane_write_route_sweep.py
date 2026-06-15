@@ -233,6 +233,53 @@ def main() -> int:
         require(custom, snippet, "custom_routes")
     cases += 1
 
+    gated = run_sweep(
+        root,
+        [
+            str(out_base / "gated"),
+            str(root),
+            "--dry-run",
+            "--skip-oracle",
+            "--offset",
+            "forward-debris",
+            "--runtime-freeze-preset",
+            "none",
+            "--runtime-freeze-min-queue-score",
+            "0x90",
+            "--runtime-freeze-min-debris-nonzero",
+            "0x20",
+            "--runtime-freeze-min-collapse-nonzero",
+            "0x10",
+            "--runtime-freeze-min-effect-nonzero",
+            "0x10",
+            "--runtime-freeze-require-debris-base",
+            "0x209e",
+            "--runtime-freeze-require-collapse-base",
+            "0x6620",
+            "--runtime-freeze-require-effect-base",
+            "0xc22e",
+            "--runtime-freeze-require-high-debris-target-byte",
+            "0x05",
+            "--route",
+            "x:2.00",
+        ],
+    )
+    for snippet in [
+        "offsets=1",
+        "offset_labels=3d2d",
+        "runtime_freeze_preset=none",
+        "--runtime-freeze-min-queue-score 0x90",
+        "--runtime-freeze-min-debris-nonzero 0x20",
+        "--runtime-freeze-min-collapse-nonzero 0x10",
+        "--runtime-freeze-min-effect-nonzero 0x10",
+        "--runtime-freeze-require-debris-base 0x209e",
+        "--runtime-freeze-require-collapse-base 0x6620",
+        "--runtime-freeze-require-effect-base 0xc22e",
+        "--runtime-freeze-require-high-debris-target-byte 0x05",
+    ]:
+        require(gated, snippet, "gated_runtime_freeze")
+    cases += 1
+
     skip_environment = run_sweep(
         root,
         [

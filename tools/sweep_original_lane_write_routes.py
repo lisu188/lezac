@@ -142,6 +142,14 @@ def runtime_freeze_gate_enabled(args: argparse.Namespace) -> bool:
         or args.runtime_freeze_before_route
         or args.runtime_freeze_before_bomb
         or args.runtime_freeze_after_bomb_seconds is not None
+        or args.runtime_freeze_min_queue_score is not None
+        or args.runtime_freeze_min_debris_nonzero is not None
+        or args.runtime_freeze_min_collapse_nonzero is not None
+        or args.runtime_freeze_min_effect_nonzero is not None
+        or args.runtime_freeze_require_debris_base is not None
+        or args.runtime_freeze_require_collapse_base is not None
+        or args.runtime_freeze_require_effect_base is not None
+        or args.runtime_freeze_require_high_debris_target_byte is not None
     )
 
 
@@ -204,6 +212,27 @@ def build_capture_command(
             "--runtime-freeze-after-bomb-seconds",
             args.runtime_freeze_after_bomb_seconds,
         ]
+    for option, value in [
+        ("--runtime-freeze-min-queue-score", args.runtime_freeze_min_queue_score),
+        ("--runtime-freeze-min-debris-nonzero", args.runtime_freeze_min_debris_nonzero),
+        (
+            "--runtime-freeze-min-collapse-nonzero",
+            args.runtime_freeze_min_collapse_nonzero,
+        ),
+        ("--runtime-freeze-min-effect-nonzero", args.runtime_freeze_min_effect_nonzero),
+        ("--runtime-freeze-require-debris-base", args.runtime_freeze_require_debris_base),
+        (
+            "--runtime-freeze-require-collapse-base",
+            args.runtime_freeze_require_collapse_base,
+        ),
+        ("--runtime-freeze-require-effect-base", args.runtime_freeze_require_effect_base),
+        (
+            "--runtime-freeze-require-high-debris-target-byte",
+            args.runtime_freeze_require_high_debris_target_byte,
+        ),
+    ]:
+        if value is not None:
+            command += [option, value]
     return command
 
 
@@ -320,6 +349,14 @@ def main() -> int:
     parser.add_argument("--runtime-freeze-before-route", action="store_true")
     parser.add_argument("--runtime-freeze-before-bomb", action="store_true")
     parser.add_argument("--runtime-freeze-after-bomb-seconds")
+    parser.add_argument("--runtime-freeze-min-queue-score")
+    parser.add_argument("--runtime-freeze-min-debris-nonzero")
+    parser.add_argument("--runtime-freeze-min-collapse-nonzero")
+    parser.add_argument("--runtime-freeze-min-effect-nonzero")
+    parser.add_argument("--runtime-freeze-require-debris-base")
+    parser.add_argument("--runtime-freeze-require-collapse-base")
+    parser.add_argument("--runtime-freeze-require-effect-base")
+    parser.add_argument("--runtime-freeze-require-high-debris-target-byte")
     parser.add_argument("--level-start-seconds", default="3.0")
     parser.add_argument("--right-hold-seconds", default="2.0")
     parser.add_argument("--sample-seconds", default="8.0")
@@ -340,7 +377,9 @@ def main() -> int:
         raise RuntimeError(
             "lane-write route sweep requires a runtime freeze gate; use "
             "--runtime-freeze-preset late-collapse, --runtime-freeze-before-route, "
-            "--runtime-freeze-before-bomb, or --runtime-freeze-after-bomb-seconds"
+            "--runtime-freeze-before-bomb, --runtime-freeze-after-bomb-seconds, "
+            "or a runtime-freeze filter such as "
+            "--runtime-freeze-require-high-debris-target-byte"
         )
 
     route_preset = "custom" if args.route else args.route_preset

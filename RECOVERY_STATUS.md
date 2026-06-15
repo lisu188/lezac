@@ -6,6 +6,25 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Ran the reviewed `forward-debris-expanded` lane-write sweep against natural
+  `1000:3D2D` under WSL/DOSBox, writing the bundle to
+  `C:\Users\andrz\AppData\Local\Temp\lezac-lane-write-forward-expanded-34076294c39340d1beaaaa48bb1b85fb`.
+  All ten route captures completed and the native Windows
+  `build-win-codex-vs3\Debug\lezac_cpp.exe --debug-explosion-playback-oracle`
+  parsed every candidate, but the summary is still negative evidence:
+  `observed_freezes=0`, `ready_candidates=0`, `no_freeze_candidates=10`,
+  `missing_offsets=3d2d`. The unchanged expanded matrix should not be rerun as
+  the next step.
+- Taught the lane-write and lane-result route-sweep summarizers to translate
+  WSL drive paths such as `/mnt/c/...` back to Windows paths when run by native
+  Python. This fixed the local forward-debris sweep summary from ten false
+  `missing` candidates to ten valid `no_freeze` candidates.
+- Exposed the lower explosion process-memory helper's runtime-freeze filters
+  through `tools/sweep_original_lane_write_routes.py`: queue/debris/collapse/
+  effect thresholds, selected debris/collapse/effect base gates, and
+  `--runtime-freeze-require-high-debris-target-byte`. The sweep wrapper now
+  treats those filters as valid runtime freeze gates and its dry-run coverage
+  verifies that they are forwarded to the capture helper.
 - Added `--continue-on-oracle-error` to
   `tools/sweep_original_lane_write_routes.py`. Capture failures still stop the
   sweep, but a missing or unrunnable C++ oracle now writes an `oracle_error`
@@ -1872,8 +1891,12 @@ Baseline: `origin/main`
 
 ## Next Planned Target
 
-Use the reviewed expanded route matrix to finish the remaining natural forward
-debris writeback at `1000:3D2D`:
-`python3 tools/sweep_original_lane_write_routes.py /tmp/lezac-lane-write-forward-expanded . --route-preset forward-debris-expanded --offset forward-debris --approve-procmem --approve-runtime-instrumentation --cpp-exe ./build/lezac_cpp --continue-on-oracle-error`.
+Do not repeat the unchanged `forward-debris-expanded` matrix: the latest
+ten-route pass produced ten valid no-freeze `3D2D` candidates. The next
+original-evidence pass should use the newly exposed runtime-freeze filters to
+patch later or under a narrower decoded state, starting with a single-route
+experiment around the natural reverse-debris target-byte pattern:
+`python3 tools/sweep_original_lane_write_routes.py /tmp/lezac-lane-write-forward-gated . --route x:2.00,c:0.50 --offset forward-debris --runtime-freeze-preset none --runtime-freeze-min-queue-score 0x90 --runtime-freeze-min-debris-nonzero 0x20 --runtime-freeze-min-collapse-nonzero 0x10 --runtime-freeze-min-effect-nonzero 0x10 --runtime-freeze-require-debris-base 0x209e --runtime-freeze-require-collapse-base 0x6620 --runtime-freeze-require-effect-base 0xc22e --runtime-freeze-require-high-debris-target-byte 0x01 --approve-procmem --approve-runtime-instrumentation --cpp-exe ./build/lezac_cpp --continue-on-oracle-error`.
+Treat a no-patch or no-freeze result as route evidence, not promotion.
 Then return to DOSBox frame/debugger evidence for behavior-4 movement,
 targeting, and respawn timing.

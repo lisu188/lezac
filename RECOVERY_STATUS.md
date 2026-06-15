@@ -41,6 +41,11 @@ Baseline: `origin/main`
   compares decoded palettes, background RLE expansion, and tile payload bytes,
   then locks palette size/sum/XOR, background raw size `34292`, decoded pixel
   count `124548`, tile count `132`, and CARO payload size `8448` in CTest.
+- Added `--debug-shipped-file-manifest` to pin the complete 14-file shipped
+  oracle set used by conversion, Ghidra notes, and original-runtime fixtures.
+  CTest now fails if any source file fingerprint drifts, and the command also
+  locks `LEZAC.EXE` as an MZ binary with size `52384`, image base `0x0770`,
+  and image size `50480`.
 - Added `--debug-records-raw-roundtrip` to pin original `RECS.DAT` against the
   converted JSON resource: raw size `92`, seven 13-byte records, top score
   `541200`, cutoff `474930`, score sum `3508890`, all level `8`, all encoded

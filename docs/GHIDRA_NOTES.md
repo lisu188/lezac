@@ -7,6 +7,12 @@ Ghidra 12.0.4 imports `LEZAC.EXE` as:
 - Entry: `1000:7783`
 - Header size: `0x770`
 
+`--debug-shipped-file-manifest` pins the oracle file set used by these notes:
+14 shipped files, aggregate size `193537`, `LEZAC.EXE` size `52384`, MZ header
+paragraphs `119`, image base `0x0770`, and image size `50480`. This keeps
+Ghidra offset-to-file-offset assumptions tied to the exact binary currently in
+the repository.
+
 The executable is a Borland/Turbo Pascal DOS program. The original on-disk far
 segment references are relocated by the MZ loader. For example, the on-disk call
 bytes targeting `082d:0000` are relocated by Ghidra into memory at

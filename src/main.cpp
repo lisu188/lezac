@@ -17,6 +17,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -3757,6 +3758,108 @@ public:
                   << " tile_xor=0x" << std::hex << std::setw(2)
                   << std::setfill('0') << static_cast<int>(tileMetrics.xorValue)
                   << std::dec << std::setfill(' ') << '\n';
+    }
+
+    void debugShippedFileManifest() {
+        struct ExpectedFile {
+            const char* name;
+            size_t size;
+            uint64_t sum;
+            uint64_t weighted;
+            int nonzero;
+            uint8_t xorValue;
+        };
+        struct Metrics {
+            uint64_t sum = 0;
+            uint64_t weighted = 0;
+            int nonzero = 0;
+            uint8_t xorValue = 0;
+        };
+        static const std::array<ExpectedFile, 14> kExpectedFiles{{
+            {"BOMOMIMK.SPR", 20168, 721398, 8117120635ull, 10865, 0xb6},
+            {"BOMPAL.PAL", 768, 20767, 6683027ull, 653, 0x31},
+            {"CARO.CAR", 8450, 601303, 2783120138ull, 7041, 0x01},
+            {"ENGLISH.DOC", 3522, 292353, 520099545ull, 3522, 0x2f},
+            {"FONTS.SPR", 5425, 42172, 72344441ull, 2695, 0xba},
+            {"GRAN.MST", 399, 12560, 2894452ull, 249, 0x0c},
+            {"ITALIANO.DOC", 4392, 377573, 841106589ull, 4392, 0xe5},
+            {"LEZAC.EXE", 52384, 5435302, 135039782411ull, 46261, 0x08},
+            {"LIVELS.SCH", 41047, 1776660, 36064103152ull, 21351, 0x90},
+            {"PROEFS.SON", 782, 38799, 14543304ull, 702, 0xcf},
+            {"PROVA.SPR", 21250, 1231583, 14912492233ull, 11887, 0x3d},
+            {"RECS.DAT", 92, 6047, 278918ull, 85, 0xdd},
+            {"SETUP.LOG", 566, 38565, 10906350ull, 566, 0x13},
+            {"SFONLEF.ZBG", 34292, 2442898, 37574726726ull, 28451, 0x30},
+        }};
+
+        auto metrics = [](const std::vector<uint8_t>& bytes) {
+            Metrics result;
+            for (size_t i = 0; i < bytes.size(); ++i) {
+                uint8_t byte = bytes[i];
+                result.sum += byte;
+                result.weighted += static_cast<uint64_t>(i + 1) * byte;
+                if (byte != 0) ++result.nonzero;
+                result.xorValue = static_cast<uint8_t>(result.xorValue ^ byte);
+            }
+            return result;
+        };
+
+        size_t totalSize = 0;
+        uint64_t totalSum = 0;
+        uint64_t totalWeighted = 0;
+        uint8_t totalXor = 0;
+        std::vector<uint8_t> exeBytes;
+        for (const ExpectedFile& expected : kExpectedFiles) {
+            std::vector<uint8_t> bytes = readFile(expected.name);
+            Metrics actual = metrics(bytes);
+            if (bytes.size() != expected.size || actual.sum != expected.sum ||
+                actual.weighted != expected.weighted ||
+                actual.nonzero != expected.nonzero ||
+                actual.xorValue != expected.xorValue) {
+                throw std::runtime_error(std::string("shipped file fingerprint changed: ") +
+                                         expected.name);
+            }
+            totalSize += bytes.size();
+            totalSum += actual.sum;
+            totalWeighted += actual.weighted;
+            totalXor = static_cast<uint8_t>(totalXor ^ actual.xorValue);
+            if (std::string(expected.name) == "LEZAC.EXE") exeBytes = std::move(bytes);
+        }
+
+        if (totalSize != 193537 || totalSum != 13037980 ||
+            totalWeighted != 235960201921ull || totalXor != 0x6e) {
+            throw std::runtime_error("shipped file aggregate fingerprint changed");
+        }
+        if (exeBytes.size() != 52384 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE MZ header changed");
+        }
+        uint16_t lastPageBytes = le16(exeBytes, 0x02);
+        uint16_t pages = le16(exeBytes, 0x04);
+        uint16_t relocations = le16(exeBytes, 0x06);
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        size_t imageSize = (static_cast<size_t>(pages) - 1) * 512 +
+                           lastPageBytes - imageBase;
+        if (lastPageBytes != 160 || pages != 103 || relocations != 468 ||
+            headerParagraphs != 119 || imageBase != 0x0770 ||
+            imageSize != 50480) {
+            throw std::runtime_error("LEZAC.EXE MZ layout changed");
+        }
+
+        std::cout << "shipped_file_manifest=ok"
+                  << " files=" << kExpectedFiles.size()
+                  << " total_size=" << totalSize
+                  << " total_sum=" << totalSum
+                  << " total_weighted=" << totalWeighted
+                  << " total_xor=0x" << std::hex << std::setw(2)
+                  << std::setfill('0') << static_cast<int>(totalXor)
+                  << std::dec << std::setfill(' ')
+                  << " exe_size=" << exeBytes.size()
+                  << " exe_image_base=0x" << std::hex << std::setw(4)
+                  << std::setfill('0') << imageBase
+                  << std::dec << std::setfill(' ')
+                  << " exe_image_size=" << imageSize
+                  << " docs=2 setup_log=566" << '\n';
     }
 
     void debugRecordNameEntry(const std::string& path) {
@@ -14284,6 +14387,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-core-resource-raw-roundtrip") {
             app.debugCoreResourceRawRoundtrip();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-shipped-file-manifest") {
+            app.debugShippedFileManifest();
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-record-name-entry") {

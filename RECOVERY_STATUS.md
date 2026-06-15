@@ -6,6 +6,13 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `--debug-lane-write-static-model` to pin the original executable bytes
+  behind the four lane writeback stores: forward/reverse collapse at
+  `1000:3D1B`/`1000:3EAF`, forward/reverse debris at
+  `1000:3D2D`/`1000:3EC1`, the collapse skip jumps, debris marker arithmetic
+  `(tag - 0x4e20) * 0x0b`, and the shared far-result tail. This keeps the
+  pending natural `3D2D` capture plan tied to original bytes without promoting
+  new gameplay behavior.
 - Added `--debug-sprite-layout-static-model` to pin the original `.SPR` bank
   count/header/payload layout directly from shipped `BOMOMIMK.SPR`,
   `PROVA.SPR`, and `FONTS.SPR` bytes. The diagnostic validates per-bank file

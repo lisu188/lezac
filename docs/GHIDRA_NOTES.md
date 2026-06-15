@@ -446,6 +446,13 @@ runtime error path. The lookup helpers store the neighbor lane byte in
 record weight before adding it to the numerator. `--debug-lane-helper-model`
 locks the data flow and `--debug-lane-blend-arithmetic` locks the division
 contract before any live playback behavior is changed.
+`--debug-lane-write-static-model` pins the executable bytes for the four lane
+writeback stores directly: `1000:3d1b` writes forward collapse
+`AL -> [DI+0x6617]`, `1000:3d2d` writes forward debris
+`DL -> [DI+0x2097]`, `1000:3eaf` writes reverse collapse
+`AL -> [DI+0x6618]`, and `1000:3ec1` writes reverse debris
+`DL -> [DI+0x2098]`. It also verifies the collapse skip jumps, the debris
+marker arithmetic `(tag - 0x4e20) * 0x0b`, and the shared far-result tail.
 
 A 2026-04-28 original runtime-child-memory capture now freezes the forward
 lane blender at `1000:3cd4`, just before it loads the far division helper

@@ -81,6 +81,7 @@ LEZAC_LOAD_ORIGINAL_ASSETS=1 ./build/lezac_cpp --validate
 ./build/lezac_cpp --debug-player-damage-sound
 ./build/lezac_cpp --debug-sound-callsite-oracle tests/fixtures/dosbox/sound_callsite_oracle_synthetic.txt
 LEZAC_SOUND_CALLSITE_DEBUG_DRY_RUN=1 tools/capture_original_sound_callsite_debug.sh /tmp/lezac-sound-callsite-debug . player_damage_sound
+./build/lezac_cpp --debug-lane-write-static-model
 ./build/lezac_cpp --debug-original-damage-counters
 ./build/lezac_cpp --debug-level1-frame-inspection
 ./build/lezac_cpp --debug-autoplayer level1_bomb_route
@@ -647,6 +648,11 @@ python3 tools/sweep_original_lane_write_routes.py \
   --approve-procmem --approve-runtime-instrumentation \
   --cpp-exe ./build/lezac_cpp
 ```
+
+`--debug-lane-write-static-model` pins the shipped executable bytes behind
+that plan: forward/reverse collapse stores at `1000:3D1B`/`1000:3EAF`,
+forward/reverse debris stores at `1000:3D2D`/`1000:3EC1`, the `0x4E20`
+debris marker base, `0x0B` debris stride, and the shared far-result write tail.
 
 ## Implemented
 

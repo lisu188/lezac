@@ -726,6 +726,13 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^lane_result_route_sweep_summary_check=ok cases=10")
 
+        add_test(NAME explosion_lane_write_static_model
+            COMMAND $<TARGET_FILE:lezac_cpp> --debug-lane-write-static-model)
+        set_tests_properties(explosion_lane_write_static_model PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_write_static_model=ok image_base=0x0770 sites=4 forward=2 reverse=2 collapse=2 debris=2 jump_over_debris=2 debris_marker_base=0x4e20 debris_marker_stride=0x0b debris_marker_setups=2 shared_tail=2 pending_natural_forward=0x3d2d stores=0x3d1b:forward/collapse/al:0x6617,0x3d2d:forward/debris/dl:0x2097,0x3eaf:reverse/collapse/al:0x6618,0x3ec1:reverse/debris/dl:0x2098")
+
         add_test(NAME explosion_lane_write_route_sweep_default_dry_run
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_write_routes.py

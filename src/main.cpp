@@ -10969,6 +10969,165 @@ public:
         }
     }
 
+    void debugLaneWriteStaticModel() {
+        struct StoreSite {
+            uint16_t offset;
+            const char* label;
+            const char* direction;
+            const char* target;
+            const char* sourceReg;
+            uint16_t displacement;
+            uint16_t pairedDebrisOffset;
+            bool skipsDebrisSetup;
+        };
+
+        const std::array<StoreSite, 4> sites{{
+            {0x3d1b, "forward_collapse", "forward", "collapse", "al", 0x6617, 0x3d2d, true},
+            {0x3d2d, "forward_debris", "forward", "debris", "dl", 0x2097, 0x0000, false},
+            {0x3eaf, "reverse_collapse", "reverse", "collapse", "al", 0x6618, 0x3ec1, true},
+            {0x3ec1, "reverse_debris", "reverse", "debris", "dl", 0x2098, 0x0000, false},
+        }};
+
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for lane-write scan");
+        }
+
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " bytes changed");
+                }
+            }
+        };
+        auto regName = [](uint8_t modrm) {
+            switch ((modrm >> 3) & 0x07) {
+            case 0:
+                return std::string("al");
+            case 2:
+                return std::string("dl");
+            default:
+                return std::string("r") + std::to_string((modrm >> 3) & 0x07);
+            }
+        };
+        auto hexByteLocal = [](uint8_t value) {
+            std::ostringstream oss;
+            oss << "0x" << std::hex << std::nouppercase
+                << std::setw(2) << std::setfill('0')
+                << static_cast<int>(value);
+            return oss.str();
+        };
+
+        constexpr uint16_t kDebrisMarkerBase = 0x4e20;
+        constexpr uint8_t kDebrisMarkerStride = 0x0b;
+        const std::string debrisSetup =
+            "8a 56 f3 8b 46 f8 2d 20 4e 6b f8 0b";
+        const std::string sharedTail =
+            "8b 46 f6 3b 46 f0 75 c5 8a 46 f3 c4 7e 04 26 88 05 c9 c2 06 00";
+
+        int forwardSites = 0;
+        int reverseSites = 0;
+        int collapseSites = 0;
+        int debrisSites = 0;
+        int jumpOverDebris = 0;
+        int debrisMarkerSetups = 0;
+        std::ostringstream storeList;
+
+        for (size_t i = 0; i < sites.size(); ++i) {
+            const StoreSite& site = sites[i];
+            size_t p = imageBase + site.offset;
+            if (p + 4 > exeBytes.size() || exeBytes[p] != 0x88) {
+                throw std::runtime_error(std::string(site.label) + " store opcode changed");
+            }
+            const uint8_t modrm = exeBytes[p + 1];
+            if ((modrm & 0xc7) != 0x85) {
+                throw std::runtime_error(std::string(site.label) + " store addressing changed");
+            }
+            if (regName(modrm) != site.sourceReg ||
+                le16(exeBytes, p + 2) != site.displacement) {
+                throw std::runtime_error(std::string(site.label) + " store target changed");
+            }
+
+            if (std::string(site.direction) == "forward") {
+                ++forwardSites;
+            } else {
+                ++reverseSites;
+            }
+            if (std::string(site.target) == "collapse") {
+                ++collapseSites;
+            } else {
+                ++debrisSites;
+            }
+
+            if (site.skipsDebrisSetup) {
+                size_t jump = p + 4;
+                if (jump + 2 > exeBytes.size() || exeBytes[jump] != 0xeb) {
+                    throw std::runtime_error(std::string(site.label) +
+                                             " debris-skip jump changed");
+                }
+                const int rel = static_cast<int8_t>(exeBytes[jump + 1]);
+                const uint16_t jumpTarget =
+                    static_cast<uint16_t>(static_cast<int>(site.offset) + 6 + rel);
+                if (jumpTarget != static_cast<uint16_t>(site.pairedDebrisOffset + 4)) {
+                    throw std::runtime_error(std::string(site.label) +
+                                             " debris-skip target changed");
+                }
+                ++jumpOverDebris;
+
+                const uint16_t setupOffset = static_cast<uint16_t>(site.offset + 6);
+                requireBytes(setupOffset, debrisSetup,
+                             std::string(site.label) + " debris marker setup");
+                size_t setup = imageBase + setupOffset;
+                if (le16(exeBytes, setup + 7) != kDebrisMarkerBase ||
+                    exeBytes[setup + 11] != kDebrisMarkerStride) {
+                    throw std::runtime_error(std::string(site.label) +
+                                             " debris marker constants changed");
+                }
+                ++debrisMarkerSetups;
+            }
+
+            if (i != 0) storeList << ',';
+            storeList << hex4(site.offset) << ':' << site.direction << '/'
+                      << site.target << '/' << site.sourceReg << ':'
+                      << hex4(site.displacement);
+        }
+
+        requireBytes(0x3d31, sharedTail, "forward lane-write shared tail");
+        requireBytes(0x3ec5, sharedTail, "reverse lane-write shared tail");
+
+        if (forwardSites != 2 || reverseSites != 2 || collapseSites != 2 ||
+            debrisSites != 2 || jumpOverDebris != 2 || debrisMarkerSetups != 2) {
+            throw std::runtime_error("lane-write static summary changed");
+        }
+
+        std::cout << "lane_write_static_model=ok"
+                  << " image_base=0x0770"
+                  << " sites=" << sites.size()
+                  << " forward=" << forwardSites
+                  << " reverse=" << reverseSites
+                  << " collapse=" << collapseSites
+                  << " debris=" << debrisSites
+                  << " jump_over_debris=" << jumpOverDebris
+                  << " debris_marker_base=" << hex4(kDebrisMarkerBase)
+                  << " debris_marker_stride=" << hexByteLocal(kDebrisMarkerStride)
+                  << " debris_marker_setups=" << debrisMarkerSetups
+                  << " shared_tail=2"
+                  << " pending_natural_forward=" << hex4(0x3d2d)
+                  << " stores=" << storeList.str()
+                  << '\n';
+    }
+
     void debugOriginalState2EffectPlacement() {
         constexpr uint16_t kEffectBase = 0xc21e;
         constexpr int kMapWidth = 60;
@@ -16605,6 +16764,10 @@ int main(int argc, char** argv) {
         if (argc > 2 && std::string(argv[1]) == "--debug-explosion-playback-oracle") {
             bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";
             return app.debugExplosionPlaybackOracle(argv[2], expectError);
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-lane-write-static-model") {
+            app.debugLaneWriteStaticModel();
+            return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-effect-placement") {
             app.debugOriginalState2EffectPlacement();

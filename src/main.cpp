@@ -154,6 +154,8 @@ constexpr uint16_t kRecordNamePromptSoundCursor = 0x0078;
 constexpr uint8_t kRecordNamePromptSoundPriority = 11;
 constexpr uint16_t kRecordNameCommitSoundCursor = 0x0008;
 constexpr uint8_t kRecordNameCommitSoundPriority = 11;
+constexpr uint16_t kRecordsPageSoundCursor = 0x0024;
+constexpr uint8_t kRecordsPageSoundPriority = 2;
 constexpr uint16_t kPlayerDamageSoundCursor = 0x002d;
 constexpr uint8_t kPlayerDamageSoundPriority = 4;
 constexpr uint16_t kPlayerDeathSoundCursor = 0x0056;
@@ -5629,6 +5631,41 @@ public:
                   << " ghidra_prompt=1000:1857"
                   << " ghidra_commit=1000:1a44"
                   << " latch=1000:165a"
+                  << '\n';
+    }
+
+    void debugRecordsPageSoundRouting() {
+        load();
+        clearSoundLatch();
+        lastPumpedSoundOffset_ = 0;
+        lastPumpedSoundSelector_ = 0;
+
+        bool running = true;
+        if (!menu_ || menuPage_ != MenuPage::Main) {
+            throw std::runtime_error("records page sound route did not start in menu");
+        }
+        onKey(SDLK_r, running);
+        if (!running || !menu_ || menuPage_ != MenuPage::Records ||
+            !soundLatch_.active ||
+            soundLatch_.latchedOffset != kRecordsPageSoundCursor ||
+            soundLatch_.currentSelector != kRecordsPageSoundPriority ||
+            soundLatch_.directSweep) {
+            throw std::runtime_error("records page sound request mismatch");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active ||
+            lastPumpedSoundOffset_ != kRecordsPageSoundCursor ||
+            lastPumpedSoundSelector_ != kRecordsPageSoundPriority) {
+            throw std::runtime_error("records page sound pump mismatch");
+        }
+
+        std::cout << "records_page_sound=ok"
+                  << " cursor=" << hex4(kRecordsPageSoundCursor)
+                  << " priority=" << static_cast<int>(kRecordsPageSoundPriority)
+                  << " direct_sweep=0"
+                  << " ghidra=1000:2083"
+                  << " latch=1000:165a"
+                  << " string=punteggi_migliori"
                   << '\n';
     }
 
@@ -12801,6 +12838,7 @@ private:
                 menuPage_ = MenuPage::Instructions;
             } else if (key == SDLK_r) {
                 menuPage_ = MenuPage::Records;
+                requestRecordsPageSound();
             } else if (key == SDLK_s) {
                 showBackground_ = !showBackground_;
             }
@@ -14315,6 +14353,10 @@ private:
                                   kRecordNameCommitSoundPriority);
     }
 
+    bool requestRecordsPageSound() {
+        return requestSoundCursor(kRecordsPageSoundCursor, kRecordsPageSoundPriority);
+    }
+
     bool requestPortalTeleportSound() {
         return requestSoundCursor(kPortalTeleportSoundCursor, kPortalTeleportSoundPriority);
     }
@@ -15425,6 +15467,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-record-name-sound") {
             app.debugRecordNameSoundRouting(argv[2]);
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-records-page-sound") {
+            app.debugRecordsPageSoundRouting();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-place-sound") {

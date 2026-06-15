@@ -763,6 +763,9 @@ python3 tools/sweep_original_lane_write_routes.py \
   name-entry writes are now live: high-score prompt opens with cursor `0x0078`
   at priority `11`, and Enter commits with cursor `0x0008` at priority `11`.
   `--debug-record-name-sound` pins both requests through the recovered latch.
+  The main-menu records-page transition now also queues the `1000:2083`
+  `punteggi migliori` sound, cursor `0x0024` at priority `2`, while the
+  cursor-only `1000:202d` record-table write remains staged.
   Live player damage now
   accumulates per-player damage bytes and drains them once per update pass,
   matching the recovered `DS:79e8`/`DS:79e9` model and original unsigned byte

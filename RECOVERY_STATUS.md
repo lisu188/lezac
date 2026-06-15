@@ -135,6 +135,11 @@ Baseline: `origin/main`
   (`1000:1857`), and pressing Enter queues cursor `0x0008` at priority `11`
   (`1000:1a44`) before the record table update. `--debug-record-name-sound`
   now pumps and asserts both requests through the recovered `1000:165a` latch.
+- Recovered the main-menu records-page sound wrapper at `1000:2079..2094`:
+  opening the records page queues cursor `0x0024` at priority `2` immediately
+  before the `punteggi migliori` text. `--debug-records-page-sound` now asserts
+  that live transition, while the cursor-only `1000:202d` record-table write
+  remains staged.
 - Extended `--debug-end-flow-records` with the original-style two-player
   threshold re-check: player 2 can qualify against the old seventh-place score,
   but is skipped after player 1 inserts a higher record and raises the table

@@ -916,6 +916,12 @@ queues cursor `0x0078` at priority `11` from `1000:1857`, and pressing Enter
 queues cursor `0x0008` at priority `11` from `1000:1a44` before the record is
 stored. `--debug-record-name-sound` pins both requests and pumps them through
 the recovered `1000:165a` latch.
+The records-page wrapper at `1000:2079..2094` queues cursor `0x0024` at
+priority `2` immediately before the `punteggi migliori` record-table text at
+`1000:2095`; the C++ main-menu records-page transition now maps that to
+`requestRecordsPageSound`, and `--debug-records-page-sound` pins the request.
+The earlier `1000:202d` cursor-only record-table-region write remains staged
+until its priority and exact flow are proven.
 
 Other non-explosion cues are still being mapped; direct `playSound(index)`
 callers remain compatibility hooks until their original cursor/priority writes

@@ -44,6 +44,10 @@ EXPECTED_RECOVERED_HOOK_SNIPPETS = [
     "constexpr uint8_t kRecordNameCommitSoundPriority = 11;",
     "bool requestRecordNameCommitSound()",
     "requestRecordNameCommitSound();",
+    "constexpr uint16_t kRecordsPageSoundCursor = 0x0024;",
+    "constexpr uint8_t kRecordsPageSoundPriority = 2;",
+    "bool requestRecordsPageSound()",
+    "requestRecordsPageSound();",
 ]
 
 EXPECTED_REJECTED_OBJECTIVE_CANDIDATES = [
@@ -129,7 +133,7 @@ def check_cmake(cmake_path: Path) -> None:
     require(text, "tools/check_sound_compatibility_hooks.py", "CMake")
     require(
         text,
-        "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=4 helpers=20 docs=3 rejected_objective_candidates=3",
+        "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=24 docs=3 rejected_objective_candidates=3",
         "CMake",
     )
 
@@ -148,7 +152,7 @@ def main() -> int:
     print(
         "sound_compatibility_hooks=ok "
         f"live_hooks={len(EXPECTED_LIVE_HOOKS)} "
-        "recovered_hooks=4 "
+        "recovered_hooks=5 "
         f"helpers={len(EXPECTED_HELPER_SNIPPETS) + len(EXPECTED_RECOVERED_HOOK_SNIPPETS)} "
         "docs=3 "
         f"rejected_objective_candidates={len(EXPECTED_REJECTED_OBJECTIVE_CANDIDATES)}"

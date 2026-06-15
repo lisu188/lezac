@@ -6,6 +6,13 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Tightened `--debug-original-state2-visual-row-model` so the original
+  state-2 row fixture now labels its raw field candidates: row bytes 0 and 1
+  stay draw-offset candidates with bytes `0x10,0x10` / pixels `16,16`, row byte
+  2 remains the stable raw constant `0x7d`, and row byte 3 remains the
+  `BOMOMIMK` sprite-index range `0x43..0x48`. This is still
+  `visual_claim=0`; paired original-frame comparison is required before the
+  full death/reentry presentation can be promoted.
 - Ran the reviewed `forward-debris-expanded` lane-write sweep against natural
   `1000:3D2D` under WSL/DOSBox, writing the bundle to
   `C:\Users\andrz\AppData\Local\Temp\lezac-lane-write-forward-expanded-34076294c39340d1beaaaa48bb1b85fb`.

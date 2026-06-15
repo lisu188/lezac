@@ -198,8 +198,11 @@ and optional-original guardrails pick them up automatically. The current
 original fixture is `visual_table_oracle_original_state2_runtime.txt`,
 normalized from the original state-2 runtime stop and still `visual_claim=0`.
 It validates row byte 3 as the `BOMOMIMK` sprite-index candidate for frame
-`0x4a`; the remaining row bytes still require final field names before live
-death/reentry art can be claimed.
+`0x4a`. The row-model diagnostic now keeps row bytes 0 and 1 as draw-offset
+candidates with raw bytes `0x10,0x10` / pixels `16,16`, keeps row byte 2 as
+the stable raw constant `0x7d`, and keeps row byte 3 as the sprite-index range
+`0x43..0x48`; full live death/reentry art still requires paired original-frame
+evidence before it can be claimed.
 Summarize any one of those capture directories with
 `python3 tools/summarize_debug_capture.py <capture_dir>`. The summary reports
 `candidate_status=ready|incomplete|missing|none`, missing fixture fields,
@@ -881,7 +884,9 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   documentation before any future renderer promotion.
   `--debug-original-state2-visual-row-model` mirrors that row range as a
   conservative C++ model, including the row-byte-3 `BOMOMIMK` sprite-index
-  candidates `67..72`, while preserving `visual_claim=0`.
+  candidates `67..72`, the row-byte-0/1 draw-offset candidates
+  `0x10,0x10` / `16,16`, the stable row-byte-2 constant `0x7d`, and
+  `visual_claim=0`.
   `--debug-original-state2-visual-row-assets` verifies those candidates against
   the loaded sprite bank, reports their dimensions, nonzero-pixel counts, and
   bounding boxes, and contrasts them with the old cursor-index sequence

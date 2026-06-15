@@ -1954,7 +1954,7 @@ if(BUILD_TESTING)
     set_tests_properties(state2_visual_row_model PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "original_state2_visual_row_model=ok frame_range=0x4a..0x4f rows=4a:10,10,7d,43;4b:10,10,7d,44;4c:10,10,7d,45;4d:10,10,7d,46;4e:10,10,7d,47;4f:10,10,7d,48 row0_sequence=10,10,10,10,10,10 row1_sequence=10,10,10,10,10,10 row2_sequence=7d,7d,7d,7d,7d,7d row3_sequence=43,44,45,46,47,48 sprite_bank=BOMOMIMK sprite_source=row_byte3 sprite_candidates=67,68,69,70,71,72 draw_offset_candidate=16,16 row2_constant=0x7d range_guard=1 visual_claim=0 ghidra=1000:6053")
+            "original_state2_visual_row_model=ok frame_range=0x4a..0x4f rows=4a:10,10,7d,43;4b:10,10,7d,44;4c:10,10,7d,45;4d:10,10,7d,46;4e:10,10,7d,47;4f:10,10,7d,48 row0_sequence=10,10,10,10,10,10 row1_sequence=10,10,10,10,10,10 row2_sequence=7d,7d,7d,7d,7d,7d row3_sequence=43,44,45,46,47,48 sprite_bank=BOMOMIMK sprite_source=row_byte3 sprite_candidates=67,68,69,70,71,72 field_candidates=row0_draw_x,row1_draw_y,row2_constant,row3_sprite_index draw_offset_bytes=0x10,0x10 draw_offset_candidate=16,16 row2_constant=0x7d row3_sprite_index_range=0x43..0x48 range_guard=1 visual_claim=0 ghidra=1000:6053")
 
     add_test(NAME state2_visual_row_assets
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-visual-row-assets)

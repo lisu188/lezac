@@ -1109,8 +1109,9 @@ and `drawState2PlayerVisual` now renders the recovered row-byte-3
 the full presentation. The debug command
 `--debug-original-state2-visual-row-model` mirrors the original row range as a
 C++ model with rows `4a:10,10,7d,43` through `4f:10,10,7d,48`,
-row-byte-3 sprite candidates `67..72`, draw-offset candidate `16,16`, and
-`visual_claim=0`. `--debug-original-state2-visual-row-assets` then confirms
+row-byte-0/1 draw-offset candidates `0x10,0x10` / `16,16`, stable row-byte-2
+constant `0x7d`, row-byte-3 sprite candidates `67..72`, and `visual_claim=0`.
+`--debug-original-state2-visual-row-assets` then confirms
 those row-byte-3 candidates are in-bounds `BOMOMIMK` sprites, all `16x16`, and
 contrasts them with the old cursor-index sequence `74..79`.
 `--capture-state2-visual-row-preview <out_dir>` renders both sequences as

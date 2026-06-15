@@ -7224,11 +7224,20 @@ public:
     }
 
     void debugOriginalState2VisualRowModel() {
+        constexpr uint8_t kDrawOffsetXByte = 0x10;
+        constexpr uint8_t kDrawOffsetYByte = 0x10;
+        constexpr uint8_t kStableRow2Byte = 0x7d;
+        constexpr uint8_t kFirstSpriteIndexByte = 0x43;
+        constexpr uint8_t kLastSpriteIndexByte = 0x48;
+
         auto bareHex2 = [](uint8_t value) {
             std::ostringstream oss;
             oss << std::hex << std::nouppercase << std::setw(2)
                 << std::setfill('0') << static_cast<int>(value);
             return oss.str();
+        };
+        auto prefixedHex2 = [&](uint8_t value) {
+            return std::string("0x") + bareHex2(value);
         };
         auto rowText = [&](const State2VisualRow& row) {
             return bareHex2(row.frame) + ":" + bareHex2(row.row0) + "," +
@@ -7247,6 +7256,15 @@ public:
             State2VisualRow row;
             if (!originalState2VisualRow(frame, row)) {
                 throw std::runtime_error("state-2 visual row missing");
+            }
+            const uint8_t expectedSpriteIndex =
+                static_cast<uint8_t>(kFirstSpriteIndexByte +
+                                     (frame - kState2VisualStartFrame));
+            if (row.row0 != kDrawOffsetXByte ||
+                row.row1 != kDrawOffsetYByte ||
+                row.row2 != kStableRow2Byte ||
+                row.row3 != expectedSpriteIndex) {
+                throw std::runtime_error("state-2 visual row field candidates changed");
             }
             if (frame != kState2VisualStartFrame) {
                 rows << ';';
@@ -7281,8 +7299,14 @@ public:
                   << " sprite_bank=BOMOMIMK"
                   << " sprite_source=row_byte3"
                   << " sprite_candidates=" << spriteCandidates.str()
+                  << " field_candidates=row0_draw_x,row1_draw_y,row2_constant,row3_sprite_index"
+                  << " draw_offset_bytes=" << prefixedHex2(kDrawOffsetXByte)
+                  << ',' << prefixedHex2(kDrawOffsetYByte)
                   << " draw_offset_candidate=16,16"
-                  << " row2_constant=0x7d"
+                  << " row2_constant=" << prefixedHex2(kStableRow2Byte)
+                  << " row3_sprite_index_range="
+                  << prefixedHex2(kFirstSpriteIndexByte) << ".."
+                  << prefixedHex2(kLastSpriteIndexByte)
                   << " range_guard=1"
                   << " visual_claim=0"
                   << " ghidra=1000:6053\n";

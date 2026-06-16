@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
     echo "usage: $0 out_dir [asset_dir] target" >&2
-    echo "targets: contact_scanner_runtime_sound" >&2
+    echo "targets: contact_scanner_runtime_sound actor_update_runtime_cursor_0024_sound actor_update_runtime_cursor_0035_sound actor_update_runtime_cursor_0021_sound" >&2
 }
 
 if [[ $# -lt 2 || $# -gt 3 ]]; then
@@ -29,6 +29,33 @@ case "$target" in
         priority=4
         capture_class=actor_contact_runtime
         static_region=contact_scanner
+        ;;
+    actor_update_runtime_cursor_0024_sound)
+        ghidra=1000:6844
+        label=actor_update_cursor_0024
+        scenario=actor_update_runtime_cursor_0024_sound
+        cursor=0x0024
+        priority=2
+        capture_class=actor_contact_runtime
+        static_region=actor_update
+        ;;
+    actor_update_runtime_cursor_0035_sound)
+        ghidra=1000:6924
+        label=actor_update_cursor_0035
+        scenario=actor_update_runtime_cursor_0035_sound
+        cursor=0x0035
+        priority=5
+        capture_class=actor_contact_runtime
+        static_region=actor_update
+        ;;
+    actor_update_runtime_cursor_0021_sound)
+        ghidra=1000:7386
+        label=actor_update_cursor_0021
+        scenario=actor_update_runtime_cursor_0021_sound
+        cursor=0x0021
+        priority=1
+        capture_class=actor_contact_runtime
+        static_region=actor_update
         ;;
     *)
         echo "unsupported sound-callsite process-memory target: $target" >&2

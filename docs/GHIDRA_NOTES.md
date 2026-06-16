@@ -347,10 +347,13 @@ route sweep. `tools/check_actor_update_dispatch_gates.py` additionally scans
 the actor-update window for every `cmp [bp-31h], imm` gate and currently locks
 `1000:654E = 06`, `1000:65A2 = 05`, and the later `1000:7595 = 05` exit gate
 to `1000:777F`; that late gate is exposed as `actor_update_gate5_exit`.
-For the first actor/contact sound target, the guarded
-`tools/capture_original_sound_callsite_procmem.sh` wrapper applies the same
-process-memory freeze strategy to `contact_scanner_runtime_sound` at
-`1000:5E81`. Live runs require `LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1` and
+The guarded `tools/capture_original_sound_callsite_procmem.sh` wrapper applies
+the same process-memory freeze strategy to the actor/contact sound queue:
+`contact_scanner_runtime_sound` at `1000:5E81`,
+`actor_update_runtime_cursor_0024_sound` at `1000:6844`,
+`actor_update_runtime_cursor_0035_sound` at `1000:6924`, and
+`actor_update_runtime_cursor_0021_sound` at `1000:7386`. Live runs require
+`LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1` and
 `LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION=1`, report
 `sound_callsite_procmem`, and write a fill-in `sound_callsite` candidate
 fixture with `visual_claim=0`; this is reachability/runtime scaffolding only

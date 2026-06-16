@@ -145,6 +145,32 @@ def main() -> int:
         require(custom, snippet, "custom_routes")
     cases += 1
 
+    actor_update_target = run_sweep(
+        root,
+        [
+            str(out_base / "actor-update-target"),
+            str(root),
+            "--dry-run",
+            "--target",
+            "actor_update_runtime_cursor_0035_sound",
+            "--timing",
+            "before_route",
+            "--route",
+            "x:2.00,c:0.50",
+        ],
+    )
+    for snippet in [
+        "target=actor_update_runtime_cursor_0035_sound",
+        "timings=before_route routes=1",
+        "route_labels=x2p00_c0p50",
+        "capture_commands=1",
+        "LEZAC_SOUND_CALLSITE_RUNTIME_FREEZE_BEFORE_ROUTE=1",
+        "capture_original_sound_callsite_procmem.sh",
+        "actor_update_runtime_cursor_0035_sound",
+    ]:
+        require(actor_update_target, snippet, "actor_update_target")
+    cases += 1
+
     skip_environment = run_sweep(
         root,
         [

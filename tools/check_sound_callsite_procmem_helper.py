@@ -8,13 +8,28 @@ from pathlib import Path
 
 
 TARGETS = {
-    "contact_scanner_runtime_sound": "1000:5E81",
+    "contact_scanner_runtime_sound": ("1000:5E81", "contact_scanner"),
+    "actor_update_runtime_cursor_0024_sound": ("1000:6844", "actor_update"),
+    "actor_update_runtime_cursor_0035_sound": ("1000:6924", "actor_update"),
+    "actor_update_runtime_cursor_0021_sound": ("1000:7386", "actor_update"),
 }
 
 CMAKE_TESTS = {
     "contact_scanner_runtime_sound": (
         "sound_callsite_procmem_helper_contact_scanner_dry_run",
         "/tmp/lezac-sound-callsite-procmem-contact-dry-run",
+    ),
+    "actor_update_runtime_cursor_0024_sound": (
+        "sound_callsite_procmem_helper_actor_update_cursor_0024_dry_run",
+        "/tmp/lezac-sound-callsite-procmem-actor-update-0024-dry-run",
+    ),
+    "actor_update_runtime_cursor_0035_sound": (
+        "sound_callsite_procmem_helper_actor_update_cursor_0035_dry_run",
+        "/tmp/lezac-sound-callsite-procmem-actor-update-0035-dry-run",
+    ),
+    "actor_update_runtime_cursor_0021_sound": (
+        "sound_callsite_procmem_helper_actor_update_cursor_0021_dry_run",
+        "/tmp/lezac-sound-callsite-procmem-actor-update-0021-dry-run",
     ),
 }
 
@@ -60,6 +75,9 @@ def check_script(script_path: Path) -> None:
         "capture=sound_callsite",
         "instrumented_runtime_child_memory=1",
         "contact_scanner_runtime_sound",
+        "actor_update_runtime_cursor_0024_sound",
+        "actor_update_runtime_cursor_0035_sound",
+        "actor_update_runtime_cursor_0021_sound",
         'candidate_fixture="$out_dir/${target}_sound_callsite_candidate.txt"',
         "environment_preflight_log=\"$out_dir/environment_preflight.log\"",
         "preflight_original_evidence_environment.py",
@@ -88,9 +106,10 @@ def check_script(script_path: Path) -> None:
         "visual_claim=0",
     ]:
         require(text, snippet, "script")
-    for target, ghidra in TARGETS.items():
+    for target, (ghidra, region) in TARGETS.items():
         require(text, target, "script")
         require(text, ghidra, "script")
+        require(text, region, "script")
 
 
 def check_cmake(cmake_path: Path) -> None:
@@ -99,7 +118,7 @@ def check_cmake(cmake_path: Path) -> None:
     for target, (test_name, out_dir) in CMAKE_TESTS.items():
         block = test_block(text, test_name)
         collapsed = collapse_ws(block)
-        ghidra = TARGETS[target]
+        ghidra, region = TARGETS[target]
         for snippet in [
             "LEZAC_SOUND_CALLSITE_PROCMEM_DRY_RUN=1",
             "${BASH_EXECUTABLE}",
@@ -110,7 +129,7 @@ def check_cmake(cmake_path: Path) -> None:
             (
                 "^sound_callsite_procmem=ok mode=dry_run "
                 f"target={target} ghidra={ghidra} "
-                "capture_class=actor_contact_runtime static_region=contact_scanner "
+                f"capture_class=actor_contact_runtime static_region={region} "
                 ".*procmem_out=.*environment_preflight=dry_run"
             ),
         ]:
@@ -122,7 +141,7 @@ def check_cmake(cmake_path: Path) -> None:
     for snippet in [
         "tools/check_sound_callsite_procmem_helper.py",
         "${CMAKE_CURRENT_SOURCE_DIR}",
-        "^sound_callsite_procmem_helper=ok targets=1 cmake_tests=1 docs=3",
+        "^sound_callsite_procmem_helper=ok targets=4 cmake_tests=4 docs=3",
     ]:
         if collapse_ws(snippet) not in collapsed:
             raise RuntimeError(
@@ -142,6 +161,9 @@ def check_docs(root: Path) -> None:
     ]:
         require(text, "tools/capture_original_sound_callsite_procmem.sh", label)
         require(text, "contact_scanner_runtime_sound", label)
+        require(text, "actor_update_runtime_cursor_0024_sound", label)
+        require(text, "actor_update_runtime_cursor_0035_sound", label)
+        require(text, "actor_update_runtime_cursor_0021_sound", label)
         require(text, "LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1", label)
         require(text, "sound_callsite_procmem", label)
         require(text, "candidate", label)

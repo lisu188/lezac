@@ -1,11 +1,23 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/behavior4-procmem-ready-manifest`
+Branch: `codex/sound-callsite-procmem-targets`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Extended `tools/capture_original_sound_callsite_procmem.sh`,
+  `tools/sweep_original_sound_callsite_routes.py`,
+  `tools/check_sound_callsite_procmem_helper.py`, and CMake dry-run coverage
+  from the first contact-scanner sound target to all four actor/contact runtime
+  sound candidates: `contact_scanner_runtime_sound` at `1000:5E81`,
+  `actor_update_runtime_cursor_0024_sound` at `1000:6844`,
+  `actor_update_runtime_cursor_0035_sound` at `1000:6924`, and
+  `actor_update_runtime_cursor_0021_sound` at `1000:7386`. The route-sweep
+  checker now proves actor-update targets are accepted while keeping the
+  default sweep focused on `contact_scanner_runtime_sound`; all generated
+  candidates remain `visual_claim=0` until original latch/request bytes are
+  captured.
 - Extended `tools/summarize_behavior4_procmem_route_sweep.py` with
   `--write-ready-manifest`, producing the existing
   `debug_capture_ready_candidates` format for ready behavior-4 sweep outputs.

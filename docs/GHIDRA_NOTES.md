@@ -1065,8 +1065,12 @@ Return-to-active evidence: `1000:7db5..7dc7` copies the current player's action
 gate into `DS:79a3` from `DS:1b7b` for player 1 or `DS:1b80` for player 2.
 Manual byte inspection maps those source bytes to keyboard IRQ state:
 `DS:1b7b` is set/cleared by scan codes `0x31`/`0xb1`, and `DS:1b80` by
-`0x52`/`0xd2`. `1000:7ddf` only processes players whose `DS:79e5 + player`
-state byte is `2`. The path reads an 8-byte effect entry at
+`0x52`/`0xd2`. The C++ SDL key path maps those recovered fire gates to `N` for
+player 1 and keypad `0`/Insert for player 2; `--smoke-controls`,
+`--debug-autoplayer two_player_route`, and `--debug-autoplayer
+two_player_progression` exercise those event paths. `1000:7ddf` only processes
+players whose `DS:79e5 + player` state byte is `2`. The path reads an 8-byte
+effect entry at
 `DS:c21e + 8 * actor[+0x01]`, computes map occupancy from effect words `+0` and
 `+2`, and may decrement effect `+2` while placement descends. `1000:7e74`
 requires `DS:79a3 == 1`; on success, `1000:7e85..7e8c` restores actor state

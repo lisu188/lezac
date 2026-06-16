@@ -6,6 +6,14 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Aligned live fire-key handling with the recovered keyboard IRQ gate bytes:
+  player 1 uses `N` (`0x31`/`0xb1`) and player 2 uses keypad `0`/Insert
+  (`0x52`/`0xd2`). The smoke-control and two-player autoplayer routes now drive
+  those SDL key events and assert bomb owner/inventory effects.
+  Validation passed with the native Windows Debug build helper, direct
+  dummy-SDL smoke/two-player autoplayer commands, focused CTest coverage for
+  controls/menu/two-player routes, and the broader UI/autoplayer dummy-SDL
+  CTest group.
 - Extended `--debug-autoplayer death_reentry` to cover the shipped-manual
   post-death choice: after the recovered 60-tick state-2 countdown, pressing
   fire reenters a still-winnable level, waiting through the reentry timeout

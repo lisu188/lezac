@@ -1568,6 +1568,8 @@ public:
         }
 
         size_t twoPlayerBombs = bombs_.size();
+        int player1BombX = static_cast<int>(player_.x + 6.0f) / 8;
+        int player1BombY = static_cast<int>(player_.y + 12.0f) / 8;
         int player2BombX = static_cast<int>(player2_.x + 6.0f) / 8;
         int player2BombY = static_cast<int>(player2_.y + 12.0f) / 8;
         int player1SmallBombs = bombInventory_.counts[0];
@@ -1575,12 +1577,24 @@ public:
         pushKeyDown(SDLK_n);
         processEvents(running);
         if (bombs_.size() != twoPlayerBombs + 1 ||
-            bombs_.back().x != player2BombX || bombs_.back().y != player2BombY) {
-            throw std::runtime_error("N key did not place player 2 bomb in two-player mode");
+            bombs_.back().owner != 1 ||
+            bombs_.back().x != player1BombX || bombs_.back().y != player1BombY) {
+            throw std::runtime_error("N key did not place player 1 bomb in two-player mode");
         }
-        if (bombInventory_.counts[0] != player1SmallBombs ||
+        if (bombInventory_.counts[0] != player1SmallBombs - 1 ||
+            bombInventory2_.counts[0] != player2SmallBombs) {
+            throw std::runtime_error("N key did not consume player 1 inventory only");
+        }
+        pushKeyDown(SDLK_KP_0);
+        processEvents(running);
+        if (bombs_.size() != twoPlayerBombs + 2 ||
+            bombs_.back().owner != 2 ||
+            bombs_.back().x != player2BombX || bombs_.back().y != player2BombY) {
+            throw std::runtime_error("keypad 0 did not place player 2 bomb in two-player mode");
+        }
+        if (bombInventory_.counts[0] != player1SmallBombs - 1 ||
             bombInventory2_.counts[0] != player2SmallBombs - 1) {
-            throw std::runtime_error("N key did not consume player 2 inventory only");
+            throw std::runtime_error("keypad 0 did not consume player 2 inventory only");
         }
 
         pushKeyDown(SDLK_ESCAPE);
@@ -1628,29 +1642,29 @@ public:
             reentryTimer2_ <= 0 || playerDead_) {
             throw std::runtime_error("player 2 death did not enter reentry state");
         }
-        pushKeyDown(SDLK_n);
+        pushKeyDown(SDLK_KP_0);
         processEvents(running);
         if (!player2Dead_ || energy2_ != 100 ||
             bombs_.size() != beforePlayer2ReentryBombs || damageCooldown2_ != 0) {
-            throw std::runtime_error("N key bypassed player 2 state-2 death gate");
+            throw std::runtime_error("keypad 0 bypassed player 2 state-2 death gate");
         }
         for (int i = 0; i < kDeathStateTicks; ++i) {
             updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
                           playerDead_);
         }
-        pushKeyDown(SDLK_n);
+        pushKeyDown(SDLK_KP_0);
         processEvents(running);
         if (player2Dead_ || energy2_ != 100 || lives2_ != 2 ||
             bombs_.size() != beforePlayer2ReentryBombs || damageCooldown2_ <= 0) {
-            throw std::runtime_error("N key did not reenter player 2 after death");
+            throw std::runtime_error("keypad 0 did not reenter player 2 after death");
         }
         size_t afterPlayer2ReentryBombs = bombs_.size();
         int player2BombsAfterReentry = bombInventory2_.counts[0];
-        pushKeyDown(SDLK_n);
+        pushKeyDown(SDLK_KP_0);
         processEvents(running);
         if (bombs_.size() != afterPlayer2ReentryBombs + 1 ||
             bombInventory2_.counts[0] != player2BombsAfterReentry - 1) {
-            throw std::runtime_error("N key did not fire for player 2 after reentry");
+            throw std::runtime_error("keypad 0 did not fire for player 2 after reentry");
         }
 
         energy2_ = 0;
@@ -1664,7 +1678,7 @@ public:
             throw std::runtime_error("player 2 final life did not enter state-2");
         }
         size_t afterPlayer2OutBombs = bombs_.size();
-        pushKeyDown(SDLK_n);
+        pushKeyDown(SDLK_KP_0);
         processEvents(running);
         if (!player2Dead_ || bombs_.size() != afterPlayer2OutBombs) {
             throw std::runtime_error("player 2 reentered or fired during final state-2");
@@ -1894,6 +1908,7 @@ public:
             throw std::runtime_error("Escape from menu did not exit");
         }
         std::cout << "control_smoke=ok manual_controls=s,e,r"
+                  << " fire_keys=n,kp0"
                   << " background_toggle=1"
                   << " view_width=" << viewWidth << "->" << reducedViewWidth
                   << "->" << gameplayViewWidth_
@@ -4021,11 +4036,12 @@ public:
         int p2SmallBefore = bombInventory2_.counts[0];
         int bombTileX = static_cast<int>(player2_.x + 6.0f) / kTileSize;
         int bombTileY = static_cast<int>(player2_.y + 12.0f) / kTileSize;
-        placeBombAt(player2_, bombInventory2_, 2);
+        pushKeyDown(SDLK_KP_0);
+        processEvents(running);
         if (bombs_.size() != bombsBefore + 1 || bombs_.back().owner != 2 ||
             bombs_.back().x != bombTileX || bombs_.back().y != bombTileY ||
             bombInventory2_.counts[0] != p2SmallBefore - 1) {
-            throw std::runtime_error("two-player autoplayer did not place player 2 bomb");
+            throw std::runtime_error("two-player autoplayer keypad 0 did not place player 2 bomb");
         }
 
         FrameInspection bombFrame = inspectRenderedFrame("autoplayer-two-player-bomb");
@@ -4040,7 +4056,7 @@ public:
                   << " p2_final_xy=" << static_cast<int>(player2_.x) << ','
                   << static_cast<int>(player2_.y)
                   << " p2_bomb_tile=" << bombTileX << ',' << bombTileY
-                  << " bombs=1 frame_inspection=1\n";
+                  << " p2_fire_key=kp0 bombs=1 frame_inspection=1\n";
     }
 
     void debugAutoplayerTwoPlayerDeathVisuals(const std::string& scenario) {
@@ -4230,11 +4246,11 @@ public:
         while (deathStateTimer2_ > 0) {
             updateWithControls(idle, 1.0f / 60.0f);
         }
-        pushKeyDown(SDLK_n);
+        pushKeyDown(SDLK_KP_0);
         processEvents(running);
         if (player2Dead_ || lives2_ != 2 || energy2_ != 100 ||
             damageCooldown2_ <= 0 || state2Visual2_.active) {
-            throw std::runtime_error("two-player progression did not reenter player 2");
+            throw std::runtime_error("two-player progression keypad 0 did not reenter player 2");
         }
         FrameInspection reentryFrame = inspectRenderedFrame("autoplayer-two-progress-reentry");
         if (reentryFrame.hash == p2DeathFrame.hash) {
@@ -4245,12 +4261,12 @@ public:
         int p2SmallBefore = bombInventory2_.counts[0];
         int p2BombX = static_cast<int>(player2_.x + 6.0f) / kTileSize;
         int p2BombY = static_cast<int>(player2_.y + 12.0f) / kTileSize;
-        pushKeyDown(SDLK_n);
+        pushKeyDown(SDLK_KP_0);
         processEvents(running);
         if (bombs_.size() != bombsBefore + 1 || bombs_.back().owner != 2 ||
             bombs_.back().x != p2BombX || bombs_.back().y != p2BombY ||
             bombInventory2_.counts[0] != p2SmallBefore - 1) {
-            throw std::runtime_error("two-player progression did not place p2 bomb after reentry");
+            throw std::runtime_error("two-player progression keypad 0 did not place p2 bomb after reentry");
         }
 
         auto objective = findObjectiveTileForSmoke();
@@ -4272,6 +4288,7 @@ public:
                   << " scenario=" << scenario
                   << " p1_moved=1 p2_death_timer=" << kDeathStateTicks
                   << " p2_reentered=1 p2_bomb_tile=" << p2BombX << ',' << p2BombY
+                  << " p2_fire_key=kp0"
                   << " p2_score=" << score2_
                   << " collected=" << collected_
                   << " frame_inspection=1\n";
@@ -15435,33 +15452,37 @@ private:
             resetLevel(levelIndex_ - 1);
         } else if (!menu_ && paused_) {
             return;
-        } else if (!menu_ && (key == SDLK_SPACE || key == SDLK_RCTRL)) {
-            if (playerDead_) {
-                tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                                 damageCooldown_, 1);
-            } else {
-                placeBombAt(player_, bombInventory_, 1);
-            }
-        } else if (!menu_ && key == SDLK_n) {
-            if (playerCount_ > 1) {
-                if (player2Dead_) {
-                    tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_,
-                                     reentryTimer2_, damageCooldown2_, 2);
-                } else {
-                    placeBombAt(player2_, bombInventory2_, 2);
-                }
-            } else if (playerDead_) {
-                tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                                 damageCooldown_, 1);
-            } else {
-                placeBombAt(player_, bombInventory_, 1);
-            }
+        } else if (!menu_ && isPlayer1FireKey(key)) {
+            handlePlayerFire(player_, energy_, lives_, playerDead_, reentryTimer_,
+                             damageCooldown_, bombInventory_, 1);
+        } else if (!menu_ && playerCount_ > 1 && isPlayer2FireKey(key)) {
+            handlePlayerFire(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                             damageCooldown2_, bombInventory2_, 2);
         } else if (!menu_ && key == SDLK_s) {
             showBackground_ = !showBackground_;
         } else if (!menu_ && key == SDLK_r && playerCount_ == 1) {
             adjustGameplayViewWidth(-32);
         } else if (!menu_ && key == SDLK_e && playerCount_ == 1) {
             adjustGameplayViewWidth(32);
+        }
+    }
+
+    bool isPlayer1FireKey(SDL_Keycode key) const {
+        return key == SDLK_n || key == SDLK_SPACE || key == SDLK_RCTRL;
+    }
+
+    bool isPlayer2FireKey(SDL_Keycode key) const {
+        return key == SDLK_KP_0 || key == SDLK_INSERT;
+    }
+
+    void handlePlayerFire(Player& player, int& energy, int& lives, bool& dead,
+                          int& reentryTimer, int& damageCooldown,
+                          BombInventory& inventory, uint8_t playerIndex) {
+        if (dead) {
+            tryReenterPlayer(player, energy, lives, dead, reentryTimer,
+                             damageCooldown, playerIndex);
+        } else {
+            placeBombAt(player, inventory, playerIndex);
         }
     }
 
@@ -17883,13 +17904,14 @@ private:
         text(82, 48, "INSTRUCTIONS", 0xff90ffb0u, false, 0xff101010u);
         text(32, 68, "ARROWS OR Z X: MOVE", 0xffffffffu, false, 0xff101010u);
         text(32, 80, "UP OR M: JUMP", 0xffffffffu, false, 0xff101010u);
-        text(32, 92, "N SPACE RCTRL: PLACE BOMB", 0xffffe060u, false, 0xff101010u);
-        text(32, 104, "LEFT AND RIGHT: SWITCH BOMB", 0xffffffffu, false, 0xff101010u);
-        text(32, 116, "S: BACKGROUND ON OR OFF", 0xffffffffu, false, 0xff101010u);
-        text(32, 128, "E R: PLAYFIELD WIDTH", 0xffffffffu, false, 0xff101010u);
-        text(32, 140, "P: PAUSE", 0xffffffffu, false, 0xff101010u);
-        text(32, 152, "PAGEUP PAGEDOWN: TEST LEVELS", 0xffffffffu, false, 0xff101010u);
-        text(32, 168, "ESC: BACK", 0xff90ffb0u, false, 0xff101010u);
+        text(32, 92, "P1 FIRE: N SPACE RCTRL", 0xffffe060u, false, 0xff101010u);
+        text(32, 104, "P2 FIRE: KP0 OR INS", 0xffffe060u, false, 0xff101010u);
+        text(32, 116, "LEFT AND RIGHT: SWITCH BOMB", 0xffffffffu, false, 0xff101010u);
+        text(32, 128, "S: BACKGROUND ON OR OFF", 0xffffffffu, false, 0xff101010u);
+        text(32, 140, "E R: PLAYFIELD WIDTH", 0xffffffffu, false, 0xff101010u);
+        text(32, 152, "P: PAUSE", 0xffffffffu, false, 0xff101010u);
+        text(32, 164, "PAGEUP PAGEDOWN: TEST LEVELS", 0xffffffffu, false, 0xff101010u);
+        text(32, 180, "ESC: BACK", 0xff90ffb0u, false, 0xff101010u);
     }
 
     void drawRecordsMenu() {

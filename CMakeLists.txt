@@ -218,7 +218,7 @@ if(BUILD_TESTING)
     set_tests_properties(ui_controls_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^control_smoke=ok manual_controls=s,e,r background_toggle=1 view_width=320->288->320 two_player_width_locked=1 frame_inspection=1")
+            "^control_smoke=ok manual_controls=s,e,r fire_keys=n,kp0 background_toggle=1 view_width=320->288->320 two_player_width_locked=1 frame_inspection=1")
 
     add_test(NAME menu_frame_flow_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -418,7 +418,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_two_player_route_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=two_player_route .*p2_bomb_tile=[0-9]+,[0-9]+ bombs=1 frame_inspection=1")
+            "^autoplayer=ok scenario=two_player_route .*p2_bomb_tile=[0-9]+,[0-9]+ p2_fire_key=kp0 bombs=1 frame_inspection=1")
 
     add_test(NAME autoplayer_two_player_progression_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -426,7 +426,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_two_player_progression_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=two_player_progression p1_moved=1 p2_death_timer=60 p2_reentered=1 p2_bomb_tile=[0-9]+,[0-9]+ p2_score=1000 collected=1 frame_inspection=1")
+            "^autoplayer=ok scenario=two_player_progression p1_moved=1 p2_death_timer=60 p2_reentered=1 p2_bomb_tile=[0-9]+,[0-9]+ p2_fire_key=kp0 p2_score=1000 collected=1 frame_inspection=1")
 
     if(Python3_Interpreter_FOUND)
         add_test(NAME python_tool_syntax_lane_result_preflight

@@ -803,9 +803,10 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
 - A first playable two-player reconstruction pass with separate start markers,
   separate controls, split camera views, a central objective panel, per-player
   bomb inventories/HUD/score state, zero-life player-out handling, shared
-  objectives, player-2 bomb placement through the `N` fire key, and queued
-  per-player high-score prompts at end of run, including re-checking player 2
-  against the updated table after player 1 inserts a qualifying record.
+  objectives, original-evidence fire keys (`N` for player 1 and keypad
+  `0`/Insert for player 2), and queued per-player high-score prompts at end of
+  run, including re-checking player 2 against the updated table after player 1
+  inserts a qualifying record.
 - High-score table serialization back to original binary `RECS.DAT` format by
   default, with JSON compatibility retained for `.json` diagnostics. Name
   entry for new records follows original-evidence letters/space, Backspace,

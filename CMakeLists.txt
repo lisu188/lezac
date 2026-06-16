@@ -100,6 +100,17 @@ foreach(resource IN LISTS LEZAC_ORIGINAL_RESOURCES)
     )
 endforeach()
 
+install(TARGETS lezac_cpp RUNTIME DESTINATION .)
+foreach(resource IN LISTS LEZAC_JSON_RESOURCES)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${resource} DESTINATION .)
+endforeach()
+foreach(resource IN LISTS LEZAC_ORIGINAL_RESOURCES)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${resource} DESTINATION .)
+endforeach()
+if(WIN32 AND LEZAC_SDL2_RUNTIME_DLL)
+    install(FILES ${LEZAC_SDL2_RUNTIME_DLL} DESTINATION .)
+endif()
+
 include(CTest)
 
 if(BUILD_TESTING)
@@ -125,6 +136,17 @@ if(BUILD_TESTING)
     set_tests_properties(validate_build_dir_original_assets PROPERTIES
         PASS_REGULAR_EXPRESSION
             "level_7=140x52 objective_tile=106 required_bonus=1 destruction=10 spawners=0 portals=2 triggers=1")
+
+    add_test(NAME install_layout_smoke
+        COMMAND ${CMAKE_COMMAND}
+                -D BUILD_DIR=${CMAKE_BINARY_DIR}
+                -D CONFIG=$<CONFIG>
+                -D INSTALL_DIR=${CMAKE_CURRENT_BINARY_DIR}/install_layout_smoke
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_install_layout.cmake)
+    set_tests_properties(install_layout_smoke PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^install_layout=ok resources=20 sdl2_runtime=[01] validate=1")
 
     add_test(NAME core_resource_raw_roundtrip
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-core-resource-raw-roundtrip)

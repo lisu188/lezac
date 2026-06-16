@@ -498,6 +498,15 @@ powershell -ExecutionPolicy Bypass -File tools/run_native_windows_validation.ps1
 The helper copies the validated vcpkg `SDL2.dll` next to the generated
 `lezac_cpp.exe` after the build and prints `runnable_exe=...`; launch that path
 directly on Windows to avoid missing-runtime-DLL dialogs.
+The CMake install target now stages the executable, `SDL2.dll` on Windows, and
+all original/JSON assets into one runnable directory:
+
+```sh
+cmake --install build-win-codex-vs3 --config Debug --prefix /tmp/lezac-install
+```
+
+CTest `install_layout_smoke` exercises that install layout and runs
+`lezac_cpp --validate` from the installed directory.
 
 Before running original DOSBox or process-memory captures on a new host, use the
 environment preflight to verify assets and capture tools:

@@ -1084,6 +1084,9 @@ Baseline: `origin/main`
   validation recipe repeatable: it sanitizes duplicate `PATH`/`Path` entries,
   configures Visual Studio Build Tools with the local vcpkg SDL2 package, builds
   `build-win-codex-vs3`, and runs CTest unless `-SkipTests` is supplied.
+- Added CMake install rules plus `install_layout_smoke` so an installed C++ port
+  contains `lezac_cpp`, all original/JSON assets, and `SDL2.dll` on Windows, then
+  validates successfully from the install prefix.
 - Added `--debug-actor-update-runtime-oracle <fixture> [--expect-error]` with
   synthetic and malformed fixture coverage. The parser records scenario/level,
   runtime `CS`/`DS`, actor before/after state, contact scanner flags, tile probe

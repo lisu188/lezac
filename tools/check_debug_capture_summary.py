@@ -268,6 +268,51 @@ def write_contact_ready(base: Path) -> Path:
     return capture_dir
 
 
+def write_contact_incomplete_fields(base: Path) -> Path:
+    capture_dir = base / "contact_incomplete_fields"
+    candidate = capture_dir / "candidate_fixture.txt"
+    write_text(
+        capture_dir / "manifest.txt",
+        "\n".join(
+            [
+                "capture=contact_scanner_runtime",
+                "source=dosbox-debug",
+                "scenario=monster_contact_damage_live",
+                "expected_level=1",
+                "route=debugger_seeded",
+                f"candidate_fixture={candidate}",
+                "environment_preflight=ok",
+                "runtime_metadata=observed",
+                "runtime_cs=01ED",
+                "runtime_ds=0C8F",
+                "",
+            ]
+        ),
+    )
+    write_text(
+        candidate,
+        "\n".join(
+            [
+                "capture=contact_scanner_runtime",
+                "source=dosbox-debug",
+                "temp_copy=1",
+                "visual_claim=0",
+                "scenario=monster_contact_damage_live",
+                "level=1",
+                "runtime_cs=01ED",
+                "runtime_ds=0C8F",
+                "break ghidra=1000:5CB0 runtime=01ED:5CB0 label=contact_scanner_start",
+                "break ghidra=1000:604F runtime=01ED:604F label=contact_scanner_end",
+                "subject_actor slot=0 kind=0 state=0 x=0x0068 y=0x00a8 flags=0x0000",
+                "other_actor slot=1 kind=1 state=0 x=0x0070 y=0x00aa flags=0x0000",
+                "contact_scan subject_slot=0 other_slot=1 flags_before=0x0000 flags_after=0x0003 contact=1 player_contact=1 monster_contact=1 object_contact=0 damage_pending=2",
+                "",
+            ]
+        ),
+    )
+    return capture_dir
+
+
 def write_visual_table_ready(base: Path) -> Path:
     capture_dir = base / "visual_ready"
     candidate = capture_dir / "candidate_fixture.txt"
@@ -447,6 +492,16 @@ def main() -> int:
             "reason=environment_preflight_not_ok environment_preflight=error",
             "contact_require_environment",
         )
+        cases += 1
+
+        contact_incomplete_dir = write_contact_incomplete_fields(base)
+        contact_incomplete = run_tool(root, [str(contact_incomplete_dir)])
+        for snippet in [
+            "debug_capture_summary=ok capture=contact_scanner_runtime",
+            "candidate_status=incomplete",
+            "candidate_missing=subject_actor.w,subject_actor.h,other_actor.w,other_actor.h,contact_scan.overlap_x,contact_scan.overlap_y",
+        ]:
+            require(contact_incomplete, snippet, "contact_incomplete_fields")
         cases += 1
 
         contact_ready_dir = write_contact_ready(base)

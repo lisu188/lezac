@@ -18,6 +18,23 @@ from ready_result_fixture_guardrails import (
 
 CAPTURE_DISPATCH_SWEEP = "actor_dispatch_gate_sweep"
 CAPTURE_ROUTE_SWEEP = "actor_contact_route_sweep"
+CONTACT_SCANNER_REQUIRED_RECORD_FIELDS = {
+    "subject_actor": ["slot", "kind", "state", "x", "y", "w", "h", "flags"],
+    "other_actor": ["slot", "kind", "state", "x", "y", "w", "h", "flags"],
+    "contact_scan": [
+        "subject_slot",
+        "other_slot",
+        "flags_before",
+        "flags_after",
+        "contact",
+        "player_contact",
+        "monster_contact",
+        "object_contact",
+        "damage_pending",
+        "overlap_x",
+        "overlap_y",
+    ],
+}
 DISPATCH_GATE_TARGETS = {
     "actor_update_gate5",
     "actor_update_gate5_integration",
@@ -160,6 +177,16 @@ def candidate_readiness(target: str, candidate_fixture: str | None) -> Candidate
     record_names = {
         line.split(" ", 1)[0] for line in lines if " " in line and "=" in line
     }
+    record_fields = {
+        record: {
+            part.split("=", 1)[0]
+            for part in line.split()[1:]
+            if "=" in part
+        }
+        for line in lines
+        if " " in line and "=" in line
+        for record in [line.split(" ", 1)[0]]
+    }
     break_offsets: set[str] = set()
     for line in lines:
         if not line.startswith("break "):
@@ -179,6 +206,14 @@ def candidate_readiness(target: str, candidate_fixture: str | None) -> Candidate
 
     missing = [key for key in required_keys if key not in keys]
     missing.extend(record for record in required_records if record not in record_names)
+    if oracle == "contact_scanner":
+        for record, fields in CONTACT_SCANNER_REQUIRED_RECORD_FIELDS.items():
+            if record not in record_names:
+                continue
+            present_fields = record_fields.get(record, set())
+            missing.extend(
+                f"{record}.{field}" for field in fields if field not in present_fields
+            )
     missing.extend(f"break_{offset}" for offset in required_breaks if offset not in break_offsets)
     placeholders = any("<" in line or ">" in line for line in all_lines)
     status = "ready" if not missing and not placeholders else "incomplete"

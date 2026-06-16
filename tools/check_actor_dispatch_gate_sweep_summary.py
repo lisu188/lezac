@@ -508,6 +508,58 @@ def main() -> int:
             require(scanner_gate_required, snippet, "scanner_gate_required")
         cases += 1
 
+        incomplete_scanner_fields = (
+            base / "incomplete_scanner_fields" / "contact_scanner_candidate.txt"
+        )
+        write_text(
+            incomplete_scanner_fields,
+            "\n".join(
+                [
+                    "capture=contact_scanner_runtime",
+                    "source=synthetic",
+                    "temp_copy=1",
+                    "visual_claim=0",
+                    "scenario=monster_contact_damage_live",
+                    "level=1",
+                    "runtime_cs=01ED",
+                    "runtime_ds=0F3C",
+                    "break ghidra=1000:5CB0 runtime=01ED:5CB0 label=contact_scanner_start",
+                    "break ghidra=1000:604F runtime=01ED:604F label=contact_scanner_end",
+                    "subject_actor slot=0 kind=0 state=0 x=0x0068 y=0x00a8 flags=0x0000",
+                    "other_actor slot=3 kind=2 state=0 x=0x006a y=0x00a8 flags=0x0000",
+                    "contact_scan subject_slot=0 other_slot=3 flags_before=0x0000 flags_after=0x0002 contact=1 player_contact=1 monster_contact=0 object_contact=0 damage_pending=1",
+                    "",
+                ]
+            ),
+        )
+        incomplete_scanner_manifest = (
+            base / "incomplete_scanner_fields" / "manifest.txt"
+        )
+        write_text(
+            incomplete_scanner_manifest,
+            "\n".join(
+                [
+                    "capture=actor_contact_route_sweep",
+                    "target=contact_scanner_end",
+                    "timings=before_route",
+                    "routes=1",
+                    "route_labels=x0p25",
+                    "environment_preflight=ok",
+                    f"capture_status_x0p25=actor_contact_procmem=ok mode=capture target=contact_scanner_end ghidra=1000:604F runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:604F freeze_observed=1 raw_dump=/tmp/incomplete_scanner/raw.txt candidate_fixture={incomplete_scanner_fields}",
+                    "",
+                ]
+            ),
+        )
+        incomplete_scanner = run_summary(root, incomplete_scanner_manifest).stdout
+        for snippet in [
+            "ready_candidates=0",
+            "incomplete_candidates=1",
+            "candidate_status=incomplete",
+            "candidate_missing=subject_actor.w,subject_actor.h,other_actor.w,other_actor.h,contact_scan.overlap_x,contact_scan.overlap_y",
+        ]:
+            require(incomplete_scanner, snippet, "incomplete_scanner_fields")
+        cases += 1
+
         ready_scanner_candidate = base / "ready_scanner" / "contact_scanner_candidate.txt"
         write_text(
             ready_scanner_candidate,
@@ -523,9 +575,9 @@ def main() -> int:
                     "runtime_ds=0F3C",
                     "break ghidra=1000:5CB0 runtime=01ED:5CB0 label=contact_scanner_start",
                     "break ghidra=1000:604F runtime=01ED:604F label=contact_scanner_end",
-                    "subject_actor slot=0 behavior=0 kind=0 state=0 x=0x0068 y=0x00a8 flags=0x0000 contact=0",
-                    "other_actor slot=3 behavior=4 kind=2 state=0 x=0x006a y=0x00a8 flags=0x0000 contact=0",
-                    "contact_scan subject_slot=0 other_slot=3 flags_before=0x0000 flags_after=0x0002 contact=1 player_contact=1 monster_contact=0 object_contact=0 damage_pending=1",
+                    "subject_actor slot=0 behavior=0 kind=0 state=0 x=0x0068 y=0x00a8 w=16 h=24 flags=0x0000 contact=0",
+                    "other_actor slot=3 behavior=4 kind=2 state=0 x=0x006a y=0x00a8 w=16 h=16 flags=0x0000 contact=0",
+                    "contact_scan subject_slot=0 other_slot=3 flags_before=0x0000 flags_after=0x0002 contact=1 player_contact=1 monster_contact=0 object_contact=0 damage_pending=1 overlap_x=14 overlap_y=24",
                     "",
                 ]
             ),

@@ -347,6 +347,9 @@ whenever an observed freeze has a missing, incomplete, or absent candidate
 fixture. `--require-dispatch-gate-freeze` separately rejects sweeps that did not
 freeze any mapped dispatch-gate target. `--write-ready-manifest` writes a small
 follow-up manifest containing only ready fixtures and their oracle commands.
+Contact-scanner candidates additionally require the actor dimensions `w`/`h`
+and contact overlap fields `overlap_x`/`overlap_y`, so summary readiness matches
+the C++ oracle's field parser rather than only checking record names.
 `tools/run_actor_dispatch_ready_manifest.py` can then dry-run or execute that
 handoff without copying shell lines out of the summary output; it rejects
 missing fixture paths and mismatched oracle/flag pairs before execution, and

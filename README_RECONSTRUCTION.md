@@ -802,6 +802,21 @@ tool with `--approve-procmem --approve-runtime-instrumentation`, optionally
 adding `--timing selected_base`, `--timing after_bomb`, or repeated `--route`
 arguments.
 
+The first live classifier pass wrote
+`C:\Users\andrz\AppData\Local\Temp\lezac-branch-anchor-default-1781615578`.
+It showed that `x:2.00,m:0.35` is the useful candidate route: the default
+matrix froze `1000:4C75` and `1000:4C96`, while the focused all-anchor bundle
+`C:\Users\andrz\AppData\Local\Temp\lezac-branch-anchor-m-all-1781616282`
+froze `1000:492F`, `1000:4B3F`, `1000:4B61`, `1000:4B6A`, `1000:4C75`, and
+`1000:4C96`, but not `1000:4C20` or `1000:4CA9`. The matching natural
+`1000:3D2D` retry at
+`C:\Users\andrz\AppData\Local\Temp\lezac-lane-write-forward-m-route-1781616090`
+applied its runtime patch with selected bases `2941/665c/c22e`, target byte
+`0xde`, and lane globals `0x00/0x0004/0x072c`, but summarized as
+`no_freeze` with `missing_offsets=3d2d`. Next probe the helper call/return or
+lane-helper interior between the proven `4C96` call and the missing `3D2D`
+writeback; do not rerun this same route gate unchanged.
+
 The sweep wrapper now translates `/mnt/<drive>/...` candidate paths when a WSL
 run invokes a Windows `.exe` oracle, so that host split can parse candidates in
 the same pass instead of leaving `oracle_error` records for path-only reasons.

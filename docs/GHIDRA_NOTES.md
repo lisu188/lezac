@@ -608,6 +608,20 @@ patches for both `x:2.00,c:0.35` and `x:2.00,c:0.65` loaded without freezing.
 Future `3D2D` attempts should require branch-anchor evidence for the route
 family before relying on sampled lane globals; use
 `tools/sweep_original_branch_anchor_routes.py` for that route classifier.
+The first live classifier pass found that `x:2.00,m:0.35`, unlike the two `c`
+timings, reaches the high-debris branch path. The default bundle
+`C:\Users\andrz\AppData\Local\Temp\lezac-branch-anchor-default-1781615578`
+froze `1000:4C75` with `bp4_local_value=0x8002` and `1000:4C96`; the focused
+all-anchor bundle
+`C:\Users\andrz\AppData\Local\Temp\lezac-branch-anchor-m-all-1781616282`
+also froze `1000:492F`, `1000:4B3F`, `1000:4B61`, and `1000:4B6A`, but not
+`1000:4C20` or `1000:4CA9`. The follow-up natural `1000:3D2D` retry at
+`C:\Users\andrz\AppData\Local\Temp\lezac-lane-write-forward-m-route-1781616090`
+armed the runtime patch at `2.781s` after the bomb with selected bases
+`2941/665c/c22e`, target byte `0xde`, and lane globals `0x00/0x0004/0x072c`,
+but the lane-write summary still classifies it as `no_freeze` with
+`missing_offsets=3d2d`. The remaining forward-debris question is now between
+the proven `4C96` call and the missing `3D2D` writeback, not route reachability.
 `tools/summarize_lane_result_route_sweep.py`
 now classifies completed route-sweep candidates as `ready`, `no_freeze`,
 `incomplete`, or `missing`; `tools/run_lane_result_ready_manifest.py` and

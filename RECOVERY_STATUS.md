@@ -1,7 +1,7 @@
 # Recovery Status
 
 Last reviewed: 2026-06-16
-Branch: `codex/branch-anchor-route-classifier`
+Branch: `codex/branch-anchor-route-evidence`
 Baseline: `origin/main`
 
 ## Completed This Iteration
@@ -208,6 +208,39 @@ Baseline: `origin/main`
   `tools/check_branch_anchor_route_sweep.py` plus CTest dry-run coverage for
   the command shapes, selected-base gates, Windows `.exe` oracle path
   translation, repo-output refusal, bad routes, and live approval refusal.
+- Ran the new branch-anchor classifier under WSL/DOSBox, writing the default
+  bundle to
+  `C:\Users\andrz\AppData\Local\Temp\lezac-branch-anchor-default-1781615578`.
+  Across `x:2.00`, `x:2.00,c:0.35`, `x:2.00,c:0.65`, and
+  `x:2.00,m:0.35`, only `x:2.00,m:0.35` produced positive branch-anchor
+  freezes in the default matrix: `1000:4C75` (`bp4_local_value=0x8002`) and
+  `1000:4C96`. The successful frames
+  `high_debris_word_gate\before_bomb\x2p00_m0p35\091_tail_freeze_check.png`
+  and
+  `effect_forward_pass_call\before_bomb\x2p00_m0p35\091_tail_freeze_check.png`
+  were visually inspected and show the expected level-1 route window.
+- Ran the focused all-anchor classifier for `x:2.00,m:0.35`, writing
+  `C:\Users\andrz\AppData\Local\Temp\lezac-branch-anchor-m-all-1781616282`.
+  This route reached `1000:492F`, `1000:4B3F`, `1000:4B61`, `1000:4B6A`,
+  `1000:4C75`, and `1000:4C96`, but not `1000:4C20` or `1000:4CA9`.
+  The positive `4B3F` and `4B6A` tail frames were visually inspected. The
+  useful narrow reading is that `x:2.00,m:0.35` is now a proven
+  branch-execution route into the zero-target/high-word/forward-call side of
+  the high-debris consumer, while the reverse call and nonzero-target branch
+  remain unobserved for this timing.
+- Retried natural forward debris writeback `1000:3D2D` on that same
+  `x:2.00,m:0.35` route, writing
+  `C:\Users\andrz\AppData\Local\Temp\lezac-lane-write-forward-m-route-1781616090`.
+  The runtime patch applied at `2.781s` after the bomb with selected bases
+  `2941/665c/c22e`, target byte `0xde`, queue score `160`, debris/collapse
+  counts `202/5`, and lane globals `0x00/0x0004/0x072c`, but it did not freeze
+  or record a natural forward-debris lane write. The lane-write summary
+  classifies the single candidate as `no_freeze_candidates=1`,
+  `ready_candidates=0`, `missing_offsets=3d2d`. Frames
+  `043_sample_2p00s.png` and `091_tail_freeze_check.png` were visually
+  inspected: the capture reaches visible blast/smoke playback and then
+  continues into normal level playback, so this is valid negative route
+  evidence rather than a launch/menu failure.
 - Added `--continue-on-oracle-error` to
   `tools/sweep_original_lane_write_routes.py`. Capture failures still stop the
   sweep, but a missing or unrunnable C++ oracle now writes an `oracle_error`
@@ -2155,23 +2188,15 @@ Baseline: `origin/main`
 
 ## Next Planned Target
 
-Do not repeat the unchanged `forward-debris-expanded` matrix: the latest
-ten-route pass produced ten valid no-freeze `3D2D` candidates, and the latest
-single-route gated retries now include multiple no-patch candidates plus two
-valid no-freeze candidates. Do not repeat the early `x:2.00,c:0.50`
-target-byte/word-layer gate: it now proves that the patch can apply at the
-early `0x2093` geometry without hitting natural `3D2D`, and the later
-lane-global gate can apply at `0x01/0x8002/0x07be` on several nearby timings
-without reaching the forward debris write. Direct q78 lane-global probes also
-show that, after that later predicate arms, neither `1000:4C75` nor
-`1000:4C96` is reached again in the sampled window, and the follow-up
-before-bomb `4B3F`/`4C75` probes show the two `c` timing variants do not hit
-the high-debris branch anchors even when patched before the bomb tap. The next
-useful original-evidence step should run
-`tools/sweep_original_branch_anchor_routes.py` on candidate routes and classify
-branch-anchor reachability first, then only target natural `1000:3D2D` on a
-route that has already hit `4B3F`/`4C75`/`4C96` in the same control/input
-family.
-Treat a no-patch or no-freeze result as route evidence, not promotion.
-Then return to DOSBox frame/debugger evidence for behavior-4 movement,
-targeting, and respawn timing.
+Do not repeat the unchanged `forward-debris-expanded` matrix, the early
+`x:2.00,c:0.50` target-byte/word-layer gates, the nearby `c` timing
+lane-global gates, or the now-classified `x:2.00,m:0.35` natural `3D2D`
+gated retry. The `m:0.35` route is useful because it reaches the high-debris
+loop/target/zero-branch/word-gate/forward-call anchors, but the same route's
+natural `3D2D` patch still applies without a forward-debris write. The next
+useful original-evidence step should bracket the gap between the proven
+`1000:4C96` forward-call anchor and the missing `1000:3D2D` debris write:
+probe the forward helper call/return or lane-helper interior on the same
+`x:2.00,m:0.35` route, and treat another no-freeze result as route evidence
+unless it captures a lane-write scratch record. Then return to DOSBox
+frame/debugger evidence for behavior-4 movement, targeting, and respawn timing.

@@ -634,6 +634,36 @@ froze the forward collapse write with output `0x0000`, `DI=0x001e`, and tag
 route naturally writes at `3D1B` and skips the debris write at `3D2D`. The next
 natural `3D2D` search needs a route or seeded setup that reaches the forward
 helper with a debris marker tag, not another replay of this collapse-tag state.
+A follow-up helper-tag sweep at
+`C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-tag-search-1781617957`
+tested `x:1.50,m:0.35`, `x:2.50,m:0.35`, `x:2.00,m:0.15`, and
+`x:2.00,m:0.65` against `1000:3D1B` and `1000:3D2D`. It produced two ready
+`3D1B` captures and six valid no-freeze captures; `3D2D` stayed missing. The
+positive `m:0.15` and `m:0.65` routes both wrote forward collapse tag
+`0x0005` at `DI=0x004b` with output `0x0000`, active count/index `1/1`, and
+`observed_lane_debris_write=0`. The paired `3D2D` captures patched cleanly but
+did not freeze. The inspected tail frames stayed in level-1 playback, so this
+is additional collapse-tag route evidence, not a debris-marker writeback.
+
+A broader expanded-route subset at
+`C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-expanded-tag-subset-1781622932`
+tested `x:1.75`, `x:2.25`, `x:2.00,c:0.25`, `x:2.00,c:0.75`, and
+`x:5.00,m:0.50,x:2.00` against both `3D1B` and `3D2D`. All ten candidates
+patched and parsed as valid no-freeze fixtures, with no observed write at
+either offset. Representative tail frames stayed in level-1 playback, so these
+routes prune the current level-1 timing family rather than support a helper
+debris-marker state.
+
+The final helper-tag-open preset run at
+`C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-tag-open-nosamples-1781623828`
+tested `x:3.00,z:0.50,x:2.00` and `x:1.50,left:0.50,x:2.00` against both
+`3D1B` and `3D2D` with route-state sampling disabled after a sampled attempt
+hit a `/proc/<pid>/mem` permission error. All four candidates patched and
+parsed as valid no-freeze fixtures, with `missing_offsets=3d1b,3d2d`; route
+and tail frames stayed in level-1 playback. The reviewed level-1 timing family
+is now pruned for natural forward-helper debris-tag evidence under before-bomb
+patching.
+
 `tools/summarize_lane_result_route_sweep.py`
 now classifies completed route-sweep candidates as `ready`, `no_freeze`,
 `incomplete`, or `missing`; `tools/run_lane_result_ready_manifest.py` and

@@ -1,7 +1,7 @@
 # Recovery Status
 
 Last reviewed: 2026-06-16
-Branch: `codex/helper-path-probe-evidence`
+Branch: `codex/debris-tag-helper-search`
 Baseline: `origin/main`
 
 ## Completed This Iteration
@@ -258,6 +258,58 @@ Baseline: `origin/main`
   `m:0.35` route reaches through the forward helper and naturally writes a
   collapse lane, while the missing `3D2D` write is explained by the helper's
   active tag being below the debris marker base `0x4e20`.
+- Ran a follow-up forward-helper tag search at
+  `C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-tag-search-1781617957`
+  across routes `x:1.50,m:0.35`, `x:2.50,m:0.35`, `x:2.00,m:0.15`, and
+  `x:2.00,m:0.65`, targeting `1000:3D1B` and `1000:3D2D` with before-bomb
+  runtime patching. The sweep summary reports `candidates=8`,
+  `observed_freezes=2`, `ready_candidates=2`, `no_freeze_candidates=6`, and
+  `missing_offsets=3d2d`. Both positive routes were `3D1B` collapse writes:
+  `x:2.00,m:0.15` and `x:2.00,m:0.65` froze with output `0x0000`,
+  `DI=0x004b`, tag `0x0005`, active count/index `1/1`, high-debris target
+  byte `0xde`, and `observed_lane_debris_write=0`. Their paired `3D2D`
+  candidates patched cleanly but did not freeze or record any lane write.
+  Frames `x2p00_m0p15\3d1b\091_tail_freeze_check.png`,
+  `x2p00_m0p15\3d2d\091_tail_freeze_check.png`, and
+  `x2p50_m0p35\3d2d\091_tail_freeze_check.png` were visually inspected and
+  stayed in the level-1 explosion/playback window. This confirms that nearby
+  `m` timing variants still exercise collapse-tag helper iterations, not a
+  natural debris-marker writeback state.
+- Ran a broader forward-helper tag subset from the expanded route matrix at
+  `C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-expanded-tag-subset-1781622932`.
+  Routes `x:1.75`, `x:2.25`, `x:2.00,c:0.25`, `x:2.00,c:0.75`, and
+  `x:5.00,m:0.50,x:2.00` were each captured against `1000:3D1B` and
+  `1000:3D2D` with before-bomb runtime patching. The summary reports
+  `routes=5`, `candidates=10`, `observed_freezes=0`, `ready_candidates=0`,
+  `no_freeze_candidates=10`, and `missing_offsets=3d1b,3d2d`; every candidate
+  patched and parsed as a valid no-freeze fixture. Tail frames
+  `x1p75\3d2d\091_tail_freeze_check.png`,
+  `x2p00_c0p25\3d2d\091_tail_freeze_check.png`, and
+  `x5p00_m0p50_x2p00\3d2d\091_tail_freeze_check.png` were visually inspected
+  and stayed in live level-1 playback. These routes should not be repeated as
+  natural forward-helper tag candidates without a new control-flow predicate.
+- Added `--route-preset forward-helper-tag-open` to
+  `tools/sweep_original_lane_write_routes.py` for the two remaining unpruned
+  level-1 helper-tag routes from the expanded matrix:
+  `x:3.00,z:0.50,x:2.00` and `x:1.50,left:0.50,x:2.00`. CTest now pins the
+  dry-run command shape when paired with `--offset forward-collapse`,
+  `--offset forward-debris`, `--runtime-freeze-preset none`, and
+  `--runtime-freeze-before-bomb`, so the next DOSBox-capable run can classify
+  those routes without rerunning the full pruned matrix.
+- Ran that focused preset at
+  `C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-tag-open-nosamples-1781623828`
+  after an initial sampled attempt under
+  `...\lezac-forward-helper-tag-open-1781623743` failed on the second capture
+  with a `/proc/<pid>/mem` `PermissionError` during route-state sampling. The
+  rerun disabled route-state samples with `--route-state-interval 0` and
+  completed both routes against `1000:3D1B` and `1000:3D2D`. The summary
+  reports `routes=2`, `candidates=4`, `observed_freezes=0`,
+  `ready_candidates=0`, `no_freeze_candidates=4`, and
+  `missing_offsets=3d1b,3d2d`; all four candidates patched and parsed as valid
+  no-freeze fixtures. Route and tail frames for both `3D2D` captures were
+  visually inspected and stayed in live level-1 playback. This closes the
+  reviewed level-1 helper-tag route family under the current before-bomb
+  patching setup.
 - Added `--continue-on-oracle-error` to
   `tools/sweep_original_lane_write_routes.py`. Capture failures still stop the
   sweep, but a missing or unrunnable C++ oracle now writes an `oracle_error`
@@ -2207,12 +2259,20 @@ Baseline: `origin/main`
 
 Do not repeat the unchanged `forward-debris-expanded` matrix, the early
 `x:2.00,c:0.50` target-byte/word-layer gates, the nearby `c` timing
-lane-global gates, or the now-classified `x:2.00,m:0.35` natural `3D2D`
-gated retry. The `m:0.35` route reaches the high-debris branch path and
-returns from the forward helper, but its natural helper iteration writes
-collapse tag `0x0002` at `3D1B`; it is not a natural debris-tag writeback
-route. The next useful original-evidence step should search for or construct a
-natural `4C96 -> 3BB2` forward-helper iteration whose lane-write scratch tag is
-at or above the debris marker base `0x4e20`, then target `1000:3D2D` only for
-that debris-tag state. Then return to DOSBox frame/debugger evidence for
-behavior-4 movement, targeting, and respawn timing.
+lane-global gates, the now-classified `x:2.00,m:0.35` natural `3D2D` gated
+retry, the follow-up helper-tag sweep routes `x:1.50,m:0.35`,
+`x:2.50,m:0.35`, `x:2.00,m:0.15`, and `x:2.00,m:0.65`, or the expanded
+no-freeze subset `x:1.75`, `x:2.25`, `x:2.00,c:0.25`, `x:2.00,c:0.75`, and
+`x:5.00,m:0.50,x:2.00`, or the final helper-tag-open routes
+`x:3.00,z:0.50,x:2.00` and `x:1.50,left:0.50,x:2.00`. The positive `m` routes
+reach the high-debris
+branch/forward-helper area, but the natural helper iterations observed so far
+write collapse tags `0x0002` or `0x0005` at `3D1B`; the expanded subset did
+not reach either helper write site, and the helper-tag-open routes also stayed
+valid no-freeze for both `3D1B` and `3D2D`. The next useful original-evidence step
+should broaden the route/control hypothesis beyond this level-1 timing family
+or construct a seeded setup that reaches a natural `4C96 -> 3BB2`
+forward-helper iteration whose lane-write scratch tag is at or above the debris
+marker base `0x4e20`, then target `1000:3D2D` only for that debris-tag state.
+Otherwise return to DOSBox frame/debugger evidence for behavior-4 movement,
+targeting, and respawn timing.

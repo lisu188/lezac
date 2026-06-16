@@ -184,6 +184,52 @@ def main() -> int:
     )
     cases += 1
 
+    helper_tag_open = run_sweep(
+        root,
+        [
+            str(out_base / "helper-tag-open"),
+            str(root),
+            "--dry-run",
+            "--skip-oracle",
+            "--route-preset",
+            "forward-helper-tag-open",
+            "--offset",
+            "forward-collapse",
+            "--offset",
+            "forward-debris",
+            "--runtime-freeze-preset",
+            "none",
+            "--runtime-freeze-before-bomb",
+        ],
+    )
+    for snippet in [
+        "offsets=2",
+        "offset_labels=3d1b,3d2d",
+        "offset_addresses=1000:3D1B,1000:3D2D",
+        "routes=2",
+        "route_labels=x3p00_z0p50_x2p00,x1p50_left0p50_x2p00",
+        "capture_commands=4",
+        "oracle_commands=0",
+        "runtime_freeze_preset=none",
+        "route_preset=forward-helper-tag-open",
+        "capture_command_x3p00_z0p50_x2p00_3d1b=",
+        "capture_command_x3p00_z0p50_x2p00_3d2d=",
+        "capture_command_x1p50_left0p50_x2p00_3d1b=",
+        "capture_command_x1p50_left0p50_x2p00_3d2d=",
+        "--freeze-ghidra-offset 1000:3D1B",
+        "--freeze-ghidra-offset 1000:3D2D",
+        "--runtime-freeze-before-bomb",
+        "--route-step z:0.50",
+        "--route-step left:0.50",
+    ]:
+        require(helper_tag_open, snippet, "helper_tag_open")
+    require_not(
+        helper_tag_open,
+        "--runtime-freeze-preset late-collapse",
+        "helper_tag_open",
+    )
+    cases += 1
+
     with_oracle = run_sweep(
         root,
         [

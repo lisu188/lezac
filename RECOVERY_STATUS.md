@@ -1,11 +1,22 @@
 # Recovery Status
 
 Last reviewed: 2026-06-16
-Branch: `codex/helper-tag-classifier`
+Branch: `codex/runtime-sound-capture-ledger`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Extended `tools/capture_original_sound_callsite_debug.sh`, its checker, and
+  dry-run CTest matrix from twelve to sixteen scenarios by adding the four
+  actor/contact runtime sound candidates reported by
+  `--debug-static-sound-unresolved-contexts`:
+  `contact_scanner_runtime_sound`, `actor_update_runtime_cursor_0024_sound`,
+  `actor_update_runtime_cursor_0035_sound`, and
+  `actor_update_runtime_cursor_0021_sound`. The generated manifests and
+  candidate fixtures carry `capture_class=actor_contact_runtime` plus
+  `static_region=contact_scanner` or `static_region=actor_update`, so future
+  DOSBox-debug captures have exact breakpoints without promoting any cue
+  semantics yet.
 - Added lane-write scratch tag classification to
   `tools/summarize_lane_write_route_sweep.py`. Route-sweep summaries now print
   each ready candidate's `lane_write_tag`, derived `lane_write_tag_class`, and
@@ -637,7 +648,7 @@ Baseline: `origin/main`
   `DS:78c0`/`DS:799e` latched state, and `DS:79c4` active state while keeping
   the evidence `visual_claim=0`.
 - Added `tools/capture_original_sound_callsite_debug.sh` plus checker and
-  dry-run CTest coverage for twelve mapped or statically pinned sound scenarios:
+  dry-run CTest coverage for mapped or statically pinned sound scenarios:
   `bomb_object_sound`, `bomb_place_sound`, `monster_death_sound`,
   `portal_teleport_sound`, `tile_trigger_sound`, `bonus_pickup_sound`,
   `player_damage_sound`, `player_death_sound`, `record_name_prompt_sound`,
@@ -1385,6 +1396,12 @@ Baseline: `origin/main`
   outcomes, CMake wiring, and the C++ source contract without DOSBox. It now
   accepts future `contact_scanner_runtime_oracle_original*.txt` fixtures under
   the same valid-oracle and CTest-coverage requirements.
+- Added `tools/check_sound_callsite_oracle_fixtures.py` so sound-callsite
+  synthetic/malformed fixture outcomes, CMake wiring, and the C++ oracle source
+  contract are validated without launching DOSBox. The checker accepts future
+  `sound_callsite_oracle_original*.txt` captures only when they parse as valid
+  runtime evidence and have matching CTest coverage, and the optional-original
+  convention gate now tracks sound-callsite as its fifth runtime-oracle lane.
 - Added `tools/capture_original_contact_scanner_debug.sh <out_dir> [asset_dir]
   <scenario>` for `monster_contact_damage_live`, `object_collision_jump_live`,
   and `monster_behavior4_chase`. It writes scanner-only `manifest.txt`,

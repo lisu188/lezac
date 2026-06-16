@@ -284,7 +284,9 @@ synthetic/malformed parser fixtures fixed while permitting future
 `contact_scanner_runtime_oracle_original*.txt` fixtures only when they parse as
 valid runtime evidence and have matching CTest coverage. Any checked-in
 original fixture still remains `visual_claim=0` until the separate visual
-promotion ledger is satisfied.
+promotion ledger is satisfied. The sound-callsite fixture checker follows the
+same valid-oracle and CTest-coverage rule for future
+`sound_callsite_oracle_original*.txt` captures.
 Because command submission to this DOSBox-debug prompt remains unreliable, the
 guarded `tools/capture_original_actor_contact_procmem.sh` wrapper can prove
 reachability by writing a temporary `EB FE` freeze loop into the child
@@ -1041,7 +1043,13 @@ only be promoted after a real DOSBox-debug stop supplies those bytes.
 `record_name_prompt_sound`, `record_name_commit_sound`,
 `post_end_flow_record_sound`, and `records_page_sound`, writing a manifest, raw
 dump, debugger command plan, runtime command plan, and fill-in `sound_callsite`
-candidate fixture.
+candidate fixture. The same helper now stages the actor/contact runtime queue
+as non-promoted captures:
+`contact_scanner_runtime_sound`, `actor_update_runtime_cursor_0024_sound`,
+`actor_update_runtime_cursor_0035_sound`, and
+`actor_update_runtime_cursor_0021_sound`; their generated manifests are marked
+`capture_class=actor_contact_runtime` with `static_region=contact_scanner` or
+`static_region=actor_update`.
 Timeouts at the debugger prompt stay non-promotable, but the helper now reports
 them as `reason=dosbox_debug_timeout` and preserves any runtime segment metadata
 observed before the timeout. A 2026-06-16 WSL run for `records_page_sound`

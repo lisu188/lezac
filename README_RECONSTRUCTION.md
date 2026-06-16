@@ -459,7 +459,9 @@ fixture is `visual_table_oracle_original_state2_runtime.txt`, normalized from
 the original state-2 runtime stop and still `visual_claim=0`. It validates
 `sprite_source=row_byte3` for the captured state-2 row without promoting the
 live renderer.
-`tools/check_optional_original_oracle_fixtures.py` keeps these four runtime
+The sound-callsite checker accepts future `sound_callsite_oracle_original*.txt`
+captures under the same valid-oracle and CTest-coverage rule.
+`tools/check_optional_original_oracle_fixtures.py` keeps these five runtime
 oracle lanes aligned so future original fixtures remain valid-only, covered by
 CTest, and explicitly `visual_claim=0`.
 
@@ -1034,7 +1036,13 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   `portal_teleport_sound`, `tile_trigger_sound`, `bonus_pickup_sound`,
   `player_damage_sound`, `player_death_sound`, `record_name_prompt_sound`,
   `record_name_commit_sound`, `post_end_flow_record_sound`, and
-  `records_page_sound`.
+  `records_page_sound`. It also stages the actor/contact runtime queue as
+  capture-only fixtures:
+  `contact_scanner_runtime_sound`, `actor_update_runtime_cursor_0024_sound`,
+  `actor_update_runtime_cursor_0035_sound`, and
+  `actor_update_runtime_cursor_0021_sound`, with manifests marked
+  `capture_class=actor_contact_runtime` and the static region preserved as
+  `contact_scanner` or `actor_update`.
   If DOSBox-debug times out after reaching the debugger prompt, the helper keeps
   the failure non-promotable but now reports `reason=dosbox_debug_timeout` and
   includes any observed runtime `CS`/`DS` values plus the translated runtime

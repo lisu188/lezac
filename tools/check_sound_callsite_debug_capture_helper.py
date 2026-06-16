@@ -20,6 +20,10 @@ SCENARIOS = {
     "record_name_commit_sound": ("1A44", "0x0008", "11"),
     "post_end_flow_record_sound": ("1D9C", "0x003d", "10"),
     "records_page_sound": ("2083", "0x0024", "2"),
+    "contact_scanner_runtime_sound": ("5E81", "0x0069", "4"),
+    "actor_update_runtime_cursor_0024_sound": ("6844", "0x0024", "2"),
+    "actor_update_runtime_cursor_0035_sound": ("6924", "0x0035", "5"),
+    "actor_update_runtime_cursor_0021_sound": ("7386", "0x0021", "1"),
 }
 
 OUTPUTS = [
@@ -70,6 +74,12 @@ def check_script(script_path: Path) -> None:
         "set -euo pipefail",
         "usage: $0 out_dir [asset_dir] scenario",
         "route=debugger_seeded",
+        "capture_class=mapped_sound_callsite",
+        "capture_class=actor_contact_runtime",
+        "static_region=contact_scanner",
+        "static_region=actor_update",
+        "capture_class=$capture_class",
+        "static_region=$static_region",
         "LEZAC_SOUND_CALLSITE_DEBUG_DRY_RUN",
         "LEZAC_SOUND_CALLSITE_DEBUG_SKIP_ENVIRONMENT_PREFLIGHT",
         "visual_claim=0",
@@ -124,7 +134,7 @@ def check_cmake(cmake_path: Path) -> None:
     require(text, "${sound_callsite_scenario}", "CMake")
     require(
         text,
-        "^sound_callsite_debug_capture=ok mode=dry_run scenario=${sound_callsite_scenario} route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run",
+        "^sound_callsite_debug_capture=ok mode=dry_run scenario=${sound_callsite_scenario} route=debugger_seeded capture_class=[^ ]+ static_region=[^ ]+ .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run",
         "CMake",
     )
     for scenario in SCENARIOS:
@@ -135,7 +145,7 @@ def check_cmake(cmake_path: Path) -> None:
     for snippet in [
         "tools/check_sound_callsite_debug_capture_helper.py",
         "${CMAKE_CURRENT_SOURCE_DIR}",
-        "^sound_callsite_debug_capture_helper=ok scenarios=12 anchors=13 outputs=7 cmake_tests=12 docs=3",
+        "^sound_callsite_debug_capture_helper=ok scenarios=16 anchors=17 outputs=7 cmake_tests=16 docs=3",
     ]:
         if collapse_ws(snippet) not in collapsed:
             raise RuntimeError(
@@ -161,6 +171,11 @@ def check_docs(root: Path) -> None:
         require(text, "record_name_commit_sound", label)
         require(text, "post_end_flow_record_sound", label)
         require(text, "records_page_sound", label)
+        require(text, "contact_scanner_runtime_sound", label)
+        require(text, "actor_update_runtime_cursor_0024_sound", label)
+        require(text, "actor_update_runtime_cursor_0035_sound", label)
+        require(text, "actor_update_runtime_cursor_0021_sound", label)
+        require(text, "actor_contact_capture_candidates", label)
         require(text, "sound_callsite", label)
     require(status, "debugger_seeded", "RECOVERY_STATUS")
 

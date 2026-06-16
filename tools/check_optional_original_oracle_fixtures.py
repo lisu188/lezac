@@ -36,6 +36,13 @@ LANES = (
         "summary": "visual_table_oracle_fixtures=ok",
         "ctest": "visual_table_oracle_fixture_expectations",
     },
+    {
+        "name": "sound_callsite",
+        "script": Path("tools/check_sound_callsite_oracle_fixtures.py"),
+        "prefix": "sound_callsite_oracle_original",
+        "summary": "sound_callsite_oracle_fixtures=ok",
+        "ctest": "sound_callsite_oracle_fixture_expectations",
+    },
 )
 
 

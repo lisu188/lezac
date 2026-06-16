@@ -21,6 +21,8 @@ fi
 
 expected_level=1
 route=debugger_seeded
+capture_class=mapped_sound_callsite
+static_region=mapped_sound_callsite
 case "$scenario" in
     bomb_object_sound)
         request_label=bomb_object
@@ -93,6 +95,38 @@ case "$scenario" in
         callsite_offset=2083
         cursor=0x0024
         priority=2
+        ;;
+    contact_scanner_runtime_sound)
+        request_label=contact_scanner_cursor_0069
+        callsite_offset=5E81
+        cursor=0x0069
+        priority=4
+        capture_class=actor_contact_runtime
+        static_region=contact_scanner
+        ;;
+    actor_update_runtime_cursor_0024_sound)
+        request_label=actor_update_cursor_0024
+        callsite_offset=6844
+        cursor=0x0024
+        priority=2
+        capture_class=actor_contact_runtime
+        static_region=actor_update
+        ;;
+    actor_update_runtime_cursor_0035_sound)
+        request_label=actor_update_cursor_0035
+        callsite_offset=6924
+        cursor=0x0035
+        priority=5
+        capture_class=actor_contact_runtime
+        static_region=actor_update
+        ;;
+    actor_update_runtime_cursor_0021_sound)
+        request_label=actor_update_cursor_0021
+        callsite_offset=7386
+        cursor=0x0021
+        priority=1
+        capture_class=actor_contact_runtime
+        static_region=actor_update
         ;;
     *)
         echo "unsupported sound-callsite scenario: $scenario" >&2
@@ -253,6 +287,8 @@ EOF_RUNTIME_COMMANDS
     echo "expected_level=$expected_level"
     echo "route=$route"
     echo "request_label=$request_label"
+    echo "capture_class=$capture_class"
+    echo "static_region=$static_region"
     echo "expected_callsite=1000:$callsite_offset"
     echo "expected_latch=1000:165A"
     echo "expected_cursor=$cursor"
@@ -276,6 +312,8 @@ capture=sound_callsite
 source=dosbox-debug
 temp_copy=1
 visual_claim=0
+capture_class=$capture_class
+static_region=$static_region
 scenario=$scenario
 level=$expected_level
 route=$route
@@ -304,6 +342,8 @@ EOF_FIXTURE
     echo "route=$route"
     echo "expected_level=$expected_level"
     echo "request_label=$request_label"
+    echo "capture_class=$capture_class"
+    echo "static_region=$static_region"
     echo "anchor_sound_callsite=1000:$callsite_offset"
     echo "anchor_sound_latch=1000:165A"
     echo "expected_cursor=$cursor"
@@ -319,6 +359,8 @@ EOF_FIXTURE
     echo "capture=sound_callsite"
     echo "scenario=$scenario"
     echo "route=$route"
+    echo "capture_class=$capture_class"
+    echo "static_region=$static_region"
     echo "manifest=$manifest"
     echo "raw_debugger_dump=$raw_dump"
     echo "candidate_fixture=$candidate_fixture"
@@ -334,7 +376,7 @@ fi
 if [[ "${LEZAC_SOUND_CALLSITE_DEBUG_DRY_RUN:-0}" == "1" ]]; then
     echo "environment_preflight=dry_run" >>"$manifest"
     echo "environment_preflight=dry_run" >>"$raw_dump"
-    echo "sound_callsite_debug_capture=ok mode=dry_run scenario=$scenario route=$route callsite=1000:$callsite_offset latch=1000:165A cursor=$cursor priority=$priority manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture debugger_commands_runtime=$runtime_commands_file environment_preflight=dry_run environment_preflight_log=$environment_preflight_log"
+    echo "sound_callsite_debug_capture=ok mode=dry_run scenario=$scenario route=$route capture_class=$capture_class static_region=$static_region callsite=1000:$callsite_offset latch=1000:165A cursor=$cursor priority=$priority manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture debugger_commands_runtime=$runtime_commands_file environment_preflight=dry_run environment_preflight_log=$environment_preflight_log"
     exit 0
 fi
 
@@ -403,4 +445,4 @@ if [[ $status -ne 0 ]]; then
     exit "$status"
 fi
 
-echo "sound_callsite_debug_capture=ok mode=capture scenario=$scenario route=$route manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture"
+echo "sound_callsite_debug_capture=ok mode=capture scenario=$scenario route=$route capture_class=$capture_class static_region=$static_region manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture"

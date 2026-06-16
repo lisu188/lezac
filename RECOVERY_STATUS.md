@@ -169,8 +169,9 @@ Baseline: `origin/main`
   `post_actor_update_no_latch:1`, without treating any of them as a recovered
   live gameplay cue.
 - Switched live state-2 death rendering to the recovered row-byte-3
-  `BOMOMIMK` sprite sequence `67..72` for frames `0x4a..0x4f`. The
-  `death_visuals` autoplayer now pins live sprites `67,68,69` against the old
+  `BOMOMIMK` sprite sequence `67..72` for frames `0x4a..0x4f`, now drawn with
+  the row-byte-0/1 offset candidates `16,16`. The `death_visuals` autoplayer
+  pins live sprites `67,68,69` and that draw offset against the old
   cursor-index sequence `74,75,76`, while the frame-comparison workflow keeps
   `visual_claim=0` until paired original screenshots are promoted separately.
 - Extended `tools/capture_original_sound_callsite_debug.sh` and its guardrail
@@ -384,9 +385,9 @@ Baseline: `origin/main`
   `--debug-sound-callsite-oracle`.
 - Tightened `--debug-autoplayer death_visuals` so the live death-route
   regression now inspects the recovered row-byte-3 state-2 visual renderer for
-  frames `0x4a..0x4c`. The command pins live sprites `67,68,69`, old
-  cursor-index sprites `74,75,76`, and hash mismatches between the two render
-  paths while preserving `visual_claim=0`.
+  frames `0x4a..0x4c`. The command pins live sprites `67,68,69`, row-byte-0/1
+  draw offset `16,16`, old cursor-index sprites `74,75,76`, and hash
+  mismatches between the two render paths while preserving `visual_claim=0`.
 - Updated `tools/sweep_original_lane_result_routes.py` so natural `3D3F`
   route sweeps now delegate the selected C++ oracle binary to each per-route
   capture helper, report oracle command counts during dry-run planning, and
@@ -520,8 +521,8 @@ Baseline: `origin/main`
   for the original state-2 rows. It reports rows `4a:10,10,7d,43` through
   `4f:10,10,7d,48`, row-byte-3 `BOMOMIMK` sprite candidates `67..72`, and
   `visual_claim=0`; live dead-player rendering now consumes that row-byte-3
-  sprite sequence, while the broader visual claim still waits on paired
-  original-frame comparison.
+  sprite sequence and the row-byte-0/1 draw-offset candidates `16,16`, while
+  the broader visual claim still waits on paired original-frame comparison.
 - Added `--debug-original-state2-visual-row-assets` to verify the row-byte-3
   candidates against the loaded `BOMOMIMK` asset. It records that sprites
   `67..72` are in-bounds `16x16` candidates, captures their nonzero-pixel
@@ -1160,11 +1161,12 @@ Baseline: `origin/main`
   docs are checked without process-memory access.
 - Added live state-2 rendering keyed to the recovered `0x4a..0x4f` cursor
   range; the current live renderer consumes the original row-byte-3 sprite
-  sequence `67..72`. It remains documented as `visual_claim=0` until paired
-  original frame evidence is promoted.
+  sequence `67..72` and row-byte-0/1 draw offsets `16,16`. It remains
+  documented as `visual_claim=0` until paired original frame evidence is
+  promoted.
 - Tightened the `death_visuals` autoplayer on the actual state-2 route for
-  frames `0x4a..0x4c`, pinning live row-byte-3 sprites `67,68,69` against the
-  old cursor-index sprites `74,75,76`.
+  frames `0x4a..0x4c`, pinning live row-byte-3 sprites `67,68,69` and draw
+  offset `16,16` against the old cursor-index sprites `74,75,76`.
 - Refactored the game update path so the autoplayer can drive the same movement
   helpers with injected controls instead of relying on live keyboard state.
 - Changed `--capture-frame-sequence level1_bomb_route <out-dir>` to reach tile

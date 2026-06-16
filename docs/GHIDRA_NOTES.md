@@ -1135,9 +1135,10 @@ recovered initializer and mode-1 advancement with start frame `0x4a`, end frame
 `0x4f`, delay `3`, initial counter `3`, and step `+1`. `beginPlayerDeath`
 seeds that cursor, the update loop advances it while a player is in state 2,
 and `drawState2PlayerVisual` now renders the recovered row-byte-3
-`BOMOMIMK` sprite sequence `67..72` for live death playback. This remains a
-`visual_claim=0` implementation until paired original-frame evidence promotes
-the full presentation. The debug command
+`BOMOMIMK` sprite sequence `67..72` with the row-byte-0/1 draw offsets
+`16,16` for live death playback. This remains a `visual_claim=0`
+implementation until paired original-frame evidence promotes the full
+presentation. The debug command
 `--debug-original-state2-visual-row-model` mirrors the original row range as a
 C++ model with rows `4a:10,10,7d,43` through `4f:10,10,7d,48`,
 row-byte-0/1 draw-offset candidates `0x10,0x10` / `16,16`, stable row-byte-2
@@ -1154,8 +1155,8 @@ renderer.
 previews and an original-frame directory into a standard frame-compare bundle
 with labels such as `state2_current_4a` and `state2_cursor_4a`.
 The live `death_visuals` autoplayer exercises frames `0x4a..0x4c`, pinning
-live sprites `67,68,69` against old cursor sprites `74,75,76` while preserving
-`visual_claim=0`.
+live sprites `67,68,69` and draw offset `16,16` against old cursor sprites
+`74,75,76` while preserving `visual_claim=0`.
 
 The C++ debug command `--debug-state2-runtime-frame-oracle <dump.txt>` parses a
 normalized saved DOSBox debugger transcript. It expects runtime `CS`/`DS`,

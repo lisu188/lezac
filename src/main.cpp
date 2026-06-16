@@ -2769,12 +2769,12 @@ public:
             state2VisualCursorPreview_ = false;
             return inspection;
         };
-        auto row3SpriteFor = [&](uint8_t frame) {
+        auto visualRowFor = [&](uint8_t frame) {
             State2VisualRow row;
             if (!originalState2VisualRow(frame, row)) {
-                throw std::runtime_error("death visual row-byte-3 candidate missing");
+                throw std::runtime_error("death visual row candidate missing");
             }
-            return static_cast<int>(row.row3);
+            return row;
         };
 
         FrameInspection deathStartFrame =
@@ -2830,11 +2830,19 @@ public:
         int cursor4a = static_cast<int>(kState2VisualStartFrame);
         int cursor4b = static_cast<int>(kState2VisualStartFrame + 1);
         int cursor4c = static_cast<int>(kState2VisualStartFrame + 2);
-        int row3_4a = row3SpriteFor(kState2VisualStartFrame);
-        int row3_4b = row3SpriteFor(static_cast<uint8_t>(kState2VisualStartFrame + 1));
-        int row3_4c = row3SpriteFor(static_cast<uint8_t>(kState2VisualStartFrame + 2));
+        State2VisualRow row4a = visualRowFor(kState2VisualStartFrame);
+        State2VisualRow row4b =
+            visualRowFor(static_cast<uint8_t>(kState2VisualStartFrame + 1));
+        State2VisualRow row4c =
+            visualRowFor(static_cast<uint8_t>(kState2VisualStartFrame + 2));
+        int row3_4a = static_cast<int>(row4a.row3);
+        int row3_4b = static_cast<int>(row4b.row3);
+        int row3_4c = static_cast<int>(row4c.row3);
         if (row3_4a != 67 || row3_4b != 68 || row3_4c != 69 ||
-            cursor4a != 74 || cursor4b != 75 || cursor4c != 76) {
+            cursor4a != 74 || cursor4b != 75 || cursor4c != 76 ||
+            row4a.row0 != 16 || row4a.row1 != 16 ||
+            row4b.row0 != 16 || row4b.row1 != 16 ||
+            row4c.row0 != 16 || row4c.row1 != 16) {
             throw std::runtime_error("death visual sprite sequence mismatch");
         }
 
@@ -2849,6 +2857,7 @@ public:
                   << ',' << row3_4c
                   << " cursor_legacy_sprites=" << cursor4a << ',' << cursor4b
                   << ',' << cursor4c
+                  << " draw_offset=16,16"
                   << " cursor_legacy_hash_mismatch=1"
                   << " row3_live_renderer=1"
                   << " frame_inspection=1 visual_claim=0\n";
@@ -8178,6 +8187,7 @@ public:
         std::vector<GamePreviewFrame> previews;
         std::ostringstream currentSequence;
         std::ostringstream cursorSequence;
+        std::ostringstream drawOffsetSequence;
         int cursorMinusCurrent = 0;
         bool cursorHashMismatch = true;
         for (uint8_t frame = kState2VisualStartFrame;
@@ -8195,9 +8205,12 @@ public:
             } else {
                 currentSequence << ',';
                 cursorSequence << ',';
+                drawOffsetSequence << ';';
             }
             currentSequence << preview.currentSprite;
             cursorSequence << preview.cursorSprite;
+            drawOffsetSequence << static_cast<int>(row.row0) << ','
+                               << static_cast<int>(row.row1);
 
             state2Visual_.current = frame;
             state2Visual_.first = kState2VisualStartFrame;
@@ -8227,6 +8240,7 @@ public:
         manifest << "source=lezac_cpp\n";
         manifest << "bank=BOMOMIMK\n";
         manifest << "current_renderer=row_byte3\n";
+        manifest << "current_draw_offsets=row_byte0,row_byte1\n";
         manifest << "cursor_renderer=debug_only\n";
         manifest << "visual_claim=0\n";
         manifest << "frame_count=" << previews.size() << '\n';
@@ -8251,8 +8265,10 @@ public:
                   << " current_sprites=" << currentSequence.str()
                   << " cursor_sprites=" << cursorSequence.str()
                   << " cursor_minus_current=" << cursorMinusCurrent
+                  << " draw_offsets=" << drawOffsetSequence.str()
                   << " cursor_hash_mismatch=" << (cursorHashMismatch ? 1 : 0)
                   << " current_renderer=row_byte3"
+                  << " current_draw_offsets=row_byte0,row_byte1"
                   << " cursor_renderer=debug_only"
                   << " visual_claim=0"
                   << " out=" << outDir
@@ -17261,6 +17277,8 @@ private:
             State2VisualRow row;
             if (originalState2VisualRow(cursor.current, row)) {
                 index = static_cast<int>(row.row3);
+                x0 += static_cast<int>(row.row0);
+                y0 += static_cast<int>(row.row1);
             }
         }
         if (index >= 0 && index < static_cast<int>(sprites_.sprites.size())) {

@@ -580,10 +580,11 @@ classifies it as `no_patch`, not promotion evidence. Follow-up retries then
 proved the early target-byte/word-layer state is not enough: after lowering the
 debris threshold to the observed seven nonzero bytes, the runtime patch applied
 immediately after the bomb with selected debris base `0x2093`, but the
-candidate still stayed `no_freeze` with no natural `3d2d` lane write. The next
-focused pass should target later lane globals such as `lane_update_flag=1`,
-`lane_word_global_value=0x8002`, and target offset `0x07be` rather than
-repeating the early target-byte/word-layer gate.
+candidate still stayed `no_freeze` with no natural `3d2d` lane write. The
+capture helper and lane-write sweep now expose later lane-global gates for
+`lane_update_flag=1`, `lane_word_global_value=0x8002`, and target offset
+`0x07be`; the next focused pass should use those gates rather than repeating
+the early target-byte/word-layer gate.
 `tools/summarize_lane_result_route_sweep.py`
 now classifies completed route-sweep candidates as `ready`, `no_freeze`,
 `incomplete`, or `missing`; `tools/run_lane_result_ready_manifest.py` and

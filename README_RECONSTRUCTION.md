@@ -704,10 +704,29 @@ elapsed `0.000` with selected debris base `0x2093`, but the original still did
 not freeze or hit natural forward-debris writeback at `1000:3D2D`.
 
 Do not repeat that early-state gate. The next useful capture needs a more
-precise later-state gate, based on lane globals observed in the sample table:
+precise later-state gate, based on lane globals observed in the sample table.
+The capture helper and lane-write sweep now expose runtime-freeze filters for
 `lane_update_flag=1`, `lane_word_global_value=0x8002`, and target offset
-`0x07be`. Add or use runtime-freeze filters for those fields before the next
-`1000:3D2D` attempt.
+`0x07be`; no live DOSBox run has used those new gates yet. Use the focused
+route below for the next `1000:3D2D` attempt:
+
+```sh
+python3 tools/sweep_original_lane_write_routes.py \
+  /tmp/lezac-lane-write-forward-lane-globals . \
+  --route x:2.00,c:0.50 --offset forward-debris \
+  --runtime-freeze-preset none \
+  --runtime-freeze-min-queue-score 0x80 \
+  --runtime-freeze-min-debris-nonzero 0x20 \
+  --runtime-freeze-min-collapse-nonzero 0x01 \
+  --runtime-freeze-min-effect-nonzero 0x10 \
+  --runtime-freeze-require-collapse-base 0x663e \
+  --runtime-freeze-require-effect-base 0xc22e \
+  --runtime-freeze-require-lane-update-flag 0x01 \
+  --runtime-freeze-require-lane-word-global-value 0x8002 \
+  --runtime-freeze-require-lane-target-offset-global-value 0x07be \
+  --approve-procmem --approve-runtime-instrumentation \
+  --cpp-exe ./build-win-codex-vs3/Debug/lezac_cpp.exe --continue-on-oracle-error
+```
 
 The sweep wrapper now translates `/mnt/<drive>/...` candidate paths when a WSL
 run invokes a Windows `.exe` oracle, so that host split can parse candidates in

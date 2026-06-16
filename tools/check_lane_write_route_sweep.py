@@ -291,6 +291,12 @@ def main() -> int:
             "0x05",
             "--runtime-freeze-require-high-debris-word-layer-value",
             "0x0005",
+            "--runtime-freeze-require-lane-update-flag",
+            "0x01",
+            "--runtime-freeze-require-lane-word-global-value",
+            "0x8002",
+            "--runtime-freeze-require-lane-target-offset-global-value",
+            "0x07be",
             "--route",
             "x:2.00",
         ],
@@ -308,6 +314,9 @@ def main() -> int:
         "--runtime-freeze-require-effect-base 0xc22e",
         "--runtime-freeze-require-high-debris-target-byte 0x05",
         "--runtime-freeze-require-high-debris-word-layer-value 0x0005",
+        "--runtime-freeze-require-lane-update-flag 0x01",
+        "--runtime-freeze-require-lane-word-global-value 0x8002",
+        "--runtime-freeze-require-lane-target-offset-global-value 0x07be",
     ]:
         require(gated, snippet, "gated_runtime_freeze")
     cases += 1

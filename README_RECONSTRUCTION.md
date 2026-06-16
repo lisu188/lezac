@@ -209,6 +209,11 @@ guarded route/timing matrix around that helper. Its default dry-run covers
 behavior-4 route hypotheses with both pre-bomb and pre-route runtime-freeze
 timing; add `--all-targets` only when the host is ready to spend captures on
 all six anchors.
+Summarize a completed sweep with
+`python3 tools/summarize_behavior4_procmem_route_sweep.py <manifest>`. The
+summary reports completed captures, observed freezes, ready/incomplete/missing
+candidate counts, per-capture oracle commands, and `--require-ready`,
+`--require-observed-freeze`, and `--require-environment-preflight` gates.
 Live behavior-4, actor-update, contact-scanner, and visual-table DOSBox-debug
 helpers run
 `tools/preflight_original_evidence_environment.py --require-debug-capture`
@@ -500,6 +505,8 @@ LEZAC_BEHAVIOR4_PROCMEM_DRY_RUN=1 \
 python3 tools/sweep_original_behavior4_procmem_routes.py \
   /tmp/lezac-behavior4-procmem-sweep . --dry-run --all-targets \
   --timing before_bomb --route x:2.00
+python3 tools/summarize_behavior4_procmem_route_sweep.py \
+  /tmp/lezac-behavior4-procmem-sweep/manifest.txt --require-observed-freeze
 ```
 
 Actor/contact fixture checkers keep the synthetic/malformed parser fixtures

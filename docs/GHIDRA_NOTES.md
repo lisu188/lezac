@@ -219,6 +219,10 @@ semantic spawner/actor/player rows are filled.
 route/timing hypotheses and can escalate from the default branch/integration
 pair to all six anchors with `--all-targets`; it still emits only
 `behavior4_procmem` capture manifests and non-promoted candidates.
+`tools/summarize_behavior4_procmem_route_sweep.py` triages those manifests into
+completed capture counts, observed freeze counts, candidate readiness, and
+per-capture `--debug-behavior4-runtime-oracle` commands before any fixture is
+considered for promotion.
 `tools/check_behavior4_runtime_oracle_fixtures.py` keeps that fixed synthetic
 baseline while allowing future `behavior4_runtime_oracle_original*.txt`
 fixtures only when they parse as valid runtime evidence and have matching CTest

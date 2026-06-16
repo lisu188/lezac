@@ -16,6 +16,8 @@ VALIDATOR = Path("tools/ready_result_fixture_guardrails.py")
 WRITERS = [
     Path("tools/summarize_debug_capture_batch.py"),
     Path("tools/summarize_actor_dispatch_gate_sweep.py"),
+    Path("tools/summarize_behavior4_procmem_route_sweep.py"),
+    Path("tools/summarize_sound_callsite_route_sweep.py"),
     Path("tools/summarize_lane_result_route_sweep.py"),
     Path("tools/summarize_lane_write_route_sweep.py"),
 ]
@@ -266,7 +268,7 @@ def main() -> int:
     ledger_selftests = check_ledger_selftests()
     print(
         "ready_fixture_provenance_contract=ok "
-        "docs=1 validator=1 writers=4 runners=4 result_summaries=4 "
+        "docs=1 validator=1 writers=6 runners=4 result_summaries=4 "
         "dry_run_missing_fixture_bypass=4 "
         f"ledger_selftests={ledger_selftests}"
     )

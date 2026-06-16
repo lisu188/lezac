@@ -40,6 +40,8 @@ The same provenance rule is enforced at all ready-fixture handoff points:
 - Writers:
   - `tools/summarize_debug_capture_batch.py`
   - `tools/summarize_actor_dispatch_gate_sweep.py`
+  - `tools/summarize_behavior4_procmem_route_sweep.py`
+  - `tools/summarize_sound_callsite_route_sweep.py`
   - `tools/summarize_lane_result_route_sweep.py`
   - `tools/summarize_lane_write_route_sweep.py`
 - Ready-manifest runners:
@@ -56,7 +58,7 @@ The same provenance rule is enforced at all ready-fixture handoff points:
 All stages call `tools/ready_result_fixture_guardrails.py`, which owns
 `parse_runtime_segment_value` and `validate_runtime_fixture_evidence`. The
 contract check in `tools/check_ready_fixture_provenance_contract.py` keeps this
-documentation, the shared validator, and those twelve call sites in sync.
+documentation, the shared validator, and those fourteen call sites in sync.
 
 `--allow-missing-fixtures` is a dry-run-only forensic bypass for reviewing stale
 or partial manifests. Live ready-manifest runs must reject that flag before

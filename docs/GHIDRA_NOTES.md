@@ -937,6 +937,12 @@ only be promoted after a real DOSBox-debug stop supplies those bytes.
 `post_end_flow_record_sound`, and `records_page_sound`, writing a manifest, raw
 dump, debugger command plan, runtime command plan, and fill-in `sound_callsite`
 candidate fixture.
+Timeouts at the debugger prompt stay non-promotable, but the helper now reports
+them as `reason=dosbox_debug_timeout` and preserves any runtime segment metadata
+observed before the timeout. A 2026-06-16 WSL run for `records_page_sound`
+reached `runtime_cs=01ED` and `runtime_ds=01DD`, then generated the translated
+plan `BP 01ED:2083`, `BP 01ED:165A`, `D 01DD:2070`, `D 01DD:78C0`,
+`D 01DD:7990`, and `D 01DD:79C0` for the next debugger-input pass.
 `--debug-static-sound-requests` separately
 pins all 27 static `DS:2074` immediate writes found in the shipped
 `LEZAC.EXE`; the mapped set now includes the four explosion direct sweeps,

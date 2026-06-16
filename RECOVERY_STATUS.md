@@ -199,6 +199,17 @@ Baseline: `origin/main`
   continuation because `wsl.exe -d Ubuntu` reports
   `WSL_E_DISTRO_NOT_FOUND`; the expanded matrix is ready for the next
   DOSBox/process-memory-capable run.
+- 2026-06-16 WSL named-distro evidence is usable again: `wsl.exe -d Ubuntu --`
+  runs the repo under `/mnt/c/...`, `preflight_original_evidence_environment.py
+  --require-debug-capture` passes with `dosbox-debug`, `xvfb-run`, `xdotool`,
+  `zutty`, and `script` found, and a live `records_page_sound`
+  `tools/capture_original_sound_callsite_debug.sh` run reached DOSBox-debug
+  from a temp copy. It timed out at the debugger prompt instead of producing a
+  promoted fixture, but the helper now reports
+  `reason=dosbox_debug_timeout runtime_metadata=observed runtime_cs=01ED
+  runtime_ds=01DD` and writes the translated runtime command plan
+  (`BP 01ED:2083`, `BP 01ED:165A`, `D 01DD:2070`, `D 01DD:78C0`,
+  `D 01DD:7990`, `D 01DD:79C0`) for the next interactive/debugger-input pass.
 - Implemented the recovered delayed state-2 life decrement in the live C++
   port. Fatal damage now enters state 2 with the visible life count unchanged,
   keeps a pending life-loss flag while the `0x003c` death countdown runs, and

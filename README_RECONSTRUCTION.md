@@ -844,6 +844,12 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   `player_damage_sound`, `player_death_sound`, `record_name_prompt_sound`,
   `record_name_commit_sound`, `post_end_flow_record_sound`, and
   `records_page_sound`.
+  If DOSBox-debug times out after reaching the debugger prompt, the helper keeps
+  the failure non-promotable but now reports `reason=dosbox_debug_timeout` and
+  includes any observed runtime `CS`/`DS` values plus the translated runtime
+  command plan. A 2026-06-16 WSL run for `records_page_sound` reached
+  `runtime_cs=01ED` and `runtime_ds=01DD`, then wrote breakpoints for
+  `01ED:2083` and `01ED:165A` and dumps under `01DD:*` before timing out.
   `--debug-static-sound-requests` pins all 27 static immediate writes to
   `DS:2074` in the shipped executable so remaining direct `playSound(index)`
   compatibility hooks cannot be confused with original cursor/priority

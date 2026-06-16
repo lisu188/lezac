@@ -387,7 +387,19 @@ echo "dosbox_debug_exit=$status" >>"$manifest"
 echo "dosbox_debug_exit=$status" >>"$raw_dump"
 
 if [[ $status -ne 0 ]]; then
-    echo "sound_callsite_debug_capture=error scenario=$scenario reason=dosbox_debug_exit_$status manifest=$manifest raw_dump=$raw_dump"
+    reason="dosbox_debug_exit_$status"
+    if [[ $status -eq 124 ]]; then
+        reason=dosbox_debug_timeout
+        echo "dosbox_debug_timeout=1" >>"$manifest"
+        echo "dosbox_debug_timeout=1" >>"$raw_dump"
+    fi
+    runtime_cs_observed=$(grep -E '^runtime_cs=' "$manifest" | tail -n 1 | cut -d= -f2- || true)
+    runtime_ds_observed=$(grep -E '^runtime_ds=' "$manifest" | tail -n 1 | cut -d= -f2- || true)
+    runtime_metadata=none
+    if [[ -n "$runtime_cs_observed" || -n "$runtime_ds_observed" ]]; then
+        runtime_metadata=observed
+    fi
+    echo "sound_callsite_debug_capture=error scenario=$scenario reason=$reason manifest=$manifest raw_dump=$raw_dump dosbox_debug_exit=$status runtime_metadata=$runtime_metadata runtime_cs=${runtime_cs_observed:-none} runtime_ds=${runtime_ds_observed:-none} debugger_commands_runtime=$runtime_commands_file"
     exit "$status"
 fi
 

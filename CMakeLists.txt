@@ -445,6 +445,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_procmem_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_route_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_procmem_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_procmem_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_dispatch_gates.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_debug_capture_helper.py
@@ -519,6 +520,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_dispatch_gates.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_contact_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_sound_callsite_routes.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_behavior4_procmem_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_branch_anchor_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_write_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_result_routes.py
@@ -995,6 +997,45 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^sound_callsite_route_sweep_output=ok cases=8")
+
+        add_test(NAME behavior4_procmem_route_sweep_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_behavior4_procmem_routes.py
+                    /tmp/lezac-behavior4-procmem-route-sweep-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --target behavior4_branch_start
+                    --target integration_8_8_start
+                    --timing before_route
+                    --route x:5.00,m:0.50,x:2.00
+                    --route x:3.00,z:0.50,x:2.00)
+        set_tests_properties(behavior4_procmem_route_sweep_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^behavior4_procmem_route_sweep=ok mode=dry_run .*scenario=monster_behavior4_target_selection expected_level=3 targets=2 target_names=behavior4_branch_start,integration_8_8_start timings=before_route routes=2 route_labels=x5p00_m0p50_x2p00,x3p00_z0p50_x2p00 capture_commands=4")
+
+        add_test(NAME behavior4_procmem_route_sweep_all_targets_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_behavior4_procmem_routes.py
+                    /tmp/lezac-behavior4-procmem-route-sweep-all-targets-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --all-targets
+                    --timing before_bomb
+                    --route x:2.00)
+        set_tests_properties(behavior4_procmem_route_sweep_all_targets_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^behavior4_procmem_route_sweep=ok mode=dry_run .*expected_level=3 targets=6 target_names=spawner_loop_start,spawner_loop_end,behavior4_branch_start,behavior4_branch_end,integration_8_8_start,integration_8_8_end timings=before_bomb routes=1 route_labels=x2p00 capture_commands=6")
+
+        add_test(NAME behavior4_procmem_route_sweep_output_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_procmem_route_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(behavior4_procmem_route_sweep_output_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^behavior4_procmem_route_sweep_output=ok cases=10")
 
         add_test(NAME actor_dispatch_gate_sweep_dry_run
             COMMAND ${Python3_EXECUTABLE}

@@ -215,6 +215,10 @@ at `1000:728C` plus `1000:7A6B`, `1000:7C2C`, `1000:731B`, `1000:73E5`, and
 `LEZAC_BEHAVIOR4_APPROVE_RUNTIME_INSTRUMENTATION=1`, emit
 `behavior4_procmem`, and generate a non-promoted candidate fixture until the
 semantic spawner/actor/player rows are filled.
+`tools/sweep_original_behavior4_procmem_routes.py` batches that fallback across
+route/timing hypotheses and can escalate from the default branch/integration
+pair to all six anchors with `--all-targets`; it still emits only
+`behavior4_procmem` capture manifests and non-promoted candidates.
 `tools/check_behavior4_runtime_oracle_fixtures.py` keeps that fixed synthetic
 baseline while allowing future `behavior4_runtime_oracle_original*.txt`
 fixtures only when they parse as valid runtime evidence and have matching CTest

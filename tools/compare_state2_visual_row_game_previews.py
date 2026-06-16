@@ -111,7 +111,8 @@ def write_manifest(
             [
                 "scenario=state2_visual_row_game_preview",
                 "source=lezac_cpp",
-                "current_renderer=row_byte3",
+                "current_renderer=effect_entry_row_byte3",
+                "current_base=state2_effect_entry",
                 "cursor_renderer=debug_only",
                 "visual_claim=0",
                 f"original_source_dir={original_source_dir}",

@@ -18,7 +18,7 @@ DOC = Path("docs/recovery/frame_comparison.md")
 RENDERER_DOC_CLAIMS = (
     (
         Path("README_RECONSTRUCTION.md"),
-        "recovered row-byte-3 `BOMOMIMK` sprite sequence `67..72`",
+        "explicit DS:C21E-style effect-entry base",
     ),
     (
         Path("RECOVERY_STATUS.md"),
@@ -114,7 +114,8 @@ def check_static_contract(root: Path) -> None:
         "(\"cursor\",",
         "frame_compare_summary.txt",
         "missing_original",
-        "current_renderer=row_byte3",
+        "current_renderer=effect_entry_row_byte3",
+        "current_base=state2_effect_entry",
         "cursor_renderer=debug_only",
         "visual_claim=0",
     ):

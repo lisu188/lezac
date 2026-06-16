@@ -1432,6 +1432,17 @@ class App {
         uint8_t row3 = 0;
     };
 
+    struct State2EffectEntry {
+        int x = 0;
+        int y = 0;
+        uint8_t visualFrame = 0;
+        uint8_t drawDx = 0;
+        uint8_t drawDy = 0;
+        uint8_t row2 = 0;
+        uint8_t spriteIndex = 0;
+        bool active = false;
+    };
+
     struct CompatibilitySoundAttempt {
         size_t index = 0;
         uint16_t cursor = 0;
@@ -2782,6 +2793,7 @@ public:
         if (deathStartFrame.hash == startFrame.hash) {
             throw std::runtime_error("death visual initial frame did not change rendering");
         }
+        State2EffectEntry effect4a = state2Effect_;
         FrameInspection cursorStartFrame =
             cursorPreviewFrame("autoplayer-death-visual-cursor-frame-4a");
         if (cursorStartFrame.hash == deathStartFrame.hash) {
@@ -2799,6 +2811,7 @@ public:
         if (tick1Frame.hash == deathStartFrame.hash) {
             throw std::runtime_error("death visual first tick frame did not change");
         }
+        State2EffectEntry effect4b = state2Effect_;
         FrameInspection cursorTick1Frame =
             cursorPreviewFrame("autoplayer-death-visual-cursor-frame-4b");
         if (cursorTick1Frame.hash == tick1Frame.hash ||
@@ -2817,6 +2830,7 @@ public:
         if (tick5Frame.hash == tick1Frame.hash) {
             throw std::runtime_error("death visual third frame did not change");
         }
+        State2EffectEntry effect4c = state2Effect_;
         FrameInspection cursorTick5Frame =
             cursorPreviewFrame("autoplayer-death-visual-cursor-frame-4c");
         if (cursorTick5Frame.hash == tick5Frame.hash ||
@@ -2845,6 +2859,25 @@ public:
             row4c.row0 != 16 || row4c.row1 != 16) {
             throw std::runtime_error("death visual sprite sequence mismatch");
         }
+        int playerEffectX = static_cast<int>(player_.x);
+        int playerEffectY = static_cast<int>(player_.y);
+        auto effectMatches = [&](const State2EffectEntry& effect,
+                                 uint8_t frame,
+                                 const State2VisualRow& row) {
+            return effect.active && effect.x == playerEffectX &&
+                   effect.y == playerEffectY && effect.visualFrame == frame &&
+                   effect.drawDx == row.row0 && effect.drawDy == row.row1 &&
+                   effect.row2 == row.row2 && effect.spriteIndex == row.row3;
+        };
+        if (!effectMatches(effect4a, kState2VisualStartFrame, row4a) ||
+            !effectMatches(effect4b,
+                           static_cast<uint8_t>(kState2VisualStartFrame + 1),
+                           row4b) ||
+            !effectMatches(effect4c,
+                           static_cast<uint8_t>(kState2VisualStartFrame + 2),
+                           row4c)) {
+            throw std::runtime_error("death visual effect entry mismatch");
+        }
 
         std::cout << "autoplayer=ok"
                   << " scenario=" << scenario
@@ -2858,6 +2891,16 @@ public:
                   << " cursor_legacy_sprites=" << cursor4a << ',' << cursor4b
                   << ',' << cursor4c
                   << " draw_offset=16,16"
+                  << " effect_entry_xy=" << playerEffectX << ',' << playerEffectY
+                  << " effect_entry_frames=0x" << std::hex
+                  << static_cast<int>(effect4a.visualFrame) << ",0x"
+                  << static_cast<int>(effect4b.visualFrame) << ",0x"
+                  << static_cast<int>(effect4c.visualFrame) << std::dec
+                  << " effect_entry_sprites="
+                  << static_cast<int>(effect4a.spriteIndex) << ','
+                  << static_cast<int>(effect4b.spriteIndex) << ','
+                  << static_cast<int>(effect4c.spriteIndex)
+                  << " effect_entry_draw_offset=16,16"
                   << " cursor_legacy_hash_mismatch=1"
                   << " row3_live_renderer=1"
                   << " frame_inspection=1 visual_claim=0\n";
@@ -8218,6 +8261,7 @@ public:
             state2Visual_.counter = kState2VisualDelay;
             state2Visual_.delay = kState2VisualDelay;
             state2Visual_.active = true;
+            refreshState2EffectEntry(player_, state2Visual_, state2Effect_);
             std::string frameSuffix = bareHex2(frame);
             preview.currentFile = "state2_game_current_" + frameSuffix + ".ppm";
             preview.cursorFile = "state2_game_cursor_" + frameSuffix + ".ppm";
@@ -8239,8 +8283,11 @@ public:
         manifest << "scenario=state2_visual_row_game_preview\n";
         manifest << "source=lezac_cpp\n";
         manifest << "bank=BOMOMIMK\n";
-        manifest << "current_renderer=row_byte3\n";
-        manifest << "current_draw_offsets=row_byte0,row_byte1\n";
+        manifest << "current_renderer=effect_entry_row_byte3\n";
+        manifest << "current_base=state2_effect_entry\n";
+        manifest << "current_draw_offsets=effect_entry_row_byte0,row_byte1\n";
+        manifest << "effect_entry_xy=" << static_cast<int>(player_.x) << ','
+                 << static_cast<int>(player_.y) << '\n';
         manifest << "cursor_renderer=debug_only\n";
         manifest << "visual_claim=0\n";
         manifest << "frame_count=" << previews.size() << '\n';
@@ -8267,8 +8314,11 @@ public:
                   << " cursor_minus_current=" << cursorMinusCurrent
                   << " draw_offsets=" << drawOffsetSequence.str()
                   << " cursor_hash_mismatch=" << (cursorHashMismatch ? 1 : 0)
-                  << " current_renderer=row_byte3"
-                  << " current_draw_offsets=row_byte0,row_byte1"
+                  << " effect_entry_xy=" << static_cast<int>(player_.x)
+                  << ',' << static_cast<int>(player_.y)
+                  << " current_renderer=effect_entry_row_byte3"
+                  << " current_base=state2_effect_entry"
+                  << " current_draw_offsets=effect_entry_row_byte0,row_byte1"
                   << " cursor_renderer=debug_only"
                   << " visual_claim=0"
                   << " out=" << outDir
@@ -14805,6 +14855,8 @@ private:
     bool pendingLifeLoss2_ = false;
     State2VisualCursor state2Visual_;
     State2VisualCursor state2Visual2_;
+    State2EffectEntry state2Effect_;
+    State2EffectEntry state2Effect2_;
     bool state2VisualCursorPreview_ = false;
     int damageCooldown_ = 0;
     int damageCooldown2_ = 0;
@@ -14950,6 +15002,8 @@ private:
         pendingLifeLoss2_ = false;
         state2Visual_ = {};
         state2Visual2_ = {};
+        state2Effect_ = {};
+        state2Effect2_ = {};
         damageCooldown_ = 0;
         damageCooldown2_ = 0;
         pendingDamage_ = 0;
@@ -15478,6 +15532,7 @@ private:
 
         if (playerDead_) {
             updateState2VisualCursor(state2Visual_);
+            refreshState2EffectEntry(player_, state2Visual_, state2Effect_);
             updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
                           playerCount_ == 1 || player2Dead_);
         } else {
@@ -15490,6 +15545,7 @@ private:
         if (playerCount_ > 1) {
             if (player2Dead_) {
                 updateState2VisualCursor(state2Visual2_);
+                refreshState2EffectEntry(player2_, state2Visual2_, state2Effect2_);
                 updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
                               playerDead_);
             } else {
@@ -16078,13 +16134,17 @@ private:
         pendingLifeLossFor(startMarker) = lives > 0;
         energy = 100;
         deathStateTimerFor(startMarker) = kDeathStateTicks;
-        resetState2VisualCursor(state2VisualCursorFor(startMarker));
+        State2VisualCursor& cursor = state2VisualCursorFor(startMarker);
+        resetState2VisualCursor(cursor);
+        refreshState2EffectEntry(player, cursor, state2EffectEntryFor(startMarker));
         player.vx = 0.0f;
         player.vy = 0.0f;
         player.grounded = false;
         if (lives <= 0) {
             dead = true;
             timer = 0;
+            cursor.active = false;
+            state2EffectEntryFor(startMarker).active = false;
             requestPlayerDeathSound();
             if (allPlayersOutOfLives()) beginGameOver();
             return;
@@ -16097,6 +16157,33 @@ private:
     State2VisualCursor& state2VisualCursorFor(uint8_t startMarker) {
         return startMarker == 2 && playerCount_ > 1 ? state2Visual2_
                                                      : state2Visual_;
+    }
+
+    State2EffectEntry& state2EffectEntryFor(uint8_t startMarker) {
+        return startMarker == 2 && playerCount_ > 1 ? state2Effect2_
+                                                     : state2Effect_;
+    }
+
+    void refreshState2EffectEntry(const Player& player,
+                                  const State2VisualCursor& cursor,
+                                  State2EffectEntry& entry) {
+        entry.active = cursor.active;
+        if (!entry.active) return;
+        entry.x = static_cast<int>(player.x);
+        entry.y = static_cast<int>(player.y);
+        entry.visualFrame = cursor.current;
+        State2VisualRow row;
+        if (originalState2VisualRow(cursor.current, row)) {
+            entry.drawDx = row.row0;
+            entry.drawDy = row.row1;
+            entry.row2 = row.row2;
+            entry.spriteIndex = row.row3;
+            return;
+        }
+        entry.drawDx = 0;
+        entry.drawDy = 0;
+        entry.row2 = 0;
+        entry.spriteIndex = cursor.current;
     }
 
     void resetState2VisualCursor(State2VisualCursor& cursor) {
@@ -16152,6 +16239,7 @@ private:
             dead = true;
             timer = 0;
             state2VisualCursorFor(startMarker).active = false;
+            state2EffectEntryFor(startMarker).active = false;
             if (allPlayersOutOfLives()) beginGameOver();
         }
     }
@@ -16306,6 +16394,7 @@ private:
         respawnPlayerAtStart(player, energy, startMarker);
         deathStateTimerFor(startMarker) = 0;
         state2VisualCursorFor(startMarker).active = false;
+        state2EffectEntryFor(startMarker).active = false;
         damageCooldown = kDamageCooldownTicks;
         dead = false;
         timer = 0;
@@ -17075,13 +17164,15 @@ private:
         if (!playerDead_) {
             drawPlayer(player_, playerFacing_, playerAnimTick_, drawCamX, drawCamY, 0);
         } else if (deathStateTimer_ > 0 && state2Visual_.active) {
-            drawState2PlayerVisual(player_, state2Visual_, drawCamX, drawCamY);
+            drawState2PlayerVisual(player_, state2Visual_, state2Effect_,
+                                   drawCamX, drawCamY);
         }
         if (playerCount_ > 1 && !player2Dead_) {
             drawPlayer(player2_, player2Facing_, player2AnimTick_, drawCamX, drawCamY, 19);
         } else if (playerCount_ > 1 && deathStateTimer2_ > 0 &&
                    state2Visual2_.active) {
-            drawState2PlayerVisual(player2_, state2Visual2_, drawCamX, drawCamY);
+            drawState2PlayerVisual(player2_, state2Visual2_, state2Effect2_,
+                                   drawCamX, drawCamY);
         }
     }
 
@@ -17269,16 +17360,23 @@ private:
     }
 
     void drawState2PlayerVisual(const Player& player, const State2VisualCursor& cursor,
+                                const State2EffectEntry& effect,
                                 int camX, int camY) {
-        int x0 = static_cast<int>(player.x) - camX;
-        int y0 = static_cast<int>(player.y) - camY;
+        int x0 = (effect.active ? effect.x : static_cast<int>(player.x)) - camX;
+        int y0 = (effect.active ? effect.y : static_cast<int>(player.y)) - camY;
         int index = static_cast<int>(cursor.current);
         if (!state2VisualCursorPreview_) {
-            State2VisualRow row;
-            if (originalState2VisualRow(cursor.current, row)) {
-                index = static_cast<int>(row.row3);
-                x0 += static_cast<int>(row.row0);
-                y0 += static_cast<int>(row.row1);
+            if (effect.active && effect.visualFrame == cursor.current) {
+                index = static_cast<int>(effect.spriteIndex);
+                x0 += static_cast<int>(effect.drawDx);
+                y0 += static_cast<int>(effect.drawDy);
+            } else {
+                State2VisualRow row;
+                if (originalState2VisualRow(cursor.current, row)) {
+                    index = static_cast<int>(row.row3);
+                    x0 += static_cast<int>(row.row0);
+                    y0 += static_cast<int>(row.row1);
+                }
             }
         }
         if (index >= 0 && index < static_cast<int>(sprites_.sprites.size())) {

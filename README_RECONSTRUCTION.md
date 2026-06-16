@@ -346,6 +346,15 @@ python3 tools/sweep_original_sound_callsite_routes.py \
 The planner emits `sound_callsite_route_sweep` manifests and forwards each
 route to `tools/capture_original_sound_callsite_procmem.sh` with the matching
 `LEZAC_SOUND_CALLSITE_ROUTE_STEPS` and freeze-timing environment.
+Summarize a completed sweep with
+`python3 tools/summarize_sound_callsite_route_sweep.py <manifest>`. The
+summary reports completed captures, observed freezes, ready/incomplete/missing
+candidate counts, per-capture `--debug-sound-callsite-oracle` commands, and
+`--require-ready`, `--require-observed-freeze`, and
+`--require-environment-preflight` gates. Add `--write-ready-manifest <path>` to
+hand ready sound-callsite candidates to
+`tools/run_debug_capture_ready_manifest.py`; the generic runner and result
+summary now accept `sound_callsite` with `--debug-sound-callsite-oracle`.
 `tools/check_visual_claim_guardrail.py` requires every checked-in DOSBox oracle
 fixture to carry an explicit `visual_claim=0` or `visual_claim=1` line so
 instrumentation-only evidence cannot be promoted by omission. Promotions to
@@ -514,8 +523,20 @@ python3 tools/summarize_behavior4_procmem_route_sweep.py \
 python3 tools/summarize_behavior4_procmem_route_sweep.py \
   /tmp/lezac-behavior4-procmem-sweep/manifest.txt \
   --require-ready --write-ready-manifest /tmp/lezac-behavior4-ready.txt
+python3 tools/sweep_original_sound_callsite_routes.py \
+  /tmp/lezac-sound-callsite-routes . --dry-run \
+  --target actor_update_runtime_cursor_0035_sound \
+  --timing before_route --route x:2.00,c:0.50
+python3 tools/summarize_sound_callsite_route_sweep.py \
+  /tmp/lezac-sound-callsite-routes/manifest.txt \
+  --require-observed-freeze
+python3 tools/summarize_sound_callsite_route_sweep.py \
+  /tmp/lezac-sound-callsite-routes/manifest.txt \
+  --require-ready --write-ready-manifest /tmp/lezac-sound-callsite-ready.txt
 python3 tools/run_debug_capture_ready_manifest.py \
   /tmp/lezac-behavior4-ready.txt --dry-run
+python3 tools/run_debug_capture_ready_manifest.py \
+  /tmp/lezac-sound-callsite-ready.txt --dry-run
 ```
 
 Actor/contact fixture checkers keep the synthetic/malformed parser fixtures
@@ -1155,14 +1176,19 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   and marks `contact_scanner_runtime_sound` (`1000:5e81`, cursor `0x0069`,
   priority `4`) as the first runtime target while keeping
   `sound_runtime_capture_queue=ok` at `original_cursor_priority_claim=0`.
-  `tools/capture_original_sound_callsite_procmem.sh` mirrors that first target
-  through the process-memory freeze path for `contact_scanner_runtime_sound`;
-  live runs require `LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1` and
+  `tools/capture_original_sound_callsite_procmem.sh` mirrors all four
+  actor/contact runtime targets through the process-memory freeze path; live
+  runs require `LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1` and
   `LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION=1`, emit
   `sound_callsite_procmem`, and generate a non-promoted candidate fixture for
   later oracle normalization. `tools/sweep_original_sound_callsite_routes.py`
   dry-runs or executes the same helper across route/timing hypotheses and
   records `sound_callsite_route_sweep` manifests for future live evidence.
+  `tools/summarize_sound_callsite_route_sweep.py` triages those manifests into
+  completed capture counts, observed-freeze counts, ready/incomplete/missing
+  candidate counts, per-capture `--debug-sound-callsite-oracle` commands, and
+  optional `debug_capture_ready_candidates` manifests for the generic ready
+  runner.
   `--debug-static-sound-contexts` separately
   pins the original bytes and nearby strings that place `0x1857`, `0x1a44`,
   `0x1d9c`, `0x202d`, and `0x2083` in name-entry/record UI regions rather than

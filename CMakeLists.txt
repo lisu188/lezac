@@ -434,6 +434,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_write_runtime.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_explosion_procmem.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_sound_callsite_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_ready_pipeline.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_ready_results.py
@@ -445,6 +446,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_procmem_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_route_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_route_sweep_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_procmem_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_procmem_route_sweep_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_procmem_helper.py
@@ -1585,6 +1587,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^sound_callsite_procmem_helper=ok targets=4 cmake_tests=4 docs=3")
+
+        add_test(NAME sound_callsite_route_sweep_summary_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_route_sweep_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(sound_callsite_route_sweep_summary_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^sound_callsite_route_sweep_summary_check=ok cases=7")
 
         add_test(NAME sound_compatibility_hooks
             COMMAND ${Python3_EXECUTABLE}

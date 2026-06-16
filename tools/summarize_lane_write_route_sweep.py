@@ -40,6 +40,7 @@ LANE_WRITE_FIELDS = [
     "loop_index",
     "result_local",
 ]
+DEBRIS_TAG_BASE = 0x4E20
 
 
 @dataclass(frozen=True)
@@ -70,6 +71,14 @@ class CandidateReadiness:
     lane_write_target: str
     runtime_cs: str
     runtime_ds: str
+    lane_write_output: str
+    lane_write_di: str
+    lane_write_tag: str
+    lane_write_active_count: str
+    lane_write_loop_index: str
+    lane_write_result_local: str
+    lane_write_tag_class: str
+    lane_write_tag_value: int | None
 
 
 @dataclass(frozen=True)
@@ -77,6 +86,9 @@ class SummaryResult:
     summary: str
     details: list[str]
     readiness_counts: dict[str, int]
+    debris_tag_candidates: int
+    collapse_tag_candidates: int
+    unknown_tag_candidates: int
     ready_manifest_lines: list[str]
     environment_preflight: str
 
@@ -149,6 +161,25 @@ def bool_value(value: str | None) -> bool:
     }
 
 
+def parse_hex_int(value: str | None) -> int | None:
+    if not value:
+        return None
+    token = value.strip().lower()
+    try:
+        return int(token, 0)
+    except ValueError:
+        return None
+
+
+def classify_lane_write_tag(value: str | None) -> tuple[str, int | None]:
+    parsed = parse_hex_int(value)
+    if parsed is None:
+        return "unknown", None
+    if parsed >= DEBRIS_TAG_BASE:
+        return "debris", parsed
+    return "collapse", parsed
+
+
 def offset_label_from_address(value: str) -> str:
     token = value.lower()
     if ":" in value:
@@ -185,6 +216,12 @@ def missing_or_none(missing: list[str]) -> str:
     return ",".join(missing)
 
 
+def hex_or_none(value: int | None) -> str:
+    if value is None:
+        return "none"
+    return f"0x{value:04x}"
+
+
 def oracle_command(binary: str, candidate_fixture: Path | None) -> str:
     if candidate_fixture is None:
         return "none"
@@ -217,11 +254,45 @@ def expected_model(offset_label: str) -> tuple[str, str, str] | None:
 def candidate_readiness(candidate: Candidate) -> CandidateReadiness:
     if candidate.fixture is None:
         return CandidateReadiness(
-            "missing", ["fixture"], False, False, False, False, "", "", "", ""
+            "missing",
+            ["fixture"],
+            False,
+            False,
+            False,
+            False,
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "unknown",
+            None,
         )
     if not candidate.fixture.exists():
         return CandidateReadiness(
-            "missing", ["file"], False, False, False, False, "", "", "", ""
+            "missing",
+            ["file"],
+            False,
+            False,
+            False,
+            False,
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "unknown",
+            None,
         )
 
     values, nonempty = active_values(candidate.fixture)
@@ -250,6 +321,17 @@ def candidate_readiness(candidate: Candidate) -> CandidateReadiness:
     )
     lane_write_kind = values.get("instrumented_lane_write_kind", "")
     lane_write_target = values.get("instrumented_lane_write_target", "")
+    lane_write_output = values.get("instrumented_lane_write_output", "")
+    lane_write_di = values.get("instrumented_lane_write_di", "")
+    lane_write_tag = values.get("instrumented_lane_write_tag", "")
+    lane_write_active_count = values.get(
+        "instrumented_lane_write_active_count", ""
+    )
+    lane_write_loop_index = values.get("instrumented_lane_write_loop_index", "")
+    lane_write_result_local = values.get("instrumented_lane_write_result_local", "")
+    lane_write_tag_class, lane_write_tag_value = classify_lane_write_tag(
+        lane_write_tag if lane_write_present else None
+    )
 
     if values.get("instrumented_freeze_patch_mode") != "lane-write-cs-scratch":
         missing.append("lane_write_patch_mode")
@@ -297,6 +379,14 @@ def candidate_readiness(candidate: Candidate) -> CandidateReadiness:
         lane_write_target=lane_write_target,
         runtime_cs=runtime_cs,
         runtime_ds=runtime_ds,
+        lane_write_output=lane_write_output,
+        lane_write_di=lane_write_di,
+        lane_write_tag=lane_write_tag,
+        lane_write_active_count=lane_write_active_count,
+        lane_write_loop_index=lane_write_loop_index,
+        lane_write_result_local=lane_write_result_local,
+        lane_write_tag_class=lane_write_tag_class,
+        lane_write_tag_value=lane_write_tag_value,
     )
 
 
@@ -433,6 +523,23 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         readiness_counts[readiness.status] = (
             readiness_counts.get(readiness.status, 0) + 1
         )
+    ready_tag_classes = [
+        readiness.lane_write_tag_class
+        for _, readiness in readings
+        if readiness.status == "ready"
+    ]
+    debris_tag_candidates = ready_tag_classes.count("debris")
+    collapse_tag_candidates = ready_tag_classes.count("collapse")
+    unknown_tag_candidates = ready_tag_classes.count("unknown")
+    max_lane_write_tag = max(
+        (
+            readiness.lane_write_tag_value
+            for _, readiness in readings
+            if readiness.status == "ready"
+            and readiness.lane_write_tag_value is not None
+        ),
+        default=None,
+    )
     observed_freeze_offsets = [
         candidate.offset_label
         for candidate, readiness in readings
@@ -461,6 +568,10 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         f"no_freeze_candidates={readiness_counts['no_freeze']} "
         f"incomplete_candidates={readiness_counts['incomplete']} "
         f"missing_candidates={readiness_counts['missing']} "
+        f"debris_tag_candidates={debris_tag_candidates} "
+        f"collapse_tag_candidates={collapse_tag_candidates} "
+        f"unknown_tag_candidates={unknown_tag_candidates} "
+        f"max_lane_write_tag={hex_or_none(max_lane_write_tag)} "
         f"observed_offsets={csv_or_none(observed_freeze_offsets)} "
         f"missing_offsets={csv_or_none(missing_offsets)} "
         f"candidate_fixtures={csv_or_none(fixture_paths)}"
@@ -479,6 +590,14 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
             f"patch_applied={1 if readiness.patch_applied else 0} "
             f"freeze_observed={1 if readiness.freeze_observed else 0} "
             f"lane_write_present={1 if readiness.lane_write_present else 0} "
+            f"lane_write_output={readiness.lane_write_output or 'none'} "
+            f"lane_write_di={readiness.lane_write_di or 'none'} "
+            f"lane_write_tag={readiness.lane_write_tag or 'none'} "
+            f"lane_write_tag_class={readiness.lane_write_tag_class} "
+            f"lane_write_debris_tag={1 if readiness.lane_write_tag_class == 'debris' else 0} "
+            f"lane_write_active_count={readiness.lane_write_active_count or 'none'} "
+            f"lane_write_loop_index={readiness.lane_write_loop_index or 'none'} "
+            f"lane_write_result_local={readiness.lane_write_result_local or 'none'} "
             f"candidate_fixture={candidate.fixture or 'none'} "
             f"candidate_status={readiness.status} "
             f"candidate_missing={missing_or_none(readiness.missing)} "
@@ -492,6 +611,9 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         summary=summary,
         details=details,
         readiness_counts=readiness_counts,
+        debris_tag_candidates=debris_tag_candidates,
+        collapse_tag_candidates=collapse_tag_candidates,
+        unknown_tag_candidates=unknown_tag_candidates,
         ready_manifest_lines=ready_manifest_records(
             manifest.path, environment_preflight, oracle_binary, readings
         ),
@@ -541,6 +663,18 @@ def require_environment_preflight_error(environment_preflight: str) -> str | Non
     )
 
 
+def require_debris_tag_error(result: SummaryResult) -> str | None:
+    if result.debris_tag_candidates > 0:
+        return None
+    return (
+        "lane_write_route_sweep_summary=error reason=no_debris_tag_candidates "
+        f"ready_candidates={result.readiness_counts.get('ready', 0)} "
+        f"debris_tag_candidates={result.debris_tag_candidates} "
+        f"collapse_tag_candidates={result.collapse_tag_candidates} "
+        f"unknown_tag_candidates={result.unknown_tag_candidates}"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Summarize lane-write route-sweep manifests."
@@ -555,6 +689,14 @@ def main() -> int:
         "--require-ready",
         action="store_true",
         help="exit nonzero unless at least one freeze candidate is ready",
+    )
+    parser.add_argument(
+        "--require-debris-tag",
+        action="store_true",
+        help=(
+            "exit nonzero unless at least one ready lane-write candidate has "
+            "a scratch tag at or above the 0x4e20 debris-marker base"
+        ),
     )
     parser.add_argument(
         "--write-ready-manifest",
@@ -594,6 +736,11 @@ def main() -> int:
         if error is not None:
             print(error, file=sys.stderr)
             return 2
+    if args.require_debris_tag:
+        error = require_debris_tag_error(result)
+        if error is not None:
+            print(error, file=sys.stderr)
+            return 4
     if args.require_environment_preflight:
         error = require_environment_preflight_error(result.environment_preflight)
         if error is not None:

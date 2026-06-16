@@ -1,11 +1,19 @@
 # Recovery Status
 
 Last reviewed: 2026-06-16
-Branch: `codex/debris-tag-helper-search`
+Branch: `codex/helper-tag-classifier`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added lane-write scratch tag classification to
+  `tools/summarize_lane_write_route_sweep.py`. Route-sweep summaries now print
+  each ready candidate's `lane_write_tag`, derived `lane_write_tag_class`, and
+  summary counts for debris-marker versus collapse-tag candidates. The new
+  `--require-debris-tag` gate fails unless at least one ready lane-write
+  candidate has a scratch tag at or above the `0x4e20` debris-marker base,
+  making the pending natural `1000:3D2D` search machine-checkable instead of
+  relying on manual oracle-log inspection.
 - Aligned live fire-key handling with the recovered keyboard IRQ gate bytes:
   player 1 uses `N` (`0x31`/`0xb1`) and player 2 uses keypad `0`/Insert
   (`0x52`/`0xd2`). `--debug-input-fire-key-model` now pins the shipped
@@ -305,7 +313,9 @@ Baseline: `origin/main`
   completed both routes against `1000:3D1B` and `1000:3D2D`. The summary
   reports `routes=2`, `candidates=4`, `observed_freezes=0`,
   `ready_candidates=0`, `no_freeze_candidates=4`, and
-  `missing_offsets=3d1b,3d2d`; all four candidates patched and parsed as valid
+  `missing_offsets=3d1b,3d2d`; the updated helper-tag classifier reports
+  `debris_tag_candidates=0`, `collapse_tag_candidates=0`, and
+  `max_lane_write_tag=none`. All four candidates patched and parsed as valid
   no-freeze fixtures. Route and tail frames for both `3D2D` captures were
   visually inspected and stayed in live level-1 playback. This closes the
   reviewed level-1 helper-tag route family under the current before-bomb
@@ -2269,10 +2279,14 @@ reach the high-debris
 branch/forward-helper area, but the natural helper iterations observed so far
 write collapse tags `0x0002` or `0x0005` at `3D1B`; the expanded subset did
 not reach either helper write site, and the helper-tag-open routes also stayed
-valid no-freeze for both `3D1B` and `3D2D`. The next useful original-evidence step
-should broaden the route/control hypothesis beyond this level-1 timing family
-or construct a seeded setup that reaches a natural `4C96 -> 3BB2`
-forward-helper iteration whose lane-write scratch tag is at or above the debris
-marker base `0x4e20`, then target `1000:3D2D` only for that debris-tag state.
-Otherwise return to DOSBox frame/debugger evidence for behavior-4 movement,
-targeting, and respawn timing.
+valid no-freeze for both `3D1B` and `3D2D`. The updated lane-write summarizer
+classifies the prior helper-tag search as `debris_tag_candidates=0`,
+`collapse_tag_candidates=2`, `max_lane_write_tag=0x0005`, and
+`--require-debris-tag` fails with `reason=no_debris_tag_candidates`. The next
+useful original-evidence step should broaden the route/control hypothesis
+beyond this level-1 timing family or construct a seeded setup that reaches a
+natural `4C96 -> 3BB2` forward-helper iteration whose lane-write scratch tag is
+at or above the debris marker base `0x4e20`, then target `1000:3D2D` only after
+`tools/summarize_lane_write_route_sweep.py <manifest> --require-debris-tag`
+passes. Otherwise return to DOSBox frame/debugger evidence for behavior-4
+movement, targeting, and respawn timing.

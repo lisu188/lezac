@@ -1738,6 +1738,15 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^record_name_entry_cursor=ok empty_slot=0 typed_slot=1 second_slot=2 backspace_slot=1 cursor_pixels=[0-9]+,[0-9]+,[0-9]+,[0-9]+ backspace_restores_frame=1 frame_inspection=1")
 
+    add_test(NAME records_name_entry_repeat_temp
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-name-entry-repeat
+                ${CMAKE_CURRENT_BINARY_DIR}/records_name_repeat_test.dat)
+    set_tests_properties(records_name_entry_repeat_temp PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^record_name_entry_repeat=ok repeated_chars=3 repeated_backspaces=2 ignored_repeat_enter=1 ignored_repeat_escape=1 final_name=ab cursor_slot=2 committed=1")
+
     add_test(NAME records_save_failure_temp
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-save-failure
                 ${CMAKE_CURRENT_BINARY_DIR}/missing_records_dir/records_test.dat)

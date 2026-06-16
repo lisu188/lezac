@@ -124,6 +124,7 @@ python3 tools/compare_state2_visual_row_game_previews.py /tmp/lezac-state2-visua
 ./build/lezac_cpp --debug-records-raw-roundtrip
 ./build/lezac_cpp --debug-record-name-entry /tmp/records_name_test.dat
 ./build/lezac_cpp --debug-record-name-entry-cursor
+./build/lezac_cpp --debug-record-name-entry-repeat /tmp/records_name_repeat_test.dat
 ./build/lezac_cpp --debug-record-save-failure /tmp/missing-record-dir/records.dat
 ./build/lezac_cpp --debug-end-flow-records /tmp/end_flow_records.dat
 ./build/lezac_cpp --debug-gran
@@ -969,8 +970,9 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   colon-padded storage. Empty submissions now preserve the original eight-colon
   raw template and decode as `nessuno`. The name-entry renderer now highlights
   the current input slot and `--debug-record-name-entry-cursor` frame-inspects
-  cursor movement after typing and Backspace; typematic repeat and exact
-  original presentation remain approximate.
+  cursor movement after typing and Backspace. SDL repeat keydown events now
+  repeat letters/space and Backspace while ignoring repeated Enter/Escape;
+  exact original repeat timing and presentation remain approximate.
 - Bomb fuse timing, 2x2 footprint, player blast damage, monster hit-point
   blast damage, visual selectors, actor sprite indices, word-layer damage
   gating, bomb-object passability after explosion, and queued debris/collapse

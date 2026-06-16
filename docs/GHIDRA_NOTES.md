@@ -1252,6 +1252,10 @@ Backspace, lowercase storage, eight-character truncation, space-to-colon
 encoding, short-name colon padding, empty-name `::::::::` storage decoded as
 `nessuno`, and preservation of a typed `nessuno:` record as distinct raw bytes
 against a temporary binary `RECS.DAT`-format file.
+`--debug-record-name-entry-repeat` now drives SDL repeated keydown events
+through `processEvents`: repeated letters/space and Backspace are accepted only
+while the name-entry prompt is active, while repeated Enter/Escape stay ignored
+so commit and cancel remain edge-triggered.
 `--debug-record-entry-static-model` pins the executable bytes behind the same
 layout: the `CS:183c` `0x08` plus eight-colon template, three `* 13` record
 stride calculations, the 13-byte table shift copy, the 8-byte name copy to

@@ -231,6 +231,11 @@ Baseline: `origin/main`
   `--debug-record-name-entry-cursor` frame inspection. The diagnostic verifies
   the active slot starts at position 0, advances after typed letters, returns
   after Backspace, and restores the prior rendered frame.
+- Added `--debug-record-name-entry-repeat` to exercise SDL repeated keydown
+  events through the normal event queue. Name entry now accepts repeated
+  letters/space and Backspace, ignores repeated Enter/Escape so commit/cancel
+  are edge-triggered, and commits the repeated-input name through a temporary
+  binary `RECS.DAT`-format file.
 - Added `--debug-core-resource-raw-roundtrip` to pin `BOMPAL.PAL`,
   `SFONLEF.ZBG`, and `CARO.CAR` against their converted JSON resources. It
   compares decoded palettes, background RLE expansion, and tile payload bytes,

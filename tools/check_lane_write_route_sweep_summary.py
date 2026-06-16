@@ -91,18 +91,24 @@ def write_candidate(
     freeze: bool,
     placeholder: bool = False,
     patch_applied: bool = True,
+    lane_write_output: str = "0x0035",
+    lane_write_di: str = "0x0898",
+    lane_write_tag: str = "0x4ee8",
+    lane_write_active_count: str = "0x0001",
+    lane_write_loop_index: str = "0x0001",
+    lane_write_result_local: str = "0x0035",
 ) -> None:
     _, kind, target, old_bytes = OFFSET_MODEL[offset_label]
     lane_lines = []
     if freeze:
         lane_lines = [
             "instrumented_lane_write_scratch_present=1",
-            "instrumented_lane_write_output=0x0035",
-            "instrumented_lane_write_di=0x0898",
-            "instrumented_lane_write_tag=0x4ee8",
-            "instrumented_lane_write_active_count=0x0001",
-            "instrumented_lane_write_loop_index=0x0001",
-            "instrumented_lane_write_result_local=0x0035",
+            f"instrumented_lane_write_output={lane_write_output}",
+            f"instrumented_lane_write_di={lane_write_di}",
+            f"instrumented_lane_write_tag={lane_write_tag}",
+            f"instrumented_lane_write_active_count={lane_write_active_count}",
+            f"instrumented_lane_write_loop_index={lane_write_loop_index}",
+            f"instrumented_lane_write_result_local={lane_write_result_local}",
         ]
     else:
         lane_lines = ["instrumented_lane_write_scratch_present=0"]
@@ -189,19 +195,31 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="lezac-lane-write-summary-") as tmp:
         base = Path(tmp)
         ready_candidate = base / "ready" / "candidate.txt"
+        collapse_ready_candidate = base / "collapse_ready" / "candidate.txt"
         no_freeze_candidate = base / "no_freeze" / "candidate.txt"
         no_patch_candidate = base / "no_patch" / "candidate.txt"
         incomplete_candidate = base / "incomplete" / "candidate.txt"
         write_candidate(ready_candidate, "3d2d", freeze=True)
+        write_candidate(
+            collapse_ready_candidate,
+            "3d1b",
+            freeze=True,
+            lane_write_output="0x0000",
+            lane_write_di="0x004b",
+            lane_write_tag="0x0005",
+            lane_write_result_local="0x0000",
+        )
         write_candidate(no_freeze_candidate, "3ec1", freeze=False)
         write_candidate(no_patch_candidate, "3d2d", freeze=False, patch_applied=False)
         write_candidate(incomplete_candidate, "3d2d", freeze=True, placeholder=True)
 
         ready_manifest = base / "ready" / "manifest.txt"
+        collapse_ready_manifest = base / "collapse_ready" / "manifest.txt"
         no_freeze_manifest = base / "no_freeze" / "manifest.txt"
         no_patch_manifest = base / "no_patch" / "manifest.txt"
         incomplete_manifest = base / "incomplete" / "manifest.txt"
         write_runtime_manifest(ready_manifest, ready_candidate)
+        write_runtime_manifest(collapse_ready_manifest, collapse_ready_candidate)
         write_runtime_manifest(no_freeze_manifest, no_freeze_candidate)
         write_runtime_manifest(no_patch_manifest, no_patch_candidate)
         write_runtime_manifest(incomplete_manifest, incomplete_candidate)
@@ -227,17 +245,30 @@ def main() -> int:
             "no_freeze_candidates=1",
             "incomplete_candidates=0",
             "missing_candidates=0",
+            "debris_tag_candidates=1",
+            "collapse_tag_candidates=0",
+            "unknown_tag_candidates=0",
+            "max_lane_write_tag=0x4ee8",
             "observed_offsets=3d2d",
             "missing_offsets=3ec1",
             "candidate route=ready offset=3d2d",
             "kind=forward",
             "target=debris",
+            "lane_write_tag=0x4ee8",
+            "lane_write_tag_class=debris",
+            "lane_write_debris_tag=1",
             "candidate_status=ready",
             "candidate route=no_freeze offset=3ec1",
+            "lane_write_tag=none",
+            "lane_write_tag_class=unknown",
             "candidate_status=no_freeze",
             "oracle_flag=--debug-explosion-playback-oracle",
         ]:
             require(summary, snippet, "mixed_summary")
+        cases += 1
+
+        required_debris = run_summary(root, [str(sweep_manifest), "--require-debris-tag"])
+        require(required_debris, "debris_tag_candidates=1", "mixed_require_debris")
         cases += 1
 
         required = run_summary(root, [str(sweep_manifest), "--require-ready"])
@@ -327,6 +358,40 @@ def main() -> int:
         )
         require(no_ready, "reason=no_ready_candidates", "no_ready_required")
         require(no_ready, "no_freeze_candidates=1", "no_ready_required")
+        cases += 1
+
+        collapse_only_sweep = base / "collapse_only_manifest.txt"
+        write_route_sweep(
+            collapse_only_sweep,
+            [
+                (
+                    "collapse_ready",
+                    "3d1b",
+                    collapse_ready_manifest,
+                    collapse_ready_candidate,
+                )
+            ],
+            ["3d1b"],
+        )
+        collapse_only = run_summary(
+            root,
+            [str(collapse_only_sweep), "--require-debris-tag"],
+            expect_success=False,
+        )
+        require(
+            collapse_only,
+            "reason=no_debris_tag_candidates",
+            "collapse_only_required",
+        )
+        require(collapse_only, "ready_candidates=1", "collapse_only_required")
+        require(collapse_only, "debris_tag_candidates=0", "collapse_only_required")
+        require(collapse_only, "collapse_tag_candidates=1", "collapse_only_required")
+        require(collapse_only, "lane_write_tag=0x0005", "collapse_only_required")
+        require(
+            collapse_only,
+            "lane_write_tag_class=collapse",
+            "collapse_only_required",
+        )
         cases += 1
 
         no_patch_sweep = base / "no_patch_manifest.txt"

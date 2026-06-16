@@ -655,11 +655,17 @@ sampling with a `/proc/<pid>/mem` permission error, so use
 `--route-state-interval 0` for reproducing this classification.
 
 Summarize its output with
-`tools/summarize_lane_write_route_sweep.py <manifest-or-dir> --require-ready`
-and add `--write-ready-manifest <path>` when a follow-up oracle run should use
-only ready natural debris-write candidates. Recheck that ready manifest with
-`tools/run_lane_write_ready_manifest.py <manifest> --dry-run` first, then run
-it live with `--log-dir <tmp-dir>` and `--write-result-manifest <tmp-file>`.
+`tools/summarize_lane_write_route_sweep.py <manifest-or-dir>`. The summarizer
+prints each ready lane-write candidate's scratch tag and derived
+`lane_write_tag_class`; add `--require-debris-tag` when the search should fail
+unless a ready candidate has a tag at or above the `0x4e20` debris-marker base.
+The prior helper-tag search now reports `debris_tag_candidates=0`,
+`collapse_tag_candidates=2`, and `max_lane_write_tag=0x0005`, so it remains
+negative evidence for natural forward-debris writeback. Add
+`--write-ready-manifest <path>` when a follow-up oracle run should use only
+ready natural debris-write candidates. Recheck that ready manifest with
+`tools/run_lane_write_ready_manifest.py <manifest> --dry-run` first, then run it
+live with `--log-dir <tmp-dir>` and `--write-result-manifest <tmp-file>`.
 Summarize the executed or planned result manifest with
 `tools/summarize_lane_write_ready_results.py <result-manifest>`, adding
 `--require-success --require-executed --require-source-environment-preflight`

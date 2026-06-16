@@ -867,6 +867,17 @@ used that preset with `--route-state-interval 0` after a sampled attempt hit a
 both remaining routes missed both `3D1B` and `3D2D`, and the inspected route
 and tail frames stayed in live level-1 playback.
 
+`tools/summarize_lane_write_route_sweep.py` now classifies ready lane-write
+scratch tags as `collapse` or `debris` relative to the `0x4e20` debris-marker
+base. The prior helper-tag search at
+`C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-tag-search-1781617957`
+now summarizes as `debris_tag_candidates=0`, `collapse_tag_candidates=2`, and
+`max_lane_write_tag=0x0005`; `--require-debris-tag` fails on that manifest with
+`reason=no_debris_tag_candidates`. Use
+`tools/summarize_lane_write_route_sweep.py <manifest-or-dir> --require-debris-tag`
+as the gate before spending a natural `1000:3D2D` capture on a newly found
+helper-tag route.
+
 The sweep wrapper now translates `/mnt/<drive>/...` candidate paths when a WSL
 run invokes a Windows `.exe` oracle, so that host split can parse candidates in
 the same pass instead of leaving `oracle_error` records for path-only reasons.

@@ -1,7 +1,7 @@
 # Recovery Status
 
 Last reviewed: 2026-06-16
-Branch: `codex/lane-global-control-flow-probes`
+Branch: `codex/early-branch-probe`
 Baseline: `origin/main`
 
 ## Completed This Iteration
@@ -176,6 +176,29 @@ Baseline: `origin/main`
   sampled/tail window. This brackets the current miss as an earlier
   control-flow/predicate question, not another nearby lane-global timing
   question.
+- Ran earlier branch-window probes for the lane-global timing variants. For
+  `x:2.00,c:0.35`, the selected-base `1000:4C75` bp4-scratch run at
+  `C:\Users\andrz\AppData\Local\Temp\lezac-early-4c75-selected-base-1781613438`
+  armed at `2.002s` with selected bases `209e/663e/c22e`, high-debris target
+  offset `0x05bd`, and pre-final lane globals `0x00/0x0002/0x07bc`, but the
+  oracle still reported no freeze, high-word gate, bp4 local, or lane write.
+  The matching selected-base `1000:4B3F` run at
+  `C:\Users\andrz\AppData\Local\Temp\lezac-early-4b3f-selected-base-1781613513`
+  armed at `2.045s` with the same selected bases and also did not freeze.
+  Timed `4C75` reruns at
+  `C:\Users\andrz\AppData\Local\Temp\lezac-early-4c75-timed-1781613603`
+  (`after_bomb=1.0`),
+  `C:\Users\andrz\AppData\Local\Temp\lezac-early-4c75-after0-1781613674`
+  (`after_bomb=0.0`), and
+  `C:\Users\andrz\AppData\Local\Temp\lezac-early-4c75-before-bomb-1781613747`
+  all loaded the patch with the early `2093/6620/c22e` state and no observed
+  high-word-gate hit. Finally, before-bomb `1000:4B3F` loop patches at
+  `C:\Users\andrz\AppData\Local\Temp\lezac-early-4b3f-before-bomb-1781613826`
+  (`x:2.00,c:0.35`) and
+  `C:\Users\andrz\AppData\Local\Temp\lezac-early-4b3f-before-bomb-c0p65-1781613903`
+  (`x:2.00,c:0.65`) loaded but did not freeze. Narrow conclusion: these two
+  `c` timing variants can expose late sampled lane state, but they are not
+  useful natural `3D2D` branch-execution routes under the current bomb timing.
 - Added `--continue-on-oracle-error` to
   `tools/sweep_original_lane_write_routes.py`. Capture failures still stop the
   sweep, but a missing or unrunnable C++ oracle now writes an `oracle_error`
@@ -2132,10 +2155,12 @@ early `0x2093` geometry without hitting natural `3D2D`, and the later
 lane-global gate can apply at `0x01/0x8002/0x07be` on several nearby timings
 without reaching the forward debris write. Direct q78 lane-global probes also
 show that, after that later predicate arms, neither `1000:4C75` nor
-`1000:4C96` is reached again in the sampled window. The next useful
-original-evidence step should arm earlier, using selected-base/high-target
-state or an upstream branch anchor such as `4B3F`/`4C75`, to explain where the
-natural route diverges before `1000:3D2D`.
+`1000:4C96` is reached again in the sampled window, and the follow-up
+before-bomb `4B3F`/`4C75` probes show the two `c` timing variants do not hit
+the high-debris branch anchors even when patched before the bomb tap. The next
+useful original-evidence step should classify candidate routes by branch-anchor
+reachability first, then only target natural `1000:3D2D` on a route that has
+already hit `4B3F`/`4C75`/`4C96` in the same control/input family.
 Treat a no-patch or no-freeze result as route evidence, not promotion.
 Then return to DOSBox frame/debugger evidence for behavior-4 movement,
 targeting, and respawn timing.

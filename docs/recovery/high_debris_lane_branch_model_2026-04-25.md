@@ -516,6 +516,26 @@ This proves only that neither `4C75` nor `4C96` is reached after the q78
 lane-global patch is installed in the sampled/tail window; it does not disprove
 earlier execution before the predicate matches.
 
+The next probe moved the patch earlier and classified the route instead of the
+state sample. For `x:2.00,c:0.35`, selected-base gating without lane-global
+requirements armed `1000:4C75` at
+`C:\Users\andrz\AppData\Local\Temp\lezac-early-4c75-selected-base-1781613438`
+after `2.002s`, with selected bases `209e/663e/c22e`, high-debris target
+offset `0x05bd`, and lane globals `0x00/0x0002/0x07bc`; the native oracle saw
+no freeze, high-word gate, bp4 local, or lane write. The matching
+selected-base `1000:4B3F` run at
+`C:\Users\andrz\AppData\Local\Temp\lezac-early-4b3f-selected-base-1781613513`
+armed after `2.045s` and also did not freeze. Moving `4C75` even earlier with
+`after_bomb=1.0`, `after_bomb=0.0`, and `before_bomb` still loaded the patch
+without a gate hit, all from the early `2093/6620/c22e` sampled state. Finally,
+before-bomb `1000:4B3F` loop patches for both `x:2.00,c:0.35`
+(`C:\Users\andrz\AppData\Local\Temp\lezac-early-4b3f-before-bomb-1781613826`)
+and `x:2.00,c:0.65`
+(`C:\Users\andrz\AppData\Local\Temp\lezac-early-4b3f-before-bomb-c0p65-1781613903`)
+loaded but did not freeze. These are route-classification negatives: the two
+`c` timing variants expose sampled lane-state transitions but have not shown
+live `4B3F`/`4C75` branch execution after the route/bomb timing used here.
+
 Use `tools/sweep_original_lane_write_routes.py` only when a new route or
 control-flow hypothesis has been identified. The default matrix targets
 `3D2D`/`3EC1` with the `late-collapse` runtime-freeze gate and writes stable
@@ -541,9 +561,9 @@ python3 tools/sweep_original_lane_write_routes.py \
 ```
 
 The next useful evidence step should ask a narrower control-flow question
-around why these patched states have already missed the forward debris helper:
-arm earlier from selected-base/high-target state, or instrument an upstream
-branch such as `4B3F`/`4C75`, rather than testing adjacent route durations.
+around route reachability before targeting writeback: classify candidate routes
+with branch-anchor probes first, and only aim at natural `1000:3D2D` after the
+same route/control family has demonstrated `4B3F`/`4C75`/`4C96` reachability.
 
 Summarize its output with
 `tools/summarize_lane_write_route_sweep.py <manifest-or-dir> --require-ready`

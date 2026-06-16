@@ -769,6 +769,24 @@ the probes, neither `4C75` nor `4C96` was reached again in the sampled/tail
 window. The next useful probe should arm earlier or inspect an upstream branch,
 not retry adjacent lane-global durations.
 
+Earlier branch-window probes classify those two timing variants more sharply.
+For `x:2.00,c:0.35`, a selected-base `1000:4C75` bp4-scratch run at
+`C:\Users\andrz\AppData\Local\Temp\lezac-early-4c75-selected-base-1781613438`
+armed at `2.002s` with bases `209e/663e/c22e` and lane globals
+`0x00/0x0002/0x07bc`, while the matching `1000:4B3F` run at
+`C:\Users\andrz\AppData\Local\Temp\lezac-early-4b3f-selected-base-1781613513`
+armed at `2.045s`; neither froze. Timed `4C75` probes at `after_bomb=1.0`,
+`after_bomb=0.0`, and `before_bomb` also loaded patches with the early
+`2093/6620/c22e` state and saw no high-word-gate hit. Before-bomb `4B3F`
+probes for both `x:2.00,c:0.35`
+(`C:\Users\andrz\AppData\Local\Temp\lezac-early-4b3f-before-bomb-1781613826`)
+and `x:2.00,c:0.65`
+(`C:\Users\andrz\AppData\Local\Temp\lezac-early-4b3f-before-bomb-c0p65-1781613903`)
+also loaded without freezing. Treat the two `c` timings as late sampled-state
+evidence, not natural `3D2D` branch-execution candidates. The next useful route
+work should first prove `4B3F`/`4C75`/`4C96` reachability for the candidate
+route, then target `1000:3D2D`.
+
 The sweep wrapper now translates `/mnt/<drive>/...` candidate paths when a WSL
 run invokes a Windows `.exe` oracle, so that host split can parse candidates in
 the same pass instead of leaving `oracle_error` records for path-only reasons.

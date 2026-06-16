@@ -1,11 +1,22 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/behavior4-procmem-fallback`
+Branch: `codex/behavior4-procmem-sweep`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `tools/sweep_original_behavior4_procmem_routes.py` plus
+  `tools/check_behavior4_procmem_route_sweep.py` and CMake dry-run coverage so
+  the behavior-4 process-memory fallback can be exercised as a route/timing
+  matrix instead of one anchor at a time. The default matrix targets
+  `behavior4_branch_start` and `integration_8_8_start` for
+  `monster_behavior4_target_selection` across the reviewed behavior-4 route
+  hypotheses with both pre-bomb and pre-route freeze timing; `--all-targets`
+  expands the plan to all six anchors. Live runs still require
+  `--approve-procmem` and `--approve-runtime-instrumentation`, write a
+  `behavior4_procmem_route_sweep` manifest, and leave generated candidates
+  non-promoted until semantic behavior-4 rows are captured.
 - Added `tools/capture_original_behavior4_procmem.sh` plus
   `tools/check_behavior4_procmem_helper.py` and CMake dry-run coverage for the
   six behavior-4 runtime anchors: `spawner_loop_start`,

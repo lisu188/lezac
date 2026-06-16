@@ -203,6 +203,12 @@ The wrapper can freeze `spawner_loop_start`, `spawner_loop_end`,
 `integration_8_8_end`, emits `behavior4_procmem` manifests plus a fill-in
 candidate fixture, and keeps `visual_claim=0` until semantic behavior-4 rows
 are captured and accepted by `--debug-behavior4-runtime-oracle`.
+Use `tools/sweep_original_behavior4_procmem_routes.py` to plan or execute a
+guarded route/timing matrix around that helper. Its default dry-run covers
+`behavior4_branch_start` and `integration_8_8_start` across the reviewed
+behavior-4 route hypotheses with both pre-bomb and pre-route runtime-freeze
+timing; add `--all-targets` only when the host is ready to spend captures on
+all six anchors.
 Live behavior-4, actor-update, contact-scanner, and visual-table DOSBox-debug
 helpers run
 `tools/preflight_original_evidence_environment.py --require-debug-capture`
@@ -491,6 +497,9 @@ LEZAC_BEHAVIOR4_DEBUG_DRY_RUN=1 \
 LEZAC_BEHAVIOR4_PROCMEM_DRY_RUN=1 \
   tools/capture_original_behavior4_procmem.sh \
   /tmp/lezac-behavior4-procmem . behavior4_branch_start
+python3 tools/sweep_original_behavior4_procmem_routes.py \
+  /tmp/lezac-behavior4-procmem-sweep . --dry-run --all-targets \
+  --timing before_bomb --route x:2.00
 ```
 
 Actor/contact fixture checkers keep the synthetic/malformed parser fixtures

@@ -1,7 +1,7 @@
 # Recovery Status
 
 Last reviewed: 2026-06-16
-Branch: `codex/reimplementation-next-20260616`
+Branch: `codex/reimplementation-followup-20260616`
 Baseline: `origin/main`
 
 ## Completed This Iteration
@@ -90,6 +90,31 @@ Baseline: `origin/main`
   Windows `.exe` oracle translate `/mnt/<drive>/...` candidate paths to
   Windows drive paths for the oracle argument. The dry-run expectation checker
   now pins that host-split path shape.
+- Followed the `1000:3D2D` word-layer-zero plan after the host-split oracle fix:
+  `C:\Users\andrz\AppData\Local\Temp\lezac-lane-write-forward-word-zero-1781607694`
+  required `209e/6620/c22e`, target byte `0x00`, and word-layer `0x0000`, but
+  selected debris base `0x2093` at the chosen sample, so it stayed `no_patch`.
+  The paired `2093` and `209e` base-specific calibrated retries at
+  `...\lezac-lane-write-forward-base2093-word-zero-1781607826`,
+  `...\lezac-lane-write-forward-base2093-calibrated-1781607951`, and
+  `...\lezac-lane-write-forward-base209e-calibrated-1781608035` also stayed
+  `no_patch` because the route alternates between early and later selected
+  debris geometry.
+- Ran the base-agnostic calibrated retry at
+  `C:\Users\andrz\AppData\Local\Temp\lezac-lane-write-forward-base-agnostic-1781608123`.
+  Its sample table showed why the patch still did not apply: the early
+  target-byte/word match only had seven nonzero debris bytes, below the
+  previous `0x20` debris threshold, while later samples had shifted target
+  geometry.
+- Ran the final early-state calibrated retry at
+  `C:\Users\andrz\AppData\Local\Temp\lezac-lane-write-forward-early-threshold-1781608295`
+  with queue score `0x80`, debris nonzero `0x07`, collapse nonzero `0x01`,
+  collapse/effect bases `6620/c22e`, target byte `0x00`, and word-layer
+  `0x0000`. This time the runtime patch applied immediately after the bomb
+  (`runtime_freeze_patch_applied=1`, elapsed `0.000`, selected debris base
+  `0x2093`), but no freeze or natural forward-debris lane write occurred. The
+  WSL summary classifies it as a valid `no_freeze` candidate with
+  `missing_offsets=3d2d`, not promotion evidence.
 - Taught the lane-write and lane-result route-sweep summarizers to translate
   WSL drive paths such as `/mnt/c/...` back to Windows paths when run by native
   Python. This fixed the local forward-debris sweep summary from ten false
@@ -2054,12 +2079,14 @@ Baseline: `origin/main`
 
 Do not repeat the unchanged `forward-debris-expanded` matrix: the latest
 ten-route pass produced ten valid no-freeze `3D2D` candidates, and the latest
-single-route gated retries produced two no-patch candidates plus one no-freeze
-candidate. The next original-evidence pass should keep the focused
-`x:2.00,c:0.50` / `209e/6620/c22e` route but either require the observed
-word-layer value `0x0000` or drop the word-layer gate after keeping the
-target-byte gate:
-`python3 tools/sweep_original_lane_write_routes.py /tmp/lezac-lane-write-forward-word-gated-zero . --route x:2.00,c:0.50 --offset forward-debris --runtime-freeze-preset none --runtime-freeze-min-queue-score 0x90 --runtime-freeze-min-debris-nonzero 0x20 --runtime-freeze-min-collapse-nonzero 0x10 --runtime-freeze-min-effect-nonzero 0x10 --runtime-freeze-require-debris-base 0x209e --runtime-freeze-require-collapse-base 0x6620 --runtime-freeze-require-effect-base 0xc22e --runtime-freeze-require-high-debris-target-byte 0x00 --runtime-freeze-require-high-debris-word-layer-value 0x0000 --approve-procmem --approve-runtime-instrumentation --cpp-exe ./build-win-codex-vs3/Debug/lezac_cpp.exe --continue-on-oracle-error`.
+single-route gated retries now include multiple no-patch candidates plus two
+valid no-freeze candidates. Do not repeat the early `x:2.00,c:0.50`
+target-byte/word-layer gate: it now proves that the patch can apply at the
+early `0x2093` geometry without hitting natural `3D2D`. The next useful
+original-evidence step is to expose runtime-freeze gates for the later lane
+globals seen in the sample table, especially `lane_update_flag=1`,
+`lane_word_global_value=0x8002`, and target offset `0x07be`, then rerun the
+focused route against that later state.
 Treat a no-patch or no-freeze result as route evidence, not promotion.
 Then return to DOSBox frame/debugger evidence for behavior-4 movement,
 targeting, and respawn timing.

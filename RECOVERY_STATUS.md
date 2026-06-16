@@ -6,6 +6,18 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `--debug-sound-runtime-capture-queue` to pin the four
+  actor/contact-runtime sound capture targets as an ordered C++ diagnostic.
+  It rechecks the shipped byte windows for `1000:5e81`, `1000:6844`,
+  `1000:6924`, and `1000:7386`, reports
+  `sound_runtime_capture_queue=ok`, keeps `contact_scanner_runtime_sound` as
+  the first target, and preserves `original_cursor_priority_claim=0` until a
+  valid `sound_callsite_oracle_original*.txt` fixture is captured.
+  A focused WSL preflight passed for `dosbox-debug`/`xvfb-run` and the
+  `contact_scanner_runtime_sound` dry-run emitted the expected `BP <CS>:5E81`
+  and `BP <CS>:165A` plan, but the live run was not attempted successfully
+  because `wsl.exe` began alternating between named-distro and default-distro
+  launch failures.
 - Extended `tools/capture_original_sound_callsite_debug.sh`, its checker, and
   dry-run CTest matrix from twelve to sixteen scenarios by adding the four
   actor/contact runtime sound candidates reported by

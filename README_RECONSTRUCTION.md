@@ -1076,6 +1076,11 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   actor/contact runtime queue
   `actor_contact_capture_candidates=0x5e81:contact_scanner,0x6844:actor_update,0x6924:actor_update,0x7386:actor_update`;
   these region labels are static byte-context facts, not live cue promotions.
+  `--debug-sound-runtime-capture-queue` narrows that handoff to the four
+  actor/contact runtime sound scenarios, rechecks their shipped byte windows,
+  and marks `contact_scanner_runtime_sound` (`1000:5e81`, cursor `0x0069`,
+  priority `4`) as the first runtime target while keeping
+  `sound_runtime_capture_queue=ok` at `original_cursor_priority_claim=0`.
   `--debug-static-sound-contexts` separately
   pins the original bytes and nearby strings that place `0x1857`, `0x1a44`,
   `0x1d9c`, `0x202d`, and `0x2083` in name-entry/record UI regions rather than

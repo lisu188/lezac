@@ -1086,7 +1086,12 @@ the unresolved writes by static region: `record_ui:2`,
 runtime-capture candidates as
 `actor_contact_capture_candidates=0x5e81:contact_scanner,0x6844:actor_update,0x6924:actor_update,0x7386:actor_update`.
 These are byte-context facts only; they are not promoted as live gameplay cues
-without same-location runtime evidence.
+without same-location runtime evidence. `--debug-sound-runtime-capture-queue`
+pins the four corresponding sound-callsite capture scenarios and keeps
+`contact_scanner_runtime_sound` (`1000:5e81`, cursor `0x0069`, priority `4`) as
+the first target, reporting `sound_runtime_capture_queue=ok` with
+`original_cursor_priority_claim=0` until a valid
+`sound_callsite_oracle_original*.txt` fixture exists.
 The diagnostic also prints
 `remaining_compat_hooks=objective_pickup,level_complete` and records rejected
 objective-sound candidates as

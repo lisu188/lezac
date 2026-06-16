@@ -1004,6 +1004,9 @@ priority `2` immediately before the `punteggi migliori` record-table text at
 events, pumps that recovered records-page sound request, and frame-inspects the
 main/info/instructions/records pages, visible gameplay background toggle, game
 start, return to menu, and main-menu exit path.
+`--debug-autoplayer pause_flow` covers the current C++ pause overlay, frozen
+logic/bomb/input state while paused, resume, and Escape-to-menu behavior with
+`original_pause_claim=0`; no original pause routine has been identified yet.
 The general `control_smoke` diagnostic now also reports the current port's
 shipped-manual performance controls explicitly: `s` toggles background
 rendering with frame inspection, the current `r/e` mapping shrinks and restores

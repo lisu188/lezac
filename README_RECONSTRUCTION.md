@@ -37,6 +37,7 @@ Smoke-test SDL window creation and menu/control handling:
 ./build/lezac_cpp --smoke-ui 3
 ./build/lezac_cpp --smoke-controls
 ./build/lezac_cpp --debug-menu-frame-flow
+./build/lezac_cpp --debug-autoplayer pause_flow
 ```
 
 Dump deterministic C++ frames for comparison against original DOSBox captures:
@@ -90,6 +91,7 @@ LEZAC_SOUND_CALLSITE_DEBUG_DRY_RUN=1 tools/capture_original_sound_callsite_debug
 ./build/lezac_cpp --debug-original-damage-counters
 ./build/lezac_cpp --debug-level1-frame-inspection
 ./build/lezac_cpp --debug-autoplayer level1_bomb_route
+./build/lezac_cpp --debug-autoplayer pause_flow
 ./build/lezac_cpp --debug-autoplayer death_reentry
 ./build/lezac_cpp --debug-autoplayer death_visuals
 ./build/lezac_cpp --debug-autoplayer level_transition
@@ -794,6 +796,10 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   frame-inspects distinct main/info/instructions/records pages, the records
   page sound request, visible gameplay background toggling, game start,
   return-to-menu, and menu-exit paths under dummy SDL.
+  `--debug-autoplayer pause_flow` locks the current-port pause toggle with
+  frame inspection, frozen logic/bomb/input state while paused, resume, and
+  escape-to-menu behavior; this remains `original_pause_claim=0` pending
+  original-game observation.
 - A first playable two-player reconstruction pass with separate start markers,
   separate controls, split camera views, a central objective panel, per-player
   bomb inventories/HUD/score state, zero-life player-out handling, shared

@@ -292,6 +292,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^autoplayer=ok scenario=level1_bomb_route route_frames=[0-9]+ .*p1_bomb_tile=24,22 bombs=1 explosion=1 frame_inspection=1")
 
+    add_test(NAME autoplayer_pause_flow_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer pause_flow)
+    set_tests_properties(autoplayer_pause_flow_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=pause_flow paused_overlay=1 frozen_ticks=1 frozen_bomb=1 frozen_inputs=1 resumed=1 escape_menu=1 frame_inspection=1 original_pause_claim=0")
+
     add_test(NAME autoplayer_death_reentry_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-autoplayer death_reentry)

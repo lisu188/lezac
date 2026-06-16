@@ -2598,6 +2598,8 @@ public:
     void debugAutoplayer(const std::string& scenario) {
         if (scenario == "level1_bomb_route") {
             debugAutoplayerLevel1BombRoute(scenario);
+        } else if (scenario == "pause_flow") {
+            debugAutoplayerPauseFlow(scenario);
         } else if (scenario == "death_reentry") {
             debugAutoplayerDeathReentry(scenario);
         } else if (scenario == "death_visuals") {
@@ -2693,6 +2695,109 @@ public:
                   << " final_xy=" << route.finalX << ',' << route.finalY
                   << " p1_bomb_tile=" << route.bombTileX << ',' << route.bombTileY
                   << " bombs=1 explosion=1 frame_inspection=1\n";
+    }
+
+    void debugAutoplayerPauseFlow(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || paused_ || playerCount_ != 1 || levelIndex_ != 0) {
+            throw std::runtime_error("pause flow failed to start one-player level 1");
+        }
+
+        FrameInspection startFrame = inspectRenderedFrame("autoplayer-pause-start");
+        size_t bombsBefore = bombs_.size();
+        int smallBombsBefore = bombInventory_.counts[0];
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.size() != bombsBefore + 1 ||
+            bombInventory_.counts[0] != smallBombsBefore - 1) {
+            throw std::runtime_error("pause flow failed to arm a bomb before pausing");
+        }
+
+        FrameInspection armedFrame = inspectRenderedFrame("autoplayer-pause-armed");
+        if (armedFrame.hash == startFrame.hash) {
+            throw std::runtime_error("pause flow armed frame did not change");
+        }
+        std::vector<uint32_t> armedPixels = fb_;
+        uint32_t logicBeforePause = logicTick_;
+        int bombTimerBeforePause = bombs_.back().timer;
+        float playerXBeforePause = player_.x;
+        float playerYBeforePause = player_.y;
+        float playerVyBeforePause = player_.vy;
+        size_t bombsArmed = bombs_.size();
+        int smallBombsArmed = bombInventory_.counts[0];
+
+        pushKeyDown(SDLK_p);
+        processEvents(running);
+        if (!paused_ || menu_) {
+            throw std::runtime_error("P key did not enter pause state");
+        }
+        FrameInspection pauseFrame = inspectRenderedFrame("autoplayer-pause-overlay");
+        if (pauseFrame.hash == armedFrame.hash ||
+            !regionChanged(armedPixels, 112, 84, 96, 28)) {
+            throw std::runtime_error("pause overlay did not change the rendered frame");
+        }
+
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        FrameControls pausedControls;
+        pausedControls.p1Right = true;
+        pausedControls.p1Jump = true;
+        updateWithControls(pausedControls, 1.0f / 60.0f);
+        update(1.0f / 60.0f);
+        if (!paused_ || logicTick_ != logicBeforePause ||
+            bombs_.size() != bombsArmed ||
+            bombs_.back().timer != bombTimerBeforePause ||
+            bombInventory_.counts[0] != smallBombsArmed ||
+            player_.x != playerXBeforePause ||
+            player_.y != playerYBeforePause ||
+            player_.vy != playerVyBeforePause) {
+            throw std::runtime_error("paused gameplay state advanced");
+        }
+        inspectRenderedFrame("autoplayer-pause-frozen");
+
+        pushKeyDown(SDLK_p);
+        processEvents(running);
+        if (paused_ || menu_) {
+            throw std::runtime_error("P key did not leave pause state");
+        }
+        FrameInspection resumedFrame = inspectRenderedFrame("autoplayer-pause-resumed");
+        if (resumedFrame.hash != armedFrame.hash) {
+            throw std::runtime_error("resumed frame did not restore the pre-pause game view");
+        }
+
+        updateWithControls(pausedControls, 1.0f / 60.0f);
+        if (logicTick_ != logicBeforePause + 1 ||
+            bombs_.back().timer >= bombTimerBeforePause) {
+            throw std::runtime_error("gameplay did not advance after unpausing");
+        }
+        inspectRenderedFrame("autoplayer-pause-advanced");
+
+        pushKeyDown(SDLK_p);
+        processEvents(running);
+        if (!paused_) {
+            throw std::runtime_error("pause flow could not re-enter pause before escape");
+        }
+        pushKeyDown(SDLK_ESCAPE);
+        processEvents(running);
+        if (!menu_ || menuPage_ != MenuPage::Main || paused_) {
+            throw std::runtime_error("escape did not clear pause and return to menu");
+        }
+        FrameInspection menuFrame = inspectRenderedFrame("autoplayer-pause-menu");
+        if (menuFrame.hash == resumedFrame.hash) {
+            throw std::runtime_error("pause flow menu frame did not redraw");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " paused_overlay=1 frozen_ticks=1 frozen_bomb=1"
+                  << " frozen_inputs=1 resumed=1 escape_menu=1"
+                  << " frame_inspection=1 original_pause_claim=0\n";
     }
 
     void debugAutoplayerDeathReentry(const std::string& scenario) {
@@ -14952,6 +15057,7 @@ private:
     std::vector<CompatibilitySoundAttempt> compatibilitySoundAttempts_;
     bool menu_ = true;
     MenuPage menuPage_ = MenuPage::Main;
+    bool paused_ = false;
     bool showBackground_ = true;
     int gameplayViewWidth_ = kScreenW;
     int clipLeft_ = 0;
@@ -15107,6 +15213,7 @@ private:
         explosionEffects_.clear();
         debrisQueue_.clear();
         collapseQueue_.clear();
+        paused_ = false;
         collected_ = 0;
         destroyed_ = 0;
         completeTimer_ = 0;
@@ -15210,6 +15317,23 @@ private:
             } else if (key == SDLK_s) {
                 showBackground_ = !showBackground_;
             }
+        } else if (!menu_ && key == SDLK_p) {
+            paused_ = !paused_;
+        } else if (!menu_ && key == SDLK_ESCAPE) {
+            paused_ = false;
+            menu_ = true;
+            menuPage_ = MenuPage::Main;
+        } else if (!menu_ && key == SDLK_F5) {
+            paused_ = false;
+            resetLevel(levelIndex_);
+        } else if (!menu_ && key == SDLK_PAGEUP) {
+            paused_ = false;
+            resetLevel(levelIndex_ + 1);
+        } else if (!menu_ && key == SDLK_PAGEDOWN) {
+            paused_ = false;
+            resetLevel(levelIndex_ - 1);
+        } else if (!menu_ && paused_) {
+            return;
         } else if (!menu_ && (key == SDLK_SPACE || key == SDLK_RCTRL)) {
             if (playerDead_) {
                 tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
@@ -15237,15 +15361,6 @@ private:
             adjustGameplayViewWidth(-32);
         } else if (!menu_ && key == SDLK_e && playerCount_ == 1) {
             adjustGameplayViewWidth(32);
-        } else if (!menu_ && key == SDLK_F5) {
-            resetLevel(levelIndex_);
-        } else if (!menu_ && key == SDLK_ESCAPE) {
-            menu_ = true;
-            menuPage_ = MenuPage::Main;
-        } else if (!menu_ && key == SDLK_PAGEUP) {
-            resetLevel(levelIndex_ + 1);
-        } else if (!menu_ && key == SDLK_PAGEDOWN) {
-            resetLevel(levelIndex_ - 1);
         }
     }
 
@@ -15626,7 +15741,7 @@ private:
     }
 
     void update(float dt) {
-        if (menu_) return;
+        if (menu_ || paused_) return;
         const uint8_t* keys = SDL_GetKeyboardState(nullptr);
         FrameControls controls;
         controls.p1Left = keys[SDL_SCANCODE_LEFT] ||
@@ -15642,7 +15757,7 @@ private:
     }
 
     void updateWithControls(const FrameControls& controls, float dt) {
-        if (menu_) return;
+        if (menu_ || paused_) return;
         ++logicTick_;
         updateDamageCooldowns();
         bool p1Switch = controls.p1Left && controls.p1Right;
@@ -17269,6 +17384,7 @@ private:
             }
         }
         drawHud();
+        if (paused_) drawPauseOverlay();
     }
 
     void drawWorldView(const Player& cameraPlayer, int viewX, int viewY, int viewW, int viewH) {
@@ -17568,6 +17684,19 @@ private:
         }
     }
 
+    void drawPauseOverlay() {
+        constexpr int x = 112;
+        constexpr int y = 84;
+        constexpr int w = 96;
+        constexpr int h = 28;
+        rect(x, y, w, h, 0xdd000000u);
+        rect(x, y, w, 1, 0xfff0d060u);
+        rect(x, y + h - 1, w, 1, 0xfff0d060u);
+        rect(x, y, 1, h, 0xfff0d060u);
+        rect(x + w - 1, y, 1, h, 0xfff0d060u);
+        text(x + 27, y + 10, "PAUSED", 0xffffe060u, false, 0xff301800u);
+    }
+
     std::string objectiveHudText() const {
         return progressHudText() +
                " S" + std::to_string(score_);
@@ -17657,8 +17786,9 @@ private:
         text(32, 104, "LEFT AND RIGHT: SWITCH BOMB", 0xffffffffu, false, 0xff101010u);
         text(32, 116, "S: BACKGROUND ON OR OFF", 0xffffffffu, false, 0xff101010u);
         text(32, 128, "E R: PLAYFIELD WIDTH", 0xffffffffu, false, 0xff101010u);
-        text(32, 140, "PAGEUP PAGEDOWN: TEST LEVELS", 0xffffffffu, false, 0xff101010u);
-        text(32, 156, "ESC: BACK", 0xff90ffb0u, false, 0xff101010u);
+        text(32, 140, "P: PAUSE", 0xffffffffu, false, 0xff101010u);
+        text(32, 152, "PAGEUP PAGEDOWN: TEST LEVELS", 0xffffffffu, false, 0xff101010u);
+        text(32, 168, "ESC: BACK", 0xff90ffb0u, false, 0xff101010u);
     }
 
     void drawRecordsMenu() {

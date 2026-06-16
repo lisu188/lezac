@@ -6,6 +6,15 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added a current-port pause flow: `P` toggles an in-game pause overlay,
+  gameplay update/input state is frozen while paused, Escape clears pause and
+  returns to the main menu, and `--debug-autoplayer pause_flow` frame-inspects
+  the overlay/resume path while reporting `original_pause_claim=0` until
+  original-game pause behavior is observed.
+  Validation passed with the native Windows Debug build helper, direct
+  dummy-SDL `--debug-autoplayer pause_flow`, and focused CTest coverage for
+  UI smoke, controls, menu frame flow, level-1 frame inspection, and all
+  `autoplayer_*_dummy` scenarios.
 - Tightened `--debug-original-state2-visual-row-model` so the original
   state-2 row fixture now labels its raw field candidates: row bytes 0 and 1
   stay draw-offset candidates with bytes `0x10,0x10` / pixels `16,16`, row byte

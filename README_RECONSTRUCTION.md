@@ -36,6 +36,7 @@ Smoke-test SDL window creation and menu/control handling:
 ```sh
 ./build/lezac_cpp --smoke-ui 3
 ./build/lezac_cpp --smoke-controls
+./build/lezac_cpp --debug-menu-frame-flow
 ```
 
 Dump deterministic C++ frames for comparison against original DOSBox captures:
@@ -778,7 +779,10 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   checkpoints, frame-harness checkpoints, and player/monster collision pushout
   model.
 - Menu subpages for info, instructions, and records, plus original-documented
-  background and one-player playfield-width controls.
+  background and one-player playfield-width controls. `--debug-menu-frame-flow`
+  frame-inspects distinct main/info/instructions/records pages, the records
+  page sound request, visible gameplay background toggling, game start,
+  return-to-menu, and menu-exit paths under dummy SDL.
 - A first playable two-player reconstruction pass with separate start markers,
   separate controls, split camera views, a central objective panel, per-player
   bomb inventories/HUD/score state, zero-life player-out handling, shared

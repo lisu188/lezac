@@ -994,6 +994,10 @@ The records-page wrapper at `1000:2079..2094` queues cursor `0x0024` at
 priority `2` immediately before the `punteggi migliori` record-table text at
 `1000:2095`; the C++ main-menu records-page transition now maps that to
 `requestRecordsPageSound`, and `--debug-records-page-sound` pins the request.
+`--debug-menu-frame-flow` also drives the current menu transition through SDL
+events, pumps that recovered records-page sound request, and frame-inspects the
+main/info/instructions/records pages, visible gameplay background toggle, game
+start, return to menu, and main-menu exit path.
 The earlier `1000:202d` cursor-only record-table-region write remains staged
 until its priority and exact flow are proven.
 

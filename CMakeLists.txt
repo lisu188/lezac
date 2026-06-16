@@ -197,6 +197,14 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^control_smoke=ok")
 
+    add_test(NAME menu_frame_flow_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-menu-frame-flow)
+    set_tests_properties(menu_frame_flow_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^menu_frame_flow=ok pages=main,info,instructions,records unique_frames=[0-9]+ gameplay_background_toggle=1 records_sound_cursor=0x0024 records_sound_priority=2 start_game=1 escape_exit=1 frame_inspection=1")
+
     add_test(NAME level1_frame_inspection_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-level1-frame-inspection)

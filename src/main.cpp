@@ -1880,6 +1880,104 @@ public:
         std::cout << "ui_smoke=ok frames=" << frames << " frame_inspection=1\n";
     }
 
+    void debugMenuFrameFlow() {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+        std::set<uint64_t> hashes;
+
+        auto inspectMenuPage = [&](MenuPage expected, const std::string& label) {
+            if (!menu_ || menuPage_ != expected) {
+                throw std::runtime_error(label + " menu page not active");
+            }
+            FrameInspection frame = inspectRenderedFrame("menu-frame-" + label);
+            if (!regionHasVariation(30, 40, 260, 134)) {
+                throw std::runtime_error(label + " menu text region was not visible");
+            }
+            hashes.insert(frame.hash);
+            return frame;
+        };
+        auto press = [&](SDL_Keycode key) {
+            pushKeyDown(key);
+            processEvents(running);
+        };
+
+        FrameInspection mainFrame = inspectMenuPage(MenuPage::Main, "main");
+        press(SDLK_i);
+        FrameInspection infoFrame = inspectMenuPage(MenuPage::Info, "info");
+        press(SDLK_z);
+        FrameInspection instructionsFrame =
+            inspectMenuPage(MenuPage::Instructions, "instructions");
+        clearSoundLatch();
+        lastPumpedSoundOffset_ = 0;
+        lastPumpedSoundSelector_ = 0;
+        press(SDLK_r);
+        FrameInspection recordsFrame = inspectMenuPage(MenuPage::Records, "records");
+        pumpSoundLatch();
+        if (lastPumpedSoundOffset_ != kRecordsPageSoundCursor ||
+            lastPumpedSoundSelector_ != kRecordsPageSoundPriority) {
+            throw std::runtime_error("records menu frame flow did not pump records sound");
+        }
+
+        press(SDLK_ESCAPE);
+        if (!menu_ || menuPage_ != MenuPage::Main) {
+            throw std::runtime_error("records menu did not return to main with Escape");
+        }
+        showBackground_ = true;
+        press(SDLK_1);
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+            throw std::runtime_error("menu frame flow did not start one-player game");
+        }
+        FrameInspection gameFrame =
+            inspectRenderedFrame("menu-frame-game-background-on");
+        if (gameFrame.hash == mainFrame.hash ||
+            !regionHasVariation(0, 0, kScreenW, 24) ||
+            !regionHasVariation(0, 24, kScreenW, kScreenH - 24)) {
+            throw std::runtime_error("one-player start frame did not expose HUD/world");
+        }
+        press(SDLK_s);
+        if (showBackground_) {
+            throw std::runtime_error("gameplay background toggle did not turn off background");
+        }
+        FrameInspection backgroundOffFrame =
+            inspectRenderedFrame("menu-frame-game-background-off");
+        if (backgroundOffFrame.hash == gameFrame.hash) {
+            throw std::runtime_error("gameplay background toggle did not change rendered frame");
+        }
+        hashes.insert(gameFrame.hash);
+        hashes.insert(backgroundOffFrame.hash);
+
+        press(SDLK_ESCAPE);
+        FrameInspection returnedMenuFrame =
+            inspectMenuPage(MenuPage::Main, "return-main");
+        if (!menu_ || returnedMenuFrame.hash == backgroundOffFrame.hash) {
+            throw std::runtime_error("game Escape did not render the main menu");
+        }
+        press(SDLK_ESCAPE);
+        if (running) {
+            throw std::runtime_error("main-menu Escape did not request exit");
+        }
+
+        if (hashes.size() < 6 ||
+            mainFrame.hash == infoFrame.hash ||
+            infoFrame.hash == instructionsFrame.hash ||
+            instructionsFrame.hash == recordsFrame.hash) {
+            throw std::runtime_error("menu frame flow did not render distinct pages");
+        }
+
+        std::cout << "menu_frame_flow=ok"
+                  << " pages=main,info,instructions,records"
+                  << " unique_frames=" << hashes.size()
+                  << " gameplay_background_toggle=1"
+                  << " records_sound_cursor=" << hex4(kRecordsPageSoundCursor)
+                  << " records_sound_priority="
+                  << static_cast<int>(kRecordsPageSoundPriority)
+                  << " start_game=1"
+                  << " escape_exit=1"
+                  << " frame_inspection=1\n";
+    }
+
     void debugLevel1FrameInspection() {
         load();
         initSdl();
@@ -17793,6 +17891,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-level1-frame-inspection") {
             app.debugLevel1FrameInspection();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-menu-frame-flow") {
+            app.debugMenuFrameFlow();
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--capture-frame-sequence") {

@@ -236,6 +236,11 @@ Baseline: `origin/main`
   letters/space and Backspace, ignores repeated Enter/Escape so commit/cancel
   are edge-triggered, and commits the repeated-input name through a temporary
   binary `RECS.DAT`-format file.
+- Added `--debug-menu-frame-flow` dummy-SDL frame inspection for the current
+  menu implementation. It verifies distinct rendered main/info/instructions/
+  records pages, pumps the recovered records-page sound request, checks
+  visible gameplay background-toggle frame changes, starts one-player gameplay,
+  returns to the menu, and confirms main-menu Escape requests exit.
 - Added `--debug-core-resource-raw-roundtrip` to pin `BOMPAL.PAL`,
   `SFONLEF.ZBG`, and `CARO.CAR` against their converted JSON resources. It
   compares decoded palettes, background RLE expansion, and tile payload bytes,

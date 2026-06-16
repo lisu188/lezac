@@ -46,6 +46,30 @@ def run_tool(root: Path, args: list[str], expect_success: bool = True) -> str:
     return result.stdout
 
 
+def run_repo_tool(
+    root: Path,
+    tool: str,
+    args: list[str],
+    expect_success: bool = True,
+) -> str:
+    command = [sys.executable, str(root / "tools" / tool), *args]
+    result = subprocess.run(
+        command,
+        cwd=root,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    if expect_success and result.returncode != 0:
+        raise RuntimeError(
+            f"{tool} failed with {result.returncode}: {args}\n{result.stdout}"
+        )
+    if not expect_success and result.returncode == 0:
+        raise RuntimeError(f"{tool} unexpectedly passed: {args}\n{result.stdout}")
+    return result.stdout
+
+
 def require(text: str, snippet: str, case: str) -> None:
     if snippet not in text:
         raise RuntimeError(f"{case} missing {snippet!r}\n{text}")
@@ -238,6 +262,7 @@ def main() -> int:
         cases += 1
 
         ready = write_ready_sweep(base / "ready")
+        ready_manifest = base / "ready-manifest" / "ready_manifest.txt"
         ready_out = run_tool(
             root,
             [
@@ -245,10 +270,51 @@ def main() -> int:
                 "--require-ready",
                 "--require-observed-freeze",
                 "--require-environment-preflight",
+                "--write-ready-manifest",
+                str(ready_manifest),
             ],
         )
         require(ready_out, "ready_candidates=1", "ready_summary")
         require(ready_out, "observed_freezes=1", "ready_summary")
+        require(ready_out, "behavior4_procmem_ready_manifest=ok", "ready_manifest")
+        require(ready_out, f"path={ready_manifest.resolve()}", "ready_manifest")
+        ready_text = ready_manifest.read_text(encoding="ascii")
+        for snippet in [
+            "promotion=debug_capture_ready_candidates",
+            f"source_root={ready.parent}",
+            "oracle_binary=./build/lezac_cpp",
+            "ready_candidates=1",
+            "candidate_0_capture=behavior4_runtime",
+            "candidate_0_scenario=monster_behavior4_target_selection",
+            "candidate_0_level=3",
+            "candidate_0_environment_preflight=ok",
+            "candidate_0_runtime_metadata=observed",
+            "candidate_0_runtime_cs=01ED",
+            "candidate_0_runtime_ds=0C8F",
+            f"candidate_0_manifest={ready}",
+            "candidate_0_oracle=behavior4",
+            "candidate_0_oracle_flag=--debug-behavior4-runtime-oracle",
+            "candidate_0_source_label=behavior4_branch_start_before_route_x2p00",
+            "candidate_0_target=behavior4_branch_start",
+            "candidate_0_timing=before_route",
+            "candidate_0_route_label=x2p00",
+        ]:
+            require(ready_text, snippet, "ready_manifest_text")
+        ready_dry_run = run_repo_tool(
+            root,
+            "run_debug_capture_ready_manifest.py",
+            [str(ready_manifest), "--dry-run", "--oracle-binary", "./build/lezac_cpp"],
+        )
+        require(
+            ready_dry_run,
+            "debug_capture_ready_manifest=ok mode=dry_run",
+            "ready_manifest_dry_run",
+        )
+        require(
+            ready_dry_run,
+            "--debug-behavior4-runtime-oracle",
+            "ready_manifest_dry_run",
+        )
         cases += 1
 
         no_freeze = write_no_freeze_sweep(base / "no-freeze")

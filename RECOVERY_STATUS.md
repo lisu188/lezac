@@ -1,11 +1,18 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/behavior4-procmem-sweep-summary`
+Branch: `codex/behavior4-procmem-ready-manifest`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Extended `tools/summarize_behavior4_procmem_route_sweep.py` with
+  `--write-ready-manifest`, producing the existing
+  `debug_capture_ready_candidates` format for ready behavior-4 sweep outputs.
+  The checker now verifies that a ready procmem sweep writes behavior-4 oracle
+  metadata, source labels, target/timing/route labels, and can be dry-run by
+  `tools/run_debug_capture_ready_manifest.py` through
+  `--debug-behavior4-runtime-oracle`.
 - Added `tools/summarize_behavior4_procmem_route_sweep.py` plus
   `tools/check_behavior4_procmem_route_sweep_summary.py` and CMake coverage for
   behavior-4 process-memory sweep triage. The summary reads

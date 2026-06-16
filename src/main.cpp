@@ -116,6 +116,14 @@ constexpr size_t kCompatibilityLevelCompleteSound = 5;
 constexpr std::array<const char*, 2> kRemainingSoundCompatibilityHooks{
     "objective_pickup", "level_complete",
 };
+struct RemainingSoundCaptureBlocker {
+    const char* hook;
+    const char* reason;
+};
+constexpr std::array<RemainingSoundCaptureBlocker, 2> kRemainingSoundCaptureBlockers{{
+    {"objective_pickup", "rejected_static_candidates"},
+    {"level_complete", "no_static_candidate"},
+}};
 struct RejectedSoundCandidate {
     uint16_t offset;
     const char* reason;
@@ -7057,15 +7065,29 @@ public:
             }
             return out.str();
         };
+        auto remainingCaptureBlockerList = [] {
+            std::ostringstream out;
+            for (size_t i = 0; i < kRemainingSoundCaptureBlockers.size(); ++i) {
+                if (i != 0) out << ',';
+                const RemainingSoundCaptureBlocker& blocker =
+                    kRemainingSoundCaptureBlockers[i];
+                out << blocker.hook << ':' << blocker.reason;
+            }
+            return out.str();
+        };
         std::string remainingHooks = remainingHookList();
         std::string rejectedObjectiveCandidates = rejectedObjectiveCandidateList();
+        std::string remainingCaptureBlockers = remainingCaptureBlockerList();
         std::string mappedLabelList = mappedLabels.str();
         std::string unresolvedCandidateList = unresolvedCandidates.str();
         std::string unresolvedLabelList = unresolvedLabels.str();
         if (remainingHooks != "objective_pickup,level_complete" ||
             rejectedObjectiveCandidates !=
                 "0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,"
-                "0x6924:non_objective_tile_gate") {
+                "0x6924:non_objective_tile_gate" ||
+            remainingCaptureBlockers !=
+                "objective_pickup:rejected_static_candidates,"
+                "level_complete:no_static_candidate") {
             throw std::runtime_error("sound compatibility recovery notes changed");
         }
         if (mappedLabelList !=
@@ -7125,6 +7147,7 @@ public:
                   << " unresolved_candidates=" << unresolvedCandidateList
                   << " unresolved_labels=" << unresolvedLabelList
                   << " remaining_compat_hooks=" << remainingHooks
+                  << " capture_blockers=" << remainingCaptureBlockers
                   << " rejected_objective_candidates="
                   << rejectedObjectiveCandidates
                   << " cursor_writes=" << list.str() << '\n';
@@ -7567,6 +7590,8 @@ public:
                   << " repeat_calls=" << repeatCalls
                   << " advanced_level=" << (levelIndex_ + 1)
                   << " latch_active=" << (levelLatchActive ? 1 : 0)
+                  << " capture_blockers=objective_pickup:rejected_static_candidates,"
+                  << "level_complete:no_static_candidate"
                   << " original_cursor_priority_claim=0\n";
     }
 

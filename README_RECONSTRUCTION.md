@@ -1044,9 +1044,11 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   non-objective tile gate out of the objective-pickup mapping until new
   original evidence proves otherwise. `--debug-remaining-sound-compat-hooks`
   exercises the live C++ objective-pickup and level-complete paths and reports
-  `original_cursor_priority_claim=0`, proving only that those direct
+  `capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate`
+  plus `original_cursor_priority_claim=0`, proving only that those direct
   compatibility hooks are still reached with the intended compatibility
-  indices. `--debug-static-sound-unresolved-contexts`
+  indices and naming why the DOSBox sound-callsite helper must not stage them
+  as original cursor/priority captures yet. `--debug-static-sound-unresolved-contexts`
   also pins the exact byte windows for those 12 unresolved writes and separates
   their local request shapes: nine local latch calls, six inline priorities,
   two preceding priorities, four no-local-priority cases, three no-latch cases,

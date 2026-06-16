@@ -56,6 +56,11 @@ EXPECTED_REJECTED_OBJECTIVE_CANDIDATES = [
     "0x6924:non_objective_tile_gate",
 ]
 
+EXPECTED_CAPTURE_BLOCKERS = [
+    "objective_pickup:rejected_static_candidates",
+    "level_complete:no_static_candidate",
+]
+
 
 def default_repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
@@ -82,14 +87,18 @@ def check_source(source_path: Path) -> None:
     for snippet in EXPECTED_LIVE_HOOKS.values():
         require(text, snippet, "source")
     require(text, "kRemainingSoundCompatibilityHooks", "source")
+    require(text, "kRemainingSoundCaptureBlockers", "source")
     require(text, "kRejectedObjectiveSoundCandidates", "source")
     require(text, "remaining_compat_hooks=", "source")
+    require(text, "capture_blockers=", "source")
     require(text, "debugRemainingSoundCompatibilityHooks", "source")
     require(text, "--debug-remaining-sound-compat-hooks", "source")
     require(text, "remaining_sound_compat_hooks=ok", "source")
     require(text, "original_cursor_priority_claim=0", "source")
     require(text, "objective_pickup,level_complete", "source")
     for snippet in EXPECTED_REJECTED_OBJECTIVE_CANDIDATES:
+        require(text, snippet, "source")
+    for snippet in EXPECTED_CAPTURE_BLOCKERS:
         require(text, snippet, "source")
 
     call_lines = []
@@ -131,6 +140,8 @@ def check_docs(root: Path) -> None:
         require_collapsed(text, "original_cursor_priority_claim=0", label)
         for snippet in EXPECTED_REJECTED_OBJECTIVE_CANDIDATES:
             require_collapsed(text, snippet, label)
+        for snippet in EXPECTED_CAPTURE_BLOCKERS:
+            require_collapsed(text, snippet, label)
 
 
 def check_cmake(cmake_path: Path) -> None:
@@ -139,9 +150,10 @@ def check_cmake(cmake_path: Path) -> None:
     require(text, "tools/check_sound_compatibility_hooks.py", "CMake")
     require(text, "add_test(NAME remaining_sound_compat_hooks", "CMake")
     require(text, "original_cursor_priority_claim=0", "CMake")
+    require(text, "capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate", "CMake")
     require(
         text,
-        "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=24 docs=3 rejected_objective_candidates=3 live_diagnostic=1",
+        "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=24 docs=3 rejected_objective_candidates=3 capture_blockers=2 live_diagnostic=1",
         "CMake",
     )
 
@@ -164,6 +176,7 @@ def main() -> int:
         f"helpers={len(EXPECTED_HELPER_SNIPPETS) + len(EXPECTED_RECOVERED_HOOK_SNIPPETS)} "
         "docs=3 "
         f"rejected_objective_candidates={len(EXPECTED_REJECTED_OBJECTIVE_CANDIDATES)} "
+        f"capture_blockers={len(EXPECTED_CAPTURE_BLOCKERS)} "
         "live_diagnostic=1"
     )
     return 0

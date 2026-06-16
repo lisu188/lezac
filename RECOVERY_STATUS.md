@@ -578,8 +578,10 @@ Baseline: `origin/main`
 - Added `--debug-remaining-sound-compat-hooks` to exercise the live C++
   objective-pickup and level-complete compatibility paths. It reports the
   direct indices/cursors used by those compatibility hooks plus
-  `original_cursor_priority_claim=0`, so the checker now proves the hooks are
-  reached without promoting original cursor/priority semantics.
+  `capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate`
+  and `original_cursor_priority_claim=0`, so the checker now proves the hooks
+  are reached while naming why neither hook is currently eligible for a
+  sound-callsite DOSBox capture promotion.
 - Added `--debug-static-sound-contexts` to pin the original byte contexts for
   `0x1857`, `0x1a44`, `0x1d9c`, `0x202d`, and `0x2083` as
   name-entry/post-end-flow-record/record-table UI sound writes. It verifies the
@@ -2239,7 +2241,10 @@ Baseline: `origin/main`
   callers are compatibility hooks until original cursor/priority writes are
   recovered; the current static context audit rules out the name-entry,
   record-table, post-end-flow-record, collapse playback, bomb-object high-gate,
-  and non-objective tile-gate candidates for those two live hooks.
+  and non-objective tile-gate candidates for those two live hooks. The live
+  diagnostic now reports
+  `capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate`
+  so the remaining sound evidence queue is explicit.
 - Exact actor update behavior around `1000:6053..777f`, especially original
   contact flags, passability thresholds, tile snapping, behavior-3 ledge/wall
   handling, and behavior-4 collision response. The synthetic actor-update oracle

@@ -95,6 +95,8 @@ def main() -> int:
         "timings=before_bomb,before_route routes=4",
         "route_labels=x2p00,x5p00_m0p50_x2p00,x3p00_z0p50_x2p00,x1p50_left0p50_x2p00",
         "capture_commands=8",
+        "targets=1",
+        "target_names=contact_scanner_start",
         "capture_command_before_bomb_x2p00=",
         "capture_command_before_route_x2p00=",
         "environment_preflight=1",
@@ -133,6 +135,8 @@ def main() -> int:
         "timings=before_route routes=2",
         "route_labels=x2p00_c0p50,left0p25_space0p75",
         "capture_commands=2",
+        "targets=1",
+        "target_names=actor_update_gate5_integration",
         "capture_command_before_route_x2p00_c0p50=",
         "capture_command_before_route_left0p25_space0p75=",
         "environment_preflight=1",
@@ -140,6 +144,59 @@ def main() -> int:
         "LEZAC_ACTOR_CONTACT_ROUTE_STEPS=Left:0.25,space:0.75",
     ]:
         require(custom, snippet, "custom_routes")
+    cases += 1
+
+    all_targets = run_sweep(
+        root,
+        [
+            str(out_base / "all-targets"),
+            str(root),
+            "--dry-run",
+            "--all-targets",
+            "--timing",
+            "before_bomb",
+            "--route",
+            "x:2.00",
+        ],
+    )
+    all_target_names = (
+        "actor_update_start,actor_update_end,actor_update_gate5,"
+        "actor_update_gate5_integration,actor_update_gate5_exit,"
+        "actor_update_gate6,contact_scanner_callsite,contact_scanner_start,"
+        "contact_scanner_end"
+    )
+    for snippet in [
+        "target=all",
+        "timings=before_bomb routes=1",
+        "route_labels=x2p00",
+        "capture_commands=9",
+        "targets=9",
+        f"target_names={all_target_names}",
+        "capture_command_actor_update_start_before_bomb_x2p00=",
+        "capture_command_actor_update_gate5_exit_before_bomb_x2p00=",
+        "capture_command_contact_scanner_callsite_before_bomb_x2p00=",
+        "capture_command_contact_scanner_end_before_bomb_x2p00=",
+    ]:
+        require(all_targets, snippet, "all_targets")
+    cases += 1
+
+    bad_target_mix = run_sweep(
+        root,
+        [
+            str(out_base / "bad-target-mix"),
+            str(root),
+            "--dry-run",
+            "--all-targets",
+            "--target",
+            "contact_scanner_start",
+        ],
+        expect_success=False,
+    )
+    require(
+        bad_target_mix,
+        "--all-targets cannot be combined with --target",
+        "bad_target_mix",
+    )
     cases += 1
 
     skip_environment = run_sweep(

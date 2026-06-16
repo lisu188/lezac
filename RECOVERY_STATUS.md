@@ -1,11 +1,22 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/sound-callsite-all-target-sweep`
+Branch: `codex/actor-contact-all-target-route-sweep`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Extended `tools/sweep_original_actor_contact_routes.py` with
+  `--all-targets`, mirroring the newer sound/behavior route sweeps for the
+  older actor/contact process-memory path. The low-level route planner now
+  runs one route/timing matrix across all nine mapped actor/contact targets,
+  preserves the single-target output shape by default, and writes normalized
+  `targets=`/`target_names=` metadata plus target-prefixed capture labels for
+  all-target batches. `tools/summarize_actor_dispatch_gate_sweep.py` now reads
+  direct route manifests with `target_names=` and strips target prefixes from
+  all-target capture labels when reporting routes, so the next DOSBox-capable
+  pass can summarize observed/missing actor/contact targets without routing
+  everything through the dispatch-gate wrapper.
 - Extended `tools/sweep_original_sound_callsite_routes.py` with
   `--all-targets`, so the next DOSBox/procmem sound pass can sweep
   `contact_scanner_runtime_sound`,

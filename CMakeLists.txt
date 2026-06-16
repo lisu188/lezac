@@ -542,7 +542,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_dispatch_gate_sweep_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_dispatch_gate_sweep_summary_check=ok cases=23")
+                "^actor_dispatch_gate_sweep_summary_check=ok cases=24")
 
         add_test(NAME actor_dispatch_ready_manifest_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -959,6 +959,20 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^actor_contact_route_sweep=ok mode=dry_run .*target=contact_scanner_start timings=before_bomb,before_route routes=4 .*route_labels=x2p00,x5p00_m0p50_x2p00,x3p00_z0p50_x2p00,x1p50_left0p50_x2p00 .*capture_commands=8 .*environment_preflight=1")
 
+        add_test(NAME actor_contact_route_sweep_all_targets_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_contact_routes.py
+                    /tmp/lezac-actor-contact-route-sweep-all-targets-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --all-targets
+                    --timing before_bomb
+                    --route x:2.00)
+        set_tests_properties(actor_contact_route_sweep_all_targets_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_contact_route_sweep=ok mode=dry_run .*target=all timings=before_bomb routes=1 route_labels=x2p00 capture_commands=9 targets=9 target_names=actor_update_start,actor_update_end,actor_update_gate5,actor_update_gate5_integration,actor_update_gate5_exit,actor_update_gate6,contact_scanner_callsite,contact_scanner_start,contact_scanner_end .*environment_preflight=1")
+
         add_test(NAME actor_contact_route_sweep_output_expectations
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_route_sweep.py
@@ -966,7 +980,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_contact_route_sweep_output_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_contact_route_sweep_output=ok cases=8")
+                "^actor_contact_route_sweep_output=ok cases=10")
 
         add_test(NAME sound_callsite_route_sweep_dry_run
             COMMAND ${Python3_EXECUTABLE}

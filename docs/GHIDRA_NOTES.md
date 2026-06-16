@@ -1074,8 +1074,11 @@ no-latch cases, and the two `0x2710` cursor writes. The diagnostic also buckets
 the unresolved writes by static region: `record_ui:2`,
 `pre_new_game_setup:1`, `explosion_playback:2`, `effect_extent_scan:2`,
 `contact_scanner:1`, `actor_update:3`, and
-`post_actor_update_no_latch:1`. These are byte-context facts only; they are not
-promoted as live gameplay cues without same-location runtime evidence.
+`post_actor_update_no_latch:1`. It also separates the four actor/contact
+runtime-capture candidates as
+`actor_contact_capture_candidates=0x5e81:contact_scanner,0x6844:actor_update,0x6924:actor_update,0x7386:actor_update`.
+These are byte-context facts only; they are not promoted as live gameplay cues
+without same-location runtime evidence.
 The diagnostic also prints
 `remaining_compat_hooks=objective_pickup,level_complete` and records rejected
 objective-sound candidates as

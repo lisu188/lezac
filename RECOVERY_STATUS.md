@@ -2272,7 +2272,12 @@ Baseline: `origin/main`
   and non-objective tile-gate candidates for those two live hooks. The live
   diagnostic now reports
   `capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate`
-  so the remaining sound evidence queue is explicit.
+  so the remaining sound evidence queue is explicit. The unresolved static
+  sound diagnostic now also reports capture classes and narrows the next
+  actor/contact runtime sound queue to
+  `actor_contact_capture_candidates=0x5e81:contact_scanner,0x6844:actor_update,0x6924:actor_update,0x7386:actor_update`,
+  keeping UI, explosion, effect-extent, and no-latch writes separate from
+  same-location runtime-capture candidates.
 - Exact actor update behavior around `1000:6053..777f`, especially original
   contact flags, passability thresholds, tile snapping, behavior-3 ledge/wall
   handling, and behavior-4 collision response. The synthetic actor-update oracle

@@ -1058,7 +1058,11 @@ The fallback block at `1000:7ef8..7f2a` is now represented in
 active players, increments `DS:79b9`, and promotes any player status byte
 `DS:79e5 + player == 2` to `1` at `0xe6` without performing the normal actor
 state or energy restore. The live C++ respawn path does not use this as a
-normal return-to-active shortcut.
+normal return-to-active shortcut. `--debug-player-state2-return-active` now
+pins that boundary with `p2_out_stays_dead=1`, `p2_reenter_blocked=1`,
+`both_out_gameover=1`, `live_fallback_shortcut=0`, and
+`original_reachability=0`; those fields are C++ regression evidence, not
+original runtime reachability for `1000:7ef8..7f2a`.
 
 State-2 animation/effect evidence: `1000:06ab` / file `0x0e1b` initializes a
 seven-byte animation cursor at the far pointer passed by callers. Manual

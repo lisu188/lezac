@@ -11796,6 +11796,41 @@ public:
             deathStateTimer2_ != 0) {
             throw std::runtime_error("player 2 zero-life gate mismatch");
         }
+        bool p2OutStaysDead = player2Dead_ && lives2_ == 0 && deathStateTimer2_ == 0;
+        int p2ReentryTimerBefore = reentryTimer2_;
+        int p2DamageCooldownBefore = damageCooldown2_;
+        int p2EnergyBefore = energy2_;
+        tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                         damageCooldown2_, 2);
+        bool p2ReenterBlocked = player2Dead_ && lives2_ == 0 &&
+                                reentryTimer2_ == p2ReentryTimerBefore &&
+                                damageCooldown2_ == p2DamageCooldownBefore &&
+                                energy2_ == p2EnergyBefore;
+        bool p1AliveAfterP2Out = !playerDead_ && lives_ > 0 && !menu_;
+        if (!p2OutStaysDead || !p2ReenterBlocked || !p1AliveAfterP2Out) {
+            throw std::runtime_error("player 2 zero-life fallback boundary mismatch");
+        }
+
+        lives_ = 1;
+        energy_ = 0;
+        damageCooldown_ = 0;
+        deathStateTimer_ = 0;
+        pendingLifeLoss_ = false;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        if (!playerDead_ || !pendingLifeLoss_ ||
+            deathStateTimer_ != kDeathStateTicks || lives_ != 1) {
+            throw std::runtime_error("player 1 final-life state-2 setup mismatch");
+        }
+        for (int i = 0; i < 60; ++i) {
+            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_,
+                          1, player2Dead_);
+        }
+        bool bothOutGameover = menu_ && menuPage_ == MenuPage::GameOver &&
+                               lastEndReason_ == EndReason::GameOver;
+        if (!bothOutGameover) {
+            throw std::runtime_error("both-out state-2 game-over mismatch");
+        }
 
         std::cout << "player_state2_return_active=ok p1_death_timer=60"
                   << " p1_after_59=1 p1_after_60=0"
@@ -11806,7 +11841,13 @@ public:
                   << " p2_gate1_reentered=1 p2_energy=100"
                   << " p2_cooldown=" << kDamageCooldownTicks
                   << " p2_death_timer_clear=0 p2_reentry_timer_clear=0"
-                  << " no_gameover_with_p1=1\n";
+                  << " no_gameover_with_p1=1"
+                  << " p2_out_stays_dead=1"
+                  << " p2_reenter_blocked=1"
+                  << " p1_alive_after_p2_out=1"
+                  << " both_out_gameover=1"
+                  << " live_fallback_shortcut=0"
+                  << " original_reachability=0\n";
     }
 
     void debugGran() {

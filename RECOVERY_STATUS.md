@@ -215,6 +215,11 @@ Baseline: `origin/main`
   counter only with no active players, promotes state byte `2` to `1`, and
   preserves actor state/energy because it is not the normal
   `1000:7e85..7ea7` return-to-active restore.
+- Extended `--debug-player-state2-return-active` with a live C++ fallback
+  boundary: player 2 stays out after final-life state-2 countdown, manual
+  reentry stays blocked while player 1 remains active, and game over occurs
+  only after player 1 also loses the final life. The diagnostic reports
+  `live_fallback_shortcut=0` and `original_reachability=0`.
 - Tightened `--debug-record-name-entry` so high-score entry now locks the
   recovered eight-byte storage behavior in addition to accepted keys: short
   names are colon padded, spaces serialize as colons in `encoded_name`, and
@@ -1931,10 +1936,10 @@ Baseline: `origin/main`
   sole direct actor-update call at `1000:6555` in the `06` gate context. It
   still needs runtime contact-route confirmation before the C++ clearance model
   can be called original-faithful.
-- Runtime reachability of the `DS:79b9` fallback, active-player accounting edge
-  cases, and exact dead-player visual playback from original frame bytes remain
-  unresolved now that the delayed state-2 life-count decrement and fallback
-  disassembly model are covered.
+- Runtime reachability of the `DS:79b9` fallback, exact original active-player
+  accounting, and exact dead-player visual playback from original frame bytes
+  remain unresolved now that the delayed state-2 life-count decrement, fallback
+  disassembly model, and live C++ fallback boundary are covered.
 - Exact original two-player panel artwork and full death/reentry presentation
   remain unresolved. The current C++ central objective panel is covered by
   `--debug-two-player-hud-panel`, but original frame comparison is still

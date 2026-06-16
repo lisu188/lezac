@@ -919,7 +919,14 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   `--debug-original-state2-return-model` now also locks the static
   `1000:7ef8..7f2a` fallback model: no active players increments the
   `DS:79b9` counter and promotes status byte `2` to `1` without doing the
-  normal actor-state or energy restore.
+  normal actor-state or energy restore. The live
+  `--debug-player-state2-return-active` guard now separately proves that the
+  current C++ two-player path leaves player 2 out after a final-life countdown,
+  blocks manual reentry, keeps player 1 active, and reaches game over only
+  after player 1 also loses the final life. It reports
+  `live_fallback_shortcut=0` and `original_reachability=0`, so this remains a
+  C++ regression boundary rather than proof that the static fallback is reached
+  in the original runtime.
   `--debug-son-step-fields` exposes each recovered six-byte sound step as
   `period_word`, `gate_tick`, `period_ticks`, `tail4`, and `tail5`. Bytes
   `+4..+5` are preserved from the shipped bank but are playback-unused in the

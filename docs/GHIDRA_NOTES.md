@@ -583,8 +583,13 @@ immediately after the bomb with selected debris base `0x2093`, but the
 candidate still stayed `no_freeze` with no natural `3d2d` lane write. The
 capture helper and lane-write sweep now expose later lane-global gates for
 `lane_update_flag=1`, `lane_word_global_value=0x8002`, and target offset
-`0x07be`; the next focused pass should use those gates rather than repeating
-the early target-byte/word-layer gate.
+`0x07be`. The first live lane-global pass kept the queue-score gate at `0x80`,
+so the matching score-`0x78` rows did not patch. A corrected pass patched at
+`2.854s` with selected bases `209e/663e/c22e` and lane globals
+`0x01/0x8002/0x07be`, but the native oracle still classified it as
+`no_freeze` with no natural `3d2d` lane write. The next pass should change
+route/timing or answer why this patched state misses the forward debris helper,
+rather than repeating the early target-byte/word-layer or lane-global gates.
 `tools/summarize_lane_result_route_sweep.py`
 now classifies completed route-sweep candidates as `ready`, `no_freeze`,
 `incomplete`, or `missing`; `tools/run_lane_result_ready_manifest.py` and

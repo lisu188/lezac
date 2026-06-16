@@ -703,19 +703,19 @@ lowered to the observed seven nonzero bytes: the runtime patch applied at
 elapsed `0.000` with selected debris base `0x2093`, but the original still did
 not freeze or hit natural forward-debris writeback at `1000:3D2D`.
 
-Do not repeat that early-state gate. The next useful capture needs a more
-precise later-state gate, based on lane globals observed in the sample table.
-The capture helper and lane-write sweep now expose runtime-freeze filters for
-`lane_update_flag=1`, `lane_word_global_value=0x8002`, and target offset
-`0x07be`; no live DOSBox run has used those new gates yet. Use the focused
-route below for the next `1000:3D2D` attempt:
+Do not repeat that early-state gate. A later-state gate based on lane globals
+observed in the sample table has also been tried. The first run used
+`--runtime-freeze-min-queue-score 0x80` under WSL `/tmp`; the matching
+lane-global rows only reached score `0x78`, so the runtime patch did not apply,
+and the Windows `.exe` oracle could not open the `/tmp` candidate path. The
+corrected Windows-temp run used this shape:
 
 ```sh
 python3 tools/sweep_original_lane_write_routes.py \
-  /tmp/lezac-lane-write-forward-lane-globals . \
+  /mnt/c/Users/andrz/AppData/Local/Temp/lezac-lane-write-forward-lane-globals-q78 . \
   --route x:2.00,c:0.50 --offset forward-debris \
   --runtime-freeze-preset none \
-  --runtime-freeze-min-queue-score 0x80 \
+  --runtime-freeze-min-queue-score 0x78 \
   --runtime-freeze-min-debris-nonzero 0x20 \
   --runtime-freeze-min-collapse-nonzero 0x01 \
   --runtime-freeze-min-effect-nonzero 0x10 \
@@ -727,6 +727,18 @@ python3 tools/sweep_original_lane_write_routes.py \
   --approve-procmem --approve-runtime-instrumentation \
   --cpp-exe ./build-win-codex-vs3/Debug/lezac_cpp.exe --continue-on-oracle-error
 ```
+
+It wrote
+`C:\Users\andrz\AppData\Local\Temp\lezac-lane-write-forward-lane-globals-q78-1781610284`,
+patched at `2.854s` after the bomb with selected bases `209e/663e/c22e`,
+lane globals `0x01/0x8002/0x07be`, queue score `0x78`, debris nonzero `0x3c`,
+collapse nonzero `0x27`, and effect nonzero `0x1c`, but still did not freeze or
+hit natural forward-debris writeback. The native oracle parsed the candidate,
+and the route summary classifies it as valid `no_freeze` evidence with
+`missing_offsets=3d2d`. Do not repeat this exact lane-global gate; the next
+`1000:3D2D` attempt needs a route/timing change or debugger/control-flow
+question that explains why the patched state still misses the forward debris
+write.
 
 The sweep wrapper now translates `/mnt/<drive>/...` candidate paths when a WSL
 run invokes a Windows `.exe` oracle, so that host split can parse candidates in

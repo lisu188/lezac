@@ -599,6 +599,14 @@ local after patch installation. The next pass should arm earlier or inspect an
 upstream branch to explain why these states have already missed the helper,
 rather than repeating the early target-byte/word-layer or nearby lane-global
 timing gates.
+Follow-up earlier probes show the two `c` timings are poor natural `3D2D`
+route candidates, not just late-gate misses. For `x:2.00,c:0.35`, selected-base
+patching armed `1000:4C75` at `2.002s` and `1000:4B3F` at `2.045s`, but neither
+froze. `4C75` timed patches at `after_bomb=1.0`, `after_bomb=0.0`, and
+`before_bomb` also loaded without a high-word-gate hit, and before-bomb `4B3F`
+patches for both `x:2.00,c:0.35` and `x:2.00,c:0.65` loaded without freezing.
+Future `3D2D` attempts should require branch-anchor evidence for the route
+family before relying on sampled lane globals.
 `tools/summarize_lane_result_route_sweep.py`
 now classifies completed route-sweep candidates as `ready`, `no_freeze`,
 `incomplete`, or `missing`; `tools/run_lane_result_ready_manifest.py` and

@@ -93,7 +93,10 @@ def check_cmake(root: Path) -> int:
     require(cmake, "check_gran_usage_guardrail.py", "cmake:script")
     require(cmake, "add_test(NAME gran_usage_guardrail", "cmake:test")
     require(cmake, "gran_usage_guardrail=ok", "cmake:output")
-    return 1
+    require(cmake, "add_test(NAME gran_raw_roundtrip", "cmake:raw_roundtrip_test")
+    require(cmake, "raw_json_match=1", "cmake:raw_roundtrip_output")
+    require(cmake, "add_test(NAME gran_profile", "cmake:profile_test")
+    return 3
 
 
 def check_docs(root: Path) -> int:
@@ -123,6 +126,12 @@ def write_contract_files(root: Path) -> None:
                 "  COMMAND python tools/check_gran_usage_guardrail.py)",
                 "set_tests_properties(gran_usage_guardrail PROPERTIES",
                 '  PASS_REGULAR_EXPRESSION "gran_usage_guardrail=ok")',
+                "add_test(NAME gran_raw_roundtrip",
+                "  COMMAND lezac_cpp --debug-gran-raw-roundtrip)",
+                "set_tests_properties(gran_raw_roundtrip PROPERTIES",
+                '  PASS_REGULAR_EXPRESSION "raw_json_match=1")',
+                "add_test(NAME gran_profile",
+                "  COMMAND lezac_cpp --debug-gran)",
                 "",
             )
         ),

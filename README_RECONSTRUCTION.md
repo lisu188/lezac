@@ -734,11 +734,12 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   table against the converted JSON: seven 13-byte records, top score `541200`,
   cutoff `474930`, score sum `3508890`, and colon-padded `aga:::::` names.
 - `PROEFS.SON` parsing as a fixed-size sound-effect bank and `GRAN.MST`
-  parsing as seven fixed-size opaque records. The GRAN roundtrip now pins
-  record-level byte fingerprints for later comparison while keeping every
-  field semantic unresolved. The shipped executable references the file through
-  the lowercase `gran.mst` string at `1000:2AD4`, but no decoded live consumer
-  has been recovered yet.
+  parsing as seven fixed-size opaque records. The GRAN roundtrip now loads the
+  shipped raw file and converted JSON independently, reports
+  `raw_json_match=1`, and pins record-level byte fingerprints for later
+  comparison while keeping every field semantic unresolved. The shipped
+  executable references the file through the lowercase `gran.mst` string at
+  `1000:2AD4`, but no decoded live consumer has been recovered yet.
   `tools/check_gran_usage_guardrail.py` keeps `GRAN.MST` limited to loading,
   validation, byte-preserving roundtrip/debug output, and stored opaque records
   until original evidence proves a live gameplay or rendering use.

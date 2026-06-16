@@ -5884,8 +5884,9 @@ public:
     }
 
     void debugGranRawRoundtrip() {
-        load();
         auto rawBytes = readFile("GRAN.MST");
+        GranBank rawBank = loadRawGran("GRAN.MST");
+        GranBank jsonBank = loadGran("GRAN.MST.json");
         constexpr size_t kExpectedGranRecords = 7;
         constexpr size_t kExpectedGranPayloadSize = kExpectedGranRecords * kGranRecordSize;
         const std::array<int, 7> expectedSums{631, 2230, 1389, 1242, 1780, 2720, 2568};
@@ -5897,21 +5898,28 @@ public:
         if (rawBytes.size() != kExpectedGranPayloadSize) {
             throw std::runtime_error("GRAN.MST raw size mismatch");
         }
-        if (gran_.recordSize != kGranRecordSize ||
-            gran_.records.size() != kExpectedGranRecords) {
-            throw std::runtime_error("GRAN.MST JSON shape mismatch");
-        }
 
-        std::vector<uint8_t> jsonPayload;
-        jsonPayload.reserve(kExpectedGranPayloadSize);
-        for (const GranRecord& record : gran_.records) {
-            if (record.bytes.size() != kGranRecordSize) {
-                throw std::runtime_error("GRAN.MST JSON record length mismatch");
+        auto flattenPayload = [](const GranBank& bank, const char* label) {
+            if (bank.recordSize != kGranRecordSize || bank.records.size() != 7) {
+                throw std::runtime_error(std::string(label) + " GRAN shape mismatch");
             }
-            jsonPayload.insert(jsonPayload.end(), record.bytes.begin(), record.bytes.end());
+            std::vector<uint8_t> payload;
+            payload.reserve(bank.recordSize * bank.records.size());
+            for (const GranRecord& record : bank.records) {
+                if (record.bytes.size() != kGranRecordSize) {
+                    throw std::runtime_error(std::string(label) +
+                                             " GRAN record length mismatch");
+                }
+                payload.insert(payload.end(), record.bytes.begin(), record.bytes.end());
+            }
+            return payload;
+        };
+        std::vector<uint8_t> rawPayload = flattenPayload(rawBank, "raw");
+        std::vector<uint8_t> jsonPayload = flattenPayload(jsonBank, "JSON");
+        if (rawPayload != rawBytes) {
+            throw std::runtime_error("GRAN.MST raw loader payload mismatch");
         }
-        if (jsonPayload.size() != rawBytes.size() ||
-            !std::equal(jsonPayload.begin(), jsonPayload.end(), rawBytes.begin())) {
+        if (jsonPayload.size() != rawPayload.size() || jsonPayload != rawPayload) {
             throw std::runtime_error("GRAN.MST raw/json payload mismatch");
         }
         auto joinedInts = [](const auto& values) {
@@ -5964,10 +5972,11 @@ public:
             throw std::runtime_error("GRAN.MST aggregate fingerprint mismatch");
         }
         std::cout << "gran_raw_roundtrip=ok raw_size=" << rawBytes.size()
-                  << " record_size=" << gran_.recordSize
-                  << " records=" << kExpectedGranRecords
+                  << " record_size=" << rawBank.recordSize
+                  << " raw_records=" << rawBank.records.size()
                   << " payload_size=" << jsonPayload.size()
-                  << " json_records=" << gran_.records.size()
+                  << " json_records=" << jsonBank.records.size()
+                  << " raw_json_match=1"
                   << " byte_sum=" << totalSum
                   << " weighted_sum=" << totalWeightedSum
                   << " nonzero_bytes=" << totalNonzero

@@ -110,8 +110,10 @@ quirk.
 - `GRAN.MST` has no observed header in the shipped file. It is seven fixed-size
   57-byte records, likely aligned with the seven shipped levels, but the field
   semantics are still unresolved. Runtime JSON loading now rejects any converted
-  shape other than `7 * 57` bytes, and `--debug-gran-raw-roundtrip` verifies
-  the converted JSON bytes exactly match the shipped 399-byte file. The
+  shape other than `7 * 57` bytes, and `--debug-gran-raw-roundtrip`
+  independently loads both `GRAN.MST` and `GRAN.MST.json`, flattens their
+  seven opaque records, and reports `raw_json_match=1` only when the converted
+  JSON bytes exactly match the shipped 399-byte file. The
   roundtrip also pins an opaque byte profile for comparison work only:
   aggregate `byte_sum=12560`, `weighted_sum=337318`, `nonzero_bytes=249`,
   `zero_bytes=150`, `xor=0x0c`, and record sums

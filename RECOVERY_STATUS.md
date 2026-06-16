@@ -407,8 +407,10 @@ Baseline: `origin/main`
   proves it rejects accidental live `gran_` gameplay/rendering references,
   missing debug-only function ranges, and docs that omit the guardrail pointer.
 - Extended `--debug-gran-raw-roundtrip` and `--debug-gran` with opaque
-  record-level byte fingerprints. CTest now pins the shipped 399-byte payload's
-  aggregate `byte_sum=12560`, `weighted_sum=337318`, `nonzero_bytes=249`,
+  record-level byte fingerprints. The raw-roundtrip diagnostic now loads
+  `GRAN.MST` and `GRAN.MST.json` independently and CTest requires
+  `raw_json_match=1` before pinning the shipped 399-byte payload's aggregate
+  `byte_sum=12560`, `weighted_sum=337318`, `nonzero_bytes=249`,
   `zero_bytes=150`, `xor=0x0c`, record sums
   `631,2230,1389,1242,1780,2720,2568`, weighted sums
   `18094,59871,40052,35568,63621,65838,54274`, nonzero counts
@@ -1937,8 +1939,8 @@ Baseline: `origin/main`
   `--debug-monster-sprite-table-model`, but original frame/debugger evidence is
   still required before those presentation details can be promoted.
 - `GRAN.MST` field semantics remain unknown; consolidation only locks file
-  shape, raw/json byte preservation, and a conservative byte-profile diagnostic
-  for future loader/runtime comparisons.
+  shape, independently checked raw/json byte preservation, and a conservative
+  byte-profile diagnostic for future loader/runtime comparisons.
 
 ## Next Planned Target
 

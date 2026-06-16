@@ -740,6 +740,20 @@ and the route summary classifies it as valid `no_freeze` evidence with
 question that explains why the patched state still misses the forward debris
 write.
 
+A follow-up route/timing sweep changed that variable and still remained
+negative evidence. It wrote
+`C:\Users\andrz\AppData\Local\Temp\lezac-lane-write-forward-lane-global-route-variants-1781610807`
+for routes `x:1.85,c:0.50`, `x:2.15,c:0.50`, `x:2.00,c:0.35`,
+`x:2.00,c:0.65`, and `x:2.00,z:0.35`. The native oracle parsed all five
+candidates. Three stayed `no_patch`; `x:2.00,c:0.35` patched at `3.614s` and
+`x:2.00,c:0.65` patched at `2.970s`, both at selected bases `209e/663e/c22e`
+with lane globals `0x01/0x8002/0x07be`, but neither froze nor hit the natural
+forward-debris write. The summary is `ready_candidates=0`,
+`no_patch_candidates=3`, `no_freeze_candidates=2`, `missing_offsets=3d2d`.
+Do not spend the next pass on nearby lane-global timing tweaks; answer the
+control-flow question around where the natural route diverges before
+`1000:3D2D`.
+
 The sweep wrapper now translates `/mnt/<drive>/...` candidate paths when a WSL
 run invokes a Windows `.exe` oracle, so that host split can parse candidates in
 the same pass instead of leaving `oracle_error` records for path-only reasons.

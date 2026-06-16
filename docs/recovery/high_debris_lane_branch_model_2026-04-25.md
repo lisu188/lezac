@@ -543,6 +543,32 @@ runtime probes for `1000:4B3F`, `1000:4C75`, and `1000:4C96` across
 supports selected-base and after-bomb timing modes when the route family needs
 to be bracketed.
 
+The first live classifier pass wrote
+`C:\Users\andrz\AppData\Local\Temp\lezac-branch-anchor-default-1781615578`.
+In that default matrix, only `x:2.00,m:0.35` produced positive branch-anchor
+freezes: `1000:4C75` with `bp4_local_value=0x8002` and `1000:4C96`. A focused
+one-route all-anchor pass wrote
+`C:\Users\andrz\AppData\Local\Temp\lezac-branch-anchor-m-all-1781616282` and
+classified the same route more sharply: `1000:492F`, `1000:4B3F`,
+`1000:4B61`, `1000:4B6A`, `1000:4C75`, and `1000:4C96` froze, while
+`1000:4C20` and `1000:4CA9` did not. Tail frames for the positive anchors were
+visually inspected and stayed in the level-1 route/playback window, so this is
+valid branch-execution evidence, not a menu/input artifact.
+
+The corresponding natural forward-debris retry wrote
+`C:\Users\andrz\AppData\Local\Temp\lezac-lane-write-forward-m-route-1781616090`.
+It targeted `1000:3D2D` on `x:2.00,m:0.35` with the classifier-derived state:
+selected bases `2941/665c/c22e`, target byte `0xde`, queue score `160`,
+debris/collapse counts `202/5`, and lane globals `0x00/0x0004/0x072c`. The
+runtime patch applied at `2.781s` after the bomb, but the oracle and
+`tools/summarize_lane_write_route_sweep.py` classify the result as
+`no_freeze`: no forward-debris lane-write scratch record and
+`missing_offsets=3d2d`. The sampled and tail screenshots were inspected; the
+route reaches visible blast/smoke playback and then continues normally. This
+brackets the remaining question between the now-proven `4C96` forward-call
+anchor and the missing `3D2D` writeback, rather than between route input and
+the high-debris branch path.
+
 Use `tools/sweep_original_lane_write_routes.py` only when a new route or
 control-flow hypothesis has been identified. The default matrix targets
 `3D2D`/`3EC1` with the `late-collapse` runtime-freeze gate and writes stable
@@ -568,10 +594,11 @@ python3 tools/sweep_original_lane_write_routes.py \
 ```
 
 The next useful evidence step should ask a narrower control-flow question
-around route reachability before targeting writeback: classify candidate routes
-with `tools/sweep_original_branch_anchor_routes.py` first, and only aim at
-natural `1000:3D2D` after the same route/control family has demonstrated
-`4B3F`/`4C75`/`4C96` reachability.
+inside the helper path: for `x:2.00,m:0.35`, probe the forward helper
+call/return or the lane-helper interior between the observed `4C96` call and
+the missing `3D2D` writeback. Do not rerun the same `m:0.35` branch-anchor
+matrix or the same classifier-derived `3D2D` gate unless the route or helper
+predicate changes.
 
 Summarize its output with
 `tools/summarize_lane_write_route_sweep.py <manifest-or-dir> --require-ready`

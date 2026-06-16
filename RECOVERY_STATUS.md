@@ -1,11 +1,30 @@
 # Recovery Status
 
-Last reviewed: 2026-06-16
-Branch: `codex/sound-procmem-route-sweep`
+Last reviewed: 2026-06-17
+Branch: `codex/behavior4-original-evidence-pass`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Ran a live WSL/Xvfb/DOSBox-debug behavior-4 target-selection evidence pass:
+  `tools/capture_original_behavior4_debug.sh
+  /tmp/lezac-behavior4-target-selection .
+  monster_behavior4_target_selection`. The environment preflight passed on the
+  WSL host and the debugger launch reached the prompt with `runtime_cs=01ED`
+  and `runtime_ds=01DD`. The helper generated translated commands for
+  `01ED:7A6B`, `01ED:7C2C`, `01ED:728C`, `01ED:731B`, `01ED:73E5`, and
+  `01ED:741B`, with dumps under `01DD:7900`, `01DD:7A00`, and `01DD:7B00`.
+  DOSBox-debug still exited by timeout (`dosbox_debug_exit=124`) before those
+  commands could be submitted, so the summary remains
+  `candidate_status=incomplete` with missing runtime fixture rows and no
+  `behavior4_runtime_oracle_original*.txt` fixture was promoted.
+- Tightened the debug-capture summary/support path used by that pass:
+  `tools/summarize_debug_capture.py` now tolerates identical duplicate manifest
+  fields emitted by the debug helpers while still rejecting conflicting
+  duplicates, and `tools/capture_original_behavior4_debug.sh` records
+  `runtime_metadata=observed` in the manifest when runtime registers are
+  found. The behavior-4 helper checker and debug-summary checker cover both
+  updates.
 - Added `tools/sweep_original_sound_callsite_routes.py` and
   `tools/check_sound_callsite_route_sweep.py` to dry-run or execute guarded
   route/timing matrices for `contact_scanner_runtime_sound`. The sweep forwards

@@ -96,6 +96,7 @@ def check_script(script_path: Path) -> None:
     require(text, "--probe-wsl", "script")
     require(text, "--require-wsl-bash-on-windows", "script")
     require(text, "write_runtime_command_plan", "script")
+    require(text, "runtime_metadata=observed", "script")
     require(text, "debugger_commands_runtime=$runtime_commands_file", "script")
     require(text, "environment_preflight=dry_run", "script")
     require(text, "grep -v '^#' \"$commands_file\"", "script")

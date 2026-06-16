@@ -1790,11 +1790,18 @@ public:
             throw std::runtime_error("bomb explosion did not drain player energy");
         }
 
+        FrameInspection backgroundOnFrame =
+            inspectRenderedFrame("controls-background-on");
         bool background = showBackground_;
         pushKeyDown(SDLK_s);
         processEvents(running);
         if (showBackground_ == background) {
             throw std::runtime_error("background toggle key did not change state");
+        }
+        FrameInspection backgroundOffFrame =
+            inspectRenderedFrame("controls-background-off");
+        if (backgroundOffFrame.hash == backgroundOnFrame.hash) {
+            throw std::runtime_error("background toggle did not change rendered frame");
         }
 
         int viewWidth = gameplayViewWidth_;
@@ -1803,11 +1810,22 @@ public:
         if (gameplayViewWidth_ >= viewWidth) {
             throw std::runtime_error("R key did not reduce playfield width");
         }
+        int reducedViewWidth = gameplayViewWidth_;
+        FrameInspection reducedWidthFrame =
+            inspectRenderedFrame("controls-view-width-reduced");
+        if (reducedWidthFrame.hash == backgroundOffFrame.hash) {
+            throw std::runtime_error("reduced playfield width did not change frame");
+        }
 
         pushKeyDown(SDLK_e);
         processEvents(running);
         if (gameplayViewWidth_ != viewWidth) {
             throw std::runtime_error("E key did not restore playfield width");
+        }
+        FrameInspection restoredWidthFrame =
+            inspectRenderedFrame("controls-view-width-restored");
+        if (restoredWidthFrame.hash != backgroundOffFrame.hash) {
+            throw std::runtime_error("restored playfield width did not redraw original frame");
         }
 
         pushKeyDown(SDLK_PAGEUP);
@@ -1864,7 +1882,12 @@ public:
         if (running) {
             throw std::runtime_error("Escape from menu did not exit");
         }
-        std::cout << "control_smoke=ok\n";
+        std::cout << "control_smoke=ok manual_controls=s,e,r"
+                  << " background_toggle=1"
+                  << " view_width=" << viewWidth << "->" << reducedViewWidth
+                  << "->" << gameplayViewWidth_
+                  << " two_player_width_locked=1"
+                  << " frame_inspection=1\n";
     }
 
     void smokeUi(int frames) {

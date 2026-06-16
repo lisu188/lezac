@@ -195,7 +195,8 @@ if(BUILD_TESTING)
                 $<TARGET_FILE:lezac_cpp> --smoke-controls)
     set_tests_properties(ui_controls_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        PASS_REGULAR_EXPRESSION "^control_smoke=ok")
+        PASS_REGULAR_EXPRESSION
+            "^control_smoke=ok manual_controls=s,e,r background_toggle=1 view_width=320->288->320 two_player_width_locked=1 frame_inspection=1")
 
     add_test(NAME menu_frame_flow_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

@@ -241,6 +241,11 @@ Baseline: `origin/main`
   records pages, pumps the recovered records-page sound request, checks
   visible gameplay background-toggle frame changes, starts one-player gameplay,
   returns to the menu, and confirms main-menu Escape requests exit.
+- Tightened `control_smoke` so the current port's shipped-manual performance
+  controls are visible in CTest output: `s` toggles the background with frame
+  inspection, the current `r/e` mapping shrinks and restores one-player
+  playfield width `320->288->320`, and the same width keys remain locked out
+  during two-player play.
 - Added `--debug-end-flow-frame-flow` dummy-SDL coverage for the current
   game-over and completed-game presentation. The diagnostic frame-inspects
   below-cutoff game-over scores, drives natural final-level completion into the

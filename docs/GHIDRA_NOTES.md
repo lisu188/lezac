@@ -998,6 +998,11 @@ priority `2` immediately before the `punteggi migliori` record-table text at
 events, pumps that recovered records-page sound request, and frame-inspects the
 main/info/instructions/records pages, visible gameplay background toggle, game
 start, return to menu, and main-menu exit path.
+The general `control_smoke` diagnostic now also reports the current port's
+shipped-manual performance controls explicitly: `s` toggles background
+rendering with frame inspection, the current `r/e` mapping shrinks and restores
+one-player view width `320->288->320`, and the same width keys are ignored
+during two-player play.
 The earlier `1000:202d` cursor-only record-table-region write remains staged
 until its priority and exact flow are proven.
 

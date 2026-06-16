@@ -1174,7 +1174,11 @@ if(BUILD_TESTING)
                     record_name_prompt_sound
                     record_name_commit_sound
                     post_end_flow_record_sound
-                    records_page_sound)
+                    records_page_sound
+                    contact_scanner_runtime_sound
+                    actor_update_runtime_cursor_0024_sound
+                    actor_update_runtime_cursor_0035_sound
+                    actor_update_runtime_cursor_0021_sound)
                 add_test(NAME sound_callsite_debug_capture_helper_${sound_callsite_scenario}_dry_run
                     COMMAND ${CMAKE_COMMAND} -E env LEZAC_SOUND_CALLSITE_DEBUG_DRY_RUN=1
                             ${BASH_EXECUTABLE}
@@ -1185,7 +1189,7 @@ if(BUILD_TESTING)
                 set_tests_properties(sound_callsite_debug_capture_helper_${sound_callsite_scenario}_dry_run PROPERTIES
                     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                     PASS_REGULAR_EXPRESSION
-                        "^sound_callsite_debug_capture=ok mode=dry_run scenario=${sound_callsite_scenario} route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
+                        "^sound_callsite_debug_capture=ok mode=dry_run scenario=${sound_callsite_scenario} route=debugger_seeded capture_class=[^ ]+ static_region=[^ ]+ .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
             endforeach()
 
             add_test(NAME state2_visual_frame_capture_helper_dry_run
@@ -1352,7 +1356,7 @@ if(BUILD_TESTING)
         set_tests_properties(sound_callsite_debug_capture_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^sound_callsite_debug_capture_helper=ok scenarios=12 anchors=13 outputs=7 cmake_tests=12 docs=3")
+                "^sound_callsite_debug_capture_helper=ok scenarios=16 anchors=17 outputs=7 cmake_tests=16 docs=3")
 
         add_test(NAME sound_compatibility_hooks
             COMMAND ${Python3_EXECUTABLE}
@@ -1470,6 +1474,17 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^visual_table_oracle_fixtures=ok files=6 valid=2 malformed=4 original=1 cmake_tests=6 source_command=1")
 
+        add_test(NAME sound_callsite_oracle_fixture_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_oracle_fixtures.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox
+                    --cmake ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
+                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+        set_tests_properties(sound_callsite_oracle_fixture_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^sound_callsite_oracle_fixtures=ok files=4 valid=1 malformed=3 original=0 cmake_tests=4 source_command=1")
+
         add_test(NAME optional_original_oracle_fixture_conventions
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_optional_original_oracle_fixtures.py
@@ -1477,7 +1492,7 @@ if(BUILD_TESTING)
         set_tests_properties(optional_original_oracle_fixture_conventions PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^optional_original_oracle_fixtures=ok lanes=4 scripts=4 prefixes=4 original_counts=4 cmake=4 docs=3")
+                "^optional_original_oracle_fixtures=ok lanes=5 scripts=5 prefixes=5 original_counts=5 cmake=5 docs=3")
 
         add_test(NAME native_windows_validation_helper_expectations
             COMMAND ${Python3_EXECUTABLE}

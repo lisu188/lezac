@@ -1,11 +1,21 @@
 # Recovery Status
 
 Last reviewed: 2026-06-16
-Branch: `codex/runtime-sound-capture-ledger`
+Branch: `codex/contact-sound-procmem-plan`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `tools/capture_original_sound_callsite_procmem.sh` plus checker and
+  CTest dry-run coverage for the first actor/contact sound capture target,
+  `contact_scanner_runtime_sound` at `1000:5E81`. The helper uses the existing
+  DOSBox-debug child process-memory freeze path as a fallback when debugger
+  command submission is unreliable, requires
+  `LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1` and
+  `LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION=1` for live runs,
+  writes `sound_callsite_procmem` manifests/raw output plus a fill-in
+  `sound_callsite` candidate fixture, and preserves `visual_claim=0` until a
+  valid original sound-callsite oracle fixture supplies latch/request bytes.
 - Added `--debug-sound-runtime-capture-queue` to pin the four
   actor/contact-runtime sound capture targets as an ordered C++ diagnostic.
   It rechecks the shipped byte windows for `1000:5e81`, `1000:6844`,

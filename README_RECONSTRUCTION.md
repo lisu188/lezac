@@ -285,6 +285,22 @@ are `actor_update_start`, `actor_update_end`,
 `actor_update_gate5`, `actor_update_gate5_integration`,
 `actor_update_gate5_exit`, `actor_update_gate6`, `contact_scanner_callsite`,
 `contact_scanner_start`, and `contact_scanner_end`.
+The first actor/contact sound capture target has a separate process-memory
+fallback for hosts where DOSBox-debug reaches the prompt but cannot submit
+commands:
+
+```sh
+LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1 \
+LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION=1 \
+  tools/capture_original_sound_callsite_procmem.sh \
+  /tmp/lezac-sound-callsite-procmem . contact_scanner_runtime_sound
+```
+
+It freezes `1000:5E81` for `contact_scanner_runtime_sound`, writes
+`sound_callsite_procmem` manifest/raw output plus a fill-in sound-callsite
+candidate fixture, preserves `visual_claim=0`, and still requires a completed
+`sound_callsite_oracle_original*.txt` fixture before any cursor/priority
+semantic promotion.
 `tools/check_visual_claim_guardrail.py` requires every checked-in DOSBox oracle
 fixture to carry an explicit `visual_claim=0` or `visual_claim=1` line so
 instrumentation-only evidence cannot be promoted by omission. Promotions to
@@ -1081,6 +1097,12 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   and marks `contact_scanner_runtime_sound` (`1000:5e81`, cursor `0x0069`,
   priority `4`) as the first runtime target while keeping
   `sound_runtime_capture_queue=ok` at `original_cursor_priority_claim=0`.
+  `tools/capture_original_sound_callsite_procmem.sh` mirrors that first target
+  through the process-memory freeze path for `contact_scanner_runtime_sound`;
+  live runs require `LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1` and
+  `LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION=1`, emit
+  `sound_callsite_procmem`, and generate a non-promoted candidate fixture for
+  later oracle normalization.
   `--debug-static-sound-contexts` separately
   pins the original bytes and nearby strings that place `0x1857`, `0x1a44`,
   `0x1d9c`, `0x202d`, and `0x2083` in name-entry/record UI regions rather than

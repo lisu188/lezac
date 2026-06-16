@@ -34,9 +34,14 @@ FORWARD_DEBRIS_EXPANDED_ROUTES = [
     "x:3.00,z:0.50,x:2.00",
     "x:1.50,left:0.50,x:2.00",
 ]
+FORWARD_HELPER_TAG_OPEN_ROUTES = [
+    "x:3.00,z:0.50,x:2.00",
+    "x:1.50,left:0.50,x:2.00",
+]
 ROUTE_PRESETS = {
     "default": DEFAULT_ROUTES,
     "forward-debris-expanded": FORWARD_DEBRIS_EXPANDED_ROUTES,
+    "forward-helper-tag-open": FORWARD_HELPER_TAG_OPEN_ROUTES,
 }
 DEFAULT_OFFSETS = ["1000:3D2D", "1000:3EC1"]
 OFFSET_ALIASES = {
@@ -375,7 +380,9 @@ def main() -> int:
         help=(
             "named route matrix to use when --route is omitted; "
             "forward-debris-expanded keeps the pending 1000:3D2D search "
-            "anchored to a reviewed dry-run plan"
+            "anchored to a reviewed dry-run plan, and "
+            "forward-helper-tag-open covers the remaining unpruned level-1 "
+            "routes for 3D1B/3D2D helper-tag classification"
         ),
     )
     parser.add_argument(

@@ -587,6 +587,32 @@ visible level-1 playback window. This explains why the same route misses
 `3D2D`: the helper is executing, but the active writeback tag is a collapse
 tag below the debris marker base `0x4e20`, so the natural store is `3D1B`.
 
+A follow-up helper-tag route search wrote
+`C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-tag-search-1781617957`
+and tested `1000:3D1B`/`1000:3D2D` across `x:1.50,m:0.35`,
+`x:2.50,m:0.35`, `x:2.00,m:0.15`, and `x:2.00,m:0.65`. The summary reports
+eight candidates, two observed freezes, two ready candidates, six valid
+no-freeze candidates, and `missing_offsets=3d2d`. Both freezes were again
+forward collapse writes at `3D1B`: the `x:2.00,m:0.15` and `x:2.00,m:0.65`
+routes wrote output `0x0000`, `DI=0x004b`, tag `0x0005`, active count/index
+`1/1`, and no debris write. Their paired `3D2D` candidates patched cleanly but
+did not freeze. Tail frames for the positive `3D1B` route, its paired `3D2D`
+miss, and the `x:2.50,m:0.35` `3D2D` miss were inspected in the level-1
+explosion/playback window. The search extends the negative evidence: nearby
+`m` timings still produce collapse tags below `0x4e20`, not the debris-marker
+helper state needed for natural `3D2D`.
+
+A broader expanded-route subset wrote
+`C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-expanded-tag-subset-1781622932`
+and tested `x:1.75`, `x:2.25`, `x:2.00,c:0.25`, `x:2.00,c:0.75`, and
+`x:5.00,m:0.50,x:2.00` against both `1000:3D1B` and `1000:3D2D`. All ten
+candidates patched and parsed, but the summary reports `observed_freezes=0`,
+`ready_candidates=0`, `no_freeze_candidates=10`, and
+`missing_offsets=3d1b,3d2d`. Representative tail frames for `x1p75`,
+`x2p00_c0p25`, and `x5p00_m0p50_x2p00` stayed in live level-1 playback. These
+routes are route-pruning evidence: they neither show a collapse-tag helper
+write nor the desired debris-marker helper write under before-bomb patching.
+
 Use `tools/sweep_original_lane_write_routes.py` only when a new route or
 control-flow hypothesis has been identified. The default matrix targets
 `3D2D`/`3EC1` with the `late-collapse` runtime-freeze gate and writes stable
@@ -617,6 +643,16 @@ scratch probes such as `3CE3`/`3D1B` first to classify candidate routes, then
 target natural `1000:3D2D` only after a route has shown a forward helper
 debris tag. Do not rerun the same `m:0.35` branch-anchor matrix or the same
 classifier-derived `3D2D` gate unchanged.
+The final unpruned level-1 route pair is encoded as
+`--route-preset forward-helper-tag-open`; the completed no-sample run at
+`C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-tag-open-nosamples-1781623828`
+tested those routes with the `forward-collapse` and `forward-debris` offsets,
+`--runtime-freeze-preset none`, and `--runtime-freeze-before-bomb`. It produced
+four valid no-freeze fixtures and `missing_offsets=3d1b,3d2d`; route/tail
+frames stayed in live level-1 playback. A sampled predecessor at
+`...\lezac-forward-helper-tag-open-1781623743` failed during route-state
+sampling with a `/proc/<pid>/mem` permission error, so use
+`--route-state-interval 0` for reproducing this classification.
 
 Summarize its output with
 `tools/summarize_lane_write_route_sweep.py <manifest-or-dir> --require-ready`

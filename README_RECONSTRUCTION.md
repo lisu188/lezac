@@ -830,6 +830,43 @@ this route explains the missing `3D2D` as a collapse-tag helper iteration. The
 next natural `3D2D` attempt should first prove a forward-helper debris marker
 tag, then target the debris writeback.
 
+A follow-up helper-tag sweep at
+`C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-tag-search-1781617957`
+tested nearby `m` timing routes against `1000:3D1B` and `1000:3D2D`. It found
+two more ready `3D1B` captures, both forward collapse writes with tag `0x0005`,
+`DI=0x004b`, and output `0x0000`; all paired `3D2D` candidates were valid
+no-freeze captures. The inspected tail frames stayed in level-1 playback, so
+the next search should avoid these collapse-tag route variants and instead
+look for a helper iteration whose scratch tag is at or above `0x4e20`.
+
+The expanded-route subset
+`C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-expanded-tag-subset-1781622932`
+tested `x:1.75`, `x:2.25`, `x:2.00,c:0.25`, `x:2.00,c:0.75`, and
+`x:5.00,m:0.50,x:2.00` against both `3D1B` and `3D2D`; all ten candidates
+patched and parsed as valid no-freeze fixtures. The inspected tail frames
+stayed in level-1 playback, so these routes should be treated as pruned unless
+a new predicate changes the capture timing or setup.
+
+For reproducibility, the final level-1 helper-tag route pair is encoded in the
+focused preset instead of requiring the whole expanded matrix:
+
+```sh
+python3 tools/sweep_original_lane_write_routes.py \
+  /tmp/lezac-forward-helper-tag-open . \
+  --route-preset forward-helper-tag-open \
+  --offset forward-collapse --offset forward-debris \
+  --runtime-freeze-preset none --runtime-freeze-before-bomb \
+  --approve-procmem --approve-runtime-instrumentation \
+  --cpp-exe ./build-win-codex-vs3/Debug/lezac_cpp.exe --continue-on-oracle-error
+```
+
+The completed no-sample run
+`C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-tag-open-nosamples-1781623828`
+used that preset with `--route-state-interval 0` after a sampled attempt hit a
+`/proc/<pid>/mem` permission error. It produced four valid no-freeze fixtures:
+both remaining routes missed both `3D1B` and `3D2D`, and the inspected route
+and tail frames stayed in live level-1 playback.
+
 The sweep wrapper now translates `/mnt/<drive>/...` candidate paths when a WSL
 run invokes a Windows `.exe` oracle, so that host split can parse candidates in
 the same pass instead of leaving `oracle_error` records for path-only reasons.

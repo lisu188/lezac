@@ -450,6 +450,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_debug_capture_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_procmem_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_optional_original_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_scanner_debug_capture_helper.py
@@ -1115,6 +1116,78 @@ if(BUILD_TESTING)
                 PASS_REGULAR_EXPRESSION
                     "^behavior4_debug_capture=ok mode=dry_run scenario=monster_spawner_behavior4_level3 route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
 
+            add_test(NAME behavior4_procmem_helper_spawner_loop_start_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_BEHAVIOR4_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_behavior4_procmem.sh
+                        /tmp/lezac-behavior4-procmem-spawner-start-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        spawner_loop_start)
+            set_tests_properties(behavior4_procmem_helper_spawner_loop_start_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^behavior4_procmem=ok mode=dry_run target=spawner_loop_start ghidra=1000:7A6B capture_class=behavior4_runtime static_region=spawner_loop .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME behavior4_procmem_helper_spawner_loop_end_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_BEHAVIOR4_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_behavior4_procmem.sh
+                        /tmp/lezac-behavior4-procmem-spawner-end-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        spawner_loop_end)
+            set_tests_properties(behavior4_procmem_helper_spawner_loop_end_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^behavior4_procmem=ok mode=dry_run target=spawner_loop_end ghidra=1000:7C2C capture_class=behavior4_runtime static_region=spawner_loop .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME behavior4_procmem_helper_branch_start_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_BEHAVIOR4_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_behavior4_procmem.sh
+                        /tmp/lezac-behavior4-procmem-branch-start-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        behavior4_branch_start)
+            set_tests_properties(behavior4_procmem_helper_branch_start_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^behavior4_procmem=ok mode=dry_run target=behavior4_branch_start ghidra=1000:728C capture_class=behavior4_runtime static_region=behavior4_branch .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME behavior4_procmem_helper_branch_end_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_BEHAVIOR4_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_behavior4_procmem.sh
+                        /tmp/lezac-behavior4-procmem-branch-end-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        behavior4_branch_end)
+            set_tests_properties(behavior4_procmem_helper_branch_end_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^behavior4_procmem=ok mode=dry_run target=behavior4_branch_end ghidra=1000:731B capture_class=behavior4_runtime static_region=behavior4_branch .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME behavior4_procmem_helper_integration_start_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_BEHAVIOR4_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_behavior4_procmem.sh
+                        /tmp/lezac-behavior4-procmem-integration-start-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        integration_8_8_start)
+            set_tests_properties(behavior4_procmem_helper_integration_start_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^behavior4_procmem=ok mode=dry_run target=integration_8_8_start ghidra=1000:73E5 capture_class=behavior4_runtime static_region=integration_8_8 .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME behavior4_procmem_helper_integration_end_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_BEHAVIOR4_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_behavior4_procmem.sh
+                        /tmp/lezac-behavior4-procmem-integration-end-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        integration_8_8_end)
+            set_tests_properties(behavior4_procmem_helper_integration_end_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^behavior4_procmem=ok mode=dry_run target=integration_8_8_end ghidra=1000:741B capture_class=behavior4_runtime static_region=integration_8_8 .*procmem_out=.*environment_preflight=dry_run")
+
             add_test(NAME actor_update_debug_capture_helper_dry_run
                 COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_UPDATE_DEBUG_DRY_RUN=1
                         ${BASH_EXECUTABLE}
@@ -1370,6 +1443,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^behavior4_debug_capture_helper=ok scenarios=3 anchors=6 outputs=7 cmake_tests=3 docs=2")
+
+        add_test(NAME behavior4_procmem_helper_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_procmem_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(behavior4_procmem_helper_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^behavior4_procmem_helper=ok targets=6 cmake_tests=6 docs=3")
 
         add_test(NAME actor_update_debug_capture_helper_expectations
             COMMAND ${Python3_EXECUTABLE}

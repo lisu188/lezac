@@ -188,6 +188,21 @@ It writes a `candidate_fixture.txt` skeleton and
 `debugger_commands_runtime.txt`; when a live run exposes `runtime_cs` or
 `runtime_ds`, the helper copies those values into the manifest/raw dump and
 expands the debugger command plan to the observed runtime segment.
+Because this DOSBox-debug build can reach the prompt but still fail to submit
+commands, behavior-4 anchors also have a guarded process-memory fallback:
+
+```sh
+LEZAC_BEHAVIOR4_APPROVE_PROCMEM=1 \
+LEZAC_BEHAVIOR4_APPROVE_RUNTIME_INSTRUMENTATION=1 \
+  tools/capture_original_behavior4_procmem.sh \
+  /tmp/lezac-behavior4-procmem . behavior4_branch_start
+```
+
+The wrapper can freeze `spawner_loop_start`, `spawner_loop_end`,
+`behavior4_branch_start`, `behavior4_branch_end`, `integration_8_8_start`, or
+`integration_8_8_end`, emits `behavior4_procmem` manifests plus a fill-in
+candidate fixture, and keeps `visual_claim=0` until semantic behavior-4 rows
+are captured and accepted by `--debug-behavior4-runtime-oracle`.
 Live behavior-4, actor-update, contact-scanner, and visual-table DOSBox-debug
 helpers run
 `tools/preflight_original_evidence_environment.py --require-debug-capture`
@@ -473,6 +488,9 @@ LEZAC_ACTOR_UPDATE_DEBUG_DRY_RUN=1 \
 LEZAC_BEHAVIOR4_DEBUG_DRY_RUN=1 \
   tools/capture_original_behavior4_debug.sh \
   /tmp/lezac-behavior4-debug . monster_behavior4_target_selection
+LEZAC_BEHAVIOR4_PROCMEM_DRY_RUN=1 \
+  tools/capture_original_behavior4_procmem.sh \
+  /tmp/lezac-behavior4-procmem . behavior4_branch_start
 ```
 
 Actor/contact fixture checkers keep the synthetic/malformed parser fixtures

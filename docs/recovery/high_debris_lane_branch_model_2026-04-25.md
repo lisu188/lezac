@@ -490,20 +490,44 @@ The 2026-06-15 WSL route sweeps promoted natural non-seeded evidence for the
 reverse debris writeback (`1000:3EC1`) and the forward final far-pointer result
 write (`1000:3D3F`). Natural forward debris writeback (`1000:3D2D`) remains
 the next lane-write evidence target before replacing the provisional queue
-playback. Use
-`tools/sweep_original_lane_write_routes.py` for repeated debris-writeback
-route-step probes; its default matrix targets `3D2D`/`3EC1` with the
-`late-collapse` runtime-freeze gate and writes stable route/offset labels,
-commands, logs, and manifest entries. For the remaining forward-debris target,
-prefer the reviewed expanded matrix:
+playback, but the simple route sweeps have now been spent. The reviewed
+expanded matrix completed as valid `no_freeze` evidence, and later focused
+lane-global gates proved that nearby timings can arm the patch without reaching
+`3D2D`. The most recent route/timing sweep wrote
+`C:\Users\andrz\AppData\Local\Temp\lezac-lane-write-forward-lane-global-route-variants-1781610807`:
+routes `x:2.00,c:0.35` and `x:2.00,c:0.65` patched at `3.614s` and `2.970s`
+with selected bases `209e/663e/c22e` and lane globals `0x01/0x8002/0x07be`,
+but both remained `no_freeze`; the other three nearby variants stayed
+`no_patch`. Do not rerun the same expanded matrix or nearby lane-global timing
+variants as the next step.
+
+Use `tools/sweep_original_lane_write_routes.py` only when a new route or
+control-flow hypothesis has been identified. The default matrix targets
+`3D2D`/`3EC1` with the `late-collapse` runtime-freeze gate and writes stable
+route/offset labels, commands, logs, and manifest entries. The last focused
+lane-global command shape was:
 
 ```sh
 python3 tools/sweep_original_lane_write_routes.py \
-  /tmp/lezac-lane-write-forward-expanded . \
-  --route-preset forward-debris-expanded --offset forward-debris \
+  /mnt/c/Users/andrz/AppData/Local/Temp/lezac-lane-write-forward-lane-global-route-variants . \
+  --route x:2.00,c:0.35 --route x:2.00,c:0.65 --offset forward-debris \
+  --runtime-freeze-preset none \
+  --runtime-freeze-min-queue-score 0x78 \
+  --runtime-freeze-min-debris-nonzero 0x20 \
+  --runtime-freeze-min-collapse-nonzero 0x01 \
+  --runtime-freeze-min-effect-nonzero 0x10 \
+  --runtime-freeze-require-collapse-base 0x663e \
+  --runtime-freeze-require-effect-base 0xc22e \
+  --runtime-freeze-require-lane-update-flag 0x01 \
+  --runtime-freeze-require-lane-word-global-value 0x8002 \
+  --runtime-freeze-require-lane-target-offset-global-value 0x07be \
   --approve-procmem --approve-runtime-instrumentation \
-  --cpp-exe ./build/lezac_cpp
+  --cpp-exe ./build-win-codex-vs3/Debug/lezac_cpp.exe --continue-on-oracle-error
 ```
+
+The next useful evidence step should ask a narrower control-flow question
+around why these patched states miss the forward debris helper, rather than
+testing adjacent route durations.
 
 Summarize its output with
 `tools/summarize_lane_write_route_sweep.py <manifest-or-dir> --require-ready`

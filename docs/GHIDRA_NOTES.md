@@ -587,9 +587,14 @@ capture helper and lane-write sweep now expose later lane-global gates for
 so the matching score-`0x78` rows did not patch. A corrected pass patched at
 `2.854s` with selected bases `209e/663e/c22e` and lane globals
 `0x01/0x8002/0x07be`, but the native oracle still classified it as
-`no_freeze` with no natural `3d2d` lane write. The next pass should change
-route/timing or answer why this patched state misses the forward debris helper,
-rather than repeating the early target-byte/word-layer or lane-global gates.
+`no_freeze` with no natural `3d2d` lane write. A nearby route/timing sweep then
+tried `x:1.85,c:0.50`, `x:2.15,c:0.50`, `x:2.00,c:0.35`, `x:2.00,c:0.65`,
+and `x:2.00,z:0.35`: three routes stayed `no_patch`, while the two `c` timing
+variants patched at `3.614s` and `2.970s` with the same `209e/663e/c22e` bases
+and `0x01/0x8002/0x07be` globals, but both remained `no_freeze`. The next pass
+should answer why these patched states miss the forward debris helper rather
+than repeating the early target-byte/word-layer or nearby lane-global timing
+gates.
 `tools/summarize_lane_result_route_sweep.py`
 now classifies completed route-sweep candidates as `ready`, `no_freeze`,
 `incomplete`, or `missing`; `tools/run_lane_result_ready_manifest.py` and

@@ -148,6 +148,30 @@ constexpr std::array<StaticSoundContext, 5> kRecordUiSoundContexts{{
     {0x202d, 0x0021, 0, "record_table_region"},
     {0x2083, 0x0024, 2, "record_table_region"},
 }};
+struct RuntimeSoundCaptureTarget {
+    const char* scenario;
+    uint16_t offset;
+    uint16_t cursor;
+    uint8_t priority;
+    const char* region;
+    const char* label;
+    const char* status;
+    const char* bytes;
+};
+constexpr std::array<RuntimeSoundCaptureTarget, 4> kActorContactSoundCaptureTargets{{
+    {"contact_scanner_runtime_sound", 0x5e81, 0x0069, 4,
+     "contact_scanner", "cursor_0069_priority4", "next",
+     "c7 06 74 20 69 00 c6 06 9f 79 04 e8 cb b7"},
+    {"actor_update_runtime_cursor_0024_sound", 0x6844, 0x0024, 2,
+     "actor_update", "cursor_0024_priority2", "staged",
+     "c7 06 74 20 24 00 c6 06 9f 79 02 e8 08 ae"},
+    {"actor_update_runtime_cursor_0035_sound", 0x6924, 0x0035, 5,
+     "actor_update", "non_objective_tile_gate_rejected", "staged",
+     "c7 06 74 20 35 00 c6 06 9f 79 05 e8 28 ad"},
+    {"actor_update_runtime_cursor_0021_sound", 0x7386, 0x0021, 1,
+     "actor_update", "cursor_0021_priority1", "staged",
+     "c7 06 74 20 21 00 e8 cb a2"},
+}};
 constexpr std::array<uint16_t, 14> kDebugSoundCursors{
     0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027,
     0x002d, 0x0031, 0x0035, 0x003d, 0x0056, 0x0069, 0x0078,
@@ -7549,6 +7573,81 @@ public:
                   << " actor_contact_capture_candidates="
                   << actorContactCaptureCandidateList
                   << " contexts=" << contextList
+                  << '\n';
+    }
+
+    void debugSoundRuntimeCaptureQueue() {
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for sound runtime queue");
+        }
+
+        auto requireBytes = [&](const RuntimeSoundCaptureTarget& target) {
+            std::vector<uint8_t> expected = parseHexByteList(target.bytes);
+            size_t p = imageBase + target.offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(std::string(target.scenario) +
+                                         " bytes extend past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(std::string(target.scenario) +
+                                             " bytes changed");
+                }
+            }
+        };
+
+        std::ostringstream targets;
+        std::map<std::string, int> regionCounts;
+        for (size_t i = 0; i < kActorContactSoundCaptureTargets.size(); ++i) {
+            const RuntimeSoundCaptureTarget& target =
+                kActorContactSoundCaptureTargets[i];
+            requireBytes(target);
+            ++regionCounts[target.region];
+            if (i != 0) targets << ',';
+            targets << target.scenario << ':' << hex4(target.offset) << ':'
+                    << hex4(target.cursor) << "/p"
+                    << static_cast<int>(target.priority) << ':' << target.region
+                    << ':' << target.label << ':' << target.status;
+        }
+
+        std::ostringstream regionText;
+        bool first = true;
+        for (const auto& entry : regionCounts) {
+            if (!first) regionText << ',';
+            first = false;
+            regionText << entry.first << ':' << entry.second;
+        }
+
+        const std::string targetText = targets.str();
+        const std::string regionList = regionText.str();
+        if (targetText !=
+                "contact_scanner_runtime_sound:0x5e81:0x0069/p4:contact_scanner:cursor_0069_priority4:next,"
+                "actor_update_runtime_cursor_0024_sound:0x6844:0x0024/p2:actor_update:cursor_0024_priority2:staged,"
+                "actor_update_runtime_cursor_0035_sound:0x6924:0x0035/p5:actor_update:non_objective_tile_gate_rejected:staged,"
+                "actor_update_runtime_cursor_0021_sound:0x7386:0x0021/p1:actor_update:cursor_0021_priority1:staged") {
+            throw std::runtime_error("sound runtime capture target queue changed");
+        }
+        if (regionList != "actor_update:3,contact_scanner:1") {
+            throw std::runtime_error("sound runtime capture region summary changed");
+        }
+
+        std::cout << "sound_runtime_capture_queue=ok"
+                  << " capture_class=actor_contact_runtime"
+                  << " targets=" << kActorContactSoundCaptureTargets.size()
+                  << " first_target=contact_scanner_runtime_sound"
+                  << " helper=tools/capture_original_sound_callsite_debug.sh"
+                  << " oracle=--debug-sound-callsite-oracle"
+                  << " fixture_prefix=sound_callsite_oracle_original"
+                  << " promotion_status=runtime_fixture_required"
+                  << " original_cursor_priority_claim=0"
+                  << " regions=" << regionList
+                  << " target_queue=" << targetText
                   << '\n';
     }
 
@@ -18408,6 +18507,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-static-sound-unresolved-contexts") {
             app.debugStaticSoundUnresolvedContexts();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sound-runtime-capture-queue") {
+            app.debugSoundRuntimeCaptureQueue();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-remaining-sound-compat-hooks") {

@@ -99,6 +99,8 @@ def check_source(source_path: Path) -> None:
     require(text, "debugRemainingSoundCompatibilityHooks", "source")
     require(text, "--debug-remaining-sound-compat-hooks", "source")
     require(text, "remaining_sound_compat_hooks=ok", "source")
+    require(text, "--debug-sound-runtime-capture-queue", "source")
+    require(text, "sound_runtime_capture_queue=ok", "source")
     require(text, "original_cursor_priority_claim=0", "source")
     require(text, "capture_classes=", "source")
     require(text, "actor_contact_capture_candidates=", "source")
@@ -144,6 +146,8 @@ def check_docs(root: Path) -> None:
             label,
         )
         require_collapsed(text, "--debug-remaining-sound-compat-hooks", label)
+        require_collapsed(text, "--debug-sound-runtime-capture-queue", label)
+        require_collapsed(text, "sound_runtime_capture_queue=ok", label)
         require_collapsed(text, "original_cursor_priority_claim=0", label)
         require_collapsed(text, EXPECTED_ACTOR_CONTACT_CAPTURE_CANDIDATES, label)
         for snippet in EXPECTED_REJECTED_OBJECTIVE_CANDIDATES:
@@ -157,6 +161,8 @@ def check_cmake(cmake_path: Path) -> None:
     require(text, "sound_compatibility_hooks", "CMake")
     require(text, "tools/check_sound_compatibility_hooks.py", "CMake")
     require(text, "add_test(NAME remaining_sound_compat_hooks", "CMake")
+    require(text, "add_test(NAME sound_runtime_capture_queue", "CMake")
+    require(text, "sound_runtime_capture_queue=ok", "CMake")
     require(text, "original_cursor_priority_claim=0", "CMake")
     require(text, "capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate", "CMake")
     require(text, EXPECTED_ACTOR_CONTACT_CAPTURE_CANDIDATES, "CMake")

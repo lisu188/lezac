@@ -36,6 +36,7 @@ Smoke-test SDL window creation and menu/control handling:
 ```sh
 ./build/lezac_cpp --smoke-ui 3
 ./build/lezac_cpp --smoke-controls
+./build/lezac_cpp --debug-input-fire-key-model
 ./build/lezac_cpp --debug-menu-frame-flow
 ./build/lezac_cpp --debug-autoplayer pause_flow
 ```

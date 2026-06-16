@@ -218,7 +218,7 @@ if(BUILD_TESTING)
     set_tests_properties(ui_controls_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^control_smoke=ok manual_controls=s,e,r fire_keys=n,kp0 background_toggle=1 view_width=320->288->320 two_player_width_locked=1 frame_inspection=1")
+            "^control_smoke=ok manual_controls=s,e,r fire_keys=n,kp0,insert background_toggle=1 view_width=320->288->320 two_player_width_locked=1 frame_inspection=1")
 
     add_test(NAME menu_frame_flow_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -1929,6 +1929,13 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^static_sound_requests=ok writes=27 image_base=0x0770 latch=0x165a latch_candidates=21 latch_refs=22 priority_candidates=21 direct_sweep=5 mapped=15 unresolved=12 record_prompt=0x1857:0x0078/p11 record_commit=0x1a44:0x0008/p11 records_page=0x2083:0x0024/p2 bomb_place=0x557b:0xea74/p3 monster_death=0x5c9e:0x003d/p12 mapped_labels=0x1857:record_name_prompt,0x1a44:record_name_commit,0x2083:records_page,0x30b1:player_death,0x41a9:explosion_small,0x41ed:explosion_medium,0x4231:explosion_large,0x431d:explosion_super,0x557b:bomb_place,0x575d:tile_trigger,0x5a0e:portal_teleport,0x5c9e:monster_death,0x6e34:bomb_object_high,0x6f82:bonus_pickup,0x7f84:player_damage unresolved_candidates=0x1d9c,0x202d,0x2c04,0x49bd,0x4b2c,0x4d3c,0x4dd3,0x5e81,0x6844,0x6924,0x7386,0x789c unresolved_labels=0x1d9c:post_end_flow_record_region,0x202d:record_table_cursor_only,0x2c04:cursor_0078_priority11,0x49bd:cursor_0027_priority5,0x4b2c:collapse_playback_rejected,0x4d3c:cursor_2710,0x4dd3:cursor_2710,0x5e81:cursor_0069_priority4,0x6844:cursor_0024_priority2,0x6924:non_objective_tile_gate_rejected,0x7386:cursor_0021_priority1,0x789c:cursor_0001_no_latch remaining_compat_hooks=objective_pickup,level_complete rejected_objective_candidates=0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate")
+
+    add_test(NAME input_fire_key_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-input-fire-key-model)
+    set_tests_properties(input_fire_key_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^input_fire_key_model=ok image_base=0x0770 handler=1000:1091 p1_gate=DS:1b7b p1_make=0x31 p1_break=0xb1 p1_refs=7 p1_sdl=n p1_compat=space,rctrl p2_gate=DS:1b80 p2_make=0x52 p2_break=0xd2 p2_refs=7 p2_sdl=kp0,insert")
 
     add_test(NAME remaining_sound_compat_hooks
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-remaining-sound-compat-hooks)

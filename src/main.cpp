@@ -1597,6 +1597,24 @@ public:
             throw std::runtime_error("keypad 0 did not consume player 2 inventory only");
         }
 
+        resetLevel(0);
+        size_t insertBombs = bombs_.size();
+        int insertPlayer1SmallBombs = bombInventory_.counts[0];
+        int insertPlayer2SmallBombs = bombInventory2_.counts[0];
+        player2BombX = static_cast<int>(player2_.x + 6.0f) / 8;
+        player2BombY = static_cast<int>(player2_.y + 12.0f) / 8;
+        pushKeyDown(SDLK_INSERT);
+        processEvents(running);
+        if (bombs_.size() != insertBombs + 1 ||
+            bombs_.back().owner != 2 ||
+            bombs_.back().x != player2BombX || bombs_.back().y != player2BombY) {
+            throw std::runtime_error("Insert did not place player 2 bomb in two-player mode");
+        }
+        if (bombInventory_.counts[0] != insertPlayer1SmallBombs ||
+            bombInventory2_.counts[0] != insertPlayer2SmallBombs - 1) {
+            throw std::runtime_error("Insert did not consume player 2 inventory only");
+        }
+
         pushKeyDown(SDLK_ESCAPE);
         processEvents(running);
         if (!menu_) {
@@ -1908,7 +1926,7 @@ public:
             throw std::runtime_error("Escape from menu did not exit");
         }
         std::cout << "control_smoke=ok manual_controls=s,e,r"
-                  << " fire_keys=n,kp0"
+                  << " fire_keys=n,kp0,insert"
                   << " background_toggle=1"
                   << " view_width=" << viewWidth << "->" << reducedViewWidth
                   << "->" << gameplayViewWidth_
@@ -7110,6 +7128,79 @@ public:
                   << " rejected_objective_candidates="
                   << rejectedObjectiveCandidates
                   << " cursor_writes=" << list.str() << '\n';
+    }
+
+    void debugInputFireKeyModel() {
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for input key scan");
+        }
+
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " context extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " context bytes changed");
+                }
+            }
+        };
+        auto countBytes = [&](const std::string& hex) {
+            std::vector<uint8_t> needle = parseHexByteList(hex);
+            int count = 0;
+            for (size_t p = imageBase; p + needle.size() <= exeBytes.size(); ++p) {
+                if (std::equal(needle.begin(), needle.end(), exeBytes.begin() + p)) {
+                    ++count;
+                }
+            }
+            return count;
+        };
+
+        requireBytes(0x10bd, "3c 31 75 04 88 26 7b 1b",
+                     "player 1 fire make gate");
+        requireBytes(0x110f, "3c b1 75 04 88 26 7b 1b",
+                     "player 1 fire break gate");
+        requireBytes(0x10dd, "3c 52 75 04 88 26 80 1b",
+                     "player 2 fire make gate");
+        requireBytes(0x112f, "3c d2 75 04 88 26 80 1b",
+                     "player 2 fire break gate");
+
+        int p1GateRefs = countBytes("7b 1b");
+        int p2GateRefs = countBytes("80 1b");
+        if (p1GateRefs != 7 || p2GateRefs != 7) {
+            throw std::runtime_error("input fire key gate reference count changed");
+        }
+        if (!isPlayer1FireKey(SDLK_n) || !isPlayer1FireKey(SDLK_SPACE) ||
+            !isPlayer1FireKey(SDLK_RCTRL) || isPlayer1FireKey(SDLK_KP_0) ||
+            !isPlayer2FireKey(SDLK_KP_0) || !isPlayer2FireKey(SDLK_INSERT) ||
+            isPlayer2FireKey(SDLK_n)) {
+            throw std::runtime_error("SDL fire key compatibility mapping changed");
+        }
+
+        std::cout << "input_fire_key_model=ok"
+                  << " image_base=0x0770"
+                  << " handler=1000:1091"
+                  << " p1_gate=DS:1b7b"
+                  << " p1_make=0x31"
+                  << " p1_break=0xb1"
+                  << " p1_refs=" << p1GateRefs
+                  << " p1_sdl=n"
+                  << " p1_compat=space,rctrl"
+                  << " p2_gate=DS:1b80"
+                  << " p2_make=0x52"
+                  << " p2_break=0xd2"
+                  << " p2_refs=" << p2GateRefs
+                  << " p2_sdl=kp0,insert"
+                  << '\n';
     }
 
     void debugStaticSoundContexts() {
@@ -18240,6 +18331,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-static-sound-requests") {
             app.debugStaticSoundRequests();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-input-fire-key-model") {
+            app.debugInputFireKeyModel();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-static-sound-contexts") {

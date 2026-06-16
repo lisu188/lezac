@@ -1066,7 +1066,10 @@ gate into `DS:79a3` from `DS:1b7b` for player 1 or `DS:1b80` for player 2.
 Manual byte inspection maps those source bytes to keyboard IRQ state:
 `DS:1b7b` is set/cleared by scan codes `0x31`/`0xb1`, and `DS:1b80` by
 `0x52`/`0xd2`. The C++ SDL key path maps those recovered fire gates to `N` for
-player 1 and keypad `0`/Insert for player 2; `--smoke-controls`,
+player 1 and keypad `0`/Insert for player 2. `--debug-input-fire-key-model`
+pins the shipped handler byte windows at `1000:10bd`, `1000:110f`,
+`1000:10dd`, and `1000:112f`, with the MZ image base fixed at `0x0770`;
+`--smoke-controls`,
 `--debug-autoplayer two_player_route`, and `--debug-autoplayer
 two_player_progression` exercise those event paths. `1000:7ddf` only processes
 players whose `DS:79e5 + player` state byte is `2`. The path reads an 8-byte

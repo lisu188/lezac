@@ -8,12 +8,17 @@ Baseline: `origin/main`
 
 - Aligned live fire-key handling with the recovered keyboard IRQ gate bytes:
   player 1 uses `N` (`0x31`/`0xb1`) and player 2 uses keypad `0`/Insert
-  (`0x52`/`0xd2`). The smoke-control and two-player autoplayer routes now drive
-  those SDL key events and assert bomb owner/inventory effects.
+  (`0x52`/`0xd2`). `--debug-input-fire-key-model` now pins the shipped
+  `LEZAC.EXE` handler byte windows for the make/break gates, while
+  `--smoke-controls`, the optional xdotool UI smoke, and two-player autoplayer
+  routes drive the SDL key events and assert bomb owner/inventory effects.
   Validation passed with the native Windows Debug build helper, direct
-  dummy-SDL smoke/two-player autoplayer commands, focused CTest coverage for
-  controls/menu/two-player routes, and the broader UI/autoplayer dummy-SDL
-  CTest group.
+  dummy-SDL `--debug-input-fire-key-model`, smoke, and two-player autoplayer
+  commands, focused CTest coverage for controls/menu/two-player routes, the
+  broader UI/autoplayer dummy-SDL CTest group, and `bash -n` for the optional
+  xdotool script. A WSL/Xvfb `dosbox-debug` smoke launch reached the debugger
+  UI from a temp copy and was stopped by timeout without issuing debugger
+  commands.
 - Extended `--debug-autoplayer death_reentry` to cover the shipped-manual
   post-death choice: after the recovered 60-tick state-2 countdown, pressing
   fire reenters a still-winnable level, waiting through the reentry timeout

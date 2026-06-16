@@ -301,6 +301,21 @@ It freezes `1000:5E81` for `contact_scanner_runtime_sound`, writes
 candidate fixture, preserves `visual_claim=0`, and still requires a completed
 `sound_callsite_oracle_original*.txt` fixture before any cursor/priority
 semantic promotion.
+Use the route-sweep planner before a live attempt when the contact route needs
+tuning:
+
+```sh
+python3 tools/sweep_original_sound_callsite_routes.py \
+  /tmp/lezac-sound-callsite-routes . --dry-run
+python3 tools/sweep_original_sound_callsite_routes.py \
+  /tmp/lezac-sound-callsite-routes . \
+  --approve-procmem --approve-runtime-instrumentation \
+  --timing before_route --route x:5.00,m:0.50,x:2.00
+```
+
+The planner emits `sound_callsite_route_sweep` manifests and forwards each
+route to `tools/capture_original_sound_callsite_procmem.sh` with the matching
+`LEZAC_SOUND_CALLSITE_ROUTE_STEPS` and freeze-timing environment.
 `tools/check_visual_claim_guardrail.py` requires every checked-in DOSBox oracle
 fixture to carry an explicit `visual_claim=0` or `visual_claim=1` line so
 instrumentation-only evidence cannot be promoted by omission. Promotions to
@@ -1102,7 +1117,9 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   live runs require `LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1` and
   `LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION=1`, emit
   `sound_callsite_procmem`, and generate a non-promoted candidate fixture for
-  later oracle normalization.
+  later oracle normalization. `tools/sweep_original_sound_callsite_routes.py`
+  dry-runs or executes the same helper across route/timing hypotheses and
+  records `sound_callsite_route_sweep` manifests for future live evidence.
   `--debug-static-sound-contexts` separately
   pins the original bytes and nearby strings that place `0x1857`, `0x1a44`,
   `0x1d9c`, `0x202d`, and `0x2083` in name-entry/record UI regions rather than

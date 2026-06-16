@@ -1,11 +1,20 @@
 # Recovery Status
 
 Last reviewed: 2026-06-16
-Branch: `codex/contact-sound-procmem-plan`
+Branch: `codex/sound-procmem-route-sweep`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `tools/sweep_original_sound_callsite_routes.py` and
+  `tools/check_sound_callsite_route_sweep.py` to dry-run or execute guarded
+  route/timing matrices for `contact_scanner_runtime_sound`. The sweep forwards
+  `LEZAC_SOUND_CALLSITE_ROUTE_STEPS`,
+  `LEZAC_SOUND_CALLSITE_RUNTIME_FREEZE_BEFORE_ROUTE`, and the sound-callsite
+  process-memory approval flags to
+  `tools/capture_original_sound_callsite_procmem.sh`, emits
+  `sound_callsite_route_sweep` manifests, and has CTest coverage for default
+  and focused dry-runs plus guard/refusal behavior.
 - Added `tools/capture_original_sound_callsite_procmem.sh` plus checker and
   CTest dry-run coverage for the first actor/contact sound capture target,
   `contact_scanner_runtime_sound` at `1000:5E81`. The helper uses the existing

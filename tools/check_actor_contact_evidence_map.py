@@ -40,6 +40,7 @@ CONTACT_SCANNER_FIXTURES = (
     "contact_scanner_runtime_oracle_synthetic.txt",
     "contact_scanner_runtime_oracle_bad_segment.txt",
     "contact_scanner_runtime_oracle_missing_contact_scan.txt",
+    "contact_scanner_runtime_oracle_missing_dimensions.txt",
     "contact_scanner_runtime_oracle_bad_subject_flags.txt",
 )
 
@@ -69,6 +70,7 @@ EXPECTED_CTESTS = (
     "contact_scanner_runtime_oracle_synthetic",
     "contact_scanner_runtime_oracle_bad_segment",
     "contact_scanner_runtime_oracle_missing_contact_scan",
+    "contact_scanner_runtime_oracle_missing_dimensions",
     "contact_scanner_runtime_oracle_bad_subject_flags",
 )
 
@@ -278,7 +280,7 @@ def check_cmake(cmake: str) -> None:
     )
     require(
         cmake,
-        "^contact_scanner_runtime_oracle_fixtures=ok files=4 valid=1 malformed=3",
+        "^contact_scanner_runtime_oracle_fixtures=ok files=5 valid=1 malformed=4",
         "CMakeLists.txt",
     )
 

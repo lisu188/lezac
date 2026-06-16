@@ -16,6 +16,9 @@ EXPECTED_OUTCOMES = {
         "breakpoint_segment_mismatch expected=0x1a2b actual=0xffff"
     ),
     "contact_scanner_runtime_oracle_missing_contact_scan.txt": "contact_scan_missing",
+    "contact_scanner_runtime_oracle_missing_dimensions.txt": (
+        "missing_field record=subject_actor field=w"
+    ),
     "contact_scanner_runtime_oracle_bad_subject_flags.txt": (
         "contact_flags_before_mismatch actor=0x0001 scan=0x0000"
     ),
@@ -162,6 +165,26 @@ def infer_outcome(
         return "other_actor_missing"
     if "contact_scan" not in records:
         return "contact_scan_missing"
+
+    for record_name in ["subject_actor", "other_actor"]:
+        for field in ["slot", "kind", "state", "x", "y", "w", "h", "flags"]:
+            if field not in records[record_name]:
+                return f"missing_field record={record_name} field={field}"
+    for field in [
+        "subject_slot",
+        "other_slot",
+        "flags_before",
+        "flags_after",
+        "contact",
+        "player_contact",
+        "monster_contact",
+        "object_contact",
+        "damage_pending",
+        "overlap_x",
+        "overlap_y",
+    ]:
+        if field not in records["contact_scan"]:
+            return f"missing_field record=contact_scan field={field}"
 
     subject_slot = require_field(records["subject_actor"], "slot", "subject_actor")
     scan_subject = require_field(records["contact_scan"], "subject_slot", "contact_scan")

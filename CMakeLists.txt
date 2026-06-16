@@ -532,7 +532,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_dispatch_gate_sweep_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_dispatch_gate_sweep_summary_check=ok cases=22")
+                "^actor_dispatch_gate_sweep_summary_check=ok cases=23")
 
         add_test(NAME actor_dispatch_ready_manifest_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -1370,7 +1370,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_summary_check=ok cases=9")
+                "^debug_capture_summary_check=ok cases=10")
 
         add_test(NAME debug_capture_batch_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -1424,7 +1424,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_contact_evidence_map PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_contact_evidence_map=ok targets=9 gate_targets=5 actor_update_fixtures=5 contact_scanner_fixtures=4 ctests=26 oracle_flags=2 docs=3")
+                "^actor_contact_evidence_map=ok targets=9 gate_targets=5 actor_update_fixtures=5 contact_scanner_fixtures=5 ctests=27 oracle_flags=2 docs=3")
 
         add_test(NAME actor_update_runtime_oracle_fixture_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -1446,7 +1446,7 @@ if(BUILD_TESTING)
         set_tests_properties(contact_scanner_runtime_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^contact_scanner_runtime_oracle_fixtures=ok files=4 valid=1 malformed=3 original=0 cmake_tests=4 source_command=1")
+                "^contact_scanner_runtime_oracle_fixtures=ok files=5 valid=1 malformed=4 original=0 cmake_tests=5 source_command=1")
 
         add_test(NAME behavior4_runtime_oracle_fixture_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -2211,6 +2211,15 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "contact_scanner_runtime_oracle=error fixture=contact_scanner_runtime_oracle_missing_contact_scan reason=contact_scan_missing")
+
+    add_test(NAME contact_scanner_runtime_oracle_missing_dimensions
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-contact-scanner-runtime-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/contact_scanner_runtime_oracle_missing_dimensions.txt
+                --expect-error)
+    set_tests_properties(contact_scanner_runtime_oracle_missing_dimensions PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "contact_scanner_runtime_oracle=error fixture=contact_scanner_runtime_oracle_missing_dimensions reason=missing_field record=subject_actor field=w")
 
     add_test(NAME contact_scanner_runtime_oracle_bad_subject_flags
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-contact-scanner-runtime-oracle

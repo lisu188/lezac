@@ -31,6 +31,23 @@ CAPTURE_CONFIGS = {
         "flag": "--debug-contact-scanner-runtime-oracle",
         "required_keys": ["capture", "scenario", "level", "runtime_cs", "runtime_ds"],
         "required_records": ["subject_actor", "other_actor", "contact_scan"],
+        "required_record_fields": {
+            "subject_actor": ["slot", "kind", "state", "x", "y", "w", "h", "flags"],
+            "other_actor": ["slot", "kind", "state", "x", "y", "w", "h", "flags"],
+            "contact_scan": [
+                "subject_slot",
+                "other_slot",
+                "flags_before",
+                "flags_after",
+                "contact",
+                "player_contact",
+                "monster_contact",
+                "object_contact",
+                "damage_pending",
+                "overlap_x",
+                "overlap_y",
+            ],
+        },
         "required_breaks": ["5cb0", "604f"],
     },
     "visual_table": {
@@ -110,6 +127,16 @@ def candidate_readiness(capture: str, candidate: Path | None) -> CandidateReadin
         for line in active_lines
         if " " in line and "=" in line
     }
+    record_fields = {
+        record: {
+            part.split("=", 1)[0]
+            for part in line.split()[1:]
+            if "=" in part
+        }
+        for line in active_lines
+        if " " in line and "=" in line
+        for record in [line.split(" ", 1)[0]]
+    }
     break_offsets: set[str] = set()
     for line in active_lines:
         if not line.startswith("break "):
@@ -124,6 +151,13 @@ def candidate_readiness(capture: str, candidate: Path | None) -> CandidateReadin
         for record in config["required_records"]
         if record not in record_names
     )
+    for record, fields in config.get("required_record_fields", {}).items():
+        if record not in record_names:
+            continue
+        present_fields = record_fields.get(record, set())
+        missing.extend(
+            f"{record}.{field}" for field in fields if field not in present_fields
+        )
     missing.extend(
         f"break_{offset}"
         for offset in config["required_breaks"]

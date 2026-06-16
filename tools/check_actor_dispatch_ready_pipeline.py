@@ -138,9 +138,9 @@ def write_ready_scanner_fixture(path: Path) -> None:
                 "runtime_ds=0F3C",
                 "break ghidra=1000:5CB0 runtime=01ED:5CB0 label=contact_scanner_start",
                 "break ghidra=1000:604F runtime=01ED:604F label=contact_scanner_end",
-                "subject_actor slot=0 behavior=0 kind=0 state=0 x=0x0068 y=0x00a8 flags=0x0000 contact=0",
-                "other_actor slot=3 behavior=4 kind=2 state=0 x=0x006a y=0x00a8 flags=0x0000 contact=0",
-                "contact_scan subject_slot=0 other_slot=3 flags_before=0x0000 flags_after=0x0002 contact=1 player_contact=1 monster_contact=0 object_contact=0 damage_pending=1",
+                "subject_actor slot=0 behavior=0 kind=0 state=0 x=0x0068 y=0x00a8 w=16 h=24 flags=0x0000 contact=0",
+                "other_actor slot=3 behavior=4 kind=2 state=0 x=0x006a y=0x00a8 w=16 h=16 flags=0x0000 contact=0",
+                "contact_scan subject_slot=0 other_slot=3 flags_before=0x0000 flags_after=0x0002 contact=1 player_contact=1 monster_contact=0 object_contact=0 damage_pending=1 overlap_x=14 overlap_y=24",
                 "",
             ]
         ),

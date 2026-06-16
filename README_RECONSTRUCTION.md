@@ -389,7 +389,9 @@ C++ executable is not `./build/lezac_cpp`, `--require-ready` when a script
 should fail until all observed freeze candidates are promotable, and
 `--require-dispatch-gate-freeze` when a live sweep must prove that at least one
 mapped dispatch-gate target actually froze before the result is treated as
-branch-reachability evidence. Add
+branch-reachability evidence. Contact-scanner candidates only become ready when
+`subject_actor`/`other_actor` include `w` and `h`, and `contact_scan` includes
+`overlap_x` and `overlap_y`, matching the real C++ oracle parser. Add
 `--require-environment-preflight` when promotion should fail unless the source
 sweep recorded a successful host preflight. Use `--write-ready-manifest <path>`
 to emit a promotion manifest containing only ready candidate fixtures and their

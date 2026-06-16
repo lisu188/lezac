@@ -1780,6 +1780,20 @@ Baseline: `origin/main`
   summaries fail when a route only froze non-dispatch probes, so future
   branch-reachability evidence cannot accidentally promote an entry/exit stop
   as a mapped actor/contact gate hit.
+- A WSL-native process-memory dispatch sweep at
+  `/tmp/lezac-actor-dispatch-wsl-live-codex-20260616` passed the real Ubuntu
+  preflight and froze `actor_update_gate6` at runtime `01ED:654E` with
+  `DS=0C8F` on both `x:2.00` and `x:5.00,m:0.50,x:2.00` before-route probes.
+  `contact_scanner_callsite` still did not freeze in that focused sweep, and
+  both generated gate6 candidates remain `incomplete` because they lack the
+  semantic actor/contact records and breakpoints required by the runtime
+  oracle. This is branch-reachability evidence only, not a promoted oracle
+  fixture.
+- Contact-scanner readiness now checks the same field-level shape consumed by
+  `--debug-contact-scanner-runtime-oracle`: subject/other actor records must
+  carry `w` and `h`, and `contact_scan` must carry `overlap_x` and
+  `overlap_y`. Synthetic summary and fixture tests now reject candidates that
+  have the right record names but would fail the real oracle parser.
 - After adding the actor/contact process-memory wrapper and dry-run CTest,
   `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
   -BuildDir build-win-codex-vs3 -Configuration Debug` passed: configure/build

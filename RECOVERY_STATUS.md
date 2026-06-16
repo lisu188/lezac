@@ -1,11 +1,23 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/sound-callsite-procmem-targets`
+Branch: `codex/sound-callsite-procmem-sweep-summary`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `tools/summarize_sound_callsite_route_sweep.py` plus
+  `tools/check_sound_callsite_route_sweep_summary.py` and CMake coverage for
+  `sound_callsite_route_sweep` manifests. The summary classifies each
+  sound-callsite procmem capture as ready/incomplete/missing, reports observed
+  freezes and per-capture `--debug-sound-callsite-oracle` commands, exposes
+  `--require-ready`, `--require-observed-freeze`, and
+  `--require-environment-preflight` gates, and can write a
+  `debug_capture_ready_candidates` manifest for ready sound-callsite fixtures.
+  The generic ready-manifest runner and result summarizer now accept the
+  `sound_callsite` oracle key mapped to `--debug-sound-callsite-oracle`, so a
+  completed actor/contact sound sweep can be triaged and dry-run through the
+  existing promotion pipeline without manual command rewriting.
 - Extended `tools/capture_original_sound_callsite_procmem.sh`,
   `tools/sweep_original_sound_callsite_routes.py`,
   `tools/check_sound_callsite_procmem_helper.py`, and CMake dry-run coverage

@@ -361,6 +361,11 @@ until the latch bytes are captured in a valid original oracle fixture.
 `tools/sweep_original_sound_callsite_routes.py` wraps that helper across
 route-step and before-route/before-bomb freeze-timing hypotheses and records a
 `sound_callsite_route_sweep` manifest for later evidence review.
+`tools/summarize_sound_callsite_route_sweep.py` classifies those manifests into
+ready/incomplete/missing sound-callsite candidates, reports observed freezes,
+prints per-capture `--debug-sound-callsite-oracle` commands, and can emit a
+`debug_capture_ready_candidates` manifest for
+`tools/run_debug_capture_ready_manifest.py`.
 `--debug-actor-contact-static-model` pins the same scanner entry/return,
 actor-update entry/return, `[bp-31h]` gates, scanner callsite, and integration
 jump set from the C++ binary against the shipped executable bytes.
@@ -1126,11 +1131,16 @@ the first target, reporting `sound_runtime_capture_queue=ok` with
 `original_cursor_priority_claim=0` until a valid
 `sound_callsite_oracle_original*.txt` fixture exists.
 `tools/capture_original_sound_callsite_procmem.sh` provides the process-memory
-fallback for that first target, emitting `sound_callsite_procmem` output and a
-non-promoted candidate fixture behind
+fallback for all four actor/contact runtime sound targets, emitting
+`sound_callsite_procmem` output and a non-promoted candidate fixture behind
 `LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1` plus runtime-instrumentation approval.
 `tools/sweep_original_sound_callsite_routes.py` is the preferred dry-run/live
-planner when testing multiple contact routes for that target.
+planner when testing contact routes and actor-update sound targets.
+`tools/summarize_sound_callsite_route_sweep.py` triages those sweep manifests,
+adds `--require-ready`, `--require-observed-freeze`, and
+`--require-environment-preflight` gates, and can hand ready fixtures to the
+generic `debug_capture_ready_candidates` runner with the `sound_callsite`
+oracle.
 The diagnostic also prints
 `remaining_compat_hooks=objective_pickup,level_complete` and records rejected
 objective-sound candidates as

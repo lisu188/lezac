@@ -1,7 +1,7 @@
 # Recovery Status
 
 Last reviewed: 2026-06-16
-Branch: `codex/early-branch-probe`
+Branch: `codex/branch-anchor-route-classifier`
 Baseline: `origin/main`
 
 ## Completed This Iteration
@@ -199,6 +199,15 @@ Baseline: `origin/main`
   (`x:2.00,c:0.65`) loaded but did not freeze. Narrow conclusion: these two
   `c` timing variants can expose late sampled lane state, but they are not
   useful natural `3D2D` branch-execution routes under the current bomb timing.
+- Added `tools/sweep_original_branch_anchor_routes.py`, a guarded route
+  classifier for the high-debris branch anchors `1000:4B3F`, `1000:4C75`, and
+  `1000:4C96`. Its default dry-run matrix covers routes `x:2.00`,
+  `x:2.00,c:0.35`, `x:2.00,c:0.65`, and `x:2.00,m:0.35` with before-bomb
+  runtime patching, and it can also classify selected-base and after-bomb
+  timing modes before spending another natural `3D2D` run. Added
+  `tools/check_branch_anchor_route_sweep.py` plus CTest dry-run coverage for
+  the command shapes, selected-base gates, Windows `.exe` oracle path
+  translation, repo-output refusal, bad routes, and live approval refusal.
 - Added `--continue-on-oracle-error` to
   `tools/sweep_original_lane_write_routes.py`. Capture failures still stop the
   sweep, but a missing or unrunnable C++ oracle now writes an `oracle_error`
@@ -2158,9 +2167,11 @@ show that, after that later predicate arms, neither `1000:4C75` nor
 `1000:4C96` is reached again in the sampled window, and the follow-up
 before-bomb `4B3F`/`4C75` probes show the two `c` timing variants do not hit
 the high-debris branch anchors even when patched before the bomb tap. The next
-useful original-evidence step should classify candidate routes by branch-anchor
-reachability first, then only target natural `1000:3D2D` on a route that has
-already hit `4B3F`/`4C75`/`4C96` in the same control/input family.
+useful original-evidence step should run
+`tools/sweep_original_branch_anchor_routes.py` on candidate routes and classify
+branch-anchor reachability first, then only target natural `1000:3D2D` on a
+route that has already hit `4B3F`/`4C75`/`4C96` in the same control/input
+family.
 Treat a no-patch or no-freeze result as route evidence, not promotion.
 Then return to DOSBox frame/debugger evidence for behavior-4 movement,
 targeting, and respawn timing.

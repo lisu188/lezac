@@ -536,6 +536,13 @@ loaded but did not freeze. These are route-classification negatives: the two
 `c` timing variants expose sampled lane-state transitions but have not shown
 live `4B3F`/`4C75` branch execution after the route/bomb timing used here.
 
+`tools/sweep_original_branch_anchor_routes.py` now captures this classification
+workflow as a guarded dry-run/live runner. By default it plans before-bomb
+runtime probes for `1000:4B3F`, `1000:4C75`, and `1000:4C96` across
+`x:2.00`, `x:2.00,c:0.35`, `x:2.00,c:0.65`, and `x:2.00,m:0.35`; it also
+supports selected-base and after-bomb timing modes when the route family needs
+to be bracketed.
+
 Use `tools/sweep_original_lane_write_routes.py` only when a new route or
 control-flow hypothesis has been identified. The default matrix targets
 `3D2D`/`3EC1` with the `late-collapse` runtime-freeze gate and writes stable
@@ -562,8 +569,9 @@ python3 tools/sweep_original_lane_write_routes.py \
 
 The next useful evidence step should ask a narrower control-flow question
 around route reachability before targeting writeback: classify candidate routes
-with branch-anchor probes first, and only aim at natural `1000:3D2D` after the
-same route/control family has demonstrated `4B3F`/`4C75`/`4C96` reachability.
+with `tools/sweep_original_branch_anchor_routes.py` first, and only aim at
+natural `1000:3D2D` after the same route/control family has demonstrated
+`4B3F`/`4C75`/`4C96` reachability.
 
 Summarize its output with
 `tools/summarize_lane_write_route_sweep.py <manifest-or-dir> --require-ready`

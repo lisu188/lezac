@@ -515,6 +515,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_write_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_dispatch_gates.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_contact_routes.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_branch_anchor_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_write_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_result_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/plan_visual_claim_promotions.py
@@ -825,6 +826,27 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^lane_write_route_sweep_summary_check=ok cases=12")
+
+        add_test(NAME explosion_branch_anchor_route_sweep_default_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_branch_anchor_routes.py
+                    /tmp/lezac-branch-anchor-route-sweep-default-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --skip-oracle)
+        set_tests_properties(explosion_branch_anchor_route_sweep_default_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^branch_anchor_route_sweep=ok mode=dry_run .*targets=3 target_labels=high_debris_target_sample,high_debris_word_gate,effect_forward_pass_call .*timings=before_bomb routes=4 route_labels=x2p00,x2p00_c0p35,x2p00_c0p65,x2p00_m0p35 capture_commands=12 oracle_commands=0 .*environment_preflight=1")
+
+        add_test(NAME explosion_branch_anchor_route_sweep_output_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_branch_anchor_route_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_branch_anchor_route_sweep_output_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^branch_anchor_route_sweep_output=ok cases=11")
 
         add_test(NAME explosion_lane_write_ready_manifest_expectations
             COMMAND ${Python3_EXECUTABLE}

@@ -1064,8 +1064,11 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   static code region:
   `record_ui:2`, `pre_new_game_setup:1`, `explosion_playback:2`,
   `effect_extent_scan:2`, `contact_scanner:1`, `actor_update:3`, and
-  `post_actor_update_no_latch:1`; these region labels are static byte-context
-  facts, not live cue promotions. `--debug-static-sound-contexts` separately
+  `post_actor_update_no_latch:1`. It also prints capture classes and the
+  actor/contact runtime queue
+  `actor_contact_capture_candidates=0x5e81:contact_scanner,0x6844:actor_update,0x6924:actor_update,0x7386:actor_update`;
+  these region labels are static byte-context facts, not live cue promotions.
+  `--debug-static-sound-contexts` separately
   pins the original bytes and nearby strings that place `0x1857`, `0x1a44`,
   `0x1d9c`, `0x202d`, and `0x2083` in name-entry/record UI regions rather than
   in the `1000:1b14..1d42` completed-game dispatcher, so the current

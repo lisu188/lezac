@@ -61,6 +61,11 @@ EXPECTED_CAPTURE_BLOCKERS = [
     "level_complete:no_static_candidate",
 ]
 
+EXPECTED_ACTOR_CONTACT_CAPTURE_CANDIDATES = (
+    "actor_contact_capture_candidates=0x5e81:contact_scanner,"
+    "0x6844:actor_update,0x6924:actor_update,0x7386:actor_update"
+)
+
 
 def default_repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
@@ -95,6 +100,8 @@ def check_source(source_path: Path) -> None:
     require(text, "--debug-remaining-sound-compat-hooks", "source")
     require(text, "remaining_sound_compat_hooks=ok", "source")
     require(text, "original_cursor_priority_claim=0", "source")
+    require(text, "capture_classes=", "source")
+    require(text, "actor_contact_capture_candidates=", "source")
     require(text, "objective_pickup,level_complete", "source")
     for snippet in EXPECTED_REJECTED_OBJECTIVE_CANDIDATES:
         require(text, snippet, "source")
@@ -138,6 +145,7 @@ def check_docs(root: Path) -> None:
         )
         require_collapsed(text, "--debug-remaining-sound-compat-hooks", label)
         require_collapsed(text, "original_cursor_priority_claim=0", label)
+        require_collapsed(text, EXPECTED_ACTOR_CONTACT_CAPTURE_CANDIDATES, label)
         for snippet in EXPECTED_REJECTED_OBJECTIVE_CANDIDATES:
             require_collapsed(text, snippet, label)
         for snippet in EXPECTED_CAPTURE_BLOCKERS:
@@ -151,6 +159,7 @@ def check_cmake(cmake_path: Path) -> None:
     require(text, "add_test(NAME remaining_sound_compat_hooks", "CMake")
     require(text, "original_cursor_priority_claim=0", "CMake")
     require(text, "capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate", "CMake")
+    require(text, EXPECTED_ACTOR_CONTACT_CAPTURE_CANDIDATES, "CMake")
     require(
         text,
         "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=24 docs=3 rejected_objective_candidates=3 capture_blockers=2 live_diagnostic=1",

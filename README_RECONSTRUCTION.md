@@ -318,7 +318,7 @@ The wrapper writes
 `<target>_runtime_candidate.txt` with the runtime metadata plus raw route-state
 dumps; the candidate is a fill-in scaffold until semantic actor/contact records
 are decoded. Gate-target candidates include the required actor-update anchor
-set and a `dispatch_gate_candidate` hint for later `dispatch_gates=` oracle
+set and a `dispatch_gate_candidate=<label>` hint for later `dispatch_gates=` oracle
 promotion. Use `LEZAC_ACTOR_CONTACT_ROUTE_STEPS` with comma-separated
 `key:seconds` holds to tune a route, for example
 `LEZAC_ACTOR_CONTACT_ROUTE_STEPS=x:1.0,n:0.2,z:0.5`. Set
@@ -375,15 +375,21 @@ python3 tools/summarize_actor_dispatch_ready_results.py \
 ```
 
 The summary prints `environment_preflight=`, `child_environment_preflights=`,
-`ready_candidates=`, `incomplete_candidates=`, `missing_candidates=`,
-`candidate_status=`, `candidate_missing=`, `oracle=`, `oracle_flag=`, and
-`oracle_command=` so the candidate fixture can be completed and routed to the
-matching runtime oracle without guessing. Use
+`dispatch_gate_freezes=`, `observed_dispatch_gates=`, `ready_candidates=`,
+`incomplete_candidates=`, `missing_candidates=`, `candidate_status=`,
+`candidate_missing=`, `oracle=`, `oracle_flag=`, and `oracle_command=` so the
+candidate fixture can be completed and routed to the matching runtime oracle
+without guessing. `dispatch_gate_freezes=` counts freeze events at mapped
+targets, while `observed_dispatch_gates=` lists unique mapped target names.
+Detail rows include `dispatch_gate_candidate=` to separate mapped actor/contact
+dispatch gates from broader route-freeze probes. Use
 `candidate_placeholders=1` as a warning that a generated skeleton still has
-fill-in markers in comments or active records. Use `--oracle-binary` when the C++
-executable is not
-`./build/lezac_cpp`, and `--require-ready` when a script should fail until all
-observed freeze candidates are promotable. Add
+fill-in markers in comments or active records. Use `--oracle-binary` when the
+C++ executable is not `./build/lezac_cpp`, `--require-ready` when a script
+should fail until all observed freeze candidates are promotable, and
+`--require-dispatch-gate-freeze` when a live sweep must prove that at least one
+mapped dispatch-gate target actually froze before the result is treated as
+branch-reachability evidence. Add
 `--require-environment-preflight` when promotion should fail unless the source
 sweep recorded a successful host preflight. Use `--write-ready-manifest <path>`
 to emit a promotion manifest containing only ready candidate fixtures and their

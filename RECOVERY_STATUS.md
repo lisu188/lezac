@@ -980,18 +980,24 @@ Baseline: `origin/main`
   coverage for completed actor dispatch-gate sweep manifests. The summarizer
   follows nested route-sweep manifests, counts capture statuses, reports
   observed runtime freezes, lists missing gate targets, and surfaces candidate
-  fixtures for runtime-oracle normalization. It now labels each observed freeze
-  with the matching `actor_update` or `contact_scanner` oracle flag and a
-  runnable `oracle_command=` hint, plus `candidate_status=` readiness so skeleton
-  fixtures are not mistaken for normalized evidence. The top-level summary now
-  includes ready/incomplete/missing/none candidate counts for quick triage.
+  fixtures for runtime-oracle normalization. It now reports
+  `dispatch_gate_freezes=` event counts and unique
+  `observed_dispatch_gates=` names separately from broader `observed_targets=`
+  route-freeze evidence. It also labels each observed freeze with
+  `dispatch_gate_candidate=`, the matching `actor_update` or `contact_scanner`
+  oracle flag, and a runnable `oracle_command=` hint, plus `candidate_status=`
+  readiness so skeleton fixtures are not mistaken for normalized evidence. The
+  top-level summary now includes ready/incomplete/missing/none candidate counts
+  for quick triage.
   Placeholder detection intentionally scans commented skeleton hints as well as
   active fixture records. `--require-ready` now exits nonzero when any observed
-  freeze candidate is not promotable. `--write-ready-manifest` writes a
-  follow-up promotion manifest containing only ready fixtures and oracle
-  commands, and `tools/run_actor_dispatch_ready_manifest.py` can dry-run or
-  execute that manifest so the next WSL/DOSBox pass can validate promoted
-  candidates without hand-copying summary lines. The runner now rejects missing
+  freeze candidate is not promotable. `--require-dispatch-gate-freeze` exits
+  nonzero when no mapped actor/contact dispatch-gate target froze.
+  `--write-ready-manifest` writes a follow-up promotion manifest containing
+  only ready fixtures and oracle commands, and
+  `tools/run_actor_dispatch_ready_manifest.py` can dry-run or execute that
+  manifest so the next WSL/DOSBox pass can validate promoted candidates without
+  hand-copying summary lines. The runner now rejects missing
   fixtures and mismatched oracle/flag pairs before execution, with an explicit
   dry-run-only bypass for forensic manifest review, and can write a result
   manifest for planned or executed oracle commands. Result manifests and logs
@@ -1766,6 +1772,14 @@ Baseline: `origin/main`
   `check_actor_contact_procmem_helper.py` passed, and full native validation
   through `tools\run_native_windows_validation.ps1` passed again:
   configure/build succeeded and CTest reported 178/178 tests passing.
+- The actor dispatch-gate sweep summary now reports
+  `dispatch_gate_freezes=` and `observed_dispatch_gates=` separately from
+  broader route-freeze targets, with the former counting freeze events and the
+  latter listing unique mapped target names. Each freeze detail carries
+  `dispatch_gate_candidate=`. `--require-dispatch-gate-freeze` makes live sweep
+  summaries fail when a route only froze non-dispatch probes, so future
+  branch-reachability evidence cannot accidentally promote an entry/exit stop
+  as a mapped actor/contact gate hit.
 - After adding the actor/contact process-memory wrapper and dry-run CTest,
   `powershell -ExecutionPolicy Bypass -File tools\run_native_windows_validation.ps1
   -BuildDir build-win-codex-vs3 -Configuration Debug` passed: configure/build

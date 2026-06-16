@@ -335,15 +335,18 @@ the same route and timing inputs. `--debug-actor-update-runtime-oracle` now
 reports optional `dispatch_gates=` names from these breakpoints when they are
 present in a normalized fixture. `tools/summarize_actor_dispatch_gate_sweep.py`
 follows a completed dispatch-sweep manifest and reports capture counts, observed
-freeze targets, missing targets, candidate readiness counts, and candidate
-fixtures ready for oracle normalization; each freeze line also labels candidate
-readiness, the expected runtime oracle flag, and an `oracle_command=` using the
-configured C++ binary path. Placeholder detection scans the whole candidate
-file, including commented skeleton hints, while required-record checks only use
-active fixture lines. `--require-ready` turns the summary into a promotion gate
-by returning nonzero whenever an observed freeze has a missing, incomplete, or
-absent candidate fixture. `--write-ready-manifest` writes a small follow-up
-manifest containing only ready fixtures and their oracle commands.
+freeze targets, mapped `dispatch_gate_freezes=` freeze-event counts, unique
+`observed_dispatch_gates=` names, missing targets, candidate readiness counts,
+and candidate fixtures ready for oracle normalization; each freeze line also
+labels `dispatch_gate_candidate=`, candidate readiness, the expected runtime
+oracle flag, and an `oracle_command=` using the configured C++ binary path.
+Placeholder detection scans the whole candidate file, including commented
+skeleton hints, while required-record checks only use active fixture lines.
+`--require-ready` turns the summary into a promotion gate by returning nonzero
+whenever an observed freeze has a missing, incomplete, or absent candidate
+fixture. `--require-dispatch-gate-freeze` separately rejects sweeps that did not
+freeze any mapped dispatch-gate target. `--write-ready-manifest` writes a small
+follow-up manifest containing only ready fixtures and their oracle commands.
 `tools/run_actor_dispatch_ready_manifest.py` can then dry-run or execute that
 handoff without copying shell lines out of the summary output; it rejects
 missing fixture paths and mismatched oracle/flag pairs before execution, and

@@ -222,7 +222,10 @@ pair to all six anchors with `--all-targets`; it still emits only
 `tools/summarize_behavior4_procmem_route_sweep.py` triages those manifests into
 completed capture counts, observed freeze counts, candidate readiness, and
 per-capture `--debug-behavior4-runtime-oracle` commands before any fixture is
-considered for promotion.
+considered for promotion. With `--write-ready-manifest`, ready sweep candidates
+are emitted as `debug_capture_ready_candidates` manifests for
+`tools/run_debug_capture_ready_manifest.py`, reusing the existing behavior-4
+runtime-oracle execution path.
 `tools/check_behavior4_runtime_oracle_fixtures.py` keeps that fixed synthetic
 baseline while allowing future `behavior4_runtime_oracle_original*.txt`
 fixtures only when they parse as valid runtime evidence and have matching CTest

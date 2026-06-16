@@ -213,7 +213,9 @@ Summarize a completed sweep with
 `python3 tools/summarize_behavior4_procmem_route_sweep.py <manifest>`. The
 summary reports completed captures, observed freezes, ready/incomplete/missing
 candidate counts, per-capture oracle commands, and `--require-ready`,
-`--require-observed-freeze`, and `--require-environment-preflight` gates.
+`--require-observed-freeze`, and `--require-environment-preflight` gates. Add
+`--write-ready-manifest <path>` to hand ready behavior-4 candidates to the
+generic `tools/run_debug_capture_ready_manifest.py` oracle runner.
 Live behavior-4, actor-update, contact-scanner, and visual-table DOSBox-debug
 helpers run
 `tools/preflight_original_evidence_environment.py --require-debug-capture`
@@ -507,6 +509,11 @@ python3 tools/sweep_original_behavior4_procmem_routes.py \
   --timing before_bomb --route x:2.00
 python3 tools/summarize_behavior4_procmem_route_sweep.py \
   /tmp/lezac-behavior4-procmem-sweep/manifest.txt --require-observed-freeze
+python3 tools/summarize_behavior4_procmem_route_sweep.py \
+  /tmp/lezac-behavior4-procmem-sweep/manifest.txt \
+  --require-ready --write-ready-manifest /tmp/lezac-behavior4-ready.txt
+python3 tools/run_debug_capture_ready_manifest.py \
+  /tmp/lezac-behavior4-ready.txt --dry-run
 ```
 
 Actor/contact fixture checkers keep the synthetic/malformed parser fixtures

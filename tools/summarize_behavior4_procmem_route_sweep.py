@@ -10,6 +10,11 @@ import re
 import shlex
 import sys
 
+from ready_result_fixture_guardrails import (
+    parse_runtime_segment_value,
+    validate_runtime_fixture_evidence,
+)
+
 
 CAPTURE_ROUTE_SWEEP = "behavior4_procmem_route_sweep"
 ORACLE = "behavior4"
@@ -63,6 +68,8 @@ class SummaryResult:
     readiness_counts: dict[str, int]
     observed_freezes: int
     environment_preflight: str
+    manifest: Manifest
+    captures: list[CaptureSummary]
 
 
 def read_manifest(path: Path) -> Manifest:
@@ -202,6 +209,12 @@ def oracle_command(binary: str, candidate_fixture: Path | None) -> str:
     )
 
 
+def display_path(path: Path | None) -> str:
+    if path is None:
+        return "none"
+    return str(path.resolve())
+
+
 def capture_labels(manifest: Manifest) -> list[str]:
     labels: list[str] = []
     for key, _ in manifest.entries:
@@ -303,7 +316,62 @@ def summarize(args: argparse.Namespace) -> SummaryResult:
         readiness_counts=readiness_counts,
         observed_freezes=observed_freezes,
         environment_preflight=environment_preflight,
+        manifest=manifest,
+        captures=captures,
     )
+
+
+def ready_manifest_lines(result: SummaryResult, oracle_binary: str) -> list[str]:
+    ready = [
+        capture
+        for capture in result.captures
+        if capture.readiness.status == "ready"
+    ]
+    lines = [
+        "promotion=debug_capture_ready_candidates",
+        f"source_root={result.manifest.path.parent}",
+        f"oracle_binary={oracle_binary}",
+        f"ready_candidates={len(ready)}",
+    ]
+    for index, capture in enumerate(ready):
+        prefix = f"candidate_{index}"
+        runtime_cs = parse_runtime_segment_value(
+            f"{prefix}_runtime_cs", capture.runtime_cs
+        )
+        runtime_ds = parse_runtime_segment_value(
+            f"{prefix}_runtime_ds", capture.runtime_ds
+        )
+        validate_runtime_fixture_evidence(
+            prefix, display_path(capture.candidate), runtime_cs, runtime_ds
+        )
+        lines.extend(
+            [
+                f"{prefix}_capture=behavior4_runtime",
+                f"{prefix}_scenario={result.manifest.values.get('scenario', 'unknown')}",
+                f"{prefix}_level={result.manifest.values.get('expected_level', 'unknown')}",
+                f"{prefix}_environment_preflight={result.environment_preflight}",
+                f"{prefix}_runtime_metadata=observed",
+                f"{prefix}_runtime_cs={runtime_cs}",
+                f"{prefix}_runtime_ds={runtime_ds}",
+                f"{prefix}_manifest={result.manifest.path}",
+                f"{prefix}_fixture={display_path(capture.candidate)}",
+                f"{prefix}_oracle={ORACLE}",
+                f"{prefix}_oracle_flag={ORACLE_FLAG}",
+                f"{prefix}_oracle_command={oracle_command(oracle_binary, capture.candidate)}",
+                f"{prefix}_source_label={capture.label}",
+                f"{prefix}_target={capture.target}",
+                f"{prefix}_timing={capture.timing}",
+                f"{prefix}_route_label={capture.route_label}",
+            ]
+        )
+    return lines
+
+
+def write_ready_manifest(path: Path, lines: list[str]) -> Path:
+    path = path.resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="ascii")
+    return path
 
 
 def main() -> int:
@@ -331,6 +399,14 @@ def main() -> int:
         action="store_true",
         help="exit nonzero unless the sweep manifest records environment_preflight=ok",
     )
+    parser.add_argument(
+        "--write-ready-manifest",
+        type=Path,
+        help=(
+            "write a debug_capture_ready_candidates manifest for ready "
+            "behavior-4 candidates"
+        ),
+    )
     args = parser.parse_args()
 
     try:
@@ -342,6 +418,24 @@ def main() -> int:
     print(result.summary)
     for detail in result.details:
         print(detail)
+
+    if args.write_ready_manifest is not None:
+        try:
+            ready_manifest = write_ready_manifest(
+                args.write_ready_manifest,
+                ready_manifest_lines(result, args.oracle_binary),
+            )
+        except Exception as exc:
+            print(
+                f"behavior4_procmem_ready_manifest=error reason={exc}",
+                file=sys.stderr,
+            )
+            return 5
+        print(
+            "behavior4_procmem_ready_manifest=ok "
+            f"path={ready_manifest} "
+            f"ready_candidates={result.readiness_counts['ready']}"
+        )
 
     if args.require_environment_preflight and result.environment_preflight != "ok":
         print(

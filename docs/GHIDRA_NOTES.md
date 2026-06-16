@@ -1055,6 +1055,11 @@ The C++ port now mirrors the recovered `+0x10` countdown as a separate
 `deathStateTimer` field. Live manual reentry and unwinnable-level restart are
 now blocked until that countdown reaches zero, matching the proven state-2
 delay while keeping the longer C++ compatibility reentry timeout separate.
+The shipped English/Italian manuals describe the post-death choice as fire to
+reenter or waiting to restart the level. `--debug-autoplayer death_reentry`
+now frame-inspects both C++ paths and the unwinnable-level early-fire block;
+this pins the manual-level behavior without claiming additional original
+control-flow evidence beyond the state-2 countdown above.
 
 Return-to-active evidence: `1000:7db5..7dc7` copies the current player's action
 gate into `DS:79a3` from `DS:1b7b` for player 1 or `DS:1b80` for player 2.

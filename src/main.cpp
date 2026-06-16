@@ -2850,12 +2850,113 @@ public:
             throw std::runtime_error("death autoplayer reentry frame did not change");
         }
 
+        int manualReentryLives = lives_;
+
+        resetLevel(0);
+        int waitRestartGeneration = levelResetGeneration_;
+        float waitStartX = player_.x;
+        float waitStartY = player_.y;
+        player_.x += 40.0f;
+        player_.y -= 8.0f;
+        BombProfile profile = bombProfile(BombType::Small);
+        bombs_.push_back({static_cast<int>(player_.x + 6.0f) / kTileSize,
+                          static_cast<int>(player_.y + 12.0f) / kTileSize,
+                          profile.fuseTicks, BombType::Small,
+                          profile.fuseTicks, 1});
+        energy_ = 0;
+        lives_ = 3;
+        damageCooldown_ = 0;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ ||
+            reentryTimer_ != kReentryTicks || deathStateTimer_ != kDeathStateTicks ||
+            bombs_.empty()) {
+            throw std::runtime_error("death autoplayer wait-restart setup failed");
+        }
+        FrameInspection waitDeathFrame =
+            inspectRenderedFrame("autoplayer-death-wait-state2");
+        int waitRestartFrames = 0;
+        for (; waitRestartFrames < kDeathStateTicks + kReentryTicks + 4;
+             ++waitRestartFrames) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (levelResetGeneration_ > waitRestartGeneration) break;
+        }
+        if (levelResetGeneration_ <= waitRestartGeneration || playerDead_ ||
+            lives_ != 2 || pendingLifeLoss_ || deathStateTimer_ != 0 ||
+            reentryTimer_ != 0 || !bombs_.empty() ||
+            player_.x != waitStartX || player_.y != waitStartY) {
+            std::ostringstream oss;
+            oss << "death autoplayer wait did not restart level"
+                << " generation=" << levelResetGeneration_
+                << " before=" << waitRestartGeneration
+                << " dead=" << (playerDead_ ? 1 : 0)
+                << " lives=" << lives_
+                << " pending=" << (pendingLifeLoss_ ? 1 : 0)
+                << " death_timer=" << deathStateTimer_
+                << " reentry_timer=" << reentryTimer_
+                << " bombs=" << bombs_.size()
+                << " xy=" << player_.x << ',' << player_.y
+                << " start_xy=" << waitStartX << ',' << waitStartY;
+            throw std::runtime_error(oss.str());
+        }
+        FrameInspection waitRestartFrame =
+            inspectRenderedFrame("autoplayer-death-wait-restart");
+        if (waitRestartFrame.hash == waitDeathFrame.hash) {
+            throw std::runtime_error("death autoplayer wait restart frame did not change");
+        }
+
+        resetLevel(0);
+        auto objectivePos = findObjectiveTileForSmoke();
+        if (!consumeBombObjectTile(objectivePos[0], objectivePos[1]) ||
+            canReenterLevel()) {
+            throw std::runtime_error("death autoplayer could not create unwinnable level");
+        }
+        int missingObjectiveTiles = remainingObjectiveTiles();
+        int unwinnableGeneration = levelResetGeneration_;
+        energy_ = 0;
+        lives_ = 3;
+        damageCooldown_ = 0;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ ||
+            reentryTimer_ != 1 || deathStateTimer_ != kDeathStateTicks ||
+            remainingObjectiveTiles() != missingObjectiveTiles) {
+            throw std::runtime_error("death autoplayer unwinnable setup failed");
+        }
+        FrameInspection unwinnableDeathFrame =
+            inspectRenderedFrame("autoplayer-death-unwinnable-state2");
+        pushKeyDown(SDLK_SPACE);
+        processEvents(running);
+        if (!playerDead_ || lives_ != 3 ||
+            levelResetGeneration_ != unwinnableGeneration) {
+            throw std::runtime_error("death autoplayer early unwinnable fire restarted");
+        }
+        int unwinnableRestartFrames = 0;
+        for (; unwinnableRestartFrames < kDeathStateTicks + 4;
+             ++unwinnableRestartFrames) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (levelResetGeneration_ > unwinnableGeneration) break;
+        }
+        if (levelResetGeneration_ <= unwinnableGeneration || playerDead_ ||
+            lives_ != 2 || pendingLifeLoss_ || deathStateTimer_ != 0 ||
+            reentryTimer_ != 0 ||
+            remainingObjectiveTiles() != level_.startingObjectiveTiles) {
+            throw std::runtime_error("death autoplayer unwinnable restart failed");
+        }
+        FrameInspection unwinnableRestartFrame =
+            inspectRenderedFrame("autoplayer-death-unwinnable-restart");
+        if (unwinnableRestartFrame.hash == unwinnableDeathFrame.hash) {
+            throw std::runtime_error("death autoplayer unwinnable frame did not change");
+        }
+
         std::cout << "autoplayer=ok"
                   << " scenario=" << scenario
                   << " death_state_ticks=" << kDeathStateTicks
-                  << " lives=" << lives_
+                  << " lives=" << manualReentryLives
                   << " energy=" << energy_
-                  << " reentered=1 frame_inspection=1\n";
+                  << " reentered=1 wait_restart=1"
+                  << " unwinnable_restart=1 early_unwinnable_fire_blocked=1"
+                  << " frame_inspection=1\n";
     }
 
     void debugAutoplayerDeathVisuals(const std::string& scenario) {

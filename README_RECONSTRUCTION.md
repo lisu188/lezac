@@ -908,7 +908,12 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   Fatal
   damage now keeps the visible life count unchanged while the recovered
   state-2 `0x003c` countdown runs, then consumes the pending life before
-  manual reentry or restart can proceed. The state-2 death/reentry
+  manual reentry or restart can proceed. `--debug-autoplayer death_reentry`
+  now covers both shipped-manual choices after fatal damage: pressing fire
+  reenters a still-winnable level,
+  while waiting restarts the level; it also verifies that an unwinnable level
+  blocks early fire and restarts instead.
+  The state-2 death/reentry
   animation initializer is now documented as the seven-byte `actor + 0x16`
   cursor populated by `1000:06ab`, and the
   actor update model locks the `1000:6053` counter, wrap, ping-pong, and

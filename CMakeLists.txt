@@ -306,7 +306,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_death_reentry_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=death_reentry death_state_ticks=60 lives=2 energy=100 reentered=1 frame_inspection=1")
+            "^autoplayer=ok scenario=death_reentry death_state_ticks=60 lives=2 energy=100 reentered=1 wait_restart=1 unwinnable_restart=1 early_unwinnable_fire_blocked=1 frame_inspection=1")
 
     add_test(NAME autoplayer_death_visuals_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

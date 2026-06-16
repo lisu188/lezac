@@ -6,6 +6,14 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Extended `--debug-autoplayer death_reentry` to cover the shipped-manual
+  post-death choice: after the recovered 60-tick state-2 countdown, pressing
+  fire reenters a still-winnable level, waiting through the reentry timeout
+  restarts the level, and an unwinnable level blocks early fire and restarts
+  after the state-2 countdown. The route frame-inspects each transition.
+  Validation passed with the native Windows Debug build helper, direct
+  dummy-SDL `--debug-autoplayer death_reentry`, focused death/state-2 CTests,
+  and the broader UI/autoplayer dummy-SDL CTest group.
 - Added a current-port pause flow: `P` toggles an in-game pause overlay,
   gameplay update/input state is frozen while paused, Escape clears pause and
   returns to the main menu, and `--debug-autoplayer pause_flow` frame-inspects

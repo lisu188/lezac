@@ -187,6 +187,32 @@ def write_ready_sweep(base: Path) -> Path:
     return manifest
 
 
+def write_all_target_label_sweep(base: Path) -> Path:
+    ready = base / "ready" / "candidate.txt"
+    write_ready_candidate(ready)
+    manifest = base / "manifest.txt"
+    write_text(
+        manifest,
+        "\n".join(
+            [
+                "capture=sound_callsite_route_sweep",
+                "target=all",
+                "targets=4",
+                "target_names=contact_scanner_runtime_sound,actor_update_runtime_cursor_0024_sound,actor_update_runtime_cursor_0035_sound,actor_update_runtime_cursor_0021_sound",
+                "timings=before_route",
+                "routes=1",
+                "route_labels=x2p00",
+                "environment_preflight=ok",
+                "capture_command_actor_update_runtime_cursor_0035_sound_before_route_x2p00=env bash helper",
+                "capture_status_actor_update_runtime_cursor_0035_sound_before_route_x2p00=sound_callsite_procmem=ok mode=capture target=actor_update_runtime_cursor_0035_sound ghidra=1000:6924 runtime_cs=01ED runtime_ds=0C8F freeze_observed=runtime_child_memory_freeze_observed candidate_fixture="
+                + str(ready),
+                "",
+            ]
+        ),
+    )
+    return manifest
+
+
 def write_no_freeze_sweep(base: Path) -> Path:
     ready = base / "ready" / "candidate.txt"
     write_ready_candidate(ready)
@@ -312,6 +338,23 @@ def main() -> int:
             "--debug-sound-callsite-oracle",
             "ready_manifest_dry_run",
         )
+        cases += 1
+
+        all_target = write_all_target_label_sweep(base / "all-target")
+        all_target_out = run_tool(root, [str(all_target)])
+        for snippet in [
+            "sound_callsite_route_sweep_summary=ok",
+            "target=all",
+            "targets=4",
+            "target_names=contact_scanner_runtime_sound,actor_update_runtime_cursor_0024_sound,actor_update_runtime_cursor_0035_sound,actor_update_runtime_cursor_0021_sound",
+            "capture_commands=1",
+            "sound_callsite_route_sweep_detail label=actor_update_runtime_cursor_0035_sound_before_route_x2p00",
+            "target=actor_update_runtime_cursor_0035_sound",
+            "timing=before_route",
+            "route_label=x2p00",
+            "candidate_status=ready",
+        ]:
+            require(all_target_out, snippet, "all_target_summary")
         cases += 1
 
         result_manifest = base / "ready-result" / "result_manifest.txt"

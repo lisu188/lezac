@@ -1,11 +1,22 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/ready-provenance-route-writers`
+Branch: `codex/sound-callsite-all-target-sweep`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Extended `tools/sweep_original_sound_callsite_routes.py` with
+  `--all-targets`, so the next DOSBox/procmem sound pass can sweep
+  `contact_scanner_runtime_sound`,
+  `actor_update_runtime_cursor_0024_sound`,
+  `actor_update_runtime_cursor_0035_sound`, and
+  `actor_update_runtime_cursor_0021_sound` with one route/timing matrix.
+  All-target capture labels are target-prefixed, and
+  `tools/summarize_sound_callsite_route_sweep.py` now parses those labels while
+  still accepting the legacy single-target labels. The checker covers the new
+  all-target dry-run, the `--all-targets`/`--target` refusal, and all-target
+  summary classification.
 - Extended `docs/recovery/ready_fixture_provenance_contract.md` and
   `tools/check_ready_fixture_provenance_contract.py` so the ready-fixture
   guardrail covers the behavior-4 and sound-callsite route-sweep summary

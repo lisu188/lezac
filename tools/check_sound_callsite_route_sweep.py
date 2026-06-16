@@ -171,6 +171,53 @@ def main() -> int:
         require(actor_update_target, snippet, "actor_update_target")
     cases += 1
 
+    all_targets = run_sweep(
+        root,
+        [
+            str(out_base / "all-targets"),
+            str(root),
+            "--dry-run",
+            "--all-targets",
+            "--timing",
+            "before_bomb",
+            "--route",
+            "x:2.00",
+        ],
+    )
+    for snippet in [
+        "target=all",
+        "timings=before_bomb routes=1",
+        "route_labels=x2p00",
+        "capture_commands=4",
+        "targets=4",
+        "target_names=contact_scanner_runtime_sound,actor_update_runtime_cursor_0024_sound,actor_update_runtime_cursor_0035_sound,actor_update_runtime_cursor_0021_sound",
+        "capture_command_contact_scanner_runtime_sound_before_bomb_x2p00=",
+        "capture_command_actor_update_runtime_cursor_0024_sound_before_bomb_x2p00=",
+        "capture_command_actor_update_runtime_cursor_0035_sound_before_bomb_x2p00=",
+        "capture_command_actor_update_runtime_cursor_0021_sound_before_bomb_x2p00=",
+    ]:
+        require(all_targets, snippet, "all_targets")
+    cases += 1
+
+    bad_target_mix = run_sweep(
+        root,
+        [
+            str(out_base / "bad-target-mix"),
+            str(root),
+            "--dry-run",
+            "--all-targets",
+            "--target",
+            "contact_scanner_runtime_sound",
+        ],
+        expect_success=False,
+    )
+    require(
+        bad_target_mix,
+        "--all-targets cannot be combined with --target",
+        "bad_target_mix",
+    )
+    cases += 1
+
     skip_environment = run_sweep(
         root,
         [

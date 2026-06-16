@@ -341,11 +341,18 @@ python3 tools/sweep_original_sound_callsite_routes.py \
   /tmp/lezac-sound-callsite-routes . \
   --approve-procmem --approve-runtime-instrumentation \
   --timing before_route --route x:5.00,m:0.50,x:2.00
+python3 tools/sweep_original_sound_callsite_routes.py \
+  /tmp/lezac-sound-callsite-all-targets . --dry-run --all-targets \
+  --timing before_route --route x:2.00,c:0.50
 ```
 
 The planner emits `sound_callsite_route_sweep` manifests and forwards each
 route to `tools/capture_original_sound_callsite_procmem.sh` with the matching
-`LEZAC_SOUND_CALLSITE_ROUTE_STEPS` and freeze-timing environment.
+`LEZAC_SOUND_CALLSITE_ROUTE_STEPS` and freeze-timing environment. The default
+run keeps `contact_scanner_runtime_sound` as the first queued target;
+`--all-targets` expands the same route/timing matrix across all four
+actor/contact sound targets and prefixes each capture label with the target
+name for summary triage.
 Summarize a completed sweep with
 `python3 tools/summarize_sound_callsite_route_sweep.py <manifest>`. The
 summary reports completed captures, observed freezes, ready/incomplete/missing

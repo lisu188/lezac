@@ -96,6 +96,7 @@ def main() -> int:
 
     root = args.root.resolve()
     out_base = Path(tempfile.gettempdir()) / "lezac-lane-write-route-sweep-check"
+    out_base.mkdir(parents=True, exist_ok=True)
     cases = 0
 
     default_dry = run_sweep(
@@ -196,6 +197,34 @@ def main() -> int:
     require(with_oracle, "oracle_commands=2", "with_oracle")
     require(with_oracle, "oracle_command_x2p00_3d2d=", "with_oracle")
     require(with_oracle, "--debug-explosion-playback-oracle", "with_oracle")
+    cases += 1
+
+    sweep_module = load_sweep_module(root)
+    translated_candidate = sweep_module.oracle_candidate_argument(
+        Path("/mnt/c/Tools/lezac_cpp.exe"),
+        Path(
+            "/mnt/c/Users/andrz/AppData/Local/Temp/"
+            "lezac-lane-write-path-check/x2p00/3d2d/"
+            "explosion_playback_oracle_original_candidate.txt"
+        ),
+    )
+    expected_translated = (
+        "C:\\Users\\andrz\\AppData\\Local\\Temp\\"
+        "lezac-lane-write-path-check\\x2p00\\3d2d\\"
+        "explosion_playback_oracle_original_candidate.txt"
+    )
+    if translated_candidate != expected_translated:
+        raise RuntimeError(
+            "windows_oracle_path translated to "
+            f"{translated_candidate!r}, expected {expected_translated!r}"
+        )
+    linux_path = Path("/mnt/c/Users/andrz/AppData/Local/Temp/candidate.txt")
+    linux_candidate = sweep_module.oracle_candidate_argument(
+        Path("/usr/local/bin/lezac_cpp"),
+        linux_path,
+    )
+    if linux_candidate != str(linux_path):
+        raise RuntimeError(f"linux oracle path was unexpectedly translated: {linux_candidate!r}")
     cases += 1
 
     custom = run_sweep(
@@ -317,7 +346,6 @@ def main() -> int:
     require_not(live_refusal, "lane_write_route_sweep_manifest=", "live_refusal")
     cases += 1
 
-    sweep_module = load_sweep_module(root)
     optional_log = out_base / "optional-oracle-error.log"
     optional = sweep_module.run_logged_optional(
         [str(out_base / "missing-oracle-binary")],

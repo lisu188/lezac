@@ -693,15 +693,19 @@ host split is used again, run the summarizer from Windows; it translates
 route `x:2.00,c:0.50` are also negative evidence: a `0x01` target-byte gate
 never loaded the runtime patch (`no_patch`), and a later observed-state gate
 `2941/665c/c22e` plus target byte `0xde` loaded the patch at `4.452` seconds
-but still did not freeze or capture the natural lane write.
+but still did not freeze or capture the natural lane write. A 2026-06-16
+word-layer-gated retry for `209e/6620/c22e` plus target byte `0x00` also
+remained negative evidence: the selected sample had word-layer value `0x0000`,
+so the stricter `0x0005` gate did not apply the patch and the summary reported
+one `no_patch` candidate.
 
-The next useful capture should target the earlier decoded `209e/6620/c22e`
-state that was present in the latest oracle sample, using both the target-byte
-and word-layer gates:
+The next useful capture should keep that focused `209e/6620/c22e` route but
+require the observed word-layer value `0x0000` instead of repeating the failed
+`0x0005` gate:
 
 ```sh
 python3 tools/sweep_original_lane_write_routes.py \
-  /tmp/lezac-lane-write-forward-word-gated . \
+  /tmp/lezac-lane-write-forward-word-gated-zero . \
   --route x:2.00,c:0.50 --offset forward-debris \
   --runtime-freeze-preset none \
   --runtime-freeze-min-queue-score 0x90 \
@@ -712,10 +716,14 @@ python3 tools/sweep_original_lane_write_routes.py \
   --runtime-freeze-require-collapse-base 0x6620 \
   --runtime-freeze-require-effect-base 0xc22e \
   --runtime-freeze-require-high-debris-target-byte 0x00 \
-  --runtime-freeze-require-high-debris-word-layer-value 0x0005 \
+  --runtime-freeze-require-high-debris-word-layer-value 0x0000 \
   --approve-procmem --approve-runtime-instrumentation \
-  --cpp-exe ./build/lezac_cpp --continue-on-oracle-error
+  --cpp-exe ./build-win-codex-vs3/Debug/lezac_cpp.exe --continue-on-oracle-error
 ```
+
+The sweep wrapper now translates `/mnt/<drive>/...` candidate paths when a WSL
+run invokes a Windows `.exe` oracle, so that host split can parse candidates in
+the same pass instead of leaving `oracle_error` records for path-only reasons.
 
 `--debug-lane-write-static-model` pins the shipped executable bytes behind
 that plan: forward/reverse collapse stores at `1000:3D1B`/`1000:3EAF`,

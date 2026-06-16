@@ -1000,7 +1000,7 @@ if(BUILD_TESTING)
         set_tests_properties(sound_callsite_route_sweep_output_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^sound_callsite_route_sweep_output=ok cases=9")
+                "^sound_callsite_route_sweep_output=ok cases=11")
 
         add_test(NAME behavior4_procmem_route_sweep_dry_run
             COMMAND ${Python3_EXECUTABLE}
@@ -1595,7 +1595,7 @@ if(BUILD_TESTING)
         set_tests_properties(sound_callsite_route_sweep_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^sound_callsite_route_sweep_summary_check=ok cases=7")
+                "^sound_callsite_route_sweep_summary_check=ok cases=8")
 
         add_test(NAME sound_compatibility_hooks
             COMMAND ${Python3_EXECUTABLE}

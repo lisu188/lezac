@@ -156,12 +156,22 @@ def bool_value(value: str | None) -> bool:
     }
 
 
-def label_parts(label: str) -> tuple[str, str]:
+def label_parts(label: str, fallback_target: str) -> tuple[str, str, str]:
+    for candidate_target in sorted(TARGETS, key=len, reverse=True):
+        prefix = f"{candidate_target}_"
+        if not label.startswith(prefix):
+            continue
+        rest = label[len(prefix) :]
+        for timing in ["before_bomb", "before_route"]:
+            timing_prefix = f"{timing}_"
+            if rest.startswith(timing_prefix):
+                return candidate_target, timing, rest[len(timing_prefix) :]
+        return candidate_target, "unknown", rest
     for timing in ["before_bomb", "before_route"]:
         prefix = f"{timing}_"
         if label.startswith(prefix):
-            return timing, label[len(prefix) :]
-    return "unknown", label
+            return fallback_target, timing, label[len(prefix) :]
+    return fallback_target, "unknown", label
 
 
 def parse_record_fields(line: str) -> dict[str, str]:
@@ -264,8 +274,10 @@ def capture_labels(manifest: Manifest) -> list[str]:
 def summarize_capture(manifest: Manifest, label: str) -> CaptureSummary:
     status_line = manifest.values.get(f"capture_status_{label}")
     fields = parse_status_fields(status_line) if status_line else {}
-    target = fields.get("target", manifest.values.get("target", "unknown"))
-    timing, route_label = label_parts(label)
+    label_target, timing, route_label = label_parts(
+        label, manifest.values.get("target", "unknown")
+    )
+    target = fields.get("target", label_target)
     candidate = resolve_child_path(fields.get("candidate_fixture"), manifest.path)
     readiness = candidate_readiness(candidate, target)
     freeze_observed = bool_value(
@@ -330,6 +342,8 @@ def summarize(args: argparse.Namespace) -> SummaryResult:
         [
             "sound_callsite_route_sweep_summary=ok",
             f"target={manifest.values.get('target', 'unknown')}",
+            f"targets={manifest.values.get('targets', 'unknown')}",
+            f"target_names={manifest.values.get('target_names', 'unknown')}",
             f"timings={manifest.values.get('timings', 'unknown')}",
             f"routes={manifest.values.get('routes', 'unknown')}",
             f"route_labels={manifest.values.get('route_labels', 'unknown')}",

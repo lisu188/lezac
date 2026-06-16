@@ -360,7 +360,10 @@ fixture with `visual_claim=0`; this is reachability/runtime scaffolding only
 until the latch bytes are captured in a valid original oracle fixture.
 `tools/sweep_original_sound_callsite_routes.py` wraps that helper across
 route-step and before-route/before-bomb freeze-timing hypotheses and records a
-`sound_callsite_route_sweep` manifest for later evidence review.
+`sound_callsite_route_sweep` manifest for later evidence review. The default
+target remains `contact_scanner_runtime_sound`; `--all-targets` expands the
+same route/timing matrix across the four actor/contact sound targets and writes
+target-prefixed capture labels.
 `tools/summarize_sound_callsite_route_sweep.py` classifies those manifests into
 ready/incomplete/missing sound-callsite candidates, reports observed freezes,
 prints per-capture `--debug-sound-callsite-oracle` commands, and can emit a
@@ -1135,7 +1138,9 @@ fallback for all four actor/contact runtime sound targets, emitting
 `sound_callsite_procmem` output and a non-promoted candidate fixture behind
 `LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1` plus runtime-instrumentation approval.
 `tools/sweep_original_sound_callsite_routes.py` is the preferred dry-run/live
-planner when testing contact routes and actor-update sound targets.
+planner when testing contact routes and actor-update sound targets; use
+`--all-targets` once the route is ready to sweep the full actor/contact sound
+queue in one manifest.
 `tools/summarize_sound_callsite_route_sweep.py` triages those sweep manifests,
 adds `--require-ready`, `--require-observed-freeze`, and
 `--require-environment-preflight` gates, and can hand ready fixtures to the

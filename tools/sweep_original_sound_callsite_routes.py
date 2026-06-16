@@ -2,9 +2,8 @@
 """Plan or run original sound-callsite route-step captures.
 
 The default matrix targets the first actor/contact sound evidence gap with
-both post-route and pre-route runtime-freeze timing. Live capture remains
-guarded behind the sound-callsite process-memory approval environment used by
-the lower-level wrapper.
+both post-route and pre-route runtime-freeze timing. Use --all-targets to sweep
+the full actor/contact sound target queue in one guarded batch.
 """
 
 from __future__ import annotations
@@ -85,6 +84,14 @@ def timing_values(value: str) -> list[str]:
     return [value]
 
 
+def selected_targets(args: argparse.Namespace) -> list[str]:
+    if args.all_targets:
+        if args.target:
+            raise RuntimeError("--all-targets cannot be combined with --target")
+        return TARGETS
+    return args.target or ["contact_scanner_runtime_sound"]
+
+
 def env_for_capture(
     args: argparse.Namespace, route_steps: list[str], timing: str
 ) -> dict[str, str]:
@@ -112,6 +119,7 @@ def env_prefix(env: dict[str, str]) -> str:
 
 def build_capture_command(
     args: argparse.Namespace,
+    target: str,
     route_steps: list[str],
     route_out_dir: Path,
     timing: str,
@@ -123,7 +131,7 @@ def build_capture_command(
         str(root / "tools" / "capture_original_sound_callsite_procmem.sh"),
         str(route_out_dir),
         str(args.asset_dir),
-        args.target,
+        target,
     ]
     display = f"env {env_prefix(env)} {quote_command(command)}"
     return command, env, display
@@ -181,7 +189,8 @@ def main() -> int:
         action="store_true",
         help="skip original-evidence host/tool preflight before live capture",
     )
-    parser.add_argument("--target", choices=TARGETS, default="contact_scanner_runtime_sound")
+    parser.add_argument("--target", action="append", choices=TARGETS)
+    parser.add_argument("--all-targets", action="store_true")
     parser.add_argument(
         "--timing",
         choices=[TIMING_BEFORE_BOMB, TIMING_BEFORE_ROUTE, "both"],
@@ -207,27 +216,34 @@ def main() -> int:
         raise RuntimeError("choose an output directory outside the repository")
     args.asset_dir = asset_dir
 
+    targets = selected_targets(args)
     routes = args.route or [parse_route(route) for route in DEFAULT_ROUTES]
     timings = timing_values(args.timing)
     route_labels = [route_label(route) for route in routes]
     capture_entries: list[tuple[str, list[str], dict[str, str], str, Path]] = []
-    for timing in timings:
-        for index, route in enumerate(routes):
-            label = f"{timing}_{route_labels[index]}"
-            route_out_dir = out_dir / label
-            command, env, display = build_capture_command(
-                args, route, route_out_dir, timing
-            )
-            capture_entries.append((label, command, env, display, route_out_dir))
+    multi_target = len(targets) > 1
+    for target in targets:
+        for timing in timings:
+            for index, route in enumerate(routes):
+                label_parts = [timing, route_labels[index]]
+                if multi_target:
+                    label_parts.insert(0, target)
+                label = "_".join(label_parts)
+                route_out_dir = out_dir / label
+                command, env, display = build_capture_command(
+                    args, target, route, route_out_dir, timing
+                )
+                capture_entries.append((label, command, env, display, route_out_dir))
     environment_preflight_command = build_environment_preflight_command(args)
 
     print(
         "sound_callsite_route_sweep=ok "
         f"mode={'dry_run' if args.dry_run else 'capture'} "
-        f"out_dir={out_dir} target={args.target} "
+        f"out_dir={out_dir} target={targets[0] if len(targets) == 1 else 'all'} "
         f"timings={','.join(timings)} routes={len(routes)} "
         f"route_labels={','.join(route_labels)} "
         f"capture_commands={len(capture_entries)} "
+        f"targets={len(targets)} target_names={','.join(targets)} "
         f"environment_preflight={0 if args.skip_environment_preflight else 1}"
     )
     if not args.skip_environment_preflight:
@@ -263,7 +279,9 @@ def main() -> int:
     manifest_lines = [
         "capture=sound_callsite_route_sweep",
         f"asset_dir={asset_dir}",
-        f"target={args.target}",
+        f"target={targets[0] if len(targets) == 1 else 'all'}",
+        f"targets={len(targets)}",
+        f"target_names={','.join(targets)}",
         f"timings={','.join(timings)}",
         f"routes={len(routes)}",
         f"route_labels={','.join(route_labels)}",

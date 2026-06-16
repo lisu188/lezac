@@ -1,11 +1,23 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/behavior4-original-evidence-pass`
+Branch: `codex/behavior4-procmem-fallback`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `tools/capture_original_behavior4_procmem.sh` plus
+  `tools/check_behavior4_procmem_helper.py` and CMake dry-run coverage for the
+  six behavior-4 runtime anchors: `spawner_loop_start`,
+  `spawner_loop_end`, `behavior4_branch_start`, `behavior4_branch_end`,
+  `integration_8_8_start`, and `integration_8_8_end`. The helper uses the
+  existing DOSBox-debug child process-memory freeze path as a fallback for the
+  local debugger command-submission timeout, requires
+  `LEZAC_BEHAVIOR4_APPROVE_PROCMEM=1` and
+  `LEZAC_BEHAVIOR4_APPROVE_RUNTIME_INSTRUMENTATION=1` for live runs, emits
+  `behavior4_procmem` manifests/raw output plus a fill-in
+  `behavior4_runtime` candidate fixture, and keeps `visual_claim=0` until
+  semantic spawner/actor/player rows are captured.
 - Ran a live WSL/Xvfb/DOSBox-debug behavior-4 target-selection evidence pass:
   `tools/capture_original_behavior4_debug.sh
   /tmp/lezac-behavior4-target-selection .

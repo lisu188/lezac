@@ -374,9 +374,15 @@ actor-update entry/return, `[bp-31h]` gates, scanner callsite, and integration
 jump set from the C++ binary against the shipped executable bytes.
 `tools/sweep_original_actor_dispatch_gates.py` plans or runs the mapped gate
 set as one matrix so the next DOSBox pass can test all gate reachability with
-the same route and timing inputs. `--debug-actor-update-runtime-oracle` now
-reports optional `dispatch_gates=` names from these breakpoints when they are
-present in a normalized fixture. `tools/summarize_actor_dispatch_gate_sweep.py`
+the same route and timing inputs. The lower-level
+`tools/sweep_original_actor_contact_routes.py` also accepts `--all-targets`
+for a single guarded route/timing matrix across all nine mapped actor/contact
+process-memory targets; those manifests use `target=all`, `target_names=...`,
+and target-prefixed capture labels so the dispatch-gate summary can still
+recover the real observed/missing target set.
+`--debug-actor-update-runtime-oracle` now reports optional `dispatch_gates=`
+names from these breakpoints when they are present in a normalized fixture.
+`tools/summarize_actor_dispatch_gate_sweep.py`
 follows a completed dispatch-sweep manifest and reports capture counts, observed
 freeze targets, mapped `dispatch_gate_freezes=` freeze-event counts, unique
 `observed_dispatch_gates=` names, missing targets, candidate readiness counts,

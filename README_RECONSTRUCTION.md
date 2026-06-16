@@ -409,11 +409,17 @@ timing matrix covers both post-route and pre-route freeze timing. Live sweeps
 run `tools/preflight_original_evidence_environment.py --probe-wsl
 --require-wsl-bash-on-windows --require-procmem-capture` once before launching
 captures; use `--skip-environment-preflight` only for intentional reruns on an
-already-verified host:
+already-verified host. Add `--all-targets` when a focused route/timing pair
+should be tried against every mapped actor/contact process-memory target in the
+same low-level sweep. All-target manifests record `target=all`,
+`targets=9`, `target_names=...`, and target-prefixed capture labels:
 
 ```sh
 python3 tools/sweep_original_actor_contact_routes.py \
   /tmp/lezac-actor-contact-route-sweep . --dry-run
+python3 tools/sweep_original_actor_contact_routes.py \
+  /tmp/lezac-actor-contact-route-sweep-all . --dry-run --all-targets \
+  --timing before_bomb --route x:2.00
 python3 tools/sweep_original_actor_contact_routes.py \
   /tmp/lezac-actor-contact-route-sweep . \
   --target contact_scanner_start --timing before_route \

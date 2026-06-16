@@ -115,6 +115,13 @@ def parse_csv(value: str | None) -> list[str]:
     return [part for part in value.split(",") if part]
 
 
+def manifest_targets(manifest: Manifest) -> list[str]:
+    target_names = parse_csv(manifest.values.get("target_names"))
+    if target_names:
+        return target_names
+    return parse_csv(manifest.values.get("target"))
+
+
 def resolve_child_path(raw_path: str, parent_manifest: Path) -> Path:
     path = Path(raw_path)
     if path.is_absolute():
@@ -229,6 +236,9 @@ def route_statuses(manifest: Manifest, default_target: str | None = None) -> lis
         route_label = key.removeprefix("capture_status_")
         fields = parse_status_fields(value)
         target = fields.get("target", target_from_manifest)
+        target_prefix = f"{target}_"
+        if route_label.startswith(target_prefix):
+            route_label = route_label.removeprefix(target_prefix)
         statuses.append(
             CaptureStatus(
                 route_label=route_label,
@@ -354,7 +364,7 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         mode = "dispatch"
         route_sweeps = len(child_manifests)
     elif capture == CAPTURE_ROUTE_SWEEP:
-        targets = parse_csv(manifest.values.get("target"))
+        targets = manifest_targets(manifest)
         statuses = route_statuses(manifest)
         mode = "route"
         route_sweeps = 1

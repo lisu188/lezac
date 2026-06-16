@@ -465,6 +465,42 @@ def main() -> int:
             require(direct, snippet, "direct_route_manifest")
         cases += 1
 
+        all_target_route_manifest = base / "all_target_route" / "manifest.txt"
+        write_text(
+            all_target_route_manifest,
+            "\n".join(
+                [
+                    "capture=actor_contact_route_sweep",
+                    "target=all",
+                    "targets=2",
+                    "target_names=actor_update_gate5,contact_scanner_start",
+                    "timings=before_route",
+                    "routes=1",
+                    "route_labels=x2p00",
+                    "environment_preflight=ok",
+                    "capture_status_actor_update_gate5_before_route_x2p00=actor_contact_procmem=ok mode=capture target=actor_update_gate5 ghidra=1000:65A2 runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:65A2 freeze_observed=0 raw_dump=/tmp/all/gate5/raw.txt candidate_fixture=/tmp/all/gate5/candidate_fixture.txt",
+                    "capture_status_contact_scanner_start_before_route_x2p00=actor_contact_procmem=ok mode=capture target=contact_scanner_start ghidra=1000:5CB0 runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:5CB0 freeze_observed=1 raw_dump=/tmp/all/scanner/raw.txt candidate_fixture=/tmp/all/scanner/candidate_fixture.txt",
+                    "",
+                ]
+            ),
+        )
+        all_target_route = run_summary(root, all_target_route_manifest).stdout
+        for snippet in [
+            "capture=actor_contact_route_sweep",
+            "mode=route",
+            "targets=2",
+            "captures=2",
+            "freezes=1",
+            "dispatch_gate_freezes=0",
+            "observed_targets=contact_scanner_start",
+            "missing_targets=actor_update_gate5",
+            "freeze target=contact_scanner_start dispatch_gate_candidate=none route=before_route_x2p00 ghidra=1000:5CB0",
+            "candidate_status=missing candidate_missing=file candidate_placeholders=0",
+            "oracle=contact_scanner oracle_flag=--debug-contact-scanner-runtime-oracle",
+        ]:
+            require(all_target_route, snippet, "all_target_route_manifest")
+        cases += 1
+
         scanner_manifest = base / "scanner" / "manifest.txt"
         write_text(
             scanner_manifest,

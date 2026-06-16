@@ -787,6 +787,21 @@ evidence, not natural `3D2D` branch-execution candidates. The next useful route
 work should first prove `4B3F`/`4C75`/`4C96` reachability for the candidate
 route, then target `1000:3D2D`.
 
+Use `tools/sweep_original_branch_anchor_routes.py` for that classification
+step instead of hand-assembling one-off `4B3F`/`4C75`/`4C96` commands. Its
+default dry-run matrix probes those three anchors before the bomb tap across
+`x:2.00`, `x:2.00,c:0.35`, `x:2.00,c:0.65`, and `x:2.00,m:0.35`:
+
+```sh
+python3 tools/sweep_original_branch_anchor_routes.py \
+  /tmp/lezac-branch-anchor-route-sweep . --dry-run --skip-oracle
+```
+
+For a focused live classification after reviewing the dry run, use the same
+tool with `--approve-procmem --approve-runtime-instrumentation`, optionally
+adding `--timing selected_base`, `--timing after_bomb`, or repeated `--route`
+arguments.
+
 The sweep wrapper now translates `/mnt/<drive>/...` candidate paths when a WSL
 run invokes a Windows `.exe` oracle, so that host split can parse candidates in
 the same pass instead of leaving `oracle_error` records for path-only reasons.

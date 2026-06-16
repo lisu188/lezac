@@ -606,7 +606,8 @@ froze. `4C75` timed patches at `after_bomb=1.0`, `after_bomb=0.0`, and
 `before_bomb` also loaded without a high-word-gate hit, and before-bomb `4B3F`
 patches for both `x:2.00,c:0.35` and `x:2.00,c:0.65` loaded without freezing.
 Future `3D2D` attempts should require branch-anchor evidence for the route
-family before relying on sampled lane globals.
+family before relying on sampled lane globals; use
+`tools/sweep_original_branch_anchor_routes.py` for that route classifier.
 `tools/summarize_lane_result_route_sweep.py`
 now classifies completed route-sweep candidates as `ready`, `no_freeze`,
 `incomplete`, or `missing`; `tools/run_lane_result_ready_manifest.py` and

@@ -20,7 +20,7 @@
 - Run relevant tests, checks, or validation steps when available.
 - Commit the changes with a clear, descriptive commit message.
 - Push the branch to the remote.
-- Open a pull request.
+- Open a pull request automatically after pushing the branch.
 - After the pull request is open and required validation is passing, merge it
   to `main` automatically without waiting for a separate merge prompt.
 

@@ -622,6 +622,18 @@ armed the runtime patch at `2.781s` after the bomb with selected bases
 but the lane-write summary still classifies it as `no_freeze` with
 `missing_offsets=3d2d`. The remaining forward-debris question is now between
 the proven `4C96` call and the missing `3D2D` writeback, not route reachability.
+Helper-path probes on that same route resolve the local reason for the miss:
+`C:\Users\andrz\AppData\Local\Temp\lezac-helper-path-4c99-m-route-1781617322`
+froze `1000:4C99`, proving the `4C96 -> 3BB2` call returned;
+`C:\Users\andrz\AppData\Local\Temp\lezac-helper-path-3ce3-m-route-1781617440`
+froze the forward divide with active count/index `1/1`, numerator
+`0xffff:0xfff3`, and weight `0x0021`; and
+`C:\Users\andrz\AppData\Local\Temp\lezac-helper-path-3d1b-m-route-1781617379`
+froze the forward collapse write with output `0x0000`, `DI=0x001e`, and tag
+`0x0002`. Since that active tag is below the debris marker base `0x4e20`, this
+route naturally writes at `3D1B` and skips the debris write at `3D2D`. The next
+natural `3D2D` search needs a route or seeded setup that reaches the forward
+helper with a debris marker tag, not another replay of this collapse-tag state.
 `tools/summarize_lane_result_route_sweep.py`
 now classifies completed route-sweep candidates as `ready`, `no_freeze`,
 `incomplete`, or `missing`; `tools/run_lane_result_ready_manifest.py` and

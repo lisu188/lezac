@@ -1,7 +1,7 @@
 # Recovery Status
 
 Last reviewed: 2026-06-16
-Branch: `codex/branch-anchor-route-evidence`
+Branch: `codex/helper-path-probe-evidence`
 Baseline: `origin/main`
 
 ## Completed This Iteration
@@ -241,6 +241,23 @@ Baseline: `origin/main`
   inspected: the capture reaches visible blast/smoke playback and then
   continues into normal level playback, so this is valid negative route
   evidence rather than a launch/menu failure.
+- Probed the forward helper path on the same `x:2.00,m:0.35` route. The
+  `1000:4C99` return capture at
+  `C:\Users\andrz\AppData\Local\Temp\lezac-helper-path-4c99-m-route-1781617322`
+  froze after the `4C96 -> 3BB2` helper call returned with selected bases
+  `2941/665c/c22e`, target byte `0xde`, and lane globals
+  `0x00/0x0004/0x072c`. The `1000:3CE3` lane-divide capture at
+  `C:\Users\andrz\AppData\Local\Temp\lezac-helper-path-3ce3-m-route-1781617440`
+  froze with `lane_div_kind=forward`, active count/index `1/1`, numerator
+  `0xffff:0xfff3`, and weight `0x0021`. The `1000:3D1B` lane-write capture at
+  `C:\Users\andrz\AppData\Local\Temp\lezac-helper-path-3d1b-m-route-1781617379`
+  froze with `lane_write_kind=forward`, target `collapse`, output `0x0000`,
+  `DI=0x001e`, tag `0x0002`, active count/index `1/1`, and result local
+  `0x0000`. The `091_tail_freeze_check.png` frame was inspected for all three
+  runs and stayed in the expected level-1 playback window. This proves the
+  `m:0.35` route reaches through the forward helper and naturally writes a
+  collapse lane, while the missing `3D2D` write is explained by the helper's
+  active tag being below the debris marker base `0x4e20`.
 - Added `--continue-on-oracle-error` to
   `tools/sweep_original_lane_write_routes.py`. Capture failures still stop the
   sweep, but a missing or unrunnable C++ oracle now writes an `oracle_error`
@@ -2191,12 +2208,11 @@ Baseline: `origin/main`
 Do not repeat the unchanged `forward-debris-expanded` matrix, the early
 `x:2.00,c:0.50` target-byte/word-layer gates, the nearby `c` timing
 lane-global gates, or the now-classified `x:2.00,m:0.35` natural `3D2D`
-gated retry. The `m:0.35` route is useful because it reaches the high-debris
-loop/target/zero-branch/word-gate/forward-call anchors, but the same route's
-natural `3D2D` patch still applies without a forward-debris write. The next
-useful original-evidence step should bracket the gap between the proven
-`1000:4C96` forward-call anchor and the missing `1000:3D2D` debris write:
-probe the forward helper call/return or lane-helper interior on the same
-`x:2.00,m:0.35` route, and treat another no-freeze result as route evidence
-unless it captures a lane-write scratch record. Then return to DOSBox
-frame/debugger evidence for behavior-4 movement, targeting, and respawn timing.
+gated retry. The `m:0.35` route reaches the high-debris branch path and
+returns from the forward helper, but its natural helper iteration writes
+collapse tag `0x0002` at `3D1B`; it is not a natural debris-tag writeback
+route. The next useful original-evidence step should search for or construct a
+natural `4C96 -> 3BB2` forward-helper iteration whose lane-write scratch tag is
+at or above the debris marker base `0x4e20`, then target `1000:3D2D` only for
+that debris-tag state. Then return to DOSBox frame/debugger evidence for
+behavior-4 movement, targeting, and respawn timing.

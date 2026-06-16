@@ -84,6 +84,10 @@ def check_source(source_path: Path) -> None:
     require(text, "kRemainingSoundCompatibilityHooks", "source")
     require(text, "kRejectedObjectiveSoundCandidates", "source")
     require(text, "remaining_compat_hooks=", "source")
+    require(text, "debugRemainingSoundCompatibilityHooks", "source")
+    require(text, "--debug-remaining-sound-compat-hooks", "source")
+    require(text, "remaining_sound_compat_hooks=ok", "source")
+    require(text, "original_cursor_priority_claim=0", "source")
     require(text, "objective_pickup,level_complete", "source")
     for snippet in EXPECTED_REJECTED_OBJECTIVE_CANDIDATES:
         require(text, snippet, "source")
@@ -123,6 +127,8 @@ def check_docs(root: Path) -> None:
             "remaining_compat_hooks=objective_pickup,level_complete",
             label,
         )
+        require_collapsed(text, "--debug-remaining-sound-compat-hooks", label)
+        require_collapsed(text, "original_cursor_priority_claim=0", label)
         for snippet in EXPECTED_REJECTED_OBJECTIVE_CANDIDATES:
             require_collapsed(text, snippet, label)
 
@@ -131,9 +137,11 @@ def check_cmake(cmake_path: Path) -> None:
     text = cmake_path.read_text(encoding="utf-8")
     require(text, "sound_compatibility_hooks", "CMake")
     require(text, "tools/check_sound_compatibility_hooks.py", "CMake")
+    require(text, "add_test(NAME remaining_sound_compat_hooks", "CMake")
+    require(text, "original_cursor_priority_claim=0", "CMake")
     require(
         text,
-        "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=24 docs=3 rejected_objective_candidates=3",
+        "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=24 docs=3 rejected_objective_candidates=3 live_diagnostic=1",
         "CMake",
     )
 
@@ -155,7 +163,8 @@ def main() -> int:
         "recovered_hooks=5 "
         f"helpers={len(EXPECTED_HELPER_SNIPPETS) + len(EXPECTED_RECOVERED_HOOK_SNIPPETS)} "
         "docs=3 "
-        f"rejected_objective_candidates={len(EXPECTED_REJECTED_OBJECTIVE_CANDIDATES)}"
+        f"rejected_objective_candidates={len(EXPECTED_REJECTED_OBJECTIVE_CANDIDATES)} "
+        "live_diagnostic=1"
     )
     return 0
 

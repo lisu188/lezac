@@ -1424,6 +1424,11 @@ class App {
         uint8_t row3 = 0;
     };
 
+    struct CompatibilitySoundAttempt {
+        size_t index = 0;
+        uint16_t cursor = 0;
+    };
+
     static bool originalState2VisualRow(uint8_t frame, State2VisualRow& row) {
         if (frame < kState2VisualStartFrame || frame > kState2VisualEndFrame) {
             return false;
@@ -6620,6 +6625,87 @@ public:
                   << " region_counts=" << regionCountsList
                   << " contexts=" << contextList
                   << '\n';
+    }
+
+    void debugRemainingSoundCompatibilityHooks() {
+        load();
+        resetLevel(0);
+
+        traceCompatibilitySoundAttempts_ = true;
+        compatibilitySoundAttempts_.clear();
+        std::array<int, 2> objectiveProbe = findSingleObjectiveProbeForSmoke();
+        player_.x = static_cast<float>(objectiveProbe[0]);
+        player_.y = static_cast<float>(objectiveProbe[1]);
+        int collectedBefore = collected_;
+        uint32_t scoreBefore = score_;
+        clearSoundLatch();
+        collectObjectiveTiles(player_, 1);
+        bool objectiveLatchActive = soundLatch_.active;
+        if (compatibilitySoundAttempts_.size() != 1) {
+            throw std::runtime_error("objective pickup compatibility sound call count mismatch");
+        }
+        CompatibilitySoundAttempt objectiveAttempt = compatibilitySoundAttempts_.front();
+        if (objectiveAttempt.index != kCompatibilityObjectivePickupSound ||
+            objectiveAttempt.cursor != compatibilitySoundCursor(kCompatibilityObjectivePickupSound) ||
+            collected_ != collectedBefore + 1 ||
+            score_ != scoreBefore + 1000u ||
+            objectiveLatchActive) {
+            throw std::runtime_error("objective pickup compatibility sound route mismatch");
+        }
+        int collectedDelta = collected_ - collectedBefore;
+        uint32_t scoreDelta = score_ - scoreBefore;
+
+        traceCompatibilitySoundAttempts_ = false;
+        resetLevel(0);
+        collectAllObjectiveTilesForSmoke();
+        damageRequiredTilesForSmoke();
+        if (!isComplete()) {
+            throw std::runtime_error("level-complete compatibility fixture is incomplete");
+        }
+
+        traceCompatibilitySoundAttempts_ = true;
+        compatibilitySoundAttempts_.clear();
+        clearSoundLatch();
+        int startLevel = levelIndex_;
+        updateLevelCompletion();
+        bool levelLatchActive = soundLatch_.active;
+        size_t callsFirstTick = compatibilitySoundAttempts_.size();
+        if (callsFirstTick != 1) {
+            throw std::runtime_error("level-complete compatibility sound call count mismatch");
+        }
+        CompatibilitySoundAttempt levelAttempt = compatibilitySoundAttempts_.front();
+        if (levelAttempt.index != kCompatibilityLevelCompleteSound ||
+            levelAttempt.cursor != compatibilitySoundCursor(kCompatibilityLevelCompleteSound) ||
+            levelLatchActive) {
+            throw std::runtime_error("level-complete compatibility sound route mismatch");
+        }
+
+        compatibilitySoundAttempts_.clear();
+        int completionTicksAfterFirst = 0;
+        while (levelIndex_ == startLevel && completionTicksAfterFirst <= 120) {
+            updateLevelCompletion();
+            ++completionTicksAfterFirst;
+        }
+        size_t repeatCalls = compatibilitySoundAttempts_.size();
+        traceCompatibilitySoundAttempts_ = false;
+        if (repeatCalls != 0 || levelIndex_ != startLevel + 1) {
+            throw std::runtime_error("level-complete compatibility sound repeat/advance mismatch");
+        }
+
+        std::cout << "remaining_sound_compat_hooks=ok"
+                  << " live_hooks=2"
+                  << " objective_pickup=index" << objectiveAttempt.index
+                  << "/cursor" << hex4(objectiveAttempt.cursor)
+                  << " collected_delta=" << collectedDelta
+                  << " score_delta=" << scoreDelta
+                  << " latch_active=" << (objectiveLatchActive ? 1 : 0)
+                  << " level_complete=index" << levelAttempt.index
+                  << "/cursor" << hex4(levelAttempt.cursor)
+                  << " calls_first_tick=" << callsFirstTick
+                  << " repeat_calls=" << repeatCalls
+                  << " advanced_level=" << (levelIndex_ + 1)
+                  << " latch_active=" << (levelLatchActive ? 1 : 0)
+                  << " original_cursor_priority_claim=0\n";
     }
 
     void debugRecordNameSoundRouting(const std::string& path) {
@@ -14259,6 +14345,8 @@ private:
     int lastPumpedSoundRecord_ = -1;
     uint16_t lastPumpedSoundOffset_ = 0;
     uint8_t lastPumpedSoundSelector_ = 0;
+    bool traceCompatibilitySoundAttempts_ = false;
+    std::vector<CompatibilitySoundAttempt> compatibilitySoundAttempts_;
     bool menu_ = true;
     MenuPage menuPage_ = MenuPage::Main;
     bool showBackground_ = true;
@@ -14736,6 +14824,10 @@ private:
     }
 
     void playSound(size_t index) {
+        if (traceCompatibilitySoundAttempts_) {
+            compatibilitySoundAttempts_.push_back(
+                {index, compatibilitySoundCursor(index)});
+        }
         if (!audioEnabled_ || audioDevice_ == 0 || sounds_.records.empty()) return;
         std::vector<int16_t> samples = synthesizeSound(index % sounds_.records.size());
         if (samples.empty()) return;
@@ -15646,6 +15738,31 @@ private:
             }
         }
         throw std::runtime_error("level has no objective tile for smoke");
+    }
+
+    std::array<int, 2> findSingleObjectiveProbeForSmoke() const {
+        int maxX = std::max(0, level_.width * kTileSize - 1);
+        int maxY = std::max(0, level_.height * kTileSize - 1);
+        for (int py = 0; py <= maxY; ++py) {
+            for (int px = 0; px <= maxX; ++px) {
+                int x0 = px / kTileSize;
+                int x1 = (px + 12) / kTileSize;
+                int y0 = py / kTileSize;
+                int y1 = (py + 16) / kTileSize;
+                int objectiveTiles = 0;
+                for (int y = y0; y <= y1; ++y) {
+                    for (int x = x0; x <= x1; ++x) {
+                        if (x >= 0 && y >= 0 && x < level_.width &&
+                            y < level_.height &&
+                            tileAt(x, y) == level_.objectiveTile) {
+                            ++objectiveTiles;
+                        }
+                    }
+                }
+                if (objectiveTiles == 1) return {px, py};
+            }
+        }
+        throw std::runtime_error("level has no single-objective probe position");
     }
 
     void collectAllObjectiveTilesForSmoke() {
@@ -17159,6 +17276,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-static-sound-unresolved-contexts") {
             app.debugStaticSoundUnresolvedContexts();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-remaining-sound-compat-hooks") {
+            app.debugRemainingSoundCompatibilityHooks();
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-record-name-sound") {

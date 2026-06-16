@@ -274,6 +274,11 @@ Baseline: `origin/main`
   `0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate`.
   This keeps the known collapse playback branch, bomb-object high gate, and
   non-objective tile gate from being reused as objective-pickup mappings.
+- Added `--debug-remaining-sound-compat-hooks` to exercise the live C++
+  objective-pickup and level-complete compatibility paths. It reports the
+  direct indices/cursors used by those compatibility hooks plus
+  `original_cursor_priority_claim=0`, so the checker now proves the hooks are
+  reached without promoting original cursor/priority semantics.
 - Added `--debug-static-sound-contexts` to pin the original byte contexts for
   `0x1857`, `0x1a44`, `0x1d9c`, `0x202d`, and `0x2083` as
   name-entry/post-end-flow-record/record-table UI sound writes. It verifies the

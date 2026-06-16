@@ -80,6 +80,7 @@ LEZAC_LOAD_ORIGINAL_ASSETS=1 ./build/lezac_cpp --validate
 ./build/lezac_cpp --debug-sound-priority-latch
 ./build/lezac_cpp --debug-sound-selector-map
 ./build/lezac_cpp --debug-static-sound-contexts
+./build/lezac_cpp --debug-remaining-sound-compat-hooks
 ./build/lezac_cpp --debug-player-damage-sound
 ./build/lezac_cpp --debug-sound-callsite-oracle tests/fixtures/dosbox/sound_callsite_oracle_synthetic.txt
 LEZAC_SOUND_CALLSITE_DEBUG_DRY_RUN=1 tools/capture_original_sound_callsite_debug.sh /tmp/lezac-sound-callsite-debug . player_damage_sound
@@ -842,7 +843,11 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   `0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate`,
   keeping the collapse playback branch, the bomb-object high gate, and the
   non-objective tile gate out of the objective-pickup mapping until new
-  original evidence proves otherwise. `--debug-static-sound-unresolved-contexts`
+  original evidence proves otherwise. `--debug-remaining-sound-compat-hooks`
+  exercises the live C++ objective-pickup and level-complete paths and reports
+  `original_cursor_priority_claim=0`, proving only that those direct
+  compatibility hooks are still reached with the intended compatibility
+  indices. `--debug-static-sound-unresolved-contexts`
   also pins the exact byte windows for those 12 unresolved writes and separates
   their local request shapes: nine local latch calls, six inline priorities,
   two preceding priorities, four no-local-priority cases, three no-latch cases,

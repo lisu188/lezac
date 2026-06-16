@@ -972,6 +972,10 @@ objective-sound candidates as
 Those labels prevent the known collapse playback branch, the bomb-object high
 gate around the `0x6c` threshold, and the non-objective tile gate near
 `1000:6924` from being reused as objective-pickup evidence.
+`--debug-remaining-sound-compat-hooks` drives the live C++ objective-pickup and
+level-complete paths and reports `original_cursor_priority_claim=0`; it is a
+regression guard for the remaining direct `playSound(index)` compatibility
+hooks, not original cursor/priority evidence.
 `--debug-static-sound-contexts` pins the currently rejected level-complete
 static candidates by byte context: the post-game dispatcher returns at
 `1000:1d42`, while the immediate writes at `1000:1857`, `1000:1a44`,

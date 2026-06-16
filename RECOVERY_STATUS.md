@@ -1,7 +1,7 @@
 # Recovery Status
 
 Last reviewed: 2026-06-16
-Branch: `codex/reimplementation-followup-20260616`
+Branch: `codex/lane-global-freeze-gates`
 Baseline: `origin/main`
 
 ## Completed This Iteration
@@ -130,6 +130,14 @@ Baseline: `origin/main`
   `--runtime-freeze-require-high-debris-word-layer-value`. The sweep wrapper
   now treats those filters as valid runtime freeze gates and its dry-run
   coverage verifies that they are forwarded to the capture helper.
+- Added later lane-global runtime-freeze gates to
+  `tools/capture_original_explosion_procmem.py` and forwarded them through
+  `tools/sweep_original_lane_write_routes.py`:
+  `--runtime-freeze-require-lane-update-flag`,
+  `--runtime-freeze-require-lane-word-global-value`, and
+  `--runtime-freeze-require-lane-target-offset-global-value`. These are ready
+  for the next focused natural forward-debris `1000:3D2D` run, but no live
+  DOSBox capture has used them yet.
 - Added `--continue-on-oracle-error` to
   `tools/sweep_original_lane_write_routes.py`. Capture failures still stop the
   sweep, but a missing or unrunnable C++ oracle now writes an `oracle_error`
@@ -2083,10 +2091,9 @@ single-route gated retries now include multiple no-patch candidates plus two
 valid no-freeze candidates. Do not repeat the early `x:2.00,c:0.50`
 target-byte/word-layer gate: it now proves that the patch can apply at the
 early `0x2093` geometry without hitting natural `3D2D`. The next useful
-original-evidence step is to expose runtime-freeze gates for the later lane
-globals seen in the sample table, especially `lane_update_flag=1`,
-`lane_word_global_value=0x8002`, and target offset `0x07be`, then rerun the
-focused route against that later state.
+original-evidence step is to rerun the focused route with the new later
+lane-global runtime-freeze gates: `lane_update_flag=1`,
+`lane_word_global_value=0x8002`, and target offset `0x07be`.
 Treat a no-patch or no-freeze result as route evidence, not promotion.
 Then return to DOSBox frame/debugger evidence for behavior-4 movement,
 targeting, and respawn timing.

@@ -1449,6 +1449,24 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--runtime-freeze-require-lane-update-flag",
+        type=parse_int_auto,
+        help="with runtime freeze patching, wait for the sampled lane update flag",
+    )
+    parser.add_argument(
+        "--runtime-freeze-require-lane-word-global-value",
+        type=parse_int_auto,
+        help="with runtime freeze patching, wait for the sampled lane word global",
+    )
+    parser.add_argument(
+        "--runtime-freeze-require-lane-target-offset-global-value",
+        type=parse_int_auto,
+        help=(
+            "with runtime freeze patching, wait for the sampled lane target "
+            "offset global"
+        ),
+    )
+    parser.add_argument(
         "--runtime-seed-debris-writeback",
         action="store_true",
         help=(
@@ -1554,6 +1572,9 @@ def main() -> int:
         or args.runtime_freeze_require_effect_base is not None
         or args.runtime_freeze_require_high_debris_target_byte is not None
         or args.runtime_freeze_require_high_debris_word_layer_value is not None
+        or args.runtime_freeze_require_lane_update_flag is not None
+        or args.runtime_freeze_require_lane_word_global_value is not None
+        or args.runtime_freeze_require_lane_target_offset_global_value is not None
     )
     if args.runtime_freeze_before_route:
         if args.runtime_freeze_before_bomb:
@@ -1576,6 +1597,9 @@ def main() -> int:
             "runtime_freeze_require_effect_base",
             "runtime_freeze_require_high_debris_target_byte",
             "runtime_freeze_require_high_debris_word_layer_value",
+            "runtime_freeze_require_lane_update_flag",
+            "runtime_freeze_require_lane_word_global_value",
+            "runtime_freeze_require_lane_target_offset_global_value",
         ]:
             if getattr(args, arg_name) is not None:
                 raise RuntimeError(
@@ -1598,6 +1622,9 @@ def main() -> int:
             "runtime_freeze_require_effect_base",
             "runtime_freeze_require_high_debris_target_byte",
             "runtime_freeze_require_high_debris_word_layer_value",
+            "runtime_freeze_require_lane_update_flag",
+            "runtime_freeze_require_lane_word_global_value",
+            "runtime_freeze_require_lane_target_offset_global_value",
         ]:
             if getattr(args, arg_name) is not None:
                 raise RuntimeError(
@@ -1617,6 +1644,9 @@ def main() -> int:
         "runtime_freeze_require_effect_base",
         "runtime_freeze_require_high_debris_target_byte",
         "runtime_freeze_require_high_debris_word_layer_value",
+        "runtime_freeze_require_lane_update_flag",
+        "runtime_freeze_require_lane_word_global_value",
+        "runtime_freeze_require_lane_target_offset_global_value",
     ]:
         value = getattr(args, arg_name)
         if value is not None and value < 0:
@@ -1632,6 +1662,25 @@ def main() -> int:
     ):
         raise RuntimeError(
             "--runtime-freeze-require-high-debris-word-layer-value must fit in a word"
+        )
+    if (
+        args.runtime_freeze_require_lane_update_flag is not None
+        and args.runtime_freeze_require_lane_update_flag > 0xFF
+    ):
+        raise RuntimeError("--runtime-freeze-require-lane-update-flag must fit in a byte")
+    if (
+        args.runtime_freeze_require_lane_word_global_value is not None
+        and args.runtime_freeze_require_lane_word_global_value > 0xFFFF
+    ):
+        raise RuntimeError(
+            "--runtime-freeze-require-lane-word-global-value must fit in a word"
+        )
+    if (
+        args.runtime_freeze_require_lane_target_offset_global_value is not None
+        and args.runtime_freeze_require_lane_target_offset_global_value > 0xFFFF
+    ):
+        raise RuntimeError(
+            "--runtime-freeze-require-lane-target-offset-global-value must fit in a word"
         )
     if args.runtime_seed_debris_writeback:
         if not runtime_freeze:
@@ -2070,6 +2119,9 @@ def main() -> int:
             and args.runtime_freeze_require_effect_base is None
             and args.runtime_freeze_require_high_debris_target_byte is None
             and args.runtime_freeze_require_high_debris_word_layer_value is None
+            and args.runtime_freeze_require_lane_update_flag is None
+            and args.runtime_freeze_require_lane_word_global_value is None
+            and args.runtime_freeze_require_lane_target_offset_global_value is None
         )
         if immediate_runtime_freeze_ok:
             patch_offset = int(freeze_patch["ghidra_offset"])
@@ -2200,6 +2252,21 @@ def main() -> int:
                     == args.runtime_freeze_require_high_debris_word_layer_value
                 )
             )
+            lane_update_flag_ok = (
+                args.runtime_freeze_require_lane_update_flag is None
+                or int(current_fields["lane_update_flag_value"])
+                == args.runtime_freeze_require_lane_update_flag
+            )
+            lane_word_global_value_ok = (
+                args.runtime_freeze_require_lane_word_global_value is None
+                or int(current_fields["lane_word_global_value"])
+                == args.runtime_freeze_require_lane_word_global_value
+            )
+            lane_target_offset_global_value_ok = (
+                args.runtime_freeze_require_lane_target_offset_global_value is None
+                or int(current_fields["lane_target_offset_global_value"])
+                == args.runtime_freeze_require_lane_target_offset_global_value
+            )
             if (
                 runtime_freeze
                 and freeze_patch is not None
@@ -2214,6 +2281,9 @@ def main() -> int:
                 and effect_base_ok
                 and high_debris_target_byte_ok
                 and high_debris_word_layer_value_ok
+                and lane_update_flag_ok
+                and lane_word_global_value_ok
+                and lane_target_offset_global_value_ok
             ):
                 patch_offset = int(freeze_patch["ghidra_offset"])
                 freeze_loaded_before_runtime_patch = read_emulated(
@@ -2713,6 +2783,18 @@ def main() -> int:
                         "runtime_freeze_require_high_debris_word_layer_value="
                         f"{optional_hex_text(args.runtime_freeze_require_high_debris_word_layer_value)}\n"
                     )
+                    out.write(
+                        "runtime_freeze_require_lane_update_flag="
+                        f"{optional_hex_text(args.runtime_freeze_require_lane_update_flag)}\n"
+                    )
+                    out.write(
+                        "runtime_freeze_require_lane_word_global_value="
+                        f"{optional_hex_text(args.runtime_freeze_require_lane_word_global_value)}\n"
+                    )
+                    out.write(
+                        "runtime_freeze_require_lane_target_offset_global_value="
+                        f"{optional_hex_text(args.runtime_freeze_require_lane_target_offset_global_value)}\n"
+                    )
                     if runtime_freeze_patch_elapsed is not None:
                         out.write(
                             "runtime_freeze_patch_phase="
@@ -3135,6 +3217,12 @@ def main() -> int:
                     f"{optional_hex_text(args.runtime_freeze_require_high_debris_target_byte)}\n"
                     "freeze_runtime_require_high_debris_word_layer_value="
                     f"{optional_hex_text(args.runtime_freeze_require_high_debris_word_layer_value)}\n"
+                    "freeze_runtime_require_lane_update_flag="
+                    f"{optional_hex_text(args.runtime_freeze_require_lane_update_flag)}\n"
+                    "freeze_runtime_require_lane_word_global_value="
+                    f"{optional_hex_text(args.runtime_freeze_require_lane_word_global_value)}\n"
+                    "freeze_runtime_require_lane_target_offset_global_value="
+                    f"{optional_hex_text(args.runtime_freeze_require_lane_target_offset_global_value)}\n"
                     f"freeze_runtime_patch_phase={runtime_freeze_patch_phase}\n"
                     f"freeze_runtime_patch_elapsed_after_bomb={patch_elapsed}\n"
                 )

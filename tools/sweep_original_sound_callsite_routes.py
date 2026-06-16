@@ -20,6 +20,9 @@ from pathlib import Path
 
 TARGETS = [
     "contact_scanner_runtime_sound",
+    "actor_update_runtime_cursor_0024_sound",
+    "actor_update_runtime_cursor_0035_sound",
+    "actor_update_runtime_cursor_0021_sound",
 ]
 
 DEFAULT_ROUTES = [

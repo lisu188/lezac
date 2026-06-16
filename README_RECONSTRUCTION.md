@@ -313,9 +313,8 @@ are `actor_update_start`, `actor_update_end`,
 `actor_update_gate5`, `actor_update_gate5_integration`,
 `actor_update_gate5_exit`, `actor_update_gate6`, `contact_scanner_callsite`,
 `contact_scanner_start`, and `contact_scanner_end`.
-The first actor/contact sound capture target has a separate process-memory
-fallback for hosts where DOSBox-debug reaches the prompt but cannot submit
-commands:
+The actor/contact sound capture targets have a separate process-memory fallback
+for hosts where DOSBox-debug reaches the prompt but cannot submit commands:
 
 ```sh
 LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1 \
@@ -324,7 +323,10 @@ LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION=1 \
   /tmp/lezac-sound-callsite-procmem . contact_scanner_runtime_sound
 ```
 
-It freezes `1000:5E81` for `contact_scanner_runtime_sound`, writes
+It can freeze `contact_scanner_runtime_sound` at `1000:5E81` plus the
+actor-update candidates `actor_update_runtime_cursor_0024_sound` at
+`1000:6844`, `actor_update_runtime_cursor_0035_sound` at `1000:6924`, and
+`actor_update_runtime_cursor_0021_sound` at `1000:7386`. Each capture writes a
 `sound_callsite_procmem` manifest/raw output plus a fill-in sound-callsite
 candidate fixture, preserves `visual_claim=0`, and still requires a completed
 `sound_callsite_oracle_original*.txt` fixture before any cursor/priority

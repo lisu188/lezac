@@ -286,6 +286,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^autoplayer=ok scenario=death_visuals death_state_ticks=60 start_frame=0x4a tick1_frame=0x4b tick5_frame=0x4c live_sprites=67,68,69 cursor_legacy_sprites=74,75,76 draw_offset=16,16 effect_entry_xy=104,168 effect_entry_frames=0x4a,0x4b,0x4c effect_entry_sprites=67,68,69 effect_entry_draw_offset=16,16 cursor_legacy_hash_mismatch=1 row3_live_renderer=1 frame_inspection=1 visual_claim=0")
 
+    add_test(NAME autoplayer_two_player_death_visuals_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer two_player_death_visuals)
+    set_tests_properties(autoplayer_two_player_death_visuals_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=two_player_death_visuals p1_effect_xy=104,168 p2_effect_xy=280,168 p2_frames=0x4a,0x4b p2_sprites=67,68 p1_frame=0x4a p1_sprite=67 draw_offset=16,16 effects_separate=1 cursor_legacy_hash_mismatch=1 frame_inspection=1 visual_claim=0")
+
     add_test(NAME autoplayer_level_transition_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-autoplayer level_transition)

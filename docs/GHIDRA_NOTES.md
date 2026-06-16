@@ -1205,7 +1205,9 @@ count edge cases, and any visible result still need DOSBox/debugger evidence.
 
 Two-player panel caveat: the current C++ split-screen renderer now has
 frame-inspected coverage for both world views, both player HUD bands, and the
-central objective/progress line through `--debug-two-player-hud-panel`. This is
+central objective/progress line through `--debug-two-player-hud-panel`.
+`--debug-autoplayer two_player_death_visuals` additionally frame-inspects
+independent state-2 effect-entry bases for both split-screen players. This is
 current-port evidence only; exact original panel artwork and layout still need
 original frame comparison before they can be promoted.
 

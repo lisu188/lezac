@@ -2626,6 +2626,8 @@ public:
             debugAutoplayerCollapsePlaybackRoute(scenario);
         } else if (scenario == "two_player_route") {
             debugAutoplayerTwoPlayerRoute(scenario);
+        } else if (scenario == "two_player_death_visuals") {
+            debugAutoplayerTwoPlayerDeathVisuals(scenario);
         } else if (scenario == "two_player_progression") {
             debugAutoplayerTwoPlayerProgression(scenario);
         } else {
@@ -3833,6 +3835,132 @@ public:
                   << static_cast<int>(player2_.y)
                   << " p2_bomb_tile=" << bombTileX << ',' << bombTileY
                   << " bombs=1 frame_inspection=1\n";
+    }
+
+    void debugAutoplayerTwoPlayerDeathVisuals(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_2);
+        processEvents(running);
+        if (menu_ || playerCount_ != 2 || playerDead_ || player2Dead_) {
+            throw std::runtime_error("two-player death visual autoplayer failed to start");
+        }
+
+        auto visualRowFor = [&](uint8_t frame) {
+            State2VisualRow row;
+            if (!originalState2VisualRow(frame, row)) {
+                throw std::runtime_error("two-player death visual row missing");
+            }
+            return row;
+        };
+        auto effectMatches = [&](const State2EffectEntry& effect,
+                                 const Player& player,
+                                 uint8_t frame,
+                                 const State2VisualRow& row) {
+            return effect.active && effect.x == static_cast<int>(player.x) &&
+                   effect.y == static_cast<int>(player.y) &&
+                   effect.visualFrame == frame && effect.drawDx == row.row0 &&
+                   effect.drawDy == row.row1 && effect.row2 == row.row2 &&
+                   effect.spriteIndex == row.row3;
+        };
+        auto cursorPreviewFrame = [&](const std::string& label) {
+            state2VisualCursorPreview_ = true;
+            FrameInspection inspection = inspectRenderedFrame(label);
+            state2VisualCursorPreview_ = false;
+            return inspection;
+        };
+
+        FrameInspection startFrame =
+            inspectRenderedFrame("autoplayer-two-player-death-visual-start");
+        int p1StartX = static_cast<int>(player_.x);
+        int p1StartY = static_cast<int>(player_.y);
+        int p2StartX = static_cast<int>(player2_.x);
+        int p2StartY = static_cast<int>(player2_.y);
+
+        energy2_ = 0;
+        lives2_ = 3;
+        damageCooldown2_ = 0;
+        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                     damageCooldown2_, 2);
+        State2VisualRow row4a = visualRowFor(kState2VisualStartFrame);
+        if (playerDead_ || !player2Dead_ || state2Effect_.active ||
+            !state2Visual2_.active ||
+            state2Visual2_.current != kState2VisualStartFrame ||
+            !effectMatches(state2Effect2_, player2_, kState2VisualStartFrame,
+                           row4a)) {
+            throw std::runtime_error("player 2 death visual effect entry mismatch");
+        }
+
+        FrameInspection p2DeathFrame =
+            inspectRenderedFrame("autoplayer-two-player-death-visual-p2-4a");
+        if (p2DeathFrame.hash == startFrame.hash) {
+            throw std::runtime_error("player 2 death visual frame did not change");
+        }
+        FrameInspection p2CursorFrame =
+            cursorPreviewFrame("autoplayer-two-player-death-visual-p2-cursor-4a");
+        if (p2CursorFrame.hash == p2DeathFrame.hash) {
+            throw std::runtime_error("player 2 cursor preview matched live effect renderer");
+        }
+
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        State2VisualRow row4b =
+            visualRowFor(static_cast<uint8_t>(kState2VisualStartFrame + 1));
+        if (!player2Dead_ || deathStateTimer2_ != kDeathStateTicks - 1 ||
+            state2Visual2_.current !=
+                static_cast<uint8_t>(kState2VisualStartFrame + 1) ||
+            !effectMatches(state2Effect2_, player2_,
+                           static_cast<uint8_t>(kState2VisualStartFrame + 1),
+                           row4b)) {
+            throw std::runtime_error("player 2 death visual tick mismatch");
+        }
+        FrameInspection p2TickFrame =
+            inspectRenderedFrame("autoplayer-two-player-death-visual-p2-4b");
+        if (p2TickFrame.hash == p2DeathFrame.hash) {
+            throw std::runtime_error("player 2 death visual tick frame did not change");
+        }
+
+        energy_ = 0;
+        lives_ = 3;
+        damageCooldown_ = 0;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        if (!playerDead_ || !player2Dead_ || !state2Effect_.active ||
+            !state2Effect2_.active ||
+            !effectMatches(state2Effect_, player_, kState2VisualStartFrame,
+                           row4a) ||
+            (state2Effect_.x == state2Effect2_.x &&
+             state2Effect_.y == state2Effect2_.y)) {
+            throw std::runtime_error("two-player death visual slots aliased");
+        }
+        FrameInspection bothDeathFrame =
+            inspectRenderedFrame("autoplayer-two-player-death-visual-both");
+        if (bothDeathFrame.hash == p2TickFrame.hash) {
+            throw std::runtime_error("two-player death visual second slot frame did not change");
+        }
+        if (state2VisualCursorPreview_) {
+            throw std::runtime_error("two-player death visual cursor preview flag leaked");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " p1_effect_xy=" << p1StartX << ',' << p1StartY
+                  << " p2_effect_xy=" << p2StartX << ',' << p2StartY
+                  << " p2_frames=0x" << std::hex
+                  << static_cast<int>(kState2VisualStartFrame) << ",0x"
+                  << static_cast<int>(kState2VisualStartFrame + 1) << std::dec
+                  << " p2_sprites=" << static_cast<int>(row4a.row3) << ','
+                  << static_cast<int>(row4b.row3)
+                  << " p1_frame=0x" << std::hex
+                  << static_cast<int>(state2Effect_.visualFrame) << std::dec
+                  << " p1_sprite=" << static_cast<int>(state2Effect_.spriteIndex)
+                  << " draw_offset=16,16"
+                  << " effects_separate=1"
+                  << " cursor_legacy_hash_mismatch=1"
+                  << " frame_inspection=1 visual_claim=0\n";
     }
 
     void debugAutoplayerTwoPlayerProgression(const std::string& scenario) {

@@ -104,6 +104,7 @@ LEZAC_SOUND_CALLSITE_DEBUG_DRY_RUN=1 tools/capture_original_sound_callsite_debug
 ./build/lezac_cpp --debug-autoplayer monster_behavior4_target_selection
 ./build/lezac_cpp --debug-autoplayer collapse_playback_route
 ./build/lezac_cpp --debug-autoplayer two_player_route
+./build/lezac_cpp --debug-autoplayer two_player_death_visuals
 ./build/lezac_cpp --debug-autoplayer two_player_progression
 ./build/lezac_cpp --debug-player-state2-death-fields
 ./build/lezac_cpp --debug-original-state2-return-model
@@ -979,8 +980,9 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   cursor/priority writes are recovered.
 - Two-player split-screen is playable with independent bomb inventories, scores,
   record prompts, and a central objective/progress panel that is covered by
-  `--debug-two-player-hud-panel`, but exact original panel artwork and reentry
-  presentation remain approximate.
+  `--debug-two-player-hud-panel`. `--debug-autoplayer two_player_death_visuals`
+  frame-inspects independent state-2 effect-entry slots for both players, but
+  exact original panel artwork and reentry presentation remain approximate.
 - High scores are persisted with original-evidence name-entry keys
   (letters/space, Backspace, Enter), the recovered eight-character cap, and
   colon-padded storage. Empty submissions now preserve the original eight-colon

@@ -1021,10 +1021,11 @@ Baseline: `origin/main`
 - Extended `--debug-autoplayer` with `death_reentry`, `records_flow`, and
   `two_player_route` scenarios so state-2 reentry, record-entry saving, and
   player-2 movement/bomb controls are covered without live input.
-- Added `death_visuals`, `level_transition`, and `two_player_progression`
-  autoplayer scenarios. These lock the current row-byte-3 state-2 death
-  renderer, level-1 completion into level 2, player-2 death/reentry,
-  post-reentry bombs, and player-2 scoring.
+- Added `death_visuals`, `level_transition`, `two_player_death_visuals`, and
+  `two_player_progression` autoplayer scenarios. These lock the current
+  row-byte-3 state-2 death renderer, split-screen state-2 effect slots, level-1
+  completion into level 2, player-2 death/reentry, post-reentry bombs, and
+  player-2 scoring.
 - Added `portal_weapon_route`, `monster_bomb_reward`, and
   `collapse_playback_route` autoplayer scenarios. These broaden deterministic
   coverage to weapon switching through the left+right chord, medium bomb
@@ -1172,6 +1173,10 @@ Baseline: `origin/main`
   frames `0x4a..0x4c`, pinning live row-byte-3 sprites `67,68,69`, effect-entry
   base `104,168`, and draw offset `16,16` against the old cursor-index sprites
   `74,75,76`.
+- Added `two_player_death_visuals` to frame-inspect split-screen state-2
+  playback: player 2 advances effect-entry frames `0x4a,0x4b`, player 1 can
+  enter its own `0x4a` effect entry while player 2 remains dead, and the two
+  effect bases stay separate at `104,168` and `280,168`.
 - Refactored the game update path so the autoplayer can drive the same movement
   helpers with injected controls instead of relying on live keyboard state.
 - Changed `--capture-frame-sequence level1_bomb_route <out-dir>` to reach tile

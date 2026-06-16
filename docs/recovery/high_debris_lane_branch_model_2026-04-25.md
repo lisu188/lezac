@@ -569,6 +569,24 @@ brackets the remaining question between the now-proven `4C96` forward-call
 anchor and the missing `3D2D` writeback, rather than between route input and
 the high-debris branch path.
 
+The next helper-path probes closed that bracket for this route. A runtime
+`1000:4C99` return probe wrote
+`C:\Users\andrz\AppData\Local\Temp\lezac-helper-path-4c99-m-route-1781617322`
+and froze after the `4C96 -> 3BB2` forward helper returned with the same
+selected bases `2941/665c/c22e`, target byte `0xde`, and lane globals
+`0x00/0x0004/0x072c`. A `1000:3CE3` lane-divide scratch probe wrote
+`C:\Users\andrz\AppData\Local\Temp\lezac-helper-path-3ce3-m-route-1781617440`
+and froze inside the forward helper with active count/index `1/1`,
+`DX:AX=0xffff:0xfff3`, `BX:CX=0x0000:0x0021`, and weight local `0x0021`.
+Finally, a `1000:3D1B` lane-write scratch probe wrote
+`C:\Users\andrz\AppData\Local\Temp\lezac-helper-path-3d1b-m-route-1781617379`
+and froze the natural forward collapse write: output `0x0000`, `DI=0x001e`,
+tag `0x0002`, active count/index `1/1`, result local `0x0000`. The tail
+freeze frames for all three captures were inspected and remained in the
+visible level-1 playback window. This explains why the same route misses
+`3D2D`: the helper is executing, but the active writeback tag is a collapse
+tag below the debris marker base `0x4e20`, so the natural store is `3D1B`.
+
 Use `tools/sweep_original_lane_write_routes.py` only when a new route or
 control-flow hypothesis has been identified. The default matrix targets
 `3D2D`/`3EC1` with the `late-collapse` runtime-freeze gate and writes stable
@@ -593,12 +611,12 @@ python3 tools/sweep_original_lane_write_routes.py \
   --cpp-exe ./build-win-codex-vs3/Debug/lezac_cpp.exe --continue-on-oracle-error
 ```
 
-The next useful evidence step should ask a narrower control-flow question
-inside the helper path: for `x:2.00,m:0.35`, probe the forward helper
-call/return or the lane-helper interior between the observed `4C96` call and
-the missing `3D2D` writeback. Do not rerun the same `m:0.35` branch-anchor
-matrix or the same classifier-derived `3D2D` gate unless the route or helper
-predicate changes.
+The next useful evidence step should search for a natural forward-helper
+iteration whose scratch tag is a debris marker (`>= 0x4e20`). Use helper-path
+scratch probes such as `3CE3`/`3D1B` first to classify candidate routes, then
+target natural `1000:3D2D` only after a route has shown a forward helper
+debris tag. Do not rerun the same `m:0.35` branch-anchor matrix or the same
+classifier-derived `3D2D` gate unchanged.
 
 Summarize its output with
 `tools/summarize_lane_write_route_sweep.py <manifest-or-dir> --require-ready`

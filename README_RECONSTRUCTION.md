@@ -813,9 +813,22 @@ froze `1000:492F`, `1000:4B3F`, `1000:4B61`, `1000:4B6A`, `1000:4C75`, and
 `C:\Users\andrz\AppData\Local\Temp\lezac-lane-write-forward-m-route-1781616090`
 applied its runtime patch with selected bases `2941/665c/c22e`, target byte
 `0xde`, and lane globals `0x00/0x0004/0x072c`, but summarized as
-`no_freeze` with `missing_offsets=3d2d`. Next probe the helper call/return or
+`no_freeze` with `missing_offsets=3d2d`. That made the helper call/return or
 lane-helper interior between the proven `4C96` call and the missing `3D2D`
-writeback; do not rerun this same route gate unchanged.
+writeback the next question; do not rerun this same route gate unchanged.
+
+That helper-path follow-up now exists. The `4C99` return capture
+`C:\Users\andrz\AppData\Local\Temp\lezac-helper-path-4c99-m-route-1781617322`
+proved the `4C96 -> 3BB2` call returns on this route. The `3CE3` divide capture
+`C:\Users\andrz\AppData\Local\Temp\lezac-helper-path-3ce3-m-route-1781617440`
+froze one active forward helper item with numerator `0xffff:0xfff3` and weight
+`0x0021`. The `3D1B` write capture
+`C:\Users\andrz\AppData\Local\Temp\lezac-helper-path-3d1b-m-route-1781617379`
+froze a forward collapse write with tag `0x0002`, `DI=0x001e`, and output
+`0x0000`. Because the active tag is below the debris marker base `0x4e20`,
+this route explains the missing `3D2D` as a collapse-tag helper iteration. The
+next natural `3D2D` attempt should first prove a forward-helper debris marker
+tag, then target the debris writeback.
 
 The sweep wrapper now translates `/mnt/<drive>/...` candidate paths when a WSL
 run invokes a Windows `.exe` oracle, so that host split can parse candidates in

@@ -1432,7 +1432,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_summary_check=ok cases=10")
+                "^debug_capture_summary_check=ok cases=11")
 
         add_test(NAME debug_capture_batch_summary_expectations
             COMMAND ${Python3_EXECUTABLE}

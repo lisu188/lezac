@@ -116,6 +116,7 @@ append_runtime_registers() {
     } >>"$raw_dump"
 
     {
+        echo "runtime_metadata=observed"
         if [[ -n "$runtime_cs" ]]; then
             echo "runtime_cs=$runtime_cs"
         fi

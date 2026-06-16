@@ -451,6 +451,22 @@ def main() -> int:
             require(actor, snippet, "actor_ready")
         cases += 1
 
+        identical_duplicate_manifest = base / "identical_duplicate" / "manifest.txt"
+        identical_duplicate_manifest.parent.mkdir(parents=True, exist_ok=True)
+        identical_duplicate_manifest.write_text(
+            (actor_dir / "manifest.txt").read_text(encoding="ascii")
+            + f"environment_preflight_log={actor_dir / 'environment_preflight.log'}\n",
+            encoding="ascii",
+        )
+        identical_duplicate = run_tool(root, [str(identical_duplicate_manifest)])
+        for snippet in [
+            "debug_capture_summary=ok capture=actor_update_runtime",
+            "candidate_status=ready",
+            "runtime_cs=01ED",
+        ]:
+            require(identical_duplicate, snippet, "identical_duplicate")
+        cases += 1
+
         duplicate_field_manifest = base / "duplicate_field" / "manifest.txt"
         duplicate_field_manifest.parent.mkdir(parents=True, exist_ok=True)
         duplicate_field_manifest.write_text(

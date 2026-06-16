@@ -444,6 +444,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_callsite_scan.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_procmem_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_procmem_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_dispatch_gates.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_debug_capture_helper.py
@@ -516,6 +517,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_write_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_dispatch_gates.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_contact_routes.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_sound_callsite_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_branch_anchor_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_write_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_result_routes.py
@@ -958,6 +960,40 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^actor_contact_route_sweep_output=ok cases=8")
+
+        add_test(NAME sound_callsite_route_sweep_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_sound_callsite_routes.py
+                    /tmp/lezac-sound-callsite-route-sweep-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --timing before_route
+                    --route x:5.00,m:0.50,x:2.00
+                    --route x:3.00,z:0.50,x:2.00)
+        set_tests_properties(sound_callsite_route_sweep_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^sound_callsite_route_sweep=ok mode=dry_run .*target=contact_scanner_runtime_sound timings=before_route routes=2 route_labels=x5p00_m0p50_x2p00,x3p00_z0p50_x2p00 capture_commands=2")
+
+        add_test(NAME sound_callsite_route_sweep_default_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_sound_callsite_routes.py
+                    /tmp/lezac-sound-callsite-route-sweep-default-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run)
+        set_tests_properties(sound_callsite_route_sweep_default_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^sound_callsite_route_sweep=ok mode=dry_run .*target=contact_scanner_runtime_sound timings=before_bomb,before_route routes=4 .*route_labels=x2p00,x5p00_m0p50_x2p00,x3p00_z0p50_x2p00,x1p50_left0p50_x2p00 .*capture_commands=8 .*environment_preflight=1")
+
+        add_test(NAME sound_callsite_route_sweep_output_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_route_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(sound_callsite_route_sweep_output_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^sound_callsite_route_sweep_output=ok cases=8")
 
         add_test(NAME actor_dispatch_gate_sweep_dry_run
             COMMAND ${Python3_EXECUTABLE}

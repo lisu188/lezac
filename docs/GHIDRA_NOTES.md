@@ -336,6 +336,9 @@ process-memory freeze strategy to `contact_scanner_runtime_sound` at
 `sound_callsite_procmem`, and write a fill-in `sound_callsite` candidate
 fixture with `visual_claim=0`; this is reachability/runtime scaffolding only
 until the latch bytes are captured in a valid original oracle fixture.
+`tools/sweep_original_sound_callsite_routes.py` wraps that helper across
+route-step and before-route/before-bomb freeze-timing hypotheses and records a
+`sound_callsite_route_sweep` manifest for later evidence review.
 `--debug-actor-contact-static-model` pins the same scanner entry/return,
 actor-update entry/return, `[bp-31h]` gates, scanner callsite, and integration
 jump set from the C++ binary against the shipped executable bytes.
@@ -1104,6 +1107,8 @@ the first target, reporting `sound_runtime_capture_queue=ok` with
 fallback for that first target, emitting `sound_callsite_procmem` output and a
 non-promoted candidate fixture behind
 `LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1` plus runtime-instrumentation approval.
+`tools/sweep_original_sound_callsite_routes.py` is the preferred dry-run/live
+planner when testing multiple contact routes for that target.
 The diagnostic also prints
 `remaining_compat_hooks=objective_pickup,level_complete` and records rejected
 objective-sound candidates as

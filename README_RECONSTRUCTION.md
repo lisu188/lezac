@@ -123,6 +123,7 @@ python3 tools/compare_state2_visual_row_game_previews.py /tmp/lezac-state2-visua
 ./build/lezac_cpp --debug-record-update /tmp/records_test.dat
 ./build/lezac_cpp --debug-records-raw-roundtrip
 ./build/lezac_cpp --debug-record-name-entry /tmp/records_name_test.dat
+./build/lezac_cpp --debug-record-name-entry-cursor
 ./build/lezac_cpp --debug-record-save-failure /tmp/missing-record-dir/records.dat
 ./build/lezac_cpp --debug-end-flow-records /tmp/end_flow_records.dat
 ./build/lezac_cpp --debug-gran
@@ -966,8 +967,10 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
 - High scores are persisted with original-evidence name-entry keys
   (letters/space, Backspace, Enter), the recovered eight-character cap, and
   colon-padded storage. Empty submissions now preserve the original eight-colon
-  raw template and decode as `nessuno`; exact cursor drawing, typematic repeat,
-  and name-entry presentation remain approximate.
+  raw template and decode as `nessuno`. The name-entry renderer now highlights
+  the current input slot and `--debug-record-name-entry-cursor` frame-inspects
+  cursor movement after typing and Backspace; typematic repeat and exact
+  original presentation remain approximate.
 - Bomb fuse timing, 2x2 footprint, player blast damage, monster hit-point
   blast damage, visual selectors, actor sprite indices, word-layer damage
   gating, bomb-object passability after explosion, and queued debris/collapse

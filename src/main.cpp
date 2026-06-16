@@ -25,6 +25,14 @@ namespace {
 
 constexpr int kScreenW = 320;
 constexpr int kScreenH = 200;
+constexpr int kNameEntryLabelX = 58;
+constexpr int kNameEntrySlotY = 120;
+constexpr int kNameEntrySlotCount = 8;
+constexpr int kNameEntrySlotAdvance = 9;
+constexpr int kNameEntryCursorBoxW = 8;
+constexpr int kNameEntryCursorBoxH = 10;
+constexpr uint32_t kNameEntryCursorBackground = 0xff90ffb0u;
+constexpr uint32_t kNameEntryCursorForeground = 0xff000000u;
 constexpr int kBackgroundW = 321;
 constexpr int kBackgroundH = 388;
 constexpr int kTileSize = 8;
@@ -3818,6 +3826,22 @@ public:
         return false;
     }
 
+    size_t countColorInRegion(int x, int y, int w, int h, uint32_t color) const {
+        int x0 = std::clamp(x, 0, kScreenW);
+        int y0 = std::clamp(y, 0, kScreenH);
+        int x1 = std::clamp(x + w, 0, kScreenW);
+        int y1 = std::clamp(y + h, 0, kScreenH);
+        size_t count = 0;
+        for (int yy = y0; yy < y1; ++yy) {
+            for (int xx = x0; xx < x1; ++xx) {
+                if (fb_[static_cast<size_t>(yy) * kScreenW + xx] == color) {
+                    ++count;
+                }
+            }
+        }
+        return count;
+    }
+
     void validate() {
         load();
         std::cout << "background=" << background_.width << "x" << background_.height
@@ -4669,6 +4693,84 @@ public:
                   << " empty_encoded=" << emptyNameEncoding
                   << " typed_nessuno_encoded=nessuno:"
                   << " preserved_empty=::::::::\n";
+    }
+
+    void debugRecordNameEntryCursor() {
+        load();
+        initSdl();
+        score_ = 999999u;
+        levelIndex_ = 0;
+        beginGameOver();
+        if (menuPage_ != MenuPage::NameEntry || !pendingRecordName_.empty()) {
+            throw std::runtime_error("record name cursor fixture did not open name entry");
+        }
+
+        FrameInspection emptyFrame = inspectRenderedFrame("record-name-cursor-empty");
+        std::vector<uint32_t> emptyPixels = fb_;
+        int emptySlot = nameEntryCursorSlot();
+        size_t emptyCursorPixels = countColorInRegion(
+            nameEntrySlotX(emptySlot) - 1, kNameEntrySlotY - 2,
+            kNameEntryCursorBoxW, kNameEntryCursorBoxH,
+            kNameEntryCursorBackground);
+        if (emptySlot != 0 || emptyCursorPixels == 0) {
+            throw std::runtime_error("empty name-entry cursor was not visible at slot 0");
+        }
+
+        bool running = true;
+        onKey(SDLK_a, running);
+        FrameInspection oneFrame = inspectRenderedFrame("record-name-cursor-one");
+        std::vector<uint32_t> onePixels = fb_;
+        int oneSlot = nameEntryCursorSlot();
+        size_t oneCursorPixels = countColorInRegion(
+            nameEntrySlotX(oneSlot) - 1, kNameEntrySlotY - 2,
+            kNameEntryCursorBoxW, kNameEntryCursorBoxH,
+            kNameEntryCursorBackground);
+        if (pendingRecordName_ != "a" || oneSlot != 1 ||
+            oneFrame.hash == emptyFrame.hash || oneCursorPixels == 0 ||
+            !regionChanged(emptyPixels, nameEntrySlotX(0) - 1,
+                           kNameEntrySlotY - 2, kNameEntrySlotAdvance * 2,
+                           kNameEntryCursorBoxH)) {
+            throw std::runtime_error("name-entry cursor did not advance to slot 1");
+        }
+
+        onKey(SDLK_b, running);
+        FrameInspection twoFrame = inspectRenderedFrame("record-name-cursor-two");
+        int twoSlot = nameEntryCursorSlot();
+        size_t twoCursorPixels = countColorInRegion(
+            nameEntrySlotX(twoSlot) - 1, kNameEntrySlotY - 2,
+            kNameEntryCursorBoxW, kNameEntryCursorBoxH,
+            kNameEntryCursorBackground);
+        if (pendingRecordName_ != "ab" || twoSlot != 2 ||
+            twoFrame.hash == oneFrame.hash || twoCursorPixels == 0 ||
+            !regionChanged(onePixels, nameEntrySlotX(1) - 1,
+                           kNameEntrySlotY - 2, kNameEntrySlotAdvance * 2,
+                           kNameEntryCursorBoxH)) {
+            throw std::runtime_error("name-entry cursor did not advance to slot 2");
+        }
+
+        onKey(SDLK_BACKSPACE, running);
+        FrameInspection backspaceFrame =
+            inspectRenderedFrame("record-name-cursor-backspace");
+        int backspaceSlot = nameEntryCursorSlot();
+        size_t backspaceCursorPixels = countColorInRegion(
+            nameEntrySlotX(backspaceSlot) - 1, kNameEntrySlotY - 2,
+            kNameEntryCursorBoxW, kNameEntryCursorBoxH,
+            kNameEntryCursorBackground);
+        if (pendingRecordName_ != "a" || backspaceSlot != 1 ||
+            backspaceCursorPixels == 0 || backspaceFrame.hash != oneFrame.hash) {
+            throw std::runtime_error("name-entry cursor did not return after Backspace");
+        }
+
+        std::cout << "record_name_entry_cursor=ok"
+                  << " empty_slot=" << emptySlot
+                  << " typed_slot=" << oneSlot
+                  << " second_slot=" << twoSlot
+                  << " backspace_slot=" << backspaceSlot
+                  << " cursor_pixels=" << emptyCursorPixels << ','
+                  << oneCursorPixels << ',' << twoCursorPixels << ','
+                  << backspaceCursorPixels
+                  << " backspace_restores_frame=1"
+                  << " frame_inspection=1\n";
     }
 
     void debugRecordSaveFailure(const std::string& path) {
@@ -17058,11 +17160,39 @@ private:
              0xffffe060u, false, 0xff101010u);
         text(58, 94, "LEVEL " + std::to_string(pendingRecordLevel_),
              0xffffffffu, false, 0xff101010u);
-        std::string name = pendingRecordName_;
-        while (name.size() < 8) name.push_back('_');
-        text(58, 120, "NAME " + name, 0xffffffffu, false, 0xff101010u);
+        text(kNameEntryLabelX, kNameEntrySlotY, "NAME ", 0xffffffffu,
+             false, 0xff101010u);
+        drawNameEntrySlots();
         text(42, 148, "TYPE LETTERS OR SPACE", 0xffffffffu, false, 0xff101010u);
         text(42, 160, "ENTER SAVE. BACKSPACE ERASES", 0xff90ffb0u, false, 0xff101010u);
+    }
+
+    int nameEntryCursorSlot() const {
+        return std::min<int>(static_cast<int>(pendingRecordName_.size()),
+                             kNameEntrySlotCount - 1);
+    }
+
+    int nameEntrySlotX(int slot) const {
+        return kNameEntryLabelX + textWidth("NAME ") +
+               slot * kNameEntrySlotAdvance;
+    }
+
+    void drawNameEntrySlots() {
+        int activeSlot = nameEntryCursorSlot();
+        for (int slot = 0; slot < kNameEntrySlotCount; ++slot) {
+            int x = nameEntrySlotX(slot);
+            bool active = slot == activeSlot;
+            if (active) {
+                rect(x - 1, kNameEntrySlotY - 2, kNameEntryCursorBoxW,
+                     kNameEntryCursorBoxH, kNameEntryCursorBackground);
+            }
+            char ch = slot < static_cast<int>(pendingRecordName_.size())
+                          ? pendingRecordName_[static_cast<size_t>(slot)]
+                          : '_';
+            text(x, kNameEntrySlotY, std::string(1, ch),
+                 active ? kNameEntryCursorForeground : 0xffffffffu,
+                 false, active ? 0 : 0xff101010u);
+        }
     }
 
     void drawGameOverMenu() {
@@ -17159,13 +17289,30 @@ private:
         }
     }
 
+    int glyphAdvance(char raw, bool large = false) const {
+        if (raw == ' ') return large ? 8 : 5;
+        int index = fontGlyphIndex(raw, large);
+        if (index >= 0 && index < static_cast<int>(fontSprites_.sprites.size())) {
+            return fontSprites_.sprites[static_cast<size_t>(index)].width + 1;
+        }
+        return 9;
+    }
+
+    int textWidth(const std::string& s, bool large = false) const {
+        int width = 0;
+        for (char raw : s) {
+            width += glyphAdvance(raw, large);
+        }
+        return width;
+    }
+
     void text(int x, int y, const std::string& s, uint32_t color, bool large = false,
               uint32_t shadow = 0, int shadowDx = 1, int shadowDy = 1) {
         int cx = x;
         for (char raw : s) {
             char ch = raw;
             if (ch == ' ') {
-                cx += large ? 8 : 5;
+                cx += glyphAdvance(ch, large);
                 continue;
             }
             int index = fontGlyphIndex(ch, large);
@@ -17221,6 +17368,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-record-name-entry") {
             app.debugRecordNameEntry(argv[2]);
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-record-name-entry-cursor") {
+            app.debugRecordNameEntryCursor();
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-record-save-failure") {

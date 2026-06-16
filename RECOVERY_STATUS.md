@@ -227,6 +227,10 @@ Baseline: `origin/main`
   pins the original empty-name template from `CS:183c`: pressing Enter on an
   untouched prompt stores raw `::::::::`, which decodes as `nessuno`, while a
   typed `nessuno` preserves distinct raw bytes `nessuno:`.
+- Added a visible name-entry cursor box to the C++ renderer and
+  `--debug-record-name-entry-cursor` frame inspection. The diagnostic verifies
+  the active slot starts at position 0, advances after typed letters, returns
+  after Backspace, and restores the prior rendered frame.
 - Added `--debug-core-resource-raw-roundtrip` to pin `BOMPAL.PAL`,
   `SFONLEF.ZBG`, and `CARO.CAR` against their converted JSON resources. It
   compares decoded palettes, background RLE expansion, and tile payload bytes,

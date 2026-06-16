@@ -18,6 +18,9 @@ EXPECTED_OUTCOMES = {
     ),
     "visual_table_oracle_missing_row_byte.txt": "missing_byte address=c4ed",
     "visual_table_oracle_sprite_without_row.txt": "visual_row_missing_for_sprite",
+    "visual_table_oracle_bad_row_byte3_sprite.txt": (
+        "sprite_index_row3_mismatch row3=67 sprite_index=66"
+    ),
 }
 ORIGINAL_PREFIX = "visual_table_oracle_original"
 
@@ -243,7 +246,17 @@ def infer_outcome(
             "sprite_index_row0_mismatch row0="
             f"{claimed_row[0]} sprite_index={sprite_index}"
         )
-    if sprite_source not in {"row_byte0", "runtime_draw_call", "static_table"}:
+    if sprite_source == "row_byte3" and sprite_index != claimed_row[3]:
+        return (
+            "sprite_index_row3_mismatch row3="
+            f"{claimed_row[3]} sprite_index={sprite_index}"
+        )
+    if sprite_source not in {
+        "row_byte0",
+        "row_byte3",
+        "runtime_draw_call",
+        "static_table",
+    }:
         return f"bad_sprite_source value={sprite_source}"
     before_slot = parse_int(
         require_field(effect_before, "slot", "effect_before"), "effect_before.slot"
@@ -319,6 +332,7 @@ def check_source_contract(source_path: Path) -> None:
         "requiredBreaks = {0x3108, 0x6053, 0x6148, 0x7c89, 0x7ddf}",
         "row_addr=",
         "sprite_source=",
+        "row_byte3",
         "effect_after_frame=",
         "visual_claim=0",
     ]:

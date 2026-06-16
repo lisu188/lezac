@@ -442,6 +442,26 @@ def main() -> int:
         )
         cases += 1
 
+        duplicate_fixture_path = base / "fixture" / "lane_result_duplicate.txt"
+        write_text(
+            duplicate_fixture_path,
+            "temp_copy=1\nvisual_claim=0\nruntime_cs=01ED\n"
+            "runtime_ds=0C8F\nruntime_ds=0C8F\n",
+        )
+        duplicate_fixture_manifest = base / "duplicate-fixture" / "manifest.txt"
+        write_ready_manifest(duplicate_fixture_manifest, duplicate_fixture_path)
+        duplicate_fixture = run_ready(
+            root,
+            [str(duplicate_fixture_manifest), "--dry-run"],
+            False,
+        )
+        require(
+            duplicate_fixture,
+            "duplicate fixture field: runtime_ds",
+            "duplicate_fixture",
+        )
+        cases += 1
+
         bad_oracle = base / "bad-oracle" / "manifest.txt"
         write_text(
             bad_oracle,
@@ -521,6 +541,43 @@ def main() -> int:
             repo_output,
             "--write-result-manifest must be outside the repository",
             "repo_output",
+        )
+        cases += 1
+
+        extra_candidate_manifest = base / "extra-candidate" / "manifest.txt"
+        write_text(
+            extra_candidate_manifest,
+            ready_manifest.read_text(encoding="ascii").replace(
+                "ready_candidates=1", "ready_candidates=0"
+            ),
+        )
+        extra_candidate = run_ready(
+            root,
+            [str(extra_candidate_manifest), "--dry-run"],
+            False,
+        )
+        require(
+            extra_candidate,
+            "candidate index outside ready_candidates: 0 ready_candidates=0",
+            "extra_candidate",
+        )
+        cases += 1
+
+        duplicate_field_manifest = base / "duplicate-field" / "manifest.txt"
+        write_text(
+            duplicate_field_manifest,
+            ready_manifest.read_text(encoding="ascii")
+            + "candidate_0_fixture=/tmp/other_lane_result.txt\n",
+        )
+        duplicate_field = run_ready(
+            root,
+            [str(duplicate_field_manifest), "--dry-run"],
+            False,
+        )
+        require(
+            duplicate_field,
+            "duplicate manifest field: candidate_0_fixture",
+            "duplicate_field",
         )
         cases += 1
 

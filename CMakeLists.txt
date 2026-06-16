@@ -16,6 +16,43 @@ target_link_directories(lezac_cpp PRIVATE ${SDL2_LIBRARY_DIRS})
 target_link_libraries(lezac_cpp PRIVATE ${SDL2_LIBRARIES})
 target_compile_options(lezac_cpp PRIVATE ${SDL2_CFLAGS_OTHER})
 
+if(WIN32)
+    set(LEZAC_SDL2_RUNTIME_HINTS)
+    if(SDL2_PREFIX)
+        list(APPEND LEZAC_SDL2_RUNTIME_HINTS "${SDL2_PREFIX}/bin")
+    endif()
+    foreach(sdl2_library_dir IN LISTS SDL2_LIBRARY_DIRS)
+        list(APPEND LEZAC_SDL2_RUNTIME_HINTS "${sdl2_library_dir}/../bin")
+    endforeach()
+    foreach(sdl2_include_dir IN LISTS SDL2_INCLUDE_DIRS)
+        list(APPEND LEZAC_SDL2_RUNTIME_HINTS "${sdl2_include_dir}/../bin")
+        list(APPEND LEZAC_SDL2_RUNTIME_HINTS "${sdl2_include_dir}/../../bin")
+    endforeach()
+    if(DEFINED ENV{VCPKG_ROOT})
+        if(VCPKG_TARGET_TRIPLET)
+            list(APPEND LEZAC_SDL2_RUNTIME_HINTS
+                "$ENV{VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/bin"
+                "$ENV{VCPKG_ROOT}/packages/sdl2_${VCPKG_TARGET_TRIPLET}/bin")
+        endif()
+    endif()
+    if(DEFINED ENV{PATH})
+        file(TO_CMAKE_PATH "$ENV{PATH}" LEZAC_ENV_PATH)
+        list(APPEND LEZAC_SDL2_RUNTIME_HINTS ${LEZAC_ENV_PATH})
+    endif()
+    find_file(LEZAC_SDL2_RUNTIME_DLL NAMES SDL2.dll HINTS ${LEZAC_SDL2_RUNTIME_HINTS})
+    if(LEZAC_SDL2_RUNTIME_DLL)
+        add_custom_command(
+            TARGET lezac_cpp POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${LEZAC_SDL2_RUNTIME_DLL}
+                    $<TARGET_FILE_DIR:lezac_cpp>/SDL2.dll
+            VERBATIM
+        )
+    else()
+        message(WARNING "SDL2.dll was not found; lezac_cpp.exe may need SDL2.dll on PATH")
+    endif()
+endif()
+
 set(LEZAC_JSON_RESOURCES
     src/BOMPAL.PAL.json
     src/SFONLEF.ZBG.json
@@ -29,6 +66,19 @@ set(LEZAC_JSON_RESOURCES
     src/LIVELS.SCH.json
 )
 
+set(LEZAC_ORIGINAL_RESOURCES
+    BOMOMIMK.SPR
+    BOMPAL.PAL
+    CARO.CAR
+    FONTS.SPR
+    GRAN.MST
+    LIVELS.SCH
+    PROEFS.SON
+    PROVA.SPR
+    RECS.DAT
+    SFONLEF.ZBG
+)
+
 foreach(resource IN LISTS LEZAC_JSON_RESOURCES)
     get_filename_component(resource_name ${resource} NAME)
     add_custom_command(
@@ -40,6 +90,27 @@ foreach(resource IN LISTS LEZAC_JSON_RESOURCES)
     )
 endforeach()
 
+foreach(resource IN LISTS LEZAC_ORIGINAL_RESOURCES)
+    add_custom_command(
+        TARGET lezac_cpp POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${CMAKE_CURRENT_SOURCE_DIR}/${resource}
+                $<TARGET_FILE_DIR:lezac_cpp>/${resource}
+        VERBATIM
+    )
+endforeach()
+
+install(TARGETS lezac_cpp RUNTIME DESTINATION .)
+foreach(resource IN LISTS LEZAC_JSON_RESOURCES)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${resource} DESTINATION .)
+endforeach()
+foreach(resource IN LISTS LEZAC_ORIGINAL_RESOURCES)
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${resource} DESTINATION .)
+endforeach()
+if(WIN32 AND LEZAC_SDL2_RUNTIME_DLL)
+    install(FILES ${LEZAC_SDL2_RUNTIME_DLL} DESTINATION .)
+endif()
+
 include(CTest)
 
 if(BUILD_TESTING)
@@ -47,12 +118,85 @@ if(BUILD_TESTING)
 
     add_test(NAME validate_assets COMMAND $<TARGET_FILE:lezac_cpp> --validate)
     set_tests_properties(validate_assets PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "level_7=140x52 objective_tile=106 required_bonus=1 destruction=10 spawners=0 portals=2 triggers=1")
+
+    add_test(NAME validate_json_assets
+        COMMAND ${CMAKE_COMMAND} -E env LEZAC_LOAD_JSON_ASSETS=1
+                $<TARGET_FILE:lezac_cpp> --validate)
+    set_tests_properties(validate_json_assets PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "level_7=140x52 objective_tile=106 required_bonus=1 destruction=10 spawners=0 portals=2 triggers=1")
+
+    add_test(NAME validate_build_dir_original_assets
+        COMMAND ${CMAKE_COMMAND} -E chdir $<TARGET_FILE_DIR:lezac_cpp>
+                $<TARGET_FILE:lezac_cpp> --validate)
+    set_tests_properties(validate_build_dir_original_assets PROPERTIES
+        PASS_REGULAR_EXPRESSION
+            "level_7=140x52 objective_tile=106 required_bonus=1 destruction=10 spawners=0 portals=2 triggers=1")
+
+    add_test(NAME install_layout_smoke
+        COMMAND ${CMAKE_COMMAND}
+                -D BUILD_DIR=${CMAKE_BINARY_DIR}
+                -D CONFIG=$<CONFIG>
+                -D INSTALL_DIR=${CMAKE_CURRENT_BINARY_DIR}/install_layout_smoke
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_install_layout.cmake)
+    set_tests_properties(install_layout_smoke PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^install_layout=ok resources=20 sdl2_runtime=[01] validate=1")
+
+    add_test(NAME core_resource_raw_roundtrip
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-core-resource-raw-roundtrip)
+    set_tests_properties(core_resource_raw_roundtrip PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^core_resource_raw_roundtrip=ok palette_size=768 palette_sum=20767 palette_weighted=6683027 palette_xor=0x31 background_raw_size=34292 background_sum=2442898 background_weighted=37574726726 background_xor=0x30 background_pixels=124548 background_pixel_sum=12770002 background_pixel_nonzero=108702 background_pixel_xor=0xd2 tile_raw_size=8450 tile_count=132 tile_payload=8448 tile_sum=601303 tile_weighted=2783120138 tile_xor=0x01")
+
+    add_test(NAME shipped_file_manifest
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-shipped-file-manifest)
+    set_tests_properties(shipped_file_manifest PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^shipped_file_manifest=ok files=14 total_size=193537 total_sum=13037980 total_weighted=235960201921 total_xor=0x6e exe_size=52384 exe_image_base=0x0770 exe_image_size=50480 exe_filename_names=10 exe_filename_refs=15 exe_sound_anchor=1000:0626 exe_gran_anchor=1000:2ad4 exe_level_anchor=1000:2ef3 exe_record_refs=2 exe_font_refs=5 docs=2 setup_log=566")
+
+    add_test(NAME original_asset_load
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-asset-load)
+    set_tests_properties(original_asset_load PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^original_asset_load=ok palettes=2 background=321x388 pixels=124548 tiles=132 sprites=250 records=7 sound_steps=130 sound_chunks=6 gran_records=7 levels=7 cells=47700 spawners=15 portals=21 triggers=3")
+
+    add_test(NAME validate_original_assets
+        COMMAND ${CMAKE_COMMAND} -E env LEZAC_LOAD_ORIGINAL_ASSETS=1
+                $<TARGET_FILE:lezac_cpp> --validate)
+    set_tests_properties(validate_original_assets PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "level_7=140x52 objective_tile=106 required_bonus=1 destruction=10 spawners=0 portals=2 triggers=1")
 
     add_test(NAME level_raw_roundtrip
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-level-raw-roundtrip)
     set_tests_properties(level_raw_roundtrip PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "level_raw_roundtrip=ok levels=7 cells=47700 spawners=15 portals=21 triggers=3 fieldA_prefix=0x4000 fieldA_words=0x4005,0x401e,0x4036,0x403c,0x4066,0x409f,0x4041 fieldA_payloads=5,30,54,60,102,159,65 fieldB_words=0x0042,0x0189,0x02e3,0x01b3,0x03dc,0x0aa4,0x014a fieldB_total=5675")
+
+    add_test(NAME word_layer_embedded_fields
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-word-layer)
+    set_tests_properties(word_layer_embedded_fields PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "word_layer=ok levels=7 low=5675 high=501 high_unique=501 high_components=268 high_same_word_components=501 fieldB_total=5675 fieldB_matches_low=7 fieldA_payload_matches_high=1 fieldA_payload_matches_high_unique=1 fieldA_payload_matches_high_components=0 fieldA_payload_matches_high_same_word_components=1")
+
+    add_test(NAME level_completion_denominator
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-level-completion-denominator)
+    set_tests_properties(level_completion_denominator PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^level_completion_denominator=ok levels=7 fieldB_denominators=66,393,739,435,988,2724,330 required_destruction=50,60,20,70,65,40,10 thresholds=33,236,148,305,643,1090,33 before_blocked=7 at_complete=7 fieldB_total=5675 percent_model=integer_floor")
 
     add_test(NAME fixed_point_integration
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-fixed)
@@ -65,13 +209,24 @@ if(BUILD_TESTING)
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --smoke-ui 3)
     set_tests_properties(ui_smoke_dummy PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^ui_smoke=ok frames=3 frame_inspection=1")
 
     add_test(NAME ui_controls_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --smoke-controls)
     set_tests_properties(ui_controls_dummy PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^control_smoke=ok manual_controls=s,e,r fire_keys=n,kp0,insert background_toggle=1 view_width=320->288->320 two_player_width_locked=1 frame_inspection=1")
+
+    add_test(NAME menu_frame_flow_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-menu-frame-flow)
+    set_tests_properties(menu_frame_flow_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^menu_frame_flow=ok pages=main,info,instructions,records unique_frames=[0-9]+ gameplay_background_toggle=1 records_sound_cursor=0x0024 records_sound_priority=2 start_game=1 escape_exit=1 frame_inspection=1")
 
     add_test(NAME level1_frame_inspection_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -137,13 +292,21 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^autoplayer=ok scenario=level1_bomb_route route_frames=[0-9]+ .*p1_bomb_tile=24,22 bombs=1 explosion=1 frame_inspection=1")
 
+    add_test(NAME autoplayer_pause_flow_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer pause_flow)
+    set_tests_properties(autoplayer_pause_flow_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=pause_flow paused_overlay=1 frozen_ticks=1 frozen_bomb=1 frozen_inputs=1 resumed=1 escape_menu=1 frame_inspection=1 original_pause_claim=0")
+
     add_test(NAME autoplayer_death_reentry_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-autoplayer death_reentry)
     set_tests_properties(autoplayer_death_reentry_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=death_reentry death_state_ticks=60 lives=2 energy=100 reentered=1 frame_inspection=1")
+            "^autoplayer=ok scenario=death_reentry death_state_ticks=60 lives=2 energy=100 reentered=1 wait_restart=1 unwinnable_restart=1 early_unwinnable_fire_blocked=1 frame_inspection=1")
 
     add_test(NAME autoplayer_death_visuals_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -151,7 +314,15 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_death_visuals_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=death_visuals death_state_ticks=60 start_frame=0x4a tick1_frame=0x4b tick5_frame=0x4c frame_inspection=1 visual_claim=0")
+            "^autoplayer=ok scenario=death_visuals death_state_ticks=60 start_frame=0x4a tick1_frame=0x4b tick5_frame=0x4c live_sprites=67,68,69 cursor_legacy_sprites=74,75,76 draw_offset=16,16 effect_entry_xy=104,168 effect_entry_frames=0x4a,0x4b,0x4c effect_entry_sprites=67,68,69 effect_entry_draw_offset=16,16 cursor_legacy_hash_mismatch=1 row3_live_renderer=1 frame_inspection=1 visual_claim=0")
+
+    add_test(NAME autoplayer_two_player_death_visuals_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer two_player_death_visuals)
+    set_tests_properties(autoplayer_two_player_death_visuals_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=two_player_death_visuals p1_effect_xy=104,168 p2_effect_xy=280,168 p2_frames=0x4a,0x4b p2_sprites=67,68 p1_frame=0x4a p1_sprite=67 draw_offset=16,16 effects_separate=1 cursor_legacy_hash_mismatch=1 frame_inspection=1 visual_claim=0")
 
     add_test(NAME autoplayer_level_transition_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -247,7 +418,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_two_player_route_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=two_player_route .*p2_bomb_tile=[0-9]+,[0-9]+ bombs=1 frame_inspection=1")
+            "^autoplayer=ok scenario=two_player_route .*p2_bomb_tile=[0-9]+,[0-9]+ p2_fire_key=kp0 bombs=1 frame_inspection=1")
 
     add_test(NAME autoplayer_two_player_progression_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -255,7 +426,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_two_player_progression_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=two_player_progression p1_moved=1 p2_death_timer=60 p2_reentered=1 p2_bomb_tile=[0-9]+,[0-9]+ p2_score=1000 collected=1 frame_inspection=1")
+            "^autoplayer=ok scenario=two_player_progression p1_moved=1 p2_death_timer=60 p2_reentered=1 p2_bomb_tile=[0-9]+,[0-9]+ p2_fire_key=kp0 p2_score=1000 collected=1 frame_inspection=1")
 
     if(Python3_Interpreter_FOUND)
         add_test(NAME python_tool_syntax_lane_result_preflight
@@ -293,6 +464,10 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_preflight.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_explosion_lane_result_wrapper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gran_data_evidence_map.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_bundle_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_workflow.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_state2_visual_compare_workflow.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_blocker_note.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_environment.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_record_flow_evidence_map.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_manifest.py
@@ -300,9 +475,23 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_route_sweep_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_ready_pipeline.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gran_usage_guardrail.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ready_fixture_provenance_contract.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_runtime_evidence_guardrail.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_guardrail.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_candidate.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_entry.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_plan.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_workflow.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_state2_visual_frame_capture_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_debug_capture_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_compatibility_hooks.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_native_windows_validation_helper.py
@@ -311,17 +500,27 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_lane_result_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/run_lane_write_ready_manifest.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/preflight_original_evidence_environment.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/compare_state2_visual_row_game_previews.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/ready_result_checker_support.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/ready_result_fixture_guardrails.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_actor_dispatch_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_actor_dispatch_gate_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_debug_capture_batch.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_debug_capture.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_debug_capture_ready_results.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_frame_compare_bundle.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_result_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_result_route_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_write_ready_results.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_write_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_dispatch_gates.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_contact_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_write_routes.py
-                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_result_routes.py)
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_result_routes.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/plan_visual_claim_promotions.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/validate_visual_claim_promotion_candidate.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/write_visual_claim_promotion_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/write_visual_claim_promotion_entry.py)
         set_tests_properties(python_tool_syntax_lane_result_preflight PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -332,7 +531,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_dispatch_gate_sweep_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_dispatch_gate_sweep_summary_check=ok cases=14")
+                "^actor_dispatch_gate_sweep_summary_check=ok cases=19")
 
         add_test(NAME actor_dispatch_ready_manifest_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -341,7 +540,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_dispatch_ready_manifest_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_dispatch_ready_manifest_check=ok cases=15")
+                "^actor_dispatch_ready_manifest_check=ok cases=18")
 
         add_test(NAME actor_dispatch_ready_results_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -350,7 +549,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_dispatch_ready_results_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_dispatch_ready_results_check=ok cases=15")
+                "^actor_dispatch_ready_results_check=ok cases=29")
 
         add_test(NAME actor_dispatch_ready_pipeline_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -359,7 +558,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_dispatch_ready_pipeline_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_dispatch_ready_pipeline_check=ok cases=1")
+                "^actor_dispatch_ready_pipeline_check=ok cases=4")
 
         add_test(NAME original_evidence_environment_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -368,7 +567,7 @@ if(BUILD_TESTING)
         set_tests_properties(original_evidence_environment_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^original_evidence_environment_check=ok cases=10")
+                "^original_evidence_environment_check=ok cases=11")
 
         add_test(NAME gran_data_evidence_map
             COMMAND ${Python3_EXECUTABLE}
@@ -379,6 +578,15 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^gran_data_evidence_map=ok raw_size=399 record_size=57 records=7 sha256=3f0cf17706d557ca863d6e39bfa6641fba777a88815ba3f0a22e5ac89e0e39e2 zero_bytes=150 ctests=2 docs=3 source_guards=5 opaque_claim=1")
 
+        add_test(NAME original_evidence_blocker_note_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_original_evidence_blocker_note.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(original_evidence_blocker_note_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^original_evidence_blocker_note=ok docs=1 ctest=1 commands=4 blocker=windows_no_default_wsl_distro")
+
         add_test(NAME frame_compare_identical
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/frame_compare.py
@@ -388,6 +596,45 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^frame_compare=ok size=2x2 normalized=none pixels=4 exact_match=1 exact_different_pixels=0 threshold=0 threshold_different_pixels=0 max_delta=0")
+
+        add_test(NAME frame_compare_workflow_contract
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_workflow.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(frame_compare_workflow_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^frame_compare_workflow=ok wrapper=1 helpers=4 docs=1 ctest=2 scenarios=2 original_preflight=1 failure_manifest=1")
+
+        add_test(NAME frame_compare_bundle_summary_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_frame_compare_bundle_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(frame_compare_bundle_summary_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^frame_compare_bundle_summary_check=ok cases=5")
+
+        add_test(NAME state2_visual_compare_workflow
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_state2_visual_compare_workflow.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    $<TARGET_FILE:lezac_cpp>
+                    ${CMAKE_CURRENT_BINARY_DIR}/state2_visual_compare_workflow)
+        set_tests_properties(state2_visual_compare_workflow PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^state2_visual_compare_workflow=ok helpers=2 docs=4 ctest=1 compared=12")
+
+        add_test(NAME state2_visual_frame_capture_helper_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_state2_visual_frame_capture_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${CMAKE_CURRENT_BINARY_DIR}/state2_visual_frame_capture_helper)
+        set_tests_properties(state2_visual_frame_capture_helper_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^state2_visual_frame_capture_helper=ok scenarios=1 frames=6 docs=3 ctest=2 dry_run=")
 
         add_test(NAME explosion_freeze_patch_describe_lane_result_3d3f
             COMMAND ${Python3_EXECUTABLE}
@@ -462,7 +709,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_orchestrator_cmake_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_orchestrator_cmake=ok tests=14 will_fail=3")
+                "^lane_result_orchestrator_cmake=ok tests=15 will_fail=3")
 
         add_test(NAME explosion_lane_result_wrapper_output_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -480,7 +727,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_evidence_map PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^explosion_evidence_map=ok fixtures=47 playback_ctests=47 lane_result_helper_ctests=24 critical_offsets=16 .*oracle_flag=--debug-explosion-playback-oracle docs=3")
+                "^explosion_evidence_map=ok fixtures=49 playback_ctests=49 lane_result_helper_ctests=26 critical_offsets=16 .*oracle_flag=--debug-explosion-playback-oracle docs=3")
 
         add_test(NAME explosion_lane_result_route_sweep_dry_run
             COMMAND ${Python3_EXECUTABLE}
@@ -494,7 +741,19 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_route_sweep_dry_run PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_route_sweep=ok mode=dry_run .*offset=forward routes=2 route_labels=x2p00_c0p50,x1p50_z0p50 capture_commands=2")
+                "^lane_result_route_sweep=ok mode=dry_run .*offset=forward routes=2 route_labels=x2p00_c0p50,x1p50_z0p50 capture_commands=2 oracle_commands=0")
+
+        add_test(NAME explosion_lane_result_route_sweep_default_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_result_routes.py
+                    /tmp/lezac-lane-result-route-sweep-default-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --skip-oracle)
+        set_tests_properties(explosion_lane_result_route_sweep_default_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_route_sweep=ok mode=dry_run .*offset=forward routes=4 route_labels=x2p00,x2p00_c0p50,x1p50_z0p50,x2p00_m0p35 capture_commands=4 oracle_commands=0 .*environment_preflight=1")
 
         add_test(NAME explosion_lane_result_route_sweep_output_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -503,7 +762,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_route_sweep_output_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_route_sweep_output=ok cases=8")
+                "^lane_result_route_sweep_output=ok cases=11")
 
         add_test(NAME explosion_lane_result_route_sweep_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -512,7 +771,87 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_route_sweep_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_route_sweep_summary_check=ok cases=8")
+                "^lane_result_route_sweep_summary_check=ok cases=12")
+
+        add_test(NAME explosion_lane_write_static_model
+            COMMAND $<TARGET_FILE:lezac_cpp> --debug-lane-write-static-model)
+        set_tests_properties(explosion_lane_write_static_model PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_write_static_model=ok image_base=0x0770 sites=4 forward=2 reverse=2 collapse=2 debris=2 jump_over_debris=2 debris_marker_base=0x4e20 debris_marker_stride=0x0b debris_marker_setups=2 shared_tail=2 pending_natural_forward=0x3d2d stores=0x3d1b:forward/collapse/al:0x6617,0x3d2d:forward/debris/dl:0x2097,0x3eaf:reverse/collapse/al:0x6618,0x3ec1:reverse/debris/dl:0x2098")
+
+        add_test(NAME explosion_lane_write_route_sweep_default_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_write_routes.py
+                    /tmp/lezac-lane-write-route-sweep-default-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --skip-oracle)
+        set_tests_properties(explosion_lane_write_route_sweep_default_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_write_route_sweep=ok mode=dry_run .*offsets=2 offset_labels=3d2d,3ec1 offset_addresses=1000:3D2D,1000:3EC1 routes=4 route_labels=x2p00,x2p00_c0p50,x1p50_z0p50,x2p00_m0p35 capture_commands=8 oracle_commands=0 runtime_freeze_preset=late-collapse .*environment_preflight=1")
+
+        add_test(NAME explosion_lane_write_route_sweep_forward_debris_expanded_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_write_routes.py
+                    /tmp/lezac-lane-write-route-sweep-forward-expanded-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --skip-oracle
+                    --route-preset
+                    forward-debris-expanded
+                    --offset
+                    forward-debris)
+        set_tests_properties(explosion_lane_write_route_sweep_forward_debris_expanded_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_write_route_sweep=ok mode=dry_run .*offsets=1 offset_labels=3d2d offset_addresses=1000:3D2D routes=10 route_labels=x2p00,x1p75,x2p25,x2p00_c0p25,x2p00_c0p50,x2p00_c0p75,x2p00_m0p35,x5p00_m0p50_x2p00,x3p00_z0p50_x2p00,x1p50_left0p50_x2p00 capture_commands=10 oracle_commands=0 runtime_freeze_preset=late-collapse .*route_preset=forward-debris-expanded")
+
+        add_test(NAME explosion_lane_write_route_sweep_output_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_write_route_sweep_output_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_write_route_sweep_output=ok cases=14")
+
+        add_test(NAME explosion_lane_write_route_sweep_summary_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_write_route_sweep_summary_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_write_route_sweep_summary_check=ok cases=12")
+
+        add_test(NAME explosion_lane_write_ready_manifest_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_ready_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_write_ready_manifest_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_write_ready_manifest_check=ok cases=19")
+
+        add_test(NAME explosion_lane_write_ready_results_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_ready_results.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_write_ready_results_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_write_ready_results_check=ok cases=25")
+
+        add_test(NAME explosion_lane_write_ready_pipeline_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_ready_pipeline.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_write_ready_pipeline_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_write_ready_pipeline_check=ok cases=9")
 
         add_test(NAME explosion_lane_result_ready_manifest_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -521,7 +860,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_ready_manifest_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_ready_manifest_check=ok cases=16")
+                "^lane_result_ready_manifest_check=ok cases=19")
 
         add_test(NAME explosion_lane_result_ready_results_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -530,7 +869,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_ready_results_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_ready_results_check=ok cases=15")
+                "^lane_result_ready_results_check=ok cases=25")
 
         add_test(NAME explosion_lane_result_ready_pipeline_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -539,7 +878,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_result_ready_pipeline_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_result_ready_pipeline_check=ok cases=7")
+                "^lane_result_ready_pipeline_check=ok cases=9")
 
         add_test(NAME actor_contact_route_sweep_dry_run
             COMMAND ${Python3_EXECUTABLE}
@@ -555,6 +894,17 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^actor_contact_route_sweep=ok mode=dry_run .*target=contact_scanner_start timings=before_route routes=2 route_labels=x5p00_m0p50_x2p00,x3p00_z0p50_x2p00 capture_commands=2")
+
+        add_test(NAME actor_contact_route_sweep_default_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_contact_routes.py
+                    /tmp/lezac-actor-contact-route-sweep-default-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run)
+        set_tests_properties(actor_contact_route_sweep_default_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_contact_route_sweep=ok mode=dry_run .*target=contact_scanner_start timings=before_bomb,before_route routes=4 .*route_labels=x2p00,x5p00_m0p50_x2p00,x3p00_z0p50_x2p00,x1p50_left0p50_x2p00 .*capture_commands=8 .*environment_preflight=1")
 
         add_test(NAME actor_contact_route_sweep_output_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -581,6 +931,29 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^actor_dispatch_gate_sweep=ok mode=dry_run .*targets=2 .*target_labels=actor_update_gate5,actor_update_gate6 .*timings=before_bomb,before_route routes=2 .*sweep_commands=2 .*capture_commands=8")
 
+        add_test(NAME actor_dispatch_gate_sweep_default_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_dispatch_gates.py
+                    /tmp/lezac-actor-dispatch-gate-sweep-default-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run)
+        set_tests_properties(actor_dispatch_gate_sweep_default_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_dispatch_gate_sweep=ok mode=dry_run .*targets=5 .*target_labels=actor_update_gate5,actor_update_gate5_integration,actor_update_gate5_exit,actor_update_gate6,contact_scanner_callsite .*timings=before_route routes=4 .*route_labels=x2p00,x5p00_m0p50_x2p00,x3p00_z0p50_x2p00,x1p50_left0p50_x2p00 .*sweep_commands=5 .*capture_commands=20 .*environment_preflight=1")
+
+        add_test(NAME actor_dispatch_gate_sweep_all_targets_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_dispatch_gates.py
+                    /tmp/lezac-actor-dispatch-gate-sweep-all-targets-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --target-set all)
+        set_tests_properties(actor_dispatch_gate_sweep_all_targets_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_dispatch_gate_sweep=ok mode=dry_run .*targets=9 .*target_labels=actor_update_start,actor_update_end,actor_update_gate5,actor_update_gate5_integration,actor_update_gate5_exit,actor_update_gate6,contact_scanner_callsite,contact_scanner_start,contact_scanner_end .*timings=before_route routes=4 .*sweep_commands=9 .*capture_commands=36 .*environment_preflight=1")
+
         add_test(NAME actor_dispatch_gate_sweep_output_expectations
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_gate_sweep.py
@@ -588,7 +961,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_dispatch_gate_sweep_output_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_dispatch_gate_sweep_output=ok cases=7")
+                "^actor_dispatch_gate_sweep_output=ok cases=9")
 
         add_test(NAME actor_contact_callsite_scan
             COMMAND ${Python3_EXECUTABLE}
@@ -617,6 +990,13 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^actor_update_dispatch_gates=ok .*gates=1000:654E=06,1000:65A2=05,1000:7595=05 .*gate6_call_target=1000:5CB0 .*gate5_integration_target=1000:73E5 .*gate5_exit_target=1000:777F")
 
+        add_test(NAME actor_contact_static_model
+            COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-contact-static-model)
+        set_tests_properties(actor_contact_static_model PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^actor_contact_static_model=ok image_base=0x0770 scanner=0x5cb0..0x604f scanner_entry_bytes=5589 scanner_return_bytes=c9c20200 actor_update=0x6053..0x777f actor_entry_bytes=5589 actor_return_bytes=c9c20400 gates=3 bp31=0x654e:0x0006,0x65a2:0x0005,0x7595:0x0005 scanner_call_count=1 scanner_calls=0x6555 scanner_call_context=gate6 gate6_skip=0x655b gate6_call=0x5cb0 gate6_integration=0x73e5 gate5_skip=0x65da gate5_integration=0x73e5 gate5_exit_skip=0x759e gate5_exit=0x777f integration_jumps=0x6558,0x65d7")
+
         find_program(BASH_EXECUTABLE bash)
         if(BASH_EXECUTABLE)
             add_test(NAME behavior4_debug_capture_helper_dry_run
@@ -631,6 +1011,30 @@ if(BUILD_TESTING)
                 PASS_REGULAR_EXPRESSION
                     "^behavior4_debug_capture=ok mode=dry_run scenario=monster_behavior4_target_selection route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
 
+            add_test(NAME behavior4_debug_capture_helper_level2_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_BEHAVIOR4_DEBUG_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_behavior4_debug.sh
+                        /tmp/lezac-behavior4-debug-level2-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        monster_spawner_behavior4_level2)
+            set_tests_properties(behavior4_debug_capture_helper_level2_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^behavior4_debug_capture=ok mode=dry_run scenario=monster_spawner_behavior4_level2 route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
+
+            add_test(NAME behavior4_debug_capture_helper_level3_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_BEHAVIOR4_DEBUG_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_behavior4_debug.sh
+                        /tmp/lezac-behavior4-debug-level3-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        monster_spawner_behavior4_level3)
+            set_tests_properties(behavior4_debug_capture_helper_level3_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^behavior4_debug_capture=ok mode=dry_run scenario=monster_spawner_behavior4_level3 route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
+
             add_test(NAME actor_update_debug_capture_helper_dry_run
                 COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_UPDATE_DEBUG_DRY_RUN=1
                         ${BASH_EXECUTABLE}
@@ -642,6 +1046,30 @@ if(BUILD_TESTING)
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 PASS_REGULAR_EXPRESSION
                     "^actor_update_debug_capture=ok mode=dry_run scenario=object_collision_jump_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_update_debug_capture_helper_contact_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_UPDATE_DEBUG_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_update_debug.sh
+                        /tmp/lezac-actor-update-debug-contact-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        monster_contact_damage_live)
+            set_tests_properties(actor_update_debug_capture_helper_contact_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_update_debug_capture=ok mode=dry_run scenario=monster_contact_damage_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_update_debug_capture_helper_behavior4_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_UPDATE_DEBUG_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_update_debug.sh
+                        /tmp/lezac-actor-update-debug-behavior4-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        monster_behavior4_chase)
+            set_tests_properties(actor_update_debug_capture_helper_behavior4_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_update_debug_capture=ok mode=dry_run scenario=monster_behavior4_chase route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
 
             add_test(NAME contact_scanner_debug_capture_helper_dry_run
                 COMMAND ${CMAKE_COMMAND} -E env LEZAC_CONTACT_SCANNER_DEBUG_DRY_RUN=1
@@ -655,6 +1083,30 @@ if(BUILD_TESTING)
                 PASS_REGULAR_EXPRESSION
                     "^contact_scanner_debug_capture=ok mode=dry_run scenario=monster_contact_damage_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
 
+            add_test(NAME contact_scanner_debug_capture_helper_object_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_CONTACT_SCANNER_DEBUG_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_contact_scanner_debug.sh
+                        /tmp/lezac-contact-scanner-debug-object-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        object_collision_jump_live)
+            set_tests_properties(contact_scanner_debug_capture_helper_object_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^contact_scanner_debug_capture=ok mode=dry_run scenario=object_collision_jump_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
+
+            add_test(NAME contact_scanner_debug_capture_helper_behavior4_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_CONTACT_SCANNER_DEBUG_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_contact_scanner_debug.sh
+                        /tmp/lezac-contact-scanner-debug-behavior4-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        monster_behavior4_chase)
+            set_tests_properties(contact_scanner_debug_capture_helper_behavior4_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^contact_scanner_debug_capture=ok mode=dry_run scenario=monster_behavior4_chase route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
+
             add_test(NAME visual_table_debug_capture_helper_dry_run
                 COMMAND ${CMAKE_COMMAND} -E env LEZAC_VISUAL_TABLE_DEBUG_DRY_RUN=1
                         ${BASH_EXECUTABLE}
@@ -667,6 +1119,44 @@ if(BUILD_TESTING)
                 PASS_REGULAR_EXPRESSION
                     "^visual_table_debug_capture=ok mode=dry_run scenario=state2_death_table_consumption route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
 
+            foreach(sound_callsite_scenario
+                    bomb_object_sound
+                    bomb_place_sound
+                    monster_death_sound
+                    portal_teleport_sound
+                    tile_trigger_sound
+                    bonus_pickup_sound
+                    player_damage_sound
+                    player_death_sound
+                    record_name_prompt_sound
+                    record_name_commit_sound
+                    post_end_flow_record_sound
+                    records_page_sound)
+                add_test(NAME sound_callsite_debug_capture_helper_${sound_callsite_scenario}_dry_run
+                    COMMAND ${CMAKE_COMMAND} -E env LEZAC_SOUND_CALLSITE_DEBUG_DRY_RUN=1
+                            ${BASH_EXECUTABLE}
+                            ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_sound_callsite_debug.sh
+                            /tmp/lezac-sound-callsite-debug-${sound_callsite_scenario}-dry-run
+                            ${CMAKE_CURRENT_SOURCE_DIR}
+                            ${sound_callsite_scenario})
+                set_tests_properties(sound_callsite_debug_capture_helper_${sound_callsite_scenario}_dry_run PROPERTIES
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                    PASS_REGULAR_EXPRESSION
+                        "^sound_callsite_debug_capture=ok mode=dry_run scenario=${sound_callsite_scenario} route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run")
+            endforeach()
+
+            add_test(NAME state2_visual_frame_capture_helper_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_STATE2_VISUAL_FRAME_CAPTURE_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_state2_visual_frames.sh
+                        /tmp/lezac-state2-visual-frame-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        state2_death_table_consumption)
+            set_tests_properties(state2_visual_frame_capture_helper_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^state2_visual_frame_capture=ok mode=dry_run scenario=state2_death_table_consumption route=debugger_seeded expected_frames=6 .*manifest=.*frame_plan=.*environment_preflight=dry_run")
+
             add_test(NAME actor_contact_procmem_helper_dry_run
                 COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
                         ${BASH_EXECUTABLE}
@@ -678,6 +1168,102 @@ if(BUILD_TESTING)
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 PASS_REGULAR_EXPRESSION
                     "^actor_contact_procmem=ok mode=dry_run target=actor_update_start ghidra=1000:6053 .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_contact_procmem_helper_actor_update_end_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_contact_procmem.sh
+                        /tmp/lezac-actor-contact-procmem-actor-update-end-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        actor_update_end)
+            set_tests_properties(actor_contact_procmem_helper_actor_update_end_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_contact_procmem=ok mode=dry_run target=actor_update_end ghidra=1000:777F .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_contact_procmem_helper_actor_update_gate5_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_contact_procmem.sh
+                        /tmp/lezac-actor-contact-procmem-gate5-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        actor_update_gate5)
+            set_tests_properties(actor_contact_procmem_helper_actor_update_gate5_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_contact_procmem=ok mode=dry_run target=actor_update_gate5 ghidra=1000:65A2 .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_contact_procmem_helper_actor_update_gate5_integration_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_contact_procmem.sh
+                        /tmp/lezac-actor-contact-procmem-gate5-integration-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        actor_update_gate5_integration)
+            set_tests_properties(actor_contact_procmem_helper_actor_update_gate5_integration_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_contact_procmem=ok mode=dry_run target=actor_update_gate5_integration ghidra=1000:65D7 .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_contact_procmem_helper_actor_update_gate5_exit_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_contact_procmem.sh
+                        /tmp/lezac-actor-contact-procmem-gate5-exit-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        actor_update_gate5_exit)
+            set_tests_properties(actor_contact_procmem_helper_actor_update_gate5_exit_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_contact_procmem=ok mode=dry_run target=actor_update_gate5_exit ghidra=1000:7595 .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_contact_procmem_helper_actor_update_gate6_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_contact_procmem.sh
+                        /tmp/lezac-actor-contact-procmem-gate6-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        actor_update_gate6)
+            set_tests_properties(actor_contact_procmem_helper_actor_update_gate6_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_contact_procmem=ok mode=dry_run target=actor_update_gate6 ghidra=1000:654E .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_contact_procmem_helper_contact_scanner_callsite_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_contact_procmem.sh
+                        /tmp/lezac-actor-contact-procmem-contact-callsite-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        contact_scanner_callsite)
+            set_tests_properties(actor_contact_procmem_helper_contact_scanner_callsite_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_contact_procmem=ok mode=dry_run target=contact_scanner_callsite ghidra=1000:6555 .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_contact_procmem_helper_contact_scanner_start_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_contact_procmem.sh
+                        /tmp/lezac-actor-contact-procmem-contact-start-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        contact_scanner_start)
+            set_tests_properties(actor_contact_procmem_helper_contact_scanner_start_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_contact_procmem=ok mode=dry_run target=contact_scanner_start ghidra=1000:5CB0 .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME actor_contact_procmem_helper_contact_scanner_end_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_actor_contact_procmem.sh
+                        /tmp/lezac-actor-contact-procmem-contact-end-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        contact_scanner_end)
+            set_tests_properties(actor_contact_procmem_helper_contact_scanner_end_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^actor_contact_procmem=ok mode=dry_run target=contact_scanner_end ghidra=1000:604F .*procmem_out=.*environment_preflight=dry_run")
         endif()
 
         add_test(NAME behavior4_debug_capture_helper_expectations
@@ -687,7 +1273,7 @@ if(BUILD_TESTING)
         set_tests_properties(behavior4_debug_capture_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^behavior4_debug_capture_helper=ok scenarios=3 anchors=6 outputs=7 cmake_test=1 docs=2")
+                "^behavior4_debug_capture_helper=ok scenarios=3 anchors=6 outputs=7 cmake_tests=3 docs=2")
 
         add_test(NAME actor_update_debug_capture_helper_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -696,7 +1282,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_update_debug_capture_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_update_debug_capture_helper=ok scenarios=3 anchors=4 outputs=7 cmake_test=1 docs=2")
+                "^actor_update_debug_capture_helper=ok scenarios=3 anchors=4 outputs=7 cmake_tests=3 docs=2")
 
         add_test(NAME contact_scanner_debug_capture_helper_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -705,7 +1291,7 @@ if(BUILD_TESTING)
         set_tests_properties(contact_scanner_debug_capture_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^contact_scanner_debug_capture_helper=ok scenarios=3 anchors=2 outputs=7 cmake_test=1 docs=2")
+                "^contact_scanner_debug_capture_helper=ok scenarios=3 anchors=2 outputs=7 cmake_tests=3 docs=2")
 
         add_test(NAME visual_table_debug_capture_helper_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -716,6 +1302,24 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^visual_table_debug_capture_helper=ok scenarios=1 anchors=5 outputs=7 cmake_test=1 docs=3")
 
+        add_test(NAME sound_callsite_debug_capture_helper_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_debug_capture_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(sound_callsite_debug_capture_helper_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^sound_callsite_debug_capture_helper=ok scenarios=12 anchors=13 outputs=7 cmake_tests=12 docs=3")
+
+        add_test(NAME sound_compatibility_hooks
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_compatibility_hooks.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(sound_compatibility_hooks PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=24 docs=3 rejected_objective_candidates=3 live_diagnostic=1")
+
         add_test(NAME debug_capture_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_debug_capture_summary.py
@@ -723,7 +1327,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_summary_check=ok cases=6")
+                "^debug_capture_summary_check=ok cases=9")
 
         add_test(NAME debug_capture_batch_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -732,7 +1336,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_batch_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_batch_summary_check=ok cases=5")
+                "^debug_capture_batch_summary_check=ok cases=7")
 
         add_test(NAME debug_capture_ready_manifest_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -741,7 +1345,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_ready_manifest_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_ready_manifest_check=ok cases=6")
+                "^debug_capture_ready_manifest_check=ok cases=12")
 
         add_test(NAME debug_capture_ready_results_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -750,7 +1354,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_ready_results_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_ready_results_check=ok cases=13")
+                "^debug_capture_ready_results_check=ok cases=24")
 
         add_test(NAME debug_capture_ready_pipeline_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -759,7 +1363,7 @@ if(BUILD_TESTING)
         set_tests_properties(debug_capture_ready_pipeline_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^debug_capture_ready_pipeline_check=ok cases=2")
+                "^debug_capture_ready_pipeline_check=ok cases=4")
 
         add_test(NAME actor_contact_procmem_helper_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -768,7 +1372,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_contact_procmem_helper_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_contact_procmem_helper=ok targets=9 cmake_test=1 docs=2")
+                "^actor_contact_procmem_helper=ok targets=9 cmake_tests=9 docs=2")
 
         add_test(NAME actor_contact_evidence_map
             COMMAND ${Python3_EXECUTABLE}
@@ -821,7 +1425,7 @@ if(BUILD_TESTING)
         set_tests_properties(visual_table_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^visual_table_oracle_fixtures=ok files=4 valid=1 malformed=3 original=0 cmake_tests=4 source_command=1")
+                "^visual_table_oracle_fixtures=ok files=6 valid=2 malformed=4 original=1 cmake_tests=6 source_command=1")
 
         add_test(NAME optional_original_oracle_fixture_conventions
             COMMAND ${Python3_EXECUTABLE}
@@ -848,7 +1452,25 @@ if(BUILD_TESTING)
         set_tests_properties(gran_usage_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^gran_usage_guardrail=ok source_refs=16 load_refs=1 debug_refs=14 member_refs=1 live_refs=0 ctest=1 docs=3")
+                "^gran_usage_guardrail=ok source_refs=20 load_refs=2 debug_refs=17 member_refs=1 live_refs=0 ctest=3 docs=3")
+
+        add_test(NAME gran_usage_guardrail_selftest
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_gran_usage_guardrail.py
+                    --self-test)
+        set_tests_properties(gran_usage_guardrail_selftest PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^gran_usage_guardrail_selftest=ok positive=1 live_ref=1 missing_debug=1 docs=1")
+
+        add_test(NAME ready_fixture_provenance_contract
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_ready_fixture_provenance_contract.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(ready_fixture_provenance_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^ready_fixture_provenance_contract=ok docs=1 validator=1 writers=4 runners=4 result_summaries=4 dry_run_missing_fixture_bypass=4 ledger_selftests=9")
 
         add_test(NAME visual_claim_guardrail
             COMMAND ${Python3_EXECUTABLE}
@@ -857,7 +1479,7 @@ if(BUILD_TESTING)
         set_tests_properties(visual_claim_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^visual_claim_guardrail=ok fixtures=70 claim0=70 claim1=0 ledger=1 promoted=0 ctest=1 docs=3")
+                "^visual_claim_guardrail=ok fixtures=78 claim0=78 claim1=0 ledger=1 promoted=0 ctest=1 docs=3")
 
         add_test(NAME visual_claim_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -866,7 +1488,52 @@ if(BUILD_TESTING)
         set_tests_properties(visual_claim_guardrail_selftest PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^visual_claim_guardrail_selftest=ok positive=1 missing_artifact=1 mismatch=1")
+                "^visual_claim_guardrail_selftest=ok positive=1 missing_artifact=1 unready_bundle=1 mismatch=1")
+
+        add_test(NAME visual_claim_promotion_entry_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_entry.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(visual_claim_promotion_entry_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^visual_claim_promotion_entry_check=ok cases=4")
+
+        add_test(NAME visual_claim_promotion_candidate_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_candidate.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(visual_claim_promotion_candidate_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^visual_claim_promotion_candidate_check=ok cases=5")
+
+        add_test(NAME visual_claim_promotion_plan_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_plan.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(visual_claim_promotion_plan_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^visual_claim_promotion_plan_check=ok cases=8")
+
+        add_test(NAME visual_claim_promotion_manifest_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_manifest.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(visual_claim_promotion_manifest_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^visual_claim_promotion_manifest_check=ok cases=6")
+
+        add_test(NAME visual_claim_promotion_workflow
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_promotion_workflow.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(visual_claim_promotion_workflow PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^visual_claim_promotion_workflow=ok docs=1 tools=6 ctest=6")
 
         add_test(NAME runtime_evidence_guardrail
             COMMAND ${Python3_EXECUTABLE}
@@ -875,7 +1542,7 @@ if(BUILD_TESTING)
         set_tests_properties(runtime_evidence_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^runtime_evidence_guardrail=ok fixtures=70 original_runtime=20 visual_claim0=20 temp_copy=20 runtime_segments=20 ledger=1 ctest=1 docs=3")
+                "^runtime_evidence_guardrail=ok fixtures=78 original_runtime=23 visual_claim0=23 temp_copy=23 runtime_segments=23 ledger=1 ctest=1 docs=3")
 
         add_test(NAME runtime_evidence_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -992,6 +1659,25 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "--runtime-freeze-after-bomb-seconds 0\\.125 .*--level-start-seconds 2\\.25 .*--right-hold-seconds 3\\.5 .*--sample-seconds 6\\.75 .*--sample-interval 0\\.015 .*--route-state-interval 0\\.5 .*--tail-freeze-check-seconds 1\\.25 .*--route-step x:1\\.25 .*--route-step Left:0\\.50")
 
+        add_test(NAME explosion_lane_result_capture_orchestrator_dry_run_natural_forward
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
+                    /tmp/lezac-lane-result-dry-run-natural-forward
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --skip-oracle
+                    --offset forward
+                    --route-step x:2.00
+                    --route-step c:0.50
+                    --sample-seconds 5.0
+                    --sample-interval 0.005
+                    --route-state-interval 0
+                    --tail-freeze-check-seconds 0.75)
+        set_tests_properties(explosion_lane_result_capture_orchestrator_dry_run_natural_forward PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_result_capture_orchestrator=ok mode=dry_run .*offsets=1 capture_commands=1 oracle_commands=0 offset_labels=3d3f offset_addresses=1000:3D3F .*result_tail=1 result_tail_bytes=8b46f63b46f075c58a46f3c47e04268805c9c20600 .*wrong_offset_guard=1")
+
         add_test(NAME explosion_lane_result_capture_orchestrator_dry_run_alias_offsets
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py
@@ -1059,7 +1745,29 @@ if(BUILD_TESTING)
     set_tests_properties(records_update_temp PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^record_update=ok top=999999 level=9 name=TEST")
+            "^record_update=ok top=999999 level=9 name=TEST binary=1 raw_size=92 encoded=TEST::::")
+
+    add_test(NAME records_update_json_temp
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-update
+                ${CMAKE_CURRENT_BINARY_DIR}/records_test.json)
+    set_tests_properties(records_update_json_temp PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^record_update=ok top=999999 level=9 name=TEST binary=0 raw_size=0 encoded=TEST::::")
+
+    add_test(NAME records_raw_roundtrip
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-records-raw-roundtrip)
+    set_tests_properties(records_raw_roundtrip PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^records_raw_roundtrip=ok raw_size=92 count=7 record_size=13 score_sum=3508890 top=541200 cutoff=474930 level8_count=7 decoded_aga=7 encoded_colon_padded=7 byte_sum=6047 weighted_sum=278918 xor=0xdd")
+
+    add_test(NAME record_entry_static_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-entry-static-model)
+    set_tests_properties(record_entry_static_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^record_entry_static_model=ok routine=0x1845..0x1ad6 template=0x183c template_len=8 template_byte=0x3a record_stride=13 stride_imuls=3 shift_copy_bytes=13 shift_copies=1 name_offset=4 name_copy_bytes=8 name_copies=2 score_offset=0 score_bytes=4 backspace_key=0x08 enter_key=0x0d prompt_sound=0x0078/p11 commit_sound=0x0008/p11")
 
     add_test(NAME records_name_entry_temp
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-name-entry
@@ -1067,7 +1775,24 @@ if(BUILD_TESTING)
     set_tests_properties(records_name_entry_temp PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^record_name_entry=ok top=999999 name=test")
+            "^record_name_entry=ok top=999999 name=test padded=test:::: capped=ab cdefg encoded_space=ab:cdefg empty=nessuno empty_encoded=:::::::: typed_nessuno_encoded=nessuno: preserved_empty=::::::::")
+
+    add_test(NAME records_name_entry_cursor
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-name-entry-cursor)
+    set_tests_properties(records_name_entry_cursor PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^record_name_entry_cursor=ok empty_slot=0 typed_slot=1 second_slot=2 backspace_slot=1 cursor_pixels=[0-9]+,[0-9]+,[0-9]+,[0-9]+ backspace_restores_frame=1 frame_inspection=1")
+
+    add_test(NAME records_name_entry_repeat_temp
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-name-entry-repeat
+                ${CMAKE_CURRENT_BINARY_DIR}/records_name_repeat_test.dat)
+    set_tests_properties(records_name_entry_repeat_temp PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^record_name_entry_repeat=ok repeated_space=1 repeated_letters=3 repeated_backspaces=2 ignored_repeat_enter=1 ignored_repeat_escape=1 final_name=a b cursor_slot=3 committed=1")
 
     add_test(NAME records_save_failure_temp
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-save-failure
@@ -1075,7 +1800,7 @@ if(BUILD_TESTING)
     set_tests_properties(records_save_failure_temp PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "record_save_failure=ok pending=999999")
+            "record_save_failure=ok pending_preserved=999999 retry_committed=1 name=FAIL")
 
     add_test(NAME end_flow_records_temp
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-end-flow-records
@@ -1083,11 +1808,28 @@ if(BUILD_TESTING)
     set_tests_properties(end_flow_records_temp PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^end_flow_records=ok completion_level=2 p1_record=999997 p2_record=999998 records=7")
+            "^end_flow_records=ok completion_level=2 p1_record=999997 p2_record=999998 records=7 cutoff_equal_skipped=1 p2_recheck_skipped=1")
+
+    add_test(NAME end_flow_frame_flow
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-end-flow-frame-flow)
+    set_tests_properties(end_flow_frame_flow PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^end_flow_frame_flow=ok game_over_scores=1,2 completed_score=1 final_level=7 completed_page=1 confirm_clears_scores=1 frame_inspection=1")
+
+    add_test(NAME end_flow_static_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-end-flow-static-model)
+    set_tests_properties(end_flow_static_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^end_flow_static_model=ok routine=0x1b14..0x1d42 game_over_string=0x1ae1 completed_strings=0x1aeb,0x1af9 mode_param=bp\\+4 completed_flag=0x208c player_score_ptrs=0x785a,0x7888 player_markers=0x31,0x32 key_latch=0x2058 record_cutoff=0x1b52/0x1b54 record_stride=13 record_entry_call=0x1845 strict_cutoff=1 player_order=1,2")
 
     add_test(NAME sound_render COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-render)
     set_tests_properties(sound_render PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "sound_render_1=cursor:0 samples:3148 nonzero:3148 min:-7200 max:7200[ \n\r\t]+sound_render_2=cursor:0x8 samples:14166 nonzero:14166 min:-7200 max:7200[ \n\r\t]+sound_render_3=cursor:0x12 samples:11018 nonzero:5509 min:-7200 max:7200[ \n\r\t]+sound_render_4=cursor:0x1a samples:4722 nonzero:4722 min:-7200 max:7200[ \n\r\t]+sound_render_5=cursor:0x21 samples:1574 nonzero:1574 min:-7200 max:7200[ \n\r\t]+sound_render_6=cursor:0x27 samples:7870 nonzero:7870 min:-7200 max:7200[ \n\r\t]+sound_render_total=samples:42498 nonzero:36989")
 
     add_test(NAME sound_cursor_segments
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-cursor-segments)
@@ -1102,26 +1844,61 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^son_raw_roundtrip=ok raw_size=782 step_count=130 payload_size=780 json_chunks=6")
 
+    add_test(NAME sound_loader_static_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-loader-static-model)
+    set_tests_properties(sound_loader_static_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^sound_loader_static_model=ok routine=0x0630..0x06aa filename=proefs.son filename_anchor=0x0625 step_count=0x0082 step_size=6 payload_bytes=780 count_read_bytes=2 sound_bank_ptr=0x79c0 count_local=bp-0x82 count_times_six=1 read_calls=2")
+
     add_test(NAME son_step_fields
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-son-step-fields)
     set_tests_properties(son_step_fields PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "son_step_fields=ok steps=130 first_period=0x00f7 first_stop_cursor=0x0005 final_stop_cursor=0x0082 unknown_pair_nonzero_steps=118")
+            "son_step_fields=ok steps=130 first_period=0x00f7 first_stop_cursor=0x0005 final_stop_cursor=0x0082 tail_pair_nonzero_steps=118 tail_behavior=preserved_playback_unused")
+
+    add_test(NAME son_tail_field_mutation
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-son-tail-field-mutation)
+    set_tests_properties(son_tail_field_mutation PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^son_tail_fields_mutation=ok steps=130 mutated_steps=130 compared_cursors=14 .* tail_pair_nonzero_steps=118 ignored_tail_bytes=4,5 tail_behavior=preserved_playback_unused")
+
+    add_test(NAME sound_tick_static_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-tick-static-model)
+    set_tests_properties(sound_tick_static_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^sound_tick_static_model=ok routine=0x0fbe..0x1088 direct_sweep_threshold=0xea60 direct_sweep_subtract=0xea42 direct_sweep_step=4 cursor_increment=0x1014 entry_stride=6 entry_base=sound_bank\\+cursor\\*6-6 stop_sentinel=0x7530 period_word_offsets=0 gate_byte_offset=2 period_byte_offset=3 word_entry_reads=2 byte_entry_reads=2 tail_read_patterns=0 ignored_tail_bytes=4,5 tail_behavior=preserved_playback_unused")
+
+    add_test(NAME sound_latch_static_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-latch-static-model)
+    set_tests_properties(sound_latch_static_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^sound_latch_static_model=ok routine=0x165a..0x167d active_flag=0x79c4 current_priority=0x799e pending_priority=0x799f pending_cursor=0x2074 current_cursor=0x78c0 inactive_accept=1 reject_branch=0x167d accept_branch=0x166c current_minus_one_compare=1 copies_priority=1 copies_cursor=1 sets_active=1")
 
     add_test(NAME gran_raw_roundtrip
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran-raw-roundtrip)
     set_tests_properties(gran_raw_roundtrip PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^gran_raw_roundtrip=ok raw_size=399 record_size=57 records=7 payload_size=399 json_records=7")
+            "^gran_raw_roundtrip=ok raw_size=399 record_size=57 raw_records=7 payload_size=399 json_records=7 raw_json_match=1 byte_sum=12560 weighted_sum=337318 nonzero_bytes=249 zero_bytes=150 xor=0x0c record_sums=631,2230,1389,1242,1780,2720,2568 record_weighted_sums=18094,59871,40052,35568,63621,65838,54274 record_nonzero=31,41,29,30,33,41,44 record_xor=0x83,0x08,0x53,0x80,0xd0,0xda,0x5e")
+
+    add_test(NAME gran_profile
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran)
+    set_tests_properties(gran_profile PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "gran_record_profile record=7 bytes=57 zero_bytes=13 nonzero_bytes=44 byte_sum=2568 weighted_sum=54274 xor=0x5e")
 
     add_test(NAME gran_summary
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran)
     set_tests_properties(gran_summary PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^gran_record_size=57 records=7 words_per_record=28 trailing_byte=yes")
+            "^gran_record_profile=summary record_size=57 records=7 stride=3 groups_per_record=19")
 
     add_test(NAME sound_priority_latch
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-priority-latch)
@@ -1146,6 +1923,70 @@ if(BUILD_TESTING)
                 "^sound_callsite_map=ok cues=6 .*direct_sweeps=4 .*priority_latch=1000:165a\\.\\.167d .*tick_window=1000:0fbe\\.\\.1088 .*tests=10")
     endif()
 
+    add_test(NAME static_sound_requests
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-static-sound-requests)
+    set_tests_properties(static_sound_requests PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^static_sound_requests=ok writes=27 image_base=0x0770 latch=0x165a latch_candidates=21 latch_refs=22 priority_candidates=21 direct_sweep=5 mapped=15 unresolved=12 record_prompt=0x1857:0x0078/p11 record_commit=0x1a44:0x0008/p11 records_page=0x2083:0x0024/p2 bomb_place=0x557b:0xea74/p3 monster_death=0x5c9e:0x003d/p12 mapped_labels=0x1857:record_name_prompt,0x1a44:record_name_commit,0x2083:records_page,0x30b1:player_death,0x41a9:explosion_small,0x41ed:explosion_medium,0x4231:explosion_large,0x431d:explosion_super,0x557b:bomb_place,0x575d:tile_trigger,0x5a0e:portal_teleport,0x5c9e:monster_death,0x6e34:bomb_object_high,0x6f82:bonus_pickup,0x7f84:player_damage unresolved_candidates=0x1d9c,0x202d,0x2c04,0x49bd,0x4b2c,0x4d3c,0x4dd3,0x5e81,0x6844,0x6924,0x7386,0x789c unresolved_labels=0x1d9c:post_end_flow_record_region,0x202d:record_table_cursor_only,0x2c04:cursor_0078_priority11,0x49bd:cursor_0027_priority5,0x4b2c:collapse_playback_rejected,0x4d3c:cursor_2710,0x4dd3:cursor_2710,0x5e81:cursor_0069_priority4,0x6844:cursor_0024_priority2,0x6924:non_objective_tile_gate_rejected,0x7386:cursor_0021_priority1,0x789c:cursor_0001_no_latch remaining_compat_hooks=objective_pickup,level_complete rejected_objective_candidates=0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate")
+
+    add_test(NAME input_fire_key_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-input-fire-key-model)
+    set_tests_properties(input_fire_key_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^input_fire_key_model=ok image_base=0x0770 handler=1000:1091 p1_gate=DS:1b7b p1_make=0x31 p1_break=0xb1 p1_refs=7 p1_sdl=n p1_compat=space,rctrl p2_gate=DS:1b80 p2_make=0x52 p2_break=0xd2 p2_refs=7 p2_sdl=kp0,insert")
+
+    add_test(NAME remaining_sound_compat_hooks
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-remaining-sound-compat-hooks)
+    set_tests_properties(remaining_sound_compat_hooks PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^remaining_sound_compat_hooks=ok live_hooks=2 objective_pickup=index0/cursor0x0000 collected_delta=1 score_delta=1000 latch_active=0 level_complete=index5/cursor0x0027 calls_first_tick=1 repeat_calls=0 advanced_level=2 latch_active=0 original_cursor_priority_claim=0")
+
+    add_test(NAME static_sound_contexts
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-static-sound-contexts)
+    set_tests_properties(static_sound_contexts PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^static_sound_contexts=ok image_base=0x0770 end_flow_dispatcher=0x1b14..0x1d42 first_post_end_flow_sound=0x1d9c level_complete_static_candidate=none record_ui_writes=0x1857:0x0078/p11:name_entry_region,0x1a44:0x0008/p11:name_entry_region,0x1d9c:0x003d/p10:post_end_flow_record_region,0x202d:0x0021/deferred:record_table_region,0x2083:0x0024/p2:record_table_region")
+
+    add_test(NAME static_sound_unresolved_contexts
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-static-sound-unresolved-contexts)
+    set_tests_properties(static_sound_unresolved_contexts PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^static_sound_unresolved_contexts=ok writes=12 image_base=0x0770 latch=0x165a local_latch=9 local_latch_refs=9 inline_priority=6 preceding_priority=2 no_priority=4 no_latch=3 direct_sweep=0 cursor_2710=2 region_counts=actor_update:3,contact_scanner:1,effect_extent_scan:2,explosion_playback:2,post_actor_update_no_latch:1,pre_new_game_setup:1,record_ui:2 contexts=0x1d9c:0x003d/p10:inline:latch1:record_ui:post_end_flow_record_region,0x202d:0x0021/no_priority:none:latch1:record_ui:record_table_cursor_only,0x2c04:0x0078/p11:inline:latch1:pre_new_game_setup:cursor_0078_priority11,0x49bd:0x0027/p5:inline:latch1:explosion_playback:cursor_0027_priority5,0x4b2c:0x0021/p2:preceding:latch1:explosion_playback:collapse_playback_rejected,0x4d3c:0x2710/no_priority:none:latch0:effect_extent_scan:cursor_2710,0x4dd3:0x2710/no_priority:none:latch0:effect_extent_scan:cursor_2710,0x5e81:0x0069/p4:inline:latch1:contact_scanner:cursor_0069_priority4,0x6844:0x0024/p2:inline:latch1:actor_update:cursor_0024_priority2,0x6924:0x0035/p5:inline:latch1:actor_update:non_objective_tile_gate_rejected,0x7386:0x0021/p1:preceding:latch1:actor_update:cursor_0021_priority1,0x789c:0x0001/no_priority:none:latch0:post_actor_update_no_latch:cursor_0001_no_latch")
+
+    add_test(NAME record_name_sound
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-name-sound
+                ${CMAKE_CURRENT_BINARY_DIR}/records_name_sound_test.dat)
+    set_tests_properties(record_name_sound PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^record_name_sound=ok prompt_cursor=0x0078 prompt_priority=11 commit_cursor=0x0008 commit_priority=11 direct_sweep=0 ghidra_prompt=1000:1857 ghidra_commit=1000:1a44 latch=1000:165a")
+
+    add_test(NAME records_page_sound
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-records-page-sound)
+    set_tests_properties(records_page_sound PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^records_page_sound=ok cursor=0x0024 priority=2 direct_sweep=0 ghidra=1000:2083 latch=1000:165a string=punteggi_migliori")
+
+    add_test(NAME bomb_place_sound
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-place-sound)
+    set_tests_properties(bomb_place_sound PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^bomb_place_sound=ok cursor=0xea74 priority=3 direct_sweep=1 placed=1 pumped=1 ghidra=1000:557b latch=1000:165a")
+
+    add_test(NAME monster_death_sound
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-death-sound)
+    set_tests_properties(monster_death_sound PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^monster_death_sound=ok cursor=0x003d priority=12 direct_sweep=0 state=2 death_ticks=25 reward=1 pumped=1 ghidra=1000:5c9e latch=1000:165a")
+
     add_test(NAME bomb_object_sound
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-object-sound)
     set_tests_properties(bomb_object_sound PROPERTIES
@@ -1157,28 +1998,28 @@ if(BUILD_TESTING)
     set_tests_properties(player_damage_sound PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "player_damage_sound=ok nonlethal_energy=99 second_energy=98 nonlethal_cooldown=0 death_energy=100 dead=1 lives=2 cursor=0x2d priority=4 death_cursor=0x56 death_priority=5")
+            "player_damage_sound=ok nonlethal_energy=99 second_energy=98 nonlethal_cooldown=0 death_energy=100 dead=1 lives=3 pending_life_loss=1 cursor=0x2d priority=4 death_cursor=0x56 death_priority=5")
 
     add_test(NAME original_damage_counters
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-damage-counters)
     set_tests_properties(original_damage_counters PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "original_damage_counters=ok p1_hits=3 p1_energy=97 p1_hurt_requests=1 p2_hits=2 p2_energy=98 p2_hurt_requests=1 zero_pass_silent=1 state2_hurt_without_subtract=1 underflow_raw=255 death_dispatch=1 live_p1_energy=97 live_p2_energy=98 live_underflow_dead=1 live_state2_energy=100")
+            "original_damage_counters=ok p1_hits=3 p1_energy=97 p1_hurt_requests=1 p2_hits=2 p2_energy=98 p2_hurt_requests=1 zero_pass_silent=1 state2_hurt_without_subtract=1 underflow_raw=255 death_dispatch=1 live_p1_energy=97 live_p2_energy=98 live_underflow_dead=1 live_state2_energy=100 live_pending_life_loss=1")
 
     add_test(NAME player_state2_death_fields
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-player-state2-death-fields)
     set_tests_properties(player_state2_death_fields PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "player_state2_death_fields=ok reentry_dead=1 reentry_lives=2 reentry_energy=100 reentry_timer=180 death_state_timer=60 vx=0 vy=0 grounded=0 death_cursor=0x56 death_priority=5 early_reentry_blocked=1 after_59_blocked=1 reentered=1 cooldown=18 zero_lives=0 zero_timer=0 zero_death_state_after_tick=59 no_gameover_with_p1=1")
+            "player_state2_death_fields=ok reentry_dead=1 reentry_lives_during_countdown=3 reentry_lives_after=2 reentry_energy=100 pending_life_loss=1 reentry_timer=180 death_state_timer=60 vx=0 vy=0 grounded=0 death_cursor=0x56 death_priority=5 early_reentry_blocked=1 after_59_blocked=1 reentered=1 cooldown=18 zero_lives_during_countdown=1 zero_lives_after=0 zero_timer=0 zero_death_state_after_60=0 no_gameover_with_p1=1")
 
     add_test(NAME original_state2_return_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-return-model)
     set_tests_properties(original_state2_return_model PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "original_state2_return_model=ok timer_start=60 timer_after_59=1 timer_after_60=0 gate0_blocked=1 effect_wait_blocked=1 placement_blocked=1 gate1_restored=1 p1_status=1 p1_actor_state=0 p1_energy=100 p1_cleared=1 p2_status=1 p2_actor_state=1 p2_energy=100 p2_cleared=1 zero_life_status=0 active_players_after_p2_out=1 active_players_after_both_out=0")
+            "original_state2_return_model=ok timer_start=60 timer_after_59=1 timer_after_60=0 gate0_blocked=1 effect_wait_blocked=1 placement_blocked=1 gate1_restored=1 p1_status=1 p1_actor_state=0 p1_energy=100 p1_cleared=1 p2_status=1 p2_actor_state=1 p2_energy=100 p2_cleared=1 zero_life_status=0 active_players_after_p2_out=1 active_players_after_both_out=0 fallback_blocked_with_active=1 fallback_counter=1 fallback_promoted_status=1 fallback_actor_state_preserved=2 fallback_energy_preserved=77")
 
     add_test(NAME state2_animation_init_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-animation-init)
@@ -1193,6 +2034,36 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "original_state2_animation_advance=ok death_start=0x72 death_end=0x79 delay=3 mode1_first_frame=0x73 mode1_after_5=0x74 wrap_frame=0x72 wrap_counter=0 mode2_seq=4,3,2,3 mode2_final_step=1 mode3_backup_frame=5 mode3_backup_mode=3 mode0_unchanged=1 ghidra=1000:6053")
+
+    add_test(NAME state2_visual_row_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-visual-row-model)
+    set_tests_properties(state2_visual_row_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "original_state2_visual_row_model=ok frame_range=0x4a..0x4f rows=4a:10,10,7d,43;4b:10,10,7d,44;4c:10,10,7d,45;4d:10,10,7d,46;4e:10,10,7d,47;4f:10,10,7d,48 row0_sequence=10,10,10,10,10,10 row1_sequence=10,10,10,10,10,10 row2_sequence=7d,7d,7d,7d,7d,7d row3_sequence=43,44,45,46,47,48 sprite_bank=BOMOMIMK sprite_source=row_byte3 sprite_candidates=67,68,69,70,71,72 field_candidates=row0_draw_x,row1_draw_y,row2_constant,row3_sprite_index draw_offset_bytes=0x10,0x10 draw_offset_candidate=16,16 row2_constant=0x7d row3_sprite_index_range=0x43..0x48 range_guard=1 visual_claim=0 ghidra=1000:6053")
+
+    add_test(NAME state2_visual_row_assets
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-visual-row-assets)
+    set_tests_properties(state2_visual_row_assets PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "original_state2_visual_row_assets=ok bank=BOMOMIMK row3_sprites=67:16x16:nonzero147:bbox0,0,14,15;68:16x16:nonzero39:bbox3,4,11,11;69:16x16:nonzero67:bbox2,2,12,12;70:16x16:nonzero138:bbox0,0,15,15;71:16x16:nonzero145:bbox0,0,15,15;72:16x16:nonzero76:bbox0,0,15,15 row3_nonzero_sequence=147,39,67,138,145,76 row3_all_in_bounds=1 row3_all_16x16=1 cursor_sprites=74:16x16:nonzero140:bbox1,2,15,13;75:16x16:nonzero198:bbox0,0,15,14;76:16x16:nonzero224:bbox0,0,15,15;77:16x16:nonzero197:bbox0,0,15,15;78:16x16:nonzero113:bbox0,0,15,15;79:10x5:nonzero22:bbox0,0,8,4 cursor_nonzero_sequence=140,198,224,197,113,22 row3_minus_frame=-7 cursor_matches_row3=0 visual_claim=0 ghidra=1000:6053")
+
+    add_test(NAME state2_visual_row_preview
+        COMMAND $<TARGET_FILE:lezac_cpp> --capture-state2-visual-row-preview
+                ${CMAKE_CURRENT_BINARY_DIR}/state2_visual_row_preview)
+    set_tests_properties(state2_visual_row_preview PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^state2_visual_row_preview=ok frames=6 outputs=12 row3_sprites=67,68,69,70,71,72 cursor_sprites=74,75,76,77,78,79 row3_minus_frame=-7 row3_cursor_hash_mismatch=1 visual_claim=0 .* manifest=manifest.txt")
+
+    add_test(NAME state2_visual_row_game_preview
+        COMMAND $<TARGET_FILE:lezac_cpp> --capture-state2-visual-row-game-preview
+                ${CMAKE_CURRENT_BINARY_DIR}/state2_visual_row_game_preview)
+    set_tests_properties(state2_visual_row_game_preview PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^state2_visual_row_game_preview=ok frames=6 outputs=12 current_sprites=67,68,69,70,71,72 cursor_sprites=74,75,76,77,78,79 cursor_minus_current=7 draw_offsets=16,16;16,16;16,16;16,16;16,16;16,16 cursor_hash_mismatch=1 effect_entry_xy=104,168 current_renderer=effect_entry_row_byte3 current_base=state2_effect_entry current_draw_offsets=effect_entry_row_byte0,row_byte1 cursor_renderer=debug_only visual_claim=0 .* manifest=manifest.txt")
 
     add_test(NAME behavior4_runtime_oracle_synthetic
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-runtime-oracle
@@ -1307,6 +2178,41 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "contact_scanner_runtime_oracle=error fixture=contact_scanner_runtime_oracle_bad_subject_flags reason=contact_flags_before_mismatch actor=0x0001 scan=0x0000")
 
+    add_test(NAME sound_callsite_oracle_synthetic
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-callsite-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/sound_callsite_oracle_synthetic.txt)
+    set_tests_properties(sound_callsite_oracle_synthetic PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "sound_callsite_oracle=ok fixture=sound_callsite_oracle_synthetic scenario=player_damage_sound level=1 runtime_cs=0x1a2b runtime_ds=0x2b3c label=hurt callsite=0x1000:7f9a latch=0x1000:165a cursor=0x002d priority=4 active_before=0 current_priority_before=0 accepted=1 active_after=1 current_priority_after=4 current_cursor_after=0x002d direct_sweep=0 breaks=2 dump_bytes=42 temp_copy=1 visual_claim=0")
+
+    add_test(NAME sound_callsite_oracle_bad_segment
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-callsite-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/sound_callsite_oracle_bad_segment.txt
+                --expect-error)
+    set_tests_properties(sound_callsite_oracle_bad_segment PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "sound_callsite_oracle=error fixture=sound_callsite_oracle_bad_segment reason=breakpoint_segment_mismatch expected=0x1a2b actual=0xffff")
+
+    add_test(NAME sound_callsite_oracle_missing_request
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-callsite-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/sound_callsite_oracle_missing_request.txt
+                --expect-error)
+    set_tests_properties(sound_callsite_oracle_missing_request PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "sound_callsite_oracle=error fixture=sound_callsite_oracle_missing_request reason=sound_request_missing")
+
+    add_test(NAME sound_callsite_oracle_bad_pending_cursor
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-callsite-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/sound_callsite_oracle_bad_pending_cursor.txt
+                --expect-error)
+    set_tests_properties(sound_callsite_oracle_bad_pending_cursor PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "sound_callsite_oracle=error fixture=sound_callsite_oracle_bad_pending_cursor reason=pending_cursor_dump_mismatch expected=0x002d actual=0x002e")
+
     add_test(NAME visual_table_oracle_synthetic
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-visual-table-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/visual_table_oracle_synthetic.txt)
@@ -1314,6 +2220,14 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "visual_table_oracle=ok fixture=visual_table_oracle_synthetic scenario=state2_death_table_consumption runtime_cs=0x1a2b runtime_ds=0x2b3c actor_slot=0 actor_state=2 anim_current=0x72 anim_range=0x72..0x79 anim_mode=1 visual_frame=0x72 row_addr=0xc4ea row=10,18,20,00 bank=BOMOMIMK sprite_index=16 sprite_source=row_byte0 draw_offset=24,32 effect_slot=0 effect_before_xy=0x0018,0x0028 effect_after_xy=0x0018,0x0028 effect_after_frame=0x72 breaks=5 temp_copy=1 visual_claim=0")
+
+    add_test(NAME visual_table_oracle_original_state2_runtime
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-visual-table-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/visual_table_oracle_original_state2_runtime.txt)
+    set_tests_properties(visual_table_oracle_original_state2_runtime PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "visual_table_oracle=ok fixture=visual_table_oracle_original_state2_runtime scenario=state2_death_table_consumption runtime_cs=0x01ed runtime_ds=0x0c8f actor_slot=0 actor_state=2 anim_current=0x4a anim_range=0x4a..0x4f anim_mode=1 visual_frame=0x4a row_addr=0xc44a row=10,10,7d,43 bank=BOMOMIMK sprite_index=67 sprite_source=row_byte3 draw_offset=16,16 effect_slot=0 effect_before_xy=0x0068,0x00a8 effect_after_xy=0x0068,0x00a8 effect_after_frame=0x4a breaks=5 temp_copy=1 visual_claim=0")
 
     add_test(NAME visual_table_oracle_bad_segment
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-visual-table-oracle
@@ -1342,13 +2256,22 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "visual_table_oracle=error fixture=visual_table_oracle_sprite_without_row reason=visual_row_missing_for_sprite")
 
+    add_test(NAME visual_table_oracle_bad_row_byte3_sprite
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-visual-table-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/visual_table_oracle_bad_row_byte3_sprite.txt
+                --expect-error)
+    set_tests_properties(visual_table_oracle_bad_row_byte3_sprite PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "visual_table_oracle=error fixture=visual_table_oracle_bad_row_byte3_sprite reason=sprite_index_row3_mismatch row3=67 sprite_index=66")
+
     add_test(NAME state2_runtime_frame_oracle_synthetic
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-state2-runtime-frame-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/state2_runtime_frame_oracle_synthetic.txt)
     set_tests_properties(state2_runtime_frame_oracle_synthetic PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "state2_runtime_frame_oracle=ok fixture=state2_runtime_frame_oracle_synthetic runtime_cs=0x1a2b runtime_ds=0x2b3c death_cursor=0x56 death_start=0x72 death_end=0x79 table_entry_base=0xc322 first_entry_addr=0xc4ea frame_rows=8 first_row=10,18,20,00 last_row=17,18,20,00 rows=72@c4ea:10,18,20,00;73@c4ee:11,18,20,00;74@c4f2:12,18,20,00;75@c4f6:13,18,20,00;76@c4fa:14,18,20,00;77@c4fe:15,18,20,00;78@c502:16,18,20,00;79@c506:17,18,20,00 effect0_xy=0x0018,0x0028 breaks=4 temp_copy=1 visual_claim=0")
+            "state2_runtime_frame_oracle=ok fixture=state2_runtime_frame_oracle_synthetic runtime_cs=0x1a2b runtime_ds=0x2b3c death_cursor=0x56 death_start=0x72 death_end=0x79 table_entry_base=0xc322 first_entry_addr=0xc4ea frame_rows=8 first_row=10,18,20,00 last_row=17,18,20,00 rows=72@c4ea:10,18,20,00;73@c4ee:11,18,20,00;74@c4f2:12,18,20,00;75@c4f6:13,18,20,00;76@c4fa:14,18,20,00;77@c4fe:15,18,20,00;78@c502:16,18,20,00;79@c506:17,18,20,00 row0_sequence=10,11,12,13,14,15,16,17 row1_sequence=18,18,18,18,18,18,18,18 row2_sequence=20,20,20,20,20,20,20,20 row3_sequence=00,00,00,00,00,00,00,00 effect0_xy=0x0018,0x0028 breaks=4 temp_copy=1 visual_claim=0")
 
     add_test(NAME state2_runtime_frame_oracle_original
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-state2-runtime-frame-oracle
@@ -1356,7 +2279,7 @@ if(BUILD_TESTING)
     set_tests_properties(state2_runtime_frame_oracle_original PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "state2_runtime_frame_oracle=ok fixture=state2_runtime_frame_oracle_original runtime_cs=0x01ed runtime_ds=0x0c8f death_cursor=0x45 death_start=0x4a death_end=0x4f table_entry_base=0xc322 first_entry_addr=0xc44a frame_rows=6 first_row=10,10,7d,43 last_row=10,10,7d,48 rows=4a@c44a:10,10,7d,43;4b@c44e:10,10,7d,44;4c@c452:10,10,7d,45;4d@c456:10,10,7d,46;4e@c45a:10,10,7d,47;4f@c45e:10,10,7d,48 effect0_xy=0x0068,0x00a8 breaks=5 temp_copy=1 visual_claim=0")
+            "state2_runtime_frame_oracle=ok fixture=state2_runtime_frame_oracle_original runtime_cs=0x01ed runtime_ds=0x0c8f death_cursor=0x45 death_start=0x4a death_end=0x4f table_entry_base=0xc322 first_entry_addr=0xc44a frame_rows=6 first_row=10,10,7d,43 last_row=10,10,7d,48 rows=4a@c44a:10,10,7d,43;4b@c44e:10,10,7d,44;4c@c452:10,10,7d,45;4d@c456:10,10,7d,46;4e@c45a:10,10,7d,47;4f@c45e:10,10,7d,48 row0_sequence=10,10,10,10,10,10 row1_sequence=10,10,10,10,10,10 row2_sequence=7d,7d,7d,7d,7d,7d row3_sequence=43,44,45,46,47,48 effect0_xy=0x0068,0x00a8 breaks=5 temp_copy=1 visual_claim=0")
 
     add_test(NAME state2_runtime_frame_oracle_bad_segment
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-state2-runtime-frame-oracle
@@ -1441,6 +2364,14 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze .*playback_breaks=25 observed_freeze_count=0 observed_freeze_offset=0x0000 .*observed_lane_forward_result=0 observed_lane_reverse_result=0 .*lane_result_scratch_present=0 freeze_expected_old_bytes_present=1 freeze_expected_old_bytes=268805 freeze_old_bytes=268805 runtime_seeded=0 lane_globals_present=1 lane_update_flag=0x05 lane_word_global_value=0x0004 lane_target_offset_global_value=0x072c effect_input_globals_present=1 effect_forward_input_global_value=0x00 effect_reverse_input_global_value=0xfb .*debris_count=0x00ca debris_count_base=0x2941 debris_base=0x2941 .*debris0_tile_index=0x03a3 debris0_flagged=0xc002 .*collapse_count=0x0004 collapse_count_base=0x664d collapse_base=0x664d .*collapse0_start=0x0562 collapse0_end=0x0742 collapse0_word=0x0005 collapse0_flagged=0x8005 .*effect0_xy=0x00f0,0x00b0 effect0_sprite=0x10 effect0_detail=0x10 effect0_timer=0x7d effect0_variant=0x3f temp_copy=1 visual_claim=0")
+
+    add_test(NAME explosion_playback_oracle_original_3d3f_lane_result_runtime_natural
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_original_3d3f_lane_result_runtime_natural.txt)
+    set_tests_properties(explosion_playback_oracle_original_3d3f_lane_result_runtime_natural PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3d3f_lane_result_runtime_natural .*playback_breaks=25 observed_freeze_count=1 observed_freeze_offset=0x3d3f .*observed_lane_forward_result=1 observed_lane_reverse_result=0 .*lane_result_scratch_present=1 lane_result_kind=forward lane_result_cs_offset=0xf280 lane_result_output=0x0002 lane_result_es=0x0c44 lane_result_di=0x78d2 lane_result_arg_offset=0x78d2 lane_result_arg_segment=0x0c44 lane_result_result_local=0x0002 lane_result_active_count=0x0001 lane_result_loop_index=0x0001 lane_result_target_before=0x0021 .*freeze_expected_old_bytes_present=1 freeze_expected_old_bytes=268805 freeze_old_bytes=268805 runtime_seeded=0 .*lane_globals_present=1 lane_update_flag=0x00 lane_word_global_value=0x0000 lane_target_offset_global_value=0x0000 effect_input_globals_present=1 effect_forward_input_global_value=0xf8 effect_reverse_input_global_value=0xfc .*debris_count=0x00c8 debris_count_base=0x292b debris_base=0x292b .*debris0_tile_index=0x0541 debris0_flagged=0xc004 debris0_forward=0x26 debris0_reverse=0x00 debris0_lookup=0x67 .*collapse_count=0x0003 collapse_count_base=0x663e collapse_base=0x663e .*collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_word=0x0009 collapse0_flagged=0x8009 collapse0_forward=0x00 collapse0_reverse=0x08 .*effect0_xy=0x00a4,0x00b0 effect0_sprite=0x10 effect0_detail=0x10 effect0_timer=0x7d effect0_variant=0x42 temp_copy=1 visual_claim=0")
 
     add_test(NAME explosion_playback_oracle_original_3ed3_lane_result_runtime
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
@@ -1669,6 +2600,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3ec1_lane_write_runtime_seeded .*playback_breaks=23 observed_freeze_count=1 observed_freeze_offset=0x3ec1 .*observed_lane_forward_write=0 observed_lane_reverse_write=1 observed_lane_collapse_write=0 observed_lane_debris_write=1 .*lane_write_scratch_present=1 lane_write_kind=reverse lane_write_target=debris lane_write_cs_offset=0xf080 lane_write_output=0x0000 lane_write_di=0x0898 lane_write_tag=0x4ee8 lane_write_active_count=0x0001 lane_write_loop_index=0x0001 lane_write_result_local=0x0000 .*runtime_seeded=1 runtime_seed_kind=debris-writeback runtime_seed_direction=reverse runtime_seed_word=0xc004 runtime_seed_patch_applied=1 .*debris_count=0x00c8 debris_count_base=0x292b debris_base=0x292b .*debris0_tile_index=0x0543 debris0_flagged=0xc004 .*temp_copy=1 visual_claim=0")
 
+    add_test(NAME explosion_playback_oracle_original_3ec1_lane_write_runtime_natural
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_original_3ec1_lane_write_runtime_natural.txt)
+    set_tests_properties(explosion_playback_oracle_original_3ec1_lane_write_runtime_natural PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "explosion_playback_oracle=ok fixture=explosion_playback_oracle_original_3ec1_lane_write_runtime_natural .*playback_breaks=25 observed_freeze_count=1 observed_freeze_offset=0x3ec1 .*observed_lane_forward_write=0 observed_lane_reverse_write=1 observed_lane_collapse_write=0 observed_lane_debris_write=1 .*lane_write_scratch_present=1 lane_write_kind=reverse lane_write_target=debris lane_write_cs_offset=0xf080 lane_write_output=0x00fb lane_write_di=0x0898 lane_write_tag=0x4ee8 lane_write_active_count=0x0005 lane_write_loop_index=0x0002 lane_write_result_local=0x00fb .*runtime_seeded=0 lane_globals_present=1 lane_update_flag=0x00 lane_word_global_value=0x0000 lane_target_offset_global_value=0x0000 effect_input_globals_present=1 effect_forward_input_global_value=0x00 effect_reverse_input_global_value=0x00 .*debris_count=0x00c7 debris_count_base=0x2920 debris_base=0x209e .*debris0_tile_index=0x044f debris0_flagged=0x0000 debris0_forward=0x4f debris0_reverse=0x00 debris0_lookup=0x75 .*collapse_count=0x0001 collapse_count_base=0x6620 collapse_base=0x6620 .*collapse0_start=0x0a7e collapse0_end=0x0a80 collapse0_word=0x0009 collapse0_flagged=0x8009 .*effect0_xy=0x00b4,0x0090 effect0_sprite=0x10 effect0_detail=0x10 effect0_timer=0x7d effect0_variant=0x3f temp_copy=1 visual_claim=0")
+
     add_test(NAME explosion_playback_oracle_original_4c96_runtime
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosion-playback-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/explosion_playback_oracle_original_4c96_runtime.txt)
@@ -1803,7 +2742,7 @@ if(BUILD_TESTING)
     set_tests_properties(player_state2_return_active PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "player_state2_return_active=ok p1_death_timer=60 p1_after_59=1 p1_after_60=0 gate0_dead=1 gate0_energy=100 gate1_reentered=1 p1_energy=100 p1_cooldown=18 p1_death_timer_clear=0 p1_reentry_timer_clear=0 p2_gate1_reentered=1 p2_energy=100 p2_cooldown=18 p2_death_timer_clear=0 p2_reentry_timer_clear=0 no_gameover_with_p1=1")
+            "player_state2_return_active=ok p1_death_timer=60 p1_after_59=1 p1_after_60=0 gate0_dead=1 gate0_energy=100 gate1_reentered=1 p1_energy=100 p1_cooldown=18 p1_death_timer_clear=0 p1_reentry_timer_clear=0 p2_gate1_reentered=1 p2_energy=100 p2_cooldown=18 p2_death_timer_clear=0 p2_reentry_timer_clear=0 no_gameover_with_p1=1 p2_out_stays_dead=1 p2_reenter_blocked=1 p1_alive_after_p2_out=1 both_out_gameover=1 live_fallback_shortcut=0 original_reachability=0")
 
     add_test(NAME sprite_transparency
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sprite-transparency)
@@ -1818,6 +2757,13 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^sprite_raw_roundtrip=ok banks=3 raw_bytes=46843 sprites=250 pixels=46340 zero=21396 nonzero=24944 ff=369 max=48x20 bomomimk=91 prova=91 fonts=68")
+
+    add_test(NAME sprite_layout_static_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-sprite-layout-static-model)
+    set_tests_properties(sprite_layout_static_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^sprite_layout_static_model=ok banks=3 raw_bytes=46843 sprites=250 pixels=46340 zero=21396 nonzero=24944 ff=369 max=48x20 trailing=0 bomomimk=bytes:20168,sprites:91,pixels:19985,zero:9303,ff:104,max:21x16,first:16x16,last:12x10 prova=bytes:21250,sprites:91,pixels:21067,zero:9363,ff:114,max:48x20,first:16x16,last:12x10 fonts=bytes:5425,sprites:68,pixels:5288,zero:2730,ff:151,max:10x10,first:10x10,last:8x8")
 
     add_test(NAME sprite_blit_contract
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sprite-blit-contract)
@@ -1848,16 +2794,35 @@ if(BUILD_TESTING)
 
     add_test(NAME bonus_rewards COMMAND $<TARGET_FILE:lezac_cpp> --debug-bonuses)
     set_tests_properties(bonus_rewards PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^bonuses=ok sprites=7 rain=0 sound_cursor=0x8 sound_priority=5")
+
+    add_test(NAME bonus_reward_static_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-bonus-reward-static-model)
+    set_tests_properties(bonus_reward_static_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "bonus_reward_static_model=ok image_base=0x0770 score_table_file=0xb1c6 score_table_ghidra=0xaa56 rewards=7 scores=2000,1000,1500,2000,3000,1000,5000 sprite_indices=61,62,63,64,65,66,67 bomomimk_sprites=91 sprite_in_bounds=7 score_sum=15500 top_score=5000 pickup_sound=0x0008/p5")
+
+    add_test(NAME monster_sprite_table_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-sprite-table-model)
+    set_tests_properties(monster_sprite_table_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^monster_sprite_table_model=ok bank=BOMOMIMK normal_ranges=k1_left:43-44,k1_right:45-46,k2:39-41,k3:49-51,k4:53-55 normal_frames=39,40,41,43,44,45,46,49,50,51,53,54,55 impact_candidates=42,47,48,52,56 death_current_renderer=18 reward_frames=61,62,63,64,65,66,67 reward_scores=2000,1000,1500,2000,3000,1000,5000 normal_nonzero=122,118,115,126,124,126,124,159,160,155,138,135,136 impact_nonzero=130,114,114,166,150 death_nonzero=121 reward_nonzero=87,156,135,121,149,153,147 normal_dims=16x16,16x16,16x16,17x10,17x10,17x10,17x10,16x16,16x16,16x16,16x16,16x16,16x16 impact_dims=16x16,17x10,17x10,16x16,16x16 death_dims=16x16 reward_dims=10x12,16x10,16x10,16x10,16x10,16x10,16x16 frame_count=26 frames_16x16=14 death_runtime_claim=0 visual_claim=0 ghidra=1000:70bc..7513")
 
     add_test(NAME monster_blast_damage
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-blast-damage)
     set_tests_properties(monster_blast_damage PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^monster_blast_damage=ok drops=2")
 
     add_test(NAME bomb_fuse COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-fuse)
     set_tests_properties(bomb_fuse PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "bomb_fuse=ok fuse=20 effects=1 flashes=4 delayed_final_life=1 stale_reset_guard=1")
 
     add_test(NAME explosion_profiles
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosions)
@@ -1904,7 +2869,8 @@ if(BUILD_TESTING)
     add_test(NAME trigger_accounting
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-trigger-accounting)
     set_tests_properties(trigger_accounting PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^trigger_accounting=ok level=6 rewrites=2")
 
     add_test(NAME trigger_sound
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-trigger-sound)
@@ -1921,7 +2887,8 @@ if(BUILD_TESTING)
     add_test(NAME portal_cooldowns
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-portal-cooldowns)
     set_tests_properties(portal_cooldowns PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^portal_cooldowns=ok level=3 key=31")
 
     add_test(NAME collision_pushout
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-collision-pushout)
@@ -1945,7 +2912,7 @@ if(BUILD_TESTING)
     set_tests_properties(player_damage_death_live PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^player_damage_death_live=ok first_energy=99 frames_to_life_loss=[0-9]+ lives=2 reentry_state=1 frame_inspection=1")
+            "^player_damage_death_live=ok first_energy=99 frames_to_life_loss=[0-9]+ lives=2 reentry_state=1 frame_inspection=1 frames_to_state2=[0-9]+ delayed_life_loss=1")
 
     add_test(NAME monster_contact_damage_live
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -1970,6 +2937,14 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^hud_stats_live=ok hp_visible=1 lives_visible=1 bombs_visible=1 progress_visible=1 frame_inspection=1")
+
+    add_test(NAME two_player_hud_panel
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-two-player-hud-panel)
+    set_tests_properties(two_player_hud_panel PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^two_player_hud_panel=ok split_views=2 p1_hud_visible=1 p1_world_visible=1 p2_hud_visible=1 p2_world_visible=1 objective_panel_visible=1 objective_panel_changed=1 panel_y=100 panel_h=24 progress_region=72,114,150,9 frame_inspection=1 original_art_claim=0")
 
     find_program(BASH_EXECUTABLE bash)
     find_program(XVFB_RUN_EXECUTABLE xvfb-run)

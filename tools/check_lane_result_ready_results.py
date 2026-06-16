@@ -4,10 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+
+from ready_result_checker_support import write_original_fixture_tree
 
 
 def default_repo_root() -> Path:
@@ -18,15 +21,20 @@ def run_summary(
     root: Path,
     args: list[str],
     expect_success: bool = True,
+    env: dict[str, str] | None = None,
 ) -> str:
     command = [
         sys.executable,
         str(root / "tools" / "summarize_lane_result_ready_results.py"),
         *args,
     ]
+    process_env = os.environ.copy()
+    if env is not None:
+        process_env.update(env)
     result = subprocess.run(
         command,
         cwd=root,
+        env=process_env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -67,7 +75,9 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="lezac-lane-ready-results-") as tmp:
         base = Path(tmp)
         log0 = base / "logs" / "candidate_0_3d3f_x2p00.log"
+        log1 = base / "logs" / "candidate_1_3ed3_x1p50_z0p50.log"
         write_text(log0, "explosion_playback_oracle=ok\n")
+        write_text(log1, "explosion_playback_oracle=ok\n")
         run_manifest = base / "run" / "result_manifest.txt"
         write_text(
             run_manifest,
@@ -102,7 +112,7 @@ def main() -> int:
                     "candidate_1_oracle_flag=--debug-explosion-playback-oracle",
                     "candidate_1_status=ok",
                     "candidate_1_returncode=0",
-                    "candidate_1_log=/tmp/missing-lane.log",
+                    f"candidate_1_log={log1}",
                     "candidate_1_command=./build/lezac_cpp --debug-explosion-playback-oracle /tmp/lane_reverse.txt",
                     "",
                 ]
@@ -119,14 +129,31 @@ def main() -> int:
             "failures=0",
             "planned=0 ok=2 error=0 other=0",
             "executed_candidates=2",
-            "logs_present=1",
-            "logs_missing=1",
+            "logs_present=2",
+            "logs_missing=0",
             "candidate_result index=0 route=x2p00 offset=3d3f",
+            "runtime_cs=01ED",
+            "runtime_ds=0C8F",
             "fixture=/tmp/lane_forward.txt",
             "candidate_result index=1 route=x1p50_z0p50 offset=3ed3",
             "oracle_flag=--debug-explosion-playback-oracle",
         ]:
             require(run_summary_text, snippet, "run_manifest")
+        cases += 1
+
+        missing_log_manifest = base / "missing_log" / "result_manifest.txt"
+        write_text(
+            missing_log_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                f"candidate_1_log={log1}",
+                "candidate_1_log=/tmp/missing-lane.log",
+            ),
+        )
+        missing_log = run_summary(
+            root, [str(missing_log_manifest), "--require-success"], False
+        )
+        require(missing_log, "reason=candidate_logs_missing", "missing_log")
+        require(missing_log, "logs_missing=1", "missing_log")
         cases += 1
 
         run_required = run_summary(
@@ -156,6 +183,8 @@ def main() -> int:
                     "candidate_0_route=x2p00",
                     "candidate_0_offset_label=3d3f",
                     "candidate_0_offset_address=1000:3D3F",
+                    "candidate_0_runtime_cs=01ED",
+                    "candidate_0_runtime_ds=0C8F",
                     "candidate_0_fixture=/tmp/lane.txt",
                     "candidate_0_oracle=explosion_playback",
                     "candidate_0_oracle_flag=--debug-explosion-playback-oracle",
@@ -215,6 +244,8 @@ def main() -> int:
                     "candidate_0_route=x2p00",
                     "candidate_0_offset_label=3d3f",
                     "candidate_0_offset_address=1000:3D3F",
+                    "candidate_0_runtime_cs=01ED",
+                    "candidate_0_runtime_ds=0C8F",
                     "candidate_0_fixture=/tmp/lane.txt",
                     "candidate_0_oracle=explosion_playback",
                     "candidate_0_oracle_flag=--debug-explosion-playback-oracle",
@@ -297,6 +328,191 @@ def main() -> int:
         )
         cases += 1
 
+        runtime_manifest = base / "runtime" / "result_manifest.txt"
+        write_text(
+            runtime_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "candidate_1_runtime_cs=01ED", "candidate_1_runtime_cs=12345"
+            ),
+        )
+        runtime = run_summary(root, [str(runtime_manifest)], False)
+        require(
+            runtime,
+            "candidate_1_runtime_cs must be a 4-digit hexadecimal segment",
+            "runtime",
+        )
+        cases += 1
+
+        fixture_mismatch_path = base / "fixtures" / "lane_reverse.txt"
+        write_text(fixture_mismatch_path, "runtime_cs=01ED\nruntime_ds=CAFE\n")
+        fixture_mismatch_manifest = base / "fixture_mismatch" / "result_manifest.txt"
+        write_text(
+            fixture_mismatch_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/lane_reverse.txt",
+                fixture_mismatch_path.as_posix(),
+            ),
+        )
+        fixture_mismatch = run_summary(root, [str(fixture_mismatch_manifest)], False)
+        require(
+            fixture_mismatch,
+            "candidate_1_runtime_ds='0C8F' does not match fixture "
+            "runtime_ds='CAFE'",
+            "fixture_mismatch",
+        )
+        cases += 1
+
+        visual_claim_path = base / "fixtures" / "lane_forward_visual_claim.txt"
+        write_text(
+            visual_claim_path,
+            "temp_copy=1\nvisual_claim=1\nruntime_cs=01ED\nruntime_ds=0C8F\n",
+        )
+        visual_claim_manifest = base / "visual_claim" / "result_manifest.txt"
+        write_text(
+            visual_claim_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/lane_forward.txt",
+                visual_claim_path.as_posix(),
+            ),
+        )
+        visual_claim = run_summary(root, [str(visual_claim_manifest)], False)
+        require(
+            visual_claim,
+            "candidate_0_fixture visual_claim='1' is not supported",
+            "visual_claim",
+        )
+        cases += 1
+
+        temp_copy_path = base / "fixtures" / "lane_forward_temp_copy.txt"
+        write_text(
+            temp_copy_path,
+            "temp_copy=0\nvisual_claim=0\nruntime_cs=01ED\nruntime_ds=0C8F\n",
+        )
+        temp_copy_manifest = base / "temp_copy" / "result_manifest.txt"
+        write_text(
+            temp_copy_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/lane_forward.txt",
+                temp_copy_path.as_posix(),
+            ),
+        )
+        temp_copy = run_summary(root, [str(temp_copy_manifest)], False)
+        require(
+            temp_copy,
+            "candidate_0_fixture temp_copy='0' does not identify a temp-copy capture",
+            "temp_copy",
+        )
+        cases += 1
+
+        duplicate_fixture_path = base / "fixtures" / "lane_forward_duplicate.txt"
+        write_text(
+            duplicate_fixture_path,
+            "temp_copy=1\nvisual_claim=0\nruntime_cs=01ED\n"
+            "runtime_ds=0C8F\nruntime_ds=0C8F\n",
+        )
+        duplicate_fixture_manifest = (
+            base / "duplicate_fixture" / "result_manifest.txt"
+        )
+        write_text(
+            duplicate_fixture_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/lane_forward.txt",
+                duplicate_fixture_path.as_posix(),
+            ),
+        )
+        duplicate_fixture = run_summary(
+            root,
+            [str(duplicate_fixture_manifest)],
+            False,
+        )
+        require(
+            duplicate_fixture,
+            "duplicate fixture field: runtime_ds",
+            "duplicate_fixture",
+        )
+        cases += 1
+
+        original_root = base / "original_root"
+        original_fixture = write_original_fixture_tree(
+            original_root,
+            "explosion_playback_oracle_original_ready.txt",
+            runtime_ds="0C8F",
+        )
+        original_manifest = base / "original_fixture" / "result_manifest.txt"
+        write_text(
+            original_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/lane_forward.txt", original_fixture.as_posix()
+            ),
+        )
+        original = run_summary(
+            root,
+            [str(original_manifest)],
+            env={"LEZAC_READY_RESULT_REPO_ROOT": str(original_root)},
+        )
+        require(
+            original,
+            f"fixture={original_fixture.as_posix()}",
+            "original_fixture",
+        )
+        cases += 1
+
+        missing_ledger_root = base / "missing_ledger_root"
+        missing_ledger_fixture = write_original_fixture_tree(
+            missing_ledger_root,
+            "explosion_playback_oracle_original_unledgered.txt",
+            runtime_ds="0C8F",
+            include_ledger_entry=False,
+        )
+        missing_ledger_manifest = base / "missing_ledger" / "result_manifest.txt"
+        write_text(
+            missing_ledger_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/lane_forward.txt", missing_ledger_fixture.as_posix()
+            ),
+        )
+        missing_ledger = run_summary(
+            root,
+            [str(missing_ledger_manifest)],
+            False,
+            {"LEZAC_READY_RESULT_REPO_ROOT": str(missing_ledger_root)},
+        )
+        require(
+            missing_ledger,
+            "candidate_0_fixture explosion_playback_oracle_original_unledgered.txt "
+            "is missing from runtime evidence ledger",
+            "missing_ledger",
+        )
+        cases += 1
+
+        missing_note_root = base / "missing_note_root"
+        missing_note_fixture = write_original_fixture_tree(
+            missing_note_root,
+            "explosion_playback_oracle_original_missing_note.txt",
+            runtime_ds="0C8F",
+            note_names_fixture=False,
+        )
+        missing_note_manifest = base / "missing_note" / "result_manifest.txt"
+        write_text(
+            missing_note_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/lane_forward.txt", missing_note_fixture.as_posix()
+            ),
+        )
+        missing_note = run_summary(
+            root,
+            [str(missing_note_manifest)],
+            False,
+            {"LEZAC_READY_RESULT_REPO_ROOT": str(missing_note_root)},
+        )
+        require(
+            missing_note,
+            "candidate_0_fixture explosion_playback_oracle_original_missing_note.txt "
+            "ledger docs does not name fixture",
+            "missing_note",
+        )
+        cases += 1
+
         extra_manifest = base / "extra" / "result_manifest.txt"
         write_text(
             extra_manifest,
@@ -309,6 +525,20 @@ def main() -> int:
             extra,
             "candidate index outside ready_candidates: 1 ready_candidates=1",
             "extra_candidate",
+        )
+        cases += 1
+
+        duplicate_field_manifest = base / "duplicate_field" / "result_manifest.txt"
+        write_text(
+            duplicate_field_manifest,
+            run_manifest.read_text(encoding="ascii")
+            + "candidate_0_fixture=/tmp/other_lane_result.txt\n",
+        )
+        duplicate_field = run_summary(root, [str(duplicate_field_manifest)], False)
+        require(
+            duplicate_field,
+            "duplicate manifest field: candidate_0_fixture",
+            "duplicate_field",
         )
         cases += 1
 
@@ -338,6 +568,8 @@ def main() -> int:
                     "candidate_0_route=x2p00",
                     "candidate_0_offset_label=3d3f",
                     "candidate_0_offset_address=1000:3D3F",
+                    "candidate_0_runtime_cs=01ED",
+                    "candidate_0_runtime_ds=0C8F",
                     "candidate_0_fixture=/tmp/lane.txt",
                     "candidate_0_oracle=explosion_playback",
                     "candidate_0_oracle_flag=--debug-explosion-playback-oracle",

@@ -21,6 +21,22 @@ DEFAULT_ROUTES = [
     "x:1.50,z:0.50",
     "x:2.00,m:0.35",
 ]
+OFFSET_LABELS = {
+    "forward": "3d3f",
+    "reverse": "3ed3",
+    "3d3f": "3d3f",
+    "1000:3d3f": "3d3f",
+    "3ed3": "3ed3",
+    "1000:3ed3": "3ed3",
+}
+OFFSET_ALIASES = {
+    "FORWARD": "forward",
+    "3D3F": "forward",
+    "1000:3D3F": "forward",
+    "REVERSE": "reverse",
+    "3ED3": "reverse",
+    "1000:3ED3": "reverse",
+}
 
 
 def repo_root() -> Path:
@@ -29,6 +45,16 @@ def repo_root() -> Path:
 
 def quote_command(command: list[str]) -> str:
     return " ".join(shlex.quote(part) for part in command)
+
+
+def normalize_offset(value: str) -> str:
+    token = value.upper()
+    if token not in OFFSET_ALIASES:
+        raise argparse.ArgumentTypeError(
+            "offset must be one of forward, reverse, 1000:3D3F, 1000:3ED3, "
+            "3D3F, or 3ED3"
+        )
+    return OFFSET_ALIASES[token]
 
 
 def parse_route(value: str) -> list[str]:
@@ -75,6 +101,8 @@ def build_capture_command(
         str(root / "tools" / "capture_original_lane_result_runtime.py"),
         str(route_out_dir),
         str(args.asset_dir),
+        "--cpp-exe",
+        str(args.cpp_exe),
         "--offset",
         args.offset,
         "--runtime-freeze-after-bomb-seconds",
@@ -102,6 +130,23 @@ def build_capture_command(
     if args.skip_oracle:
         command.append("--skip-oracle")
     return command
+
+
+def route_candidate_path(route_out_dir: Path, offset: str) -> Path:
+    label = OFFSET_LABELS.get(offset.lower(), offset.split(":", 1)[-1].lower())
+    return (
+        route_out_dir
+        / label
+        / "explosion_playback_oracle_original_candidate.txt"
+    )
+
+
+def build_oracle_command(args: argparse.Namespace, candidate: Path) -> list[str]:
+    return [
+        str(args.cpp_exe),
+        "--debug-explosion-playback-oracle",
+        str(candidate),
+    ]
 
 
 def build_environment_preflight_command(args: argparse.Namespace) -> list[str]:
@@ -151,7 +196,13 @@ def main() -> int:
         help="skip original-evidence host/tool preflight before live capture",
     )
     parser.add_argument("--skip-oracle", action="store_true")
-    parser.add_argument("--offset", default="forward")
+    parser.add_argument(
+        "--cpp-exe",
+        type=Path,
+        default=repo_root() / "build" / "lezac_cpp",
+        help="C++ executable delegated to per-route oracle checks",
+    )
+    parser.add_argument("--offset", type=normalize_offset, default="forward")
     parser.add_argument(
         "--route",
         action="append",
@@ -174,6 +225,7 @@ def main() -> int:
     if repo_dir in out_dir.parents or out_dir == repo_dir:
         raise RuntimeError("choose an output directory outside the repository")
     args.asset_dir = asset_dir
+    args.cpp_exe = args.cpp_exe.resolve()
     routes = args.route or [parse_route(route) for route in DEFAULT_ROUTES]
     route_labels = [route_label(route) for route in routes]
     commands = [
@@ -188,6 +240,8 @@ def main() -> int:
         f"out_dir={out_dir} offset={args.offset} routes={len(routes)} "
         f"route_labels={','.join(route_labels)} "
         f"capture_commands={len(commands)} "
+        f"oracle_commands={0 if args.skip_oracle else len(commands)} "
+        f"cpp_exe={args.cpp_exe} "
         f"environment_preflight={0 if args.skip_environment_preflight else 1}"
     )
     if not args.skip_environment_preflight:
@@ -197,6 +251,12 @@ def main() -> int:
         )
     for index, command in enumerate(commands):
         print(f"capture_command_{route_labels[index]}={quote_command(command)}")
+        if not args.skip_oracle:
+            candidate = route_candidate_path(out_dir / route_labels[index], args.offset)
+            print(
+                f"oracle_command_{route_labels[index]}="
+                f"{quote_command(build_oracle_command(args, candidate))}"
+            )
 
     if args.dry_run:
         return 0
@@ -220,9 +280,11 @@ def main() -> int:
     manifest_lines = [
         "capture=lane_result_route_sweep",
         f"asset_dir={asset_dir}",
+        f"cpp_exe={args.cpp_exe}",
         f"offset={args.offset}",
         f"routes={len(routes)}",
         f"route_labels={','.join(route_labels)}",
+        f"skip_oracle={1 if args.skip_oracle else 0}",
         f"environment_preflight={environment_preflight}",
     ]
     if not args.skip_environment_preflight:
@@ -238,6 +300,11 @@ def main() -> int:
         route_out_dir.mkdir(parents=True, exist_ok=True)
         result = run_logged(command, root, out_dir / f"{label}_capture.log")
         manifest_lines.append(f"capture_command_{label}={quote_command(command)}")
+        if not args.skip_oracle:
+            manifest_lines.append(
+                f"oracle_command_{label}="
+                f"{quote_command(build_oracle_command(args, route_candidate_path(route_out_dir, args.offset)))}"
+            )
         manifest_lines.append(
             f"capture_log_{label}={out_dir / (label + '_capture.log')}"
         )

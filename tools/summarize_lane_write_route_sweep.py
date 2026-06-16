@@ -10,26 +10,27 @@ import re
 import shlex
 import sys
 
+from ready_result_fixture_guardrails import (
+    parse_runtime_segment_value,
+    validate_runtime_fixture_evidence,
+)
+
 
 CAPTURE_ROUTE_SWEEP = "lane_write_route_sweep"
-CAPTURE_RUNTIME = "lane_write_runtime"
+CAPTURE_PROCMEM = "original_explosion_process_memory"
 ORACLE = "explosion_playback"
 ORACLE_FLAG = "--debug-explosion-playback-oracle"
 OFFSET_ADDRESSES = {
+    "3d1b": "1000:3D1B",
     "3d2d": "1000:3D2D",
+    "3eaf": "1000:3EAF",
     "3ec1": "1000:3EC1",
 }
-OFFSET_ALIASES = {
-    "forward": "3d2d",
-    "reverse": "3ec1",
-}
-OFFSET_EXPECTED_BYTES = {
-    "3d2d": "889597",
-    "3ec1": "889598",
-}
-OFFSET_KINDS = {
-    "3d2d": "forward",
-    "3ec1": "reverse",
+OFFSET_MODEL = {
+    "3d1b": ("forward", "collapse", "888517"),
+    "3d2d": ("forward", "debris", "889597"),
+    "3eaf": ("reverse", "collapse", "888518"),
+    "3ec1": ("reverse", "debris", "889598"),
 }
 LANE_WRITE_FIELDS = [
     "output",
@@ -62,8 +63,11 @@ class CandidateReadiness:
     status: str
     missing: list[str]
     placeholders: bool
+    patch_applied: bool
     freeze_observed: bool
     lane_write_present: bool
+    lane_write_kind: str
+    lane_write_target: str
     runtime_cs: str
     runtime_ds: str
 
@@ -90,6 +94,8 @@ def read_manifest(path: Path) -> Manifest:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
+        if key in values:
+            raise ValueError(f"duplicate manifest field: {key}")
         values[key] = value
         entries.append((key, value))
     return Manifest(path=path, values=values, entries=entries)
@@ -111,7 +117,20 @@ def parse_csv(value: str | None) -> list[str]:
     return [part for part in value.split(",") if part]
 
 
+def wsl_drive_mount_to_windows_path(raw_path: str) -> Path | None:
+    normalized = raw_path.replace("\\", "/")
+    match = re.match(r"^/mnt/([A-Za-z])(?:/(.*))?$", normalized)
+    if match is None:
+        return None
+    drive = match.group(1).upper()
+    rest = match.group(2) or ""
+    return Path(f"{drive}:/{rest}")
+
+
 def resolve_child_path(raw_path: str, parent_manifest: Path) -> Path:
+    translated = wsl_drive_mount_to_windows_path(raw_path)
+    if translated is not None and sys.platform == "win32":
+        return translated
     path = Path(raw_path)
     if path.is_absolute():
         return path
@@ -132,8 +151,6 @@ def bool_value(value: str | None) -> bool:
 
 def offset_label_from_address(value: str) -> str:
     token = value.lower()
-    if token in OFFSET_ALIASES:
-        return OFFSET_ALIASES[token]
     if ":" in value:
         return value.split(":", 1)[1].lower()
     return token
@@ -193,14 +210,23 @@ def active_values(path: Path) -> tuple[dict[str, str], list[str]]:
     return values, nonempty
 
 
+def expected_model(offset_label: str) -> tuple[str, str, str] | None:
+    return OFFSET_MODEL.get(offset_label_from_address(offset_label))
+
+
 def candidate_readiness(candidate: Candidate) -> CandidateReadiness:
     if candidate.fixture is None:
-        return CandidateReadiness("missing", ["fixture"], False, False, False, "", "")
+        return CandidateReadiness(
+            "missing", ["fixture"], False, False, False, False, "", "", "", ""
+        )
     if not candidate.fixture.exists():
-        return CandidateReadiness("missing", ["file"], False, False, False, "", "")
+        return CandidateReadiness(
+            "missing", ["file"], False, False, False, False, "", "", "", ""
+        )
 
     values, nonempty = active_values(candidate.fixture)
     placeholders = any("<" in line or ">" in line for line in nonempty)
+    patch_applied = bool_value(values.get("runtime_freeze_patch_applied"))
     required_keys = [
         "capture",
         "source",
@@ -210,39 +236,43 @@ def candidate_readiness(candidate: Candidate) -> CandidateReadiness:
         "runtime_ds",
         "instrumented_freeze_observed",
         "instrumented_freeze_patch_mode",
-        "runtime_freeze_old_bytes",
+        "instrumented_lane_write_cs_offset",
+        "instrumented_lane_write_kind",
+        "instrumented_lane_write_target",
         "runtime_freeze_patch_applied",
     ]
+    if patch_applied:
+        required_keys.append("runtime_freeze_old_bytes")
     missing = [key for key in required_keys if not values.get(key)]
     freeze_observed = bool_value(values.get("instrumented_freeze_observed"))
     lane_write_present = bool_value(
         values.get("instrumented_lane_write_scratch_present")
     )
-    offset_label = candidate.offset_label
-    expected_bytes = OFFSET_EXPECTED_BYTES.get(offset_label, "")
-    expected_kind = OFFSET_KINDS.get(offset_label, "")
+    lane_write_kind = values.get("instrumented_lane_write_kind", "")
+    lane_write_target = values.get("instrumented_lane_write_target", "")
+
     if values.get("instrumented_freeze_patch_mode") != "lane-write-cs-scratch":
         missing.append("lane_write_patch_mode")
-    if expected_bytes and not values.get("runtime_freeze_old_bytes", "").lower().startswith(
-        expected_bytes
-    ):
-        missing.append(f"runtime_freeze_old_bytes_{expected_bytes}")
-    if bool_value(values.get("runtime_seeded")):
-        missing.append("runtime_seeded_not_natural")
+    if values.get("instrumented_lane_write_cs_offset", "").lower() != "0xf080":
+        missing.append("instrumented_lane_write_cs_offset_f080")
+    model = expected_model(candidate.offset_label)
+    if model is None:
+        missing.append("known_lane_write_offset")
+    else:
+        expected_kind, expected_target, expected_old_bytes = model
+        if lane_write_kind != expected_kind:
+            missing.append(f"lane_write_kind_{expected_kind}")
+        if lane_write_target != expected_target:
+            missing.append(f"lane_write_target_{expected_target}")
+        if patch_applied and not values.get(
+            "runtime_freeze_old_bytes", ""
+        ).lower().startswith(expected_old_bytes):
+            missing.append(f"runtime_freeze_old_bytes_{expected_old_bytes}")
     if lane_write_present:
         lane_keys = [
-            "instrumented_lane_write_cs_offset",
-            "instrumented_lane_write_kind",
-            "instrumented_lane_write_target",
             *[f"instrumented_lane_write_{field}" for field in LANE_WRITE_FIELDS],
         ]
         missing.extend(key for key in lane_keys if not values.get(key))
-        if values.get("instrumented_lane_write_cs_offset", "").lower() != "0xf080":
-            missing.append("lane_write_cs_offset_f080")
-        if expected_kind and values.get("instrumented_lane_write_kind") != expected_kind:
-            missing.append(f"lane_write_kind_{expected_kind}")
-        if values.get("instrumented_lane_write_target") != "debris":
-            missing.append("lane_write_target_debris")
     elif freeze_observed:
         missing.append("instrumented_lane_write_scratch")
 
@@ -250,6 +280,8 @@ def candidate_readiness(candidate: Candidate) -> CandidateReadiness:
     runtime_ds = values.get("runtime_ds", "")
     if missing or placeholders:
         status = "incomplete"
+    elif not patch_applied:
+        status = "no_patch"
     elif freeze_observed and lane_write_present:
         status = "ready"
     else:
@@ -258,40 +290,30 @@ def candidate_readiness(candidate: Candidate) -> CandidateReadiness:
         status=status,
         missing=missing,
         placeholders=placeholders,
+        patch_applied=patch_applied,
         freeze_observed=freeze_observed,
         lane_write_present=lane_write_present,
+        lane_write_kind=lane_write_kind,
+        lane_write_target=lane_write_target,
         runtime_cs=runtime_cs,
         runtime_ds=runtime_ds,
     )
 
 
-def runtime_candidates(manifest: Manifest, route_label: str) -> list[Candidate]:
-    offsets = parse_csv(manifest.values.get("offset_labels"))
-    if not offsets:
-        offsets = [
-            key.removeprefix("candidate_")
-            for key, _ in manifest.entries
-            if key.startswith("candidate_")
-        ]
-    candidates: list[Candidate] = []
-    for offset in offsets:
-        label = offset_label_from_address(offset)
-        raw_fixture = manifest.values.get(f"candidate_{label}")
-        fixture = (
-            resolve_child_path(raw_fixture, manifest.path)
-            if raw_fixture is not None
-            else None
-        )
-        candidates.append(
-            Candidate(
-                route_label=route_label,
-                offset_label=label,
-                offset_address=offset_address_from_label(label),
-                fixture=fixture,
-                source_manifest=manifest.path,
-            )
-        )
-    return candidates
+def procmem_candidate(manifest: Manifest, route_label: str, offset_label: str) -> Candidate:
+    raw_fixture = manifest.values.get("fixture_candidate")
+    fixture = (
+        resolve_child_path(raw_fixture, manifest.path)
+        if raw_fixture is not None
+        else None
+    )
+    return Candidate(
+        route_label=route_label,
+        offset_label=offset_label_from_address(offset_label),
+        offset_address=offset_address_from_label(offset_label),
+        fixture=fixture,
+        source_manifest=manifest.path,
+    )
 
 
 def route_sweep_candidates(manifest: Manifest) -> list[Candidate]:
@@ -299,22 +321,30 @@ def route_sweep_candidates(manifest: Manifest) -> list[Candidate]:
     for key, value in manifest.entries:
         if not key.startswith("capture_status_"):
             continue
-        route_label = key.removeprefix("capture_status_")
         fields = parse_status_fields(value)
-        raw_manifest = fields.get("manifest")
-        if raw_manifest is None:
-            candidates.append(
-                Candidate(
-                    route_label=route_label,
-                    offset_label="unknown",
-                    offset_address="unknown",
-                    fixture=None,
-                    source_manifest=manifest.path,
-                )
+        route_label = fields.get("route", key.removeprefix("capture_status_"))
+        offset_label = offset_label_from_address(fields.get("offset", "unknown"))
+        offset_address = fields.get("offset_address", offset_address_from_label(offset_label))
+        raw_fixture = fields.get("candidate")
+        fixture: Path | None = None
+        if raw_fixture is not None:
+            fixture = resolve_child_path(raw_fixture, manifest.path)
+        else:
+            raw_manifest = fields.get("manifest")
+            if raw_manifest is not None:
+                child = read_manifest(resolve_child_path(raw_manifest, manifest.path))
+                child_fixture = child.values.get("fixture_candidate")
+                if child_fixture is not None:
+                    fixture = resolve_child_path(child_fixture, child.path)
+        candidates.append(
+            Candidate(
+                route_label=route_label,
+                offset_label=offset_label,
+                offset_address=offset_address,
+                fixture=fixture,
+                source_manifest=manifest.path,
             )
-            continue
-        child = read_manifest(resolve_child_path(raw_manifest, manifest.path))
-        candidates.extend(runtime_candidates(child, route_label))
+        )
     return candidates
 
 
@@ -323,20 +353,21 @@ def collect_candidates(manifest: Manifest) -> tuple[str, list[str], list[Candida
     if capture == CAPTURE_ROUTE_SWEEP:
         mode = "route"
         expected_offsets = [
-            offset_label_from_address(manifest.values.get("offset", ""))
-        ]
-        expected_offsets = [offset for offset in expected_offsets if offset]
-        return mode, expected_offsets, route_sweep_candidates(manifest)
-    if capture == CAPTURE_RUNTIME:
-        mode = "runtime"
-        expected_offsets = [
             offset_label_from_address(offset)
             for offset in parse_csv(manifest.values.get("offset_labels"))
         ]
-        return mode, expected_offsets, runtime_candidates(manifest, "direct")
+        return mode, expected_offsets, route_sweep_candidates(manifest)
+    if capture == CAPTURE_PROCMEM:
+        mode = "runtime"
+        candidate = procmem_candidate(
+            manifest,
+            manifest.values.get("route_label", "direct"),
+            manifest.values.get("offset_label", "unknown"),
+        )
+        return mode, [], [candidate]
     raise ValueError(
         f"unsupported manifest capture {capture!r}; expected "
-        f"{CAPTURE_ROUTE_SWEEP!r} or {CAPTURE_RUNTIME!r}"
+        f"{CAPTURE_ROUTE_SWEEP!r} or {CAPTURE_PROCMEM!r}"
     )
 
 
@@ -360,13 +391,24 @@ def ready_manifest_records(
     ]
     for index, (candidate, readiness) in enumerate(ready_entries):
         prefix = f"candidate_{index}"
+        runtime_cs = parse_runtime_segment_value(
+            f"{prefix}_runtime_cs", readiness.runtime_cs
+        )
+        runtime_ds = parse_runtime_segment_value(
+            f"{prefix}_runtime_ds", readiness.runtime_ds
+        )
+        validate_runtime_fixture_evidence(
+            prefix, str(candidate.fixture), runtime_cs, runtime_ds
+        )
         lines.extend(
             [
                 f"{prefix}_route={candidate.route_label}",
                 f"{prefix}_offset_label={candidate.offset_label}",
                 f"{prefix}_offset_address={candidate.offset_address}",
-                f"{prefix}_runtime_cs={readiness.runtime_cs}",
-                f"{prefix}_runtime_ds={readiness.runtime_ds}",
+                f"{prefix}_lane_write_kind={readiness.lane_write_kind}",
+                f"{prefix}_lane_write_target={readiness.lane_write_target}",
+                f"{prefix}_runtime_cs={runtime_cs}",
+                f"{prefix}_runtime_ds={runtime_ds}",
                 f"{prefix}_fixture={candidate.fixture}",
                 f"{prefix}_oracle={ORACLE}",
                 f"{prefix}_oracle_flag={ORACLE_FLAG}",
@@ -382,6 +424,7 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
     readings = [(candidate, candidate_readiness(candidate)) for candidate in candidates]
     readiness_counts = {
         "ready": 0,
+        "no_patch": 0,
         "no_freeze": 0,
         "incomplete": 0,
         "missing": 0,
@@ -414,6 +457,7 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         f"candidates={len(readings)} "
         f"observed_freezes={len(observed_freeze_offsets)} "
         f"ready_candidates={readiness_counts['ready']} "
+        f"no_patch_candidates={readiness_counts['no_patch']} "
         f"no_freeze_candidates={readiness_counts['no_freeze']} "
         f"incomplete_candidates={readiness_counts['incomplete']} "
         f"missing_candidates={readiness_counts['missing']} "
@@ -428,8 +472,11 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
             f"route={candidate.route_label} "
             f"offset={candidate.offset_label} "
             f"offset_address={candidate.offset_address} "
+            f"kind={readiness.lane_write_kind or 'unknown'} "
+            f"target={readiness.lane_write_target or 'unknown'} "
             f"runtime_cs={readiness.runtime_cs or 'unknown'} "
             f"runtime_ds={readiness.runtime_ds or 'unknown'} "
+            f"patch_applied={1 if readiness.patch_applied else 0} "
             f"freeze_observed={1 if readiness.freeze_observed else 0} "
             f"lane_write_present={1 if readiness.lane_write_present else 0} "
             f"candidate_fixture={candidate.fixture or 'none'} "
@@ -464,6 +511,7 @@ def require_ready_error(readiness_counts: dict[str, int]) -> str | None:
         return (
             "lane_write_route_sweep_summary=error reason=no_ready_candidates "
             f"ready_candidates={readiness_counts.get('ready', 0)} "
+            f"no_patch_candidates={readiness_counts.get('no_patch', 0)} "
             f"no_freeze_candidates={readiness_counts.get('no_freeze', 0)} "
             f"incomplete_candidates={readiness_counts.get('incomplete', 0)} "
             f"missing_candidates={readiness_counts.get('missing', 0)}"
@@ -476,6 +524,7 @@ def require_ready_error(readiness_counts: dict[str, int]) -> str | None:
     return (
         "lane_write_route_sweep_summary=error reason=candidates_not_ready "
         f"ready_candidates={readiness_counts.get('ready', 0)} "
+        f"no_patch_candidates={readiness_counts.get('no_patch', 0)} "
         f"no_freeze_candidates={readiness_counts.get('no_freeze', 0)} "
         f"incomplete_candidates={readiness_counts.get('incomplete', 0)} "
         f"missing_candidates={readiness_counts.get('missing', 0)}"
@@ -494,7 +543,7 @@ def require_environment_preflight_error(environment_preflight: str) -> str | Non
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Summarize lane-write route-sweep or runtime manifests."
+        description="Summarize lane-write route-sweep manifests."
     )
     parser.add_argument("manifest", type=Path, help="manifest.txt or output dir")
     parser.add_argument(

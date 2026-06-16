@@ -1,0 +1,10 @@
+# A callsite oracle must include the normalized sound_request record.
+scenario=player_damage_sound
+level=1
+runtime_cs=1A2B
+runtime_ds=2B3C
+temp_copy=1
+visual_claim=0
+
+break ghidra=1000:7F9A runtime=1A2B:7F9A label=player_damage_sound_request
+break ghidra=1000:165A runtime=1A2B:165A label=sound_priority_latch

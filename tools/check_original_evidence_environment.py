@@ -108,6 +108,46 @@ def make_fake_tool(
     path.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
+def make_fake_wsl_status_ok_bash_missing_distro(bin_dir: Path) -> None:
+    if os.name == "nt":
+        write_text(
+            bin_dir / "wsl.cmd",
+            "\r\n".join(
+                [
+                    "@echo off",
+                    'if "%1"=="--status" (',
+                    "  echo Default Version: 2",
+                    "  exit /b 0",
+                    ")",
+                    "echo Windows Subsystem for Linux has no installed distributions.",
+                    "echo Error code: Wsl/Service/CreateInstance/GetDefaultDistro/WSL_E_DEFAULT_DISTRO_NOT_FOUND",
+                    "exit /b 1",
+                    "",
+                ]
+            ),
+        )
+        return
+    path = bin_dir / "wsl"
+    write_text(
+        path,
+        "\n".join(
+            [
+                "#!/bin/sh",
+                'if [ "$1" = "--status" ]; then',
+                "  echo 'Default Version: 2'",
+                "  exit 0",
+                "fi",
+                "echo 'Windows Subsystem for Linux has no installed distributions.'",
+                "echo 'Error code: Wsl/Service/CreateInstance/GetDefaultDistro/WSL_E_DEFAULT_DISTRO_NOT_FOUND'",
+                "exit 1",
+                "",
+            ]
+        ),
+    )
+    mode = path.stat().st_mode
+    path.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+
 def fake_env(bin_dir: Path) -> dict[str, str]:
     env = os.environ.copy()
     env["PATH"] = str(bin_dir)
@@ -297,6 +337,42 @@ def main() -> int:
                 wsl_missing_distro_required,
                 "reason=wsl_bash_not_usable",
                 "wsl_missing_distro_required",
+            )
+        cases += 1
+
+        wsl_status_ok_missing_distro_bin = base / "wsl-status-ok-missing-distro-bin"
+        wsl_status_ok_missing_distro_bin.mkdir()
+        make_fake_wsl_status_ok_bash_missing_distro(wsl_status_ok_missing_distro_bin)
+        wsl_status_ok_missing_distro = run_preflight(
+            root,
+            [
+                str(asset_root),
+                "--probe-wsl",
+                "--require-wsl-bash-on-windows",
+            ],
+            env=fake_env(wsl_status_ok_missing_distro_bin),
+            expect_success=os.name != "nt",
+        )
+        require(
+            wsl_status_ok_missing_distro,
+            "wsl_probe=ok",
+            "wsl_status_ok_missing_distro",
+        )
+        require(
+            wsl_status_ok_missing_distro,
+            "wsl_bash_probe=error_1",
+            "wsl_status_ok_missing_distro",
+        )
+        require(
+            wsl_status_ok_missing_distro,
+            "wsl_bash_reason=no_default_distro",
+            "wsl_status_ok_missing_distro",
+        )
+        if os.name == "nt":
+            require(
+                wsl_status_ok_missing_distro,
+                "reason=wsl_bash_not_usable",
+                "wsl_status_ok_missing_distro",
             )
         cases += 1
 

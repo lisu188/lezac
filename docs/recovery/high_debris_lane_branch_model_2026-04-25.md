@@ -486,11 +486,41 @@ metadata: C++ has one collapse record at `start=0x0A06`, `end=0x0A08`,
 lane bytes `forward=0x00`, `reverse=0x04` after the lane helpers. That mismatch
 is now explicit evidence for the next rendering/playback recovery step.
 
-The next evidence step is to find a natural route or timing gate that reaches
-the debris-side writebacks (`1000:3D2D`/`1000:3EC1`) and forward final
-far-pointer result write (`1000:3D3F`) without runtime seeding before replacing
-the provisional queue playback; the wrapper aliases for those final probes are
-`forward` and `reverse`, and route variants can now be recorded with
-`--route-step KEY:SECONDS`. Use `tools/sweep_original_lane_result_routes.py`
-for repeated route-step probes so each run has a stable route label, command
-line, and manifest entry.
+The 2026-06-15 WSL route sweeps promoted natural non-seeded evidence for the
+reverse debris writeback (`1000:3EC1`) and the forward final far-pointer result
+write (`1000:3D3F`). Natural forward debris writeback (`1000:3D2D`) remains
+the next lane-write evidence target before replacing the provisional queue
+playback. Use
+`tools/sweep_original_lane_write_routes.py` for repeated debris-writeback
+route-step probes; its default matrix targets `3D2D`/`3EC1` with the
+`late-collapse` runtime-freeze gate and writes stable route/offset labels,
+commands, logs, and manifest entries. For the remaining forward-debris target,
+prefer the reviewed expanded matrix:
+
+```sh
+python3 tools/sweep_original_lane_write_routes.py \
+  /tmp/lezac-lane-write-forward-expanded . \
+  --route-preset forward-debris-expanded --offset forward-debris \
+  --approve-procmem --approve-runtime-instrumentation \
+  --cpp-exe ./build/lezac_cpp
+```
+
+Summarize its output with
+`tools/summarize_lane_write_route_sweep.py <manifest-or-dir> --require-ready`
+and add `--write-ready-manifest <path>` when a follow-up oracle run should use
+only ready natural debris-write candidates. Recheck that ready manifest with
+`tools/run_lane_write_ready_manifest.py <manifest> --dry-run` first, then run
+it live with `--log-dir <tmp-dir>` and `--write-result-manifest <tmp-file>`.
+Summarize the executed or planned result manifest with
+`tools/summarize_lane_write_ready_results.py <result-manifest>`, adding
+`--require-success --require-executed --require-source-environment-preflight`
+when promoting a completed original run.
+Use
+`tools/sweep_original_lane_result_routes.py --offset forward` for the final
+`3D3F` result-write retries or regression reruns; pass `--cpp-exe <lezac_cpp>` when the default
+`build/lezac_cpp` path is not the active build, and inspect the dry-run
+`oracle_commands` count before running the capture. The lane-result sweep
+accepts only `forward`/`3D3F` and `reverse`/`3ED3` offsets, so bad capture
+plans fail during dry-run review. The sweep wrappers take repeatable
+`--route KEY:SECONDS,...` entries and pass those through to the lower-level
+capture helpers as `--route-step KEY:SECONDS`.

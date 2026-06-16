@@ -9,7 +9,10 @@ from pathlib import Path
 import shlex
 import sys
 
+from ready_result_fixture_guardrails import validate_runtime_fixture_evidence
 
+
+TOOL_PREFIX = "lane_result"
 EXPECTED_RESULT = "lane_result_ready_manifest"
 ORACLE_FLAGS = {
     "explosion_playback": "--debug-explosion-playback-oracle",
@@ -28,6 +31,8 @@ class CandidateResult:
     route: str
     offset_label: str
     offset_address: str
+    runtime_cs: str
+    runtime_ds: str
     fixture: str
     oracle: str
     oracle_flag: str
@@ -49,6 +54,8 @@ def read_manifest(path: Path) -> ResultManifest:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
+        if key in values:
+            raise ValueError(f"duplicate manifest field: {key}")
         values[key] = value
     return ResultManifest(path=path, values=values)
 
@@ -80,6 +87,26 @@ def parse_failures(values: dict[str, str]) -> int:
     if failures < 0:
         raise ValueError("failures must be non-negative")
     return failures
+
+
+def parse_runtime_segment_value(key: str, raw_segment: str) -> str:
+    if len(raw_segment) != 4 or any(
+        character not in "0123456789abcdefABCDEF" for character in raw_segment
+    ):
+        raise ValueError(
+            f"{key} must be a 4-digit hexadecimal segment: {raw_segment!r}"
+        )
+    return raw_segment.upper()
+
+
+def parse_runtime_segment(values: dict[str, str], key: str) -> str:
+    return parse_runtime_segment_value(key, require(values, key))
+
+
+def validate_fixture_runtime_segments(
+    prefix: str, fixture: str, runtime_cs: str, runtime_ds: str
+) -> None:
+    validate_runtime_fixture_evidence(prefix, fixture, runtime_cs, runtime_ds)
 
 
 def parse_oracle_flag(values: dict[str, str], prefix: str) -> tuple[str, str]:
@@ -143,7 +170,10 @@ def parse_candidates(values: dict[str, str]) -> list[CandidateResult]:
     for index in range(count):
         prefix = f"candidate_{index}"
         oracle, oracle_flag = parse_oracle_flag(values, prefix)
+        runtime_cs = parse_runtime_segment(values, f"{prefix}_runtime_cs")
+        runtime_ds = parse_runtime_segment(values, f"{prefix}_runtime_ds")
         fixture = require(values, f"{prefix}_fixture")
+        validate_fixture_runtime_segments(prefix, fixture, runtime_cs, runtime_ds)
         command = parse_command(values, prefix, oracle_flag, fixture)
         candidates.append(
             CandidateResult(
@@ -151,6 +181,8 @@ def parse_candidates(values: dict[str, str]) -> list[CandidateResult]:
                 route=require(values, f"{prefix}_route"),
                 offset_label=require(values, f"{prefix}_offset_label"),
                 offset_address=require(values, f"{prefix}_offset_address"),
+                runtime_cs=runtime_cs,
+                runtime_ds=runtime_ds,
                 fixture=fixture,
                 oracle=oracle,
                 oracle_flag=oracle_flag,
@@ -204,9 +236,11 @@ def existing_log_count(candidates: list[CandidateResult]) -> tuple[int, int]:
     present = 0
     missing = 0
     for candidate in candidates:
-        if candidate.log == "none":
+        if candidate.status == "planned":
             continue
-        if Path(candidate.log).exists():
+        if candidate.log == "none":
+            missing += 1
+        elif Path(candidate.log).exists():
             present += 1
         else:
             missing += 1
@@ -306,6 +340,8 @@ def main() -> int:
             f"route={candidate.route} "
             f"offset={candidate.offset_label} "
             f"offset_address={candidate.offset_address} "
+            f"runtime_cs={candidate.runtime_cs} "
+            f"runtime_ds={candidate.runtime_ds} "
             f"fixture={candidate.fixture} "
             f"oracle={candidate.oracle} "
             f"oracle_flag={candidate.oracle_flag} "
@@ -326,6 +362,14 @@ def main() -> int:
             file=sys.stderr,
         )
         return 2
+    if args.require_success and logs_missing != 0:
+        print(
+            "lane_result_ready_result_summary=error "
+            "reason=candidate_logs_missing "
+            f"logs_missing={logs_missing}",
+            file=sys.stderr,
+        )
+        return 5
     if args.require_executed and counts["planned"] != 0:
         print(
             f"{TOOL_PREFIX}_ready_result_summary=error "

@@ -6,6 +6,7 @@ if [[ $# -lt 1 || $# -gt 3 ]]; then
     exit 64
 fi
 
+repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 mkdir -p "$1"
 out_dir=$(cd "$1" && pwd)
 asset_dir=$(realpath "${2:-.}")
@@ -19,6 +20,12 @@ case "$scenario" in
         ;;
 esac
 
+if [[ "$scenario" == "monster_bomb_reward" ]]; then
+    route="keyboard_partial"
+else
+    route="keyboard_original_controls"
+fi
+
 require() {
     if ! command -v "$1" >/dev/null 2>&1; then
         echo "missing required command: $1" >&2
@@ -26,13 +33,100 @@ require() {
     fi
 }
 
-require dosbox
-require xdotool
-require xvfb-run
+quote_command() {
+    printf "%q " "$@"
+}
+
+log="$out_dir/original_capture.log"
+manifest="$out_dir/manifest.txt"
+environment_preflight_log="$out_dir/environment_preflight.log"
+environment_preflight_command=(
+    python3
+    "$repo_dir/tools/preflight_original_evidence_environment.py"
+    "$asset_dir"
+    --require-frame-capture
+    --probe-wsl
+    --require-wsl-bash-on-windows
+)
+
+write_initial_metadata() {
+    : >"$log"
+    : >"$manifest"
+    {
+        echo "capture=original_dosbox"
+        echo "scenario=$scenario"
+        echo "route=$route"
+        echo "asset_dir=$asset_dir"
+        echo "captures=$out_dir"
+        echo "environment_preflight_command=$(quote_command "${environment_preflight_command[@]}")"
+        echo "environment_preflight_log=$environment_preflight_log"
+    } >>"$log"
+    {
+        echo "scenario=$scenario"
+        echo "source=LEZAC.EXE via DOSBox"
+        echo "route=$route"
+        echo "asset_dir=$asset_dir"
+        echo "captures=$out_dir"
+        echo "environment_preflight_command=$(quote_command "${environment_preflight_command[@]}")"
+        echo "environment_preflight_log=$environment_preflight_log"
+        echo "startup_seconds=${LEZAC_ORIGINAL_STARTUP_SECONDS:-6.0}"
+        echo "level_start_seconds=${LEZAC_ORIGINAL_LEVEL_START_SECONDS:-1.5}"
+        echo "start_key=${LEZAC_ORIGINAL_START_KEY:-1}"
+        echo "start_taps=${LEZAC_ORIGINAL_START_TAPS:-2}"
+        echo "start_tap_gap_seconds=${LEZAC_ORIGINAL_START_TAP_GAP_SECONDS:-0.4}"
+        echo "start_text=${LEZAC_ORIGINAL_START_TEXT:-}"
+        echo "right_key=${LEZAC_ORIGINAL_ROUTE_RIGHT_KEY:-x}"
+        echo "right_hold_seconds=${LEZAC_ORIGINAL_ROUTE_RIGHT_SECONDS:-2.0}"
+        echo "fire_key=${LEZAC_ORIGINAL_FIRE_KEY:-n}"
+        echo "fire_hold_seconds=${LEZAC_ORIGINAL_FIRE_HOLD_SECONDS:-0.25}"
+    } >>"$manifest"
+}
+
+run_environment_preflight() {
+    if [[ "${LEZAC_ORIGINAL_FRAME_CAPTURE_SKIP_ENVIRONMENT_PREFLIGHT:-0}" == "1" ]]; then
+        echo "environment_preflight=skipped" >>"$manifest"
+        echo "environment_preflight=skipped" >>"$log"
+        return
+    fi
+
+    set +e
+    "${environment_preflight_command[@]}" >"$environment_preflight_log" 2>&1
+    preflight_status=$?
+    set -e
+
+    {
+        echo "environment_preflight_exit=$preflight_status"
+        echo "environment_preflight_log=$environment_preflight_log"
+    } >>"$manifest"
+    {
+        echo "environment_preflight_exit=$preflight_status"
+        echo "environment_preflight_log=$environment_preflight_log"
+    } >>"$log"
+
+    if [[ $preflight_status -ne 0 ]]; then
+        echo "environment_preflight=error" >>"$manifest"
+        echo "environment_preflight=error" >>"$log"
+        echo "original_frame_capture=error scenario=$scenario reason=environment_preflight_exit_$preflight_status manifest=$manifest environment_preflight_log=$environment_preflight_log"
+        exit "$preflight_status"
+    fi
+
+    echo "environment_preflight=ok" >>"$manifest"
+    echo "environment_preflight=ok" >>"$log"
+}
+
+if [[ "${LEZAC_ORIGINAL_CAPTURE_PREFLIGHT_DONE:-0}" != "1" ]]; then
+    write_initial_metadata
+    run_environment_preflight
+fi
 
 if [[ "${LEZAC_ORIGINAL_CAPTURE_INSIDE_XVFB:-0}" != "1" ]]; then
-    LEZAC_ORIGINAL_CAPTURE_INSIDE_XVFB=1 exec xvfb-run -a "$0" "$out_dir" "$asset_dir" "$scenario"
+    LEZAC_ORIGINAL_CAPTURE_INSIDE_XVFB=1 \
+    LEZAC_ORIGINAL_CAPTURE_PREFLIGHT_DONE=1 \
+        exec xvfb-run -a "$0" "$out_dir" "$asset_dir" "$scenario"
 fi
+
+require dosbox
+require xdotool
 
 run_dir=$(mktemp -d /tmp/lezac-original-frame-capture.XXXXXX)
 cleanup() {
@@ -84,36 +178,11 @@ scaler=none
 cycles=fixed 6000
 EOF_CONF
 
-log="$out_dir/original_capture.log"
-manifest="$out_dir/manifest.txt"
-: >"$log"
-: >"$manifest"
-echo "capture=original_dosbox" >>"$log"
-echo "scenario=$scenario" >>"$log"
-if [[ "$scenario" == "monster_bomb_reward" ]]; then
-    route="keyboard_partial"
-else
-    route="keyboard_original_controls"
-fi
-echo "route=$route" >>"$log"
-echo "asset_dir=$asset_dir" >>"$log"
 echo "run_dir=$run_dir" >>"$log"
-echo "captures=$out_dir" >>"$log"
 echo "command=dosbox -conf $conf -c \"mount c $run_dir\" -c \"c:\" -c \"LEZAC.EXE\"" >>"$log"
 {
-    echo "scenario=$scenario"
-    echo "source=LEZAC.EXE via DOSBox"
-    echo "route=$route"
-    echo "startup_seconds=${LEZAC_ORIGINAL_STARTUP_SECONDS:-6.0}"
-    echo "level_start_seconds=${LEZAC_ORIGINAL_LEVEL_START_SECONDS:-1.5}"
-    echo "start_key=${LEZAC_ORIGINAL_START_KEY:-1}"
-    echo "start_taps=${LEZAC_ORIGINAL_START_TAPS:-2}"
-    echo "start_tap_gap_seconds=${LEZAC_ORIGINAL_START_TAP_GAP_SECONDS:-0.4}"
-    echo "start_text=${LEZAC_ORIGINAL_START_TEXT:-}"
-    echo "right_key=${LEZAC_ORIGINAL_ROUTE_RIGHT_KEY:-x}"
-    echo "right_hold_seconds=${LEZAC_ORIGINAL_ROUTE_RIGHT_SECONDS:-2.0}"
-    echo "fire_key=${LEZAC_ORIGINAL_FIRE_KEY:-n}"
-    echo "fire_hold_seconds=${LEZAC_ORIGINAL_FIRE_HOLD_SECONDS:-0.25}"
+    echo "run_dir=$run_dir"
+    echo "command=dosbox -conf $conf -c \"mount c $run_dir\" -c \"c:\" -c \"LEZAC.EXE\""
 } >>"$manifest"
 
 dosbox -conf "$conf" \

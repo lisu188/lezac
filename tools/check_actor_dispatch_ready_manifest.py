@@ -128,18 +128,18 @@ def main() -> int:
                     "candidate_0_target=actor_update_gate6",
                     "candidate_0_route=x3p00",
                     "candidate_0_ghidra=1000:654E",
-                    "candidate_0_runtime_cs=01ED",
-                    "candidate_0_runtime_ds=0F3C",
-                    "candidate_0_freeze_runtime=01ED:654E",
+                    "candidate_0_runtime_cs=1A2B",
+                    "candidate_0_runtime_ds=2B3C",
+                    "candidate_0_freeze_runtime=1A2B:654E",
                     f"candidate_0_fixture={fixture}",
                     "candidate_0_oracle=actor_update",
                     "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",
                     "candidate_1_target=contact_scanner_start",
                     "candidate_1_route=x0p50",
                     "candidate_1_ghidra=1000:5CB0",
-                    "candidate_1_runtime_cs=01ED",
-                    "candidate_1_runtime_ds=0F3C",
-                    "candidate_1_freeze_runtime=01ED:5CB0",
+                    "candidate_1_runtime_cs=1A2B",
+                    "candidate_1_runtime_ds=2B3C",
+                    "candidate_1_freeze_runtime=1A2B:5CB0",
                     f"candidate_1_fixture={scanner_fixture}",
                     "candidate_1_oracle=contact_scanner",
                     "candidate_1_oracle_flag=--debug-contact-scanner-runtime-oracle",
@@ -167,7 +167,7 @@ def main() -> int:
             "actor_dispatch_ready_result_manifest=ok",
             f"path={dry_result_manifest.resolve()}",
             "ready_candidate index=0 target=actor_update_gate6",
-            "ghidra=1000:654E runtime_cs=01ED runtime_ds=0F3C",
+            "ghidra=1000:654E runtime_cs=1A2B runtime_ds=2B3C",
             "oracle=actor_update oracle_flag=--debug-actor-update-runtime-oracle",
             f"fixture={fixture}",
             "command='/tmp/lezac cpp/lezac_cpp' "
@@ -494,6 +494,68 @@ def main() -> int:
             repo_output,
             "--write-result-manifest must be outside the repository",
             "repo_output",
+        )
+        cases += 1
+
+        extra_candidate_manifest = base / "extra-candidate" / "manifest.txt"
+        write_text(
+            extra_candidate_manifest,
+            ready_manifest.read_text(encoding="ascii").replace(
+                "ready_candidates=2", "ready_candidates=1"
+            ),
+        )
+        extra_candidate = run_ready(
+            root,
+            [str(extra_candidate_manifest), "--dry-run"],
+            False,
+        )
+        require(
+            extra_candidate,
+            "candidate index outside ready_candidates: 1 ready_candidates=1",
+            "extra_candidate",
+        )
+        cases += 1
+
+        duplicate_field_manifest = base / "duplicate-field" / "manifest.txt"
+        write_text(
+            duplicate_field_manifest,
+            ready_manifest.read_text(encoding="ascii")
+            + "candidate_0_fixture=/tmp/other_actor_update.txt\n",
+        )
+        duplicate_field = run_ready(
+            root,
+            [str(duplicate_field_manifest), "--dry-run"],
+            False,
+        )
+        require(
+            duplicate_field,
+            "duplicate manifest field: candidate_0_fixture",
+            "duplicate_field",
+        )
+        cases += 1
+
+        duplicate_fixture_path = base / "fixtures" / "actor_update_duplicate.txt"
+        write_text(
+            duplicate_fixture_path,
+            "temp_copy=1\nvisual_claim=0\nruntime_cs=1A2B\n"
+            "runtime_ds=2B3C\nruntime_ds=2B3C\n",
+        )
+        duplicate_fixture_manifest = base / "duplicate-fixture" / "manifest.txt"
+        write_text(
+            duplicate_fixture_manifest,
+            ready_manifest.read_text(encoding="ascii").replace(
+                str(fixture), duplicate_fixture_path.as_posix()
+            ),
+        )
+        duplicate_fixture = run_ready(
+            root,
+            [str(duplicate_fixture_manifest), "--dry-run"],
+            False,
+        )
+        require(
+            duplicate_fixture,
+            "duplicate fixture field: runtime_ds",
+            "duplicate_fixture",
         )
         cases += 1
 

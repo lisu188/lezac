@@ -11,6 +11,11 @@ import shlex
 import subprocess
 import sys
 
+from ready_result_fixture_guardrails import (
+    parse_runtime_segment_value,
+    validate_runtime_fixture_evidence,
+)
+
 
 EXPECTED_PROMOTION = "debug_capture_ready_candidates"
 ORACLE_FLAGS = {
@@ -74,6 +79,8 @@ def read_manifest(path: Path) -> ReadyManifest:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
+        if key in values:
+            raise ValueError(f"duplicate manifest field: {key}")
         values[key] = value
     return ReadyManifest(path=path, values=values)
 
@@ -96,6 +103,19 @@ def parse_ready_count(values: dict[str, str]) -> int:
     return count
 
 
+def candidate_indices(values: dict[str, str]) -> set[int]:
+    indices: set[int] = set()
+    for key in values:
+        if not key.startswith("candidate_"):
+            continue
+        suffix = key[len("candidate_") :]
+        index_text, separator, _ = suffix.partition("_")
+        if not separator or not index_text.isdecimal():
+            raise ValueError(f"invalid candidate field: {key}")
+        indices.add(int(index_text, 10))
+    return indices
+
+
 def resolve_path(raw_path: str, manifest_path: Path) -> Path:
     path = Path(raw_path)
     if path.is_absolute():
@@ -113,9 +133,19 @@ def parse_candidates(
         raise ValueError(
             f"unsupported promotion {promotion!r}; expected {EXPECTED_PROMOTION!r}"
         )
+    count = parse_ready_count(manifest.values)
+    extras = sorted(
+        index for index in candidate_indices(manifest.values) if index >= count
+    )
+    if extras:
+        extra_text = ",".join(str(index) for index in extras)
+        raise ValueError(
+            "candidate index outside ready_candidates: "
+            f"{extra_text} ready_candidates={count}"
+        )
 
     candidates: list[ReadyCandidate] = []
-    for index in range(parse_ready_count(manifest.values)):
+    for index in range(count):
         prefix = f"candidate_{index}"
         oracle = require(manifest.values, f"{prefix}_oracle")
         oracle_flag = require(manifest.values, f"{prefix}_oracle_flag")
@@ -138,6 +168,15 @@ def parse_candidates(
         fixture = resolve_path(require(manifest.values, f"{prefix}_fixture"), manifest.path)
         if require_fixtures and not fixture.exists():
             raise FileNotFoundError(f"candidate fixture not found: {fixture}")
+        runtime_cs = parse_runtime_segment_value(
+            f"{prefix}_runtime_cs", require(manifest.values, f"{prefix}_runtime_cs")
+        )
+        runtime_ds = parse_runtime_segment_value(
+            f"{prefix}_runtime_ds", require(manifest.values, f"{prefix}_runtime_ds")
+        )
+        validate_runtime_fixture_evidence(
+            prefix, str(fixture), runtime_cs, runtime_ds
+        )
         candidates.append(
             ReadyCandidate(
                 index=index,
@@ -146,8 +185,8 @@ def parse_candidates(
                 level=require(manifest.values, f"{prefix}_level"),
                 environment_preflight=environment_preflight,
                 runtime_metadata=require(manifest.values, f"{prefix}_runtime_metadata"),
-                runtime_cs=require(manifest.values, f"{prefix}_runtime_cs"),
-                runtime_ds=require(manifest.values, f"{prefix}_runtime_ds"),
+                runtime_cs=runtime_cs,
+                runtime_ds=runtime_ds,
                 source_manifest=resolve_path(
                     require(manifest.values, f"{prefix}_manifest"), manifest.path
                 ),
@@ -296,6 +335,14 @@ def main() -> int:
         help="allow logs/result manifests inside the repository",
     )
     args = parser.parse_args()
+
+    if args.allow_missing_fixtures and not args.dry_run:
+        print(
+            "debug_capture_ready_manifest=error "
+            "reason=--allow-missing-fixtures requires --dry-run",
+            file=sys.stderr,
+        )
+        return 2
 
     try:
         ready_manifest = read_manifest(args.manifest)

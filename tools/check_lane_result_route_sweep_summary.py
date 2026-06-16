@@ -4,25 +4,38 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
+import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+
+from ready_result_checker_support import write_original_fixture_tree
 
 
 def default_repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-def run_summary(root: Path, args: list[str], expect_success: bool = True) -> str:
+def run_summary(
+    root: Path,
+    args: list[str],
+    expect_success: bool = True,
+    env: dict[str, str] | None = None,
+) -> str:
     command = [
         sys.executable,
         str(root / "tools" / "summarize_lane_result_route_sweep.py"),
         *args,
     ]
+    process_env = os.environ.copy()
+    if env is not None:
+        process_env.update(env)
     result = subprocess.run(
         command,
         cwd=root,
+        env=process_env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -51,7 +64,25 @@ def require(text: str, snippet: str, case: str) -> None:
         raise RuntimeError(f"{case} missing snippet {snippet!r}\n{text}")
 
 
-def write_candidate(path: Path, freeze: bool, placeholder: bool = False) -> None:
+def load_summary_module(root: Path):
+    module_path = root / "tools" / "summarize_lane_result_route_sweep.py"
+    spec = importlib.util.spec_from_file_location(
+        "summarize_lane_result_route_sweep", module_path
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def write_candidate(
+    path: Path,
+    freeze: bool,
+    placeholder: bool = False,
+    patch_applied: bool = True,
+) -> None:
     lane_lines = []
     if freeze:
         lane_lines = [
@@ -72,6 +103,9 @@ def write_candidate(path: Path, freeze: bool, placeholder: bool = False) -> None
         lane_lines = ["instrumented_lane_result_scratch_present=0"]
     if placeholder:
         lane_lines.append("# fill me: <instrumented_lane_result_output>")
+    patch_lines = [f"runtime_freeze_patch_applied={1 if patch_applied else 0}"]
+    if patch_applied:
+        patch_lines.append("freeze_old_bytes=268805")
     write_text(
         path,
         "\n".join(
@@ -83,8 +117,7 @@ def write_candidate(path: Path, freeze: bool, placeholder: bool = False) -> None
                 "instrumented_freeze_observed=" + ("1" if freeze else "0"),
                 "instrumented_freeze_patch_mode=lane-result-cs-scratch",
                 "freeze_expected_old_bytes=268805",
-                "freeze_old_bytes=268805",
-                "runtime_freeze_patch_applied=1",
+                *patch_lines,
                 "runtime_cs=01ED",
                 "runtime_ds=0C8F",
                 *lane_lines,
@@ -147,16 +180,20 @@ def main() -> int:
         base = Path(tmp)
         ready_candidate = base / "ready" / "candidate.txt"
         no_freeze_candidate = base / "no_freeze" / "candidate.txt"
+        no_patch_candidate = base / "no_patch" / "candidate.txt"
         incomplete_candidate = base / "incomplete" / "candidate.txt"
         write_candidate(ready_candidate, freeze=True)
         write_candidate(no_freeze_candidate, freeze=False)
+        write_candidate(no_patch_candidate, freeze=False, patch_applied=False)
         write_candidate(incomplete_candidate, freeze=True, placeholder=True)
 
         ready_manifest = base / "ready" / "manifest.txt"
         no_freeze_manifest = base / "no_freeze" / "manifest.txt"
+        no_patch_manifest = base / "no_patch" / "manifest.txt"
         incomplete_manifest = base / "incomplete" / "manifest.txt"
         write_runtime_manifest(ready_manifest, ready_candidate)
         write_runtime_manifest(no_freeze_manifest, no_freeze_candidate)
+        write_runtime_manifest(no_patch_manifest, no_patch_candidate)
         write_runtime_manifest(incomplete_manifest, incomplete_candidate)
 
         sweep_manifest = base / "manifest.txt"
@@ -228,6 +265,40 @@ def main() -> int:
             require(promotion_text, snippet, "promotion_manifest")
         cases += 1
 
+        original_root = base / "original_root"
+        original_fixture = write_original_fixture_tree(
+            original_root,
+            "explosion_playback_oracle_original_writer_unledgered.txt",
+            runtime_ds="0C8F",
+            include_ledger_entry=False,
+        )
+        write_candidate(original_fixture, freeze=True)
+        bad_original_runtime = base / "bad_original" / "manifest.txt"
+        write_runtime_manifest(bad_original_runtime, original_fixture)
+        bad_original_sweep = base / "bad_original_sweep.txt"
+        write_route_sweep(
+            bad_original_sweep,
+            ["original"],
+            [bad_original_runtime],
+        )
+        bad_original = run_summary(
+            root,
+            [
+                str(bad_original_sweep),
+                "--write-ready-manifest",
+                str(base / "bad_original_promotion.txt"),
+            ],
+            expect_success=False,
+            env={"LEZAC_READY_RESULT_REPO_ROOT": str(original_root)},
+        )
+        require(
+            bad_original,
+            "candidate_0_fixture explosion_playback_oracle_original_writer_unledgered.txt "
+            "is missing from runtime evidence ledger",
+            "bad_original_writer_fixture",
+        )
+        cases += 1
+
         no_ready_sweep = base / "no_ready_manifest.txt"
         write_route_sweep(no_ready_sweep, ["no_freeze"], [no_freeze_manifest])
         no_ready = run_summary(
@@ -235,6 +306,17 @@ def main() -> int:
         )
         require(no_ready, "reason=no_ready_candidates", "no_ready_required")
         require(no_ready, "no_freeze_candidates=1", "no_ready_required")
+        cases += 1
+
+        no_patch_sweep = base / "no_patch_manifest.txt"
+        write_route_sweep(no_patch_sweep, ["no_patch"], [no_patch_manifest])
+        no_patch = run_summary(
+            root, [str(no_patch_sweep), "--require-ready"], expect_success=False
+        )
+        require(no_patch, "reason=no_ready_candidates", "no_patch_required")
+        require(no_patch, "no_patch_candidates=1", "no_patch_required")
+        require(no_patch, "candidate_status=no_patch", "no_patch_required")
+        require(no_patch, "patch_applied=0", "no_patch_required")
         cases += 1
 
         incomplete_sweep = base / "incomplete_manifest.txt"
@@ -272,6 +354,37 @@ def main() -> int:
             missing_preflight,
             "environment_preflight=unknown",
             "missing_environment_preflight",
+        )
+        cases += 1
+
+        duplicate_field_manifest = base / "duplicate_field_manifest.txt"
+        write_text(
+            duplicate_field_manifest,
+            ready_manifest.read_text(encoding="ascii")
+            + "capture=lane_result_route_sweep\n",
+        )
+        duplicate_field = run_summary(
+            root,
+            [str(duplicate_field_manifest)],
+            expect_success=False,
+        )
+        require(
+            duplicate_field,
+            "duplicate manifest field: capture",
+            "duplicate_field",
+        )
+        cases += 1
+
+        summary_module = load_summary_module(root)
+        converted = summary_module.wsl_drive_mount_to_windows_path(
+            "/mnt/c/Users/andrz/AppData/Local/Temp/candidate.txt"
+        )
+        if converted is None:
+            raise RuntimeError("wsl mount path did not convert")
+        require(
+            converted.as_posix(),
+            "C:/Users/andrz/AppData/Local/Temp/candidate.txt",
+            "wsl_mount_conversion",
         )
         cases += 1
 

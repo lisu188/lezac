@@ -10,6 +10,8 @@ import subprocess
 import sys
 import tempfile
 
+from ready_result_checker_support import write_original_fixture_tree
+
 
 def default_repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
@@ -20,11 +22,16 @@ def run_tool(
     tool: str,
     args: list[str],
     expect_success: bool = True,
+    env: dict[str, str] | None = None,
 ) -> str:
     command = [sys.executable, str(root / "tools" / tool), *args]
+    process_env = os.environ.copy()
+    if env is not None:
+        process_env.update(env)
     result = subprocess.run(
         command,
         cwd=root,
+        env=process_env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -210,6 +217,36 @@ def main() -> int:
             "candidate_0_oracle_flag=--debug-explosion-playback-oracle",
         ]:
             require(ready_text, snippet, "ready_manifest")
+
+        blocked_ready_manifest = base / "blocked_ready_manifest.txt"
+        write_text(
+            blocked_ready_manifest,
+            ready_text.replace(
+                "source_environment_preflight=ok",
+                "source_environment_preflight=error",
+            ),
+        )
+        blocked = run_tool(
+            root,
+            "run_lane_result_ready_manifest.py",
+            [
+                str(blocked_ready_manifest),
+                "--dry-run",
+                "--require-source-environment-preflight",
+            ],
+            expect_success=False,
+        )
+        require(
+            blocked,
+            "reason=source_environment_preflight_not_ok",
+            "blocked_source_environment_preflight",
+        )
+        require(
+            blocked,
+            "source_environment_preflight=error",
+            "blocked_source_environment_preflight",
+        )
+        cases += 1
 
         dry_result_manifest = base / "dry" / "result_manifest.txt"
         dry = run_tool(
@@ -410,6 +447,48 @@ def main() -> int:
         require(allowed, "ready_candidate index=0 route=x2p00", "missing_allowed")
         cases += 1
 
+        original_root = base / "original_root"
+        original_fixture = write_original_fixture_tree(
+            original_root,
+            "explosion_playback_oracle_original_runner_unledgered.txt",
+            runtime_ds="0C8F",
+            include_ledger_entry=False,
+        )
+        bad_original_manifest = base / "bad_original_ready.txt"
+        write_text(
+            bad_original_manifest,
+            "\n".join(
+                [
+                    "promotion=lane_result_ready_candidates",
+                    "oracle_binary=./build/lezac_cpp",
+                    "ready_candidates=1",
+                    "candidate_0_route=x2p00",
+                    "candidate_0_offset_label=3d3f",
+                    "candidate_0_offset_address=1000:3D3F",
+                    "candidate_0_runtime_cs=01ED",
+                    "candidate_0_runtime_ds=0C8F",
+                    f"candidate_0_fixture={original_fixture}",
+                    "candidate_0_oracle=explosion_playback",
+                    "candidate_0_oracle_flag=--debug-explosion-playback-oracle",
+                    "",
+                ]
+            ),
+        )
+        bad_original = run_tool(
+            root,
+            "run_lane_result_ready_manifest.py",
+            [str(bad_original_manifest), "--dry-run"],
+            expect_success=False,
+            env={"LEZAC_READY_RESULT_REPO_ROOT": str(original_root)},
+        )
+        require(
+            bad_original,
+            "candidate_0_fixture explosion_playback_oracle_original_runner_unledgered.txt "
+            "is missing from runtime evidence ledger",
+            "bad_original_runner_fixture",
+        )
+        cases += 1
+
         dry_required = run_tool(
             root,
             "summarize_lane_result_ready_results.py",
@@ -433,6 +512,8 @@ def main() -> int:
                     "candidate_0_route=x2p00",
                     "candidate_0_offset_label=3d3f",
                     "candidate_0_offset_address=1000:3D3F",
+                    "candidate_0_runtime_cs=01ED",
+                    "candidate_0_runtime_ds=0C8F",
                     "candidate_0_fixture=/tmp/lane.txt",
                     "candidate_0_oracle=explosion_playback",
                     "candidate_0_oracle_flag=--debug-explosion-playback-oracle",

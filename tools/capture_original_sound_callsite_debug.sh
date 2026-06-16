@@ -1,0 +1,406 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    echo "usage: $0 out_dir [asset_dir] scenario" >&2
+}
+
+if [[ $# -lt 2 || $# -gt 3 ]]; then
+    usage
+    exit 64
+fi
+
+out_dir=$1
+if [[ $# -eq 2 ]]; then
+    asset_dir=.
+    scenario=$2
+else
+    asset_dir=$2
+    scenario=$3
+fi
+
+expected_level=1
+route=debugger_seeded
+case "$scenario" in
+    bomb_object_sound)
+        request_label=bomb_object
+        callsite_offset=6CB3
+        cursor=0x0000
+        priority=3
+        ;;
+    bomb_place_sound)
+        request_label=bomb_place
+        callsite_offset=557B
+        cursor=0xea74
+        priority=3
+        ;;
+    monster_death_sound)
+        request_label=monster_death
+        callsite_offset=5C9E
+        cursor=0x003d
+        priority=12
+        ;;
+    portal_teleport_sound)
+        request_label=portal
+        callsite_offset=5999
+        cursor=0x001a
+        priority=4
+        ;;
+    tile_trigger_sound)
+        request_label=tile_trigger
+        callsite_offset=5740
+        cursor=0x0027
+        priority=6
+        ;;
+    bonus_pickup_sound)
+        request_label=bonus_pickup
+        callsite_offset=6E4B
+        cursor=0x0008
+        priority=5
+        ;;
+    player_damage_sound)
+        request_label=player_hurt
+        callsite_offset=7F84
+        cursor=0x002d
+        priority=4
+        ;;
+    player_death_sound)
+        request_label=player_death
+        callsite_offset=30A3
+        cursor=0x0056
+        priority=5
+        ;;
+    record_name_prompt_sound)
+        request_label=record_name_prompt
+        callsite_offset=1857
+        cursor=0x0078
+        priority=11
+        ;;
+    record_name_commit_sound)
+        request_label=record_name_commit
+        callsite_offset=1A44
+        cursor=0x0008
+        priority=11
+        ;;
+    post_end_flow_record_sound)
+        request_label=post_end_flow_record
+        callsite_offset=1D9C
+        cursor=0x003d
+        priority=10
+        ;;
+    records_page_sound)
+        request_label=records_page
+        callsite_offset=2083
+        cursor=0x0024
+        priority=2
+        ;;
+    *)
+        echo "unsupported sound-callsite scenario: $scenario" >&2
+        exit 65
+        ;;
+esac
+
+require() {
+    if ! command -v "$1" >/dev/null 2>&1; then
+        echo "missing required command: $1" >&2
+        exit 69
+    fi
+}
+
+quote_command() {
+    printf "%q " "$@"
+}
+
+run_environment_preflight() {
+    if [[ "${LEZAC_SOUND_CALLSITE_DEBUG_SKIP_ENVIRONMENT_PREFLIGHT:-0}" == "1" ]]; then
+        {
+            echo "environment_preflight=skipped"
+            echo "environment_preflight_log=$environment_preflight_log"
+        } >>"$manifest"
+        echo "environment_preflight=skipped" >>"$raw_dump"
+        return
+    fi
+
+    set +e
+    "${environment_preflight_command[@]}" >"$environment_preflight_log" 2>&1
+    preflight_status=$?
+    set -e
+
+    {
+        echo "environment_preflight_exit=$preflight_status"
+        echo "environment_preflight_log=$environment_preflight_log"
+    } >>"$manifest"
+    echo "environment_preflight_log=$environment_preflight_log" >>"$raw_dump"
+
+    if [[ $preflight_status -ne 0 ]]; then
+        echo "environment_preflight=error" >>"$manifest"
+        echo "environment_preflight=error" >>"$raw_dump"
+        echo "sound_callsite_debug_capture=error scenario=$scenario reason=environment_preflight_exit_$preflight_status manifest=$manifest raw_dump=$raw_dump environment_preflight_log=$environment_preflight_log"
+        exit "$preflight_status"
+    fi
+
+    echo "environment_preflight=ok" >>"$manifest"
+    echo "environment_preflight=ok" >>"$raw_dump"
+}
+
+write_runtime_command_plan() {
+    local runtime_cs=$1
+    local runtime_ds=$2
+    local dump_segment=DS
+
+    if [[ -z "$runtime_cs" ]]; then
+        return
+    fi
+    if [[ -n "$runtime_ds" ]]; then
+        dump_segment=$runtime_ds
+    fi
+
+    {
+        echo "# DOSBox debugger commands expanded from observed runtime registers."
+        echo "# runtime_cs=$runtime_cs"
+        if [[ -n "$runtime_ds" ]]; then
+            echo "# runtime_ds=$runtime_ds"
+        fi
+        grep -v '^#' "$commands_file" |
+            sed -e "s/<CS>/$runtime_cs/g" -e "s/D DS:/D $dump_segment:/g"
+    } >"$runtime_commands_file"
+}
+
+append_runtime_registers() {
+    local runtime_cs
+    local runtime_ds
+
+    runtime_cs=$(grep -aoE 'CS=[0-9A-Fa-f]{4}' "$log" 2>/dev/null | tail -n 1 | cut -d= -f2 || true)
+    runtime_ds=$(grep -aoE 'DS=[0-9A-Fa-f]{4}' "$log" 2>/dev/null | tail -n 1 | cut -d= -f2 || true)
+
+    if [[ -z "$runtime_cs" && -z "$runtime_ds" ]]; then
+        return
+    fi
+
+    {
+        echo "runtime_metadata=observed"
+        if [[ -n "$runtime_cs" ]]; then
+            echo "runtime_cs=$runtime_cs"
+        fi
+        if [[ -n "$runtime_ds" ]]; then
+            echo "runtime_ds=$runtime_ds"
+        fi
+        echo "ghidra_segment=1000"
+    } >>"$raw_dump"
+
+    {
+        if [[ -n "$runtime_cs" ]]; then
+            echo "runtime_cs=$runtime_cs"
+        fi
+        if [[ -n "$runtime_ds" ]]; then
+            echo "runtime_ds=$runtime_ds"
+        fi
+    } >>"$manifest"
+
+    write_runtime_command_plan "$runtime_cs" "$runtime_ds"
+}
+
+repo_dir=$(cd "$(dirname "$0")/.." && pwd)
+mkdir -p "$out_dir"
+out_dir=$(cd "$out_dir" && pwd)
+asset_dir=$(cd "$asset_dir" && pwd)
+
+case "$out_dir" in
+    "$repo_dir"|"$repo_dir"/*)
+        echo "choose an output directory outside the repository" >&2
+        exit 66
+        ;;
+esac
+
+manifest="$out_dir/manifest.txt"
+raw_dump="$out_dir/raw_debugger_dump.txt"
+log="$out_dir/sound_callsite_debug_capture.log"
+commands_file="$out_dir/debugger_commands.txt"
+runtime_commands_file="$out_dir/debugger_commands_runtime.txt"
+candidate_fixture="$out_dir/candidate_fixture.txt"
+environment_preflight_log="$out_dir/environment_preflight.log"
+environment_preflight_command=(
+    python3
+    "$repo_dir/tools/preflight_original_evidence_environment.py"
+    "$asset_dir"
+    --require-debug-capture
+    --probe-wsl
+    --require-wsl-bash-on-windows
+)
+
+cat >"$commands_file" <<EOF_COMMANDS
+# DOSBox debugger command plan.
+# Replace <CS> with the runtime code segment after stopping in LEZAC.EXE.
+# Keep Ghidra offsets unchanged when translating 1000:offset to <CS>:offset.
+BP <CS>:$callsite_offset  # $request_label sound request setup
+BP <CS>:165A  # sound priority latch
+R
+D DS:2070
+D DS:78C0
+D DS:7990
+D DS:79C0
+EOF_COMMANDS
+
+cat >"$runtime_commands_file" <<'EOF_RUNTIME_COMMANDS'
+# Runtime DOSBox debugger command plan.
+# A live capture overwrites this after runtime CS/DS is observed.
+EOF_RUNTIME_COMMANDS
+
+{
+    echo "capture=sound_callsite"
+    echo "source=dosbox-debug"
+    echo "scenario=$scenario"
+    echo "expected_level=$expected_level"
+    echo "route=$route"
+    echo "request_label=$request_label"
+    echo "expected_callsite=1000:$callsite_offset"
+    echo "expected_latch=1000:165A"
+    echo "expected_cursor=$cursor"
+    echo "expected_priority=$priority"
+    echo "asset_dir=$asset_dir"
+    echo "out_dir=$out_dir"
+    echo "debugger_commands=$commands_file"
+    echo "debugger_commands_runtime=$runtime_commands_file"
+    echo "raw_debugger_dump=$raw_dump"
+    echo "candidate_fixture=$candidate_fixture"
+    echo "environment_preflight_command=$(quote_command "${environment_preflight_command[@]}")"
+    echo "environment_preflight_log=$environment_preflight_log"
+    echo "anchors=1000:$callsite_offset,1000:165A"
+    echo "visual_claim=0"
+} >"$manifest"
+
+cat >"$candidate_fixture" <<EOF_FIXTURE
+# LEZAC sound-callsite runtime oracle candidate
+# Fill this from raw DOSBox-debug output before promotion.
+capture=sound_callsite
+source=dosbox-debug
+temp_copy=1
+visual_claim=0
+scenario=$scenario
+level=$expected_level
+route=$route
+
+# runtime_cs=<runtime-cs>
+# runtime_ds=<runtime-ds>
+#
+# break ghidra=1000:$callsite_offset runtime=<runtime-cs>:$callsite_offset label=$request_label
+# break ghidra=1000:165A runtime=<runtime-cs>:165A label=sound_priority_latch
+#
+# sound_request label=$request_label callsite=1000:$callsite_offset latch=1000:165A cursor=$cursor priority=$priority active_before=<0-or-1> current_priority_before=<n> pending_cursor=$cursor pending_priority=$priority accepted=<0-or-1> active_after=<0-or-1> current_priority_after=<n> current_cursor_after=<cursor> direct_sweep=<0-or-1>
+#
+# dump DS:2070
+# <runtime-ds>:2070  <bytes around DS:2074 pending cursor>
+# dump DS:78C0
+# <runtime-ds>:78C0  <bytes around DS:78c0 current cursor>
+# dump DS:7990
+# <runtime-ds>:7990  <bytes around DS:799e current priority and DS:799f pending priority>
+# dump DS:79C0
+# <runtime-ds>:79C0  <bytes around DS:79c4 active flag>
+EOF_FIXTURE
+
+{
+    echo "sound_callsite_debug_capture=planned"
+    echo "scenario=$scenario"
+    echo "route=$route"
+    echo "expected_level=$expected_level"
+    echo "request_label=$request_label"
+    echo "anchor_sound_callsite=1000:$callsite_offset"
+    echo "anchor_sound_latch=1000:165A"
+    echo "expected_cursor=$cursor"
+    echo "expected_priority=$priority"
+    echo "candidate_fixture=$candidate_fixture"
+    echo "debugger_commands_runtime=$runtime_commands_file"
+    echo "environment_preflight_command=$(quote_command "${environment_preflight_command[@]}")"
+    echo "environment_preflight_log=$environment_preflight_log"
+    echo "fixture_command=./build/lezac_cpp --debug-sound-callsite-oracle <candidate-fixture>"
+} >"$raw_dump"
+
+{
+    echo "capture=sound_callsite"
+    echo "scenario=$scenario"
+    echo "route=$route"
+    echo "manifest=$manifest"
+    echo "raw_debugger_dump=$raw_dump"
+    echo "candidate_fixture=$candidate_fixture"
+    echo "debugger_commands_runtime=$runtime_commands_file"
+    echo "environment_preflight_log=$environment_preflight_log"
+} >"$log"
+
+if [[ ! -e "$asset_dir/LEZAC.EXE" ]]; then
+    echo "missing $asset_dir/LEZAC.EXE" >&2
+    exit 67
+fi
+
+if [[ "${LEZAC_SOUND_CALLSITE_DEBUG_DRY_RUN:-0}" == "1" ]]; then
+    echo "environment_preflight=dry_run" >>"$manifest"
+    echo "environment_preflight=dry_run" >>"$raw_dump"
+    echo "sound_callsite_debug_capture=ok mode=dry_run scenario=$scenario route=$route callsite=1000:$callsite_offset latch=1000:165A cursor=$cursor priority=$priority manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture debugger_commands_runtime=$runtime_commands_file environment_preflight=dry_run environment_preflight_log=$environment_preflight_log"
+    exit 0
+fi
+
+run_environment_preflight
+require dosbox-debug
+require xvfb-run
+require timeout
+
+run_dir=$(mktemp -d /tmp/lezac-sound-callsite-debug.XXXXXX)
+cleanup() {
+    rm -rf "$run_dir"
+}
+trap cleanup EXIT
+
+shopt -s nullglob
+assets=(
+    "$asset_dir"/LEZAC.EXE
+    "$asset_dir"/*.DAT
+    "$asset_dir"/*.SPR
+    "$asset_dir"/*.PAL
+    "$asset_dir"/*.SCH
+    "$asset_dir"/*.SON
+    "$asset_dir"/*.MST
+    "$asset_dir"/*.CAR
+    "$asset_dir"/*.ZBG
+    "$asset_dir"/*.DOC
+)
+shopt -u nullglob
+cp "${assets[@]}" "$run_dir/"
+
+dosbox_command=(
+    env TERM=xterm-256color xvfb-run -a timeout "${LEZAC_SOUND_CALLSITE_DEBUG_TIMEOUT_SECONDS:-20s}"
+    dosbox-debug
+    -c "mount c $run_dir"
+    -c "c:"
+    -c "DEBUG LEZAC.EXE"
+)
+
+{
+    echo "command=${dosbox_command[*]}"
+    echo "run_dir=$run_dir"
+} >>"$manifest"
+
+set +e
+"${dosbox_command[@]}" >>"$log" 2>&1
+status=$?
+set -e
+append_runtime_registers
+echo "dosbox_debug_exit=$status" >>"$manifest"
+echo "dosbox_debug_exit=$status" >>"$raw_dump"
+
+if [[ $status -ne 0 ]]; then
+    reason="dosbox_debug_exit_$status"
+    if [[ $status -eq 124 ]]; then
+        reason=dosbox_debug_timeout
+        echo "dosbox_debug_timeout=1" >>"$manifest"
+        echo "dosbox_debug_timeout=1" >>"$raw_dump"
+    fi
+    runtime_cs_observed=$(grep -E '^runtime_cs=' "$manifest" | tail -n 1 | cut -d= -f2- || true)
+    runtime_ds_observed=$(grep -E '^runtime_ds=' "$manifest" | tail -n 1 | cut -d= -f2- || true)
+    runtime_metadata=none
+    if [[ -n "$runtime_cs_observed" || -n "$runtime_ds_observed" ]]; then
+        runtime_metadata=observed
+    fi
+    echo "sound_callsite_debug_capture=error scenario=$scenario reason=$reason manifest=$manifest raw_dump=$raw_dump dosbox_debug_exit=$status runtime_metadata=$runtime_metadata runtime_cs=${runtime_cs_observed:-none} runtime_ds=${runtime_ds_observed:-none} debugger_commands_runtime=$runtime_commands_file"
+    exit "$status"
+fi
+
+echo "sound_callsite_debug_capture=ok mode=capture scenario=$scenario route=$route manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture"

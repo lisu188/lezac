@@ -35,10 +35,10 @@ mkdir -p "$out_dir"
 cpp_dir="$out_dir/cpp"
 original_dir="$out_dir/original"
 diff_dir="$out_dir/diff"
+summary="$out_dir/frame_compare_summary.txt"
+original_driver_log="$out_dir/original_capture_driver.log"
 rm -rf "$cpp_dir" "$original_dir" "$diff_dir"
 mkdir -p "$cpp_dir" "$original_dir" "$diff_dir"
-
-"$repo_dir/tools/capture_cpp_frames.sh" "$cpp_exe" "$cpp_dir" "$scenario"
 
 case "$scenario" in
     level1_bomb_route|monster_bomb_reward) ;;
@@ -48,10 +48,22 @@ case "$scenario" in
         ;;
 esac
 
-"$repo_dir/tools/capture_original_dosbox_frames.sh" "$original_dir" "$asset_dir" "$scenario"
+"$repo_dir/tools/capture_cpp_frames.sh" "$cpp_exe" "$cpp_dir" "$scenario"
 
-summary="$out_dir/frame_compare_summary.txt"
 : >"$summary"
+set +e
+original_output=$("$repo_dir/tools/capture_original_dosbox_frames.sh" "$original_dir" "$asset_dir" "$scenario" 2>&1)
+original_status=$?
+set -e
+printf '%s\n' "$original_output" >"$original_driver_log"
+if [[ -n "$original_output" ]]; then
+    printf '%s\n' "$original_output"
+fi
+if [[ $original_status -ne 0 ]]; then
+    echo "original_capture_failed status=$original_status log=$original_driver_log manifest=$original_dir/manifest.txt" | tee -a "$summary"
+fi
+
+compare_exit=0
 while IFS= read -r cpp_frame; do
     label=$(basename "$cpp_frame" .ppm)
     original_frame="$original_dir/$label.png"
@@ -67,7 +79,7 @@ while IFS= read -r cpp_frame; do
     set -e
     echo "$compare_output" | sed "s/^/compare label=$label /" | tee -a "$summary"
     if [[ $compare_status -gt 1 ]]; then
-        exit "$compare_status"
+        compare_exit=$compare_status
     fi
 done < <(find "$cpp_dir" -maxdepth 1 -name '*.ppm' -printf '%p\n' | sort)
 
@@ -78,6 +90,22 @@ done < <(find "$cpp_dir" -maxdepth 1 -name '*.ppm' -printf '%p\n' | sort)
     echo "original_dir=$original_dir"
     echo "diff_dir=$diff_dir"
     echo "summary=$summary"
+    echo "original_capture_exit=$original_status"
+    echo "original_capture_driver_log=$original_driver_log"
+    echo "original_capture_manifest=$original_dir/manifest.txt"
+    echo "original_capture_log=$original_dir/original_capture.log"
+    echo "original_environment_preflight_log=$original_dir/environment_preflight.log"
+    echo "compare_exit=$compare_exit"
 } >"$out_dir/manifest.txt"
+
+if [[ $original_status -ne 0 ]]; then
+    echo "frame_compare_bundle=error reason=original_capture_exit_$original_status out_dir=$out_dir manifest=$out_dir/manifest.txt summary=$summary original_capture_driver_log=$original_driver_log"
+    exit "$original_status"
+fi
+
+if [[ $compare_exit -ne 0 ]]; then
+    echo "frame_compare_bundle=error reason=compare_exit_$compare_exit out_dir=$out_dir manifest=$out_dir/manifest.txt summary=$summary"
+    exit "$compare_exit"
+fi
 
 echo "frame_compare_bundle=$out_dir"

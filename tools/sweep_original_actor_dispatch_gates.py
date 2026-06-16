@@ -30,6 +30,11 @@ DEFAULT_TARGETS = [
     "contact_scanner_callsite",
 ]
 
+TARGET_SETS = {
+    "default": DEFAULT_TARGETS,
+    "all": CONTACT_TARGETS,
+}
+
 
 def repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
@@ -127,6 +132,12 @@ def main() -> int:
         help="actor/contact target to sweep; repeat to override the default gate set",
     )
     parser.add_argument(
+        "--target-set",
+        choices=sorted(TARGET_SETS),
+        default="default",
+        help="named target set to sweep when --target is not supplied",
+    )
+    parser.add_argument(
         "--timing",
         choices=[TIMING_BEFORE_BOMB, TIMING_BEFORE_ROUTE, "both"],
         default=TIMING_BEFORE_ROUTE,
@@ -151,7 +162,7 @@ def main() -> int:
         raise RuntimeError("choose an output directory outside the repository")
     args.asset_dir = asset_dir
 
-    targets = args.target or DEFAULT_TARGETS
+    targets = args.target or TARGET_SETS[args.target_set]
     routes = args.route or [parse_route(route) for route in DEFAULT_ROUTES]
     timings = timing_values(args.timing)
     route_labels = [route_label(route) for route in routes]

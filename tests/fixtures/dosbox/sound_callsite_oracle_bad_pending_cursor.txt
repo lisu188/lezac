@@ -1,0 +1,15 @@
+# Dumped DS:2074 must agree with the normalized pending cursor field.
+scenario=player_damage_sound
+level=1
+runtime_cs=1A2B
+runtime_ds=2B3C
+temp_copy=1
+visual_claim=0
+
+break ghidra=1000:7F9A runtime=1A2B:7F9A label=player_damage_sound_request
+break ghidra=1000:165A runtime=1A2B:165A label=sound_priority_latch
+
+sound_request label=hurt callsite=1000:7F9A latch=1000:165A cursor=0x002d priority=4 active_before=0 current_priority_before=0 pending_cursor=0x002d pending_priority=4 accepted=1 active_after=1 current_priority_after=4 current_cursor_after=0x002d direct_sweep=0
+
+dump DS:2070
+2B3C:2070 00 00 00 00 2e 00 00 00 00 00 00 00 00 00 00 00

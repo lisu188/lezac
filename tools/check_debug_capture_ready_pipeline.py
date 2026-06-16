@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -13,8 +14,11 @@ from check_debug_capture_ready_manifest import make_fake_oracle
 from check_debug_capture_summary import (
     require,
     write_actor_ready,
+    write_behavior4_ready,
+    write_contact_ready,
     write_visual_table_ready,
 )
+from ready_result_checker_support import write_original_fixture_tree, write_text
 
 
 def default_repo_root() -> Path:
@@ -26,11 +30,16 @@ def run_tool(
     tool: str,
     args: list[str],
     expect_success: bool = True,
+    env: dict[str, str] | None = None,
 ) -> str:
     command = [sys.executable, str(root / "tools" / tool), *args]
+    process_env = os.environ.copy()
+    if env is not None:
+        process_env.update(env)
     result = subprocess.run(
         command,
         cwd=root,
+        env=process_env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -58,6 +67,8 @@ def main() -> int:
         base = Path(tmp)
         batch_dir = base / "batch"
         write_actor_ready(batch_dir)
+        write_behavior4_ready(batch_dir)
+        write_contact_ready(batch_dir)
         write_visual_table_ready(batch_dir)
 
         ready_manifest = base / "ready" / "ready_manifest.txt"
@@ -74,15 +85,45 @@ def main() -> int:
         )
         for snippet in [
             "debug_capture_batch_summary=ok",
-            "ready=2",
-            "environment_ok=2",
+            "ready=4",
+            "environment_ok=4",
             "debug_capture_ready_manifest=ok",
             f"path={ready_manifest.resolve()}",
-            "ready_candidates=2",
+            "ready_candidates=4",
+            "capture=behavior4_runtime",
+            "oracle_flag=--debug-behavior4-runtime-oracle",
+            "capture=contact_scanner_runtime",
+            "oracle_flag=--debug-contact-scanner-runtime-oracle",
             "capture=visual_table",
             "oracle_flag=--debug-visual-table-oracle",
         ]:
             require(batch, snippet, "batch_to_ready")
+
+        blocked_ready_manifest = base / "ready" / "blocked_ready_manifest.txt"
+        ready_text = ready_manifest.read_text(encoding="ascii")
+        write_text(
+            blocked_ready_manifest,
+            ready_text.replace(
+                "candidate_0_environment_preflight=ok",
+                "candidate_0_environment_preflight=error",
+            ),
+        )
+        blocked = run_tool(
+            root,
+            "run_debug_capture_ready_manifest.py",
+            [
+                str(blocked_ready_manifest),
+                "--dry-run",
+                "--require-source-environment-preflight",
+            ],
+            expect_success=False,
+        )
+        require(
+            blocked,
+            "candidate_0_environment_preflight='error'; expected 'ok'",
+            "blocked_candidate_environment_preflight",
+        )
+        cases += 1
 
         fake_oracle = make_fake_oracle(base / "fake")
         result_manifest = base / "results" / "result_manifest.txt"
@@ -103,7 +144,7 @@ def main() -> int:
         )
         for snippet in [
             "debug_capture_ready_manifest=ok mode=run",
-            "ready_candidates=2",
+            "ready_candidates=4",
             "status=ok",
             "returncode=0",
             "debug_capture_ready_result_manifest=ok",
@@ -125,17 +166,23 @@ def main() -> int:
         for snippet in [
             "debug_capture_ready_result_summary=ok",
             "mode=run",
-            "ready_candidates=2",
+            "ready_candidates=4",
             "failures=0",
             "planned=0",
-            "ok=2",
-            "executed_candidates=2",
-            "environment_preflight_ok=2",
-            "logs_present=2",
+            "ok=4",
+            "executed_candidates=4",
+            "environment_preflight_ok=4",
+            "logs_present=4",
             "logs_missing=0",
             "candidate_result index=0",
             "oracle=actor_update",
             "candidate_result index=1",
+            "oracle=behavior4",
+            "--debug-behavior4-runtime-oracle",
+            "candidate_result index=2",
+            "oracle=contact_scanner",
+            "--debug-contact-scanner-runtime-oracle",
+            "candidate_result index=3",
             "oracle=visual_table",
             "--debug-visual-table-oracle",
             "status=ok",
@@ -164,6 +211,51 @@ def main() -> int:
             expect_success=False,
         )
         require(dry_required, "reason=candidates_not_executed", "dry_required")
+        cases += 1
+
+        original_root = base / "original_root"
+        original_fixture = write_original_fixture_tree(
+            original_root,
+            "behavior4_runtime_oracle_original_runner_unledgered.txt",
+            runtime_ds="0C8F",
+            include_ledger_entry=False,
+        )
+        bad_original_manifest = base / "bad_original_ready.txt"
+        write_text(
+            bad_original_manifest,
+            "\n".join(
+                [
+                    "promotion=debug_capture_ready_candidates",
+                    "oracle_binary=./build/lezac_cpp",
+                    "ready_candidates=1",
+                    "candidate_0_capture=behavior4_runtime",
+                    "candidate_0_scenario=monster_behavior4_target_selection",
+                    "candidate_0_level=3",
+                    "candidate_0_environment_preflight=ok",
+                    "candidate_0_runtime_metadata=ok",
+                    "candidate_0_runtime_cs=01ED",
+                    "candidate_0_runtime_ds=0C8F",
+                    "candidate_0_manifest=/tmp/capture/manifest.txt",
+                    f"candidate_0_fixture={original_fixture}",
+                    "candidate_0_oracle=behavior4",
+                    "candidate_0_oracle_flag=--debug-behavior4-runtime-oracle",
+                    "",
+                ]
+            ),
+        )
+        bad_original = run_tool(
+            root,
+            "run_debug_capture_ready_manifest.py",
+            [str(bad_original_manifest), "--dry-run"],
+            expect_success=False,
+            env={"LEZAC_READY_RESULT_REPO_ROOT": str(original_root)},
+        )
+        require(
+            bad_original,
+            "candidate_0_fixture behavior4_runtime_oracle_original_runner_unledgered.txt "
+            "is missing from runtime evidence ledger",
+            "bad_original_runner_fixture",
+        )
         cases += 1
 
     print(f"debug_capture_ready_pipeline_check=ok cases={cases}")

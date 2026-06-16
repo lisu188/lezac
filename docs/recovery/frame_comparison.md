@@ -15,10 +15,16 @@ The frame comparison workflow has three parts:
    directory, runs `LEZAC.EXE` in DOSBox under Xvfb, drives the window with
    `xdotool`, asks DOSBox to save screenshots with Ctrl-F5, renames the
    screenshots to semantic labels matching the C++ sequence where possible, and
-   writes a manifest. The monster-bomb original path intentionally stops at
-   the keyboard-reproducible armed-bomb checkpoint; C++ death/reward frames in
-   that sequence are debugger-seeded synthetic evidence until an original route
-   or debugger setup can prove them.
+   writes a manifest. Before launching DOSBox, it runs
+   `tools/preflight_original_evidence_environment.py --require-frame-capture
+   --probe-wsl --require-wsl-bash-on-windows`, writes
+   `environment_preflight.log`, and records the preflight command/result in the
+   manifest. On Windows this preserves blockers such as
+   `wsl_bash_reason=no_default_distro` before any screenshot automation is
+   attempted. The monster-bomb original path intentionally stops at the
+   keyboard-reproducible armed-bomb checkpoint; C++ death/reward frames in that
+   sequence are debugger-seeded synthetic evidence until an original route or
+   debugger setup can prove them.
 3. `tools/frame_compare.py <left> <right> [--diff out.ppm]` compares paired
    frames and reports exact and thresholded pixel-difference metrics.
 
@@ -28,6 +34,22 @@ DOSBox-original frames, PPM diffs, `frame_compare_summary.txt`, and a manifest
 under the requested output directory. Use a temporary path such as
 `/tmp/lezac-frame-compare-*`; the helper intentionally keeps generated original
 evidence outside the repository.
+
+The wrapper keeps the bundle reviewable even when the original DOSBox leg
+fails. It records the capture process output in `original_capture_driver.log`,
+adds `original_capture_exit`, `original_capture_manifest`,
+`original_capture_log`, `original_environment_preflight_log`, and
+`compare_exit` to the top-level manifest, writes missing-original lines to
+`frame_compare_summary.txt`, prints `frame_compare_bundle=error`, and then
+returns nonzero. This lets WSL/DOSBox blockers remain visible without treating
+the comparison as successful.
+
+Use `tools/summarize_frame_compare_bundle.py <bundle-or-manifest>` to turn a
+bundle into one triage line. It reports frame counts, missing original labels,
+compare errors, maximum pixel-difference metrics, original preflight state,
+`wsl_bash_reason`, and `promotion_ready`. Add `--require-promotion-ready` when
+a follow-up script should fail unless the original capture completed, every C++
+checkpoint had a paired original frame, and all frame comparisons were clean.
 
 The current C++ sequences write these checkpoints:
 
@@ -84,6 +106,7 @@ The DOSBox capture driver attempts to write the same labels for
 060_level1_tile24_playback_12.png
 manifest.txt
 original_capture.log
+environment_preflight.log
 ```
 
 For `monster_bomb_reward`, DOSBox currently attempts only:
@@ -94,6 +117,7 @@ For `monster_bomb_reward`, DOSBox currently attempts only:
 020_monster_bomb_armed.png
 manifest.txt
 original_capture.log
+environment_preflight.log
 ```
 
 The manifest records `not_captured` placeholders for
@@ -149,7 +173,35 @@ tools/frame_compare.py \
 
 tools/compare_original_cpp_frames.sh /tmp/lezac-frame-compare .
 tools/compare_original_cpp_frames.sh /tmp/lezac-frame-compare-monster . monster_bomb_reward
+tools/summarize_frame_compare_bundle.py /tmp/lezac-frame-compare
+tools/summarize_frame_compare_bundle.py /tmp/lezac-frame-compare --require-promotion-ready
 ```
+
+State-2 dead-player visual work has a narrower comparison helper because the
+current live renderer (`74..79`) and recovered row-byte-3 candidate renderer
+(`67..72`) need to be compared side by side before promotion:
+
+```sh
+./build/lezac_cpp --capture-state2-visual-row-game-preview /tmp/lezac-cpp-state2-game-preview
+tools/capture_original_state2_visual_frames.sh \
+  /tmp/lezac-original-state2-visual . state2_death_table_consumption
+tools/compare_state2_visual_row_game_previews.py \
+  /tmp/lezac-state2-visual-compare ./build/lezac_cpp /tmp/lezac-original-state2-visual
+tools/summarize_frame_compare_bundle.py /tmp/lezac-state2-visual-compare
+```
+
+The original capture helper writes a manifest and frame plan for
+`state2_death_table_consumption`; set
+`LEZAC_STATE2_VISUAL_FRAME_CAPTURE_DRY_RUN=1` to validate the workflow without
+launching DOSBox. Live capture is intentionally labeled `debugger_seeded` until
+the state-2 frames can be staged by debugger setup. The resulting original
+directory should contain one original frame for each visual cursor, using names
+such as `state2_game_4a.png`, `state2_original_4a.png`, or
+`state2_game_current_4a.png` through `4f`; the C++ contrast preview writes
+`state2_game_cursor_4a.ppm` through `4f`. The helper writes standard frame-compare
+bundle artifacts with labels such as `state2_current_4a` and `state2_cursor_4a`,
+so `tools/write_visual_claim_promotion_entry.py` can later select the proven
+label once a promotion-ready original bundle exists.
 
 `tools/frame_compare.py` has built-in PPM/PNM and uncompressed BMP readers. It
 uses Pillow only as an optional fallback for formats such as DOSBox PNG

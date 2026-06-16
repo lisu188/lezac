@@ -4,11 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import shlex
 import sys
 import tempfile
+
+from ready_result_checker_support import write_original_fixture_tree
 
 
 def default_repo_root() -> Path:
@@ -20,6 +23,7 @@ def run_summary(
     manifest: Path,
     expect_success: bool = True,
     extra_args: list[str] | None = None,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     command = [
         sys.executable,
@@ -28,9 +32,13 @@ def run_summary(
     ]
     if extra_args:
         command.extend(extra_args)
+    process_env = os.environ.copy()
+    if env is not None:
+        process_env.update(env)
     result = subprocess.run(
         command,
         cwd=root,
+        env=process_env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -267,6 +275,50 @@ def main() -> int:
             require(promotion_text, snippet, "ready_promotion_manifest")
         cases += 1
 
+        original_root = base / "original_root"
+        original_fixture = write_original_fixture_tree(
+            original_root,
+            "actor_update_runtime_oracle_original_writer_unledgered.txt",
+            runtime_ds="0F3C",
+            include_ledger_entry=False,
+        )
+        original_fixture.write_text(
+            ready_candidate.read_text(encoding="ascii"), encoding="ascii"
+        )
+        bad_original_manifest = base / "bad_original" / "manifest.txt"
+        write_text(
+            bad_original_manifest,
+            "\n".join(
+                [
+                    "capture=actor_contact_route_sweep",
+                    "target=actor_update_gate6",
+                    "timings=before_route",
+                    "routes=1",
+                    "route_labels=x3p00",
+                    "environment_preflight=ok",
+                    f"capture_status_x3p00=actor_contact_procmem=ok mode=capture target=actor_update_gate6 ghidra=1000:654E runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:654E freeze_observed=1 raw_dump=/tmp/original/raw.txt candidate_fixture={original_fixture}",
+                    "",
+                ]
+            ),
+        )
+        bad_original = run_summary(
+            root,
+            bad_original_manifest,
+            expect_success=False,
+            extra_args=[
+                "--write-ready-manifest",
+                str(base / "bad_original" / "promotion_manifest.txt"),
+            ],
+            env={"LEZAC_READY_RESULT_REPO_ROOT": str(original_root)},
+        ).stdout
+        require(
+            bad_original,
+            "candidate_0_fixture actor_update_runtime_oracle_original_writer_unledgered.txt "
+            "is missing from runtime evidence ledger",
+            "bad_original_writer_fixture",
+        )
+        cases += 1
+
         skeleton_candidate = base / "skeleton" / "actor_update_candidate.txt"
         write_text(
             skeleton_candidate,
@@ -397,6 +449,95 @@ def main() -> int:
             require(scanner, snippet, "scanner_route_manifest")
         cases += 1
 
+        ready_scanner_candidate = base / "ready_scanner" / "contact_scanner_candidate.txt"
+        write_text(
+            ready_scanner_candidate,
+            "\n".join(
+                [
+                    "capture=contact_scanner_runtime",
+                    "source=synthetic",
+                    "temp_copy=1",
+                    "visual_claim=0",
+                    "scenario=monster_contact_damage_live",
+                    "level=1",
+                    "runtime_cs=01ED",
+                    "runtime_ds=0F3C",
+                    "break ghidra=1000:5CB0 runtime=01ED:5CB0 label=contact_scanner_start",
+                    "break ghidra=1000:604F runtime=01ED:604F label=contact_scanner_end",
+                    "subject_actor slot=0 behavior=0 kind=0 state=0 x=0x0068 y=0x00a8 flags=0x0000 contact=0",
+                    "other_actor slot=3 behavior=4 kind=2 state=0 x=0x006a y=0x00a8 flags=0x0000 contact=0",
+                    "contact_scan subject_slot=0 other_slot=3 flags_before=0x0000 flags_after=0x0002 contact=1 player_contact=1 monster_contact=0 object_contact=0 damage_pending=1",
+                    "",
+                ]
+            ),
+        )
+        ready_scanner_manifest = base / "ready_scanner" / "manifest.txt"
+        write_text(
+            ready_scanner_manifest,
+            "\n".join(
+                [
+                    "capture=actor_contact_route_sweep",
+                    "target=contact_scanner_end",
+                    "timings=before_route",
+                    "routes=1",
+                    "route_labels=x0p50",
+                    "environment_preflight=ok",
+                    f"capture_status_x0p50=actor_contact_procmem=ok mode=capture target=contact_scanner_end ghidra=1000:604F runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:604F freeze_observed=1 raw_dump=/tmp/ready_scanner/raw.txt candidate_fixture={ready_scanner_candidate}",
+                    "",
+                ]
+            ),
+        )
+        ready_scanner = run_summary(root, ready_scanner_manifest).stdout
+        for snippet in [
+            "ready_candidates=1",
+            "incomplete_candidates=0",
+            "missing_candidates=0",
+            "none_candidates=0",
+            "observed_targets=contact_scanner_end",
+            "candidate_status=ready",
+            "candidate_missing=none",
+            "oracle=contact_scanner oracle_flag=--debug-contact-scanner-runtime-oracle",
+            "oracle_command=./build/lezac_cpp --debug-contact-scanner-runtime-oracle",
+        ]:
+            require(ready_scanner, snippet, "ready_scanner_candidate")
+        cases += 1
+
+        ready_scanner_promotion_manifest = (
+            base / "ready_scanner" / "promotion_manifest.txt"
+        )
+        ready_scanner_promotion = run_summary(
+            root,
+            ready_scanner_manifest,
+            extra_args=[
+                "--write-ready-manifest",
+                str(ready_scanner_promotion_manifest),
+            ],
+        ).stdout
+        require(
+            ready_scanner_promotion,
+            "actor_dispatch_gate_ready_manifest=ok",
+            "ready_scanner_promotion_output",
+        )
+        ready_scanner_promotion_text = ready_scanner_promotion_manifest.read_text(
+            encoding="ascii"
+        )
+        for snippet in [
+            "candidate_0_target=contact_scanner_end",
+            "candidate_0_ghidra=1000:604F",
+            f"candidate_0_fixture={ready_scanner_candidate}",
+            "candidate_0_oracle=contact_scanner",
+            "candidate_0_oracle_flag=--debug-contact-scanner-runtime-oracle",
+            "candidate_0_oracle_command=./build/lezac_cpp "
+            "--debug-contact-scanner-runtime-oracle "
+            f"{shlex.quote(str(ready_scanner_candidate))}",
+        ]:
+            require(
+                ready_scanner_promotion_text,
+                snippet,
+                "ready_scanner_promotion_manifest",
+            )
+        cases += 1
+
         dry_manifest = base / "dry" / "manifest.txt"
         write_text(
             dry_manifest,
@@ -440,6 +581,42 @@ def main() -> int:
         require(dry_required, "freezes=0", "dry_required")
         cases += 1
 
+        all_targets = (
+            "actor_update_start,actor_update_end,actor_update_gate5,"
+            "actor_update_gate5_integration,actor_update_gate5_exit,"
+            "actor_update_gate6,contact_scanner_callsite,"
+            "contact_scanner_start,contact_scanner_end"
+        )
+        all_targets_manifest = base / "all_targets" / "manifest.txt"
+        write_text(
+            all_targets_manifest,
+            "\n".join(
+                [
+                    "capture=actor_dispatch_gate_sweep",
+                    "asset_dir=/repo",
+                    f"targets={all_targets}",
+                    "timings=before_route",
+                    "routes=4",
+                    "route_labels=x2p00,x5p00_m0p50_x2p00,x3p00_z0p50_x2p00,x1p50_left0p50_x2p00",
+                    "environment_preflight=ok",
+                    "",
+                ]
+            ),
+        )
+        all_targets_summary = run_summary(root, all_targets_manifest).stdout
+        for snippet in [
+            "mode=dispatch",
+            "environment_preflight=ok",
+            "targets=9",
+            "route_sweeps=0",
+            "captures=0",
+            "freezes=0",
+            "observed_targets=none",
+            f"missing_targets={all_targets}",
+        ]:
+            require(all_targets_summary, snippet, "all_targets_dry_manifest")
+        cases += 1
+
         missing_preflight_manifest = base / "missing_preflight" / "manifest.txt"
         write_text(
             missing_preflight_manifest,
@@ -466,6 +643,34 @@ def main() -> int:
             "child_environment_preflights=none",
         ]:
             require(missing_preflight, snippet, "missing_environment_preflight")
+        cases += 1
+
+        duplicate_field_manifest = base / "duplicate_field" / "manifest.txt"
+        write_text(
+            duplicate_field_manifest,
+            "\n".join(
+                [
+                    "capture=actor_contact_route_sweep",
+                    "target=contact_scanner_start",
+                    "target=actor_update_gate6",
+                    "timings=before_route",
+                    "routes=1",
+                    "route_labels=x0p50",
+                    "environment_preflight=ok",
+                    "",
+                ]
+            ),
+        )
+        duplicate_field = run_summary(
+            root,
+            duplicate_field_manifest,
+            expect_success=False,
+        ).stdout
+        require(
+            duplicate_field,
+            "duplicate manifest field: target",
+            "duplicate_field",
+        )
         cases += 1
 
         missing = run_summary(root, base / "missing" / "manifest.txt", False).stdout

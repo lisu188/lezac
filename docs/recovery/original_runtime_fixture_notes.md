@@ -22,6 +22,10 @@ control-flow reachability, not exact rendered presentation.
   captures the seeded forward debris lane writeback path.
 - `explosion_playback_oracle_original_3d2d_lane_write_trampoline_no_freeze.txt`
   records a no-freeze trampoline attempt for the forward debris writeback.
+- `explosion_playback_oracle_original_3d3f_lane_result_runtime_natural.txt`
+  captures the natural `x:2.00` forward final lane-result writeback at
+  `1000:3D3F`, with runtime `CS=01ED`, `DS=0C8F`, no runtime seeding,
+  result output `0x0002`, and target-before byte `0x21`.
 - `explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze.txt`
   records a natural route-step attempt that armed the forward result patch but
   did not freeze.
@@ -29,6 +33,10 @@ control-flow reachability, not exact rendered presentation.
   captures the seeded forward final result writeback path.
 - `explosion_playback_oracle_original_3eaf_lane_write_trampoline_runtime.txt`
   captures the safe-trampoline reverse collapse lane writeback.
+- `explosion_playback_oracle_original_3ec1_lane_write_runtime_natural.txt`
+  captures the natural `x:2.00,m:0.35` reverse debris lane writeback at
+  `1000:3EC1`, with runtime `CS=01ED`, `DS=0C8F`, no runtime seeding,
+  lane-write output `0x00fb`, and active/loop counters `0x0005`/`0x0002`.
 - `explosion_playback_oracle_original_3ec1_lane_write_runtime_seeded.txt`
   captures the seeded reverse debris lane writeback path.
 - `explosion_playback_oracle_original_3ec1_lane_write_trampoline_no_freeze.txt`
@@ -50,7 +58,56 @@ control-flow reachability, not exact rendered presentation.
 - `explosion_playback_oracle_original_4cac_temp_copy.txt` captures the reverse
   helper return and helper-written collapse lane bytes.
 
+## Sound Callsites
+
+- `sound_callsite_oracle_synthetic.txt` documents the normalized fixture shape
+  for original stops at a sound request callsite and the shared
+  `1000:165a` priority latch. It records runtime `CS`/`DS`, the pending
+  `DS:2074` cursor, `DS:799f` priority, latched `DS:78c0` cursor,
+  `DS:799e` priority, and `DS:79c4` active flag for the player hurt cue.
+  Malformed fixtures cover segment mismatch, missing request records, and
+  dump bytes that disagree with the normalized cursor.
+- `tools/capture_original_sound_callsite_debug.sh` stages the matching
+  debugger-seeded original capture plan for the mapped gameplay sound scenarios
+  plus the statically pinned record/name-entry UI sound candidates. Checked-in
+  original sound-callsite fixtures should use the
+  `sound_callsite_oracle_original*.txt` convention once real DOSBox-debug
+  transcripts are normalized. The cursor-only record-table write at
+  `1000:202d` is intentionally not a helper scenario yet because local static
+  evidence has not proven the pending priority at that callsite.
+
 ## State-2 Runtime Frame Table
 
 - `state2_runtime_frame_oracle_original.txt` captures the original state-2
-  runtime frame-table cursor and global bytes for the dead-player visual path.
+  runtime frame-table cursor and global bytes for the dead-player visual path,
+  including row-byte sequences `10,10,10,10,10,10`,
+  `10,10,10,10,10,10`, `7d,7d,7d,7d,7d,7d`, and
+  `43,44,45,46,47,48` across frames `0x4a..0x4f`. The C++ diagnostic
+  `--debug-original-state2-visual-row-model` mirrors these rows as a
+  conservative model without promoting live visual presentation. The companion
+  `--debug-original-state2-visual-row-assets` diagnostic verifies the row-byte-3
+  candidate sprites against the loaded `BOMOMIMK` bank and records their
+  dimensions, nonzero-pixel counts, and bounds for later frame comparison.
+  `--capture-state2-visual-row-preview <out_dir>` writes matching C++ preview
+  frames and a manifest for both the recovered row-byte-3 sequence and the old
+  cursor-index sequence. The companion
+  `--capture-state2-visual-row-game-preview <out_dir>` writes full gameplay
+  frames for the current row-byte-3 renderer and the debug-only legacy cursor
+  renderer, giving later original-frame comparison the same HUD/world context.
+  `--debug-autoplayer death_visuals` now exercises the live row-byte-3 renderer
+  on the actual state-2 route for frames `0x4a..0x4c`, while keeping
+  `visual_claim=0`.
+  `tools/capture_original_state2_visual_frames.sh <out_dir> [asset_dir]
+  state2_death_table_consumption` stages the matching original-frame directory
+  contract for those comparisons. Its manifest records six expected
+  `state2_game_4a..4f` labels, route `debugger_seeded`, and `visual_claim=0`
+  because the screenshots still require a live DOSBox/debugger-seeded capture.
+  `tools/compare_state2_visual_row_game_previews.py` packages those C++ previews
+  and a directory of original frames into the same frame-compare bundle shape
+  used by visual-claim promotion tooling.
+- `visual_table_oracle_original_state2_runtime.txt` normalizes the same
+  original stop into the renderer-facing visual-table oracle. It binds actor
+  frame `0x4a` to row address `DS:c44a`, row bytes `10,10,7d,43`, runtime
+  `CS=01ED` / `DS=0C8F`, row byte 3 as the `BOMOMIMK` sprite-index candidate
+  `0x43`, and effect placement `0x0068,0x00a8`, while keeping
+  `visual_claim=0` until a paired frame comparison proves presentation.

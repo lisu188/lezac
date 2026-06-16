@@ -10,6 +10,11 @@ import re
 import shlex
 import sys
 
+from ready_result_fixture_guardrails import (
+    parse_runtime_segment_value,
+    validate_runtime_fixture_evidence,
+)
+
 
 CAPTURE_ROUTE_SWEEP = "lane_result_route_sweep"
 CAPTURE_RUNTIME = "lane_result_runtime"
@@ -57,6 +62,7 @@ class CandidateReadiness:
     status: str
     missing: list[str]
     placeholders: bool
+    patch_applied: bool
     freeze_observed: bool
     lane_result_present: bool
     runtime_cs: str
@@ -85,6 +91,8 @@ def read_manifest(path: Path) -> Manifest:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
+        if key in values:
+            raise ValueError(f"duplicate manifest field: {key}")
         values[key] = value
         entries.append((key, value))
     return Manifest(path=path, values=values, entries=entries)
@@ -106,7 +114,20 @@ def parse_csv(value: str | None) -> list[str]:
     return [part for part in value.split(",") if part]
 
 
+def wsl_drive_mount_to_windows_path(raw_path: str) -> Path | None:
+    normalized = raw_path.replace("\\", "/")
+    match = re.match(r"^/mnt/([A-Za-z])(?:/(.*))?$", normalized)
+    if match is None:
+        return None
+    drive = match.group(1).upper()
+    rest = match.group(2) or ""
+    return Path(f"{drive}:/{rest}")
+
+
 def resolve_child_path(raw_path: str, parent_manifest: Path) -> Path:
+    translated = wsl_drive_mount_to_windows_path(raw_path)
+    if translated is not None and sys.platform == "win32":
+        return translated
     path = Path(raw_path)
     if path.is_absolute():
         return path
@@ -190,12 +211,17 @@ def active_values(path: Path) -> tuple[dict[str, str], list[str]]:
 
 def candidate_readiness(candidate: Candidate) -> CandidateReadiness:
     if candidate.fixture is None:
-        return CandidateReadiness("missing", ["fixture"], False, False, False, "", "")
+        return CandidateReadiness(
+            "missing", ["fixture"], False, False, False, False, "", ""
+        )
     if not candidate.fixture.exists():
-        return CandidateReadiness("missing", ["file"], False, False, False, "", "")
+        return CandidateReadiness(
+            "missing", ["file"], False, False, False, False, "", ""
+        )
 
     values, nonempty = active_values(candidate.fixture)
     placeholders = any("<" in line or ">" in line for line in nonempty)
+    patch_applied = bool_value(values.get("runtime_freeze_patch_applied"))
     required_keys = [
         "capture",
         "source",
@@ -206,9 +232,10 @@ def candidate_readiness(candidate: Candidate) -> CandidateReadiness:
         "instrumented_freeze_observed",
         "instrumented_freeze_patch_mode",
         "freeze_expected_old_bytes",
-        "freeze_old_bytes",
         "runtime_freeze_patch_applied",
     ]
+    if patch_applied:
+        required_keys.append("freeze_old_bytes")
     missing = [key for key in required_keys if not values.get(key)]
     freeze_observed = bool_value(values.get("instrumented_freeze_observed"))
     lane_result_present = bool_value(
@@ -218,7 +245,9 @@ def candidate_readiness(candidate: Candidate) -> CandidateReadiness:
         missing.append("lane_result_patch_mode")
     if values.get("freeze_expected_old_bytes", "").lower() != "268805":
         missing.append("freeze_expected_old_bytes_268805")
-    if not values.get("freeze_old_bytes", "").lower().startswith("268805"):
+    if patch_applied and not values.get(
+        "freeze_old_bytes", ""
+    ).lower().startswith("268805"):
         missing.append("freeze_old_bytes_268805")
     if lane_result_present:
         lane_keys = [
@@ -234,6 +263,8 @@ def candidate_readiness(candidate: Candidate) -> CandidateReadiness:
     runtime_ds = values.get("runtime_ds", "")
     if missing or placeholders:
         status = "incomplete"
+    elif not patch_applied:
+        status = "no_patch"
     elif freeze_observed and lane_result_present:
         status = "ready"
     else:
@@ -242,6 +273,7 @@ def candidate_readiness(candidate: Candidate) -> CandidateReadiness:
         status=status,
         missing=missing,
         placeholders=placeholders,
+        patch_applied=patch_applied,
         freeze_observed=freeze_observed,
         lane_result_present=lane_result_present,
         runtime_cs=runtime_cs,
@@ -344,13 +376,22 @@ def ready_manifest_records(
     ]
     for index, (candidate, readiness) in enumerate(ready_entries):
         prefix = f"candidate_{index}"
+        runtime_cs = parse_runtime_segment_value(
+            f"{prefix}_runtime_cs", readiness.runtime_cs
+        )
+        runtime_ds = parse_runtime_segment_value(
+            f"{prefix}_runtime_ds", readiness.runtime_ds
+        )
+        validate_runtime_fixture_evidence(
+            prefix, str(candidate.fixture), runtime_cs, runtime_ds
+        )
         lines.extend(
             [
                 f"{prefix}_route={candidate.route_label}",
                 f"{prefix}_offset_label={candidate.offset_label}",
                 f"{prefix}_offset_address={candidate.offset_address}",
-                f"{prefix}_runtime_cs={readiness.runtime_cs}",
-                f"{prefix}_runtime_ds={readiness.runtime_ds}",
+                f"{prefix}_runtime_cs={runtime_cs}",
+                f"{prefix}_runtime_ds={runtime_ds}",
                 f"{prefix}_fixture={candidate.fixture}",
                 f"{prefix}_oracle={ORACLE}",
                 f"{prefix}_oracle_flag={ORACLE_FLAG}",
@@ -366,6 +407,7 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
     readings = [(candidate, candidate_readiness(candidate)) for candidate in candidates]
     readiness_counts = {
         "ready": 0,
+        "no_patch": 0,
         "no_freeze": 0,
         "incomplete": 0,
         "missing": 0,
@@ -398,6 +440,7 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         f"candidates={len(readings)} "
         f"observed_freezes={len(observed_freeze_offsets)} "
         f"ready_candidates={readiness_counts['ready']} "
+        f"no_patch_candidates={readiness_counts['no_patch']} "
         f"no_freeze_candidates={readiness_counts['no_freeze']} "
         f"incomplete_candidates={readiness_counts['incomplete']} "
         f"missing_candidates={readiness_counts['missing']} "
@@ -414,6 +457,7 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
             f"offset_address={candidate.offset_address} "
             f"runtime_cs={readiness.runtime_cs or 'unknown'} "
             f"runtime_ds={readiness.runtime_ds or 'unknown'} "
+            f"patch_applied={1 if readiness.patch_applied else 0} "
             f"freeze_observed={1 if readiness.freeze_observed else 0} "
             f"lane_result_present={1 if readiness.lane_result_present else 0} "
             f"candidate_fixture={candidate.fixture or 'none'} "
@@ -448,6 +492,7 @@ def require_ready_error(readiness_counts: dict[str, int]) -> str | None:
         return (
             "lane_result_route_sweep_summary=error reason=no_ready_candidates "
             f"ready_candidates={readiness_counts.get('ready', 0)} "
+            f"no_patch_candidates={readiness_counts.get('no_patch', 0)} "
             f"no_freeze_candidates={readiness_counts.get('no_freeze', 0)} "
             f"incomplete_candidates={readiness_counts.get('incomplete', 0)} "
             f"missing_candidates={readiness_counts.get('missing', 0)}"
@@ -460,6 +505,7 @@ def require_ready_error(readiness_counts: dict[str, int]) -> str | None:
     return (
         "lane_result_route_sweep_summary=error reason=candidates_not_ready "
         f"ready_candidates={readiness_counts.get('ready', 0)} "
+        f"no_patch_candidates={readiness_counts.get('no_patch', 0)} "
         f"no_freeze_candidates={readiness_counts.get('no_freeze', 0)} "
         f"incomplete_candidates={readiness_counts.get('incomplete', 0)} "
         f"missing_candidates={readiness_counts.get('missing', 0)}"

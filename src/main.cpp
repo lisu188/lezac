@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -17,12 +18,21 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
 
 constexpr int kScreenW = 320;
 constexpr int kScreenH = 200;
+constexpr int kNameEntryLabelX = 58;
+constexpr int kNameEntrySlotY = 120;
+constexpr int kNameEntrySlotCount = 8;
+constexpr int kNameEntrySlotAdvance = 9;
+constexpr int kNameEntryCursorBoxW = 8;
+constexpr int kNameEntryCursorBoxH = 10;
+constexpr uint32_t kNameEntryCursorBackground = 0xff90ffb0u;
+constexpr uint32_t kNameEntryCursorForeground = 0xff000000u;
 constexpr int kBackgroundW = 321;
 constexpr int kBackgroundH = 388;
 constexpr int kTileSize = 8;
@@ -90,9 +100,46 @@ constexpr size_t kSoundStepSize = 6;
 constexpr uint16_t kSoundStopPeriod = 0x7530;
 constexpr uint16_t kDirectSoundThreshold = 0xea60;
 constexpr uint16_t kDirectSoundPeriodBase = 0xea42;
+constexpr std::array<uint16_t, 4> kExplosionDirectSweepSoundOffsets{
+    0xea74, 0xea7e, 0xea88, 0xeace,
+};
+constexpr std::array<uint8_t, 4> kExplosionSoundSelectors{4, 5, 6, 7};
+constexpr uint16_t kBombPlaceSoundCursor = 0xea74;
+constexpr uint8_t kBombPlaceSoundPriority = 3;
+constexpr uint16_t kMonsterDeathSoundCursor = 0x003d;
+constexpr uint8_t kMonsterDeathSoundPriority = 12;
 constexpr std::array<uint16_t, 6> kCompatibilitySoundCursors{
     0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0027,
 };
+constexpr size_t kCompatibilityObjectivePickupSound = 0;
+constexpr size_t kCompatibilityLevelCompleteSound = 5;
+constexpr std::array<const char*, 2> kRemainingSoundCompatibilityHooks{
+    "objective_pickup", "level_complete",
+};
+struct RejectedSoundCandidate {
+    uint16_t offset;
+    const char* reason;
+};
+constexpr std::array<RejectedSoundCandidate, 3> kRejectedObjectiveSoundCandidates{{
+    {0x4b2c, "collapse_playback"},
+    {0x6d75, "bomb_object_high_gate"},
+    {0x6924, "non_objective_tile_gate"},
+}};
+constexpr uint16_t kEndFlowDispatcherStart = 0x1b14;
+constexpr uint16_t kEndFlowDispatcherRet = 0x1d42;
+struct StaticSoundContext {
+    uint16_t offset;
+    uint16_t cursor;
+    uint8_t priority;
+    const char* context;
+};
+constexpr std::array<StaticSoundContext, 5> kRecordUiSoundContexts{{
+    {0x1857, 0x0078, 11, "name_entry_region"},
+    {0x1a44, 0x0008, 11, "name_entry_region"},
+    {0x1d9c, 0x003d, 10, "post_end_flow_record_region"},
+    {0x202d, 0x0021, 0, "record_table_region"},
+    {0x2083, 0x0024, 2, "record_table_region"},
+}};
 constexpr std::array<uint16_t, 14> kDebugSoundCursors{
     0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027,
     0x002d, 0x0031, 0x0035, 0x003d, 0x0056, 0x0069, 0x0078,
@@ -109,6 +156,14 @@ constexpr uint16_t kPortalTeleportSoundCursor = 0x001a;
 constexpr uint8_t kPortalTeleportSoundPriority = 4;
 constexpr uint16_t kTileTriggerSoundCursor = 0x0027;
 constexpr uint8_t kTileTriggerSoundPriority = 6;
+constexpr uint16_t kBonusPickupSoundCursor = 0x0008;
+constexpr uint8_t kBonusPickupSoundPriority = 5;
+constexpr uint16_t kRecordNamePromptSoundCursor = 0x0078;
+constexpr uint8_t kRecordNamePromptSoundPriority = 11;
+constexpr uint16_t kRecordNameCommitSoundCursor = 0x0008;
+constexpr uint8_t kRecordNameCommitSoundPriority = 11;
+constexpr uint16_t kRecordsPageSoundCursor = 0x0024;
+constexpr uint8_t kRecordsPageSoundPriority = 2;
 constexpr uint16_t kPlayerDamageSoundCursor = 0x002d;
 constexpr uint8_t kPlayerDamageSoundPriority = 4;
 constexpr uint16_t kPlayerDeathSoundCursor = 0x0056;
@@ -225,6 +280,7 @@ struct Record {
     uint32_t score = 0;
     uint8_t level = 0;
     std::string name;
+    std::string encodedName;
 };
 
 struct SoundEffectRecord {
@@ -320,8 +376,8 @@ struct ExplosionEffect {
     bool inactive = false;
     int timer = 8;
     int totalTimer = 8;
-    uint16_t soundOffset = 0xea74;
-    uint8_t soundSelector = 4;
+    uint16_t soundOffset = kExplosionDirectSweepSoundOffsets[0];
+    uint8_t soundSelector = kExplosionSoundSelectors[0];
     uint8_t seedTicksByte = 8;
     uint8_t detailByte = 0x75;
     uint8_t variantByte = 5;
@@ -783,6 +839,39 @@ IndexedImage loadBackground(const std::string& path, Palette& paletteOut) {
     return image;
 }
 
+IndexedImage loadRawBackground(const std::string& path, Palette& paletteOut) {
+    auto data = readFile(path);
+    if (data.size() < 768) {
+        throw std::runtime_error(path + " is too small for a palette");
+    }
+    paletteOut = loadPalette(data, 0);
+
+    IndexedImage image;
+    image.width = kBackgroundW;
+    image.height = kBackgroundH;
+    image.pixels.reserve(static_cast<size_t>(kBackgroundW) * kBackgroundH);
+    size_t off = 768;
+    while (off < data.size()) {
+        uint8_t cmd = data[off++];
+        if (cmd >= 0xc0) {
+            if (off >= data.size()) {
+                throw std::runtime_error(path + " raw RLE run is truncated");
+            }
+            image.pixels.insert(image.pixels.end(), cmd & 0x3f, data[off++]);
+        } else {
+            image.pixels.push_back(cmd);
+        }
+    }
+    if (image.pixels.size() != static_cast<size_t>(image.width) * image.height) {
+        throw std::runtime_error(path + " raw RLE decoded to " +
+                                 std::to_string(image.pixels.size()) +
+                                 " bytes, expected " +
+                                 std::to_string(static_cast<size_t>(image.width) *
+                                                image.height));
+    }
+    return image;
+}
+
 TileBank loadTiles(const std::string& path) {
     auto json = readTextFile(path);
     TileBank bank;
@@ -797,6 +886,22 @@ TileBank loadTiles(const std::string& path) {
             bank.pixels.insert(bank.pixels.end(), bytes.begin(), bytes.end());
         }
     }
+    return bank;
+}
+
+TileBank loadRawTiles(const std::string& path) {
+    auto data = readFile(path);
+    if (data.size() < 2) {
+        throw std::runtime_error(path + " is too small for a tile header");
+    }
+    TileBank bank;
+    bank.count = static_cast<int>((data[0] << 8) | data[1]);
+    size_t payloadSize = data.size() - 2;
+    size_t expectedSize = static_cast<size_t>(bank.count) * kTileSize * kTileSize;
+    if (bank.count <= 0 || payloadSize != expectedSize) {
+        throw std::runtime_error(path + " raw tile payload size mismatch");
+    }
+    bank.pixels.insert(bank.pixels.end(), data.begin() + 2, data.end());
     return bank;
 }
 
@@ -854,8 +959,7 @@ SpriteBank loadRawSprites(const std::string& path) {
     return bank;
 }
 
-std::vector<Record> loadRecords(const std::string& path) {
-    auto json = readTextFile(path);
+std::vector<Record> parseJsonRecords(const std::string& json) {
     std::vector<Record> records;
     auto recordObjects = extractObjectArray(json, "records");
     for (const auto& recJson : recordObjects) {
@@ -863,13 +967,63 @@ std::vector<Record> loadRecords(const std::string& path) {
         r.score = static_cast<uint32_t>(extractInt(recJson, "score"));
         r.level = static_cast<uint8_t>(extractInt(recJson, "level"));
         r.name = extractString(recJson, "decoded_name", "nessuno");
+        r.encodedName = extractString(recJson, "encoded_name", "");
         records.push_back(r);
     }
     return records;
 }
 
+std::string decodeRawRecordName(std::string encoded) {
+    std::replace(encoded.begin(), encoded.end(), ':', ' ');
+    while (!encoded.empty() && encoded.back() == ' ') {
+        encoded.pop_back();
+    }
+    return encoded.empty() ? std::string("nessuno") : encoded;
+}
+
+std::vector<Record> parseRawRecords(const std::vector<uint8_t>& data,
+                                    const std::string& path) {
+    constexpr size_t kRecordSize = 13;
+    if (data.empty()) {
+        throw std::runtime_error(path + " is empty");
+    }
+    uint8_t count = data[0];
+    if (data.size() != 1 + static_cast<size_t>(count) * kRecordSize) {
+        throw std::runtime_error(path + " raw record table size mismatch");
+    }
+    std::vector<Record> records;
+    records.reserve(count);
+    for (size_t i = 0; i < count; ++i) {
+        size_t off = 1 + i * kRecordSize;
+        Record record;
+        record.score = le32(data, off);
+        record.level = data[off + 4];
+        std::string encoded(data.begin() + static_cast<std::ptrdiff_t>(off + 5),
+                            data.begin() + static_cast<std::ptrdiff_t>(off + 13));
+        record.name = decodeRawRecordName(encoded);
+        record.encodedName = encoded;
+        records.push_back(std::move(record));
+    }
+    return records;
+}
+
+std::vector<Record> loadRawRecords(const std::string& path) {
+    return parseRawRecords(readFile(path), path);
+}
+
+std::vector<Record> loadRecords(const std::string& path) {
+    auto data = readFile(path);
+    auto first = std::find_if(data.begin(), data.end(), [](uint8_t byte) {
+        return !std::isspace(static_cast<unsigned char>(byte));
+    });
+    if (first != data.end() && *first == '{') {
+        return parseJsonRecords(std::string(data.begin(), data.end()));
+    }
+    return parseRawRecords(data, path);
+}
+
 std::string encodeRecordName(const std::string& name) {
-    std::string out = name.empty() ? "PLAYER" : name;
+    std::string out = name;
     out.resize(8, ':');
     for (char& ch : out) {
         if (ch == ' ') ch = ':';
@@ -877,7 +1031,51 @@ std::string encodeRecordName(const std::string& name) {
     return out;
 }
 
+std::string encodedRecordName(const Record& record) {
+    if (record.encodedName.size() == 8) {
+        return record.encodedName;
+    }
+    return encodeRecordName(record.name);
+}
+
+Record makeRecord(uint32_t score, uint8_t level, const std::string& enteredName) {
+    Record record;
+    record.score = score;
+    record.level = level;
+    record.encodedName = encodeRecordName(enteredName);
+    record.name = decodeRawRecordName(record.encodedName);
+    return record;
+}
+
+bool isJsonRecordPath(const std::string& path) {
+    std::string ext = std::filesystem::path(path).extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return ext == ".json";
+}
+
 void saveRecords(const std::string& path, const std::vector<Record>& records) {
+    if (!isJsonRecordPath(path)) {
+        std::ofstream out(path, std::ios::binary);
+        if (!out) {
+            throw std::runtime_error("cannot create " + path);
+        }
+        size_t count = std::min<size_t>(records.size(), 255);
+        out.put(static_cast<char>(count));
+        for (size_t i = 0; i < count; ++i) {
+            uint32_t score = records[i].score;
+            out.put(static_cast<char>(score & 0xffu));
+            out.put(static_cast<char>((score >> 8) & 0xffu));
+            out.put(static_cast<char>((score >> 16) & 0xffu));
+            out.put(static_cast<char>((score >> 24) & 0xffu));
+            out.put(static_cast<char>(records[i].level));
+            std::string name = encodedRecordName(records[i]);
+            out.write(name.data(), static_cast<std::streamsize>(name.size()));
+        }
+        return;
+    }
+
     std::ofstream out(path);
     if (!out) {
         throw std::runtime_error("cannot create " + path);
@@ -889,7 +1087,7 @@ void saveRecords(const std::string& path, const std::vector<Record>& records) {
     out << "  \"record_count\": " << count << ",\n";
     out << "  \"records\": [\n";
     for (size_t i = 0; i < count; ++i) {
-        std::string name = encodeRecordName(records[i].name);
+        std::string name = encodedRecordName(records[i]);
         out << "    {\n";
         out << "      \"index\": " << i << ",\n";
         out << "      \"score\": " << records[i].score << ",\n";
@@ -916,7 +1114,8 @@ bool insertRecord(std::vector<Record>& records, Record record, size_t maxRecords
     for (size_t i = 0; i < records.size(); ++i) {
         if (records[i].score != before[i].score ||
             records[i].level != before[i].level ||
-            records[i].name != before[i].name) {
+            records[i].name != before[i].name ||
+            encodedRecordName(records[i]) != encodedRecordName(before[i])) {
             return true;
         }
     }
@@ -948,6 +1147,33 @@ SoundBank loadSon(const std::string& path) {
     return bank;
 }
 
+SoundBank loadRawSon(const std::string& path) {
+    auto data = readFile(path);
+    if (data.size() < 2) {
+        throw std::runtime_error(path + " is too small for a sound header");
+    }
+    SoundBank bank;
+    bank.stepCount = le16(data, 0);
+    size_t payloadSize = bank.stepCount * kSoundStepSize;
+    if (data.size() != 2 + payloadSize) {
+        throw std::runtime_error(path + " raw payload size mismatch");
+    }
+    bank.payload.insert(bank.payload.end(), data.begin() + 2, data.end());
+    bank.recordSize = 130;
+    if (bank.payload.size() % bank.recordSize != 0) {
+        throw std::runtime_error(path + " raw payload cannot be split into JSON chunks");
+    }
+    for (size_t off = 0; off < bank.payload.size(); off += bank.recordSize) {
+        SoundEffectRecord record;
+        record.bytes.insert(record.bytes.end(),
+                            bank.payload.begin() + static_cast<std::ptrdiff_t>(off),
+                            bank.payload.begin() +
+                                static_cast<std::ptrdiff_t>(off + bank.recordSize));
+        bank.records.push_back(std::move(record));
+    }
+    return bank;
+}
+
 GranBank loadGran(const std::string& path) {
     auto json = readTextFile(path);
     GranBank bank;
@@ -965,6 +1191,24 @@ GranBank loadGran(const std::string& path) {
         if (record.bytes.size() != bank.recordSize) {
             throw std::runtime_error(path + " record length does not match record_size");
         }
+        bank.records.push_back(std::move(record));
+    }
+    return bank;
+}
+
+GranBank loadRawGran(const std::string& path) {
+    auto data = readFile(path);
+    if (data.size() != 7 * kGranRecordSize) {
+        throw std::runtime_error(path + " raw size does not match seven GRAN records");
+    }
+    GranBank bank;
+    bank.recordSize = kGranRecordSize;
+    for (size_t off = 0; off < data.size(); off += kGranRecordSize) {
+        GranRecord record;
+        record.bytes.insert(record.bytes.end(),
+                            data.begin() + static_cast<std::ptrdiff_t>(off),
+                            data.begin() +
+                                static_cast<std::ptrdiff_t>(off + kGranRecordSize));
         bank.records.push_back(std::move(record));
     }
     return bank;
@@ -1180,8 +1424,45 @@ class App {
         bool active = false;
     };
 
+    struct State2VisualRow {
+        uint8_t frame = 0;
+        uint8_t row0 = 0;
+        uint8_t row1 = 0;
+        uint8_t row2 = 0;
+        uint8_t row3 = 0;
+    };
+
+    struct State2EffectEntry {
+        int x = 0;
+        int y = 0;
+        uint8_t visualFrame = 0;
+        uint8_t drawDx = 0;
+        uint8_t drawDy = 0;
+        uint8_t row2 = 0;
+        uint8_t spriteIndex = 0;
+        bool active = false;
+    };
+
+    struct CompatibilitySoundAttempt {
+        size_t index = 0;
+        uint16_t cursor = 0;
+    };
+
+    static bool originalState2VisualRow(uint8_t frame, State2VisualRow& row) {
+        if (frame < kState2VisualStartFrame || frame > kState2VisualEndFrame) {
+            return false;
+        }
+        row.frame = frame;
+        row.row0 = 0x10;
+        row.row1 = 0x10;
+        row.row2 = 0x7d;
+        row.row3 = static_cast<uint8_t>(
+            0x43 + (frame - kState2VisualStartFrame));
+        return true;
+    }
+
 public:
-    void load() {
+    void loadJsonAssets() {
         palette_ = loadPaletteFile("BOMPAL.PAL.json");
         background_ = loadBackground("SFONLEF.ZBG.json", backgroundPalette_);
         tiles_ = loadTiles("CARO.CAR.json");
@@ -1194,6 +1475,33 @@ public:
         levels_ = loadLevels("LIVELS.SCH.json");
         if (levels_.empty()) {
             throw std::runtime_error("no levels");
+        }
+    }
+
+    void loadOriginalAssets() {
+        palette_ = loadPalette(readFile("BOMPAL.PAL"), 0);
+        background_ = loadRawBackground("SFONLEF.ZBG", backgroundPalette_);
+        tiles_ = loadRawTiles("CARO.CAR");
+        sprites_ = loadRawSprites("BOMOMIMK.SPR");
+        altSprites_ = loadRawSprites("PROVA.SPR");
+        fontSprites_ = loadRawSprites("FONTS.SPR");
+        records_ = loadRawRecords("RECS.DAT");
+        sounds_ = loadRawSon("PROEFS.SON");
+        gran_ = loadRawGran("GRAN.MST");
+        levels_ = loadRawLevels("LIVELS.SCH");
+        if (levels_.empty()) {
+            throw std::runtime_error("no levels");
+        }
+    }
+
+    void load() {
+        const char* jsonAssets = std::getenv("LEZAC_LOAD_JSON_ASSETS");
+        const char* originalAssets = std::getenv("LEZAC_LOAD_ORIGINAL_ASSETS");
+        if ((jsonAssets != nullptr && std::string(jsonAssets) != "0") ||
+            (originalAssets != nullptr && std::string(originalAssets) == "0")) {
+            loadJsonAssets();
+        } else {
+            loadOriginalAssets();
         }
     }
 
@@ -1260,6 +1568,8 @@ public:
         }
 
         size_t twoPlayerBombs = bombs_.size();
+        int player1BombX = static_cast<int>(player_.x + 6.0f) / 8;
+        int player1BombY = static_cast<int>(player_.y + 12.0f) / 8;
         int player2BombX = static_cast<int>(player2_.x + 6.0f) / 8;
         int player2BombY = static_cast<int>(player2_.y + 12.0f) / 8;
         int player1SmallBombs = bombInventory_.counts[0];
@@ -1267,12 +1577,42 @@ public:
         pushKeyDown(SDLK_n);
         processEvents(running);
         if (bombs_.size() != twoPlayerBombs + 1 ||
-            bombs_.back().x != player2BombX || bombs_.back().y != player2BombY) {
-            throw std::runtime_error("N key did not place player 2 bomb in two-player mode");
+            bombs_.back().owner != 1 ||
+            bombs_.back().x != player1BombX || bombs_.back().y != player1BombY) {
+            throw std::runtime_error("N key did not place player 1 bomb in two-player mode");
         }
-        if (bombInventory_.counts[0] != player1SmallBombs ||
+        if (bombInventory_.counts[0] != player1SmallBombs - 1 ||
+            bombInventory2_.counts[0] != player2SmallBombs) {
+            throw std::runtime_error("N key did not consume player 1 inventory only");
+        }
+        pushKeyDown(SDLK_KP_0);
+        processEvents(running);
+        if (bombs_.size() != twoPlayerBombs + 2 ||
+            bombs_.back().owner != 2 ||
+            bombs_.back().x != player2BombX || bombs_.back().y != player2BombY) {
+            throw std::runtime_error("keypad 0 did not place player 2 bomb in two-player mode");
+        }
+        if (bombInventory_.counts[0] != player1SmallBombs - 1 ||
             bombInventory2_.counts[0] != player2SmallBombs - 1) {
-            throw std::runtime_error("N key did not consume player 2 inventory only");
+            throw std::runtime_error("keypad 0 did not consume player 2 inventory only");
+        }
+
+        resetLevel(0);
+        size_t insertBombs = bombs_.size();
+        int insertPlayer1SmallBombs = bombInventory_.counts[0];
+        int insertPlayer2SmallBombs = bombInventory2_.counts[0];
+        player2BombX = static_cast<int>(player2_.x + 6.0f) / 8;
+        player2BombY = static_cast<int>(player2_.y + 12.0f) / 8;
+        pushKeyDown(SDLK_INSERT);
+        processEvents(running);
+        if (bombs_.size() != insertBombs + 1 ||
+            bombs_.back().owner != 2 ||
+            bombs_.back().x != player2BombX || bombs_.back().y != player2BombY) {
+            throw std::runtime_error("Insert did not place player 2 bomb in two-player mode");
+        }
+        if (bombInventory_.counts[0] != insertPlayer1SmallBombs ||
+            bombInventory2_.counts[0] != insertPlayer2SmallBombs - 1) {
+            throw std::runtime_error("Insert did not consume player 2 inventory only");
         }
 
         pushKeyDown(SDLK_ESCAPE);
@@ -1316,33 +1656,33 @@ public:
         size_t beforePlayer2ReentryBombs = bombs_.size();
         damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
                      damageCooldown2_, 2);
-        if (menu_ || !player2Dead_ || lives2_ != 2 || reentryTimer2_ <= 0 ||
-            playerDead_) {
+        if (menu_ || !player2Dead_ || lives2_ != 3 || !pendingLifeLoss2_ ||
+            reentryTimer2_ <= 0 || playerDead_) {
             throw std::runtime_error("player 2 death did not enter reentry state");
         }
-        pushKeyDown(SDLK_n);
+        pushKeyDown(SDLK_KP_0);
         processEvents(running);
         if (!player2Dead_ || energy2_ != 100 ||
             bombs_.size() != beforePlayer2ReentryBombs || damageCooldown2_ != 0) {
-            throw std::runtime_error("N key bypassed player 2 state-2 death gate");
+            throw std::runtime_error("keypad 0 bypassed player 2 state-2 death gate");
         }
         for (int i = 0; i < kDeathStateTicks; ++i) {
             updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
                           playerDead_);
         }
-        pushKeyDown(SDLK_n);
+        pushKeyDown(SDLK_KP_0);
         processEvents(running);
         if (player2Dead_ || energy2_ != 100 || lives2_ != 2 ||
             bombs_.size() != beforePlayer2ReentryBombs || damageCooldown2_ <= 0) {
-            throw std::runtime_error("N key did not reenter player 2 after death");
+            throw std::runtime_error("keypad 0 did not reenter player 2 after death");
         }
         size_t afterPlayer2ReentryBombs = bombs_.size();
         int player2BombsAfterReentry = bombInventory2_.counts[0];
-        pushKeyDown(SDLK_n);
+        pushKeyDown(SDLK_KP_0);
         processEvents(running);
         if (bombs_.size() != afterPlayer2ReentryBombs + 1 ||
             bombInventory2_.counts[0] != player2BombsAfterReentry - 1) {
-            throw std::runtime_error("N key did not fire for player 2 after reentry");
+            throw std::runtime_error("keypad 0 did not fire for player 2 after reentry");
         }
 
         energy2_ = 0;
@@ -1351,14 +1691,22 @@ public:
         damageCooldown2_ = 0;
         damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
                      damageCooldown2_, 2);
-        if (menu_ || !player2Dead_ || lives2_ != 0 || lives_ != 3 || playerDead_) {
-            throw std::runtime_error("player 2 zero lives ended two-player game");
+        if (menu_ || !player2Dead_ || lives2_ != 1 || !pendingLifeLoss2_ ||
+            lives_ != 3 || playerDead_) {
+            throw std::runtime_error("player 2 final life did not enter state-2");
         }
         size_t afterPlayer2OutBombs = bombs_.size();
-        pushKeyDown(SDLK_n);
+        pushKeyDown(SDLK_KP_0);
         processEvents(running);
         if (!player2Dead_ || bombs_.size() != afterPlayer2OutBombs) {
-            throw std::runtime_error("player 2 reentered or fired with zero lives");
+            throw std::runtime_error("player 2 reentered or fired during final state-2");
+        }
+        for (int i = 0; i < kDeathStateTicks; ++i) {
+            updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
+                          playerDead_);
+        }
+        if (menu_ || !player2Dead_ || lives2_ != 0 || pendingLifeLoss2_) {
+            throw std::runtime_error("player 2 final life was not consumed after state-2");
         }
 
         energy_ = 0;
@@ -1366,6 +1714,13 @@ public:
         damageCooldown_ = 0;
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
+        if (menu_ || !playerDead_ || lives_ != 1 || !pendingLifeLoss_) {
+            throw std::runtime_error("player 1 final life did not enter state-2");
+        }
+        for (int i = 0; i < kDeathStateTicks; ++i) {
+            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+                          true);
+        }
         if (!menu_ || menuPage_ != MenuPage::GameOver) {
             throw std::runtime_error("both players out of lives did not end game");
         }
@@ -1386,7 +1741,7 @@ public:
         lives_ = 3;
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
-        if (!playerDead_ || lives_ != 2 || reentryTimer_ <= 0) {
+        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ || reentryTimer_ <= 0) {
             throw std::runtime_error("player death did not enter reentry state");
         }
         pushKeyDown(SDLK_SPACE);
@@ -1416,7 +1771,7 @@ public:
                      damageCooldown_, 1);
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
-        if (!playerDead_ || lives_ != 2 ||
+        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ ||
             remainingObjectiveTiles() != level_.startingObjectiveTiles - 1) {
             throw std::runtime_error("fire bypassed unwinnable state-2 gate");
         }
@@ -1478,11 +1833,18 @@ public:
             throw std::runtime_error("bomb explosion did not drain player energy");
         }
 
+        FrameInspection backgroundOnFrame =
+            inspectRenderedFrame("controls-background-on");
         bool background = showBackground_;
         pushKeyDown(SDLK_s);
         processEvents(running);
         if (showBackground_ == background) {
             throw std::runtime_error("background toggle key did not change state");
+        }
+        FrameInspection backgroundOffFrame =
+            inspectRenderedFrame("controls-background-off");
+        if (backgroundOffFrame.hash == backgroundOnFrame.hash) {
+            throw std::runtime_error("background toggle did not change rendered frame");
         }
 
         int viewWidth = gameplayViewWidth_;
@@ -1491,11 +1853,22 @@ public:
         if (gameplayViewWidth_ >= viewWidth) {
             throw std::runtime_error("R key did not reduce playfield width");
         }
+        int reducedViewWidth = gameplayViewWidth_;
+        FrameInspection reducedWidthFrame =
+            inspectRenderedFrame("controls-view-width-reduced");
+        if (reducedWidthFrame.hash == backgroundOffFrame.hash) {
+            throw std::runtime_error("reduced playfield width did not change frame");
+        }
 
         pushKeyDown(SDLK_e);
         processEvents(running);
         if (gameplayViewWidth_ != viewWidth) {
             throw std::runtime_error("E key did not restore playfield width");
+        }
+        FrameInspection restoredWidthFrame =
+            inspectRenderedFrame("controls-view-width-restored");
+        if (restoredWidthFrame.hash != backgroundOffFrame.hash) {
+            throw std::runtime_error("restored playfield width did not redraw original frame");
         }
 
         pushKeyDown(SDLK_PAGEUP);
@@ -1552,7 +1925,13 @@ public:
         if (running) {
             throw std::runtime_error("Escape from menu did not exit");
         }
-        std::cout << "control_smoke=ok\n";
+        std::cout << "control_smoke=ok manual_controls=s,e,r"
+                  << " fire_keys=n,kp0,insert"
+                  << " background_toggle=1"
+                  << " view_width=" << viewWidth << "->" << reducedViewWidth
+                  << "->" << gameplayViewWidth_
+                  << " two_player_width_locked=1"
+                  << " frame_inspection=1\n";
     }
 
     void smokeUi(int frames) {
@@ -1565,6 +1944,105 @@ public:
             inspectRenderedFrame("smoke-ui");
             SDL_Delay(1);
         }
+        std::cout << "ui_smoke=ok frames=" << frames << " frame_inspection=1\n";
+    }
+
+    void debugMenuFrameFlow() {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+        std::set<uint64_t> hashes;
+
+        auto inspectMenuPage = [&](MenuPage expected, const std::string& label) {
+            if (!menu_ || menuPage_ != expected) {
+                throw std::runtime_error(label + " menu page not active");
+            }
+            FrameInspection frame = inspectRenderedFrame("menu-frame-" + label);
+            if (!regionHasVariation(30, 40, 260, 134)) {
+                throw std::runtime_error(label + " menu text region was not visible");
+            }
+            hashes.insert(frame.hash);
+            return frame;
+        };
+        auto press = [&](SDL_Keycode key) {
+            pushKeyDown(key);
+            processEvents(running);
+        };
+
+        FrameInspection mainFrame = inspectMenuPage(MenuPage::Main, "main");
+        press(SDLK_i);
+        FrameInspection infoFrame = inspectMenuPage(MenuPage::Info, "info");
+        press(SDLK_z);
+        FrameInspection instructionsFrame =
+            inspectMenuPage(MenuPage::Instructions, "instructions");
+        clearSoundLatch();
+        lastPumpedSoundOffset_ = 0;
+        lastPumpedSoundSelector_ = 0;
+        press(SDLK_r);
+        FrameInspection recordsFrame = inspectMenuPage(MenuPage::Records, "records");
+        pumpSoundLatch();
+        if (lastPumpedSoundOffset_ != kRecordsPageSoundCursor ||
+            lastPumpedSoundSelector_ != kRecordsPageSoundPriority) {
+            throw std::runtime_error("records menu frame flow did not pump records sound");
+        }
+
+        press(SDLK_ESCAPE);
+        if (!menu_ || menuPage_ != MenuPage::Main) {
+            throw std::runtime_error("records menu did not return to main with Escape");
+        }
+        showBackground_ = true;
+        press(SDLK_1);
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+            throw std::runtime_error("menu frame flow did not start one-player game");
+        }
+        FrameInspection gameFrame =
+            inspectRenderedFrame("menu-frame-game-background-on");
+        if (gameFrame.hash == mainFrame.hash ||
+            !regionHasVariation(0, 0, kScreenW, 24) ||
+            !regionHasVariation(0, 24, kScreenW, kScreenH - 24)) {
+            throw std::runtime_error("one-player start frame did not expose HUD/world");
+        }
+        press(SDLK_s);
+        if (showBackground_) {
+            throw std::runtime_error("gameplay background toggle did not turn off background");
+        }
+        FrameInspection backgroundOffFrame =
+            inspectRenderedFrame("menu-frame-game-background-off");
+        if (backgroundOffFrame.hash == gameFrame.hash) {
+            throw std::runtime_error("gameplay background toggle did not change rendered frame");
+        }
+        hashes.insert(gameFrame.hash);
+        hashes.insert(backgroundOffFrame.hash);
+
+        press(SDLK_ESCAPE);
+        FrameInspection returnedMenuFrame =
+            inspectMenuPage(MenuPage::Main, "return-main");
+        if (!menu_ || returnedMenuFrame.hash == backgroundOffFrame.hash) {
+            throw std::runtime_error("game Escape did not render the main menu");
+        }
+        press(SDLK_ESCAPE);
+        if (running) {
+            throw std::runtime_error("main-menu Escape did not request exit");
+        }
+
+        if (hashes.size() < 6 ||
+            mainFrame.hash == infoFrame.hash ||
+            infoFrame.hash == instructionsFrame.hash ||
+            instructionsFrame.hash == recordsFrame.hash) {
+            throw std::runtime_error("menu frame flow did not render distinct pages");
+        }
+
+        std::cout << "menu_frame_flow=ok"
+                  << " pages=main,info,instructions,records"
+                  << " unique_frames=" << hashes.size()
+                  << " gameplay_background_toggle=1"
+                  << " records_sound_cursor=" << hex4(kRecordsPageSoundCursor)
+                  << " records_sound_priority="
+                  << static_cast<int>(kRecordsPageSoundPriority)
+                  << " start_game=1"
+                  << " escape_exit=1"
+                  << " frame_inspection=1\n";
     }
 
     void debugLevel1FrameInspection() {
@@ -2153,6 +2631,8 @@ public:
     void debugAutoplayer(const std::string& scenario) {
         if (scenario == "level1_bomb_route") {
             debugAutoplayerLevel1BombRoute(scenario);
+        } else if (scenario == "pause_flow") {
+            debugAutoplayerPauseFlow(scenario);
         } else if (scenario == "death_reentry") {
             debugAutoplayerDeathReentry(scenario);
         } else if (scenario == "death_visuals") {
@@ -2181,6 +2661,8 @@ public:
             debugAutoplayerCollapsePlaybackRoute(scenario);
         } else if (scenario == "two_player_route") {
             debugAutoplayerTwoPlayerRoute(scenario);
+        } else if (scenario == "two_player_death_visuals") {
+            debugAutoplayerTwoPlayerDeathVisuals(scenario);
         } else if (scenario == "two_player_progression") {
             debugAutoplayerTwoPlayerProgression(scenario);
         } else {
@@ -2248,6 +2730,109 @@ public:
                   << " bombs=1 explosion=1 frame_inspection=1\n";
     }
 
+    void debugAutoplayerPauseFlow(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || paused_ || playerCount_ != 1 || levelIndex_ != 0) {
+            throw std::runtime_error("pause flow failed to start one-player level 1");
+        }
+
+        FrameInspection startFrame = inspectRenderedFrame("autoplayer-pause-start");
+        size_t bombsBefore = bombs_.size();
+        int smallBombsBefore = bombInventory_.counts[0];
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        if (bombs_.size() != bombsBefore + 1 ||
+            bombInventory_.counts[0] != smallBombsBefore - 1) {
+            throw std::runtime_error("pause flow failed to arm a bomb before pausing");
+        }
+
+        FrameInspection armedFrame = inspectRenderedFrame("autoplayer-pause-armed");
+        if (armedFrame.hash == startFrame.hash) {
+            throw std::runtime_error("pause flow armed frame did not change");
+        }
+        std::vector<uint32_t> armedPixels = fb_;
+        uint32_t logicBeforePause = logicTick_;
+        int bombTimerBeforePause = bombs_.back().timer;
+        float playerXBeforePause = player_.x;
+        float playerYBeforePause = player_.y;
+        float playerVyBeforePause = player_.vy;
+        size_t bombsArmed = bombs_.size();
+        int smallBombsArmed = bombInventory_.counts[0];
+
+        pushKeyDown(SDLK_p);
+        processEvents(running);
+        if (!paused_ || menu_) {
+            throw std::runtime_error("P key did not enter pause state");
+        }
+        FrameInspection pauseFrame = inspectRenderedFrame("autoplayer-pause-overlay");
+        if (pauseFrame.hash == armedFrame.hash ||
+            !regionChanged(armedPixels, 112, 84, 96, 28)) {
+            throw std::runtime_error("pause overlay did not change the rendered frame");
+        }
+
+        pushKeyDown(SDLK_n);
+        processEvents(running);
+        FrameControls pausedControls;
+        pausedControls.p1Right = true;
+        pausedControls.p1Jump = true;
+        updateWithControls(pausedControls, 1.0f / 60.0f);
+        update(1.0f / 60.0f);
+        if (!paused_ || logicTick_ != logicBeforePause ||
+            bombs_.size() != bombsArmed ||
+            bombs_.back().timer != bombTimerBeforePause ||
+            bombInventory_.counts[0] != smallBombsArmed ||
+            player_.x != playerXBeforePause ||
+            player_.y != playerYBeforePause ||
+            player_.vy != playerVyBeforePause) {
+            throw std::runtime_error("paused gameplay state advanced");
+        }
+        inspectRenderedFrame("autoplayer-pause-frozen");
+
+        pushKeyDown(SDLK_p);
+        processEvents(running);
+        if (paused_ || menu_) {
+            throw std::runtime_error("P key did not leave pause state");
+        }
+        FrameInspection resumedFrame = inspectRenderedFrame("autoplayer-pause-resumed");
+        if (resumedFrame.hash != armedFrame.hash) {
+            throw std::runtime_error("resumed frame did not restore the pre-pause game view");
+        }
+
+        updateWithControls(pausedControls, 1.0f / 60.0f);
+        if (logicTick_ != logicBeforePause + 1 ||
+            bombs_.back().timer >= bombTimerBeforePause) {
+            throw std::runtime_error("gameplay did not advance after unpausing");
+        }
+        inspectRenderedFrame("autoplayer-pause-advanced");
+
+        pushKeyDown(SDLK_p);
+        processEvents(running);
+        if (!paused_) {
+            throw std::runtime_error("pause flow could not re-enter pause before escape");
+        }
+        pushKeyDown(SDLK_ESCAPE);
+        processEvents(running);
+        if (!menu_ || menuPage_ != MenuPage::Main || paused_) {
+            throw std::runtime_error("escape did not clear pause and return to menu");
+        }
+        FrameInspection menuFrame = inspectRenderedFrame("autoplayer-pause-menu");
+        if (menuFrame.hash == resumedFrame.hash) {
+            throw std::runtime_error("pause flow menu frame did not redraw");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " paused_overlay=1 frozen_ticks=1 frozen_bomb=1"
+                  << " frozen_inputs=1 resumed=1 escape_menu=1"
+                  << " frame_inspection=1 original_pause_claim=0\n";
+    }
+
     void debugAutoplayerDeathReentry(const std::string& scenario) {
         load();
         initSdl();
@@ -2266,7 +2851,7 @@ public:
         damageCooldown_ = 0;
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
-        if (!playerDead_ || lives_ != 2 || energy_ != 100 ||
+        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ || energy_ != 100 ||
             reentryTimer_ != kReentryTicks || deathStateTimer_ != kDeathStateTicks) {
             throw std::runtime_error("death autoplayer did not enter state-2");
         }
@@ -2298,12 +2883,113 @@ public:
             throw std::runtime_error("death autoplayer reentry frame did not change");
         }
 
+        int manualReentryLives = lives_;
+
+        resetLevel(0);
+        int waitRestartGeneration = levelResetGeneration_;
+        float waitStartX = player_.x;
+        float waitStartY = player_.y;
+        player_.x += 40.0f;
+        player_.y -= 8.0f;
+        BombProfile profile = bombProfile(BombType::Small);
+        bombs_.push_back({static_cast<int>(player_.x + 6.0f) / kTileSize,
+                          static_cast<int>(player_.y + 12.0f) / kTileSize,
+                          profile.fuseTicks, BombType::Small,
+                          profile.fuseTicks, 1});
+        energy_ = 0;
+        lives_ = 3;
+        damageCooldown_ = 0;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ ||
+            reentryTimer_ != kReentryTicks || deathStateTimer_ != kDeathStateTicks ||
+            bombs_.empty()) {
+            throw std::runtime_error("death autoplayer wait-restart setup failed");
+        }
+        FrameInspection waitDeathFrame =
+            inspectRenderedFrame("autoplayer-death-wait-state2");
+        int waitRestartFrames = 0;
+        for (; waitRestartFrames < kDeathStateTicks + kReentryTicks + 4;
+             ++waitRestartFrames) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (levelResetGeneration_ > waitRestartGeneration) break;
+        }
+        if (levelResetGeneration_ <= waitRestartGeneration || playerDead_ ||
+            lives_ != 2 || pendingLifeLoss_ || deathStateTimer_ != 0 ||
+            reentryTimer_ != 0 || !bombs_.empty() ||
+            player_.x != waitStartX || player_.y != waitStartY) {
+            std::ostringstream oss;
+            oss << "death autoplayer wait did not restart level"
+                << " generation=" << levelResetGeneration_
+                << " before=" << waitRestartGeneration
+                << " dead=" << (playerDead_ ? 1 : 0)
+                << " lives=" << lives_
+                << " pending=" << (pendingLifeLoss_ ? 1 : 0)
+                << " death_timer=" << deathStateTimer_
+                << " reentry_timer=" << reentryTimer_
+                << " bombs=" << bombs_.size()
+                << " xy=" << player_.x << ',' << player_.y
+                << " start_xy=" << waitStartX << ',' << waitStartY;
+            throw std::runtime_error(oss.str());
+        }
+        FrameInspection waitRestartFrame =
+            inspectRenderedFrame("autoplayer-death-wait-restart");
+        if (waitRestartFrame.hash == waitDeathFrame.hash) {
+            throw std::runtime_error("death autoplayer wait restart frame did not change");
+        }
+
+        resetLevel(0);
+        auto objectivePos = findObjectiveTileForSmoke();
+        if (!consumeBombObjectTile(objectivePos[0], objectivePos[1]) ||
+            canReenterLevel()) {
+            throw std::runtime_error("death autoplayer could not create unwinnable level");
+        }
+        int missingObjectiveTiles = remainingObjectiveTiles();
+        int unwinnableGeneration = levelResetGeneration_;
+        energy_ = 0;
+        lives_ = 3;
+        damageCooldown_ = 0;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ ||
+            reentryTimer_ != 1 || deathStateTimer_ != kDeathStateTicks ||
+            remainingObjectiveTiles() != missingObjectiveTiles) {
+            throw std::runtime_error("death autoplayer unwinnable setup failed");
+        }
+        FrameInspection unwinnableDeathFrame =
+            inspectRenderedFrame("autoplayer-death-unwinnable-state2");
+        pushKeyDown(SDLK_SPACE);
+        processEvents(running);
+        if (!playerDead_ || lives_ != 3 ||
+            levelResetGeneration_ != unwinnableGeneration) {
+            throw std::runtime_error("death autoplayer early unwinnable fire restarted");
+        }
+        int unwinnableRestartFrames = 0;
+        for (; unwinnableRestartFrames < kDeathStateTicks + 4;
+             ++unwinnableRestartFrames) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (levelResetGeneration_ > unwinnableGeneration) break;
+        }
+        if (levelResetGeneration_ <= unwinnableGeneration || playerDead_ ||
+            lives_ != 2 || pendingLifeLoss_ || deathStateTimer_ != 0 ||
+            reentryTimer_ != 0 ||
+            remainingObjectiveTiles() != level_.startingObjectiveTiles) {
+            throw std::runtime_error("death autoplayer unwinnable restart failed");
+        }
+        FrameInspection unwinnableRestartFrame =
+            inspectRenderedFrame("autoplayer-death-unwinnable-restart");
+        if (unwinnableRestartFrame.hash == unwinnableDeathFrame.hash) {
+            throw std::runtime_error("death autoplayer unwinnable frame did not change");
+        }
+
         std::cout << "autoplayer=ok"
                   << " scenario=" << scenario
                   << " death_state_ticks=" << kDeathStateTicks
-                  << " lives=" << lives_
+                  << " lives=" << manualReentryLives
                   << " energy=" << energy_
-                  << " reentered=1 frame_inspection=1\n";
+                  << " reentered=1 wait_restart=1"
+                  << " unwinnable_restart=1 early_unwinnable_fire_blocked=1"
+                  << " frame_inspection=1\n";
     }
 
     void debugAutoplayerDeathVisuals(const std::string& scenario) {
@@ -2329,11 +3015,30 @@ public:
             deathStateTimer_ != kDeathStateTicks) {
             throw std::runtime_error("death visual autoplayer did not seed state-2 cursor");
         }
+        auto cursorPreviewFrame = [&](const std::string& label) {
+            state2VisualCursorPreview_ = true;
+            FrameInspection inspection = inspectRenderedFrame(label);
+            state2VisualCursorPreview_ = false;
+            return inspection;
+        };
+        auto visualRowFor = [&](uint8_t frame) {
+            State2VisualRow row;
+            if (!originalState2VisualRow(frame, row)) {
+                throw std::runtime_error("death visual row candidate missing");
+            }
+            return row;
+        };
 
         FrameInspection deathStartFrame =
             inspectRenderedFrame("autoplayer-death-visual-frame-4a");
         if (deathStartFrame.hash == startFrame.hash) {
             throw std::runtime_error("death visual initial frame did not change rendering");
+        }
+        State2EffectEntry effect4a = state2Effect_;
+        FrameInspection cursorStartFrame =
+            cursorPreviewFrame("autoplayer-death-visual-cursor-frame-4a");
+        if (cursorStartFrame.hash == deathStartFrame.hash) {
+            throw std::runtime_error("death visual cursor frame 4a matched live row-byte-3 frame");
         }
 
         FrameControls idle;
@@ -2347,6 +3052,13 @@ public:
         if (tick1Frame.hash == deathStartFrame.hash) {
             throw std::runtime_error("death visual first tick frame did not change");
         }
+        State2EffectEntry effect4b = state2Effect_;
+        FrameInspection cursorTick1Frame =
+            cursorPreviewFrame("autoplayer-death-visual-cursor-frame-4b");
+        if (cursorTick1Frame.hash == tick1Frame.hash ||
+            cursorTick1Frame.hash == cursorStartFrame.hash) {
+            throw std::runtime_error("death visual cursor frame 4b did not advance");
+        }
 
         for (int i = 0; i < kState2VisualDelay + 1; ++i) {
             updateWithControls(idle, 1.0f / 60.0f);
@@ -2359,6 +3071,54 @@ public:
         if (tick5Frame.hash == tick1Frame.hash) {
             throw std::runtime_error("death visual third frame did not change");
         }
+        State2EffectEntry effect4c = state2Effect_;
+        FrameInspection cursorTick5Frame =
+            cursorPreviewFrame("autoplayer-death-visual-cursor-frame-4c");
+        if (cursorTick5Frame.hash == tick5Frame.hash ||
+            cursorTick5Frame.hash == cursorTick1Frame.hash) {
+            throw std::runtime_error("death visual cursor frame 4c did not advance");
+        }
+        if (state2VisualCursorPreview_) {
+            throw std::runtime_error("death visual cursor preview flag leaked");
+        }
+
+        int cursor4a = static_cast<int>(kState2VisualStartFrame);
+        int cursor4b = static_cast<int>(kState2VisualStartFrame + 1);
+        int cursor4c = static_cast<int>(kState2VisualStartFrame + 2);
+        State2VisualRow row4a = visualRowFor(kState2VisualStartFrame);
+        State2VisualRow row4b =
+            visualRowFor(static_cast<uint8_t>(kState2VisualStartFrame + 1));
+        State2VisualRow row4c =
+            visualRowFor(static_cast<uint8_t>(kState2VisualStartFrame + 2));
+        int row3_4a = static_cast<int>(row4a.row3);
+        int row3_4b = static_cast<int>(row4b.row3);
+        int row3_4c = static_cast<int>(row4c.row3);
+        if (row3_4a != 67 || row3_4b != 68 || row3_4c != 69 ||
+            cursor4a != 74 || cursor4b != 75 || cursor4c != 76 ||
+            row4a.row0 != 16 || row4a.row1 != 16 ||
+            row4b.row0 != 16 || row4b.row1 != 16 ||
+            row4c.row0 != 16 || row4c.row1 != 16) {
+            throw std::runtime_error("death visual sprite sequence mismatch");
+        }
+        int playerEffectX = static_cast<int>(player_.x);
+        int playerEffectY = static_cast<int>(player_.y);
+        auto effectMatches = [&](const State2EffectEntry& effect,
+                                 uint8_t frame,
+                                 const State2VisualRow& row) {
+            return effect.active && effect.x == playerEffectX &&
+                   effect.y == playerEffectY && effect.visualFrame == frame &&
+                   effect.drawDx == row.row0 && effect.drawDy == row.row1 &&
+                   effect.row2 == row.row2 && effect.spriteIndex == row.row3;
+        };
+        if (!effectMatches(effect4a, kState2VisualStartFrame, row4a) ||
+            !effectMatches(effect4b,
+                           static_cast<uint8_t>(kState2VisualStartFrame + 1),
+                           row4b) ||
+            !effectMatches(effect4c,
+                           static_cast<uint8_t>(kState2VisualStartFrame + 2),
+                           row4c)) {
+            throw std::runtime_error("death visual effect entry mismatch");
+        }
 
         std::cout << "autoplayer=ok"
                   << " scenario=" << scenario
@@ -2367,6 +3127,23 @@ public:
                   << " tick1_frame=0x" << static_cast<int>(kState2VisualStartFrame + 1)
                   << " tick5_frame=0x" << static_cast<int>(kState2VisualStartFrame + 2)
                   << std::dec
+                  << " live_sprites=" << row3_4a << ',' << row3_4b
+                  << ',' << row3_4c
+                  << " cursor_legacy_sprites=" << cursor4a << ',' << cursor4b
+                  << ',' << cursor4c
+                  << " draw_offset=16,16"
+                  << " effect_entry_xy=" << playerEffectX << ',' << playerEffectY
+                  << " effect_entry_frames=0x" << std::hex
+                  << static_cast<int>(effect4a.visualFrame) << ",0x"
+                  << static_cast<int>(effect4b.visualFrame) << ",0x"
+                  << static_cast<int>(effect4c.visualFrame) << std::dec
+                  << " effect_entry_sprites="
+                  << static_cast<int>(effect4a.spriteIndex) << ','
+                  << static_cast<int>(effect4b.spriteIndex) << ','
+                  << static_cast<int>(effect4c.spriteIndex)
+                  << " effect_entry_draw_offset=16,16"
+                  << " cursor_legacy_hash_mismatch=1"
+                  << " row3_live_renderer=1"
                   << " frame_inspection=1 visual_claim=0\n";
     }
 
@@ -2652,7 +3429,8 @@ public:
         lastPumpedSoundSelector_ = 0;
         updateWithControls(idle, 1.0f / 60.0f);
         if (score_ <= scoreBefore || soundLatch_.active ||
-            lastPumpedSoundOffset_ != 0x0008 || lastPumpedSoundSelector_ != 5) {
+            lastPumpedSoundOffset_ != kBonusPickupSoundCursor ||
+            lastPumpedSoundSelector_ != kBonusPickupSoundPriority) {
             throw std::runtime_error("monster reward autoplayer did not collect reward");
         }
         FrameInspection collectFrame =
@@ -2761,7 +3539,8 @@ public:
         lastPumpedSoundSelector_ = 0;
         updateWithControls(idle, 1.0f / 60.0f);
         if (score_ <= scoreBefore || soundLatch_.active ||
-            lastPumpedSoundOffset_ != 0x0008 || lastPumpedSoundSelector_ != 5) {
+            lastPumpedSoundOffset_ != kBonusPickupSoundCursor ||
+            lastPumpedSoundSelector_ != kBonusPickupSoundPriority) {
             throw std::runtime_error("monster behavior-3 autoplayer did not collect reward");
         }
         FrameInspection collectFrame =
@@ -3275,11 +4054,12 @@ public:
         int p2SmallBefore = bombInventory2_.counts[0];
         int bombTileX = static_cast<int>(player2_.x + 6.0f) / kTileSize;
         int bombTileY = static_cast<int>(player2_.y + 12.0f) / kTileSize;
-        placeBombAt(player2_, bombInventory2_, 2);
+        pushKeyDown(SDLK_KP_0);
+        processEvents(running);
         if (bombs_.size() != bombsBefore + 1 || bombs_.back().owner != 2 ||
             bombs_.back().x != bombTileX || bombs_.back().y != bombTileY ||
             bombInventory2_.counts[0] != p2SmallBefore - 1) {
-            throw std::runtime_error("two-player autoplayer did not place player 2 bomb");
+            throw std::runtime_error("two-player autoplayer keypad 0 did not place player 2 bomb");
         }
 
         FrameInspection bombFrame = inspectRenderedFrame("autoplayer-two-player-bomb");
@@ -3294,7 +4074,133 @@ public:
                   << " p2_final_xy=" << static_cast<int>(player2_.x) << ','
                   << static_cast<int>(player2_.y)
                   << " p2_bomb_tile=" << bombTileX << ',' << bombTileY
-                  << " bombs=1 frame_inspection=1\n";
+                  << " p2_fire_key=kp0 bombs=1 frame_inspection=1\n";
+    }
+
+    void debugAutoplayerTwoPlayerDeathVisuals(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_2);
+        processEvents(running);
+        if (menu_ || playerCount_ != 2 || playerDead_ || player2Dead_) {
+            throw std::runtime_error("two-player death visual autoplayer failed to start");
+        }
+
+        auto visualRowFor = [&](uint8_t frame) {
+            State2VisualRow row;
+            if (!originalState2VisualRow(frame, row)) {
+                throw std::runtime_error("two-player death visual row missing");
+            }
+            return row;
+        };
+        auto effectMatches = [&](const State2EffectEntry& effect,
+                                 const Player& player,
+                                 uint8_t frame,
+                                 const State2VisualRow& row) {
+            return effect.active && effect.x == static_cast<int>(player.x) &&
+                   effect.y == static_cast<int>(player.y) &&
+                   effect.visualFrame == frame && effect.drawDx == row.row0 &&
+                   effect.drawDy == row.row1 && effect.row2 == row.row2 &&
+                   effect.spriteIndex == row.row3;
+        };
+        auto cursorPreviewFrame = [&](const std::string& label) {
+            state2VisualCursorPreview_ = true;
+            FrameInspection inspection = inspectRenderedFrame(label);
+            state2VisualCursorPreview_ = false;
+            return inspection;
+        };
+
+        FrameInspection startFrame =
+            inspectRenderedFrame("autoplayer-two-player-death-visual-start");
+        int p1StartX = static_cast<int>(player_.x);
+        int p1StartY = static_cast<int>(player_.y);
+        int p2StartX = static_cast<int>(player2_.x);
+        int p2StartY = static_cast<int>(player2_.y);
+
+        energy2_ = 0;
+        lives2_ = 3;
+        damageCooldown2_ = 0;
+        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                     damageCooldown2_, 2);
+        State2VisualRow row4a = visualRowFor(kState2VisualStartFrame);
+        if (playerDead_ || !player2Dead_ || state2Effect_.active ||
+            !state2Visual2_.active ||
+            state2Visual2_.current != kState2VisualStartFrame ||
+            !effectMatches(state2Effect2_, player2_, kState2VisualStartFrame,
+                           row4a)) {
+            throw std::runtime_error("player 2 death visual effect entry mismatch");
+        }
+
+        FrameInspection p2DeathFrame =
+            inspectRenderedFrame("autoplayer-two-player-death-visual-p2-4a");
+        if (p2DeathFrame.hash == startFrame.hash) {
+            throw std::runtime_error("player 2 death visual frame did not change");
+        }
+        FrameInspection p2CursorFrame =
+            cursorPreviewFrame("autoplayer-two-player-death-visual-p2-cursor-4a");
+        if (p2CursorFrame.hash == p2DeathFrame.hash) {
+            throw std::runtime_error("player 2 cursor preview matched live effect renderer");
+        }
+
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        State2VisualRow row4b =
+            visualRowFor(static_cast<uint8_t>(kState2VisualStartFrame + 1));
+        if (!player2Dead_ || deathStateTimer2_ != kDeathStateTicks - 1 ||
+            state2Visual2_.current !=
+                static_cast<uint8_t>(kState2VisualStartFrame + 1) ||
+            !effectMatches(state2Effect2_, player2_,
+                           static_cast<uint8_t>(kState2VisualStartFrame + 1),
+                           row4b)) {
+            throw std::runtime_error("player 2 death visual tick mismatch");
+        }
+        FrameInspection p2TickFrame =
+            inspectRenderedFrame("autoplayer-two-player-death-visual-p2-4b");
+        if (p2TickFrame.hash == p2DeathFrame.hash) {
+            throw std::runtime_error("player 2 death visual tick frame did not change");
+        }
+
+        energy_ = 0;
+        lives_ = 3;
+        damageCooldown_ = 0;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        if (!playerDead_ || !player2Dead_ || !state2Effect_.active ||
+            !state2Effect2_.active ||
+            !effectMatches(state2Effect_, player_, kState2VisualStartFrame,
+                           row4a) ||
+            (state2Effect_.x == state2Effect2_.x &&
+             state2Effect_.y == state2Effect2_.y)) {
+            throw std::runtime_error("two-player death visual slots aliased");
+        }
+        FrameInspection bothDeathFrame =
+            inspectRenderedFrame("autoplayer-two-player-death-visual-both");
+        if (bothDeathFrame.hash == p2TickFrame.hash) {
+            throw std::runtime_error("two-player death visual second slot frame did not change");
+        }
+        if (state2VisualCursorPreview_) {
+            throw std::runtime_error("two-player death visual cursor preview flag leaked");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " p1_effect_xy=" << p1StartX << ',' << p1StartY
+                  << " p2_effect_xy=" << p2StartX << ',' << p2StartY
+                  << " p2_frames=0x" << std::hex
+                  << static_cast<int>(kState2VisualStartFrame) << ",0x"
+                  << static_cast<int>(kState2VisualStartFrame + 1) << std::dec
+                  << " p2_sprites=" << static_cast<int>(row4a.row3) << ','
+                  << static_cast<int>(row4b.row3)
+                  << " p1_frame=0x" << std::hex
+                  << static_cast<int>(state2Effect_.visualFrame) << std::dec
+                  << " p1_sprite=" << static_cast<int>(state2Effect_.spriteIndex)
+                  << " draw_offset=16,16"
+                  << " effects_separate=1"
+                  << " cursor_legacy_hash_mismatch=1"
+                  << " frame_inspection=1 visual_claim=0\n";
     }
 
     void debugAutoplayerTwoPlayerProgression(const std::string& scenario) {
@@ -3333,7 +4239,7 @@ public:
         damageCooldown2_ = 0;
         damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
                      damageCooldown2_, 2);
-        if (!player2Dead_ || lives2_ != 2 ||
+        if (!player2Dead_ || lives2_ != 3 || !pendingLifeLoss2_ ||
             deathStateTimer2_ != kDeathStateTicks || !state2Visual2_.active) {
             throw std::runtime_error("two-player progression did not enter player-2 state-2");
         }
@@ -3358,11 +4264,11 @@ public:
         while (deathStateTimer2_ > 0) {
             updateWithControls(idle, 1.0f / 60.0f);
         }
-        pushKeyDown(SDLK_n);
+        pushKeyDown(SDLK_KP_0);
         processEvents(running);
         if (player2Dead_ || lives2_ != 2 || energy2_ != 100 ||
             damageCooldown2_ <= 0 || state2Visual2_.active) {
-            throw std::runtime_error("two-player progression did not reenter player 2");
+            throw std::runtime_error("two-player progression keypad 0 did not reenter player 2");
         }
         FrameInspection reentryFrame = inspectRenderedFrame("autoplayer-two-progress-reentry");
         if (reentryFrame.hash == p2DeathFrame.hash) {
@@ -3373,12 +4279,12 @@ public:
         int p2SmallBefore = bombInventory2_.counts[0];
         int p2BombX = static_cast<int>(player2_.x + 6.0f) / kTileSize;
         int p2BombY = static_cast<int>(player2_.y + 12.0f) / kTileSize;
-        pushKeyDown(SDLK_n);
+        pushKeyDown(SDLK_KP_0);
         processEvents(running);
         if (bombs_.size() != bombsBefore + 1 || bombs_.back().owner != 2 ||
             bombs_.back().x != p2BombX || bombs_.back().y != p2BombY ||
             bombInventory2_.counts[0] != p2SmallBefore - 1) {
-            throw std::runtime_error("two-player progression did not place p2 bomb after reentry");
+            throw std::runtime_error("two-player progression keypad 0 did not place p2 bomb after reentry");
         }
 
         auto objective = findObjectiveTileForSmoke();
@@ -3400,6 +4306,7 @@ public:
                   << " scenario=" << scenario
                   << " p1_moved=1 p2_death_timer=" << kDeathStateTicks
                   << " p2_reentered=1 p2_bomb_tile=" << p2BombX << ',' << p2BombY
+                  << " p2_fire_key=kp0"
                   << " p2_score=" << score2_
                   << " collected=" << collected_
                   << " frame_inspection=1\n";
@@ -3461,6 +4368,22 @@ public:
         return false;
     }
 
+    size_t countColorInRegion(int x, int y, int w, int h, uint32_t color) const {
+        int x0 = std::clamp(x, 0, kScreenW);
+        int y0 = std::clamp(y, 0, kScreenH);
+        int x1 = std::clamp(x + w, 0, kScreenW);
+        int y1 = std::clamp(y + h, 0, kScreenH);
+        size_t count = 0;
+        for (int yy = y0; yy < y1; ++yy) {
+            for (int xx = x0; xx < x1; ++xx) {
+                if (fb_[static_cast<size_t>(yy) * kScreenW + xx] == color) {
+                    ++count;
+                }
+            }
+        }
+        return count;
+    }
+
     void validate() {
         load();
         std::cout << "background=" << background_.width << "x" << background_.height
@@ -3495,7 +4418,7 @@ public:
     void debugRecordUpdate(const std::string& path) {
         load();
         std::vector<Record> testRecords = records_;
-        bool changed = insertRecord(testRecords, {999999u, 9u, "TEST"});
+        bool changed = insertRecord(testRecords, makeRecord(999999u, 9u, "TEST"));
         if (!changed) {
             throw std::runtime_error("test record was not inserted");
         }
@@ -3505,15 +4428,708 @@ public:
             reloaded[0].level != 9u || reloaded[0].name != "TEST") {
             throw std::runtime_error("saved test record did not round-trip");
         }
+        int binary = isJsonRecordPath(path) ? 0 : 1;
+        size_t rawSize = 0;
+        std::string encodedName = encodeRecordName(reloaded[0].name);
+        if (binary) {
+            auto bytes = readFile(path);
+            rawSize = bytes.size();
+            if (bytes.size() != 92 || bytes[0] != 7 || le32(bytes, 1) != 999999u ||
+                bytes[5] != 9u) {
+                throw std::runtime_error("saved raw test record layout changed");
+            }
+            encodedName = std::string(bytes.begin() + 6, bytes.begin() + 14);
+            if (encodedName != "TEST::::") {
+                throw std::runtime_error("saved raw test record name encoding changed");
+            }
+        }
         std::cout << "record_update=ok top=" << reloaded[0].score
                   << " level=" << static_cast<int>(reloaded[0].level)
-                  << " name=" << reloaded[0].name << '\n';
+                  << " name=" << reloaded[0].name
+                  << " binary=" << binary
+                  << " raw_size=" << rawSize
+                  << " encoded=" << encodedName << '\n';
+    }
+
+    void debugRecordsRawRoundtrip() {
+        load();
+        auto rawBytes = readFile("RECS.DAT");
+        constexpr size_t kRecordSize = 13;
+        if (rawBytes.empty()) {
+            throw std::runtime_error("RECS.DAT raw file is empty");
+        }
+        uint8_t rawCount = rawBytes[0];
+        if (rawCount != 7 ||
+            rawBytes.size() != 1 + static_cast<size_t>(rawCount) * kRecordSize) {
+            throw std::runtime_error("RECS.DAT raw layout mismatch");
+        }
+
+        auto jsonRecords = extractObjectArray(readTextFile("RECS.DAT.json"), "records");
+        if (jsonRecords.size() != rawCount || records_.size() != rawCount) {
+            throw std::runtime_error("RECS.DAT JSON record count mismatch");
+        }
+        auto decodeRawName = [](std::string encoded) {
+            std::replace(encoded.begin(), encoded.end(), ':', ' ');
+            while (!encoded.empty() && encoded.back() == ' ') {
+                encoded.pop_back();
+            }
+            return encoded.empty() ? std::string("nessuno") : encoded;
+        };
+
+        uint64_t scoreSum = 0;
+        int level8Count = 0;
+        int decodedAgaCount = 0;
+        int encodedColonPaddedCount = 0;
+        int byteSum = 0;
+        int weightedSum = 0;
+        uint8_t xorValue = 0;
+        uint32_t previousScore = UINT32_MAX;
+        for (size_t i = 0; i < rawBytes.size(); ++i) {
+            uint8_t byte = rawBytes[i];
+            byteSum += byte;
+            weightedSum += static_cast<int>((i + 1) * byte);
+            xorValue = static_cast<uint8_t>(xorValue ^ byte);
+        }
+
+        for (size_t i = 0; i < rawCount; ++i) {
+            size_t off = 1 + i * kRecordSize;
+            uint32_t rawScore = le32(rawBytes, off);
+            uint8_t rawLevel = rawBytes[off + 4];
+            std::string rawEncoded(rawBytes.begin() + static_cast<std::ptrdiff_t>(off + 5),
+                                   rawBytes.begin() + static_cast<std::ptrdiff_t>(off + 13));
+            std::string rawDecoded = decodeRawName(rawEncoded);
+
+            const std::string& recJson = jsonRecords[i];
+            uint32_t jsonScore = static_cast<uint32_t>(extractInt(recJson, "score"));
+            uint8_t jsonLevel = static_cast<uint8_t>(extractInt(recJson, "level"));
+            std::string jsonEncoded = extractString(recJson, "encoded_name");
+            std::string jsonDecoded = extractString(recJson, "decoded_name");
+            if (rawScore != jsonScore || rawLevel != jsonLevel ||
+                rawEncoded != jsonEncoded || rawDecoded != jsonDecoded ||
+                records_[i].score != rawScore || records_[i].level != rawLevel ||
+                records_[i].name != rawDecoded) {
+                throw std::runtime_error("RECS.DAT raw/json record mismatch");
+            }
+            if (i != 0 && rawScore > previousScore) {
+                throw std::runtime_error("RECS.DAT scores are no longer descending");
+            }
+            previousScore = rawScore;
+            scoreSum += rawScore;
+            if (rawLevel == 8) ++level8Count;
+            if (rawDecoded == "aga") ++decodedAgaCount;
+            if (rawEncoded == "aga:::::") ++encodedColonPaddedCount;
+        }
+        if (scoreSum != 3508890 || byteSum != 6047 ||
+            weightedSum != 278918 || xorValue != 0xdd ||
+            level8Count != 7 || decodedAgaCount != 7 ||
+            encodedColonPaddedCount != 7) {
+            throw std::runtime_error("RECS.DAT raw aggregate changed");
+        }
+
+        std::cout << "records_raw_roundtrip=ok raw_size=" << rawBytes.size()
+                  << " count=" << static_cast<int>(rawCount)
+                  << " record_size=" << kRecordSize
+                  << " score_sum=" << scoreSum
+                  << " top=" << records_.front().score
+                  << " cutoff=" << records_.back().score
+                  << " level8_count=" << level8Count
+                  << " decoded_aga=" << decodedAgaCount
+                  << " encoded_colon_padded=" << encodedColonPaddedCount
+                  << " byte_sum=" << byteSum
+                  << " weighted_sum=" << weightedSum
+                  << " xor=0x" << std::hex << std::setw(2) << std::setfill('0')
+                  << static_cast<int>(xorValue) << std::dec << std::setfill(' ')
+                  << '\n';
+    }
+
+    void debugRecordEntryStaticModel() {
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for record entry scan");
+        }
+        constexpr uint16_t kTemplate = 0x183c;
+        constexpr uint16_t kRoutineStart = 0x1845;
+        constexpr uint16_t kPromptSound = 0x1857;
+        constexpr uint16_t kBackspaceCheck = 0x1a07;
+        constexpr uint16_t kEnterCheck = 0x1a3a;
+        constexpr uint16_t kCommitSound = 0x1a44;
+        constexpr uint16_t kRecordShift = 0x1a76;
+        constexpr uint16_t kStoredRecordPointer = 0x1a9e;
+        constexpr uint16_t kNameCopy = 0x1aab;
+        constexpr uint16_t kScoreWrite = 0x1ac0;
+        constexpr uint16_t kRoutineRet = 0x1ad6;
+
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " bytes changed");
+                }
+            }
+        };
+        auto countBytes = [&](const std::string& hex) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            int count = 0;
+            auto begin = exeBytes.begin() + static_cast<long>(imageBase + kRoutineStart);
+            auto end = exeBytes.begin() + static_cast<long>(imageBase + kRoutineRet + 1);
+            for (auto it = begin; it != end;) {
+                it = std::search(it, end, expected.begin(), expected.end());
+                if (it == end) break;
+                ++count;
+                ++it;
+            }
+            return count;
+        };
+
+        requireBytes(kTemplate, "08 3a 3a 3a 3a 3a 3a 3a 3a",
+                     "record empty-name template");
+        requireBytes(kRoutineStart, "55 89 e5 b8 10 02 9a df 04 20 09",
+                     "record entry prologue");
+        requireBytes(kPromptSound,
+                     "c7 06 74 20 78 00 c6 06 9f 79 0b e8 f5 fd",
+                     "record prompt sound request");
+        requireBytes(kBackspaceCheck, "80 3e 58 20 08",
+                     "record backspace key check");
+        requireBytes(kEnterCheck, "80 3e 58 20 0d 74 03 e9 3c ff",
+                     "record enter key check");
+        requireBytes(kCommitSound,
+                     "c7 06 74 20 08 00 c6 06 9f 79 0b e8 08 fc",
+                     "record commit sound request");
+        requireBytes(kRecordShift,
+                     "6b f8 0d 81 c7 f7 1a 1e 57 6b 3e 82 20 0d "
+                     "81 c7 f7 1a 1e 57 6a 0d 9a 0e 09 20 09",
+                     "record table shift copy");
+        requireBytes(kStoredRecordPointer, "6b f8 0d 81 c7 f7 1a",
+                     "record stored pointer stride");
+        requireBytes(kNameCopy,
+                     "8d 7e f0 16 57 c4 7e ec 81 c7 04 00 06 57 "
+                     "6a 08 9a f4 09 20 09",
+                     "record name copy");
+        requireBytes(kScoreWrite,
+                     "8b 46 08 8b 56 0a c4 7e ec 26 89 05 26 89 55 02",
+                     "record score dword write");
+        requireBytes(kRoutineRet - 3, "c9 c2 08 00", "record entry return");
+
+        int strideImulCount = countBytes("6b f8 0d");
+        int copy13Count = countBytes("6a 0d 9a 0e 09 20 09");
+        int copy8Count = countBytes("6a 08 9a f4 09 20 09");
+        if (strideImulCount != 3 || copy13Count != 1 || copy8Count != 2) {
+            throw std::runtime_error("record entry stride/copy model changed");
+        }
+
+        std::cout << "record_entry_static_model=ok"
+                  << " routine=" << hex4(kRoutineStart) << ".." << hex4(kRoutineRet)
+                  << " template=" << hex4(kTemplate)
+                  << " template_len=8"
+                  << " template_byte=0x3a"
+                  << " record_stride=13"
+                  << " stride_imuls=" << strideImulCount
+                  << " shift_copy_bytes=13"
+                  << " shift_copies=" << copy13Count
+                  << " name_offset=4"
+                  << " name_copy_bytes=8"
+                  << " name_copies=" << copy8Count
+                  << " score_offset=0"
+                  << " score_bytes=4"
+                  << " backspace_key=0x08"
+                  << " enter_key=0x0d"
+                  << " prompt_sound=0x0078/p11"
+                  << " commit_sound=0x0008/p11\n";
+    }
+
+    void debugCoreResourceRawRoundtrip() {
+        load();
+        auto metrics = [](const std::vector<uint8_t>& bytes) {
+            struct Metrics {
+                uint64_t sum = 0;
+                uint64_t weighted = 0;
+                int nonzero = 0;
+                uint8_t xorValue = 0;
+            } result;
+            for (size_t i = 0; i < bytes.size(); ++i) {
+                uint8_t byte = bytes[i];
+                result.sum += byte;
+                result.weighted += static_cast<uint64_t>(i + 1) * byte;
+                if (byte != 0) ++result.nonzero;
+                result.xorValue = static_cast<uint8_t>(result.xorValue ^ byte);
+            }
+            return result;
+        };
+        auto samePalette = [](const Palette& a, const Palette& b) {
+            for (size_t i = 0; i < a.size(); ++i) {
+                if (a[i].r != b[i].r || a[i].g != b[i].g || a[i].b != b[i].b) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        auto decodeRawBackground = [](const std::vector<uint8_t>& data) {
+            std::vector<uint8_t> pixels;
+            if (data.size() < 768) {
+                throw std::runtime_error("SFONLEF.ZBG raw file is too small");
+            }
+            size_t off = 768;
+            while (off < data.size()) {
+                uint8_t cmd = data[off++];
+                if (cmd >= 0xc0) {
+                    if (off >= data.size()) {
+                        throw std::runtime_error("SFONLEF.ZBG raw RLE run is truncated");
+                    }
+                    pixels.insert(pixels.end(), cmd & 0x3f, data[off++]);
+                } else {
+                    pixels.push_back(cmd);
+                }
+            }
+            return pixels;
+        };
+
+        auto paletteRaw = readFile("BOMPAL.PAL");
+        auto backgroundRaw = readFile("SFONLEF.ZBG");
+        auto tilesRaw = readFile("CARO.CAR");
+        if (paletteRaw.size() != 768 || backgroundRaw.size() < 768 ||
+            tilesRaw.size() < 2) {
+            throw std::runtime_error("core raw resource size preflight failed");
+        }
+
+        Palette rawPalette = loadPalette(paletteRaw, 0);
+        Palette rawBackgroundPalette = loadPalette(backgroundRaw, 0);
+        if (!samePalette(rawPalette, palette_) ||
+            !samePalette(rawBackgroundPalette, backgroundPalette_)) {
+            throw std::runtime_error("raw palette data does not match JSON resources");
+        }
+
+        std::vector<uint8_t> backgroundPixels = decodeRawBackground(backgroundRaw);
+        if (background_.width != kBackgroundW || background_.height != kBackgroundH ||
+            backgroundPixels.size() != static_cast<size_t>(kBackgroundW) * kBackgroundH ||
+            background_.pixels != backgroundPixels) {
+            throw std::runtime_error("raw background data does not match JSON resource");
+        }
+
+        int rawTileCount = static_cast<int>((tilesRaw[0] << 8) | tilesRaw[1]);
+        size_t tilePayloadSize = tilesRaw.size() - 2;
+        if (rawTileCount != 132 || tiles_.count != rawTileCount ||
+            tilePayloadSize != static_cast<size_t>(rawTileCount) * kTileSize * kTileSize ||
+            tiles_.pixels.size() != tilePayloadSize ||
+            !std::equal(tiles_.pixels.begin(), tiles_.pixels.end(), tilesRaw.begin() + 2)) {
+            throw std::runtime_error("raw tile data does not match JSON resource");
+        }
+
+        auto paletteMetrics = metrics(paletteRaw);
+        auto backgroundMetrics = metrics(backgroundRaw);
+        auto backgroundPixelMetrics = metrics(backgroundPixels);
+        auto tileMetrics = metrics(tilesRaw);
+        if (paletteMetrics.sum != 20767 || paletteMetrics.weighted != 6683027 ||
+            paletteMetrics.xorValue != 0x31 ||
+            backgroundMetrics.sum != 2442898 ||
+            backgroundMetrics.weighted != 37574726726ull ||
+            backgroundMetrics.xorValue != 0x30 ||
+            backgroundPixelMetrics.sum != 12770002 ||
+            backgroundPixelMetrics.xorValue != 0xd2 ||
+            tileMetrics.sum != 601303 || tileMetrics.weighted != 2783120138ull ||
+            tileMetrics.xorValue != 0x01) {
+            throw std::runtime_error("core raw resource aggregate changed");
+        }
+
+        std::cout << "core_resource_raw_roundtrip=ok"
+                  << " palette_size=" << paletteRaw.size()
+                  << " palette_sum=" << paletteMetrics.sum
+                  << " palette_weighted=" << paletteMetrics.weighted
+                  << " palette_xor=0x" << std::hex << std::setw(2)
+                  << std::setfill('0') << static_cast<int>(paletteMetrics.xorValue)
+                  << std::dec << std::setfill(' ')
+                  << " background_raw_size=" << backgroundRaw.size()
+                  << " background_sum=" << backgroundMetrics.sum
+                  << " background_weighted=" << backgroundMetrics.weighted
+                  << " background_xor=0x" << std::hex << std::setw(2)
+                  << std::setfill('0') << static_cast<int>(backgroundMetrics.xorValue)
+                  << std::dec << std::setfill(' ')
+                  << " background_pixels=" << backgroundPixels.size()
+                  << " background_pixel_sum=" << backgroundPixelMetrics.sum
+                  << " background_pixel_nonzero=" << backgroundPixelMetrics.nonzero
+                  << " background_pixel_xor=0x" << std::hex << std::setw(2)
+                  << std::setfill('0') << static_cast<int>(backgroundPixelMetrics.xorValue)
+                  << std::dec << std::setfill(' ')
+                  << " tile_raw_size=" << tilesRaw.size()
+                  << " tile_count=" << rawTileCount
+                  << " tile_payload=" << tilePayloadSize
+                  << " tile_sum=" << tileMetrics.sum
+                  << " tile_weighted=" << tileMetrics.weighted
+                  << " tile_xor=0x" << std::hex << std::setw(2)
+                  << std::setfill('0') << static_cast<int>(tileMetrics.xorValue)
+                  << std::dec << std::setfill(' ') << '\n';
+    }
+
+    void debugShippedFileManifest() {
+        struct ExpectedFile {
+            const char* name;
+            size_t size;
+            uint64_t sum;
+            uint64_t weighted;
+            int nonzero;
+            uint8_t xorValue;
+        };
+        struct Metrics {
+            uint64_t sum = 0;
+            uint64_t weighted = 0;
+            int nonzero = 0;
+            uint8_t xorValue = 0;
+        };
+        struct ExpectedExeFilename {
+            const char* name;
+            std::vector<size_t> fileOffsets;
+        };
+        static const std::array<ExpectedFile, 14> kExpectedFiles{{
+            {"BOMOMIMK.SPR", 20168, 721398, 8117120635ull, 10865, 0xb6},
+            {"BOMPAL.PAL", 768, 20767, 6683027ull, 653, 0x31},
+            {"CARO.CAR", 8450, 601303, 2783120138ull, 7041, 0x01},
+            {"ENGLISH.DOC", 3522, 292353, 520099545ull, 3522, 0x2f},
+            {"FONTS.SPR", 5425, 42172, 72344441ull, 2695, 0xba},
+            {"GRAN.MST", 399, 12560, 2894452ull, 249, 0x0c},
+            {"ITALIANO.DOC", 4392, 377573, 841106589ull, 4392, 0xe5},
+            {"LEZAC.EXE", 52384, 5435302, 135039782411ull, 46261, 0x08},
+            {"LIVELS.SCH", 41047, 1776660, 36064103152ull, 21351, 0x90},
+            {"PROEFS.SON", 782, 38799, 14543304ull, 702, 0xcf},
+            {"PROVA.SPR", 21250, 1231583, 14912492233ull, 11887, 0x3d},
+            {"RECS.DAT", 92, 6047, 278918ull, 85, 0xdd},
+            {"SETUP.LOG", 566, 38565, 10906350ull, 566, 0x13},
+            {"SFONLEF.ZBG", 34292, 2442898, 37574726726ull, 28451, 0x30},
+        }};
+        static const std::array<ExpectedExeFilename, 10> kExpectedExeFilenames{{
+            {"proefs.son", {0x0d96}},
+            {"recs.dat", {0x1def, 0x2cf6}},
+            {"fonts.spr", {0x2248, 0x24b6, 0x2abc, 0x2e4f, 0x3223}},
+            {"sfonlef.zbg", {0x2ac6}},
+            {"caro.car", {0x2e46}},
+            {"bompal.pal", {0x3218}},
+            {"bomomimk.spr", {0x322d}},
+            {"prova.spr", {0x323a}},
+            {"gran.mst", {0x3244}},
+            {"livels.sch", {0x3663}},
+        }};
+
+        auto metrics = [](const std::vector<uint8_t>& bytes) {
+            Metrics result;
+            for (size_t i = 0; i < bytes.size(); ++i) {
+                uint8_t byte = bytes[i];
+                result.sum += byte;
+                result.weighted += static_cast<uint64_t>(i + 1) * byte;
+                if (byte != 0) ++result.nonzero;
+                result.xorValue = static_cast<uint8_t>(result.xorValue ^ byte);
+            }
+            return result;
+        };
+        auto findAscii = [](const std::vector<uint8_t>& haystack,
+                            const std::string& needle) {
+            std::vector<size_t> hits;
+            if (needle.empty() || haystack.size() < needle.size()) return hits;
+            for (size_t offset = 0; offset <= haystack.size() - needle.size();
+                 ++offset) {
+                bool match = true;
+                for (size_t i = 0; i < needle.size(); ++i) {
+                    if (haystack[offset + i] !=
+                        static_cast<uint8_t>(needle[i])) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) hits.push_back(offset);
+            }
+            return hits;
+        };
+
+        size_t totalSize = 0;
+        uint64_t totalSum = 0;
+        uint64_t totalWeighted = 0;
+        uint8_t totalXor = 0;
+        std::vector<uint8_t> exeBytes;
+        for (const ExpectedFile& expected : kExpectedFiles) {
+            std::vector<uint8_t> bytes = readFile(expected.name);
+            Metrics actual = metrics(bytes);
+            if (bytes.size() != expected.size || actual.sum != expected.sum ||
+                actual.weighted != expected.weighted ||
+                actual.nonzero != expected.nonzero ||
+                actual.xorValue != expected.xorValue) {
+                throw std::runtime_error(std::string("shipped file fingerprint changed: ") +
+                                         expected.name);
+            }
+            totalSize += bytes.size();
+            totalSum += actual.sum;
+            totalWeighted += actual.weighted;
+            totalXor = static_cast<uint8_t>(totalXor ^ actual.xorValue);
+            if (std::string(expected.name) == "LEZAC.EXE") exeBytes = std::move(bytes);
+        }
+
+        if (totalSize != 193537 || totalSum != 13037980 ||
+            totalWeighted != 235960201921ull || totalXor != 0x6e) {
+            throw std::runtime_error("shipped file aggregate fingerprint changed");
+        }
+        if (exeBytes.size() != 52384 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE MZ header changed");
+        }
+        uint16_t lastPageBytes = le16(exeBytes, 0x02);
+        uint16_t pages = le16(exeBytes, 0x04);
+        uint16_t relocations = le16(exeBytes, 0x06);
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        size_t imageSize = (static_cast<size_t>(pages) - 1) * 512 +
+                           lastPageBytes - imageBase;
+        if (lastPageBytes != 160 || pages != 103 || relocations != 468 ||
+            headerParagraphs != 119 || imageBase != 0x0770 ||
+            imageSize != 50480) {
+            throw std::runtime_error("LEZAC.EXE MZ layout changed");
+        }
+        size_t exeFilenameRefs = 0;
+        std::map<std::string, std::vector<size_t>> exeFilenameAnchors;
+        for (const ExpectedExeFilename& expected : kExpectedExeFilenames) {
+            std::vector<size_t> hits = findAscii(exeBytes, expected.name);
+            if (hits != expected.fileOffsets) {
+                throw std::runtime_error(std::string("LEZAC.EXE filename anchors changed: ") +
+                                         expected.name);
+            }
+            exeFilenameRefs += hits.size();
+            exeFilenameAnchors.emplace(expected.name, hits);
+        }
+        auto ghidraAnchor = [&](const char* name, size_t index = 0) {
+            const auto found = exeFilenameAnchors.find(name);
+            if (found == exeFilenameAnchors.end() ||
+                index >= found->second.size() || found->second[index] < imageBase) {
+                throw std::runtime_error(std::string("missing LEZAC.EXE filename anchor: ") +
+                                         name);
+            }
+            return found->second[index] - imageBase;
+        };
+
+        std::cout << "shipped_file_manifest=ok"
+                  << " files=" << kExpectedFiles.size()
+                  << " total_size=" << totalSize
+                  << " total_sum=" << totalSum
+                  << " total_weighted=" << totalWeighted
+                  << " total_xor=0x" << std::hex << std::setw(2)
+                  << std::setfill('0') << static_cast<int>(totalXor)
+                  << std::dec << std::setfill(' ')
+                  << " exe_size=" << exeBytes.size()
+                  << " exe_image_base=0x" << std::hex << std::setw(4)
+                  << std::setfill('0') << imageBase
+                  << std::dec << std::setfill(' ')
+                  << " exe_image_size=" << imageSize
+                  << " exe_filename_names=" << kExpectedExeFilenames.size()
+                  << " exe_filename_refs=" << exeFilenameRefs
+                  << " exe_sound_anchor=1000:" << std::hex << std::setw(4)
+                  << std::setfill('0') << ghidraAnchor("proefs.son")
+                  << " exe_gran_anchor=1000:" << std::setw(4)
+                  << ghidraAnchor("gran.mst")
+                  << " exe_level_anchor=1000:" << std::setw(4)
+                  << ghidraAnchor("livels.sch")
+                  << std::dec << std::setfill(' ')
+                  << " exe_record_refs="
+                  << exeFilenameAnchors.at("recs.dat").size()
+                  << " exe_font_refs="
+                  << exeFilenameAnchors.at("fonts.spr").size()
+                  << " docs=2 setup_log=566" << '\n';
+    }
+
+    void debugOriginalAssetLoad() {
+        auto fail = [](const std::string& what) {
+            throw std::runtime_error("original asset load mismatch: " + what);
+        };
+        auto samePalette = [](const Palette& a, const Palette& b) {
+            for (size_t i = 0; i < a.size(); ++i) {
+                if (a[i].r != b[i].r || a[i].g != b[i].g || a[i].b != b[i].b) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        auto sameSprites = [](const SpriteBank& a, const SpriteBank& b) {
+            if (a.sprites.size() != b.sprites.size()) return false;
+            for (size_t i = 0; i < a.sprites.size(); ++i) {
+                if (a.sprites[i].width != b.sprites[i].width ||
+                    a.sprites[i].height != b.sprites[i].height ||
+                    a.sprites[i].pixels != b.sprites[i].pixels) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        auto sameRecords = [](const std::vector<Record>& a,
+                              const std::vector<Record>& b) {
+            if (a.size() != b.size()) return false;
+            for (size_t i = 0; i < a.size(); ++i) {
+                if (a[i].score != b[i].score || a[i].level != b[i].level ||
+                    a[i].name != b[i].name ||
+                    encodedRecordName(a[i]) != encodedRecordName(b[i])) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        auto sameSound = [](const SoundBank& a, const SoundBank& b) {
+            if (a.recordSize != b.recordSize || a.payload != b.payload ||
+                a.stepCount != b.stepCount || a.records.size() != b.records.size()) {
+                return false;
+            }
+            for (size_t i = 0; i < a.records.size(); ++i) {
+                if (a.records[i].bytes != b.records[i].bytes) return false;
+            }
+            return true;
+        };
+        auto sameGran = [](const GranBank& a, const GranBank& b) {
+            if (a.recordSize != b.recordSize || a.records.size() != b.records.size()) {
+                return false;
+            }
+            for (size_t i = 0; i < a.records.size(); ++i) {
+                if (a.records[i].bytes != b.records[i].bytes) return false;
+            }
+            return true;
+        };
+        auto sameSpawner = [](const MonsterSpawner& a, const MonsterSpawner& b) {
+            return a.x == b.x && a.y == b.y && a.tileIndex == b.tileIndex &&
+                   a.savedWordOrLink == b.savedWordOrLink && a.enabled == b.enabled &&
+                   a.spawnBudget == b.spawnBudget && a.liveAllowance == b.liveAllowance &&
+                   a.monsterKind == b.monsterKind && a.param0Base == b.param0Base &&
+                   a.param0Range == b.param0Range && a.param1Base == b.param1Base &&
+                   a.param1Range == b.param1Range && a.param2Base == b.param2Base &&
+                   a.param2Range == b.param2Range && a.randomBase == b.randomBase &&
+                   a.randomRange == b.randomRange && a.spawnArg == b.spawnArg &&
+                   a.cooldown == b.cooldown && a.cooldownReset == b.cooldownReset &&
+                   a.animationDelay == b.animationDelay;
+        };
+        auto samePortal = [](const LevelPortal& a, const LevelPortal& b) {
+            return a.key == b.key && a.x == b.x && a.y == b.y && a.marker == b.marker;
+        };
+        auto sameTrigger = [](const TileTriggerRule& a, const TileTriggerRule& b) {
+            return a.wordRangeFirst == b.wordRangeFirst &&
+                   a.wordRangeLast == b.wordRangeLast &&
+                   a.triggerKey == b.triggerKey && a.from == b.from && a.to == b.to;
+        };
+        auto sameLevels = [&](const std::vector<Level>& a,
+                              const std::vector<Level>& b) {
+            if (a.size() != b.size()) return false;
+            for (size_t i = 0; i < a.size(); ++i) {
+                const Level& left = a[i];
+                const Level& right = b[i];
+                if (left.fileOffset != right.fileOffset ||
+                    left.width != right.width || left.height != right.height ||
+                    left.objectiveTile != right.objectiveTile ||
+                    left.requiredBonus != right.requiredBonus ||
+                    left.requiredDestruction != right.requiredDestruction ||
+                    left.tileEncodedSize != right.tileEncodedSize ||
+                    left.wordEncodedSize != right.wordEncodedSize ||
+                    left.fieldA != right.fieldA || left.fieldB != right.fieldB ||
+                    left.tiles != right.tiles || left.wordLayer != right.wordLayer ||
+                    left.startingObjectiveTiles != right.startingObjectiveTiles ||
+                    left.startingDestructibleTiles != right.startingDestructibleTiles ||
+                    left.monsterSpawners.size() != right.monsterSpawners.size() ||
+                    left.portals.size() != right.portals.size() ||
+                    left.tileTriggers.size() != right.tileTriggers.size()) {
+                    return false;
+                }
+                for (size_t j = 0; j < left.monsterSpawners.size(); ++j) {
+                    if (!sameSpawner(left.monsterSpawners[j],
+                                     right.monsterSpawners[j])) {
+                        return false;
+                    }
+                }
+                for (size_t j = 0; j < left.portals.size(); ++j) {
+                    if (!samePortal(left.portals[j], right.portals[j])) return false;
+                }
+                for (size_t j = 0; j < left.tileTriggers.size(); ++j) {
+                    if (!sameTrigger(left.tileTriggers[j], right.tileTriggers[j])) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        };
+
+        loadJsonAssets();
+        Palette jsonPalette = palette_;
+        Palette jsonBackgroundPalette = backgroundPalette_;
+        IndexedImage jsonBackground = background_;
+        TileBank jsonTiles = tiles_;
+        SpriteBank jsonSprites = sprites_;
+        SpriteBank jsonAltSprites = altSprites_;
+        SpriteBank jsonFontSprites = fontSprites_;
+        std::vector<Record> jsonRecords = records_;
+        SoundBank jsonSounds = sounds_;
+        GranBank jsonGran = gran_;
+        std::vector<Level> jsonLevels = levels_;
+
+        loadOriginalAssets();
+        if (!samePalette(palette_, jsonPalette)) fail("BOMPAL.PAL palette");
+        if (!samePalette(backgroundPalette_, jsonBackgroundPalette)) {
+            fail("SFONLEF.ZBG palette");
+        }
+        if (background_.width != jsonBackground.width ||
+            background_.height != jsonBackground.height ||
+            background_.pixels != jsonBackground.pixels) {
+            fail("SFONLEF.ZBG background pixels");
+        }
+        if (tiles_.count != jsonTiles.count || tiles_.pixels != jsonTiles.pixels) {
+            fail("CARO.CAR tiles");
+        }
+        if (!sameSprites(sprites_, jsonSprites)) fail("BOMOMIMK.SPR sprites");
+        if (!sameSprites(altSprites_, jsonAltSprites)) fail("PROVA.SPR sprites");
+        if (!sameSprites(fontSprites_, jsonFontSprites)) fail("FONTS.SPR sprites");
+        if (!sameRecords(records_, jsonRecords)) fail("RECS.DAT records");
+        if (!sameSound(sounds_, jsonSounds)) fail("PROEFS.SON sound bank");
+        if (!sameGran(gran_, jsonGran)) fail("GRAN.MST records");
+        if (!sameLevels(levels_, jsonLevels)) fail("LIVELS.SCH levels");
+
+        size_t totalSprites = sprites_.sprites.size() + altSprites_.sprites.size() +
+                              fontSprites_.sprites.size();
+        size_t cells = 0;
+        size_t spawners = 0;
+        size_t portals = 0;
+        size_t triggers = 0;
+        for (const Level& level : levels_) {
+            cells += level.tiles.size();
+            spawners += level.monsterSpawners.size();
+            portals += level.portals.size();
+            triggers += level.tileTriggers.size();
+        }
+        std::cout << "original_asset_load=ok"
+                  << " palettes=2"
+                  << " background=" << background_.width << 'x' << background_.height
+                  << " pixels=" << background_.pixels.size()
+                  << " tiles=" << tiles_.count
+                  << " sprites=" << totalSprites
+                  << " records=" << records_.size()
+                  << " sound_steps=" << sounds_.stepCount
+                  << " sound_chunks=" << sounds_.records.size()
+                  << " gran_records=" << gran_.records.size()
+                  << " levels=" << levels_.size()
+                  << " cells=" << cells
+                  << " spawners=" << spawners
+                  << " portals=" << portals
+                  << " triggers=" << triggers << '\n';
     }
 
     void debugRecordNameEntry(const std::string& path) {
         load();
         recordPath_ = path;
         saveRecords(recordPath_, records_);
+        auto encodedNameAt = [](const std::string& recordPath, size_t index) {
+            auto bytes = readFile(recordPath);
+            constexpr size_t kRecordSize = 13;
+            if (bytes.empty() || index >= bytes[0] ||
+                bytes.size() < 1 + (index + 1) * kRecordSize) {
+                throw std::runtime_error("record table too small for encoded-name check");
+            }
+            size_t off = 1 + index * kRecordSize + 5;
+            return std::string(bytes.begin() + static_cast<std::ptrdiff_t>(off),
+                               bytes.begin() + static_cast<std::ptrdiff_t>(off + 8));
+        };
         score_ = 999999u;
         levelIndex_ = 0;
         beginGameOver();
@@ -3548,8 +5164,219 @@ public:
             reloaded[0].name != "test") {
             throw std::runtime_error("name-entry record did not save");
         }
+        if (encodedNameAt(path, 0) != "test::::") {
+            throw std::runtime_error("short name did not use colon padding");
+        }
+
+        score_ = 1000000u;
+        levelIndex_ = 0;
+        beginGameOver();
+        if (menuPage_ != MenuPage::NameEntry) {
+            throw std::runtime_error("third high score did not open name entry");
+        }
+        onKey(SDLK_a, running);
+        onKey(SDLK_b, running);
+        onKey(SDLK_SPACE, running);
+        onKey(SDLK_c, running);
+        onKey(SDLK_d, running);
+        onKey(SDLK_e, running);
+        onKey(SDLK_f, running);
+        onKey(SDLK_g, running);
+        onKey(SDLK_h, running);
+        onKey(SDLK_i, running);
+        onKey(SDLK_RETURN, running);
+        auto capped = loadRecords(path);
+        if (capped.empty() || capped[0].score != 1000000u ||
+            capped[0].name != "ab cdefg" ||
+            encodedNameAt(path, 0) != "ab:cdefg") {
+            throw std::runtime_error("name-entry cap or space encoding changed");
+        }
+
+        score_ = 1000001u;
+        levelIndex_ = 0;
+        beginGameOver();
+        if (menuPage_ != MenuPage::NameEntry) {
+            throw std::runtime_error("fourth high score did not open name entry");
+        }
+        onKey(SDLK_RETURN, running);
+        auto emptyName = loadRecords(path);
+        std::string emptyNameEncoding = encodedNameAt(path, 0);
+        if (emptyName.empty() || emptyName[0].score != 1000001u ||
+            emptyName[0].name != "nessuno" || emptyNameEncoding != "::::::::") {
+            throw std::runtime_error("empty name-entry encoding changed");
+        }
+
+        score_ = 1000002u;
+        levelIndex_ = 0;
+        beginGameOver();
+        if (menuPage_ != MenuPage::NameEntry) {
+            throw std::runtime_error("fifth high score did not open name entry");
+        }
+        onKey(SDLK_n, running);
+        onKey(SDLK_e, running);
+        onKey(SDLK_s, running);
+        onKey(SDLK_s, running);
+        onKey(SDLK_u, running);
+        onKey(SDLK_n, running);
+        onKey(SDLK_o, running);
+        onKey(SDLK_RETURN, running);
+        auto typedNessuno = loadRecords(path);
+        if (typedNessuno.empty() || typedNessuno[0].score != 1000002u ||
+            typedNessuno[0].name != "nessuno" ||
+            encodedNameAt(path, 0) != "nessuno:" ||
+            encodedNameAt(path, 1) != "::::::::") {
+            throw std::runtime_error("typed nessuno and empty name encodings collapsed");
+        }
         std::cout << "record_name_entry=ok top=" << reloaded[0].score
-                  << " name=" << reloaded[0].name << '\n';
+                  << " name=" << reloaded[0].name
+                  << " padded=test:::: capped=" << capped[0].name
+                  << " encoded_space=ab:cdefg"
+                  << " empty=" << emptyName[0].name
+                  << " empty_encoded=" << emptyNameEncoding
+                  << " typed_nessuno_encoded=nessuno:"
+                  << " preserved_empty=::::::::\n";
+    }
+
+    void debugRecordNameEntryCursor() {
+        load();
+        initSdl();
+        score_ = 999999u;
+        levelIndex_ = 0;
+        beginGameOver();
+        if (menuPage_ != MenuPage::NameEntry || !pendingRecordName_.empty()) {
+            throw std::runtime_error("record name cursor fixture did not open name entry");
+        }
+
+        FrameInspection emptyFrame = inspectRenderedFrame("record-name-cursor-empty");
+        std::vector<uint32_t> emptyPixels = fb_;
+        int emptySlot = nameEntryCursorSlot();
+        size_t emptyCursorPixels = countColorInRegion(
+            nameEntrySlotX(emptySlot) - 1, kNameEntrySlotY - 2,
+            kNameEntryCursorBoxW, kNameEntryCursorBoxH,
+            kNameEntryCursorBackground);
+        if (emptySlot != 0 || emptyCursorPixels == 0) {
+            throw std::runtime_error("empty name-entry cursor was not visible at slot 0");
+        }
+
+        bool running = true;
+        onKey(SDLK_a, running);
+        FrameInspection oneFrame = inspectRenderedFrame("record-name-cursor-one");
+        std::vector<uint32_t> onePixels = fb_;
+        int oneSlot = nameEntryCursorSlot();
+        size_t oneCursorPixels = countColorInRegion(
+            nameEntrySlotX(oneSlot) - 1, kNameEntrySlotY - 2,
+            kNameEntryCursorBoxW, kNameEntryCursorBoxH,
+            kNameEntryCursorBackground);
+        if (pendingRecordName_ != "a" || oneSlot != 1 ||
+            oneFrame.hash == emptyFrame.hash || oneCursorPixels == 0 ||
+            !regionChanged(emptyPixels, nameEntrySlotX(0) - 1,
+                           kNameEntrySlotY - 2, kNameEntrySlotAdvance * 2,
+                           kNameEntryCursorBoxH)) {
+            throw std::runtime_error("name-entry cursor did not advance to slot 1");
+        }
+
+        onKey(SDLK_b, running);
+        FrameInspection twoFrame = inspectRenderedFrame("record-name-cursor-two");
+        int twoSlot = nameEntryCursorSlot();
+        size_t twoCursorPixels = countColorInRegion(
+            nameEntrySlotX(twoSlot) - 1, kNameEntrySlotY - 2,
+            kNameEntryCursorBoxW, kNameEntryCursorBoxH,
+            kNameEntryCursorBackground);
+        if (pendingRecordName_ != "ab" || twoSlot != 2 ||
+            twoFrame.hash == oneFrame.hash || twoCursorPixels == 0 ||
+            !regionChanged(onePixels, nameEntrySlotX(1) - 1,
+                           kNameEntrySlotY - 2, kNameEntrySlotAdvance * 2,
+                           kNameEntryCursorBoxH)) {
+            throw std::runtime_error("name-entry cursor did not advance to slot 2");
+        }
+
+        onKey(SDLK_BACKSPACE, running);
+        FrameInspection backspaceFrame =
+            inspectRenderedFrame("record-name-cursor-backspace");
+        int backspaceSlot = nameEntryCursorSlot();
+        size_t backspaceCursorPixels = countColorInRegion(
+            nameEntrySlotX(backspaceSlot) - 1, kNameEntrySlotY - 2,
+            kNameEntryCursorBoxW, kNameEntryCursorBoxH,
+            kNameEntryCursorBackground);
+        if (pendingRecordName_ != "a" || backspaceSlot != 1 ||
+            backspaceCursorPixels == 0 || backspaceFrame.hash != oneFrame.hash) {
+            throw std::runtime_error("name-entry cursor did not return after Backspace");
+        }
+
+        std::cout << "record_name_entry_cursor=ok"
+                  << " empty_slot=" << emptySlot
+                  << " typed_slot=" << oneSlot
+                  << " second_slot=" << twoSlot
+                  << " backspace_slot=" << backspaceSlot
+                  << " cursor_pixels=" << emptyCursorPixels << ','
+                  << oneCursorPixels << ',' << twoCursorPixels << ','
+                  << backspaceCursorPixels
+                  << " backspace_restores_frame=1"
+                  << " frame_inspection=1\n";
+    }
+
+    void debugRecordNameEntryRepeat(const std::string& path) {
+        load();
+        recordPath_ = path;
+        saveRecords(recordPath_, records_);
+        initSdl();
+        score_ = 999999u;
+        levelIndex_ = 0;
+        beginGameOver();
+        if (menuPage_ != MenuPage::NameEntry || !pendingRecordName_.empty()) {
+            throw std::runtime_error("record name repeat fixture did not open name entry");
+        }
+
+        bool running = true;
+        pushKeyDown(SDLK_a);
+        processEvents(running);
+        pushKeyDown(SDLK_SPACE, true);
+        processEvents(running);
+        for (int i = 0; i < 3; ++i) {
+            pushKeyDown(SDLK_b, true);
+            processEvents(running);
+        }
+        if (pendingRecordName_ != "a bbb" || nameEntryCursorSlot() != 5) {
+            throw std::runtime_error("repeated name-entry text was not accepted");
+        }
+
+        for (int i = 0; i < 2; ++i) {
+            pushKeyDown(SDLK_BACKSPACE, true);
+            processEvents(running);
+        }
+        if (pendingRecordName_ != "a b" || nameEntryCursorSlot() != 3) {
+            throw std::runtime_error("repeated name-entry Backspace was not accepted");
+        }
+
+        pushKeyDown(SDLK_RETURN, true);
+        processEvents(running);
+        bool ignoredRepeatEnter = menuPage_ == MenuPage::NameEntry &&
+                                  pendingRecordName_ == "a b";
+        pushKeyDown(SDLK_ESCAPE, true);
+        processEvents(running);
+        bool ignoredRepeatEscape = menuPage_ == MenuPage::NameEntry &&
+                                   pendingRecordName_ == "a b";
+        if (!ignoredRepeatEnter || !ignoredRepeatEscape) {
+            throw std::runtime_error("repeated name-entry commit/cancel key was accepted");
+        }
+
+        pushKeyDown(SDLK_RETURN);
+        processEvents(running);
+        auto reloaded = loadRecords(path);
+        if (menuPage_ != MenuPage::Records || reloaded.empty() ||
+            reloaded[0].score != 999999u || reloaded[0].name != "a b") {
+            throw std::runtime_error("name-entry repeat record did not commit");
+        }
+
+        std::cout << "record_name_entry_repeat=ok"
+                  << " repeated_space=1"
+                  << " repeated_letters=3"
+                  << " repeated_backspaces=2"
+                  << " ignored_repeat_enter=" << (ignoredRepeatEnter ? 1 : 0)
+                  << " ignored_repeat_escape=" << (ignoredRepeatEscape ? 1 : 0)
+                  << " final_name=" << reloaded[0].name
+                  << " cursor_slot=3"
+                  << " committed=1\n";
     }
 
     void debugRecordSaveFailure(const std::string& path) {
@@ -3564,19 +5391,44 @@ public:
             pendingRecordName_ != "FAIL") {
             throw std::runtime_error("record save failure discarded pending entry");
         }
-        std::cout << "record_save_failure=ok pending=" << pendingRecordScore_ << '\n';
+
+        std::filesystem::path retryPath = std::filesystem::path(path).parent_path()
+                                             .parent_path() /
+                                         "records_save_failure_retry.dat";
+        if (retryPath.empty()) {
+            retryPath = "records_save_failure_retry.dat";
+        }
+        recordPath_ = retryPath.string();
+        saveRecords(recordPath_, records_);
+        finalizePendingRecord();
+        auto reloaded = loadRecords(recordPath_);
+        if (menuPage_ != MenuPage::Records || pendingRecordScore_ != 0 ||
+            !pendingRecordName_.empty() || reloaded.empty() ||
+            reloaded[0].score != 999999u || reloaded[0].name != "FAIL") {
+            throw std::runtime_error("record save retry did not commit pending entry");
+        }
+        std::cout << "record_save_failure=ok pending_preserved=999999"
+                  << " retry_committed=1 name=" << reloaded[0].name << '\n';
     }
 
     void debugEndFlowRecords(const std::string& path) {
         load();
         recordPath_ = path;
         saveRecords(recordPath_, records_);
+        const std::vector<Record> baselineRecords = records_;
 
         auto containsRecord = [&](uint32_t score, const std::string& name) {
             auto reloaded = loadRecords(recordPath_);
             return std::any_of(reloaded.begin(), reloaded.end(),
                                [&](const Record& record) {
                                    return record.score == score && record.name == name;
+                               });
+        };
+        auto containsScore = [&](uint32_t score) {
+            auto reloaded = loadRecords(recordPath_);
+            return std::any_of(reloaded.begin(), reloaded.end(),
+                               [&](const Record& record) {
+                                   return record.score == score;
                                });
         };
 
@@ -3628,6 +5480,18 @@ public:
             throw std::runtime_error("game-over confirm did not clear score state");
         }
 
+        records_ = baselineRecords;
+        saveRecords(recordPath_, records_);
+        playerCount_ = 1;
+        score_ = records_.back().score;
+        score2_ = 0;
+        levelIndex_ = 2;
+        beginGameOver();
+        if (!menu_ || menuPage_ != MenuPage::GameOver || pendingRecordScore_ != 0 ||
+            pendingRecordLevel_ != 0 || !pendingRecordName_.empty()) {
+            throw std::runtime_error("score equal to record cutoff qualified");
+        }
+
         playerCount_ = 2;
         score_ = 1u;
         score2_ = 999998u;
@@ -3666,6 +5530,28 @@ public:
             throw std::runtime_error("two-player queued records did not finish cleanly");
         }
 
+        records_ = baselineRecords;
+        saveRecords(recordPath_, records_);
+        if (records_.size() < 7 || records_[5].score <= records_[6].score + 1) {
+            throw std::runtime_error("baseline records cannot exercise p2 re-check");
+        }
+        playerCount_ = 2;
+        score_ = records_.front().score + 1000u;
+        score2_ = records_[6].score + 1u;
+        levelIndex_ = 4;
+        beginGameOver();
+        if (menuPage_ != MenuPage::NameEntry || pendingRecordPlayer_ != 1 ||
+            pendingRecordScore_ != score_) {
+            throw std::runtime_error("threshold re-check did not start with player 1");
+        }
+        uint32_t recheckP2Score = score2_;
+        pendingRecordName_ = "top";
+        finalizePendingRecord();
+        if (menuPage_ != MenuPage::Records || pendingRecordScore_ != 0 ||
+            containsScore(recheckP2Score)) {
+            throw std::runtime_error("player 2 was not re-checked after player 1 insert");
+        }
+
         playerCount_ = 1;
         resetLevel(static_cast<int>(levels_.size()) - 1);
         menu_ = false;
@@ -3685,7 +5571,187 @@ public:
         auto finalRecords = loadRecords(recordPath_);
         std::cout << "end_flow_records=ok completion_level=" << completionLevel
                   << " p1_record=999997 p2_record=999998 records="
-                  << finalRecords.size() << '\n';
+                  << finalRecords.size()
+                  << " cutoff_equal_skipped=1"
+                  << " p2_recheck_skipped=1\n";
+    }
+
+    void debugEndFlowFrameFlow() {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        FrameInspection mainFrame = inspectRenderedFrame("end-flow-main-menu");
+        playerCount_ = 2;
+        score_ = 1u;
+        score2_ = 2u;
+        levelIndex_ = 3;
+        beginGameOver();
+        if (!menu_ || menuPage_ != MenuPage::GameOver ||
+            lastEndReason_ != EndReason::GameOver ||
+            pendingRecordScore_ != 0 || score_ != 1u || score2_ != 2u) {
+            throw std::runtime_error("game-over frame fixture entered wrong state");
+        }
+        FrameInspection gameOverFrame = inspectRenderedFrame("end-flow-game-over");
+        if (gameOverFrame.hash == mainFrame.hash ||
+            !regionHasVariation(70, 68, 190, 112)) {
+            throw std::runtime_error("game-over frame did not render title/scores");
+        }
+
+        pushKeyDown(SDLK_RETURN);
+        processEvents(running);
+        if (!menu_ || menuPage_ != MenuPage::Main ||
+            score_ != 0 || score2_ != 0) {
+            throw std::runtime_error("game-over confirm did not clear scores");
+        }
+        FrameInspection afterGameOverFrame =
+            inspectRenderedFrame("end-flow-after-game-over");
+        if (afterGameOverFrame.hash == gameOverFrame.hash) {
+            throw std::runtime_error("game-over confirm did not redraw menu");
+        }
+
+        playerCount_ = 1;
+        resetLevel(static_cast<int>(levels_.size()) - 1);
+        menu_ = false;
+        collectAllObjectiveTilesForSmoke();
+        damageRequiredTilesForSmoke();
+        score_ = 1u;
+        score2_ = 0;
+        if (!isComplete() || !isFinalLevel()) {
+            throw std::runtime_error("completed-game frame fixture did not satisfy final level");
+        }
+        for (int i = 0; i <= 100; ++i) {
+            updateLevelCompletion();
+        }
+        if (!menu_ || menuPage_ != MenuPage::CompletedGame ||
+            lastEndReason_ != EndReason::CompletedGame ||
+            pendingRecordScore_ != 0 || levelIndex_ != 0 || score_ != 1u) {
+            throw std::runtime_error("final-level completion did not show completed-game page");
+        }
+        FrameInspection completedFrame =
+            inspectRenderedFrame("end-flow-completed-game");
+        if (completedFrame.hash == gameOverFrame.hash ||
+            completedFrame.hash == afterGameOverFrame.hash ||
+            !regionHasVariation(50, 54, 230, 120)) {
+            throw std::runtime_error("completed-game frame did not render distinct text");
+        }
+
+        pushKeyDown(SDLK_SPACE);
+        processEvents(running);
+        if (!menu_ || menuPage_ != MenuPage::Main || score_ != 0) {
+            throw std::runtime_error("completed-game confirm did not clear score");
+        }
+        FrameInspection finalMenuFrame =
+            inspectRenderedFrame("end-flow-final-menu");
+        if (finalMenuFrame.hash == completedFrame.hash) {
+            throw std::runtime_error("completed-game confirm did not redraw menu");
+        }
+
+        std::cout << "end_flow_frame_flow=ok"
+                  << " game_over_scores=1,2"
+                  << " completed_score=1"
+                  << " final_level=" << levels_.size()
+                  << " completed_page=1"
+                  << " confirm_clears_scores=1"
+                  << " frame_inspection=1\n";
+    }
+
+    void debugEndFlowStaticModel() {
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for end-flow scan");
+        }
+
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " bytes changed");
+                }
+            }
+        };
+        auto nearTarget = [&](uint16_t offset, const std::string& label) {
+            size_t p = imageBase + offset;
+            if (p + 3 > exeBytes.size() || exeBytes[p] != 0xe8) {
+                throw std::runtime_error(label + " is not a near call");
+            }
+            int rel = static_cast<int>(le16(exeBytes, p + 1));
+            if (rel >= 0x8000) rel -= 0x10000;
+            return static_cast<uint16_t>(offset + 3 + rel);
+        };
+
+        requireBytes(0x1ae1, "09 67 61 6d 65 20 6f 76 65 72",
+                     "game-over string");
+        requireBytes(0x1aeb, "0d 65 63 63 65 6c 6c 65 6e 74 65 3e 3e 3e",
+                     "completed-game title string");
+        requireBytes(0x1af9,
+                     "17 68 61 69 20 63 6f 6d 70 6c 65 74 61 74 6f "
+                     "20 69 6c 20 67 69 6f 63 6f",
+                     "completed-game body string");
+        requireBytes(kEndFlowDispatcherStart,
+                     "55 89 e5 b8 0c 03 9a df 04 20 09 81 ec 0c 03",
+                     "end-flow dispatcher prologue");
+        requireBytes(0x1b63,
+                     "8a 46 04 3c 01 75 1e 6a 3c 6a 4d bf e1 1a",
+                     "end-flow mode-1 branch");
+        requireBytes(0x1b88,
+                     "3c 02 75 3d 6a 3c 6a 37 bf eb 1a",
+                     "end-flow mode-2 branch");
+        requireBytes(0x1bc4, "c6 06 8c 20 01", "completed-game flag write");
+        requireBytes(0x1bf8,
+                     "c7 46 fc 01 00 eb 03 ff 46 fc 83 7e fc 01 75 13 "
+                     "b8 5a 78 8c da a3 b6 78 89 16 b8 78 c6 06 58 "
+                     "20 31 eb 11 b8 88 78 8c da a3 b6 78 89 16 b8 "
+                     "78 c6 06 58 20 32",
+                     "end-flow player score pointer setup");
+        requireBytes(0x1c4b,
+                     "83 bb f2 fe 00 7f 0f 7d 03 e9 98 00 83 bb f0 "
+                     "fe 00 77 03 e9 8e 00",
+                     "end-flow zero-score skip");
+        requireBytes(0x1cf8, "9a 0f 03 4a 08 a2 58 20",
+                     "end-flow key wait");
+        requireBytes(0x1d00, "c7 46 fc 01 00 eb 03 ff 46 fc",
+                     "end-flow record loop");
+        requireBytes(0x1d18,
+                     "3b 16 54 1b 7f 08 7c 1b 3b 06 52 1b 72 15",
+                     "end-flow seventh-record cutoff compare");
+        requireBytes(0x1d2c,
+                     "ff b3 f2 fe ff b3 f0 fe ff 76 fc 55 e8 0a fb",
+                     "end-flow record-entry call setup");
+        requireBytes(0x1d3b, "83 7e fc 02 75 c6 c9 c2 02 00",
+                     "end-flow record loop return");
+
+        uint16_t recordEntryTarget = nearTarget(0x1d38, "end-flow record-entry call");
+        if (recordEntryTarget != 0x1845) {
+            throw std::runtime_error("end-flow record-entry target changed");
+        }
+
+        std::cout << "end_flow_static_model=ok"
+                  << " routine=" << hex4(kEndFlowDispatcherStart)
+                  << ".." << hex4(kEndFlowDispatcherRet)
+                  << " game_over_string=0x1ae1"
+                  << " completed_strings=0x1aeb,0x1af9"
+                  << " mode_param=bp+4"
+                  << " completed_flag=0x208c"
+                  << " player_score_ptrs=0x785a,0x7888"
+                  << " player_markers=0x31,0x32"
+                  << " key_latch=0x2058"
+                  << " record_cutoff=0x1b52/0x1b54"
+                  << " record_stride=13"
+                  << " record_entry_call=" << hex4(recordEntryTarget)
+                  << " strict_cutoff=1"
+                  << " player_order=1,2\n";
     }
 
     void exportBackground(const std::string& path) {
@@ -3843,18 +5909,214 @@ public:
         soundDrop.y = collector.y;
         soundDrop.type = BonusType::Present;
         collectBonusDrop(soundDrop, collector, energy, inventory, 1);
-        if (!soundLatch_.active || soundLatch_.latchedOffset != 0x0008 ||
-            soundLatch_.currentSelector != 5 || soundLatch_.directSweep) {
+        if (!soundLatch_.active || soundLatch_.latchedOffset != kBonusPickupSoundCursor ||
+            soundLatch_.currentSelector != kBonusPickupSoundPriority ||
+            soundLatch_.directSweep) {
             throw std::runtime_error("bonus pickup did not queue recovered sound cursor");
         }
         pumpSoundLatch();
-        if (soundLatch_.active || lastPumpedSoundOffset_ != 0x0008 ||
-            lastPumpedSoundSelector_ != 5) {
+        if (soundLatch_.active || lastPumpedSoundOffset_ != kBonusPickupSoundCursor ||
+            lastPumpedSoundSelector_ != kBonusPickupSoundPriority) {
             throw std::runtime_error("bonus pickup sound cursor did not pump");
         }
         std::cout << "bonuses=ok sprites=" << spriteScores.size()
                   << " rain=" << bonusDrops_.size()
-                  << " sound_cursor=0x8 sound_priority=5\n";
+                  << " sound_cursor=" << std::showbase << std::hex
+                  << kBonusPickupSoundCursor << std::dec << std::noshowbase
+                  << " sound_priority="
+                  << static_cast<int>(kBonusPickupSoundPriority) << '\n';
+    }
+
+    void debugBonusRewardStaticModel() {
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for bonus reward scan");
+        }
+
+        constexpr uint16_t kScoreTableGhidraOffset = 0xaa56;
+        constexpr uint16_t kScoreTableFileOffset = 0xb1c6;
+        if (imageBase + kScoreTableGhidraOffset != kScoreTableFileOffset) {
+            throw std::runtime_error("bonus reward score-table offset mapping changed");
+        }
+        constexpr std::array<uint16_t, 7> expectedScores{{
+            2000, 1000, 1500, 2000, 3000, 1000, 5000,
+        }};
+        constexpr std::array<int, 7> expectedSpriteIndices{{61, 62, 63, 64, 65, 66, 67}};
+
+        std::ostringstream scoreList;
+        uint32_t scoreSum = 0;
+        uint16_t topScore = 0;
+        for (size_t i = 0; i < expectedScores.size(); ++i) {
+            const uint16_t score = le16(exeBytes, kScoreTableFileOffset + i * 2);
+            if (score != expectedScores[i]) {
+                throw std::runtime_error("bonus reward score table changed");
+            }
+            if (i != 0) scoreList << ',';
+            scoreList << score;
+            scoreSum += score;
+            topScore = std::max(topScore, score);
+        }
+
+        load();
+        std::ostringstream spriteList;
+        int spriteInBounds = 0;
+        for (size_t i = 0; i < expectedSpriteIndices.size(); ++i) {
+            BonusType type = static_cast<BonusType>(i);
+            const int spriteIndex = bonusSpriteIndex(type);
+            if (spriteIndex != expectedSpriteIndices[i]) {
+                throw std::runtime_error("bonus reward sprite mapping changed");
+            }
+            if (spriteIndex < 0 ||
+                spriteIndex >= static_cast<int>(sprites_.sprites.size())) {
+                throw std::runtime_error("bonus reward sprite index out of bounds");
+            }
+            const Sprite& sprite = sprites_.sprites[static_cast<size_t>(spriteIndex)];
+            if (sprite.width <= 0 || sprite.height <= 0 ||
+                sprite.pixels.size() !=
+                    static_cast<size_t>(sprite.width) * static_cast<size_t>(sprite.height)) {
+                throw std::runtime_error("bonus reward sprite payload changed");
+            }
+            if (i != 0) spriteList << ',';
+            spriteList << spriteIndex;
+            ++spriteInBounds;
+        }
+
+        std::cout << "bonus_reward_static_model=ok"
+                  << " image_base=0x0770"
+                  << " score_table_file=" << hex4(kScoreTableFileOffset)
+                  << " score_table_ghidra=" << hex4(kScoreTableGhidraOffset)
+                  << " rewards=" << expectedScores.size()
+                  << " scores=" << scoreList.str()
+                  << " sprite_indices=" << spriteList.str()
+                  << " bomomimk_sprites=" << sprites_.sprites.size()
+                  << " sprite_in_bounds=" << spriteInBounds
+                  << " score_sum=" << scoreSum
+                  << " top_score=" << topScore
+                  << " pickup_sound=" << hex4(kBonusPickupSoundCursor)
+                  << "/p" << static_cast<int>(kBonusPickupSoundPriority)
+                  << '\n';
+    }
+
+    void debugMonsterSpriteTableModel() {
+        load();
+        if (sprites_.sprites.size() != 91) {
+            throw std::runtime_error("BOMOMIMK sprite count changed");
+        }
+
+        struct SpriteMetrics {
+            int width = 0;
+            int height = 0;
+            int nonzero = 0;
+        };
+
+        auto metricsFor = [&](int index) {
+            if (index < 0 || index >= static_cast<int>(sprites_.sprites.size())) {
+                throw std::runtime_error("monster sprite table index out of bounds");
+            }
+            const Sprite& sprite = sprites_.sprites[static_cast<size_t>(index)];
+            SpriteMetrics metrics;
+            metrics.width = sprite.width;
+            metrics.height = sprite.height;
+            for (uint8_t pixelValue : sprite.pixels) {
+                if (pixelValue != 0) ++metrics.nonzero;
+            }
+            return metrics;
+        };
+        auto joinInts = [](const std::vector<int>& values) {
+            std::ostringstream oss;
+            for (size_t i = 0; i < values.size(); ++i) {
+                if (i != 0) oss << ',';
+                oss << values[i];
+            }
+            return oss.str();
+        };
+        auto nonzeroList = [&](const std::vector<int>& indices) {
+            std::vector<int> values;
+            values.reserve(indices.size());
+            for (int index : indices) values.push_back(metricsFor(index).nonzero);
+            return joinInts(values);
+        };
+        auto dimensionList = [&](const std::vector<int>& indices) {
+            std::ostringstream oss;
+            for (size_t i = 0; i < indices.size(); ++i) {
+                if (i != 0) oss << ',';
+                SpriteMetrics metrics = metricsFor(indices[i]);
+                oss << metrics.width << 'x' << metrics.height;
+            }
+            return oss.str();
+        };
+        auto count16x16 = [&](const std::vector<int>& indices) {
+            return static_cast<int>(std::count_if(
+                indices.begin(), indices.end(), [&](int index) {
+                    SpriteMetrics metrics = metricsFor(index);
+                    return metrics.width == 16 && metrics.height == 16;
+                }));
+        };
+
+        const std::array<int, 2> kind1Left = monsterDirectionalFrameRange(1, -0x0100);
+        const std::array<int, 2> kind1Right = monsterDirectionalFrameRange(1, 0x0100);
+        const std::array<int, 2> kind2 = monsterFrameRange(2);
+        const std::array<int, 2> kind3 = monsterFrameRange(3);
+        const std::array<int, 2> kind4 = monsterFrameRange(4);
+        if (kind1Left != std::array<int, 2>{43, 44} ||
+            kind1Right != std::array<int, 2>{45, 46} ||
+            kind2 != std::array<int, 2>{39, 41} ||
+            kind3 != std::array<int, 2>{49, 51} ||
+            kind4 != std::array<int, 2>{53, 55}) {
+            throw std::runtime_error("monster normal frame ranges changed");
+        }
+
+        constexpr std::array<uint16_t, 7> kRewardScores{{
+            2000, 1000, 1500, 2000, 3000, 1000, 5000,
+        }};
+        std::vector<int> rewardFrames;
+        for (int i = 0; i < static_cast<int>(kRewardScores.size()); ++i) {
+            int spriteIndex = bonusSpriteIndex(static_cast<BonusType>(i));
+            if (spriteIndex != 61 + i) {
+                throw std::runtime_error("monster reward sprite table changed");
+            }
+            rewardFrames.push_back(spriteIndex);
+        }
+
+        std::vector<int> normalFrames{39, 40, 41, 43, 44, 45, 46,
+                                      49, 50, 51, 53, 54, 55};
+        std::vector<int> impactCandidates{42, 47, 48, 52, 56};
+        std::vector<int> deathCurrent{18};
+        std::vector<int> allFrames = normalFrames;
+        allFrames.insert(allFrames.end(), impactCandidates.begin(),
+                         impactCandidates.end());
+        allFrames.insert(allFrames.end(), deathCurrent.begin(),
+                         deathCurrent.end());
+        allFrames.insert(allFrames.end(), rewardFrames.begin(),
+                         rewardFrames.end());
+
+        std::vector<int> scores(kRewardScores.begin(), kRewardScores.end());
+        std::cout << "monster_sprite_table_model=ok"
+                  << " bank=BOMOMIMK"
+                  << " normal_ranges=k1_left:43-44,k1_right:45-46,k2:39-41,k3:49-51,k4:53-55"
+                  << " normal_frames=" << joinInts(normalFrames)
+                  << " impact_candidates=" << joinInts(impactCandidates)
+                  << " death_current_renderer=" << joinInts(deathCurrent)
+                  << " reward_frames=" << joinInts(rewardFrames)
+                  << " reward_scores=" << joinInts(scores)
+                  << " normal_nonzero=" << nonzeroList(normalFrames)
+                  << " impact_nonzero=" << nonzeroList(impactCandidates)
+                  << " death_nonzero=" << nonzeroList(deathCurrent)
+                  << " reward_nonzero=" << nonzeroList(rewardFrames)
+                  << " normal_dims=" << dimensionList(normalFrames)
+                  << " impact_dims=" << dimensionList(impactCandidates)
+                  << " death_dims=" << dimensionList(deathCurrent)
+                  << " reward_dims=" << dimensionList(rewardFrames)
+                  << " frame_count=" << allFrames.size()
+                  << " frames_16x16=" << count16x16(allFrames)
+                  << " death_runtime_claim=0"
+                  << " visual_claim=0"
+                  << " ghidra=1000:70bc..7513\n";
     }
 
     void debugFixed() {
@@ -3999,6 +6261,92 @@ public:
                   << " json_chunks=" << sounds_.records.size() << '\n';
     }
 
+    void debugSoundLoaderStaticModel() {
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for sound loader scan");
+        }
+        constexpr uint16_t kFilenameAnchor = 0x0625;
+        constexpr uint16_t kLoaderStart = 0x0630;
+        constexpr uint16_t kCountConstant = 0x0633;
+        constexpr uint16_t kFilenameCopy = 0x0644;
+        constexpr uint16_t kCountRead = 0x065f;
+        constexpr uint16_t kSoundBankRead = 0x0675;
+        constexpr uint16_t kCountTimesSix = 0x067b;
+        constexpr uint16_t kCloseFile = 0x0691;
+        constexpr uint16_t kLoaderRet = 0x06aa;
+
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " bytes changed");
+                }
+            }
+        };
+        auto countBytes = [&](const std::string& hex) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            int count = 0;
+            auto begin = exeBytes.begin() + static_cast<long>(imageBase + kLoaderStart);
+            auto end = exeBytes.begin() + static_cast<long>(imageBase + kLoaderRet);
+            for (auto it = begin; it != end;) {
+                it = std::search(it, end, expected.begin(), expected.end());
+                if (it == end) break;
+                ++count;
+                ++it;
+            }
+            return count;
+        };
+
+        requireBytes(kFilenameAnchor, "0a 70 72 6f 65 66 73 2e 73 6f 6e",
+                     "PROEFS.SON filename anchor");
+        requireBytes(kLoaderStart, "55 89 e5", "sound loader prologue");
+        requireBytes(kCountConstant, "b8 82 00", "sound loader count constant");
+        requireBytes(0x063b, "81 ec 82 00", "sound loader local buffer size");
+        requireBytes(kFilenameCopy, "bf 25 06 0e 57 9a ca 15 20 09",
+                     "sound loader filename copy");
+        requireBytes(0x0653, "6a 01 9a f8 15 20 09", "sound loader open call");
+        requireBytes(kCountRead, "8d be 7e ff 16 57 6a 02 31 c0 50 50 9a e3 16 20 09",
+                     "sound loader count read");
+        requireBytes(kSoundBankRead, "c4 3e c0 79 06 57",
+                     "sound loader sound-bank pointer");
+        requireBytes(kCountTimesSix, "8b 86 7e ff d1 e0 8b f0 d1 e0 01 f0 50",
+                     "sound loader count times six");
+        requireBytes(0x068c, "9a e3 16 20 09", "sound loader payload read");
+        requireBytes(kCloseFile, "8d 7e 80 16 57 9a 79 16 20 09",
+                     "sound loader close call");
+        requireBytes(0x069b, "9a a2 04 20 09 09 c0 74 05 6a 01 e8 fa f9 c9 c3",
+                     "sound loader io result tail");
+
+        int readCalls = countBytes("9a e3 16 20 09");
+        if (readCalls != 2) {
+            throw std::runtime_error("sound loader read-call count changed");
+        }
+
+        std::cout << "sound_loader_static_model=ok"
+                  << " routine=" << hex4(kLoaderStart) << ".." << hex4(kLoaderRet)
+                  << " filename=proefs.son"
+                  << " filename_anchor=" << hex4(kFilenameAnchor)
+                  << " step_count=0x0082"
+                  << " step_size=6"
+                  << " payload_bytes=780"
+                  << " count_read_bytes=2"
+                  << " sound_bank_ptr=0x79c0"
+                  << " count_local=bp-0x82"
+                  << " count_times_six=1"
+                  << " read_calls=" << readCalls << '\n';
+    }
+
     void debugSonStepFields() {
         load();
         if (sounds_.stepCount != 0x82 ||
@@ -4023,8 +6371,8 @@ public:
             uint16_t periodWord = 0;
             uint8_t gateTick = 0;
             uint8_t periodTicks = 0;
-            uint8_t unknown4 = 0;
-            uint8_t unknown5 = 0;
+            uint8_t tail4 = 0;
+            uint8_t tail5 = 0;
         };
 
         auto step = [&](size_t stepIndex) {
@@ -4038,14 +6386,14 @@ public:
         };
 
         std::vector<uint16_t> stopCursors;
-        int unknownPairNonzeroSteps = 0;
+        int tailPairNonzeroSteps = 0;
         for (size_t i = 0; i < sounds_.stepCount; ++i) {
             StepFields fields = step(i);
             if (fields.periodWord == kSoundStopPeriod) {
                 stopCursors.push_back(static_cast<uint16_t>(i + 1));
             }
-            if (fields.unknown4 != 0 || fields.unknown5 != 0) {
-                ++unknownPairNonzeroSteps;
+            if (fields.tail4 != 0 || fields.tail5 != 0) {
+                ++tailPairNonzeroSteps;
             }
         }
         if (stopCursors.size() != kExpectedSoundStopCursors.size() ||
@@ -4062,8 +6410,8 @@ public:
                       << " period_word=" << hex4(fields.periodWord)
                       << " gate_tick=" << static_cast<int>(fields.gateTick)
                       << " period_ticks=" << static_cast<int>(fields.periodTicks)
-                      << " unknown4=" << hex2(fields.unknown4)
-                      << " unknown5=" << hex2(fields.unknown5)
+                      << " tail4=" << hex2(fields.tail4)
+                      << " tail5=" << hex2(fields.tail5)
                       << " stop=" << (fields.periodWord == kSoundStopPeriod ? 1 : 0)
                       << '\n';
         };
@@ -4071,12 +6419,13 @@ public:
         std::cout << "son_step_fields=summary steps=" << sounds_.stepCount
                   << " step_size=" << kSoundStepSize
                   << " stop_sentinels=" << stopCursors.size()
-                  << " unknown_pair_nonzero_steps=" << unknownPairNonzeroSteps
+                  << " tail_pair_nonzero_steps=" << tailPairNonzeroSteps
                   << " period_word=bytes0-1"
                   << " gate_tick=byte2"
                   << " period_ticks=byte3"
-                  << " unknown4=byte4"
-                  << " unknown5=byte5\n";
+                  << " tail4=byte4"
+                  << " tail5=byte5"
+                  << " tail_behavior=preserved_playback_unused\n";
         printStep("first", 0);
         printStep("first_stop", stopCursors.front() - 1);
         printStep("final_stop", stopCursors.back() - 1);
@@ -4084,40 +6433,354 @@ public:
                   << " first_period=" << hex4(step(0).periodWord)
                   << " first_stop_cursor=" << hex4(stopCursors.front())
                   << " final_stop_cursor=" << hex4(stopCursors.back())
-                  << " unknown_pair_nonzero_steps=" << unknownPairNonzeroSteps
+                  << " tail_pair_nonzero_steps=" << tailPairNonzeroSteps
+                  << " tail_behavior=preserved_playback_unused"
                   << '\n';
     }
 
-    void debugGranRawRoundtrip() {
+    void debugSonTailFieldMutation() {
         load();
+        if (sounds_.stepCount != 0x82 ||
+            sounds_.payload.size() != sounds_.stepCount * kSoundStepSize) {
+            throw std::runtime_error("PROEFS.SON step field layout mismatch");
+        }
+
+        std::vector<std::vector<int16_t>> baseline;
+        baseline.reserve(kDebugSoundCursors.size());
+        size_t baselineSamples = 0;
+        for (uint16_t cursor : kDebugSoundCursors) {
+            baseline.push_back(synthesizeSoundCursor(cursor));
+            baselineSamples += baseline.back().size();
+            if (baseline.back().empty()) {
+                throw std::runtime_error("PROEFS.SON cursor rendered no samples");
+            }
+        }
+
+        std::vector<uint8_t> originalPayload = sounds_.payload;
+        int tailPairNonzeroSteps = 0;
+        int mutatedSteps = 0;
+        for (size_t step = 0; step < sounds_.stepCount; ++step) {
+            size_t off = step * kSoundStepSize;
+            if (sounds_.payload[off + 4] != 0 || sounds_.payload[off + 5] != 0) {
+                ++tailPairNonzeroSteps;
+            }
+            sounds_.payload[off + 4] =
+                static_cast<uint8_t>(sounds_.payload[off + 4] ^ 0xffu);
+            sounds_.payload[off + 5] =
+                static_cast<uint8_t>(sounds_.payload[off + 5] ^ 0xa5u);
+            ++mutatedSteps;
+        }
+
+        size_t mutatedSamples = 0;
+        for (size_t i = 0; i < kDebugSoundCursors.size(); ++i) {
+            std::vector<int16_t> mutated = synthesizeSoundCursor(kDebugSoundCursors[i]);
+            mutatedSamples += mutated.size();
+            if (mutated != baseline[i]) {
+                std::ostringstream oss;
+                oss << "PROEFS.SON tail field mutation changed cursor 0x"
+                    << std::hex << std::setw(4) << std::setfill('0')
+                    << kDebugSoundCursors[i];
+                throw std::runtime_error(oss.str());
+            }
+        }
+        sounds_.payload = std::move(originalPayload);
+
+        std::cout << "son_tail_fields_mutation=ok steps=" << sounds_.stepCount
+                  << " mutated_steps=" << mutatedSteps
+                  << " compared_cursors=" << kDebugSoundCursors.size()
+                  << " baseline_samples=" << baselineSamples
+                  << " mutated_samples=" << mutatedSamples
+                  << " tail_pair_nonzero_steps=" << tailPairNonzeroSteps
+                  << " ignored_tail_bytes=4,5"
+                  << " tail_behavior=preserved_playback_unused\n";
+    }
+
+    void debugSoundTickStaticModel() {
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for sound tick scan");
+        }
+        constexpr uint16_t kTickStart = 0x0fbe;
+        constexpr uint16_t kTickRet = 0x1088;
+        constexpr uint16_t kDirectSweepBranch = 0x0fd9;
+        constexpr uint16_t kStepAdvance = 0x1014;
+        constexpr uint16_t kStepAddress = 0x1023;
+        constexpr uint16_t kStopCompare = 0x1033;
+        constexpr uint16_t kPeriodPush = 0x1053;
+        constexpr uint16_t kGateByteRead = 0x105e;
+        constexpr uint16_t kPeriodByteRead = 0x1068;
+
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " bytes changed");
+                }
+            }
+        };
+        auto containsBytes = [&](const std::vector<uint8_t>& expected) {
+            auto begin = exeBytes.begin() + static_cast<long>(imageBase + kTickStart);
+            auto end = exeBytes.begin() + static_cast<long>(imageBase + kTickRet);
+            return std::search(begin, end, expected.begin(), expected.end()) != end;
+        };
+        auto countBytes = [&](const std::string& hex) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            int count = 0;
+            auto begin = exeBytes.begin() + static_cast<long>(imageBase + kTickStart);
+            auto end = exeBytes.begin() + static_cast<long>(imageBase + kTickRet);
+            for (auto it = begin; it != end;) {
+                it = std::search(it, end, expected.begin(), expected.end());
+                if (it == end) break;
+                ++count;
+                ++it;
+            }
+            return count;
+        };
+
+        requireBytes(kTickStart, "50 53 51 52 56 57 1e 06 c8 04 00 00",
+                     "sound tick prologue");
+        requireBytes(kDirectSweepBranch,
+                     "81 3e c0 78 60 ea 76 26 a1 c0 78 2d 42 ea 50",
+                     "sound tick direct sweep branch");
+        requireBytes(kStepAdvance,
+                     "ff 06 c0 78 a1 c0 78 d1 e0 8b f0 d1 e0 01 f0",
+                     "sound tick cursor stride");
+        requireBytes(kStepAddress, "c4 3e c0 79 03 f8 81 c7 fa ff",
+                     "sound tick step address");
+        requireBytes(kStopCompare, "c4 7e fc 26 81 3d 30 75",
+                     "sound tick stop compare");
+        requireBytes(kPeriodPush, "c4 7e fc 26 ff 35 9a c9 02 4a 08",
+                     "sound tick period push");
+        requireBytes(kGateByteRead, "c4 7e fc 26 8a 45 02 a2 a1 79",
+                     "sound tick gate byte read");
+        requireBytes(kPeriodByteRead, "c4 7e fc 26 8a 45 03 a2 a2 79",
+                     "sound tick period byte read");
+        requireBytes(kTickRet - 1, "c9", "sound tick leave");
+
+        int byteReads = countBytes("26 8a 45");
+        int wordReads = countBytes("26 81 3d") + countBytes("26 ff 35");
+        int tailReadPatterns = 0;
+        for (const std::string& pattern : {
+                 "26 8a 45 04", "26 8a 45 05", "26 8b 45 04",
+                 "26 8b 45 05", "26 ff 75 04", "26 ff 75 05",
+             }) {
+            if (containsBytes(parseHexByteList(pattern))) ++tailReadPatterns;
+        }
+        if (byteReads != 2 || wordReads != 2 || tailReadPatterns != 0) {
+            throw std::runtime_error("sound tick step read model changed");
+        }
+
+        std::cout << "sound_tick_static_model=ok"
+                  << " routine=" << hex4(kTickStart) << ".." << hex4(kTickRet)
+                  << " direct_sweep_threshold=0xea60"
+                  << " direct_sweep_subtract=0xea42"
+                  << " direct_sweep_step=4"
+                  << " cursor_increment=" << hex4(kStepAdvance)
+                  << " entry_stride=6"
+                  << " entry_base=sound_bank+cursor*6-6"
+                  << " stop_sentinel=0x7530"
+                  << " period_word_offsets=0"
+                  << " gate_byte_offset=2"
+                  << " period_byte_offset=3"
+                  << " word_entry_reads=" << wordReads
+                  << " byte_entry_reads=" << byteReads
+                  << " tail_read_patterns=" << tailReadPatterns
+                  << " ignored_tail_bytes=4,5"
+                  << " tail_behavior=preserved_playback_unused\n";
+    }
+
+    void debugSoundLatchStaticModel() {
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for sound latch scan");
+        }
+        constexpr uint16_t kLatchStart = 0x165a;
+        constexpr uint16_t kInactiveAcceptBranch = 0x165f;
+        constexpr uint16_t kRejectBranch = 0x166a;
+        constexpr uint16_t kAcceptPath = 0x166c;
+        constexpr uint16_t kRejectRet = 0x167d;
+
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " bytes changed");
+                }
+            }
+        };
+        auto shortJumpTarget = [&](uint16_t offset, const std::string& label) {
+            size_t p = imageBase + offset;
+            if (p + 2 > exeBytes.size()) {
+                throw std::runtime_error(label + " jump extends past LEZAC.EXE");
+            }
+            uint8_t raw = exeBytes[p + 1];
+            int displacement = raw < 0x80 ? raw : static_cast<int>(raw) - 0x100;
+            return static_cast<uint16_t>(offset + 2 + displacement);
+        };
+
+        requireBytes(kLatchStart,
+                     "a0 c4 79 3c 00 74 0b a0 9e 79 fe c8 3a 06 9f 79 "
+                     "7d 11 a0 9f 79 a2 9e 79 a1 74 20 a3 c0 78 c6 06 "
+                     "c4 79 01 c3",
+                     "sound latch routine");
+        requireBytes(kLatchStart, "a0 c4 79 3c 00 74 0b",
+                     "sound latch active gate");
+        requireBytes(0x1661, "a0 9e 79 fe c8 3a 06 9f 79 7d 11",
+                     "sound latch priority compare");
+        requireBytes(kAcceptPath, "a0 9f 79 a2 9e 79",
+                     "sound latch priority copy");
+        requireBytes(0x1672, "a1 74 20 a3 c0 78",
+                     "sound latch cursor copy");
+        requireBytes(0x1678, "c6 06 c4 79 01 c3",
+                     "sound latch active flag set");
+
+        uint16_t inactiveAcceptTarget =
+            shortJumpTarget(kInactiveAcceptBranch, "sound latch inactive accept");
+        uint16_t rejectTarget = shortJumpTarget(kRejectBranch, "sound latch reject");
+        if (inactiveAcceptTarget != kAcceptPath || rejectTarget != kRejectRet) {
+            throw std::runtime_error("sound latch branch target changed");
+        }
+
+        std::cout << "sound_latch_static_model=ok"
+                  << " routine=" << hex4(kLatchStart) << ".." << hex4(kRejectRet)
+                  << " active_flag=0x79c4"
+                  << " current_priority=0x799e"
+                  << " pending_priority=0x799f"
+                  << " pending_cursor=0x2074"
+                  << " current_cursor=0x78c0"
+                  << " inactive_accept=1"
+                  << " reject_branch=" << hex4(rejectTarget)
+                  << " accept_branch=" << hex4(inactiveAcceptTarget)
+                  << " current_minus_one_compare=1"
+                  << " copies_priority=1"
+                  << " copies_cursor=1"
+                  << " sets_active=1\n";
+    }
+
+    void debugGranRawRoundtrip() {
         auto rawBytes = readFile("GRAN.MST");
+        GranBank rawBank = loadRawGran("GRAN.MST");
+        GranBank jsonBank = loadGran("GRAN.MST.json");
         constexpr size_t kExpectedGranRecords = 7;
         constexpr size_t kExpectedGranPayloadSize = kExpectedGranRecords * kGranRecordSize;
+        const std::array<int, 7> expectedSums{631, 2230, 1389, 1242, 1780, 2720, 2568};
+        const std::array<int, 7> expectedWeightedSums{
+            18094, 59871, 40052, 35568, 63621, 65838, 54274};
+        const std::array<int, 7> expectedNonzero{31, 41, 29, 30, 33, 41, 44};
+        const std::array<uint8_t, 7> expectedXor{
+            0x83, 0x08, 0x53, 0x80, 0xd0, 0xda, 0x5e};
         if (rawBytes.size() != kExpectedGranPayloadSize) {
             throw std::runtime_error("GRAN.MST raw size mismatch");
         }
-        if (gran_.recordSize != kGranRecordSize ||
-            gran_.records.size() != kExpectedGranRecords) {
-            throw std::runtime_error("GRAN.MST JSON shape mismatch");
-        }
 
-        std::vector<uint8_t> jsonPayload;
-        jsonPayload.reserve(kExpectedGranPayloadSize);
-        for (const GranRecord& record : gran_.records) {
-            if (record.bytes.size() != kGranRecordSize) {
-                throw std::runtime_error("GRAN.MST JSON record length mismatch");
+        auto flattenPayload = [](const GranBank& bank, const char* label) {
+            if (bank.recordSize != kGranRecordSize || bank.records.size() != 7) {
+                throw std::runtime_error(std::string(label) + " GRAN shape mismatch");
             }
-            jsonPayload.insert(jsonPayload.end(), record.bytes.begin(), record.bytes.end());
+            std::vector<uint8_t> payload;
+            payload.reserve(bank.recordSize * bank.records.size());
+            for (const GranRecord& record : bank.records) {
+                if (record.bytes.size() != kGranRecordSize) {
+                    throw std::runtime_error(std::string(label) +
+                                             " GRAN record length mismatch");
+                }
+                payload.insert(payload.end(), record.bytes.begin(), record.bytes.end());
+            }
+            return payload;
+        };
+        std::vector<uint8_t> rawPayload = flattenPayload(rawBank, "raw");
+        std::vector<uint8_t> jsonPayload = flattenPayload(jsonBank, "JSON");
+        if (rawPayload != rawBytes) {
+            throw std::runtime_error("GRAN.MST raw loader payload mismatch");
         }
-        if (jsonPayload.size() != rawBytes.size() ||
-            !std::equal(jsonPayload.begin(), jsonPayload.end(), rawBytes.begin())) {
+        if (jsonPayload.size() != rawPayload.size() || jsonPayload != rawPayload) {
             throw std::runtime_error("GRAN.MST raw/json payload mismatch");
         }
+        auto joinedInts = [](const auto& values) {
+            std::ostringstream oss;
+            for (size_t i = 0; i < values.size(); ++i) {
+                if (i != 0) oss << ',';
+                oss << static_cast<int>(values[i]);
+            }
+            return oss.str();
+        };
+        auto joinedHexBytes = [](const auto& values) {
+            std::ostringstream oss;
+            for (size_t i = 0; i < values.size(); ++i) {
+                if (i != 0) oss << ',';
+                oss << "0x" << std::hex << std::setw(2) << std::setfill('0')
+                    << static_cast<int>(values[i]);
+            }
+            return oss.str();
+        };
+        int totalSum = 0;
+        int totalWeightedSum = 0;
+        int totalNonzero = 0;
+        uint8_t totalXor = 0;
+        for (size_t i = 0; i < kExpectedGranRecords; ++i) {
+            const size_t base = i * kGranRecordSize;
+            int byteSum = 0;
+            int weightedSum = 0;
+            int nonzero = 0;
+            uint8_t xorValue = 0;
+            for (size_t j = 0; j < kGranRecordSize; ++j) {
+                uint8_t byte = jsonPayload[base + j];
+                byteSum += byte;
+                weightedSum += static_cast<int>((j + 1) * byte);
+                if (byte != 0) ++nonzero;
+                xorValue = static_cast<uint8_t>(xorValue ^ byte);
+            }
+            if (byteSum != expectedSums[i] ||
+                weightedSum != expectedWeightedSums[i] ||
+                nonzero != expectedNonzero[i] ||
+                xorValue != expectedXor[i]) {
+                throw std::runtime_error("GRAN.MST record fingerprint mismatch");
+            }
+            totalSum += byteSum;
+            totalWeightedSum += weightedSum;
+            totalNonzero += nonzero;
+            totalXor = static_cast<uint8_t>(totalXor ^ xorValue);
+        }
+        if (totalSum != 12560 || totalWeightedSum != 337318 ||
+            totalNonzero != 249 || totalXor != 0x0c) {
+            throw std::runtime_error("GRAN.MST aggregate fingerprint mismatch");
+        }
         std::cout << "gran_raw_roundtrip=ok raw_size=" << rawBytes.size()
-                  << " record_size=" << gran_.recordSize
-                  << " records=" << kExpectedGranRecords
+                  << " record_size=" << rawBank.recordSize
+                  << " raw_records=" << rawBank.records.size()
                   << " payload_size=" << jsonPayload.size()
-                  << " json_records=" << gran_.records.size() << '\n';
+                  << " json_records=" << jsonBank.records.size()
+                  << " raw_json_match=1"
+                  << " byte_sum=" << totalSum
+                  << " weighted_sum=" << totalWeightedSum
+                  << " nonzero_bytes=" << totalNonzero
+                  << " zero_bytes=" << (static_cast<int>(jsonPayload.size()) - totalNonzero)
+                  << " xor=0x" << std::hex << std::setw(2) << std::setfill('0')
+                  << static_cast<int>(totalXor) << std::dec << std::setfill(' ')
+                  << " record_sums=" << joinedInts(expectedSums)
+                  << " record_weighted_sums=" << joinedInts(expectedWeightedSums)
+                  << " record_nonzero=" << joinedInts(expectedNonzero)
+                  << " record_xor=" << joinedHexBytes(expectedXor) << '\n';
     }
 
     void debugSoundPriorityLatch() {
@@ -4133,21 +6796,29 @@ public:
         };
 
         clearSoundLatch();
-        printCase("inactive_accept", latchSoundRequest(0xea74, 4));
-        printCase("lower_rejected", latchSoundRequest(0xea7e, 2));
-        printCase("same_refresh", latchSoundRequest(0xea88, 4));
-        printCase("higher_replaces", latchSoundRequest(0xeace, 7));
-        printCase("one_below_high_rejected", latchSoundRequest(0xea88, 6));
+        printCase("inactive_accept",
+                  latchSoundRequest(kExplosionDirectSweepSoundOffsets[0], 4));
+        printCase("lower_rejected",
+                  latchSoundRequest(kExplosionDirectSweepSoundOffsets[1], 2));
+        printCase("same_refresh",
+                  latchSoundRequest(kExplosionDirectSweepSoundOffsets[2], 4));
+        printCase("higher_replaces",
+                  latchSoundRequest(kExplosionDirectSweepSoundOffsets[3], 7));
+        printCase("one_below_high_rejected",
+                  latchSoundRequest(kExplosionDirectSweepSoundOffsets[2], 6));
         clearSoundLatch();
-        printCase("cleared_accepts", latchSoundRequest(0xea7e, 1));
+        printCase("cleared_accepts",
+                  latchSoundRequest(kExplosionDirectSweepSoundOffsets[1], 1));
 
         if (!soundLatch_.active || soundLatch_.currentSelector != 1 ||
-            soundLatch_.latchedOffset != 0xea7e || !soundLatch_.directSweep) {
+            soundLatch_.latchedOffset != kExplosionDirectSweepSoundOffsets[1] ||
+            !soundLatch_.directSweep) {
             throw std::runtime_error("sound latch final state mismatch");
         }
         pumpSoundLatch();
         if (soundLatch_.active || lastPumpedSoundRecord_ != 1 ||
-            lastPumpedSoundOffset_ != 0xea7e || lastPumpedSoundSelector_ != 1) {
+            lastPumpedSoundOffset_ != kExplosionDirectSweepSoundOffsets[1] ||
+            lastPumpedSoundSelector_ != 1) {
             throw std::runtime_error("sound latch pump mismatch");
         }
         std::cout << "sound_pump active=" << (soundLatch_.active ? 1 : 0)
@@ -4176,15 +6847,886 @@ public:
                       << " fallback_record_index=" << fallbackIndex
                       << " samples=" << samples.size() << '\n';
         }
-        if (!isDirectSoundSweep(0xea74) || !isDirectSoundSweep(0xea7e) ||
-            !isDirectSoundSweep(0xea88) || !isDirectSoundSweep(0xeace) ||
-            soundIndexForOffsetFallback(0xea74, 4) != 0 ||
-            soundIndexForOffsetFallback(0xea7e, 5) != 1 ||
-            soundIndexForOffsetFallback(0xea88, 6) != 2 ||
-            soundIndexForOffsetFallback(0xeace, 7) != 3) {
+        if (!std::all_of(kExplosionDirectSweepSoundOffsets.begin(),
+                         kExplosionDirectSweepSoundOffsets.end(),
+                         [&](uint16_t offset) { return isDirectSoundSweep(offset); }) ||
+            soundIndexForOffsetFallback(kExplosionDirectSweepSoundOffsets[0], 4) != 0 ||
+            soundIndexForOffsetFallback(kExplosionDirectSweepSoundOffsets[1], 5) != 1 ||
+            soundIndexForOffsetFallback(kExplosionDirectSweepSoundOffsets[2], 6) != 2 ||
+            soundIndexForOffsetFallback(kExplosionDirectSweepSoundOffsets[3], 7) != 3) {
             throw std::runtime_error("explosion selector map mismatch");
         }
         std::cout << "sound_selector_map=ok\n";
+    }
+
+    void debugStaticSoundRequests() {
+        struct StaticSoundWrite {
+            uint16_t offset;
+            uint16_t cursor;
+        };
+        struct MappedStaticSoundWrite {
+            uint16_t offset;
+            const char* label;
+        };
+        struct UnresolvedStaticSoundWrite {
+            uint16_t offset;
+            const char* label;
+        };
+        static const std::array<StaticSoundWrite, 27> kExpectedWrites{{
+            {0x1857, 0x0078}, {0x1a44, 0x0008}, {0x1d9c, 0x003d},
+            {0x202d, 0x0021}, {0x2083, 0x0024}, {0x2c04, 0x0078},
+            {0x30b1, 0x0056}, {0x41a9, 0xea74}, {0x41ed, 0xea7e},
+            {0x4231, 0xea88}, {0x431d, 0xeace}, {0x49bd, 0x0027},
+            {0x4b2c, 0x0021}, {0x4d3c, 0x2710}, {0x4dd3, 0x2710},
+            {0x557b, 0xea74}, {0x575d, 0x0027}, {0x5a0e, 0x001a},
+            {0x5c9e, 0x003d}, {0x5e81, 0x0069}, {0x6844, 0x0024},
+            {0x6924, 0x0035}, {0x6e34, 0x0012}, {0x6f82, 0x0008},
+            {0x7386, 0x0021}, {0x789c, 0x0001}, {0x7f84, 0x002d},
+        }};
+        static const std::array<MappedStaticSoundWrite, 15> kMappedWrites{{
+            {0x1857, "record_name_prompt"},
+            {0x1a44, "record_name_commit"},
+            {0x2083, "records_page"},
+            {0x30b1, "player_death"},
+            {0x41a9, "explosion_small"},
+            {0x41ed, "explosion_medium"},
+            {0x4231, "explosion_large"},
+            {0x431d, "explosion_super"},
+            {0x557b, "bomb_place"},
+            {0x575d, "tile_trigger"},
+            {0x5a0e, "portal_teleport"},
+            {0x5c9e, "monster_death"},
+            {0x6e34, "bomb_object_high"},
+            {0x6f82, "bonus_pickup"},
+            {0x7f84, "player_damage"},
+        }};
+        static const std::array<UnresolvedStaticSoundWrite, 12> kUnresolvedWrites{{
+            {0x1d9c, "post_end_flow_record_region"},
+            {0x202d, "record_table_cursor_only"},
+            {0x2c04, "cursor_0078_priority11"},
+            {0x49bd, "cursor_0027_priority5"},
+            {0x4b2c, "collapse_playback_rejected"},
+            {0x4d3c, "cursor_2710"},
+            {0x4dd3, "cursor_2710"},
+            {0x5e81, "cursor_0069_priority4"},
+            {0x6844, "cursor_0024_priority2"},
+            {0x6924, "non_objective_tile_gate_rejected"},
+            {0x7386, "cursor_0021_priority1"},
+            {0x789c, "cursor_0001_no_latch"},
+        }};
+
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for sound scan");
+        }
+        size_t imageSize = exeBytes.size() - imageBase;
+        std::vector<StaticSoundWrite> writes;
+        for (size_t off = 0; off + 6 <= imageSize; ++off) {
+            size_t p = imageBase + off;
+            if (exeBytes[p] == 0xc7 && exeBytes[p + 1] == 0x06 &&
+                exeBytes[p + 2] == 0x74 && exeBytes[p + 3] == 0x20) {
+                writes.push_back({
+                    static_cast<uint16_t>(off),
+                    le16(exeBytes, p + 4),
+                });
+            }
+        }
+        if (writes.size() != kExpectedWrites.size()) {
+            throw std::runtime_error("static sound request write count changed");
+        }
+        for (size_t i = 0; i < writes.size(); ++i) {
+            if (writes[i].offset != kExpectedWrites[i].offset ||
+                writes[i].cursor != kExpectedWrites[i].cursor) {
+                throw std::runtime_error("static sound request table changed");
+            }
+        }
+
+        auto nearLatchCallCount = [&](uint16_t offset) {
+            int count = 0;
+            for (size_t relOff = 0; relOff < 160; ++relOff) {
+                size_t callOff = static_cast<size_t>(offset) + relOff;
+                size_t p = imageBase + callOff;
+                if (p + 3 > exeBytes.size() || exeBytes[p] != 0xe8) continue;
+                uint16_t rawRel = le16(exeBytes, p + 1);
+                int signedRel = rawRel >= 0x8000u
+                                    ? static_cast<int>(rawRel) - 0x10000
+                                    : static_cast<int>(rawRel);
+                uint16_t target = static_cast<uint16_t>(callOff + 3 + signedRel);
+                if (target == 0x165a) ++count;
+            }
+            return count;
+        };
+        auto nearPriorityWrite = [&](uint16_t offset) {
+            for (size_t relOff = 0; relOff < 160; ++relOff) {
+                size_t p = imageBase + static_cast<size_t>(offset) + relOff;
+                if (p + 5 > exeBytes.size()) break;
+                if (exeBytes[p] == 0xc6 && exeBytes[p + 1] == 0x06 &&
+                    exeBytes[p + 2] == 0x9f && exeBytes[p + 3] == 0x79) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        auto priorityAt = [&](uint16_t offset) {
+            size_t p = imageBase + offset;
+            if (p + 5 > exeBytes.size() || exeBytes[p] != 0xc6 ||
+                exeBytes[p + 1] != 0x06 || exeBytes[p + 2] != 0x9f ||
+                exeBytes[p + 3] != 0x79) {
+                throw std::runtime_error("expected static priority write missing");
+            }
+            return exeBytes[p + 4];
+        };
+
+        int latchCandidates = 0;
+        int latchRefs = 0;
+        int priorityCandidates = 0;
+        int directSweepWrites = 0;
+        int mappedWrites = 0;
+        std::ostringstream list;
+        std::ostringstream mappedLabels;
+        std::ostringstream unresolvedCandidates;
+        std::ostringstream unresolvedLabels;
+        for (size_t i = 0; i < writes.size(); ++i) {
+            int calls = nearLatchCallCount(writes[i].offset);
+            if (calls > 0) ++latchCandidates;
+            latchRefs += calls;
+            if (nearPriorityWrite(writes[i].offset)) ++priorityCandidates;
+            if (isDirectSoundSweep(writes[i].cursor)) ++directSweepWrites;
+            auto mappedIt = std::find_if(
+                kMappedWrites.begin(), kMappedWrites.end(),
+                [&](const MappedStaticSoundWrite& mapped) {
+                    return mapped.offset == writes[i].offset;
+                });
+            if (mappedIt != kMappedWrites.end()) {
+                ++mappedWrites;
+                if (mappedLabels.tellp() > 0) mappedLabels << ',';
+                mappedLabels << hex4(mappedIt->offset) << ':' << mappedIt->label;
+            } else {
+                auto unresolvedIt = std::find_if(
+                    kUnresolvedWrites.begin(), kUnresolvedWrites.end(),
+                    [&](const UnresolvedStaticSoundWrite& unresolved) {
+                        return unresolved.offset == writes[i].offset;
+                    });
+                if (unresolvedIt == kUnresolvedWrites.end()) {
+                    throw std::runtime_error("unclassified static sound write");
+                }
+                if (unresolvedCandidates.tellp() > 0) unresolvedCandidates << ',';
+                unresolvedCandidates << hex4(writes[i].offset);
+                if (unresolvedLabels.tellp() > 0) unresolvedLabels << ',';
+                unresolvedLabels << hex4(unresolvedIt->offset) << ':'
+                                 << unresolvedIt->label;
+            }
+            if (i != 0) list << ',';
+            list << hex4(writes[i].offset) << ':' << hex4(writes[i].cursor);
+        }
+        if (latchCandidates != 21 || latchRefs != 22 ||
+            priorityCandidates != 21 || directSweepWrites != 5 ||
+            mappedWrites != static_cast<int>(kMappedWrites.size()) ||
+            priorityAt(0x185d) != kRecordNamePromptSoundPriority ||
+            nearLatchCallCount(0x1857) != 1 ||
+            priorityAt(0x1a4a) != kRecordNameCommitSoundPriority ||
+            nearLatchCallCount(0x1a44) != 1 ||
+            priorityAt(0x2089) != kRecordsPageSoundPriority ||
+            nearLatchCallCount(0x2083) != 1 ||
+            priorityAt(0x5581) != kBombPlaceSoundPriority ||
+            nearLatchCallCount(0x557b) != 1 ||
+            priorityAt(0x5ca4) != kMonsterDeathSoundPriority ||
+            nearLatchCallCount(0x5c9e) != 1) {
+            throw std::runtime_error("static sound request summary changed");
+        }
+        auto remainingHookList = [] {
+            std::ostringstream out;
+            for (size_t i = 0; i < kRemainingSoundCompatibilityHooks.size(); ++i) {
+                if (i != 0) out << ',';
+                out << kRemainingSoundCompatibilityHooks[i];
+            }
+            return out.str();
+        };
+        auto rejectedObjectiveCandidateList = [] {
+            std::ostringstream out;
+            for (size_t i = 0; i < kRejectedObjectiveSoundCandidates.size(); ++i) {
+                if (i != 0) out << ',';
+                const RejectedSoundCandidate& candidate =
+                    kRejectedObjectiveSoundCandidates[i];
+                out << hex4(candidate.offset) << ':' << candidate.reason;
+            }
+            return out.str();
+        };
+        std::string remainingHooks = remainingHookList();
+        std::string rejectedObjectiveCandidates = rejectedObjectiveCandidateList();
+        std::string mappedLabelList = mappedLabels.str();
+        std::string unresolvedCandidateList = unresolvedCandidates.str();
+        std::string unresolvedLabelList = unresolvedLabels.str();
+        if (remainingHooks != "objective_pickup,level_complete" ||
+            rejectedObjectiveCandidates !=
+                "0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,"
+                "0x6924:non_objective_tile_gate") {
+            throw std::runtime_error("sound compatibility recovery notes changed");
+        }
+        if (mappedLabelList !=
+                "0x1857:record_name_prompt,0x1a44:record_name_commit,"
+                "0x2083:records_page,0x30b1:player_death,"
+                "0x41a9:explosion_small,0x41ed:explosion_medium,"
+                "0x4231:explosion_large,0x431d:explosion_super,"
+                "0x557b:bomb_place,0x575d:tile_trigger,"
+                "0x5a0e:portal_teleport,0x5c9e:monster_death,"
+                "0x6e34:bomb_object_high,0x6f82:bonus_pickup,"
+                "0x7f84:player_damage" ||
+            unresolvedCandidateList !=
+                "0x1d9c,0x202d,0x2c04,0x49bd,0x4b2c,0x4d3c,"
+                "0x4dd3,0x5e81,0x6844,0x6924,0x7386,0x789c") {
+            throw std::runtime_error("static sound mapping ledger changed");
+        }
+        if (unresolvedLabelList !=
+                "0x1d9c:post_end_flow_record_region,"
+                "0x202d:record_table_cursor_only,"
+                "0x2c04:cursor_0078_priority11,"
+                "0x49bd:cursor_0027_priority5,"
+                "0x4b2c:collapse_playback_rejected,"
+                "0x4d3c:cursor_2710,"
+                "0x4dd3:cursor_2710,"
+                "0x5e81:cursor_0069_priority4,"
+                "0x6844:cursor_0024_priority2,"
+                "0x6924:non_objective_tile_gate_rejected,"
+                "0x7386:cursor_0021_priority1,"
+                "0x789c:cursor_0001_no_latch") {
+            throw std::runtime_error("static sound unresolved labels changed");
+        }
+
+        std::cout << "static_sound_requests=ok writes=" << writes.size()
+                  << " image_base=0x0770"
+                  << " latch=0x165a"
+                  << " latch_candidates=" << latchCandidates
+                  << " latch_refs=" << latchRefs
+                  << " priority_candidates=" << priorityCandidates
+                  << " direct_sweep=" << directSweepWrites
+                  << " mapped=" << mappedWrites
+                  << " unresolved=" << (static_cast<int>(writes.size()) - mappedWrites)
+                  << " record_prompt=" << hex4(0x1857) << ':'
+                  << hex4(kRecordNamePromptSoundCursor)
+                  << "/p" << static_cast<int>(kRecordNamePromptSoundPriority)
+                  << " record_commit=" << hex4(0x1a44) << ':'
+                  << hex4(kRecordNameCommitSoundCursor)
+                  << "/p" << static_cast<int>(kRecordNameCommitSoundPriority)
+                  << " records_page=" << hex4(0x2083) << ':'
+                  << hex4(kRecordsPageSoundCursor)
+                  << "/p" << static_cast<int>(kRecordsPageSoundPriority)
+                  << " bomb_place=" << hex4(0x557b) << ':' << hex4(kBombPlaceSoundCursor)
+                  << "/p" << static_cast<int>(kBombPlaceSoundPriority)
+                  << " monster_death=" << hex4(0x5c9e) << ':'
+                  << hex4(kMonsterDeathSoundCursor)
+                  << "/p" << static_cast<int>(kMonsterDeathSoundPriority)
+                  << " mapped_labels=" << mappedLabelList
+                  << " unresolved_candidates=" << unresolvedCandidateList
+                  << " unresolved_labels=" << unresolvedLabelList
+                  << " remaining_compat_hooks=" << remainingHooks
+                  << " rejected_objective_candidates="
+                  << rejectedObjectiveCandidates
+                  << " cursor_writes=" << list.str() << '\n';
+    }
+
+    void debugInputFireKeyModel() {
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for input key scan");
+        }
+
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " context extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " context bytes changed");
+                }
+            }
+        };
+        auto countBytes = [&](const std::string& hex) {
+            std::vector<uint8_t> needle = parseHexByteList(hex);
+            int count = 0;
+            for (size_t p = imageBase; p + needle.size() <= exeBytes.size(); ++p) {
+                if (std::equal(needle.begin(), needle.end(), exeBytes.begin() + p)) {
+                    ++count;
+                }
+            }
+            return count;
+        };
+
+        requireBytes(0x10bd, "3c 31 75 04 88 26 7b 1b",
+                     "player 1 fire make gate");
+        requireBytes(0x110f, "3c b1 75 04 88 26 7b 1b",
+                     "player 1 fire break gate");
+        requireBytes(0x10dd, "3c 52 75 04 88 26 80 1b",
+                     "player 2 fire make gate");
+        requireBytes(0x112f, "3c d2 75 04 88 26 80 1b",
+                     "player 2 fire break gate");
+
+        int p1GateRefs = countBytes("7b 1b");
+        int p2GateRefs = countBytes("80 1b");
+        if (p1GateRefs != 7 || p2GateRefs != 7) {
+            throw std::runtime_error("input fire key gate reference count changed");
+        }
+        if (!isPlayer1FireKey(SDLK_n) || !isPlayer1FireKey(SDLK_SPACE) ||
+            !isPlayer1FireKey(SDLK_RCTRL) || isPlayer1FireKey(SDLK_KP_0) ||
+            !isPlayer2FireKey(SDLK_KP_0) || !isPlayer2FireKey(SDLK_INSERT) ||
+            isPlayer2FireKey(SDLK_n)) {
+            throw std::runtime_error("SDL fire key compatibility mapping changed");
+        }
+
+        std::cout << "input_fire_key_model=ok"
+                  << " image_base=0x0770"
+                  << " handler=1000:1091"
+                  << " p1_gate=DS:1b7b"
+                  << " p1_make=0x31"
+                  << " p1_break=0xb1"
+                  << " p1_refs=" << p1GateRefs
+                  << " p1_sdl=n"
+                  << " p1_compat=space,rctrl"
+                  << " p2_gate=DS:1b80"
+                  << " p2_make=0x52"
+                  << " p2_break=0xd2"
+                  << " p2_refs=" << p2GateRefs
+                  << " p2_sdl=kp0,insert"
+                  << '\n';
+    }
+
+    void debugStaticSoundContexts() {
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for sound context scan");
+        }
+
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " context extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " context bytes changed");
+                }
+            }
+        };
+        auto imageContainsAscii = [&](const std::string& needle) {
+            std::vector<uint8_t> bytes(needle.begin(), needle.end());
+            return std::search(exeBytes.begin() + static_cast<long>(imageBase),
+                               exeBytes.end(), bytes.begin(), bytes.end()) != exeBytes.end();
+        };
+        auto priorityString = [](uint8_t priority) {
+            if (priority == 0) return std::string("deferred");
+            return std::string("p") + std::to_string(static_cast<int>(priority));
+        };
+
+        requireBytes(0x1857, "c7 06 74 20 78 00 c6 06 9f 79 0b e8 f5 fd",
+                     "name-entry 0x1857 sound write");
+        requireBytes(0x1a44, "c7 06 74 20 08 00 c6 06 9f 79 0b e8 08 fc",
+                     "name-entry 0x1a44 sound write");
+        requireBytes(0x1d42, "c2 02 00", "end-flow dispatcher return");
+        requireBytes(0x1d45, "09 66 6f 6e 74 73 2e 73 70 72 0b 62 6f 6d 62 61 20 62 6f 6e 75 73",
+                     "post-end-flow font/bonus strings");
+        requireBytes(0x1d9c, "c7 06 74 20 3d 00 c6 06 9f 79 0a e8 b0 f8",
+                     "post-end-flow 0x1d9c sound write");
+        requireBytes(0x202d, "c7 06 74 20 21 00 e8 24 f6",
+                     "record-table 0x202d sound write");
+        requireBytes(0x2083, "c7 06 74 20 24 00 c6 06 9f 79 02 e8 c9 f5",
+                     "record-table 0x2083 sound write");
+
+        if (!imageContainsAscii("inserisci il tuo nome;") ||
+            !imageContainsAscii("punteggi migliori") ||
+            !imageContainsAscii("bomba bonus")) {
+            throw std::runtime_error("record/menu sound context strings changed");
+        }
+        for (const StaticSoundContext& context : kRecordUiSoundContexts) {
+            if (context.offset >= kEndFlowDispatcherStart &&
+                context.offset <= kEndFlowDispatcherRet) {
+                throw std::runtime_error("record UI sound context overlaps end-flow dispatcher");
+            }
+        }
+        if (!(0x1d9c > kEndFlowDispatcherRet && 0x1d9c < 0x202d)) {
+            throw std::runtime_error("post-end-flow sound context ordering changed");
+        }
+
+        std::ostringstream recordContexts;
+        for (size_t i = 0; i < kRecordUiSoundContexts.size(); ++i) {
+            if (i != 0) recordContexts << ',';
+            const StaticSoundContext& context = kRecordUiSoundContexts[i];
+            recordContexts << hex4(context.offset) << ':' << hex4(context.cursor)
+                           << '/' << priorityString(context.priority) << ':'
+                           << context.context;
+        }
+
+        std::cout << "static_sound_contexts=ok"
+                  << " image_base=0x0770"
+                  << " end_flow_dispatcher=" << hex4(kEndFlowDispatcherStart)
+                  << ".." << hex4(kEndFlowDispatcherRet)
+                  << " first_post_end_flow_sound=" << hex4(0x1d9c)
+                  << " level_complete_static_candidate=none"
+                  << " record_ui_writes=" << recordContexts.str()
+                  << " strings=inserisci_il_tuo_nome,punteggi_migliori,bomba_bonus"
+                  << " remaining_compat_hooks=objective_pickup,level_complete"
+                  << '\n';
+    }
+
+    void debugStaticSoundUnresolvedContexts() {
+        struct UnresolvedContext {
+            uint16_t offset;
+            uint16_t cursor;
+            int priority;
+            uint16_t priorityOffset;
+            const char* priorityPlacement;
+            int expectedLocalLatchCalls;
+            const char* region;
+            const char* label;
+            const char* bytes;
+        };
+        static const std::array<UnresolvedContext, 12> kContexts{{
+            {0x1d9c, 0x003d, 10, 0x1da2, "inline", 1,
+             "record_ui", "post_end_flow_record_region",
+             "c7 06 74 20 3d 00 c6 06 9f 79 0a e8 b0 f8"},
+            {0x202d, 0x0021, -1, 0x0000, "none", 1,
+             "record_ui", "record_table_cursor_only",
+             "c7 06 74 20 21 00 e8 24 f6"},
+            {0x2c04, 0x0078, 11, 0x2c0a, "inline", 1,
+             "pre_new_game_setup", "cursor_0078_priority11",
+             "c7 06 74 20 78 00 c6 06 9f 79 0b e8 48 ea"},
+            {0x49bd, 0x0027, 5, 0x49c3, "inline", 1,
+             "explosion_playback", "cursor_0027_priority5",
+             "c7 06 74 20 27 00 c6 06 9f 79 05 e8 8f cc"},
+            {0x4b2c, 0x0021, 2, 0x4b27, "preceding", 1,
+             "explosion_playback", "collapse_playback_rejected",
+             "c7 06 74 20 21 00 e8 25 cb"},
+            {0x4d3c, 0x2710, -1, 0x0000, "none", 0,
+             "effect_extent_scan", "cursor_2710",
+             "c7 06 74 20 10 27 c7 06 72 20 00 00 c6 06 1e 66 00"},
+            {0x4dd3, 0x2710, -1, 0x0000, "none", 0,
+             "effect_extent_scan", "cursor_2710",
+             "c7 06 74 20 10 27 c7 06 72 20 00 00 c6 06 1e 66 00"},
+            {0x5e81, 0x0069, 4, 0x5e87, "inline", 1,
+             "contact_scanner", "cursor_0069_priority4",
+             "c7 06 74 20 69 00 c6 06 9f 79 04 e8 cb b7"},
+            {0x6844, 0x0024, 2, 0x684a, "inline", 1,
+             "actor_update", "cursor_0024_priority2",
+             "c7 06 74 20 24 00 c6 06 9f 79 02 e8 08 ae"},
+            {0x6924, 0x0035, 5, 0x692a, "inline", 1,
+             "actor_update", "non_objective_tile_gate_rejected",
+             "c7 06 74 20 35 00 c6 06 9f 79 05 e8 28 ad"},
+            {0x7386, 0x0021, 1, 0x7381, "preceding", 1,
+             "actor_update", "cursor_0021_priority1",
+             "c7 06 74 20 21 00 e8 cb a2"},
+            {0x789c, 0x0001, -1, 0x0000, "none", 0,
+             "post_actor_update_no_latch", "cursor_0001_no_latch",
+             "c7 06 74 20 01 00 eb 04 ff 06 74 20"},
+        }};
+
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for unresolved sound scan");
+        }
+
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " bytes changed");
+                }
+            }
+        };
+        auto localLatchCallCount = [&](uint16_t offset) {
+            int count = 0;
+            for (size_t relOff = 0; relOff < 24; ++relOff) {
+                size_t callOff = static_cast<size_t>(offset) + relOff;
+                size_t p = imageBase + callOff;
+                if (p + 3 > exeBytes.size() || exeBytes[p] != 0xe8) continue;
+                uint16_t rawRel = le16(exeBytes, p + 1);
+                int signedRel = rawRel >= 0x8000u
+                                    ? static_cast<int>(rawRel) - 0x10000
+                                    : static_cast<int>(rawRel);
+                uint16_t target = static_cast<uint16_t>(callOff + 3 + signedRel);
+                if (target == 0x165a) ++count;
+            }
+            return count;
+        };
+        auto requirePriority = [&](const UnresolvedContext& context) {
+            if (context.priority < 0) return;
+            size_t p = imageBase + context.priorityOffset;
+            if (p + 5 > exeBytes.size() || exeBytes[p] != 0xc6 ||
+                exeBytes[p + 1] != 0x06 || exeBytes[p + 2] != 0x9f ||
+                exeBytes[p + 3] != 0x79 ||
+                exeBytes[p + 4] != static_cast<uint8_t>(context.priority)) {
+                throw std::runtime_error(std::string(context.label) +
+                                         " priority bytes changed");
+            }
+        };
+
+        int localLatch = 0;
+        int localLatchRefs = 0;
+        int inlinePriority = 0;
+        int precedingPriority = 0;
+        int noPriority = 0;
+        int noLatch = 0;
+        int directSweep = 0;
+        int cursor2710 = 0;
+        std::map<std::string, int> regionCounts;
+        std::ostringstream contexts;
+        for (size_t i = 0; i < kContexts.size(); ++i) {
+            const UnresolvedContext& context = kContexts[i];
+            requireBytes(context.offset, context.bytes, context.label);
+            requirePriority(context);
+            ++regionCounts[context.region];
+            int calls = localLatchCallCount(context.offset);
+            if (calls != context.expectedLocalLatchCalls) {
+                throw std::runtime_error(std::string(context.label) +
+                                         " local latch call count changed");
+            }
+            if (calls > 0) ++localLatch;
+            else ++noLatch;
+            localLatchRefs += calls;
+            if (std::string(context.priorityPlacement) == "inline") {
+                ++inlinePriority;
+            } else if (std::string(context.priorityPlacement) == "preceding") {
+                ++precedingPriority;
+            } else {
+                ++noPriority;
+            }
+            if (isDirectSoundSweep(context.cursor)) ++directSweep;
+            if (context.cursor == 0x2710) ++cursor2710;
+
+            if (i != 0) contexts << ',';
+            contexts << hex4(context.offset) << ':' << hex4(context.cursor) << '/';
+            if (context.priority >= 0) {
+                contexts << 'p' << context.priority;
+            } else {
+                contexts << "no_priority";
+            }
+            contexts << ':' << context.priorityPlacement
+                     << ":latch" << calls << ':' << context.region << ':'
+                     << context.label;
+        }
+
+        auto regionCountText = [&] {
+            std::ostringstream out;
+            bool first = true;
+            for (const auto& entry : regionCounts) {
+                if (!first) out << ',';
+                first = false;
+                out << entry.first << ':' << entry.second;
+            }
+            return out.str();
+        };
+        std::string contextList = contexts.str();
+        std::string regionCountsList = regionCountText();
+        if (localLatch != 9 || localLatchRefs != 9 || inlinePriority != 6 ||
+            precedingPriority != 2 || noPriority != 4 || noLatch != 3 ||
+            directSweep != 0 || cursor2710 != 2) {
+            throw std::runtime_error("unresolved static sound context summary changed");
+        }
+        if (regionCountsList !=
+                "actor_update:3,contact_scanner:1,effect_extent_scan:2,"
+                "explosion_playback:2,post_actor_update_no_latch:1,"
+                "pre_new_game_setup:1,record_ui:2") {
+            throw std::runtime_error("unresolved static sound region counts changed");
+        }
+        if (contextList !=
+                "0x1d9c:0x003d/p10:inline:latch1:record_ui:post_end_flow_record_region,"
+                "0x202d:0x0021/no_priority:none:latch1:record_ui:record_table_cursor_only,"
+                "0x2c04:0x0078/p11:inline:latch1:pre_new_game_setup:cursor_0078_priority11,"
+                "0x49bd:0x0027/p5:inline:latch1:explosion_playback:cursor_0027_priority5,"
+                "0x4b2c:0x0021/p2:preceding:latch1:explosion_playback:collapse_playback_rejected,"
+                "0x4d3c:0x2710/no_priority:none:latch0:effect_extent_scan:cursor_2710,"
+                "0x4dd3:0x2710/no_priority:none:latch0:effect_extent_scan:cursor_2710,"
+                "0x5e81:0x0069/p4:inline:latch1:contact_scanner:cursor_0069_priority4,"
+                "0x6844:0x0024/p2:inline:latch1:actor_update:cursor_0024_priority2,"
+                "0x6924:0x0035/p5:inline:latch1:actor_update:non_objective_tile_gate_rejected,"
+                "0x7386:0x0021/p1:preceding:latch1:actor_update:cursor_0021_priority1,"
+                "0x789c:0x0001/no_priority:none:latch0:post_actor_update_no_latch:cursor_0001_no_latch") {
+            throw std::runtime_error("unresolved static sound context list changed");
+        }
+
+        std::cout << "static_sound_unresolved_contexts=ok"
+                  << " writes=" << kContexts.size()
+                  << " image_base=0x0770"
+                  << " latch=0x165a"
+                  << " local_latch=" << localLatch
+                  << " local_latch_refs=" << localLatchRefs
+                  << " inline_priority=" << inlinePriority
+                  << " preceding_priority=" << precedingPriority
+                  << " no_priority=" << noPriority
+                  << " no_latch=" << noLatch
+                  << " direct_sweep=" << directSweep
+                  << " cursor_2710=" << cursor2710
+                  << " region_counts=" << regionCountsList
+                  << " contexts=" << contextList
+                  << '\n';
+    }
+
+    void debugRemainingSoundCompatibilityHooks() {
+        load();
+        resetLevel(0);
+
+        traceCompatibilitySoundAttempts_ = true;
+        compatibilitySoundAttempts_.clear();
+        std::array<int, 2> objectiveProbe = findSingleObjectiveProbeForSmoke();
+        player_.x = static_cast<float>(objectiveProbe[0]);
+        player_.y = static_cast<float>(objectiveProbe[1]);
+        int collectedBefore = collected_;
+        uint32_t scoreBefore = score_;
+        clearSoundLatch();
+        collectObjectiveTiles(player_, 1);
+        bool objectiveLatchActive = soundLatch_.active;
+        if (compatibilitySoundAttempts_.size() != 1) {
+            throw std::runtime_error("objective pickup compatibility sound call count mismatch");
+        }
+        CompatibilitySoundAttempt objectiveAttempt = compatibilitySoundAttempts_.front();
+        if (objectiveAttempt.index != kCompatibilityObjectivePickupSound ||
+            objectiveAttempt.cursor != compatibilitySoundCursor(kCompatibilityObjectivePickupSound) ||
+            collected_ != collectedBefore + 1 ||
+            score_ != scoreBefore + 1000u ||
+            objectiveLatchActive) {
+            throw std::runtime_error("objective pickup compatibility sound route mismatch");
+        }
+        int collectedDelta = collected_ - collectedBefore;
+        uint32_t scoreDelta = score_ - scoreBefore;
+
+        traceCompatibilitySoundAttempts_ = false;
+        resetLevel(0);
+        collectAllObjectiveTilesForSmoke();
+        damageRequiredTilesForSmoke();
+        if (!isComplete()) {
+            throw std::runtime_error("level-complete compatibility fixture is incomplete");
+        }
+
+        traceCompatibilitySoundAttempts_ = true;
+        compatibilitySoundAttempts_.clear();
+        clearSoundLatch();
+        int startLevel = levelIndex_;
+        updateLevelCompletion();
+        bool levelLatchActive = soundLatch_.active;
+        size_t callsFirstTick = compatibilitySoundAttempts_.size();
+        if (callsFirstTick != 1) {
+            throw std::runtime_error("level-complete compatibility sound call count mismatch");
+        }
+        CompatibilitySoundAttempt levelAttempt = compatibilitySoundAttempts_.front();
+        if (levelAttempt.index != kCompatibilityLevelCompleteSound ||
+            levelAttempt.cursor != compatibilitySoundCursor(kCompatibilityLevelCompleteSound) ||
+            levelLatchActive) {
+            throw std::runtime_error("level-complete compatibility sound route mismatch");
+        }
+
+        compatibilitySoundAttempts_.clear();
+        int completionTicksAfterFirst = 0;
+        while (levelIndex_ == startLevel && completionTicksAfterFirst <= 120) {
+            updateLevelCompletion();
+            ++completionTicksAfterFirst;
+        }
+        size_t repeatCalls = compatibilitySoundAttempts_.size();
+        traceCompatibilitySoundAttempts_ = false;
+        if (repeatCalls != 0 || levelIndex_ != startLevel + 1) {
+            throw std::runtime_error("level-complete compatibility sound repeat/advance mismatch");
+        }
+
+        std::cout << "remaining_sound_compat_hooks=ok"
+                  << " live_hooks=2"
+                  << " objective_pickup=index" << objectiveAttempt.index
+                  << "/cursor" << hex4(objectiveAttempt.cursor)
+                  << " collected_delta=" << collectedDelta
+                  << " score_delta=" << scoreDelta
+                  << " latch_active=" << (objectiveLatchActive ? 1 : 0)
+                  << " level_complete=index" << levelAttempt.index
+                  << "/cursor" << hex4(levelAttempt.cursor)
+                  << " calls_first_tick=" << callsFirstTick
+                  << " repeat_calls=" << repeatCalls
+                  << " advanced_level=" << (levelIndex_ + 1)
+                  << " latch_active=" << (levelLatchActive ? 1 : 0)
+                  << " original_cursor_priority_claim=0\n";
+    }
+
+    void debugRecordNameSoundRouting(const std::string& path) {
+        load();
+        recordPath_ = path;
+        saveRecords(recordPath_, records_);
+        clearSoundLatch();
+        lastPumpedSoundOffset_ = 0;
+        lastPumpedSoundSelector_ = 0;
+
+        score_ = 999999u;
+        levelIndex_ = 0;
+        beginGameOver();
+        if (menuPage_ != MenuPage::NameEntry ||
+            !soundLatch_.active ||
+            soundLatch_.latchedOffset != kRecordNamePromptSoundCursor ||
+            soundLatch_.currentSelector != kRecordNamePromptSoundPriority ||
+            soundLatch_.directSweep) {
+            throw std::runtime_error("record name prompt sound request mismatch");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active ||
+            lastPumpedSoundOffset_ != kRecordNamePromptSoundCursor ||
+            lastPumpedSoundSelector_ != kRecordNamePromptSoundPriority) {
+            throw std::runtime_error("record name prompt sound pump mismatch");
+        }
+
+        bool running = true;
+        onKey(SDLK_o, running);
+        onKey(SDLK_k, running);
+        onKey(SDLK_RETURN, running);
+        if (menuPage_ != MenuPage::Records ||
+            !soundLatch_.active ||
+            soundLatch_.latchedOffset != kRecordNameCommitSoundCursor ||
+            soundLatch_.currentSelector != kRecordNameCommitSoundPriority ||
+            soundLatch_.directSweep) {
+            throw std::runtime_error("record name commit sound request mismatch");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active ||
+            lastPumpedSoundOffset_ != kRecordNameCommitSoundCursor ||
+            lastPumpedSoundSelector_ != kRecordNameCommitSoundPriority) {
+            throw std::runtime_error("record name commit sound pump mismatch");
+        }
+
+        auto reloaded = loadRecords(recordPath_);
+        if (reloaded.empty() || reloaded[0].score != 999999u ||
+            reloaded[0].name != "ok") {
+            throw std::runtime_error("record name sound route did not commit record");
+        }
+
+        std::cout << "record_name_sound=ok"
+                  << " prompt_cursor=" << hex4(kRecordNamePromptSoundCursor)
+                  << " prompt_priority="
+                  << static_cast<int>(kRecordNamePromptSoundPriority)
+                  << " commit_cursor=" << hex4(kRecordNameCommitSoundCursor)
+                  << " commit_priority="
+                  << static_cast<int>(kRecordNameCommitSoundPriority)
+                  << " direct_sweep=0"
+                  << " ghidra_prompt=1000:1857"
+                  << " ghidra_commit=1000:1a44"
+                  << " latch=1000:165a"
+                  << '\n';
+    }
+
+    void debugRecordsPageSoundRouting() {
+        load();
+        clearSoundLatch();
+        lastPumpedSoundOffset_ = 0;
+        lastPumpedSoundSelector_ = 0;
+
+        bool running = true;
+        if (!menu_ || menuPage_ != MenuPage::Main) {
+            throw std::runtime_error("records page sound route did not start in menu");
+        }
+        onKey(SDLK_r, running);
+        if (!running || !menu_ || menuPage_ != MenuPage::Records ||
+            !soundLatch_.active ||
+            soundLatch_.latchedOffset != kRecordsPageSoundCursor ||
+            soundLatch_.currentSelector != kRecordsPageSoundPriority ||
+            soundLatch_.directSweep) {
+            throw std::runtime_error("records page sound request mismatch");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active ||
+            lastPumpedSoundOffset_ != kRecordsPageSoundCursor ||
+            lastPumpedSoundSelector_ != kRecordsPageSoundPriority) {
+            throw std::runtime_error("records page sound pump mismatch");
+        }
+
+        std::cout << "records_page_sound=ok"
+                  << " cursor=" << hex4(kRecordsPageSoundCursor)
+                  << " priority=" << static_cast<int>(kRecordsPageSoundPriority)
+                  << " direct_sweep=0"
+                  << " ghidra=1000:2083"
+                  << " latch=1000:165a"
+                  << " string=punteggi_migliori"
+                  << '\n';
+    }
+
+    void debugBombPlaceSoundRouting() {
+        load();
+        resetLevel(0);
+        bombInventory_.selected = BombType::Small;
+        grantNormalBombSet(bombInventory_);
+        clearSoundLatch();
+        size_t beforeBombs = bombs_.size();
+        int beforeSmallBombs = bombInventory_.counts[0];
+        placeBombAt(player_, bombInventory_, 1);
+        if (bombs_.size() != beforeBombs + 1 ||
+            bombInventory_.counts[0] != beforeSmallBombs - 1 ||
+            !soundLatch_.active ||
+            soundLatch_.latchedOffset != kBombPlaceSoundCursor ||
+            soundLatch_.currentSelector != kBombPlaceSoundPriority ||
+            !soundLatch_.directSweep) {
+            throw std::runtime_error("bomb placement sound request mismatch");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active ||
+            lastPumpedSoundOffset_ != kBombPlaceSoundCursor ||
+            lastPumpedSoundSelector_ != kBombPlaceSoundPriority) {
+            throw std::runtime_error("bomb placement sound pump mismatch");
+        }
+        std::cout << "bomb_place_sound=ok cursor=" << hex4(kBombPlaceSoundCursor)
+                  << " priority=" << static_cast<int>(kBombPlaceSoundPriority)
+                  << " direct_sweep=1 placed=1 pumped=1"
+                  << " ghidra=1000:557b latch=1000:165a\n";
+    }
+
+    void debugMonsterDeathSoundRouting() {
+        load();
+        resetLevel(0);
+        ActiveMonster monster;
+        monster.x = 40;
+        monster.y = 24;
+        monster.kind = 1;
+        monster.behavior = 3;
+        monster.hp = 1;
+        refreshMonsterAnimationProfile(monster);
+        clearSoundLatch();
+        enterMonsterDeath(monster);
+        if (monster.behavior != 2 || monster.stateTimer != 25 ||
+            !soundLatch_.active ||
+            soundLatch_.latchedOffset != kMonsterDeathSoundCursor ||
+            soundLatch_.currentSelector != kMonsterDeathSoundPriority ||
+            soundLatch_.directSweep) {
+            throw std::runtime_error("monster death sound request mismatch");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active ||
+            lastPumpedSoundOffset_ != kMonsterDeathSoundCursor ||
+            lastPumpedSoundSelector_ != kMonsterDeathSoundPriority) {
+            throw std::runtime_error("monster death sound pump mismatch");
+        }
+        std::cout << "monster_death_sound=ok cursor="
+                  << hex4(kMonsterDeathSoundCursor)
+                  << " priority=" << static_cast<int>(kMonsterDeathSoundPriority)
+                  << " direct_sweep=0 state=2 death_ticks=" << monster.stateTimer
+                  << " reward=1 pumped=1 ghidra=1000:5c9e latch=1000:165a\n";
     }
 
     void debugBombObjectSoundRouting() {
@@ -4292,7 +7834,7 @@ public:
         damageCooldown_ = 0;
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
-        if (energy_ != 100 || !playerDead_ || lives_ != 2 ||
+        if (energy_ != 100 || !playerDead_ || lives_ != 3 || !pendingLifeLoss_ ||
             reentryTimer_ != kReentryTicks || !soundLatch_.active ||
             soundLatch_.latchedOffset != kPlayerDeathSoundCursor ||
             soundLatch_.currentSelector != kPlayerDeathSoundPriority) {
@@ -4310,6 +7852,7 @@ public:
                   << " death_energy=" << energy_
                   << " dead=" << (playerDead_ ? 1 : 0)
                   << " lives=" << lives_
+                  << " pending_life_loss=" << (pendingLifeLoss_ ? 1 : 0)
                   << " cursor=" << std::showbase << std::hex
                   << kPlayerDamageSoundCursor << std::dec << std::noshowbase
                   << " priority=" << static_cast<int>(kPlayerDamageSoundPriority)
@@ -4385,7 +7928,7 @@ public:
         deathStateTimer_ = 0;
         queuePlayerDamage(1, 2);
         drainPlayerDamageCounters();
-        if (!playerDead_ || lives_ != 2 || energy_ != 100 ||
+        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ || energy_ != 100 ||
             deathStateTimer_ != kDeathStateTicks || pendingDamage_ != 0 ||
             !soundLatch_.active ||
             soundLatch_.latchedOffset != kPlayerDeathSoundCursor ||
@@ -4416,6 +7959,7 @@ public:
                   << " death_dispatch=" << (underflow.deathDispatch ? 1 : 0)
                   << " live_p1_energy=97 live_p2_energy=98"
                   << " live_underflow_dead=1 live_state2_energy=100"
+                  << " live_pending_life_loss=1"
                   << '\n';
     }
 
@@ -4434,7 +7978,7 @@ public:
         clearSoundLatch();
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
-        if (!playerDead_ || lives_ != 2 || energy_ != 100 ||
+        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ || energy_ != 100 ||
             reentryTimer_ != kReentryTicks ||
             deathStateTimer_ != kDeathStateTicks ||
             player_.vx != 0.0f || player_.vy != 0.0f || player_.grounded ||
@@ -4445,7 +7989,7 @@ public:
         pumpSoundLatch();
         tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                          damageCooldown_, 1);
-        if (!playerDead_ || lives_ != 2 || energy_ != 100 ||
+        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ || energy_ != 100 ||
             reentryTimer_ != kReentryTicks ||
             deathStateTimer_ != kDeathStateTicks || damageCooldown_ != 0) {
             throw std::runtime_error("player state-2 early reentry was accepted");
@@ -4456,7 +8000,8 @@ public:
         }
         tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                          damageCooldown_, 1);
-        if (!playerDead_ || deathStateTimer_ != 1) {
+        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ ||
+            deathStateTimer_ != 1) {
             throw std::runtime_error("player state-2 59-tick gate mismatch");
         }
         updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
@@ -4480,20 +8025,23 @@ public:
         deathStateTimer2_ = 0;
         damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
                      damageCooldown2_, 2);
-        if (menu_ || playerDead_ || !player2Dead_ || lives_ != 3 || lives2_ != 0 ||
-            energy2_ != 100 || reentryTimer2_ != 0 ||
+        if (menu_ || playerDead_ || !player2Dead_ || lives_ != 3 || lives2_ != 1 ||
+            !pendingLifeLoss2_ || energy2_ != 100 || reentryTimer2_ != kReentryTicks ||
             deathStateTimer2_ != kDeathStateTicks) {
             throw std::runtime_error("player 2 zero-life state-2 fields mismatch");
         }
-        updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
-                      playerDead_);
-        if (menu_ || !player2Dead_ || lives2_ != 0 ||
-            deathStateTimer2_ != 0x003b) {
+        for (int i = 0; i < kDeathStateTicks; ++i) {
+            updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
+                          playerDead_);
+        }
+        if (menu_ || !player2Dead_ || lives2_ != 0 || pendingLifeLoss2_ ||
+            deathStateTimer2_ != 0 || reentryTimer2_ != 0) {
             throw std::runtime_error("player 2 zero-life state-2 timer mismatch");
         }
 
         std::cout << "player_state2_death_fields=ok reentry_dead=1"
-                  << " reentry_lives=2 reentry_energy=100"
+                  << " reentry_lives_during_countdown=3 reentry_lives_after=2"
+                  << " reentry_energy=100 pending_life_loss=1"
                   << " reentry_timer=" << kReentryTicks
                   << " death_state_timer=60 vx=0 vy=0 grounded=0"
                   << " death_cursor=" << std::showbase << std::hex
@@ -4501,8 +8049,9 @@ public:
                   << " death_priority=" << static_cast<int>(kPlayerDeathSoundPriority)
                   << " early_reentry_blocked=1 after_59_blocked=1 reentered=1"
                   << " cooldown=" << kDamageCooldownTicks
-                  << " zero_lives=0 zero_timer=0"
-                  << " zero_death_state_after_tick=59 no_gameover_with_p1=1\n";
+                  << " zero_lives_during_countdown=1 zero_lives_after=0"
+                  << " zero_timer=0 zero_death_state_after_60=0"
+                  << " no_gameover_with_p1=1\n";
     }
 
     void debugOriginalState2ReturnModel() {
@@ -4518,6 +8067,7 @@ public:
 
             std::array<PlayerSlot, 2> players{};
             uint8_t activePlayers = 2;
+            uint8_t fallbackCounter = 0;
 
             void tick(int player) {
                 if (players.at(player).countdown > 0) --players.at(player).countdown;
@@ -4542,6 +8092,19 @@ public:
                 PlayerSlot& slot = players.at(player);
                 if (slot.status != 0 && activePlayers > 0) --activePlayers;
                 slot.status = 0;
+            }
+
+            bool fallbackNoActivePlayers() {
+                if (activePlayers != 0) return false;
+                ++fallbackCounter;
+                bool promoted = false;
+                for (PlayerSlot& slot : players) {
+                    if (slot.status == 2) {
+                        slot.status = 1;
+                        promoted = true;
+                    }
+                }
+                return promoted;
             }
         };
 
@@ -4569,6 +8132,18 @@ public:
         uint8_t activeAfterP2Out = outModel.activePlayers;
         outModel.markOut(0);
 
+        ReturnModel fallbackBlockedModel;
+        fallbackBlockedModel.activePlayers = 1;
+        bool fallbackBlocked = !fallbackBlockedModel.fallbackNoActivePlayers();
+
+        ReturnModel fallbackModel;
+        fallbackModel.activePlayers = 0;
+        fallbackModel.players[0].status = 2;
+        fallbackModel.players[1].status = 0;
+        fallbackModel.players[0].actorState = 2;
+        fallbackModel.players[0].energy = 77;
+        bool fallbackPromoted = fallbackModel.fallbackNoActivePlayers();
+
         if (after59 != 1 || after60 != 0 || !gate0Blocked ||
             !effectWaitBlocked || !placementBlocked || !gate1Restored ||
             !p1Restored || !p2Restored || playerModel.players[0].status != 1 ||
@@ -4580,7 +8155,12 @@ public:
             playerModel.players[0].keyByte || playerModel.players[0].otherKeyByte ||
             playerModel.players[1].keyByte || playerModel.players[1].otherKeyByte ||
             outModel.players[1].status != 0 || activeAfterP2Out != 1 ||
-            outModel.activePlayers != 0) {
+            outModel.activePlayers != 0 || !fallbackBlocked ||
+            !fallbackPromoted || fallbackModel.fallbackCounter != 1 ||
+            fallbackModel.players[0].status != 1 ||
+            fallbackModel.players[0].actorState != 2 ||
+            fallbackModel.players[0].energy != 77 ||
+            fallbackModel.players[1].status != 0) {
             throw std::runtime_error("original state-2 return model mismatch");
         }
 
@@ -4603,7 +8183,16 @@ public:
                   << " active_players_after_p2_out="
                   << static_cast<int>(activeAfterP2Out)
                   << " active_players_after_both_out="
-                  << static_cast<int>(outModel.activePlayers) << '\n';
+                  << static_cast<int>(outModel.activePlayers)
+                  << " fallback_blocked_with_active=1"
+                  << " fallback_counter="
+                  << static_cast<int>(fallbackModel.fallbackCounter)
+                  << " fallback_promoted_status="
+                  << static_cast<int>(fallbackModel.players[0].status)
+                  << " fallback_actor_state_preserved="
+                  << static_cast<int>(fallbackModel.players[0].actorState)
+                  << " fallback_energy_preserved="
+                  << static_cast<int>(fallbackModel.players[0].energy) << '\n';
     }
 
     void debugOriginalState2AnimationInit() {
@@ -4706,6 +8295,476 @@ public:
                   << " mode2_seq=4,3,2,3 mode2_final_step=1"
                   << " mode3_backup_frame=5 mode3_backup_mode=3"
                   << " mode0_unchanged=1 ghidra=1000:6053\n";
+    }
+
+    void debugOriginalState2VisualRowModel() {
+        constexpr uint8_t kDrawOffsetXByte = 0x10;
+        constexpr uint8_t kDrawOffsetYByte = 0x10;
+        constexpr uint8_t kStableRow2Byte = 0x7d;
+        constexpr uint8_t kFirstSpriteIndexByte = 0x43;
+        constexpr uint8_t kLastSpriteIndexByte = 0x48;
+
+        auto bareHex2 = [](uint8_t value) {
+            std::ostringstream oss;
+            oss << std::hex << std::nouppercase << std::setw(2)
+                << std::setfill('0') << static_cast<int>(value);
+            return oss.str();
+        };
+        auto prefixedHex2 = [&](uint8_t value) {
+            return std::string("0x") + bareHex2(value);
+        };
+        auto rowText = [&](const State2VisualRow& row) {
+            return bareHex2(row.frame) + ":" + bareHex2(row.row0) + "," +
+                   bareHex2(row.row1) + "," + bareHex2(row.row2) + "," +
+                   bareHex2(row.row3);
+        };
+
+        std::ostringstream rows;
+        std::ostringstream row0Sequence;
+        std::ostringstream row1Sequence;
+        std::ostringstream row2Sequence;
+        std::ostringstream row3Sequence;
+        std::ostringstream spriteCandidates;
+        for (uint8_t frame = kState2VisualStartFrame;
+             frame <= kState2VisualEndFrame; ++frame) {
+            State2VisualRow row;
+            if (!originalState2VisualRow(frame, row)) {
+                throw std::runtime_error("state-2 visual row missing");
+            }
+            const uint8_t expectedSpriteIndex =
+                static_cast<uint8_t>(kFirstSpriteIndexByte +
+                                     (frame - kState2VisualStartFrame));
+            if (row.row0 != kDrawOffsetXByte ||
+                row.row1 != kDrawOffsetYByte ||
+                row.row2 != kStableRow2Byte ||
+                row.row3 != expectedSpriteIndex) {
+                throw std::runtime_error("state-2 visual row field candidates changed");
+            }
+            if (frame != kState2VisualStartFrame) {
+                rows << ';';
+                row0Sequence << ',';
+                row1Sequence << ',';
+                row2Sequence << ',';
+                row3Sequence << ',';
+                spriteCandidates << ',';
+            }
+            rows << rowText(row);
+            row0Sequence << bareHex2(row.row0);
+            row1Sequence << bareHex2(row.row1);
+            row2Sequence << bareHex2(row.row2);
+            row3Sequence << bareHex2(row.row3);
+            spriteCandidates << static_cast<int>(row.row3);
+        }
+
+        State2VisualRow before;
+        State2VisualRow after;
+        if (originalState2VisualRow(0x49, before) ||
+            originalState2VisualRow(0x50, after)) {
+            throw std::runtime_error("state-2 visual row range guard mismatch");
+        }
+
+        std::cout << "original_state2_visual_row_model=ok"
+                  << " frame_range=0x4a..0x4f"
+                  << " rows=" << rows.str()
+                  << " row0_sequence=" << row0Sequence.str()
+                  << " row1_sequence=" << row1Sequence.str()
+                  << " row2_sequence=" << row2Sequence.str()
+                  << " row3_sequence=" << row3Sequence.str()
+                  << " sprite_bank=BOMOMIMK"
+                  << " sprite_source=row_byte3"
+                  << " sprite_candidates=" << spriteCandidates.str()
+                  << " field_candidates=row0_draw_x,row1_draw_y,row2_constant,row3_sprite_index"
+                  << " draw_offset_bytes=" << prefixedHex2(kDrawOffsetXByte)
+                  << ',' << prefixedHex2(kDrawOffsetYByte)
+                  << " draw_offset_candidate=16,16"
+                  << " row2_constant=" << prefixedHex2(kStableRow2Byte)
+                  << " row3_sprite_index_range="
+                  << prefixedHex2(kFirstSpriteIndexByte) << ".."
+                  << prefixedHex2(kLastSpriteIndexByte)
+                  << " range_guard=1"
+                  << " visual_claim=0"
+                  << " ghidra=1000:6053\n";
+    }
+
+    void debugOriginalState2VisualRowAssets() {
+        load();
+
+        struct SpriteMetrics {
+            int width = 0;
+            int height = 0;
+            int nonzero = 0;
+            int minX = 0;
+            int minY = 0;
+            int maxX = -1;
+            int maxY = -1;
+        };
+
+        auto metricsFor = [&](int index) {
+            if (index < 0 || index >= static_cast<int>(sprites_.sprites.size())) {
+                throw std::runtime_error("state-2 visual sprite index out of range");
+            }
+            const Sprite& sprite = sprites_.sprites[static_cast<size_t>(index)];
+            SpriteMetrics metrics;
+            metrics.width = sprite.width;
+            metrics.height = sprite.height;
+            metrics.minX = sprite.width;
+            metrics.minY = sprite.height;
+            for (int y = 0; y < sprite.height; ++y) {
+                for (int x = 0; x < sprite.width; ++x) {
+                    uint8_t pixelValue =
+                        sprite.pixels[static_cast<size_t>(y) * sprite.width + x];
+                    if (pixelValue == 0) continue;
+                    ++metrics.nonzero;
+                    metrics.minX = std::min(metrics.minX, x);
+                    metrics.minY = std::min(metrics.minY, y);
+                    metrics.maxX = std::max(metrics.maxX, x);
+                    metrics.maxY = std::max(metrics.maxY, y);
+                }
+            }
+            if (metrics.nonzero == 0) {
+                metrics.minX = metrics.minY = metrics.maxX = metrics.maxY = 0;
+            }
+            return metrics;
+        };
+
+        auto metricsText = [](int index, const SpriteMetrics& metrics) {
+            std::ostringstream oss;
+            oss << index << ':' << metrics.width << 'x' << metrics.height
+                << ":nonzero" << metrics.nonzero << ":bbox" << metrics.minX
+                << ',' << metrics.minY << ',' << metrics.maxX << ','
+                << metrics.maxY;
+            return oss.str();
+        };
+
+        std::ostringstream row3Sprites;
+        std::ostringstream row3Nonzero;
+        std::ostringstream cursorSprites;
+        std::ostringstream cursorNonzero;
+        bool row3All16 = true;
+        bool cursorMatchesRow3 = true;
+        int row3MinusFrame = 0;
+        for (uint8_t frame = kState2VisualStartFrame;
+             frame <= kState2VisualEndFrame; ++frame) {
+            State2VisualRow row;
+            if (!originalState2VisualRow(frame, row)) {
+                throw std::runtime_error("state-2 visual row missing");
+            }
+            int row3Index = static_cast<int>(row.row3);
+            int cursorIndex = static_cast<int>(frame);
+            SpriteMetrics row3 = metricsFor(row3Index);
+            SpriteMetrics cursor = metricsFor(cursorIndex);
+            if (frame == kState2VisualStartFrame) {
+                row3MinusFrame = row3Index - cursorIndex;
+            } else {
+                row3Sprites << ';';
+                row3Nonzero << ',';
+                cursorSprites << ';';
+                cursorNonzero << ',';
+            }
+            row3Sprites << metricsText(row3Index, row3);
+            row3Nonzero << row3.nonzero;
+            cursorSprites << metricsText(cursorIndex, cursor);
+            cursorNonzero << cursor.nonzero;
+            row3All16 = row3All16 && row3.width == 16 && row3.height == 16;
+            cursorMatchesRow3 = cursorMatchesRow3 && row3Index == cursorIndex;
+        }
+
+        std::cout << "original_state2_visual_row_assets=ok"
+                  << " bank=BOMOMIMK"
+                  << " row3_sprites=" << row3Sprites.str()
+                  << " row3_nonzero_sequence=" << row3Nonzero.str()
+                  << " row3_all_in_bounds=1"
+                  << " row3_all_16x16=" << (row3All16 ? 1 : 0)
+                  << " cursor_sprites=" << cursorSprites.str()
+                  << " cursor_nonzero_sequence=" << cursorNonzero.str()
+                  << " row3_minus_frame=" << row3MinusFrame
+                  << " cursor_matches_row3=" << (cursorMatchesRow3 ? 1 : 0)
+                  << " visual_claim=0"
+                  << " ghidra=1000:6053\n";
+    }
+
+    void captureState2VisualRowPreview(const std::string& outDir) {
+        load();
+        std::filesystem::create_directories(outDir);
+
+        struct PreviewFrame {
+            uint8_t visualFrame = 0;
+            State2VisualRow row;
+            int row3Sprite = 0;
+            int cursorSprite = 0;
+            std::string row3File;
+            std::string cursorFile;
+            FrameInspection row3Inspection;
+            FrameInspection cursorInspection;
+        };
+
+        auto bareHex2 = [](uint8_t value) {
+            std::ostringstream oss;
+            oss << std::hex << std::nouppercase << std::setw(2)
+                << std::setfill('0') << static_cast<int>(value);
+            return oss.str();
+        };
+        auto rowText = [&](const State2VisualRow& row) {
+            return bareHex2(row.row0) + "," + bareHex2(row.row1) + "," +
+                   bareHex2(row.row2) + "," + bareHex2(row.row3);
+        };
+        auto inspectBuffer = [&](const std::string& label) {
+            if (fb_.empty()) {
+                throw std::runtime_error(label + " frame buffer is empty");
+            }
+            FrameInspection inspection;
+            uint32_t first = fb_.front();
+            uint64_t hash = 1469598103934665603ull;
+            for (uint32_t pixelValue : fb_) {
+                if (pixelValue != first) ++inspection.changedPixels;
+                hash ^= static_cast<uint64_t>(pixelValue);
+                hash *= 1099511628211ull;
+            }
+            inspection.hash = hash;
+            if (inspection.changedPixels == 0) {
+                throw std::runtime_error(label + " rendered a uniform preview");
+            }
+            return inspection;
+        };
+        auto renderSpritePreview = [&](int spriteIndex, const std::string& file) {
+            if (spriteIndex < 0 || spriteIndex >= static_cast<int>(sprites_.sprites.size())) {
+                throw std::runtime_error("state-2 visual preview sprite index out of range");
+            }
+            std::fill(fb_.begin(), fb_.end(), argb(palette_, 0));
+            resetClip();
+            const Sprite& sprite = sprites_.sprites[static_cast<size_t>(spriteIndex)];
+            drawSprite(sprite, (kScreenW - sprite.width) / 2,
+                       (kScreenH - sprite.height) / 2);
+            FrameInspection inspection = inspectBuffer(file);
+            writeArgbPpm(joinPath(outDir, file), fb_, kScreenW, kScreenH);
+            return inspection;
+        };
+
+        std::vector<PreviewFrame> previews;
+        std::ostringstream row3Sequence;
+        std::ostringstream cursorSequence;
+        int row3MinusFrame = 0;
+        bool row3CursorHashMismatch = true;
+        for (uint8_t frame = kState2VisualStartFrame;
+             frame <= kState2VisualEndFrame; ++frame) {
+            PreviewFrame preview;
+            preview.visualFrame = frame;
+            if (!originalState2VisualRow(frame, preview.row)) {
+                throw std::runtime_error("state-2 visual preview row missing");
+            }
+            preview.row3Sprite = static_cast<int>(preview.row.row3);
+            preview.cursorSprite = static_cast<int>(frame);
+            if (frame == kState2VisualStartFrame) {
+                row3MinusFrame = preview.row3Sprite - preview.cursorSprite;
+            } else {
+                row3Sequence << ',';
+                cursorSequence << ',';
+            }
+            row3Sequence << preview.row3Sprite;
+            cursorSequence << preview.cursorSprite;
+
+            std::string frameSuffix = bareHex2(frame);
+            preview.row3File = "state2_row3_" + frameSuffix + ".ppm";
+            preview.cursorFile = "state2_cursor_" + frameSuffix + ".ppm";
+            preview.row3Inspection =
+                renderSpritePreview(preview.row3Sprite, preview.row3File);
+            preview.cursorInspection =
+                renderSpritePreview(preview.cursorSprite, preview.cursorFile);
+            row3CursorHashMismatch =
+                row3CursorHashMismatch &&
+                preview.row3Inspection.hash != preview.cursorInspection.hash;
+            previews.push_back(std::move(preview));
+        }
+
+        std::ofstream manifest(joinPath(outDir, "manifest.txt"));
+        if (!manifest) {
+            throw std::runtime_error("cannot create " + joinPath(outDir, "manifest.txt"));
+        }
+        manifest << "scenario=state2_visual_row_preview\n";
+        manifest << "source=lezac_cpp\n";
+        manifest << "bank=BOMOMIMK\n";
+        manifest << "visual_claim=0\n";
+        manifest << "frame_count=" << previews.size() << '\n';
+        manifest << "output_count=" << (previews.size() * 2) << '\n';
+        for (const PreviewFrame& preview : previews) {
+            manifest << "frame visual_frame=" << hex2(preview.visualFrame)
+                     << " row=" << rowText(preview.row)
+                     << " row3_sprite=" << preview.row3Sprite
+                     << " row3_file=" << preview.row3File
+                     << " row3_hash=" << hex64(preview.row3Inspection.hash)
+                     << " row3_changed_pixels="
+                     << preview.row3Inspection.changedPixels
+                     << " cursor_sprite=" << preview.cursorSprite
+                     << " cursor_file=" << preview.cursorFile
+                     << " cursor_hash=" << hex64(preview.cursorInspection.hash)
+                     << " cursor_changed_pixels="
+                     << preview.cursorInspection.changedPixels << '\n';
+        }
+
+        std::cout << "state2_visual_row_preview=ok"
+                  << " frames=" << previews.size()
+                  << " outputs=" << (previews.size() * 2)
+                  << " row3_sprites=" << row3Sequence.str()
+                  << " cursor_sprites=" << cursorSequence.str()
+                  << " row3_minus_frame=" << row3MinusFrame
+                  << " row3_cursor_hash_mismatch="
+                  << (row3CursorHashMismatch ? 1 : 0)
+                  << " visual_claim=0"
+                  << " out=" << outDir
+                  << " manifest=manifest.txt\n";
+    }
+
+    void captureState2VisualRowGamePreview(const std::string& outDir) {
+        load();
+        resetLevel(0);
+        std::filesystem::create_directories(outDir);
+        menu_ = false;
+        playerCount_ = 1;
+        gameplayViewWidth_ = kScreenW;
+        player_.x = 104.0f;
+        player_.y = 168.0f;
+        playerDead_ = true;
+        deathStateTimer_ = kDeathStateTicks;
+        resetState2VisualCursor(state2Visual_);
+
+        struct GamePreviewFrame {
+            uint8_t visualFrame = 0;
+            int currentSprite = 0;
+            int cursorSprite = 0;
+            std::string currentFile;
+            std::string cursorFile;
+            FrameInspection currentInspection;
+            FrameInspection cursorInspection;
+        };
+
+        auto bareHex2 = [](uint8_t value) {
+            std::ostringstream oss;
+            oss << std::hex << std::nouppercase << std::setw(2)
+                << std::setfill('0') << static_cast<int>(value);
+            return oss.str();
+        };
+        auto inspectBuffer = [&](const std::string& label) {
+            if (fb_.empty()) {
+                throw std::runtime_error(label + " frame buffer is empty");
+            }
+            FrameInspection inspection;
+            uint32_t first = fb_.front();
+            uint64_t hash = 1469598103934665603ull;
+            for (uint32_t pixelValue : fb_) {
+                if (pixelValue != first) ++inspection.changedPixels;
+                hash ^= static_cast<uint64_t>(pixelValue);
+                hash *= 1099511628211ull;
+            }
+            inspection.hash = hash;
+            if (inspection.changedPixels == 0) {
+                throw std::runtime_error(label + " rendered a uniform game preview");
+            }
+            return inspection;
+        };
+        auto renderGamePreview = [&](const std::string& file, bool cursorPreview) {
+            state2VisualCursorPreview_ = cursorPreview;
+            drawGame();
+            FrameInspection inspection = inspectBuffer(file);
+            writeArgbPpm(joinPath(outDir, file), fb_, kScreenW, kScreenH);
+            return inspection;
+        };
+
+        std::vector<GamePreviewFrame> previews;
+        std::ostringstream currentSequence;
+        std::ostringstream cursorSequence;
+        std::ostringstream drawOffsetSequence;
+        int cursorMinusCurrent = 0;
+        bool cursorHashMismatch = true;
+        for (uint8_t frame = kState2VisualStartFrame;
+             frame <= kState2VisualEndFrame; ++frame) {
+            State2VisualRow row;
+            if (!originalState2VisualRow(frame, row)) {
+                throw std::runtime_error("state-2 visual game preview row missing");
+            }
+            GamePreviewFrame preview;
+            preview.visualFrame = frame;
+            preview.currentSprite = static_cast<int>(row.row3);
+            preview.cursorSprite = static_cast<int>(frame);
+            if (frame == kState2VisualStartFrame) {
+                cursorMinusCurrent = preview.cursorSprite - preview.currentSprite;
+            } else {
+                currentSequence << ',';
+                cursorSequence << ',';
+                drawOffsetSequence << ';';
+            }
+            currentSequence << preview.currentSprite;
+            cursorSequence << preview.cursorSprite;
+            drawOffsetSequence << static_cast<int>(row.row0) << ','
+                               << static_cast<int>(row.row1);
+
+            state2Visual_.current = frame;
+            state2Visual_.first = kState2VisualStartFrame;
+            state2Visual_.last = kState2VisualEndFrame;
+            state2Visual_.counter = kState2VisualDelay;
+            state2Visual_.delay = kState2VisualDelay;
+            state2Visual_.active = true;
+            refreshState2EffectEntry(player_, state2Visual_, state2Effect_);
+            std::string frameSuffix = bareHex2(frame);
+            preview.currentFile = "state2_game_current_" + frameSuffix + ".ppm";
+            preview.cursorFile = "state2_game_cursor_" + frameSuffix + ".ppm";
+            preview.currentInspection =
+                renderGamePreview(preview.currentFile, false);
+            preview.cursorInspection =
+                renderGamePreview(preview.cursorFile, true);
+            cursorHashMismatch =
+                cursorHashMismatch &&
+                preview.currentInspection.hash != preview.cursorInspection.hash;
+            previews.push_back(std::move(preview));
+        }
+        state2VisualCursorPreview_ = false;
+
+        std::ofstream manifest(joinPath(outDir, "manifest.txt"));
+        if (!manifest) {
+            throw std::runtime_error("cannot create " + joinPath(outDir, "manifest.txt"));
+        }
+        manifest << "scenario=state2_visual_row_game_preview\n";
+        manifest << "source=lezac_cpp\n";
+        manifest << "bank=BOMOMIMK\n";
+        manifest << "current_renderer=effect_entry_row_byte3\n";
+        manifest << "current_base=state2_effect_entry\n";
+        manifest << "current_draw_offsets=effect_entry_row_byte0,row_byte1\n";
+        manifest << "effect_entry_xy=" << static_cast<int>(player_.x) << ','
+                 << static_cast<int>(player_.y) << '\n';
+        manifest << "cursor_renderer=debug_only\n";
+        manifest << "visual_claim=0\n";
+        manifest << "frame_count=" << previews.size() << '\n';
+        manifest << "output_count=" << (previews.size() * 2) << '\n';
+        for (const GamePreviewFrame& preview : previews) {
+            manifest << "frame visual_frame=" << hex2(preview.visualFrame)
+                     << " current_sprite=" << preview.currentSprite
+                     << " current_file=" << preview.currentFile
+                     << " current_hash=" << hex64(preview.currentInspection.hash)
+                     << " current_changed_pixels="
+                     << preview.currentInspection.changedPixels
+                     << " cursor_sprite=" << preview.cursorSprite
+                     << " cursor_file=" << preview.cursorFile
+                     << " cursor_hash=" << hex64(preview.cursorInspection.hash)
+                     << " cursor_changed_pixels="
+                     << preview.cursorInspection.changedPixels << '\n';
+        }
+
+        std::cout << "state2_visual_row_game_preview=ok"
+                  << " frames=" << previews.size()
+                  << " outputs=" << (previews.size() * 2)
+                  << " current_sprites=" << currentSequence.str()
+                  << " cursor_sprites=" << cursorSequence.str()
+                  << " cursor_minus_current=" << cursorMinusCurrent
+                  << " draw_offsets=" << drawOffsetSequence.str()
+                  << " cursor_hash_mismatch=" << (cursorHashMismatch ? 1 : 0)
+                  << " effect_entry_xy=" << static_cast<int>(player_.x)
+                  << ',' << static_cast<int>(player_.y)
+                  << " current_renderer=effect_entry_row_byte3"
+                  << " current_base=state2_effect_entry"
+                  << " current_draw_offsets=effect_entry_row_byte0,row_byte1"
+                  << " cursor_renderer=debug_only"
+                  << " visual_claim=0"
+                  << " out=" << outDir
+                  << " manifest=manifest.txt\n";
     }
 
     int debugState2RuntimeFrameOracle(const std::string& path, bool expectError) {
@@ -4913,12 +8972,29 @@ public:
             std::string firstRow = rowString(firstEntry);
             std::string lastRow = rowString(lastEntry);
             std::ostringstream rows;
+            std::ostringstream row0Sequence;
+            std::ostringstream row1Sequence;
+            std::ostringstream row2Sequence;
+            std::ostringstream row3Sequence;
             for (int frame = deathStart; frame <= deathEnd; ++frame) {
                 uint16_t entry = static_cast<uint16_t>(
                     kFrameEntryBase + static_cast<uint16_t>(frame) * 4u);
-                if (frame != deathStart) rows << ';';
+                if (frame != deathStart) {
+                    rows << ';';
+                    row0Sequence << ',';
+                    row1Sequence << ',';
+                    row2Sequence << ',';
+                    row3Sequence << ',';
+                }
                 rows << bareHex2(static_cast<uint8_t>(frame)) << '@'
                      << bareHex4(entry) << ':' << rowString(entry);
+                row0Sequence << bareHex2(requireByte(entry));
+                row1Sequence << bareHex2(
+                    requireByte(static_cast<uint16_t>(entry + 1)));
+                row2Sequence << bareHex2(
+                    requireByte(static_cast<uint16_t>(entry + 2)));
+                row3Sequence << bareHex2(
+                    requireByte(static_cast<uint16_t>(entry + 3)));
             }
             uint16_t effectX = static_cast<uint16_t>(requireByte(0xc21e) |
                                                      (requireByte(0xc21f) << 8));
@@ -4937,6 +9013,10 @@ public:
                       << " first_row=" << firstRow
                       << " last_row=" << lastRow
                       << " rows=" << rows.str()
+                      << " row0_sequence=" << row0Sequence.str()
+                      << " row1_sequence=" << row1Sequence.str()
+                      << " row2_sequence=" << row2Sequence.str()
+                      << " row3_sequence=" << row3Sequence.str()
                       << " effect0_xy=" << hex4(effectX) << ',' << hex4(effectY)
                       << " breaks=" << breakCount
                       << " temp_copy=" << (tempCopy ? 1 : 0)
@@ -5323,8 +9403,13 @@ public:
                      std::to_string(static_cast<int>(claimedRow[0])) +
                      " sprite_index=" + std::to_string(spriteIndex));
             }
-            if (spriteSource != "row_byte0" && spriteSource != "runtime_draw_call" &&
-                spriteSource != "static_table") {
+            if (spriteSource == "row_byte3" && spriteIndex != claimedRow[3]) {
+                fail("sprite_index_row3_mismatch row3=" +
+                     std::to_string(static_cast<int>(claimedRow[3])) +
+                     " sprite_index=" + std::to_string(spriteIndex));
+            }
+            if (spriteSource != "row_byte0" && spriteSource != "row_byte3" &&
+                spriteSource != "runtime_draw_call" && spriteSource != "static_table") {
                 fail("bad_sprite_source value=" + spriteSource);
             }
             int drawDx = parseInt(requireField(visual, "draw_dx", "visual"),
@@ -6570,6 +10655,418 @@ public:
         }
     }
 
+    int debugSoundCallsiteOracle(const std::string& path, bool expectError) {
+        auto fixtureName = [](const std::string& inputPath) {
+            size_t slash = inputPath.find_last_of("/\\");
+            std::string name =
+                slash == std::string::npos ? inputPath : inputPath.substr(slash + 1);
+            size_t dot = name.find_last_of('.');
+            if (dot != std::string::npos) name = name.substr(0, dot);
+            return name;
+        };
+        const std::string fixture = fixtureName(path);
+
+        auto bareHex4 = [](uint16_t value) {
+            std::ostringstream oss;
+            oss << std::hex << std::nouppercase << std::setw(4)
+                << std::setfill('0') << value;
+            return oss.str();
+        };
+        auto hex4 = [&](uint16_t value) { return "0x" + bareHex4(value); };
+        auto trim = [](std::string value) {
+            while (!value.empty() &&
+                   std::isspace(static_cast<unsigned char>(value.front()))) {
+                value.erase(value.begin());
+            }
+            while (!value.empty() &&
+                   std::isspace(static_cast<unsigned char>(value.back()))) {
+                value.pop_back();
+            }
+            return value;
+        };
+        auto fail = [&](const std::string& reason) {
+            throw std::runtime_error("sound_callsite_oracle=error fixture=" +
+                                     fixture + " reason=" + reason);
+        };
+        auto parseHex16 = [&](std::string token,
+                              const std::string& field) -> uint16_t {
+            token = trim(token);
+            if (token.rfind("0x", 0) == 0 || token.rfind("0X", 0) == 0) {
+                token = token.substr(2);
+            }
+            if (token.empty() || token.size() > 4 ||
+                !std::all_of(token.begin(), token.end(), [](unsigned char ch) {
+                    return std::isxdigit(ch) != 0;
+                })) {
+                fail("bad_hex16 field=" + field + " token=" + token);
+            }
+            return static_cast<uint16_t>(std::stoul(token, nullptr, 16));
+        };
+        auto parseHexByte = [&](const std::string& token,
+                                uint16_t address) -> uint8_t {
+            if (token.size() != 2 ||
+                !std::all_of(token.begin(), token.end(), [](unsigned char ch) {
+                    return std::isxdigit(ch) != 0;
+                })) {
+                fail("non_hex_byte token=" + token + " address=" +
+                     bareHex4(address));
+            }
+            return static_cast<uint8_t>(std::stoul(token, nullptr, 16));
+        };
+        auto parseIntAuto = [&](const std::string& token,
+                                const std::string& field) -> int {
+            try {
+                size_t parsed = 0;
+                long value = std::stol(token, &parsed, 0);
+                if (parsed != token.size()) {
+                    fail("bad_int field=" + field + " token=" + token);
+                }
+                return static_cast<int>(value);
+            } catch (const std::exception&) {
+                fail("bad_int field=" + field + " token=" + token);
+            }
+            return 0;
+        };
+        auto parseFields = [&](const std::string& body,
+                               const std::string& record) {
+            std::map<std::string, std::string> fields;
+            std::istringstream stream(body);
+            std::string token;
+            while (stream >> token) {
+                size_t equals = token.find('=');
+                if (equals == std::string::npos || equals == 0 ||
+                    equals + 1 >= token.size()) {
+                    fail("bad_field record=" + record + " token=" + token);
+                }
+                fields[token.substr(0, equals)] = token.substr(equals + 1);
+            }
+            return fields;
+        };
+        auto requireField = [&](const std::map<std::string, std::string>& fields,
+                                const std::string& name,
+                                const std::string& record) -> std::string {
+            auto found = fields.find(name);
+            if (found == fields.end()) {
+                fail("missing_field record=" + record + " field=" + name);
+            }
+            return found->second;
+        };
+        auto parseFarPointer = [&](const std::string& token,
+                                   const std::string& field) {
+            size_t colon = token.find(':');
+            if (colon == std::string::npos || colon == 0 ||
+                colon + 1 >= token.size()) {
+                fail("bad_far_pointer field=" + field + " token=" + token);
+            }
+            return std::pair<uint16_t, uint16_t>{
+                parseHex16(token.substr(0, colon), field + ".segment"),
+                parseHex16(token.substr(colon + 1), field + ".offset")};
+        };
+
+        struct SoundRequestRecord {
+            bool present = false;
+            std::string label;
+            uint16_t callsiteSegment = 0;
+            uint16_t callsiteOffset = 0;
+            uint16_t latchSegment = 0;
+            uint16_t latchOffset = 0;
+            uint16_t cursor = 0;
+            int priority = 0;
+            int activeBefore = 0;
+            int currentPriorityBefore = 0;
+            uint16_t pendingCursor = 0;
+            int pendingPriority = 0;
+            int accepted = 0;
+            int activeAfter = 0;
+            int currentPriorityAfter = 0;
+            uint16_t currentCursorAfter = 0;
+            int directSweep = 0;
+        };
+
+        try {
+            std::string text = readTextFile(path);
+            std::vector<uint8_t> memory(0x10000);
+            std::vector<bool> present(0x10000, false);
+            uint16_t runtimeCs = 0;
+            uint16_t runtimeDs = 0;
+            bool haveRuntimeCs = false;
+            bool haveRuntimeDs = false;
+            bool tempCopy = false;
+            bool visualClaim = false;
+            bool haveScenario = false;
+            bool haveLevel = false;
+            std::string scenario;
+            int level = 0;
+            SoundRequestRecord request;
+            std::set<uint16_t> breakOffsets;
+            int breakCount = 0;
+            int dumpBytes = 0;
+
+            std::istringstream lines(text);
+            std::string line;
+            std::regex keyRe("^([A-Za-z0-9_]+)=(.*)$");
+            std::regex breakRe(
+                "^break\\s+ghidra=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+"
+                "runtime=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+label=([^\\s]+).*$");
+            std::regex dumpRe("^dump\\s+DS:([0-9A-Fa-f]{4}).*$");
+            std::regex rowRe("^([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+(.+)$");
+            uint16_t currentDump = 0;
+            bool inDump = false;
+            while (std::getline(lines, line)) {
+                line = trim(line);
+                if (line.empty() || line[0] == '#') continue;
+
+                std::smatch match;
+                if (std::regex_match(line, match, keyRe)) {
+                    std::string key = match[1].str();
+                    std::string value = trim(match[2].str());
+                    if (key == "runtime_cs") {
+                        runtimeCs = parseHex16(value, key);
+                        haveRuntimeCs = true;
+                    } else if (key == "runtime_ds") {
+                        runtimeDs = parseHex16(value, key);
+                        haveRuntimeDs = true;
+                    } else if (key == "temp_copy") {
+                        tempCopy = value == "1";
+                    } else if (key == "visual_claim") {
+                        visualClaim = value != "0";
+                    } else if (key == "scenario") {
+                        scenario = value;
+                        haveScenario = true;
+                    } else if (key == "level") {
+                        level = parseIntAuto(value, key);
+                        haveLevel = true;
+                    }
+                    continue;
+                }
+
+                if (line.rfind("sound_request ", 0) == 0) {
+                    auto fields = parseFields(line.substr(14), "sound_request");
+                    request.present = true;
+                    request.label = requireField(fields, "label", "sound_request");
+                    auto callsite = parseFarPointer(
+                        requireField(fields, "callsite", "sound_request"),
+                        "sound_request.callsite");
+                    request.callsiteSegment = callsite.first;
+                    request.callsiteOffset = callsite.second;
+                    auto latch = parseFarPointer(
+                        requireField(fields, "latch", "sound_request"),
+                        "sound_request.latch");
+                    request.latchSegment = latch.first;
+                    request.latchOffset = latch.second;
+                    request.cursor = parseHex16(
+                        requireField(fields, "cursor", "sound_request"),
+                        "sound_request.cursor");
+                    request.priority = parseIntAuto(
+                        requireField(fields, "priority", "sound_request"),
+                        "sound_request.priority");
+                    request.activeBefore = parseIntAuto(
+                        requireField(fields, "active_before", "sound_request"),
+                        "sound_request.active_before");
+                    request.currentPriorityBefore = parseIntAuto(
+                        requireField(fields, "current_priority_before",
+                                     "sound_request"),
+                        "sound_request.current_priority_before");
+                    request.pendingCursor = parseHex16(
+                        requireField(fields, "pending_cursor", "sound_request"),
+                        "sound_request.pending_cursor");
+                    request.pendingPriority = parseIntAuto(
+                        requireField(fields, "pending_priority", "sound_request"),
+                        "sound_request.pending_priority");
+                    request.accepted = parseIntAuto(
+                        requireField(fields, "accepted", "sound_request"),
+                        "sound_request.accepted");
+                    request.activeAfter = parseIntAuto(
+                        requireField(fields, "active_after", "sound_request"),
+                        "sound_request.active_after");
+                    request.currentPriorityAfter = parseIntAuto(
+                        requireField(fields, "current_priority_after",
+                                     "sound_request"),
+                        "sound_request.current_priority_after");
+                    request.currentCursorAfter = parseHex16(
+                        requireField(fields, "current_cursor_after", "sound_request"),
+                        "sound_request.current_cursor_after");
+                    request.directSweep = parseIntAuto(
+                        requireField(fields, "direct_sweep", "sound_request"),
+                        "sound_request.direct_sweep");
+                    continue;
+                }
+
+                if (std::regex_match(line, match, breakRe)) {
+                    if (!haveRuntimeCs) fail("runtime_cs_missing_before_break");
+                    uint16_t ghidraSegment = parseHex16(match[1].str(), "ghidra");
+                    uint16_t ghidraOffset = parseHex16(match[2].str(), "ghidra");
+                    uint16_t runtimeSegment = parseHex16(match[3].str(), "runtime");
+                    uint16_t runtimeOffset = parseHex16(match[4].str(), "runtime");
+                    if (ghidraSegment != 0x1000) {
+                        fail("breakpoint_ghidra_segment expected=0x1000 actual=" +
+                             hex4(ghidraSegment));
+                    }
+                    if (runtimeSegment != runtimeCs) {
+                        fail("breakpoint_segment_mismatch expected=" + hex4(runtimeCs) +
+                             " actual=" + hex4(runtimeSegment));
+                    }
+                    if (runtimeOffset != ghidraOffset) {
+                        fail("breakpoint_offset_mismatch expected=" +
+                             bareHex4(ghidraOffset) + " actual=" +
+                             bareHex4(runtimeOffset));
+                    }
+                    breakOffsets.insert(ghidraOffset);
+                    ++breakCount;
+                    continue;
+                }
+
+                if (std::regex_match(line, match, dumpRe)) {
+                    currentDump = parseHex16(match[1].str(), "dump");
+                    inDump = true;
+                    continue;
+                }
+
+                if (std::regex_match(line, match, rowRe)) {
+                    if (!inDump) fail("dump_row_without_header");
+                    if (!haveRuntimeDs) fail("runtime_ds_missing_before_dump");
+                    uint16_t segment = parseHex16(match[1].str(), "row_segment");
+                    uint16_t address = parseHex16(match[2].str(), "row_address");
+                    if (segment != runtimeDs) {
+                        fail("dump_segment_mismatch expected=" + hex4(runtimeDs) +
+                             " actual=" + hex4(segment) +
+                             " address=" + bareHex4(address));
+                    }
+                    if (address < currentDump) {
+                        fail("dump_address_before_header header=" + bareHex4(currentDump) +
+                             " address=" + bareHex4(address));
+                    }
+                    std::istringstream byteStream(match[3].str());
+                    std::string token;
+                    uint16_t cursor = address;
+                    while (byteStream >> token) {
+                        memory[cursor] = parseHexByte(token, cursor);
+                        present[cursor] = true;
+                        ++cursor;
+                        ++dumpBytes;
+                    }
+                    continue;
+                }
+
+                fail("unrecognized_line");
+            }
+
+            auto requireByteIfPresent = [&](uint16_t address,
+                                            uint8_t expected,
+                                            const std::string& reason) {
+                if (present[address] && memory[address] != expected) {
+                    fail(reason + " expected=" + hex4(expected) +
+                         " actual=" + hex4(memory[address]));
+                }
+            };
+            auto requireWordIfPresent = [&](uint16_t address,
+                                            uint16_t expected,
+                                            const std::string& reason) {
+                if (present[address] && present[static_cast<uint16_t>(address + 1)]) {
+                    uint16_t actual = static_cast<uint16_t>(
+                        memory[address] |
+                        (memory[static_cast<uint16_t>(address + 1)] << 8));
+                    if (actual != expected) {
+                        fail(reason + " expected=" + hex4(expected) +
+                             " actual=" + hex4(actual));
+                    }
+                }
+            };
+
+            if (!haveRuntimeCs) fail("runtime_cs_missing");
+            if (!haveRuntimeDs) fail("runtime_ds_missing");
+            if (!haveScenario) fail("scenario_missing");
+            if (!haveLevel) fail("level_missing");
+            if (visualClaim) fail("visual_claim_not_supported");
+            if (!request.present) fail("sound_request_missing");
+            if (request.callsiteSegment != 0x1000) {
+                fail("callsite_segment_not_1000 actual=" + hex4(request.callsiteSegment));
+            }
+            if (request.latchSegment != 0x1000 || request.latchOffset != 0x165a) {
+                fail("latch_address_mismatch actual=" + hex4(request.latchSegment) +
+                     ":" + bareHex4(request.latchOffset));
+            }
+            if (breakOffsets.count(request.callsiteOffset) == 0) {
+                fail("missing_breakpoint offset=" + bareHex4(request.callsiteOffset));
+            }
+            if (breakOffsets.count(request.latchOffset) == 0) {
+                fail("missing_breakpoint offset=" + bareHex4(request.latchOffset));
+            }
+            if (request.pendingCursor != request.cursor) {
+                fail("pending_cursor_mismatch expected=" + hex4(request.cursor) +
+                     " actual=" + hex4(request.pendingCursor));
+            }
+            if (request.pendingPriority != request.priority) {
+                fail("pending_priority_mismatch expected=" +
+                     std::to_string(request.priority) + " actual=" +
+                     std::to_string(request.pendingPriority));
+            }
+            if (request.accepted != 0) {
+                if (request.activeAfter == 0) fail("accepted_but_inactive_after");
+                if (request.currentPriorityAfter != request.priority) {
+                    fail("accepted_priority_mismatch expected=" +
+                         std::to_string(request.priority) + " actual=" +
+                         std::to_string(request.currentPriorityAfter));
+                }
+                if (request.currentCursorAfter != request.cursor) {
+                    fail("accepted_cursor_mismatch expected=" + hex4(request.cursor) +
+                         " actual=" + hex4(request.currentCursorAfter));
+                }
+            }
+            int expectedDirectSweep = request.cursor > 0xea60 ? 1 : 0;
+            if (request.directSweep != expectedDirectSweep) {
+                fail("direct_sweep_mismatch expected=" +
+                     std::to_string(expectedDirectSweep) + " actual=" +
+                     std::to_string(request.directSweep));
+            }
+
+            requireWordIfPresent(0x2074, request.pendingCursor,
+                                 "pending_cursor_dump_mismatch");
+            requireByteIfPresent(0x799f, static_cast<uint8_t>(request.pendingPriority),
+                                 "pending_priority_dump_mismatch");
+            requireByteIfPresent(0x799e,
+                                 static_cast<uint8_t>(request.currentPriorityAfter),
+                                 "current_priority_dump_mismatch");
+            requireWordIfPresent(0x78c0, request.currentCursorAfter,
+                                 "current_cursor_dump_mismatch");
+            requireByteIfPresent(0x79c4, static_cast<uint8_t>(request.activeAfter),
+                                 "active_flag_dump_mismatch");
+
+            std::cout << "sound_callsite_oracle=ok fixture=" << fixture
+                      << " scenario=" << scenario
+                      << " level=" << level
+                      << " runtime_cs=" << hex4(runtimeCs)
+                      << " runtime_ds=" << hex4(runtimeDs)
+                      << " label=" << request.label
+                      << " callsite=" << hex4(request.callsiteSegment) << ':'
+                      << bareHex4(request.callsiteOffset)
+                      << " latch=" << hex4(request.latchSegment) << ':'
+                      << bareHex4(request.latchOffset)
+                      << " cursor=" << hex4(request.cursor)
+                      << " priority=" << request.priority
+                      << " active_before=" << request.activeBefore
+                      << " current_priority_before=" << request.currentPriorityBefore
+                      << " accepted=" << request.accepted
+                      << " active_after=" << request.activeAfter
+                      << " current_priority_after=" << request.currentPriorityAfter
+                      << " current_cursor_after=" << hex4(request.currentCursorAfter)
+                      << " direct_sweep=" << request.directSweep
+                      << " breaks=" << breakCount
+                      << " dump_bytes=" << dumpBytes
+                      << " temp_copy=" << (tempCopy ? 1 : 0)
+                      << " visual_claim=0\n";
+            if (expectError) {
+                std::cout << "sound_callsite_oracle=error fixture=" << fixture
+                          << " reason=expected_error_missing\n";
+                return 1;
+            }
+            return 0;
+        } catch (const std::exception& e) {
+            std::cout << e.what() << '\n';
+            return expectError ? 0 : 1;
+        }
+    }
+
     int debugExplosionPlaybackOracle(const std::string& path, bool expectError) {
         auto fixtureName = [](const std::string& inputPath) {
             size_t slash = inputPath.find_last_of("/\\");
@@ -7685,6 +12182,331 @@ public:
         }
     }
 
+    void debugLaneWriteStaticModel() {
+        struct StoreSite {
+            uint16_t offset;
+            const char* label;
+            const char* direction;
+            const char* target;
+            const char* sourceReg;
+            uint16_t displacement;
+            uint16_t pairedDebrisOffset;
+            bool skipsDebrisSetup;
+        };
+
+        const std::array<StoreSite, 4> sites{{
+            {0x3d1b, "forward_collapse", "forward", "collapse", "al", 0x6617, 0x3d2d, true},
+            {0x3d2d, "forward_debris", "forward", "debris", "dl", 0x2097, 0x0000, false},
+            {0x3eaf, "reverse_collapse", "reverse", "collapse", "al", 0x6618, 0x3ec1, true},
+            {0x3ec1, "reverse_debris", "reverse", "debris", "dl", 0x2098, 0x0000, false},
+        }};
+
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for lane-write scan");
+        }
+
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " bytes changed");
+                }
+            }
+        };
+        auto regName = [](uint8_t modrm) {
+            switch ((modrm >> 3) & 0x07) {
+            case 0:
+                return std::string("al");
+            case 2:
+                return std::string("dl");
+            default:
+                return std::string("r") + std::to_string((modrm >> 3) & 0x07);
+            }
+        };
+        auto hexByteLocal = [](uint8_t value) {
+            std::ostringstream oss;
+            oss << "0x" << std::hex << std::nouppercase
+                << std::setw(2) << std::setfill('0')
+                << static_cast<int>(value);
+            return oss.str();
+        };
+
+        constexpr uint16_t kDebrisMarkerBase = 0x4e20;
+        constexpr uint8_t kDebrisMarkerStride = 0x0b;
+        const std::string debrisSetup =
+            "8a 56 f3 8b 46 f8 2d 20 4e 6b f8 0b";
+        const std::string sharedTail =
+            "8b 46 f6 3b 46 f0 75 c5 8a 46 f3 c4 7e 04 26 88 05 c9 c2 06 00";
+
+        int forwardSites = 0;
+        int reverseSites = 0;
+        int collapseSites = 0;
+        int debrisSites = 0;
+        int jumpOverDebris = 0;
+        int debrisMarkerSetups = 0;
+        std::ostringstream storeList;
+
+        for (size_t i = 0; i < sites.size(); ++i) {
+            const StoreSite& site = sites[i];
+            size_t p = imageBase + site.offset;
+            if (p + 4 > exeBytes.size() || exeBytes[p] != 0x88) {
+                throw std::runtime_error(std::string(site.label) + " store opcode changed");
+            }
+            const uint8_t modrm = exeBytes[p + 1];
+            if ((modrm & 0xc7) != 0x85) {
+                throw std::runtime_error(std::string(site.label) + " store addressing changed");
+            }
+            if (regName(modrm) != site.sourceReg ||
+                le16(exeBytes, p + 2) != site.displacement) {
+                throw std::runtime_error(std::string(site.label) + " store target changed");
+            }
+
+            if (std::string(site.direction) == "forward") {
+                ++forwardSites;
+            } else {
+                ++reverseSites;
+            }
+            if (std::string(site.target) == "collapse") {
+                ++collapseSites;
+            } else {
+                ++debrisSites;
+            }
+
+            if (site.skipsDebrisSetup) {
+                size_t jump = p + 4;
+                if (jump + 2 > exeBytes.size() || exeBytes[jump] != 0xeb) {
+                    throw std::runtime_error(std::string(site.label) +
+                                             " debris-skip jump changed");
+                }
+                const int rel = static_cast<int8_t>(exeBytes[jump + 1]);
+                const uint16_t jumpTarget =
+                    static_cast<uint16_t>(static_cast<int>(site.offset) + 6 + rel);
+                if (jumpTarget != static_cast<uint16_t>(site.pairedDebrisOffset + 4)) {
+                    throw std::runtime_error(std::string(site.label) +
+                                             " debris-skip target changed");
+                }
+                ++jumpOverDebris;
+
+                const uint16_t setupOffset = static_cast<uint16_t>(site.offset + 6);
+                requireBytes(setupOffset, debrisSetup,
+                             std::string(site.label) + " debris marker setup");
+                size_t setup = imageBase + setupOffset;
+                if (le16(exeBytes, setup + 7) != kDebrisMarkerBase ||
+                    exeBytes[setup + 11] != kDebrisMarkerStride) {
+                    throw std::runtime_error(std::string(site.label) +
+                                             " debris marker constants changed");
+                }
+                ++debrisMarkerSetups;
+            }
+
+            if (i != 0) storeList << ',';
+            storeList << hex4(site.offset) << ':' << site.direction << '/'
+                      << site.target << '/' << site.sourceReg << ':'
+                      << hex4(site.displacement);
+        }
+
+        requireBytes(0x3d31, sharedTail, "forward lane-write shared tail");
+        requireBytes(0x3ec5, sharedTail, "reverse lane-write shared tail");
+
+        if (forwardSites != 2 || reverseSites != 2 || collapseSites != 2 ||
+            debrisSites != 2 || jumpOverDebris != 2 || debrisMarkerSetups != 2) {
+            throw std::runtime_error("lane-write static summary changed");
+        }
+
+        std::cout << "lane_write_static_model=ok"
+                  << " image_base=0x0770"
+                  << " sites=" << sites.size()
+                  << " forward=" << forwardSites
+                  << " reverse=" << reverseSites
+                  << " collapse=" << collapseSites
+                  << " debris=" << debrisSites
+                  << " jump_over_debris=" << jumpOverDebris
+                  << " debris_marker_base=" << hex4(kDebrisMarkerBase)
+                  << " debris_marker_stride=" << hexByteLocal(kDebrisMarkerStride)
+                  << " debris_marker_setups=" << debrisMarkerSetups
+                  << " shared_tail=2"
+                  << " pending_natural_forward=" << hex4(0x3d2d)
+                  << " stores=" << storeList.str()
+                  << '\n';
+    }
+
+    void debugActorContactStaticModel() {
+        constexpr uint16_t kScannerEntry = 0x5cb0;
+        constexpr uint16_t kScannerReturn = 0x604f;
+        constexpr uint16_t kActorUpdateStart = 0x6053;
+        constexpr uint16_t kActorUpdateEnd = 0x777f;
+        constexpr uint16_t kGate6 = 0x654e;
+        constexpr uint16_t kGate6Skip = 0x6552;
+        constexpr uint16_t kScannerCallsite = 0x6555;
+        constexpr uint16_t kGate6IntegrationJump = 0x6558;
+        constexpr uint16_t kGate6SkipTarget = 0x655b;
+        constexpr uint16_t kGate5Integration = 0x65a2;
+        constexpr uint16_t kGate5IntegrationSkip = 0x65a6;
+        constexpr uint16_t kGate5IntegrationSkipTarget = 0x65da;
+        constexpr uint16_t kGate5IntegrationJump = 0x65d7;
+        constexpr uint16_t kGate5Exit = 0x7595;
+        constexpr uint16_t kGate5ExitSkip = 0x7599;
+        constexpr uint16_t kGate5ExitSkipTarget = 0x759e;
+        constexpr uint16_t kGate5ExitJump = 0x759b;
+        constexpr uint16_t kSharedIntegration = 0x73e5;
+
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for actor/contact scan");
+        }
+
+        auto codeByte = [&](uint16_t offset) {
+            size_t p = imageBase + offset;
+            if (p >= exeBytes.size()) {
+                throw std::runtime_error("actor/contact offset extends past LEZAC.EXE");
+            }
+            return exeBytes[p];
+        };
+        auto requireBytes = [&](uint16_t offset, const std::string& hex,
+                                const std::string& label) {
+            std::vector<uint8_t> expected = parseHexByteList(hex);
+            size_t p = imageBase + offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(label + " extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(label + " bytes changed");
+                }
+            }
+        };
+        auto rel8Target = [&](uint16_t offset) {
+            int rel = static_cast<int8_t>(codeByte(static_cast<uint16_t>(offset + 1)));
+            return static_cast<uint16_t>(static_cast<int>(offset) + 2 + rel);
+        };
+        auto rel16Target = [&](uint16_t offset) {
+            uint16_t raw = le16(exeBytes, imageBase + offset + 1);
+            int rel = raw >= 0x8000u ? static_cast<int>(raw) - 0x10000
+                                     : static_cast<int>(raw);
+            return static_cast<uint16_t>(static_cast<int>(offset) + 3 + rel);
+        };
+        auto bytesToHex = [&](uint16_t offset, size_t length) {
+            std::ostringstream oss;
+            for (size_t i = 0; i < length; ++i) {
+                oss << std::hex << std::nouppercase
+                    << std::setw(2) << std::setfill('0')
+                    << static_cast<int>(codeByte(static_cast<uint16_t>(offset + i)));
+            }
+            return oss.str();
+        };
+
+        requireBytes(kScannerEntry, "55 89", "contact scanner entry");
+        requireBytes(kScannerReturn, "c9 c2 02 00", "contact scanner return");
+        requireBytes(kActorUpdateStart, "55 89", "actor update entry");
+        requireBytes(kActorUpdateEnd, "c9 c2 04 00", "actor update return");
+        requireBytes(kGate6, "80 7e cf 06 75 07 55 e8 58 f7 e9 8a 0e",
+                     "actor contact gate6 snippet");
+        requireBytes(kGate5Integration, "80 7e cf 05 75 32",
+                     "actor gate5 integration snippet");
+        requireBytes(kGate5Exit, "80 7e cf 05 75 03 e9 e1 01",
+                     "actor gate5 exit snippet");
+
+        if (rel8Target(kGate6Skip) != kGate6SkipTarget ||
+            rel16Target(kScannerCallsite) != kScannerEntry ||
+            rel16Target(kGate6IntegrationJump) != kSharedIntegration ||
+            rel8Target(kGate5IntegrationSkip) != kGate5IntegrationSkipTarget ||
+            rel16Target(kGate5IntegrationJump) != kSharedIntegration ||
+            rel8Target(kGate5ExitSkip) != kGate5ExitSkipTarget ||
+            rel16Target(kGate5ExitJump) != kActorUpdateEnd) {
+            throw std::runtime_error("actor/contact static branch target changed");
+        }
+
+        std::vector<std::pair<uint16_t, uint8_t>> gates;
+        for (uint16_t offset = kActorUpdateStart; offset < kActorUpdateEnd - 3; ++offset) {
+            if (codeByte(offset) == 0x80 &&
+                codeByte(static_cast<uint16_t>(offset + 1)) == 0x7e &&
+                codeByte(static_cast<uint16_t>(offset + 2)) == 0xcf) {
+                gates.push_back({offset, codeByte(static_cast<uint16_t>(offset + 3))});
+            }
+        }
+        const std::vector<std::pair<uint16_t, uint8_t>> expectedGates{
+            {kGate6, 0x06},
+            {kGate5Integration, 0x05},
+            {kGate5Exit, 0x05},
+        };
+        if (gates != expectedGates) {
+            throw std::runtime_error("actor/contact bp-31h gate list changed");
+        }
+
+        std::vector<uint16_t> scannerCalls;
+        std::vector<uint16_t> integrationJumps;
+        for (uint16_t offset = kActorUpdateStart; offset < kActorUpdateEnd - 2; ++offset) {
+            uint8_t opcode = codeByte(offset);
+            if (opcode == 0xe8 && rel16Target(offset) == kScannerEntry) {
+                scannerCalls.push_back(offset);
+            }
+            if (opcode == 0xe9 && rel16Target(offset) == kSharedIntegration) {
+                integrationJumps.push_back(offset);
+            }
+        }
+        if (scannerCalls != std::vector<uint16_t>{kScannerCallsite} ||
+            integrationJumps !=
+                (std::vector<uint16_t>{kGate6IntegrationJump, kGate5IntegrationJump})) {
+            throw std::runtime_error("actor/contact call or integration jump list changed");
+        }
+
+        std::ostringstream gateList;
+        for (size_t i = 0; i < gates.size(); ++i) {
+            if (i != 0) gateList << ',';
+            gateList << hex4(gates[i].first) << ':' << hex4(gates[i].second);
+        }
+        std::ostringstream scannerCallList;
+        for (size_t i = 0; i < scannerCalls.size(); ++i) {
+            if (i != 0) scannerCallList << ',';
+            scannerCallList << hex4(scannerCalls[i]);
+        }
+        std::ostringstream integrationJumpList;
+        for (size_t i = 0; i < integrationJumps.size(); ++i) {
+            if (i != 0) integrationJumpList << ',';
+            integrationJumpList << hex4(integrationJumps[i]);
+        }
+
+        std::cout << "actor_contact_static_model=ok"
+                  << " image_base=0x0770"
+                  << " scanner=" << hex4(kScannerEntry) << ".." << hex4(kScannerReturn)
+                  << " scanner_entry_bytes=" << bytesToHex(kScannerEntry, 2)
+                  << " scanner_return_bytes=" << bytesToHex(kScannerReturn, 4)
+                  << " actor_update=" << hex4(kActorUpdateStart) << ".."
+                  << hex4(kActorUpdateEnd)
+                  << " actor_entry_bytes=" << bytesToHex(kActorUpdateStart, 2)
+                  << " actor_return_bytes=" << bytesToHex(kActorUpdateEnd, 4)
+                  << " gates=" << gates.size()
+                  << " bp31=" << gateList.str()
+                  << " scanner_call_count=" << scannerCalls.size()
+                  << " scanner_calls=" << scannerCallList.str()
+                  << " scanner_call_context=gate6"
+                  << " gate6_skip=" << hex4(rel8Target(kGate6Skip))
+                  << " gate6_call=" << hex4(rel16Target(kScannerCallsite))
+                  << " gate6_integration=" << hex4(rel16Target(kGate6IntegrationJump))
+                  << " gate5_skip=" << hex4(rel8Target(kGate5IntegrationSkip))
+                  << " gate5_integration=" << hex4(rel16Target(kGate5IntegrationJump))
+                  << " gate5_exit_skip=" << hex4(rel8Target(kGate5ExitSkip))
+                  << " gate5_exit=" << hex4(rel16Target(kGate5ExitJump))
+                  << " integration_jumps=" << integrationJumpList.str()
+                  << '\n';
+    }
+
     void debugOriginalState2EffectPlacement() {
         constexpr uint16_t kEffectBase = 0xc21e;
         constexpr int kMapWidth = 60;
@@ -7850,6 +12672,41 @@ public:
             deathStateTimer2_ != 0) {
             throw std::runtime_error("player 2 zero-life gate mismatch");
         }
+        bool p2OutStaysDead = player2Dead_ && lives2_ == 0 && deathStateTimer2_ == 0;
+        int p2ReentryTimerBefore = reentryTimer2_;
+        int p2DamageCooldownBefore = damageCooldown2_;
+        int p2EnergyBefore = energy2_;
+        tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                         damageCooldown2_, 2);
+        bool p2ReenterBlocked = player2Dead_ && lives2_ == 0 &&
+                                reentryTimer2_ == p2ReentryTimerBefore &&
+                                damageCooldown2_ == p2DamageCooldownBefore &&
+                                energy2_ == p2EnergyBefore;
+        bool p1AliveAfterP2Out = !playerDead_ && lives_ > 0 && !menu_;
+        if (!p2OutStaysDead || !p2ReenterBlocked || !p1AliveAfterP2Out) {
+            throw std::runtime_error("player 2 zero-life fallback boundary mismatch");
+        }
+
+        lives_ = 1;
+        energy_ = 0;
+        damageCooldown_ = 0;
+        deathStateTimer_ = 0;
+        pendingLifeLoss_ = false;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        if (!playerDead_ || !pendingLifeLoss_ ||
+            deathStateTimer_ != kDeathStateTicks || lives_ != 1) {
+            throw std::runtime_error("player 1 final-life state-2 setup mismatch");
+        }
+        for (int i = 0; i < 60; ++i) {
+            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_,
+                          1, player2Dead_);
+        }
+        bool bothOutGameover = menu_ && menuPage_ == MenuPage::GameOver &&
+                               lastEndReason_ == EndReason::GameOver;
+        if (!bothOutGameover) {
+            throw std::runtime_error("both-out state-2 game-over mismatch");
+        }
 
         std::cout << "player_state2_return_active=ok p1_death_timer=60"
                   << " p1_after_59=1 p1_after_60=0"
@@ -7860,7 +12717,13 @@ public:
                   << " p2_gate1_reentered=1 p2_energy=100"
                   << " p2_cooldown=" << kDamageCooldownTicks
                   << " p2_death_timer_clear=0 p2_reentry_timer_clear=0"
-                  << " no_gameover_with_p1=1\n";
+                  << " no_gameover_with_p1=1"
+                  << " p2_out_stays_dead=1"
+                  << " p2_reenter_blocked=1"
+                  << " p1_alive_after_p2_out=1"
+                  << " both_out_gameover=1"
+                  << " live_fallback_shortcut=0"
+                  << " original_reachability=0\n";
     }
 
     void debugGran() {
@@ -7895,6 +12758,17 @@ public:
             if (bytes.size() != kGranRecordSize) {
                 throw std::runtime_error("GRAN.MST profile record length mismatch");
             }
+            int byteSum = 0;
+            int weightedSum = 0;
+            int nonzero = 0;
+            uint8_t xorValue = 0;
+            for (size_t off = 0; off < bytes.size(); ++off) {
+                uint8_t byte = bytes[off];
+                byteSum += byte;
+                weightedSum += static_cast<int>((off + 1) * byte);
+                if (byte != 0) ++nonzero;
+                xorValue = static_cast<uint8_t>(xorValue ^ byte);
+            }
             const size_t zeroBytes = static_cast<size_t>(
                 std::count(bytes.begin(), bytes.end(), 0));
             size_t nonzeroGroups = 0;
@@ -7910,6 +12784,11 @@ public:
             std::cout << "gran_record_profile record=" << (i + 1)
                       << " bytes=" << bytes.size()
                       << " zero_bytes=" << zeroBytes
+                      << " nonzero_bytes=" << nonzero
+                      << " byte_sum=" << byteSum
+                      << " weighted_sum=" << weightedSum
+                      << " xor=0x" << std::hex << std::setw(2) << std::setfill('0')
+                      << static_cast<int>(xorValue) << std::dec << std::setfill(' ')
                       << " nonzero_groups=" << nonzeroGroups
                       << " zero_groups=" << (kGranProfileGroupsPerRecord - nonzeroGroups)
                       << " first_groups=";
@@ -7990,9 +12869,31 @@ public:
         std::vector<Level> rawLevels = loadRawLevels("LIVELS.SCH");
         const std::array<size_t, 7> expectedOffsets{0, 1242, 4923, 10984,
                                                      15225, 21546, 36128};
+        const std::array<uint16_t, 7> expectedFieldA{
+            0x4005, 0x401e, 0x4036, 0x403c, 0x4066, 0x409f, 0x4041};
+        const std::array<uint16_t, 7> expectedFieldB{
+            0x0042, 0x0189, 0x02e3, 0x01b3, 0x03dc, 0x0aa4, 0x014a};
         if (rawLevels.size() != levels_.size() || rawLevels.size() != expectedOffsets.size()) {
             throw std::runtime_error("raw level count did not match JSON levels");
         }
+
+        auto hexWordList = [](const auto& words) {
+            std::ostringstream oss;
+            for (size_t i = 0; i < words.size(); ++i) {
+                if (i != 0) oss << ',';
+                oss << "0x" << std::hex << std::setw(4) << std::setfill('0')
+                    << static_cast<int>(words[i]);
+            }
+            return oss.str();
+        };
+        auto fieldAPayloadList = [&]() {
+            std::ostringstream oss;
+            for (size_t i = 0; i < expectedFieldA.size(); ++i) {
+                if (i != 0) oss << ',';
+                oss << static_cast<int>(expectedFieldA[i] & 0x3fffu);
+            }
+            return oss.str();
+        };
 
         auto sameSpawner = [](const MonsterSpawner& a, const MonsterSpawner& b) {
             return a.x == b.x && a.y == b.y && a.tileIndex == b.tileIndex &&
@@ -8020,6 +12921,7 @@ public:
         size_t totalSpawners = 0;
         size_t totalPortals = 0;
         size_t totalTriggers = 0;
+        int totalFieldB = 0;
         std::array<int, 256> kindCounts{};
         std::array<int, 256> behaviorCounts{};
         for (size_t i = 0; i < rawLevels.size(); ++i) {
@@ -8036,6 +12938,11 @@ public:
                 raw.tiles != json.tiles || raw.wordLayer != json.wordLayer) {
                 throw std::runtime_error("raw level " + std::to_string(i + 1) +
                                          " did not match JSON scalar/layer data");
+            }
+            if (raw.fieldA != expectedFieldA[i] || raw.fieldB != expectedFieldB[i] ||
+                (raw.fieldA & 0xc000u) != kDeferredThreshold) {
+                throw std::runtime_error("raw level " + std::to_string(i + 1) +
+                                         " embedded field words changed");
             }
             if (raw.fieldB != static_cast<uint16_t>(countPhysicalDamageProgressCells(raw.wordLayer)) ||
                 raw.startingDestructibleTiles != static_cast<int>(raw.fieldB) ||
@@ -8068,6 +12975,7 @@ public:
             totalSpawners += raw.monsterSpawners.size();
             totalPortals += raw.portals.size();
             totalTriggers += raw.tileTriggers.size();
+            totalFieldB += raw.fieldB;
         }
 
         if (totalCells != 47700 || totalSpawners != 15 ||
@@ -8093,7 +13001,75 @@ public:
                   << " cells=" << totalCells
                   << " spawners=" << totalSpawners
                   << " portals=" << totalPortals
-                  << " triggers=" << totalTriggers << '\n';
+                  << " triggers=" << totalTriggers
+                  << " fieldA_prefix=0x4000"
+                  << " fieldA_words=" << hexWordList(expectedFieldA)
+                  << " fieldA_payloads=" << fieldAPayloadList()
+                  << " fieldB_words=" << hexWordList(expectedFieldB)
+                  << " fieldB_total=" << totalFieldB << '\n';
+    }
+
+    void debugLevelCompletionDenominator() {
+        load();
+        const std::array<int, 7> expectedFieldB{66, 393, 739, 435, 988, 2724, 330};
+        const std::array<int, 7> expectedRequired{50, 60, 20, 70, 65, 40, 10};
+        const std::array<int, 7> expectedThresholds{33, 236, 148, 305, 643, 1090, 33};
+
+        auto joinInts = [](const auto& values) {
+            std::ostringstream oss;
+            for (size_t i = 0; i < values.size(); ++i) {
+                if (i != 0) oss << ',';
+                oss << values[i];
+            }
+            return oss.str();
+        };
+
+        int blockedBeforeThreshold = 0;
+        int completedAtThreshold = 0;
+        int totalFieldB = 0;
+        for (size_t i = 0; i < expectedFieldB.size(); ++i) {
+            resetLevel(static_cast<int>(i));
+            int denominator = level_.startingDestructibleTiles;
+            int rawFieldB = static_cast<int>(level_.fieldB);
+            int required = static_cast<int>(level_.requiredDestruction);
+            int threshold = (required * denominator + 99) / 100;
+            if (denominator != rawFieldB ||
+                denominator != expectedFieldB[i] ||
+                required != expectedRequired[i] ||
+                threshold != expectedThresholds[i]) {
+                throw std::runtime_error("level completion denominator fixture changed");
+            }
+            collected_ = level_.requiredBonus;
+            destroyed_ = std::max(0, threshold - 1);
+            if (isComplete()) {
+                throw std::runtime_error("level completed before fieldB threshold");
+            }
+            ++blockedBeforeThreshold;
+            destroyed_ = threshold;
+            if (!isComplete()) {
+                throw std::runtime_error("level did not complete at fieldB threshold");
+            }
+            ++completedAtThreshold;
+            destroyed_ = denominator;
+            if (destructionPercent() != 100 || !isComplete()) {
+                throw std::runtime_error("level destruction percent did not saturate at fieldB");
+            }
+            totalFieldB += denominator;
+        }
+
+        if (blockedBeforeThreshold != 7 || completedAtThreshold != 7 ||
+            totalFieldB != 5675) {
+            throw std::runtime_error("level completion denominator summary changed");
+        }
+        std::cout << "level_completion_denominator=ok"
+                  << " levels=" << expectedFieldB.size()
+                  << " fieldB_denominators=" << joinInts(expectedFieldB)
+                  << " required_destruction=" << joinInts(expectedRequired)
+                  << " thresholds=" << joinInts(expectedThresholds)
+                  << " before_blocked=" << blockedBeforeThreshold
+                  << " at_complete=" << completedAtThreshold
+                  << " fieldB_total=" << totalFieldB
+                  << " percent_model=integer_floor\n";
     }
 
     void debugSpriteTransparency() {
@@ -8188,6 +13164,146 @@ public:
                   << '\n';
     }
 
+    void debugSpriteLayoutStaticModel() {
+        struct ExpectedBank {
+            const char* rawPath;
+            const char* label;
+            size_t rawBytes;
+            int sprites;
+            size_t pixels;
+            size_t zero;
+            size_t ff;
+            int maxWidth;
+            int maxHeight;
+            int firstWidth;
+            int firstHeight;
+            int lastWidth;
+            int lastHeight;
+        };
+
+        const std::array<ExpectedBank, 3> banks{{
+            {"BOMOMIMK.SPR", "bomomimk", 20168, 91, 19985, 9303, 104, 21, 16, 16, 16, 12, 10},
+            {"PROVA.SPR", "prova", 21250, 91, 21067, 9363, 114, 48, 20, 16, 16, 12, 10},
+            {"FONTS.SPR", "fonts", 5425, 68, 5288, 2730, 151, 10, 10, 10, 10, 8, 8},
+        }};
+
+        size_t totalRawBytes = 0;
+        size_t totalSprites = 0;
+        size_t totalPixels = 0;
+        size_t totalZero = 0;
+        size_t totalFf = 0;
+        int globalMaxWidth = 0;
+        int globalMaxHeight = 0;
+        std::ostringstream bankSummary;
+
+        for (const ExpectedBank& expected : banks) {
+            std::vector<uint8_t> bytes = readFile(expected.rawPath);
+            if (bytes.size() != expected.rawBytes) {
+                throw std::runtime_error(std::string(expected.rawPath) + " raw byte size changed");
+            }
+            if (bytes.empty()) {
+                throw std::runtime_error(std::string(expected.rawPath) + " empty raw sprite bank");
+            }
+
+            size_t offset = 0;
+            const int spriteCount = bytes[offset++];
+            if (spriteCount != expected.sprites) {
+                throw std::runtime_error(std::string(expected.rawPath) + " sprite count changed");
+            }
+
+            size_t pixels = 0;
+            size_t zero = 0;
+            size_t ff = 0;
+            int maxWidth = 0;
+            int maxHeight = 0;
+            int firstWidth = 0;
+            int firstHeight = 0;
+            int lastWidth = 0;
+            int lastHeight = 0;
+
+            for (int i = 0; i < spriteCount; ++i) {
+                if (offset + 2 > bytes.size()) {
+                    throw std::runtime_error(std::string(expected.rawPath) + " truncated sprite header");
+                }
+                const int width = bytes[offset++];
+                const int height = bytes[offset++];
+                if (width <= 0 || height <= 0) {
+                    throw std::runtime_error(std::string(expected.rawPath) + " zero-sized sprite");
+                }
+                if (i == 0) {
+                    firstWidth = width;
+                    firstHeight = height;
+                }
+                lastWidth = width;
+                lastHeight = height;
+                maxWidth = std::max(maxWidth, width);
+                maxHeight = std::max(maxHeight, height);
+
+                const size_t spritePixels = static_cast<size_t>(width) * static_cast<size_t>(height);
+                if (offset + spritePixels > bytes.size()) {
+                    throw std::runtime_error(std::string(expected.rawPath) + " truncated sprite payload");
+                }
+                for (size_t j = 0; j < spritePixels; ++j) {
+                    const uint8_t value = bytes[offset + j];
+                    if (value == 0) {
+                        ++zero;
+                    }
+                    if (value == 0xff) {
+                        ++ff;
+                    }
+                }
+                offset += spritePixels;
+                pixels += spritePixels;
+            }
+
+            if (offset != bytes.size()) {
+                throw std::runtime_error(std::string(expected.rawPath) + " raw sprite trailing bytes");
+            }
+            if (pixels != expected.pixels || zero != expected.zero || ff != expected.ff ||
+                maxWidth != expected.maxWidth || maxHeight != expected.maxHeight ||
+                firstWidth != expected.firstWidth || firstHeight != expected.firstHeight ||
+                lastWidth != expected.lastWidth || lastHeight != expected.lastHeight) {
+                throw std::runtime_error(std::string(expected.rawPath) + " raw sprite layout changed");
+            }
+
+            totalRawBytes += bytes.size();
+            totalSprites += static_cast<size_t>(spriteCount);
+            totalPixels += pixels;
+            totalZero += zero;
+            totalFf += ff;
+            globalMaxWidth = std::max(globalMaxWidth, maxWidth);
+            globalMaxHeight = std::max(globalMaxHeight, maxHeight);
+
+            bankSummary << ' ' << expected.label
+                        << "=bytes:" << bytes.size()
+                        << ",sprites:" << spriteCount
+                        << ",pixels:" << pixels
+                        << ",zero:" << zero
+                        << ",ff:" << ff
+                        << ",max:" << maxWidth << 'x' << maxHeight
+                        << ",first:" << firstWidth << 'x' << firstHeight
+                        << ",last:" << lastWidth << 'x' << lastHeight;
+        }
+
+        if (totalRawBytes != 46843 || totalSprites != 250 || totalPixels != 46340 ||
+            totalZero != 21396 || totalFf != 369 ||
+            globalMaxWidth != 48 || globalMaxHeight != 20) {
+            throw std::runtime_error("raw sprite aggregate layout changed");
+        }
+
+        std::cout << "sprite_layout_static_model=ok banks=" << banks.size()
+                  << " raw_bytes=" << totalRawBytes
+                  << " sprites=" << totalSprites
+                  << " pixels=" << totalPixels
+                  << " zero=" << totalZero
+                  << " nonzero=" << (totalPixels - totalZero)
+                  << " ff=" << totalFf
+                  << " max=" << globalMaxWidth << 'x' << globalMaxHeight
+                  << " trailing=0"
+                  << bankSummary.str()
+                  << '\n';
+    }
+
     void debugSpriteBlitContract() {
         load();
         resetClip();
@@ -8252,6 +13368,18 @@ public:
 
     void debugWordLayer() {
         load();
+        int levelsSeen = 0;
+        int totalLowWords = 0;
+        int totalHighWords = 0;
+        int totalHighUnique = 0;
+        int totalHighComponents = 0;
+        int totalHighSameWordComponents = 0;
+        int totalFieldB = 0;
+        int fieldBMatchesLow = 0;
+        int fieldAPayloadMatchesHigh = 0;
+        int fieldAPayloadMatchesHighUnique = 0;
+        int fieldAPayloadMatchesHighComponents = 0;
+        int fieldAPayloadMatchesHighSameWordComponents = 0;
         for (size_t levelIndex = 0; levelIndex < levels_.size(); ++levelIndex) {
             const Level& level = levels_[levelIndex];
             std::array<int, 65536> counts{};
@@ -8333,6 +13461,20 @@ public:
                 return counts[word];
             };
             int fieldAPayload = static_cast<int>(level.fieldA & 0x3fffu);
+            ++levelsSeen;
+            totalLowWords += lowWords;
+            totalHighWords += highWords;
+            totalHighUnique += highUnique;
+            totalHighComponents += highComponents;
+            totalHighSameWordComponents += highSameWordComponents;
+            totalFieldB += level.fieldB;
+            if (static_cast<int>(level.fieldB) == lowWords) ++fieldBMatchesLow;
+            if (fieldAPayload == highWords) ++fieldAPayloadMatchesHigh;
+            if (fieldAPayload == highUnique) ++fieldAPayloadMatchesHighUnique;
+            if (fieldAPayload == highComponents) ++fieldAPayloadMatchesHighComponents;
+            if (fieldAPayload == highSameWordComponents) {
+                ++fieldAPayloadMatchesHighSameWordComponents;
+            }
             std::cout << "word_layer level=" << (levelIndex + 1)
                       << " cells=" << level.wordLayer.size()
                       << " nonzero=" << nonzero
@@ -8370,6 +13512,30 @@ public:
             }
             std::cout << '\n';
         }
+        if (levelsSeen != 7 || totalLowWords != 5675 || totalHighWords != 501 ||
+            totalHighUnique != 501 || totalHighComponents != 268 ||
+            totalHighSameWordComponents != 501 || totalFieldB != 5675 ||
+            fieldBMatchesLow != 7 || fieldAPayloadMatchesHigh != 1 ||
+            fieldAPayloadMatchesHighUnique != 1 ||
+            fieldAPayloadMatchesHighComponents != 0 ||
+            fieldAPayloadMatchesHighSameWordComponents != 1) {
+            throw std::runtime_error("word-layer embedded field summary changed");
+        }
+        std::cout << "word_layer=ok levels=" << levelsSeen
+                  << " low=" << totalLowWords
+                  << " high=" << totalHighWords
+                  << " high_unique=" << totalHighUnique
+                  << " high_components=" << totalHighComponents
+                  << " high_same_word_components=" << totalHighSameWordComponents
+                  << " fieldB_total=" << totalFieldB
+                  << " fieldB_matches_low=" << fieldBMatchesLow
+                  << " fieldA_payload_matches_high=" << fieldAPayloadMatchesHigh
+                  << " fieldA_payload_matches_high_unique="
+                  << fieldAPayloadMatchesHighUnique
+                  << " fieldA_payload_matches_high_components="
+                  << fieldAPayloadMatchesHighComponents
+                  << " fieldA_payload_matches_high_same_word_components="
+                  << fieldAPayloadMatchesHighSameWordComponents << '\n';
     }
 
     void debugSpawners() {
@@ -8927,9 +14093,16 @@ public:
         if (!bombs_.empty() || explosionEffects_.empty() || flashes_.empty()) {
             throw std::runtime_error("bomb fuse did not produce an explosion");
         }
-        std::cout << "bomb_fuse=ok fuse=" << fuseTicks
-                  << " effects=" << explosionEffects_.size()
-                  << " flashes=" << flashes_.size() << '\n';
+        int initialEffects = static_cast<int>(explosionEffects_.size());
+        int initialFlashes = static_cast<int>(flashes_.size());
+
+        auto pushExpiredPlayerBombs = [&]() {
+            int playerBombX = static_cast<int>(player_.x + 6.0f) / kTileSize;
+            int playerBombY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+            bombs_.push_back({playerBombX, playerBombY, 1, BombType::Small, 1});
+            bombs_.push_back({std::max(0, playerBombX - 4), playerBombY, 1,
+                              BombType::Small, 1});
+        };
 
         resetLevel(0);
         menu_ = false;
@@ -8939,14 +14112,41 @@ public:
         bombs_.clear();
         flashes_.clear();
         explosionEffects_.clear();
-        int playerBombX = static_cast<int>(player_.x + 6.0f) / kTileSize;
-        int playerBombY = static_cast<int>(player_.y + 12.0f) / kTileSize;
-        bombs_.push_back({playerBombX, playerBombY, 1, BombType::Small, 1});
-        bombs_.push_back({std::max(0, playerBombX - 4), playerBombY, 1, BombType::Small, 1});
+        pushExpiredPlayerBombs();
         updateBombs();
-        if (!menu_ || !bombs_.empty() || !flashes_.empty() || !explosionEffects_.empty()) {
+        if (menu_ || !playerDead_ || lives_ != 1 || !pendingLifeLoss_ ||
+            deathStateTimer_ != kDeathStateTicks || !bombs_.empty() ||
+            flashes_.empty() || explosionEffects_.empty()) {
+            throw std::runtime_error("final-life bomb did not enter delayed state-2");
+        }
+        for (int i = 0; i < kDeathStateTicks; ++i) {
+            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+                          true);
+        }
+        if (!menu_ || menuPage_ != MenuPage::GameOver || !bombs_.empty() ||
+            !flashes_.empty() || !explosionEffects_.empty()) {
+            throw std::runtime_error("final-life bomb did not reset after state-2");
+        }
+
+        resetLevel(0);
+        menu_ = false;
+        energy_ = 0;
+        lives_ = 0;
+        damageCooldown_ = 0;
+        bombs_.clear();
+        flashes_.clear();
+        explosionEffects_.clear();
+        pushExpiredPlayerBombs();
+        updateBombs();
+        if (!menu_ || menuPage_ != MenuPage::GameOver || !bombs_.empty() ||
+            !flashes_.empty() || !explosionEffects_.empty()) {
             throw std::runtime_error("stale expired bomb exploded after reset");
         }
+
+        std::cout << "bomb_fuse=ok fuse=" << fuseTicks
+                  << " effects=" << initialEffects
+                  << " flashes=" << initialFlashes
+                  << " delayed_final_life=1 stale_reset_guard=1\n";
     }
 
     void debugBombObjectExplosionEffects() {
@@ -9622,6 +14822,9 @@ public:
         load();
         initSdl();
         prepareAutoplayerMonsterFixtureLevel();
+        level_.requiredBonus = 1;
+        level_.startingObjectiveTiles = 1;
+        tileRef(0, 0) = level_.objectiveTile;
         player_.x = 80.0f;
         player_.y = 24.0f;
         player_.grounded = true;
@@ -9630,13 +14833,16 @@ public:
         damageCooldown_ = 0;
 
         CollapseRecord hazard;
-        int tx0 = static_cast<int>(player_.x) / kTileSize - 1;
-        int ty0 = static_cast<int>(player_.y) / kTileSize;
-        int tx1 = tx0 + 2;
-        int ty1 = ty0 + 2;
+        int maxTx = std::max(0, level_.width - 1);
+        int maxTy = std::max(0, level_.height - 1);
+        int playerTileX = static_cast<int>(player_.x) / kTileSize;
+        int tx0 = std::clamp(playerTileX - 2, 0, maxTx);
+        int ty0 = 0;
+        int tx1 = std::clamp(playerTileX + 3, 0, maxTx);
+        int ty1 = maxTy;
         hazard.startOffsetBytes = static_cast<uint16_t>((ty0 * level_.width + tx0) * 2);
         hazard.endOffsetBytes = static_cast<uint16_t>((ty1 * level_.width + tx1) * 2);
-        hazard.timer = 130;
+        hazard.timer = 240;
         hazard.count = 1;
         collapseQueue_.push_back(hazard);
 
@@ -9656,7 +14862,24 @@ public:
         }
 
         int frames = 1;
-        while (lives_ == 3 && frames < 140) {
+        while (!playerDead_ && frames < 140) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            ++frames;
+        }
+        int framesToState2 = frames;
+        if (!playerDead_ || !pendingLifeLoss_ || lives_ != 3 || energy_ != 100) {
+            std::ostringstream oss;
+            oss << "live repeated hazard did not enter delayed state-2"
+                << " frames=" << frames
+                << " energy=" << energy_
+                << " lives=" << lives_
+                << " pending_life_loss=" << (pendingLifeLoss_ ? 1 : 0)
+                << " dead=" << (playerDead_ ? 1 : 0)
+                << " death_timer=" << deathStateTimer_
+                << " collapse=" << collapseQueue_.size();
+            throw std::runtime_error(oss.str());
+        }
+        while (pendingLifeLoss_ && frames < 260) {
             updateWithControls(idle, 1.0f / 60.0f);
             ++frames;
         }
@@ -9671,6 +14894,19 @@ public:
                 << " collapse=" << collapseQueue_.size();
             throw std::runtime_error(oss.str());
         }
+        tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                         damageCooldown_, 1);
+        if (playerDead_ || energy_ != 100 || lives_ != 2 ||
+            damageCooldown_ != kDamageCooldownTicks) {
+            std::ostringstream oss;
+            oss << "live repeated hazard did not reenter after state-2 countdown"
+                << " energy=" << energy_
+                << " lives=" << lives_
+                << " dead=" << (playerDead_ ? 1 : 0)
+                << " cooldown=" << damageCooldown_
+                << " death_timer=" << deathStateTimer_;
+            throw std::runtime_error(oss.str());
+        }
         FrameInspection deathFrame = inspectRenderedFrame("player-damage-live-death");
         if (deathFrame.hash == startFrame.hash) {
             throw std::runtime_error("live player death frame did not change");
@@ -9681,7 +14917,9 @@ public:
                   << " frames_to_life_loss=" << frames
                   << " lives=" << lives_
                   << " reentry_state=" << (playerDead_ ? 0 : 1)
-                  << " frame_inspection=1\n";
+                  << " frame_inspection=1"
+                  << " frames_to_state2=" << framesToState2
+                  << " delayed_life_loss=1\n";
     }
 
     void debugMonsterContactDamageLive() {
@@ -9767,7 +15005,7 @@ public:
         deathStateTimer_ = 0;
         clearSoundLatch();
         drainPlayerDamageCounters();
-        if (!playerDead_ || lives_ != 2 || energy_ != 100 ||
+        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ || energy_ != 100 ||
             deathStateTimer_ != kDeathStateTicks || pendingDamage_ != 0 ||
             !soundLatch_.active || soundLatch_.latchedOffset != kPlayerDeathSoundCursor ||
             soundLatch_.currentSelector != kPlayerDeathSoundPriority) {
@@ -9864,6 +15102,65 @@ public:
         std::cout << "hud_stats_live=ok"
                   << " hp_visible=1 lives_visible=1 bombs_visible=1"
                   << " progress_visible=1 frame_inspection=1\n";
+    }
+
+    void debugTwoPlayerHudPanel() {
+        load();
+        initSdl();
+        resetLevel(0);
+        menu_ = false;
+        playerCount_ = 2;
+        player_.x = 96.0f;
+        player_.y = 168.0f;
+        player2_.x = 152.0f;
+        player2_.y = 168.0f;
+        energy_ = 88;
+        energy2_ = 41;
+        lives_ = 3;
+        lives2_ = 1;
+        score_ = 1234;
+        score2_ = 5678;
+        collected_ = 2;
+        destroyed_ = std::max(1, level_.startingDestructibleTiles / 3);
+        bombInventory_.selected = BombType::Medium;
+        bombInventory_.counts = {199, 4, 2, 1};
+        bombInventory2_.selected = BombType::Super;
+        bombInventory2_.counts = {188, 3, 1, 0};
+
+        FrameInspection first = inspectRenderedFrame("two-player-hud-panel-first");
+        std::vector<uint32_t> firstPixels = fb_;
+        if (!regionHasVariation(0, 0, kScreenW, 24) ||
+            !regionHasVariation(0, 24, kScreenW, 74) ||
+            !regionHasVariation(0, 100, kScreenW, 24) ||
+            !regionHasVariation(72, 114, 150, 9) ||
+            !regionHasVariation(0, 124, kScreenW, 76)) {
+            throw std::runtime_error("two-player HUD panel did not render visible split UI");
+        }
+
+        ++collected_;
+        destroyed_ = std::min(level_.startingDestructibleTiles,
+                              destroyed_ + std::max(1, level_.startingDestructibleTiles / 5));
+        score2_ += 250;
+        energy2_ = 7;
+        FrameInspection second = inspectRenderedFrame("two-player-hud-panel-second");
+        if (second.hash == first.hash ||
+            !regionChanged(firstPixels, 0, 100, kScreenW, 24) ||
+            !regionChanged(firstPixels, 72, 114, 150, 9)) {
+            throw std::runtime_error("two-player HUD panel did not react to progress/stat changes");
+        }
+
+        std::cout << "two_player_hud_panel=ok"
+                  << " split_views=2"
+                  << " p1_hud_visible=1"
+                  << " p1_world_visible=1"
+                  << " p2_hud_visible=1"
+                  << " p2_world_visible=1"
+                  << " objective_panel_visible=1"
+                  << " objective_panel_changed=1"
+                  << " panel_y=100 panel_h=24"
+                  << " progress_region=72,114,150,9"
+                  << " frame_inspection=1"
+                  << " original_art_claim=0\n";
     }
 
     void exportSprites(const std::string& bankName, const std::string& path) {
@@ -9965,8 +15262,11 @@ private:
     int lastPumpedSoundRecord_ = -1;
     uint16_t lastPumpedSoundOffset_ = 0;
     uint8_t lastPumpedSoundSelector_ = 0;
+    bool traceCompatibilitySoundAttempts_ = false;
+    std::vector<CompatibilitySoundAttempt> compatibilitySoundAttempts_;
     bool menu_ = true;
     MenuPage menuPage_ = MenuPage::Main;
+    bool paused_ = false;
     bool showBackground_ = true;
     int gameplayViewWidth_ = kScreenW;
     int clipLeft_ = 0;
@@ -9994,8 +15294,13 @@ private:
     int reentryTimer2_ = 0;
     int deathStateTimer_ = 0;
     int deathStateTimer2_ = 0;
+    bool pendingLifeLoss_ = false;
+    bool pendingLifeLoss2_ = false;
     State2VisualCursor state2Visual_;
     State2VisualCursor state2Visual2_;
+    State2EffectEntry state2Effect_;
+    State2EffectEntry state2Effect2_;
+    bool state2VisualCursorPreview_ = false;
     int damageCooldown_ = 0;
     int damageCooldown2_ = 0;
     uint8_t pendingDamage_ = 0;
@@ -10009,7 +15314,7 @@ private:
     uint32_t randomSeed_ = 0x1234abcd;
     uint32_t score_ = 0;
     uint32_t score2_ = 0;
-    std::string recordPath_ = "RECS.DAT.json";
+    std::string recordPath_ = "RECS.DAT";
     uint32_t pendingRecordScore_ = 0;
     uint8_t pendingRecordLevel_ = 0;
     uint8_t pendingRecordPlayer_ = 1;
@@ -10075,18 +15380,27 @@ private:
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) {
                 running = false;
-            } else if (e.type == SDL_KEYDOWN && !e.key.repeat) {
+            } else if (e.type == SDL_KEYDOWN &&
+                       (!e.key.repeat ||
+                        shouldAcceptRepeatedNameEntryKey(e.key.keysym.sym))) {
                 onKey(e.key.keysym.sym, running);
             }
         }
     }
 
-    void pushKeyDown(SDL_Keycode key) {
+    bool shouldAcceptRepeatedNameEntryKey(SDL_Keycode key) const {
+        if (!menu_ || menuPage_ != MenuPage::NameEntry) {
+            return false;
+        }
+        return key == SDLK_BACKSPACE || recordCharForKey(key) != '\0';
+    }
+
+    void pushKeyDown(SDL_Keycode key, bool repeat = false) {
         SDL_Event e{};
         e.type = SDL_KEYDOWN;
         e.key.type = SDL_KEYDOWN;
         e.key.state = SDL_PRESSED;
-        e.key.repeat = 0;
+        e.key.repeat = repeat ? 1 : 0;
         e.key.keysym.sym = key;
         e.key.keysym.scancode = SDL_GetScancodeFromKey(key);
         if (SDL_PushEvent(&e) < 0) {
@@ -10108,6 +15422,7 @@ private:
         explosionEffects_.clear();
         debrisQueue_.clear();
         collapseQueue_.clear();
+        paused_ = false;
         collected_ = 0;
         destroyed_ = 0;
         completeTimer_ = 0;
@@ -10127,8 +15442,12 @@ private:
         reentryTimer2_ = 0;
         deathStateTimer_ = 0;
         deathStateTimer2_ = 0;
+        pendingLifeLoss_ = false;
+        pendingLifeLoss2_ = false;
         state2Visual_ = {};
         state2Visual2_ = {};
+        state2Effect_ = {};
+        state2Effect2_ = {};
         damageCooldown_ = 0;
         damageCooldown2_ = 0;
         pendingDamage_ = 0;
@@ -10203,50 +15522,64 @@ private:
                 menuPage_ = MenuPage::Instructions;
             } else if (key == SDLK_r) {
                 menuPage_ = MenuPage::Records;
+                requestRecordsPageSound();
             } else if (key == SDLK_s) {
                 showBackground_ = !showBackground_;
             }
-        } else if (!menu_ && (key == SDLK_SPACE || key == SDLK_RCTRL)) {
-            if (playerDead_) {
-                tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                                 damageCooldown_, 1);
-            } else {
-                placeBombAt(player_, bombInventory_, 1);
-            }
-        } else if (!menu_ && key == SDLK_n) {
-            if (playerCount_ > 1) {
-                if (player2Dead_) {
-                    tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_,
-                                     reentryTimer2_, damageCooldown2_, 2);
-                } else {
-                    placeBombAt(player2_, bombInventory2_, 2);
-                }
-            } else if (playerDead_) {
-                tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                                 damageCooldown_, 1);
-            } else {
-                placeBombAt(player_, bombInventory_, 1);
-            }
+        } else if (!menu_ && key == SDLK_p) {
+            paused_ = !paused_;
+        } else if (!menu_ && key == SDLK_ESCAPE) {
+            paused_ = false;
+            menu_ = true;
+            menuPage_ = MenuPage::Main;
+        } else if (!menu_ && key == SDLK_F5) {
+            paused_ = false;
+            resetLevel(levelIndex_);
+        } else if (!menu_ && key == SDLK_PAGEUP) {
+            paused_ = false;
+            resetLevel(levelIndex_ + 1);
+        } else if (!menu_ && key == SDLK_PAGEDOWN) {
+            paused_ = false;
+            resetLevel(levelIndex_ - 1);
+        } else if (!menu_ && paused_) {
+            return;
+        } else if (!menu_ && isPlayer1FireKey(key)) {
+            handlePlayerFire(player_, energy_, lives_, playerDead_, reentryTimer_,
+                             damageCooldown_, bombInventory_, 1);
+        } else if (!menu_ && playerCount_ > 1 && isPlayer2FireKey(key)) {
+            handlePlayerFire(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
+                             damageCooldown2_, bombInventory2_, 2);
         } else if (!menu_ && key == SDLK_s) {
             showBackground_ = !showBackground_;
         } else if (!menu_ && key == SDLK_r && playerCount_ == 1) {
             adjustGameplayViewWidth(-32);
         } else if (!menu_ && key == SDLK_e && playerCount_ == 1) {
             adjustGameplayViewWidth(32);
-        } else if (!menu_ && key == SDLK_F5) {
-            resetLevel(levelIndex_);
-        } else if (!menu_ && key == SDLK_ESCAPE) {
-            menu_ = true;
-            menuPage_ = MenuPage::Main;
-        } else if (!menu_ && key == SDLK_PAGEUP) {
-            resetLevel(levelIndex_ + 1);
-        } else if (!menu_ && key == SDLK_PAGEDOWN) {
-            resetLevel(levelIndex_ - 1);
+        }
+    }
+
+    bool isPlayer1FireKey(SDL_Keycode key) const {
+        return key == SDLK_n || key == SDLK_SPACE || key == SDLK_RCTRL;
+    }
+
+    bool isPlayer2FireKey(SDL_Keycode key) const {
+        return key == SDLK_KP_0 || key == SDLK_INSERT;
+    }
+
+    void handlePlayerFire(Player& player, int& energy, int& lives, bool& dead,
+                          int& reentryTimer, int& damageCooldown,
+                          BombInventory& inventory, uint8_t playerIndex) {
+        if (dead) {
+            tryReenterPlayer(player, energy, lives, dead, reentryTimer,
+                             damageCooldown, playerIndex);
+        } else {
+            placeBombAt(player, inventory, playerIndex);
         }
     }
 
     void handleNameEntryKey(SDL_Keycode key) {
         if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
+            requestRecordNameCommitSound();
             finalizePendingRecord();
             return;
         }
@@ -10384,11 +15717,10 @@ private:
 
     size_t soundIndexForOffsetFallback(uint16_t offset, uint8_t selector) const {
         if (sounds_.records.empty()) return 0;
-        switch (offset) {
-            case 0xea74: return 0;
-            case 0xea7e: return 1 % sounds_.records.size();
-            case 0xea88: return 2 % sounds_.records.size();
-            case 0xeace: return 3 % sounds_.records.size();
+        for (size_t i = 0; i < kExplosionDirectSweepSoundOffsets.size(); ++i) {
+            if (offset == kExplosionDirectSweepSoundOffsets[i]) {
+                return i % sounds_.records.size();
+            }
         }
         return soundIndexForSelector(selector);
     }
@@ -10436,6 +15768,10 @@ private:
     }
 
     void playSound(size_t index) {
+        if (traceCompatibilitySoundAttempts_) {
+            compatibilitySoundAttempts_.push_back(
+                {index, compatibilitySoundCursor(index)});
+        }
         if (!audioEnabled_ || audioDevice_ == 0 || sounds_.records.empty()) return;
         std::vector<int16_t> samples = synthesizeSound(index % sounds_.records.size());
         if (samples.empty()) return;
@@ -10571,23 +15907,19 @@ private:
     }
 
     uint16_t explosionSoundOffset(int visualType) const {
-        switch (visualType) {
-            case 1: return 0xea74;
-            case 2: return 0xea7e;
-            case 3: return 0xea88;
-            case 4: return 0xeace;
+        if (visualType >= 1 &&
+            visualType <= static_cast<int>(kExplosionDirectSweepSoundOffsets.size())) {
+            return kExplosionDirectSweepSoundOffsets[static_cast<size_t>(visualType - 1)];
         }
-        return 0xea74;
+        return kExplosionDirectSweepSoundOffsets[0];
     }
 
     uint8_t explosionSoundSelector(int visualType) const {
-        switch (visualType) {
-            case 1: return 4;
-            case 2: return 5;
-            case 3: return 6;
-            case 4: return 7;
+        if (visualType >= 1 &&
+            visualType <= static_cast<int>(kExplosionSoundSelectors.size())) {
+            return kExplosionSoundSelectors[static_cast<size_t>(visualType - 1)];
         }
-        return 4;
+        return kExplosionSoundSelectors[0];
     }
 
     bool hasBomb(const BombInventory& inventory, BombType type) const {
@@ -10622,7 +15954,7 @@ private:
     }
 
     void update(float dt) {
-        if (menu_) return;
+        if (menu_ || paused_) return;
         const uint8_t* keys = SDL_GetKeyboardState(nullptr);
         FrameControls controls;
         controls.p1Left = keys[SDL_SCANCODE_LEFT] ||
@@ -10638,7 +15970,7 @@ private:
     }
 
     void updateWithControls(const FrameControls& controls, float dt) {
-        if (menu_) return;
+        if (menu_ || paused_) return;
         ++logicTick_;
         updateDamageCooldowns();
         bool p1Switch = controls.p1Left && controls.p1Right;
@@ -10656,6 +15988,7 @@ private:
 
         if (playerDead_) {
             updateState2VisualCursor(state2Visual_);
+            refreshState2EffectEntry(player_, state2Visual_, state2Effect_);
             updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
                           playerCount_ == 1 || player2Dead_);
         } else {
@@ -10668,6 +16001,7 @@ private:
         if (playerCount_ > 1) {
             if (player2Dead_) {
                 updateState2VisualCursor(state2Visual2_);
+                refreshState2EffectEntry(player2_, state2Visual2_, state2Effect2_);
                 updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
                               playerDead_);
             } else {
@@ -10690,7 +16024,7 @@ private:
 
     void updateLevelCompletion() {
         if (isComplete()) {
-            if (completeTimer_ == 0) playSound(5);
+            if (completeTimer_ == 0) playSound(kCompatibilityLevelCompleteSound);
             if (++completeTimer_ > 100) {
                 if (isFinalLevel()) {
                     beginEndRun(EndReason::CompletedGame);
@@ -10827,7 +16161,7 @@ private:
                     tileRef(x, y) = 1;
                     ++collected_;
                     addScore(playerIndex, 1000);
-                    playSound(0);
+                    playSound(kCompatibilityObjectivePickupSound);
                 }
             }
         }
@@ -11253,16 +16587,20 @@ private:
 
     void beginPlayerDeath(Player& player, int& energy, int& lives, bool& dead,
                           int& timer, uint8_t startMarker) {
-        if (lives > 0) --lives;
+        pendingLifeLossFor(startMarker) = lives > 0;
         energy = 100;
         deathStateTimerFor(startMarker) = kDeathStateTicks;
-        resetState2VisualCursor(state2VisualCursorFor(startMarker));
+        State2VisualCursor& cursor = state2VisualCursorFor(startMarker);
+        resetState2VisualCursor(cursor);
+        refreshState2EffectEntry(player, cursor, state2EffectEntryFor(startMarker));
         player.vx = 0.0f;
         player.vy = 0.0f;
         player.grounded = false;
-        if (lives == 0) {
+        if (lives <= 0) {
             dead = true;
             timer = 0;
+            cursor.active = false;
+            state2EffectEntryFor(startMarker).active = false;
             requestPlayerDeathSound();
             if (allPlayersOutOfLives()) beginGameOver();
             return;
@@ -11270,12 +16608,38 @@ private:
         dead = true;
         timer = canReenterLevel() ? kReentryTicks : 1;
         requestPlayerDeathSound();
-        (void)startMarker;
     }
 
     State2VisualCursor& state2VisualCursorFor(uint8_t startMarker) {
         return startMarker == 2 && playerCount_ > 1 ? state2Visual2_
                                                      : state2Visual_;
+    }
+
+    State2EffectEntry& state2EffectEntryFor(uint8_t startMarker) {
+        return startMarker == 2 && playerCount_ > 1 ? state2Effect2_
+                                                     : state2Effect_;
+    }
+
+    void refreshState2EffectEntry(const Player& player,
+                                  const State2VisualCursor& cursor,
+                                  State2EffectEntry& entry) {
+        entry.active = cursor.active;
+        if (!entry.active) return;
+        entry.x = static_cast<int>(player.x);
+        entry.y = static_cast<int>(player.y);
+        entry.visualFrame = cursor.current;
+        State2VisualRow row;
+        if (originalState2VisualRow(cursor.current, row)) {
+            entry.drawDx = row.row0;
+            entry.drawDy = row.row1;
+            entry.row2 = row.row2;
+            entry.spriteIndex = row.row3;
+            return;
+        }
+        entry.drawDx = 0;
+        entry.drawDy = 0;
+        entry.row2 = 0;
+        entry.spriteIndex = cursor.current;
     }
 
     void resetState2VisualCursor(State2VisualCursor& cursor) {
@@ -11316,6 +16680,26 @@ private:
                                                      : deathStateTimer_;
     }
 
+    bool& pendingLifeLossFor(uint8_t startMarker) {
+        return startMarker == 2 && playerCount_ > 1 ? pendingLifeLoss2_
+                                                     : pendingLifeLoss_;
+    }
+
+    void finalizePendingLifeLoss(bool& dead, int& lives, int& timer,
+                                 uint8_t startMarker) {
+        bool& pending = pendingLifeLossFor(startMarker);
+        if (!pending) return;
+        pending = false;
+        if (lives > 0) --lives;
+        if (lives <= 0) {
+            dead = true;
+            timer = 0;
+            state2VisualCursorFor(startMarker).active = false;
+            state2EffectEntryFor(startMarker).active = false;
+            if (allPlayersOutOfLives()) beginGameOver();
+        }
+    }
+
     bool canReenterLevel() const {
         return collected_ + remainingObjectiveTiles() >= level_.requiredBonus;
     }
@@ -11332,6 +16716,31 @@ private:
             }
         }
         throw std::runtime_error("level has no objective tile for smoke");
+    }
+
+    std::array<int, 2> findSingleObjectiveProbeForSmoke() const {
+        int maxX = std::max(0, level_.width * kTileSize - 1);
+        int maxY = std::max(0, level_.height * kTileSize - 1);
+        for (int py = 0; py <= maxY; ++py) {
+            for (int px = 0; px <= maxX; ++px) {
+                int x0 = px / kTileSize;
+                int x1 = (px + 12) / kTileSize;
+                int y0 = py / kTileSize;
+                int y1 = (py + 16) / kTileSize;
+                int objectiveTiles = 0;
+                for (int y = y0; y <= y1; ++y) {
+                    for (int x = x0; x <= x1; ++x) {
+                        if (x >= 0 && y >= 0 && x < level_.width &&
+                            y < level_.height &&
+                            tileAt(x, y) == level_.objectiveTile) {
+                            ++objectiveTiles;
+                        }
+                    }
+                }
+                if (objectiveTiles == 1) return {px, py};
+            }
+        }
+        throw std::runtime_error("level has no single-objective probe position");
     }
 
     void collectAllObjectiveTilesForSmoke() {
@@ -11407,6 +16816,7 @@ private:
         if (deathStateTimer > 0) {
             --deathStateTimer;
             if (deathStateTimer > 0) return;
+            finalizePendingLifeLoss(dead, lives, timer, startMarker);
         }
         if (lives <= 0) return;
         if (!canReenterLevel()) {
@@ -11431,6 +16841,7 @@ private:
                           int& timer, int& damageCooldown, uint8_t startMarker) {
         if (!dead) return;
         if (deathStateTimerFor(startMarker) > 0) return;
+        finalizePendingLifeLoss(dead, lives, timer, startMarker);
         if (lives <= 0) return;
         if (!canReenterLevel()) {
             restartCurrentLevelAfterDeath();
@@ -11439,6 +16850,7 @@ private:
         respawnPlayerAtStart(player, energy, startMarker);
         deathStateTimerFor(startMarker) = 0;
         state2VisualCursorFor(startMarker).active = false;
+        state2EffectEntryFor(startMarker).active = false;
         damageCooldown = kDamageCooldownTicks;
         dead = false;
         timer = 0;
@@ -11515,10 +16927,8 @@ private:
             menuPage_ = MenuPage::Records;
             return;
         }
-        Record record;
-        record.score = pendingRecordScore_;
-        record.level = pendingRecordLevel_;
-        record.name = pendingRecordName_.empty() ? "PLAYER" : pendingRecordName_;
+        Record record = makeRecord(pendingRecordScore_, pendingRecordLevel_,
+                                   pendingRecordName_);
         std::vector<Record> updatedRecords = records_;
         bool changed = insertRecord(updatedRecords, record);
         try {
@@ -11561,6 +16971,7 @@ private:
             pendingRecordReason_ = entry.reason;
             pendingRecordName_.clear();
             menuPage_ = MenuPage::NameEntry;
+            requestRecordNamePromptSound();
             return true;
         }
         clearPendingRecord();
@@ -11580,7 +16991,7 @@ private:
             BombProfile profile = bombProfile(inventory.selected);
             bombs_.push_back({tx, ty, profile.fuseTicks, inventory.selected,
                               profile.fuseTicks, owner});
-            playSound(2);
+            requestBombPlaceSound();
             int& count = inventory.counts[static_cast<size_t>(bombTypeIndex(inventory.selected))];
             count = std::max(0, count - 1);
             if (count == 0) selectNextAvailableBomb(inventory);
@@ -11682,6 +17093,28 @@ private:
         return requestSoundCursor(sawHighObjectTile ? kBombObjectHighSoundCursor
                                                     : kBombObjectDefaultSoundCursor,
                                   kBombObjectSoundPriority);
+    }
+
+    bool requestBombPlaceSound() {
+        return requestSoundOffset(kBombPlaceSoundCursor, kBombPlaceSoundPriority);
+    }
+
+    bool requestMonsterDeathSound() {
+        return requestSoundCursor(kMonsterDeathSoundCursor, kMonsterDeathSoundPriority);
+    }
+
+    bool requestRecordNamePromptSound() {
+        return requestSoundCursor(kRecordNamePromptSoundCursor,
+                                  kRecordNamePromptSoundPriority);
+    }
+
+    bool requestRecordNameCommitSound() {
+        return requestSoundCursor(kRecordNameCommitSoundCursor,
+                                  kRecordNameCommitSoundPriority);
+    }
+
+    bool requestRecordsPageSound() {
+        return requestSoundCursor(kRecordsPageSoundCursor, kRecordsPageSoundPriority);
     }
 
     bool requestPortalTeleportSound() {
@@ -11927,7 +17360,7 @@ private:
         monster.fracY = 0;
         flashes_.push_back({static_cast<int>(monster.x + 7.0f) / 8,
                             static_cast<int>(monster.y + 8.0f) / 8, 18});
-        playSound(4);
+        requestMonsterDeathSound();
     }
 
     void spawnBonusDrop(float x, float y) {
@@ -11973,7 +17406,7 @@ private:
         BonusType type = drop.type;
         drop.collected = true;
         applyBonus(type, collector, energy, inventory, playerIndex);
-        requestSoundCursor(0x0008, 5);
+        requestSoundCursor(kBonusPickupSoundCursor, kBonusPickupSoundPriority);
     }
 
     void applyBonus(BonusType type, const Player& collector, int& energy,
@@ -12151,7 +17584,7 @@ private:
             drawWorldView(player2_, 0, 116, kScreenW, 84);
             resetClip();
             drawHudBand(100, 2, energy2_, lives2_, player2Dead_,
-                        bombInventory2_, score2_, false);
+                        bombInventory2_, score2_, true);
             rect(0, 115, kScreenW, 1, 0xfff0d060u);
         } else {
             int viewW = std::clamp(gameplayViewWidth_, 160, kScreenW);
@@ -12164,6 +17597,7 @@ private:
             }
         }
         drawHud();
+        if (paused_) drawPauseOverlay();
     }
 
     void drawWorldView(const Player& cameraPlayer, int viewX, int viewY, int viewW, int viewH) {
@@ -12187,13 +17621,15 @@ private:
         if (!playerDead_) {
             drawPlayer(player_, playerFacing_, playerAnimTick_, drawCamX, drawCamY, 0);
         } else if (deathStateTimer_ > 0 && state2Visual_.active) {
-            drawState2PlayerVisual(player_, state2Visual_, drawCamX, drawCamY);
+            drawState2PlayerVisual(player_, state2Visual_, state2Effect_,
+                                   drawCamX, drawCamY);
         }
         if (playerCount_ > 1 && !player2Dead_) {
             drawPlayer(player2_, player2Facing_, player2AnimTick_, drawCamX, drawCamY, 19);
         } else if (playerCount_ > 1 && deathStateTimer2_ > 0 &&
                    state2Visual2_.active) {
-            drawState2PlayerVisual(player2_, state2Visual2_, drawCamX, drawCamY);
+            drawState2PlayerVisual(player2_, state2Visual2_, state2Effect2_,
+                                   drawCamX, drawCamY);
         }
     }
 
@@ -12381,10 +17817,25 @@ private:
     }
 
     void drawState2PlayerVisual(const Player& player, const State2VisualCursor& cursor,
+                                const State2EffectEntry& effect,
                                 int camX, int camY) {
-        int x0 = static_cast<int>(player.x) - camX;
-        int y0 = static_cast<int>(player.y) - camY;
+        int x0 = (effect.active ? effect.x : static_cast<int>(player.x)) - camX;
+        int y0 = (effect.active ? effect.y : static_cast<int>(player.y)) - camY;
         int index = static_cast<int>(cursor.current);
+        if (!state2VisualCursorPreview_) {
+            if (effect.active && effect.visualFrame == cursor.current) {
+                index = static_cast<int>(effect.spriteIndex);
+                x0 += static_cast<int>(effect.drawDx);
+                y0 += static_cast<int>(effect.drawDy);
+            } else {
+                State2VisualRow row;
+                if (originalState2VisualRow(cursor.current, row)) {
+                    index = static_cast<int>(row.row3);
+                    x0 += static_cast<int>(row.row0);
+                    y0 += static_cast<int>(row.row1);
+                }
+            }
+        }
         if (index >= 0 && index < static_cast<int>(sprites_.sprites.size())) {
             drawSprite(sprites_.sprites[static_cast<size_t>(index)], x0, y0);
             return;
@@ -12444,6 +17895,19 @@ private:
             rect(76, 84, 168, 24, 0xee000000u);
             text(92, 92, "LEVEL COMPLETED", 0xffffe060u, false, 0xff301800u);
         }
+    }
+
+    void drawPauseOverlay() {
+        constexpr int x = 112;
+        constexpr int y = 84;
+        constexpr int w = 96;
+        constexpr int h = 28;
+        rect(x, y, w, h, 0xdd000000u);
+        rect(x, y, w, 1, 0xfff0d060u);
+        rect(x, y + h - 1, w, 1, 0xfff0d060u);
+        rect(x, y, 1, h, 0xfff0d060u);
+        rect(x + w - 1, y, 1, h, 0xfff0d060u);
+        text(x + 27, y + 10, "PAUSED", 0xffffe060u, false, 0xff301800u);
     }
 
     std::string objectiveHudText() const {
@@ -12531,12 +17995,14 @@ private:
         text(82, 48, "INSTRUCTIONS", 0xff90ffb0u, false, 0xff101010u);
         text(32, 68, "ARROWS OR Z X: MOVE", 0xffffffffu, false, 0xff101010u);
         text(32, 80, "UP OR M: JUMP", 0xffffffffu, false, 0xff101010u);
-        text(32, 92, "N SPACE RCTRL: PLACE BOMB", 0xffffe060u, false, 0xff101010u);
-        text(32, 104, "LEFT AND RIGHT: SWITCH BOMB", 0xffffffffu, false, 0xff101010u);
-        text(32, 116, "S: BACKGROUND ON OR OFF", 0xffffffffu, false, 0xff101010u);
-        text(32, 128, "E R: PLAYFIELD WIDTH", 0xffffffffu, false, 0xff101010u);
-        text(32, 140, "PAGEUP PAGEDOWN: TEST LEVELS", 0xffffffffu, false, 0xff101010u);
-        text(32, 156, "ESC: BACK", 0xff90ffb0u, false, 0xff101010u);
+        text(32, 92, "P1 FIRE: N SPACE RCTRL", 0xffffe060u, false, 0xff101010u);
+        text(32, 104, "P2 FIRE: KP0 OR INS", 0xffffe060u, false, 0xff101010u);
+        text(32, 116, "LEFT AND RIGHT: SWITCH BOMB", 0xffffffffu, false, 0xff101010u);
+        text(32, 128, "S: BACKGROUND ON OR OFF", 0xffffffffu, false, 0xff101010u);
+        text(32, 140, "E R: PLAYFIELD WIDTH", 0xffffffffu, false, 0xff101010u);
+        text(32, 152, "P: PAUSE", 0xffffffffu, false, 0xff101010u);
+        text(32, 164, "PAGEUP PAGEDOWN: TEST LEVELS", 0xffffffffu, false, 0xff101010u);
+        text(32, 180, "ESC: BACK", 0xff90ffb0u, false, 0xff101010u);
     }
 
     void drawRecordsMenu() {
@@ -12557,11 +18023,39 @@ private:
              0xffffe060u, false, 0xff101010u);
         text(58, 94, "LEVEL " + std::to_string(pendingRecordLevel_),
              0xffffffffu, false, 0xff101010u);
-        std::string name = pendingRecordName_;
-        while (name.size() < 8) name.push_back('_');
-        text(58, 120, "NAME " + name, 0xffffffffu, false, 0xff101010u);
+        text(kNameEntryLabelX, kNameEntrySlotY, "NAME ", 0xffffffffu,
+             false, 0xff101010u);
+        drawNameEntrySlots();
         text(42, 148, "TYPE LETTERS OR SPACE", 0xffffffffu, false, 0xff101010u);
         text(42, 160, "ENTER SAVE. BACKSPACE ERASES", 0xff90ffb0u, false, 0xff101010u);
+    }
+
+    int nameEntryCursorSlot() const {
+        return std::min<int>(static_cast<int>(pendingRecordName_.size()),
+                             kNameEntrySlotCount - 1);
+    }
+
+    int nameEntrySlotX(int slot) const {
+        return kNameEntryLabelX + textWidth("NAME ") +
+               slot * kNameEntrySlotAdvance;
+    }
+
+    void drawNameEntrySlots() {
+        int activeSlot = nameEntryCursorSlot();
+        for (int slot = 0; slot < kNameEntrySlotCount; ++slot) {
+            int x = nameEntrySlotX(slot);
+            bool active = slot == activeSlot;
+            if (active) {
+                rect(x - 1, kNameEntrySlotY - 2, kNameEntryCursorBoxW,
+                     kNameEntryCursorBoxH, kNameEntryCursorBackground);
+            }
+            char ch = slot < static_cast<int>(pendingRecordName_.size())
+                          ? pendingRecordName_[static_cast<size_t>(slot)]
+                          : '_';
+            text(x, kNameEntrySlotY, std::string(1, ch),
+                 active ? kNameEntryCursorForeground : 0xffffffffu,
+                 false, active ? 0 : 0xff101010u);
+        }
     }
 
     void drawGameOverMenu() {
@@ -12658,13 +18152,30 @@ private:
         }
     }
 
+    int glyphAdvance(char raw, bool large = false) const {
+        if (raw == ' ') return large ? 8 : 5;
+        int index = fontGlyphIndex(raw, large);
+        if (index >= 0 && index < static_cast<int>(fontSprites_.sprites.size())) {
+            return fontSprites_.sprites[static_cast<size_t>(index)].width + 1;
+        }
+        return 9;
+    }
+
+    int textWidth(const std::string& s, bool large = false) const {
+        int width = 0;
+        for (char raw : s) {
+            width += glyphAdvance(raw, large);
+        }
+        return width;
+    }
+
     void text(int x, int y, const std::string& s, uint32_t color, bool large = false,
               uint32_t shadow = 0, int shadowDx = 1, int shadowDy = 1) {
         int cx = x;
         for (char raw : s) {
             char ch = raw;
             if (ch == ' ') {
-                cx += large ? 8 : 5;
+                cx += glyphAdvance(ch, large);
                 continue;
             }
             int index = fontGlyphIndex(ch, large);
@@ -12698,8 +18209,36 @@ int main(int argc, char** argv) {
             app.debugRecordUpdate(argv[2]);
             return 0;
         }
+        if (argc > 1 && std::string(argv[1]) == "--debug-records-raw-roundtrip") {
+            app.debugRecordsRawRoundtrip();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-record-entry-static-model") {
+            app.debugRecordEntryStaticModel();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-core-resource-raw-roundtrip") {
+            app.debugCoreResourceRawRoundtrip();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-shipped-file-manifest") {
+            app.debugShippedFileManifest();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-original-asset-load") {
+            app.debugOriginalAssetLoad();
+            return 0;
+        }
         if (argc > 2 && std::string(argv[1]) == "--debug-record-name-entry") {
             app.debugRecordNameEntry(argv[2]);
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-record-name-entry-cursor") {
+            app.debugRecordNameEntryCursor();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-record-name-entry-repeat") {
+            app.debugRecordNameEntryRepeat(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-record-save-failure") {
@@ -12708,6 +18247,14 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-end-flow-records") {
             app.debugEndFlowRecords(argv[2]);
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-end-flow-frame-flow") {
+            app.debugEndFlowFrameFlow();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-end-flow-static-model") {
+            app.debugEndFlowStaticModel();
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--export-background") {
@@ -12720,6 +18267,14 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bonuses") {
             app.debugBonuses();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-bonus-reward-static-model") {
+            app.debugBonusRewardStaticModel();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-monster-sprite-table-model") {
+            app.debugMonsterSpriteTableModel();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-fixed") {
@@ -12742,8 +18297,24 @@ int main(int argc, char** argv) {
             app.debugSonRawRoundtrip();
             return 0;
         }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sound-loader-static-model") {
+            app.debugSoundLoaderStaticModel();
+            return 0;
+        }
         if (argc > 1 && std::string(argv[1]) == "--debug-son-step-fields") {
             app.debugSonStepFields();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-son-tail-field-mutation") {
+            app.debugSonTailFieldMutation();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sound-tick-static-model") {
+            app.debugSoundTickStaticModel();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sound-latch-static-model") {
+            app.debugSoundLatchStaticModel();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-gran-raw-roundtrip") {
@@ -12756,6 +18327,42 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sound-selector-map") {
             app.debugSoundSelectorMap();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-static-sound-requests") {
+            app.debugStaticSoundRequests();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-input-fire-key-model") {
+            app.debugInputFireKeyModel();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-static-sound-contexts") {
+            app.debugStaticSoundContexts();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-static-sound-unresolved-contexts") {
+            app.debugStaticSoundUnresolvedContexts();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-remaining-sound-compat-hooks") {
+            app.debugRemainingSoundCompatibilityHooks();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-record-name-sound") {
+            app.debugRecordNameSoundRouting(argv[2]);
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-records-page-sound") {
+            app.debugRecordsPageSoundRouting();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-bomb-place-sound") {
+            app.debugBombPlaceSoundRouting();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-monster-death-sound") {
+            app.debugMonsterDeathSoundRouting();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-object-sound") {
@@ -12786,6 +18393,22 @@ int main(int argc, char** argv) {
             app.debugOriginalState2AnimationAdvance();
             return 0;
         }
+        if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-visual-row-model") {
+            app.debugOriginalState2VisualRowModel();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-visual-row-assets") {
+            app.debugOriginalState2VisualRowAssets();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--capture-state2-visual-row-preview") {
+            app.captureState2VisualRowPreview(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--capture-state2-visual-row-game-preview") {
+            app.captureState2VisualRowGamePreview(argv[2]);
+            return 0;
+        }
         if (argc > 2 && std::string(argv[1]) == "--debug-state2-runtime-frame-oracle") {
             bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";
             return app.debugState2RuntimeFrameOracle(argv[2], expectError);
@@ -12806,9 +18429,21 @@ int main(int argc, char** argv) {
             bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";
             return app.debugContactScannerRuntimeOracle(argv[2], expectError);
         }
+        if (argc > 2 && std::string(argv[1]) == "--debug-sound-callsite-oracle") {
+            bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";
+            return app.debugSoundCallsiteOracle(argv[2], expectError);
+        }
         if (argc > 2 && std::string(argv[1]) == "--debug-explosion-playback-oracle") {
             bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";
             return app.debugExplosionPlaybackOracle(argv[2], expectError);
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-lane-write-static-model") {
+            app.debugLaneWriteStaticModel();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-actor-contact-static-model") {
+            app.debugActorContactStaticModel();
+            return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-effect-placement") {
             app.debugOriginalState2EffectPlacement();
@@ -12830,12 +18465,20 @@ int main(int argc, char** argv) {
             app.debugLevelRawRoundtrip();
             return 0;
         }
+        if (argc > 1 && std::string(argv[1]) == "--debug-level-completion-denominator") {
+            app.debugLevelCompletionDenominator();
+            return 0;
+        }
         if (argc > 1 && std::string(argv[1]) == "--debug-sprite-transparency") {
             app.debugSpriteTransparency();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sprite-raw-roundtrip") {
             app.debugSpriteRawRoundtrip();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-sprite-layout-static-model") {
+            app.debugSpriteLayoutStaticModel();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sprite-blit-contract") {
@@ -12930,6 +18573,10 @@ int main(int argc, char** argv) {
             app.debugHudStatsLive();
             return 0;
         }
+        if (argc > 1 && std::string(argv[1]) == "--debug-two-player-hud-panel") {
+            app.debugTwoPlayerHudPanel();
+            return 0;
+        }
         if (argc > 3 && std::string(argv[1]) == "--export-sprites") {
             app.exportSprites(argv[2], argv[3]);
             return 0;
@@ -12944,6 +18591,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-level1-frame-inspection") {
             app.debugLevel1FrameInspection();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-menu-frame-flow") {
+            app.debugMenuFrameFlow();
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--capture-frame-sequence") {

@@ -29,7 +29,9 @@ Key findings:
 Integrated this pass:
 
 - Record-entry keys now follow the `1000:1845..1ad4` evidence for letters,
-  space, lowercase storage, Backspace, and Enter.
+  space, lowercase storage, Backspace, and Enter. Later tightening also pins
+  the routine's eight-colon initial name template, so an untouched prompt writes
+  raw `::::::::` and a typed `nessuno` remains distinct as `nessuno:`.
 
 ## B - Gameplay Fidelity
 

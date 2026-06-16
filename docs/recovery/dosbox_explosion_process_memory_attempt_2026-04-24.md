@@ -538,7 +538,10 @@ natural right/down route-step fixture,
 records `x:2.00,c:0.50` loading the `1000:3D3F` patch without a forward result
 freeze while live lane globals were present. The default/timing-variant and
 route-step routes loaded the `1000:3D3F` patch but did not hit the forward
-result freeze, so natural-route forward result-write evidence remains pending.
+result freeze. A later 2026-06-15 WSL route sweep promoted natural route
+`x:2.00` as
+`explosion_playback_oracle_original_3d3f_lane_result_runtime_natural.txt`, with
+the forward result-write freeze observed at `1000:3D3F`.
 The no-DOSBox preflight also checks the shared static tail at both anchors:
 loop-end compare, `mov al,[bp-0d]`, `les di,[bp+4]`, `mov es:[di],al`,
 `leave`, and `ret 6`. Its status line carries the exact tail as
@@ -610,16 +613,19 @@ line; successful full captures also print the manifest path.
 Lane-result handoff checklist:
 
 ```text
-lane_result_status=reverse_original_runtime_capture_promoted_forward_seeded_promoted_natural_forward_pending
-lane_result_blocker=natural forward 3D3F default/timing/before-bomb routes loaded patch but did not freeze
+lane_result_status=reverse_original_runtime_capture_promoted_forward_seeded_promoted_natural_forward_promoted
+lane_result_blocker=remaining natural forward debris writeback 3D2D; older default/timing/before-bomb routes loaded the 3D3F patch but did not freeze
 lane_result_preflight=python3 tools/check_explosion_lane_result_preflight.py .
 lane_result_wrapper_output_check=python3 tools/check_explosion_lane_result_wrapper.py .
 lane_result_wrapper_dry_run=python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . --dry-run --skip-oracle
 lane_result_route_sweep_dry_run=python3 tools/sweep_original_lane_result_routes.py /tmp/lezac-lane-result-route-sweep . --dry-run --skip-oracle --route x:2.00,c:0.50 --route x:1.50,z:0.50
+lane_result_route_sweep_oracle_dry_run=python3 tools/sweep_original_lane_result_routes.py /tmp/lezac-lane-result-route-sweep . --dry-run --cpp-exe ./build/lezac_cpp --offset forward
+lane_write_forward_debris_expanded_sweep=python3 tools/sweep_original_lane_write_routes.py /tmp/lezac-lane-write-forward-expanded . --route-preset forward-debris-expanded --offset forward-debris --approve-procmem --approve-runtime-instrumentation --cpp-exe ./build/lezac_cpp
 lane_result_route_sweep_capture=python3 tools/sweep_original_lane_result_routes.py /tmp/lezac-lane-result-route-sweep . --approve-procmem --approve-runtime-instrumentation
 lane_result_wrapper_capture=python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime . --approve-procmem --approve-runtime-instrumentation
 lane_result_reverse_capture=python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-runtime-20260506-reverse . --approve-procmem --approve-runtime-instrumentation --offset reverse
 lane_result_forward_seeded_capture=python3 tools/capture_original_explosion_procmem.py /tmp/lezac-lane-result-forward-seeded-after-20260506 . --approve-procmem --mode regular --freeze-ghidra-offset 1000:3D3F --freeze-patch-mode lane-result-cs-scratch --approve-instrumentation --approve-runtime-instrumentation --runtime-freeze-after-bomb-seconds 0.0 --runtime-seed-debris-writeback --level-start-seconds 1.5 --right-hold-seconds 2.0 --sample-seconds 5.0 --sample-interval 0.005 --route-state-interval 0 --tail-freeze-check-seconds 0.75
+lane_result_forward_route_step_dry_run_ctest=explosion_lane_result_capture_orchestrator_dry_run_natural_forward
 lane_result_forward_route_step_capture=python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-forward-routestep-x2p0-c0p5-20260506 . --approve-procmem --approve-runtime-instrumentation --offset forward --route-step x:2.00 --route-step c:0.50 --sample-seconds 5.0 --sample-interval 0.005 --route-state-interval 0 --tail-freeze-check-seconds 0.75
 lane_result_forward_alias=forward -> 1000:3D3F -> expected_old_bytes=268805 -> scratch=CS:F280
 lane_result_reverse_alias=reverse -> 1000:3ED3 -> expected_old_bytes=268805 -> scratch=CS:F280

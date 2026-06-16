@@ -1,0 +1,25 @@
+# LEZAC visual table oracle malformed fixture.
+capture=visual_table
+source=dosbox-debug
+temp_copy=1
+visual_claim=0
+scenario=state2_death_table_consumption
+runtime_cs=01ED
+runtime_ds=0C8F
+
+break ghidra=1000:3108 runtime=01ED:3108 label=state2_death_helper
+break ghidra=1000:6053 runtime=01ED:6053 label=actor_update_animation
+break ghidra=1000:6148 runtime=01ED:6148 label=actor_frame_consumer
+break ghidra=1000:7C89 runtime=01ED:7C89 label=state2_countdown
+break ghidra=1000:7DDF runtime=01ED:7DDF label=state2_return_active
+
+actor slot=0 kind=player1 state=2 anim_current=0x4a anim_first=0x4a anim_last=0x4f anim_counter=3 anim_delay=3 anim_mode=1 anim_step=1
+visual frame=0x4a row_addr=0xc44a row=10,10,7d,43 bank=BOMOMIMK sprite_index=66 sprite_source=row_byte3 draw_dx=16 draw_dy=16
+effect_before slot=0 x=0x0068 y=0x00a8 frame=0x4a flags=0x0000
+effect_after slot=0 x=0x0068 y=0x00a8 frame=0x4a flags=0x0000
+
+dump DS:C440
+0C8F:C440   7D 40 10 10 7D 41 10 10 7D 42 10 10 7D 43 10 10
+
+dump DS:C21E
+0C8F:C21E   68 00 A8 00 10 10 00 00

@@ -19,6 +19,45 @@ TARGETS = {
     "contact_scanner_end": "1000:604F",
 }
 
+CMAKE_TESTS = {
+    "actor_update_start": (
+        "actor_contact_procmem_helper_dry_run",
+        "/tmp/lezac-actor-contact-procmem-dry-run",
+    ),
+    "actor_update_end": (
+        "actor_contact_procmem_helper_actor_update_end_dry_run",
+        "/tmp/lezac-actor-contact-procmem-actor-update-end-dry-run",
+    ),
+    "actor_update_gate5": (
+        "actor_contact_procmem_helper_actor_update_gate5_dry_run",
+        "/tmp/lezac-actor-contact-procmem-gate5-dry-run",
+    ),
+    "actor_update_gate5_integration": (
+        "actor_contact_procmem_helper_actor_update_gate5_integration_dry_run",
+        "/tmp/lezac-actor-contact-procmem-gate5-integration-dry-run",
+    ),
+    "actor_update_gate5_exit": (
+        "actor_contact_procmem_helper_actor_update_gate5_exit_dry_run",
+        "/tmp/lezac-actor-contact-procmem-gate5-exit-dry-run",
+    ),
+    "actor_update_gate6": (
+        "actor_contact_procmem_helper_actor_update_gate6_dry_run",
+        "/tmp/lezac-actor-contact-procmem-gate6-dry-run",
+    ),
+    "contact_scanner_callsite": (
+        "actor_contact_procmem_helper_contact_scanner_callsite_dry_run",
+        "/tmp/lezac-actor-contact-procmem-contact-callsite-dry-run",
+    ),
+    "contact_scanner_start": (
+        "actor_contact_procmem_helper_contact_scanner_start_dry_run",
+        "/tmp/lezac-actor-contact-procmem-contact-start-dry-run",
+    ),
+    "contact_scanner_end": (
+        "actor_contact_procmem_helper_contact_scanner_end_dry_run",
+        "/tmp/lezac-actor-contact-procmem-contact-end-dry-run",
+    ),
+}
+
 
 def default_repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
@@ -95,30 +134,32 @@ def check_script(script_path: Path) -> None:
 def check_cmake(cmake_path: Path) -> None:
     text = cmake_path.read_text(encoding="utf-8")
     require(text, "find_program(BASH_EXECUTABLE bash)", "CMake")
-    block = test_block(text, "actor_contact_procmem_helper_dry_run")
-    collapsed = collapse_ws(block)
-    for snippet in [
-        "LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1",
-        "${BASH_EXECUTABLE}",
-        "tools/capture_original_actor_contact_procmem.sh",
-        "/tmp/lezac-actor-contact-procmem-dry-run",
-        "${CMAKE_CURRENT_SOURCE_DIR}",
-        "actor_update_start",
-        "^actor_contact_procmem=ok mode=dry_run target=actor_update_start ghidra=1000:6053 .*procmem_out=",
-        "environment_preflight=dry_run",
-    ]:
-        if collapse_ws(snippet) not in collapsed:
-            raise RuntimeError(
-                "actor_contact_procmem_helper_dry_run missing snippet: "
-                f"{snippet}"
-            )
+    for target, (test_name, out_dir) in CMAKE_TESTS.items():
+        block = test_block(text, test_name)
+        collapsed = collapse_ws(block)
+        ghidra = TARGETS[target]
+        for snippet in [
+            "LEZAC_ACTOR_CONTACT_PROCMEM_DRY_RUN=1",
+            "${BASH_EXECUTABLE}",
+            "tools/capture_original_actor_contact_procmem.sh",
+            out_dir,
+            "${CMAKE_CURRENT_SOURCE_DIR}",
+            target,
+            (
+                "^actor_contact_procmem=ok mode=dry_run "
+                f"target={target} ghidra={ghidra} .*procmem_out="
+            ),
+            "environment_preflight=dry_run",
+        ]:
+            if collapse_ws(snippet) not in collapsed:
+                raise RuntimeError(f"{test_name} missing snippet: {snippet}")
 
     block = test_block(text, "actor_contact_procmem_helper_expectations")
     collapsed = collapse_ws(block)
     for snippet in [
         "tools/check_actor_contact_procmem_helper.py",
         "${CMAKE_CURRENT_SOURCE_DIR}",
-        "^actor_contact_procmem_helper=ok targets=9 cmake_test=1 docs=2",
+        "^actor_contact_procmem_helper=ok targets=9 cmake_tests=9 docs=2",
     ]:
         if collapse_ws(snippet) not in collapsed:
             raise RuntimeError(
@@ -156,7 +197,7 @@ def main() -> int:
     check_docs(root)
     print(
         "actor_contact_procmem_helper=ok "
-        f"targets={len(TARGETS)} cmake_test=1 docs=2"
+        f"targets={len(TARGETS)} cmake_tests={len(CMAKE_TESTS)} docs=2"
     )
     return 0
 

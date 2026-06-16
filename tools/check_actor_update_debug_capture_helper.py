@@ -30,6 +30,24 @@ OUTPUTS = [
     "actor_update_debug_capture.log",
 ]
 
+CMAKE_TESTS = [
+    (
+        "actor_update_debug_capture_helper_dry_run",
+        "object_collision_jump_live",
+        "/tmp/lezac-actor-update-debug-dry-run",
+    ),
+    (
+        "actor_update_debug_capture_helper_contact_dry_run",
+        "monster_contact_damage_live",
+        "/tmp/lezac-actor-update-debug-contact-dry-run",
+    ),
+    (
+        "actor_update_debug_capture_helper_behavior4_dry_run",
+        "monster_behavior4_chase",
+        "/tmp/lezac-actor-update-debug-behavior4-dry-run",
+    ),
+]
+
 
 def default_repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
@@ -74,6 +92,8 @@ def check_script(script_path: Path) -> None:
     require(text, "run_environment_preflight", "script")
     require(text, "preflight_original_evidence_environment.py", "script")
     require(text, "--require-debug-capture", "script")
+    require(text, "--probe-wsl", "script")
+    require(text, "--require-wsl-bash-on-windows", "script")
     require(text, "write_runtime_command_plan", "script")
     require(text, "debugger_commands_runtime=$runtime_commands_file", "script")
     require(text, "environment_preflight=dry_run", "script")
@@ -106,29 +126,31 @@ def check_script(script_path: Path) -> None:
 def check_cmake(cmake_path: Path) -> None:
     text = cmake_path.read_text(encoding="utf-8")
     require(text, "find_program(BASH_EXECUTABLE bash)", "CMake")
-    block = test_block(text, "actor_update_debug_capture_helper_dry_run")
-    collapsed = collapse_ws(block)
-    for snippet in [
-        "LEZAC_ACTOR_UPDATE_DEBUG_DRY_RUN=1",
-        "${BASH_EXECUTABLE}",
-        "tools/capture_original_actor_update_debug.sh",
-        "/tmp/lezac-actor-update-debug-dry-run",
-        "${CMAKE_CURRENT_SOURCE_DIR}",
-        "object_collision_jump_live",
-        "^actor_update_debug_capture=ok mode=dry_run scenario=object_collision_jump_live route=debugger_seeded .*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run",
-    ]:
-        if collapse_ws(snippet) not in collapsed:
-            raise RuntimeError(
-                "actor_update_debug_capture_helper_dry_run missing snippet: "
-                f"{snippet}"
-            )
+    for test_name, scenario, out_dir in CMAKE_TESTS:
+        block = test_block(text, test_name)
+        collapsed = collapse_ws(block)
+        for snippet in [
+            "LEZAC_ACTOR_UPDATE_DEBUG_DRY_RUN=1",
+            "${BASH_EXECUTABLE}",
+            "tools/capture_original_actor_update_debug.sh",
+            out_dir,
+            "${CMAKE_CURRENT_SOURCE_DIR}",
+            scenario,
+            (
+                "^actor_update_debug_capture=ok mode=dry_run "
+                f"scenario={scenario} route=debugger_seeded "
+                ".*manifest=.*raw_dump=.*candidate_fixture=.*environment_preflight=dry_run"
+            ),
+        ]:
+            if collapse_ws(snippet) not in collapsed:
+                raise RuntimeError(f"{test_name} missing snippet: {snippet}")
 
     block = test_block(text, "actor_update_debug_capture_helper_expectations")
     collapsed = collapse_ws(block)
     for snippet in [
         "tools/check_actor_update_debug_capture_helper.py",
         "${CMAKE_CURRENT_SOURCE_DIR}",
-        "^actor_update_debug_capture_helper=ok scenarios=3 anchors=4 outputs=7 cmake_test=1 docs=2",
+        "^actor_update_debug_capture_helper=ok scenarios=3 anchors=4 outputs=7 cmake_tests=3 docs=2",
     ]:
         if collapse_ws(snippet) not in collapsed:
             raise RuntimeError(
@@ -165,7 +187,7 @@ def main() -> int:
     print(
         "actor_update_debug_capture_helper=ok "
         f"scenarios={len(SCENARIOS)} anchors={len(BREAKPOINTS)} "
-        f"outputs={len(OUTPUTS)} cmake_test=1 docs=2"
+        f"outputs={len(OUTPUTS)} cmake_tests={len(CMAKE_TESTS)} docs=2"
     )
     return 0
 

@@ -15,11 +15,15 @@ cmake -S . -B build
 cmake --build build
 ```
 
-Run from this directory so the converted JSON resources are found:
+Run from this directory so the shipped original assets are found:
 
 ```sh
 ./build/lezac_cpp
 ```
+
+The build also copies the shipped resources beside the executable, so running
+from the build output directory works. Set `LEZAC_LOAD_JSON_ASSETS=1` to force
+the converted JSON compatibility resources for diagnostics.
 
 Validate every decoded original data file without opening a window:
 
@@ -32,6 +36,9 @@ Smoke-test SDL window creation and menu/control handling:
 ```sh
 ./build/lezac_cpp --smoke-ui 3
 ./build/lezac_cpp --smoke-controls
+./build/lezac_cpp --debug-input-fire-key-model
+./build/lezac_cpp --debug-menu-frame-flow
+./build/lezac_cpp --debug-autoplayer pause_flow
 ```
 
 Dump deterministic C++ frames for comparison against original DOSBox captures:
@@ -62,7 +69,12 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ```sh
 ./build/lezac_cpp --debug-bombs
 ./build/lezac_cpp --debug-bonuses
+./build/lezac_cpp --debug-bonus-reward-static-model
+./build/lezac_cpp --debug-monster-sprite-table-model
 ./build/lezac_cpp --debug-fixed
+./build/lezac_cpp --debug-shipped-file-manifest
+./build/lezac_cpp --debug-original-asset-load
+LEZAC_LOAD_ORIGINAL_ASSETS=1 ./build/lezac_cpp --validate
 ./build/lezac_cpp --debug-sounds
 ./build/lezac_cpp --debug-sound-render
 ./build/lezac_cpp --debug-sound-cursor-segments
@@ -70,10 +82,17 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-son-step-fields
 ./build/lezac_cpp --debug-sound-priority-latch
 ./build/lezac_cpp --debug-sound-selector-map
+./build/lezac_cpp --debug-static-sound-contexts
+./build/lezac_cpp --debug-remaining-sound-compat-hooks
 ./build/lezac_cpp --debug-player-damage-sound
+./build/lezac_cpp --debug-sound-callsite-oracle tests/fixtures/dosbox/sound_callsite_oracle_synthetic.txt
+LEZAC_SOUND_CALLSITE_DEBUG_DRY_RUN=1 tools/capture_original_sound_callsite_debug.sh /tmp/lezac-sound-callsite-debug . player_damage_sound
+./build/lezac_cpp --debug-lane-write-static-model
+./build/lezac_cpp --debug-actor-contact-static-model
 ./build/lezac_cpp --debug-original-damage-counters
 ./build/lezac_cpp --debug-level1-frame-inspection
 ./build/lezac_cpp --debug-autoplayer level1_bomb_route
+./build/lezac_cpp --debug-autoplayer pause_flow
 ./build/lezac_cpp --debug-autoplayer death_reentry
 ./build/lezac_cpp --debug-autoplayer death_visuals
 ./build/lezac_cpp --debug-autoplayer level_transition
@@ -88,26 +107,39 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-autoplayer monster_behavior4_target_selection
 ./build/lezac_cpp --debug-autoplayer collapse_playback_route
 ./build/lezac_cpp --debug-autoplayer two_player_route
+./build/lezac_cpp --debug-autoplayer two_player_death_visuals
 ./build/lezac_cpp --debug-autoplayer two_player_progression
 ./build/lezac_cpp --debug-player-state2-death-fields
 ./build/lezac_cpp --debug-original-state2-return-model
 ./build/lezac_cpp --debug-original-state2-animation-init
 ./build/lezac_cpp --debug-original-state2-animation-advance
+./build/lezac_cpp --debug-original-state2-visual-row-model
+./build/lezac_cpp --debug-original-state2-visual-row-assets
+./build/lezac_cpp --capture-state2-visual-row-preview /tmp/lezac-cpp-state2-row-preview
+./build/lezac_cpp --capture-state2-visual-row-game-preview /tmp/lezac-cpp-state2-row-game-preview
+LEZAC_STATE2_VISUAL_FRAME_CAPTURE_DRY_RUN=1 tools/capture_original_state2_visual_frames.sh /tmp/lezac-original-state2-visual . state2_death_table_consumption
+python3 tools/compare_state2_visual_row_game_previews.py /tmp/lezac-state2-visual-compare ./build/lezac_cpp /tmp/lezac-original-state2-visual
 ./build/lezac_cpp --debug-state2-runtime-frame-oracle tests/fixtures/dosbox/state2_runtime_frame_oracle_synthetic.txt
 ./build/lezac_cpp --debug-state2-runtime-frame-oracle tests/fixtures/dosbox/state2_runtime_frame_oracle_original.txt
 ./build/lezac_cpp --debug-explosion-playback-oracle tests/fixtures/dosbox/explosion_playback_oracle_synthetic.txt
 ./build/lezac_cpp --debug-original-state2-effect-placement
 ./build/lezac_cpp --debug-player-state2-return-active
+./build/lezac_cpp --debug-core-resource-raw-roundtrip
 ./build/lezac_cpp --debug-record-update /tmp/records_test.dat
+./build/lezac_cpp --debug-records-raw-roundtrip
 ./build/lezac_cpp --debug-record-name-entry /tmp/records_name_test.dat
+./build/lezac_cpp --debug-record-name-entry-cursor
+./build/lezac_cpp --debug-record-name-entry-repeat /tmp/records_name_repeat_test.dat
 ./build/lezac_cpp --debug-record-save-failure /tmp/missing-record-dir/records.dat
 ./build/lezac_cpp --debug-end-flow-records /tmp/end_flow_records.dat
+./build/lezac_cpp --debug-end-flow-frame-flow
 ./build/lezac_cpp --debug-gran
 ./build/lezac_cpp --debug-gran-raw-roundtrip
 ./build/lezac_cpp --debug-levels
 ./build/lezac_cpp --debug-level-raw-roundtrip
 ./build/lezac_cpp --debug-sprite-transparency
 ./build/lezac_cpp --debug-sprite-raw-roundtrip
+./build/lezac_cpp --debug-sprite-layout-static-model
 ./build/lezac_cpp --debug-sprite-blit-contract
 ./build/lezac_cpp --debug-word-layer
 ./build/lezac_cpp --debug-spawners
@@ -123,6 +155,8 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-portal-sound
 ./build/lezac_cpp --debug-portal-cooldowns
 ./build/lezac_cpp --debug-collision-pushout
+./build/lezac_cpp --debug-hud-stats-live
+./build/lezac_cpp --debug-two-player-hud-panel
 ./build/lezac_cpp --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames
 ./build/lezac_cpp --capture-frame-sequence monster_spawner_behavior4_level2 /tmp/lezac-cpp-b4-level2
 ./build/lezac_cpp --capture-frame-sequence monster_spawner_behavior4_level3 /tmp/lezac-cpp-b4-level3
@@ -164,9 +198,23 @@ forensic reruns on an already-verified host. Use
 `tools/capture_original_visual_table_debug.sh <out_dir> [asset_dir]
 state2_death_table_consumption` to stage the next state-2 renderer-facing
 fixture for `--debug-visual-table-oracle`.
-Future checked-in original visual-table fixtures should use the
+Use `tools/capture_original_state2_visual_frames.sh <out_dir> [asset_dir]
+state2_death_table_consumption` for the paired original-frame bundle expected
+by `tools/compare_state2_visual_row_game_previews.py`. The helper writes a
+manifest and six-frame plan for `state2_game_4a..4f`, labels the route
+`debugger_seeded`, and keeps `visual_claim=0` until the DOSBox/debugger-seeded
+screenshots are actually captured and compared.
+Checked-in original visual-table fixtures use the
 `visual_table_oracle_original*.txt` naming convention so the fixture expectation
-and optional-original guardrails pick them up automatically.
+and optional-original guardrails pick them up automatically. The current
+original fixture is `visual_table_oracle_original_state2_runtime.txt`,
+normalized from the original state-2 runtime stop and still `visual_claim=0`.
+It validates row byte 3 as the `BOMOMIMK` sprite-index candidate for frame
+`0x4a`. The row-model diagnostic now keeps row bytes 0 and 1 as draw-offset
+candidates with raw bytes `0x10,0x10` / pixels `16,16`, keeps row byte 2 as
+the stable raw constant `0x7d`, and keeps row byte 3 as the sprite-index range
+`0x43..0x48`; full live death/reentry art still requires paired original-frame
+evidence before it can be claimed.
 Summarize any one of those capture directories with
 `python3 tools/summarize_debug_capture.py <capture_dir>`. The summary reports
 `candidate_status=ready|incomplete|missing|none`, missing fixture fields,
@@ -241,9 +289,11 @@ are `actor_update_start`, `actor_update_end`,
 fixture to carry an explicit `visual_claim=0` or `visual_claim=1` line so
 instrumentation-only evidence cannot be promoted by omission. Promotions to
 `visual_claim=1` must also be recorded in
-`docs/recovery/visual_claim_promotions.md` with original, C++, and comparison
-frame artifacts. The guardrail self-test exercises the promoted-fixture path so
-missing checked-in artifacts are rejected before any fixture is promoted.
+`docs/recovery/visual_claim_promotions.md` with original, C++, comparison frame
+artifacts, and a checked-in frame-compare bundle whose summary reports
+`promotion_ready=1`. The guardrail self-test exercises the promoted-fixture path
+so missing checked-in artifacts or unready bundles are rejected before any
+fixture is promoted.
 `tools/check_runtime_evidence_guardrail.py` separately tracks checked-in
 original-runtime DOSBox fixtures in
 `docs/recovery/runtime_evidence_ledger.md`: those captures must remain
@@ -260,6 +310,10 @@ and the matching path runs `push bp; call 1000:5CB0` before jumping to
 `1000:73E5`. It also checks the neighboring `05` gate at `1000:65A2`, whose
 live path can enter shared integration through `1000:65D7` or jump to
 actor-update end `1000:777F`, plus the later `05` exit gate at `1000:7595`.
+`--debug-actor-contact-static-model` mirrors those original-byte checks in the
+C++ diagnostic binary: scanner entry/return, actor-update entry/return, all
+three `[bp-31h]` gates, `scanner_call_count=1`, the sole scanner callsite in
+the `06` gate context, and the direct integration jumps.
 The wrapper writes
 `<target>_runtime_candidate.txt` with the runtime metadata plus raw route-state
 dumps; the candidate is a fill-in scaffold until semantic actor/contact records
@@ -296,11 +350,15 @@ actor-update gate in one pass. Its default target set is `actor_update_gate5`,
 `actor_update_gate6`, and `contact_scanner_callsite`. The planner performs one
 top-level environment preflight and passes `--skip-environment-preflight` to
 child actor/contact sweeps so the same run does not repeat host checks for every
-target:
+target. Use `--target-set all` to expand every process-memory target supported
+by `tools/capture_original_actor_contact_procmem.sh`, including actor-update
+entry/exit and contact-scanner start/end:
 
 ```sh
 python3 tools/sweep_original_actor_dispatch_gates.py \
   /tmp/lezac-actor-dispatch-gates . --dry-run
+python3 tools/sweep_original_actor_dispatch_gates.py \
+  /tmp/lezac-actor-dispatch-gates-all . --dry-run --target-set all
 python3 tools/sweep_original_actor_dispatch_gates.py \
   /tmp/lezac-actor-dispatch-gates . --timing before_route \
   --approve-procmem --approve-runtime-instrumentation
@@ -387,8 +445,12 @@ fixtures are still governed by the runtime evidence ledger and stay
 `visual_claim=0` until visual evidence is promoted separately.
 The behavior-4 fixture checker follows the same convention for future
 `behavior4_runtime_oracle_original*.txt` captures.
-The visual-table fixture checker does the same for future
-`visual_table_oracle_original*.txt` captures.
+The visual-table fixture checker does the same for
+`visual_table_oracle_original*.txt` captures; the current checked-in original
+fixture is `visual_table_oracle_original_state2_runtime.txt`, normalized from
+the original state-2 runtime stop and still `visual_claim=0`. It validates
+`sprite_source=row_byte3` for the captured state-2 row without promoting the
+live renderer.
 `tools/check_optional_original_oracle_fixtures.py` keeps these four runtime
 oracle lanes aligned so future original fixtures remain valid-only, covered by
 CTest, and explicitly `visual_claim=0`.
@@ -435,6 +497,19 @@ environment entries before invoking MSBuild:
 powershell -ExecutionPolicy Bypass -File tools/run_native_windows_validation.ps1 `
   -BuildDir build-win-codex-vs3 -Configuration Debug
 ```
+
+The helper copies the validated vcpkg `SDL2.dll` next to the generated
+`lezac_cpp.exe` after the build and prints `runnable_exe=...`; launch that path
+directly on Windows to avoid missing-runtime-DLL dialogs.
+The CMake install target now stages the executable, `SDL2.dll` on Windows, and
+all original/JSON assets into one runnable directory:
+
+```sh
+cmake --install build-win-codex-vs3 --config Debug --prefix /tmp/lezac-install
+```
+
+CTest `install_layout_smoke` exercises that install layout and runs
+`lezac_cpp --validate` from the installed directory.
 
 Before running original DOSBox or process-memory captures on a new host, use the
 environment preflight to verify assets and capture tools:
@@ -502,6 +577,8 @@ python3 tools/capture_original_lane_result_runtime.py /tmp/lezac-lane-result-run
 python3 tools/sweep_original_lane_result_routes.py /tmp/lezac-lane-result-route-sweep . \
   --dry-run --skip-oracle \
   --route x:2.00,c:0.50 --route x:1.50,z:0.50
+python3 tools/sweep_original_lane_result_routes.py /tmp/lezac-lane-result-route-sweep . \
+  --dry-run --cpp-exe ./build/lezac_cpp --offset forward
 python3 tools/summarize_lane_result_route_sweep.py \
   /tmp/lezac-lane-result-route-sweep/manifest.txt
 python3 tools/summarize_lane_result_route_sweep.py \
@@ -537,7 +614,10 @@ For route variation, repeat `--route-step KEY:SECONDS`; omitted route steps keep
 the historical default of holding player-1 right (`x`) for
 `--right-hold-seconds`. Use `tools/sweep_original_lane_result_routes.py` to
 plan or run repeated natural-route probes while preserving one manifest and
-one command line per route. Live route sweeps run
+one command line per route. CTest pins the historical natural forward
+route-step probe as `explosion_lane_result_capture_orchestrator_dry_run_natural_forward`
+so future route work keeps the `x:2.00,c:0.50` forward `3D3F` retry visible
+beside the promoted `x:2.00` natural capture. Live route sweeps run
 `tools/preflight_original_evidence_environment.py --probe-wsl
 --require-wsl-bash-on-windows --require-procmem-capture` once before launching
 any route, so Windows hosts that have `wsl.exe` but no usable default distro
@@ -545,7 +625,9 @@ fail with the same `wsl_bash_reason` reported by the standalone preflight; use
 `--skip-environment-preflight` only for intentional forensic reruns on
 already-verified hosts. Route sweeps pass `--skip-environment-preflight` to the
 child direct lane-result captures so a batch performs one host check at the top
-level. Use
+level. Pass `--cpp-exe <lezac_cpp>` and omit `--skip-oracle` when the dry-run or
+live sweep should also record the follow-up `--debug-explosion-playback-oracle`
+commands for each candidate. Use
 `tools/summarize_lane_result_route_sweep.py` on
 the completed sweep manifest to classify each candidate as `ready`, `no_freeze`,
 `incomplete`, or `missing`, and to emit the matching
@@ -575,24 +657,107 @@ The checked-in original result-write fixtures are
 `tests/fixtures/dosbox/explosion_playback_oracle_original_3ed3_lane_result_runtime.txt`
 for the reverse helper and
 `tests/fixtures/dosbox/explosion_playback_oracle_original_3d3f_lane_result_runtime_seeded.txt`
-for the forward helper under labeled runtime seeding. The natural right/down
-route fixture
+for the forward helper under labeled runtime seeding.
+`tests/fixtures/dosbox/explosion_playback_oracle_original_3d3f_lane_result_runtime_natural.txt`
+now captures natural route `x:2.00` reaching the forward `3D3F` result write
+without runtime seeding, and
+`tests/fixtures/dosbox/explosion_playback_oracle_original_3ec1_lane_write_runtime_natural.txt`
+captures natural route `x:2.00,m:0.35` reaching reverse debris writeback
+`3EC1` without runtime seeding. The natural right/down route fixture
 `tests/fixtures/dosbox/explosion_playback_oracle_original_3d3f_lane_result_route_step_no_freeze.txt`
 records a live `x:2.00,c:0.50` no-freeze run with lane globals present.
-Natural-route forward `3D3F` evidence remains pending because the current
-default/timing/route-step probes load the patch but do not reach that freeze.
+Natural forward debris writeback at `3D2D` remains the next lane-write evidence
+target before live queue playback changes. The reviewed forward-debris matrix
+has already produced ten valid `no_freeze` candidates, so do not repeat it as
+the next step:
+
+```sh
+python3 tools/sweep_original_lane_write_routes.py \
+  /tmp/lezac-lane-write-forward-expanded . \
+  --route-preset forward-debris-expanded --offset forward-debris \
+  --approve-procmem --approve-runtime-instrumentation \
+  --cpp-exe ./build/lezac_cpp --continue-on-oracle-error
+```
+
+Use `--continue-on-oracle-error` when the DOSBox/process-memory host can run
+captures but the C++ oracle binary is unavailable from that host. The sweep
+then records `oracle_error` lines in the manifest and preserves candidate
+fixtures for a later `--debug-explosion-playback-oracle` pass with a rebuilt
+Linux oracle or the native Windows executable.
+
+The 2026-06-15 local WSL pass of that unchanged matrix completed ten natural
+`3D2D` captures, and the native Windows oracle parsed them as valid
+`no_freeze` candidates. Do not repeat the same matrix blindly. If the same
+host split is used again, run the summarizer from Windows; it translates
+`/mnt/c/...` manifest paths back to `C:\...` paths. Two narrower retries on
+route `x:2.00,c:0.50` are also negative evidence: a `0x01` target-byte gate
+never loaded the runtime patch (`no_patch`), and a later observed-state gate
+`2941/665c/c22e` plus target byte `0xde` loaded the patch at `4.452` seconds
+but still did not freeze or capture the natural lane write.
+
+The next useful capture should target the earlier decoded `209e/6620/c22e`
+state that was present in the latest oracle sample, using both the target-byte
+and word-layer gates:
+
+```sh
+python3 tools/sweep_original_lane_write_routes.py \
+  /tmp/lezac-lane-write-forward-word-gated . \
+  --route x:2.00,c:0.50 --offset forward-debris \
+  --runtime-freeze-preset none \
+  --runtime-freeze-min-queue-score 0x90 \
+  --runtime-freeze-min-debris-nonzero 0x20 \
+  --runtime-freeze-min-collapse-nonzero 0x10 \
+  --runtime-freeze-min-effect-nonzero 0x10 \
+  --runtime-freeze-require-debris-base 0x209e \
+  --runtime-freeze-require-collapse-base 0x6620 \
+  --runtime-freeze-require-effect-base 0xc22e \
+  --runtime-freeze-require-high-debris-target-byte 0x00 \
+  --runtime-freeze-require-high-debris-word-layer-value 0x0005 \
+  --approve-procmem --approve-runtime-instrumentation \
+  --cpp-exe ./build/lezac_cpp --continue-on-oracle-error
+```
+
+`--debug-lane-write-static-model` pins the shipped executable bytes behind
+that plan: forward/reverse collapse stores at `1000:3D1B`/`1000:3EAF`,
+forward/reverse debris stores at `1000:3D2D`/`1000:3EC1`, the `0x4E20`
+debris marker base, `0x0B` debris stride, and the shared far-result write tail.
 
 ## Implemented
 
+- `--debug-shipped-file-manifest` pins the 14 shipped original files used as
+  conversion/disassembly evidence, including `LEZAC.EXE` size `52384`, MZ
+  image base `0x0770`, image size `50480`, and aggregate byte fingerprints.
+  It also scans the executable image for the original lowercase runtime
+  filename anchors: ten unique names and 15 references, including
+  `proefs.son` at `1000:0626`, `gran.mst` at `1000:2AD4`, and `livels.sch` at
+  `1000:2EF3`.
+- The runtime loader now defaults to the shipped binary files. Set
+  `LEZAC_LOAD_JSON_ASSETS=1` or `LEZAC_LOAD_ORIGINAL_ASSETS=0` to force the JSON
+  compatibility path. `--debug-original-asset-load` compares both paths across
+  palettes, background, tiles, sprites, records, `PROEFS.SON`, `GRAN.MST`, and
+  all seven levels.
 - VGA palette loading from `BOMPAL.PAL` and `SFONLEF.ZBG`.
 - `SFONLEF.ZBG` PCX-style RLE background decoding as a 321x388 image.
 - `CARO.CAR` 132-tile 8x8 tile bank loading.
-- `FONTS.SPR`, `PROVA.SPR`, and `BOMOMIMK.SPR` sprite-bank loading.
+  `--debug-core-resource-raw-roundtrip` verifies those three original binary
+  files against the converted JSON resources, including the background RLE
+  expansion to 124,548 pixels and the 8,448-byte CARO tile payload.
+- `FONTS.SPR`, `PROVA.SPR`, and `BOMOMIMK.SPR` sprite-bank loading. The
+  `--debug-sprite-layout-static-model` diagnostic pins the original raw
+  count/header/payload walk for all three banks, including exact per-bank byte
+  counts and no trailing data.
 - Text rendering from the original `FONTS.SPR` glyph sprites.
 - `RECS.DAT` high-score parsing as score, reached level, and colon-padded
-  8-byte player name.
+  8-byte player name. `--debug-records-raw-roundtrip` pins the shipped binary
+  table against the converted JSON: seven 13-byte records, top score `541200`,
+  cutoff `474930`, score sum `3508890`, and colon-padded `aga:::::` names.
 - `PROEFS.SON` parsing as a fixed-size sound-effect bank and `GRAN.MST`
-  parsing as seven fixed-size opaque records.
+  parsing as seven fixed-size opaque records. The GRAN roundtrip now loads the
+  shipped raw file and converted JSON independently, reports
+  `raw_json_match=1`, and pins record-level byte fingerprints for later
+  comparison while keeping every field semantic unresolved. The shipped
+  executable references the file through the lowercase `gran.mst` string at
+  `1000:2AD4`, but no decoded live consumer has been recovered yet.
   `tools/check_gran_usage_guardrail.py` keeps `GRAN.MST` limited to loading,
   validation, byte-preserving roundtrip/debug output, and stored opaque records
   until original evidence proves a live gameplay or rendering use.
@@ -604,11 +769,19 @@ default/timing/route-step probes load the patch but do not reach that freeze.
   `docs/recovery/original_runtime_fixture_notes.md`.
 - `LIVELS.SCH` seven-level parsing with the Ghidra-confirmed 3-byte level RLE,
   decoded word layer, monster spawner records, portal/start records, and tile
-  trigger rules.
+  trigger rules. The raw-level roundtrip also pins the shipped embedded
+  `fieldA`/`fieldB` words, treats `fieldB` as the low physical-word damage
+  denominator, and keeps `fieldA` unresolved with aggregate negative-candidate
+  coverage in `--debug-word-layer`. `--debug-level-completion-denominator`
+  verifies live completion thresholds for all seven levels against
+  `ceil(requiredDestruction * fieldB / 100)`.
 - A playable one-player reconstruction loop using original maps and graphics:
   movement, jumping, objective collection, bomb placement, tile destruction,
   score, start positions, teleports, tile triggers, monster spawning, basic
   behavior-specific monster movement/damage, documented monster reward drops,
+  static bonus-score table evidence from `LEZAC.EXE` via
+  `--debug-bonus-reward-static-model`, current monster sprite table candidate
+  coverage via `--debug-monster-sprite-table-model`,
   spawner live-slot return after monster death animation removal,
   bomb-power damage against monster hit points,
   four-slot bomb inventory/switching, original bomb actor sprites, player
@@ -620,41 +793,129 @@ default/timing/route-step probes load the patch but do not reach that freeze.
   checkpoints, frame-harness checkpoints, and player/monster collision pushout
   model.
 - Menu subpages for info, instructions, and records, plus original-documented
-  background and one-player playfield-width controls.
+  background and one-player playfield-width controls. `--debug-menu-frame-flow`
+  frame-inspects distinct main/info/instructions/records pages, the records
+  page sound request, visible gameplay background toggling, game start,
+  return-to-menu, and menu-exit paths under dummy SDL.
+  `--debug-autoplayer pause_flow` locks the current-port pause toggle with
+  frame inspection, frozen logic/bomb/input state while paused, resume, and
+  escape-to-menu behavior; this remains `original_pause_claim=0` pending
+  original-game observation.
 - A first playable two-player reconstruction pass with separate start markers,
   separate controls, split camera views, a central objective panel, per-player
   bomb inventories/HUD/score state, zero-life player-out handling, shared
-  objectives, player-2 bomb placement through the `N` fire key, and queued
-  per-player high-score prompts at end of run.
-- High-score table serialization back to the converted `RECS.DAT.json` resource
-  format, name entry for new records with original-evidence letters/space,
-  Backspace, and Enter handling, and validation coverage that writes only to
-  temporary test files. `tools/check_record_flow_evidence_map.py` keeps the
-  record-entry/end-flow handoff tied to `RECS.DAT` structure, debug commands,
-  CTest output contracts, and the disassembly anchors before cursor/typematic
-  presentation is refined.
+  objectives, original-evidence fire keys (`N` for player 1 and keypad
+  `0`/Insert for player 2), and queued per-player high-score prompts at end of
+  run, including re-checking player 2 against the updated table after player 1
+  inserts a qualifying record.
+- High-score table serialization back to original binary `RECS.DAT` format by
+  default, with JSON compatibility retained for `.json` diagnostics. Name
+  entry for new records follows original-evidence letters/space, Backspace,
+  Enter handling, eight-character truncation, and colon-padded storage, with
+  validation coverage that writes only to temporary test files.
+  `tools/check_record_flow_evidence_map.py` keeps the record-entry/end-flow
+  handoff tied to `RECS.DAT` structure, debug commands, CTest output contracts,
+  and the disassembly anchors before cursor/typematic presentation is refined.
+  `--debug-record-entry-static-model` also pins the original
+  `1000:1845..1ad6` byte model for the eight-colon empty template, 13-byte
+  record stride, 8-byte name copy, dword score write, and Backspace/Enter
+  checks.
+  Record prompting uses the recovered strict seventh-place cutoff, re-checks
+  queued two-player scores after each insertion, and preserves pending name
+  entry state across a failed save so the same record can be retried.
 - Game-over and completed-game end states using strings recovered from
   `1000:1b14..1d42`, with final-level completion entering the completed-game
-  path instead of wrapping directly into level 1.
+  path instead of wrapping directly into level 1. `--debug-end-flow-static-model`
+  pins the dispatcher bytes for mode strings, the completed-game flag, per-player
+  score pointers, seventh-record cutoff comparison, and record-entry call.
+  `--debug-end-flow-frame-flow` frame-inspects the current game-over and
+  completed-game pages, including final-score visibility, natural final-level
+  completion, and confirm-to-menu score clearing.
 - `PROEFS.SON` payload bytes are preserved as the original 130 six-byte
   playback steps. Non-direct sound synthesis now advances by the recovered
   `DS:78c0` cursor, honors the `0x7530` stop sentinel, and applies the
-  gate/period bytes used by `1000:0fbe..1088`. Bomb explosion requests use the
+  gate/period bytes used by `1000:0fbe..1088`. `--debug-sound-loader-static-model`
+  pins the original `1000:0630..06aa` loader bytes that read the `0x0082`
+  count and then load `0x82 * 6` payload bytes through `DS:79c0`. Bomb explosion
+  requests use the
   recovered direct-sweep cursors and the original `1000:165a` priority latch,
-  bomb-object destruction queues the recovered priority-`3` object cue, portal
+  with `--debug-sound-latch-static-model` pinning the latch bytes, branch
+  targets, priority comparison, and accepted-request copies in `LEZAC.EXE`,
+  bomb placement queues the recovered direct-sweep cursor `0xea74` at priority
+  `3`, bomb-object destruction queues the recovered priority-`3` object cue,
+  monster death/reward queues cursor `0x003d` at priority `12`, portal
   transfer queues cursor `0x001a` at priority `4`, tile-trigger activation
   queues cursor `0x0027` at priority `6`, bonus pickup audio queues cursor
   `0x0008` at priority `5`, accepted player damage queues cursor `0x002d` at
   priority `4`, and player death/life-loss queues cursor `0x0056` at priority
-  `5` while restoring the player energy byte to `100`. Live player damage now
+  `5` while restoring the player energy byte to `100`.
+  Sound-callsite evidence
+  now has a normalized `--debug-sound-callsite-oracle <fixture> [--expect-error]`
+  path for original debugger stops around `1000:165a`: fixtures record
+  runtime `CS`/`DS`, callsite and latch breakpoints, `DS:2074` pending cursor,
+  `DS:799f` pending priority, `DS:78c0` current cursor, `DS:799e` current
+  priority, and `DS:79c4` active flag while staying `visual_claim=0`.
+  `tools/capture_original_sound_callsite_debug.sh <out_dir> [asset_dir]
+  <scenario>` stages debugger-seeded manifests and candidate fixtures for
+  `bomb_object_sound`, `bomb_place_sound`, `monster_death_sound`,
+  `portal_teleport_sound`, `tile_trigger_sound`, `bonus_pickup_sound`,
+  `player_damage_sound`, `player_death_sound`, `record_name_prompt_sound`,
+  `record_name_commit_sound`, `post_end_flow_record_sound`, and
+  `records_page_sound`.
+  If DOSBox-debug times out after reaching the debugger prompt, the helper keeps
+  the failure non-promotable but now reports `reason=dosbox_debug_timeout` and
+  includes any observed runtime `CS`/`DS` values plus the translated runtime
+  command plan. A 2026-06-16 WSL run for `records_page_sound` reached
+  `runtime_cs=01ED` and `runtime_ds=01DD`, then wrote breakpoints for
+  `01ED:2083` and `01ED:165A` and dumps under `01DD:*` before timing out.
+  `--debug-static-sound-requests` pins all 27 static immediate writes to
+  `DS:2074` in the shipped executable so remaining direct `playSound(index)`
+  compatibility hooks cannot be confused with original cursor/priority
+  mappings. It also reports
+  `remaining_compat_hooks=objective_pickup,level_complete` and the rejected
+  objective-sound candidates
+  `0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate`,
+  keeping the collapse playback branch, the bomb-object high gate, and the
+  non-objective tile gate out of the objective-pickup mapping until new
+  original evidence proves otherwise. `--debug-remaining-sound-compat-hooks`
+  exercises the live C++ objective-pickup and level-complete paths and reports
+  `original_cursor_priority_claim=0`, proving only that those direct
+  compatibility hooks are still reached with the intended compatibility
+  indices. `--debug-static-sound-unresolved-contexts`
+  also pins the exact byte windows for those 12 unresolved writes and separates
+  their local request shapes: nine local latch calls, six inline priorities,
+  two preceding priorities, four no-local-priority cases, three no-latch cases,
+  and two `0x2710` cursor writes. It now also buckets the unresolved writes by
+  static code region:
+  `record_ui:2`, `pre_new_game_setup:1`, `explosion_playback:2`,
+  `effect_extent_scan:2`, `contact_scanner:1`, `actor_update:3`, and
+  `post_actor_update_no_latch:1`; these region labels are static byte-context
+  facts, not live cue promotions. `--debug-static-sound-contexts` separately
+  pins the original bytes and nearby strings that place `0x1857`, `0x1a44`,
+  `0x1d9c`, `0x202d`, and `0x2083` in name-entry/record UI regions rather than
+  in the `1000:1b14..1d42` completed-game dispatcher, so the current
+  level-complete hook also stays explicitly unresolved. The first two
+  name-entry writes are now live: high-score prompt opens with cursor `0x0078`
+  at priority `11`, and Enter commits with cursor `0x0008` at priority `11`.
+  `--debug-record-name-sound` pins both requests through the recovered latch.
+  The main-menu records-page transition now also queues the `1000:2083`
+  `punteggi migliori` sound, cursor `0x0024` at priority `2`, while the
+  cursor-only `1000:202d` record-table write remains staged.
+  Live player damage now
   accumulates per-player damage bytes and drains them once per update pass,
   matching the recovered `DS:79e8`/`DS:79e9` model and original unsigned byte
   underflow death check rather than a modern one-hit cooldown gate.
   `tools/check_sound_callsite_map.py` keeps those six recovered non-explosion
   cue claims tied to `docs/GHIDRA_NOTES.md`, `src/main.cpp`, and CTest names.
-  Manual
-  reentry/restart still waits for the recovered state-2 `0x003c` countdown
-  before returning a player to active control. The state-2 death/reentry
+  Fatal
+  damage now keeps the visible life count unchanged while the recovered
+  state-2 `0x003c` countdown runs, then consumes the pending life before
+  manual reentry or restart can proceed. `--debug-autoplayer death_reentry`
+  now covers both shipped-manual choices after fatal damage: pressing fire
+  reenters a still-winnable level,
+  while waiting restarts the level; it also verifies that an unwinnable level
+  blocks early fire and restarts instead.
+  The state-2 death/reentry
   animation initializer is now documented as the seven-byte `actor + 0x16`
   cursor populated by `1000:06ab`, and the
   actor update model locks the `1000:6053` counter, wrap, ping-pong, and
@@ -664,14 +925,57 @@ default/timing/route-step probes load the patch but do not reach that freeze.
   each captured frame-table row in deterministic raw-byte form. A real temp-copy
   `dosbox-debug` capture stopped at runtime `01ED:7C89` now locks one original
   state-2 countdown sample: `DS=0C8F`, death cursor `0x45`, frame range
-  `0x4a..0x4f`, and effect entry 0 position `0x0068,0x00a8`.
+  `0x4a..0x4f`, row-byte sequences `10,10,10,10,10,10`,
+  `10,10,10,10,10,10`, `7d,7d,7d,7d,7d,7d`,
+  `43,44,45,46,47,48`, and effect entry 0 position `0x0068,0x00a8`.
   `tools/check_visual_state2_evidence_map.py` keeps this death/reentry visual
   handoff tied to source, fixtures, CTest, and the unresolved `visual_claim=0`
   documentation before any future renderer promotion.
+  `--debug-original-state2-visual-row-model` mirrors that row range as a
+  conservative C++ model, including the row-byte-3 `BOMOMIMK` sprite-index
+  candidates `67..72`, the row-byte-0/1 draw-offset candidates
+  `0x10,0x10` / `16,16`, the stable row-byte-2 constant `0x7d`, and
+  `visual_claim=0`.
+  `--debug-original-state2-visual-row-assets` verifies those candidates against
+  the loaded sprite bank, reports their dimensions, nonzero-pixel counts, and
+  bounding boxes, and contrasts them with the old cursor-index sequence
+  `74..79`. Live state-2 death rendering now uses an explicit DS:C21E-style
+  effect-entry base, then applies the recovered row-byte-3 sprites `67..72` and
+  row-byte-0/1 draw-offset candidates `16,16`; this improves the C++ port but
+  still keeps the separate visual-claim promotion workflow at `visual_claim=0`
+  until paired original screenshots are promoted.
+  `--capture-state2-visual-row-preview <out_dir>` writes isolated PPM previews
+  for both sequences plus a `manifest.txt`, so later original-frame comparison
+  can target the recovered row-byte-3 candidates directly. The companion
+  `--capture-state2-visual-row-game-preview <out_dir>` writes full gameplay
+  frame previews for the current effect-entry row-byte-3 renderer and a
+  debug-only legacy cursor-index renderer.
+  `tools/compare_state2_visual_row_game_previews.py` builds a standard
+  frame-compare bundle from those previews and an original-frame directory, with
+  labels such as `state2_current_4a` and `state2_cursor_4a`. The live
+  `--debug-autoplayer death_visuals` route verifies frames `0x4a..0x4c` now
+  render live sprites `67..69` from effect-entry base `104,168` with draw
+  offset `16,16` and differ from the old cursor-index sprites `74..76`, while
+  still keeping `visual_claim=0`.
+  `--debug-original-state2-return-model` now also locks the static
+  `1000:7ef8..7f2a` fallback model: no active players increments the
+  `DS:79b9` counter and promotes status byte `2` to `1` without doing the
+  normal actor-state or energy restore. The live
+  `--debug-player-state2-return-active` guard now separately proves that the
+  current C++ two-player path leaves player 2 out after a final-life countdown,
+  blocks manual reentry, keeps player 1 active, and reaches game over only
+  after player 1 also loses the final life. It reports
+  `live_fallback_shortcut=0` and `original_reachability=0`, so this remains a
+  C++ regression boundary rather than proof that the static fallback is reached
+  in the original runtime.
   `--debug-son-step-fields` exposes each recovered six-byte sound step as
-  `period_word`, `gate_tick`, `period_ticks`, `unknown4`, and `unknown5` while
-  keeping bytes `+4..+5` explicitly uninterpreted. The
-  return-placement model tracks the `DS:c21e + 8 * actor[+0x01]` effect-entry
+  `period_word`, `gate_tick`, `period_ticks`, `tail4`, and `tail5`. Bytes
+  `+4..+5` are preserved from the shipped bank but are playback-unused in the
+  recovered `1000:0FBE..1088` tick window. The
+  `--debug-son-tail-field-mutation` diagnostic mutates those two tail bytes for
+  every shipped step and verifies rendered samples for the known cursor starts
+  are unchanged, matching the recovered tick window that does not read them.
+  The return-placement model tracks the `DS:c21e + 8 * actor[+0x01]` effect-entry
   descent and blocking checks. Explosion/debris/collapse diagnostics now lock
   the recovered dispatcher selector/state/sound-offset table, queued
   debris/collapse payload fields, and bomb-object passability/routing side
@@ -686,28 +990,48 @@ default/timing/route-step probes load the patch but do not reach that freeze.
   `1000:6053`.
 - PC speaker sound effects now use a recovered request/priority latch,
   direct-sweep path for bomb explosions, and six-byte cursor stepping for
-  `PROEFS.SON`. Field diagnostics preserve bytes `+4..+5` as raw unknowns, and
-  their semantic meaning plus many non-explosion callsite-to-event mappings
-  remain unresolved.
+  `PROEFS.SON`. `--debug-sound-tick-static-model` pins the original
+  `1000:0FBE..1088` tick routine's cursor stride, direct-sweep branch, stop
+  sentinel, and table reads: word offset `+0`, byte offset `+2`, byte offset
+  `+3`, with no checked read of tail bytes `+4..+5`. Field diagnostics preserve
+  those tail bytes as raw data, and mutation coverage proves the current
+  synthesizer ignores them, so their playback effect is recovered as unused.
+  Any source/editor meaning outside playback plus many non-explosion
+  callsite-to-event mappings remain unresolved. Remaining direct
+  `playSound(index)` callers are compatibility hooks until original
+  cursor/priority writes are recovered.
 - Two-player split-screen is playable with independent bomb inventories, scores,
-  and record prompts, but exact original panel artwork and reentry presentation
-  remain approximate.
+  record prompts, and a central objective/progress panel that is covered by
+  `--debug-two-player-hud-panel`. `--debug-autoplayer two_player_death_visuals`
+  frame-inspects independent state-2 effect-entry slots for both players, but
+  exact original panel artwork and reentry presentation remain approximate.
 - High scores are persisted with original-evidence name-entry keys
-  (letters/space, Backspace, Enter), but exact cursor drawing, typematic repeat,
-  and name-entry presentation remain approximate.
+  (letters/space, Backspace, Enter), the recovered eight-character cap, and
+  colon-padded storage. Empty submissions now preserve the original eight-colon
+  raw template and decode as `nessuno`. The name-entry renderer now highlights
+  the current input slot and `--debug-record-name-entry-cursor` frame-inspects
+  cursor movement after typing and Backspace. SDL repeat keydown events now
+  repeat letters/space and Backspace while ignoring repeated Enter/Escape;
+  exact original repeat timing and presentation remain approximate.
 - Bomb fuse timing, 2x2 footprint, player blast damage, monster hit-point
   blast damage, visual selectors, actor sprite indices, word-layer damage
   gating, bomb-object passability after explosion, and queued debris/collapse
   metadata now follow the `1000:414a`/`1000:370e`/expiration analysis. Active
   collapse/debris records
   now queue into the same per-player damage counters as monster contact and
-  bomb blasts, but exact sprite playback and delayed state-2 life-count
-  decrement remain simplified. The `actor + 0x16` state-2 cursor, cursor
-  advancement rules, and `DS:c21e` placement math are locked as deterministic
-  models. The live renderer now has provisional state-2 visual playback keyed
-  to the recovered `0x4a..0x4f` cursor range and tested by
-  `--debug-autoplayer death_visuals`, but it still reports `visual_claim=0`
-  because the original frame-table field interpretation is not fully mapped.
+  bomb blasts. The delayed state-2 life-count decrement now follows the
+  recovered `+0x10 = 0x003c` countdown in live damage, monster contact, and
+  reentry diagnostics. Exact sprite playback remains approximate: the
+  `actor + 0x16` state-2 cursor, cursor advancement rules, and `DS:c21e`
+  placement math are locked as deterministic models, and the live renderer now
+  consumes an explicit DS:C21E-style effect-entry base, the recovered row-byte-3
+  `BOMOMIMK` sprite sequence `67..72`, and row-byte-0/1 draw offsets `16,16`
+  for the `0x4a..0x4f` state-2 frame range.
+  `--debug-autoplayer death_visuals` verifies the live row-byte-3 sprites
+  `67..69`, effect-entry base `104,168`, and draw offset `16,16` against the
+  debug-only legacy cursor-index contrast path `74..76`. It still reports
+  `visual_claim=0` because paired original-frame comparison has not promoted
+  exact presentation.
 
 See [docs/GHIDRA_NOTES.md](docs/GHIDRA_NOTES.md) for addresses and disassembly
 anchors used in the reconstruction.

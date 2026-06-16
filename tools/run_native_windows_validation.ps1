@@ -67,6 +67,13 @@ try {
 
     $build = "cmake --build `"$buildPath`" --config $Configuration --target lezac_cpp -j 2"
     Invoke-DevCmd $build
+    $buildOutputDir = Join-Path $buildPath $Configuration
+    $builtExe = Join-Path $buildOutputDir "lezac_cpp.exe"
+    $builtSdlRuntime = Join-Path $buildOutputDir "SDL2.dll"
+    $sourceSdlRuntime = Join-Path $sdlBinDir "SDL2.dll"
+    Require-Path $builtExe "built executable"
+    Copy-Item -LiteralPath $sourceSdlRuntime -Destination $builtSdlRuntime -Force
+    Require-Path $builtSdlRuntime "built SDL2 runtime copy"
 
     if (-not $SkipTests) {
         $env:Path = "$sdlBinDir;$env:Path"
@@ -76,7 +83,7 @@ try {
         }
     }
 
-    Write-Output "native_windows_validation=ok build_dir=$BuildDir configuration=$Configuration tests=$([int](-not $SkipTests))"
+    Write-Output "native_windows_validation=ok build_dir=$BuildDir configuration=$Configuration runnable_exe=`"$builtExe`" sdl2_runtime=1 tests=$([int](-not $SkipTests))"
 } finally {
     Pop-Location
 }

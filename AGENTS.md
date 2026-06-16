@@ -9,6 +9,10 @@
 - Keep all work isolated to that branch.
 - Always rebase your branch onto the latest `main` before pushing or opening a
   pull request.
+- In this repository, use the WSL GitHub CLI for GitHub operations:
+  `wsl.exe -- gh ...`.
+- When the local checkout uses `.codex-git`, run remote git operations through
+  WSL as needed: `wsl.exe -- git --git-dir=.codex-git --work-tree=. ...`.
 
 ## Required delivery flow
 
@@ -17,6 +21,8 @@
 - Commit the changes with a clear, descriptive commit message.
 - Push the branch to the remote.
 - Create a pull request.
+- After the pull request is open and required validation is passing, merge it
+  to `main` automatically.
 
 ## Pull request expectations
 
@@ -29,7 +35,8 @@
 
 ## Safety rules
 
-- Do not merge the pull request.
+- Merge pull requests only after required checks or equivalent local validation
+  pass; do not merge through failing checks unless explicitly asked.
 - Do not delete branches unless explicitly asked.
 - Do not bypass failing checks unless explicitly asked.
 - Do not make unrelated cleanup changes outside the task scope.

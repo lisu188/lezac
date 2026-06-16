@@ -18,11 +18,12 @@ Additional deterministic autoplayer scenarios now cover:
   same damage helper used in play, verifies state-2 countdown blocks early
   reentry, then confirms reentry after `60` ticks restores active control with
   lives and energy updated.
-- `death_visuals`: verifies the live provisional state-2 visual cursor starts
+- `death_visuals`: verifies the live state-2 visual cursor starts
   at recovered frame `0x4a`, advances to `0x4b` on the first update, reaches
   `0x4c` on the fifth update, and changes the rendered frame at each checked
-  point. The command reports `visual_claim=0` until the original frame-table
-  fields are fully interpreted.
+  point. The command reports `visual_claim=0` until paired original frames are
+  promoted. It pins live row-byte-3 sprites `67,68,69` against the old
+  cursor-index sprites `74,75,76`.
 - `level_transition`: completes level 1 through deterministic map-progress
   helpers, inspects the completion overlay, advances the normal update loop for
   `101` frames, and verifies level 2 is loaded.
@@ -163,7 +164,7 @@ original frames for comparison.
 This locks the current C++ route and frame-harness behavior. Exact original
 collision/passability around `1000:6053..777f` still needs DOSBox or debugger
 evidence before the low-word passable-object rule can be called fully
-original-faithful. The death/reentry, provisional state-2 visual, records,
+original-faithful. The death/reentry, row-byte-3 state-2 visual, records,
 level-transition, and two-player autoplayer scenarios are regression coverage
 for the current C++ behavior; exact presentation and edge-case timing still
 need original runtime confirmation.

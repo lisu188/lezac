@@ -4,10 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+
+from ready_result_checker_support import write_original_fixture_tree
 
 
 def default_repo_root() -> Path:
@@ -18,15 +21,20 @@ def run_summary(
     root: Path,
     args: list[str],
     expect_success: bool = True,
+    env: dict[str, str] | None = None,
 ) -> str:
     command = [
         sys.executable,
         str(root / "tools" / "summarize_actor_dispatch_ready_results.py"),
         *args,
     ]
+    process_env = os.environ.copy()
+    if env is not None:
+        process_env.update(env)
     result = subprocess.run(
         command,
         cwd=root,
+        env=process_env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -67,7 +75,9 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="lezac-ready-results-") as tmp:
         base = Path(tmp)
         log0 = base / "logs" / "candidate_0_actor_update_gate6.log"
+        log1 = base / "logs" / "candidate_1_contact_scanner_start.log"
         write_text(log0, "actor_update_runtime_oracle=ok\n")
+        write_text(log1, "contact_scanner_runtime_oracle=ok\n")
         run_manifest = base / "run" / "result_manifest.txt"
         write_text(
             run_manifest,
@@ -105,7 +115,7 @@ def main() -> int:
                     "candidate_1_oracle_flag=--debug-contact-scanner-runtime-oracle",
                     "candidate_1_status=ok",
                     "candidate_1_returncode=0",
-                    "candidate_1_log=/tmp/missing-contact.log",
+                    f"candidate_1_log={log1}",
                     "candidate_1_command=./build/lezac_cpp --debug-contact-scanner-runtime-oracle /tmp/contact_scanner.txt",
                     "",
                 ]
@@ -123,14 +133,31 @@ def main() -> int:
             "failures=0",
             "planned=0 ok=2 error=0 other=0",
             "executed_candidates=2",
-            "logs_present=1",
-            "logs_missing=1",
+            "logs_present=2",
+            "logs_missing=0",
             "candidate_result index=0 target=actor_update_gate6",
+            "runtime_cs=01ED",
+            "runtime_ds=0F3C",
             "fixture=/tmp/actor_update.txt",
             "candidate_result index=1 target=contact_scanner_start",
             "oracle_flag=--debug-contact-scanner-runtime-oracle",
         ]:
             require(run_summary_text, snippet, "run_manifest")
+        cases += 1
+
+        missing_log_manifest = base / "missing_log" / "result_manifest.txt"
+        write_text(
+            missing_log_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                f"candidate_1_log={log1}",
+                "candidate_1_log=/tmp/missing-contact.log",
+            ),
+        )
+        missing_log = run_summary(
+            root, [str(missing_log_manifest), "--require-success"], False
+        )
+        require(missing_log, "reason=candidate_logs_missing", "missing_log")
+        require(missing_log, "logs_missing=1", "missing_log")
         cases += 1
 
         run_required = run_summary(
@@ -159,6 +186,8 @@ def main() -> int:
                     "failures=0",
                     "candidate_0_target=actor_update_gate6",
                     "candidate_0_route=x3p00",
+                    "candidate_0_runtime_cs=01ED",
+                    "candidate_0_runtime_ds=0F3C",
                     "candidate_0_fixture=/tmp/actor_update.txt",
                     "candidate_0_oracle=actor_update",
                     "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",
@@ -218,6 +247,8 @@ def main() -> int:
                     "failures=1",
                     "candidate_0_target=actor_update_gate6",
                     "candidate_0_route=x3p00",
+                    "candidate_0_runtime_cs=01ED",
+                    "candidate_0_runtime_ds=0F3C",
                     "candidate_0_fixture=/tmp/actor_update.txt",
                     "candidate_0_oracle=actor_update",
                     "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",
@@ -299,6 +330,280 @@ def main() -> int:
         )
         cases += 1
 
+        runtime_manifest = base / "runtime" / "result_manifest.txt"
+        write_text(
+            runtime_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "candidate_0_runtime_ds=0F3C", "candidate_0_runtime_ds=XYZ1"
+            ),
+        )
+        runtime = run_summary(root, [str(runtime_manifest)], False)
+        require(
+            runtime,
+            "candidate_0_runtime_ds must be a 4-digit hexadecimal segment",
+            "runtime",
+        )
+        cases += 1
+
+        fixture_mismatch_path = base / "fixtures" / "contact_scanner.txt"
+        write_text(fixture_mismatch_path, "runtime_cs=ABCD\nruntime_ds=0F3C\n")
+        fixture_mismatch_manifest = base / "fixture_mismatch" / "result_manifest.txt"
+        write_text(
+            fixture_mismatch_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/contact_scanner.txt",
+                fixture_mismatch_path.as_posix(),
+            ),
+        )
+        fixture_mismatch = run_summary(root, [str(fixture_mismatch_manifest)], False)
+        require(
+            fixture_mismatch,
+            "candidate_1_runtime_cs='01ED' does not match fixture "
+            "runtime_cs='ABCD'",
+            "fixture_mismatch",
+        )
+        cases += 1
+
+        visual_claim_path = base / "fixtures" / "actor_update_visual_claim.txt"
+        write_text(
+            visual_claim_path,
+            "temp_copy=1\nvisual_claim=1\nruntime_cs=01ED\nruntime_ds=0F3C\n",
+        )
+        visual_claim_manifest = base / "visual_claim" / "result_manifest.txt"
+        write_text(
+            visual_claim_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/actor_update.txt",
+                visual_claim_path.as_posix(),
+            ),
+        )
+        visual_claim = run_summary(root, [str(visual_claim_manifest)], False)
+        require(
+            visual_claim,
+            "candidate_0_fixture visual_claim='1' is not supported",
+            "visual_claim",
+        )
+        cases += 1
+
+        temp_copy_path = base / "fixtures" / "actor_update_temp_copy.txt"
+        write_text(
+            temp_copy_path,
+            "temp_copy=0\nvisual_claim=0\nruntime_cs=01ED\nruntime_ds=0F3C\n",
+        )
+        temp_copy_manifest = base / "temp_copy" / "result_manifest.txt"
+        write_text(
+            temp_copy_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/actor_update.txt",
+                temp_copy_path.as_posix(),
+            ),
+        )
+        temp_copy = run_summary(root, [str(temp_copy_manifest)], False)
+        require(
+            temp_copy,
+            "candidate_0_fixture temp_copy='0' does not identify a temp-copy capture",
+            "temp_copy",
+        )
+        cases += 1
+
+        original_root = base / "original_root"
+        original_fixture = write_original_fixture_tree(
+            original_root,
+            "actor_update_runtime_oracle_original_ready.txt",
+            runtime_ds="0F3C",
+        )
+        original_manifest = base / "original_fixture" / "result_manifest.txt"
+        write_text(
+            original_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/actor_update.txt", original_fixture.as_posix()
+            ),
+        )
+        original = run_summary(
+            root,
+            [str(original_manifest)],
+            env={"LEZAC_READY_RESULT_REPO_ROOT": str(original_root)},
+        )
+        require(
+            original,
+            f"fixture={original_fixture.as_posix()}",
+            "original_fixture",
+        )
+        cases += 1
+
+        duplicate_ledger_kind_root = base / "duplicate_ledger_kind_root"
+        duplicate_ledger_kind_fixture = write_original_fixture_tree(
+            duplicate_ledger_kind_root,
+            "actor_update_runtime_oracle_original_duplicate_ledger_kind.txt",
+            runtime_ds="0F3C",
+            duplicate_ledger_kind=True,
+        )
+        duplicate_ledger_kind_manifest = (
+            base / "duplicate_ledger_kind" / "result_manifest.txt"
+        )
+        write_text(
+            duplicate_ledger_kind_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/actor_update.txt",
+                duplicate_ledger_kind_fixture.as_posix(),
+            ),
+        )
+        duplicate_ledger_kind = run_summary(
+            root,
+            [str(duplicate_ledger_kind_manifest)],
+            False,
+            {"LEZAC_READY_RESULT_REPO_ROOT": str(duplicate_ledger_kind_root)},
+        )
+        require(
+            duplicate_ledger_kind,
+            "duplicate runtime_evidence_ledger",
+            "duplicate_ledger_kind",
+        )
+        cases += 1
+
+        ledger_count_root = base / "ledger_count_root"
+        ledger_count_fixture = write_original_fixture_tree(
+            ledger_count_root,
+            "actor_update_runtime_oracle_original_count_mismatch.txt",
+            runtime_ds="0F3C",
+            ledger_count=2,
+        )
+        ledger_count_manifest = base / "ledger_count" / "result_manifest.txt"
+        write_text(
+            ledger_count_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/actor_update.txt", ledger_count_fixture.as_posix()
+            ),
+        )
+        ledger_count = run_summary(
+            root,
+            [str(ledger_count_manifest)],
+            False,
+            {"LEZAC_READY_RESULT_REPO_ROOT": str(ledger_count_root)},
+        )
+        require(
+            ledger_count,
+            "original_runtime_fixture_count=2 does not match ledger entries=1",
+            "ledger_count",
+        )
+        cases += 1
+
+        duplicate_ledger_field_root = base / "duplicate_ledger_field_root"
+        duplicate_ledger_field_fixture = write_original_fixture_tree(
+            duplicate_ledger_field_root,
+            "actor_update_runtime_oracle_original_duplicate_ledger_field.txt",
+            runtime_ds="0F3C",
+            duplicate_ledger_field="visual_claim",
+        )
+        duplicate_ledger_field_manifest = (
+            base / "duplicate_ledger_field" / "result_manifest.txt"
+        )
+        write_text(
+            duplicate_ledger_field_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/actor_update.txt",
+                duplicate_ledger_field_fixture.as_posix(),
+            ),
+        )
+        duplicate_ledger_field = run_summary(
+            root,
+            [str(duplicate_ledger_field_manifest)],
+            False,
+            {"LEZAC_READY_RESULT_REPO_ROOT": str(duplicate_ledger_field_root)},
+        )
+        require(
+            duplicate_ledger_field,
+            "duplicate runtime evidence ledger field: visual_claim",
+            "duplicate_ledger_field",
+        )
+        cases += 1
+
+        duplicate_ledger_root = base / "duplicate_ledger_root"
+        duplicate_ledger_fixture = write_original_fixture_tree(
+            duplicate_ledger_root,
+            "actor_update_runtime_oracle_original_duplicate_ledger.txt",
+            runtime_ds="0F3C",
+            duplicate_ledger_entry=True,
+        )
+        duplicate_ledger_manifest = (
+            base / "duplicate_ledger" / "result_manifest.txt"
+        )
+        write_text(
+            duplicate_ledger_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/actor_update.txt", duplicate_ledger_fixture.as_posix()
+            ),
+        )
+        duplicate_ledger = run_summary(
+            root,
+            [str(duplicate_ledger_manifest)],
+            False,
+            {"LEZAC_READY_RESULT_REPO_ROOT": str(duplicate_ledger_root)},
+        )
+        require(
+            duplicate_ledger,
+            "duplicate runtime evidence ledger fixture: "
+            "actor_update_runtime_oracle_original_duplicate_ledger.txt",
+            "duplicate_ledger",
+        )
+        cases += 1
+
+        missing_ledger_root = base / "missing_ledger_root"
+        missing_ledger_fixture = write_original_fixture_tree(
+            missing_ledger_root,
+            "actor_update_runtime_oracle_original_unledgered.txt",
+            runtime_ds="0F3C",
+            include_ledger_entry=False,
+        )
+        missing_ledger_manifest = base / "missing_ledger" / "result_manifest.txt"
+        write_text(
+            missing_ledger_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/actor_update.txt", missing_ledger_fixture.as_posix()
+            ),
+        )
+        missing_ledger = run_summary(
+            root,
+            [str(missing_ledger_manifest)],
+            False,
+            {"LEZAC_READY_RESULT_REPO_ROOT": str(missing_ledger_root)},
+        )
+        require(
+            missing_ledger,
+            "candidate_0_fixture actor_update_runtime_oracle_original_unledgered.txt "
+            "is missing from runtime evidence ledger",
+            "missing_ledger",
+        )
+        cases += 1
+
+        missing_note_root = base / "missing_note_root"
+        missing_note_fixture = write_original_fixture_tree(
+            missing_note_root,
+            "actor_update_runtime_oracle_original_missing_note.txt",
+            runtime_ds="0F3C",
+            note_names_fixture=False,
+        )
+        missing_note_manifest = base / "missing_note" / "result_manifest.txt"
+        write_text(
+            missing_note_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/actor_update.txt", missing_note_fixture.as_posix()
+            ),
+        )
+        missing_note = run_summary(
+            root,
+            [str(missing_note_manifest)],
+            False,
+            {"LEZAC_READY_RESULT_REPO_ROOT": str(missing_note_root)},
+        )
+        require(
+            missing_note,
+            "candidate_0_fixture actor_update_runtime_oracle_original_missing_note.txt "
+            "ledger docs does not name fixture",
+            "missing_note",
+        )
+        cases += 1
+
         extra_manifest = base / "extra" / "result_manifest.txt"
         write_text(
             extra_manifest,
@@ -311,6 +616,47 @@ def main() -> int:
             extra,
             "candidate index outside ready_candidates: 1 ready_candidates=1",
             "extra_candidate",
+        )
+        cases += 1
+
+        duplicate_field_manifest = base / "duplicate_field" / "result_manifest.txt"
+        write_text(
+            duplicate_field_manifest,
+            run_manifest.read_text(encoding="ascii")
+            + "candidate_0_fixture=/tmp/other_actor_update.txt\n",
+        )
+        duplicate_field = run_summary(root, [str(duplicate_field_manifest)], False)
+        require(
+            duplicate_field,
+            "duplicate manifest field: candidate_0_fixture",
+            "duplicate_field",
+        )
+        cases += 1
+
+        duplicate_fixture_path = base / "fixtures" / "actor_update_duplicate.txt"
+        write_text(
+            duplicate_fixture_path,
+            "temp_copy=1\nvisual_claim=0\nruntime_cs=01ED\n"
+            "runtime_ds=0F3C\nruntime_ds=0F3C\n",
+        )
+        duplicate_fixture_manifest = (
+            base / "duplicate_fixture" / "result_manifest.txt"
+        )
+        write_text(
+            duplicate_fixture_manifest,
+            run_manifest.read_text(encoding="ascii").replace(
+                "/tmp/actor_update.txt", duplicate_fixture_path.as_posix()
+            ),
+        )
+        duplicate_fixture = run_summary(
+            root,
+            [str(duplicate_fixture_manifest)],
+            False,
+        )
+        require(
+            duplicate_fixture,
+            "duplicate fixture field: runtime_ds",
+            "duplicate_fixture",
         )
         cases += 1
 
@@ -339,6 +685,8 @@ def main() -> int:
                     "failures=0",
                     "candidate_0_target=actor_update_gate6",
                     "candidate_0_route=x3p00",
+                    "candidate_0_runtime_cs=01ED",
+                    "candidate_0_runtime_ds=0F3C",
                     "candidate_0_fixture=/tmp/actor_update.txt",
                     "candidate_0_oracle=actor_update",
                     "candidate_0_oracle_flag=--debug-actor-update-runtime-oracle",

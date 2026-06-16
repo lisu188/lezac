@@ -48,6 +48,8 @@ xdotool key 2
 sleep 0.2
 xdotool key n
 sleep 0.2
+xdotool key Insert
+sleep 0.2
 xdotool key Escape
 sleep 0.1
 xdotool key 1

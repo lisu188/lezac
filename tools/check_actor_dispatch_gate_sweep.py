@@ -134,6 +134,56 @@ def main() -> int:
         require(custom, snippet, "custom_dry_run")
     cases += 1
 
+    all_targets = run_sweep(
+        root,
+        [
+            str(out_base / "all-targets"),
+            str(root),
+            "--dry-run",
+            "--target-set",
+            "all",
+        ],
+    )
+    for snippet in [
+        "targets=9",
+        "target_labels=actor_update_start,actor_update_end,actor_update_gate5,actor_update_gate5_integration,actor_update_gate5_exit,actor_update_gate6,contact_scanner_callsite,contact_scanner_start,contact_scanner_end",
+        "timings=before_route routes=4",
+        "sweep_commands=9",
+        "capture_commands=36",
+        "sweep_command_actor_update_start=",
+        "sweep_command_contact_scanner_end=",
+        "--target actor_update_end",
+        "--target contact_scanner_start",
+    ]:
+        require(all_targets, snippet, "all_targets_dry_run")
+    cases += 1
+
+    target_override = run_sweep(
+        root,
+        [
+            str(out_base / "target-override"),
+            str(root),
+            "--dry-run",
+            "--target-set",
+            "all",
+            "--target",
+            "contact_scanner_end",
+            "--route",
+            "x:2.00",
+        ],
+    )
+    for snippet in [
+        "targets=1",
+        "target_labels=contact_scanner_end",
+        "routes=1",
+        "sweep_commands=1",
+        "capture_commands=1",
+        "sweep_command_contact_scanner_end=",
+        "--target contact_scanner_end",
+    ]:
+        require(target_override, snippet, "target_override")
+    cases += 1
+
     skip_environment = run_sweep(
         root,
         [

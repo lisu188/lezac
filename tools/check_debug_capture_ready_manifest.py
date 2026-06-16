@@ -13,6 +13,8 @@ import tempfile
 from check_debug_capture_summary import (
     require,
     write_actor_ready,
+    write_behavior4_ready,
+    write_contact_ready,
     write_text,
     write_visual_table_ready,
 )
@@ -179,6 +181,70 @@ def main() -> int:
             require(visual_dry, snippet, "visual_table_dry_run")
         cases += 1
 
+        behavior_ready_manifest = base / "behavior-ready" / "ready_manifest.txt"
+        run_tool(
+            root,
+            "summarize_debug_capture_batch.py",
+            [
+                str(write_behavior4_ready(base / "behavior-batch")),
+                "--write-ready-manifest",
+                str(behavior_ready_manifest),
+            ],
+        )
+        behavior_dry = run_tool(
+            root,
+            "run_debug_capture_ready_manifest.py",
+            [
+                str(behavior_ready_manifest),
+                "--dry-run",
+                "--oracle-binary",
+                str(fake_oracle),
+            ],
+        )
+        for snippet in [
+            "debug_capture_ready_manifest=ok mode=dry_run",
+            "ready_candidates=1",
+            "capture=behavior4_runtime",
+            "scenario=monster_behavior4_target_selection",
+            "oracle=behavior4",
+            "command=",
+            "--debug-behavior4-runtime-oracle",
+        ]:
+            require(behavior_dry, snippet, "behavior4_dry_run")
+        cases += 1
+
+        contact_ready_manifest = base / "contact-ready" / "ready_manifest.txt"
+        run_tool(
+            root,
+            "summarize_debug_capture_batch.py",
+            [
+                str(write_contact_ready(base / "contact-batch")),
+                "--write-ready-manifest",
+                str(contact_ready_manifest),
+            ],
+        )
+        contact_dry = run_tool(
+            root,
+            "run_debug_capture_ready_manifest.py",
+            [
+                str(contact_ready_manifest),
+                "--dry-run",
+                "--oracle-binary",
+                str(fake_oracle),
+            ],
+        )
+        for snippet in [
+            "debug_capture_ready_manifest=ok mode=dry_run",
+            "ready_candidates=1",
+            "capture=contact_scanner_runtime",
+            "scenario=monster_contact_damage_live",
+            "oracle=contact_scanner",
+            "command=",
+            "--debug-contact-scanner-runtime-oracle",
+        ]:
+            require(contact_dry, snippet, "contact_scanner_dry_run")
+        cases += 1
+
         run_result = base / "results" / "run_result.txt"
         logs = base / "logs"
         run = run_tool(
@@ -226,6 +292,38 @@ def main() -> int:
         require(missing, "reason=candidate fixture not found", "missing_fixture")
         cases += 1
 
+        duplicate_fixture_path = base / "fixtures" / "actor_update_duplicate.txt"
+        write_text(
+            duplicate_fixture_path,
+            "temp_copy=1\nvisual_claim=0\nruntime_cs=01ED\n"
+            "runtime_ds=0F3C\nruntime_ds=0F3C\n",
+        )
+        duplicate_fixture_manifest = base / "ready" / "duplicate_fixture.txt"
+        duplicate_fixture_lines = []
+        for line in ready_manifest.read_text(encoding="ascii").splitlines():
+            if line.startswith("candidate_0_fixture="):
+                duplicate_fixture_lines.append(
+                    f"candidate_0_fixture={duplicate_fixture_path.as_posix()}"
+                )
+            else:
+                duplicate_fixture_lines.append(line)
+        duplicate_fixture_manifest.write_text(
+            "\n".join(duplicate_fixture_lines) + "\n",
+            encoding="ascii",
+        )
+        duplicate_fixture = run_tool(
+            root,
+            "run_debug_capture_ready_manifest.py",
+            [str(duplicate_fixture_manifest), "--dry-run"],
+            expect_success=False,
+        )
+        require(
+            duplicate_fixture,
+            "duplicate fixture field: runtime_ds",
+            "duplicate_fixture",
+        )
+        cases += 1
+
         env_manifest = base / "ready" / "bad_environment.txt"
         env_manifest.write_text(ready_manifest.read_text(encoding="ascii"), encoding="ascii")
         replace_text(
@@ -258,6 +356,61 @@ def main() -> int:
             expect_success=False,
         )
         require(bad_flag, "does not match candidate_0_oracle", "bad_flag")
+        cases += 1
+
+        missing_fixture_live = run_tool(
+            root,
+            "run_debug_capture_ready_manifest.py",
+            [
+                str(missing_fixture_manifest),
+                "--allow-missing-fixtures",
+            ],
+            expect_success=False,
+        )
+        require(
+            missing_fixture_live,
+            "--allow-missing-fixtures requires --dry-run",
+            "missing_fixture_live",
+        )
+        cases += 1
+
+        extra_candidate_manifest = base / "ready" / "extra_candidate.txt"
+        extra_candidate_manifest.write_text(
+            ready_manifest.read_text(encoding="ascii").replace(
+                "ready_candidates=1", "ready_candidates=0"
+            ),
+            encoding="ascii",
+        )
+        extra_candidate = run_tool(
+            root,
+            "run_debug_capture_ready_manifest.py",
+            [str(extra_candidate_manifest), "--dry-run"],
+            expect_success=False,
+        )
+        require(
+            extra_candidate,
+            "candidate index outside ready_candidates: 0 ready_candidates=0",
+            "extra_candidate",
+        )
+        cases += 1
+
+        duplicate_field_manifest = base / "ready" / "duplicate_field.txt"
+        duplicate_field_manifest.write_text(
+            ready_manifest.read_text(encoding="ascii")
+            + "candidate_0_fixture=/tmp/other_debug_capture.txt\n",
+            encoding="ascii",
+        )
+        duplicate_field = run_tool(
+            root,
+            "run_debug_capture_ready_manifest.py",
+            [str(duplicate_field_manifest), "--dry-run"],
+            expect_success=False,
+        )
+        require(
+            duplicate_field,
+            "duplicate manifest field: candidate_0_fixture",
+            "duplicate_field",
+        )
         cases += 1
 
     print(f"debug_capture_ready_manifest_check=ok cases={cases}")

@@ -94,6 +94,8 @@ def main() -> int:
         "offset=forward routes=4",
         "route_labels=x2p00,x2p00_c0p50,x1p50_z0p50,x2p00_m0p35",
         "capture_commands=4",
+        "oracle_commands=0",
+        "cpp_exe=",
         "environment_preflight=1",
         "environment_preflight_command=",
         "--probe-wsl",
@@ -107,10 +109,37 @@ def main() -> int:
         "--route-step c:0.50",
         "--route-step z:0.50",
         "--route-step m:0.35",
+        "--cpp-exe",
         "--skip-oracle",
         "--skip-environment-preflight",
     ]:
         require(default_dry, snippet, "default_dry_run")
+    require_not(default_dry, "oracle_command_", "default_dry_run")
+    cases += 1
+
+    with_oracle = run_sweep(
+        root,
+        [
+            str(out_base / "with-oracle"),
+            str(root),
+            "--dry-run",
+            "--route",
+            "x:2.00",
+            "--cpp-exe",
+            str(root / "build" / "lezac_cpp"),
+        ],
+    )
+    for snippet in [
+        "offset=forward routes=1",
+        "route_labels=x2p00",
+        "capture_commands=1",
+        "oracle_commands=1",
+        "cpp_exe=",
+        "oracle_command_x2p00=",
+        "--debug-explosion-playback-oracle",
+        "explosion_playback_oracle_original_candidate.txt",
+    ]:
+        require(with_oracle, snippet, "with_oracle")
     cases += 1
 
     custom = run_sweep(
@@ -132,6 +161,7 @@ def main() -> int:
         "offset=reverse routes=2",
         "route_labels=x2p00_c0p50,left0p25_space0p75",
         "capture_commands=2",
+        "oracle_commands=0",
         "environment_preflight=1",
         "capture_command_x2p00_c0p50=",
         "capture_command_left0p25_space0p75=",
@@ -140,6 +170,29 @@ def main() -> int:
         "--route-step space:0.75",
     ]:
         require(custom, snippet, "custom_routes")
+    cases += 1
+
+    raw_offset = run_sweep(
+        root,
+        [
+            str(out_base / "raw-offset"),
+            str(root),
+            "--dry-run",
+            "--skip-oracle",
+            "--offset",
+            "1000:3ED3",
+            "--route",
+            "x:2.00",
+        ],
+    )
+    for snippet in [
+        "offset=reverse routes=1",
+        "route_labels=x2p00",
+        "capture_commands=1",
+        "oracle_commands=0",
+        "--offset reverse",
+    ]:
+        require(raw_offset, snippet, "raw_offset")
     cases += 1
 
     skip_environment = run_sweep(
@@ -155,6 +208,7 @@ def main() -> int:
         ],
     )
     require(skip_environment, "environment_preflight=0", "skip_environment")
+    require(skip_environment, "oracle_commands=0", "skip_environment")
     require_not(
         skip_environment,
         "environment_preflight_command=",
@@ -248,6 +302,20 @@ def main() -> int:
         "route step seconds must be non-negative",
         "negative_route",
     )
+    cases += 1
+
+    bad_offset = run_sweep(
+        root,
+        [
+            str(out_base / "bad-offset"),
+            str(root),
+            "--dry-run",
+            "--offset",
+            "3D1B",
+        ],
+        expect_success=False,
+    )
+    require(bad_offset, "offset must be one of forward, reverse", "bad_offset")
     cases += 1
 
     print(f"lane_result_route_sweep_output=ok cases={cases}")

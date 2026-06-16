@@ -151,6 +151,8 @@ environment_preflight_command=(
     "$repo_dir/tools/preflight_original_evidence_environment.py"
     "$asset_dir"
     --require-debug-capture
+    --probe-wsl
+    --require-wsl-bash-on-windows
 )
 
 runtime_route=debugger_seeded

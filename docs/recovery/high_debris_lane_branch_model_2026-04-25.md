@@ -501,6 +501,21 @@ but both remained `no_freeze`; the other three nearby variants stayed
 `no_patch`. Do not rerun the same expanded matrix or nearby lane-global timing
 variants as the next step.
 
+Direct q78 lane-global control-flow probes on those two patching timings now
+show the late predicate is too late to catch the relevant branch window. The
+`1000:4C96` loop-patch run at
+`C:\Users\andrz\AppData\Local\Temp\lezac-lane-global-4c96-probe-1781611559`
+armed at `2.769s` for `x:2.00,c:0.35` and `3.607s` for `x:2.00,c:0.65`, with
+selected bases `209e/663e/c22e`, high-debris target offset `0x05bd`, and lane
+globals `0x01/0x8002/0x07be`. The native oracle reported no freeze and no
+`observed_effect_forward_call`. The paired `1000:4C75` bp4-scratch run at
+`C:\Users\andrz\AppData\Local\Temp\lezac-lane-global-4c75-probe-1781611676`
+armed at `2.680s` and `2.708s`, recorded scratch site `01ED:4C7E` / old bytes
+`2001`, and still reported no freeze, no high-word gate, and no bp4 local.
+This proves only that neither `4C75` nor `4C96` is reached after the q78
+lane-global patch is installed in the sampled/tail window; it does not disprove
+earlier execution before the predicate matches.
+
 Use `tools/sweep_original_lane_write_routes.py` only when a new route or
 control-flow hypothesis has been identified. The default matrix targets
 `3D2D`/`3EC1` with the `late-collapse` runtime-freeze gate and writes stable
@@ -526,8 +541,9 @@ python3 tools/sweep_original_lane_write_routes.py \
 ```
 
 The next useful evidence step should ask a narrower control-flow question
-around why these patched states miss the forward debris helper, rather than
-testing adjacent route durations.
+around why these patched states have already missed the forward debris helper:
+arm earlier from selected-base/high-target state, or instrument an upstream
+branch such as `4B3F`/`4C75`, rather than testing adjacent route durations.
 
 Summarize its output with
 `tools/summarize_lane_write_route_sweep.py <manifest-or-dir> --require-ready`

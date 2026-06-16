@@ -1,7 +1,7 @@
 # Recovery Status
 
 Last reviewed: 2026-06-16
-Branch: `codex/lane-global-route-variants`
+Branch: `codex/lane-global-control-flow-probes`
 Baseline: `origin/main`
 
 ## Completed This Iteration
@@ -158,6 +158,24 @@ Baseline: `origin/main`
   `0x78`. Neither froze nor hit the lane write, so the summary reports
   `ready_candidates=0`, `no_patch_candidates=3`, `no_freeze_candidates=2`,
   and `missing_offsets=3d2d`.
+- Ran direct q78 lane-global control-flow probes for the two route timings that
+  had armed the `3D2D` patch. The `1000:4C96` loop-patch run wrote
+  `C:\Users\andrz\AppData\Local\Temp\lezac-lane-global-4c96-probe-1781611559`:
+  `x:2.00,c:0.35` patched at `2.769s` and `x:2.00,c:0.65` patched at
+  `3.607s`, both with selected bases `209e/663e/c22e`, high-debris target
+  offset `0x05bd`, lane globals `0x01/0x8002/0x07be`, and queue score
+  `0x78`. The native oracle parsed both candidates as valid original fixtures
+  but reported `observed_freeze_count=0`, `observed_effect_forward_call=0`,
+  and no lane-write evidence. The paired `1000:4C75` bp4-scratch run wrote
+  `C:\Users\andrz\AppData\Local\Temp\lezac-lane-global-4c75-probe-1781611676`:
+  the same two timings patched at `2.680s` and `2.708s`, recorded scratch
+  site `01ED:4C7E` / old bytes `2001`, and the oracle still reported
+  `observed_freeze_count=0`, `observed_high_word_gate=0`, and
+  `bp4_local_present=0`. Narrow conclusion: once the q78 lane-global predicate
+  installed these patches, neither `4C75` nor `4C96` was reached later in the
+  sampled/tail window. This brackets the current miss as an earlier
+  control-flow/predicate question, not another nearby lane-global timing
+  question.
 - Added `--continue-on-oracle-error` to
   `tools/sweep_original_lane_write_routes.py`. Capture failures still stop the
   sweep, but a missing or unrunnable C++ oracle now writes an `oracle_error`
@@ -2112,10 +2130,12 @@ valid no-freeze candidates. Do not repeat the early `x:2.00,c:0.50`
 target-byte/word-layer gate: it now proves that the patch can apply at the
 early `0x2093` geometry without hitting natural `3D2D`, and the later
 lane-global gate can apply at `0x01/0x8002/0x07be` on several nearby timings
-without reaching the forward debris write. The next useful original-evidence
-step should answer a debugger/control-flow question around the forward helper
-path, such as where the natural route diverges before `1000:3D2D`, rather than
-rerunning nearby lane-global route variants.
+without reaching the forward debris write. Direct q78 lane-global probes also
+show that, after that later predicate arms, neither `1000:4C75` nor
+`1000:4C96` is reached again in the sampled window. The next useful
+original-evidence step should arm earlier, using selected-base/high-target
+state or an upstream branch anchor such as `4B3F`/`4C75`, to explain where the
+natural route diverges before `1000:3D2D`.
 Treat a no-patch or no-freeze result as route evidence, not promotion.
 Then return to DOSBox frame/debugger evidence for behavior-4 movement,
 targeting, and respawn timing.

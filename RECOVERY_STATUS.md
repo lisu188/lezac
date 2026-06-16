@@ -408,6 +408,11 @@ Baseline: `origin/main`
 - Added `tools/check_original_evidence_blocker_note.py` and CTest coverage so
   that blocker note stays machine-readable and cannot quietly lose the rerun
   commands or its non-evidence status.
+- Extended the blocker note with the 2026-06-16 direct
+  `wsl -- bash -lc 'command -v dosbox-debug'` attempt. It fails before Linux
+  command execution with `WSL_E_DEFAULT_DISTRO_NOT_FOUND`, remains
+  `not_original_evidence=1` / `visual_claim=0`, and is now pinned by the same
+  checker.
 - Added `tools/check_gran_usage_guardrail.py` to keep `GRAN.MST` as explicitly
   opaque data in the current C++ port. The checker counts all `gran_` source
   references and permits only loading, member storage, validation, and

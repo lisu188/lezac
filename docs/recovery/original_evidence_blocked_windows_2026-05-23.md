@@ -23,6 +23,19 @@ The local shell has `wsl.exe`, but no default Linux distribution is installed.
 It also has no native `bash`, `dosbox`, `dosbox-debug`, `xvfb-run`, or
 `xdotool`, so original DOSBox/Xvfb frame capture cannot run on this host.
 
+The direct WSL `dosbox-debug` probe was retried on 2026-06-16 and failed for
+the same host-level reason before any Linux command could run:
+
+```text
+original_evidence_blocker=windows_wsl_dosbox_debug_probe_failed
+date=2026-06-16
+command=wsl -- bash -lc 'set -e; command -v dosbox-debug; dosbox-debug -version'
+wsl_dosbox_debug_probe=error
+wsl_error=WSL_E_DEFAULT_DISTRO_NOT_FOUND
+not_original_evidence=1
+visual_claim=0
+```
+
 The observed preflight command was:
 
 ```powershell
@@ -40,6 +53,7 @@ frame evidence:
 
 ```sh
 python tools/preflight_original_evidence_environment.py . --require-assets --require-frame-capture --probe-wsl --require-wsl-bash-on-windows
+wsl -- bash -lc 'set -e; command -v dosbox-debug; dosbox-debug -version'
 tools/compare_original_cpp_frames.sh /tmp/lezac-frame-compare . level1_bomb_route
 tools/summarize_frame_compare_bundle.py /tmp/lezac-frame-compare --require-promotion-ready
 ```

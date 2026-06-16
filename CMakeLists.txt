@@ -538,7 +538,7 @@ if(BUILD_TESTING)
         set_tests_properties(original_evidence_blocker_note_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^original_evidence_blocker_note=ok docs=1 ctest=1 commands=3 blocker=windows_no_default_wsl_distro")
+                "^original_evidence_blocker_note=ok docs=1 ctest=1 commands=4 blocker=windows_no_default_wsl_distro")
 
         add_test(NAME frame_compare_identical
             COMMAND ${Python3_EXECUTABLE}

@@ -23,8 +23,14 @@ DOC_SNIPPETS = [
     "environment_preflight=error",
     "not_original_evidence=1",
     "visual_claim=0",
+    "original_evidence_blocker=windows_wsl_dosbox_debug_probe_failed",
+    "date=2026-06-16",
+    "command=wsl -- bash -lc 'set -e; command -v dosbox-debug; dosbox-debug -version'",
+    "wsl_dosbox_debug_probe=error",
+    "wsl_error=WSL_E_DEFAULT_DISTRO_NOT_FOUND",
     "reason=wsl_bash_not_usable",
     "tools/preflight_original_evidence_environment.py . --require-assets --require-frame-capture --probe-wsl --require-wsl-bash-on-windows",
+    "wsl -- bash -lc 'set -e; command -v dosbox-debug; dosbox-debug -version'",
     "tools/compare_original_cpp_frames.sh /tmp/lezac-frame-compare . level1_bomb_route",
     "tools/summarize_frame_compare_bundle.py /tmp/lezac-frame-compare --require-promotion-ready",
     "frame_compare_summary.txt",
@@ -62,7 +68,7 @@ def check_cmake(root: Path) -> None:
     require(text, "original_evidence_blocker_note_expectations", str(CMAKE))
     require(
         text,
-        "^original_evidence_blocker_note=ok docs=1 ctest=1 commands=3 blocker=windows_no_default_wsl_distro",
+        "^original_evidence_blocker_note=ok docs=1 ctest=1 commands=4 blocker=windows_no_default_wsl_distro",
         str(CMAKE),
     )
 
@@ -82,7 +88,7 @@ def main() -> int:
     check_cmake(root)
     print(
         "original_evidence_blocker_note=ok "
-        "docs=1 ctest=1 commands=3 blocker=windows_no_default_wsl_distro"
+        "docs=1 ctest=1 commands=4 blocker=windows_no_default_wsl_distro"
     )
     return 0
 

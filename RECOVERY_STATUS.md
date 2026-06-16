@@ -1,11 +1,18 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/sound-callsite-procmem-sweep-summary`
+Branch: `codex/ready-provenance-route-writers`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Extended `docs/recovery/ready_fixture_provenance_contract.md` and
+  `tools/check_ready_fixture_provenance_contract.py` so the ready-fixture
+  guardrail covers the behavior-4 and sound-callsite route-sweep summary
+  writers, not only the older batch/dispatch/lane summary writers. CMake now
+  expects six ready-manifest writers, keeping the new procmem sweep handoffs
+  under the same runtime segment, `temp_copy=1`, and `visual_claim=0`
+  provenance rules before any original runtime fixture can be promoted.
 - Added `tools/summarize_sound_callsite_route_sweep.py` plus
   `tools/check_sound_callsite_route_sweep_summary.py` and CMake coverage for
   `sound_callsite_route_sweep` manifests. The summary classifies each

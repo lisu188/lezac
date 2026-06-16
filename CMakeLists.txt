@@ -1361,7 +1361,7 @@ if(BUILD_TESTING)
         set_tests_properties(sound_compatibility_hooks PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=24 docs=3 rejected_objective_candidates=3 live_diagnostic=1")
+                "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=24 docs=3 rejected_objective_candidates=3 capture_blockers=2 live_diagnostic=1")
 
         add_test(NAME debug_capture_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -1971,7 +1971,7 @@ if(BUILD_TESTING)
     set_tests_properties(static_sound_requests PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^static_sound_requests=ok writes=27 image_base=0x0770 latch=0x165a latch_candidates=21 latch_refs=22 priority_candidates=21 direct_sweep=5 mapped=15 unresolved=12 record_prompt=0x1857:0x0078/p11 record_commit=0x1a44:0x0008/p11 records_page=0x2083:0x0024/p2 bomb_place=0x557b:0xea74/p3 monster_death=0x5c9e:0x003d/p12 mapped_labels=0x1857:record_name_prompt,0x1a44:record_name_commit,0x2083:records_page,0x30b1:player_death,0x41a9:explosion_small,0x41ed:explosion_medium,0x4231:explosion_large,0x431d:explosion_super,0x557b:bomb_place,0x575d:tile_trigger,0x5a0e:portal_teleport,0x5c9e:monster_death,0x6e34:bomb_object_high,0x6f82:bonus_pickup,0x7f84:player_damage unresolved_candidates=0x1d9c,0x202d,0x2c04,0x49bd,0x4b2c,0x4d3c,0x4dd3,0x5e81,0x6844,0x6924,0x7386,0x789c unresolved_labels=0x1d9c:post_end_flow_record_region,0x202d:record_table_cursor_only,0x2c04:cursor_0078_priority11,0x49bd:cursor_0027_priority5,0x4b2c:collapse_playback_rejected,0x4d3c:cursor_2710,0x4dd3:cursor_2710,0x5e81:cursor_0069_priority4,0x6844:cursor_0024_priority2,0x6924:non_objective_tile_gate_rejected,0x7386:cursor_0021_priority1,0x789c:cursor_0001_no_latch remaining_compat_hooks=objective_pickup,level_complete rejected_objective_candidates=0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate")
+            "^static_sound_requests=ok writes=27 image_base=0x0770 latch=0x165a latch_candidates=21 latch_refs=22 priority_candidates=21 direct_sweep=5 mapped=15 unresolved=12 record_prompt=0x1857:0x0078/p11 record_commit=0x1a44:0x0008/p11 records_page=0x2083:0x0024/p2 bomb_place=0x557b:0xea74/p3 monster_death=0x5c9e:0x003d/p12 mapped_labels=0x1857:record_name_prompt,0x1a44:record_name_commit,0x2083:records_page,0x30b1:player_death,0x41a9:explosion_small,0x41ed:explosion_medium,0x4231:explosion_large,0x431d:explosion_super,0x557b:bomb_place,0x575d:tile_trigger,0x5a0e:portal_teleport,0x5c9e:monster_death,0x6e34:bomb_object_high,0x6f82:bonus_pickup,0x7f84:player_damage unresolved_candidates=0x1d9c,0x202d,0x2c04,0x49bd,0x4b2c,0x4d3c,0x4dd3,0x5e81,0x6844,0x6924,0x7386,0x789c unresolved_labels=0x1d9c:post_end_flow_record_region,0x202d:record_table_cursor_only,0x2c04:cursor_0078_priority11,0x49bd:cursor_0027_priority5,0x4b2c:collapse_playback_rejected,0x4d3c:cursor_2710,0x4dd3:cursor_2710,0x5e81:cursor_0069_priority4,0x6844:cursor_0024_priority2,0x6924:non_objective_tile_gate_rejected,0x7386:cursor_0021_priority1,0x789c:cursor_0001_no_latch remaining_compat_hooks=objective_pickup,level_complete capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate rejected_objective_candidates=0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate")
 
     add_test(NAME input_fire_key_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-input-fire-key-model)
@@ -1985,7 +1985,7 @@ if(BUILD_TESTING)
     set_tests_properties(remaining_sound_compat_hooks PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^remaining_sound_compat_hooks=ok live_hooks=2 objective_pickup=index0/cursor0x0000 collected_delta=1 score_delta=1000 latch_active=0 level_complete=index5/cursor0x0027 calls_first_tick=1 repeat_calls=0 advanced_level=2 latch_active=0 original_cursor_priority_claim=0")
+            "^remaining_sound_compat_hooks=ok live_hooks=2 objective_pickup=index0/cursor0x0000 collected_delta=1 score_delta=1000 latch_active=0 level_complete=index5/cursor0x0027 calls_first_tick=1 repeat_calls=0 advanced_level=2 latch_active=0 capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate original_cursor_priority_claim=0")
 
     add_test(NAME static_sound_contexts
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-static-sound-contexts)

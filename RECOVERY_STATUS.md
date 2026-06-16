@@ -135,9 +135,18 @@ Baseline: `origin/main`
   `tools/sweep_original_lane_write_routes.py`:
   `--runtime-freeze-require-lane-update-flag`,
   `--runtime-freeze-require-lane-word-global-value`, and
-  `--runtime-freeze-require-lane-target-offset-global-value`. These are ready
-  for the next focused natural forward-debris `1000:3D2D` run, but no live
-  DOSBox capture has used them yet.
+  `--runtime-freeze-require-lane-target-offset-global-value`.
+- Ran the focused lane-global `1000:3D2D` retry twice. The first run under
+  `/tmp/lezac-lane-write-forward-lane-globals-1781610186` kept the queue gate
+  at `0x80`, so the matching `0x01/0x8002/0x07be` lane-global rows at score
+  `0x78` did not arm the patch; it is recorded as `no_patch`. The corrected
+  Windows-temp run
+  `C:\Users\andrz\AppData\Local\Temp\lezac-lane-write-forward-lane-globals-q78-1781610284`
+  lowered the gate to `0x78`, applied the runtime patch at `2.854s` after the
+  bomb with selected bases `209e/663e/c22e` and lane globals
+  `0x01/0x8002/0x07be`, and was parsed by the native Windows oracle. It still
+  did not freeze or hit natural forward-debris writeback; the summary reports
+  `no_freeze_candidates=1`, `ready_candidates=0`, `missing_offsets=3d2d`.
 - Added `--continue-on-oracle-error` to
   `tools/sweep_original_lane_write_routes.py`. Capture failures still stop the
   sweep, but a missing or unrunnable C++ oracle now writes an `oracle_error`
@@ -2090,10 +2099,11 @@ ten-route pass produced ten valid no-freeze `3D2D` candidates, and the latest
 single-route gated retries now include multiple no-patch candidates plus two
 valid no-freeze candidates. Do not repeat the early `x:2.00,c:0.50`
 target-byte/word-layer gate: it now proves that the patch can apply at the
-early `0x2093` geometry without hitting natural `3D2D`. The next useful
-original-evidence step is to rerun the focused route with the new later
-lane-global runtime-freeze gates: `lane_update_flag=1`,
-`lane_word_global_value=0x8002`, and target offset `0x07be`.
+early `0x2093` geometry without hitting natural `3D2D`, and the later
+lane-global gate can apply at `0x01/0x8002/0x07be` without reaching the forward
+debris write. The next useful original-evidence step should change route/timing
+or answer a debugger/control-flow question around the forward helper path,
+rather than rerunning the same lane-global gate.
 Treat a no-patch or no-freeze result as route evidence, not promotion.
 Then return to DOSBox frame/debugger evidence for behavior-4 movement,
 targeting, and respawn timing.

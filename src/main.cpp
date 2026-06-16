@@ -5132,6 +5132,87 @@ public:
                   << " p2_recheck_skipped=1\n";
     }
 
+    void debugEndFlowFrameFlow() {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        FrameInspection mainFrame = inspectRenderedFrame("end-flow-main-menu");
+        playerCount_ = 2;
+        score_ = 1u;
+        score2_ = 2u;
+        levelIndex_ = 3;
+        beginGameOver();
+        if (!menu_ || menuPage_ != MenuPage::GameOver ||
+            lastEndReason_ != EndReason::GameOver ||
+            pendingRecordScore_ != 0 || score_ != 1u || score2_ != 2u) {
+            throw std::runtime_error("game-over frame fixture entered wrong state");
+        }
+        FrameInspection gameOverFrame = inspectRenderedFrame("end-flow-game-over");
+        if (gameOverFrame.hash == mainFrame.hash ||
+            !regionHasVariation(70, 68, 190, 112)) {
+            throw std::runtime_error("game-over frame did not render title/scores");
+        }
+
+        pushKeyDown(SDLK_RETURN);
+        processEvents(running);
+        if (!menu_ || menuPage_ != MenuPage::Main ||
+            score_ != 0 || score2_ != 0) {
+            throw std::runtime_error("game-over confirm did not clear scores");
+        }
+        FrameInspection afterGameOverFrame =
+            inspectRenderedFrame("end-flow-after-game-over");
+        if (afterGameOverFrame.hash == gameOverFrame.hash) {
+            throw std::runtime_error("game-over confirm did not redraw menu");
+        }
+
+        playerCount_ = 1;
+        resetLevel(static_cast<int>(levels_.size()) - 1);
+        menu_ = false;
+        collectAllObjectiveTilesForSmoke();
+        damageRequiredTilesForSmoke();
+        score_ = 1u;
+        score2_ = 0;
+        if (!isComplete() || !isFinalLevel()) {
+            throw std::runtime_error("completed-game frame fixture did not satisfy final level");
+        }
+        for (int i = 0; i <= 100; ++i) {
+            updateLevelCompletion();
+        }
+        if (!menu_ || menuPage_ != MenuPage::CompletedGame ||
+            lastEndReason_ != EndReason::CompletedGame ||
+            pendingRecordScore_ != 0 || levelIndex_ != 0 || score_ != 1u) {
+            throw std::runtime_error("final-level completion did not show completed-game page");
+        }
+        FrameInspection completedFrame =
+            inspectRenderedFrame("end-flow-completed-game");
+        if (completedFrame.hash == gameOverFrame.hash ||
+            completedFrame.hash == afterGameOverFrame.hash ||
+            !regionHasVariation(50, 54, 230, 120)) {
+            throw std::runtime_error("completed-game frame did not render distinct text");
+        }
+
+        pushKeyDown(SDLK_SPACE);
+        processEvents(running);
+        if (!menu_ || menuPage_ != MenuPage::Main || score_ != 0) {
+            throw std::runtime_error("completed-game confirm did not clear score");
+        }
+        FrameInspection finalMenuFrame =
+            inspectRenderedFrame("end-flow-final-menu");
+        if (finalMenuFrame.hash == completedFrame.hash) {
+            throw std::runtime_error("completed-game confirm did not redraw menu");
+        }
+
+        std::cout << "end_flow_frame_flow=ok"
+                  << " game_over_scores=1,2"
+                  << " completed_score=1"
+                  << " final_level=" << levels_.size()
+                  << " completed_page=1"
+                  << " confirm_clears_scores=1"
+                  << " frame_inspection=1\n";
+    }
+
     void debugEndFlowStaticModel() {
         std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
         if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
@@ -17555,6 +17636,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-end-flow-records") {
             app.debugEndFlowRecords(argv[2]);
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-end-flow-frame-flow") {
+            app.debugEndFlowFrameFlow();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-end-flow-static-model") {

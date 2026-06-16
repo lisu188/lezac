@@ -1307,6 +1307,10 @@ where player 2 would qualify against the old seventh record but is skipped after
 player 1 is inserted and the table cutoff rises. It also locks the strict
 cutoff comparison: a score equal to the current seventh record does not open
 name entry.
+`--debug-end-flow-frame-flow` covers the current renderer side of that mapping:
+it frame-inspects below-cutoff game-over scores, drives natural final-level
+completion into the completed-game page, and verifies both end-page
+confirmations redraw the main menu and clear retained score state.
 `--debug-record-save-failure` verifies that a failed write leaves the pending
 entry on the name-entry page and that retrying with a writable record path
 commits the same pending score/name instead of discarding it.

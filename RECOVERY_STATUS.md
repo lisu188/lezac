@@ -241,6 +241,11 @@ Baseline: `origin/main`
   records pages, pumps the recovered records-page sound request, checks
   visible gameplay background-toggle frame changes, starts one-player gameplay,
   returns to the menu, and confirms main-menu Escape requests exit.
+- Added `--debug-end-flow-frame-flow` dummy-SDL coverage for the current
+  game-over and completed-game presentation. The diagnostic frame-inspects
+  below-cutoff game-over scores, drives natural final-level completion into the
+  completed-game page, and verifies both confirmations redraw the main menu and
+  clear retained score state.
 - Added `--debug-core-resource-raw-roundtrip` to pin `BOMPAL.PAL`,
   `SFONLEF.ZBG`, and `CARO.CAR` against their converted JSON resources. It
   compares decoded palettes, background RLE expansion, and tile payload bytes,

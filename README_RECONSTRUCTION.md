@@ -128,6 +128,7 @@ python3 tools/compare_state2_visual_row_game_previews.py /tmp/lezac-state2-visua
 ./build/lezac_cpp --debug-record-name-entry-repeat /tmp/records_name_repeat_test.dat
 ./build/lezac_cpp --debug-record-save-failure /tmp/missing-record-dir/records.dat
 ./build/lezac_cpp --debug-end-flow-records /tmp/end_flow_records.dat
+./build/lezac_cpp --debug-end-flow-frame-flow
 ./build/lezac_cpp --debug-gran
 ./build/lezac_cpp --debug-gran-raw-roundtrip
 ./build/lezac_cpp --debug-levels
@@ -809,6 +810,9 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   path instead of wrapping directly into level 1. `--debug-end-flow-static-model`
   pins the dispatcher bytes for mode strings, the completed-game flag, per-player
   score pointers, seventh-record cutoff comparison, and record-entry call.
+  `--debug-end-flow-frame-flow` frame-inspects the current game-over and
+  completed-game pages, including final-score visibility, natural final-level
+  completion, and confirm-to-menu score clearing.
 - `PROEFS.SON` payload bytes are preserved as the original 130 six-byte
   playback steps. Non-direct sound synthesis now advances by the recovered
   `DS:78c0` cursor, honors the `0x7530` stop sentinel, and applies the

@@ -1771,6 +1771,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^end_flow_records=ok completion_level=2 p1_record=999997 p2_record=999998 records=7 cutoff_equal_skipped=1 p2_recheck_skipped=1")
 
+    add_test(NAME end_flow_frame_flow
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-end-flow-frame-flow)
+    set_tests_properties(end_flow_frame_flow PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^end_flow_frame_flow=ok game_over_scores=1,2 completed_score=1 final_level=7 completed_page=1 confirm_clears_scores=1 frame_inspection=1")
+
     add_test(NAME end_flow_static_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-end-flow-static-model)
     set_tests_properties(end_flow_static_model PROPERTIES

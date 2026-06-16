@@ -242,11 +242,28 @@ def build_capture_command(
 
 
 def build_oracle_command(args: argparse.Namespace, candidate: Path) -> list[str]:
+    candidate_arg = oracle_candidate_argument(args.cpp_exe, candidate)
     return [
         str(args.cpp_exe),
         "--debug-explosion-playback-oracle",
-        str(candidate),
+        candidate_arg,
     ]
+
+
+def wsl_drive_mount_to_windows_path(path: Path) -> str | None:
+    normalized = str(path).replace("\\", "/")
+    parts = normalized.split("/")
+    if len(parts) < 3 or parts[0] != "" or parts[1] != "mnt" or len(parts[2]) != 1:
+        return None
+    drive = parts[2].upper()
+    rest = "\\".join(parts[3:])
+    return f"{drive}:\\" + rest if rest else f"{drive}:\\"
+
+
+def oracle_candidate_argument(cpp_exe: Path, candidate: Path) -> str:
+    if cpp_exe.suffix.lower() != ".exe":
+        return str(candidate)
+    return wsl_drive_mount_to_windows_path(candidate) or str(candidate)
 
 
 def parse_candidate(stdout: str, default_path: Path) -> Path:

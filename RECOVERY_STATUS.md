@@ -1,7 +1,7 @@
 # Recovery Status
 
-Last reviewed: 2026-06-15
-Branch: `codex/gran-usage-guardrail`
+Last reviewed: 2026-06-16
+Branch: `codex/reimplementation-next-20260616`
 Baseline: `origin/main`
 
 ## Completed This Iteration
@@ -78,6 +78,18 @@ Baseline: `origin/main`
   `202`, collapse count `5`, and lane globals `0x0004/0x072c`, but no freeze
   or natural forward-debris lane write occurred. The native oracle and summary
   classify it as a valid `no_freeze` candidate, not promotion evidence.
+- Ran the word-layer gated `1000:3D2D` retry for the earlier decoded
+  `209e/6620/c22e` state, writing
+  `C:\Users\andrz\AppData\Local\Temp\lezac-lane-write-forward-word-gated-1781605749`.
+  The capture reached the selected bases and target byte `0x00`, but the high
+  debris word-layer value was `0x0000` instead of the requested `0x0005`, so
+  the runtime patch did not apply. The Windows oracle reports no freeze and no
+  natural forward-debris lane write, and the WSL summary classifies the single
+  candidate as `no_patch` with `missing_offsets=3d2d`.
+- Fixed `tools/sweep_original_lane_write_routes.py` so WSL sweeps that invoke a
+  Windows `.exe` oracle translate `/mnt/<drive>/...` candidate paths to
+  Windows drive paths for the oracle argument. The dry-run expectation checker
+  now pins that host-split path shape.
 - Taught the lane-write and lane-result route-sweep summarizers to translate
   WSL drive paths such as `/mnt/c/...` back to Windows paths when run by native
   Python. This fixed the local forward-debris sweep summary from ten false
@@ -2042,11 +2054,12 @@ Baseline: `origin/main`
 
 Do not repeat the unchanged `forward-debris-expanded` matrix: the latest
 ten-route pass produced ten valid no-freeze `3D2D` candidates, and the latest
-single-route gated retries produced one no-patch candidate plus one no-freeze
-candidate. The next original-evidence pass should use the word-layer gate to
-target the earlier decoded `209e/6620/c22e` state that the Windows oracle saw
-in the observed-state retry:
-`python3 tools/sweep_original_lane_write_routes.py /tmp/lezac-lane-write-forward-word-gated . --route x:2.00,c:0.50 --offset forward-debris --runtime-freeze-preset none --runtime-freeze-min-queue-score 0x90 --runtime-freeze-min-debris-nonzero 0x20 --runtime-freeze-min-collapse-nonzero 0x10 --runtime-freeze-min-effect-nonzero 0x10 --runtime-freeze-require-debris-base 0x209e --runtime-freeze-require-collapse-base 0x6620 --runtime-freeze-require-effect-base 0xc22e --runtime-freeze-require-high-debris-target-byte 0x00 --runtime-freeze-require-high-debris-word-layer-value 0x0005 --approve-procmem --approve-runtime-instrumentation --cpp-exe ./build/lezac_cpp --continue-on-oracle-error`.
+single-route gated retries produced two no-patch candidates plus one no-freeze
+candidate. The next original-evidence pass should keep the focused
+`x:2.00,c:0.50` / `209e/6620/c22e` route but either require the observed
+word-layer value `0x0000` or drop the word-layer gate after keeping the
+target-byte gate:
+`python3 tools/sweep_original_lane_write_routes.py /tmp/lezac-lane-write-forward-word-gated-zero . --route x:2.00,c:0.50 --offset forward-debris --runtime-freeze-preset none --runtime-freeze-min-queue-score 0x90 --runtime-freeze-min-debris-nonzero 0x20 --runtime-freeze-min-collapse-nonzero 0x10 --runtime-freeze-min-effect-nonzero 0x10 --runtime-freeze-require-debris-base 0x209e --runtime-freeze-require-collapse-base 0x6620 --runtime-freeze-require-effect-base 0xc22e --runtime-freeze-require-high-debris-target-byte 0x00 --runtime-freeze-require-high-debris-word-layer-value 0x0000 --approve-procmem --approve-runtime-instrumentation --cpp-exe ./build-win-codex-vs3/Debug/lezac_cpp.exe --continue-on-oracle-error`.
 Treat a no-patch or no-freeze result as route evidence, not promotion.
 Then return to DOSBox frame/debugger evidence for behavior-4 movement,
 targeting, and respawn timing.

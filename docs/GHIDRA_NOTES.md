@@ -572,7 +572,14 @@ pass promoted
 natural route `x:2.00,m:0.35`, runtime `CS:IP=01ed:3ec1`, `DS=0c8f`, reverse
 debris lane-write output `0x00fb`, `DI=0x0898`, tag `0x4ee8`, active
 count/index `5/2`, and `runtime_seeded=0`. Natural forward debris writeback at
-`1000:3d2d` remains pending. `tools/summarize_lane_result_route_sweep.py`
+`1000:3d2d` remains pending. The 2026-06-16 focused
+`x:2.00,c:0.50` retry for selected bases `209e/6620/c22e` and target byte
+`0x00` did not apply the runtime patch because the observed word-layer value
+was `0x0000` rather than the requested `0x0005`; the route-sweep summary
+classifies it as `no_patch`, not promotion evidence. The next focused retry
+should use the observed `0x0000` word-layer gate or drop that gate while
+keeping the selected-base and target-byte filters.
+`tools/summarize_lane_result_route_sweep.py`
 now classifies completed route-sweep candidates as `ready`, `no_freeze`,
 `incomplete`, or `missing`; `tools/run_lane_result_ready_manifest.py` and
 `tools/summarize_lane_result_ready_results.py` then execute and gate only

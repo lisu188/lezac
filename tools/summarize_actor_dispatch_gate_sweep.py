@@ -18,6 +18,13 @@ from ready_result_fixture_guardrails import (
 
 CAPTURE_DISPATCH_SWEEP = "actor_dispatch_gate_sweep"
 CAPTURE_ROUTE_SWEEP = "actor_contact_route_sweep"
+DISPATCH_GATE_TARGETS = {
+    "actor_update_gate5",
+    "actor_update_gate5_integration",
+    "actor_update_gate5_exit",
+    "actor_update_gate6",
+    "contact_scanner_callsite",
+}
 
 
 @dataclass(frozen=True)
@@ -47,6 +54,8 @@ class SummaryResult:
     summary: str
     details: list[str]
     readiness_counts: dict[str, int]
+    dispatch_gate_freezes: list[str]
+    observed_targets: list[str]
     ready_manifest_lines: list[str]
     environment_preflight: str
     child_environment_preflights: list[str]
@@ -112,6 +121,12 @@ def oracle_for_target(target: str) -> tuple[str, str]:
     if target in {"contact_scanner_start", "contact_scanner_end"}:
         return "contact_scanner", "--debug-contact-scanner-runtime-oracle"
     return "actor_update", "--debug-actor-update-runtime-oracle"
+
+
+def dispatch_gate_candidate(target: str) -> str:
+    if target in DISPATCH_GATE_TARGETS:
+        return target
+    return "none"
 
 
 def active_fixture_lines(path: Path) -> list[str]:
@@ -321,6 +336,10 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         if is_freeze_observed(status.fields.get("freeze_observed"))
     ]
     observed_targets = unique_ordered([status.target for status in freezes])
+    dispatch_gate_freezes = [
+        status.target for status in freezes if status.target in DISPATCH_GATE_TARGETS
+    ]
+    observed_dispatch_gates = unique_ordered(dispatch_gate_freezes)
     missing_targets = [target for target in targets if target not in observed_targets]
     candidate_fixtures = [
         status.fields.get("candidate_fixture", "")
@@ -354,11 +373,13 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         f"route_sweeps={route_sweeps} "
         f"captures={len(statuses)} "
         f"freezes={len(freezes)} "
+        f"dispatch_gate_freezes={len(dispatch_gate_freezes)} "
         f"ready_candidates={readiness_counts['ready']} "
         f"incomplete_candidates={readiness_counts['incomplete']} "
         f"missing_candidates={readiness_counts['missing']} "
         f"none_candidates={readiness_counts['none']} "
         f"observed_targets={csv_or_none(observed_targets)} "
+        f"observed_dispatch_gates={csv_or_none(observed_dispatch_gates)} "
         f"missing_targets={csv_or_none(missing_targets)} "
         f"candidate_fixtures={csv_or_none(candidate_fixtures)}"
     )
@@ -367,6 +388,7 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         details.append(
             "freeze "
             f"target={status.target} "
+            f"dispatch_gate_candidate={dispatch_gate_candidate(status.target)} "
             f"route={status.route_label} "
             f"ghidra={status.fields.get('ghidra', 'unknown')} "
             f"runtime_cs={status.fields.get('runtime_cs', 'unknown')} "
@@ -385,6 +407,8 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         summary=summary,
         details=details,
         readiness_counts=readiness_counts,
+        dispatch_gate_freezes=dispatch_gate_freezes,
+        observed_targets=observed_targets,
         ready_manifest_lines=ready_manifest_records(
             manifest.path,
             environment_preflight,
@@ -427,6 +451,18 @@ def require_environment_preflight_error(
     )
 
 
+def require_dispatch_gate_freeze_error(result: SummaryResult) -> str | None:
+    if result.dispatch_gate_freezes:
+        return None
+    return (
+        "actor_dispatch_gate_sweep_summary=error "
+        "reason=no_dispatch_gate_freezes "
+        f"freezes={sum(result.readiness_counts.values())} "
+        "dispatch_gate_freezes=0 "
+        f"observed_targets={csv_or_none(result.observed_targets)}"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -443,6 +479,14 @@ def main() -> int:
         "--require-ready",
         action="store_true",
         help="exit nonzero if any observed freeze lacks a ready candidate fixture",
+    )
+    parser.add_argument(
+        "--require-dispatch-gate-freeze",
+        action="store_true",
+        help=(
+            "exit nonzero unless at least one observed freeze is one of the "
+            "mapped actor/contact dispatch-gate targets"
+        ),
     )
     parser.add_argument(
         "--write-ready-manifest",
@@ -485,6 +529,11 @@ def main() -> int:
         if error is not None:
             print(error, file=sys.stderr)
             return 2
+    if args.require_dispatch_gate_freeze:
+        error = require_dispatch_gate_freeze_error(result)
+        if error is not None:
+            print(error, file=sys.stderr)
+            return 4
     if args.require_environment_preflight:
         error = require_environment_preflight_error(
             result.environment_preflight, result.child_environment_preflights

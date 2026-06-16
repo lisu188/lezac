@@ -139,19 +139,60 @@ def main() -> int:
             "route_sweeps=2",
             "captures=2",
             "freezes=1",
+            "dispatch_gate_freezes=1",
             "ready_candidates=0",
             "incomplete_candidates=0",
             "missing_candidates=1",
             "none_candidates=0",
             "observed_targets=actor_update_gate6",
+            "observed_dispatch_gates=actor_update_gate6",
             "missing_targets=actor_update_gate5",
             "candidate_fixtures=/tmp/gate6/candidate_fixture.txt",
-            "freeze target=actor_update_gate6 route=x3p00 ghidra=1000:654E",
+            "freeze target=actor_update_gate6 dispatch_gate_candidate=actor_update_gate6 route=x3p00 ghidra=1000:654E",
             "candidate_status=missing candidate_missing=file candidate_placeholders=0",
             "oracle=actor_update oracle_flag=--debug-actor-update-runtime-oracle",
             "oracle_command=./build/lezac_cpp --debug-actor-update-runtime-oracle /tmp/gate6/candidate_fixture.txt",
         ]:
             require(result, snippet, "dispatch_manifest")
+        cases += 1
+
+        dispatch_gate_required = run_summary(
+            root,
+            dispatch_manifest,
+            extra_args=["--require-dispatch-gate-freeze"],
+        ).stdout
+        require(
+            dispatch_gate_required,
+            "observed_dispatch_gates=actor_update_gate6",
+            "dispatch_gate_required",
+        )
+        cases += 1
+
+        duplicate_gate_manifest = base / "duplicate_gate" / "manifest.txt"
+        write_text(
+            duplicate_gate_manifest,
+            "\n".join(
+                [
+                    "capture=actor_contact_route_sweep",
+                    "target=actor_update_gate6",
+                    "timings=before_route",
+                    "routes=2",
+                    "route_labels=x3p00,x3p50",
+                    "environment_preflight=ok",
+                    "capture_status_x3p00=actor_contact_procmem=ok mode=capture target=actor_update_gate6 ghidra=1000:654E runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:654E freeze_observed=1 raw_dump=/tmp/dup/raw-a.txt candidate_fixture=/tmp/dup/candidate-a.txt",
+                    "capture_status_x3p50=actor_contact_procmem=ok mode=capture target=actor_update_gate6 ghidra=1000:654E runtime_cs=01ED runtime_ds=0F3C freeze_runtime=01ED:654E freeze_observed=1 raw_dump=/tmp/dup/raw-b.txt candidate_fixture=/tmp/dup/candidate-b.txt",
+                    "",
+                ]
+            ),
+        )
+        duplicate_gate = run_summary(root, duplicate_gate_manifest).stdout
+        for snippet in [
+            "freezes=2",
+            "dispatch_gate_freezes=2",
+            "observed_targets=actor_update_gate6",
+            "observed_dispatch_gates=actor_update_gate6",
+        ]:
+            require(duplicate_gate, snippet, "duplicate_gate_manifest")
         cases += 1
 
         preflight_required = run_summary(
@@ -223,6 +264,7 @@ def main() -> int:
         ready = run_summary(root, ready_manifest).stdout
         for snippet in [
             "ready_candidates=1",
+            "dispatch_gate_freezes=1",
             "incomplete_candidates=0",
             "missing_candidates=0",
             "none_candidates=0",
@@ -413,6 +455,7 @@ def main() -> int:
             "captures=1",
             "freezes=1",
             "observed_targets=contact_scanner_callsite",
+            "observed_dispatch_gates=contact_scanner_callsite",
             "missing_targets=none",
             "candidate_fixtures=/tmp/contact/candidate_fixture.txt",
             "candidate_status=missing candidate_missing=file candidate_placeholders=0",
@@ -441,12 +484,28 @@ def main() -> int:
         scanner = run_summary(root, scanner_manifest).stdout
         for snippet in [
             "observed_targets=contact_scanner_start",
+            "observed_dispatch_gates=none",
             "candidate_fixtures=/tmp/scanner/candidate_fixture.txt",
             "candidate_status=missing candidate_missing=file candidate_placeholders=0",
             "oracle=contact_scanner oracle_flag=--debug-contact-scanner-runtime-oracle",
             "oracle_command=./build/lezac_cpp --debug-contact-scanner-runtime-oracle /tmp/scanner/candidate_fixture.txt",
         ]:
             require(scanner, snippet, "scanner_route_manifest")
+        cases += 1
+
+        scanner_gate_required = run_summary(
+            root,
+            scanner_manifest,
+            expect_success=False,
+            extra_args=["--require-dispatch-gate-freeze"],
+        ).stdout
+        for snippet in [
+            "reason=no_dispatch_gate_freezes",
+            "freezes=1",
+            "dispatch_gate_freezes=0",
+            "observed_targets=contact_scanner_start",
+        ]:
+            require(scanner_gate_required, snippet, "scanner_gate_required")
         cases += 1
 
         ready_scanner_candidate = base / "ready_scanner" / "contact_scanner_candidate.txt"
@@ -562,11 +621,13 @@ def main() -> int:
             "route_sweeps=0",
             "captures=0",
             "freezes=0",
+            "dispatch_gate_freezes=0",
             "ready_candidates=0",
             "incomplete_candidates=0",
             "missing_candidates=0",
             "none_candidates=0",
             "observed_targets=none",
+            "observed_dispatch_gates=none",
             "missing_targets=actor_update_gate5,actor_update_gate6",
             "candidate_fixtures=none",
         ]:
@@ -611,7 +672,9 @@ def main() -> int:
             "route_sweeps=0",
             "captures=0",
             "freezes=0",
+            "dispatch_gate_freezes=0",
             "observed_targets=none",
+            "observed_dispatch_gates=none",
             f"missing_targets={all_targets}",
         ]:
             require(all_targets_summary, snippet, "all_targets_dry_manifest")

@@ -591,10 +591,14 @@ so the matching score-`0x78` rows did not patch. A corrected pass patched at
 tried `x:1.85,c:0.50`, `x:2.15,c:0.50`, `x:2.00,c:0.35`, `x:2.00,c:0.65`,
 and `x:2.00,z:0.35`: three routes stayed `no_patch`, while the two `c` timing
 variants patched at `3.614s` and `2.970s` with the same `209e/663e/c22e` bases
-and `0x01/0x8002/0x07be` globals, but both remained `no_freeze`. The next pass
-should answer why these patched states miss the forward debris helper rather
-than repeating the early target-byte/word-layer or nearby lane-global timing
-gates.
+and `0x01/0x8002/0x07be` globals, but both remained `no_freeze`. Direct
+q78 lane-global probes then armed `1000:4C96` at `2.769s`/`3.607s` and
+`1000:4C75` at `2.680s`/`2.708s` for those same two timings; the native oracle
+still saw no freeze, no forward-helper call, no high-word gate, and no bp4
+local after patch installation. The next pass should arm earlier or inspect an
+upstream branch to explain why these states have already missed the helper,
+rather than repeating the early target-byte/word-layer or nearby lane-global
+timing gates.
 `tools/summarize_lane_result_route_sweep.py`
 now classifies completed route-sweep candidates as `ready`, `no_freeze`,
 `incomplete`, or `missing`; `tools/run_lane_result_ready_manifest.py` and

@@ -754,6 +754,21 @@ Do not spend the next pass on nearby lane-global timing tweaks; answer the
 control-flow question around where the natural route diverges before
 `1000:3D2D`.
 
+Direct control-flow probes at the two patching timings narrow that question.
+The q78 lane-global `1000:4C96` loop-patch run wrote
+`C:\Users\andrz\AppData\Local\Temp\lezac-lane-global-4c96-probe-1781611559`:
+`x:2.00,c:0.35` patched at `2.769s` and `x:2.00,c:0.65` patched at `3.607s`
+with selected bases `209e/663e/c22e` and lane globals `0x01/0x8002/0x07be`,
+but the native oracle saw no freeze, no forward-helper call, and no lane write.
+The paired `1000:4C75` bp4-scratch run wrote
+`C:\Users\andrz\AppData\Local\Temp\lezac-lane-global-4c75-probe-1781611676`:
+the same timings patched at `2.680s` and `2.708s`, recorded scratch site
+`01ED:4C7E` / old bytes `2001`, and still saw no freeze, high-word gate, or
+bp4 local. Treat this narrowly: once the late lane-global predicate installed
+the probes, neither `4C75` nor `4C96` was reached again in the sampled/tail
+window. The next useful probe should arm earlier or inspect an upstream branch,
+not retry adjacent lane-global durations.
+
 The sweep wrapper now translates `/mnt/<drive>/...` candidate paths when a WSL
 run invokes a Windows `.exe` oracle, so that host split can parse candidates in
 the same pass instead of leaving `oracle_error` records for path-only reasons.

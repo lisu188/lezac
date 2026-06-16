@@ -697,29 +697,17 @@ but still did not freeze or capture the natural lane write. A 2026-06-16
 word-layer-gated retry for `209e/6620/c22e` plus target byte `0x00` also
 remained negative evidence: the selected sample had word-layer value `0x0000`,
 so the stricter `0x0005` gate did not apply the patch and the summary reported
-one `no_patch` candidate.
+one `no_patch` candidate. Follow-up 2026-06-16 retries proved that the early
+target-byte/word-layer state can be instrumented when the debris threshold is
+lowered to the observed seven nonzero bytes: the runtime patch applied at
+elapsed `0.000` with selected debris base `0x2093`, but the original still did
+not freeze or hit natural forward-debris writeback at `1000:3D2D`.
 
-The next useful capture should keep that focused `209e/6620/c22e` route but
-require the observed word-layer value `0x0000` instead of repeating the failed
-`0x0005` gate:
-
-```sh
-python3 tools/sweep_original_lane_write_routes.py \
-  /tmp/lezac-lane-write-forward-word-gated-zero . \
-  --route x:2.00,c:0.50 --offset forward-debris \
-  --runtime-freeze-preset none \
-  --runtime-freeze-min-queue-score 0x90 \
-  --runtime-freeze-min-debris-nonzero 0x20 \
-  --runtime-freeze-min-collapse-nonzero 0x10 \
-  --runtime-freeze-min-effect-nonzero 0x10 \
-  --runtime-freeze-require-debris-base 0x209e \
-  --runtime-freeze-require-collapse-base 0x6620 \
-  --runtime-freeze-require-effect-base 0xc22e \
-  --runtime-freeze-require-high-debris-target-byte 0x00 \
-  --runtime-freeze-require-high-debris-word-layer-value 0x0000 \
-  --approve-procmem --approve-runtime-instrumentation \
-  --cpp-exe ./build-win-codex-vs3/Debug/lezac_cpp.exe --continue-on-oracle-error
-```
+Do not repeat that early-state gate. The next useful capture needs a more
+precise later-state gate, based on lane globals observed in the sample table:
+`lane_update_flag=1`, `lane_word_global_value=0x8002`, and target offset
+`0x07be`. Add or use runtime-freeze filters for those fields before the next
+`1000:3D2D` attempt.
 
 The sweep wrapper now translates `/mnt/<drive>/...` candidate paths when a WSL
 run invokes a Windows `.exe` oracle, so that host split can parse candidates in

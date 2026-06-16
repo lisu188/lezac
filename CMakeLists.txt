@@ -1745,7 +1745,7 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION
-            "^record_name_entry_repeat=ok repeated_chars=3 repeated_backspaces=2 ignored_repeat_enter=1 ignored_repeat_escape=1 final_name=ab cursor_slot=2 committed=1")
+            "^record_name_entry_repeat=ok repeated_space=1 repeated_letters=3 repeated_backspaces=2 ignored_repeat_enter=1 ignored_repeat_escape=1 final_name=a b cursor_slot=3 committed=1")
 
     add_test(NAME records_save_failure_temp
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-save-failure

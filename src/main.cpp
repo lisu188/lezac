@@ -4788,30 +4788,32 @@ public:
         bool running = true;
         pushKeyDown(SDLK_a);
         processEvents(running);
+        pushKeyDown(SDLK_SPACE, true);
+        processEvents(running);
         for (int i = 0; i < 3; ++i) {
             pushKeyDown(SDLK_b, true);
             processEvents(running);
         }
-        if (pendingRecordName_ != "abbb" || nameEntryCursorSlot() != 4) {
-            throw std::runtime_error("repeated name-entry letters were not accepted");
+        if (pendingRecordName_ != "a bbb" || nameEntryCursorSlot() != 5) {
+            throw std::runtime_error("repeated name-entry text was not accepted");
         }
 
         for (int i = 0; i < 2; ++i) {
             pushKeyDown(SDLK_BACKSPACE, true);
             processEvents(running);
         }
-        if (pendingRecordName_ != "ab" || nameEntryCursorSlot() != 2) {
+        if (pendingRecordName_ != "a b" || nameEntryCursorSlot() != 3) {
             throw std::runtime_error("repeated name-entry Backspace was not accepted");
         }
 
         pushKeyDown(SDLK_RETURN, true);
         processEvents(running);
         bool ignoredRepeatEnter = menuPage_ == MenuPage::NameEntry &&
-                                  pendingRecordName_ == "ab";
+                                  pendingRecordName_ == "a b";
         pushKeyDown(SDLK_ESCAPE, true);
         processEvents(running);
         bool ignoredRepeatEscape = menuPage_ == MenuPage::NameEntry &&
-                                   pendingRecordName_ == "ab";
+                                   pendingRecordName_ == "a b";
         if (!ignoredRepeatEnter || !ignoredRepeatEscape) {
             throw std::runtime_error("repeated name-entry commit/cancel key was accepted");
         }
@@ -4820,17 +4822,18 @@ public:
         processEvents(running);
         auto reloaded = loadRecords(path);
         if (menuPage_ != MenuPage::Records || reloaded.empty() ||
-            reloaded[0].score != 999999u || reloaded[0].name != "ab") {
+            reloaded[0].score != 999999u || reloaded[0].name != "a b") {
             throw std::runtime_error("name-entry repeat record did not commit");
         }
 
         std::cout << "record_name_entry_repeat=ok"
-                  << " repeated_chars=3"
+                  << " repeated_space=1"
+                  << " repeated_letters=3"
                   << " repeated_backspaces=2"
                   << " ignored_repeat_enter=" << (ignoredRepeatEnter ? 1 : 0)
                   << " ignored_repeat_escape=" << (ignoredRepeatEscape ? 1 : 0)
                   << " final_name=" << reloaded[0].name
-                  << " cursor_slot=2"
+                  << " cursor_slot=3"
                   << " committed=1\n";
     }
 

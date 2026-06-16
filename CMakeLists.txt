@@ -444,6 +444,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_callsite_scan.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_procmem_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_procmem_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_dispatch_gates.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_debug_capture_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_runtime_oracle_fixtures.py
@@ -1311,6 +1312,18 @@ if(BUILD_TESTING)
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 PASS_REGULAR_EXPRESSION
                     "^actor_contact_procmem=ok mode=dry_run target=contact_scanner_end ghidra=1000:604F .*procmem_out=.*environment_preflight=dry_run")
+
+            add_test(NAME sound_callsite_procmem_helper_contact_scanner_dry_run
+                COMMAND ${CMAKE_COMMAND} -E env LEZAC_SOUND_CALLSITE_PROCMEM_DRY_RUN=1
+                        ${BASH_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_sound_callsite_procmem.sh
+                        /tmp/lezac-sound-callsite-procmem-contact-dry-run
+                        ${CMAKE_CURRENT_SOURCE_DIR}
+                        contact_scanner_runtime_sound)
+            set_tests_properties(sound_callsite_procmem_helper_contact_scanner_dry_run PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION
+                    "^sound_callsite_procmem=ok mode=dry_run target=contact_scanner_runtime_sound ghidra=1000:5E81 capture_class=actor_contact_runtime static_region=contact_scanner .*procmem_out=.*environment_preflight=dry_run")
         endif()
 
         add_test(NAME behavior4_debug_capture_helper_expectations
@@ -1357,6 +1370,15 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^sound_callsite_debug_capture_helper=ok scenarios=16 anchors=17 outputs=7 cmake_tests=16 docs=3")
+
+        add_test(NAME sound_callsite_procmem_helper_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_procmem_helper.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(sound_callsite_procmem_helper_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^sound_callsite_procmem_helper=ok targets=1 cmake_tests=1 docs=3")
 
         add_test(NAME sound_compatibility_hooks
             COMMAND ${Python3_EXECUTABLE}

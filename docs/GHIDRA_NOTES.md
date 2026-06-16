@@ -328,6 +328,14 @@ route sweep. `tools/check_actor_update_dispatch_gates.py` additionally scans
 the actor-update window for every `cmp [bp-31h], imm` gate and currently locks
 `1000:654E = 06`, `1000:65A2 = 05`, and the later `1000:7595 = 05` exit gate
 to `1000:777F`; that late gate is exposed as `actor_update_gate5_exit`.
+For the first actor/contact sound target, the guarded
+`tools/capture_original_sound_callsite_procmem.sh` wrapper applies the same
+process-memory freeze strategy to `contact_scanner_runtime_sound` at
+`1000:5E81`. Live runs require `LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1` and
+`LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION=1`, report
+`sound_callsite_procmem`, and write a fill-in `sound_callsite` candidate
+fixture with `visual_claim=0`; this is reachability/runtime scaffolding only
+until the latch bytes are captured in a valid original oracle fixture.
 `--debug-actor-contact-static-model` pins the same scanner entry/return,
 actor-update entry/return, `[bp-31h]` gates, scanner callsite, and integration
 jump set from the C++ binary against the shipped executable bytes.
@@ -1092,6 +1100,10 @@ pins the four corresponding sound-callsite capture scenarios and keeps
 the first target, reporting `sound_runtime_capture_queue=ok` with
 `original_cursor_priority_claim=0` until a valid
 `sound_callsite_oracle_original*.txt` fixture exists.
+`tools/capture_original_sound_callsite_procmem.sh` provides the process-memory
+fallback for that first target, emitting `sound_callsite_procmem` output and a
+non-promoted candidate fixture behind
+`LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1` plus runtime-instrumentation approval.
 The diagnostic also prints
 `remaining_compat_hooks=objective_pickup,level_complete` and records rejected
 objective-sound candidates as

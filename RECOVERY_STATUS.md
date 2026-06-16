@@ -1,11 +1,19 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/behavior4-procmem-sweep`
+Branch: `codex/behavior4-procmem-sweep-summary`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `tools/summarize_behavior4_procmem_route_sweep.py` plus
+  `tools/check_behavior4_procmem_route_sweep_summary.py` and CMake coverage for
+  behavior-4 process-memory sweep triage. The summary reads
+  `behavior4_procmem_route_sweep` manifests, classifies each capture candidate
+  as ready/incomplete/missing, reports observed freezes and oracle commands,
+  and exposes `--require-ready`, `--require-observed-freeze`, and
+  `--require-environment-preflight` gates before any original behavior-4
+  fixture can be promoted.
 - Added `tools/sweep_original_behavior4_procmem_routes.py` plus
   `tools/check_behavior4_procmem_route_sweep.py` and CMake dry-run coverage so
   the behavior-4 process-memory fallback can be exercised as a route/timing

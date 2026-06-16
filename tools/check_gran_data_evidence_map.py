@@ -71,7 +71,8 @@ def check_cmake(root: Path) -> int:
     require(cmake, "--debug-gran-raw-roundtrip", "cmake:roundtrip-command")
     require(cmake, "--debug-gran", "cmake:summary-command")
     require(cmake, "gran_raw_roundtrip=ok raw_size=399", "cmake:roundtrip-output")
-    require(cmake, "gran_record_size=57 records=7", "cmake:summary-output")
+    require(cmake, "gran_record_profile=summary record_size=57 records=7",
+            "cmake:summary-output")
     return 2
 
 

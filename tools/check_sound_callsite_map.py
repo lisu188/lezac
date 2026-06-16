@@ -79,7 +79,10 @@ SOUND_CUES = [
         cursor="0x0008",
         priority=5,
         docs_priority_needles=("DS:799f = 5",),
-        source_needles=("collectBonusDrop", "requestSoundCursor(0x0008, 5)"),
+        source_needles=(
+            "collectBonusDrop",
+            "requestSoundCursor(kBonusPickupSoundCursor, kBonusPickupSoundPriority)",
+        ),
         ctest_names=("bonus_rewards",),
         readme_needles=("bonus pickup audio queues cursor", "`0x0008` at priority `5`"),
     ),

@@ -727,7 +727,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_evidence_map PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^explosion_evidence_map=ok fixtures=47 playback_ctests=47 lane_result_helper_ctests=24 critical_offsets=16 .*oracle_flag=--debug-explosion-playback-oracle docs=3")
+                "^explosion_evidence_map=ok fixtures=49 playback_ctests=49 lane_result_helper_ctests=26 critical_offsets=16 .*oracle_flag=--debug-explosion-playback-oracle docs=3")
 
         add_test(NAME explosion_lane_result_route_sweep_dry_run
             COMMAND ${Python3_EXECUTABLE}
@@ -1452,7 +1452,7 @@ if(BUILD_TESTING)
         set_tests_properties(gran_usage_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^gran_usage_guardrail=ok source_refs=16 load_refs=2 debug_refs=13 member_refs=1 live_refs=0 ctest=3 docs=3")
+                "^gran_usage_guardrail=ok source_refs=20 load_refs=2 debug_refs=17 member_refs=1 live_refs=0 ctest=3 docs=3")
 
         add_test(NAME gran_usage_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -1898,7 +1898,7 @@ if(BUILD_TESTING)
     set_tests_properties(gran_summary PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^gran_record_size=57 records=7 words_per_record=28 trailing_byte=yes")
+            "^gran_record_profile=summary record_size=57 records=7 stride=3 groups_per_record=19")
 
     add_test(NAME sound_priority_latch
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-priority-latch)

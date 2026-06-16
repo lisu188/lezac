@@ -12,6 +12,7 @@ import sys
 from ready_result_fixture_guardrails import validate_runtime_fixture_evidence
 
 
+TOOL_PREFIX = "lane_result"
 EXPECTED_RESULT = "lane_result_ready_manifest"
 ORACLE_FLAGS = {
     "explosion_playback": "--debug-explosion-playback-oracle",

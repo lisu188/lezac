@@ -16,9 +16,10 @@ Baseline: `origin/main`
   dummy-SDL `--debug-input-fire-key-model`, smoke, and two-player autoplayer
   commands, focused CTest coverage for controls/menu/two-player routes, the
   broader UI/autoplayer dummy-SDL CTest group, and `bash -n` for the optional
-  xdotool script. A WSL/Xvfb `dosbox-debug` smoke launch reached the debugger
-  UI from a temp copy and was stopped by timeout without issuing debugger
-  commands.
+  xdotool script. After rebasing onto refreshed `origin/main`, the full native
+  Windows CTest suite passed 286/286. A WSL/Xvfb `dosbox-debug` smoke launch
+  reached the debugger UI from a temp copy and was stopped by timeout without
+  issuing debugger commands.
 - Extended `--debug-autoplayer death_reentry` to cover the shipped-manual
   post-death choice: after the recovered 60-tick state-2 countdown, pressing
   fire reenters a still-winnable level, waiting through the reentry timeout
@@ -568,8 +569,8 @@ Baseline: `origin/main`
   comparison proves which presentation is faithful.
 - Added `--capture-state2-visual-row-game-preview <out_dir>` with a debug-only
   cursor-index legacy render switch. It writes full gameplay-context frames for
-  both the current row-byte-3 renderer (`67..72`) and the old cursor renderer
-  (`74..79`).
+  both the current row-byte-3 state-2 death renderer (`67..72`) and the old
+  cursor renderer (`74..79`).
 - Added `tools/compare_state2_visual_row_game_previews.py` and a self-checking
   CTest workflow. The helper turns the current-versus-cursor state-2 game
   previews plus an original-frame directory into a standard frame-compare bundle
@@ -2034,8 +2035,8 @@ Baseline: `origin/main`
   `--debug-monster-sprite-table-model`, but original frame/debugger evidence is
   still required before those presentation details can be promoted.
 - `GRAN.MST` field semantics remain unknown; consolidation only locks file
-  shape, independently checked raw/json byte preservation, and a conservative
-  byte-profile diagnostic for future loader/runtime comparisons.
+  shape and raw/json byte preservation, with an independent checker and a
+  conservative byte-profile diagnostic for future loader/runtime comparisons.
 
 ## Next Planned Target
 

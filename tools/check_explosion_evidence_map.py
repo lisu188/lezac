@@ -20,9 +20,9 @@ HIGH_EFFECT_OFFSETS = (
     "1000:4CAC",
 )
 
-EXPECTED_FIXTURE_COUNT = 47
-EXPECTED_PLAYBACK_CTESTS = 47
-EXPECTED_LANE_RESULT_HELPER_CTESTS = 24
+EXPECTED_FIXTURE_COUNT = 49
+EXPECTED_PLAYBACK_CTESTS = 49
+EXPECTED_LANE_RESULT_HELPER_CTESTS = 26
 
 HELPER_TESTS = (
     "explosion_lane_result_preflight",
@@ -80,7 +80,7 @@ def check_docs(readme: str, ghidra: str, status: str) -> None:
         "forward` alias maps to Ghidra `1000:3D3F`",
         "`1000:3ED3`",
         "visual_claim=0",
-        "Natural-route forward `3D3F` evidence remains pending",
+        "now captures natural route `x:2.00` reaching the forward `3D3F` result write",
     )
     for needle in readme_needles:
         require(readme, needle, "README_RECONSTRUCTION.md")
@@ -188,14 +188,16 @@ def check_capture_helpers(root: Path) -> None:
         require(summary, needle, "summarize_lane_result_route_sweep.py")
     for needle in (
         "--debug-explosion-playback-oracle",
-        "lane_result_ready_manifest=ok",
+        "TOOL_PREFIX = \"lane_result\"",
+        "f\"{TOOL_PREFIX}_ready_manifest=ok \"",
         "--write-result-manifest",
         "--require-source-environment-preflight",
     ):
         require(runner, needle, "run_lane_result_ready_manifest.py")
     for needle in (
         "EXPECTED_RESULT = \"lane_result_ready_manifest\"",
-        "lane_result_ready_result_summary=ok",
+        "TOOL_PREFIX = \"lane_result\"",
+        "f\"{TOOL_PREFIX}_ready_result_summary=ok \"",
         "--require-success",
         "--require-executed",
     ):

@@ -1076,6 +1076,29 @@ used that preset with `--route-state-interval 0` after a sampled attempt hit a
 both remaining routes missed both `3D1B` and `3D2D`, and the inspected route
 and tail frames stayed in live level-1 playback.
 
+The broadened lane-div route family is also encoded as a preset so it can be
+reviewed without reconstructing the live command:
+
+```sh
+python3 tools/sweep_original_lane_div_routes.py \
+  /tmp/lezac-lane-div-broadened-route . \
+  --route-preset forward-helper-broadened --offset forward-divide \
+  --approve-procmem --approve-runtime-instrumentation --skip-oracle
+python3 tools/summarize_lane_div_route_sweep.py \
+  /tmp/lezac-lane-div-broadened-route/manifest.txt \
+  --require-forward-divide
+```
+
+The 2026-06-17 live WSL/DOSBox run at
+`/tmp/lezac-lane-div-broadened-route` tested `x:8.00` and
+`x:5.00,m:0.50,x:4.00` against `1000:3CE3`. Both captures loaded the runtime
+patch and had inspected live level-1 route/sampling frames, but the summary was
+negative: `observed_freezes=0`, `ready_candidates=0`,
+`no_freeze_candidates=2`, `route_state_sample_files=2`,
+`route_state_samples=75`, `route_state_debris_marker_candidates=0`, and
+`max_route_state_lane_word_global=0x0000`. Treat those routes as pruned unless
+a future setup changes the capture timing or seeded state.
+
 `tools/summarize_lane_write_route_sweep.py` now classifies ready lane-write
 scratch tags as `collapse` or `debris` relative to the `0x4e20` debris-marker
 base. The prior helper-tag search at

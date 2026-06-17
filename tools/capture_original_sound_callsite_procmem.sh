@@ -81,6 +81,33 @@ manifest_value() {
     awk -F= -v key="$key" '$1 == key { print substr($0, length(key) + 2); exit }' "$path"
 }
 
+freeze_was_observed() {
+    case "$1" in
+        1|true|yes|observed|runtime_child_memory_freeze_observed|process_memory_runtime_freeze_observed)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+classify_promotion_status() {
+    local patch_applied=$1
+    local freeze_observed=$2
+
+    if [[ "$patch_applied" != "1" ]]; then
+        promotion_status=blocked
+        promotion_blocker=no_runtime_patch
+    elif freeze_was_observed "$freeze_observed"; then
+        promotion_status=candidate
+        promotion_blocker=sound_request_rows_required
+    else
+        promotion_status=blocked
+        promotion_blocker=no_observed_freeze
+    fi
+}
+
 run_environment_preflight() {
     if [[ "${LEZAC_SOUND_CALLSITE_PROCMEM_SKIP_ENVIRONMENT_PREFLIGHT:-0}" == "1" ]]; then
         {
@@ -203,6 +230,8 @@ write_candidate_skeleton() {
         echo "temp_copy=1"
         echo "visual_claim=0"
         echo "instrumented_runtime_child_memory=1"
+        echo "promotion_status=${promotion_status:-planned}"
+        echo "promotion_blocker=${promotion_blocker:-not_captured}"
         echo "target=$target"
         echo "scenario=$scenario"
         echo "capture_class=$capture_class"
@@ -247,6 +276,8 @@ freeze_patch_bytes=
 freeze_loaded_bytes=
 freeze_runtime_patch_applied=
 instrumented_freeze_tail_frame=
+promotion_status=planned
+promotion_blocker=not_captured
 write_candidate_skeleton
 
 {
@@ -303,9 +334,19 @@ if [[ ! -e "$asset_dir/LEZAC.EXE" ]]; then
 fi
 
 if [[ "${LEZAC_SOUND_CALLSITE_PROCMEM_DRY_RUN:-0}" == "1" ]]; then
+    promotion_status=dry_run
+    promotion_blocker=not_captured
+    {
+        echo "promotion_status=$promotion_status"
+        echo "promotion_blocker=$promotion_blocker"
+    } >>"$manifest"
     echo "environment_preflight=dry_run" >>"$manifest"
-    echo "environment_preflight=dry_run" >>"$raw_dump"
-    echo "sound_callsite_procmem=ok mode=dry_run target=$target ghidra=$ghidra capture_class=$capture_class static_region=$static_region manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture procmem_out=$procmem_out environment_preflight=dry_run"
+    {
+        echo "promotion_status=$promotion_status"
+        echo "promotion_blocker=$promotion_blocker"
+        echo "environment_preflight=dry_run"
+    } >>"$raw_dump"
+    echo "sound_callsite_procmem=ok mode=dry_run target=$target ghidra=$ghidra capture_class=$capture_class static_region=$static_region promotion_status=$promotion_status promotion_blocker=$promotion_blocker manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture procmem_out=$procmem_out environment_preflight=dry_run"
     exit 0
 fi
 
@@ -338,6 +379,7 @@ freeze_loaded_bytes=$(manifest_value freeze_loaded_bytes "$procmem_manifest")
 freeze_runtime_patch_applied=$(manifest_value freeze_runtime_patch_applied "$procmem_manifest")
 instrumented_freeze_observed=$(manifest_value instrumented_freeze_observed "$procmem_manifest")
 instrumented_freeze_tail_frame=$(manifest_value instrumented_freeze_tail_frame "$procmem_manifest")
+classify_promotion_status "$freeze_runtime_patch_applied" "$instrumented_freeze_observed"
 
 {
     echo "runtime_cs=$runtime_cs"
@@ -349,6 +391,8 @@ instrumented_freeze_tail_frame=$(manifest_value instrumented_freeze_tail_frame "
     echo "freeze_runtime_patch_applied=$freeze_runtime_patch_applied"
     echo "instrumented_freeze_observed=$instrumented_freeze_observed"
     echo "instrumented_freeze_tail_frame=$instrumented_freeze_tail_frame"
+    echo "promotion_status=$promotion_status"
+    echo "promotion_blocker=$promotion_blocker"
 } >>"$manifest"
 
 {
@@ -362,6 +406,8 @@ instrumented_freeze_tail_frame=$(manifest_value instrumented_freeze_tail_frame "
     echo "freeze_runtime_patch_applied=$freeze_runtime_patch_applied"
     echo "instrumented_freeze_observed=$instrumented_freeze_observed"
     echo "instrumented_freeze_tail_frame=$instrumented_freeze_tail_frame"
+    echo "promotion_status=$promotion_status"
+    echo "promotion_blocker=$promotion_blocker"
 } >>"$raw_dump"
 
 write_candidate_skeleton "$runtime_cs" "$runtime_ds" "$freeze_runtime" "$instrumented_freeze_observed"
@@ -372,4 +418,4 @@ if [[ -e "$procmem_out/route_state_dumps.txt" ]]; then
     } >>"$candidate_fixture"
 fi
 
-echo "sound_callsite_procmem=ok mode=capture target=$target ghidra=$ghidra runtime_cs=$runtime_cs runtime_ds=$runtime_ds freeze_runtime=$freeze_runtime freeze_observed=$instrumented_freeze_observed manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture procmem_manifest=$procmem_manifest"
+echo "sound_callsite_procmem=ok mode=capture target=$target ghidra=$ghidra runtime_cs=$runtime_cs runtime_ds=$runtime_ds freeze_runtime=$freeze_runtime freeze_runtime_patch_applied=$freeze_runtime_patch_applied freeze_observed=$instrumented_freeze_observed promotion_status=$promotion_status promotion_blocker=$promotion_blocker manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture procmem_manifest=$procmem_manifest"

@@ -1,11 +1,26 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/lane-div-debris-tag-gate`
+Branch: `codex/sound-procmem-runtime-evidence`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Tightened sound-callsite procmem promotion triage after live WSL/DOSBox-debug
+  probes loaded runtime patches but did not reach the patched callsites.
+  `tools/capture_original_sound_callsite_procmem.sh` now emits
+  `freeze_runtime_patch_applied=`, `promotion_status=`, and
+  `promotion_blocker=` in manifests, raw dumps, and status lines.
+  `tools/summarize_sound_callsite_route_sweep.py` reports
+  `runtime_patches_applied=`, `patched_no_freeze_candidates=`, and
+  `blocked_candidates=`, exposes `--require-runtime-patch`, and labels
+  patched/no-freeze captures as `promotion_blocker=no_observed_freeze`.
+  Live attempts on 2026-06-17 covered the default contact-scanner matrix
+  (`contact_scanner_runtime_sound`, 8 route/timing captures) and a focused
+  `actor_update_runtime_cursor_0035_sound` before-route `x:2.00` probe; all
+  observed `runtime_cs=01ED`, `runtime_ds=0C8F`, loaded the target patch, and
+  reported `observed_freezes=0`. These are route-pruning evidence only, not
+  promoted sound-callsite fixtures.
 - Added a stricter lane-div-to-lane-write handoff for the remaining natural
   forward `3D2D` search. `tools/summarize_lane_div_route_sweep.py` now reads
   each candidate's `route_state_samples.tsv`, reports

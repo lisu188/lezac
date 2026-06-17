@@ -150,10 +150,10 @@ def write_mixed_sweep(base: Path) -> Path:
                 "route_labels=x2p00,x3p00_z0p50_x2p00",
                 "environment_preflight=ok",
                 "capture_command_before_route_x2p00=env LEZAC_SOUND_CALLSITE_ROUTE_STEPS=x:2.00 bash helper",
-                "capture_status_before_route_x2p00=sound_callsite_procmem=ok mode=capture target=actor_update_runtime_cursor_0035_sound ghidra=1000:6924 runtime_cs=01ED runtime_ds=0C8F freeze_runtime=01ED:6924 freeze_observed=runtime_child_memory_freeze_observed candidate_fixture="
+                "capture_status_before_route_x2p00=sound_callsite_procmem=ok mode=capture target=actor_update_runtime_cursor_0035_sound ghidra=1000:6924 runtime_cs=01ED runtime_ds=0C8F freeze_runtime=01ED:6924 freeze_runtime_patch_applied=1 freeze_observed=runtime_child_memory_freeze_observed promotion_status=ready promotion_blocker=none candidate_fixture="
                 + str(ready),
                 "capture_command_before_route_x3p00_z0p50_x2p00=env LEZAC_SOUND_CALLSITE_ROUTE_STEPS=x:3.00,z:0.50,x:2.00 bash helper",
-                "capture_status_before_route_x3p00_z0p50_x2p00=sound_callsite_procmem=ok mode=capture target=actor_update_runtime_cursor_0035_sound ghidra=1000:6924 runtime_cs=01ED runtime_ds=0C8F freeze_runtime=01ED:6924 freeze_observed=unknown candidate_fixture="
+                "capture_status_before_route_x3p00_z0p50_x2p00=sound_callsite_procmem=ok mode=capture target=actor_update_runtime_cursor_0035_sound ghidra=1000:6924 runtime_cs=01ED runtime_ds=0C8F freeze_runtime=01ED:6924 freeze_runtime_patch_applied=1 freeze_observed=unknown promotion_status=blocked promotion_blocker=no_observed_freeze candidate_fixture="
                 + str(incomplete),
                 "capture_command_before_bomb_x1p00=env LEZAC_SOUND_CALLSITE_ROUTE_STEPS=x:1.00 bash helper",
                 "",
@@ -178,7 +178,7 @@ def write_ready_sweep(base: Path) -> Path:
                 "route_labels=x2p00",
                 "environment_preflight=ok",
                 "capture_command_before_route_x2p00=env bash helper",
-                "capture_status_before_route_x2p00=sound_callsite_procmem=ok mode=capture target=actor_update_runtime_cursor_0035_sound ghidra=1000:6924 runtime_cs=01ED runtime_ds=0C8F freeze_observed=runtime_child_memory_freeze_observed candidate_fixture="
+                "capture_status_before_route_x2p00=sound_callsite_procmem=ok mode=capture target=actor_update_runtime_cursor_0035_sound ghidra=1000:6924 runtime_cs=01ED runtime_ds=0C8F freeze_runtime_patch_applied=1 freeze_observed=runtime_child_memory_freeze_observed promotion_status=ready promotion_blocker=none candidate_fixture="
                 + str(ready),
                 "",
             ]
@@ -204,7 +204,7 @@ def write_all_target_label_sweep(base: Path) -> Path:
                 "route_labels=x2p00",
                 "environment_preflight=ok",
                 "capture_command_actor_update_runtime_cursor_0035_sound_before_route_x2p00=env bash helper",
-                "capture_status_actor_update_runtime_cursor_0035_sound_before_route_x2p00=sound_callsite_procmem=ok mode=capture target=actor_update_runtime_cursor_0035_sound ghidra=1000:6924 runtime_cs=01ED runtime_ds=0C8F freeze_observed=runtime_child_memory_freeze_observed candidate_fixture="
+                "capture_status_actor_update_runtime_cursor_0035_sound_before_route_x2p00=sound_callsite_procmem=ok mode=capture target=actor_update_runtime_cursor_0035_sound ghidra=1000:6924 runtime_cs=01ED runtime_ds=0C8F freeze_runtime_patch_applied=1 freeze_observed=runtime_child_memory_freeze_observed promotion_status=ready promotion_blocker=none candidate_fixture="
                 + str(ready),
                 "",
             ]
@@ -228,8 +228,70 @@ def write_no_freeze_sweep(base: Path) -> Path:
                 "route_labels=x2p00",
                 "environment_preflight=skipped",
                 "capture_command_before_route_x2p00=env bash helper",
-                "capture_status_before_route_x2p00=sound_callsite_procmem=ok mode=capture target=actor_update_runtime_cursor_0035_sound ghidra=1000:6924 runtime_cs=01ED runtime_ds=0C8F freeze_observed=unknown candidate_fixture="
+                "capture_status_before_route_x2p00=sound_callsite_procmem=ok mode=capture target=actor_update_runtime_cursor_0035_sound ghidra=1000:6924 runtime_cs=01ED runtime_ds=0C8F freeze_runtime_patch_applied=1 freeze_observed=unknown promotion_status=blocked promotion_blocker=no_observed_freeze candidate_fixture="
                 + str(ready),
+                "",
+            ]
+        ),
+    )
+    return manifest
+
+
+def write_no_patch_sweep(base: Path) -> Path:
+    ready = base / "ready" / "candidate.txt"
+    write_ready_candidate(ready)
+    manifest = base / "manifest.txt"
+    write_text(
+        manifest,
+        "\n".join(
+            [
+                "capture=sound_callsite_route_sweep",
+                "target=actor_update_runtime_cursor_0035_sound",
+                "timings=before_route",
+                "routes=1",
+                "route_labels=x2p00",
+                "environment_preflight=ok",
+                "capture_command_before_route_x2p00=env bash helper",
+                "capture_status_before_route_x2p00=sound_callsite_procmem=ok mode=capture target=actor_update_runtime_cursor_0035_sound ghidra=1000:6924 runtime_cs=01ED runtime_ds=0C8F freeze_runtime_patch_applied=0 freeze_observed=unknown promotion_status=blocked promotion_blocker=no_runtime_patch candidate_fixture="
+                + str(ready),
+                "",
+            ]
+        ),
+    )
+    return manifest
+
+
+def write_child_manifest_patch_sweep(base: Path) -> Path:
+    ready = base / "ready" / "candidate.txt"
+    child_manifest = base / "child" / "manifest.txt"
+    write_ready_candidate(ready)
+    write_text(
+        child_manifest,
+        "\n".join(
+            [
+                "capture=original_explosion_process_memory",
+                "freeze_runtime_patch_applied=1",
+                "instrumented_freeze_observed=0",
+                "",
+            ]
+        ),
+    )
+    manifest = base / "manifest.txt"
+    write_text(
+        manifest,
+        "\n".join(
+            [
+                "capture=sound_callsite_route_sweep",
+                "target=actor_update_runtime_cursor_0035_sound",
+                "timings=before_route",
+                "routes=1",
+                "route_labels=x2p00",
+                "environment_preflight=ok",
+                "capture_command_before_route_x2p00=env bash helper",
+                "capture_status_before_route_x2p00=sound_callsite_procmem=ok mode=capture target=actor_update_runtime_cursor_0035_sound ghidra=1000:6924 runtime_cs=01ED runtime_ds=0C8F freeze_observed=unknown candidate_fixture="
+                + str(ready)
+                + " procmem_manifest="
+                + str(child_manifest),
                 "",
             ]
         ),
@@ -262,16 +324,24 @@ def main() -> int:
             "capture_commands=3",
             "completed_captures=2",
             "observed_freezes=1",
+            "runtime_patches_applied=2",
+            "patched_no_freeze_candidates=1",
+            "blocked_candidates=1",
             "ready_candidates=1",
             "incomplete_candidates=1",
             "missing_candidates=1",
             "missing_labels=before_bomb_x1p00",
             "sound_callsite_route_sweep_detail label=before_route_x2p00",
             "candidate_status=ready",
+            "runtime_patch_applied=1",
+            "promotion_status=ready",
+            "promotion_blocker=none",
             "sound_callsite_route_sweep_detail label=before_route_x3p00_z0p50_x2p00",
             "candidate_status=incomplete",
             "candidate_missing=runtime_cs,runtime_ds,sound_request",
             "candidate_placeholders=1",
+            "promotion_status=blocked",
+            "promotion_blocker=no_observed_freeze",
             "oracle_flag=--debug-sound-callsite-oracle",
             "environment_preflight=ok",
         ]:
@@ -292,6 +362,7 @@ def main() -> int:
                 str(ready),
                 "--require-ready",
                 "--require-observed-freeze",
+                "--require-runtime-patch",
                 "--require-environment-preflight",
                 "--write-ready-manifest",
                 str(ready_manifest),
@@ -299,6 +370,7 @@ def main() -> int:
         )
         require(ready_out, "ready_candidates=1", "ready_summary")
         require(ready_out, "observed_freezes=1", "ready_summary")
+        require(ready_out, "runtime_patches_applied=1", "ready_summary")
         require(ready_out, "sound_callsite_ready_manifest=ok", "ready_manifest")
         require(ready_out, f"path={ready_manifest.resolve()}", "ready_manifest")
         ready_text = ready_manifest.read_text(encoding="ascii")
@@ -353,6 +425,8 @@ def main() -> int:
             "timing=before_route",
             "route_label=x2p00",
             "candidate_status=ready",
+            "promotion_status=ready",
+            "promotion_blocker=none",
         ]:
             require(all_target_out, snippet, "all_target_summary")
         cases += 1
@@ -393,6 +467,43 @@ def main() -> int:
             root, [str(no_freeze), "--require-observed-freeze"], False
         )
         require(no_freeze_out, "reason=no_observed_freezes", "no_freeze")
+        require(
+            no_freeze_out,
+            "patched_no_freeze_candidates=1",
+            "no_freeze",
+        )
+        require(
+            no_freeze_out,
+            "promotion_blocker=no_observed_freeze",
+            "no_freeze",
+        )
+        cases += 1
+
+        no_patch = write_no_patch_sweep(base / "no-patch")
+        no_patch_out = run_tool(
+            root, [str(no_patch), "--require-runtime-patch"], False
+        )
+        require(no_patch_out, "reason=no_runtime_patches_applied", "no_patch")
+        require(no_patch_out, "promotion_blocker=no_runtime_patch", "no_patch")
+        cases += 1
+
+        child_patch = write_child_manifest_patch_sweep(base / "child-patch")
+        child_patch_out = run_tool(root, [str(child_patch)])
+        require(
+            child_patch_out,
+            "runtime_patches_applied=1",
+            "child_patch",
+        )
+        require(
+            child_patch_out,
+            "patched_no_freeze_candidates=1",
+            "child_patch",
+        )
+        require(
+            child_patch_out,
+            "promotion_blocker=no_observed_freeze",
+            "child_patch",
+        )
         cases += 1
 
         preflight_out = run_tool(

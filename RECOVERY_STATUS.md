@@ -1,11 +1,20 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/behavior4-runtime-patch-gate`
+Branch: `codex/branch-anchor-summary`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `tools/summarize_branch_anchor_route_sweep.py` and checker/CMake
+  coverage so high-debris branch-anchor sweeps now summarize route
+  reachability before another natural `1000:3D2D` attempt. The summary reports
+  per-candidate `ready`/`no_patch`/`no_freeze`/`incomplete` state,
+  `observed_targets=`, `observed_routes=`, route-level `route_hits=`, and
+  `bp4_local_value=` when `1000:4C75` bp4-scratch evidence is present. The new
+  `--require-route-with-targets high_debris_word_gate,effect_forward_pass_call`
+  gate keeps future `3D2D` captures tied to routes that actually reached both
+  the word gate and the forward helper call.
 - Extended `tools/summarize_behavior4_procmem_route_sweep.py` and its checker
   so behavior-4 route-sweep summaries now report total
   `runtime_patches_applied=` and expose `--require-runtime-patch`. The checker

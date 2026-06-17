@@ -761,9 +761,14 @@ lane-write kind/target metadata while applying the same runtime segment,
 fixture provenance, run/dry-run status, and oracle-log gates.
 `tools/summarize_lane_write_route_sweep.py` also reports each ready
 lane-write scratch tag, classifies it as `collapse` or `debris` against the
-`0x4e20` marker base, and accepts `--require-debris-tag` for searches that
-should fail until a natural forward-helper debris marker is actually observed.
-On the prior helper-tag search, that gate fails with
+`0x4e20` marker base, accepts the broad `--require-debris-tag` gate, and now
+also accepts `--require-forward-debris-tag` for the still-open natural
+`1000:3D2D` writeback. The forward-specific gate prevents the already-solved
+reverse debris write at `3EC1` from satisfying the remaining forward-write
+promotion path. When it passes, `--write-forward-debris-route-manifest` emits
+`lane_write_forward_debris_route_candidates` so the exact route steps can feed
+`tools/sweep_original_lane_write_routes.py --route-manifest`.
+On the prior helper-tag search, the broad debris gate still fails with
 `debris_tag_candidates=0`, `collapse_tag_candidates=2`, and
 `max_lane_write_tag=0x0005`.
 `tools/check_explosion_evidence_map.py` keeps this explosion/playback handoff

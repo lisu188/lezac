@@ -44,6 +44,9 @@ ROUTE_PRESETS = {
     "forward-helper-tag-open": FORWARD_HELPER_TAG_OPEN_ROUTES,
 }
 BRANCH_ANCHOR_ROUTE_PROMOTION = "branch_anchor_route_candidates"
+LANE_WRITE_FORWARD_DEBRIS_ROUTE_PROMOTION = (
+    "lane_write_forward_debris_route_candidates"
+)
 DEFAULT_OFFSETS = ["1000:3D2D", "1000:3EC1"]
 OFFSET_ALIASES = {
     "FORWARD-COLLAPSE": "1000:3D1B",
@@ -135,13 +138,20 @@ def read_key_value_manifest(path: Path) -> dict[str, str]:
     return values
 
 
-def routes_from_branch_anchor_manifest(path: Path) -> list[list[str]]:
+def routes_from_route_manifest(path: Path) -> tuple[str, list[list[str]]]:
     values = read_key_value_manifest(path)
     promotion = values.get("promotion", "")
-    if promotion != BRANCH_ANCHOR_ROUTE_PROMOTION:
+    route_preset = {
+        BRANCH_ANCHOR_ROUTE_PROMOTION: "branch-anchor-route-manifest",
+        LANE_WRITE_FORWARD_DEBRIS_ROUTE_PROMOTION: (
+            "lane-write-forward-debris-route-manifest"
+        ),
+    }.get(promotion)
+    if route_preset is None:
         raise ValueError(
             f"unsupported route manifest promotion {promotion!r}; "
-            f"expected {BRANCH_ANCHOR_ROUTE_PROMOTION!r}"
+            f"expected {BRANCH_ANCHOR_ROUTE_PROMOTION!r} or "
+            f"{LANE_WRITE_FORWARD_DEBRIS_ROUTE_PROMOTION!r}"
         )
     raw_count = values.get("matching_routes", "")
     try:
@@ -156,7 +166,7 @@ def routes_from_branch_anchor_manifest(path: Path) -> list[list[str]]:
         if not steps:
             raise ValueError(f"missing route_{index}_steps")
         routes.append(parse_route(steps))
-    return routes
+    return route_preset, routes
 
 
 def route_label(steps: list[str]) -> str:
@@ -420,8 +430,9 @@ def main() -> int:
         "--route-manifest",
         type=Path,
         help=(
-            "branch_anchor_route_candidates manifest whose matching route steps "
-            "should be used when --route is omitted"
+            "branch_anchor_route_candidates or "
+            "lane_write_forward_debris_route_candidates manifest whose matching "
+            "route steps should be used when --route is omitted"
         ),
     )
     parser.add_argument(
@@ -484,8 +495,7 @@ def main() -> int:
     if args.route and args.route_manifest is not None:
         raise RuntimeError("use either --route or --route-manifest, not both")
     if args.route_manifest is not None:
-        route_preset = "branch-anchor-route-manifest"
-        routes = routes_from_branch_anchor_manifest(args.route_manifest)
+        route_preset, routes = routes_from_route_manifest(args.route_manifest)
     else:
         route_preset = "custom" if args.route else args.route_preset
         routes = args.route or [parse_route(route) for route in ROUTE_PRESETS[route_preset]]

@@ -856,7 +856,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_write_route_sweep_output_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_write_route_sweep_output=ok cases=18")
+                "^lane_write_route_sweep_output=ok cases=19")
 
         add_test(NAME explosion_lane_write_route_sweep_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -865,7 +865,7 @@ if(BUILD_TESTING)
         set_tests_properties(explosion_lane_write_route_sweep_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^lane_write_route_sweep_summary_check=ok cases=14")
+                "^lane_write_route_sweep_summary_check=ok cases=19")
 
         add_test(NAME explosion_branch_anchor_route_sweep_default_dry_run
             COMMAND ${Python3_EXECUTABLE}

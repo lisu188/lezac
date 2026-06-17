@@ -175,6 +175,10 @@ def write_route_sweep(
     ]
     for route, offset, child, candidate in entries:
         lines.append(
+            f"capture_command_{route}_{offset}=python helper "
+            "--route-step x:2.00 --route-step m:0.35"
+        )
+        lines.append(
             f"capture_status_{route}_{offset}=lane_write_capture=ok "
             f"route={route} offset={offset} offset_address={OFFSET_MODEL[offset][0]} "
             f"manifest={child} candidate={candidate}"
@@ -197,6 +201,7 @@ def main() -> int:
         ready_candidate = base / "ready" / "candidate.txt"
         collapse_ready_candidate = base / "collapse_ready" / "candidate.txt"
         no_freeze_candidate = base / "no_freeze" / "candidate.txt"
+        reverse_ready_candidate = base / "reverse_ready" / "candidate.txt"
         no_patch_candidate = base / "no_patch" / "candidate.txt"
         incomplete_candidate = base / "incomplete" / "candidate.txt"
         write_candidate(ready_candidate, "3d2d", freeze=True)
@@ -210,17 +215,20 @@ def main() -> int:
             lane_write_result_local="0x0000",
         )
         write_candidate(no_freeze_candidate, "3ec1", freeze=False)
+        write_candidate(reverse_ready_candidate, "3ec1", freeze=True)
         write_candidate(no_patch_candidate, "3d2d", freeze=False, patch_applied=False)
         write_candidate(incomplete_candidate, "3d2d", freeze=True, placeholder=True)
 
         ready_manifest = base / "ready" / "manifest.txt"
         collapse_ready_manifest = base / "collapse_ready" / "manifest.txt"
         no_freeze_manifest = base / "no_freeze" / "manifest.txt"
+        reverse_ready_manifest = base / "reverse_ready" / "manifest.txt"
         no_patch_manifest = base / "no_patch" / "manifest.txt"
         incomplete_manifest = base / "incomplete" / "manifest.txt"
         write_runtime_manifest(ready_manifest, ready_candidate)
         write_runtime_manifest(collapse_ready_manifest, collapse_ready_candidate)
         write_runtime_manifest(no_freeze_manifest, no_freeze_candidate)
+        write_runtime_manifest(reverse_ready_manifest, reverse_ready_candidate)
         write_runtime_manifest(no_patch_manifest, no_patch_candidate)
         write_runtime_manifest(incomplete_manifest, incomplete_candidate)
 
@@ -246,12 +254,15 @@ def main() -> int:
             "incomplete_candidates=0",
             "missing_candidates=0",
             "debris_tag_candidates=1",
+            "forward_debris_tag_candidates=1",
+            "reverse_debris_tag_candidates=0",
             "collapse_tag_candidates=0",
             "unknown_tag_candidates=0",
             "max_lane_write_tag=0x4ee8",
             "observed_offsets=3d2d",
             "missing_offsets=3ec1",
             "candidate route=ready offset=3d2d",
+            "route_steps=x:2.00,m:0.35",
             "kind=forward",
             "target=debris",
             "lane_write_tag=0x4ee8",
@@ -269,6 +280,16 @@ def main() -> int:
 
         required_debris = run_summary(root, [str(sweep_manifest), "--require-debris-tag"])
         require(required_debris, "debris_tag_candidates=1", "mixed_require_debris")
+        cases += 1
+
+        required_forward_debris = run_summary(
+            root, [str(sweep_manifest), "--require-forward-debris-tag"]
+        )
+        require(
+            required_forward_debris,
+            "forward_debris_tag_candidates=1",
+            "mixed_require_forward_debris",
+        )
         cases += 1
 
         required = run_summary(root, [str(sweep_manifest), "--require-ready"])
@@ -311,6 +332,67 @@ def main() -> int:
             "candidate_0_oracle_flag=--debug-explosion-playback-oracle",
         ]:
             require(promotion_text, snippet, "promotion_manifest")
+        cases += 1
+
+        forward_route_manifest = base / "forward_routes" / "manifest.txt"
+        forward_route_manifest_out = run_summary(
+            root,
+            [
+                str(sweep_manifest),
+                "--require-forward-debris-tag",
+                "--write-forward-debris-route-manifest",
+                str(forward_route_manifest),
+            ],
+        )
+        require(
+            forward_route_manifest_out,
+            "lane_write_forward_debris_route_manifest=ok",
+            "forward_route_manifest_output",
+        )
+        require(
+            forward_route_manifest_out,
+            f"path={forward_route_manifest.resolve()}",
+            "forward_route_manifest_output",
+        )
+        require(
+            forward_route_manifest_out,
+            "matching_routes=1",
+            "forward_route_manifest_output",
+        )
+        forward_route_manifest_text = forward_route_manifest.read_text(
+            encoding="ascii"
+        )
+        for snippet in [
+            "promotion=lane_write_forward_debris_route_candidates",
+            f"source_manifest={sweep_manifest.resolve()}",
+            "source_environment_preflight=ok",
+            "required_candidate=forward_debris_tag",
+            "matching_routes=1",
+            "route_0_label=ready",
+            "route_0_steps=x:2.00,m:0.35",
+            "route_0_offset_label=3d2d",
+            "route_0_offset_address=1000:3D2D",
+            "route_0_lane_write_tag=0x4ee8",
+            "route_0_lane_write_di=0x0898",
+            f"route_0_fixture={ready_candidate}",
+        ]:
+            require(forward_route_manifest_text, snippet, "forward_route_manifest")
+        cases += 1
+
+        forward_route_missing_gate = run_summary(
+            root,
+            [
+                str(sweep_manifest),
+                "--write-forward-debris-route-manifest",
+                str(base / "missing-forward-gate.txt"),
+            ],
+            expect_success=False,
+        )
+        require(
+            forward_route_missing_gate,
+            "reason=write_requires_require_forward_debris_tag",
+            "forward_route_missing_gate",
+        )
         cases += 1
 
         original_root = base / "original_root"
@@ -391,6 +473,52 @@ def main() -> int:
             collapse_only,
             "lane_write_tag_class=collapse",
             "collapse_only_required",
+        )
+        cases += 1
+
+        reverse_only_sweep = base / "reverse_only_manifest.txt"
+        write_route_sweep(
+            reverse_only_sweep,
+            [
+                (
+                    "reverse_ready",
+                    "3ec1",
+                    reverse_ready_manifest,
+                    reverse_ready_candidate,
+                )
+            ],
+            ["3ec1"],
+        )
+        reverse_debris = run_summary(
+            root, [str(reverse_only_sweep), "--require-debris-tag"]
+        )
+        require(reverse_debris, "debris_tag_candidates=1", "reverse_debris")
+        require(
+            reverse_debris,
+            "reverse_debris_tag_candidates=1",
+            "reverse_debris",
+        )
+        cases += 1
+
+        reverse_not_forward = run_summary(
+            root,
+            [str(reverse_only_sweep), "--require-forward-debris-tag"],
+            expect_success=False,
+        )
+        require(
+            reverse_not_forward,
+            "reason=no_forward_debris_tag_candidates",
+            "reverse_not_forward",
+        )
+        require(
+            reverse_not_forward,
+            "forward_debris_tag_candidates=0",
+            "reverse_not_forward",
+        )
+        require(
+            reverse_not_forward,
+            "reverse_debris_tag_candidates=1",
+            "reverse_not_forward",
         )
         cases += 1
 

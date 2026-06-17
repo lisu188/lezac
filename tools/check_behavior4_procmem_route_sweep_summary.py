@@ -124,11 +124,32 @@ def write_incomplete_candidate(path: Path) -> None:
     )
 
 
+def write_capture_manifest(path: Path, patch_applied: bool, freeze_observed: str) -> None:
+    write_text(
+        path,
+        "\n".join(
+            [
+                "capture=behavior4_process_memory",
+                "runtime_cs=01ED",
+                "runtime_ds=0C8F",
+                "freeze_runtime=01ED:728C",
+                f"freeze_runtime_patch_applied={1 if patch_applied else 0}",
+                f"instrumented_freeze_observed={freeze_observed}",
+                "",
+            ]
+        ),
+    )
+
+
 def write_mixed_sweep(base: Path) -> Path:
     ready = base / "ready" / "candidate.txt"
     incomplete = base / "incomplete" / "candidate.txt"
+    ready_capture = base / "ready" / "manifest.txt"
+    incomplete_capture = base / "incomplete" / "manifest.txt"
     write_ready_candidate(ready)
     write_incomplete_candidate(incomplete)
+    write_capture_manifest(ready_capture, True, "runtime_child_memory_freeze_observed")
+    write_capture_manifest(incomplete_capture, True, "0")
     manifest = base / "manifest.txt"
     write_text(
         manifest,
@@ -145,10 +166,14 @@ def write_mixed_sweep(base: Path) -> Path:
                 "route_labels=x2p00,x3p00_z0p50_x2p00",
                 "environment_preflight=ok",
                 "capture_command_behavior4_branch_start_before_route_x2p00=env LEZAC_BEHAVIOR4_ROUTE_STEPS=x:2.00 bash helper",
-                "capture_status_behavior4_branch_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_branch_start ghidra=1000:728C runtime_cs=01ED runtime_ds=0C8F freeze_runtime=01ED:728C freeze_observed=runtime_child_memory_freeze_observed candidate_fixture="
+                "capture_status_behavior4_branch_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_branch_start ghidra=1000:728C runtime_cs=01ED runtime_ds=0C8F freeze_runtime=01ED:728C freeze_observed=runtime_child_memory_freeze_observed manifest="
+                + str(ready_capture)
+                + " candidate_fixture="
                 + str(ready),
                 "capture_command_integration_8_8_start_before_route_x3p00_z0p50_x2p00=env LEZAC_BEHAVIOR4_ROUTE_STEPS=x:3.00,z:0.50,x:2.00 bash helper",
-                "capture_status_integration_8_8_start_before_route_x3p00_z0p50_x2p00=behavior4_procmem=ok mode=capture target=integration_8_8_start ghidra=1000:73E5 runtime_cs=01ED runtime_ds=0C8F freeze_runtime=01ED:73E5 freeze_observed=unknown candidate_fixture="
+                "capture_status_integration_8_8_start_before_route_x3p00_z0p50_x2p00=behavior4_procmem=ok mode=capture target=integration_8_8_start ghidra=1000:73E5 runtime_cs=01ED runtime_ds=0C8F freeze_runtime=01ED:73E5 freeze_observed=unknown manifest="
+                + str(incomplete_capture)
+                + " candidate_fixture="
                 + str(incomplete),
                 "capture_command_behavior4_branch_end_before_bomb_x1p00=env LEZAC_BEHAVIOR4_ROUTE_STEPS=x:1.00 bash helper",
                 "",
@@ -160,7 +185,9 @@ def write_mixed_sweep(base: Path) -> Path:
 
 def write_ready_sweep(base: Path) -> Path:
     ready = base / "ready" / "candidate.txt"
+    ready_capture = base / "ready" / "manifest.txt"
     write_ready_candidate(ready)
+    write_capture_manifest(ready_capture, True, "runtime_child_memory_freeze_observed")
     manifest = base / "manifest.txt"
     write_text(
         manifest,
@@ -176,7 +203,9 @@ def write_ready_sweep(base: Path) -> Path:
                 "route_labels=x2p00",
                 "environment_preflight=ok",
                 "capture_command_behavior4_branch_start_before_route_x2p00=env bash helper",
-                "capture_status_behavior4_branch_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_branch_start ghidra=1000:728C runtime_cs=01ED runtime_ds=0C8F freeze_observed=runtime_child_memory_freeze_observed candidate_fixture="
+                "capture_status_behavior4_branch_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_branch_start ghidra=1000:728C runtime_cs=01ED runtime_ds=0C8F freeze_observed=runtime_child_memory_freeze_observed manifest="
+                + str(ready_capture)
+                + " candidate_fixture="
                 + str(ready),
                 "",
             ]
@@ -187,7 +216,9 @@ def write_ready_sweep(base: Path) -> Path:
 
 def write_no_freeze_sweep(base: Path) -> Path:
     ready = base / "ready" / "candidate.txt"
+    ready_capture = base / "ready" / "manifest.txt"
     write_ready_candidate(ready)
+    write_capture_manifest(ready_capture, True, "0")
     manifest = base / "manifest.txt"
     write_text(
         manifest,
@@ -203,7 +234,9 @@ def write_no_freeze_sweep(base: Path) -> Path:
                 "route_labels=x2p00",
                 "environment_preflight=skipped",
                 "capture_command_behavior4_branch_start_before_route_x2p00=env bash helper",
-                "capture_status_behavior4_branch_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_branch_start ghidra=1000:728C runtime_cs=01ED runtime_ds=0C8F freeze_observed=unknown candidate_fixture="
+                "capture_status_behavior4_branch_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_branch_start ghidra=1000:728C runtime_cs=01ED runtime_ds=0C8F freeze_observed=unknown manifest="
+                + str(ready_capture)
+                + " candidate_fixture="
                 + str(ready),
                 "",
             ]
@@ -239,16 +272,20 @@ def main() -> int:
             "capture_commands=3",
             "completed_captures=2",
             "observed_freezes=1",
+            "patched_no_freeze_candidates=1",
             "ready_candidates=1",
             "incomplete_candidates=1",
             "missing_candidates=1",
             "missing_labels=behavior4_branch_end_before_bomb_x1p00",
             "behavior4_procmem_route_sweep_detail label=behavior4_branch_start_before_route_x2p00",
             "candidate_status=ready",
+            "runtime_patch_applied=1",
+            "freeze_observed=1",
             "behavior4_procmem_route_sweep_detail label=integration_8_8_start_before_route_x3p00_z0p50_x2p00",
             "candidate_status=incomplete",
             "candidate_missing=runtime_cs,runtime_ds,spawner,actor_before,actor_after,players,break_7a6b,break_7c2c,break_728c,break_731b,break_73e5,break_741b",
             "candidate_placeholders=1",
+            "freeze_observed=0",
             "oracle_flag=--debug-behavior4-runtime-oracle",
             "environment_preflight=ok",
         ]:
@@ -276,6 +313,7 @@ def main() -> int:
         )
         require(ready_out, "ready_candidates=1", "ready_summary")
         require(ready_out, "observed_freezes=1", "ready_summary")
+        require(ready_out, "patched_no_freeze_candidates=0", "ready_summary")
         require(ready_out, "behavior4_procmem_ready_manifest=ok", "ready_manifest")
         require(ready_out, f"path={ready_manifest.resolve()}", "ready_manifest")
         ready_text = ready_manifest.read_text(encoding="ascii")
@@ -322,6 +360,7 @@ def main() -> int:
             root, [str(no_freeze), "--require-observed-freeze"], False
         )
         require(no_freeze_out, "reason=no_observed_freezes", "no_freeze")
+        require(no_freeze_out, "patched_no_freeze_candidates=1", "no_freeze")
         cases += 1
 
         preflight_out = run_tool(

@@ -218,7 +218,10 @@ at `1000:728C` plus `1000:7A6B`, `1000:7C2C`, `1000:731B`, `1000:73E5`, and
 `LEZAC_BEHAVIOR4_APPROVE_PROCMEM=1` and
 `LEZAC_BEHAVIOR4_APPROVE_RUNTIME_INSTRUMENTATION=1`, emit
 `behavior4_procmem`, and generate a non-promoted candidate fixture until the
-semantic spawner/actor/player rows are filled.
+semantic spawner/actor/player rows are filled. The live status line now carries
+`freeze_runtime_patch_applied=` beside `freeze_observed=`, so route-sweep
+manifests preserve patch-loaded no-freeze evidence without reopening the child
+capture manifest.
 `tools/sweep_original_behavior4_procmem_routes.py` batches that fallback across
 route/timing hypotheses and can escalate from the default branch/integration
 pair to all six anchors with `--all-targets`; it still emits only

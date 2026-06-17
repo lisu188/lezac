@@ -166,7 +166,7 @@ def write_mixed_sweep(base: Path) -> Path:
                 "route_labels=x2p00,x3p00_z0p50_x2p00",
                 "environment_preflight=ok",
                 "capture_command_behavior4_branch_start_before_route_x2p00=env LEZAC_BEHAVIOR4_ROUTE_STEPS=x:2.00 bash helper",
-                "capture_status_behavior4_branch_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_branch_start ghidra=1000:728C runtime_cs=01ED runtime_ds=0C8F freeze_runtime=01ED:728C freeze_observed=runtime_child_memory_freeze_observed manifest="
+                "capture_status_behavior4_branch_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_branch_start ghidra=1000:728C runtime_cs=01ED runtime_ds=0C8F freeze_runtime=01ED:728C freeze_runtime_patch_applied=1 freeze_observed=runtime_child_memory_freeze_observed manifest="
                 + str(ready_capture)
                 + " candidate_fixture="
                 + str(ready),
@@ -203,7 +203,7 @@ def write_ready_sweep(base: Path) -> Path:
                 "route_labels=x2p00",
                 "environment_preflight=ok",
                 "capture_command_behavior4_branch_start_before_route_x2p00=env bash helper",
-                "capture_status_behavior4_branch_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_branch_start ghidra=1000:728C runtime_cs=01ED runtime_ds=0C8F freeze_observed=runtime_child_memory_freeze_observed manifest="
+                "capture_status_behavior4_branch_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_branch_start ghidra=1000:728C runtime_cs=01ED runtime_ds=0C8F freeze_runtime_patch_applied=1 freeze_observed=runtime_child_memory_freeze_observed manifest="
                 + str(ready_capture)
                 + " candidate_fixture="
                 + str(ready),
@@ -234,7 +234,7 @@ def write_no_freeze_sweep(base: Path) -> Path:
                 "route_labels=x2p00",
                 "environment_preflight=skipped",
                 "capture_command_behavior4_branch_start_before_route_x2p00=env bash helper",
-                "capture_status_behavior4_branch_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_branch_start ghidra=1000:728C runtime_cs=01ED runtime_ds=0C8F freeze_observed=unknown manifest="
+                "capture_status_behavior4_branch_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_branch_start ghidra=1000:728C runtime_cs=01ED runtime_ds=0C8F freeze_runtime_patch_applied=1 freeze_observed=unknown manifest="
                 + str(ready_capture)
                 + " candidate_fixture="
                 + str(ready),

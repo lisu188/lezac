@@ -1,11 +1,20 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/lane-write-tag-model`
+Branch: `codex/behavior4-static-anchor-model`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `--debug-behavior4-static-model` and CTest coverage to pin the shipped
+  `LEZAC.EXE` byte windows for the six behavior-4 runtime-capture anchors:
+  spawner loop `1000:7A6B`/`1000:7C2C`, behavior-4 branch
+  `1000:728C`/`1000:731B`, and 8.8 integration `1000:73E5`/`1000:741B`.
+  The diagnostic reports the same target map used by
+  `--debug-behavior4-runtime-oracle` and
+  `tools/capture_original_behavior4_procmem.sh`, while keeping
+  `visual_claim=0` so future original runtime fixtures remain the promotion
+  gate for behavior-4 semantics.
 - Added `--debug-lane-write-tag-model` and CTest coverage to pin the recovered
   lane write tag/address arithmetic without changing gameplay. The diagnostic
   maps collapse tags directly through the `0x0f` stride, maps debris tags by

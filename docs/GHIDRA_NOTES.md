@@ -207,6 +207,10 @@ breakpoints covering the spawner loop `1000:7a6b..7c2c`, behavior-4 branch
 `1000:728c..731b`, and 8.8 integration `1000:73e5..741b`; optional `DS:` dumps
 are segment-checked and byte-counted. Current checked-in fixtures are synthetic
 or malformed parser coverage only and carry `visual_claim=0`.
+`--debug-behavior4-static-model` pins the shipped `LEZAC.EXE` byte windows for
+those same six anchors and keeps the capture target map tied to original code
+before any live behavior-4 fixture is promoted. It intentionally remains a
+static model with `visual_claim=0`.
 `tools/capture_original_behavior4_procmem.sh` exposes guarded process-memory
 freeze targets for the same anchor set, including `behavior4_branch_start`
 at `1000:728C` plus `1000:7A6B`, `1000:7C2C`, `1000:731B`, `1000:73E5`, and

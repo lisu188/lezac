@@ -10089,6 +10089,99 @@ public:
         }
     }
 
+    void debugBehavior4StaticModel() {
+        struct Anchor {
+            uint16_t offset;
+            const char* label;
+            const char* region;
+            const char* bytes;
+        };
+
+        const std::array<Anchor, 6> anchors{{
+            {0x7a6b, "spawner_loop_start", "spawner_loop",
+             "80 3e a6 79 00 77 03 e9 c8 01 c7 06 82 20 01 00 "
+             "a0 a6 79 30 e4 3b 06 82 20 73 03 e9 b4 01 6b 3e"},
+            {0x7c2c, "spawner_loop_end", "spawner_loop",
+             "a0 82 20 c4 7e f8 26 88 45 25 ff 06 82 20 e9 3e "
+             "fe c7 06 82 20 01 00 eb 04 ff 06 82 20 8b 3e 82"},
+            {0x728c, "behavior4_branch_start", "behavior4_branch",
+             "c4 7e 04 26 8a 45 03 88 46 ee c4 7e 04 81 c7 16 "
+             "00 89 7e c6 8c 46 c8 8a 46 ee 30 e4 8b f8 d1 e7"},
+            {0x731b, "behavior4_branch_end", "behavior4_branch",
+             "26 88 45 02 c4 7e c6 26 8a 45 01 c4 7e c6 26 88 "
+             "05 80 7e f1 04 75 5d 8b 46 d6 03 06 04 c2 a3 e8"},
+            {0x73e5, "integration_8_8_start", "integration_8_8",
+             "8b 46 f2 30 ff 3d 00 00 7d 02 b7 ff 8a 5e ef 00 "
+             "c3 88 5e ef 88 e0 88 fc 11 46 d2 8b 46 f4 30 ff"},
+            {0x741b, "integration_8_8_end", "integration_8_8",
+             "11 46 d4 80 7e f1 01 73 03 e9 f0 00 80 7e f1 08 "
+             "76 03 e9 e7 00 80 7e f1 1f 75 03 e9 de 00 31 c0"},
+        }};
+
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for behavior-4 scan");
+        }
+
+        auto requireBytes = [&](const Anchor& anchor) {
+            std::vector<uint8_t> expected = parseHexByteList(anchor.bytes);
+            size_t p = imageBase + anchor.offset;
+            if (p + expected.size() > exeBytes.size()) {
+                throw std::runtime_error(std::string(anchor.label) +
+                                         " extends past LEZAC.EXE");
+            }
+            for (size_t i = 0; i < expected.size(); ++i) {
+                if (exeBytes[p + i] != expected[i]) {
+                    throw std::runtime_error(std::string(anchor.label) +
+                                             " bytes changed");
+                }
+            }
+        };
+
+        int spawnerAnchors = 0;
+        int branchAnchors = 0;
+        int integrationAnchors = 0;
+        std::ostringstream targetMap;
+        for (size_t i = 0; i < anchors.size(); ++i) {
+            const Anchor& anchor = anchors[i];
+            requireBytes(anchor);
+            if (std::string(anchor.region) == "spawner_loop") {
+                ++spawnerAnchors;
+            } else if (std::string(anchor.region) == "behavior4_branch") {
+                ++branchAnchors;
+            } else if (std::string(anchor.region) == "integration_8_8") {
+                ++integrationAnchors;
+            }
+            if (i != 0) {
+                targetMap << ',';
+            }
+            targetMap << hex4(anchor.offset) << ':' << anchor.label << '/'
+                      << anchor.region;
+        }
+
+        if (spawnerAnchors != 2 || branchAnchors != 2 ||
+            integrationAnchors != 2) {
+            throw std::runtime_error("behavior-4 static anchor summary changed");
+        }
+
+        std::cout << "behavior4_static_model=ok"
+                  << " image_base=0x0770"
+                  << " anchors=" << anchors.size()
+                  << " spawner=" << spawnerAnchors
+                  << " branch=" << branchAnchors
+                  << " integration=" << integrationAnchors
+                  << " target_map=" << targetMap.str()
+                  << " runtime_oracle=--debug-behavior4-runtime-oracle"
+                  << " procmem_helper=tools/capture_original_behavior4_procmem.sh"
+                  << " visual_claim=0"
+                  << '\n';
+    }
+
     int debugActorUpdateRuntimeOracle(const std::string& path, bool expectError) {
         auto fixtureName = [](const std::string& inputPath) {
             size_t slash = inputPath.find_last_of("/\\");
@@ -18715,6 +18808,10 @@ int main(int argc, char** argv) {
         if (argc > 2 && std::string(argv[1]) == "--debug-behavior4-runtime-oracle") {
             bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";
             return app.debugBehavior4RuntimeOracle(argv[2], expectError);
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-behavior4-static-model") {
+            app.debugBehavior4StaticModel();
+            return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-actor-update-runtime-oracle") {
             bool expectError = argc > 3 && std::string(argv[3]) == "--expect-error";

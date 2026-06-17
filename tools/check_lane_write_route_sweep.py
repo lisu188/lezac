@@ -81,6 +81,35 @@ def load_sweep_module(root: Path):
     return module
 
 
+def temp_root_for(root: Path) -> Path:
+    temp_root = Path(tempfile.gettempdir()).resolve()
+    if temp_root == root or root in temp_root.parents:
+        root_parts = root.parts
+        if (
+            len(root_parts) >= 5
+            and root_parts[0] == "/"
+            and root_parts[1] == "mnt"
+            and len(root_parts[2]) == 1
+            and root_parts[3] == "Users"
+        ):
+            temp_root = (
+                Path("/")
+                / "mnt"
+                / root_parts[2]
+                / "Users"
+                / root_parts[4]
+                / "AppData"
+                / "Local"
+                / "Temp"
+            )
+        elif os.name != "nt":
+            temp_root = Path("/tmp")
+        else:
+            temp_root = root.parent
+    temp_root.mkdir(parents=True, exist_ok=True)
+    return temp_root
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Check lane-write route-sweep status output."
@@ -95,8 +124,10 @@ def main() -> int:
     args = parser.parse_args()
 
     root = args.root.resolve()
-    out_base = Path(tempfile.gettempdir()) / "lezac-lane-write-route-sweep-check"
-    out_base.mkdir(parents=True, exist_ok=True)
+    temp_root = temp_root_for(root)
+    out_base = Path(
+        tempfile.mkdtemp(prefix="lezac-lane-write-route-sweep-check-", dir=temp_root)
+    )
     cases = 0
 
     default_dry = run_sweep(
@@ -652,7 +683,10 @@ def main() -> int:
             "optional_oracle_error")
     cases += 1
 
-    with tempfile.TemporaryDirectory(prefix="lezac-lane-write-empty-path-") as tmp:
+    with tempfile.TemporaryDirectory(
+        prefix="lezac-lane-write-empty-path-",
+        dir=temp_root,
+    ) as tmp:
         live_preflight = run_sweep_env(
             root,
             [

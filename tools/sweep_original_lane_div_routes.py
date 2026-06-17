@@ -30,10 +30,16 @@ BROADENED_ROUTES = [
     "x:8.00",
     "x:5.00,m:0.50,x:4.00",
 ]
+DELAYED_BOMB_ROUTES = [
+    "x:4.00,m:0.50,x:3.00",
+    "x:6.00,m:0.50,x:3.00",
+    "x:4.00,z:0.50,m:0.50,x:3.00",
+]
 ROUTE_PRESETS = {
     "default": DEFAULT_ROUTES,
     "forward-helper-followup": FOLLOWUP_ROUTES,
     "forward-helper-broadened": BROADENED_ROUTES,
+    "forward-helper-delayed-bomb": DELAYED_BOMB_ROUTES,
 }
 BRANCH_ANCHOR_ROUTE_PROMOTION = "branch_anchor_route_candidates"
 LANE_WRITE_FORWARD_DEBRIS_ROUTE_PROMOTION = (
@@ -446,7 +452,9 @@ def main() -> int:
             "named route matrix to use when --route is omitted; "
             "forward-helper-followup covers reviewed helper-div timing variants; "
             "forward-helper-broadened covers the long right/jump routes pruned "
-            "by the 2026-06-17 live lane-div pass"
+            "by the 2026-06-17 live lane-div pass; "
+            "forward-helper-delayed-bomb covers later bomb-placement routes for "
+            "the debris-marker search"
         ),
     )
     parser.add_argument(

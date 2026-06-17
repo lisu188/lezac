@@ -828,6 +828,17 @@ sampled a debris-marker lane word: `observed_freezes=0`,
 `tools/sweep_original_lane_div_routes.py --route-preset forward-helper-broadened`
 so it remains reproducible negative route evidence instead of an open
 hypothesis.
+The delayed-bomb lane-div route family is likewise encoded as
+`--route-preset forward-helper-delayed-bomb`: `x:4.00,m:0.50,x:3.00`,
+`x:6.00,m:0.50,x:3.00`, and `x:4.00,z:0.50,m:0.50,x:3.00`. The live pass at
+`/tmp/lezac-lane-div-delayed-bomb` loaded the `3CE3` runtime patch for all
+three routes with `runtime_cs=01ED` and `runtime_ds=0C8F`, but recorded
+`observed_freezes=0`, `no_freeze_candidates=3`, `forward_divide_candidates=0`,
+`route_state_samples=113`, `route_state_debris_marker_candidates=0`,
+`route_state_debris_marker_samples=0`, and
+`max_route_state_lane_word_global=0x0000`. Inspected route/tail frames stayed
+in live level-1 gameplay with bomb/enemy/effect frames, so this is another
+pruned route family and not a forward debris writeback handoff.
 
 `tools/summarize_lane_result_route_sweep.py`
 now classifies completed route-sweep candidates as `ready`, `no_freeze`,

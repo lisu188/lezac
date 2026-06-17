@@ -396,8 +396,6 @@ def main() -> int:
             "--skip-oracle",
             "--route-manifest",
             str(branch_route_manifest),
-            "--offset",
-            "forward-debris",
         ],
     )
     for snippet in [
@@ -408,6 +406,7 @@ def main() -> int:
         "capture_commands=2",
         "route_preset=branch-anchor-route-manifest",
         f"route_manifest={branch_route_manifest.resolve()}",
+        "route_manifest_default_offsets=1000:3D2D",
         "capture_command_x2p00_m0p35_3d2d=",
         "capture_command_x3p00_z0p50_x2p00_3d2d=",
         "--freeze-ghidra-offset 1000:3D2D",
@@ -449,8 +448,6 @@ def main() -> int:
             "--skip-oracle",
             "--route-manifest",
             str(forward_debris_route_manifest),
-            "--offset",
-            "forward-debris",
         ],
     )
     for snippet in [
@@ -461,6 +458,7 @@ def main() -> int:
         "capture_commands=1",
         "route_preset=lane-write-forward-debris-route-manifest",
         f"route_manifest={forward_debris_route_manifest.resolve()}",
+        "route_manifest_default_offsets=1000:3D2D",
         "capture_command_x2p00_m0p35_3d2d=",
         "--freeze-ghidra-offset 1000:3D2D",
         "--route-step x:2.00",
@@ -470,6 +468,63 @@ def main() -> int:
             forward_debris_manifest_dry,
             snippet,
             "forward_debris_route_manifest",
+        )
+    cases += 1
+
+    lane_div_forward_manifest = out_base / "lane-div-forward-routes.txt"
+    lane_div_forward_manifest.write_text(
+        "\n".join(
+            [
+                "promotion=lane_div_forward_route_candidates",
+                "source_manifest=/tmp/lezac-lane-div-forward/manifest.txt",
+                "source_environment_preflight=ok",
+                "required_candidate=forward_divide",
+                "matching_routes=1",
+                "route_0_label=x2p00_m0p35",
+                "route_0_steps=x:2.00,m:0.35",
+                "route_0_offset_label=3ce3",
+                "route_0_offset_address=1000:3CE3",
+                "route_0_lane_div_weight_local=0x0021",
+                "route_0_lane_div_numerator_low=0xfff3",
+                "route_0_lane_div_numerator_high=0xffff",
+                "route_0_fixture=/tmp/candidate.txt",
+                "",
+            ]
+        ),
+        encoding="ascii",
+    )
+    lane_div_forward_dry = run_sweep(
+        root,
+        [
+            str(out_base / "lane-div-forward-route-manifest"),
+            str(root),
+            "--dry-run",
+            "--skip-oracle",
+            "--route-manifest",
+            str(lane_div_forward_manifest),
+        ],
+    )
+    for snippet in [
+        "offsets=2",
+        "offset_labels=3d1b,3d2d",
+        "offset_addresses=1000:3D1B,1000:3D2D",
+        "routes=1",
+        "route_labels=x2p00_m0p35",
+        "capture_commands=2",
+        "route_preset=lane-div-forward-route-manifest",
+        f"route_manifest={lane_div_forward_manifest.resolve()}",
+        "route_manifest_default_offsets=1000:3D1B,1000:3D2D",
+        "capture_command_x2p00_m0p35_3d1b=",
+        "capture_command_x2p00_m0p35_3d2d=",
+        "--freeze-ghidra-offset 1000:3D1B",
+        "--freeze-ghidra-offset 1000:3D2D",
+        "--route-step x:2.00",
+        "--route-step m:0.35",
+    ]:
+        require(
+            lane_div_forward_dry,
+            snippet,
+            "lane_div_forward_route_manifest",
         )
     cases += 1
 
@@ -507,8 +562,6 @@ def main() -> int:
             "--skip-oracle",
             "--route-manifest",
             str(lane_div_forward_debris_manifest),
-            "--offset",
-            "forward-debris",
         ],
     )
     for snippet in [
@@ -519,6 +572,7 @@ def main() -> int:
         "capture_commands=1",
         "route_preset=lane-div-forward-debris-route-manifest",
         f"route_manifest={lane_div_forward_debris_manifest.resolve()}",
+        "route_manifest_default_offsets=1000:3D2D",
         "capture_command_x2p00_m0p35_3d2d=",
         "--freeze-ghidra-offset 1000:3D2D",
         "--route-step x:2.00",

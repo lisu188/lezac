@@ -697,7 +697,8 @@ and supports
 as the pre-`3D2D` route-reachability gate. With `--write-route-manifest`, the
 matching route steps are emitted as `branch_anchor_route_candidates`; feed that
 manifest to `tools/sweep_original_lane_write_routes.py --route-manifest` before
-probing the forward debris writeback.
+probing the forward debris writeback. The lane-write sweep defaults
+branch-anchor manifests to `1000:3D2D` unless `--offset` is supplied.
 The first live classifier pass found that `x:2.00,m:0.35`, unlike the two `c`
 timings, reaches the high-debris branch path. The default bundle
 `C:\Users\andrz\AppData\Local\Temp\lezac-branch-anchor-default-1781615578`
@@ -730,7 +731,8 @@ classifier for that search. The sweep targets `lane-div-cs-scratch` anchors
 such as `1000:3CE3`, the summary reports
 `forward_divide_candidates=`, and `--write-forward-route-manifest` emits
 `lane_div_forward_route_candidates` with exact route steps for follow-up
-`tools/sweep_original_lane_write_routes.py --route-manifest` probes. This is
+`tools/sweep_original_lane_write_routes.py --route-manifest` probes. That
+plain forward-divide handoff defaults to `1000:3D1B` and `1000:3D2D`. This is
 only route triage; `1000:3D2D` still needs the later forward debris writeback
 gate before promotion.
 The lane-div summary also has a stricter route-state handoff for new route
@@ -739,9 +741,9 @@ families: `--require-route-state-debris-marker` reads candidate
 `lane_word_global_value >= 0x4e20`. With `--write-forward-debris-route-manifest`
 it emits `lane_div_forward_debris_route_candidates`, which
 `tools/sweep_original_lane_write_routes.py --route-manifest` accepts for
-focused forward `3D2D` probes. This still proves only forward-divide
-reachability plus route-state debris-marker sampling; natural `3D2D`
-execution remains a separate lane-write fixture gate.
+focused forward `3D2D` probes by default. This still proves only
+forward-divide reachability plus route-state debris-marker sampling; natural
+`3D2D` execution remains a separate lane-write fixture gate.
 A follow-up helper-tag sweep at
 `C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-tag-search-1781617957`
 tested `x:1.50,m:0.35`, `x:2.50,m:0.35`, `x:2.00,m:0.15`, and
@@ -789,7 +791,8 @@ also accepts `--require-forward-debris-tag` for the still-open natural
 reverse debris write at `3EC1` from satisfying the remaining forward-write
 promotion path. When it passes, `--write-forward-debris-route-manifest` emits
 `lane_write_forward_debris_route_candidates` so the exact route steps can feed
-`tools/sweep_original_lane_write_routes.py --route-manifest`.
+`tools/sweep_original_lane_write_routes.py --route-manifest`; that handoff also
+defaults to `1000:3D2D`.
 On the prior helper-tag search, the broad debris gate still fails with
 `debris_tag_candidates=0`, `collapse_tag_candidates=2`, and
 `max_lane_write_tag=0x0005`.

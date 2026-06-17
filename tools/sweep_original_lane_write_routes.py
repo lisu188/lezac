@@ -52,6 +52,8 @@ LANE_DIV_FORWARD_DEBRIS_ROUTE_PROMOTION = (
     "lane_div_forward_debris_route_candidates"
 )
 DEFAULT_OFFSETS = ["1000:3D2D", "1000:3EC1"]
+FORWARD_WRITEBACK_OFFSETS = ["1000:3D1B", "1000:3D2D"]
+FORWARD_DEBRIS_OFFSETS = ["1000:3D2D"]
 OFFSET_ALIASES = {
     "FORWARD-COLLAPSE": "1000:3D1B",
     "FORWARD_COLLAPSE": "1000:3D1B",
@@ -142,20 +144,28 @@ def read_key_value_manifest(path: Path) -> dict[str, str]:
     return values
 
 
-def routes_from_route_manifest(path: Path) -> tuple[str, list[list[str]]]:
+def routes_from_route_manifest(path: Path) -> tuple[str, list[list[str]], list[str]]:
     values = read_key_value_manifest(path)
     promotion = values.get("promotion", "")
-    route_preset = {
-        BRANCH_ANCHOR_ROUTE_PROMOTION: "branch-anchor-route-manifest",
-        LANE_WRITE_FORWARD_DEBRIS_ROUTE_PROMOTION: (
-            "lane-write-forward-debris-route-manifest"
+    manifest_defaults = {
+        BRANCH_ANCHOR_ROUTE_PROMOTION: (
+            "branch-anchor-route-manifest",
+            FORWARD_DEBRIS_OFFSETS,
         ),
-        LANE_DIV_FORWARD_ROUTE_PROMOTION: "lane-div-forward-route-manifest",
+        LANE_WRITE_FORWARD_DEBRIS_ROUTE_PROMOTION: (
+            "lane-write-forward-debris-route-manifest",
+            FORWARD_DEBRIS_OFFSETS,
+        ),
+        LANE_DIV_FORWARD_ROUTE_PROMOTION: (
+            "lane-div-forward-route-manifest",
+            FORWARD_WRITEBACK_OFFSETS,
+        ),
         LANE_DIV_FORWARD_DEBRIS_ROUTE_PROMOTION: (
-            "lane-div-forward-debris-route-manifest"
+            "lane-div-forward-debris-route-manifest",
+            FORWARD_DEBRIS_OFFSETS,
         ),
     }.get(promotion)
-    if route_preset is None:
+    if manifest_defaults is None:
         raise ValueError(
             f"unsupported route manifest promotion {promotion!r}; "
             f"expected {BRANCH_ANCHOR_ROUTE_PROMOTION!r} or "
@@ -176,7 +186,8 @@ def routes_from_route_manifest(path: Path) -> tuple[str, list[list[str]]]:
         if not steps:
             raise ValueError(f"missing route_{index}_steps")
         routes.append(parse_route(steps))
-    return route_preset, routes
+    route_preset, default_offsets = manifest_defaults
+    return route_preset, routes, list(default_offsets)
 
 
 def route_label(steps: list[str]) -> str:
@@ -195,8 +206,10 @@ def offset_label(offset: str) -> str:
     return offset.split(":", 1)[1].lower()
 
 
-def selected_offsets(args: argparse.Namespace) -> list[str]:
-    offsets = args.offsets or list(DEFAULT_OFFSETS)
+def selected_offsets(
+    args: argparse.Namespace, route_manifest_default_offsets: list[str] | None = None
+) -> list[str]:
+    offsets = args.offsets or route_manifest_default_offsets or list(DEFAULT_OFFSETS)
     selected: list[str] = []
     for offset in offsets:
         if offset not in selected:
@@ -506,13 +519,16 @@ def main() -> int:
 
     if args.route and args.route_manifest is not None:
         raise RuntimeError("use either --route or --route-manifest, not both")
+    route_manifest_default_offsets: list[str] | None = None
     if args.route_manifest is not None:
-        route_preset, routes = routes_from_route_manifest(args.route_manifest)
+        route_preset, routes, route_manifest_default_offsets = (
+            routes_from_route_manifest(args.route_manifest)
+        )
     else:
         route_preset = "custom" if args.route else args.route_preset
         routes = args.route or [parse_route(route) for route in ROUTE_PRESETS[route_preset]]
     route_labels = [route_label(route) for route in routes]
-    offsets = selected_offsets(args)
+    offsets = selected_offsets(args, route_manifest_default_offsets)
     offset_labels = [offset_label(offset) for offset in offsets]
     capture_items: list[tuple[str, str, Path, list[str]]] = []
     for route_index, route in enumerate(routes):
@@ -543,6 +559,13 @@ def main() -> int:
         + (
             f" route_manifest={args.route_manifest.resolve()}"
             if args.route_manifest is not None
+            else ""
+        )
+        + (
+            f" route_manifest_default_offsets={','.join(route_manifest_default_offsets)}"
+            if args.route_manifest is not None
+            and args.offsets is None
+            and route_manifest_default_offsets is not None
             else ""
         )
     )
@@ -596,6 +619,11 @@ def main() -> int:
     ]
     if args.route_manifest is not None:
         manifest_lines.append(f"route_manifest={args.route_manifest.resolve()}")
+        if args.offsets is None and route_manifest_default_offsets is not None:
+            manifest_lines.append(
+                "route_manifest_default_offsets="
+                f"{','.join(route_manifest_default_offsets)}"
+            )
     if not args.skip_environment_preflight:
         manifest_lines.append(
             f"environment_preflight_command={quote_command(environment_preflight_command)}"

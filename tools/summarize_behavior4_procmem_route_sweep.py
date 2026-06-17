@@ -68,8 +68,10 @@ class SummaryResult:
     details: list[str]
     readiness_counts: dict[str, int]
     observed_freezes: int
+    observed_targets: list[str]
     runtime_patches_applied: int
     patched_no_freeze: int
+    patched_no_freeze_targets: list[str]
     environment_preflight: str
     manifest: Manifest
     captures: list[CaptureSummary]
@@ -278,8 +280,10 @@ def summarize(args: argparse.Namespace) -> SummaryResult:
     captures = [summarize_capture(manifest, label) for label in labels]
     readiness_counts = {"ready": 0, "incomplete": 0, "missing": 0}
     observed_freezes = 0
+    observed_targets: list[str] = []
     runtime_patches_applied = 0
     patched_no_freeze = 0
+    patched_no_freeze_targets: list[str] = []
     details: list[str] = []
     ready_manifests: list[str] = []
     missing_labels: list[str] = []
@@ -289,8 +293,12 @@ def summarize(args: argparse.Namespace) -> SummaryResult:
             runtime_patches_applied += 1
         if capture_summary.freeze_observed:
             observed_freezes += 1
+            if capture_summary.target not in observed_targets:
+                observed_targets.append(capture_summary.target)
         elif capture_summary.runtime_patch_applied:
             patched_no_freeze += 1
+            if capture_summary.target not in patched_no_freeze_targets:
+                patched_no_freeze_targets.append(capture_summary.target)
         if capture_summary.readiness.status == "ready":
             ready_manifests.append(str(capture_summary.candidate))
         if capture_summary.readiness.status == "missing":
@@ -328,8 +336,10 @@ def summarize(args: argparse.Namespace) -> SummaryResult:
             f"capture_commands={len(labels)}",
             f"completed_captures={len([c for c in captures if c.status_line])}",
             f"observed_freezes={observed_freezes}",
+            f"observed_targets={csv_or_none(observed_targets)}",
             f"runtime_patches_applied={runtime_patches_applied}",
             f"patched_no_freeze_candidates={patched_no_freeze}",
+            f"patched_no_freeze_targets={csv_or_none(patched_no_freeze_targets)}",
             f"ready_candidates={readiness_counts['ready']}",
             f"incomplete_candidates={readiness_counts['incomplete']}",
             f"missing_candidates={readiness_counts['missing']}",
@@ -344,8 +354,10 @@ def summarize(args: argparse.Namespace) -> SummaryResult:
         details=details,
         readiness_counts=readiness_counts,
         observed_freezes=observed_freezes,
+        observed_targets=observed_targets,
         runtime_patches_applied=runtime_patches_applied,
         patched_no_freeze=patched_no_freeze,
+        patched_no_freeze_targets=patched_no_freeze_targets,
         environment_preflight=environment_preflight,
         manifest=manifest,
         captures=captures,
@@ -426,6 +438,15 @@ def main() -> int:
         help="exit nonzero unless at least one capture reports an observed freeze",
     )
     parser.add_argument(
+        "--require-target-freeze",
+        action="append",
+        choices=TARGETS,
+        help=(
+            "exit nonzero unless the named behavior-4 procmem target reports "
+            "an observed freeze; repeatable"
+        ),
+    )
+    parser.add_argument(
         "--require-runtime-patch",
         action="store_true",
         help="exit nonzero unless at least one capture reports a runtime patch",
@@ -499,6 +520,16 @@ def main() -> int:
             file=sys.stderr,
         )
         return 4
+    for target in args.require_target_freeze or []:
+        if target not in result.observed_targets:
+            print(
+                "behavior4_procmem_route_sweep_summary=error "
+                "reason=target_freeze_missing "
+                f"required_target={target} "
+                f"observed_targets={csv_or_none(result.observed_targets)}",
+                file=sys.stderr,
+            )
+            return 7
     if args.require_runtime_patch and result.runtime_patches_applied == 0:
         print(
             "behavior4_procmem_route_sweep_summary=error "

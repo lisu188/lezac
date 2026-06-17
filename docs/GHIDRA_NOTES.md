@@ -227,12 +227,14 @@ route/timing hypotheses and can escalate from the default branch/integration
 pair to all six anchors with `--all-targets`; it still emits only
 `behavior4_procmem` capture manifests and non-promoted candidates.
 `tools/summarize_behavior4_procmem_route_sweep.py` triages those manifests into
-completed capture counts, observed freeze counts, patch-loaded no-freeze
-counts, total `runtime_patches_applied=`, candidate readiness, and per-capture
+completed capture counts, observed freeze counts, `observed_targets=`,
+patch-loaded no-freeze counts, `patched_no_freeze_targets=`, total
+`runtime_patches_applied=`, candidate readiness, and per-capture
 `--debug-behavior4-runtime-oracle` commands before any fixture is considered
 for promotion. Use `--require-runtime-patch` to reject sweeps that never armed
-the runtime patch. With `--write-ready-manifest`, ready sweep candidates are
-emitted as
+the runtime patch, and `--require-target-freeze <target>` when a generic
+spawner/integration freeze is not enough evidence for the behavior-4 branch.
+With `--write-ready-manifest`, ready sweep candidates are emitted as
 `debug_capture_ready_candidates` manifests for
 `tools/run_debug_capture_ready_manifest.py`, reusing the existing behavior-4
 runtime-oracle execution path. Three 2026-06-17 WSL smoke runs reached runtime
@@ -240,6 +242,14 @@ metadata and loaded the `01ED:728C` branch-start patch on before-bomb routes
 `x:2.00` and `x:5.00,m:0.50,x:2.00`, plus before-route route `x:2.00`, but
 each summarized as a patch-loaded no-freeze candidate with no ready fixture
 rows.
+The same day, an all-anchor before-route `x:2.00` pass at
+`/tmp/lezac-behavior4-all-anchor-before-route-x2` loaded all six target patches.
+It froze `spawner_loop_start`, `integration_8_8_start`, and
+`integration_8_8_end`, while `spawner_loop_end`, `behavior4_branch_start`, and
+`behavior4_branch_end` remained patch-loaded no-freeze targets. The new
+target-freeze gate rejects `behavior4_branch_start` on that manifest, preserving
+the result as level-1 route-pruning evidence rather than behavior-4 branch
+semantics.
 `tools/check_behavior4_runtime_oracle_fixtures.py` keeps that fixed synthetic
 baseline while allowing future `behavior4_runtime_oracle_original*.txt`
 fixtures only when they parse as valid runtime evidence and have matching CTest

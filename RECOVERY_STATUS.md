@@ -1,11 +1,31 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/lane-div-debris-marker-route-triage`
+Branch: `codex/lane-div-backtrack-route-triage`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added a backtrack lane-div route preset and ran another non-pruned original
+  `1000:3CE3` route-state sweep. `tools/sweep_original_lane_div_routes.py`
+  now supports `--route-preset forward-helper-backtrack`, expanding to
+  `x:4.00,Left:1.00,m:0.50,x:4.00`,
+  `x:6.00,Left:1.00,m:0.50,x:4.00`, and
+  `x:4.00,z:0.50,Left:1.00,m:0.50,x:4.00`. The live WSL/DOSBox run at
+  `/tmp/lezac-lane-div-backtrack` targeted `forward-divide` with route-state
+  sampling and `--skip-oracle`; all three captures loaded the `3CE3` runtime
+  patch with `runtime_cs=01ED` and `runtime_ds=0C8F`, but the summary recorded
+  `observed_freezes=0`, `no_freeze_candidates=3`,
+  `forward_divide_candidates=0`, `route_state_sample_files=3`,
+  `route_state_samples=122`, `route_state_debris_marker_candidates=0`,
+  `route_state_debris_marker_samples=0`,
+  `max_route_state_lane_word_global=0x0000`, and
+  `max_route_state_queue_score=190`. The strict
+  `--require-forward-divide --require-route-state-debris-marker` gate failed
+  with `reason=no_forward_divide_candidates`, so no `3D2D` handoff was written.
+  Inspected route-position and tail-freeze frames for all three routes stayed
+  in live level-1 gameplay with bomb/enemy/effect frames, so this preset is
+  reproducible route-pruning evidence only.
 - Added a delayed-bomb lane-div route preset and ran the next non-pruned
   original `1000:3CE3` route-state sweep. `tools/sweep_original_lane_div_routes.py`
   now supports `--route-preset forward-helper-delayed-bomb`, expanding to
@@ -2711,7 +2731,10 @@ no-freeze subset `x:1.75`, `x:2.25`, `x:2.00,c:0.25`, `x:2.00,c:0.75`, and
 `x:3.00,z:0.50,x:2.00` and `x:1.50,left:0.50,x:2.00`, or the broadened
 lane-div routes `x:8.00` and `x:5.00,m:0.50,x:4.00`, or the delayed-bomb
 lane-div routes `x:4.00,m:0.50,x:3.00`, `x:6.00,m:0.50,x:3.00`, and
-`x:4.00,z:0.50,m:0.50,x:3.00`. Also do not repeat the
+`x:4.00,z:0.50,m:0.50,x:3.00`, or the backtrack lane-div routes
+`x:4.00,Left:1.00,m:0.50,x:4.00`,
+`x:6.00,Left:1.00,m:0.50,x:4.00`, and
+`x:4.00,z:0.50,Left:1.00,m:0.50,x:4.00`. Also do not repeat the
 behavior-4 level-3 spawner branch smoke
 `monster_spawner_behavior4_level3`/`x:2.00` for `behavior4_branch_start` or
 `behavior4_branch_end`; both branch patches loaded and stayed no-freeze. The

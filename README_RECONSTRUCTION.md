@@ -1162,6 +1162,21 @@ three routes with `runtime_cs=01ED` and `runtime_ds=0C8F`, but summarized as
 `reason=no_forward_divide_candidates`; inspected route/tail frames stayed in
 live level-1 gameplay with bomb/enemy/effect frames. Treat this delayed-bomb
 preset as pruned until a future setup changes the capture timing or state.
+The backtrack lane-div route family is encoded as
+`--route-preset forward-helper-backtrack`, expanding to
+`x:4.00,Left:1.00,m:0.50,x:4.00`,
+`x:6.00,Left:1.00,m:0.50,x:4.00`, and
+`x:4.00,z:0.50,Left:1.00,m:0.50,x:4.00`. The live WSL/DOSBox pass at
+`/tmp/lezac-lane-div-backtrack` loaded the `3CE3` runtime patch for all three
+routes with `runtime_cs=01ED` and `runtime_ds=0C8F`, but summarized as
+`observed_freezes=0`, `no_freeze_candidates=3`, `forward_divide_candidates=0`,
+`route_state_samples=122`, `route_state_debris_marker_candidates=0`,
+`route_state_debris_marker_samples=0`, and
+`max_route_state_lane_word_global=0x0000`. The strict
+`--require-forward-divide --require-route-state-debris-marker` gate fails with
+`reason=no_forward_divide_candidates`; inspected route/tail frames stayed in
+live level-1 gameplay with bomb/enemy/effect frames. Treat this backtrack
+preset as pruned until a future setup changes the capture timing or state.
 
 `tools/summarize_lane_write_route_sweep.py` now classifies ready lane-write
 scratch tags as `collapse` or `debris` relative to the `0x4e20` debris-marker

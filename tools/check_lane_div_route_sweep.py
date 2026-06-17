@@ -280,6 +280,39 @@ def main() -> int:
         require(delayed_bomb, snippet, "delayed_bomb")
     cases += 1
 
+    backtrack = run_sweep(
+        root,
+        [
+            str(out_base / "backtrack"),
+            str(root),
+            "--dry-run",
+            "--skip-oracle",
+            "--route-preset",
+            "forward-helper-backtrack",
+        ],
+    )
+    for snippet in [
+        "offsets=1",
+        "offset_labels=3ce3",
+        "offset_addresses=1000:3CE3",
+        "routes=3",
+        "route_labels=x4p00_left1p00_m0p50_x4p00,x6p00_left1p00_m0p50_x4p00,x4p00_z0p50_left1p00_m0p50_x4p00",
+        "capture_commands=3",
+        "route_preset=forward-helper-backtrack",
+        "capture_command_x4p00_left1p00_m0p50_x4p00_3ce3=",
+        "capture_command_x6p00_left1p00_m0p50_x4p00_3ce3=",
+        "capture_command_x4p00_z0p50_left1p00_m0p50_x4p00_3ce3=",
+        "--freeze-ghidra-offset 1000:3CE3",
+        "--route-step x:4.00",
+        "--route-step x:6.00",
+        "--route-step z:0.50",
+        "--route-step Left:1.00",
+        "--route-step m:0.50",
+        "--route-step x:4.00",
+    ]:
+        require(backtrack, snippet, "backtrack")
+    cases += 1
+
     custom = run_sweep(
         root,
         [

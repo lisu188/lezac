@@ -35,11 +35,17 @@ DELAYED_BOMB_ROUTES = [
     "x:6.00,m:0.50,x:3.00",
     "x:4.00,z:0.50,m:0.50,x:3.00",
 ]
+BACKTRACK_ROUTES = [
+    "x:4.00,Left:1.00,m:0.50,x:4.00",
+    "x:6.00,Left:1.00,m:0.50,x:4.00",
+    "x:4.00,z:0.50,Left:1.00,m:0.50,x:4.00",
+]
 ROUTE_PRESETS = {
     "default": DEFAULT_ROUTES,
     "forward-helper-followup": FOLLOWUP_ROUTES,
     "forward-helper-broadened": BROADENED_ROUTES,
     "forward-helper-delayed-bomb": DELAYED_BOMB_ROUTES,
+    "forward-helper-backtrack": BACKTRACK_ROUTES,
 }
 BRANCH_ANCHOR_ROUTE_PROMOTION = "branch_anchor_route_candidates"
 LANE_WRITE_FORWARD_DEBRIS_ROUTE_PROMOTION = (
@@ -454,6 +460,8 @@ def main() -> int:
             "forward-helper-broadened covers the long right/jump routes pruned "
             "by the 2026-06-17 live lane-div pass; "
             "forward-helper-delayed-bomb covers later bomb-placement routes for "
+            "the debris-marker search; "
+            "forward-helper-backtrack covers reversal-before-bomb routes for "
             "the debris-marker search"
         ),
     )

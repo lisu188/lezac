@@ -523,6 +523,14 @@ writeback stores directly: `1000:3d1b` writes forward collapse
 `AL -> [DI+0x6618]`, and `1000:3ec1` writes reverse debris
 `DL -> [DI+0x2098]`. It also verifies the collapse skip jumps, the debris
 marker arithmetic `(tag - 0x4e20) * 0x0b`, and the shared far-result tail.
+`--debug-lane-write-tag-model` separately pins the tag-to-`DI` arithmetic and
+final write addresses for representative cases without mutating live playback:
+collapse `0x0002 -> DI=0x001e -> 0x6635/0x6636`, collapse
+`0x0005 -> DI=0x004b -> 0x6662/0x6663`, debris
+`0x4e21 -> DI=0x000b -> 0x20a2/0x20a3`, and debris
+`0x4ee8 -> DI=0x0898 -> 0x292f/0x2930`. This diagnostic intentionally reports
+`original_capture_claim=0`; it does not replace a natural forward-debris
+`1000:3d2d` runtime capture.
 
 A 2026-04-28 original runtime-child-memory capture now freezes the forward
 lane blender at `1000:3cd4`, just before it loads the far division helper

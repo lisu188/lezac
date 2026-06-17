@@ -452,6 +452,30 @@ struct DamagePhaseLookup {
     bool debris = false;
 };
 
+struct LaneWriteTagModel {
+    uint16_t tag = 0;
+    bool debris = false;
+    uint16_t slot = 0;
+    uint16_t di = 0;
+    uint16_t forwardWrite = 0;
+    uint16_t reverseWrite = 0;
+};
+
+LaneWriteTagModel laneWriteTagModelForTag(uint16_t tag) {
+    const bool debris = tag >= kHighHalfBase;
+    const uint16_t slot = debris ? static_cast<uint16_t>(tag - kHighHalfBase) : tag;
+    const size_t stride = debris ? kDebrisStride : kCollapseStride;
+    const uint16_t di = static_cast<uint16_t>(stride * slot);
+    const uint16_t forwardBase = debris ? kDebrisForwardLaneBase : kCollapseForwardLaneBase;
+    const uint16_t reverseBase = debris ? kDebrisReverseLaneBase : kCollapseReverseLaneBase;
+    return {tag,
+            debris,
+            slot,
+            di,
+            static_cast<uint16_t>(forwardBase + di),
+            static_cast<uint16_t>(reverseBase + di)};
+}
+
 struct FrameInspection {
     size_t changedPixels = 0;
     uint64_t hash = 0;
@@ -12534,6 +12558,69 @@ public:
                   << '\n';
     }
 
+    void debugLaneWriteTagModel() {
+        struct ExpectedTag {
+            uint16_t tag;
+            bool debris;
+            uint16_t slot;
+            uint16_t di;
+            uint16_t forwardWrite;
+            uint16_t reverseWrite;
+        };
+
+        const std::array<ExpectedTag, 4> expected{{
+            {0x0002, false, 0x0002, 0x001e, 0x6635, 0x6636},
+            {0x0005, false, 0x0005, 0x004b, 0x6662, 0x6663},
+            {0x4e21, true, 0x0001, 0x000b, 0x20a2, 0x20a3},
+            {0x4ee8, true, 0x00c8, 0x0898, 0x292f, 0x2930},
+        }};
+
+        int collapseCases = 0;
+        int debrisCases = 0;
+        std::ostringstream tags;
+        for (size_t i = 0; i < expected.size(); ++i) {
+            const ExpectedTag& item = expected[i];
+            const LaneWriteTagModel model = laneWriteTagModelForTag(item.tag);
+            if (model.debris != item.debris ||
+                model.slot != item.slot ||
+                model.di != item.di ||
+                model.forwardWrite != item.forwardWrite ||
+                model.reverseWrite != item.reverseWrite) {
+                throw std::runtime_error("lane write tag model mismatch for " + hex4(item.tag));
+            }
+            if (i != 0) {
+                tags << ',';
+            }
+            tags << hex4(model.tag) << ':'
+                 << (model.debris ? "debris" : "collapse")
+                 << ":slot" << hex4(model.slot)
+                 << ":di" << hex4(model.di)
+                 << ":forward" << hex4(model.forwardWrite)
+                 << ":reverse" << hex4(model.reverseWrite);
+            if (model.debris) {
+                ++debrisCases;
+            } else {
+                ++collapseCases;
+            }
+        }
+
+        std::cout << "lane_write_tag_model=ok"
+                  << " marker=" << hex4(kHighHalfBase)
+                  << " collapse_stride=" << hex4(static_cast<uint16_t>(kCollapseStride))
+                  << " debris_stride=" << hex4(static_cast<uint16_t>(kDebrisStride))
+                  << " collapse_forward_base=" << hex4(kCollapseForwardLaneBase)
+                  << " collapse_reverse_base=" << hex4(kCollapseReverseLaneBase)
+                  << " debris_forward_base=" << hex4(kDebrisForwardLaneBase)
+                  << " debris_reverse_base=" << hex4(kDebrisReverseLaneBase)
+                  << " cases=" << expected.size()
+                  << " collapse_cases=" << collapseCases
+                  << " debris_cases=" << debrisCases
+                  << " tags=" << tags.str()
+                  << " pending_natural_forward=0x3d2d"
+                  << " original_capture_claim=0"
+                  << '\n';
+    }
+
     void debugActorContactStaticModel() {
         constexpr uint16_t kScannerEntry = 0x5cb0;
         constexpr uint16_t kScannerReturn = 0x604f;
@@ -18647,6 +18734,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-lane-write-static-model") {
             app.debugLaneWriteStaticModel();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-lane-write-tag-model") {
+            app.debugLaneWriteTagModel();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-actor-contact-static-model") {

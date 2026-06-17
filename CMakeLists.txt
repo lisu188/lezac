@@ -791,6 +791,13 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^lane_write_static_model=ok image_base=0x0770 sites=4 forward=2 reverse=2 collapse=2 debris=2 jump_over_debris=2 debris_marker_base=0x4e20 debris_marker_stride=0x0b debris_marker_setups=2 shared_tail=2 pending_natural_forward=0x3d2d stores=0x3d1b:forward/collapse/al:0x6617,0x3d2d:forward/debris/dl:0x2097,0x3eaf:reverse/collapse/al:0x6618,0x3ec1:reverse/debris/dl:0x2098")
 
+        add_test(NAME lane_write_tag_model
+            COMMAND $<TARGET_FILE:lezac_cpp> --debug-lane-write-tag-model)
+        set_tests_properties(lane_write_tag_model PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_write_tag_model=ok marker=0x4e20 collapse_stride=0x000f debris_stride=0x000b collapse_forward_base=0x6617 collapse_reverse_base=0x6618 debris_forward_base=0x2097 debris_reverse_base=0x2098 cases=4 collapse_cases=2 debris_cases=2 tags=0x0002:collapse:slot0x0002:di0x001e:forward0x6635:reverse0x6636,0x0005:collapse:slot0x0005:di0x004b:forward0x6662:reverse0x6663,0x4e21:debris:slot0x0001:di0x000b:forward0x20a2:reverse0x20a3,0x4ee8:debris:slot0x00c8:di0x0898:forward0x292f:reverse0x2930 pending_natural_forward=0x3d2d original_capture_claim=0")
+
         add_test(NAME explosion_lane_write_route_sweep_default_dry_run
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_write_routes.py

@@ -1,11 +1,21 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/branch-anchor-route-handoff`
+Branch: `codex/forward-helper-debris-candidate-manifest`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Tightened the lane-write route-sweep promotion gate for the still-open
+  natural forward debris writeback. `tools/summarize_lane_write_route_sweep.py`
+  now reports `forward_debris_tag_candidates=` and
+  `reverse_debris_tag_candidates=`, exposes `--require-forward-debris-tag`, and
+  can write a `lane_write_forward_debris_route_candidates` manifest preserving
+  the exact route steps for only routes that reach a ready forward debris
+  write. `tools/sweep_original_lane_write_routes.py --route-manifest` accepts
+  that handoff alongside branch-anchor route manifests. This prevents the
+  already-promoted reverse debris write at `3EC1` from satisfying the
+  remaining natural `3D2D` gate.
 - Extended the branch-anchor to lane-write handoff: the branch-anchor
   summarizer can now write a `branch_anchor_route_candidates` manifest for
   routes satisfying `--require-route-with-targets`, preserving the exact
@@ -2559,6 +2569,8 @@ useful original-evidence step should broaden the route/control hypothesis
 beyond this level-1 timing family or construct a seeded setup that reaches a
 natural `4C96 -> 3BB2` forward-helper iteration whose lane-write scratch tag is
 at or above the debris marker base `0x4e20`, then target `1000:3D2D` only after
-`tools/summarize_lane_write_route_sweep.py <manifest> --require-debris-tag`
-passes. Otherwise return to DOSBox frame/debugger evidence for behavior-4
-movement, targeting, and respawn timing.
+`tools/summarize_lane_write_route_sweep.py <manifest> --require-forward-debris-tag`
+passes and, when useful, writes a
+`lane_write_forward_debris_route_candidates` handoff. Otherwise return to
+DOSBox frame/debugger evidence for behavior-4 movement, targeting, and respawn
+timing.

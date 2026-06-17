@@ -419,6 +419,60 @@ def main() -> int:
         require(route_manifest_dry, snippet, "route_manifest")
     cases += 1
 
+    forward_debris_route_manifest = out_base / "forward-debris-routes.txt"
+    forward_debris_route_manifest.write_text(
+        "\n".join(
+            [
+                "promotion=lane_write_forward_debris_route_candidates",
+                "source_manifest=/tmp/lezac-forward-debris-sweep/manifest.txt",
+                "source_environment_preflight=ok",
+                "required_candidate=forward_debris_tag",
+                "matching_routes=1",
+                "route_0_label=x2p00_m0p35",
+                "route_0_steps=x:2.00,m:0.35",
+                "route_0_offset_label=3d2d",
+                "route_0_offset_address=1000:3D2D",
+                "route_0_lane_write_tag=0x4ee8",
+                "route_0_lane_write_di=0x0898",
+                "route_0_fixture=/tmp/candidate.txt",
+                "",
+            ]
+        ),
+        encoding="ascii",
+    )
+    forward_debris_manifest_dry = run_sweep(
+        root,
+        [
+            str(out_base / "forward-debris-route-manifest"),
+            str(root),
+            "--dry-run",
+            "--skip-oracle",
+            "--route-manifest",
+            str(forward_debris_route_manifest),
+            "--offset",
+            "forward-debris",
+        ],
+    )
+    for snippet in [
+        "offsets=1",
+        "offset_labels=3d2d",
+        "routes=1",
+        "route_labels=x2p00_m0p35",
+        "capture_commands=1",
+        "route_preset=lane-write-forward-debris-route-manifest",
+        f"route_manifest={forward_debris_route_manifest.resolve()}",
+        "capture_command_x2p00_m0p35_3d2d=",
+        "--freeze-ghidra-offset 1000:3D2D",
+        "--route-step x:2.00",
+        "--route-step m:0.35",
+    ]:
+        require(
+            forward_debris_manifest_dry,
+            snippet,
+            "forward_debris_route_manifest",
+        )
+    cases += 1
+
     route_manifest_conflict = run_sweep(
         root,
         [

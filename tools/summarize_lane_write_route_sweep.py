@@ -20,6 +20,7 @@ CAPTURE_ROUTE_SWEEP = "lane_write_route_sweep"
 CAPTURE_PROCMEM = "original_explosion_process_memory"
 ORACLE = "explosion_playback"
 ORACLE_FLAG = "--debug-explosion-playback-oracle"
+FORWARD_DEBRIS_ROUTE_PROMOTION = "lane_write_forward_debris_route_candidates"
 OFFSET_ADDRESSES = {
     "3d1b": "1000:3D1B",
     "3d2d": "1000:3D2D",
@@ -52,7 +53,9 @@ class Manifest:
 
 @dataclass(frozen=True)
 class Candidate:
+    capture_label: str
     route_label: str
+    route_steps: list[str]
     offset_label: str
     offset_address: str
     fixture: Path | None
@@ -87,10 +90,14 @@ class SummaryResult:
     details: list[str]
     readiness_counts: dict[str, int]
     debris_tag_candidates: int
+    forward_debris_tag_candidates: int
+    reverse_debris_tag_candidates: int
     collapse_tag_candidates: int
     unknown_tag_candidates: int
     ready_manifest_lines: list[str]
+    forward_debris_route_candidates: list[tuple[Candidate, CandidateReadiness]]
     environment_preflight: str
+    source_manifest: Path
 
 
 def read_manifest(path: Path) -> Manifest:
@@ -228,6 +235,24 @@ def oracle_command(binary: str, candidate_fixture: Path | None) -> str:
     return " ".join(
         shlex.quote(part) for part in [binary, ORACLE_FLAG, str(candidate_fixture)]
     )
+
+
+def extract_route_steps(command: str | None) -> list[str]:
+    if not command:
+        return []
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        return []
+    steps: list[str] = []
+    index = 0
+    while index < len(tokens):
+        if tokens[index] == "--route-step" and index + 1 < len(tokens):
+            steps.append(tokens[index + 1])
+            index += 2
+            continue
+        index += 1
+    return steps
 
 
 def active_values(path: Path) -> tuple[dict[str, str], list[str]]:
@@ -398,7 +423,9 @@ def procmem_candidate(manifest: Manifest, route_label: str, offset_label: str) -
         else None
     )
     return Candidate(
+        capture_label="direct",
         route_label=route_label,
+        route_steps=[],
         offset_label=offset_label_from_address(offset_label),
         offset_address=offset_address_from_label(offset_label),
         fixture=fixture,
@@ -411,8 +438,12 @@ def route_sweep_candidates(manifest: Manifest) -> list[Candidate]:
     for key, value in manifest.entries:
         if not key.startswith("capture_status_"):
             continue
+        capture_label = key.removeprefix("capture_status_")
         fields = parse_status_fields(value)
-        route_label = fields.get("route", key.removeprefix("capture_status_"))
+        route_label = fields.get("route", capture_label)
+        route_steps = extract_route_steps(
+            manifest.values.get(f"capture_command_{capture_label}")
+        )
         offset_label = offset_label_from_address(fields.get("offset", "unknown"))
         offset_address = fields.get("offset_address", offset_address_from_label(offset_label))
         raw_fixture = fields.get("candidate")
@@ -428,7 +459,9 @@ def route_sweep_candidates(manifest: Manifest) -> list[Candidate]:
                     fixture = resolve_child_path(child_fixture, child.path)
         candidates.append(
             Candidate(
+                capture_label=capture_label,
                 route_label=route_label,
+                route_steps=route_steps,
                 offset_label=offset_label,
                 offset_address=offset_address,
                 fixture=fixture,
@@ -508,6 +541,67 @@ def ready_manifest_records(
     return lines
 
 
+def is_forward_debris_ready(
+    readiness: CandidateReadiness,
+) -> bool:
+    return (
+        readiness.status == "ready"
+        and readiness.lane_write_kind == "forward"
+        and readiness.lane_write_target == "debris"
+        and readiness.lane_write_tag_class == "debris"
+    )
+
+
+def is_reverse_debris_ready(
+    readiness: CandidateReadiness,
+) -> bool:
+    return (
+        readiness.status == "ready"
+        and readiness.lane_write_kind == "reverse"
+        and readiness.lane_write_target == "debris"
+        and readiness.lane_write_tag_class == "debris"
+    )
+
+
+def forward_debris_route_manifest_records(
+    source_manifest: Path,
+    source_environment_preflight: str,
+    candidates: list[tuple[Candidate, CandidateReadiness]],
+) -> list[str]:
+    matching: list[tuple[Candidate, CandidateReadiness]] = []
+    seen_routes: set[str] = set()
+    for candidate, readiness in candidates:
+        if not is_forward_debris_ready(readiness):
+            continue
+        if candidate.route_label in seen_routes:
+            continue
+        seen_routes.add(candidate.route_label)
+        matching.append((candidate, readiness))
+    lines = [
+        f"promotion={FORWARD_DEBRIS_ROUTE_PROMOTION}",
+        f"source_manifest={source_manifest}",
+        f"source_environment_preflight={source_environment_preflight}",
+        "required_candidate=forward_debris_tag",
+        f"matching_routes={len(matching)}",
+    ]
+    for index, (candidate, readiness) in enumerate(matching):
+        if not candidate.route_steps:
+            raise ValueError(f"route_steps_missing route={candidate.route_label}")
+        prefix = f"route_{index}"
+        lines.extend(
+            [
+                f"{prefix}_label={candidate.route_label}",
+                f"{prefix}_steps={','.join(candidate.route_steps)}",
+                f"{prefix}_offset_label={candidate.offset_label}",
+                f"{prefix}_offset_address={candidate.offset_address}",
+                f"{prefix}_lane_write_tag={readiness.lane_write_tag}",
+                f"{prefix}_lane_write_di={readiness.lane_write_di}",
+                f"{prefix}_fixture={candidate.fixture}",
+            ]
+        )
+    return lines
+
+
 def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
     mode, expected_offsets, candidates = collect_candidates(manifest)
     environment_preflight = manifest.values.get("environment_preflight", "unknown")
@@ -529,6 +623,15 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         if readiness.status == "ready"
     ]
     debris_tag_candidates = ready_tag_classes.count("debris")
+    forward_debris_readings = [
+        (candidate, readiness)
+        for candidate, readiness in readings
+        if is_forward_debris_ready(readiness)
+    ]
+    forward_debris_tag_candidates = len(forward_debris_readings)
+    reverse_debris_tag_candidates = sum(
+        1 for _, readiness in readings if is_reverse_debris_ready(readiness)
+    )
     collapse_tag_candidates = ready_tag_classes.count("collapse")
     unknown_tag_candidates = ready_tag_classes.count("unknown")
     max_lane_write_tag = max(
@@ -569,6 +672,8 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         f"incomplete_candidates={readiness_counts['incomplete']} "
         f"missing_candidates={readiness_counts['missing']} "
         f"debris_tag_candidates={debris_tag_candidates} "
+        f"forward_debris_tag_candidates={forward_debris_tag_candidates} "
+        f"reverse_debris_tag_candidates={reverse_debris_tag_candidates} "
         f"collapse_tag_candidates={collapse_tag_candidates} "
         f"unknown_tag_candidates={unknown_tag_candidates} "
         f"max_lane_write_tag={hex_or_none(max_lane_write_tag)} "
@@ -583,6 +688,7 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
             f"route={candidate.route_label} "
             f"offset={candidate.offset_label} "
             f"offset_address={candidate.offset_address} "
+            f"route_steps={csv_or_none(candidate.route_steps)} "
             f"kind={readiness.lane_write_kind or 'unknown'} "
             f"target={readiness.lane_write_target or 'unknown'} "
             f"runtime_cs={readiness.runtime_cs or 'unknown'} "
@@ -612,16 +718,27 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         details=details,
         readiness_counts=readiness_counts,
         debris_tag_candidates=debris_tag_candidates,
+        forward_debris_tag_candidates=forward_debris_tag_candidates,
+        reverse_debris_tag_candidates=reverse_debris_tag_candidates,
         collapse_tag_candidates=collapse_tag_candidates,
         unknown_tag_candidates=unknown_tag_candidates,
         ready_manifest_lines=ready_manifest_records(
             manifest.path, environment_preflight, oracle_binary, readings
         ),
+        forward_debris_route_candidates=forward_debris_readings,
         environment_preflight=environment_preflight,
+        source_manifest=manifest.path,
     )
 
 
 def write_ready_manifest(path: Path, lines: list[str]) -> Path:
+    path = path.resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="ascii")
+    return path
+
+
+def write_forward_debris_route_manifest(path: Path, lines: list[str]) -> Path:
     path = path.resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n", encoding="ascii")
@@ -675,6 +792,21 @@ def require_debris_tag_error(result: SummaryResult) -> str | None:
     )
 
 
+def require_forward_debris_tag_error(result: SummaryResult) -> str | None:
+    if result.forward_debris_tag_candidates > 0:
+        return None
+    return (
+        "lane_write_route_sweep_summary=error "
+        "reason=no_forward_debris_tag_candidates "
+        f"ready_candidates={result.readiness_counts.get('ready', 0)} "
+        f"debris_tag_candidates={result.debris_tag_candidates} "
+        f"forward_debris_tag_candidates={result.forward_debris_tag_candidates} "
+        f"reverse_debris_tag_candidates={result.reverse_debris_tag_candidates} "
+        f"collapse_tag_candidates={result.collapse_tag_candidates} "
+        f"unknown_tag_candidates={result.unknown_tag_candidates}"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Summarize lane-write route-sweep manifests."
@@ -699,9 +831,26 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--require-forward-debris-tag",
+        action="store_true",
+        help=(
+            "exit nonzero unless at least one ready lane-write candidate is "
+            "the natural forward debris writeback with a scratch tag at or "
+            "above the 0x4e20 debris-marker base"
+        ),
+    )
+    parser.add_argument(
         "--write-ready-manifest",
         type=Path,
         help="write a key/value manifest containing ready freeze candidates",
+    )
+    parser.add_argument(
+        "--write-forward-debris-route-manifest",
+        type=Path,
+        help=(
+            "write a lane_write_forward_debris_route_candidates manifest for "
+            "routes satisfying --require-forward-debris-tag"
+        ),
     )
     parser.add_argument(
         "--require-environment-preflight",
@@ -731,6 +880,47 @@ def main() -> int:
             f"path={ready_manifest} "
             f"ready_candidates={result.readiness_counts.get('ready', 0)}"
         )
+    if args.write_forward_debris_route_manifest is not None:
+        if not args.require_forward_debris_tag:
+            print(
+                "lane_write_forward_debris_route_manifest=error "
+                "reason=write_requires_require_forward_debris_tag",
+                file=sys.stderr,
+            )
+            return 6
+        error = require_forward_debris_tag_error(result)
+        if error is not None:
+            print(error, file=sys.stderr)
+            return 5
+        try:
+            route_manifest_lines = forward_debris_route_manifest_records(
+                result.source_manifest,
+                result.environment_preflight,
+                result.forward_debris_route_candidates,
+            )
+            route_manifest = write_forward_debris_route_manifest(
+                args.write_forward_debris_route_manifest,
+                route_manifest_lines,
+            )
+        except (OSError, ValueError) as exc:
+            print(
+                f"lane_write_forward_debris_route_manifest=error reason={exc}",
+                file=sys.stderr,
+            )
+            return 7
+        matching_routes = next(
+            (
+                line.split("=", 1)[1]
+                for line in route_manifest_lines
+                if line.startswith("matching_routes=")
+            ),
+            "0",
+        )
+        print(
+            "lane_write_forward_debris_route_manifest=ok "
+            f"path={route_manifest} "
+            f"matching_routes={matching_routes}"
+        )
     if args.require_ready:
         error = require_ready_error(result.readiness_counts)
         if error is not None:
@@ -741,6 +931,11 @@ def main() -> int:
         if error is not None:
             print(error, file=sys.stderr)
             return 4
+    if args.require_forward_debris_tag:
+        error = require_forward_debris_tag_error(result)
+        if error is not None:
+            print(error, file=sys.stderr)
+            return 5
     if args.require_environment_preflight:
         error = require_environment_preflight_error(result.environment_preflight)
         if error is not None:

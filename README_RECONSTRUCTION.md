@@ -953,8 +953,8 @@ and gates for `--require-target`, `--require-route-with-targets`, and
 route steps are emitted as `branch_anchor_route_candidates`; the lane-write
 sweep accepts that handoff with `--route-manifest`. This is a reachability
 classifier only; a natural `1000:3D2D` lane-write capture still needs the later
-`tools/summarize_lane_write_route_sweep.py --require-debris-tag` gate before
-promotion.
+`tools/summarize_lane_write_route_sweep.py --require-forward-debris-tag` gate
+before promotion.
 
 The first live classifier pass wrote
 `C:\Users\andrz\AppData\Local\Temp\lezac-branch-anchor-default-1781615578`.
@@ -1028,9 +1028,15 @@ base. The prior helper-tag search at
 now summarizes as `debris_tag_candidates=0`, `collapse_tag_candidates=2`, and
 `max_lane_write_tag=0x0005`; `--require-debris-tag` fails on that manifest with
 `reason=no_debris_tag_candidates`. Use
-`tools/summarize_lane_write_route_sweep.py <manifest-or-dir> --require-debris-tag`
-as the gate before spending a natural `1000:3D2D` capture on a newly found
-helper-tag route.
+`tools/summarize_lane_write_route_sweep.py <manifest-or-dir> --require-forward-debris-tag`
+as the stricter gate before spending a natural `1000:3D2D` capture on a newly
+found helper-tag route. The broader `--require-debris-tag` still accepts
+reverse debris evidence such as `3EC1`; the remaining gap needs the forward
+debris write specifically. When that stricter gate passes, add
+`--write-forward-debris-route-manifest /tmp/lezac-forward-debris-routes.txt`
+and feed the resulting `lane_write_forward_debris_route_candidates` file back
+to `tools/sweep_original_lane_write_routes.py --route-manifest` for focused
+follow-up probes.
 
 The sweep wrapper now translates `/mnt/<drive>/...` candidate paths when a WSL
 run invokes a Windows `.exe` oracle, so that host split can parse candidates in

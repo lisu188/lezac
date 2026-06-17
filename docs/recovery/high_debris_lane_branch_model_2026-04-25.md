@@ -659,6 +659,13 @@ Summarize its output with
 prints each ready lane-write candidate's scratch tag and derived
 `lane_write_tag_class`; add `--require-debris-tag` when the search should fail
 unless a ready candidate has a tag at or above the `0x4e20` debris-marker base.
+For the remaining natural forward writeback, prefer
+`--require-forward-debris-tag`; broad debris evidence can be satisfied by the
+already-observed reverse debris write at `3EC1`, while the unresolved target is
+the forward debris write at `3D2D`. Once that stricter gate passes,
+`--write-forward-debris-route-manifest` records the exact matching route steps
+as `lane_write_forward_debris_route_candidates` for a focused
+`tools/sweep_original_lane_write_routes.py --route-manifest` retry.
 The prior helper-tag search now reports `debris_tag_candidates=0`,
 `collapse_tag_candidates=2`, and `max_lane_write_tag=0x0005`, so it remains
 negative evidence for natural forward-debris writeback. Add

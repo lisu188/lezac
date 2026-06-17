@@ -839,6 +839,18 @@ three routes with `runtime_cs=01ED` and `runtime_ds=0C8F`, but recorded
 `max_route_state_lane_word_global=0x0000`. Inspected route/tail frames stayed
 in live level-1 gameplay with bomb/enemy/effect frames, so this is another
 pruned route family and not a forward debris writeback handoff.
+The backtrack lane-div route family is encoded as
+`--route-preset forward-helper-backtrack`: `x:4.00,Left:1.00,m:0.50,x:4.00`,
+`x:6.00,Left:1.00,m:0.50,x:4.00`, and
+`x:4.00,z:0.50,Left:1.00,m:0.50,x:4.00`. The live pass at
+`/tmp/lezac-lane-div-backtrack` loaded the `3CE3` runtime patch for all three
+routes with `runtime_cs=01ED` and `runtime_ds=0C8F`, but recorded
+`observed_freezes=0`, `no_freeze_candidates=3`, `forward_divide_candidates=0`,
+`route_state_samples=122`, `route_state_debris_marker_candidates=0`,
+`route_state_debris_marker_samples=0`, and
+`max_route_state_lane_word_global=0x0000`. Inspected route/tail frames stayed
+in live level-1 gameplay with bomb/enemy/effect frames, so this is additional
+route-pruning evidence and not a forward debris writeback handoff.
 
 `tools/summarize_lane_result_route_sweep.py`
 now classifies completed route-sweep candidates as `ready`, `no_freeze`,

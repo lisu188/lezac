@@ -228,15 +228,18 @@ pair to all six anchors with `--all-targets`; it still emits only
 `behavior4_procmem` capture manifests and non-promoted candidates.
 `tools/summarize_behavior4_procmem_route_sweep.py` triages those manifests into
 completed capture counts, observed freeze counts, patch-loaded no-freeze
-counts, candidate readiness, and per-capture `--debug-behavior4-runtime-oracle`
-commands before any fixture is considered for promotion. With
-`--write-ready-manifest`, ready sweep candidates are emitted as
+counts, total `runtime_patches_applied=`, candidate readiness, and per-capture
+`--debug-behavior4-runtime-oracle` commands before any fixture is considered
+for promotion. Use `--require-runtime-patch` to reject sweeps that never armed
+the runtime patch. With `--write-ready-manifest`, ready sweep candidates are
+emitted as
 `debug_capture_ready_candidates` manifests for
 `tools/run_debug_capture_ready_manifest.py`, reusing the existing behavior-4
-runtime-oracle execution path. Two 2026-06-17 WSL smoke runs reached runtime
-metadata and loaded the `01ED:728C` branch-start patch on routes `x:2.00` and
-`x:5.00,m:0.50,x:2.00`, but both summarized as patch-loaded no-freeze
-candidates with no ready fixture rows.
+runtime-oracle execution path. Three 2026-06-17 WSL smoke runs reached runtime
+metadata and loaded the `01ED:728C` branch-start patch on before-bomb routes
+`x:2.00` and `x:5.00,m:0.50,x:2.00`, plus before-route route `x:2.00`, but
+each summarized as a patch-loaded no-freeze candidate with no ready fixture
+rows.
 `tools/check_behavior4_runtime_oracle_fixtures.py` keeps that fixed synthetic
 baseline while allowing future `behavior4_runtime_oracle_original*.txt`
 fixtures only when they parse as valid runtime evidence and have matching CTest

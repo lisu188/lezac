@@ -245,6 +245,37 @@ def write_no_freeze_sweep(base: Path) -> Path:
     return manifest
 
 
+def write_no_patch_sweep(base: Path) -> Path:
+    ready = base / "ready" / "candidate.txt"
+    ready_capture = base / "ready" / "manifest.txt"
+    write_ready_candidate(ready)
+    write_capture_manifest(ready_capture, False, "0")
+    manifest = base / "manifest.txt"
+    write_text(
+        manifest,
+        "\n".join(
+            [
+                "capture=behavior4_procmem_route_sweep",
+                "scenario=monster_behavior4_target_selection",
+                "expected_level=3",
+                "targets=1",
+                "target_names=behavior4_branch_start",
+                "timings=before_route",
+                "routes=1",
+                "route_labels=x2p00",
+                "environment_preflight=ok",
+                "capture_command_behavior4_branch_start_before_route_x2p00=env bash helper",
+                "capture_status_behavior4_branch_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_branch_start ghidra=1000:728C runtime_cs=01ED runtime_ds=0C8F freeze_observed=unknown manifest="
+                + str(ready_capture)
+                + " candidate_fixture="
+                + str(ready),
+                "",
+            ]
+        ),
+    )
+    return manifest
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Check behavior-4 process-memory route-sweep summaries."
@@ -272,6 +303,7 @@ def main() -> int:
             "capture_commands=3",
             "completed_captures=2",
             "observed_freezes=1",
+            "runtime_patches_applied=2",
             "patched_no_freeze_candidates=1",
             "ready_candidates=1",
             "incomplete_candidates=1",
@@ -306,6 +338,7 @@ def main() -> int:
                 str(ready),
                 "--require-ready",
                 "--require-observed-freeze",
+                "--require-runtime-patch",
                 "--require-environment-preflight",
                 "--write-ready-manifest",
                 str(ready_manifest),
@@ -313,6 +346,7 @@ def main() -> int:
         )
         require(ready_out, "ready_candidates=1", "ready_summary")
         require(ready_out, "observed_freezes=1", "ready_summary")
+        require(ready_out, "runtime_patches_applied=1", "ready_summary")
         require(ready_out, "patched_no_freeze_candidates=0", "ready_summary")
         require(ready_out, "behavior4_procmem_ready_manifest=ok", "ready_manifest")
         require(ready_out, f"path={ready_manifest.resolve()}", "ready_manifest")
@@ -360,7 +394,17 @@ def main() -> int:
             root, [str(no_freeze), "--require-observed-freeze"], False
         )
         require(no_freeze_out, "reason=no_observed_freezes", "no_freeze")
+        require(no_freeze_out, "runtime_patches_applied=1", "no_freeze")
         require(no_freeze_out, "patched_no_freeze_candidates=1", "no_freeze")
+        cases += 1
+
+        no_patch = write_no_patch_sweep(base / "no-patch")
+        no_patch_out = run_tool(
+            root, [str(no_patch), "--require-runtime-patch"], False
+        )
+        require(no_patch_out, "reason=no_runtime_patches_applied", "no_patch")
+        require(no_patch_out, "runtime_patches_applied=0", "no_patch")
+        require(no_patch_out, "patched_no_freeze_candidates=0", "no_patch")
         cases += 1
 
         preflight_out = run_tool(

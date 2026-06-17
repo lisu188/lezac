@@ -68,6 +68,7 @@ class SummaryResult:
     details: list[str]
     readiness_counts: dict[str, int]
     observed_freezes: int
+    runtime_patches_applied: int
     patched_no_freeze: int
     environment_preflight: str
     manifest: Manifest
@@ -277,12 +278,15 @@ def summarize(args: argparse.Namespace) -> SummaryResult:
     captures = [summarize_capture(manifest, label) for label in labels]
     readiness_counts = {"ready": 0, "incomplete": 0, "missing": 0}
     observed_freezes = 0
+    runtime_patches_applied = 0
     patched_no_freeze = 0
     details: list[str] = []
     ready_manifests: list[str] = []
     missing_labels: list[str] = []
     for capture_summary in captures:
         readiness_counts[capture_summary.readiness.status] += 1
+        if capture_summary.runtime_patch_applied:
+            runtime_patches_applied += 1
         if capture_summary.freeze_observed:
             observed_freezes += 1
         elif capture_summary.runtime_patch_applied:
@@ -324,6 +328,7 @@ def summarize(args: argparse.Namespace) -> SummaryResult:
             f"capture_commands={len(labels)}",
             f"completed_captures={len([c for c in captures if c.status_line])}",
             f"observed_freezes={observed_freezes}",
+            f"runtime_patches_applied={runtime_patches_applied}",
             f"patched_no_freeze_candidates={patched_no_freeze}",
             f"ready_candidates={readiness_counts['ready']}",
             f"incomplete_candidates={readiness_counts['incomplete']}",
@@ -339,6 +344,7 @@ def summarize(args: argparse.Namespace) -> SummaryResult:
         details=details,
         readiness_counts=readiness_counts,
         observed_freezes=observed_freezes,
+        runtime_patches_applied=runtime_patches_applied,
         patched_no_freeze=patched_no_freeze,
         environment_preflight=environment_preflight,
         manifest=manifest,
@@ -420,6 +426,11 @@ def main() -> int:
         help="exit nonzero unless at least one capture reports an observed freeze",
     )
     parser.add_argument(
+        "--require-runtime-patch",
+        action="store_true",
+        help="exit nonzero unless at least one capture reports a runtime patch",
+    )
+    parser.add_argument(
         "--require-environment-preflight",
         action="store_true",
         help="exit nonzero unless the sweep manifest records environment_preflight=ok",
@@ -488,6 +499,13 @@ def main() -> int:
             file=sys.stderr,
         )
         return 4
+    if args.require_runtime_patch and result.runtime_patches_applied == 0:
+        print(
+            "behavior4_procmem_route_sweep_summary=error "
+            "reason=no_runtime_patches_applied",
+            file=sys.stderr,
+        )
+        return 6
     return 0
 
 

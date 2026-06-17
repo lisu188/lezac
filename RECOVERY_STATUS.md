@@ -1,11 +1,17 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/behavior4-procmem-status-fields`
+Branch: `codex/behavior4-runtime-patch-gate`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Extended `tools/summarize_behavior4_procmem_route_sweep.py` and its checker
+  so behavior-4 route-sweep summaries now report total
+  `runtime_patches_applied=` and expose `--require-runtime-patch`. The checker
+  covers a synthetic no-patch sweep that fails with
+  `reason=no_runtime_patches_applied`, preventing a live matrix from looking
+  useful when no runtime freeze patch was actually armed.
 - Extended `tools/capture_original_behavior4_procmem.sh` so live capture status
   lines now emit `freeze_runtime_patch_applied=` directly, matching the child
   capture manifest and raw dump. The behavior-4 route-sweep summarizer still
@@ -16,14 +22,17 @@ Baseline: `origin/main`
   so behavior-4 route-sweep summaries now distinguish patch-loaded no-freeze
   captures from missing or unattempted candidates. Details report
   `runtime_patch_applied=`, and the summary reports
-  `patched_no_freeze_candidates=` from either the top-level capture status or
-  the child capture manifest's `freeze_runtime_patch_applied` field. Two
+  `runtime_patches_applied=` plus `patched_no_freeze_candidates=` from either
+  the top-level capture status or
+  the child capture manifest's `freeze_runtime_patch_applied` field. Three
   2026-06-17 WSL smoke captures
   proved the new classification on live original runs: `behavior4_branch_start`
-  before-bomb route `x:2.00` and route `x:5.00,m:0.50,x:2.00` both observed
-  `runtime_cs=01ED`, `runtime_ds=0C8F`, loaded the `01ED:728C` patch, and
-  summarized as `observed_freezes=0`, `patched_no_freeze_candidates=1`,
-  `ready_candidates=0`. These are negative route evidence, not promoted
+  before-bomb route `x:2.00`, before-bomb route `x:5.00,m:0.50,x:2.00`, and
+  before-route route `x:2.00` each observed `runtime_cs=01ED`,
+  `runtime_ds=0C8F`, loaded the `01ED:728C` patch, and summarized as
+  `runtime_patches_applied=1`, `observed_freezes=0`,
+  `patched_no_freeze_candidates=1`, `ready_candidates=0`. These are negative
+  route evidence, not promoted
   behavior-4 runtime fixtures.
 - Added `--debug-behavior4-static-model` and CTest coverage to pin the shipped
   `LEZAC.EXE` byte windows for the six behavior-4 runtime-capture anchors:

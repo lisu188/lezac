@@ -1,11 +1,20 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/next-reimplementation-gap`
+Branch: `codex/lane-write-tag-model`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added `--debug-lane-write-tag-model` and CTest coverage to pin the recovered
+  lane write tag/address arithmetic without changing gameplay. The diagnostic
+  maps collapse tags directly through the `0x0f` stride, maps debris tags by
+  subtracting the `0x4e20` marker before the `0x0b` stride, and checks
+  representative collapse writes `0x0002 -> 0x6635/0x6636`,
+  `0x0005 -> 0x6662/0x6663` plus debris writes
+  `0x4e21 -> 0x20a2/0x20a3` and `0x4ee8 -> 0x292f/0x2930`. The output keeps
+  `original_capture_claim=0`, so the pending natural `1000:3D2D` capture is
+  still an explicit follow-up rather than implied by the arithmetic model.
 - Encapsulated the two remaining sound compatibility routes behind
   `playCompatibilitySound(...)` and a single
   `kRemainingSoundCompatibilityHooks` metadata table. Objective pickup and

@@ -88,6 +88,7 @@ LEZAC_LOAD_ORIGINAL_ASSETS=1 ./build/lezac_cpp --validate
 ./build/lezac_cpp --debug-sound-callsite-oracle tests/fixtures/dosbox/sound_callsite_oracle_synthetic.txt
 LEZAC_SOUND_CALLSITE_DEBUG_DRY_RUN=1 tools/capture_original_sound_callsite_debug.sh /tmp/lezac-sound-callsite-debug . player_damage_sound
 ./build/lezac_cpp --debug-lane-write-static-model
+./build/lezac_cpp --debug-lane-write-tag-model
 ./build/lezac_cpp --debug-actor-contact-static-model
 ./build/lezac_cpp --debug-original-damage-counters
 ./build/lezac_cpp --debug-level1-frame-inspection
@@ -1004,6 +1005,12 @@ the same pass instead of leaving `oracle_error` records for path-only reasons.
 that plan: forward/reverse collapse stores at `1000:3D1B`/`1000:3EAF`,
 forward/reverse debris stores at `1000:3D2D`/`1000:3EC1`, the `0x4E20`
 debris marker base, `0x0B` debris stride, and the shared far-result write tail.
+`--debug-lane-write-tag-model` bridges those stores to the recovered tag
+arithmetic without changing gameplay: collapse tags map directly to
+`DI=0x0f*tag`, debris tags subtract `0x4e20` before `DI=0x0b*slot`, and the
+diagnostic pins representative writes for collapse tags `0x0002`/`0x0005` and
+debris tags `0x4e21`/`0x4ee8`. It remains a C++ arithmetic/model check with
+`original_capture_claim=0`, not a natural `1000:3D2D` runtime observation.
 
 ## Implemented
 

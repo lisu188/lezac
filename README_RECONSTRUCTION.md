@@ -182,6 +182,10 @@ format records scenario/level, runtime `CS`/`DS`, spawner fields, actor
 before/after position and 8.8 velocity, motion timer, target/player-dead state,
 and optional raw `DS:` dump rows while anchoring the transcript to
 `1000:7A6B..7C2C`, `1000:728C..731B`, and `1000:73E5..741B`.
+`--debug-behavior4-static-model` pins the shipped executable bytes at those
+six anchor offsets and reports the same target map used by the runtime oracle
+and process-memory helper. It is a static byte guardrail with `visual_claim=0`,
+not proof of behavior-4 runtime semantics.
 Use `tools/capture_original_behavior4_debug.sh` to stage best-effort
 DOSBox-debug capture plans for `monster_spawner_behavior4_level2`,
 `monster_spawner_behavior4_level3`, and `monster_behavior4_target_selection`.
@@ -507,6 +511,7 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer level1_bomb_route
 tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-frames level1_bomb_route
 tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-b4-level2 monster_spawner_behavior4_level2
+./build/lezac_cpp --debug-behavior4-static-model
 ./build/lezac_cpp --debug-behavior4-runtime-oracle \
   tests/fixtures/dosbox/behavior4_runtime_oracle_synthetic.txt
 ./build/lezac_cpp --debug-actor-update-runtime-oracle \

@@ -2390,6 +2390,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^state2_visual_row_game_preview=ok frames=6 outputs=12 current_sprites=67,68,69,70,71,72 cursor_sprites=74,75,76,77,78,79 cursor_minus_current=7 draw_offsets=16,16;16,16;16,16;16,16;16,16;16,16 cursor_hash_mismatch=1 effect_entry_xy=104,168 current_renderer=effect_entry_row_byte3 current_base=state2_effect_entry current_draw_offsets=effect_entry_row_byte0,row_byte1 cursor_renderer=debug_only visual_claim=0 .* manifest=manifest.txt")
 
+    add_test(NAME behavior4_static_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-static-model)
+    set_tests_properties(behavior4_static_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^behavior4_static_model=ok image_base=0x0770 anchors=6 spawner=2 branch=2 integration=2 target_map=0x7a6b:spawner_loop_start/spawner_loop,0x7c2c:spawner_loop_end/spawner_loop,0x728c:behavior4_branch_start/behavior4_branch,0x731b:behavior4_branch_end/behavior4_branch,0x73e5:integration_8_8_start/integration_8_8,0x741b:integration_8_8_end/integration_8_8 runtime_oracle=--debug-behavior4-runtime-oracle procmem_helper=tools/capture_original_behavior4_procmem.sh visual_claim=0")
+
     add_test(NAME behavior4_runtime_oracle_synthetic
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-runtime-oracle
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox/behavior4_runtime_oracle_synthetic.txt)

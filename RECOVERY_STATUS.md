@@ -1,11 +1,23 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/behavior4-static-anchor-model`
+Branch: `codex/behavior4-no-freeze-summary`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Extended `tools/summarize_behavior4_procmem_route_sweep.py` and its checker
+  so behavior-4 route-sweep summaries now distinguish patch-loaded no-freeze
+  captures from missing or unattempted candidates. Details report
+  `runtime_patch_applied=`, and the summary reports
+  `patched_no_freeze_candidates=` by reading the child capture manifest's
+  `freeze_runtime_patch_applied` field. Two 2026-06-17 WSL smoke captures
+  proved the new classification on live original runs: `behavior4_branch_start`
+  before-bomb route `x:2.00` and route `x:5.00,m:0.50,x:2.00` both observed
+  `runtime_cs=01ED`, `runtime_ds=0C8F`, loaded the `01ED:728C` patch, and
+  summarized as `observed_freezes=0`, `patched_no_freeze_candidates=1`,
+  `ready_candidates=0`. These are negative route evidence, not promoted
+  behavior-4 runtime fixtures.
 - Added `--debug-behavior4-static-model` and CTest coverage to pin the shipped
   `LEZAC.EXE` byte windows for the six behavior-4 runtime-capture anchors:
   spawner loop `1000:7A6B`/`1000:7C2C`, behavior-4 branch

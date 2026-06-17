@@ -97,6 +97,7 @@ def main() -> int:
         "timings=before_bomb,before_route routes=4",
         "route_labels=x2p00,x5p00_m0p50_x2p00,x3p00_z0p50_x2p00,x1p50_left0p50_x2p00",
         "capture_commands=16",
+        "route_preset=default",
         "capture_command_behavior4_branch_start_before_bomb_x2p00=",
         "capture_command_integration_8_8_start_before_route_x2p00=",
         "environment_preflight=1",
@@ -115,6 +116,40 @@ def main() -> int:
         "LEZAC_BEHAVIOR4_ROUTE_STEPS=x:5.00,m:0.50,x:2.00",
     ]:
         require(default_dry, snippet, "default_dry_run")
+    cases += 1
+
+    branch_x2 = run_sweep(
+        root,
+        [
+            str(out_base / "branch-x2"),
+            str(root),
+            "--dry-run",
+            "--scenario",
+            "monster_spawner_behavior4_level3",
+            "--target",
+            "behavior4_branch_start",
+            "--target",
+            "behavior4_branch_end",
+            "--timing",
+            "before_route",
+            "--route-preset",
+            "branch-x2",
+        ],
+    )
+    for snippet in [
+        "scenario=monster_spawner_behavior4_level3",
+        "expected_level=3 targets=2",
+        "target_names=behavior4_branch_start,behavior4_branch_end",
+        "timings=before_route routes=1",
+        "route_labels=x2p00",
+        "capture_commands=2",
+        "route_preset=branch-x2",
+        "capture_command_behavior4_branch_start_before_route_x2p00=",
+        "capture_command_behavior4_branch_end_before_route_x2p00=",
+        "LEZAC_BEHAVIOR4_PROCMEM_SCENARIO=monster_spawner_behavior4_level3",
+        "LEZAC_BEHAVIOR4_ROUTE_STEPS=x:2.00",
+    ]:
+        require(branch_x2, snippet, "branch_x2")
     cases += 1
 
     custom = run_sweep(
@@ -146,6 +181,7 @@ def main() -> int:
         "timings=before_route routes=2",
         "route_labels=x2p00_c0p50,left0p25_space0p75",
         "capture_commands=4",
+        "route_preset=custom",
         "capture_command_spawner_loop_start_before_route_x2p00_c0p50=",
         "capture_command_spawner_loop_end_before_route_left0p25_space0p75=",
         "environment_preflight=1",

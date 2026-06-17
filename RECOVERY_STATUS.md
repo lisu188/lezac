@@ -1,11 +1,28 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/actor-contact-all-target-evidence`
+Branch: `codex/next-original-gap-triage`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added a focused behavior-4 route preset and ran a non-duplicate level-3
+  spawner branch smoke against the original. `tools/sweep_original_behavior4_procmem_routes.py`
+  now reports `route_preset=` and supports `--route-preset branch-x2` for the
+  single `x:2.00` branch smoke route. The live WSL/DOSBox pass at
+  `/tmp/lezac-behavior4-spawner-level3-branch-x2` used scenario
+  `monster_spawner_behavior4_level3`, targets `behavior4_branch_start` and
+  `behavior4_branch_end`, timing `before_route`, and route `x:2.00`. Both
+  captures loaded runtime patches with `runtime_cs=01ED` and
+  `runtime_ds=0C8F`, but the summary recorded `observed_freezes=0`,
+  `observed_targets=none`, `runtime_patches_applied=2`,
+  `patched_no_freeze_candidates=2`, and
+  `patched_no_freeze_targets=behavior4_branch_start,behavior4_branch_end`;
+  `--require-target-freeze behavior4_branch_start` failed with
+  `reason=target_freeze_missing`. Inspected `020_route_position` and
+  `091_tail_freeze_check` frames for both targets stayed in live gameplay with
+  bomb effects, so this is route-pruning evidence only and no behavior-4 branch
+  fixture was promoted.
 - Added target-specific actor/contact dispatch-gate summary triage and ran the
   next live original-evidence probes. `tools/summarize_actor_dispatch_gate_sweep.py`
   now exposes repeatable `--require-dispatch-gate-target <target>` so a generic
@@ -2673,7 +2690,11 @@ retry, the follow-up helper-tag sweep routes `x:1.50,m:0.35`,
 no-freeze subset `x:1.75`, `x:2.25`, `x:2.00,c:0.25`, `x:2.00,c:0.75`, and
 `x:5.00,m:0.50,x:2.00`, or the final helper-tag-open routes
 `x:3.00,z:0.50,x:2.00` and `x:1.50,left:0.50,x:2.00`, or the broadened
-lane-div routes `x:8.00` and `x:5.00,m:0.50,x:4.00`. The positive `m` routes
+lane-div routes `x:8.00` and `x:5.00,m:0.50,x:4.00`. Also do not repeat the
+behavior-4 level-3 spawner branch smoke
+`monster_spawner_behavior4_level3`/`x:2.00` for `behavior4_branch_start` or
+`behavior4_branch_end`; both branch patches loaded and stayed no-freeze. The
+positive `m` routes
 reach the high-debris
 branch/forward-helper area, but the natural helper iterations observed so far
 write collapse tags `0x0002` or `0x0005` at `3D1B`; the expanded subset did

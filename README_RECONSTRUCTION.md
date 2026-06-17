@@ -215,7 +215,9 @@ guarded route/timing matrix around that helper. Its default dry-run covers
 `behavior4_branch_start` and `integration_8_8_start` across the reviewed
 behavior-4 route hypotheses with both pre-bomb and pre-route runtime-freeze
 timing; add `--all-targets` only when the host is ready to spend captures on
-all six anchors.
+all six anchors. Add `--route-preset branch-x2` for the focused `x:2.00`
+branch smoke route when a scenario/target combination needs to be retested
+without expanding the full reviewed matrix.
 Summarize a completed sweep with
 `python3 tools/summarize_behavior4_procmem_route_sweep.py <manifest>`. The
 summary reports completed captures, observed freezes, patch-loaded no-freeze
@@ -242,6 +244,18 @@ behavior4_branch_start` fails with
 The inspected frames stayed in level-1 playback, so this is anchor
 reachability/route-pruning evidence; behavior-4 branch semantics still require
 a route or seeded setup that reaches behavior-4 actors.
+A focused level-3 spawner branch smoke at
+`/tmp/lezac-behavior4-spawner-level3-branch-x2` used
+scenario `monster_spawner_behavior4_level3`, targets `behavior4_branch_start`
+and `behavior4_branch_end`, timing `before_route`, and route `x:2.00`. Both
+captures loaded their runtime patches with `runtime_cs=01ED` and
+`runtime_ds=0C8F`, but the summary recorded `observed_freezes=0`,
+`runtime_patches_applied=2`, `patched_no_freeze_candidates=2`, and
+`patched_no_freeze_targets=behavior4_branch_start,behavior4_branch_end`; the
+strict target gate still fails with `reason=target_freeze_missing`. Inspected
+route-position and tail-freeze frames stayed in live gameplay with bomb-effect
+frames, so this prunes the level-3 spawner `x:2.00` branch smoke rather than
+promoting behavior-4 branch evidence.
 Live behavior-4, actor-update, contact-scanner, and visual-table DOSBox-debug
 helpers run
 `tools/preflight_original_evidence_environment.py --require-debug-capture`

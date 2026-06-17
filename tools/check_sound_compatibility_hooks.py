@@ -75,6 +75,13 @@ EXPECTED_ACTOR_CONTACT_CAPTURE_CANDIDATES = (
     "0x6844:actor_update,0x6924:actor_update,0x7386:actor_update"
 )
 
+EXPECTED_RUNTIME_CAPTURE_HANDOFFS = [
+    "tools/capture_original_sound_callsite_procmem.sh",
+    "tools/sweep_original_sound_callsite_routes.py",
+    "LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM",
+    "LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION",
+]
+
 
 def default_repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
@@ -114,6 +121,8 @@ def check_source(source_path: Path) -> None:
     require(text, "capture_classes=", "source")
     require(text, "actor_contact_capture_candidates=", "source")
     require(text, "objective_pickup,level_complete", "source")
+    for snippet in EXPECTED_RUNTIME_CAPTURE_HANDOFFS:
+        require(text, snippet, "source")
     for snippet in EXPECTED_REJECTED_OBJECTIVE_CANDIDATES:
         require(text, snippet, "source")
     for snippet in EXPECTED_CAPTURE_BLOCKERS:
@@ -161,6 +170,8 @@ def check_docs(root: Path) -> None:
         require_collapsed(text, "sound_runtime_capture_queue=ok", label)
         require_collapsed(text, "original_cursor_priority_claim=0", label)
         require_collapsed(text, EXPECTED_ACTOR_CONTACT_CAPTURE_CANDIDATES, label)
+        for snippet in EXPECTED_RUNTIME_CAPTURE_HANDOFFS:
+            require_collapsed(text, snippet, label)
         for snippet in EXPECTED_REJECTED_OBJECTIVE_CANDIDATES:
             require_collapsed(text, snippet, label)
         for snippet in EXPECTED_CAPTURE_BLOCKERS:
@@ -178,9 +189,11 @@ def check_cmake(cmake_path: Path) -> None:
     require(text, "capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate", "CMake")
     require(text, "latch_preserved=1", "CMake")
     require(text, EXPECTED_ACTOR_CONTACT_CAPTURE_CANDIDATES, "CMake")
+    for snippet in EXPECTED_RUNTIME_CAPTURE_HANDOFFS:
+        require(text, snippet, "CMake")
     require(
         text,
-        "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=30 docs=3 rejected_objective_candidates=3 capture_blockers=2 live_diagnostic=1",
+        "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=30 docs=3 rejected_objective_candidates=3 capture_blockers=2 runtime_capture_handoffs=4 live_diagnostic=1",
         "CMake",
     )
 
@@ -204,6 +217,7 @@ def main() -> int:
         "docs=3 "
         f"rejected_objective_candidates={len(EXPECTED_REJECTED_OBJECTIVE_CANDIDATES)} "
         f"capture_blockers={len(EXPECTED_CAPTURE_BLOCKERS)} "
+        f"runtime_capture_handoffs={len(EXPECTED_RUNTIME_CAPTURE_HANDOFFS)} "
         "live_diagnostic=1"
     )
     return 0

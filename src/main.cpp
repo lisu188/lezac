@@ -7675,10 +7675,13 @@ public:
                   << " capture_class=actor_contact_runtime"
                   << " targets=" << kActorContactSoundCaptureTargets.size()
                   << " first_target=contact_scanner_runtime_sound"
-                  << " helper=tools/capture_original_sound_callsite_debug.sh"
+                  << " helper=tools/capture_original_sound_callsite_procmem.sh"
+                  << " route_sweep=tools/sweep_original_sound_callsite_routes.py"
                   << " oracle=--debug-sound-callsite-oracle"
                   << " fixture_prefix=sound_callsite_oracle_original"
                   << " promotion_status=runtime_fixture_required"
+                  << " approval_flags=LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM,"
+                  << "LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION"
                   << " original_cursor_priority_claim=0"
                   << " regions=" << regionList
                   << " target_queue=" << targetText

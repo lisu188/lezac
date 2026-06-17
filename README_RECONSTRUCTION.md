@@ -1290,7 +1290,12 @@ debris tags `0x4e21`/`0x4ee8`. It remains a C++ arithmetic/model check with
   actor/contact runtime sound scenarios, rechecks their shipped byte windows,
   and marks `contact_scanner_runtime_sound` (`1000:5e81`, cursor `0x0069`,
   priority `4`) as the first runtime target while keeping
-  `sound_runtime_capture_queue=ok` at `original_cursor_priority_claim=0`.
+  `sound_runtime_capture_queue=ok` at `original_cursor_priority_claim=0`. Its
+  output now names `tools/capture_original_sound_callsite_procmem.sh` as the
+  runtime helper, `tools/sweep_original_sound_callsite_routes.py` as the route
+  planner, and the live approval flags
+  `LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM` plus
+  `LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION`.
   `tools/capture_original_sound_callsite_procmem.sh` mirrors all four
   actor/contact runtime targets through the process-memory freeze path; live
   runs require `LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1` and

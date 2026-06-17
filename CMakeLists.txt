@@ -1670,7 +1670,7 @@ if(BUILD_TESTING)
         set_tests_properties(sound_compatibility_hooks PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=30 docs=3 rejected_objective_candidates=3 capture_blockers=2 live_diagnostic=1")
+                "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=30 docs=3 rejected_objective_candidates=3 capture_blockers=2 runtime_capture_handoffs=4 live_diagnostic=1")
 
         add_test(NAME debug_capture_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -2335,7 +2335,7 @@ if(BUILD_TESTING)
     set_tests_properties(sound_runtime_capture_queue PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^sound_runtime_capture_queue=ok capture_class=actor_contact_runtime targets=4 first_target=contact_scanner_runtime_sound helper=tools/capture_original_sound_callsite_debug.sh oracle=--debug-sound-callsite-oracle fixture_prefix=sound_callsite_oracle_original promotion_status=runtime_fixture_required original_cursor_priority_claim=0 regions=actor_update:3,contact_scanner:1 target_queue=contact_scanner_runtime_sound:0x5e81:0x0069/p4:contact_scanner:cursor_0069_priority4:next,actor_update_runtime_cursor_0024_sound:0x6844:0x0024/p2:actor_update:cursor_0024_priority2:staged,actor_update_runtime_cursor_0035_sound:0x6924:0x0035/p5:actor_update:non_objective_tile_gate_rejected:staged,actor_update_runtime_cursor_0021_sound:0x7386:0x0021/p1:actor_update:cursor_0021_priority1:staged")
+            "^sound_runtime_capture_queue=ok capture_class=actor_contact_runtime targets=4 first_target=contact_scanner_runtime_sound helper=tools/capture_original_sound_callsite_procmem.sh route_sweep=tools/sweep_original_sound_callsite_routes.py oracle=--debug-sound-callsite-oracle fixture_prefix=sound_callsite_oracle_original promotion_status=runtime_fixture_required approval_flags=LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM,LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION original_cursor_priority_claim=0 regions=actor_update:3,contact_scanner:1 target_queue=contact_scanner_runtime_sound:0x5e81:0x0069/p4:contact_scanner:cursor_0069_priority4:next,actor_update_runtime_cursor_0024_sound:0x6844:0x0024/p2:actor_update:cursor_0024_priority2:staged,actor_update_runtime_cursor_0035_sound:0x6924:0x0035/p5:actor_update:non_objective_tile_gate_rejected:staged,actor_update_runtime_cursor_0021_sound:0x7386:0x0021/p1:actor_update:cursor_0021_priority1:staged")
 
     add_test(NAME record_name_sound
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-name-sound

@@ -259,8 +259,12 @@ Baseline: `origin/main`
   It rechecks the shipped byte windows for `1000:5e81`, `1000:6844`,
   `1000:6924`, and `1000:7386`, reports
   `sound_runtime_capture_queue=ok`, keeps `contact_scanner_runtime_sound` as
-  the first target, and preserves `original_cursor_priority_claim=0` until a
-  valid `sound_callsite_oracle_original*.txt` fixture is captured.
+  the first target, names `tools/capture_original_sound_callsite_procmem.sh`
+  plus `tools/sweep_original_sound_callsite_routes.py` as the guarded runtime
+  handoff, records the approval flags `LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM`
+  and `LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION`, and preserves
+  `original_cursor_priority_claim=0` until a valid
+  `sound_callsite_oracle_original*.txt` fixture is captured.
   A focused WSL preflight passed for `dosbox-debug`/`xvfb-run` and the
   `contact_scanner_runtime_sound` dry-run emitted the expected `BP <CS>:5E81`
   and `BP <CS>:165A` plan, but the live run was not attempted successfully

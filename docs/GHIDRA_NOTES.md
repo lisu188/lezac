@@ -1202,11 +1202,16 @@ pins the four corresponding sound-callsite capture scenarios and keeps
 `contact_scanner_runtime_sound` (`1000:5e81`, cursor `0x0069`, priority `4`) as
 the first target, reporting `sound_runtime_capture_queue=ok` with
 `original_cursor_priority_claim=0` until a valid
-`sound_callsite_oracle_original*.txt` fixture exists.
+`sound_callsite_oracle_original*.txt` fixture exists. It now prints the same
+handoff used below: `tools/capture_original_sound_callsite_procmem.sh` as the
+helper, `tools/sweep_original_sound_callsite_routes.py` as the route planner,
+and the live approval flags `LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM` and
+`LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION`.
 `tools/capture_original_sound_callsite_procmem.sh` provides the process-memory
 fallback for all four actor/contact runtime sound targets, emitting
 `sound_callsite_procmem` output and a non-promoted candidate fixture behind
-`LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1` plus runtime-instrumentation approval.
+`LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1` plus
+`LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION=1`.
 `tools/sweep_original_sound_callsite_routes.py` is the preferred dry-run/live
 planner when testing contact routes and actor-update sound targets; use
 `--all-targets` once the route is ready to sweep the full actor/contact sound

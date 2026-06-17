@@ -1061,6 +1061,17 @@ and feed the resulting `lane_write_forward_debris_route_candidates` file back
 to `tools/sweep_original_lane_write_routes.py --route-manifest` for focused
 follow-up probes.
 
+For no-freeze route searches, the same summary also reads each candidate's
+`route_state_samples.tsv` when present. New captures include
+`lane_update_flag_value`, `lane_word_global_value`,
+`lane_target_offset_global_value`, and effect input globals in that TSV, and
+the summary reports `route_state_debris_marker_candidates=` plus
+`max_route_state_lane_word_global=`. Use
+`--require-route-state-debris-marker` as a pre-writeback search gate when a
+new route family should first prove that it sampled a lane word at or above the
+`0x4e20` debris-marker base. This remains route-state triage, not a promoted
+natural `3D2D` fixture.
+
 The sweep wrapper now translates `/mnt/<drive>/...` candidate paths when a WSL
 run invokes a Windows `.exe` oracle, so that host split can parse candidates in
 the same pass instead of leaving `oracle_error` records for path-only reasons.

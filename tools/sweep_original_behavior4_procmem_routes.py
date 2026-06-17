@@ -38,6 +38,13 @@ DEFAULT_ROUTES = [
     "x:3.00,z:0.50,x:2.00",
     "x:1.50,Left:0.50,x:2.00",
 ]
+BRANCH_X2_ROUTES = [
+    "x:2.00",
+]
+ROUTE_PRESETS = {
+    "default": DEFAULT_ROUTES,
+    "branch-x2": BRANCH_X2_ROUTES,
+}
 
 TIMING_BEFORE_BOMB = "before_bomb"
 TIMING_BEFORE_ROUTE = "before_route"
@@ -218,6 +225,16 @@ def main() -> int:
         type=parse_route,
         help="comma-separated KEY:SECONDS route; repeat for multiple route captures",
     )
+    parser.add_argument(
+        "--route-preset",
+        choices=sorted(ROUTE_PRESETS),
+        default="default",
+        help=(
+            "named route matrix to use when --route is omitted; branch-x2 "
+            "covers the focused x:2.00 branch smoke used for behavior-4 "
+            "route-pruning checks"
+        ),
+    )
     parser.add_argument("--sample-seconds", default="0.5")
     parser.add_argument("--sample-interval", default="0.1")
     parser.add_argument("--tail-freeze-seconds", default="0.2")
@@ -233,7 +250,10 @@ def main() -> int:
     args.expected_level = SCENARIO_LEVELS[args.scenario]
 
     targets = selected_targets(args)
-    routes = args.route or [parse_route(route) for route in DEFAULT_ROUTES]
+    route_preset = "custom" if args.route else args.route_preset
+    routes = args.route or [
+        parse_route(route) for route in ROUTE_PRESETS[route_preset]
+    ]
     timings = timing_values(args.timing)
     route_labels = [route_label(route) for route in routes]
     capture_entries: list[tuple[str, list[str], dict[str, str], str, Path]] = []
@@ -257,7 +277,8 @@ def main() -> int:
         f"timings={','.join(timings)} routes={len(routes)} "
         f"route_labels={','.join(route_labels)} "
         f"capture_commands={len(capture_entries)} "
-        f"environment_preflight={0 if args.skip_environment_preflight else 1}"
+        f"environment_preflight={0 if args.skip_environment_preflight else 1} "
+        f"route_preset={route_preset}"
     )
     if not args.skip_environment_preflight:
         print(
@@ -299,6 +320,7 @@ def main() -> int:
         f"timings={','.join(timings)}",
         f"routes={len(routes)}",
         f"route_labels={','.join(route_labels)}",
+        f"route_preset={route_preset}",
         f"environment_preflight={environment_preflight}",
     ]
     if not args.skip_environment_preflight:

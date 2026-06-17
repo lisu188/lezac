@@ -1105,7 +1105,7 @@ if(BUILD_TESTING)
         set_tests_properties(behavior4_procmem_route_sweep_output_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^behavior4_procmem_route_sweep_output=ok cases=10")
+                "^behavior4_procmem_route_sweep_output=ok cases=11")
 
         add_test(NAME behavior4_procmem_route_sweep_summary_expectations
             COMMAND ${Python3_EXECUTABLE}

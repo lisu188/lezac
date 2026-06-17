@@ -224,7 +224,9 @@ manifests preserve patch-loaded no-freeze evidence without reopening the child
 capture manifest.
 `tools/sweep_original_behavior4_procmem_routes.py` batches that fallback across
 route/timing hypotheses and can escalate from the default branch/integration
-pair to all six anchors with `--all-targets`; it still emits only
+pair to all six anchors with `--all-targets`; `--route-preset branch-x2`
+replays only the focused `x:2.00` branch smoke route for scenario/target
+combinations that need a small retest. The sweep still emits only
 `behavior4_procmem` capture manifests and non-promoted candidates.
 `tools/summarize_behavior4_procmem_route_sweep.py` triages those manifests into
 completed capture counts, observed freeze counts, `observed_targets=`,
@@ -250,6 +252,16 @@ It froze `spawner_loop_start`, `integration_8_8_start`, and
 target-freeze gate rejects `behavior4_branch_start` on that manifest, preserving
 the result as level-1 route-pruning evidence rather than behavior-4 branch
 semantics.
+A focused level-3 spawner branch smoke at
+`/tmp/lezac-behavior4-spawner-level3-branch-x2` then used scenario
+`monster_spawner_behavior4_level3`, targets `behavior4_branch_start` and
+`behavior4_branch_end`, timing `before_route`, and route `x:2.00`. Both
+captures loaded runtime patches with `runtime_cs=01ED` and `runtime_ds=0C8F`,
+but the summary recorded `observed_freezes=0`, `runtime_patches_applied=2`,
+`patched_no_freeze_candidates=2`, and
+`patched_no_freeze_targets=behavior4_branch_start,behavior4_branch_end`.
+Inspected route and tail frames stayed in live gameplay with bomb effects, so
+this is additional route-pruning evidence and not a behavior-4 branch fixture.
 `tools/check_behavior4_runtime_oracle_fixtures.py` keeps that fixed synthetic
 baseline while allowing future `behavior4_runtime_oracle_original*.txt`
 fixtures only when they parse as valid runtime evidence and have matching CTest

@@ -110,6 +110,35 @@ def load_sweep_module(root: Path):
     return module
 
 
+def out_base_for(root: Path) -> Path:
+    temp_root = Path(tempfile.gettempdir()).resolve()
+    if temp_root == root or root in temp_root.parents:
+        root_parts = root.parts
+        if (
+            len(root_parts) >= 5
+            and root_parts[0] == "/"
+            and root_parts[1] == "mnt"
+            and len(root_parts[2]) == 1
+            and root_parts[3] == "Users"
+        ):
+            temp_root = (
+                Path("/")
+                / "mnt"
+                / root_parts[2]
+                / "Users"
+                / root_parts[4]
+                / "AppData"
+                / "Local"
+                / "Temp"
+            )
+        elif os.name != "nt":
+            temp_root = Path("/tmp")
+        else:
+            temp_root = root.parent
+    temp_root.mkdir(parents=True, exist_ok=True)
+    return Path(tempfile.mkdtemp(prefix="lezac-lane-div-route-sweep-check-", dir=temp_root))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Check lane-div route-sweep status output."
@@ -124,8 +153,7 @@ def main() -> int:
     args = parser.parse_args()
 
     root = args.root.resolve()
-    out_base = Path(tempfile.gettempdir()) / "lezac-lane-div-route-sweep-check"
-    out_base.mkdir(parents=True, exist_ok=True)
+    out_base = out_base_for(root)
     cases = 0
 
     default_dry = run_sweep(
@@ -218,6 +246,38 @@ def main() -> int:
         "--route-step x:4.00",
     ]:
         require(broadened, snippet, "broadened")
+    cases += 1
+
+    delayed_bomb = run_sweep(
+        root,
+        [
+            str(out_base / "delayed-bomb"),
+            str(root),
+            "--dry-run",
+            "--skip-oracle",
+            "--route-preset",
+            "forward-helper-delayed-bomb",
+        ],
+    )
+    for snippet in [
+        "offsets=1",
+        "offset_labels=3ce3",
+        "offset_addresses=1000:3CE3",
+        "routes=3",
+        "route_labels=x4p00_m0p50_x3p00,x6p00_m0p50_x3p00,x4p00_z0p50_m0p50_x3p00",
+        "capture_commands=3",
+        "route_preset=forward-helper-delayed-bomb",
+        "capture_command_x4p00_m0p50_x3p00_3ce3=",
+        "capture_command_x6p00_m0p50_x3p00_3ce3=",
+        "capture_command_x4p00_z0p50_m0p50_x3p00_3ce3=",
+        "--freeze-ghidra-offset 1000:3CE3",
+        "--route-step x:4.00",
+        "--route-step x:6.00",
+        "--route-step z:0.50",
+        "--route-step m:0.50",
+        "--route-step x:3.00",
+    ]:
+        require(delayed_bomb, snippet, "delayed_bomb")
     cases += 1
 
     custom = run_sweep(

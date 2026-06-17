@@ -26,6 +26,35 @@ def default_repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+def temp_root_for(root: Path) -> Path:
+    temp_root = Path(tempfile.gettempdir()).resolve()
+    if temp_root == root or root in temp_root.parents:
+        root_parts = root.parts
+        if (
+            len(root_parts) >= 5
+            and root_parts[0] == "/"
+            and root_parts[1] == "mnt"
+            and len(root_parts[2]) == 1
+            and root_parts[3] == "Users"
+        ):
+            temp_root = (
+                Path("/")
+                / "mnt"
+                / root_parts[2]
+                / "Users"
+                / root_parts[4]
+                / "AppData"
+                / "Local"
+                / "Temp"
+            )
+        elif os.name != "nt":
+            temp_root = Path("/tmp")
+        else:
+            temp_root = root.parent
+    temp_root.mkdir(parents=True, exist_ok=True)
+    return temp_root
+
+
 def run_summary(
     root: Path,
     args: list[str],
@@ -226,7 +255,10 @@ def main() -> int:
 
     root = args.root.resolve()
     cases = 0
-    with tempfile.TemporaryDirectory(prefix="lezac-lane-write-summary-") as tmp:
+    with tempfile.TemporaryDirectory(
+        prefix="lezac-lane-write-summary-",
+        dir=temp_root_for(root),
+    ) as tmp:
         base = Path(tmp)
         ready_candidate = base / "ready" / "candidate.txt"
         collapse_ready_candidate = base / "collapse_ready" / "candidate.txt"

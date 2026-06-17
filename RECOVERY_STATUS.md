@@ -1,11 +1,23 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/forward-debris-tag-search`
+Branch: `codex/lane-div-debris-tag-gate`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added a stricter lane-div-to-lane-write handoff for the remaining natural
+  forward `3D2D` search. `tools/summarize_lane_div_route_sweep.py` now reads
+  each candidate's `route_state_samples.tsv`, reports
+  `forward_debris_route_candidates=`,
+  `route_state_debris_marker_candidates=`, and
+  `max_route_state_lane_word_global=`, and exposes
+  `--require-route-state-debris-marker`. When a route both reaches the forward
+  divide at `1000:3CE3` and samples `lane_word_global_value >= 0x4e20`,
+  `--write-forward-debris-route-manifest` emits
+  `lane_div_forward_debris_route_candidates`; both lane-div and lane-write
+  sweep wrappers now consume that manifest for focused follow-up probes. This
+  is still route-state triage, not proof that natural `1000:3D2D` executed.
 - Added route-state debris-marker triage to the lane-write sweep summary. The
   original process-memory capture now writes `lane_update_flag_value`,
   `lane_word_global_value`, `lane_target_offset_global_value`, and effect input

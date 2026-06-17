@@ -1006,6 +1006,25 @@ candidates plus `forward_divide_candidates=` and writes
 `lane_div_forward_route_candidates` only after a route reaches the forward
 divide call at `1000:3CE3`. This still does not prove debris writeback; it
 only narrows which routes deserve the later `3D1B`/`3D2D` scratch probes.
+For new route families, prefer the stricter route-state handoff when
+`route_state_samples.tsv` is available:
+
+```sh
+python3 tools/summarize_lane_div_route_sweep.py \
+  /tmp/lezac-lane-div-route-sweep/manifest.txt \
+  --require-forward-divide --require-route-state-debris-marker \
+  --write-forward-debris-route-manifest /tmp/lezac-lane-div-forward-debris-routes.txt
+python3 tools/sweep_original_lane_write_routes.py \
+  /tmp/lezac-lane-write-from-lane-div-forward-debris-routes . \
+  --route-manifest /tmp/lezac-lane-div-forward-debris-routes.txt \
+  --offset forward-debris --dry-run --skip-oracle
+```
+
+That manifest is emitted as `lane_div_forward_debris_route_candidates` and is
+accepted by the lane-write sweep. It proves only that the route reached the
+forward divide and sampled a `0x4e20`-or-higher lane word in route-state data;
+the natural `1000:3D2D` writeback still needs its own ready fixture before
+promotion.
 
 A follow-up helper-tag sweep at
 `C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-tag-search-1781617957`

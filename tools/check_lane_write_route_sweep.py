@@ -473,6 +473,64 @@ def main() -> int:
         )
     cases += 1
 
+    lane_div_forward_debris_manifest = out_base / "lane-div-forward-debris-routes.txt"
+    lane_div_forward_debris_manifest.write_text(
+        "\n".join(
+            [
+                "promotion=lane_div_forward_debris_route_candidates",
+                "source_manifest=/tmp/lezac-lane-div-forward-debris/manifest.txt",
+                "source_environment_preflight=ok",
+                "required_candidate=forward_divide_route_state_debris_marker",
+                "matching_routes=1",
+                "route_0_label=x2p00_m0p35",
+                "route_0_steps=x:2.00,m:0.35",
+                "route_0_offset_label=3ce3",
+                "route_0_offset_address=1000:3CE3",
+                "route_0_lane_div_weight_local=0x0021",
+                "route_0_lane_div_numerator_low=0xfff3",
+                "route_0_lane_div_numerator_high=0xffff",
+                "route_0_route_state_max_lane_word_global=0xc004",
+                "route_0_route_state_debris_marker_samples=1",
+                "route_0_route_state_samples=2",
+                "route_0_fixture=/tmp/candidate.txt",
+                "",
+            ]
+        ),
+        encoding="ascii",
+    )
+    lane_div_forward_debris_dry = run_sweep(
+        root,
+        [
+            str(out_base / "lane-div-forward-debris-route-manifest"),
+            str(root),
+            "--dry-run",
+            "--skip-oracle",
+            "--route-manifest",
+            str(lane_div_forward_debris_manifest),
+            "--offset",
+            "forward-debris",
+        ],
+    )
+    for snippet in [
+        "offsets=1",
+        "offset_labels=3d2d",
+        "routes=1",
+        "route_labels=x2p00_m0p35",
+        "capture_commands=1",
+        "route_preset=lane-div-forward-debris-route-manifest",
+        f"route_manifest={lane_div_forward_debris_manifest.resolve()}",
+        "capture_command_x2p00_m0p35_3d2d=",
+        "--freeze-ghidra-offset 1000:3D2D",
+        "--route-step x:2.00",
+        "--route-step m:0.35",
+    ]:
+        require(
+            lane_div_forward_debris_dry,
+            snippet,
+            "lane_div_forward_debris_route_manifest",
+        )
+    cases += 1
+
     route_manifest_conflict = run_sweep(
         root,
         [

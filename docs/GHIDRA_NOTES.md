@@ -720,6 +720,15 @@ froze the forward collapse write with output `0x0000`, `DI=0x001e`, and tag
 route naturally writes at `3D1B` and skips the debris write at `3D2D`. The next
 natural `3D2D` search needs a route or seeded setup that reaches the forward
 helper with a debris marker tag, not another replay of this collapse-tag state.
+`tools/sweep_original_lane_div_routes.py` and
+`tools/summarize_lane_div_route_sweep.py` now provide the helper-interior
+classifier for that search. The sweep targets `lane-div-cs-scratch` anchors
+such as `1000:3CE3`, the summary reports
+`forward_divide_candidates=`, and `--write-forward-route-manifest` emits
+`lane_div_forward_route_candidates` with exact route steps for follow-up
+`tools/sweep_original_lane_write_routes.py --route-manifest` probes. This is
+only route triage; `1000:3D2D` still needs the later forward debris writeback
+gate before promotion.
 A follow-up helper-tag sweep at
 `C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-tag-search-1781617957`
 tested `x:1.50,m:0.35`, `x:2.50,m:0.35`, `x:2.00,m:0.15`, and

@@ -482,6 +482,8 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_result_route_sweep_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_div_route_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_div_route_sweep_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_write_route_sweep_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_branch_anchor_route_sweep_summary.py
@@ -521,6 +523,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_frame_compare_bundle.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_result_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_result_route_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_div_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_write_ready_results.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/summarize_lane_write_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_actor_dispatch_gates.py
@@ -528,6 +531,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_sound_callsite_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_behavior4_procmem_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_branch_anchor_routes.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_div_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_write_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_result_routes.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/plan_visual_claim_promotions.py
@@ -799,6 +803,36 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^lane_write_tag_model=ok marker=0x4e20 collapse_stride=0x000f debris_stride=0x000b collapse_forward_base=0x6617 collapse_reverse_base=0x6618 debris_forward_base=0x2097 debris_reverse_base=0x2098 cases=4 collapse_cases=2 debris_cases=2 tags=0x0002:collapse:slot0x0002:di0x001e:forward0x6635:reverse0x6636,0x0005:collapse:slot0x0005:di0x004b:forward0x6662:reverse0x6663,0x4e21:debris:slot0x0001:di0x000b:forward0x20a2:reverse0x20a3,0x4ee8:debris:slot0x00c8:di0x0898:forward0x292f:reverse0x2930 pending_natural_forward=0x3d2d original_capture_claim=0")
+
+        add_test(NAME explosion_lane_div_route_sweep_default_dry_run
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_lane_div_routes.py
+                    /tmp/lezac-lane-div-route-sweep-default-dry-run
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    --dry-run
+                    --skip-oracle)
+        set_tests_properties(explosion_lane_div_route_sweep_default_dry_run PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_div_route_sweep=ok mode=dry_run .*offsets=1 offset_labels=3ce3 offset_addresses=1000:3CE3 routes=1 route_labels=x2p00_m0p35 capture_commands=1 oracle_commands=0 runtime_freeze_preset=late-collapse .*environment_preflight=1")
+
+        add_test(NAME explosion_lane_div_route_sweep_output_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_div_route_sweep.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_div_route_sweep_output_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_div_route_sweep_output=ok cases=17")
+
+        add_test(NAME explosion_lane_div_route_sweep_summary_expectations
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_lane_div_route_sweep_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(explosion_lane_div_route_sweep_summary_expectations PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^lane_div_route_sweep_summary_check=ok cases=15")
 
         add_test(NAME explosion_lane_write_route_sweep_default_dry_run
             COMMAND ${Python3_EXECUTABLE}

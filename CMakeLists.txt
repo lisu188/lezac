@@ -1661,7 +1661,7 @@ if(BUILD_TESTING)
         set_tests_properties(sound_callsite_route_sweep_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^sound_callsite_route_sweep_summary_check=ok cases=8")
+                "^sound_callsite_route_sweep_summary_check=ok cases=10")
 
         add_test(NAME sound_compatibility_hooks
             COMMAND ${Python3_EXECUTABLE}

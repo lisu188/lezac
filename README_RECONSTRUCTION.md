@@ -345,7 +345,11 @@ actor-update candidates `actor_update_runtime_cursor_0024_sound` at
 `sound_callsite_procmem` manifest/raw output plus a fill-in sound-callsite
 candidate fixture, preserves `visual_claim=0`, and still requires a completed
 `sound_callsite_oracle_original*.txt` fixture before any cursor/priority
-semantic promotion.
+semantic promotion. Live status lines also report
+`freeze_runtime_patch_applied=`, `freeze_observed=`, `promotion_status=`, and
+`promotion_blocker=`; `promotion_blocker=no_observed_freeze` means the runtime
+patch loaded but the route did not reach that callsite, so the candidate is
+negative route evidence only.
 Use the route-sweep planner before a live attempt when the contact route needs
 tuning:
 
@@ -371,12 +375,17 @@ name for summary triage.
 Summarize a completed sweep with
 `python3 tools/summarize_sound_callsite_route_sweep.py <manifest>`. The
 summary reports completed captures, observed freezes, ready/incomplete/missing
-candidate counts, per-capture `--debug-sound-callsite-oracle` commands, and
-`--require-ready`, `--require-observed-freeze`, and
+candidate counts, `runtime_patches_applied=`, patched/no-freeze blockers,
+per-capture `--debug-sound-callsite-oracle` commands, and
+`--require-ready`, `--require-observed-freeze`, `--require-runtime-patch`, and
 `--require-environment-preflight` gates. Add `--write-ready-manifest <path>` to
 hand ready sound-callsite candidates to
 `tools/run_debug_capture_ready_manifest.py`; the generic runner and result
 summary now accept `sound_callsite` with `--debug-sound-callsite-oracle`.
+On 2026-06-17, the contact-scanner default route matrix and an
+`actor_update_runtime_cursor_0035_sound` before-route probe both loaded runtime
+patches under WSL/DOSBox-debug but observed no freeze; keep those as route
+pruning evidence, not original sound-callsite fixtures.
 `tools/check_visual_claim_guardrail.py` requires every checked-in DOSBox oracle
 fixture to carry an explicit `visual_claim=0` or `visual_claim=1` line so
 instrumentation-only evidence cannot be promoted by omission. Promotions to

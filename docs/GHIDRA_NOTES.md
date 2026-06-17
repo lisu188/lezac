@@ -371,7 +371,10 @@ the same process-memory freeze strategy to the actor/contact sound queue:
 `LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION=1`, report
 `sound_callsite_procmem`, and write a fill-in `sound_callsite` candidate
 fixture with `visual_claim=0`; this is reachability/runtime scaffolding only
-until the latch bytes are captured in a valid original oracle fixture.
+until the latch bytes are captured in a valid original oracle fixture. New
+status lines include `freeze_runtime_patch_applied=`, `freeze_observed=`,
+`promotion_status=`, and `promotion_blocker=` so patched/no-freeze routes are
+classified as negative route evidence instead of promotion candidates.
 `tools/sweep_original_sound_callsite_routes.py` wraps that helper across
 route-step and before-route/before-bomb freeze-timing hypotheses and records a
 `sound_callsite_route_sweep` manifest for later evidence review. The default
@@ -380,7 +383,8 @@ same route/timing matrix across the four actor/contact sound targets and writes
 target-prefixed capture labels.
 `tools/summarize_sound_callsite_route_sweep.py` classifies those manifests into
 ready/incomplete/missing sound-callsite candidates, reports observed freezes,
-prints per-capture `--debug-sound-callsite-oracle` commands, and can emit a
+`runtime_patches_applied=`, patched/no-freeze blockers, prints per-capture
+`--debug-sound-callsite-oracle` commands, and can emit a
 `debug_capture_ready_candidates` manifest for
 `tools/run_debug_capture_ready_manifest.py`.
 `--debug-actor-contact-static-model` pins the same scanner entry/return,
@@ -1217,10 +1221,12 @@ planner when testing contact routes and actor-update sound targets; use
 `--all-targets` once the route is ready to sweep the full actor/contact sound
 queue in one manifest.
 `tools/summarize_sound_callsite_route_sweep.py` triages those sweep manifests,
-adds `--require-ready`, `--require-observed-freeze`, and
-`--require-environment-preflight` gates, and can hand ready fixtures to the
-generic `debug_capture_ready_candidates` runner with the `sound_callsite`
-oracle.
+adds `--require-ready`, `--require-observed-freeze`,
+`--require-runtime-patch`, and `--require-environment-preflight` gates, and can
+hand ready fixtures to the generic `debug_capture_ready_candidates` runner with
+the `sound_callsite` oracle. A capture with
+`promotion_blocker=no_observed_freeze` only proves the route/timing family did
+not reach the patched sound callsite.
 The diagnostic also prints
 `remaining_compat_hooks=objective_pickup,level_complete` and records rejected
 objective-sound candidates as

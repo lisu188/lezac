@@ -85,9 +85,16 @@ def check_script(script_path: Path) -> None:
         "--require-wsl-bash-on-windows",
         "--require-procmem-capture",
         "run_environment_preflight",
+        "freeze_was_observed",
+        "classify_promotion_status",
         "environment_preflight=dry_run",
         "environment_preflight=skipped",
         "environment_preflight=ok",
+        "promotion_status=dry_run",
+        "promotion_status=$promotion_status",
+        "promotion_blocker=$promotion_blocker",
+        "promotion_blocker=no_observed_freeze",
+        "freeze_runtime_patch_applied=$freeze_runtime_patch_applied",
         "write_candidate_skeleton",
         "LEZAC_SOUND_CALLSITE_PROCMEM_DRY_RUN",
         "LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM",
@@ -166,6 +173,7 @@ def check_docs(root: Path) -> None:
         require(text, "actor_update_runtime_cursor_0021_sound", label)
         require(text, "LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM=1", label)
         require(text, "sound_callsite_procmem", label)
+        require(text, "promotion_blocker", label)
         require(text, "candidate", label)
 
 

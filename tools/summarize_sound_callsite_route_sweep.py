@@ -70,6 +70,9 @@ class CaptureSummary:
     candidate: Path | None
     readiness: CandidateReadiness
     freeze_observed: bool
+    runtime_patch_applied: bool
+    promotion_status: str
+    promotion_blocker: str
     runtime_cs: str
     runtime_ds: str
 
@@ -80,6 +83,9 @@ class SummaryResult:
     details: list[str]
     readiness_counts: dict[str, int]
     observed_freezes: int
+    runtime_patches_applied: int
+    patched_no_freeze_candidates: int
+    blocked_candidates: int
     environment_preflight: str
     manifest: Manifest
     captures: list[CaptureSummary]
@@ -103,6 +109,19 @@ def read_manifest(path: Path) -> Manifest:
         values[key] = value
         entries.append((key, value))
     return Manifest(path=path, values=values, entries=entries)
+
+
+def read_child_values(path: Path | None) -> dict[str, str]:
+    if path is None or not path.exists():
+        return {}
+    values: dict[str, str] = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values.setdefault(key, value)
+    return values
 
 
 def parse_status_fields(value: str) -> dict[str, str]:
@@ -154,6 +173,29 @@ def bool_value(value: str | None) -> bool:
         "runtime_child_memory_freeze_observed",
         "process_memory_runtime_freeze_observed",
     }
+
+
+def promotion_classification(
+    fields: dict[str, str],
+    readiness: CandidateReadiness,
+    freeze_observed: bool,
+    runtime_patch_applied: bool,
+    runtime_patch_known: bool,
+) -> tuple[str, str]:
+    explicit_status = fields.get("promotion_status")
+    explicit_blocker = fields.get("promotion_blocker")
+    if explicit_status and explicit_blocker:
+        return explicit_status, explicit_blocker
+
+    if readiness.status == "missing":
+        return "missing", "capture_not_completed"
+    if runtime_patch_known and not runtime_patch_applied:
+        return "blocked", "no_runtime_patch"
+    if not freeze_observed:
+        return "blocked", "no_observed_freeze"
+    if readiness.status == "ready":
+        return "ready", "none"
+    return "candidate", "sound_request_rows_required"
 
 
 def label_parts(label: str, fallback_target: str) -> tuple[str, str, str]:
@@ -279,9 +321,24 @@ def summarize_capture(manifest: Manifest, label: str) -> CaptureSummary:
     )
     target = fields.get("target", label_target)
     candidate = resolve_child_path(fields.get("candidate_fixture"), manifest.path)
+    child_manifest = resolve_child_path(fields.get("procmem_manifest"), manifest.path)
+    child_values = read_child_values(child_manifest)
     readiness = candidate_readiness(candidate, target)
     freeze_observed = bool_value(
-        fields.get("freeze_observed") or fields.get("instrumented_freeze_observed")
+        fields.get("freeze_observed")
+        or fields.get("instrumented_freeze_observed")
+        or child_values.get("instrumented_freeze_observed")
+    )
+    runtime_patch_applied = bool_value(
+        fields.get("freeze_runtime_patch_applied")
+        or child_values.get("freeze_runtime_patch_applied")
+    )
+    runtime_patch_known = (
+        "freeze_runtime_patch_applied" in fields
+        or "freeze_runtime_patch_applied" in child_values
+    )
+    promotion_status, promotion_blocker = promotion_classification(
+        fields, readiness, freeze_observed, runtime_patch_applied, runtime_patch_known
     )
     return CaptureSummary(
         label=label,
@@ -293,6 +350,9 @@ def summarize_capture(manifest: Manifest, label: str) -> CaptureSummary:
         candidate=candidate,
         readiness=readiness,
         freeze_observed=freeze_observed,
+        runtime_patch_applied=runtime_patch_applied,
+        promotion_status=promotion_status,
+        promotion_blocker=promotion_blocker,
         runtime_cs=fields.get("runtime_cs", readiness.values.get("runtime_cs", "unknown")),
         runtime_ds=fields.get("runtime_ds", readiness.values.get("runtime_ds", "unknown")),
     )
@@ -308,6 +368,9 @@ def summarize(args: argparse.Namespace) -> SummaryResult:
     captures = [summarize_capture(manifest, label) for label in labels]
     readiness_counts = {"ready": 0, "incomplete": 0, "missing": 0}
     observed_freezes = 0
+    runtime_patches_applied = 0
+    patched_no_freeze_candidates = 0
+    blocked_candidates = 0
     details: list[str] = []
     ready_manifests: list[str] = []
     missing_labels: list[str] = []
@@ -315,6 +378,12 @@ def summarize(args: argparse.Namespace) -> SummaryResult:
         readiness_counts[capture_summary.readiness.status] += 1
         if capture_summary.freeze_observed:
             observed_freezes += 1
+        if capture_summary.runtime_patch_applied:
+            runtime_patches_applied += 1
+            if not capture_summary.freeze_observed:
+                patched_no_freeze_candidates += 1
+        if capture_summary.promotion_status == "blocked":
+            blocked_candidates += 1
         if capture_summary.readiness.status == "ready":
             ready_manifests.append(str(capture_summary.candidate))
         if capture_summary.readiness.status == "missing":
@@ -328,7 +397,10 @@ def summarize(args: argparse.Namespace) -> SummaryResult:
             f"candidate_status={capture_summary.readiness.status} "
             f"candidate_missing={csv_or_none(capture_summary.readiness.missing)} "
             f"candidate_placeholders={1 if capture_summary.readiness.placeholders else 0} "
+            f"runtime_patch_applied={1 if capture_summary.runtime_patch_applied else 0} "
             f"freeze_observed={1 if capture_summary.freeze_observed else 0} "
+            f"promotion_status={capture_summary.promotion_status} "
+            f"promotion_blocker={capture_summary.promotion_blocker} "
             f"runtime_cs={capture_summary.runtime_cs} "
             f"runtime_ds={capture_summary.runtime_ds} "
             f"oracle={ORACLE} "
@@ -350,6 +422,9 @@ def summarize(args: argparse.Namespace) -> SummaryResult:
             f"capture_commands={len(labels)}",
             f"completed_captures={len([c for c in captures if c.status_line])}",
             f"observed_freezes={observed_freezes}",
+            f"runtime_patches_applied={runtime_patches_applied}",
+            f"patched_no_freeze_candidates={patched_no_freeze_candidates}",
+            f"blocked_candidates={blocked_candidates}",
             f"ready_candidates={readiness_counts['ready']}",
             f"incomplete_candidates={readiness_counts['incomplete']}",
             f"missing_candidates={readiness_counts['missing']}",
@@ -364,6 +439,9 @@ def summarize(args: argparse.Namespace) -> SummaryResult:
         details=details,
         readiness_counts=readiness_counts,
         observed_freezes=observed_freezes,
+        runtime_patches_applied=runtime_patches_applied,
+        patched_no_freeze_candidates=patched_no_freeze_candidates,
+        blocked_candidates=blocked_candidates,
         environment_preflight=environment_preflight,
         manifest=manifest,
         captures=captures,
@@ -446,6 +524,11 @@ def main() -> int:
         help="exit nonzero unless at least one capture reports an observed freeze",
     )
     parser.add_argument(
+        "--require-runtime-patch",
+        action="store_true",
+        help="exit nonzero unless at least one capture reports a loaded runtime patch",
+    )
+    parser.add_argument(
         "--require-environment-preflight",
         action="store_true",
         help="exit nonzero unless the sweep manifest records environment_preflight=ok",
@@ -514,6 +597,13 @@ def main() -> int:
             file=sys.stderr,
         )
         return 4
+    if args.require_runtime_patch and result.runtime_patches_applied == 0:
+        print(
+            "sound_callsite_route_sweep_summary=error "
+            "reason=no_runtime_patches_applied",
+            file=sys.stderr,
+        )
+        return 6
     return 0
 
 

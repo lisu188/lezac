@@ -367,6 +367,78 @@ def main() -> int:
         require(gated, snippet, "gated_runtime_freeze")
     cases += 1
 
+    branch_route_manifest = out_base / "branch-anchor-routes.txt"
+    branch_route_manifest.write_text(
+        "\n".join(
+            [
+                "promotion=branch_anchor_route_candidates",
+                "source_manifest=/tmp/lezac-branch-anchor-route-sweep/manifest.txt",
+                "source_environment_preflight=ok",
+                "required_targets=high_debris_word_gate,effect_forward_pass_call",
+                "matching_routes=2",
+                "route_0_label=x2p00_m0p35",
+                "route_0_steps=x:2.00,m:0.35",
+                "route_0_targets=high_debris_word_gate,effect_forward_pass_call",
+                "route_1_label=x3p00_z0p50_x2p00",
+                "route_1_steps=x:3.00,z:0.50,x:2.00",
+                "route_1_targets=high_debris_word_gate,effect_forward_pass_call",
+                "",
+            ]
+        ),
+        encoding="ascii",
+    )
+    route_manifest_dry = run_sweep(
+        root,
+        [
+            str(out_base / "route-manifest"),
+            str(root),
+            "--dry-run",
+            "--skip-oracle",
+            "--route-manifest",
+            str(branch_route_manifest),
+            "--offset",
+            "forward-debris",
+        ],
+    )
+    for snippet in [
+        "offsets=1",
+        "offset_labels=3d2d",
+        "routes=2",
+        "route_labels=x2p00_m0p35,x3p00_z0p50_x2p00",
+        "capture_commands=2",
+        "route_preset=branch-anchor-route-manifest",
+        f"route_manifest={branch_route_manifest.resolve()}",
+        "capture_command_x2p00_m0p35_3d2d=",
+        "capture_command_x3p00_z0p50_x2p00_3d2d=",
+        "--freeze-ghidra-offset 1000:3D2D",
+        "--route-step x:2.00",
+        "--route-step m:0.35",
+        "--route-step z:0.50",
+        "--route-step x:3.00",
+    ]:
+        require(route_manifest_dry, snippet, "route_manifest")
+    cases += 1
+
+    route_manifest_conflict = run_sweep(
+        root,
+        [
+            str(out_base / "route-manifest-conflict"),
+            str(root),
+            "--dry-run",
+            "--route",
+            "x:2.00",
+            "--route-manifest",
+            str(branch_route_manifest),
+        ],
+        expect_success=False,
+    )
+    require(
+        route_manifest_conflict,
+        "use either --route or --route-manifest, not both",
+        "route_manifest_conflict",
+    )
+    cases += 1
+
     skip_environment = run_sweep(
         root,
         [

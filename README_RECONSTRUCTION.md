@@ -932,7 +932,12 @@ python3 tools/sweep_original_branch_anchor_routes.py \
   /tmp/lezac-branch-anchor-route-sweep . --dry-run --skip-oracle
 python3 tools/summarize_branch_anchor_route_sweep.py \
   /tmp/lezac-branch-anchor-route-sweep/manifest.txt \
-  --require-route-with-targets high_debris_word_gate,effect_forward_pass_call
+  --require-route-with-targets high_debris_word_gate,effect_forward_pass_call \
+  --write-route-manifest /tmp/lezac-branch-anchor-routes.txt
+python3 tools/sweep_original_lane_write_routes.py \
+  /tmp/lezac-lane-write-from-branch-routes . \
+  --route-manifest /tmp/lezac-branch-anchor-routes.txt \
+  --offset forward-debris --dry-run --skip-oracle
 ```
 
 For a focused live classification after reviewing the dry run, use the same
@@ -944,8 +949,10 @@ Summarize completed sweeps with
 `ready`/`no_patch`/`no_freeze`/`incomplete` status, `observed_targets=`,
 `observed_routes=`, route-level `route_hits=`, optional `bp4_local_value=`,
 and gates for `--require-target`, `--require-route-with-targets`, and
-`--require-environment-preflight`. This is a reachability classifier only; a
-natural `1000:3D2D` lane-write capture still needs the later
+`--require-environment-preflight`. With `--write-route-manifest`, matching
+route steps are emitted as `branch_anchor_route_candidates`; the lane-write
+sweep accepts that handoff with `--route-manifest`. This is a reachability
+classifier only; a natural `1000:3D2D` lane-write capture still needs the later
 `tools/summarize_lane_write_route_sweep.py --require-debris-tag` gate before
 promotion.
 

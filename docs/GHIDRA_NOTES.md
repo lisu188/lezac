@@ -690,7 +690,10 @@ candidate as `ready`, `no_patch`, `no_freeze`, `incomplete`, or `missing`,
 reports `observed_targets=`, `observed_routes=`, route-level `route_hits=`,
 and supports
 `--require-route-with-targets high_debris_word_gate,effect_forward_pass_call`
-as the pre-`3D2D` route-reachability gate.
+as the pre-`3D2D` route-reachability gate. With `--write-route-manifest`, the
+matching route steps are emitted as `branch_anchor_route_candidates`; feed that
+manifest to `tools/sweep_original_lane_write_routes.py --route-manifest` before
+probing the forward debris writeback.
 The first live classifier pass found that `x:2.00,m:0.35`, unlike the two `c`
 timings, reaches the high-debris branch path. The default bundle
 `C:\Users\andrz\AppData\Local\Temp\lezac-branch-anchor-default-1781615578`

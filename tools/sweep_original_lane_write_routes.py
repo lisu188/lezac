@@ -43,6 +43,7 @@ ROUTE_PRESETS = {
     "forward-debris-expanded": FORWARD_DEBRIS_EXPANDED_ROUTES,
     "forward-helper-tag-open": FORWARD_HELPER_TAG_OPEN_ROUTES,
 }
+BRANCH_ANCHOR_ROUTE_PROMOTION = "branch_anchor_route_candidates"
 DEFAULT_OFFSETS = ["1000:3D2D", "1000:3EC1"]
 OFFSET_ALIASES = {
     "FORWARD-COLLAPSE": "1000:3D1B",
@@ -114,6 +115,48 @@ def parse_route(value: str) -> list[str]:
         if seconds < 0:
             raise argparse.ArgumentTypeError("route step seconds must be non-negative")
     return steps
+
+
+def read_key_value_manifest(path: Path) -> dict[str, str]:
+    if path.is_dir():
+        path = path / "manifest.txt"
+    path = path.resolve()
+    if not path.exists():
+        raise FileNotFoundError(f"route manifest not found: {path}")
+    values: dict[str, str] = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key in values:
+            raise ValueError(f"duplicate route manifest field: {key}")
+        values[key] = value
+    return values
+
+
+def routes_from_branch_anchor_manifest(path: Path) -> list[list[str]]:
+    values = read_key_value_manifest(path)
+    promotion = values.get("promotion", "")
+    if promotion != BRANCH_ANCHOR_ROUTE_PROMOTION:
+        raise ValueError(
+            f"unsupported route manifest promotion {promotion!r}; "
+            f"expected {BRANCH_ANCHOR_ROUTE_PROMOTION!r}"
+        )
+    raw_count = values.get("matching_routes", "")
+    try:
+        count = int(raw_count)
+    except ValueError as exc:
+        raise ValueError(f"invalid matching_routes value: {raw_count!r}") from exc
+    if count <= 0:
+        raise ValueError("route manifest has no matching routes")
+    routes: list[list[str]] = []
+    for index in range(count):
+        steps = values.get(f"route_{index}_steps", "")
+        if not steps:
+            raise ValueError(f"missing route_{index}_steps")
+        routes.append(parse_route(steps))
+    return routes
 
 
 def route_label(steps: list[str]) -> str:
@@ -374,6 +417,14 @@ def main() -> int:
         help="comma-separated KEY:SECONDS route; repeat for multiple route captures",
     )
     parser.add_argument(
+        "--route-manifest",
+        type=Path,
+        help=(
+            "branch_anchor_route_candidates manifest whose matching route steps "
+            "should be used when --route is omitted"
+        ),
+    )
+    parser.add_argument(
         "--route-preset",
         choices=sorted(ROUTE_PRESETS),
         default="default",
@@ -430,8 +481,14 @@ def main() -> int:
             "--runtime-freeze-require-high-debris-target-byte"
         )
 
-    route_preset = "custom" if args.route else args.route_preset
-    routes = args.route or [parse_route(route) for route in ROUTE_PRESETS[route_preset]]
+    if args.route and args.route_manifest is not None:
+        raise RuntimeError("use either --route or --route-manifest, not both")
+    if args.route_manifest is not None:
+        route_preset = "branch-anchor-route-manifest"
+        routes = routes_from_branch_anchor_manifest(args.route_manifest)
+    else:
+        route_preset = "custom" if args.route else args.route_preset
+        routes = args.route or [parse_route(route) for route in ROUTE_PRESETS[route_preset]]
     route_labels = [route_label(route) for route in routes]
     offsets = selected_offsets(args)
     offset_labels = [offset_label(offset) for offset in offsets]
@@ -461,6 +518,11 @@ def main() -> int:
         f"runtime_freeze_preset={args.runtime_freeze_preset} "
         f"environment_preflight={0 if args.skip_environment_preflight else 1} "
         f"route_preset={route_preset}"
+        + (
+            f" route_manifest={args.route_manifest.resolve()}"
+            if args.route_manifest is not None
+            else ""
+        )
     )
     environment_preflight_command = build_environment_preflight_command(args)
     if not args.skip_environment_preflight:
@@ -510,6 +572,8 @@ def main() -> int:
         f"runtime_freeze_preset={args.runtime_freeze_preset}",
         f"environment_preflight={environment_preflight}",
     ]
+    if args.route_manifest is not None:
+        manifest_lines.append(f"route_manifest={args.route_manifest.resolve()}")
     if not args.skip_environment_preflight:
         manifest_lines.append(
             f"environment_preflight_command={quote_command(environment_preflight_command)}"

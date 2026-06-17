@@ -930,12 +930,24 @@ default dry-run matrix probes those three anchors before the bomb tap across
 ```sh
 python3 tools/sweep_original_branch_anchor_routes.py \
   /tmp/lezac-branch-anchor-route-sweep . --dry-run --skip-oracle
+python3 tools/summarize_branch_anchor_route_sweep.py \
+  /tmp/lezac-branch-anchor-route-sweep/manifest.txt \
+  --require-route-with-targets high_debris_word_gate,effect_forward_pass_call
 ```
 
 For a focused live classification after reviewing the dry run, use the same
 tool with `--approve-procmem --approve-runtime-instrumentation`, optionally
 adding `--timing selected_base`, `--timing after_bomb`, or repeated `--route`
 arguments.
+Summarize completed sweeps with
+`tools/summarize_branch_anchor_route_sweep.py`. It reports per-candidate
+`ready`/`no_patch`/`no_freeze`/`incomplete` status, `observed_targets=`,
+`observed_routes=`, route-level `route_hits=`, optional `bp4_local_value=`,
+and gates for `--require-target`, `--require-route-with-targets`, and
+`--require-environment-preflight`. This is a reachability classifier only; a
+natural `1000:3D2D` lane-write capture still needs the later
+`tools/summarize_lane_write_route_sweep.py --require-debris-tag` gate before
+promotion.
 
 The first live classifier pass wrote
 `C:\Users\andrz\AppData\Local\Temp\lezac-branch-anchor-default-1781615578`.

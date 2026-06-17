@@ -685,6 +685,12 @@ patches for both `x:2.00,c:0.35` and `x:2.00,c:0.65` loaded without freezing.
 Future `3D2D` attempts should require branch-anchor evidence for the route
 family before relying on sampled lane globals; use
 `tools/sweep_original_branch_anchor_routes.py` for that route classifier.
+`tools/summarize_branch_anchor_route_sweep.py` classifies each branch-anchor
+candidate as `ready`, `no_patch`, `no_freeze`, `incomplete`, or `missing`,
+reports `observed_targets=`, `observed_routes=`, route-level `route_hits=`,
+and supports
+`--require-route-with-targets high_debris_word_gate,effect_forward_pass_call`
+as the pre-`3D2D` route-reachability gate.
 The first live classifier pass found that `x:2.00,m:0.35`, unlike the two `c`
 timings, reaches the high-debris branch path. The default bundle
 `C:\Users\andrz\AppData\Local\Temp\lezac-branch-anchor-default-1781615578`

@@ -168,6 +168,27 @@ def main() -> int:
         )
         cases += 1
 
+        missing_gate_target_required = run_summary(
+            root,
+            dispatch_manifest,
+            expect_success=False,
+            extra_args=[
+                "--require-dispatch-gate-target",
+                "contact_scanner_callsite",
+            ],
+        ).stdout
+        for snippet in [
+            "reason=dispatch_gate_target_missing",
+            "required_target=contact_scanner_callsite",
+            "observed_dispatch_gates=actor_update_gate6",
+        ]:
+            require(
+                missing_gate_target_required,
+                snippet,
+                "missing_dispatch_gate_target_required",
+            )
+        cases += 1
+
         duplicate_gate_manifest = base / "duplicate_gate" / "manifest.txt"
         write_text(
             duplicate_gate_manifest,
@@ -463,6 +484,21 @@ def main() -> int:
             "oracle_command=./build/lezac_cpp --debug-actor-update-runtime-oracle /tmp/contact/candidate_fixture.txt",
         ]:
             require(direct, snippet, "direct_route_manifest")
+        cases += 1
+
+        direct_target_required = run_summary(
+            root,
+            direct_manifest,
+            extra_args=[
+                "--require-dispatch-gate-target",
+                "contact_scanner_callsite",
+            ],
+        ).stdout
+        require(
+            direct_target_required,
+            "observed_dispatch_gates=contact_scanner_callsite",
+            "direct_dispatch_gate_target_required",
+        )
         cases += 1
 
         all_target_route_manifest = base / "all_target_route" / "manifest.txt"

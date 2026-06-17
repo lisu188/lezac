@@ -507,7 +507,11 @@ C++ executable is not `./build/lezac_cpp`, `--require-ready` when a script
 should fail until all observed freeze candidates are promotable, and
 `--require-dispatch-gate-freeze` when a live sweep must prove that at least one
 mapped dispatch-gate target actually froze before the result is treated as
-branch-reachability evidence. Contact-scanner candidates only become ready when
+branch-reachability evidence. Use `--require-dispatch-gate-target <target>`
+when the question is a specific mapped anchor, such as
+`contact_scanner_callsite`; generic actor-update gate freezes then no longer
+satisfy a scanner-callsite proof unless the requested target appears in
+`observed_dispatch_gates=`. Contact-scanner candidates only become ready when
 `subject_actor`/`other_actor` include `w` and `h`, and `contact_scan` includes
 `overlap_x` and `overlap_y`, matching the real C++ oracle parser. Add
 `--require-environment-preflight` when promotion should fail unless the source
@@ -535,6 +539,27 @@ a synthetic ready candidate and fake oracle.
 `tools/check_actor_contact_evidence_map.py` verifies the actor/contact recovery
 handoff stays linked across docs, helper target maps, oracle flags, fixtures,
 and CTest coverage.
+
+A live all-target WSL/DOSBox sweep on 2026-06-17 at
+`/tmp/lezac-actor-contact-all-target-before-route-x2` used
+`--all-targets --timing before_route --route x:2.00`. Its summary recorded
+`environment_preflight=ok`, `targets=9`, `captures=9`, `freezes=6`,
+`dispatch_gate_freezes=4`,
+`observed_targets=actor_update_start,actor_update_end,actor_update_gate5,actor_update_gate5_integration,actor_update_gate5_exit,actor_update_gate6`,
+`observed_dispatch_gates=actor_update_gate5,actor_update_gate5_integration,actor_update_gate5_exit,actor_update_gate6`,
+`missing_targets=contact_scanner_callsite,contact_scanner_start,contact_scanner_end`,
+`ready_candidates=0`, and `incomplete_candidates=6`. Inspected
+`actor_update_gate6_before_route_x2p00` frames `020_route_position.png` and
+`091_tail_freeze_check.png` stayed in live level-1 gameplay, so this is
+actor-update anchor reachability and scanner-route pruning evidence only.
+A focused `contact_scanner_callsite` follow-up at
+`/tmp/lezac-contact-callsite-nonredundant-20260617` tried
+`x:3.00,z:0.50,x:2.00` and `x:1.50,Left:0.50,x:2.00`; the summary recorded
+`captures=2`, `freezes=0`, `dispatch_gate_freezes=0`,
+`observed_dispatch_gates=none`, and `missing_targets=contact_scanner_callsite`.
+Inspected route-position and tail-freeze frames for both routes stayed in live
+level-1 playback, including bomb-effect frames, so these two route shapes are
+pruned without promoting a contact-scanner callsite fixture.
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \

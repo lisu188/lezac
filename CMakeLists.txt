@@ -548,7 +548,7 @@ if(BUILD_TESTING)
         set_tests_properties(actor_dispatch_gate_sweep_summary_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^actor_dispatch_gate_sweep_summary_check=ok cases=24")
+                "^actor_dispatch_gate_sweep_summary_check=ok cases=26")
 
         add_test(NAME actor_dispatch_ready_manifest_expectations
             COMMAND ${Python3_EXECUTABLE}

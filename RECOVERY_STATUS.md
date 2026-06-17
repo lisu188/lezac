@@ -1,11 +1,22 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/actor-contact-all-target-route-sweep`
+Branch: `codex/next-reimplementation-gap`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Encapsulated the two remaining sound compatibility routes behind
+  `playCompatibilitySound(...)` and a single
+  `kRemainingSoundCompatibilityHooks` metadata table. Objective pickup and
+  level-complete still funnel to the same compatibility `playSound(index)`
+  cursors, now prove `latch_preserved=1` after seeding a recovered
+  records-page latch, still report `original_cursor_priority_claim=0`, and
+  still carry the blockers
+  `objective_pickup:rejected_static_candidates,level_complete:no_static_candidate`,
+  but the live gameplay code no longer contains scattered raw compatibility
+  `playSound(...)` calls. The checker now allows only the single helper funnel
+  and verifies both named hook slots plus their blockers.
 - Extended `tools/sweep_original_actor_contact_routes.py` with
   `--all-targets`, mirroring the newer sound/behavior route sweeps for the
   older actor/contact process-memory path. The low-level route planner now
@@ -719,8 +730,9 @@ Baseline: `origin/main`
   UI smoke checks in CTest, so dummy-SDL rendering/control regressions no
   longer pass on exit status alone.
 - Added `tools/check_sound_compatibility_hooks.py` to keep the two remaining
-  direct `playSound(index)` callers explicit as named compatibility hooks until
-  original cursor/priority writes are recovered.
+  `playCompatibilitySound` routes explicit as named compatibility hooks that
+  still funnel to `playSound(index)` until original cursor/priority writes are
+  recovered.
 - Extended the static sound diagnostic and compatibility-hook checker to report
   `remaining_compat_hooks=objective_pickup,level_complete` and the rejected
   objective-sound candidates
@@ -729,11 +741,13 @@ Baseline: `origin/main`
   non-objective tile gate from being reused as objective-pickup mappings.
 - Added `--debug-remaining-sound-compat-hooks` to exercise the live C++
   objective-pickup and level-complete compatibility paths. It reports the
-  direct indices/cursors used by those compatibility hooks plus
-  `capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate`
+  indices/cursors used by those compatibility hooks plus
+  `latch_preserved=1`,
+  `capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate`,
   and `original_cursor_priority_claim=0`, so the checker now proves the hooks
-  are reached while naming why neither hook is currently eligible for a
-  sound-callsite DOSBox capture promotion.
+  are reached without mutating a seeded recovered latch while naming why
+  neither hook is currently eligible for a sound-callsite DOSBox capture
+  promotion.
 - Added `--debug-static-sound-contexts` to pin the original byte contexts for
   `0x1857`, `0x1a44`, `0x1d9c`, `0x202d`, and `0x2083` as
   name-entry/post-end-flow-record/record-table UI sound writes. It verifies the

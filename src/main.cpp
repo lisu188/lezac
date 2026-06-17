@@ -113,16 +113,18 @@ constexpr std::array<uint16_t, 6> kCompatibilitySoundCursors{
 };
 constexpr size_t kCompatibilityObjectivePickupSound = 0;
 constexpr size_t kCompatibilityLevelCompleteSound = 5;
-constexpr std::array<const char*, 2> kRemainingSoundCompatibilityHooks{
-    "objective_pickup", "level_complete",
-};
-struct RemainingSoundCaptureBlocker {
+constexpr size_t kObjectivePickupCompatibilityHookSlot = 0;
+constexpr size_t kLevelCompleteCompatibilityHookSlot = 1;
+struct RemainingSoundCompatibilityHook {
     const char* hook;
-    const char* reason;
+    size_t index;
+    const char* captureBlocker;
 };
-constexpr std::array<RemainingSoundCaptureBlocker, 2> kRemainingSoundCaptureBlockers{{
-    {"objective_pickup", "rejected_static_candidates"},
-    {"level_complete", "no_static_candidate"},
+constexpr std::array<RemainingSoundCompatibilityHook, 2> kRemainingSoundCompatibilityHooks{{
+    {"objective_pickup", kCompatibilityObjectivePickupSound,
+     "rejected_static_candidates"},
+    {"level_complete", kCompatibilityLevelCompleteSound,
+     "no_static_candidate"},
 }};
 struct RejectedSoundCandidate {
     uint16_t offset;
@@ -1479,6 +1481,14 @@ class App {
         size_t index = 0;
         uint16_t cursor = 0;
     };
+
+    static bool sameSoundLatch(const SoundLatch& lhs, const SoundLatch& rhs) {
+        return lhs.active == rhs.active &&
+               lhs.currentSelector == rhs.currentSelector &&
+               lhs.latchedOffset == rhs.latchedOffset &&
+               lhs.recordIndex == rhs.recordIndex &&
+               lhs.directSweep == rhs.directSweep;
+    }
 
     static bool originalState2VisualRow(uint8_t frame, State2VisualRow& row) {
         if (frame < kState2VisualStartFrame || frame > kState2VisualEndFrame) {
@@ -7075,7 +7085,7 @@ public:
             std::ostringstream out;
             for (size_t i = 0; i < kRemainingSoundCompatibilityHooks.size(); ++i) {
                 if (i != 0) out << ',';
-                out << kRemainingSoundCompatibilityHooks[i];
+                out << kRemainingSoundCompatibilityHooks[i].hook;
             }
             return out.str();
         };
@@ -7091,11 +7101,11 @@ public:
         };
         auto remainingCaptureBlockerList = [] {
             std::ostringstream out;
-            for (size_t i = 0; i < kRemainingSoundCaptureBlockers.size(); ++i) {
+            for (size_t i = 0; i < kRemainingSoundCompatibilityHooks.size(); ++i) {
                 if (i != 0) out << ',';
-                const RemainingSoundCaptureBlocker& blocker =
-                    kRemainingSoundCaptureBlockers[i];
-                out << blocker.hook << ':' << blocker.reason;
+                const RemainingSoundCompatibilityHook& hook =
+                    kRemainingSoundCompatibilityHooks[i];
+                out << hook.hook << ':' << hook.captureBlocker;
             }
             return out.str();
         };
@@ -7663,17 +7673,23 @@ public:
         int collectedBefore = collected_;
         uint32_t scoreBefore = score_;
         clearSoundLatch();
+        requestRecordsPageSound();
+        SoundLatch objectiveSeedLatch = soundLatch_;
         collectObjectiveTiles(player_, 1);
-        bool objectiveLatchActive = soundLatch_.active;
+        bool objectiveLatchPreserved = sameSoundLatch(soundLatch_, objectiveSeedLatch);
         if (compatibilitySoundAttempts_.size() != 1) {
             throw std::runtime_error("objective pickup compatibility sound call count mismatch");
         }
+        const RemainingSoundCompatibilityHook& objectiveHook =
+            kRemainingSoundCompatibilityHooks[kObjectivePickupCompatibilityHookSlot];
         CompatibilitySoundAttempt objectiveAttempt = compatibilitySoundAttempts_.front();
-        if (objectiveAttempt.index != kCompatibilityObjectivePickupSound ||
-            objectiveAttempt.cursor != compatibilitySoundCursor(kCompatibilityObjectivePickupSound) ||
+        if (std::string(objectiveHook.hook) != "objective_pickup" ||
+            objectiveAttempt.index != objectiveHook.index ||
+            objectiveAttempt.cursor != compatibilitySoundCursor(objectiveHook.index) ||
             collected_ != collectedBefore + 1 ||
             score_ != scoreBefore + 1000u ||
-            objectiveLatchActive) {
+            !objectiveSeedLatch.active ||
+            !objectiveLatchPreserved) {
             throw std::runtime_error("objective pickup compatibility sound route mismatch");
         }
         int collectedDelta = collected_ - collectedBefore;
@@ -7690,17 +7706,23 @@ public:
         traceCompatibilitySoundAttempts_ = true;
         compatibilitySoundAttempts_.clear();
         clearSoundLatch();
+        requestRecordsPageSound();
+        SoundLatch levelSeedLatch = soundLatch_;
         int startLevel = levelIndex_;
         updateLevelCompletion();
-        bool levelLatchActive = soundLatch_.active;
+        bool levelLatchPreserved = sameSoundLatch(soundLatch_, levelSeedLatch);
         size_t callsFirstTick = compatibilitySoundAttempts_.size();
         if (callsFirstTick != 1) {
             throw std::runtime_error("level-complete compatibility sound call count mismatch");
         }
+        const RemainingSoundCompatibilityHook& levelHook =
+            kRemainingSoundCompatibilityHooks[kLevelCompleteCompatibilityHookSlot];
         CompatibilitySoundAttempt levelAttempt = compatibilitySoundAttempts_.front();
-        if (levelAttempt.index != kCompatibilityLevelCompleteSound ||
-            levelAttempt.cursor != compatibilitySoundCursor(kCompatibilityLevelCompleteSound) ||
-            levelLatchActive) {
+        if (std::string(levelHook.hook) != "level_complete" ||
+            levelAttempt.index != levelHook.index ||
+            levelAttempt.cursor != compatibilitySoundCursor(levelHook.index) ||
+            !levelSeedLatch.active ||
+            !levelLatchPreserved) {
             throw std::runtime_error("level-complete compatibility sound route mismatch");
         }
 
@@ -7718,17 +7740,24 @@ public:
 
         std::cout << "remaining_sound_compat_hooks=ok"
                   << " live_hooks=2"
+                  << " helper=playCompatibilitySound"
                   << " objective_pickup=index" << objectiveAttempt.index
                   << "/cursor" << hex4(objectiveAttempt.cursor)
+                  << "/blocker=" << objectiveHook.captureBlocker
                   << " collected_delta=" << collectedDelta
                   << " score_delta=" << scoreDelta
-                  << " latch_active=" << (objectiveLatchActive ? 1 : 0)
+                  << " latch_seed=" << hex4(objectiveSeedLatch.latchedOffset)
+                  << "/p" << static_cast<int>(objectiveSeedLatch.currentSelector)
+                  << " latch_preserved=" << (objectiveLatchPreserved ? 1 : 0)
                   << " level_complete=index" << levelAttempt.index
                   << "/cursor" << hex4(levelAttempt.cursor)
+                  << "/blocker=" << levelHook.captureBlocker
                   << " calls_first_tick=" << callsFirstTick
                   << " repeat_calls=" << repeatCalls
                   << " advanced_level=" << (levelIndex_ + 1)
-                  << " latch_active=" << (levelLatchActive ? 1 : 0)
+                  << " latch_seed=" << hex4(levelSeedLatch.latchedOffset)
+                  << "/p" << static_cast<int>(levelSeedLatch.currentSelector)
+                  << " latch_preserved=" << (levelLatchPreserved ? 1 : 0)
                   << " capture_blockers=objective_pickup:rejected_static_candidates,"
                   << "level_complete:no_static_candidate"
                   << " original_cursor_priority_claim=0\n";
@@ -15942,6 +15971,15 @@ private:
         playSoundSamples(samples);
     }
 
+    void playCompatibilitySound(size_t hookSlot) {
+        if (hookSlot >= kRemainingSoundCompatibilityHooks.size()) {
+            throw std::runtime_error("unknown compatibility sound hook");
+        }
+        const RemainingSoundCompatibilityHook& hook =
+            kRemainingSoundCompatibilityHooks[hookSlot];
+        playSound(hook.index);
+    }
+
     void playSoundSamples(const std::vector<int16_t>& samples) {
         if (!audioEnabled_ || audioDevice_ == 0 || samples.empty()) return;
         Uint32 bytes = static_cast<Uint32>(samples.size() * sizeof(int16_t));
@@ -16188,7 +16226,9 @@ private:
 
     void updateLevelCompletion() {
         if (isComplete()) {
-            if (completeTimer_ == 0) playSound(kCompatibilityLevelCompleteSound);
+            if (completeTimer_ == 0) {
+                playCompatibilitySound(kLevelCompleteCompatibilityHookSlot);
+            }
             if (++completeTimer_ > 100) {
                 if (isFinalLevel()) {
                     beginEndRun(EndReason::CompletedGame);
@@ -16325,7 +16365,7 @@ private:
                     tileRef(x, y) = 1;
                     ++collected_;
                     addScore(playerIndex, 1000);
-                    playSound(kCompatibilityObjectivePickupSound);
+                    playCompatibilitySound(kObjectivePickupCompatibilityHookSlot);
                 }
             }
         }

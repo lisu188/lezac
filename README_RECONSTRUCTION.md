@@ -1158,9 +1158,9 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   `runtime_cs=01ED` and `runtime_ds=01DD`, then wrote breakpoints for
   `01ED:2083` and `01ED:165A` and dumps under `01DD:*` before timing out.
   `--debug-static-sound-requests` pins all 27 static immediate writes to
-  `DS:2074` in the shipped executable so remaining direct `playSound(index)`
-  compatibility hooks cannot be confused with original cursor/priority
-  mappings. It also reports
+  `DS:2074` in the shipped executable so the remaining
+  `playCompatibilitySound` routes cannot be confused with original
+  cursor/priority mappings. It also reports
   `remaining_compat_hooks=objective_pickup,level_complete` and the rejected
   objective-sound candidates
   `0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate`,
@@ -1169,10 +1169,11 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   original evidence proves otherwise. `--debug-remaining-sound-compat-hooks`
   exercises the live C++ objective-pickup and level-complete paths and reports
   `capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate`
-  plus `original_cursor_priority_claim=0`, proving only that those direct
-  compatibility hooks are still reached with the intended compatibility
-  indices and naming why the DOSBox sound-callsite helper must not stage them
-  as original cursor/priority captures yet. `--debug-static-sound-unresolved-contexts`
+  plus `latch_preserved=1` and `original_cursor_priority_claim=0`, proving
+  only that those named compatibility hooks still funnel to the intended
+  compatibility indices without mutating a seeded recovered latch, and naming
+  why the DOSBox sound-callsite helper must not stage them as original
+  cursor/priority captures yet. `--debug-static-sound-unresolved-contexts`
   also pins the exact byte windows for those 12 unresolved writes and separates
   their local request shapes: nine local latch calls, six inline priorities,
   two preceding priorities, four no-local-priority cases, three no-latch cases,
@@ -1309,9 +1310,10 @@ debris marker base, `0x0B` debris stride, and the shared far-result write tail.
   those tail bytes as raw data, and mutation coverage proves the current
   synthesizer ignores them, so their playback effect is recovered as unused.
   Any source/editor meaning outside playback plus many non-explosion
-  callsite-to-event mappings remain unresolved. Remaining direct
-  `playSound(index)` callers are compatibility hooks until original
-  cursor/priority writes are recovered.
+  callsite-to-event mappings remain unresolved. Remaining live compatibility
+  sound routes now go through `playCompatibilitySound(...)`, which deliberately
+  funnels to `playSound(index)` only until original cursor/priority writes are
+  recovered.
 - Two-player split-screen is playable with independent bomb inventories, scores,
   record prompts, and a central objective/progress panel that is covered by
   `--debug-two-player-hud-panel`. `--debug-autoplayer two_player_death_visuals`

@@ -1162,11 +1162,12 @@ gate around the `0x6c` threshold, and the non-objective tile gate near
 `--debug-remaining-sound-compat-hooks` drives the live C++ objective-pickup and
 level-complete paths and reports
 `capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate`
-with `original_cursor_priority_claim=0`; it is a regression guard for the
-remaining direct `playSound(index)` compatibility hooks, not original
-cursor/priority evidence. The blockers keep the rejected objective candidates
-and absent level-complete static candidate out of the DOSBox sound-callsite
-capture helper until new original evidence changes that status.
+with `latch_preserved=1` and `original_cursor_priority_claim=0`; it is a
+regression guard for the remaining `playCompatibilitySound` routes that funnel
+through `playSound(index)` without mutating a seeded recovered latch, not
+original cursor/priority evidence. The blockers keep the rejected objective
+candidates and absent level-complete static candidate out of the DOSBox
+sound-callsite capture helper until new original evidence changes that status.
 `--debug-static-sound-contexts` pins the currently rejected level-complete
 static candidates by byte context: the post-game dispatcher returns at
 `1000:1d42`, while the immediate writes at `1000:1857`, `1000:1a44`,
@@ -1174,7 +1175,7 @@ static candidates by byte context: the post-game dispatcher returns at
 record, or record-table UI regions with nearby strings `inserisci il tuo nome`,
 `bomba bonus`, and `punteggi migliori`. The diagnostic reports
 `level_complete_static_candidate=none`, keeping the live level-complete
-`playSound(index)` hook unresolved until a same-location original request is
+compatibility hook unresolved until a same-location original request is
 confirmed.
 The first two name-entry writes are now live: opening the high-score name prompt
 queues cursor `0x0078` at priority `11` from `1000:1857`, and pressing Enter

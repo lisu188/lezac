@@ -1618,7 +1618,7 @@ if(BUILD_TESTING)
         set_tests_properties(sound_compatibility_hooks PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=24 docs=3 rejected_objective_candidates=3 capture_blockers=2 live_diagnostic=1")
+                "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=30 docs=3 rejected_objective_candidates=3 capture_blockers=2 live_diagnostic=1")
 
         add_test(NAME debug_capture_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -2253,7 +2253,7 @@ if(BUILD_TESTING)
     set_tests_properties(remaining_sound_compat_hooks PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^remaining_sound_compat_hooks=ok live_hooks=2 objective_pickup=index0/cursor0x0000 collected_delta=1 score_delta=1000 latch_active=0 level_complete=index5/cursor0x0027 calls_first_tick=1 repeat_calls=0 advanced_level=2 latch_active=0 capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate original_cursor_priority_claim=0")
+            "^remaining_sound_compat_hooks=ok live_hooks=2 helper=playCompatibilitySound objective_pickup=index0/cursor0x0000/blocker=rejected_static_candidates collected_delta=1 score_delta=1000 latch_seed=0x0024/p2 latch_preserved=1 level_complete=index5/cursor0x0027/blocker=no_static_candidate calls_first_tick=1 repeat_calls=0 advanced_level=2 latch_seed=0x0024/p2 latch_preserved=1 capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate original_cursor_priority_claim=0")
 
     add_test(NAME static_sound_contexts
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-static-sound-contexts)

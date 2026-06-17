@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Guard direct playSound(index) compatibility hooks.
+"""Guard remaining playSound(index) compatibility hooks.
 
-These callers intentionally remain compatibility hooks until original
-cursor/priority writes are recovered. The guard keeps that debt explicit and
-prevents new direct hooks from drifting in silently.
+These routes intentionally remain compatibility hooks until original
+cursor/priority writes are recovered. The guard keeps that debt explicit,
+requires gameplay to use named hook slots, and prevents new direct
+playSound(index) callers from drifting in silently.
 """
 
 from __future__ import annotations
@@ -15,15 +16,23 @@ from pathlib import Path
 
 EXPECTED_LIVE_HOOKS = {
     "level_complete": (
-        "if (completeTimer_ == 0) playSound(kCompatibilityLevelCompleteSound);"
+        "playCompatibilitySound(kLevelCompleteCompatibilityHookSlot);"
     ),
-    "objective_pickup": "playSound(kCompatibilityObjectivePickupSound);",
+    "objective_pickup": (
+        "playCompatibilitySound(kObjectivePickupCompatibilityHookSlot);"
+    ),
 }
 
 EXPECTED_HELPER_SNIPPETS = [
     "constexpr size_t kCompatibilityObjectivePickupSound = 0;",
     "constexpr size_t kCompatibilityLevelCompleteSound = 5;",
+    "constexpr size_t kObjectivePickupCompatibilityHookSlot = 0;",
+    "constexpr size_t kLevelCompleteCompatibilityHookSlot = 1;",
+    "struct RemainingSoundCompatibilityHook",
+    "const char* captureBlocker;",
     "void playSound(size_t index)",
+    "void playCompatibilitySound(size_t hookSlot)",
+    "playSound(hook.index);",
     "playSound(soundIndexForSelector(selector));",
 ]
 
@@ -92,10 +101,10 @@ def check_source(source_path: Path) -> None:
     for snippet in EXPECTED_LIVE_HOOKS.values():
         require(text, snippet, "source")
     require(text, "kRemainingSoundCompatibilityHooks", "source")
-    require(text, "kRemainingSoundCaptureBlockers", "source")
     require(text, "kRejectedObjectiveSoundCandidates", "source")
     require(text, "remaining_compat_hooks=", "source")
     require(text, "capture_blockers=", "source")
+    require(text, "latch_preserved=", "source")
     require(text, "debugRemainingSoundCompatibilityHooks", "source")
     require(text, "--debug-remaining-sound-compat-hooks", "source")
     require(text, "remaining_sound_compat_hooks=ok", "source")
@@ -120,12 +129,12 @@ def check_source(source_path: Path) -> None:
             continue
         call_lines.append((lineno, line.strip()))
 
-    expected_lines = sorted(EXPECTED_LIVE_HOOKS.values())
+    expected_lines = ["playSound(hook.index);"]
     actual_lines = sorted(line for _, line in call_lines)
     if actual_lines != expected_lines:
         formatted = ", ".join(f"{lineno}:{line}" for lineno, line in call_lines)
         raise RuntimeError(
-            "direct playSound compatibility hook set changed: " + formatted
+            "direct playSound compatibility funnel changed: " + formatted
         )
 
 
@@ -137,7 +146,8 @@ def check_docs(root: Path) -> None:
     }
     for label, path in docs.items():
         text = path.read_text(encoding="utf-8")
-        require_collapsed(text, "direct `playSound(index)`", label)
+        require_collapsed(text, "`playCompatibilitySound`", label)
+        require_collapsed(text, "`playSound(index)`", label)
         require_collapsed(text, "compatibility hooks", label)
         require_collapsed(text, "original cursor/priority", label)
         require_collapsed(
@@ -146,6 +156,7 @@ def check_docs(root: Path) -> None:
             label,
         )
         require_collapsed(text, "--debug-remaining-sound-compat-hooks", label)
+        require_collapsed(text, "latch_preserved=1", label)
         require_collapsed(text, "--debug-sound-runtime-capture-queue", label)
         require_collapsed(text, "sound_runtime_capture_queue=ok", label)
         require_collapsed(text, "original_cursor_priority_claim=0", label)
@@ -165,10 +176,11 @@ def check_cmake(cmake_path: Path) -> None:
     require(text, "sound_runtime_capture_queue=ok", "CMake")
     require(text, "original_cursor_priority_claim=0", "CMake")
     require(text, "capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate", "CMake")
+    require(text, "latch_preserved=1", "CMake")
     require(text, EXPECTED_ACTOR_CONTACT_CAPTURE_CANDIDATES, "CMake")
     require(
         text,
-        "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=24 docs=3 rejected_objective_candidates=3 capture_blockers=2 live_diagnostic=1",
+        "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=30 docs=3 rejected_objective_candidates=3 capture_blockers=2 live_diagnostic=1",
         "CMake",
     )
 

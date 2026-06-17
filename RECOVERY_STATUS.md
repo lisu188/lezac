@@ -1,17 +1,24 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/behavior4-no-freeze-summary`
+Branch: `codex/behavior4-procmem-status-fields`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Extended `tools/capture_original_behavior4_procmem.sh` so live capture status
+  lines now emit `freeze_runtime_patch_applied=` directly, matching the child
+  capture manifest and raw dump. The behavior-4 route-sweep summarizer still
+  falls back to the child manifest for older captures, but new sweep manifests
+  now carry enough top-level status metadata for `runtime_patch_applied=` and
+  `patched_no_freeze_candidates=` without reopening every candidate directory.
 - Extended `tools/summarize_behavior4_procmem_route_sweep.py` and its checker
   so behavior-4 route-sweep summaries now distinguish patch-loaded no-freeze
   captures from missing or unattempted candidates. Details report
   `runtime_patch_applied=`, and the summary reports
-  `patched_no_freeze_candidates=` by reading the child capture manifest's
-  `freeze_runtime_patch_applied` field. Two 2026-06-17 WSL smoke captures
+  `patched_no_freeze_candidates=` from either the top-level capture status or
+  the child capture manifest's `freeze_runtime_patch_applied` field. Two
+  2026-06-17 WSL smoke captures
   proved the new classification on live original runs: `behavior4_branch_start`
   before-bomb route `x:2.00` and route `x:5.00,m:0.50,x:2.00` both observed
   `runtime_cs=01ED`, `runtime_ds=0C8F`, loaded the `01ED:728C` patch, and

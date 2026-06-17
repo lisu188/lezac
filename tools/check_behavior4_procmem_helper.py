@@ -111,6 +111,8 @@ def check_script(script_path: Path) -> None:
         "players p1_dead=<0-or-1>",
         "route_state_dumps.txt",
         "runtime_metadata=observed",
+        "freeze_runtime_patch_applied=$(manifest_value freeze_runtime_patch_applied \"$procmem_manifest\")",
+        "freeze_runtime_patch_applied=$freeze_runtime_patch_applied",
         "choose an output directory outside the repository",
         "missing $asset_dir/LEZAC.EXE",
         "visual_claim=0",

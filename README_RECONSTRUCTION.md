@@ -207,7 +207,9 @@ The wrapper can freeze `spawner_loop_start`, `spawner_loop_end`,
 `behavior4_branch_start`, `behavior4_branch_end`, `integration_8_8_start`, or
 `integration_8_8_end`, emits `behavior4_procmem` manifests plus a fill-in
 candidate fixture, and keeps `visual_claim=0` until semantic behavior-4 rows
-are captured and accepted by `--debug-behavior4-runtime-oracle`.
+are captured and accepted by `--debug-behavior4-runtime-oracle`. Live capture
+status lines include `freeze_runtime_patch_applied=` and `freeze_observed=`, so
+route-sweep manifests can distinguish patch-loaded no-freeze captures directly.
 Use `tools/sweep_original_behavior4_procmem_routes.py` to plan or execute a
 guarded route/timing matrix around that helper. Its default dry-run covers
 `behavior4_branch_start` and `integration_8_8_start` across the reviewed

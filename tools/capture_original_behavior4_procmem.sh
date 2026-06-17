@@ -378,4 +378,4 @@ if [[ -e "$procmem_out/route_state_dumps.txt" ]]; then
     } >>"$candidate_fixture"
 fi
 
-echo "behavior4_procmem=ok mode=capture target=$target ghidra=$ghidra runtime_cs=$runtime_cs runtime_ds=$runtime_ds freeze_runtime=$freeze_runtime freeze_observed=$instrumented_freeze_observed manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture procmem_manifest=$procmem_manifest"
+echo "behavior4_procmem=ok mode=capture target=$target ghidra=$ghidra runtime_cs=$runtime_cs runtime_ds=$runtime_ds freeze_runtime=$freeze_runtime freeze_runtime_patch_applied=$freeze_runtime_patch_applied freeze_observed=$instrumented_freeze_observed manifest=$manifest raw_dump=$raw_dump candidate_fixture=$candidate_fixture procmem_manifest=$procmem_manifest"

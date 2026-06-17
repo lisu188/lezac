@@ -946,7 +946,7 @@ python3 tools/summarize_branch_anchor_route_sweep.py \
 python3 tools/sweep_original_lane_write_routes.py \
   /tmp/lezac-lane-write-from-branch-routes . \
   --route-manifest /tmp/lezac-branch-anchor-routes.txt \
-  --offset forward-debris --dry-run --skip-oracle
+  --dry-run --skip-oracle
 ```
 
 For a focused live classification after reviewing the dry run, use the same
@@ -960,8 +960,10 @@ Summarize completed sweeps with
 and gates for `--require-target`, `--require-route-with-targets`, and
 `--require-environment-preflight`. With `--write-route-manifest`, matching
 route steps are emitted as `branch_anchor_route_candidates`; the lane-write
-sweep accepts that handoff with `--route-manifest`. This is a reachability
-classifier only; a natural `1000:3D2D` lane-write capture still needs the later
+sweep accepts that handoff with `--route-manifest` and defaults it to the
+forward-debris writeback offset `1000:3D2D` unless `--offset` is supplied. This
+is a reachability classifier only; a natural `1000:3D2D` lane-write capture
+still needs the later
 `tools/summarize_lane_write_route_sweep.py --require-forward-debris-tag` gate
 before promotion.
 
@@ -1007,14 +1009,16 @@ python3 tools/summarize_lane_div_route_sweep.py \
 python3 tools/sweep_original_lane_write_routes.py \
   /tmp/lezac-lane-write-from-lane-div-routes . \
   --route-manifest /tmp/lezac-lane-div-forward-routes.txt \
-  --offset forward-collapse --offset forward-debris --dry-run --skip-oracle
+  --dry-run --skip-oracle
 ```
 
 The lane-div summary reports ready/no-patch/no-freeze/incomplete/missing
 candidates plus `forward_divide_candidates=` and writes
 `lane_div_forward_route_candidates` only after a route reaches the forward
 divide call at `1000:3CE3`. This still does not prove debris writeback; it
-only narrows which routes deserve the later `3D1B`/`3D2D` scratch probes.
+only narrows which routes deserve the later `3D1B`/`3D2D` scratch probes. The
+lane-write sweep defaults that plain forward-divide handoff to both forward
+writeback offsets, `1000:3D1B` and `1000:3D2D`.
 For new route families, prefer the stricter route-state handoff when
 `route_state_samples.tsv` is available:
 
@@ -1026,14 +1030,14 @@ python3 tools/summarize_lane_div_route_sweep.py \
 python3 tools/sweep_original_lane_write_routes.py \
   /tmp/lezac-lane-write-from-lane-div-forward-debris-routes . \
   --route-manifest /tmp/lezac-lane-div-forward-debris-routes.txt \
-  --offset forward-debris --dry-run --skip-oracle
+  --dry-run --skip-oracle
 ```
 
 That manifest is emitted as `lane_div_forward_debris_route_candidates` and is
-accepted by the lane-write sweep. It proves only that the route reached the
-forward divide and sampled a `0x4e20`-or-higher lane word in route-state data;
-the natural `1000:3D2D` writeback still needs its own ready fixture before
-promotion.
+accepted by the lane-write sweep with a default `1000:3D2D` probe. It proves
+only that the route reached the forward divide and sampled a `0x4e20`-or-higher
+lane word in route-state data; the natural `1000:3D2D` writeback still needs
+its own ready fixture before promotion.
 
 A follow-up helper-tag sweep at
 `C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-tag-search-1781617957`
@@ -1087,7 +1091,7 @@ debris write specifically. When that stricter gate passes, add
 `--write-forward-debris-route-manifest /tmp/lezac-forward-debris-routes.txt`
 and feed the resulting `lane_write_forward_debris_route_candidates` file back
 to `tools/sweep_original_lane_write_routes.py --route-manifest` for focused
-follow-up probes.
+follow-up probes; the lane-write sweep defaults that handoff to `1000:3D2D`.
 
 For no-freeze route searches, the same summary also reads each candidate's
 `route_state_samples.tsv` when present. New captures include

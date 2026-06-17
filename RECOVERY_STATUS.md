@@ -6,6 +6,15 @@ Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Tightened the lane-write route-manifest handoff for the remaining natural
+  forward `3D2D` search. `tools/sweep_original_lane_write_routes.py` now
+  derives default offsets from the promotion type when `--route-manifest` is
+  used without explicit `--offset`: branch-anchor, lane-write forward-debris,
+  and lane-div forward-debris manifests default to `1000:3D2D`, while plain
+  lane-div forward-route manifests default to the paired forward writeback
+  probes `1000:3D1B` and `1000:3D2D`. Explicit `--offset` still overrides the
+  manifest default. This reduces accidental reverse `3EC1` probes when a
+  forward-only route handoff is already available.
 - Tightened sound-callsite procmem promotion triage after live WSL/DOSBox-debug
   probes loaded runtime patches but did not reach the patched callsites.
   `tools/capture_original_sound_callsite_procmem.sh` now emits

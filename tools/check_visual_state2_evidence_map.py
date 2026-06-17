@@ -17,8 +17,10 @@ STATE2_FIXTURES = (
 )
 
 VISUAL_FIXTURES = (
+    "visual_table_oracle_bad_row_byte3_sprite.txt",
     "visual_table_oracle_bad_segment.txt",
     "visual_table_oracle_missing_row_byte.txt",
+    "visual_table_oracle_original_state2_runtime.txt",
     "visual_table_oracle_sprite_without_row.txt",
     "visual_table_oracle_synthetic.txt",
 )
@@ -81,8 +83,12 @@ def check_cmake(root: Path) -> tuple[int, int, int, int]:
     for name in MODEL_TESTS:
         require_test(cmake, name)
 
-    state2_ctests = cmake.count("add_test(NAME state2_runtime_frame_oracle")
-    visual_ctests = cmake.count("add_test(NAME visual_table_oracle")
+    state2_ctests = sum(
+        1 for name in STATE2_TESTS if f"add_test(NAME {name}" in cmake
+    )
+    visual_ctests = sum(
+        1 for name in VISUAL_TESTS if f"add_test(NAME {name}" in cmake
+    )
     return state2_ctests, visual_ctests, len(MODEL_TESTS), 1
 
 

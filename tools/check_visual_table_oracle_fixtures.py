@@ -92,12 +92,12 @@ def parse_fixture(
     path: Path,
 ) -> tuple[
     dict[str, str],
-    dict[str, dict[str, str]],
+    dict[str, list[dict[str, str]]],
     list[tuple[int, int, int, int]],
     dict[int, int],
 ]:
     values: dict[str, str] = {}
-    records: dict[str, dict[str, str]] = {}
+    records: dict[str, list[dict[str, str]]] = {}
     breaks: list[tuple[int, int, int, int]] = []
     memory: dict[int, int] = {}
     key_re = re.compile(r"^([A-Za-z0-9_]+)=(.*)$")
@@ -127,7 +127,7 @@ def parse_fixture(
             continue
         if line.startswith(("actor ", "visual ", "effect_before ", "effect_after ")):
             record, fields = parse_record(line)
-            records[record] = fields
+            records.setdefault(record, []).append(fields)
             continue
         match = row_re.match(line)
         if match:
@@ -146,7 +146,7 @@ def parse_fixture(
 
 def infer_outcome(
     values: dict[str, str],
-    records: dict[str, dict[str, str]],
+    records: dict[str, list[dict[str, str]]],
     breaks: list[tuple[int, int, int, int]],
     memory: dict[int, int],
 ) -> str:
@@ -190,91 +190,166 @@ def infer_outcome(
     if "effect_after" not in records:
         return "effect_after_missing"
 
-    actor = records["actor"]
-    visual = records["visual"]
-    effect_before = records["effect_before"]
-    effect_after = records["effect_after"]
+    visual_records = records["visual"]
+    effect_before_records = records["effect_before"]
+    effect_after_records = records["effect_after"]
+    if len(effect_before_records) not in (1, len(visual_records)):
+        return (
+            "effect_before_count_mismatch expected=1_or_"
+            f"{len(visual_records)} actual={len(effect_before_records)}"
+        )
+    if len(effect_after_records) not in (1, len(visual_records)):
+        return (
+            "effect_after_count_mismatch expected=1_or_"
+            f"{len(visual_records)} actual={len(effect_after_records)}"
+        )
+    if len(effect_before_records) != len(effect_after_records):
+        return (
+            "effect_count_shape_mismatch before="
+            f"{len(effect_before_records)} after={len(effect_after_records)}"
+        )
+
+    actor = records["actor"][0]
     anim_current = parse_hex16(
         require_field(actor, "anim_current", "actor"), "actor.anim_current"
     )
-    visual_frame = parse_hex16(
-        require_field(visual, "frame", "visual"), "visual.frame"
+    anim_first = parse_hex16(
+        require_field(actor, "anim_first", "actor"), "actor.anim_first"
     )
-    if visual_frame != anim_current:
-        return f"visual_frame_mismatch actor=0x{anim_current:02x} visual=0x{visual_frame:02x}"
-    row_address = parse_hex16(
-        require_field(visual, "row_addr", "visual"), "visual.row_addr"
+    anim_last = parse_hex16(
+        require_field(actor, "anim_last", "actor"), "actor.anim_last"
     )
-    expected_row_address = FRAME_ENTRY_BASE + visual_frame * 4
-    if row_address != expected_row_address:
-        return (
-            "row_addr_mismatch expected="
-            f"0x{expected_row_address:04x} actual=0x{row_address:04x}"
-        )
-    has_visual_row = "row" in visual
-    if "sprite_index" in visual and not has_visual_row:
-        return "visual_row_missing_for_sprite"
-    if not has_visual_row:
-        return "visual_row_missing"
-    claimed_row = parse_row_bytes(require_field(visual, "row", "visual"), "visual.row")
-    if len(claimed_row) != 4:
-        return "row_byte_count field=visual.row"
-    if -1 in memory:
-        return "dump_segment_mismatch"
-    memory_row: list[int] = []
-    for address in range(row_address, row_address + 4):
-        if address not in memory:
-            return f"missing_byte address={address:04x}"
-        memory_row.append(memory[address])
-    if claimed_row != memory_row:
-        expected = ",".join(f"{byte:02x}" for byte in memory_row)
-        actual = ",".join(f"{byte:02x}" for byte in claimed_row)
-        return f"visual_row_mismatch expected={expected} actual={actual}"
-
-    bank = require_field(visual, "bank", "visual").upper().removesuffix(".SPR")
     bank_counts = {"BOMOMIMK": 91, "PROVA": 91, "FONTS": 68}
-    if bank not in bank_counts:
-        return f"unknown_sprite_bank value={bank}"
-    sprite_index = parse_int(
-        require_field(visual, "sprite_index", "visual"), "visual.sprite_index"
-    )
-    if sprite_index < 0 or sprite_index >= bank_counts[bank]:
-        return f"sprite_index_out_of_range bank={bank} index={sprite_index}"
-    sprite_source = visual.get("sprite_source", "runtime")
-    if sprite_source == "row_byte0" and sprite_index != claimed_row[0]:
-        return (
-            "sprite_index_row0_mismatch row0="
-            f"{claimed_row[0]} sprite_index={sprite_index}"
+    visual_frames: list[int] = []
+    first_bank: str | None = None
+    first_sprite_source: str | None = None
+    for visual in visual_records:
+        visual_frame = parse_hex16(
+            require_field(visual, "frame", "visual"), "visual.frame"
         )
-    if sprite_source == "row_byte3" and sprite_index != claimed_row[3]:
-        return (
-            "sprite_index_row3_mismatch row3="
-            f"{claimed_row[3]} sprite_index={sprite_index}"
+        if not visual_frames:
+            if visual_frame != anim_current:
+                return (
+                    "visual_frame_mismatch actor="
+                    f"0x{anim_current:02x} visual=0x{visual_frame:02x}"
+                )
+        elif visual_frame != visual_frames[-1] + 1:
+            return (
+                "visual_frame_sequence_mismatch expected="
+                f"0x{visual_frames[-1] + 1:02x} actual=0x{visual_frame:02x}"
+            )
+        if visual_frame < anim_first or visual_frame > anim_last:
+            return (
+                "visual_frame_out_of_range range="
+                f"0x{anim_first:02x}..0x{anim_last:02x} "
+                f"visual=0x{visual_frame:02x}"
+            )
+        visual_frames.append(visual_frame)
+
+        row_address = parse_hex16(
+            require_field(visual, "row_addr", "visual"), "visual.row_addr"
         )
-    if sprite_source not in {
-        "row_byte0",
-        "row_byte3",
-        "runtime_draw_call",
-        "static_table",
-    }:
-        return f"bad_sprite_source value={sprite_source}"
-    before_slot = parse_int(
-        require_field(effect_before, "slot", "effect_before"), "effect_before.slot"
-    )
-    after_slot = parse_int(
-        require_field(effect_after, "slot", "effect_after"), "effect_after.slot"
-    )
-    if before_slot != after_slot:
-        return f"effect_slot_changed before={before_slot} after={after_slot}"
-    before_frame = parse_hex16(
-        require_field(effect_before, "frame", "effect_before"),
-        "effect_before.frame",
-    )
-    if before_frame != visual_frame:
-        return (
-            "effect_before_frame_mismatch expected="
-            f"0x{visual_frame:02x} actual=0x{before_frame:02x}"
+        expected_row_address = FRAME_ENTRY_BASE + visual_frame * 4
+        if row_address != expected_row_address:
+            return (
+                "row_addr_mismatch expected="
+                f"0x{expected_row_address:04x} actual=0x{row_address:04x}"
+            )
+        has_visual_row = "row" in visual
+        if "sprite_index" in visual and not has_visual_row:
+            return "visual_row_missing_for_sprite"
+        if not has_visual_row:
+            return "visual_row_missing"
+        claimed_row = parse_row_bytes(
+            require_field(visual, "row", "visual"), "visual.row"
         )
+        if len(claimed_row) != 4:
+            return "row_byte_count field=visual.row"
+        if -1 in memory:
+            return "dump_segment_mismatch"
+        memory_row: list[int] = []
+        for address in range(row_address, row_address + 4):
+            if address not in memory:
+                return f"missing_byte address={address:04x}"
+            memory_row.append(memory[address])
+        if claimed_row != memory_row:
+            expected = ",".join(f"{byte:02x}" for byte in memory_row)
+            actual = ",".join(f"{byte:02x}" for byte in claimed_row)
+            return f"visual_row_mismatch expected={expected} actual={actual}"
+
+        bank = require_field(visual, "bank", "visual").upper().removesuffix(".SPR")
+        if bank not in bank_counts:
+            return f"unknown_sprite_bank value={bank}"
+        if first_bank is None:
+            first_bank = bank
+        elif bank != first_bank:
+            return f"visual_bank_changed first={first_bank} actual={bank}"
+        sprite_index = parse_int(
+            require_field(visual, "sprite_index", "visual"), "visual.sprite_index"
+        )
+        if sprite_index < 0 or sprite_index >= bank_counts[bank]:
+            return f"sprite_index_out_of_range bank={bank} index={sprite_index}"
+        sprite_source = visual.get("sprite_source", "runtime")
+        if first_sprite_source is None:
+            first_sprite_source = sprite_source
+        elif sprite_source != first_sprite_source:
+            return (
+                "visual_sprite_source_changed first="
+                f"{first_sprite_source} actual={sprite_source}"
+            )
+        if sprite_source == "row_byte0" and sprite_index != claimed_row[0]:
+            return (
+                "sprite_index_row0_mismatch row0="
+                f"{claimed_row[0]} sprite_index={sprite_index}"
+            )
+        if sprite_source == "row_byte3" and sprite_index != claimed_row[3]:
+            return (
+                "sprite_index_row3_mismatch row3="
+                f"{claimed_row[3]} sprite_index={sprite_index}"
+            )
+        if sprite_source not in {
+            "row_byte0",
+            "row_byte3",
+            "runtime_draw_call",
+            "static_table",
+        }:
+            return f"bad_sprite_source value={sprite_source}"
+
+    effect_frames = (
+        [visual_frames[0]]
+        if len(effect_before_records) == 1
+        else visual_frames
+    )
+    for index, expected_frame in enumerate(effect_frames):
+        effect_before = effect_before_records[index]
+        effect_after = effect_after_records[index]
+        before_slot = parse_int(
+            require_field(effect_before, "slot", "effect_before"),
+            "effect_before.slot",
+        )
+        after_slot = parse_int(
+            require_field(effect_after, "slot", "effect_after"), "effect_after.slot"
+        )
+        if before_slot != after_slot:
+            return f"effect_slot_changed before={before_slot} after={after_slot}"
+        before_frame = parse_hex16(
+            require_field(effect_before, "frame", "effect_before"),
+            "effect_before.frame",
+        )
+        if before_frame != expected_frame:
+            return (
+                "effect_before_frame_mismatch expected="
+                f"0x{expected_frame:02x} actual=0x{before_frame:02x}"
+            )
+        after_frame = parse_hex16(
+            require_field(effect_after, "frame", "effect_after"),
+            "effect_after.frame",
+        )
+        if after_frame != expected_frame:
+            return (
+                "effect_after_frame_mismatch expected="
+                f"0x{expected_frame:02x} actual=0x{after_frame:02x}"
+            )
     return "ok"
 
 

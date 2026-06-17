@@ -9408,6 +9408,9 @@ public:
             std::vector<bool> present(0x10000, false);
             std::map<std::string, std::string> values;
             std::map<std::string, std::map<std::string, std::string>> records;
+            std::vector<std::map<std::string, std::string>> visualRecords;
+            std::vector<std::map<std::string, std::string>> effectBeforeRecords;
+            std::vector<std::map<std::string, std::string>> effectAfterRecords;
             std::set<uint16_t> breakOffsets;
             uint16_t runtimeCs = 0;
             uint16_t runtimeDs = 0;
@@ -9506,7 +9509,15 @@ public:
                     line.rfind("effect_before ", 0) == 0 ||
                     line.rfind("effect_after ", 0) == 0) {
                     auto parsed = parseRecord(line);
-                    records[parsed.first] = parsed.second;
+                    if (parsed.first == "visual") {
+                        visualRecords.push_back(parsed.second);
+                    } else if (parsed.first == "effect_before") {
+                        effectBeforeRecords.push_back(parsed.second);
+                    } else if (parsed.first == "effect_after") {
+                        effectAfterRecords.push_back(parsed.second);
+                    } else {
+                        records[parsed.first] = parsed.second;
+                    }
                     continue;
                 }
                 fail("unrecognized_line");
@@ -9539,18 +9550,29 @@ public:
             }
 
             auto actorIt = records.find("actor");
-            auto visualIt = records.find("visual");
-            auto effectBeforeIt = records.find("effect_before");
-            auto effectAfterIt = records.find("effect_after");
             if (actorIt == records.end()) fail("actor_missing");
-            if (visualIt == records.end()) fail("visual_missing");
-            if (effectBeforeIt == records.end()) fail("effect_before_missing");
-            if (effectAfterIt == records.end()) fail("effect_after_missing");
+            if (visualRecords.empty()) fail("visual_missing");
+            if (effectBeforeRecords.empty()) fail("effect_before_missing");
+            if (effectAfterRecords.empty()) fail("effect_after_missing");
+            if (effectBeforeRecords.size() != 1 &&
+                effectBeforeRecords.size() != visualRecords.size()) {
+                fail("effect_before_count_mismatch expected=1_or_" +
+                     std::to_string(visualRecords.size()) + " actual=" +
+                     std::to_string(effectBeforeRecords.size()));
+            }
+            if (effectAfterRecords.size() != 1 &&
+                effectAfterRecords.size() != visualRecords.size()) {
+                fail("effect_after_count_mismatch expected=1_or_" +
+                     std::to_string(visualRecords.size()) + " actual=" +
+                     std::to_string(effectAfterRecords.size()));
+            }
+            if (effectBeforeRecords.size() != effectAfterRecords.size()) {
+                fail("effect_count_shape_mismatch before=" +
+                     std::to_string(effectBeforeRecords.size()) + " after=" +
+                     std::to_string(effectAfterRecords.size()));
+            }
 
             const auto& actor = actorIt->second;
-            const auto& visual = visualIt->second;
-            const auto& effectBefore = effectBeforeIt->second;
-            const auto& effectAfter = effectAfterIt->second;
             int actorSlot = parseInt(requireField(actor, "slot", "actor"), "actor.slot");
             int actorState = parseInt(requireField(actor, "state", "actor"), "actor.state");
             uint8_t animCurrent = static_cast<uint8_t>(
@@ -9564,134 +9586,298 @@ public:
                            "actor.anim_last"));
             int animMode = parseInt(requireField(actor, "anim_mode", "actor"),
                                     "actor.anim_mode");
-            uint8_t visualFrame = static_cast<uint8_t>(
-                parseHex16(requireField(visual, "frame", "visual"),
-                           "visual.frame"));
-            if (visualFrame != animCurrent) {
-                fail("visual_frame_mismatch actor=" + hex2(animCurrent) +
-                     " visual=" + hex2(visualFrame));
-            }
-            constexpr uint16_t kFrameEntryBase = 0xc322;
-            uint16_t rowAddress = parseHex16(requireField(visual, "row_addr", "visual"),
-                                             "visual.row_addr");
-            uint16_t expectedRowAddress = static_cast<uint16_t>(
-                kFrameEntryBase + static_cast<uint16_t>(visualFrame) * 4u);
-            if (rowAddress != expectedRowAddress) {
-                fail("row_addr_mismatch expected=" + hex4(expectedRowAddress) +
-                     " actual=" + hex4(rowAddress));
-            }
-            bool hasVisualRow = visual.count("row") != 0;
-            bool hasSpriteIndex = visual.count("sprite_index") != 0;
-            if (hasSpriteIndex && !hasVisualRow) {
-                fail("visual_row_missing_for_sprite");
-            }
-            if (!hasVisualRow) fail("visual_row_missing");
-            std::array<uint8_t, 4> claimedRow =
-                parseRowBytes(requireField(visual, "row", "visual"), "visual.row");
 
+            struct VisualSummary {
+                uint8_t frame = 0;
+                uint16_t rowAddress = 0;
+                std::array<uint8_t, 4> row{};
+                std::string bank;
+                int spriteIndex = 0;
+                std::string spriteSource;
+                int drawDx = 0;
+                int drawDy = 0;
+            };
+            struct EffectSummary {
+                int slot = 0;
+                uint16_t beforeX = 0;
+                uint16_t beforeY = 0;
+                uint16_t afterX = 0;
+                uint16_t afterY = 0;
+                uint8_t beforeFrame = 0;
+                uint8_t afterFrame = 0;
+            };
+
+            constexpr uint16_t kFrameEntryBase = 0xc322;
             auto requireByte = [&](uint16_t address) -> uint8_t {
                 if (!present[address]) {
                     fail("missing_byte address=" + bareHex4(address));
                 }
                 return memory[address];
             };
-            std::array<uint8_t, 4> memoryRow{
-                requireByte(rowAddress),
-                requireByte(static_cast<uint16_t>(rowAddress + 1)),
-                requireByte(static_cast<uint16_t>(rowAddress + 2)),
-                requireByte(static_cast<uint16_t>(rowAddress + 3)),
+
+            std::vector<VisualSummary> parsedRows;
+            parsedRows.reserve(visualRecords.size());
+            for (const auto& visual : visualRecords) {
+                uint8_t visualFrame = static_cast<uint8_t>(
+                    parseHex16(requireField(visual, "frame", "visual"),
+                               "visual.frame"));
+                if (parsedRows.empty()) {
+                    if (visualFrame != animCurrent) {
+                        fail("visual_frame_mismatch actor=" + hex2(animCurrent) +
+                             " visual=" + hex2(visualFrame));
+                    }
+                } else {
+                    uint8_t expectedNext =
+                        static_cast<uint8_t>(parsedRows.back().frame + 1u);
+                    if (visualFrame != expectedNext) {
+                        fail("visual_frame_sequence_mismatch expected=" +
+                             hex2(expectedNext) + " actual=" + hex2(visualFrame));
+                    }
+                }
+                if (visualFrame < animFirst || visualFrame > animLast) {
+                    fail("visual_frame_out_of_range range=" + hex2(animFirst) +
+                         ".." + hex2(animLast) + " visual=" + hex2(visualFrame));
+                }
+                uint16_t rowAddress =
+                    parseHex16(requireField(visual, "row_addr", "visual"),
+                               "visual.row_addr");
+                uint16_t expectedRowAddress = static_cast<uint16_t>(
+                    kFrameEntryBase + static_cast<uint16_t>(visualFrame) * 4u);
+                if (rowAddress != expectedRowAddress) {
+                    fail("row_addr_mismatch expected=" + hex4(expectedRowAddress) +
+                         " actual=" + hex4(rowAddress));
+                }
+                bool hasVisualRow = visual.count("row") != 0;
+                bool hasSpriteIndex = visual.count("sprite_index") != 0;
+                if (hasSpriteIndex && !hasVisualRow) {
+                    fail("visual_row_missing_for_sprite");
+                }
+                if (!hasVisualRow) fail("visual_row_missing");
+                std::array<uint8_t, 4> claimedRow =
+                    parseRowBytes(requireField(visual, "row", "visual"),
+                                  "visual.row");
+                std::array<uint8_t, 4> memoryRow{
+                    requireByte(rowAddress),
+                    requireByte(static_cast<uint16_t>(rowAddress + 1)),
+                    requireByte(static_cast<uint16_t>(rowAddress + 2)),
+                    requireByte(static_cast<uint16_t>(rowAddress + 3)),
+                };
+                if (claimedRow != memoryRow) {
+                    fail("visual_row_mismatch expected=" + rowString(memoryRow) +
+                         " actual=" + rowString(claimedRow));
+                }
+
+                std::string bank =
+                    normalizeBank(requireField(visual, "bank", "visual"));
+                int spriteIndex =
+                    parseInt(requireField(visual, "sprite_index", "visual"),
+                             "visual.sprite_index");
+                if (spriteIndex < 0 || spriteIndex >= bankCount(bank)) {
+                    fail("sprite_index_out_of_range bank=" + bank +
+                         " index=" + std::to_string(spriteIndex));
+                }
+                std::string spriteSource =
+                    visual.count("sprite_source") ? visual.at("sprite_source")
+                                                  : "runtime";
+                if (spriteSource == "row_byte0" && spriteIndex != claimedRow[0]) {
+                    fail("sprite_index_row0_mismatch row0=" +
+                         std::to_string(static_cast<int>(claimedRow[0])) +
+                         " sprite_index=" + std::to_string(spriteIndex));
+                }
+                if (spriteSource == "row_byte3" && spriteIndex != claimedRow[3]) {
+                    fail("sprite_index_row3_mismatch row3=" +
+                         std::to_string(static_cast<int>(claimedRow[3])) +
+                         " sprite_index=" + std::to_string(spriteIndex));
+                }
+                if (spriteSource != "row_byte0" && spriteSource != "row_byte3" &&
+                    spriteSource != "runtime_draw_call" &&
+                    spriteSource != "static_table") {
+                    fail("bad_sprite_source value=" + spriteSource);
+                }
+                if (!parsedRows.empty() && bank != parsedRows.front().bank) {
+                    fail("visual_bank_changed first=" + parsedRows.front().bank +
+                         " actual=" + bank);
+                }
+                if (!parsedRows.empty() &&
+                    spriteSource != parsedRows.front().spriteSource) {
+                    fail("visual_sprite_source_changed first=" +
+                         parsedRows.front().spriteSource + " actual=" +
+                         spriteSource);
+                }
+
+                parsedRows.push_back(VisualSummary{
+                    visualFrame,
+                    rowAddress,
+                    memoryRow,
+                    bank,
+                    spriteIndex,
+                    spriteSource,
+                    parseInt(requireField(visual, "draw_dx", "visual"),
+                             "visual.draw_dx"),
+                    parseInt(requireField(visual, "draw_dy", "visual"),
+                             "visual.draw_dy"),
+                });
+            }
+
+            auto parseEffectPair = [&](size_t index, uint8_t expectedFrame) {
+                const auto& effectBefore = effectBeforeRecords[index];
+                const auto& effectAfter = effectAfterRecords[index];
+                int effectBeforeSlot = parseInt(
+                    requireField(effectBefore, "slot", "effect_before"),
+                    "effect_before.slot");
+                int effectAfterSlot = parseInt(
+                    requireField(effectAfter, "slot", "effect_after"),
+                    "effect_after.slot");
+                if (effectBeforeSlot != effectAfterSlot) {
+                    fail("effect_slot_changed before=" +
+                         std::to_string(effectBeforeSlot) + " after=" +
+                         std::to_string(effectAfterSlot));
+                }
+                uint16_t effectBeforeX =
+                    parseHex16(requireField(effectBefore, "x", "effect_before"),
+                               "effect_before.x");
+                uint16_t effectBeforeY =
+                    parseHex16(requireField(effectBefore, "y", "effect_before"),
+                               "effect_before.y");
+                uint16_t effectAfterX =
+                    parseHex16(requireField(effectAfter, "x", "effect_after"),
+                               "effect_after.x");
+                uint16_t effectAfterY =
+                    parseHex16(requireField(effectAfter, "y", "effect_after"),
+                               "effect_after.y");
+                uint8_t effectBeforeFrame = static_cast<uint8_t>(
+                    parseHex16(requireField(effectBefore, "frame", "effect_before"),
+                               "effect_before.frame"));
+                uint8_t effectAfterFrame = static_cast<uint8_t>(
+                    parseHex16(requireField(effectAfter, "frame", "effect_after"),
+                               "effect_after.frame"));
+                if (effectBeforeFrame != expectedFrame) {
+                    fail("effect_before_frame_mismatch expected=" +
+                         hex2(expectedFrame) + " actual=" +
+                         hex2(effectBeforeFrame));
+                }
+                if (effectAfterFrame != expectedFrame) {
+                    fail("effect_after_frame_mismatch expected=" +
+                         hex2(expectedFrame) + " actual=" + hex2(effectAfterFrame));
+                }
+                return EffectSummary{
+                    effectBeforeSlot,
+                    effectBeforeX,
+                    effectBeforeY,
+                    effectAfterX,
+                    effectAfterY,
+                    effectBeforeFrame,
+                    effectAfterFrame,
+                };
             };
-            if (claimedRow != memoryRow) {
-                fail("visual_row_mismatch expected=" + rowString(memoryRow) +
-                     " actual=" + rowString(claimedRow));
+
+            std::vector<EffectSummary> effects;
+            if (effectBeforeRecords.size() == 1) {
+                effects.push_back(parseEffectPair(0, parsedRows.front().frame));
+            } else {
+                effects.reserve(parsedRows.size());
+                for (size_t index = 0; index < parsedRows.size(); ++index) {
+                    effects.push_back(parseEffectPair(index, parsedRows[index].frame));
+                }
             }
 
-            std::string bank = normalizeBank(requireField(visual, "bank", "visual"));
-            int spriteIndex = parseInt(requireField(visual, "sprite_index", "visual"),
-                                       "visual.sprite_index");
-            if (spriteIndex < 0 || spriteIndex >= bankCount(bank)) {
-                fail("sprite_index_out_of_range bank=" + bank +
-                     " index=" + std::to_string(spriteIndex));
-            }
-            std::string spriteSource =
-                visual.count("sprite_source") ? visual.at("sprite_source") : "runtime";
-            if (spriteSource == "row_byte0" && spriteIndex != claimedRow[0]) {
-                fail("sprite_index_row0_mismatch row0=" +
-                     std::to_string(static_cast<int>(claimedRow[0])) +
-                     " sprite_index=" + std::to_string(spriteIndex));
-            }
-            if (spriteSource == "row_byte3" && spriteIndex != claimedRow[3]) {
-                fail("sprite_index_row3_mismatch row3=" +
-                     std::to_string(static_cast<int>(claimedRow[3])) +
-                     " sprite_index=" + std::to_string(spriteIndex));
-            }
-            if (spriteSource != "row_byte0" && spriteSource != "row_byte3" &&
-                spriteSource != "runtime_draw_call" && spriteSource != "static_table") {
-                fail("bad_sprite_source value=" + spriteSource);
-            }
-            int drawDx = parseInt(requireField(visual, "draw_dx", "visual"),
-                                  "visual.draw_dx");
-            int drawDy = parseInt(requireField(visual, "draw_dy", "visual"),
-                                  "visual.draw_dy");
+            auto rowsSummary = [&]() {
+                std::string value;
+                for (size_t index = 0; index < parsedRows.size(); ++index) {
+                    if (index != 0) value += ";";
+                    const auto& row = parsedRows[index];
+                    value += bareHex2(row.frame) + "@" + bareHex4(row.rowAddress) +
+                             ":" + rowString(row.row);
+                }
+                return value;
+            };
+            auto spriteIndexSummary = [&]() {
+                std::string value;
+                for (size_t index = 0; index < parsedRows.size(); ++index) {
+                    if (index != 0) value += ",";
+                    value += std::to_string(parsedRows[index].spriteIndex);
+                }
+                return value;
+            };
+            auto drawOffsetSummary = [&]() {
+                std::string value;
+                for (size_t index = 0; index < parsedRows.size(); ++index) {
+                    if (index != 0) value += ";";
+                    value += std::to_string(parsedRows[index].drawDx) + "," +
+                             std::to_string(parsedRows[index].drawDy);
+                }
+                return value;
+            };
+            auto effectAfterFrameSummary = [&]() {
+                std::string value;
+                for (size_t index = 0; index < effects.size(); ++index) {
+                    if (index != 0) value += ",";
+                    value += hex2(effects[index].afterFrame);
+                }
+                return value;
+            };
 
-            int effectBeforeSlot = parseInt(
-                requireField(effectBefore, "slot", "effect_before"),
-                "effect_before.slot");
-            int effectAfterSlot = parseInt(
-                requireField(effectAfter, "slot", "effect_after"),
-                "effect_after.slot");
-            if (effectBeforeSlot != effectAfterSlot) {
-                fail("effect_slot_changed before=" + std::to_string(effectBeforeSlot) +
-                     " after=" + std::to_string(effectAfterSlot));
+            const auto& firstRow = parsedRows.front();
+            const auto& firstEffect = effects.front();
+            if (parsedRows.size() == 1) {
+                std::cout << "visual_table_oracle=ok fixture=" << fixture
+                          << " scenario=" << scenario
+                          << " runtime_cs=" << hex4(runtimeCs)
+                          << " runtime_ds=" << hex4(runtimeDs)
+                          << " actor_slot=" << actorSlot
+                          << " actor_state=" << actorState
+                          << " anim_current=" << hex2(animCurrent)
+                          << " anim_range=" << hex2(animFirst) << ".."
+                          << hex2(animLast)
+                          << " anim_mode=" << animMode
+                          << " visual_frame=" << hex2(firstRow.frame)
+                          << " row_addr=" << hex4(firstRow.rowAddress)
+                          << " row=" << rowString(firstRow.row)
+                          << " bank=" << firstRow.bank
+                          << " sprite_index=" << firstRow.spriteIndex
+                          << " sprite_source=" << firstRow.spriteSource
+                          << " draw_offset=" << firstRow.drawDx << ','
+                          << firstRow.drawDy
+                          << " effect_slot=" << firstEffect.slot
+                          << " effect_before_xy=" << hex4(firstEffect.beforeX)
+                          << ',' << hex4(firstEffect.beforeY)
+                          << " effect_after_xy=" << hex4(firstEffect.afterX)
+                          << ',' << hex4(firstEffect.afterY)
+                          << " effect_after_frame="
+                          << hex2(firstEffect.afterFrame)
+                          << " breaks=" << breakCount
+                          << " temp_copy=" << (tempCopy ? 1 : 0)
+                          << " visual_claim=0\n";
+            } else {
+                std::cout << "visual_table_oracle=ok fixture=" << fixture
+                          << " scenario=" << scenario
+                          << " runtime_cs=" << hex4(runtimeCs)
+                          << " runtime_ds=" << hex4(runtimeDs)
+                          << " actor_slot=" << actorSlot
+                          << " actor_state=" << actorState
+                          << " anim_current=" << hex2(animCurrent)
+                          << " anim_range=" << hex2(animFirst) << ".."
+                          << hex2(animLast)
+                          << " anim_mode=" << animMode
+                          << " visual_rows=" << parsedRows.size()
+                          << " visual_frames=" << hex2(firstRow.frame) << ".."
+                          << hex2(parsedRows.back().frame)
+                          << " rows=" << rowsSummary()
+                          << " bank=" << firstRow.bank
+                          << " sprite_indices=" << spriteIndexSummary()
+                          << " sprite_source=" << firstRow.spriteSource
+                          << " draw_offsets=" << drawOffsetSummary()
+                          << " effect_slot=" << firstEffect.slot
+                          << " effect_before_xy=" << hex4(firstEffect.beforeX)
+                          << ',' << hex4(firstEffect.beforeY)
+                          << " effect_after_xy=" << hex4(firstEffect.afterX)
+                          << ',' << hex4(firstEffect.afterY)
+                          << " effect_after_frames="
+                          << effectAfterFrameSummary()
+                          << " breaks=" << breakCount
+                          << " temp_copy=" << (tempCopy ? 1 : 0)
+                          << " visual_claim=0\n";
             }
-            uint16_t effectBeforeX =
-                parseHex16(requireField(effectBefore, "x", "effect_before"),
-                           "effect_before.x");
-            uint16_t effectBeforeY =
-                parseHex16(requireField(effectBefore, "y", "effect_before"),
-                           "effect_before.y");
-            uint16_t effectAfterX =
-                parseHex16(requireField(effectAfter, "x", "effect_after"),
-                           "effect_after.x");
-            uint16_t effectAfterY =
-                parseHex16(requireField(effectAfter, "y", "effect_after"),
-                           "effect_after.y");
-            uint8_t effectBeforeFrame = static_cast<uint8_t>(
-                parseHex16(requireField(effectBefore, "frame", "effect_before"),
-                           "effect_before.frame"));
-            uint8_t effectAfterFrame = static_cast<uint8_t>(
-                parseHex16(requireField(effectAfter, "frame", "effect_after"),
-                           "effect_after.frame"));
-            if (effectBeforeFrame != visualFrame) {
-                fail("effect_before_frame_mismatch expected=" + hex2(visualFrame) +
-                     " actual=" + hex2(effectBeforeFrame));
-            }
-
-            std::cout << "visual_table_oracle=ok fixture=" << fixture
-                      << " scenario=" << scenario
-                      << " runtime_cs=" << hex4(runtimeCs)
-                      << " runtime_ds=" << hex4(runtimeDs)
-                      << " actor_slot=" << actorSlot
-                      << " actor_state=" << actorState
-                      << " anim_current=" << hex2(animCurrent)
-                      << " anim_range=" << hex2(animFirst) << ".." << hex2(animLast)
-                      << " anim_mode=" << animMode
-                      << " visual_frame=" << hex2(visualFrame)
-                      << " row_addr=" << hex4(rowAddress)
-                      << " row=" << rowString(memoryRow)
-                      << " bank=" << bank
-                      << " sprite_index=" << spriteIndex
-                      << " sprite_source=" << spriteSource
-                      << " draw_offset=" << drawDx << ',' << drawDy
-                      << " effect_slot=" << effectBeforeSlot
-                      << " effect_before_xy=" << hex4(effectBeforeX) << ','
-                      << hex4(effectBeforeY)
-                      << " effect_after_xy=" << hex4(effectAfterX) << ','
-                      << hex4(effectAfterY)
-                      << " effect_after_frame=" << hex2(effectAfterFrame)
-                      << " breaks=" << breakCount
-                      << " temp_copy=" << (tempCopy ? 1 : 0)
-                      << " visual_claim=0\n";
             if (expectError) {
                 std::cout << "visual_table_oracle=error fixture=" << fixture
                           << " reason=expected_error_missing\n";

@@ -1038,14 +1038,16 @@ Baseline: `origin/main`
   path and keep `visual_claim=0`, so no live renderer behavior changed.
 - Promoted the existing original state-2 DOSBox-debug stop into
   `visual_table_oracle_original_state2_runtime.txt`, a renderer-facing
-  visual-table oracle fixture for actor frame `0x4a`. It locks runtime
-  `CS=01ED` / `DS=0C8F`, row address `DS:c44a`, row bytes `10,10,7d,43`,
-  effect placement `0x0068,0x00a8`, and CTest coverage while preserving
+  visual-table oracle fixture for actor frames `0x4a..0x4f`. It locks runtime
+  `CS=01ED` / `DS=0C8F`, row addresses `DS:c44a..DS:c45e`, row bytes
+  `10,10,7d,43` through `10,10,7d,48`, `DS:c21e` effect placement
+  `0x0068,0x00a8` for the stopped `0x4a` frame, and CTest coverage while preserving
   `visual_claim=0`.
 - Tightened the visual-table oracle so `sprite_source=row_byte3` is a validated
   relationship rather than a generic runtime draw-call label. The original
-  state-2 fixture now proves row byte 3 `0x43` as the `BOMOMIMK` sprite-index
-  candidate, with malformed coverage for mismatched row-byte-3 sprite indices.
+  state-2 fixture now proves row byte 3 `0x43..0x48` as the `BOMOMIMK`
+  sprite-index candidate range, with malformed coverage for mismatched
+  row-byte-3 sprite indices.
 - Extended the state-2 runtime-frame oracle output with `row3_sequence=...`.
   The original fixture now reports `43,44,45,46,47,48` across frames
   `0x4a..0x4f`, tying the whole countdown frame range to the same row-byte-3

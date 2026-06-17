@@ -774,6 +774,19 @@ and tail frames stayed in level-1 playback. The reviewed level-1 timing family
 is now pruned for natural forward-helper debris-tag evidence under before-bomb
 patching.
 
+The 2026-06-17 broadened lane-div route pass at
+`/tmp/lezac-lane-div-broadened-route` tested `x:8.00` and
+`x:5.00,m:0.50,x:4.00` against the forward divide offset `1000:3CE3`. Both
+captures loaded the runtime patch and stayed in live level-1 playback in the
+inspected route/sampling frames, but neither froze at `3CE3` and neither
+sampled a debris-marker lane word: `observed_freezes=0`,
+`no_freeze_candidates=2`, `route_state_samples=75`,
+`route_state_debris_marker_candidates=0`, and
+`max_route_state_lane_word_global=0x0000`. The pair is now encoded as
+`tools/sweep_original_lane_div_routes.py --route-preset forward-helper-broadened`
+so it remains reproducible negative route evidence instead of an open
+hypothesis.
+
 `tools/summarize_lane_result_route_sweep.py`
 now classifies completed route-sweep candidates as `ready`, `no_freeze`,
 `incomplete`, or `missing`; `tools/run_lane_result_ready_manifest.py` and

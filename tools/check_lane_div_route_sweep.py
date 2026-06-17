@@ -190,6 +190,36 @@ def main() -> int:
         require(followup, snippet, "followup")
     cases += 1
 
+    broadened = run_sweep(
+        root,
+        [
+            str(out_base / "broadened"),
+            str(root),
+            "--dry-run",
+            "--skip-oracle",
+            "--route-preset",
+            "forward-helper-broadened",
+        ],
+    )
+    for snippet in [
+        "offsets=1",
+        "offset_labels=3ce3",
+        "offset_addresses=1000:3CE3",
+        "routes=2",
+        "route_labels=x8p00,x5p00_m0p50_x4p00",
+        "capture_commands=2",
+        "route_preset=forward-helper-broadened",
+        "capture_command_x8p00_3ce3=",
+        "capture_command_x5p00_m0p50_x4p00_3ce3=",
+        "--freeze-ghidra-offset 1000:3CE3",
+        "--route-step x:8.00",
+        "--route-step x:5.00",
+        "--route-step m:0.50",
+        "--route-step x:4.00",
+    ]:
+        require(broadened, snippet, "broadened")
+    cases += 1
+
     custom = run_sweep(
         root,
         [

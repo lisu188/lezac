@@ -1,11 +1,25 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/sound-procmem-runtime-evidence`
+Branch: `codex/lane-div-broadened-route-evidence`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Pruned a broadened lane-div helper-route hypothesis for the remaining natural
+  forward `3D2D` search. A live WSL/DOSBox pass at
+  `/tmp/lezac-lane-div-broadened-route` tested the new
+  `forward-helper-broadened` route family, `x:8.00` and
+  `x:5.00,m:0.50,x:4.00`, against the forward divide at `1000:3CE3` with
+  route-state sampling enabled. Both captures loaded the runtime patch and
+  stayed in live level-1 playback on inspected `020_route_position` and
+  `090_after_sampling` frames, but summarized as `observed_freezes=0`,
+  `ready_candidates=0`, `no_freeze_candidates=2`,
+  `route_state_sample_files=2`, `route_state_samples=75`,
+  `route_state_debris_marker_candidates=0`, and
+  `max_route_state_lane_word_global=0x0000`. `tools/sweep_original_lane_div_routes.py`
+  now keeps that pair as the named `forward-helper-broadened` preset so future
+  searches do not repeat the same broadened route family.
 - Tightened the lane-write route-manifest handoff for the remaining natural
   forward `3D2D` search. `tools/sweep_original_lane_write_routes.py` now
   derives default offsets from the promotion type when `--route-manifest` is
@@ -2622,12 +2636,15 @@ retry, the follow-up helper-tag sweep routes `x:1.50,m:0.35`,
 `x:2.50,m:0.35`, `x:2.00,m:0.15`, and `x:2.00,m:0.65`, or the expanded
 no-freeze subset `x:1.75`, `x:2.25`, `x:2.00,c:0.25`, `x:2.00,c:0.75`, and
 `x:5.00,m:0.50,x:2.00`, or the final helper-tag-open routes
-`x:3.00,z:0.50,x:2.00` and `x:1.50,left:0.50,x:2.00`. The positive `m` routes
+`x:3.00,z:0.50,x:2.00` and `x:1.50,left:0.50,x:2.00`, or the broadened
+lane-div routes `x:8.00` and `x:5.00,m:0.50,x:4.00`. The positive `m` routes
 reach the high-debris
 branch/forward-helper area, but the natural helper iterations observed so far
 write collapse tags `0x0002` or `0x0005` at `3D1B`; the expanded subset did
 not reach either helper write site, and the helper-tag-open routes also stayed
-valid no-freeze for both `3D1B` and `3D2D`. The updated lane-write summarizer
+valid no-freeze for both `3D1B` and `3D2D`. The broadened lane-div pass loaded
+the `3CE3` runtime patch for both long routes but produced no forward divide
+freeze and no debris-marker route-state sample. The updated lane-write summarizer
 classifies the prior helper-tag search as `debris_tag_candidates=0`,
 `collapse_tag_candidates=2`, `max_lane_write_tag=0x0005`, and
 `--require-debris-tag` fails with `reason=no_debris_tag_candidates`. The next

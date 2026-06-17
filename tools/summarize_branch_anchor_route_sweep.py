@@ -7,6 +7,7 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path
 import re
+import shlex
 import sys
 
 
@@ -39,6 +40,7 @@ class Candidate:
     route_label: str
     offset: str
     patch_mode: str
+    route_steps: list[str]
     fixture: Path | None
     source_manifest: Path | None
 
@@ -67,7 +69,9 @@ class SummaryResult:
     observed_targets: list[str]
     observed_routes: list[str]
     route_hits: dict[str, list[str]]
+    route_steps: dict[str, list[str]]
     environment_preflight: str
+    source_manifest: Path
 
 
 def read_manifest(path: Path) -> Manifest:
@@ -183,6 +187,24 @@ def target_from_label(label: str, fields: dict[str, str]) -> tuple[str, str, str
     return target, timing, route_label
 
 
+def extract_route_steps(command: str | None) -> list[str]:
+    if not command:
+        return []
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        return []
+    steps: list[str] = []
+    index = 0
+    while index < len(tokens):
+        if tokens[index] == "--route-step" and index + 1 < len(tokens):
+            steps.append(tokens[index + 1])
+            index += 2
+            continue
+        index += 1
+    return steps
+
+
 def active_values(path: Path) -> tuple[dict[str, str], list[str]]:
     values: dict[str, str] = {}
     nonempty: list[str] = []
@@ -209,6 +231,7 @@ def collect_candidates(manifest: Manifest) -> list[Candidate]:
         fields = parse_status_fields(value)
         target, timing, route_label = target_from_label(label, fields)
         expected_offset, expected_patch_mode = TARGETS.get(target, ("unknown", "unknown"))
+        route_steps = extract_route_steps(manifest.values.get(f"capture_command_{label}"))
         source_manifest = resolve_child_path(fields.get("manifest"), manifest.path)
         fixture = resolve_child_path(fields.get("candidate"), manifest.path)
         if fixture is None and source_manifest is not None and source_manifest.exists():
@@ -222,6 +245,7 @@ def collect_candidates(manifest: Manifest) -> list[Candidate]:
                 route_label=route_label,
                 offset=fields.get("offset", expected_offset),
                 patch_mode=fields.get("patch_mode", expected_patch_mode),
+                route_steps=route_steps,
                 fixture=fixture,
                 source_manifest=source_manifest,
             )
@@ -323,7 +347,10 @@ def summarize(manifest: Manifest) -> SummaryResult:
     for _, readiness in readings:
         readiness_counts[readiness.status] = readiness_counts.get(readiness.status, 0) + 1
     route_hits: dict[str, list[str]] = {}
+    route_steps: dict[str, list[str]] = {}
     for candidate, readiness in readings:
+        if candidate.route_steps and candidate.route_label not in route_steps:
+            route_steps[candidate.route_label] = candidate.route_steps
         if readiness.status != "ready":
             continue
         route_hits.setdefault(candidate.route_label, [])
@@ -367,6 +394,7 @@ def summarize(manifest: Manifest) -> SummaryResult:
             f"target={candidate.target} "
             f"timing={candidate.timing} "
             f"route={candidate.route_label} "
+            f"route_steps={csv_or_none(candidate.route_steps)} "
             f"offset={candidate.offset} "
             f"patch_mode={candidate.patch_mode} "
             f"candidate_status={readiness.status} "
@@ -391,8 +419,18 @@ def summarize(manifest: Manifest) -> SummaryResult:
         observed_targets=observed_targets,
         observed_routes=observed_routes,
         route_hits=route_hits,
+        route_steps=route_steps,
         environment_preflight=environment_preflight,
+        source_manifest=manifest.path,
     )
+
+
+def matching_routes(result: SummaryResult, required_targets: list[str]) -> list[str]:
+    return [
+        route
+        for route, targets in result.route_hits.items()
+        if all(target in targets for target in required_targets)
+    ]
 
 
 def require_targets_error(result: SummaryResult, required_targets: list[str]) -> str | None:
@@ -410,11 +448,7 @@ def require_targets_error(result: SummaryResult, required_targets: list[str]) ->
 def require_route_with_targets_error(
     result: SummaryResult, required_targets: list[str]
 ) -> str | None:
-    matches = [
-        route
-        for route, targets in result.route_hits.items()
-        if all(target in targets for target in required_targets)
-    ]
+    matches = matching_routes(result, required_targets)
     if matches:
         return None
     return (
@@ -422,6 +456,38 @@ def require_route_with_targets_error(
         f"required_targets={csv_or_none(required_targets)} "
         f"matching_routes=none observed_routes={csv_or_none(result.observed_routes)}"
     )
+
+
+def route_candidate_manifest_lines(
+    result: SummaryResult, required_targets: list[str]
+) -> list[str]:
+    routes = matching_routes(result, required_targets)
+    lines = [
+        "promotion=branch_anchor_route_candidates",
+        f"source_manifest={result.source_manifest}",
+        f"source_environment_preflight={result.environment_preflight}",
+        f"required_targets={csv_or_none(required_targets)}",
+        f"matching_routes={len(routes)}",
+    ]
+    for index, route in enumerate(routes):
+        route_steps = result.route_steps.get(route, [])
+        if not route_steps:
+            raise ValueError(f"route_steps_missing route={route}")
+        lines.extend(
+            [
+                f"route_{index}_label={route}",
+                f"route_{index}_steps={','.join(route_steps)}",
+                f"route_{index}_targets={csv_or_none(result.route_hits[route])}",
+            ]
+        )
+    return lines
+
+
+def write_route_manifest(path: Path, lines: list[str]) -> Path:
+    path = path.resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="ascii")
+    return path
 
 
 def require_environment_preflight_error(result: SummaryResult) -> str | None:
@@ -464,6 +530,14 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--write-route-manifest",
+        type=Path,
+        help=(
+            "write a branch_anchor_route_candidates manifest for routes that "
+            "satisfy --require-route-with-targets"
+        ),
+    )
+    parser.add_argument(
         "--require-environment-preflight",
         action="store_true",
         help="exit nonzero unless the source sweep manifest records environment_preflight=ok",
@@ -489,6 +563,27 @@ def main() -> int:
         if error is not None:
             print(error, file=sys.stderr)
             return 3
+    if args.write_route_manifest is not None:
+        if not args.require_route_with_targets:
+            print(
+                "branch_anchor_route_manifest=error "
+                "reason=write_requires_require_route_with_targets",
+                file=sys.stderr,
+            )
+            return 5
+        try:
+            route_manifest = write_route_manifest(
+                args.write_route_manifest,
+                route_candidate_manifest_lines(result, args.require_route_with_targets),
+            )
+        except (OSError, ValueError) as exc:
+            print(f"branch_anchor_route_manifest=error reason={exc}", file=sys.stderr)
+            return 6
+        print(
+            "branch_anchor_route_manifest=ok "
+            f"path={route_manifest} "
+            f"matching_routes={len(matching_routes(result, args.require_route_with_targets))}"
+        )
     if args.require_environment_preflight:
         error = require_environment_preflight_error(result)
         if error is not None:

@@ -142,20 +142,25 @@ def write_sweep(base: Path, environment_preflight: str = "ok") -> Path:
                 "routes=4",
                 "route_labels=x2p00,x2p00_m0p35,x2p00_c0p35,x2p00_c0p65",
                 f"environment_preflight={environment_preflight}",
+                "capture_command_high_debris_word_gate_before_bomb_x2p00_m0p35=python helper --route-step x:2.00 --route-step m:0.35",
                 "capture_status_high_debris_word_gate_before_bomb_x2p00_m0p35=branch_anchor_capture=ok route=x2p00_m0p35 target=high_debris_word_gate offset=1000:4C75 patch_mode=bp4-cs-scratch manifest="
                 + str(ready_word_manifest)
                 + " candidate="
                 + str(ready_word),
+                "capture_command_effect_forward_pass_call_before_bomb_x2p00_m0p35=python helper --route-step x:2.00 --route-step m:0.35",
                 "capture_status_effect_forward_pass_call_before_bomb_x2p00_m0p35=branch_anchor_capture=ok route=x2p00_m0p35 target=effect_forward_pass_call offset=1000:4C96 patch_mode=loop manifest="
                 + str(ready_forward_manifest),
+                "capture_command_high_debris_target_sample_before_bomb_x2p00=python helper --route-step x:2.00",
                 "capture_status_high_debris_target_sample_before_bomb_x2p00=branch_anchor_capture=ok route=x2p00 target=high_debris_target_sample offset=1000:4B3F patch_mode=loop manifest="
                 + str(no_freeze_manifest)
                 + " candidate="
                 + str(no_freeze),
+                "capture_command_effect_forward_pass_call_before_bomb_x2p00_c0p35=python helper --route-step x:2.00 --route-step c:0.35",
                 "capture_status_effect_forward_pass_call_before_bomb_x2p00_c0p35=branch_anchor_capture=ok route=x2p00_c0p35 target=effect_forward_pass_call offset=1000:4C96 patch_mode=loop manifest="
                 + str(no_patch_manifest)
                 + " candidate="
                 + str(no_patch),
+                "capture_command_high_debris_word_gate_before_bomb_x2p00_c0p65=python helper --route-step x:2.00 --route-step c:0.65",
                 "capture_status_high_debris_word_gate_before_bomb_x2p00_c0p65=branch_anchor_capture=ok route=x2p00_c0p65 target=high_debris_word_gate offset=1000:4C75 patch_mode=bp4-cs-scratch manifest="
                 + str(incomplete_manifest)
                 + " candidate="
@@ -197,6 +202,7 @@ def main() -> int:
             "observed_routes=x2p00_m0p35",
             "route_hits=x2p00_m0p35:high_debris_word_gate,effect_forward_pass_call",
             "branch_anchor_route_sweep_detail label=high_debris_word_gate_before_bomb_x2p00_m0p35",
+            "route_steps=x:2.00,m:0.35",
             "candidate_status=ready",
             "bp4_local_present=1",
             "bp4_local_value=0x8002",
@@ -234,6 +240,46 @@ def main() -> int:
             ],
         )
         require(require_route, "route_hits=x2p00_m0p35:", "require_route")
+        cases += 1
+
+        route_manifest = base / "route-candidates" / "manifest.txt"
+        route_manifest_out = run_summary(
+            root,
+            [
+                str(sweep),
+                "--require-route-with-targets",
+                "high_debris_word_gate,effect_forward_pass_call",
+                "--write-route-manifest",
+                str(route_manifest),
+            ],
+        )
+        require(route_manifest_out, "branch_anchor_route_manifest=ok", "route_manifest")
+        require(route_manifest_out, f"path={route_manifest.resolve()}", "route_manifest")
+        require(route_manifest_out, "matching_routes=1", "route_manifest")
+        route_manifest_text = route_manifest.read_text(encoding="ascii")
+        for snippet in [
+            "promotion=branch_anchor_route_candidates",
+            f"source_manifest={sweep.resolve()}",
+            "source_environment_preflight=ok",
+            "required_targets=high_debris_word_gate,effect_forward_pass_call",
+            "matching_routes=1",
+            "route_0_label=x2p00_m0p35",
+            "route_0_steps=x:2.00,m:0.35",
+            "route_0_targets=high_debris_word_gate,effect_forward_pass_call",
+        ]:
+            require(route_manifest_text, snippet, "route_manifest_text")
+        cases += 1
+
+        missing_route_gate = run_summary(
+            root,
+            [str(sweep), "--write-route-manifest", str(base / "missing-gate.txt")],
+            expect_success=False,
+        )
+        require(
+            missing_route_gate,
+            "reason=write_requires_require_route_with_targets",
+            "missing_route_gate",
+        )
         cases += 1
 
         missing_target = run_summary(

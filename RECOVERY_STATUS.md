@@ -1,11 +1,18 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/branch-anchor-summary`
+Branch: `codex/branch-anchor-route-handoff`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Extended the branch-anchor to lane-write handoff: the branch-anchor
+  summarizer can now write a `branch_anchor_route_candidates` manifest for
+  routes satisfying `--require-route-with-targets`, preserving the exact
+  `--route-step` sequence from the original sweep commands. The lane-write
+  route sweep accepts that file with `--route-manifest`, so a future natural
+  `1000:3D2D` probe can be driven only from routes that already proved the
+  high-debris word gate and forward helper call.
 - Added `tools/summarize_branch_anchor_route_sweep.py` and checker/CMake
   coverage so high-debris branch-anchor sweeps now summarize route
   reachability before another natural `1000:3D2D` attempt. The summary reports

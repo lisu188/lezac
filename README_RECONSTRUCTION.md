@@ -252,12 +252,12 @@ Checked-in original visual-table fixtures use the
 and optional-original guardrails pick them up automatically. The current
 original fixture is `visual_table_oracle_original_state2_runtime.txt`,
 normalized from the original state-2 runtime stop and still `visual_claim=0`.
-It validates row byte 3 as the `BOMOMIMK` sprite-index candidate for frame
-`0x4a`. The row-model diagnostic now keeps row bytes 0 and 1 as draw-offset
-candidates with raw bytes `0x10,0x10` / pixels `16,16`, keeps row byte 2 as
-the stable raw constant `0x7d`, and keeps row byte 3 as the sprite-index range
-`0x43..0x48`; full live death/reentry art still requires paired original-frame
-evidence before it can be claimed.
+It validates row byte 3 as the `BOMOMIMK` sprite-index candidate range
+`0x43..0x48` for frames `0x4a..0x4f`. The row-model diagnostic now keeps row
+bytes 0 and 1 as draw-offset candidates with raw bytes `0x10,0x10` / pixels
+`16,16`, keeps row byte 2 as the stable raw constant `0x7d`, and keeps row byte
+3 as the sprite-index range `0x43..0x48`; full live death/reentry art still
+requires paired original-frame evidence before it can be claimed.
 Summarize any one of those capture directories with
 `python3 tools/summarize_debug_capture.py <capture_dir>`. The summary reports
 `candidate_status=ready|incomplete|missing|none`, missing fixture fields,
@@ -582,8 +582,8 @@ The visual-table fixture checker does the same for
 `visual_table_oracle_original*.txt` captures; the current checked-in original
 fixture is `visual_table_oracle_original_state2_runtime.txt`, normalized from
 the original state-2 runtime stop and still `visual_claim=0`. It validates
-`sprite_source=row_byte3` for the captured state-2 row without promoting the
-live renderer.
+`sprite_source=row_byte3` for the captured state-2 table rows `0x4a..0x4f`
+without promoting the live renderer.
 The sound-callsite checker accepts future `sound_callsite_oracle_original*.txt`
 captures under the same valid-oracle and CTest-coverage rule.
 `tools/check_optional_original_oracle_fixtures.py` keeps these five runtime

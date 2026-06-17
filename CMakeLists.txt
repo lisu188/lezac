@@ -1779,6 +1779,15 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^visual_table_oracle_fixtures=ok files=6 valid=2 malformed=4 original=1 cmake_tests=6 source_command=1")
 
+        add_test(NAME visual_state2_evidence_map
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_state2_evidence_map.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(visual_state2_evidence_map PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^visual_state2_evidence_map=ok state2_fixtures=6 visual_fixtures=6 state2_ctests=6 visual_ctests=6 model_ctests=11 oracle_flags=2 docs=3 checker_ctests=1")
+
         add_test(NAME sound_callsite_oracle_fixture_expectations
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_oracle_fixtures.py
@@ -2613,7 +2622,7 @@ if(BUILD_TESTING)
     set_tests_properties(visual_table_oracle_original_state2_runtime PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "visual_table_oracle=ok fixture=visual_table_oracle_original_state2_runtime scenario=state2_death_table_consumption runtime_cs=0x01ed runtime_ds=0x0c8f actor_slot=0 actor_state=2 anim_current=0x4a anim_range=0x4a..0x4f anim_mode=1 visual_frame=0x4a row_addr=0xc44a row=10,10,7d,43 bank=BOMOMIMK sprite_index=67 sprite_source=row_byte3 draw_offset=16,16 effect_slot=0 effect_before_xy=0x0068,0x00a8 effect_after_xy=0x0068,0x00a8 effect_after_frame=0x4a breaks=5 temp_copy=1 visual_claim=0")
+            "visual_table_oracle=ok fixture=visual_table_oracle_original_state2_runtime scenario=state2_death_table_consumption runtime_cs=0x01ed runtime_ds=0x0c8f actor_slot=0 actor_state=2 anim_current=0x4a anim_range=0x4a..0x4f anim_mode=1 visual_rows=6 visual_frames=0x4a..0x4f rows=4a@c44a:10,10,7d,43;4b@c44e:10,10,7d,44;4c@c452:10,10,7d,45;4d@c456:10,10,7d,46;4e@c45a:10,10,7d,47;4f@c45e:10,10,7d,48 bank=BOMOMIMK sprite_indices=67,68,69,70,71,72 sprite_source=row_byte3 draw_offsets=16,16;16,16;16,16;16,16;16,16;16,16 effect_slot=0 effect_before_xy=0x0068,0x00a8 effect_after_xy=0x0068,0x00a8 effect_after_frames=0x4a breaks=5 temp_copy=1 visual_claim=0")
 
     add_test(NAME visual_table_oracle_bad_segment
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-visual-table-oracle

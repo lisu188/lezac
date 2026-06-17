@@ -1,7 +1,7 @@
 # LEZAC original visual-table oracle fixture.
 # Normalized from the same temporary DOSBox-debug capture as
-# state2_runtime_frame_oracle_original.txt. This promotes the renderer-facing
-# table row for the first state-2 countdown frame, but it remains
+# state2_runtime_frame_oracle_original.txt. This normalizes the renderer-facing
+# table-row range for state-2 countdown frames 0x4a..0x4f, but it remains
 # visual_claim=0 because no paired original/C++ frame comparison is attached.
 capture=visual_table
 source=dosbox-debug
@@ -23,6 +23,11 @@ break ghidra=1000:7DDF runtime=01ED:7DDF label=state2_return_active
 
 actor slot=0 kind=player1 state=2 anim_current=0x4a anim_first=0x4a anim_last=0x4f anim_counter=3 anim_delay=3 anim_mode=1 anim_step=1
 visual frame=0x4a row_addr=0xc44a row=10,10,7d,43 bank=BOMOMIMK sprite_index=67 sprite_source=row_byte3 draw_dx=16 draw_dy=16
+visual frame=0x4b row_addr=0xc44e row=10,10,7d,44 bank=BOMOMIMK sprite_index=68 sprite_source=row_byte3 draw_dx=16 draw_dy=16
+visual frame=0x4c row_addr=0xc452 row=10,10,7d,45 bank=BOMOMIMK sprite_index=69 sprite_source=row_byte3 draw_dx=16 draw_dy=16
+visual frame=0x4d row_addr=0xc456 row=10,10,7d,46 bank=BOMOMIMK sprite_index=70 sprite_source=row_byte3 draw_dx=16 draw_dy=16
+visual frame=0x4e row_addr=0xc45a row=10,10,7d,47 bank=BOMOMIMK sprite_index=71 sprite_source=row_byte3 draw_dx=16 draw_dy=16
+visual frame=0x4f row_addr=0xc45e row=10,10,7d,48 bank=BOMOMIMK sprite_index=72 sprite_source=row_byte3 draw_dx=16 draw_dy=16
 effect_before slot=0 x=0x0068 y=0x00a8 frame=0x4a flags=0x0000
 effect_after slot=0 x=0x0068 y=0x00a8 frame=0x4a flags=0x0000
 

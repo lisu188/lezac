@@ -1440,10 +1440,11 @@ an explicit frame-table row at `DS:c322 + 4 * frame`, sprite bank/index
 candidates, draw offsets, and effect-entry before/after bytes. Fixtures include
 synthetic/malformed parser coverage plus
 `visual_table_oracle_original_state2_runtime.txt`, which normalizes the
-existing original state-2 stop for actor frame `0x4a`, row address `DS:c44a`,
-row bytes `10,10,7d,43`, runtime `CS=01ED` / `DS=0C8F`, row byte 3 as the
-`BOMOMIMK` sprite-index candidate `0x43`, and effect placement
-`0x0068,0x00a8`. The oracle now validates `sprite_source=row_byte3` for this
+existing original state-2 stop for actor frames `0x4a..0x4f`, row addresses
+`DS:c44a..DS:c45e`, row bytes `10,10,7d,43` through `10,10,7d,48`, runtime
+`CS=01ED` / `DS=0C8F`, row byte 3 as the `BOMOMIMK` sprite-index candidate
+range `0x43..0x48`, and effect placement `0x0068,0x00a8` for the stopped
+`0x4a` frame. The oracle now validates `sprite_source=row_byte3` for this
 fixture, while row bytes 0..2 still need final field names. Fixtures
 intentionally keep `visual_claim=0` and do not promote the provisional
 dead-player renderer.

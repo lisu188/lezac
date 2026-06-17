@@ -219,16 +219,18 @@ all six anchors.
 Summarize a completed sweep with
 `python3 tools/summarize_behavior4_procmem_route_sweep.py <manifest>`. The
 summary reports completed captures, observed freezes, patch-loaded no-freeze
-candidates, ready/incomplete/missing candidate counts, per-capture oracle
-commands, and `--require-ready`, `--require-observed-freeze`, and
+candidates, total `runtime_patches_applied=`, ready/incomplete/missing
+candidate counts, per-capture oracle commands, and `--require-ready`,
+`--require-observed-freeze`, `--require-runtime-patch`, and
 `--require-environment-preflight` gates. Add `--write-ready-manifest <path>` to
 hand ready behavior-4 candidates to the generic
 `tools/run_debug_capture_ready_manifest.py` oracle runner.
-Two 2026-06-17 WSL smoke captures for `behavior4_branch_start` on routes
-`x:2.00` and `x:5.00,m:0.50,x:2.00` loaded the `01ED:728C` runtime patch but
-reported `observed_freezes=0`, `patched_no_freeze_candidates=1`, and
-`ready_candidates=0`; treat them as negative route evidence, not promotion
-fixtures.
+Three 2026-06-17 WSL smoke captures for `behavior4_branch_start` loaded the
+`01ED:728C` runtime patch but did not observe a freeze: before-bomb routes
+`x:2.00` and `x:5.00,m:0.50,x:2.00`, plus before-route route `x:2.00`. Each
+reported `runtime_patches_applied=1`, `observed_freezes=0`,
+`patched_no_freeze_candidates=1`, and `ready_candidates=0`; treat them as
+negative route evidence, not promotion fixtures.
 Live behavior-4, actor-update, contact-scanner, and visual-table DOSBox-debug
 helpers run
 `tools/preflight_original_evidence_environment.py --require-debug-capture`
@@ -546,7 +548,8 @@ python3 tools/sweep_original_behavior4_procmem_routes.py \
   /tmp/lezac-behavior4-procmem-sweep . --dry-run --all-targets \
   --timing before_bomb --route x:2.00
 python3 tools/summarize_behavior4_procmem_route_sweep.py \
-  /tmp/lezac-behavior4-procmem-sweep/manifest.txt --require-observed-freeze
+  /tmp/lezac-behavior4-procmem-sweep/manifest.txt \
+  --require-runtime-patch --require-observed-freeze
 python3 tools/summarize_behavior4_procmem_route_sweep.py \
   /tmp/lezac-behavior4-procmem-sweep/manifest.txt \
   --require-ready --write-ready-manifest /tmp/lezac-behavior4-ready.txt

@@ -984,6 +984,29 @@ this route explains the missing `3D2D` as a collapse-tag helper iteration. The
 next natural `3D2D` attempt should first prove a forward-helper debris marker
 tag, then target the debris writeback.
 
+Use the lane-div route classifier to batch future helper-interior checks before
+writeback probes:
+
+```sh
+python3 tools/sweep_original_lane_div_routes.py \
+  /tmp/lezac-lane-div-route-sweep . --dry-run --skip-oracle \
+  --route x:2.00,m:0.35 --offset forward-divide
+python3 tools/summarize_lane_div_route_sweep.py \
+  /tmp/lezac-lane-div-route-sweep/manifest.txt \
+  --require-forward-divide \
+  --write-forward-route-manifest /tmp/lezac-lane-div-forward-routes.txt
+python3 tools/sweep_original_lane_write_routes.py \
+  /tmp/lezac-lane-write-from-lane-div-routes . \
+  --route-manifest /tmp/lezac-lane-div-forward-routes.txt \
+  --offset forward-collapse --offset forward-debris --dry-run --skip-oracle
+```
+
+The lane-div summary reports ready/no-patch/no-freeze/incomplete/missing
+candidates plus `forward_divide_candidates=` and writes
+`lane_div_forward_route_candidates` only after a route reaches the forward
+divide call at `1000:3CE3`. This still does not prove debris writeback; it
+only narrows which routes deserve the later `3D1B`/`3D2D` scratch probes.
+
 A follow-up helper-tag sweep at
 `C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-tag-search-1781617957`
 tested nearby `m` timing routes against `1000:3D1B` and `1000:3D2D`. It found

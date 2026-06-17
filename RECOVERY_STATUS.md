@@ -1,11 +1,22 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/forward-helper-debris-candidate-manifest`
+Branch: `codex/lane-div-route-classifier`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added a lane-div route classifier for the next natural forward writeback
+  search. `tools/sweep_original_lane_div_routes.py` batches guarded
+  `lane-div-cs-scratch` probes at `1000:3CD4`/`3CE3`/`3E68`/`3E77`, and
+  `tools/summarize_lane_div_route_sweep.py` classifies the resulting candidates
+  as `ready`/`no_patch`/`no_freeze`/`incomplete`/`missing` with
+  `forward_divide_candidates=` and route-step details. When
+  `--require-forward-divide` passes, it can write
+  `lane_div_forward_route_candidates`, and
+  `tools/sweep_original_lane_write_routes.py --route-manifest` now consumes
+  that handoff for focused `3D1B`/`3D2D` follow-up probes. This is helper-route
+  triage only; it does not promote a natural `3D2D` fixture.
 - Tightened the lane-write route-sweep promotion gate for the still-open
   natural forward debris writeback. `tools/summarize_lane_write_route_sweep.py`
   now reports `forward_debris_tag_candidates=` and
@@ -2567,8 +2578,9 @@ classifies the prior helper-tag search as `debris_tag_candidates=0`,
 `--require-debris-tag` fails with `reason=no_debris_tag_candidates`. The next
 useful original-evidence step should broaden the route/control hypothesis
 beyond this level-1 timing family or construct a seeded setup that reaches a
-natural `4C96 -> 3BB2` forward-helper iteration whose lane-write scratch tag is
-at or above the debris marker base `0x4e20`, then target `1000:3D2D` only after
+natural `4C96 -> 3BB2` forward-helper iteration. Use
+`tools/summarize_lane_div_route_sweep.py --require-forward-divide` to prove
+candidate route reachability at `1000:3CE3`, then target `1000:3D2D` only after
 `tools/summarize_lane_write_route_sweep.py <manifest> --require-forward-debris-tag`
 passes and, when useful, writes a
 `lane_write_forward_debris_route_candidates` handoff. Otherwise return to

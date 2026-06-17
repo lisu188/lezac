@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Plan or run original lane-write route-step captures.
+"""Plan or run original lane-divide route-step captures.
 
-The default dry-run matrix targets the still-open natural debris writeback
-gap at `1000:3D2D` and `1000:3EC1`. Live capture remains guarded behind the
-same process-memory and runtime-instrumentation approvals as the lower-level
-process-memory helper.
+This helper classifies whether candidate routes reach the lane helper divide
+setup/call sites before spending writeback probes on `1000:3D1B`/`1000:3D2D`.
+It is process-memory instrumentation evidence only; generated candidates keep
+`visual_claim=0`.
 """
 
 from __future__ import annotations
@@ -17,61 +17,48 @@ import sys
 
 
 DEFAULT_ROUTES = [
-    "x:2.00",
-    "x:2.00,c:0.50",
-    "x:1.50,z:0.50",
     "x:2.00,m:0.35",
 ]
-FORWARD_DEBRIS_EXPANDED_ROUTES = [
-    "x:2.00",
-    "x:1.75",
-    "x:2.25",
-    "x:2.00,c:0.25",
-    "x:2.00,c:0.50",
-    "x:2.00,c:0.75",
+FOLLOWUP_ROUTES = [
     "x:2.00,m:0.35",
-    "x:5.00,m:0.50,x:2.00",
-    "x:3.00,z:0.50,x:2.00",
-    "x:1.50,left:0.50,x:2.00",
-]
-FORWARD_HELPER_TAG_OPEN_ROUTES = [
-    "x:3.00,z:0.50,x:2.00",
-    "x:1.50,left:0.50,x:2.00",
+    "x:2.00,m:0.15",
+    "x:2.00,m:0.65",
+    "x:1.50,m:0.35",
+    "x:2.50,m:0.35",
 ]
 ROUTE_PRESETS = {
     "default": DEFAULT_ROUTES,
-    "forward-debris-expanded": FORWARD_DEBRIS_EXPANDED_ROUTES,
-    "forward-helper-tag-open": FORWARD_HELPER_TAG_OPEN_ROUTES,
+    "forward-helper-followup": FOLLOWUP_ROUTES,
 }
 BRANCH_ANCHOR_ROUTE_PROMOTION = "branch_anchor_route_candidates"
 LANE_WRITE_FORWARD_DEBRIS_ROUTE_PROMOTION = (
     "lane_write_forward_debris_route_candidates"
 )
 LANE_DIV_FORWARD_ROUTE_PROMOTION = "lane_div_forward_route_candidates"
-DEFAULT_OFFSETS = ["1000:3D2D", "1000:3EC1"]
+DEFAULT_OFFSETS = ["1000:3CE3"]
 OFFSET_ALIASES = {
-    "FORWARD-COLLAPSE": "1000:3D1B",
-    "FORWARD_COLLAPSE": "1000:3D1B",
-    "COLLAPSE-FORWARD": "1000:3D1B",
-    "COLLAPSE_FORWARD": "1000:3D1B",
-    "FORWARD-DEBRIS": "1000:3D2D",
-    "FORWARD_DEBRIS": "1000:3D2D",
-    "DEBRIS-FORWARD": "1000:3D2D",
-    "DEBRIS_FORWARD": "1000:3D2D",
-    "REVERSE-COLLAPSE": "1000:3EAF",
-    "REVERSE_COLLAPSE": "1000:3EAF",
-    "COLLAPSE-REVERSE": "1000:3EAF",
-    "COLLAPSE_REVERSE": "1000:3EAF",
-    "REVERSE-DEBRIS": "1000:3EC1",
-    "REVERSE_DEBRIS": "1000:3EC1",
-    "DEBRIS-REVERSE": "1000:3EC1",
-    "DEBRIS_REVERSE": "1000:3EC1",
+    "FORWARD-DIVIDE-SETUP": "1000:3CD4",
+    "FORWARD_DIVIDE_SETUP": "1000:3CD4",
+    "DIVIDE-FORWARD-SETUP": "1000:3CD4",
+    "DIVIDE_FORWARD_SETUP": "1000:3CD4",
+    "FORWARD-DIVIDE": "1000:3CE3",
+    "FORWARD_DIVIDE": "1000:3CE3",
+    "DIVIDE-FORWARD": "1000:3CE3",
+    "DIVIDE_FORWARD": "1000:3CE3",
+    "REVERSE-DIVIDE-SETUP": "1000:3E68",
+    "REVERSE_DIVIDE_SETUP": "1000:3E68",
+    "DIVIDE-REVERSE-SETUP": "1000:3E68",
+    "DIVIDE_REVERSE_SETUP": "1000:3E68",
+    "REVERSE-DIVIDE": "1000:3E77",
+    "REVERSE_DIVIDE": "1000:3E77",
+    "DIVIDE-REVERSE": "1000:3E77",
+    "DIVIDE_REVERSE": "1000:3E77",
 }
 VALID_OFFSETS = {
-    "1000:3D1B",
-    "1000:3D2D",
-    "1000:3EAF",
-    "1000:3EC1",
+    "1000:3CD4",
+    "1000:3CE3",
+    "1000:3E68",
+    "1000:3E77",
 }
 
 
@@ -91,9 +78,9 @@ def normalize_offset(value: str) -> str:
         token = f"1000:{token}"
     if token not in VALID_OFFSETS:
         raise argparse.ArgumentTypeError(
-            "offset must be one of forward-debris, reverse-debris, "
-            "forward-collapse, reverse-collapse, 1000:3D1B, 1000:3D2D, "
-            "1000:3EAF, 1000:3EC1, 3D1B, 3D2D, 3EAF, or 3EC1"
+            "offset must be one of forward-divide, forward-divide-setup, "
+            "reverse-divide, reverse-divide-setup, 1000:3CD4, 1000:3CE3, "
+            "1000:3E68, 1000:3E77, 3CD4, 3CE3, 3E68, or 3E77"
         )
     return token
 
@@ -151,9 +138,9 @@ def routes_from_route_manifest(path: Path) -> tuple[str, list[list[str]]]:
     }.get(promotion)
     if route_preset is None:
         raise ValueError(
-            f"unsupported route manifest promotion {promotion!r}; "
-            f"expected {BRANCH_ANCHOR_ROUTE_PROMOTION!r} or "
-            f"{LANE_WRITE_FORWARD_DEBRIS_ROUTE_PROMOTION!r} or "
+            f"unsupported route manifest promotion {promotion!r}; expected "
+            f"{BRANCH_ANCHOR_ROUTE_PROMOTION!r}, "
+            f"{LANE_WRITE_FORWARD_DEBRIS_ROUTE_PROMOTION!r}, or "
             f"{LANE_DIV_FORWARD_ROUTE_PROMOTION!r}"
         )
     raw_count = values.get("matching_routes", "")
@@ -248,7 +235,7 @@ def build_capture_command(
         "--freeze-ghidra-offset",
         offset,
         "--freeze-patch-mode",
-        "lane-write-cs-scratch",
+        "lane-div-cs-scratch",
         "--approve-instrumentation",
         "--approve-runtime-instrumentation",
         "--level-start-seconds",
@@ -386,7 +373,7 @@ def run_logged_optional(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Plan or run route-step sweeps for original lane-write evidence."
+        description="Plan or run route-step sweeps for original lane-div evidence."
     )
     parser.add_argument("out_dir")
     parser.add_argument("asset_dir", nargs="?", default=".")
@@ -419,8 +406,8 @@ def main() -> int:
         action="append",
         type=normalize_offset,
         help=(
-            "lane-write offset; repeatable. Defaults to natural debris "
-            "writebacks 1000:3D2D and 1000:3EC1"
+            "lane-div offset; repeatable. Defaults to forward divide "
+            "1000:3CE3"
         ),
     )
     parser.add_argument(
@@ -433,9 +420,8 @@ def main() -> int:
         "--route-manifest",
         type=Path,
         help=(
-            "branch_anchor_route_candidates or "
-            "lane_write_forward_debris_route_candidates or "
-            "lane_div_forward_route_candidates manifest whose matching route "
+            "branch_anchor_route_candidates, lane_write_forward_debris_route_candidates, "
+            "or lane_div_forward_route_candidates manifest whose matching route "
             "steps should be used when --route is omitted"
         ),
     )
@@ -445,10 +431,7 @@ def main() -> int:
         default="default",
         help=(
             "named route matrix to use when --route is omitted; "
-            "forward-debris-expanded keeps the pending 1000:3D2D search "
-            "anchored to a reviewed dry-run plan, and "
-            "forward-helper-tag-open covers the remaining unpruned level-1 "
-            "routes for 3D1B/3D2D helper-tag classification"
+            "forward-helper-followup covers reviewed helper-div timing variants"
         ),
     )
     parser.add_argument(
@@ -489,7 +472,7 @@ def main() -> int:
     args.cpp_exe = args.cpp_exe.resolve()
     if not runtime_freeze_gate_enabled(args):
         raise RuntimeError(
-            "lane-write route sweep requires a runtime freeze gate; use "
+            "lane-div route sweep requires a runtime freeze gate; use "
             "--runtime-freeze-preset late-collapse, --runtime-freeze-before-route, "
             "--runtime-freeze-before-bomb, --runtime-freeze-after-bomb-seconds, "
             "or a runtime-freeze filter such as "
@@ -509,7 +492,6 @@ def main() -> int:
     capture_items: list[tuple[str, str, Path, list[str]]] = []
     for route_index, route in enumerate(routes):
         for offset in offsets:
-            label = f"{route_labels[route_index]}_{offset_label(offset)}"
             route_out_dir = out_dir / route_labels[route_index] / offset_label(offset)
             capture_items.append(
                 (
@@ -521,7 +503,7 @@ def main() -> int:
             )
 
     print(
-        "lane_write_route_sweep=ok "
+        "lane_div_route_sweep=ok "
         f"mode={'dry_run' if args.dry_run else 'capture'} "
         f"out_dir={out_dir} offsets={len(offsets)} "
         f"offset_labels={','.join(offset_labels)} "
@@ -558,7 +540,7 @@ def main() -> int:
         return 0
     if not args.approve_procmem or not args.approve_runtime_instrumentation:
         print(
-            "refusing lane-write route sweep without --approve-procmem and "
+            "refusing lane-div route sweep without --approve-procmem and "
             "--approve-runtime-instrumentation",
             file=sys.stderr,
         )
@@ -575,7 +557,7 @@ def main() -> int:
         environment_preflight = "ok"
 
     manifest_lines = [
-        "capture=lane_write_route_sweep",
+        "capture=lane_div_route_sweep",
         f"asset_dir={asset_dir}",
         f"offsets={len(offsets)}",
         f"offset_labels={','.join(offset_labels)}",
@@ -607,7 +589,7 @@ def main() -> int:
         manifest_lines.append(f"capture_command_{label}={quote_command(command)}")
         manifest_lines.append(f"capture_log_{label}={out_dir / (label + '_capture.log')}")
         manifest_lines.append(
-            f"capture_status_{label}=lane_write_capture=ok "
+            f"capture_status_{label}=lane_div_capture=ok "
             f"route={route_label_value} offset={offset_label(offset)} "
             f"offset_address={offset} manifest={route_out_dir / 'manifest.txt'} "
             f"candidate={candidate}"
@@ -638,7 +620,7 @@ def main() -> int:
 
     manifest = out_dir / "manifest.txt"
     manifest.write_text("\n".join(manifest_lines) + "\n", encoding="ascii")
-    print(f"lane_write_route_sweep_manifest={manifest}")
+    print(f"lane_div_route_sweep_manifest={manifest}")
     return 0
 
 

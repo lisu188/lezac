@@ -666,6 +666,15 @@ the forward debris write at `3D2D`. Once that stricter gate passes,
 `--write-forward-debris-route-manifest` records the exact matching route steps
 as `lane_write_forward_debris_route_candidates` for a focused
 `tools/sweep_original_lane_write_routes.py --route-manifest` retry.
+Before spending writeback probes on a new route family, classify forward helper
+reachability with `tools/sweep_original_lane_div_routes.py --offset forward-divide`
+and summarize it with
+`tools/summarize_lane_div_route_sweep.py --require-forward-divide`. A passing
+run can write `lane_div_forward_route_candidates`, which
+`tools/sweep_original_lane_write_routes.py --route-manifest` accepts for the
+later `3D1B`/`3D2D` scratch probes. This only proves the route reached the
+forward divide at `1000:3CE3`; debris-marker writeback still requires the
+forward lane-write gate above.
 The prior helper-tag search now reports `debris_tag_candidates=0`,
 `collapse_tag_candidates=2`, and `max_lane_write_tag=0x0005`, so it remains
 negative evidence for natural forward-debris writeback. Add

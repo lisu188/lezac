@@ -16,6 +16,7 @@ CAPTURE_PROCMEM = "original_explosion_process_memory"
 ORACLE = "explosion_playback"
 ORACLE_FLAG = "--debug-explosion-playback-oracle"
 FORWARD_ROUTE_PROMOTION = "lane_div_forward_route_candidates"
+FORWARD_DEBRIS_ROUTE_PROMOTION = "lane_div_forward_debris_route_candidates"
 OFFSET_ADDRESSES = {
     "3cd4": "1000:3CD4",
     "3ce3": "1000:3CE3",
@@ -39,6 +40,7 @@ LANE_DIV_FIELDS = [
     "numerator_low",
     "numerator_high",
 ]
+DEBRIS_TAG_BASE = 0x4E20
 
 
 @dataclass(frozen=True)
@@ -56,7 +58,20 @@ class Candidate:
     offset_label: str
     offset_address: str
     fixture: Path | None
+    route_state_samples: Path | None
     source_manifest: Path
+
+
+@dataclass(frozen=True)
+class RouteStateStats:
+    path: Path | None
+    present: bool
+    samples: int
+    debris_marker_samples: int
+    max_lane_word_global: int | None
+    max_lane_target_offset_global: int | None
+    max_queue_score: int | None
+    best_label: str
 
 
 @dataclass(frozen=True)
@@ -94,6 +109,13 @@ class SummaryResult:
     reverse_divide_candidates: int
     reverse_setup_candidates: int
     forward_route_candidates: list[tuple[Candidate, CandidateReadiness]]
+    forward_debris_route_candidates: list[
+        tuple[Candidate, CandidateReadiness, RouteStateStats]
+    ]
+    route_state_sample_files: int
+    route_state_samples: int
+    route_state_debris_marker_candidates: int
+    route_state_debris_marker_samples: int
     environment_preflight: str
     source_manifest: Path
 
@@ -154,6 +176,42 @@ def resolve_child_path(raw_path: str, parent_manifest: Path) -> Path:
     return parent_manifest.parent / path
 
 
+def resolve_sibling_path(raw_path: str, sibling: Path) -> Path:
+    translated = wsl_drive_mount_to_windows_path(raw_path)
+    if translated is not None and sys.platform == "win32":
+        return translated
+    path = Path(raw_path)
+    if path.is_absolute():
+        return path
+    return sibling.parent / path
+
+
+def candidate_comment_path(fixture: Path | None, key: str) -> Path | None:
+    if fixture is None or not fixture.exists():
+        return None
+    prefix = f"# {key}="
+    try:
+        for raw_line in fixture.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if line.startswith(prefix):
+                value = line.removeprefix(prefix).strip()
+                if value:
+                    return resolve_sibling_path(value, fixture)
+    except OSError:
+        return None
+    return None
+
+
+def route_state_samples_path(
+    manifest: Manifest | None, fixture: Path | None
+) -> Path | None:
+    if manifest is not None:
+        raw_path = manifest.values.get("route_state_samples")
+        if raw_path:
+            return resolve_child_path(raw_path, manifest.path)
+    return candidate_comment_path(fixture, "route_state_samples")
+
+
 def bool_value(value: str | None) -> bool:
     if value is None:
         return False
@@ -164,6 +222,111 @@ def bool_value(value: str | None) -> bool:
         "observed",
         "runtime_child_memory_freeze_observed",
     }
+
+
+def parse_hex_int(value: str | None) -> int | None:
+    if not value:
+        return None
+    try:
+        return int(value.strip(), 0)
+    except ValueError:
+        return None
+
+
+def hex_or_none(value: int | None) -> str:
+    if value is None:
+        return "none"
+    return f"0x{value:04x}"
+
+
+def int_or_none(value: int | None) -> str:
+    if value is None:
+        return "none"
+    return str(value)
+
+
+def route_state_stats(path: Path | None) -> RouteStateStats:
+    if path is None or not path.exists():
+        return RouteStateStats(
+            path=path,
+            present=False,
+            samples=0,
+            debris_marker_samples=0,
+            max_lane_word_global=None,
+            max_lane_target_offset_global=None,
+            max_queue_score=None,
+            best_label="none",
+        )
+    try:
+        lines = [
+            line
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+    except OSError:
+        return RouteStateStats(
+            path=path,
+            present=False,
+            samples=0,
+            debris_marker_samples=0,
+            max_lane_word_global=None,
+            max_lane_target_offset_global=None,
+            max_queue_score=None,
+            best_label="none",
+        )
+    if not lines:
+        return RouteStateStats(
+            path=path,
+            present=True,
+            samples=0,
+            debris_marker_samples=0,
+            max_lane_word_global=None,
+            max_lane_target_offset_global=None,
+            max_queue_score=None,
+            best_label="none",
+        )
+    header = lines[0].split("\t")
+    samples = 0
+    debris_marker_samples = 0
+    max_lane_word_global: int | None = None
+    max_lane_target_offset_global: int | None = None
+    max_queue_score: int | None = None
+    best_label = "none"
+    best_rank: tuple[int, int] | None = None
+    for line in lines[1:]:
+        cells = line.split("\t")
+        row = {
+            field: cells[index] if index < len(cells) else ""
+            for index, field in enumerate(header)
+        }
+        samples += 1
+        lane_word = parse_hex_int(row.get("lane_word_global_value"))
+        lane_target = parse_hex_int(row.get("lane_target_offset_global_value"))
+        queue_score = parse_hex_int(row.get("queue_score"))
+        if lane_word is not None:
+            max_lane_word_global = max(lane_word, max_lane_word_global or lane_word)
+            if lane_word >= DEBRIS_TAG_BASE:
+                debris_marker_samples += 1
+        if lane_target is not None:
+            max_lane_target_offset_global = max(
+                lane_target, max_lane_target_offset_global or lane_target
+            )
+        if queue_score is not None:
+            max_queue_score = max(queue_score, max_queue_score or queue_score)
+        rank = (lane_word if lane_word is not None else -1, queue_score or -1)
+        if best_rank is None or rank > best_rank:
+            best_rank = rank
+            best_label = row.get("label") or "none"
+    return RouteStateStats(
+        path=path,
+        present=True,
+        samples=samples,
+        debris_marker_samples=debris_marker_samples,
+        max_lane_word_global=max_lane_word_global,
+        max_lane_target_offset_global=max_lane_target_offset_global,
+        max_queue_score=max_queue_score,
+        best_label=best_label,
+    )
 
 
 def offset_label_from_address(value: str) -> str:
@@ -361,6 +524,7 @@ def procmem_candidate(manifest: Manifest, route_label: str, offset_label: str) -
         offset_label=offset_label_from_address(offset_label),
         offset_address=offset_address_from_label(offset_label),
         fixture=fixture,
+        route_state_samples=route_state_samples_path(manifest, fixture),
         source_manifest=manifest.path,
     )
 
@@ -380,15 +544,19 @@ def route_sweep_candidates(manifest: Manifest) -> list[Candidate]:
         offset_address = fields.get("offset_address", offset_address_from_label(offset_label))
         raw_fixture = fields.get("candidate")
         fixture: Path | None = None
+        child_manifest: Manifest | None = None
+        raw_manifest = fields.get("manifest")
+        if raw_manifest is not None:
+            child_manifest = read_manifest(
+                resolve_child_path(raw_manifest, manifest.path)
+            )
         if raw_fixture is not None:
             fixture = resolve_child_path(raw_fixture, manifest.path)
         else:
-            raw_manifest = fields.get("manifest")
-            if raw_manifest is not None:
-                child = read_manifest(resolve_child_path(raw_manifest, manifest.path))
-                child_fixture = child.values.get("fixture_candidate")
+            if child_manifest is not None:
+                child_fixture = child_manifest.values.get("fixture_candidate")
                 if child_fixture is not None:
-                    fixture = resolve_child_path(child_fixture, child.path)
+                    fixture = resolve_child_path(child_fixture, child_manifest.path)
         candidates.append(
             Candidate(
                 capture_label=capture_label,
@@ -397,6 +565,9 @@ def route_sweep_candidates(manifest: Manifest) -> list[Candidate]:
                 offset_label=offset_label,
                 offset_address=offset_address,
                 fixture=fixture,
+                route_state_samples=route_state_samples_path(
+                    child_manifest, fixture
+                ),
                 source_manifest=manifest.path,
             )
         )
@@ -432,6 +603,12 @@ def is_forward_ready(readiness: CandidateReadiness) -> bool:
 
 def is_forward_divide_ready(readiness: CandidateReadiness) -> bool:
     return is_forward_ready(readiness) and readiness.lane_div_phase == "divide"
+
+
+def is_forward_divide_with_route_state_debris(
+    readiness: CandidateReadiness, stats: RouteStateStats
+) -> bool:
+    return is_forward_divide_ready(readiness) and stats.debris_marker_samples > 0
 
 
 def forward_route_manifest_records(
@@ -474,10 +651,59 @@ def forward_route_manifest_records(
     return lines
 
 
+def forward_debris_route_manifest_records(
+    source_manifest: Path,
+    source_environment_preflight: str,
+    candidates: list[tuple[Candidate, CandidateReadiness, RouteStateStats]],
+) -> list[str]:
+    matching: list[tuple[Candidate, CandidateReadiness, RouteStateStats]] = []
+    seen_routes: set[str] = set()
+    for candidate, readiness, stats in candidates:
+        if not is_forward_divide_with_route_state_debris(readiness, stats):
+            continue
+        if candidate.route_label in seen_routes:
+            continue
+        seen_routes.add(candidate.route_label)
+        matching.append((candidate, readiness, stats))
+    lines = [
+        f"promotion={FORWARD_DEBRIS_ROUTE_PROMOTION}",
+        f"source_manifest={source_manifest}",
+        f"source_environment_preflight={source_environment_preflight}",
+        "required_candidate=forward_divide_route_state_debris_marker",
+        f"matching_routes={len(matching)}",
+    ]
+    for index, (candidate, readiness, stats) in enumerate(matching):
+        if not candidate.route_steps:
+            raise ValueError(f"route_steps_missing route={candidate.route_label}")
+        prefix = f"route_{index}"
+        lines.extend(
+            [
+                f"{prefix}_label={candidate.route_label}",
+                f"{prefix}_steps={','.join(candidate.route_steps)}",
+                f"{prefix}_offset_label={candidate.offset_label}",
+                f"{prefix}_offset_address={candidate.offset_address}",
+                f"{prefix}_lane_div_weight_local={readiness.lane_div_weight_local}",
+                f"{prefix}_lane_div_numerator_low={readiness.lane_div_numerator_low}",
+                f"{prefix}_lane_div_numerator_high={readiness.lane_div_numerator_high}",
+                f"{prefix}_route_state_max_lane_word_global="
+                f"{hex_or_none(stats.max_lane_word_global)}",
+                f"{prefix}_route_state_debris_marker_samples="
+                f"{stats.debris_marker_samples}",
+                f"{prefix}_route_state_samples={stats.samples}",
+                f"{prefix}_fixture={candidate.fixture}",
+            ]
+        )
+    return lines
+
+
 def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
     mode, expected_offsets, candidates = collect_candidates(manifest)
     environment_preflight = manifest.values.get("environment_preflight", "unknown")
     readings = [(candidate, candidate_readiness(candidate)) for candidate in candidates]
+    route_state_readings = [
+        (candidate, route_state_stats(candidate.route_state_samples))
+        for candidate in candidates
+    ]
     readiness_counts = {
         "ready": 0,
         "no_patch": 0,
@@ -543,6 +769,42 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         if candidate.fixture is not None and readiness.status != "missing"
     ]
     routes = unique_ordered([candidate.route_label for candidate, _ in readings])
+    route_state_by_capture = {
+        candidate.capture_label: stats for candidate, stats in route_state_readings
+    }
+    forward_debris_readings = [
+        (candidate, readiness, route_state_by_capture[candidate.capture_label])
+        for candidate, readiness in readings
+        if is_forward_divide_with_route_state_debris(
+            readiness, route_state_by_capture[candidate.capture_label]
+        )
+    ]
+    route_state_sample_files = sum(
+        1 for _, stats in route_state_readings if stats.present
+    )
+    route_state_samples = sum(stats.samples for _, stats in route_state_readings)
+    route_state_debris_marker_candidates = sum(
+        1 for _, stats in route_state_readings if stats.debris_marker_samples > 0
+    )
+    route_state_debris_marker_samples = sum(
+        stats.debris_marker_samples for _, stats in route_state_readings
+    )
+    max_route_state_lane_word_global = max(
+        (
+            stats.max_lane_word_global
+            for _, stats in route_state_readings
+            if stats.max_lane_word_global is not None
+        ),
+        default=None,
+    )
+    max_route_state_queue_score = max(
+        (
+            stats.max_queue_score
+            for _, stats in route_state_readings
+            if stats.max_queue_score is not None
+        ),
+        default=None,
+    )
     summary = (
         "lane_div_route_sweep_summary=ok "
         f"manifest={manifest.path} "
@@ -563,12 +825,20 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         f"reverse_candidates={reverse_candidates} "
         f"reverse_divide_candidates={reverse_divide_candidates} "
         f"reverse_setup_candidates={reverse_setup_candidates} "
+        f"forward_debris_route_candidates={len(forward_debris_readings)} "
+        f"route_state_sample_files={route_state_sample_files} "
+        f"route_state_samples={route_state_samples} "
+        f"route_state_debris_marker_candidates={route_state_debris_marker_candidates} "
+        f"route_state_debris_marker_samples={route_state_debris_marker_samples} "
+        f"max_route_state_lane_word_global={hex_or_none(max_route_state_lane_word_global)} "
+        f"max_route_state_queue_score={int_or_none(max_route_state_queue_score)} "
         f"observed_offsets={csv_or_none(observed_freeze_offsets)} "
         f"missing_offsets={csv_or_none(missing_offsets)} "
         f"candidate_fixtures={csv_or_none(fixture_paths)}"
     )
     details: list[str] = []
     for candidate, readiness in readings:
+        stats = route_state_by_capture[candidate.capture_label]
         details.append(
             "candidate "
             f"route={candidate.route_label} "
@@ -592,6 +862,14 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
             f"lane_div_numerator_low={readiness.lane_div_numerator_low or 'none'} "
             f"lane_div_numerator_high={readiness.lane_div_numerator_high or 'none'} "
             f"candidate_fixture={candidate.fixture or 'none'} "
+            f"route_state_file={stats.path or 'none'} "
+            f"route_state_present={1 if stats.present else 0} "
+            f"route_state_samples={stats.samples} "
+            f"route_state_debris_marker_samples={stats.debris_marker_samples} "
+            f"route_state_max_lane_word_global={hex_or_none(stats.max_lane_word_global)} "
+            f"route_state_max_lane_target_offset_global={hex_or_none(stats.max_lane_target_offset_global)} "
+            f"route_state_max_queue_score={int_or_none(stats.max_queue_score)} "
+            f"route_state_best_label={stats.best_label} "
             f"candidate_status={readiness.status} "
             f"candidate_missing={missing_or_none(readiness.missing)} "
             f"candidate_placeholders={1 if readiness.placeholders else 0} "
@@ -611,6 +889,11 @@ def summarize(manifest: Manifest, oracle_binary: str) -> SummaryResult:
         reverse_divide_candidates=reverse_divide_candidates,
         reverse_setup_candidates=reverse_setup_candidates,
         forward_route_candidates=forward_divide_readings,
+        forward_debris_route_candidates=forward_debris_readings,
+        route_state_sample_files=route_state_sample_files,
+        route_state_samples=route_state_samples,
+        route_state_debris_marker_candidates=route_state_debris_marker_candidates,
+        route_state_debris_marker_samples=route_state_debris_marker_samples,
         environment_preflight=environment_preflight,
         source_manifest=manifest.path,
     )
@@ -662,6 +945,34 @@ def require_forward_divide_error(result: SummaryResult) -> str | None:
     )
 
 
+def require_route_state_debris_marker_error(result: SummaryResult) -> str | None:
+    if result.route_state_debris_marker_candidates > 0:
+        return None
+    return (
+        "lane_div_route_sweep_summary=error "
+        "reason=no_route_state_debris_marker_candidates "
+        f"route_state_sample_files={result.route_state_sample_files} "
+        f"route_state_samples={result.route_state_samples} "
+        "route_state_debris_marker_candidates="
+        f"{result.route_state_debris_marker_candidates} "
+        "route_state_debris_marker_samples="
+        f"{result.route_state_debris_marker_samples}"
+    )
+
+
+def require_forward_debris_route_error(result: SummaryResult) -> str | None:
+    if result.forward_debris_route_candidates:
+        return None
+    return (
+        "lane_div_route_sweep_summary=error "
+        "reason=no_forward_debris_route_candidates "
+        f"ready_candidates={result.readiness_counts.get('ready', 0)} "
+        f"forward_divide_candidates={result.forward_divide_candidates} "
+        "route_state_debris_marker_candidates="
+        f"{result.route_state_debris_marker_candidates}"
+    )
+
+
 def require_environment_preflight_error(environment_preflight: str) -> str | None:
     if environment_preflight == "ok":
         return None
@@ -693,11 +1004,29 @@ def main() -> int:
         help="exit nonzero unless at least one ready forward 1000:3CE3 divide is observed",
     )
     parser.add_argument(
+        "--require-route-state-debris-marker",
+        action="store_true",
+        help=(
+            "exit nonzero unless route_state_samples.tsv shows at least one "
+            "candidate sampling lane_word_global_value at or above the "
+            "0x4e20 debris-marker base"
+        ),
+    )
+    parser.add_argument(
         "--write-forward-route-manifest",
         type=Path,
         help=(
             "write a lane_div_forward_route_candidates manifest for routes "
             "satisfying --require-forward-divide"
+        ),
+    )
+    parser.add_argument(
+        "--write-forward-debris-route-manifest",
+        type=Path,
+        help=(
+            "write a lane_div_forward_debris_route_candidates manifest for "
+            "routes satisfying --require-forward-divide and "
+            "--require-route-state-debris-marker"
         ),
     )
     parser.add_argument(
@@ -753,6 +1082,58 @@ def main() -> int:
             f"path={route_manifest} "
             f"matching_routes={matching_routes}"
         )
+    if args.write_forward_debris_route_manifest is not None:
+        if not args.require_forward_divide:
+            print(
+                "lane_div_forward_debris_route_manifest=error "
+                "reason=write_requires_require_forward_divide",
+                file=sys.stderr,
+            )
+            return 7
+        if not args.require_route_state_debris_marker:
+            print(
+                "lane_div_forward_debris_route_manifest=error "
+                "reason=write_requires_require_route_state_debris_marker",
+                file=sys.stderr,
+            )
+            return 8
+        for error in [
+            require_forward_divide_error(result),
+            require_route_state_debris_marker_error(result),
+            require_forward_debris_route_error(result),
+        ]:
+            if error is not None:
+                print(error, file=sys.stderr)
+                return 9
+        try:
+            route_manifest_lines = forward_debris_route_manifest_records(
+                result.source_manifest,
+                result.environment_preflight,
+                result.forward_debris_route_candidates,
+            )
+            route_manifest = write_forward_route_manifest(
+                args.write_forward_debris_route_manifest,
+                route_manifest_lines,
+            )
+        except (OSError, ValueError) as exc:
+            print(
+                f"lane_div_forward_debris_route_manifest=error reason={exc}",
+                file=sys.stderr,
+            )
+            return 10
+        matching_routes = next(
+            (
+                line.split("=", 1)[1]
+                for line in route_manifest_lines
+                if line.startswith("matching_routes=")
+            ),
+            "0",
+        )
+        print(
+            "lane_div_forward_debris_route_manifest=ok "
+            f"path={route_manifest} "
+            f"matching_routes={matching_routes}"
+        )
     if args.require_ready:
         error = require_ready_error(result)
         if error is not None:
@@ -763,6 +1144,11 @@ def main() -> int:
         if error is not None:
             print(error, file=sys.stderr)
             return 4
+    if args.require_route_state_debris_marker:
+        error = require_route_state_debris_marker_error(result)
+        if error is not None:
+            print(error, file=sys.stderr)
+            return 11
     if args.require_environment_preflight:
         error = require_environment_preflight_error(result.environment_preflight)
         if error is not None:

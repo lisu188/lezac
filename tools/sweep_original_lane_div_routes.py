@@ -35,6 +35,9 @@ LANE_WRITE_FORWARD_DEBRIS_ROUTE_PROMOTION = (
     "lane_write_forward_debris_route_candidates"
 )
 LANE_DIV_FORWARD_ROUTE_PROMOTION = "lane_div_forward_route_candidates"
+LANE_DIV_FORWARD_DEBRIS_ROUTE_PROMOTION = (
+    "lane_div_forward_debris_route_candidates"
+)
 DEFAULT_OFFSETS = ["1000:3CE3"]
 OFFSET_ALIASES = {
     "FORWARD-DIVIDE-SETUP": "1000:3CD4",
@@ -135,13 +138,17 @@ def routes_from_route_manifest(path: Path) -> tuple[str, list[list[str]]]:
             "lane-write-forward-debris-route-manifest"
         ),
         LANE_DIV_FORWARD_ROUTE_PROMOTION: "lane-div-forward-route-manifest",
+        LANE_DIV_FORWARD_DEBRIS_ROUTE_PROMOTION: (
+            "lane-div-forward-debris-route-manifest"
+        ),
     }.get(promotion)
     if route_preset is None:
         raise ValueError(
             f"unsupported route manifest promotion {promotion!r}; expected "
             f"{BRANCH_ANCHOR_ROUTE_PROMOTION!r}, "
             f"{LANE_WRITE_FORWARD_DEBRIS_ROUTE_PROMOTION!r}, or "
-            f"{LANE_DIV_FORWARD_ROUTE_PROMOTION!r}"
+            f"{LANE_DIV_FORWARD_ROUTE_PROMOTION!r}, or "
+            f"{LANE_DIV_FORWARD_DEBRIS_ROUTE_PROMOTION!r}"
         )
     raw_count = values.get("matching_routes", "")
     try:
@@ -421,8 +428,9 @@ def main() -> int:
         type=Path,
         help=(
             "branch_anchor_route_candidates, lane_write_forward_debris_route_candidates, "
-            "or lane_div_forward_route_candidates manifest whose matching route "
-            "steps should be used when --route is omitted"
+            "lane_div_forward_route_candidates, or "
+            "lane_div_forward_debris_route_candidates manifest whose matching "
+            "route steps should be used when --route is omitted"
         ),
     )
     parser.add_argument(

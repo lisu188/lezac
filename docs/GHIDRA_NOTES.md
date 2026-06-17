@@ -729,6 +729,15 @@ such as `1000:3CE3`, the summary reports
 `tools/sweep_original_lane_write_routes.py --route-manifest` probes. This is
 only route triage; `1000:3D2D` still needs the later forward debris writeback
 gate before promotion.
+The lane-div summary also has a stricter route-state handoff for new route
+families: `--require-route-state-debris-marker` reads candidate
+`route_state_samples.tsv` files and requires a sampled
+`lane_word_global_value >= 0x4e20`. With `--write-forward-debris-route-manifest`
+it emits `lane_div_forward_debris_route_candidates`, which
+`tools/sweep_original_lane_write_routes.py --route-manifest` accepts for
+focused forward `3D2D` probes. This still proves only forward-divide
+reachability plus route-state debris-marker sampling; natural `3D2D`
+execution remains a separate lane-write fixture gate.
 A follow-up helper-tag sweep at
 `C:\Users\andrz\AppData\Local\Temp\lezac-forward-helper-tag-search-1781617957`
 tested `x:1.50,m:0.35`, `x:2.50,m:0.35`, `x:2.00,m:0.15`, and

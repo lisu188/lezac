@@ -674,7 +674,13 @@ run can write `lane_div_forward_route_candidates`, which
 `tools/sweep_original_lane_write_routes.py --route-manifest` accepts for the
 later `3D1B`/`3D2D` scratch probes. This only proves the route reached the
 forward divide at `1000:3CE3`; debris-marker writeback still requires the
-forward lane-write gate above.
+forward lane-write gate above. When route-state samples are present, prefer
+the stricter lane-div handoff: add `--require-route-state-debris-marker` and
+`--write-forward-debris-route-manifest <path>`. The resulting
+`lane_div_forward_debris_route_candidates` manifest requires both the forward
+divide freeze and `route_state_samples.tsv` evidence that
+`lane_word_global_value >= 0x4e20`, and the lane-write sweep accepts it through
+`--route-manifest` for a focused forward `3D2D` retry.
 The prior helper-tag search now reports `debris_tag_candidates=0`,
 `collapse_tag_candidates=2`, and `max_lane_write_tag=0x0005`, so it remains
 negative evidence for natural forward-debris writeback. Add

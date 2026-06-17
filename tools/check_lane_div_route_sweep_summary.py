@@ -119,18 +119,48 @@ def write_candidate(
     )
 
 
-def write_runtime_manifest(path: Path, candidate: Path) -> None:
-    write_text(
-        path,
-        "\n".join(
+def write_runtime_manifest(
+    path: Path, candidate: Path, route_state_samples: Path | None = None
+) -> None:
+    lines = [
+        "capture=original_explosion_process_memory",
+        "asset_dir=/repo",
+        f"fixture_candidate={candidate}",
+    ]
+    if route_state_samples is not None:
+        lines.append(f"route_state_samples={route_state_samples}")
+    lines.append("")
+    write_text(path, "\n".join(lines))
+
+
+def write_route_state_samples(
+    path: Path,
+    rows: list[tuple[str, str, str, str]],
+) -> None:
+    lines = [
+        "\t".join(
             [
-                "capture=original_explosion_process_memory",
-                "asset_dir=/repo",
-                f"fixture_candidate={candidate}",
-                "",
+                "label",
+                "elapsed_after_bomb",
+                "queue_score",
+                "lane_word_global_value",
+                "lane_target_offset_global_value",
             ]
-        ),
-    )
+        )
+    ]
+    for label, elapsed, queue_score, lane_word in rows:
+        lines.append(
+            "\t".join(
+                [
+                    label,
+                    elapsed,
+                    queue_score,
+                    lane_word,
+                    "0x072c",
+                ]
+            )
+        )
+    write_text(path, "\n".join(lines) + "\n")
 
 
 def write_route_sweep(
@@ -183,6 +213,8 @@ def main() -> int:
         no_freeze_candidate = base / "no_freeze" / "candidate.txt"
         no_patch_candidate = base / "no_patch" / "candidate.txt"
         incomplete_candidate = base / "incomplete" / "candidate.txt"
+        route_state_debris_candidate = base / "route_state_debris" / "candidate.txt"
+        route_state_low_candidate = base / "route_state_low" / "candidate.txt"
         write_candidate(ready_candidate, "3ce3", freeze=True)
         write_candidate(
             setup_candidate,
@@ -198,6 +230,8 @@ def main() -> int:
         write_candidate(no_freeze_candidate, "3ce3", freeze=False)
         write_candidate(no_patch_candidate, "3ce3", freeze=False, patch_applied=False)
         write_candidate(incomplete_candidate, "3ce3", freeze=True, placeholder=True)
+        write_candidate(route_state_debris_candidate, "3ce3", freeze=True)
+        write_candidate(route_state_low_candidate, "3ce3", freeze=True)
 
         ready_manifest = base / "ready" / "manifest.txt"
         setup_manifest = base / "setup_ready" / "manifest.txt"
@@ -205,12 +239,42 @@ def main() -> int:
         no_freeze_manifest = base / "no_freeze" / "manifest.txt"
         no_patch_manifest = base / "no_patch" / "manifest.txt"
         incomplete_manifest = base / "incomplete" / "manifest.txt"
+        route_state_debris_manifest = base / "route_state_debris" / "manifest.txt"
+        route_state_low_manifest = base / "route_state_low" / "manifest.txt"
+        route_state_debris_tsv = (
+            base / "route_state_debris" / "route_state_samples.tsv"
+        )
+        route_state_low_tsv = base / "route_state_low" / "route_state_samples.tsv"
         write_runtime_manifest(ready_manifest, ready_candidate)
         write_runtime_manifest(setup_manifest, setup_candidate)
         write_runtime_manifest(reverse_manifest, reverse_candidate)
         write_runtime_manifest(no_freeze_manifest, no_freeze_candidate)
         write_runtime_manifest(no_patch_manifest, no_patch_candidate)
         write_runtime_manifest(incomplete_manifest, incomplete_candidate)
+        write_route_state_samples(
+            route_state_debris_tsv,
+            [
+                ("030_bomb_key", "0.000", "0x0000", "0x0000"),
+                ("sample_0p50s", "0.500", "0x0090", "0xc004"),
+            ],
+        )
+        write_route_state_samples(
+            route_state_low_tsv,
+            [
+                ("030_bomb_key", "0.000", "0x0000", "0x0000"),
+                ("sample_0p50s", "0.500", "0x0070", "0x0005"),
+            ],
+        )
+        write_runtime_manifest(
+            route_state_debris_manifest,
+            route_state_debris_candidate,
+            route_state_debris_tsv,
+        )
+        write_runtime_manifest(
+            route_state_low_manifest,
+            route_state_low_candidate,
+            route_state_low_tsv,
+        )
 
         sweep_manifest = base / "manifest.txt"
         write_route_sweep(
@@ -235,6 +299,12 @@ def main() -> int:
             "forward_divide_candidates=1",
             "forward_setup_candidates=0",
             "reverse_candidates=0",
+            "forward_debris_route_candidates=0",
+            "route_state_sample_files=0",
+            "route_state_samples=0",
+            "route_state_debris_marker_candidates=0",
+            "route_state_debris_marker_samples=0",
+            "max_route_state_lane_word_global=none",
             "observed_offsets=3ce3",
             "missing_offsets=none",
             "candidate route=ready offset=3ce3",
@@ -245,6 +315,7 @@ def main() -> int:
             "lane_div_weight_local=0x0021",
             "candidate_status=ready",
             "candidate route=no_freeze offset=3ce3",
+            "route_state_present=0",
             "candidate_status=no_freeze",
             "oracle_flag=--debug-explosion-playback-oracle",
         ]:
@@ -361,6 +432,163 @@ def main() -> int:
             missing_forward_gate,
             "reason=write_requires_require_forward_divide",
             "missing_forward_gate",
+        )
+        cases += 1
+
+        route_state_sweep = base / "route_state_manifest.txt"
+        write_route_sweep(
+            route_state_sweep,
+            [
+                (
+                    "route_state_debris",
+                    "3ce3",
+                    route_state_debris_manifest,
+                    route_state_debris_candidate,
+                ),
+                (
+                    "route_state_low",
+                    "3ce3",
+                    route_state_low_manifest,
+                    route_state_low_candidate,
+                ),
+            ],
+            ["3ce3"],
+        )
+        route_state_summary = run_summary(root, [str(route_state_sweep)])
+        for snippet in [
+            "forward_divide_candidates=2",
+            "forward_debris_route_candidates=1",
+            "route_state_sample_files=2",
+            "route_state_samples=4",
+            "route_state_debris_marker_candidates=1",
+            "route_state_debris_marker_samples=1",
+            "max_route_state_lane_word_global=0xc004",
+            "max_route_state_queue_score=144",
+            f"route_state_file={route_state_debris_tsv}",
+            "route_state_present=1",
+            "route_state_debris_marker_samples=1",
+            "route_state_max_lane_word_global=0xc004",
+            "route_state_max_lane_target_offset_global=0x072c",
+            "route_state_max_queue_score=144",
+            "route_state_best_label=sample_0p50s",
+        ]:
+            require(route_state_summary, snippet, "route_state_summary")
+        cases += 1
+
+        route_state_required = run_summary(
+            root,
+            [str(route_state_sweep), "--require-route-state-debris-marker"],
+        )
+        require(
+            route_state_required,
+            "route_state_debris_marker_candidates=1",
+            "route_state_required",
+        )
+        cases += 1
+
+        route_state_missing = run_summary(
+            root,
+            [
+                str(sweep_manifest),
+                "--require-route-state-debris-marker",
+            ],
+            expect_success=False,
+        )
+        require(
+            route_state_missing,
+            "reason=no_route_state_debris_marker_candidates",
+            "route_state_missing_required",
+        )
+        require(
+            route_state_missing,
+            "route_state_sample_files=0",
+            "route_state_missing_required",
+        )
+        cases += 1
+
+        forward_debris_route_manifest = base / "forward_debris_routes" / "manifest.txt"
+        forward_debris_route_manifest_out = run_summary(
+            root,
+            [
+                str(route_state_sweep),
+                "--require-forward-divide",
+                "--require-route-state-debris-marker",
+                "--write-forward-debris-route-manifest",
+                str(forward_debris_route_manifest),
+            ],
+        )
+        require(
+            forward_debris_route_manifest_out,
+            "lane_div_forward_debris_route_manifest=ok",
+            "forward_debris_route_manifest_output",
+        )
+        require(
+            forward_debris_route_manifest_out,
+            f"path={forward_debris_route_manifest.resolve()}",
+            "forward_debris_route_manifest_output",
+        )
+        require(
+            forward_debris_route_manifest_out,
+            "matching_routes=1",
+            "forward_debris_route_manifest_output",
+        )
+        forward_debris_route_manifest_text = (
+            forward_debris_route_manifest.read_text(encoding="ascii")
+        )
+        for snippet in [
+            "promotion=lane_div_forward_debris_route_candidates",
+            f"source_manifest={route_state_sweep.resolve()}",
+            "source_environment_preflight=ok",
+            "required_candidate=forward_divide_route_state_debris_marker",
+            "matching_routes=1",
+            "route_0_label=route_state_debris",
+            "route_0_steps=x:2.00,m:0.35",
+            "route_0_offset_label=3ce3",
+            "route_0_offset_address=1000:3CE3",
+            "route_0_lane_div_weight_local=0x0021",
+            "route_0_route_state_max_lane_word_global=0xc004",
+            "route_0_route_state_debris_marker_samples=1",
+            "route_0_route_state_samples=2",
+            f"route_0_fixture={route_state_debris_candidate}",
+        ]:
+            require(
+                forward_debris_route_manifest_text,
+                snippet,
+                "forward_debris_route_manifest",
+            )
+        cases += 1
+
+        forward_debris_missing_divide_gate = run_summary(
+            root,
+            [
+                str(route_state_sweep),
+                "--require-route-state-debris-marker",
+                "--write-forward-debris-route-manifest",
+                str(base / "missing-forward-divide-gate.txt"),
+            ],
+            expect_success=False,
+        )
+        require(
+            forward_debris_missing_divide_gate,
+            "reason=write_requires_require_forward_divide",
+            "forward_debris_missing_divide_gate",
+        )
+        cases += 1
+
+        forward_debris_missing_route_state_gate = run_summary(
+            root,
+            [
+                str(route_state_sweep),
+                "--require-forward-divide",
+                "--write-forward-debris-route-manifest",
+                str(base / "missing-route-state-gate.txt"),
+            ],
+            expect_success=False,
+        )
+        require(
+            forward_debris_missing_route_state_gate,
+            "reason=write_requires_require_route_state_debris_marker",
+            "forward_debris_missing_route_state_gate",
         )
         cases += 1
 

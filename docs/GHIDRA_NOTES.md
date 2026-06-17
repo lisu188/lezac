@@ -422,8 +422,11 @@ skeleton hints, while required-record checks only use active fixture lines.
 `--require-ready` turns the summary into a promotion gate by returning nonzero
 whenever an observed freeze has a missing, incomplete, or absent candidate
 fixture. `--require-dispatch-gate-freeze` separately rejects sweeps that did not
-freeze any mapped dispatch-gate target. `--write-ready-manifest` writes a small
-follow-up manifest containing only ready fixtures and their oracle commands.
+freeze any mapped dispatch-gate target. `--require-dispatch-gate-target
+<target>` tightens that gate for a specific mapped anchor, so an
+`actor_update_gate6` freeze does not satisfy a `contact_scanner_callsite`
+reachability check. `--write-ready-manifest` writes a small follow-up manifest
+containing only ready fixtures and their oracle commands.
 Contact-scanner candidates additionally require the actor dimensions `w`/`h`
 and contact overlap fields `overlap_x`/`overlap_y`, so summary readiness matches
 the C++ oracle's field parser rather than only checking record names.
@@ -434,6 +437,23 @@ can write a result manifest for the planned or executed oracle commands. Result
 manifests and logs are expected to stay outside the repository by default.
 `tools/summarize_actor_dispatch_ready_results.py` summarizes that result
 manifest and can gate promotion on successful executed oracle runs.
+
+Live WSL/DOSBox evidence on 2026-06-17 pruned the current actor/contact route
+set without promoting a scanner fixture. The all-target route sweep at
+`/tmp/lezac-actor-contact-all-target-before-route-x2` used
+`--all-targets --timing before_route --route x:2.00` and recorded
+`freezes=6`, `dispatch_gate_freezes=4`,
+`observed_dispatch_gates=actor_update_gate5,actor_update_gate5_integration,actor_update_gate5_exit,actor_update_gate6`,
+`missing_targets=contact_scanner_callsite,contact_scanner_start,contact_scanner_end`,
+and `ready_candidates=0`; inspected `020_route_position.png` and
+`091_tail_freeze_check.png` for `actor_update_gate6_before_route_x2p00` showed
+live level-1 gameplay. The focused `contact_scanner_callsite` sweep at
+`/tmp/lezac-contact-callsite-nonredundant-20260617` tried
+`x:3.00,z:0.50,x:2.00` and `x:1.50,Left:0.50,x:2.00`, recorded
+`captures=2`, `freezes=0`, and `observed_dispatch_gates=none`, and its
+inspected route/tail frames stayed in live level-1 playback with bomb effects.
+These runs are anchor reachability and route-pruning evidence only.
+
 The generic behavior-4/actor-update/contact-scanner debug-capture handoff now
 has the same final review step:
 `tools/summarize_debug_capture_ready_results.py` summarizes result manifests

@@ -1,11 +1,31 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/behavior4-all-anchor-evidence`
+Branch: `codex/actor-contact-all-target-evidence`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added target-specific actor/contact dispatch-gate summary triage and ran the
+  next live original-evidence probes. `tools/summarize_actor_dispatch_gate_sweep.py`
+  now exposes repeatable `--require-dispatch-gate-target <target>` so a generic
+  actor-update gate freeze cannot satisfy a focused `contact_scanner_callsite`
+  reachability check. A live WSL/DOSBox all-target pass at
+  `/tmp/lezac-actor-contact-all-target-before-route-x2` used
+  `--all-targets --timing before_route --route x:2.00`; it recorded
+  `environment_preflight=ok`, `targets=9`, `captures=9`, `freezes=6`,
+  `dispatch_gate_freezes=4`,
+  `observed_targets=actor_update_start,actor_update_end,actor_update_gate5,actor_update_gate5_integration,actor_update_gate5_exit,actor_update_gate6`,
+  `observed_dispatch_gates=actor_update_gate5,actor_update_gate5_integration,actor_update_gate5_exit,actor_update_gate6`,
+  `missing_targets=contact_scanner_callsite,contact_scanner_start,contact_scanner_end`,
+  `ready_candidates=0`, and `incomplete_candidates=6`. A focused
+  `/tmp/lezac-contact-callsite-nonredundant-20260617` follow-up tried
+  `x:3.00,z:0.50,x:2.00` and `x:1.50,Left:0.50,x:2.00` for
+  `contact_scanner_callsite`, but recorded `captures=2`, `freezes=0`, and
+  `observed_dispatch_gates=none`. Inspected route/tail frames from both runs
+  stayed in live level-1 playback, including bomb-effect frames on the focused
+  routes, so this is route-pruning evidence only; no contact-scanner callsite
+  fixture was promoted.
 - Added target-specific behavior-4 procmem sweep triage and ran a live
   all-anchor original-evidence pass. `tools/summarize_behavior4_procmem_route_sweep.py`
   now reports `observed_targets=` and `patched_no_freeze_targets=` and exposes

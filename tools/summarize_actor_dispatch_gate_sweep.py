@@ -508,6 +508,18 @@ def require_dispatch_gate_freeze_error(result: SummaryResult) -> str | None:
     )
 
 
+def require_dispatch_gate_target_error(result: SummaryResult, target: str) -> str | None:
+    observed_dispatch_gates = unique_ordered(result.dispatch_gate_freezes)
+    if target in observed_dispatch_gates:
+        return None
+    return (
+        "actor_dispatch_gate_sweep_summary=error "
+        "reason=dispatch_gate_target_missing "
+        f"required_target={target} "
+        f"observed_dispatch_gates={csv_or_none(observed_dispatch_gates)}"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -531,6 +543,15 @@ def main() -> int:
         help=(
             "exit nonzero unless at least one observed freeze is one of the "
             "mapped actor/contact dispatch-gate targets"
+        ),
+    )
+    parser.add_argument(
+        "--require-dispatch-gate-target",
+        action="append",
+        choices=sorted(DISPATCH_GATE_TARGETS),
+        help=(
+            "exit nonzero unless the named mapped actor/contact dispatch-gate "
+            "target reports an observed freeze; repeatable"
         ),
     )
     parser.add_argument(
@@ -579,6 +600,11 @@ def main() -> int:
         if error is not None:
             print(error, file=sys.stderr)
             return 4
+    for target in args.require_dispatch_gate_target or []:
+        error = require_dispatch_gate_target_error(result, target)
+        if error is not None:
+            print(error, file=sys.stderr)
+            return 5
     if args.require_environment_preflight:
         error = require_environment_preflight_error(
             result.environment_preflight, result.child_environment_preflights

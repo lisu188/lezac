@@ -140,18 +140,48 @@ def write_candidate(
     )
 
 
-def write_runtime_manifest(path: Path, candidate: Path) -> None:
-    write_text(
-        path,
-        "\n".join(
+def write_runtime_manifest(
+    path: Path, candidate: Path, route_state_samples: Path | None = None
+) -> None:
+    lines = [
+        "capture=original_explosion_process_memory",
+        "asset_dir=/repo",
+        f"fixture_candidate={candidate}",
+    ]
+    if route_state_samples is not None:
+        lines.append(f"route_state_samples={route_state_samples}")
+    lines.append("")
+    write_text(path, "\n".join(lines))
+
+
+def write_route_state_samples(
+    path: Path,
+    rows: list[tuple[str, str, str, str]],
+) -> None:
+    lines = [
+        "\t".join(
             [
-                "capture=original_explosion_process_memory",
-                "asset_dir=/repo",
-                f"fixture_candidate={candidate}",
-                "",
+                "label",
+                "elapsed_after_bomb",
+                "queue_score",
+                "lane_word_global_value",
+                "lane_target_offset_global_value",
             ]
-        ),
-    )
+        )
+    ]
+    for label, elapsed, queue_score, lane_word in rows:
+        lines.append(
+            "\t".join(
+                [
+                    label,
+                    elapsed,
+                    queue_score,
+                    lane_word,
+                    "0x072c",
+                ]
+            )
+        )
+    write_text(path, "\n".join(lines) + "\n")
 
 
 def write_route_sweep(
@@ -204,6 +234,8 @@ def main() -> int:
         reverse_ready_candidate = base / "reverse_ready" / "candidate.txt"
         no_patch_candidate = base / "no_patch" / "candidate.txt"
         incomplete_candidate = base / "incomplete" / "candidate.txt"
+        route_state_debris_candidate = base / "route_state_debris" / "candidate.txt"
+        route_state_low_candidate = base / "route_state_low" / "candidate.txt"
         write_candidate(ready_candidate, "3d2d", freeze=True)
         write_candidate(
             collapse_ready_candidate,
@@ -218,6 +250,8 @@ def main() -> int:
         write_candidate(reverse_ready_candidate, "3ec1", freeze=True)
         write_candidate(no_patch_candidate, "3d2d", freeze=False, patch_applied=False)
         write_candidate(incomplete_candidate, "3d2d", freeze=True, placeholder=True)
+        write_candidate(route_state_debris_candidate, "3d2d", freeze=False)
+        write_candidate(route_state_low_candidate, "3d2d", freeze=False)
 
         ready_manifest = base / "ready" / "manifest.txt"
         collapse_ready_manifest = base / "collapse_ready" / "manifest.txt"
@@ -225,12 +259,42 @@ def main() -> int:
         reverse_ready_manifest = base / "reverse_ready" / "manifest.txt"
         no_patch_manifest = base / "no_patch" / "manifest.txt"
         incomplete_manifest = base / "incomplete" / "manifest.txt"
+        route_state_debris_manifest = base / "route_state_debris" / "manifest.txt"
+        route_state_low_manifest = base / "route_state_low" / "manifest.txt"
+        route_state_debris_tsv = (
+            base / "route_state_debris" / "route_state_samples.tsv"
+        )
+        route_state_low_tsv = base / "route_state_low" / "route_state_samples.tsv"
         write_runtime_manifest(ready_manifest, ready_candidate)
         write_runtime_manifest(collapse_ready_manifest, collapse_ready_candidate)
         write_runtime_manifest(no_freeze_manifest, no_freeze_candidate)
         write_runtime_manifest(reverse_ready_manifest, reverse_ready_candidate)
         write_runtime_manifest(no_patch_manifest, no_patch_candidate)
         write_runtime_manifest(incomplete_manifest, incomplete_candidate)
+        write_route_state_samples(
+            route_state_debris_tsv,
+            [
+                ("030_bomb_key", "0.000", "0x0000", "0x0000"),
+                ("sample_0p50s", "0.500", "0x0090", "0xc004"),
+            ],
+        )
+        write_route_state_samples(
+            route_state_low_tsv,
+            [
+                ("030_bomb_key", "0.000", "0x0000", "0x0000"),
+                ("sample_0p50s", "0.500", "0x0070", "0x0005"),
+            ],
+        )
+        write_runtime_manifest(
+            route_state_debris_manifest,
+            route_state_debris_candidate,
+            route_state_debris_tsv,
+        )
+        write_runtime_manifest(
+            route_state_low_manifest,
+            route_state_low_candidate,
+            route_state_low_tsv,
+        )
 
         sweep_manifest = base / "manifest.txt"
         write_route_sweep(
@@ -259,6 +323,11 @@ def main() -> int:
             "collapse_tag_candidates=0",
             "unknown_tag_candidates=0",
             "max_lane_write_tag=0x4ee8",
+            "route_state_sample_files=0",
+            "route_state_samples=0",
+            "route_state_debris_marker_candidates=0",
+            "route_state_debris_marker_samples=0",
+            "max_route_state_lane_word_global=none",
             "observed_offsets=3d2d",
             "missing_offsets=3ec1",
             "candidate route=ready offset=3d2d",
@@ -272,6 +341,7 @@ def main() -> int:
             "candidate route=no_freeze offset=3ec1",
             "lane_write_tag=none",
             "lane_write_tag_class=unknown",
+            "route_state_present=0",
             "candidate_status=no_freeze",
             "oracle_flag=--debug-explosion-playback-oracle",
         ]:
@@ -392,6 +462,75 @@ def main() -> int:
             forward_route_missing_gate,
             "reason=write_requires_require_forward_debris_tag",
             "forward_route_missing_gate",
+        )
+        cases += 1
+
+        route_state_sweep = base / "route_state_manifest.txt"
+        write_route_sweep(
+            route_state_sweep,
+            [
+                (
+                    "route_state_debris",
+                    "3d2d",
+                    route_state_debris_manifest,
+                    route_state_debris_candidate,
+                ),
+                (
+                    "route_state_low",
+                    "3d2d",
+                    route_state_low_manifest,
+                    route_state_low_candidate,
+                ),
+            ],
+            ["3d2d"],
+        )
+        route_state_summary = run_summary(root, [str(route_state_sweep)])
+        for snippet in [
+            "route_state_sample_files=2",
+            "route_state_samples=4",
+            "route_state_debris_marker_candidates=1",
+            "route_state_debris_marker_samples=1",
+            "max_route_state_lane_word_global=0xc004",
+            "max_route_state_queue_score=144",
+            f"route_state_file={route_state_debris_tsv}",
+            "route_state_present=1",
+            "route_state_debris_marker_samples=1",
+            "route_state_max_lane_word_global=0xc004",
+            "route_state_max_lane_target_offset_global=0x072c",
+            "route_state_max_queue_score=144",
+            "route_state_best_label=sample_0p50s",
+        ]:
+            require(route_state_summary, snippet, "route_state_summary")
+        cases += 1
+
+        route_state_required = run_summary(
+            root,
+            [str(route_state_sweep), "--require-route-state-debris-marker"],
+        )
+        require(
+            route_state_required,
+            "route_state_debris_marker_candidates=1",
+            "route_state_required",
+        )
+        cases += 1
+
+        route_state_missing = run_summary(
+            root,
+            [
+                str(sweep_manifest),
+                "--require-route-state-debris-marker",
+            ],
+            expect_success=False,
+        )
+        require(
+            route_state_missing,
+            "reason=no_route_state_debris_marker_candidates",
+            "route_state_missing_required",
+        )
+        require(
+            route_state_missing,
+            "route_state_sample_files=0",
+            "route_state_missing_required",
         )
         cases += 1
 

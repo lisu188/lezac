@@ -678,6 +678,12 @@ forward lane-write gate above.
 The prior helper-tag search now reports `debris_tag_candidates=0`,
 `collapse_tag_candidates=2`, and `max_lane_write_tag=0x0005`, so it remains
 negative evidence for natural forward-debris writeback. Add
+`--require-route-state-debris-marker` to
+`tools/summarize_lane_write_route_sweep.py` for route-state triage when a
+no-freeze run should first prove that `route_state_samples.tsv` observed
+`lane_word_global_value >= 0x4e20`. That gate is not promotion evidence by
+itself; it only identifies routes worth a later forward `3D2D` writeback
+probe. Add
 `--write-ready-manifest <path>` when a follow-up oracle run should use only
 ready natural debris-write candidates. Recheck that ready manifest with
 `tools/run_lane_write_ready_manifest.py <manifest> --dry-run` first, then run it

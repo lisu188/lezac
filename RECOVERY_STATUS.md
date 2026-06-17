@@ -1,11 +1,24 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/lane-div-route-classifier`
+Branch: `codex/forward-debris-tag-search`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added route-state debris-marker triage to the lane-write sweep summary. The
+  original process-memory capture now writes `lane_update_flag_value`,
+  `lane_word_global_value`, `lane_target_offset_global_value`, and effect input
+  globals into `route_state_samples.tsv`; `tools/summarize_lane_write_route_sweep.py`
+  reads each candidate's route-state TSV when present and reports
+  `route_state_sample_files=`, `route_state_samples=`,
+  `route_state_debris_marker_candidates=`,
+  `route_state_debris_marker_samples=`, and
+  `max_route_state_lane_word_global=`. The new
+  `--require-route-state-debris-marker` gate is search triage only: it can show
+  that a route sampled a lane word at or above the `0x4e20` debris-marker base
+  before another `3D2D` run, but it does not promote a natural forward debris
+  writeback fixture.
 - Added a lane-div route classifier for the next natural forward writeback
   search. `tools/sweep_original_lane_div_routes.py` batches guarded
   `lane-div-cs-scratch` probes at `1000:3CD4`/`3CE3`/`3E68`/`3E77`, and

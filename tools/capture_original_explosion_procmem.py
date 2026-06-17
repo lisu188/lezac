@@ -739,6 +739,17 @@ def route_state_fields(record: RouteStateRecord) -> dict[str, int | str | float 
         "high_debris_word_layer_segment": decoded["high_debris_word_layer_segment"],
         "high_debris_word_layer_address": decoded["high_debris_word_layer_address"],
         "high_debris_c204": decoded["high_debris_c204"],
+        "lane_update_flag_value": decoded["lane_update_flag_value"],
+        "lane_word_global_value": decoded["lane_word_global_value"],
+        "lane_target_offset_global_value": decoded[
+            "lane_target_offset_global_value"
+        ],
+        "effect_forward_input_global_value": decoded[
+            "effect_forward_input_global_value"
+        ],
+        "effect_reverse_input_global_value": decoded[
+            "effect_reverse_input_global_value"
+        ],
         "debris_tile_index": decoded["debris_tile_index"],
         "collapse_word": decoded["collapse_word"],
         "effect_sprite": decoded["effect_sprite"],
@@ -787,6 +798,11 @@ def write_route_state_samples(
         "high_debris_word_layer_segment",
         "high_debris_word_layer_address",
         "high_debris_c204",
+        "lane_update_flag_value",
+        "lane_word_global_value",
+        "lane_target_offset_global_value",
+        "effect_forward_input_global_value",
+        "effect_reverse_input_global_value",
         "debris_tile_index",
         "collapse_word",
         "effect_sprite",

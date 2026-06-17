@@ -780,6 +780,16 @@ promotion path. When it passes, `--write-forward-debris-route-manifest` emits
 On the prior helper-tag search, the broad debris gate still fails with
 `debris_tag_candidates=0`, `collapse_tag_candidates=2`, and
 `max_lane_write_tag=0x0005`.
+The route-state TSV path now carries the same threshold forward for no-freeze
+searches: new `route_state_samples.tsv` files include
+`lane_update_flag_value`, `lane_word_global_value`,
+`lane_target_offset_global_value`, and effect input globals, and
+`tools/summarize_lane_write_route_sweep.py` reports
+`route_state_debris_marker_candidates=` plus
+`max_route_state_lane_word_global=`. Use
+`--require-route-state-debris-marker` only as route-state triage before a
+future writeback probe; it proves that a route sampled a `0x4e20`-or-higher
+lane word, not that natural `1000:3D2D` executed.
 `tools/check_explosion_evidence_map.py` keeps this explosion/playback handoff
 traceable across these address notes, lane-result capture helpers, fixture
 coverage, source output fields, and CTest wiring.

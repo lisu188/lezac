@@ -219,18 +219,29 @@ all six anchors.
 Summarize a completed sweep with
 `python3 tools/summarize_behavior4_procmem_route_sweep.py <manifest>`. The
 summary reports completed captures, observed freezes, patch-loaded no-freeze
-candidates, total `runtime_patches_applied=`, ready/incomplete/missing
-candidate counts, per-capture oracle commands, and `--require-ready`,
-`--require-observed-freeze`, `--require-runtime-patch`, and
-`--require-environment-preflight` gates. Add `--write-ready-manifest <path>` to
-hand ready behavior-4 candidates to the generic
-`tools/run_debug_capture_ready_manifest.py` oracle runner.
+candidates, `observed_targets=`, `patched_no_freeze_targets=`, total
+`runtime_patches_applied=`, ready/incomplete/missing candidate counts,
+per-capture oracle commands, and `--require-ready`,
+`--require-observed-freeze`, `--require-target-freeze <target>`,
+`--require-runtime-patch`, and `--require-environment-preflight` gates. Add
+`--write-ready-manifest <path>` to hand ready behavior-4 candidates to the
+generic `tools/run_debug_capture_ready_manifest.py` oracle runner.
 Three 2026-06-17 WSL smoke captures for `behavior4_branch_start` loaded the
 `01ED:728C` runtime patch but did not observe a freeze: before-bomb routes
 `x:2.00` and `x:5.00,m:0.50,x:2.00`, plus before-route route `x:2.00`. Each
 reported `runtime_patches_applied=1`, `observed_freezes=0`,
 `patched_no_freeze_candidates=1`, and `ready_candidates=0`; treat them as
 negative route evidence, not promotion fixtures.
+An all-anchor before-route pass at
+`/tmp/lezac-behavior4-all-anchor-before-route-x2` used
+`--all-targets --timing before_route --route x:2.00`. It loaded all six runtime
+patches and froze the generic `spawner_loop_start`, `integration_8_8_start`,
+and `integration_8_8_end` anchors, but `--require-target-freeze
+behavior4_branch_start` fails with
+`observed_targets=spawner_loop_start,integration_8_8_start,integration_8_8_end`.
+The inspected frames stayed in level-1 playback, so this is anchor
+reachability/route-pruning evidence; behavior-4 branch semantics still require
+a route or seeded setup that reaches behavior-4 actors.
 Live behavior-4, actor-update, contact-scanner, and visual-table DOSBox-debug
 helpers run
 `tools/preflight_original_evidence_environment.py --require-debug-capture`

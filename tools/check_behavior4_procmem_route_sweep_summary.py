@@ -303,8 +303,10 @@ def main() -> int:
             "capture_commands=3",
             "completed_captures=2",
             "observed_freezes=1",
+            "observed_targets=behavior4_branch_start",
             "runtime_patches_applied=2",
             "patched_no_freeze_candidates=1",
+            "patched_no_freeze_targets=integration_8_8_start",
             "ready_candidates=1",
             "incomplete_candidates=1",
             "missing_candidates=1",
@@ -338,6 +340,8 @@ def main() -> int:
                 str(ready),
                 "--require-ready",
                 "--require-observed-freeze",
+                "--require-target-freeze",
+                "behavior4_branch_start",
                 "--require-runtime-patch",
                 "--require-environment-preflight",
                 "--write-ready-manifest",
@@ -346,8 +350,10 @@ def main() -> int:
         )
         require(ready_out, "ready_candidates=1", "ready_summary")
         require(ready_out, "observed_freezes=1", "ready_summary")
+        require(ready_out, "observed_targets=behavior4_branch_start", "ready_summary")
         require(ready_out, "runtime_patches_applied=1", "ready_summary")
         require(ready_out, "patched_no_freeze_candidates=0", "ready_summary")
+        require(ready_out, "patched_no_freeze_targets=none", "ready_summary")
         require(ready_out, "behavior4_procmem_ready_manifest=ok", "ready_manifest")
         require(ready_out, f"path={ready_manifest.resolve()}", "ready_manifest")
         ready_text = ready_manifest.read_text(encoding="ascii")
@@ -396,6 +402,38 @@ def main() -> int:
         require(no_freeze_out, "reason=no_observed_freezes", "no_freeze")
         require(no_freeze_out, "runtime_patches_applied=1", "no_freeze")
         require(no_freeze_out, "patched_no_freeze_candidates=1", "no_freeze")
+        require(no_freeze_out, "observed_targets=none", "no_freeze")
+        require(
+            no_freeze_out,
+            "patched_no_freeze_targets=behavior4_branch_start",
+            "no_freeze",
+        )
+        cases += 1
+
+        missing_target = run_tool(
+            root,
+            [
+                str(no_freeze),
+                "--require-target-freeze",
+                "behavior4_branch_start",
+            ],
+            False,
+        )
+        require(
+            missing_target,
+            "reason=target_freeze_missing",
+            "missing_target_freeze",
+        )
+        require(
+            missing_target,
+            "required_target=behavior4_branch_start",
+            "missing_target_freeze",
+        )
+        require(
+            missing_target,
+            "observed_targets=none",
+            "missing_target_freeze",
+        )
         cases += 1
 
         no_patch = write_no_patch_sweep(base / "no-patch")

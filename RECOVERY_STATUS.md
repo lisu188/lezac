@@ -1,11 +1,27 @@
 # Recovery Status
 
 Last reviewed: 2026-06-17
-Branch: `codex/lane-div-broadened-route-evidence`
+Branch: `codex/behavior4-all-anchor-evidence`
 Baseline: `origin/main`
 
 ## Completed This Iteration
 
+- Added target-specific behavior-4 procmem sweep triage and ran a live
+  all-anchor original-evidence pass. `tools/summarize_behavior4_procmem_route_sweep.py`
+  now reports `observed_targets=` and `patched_no_freeze_targets=` and exposes
+  `--require-target-freeze <target>` so generic spawner/integration freezes do
+  not masquerade as behavior-4 branch evidence. The live WSL/DOSBox run at
+  `/tmp/lezac-behavior4-all-anchor-before-route-x2` used
+  `--all-targets --timing before_route --route x:2.00`; all six runtime patches
+  loaded with `runtime_cs=01ED` and `runtime_ds=0C8F`. The summary recorded
+  `observed_freezes=3`, `observed_targets=spawner_loop_start,integration_8_8_start,integration_8_8_end`,
+  `runtime_patches_applied=6`, `patched_no_freeze_candidates=3`,
+  `patched_no_freeze_targets=spawner_loop_end,behavior4_branch_start,behavior4_branch_end`,
+  `ready_candidates=0`, and `incomplete_candidates=6`. Inspected
+  `020_route_position` and `091_tail_freeze_check` frames stayed in live level-1
+  playback, so this is anchor reachability and route-pruning evidence only; a
+  behavior-4 branch fixture still needs a route or seeded setup that reaches
+  behavior-4 actors.
 - Pruned a broadened lane-div helper-route hypothesis for the remaining natural
   forward `3D2D` search. A live WSL/DOSBox pass at
   `/tmp/lezac-lane-div-broadened-route` tested the new
@@ -2657,4 +2673,7 @@ candidate route reachability at `1000:3CE3`, then target `1000:3D2D` only after
 passes and, when useful, writes a
 `lane_write_forward_debris_route_candidates` handoff. Otherwise return to
 DOSBox frame/debugger evidence for behavior-4 movement, targeting, and respawn
-timing.
+timing, but do not treat the all-anchor before-route `x:2.00` behavior-4 pass
+as branch evidence: it froze only `spawner_loop_start`, `integration_8_8_start`,
+and `integration_8_8_end`; `behavior4_branch_start` and
+`behavior4_branch_end` stayed patch-loaded no-freeze.

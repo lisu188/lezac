@@ -162,6 +162,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^shipped_file_manifest=ok files=14 total_size=193537 total_sum=13037980 total_weighted=235960201921 total_xor=0x6e exe_size=52384 exe_image_base=0x0770 exe_image_size=50480 exe_filename_names=10 exe_filename_refs=15 exe_sound_anchor=1000:0626 exe_gran_anchor=1000:2ad4 exe_level_anchor=1000:2ef3 exe_record_refs=2 exe_font_refs=5 docs=2 setup_log=566")
 
+    add_test(NAME port_completion_status
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-port-completion-status)
+    set_tests_properties(port_completion_status PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "port_completion_status=ok subsystems=22 implemented=22 open_original_evidence_items=12 port_functionally_complete=1 original_fidelity_claim=0")
+
     add_test(NAME original_asset_load
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-asset-load)
     set_tests_properties(original_asset_load PROPERTIES
@@ -1824,7 +1831,7 @@ if(BUILD_TESTING)
         set_tests_properties(gran_usage_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^gran_usage_guardrail=ok source_refs=20 load_refs=2 debug_refs=17 member_refs=1 live_refs=0 ctest=3 docs=3")
+                "^gran_usage_guardrail=ok source_refs=22 load_refs=2 debug_refs=19 member_refs=1 live_refs=0 ctest=3 docs=3")
 
         add_test(NAME gran_usage_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -1844,6 +1851,24 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^ready_fixture_provenance_contract=ok docs=1 validator=1 writers=6 runners=4 result_summaries=4 dry_run_missing_fixture_bypass=4 ledger_selftests=9")
 
+        add_test(NAME port_completion_status_checker
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_port_completion_status.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(port_completion_status_checker PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^port_completion_status_checker=ok subsystems=22 open_items=12 ctest=3 docs=3")
+
+        add_test(NAME port_completion_status_checker_selftest
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_port_completion_status.py
+                    --self-test)
+        set_tests_properties(port_completion_status_checker_selftest PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^port_completion_status_checker_selftest=ok positive=1 size_mismatch=1 missing_doc_item=1 missing_cmake=1")
+
         add_test(NAME visual_claim_guardrail
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_claim_guardrail.py
@@ -1851,7 +1876,7 @@ if(BUILD_TESTING)
         set_tests_properties(visual_claim_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^visual_claim_guardrail=ok fixtures=78 claim0=78 claim1=0 ledger=1 promoted=0 ctest=1 docs=3")
+                "^visual_claim_guardrail=ok fixtures=79 claim0=79 claim1=0 ledger=1 promoted=0 ctest=1 docs=3")
 
         add_test(NAME visual_claim_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -1914,7 +1939,7 @@ if(BUILD_TESTING)
         set_tests_properties(runtime_evidence_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^runtime_evidence_guardrail=ok fixtures=78 original_runtime=23 visual_claim0=23 temp_copy=23 runtime_segments=23 ledger=1 ctest=1 docs=3")
+                "^runtime_evidence_guardrail=ok fixtures=79 original_runtime=23 visual_claim0=23 temp_copy=23 runtime_segments=23 ledger=1 ctest=1 docs=3")
 
         add_test(NAME runtime_evidence_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}

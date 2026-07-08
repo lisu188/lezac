@@ -12,6 +12,7 @@ import tempfile
 DEBUG_FUNCTIONS = (
     "validate",
     "debugShippedFileManifest",
+    "debugPortCompletionStatus",
     "debugGranRawRoundtrip",
     "debugGran",
     "debugOriginalAssetLoad",
@@ -161,6 +162,10 @@ def write_source(root: Path, live_line: str = "", include_debug: bool = True) ->
                 '        dump("exe_gran_anchor");',
                 "    }",
                 "",
+                "    void debugPortCompletionStatus() {",
+                '        dump("gran_mst_preservation");',
+                "    }",
+                "",
                 "    void debugGranRawRoundtrip() {",
                 "        dump(gran_.records);",
                 "    }",
@@ -208,7 +213,7 @@ def self_test() -> int:
         write_contract_files(root)
         write_source(root)
         source_refs, load_refs, debug_refs, member_refs = check_source(root)
-        if (source_refs, load_refs, debug_refs, member_refs) != (9, 2, 6, 1):
+        if (source_refs, load_refs, debug_refs, member_refs) != (10, 2, 7, 1):
             raise RuntimeError("selftest positive source counts mismatch")
         check_cmake(root)
         check_docs(root)

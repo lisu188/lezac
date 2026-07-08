@@ -73,6 +73,7 @@ Dump the current bomb inventory model and export sprite contact sheets:
 ./build/lezac_cpp --debug-monster-sprite-table-model
 ./build/lezac_cpp --debug-fixed
 ./build/lezac_cpp --debug-shipped-file-manifest
+./build/lezac_cpp --debug-port-completion-status
 ./build/lezac_cpp --debug-original-asset-load
 LEZAC_LOAD_ORIGINAL_ASSETS=1 ./build/lezac_cpp --validate
 ./build/lezac_cpp --debug-sounds
@@ -1223,6 +1224,15 @@ debris tags `0x4e21`/`0x4ee8`. It remains a C++ arithmetic/model check with
 
 ## Implemented
 
+- `--debug-port-completion-status` declares the functional port completion
+  state: 22 implemented subsystems with their deterministic validation entry
+  points, plus the 12 open original-evidence follow-ups tracked in
+  `RECOVERY_STATUS.md`. The summary reports `port_functionally_complete=1`
+  with `original_fidelity_claim=0`; the open items are fidelity verification
+  against the original runtime, not missing port functionality.
+  `tools/check_port_completion_status.py` keeps the source tables,
+  `docs/recovery/port_completion_status.md`, and the CTest expectation
+  aligned.
 - `--debug-shipped-file-manifest` pins the 14 shipped original files used as
   conversion/disassembly evidence, including `LEZAC.EXE` size `52384`, MZ
   image base `0x0770`, image size `50480`, and aggregate byte fingerprints.

@@ -600,7 +600,7 @@ if(BUILD_TESTING)
         set_tests_properties(gran_data_evidence_map PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^gran_data_evidence_map=ok raw_size=399 record_size=57 records=7 sha256=3f0cf17706d557ca863d6e39bfa6641fba777a88815ba3f0a22e5ac89e0e39e2 zero_bytes=150 ctests=2 docs=3 source_guards=5 opaque_claim=1")
+                "^gran_data_evidence_map=ok raw_size=399 record_size=57 records=7 sha256=3f0cf17706d557ca863d6e39bfa6641fba777a88815ba3f0a22e5ac89e0e39e2 zero_bytes=150 ctests=3 docs=3 source_guards=5 opaque_claim=1")
 
         add_test(NAME original_evidence_blocker_note_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -1831,7 +1831,7 @@ if(BUILD_TESTING)
         set_tests_properties(gran_usage_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^gran_usage_guardrail=ok source_refs=22 load_refs=2 debug_refs=19 member_refs=1 live_refs=0 ctest=3 docs=3")
+                "^gran_usage_guardrail=ok source_refs=23 load_refs=2 debug_refs=20 member_refs=1 live_refs=0 ctest=3 docs=3")
 
         add_test(NAME gran_usage_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -2282,6 +2282,13 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^gran_raw_roundtrip=ok raw_size=399 record_size=57 raw_records=7 payload_size=399 json_records=7 raw_json_match=1 byte_sum=12560 weighted_sum=337318 nonzero_bytes=249 zero_bytes=150 xor=0x0c record_sums=631,2230,1389,1242,1780,2720,2568 record_weighted_sums=18094,59871,40052,35568,63621,65838,54274 record_nonzero=31,41,29,30,33,41,44 record_xor=0x83,0x08,0x53,0x80,0xd0,0xda,0x5e")
+
+    add_test(NAME gran_static_consumer_model
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran-static-consumer-model)
+    set_tests_properties(gran_static_consumer_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^gran_static_consumer_model=ok image_base=0x0770 filename_literal=1000:2ad3 level_gate=1000:2e78 level_gate_byte=ds:79b7 level_gate_value=7 reader=1000:08a5..0c32 pinned_windows=12 file_size=399 consumed=399 actor_records=7 actor_record_stride=0x26 actor_table=ds:1bae actor_count_global=ds:208d sprite_bytes=46,46,45,45,40,42,43 visual_offsets=38:10,42:4,-7:10,-12:16,0:0,-8:18,39:17 visual_table=ds:c21e visual_stride=8 record_types=0x10,0x0e,0x0f,0x00,0x00,0x00,0x00 segment_link_field=0x25 extra_records=6 extra_record_stride=0x10 extra_table=ds:79ea extra_count_global=ds:79f9 seven_by_57_layout=0 original_runtime_claim=0")
 
     add_test(NAME gran_profile
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran)

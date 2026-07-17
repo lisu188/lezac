@@ -137,6 +137,7 @@ python3 tools/compare_state2_visual_row_game_previews.py /tmp/lezac-state2-visua
 ./build/lezac_cpp --debug-end-flow-frame-flow
 ./build/lezac_cpp --debug-gran
 ./build/lezac_cpp --debug-gran-raw-roundtrip
+./build/lezac_cpp --debug-gran-static-consumer-model
 ./build/lezac_cpp --debug-levels
 ./build/lezac_cpp --debug-level-raw-roundtrip
 ./build/lezac_cpp --debug-sprite-transparency
@@ -1264,9 +1265,18 @@ debris tags `0x4e21`/`0x4ee8`. It remains a C++ arithmetic/model check with
   parsing as seven fixed-size opaque records. The GRAN roundtrip now loads the
   shipped raw file and converted JSON independently, reports
   `raw_json_match=1`, and pins record-level byte fingerprints for later
-  comparison while keeping every field semantic unresolved. The shipped
-  executable references the file through the lowercase `gran.mst` string at
-  `1000:2AD4`, but no decoded live consumer has been recovered yet.
+  comparison. `--debug-gran-static-consumer-model` statically recovers the
+  original consumer: the shipped executable loads `gran.mst` only when the
+  current-level byte `DS:0x79B7` equals 7, through the generic actor-file
+  reader at `1000:08A5`, appending seven 38-byte boss actor records to the
+  actor table at `DS:0x1BAE`, placing per-record visual entries at
+  `DS:0xC21E` offset from the `(100,100)` anchor, and appending six 16-byte
+  entries to the `DS:0x79EA` table — a multi-segment level-7 boss whose
+  segments link to the head record through byte `+0x25`. The diagnostic pins
+  the 12 supporting instruction/literal byte windows, reparses the shipped
+  399-byte file with the recovered layout (`seven_by_57_layout=0`), and keeps
+  `original_runtime_claim=0` until DOSBox runtime evidence covers the live
+  boss presentation.
   `tools/check_gran_usage_guardrail.py` keeps `GRAN.MST` limited to loading,
   validation, byte-preserving roundtrip/debug output, and stored opaque records
   until original evidence proves a live gameplay or rendering use.

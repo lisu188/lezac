@@ -9,7 +9,7 @@ Baseline: `origin/main`
 The C++ port is functionally complete. Every recovered gameplay, data, UI,
 and sound subsystem of `LEZAC.EXE` has a C++ implementation with
 deterministic validation coverage, and the full CTest suite passes on a
-clean Linux host (359/359 after this iteration's additions). The new
+clean Linux host (360/360 after this iteration's additions). The new
 `--debug-port-completion-status` diagnostic declares that state as
 machine-checkable output: 22 implemented subsystems with their validation
 entry points and the 12 open original-evidence follow-ups, reported with
@@ -23,6 +23,27 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- Statically recovered the `GRAN.MST` consumer and file layout from the
+  shipped executable. The only reference to the `gran.mst` literal at
+  `1000:2AD3` is the level-gate callsite `1000:2E78..2E8A`, which loads the
+  file through the generic actor-file reader at `1000:08A5..0C32` only when
+  the current-level byte `DS:0x79B7` equals 7. The reader layout
+  `[N:1][N x 38-byte actor records][N x sprite byte][N x (dx,dy) int16 pairs]
+  [M:1][M x 16-byte entries]` consumes the shipped 399 bytes exactly with
+  `N=7`/`M=6`, disproving the historical `7 * 57` field-layout guess (kept
+  only as the byte-preserving storage split). Records append to the actor
+  table `DS:0x1BAE` (stride `0x26`), sprite bytes `46,46,45,45,40,42,43` sit
+  inside the recovered `BOMOMIMK` monster frame range, `(dx,dy)` pairs place
+  visual entries at `DS:0xC21E` around the `(100,100)` anchor, segments 2..7
+  carry serials rebased by `DS:0x79F9` and link to the head record through
+  byte `+0x25`, and the 16-byte entries append to `DS:0x79EA` — a
+  multi-segment level-7 boss definition. The new
+  `--debug-gran-static-consumer-model` diagnostic pins all 12 supporting
+  instruction/literal byte windows and reparses the shipped file with the
+  recovered layout, reporting `original_runtime_claim=0`; CTest covers it and
+  the GRAN usage guardrail allowlists the new debug-only reference. Live
+  gameplay still does not consume `GRAN.MST` — runtime boss presentation
+  remains an original-evidence follow-up.
 - Declared functional port completion with machine-checkable coverage. Added
   `--debug-port-completion-status`, which enumerates the 22 implemented
   subsystems with deterministic validation entry points and the 12 open
@@ -2750,9 +2771,12 @@ under the existing guardrails; they are not missing port functionality.
   remains unresolved. The current static candidate table is pinned by
   `--debug-monster-sprite-table-model`, but original frame/debugger evidence is
   still required before those presentation details can be promoted.
-- `GRAN.MST` field semantics remain unknown; consolidation only locks file
-  shape and raw/json byte preservation, with an independent checker and a
-  conservative byte-profile diagnostic for future loader/runtime comparisons.
+- `GRAN.MST` loader and field layout are now statically recovered
+  (`--debug-gran-static-consumer-model`): it is the level-7 multi-segment
+  boss actor file read by `1000:08A5` behind the `DS:0x79B7 == 7` gate. The
+  remaining gap is runtime-facing: live boss presentation, movement, and the
+  exact meaning of the per-record actor fields still need DOSBox
+  frame/debugger evidence before the C++ port can play the boss.
 
 ## Next Planned Target
 

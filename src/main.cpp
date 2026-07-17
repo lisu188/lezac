@@ -6918,6 +6918,171 @@ public:
                   << " record_xor=" << joinedHexBytes(expectedXor) << '\n';
     }
 
+    void debugGranStaticConsumerModel() {
+        // Static recovery of the original GRAN.MST consumer. The shipped
+        // executable loads gran.mst only when the current-level byte
+        // DS:0x79B7 equals 7, through the generic actor-file reader at
+        // 1000:08A5. The reader walks the file as:
+        //   [count N:1][N x 38-byte actor records][N x sprite byte]
+        //   [N x (dx:int16, dy:int16)][count M:1][M x 16-byte entries]
+        // appending the records to the actor table at DS:0x1BAE (stride
+        // 0x26), placing per-record visual entries at DS:0xC21E (stride 8)
+        // offset from the caller's anchor arguments (100,100), and appending
+        // the 16-byte entries to the DS:0x79EA table counted by DS:0x79F9.
+        // This is static instruction/file evidence only; no original runtime
+        // capture is claimed.
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for GRAN consumer scan");
+        }
+
+        struct PinnedWindow {
+            const char* label;
+            uint16_t ghidraOffset;
+            const char* hexBytes;
+        };
+        static const std::array<PinnedWindow, 12> kPinnedWindows{{
+            {"filename_literal", 0x2AD3, "086772616e2e6d7374"},
+            {"level7_gate_call", 0x2E78, "803eb77907750cbfd32a0e576a646a64e81ada"},
+            {"reader_prologue", 0x08A5, "5589e5b89001"},
+            {"record_dest_1bae", 0x0902, "a08d2030e4406bf82681c7ae1b"},
+            {"record_count_x26", 0x0911, "8a8679fe30e46bc02650"},
+            {"visual_dest_c21e", 0x09CF, "8bf8c1e70381c71ec2"},
+            {"head_link_1bc0", 0x0A2C, "6bf8268995c01b"},
+            {"segment_link_25", 0x0AC8, "c4be70fe26884525"},
+            {"extra_dest_79ea", 0x0AE9, "8bf8c1e70481c7ea79"},
+            {"extra_count_x10", 0x0AF4, "8a8677fe30e4c1e00450"},
+            {"actor_count_grow", 0x0C27, "8a8679fe00068d20"},
+            {"reader_epilogue", 0x0C2F, "c9c20800"},
+        }};
+        auto nibble = [](char c) -> int {
+            if (c >= '0' && c <= '9') return c - '0';
+            if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+            throw std::runtime_error("bad pinned hex digit");
+        };
+        for (const auto& window : kPinnedWindows) {
+            const std::string hexText = window.hexBytes;
+            for (size_t i = 0; i * 2 < hexText.size(); ++i) {
+                const uint8_t expected = static_cast<uint8_t>(
+                    nibble(hexText[i * 2]) * 16 + nibble(hexText[i * 2 + 1]));
+                const size_t fileOffset = imageBase + window.ghidraOffset + i;
+                if (fileOffset >= exeBytes.size() ||
+                    exeBytes[fileOffset] != expected) {
+                    throw std::runtime_error(
+                        std::string("GRAN consumer bytes changed: ") + window.label);
+                }
+            }
+        }
+
+        // Reparse the shipped file with the recovered reader layout.
+        std::vector<uint8_t> granBytes = readFile("GRAN.MST");
+        constexpr size_t kActorRecordStride = 0x26;
+        constexpr size_t kExtraRecordStride = 0x10;
+        size_t pos = 0;
+        auto need = [&](size_t count, const char* what) {
+            if (pos + count > granBytes.size()) {
+                throw std::runtime_error(std::string("GRAN.MST truncated at ") + what);
+            }
+        };
+        need(1, "record count");
+        const size_t recordCount = granBytes[pos++];
+        need(recordCount * kActorRecordStride, "actor records");
+        const size_t recordsBase = pos;
+        pos += recordCount * kActorRecordStride;
+        need(recordCount, "sprite bytes");
+        const size_t spritesBase = pos;
+        pos += recordCount;
+        need(recordCount * 4, "visual offsets");
+        const size_t pairsBase = pos;
+        pos += recordCount * 4;
+        need(1, "extra count");
+        const size_t extraCount = granBytes[pos++];
+        need(extraCount * kExtraRecordStride, "extra records");
+        const size_t extrasBase = pos;
+        pos += extraCount * kExtraRecordStride;
+        if (recordCount != 7 || extraCount != 6 || pos != granBytes.size() ||
+            granBytes.size() != 399) {
+            throw std::runtime_error("GRAN.MST recovered layout mismatch");
+        }
+
+        load();
+        std::ostringstream spriteList;
+        std::ostringstream pairList;
+        std::ostringstream typeList;
+        for (size_t i = 0; i < recordCount; ++i) {
+            const uint8_t spriteIndex = granBytes[spritesBase + i];
+            if (spriteIndex < 39 || spriteIndex > 55 ||
+                spriteIndex >= sprites_.sprites.size()) {
+                throw std::runtime_error("GRAN.MST sprite byte outside monster frame range");
+            }
+            const uint8_t typeByte = granBytes[recordsBase + i * kActorRecordStride + 3];
+            const int dx = static_cast<int16_t>(
+                le16(granBytes, pairsBase + i * 4));
+            const int dy = static_cast<int16_t>(
+                le16(granBytes, pairsBase + i * 4 + 2));
+            if (i != 0) {
+                spriteList << ',';
+                pairList << ',';
+                typeList << ',';
+                // Non-head records carry their serial number in the +0x0e
+                // word the reader later rebases into the DS:0x79EA table.
+                const uint16_t serial = le16(
+                    granBytes, recordsBase + i * kActorRecordStride + 0x0e);
+                const uint16_t reserved = le16(
+                    granBytes, recordsBase + i * kActorRecordStride + 0x10);
+                if (serial != i || reserved != 0) {
+                    throw std::runtime_error("GRAN.MST segment serial fields changed");
+                }
+            }
+            spriteList << static_cast<int>(spriteIndex);
+            pairList << dx << ':' << dy;
+            typeList << "0x" << std::hex << std::setw(2) << std::setfill('0')
+                     << static_cast<int>(typeByte) << std::dec << std::setfill(' ');
+        }
+        if (granBytes[recordsBase + 3] != 0x10) {
+            throw std::runtime_error("GRAN.MST head record type byte changed");
+        }
+        for (size_t i = 0; i < extraCount; ++i) {
+            const uint8_t visualA = granBytes[extrasBase + i * kExtraRecordStride];
+            const uint8_t visualB = granBytes[extrasBase + i * kExtraRecordStride + 1];
+            if (visualA != 4 || visualB > 6) {
+                throw std::runtime_error("GRAN.MST extra visual link bytes changed");
+            }
+        }
+
+        std::cout << "gran_static_consumer_model=ok"
+                  << " image_base=0x0770"
+                  << " filename_literal=1000:2ad3"
+                  << " level_gate=1000:2e78"
+                  << " level_gate_byte=ds:79b7"
+                  << " level_gate_value=7"
+                  << " reader=1000:08a5..0c32"
+                  << " pinned_windows=" << kPinnedWindows.size()
+                  << " file_size=" << granBytes.size()
+                  << " consumed=" << pos
+                  << " actor_records=" << recordCount
+                  << " actor_record_stride=0x26"
+                  << " actor_table=ds:1bae"
+                  << " actor_count_global=ds:208d"
+                  << " sprite_bytes=" << spriteList.str()
+                  << " visual_offsets=" << pairList.str()
+                  << " visual_table=ds:c21e"
+                  << " visual_stride=8"
+                  << " record_types=" << typeList.str()
+                  << " segment_link_field=0x25"
+                  << " extra_records=" << extraCount
+                  << " extra_record_stride=0x10"
+                  << " extra_table=ds:79ea"
+                  << " extra_count_global=ds:79f9"
+                  << " seven_by_57_layout=0"
+                  << " original_runtime_claim=0" << '\n';
+    }
+
     void debugSoundPriorityLatch() {
         load();
         auto printCase = [&](const std::string& name, bool accepted) {
@@ -18965,6 +19130,11 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-gran-raw-roundtrip") {
             app.debugGranRawRoundtrip();
+            return 0;
+        }
+        if (argc > 1 &&
+            std::string(argv[1]) == "--debug-gran-static-consumer-model") {
+            app.debugGranStaticConsumerModel();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sound-priority-latch") {

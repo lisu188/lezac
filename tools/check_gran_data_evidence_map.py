@@ -65,15 +65,22 @@ def check_resource(root: Path) -> tuple[int, int, int, str]:
 def check_cmake(root: Path) -> int:
     cmake = (root / "CMakeLists.txt").read_text(encoding="utf-8")
     require(cmake, "check_gran_data_evidence_map.py", "cmake:checker")
-    for test_name in ("gran_data_evidence_map", "gran_raw_roundtrip", "gran_summary"):
+    for test_name in (
+        "gran_data_evidence_map",
+        "gran_raw_roundtrip",
+        "gran_summary",
+        "gran_static_consumer_model",
+    ):
         require(cmake, f"add_test(NAME {test_name}", f"cmake:{test_name}")
         require(cmake, f"set_tests_properties({test_name}", f"cmake:{test_name}")
     require(cmake, "--debug-gran-raw-roundtrip", "cmake:roundtrip-command")
     require(cmake, "--debug-gran", "cmake:summary-command")
+    require(cmake, "--debug-gran-static-consumer-model", "cmake:consumer-command")
     require(cmake, "gran_raw_roundtrip=ok raw_size=399", "cmake:roundtrip-output")
     require(cmake, "gran_record_profile=summary record_size=57 records=7",
             "cmake:summary-output")
-    return 2
+    require(cmake, "gran_static_consumer_model=ok", "cmake:consumer-output")
+    return 3
 
 
 def check_source(root: Path) -> int:
@@ -103,19 +110,19 @@ def check_docs(root: Path) -> tuple[int, int]:
         require(readme, snippet, "README_RECONSTRUCTION.md")
 
     for snippet in (
-        "`GRAN.MST` has no observed header",
-        "seven fixed-size",
-        "57-byte records",
-        "semantics are still unresolved",
-        "`7 * 57` bytes",
+        "`GRAN.MST` is the level-7 boss actor file",
+        "1000:08A5",
+        "stride `0x26`",
+        "`7 * 57`",
         "399-byte file",
+        "original_runtime_claim=0",
     ):
         require(ghidra, snippet, "docs/GHIDRA_NOTES.md")
 
     for snippet in (
-        "`GRAN.MST` field semantics remain unknown",
-        "consolidation only locks file",
-        "shape and raw/json byte preservation",
+        "`GRAN.MST` loader and field layout are now statically recovered",
+        "--debug-gran-static-consumer-model",
+        "frame/debugger evidence",
     ):
         require(status, snippet, "RECOVERY_STATUS.md")
     return 3, 1

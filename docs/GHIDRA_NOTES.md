@@ -107,10 +107,30 @@ quirk.
   shipped loader bytes that copy `proefs.son`, read the two-byte count into
   `[BP-0x82]`, multiply that count by six, and read the resulting 780 payload
   bytes through the `DS:79c0` sound-bank pointer.
-- `GRAN.MST` has no observed header in the shipped file. It is seven fixed-size
-  57-byte records, likely aligned with the seven shipped levels, but the field
-  semantics are still unresolved. Runtime JSON loading now rejects any converted
-  shape other than `7 * 57` bytes, and `--debug-gran-raw-roundtrip`
+- `GRAN.MST` is the level-7 boss actor file. The shipped executable references
+  the length-prefixed `gran.mst` literal at `1000:2AD3` from exactly one
+  callsite, `1000:2E78..2E8A`: `cmp byte [DS:79B7], 7` gates the load on the
+  current-level byte equal to 7, then pushes the far filename pointer plus two
+  `0x64` anchor words and calls the generic actor-file reader at
+  `1000:08A5..0C32`. The reader walks the file as
+  `[count N:1][N x 38-byte actor records][N x sprite byte]
+  [N x (dx:int16, dy:int16)][count M:1][M x 16-byte entries]`, which consumes
+  the shipped 399 bytes exactly with `N=7`, `M=6` (the earlier `7 * 57`
+  guess described the byte total only, not the field layout). The records are
+  appended to the actor table at `DS:0x1BAE` with stride `0x26`; each record's
+  sprite byte (shipped `46,46,45,45,40,42,43`, inside the recovered
+  `BOMOMIMK` monster frame range `39..55`) is passed to overlay routine
+  `08AC:0517`, and each `(dx,dy)` pair positions a visual entry at
+  `DS:0xC21E` (stride 8) offset from the caller's `(100,100)` anchor. Records
+  2..N carry serial numbers in `+0x0e` that the reader rebases by the
+  `DS:0x79F9` count, get byte `+0x25` linked to the head record index, and the
+  16-byte entries are appended to the `DS:0x79EA` table with their first two
+  bytes rebased as visual-entry indexes; `DS:0x208D` grows by `N`.
+  `--debug-gran-static-consumer-model` pins the 12 instruction/literal byte
+  windows and reparses the shipped file with this layout, keeping
+  `original_runtime_claim=0` until DOSBox runtime evidence covers the live
+  boss presentation. Runtime JSON loading still preserves the historical
+  `7 * 57` storage split for byte preservation, and `--debug-gran-raw-roundtrip`
   independently loads both `GRAN.MST` and `GRAN.MST.json`, flattens their
   seven opaque records, and reports `raw_json_match=1` only when the converted
   JSON bytes exactly match the shipped 399-byte file. The
@@ -118,9 +138,6 @@ quirk.
   aggregate `byte_sum=12560`, `weighted_sum=337318`, `nonzero_bytes=249`,
   `zero_bytes=150`, `xor=0x0c`, and record sums
   `631,2230,1389,1242,1780,2720,2568`.
-  The original executable contains the lowercase `gran.mst` filename at
-  `1000:2AD4`, immediately before a routine prologue/load sequence, but no
-  decoded field consumer has been promoted.
   `tools/check_gran_usage_guardrail.py` confirms the current C++ port only
   loads, stores, validates, and debug-prints those opaque records; no live
   gameplay or rendering path may consume `GRAN.MST` without first adding

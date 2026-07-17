@@ -84,8 +84,10 @@ port functionality.
   comparison
 - `monster_sprite_table_runtime_consumption` — original runtime consumption of
   impact/death/reward sprite frames
-- `gran_mst_field_semantics` — `GRAN.MST` field meaning beyond byte
-  preservation
+- `gran_mst_field_semantics` — runtime semantics of the `GRAN.MST` level-7
+  boss actor records; the loader gate, file layout, and destination tables
+  are statically recovered by `--debug-gran-static-consumer-model`, but live
+  boss presentation still needs original runtime evidence
 - `ds79b9_fallback_runtime_reachability` — runtime reachability of the
   `DS:79b9` fallback
 - `level1_route_timing_original_confirmation` — level-1 bomb-route timing

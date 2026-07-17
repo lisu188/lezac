@@ -138,10 +138,39 @@ quirk.
   aggregate `byte_sum=12560`, `weighted_sum=337318`, `nonzero_bytes=249`,
   `zero_bytes=150`, `xor=0x0c`, and record sums
   `631,2230,1389,1242,1780,2720,2568`.
-  `tools/check_gran_usage_guardrail.py` confirms the current C++ port only
-  loads, stores, validates, and debug-prints those opaque records; no live
-  gameplay or rendering path may consume `GRAN.MST` without first adding
-  evidence.
+- The boss runtime semantics were then recovered statically from the actor
+  engine: actor field `+0x00` is the kind (head `0x1E`, segments `0x1F`),
+  `+0x15` is the behavior/state byte that dispatches the update (head `6`
+  runs the head brain at `1000:5CB0`; segments `5` ride the static-decay
+  state but are kept alive by the kind-`0x1F` refresh at `1000:6350` that
+  pins `+0x02` to `0xFA`), and `+0x03`/`+0x04` are facing anim-set indexes
+  into the byte-pair table at `DS:0x58/0x59` (boss rows: `0x0e` frames
+  `41..42`, `0x0f` frames `43..44`, `0x10` frames `40..40`). On level 7 the
+  sprite selector at `1000:2C90` loads `PROVA.SPR` instead of
+  `BOMOMIMK.SPR`, so boss sprite indexes address that bank. The head brain
+  recomputes terrain flags over its `+0x0e` lo/hi tile box (5x4), charges
+  toward the nearest player every 29 ticks with a grounded jump, bounces at
+  half speed, and takes per-frame damage from flame tiles `0x75` sampled in
+  every second box column (doubled when the owning bomb's power byte exceeds
+  1); overkill beyond the HP byte `+0x24` decrements the lives byte `+0x02`
+  with byte-wrap HP refill, and a lives underflow calls the death chain at
+  `1000:5BCC`, which converts every segment whose `+0x25` matches the head's
+  `+0x12` index (plus the head) into kind-`0x0E` timed debris and awards
+  1000 points. Segment motion runs entirely through the 16-byte
+  `DS:0x79EA` link entries (count `DS:0x79F9`), recomputed each frame by
+  `1000:432A` before the actor loop and applied by `1000:5872` per serial
+  byte in `+0x0e` lo/hi and `+0x10` lo (bit `0x80` mirrors the spring
+  contribution): mode byte `0xFF` orbits the anchor visual through a
+  128-step `Sin(i*6.28/128)` table at `DS:0x7BDA`, other modes act as
+  springs `(target - self + offset) * gain` with a per-axis velocity
+  pull-back. `--debug-gran-boss-model` pins the selector and anim-table
+  bytes and prints the decoded boss table; the C++ port now consumes this
+  model in `spawnLevel7Boss()` (level index 6), spawning the head at the
+  `(100,100)` anchor with segments at the decoded visual offsets.
+  `tools/check_gran_usage_guardrail.py` still restricts `gran_` access: the
+  named live consumer `spawnLevel7Boss` plus debug/roundtrip paths only, so
+  no additional live gameplay path may consume `GRAN.MST` without extending
+  the recovered-consumer evidence.
 - The C++ loader now defaults to the shipped files themselves, while
   `LEZAC_LOAD_JSON_ASSETS=1` keeps the converted JSON path available for
   diagnostics. `--debug-original-asset-load` verifies that the original-asset

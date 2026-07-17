@@ -14,10 +14,18 @@ DEBUG_FUNCTIONS = (
     "debugShippedFileManifest",
     "debugPortCompletionStatus",
     "debugGranStaticConsumerModel",
+    "debugGranBossModel",
     "debugGranRawRoundtrip",
     "debugGran",
     "debugOriginalAssetLoad",
 )
+
+# Live consumers must be backed by recovered-consumer evidence before being
+# added here. spawnLevel7Boss implements the level-7 boss decoded by the
+# static consumer model (--debug-gran-static-consumer-model /
+# --debug-gran-boss-model) from the shipped executable's reader at
+# 1000:08A5 behind the DS:0x79B7 == 7 level gate.
+LIVE_FUNCTIONS = ("spawnLevel7Boss",)
 
 
 def default_repo_root() -> Path:
@@ -29,11 +37,12 @@ def require(text: str, snippet: str, case: str) -> None:
         raise RuntimeError(f"{case} missing snippet {snippet!r}")
 
 
-def function_ranges(lines: list[str]) -> dict[str, tuple[int, int]]:
+def function_ranges(lines: list[str],
+                    names: tuple[str, ...] = DEBUG_FUNCTIONS) -> dict[str, tuple[int, int]]:
     ranges: dict[str, tuple[int, int]] = {}
     for index, line in enumerate(lines):
         match = re.match(r"\s+void\s+([A-Za-z0-9_]+)\s*\([^)]*\)\s*\{", line)
-        if not match or match.group(1) not in DEBUG_FUNCTIONS:
+        if not match or match.group(1) not in names:
             continue
         depth = 0
         end = index
@@ -51,17 +60,23 @@ def in_range(line_number: int, ranges: dict[str, tuple[int, int]]) -> bool:
     return any(start <= line_number <= end for start, end in ranges.values())
 
 
-def check_source(root: Path) -> tuple[int, int, int, int]:
+def check_source(root: Path) -> tuple[int, int, int, int, int]:
     lines = (root / "src" / "main.cpp").read_text(encoding="utf-8").splitlines()
     ranges = function_ranges(lines)
     missing = [name for name in DEBUG_FUNCTIONS if name not in ranges]
     if missing:
         raise RuntimeError("missing debug function range(s): " + ",".join(missing))
+    live_ranges = function_ranges(lines, LIVE_FUNCTIONS)
+    missing_live = [name for name in LIVE_FUNCTIONS if name not in live_ranges]
+    if missing_live:
+        raise RuntimeError(
+            "missing live consumer function range(s): " + ",".join(missing_live))
 
     source_refs = 0
     load_refs = 0
     debug_refs = 0
     member_refs = 0
+    live_consumer_refs = 0
     live_refs: list[str] = []
     for line_number, line in enumerate(lines, start=1):
         if "gran_" not in line:
@@ -79,6 +94,9 @@ def check_source(root: Path) -> tuple[int, int, int, int]:
         if in_range(line_number, ranges):
             debug_refs += 1
             continue
+        if in_range(line_number, live_ranges):
+            live_consumer_refs += 1
+            continue
         live_refs.append(f"{line_number}:{line.strip()}")
 
     if live_refs:
@@ -87,7 +105,7 @@ def check_source(root: Path) -> tuple[int, int, int, int]:
         raise RuntimeError(
             f"unexpected GRAN load/member counts: load={load_refs} member={member_refs}"
         )
-    return source_refs, load_refs, debug_refs, member_refs
+    return source_refs, load_refs, debug_refs, member_refs, live_consumer_refs
 
 
 def check_cmake(root: Path) -> int:
@@ -171,6 +189,14 @@ def write_source(root: Path, live_line: str = "", include_debug: bool = True) ->
                 '        dump("gran_static_consumer_model=ok");',
                 "    }",
                 "",
+                "    void debugGranBossModel() {",
+                '        dump("gran_boss_model=ok");',
+                "    }",
+                "",
+                "    void spawnLevel7Boss() {",
+                "        auto records = gran_.records;",
+                "    }",
+                "",
                 "    void debugGranRawRoundtrip() {",
                 "        dump(gran_.records);",
                 "    }",
@@ -217,8 +243,10 @@ def self_test() -> int:
         root = Path(tmp)
         write_contract_files(root)
         write_source(root)
-        source_refs, load_refs, debug_refs, member_refs = check_source(root)
-        if (source_refs, load_refs, debug_refs, member_refs) != (11, 2, 8, 1):
+        source_refs, load_refs, debug_refs, member_refs, live_consumer_refs = \
+            check_source(root)
+        if (source_refs, load_refs, debug_refs, member_refs,
+                live_consumer_refs) != (13, 2, 9, 1, 1):
             raise RuntimeError("selftest positive source counts mismatch")
         check_cmake(root)
         check_docs(root)
@@ -274,13 +302,15 @@ def main() -> int:
         return self_test()
 
     root = args.root.resolve()
-    source_refs, load_refs, debug_refs, member_refs = check_source(root)
+    source_refs, load_refs, debug_refs, member_refs, live_consumer_refs = \
+        check_source(root)
     ctest = check_cmake(root)
     docs = check_docs(root)
     print(
         "gran_usage_guardrail=ok "
         f"source_refs={source_refs} load_refs={load_refs} "
         f"debug_refs={debug_refs} member_refs={member_refs} "
+        f"live_consumer_refs={live_consumer_refs} "
         f"live_refs=0 ctest={ctest} docs={docs}"
     )
     return 0

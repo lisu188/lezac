@@ -167,7 +167,7 @@ if(BUILD_TESTING)
     set_tests_properties(port_completion_status PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "port_completion_status=ok subsystems=22 implemented=22 open_original_evidence_items=12 port_functionally_complete=1 original_fidelity_claim=0")
+            "port_completion_status=ok subsystems=23 implemented=23 open_original_evidence_items=12 port_functionally_complete=1 original_fidelity_claim=0")
 
     add_test(NAME original_asset_load
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-asset-load)
@@ -402,6 +402,14 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^autoplayer=ok scenario=monster_spawner_behavior4_level3 level=3 spawner_index=[0-9]+ ai0=[0-9]+ ai1=[0-9]+ ai2=[0-9]+ hp=[0-9]+ vx8=[0-9-]+ vy8=[0-9-]+ frame_inspection=1")
+
+    add_test(NAME autoplayer_boss_level7_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer boss_level7)
+    set_tests_properties(autoplayer_boss_level7_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=boss_level7 boss_actors=7 links=6 springs=2 orbits=4 head_sprite=40 head_box=5x4 head_pos=100,100 sprite_bank=prova damage_frames=[0-9]+ score_award=1000 debris=7 debris_cleared=1 frames_inspected=4 spawn_hash=[0-9a-f]+ motion_hash=[0-9a-f]+ death_hash=[0-9a-f]+ clear_hash=[0-9a-f]+ original_runtime_claim=0")
 
     add_test(NAME autoplayer_monster_behavior4_target_selection_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -1831,7 +1839,7 @@ if(BUILD_TESTING)
         set_tests_properties(gran_usage_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^gran_usage_guardrail=ok source_refs=23 load_refs=2 debug_refs=20 member_refs=1 live_refs=0 ctest=3 docs=3")
+                "^gran_usage_guardrail=ok source_refs=25 load_refs=2 debug_refs=21 member_refs=1 live_consumer_refs=1 live_refs=0 ctest=3 docs=3")
 
         add_test(NAME gran_usage_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -1858,7 +1866,7 @@ if(BUILD_TESTING)
         set_tests_properties(port_completion_status_checker PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^port_completion_status_checker=ok subsystems=22 open_items=12 ctest=3 docs=3")
+                "^port_completion_status_checker=ok subsystems=23 open_items=12 ctest=3 docs=3")
 
         add_test(NAME port_completion_status_checker_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -2289,6 +2297,14 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^gran_static_consumer_model=ok image_base=0x0770 filename_literal=1000:2ad3 level_gate=1000:2e78 level_gate_byte=ds:79b7 level_gate_value=7 reader=1000:08a5..0c32 pinned_windows=12 file_size=399 consumed=399 actor_records=7 actor_record_stride=0x26 actor_table=ds:1bae actor_count_global=ds:208d sprite_bytes=46,46,45,45,40,42,43 visual_offsets=38:10,42:4,-7:10,-12:16,0:0,-8:18,39:17 visual_table=ds:c21e visual_stride=8 record_types=0x10,0x0e,0x0f,0x00,0x00,0x00,0x00 segment_link_field=0x25 extra_records=6 extra_record_stride=0x10 extra_table=ds:79ea extra_count_global=ds:79f9 seven_by_57_layout=0 original_runtime_claim=0")
+
+    add_test(NAME gran_boss_model
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-gran-boss-model)
+    set_tests_properties(gran_boss_model PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^gran_boss_model=ok selector=1000:2c90 level7_bank=prova.spr anim_sets=0x0e:41..42,0x0f:43..44,0x10:40..40 boss_actors=7 head_visual=8 head_hp=10 head_lives=1 head_box=5x4 links=6 spring_links=2 orbit_links=4 actor=head:vis8:100,100:spr40 actor=segment:vis9:92,118:spr42 actor=segment:vis10:139,117:spr43 actor=segment:vis7:88,116:spr45 actor=segment:vis6:93,110:spr45 actor=segment:vis5:142,104:spr46 actor=segment:vis4:138,110:spr46 original_runtime_claim=0")
 
     add_test(NAME gran_profile
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran)

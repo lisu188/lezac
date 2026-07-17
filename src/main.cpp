@@ -398,6 +398,7 @@ struct Flash {
     int x = 0;
     int y = 0;
     int timer = 12;
+    uint8_t power = 1;
 };
 
 struct ExplosionEffect {
@@ -521,7 +522,50 @@ struct ActiveMonster {
     int animTick = 0;
     bool deathCredited = false;
     bool alive = true;
+    // Level-7 boss fields recovered from the GRAN.MST static consumer model:
+    // kind 0x1e runs the original 1000:5CB0 head brain (behavior/state 6) and
+    // kind 0x1f segments follow DS:0x79EA motion links (behavior/state 5).
+    uint8_t bossVisual = 0;
+    uint8_t bossLives = 0;
+    uint8_t bossHpByte = 0;
+    uint8_t bossBoxW = 0;
+    uint8_t bossBoxH = 0;
+    uint8_t linkA = 0;
+    uint8_t linkB = 0;
+    uint8_t linkC = 0;
+    int bossTick = 0;
+    int hurtFlash = 0;
+    bool bossDebris = false;
 };
+
+// Semantic view of one 16-byte DS:0x79EA motion-link entry from GRAN.MST.
+// mode != 0xff: spring/follow (out = (target - self + off) * gain, plus a
+// per-axis velocity pull-back of `mode`); mode == 0xff: orbit (out = target +
+// off + radius * sin/cos of a 128-step phase advanced by `gain`).
+struct BossMotionLink {
+    uint8_t targetVisual = 0;
+    uint8_t selfVisual = 0;
+    uint8_t gain = 0;
+    uint8_t mode = 0;
+    uint8_t radiusX = 0;
+    uint8_t radiusY = 0;
+    uint8_t phase = 0;
+    int16_t offX = 0;
+    int16_t offY = 0;
+    int16_t outX = 0;
+    int16_t outY = 0;
+    int8_t biasY = 0;
+};
+
+// Facing anim-set pair table recovered from the shipped data segment
+// (DS:0x58/0x59, image linear 0xAA20): boss sets 0x0e -> frames 41..42,
+// 0x0f -> 43..44, and 0x10 -> 40..40, drawn from the PROVA.SPR bank that the
+// original loads instead of BOMOMIMK.SPR on level 7 (selector 1000:2C90).
+constexpr std::array<std::array<uint8_t, 2>, 17> kBossAnimSets{{
+    {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
+    {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
+    {41, 42}, {43, 44}, {40, 40},
+}};
 
 enum class BonusType : uint8_t {
     Present,
@@ -2694,6 +2738,202 @@ public:
                   << " manifest=manifest.txt\n";
     }
 
+    void debugAutoplayerBossLevel7(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (menu_ || playerCount_ != 1) {
+            throw std::runtime_error("boss level7 autoplayer failed to start");
+        }
+        resetLevel(6);
+        if (levelIndex_ != 6 || !bossPresent_) {
+            throw std::runtime_error("boss level7 autoplayer did not spawn the boss");
+        }
+        if (monsters_.size() != 7 || bossLinks_.size() != 6) {
+            throw std::runtime_error("boss level7 autoplayer boss shape mismatch");
+        }
+        randomSeed_ = 0x1234abcd;
+
+        auto findHead = [&]() -> ActiveMonster* {
+            for (ActiveMonster& monster : monsters_) {
+                if (monster.alive && monster.behavior == 6) return &monster;
+            }
+            return nullptr;
+        };
+        ActiveMonster* head = findHead();
+        if (!head || head->kind != 0x1e || head->x != 100 || head->y != 100 ||
+            head->bossVisual != 8 || head->animFrame != 40 ||
+            head->bossHpByte != 10 || head->bossLives != 1 ||
+            head->bossBoxW != 5 || head->bossBoxH != 4) {
+            throw std::runtime_error("boss level7 autoplayer head fields mismatch");
+        }
+        // Decoded spawn layout: visual index -> world position and sprite.
+        struct ExpectedSegment {
+            uint8_t visual;
+            int x;
+            int y;
+            uint8_t sprite;
+            uint8_t serial;
+        };
+        static const std::array<ExpectedSegment, 6> kExpectedSegments{{
+            {4, 138, 110, 46, 6},
+            {5, 142, 104, 46, 5},
+            {6, 93, 110, 45, 4},
+            {7, 88, 116, 45, 3},
+            {9, 92, 118, 42, 1},
+            {10, 139, 117, 43, 2},
+        }};
+        int springLinks = 0;
+        int orbitLinks = 0;
+        for (const BossMotionLink& link : bossLinks_) {
+            if (link.targetVisual != 8) {
+                throw std::runtime_error("boss level7 autoplayer link target mismatch");
+            }
+            if (link.mode == 0xff) {
+                ++orbitLinks;
+            } else {
+                ++springLinks;
+            }
+        }
+        if (springLinks != 2 || orbitLinks != 4) {
+            throw std::runtime_error("boss level7 autoplayer link modes mismatch");
+        }
+        for (const ExpectedSegment& expected : kExpectedSegments) {
+            bool found = false;
+            for (const ActiveMonster& monster : monsters_) {
+                if (monster.behavior == 5 && monster.bossVisual == expected.visual) {
+                    if (monster.kind != 0x1f || monster.x != expected.x ||
+                        monster.y != expected.y ||
+                        monster.animFrame != expected.sprite ||
+                        monster.linkA != expected.serial) {
+                        throw std::runtime_error(
+                            "boss level7 autoplayer segment fields mismatch");
+                    }
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                throw std::runtime_error("boss level7 autoplayer segment missing");
+            }
+        }
+        // Park the player near the boss cluster so the camera keeps the boss
+        // on screen for the inspected frames.
+        player_.x = 60.0f;
+        player_.y = 120.0f;
+        FrameInspection spawnFrame = inspectRenderedFrame("autoplayer-boss-level7-spawn");
+
+        FrameControls idle;
+        const int orbiterStartX = 138;
+        const int orbiterStartY = 110;
+        for (int frame = 0; frame < 30; ++frame) {
+            updateWithControls(idle, 1.0f / 60.0f);
+        }
+        head = findHead();
+        if (!head || head->bossTick != 30) {
+            throw std::runtime_error("boss level7 autoplayer head did not tick");
+        }
+        bool orbiterMoved = false;
+        for (const ActiveMonster& monster : monsters_) {
+            if (monster.behavior == 5 && monster.bossVisual == 4) {
+                // Serial 6 -> orbit link with radius (1,7) and offset (38,10)
+                // around the head: the segment teleports to the link output
+                // each frame.
+                orbiterMoved = monster.x != orbiterStartX || monster.y != orbiterStartY;
+                const BossMotionLink& orbit = bossLinks_[5];
+                if (orbit.mode != 0xff || monster.x != orbit.outX ||
+                    monster.y != orbit.outY) {
+                    throw std::runtime_error(
+                        "boss level7 autoplayer orbiter left its orbit output");
+                }
+            }
+        }
+        if (!orbiterMoved) {
+            throw std::runtime_error("boss level7 autoplayer orbiter did not move");
+        }
+        FrameInspection motionFrame =
+            inspectRenderedFrame("autoplayer-boss-level7-motion");
+        if (motionFrame.hash == spawnFrame.hash) {
+            throw std::runtime_error(
+                "boss level7 autoplayer boss motion left the frame unchanged");
+        }
+
+        // Drive the recovered flame-drain damage model: seed flame flashes
+        // over the head box each frame until the lives underflow fires the
+        // death chain (phase 1 overkill, byte-wrap refill, second underflow).
+        const uint32_t scoreBefore = score_;
+        int damageFrames = 0;
+        bool sawHurtFlash = false;
+        while (!bossDefeated_ && damageFrames < 600) {
+            head = findHead();
+            if (!head) break;
+            flashes_.clear();
+            const int headTileX = head->x / kTileSize;
+            const int headTileY = head->y / kTileSize;
+            for (int dx = 0; dx < head->bossBoxW; dx += 2) {
+                for (int dy = 0; dy < head->bossBoxH; ++dy) {
+                    flashes_.push_back({headTileX + dx, headTileY + dy, 2, 2});
+                }
+            }
+            updateWithControls(idle, 1.0f / 60.0f);
+            head = findHead();
+            if (head && head->hurtFlash > 0) {
+                sawHurtFlash = true;
+                if (monsterSpriteIndex(*head) != 0x2f) {
+                    throw std::runtime_error(
+                        "boss level7 autoplayer hurt flash sprite mismatch");
+                }
+            }
+            ++damageFrames;
+        }
+        if (!bossDefeated_ || !sawHurtFlash) {
+            throw std::runtime_error("boss level7 autoplayer did not defeat the boss");
+        }
+        if (score_ != scoreBefore + 1000) {
+            throw std::runtime_error("boss level7 autoplayer death award mismatch");
+        }
+        int debrisCount = 0;
+        for (const ActiveMonster& monster : monsters_) {
+            if (monster.alive && monster.bossDebris && monster.behavior == 2) {
+                ++debrisCount;
+            }
+        }
+        if (debrisCount != 7) {
+            throw std::runtime_error("boss level7 autoplayer debris conversion mismatch");
+        }
+        FrameInspection deathFrame =
+            inspectRenderedFrame("autoplayer-boss-level7-death");
+
+        for (int frame = 0; frame < 90; ++frame) {
+            updateWithControls(idle, 1.0f / 60.0f);
+        }
+        for (const ActiveMonster& monster : monsters_) {
+            if (monster.bossDebris) {
+                throw std::runtime_error("boss level7 autoplayer debris did not clear");
+            }
+        }
+        FrameInspection clearFrame =
+            inspectRenderedFrame("autoplayer-boss-level7-cleared");
+
+        std::cout << "autoplayer=ok scenario=" << scenario
+                  << " boss_actors=7 links=6 springs=" << springLinks
+                  << " orbits=" << orbitLinks
+                  << " head_sprite=40 head_box=5x4 head_pos=100,100"
+                  << " sprite_bank=prova"
+                  << " damage_frames=" << damageFrames
+                  << " score_award=1000 debris=7 debris_cleared=1"
+                  << " frames_inspected=4"
+                  << " spawn_hash=" << std::hex << spawnFrame.hash
+                  << " motion_hash=" << motionFrame.hash
+                  << " death_hash=" << deathFrame.hash
+                  << " clear_hash=" << clearFrame.hash << std::dec
+                  << " original_runtime_claim=0" << '\n';
+    }
+
     void debugAutoplayer(const std::string& scenario) {
         if (scenario == "level1_bomb_route") {
             debugAutoplayerLevel1BombRoute(scenario);
@@ -2723,6 +2963,8 @@ public:
             debugAutoplayerMonsterSpawnerBehavior4Level3(scenario);
         } else if (scenario == "monster_behavior4_target_selection") {
             debugAutoplayerMonsterBehavior4TargetSelection(scenario);
+        } else if (scenario == "boss_level7") {
+            debugAutoplayerBossLevel7(scenario);
         } else if (scenario == "collapse_playback_route") {
             debugAutoplayerCollapsePlaybackRoute(scenario);
         } else if (scenario == "two_player_route") {
@@ -5012,7 +5254,7 @@ public:
         // Functional port coverage: every gameplay/data subsystem recovered
         // from LEZAC.EXE has a C++ implementation and a deterministic
         // validation entry point listed here.
-        static const std::array<PortSubsystem, 22> kPortSubsystems{{
+        static const std::array<PortSubsystem, 23> kPortSubsystems{{
             {"resource_loading", "--validate"},
             {"shipped_file_manifest", "--debug-shipped-file-manifest"},
             {"sprites", "--debug-sprite-raw-roundtrip"},
@@ -5031,6 +5273,7 @@ public:
             {"passable_objects_portals", "--debug-autoplayer portal_weapon_route"},
             {"monsters_behaviors", "--debug-autoplayer monster_behavior4_chase"},
             {"monster_spawners", "--debug-autoplayer monster_spawner_cycle"},
+            {"level7_boss", "--debug-autoplayer boss_level7"},
             {"player_death_state2", "--debug-autoplayer death_reentry"},
             {"two_player", "--debug-autoplayer two_player_progression"},
             {"pause_end_flow", "--debug-autoplayer pause_flow"},
@@ -7080,6 +7323,99 @@ public:
                   << " extra_table=ds:79ea"
                   << " extra_count_global=ds:79f9"
                   << " seven_by_57_layout=0"
+                  << " original_runtime_claim=0" << '\n';
+    }
+
+    void debugGranBossModel() {
+        // Pins the level-7 boss semantics recovered statically from the
+        // shipped executable: the PROVA.SPR bank selector, the DS:0x58/0x59
+        // facing anim-set pair table rows used by the boss records, and the
+        // decoded GRAN.MST boss model consumed by spawnLevel7Boss(). This is
+        // static instruction/data evidence; live boss presentation remains
+        // original_runtime_claim=0.
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        uint16_t headerParagraphs = le16(exeBytes, 0x08);
+        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error("LEZAC.EXE image base changed for boss model scan");
+        }
+        // Level-7 sprite bank selector at 1000:2C90: cmp byte [DS:79B7],7;
+        // je -> load "prova.spr" (literal 1000:2AC9) instead of
+        // "bomomimk.spr" (literal 1000:2ABC) through the far loader
+        // 08AC:05DC.
+        static const uint8_t kSelectorBytes[] = {
+            0x80, 0x3e, 0xb7, 0x79, 0x07, 0x74, 0x0c, 0xbf, 0xbc, 0x2a, 0x0e,
+            0x57, 0x9a, 0xdc, 0x05, 0xac, 0x08, 0xeb, 0x0a, 0xbf, 0xc9, 0x2a,
+            0x0e, 0x57};
+        for (size_t i = 0; i < sizeof(kSelectorBytes); ++i) {
+            if (exeBytes[imageBase + 0x2C90 + i] != kSelectorBytes[i]) {
+                throw std::runtime_error("level-7 sprite bank selector bytes changed");
+            }
+        }
+        // Facing anim-set pair table rows in the initialized data segment
+        // (runtime DS = CS + 0xAA2 paragraphs -> image linear 0xAA20):
+        // sets 0x0e -> 41..42, 0x0f -> 43..44, 0x10 -> 40..40.
+        static const uint8_t kAnimRows[] = {0x29, 0x2a, 0x2b, 0x2c, 0x28, 0x28};
+        const size_t animBase = imageBase + 0xAA20 + 0x58 + 2 * 0x0e;
+        for (size_t i = 0; i < sizeof(kAnimRows); ++i) {
+            if (exeBytes[animBase + i] != kAnimRows[i]) {
+                throw std::runtime_error("boss anim-set pair table bytes changed");
+            }
+        }
+        for (size_t set = 0x0e; set <= 0x10; ++set) {
+            if (kBossAnimSets[set][0] != exeBytes[imageBase + 0xAA20 + 0x58 + 2 * set] ||
+                kBossAnimSets[set][1] != exeBytes[imageBase + 0xAA20 + 0x59 + 2 * set]) {
+                throw std::runtime_error("kBossAnimSets diverged from shipped table");
+            }
+        }
+
+        // Decode the shipped boss model through the live consumer and report
+        // the semantic table.
+        load();
+        resetLevel(6);
+        if (levelIndex_ != 6 || !bossPresent_ || monsters_.size() != 7 ||
+            bossLinks_.size() != 6) {
+            throw std::runtime_error("boss model decode did not produce the boss");
+        }
+        int springLinks = 0;
+        int orbitLinks = 0;
+        for (const BossMotionLink& link : bossLinks_) {
+            if (link.mode == 0xff) {
+                ++orbitLinks;
+            } else {
+                ++springLinks;
+            }
+        }
+        std::ostringstream actorList;
+        const ActiveMonster* head = nullptr;
+        for (size_t i = 0; i < monsters_.size(); ++i) {
+            const ActiveMonster& monster = monsters_[i];
+            if (i != 0) actorList << ' ';
+            actorList << "actor=" << (monster.behavior == 6 ? "head" : "segment")
+                      << ":vis" << static_cast<int>(monster.bossVisual) << ":"
+                      << monster.x << ',' << monster.y << ":spr"
+                      << static_cast<int>(monster.animFrame);
+            if (monster.behavior == 6) head = &monster;
+        }
+        if (!head) {
+            throw std::runtime_error("boss model decode missing head");
+        }
+        std::cout << "gran_boss_model=ok"
+                  << " selector=1000:2c90"
+                  << " level7_bank=prova.spr"
+                  << " anim_sets=0x0e:41..42,0x0f:43..44,0x10:40..40"
+                  << " boss_actors=" << monsters_.size()
+                  << " head_visual=" << static_cast<int>(head->bossVisual)
+                  << " head_hp=" << static_cast<int>(head->bossHpByte)
+                  << " head_lives=" << static_cast<int>(head->bossLives)
+                  << " head_box=" << static_cast<int>(head->bossBoxW) << 'x'
+                  << static_cast<int>(head->bossBoxH)
+                  << " links=" << bossLinks_.size()
+                  << " spring_links=" << springLinks
+                  << " orbit_links=" << orbitLinks << ' ' << actorList.str()
                   << " original_runtime_claim=0" << '\n';
     }
 
@@ -16041,6 +16377,10 @@ private:
     Player player2_;
     std::vector<SpawnerState> spawnerStates_;
     std::vector<ActiveMonster> monsters_;
+    std::vector<BossMotionLink> bossLinks_;
+    std::array<float, 128> bossSinTable_{};
+    bool bossPresent_ = false;
+    bool bossDefeated_ = false;
     std::vector<BonusDrop> bonusDrops_;
     std::vector<Bomb> bombs_;
     std::vector<Flash> flashes_;
@@ -16275,6 +16615,12 @@ private:
             playerDead_ = lives_ <= 0;
             player2Dead_ = lives2_ <= 0;
         }
+        bossLinks_.clear();
+        bossPresent_ = false;
+        bossDefeated_ = false;
+        // The original loads gran.mst at the end of level setup only when the
+        // current-level byte DS:0x79B7 equals 7 (callsite 1000:2E78).
+        if (levelIndex_ == 6) spawnLevel7Boss();
     }
 
     const LevelPortal* findStartPortal(uint8_t marker) const {
@@ -16820,6 +17166,7 @@ private:
         updateFlashes();
         updateBombs();
         updateMonsterSpawners();
+        updateBossLinks();
         updateMonsters(dt);
         updateBonusDrops();
         drainPlayerDamageCounters();
@@ -17177,6 +17524,14 @@ private:
     }
 
     void updateMonsterMotion(ActiveMonster& monster, float) {
+        if (monster.behavior == 6) {
+            updateBossHead(monster);
+            return;
+        }
+        if (monster.behavior == 5) {
+            applyBossSegmentLinks(monster);
+            return;
+        }
         if (monster.behavior == 4) {
             if (--monster.motionTimer <= 0) {
                 retargetMonster(monster);
@@ -17200,6 +17555,246 @@ private:
         }
         monster.vy8 = static_cast<int16_t>(std::min<int>(0x07ff, monster.vy8 + 0x40));
         refreshMonsterAnimationProfile(monster);
+    }
+
+    // Live GRAN.MST consumer backed by the static consumer model
+    // (--debug-gran-static-consumer-model / --debug-gran-boss-model). The
+    // original appends these actors at level-7 setup; pre-boss visual entries
+    // are the two players plus the two player-shot slots, so record visual
+    // bytes and link visual bytes are rebased by 4.
+    static constexpr int kBossVisualBase = 4;
+
+    void spawnLevel7Boss() {
+        std::vector<uint8_t> granBytes;
+        for (const GranRecord& record : gran_.records) {
+            granBytes.insert(granBytes.end(), record.bytes.begin(), record.bytes.end());
+        }
+        if (granBytes.size() != 399 || granBytes[0] != 7) return;
+        size_t pos = 1;
+        const size_t recordCount = granBytes[0];
+        const size_t recordsBase = pos;
+        pos += recordCount * 0x26;
+        const size_t spritesBase = pos;
+        pos += recordCount;
+        const size_t pairsBase = pos;
+        pos += recordCount * 4;
+        const size_t extraCount = granBytes[pos++];
+        const size_t extrasBase = pos;
+        if (pos + extraCount * 16 != granBytes.size()) return;
+
+        for (size_t i = 0; i < bossSinTable_.size(); ++i) {
+            // The original fills a 128-entry Real48 table with Sin(i*6.28/128).
+            bossSinTable_[i] = std::sin(static_cast<float>(i) * 6.28f / 128.0f);
+        }
+
+        bossLinks_.clear();
+        for (size_t i = 0; i < extraCount; ++i) {
+            const uint8_t* extra = granBytes.data() + extrasBase + i * 16;
+            BossMotionLink link;
+            link.targetVisual = static_cast<uint8_t>(extra[0] + kBossVisualBase);
+            link.selfVisual = static_cast<uint8_t>(extra[1] + kBossVisualBase);
+            link.gain = extra[2];
+            link.mode = extra[3];
+            link.radiusX = extra[4];
+            link.radiusY = extra[5];
+            link.phase = extra[6];
+            link.offX = static_cast<int16_t>(extra[7] | (extra[8] << 8));
+            link.offY = static_cast<int16_t>(extra[9] | (extra[10] << 8));
+            link.biasY = static_cast<int8_t>(extra[15]);
+            bossLinks_.push_back(link);
+        }
+
+        for (size_t i = 0; i < recordCount; ++i) {
+            const uint8_t* record = granBytes.data() + recordsBase + i * 0x26;
+            ActiveMonster actor;
+            actor.kind = record[0x00];
+            actor.behavior = record[0x15];
+            actor.bossVisual = static_cast<uint8_t>(record[0x01] + kBossVisualBase);
+            const size_t entryOrder = static_cast<size_t>(actor.bossVisual) - kBossVisualBase;
+            if (entryOrder >= recordCount) continue;
+            const int dx = static_cast<int16_t>(granBytes[pairsBase + entryOrder * 4] |
+                                                (granBytes[pairsBase + entryOrder * 4 + 1] << 8));
+            const int dy = static_cast<int16_t>(granBytes[pairsBase + entryOrder * 4 + 2] |
+                                                (granBytes[pairsBase + entryOrder * 4 + 3] << 8));
+            actor.x = 100 + dx;
+            actor.y = 100 + dy;
+            const uint8_t entrySprite = granBytes[spritesBase + entryOrder];
+            const uint8_t animSet = record[0x03];
+            if (animSet != 0 && animSet < kBossAnimSets.size() &&
+                kBossAnimSets[animSet][0] != 0) {
+                actor.animStart = kBossAnimSets[animSet][0];
+                actor.animEnd = kBossAnimSets[animSet][1];
+            } else {
+                actor.animStart = entrySprite;
+                actor.animEnd = entrySprite;
+            }
+            actor.animFrame = entrySprite;
+            actor.animDelay = std::max<uint8_t>(1, record[0x1a]);
+            if (actor.kind == 0x1e) {
+                actor.bossHpByte = record[0x24];
+                actor.bossLives = record[0x02];
+                actor.bossBoxW = record[0x0e];
+                actor.bossBoxH = record[0x0f];
+                actor.hp = actor.bossHpByte;
+            } else {
+                // Segments carry serial link bytes at +0x0e/+0x10; at level
+                // entry the DS:0x79F9 rebase base is zero, so the shipped
+                // serials index bossLinks_ 1-based directly.
+                actor.linkA = record[0x0e];
+                actor.linkB = record[0x0f];
+                actor.linkC = record[0x10];
+                actor.hp = 255;
+            }
+            monsters_.push_back(actor);
+        }
+        bossPresent_ = true;
+    }
+
+    ActiveMonster* findBossActorByVisual(uint8_t visual) {
+        for (ActiveMonster& monster : monsters_) {
+            if (monster.alive && !monster.bossDebris &&
+                (monster.behavior == 5 || monster.behavior == 6) &&
+                monster.bossVisual == visual) {
+                return &monster;
+            }
+        }
+        return nullptr;
+    }
+
+    // Original per-frame link recompute at 1000:432A, run before the actor
+    // update loop.
+    void updateBossLinks() {
+        if (bossLinks_.empty()) return;
+        for (BossMotionLink& link : bossLinks_) {
+            ActiveMonster* target = findBossActorByVisual(link.targetVisual);
+            if (link.mode != 0xff) {
+                ActiveMonster* self = findBossActorByVisual(link.selfVisual);
+                if (!target || !self) continue;
+                link.outX = static_cast<int16_t>(
+                    (target->x - self->x + link.offX) * link.gain);
+                link.outY = static_cast<int16_t>(
+                    (target->y - self->y + link.offY) * link.gain + link.biasY);
+            } else {
+                if (!target) continue;
+                link.phase = static_cast<uint8_t>((link.phase + link.gain) & 0x7f);
+                const float cosValue = bossSinTable_[(link.phase + 0x20) & 0x7f];
+                const float sinValue = bossSinTable_[link.phase];
+                link.outX = static_cast<int16_t>(
+                    target->x + link.offX +
+                    static_cast<int>(std::lround(cosValue * link.radiusX)));
+                link.outY = static_cast<int16_t>(
+                    target->y + link.offY +
+                    static_cast<int>(std::lround(sinValue * link.radiusY)));
+            }
+        }
+    }
+
+    // Original 1000:5872: apply one serial link to the calling segment; bit
+    // 0x80 mirrors the spring contribution.
+    void applyBossSegmentLinks(ActiveMonster& monster) {
+        const std::array<uint8_t, 3> serials{monster.linkA, monster.linkB, monster.linkC};
+        for (uint8_t serial : serials) {
+            if (serial == 0) break;
+            int sign = 1;
+            uint8_t index = serial;
+            if (index > 0x80) {
+                index = static_cast<uint8_t>(index - 0x80);
+                sign = -1;
+            }
+            if (index == 0 || index > bossLinks_.size()) continue;
+            const BossMotionLink& link = bossLinks_[index - 1];
+            if (link.mode != 0xff) {
+                monster.vx8 = clampI16(monster.vx8 + sign * link.outX);
+                monster.vy8 = clampI16(monster.vy8 + sign * link.outY);
+                const int limit = link.mode;
+                if (std::abs(monster.vx8) > limit) {
+                    monster.vx8 = static_cast<int16_t>(
+                        monster.vx8 - (monster.vx8 > 0 ? limit : -limit));
+                }
+                if (std::abs(monster.vy8) > limit) {
+                    monster.vy8 = static_cast<int16_t>(
+                        monster.vy8 - (monster.vy8 > 0 ? limit : -limit));
+                }
+            } else {
+                monster.x = link.outX;
+                monster.y = link.outY;
+                monster.vx8 = 0;
+                monster.vy8 = 0;
+                monster.fracX = 0;
+                monster.fracY = 0;
+            }
+        }
+    }
+
+    // Original 1000:5CB0 head brain: every 29 ticks charge toward the nearest
+    // player and jump when grounded; gravity and half-speed bouncing happen in
+    // the shared motion path.
+    void updateBossHead(ActiveMonster& monster) {
+        ++monster.bossTick;
+        if (monster.hurtFlash > 0) --monster.hurtFlash;
+        if (monster.bossTick % 29 == 0) {
+            const Player& target = nearestPlayer(static_cast<float>(monster.x),
+                                                 static_cast<float>(monster.y));
+            const int speed = 0x96 + static_cast<int>(randomRangeValue(0, 0x320));
+            monster.vx8 = clampI16(target.x < static_cast<float>(monster.x) ? -speed : speed);
+            if (monsterCollides(static_cast<float>(monster.x),
+                                static_cast<float>(monster.y) + 1.0f)) {
+                monster.vy8 = clampI16(-(0x12c + static_cast<int>(randomRangeValue(0, 0x5dc))));
+            }
+        }
+        monster.vy8 = static_cast<int16_t>(std::min<int>(0x07ff, monster.vy8 + 0x40));
+        damageBossHeadFromFlames(monster);
+    }
+
+    // Original head damage scan (1000:5EF4): every frame, flame tiles (0x75)
+    // in every second column of the head's tile box each add one damage
+    // point, doubled when the owning bomb's power byte exceeds 1; overkill
+    // beyond the HP byte costs a life (with byte-wrap HP refill), and a lives
+    // underflow triggers the death chain. The port drains from the live
+    // per-tile explosion flashes, which mirror the original flame persistence.
+    void damageBossHeadFromFlames(ActiveMonster& monster) {
+        if (flashes_.empty()) return;
+        int damage = 0;
+        const int headTileX = monster.x / kTileSize;
+        const int headTileY = monster.y / kTileSize;
+        for (const Flash& flash : flashes_) {
+            const int dx = flash.x - headTileX;
+            const int dy = flash.y - headTileY;
+            if (dx >= 0 && dx < monster.bossBoxW && (dx % 2) == 0 && dy >= 0 &&
+                dy < monster.bossBoxH) {
+                damage += flash.power > 1 ? 2 : 1;
+            }
+        }
+        if (damage == 0) return;
+        if (damage > monster.bossHpByte) {
+            if (monster.bossLives == 0) {
+                bossDeathChain();
+                return;
+            }
+            --monster.bossLives;
+            monster.hurtFlash = 12;
+        }
+        monster.bossHpByte = static_cast<uint8_t>(monster.bossHpByte - damage);
+    }
+
+    // Original 1000:5BCC: convert every segment linked to the head, then the
+    // head itself, into timed debris and award the completion fanfare score.
+    void bossDeathChain() {
+        for (ActiveMonster& monster : monsters_) {
+            if (!monster.alive) continue;
+            if (monster.behavior == 5) {
+                monster.behavior = 2;
+                monster.bossDebris = true;
+                monster.stateTimer = 0x28 + static_cast<int>(randomRangeValue(0, 10));
+            } else if (monster.behavior == 6) {
+                monster.behavior = 2;
+                monster.bossDebris = true;
+                monster.stateTimer = 0x3c;
+            }
+        }
+        addScore(1, 1000);
+        bossDefeated_ = true;
+        requestMonsterDeathSound();
     }
 
     void updateMonsterSpawners() {
@@ -17241,6 +17836,12 @@ private:
             if (!monster.alive) continue;
             if (monster.behavior == 2) {
                 if (--monster.stateTimer <= 0) {
+                    if (monster.bossDebris) {
+                        // Original 1000:5BCC debris become power-2 timed
+                        // bombs; the port bursts each piece into a flash.
+                        flashes_.push_back(
+                            {monster.x / kTileSize, monster.y / kTileSize, 12, 2});
+                    }
                     releaseMonsterSlot(monster);
                     monster.alive = false;
                 }
@@ -17266,29 +17867,35 @@ private:
 
             int oldX = monster.x;
             integrateAxis8_8(monster.x, monster.fracX, monster.vx8);
-            if (monsterCollides(monster.x, monster.y)) {
+            // Boss segments (behavior 5) are positioned purely by their
+            // motion links in the original and pass through terrain.
+            if (monster.behavior != 5 && monsterCollides(monster.x, monster.y)) {
                 int step = monster.vx8 > 0 ? -1 : 1;
                 int pushes = 0;
                 while (monsterCollides(monster.x, monster.y) && pushes++ < kCollisionPushoutLimit) {
                     monster.x += step;
                 }
                 if (monsterCollides(monster.x, monster.y)) monster.x = oldX;
-                monster.vx8 = static_cast<int16_t>(-monster.vx8 / (monster.behavior == 4 ? 2 : 1));
+                monster.vx8 = static_cast<int16_t>(
+                    -monster.vx8 /
+                    (monster.behavior == 4 || monster.behavior == 6 ? 2 : 1));
                 monster.fracX = 0;
                 if (monster.behavior == 4) monster.motionTimer = 0;
-                refreshMonsterAnimationProfile(monster);
+                if (monster.behavior != 6) refreshMonsterAnimationProfile(monster);
             }
 
             int oldY = monster.y;
             integrateAxis8_8(monster.y, monster.fracY, monster.vy8);
-            if (monsterCollides(monster.x, monster.y)) {
+            if (monster.behavior != 5 && monsterCollides(monster.x, monster.y)) {
                 int step = monster.vy8 > 0 ? -1 : 1;
                 int pushes = 0;
                 while (monsterCollides(monster.x, monster.y) && pushes++ < kCollisionPushoutLimit) {
                     monster.y += step;
                 }
                 if (monsterCollides(monster.x, monster.y)) monster.y = oldY;
-                monster.vy8 = monster.behavior == 4 ? static_cast<int16_t>(-monster.vy8 / 2) : 0;
+                monster.vy8 = monster.behavior == 4 || monster.behavior == 6
+                                  ? static_cast<int16_t>(-monster.vy8 / 2)
+                                  : 0;
                 monster.fracY = 0;
                 if (monster.behavior == 4) monster.motionTimer = 0;
             }
@@ -18071,7 +18678,8 @@ private:
         for (const auto& pos : tiles) {
             int x = pos[0];
             int y = pos[1];
-            flashes_.push_back({x, y, 12});
+            flashes_.push_back(
+                {x, y, 12, static_cast<uint8_t>(monsterDamageForBomb(bomb.type))});
             uint8_t objectTile = static_cast<uint8_t>(tileAt(x, y));
             if (consumeBombObjectTile(x, y)) {
                 consumedBombObject = true;
@@ -18097,6 +18705,10 @@ private:
         int damage = monsterDamageForBomb(type);
         for (ActiveMonster& monster : monsters_) {
             if (!monster.alive) continue;
+            // Boss actors are exempt from the generic shot-damage path in
+            // the original (1000:7427); the head instead drains from live
+            // flames each frame in updateBossHead.
+            if (monster.behavior == 5 || monster.behavior == 6) continue;
             if (monsterOverlapsExplosionTiles(monster, tiles)) {
                 damageMonster(monster, damage);
             }
@@ -18124,6 +18736,9 @@ private:
 
     void damageMonster(ActiveMonster& monster, int damage) {
         if (monster.behavior == 2) return;
+        // Boss actors are exempt from generic damage (original 1000:7427
+        // applies shot damage to kinds 1..8 only).
+        if (monster.behavior == 5 || monster.behavior == 6) return;
         monster.hp = std::max(0, monster.hp - std::max(1, damage));
         if (monster.hp == 0) {
             enterMonsterDeath(monster);
@@ -18555,7 +19170,27 @@ private:
         }
     }
 
+    bool isBossActor(const ActiveMonster& monster) const {
+        return monster.behavior == 5 || monster.behavior == 6 || monster.bossDebris;
+    }
+
+    // Level 7 swaps the actor sheet to PROVA.SPR in the original (selector
+    // 1000:2C90); boss sprites index that bank.
+    const SpriteBank& monsterSpriteBank(const ActiveMonster& monster) const {
+        return isBossActor(monster) ? altSprites_ : sprites_;
+    }
+
     int monsterSpriteIndex(const ActiveMonster& monster) const {
+        if (isBossActor(monster)) {
+            // Hurt flash uses sprite 0x2f in the original head brain
+            // (1000:5A75); debris keeps the last animation frame.
+            int bossIndex = monster.hurtFlash > 0 ? 0x2f : monster.animFrame;
+            if (bossIndex >= 0 &&
+                bossIndex < static_cast<int>(altSprites_.sprites.size())) {
+                return bossIndex;
+            }
+            return std::min<int>(static_cast<int>(altSprites_.sprites.size()) - 1, 39);
+        }
         int index = monster.behavior == 2 ? 18 : monster.animFrame;
         if (index >= 0 && index < static_cast<int>(sprites_.sprites.size())) return index;
         return std::min<int>(sprites_.sprites.size() - 1, 39);
@@ -18574,9 +19209,11 @@ private:
         if (sprites_.sprites.empty()) return;
         for (const ActiveMonster& monster : monsters_) {
             if (!monster.alive) continue;
+            const SpriteBank& bank = monsterSpriteBank(monster);
+            if (bank.sprites.empty()) continue;
             int index = monsterSpriteIndex(monster);
-            if (index < 0 || index >= static_cast<int>(sprites_.sprites.size())) continue;
-            drawSprite(sprites_.sprites[static_cast<size_t>(index)],
+            if (index < 0 || index >= static_cast<int>(bank.sprites.size())) continue;
+            drawSprite(bank.sprites[static_cast<size_t>(index)],
                        static_cast<int>(monster.x) - camX,
                        static_cast<int>(monster.y) - camY);
         }
@@ -19135,6 +19772,10 @@ int main(int argc, char** argv) {
         if (argc > 1 &&
             std::string(argv[1]) == "--debug-gran-static-consumer-model") {
             app.debugGranStaticConsumerModel();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-gran-boss-model") {
+            app.debugGranBossModel();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sound-priority-latch") {

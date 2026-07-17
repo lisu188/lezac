@@ -138,6 +138,8 @@ python3 tools/compare_state2_visual_row_game_previews.py /tmp/lezac-state2-visua
 ./build/lezac_cpp --debug-gran
 ./build/lezac_cpp --debug-gran-raw-roundtrip
 ./build/lezac_cpp --debug-gran-static-consumer-model
+./build/lezac_cpp --debug-gran-boss-model
+./build/lezac_cpp --debug-autoplayer boss_level7
 ./build/lezac_cpp --debug-levels
 ./build/lezac_cpp --debug-level-raw-roundtrip
 ./build/lezac_cpp --debug-sprite-transparency
@@ -1226,7 +1228,7 @@ debris tags `0x4e21`/`0x4ee8`. It remains a C++ arithmetic/model check with
 ## Implemented
 
 - `--debug-port-completion-status` declares the functional port completion
-  state: 22 implemented subsystems with their deterministic validation entry
+  state: 23 implemented subsystems with their deterministic validation entry
   points, plus the 12 open original-evidence follow-ups tracked in
   `RECOVERY_STATUS.md`. The summary reports `port_functionally_complete=1`
   with `original_fidelity_claim=0`; the open items are fidelity verification
@@ -1277,9 +1279,25 @@ debris tags `0x4e21`/`0x4ee8`. It remains a C++ arithmetic/model check with
   399-byte file with the recovered layout (`seven_by_57_layout=0`), and keeps
   `original_runtime_claim=0` until DOSBox runtime evidence covers the live
   boss presentation.
-  `tools/check_gran_usage_guardrail.py` keeps `GRAN.MST` limited to loading,
-  validation, byte-preserving roundtrip/debug output, and stored opaque records
-  until original evidence proves a live gameplay or rendering use.
+- The level-7 boss is now implemented from that recovered model. Entering
+  level 7 spawns the decoded multi-segment boss (`spawnLevel7Boss()`): the
+  head (kind `0x1e`, behavior 6) charges the nearest player every 29 ticks
+  with grounded jumps and half-speed bounces, drains from live flame flashes
+  overlapping every second column of its 5x4 tile box (doubled for
+  higher-power bombs) with byte-wrap phase HP and a lives underflow death,
+  and six invulnerable segments (kind `0x1f`, behavior 5) ride the decoded
+  spring/orbit motion links around the head. Boss death converts all pieces
+  to timed debris, awards 1000 points, and boss sprites draw from the
+  `PROVA.SPR` bank the original selects on level 7. `--debug-gran-boss-model`
+  pins the sprite-bank selector and anim-set table bytes and prints the
+  decoded boss table; `--debug-autoplayer boss_level7` frame-inspects
+  spawn, link motion, the damage phases, and the death chain. Presentation
+  details remain `original_runtime_claim=0` pending DOSBox runtime
+  comparison.
+  `tools/check_gran_usage_guardrail.py` keeps `GRAN.MST` access limited to
+  the evidence-backed live consumer `spawnLevel7Boss` plus loading,
+  validation, and byte-preserving roundtrip/debug output; additional live
+  paths still require extending the recovered-consumer evidence.
 - Runtime-evidence bookkeeping for checked-in original DOSBox fixtures.
   `tools/check_runtime_evidence_guardrail.py` pins the
   `docs/recovery/runtime_evidence_ledger.md` entries to `temp_copy=1`,

@@ -50,6 +50,8 @@ reported by the diagnostic; CTest exercises these paths on every run.
   (`--debug-autoplayer monster_behavior4_chase`)
 - `monster_spawners` — spawner lifecycle
   (`--debug-autoplayer monster_spawner_cycle`)
+- `level7_boss` — GRAN.MST multi-segment boss from the statically recovered
+  consumer model (`--debug-autoplayer boss_level7`)
 - `player_death_state2` — death/state-2/reentry
   (`--debug-autoplayer death_reentry`)
 - `two_player` — two-player routes/progression/HUD
@@ -76,18 +78,21 @@ port functionality.
   remaining compatibility sound hooks
 - `actor_update_original_contact_semantics` — original contact
   flags/passability/tile snapping around `1000:6053..777f`
-- `contact_scanner_runtime_confirmation` — runtime contact-route confirmation
-  for `1000:5cb0..604f`
+- `contact_scanner_runtime_confirmation` — runtime confirmation for
+  `1000:5cb0..604f`, now statically identified as the level-7 boss-head
+  brain rather than a generic contact scanner
 - `behavior4_branch_runtime_fixture` — behavior-4 branch semantics fixture at
   `1000:728C..731B`
 - `two_player_panel_artwork_frame_compare` — original two-player panel artwork
   comparison
 - `monster_sprite_table_runtime_consumption` — original runtime consumption of
   impact/death/reward sprite frames
-- `gran_mst_field_semantics` — runtime semantics of the `GRAN.MST` level-7
-  boss actor records; the loader gate, file layout, and destination tables
-  are statically recovered by `--debug-gran-static-consumer-model`, but live
-  boss presentation still needs original runtime evidence
+- `gran_mst_field_semantics` — original-runtime confirmation of the
+  `GRAN.MST` level-7 boss: the loader gate, file layout, destination tables,
+  head brain, motion links, and death chain are statically recovered
+  (`--debug-gran-static-consumer-model`, `--debug-gran-boss-model`) and the
+  port now plays the boss (`--debug-autoplayer boss_level7`); exact original
+  presentation/timing still needs DOSBox frame/debugger evidence
 - `ds79b9_fallback_runtime_reachability` — runtime reachability of the
   `DS:79b9` fallback
 - `level1_route_timing_original_confirmation` — level-1 bomb-route timing

@@ -9,9 +9,9 @@ Baseline: `origin/main`
 The C++ port is functionally complete. Every recovered gameplay, data, UI,
 and sound subsystem of `LEZAC.EXE` has a C++ implementation with
 deterministic validation coverage, and the full CTest suite passes on a
-clean Linux host (360/360 after this iteration's additions). The new
+clean Linux host (362/362 after this iteration's additions). The new
 `--debug-port-completion-status` diagnostic declares that state as
-machine-checkable output: 22 implemented subsystems with their validation
+machine-checkable output: 23 implemented subsystems with their validation
 entry points and the 12 open original-evidence follow-ups, reported with
 `port_functionally_complete=1` and `original_fidelity_claim=0`.
 `tools/check_port_completion_status.py` plus
@@ -23,6 +23,35 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- Implemented the level-7 multi-segment boss from statically recovered
+  original semantics, closing the last known missing gameplay content. A
+  five-way static decode of the shipped executable recovered: actor kind
+  bytes `0x1E`/`0x1F` and behavior states `6`/`5` for head/segments; the
+  head brain at `1000:5CB0` (terrain-flag recompute over the 5x4 tile box
+  from head `+0x0e`, 29-tick homing charges with grounded jumps, half-speed
+  bounces, per-frame flame-tile `0x75` damage with power doubling, byte-wrap
+  phase HP at `+0x24` with lives byte `+0x02`, death chain `1000:5BCC`
+  converting linked segments plus head to kind-`0x0E` timed debris with a
+  1000-point award); the segment motion-link system (16-byte `DS:0x79EA`
+  entries recomputed by `1000:432A` and applied by `1000:5872`: spring mode
+  `(target-self+offset)*gain` with per-axis pull-back, orbit mode over a
+  128-step `Sin(i*6.28/128)` table, serial bit `0x80` mirroring); the
+  facing anim-set pair table at `DS:0x58/0x59` (boss rows `0x0e`=41..42,
+  `0x0f`=43..44, `0x10`=40..40); the level-7 `PROVA.SPR` sprite-bank
+  selector at `1000:2C90`; and the visual-entry rebase making the head the
+  `(100,100)` anchor with segments at the decoded offsets. The port now
+  spawns the boss on level-7 entry via the guardrail-named live consumer
+  `spawnLevel7Boss()`, with behaviors 5/6 wired through the existing
+  monster update/damage/render paths and boss sprites drawn from the
+  `PROVA.SPR` bank. New coverage: `--debug-gran-boss-model` (pins selector
+  and anim-table bytes, prints the decoded boss table) and
+  `--debug-autoplayer boss_level7` (frame-inspects spawn layout, orbit/spring
+  motion, hurt-flash and flame-drain phases, death chain, debris clearing),
+  both in CTest; the GRAN usage guardrail now reports
+  `live_consumer_refs=1` for the single named live consumer. Identified the
+  long-standing "probable contact scanner" at `1000:5CB0` as the boss-head
+  brain. Live boss presentation remains `original_runtime_claim=0` pending
+  DOSBox runtime comparison.
 - Statically recovered the `GRAN.MST` consumer and file layout from the
   shipped executable. The only reference to the `gran.mst` literal at
   `1000:2AD3` is the level-gate callsite `1000:2E78..2E8A`, which loads the
@@ -2754,11 +2783,13 @@ under the existing guardrails; they are not missing port functionality.
   contact flags, passability thresholds, tile snapping, behavior-3 ledge/wall
   handling, and behavior-4 collision response. The synthetic actor-update oracle
   is ready; original runtime/debugger fixtures are still pending.
-- The probable contact scanner around `1000:5cb0..604f` has scanner-only and
-  actor-update fixture targets, and its static cross-reference is pinned as the
-  sole direct actor-update call at `1000:6555` in the `06` gate context. It
-  still needs runtime contact-route confirmation before the C++ clearance model
-  can be called original-faithful.
+- The routine at `1000:5cb0..604f`, long tracked as a "probable contact
+  scanner", is now statically identified as the level-7 boss-head brain:
+  the sole call at `1000:6555` sits behind the behavior/state `06` gate,
+  which only boss-head actors carry. The existing scanner-named capture
+  targets and fixtures remain valid as addresses; runtime confirmation of
+  the boss-head behavior (and of the actual player/monster contact model
+  elsewhere in `1000:6053..777f`) is still pending original evidence.
 - Runtime reachability of the `DS:79b9` fallback, exact original active-player
   accounting, and exact dead-player visual playback from original frame bytes
   remain unresolved now that the delayed state-2 life-count decrement, fallback
@@ -2773,10 +2804,12 @@ under the existing guardrails; they are not missing port functionality.
   still required before those presentation details can be promoted.
 - `GRAN.MST` loader and field layout are now statically recovered
   (`--debug-gran-static-consumer-model`): it is the level-7 multi-segment
-  boss actor file read by `1000:08A5` behind the `DS:0x79B7 == 7` gate. The
-  remaining gap is runtime-facing: live boss presentation, movement, and the
-  exact meaning of the per-record actor fields still need DOSBox
-  frame/debugger evidence before the C++ port can play the boss.
+  boss actor file read by `1000:08A5` behind the `DS:0x79B7 == 7` gate, and
+  the C++ port now plays the boss from that recovered model
+  (`spawnLevel7Boss()`, `--debug-gran-boss-model`,
+  `--debug-autoplayer boss_level7`). The remaining gap is runtime-facing
+  fidelity only: original boss presentation/timing still needs DOSBox
+  frame/debugger evidence before visual claims can be promoted.
 
 ## Next Planned Target
 

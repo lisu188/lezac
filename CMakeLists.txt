@@ -3373,6 +3373,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^object_collision_jump_live=ok support_cell=17,22 jump_vy=-[0-9]+ route_clear=1 frame_inspection=1")
 
+    add_test(NAME level_intro
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-level-intro)
+    set_tests_properties(level_intro PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^level_intro=ok stripes=7 caption=preparati_per_il_livello level_varies=1 frame_inspection=1")
+
     add_test(NAME hud_stats_live
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-hud-stats-live)

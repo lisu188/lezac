@@ -16223,6 +16223,27 @@ public:
                   << " route_clear=1 frame_inspection=1\n";
     }
 
+    void debugLevelIntro() {
+        load();
+        initSdl();
+        resetClip();
+        std::fill(fb_.begin(), fb_.end(), 0xff000000u);
+        drawLevelIntro(0);
+        std::vector<uint32_t> level1Pixels = fb_;
+        if (!regionHasVariation(0, 0, kScreenW, 80) ||
+            !regionHasVariation(40, 90, 240, 12)) {
+            throw std::runtime_error("level intro did not render stripes and caption");
+        }
+        resetClip();
+        std::fill(fb_.begin(), fb_.end(), 0xff000000u);
+        drawLevelIntro(2);
+        if (!regionChanged(level1Pixels, 40, 90, 240, 12)) {
+            throw std::runtime_error("level intro caption did not change with level");
+        }
+        std::cout << "level_intro=ok stripes=7 caption=preparati_per_il_livello"
+                  << " level_varies=1 frame_inspection=1\n";
+    }
+
     void debugHudStatsLive() {
         load();
         initSdl();
@@ -19512,6 +19533,26 @@ private:
                (dead ? (lives <= 0 ? " OUT" : " WAIT") : "");
     }
 
+    void drawLevelIntro(int levelIndex) {
+        // Recovered original screen: before each level the game shows a
+        // diagonal olive-striped backdrop with the centred Italian caption
+        // "PREPARATI PER IL LIVELLO N" (string at LEZAC.EXE 1000:b2ab). The
+        // stripes are a sawtooth ramp of seven olive shades that shifts one
+        // pixel per scanline.
+        static const uint32_t kStripe[7] = {
+            0xff040400u, 0xff101008u, 0xff201c10u, 0xff2c2818u,
+            0xff3c3420u, 0xff494128u, 0xff594d30u};
+        for (int y = 0; y < kScreenH; ++y) {
+            for (int x = 0; x < kScreenW; ++x) {
+                pixel(x, y, kStripe[(((x + y) >> 1) % 7 + 7) % 7]);
+            }
+        }
+        std::string caption =
+            "PREPARATI PER IL LIVELLO " + std::to_string(levelIndex + 1);
+        int textX = (kScreenW - static_cast<int>(caption.size()) * 8) / 2;
+        text(std::max(0, textX), 94, caption, 0xffffffffu, false, 0xff000000u);
+    }
+
     void drawMenu() {
         drawBackground(0, 0);
         if (menuPage_ == MenuPage::Main) {
@@ -20178,6 +20219,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-hud-stats-live") {
             app.debugHudStatsLive();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-level-intro") {
+            app.debugLevelIntro();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-two-player-hud-panel") {

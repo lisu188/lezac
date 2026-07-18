@@ -23,6 +23,14 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- Reconstructed the single-player bottom HUD to match the original's layout
+  and colours (sampled from original frames): a solid-black band with a
+  grey/white top border, a yellow energy bar and blue score panel with a
+  right-aligned green value, green player-life figures, a grey bomb-selector
+  box with the selected bomb and its count, and a blue/cyan right panel with
+  bomb/objective tallies. Level-1 route average `mean_abs_delta` improves from
+  42.3 to 33.3. Exact HUD icon sprites (bomb, star, player figures) are still
+  approximated with primitives; sourcing the original icons is a follow-up.
 - Moved the single-player HUD from a top band to a bottom status band to
   match the original (the original's top rows are gameplay sky; the HUD is a
   bottom panel). This drops the level-1 route average `mean_abs_delta` from

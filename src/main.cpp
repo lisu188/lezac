@@ -16235,12 +16235,12 @@ public:
         bombInventory_.selected = BombType::Large;
         bombInventory_.counts = {199, 7, 3, 1};
 
-        const int hudY = kScreenH - 24;
+        const int hudY = kScreenH - 46;
         FrameInspection first = inspectRenderedFrame("hud-stats-live-first");
         std::vector<uint32_t> firstPixels = fb_;
-        if (!regionHasVariation(0, hudY, kScreenW, 24) ||
-            !regionHasVariation(48, hudY + 3, 56, 8) ||
-            !regionHasVariation(154, hudY + 2, 132, 12)) {
+        if (!regionHasVariation(0, hudY, kScreenW, 46) ||
+            !regionHasVariation(0, hudY + 18, 88, 20) ||
+            !regionHasVariation(116, hudY + 6, 64, 34)) {
             throw std::runtime_error("HUD stats panel did not render visible gauges/icons");
         }
 
@@ -16250,7 +16250,7 @@ public:
         bombInventory_.counts[3] = 0;
         FrameInspection second = inspectRenderedFrame("hud-stats-live-second");
         if (second.hash == first.hash ||
-            !regionChanged(firstPixels, 0, hudY, kScreenW, 24)) {
+            !regionChanged(firstPixels, 0, hudY, kScreenW, 46)) {
             throw std::runtime_error("HUD stats panel did not react to player/bomb stat changes");
         }
 
@@ -19386,11 +19386,85 @@ private:
         }
     }
 
+    void drawOriginalHudFigure(int x, int y, uint32_t color) {
+        // Small green player-life marker approximating the original's stick
+        // figures at the bottom-left of the HUD band.
+        static const char* kGlyph[7] = {
+            " X ", " X ", "XXX", " X ", " X ", "X X", "X X"};
+        for (int gy = 0; gy < 7; ++gy) {
+            for (int gx = 0; gx < 3; ++gx) {
+                if (kGlyph[gy][gx] == 'X') pixel(x + gx, y + gy, color);
+            }
+        }
+    }
+
+    void drawSinglePlayerHud() {
+        // Reconstructed from the original level-1 HUD: a solid-black bottom
+        // band with a grey/white top border, a yellow energy bar and blue
+        // score panel on the left, green player-life figures beneath it, a grey
+        // bomb-selector box in the centre, and a blue/cyan panel with bomb and
+        // objective tallies on the right. Colours are sampled from the original
+        // frames (VGA palette).
+        constexpr uint32_t kBlack = 0xff000000u;
+        constexpr uint32_t kGrey = 0xffb6b6b6u;
+        constexpr uint32_t kWhite = 0xffffffffu;
+        constexpr uint32_t kYellow = 0xffffff55u;
+        constexpr uint32_t kBlue = 0xff0018dbu;
+        constexpr uint32_t kCyan = 0xff00aaaau;
+        constexpr uint32_t kGreen = 0xff00f300u;
+        constexpr uint32_t kBoxGrey = 0xff828282u;
+        const int y0 = kScreenH - 46;
+
+        rect(0, y0, kScreenW, 46, kBlack);
+        rect(0, y0, kScreenW, 2, kGrey);
+        rect(0, y0 + 2, kScreenW, 3, kWhite);
+
+        // Energy bar (yellow gauge over black).
+        const int barW = 96;
+        int fill = std::clamp(playerDead_ ? 0 : energy_, 0, 100) * barW / 100;
+        rect(4, y0 + 10, fill, 3, kYellow);
+
+        // Score panel: blue box with a cyan left edge and a right-aligned green
+        // score value.
+        rect(0, y0 + 18, 88, 20, kBlue);
+        rect(0, y0 + 18, 2, 20, kCyan);
+        std::string scoreText = std::to_string(score_);
+        int scoreX = 84 - static_cast<int>(scoreText.size()) * 8;
+        text(std::max(4, scoreX), y0 + 25, scoreText, kGreen);
+
+        // Player-life figures.
+        for (int i = 0; i < std::clamp(lives_, 0, 6); ++i) {
+            drawOriginalHudFigure(4 + i * 8, y0 + 38, kGreen);
+        }
+
+        // Bomb selector box with the selected bomb and its count.
+        rect(116, y0 + 6, 22, 22, kBoxGrey);
+        rect(119, y0 + 9, 16, 16, bombColor(bombInventory_.selected));
+        int selCount = bombInventory_.counts[
+            static_cast<size_t>(bombInventory_.selected)];
+        text(118, y0 + 30, std::to_string(std::clamp(selCount, 0, 99)), kGreen);
+
+        // Right panel: bomb-count and objective (destruction target) tallies.
+        rect(140, y0 + 6, 40, 34, kBlue);
+        rect(140, y0 + 6, 40, 1, kCyan);
+        rect(140, y0 + 39, 40, 1, kCyan);
+        rect(140, y0 + 6, 1, 34, kCyan);
+        rect(179, y0 + 6, 1, 34, kCyan);
+        rect(144, y0 + 10, 8, 8, kYellow);
+        text(156, y0 + 11, std::to_string(std::clamp(lives_, 0, 99)), kGreen);
+        rect(144, y0 + 24, 8, 8, kYellow);
+        text(156, y0 + 25, std::to_string(level_.requiredDestruction), kGreen);
+    }
+
     void drawHud() {
         // The original HUD is a bottom status band (the top of the screen is
-        // gameplay sky), so the single-player band is anchored to the bottom.
-        drawHudBand(kScreenH - 24, 1, energy_, lives_, playerDead_,
-                    bombInventory_, score_, playerCount_ == 1);
+        // gameplay sky).
+        if (playerCount_ == 1) {
+            drawSinglePlayerHud();
+        } else {
+            drawHudBand(kScreenH - 24, 1, energy_, lives_, playerDead_,
+                        bombInventory_, score_, false);
+        }
         if (isComplete()) {
             rect(76, 84, 168, 24, 0xee000000u);
             text(92, 92, "LEVEL COMPLETED", 0xffffe060u, false, 0xff301800u);

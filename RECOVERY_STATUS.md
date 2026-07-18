@@ -23,6 +23,16 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- Recovered and reproduced the per-level intro splash. A live original
+  capture at level start revealed a "PREPARATI PER IL LIVELLO N" screen
+  (diagonal olive-striped backdrop, centred caption) that the port skipped;
+  the Italian string is in `LEZAC.EXE` at `1000:b2ab`. Added `drawLevelIntro`
+  and `--debug-level-intro` (CTest `level_intro`) reproducing the striped
+  backdrop and the exact caption. Also fit the gameplay sky gradient to the
+  original sky column (pure-sky `mean_abs_delta` 4.1 -> 1.27). Wiring the
+  intro into the interactive level-start flow and matching the exact stripe
+  phase are follow-ups; the port's autoplayer/frame paths use resetLevel
+  directly and are unaffected.
 - Reconstructed the single-player bottom HUD to match the original's layout
   and colours (sampled from original frames): a solid-black band with a
   grey/white top border, a yellow energy bar and blue score panel with a

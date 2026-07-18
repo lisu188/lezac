@@ -175,6 +175,7 @@ python3 tools/compare_state2_visual_row_game_previews.py /tmp/lezac-state2-visua
 ./build/lezac_cpp --debug-portal-sound
 ./build/lezac_cpp --debug-portal-cooldowns
 ./build/lezac_cpp --debug-collision-pushout
+./build/lezac_cpp --debug-level-intro
 ./build/lezac_cpp --debug-hud-stats-live
 ./build/lezac_cpp --debug-two-player-hud-panel
 ./build/lezac_cpp --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames

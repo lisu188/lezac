@@ -23,6 +23,13 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- Moved the single-player HUD from a top band to a bottom status band to
+  match the original (the original's top rows are gameplay sky; the HUD is a
+  bottom panel). This drops the level-1 route average `mean_abs_delta` from
+  49.0 to 42.3. The HUD content is still the port's stylized layout rather
+  than the original's exact icon panels (energy bar, score box, player-life
+  figures, bomb selector, bomb-count and star tallies); a pixel-faithful HUD
+  redesign is the next fidelity step.
 - Ran a live original-vs-port pixel comparison (DOSBox capture in-container)
   and fixed two major visual-fidelity bugs it exposed. Disassembling the
   original menu/display routines (`1000:030b`, decoder `1000:82d0`) revealed

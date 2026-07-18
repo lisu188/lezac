@@ -23,6 +23,26 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- Ran a live original-vs-port pixel comparison (DOSBox capture in-container)
+  and fixed two major visual-fidelity bugs it exposed. Disassembling the
+  original menu/display routines (`1000:030b`, decoder `1000:82d0`) revealed
+  that `SFONLEF.ZBG` is the 320x200 mode-13h "LARAX & ZACO" title screen
+  encoded as nibble-paired RLE (768-byte palette, 2-byte length header, then
+  3-byte groups emitting `(b0>>4)+1`x`b1` + `(b0&0x0f)+1`x`b2`), not the
+  321x388 PCX image the port assumed. Rewrote `loadRawBackground` and the
+  core-resource inline decoder to the recovered format, regenerated
+  `src/SFONLEF.ZBG.json`, and set `kBackgroundW/H` to 320x200. The main menu
+  now renders the real title image (the port previously drew a text menu):
+  menu-frame `mean_abs_delta` vs the DOSBox original dropped from 112.6 to
+  0.42 (pixel-identical modulo 6-bit palette rounding). Separately, levels
+  were wrongly tiling the (mis-decoded) `SFONLEF.ZBG` as the sky; added
+  `drawGradientSky` (top `RGB(16,8,52)` to horizon `RGB(113,60,28)`, sampled
+  from original frames) so gameplay shows the original clean gradient instead
+  of horizontal-shear noise. Level-1 route average `mean_abs_delta` improved
+  from 85.9 to 49.0; the residual gameplay delta is dominated by HUD position
+  (the original HUD is a bottom bar; the port's is a top bar), tracked as a
+  follow-up. Updated the pinned `core_resource_raw_roundtrip` and
+  `original_asset_load` expectations.
 - Implemented the level-7 multi-segment boss from statically recovered
   original semantics, closing the last known missing gameplay content. A
   five-way static decode of the shipped executable recovered: actor kind

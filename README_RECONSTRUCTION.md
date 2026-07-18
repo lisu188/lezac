@@ -1249,7 +1249,10 @@ debris tags `0x4e21`/`0x4ee8`. It remains a C++ arithmetic/model check with
   palettes, background, tiles, sprites, records, `PROEFS.SON`, `GRAN.MST`, and
   all seven levels.
 - VGA palette loading from `BOMPAL.PAL` and `SFONLEF.ZBG`.
-- `SFONLEF.ZBG` PCX-style RLE background decoding as a 321x388 image.
+- `SFONLEF.ZBG` decoding as the 320x200 mode-13h title screen (nibble-paired
+  RLE, recovered from the original decoder at Ghidra `1000:82d0`). The main
+  menu renders this title image directly; the gameplay sky is a separate
+  vertical gradient. See `docs/GHIDRA_NOTES.md`.
 - `CARO.CAR` 132-tile 8x8 tile bank loading.
   `--debug-core-resource-raw-roundtrip` verifies those three original binary
   files against the converted JSON resources, including the background RLE

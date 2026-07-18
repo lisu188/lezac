@@ -153,7 +153,7 @@ if(BUILD_TESTING)
     set_tests_properties(core_resource_raw_roundtrip PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^core_resource_raw_roundtrip=ok palette_size=768 palette_sum=20767 palette_weighted=6683027 palette_xor=0x31 background_raw_size=34292 background_sum=2442898 background_weighted=37574726726 background_xor=0x30 background_pixels=124548 background_pixel_sum=12770002 background_pixel_nonzero=108702 background_pixel_xor=0xd2 tile_raw_size=8450 tile_count=132 tile_payload=8448 tile_sum=601303 tile_weighted=2783120138 tile_xor=0x01")
+            "^core_resource_raw_roundtrip=ok palette_size=768 palette_sum=20767 palette_weighted=6683027 palette_xor=0x31 background_raw_size=34292 background_sum=2442898 background_weighted=37574726726 background_xor=0x30 background_pixels=64000 background_pixel_sum=7462763 background_pixel_nonzero=63832 background_pixel_xor=0x2b tile_raw_size=8450 tile_count=132 tile_payload=8448 tile_sum=601303 tile_weighted=2783120138 tile_xor=0x01")
 
     add_test(NAME shipped_file_manifest
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-shipped-file-manifest)
@@ -174,7 +174,7 @@ if(BUILD_TESTING)
     set_tests_properties(original_asset_load PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^original_asset_load=ok palettes=2 background=321x388 pixels=124548 tiles=132 sprites=250 records=7 sound_steps=130 sound_chunks=6 gran_records=7 levels=7 cells=47700 spawners=15 portals=21 triggers=3")
+            "^original_asset_load=ok palettes=2 background=320x200 pixels=64000 tiles=132 sprites=250 records=7 sound_steps=130 sound_chunks=6 gran_records=7 levels=7 cells=47700 spawners=15 portals=21 triggers=3")
 
     add_test(NAME validate_original_assets
         COMMAND ${CMAKE_COMMAND} -E env LEZAC_LOAD_ORIGINAL_ASSETS=1

@@ -33,8 +33,8 @@ constexpr int kNameEntryCursorBoxW = 8;
 constexpr int kNameEntryCursorBoxH = 10;
 constexpr uint32_t kNameEntryCursorBackground = 0xff90ffb0u;
 constexpr uint32_t kNameEntryCursorForeground = 0xff000000u;
-constexpr int kBackgroundW = 321;
-constexpr int kBackgroundH = 388;
+constexpr int kBackgroundW = 320;
+constexpr int kBackgroundH = 200;
 constexpr int kTileSize = 8;
 constexpr uint16_t kDamagedWordBit = 0x8000;
 constexpr uint16_t kDeferredThreshold = 0x4000;
@@ -943,33 +943,46 @@ IndexedImage loadBackground(const std::string& path, Palette& paletteOut) {
 
 IndexedImage loadRawBackground(const std::string& path, Palette& paletteOut) {
     auto data = readFile(path);
-    if (data.size() < 768) {
-        throw std::runtime_error(path + " is too small for a palette");
+    if (data.size() < 770) {
+        throw std::runtime_error(path + " is too small for a palette and header");
     }
     paletteOut = loadPalette(data, 0);
+
+    // Recovered from the original ZBG display routine (Ghidra 1000:030b, decoder
+    // 1000:82d0). After the 768-byte VGA palette, a 2-byte little-endian length
+    // header gives the RLE payload size; the payload is a nibble-paired RLE that
+    // decodes to exactly one 320x200 mode-13h screen. Each 3-byte group
+    // (b0, b1, b2) emits (b0>>4)+1 copies of b1 followed by (b0&0x0f)+1 copies
+    // of b2.
+    const size_t rleLength = static_cast<size_t>(data[768]) |
+                             (static_cast<size_t>(data[769]) << 8);
+    const size_t rleEnd = std::min(data.size(), 770 + rleLength);
+    const size_t targetPixels =
+        static_cast<size_t>(kBackgroundW) * kBackgroundH;
 
     IndexedImage image;
     image.width = kBackgroundW;
     image.height = kBackgroundH;
-    image.pixels.reserve(static_cast<size_t>(kBackgroundW) * kBackgroundH);
-    size_t off = 768;
-    while (off < data.size()) {
-        uint8_t cmd = data[off++];
-        if (cmd >= 0xc0) {
-            if (off >= data.size()) {
-                throw std::runtime_error(path + " raw RLE run is truncated");
-            }
-            image.pixels.insert(image.pixels.end(), cmd & 0x3f, data[off++]);
-        } else {
-            image.pixels.push_back(cmd);
-        }
+    image.pixels.reserve(targetPixels);
+    size_t off = 770;
+    while (off + 3 <= rleEnd && image.pixels.size() < targetPixels) {
+        const uint8_t b0 = data[off];
+        const uint8_t value1 = data[off + 1];
+        const uint8_t value2 = data[off + 2];
+        off += 3;
+        image.pixels.insert(image.pixels.end(),
+                            static_cast<size_t>((b0 >> 4) & 0x0f) + 1, value1);
+        image.pixels.insert(image.pixels.end(),
+                            static_cast<size_t>(b0 & 0x0f) + 1, value2);
     }
-    if (image.pixels.size() != static_cast<size_t>(image.width) * image.height) {
+    if (image.pixels.size() > targetPixels) {
+        image.pixels.resize(targetPixels);
+    }
+    if (image.pixels.size() != targetPixels) {
         throw std::runtime_error(path + " raw RLE decoded to " +
                                  std::to_string(image.pixels.size()) +
                                  " bytes, expected " +
-                                 std::to_string(static_cast<size_t>(image.width) *
-                                                image.height));
+                                 std::to_string(targetPixels));
     }
     return image;
 }
@@ -4983,21 +4996,30 @@ public:
         };
         auto decodeRawBackground = [](const std::vector<uint8_t>& data) {
             std::vector<uint8_t> pixels;
-            if (data.size() < 768) {
+            if (data.size() < 770) {
                 throw std::runtime_error("SFONLEF.ZBG raw file is too small");
             }
-            size_t off = 768;
-            while (off < data.size()) {
-                uint8_t cmd = data[off++];
-                if (cmd >= 0xc0) {
-                    if (off >= data.size()) {
-                        throw std::runtime_error("SFONLEF.ZBG raw RLE run is truncated");
-                    }
-                    pixels.insert(pixels.end(), cmd & 0x3f, data[off++]);
-                } else {
-                    pixels.push_back(cmd);
-                }
+            // Nibble-paired RLE recovered from the original ZBG decoder
+            // (1000:82d0): 768-byte palette, 2-byte little-endian payload
+            // length, then 3-byte groups (b0,b1,b2) emitting (b0>>4)+1 copies
+            // of b1 and (b0&0x0f)+1 copies of b2 into one 320x200 screen.
+            const size_t rleLength = static_cast<size_t>(data[768]) |
+                                     (static_cast<size_t>(data[769]) << 8);
+            const size_t rleEnd = std::min(data.size(), 770 + rleLength);
+            const size_t targetPixels =
+                static_cast<size_t>(kBackgroundW) * kBackgroundH;
+            size_t off = 770;
+            while (off + 3 <= rleEnd && pixels.size() < targetPixels) {
+                const uint8_t b0 = data[off];
+                const uint8_t v1 = data[off + 1];
+                const uint8_t v2 = data[off + 2];
+                off += 3;
+                pixels.insert(pixels.end(),
+                              static_cast<size_t>((b0 >> 4) & 0x0f) + 1, v1);
+                pixels.insert(pixels.end(),
+                              static_cast<size_t>(b0 & 0x0f) + 1, v2);
             }
+            if (pixels.size() > targetPixels) pixels.resize(targetPixels);
             return pixels;
         };
 
@@ -5041,8 +5063,8 @@ public:
             backgroundMetrics.sum != 2442898 ||
             backgroundMetrics.weighted != 37574726726ull ||
             backgroundMetrics.xorValue != 0x30 ||
-            backgroundPixelMetrics.sum != 12770002 ||
-            backgroundPixelMetrics.xorValue != 0xd2 ||
+            backgroundPixelMetrics.sum != 7462763 ||
+            backgroundPixelMetrics.xorValue != 0x2b ||
             tileMetrics.sum != 601303 || tileMetrics.weighted != 2783120138ull ||
             tileMetrics.xorValue != 0x01) {
             throw std::runtime_error("core raw resource aggregate changed");
@@ -18982,10 +19004,9 @@ private:
     }
 
     void drawBackground(int camX, int camY) {
-        if (!showBackground_) {
-            rect(0, 0, kScreenW, kScreenH, argb(palette_, 0));
-            return;
-        }
+        // The SFONLEF.ZBG title image backing the menu. The in-game
+        // showBackground_ toggle only affects the gameplay sky (drawGradientSky),
+        // so the menu title is always drawn.
         for (int y = 0; y < kScreenH; ++y) {
             for (int x = 0; x < kScreenW; ++x) {
                 int bx = (x + camX / 4) % background_.width;
@@ -18995,6 +19016,38 @@ private:
                 pixel(x, y,
                       argb(backgroundPalette_,
                            background_.pixels[static_cast<size_t>(by) * background_.width + bx]));
+            }
+        }
+    }
+
+    void drawGradientSky(int viewX, int viewY, int viewW, int viewH) {
+        // Recovered from original level-1 frames: the level backdrop is a
+        // vertical gradient from dark indigo at the top to warm brown near the
+        // horizon (~row 100), drawn beneath the tiles. SFONLEF.ZBG is the
+        // 320x200 title screen, not the scrolling level backdrop, so levels no
+        // longer tile it as the sky.
+        if (!showBackground_) {
+            for (int y = 0; y < viewH; ++y) {
+                for (int x = 0; x < viewW; ++x) {
+                    pixel(viewX + x, viewY + y, argb(palette_, 0));
+                }
+            }
+            return;
+        }
+        constexpr int kRampRows = 100;
+        constexpr int kTopR = 16, kTopG = 8, kTopB = 52;
+        constexpr int kBotR = 113, kBotG = 60, kBotB = 28;
+        for (int y = 0; y < viewH; ++y) {
+            const int t = std::min(kRampRows, y);
+            const int r = kTopR + (kBotR - kTopR) * t / kRampRows;
+            const int g = kTopG + (kBotG - kTopG) * t / kRampRows;
+            const int b = kTopB + (kBotB - kTopB) * t / kRampRows;
+            const uint32_t color = 0xff000000u |
+                                   (static_cast<uint32_t>(r) << 16) |
+                                   (static_cast<uint32_t>(g) << 8) |
+                                   static_cast<uint32_t>(b);
+            for (int x = 0; x < viewW; ++x) {
+                pixel(viewX + x, viewY + y, color);
             }
         }
     }
@@ -19032,7 +19085,7 @@ private:
                               0, std::max(0, worldH - viewH));
         int drawCamX = camX - viewX;
         int drawCamY = camY - viewY;
-        drawBackground(drawCamX, drawCamY);
+        drawGradientSky(viewX, viewY, viewW, viewH);
         drawTiles(drawCamX, drawCamY);
         drawBombs(drawCamX, drawCamY);
         drawDamageQueues(drawCamX, drawCamY);
@@ -19382,6 +19435,12 @@ private:
 
     void drawMenu() {
         drawBackground(0, 0);
+        if (menuPage_ == MenuPage::Main) {
+            // The original main menu is the SFONLEF.ZBG title screen itself
+            // (the "LARAX & ZACO" logo art), with the 1/2/I/Z/R keys handled
+            // invisibly. Sub-pages below overlay readable text panels.
+            return;
+        }
         rect(0, 0, 320, 200, 0x99000000u);
         text(84, 26, "LARAX & ZACO", 0xffffe060u, true, 0xff301800u);
         switch (menuPage_) {

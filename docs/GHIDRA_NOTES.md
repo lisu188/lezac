@@ -44,6 +44,25 @@ bytes targeting `082d:0000` are relocated by Ghidra into memory at
 source index `0` preserves the destination framebuffer, while every nonzero
 source index is copied through the active palette, including visible `0xff`.
 
+## Recovered Input and Sound Paths
+
+- `1000:6813..68C4` implements weapon switching as a per-player byte counter:
+  hold both horizontal controls for at least five updates, then release. The
+  accepted path at `1000:6844` requests cursor `0x0024` at priority 2 before
+  selecting the next populated bomb slot. The natural runtime capture recorded
+  `runtime_hold_counter=0x14`; the C++ diagnostic reports
+  `weapon_switch_sound=ok`.
+- `1000:68C5..6967` cancels simultaneous Up+Down, gates portal and launch-pad
+  activation on Down, and recognizes tile `0x27` as the launch center. The
+  launch request at `1000:6924` uses cursor `0x0035`, priority 5, velocity
+  `-2000`, and a short-lived invisible frame-`0x5B` mode-5 marker. The C++
+  `launch_pad_route` covers the recovered route and rendered checkpoints.
+- The scanner request at `1000:5E81` is reachable only from actor mode 6.
+  Shipped constructor immediates, direct actor-mode stores, and all 15 level
+  spawners exclude that value, so its natural-capture blocker is
+  `shipped_actor_modes_exclude_6`. It remains a runtime-seeded evidence target,
+  not a natural shipped-gameplay claim.
+
 Ghidra decompilation is not very useful for the Pascal code because of 16-bit
 segmented pointers and runtime helper calls, but disassembly was useful enough
 to confirm the file and RLE formats used by this port.
@@ -1322,28 +1341,29 @@ Those unresolved writes are also pinned by factual labels:
 `post_end_flow_record_region`, `record_table_cursor_only`,
 `cursor_0078_priority11`, `cursor_0027_priority5`,
 `collapse_playback_rejected`, two `cursor_2710` entries,
-`cursor_0069_priority4`, `cursor_0024_priority2`,
-`non_objective_tile_gate_rejected`, `cursor_0021_priority1`, and
+`cursor_0069_priority4`, `cursor_0021_priority1`, and
 `cursor_0001_no_latch`. The
 bomb-object default cue is covered by the surrounding scan that leaves
-`DS:2074 = 0x0000`; 12 immediate-write candidates remain unpromoted static
+`DS:2074 = 0x0000`; 10 immediate-write candidates remain unpromoted static
 recovery targets.
 `--debug-static-sound-unresolved-contexts` narrows that queue further by
 checking each unpromoted write's exact shipped byte window and local request
-shape. It currently pins nine local `1000:165a` calls, six inline priority
+shape. It currently pins seven local `1000:165a` calls, four inline priority
 writes, two preceding priority writes, four no-local-priority cases, three
 no-latch cases, and the two `0x2710` cursor writes. The diagnostic also buckets
 the unresolved writes by static region: `record_ui:2`,
 `pre_new_game_setup:1`, `explosion_playback:2`, `effect_extent_scan:2`,
-`contact_scanner:1`, `actor_update:3`, and
-`post_actor_update_no_latch:1`. It also separates the four actor/contact
+`contact_scanner:1`, `actor_update:1`, and
+`post_actor_update_no_latch:1`. It also separates the two unresolved actor/contact
 runtime-capture candidates as
-`actor_contact_capture_candidates=0x5e81:contact_scanner,0x6844:actor_update,0x6924:actor_update,0x7386:actor_update`.
+`actor_contact_capture_candidates=0x5e81:contact_scanner,0x7386:actor_update`.
 These are byte-context facts only; they are not promoted as live gameplay cues
 without same-location runtime evidence. `--debug-sound-runtime-capture-queue`
-pins the four corresponding sound-callsite capture scenarios and keeps
-`contact_scanner_runtime_sound` (`1000:5e81`, cursor `0x0069`, priority `4`) as
-the first target, reporting `sound_runtime_capture_queue=ok` with
+retains four sound-callsite capture scenarios, including the two recovered
+routes, and reports `first_target=actor_update_runtime_cursor_0024_sound`,
+`route_classes=natural:3,runtime_seeded:1`, and
+`state6_capture_blocker=shipped_actor_modes_exclude_6`. It reports
+`sound_runtime_capture_queue=ok` with
 `original_cursor_priority_claim=0` until a valid
 `sound_callsite_oracle_original*.txt` fixture exists. It now prints the same
 handoff used below: `tools/capture_original_sound_callsite_procmem.sh` as the

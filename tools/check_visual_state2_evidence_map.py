@@ -59,7 +59,11 @@ def require_test(cmake: str, name: str) -> None:
 
 def require_fixture_set(root: Path, names: tuple[str, ...], pattern: str) -> int:
     fixture_dir = root / "tests" / "fixtures" / "dosbox"
-    found = sorted(path.name for path in fixture_dir.glob(pattern))
+    found = sorted(
+        path.name
+        for path in fixture_dir.glob(pattern)
+        if not path.name.endswith("-LIS.txt")
+    )
     expected = sorted(names)
     if found != expected:
         raise RuntimeError(

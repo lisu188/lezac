@@ -58,6 +58,18 @@ under the existing guardrails; they are not missing port functionality.
   (the original HUD is a bottom bar; the port's is a top bar), tracked as a
   follow-up. Updated the pinned `core_resource_raw_roundtrip` and
   `original_asset_load` expectations.
+- Recovered the original weapon-switch hold/release state machine at
+  `1000:6813..68C4`. A natural process-memory stop recorded
+  `runtime_hold_counter=0x14`, cursor `0x0024`, and priority 2; the C++ route
+  now triggers only after five held updates followed by release and reports
+  `weapon_switch_sound=ok`.
+- Recovered the Down-gated launch pad at `1000:6924`, including cursor
+  `0x0035`/priority 5, vertical velocity `-2000`, the invisible frame-`0x5B`
+  mode-5 marker, and the shared portal Down gate. The deterministic
+  `launch_pad_route` validates gameplay and captures five rendered frames.
+- Classified the contact-scanner mode-6 sound route as dormant in shipped
+  data. The recovery queue retains it for seeded evidence with blocker
+  `shipped_actor_modes_exclude_6`; no natural or visual claim was promoted.
 - Implemented the level-7 multi-segment boss from statically recovered
   original semantics, closing the last known missing gameplay content. A
   five-way static decode of the shipped executable recovered: actor kind
@@ -508,8 +520,11 @@ under the existing guardrails; they are not missing port functionality.
   actor/contact-runtime sound capture targets as an ordered C++ diagnostic.
   It rechecks the shipped byte windows for `1000:5e81`, `1000:6844`,
   `1000:6924`, and `1000:7386`, reports
-  `sound_runtime_capture_queue=ok`, keeps `contact_scanner_runtime_sound` as
-  the first target, names `tools/capture_original_sound_callsite_procmem.sh`
+  `sound_runtime_capture_queue=ok`, uses
+  `first_target=actor_update_runtime_cursor_0024_sound`, reports
+  `route_classes=natural:3,runtime_seeded:1` and
+  `state6_capture_blocker=shipped_actor_modes_exclude_6`, and names
+  `tools/capture_original_sound_callsite_procmem.sh`
   plus `tools/sweep_original_sound_callsite_routes.py` as the guarded runtime
   handoff, records the approval flags `LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM`
   and `LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION`, and preserves
@@ -933,22 +948,22 @@ under the existing guardrails; they are not missing port functionality.
 - Added `--debug-static-sound-requests` to scan the shipped `LEZAC.EXE` image
   and lock all 27 immediate writes to `DS:2074`. The diagnostic pins
   21 near-latch candidates, 22 near-latch call references, five direct-sweep
-  writes, 15 mapped callsites, and 12 remaining unpromoted static sound
+  writes, 17 mapped callsites, and 10 remaining unpromoted static sound
   candidates for future recovery. It now prints the full mapped-label ledger
   and the exact unresolved queue:
-  `0x1d9c,0x202d,0x2c04,0x49bd,0x4b2c,0x4d3c,0x4dd3,0x5e81,0x6844,0x6924,0x7386,0x789c`.
+  `0x1d9c,0x202d,0x2c04,0x49bd,0x4b2c,0x4d3c,0x4dd3,0x5e81,0x7386,0x789c`.
   Each unresolved write is now classified with a factual label such as
   `post_end_flow_record_region`, `record_table_cursor_only`,
   `collapse_playback_rejected`, `non_objective_tile_gate_rejected`, or its
   cursor/priority shape.
 - Added `--debug-static-sound-unresolved-contexts` to pin the byte windows and
-  local latch/priority shape for those 12 unpromoted writes individually. The
-  command verifies nine local `1000:165a` latch calls, six inline priority
+  local latch/priority shape for those 10 unpromoted writes individually. The
+  command verifies seven local `1000:165a` latch calls, four inline priority
   writes, two preceding priority writes, four no-local-priority cases, three
   no-latch cases, and the two `0x2710` cursor writes. It now also prints
   static region buckets for those candidates:
   `record_ui:2`, `pre_new_game_setup:1`, `explosion_playback:2`,
-  `effect_extent_scan:2`, `contact_scanner:1`, `actor_update:3`, and
+  `effect_extent_scan:2`, `contact_scanner:1`, `actor_update:1`, and
   `post_actor_update_no_latch:1`, without treating any of them as a recovered
   live gameplay cue.
 - Switched live state-2 death rendering to the recovered row-byte-3
@@ -2811,7 +2826,7 @@ under the existing guardrails; they are not missing port functionality.
   so the remaining sound evidence queue is explicit. The unresolved static
   sound diagnostic now also reports capture classes and narrows the next
   actor/contact runtime sound queue to
-  `actor_contact_capture_candidates=0x5e81:contact_scanner,0x6844:actor_update,0x6924:actor_update,0x7386:actor_update`,
+  `actor_contact_capture_candidates=0x5e81:contact_scanner,0x7386:actor_update`,
   keeping UI, explosion, effect-extent, and no-latch writes separate from
   same-location runtime-capture candidates.
 - Exact actor update behavior around `1000:6053..777f`, especially original

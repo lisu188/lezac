@@ -1,0 +1,18 @@
+# Original LEZAC.EXE process-memory table probe captured from a temporary copy.
+capture=launch_pad_visual_table
+source=dosbox-debug-process-memory
+temp_copy=1
+visual_claim=0
+runtime_cs=01ED
+runtime_ds=0C8F
+table_base=0xC322
+visual_frame=0x5B
+frame_row_address=0xC48E
+frame_row=00 00 00 00
+sprite_bank=BOMOMIMK.SPR
+sprite_count=91
+sentinel_after_last_sprite=1
+probe_route=level1_weapon_switch_z+x:1.50
+probe_break=01ED:6844
+probe_freeze_observed=1
+semantic_scope=table_row_only

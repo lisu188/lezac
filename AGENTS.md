@@ -69,6 +69,7 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
 
 Additional deterministic scenarios cover death/reentry, provisional state-2
 visual cursor playback, level transition, weapon switching, portal traversal,
+launch-pad activation,
 monster bomb rewards, monster behavior-3 multi-hit kills, behavior-4 chase
 movement, spawner lifecycle, level-2/3 behavior-4 spawner data, two-player
 behavior-4 target selection, collapse playback, record entry, and two-player
@@ -83,6 +84,8 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer level_transition
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer portal_weapon_route
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer launch_pad_route
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer records_flow
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
@@ -112,6 +115,8 @@ Use the frame harness when a visual checkpoint or comparison artifact is needed:
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --capture-frame-sequence launch_pad_route /tmp/lezac-cpp-launch-pad
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --capture-frame-sequence monster_spawner_behavior4_level2 /tmp/lezac-cpp-b4-level2
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \

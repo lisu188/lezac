@@ -397,7 +397,11 @@ def main() -> int:
     args = parser.parse_args()
 
     fixture_dir = args.fixture_dir.resolve()
-    paths = sorted(fixture_dir.glob("sound_callsite_oracle*.txt"))
+    paths = sorted(
+        path
+        for path in fixture_dir.glob("sound_callsite_oracle*.txt")
+        if not path.name.endswith("-LIS.txt")
+    )
     names = {path.name for path in paths}
     missing = sorted(set(EXPECTED_OUTCOMES) - names)
     extra = sorted(name for name in names if expected_outcome_for(name) is None)

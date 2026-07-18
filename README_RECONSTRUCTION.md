@@ -8,6 +8,18 @@ Borland/Turbo Pascal MZ executable, so the port is written as maintainable C++
 from Ghidra-assisted disassembly, original strings, original docs, and the
 companion data files.
 
+## Recovered July Sound Routes
+
+The original weapon-switch path at `1000:6844` holds the horizontal chord for
+five updates and triggers on release. Process-memory evidence recorded
+`runtime_hold_counter=0x14`; the C++ diagnostic reports
+`weapon_switch_sound=ok` with cursor `0x0024` at priority 2. The Down-gated
+launch-pad path at `1000:6924` requests cursor `0x0035` at priority 5 and is
+covered by the deterministic `launch_pad_route` autoplayer and frame sequence.
+The remaining mode-6 scanner cue is classified
+`shipped_actor_modes_exclude_6` because the shipped actor constructors and
+level spawners never supply mode 6.
+
 ## Build
 
 ```sh
@@ -46,6 +58,7 @@ Dump deterministic C++ frames for comparison against original DOSBox captures:
 ```sh
 ./build/lezac_cpp --debug-autoplayer level1_bomb_route
 ./build/lezac_cpp --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames
+./build/lezac_cpp --capture-frame-sequence launch_pad_route /tmp/lezac-cpp-launch-pad
 ./build/lezac_cpp --capture-frame-sequence monster_spawner_behavior4_level2 /tmp/lezac-cpp-b4-level2
 ./build/lezac_cpp --capture-frame-sequence monster_spawner_behavior4_level3 /tmp/lezac-cpp-b4-level3
 ./build/lezac_cpp --capture-frame-sequence monster_behavior4_target_selection /tmp/lezac-cpp-b4-target
@@ -83,6 +96,7 @@ LEZAC_LOAD_ORIGINAL_ASSETS=1 ./build/lezac_cpp --validate
 ./build/lezac_cpp --debug-son-step-fields
 ./build/lezac_cpp --debug-sound-priority-latch
 ./build/lezac_cpp --debug-sound-selector-map
+./build/lezac_cpp --debug-weapon-switch-sound
 ./build/lezac_cpp --debug-static-sound-contexts
 ./build/lezac_cpp --debug-remaining-sound-compat-hooks
 ./build/lezac_cpp --debug-player-damage-sound
@@ -99,6 +113,7 @@ LEZAC_SOUND_CALLSITE_DEBUG_DRY_RUN=1 tools/capture_original_sound_callsite_debug
 ./build/lezac_cpp --debug-autoplayer death_visuals
 ./build/lezac_cpp --debug-autoplayer level_transition
 ./build/lezac_cpp --debug-autoplayer portal_weapon_route
+./build/lezac_cpp --debug-autoplayer launch_pad_route
 ./build/lezac_cpp --debug-autoplayer records_flow
 ./build/lezac_cpp --debug-autoplayer monster_bomb_reward
 ./build/lezac_cpp --debug-autoplayer monster_behavior3_multihit
@@ -1431,21 +1446,23 @@ debris tags `0x4e21`/`0x4ee8`. It remains a C++ arithmetic/model check with
   compatibility indices without mutating a seeded recovered latch, and naming
   why the DOSBox sound-callsite helper must not stage them as original
   cursor/priority captures yet. `--debug-static-sound-unresolved-contexts`
-  also pins the exact byte windows for those 12 unresolved writes and separates
-  their local request shapes: nine local latch calls, six inline priorities,
+  also pins the exact byte windows for those 10 unresolved writes and separates
+  their local request shapes: seven local latch calls, four inline priorities,
   two preceding priorities, four no-local-priority cases, three no-latch cases,
   and two `0x2710` cursor writes. It now also buckets the unresolved writes by
   static code region:
   `record_ui:2`, `pre_new_game_setup:1`, `explosion_playback:2`,
-  `effect_extent_scan:2`, `contact_scanner:1`, `actor_update:3`, and
+  `effect_extent_scan:2`, `contact_scanner:1`, `actor_update:1`, and
   `post_actor_update_no_latch:1`. It also prints capture classes and the
   actor/contact runtime queue
-  `actor_contact_capture_candidates=0x5e81:contact_scanner,0x6844:actor_update,0x6924:actor_update,0x7386:actor_update`;
+  `actor_contact_capture_candidates=0x5e81:contact_scanner,0x7386:actor_update`;
   these region labels are static byte-context facts, not live cue promotions.
-  `--debug-sound-runtime-capture-queue` narrows that handoff to the four
-  actor/contact runtime sound scenarios, rechecks their shipped byte windows,
-  and marks `contact_scanner_runtime_sound` (`1000:5e81`, cursor `0x0069`,
-  priority `4`) as the first runtime target while keeping
+  `--debug-sound-runtime-capture-queue` retains four reproducible runtime sound
+  scenarios, including the two recovered routes, and rechecks their shipped
+  byte windows. It reports
+  `first_target=actor_update_runtime_cursor_0024_sound`,
+  `route_classes=natural:3,runtime_seeded:1`, and
+  `state6_capture_blocker=shipped_actor_modes_exclude_6` while keeping
   `sound_runtime_capture_queue=ok` at `original_cursor_priority_claim=0`. Its
   output now names `tools/capture_original_sound_callsite_procmem.sh` as the
   runtime helper, `tools/sweep_original_sound_callsite_routes.py` as the route

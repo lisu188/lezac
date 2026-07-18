@@ -87,6 +87,7 @@ ROUTE_STATE_RANGES = [
     ("DS:C1E0", 0xC1E0, 0x40),
     ("DS:C21E", 0xC21E, 0x40),
     ("DS:C320", 0xC320, 0x60),
+    ("DS:C480", 0xC480, 0x40),
 ]
 
 
@@ -595,11 +596,25 @@ def key(env: dict[str, str], window: str, name: str) -> None:
     time.sleep(0.2)
 
 
+def chord_key_names(name: str) -> list[str]:
+    keys = [item.strip() for item in name.split("+")]
+    if any(not item for item in keys):
+        raise ValueError("route step chord keys must not be empty")
+    return keys
+
+
 def hold_key(env: dict[str, str], window: str, name: str, seconds: float) -> None:
+    keys = chord_key_names(name)
     activate_window(env, window)
-    run(["xdotool", "keydown", name], env, check=False)
-    time.sleep(seconds)
-    run(["xdotool", "keyup", name], env, check=False)
+    pressed: list[str] = []
+    try:
+        for key_name in keys:
+            run(["xdotool", "keydown", key_name], env, check=False)
+            pressed.append(key_name)
+        time.sleep(seconds)
+    finally:
+        for key_name in reversed(pressed):
+            run(["xdotool", "keyup", key_name], env, check=False)
     time.sleep(0.15)
 
 
@@ -863,6 +878,10 @@ def parse_route_step(value: str) -> RouteStep:
     key_name = key_name.strip()
     if not key_name:
         raise argparse.ArgumentTypeError("route step key must not be empty")
+    try:
+        key_name = "+".join(chord_key_names(key_name))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
     try:
         seconds = float(seconds_text)
     except ValueError as exc:

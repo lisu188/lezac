@@ -291,6 +291,16 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^frame_sequence=ok scenario=monster_behavior4_target_selection frames=6 size=320x200")
 
+    add_test(NAME frame_sequence_capture_launch_pad_route_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --capture-frame-sequence
+                launch_pad_route
+                ${CMAKE_CURRENT_BINARY_DIR}/frame_sequence_capture_launch_pad_route)
+    set_tests_properties(frame_sequence_capture_launch_pad_route_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^frame_sequence=ok scenario=launch_pad_route frames=5 size=320x200")
+
     add_test(NAME autoplayer_level1_bomb_route_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-autoplayer level1_bomb_route)
@@ -345,7 +355,15 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_portal_weapon_route_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=portal_weapon_route level=[0-9]+ switched_weapon=2 medium_bomb=1 portal_key=[0-9]+ portal_from=[0-9]+,[0-9]+ portal_to=[0-9]+,[0-9]+ cooldown=30 frame_inspection=1")
+            "^autoplayer=ok scenario=portal_weapon_route level=[0-9]+ switched_weapon=2 medium_bomb=1 switch_hold_ticks=5 switch_trigger=release switch_sound=0x0024/p2 portal_key=[0-9]+ portal_from=[0-9]+,[0-9]+ portal_to=[0-9]+,[0-9]+ cooldown=30 frame_inspection=1")
+
+    add_test(NAME autoplayer_launch_pad_route_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-autoplayer launch_pad_route)
+    set_tests_properties(autoplayer_launch_pad_route_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^autoplayer=ok scenario=launch_pad_route level=6 pad_tile=[0-9]+,[0-9]+ input=down up_down_cancelled=1 overhead_blocked=1 original_velocity=-2000 normal_jump_velocity=-848 marker_frame=0x5b marker_kind=0x0b marker_mode=5 marker_timer=5 marker_lifetime_updates=9 sound=0x0035/p5 marker_invisible=1 frame_inspection=1")
 
     add_test(NAME autoplayer_records_flow_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -462,6 +480,10 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_contact_procmem_helper.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_route_sweep_summary.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_procmem_route_chords.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_state6_context.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_weapon_switch_context.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_launch_pad_context.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_procmem_route_sweep.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_procmem_route_sweep_summary.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_procmem_helper.py
@@ -1083,6 +1105,15 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^sound_callsite_route_sweep_output=ok cases=11")
 
+        add_test(NAME procmem_route_chords
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_procmem_route_chords.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(procmem_route_chords PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^procmem_route_chords=ok chord=z[+]x hold_seconds=0.5 keydown=z,x keyup=x,z invalid=3")
+
         add_test(NAME behavior4_procmem_route_sweep_dry_run
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/sweep_original_behavior4_procmem_routes.py
@@ -1205,6 +1236,33 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^actor_update_dispatch_gates=ok .*gates=1000:654E=06,1000:65A2=05,1000:7595=05 .*gate6_call_target=1000:5CB0 .*gate5_integration_target=1000:73E5 .*gate5_exit_target=1000:777F")
+
+        add_test(NAME sound_state6_context
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_state6_context.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(sound_state6_context PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^sound_state6_context=ok .*constructor_calls=7 .*constructor_immediate_modes=2:1,5:5 .*dynamic_mode_source=spawner[+]0x1a .*shipped_spawners=15 .*shipped_modes=3:9,4:6 state6_spawners=0 .*tick=DS:78C2 modulus=29 equivalent_period=58 .*cursor=0x0069 priority=4 .*blocker=shipped_actor_modes_exclude_6 .*docs=4")
+
+        add_test(NAME sound_weapon_switch_context
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_weapon_switch_context.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(sound_weapon_switch_context PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^sound_weapon_switch_context=ok .*players=2 counters=DS:79B0,DS:79B1 inputs=DS:1B83[+]DS:1B84 threshold_ticks=5 trigger=release .*cursor=0x0024 priority=2 .*counter_reset=1000:68BD .*runtime_route=z[+]x:1.50 runtime_hold_counter=0x14 runtime_cursor=0x0024 runtime_priority=2 docs=4")
+
+        add_test(NAME sound_launch_pad_context
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_launch_pad_context.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(sound_launch_pad_context PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^sound_launch_pad_context=ok .*input_irq=1000:10A5 .*down_gate=1000:68E2 portal_gate=1000:68EC launch_gate=1000:6912 sound=0x0035/p5 launch_velocity=-2000 normal_jump_velocity=-848 marker=frame0x5b/kind0x0b/mode5/timer5/vy-200 visual_row=DS:C48E:00000000 sentinel=1 launch_tiles=7 level6=4 level7=3 docs=4")
 
         add_test(NAME actor_contact_static_model
             COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-contact-static-model)
@@ -1685,7 +1743,7 @@ if(BUILD_TESTING)
         set_tests_properties(sound_compatibility_hooks PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=30 docs=3 rejected_objective_candidates=3 capture_blockers=2 runtime_capture_handoffs=4 live_diagnostic=1")
+                "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=7 helpers=38 docs=3 rejected_objective_candidates=3 capture_blockers=2 runtime_capture_handoffs=4 runtime_route_classifications=3 live_diagnostic=1")
 
         add_test(NAME debug_capture_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -1884,7 +1942,7 @@ if(BUILD_TESTING)
         set_tests_properties(visual_claim_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^visual_claim_guardrail=ok fixtures=79 claim0=79 claim1=0 ledger=1 promoted=0 ctest=1 docs=3")
+                "^visual_claim_guardrail=ok fixtures=80 claim0=80 claim1=0 ledger=1 promoted=0 ctest=1 docs=3")
 
         add_test(NAME visual_claim_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -1947,7 +2005,7 @@ if(BUILD_TESTING)
         set_tests_properties(runtime_evidence_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^runtime_evidence_guardrail=ok fixtures=79 original_runtime=23 visual_claim0=23 temp_copy=23 runtime_segments=23 ledger=1 ctest=1 docs=3")
+                "^runtime_evidence_guardrail=ok fixtures=80 original_runtime=24 visual_claim0=24 temp_copy=24 runtime_segments=24 ledger=1 ctest=1 docs=3")
 
         add_test(NAME runtime_evidence_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -2348,7 +2406,7 @@ if(BUILD_TESTING)
     set_tests_properties(static_sound_requests PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^static_sound_requests=ok writes=27 image_base=0x0770 latch=0x165a latch_candidates=21 latch_refs=22 priority_candidates=21 direct_sweep=5 mapped=15 unresolved=12 record_prompt=0x1857:0x0078/p11 record_commit=0x1a44:0x0008/p11 records_page=0x2083:0x0024/p2 bomb_place=0x557b:0xea74/p3 monster_death=0x5c9e:0x003d/p12 mapped_labels=0x1857:record_name_prompt,0x1a44:record_name_commit,0x2083:records_page,0x30b1:player_death,0x41a9:explosion_small,0x41ed:explosion_medium,0x4231:explosion_large,0x431d:explosion_super,0x557b:bomb_place,0x575d:tile_trigger,0x5a0e:portal_teleport,0x5c9e:monster_death,0x6e34:bomb_object_high,0x6f82:bonus_pickup,0x7f84:player_damage unresolved_candidates=0x1d9c,0x202d,0x2c04,0x49bd,0x4b2c,0x4d3c,0x4dd3,0x5e81,0x6844,0x6924,0x7386,0x789c unresolved_labels=0x1d9c:post_end_flow_record_region,0x202d:record_table_cursor_only,0x2c04:cursor_0078_priority11,0x49bd:cursor_0027_priority5,0x4b2c:collapse_playback_rejected,0x4d3c:cursor_2710,0x4dd3:cursor_2710,0x5e81:cursor_0069_priority4,0x6844:cursor_0024_priority2,0x6924:non_objective_tile_gate_rejected,0x7386:cursor_0021_priority1,0x789c:cursor_0001_no_latch remaining_compat_hooks=objective_pickup,level_complete capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate rejected_objective_candidates=0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate")
+            "^static_sound_requests=ok writes=27 image_base=0x0770 latch=0x165a latch_candidates=21 latch_refs=22 priority_candidates=21 direct_sweep=5 mapped=17 unresolved=10 record_prompt=0x1857:0x0078/p11 record_commit=0x1a44:0x0008/p11 records_page=0x2083:0x0024/p2 bomb_place=0x557b:0xea74/p3 monster_death=0x5c9e:0x003d/p12 weapon_switch=0x6844:0x0024/p2 launch_pad=0x6924:0x0035/p5 mapped_labels=0x1857:record_name_prompt,0x1a44:record_name_commit,0x2083:records_page,0x30b1:player_death,0x41a9:explosion_small,0x41ed:explosion_medium,0x4231:explosion_large,0x431d:explosion_super,0x557b:bomb_place,0x575d:tile_trigger,0x5a0e:portal_teleport,0x5c9e:monster_death,0x6844:weapon_switch,0x6924:launch_pad,0x6e34:bomb_object_high,0x6f82:bonus_pickup,0x7f84:player_damage unresolved_candidates=0x1d9c,0x202d,0x2c04,0x49bd,0x4b2c,0x4d3c,0x4dd3,0x5e81,0x7386,0x789c unresolved_labels=0x1d9c:post_end_flow_record_region,0x202d:record_table_cursor_only,0x2c04:cursor_0078_priority11,0x49bd:cursor_0027_priority5,0x4b2c:collapse_playback_rejected,0x4d3c:cursor_2710,0x4dd3:cursor_2710,0x5e81:cursor_0069_priority4,0x7386:cursor_0021_priority1,0x789c:cursor_0001_no_latch remaining_compat_hooks=objective_pickup,level_complete capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate rejected_objective_candidates=0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,0x6924:non_objective_tile_gate")
 
     add_test(NAME input_fire_key_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-input-fire-key-model)
@@ -2376,14 +2434,14 @@ if(BUILD_TESTING)
     set_tests_properties(static_sound_unresolved_contexts PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^static_sound_unresolved_contexts=ok writes=12 image_base=0x0770 latch=0x165a local_latch=9 local_latch_refs=9 inline_priority=6 preceding_priority=2 no_priority=4 no_latch=3 direct_sweep=0 cursor_2710=2 region_counts=actor_update:3,contact_scanner:1,effect_extent_scan:2,explosion_playback:2,post_actor_update_no_latch:1,pre_new_game_setup:1,record_ui:2 capture_classes=actor_contact_runtime:4,effect_extent_static:2,explosion_static:2,post_actor_update_no_latch:1,pre_new_game_static:1,record_ui_static:2 actor_contact_capture_candidates=0x5e81:contact_scanner,0x6844:actor_update,0x6924:actor_update,0x7386:actor_update contexts=0x1d9c:0x003d/p10:inline:latch1:record_ui:post_end_flow_record_region,0x202d:0x0021/no_priority:none:latch1:record_ui:record_table_cursor_only,0x2c04:0x0078/p11:inline:latch1:pre_new_game_setup:cursor_0078_priority11,0x49bd:0x0027/p5:inline:latch1:explosion_playback:cursor_0027_priority5,0x4b2c:0x0021/p2:preceding:latch1:explosion_playback:collapse_playback_rejected,0x4d3c:0x2710/no_priority:none:latch0:effect_extent_scan:cursor_2710,0x4dd3:0x2710/no_priority:none:latch0:effect_extent_scan:cursor_2710,0x5e81:0x0069/p4:inline:latch1:contact_scanner:cursor_0069_priority4,0x6844:0x0024/p2:inline:latch1:actor_update:cursor_0024_priority2,0x6924:0x0035/p5:inline:latch1:actor_update:non_objective_tile_gate_rejected,0x7386:0x0021/p1:preceding:latch1:actor_update:cursor_0021_priority1,0x789c:0x0001/no_priority:none:latch0:post_actor_update_no_latch:cursor_0001_no_latch")
+            "^static_sound_unresolved_contexts=ok writes=10 image_base=0x0770 latch=0x165a local_latch=7 local_latch_refs=7 inline_priority=4 preceding_priority=2 no_priority=4 no_latch=3 direct_sweep=0 cursor_2710=2 region_counts=actor_update:1,contact_scanner:1,effect_extent_scan:2,explosion_playback:2,post_actor_update_no_latch:1,pre_new_game_setup:1,record_ui:2 capture_classes=actor_contact_runtime:2,effect_extent_static:2,explosion_static:2,post_actor_update_no_latch:1,pre_new_game_static:1,record_ui_static:2 actor_contact_capture_candidates=0x5e81:contact_scanner,0x7386:actor_update contexts=0x1d9c:0x003d/p10:inline:latch1:record_ui:post_end_flow_record_region,0x202d:0x0021/no_priority:none:latch1:record_ui:record_table_cursor_only,0x2c04:0x0078/p11:inline:latch1:pre_new_game_setup:cursor_0078_priority11,0x49bd:0x0027/p5:inline:latch1:explosion_playback:cursor_0027_priority5,0x4b2c:0x0021/p2:preceding:latch1:explosion_playback:collapse_playback_rejected,0x4d3c:0x2710/no_priority:none:latch0:effect_extent_scan:cursor_2710,0x4dd3:0x2710/no_priority:none:latch0:effect_extent_scan:cursor_2710,0x5e81:0x0069/p4:inline:latch1:contact_scanner:cursor_0069_priority4,0x7386:0x0021/p1:preceding:latch1:actor_update:cursor_0021_priority1,0x789c:0x0001/no_priority:none:latch0:post_actor_update_no_latch:cursor_0001_no_latch")
 
     add_test(NAME sound_runtime_capture_queue
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-sound-runtime-capture-queue)
     set_tests_properties(sound_runtime_capture_queue PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^sound_runtime_capture_queue=ok capture_class=actor_contact_runtime targets=4 first_target=contact_scanner_runtime_sound helper=tools/capture_original_sound_callsite_procmem.sh route_sweep=tools/sweep_original_sound_callsite_routes.py oracle=--debug-sound-callsite-oracle fixture_prefix=sound_callsite_oracle_original promotion_status=runtime_fixture_required approval_flags=LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM,LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION original_cursor_priority_claim=0 regions=actor_update:3,contact_scanner:1 target_queue=contact_scanner_runtime_sound:0x5e81:0x0069/p4:contact_scanner:cursor_0069_priority4:next,actor_update_runtime_cursor_0024_sound:0x6844:0x0024/p2:actor_update:cursor_0024_priority2:staged,actor_update_runtime_cursor_0035_sound:0x6924:0x0035/p5:actor_update:non_objective_tile_gate_rejected:staged,actor_update_runtime_cursor_0021_sound:0x7386:0x0021/p1:actor_update:cursor_0021_priority1:staged")
+            "^sound_runtime_capture_queue=ok capture_class=actor_contact_runtime targets=4 first_target=actor_update_runtime_cursor_0024_sound helper=tools/capture_original_sound_callsite_procmem.sh route_sweep=tools/sweep_original_sound_callsite_routes.py oracle=--debug-sound-callsite-oracle fixture_prefix=sound_callsite_oracle_original promotion_status=runtime_fixture_required approval_flags=LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM,LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION original_cursor_priority_claim=0 regions=actor_update:3,contact_scanner:1 route_classes=natural:3,runtime_seeded:1 state6_capture_blocker=shipped_actor_modes_exclude_6 target_queue=actor_update_runtime_cursor_0024_sound:0x6844:0x0024/p2:actor_update:cursor_0024_priority2:staged:natural:normalized_fixture_required,actor_update_runtime_cursor_0035_sound:0x6924:0x0035/p5:actor_update:launch_pad:staged:natural:level6_route_required,actor_update_runtime_cursor_0021_sound:0x7386:0x0021/p1:actor_update:cursor_0021_priority1:staged:natural:semantic_event_unknown,contact_scanner_runtime_sound:0x5e81:0x0069/p4:contact_scanner:cursor_0069_priority4:seeded_only:runtime_seeded:shipped_actor_modes_exclude_6")
 
     add_test(NAME record_name_sound
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-record-name-sound
@@ -2399,6 +2457,13 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^records_page_sound=ok cursor=0x0024 priority=2 direct_sweep=0 ghidra=1000:2083 latch=1000:165a string=punteggi_migliori")
+
+    add_test(NAME weapon_switch_sound
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-weapon-switch-sound)
+    set_tests_properties(weapon_switch_sound PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^weapon_switch_sound=ok hold_ticks=5 trigger=release short_chord_ignored=1 selected=2 cursor=0x0024 priority=2 direct_sweep=0 pumped=1 ghidra=1000:6844 latch=1000:165a")
 
     add_test(NAME bomb_place_sound
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-place-sound)

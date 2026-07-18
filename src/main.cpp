@@ -158,21 +158,27 @@ struct RuntimeSoundCaptureTarget {
     const char* region;
     const char* label;
     const char* status;
+    const char* routeClass;
+    const char* captureBlocker;
     const char* bytes;
 };
 constexpr std::array<RuntimeSoundCaptureTarget, 4> kActorContactSoundCaptureTargets{{
-    {"contact_scanner_runtime_sound", 0x5e81, 0x0069, 4,
-     "contact_scanner", "cursor_0069_priority4", "next",
-     "c7 06 74 20 69 00 c6 06 9f 79 04 e8 cb b7"},
     {"actor_update_runtime_cursor_0024_sound", 0x6844, 0x0024, 2,
-     "actor_update", "cursor_0024_priority2", "staged",
+     "actor_update", "cursor_0024_priority2", "staged", "natural",
+     "normalized_fixture_required",
      "c7 06 74 20 24 00 c6 06 9f 79 02 e8 08 ae"},
     {"actor_update_runtime_cursor_0035_sound", 0x6924, 0x0035, 5,
-     "actor_update", "non_objective_tile_gate_rejected", "staged",
+     "actor_update", "launch_pad", "staged", "natural",
+     "level6_route_required",
      "c7 06 74 20 35 00 c6 06 9f 79 05 e8 28 ad"},
     {"actor_update_runtime_cursor_0021_sound", 0x7386, 0x0021, 1,
-     "actor_update", "cursor_0021_priority1", "staged",
+     "actor_update", "cursor_0021_priority1", "staged", "natural",
+     "semantic_event_unknown",
      "c7 06 74 20 21 00 e8 cb a2"},
+    {"contact_scanner_runtime_sound", 0x5e81, 0x0069, 4,
+     "contact_scanner", "cursor_0069_priority4", "seeded_only",
+     "runtime_seeded", "shipped_actor_modes_exclude_6",
+     "c7 06 74 20 69 00 c6 06 9f 79 04 e8 cb b7"},
 }};
 constexpr std::array<uint16_t, 14> kDebugSoundCursors{
     0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027,
@@ -198,6 +204,23 @@ constexpr uint16_t kRecordNameCommitSoundCursor = 0x0008;
 constexpr uint8_t kRecordNameCommitSoundPriority = 11;
 constexpr uint16_t kRecordsPageSoundCursor = 0x0024;
 constexpr uint8_t kRecordsPageSoundPriority = 2;
+constexpr uint8_t kWeaponSwitchHoldTicks = 5;
+constexpr uint16_t kWeaponSwitchSoundCursor = 0x0024;
+constexpr uint8_t kWeaponSwitchSoundPriority = 2;
+constexpr uint8_t kLaunchPadTile = 0x27;
+constexpr uint16_t kLaunchPadSoundCursor = 0x0035;
+constexpr uint8_t kLaunchPadSoundPriority = 5;
+constexpr int16_t kOriginalNormalJumpVelocity = -848;
+constexpr int16_t kOriginalLaunchPadVelocity = -2000;
+constexpr float kPlayerJumpVelocity = -135.0f;
+constexpr float kLaunchPadVelocity =
+    kPlayerJumpVelocity * (static_cast<float>(kOriginalLaunchPadVelocity) /
+                           static_cast<float>(kOriginalNormalJumpVelocity));
+constexpr uint8_t kLaunchPadMarkerTimer = 5;
+constexpr uint8_t kLaunchPadMarkerFrame = 0x5b;
+constexpr uint8_t kLaunchPadMarkerKind = 0x0b;
+constexpr uint8_t kLaunchPadMarkerMode = 5;
+constexpr int16_t kLaunchPadMarkerVelocityY8 = -200;
 constexpr uint16_t kPlayerDamageSoundCursor = 0x002d;
 constexpr uint8_t kPlayerDamageSoundPriority = 4;
 constexpr uint16_t kPlayerDeathSoundCursor = 0x0056;
@@ -399,6 +422,19 @@ struct Flash {
     int y = 0;
     int timer = 12;
     uint8_t power = 1;
+};
+
+struct LaunchPadMarker {
+    int x = 0;
+    int y = 0;
+    uint8_t fracX = 0;
+    uint8_t fracY = 0;
+    int16_t velocityX8 = 0;
+    int16_t velocityY8 = kLaunchPadMarkerVelocityY8;
+    uint8_t timer = kLaunchPadMarkerTimer;
+    uint8_t frame = kLaunchPadMarkerFrame;
+    uint8_t kind = kLaunchPadMarkerKind;
+    uint8_t mode = kLaunchPadMarkerMode;
 };
 
 struct ExplosionEffect {
@@ -1513,9 +1549,11 @@ class App {
         bool p1Left = false;
         bool p1Right = false;
         bool p1Jump = false;
+        bool p1Down = false;
         bool p2Left = false;
         bool p2Right = false;
         bool p2Jump = false;
+        bool p2Down = false;
     };
 
     struct AutoplayRouteResult {
@@ -2283,6 +2321,7 @@ public:
             int p1y = 0;
             int p1BombX = 0;
             int p1BombY = 0;
+            int p1FootTile = 0;
             int p1Dead = 0;
             int p2x = -1;
             int p2y = -1;
@@ -2291,6 +2330,15 @@ public:
             int p2Dead = 0;
             size_t bombs = 0;
             size_t flashes = 0;
+            size_t launchMarkers = 0;
+            int launchMarkerX = -1;
+            int launchMarkerY = -1;
+            int launchMarkerTimer = 0;
+            int launchMarkerFrame = 0;
+            int launchMarkerKind = 0;
+            int launchMarkerMode = 0;
+            uint16_t lastSoundOffset = 0;
+            int lastSoundPriority = 0;
             size_t explosions = 0;
             size_t debris = 0;
             size_t collapse = 0;
@@ -2339,6 +2387,9 @@ public:
             frame.p1y = static_cast<int>(player_.y);
             frame.p1BombX = static_cast<int>(player_.x + 6.0f) / kTileSize;
             frame.p1BombY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+            frame.p1FootTile = tileAt(
+                static_cast<int>(player_.x + 6.0f) / kTileSize,
+                static_cast<int>(player_.y + 16.0f) / kTileSize);
             frame.p1Dead = playerDead_ ? 1 : 0;
             if (playerCount_ > 1) {
                 frame.p2x = static_cast<int>(player2_.x);
@@ -2349,6 +2400,18 @@ public:
             frame.p2Dead = player2Dead_ ? 1 : 0;
             frame.bombs = bombs_.size();
             frame.flashes = flashes_.size();
+            frame.launchMarkers = launchPadMarkers_.size();
+            frame.lastSoundOffset = lastPumpedSoundOffset_;
+            frame.lastSoundPriority = lastPumpedSoundSelector_;
+            if (!launchPadMarkers_.empty()) {
+                const LaunchPadMarker& marker = launchPadMarkers_.front();
+                frame.launchMarkerX = marker.x;
+                frame.launchMarkerY = marker.y;
+                frame.launchMarkerTimer = marker.timer;
+                frame.launchMarkerFrame = marker.frame;
+                frame.launchMarkerKind = marker.kind;
+                frame.launchMarkerMode = marker.mode;
+            }
             frame.explosions = explosionEffects_.size();
             frame.debris = debrisQueue_.size();
             frame.collapse = collapseQueue_.size();
@@ -2461,6 +2524,75 @@ public:
                 update(1.0f / 60.0f);
             }
             capture("060_level1_tile24_playback_12");
+        } else if (scenario == "launch_pad_route") {
+            pushKeyDown(SDLK_1);
+            processEvents(running);
+            resetLevel(5);
+            if (menu_ || playerCount_ != 1 || levelIndex_ != 5) {
+                throw std::runtime_error("frame sequence failed to start launch-pad route");
+            }
+            for (SpawnerState& state : spawnerStates_) {
+                state.remaining = 0;
+                state.availableSlots = 0;
+            }
+
+            int padX = -1;
+            int padY = -1;
+            for (int y = 0; y < level_.height && padX < 0; ++y) {
+                for (int x = 0; x < level_.width; ++x) {
+                    if (tileAt(x, y) == kLaunchPadTile) {
+                        padX = x;
+                        padY = y;
+                        break;
+                    }
+                }
+            }
+            if (padX < 0) {
+                throw std::runtime_error("frame sequence found no level-6 launch pad");
+            }
+            player_.x = static_cast<float>(padX * kTileSize);
+            player_.y = static_cast<float>(padY * kTileSize - 16);
+            player_.vx = 0.0f;
+            player_.vy = 0.0f;
+            player_.grounded = true;
+            clearSoundLatch();
+            lastPumpedSoundOffset_ = 0;
+            lastPumpedSoundSelector_ = 0;
+            capture("010_level6_launch_pad_ready");
+            uint64_t readyHash = captures.back().inspection.hash;
+
+            FrameControls down;
+            down.p1Down = true;
+            updateWithControls(down, 1.0f / 60.0f);
+            if (launchPadMarkers_.size() != 1 || player_.vy >= 0.0f ||
+                lastPumpedSoundOffset_ != kLaunchPadSoundCursor ||
+                lastPumpedSoundSelector_ != kLaunchPadSoundPriority) {
+                throw std::runtime_error("frame sequence launch-pad activation mismatch");
+            }
+            capture("020_level6_launch_pad_fired");
+            if (captures.back().inspection.hash == readyHash) {
+                throw std::runtime_error("frame sequence launch-pad frame did not move");
+            }
+
+            FrameControls idle;
+            for (int i = 0; i < 4; ++i) {
+                updateWithControls(idle, 1.0f / 60.0f);
+            }
+            if (launchPadMarkers_.size() != 1 ||
+                launchPadMarkers_.front().timer != 2) {
+                throw std::runtime_error("frame sequence launch marker midpoint mismatch");
+            }
+            capture("030_level6_launch_pad_airborne");
+
+            int markerUpdates = 4;
+            while (!launchPadMarkers_.empty() && markerUpdates < 12) {
+                updateWithControls(idle, 1.0f / 60.0f);
+                ++markerUpdates;
+            }
+            if (!launchPadMarkers_.empty() || markerUpdates != 8) {
+                throw std::runtime_error("frame sequence launch marker lifetime mismatch");
+            }
+            capture("040_level6_launch_pad_marker_expired");
         } else if (scenario == "monster_bomb_reward") {
             pushKeyDown(SDLK_1);
             processEvents(running);
@@ -2704,12 +2836,22 @@ public:
                      << " players=" << frame.playerCount
                      << " p1_xy=" << frame.p1x << ',' << frame.p1y
                      << " p1_bomb_tile=" << frame.p1BombX << ',' << frame.p1BombY
+                     << " p1_foot_tile=" << frame.p1FootTile
                      << " p1_dead=" << frame.p1Dead
                      << " p2_xy=" << frame.p2x << ',' << frame.p2y
                      << " p2_bomb_tile=" << frame.p2BombX << ',' << frame.p2BombY
                      << " p2_dead=" << frame.p2Dead
                      << " bombs=" << frame.bombs
                      << " flashes=" << frame.flashes
+                     << " launch_markers=" << frame.launchMarkers
+                     << " launch_marker_xy=" << frame.launchMarkerX << ','
+                     << frame.launchMarkerY
+                     << " launch_marker_timer=" << frame.launchMarkerTimer
+                     << " launch_marker_frame=" << frame.launchMarkerFrame
+                     << " launch_marker_kind=" << frame.launchMarkerKind
+                     << " launch_marker_mode=" << frame.launchMarkerMode
+                     << " last_sound=" << hex4(frame.lastSoundOffset) << '/'
+                     << frame.lastSoundPriority
                      << " explosions=" << frame.explosions
                      << " debris=" << frame.debris
                      << " collapse=" << frame.collapse
@@ -2960,6 +3102,8 @@ public:
             debugAutoplayerLevelTransition(scenario);
         } else if (scenario == "portal_weapon_route") {
             debugAutoplayerPortalWeaponRoute(scenario);
+        } else if (scenario == "launch_pad_route") {
+            debugAutoplayerLaunchPadRoute(scenario);
         } else if (scenario == "records_flow") {
             debugAutoplayerRecordsFlow(scenario);
         } else if (scenario == "monster_bomb_reward") {
@@ -3581,7 +3725,7 @@ public:
         FrameControls switchControls;
         switchControls.p1Left = true;
         switchControls.p1Right = true;
-        updateWithControls(switchControls, 1.0f / 60.0f);
+        driveAutoplayerWeaponSwitchChord(switchControls);
         if (bombInventory_.selected != BombType::Medium) {
             throw std::runtime_error("portal/weapon autoplayer did not switch to medium bomb");
         }
@@ -3606,6 +3750,7 @@ public:
         lastPumpedSoundOffset_ = 0;
         lastPumpedSoundSelector_ = 0;
         FrameControls idle;
+        idle.p1Down = true;
         updateWithControls(idle, 1.0f / 60.0f);
         if (player_.x != static_cast<float>(destination->x) ||
             player_.y != static_cast<float>(destination->y) ||
@@ -3624,11 +3769,135 @@ public:
                   << " scenario=" << scenario
                   << " level=" << (levelIndex_ + 1)
                   << " switched_weapon=2 medium_bomb=1"
+                  << " switch_hold_ticks=" << static_cast<int>(kWeaponSwitchHoldTicks)
+                  << " switch_trigger=release switch_sound=0x0024/p2"
                   << " portal_key=" << portalKey
                   << " portal_from=" << sourceX << ',' << sourceY
                   << " portal_to=" << destination->x << ',' << destination->y
                   << " cooldown=" << portalCooldown_
                   << " frame_inspection=1\n";
+    }
+
+    void debugAutoplayerLaunchPadRoute(const std::string& scenario) {
+        load();
+        initSdl();
+        resetLevel(0);
+        bool running = true;
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        resetLevel(5);
+        if (menu_ || playerCount_ != 1 || levelIndex_ != 5) {
+            throw std::runtime_error("launch-pad autoplayer failed to start level 6");
+        }
+        for (SpawnerState& state : spawnerStates_) {
+            state.remaining = 0;
+            state.availableSlots = 0;
+        }
+
+        int padX = -1;
+        int padY = -1;
+        for (int y = 0; y < level_.height && padX < 0; ++y) {
+            for (int x = 0; x < level_.width; ++x) {
+                if (tileAt(x, y) == kLaunchPadTile) {
+                    padX = x;
+                    padY = y;
+                    break;
+                }
+            }
+        }
+        if (padX < 0) {
+            throw std::runtime_error("launch-pad autoplayer found no level-6 pad");
+        }
+
+        player_.x = static_cast<float>(padX * kTileSize);
+        player_.y = static_cast<float>(padY * kTileSize - 16);
+        player_.vx = 0.0f;
+        player_.vy = 0.0f;
+        player_.grounded = true;
+        if (collides(player_.x, player_.y) ||
+            tileAt(static_cast<int>(player_.x + 6.0f) / kTileSize,
+                   static_cast<int>(player_.y + 16.0f) / kTileSize) !=
+                kLaunchPadTile) {
+            throw std::runtime_error("launch-pad autoplayer did not align with pad");
+        }
+
+        int overheadX = static_cast<int>(player_.x) / kTileSize;
+        int overheadY = static_cast<int>(player_.y - 1.0f) / kTileSize;
+        uint8_t overheadTile = static_cast<uint8_t>(tileAt(overheadX, overheadY));
+        tileRef(overheadX, overheadY) = 2;
+        if (activateLaunchPad(player_, true) || !launchPadMarkers_.empty()) {
+            throw std::runtime_error("launch-pad overhead gate accepted blocked launch");
+        }
+        tileRef(overheadX, overheadY) = overheadTile;
+
+        FrameInspection readyFrame = inspectRenderedFrame("autoplayer-launch-pad-ready");
+        FrameControls cancelled;
+        cancelled.p1Jump = true;
+        cancelled.p1Down = true;
+        updateWithControls(cancelled, 1.0f / 60.0f);
+        if (!launchPadMarkers_.empty() || player_.vy < 0.0f ||
+            lastPumpedSoundOffset_ == kLaunchPadSoundCursor) {
+            throw std::runtime_error("launch-pad Up+Down cancellation failed");
+        }
+        player_.x = static_cast<float>(padX * kTileSize);
+        player_.y = static_cast<float>(padY * kTileSize - 16);
+        player_.vx = 0.0f;
+        player_.vy = 0.0f;
+        player_.grounded = true;
+
+        clearSoundLatch();
+        lastPumpedSoundOffset_ = 0;
+        lastPumpedSoundSelector_ = 0;
+        float readyY = player_.y;
+        FrameControls down;
+        down.p1Down = true;
+        updateWithControls(down, 1.0f / 60.0f);
+        if (player_.y >= readyY || player_.vy >= 0.0f || player_.grounded ||
+            launchPadMarkers_.size() != 1 || soundLatch_.active ||
+            lastPumpedSoundOffset_ != kLaunchPadSoundCursor ||
+            lastPumpedSoundSelector_ != kLaunchPadSoundPriority) {
+            throw std::runtime_error("launch-pad activation mismatch");
+        }
+        const LaunchPadMarker& marker = launchPadMarkers_.front();
+        if (marker.timer != kLaunchPadMarkerTimer ||
+            marker.frame != kLaunchPadMarkerFrame ||
+            marker.kind != kLaunchPadMarkerKind ||
+            marker.mode != kLaunchPadMarkerMode ||
+            marker.velocityY8 != kLaunchPadMarkerVelocityY8) {
+            throw std::runtime_error("launch-pad invisible marker mismatch");
+        }
+
+        FrameInspection launchedFrame =
+            inspectRenderedFrame("autoplayer-launch-pad-launched");
+        if (launchedFrame.hash == readyFrame.hash) {
+            throw std::runtime_error("launch-pad activation did not change frame");
+        }
+
+        FrameControls idle;
+        int markerLifetimeUpdates = 0;
+        while (!launchPadMarkers_.empty() && markerLifetimeUpdates < 12) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            ++markerLifetimeUpdates;
+        }
+        if (!launchPadMarkers_.empty() || markerLifetimeUpdates != 9) {
+            throw std::runtime_error("launch-pad marker lifetime mismatch");
+        }
+        FrameInspection airborneFrame =
+            inspectRenderedFrame("autoplayer-launch-pad-marker-expired");
+        if (airborneFrame.hash == launchedFrame.hash) {
+            throw std::runtime_error("launch-pad airborne frame did not change");
+        }
+
+        std::cout << "autoplayer=ok"
+                  << " scenario=" << scenario
+                  << " level=6 pad_tile=" << padX << ',' << padY
+                  << " input=down up_down_cancelled=1 overhead_blocked=1"
+                  << " original_velocity=" << kOriginalLaunchPadVelocity
+                  << " normal_jump_velocity=" << kOriginalNormalJumpVelocity
+                  << " marker_frame=0x5b marker_kind=0x0b marker_mode=5"
+                  << " marker_timer=" << static_cast<int>(kLaunchPadMarkerTimer)
+                  << " marker_lifetime_updates=" << markerLifetimeUpdates
+                  << " sound=0x0035/p5 marker_invisible=1 frame_inspection=1\n";
     }
 
     void debugAutoplayerRecordsFlow(const std::string& scenario) {
@@ -3824,7 +4093,7 @@ public:
         FrameControls switchControls;
         switchControls.p1Left = true;
         switchControls.p1Right = true;
-        updateWithControls(switchControls, 1.0f / 60.0f);
+        driveAutoplayerWeaponSwitchChord(switchControls);
         if (bombInventory_.selected != BombType::Medium) {
             throw std::runtime_error("monster behavior-3 autoplayer did not switch to medium");
         }
@@ -3916,7 +4185,7 @@ public:
         FrameControls switchControls;
         switchControls.p1Left = true;
         switchControls.p1Right = true;
-        updateWithControls(switchControls, 1.0f / 60.0f);
+        driveAutoplayerWeaponSwitchChord(switchControls);
         if (bombInventory_.selected != BombType::Medium) {
             throw std::runtime_error("monster behavior-4 autoplayer did not switch to medium");
         }
@@ -7541,7 +7810,7 @@ public:
             {0x6924, 0x0035}, {0x6e34, 0x0012}, {0x6f82, 0x0008},
             {0x7386, 0x0021}, {0x789c, 0x0001}, {0x7f84, 0x002d},
         }};
-        static const std::array<MappedStaticSoundWrite, 15> kMappedWrites{{
+        static const std::array<MappedStaticSoundWrite, 17> kMappedWrites{{
             {0x1857, "record_name_prompt"},
             {0x1a44, "record_name_commit"},
             {0x2083, "records_page"},
@@ -7554,11 +7823,13 @@ public:
             {0x575d, "tile_trigger"},
             {0x5a0e, "portal_teleport"},
             {0x5c9e, "monster_death"},
+            {0x6844, "weapon_switch"},
+            {0x6924, "launch_pad"},
             {0x6e34, "bomb_object_high"},
             {0x6f82, "bonus_pickup"},
             {0x7f84, "player_damage"},
         }};
-        static const std::array<UnresolvedStaticSoundWrite, 12> kUnresolvedWrites{{
+        static const std::array<UnresolvedStaticSoundWrite, 10> kUnresolvedWrites{{
             {0x1d9c, "post_end_flow_record_region"},
             {0x202d, "record_table_cursor_only"},
             {0x2c04, "cursor_0078_priority11"},
@@ -7567,8 +7838,6 @@ public:
             {0x4d3c, "cursor_2710"},
             {0x4dd3, "cursor_2710"},
             {0x5e81, "cursor_0069_priority4"},
-            {0x6844, "cursor_0024_priority2"},
-            {0x6924, "non_objective_tile_gate_rejected"},
             {0x7386, "cursor_0021_priority1"},
             {0x789c, "cursor_0001_no_latch"},
         }};
@@ -7747,11 +8016,12 @@ public:
                 "0x4231:explosion_large,0x431d:explosion_super,"
                 "0x557b:bomb_place,0x575d:tile_trigger,"
                 "0x5a0e:portal_teleport,0x5c9e:monster_death,"
+                "0x6844:weapon_switch,0x6924:launch_pad,"
                 "0x6e34:bomb_object_high,0x6f82:bonus_pickup,"
                 "0x7f84:player_damage" ||
             unresolvedCandidateList !=
                 "0x1d9c,0x202d,0x2c04,0x49bd,0x4b2c,0x4d3c,"
-                "0x4dd3,0x5e81,0x6844,0x6924,0x7386,0x789c") {
+                "0x4dd3,0x5e81,0x7386,0x789c") {
             throw std::runtime_error("static sound mapping ledger changed");
         }
         if (unresolvedLabelList !=
@@ -7763,8 +8033,6 @@ public:
                 "0x4d3c:cursor_2710,"
                 "0x4dd3:cursor_2710,"
                 "0x5e81:cursor_0069_priority4,"
-                "0x6844:cursor_0024_priority2,"
-                "0x6924:non_objective_tile_gate_rejected,"
                 "0x7386:cursor_0021_priority1,"
                 "0x789c:cursor_0001_no_latch") {
             throw std::runtime_error("static sound unresolved labels changed");
@@ -7793,6 +8061,12 @@ public:
                   << " monster_death=" << hex4(0x5c9e) << ':'
                   << hex4(kMonsterDeathSoundCursor)
                   << "/p" << static_cast<int>(kMonsterDeathSoundPriority)
+                  << " weapon_switch=" << hex4(0x6844) << ':'
+                  << hex4(kWeaponSwitchSoundCursor)
+                  << "/p" << static_cast<int>(kWeaponSwitchSoundPriority)
+                  << " launch_pad=" << hex4(0x6924) << ':'
+                  << hex4(kLaunchPadSoundCursor)
+                  << "/p" << static_cast<int>(kLaunchPadSoundPriority)
                   << " mapped_labels=" << mappedLabelList
                   << " unresolved_candidates=" << unresolvedCandidateList
                   << " unresolved_labels=" << unresolvedLabelList
@@ -7973,7 +8247,7 @@ public:
             const char* label;
             const char* bytes;
         };
-        static const std::array<UnresolvedContext, 12> kContexts{{
+        static const std::array<UnresolvedContext, 10> kContexts{{
             {0x1d9c, 0x003d, 10, 0x1da2, "inline", 1,
              "record_ui", "record_ui_static", "post_end_flow_record_region",
              "c7 06 74 20 3d 00 c6 06 9f 79 0a e8 b0 f8"},
@@ -7998,12 +8272,6 @@ public:
             {0x5e81, 0x0069, 4, 0x5e87, "inline", 1,
              "contact_scanner", "actor_contact_runtime", "cursor_0069_priority4",
              "c7 06 74 20 69 00 c6 06 9f 79 04 e8 cb b7"},
-            {0x6844, 0x0024, 2, 0x684a, "inline", 1,
-             "actor_update", "actor_contact_runtime", "cursor_0024_priority2",
-             "c7 06 74 20 24 00 c6 06 9f 79 02 e8 08 ae"},
-            {0x6924, 0x0035, 5, 0x692a, "inline", 1,
-             "actor_update", "actor_contact_runtime", "non_objective_tile_gate_rejected",
-             "c7 06 74 20 35 00 c6 06 9f 79 05 e8 28 ad"},
             {0x7386, 0x0021, 1, 0x7381, "preceding", 1,
              "actor_update", "actor_contact_runtime", "cursor_0021_priority1",
              "c7 06 74 20 21 00 e8 cb a2"},
@@ -8143,26 +8411,25 @@ public:
         std::string captureClassCountsList = captureClassCountText();
         std::string actorContactCaptureCandidateList =
             actorContactCaptureCandidates.str();
-        if (localLatch != 9 || localLatchRefs != 9 || inlinePriority != 6 ||
+        if (localLatch != 7 || localLatchRefs != 7 || inlinePriority != 4 ||
             precedingPriority != 2 || noPriority != 4 || noLatch != 3 ||
             directSweep != 0 || cursor2710 != 2) {
             throw std::runtime_error("unresolved static sound context summary changed");
         }
         if (regionCountsList !=
-                "actor_update:3,contact_scanner:1,effect_extent_scan:2,"
+                "actor_update:1,contact_scanner:1,effect_extent_scan:2,"
                 "explosion_playback:2,post_actor_update_no_latch:1,"
                 "pre_new_game_setup:1,record_ui:2") {
             throw std::runtime_error("unresolved static sound region counts changed");
         }
         if (captureClassCountsList !=
-                "actor_contact_runtime:4,effect_extent_static:2,"
+                "actor_contact_runtime:2,effect_extent_static:2,"
                 "explosion_static:2,post_actor_update_no_latch:1,"
                 "pre_new_game_static:1,record_ui_static:2") {
             throw std::runtime_error("unresolved static sound capture classes changed");
         }
         if (actorContactCaptureCandidateList !=
-                "0x5e81:contact_scanner,0x6844:actor_update,"
-                "0x6924:actor_update,0x7386:actor_update") {
+                "0x5e81:contact_scanner,0x7386:actor_update") {
             throw std::runtime_error(
                 "unresolved static sound actor/contact capture list changed");
         }
@@ -8175,8 +8442,6 @@ public:
                 "0x4d3c:0x2710/no_priority:none:latch0:effect_extent_scan:cursor_2710,"
                 "0x4dd3:0x2710/no_priority:none:latch0:effect_extent_scan:cursor_2710,"
                 "0x5e81:0x0069/p4:inline:latch1:contact_scanner:cursor_0069_priority4,"
-                "0x6844:0x0024/p2:inline:latch1:actor_update:cursor_0024_priority2,"
-                "0x6924:0x0035/p5:inline:latch1:actor_update:non_objective_tile_gate_rejected,"
                 "0x7386:0x0021/p1:preceding:latch1:actor_update:cursor_0021_priority1,"
                 "0x789c:0x0001/no_priority:none:latch0:post_actor_update_no_latch:cursor_0001_no_latch") {
             throw std::runtime_error("unresolved static sound context list changed");
@@ -8230,16 +8495,19 @@ public:
 
         std::ostringstream targets;
         std::map<std::string, int> regionCounts;
+        std::map<std::string, int> routeClassCounts;
         for (size_t i = 0; i < kActorContactSoundCaptureTargets.size(); ++i) {
             const RuntimeSoundCaptureTarget& target =
                 kActorContactSoundCaptureTargets[i];
             requireBytes(target);
             ++regionCounts[target.region];
+            ++routeClassCounts[target.routeClass];
             if (i != 0) targets << ',';
             targets << target.scenario << ':' << hex4(target.offset) << ':'
                     << hex4(target.cursor) << "/p"
                     << static_cast<int>(target.priority) << ':' << target.region
-                    << ':' << target.label << ':' << target.status;
+                    << ':' << target.label << ':' << target.status << ':'
+                    << target.routeClass << ':' << target.captureBlocker;
         }
 
         std::ostringstream regionText;
@@ -8250,23 +8518,35 @@ public:
             regionText << entry.first << ':' << entry.second;
         }
 
+        std::ostringstream routeClassText;
+        first = true;
+        for (const auto& entry : routeClassCounts) {
+            if (!first) routeClassText << ',';
+            first = false;
+            routeClassText << entry.first << ':' << entry.second;
+        }
+
         const std::string targetText = targets.str();
         const std::string regionList = regionText.str();
+        const std::string routeClassList = routeClassText.str();
         if (targetText !=
-                "contact_scanner_runtime_sound:0x5e81:0x0069/p4:contact_scanner:cursor_0069_priority4:next,"
-                "actor_update_runtime_cursor_0024_sound:0x6844:0x0024/p2:actor_update:cursor_0024_priority2:staged,"
-                "actor_update_runtime_cursor_0035_sound:0x6924:0x0035/p5:actor_update:non_objective_tile_gate_rejected:staged,"
-                "actor_update_runtime_cursor_0021_sound:0x7386:0x0021/p1:actor_update:cursor_0021_priority1:staged") {
+                "actor_update_runtime_cursor_0024_sound:0x6844:0x0024/p2:actor_update:cursor_0024_priority2:staged:natural:normalized_fixture_required,"
+                "actor_update_runtime_cursor_0035_sound:0x6924:0x0035/p5:actor_update:launch_pad:staged:natural:level6_route_required,"
+                "actor_update_runtime_cursor_0021_sound:0x7386:0x0021/p1:actor_update:cursor_0021_priority1:staged:natural:semantic_event_unknown,"
+                "contact_scanner_runtime_sound:0x5e81:0x0069/p4:contact_scanner:cursor_0069_priority4:seeded_only:runtime_seeded:shipped_actor_modes_exclude_6") {
             throw std::runtime_error("sound runtime capture target queue changed");
         }
         if (regionList != "actor_update:3,contact_scanner:1") {
             throw std::runtime_error("sound runtime capture region summary changed");
         }
+        if (routeClassList != "natural:3,runtime_seeded:1") {
+            throw std::runtime_error("sound runtime capture route classes changed");
+        }
 
         std::cout << "sound_runtime_capture_queue=ok"
                   << " capture_class=actor_contact_runtime"
                   << " targets=" << kActorContactSoundCaptureTargets.size()
-                  << " first_target=contact_scanner_runtime_sound"
+                  << " first_target=actor_update_runtime_cursor_0024_sound"
                   << " helper=tools/capture_original_sound_callsite_procmem.sh"
                   << " route_sweep=tools/sweep_original_sound_callsite_routes.py"
                   << " oracle=--debug-sound-callsite-oracle"
@@ -8276,6 +8556,8 @@ public:
                   << "LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION"
                   << " original_cursor_priority_claim=0"
                   << " regions=" << regionList
+                  << " route_classes=" << routeClassList
+                  << " state6_capture_blocker=shipped_actor_modes_exclude_6"
                   << " target_queue=" << targetText
                   << '\n';
     }
@@ -8478,6 +8760,60 @@ public:
                   << " latch=1000:165a"
                   << " string=punteggi_migliori"
                   << '\n';
+    }
+
+    void debugWeaponSwitchSoundRouting() {
+        load();
+        resetLevel(0);
+        bombInventory_.selected = BombType::Small;
+        grantNormalBombSet(bombInventory_);
+        clearSoundLatch();
+        lastPumpedSoundOffset_ = 0;
+        lastPumpedSoundSelector_ = 0;
+
+        for (uint8_t tick = 0; tick < kWeaponSwitchHoldTicks - 1; ++tick) {
+            updateWeaponSwitch(bombInventory_, weaponSwitchHoldTicks_, true);
+        }
+        if (weaponSwitchHoldTicks_ != kWeaponSwitchHoldTicks - 1 ||
+            bombInventory_.selected != BombType::Small || soundLatch_.active) {
+            throw std::runtime_error("short weapon-switch chord changed state");
+        }
+        updateWeaponSwitch(bombInventory_, weaponSwitchHoldTicks_, false);
+        if (weaponSwitchHoldTicks_ != 0 ||
+            bombInventory_.selected != BombType::Small || soundLatch_.active) {
+            throw std::runtime_error("short weapon-switch release was not ignored");
+        }
+
+        for (uint8_t tick = 0; tick < kWeaponSwitchHoldTicks; ++tick) {
+            updateWeaponSwitch(bombInventory_, weaponSwitchHoldTicks_, true);
+        }
+        if (weaponSwitchHoldTicks_ != kWeaponSwitchHoldTicks ||
+            bombInventory_.selected != BombType::Small || soundLatch_.active) {
+            throw std::runtime_error("held weapon-switch chord triggered before release");
+        }
+        updateWeaponSwitch(bombInventory_, weaponSwitchHoldTicks_, false);
+        if (weaponSwitchHoldTicks_ != 0 ||
+            bombInventory_.selected != BombType::Medium ||
+            !soundLatch_.active ||
+            soundLatch_.latchedOffset != kWeaponSwitchSoundCursor ||
+            soundLatch_.currentSelector != kWeaponSwitchSoundPriority ||
+            soundLatch_.directSweep) {
+            throw std::runtime_error("weapon-switch release state or sound mismatch");
+        }
+        pumpSoundLatch();
+        if (soundLatch_.active ||
+            lastPumpedSoundOffset_ != kWeaponSwitchSoundCursor ||
+            lastPumpedSoundSelector_ != kWeaponSwitchSoundPriority) {
+            throw std::runtime_error("weapon-switch sound cursor did not pump");
+        }
+
+        std::cout << "weapon_switch_sound=ok"
+                  << " hold_ticks=" << static_cast<int>(kWeaponSwitchHoldTicks)
+                  << " trigger=release short_chord_ignored=1 selected=2"
+                  << " cursor=" << hex4(kWeaponSwitchSoundCursor)
+                  << " priority=" << static_cast<int>(kWeaponSwitchSoundPriority)
+                  << " direct_sweep=0 pumped=1"
+                  << " ghidra=1000:6844 latch=1000:165a\n";
     }
 
     void debugBombPlaceSoundRouting() {
@@ -15623,7 +15959,8 @@ public:
                     int portalCooldown = 0;
                     int triggerCooldown = 0;
                     clearSoundLatch();
-                    updatePortalsAndTriggers(player_, portalCooldown, triggerCooldown);
+                    updatePortalsAndTriggers(player_, portalCooldown, triggerCooldown,
+                                             false);
 
                     if (triggerCooldown != 30 || !soundLatch_.active ||
                         soundLatch_.latchedOffset != kTileTriggerSoundCursor ||
@@ -15676,7 +16013,8 @@ public:
                     int portalCooldown = 0;
                     int triggerCooldown = 0;
                     clearSoundLatch();
-                    updatePortalsAndTriggers(player_, portalCooldown, triggerCooldown);
+                    updatePortalsAndTriggers(player_, portalCooldown, triggerCooldown,
+                                             true);
 
                     if (portalCooldown != 30 ||
                         player_.x != static_cast<float>(destination->x) ||
@@ -15736,8 +16074,10 @@ public:
                     player_.y = static_cast<float>(y * kTileSize - 8);
                     player2_ = player_;
 
-                    updatePortalsAndTriggers(player_, portalCooldown_, triggerCooldown_);
-                    updatePortalsAndTriggers(player2_, portalCooldown2_, triggerCooldown2_);
+                    updatePortalsAndTriggers(player_, portalCooldown_, triggerCooldown_,
+                                             true);
+                    updatePortalsAndTriggers(player2_, portalCooldown2_, triggerCooldown2_,
+                                             true);
                     if (player_.x != static_cast<float>(destination->x) ||
                         player_.y != static_cast<float>(destination->y) ||
                         player2_.x != static_cast<float>(destination->x) ||
@@ -16407,6 +16747,7 @@ private:
     std::vector<BonusDrop> bonusDrops_;
     std::vector<Bomb> bombs_;
     std::vector<Flash> flashes_;
+    std::vector<LaunchPadMarker> launchPadMarkers_;
     std::vector<ExplosionEffect> explosionEffects_;
     std::vector<DebrisRecord> debrisQueue_;
     std::vector<CollapseRecord> collapseQueue_;
@@ -16467,8 +16808,8 @@ private:
     int levelResetGeneration_ = 0;
     BombInventory bombInventory_;
     BombInventory bombInventory2_;
-    bool weaponSwitchHeld_ = false;
-    bool weaponSwitchHeld2_ = false;
+    uint8_t weaponSwitchHoldTicks_ = 0;
+    uint8_t weaponSwitchHoldTicks2_ = 0;
     uint32_t logicTick_ = 0;
     uint32_t randomSeed_ = 0x1234abcd;
     uint32_t score_ = 0;
@@ -16578,6 +16919,7 @@ private:
         bonusDrops_.clear();
         bombs_.clear();
         flashes_.clear();
+        launchPadMarkers_.clear();
         explosionEffects_.clear();
         debrisQueue_.clear();
         collapseQueue_.clear();
@@ -16613,8 +16955,8 @@ private:
         pendingDamage2_ = 0;
         bombInventory_ = {};
         bombInventory2_ = {};
-        weaponSwitchHeld_ = false;
-        weaponSwitchHeld2_ = false;
+        weaponSwitchHoldTicks_ = 0;
+        weaponSwitchHoldTicks2_ = 0;
         logicTick_ = 0;
         for (const MonsterSpawner& spawner : level_.monsterSpawners) {
             SpawnerState state;
@@ -17120,11 +17462,24 @@ private:
         }
     }
 
-    void updateWeaponSwitch(BombInventory& inventory, bool& held, bool pressed) {
-        if (pressed && !held) {
+    void updateWeaponSwitch(BombInventory& inventory, uint8_t& holdTicks,
+                            bool pressed) {
+        if (pressed) {
+            ++holdTicks;
+            return;
+        }
+        if (holdTicks >= kWeaponSwitchHoldTicks) {
+            requestWeaponSwitchSound();
             selectNextAvailableBomb(inventory);
         }
-        held = pressed;
+        holdTicks = 0;
+    }
+
+    void driveAutoplayerWeaponSwitchChord(const FrameControls& controls) {
+        for (uint8_t tick = 0; tick < kWeaponSwitchHoldTicks; ++tick) {
+            updateWithControls(controls, 1.0f / 60.0f);
+        }
+        updateWithControls(FrameControls{}, 1.0f / 60.0f);
     }
 
     void update(float dt) {
@@ -17137,9 +17492,12 @@ private:
                            (playerCount_ == 1 && keys[SDL_SCANCODE_X]);
         controls.p1Jump = keys[SDL_SCANCODE_UP] ||
                           (playerCount_ == 1 && keys[SDL_SCANCODE_M]);
+        controls.p1Down = keys[SDL_SCANCODE_DOWN] ||
+                          (playerCount_ == 1 && keys[SDL_SCANCODE_C]);
         controls.p2Left = playerCount_ > 1 && keys[SDL_SCANCODE_Z];
         controls.p2Right = playerCount_ > 1 && keys[SDL_SCANCODE_X];
         controls.p2Jump = playerCount_ > 1 && keys[SDL_SCANCODE_M];
+        controls.p2Down = playerCount_ > 1 && keys[SDL_SCANCODE_C];
         updateWithControls(controls, dt);
     }
 
@@ -17149,11 +17507,15 @@ private:
         updateDamageCooldowns();
         bool p1Switch = controls.p1Left && controls.p1Right;
         bool p2Switch = controls.p2Left && controls.p2Right;
-        updateWeaponSwitch(bombInventory_, weaponSwitchHeld_, p1Switch);
+        bool p1Jump = controls.p1Jump && !controls.p1Down;
+        bool p1Down = controls.p1Down && !controls.p1Jump;
+        bool p2Jump = controls.p2Jump && !controls.p2Down;
+        bool p2Down = controls.p2Down && !controls.p2Jump;
+        updateWeaponSwitch(bombInventory_, weaponSwitchHoldTicks_, p1Switch);
         if (playerCount_ > 1) {
-            updateWeaponSwitch(bombInventory2_, weaponSwitchHeld2_, p2Switch);
+            updateWeaponSwitch(bombInventory2_, weaponSwitchHoldTicks2_, p2Switch);
         } else {
-            weaponSwitchHeld2_ = false;
+            weaponSwitchHoldTicks2_ = 0;
         }
         if (portalCooldown_ > 0) --portalCooldown_;
         if (triggerCooldown_ > 0) --triggerCooldown_;
@@ -17166,11 +17528,12 @@ private:
             updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
                           playerCount_ == 1 || player2Dead_);
         } else {
+            activateLaunchPad(player_, p1Down);
             updatePlayer(player_, controls.p1Left, controls.p1Right,
-                         controls.p1Jump, p1Switch,
+                         p1Jump, p1Switch,
                          playerFacing_, playerAnimTick_, dt);
             collectObjectiveTiles(player_, 1);
-            updatePortalsAndTriggers(player_, portalCooldown_, triggerCooldown_);
+            updatePortalsAndTriggers(player_, portalCooldown_, triggerCooldown_, p1Down);
         }
         if (playerCount_ > 1) {
             if (player2Dead_) {
@@ -17179,13 +17542,16 @@ private:
                 updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
                               playerDead_);
             } else {
+                activateLaunchPad(player2_, p2Down);
                 updatePlayer(player2_, controls.p2Left, controls.p2Right,
-                             controls.p2Jump, p2Switch,
+                             p2Jump, p2Switch,
                              player2Facing_, player2AnimTick_, dt);
                 collectObjectiveTiles(player2_, 2);
-                updatePortalsAndTriggers(player2_, portalCooldown2_, triggerCooldown2_);
+                updatePortalsAndTriggers(player2_, portalCooldown2_, triggerCooldown2_,
+                                         p2Down);
             }
         }
+        updateLaunchPadMarkers();
         updateFlashes();
         updateBombs();
         updateMonsterSpawners();
@@ -17195,6 +17561,42 @@ private:
         drainPlayerDamageCounters();
         updateLevelCompletion();
         pumpSoundLatch();
+    }
+
+    bool activateLaunchPad(Player& player, bool down) {
+        if (!down) return false;
+        int tx = static_cast<int>(player.x + 6.0f) / kTileSize;
+        int ty = static_cast<int>(player.y + 16.0f) / kTileSize;
+        if (tileAt(tx, ty) != kLaunchPadTile ||
+            collides(player.x, player.y - 1.0f)) {
+            return false;
+        }
+
+        player.vy = kLaunchPadVelocity;
+        player.grounded = false;
+        LaunchPadMarker marker;
+        marker.x = static_cast<int>(player.x) + 4;
+        marker.y = static_cast<int>(player.y) + 13;
+        launchPadMarkers_.push_back(marker);
+        requestLaunchPadSound();
+        return true;
+    }
+
+    void updateLaunchPadMarkers() {
+        for (LaunchPadMarker& marker : launchPadMarkers_) {
+            if ((logicTick_ & 1u) != 0 && marker.timer > 0) {
+                --marker.timer;
+            }
+            if (marker.timer == 0) continue;
+            integrateAxis8_8(marker.x, marker.fracX, marker.velocityX8);
+            integrateAxis8_8(marker.y, marker.fracY, marker.velocityY8);
+        }
+        launchPadMarkers_.erase(
+            std::remove_if(launchPadMarkers_.begin(), launchPadMarkers_.end(),
+                           [](const LaunchPadMarker& marker) {
+                               return marker.timer == 0;
+                           }),
+            launchPadMarkers_.end());
     }
 
     void updateLevelCompletion() {
@@ -17231,7 +17633,7 @@ private:
             player.grounded = true;
         }
         if (jump && player.grounded) {
-            player.vy = -135.0f;
+            player.vy = kPlayerJumpVelocity;
             player.grounded = false;
         }
         player.vy = std::min(160.0f, player.vy + 360.0f * dt);
@@ -17345,13 +17747,13 @@ private:
     }
 
     void updatePortalsAndTriggers(Player& player, int& portalCooldown,
-                                  int& triggerCooldown) {
+                                  int& triggerCooldown, bool down) {
         int tx = static_cast<int>(player.x + 6.0f) / 8;
         int ty = static_cast<int>(player.y + 12.0f) / 8;
         int tile = tileAt(tx, ty);
         uint16_t key = static_cast<uint16_t>(wordAt(tx, ty) & 0x7fffu);
 
-        if (tile == 0x45 && key != 0 && portalCooldown == 0) {
+        if (down && tile == 0x45 && key != 0 && portalCooldown == 0) {
             for (const LevelPortal& portal : level_.portals) {
                 if (portal.key == key) {
                     player.x = static_cast<float>(portal.x);
@@ -17427,6 +17829,7 @@ private:
         bonusDrops_.clear();
         bombs_.clear();
         flashes_.clear();
+        launchPadMarkers_.clear();
         explosionEffects_.clear();
         debrisQueue_.clear();
         collapseQueue_.clear();
@@ -17445,8 +17848,8 @@ private:
         pendingDamage2_ = 0;
         bombInventory_ = {};
         bombInventory2_ = {};
-        weaponSwitchHeld_ = false;
-        weaponSwitchHeld2_ = false;
+        weaponSwitchHoldTicks_ = 0;
+        weaponSwitchHoldTicks2_ = 0;
         playerFacing_ = 1;
         player2Facing_ = 1;
         playerAnimTick_ = 0;
@@ -18552,6 +18955,14 @@ private:
 
     bool requestRecordsPageSound() {
         return requestSoundCursor(kRecordsPageSoundCursor, kRecordsPageSoundPriority);
+    }
+
+    bool requestWeaponSwitchSound() {
+        return requestSoundCursor(kWeaponSwitchSoundCursor, kWeaponSwitchSoundPriority);
+    }
+
+    bool requestLaunchPadSound() {
+        return requestSoundCursor(kLaunchPadSoundCursor, kLaunchPadSoundPriority);
     }
 
     bool requestPortalTeleportSound() {
@@ -19954,6 +20365,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-records-page-sound") {
             app.debugRecordsPageSoundRouting();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-weapon-switch-sound") {
+            app.debugWeaponSwitchSoundRouting();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-place-sound") {

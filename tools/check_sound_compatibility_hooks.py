@@ -57,6 +57,14 @@ EXPECTED_RECOVERED_HOOK_SNIPPETS = [
     "constexpr uint8_t kRecordsPageSoundPriority = 2;",
     "bool requestRecordsPageSound()",
     "requestRecordsPageSound();",
+    "constexpr uint16_t kWeaponSwitchSoundCursor = 0x0024;",
+    "constexpr uint8_t kWeaponSwitchSoundPriority = 2;",
+    "bool requestWeaponSwitchSound()",
+    "requestWeaponSwitchSound();",
+    "constexpr uint16_t kLaunchPadSoundCursor = 0x0035;",
+    "constexpr uint8_t kLaunchPadSoundPriority = 5;",
+    "bool requestLaunchPadSound()",
+    "requestLaunchPadSound();",
 ]
 
 EXPECTED_REJECTED_OBJECTIVE_CANDIDATES = [
@@ -72,7 +80,7 @@ EXPECTED_CAPTURE_BLOCKERS = [
 
 EXPECTED_ACTOR_CONTACT_CAPTURE_CANDIDATES = (
     "actor_contact_capture_candidates=0x5e81:contact_scanner,"
-    "0x6844:actor_update,0x6924:actor_update,0x7386:actor_update"
+    "0x7386:actor_update"
 )
 
 EXPECTED_RUNTIME_CAPTURE_HANDOFFS = [
@@ -80,6 +88,12 @@ EXPECTED_RUNTIME_CAPTURE_HANDOFFS = [
     "tools/sweep_original_sound_callsite_routes.py",
     "LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM",
     "LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION",
+]
+
+EXPECTED_RUNTIME_ROUTE_CLASSIFICATION = [
+    "first_target=actor_update_runtime_cursor_0024_sound",
+    "route_classes=natural:3,runtime_seeded:1",
+    "state6_capture_blocker=shipped_actor_modes_exclude_6",
 ]
 
 
@@ -123,6 +137,13 @@ def check_source(source_path: Path) -> None:
     require(text, "objective_pickup,level_complete", "source")
     for snippet in EXPECTED_RUNTIME_CAPTURE_HANDOFFS:
         require(text, snippet, "source")
+    for snippet in EXPECTED_RUNTIME_ROUTE_CLASSIFICATION:
+        source_snippet = (
+            "natural:3,runtime_seeded:1"
+            if snippet.startswith("route_classes=")
+            else snippet
+        )
+        require(text, source_snippet, "source")
     for snippet in EXPECTED_REJECTED_OBJECTIVE_CANDIDATES:
         require(text, snippet, "source")
     for snippet in EXPECTED_CAPTURE_BLOCKERS:
@@ -172,6 +193,8 @@ def check_docs(root: Path) -> None:
         require_collapsed(text, EXPECTED_ACTOR_CONTACT_CAPTURE_CANDIDATES, label)
         for snippet in EXPECTED_RUNTIME_CAPTURE_HANDOFFS:
             require_collapsed(text, snippet, label)
+        for snippet in EXPECTED_RUNTIME_ROUTE_CLASSIFICATION:
+            require_collapsed(text, snippet, label)
         for snippet in EXPECTED_REJECTED_OBJECTIVE_CANDIDATES:
             require_collapsed(text, snippet, label)
         for snippet in EXPECTED_CAPTURE_BLOCKERS:
@@ -191,9 +214,11 @@ def check_cmake(cmake_path: Path) -> None:
     require(text, EXPECTED_ACTOR_CONTACT_CAPTURE_CANDIDATES, "CMake")
     for snippet in EXPECTED_RUNTIME_CAPTURE_HANDOFFS:
         require(text, snippet, "CMake")
+    for snippet in EXPECTED_RUNTIME_ROUTE_CLASSIFICATION:
+        require(text, snippet, "CMake")
     require(
         text,
-        "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=5 helpers=30 docs=3 rejected_objective_candidates=3 capture_blockers=2 runtime_capture_handoffs=4 live_diagnostic=1",
+        "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=7 helpers=38 docs=3 rejected_objective_candidates=3 capture_blockers=2 runtime_capture_handoffs=4 runtime_route_classifications=3 live_diagnostic=1",
         "CMake",
     )
 
@@ -212,12 +237,14 @@ def main() -> int:
     print(
         "sound_compatibility_hooks=ok "
         f"live_hooks={len(EXPECTED_LIVE_HOOKS)} "
-        "recovered_hooks=5 "
+        "recovered_hooks=7 "
         f"helpers={len(EXPECTED_HELPER_SNIPPETS) + len(EXPECTED_RECOVERED_HOOK_SNIPPETS)} "
         "docs=3 "
         f"rejected_objective_candidates={len(EXPECTED_REJECTED_OBJECTIVE_CANDIDATES)} "
         f"capture_blockers={len(EXPECTED_CAPTURE_BLOCKERS)} "
         f"runtime_capture_handoffs={len(EXPECTED_RUNTIME_CAPTURE_HANDOFFS)} "
+        "runtime_route_classifications="
+        f"{len(EXPECTED_RUNTIME_ROUTE_CLASSIFICATION)} "
         "live_diagnostic=1"
     )
     return 0

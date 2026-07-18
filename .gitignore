@@ -2,6 +2,8 @@ build/
 build-*/
 lezac_cpp
 .codex
+.codex-git/
+*-LIS.*
 *.ppm
 *.wav
 __pycache__/

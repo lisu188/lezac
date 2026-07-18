@@ -65,7 +65,11 @@ def checked_in_doc_path(root: Path, value: str, fixture: str) -> Path:
 
 def fixture_counts(root: Path) -> tuple[int, int, int, int, int, list[str]]:
     fixture_dir = root / "tests" / "fixtures" / "dosbox"
-    fixtures = sorted(fixture_dir.glob("*.txt"))
+    fixtures = sorted(
+        fixture
+        for fixture in fixture_dir.glob("*.txt")
+        if not fixture.name.endswith("-LIS.txt")
+    )
     if not fixtures:
         raise RuntimeError(f"no fixtures found under {fixture_dir}")
 

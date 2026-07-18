@@ -16235,11 +16235,12 @@ public:
         bombInventory_.selected = BombType::Large;
         bombInventory_.counts = {199, 7, 3, 1};
 
+        const int hudY = kScreenH - 24;
         FrameInspection first = inspectRenderedFrame("hud-stats-live-first");
         std::vector<uint32_t> firstPixels = fb_;
-        if (!regionHasVariation(0, 0, kScreenW, 24) ||
-            !regionHasVariation(48, 3, 56, 8) ||
-            !regionHasVariation(154, 2, 132, 12)) {
+        if (!regionHasVariation(0, hudY, kScreenW, 24) ||
+            !regionHasVariation(48, hudY + 3, 56, 8) ||
+            !regionHasVariation(154, hudY + 2, 132, 12)) {
             throw std::runtime_error("HUD stats panel did not render visible gauges/icons");
         }
 
@@ -16249,7 +16250,7 @@ public:
         bombInventory_.counts[3] = 0;
         FrameInspection second = inspectRenderedFrame("hud-stats-live-second");
         if (second.hash == first.hash ||
-            !regionChanged(firstPixels, 0, 0, kScreenW, 24)) {
+            !regionChanged(firstPixels, 0, hudY, kScreenW, 24)) {
             throw std::runtime_error("HUD stats panel did not react to player/bomb stat changes");
         }
 
@@ -19386,8 +19387,10 @@ private:
     }
 
     void drawHud() {
-        drawHudBand(0, 1, energy_, lives_, playerDead_, bombInventory_, score_,
-                    playerCount_ == 1);
+        // The original HUD is a bottom status band (the top of the screen is
+        // gameplay sky), so the single-player band is anchored to the bottom.
+        drawHudBand(kScreenH - 24, 1, energy_, lives_, playerDead_,
+                    bombInventory_, score_, playerCount_ == 1);
         if (isComplete()) {
             rect(76, 84, 168, 24, 0xee000000u);
             text(92, 92, "LEVEL COMPLETED", 0xffffe060u, false, 0xff301800u);

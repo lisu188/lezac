@@ -71,8 +71,20 @@ quirk.
 ## Confirmed Data Files
 
 - `BOMPAL.PAL` is exactly 768 bytes: 256 VGA RGB values using 6-bit channels.
-- `SFONLEF.ZBG` starts with a 768-byte palette and then PCX-style RLE bytes
-  for a 321x388 indexed background.
+- `SFONLEF.ZBG` is the 320x200 mode-13h title screen (the "LARAX & ZACO"
+  logo art), recovered from the original display routine at Ghidra
+  `1000:030b` (the main-menu handler) and its decoder at `1000:82d0`. The
+  layout is: a 768-byte VGA palette, a 2-byte little-endian RLE-payload
+  length (`0x82f2` = 33522), then a nibble-paired RLE where each 3-byte group
+  `(b0, b1, b2)` emits `(b0>>4)+1` copies of `b1` followed by `(b0&0x0f)+1`
+  copies of `b2`, filling exactly one 64000-byte (320x200) screen. The menu
+  routine loads it via `call 1000:030b` then overlays art with `call
+  1000:2226` and handles keys `1/2/i/z/r`, so the original main menu *is*
+  this title image (not a text menu). The earlier "PCX-style 321x388"
+  reading was wrong: that stride produced horizontal-shear noise. Levels do
+  not use `SFONLEF.ZBG`; the gameplay sky is a vertical gradient
+  (top `RGB(16,8,52)` to horizon `RGB(113,60,28)`) sampled from original
+  frames.
 - `CARO.CAR` starts with a big-endian 16-bit tile count, followed by raw 8x8
   indexed tiles.
   `--debug-core-resource-raw-roundtrip` verifies all three raw files against

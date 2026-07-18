@@ -19035,14 +19035,16 @@ private:
             }
             return;
         }
-        constexpr int kRampRows = 100;
+        // Ramp fit to the original sky column: a flat dark band for the top ~11
+        // rows, then a linear ramp over ~88 rows to the horizon colour.
+        constexpr int kRampStart = 11, kRampSpan = 88;
         constexpr int kTopR = 16, kTopG = 8, kTopB = 52;
-        constexpr int kBotR = 113, kBotG = 60, kBotB = 28;
+        constexpr int kBotR = 118, kBotG = 62, kBotB = 26;
         for (int y = 0; y < viewH; ++y) {
-            const int t = std::min(kRampRows, y);
-            const int r = kTopR + (kBotR - kTopR) * t / kRampRows;
-            const int g = kTopG + (kBotG - kTopG) * t / kRampRows;
-            const int b = kTopB + (kBotB - kTopB) * t / kRampRows;
+            const int t = std::clamp(y - kRampStart, 0, kRampSpan);
+            const int r = kTopR + (kBotR - kTopR) * t / kRampSpan;
+            const int g = kTopG + (kBotG - kTopG) * t / kRampSpan;
+            const int b = kTopB + (kBotB - kTopB) * t / kRampSpan;
             const uint32_t color = 0xff000000u |
                                    (static_cast<uint32_t>(r) << 16) |
                                    (static_cast<uint32_t>(g) << 8) |

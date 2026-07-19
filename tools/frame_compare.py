@@ -241,6 +241,38 @@ def compare(a_img: Image, b_img: Image, threshold: int) -> dict[str, float | int
     }
 
 
+def registered_delta(left, right, region, max_dx, max_dy):
+    """Find the (dx, dy) shift of `right` vs `left` (over `region`) minimizing
+    mean absolute delta. Compensates for scroll/camera offset between two
+    capture harnesses so the metric reflects rendering, not alignment."""
+    width, height, lp = left
+    _, _, rp = right
+    x0, y0, rw, rh = region
+    best = None
+    for dy in range(-max_dy, max_dy + 1):
+        for dx in range(-max_dx, max_dx + 1):
+            total = 0
+            count = 0
+            for y in range(y0, min(y0 + rh, height), 3):
+                ry = y + dy
+                if ry < 0 or ry >= height:
+                    continue
+                base_l = y * width
+                base_r = ry * width
+                for x in range(x0, min(x0 + rw, width), 3):
+                    rx = x + dx
+                    if rx < 0 or rx >= width:
+                        continue
+                    li = (base_l + x) * 3
+                    ri = (base_r + rx) * 3
+                    total += (abs(lp[li] - rp[ri]) + abs(lp[li + 1] - rp[ri + 1]) +
+                              abs(lp[li + 2] - rp[ri + 2]))
+                    count += 3
+            if count and (best is None or total / count < best[0]):
+                best = (total / count, dx, dy)
+    return best
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("left")
@@ -249,6 +281,8 @@ def main() -> int:
     parser.add_argument("--max-diff-pixels", type=int, default=0)
     parser.add_argument("--crop", help="compare only x,y,w,h")
     parser.add_argument("--diff", help="write a PPM visual diff")
+    parser.add_argument("--register", help="align before differencing: MAX_DX,MAX_DY")
+    parser.add_argument("--register-region", help="region for --register: x,y,w,h")
     args = parser.parse_args()
 
     if args.threshold < 0 or args.threshold > 255:
@@ -264,6 +298,23 @@ def main() -> int:
     if args.diff:
         write_ppm(Path(args.diff), diff_image(left[0], left[1], left[2], right[2]))
 
+    register_suffix = ""
+    if args.register:
+        try:
+            max_dx, max_dy = (int(v) for v in args.register.split(","))
+        except ValueError:
+            parser.error("--register must be MAX_DX,MAX_DY")
+        if args.register_region:
+            region = tuple(int(v) for v in args.register_region.split(","))
+        else:
+            region = (0, 0, left[0], min(154, left[1]))
+        best = registered_delta(left, right, region, max_dx, max_dy)
+        if best is not None:
+            register_suffix = (
+                f" registered_mean_abs_delta={best[0]:.6f}"
+                f" registered_dx={best[1]} registered_dy={best[2]}"
+            )
+
     print(
         "frame_compare=ok"
         f" size={left[0]}x{left[1]}"
@@ -276,6 +327,7 @@ def main() -> int:
         f" max_delta={stats['max_delta']}"
         f" mean_abs_delta={stats['mean_abs_delta']:.6f}"
         f" rmse={stats['rmse']:.6f}"
+        f"{register_suffix}"
     )
     return 0 if stats["threshold_different_pixels"] <= args.max_diff_pixels else 1
 

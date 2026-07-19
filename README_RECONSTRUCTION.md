@@ -695,6 +695,12 @@ tools/frame_compare.py \
   --diff /tmp/lezac-frame-diff.ppm
 ```
 
+`tools/frame_compare.py --register MAX_DX,MAX_DY` searches a bounded 2-D
+translation (optionally within `--register-region x,y,w,h`) and reports
+`registered_mean_abs_delta`/`registered_dx`/`registered_dy`, compensating for
+camera-scroll offset between two capture harnesses so the metric reflects
+rendering rather than alignment.
+
 `tools/frame_compare.py` reads PPM/PNM and uncompressed BMP files without extra
 dependencies. If Pillow is installed, it can also read DOSBox PNG screenshots.
 When one frame is an integer-scaled version of the other, such as DOSBox

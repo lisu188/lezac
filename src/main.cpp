@@ -7730,6 +7730,46 @@ public:
             origSegmentLinks == portLinks && portLinks == 6 &&
             origHeadBoxW == portHeadBoxW && origHeadBoxH == portHeadBoxH;
 
+        // Validate the MOTION PHYSICS of each segment link, not just the count.
+        // The runtime link table (DS:0x79EA slots 1..6) is initialised from the
+        // GRAN.MST link records in order, so its static physics fields must
+        // equal the port's decoded bossLinks_[i] element-for-element:
+        //   gain (byte2), mode (byte3), radiusX (byte4), radiusY (byte5),
+        //   offX (bytes7..8), offY (bytes9..10), biasY (byte15).
+        // Excluded: bytes 11..14 (per-frame outX/outY) and byte6 (phase) are
+        // runtime-advanced, and bytes0..1 (target/self visual) carry a runtime
+        // +2 base vs the port's +4 base (an internal numbering offset that does
+        // not affect physics or rendering). Match by link index.
+        int linkParamMatches = 0, linkParamChecked = 0;
+        int origSpringLinks = 0, origOrbitLinks = 0;
+        for (int slot = 1; slot <= 6; ++slot) {
+            size_t s = static_cast<size_t>(slot) * 16;
+            size_t li = static_cast<size_t>(slot - 1);
+            if (s + 16 > links.size() || li >= bossLinks_.size()) continue;
+            uint8_t gain = links[s + 2];
+            uint8_t mode = links[s + 3];
+            uint8_t radiusX = links[s + 4];
+            uint8_t radiusY = links[s + 5];
+            int16_t offX = static_cast<int16_t>(links[s + 7] | (links[s + 8] << 8));
+            int16_t offY = static_cast<int16_t>(links[s + 9] | (links[s + 10] << 8));
+            int8_t biasY = static_cast<int8_t>(links[s + 15]);
+            if (mode == 0xff) ++origOrbitLinks; else ++origSpringLinks;
+            const BossMotionLink& pl = bossLinks_[li];
+            ++linkParamChecked;
+            if (pl.gain == gain && pl.mode == mode &&
+                pl.radiusX == radiusX && pl.radiusY == radiusY &&
+                pl.offX == offX && pl.offY == offY && pl.biasY == biasY) {
+                ++linkParamMatches;
+            }
+        }
+        int portSpringLinks = 0, portOrbitLinks = 0;
+        for (const BossMotionLink& l : bossLinks_)
+            if (l.mode == 0xff) ++portOrbitLinks; else ++portSpringLinks;
+        bool linkMatch = linkParamChecked == 6 && linkParamMatches == 6 &&
+                         origSpringLinks == portSpringLinks &&
+                         origOrbitLinks == portOrbitLinks;
+        match = match && linkMatch;
+
         std::cout << "boss_runtime_evidence=" << (match ? "ok" : "MISMATCH")
                   << " original_head=" << origHeadCount
                   << " original_segments=" << origSegmentCount
@@ -7742,6 +7782,11 @@ public:
                   << " port_links=" << portLinks
                   << " port_head_box=" << portHeadBoxW << 'x' << portHeadBoxH
                   << " head_kind=0x1e head_behavior=6 segment_kind=0x1f"
+                  << " link_params_matched=" << linkParamMatches << '/' << linkParamChecked
+                  << " original_spring_links=" << origSpringLinks
+                  << " original_orbit_links=" << origOrbitLinks
+                  << " port_spring_links=" << portSpringLinks
+                  << " port_orbit_links=" << portOrbitLinks
                   << " boss_structure_confirmed=" << (match ? 1 : 0) << '\n';
         if (!match) throw std::runtime_error("boss model does not match original runtime evidence");
     }

@@ -2379,7 +2379,7 @@ if(BUILD_TESTING)
     set_tests_properties(boss_runtime_evidence PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^boss_runtime_evidence=ok original_head=1 original_segments=6 original_actors=7 original_segment_links=6 original_head_box=5x4 port_head=1 port_segments=6 port_actors=7 port_links=6 port_head_box=5x4 head_kind=0x1e head_behavior=6 segment_kind=0x1f boss_structure_confirmed=1")
+            "^boss_runtime_evidence=ok original_head=1 original_segments=6 original_actors=7 original_segment_links=6 original_head_box=5x4 port_head=1 port_segments=6 port_actors=7 port_links=6 port_head_box=5x4 head_kind=0x1e head_behavior=6 segment_kind=0x1f link_params_matched=6/6 original_spring_links=2 original_orbit_links=4 port_spring_links=2 port_orbit_links=4 boss_structure_confirmed=1")
 
     add_test(NAME gran_profile
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran)

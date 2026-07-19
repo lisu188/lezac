@@ -23,6 +23,16 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Audited the enemy AI for player-seeking divergences.** Extending the head
+  fix, checked every monster behavior: behavior 4 legitimately targets the
+  player (a recovered/tested chaser, `retargetMonster`), and the ground walkers
+  (behaviors 1-3) actually spawn with a fixed heading and reverse only at
+  walls/floor edges -- the original never steers them toward the player. The
+  port carried a latent `nearestPlayer` seek in the walker path that was dead
+  code (spawn always sets a non-zero speed) but could have fired if a walker's
+  velocity ever reached zero; removed it so no walker can seek the player.
+  Full suite unchanged (377/377).
+
 - **Made the boss head brain faithful to `1000:5CB0` (two real behavior fixes).**
   Reversing the head brain revealed the port's head diverged from the original
   in two concrete ways, now fixed: (1) the port made the head *seek the player*

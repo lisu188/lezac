@@ -18459,13 +18459,12 @@ private:
             return;
         }
 
+        // Ground walkers (behaviors 1-3) face the direction set at spawn
+        // (initializeMonsterMotion) and reverse only at walls and floor edges;
+        // the original never steers them toward the player, so preserve the
+        // current facing rather than seeking (defaulting to the spawn heading).
         int16_t speed = groundWalkerSpeed8(monster);
-        if (monster.vx8 == 0) {
-            const Player& target = nearestPlayer(monster.x, monster.y);
-            monster.vx8 = target.x < monster.x ? -speed : speed;
-        } else {
-            monster.vx8 = monster.vx8 < 0 ? -speed : speed;
-        }
+        monster.vx8 = monster.vx8 < 0 ? -speed : speed;
         bool grounded = monsterCollides(monster.x, monster.y + 1.0f);
         if (grounded) {
             float probeX = monster.x + (monster.vx8 < 0 ? -2.0f : 15.0f);

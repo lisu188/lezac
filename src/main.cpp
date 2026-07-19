@@ -20406,7 +20406,10 @@ private:
     }
 
     void drawRecordsMenu() {
-        text(90, 48, "BEST SCORES", 0xff90ffb0u, false, 0xff101010u);
+        // Original records title: "il file dei records" (LEZAC.EXE 1000:16a7).
+        const char* title = menuItalian_ ? "IL FILE DEI RECORDS" : "BEST SCORES";
+        const int tx = (kScreenW - static_cast<int>(std::string(title).size()) * 8) / 2;
+        text(std::max(0, tx), 48, title, 0xff90ffb0u, false, 0xff101010u);
         int y = 70;
         for (size_t i = 0; i < records_.size(); ++i) {
             drawRecordLine(i, y);
@@ -20416,18 +20419,29 @@ private:
     }
 
     void drawNameEntryMenu() {
-        text(86, 48, "NEW RECORD", 0xff90ffb0u, false, 0xff101010u);
-        text(58, 64, "PLAYER " + std::to_string(pendingRecordPlayer_),
+        // Labels recovered from LEZAC.EXE: "giocatore" (1000:17f3), "punteggio
+        // finale" (1000:b3ab), "inserisci il tuo nome" (1000:1826).
+        const bool it = menuItalian_;
+        text(it ? 82 : 86, 48, it ? "NUOVO RECORD" : "NEW RECORD",
+             0xff90ffb0u, false, 0xff101010u);
+        text(58, 64,
+             (it ? "GIOCATORE " : "PLAYER ") + std::to_string(pendingRecordPlayer_),
              0xffffffffu, false, 0xff101010u);
-        text(58, 78, "SCORE " + std::to_string(pendingRecordScore_),
+        text(58, 78,
+             (it ? "PUNTEGGIO " : "SCORE ") + std::to_string(pendingRecordScore_),
              0xffffe060u, false, 0xff101010u);
-        text(58, 94, "LEVEL " + std::to_string(pendingRecordLevel_),
+        text(58, 94,
+             (it ? "LIVELLO " : "LEVEL ") + std::to_string(pendingRecordLevel_),
              0xffffffffu, false, 0xff101010u);
-        text(kNameEntryLabelX, kNameEntrySlotY, "NAME ", 0xffffffffu,
-             false, 0xff101010u);
+        text(kNameEntryLabelX, kNameEntrySlotY, it ? "NOME " : "NAME ",
+             0xffffffffu, false, 0xff101010u);
         drawNameEntrySlots();
-        text(42, 148, "TYPE LETTERS OR SPACE", 0xffffffffu, false, 0xff101010u);
-        text(42, 160, "ENTER SAVE. BACKSPACE ERASES", 0xff90ffb0u, false, 0xff101010u);
+        text(30, 148,
+             it ? "INSERISCI IL TUO NOME" : "TYPE LETTERS OR SPACE",
+             0xffffffffu, false, 0xff101010u);
+        text(30, 160,
+             it ? "ENTER SALVA. BACKSPACE CANCELLA" : "ENTER SAVE. BACKSPACE ERASES",
+             0xff90ffb0u, false, 0xff101010u);
     }
 
     int nameEntryCursorSlot() const {

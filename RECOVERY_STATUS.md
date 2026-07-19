@@ -52,6 +52,19 @@ under the existing guardrails; they are not missing port functionality.
   rendered result. This raises the level-7 boss from static-only decode to a
   runtime-confirmed structure AND motion model.
 
+  Remaining boss frontier (characterized, not yet frame-aligned): the head
+  brain at `1000:5CB0` integrates the head position each frame as
+  `pos += velocity * DS:0xc204` (captured `DS:0xc204 = 140`) and collides the
+  result against the level map (`DS:0xc1e0`) using boundary tiles `0x4c`/`0x52`,
+  before the higher-level steering (player-seeking + RNG) chooses the velocity.
+  The port models the head's movement at a higher level of abstraction rather
+  than replaying this exact fixed-point integration, so the head TRAJECTORY,
+  the flame-damage windows, the phase-HP transitions, and the death-chain
+  sequencing remain verified only statically. Confirming them against the
+  original requires a deterministic frame-by-frame comparison harness (matched
+  RNG seed + input), which the capture pipeline built this session now makes
+  feasible but which is a distinct, larger effort.
+
 - **Unblocked original level-2..7 capture (multi-session blocker solved).**
   Two long-standing obstacles to comparing the port against the original on
   any level past 1 are now resolved:

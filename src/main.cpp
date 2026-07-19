@@ -20743,10 +20743,10 @@ private:
         // Right panel: bomb-count and objective (destruction target) tallies.
         // The original panel spans y0+6..y0+44 (measured 160-198 on level 1),
         // taller than the earlier 34px box.
-        rect(140, y0 + 6, 38, 39, kBlue);
-        rect(140, y0 + 6, 38, 1, kCyan);
-        rect(140, y0 + 44, 38, 1, kCyan);
-        rect(140, y0 + 6, 1, 39, kCyan);
+        rect(141, y0 + 6, 37, 39, kBlue);
+        rect(141, y0 + 6, 37, 1, kCyan);
+        rect(141, y0 + 44, 37, 1, kCyan);
+        rect(141, y0 + 6, 1, 39, kCyan);
         rect(177, y0 + 6, 1, 39, kCyan);
         // Top row: bonus-objective icon + the level's required bonus count.
         // Bottom row: destruction-target icon + the required destruction count.
@@ -20758,10 +20758,10 @@ private:
         // draws the level objectiveTile (verified because levels 1 and 3 share
         // objectiveTile 108 and show the identical lemon; L2=grapes, L5=melon).
         // Each tally icon sits in its own small black inset box on the panel.
-        // Rows are centred in the taller panel: top at y0+13, bottom at y0+27
+        // Rows use the original's 16px spacing: top at y0+13, bottom at y0+29
         // (measured against the original level-1 frame).
         rect(143, y0 + 12, 10, 10, kBlack);
-        rect(143, y0 + 26, 10, 10, kBlack);
+        rect(143, y0 + 28, 10, 10, kBlack);
         if (!drawHudTile8(144, y0 + 13, level_.objectiveTile)) {
             rect(144, y0 + 13, 8, 8, kYellow);
         }
@@ -20771,12 +20771,12 @@ private:
             std::max(0, static_cast<int>(level_.requiredBonus) - collected_);
         drawHudNumber(159, y0 + 13, std::min(99, bonusRemaining), 2);
         // Bottom icon: the fixed destruction-target star, CARO.CAR tile 117.
-        if (!drawHudTile8(144, y0 + 27, kHudDestructionStarTile)) {
-            rect(144, y0 + 27, 8, 8, kYellow);
+        if (!drawHudTile8(144, y0 + 29, kHudDestructionStarTile)) {
+            rect(144, y0 + 29, 8, 8, kYellow);
         }
         int destRemaining = std::max(
             0, static_cast<int>(level_.requiredDestruction) - destructionPercent());
-        drawHudNumber(159, y0 + 27, std::min(99, destRemaining), 2);
+        drawHudNumber(159, y0 + 29, std::min(99, destRemaining), 2);
     }
 
     void drawHud() {

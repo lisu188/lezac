@@ -4,43 +4,32 @@
 This is the orchestration substrate for capturing the original game at levels
 other than level 1, which the original offers no key shortcut to reach (there is
 no PageUp/PageDown/F5 level-skip; level advance happens only through natural
-completion -> results screen -> keypress -> the level-advance routine at Ghidra
-1000:2040/2051 which increments the level byte DS:0x79B7 and reloads geometry).
+completion -> results screen -> keypress -> the result routine at Ghidra
+1000:1D61, which reaches the level increment at 1000:2051 and reloads geometry).
 
 Validated behaviour (see --self-check):
   * Runs plain `dosbox` under `xvfb-run -a`, drives it to level-1 gameplay with
-    `xdotool` (start key, then a fire tap to dismiss the "PREPARATI PER IL
-    LIVELLO N" splash).
+    `xdotool` (two menu-start taps, then a delayed neutral key for the blocking
+    read after the "PREPARATI PER IL LIVELLO N" caption).
   * Finds the DOSBox process, scans /proc/<pid>/mem for the data signature
     b"larax e zaco versione" and derives the emulated-memory base as
     base = sig_addr - ((RUNTIME_DS << 4) + DATA_STRING_OFFSET) with
     RUNTIME_DS = 0x0C8F, DATA_STRING_OFFSET = 0x8B.
-  * Reads DS:0x79B7 (the level byte, 0-indexed: 0 == level 1) and can write
-    arbitrary DS offsets for seeding experiments, then triggers a DOSBox
-    screenshot.
+  * Reads DS:0x79B7 (the 1-based playable level byte, 1..7), plus the original
+    destruction/bonus objective counters, targets, completion flags, and
+    collapse-queue count.
+  * With `--target-level N`, seeds the current objective counters to the
+    level-file targets, lets `1000:3184` derive both completion flags, waits for
+    the `1000:8283` empty-collapse-queue gate, advances through the native
+    results routine at `1000:1D61`, dismisses the next intro, and captures the
+    requested level's live gameplay frame. Value 8 is the completed-game
+    sentinel and is not a playable level.
+  * Retains repeatable byte-level `--seed OFFSET=VALUE` writes for focused
+    experiments.
 
-SOLVED completion trigger (this is what lets us seed levels 2-8):
-  The main-loop completion gate lives at Ghidra 1000:8283 (file offset 0x89f3):
-
-      cmp BYTE  ds:0x79c5, 0   ; je  skip   (progress flag 1 -> reached scroll limit)
-      cmp BYTE  ds:0x79c6, 0   ; je  skip   (progress flag 2)
-      cmp WORD  ds:0x2080, 0   ; jne skip   (active-actor count -> must be zero)
-      call 0x24d1              ; "LIVELLO COMPLETATO" results screen (blocking)
-      cmp BYTE  ds:0x79b7, 7   ; ja end-game
-      jmp advance              ; increment level byte, load next level
-
-  Writing DS:0x79C5=1 and DS:0x79C6=1 alone does NOT advance the level, because
-  the third condition (WORD DS:0x2080 == 0, the active-actor count that is
-  inc'd on spawn at 1000:40e8 and dec'd on destroy at 1000:586a) is almost never
-  zero during normal play. Seeding all three (0x79C5=1, 0x79C6=1, 0x2080=0)
-  satisfies the gate: the game runs its own results screen and advances. This is
-  validated live end-to-end (levels 1->2->...->7->victory captured under DOSBox).
-
-Input delivery: keys MUST be sent as real XTEST events (focus the window with
-`xdotool windowactivate --sync`, then `xdotool key --clearmodifiers <k>` with NO
-`--window` flag). SDL/DOSBox silently drops XSendEvent synthetic events, so
-`xdotool key --window ...` never registers in-game; that was the long-standing
-standalone-driver blocker.
+Input delivery uses real XTEST events: focus the DOSBox window, then call
+`xdotool key --clearmodifiers <key>` without `--window`. SDL/DOSBox drops the
+XSendEvent path produced by `xdotool key --window ...`.
 
 Guarded: live runs require --approve-procmem and --approve-runtime-instrumentation.
 """
@@ -57,11 +46,42 @@ RUNTIME_DS = 0x0C8F
 DATA_STRING_OFFSET = 0x8B
 DATA_SIGNATURE = b"larax e zaco versione"
 LEVEL_BYTE_OFFSET = 0x79B7
-
-# Completion gate globals (Ghidra 1000:8283 / file 0x89f3).
-COMPLETION_FLAG1_OFFSET = 0x79C5  # progress flag 1 (byte)
-COMPLETION_FLAG2_OFFSET = 0x79C6  # progress flag 2 (byte)
-ACTOR_COUNT_OFFSET = 0x2080       # active-actor count (word); must be 0 to complete
+BONUS_TARGET_OFFSET = 0x2086
+BONUS_CURRENT_OFFSET = 0x2088
+BONUS_PREVIOUS_OFFSET = 0x208A
+COLLAPSE_QUEUE_COUNT_OFFSET = 0x2080
+DESTRUCTION_TARGET_OFFSET = 0x79B3
+DESTRUCTION_CURRENT_OFFSET = 0x79B5
+DESTRUCTION_PREVIOUS_OFFSET = 0x79B6
+BONUS_COMPLETE_OFFSET = 0x79C5
+DESTRUCTION_COMPLETE_OFFSET = 0x79C6
+ACTOR_TABLE_OFFSET = 0x1BAE
+ACTOR_COUNT_OFFSET = 0x208D
+ACTOR_RECORD_STRIDE = 0x26
+VISUAL_TABLE_OFFSET = 0xC21E
+VISUAL_RECORD_STRIDE = 8
+MOTION_LINK_TABLE_OFFSET = 0x79EA
+MOTION_LINK_COUNT_OFFSET = 0x79F9
+MOTION_LINK_RECORD_STRIDE = 0x10
+VISUAL_COUNT_OFFSET = 0xC496
+CAMERA_X_OFFSET = 0xC216
+CAMERA_Y_OFFSET = 0xC218
+CAMERA_SUB_X_OFFSET = 0xC20A
+CAMERA_SUB_Y_OFFSET = 0xC20C
+CAMERA_MAP_OFFSET = 0xC1F0
+CAMERA_MAX_X_OFFSET = 0x2094
+CAMERA_MAX_Y_OFFSET = 0x2096
+VIEW_WIDTH_OFFSET = 0xC1EC
+VIEW_HEIGHT_OFFSET = 0xC1EE
+VIEW_ROW_DELTA_OFFSET = 0xC206
+CAMERA_CENTER_X_OFFSET = 0x78BC
+CAMERA_CENTER_TILE_OFFSET = 0x78BE
+ACTIVE_VIEW_WIDTH_OFFSET = 0x79EE
+VIEW_PRESENT_DEST_OFFSET = 0xC1F4
+VIEW_BUFFER_SOURCE_OFFSET = 0xC214
+VIEW_PAGE_DEST_OFFSET = 0x79F0
+MIN_PLAYABLE_LEVEL = 1
+MAX_PLAYABLE_LEVEL = 7
 
 
 def scan_process(pid: int, pattern: bytes) -> list[int]:
@@ -100,6 +120,167 @@ def write_ds(pid: int, base: int, offset: int, data: bytes) -> None:
         mem.write(data)
 
 
+def write_u8(pid: int, base: int, offset: int, value: int) -> None:
+    write_ds(pid, base, offset, bytes([value & 0xFF]))
+
+
+def write_u16(pid: int, base: int, offset: int, value: int) -> None:
+    write_ds(pid, base, offset, int(value & 0xFFFF).to_bytes(2, "little"))
+
+
+def read_u8(pid: int, base: int, offset: int) -> int:
+    return read_ds(pid, base, offset, 1)[0]
+
+
+def read_u16(pid: int, base: int, offset: int) -> int:
+    return int.from_bytes(read_ds(pid, base, offset, 2), "little")
+
+
+def read_i16(pid: int, base: int, offset: int) -> int:
+    return int.from_bytes(
+        read_ds(pid, base, offset, 2), "little", signed=True)
+
+
+def read_transition_state(pid: int, base: int) -> dict[str, int]:
+    return {
+        "level": read_u8(pid, base, LEVEL_BYTE_OFFSET),
+        "bonus_current": read_u16(pid, base, BONUS_CURRENT_OFFSET),
+        "bonus_target": read_u16(pid, base, BONUS_TARGET_OFFSET),
+        "bonus_previous": read_u16(pid, base, BONUS_PREVIOUS_OFFSET),
+        "destruction_current": read_u8(
+            pid, base, DESTRUCTION_CURRENT_OFFSET),
+        "destruction_target": read_u8(
+            pid, base, DESTRUCTION_TARGET_OFFSET),
+        "destruction_previous": read_u8(
+            pid, base, DESTRUCTION_PREVIOUS_OFFSET),
+        "bonus_complete": read_u8(pid, base, BONUS_COMPLETE_OFFSET),
+        "destruction_complete": read_u8(
+            pid, base, DESTRUCTION_COMPLETE_OFFSET),
+        "collapse_queue": read_u16(
+            pid, base, COLLAPSE_QUEUE_COUNT_OFFSET),
+    }
+
+
+def format_transition_state(prefix: str, state: dict[str, int]) -> str:
+    return " ".join(
+        [f"{prefix}_level={state['level']}"]
+        + [f"{prefix}_{name}={value}" for name, value in state.items()
+           if name != "level"]
+    )
+
+
+def write_runtime_state_snapshot(
+        run_dir: Path,
+        pid: int,
+        base: int,
+        state: dict[str, int],
+        phase: str) -> Path:
+    actor_count = read_u8(pid, base, ACTOR_COUNT_OFFSET)
+    motion_link_count = read_u8(pid, base, MOTION_LINK_COUNT_OFFSET)
+    if actor_count > 64:
+        raise RuntimeError(f"implausible original actor count {actor_count}")
+    if motion_link_count > 64:
+        raise RuntimeError(
+            f"implausible original motion-link count {motion_link_count}")
+
+    # Both original tables are 1-based: slot 0 is reserved, while the count
+    # globals name the highest live slot.
+    actor_slot_count = actor_count + 1
+    actor_bytes = read_ds(
+        pid, base, ACTOR_TABLE_OFFSET,
+        actor_slot_count * ACTOR_RECORD_STRIDE)
+    actors = [
+        actor_bytes[index:index + ACTOR_RECORD_STRIDE]
+        for index in range(0, len(actor_bytes), ACTOR_RECORD_STRIDE)
+    ]
+    visual_count = read_u8(pid, base, VISUAL_COUNT_OFFSET)
+    if visual_count > 64:
+        raise RuntimeError(f"implausible original visual count {visual_count}")
+    visual_bytes = read_ds(
+        pid, base, VISUAL_TABLE_OFFSET, visual_count * VISUAL_RECORD_STRIDE)
+    motion_link_bytes = read_ds(
+        pid, base, MOTION_LINK_TABLE_OFFSET,
+        (motion_link_count + 1) * MOTION_LINK_RECORD_STRIDE)
+
+    lines = [
+        "original_level_runtime_state_v1",
+        format_transition_state("state", state),
+        f"actor_table=ds:{ACTOR_TABLE_OFFSET:04x}",
+        f"actor_count={actor_count}",
+        "actor_index_base=1",
+        f"actor_stride=0x{ACTOR_RECORD_STRIDE:02x}",
+        f"visual_table=ds:{VISUAL_TABLE_OFFSET:04x}",
+        f"visual_allocator_count={read_u8(pid, base, VISUAL_COUNT_OFFSET)}",
+        f"visual_count={visual_count}",
+        f"visual_stride=0x{VISUAL_RECORD_STRIDE:02x}",
+        f"motion_link_table=ds:{MOTION_LINK_TABLE_OFFSET:04x}",
+        f"motion_link_count={motion_link_count}",
+        "motion_link_index_base=1",
+        f"motion_link_stride=0x{MOTION_LINK_RECORD_STRIDE:02x}",
+        "camera"
+        f" x={read_i16(pid, base, CAMERA_X_OFFSET)}"
+        f" y={read_i16(pid, base, CAMERA_Y_OFFSET)}"
+        f" sub_x={read_i16(pid, base, CAMERA_SUB_X_OFFSET)}"
+        f" sub_y={read_i16(pid, base, CAMERA_SUB_Y_OFFSET)}"
+        f" map_offset={read_u16(pid, base, CAMERA_MAP_OFFSET)}"
+        f" max_x={read_i16(pid, base, CAMERA_MAX_X_OFFSET)}"
+        f" max_y={read_i16(pid, base, CAMERA_MAX_Y_OFFSET)}"
+        f" center_x={read_i16(pid, base, CAMERA_CENTER_X_OFFSET)}"
+        f" center_tile={read_i16(pid, base, CAMERA_CENTER_TILE_OFFSET)}",
+        "view"
+        f" width={read_u16(pid, base, VIEW_WIDTH_OFFSET)}"
+        f" height={read_u16(pid, base, VIEW_HEIGHT_OFFSET)}"
+        f" row_delta={read_i16(pid, base, VIEW_ROW_DELTA_OFFSET)}"
+        f" active_width={read_u16(pid, base, ACTIVE_VIEW_WIDTH_OFFSET)}"
+        f" present_dest={read_u16(pid, base, VIEW_PRESENT_DEST_OFFSET)}"
+        f" buffer_source={read_u16(pid, base, VIEW_BUFFER_SOURCE_OFFSET)}"
+        f" page_dest={read_u16(pid, base, VIEW_PAGE_DEST_OFFSET)}",
+    ]
+    for index, actor in enumerate(actors):
+        lines.append(
+            f"actor[{index}]"
+            f" kind=0x{actor[0]:02x}"
+            f" visual={actor[1]}"
+            f" lives={actor[2]}"
+            f" anim_a={actor[3]}"
+            f" anim_b={actor[4]}"
+            f" behavior={actor[0x15]}"
+            f" timer={actor[0x1a]}"
+            f" head_link={actor[0x25]}"
+            f" raw={actor.hex()}"
+        )
+    for index in range(visual_count):
+        start = index * VISUAL_RECORD_STRIDE
+        visual = visual_bytes[start:start + VISUAL_RECORD_STRIDE]
+        x = int.from_bytes(visual[0:2], "little", signed=True)
+        y = int.from_bytes(visual[2:4], "little", signed=True)
+        lines.append(
+            f"visual[{index}]"
+            f" x={x} y={y}"
+            f" sprite={visual[4]}"
+            f" detail={visual[5]}"
+            f" timer={visual[6]}"
+            f" variant={visual[7]}"
+            f" raw={visual.hex()}"
+        )
+    for index in range(motion_link_count + 1):
+        start = index * MOTION_LINK_RECORD_STRIDE
+        link = motion_link_bytes[start:start + MOTION_LINK_RECORD_STRIDE]
+        lines.append(
+            f"motion_link[{index}]"
+            f" target_visual={link[0]}"
+            f" self_visual={link[1]}"
+            f" gain={link[2]}"
+            f" mode={link[3]}"
+            f" raw={link.hex()}"
+        )
+
+    target = run_dir / (
+        f"original_level_{state['level']}_runtime_state_{phase}.txt")
+    target.write_text("\n".join(lines) + "\n")
+    return target
+
+
 def parse_seed(seed_args: list[str]) -> list[tuple[int, int]]:
     seeds: list[tuple[int, int]] = []
     for item in seed_args or []:
@@ -108,155 +289,345 @@ def parse_seed(seed_args: list[str]) -> list[tuple[int, int]]:
     return seeds
 
 
+def wait_for_state(
+        pid: int,
+        base: int,
+        predicate,
+        timeout: float,
+        label: str) -> dict[str, int]:
+    deadline = time.monotonic() + timeout
+    state = read_transition_state(pid, base)
+    while not predicate(state):
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                f"timeout waiting for {label}: "
+                f"{format_transition_state('state', state)}")
+        time.sleep(0.1)
+        state = read_transition_state(pid, base)
+    return state
+
+
 def run_live(args) -> int:
-    conf = Path(args.run_dir) / "dosbox-seed.conf"
+    run_dir = Path(args.run_dir).resolve()
+    if not (run_dir / "LEZAC.EXE").is_file():
+        raise RuntimeError(f"missing {run_dir / 'LEZAC.EXE'}")
+
+    conf = run_dir / "dosbox-seed.conf"
     conf.write_text(
         "[sdl]\nfullscreen=false\noutput=surface\n"
-        f"[dosbox]\ncaptures={args.run_dir}\n"
+        f"[dosbox]\ncaptures={run_dir}\n"
         "[render]\nframeskip=0\naspect=false\nscaler=none\n"
         "[cpu]\ncycles=fixed 6000\n"
     )
     dosbox = subprocess.Popen(
-        ["dosbox", "-conf", str(conf), "-c", f"mount c {args.run_dir}",
+        ["dosbox", "-conf", str(conf), "-c", f"mount c {run_dir}",
          "-c", "c:", "-c", "LEZAC.EXE"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
-    window = None
-    for _ in range(30):
-        time.sleep(1)
-        try:
-            found = subprocess.check_output(
-                ["xdotool", "search", "--name", "DOSBox"],
-                text=True, stderr=subprocess.DEVNULL).split()
+    try:
+        def find_windows() -> list[str]:
+            try:
+                return subprocess.check_output(
+                    ["xdotool", "search", "--name", "DOSBox"],
+                    text=True, stderr=subprocess.DEVNULL).split()
+            except subprocess.CalledProcessError:
+                return []
+
+        window = None
+        for _ in range(80):
+            time.sleep(0.1)
+            found = find_windows()
             if found:
                 window = found[-1]
                 break
-        except subprocess.CalledProcessError:
-            pass
-    if not window:
-        dosbox.terminate()
-        raise RuntimeError("DOSBox window not found (run under `xvfb-run -a`)")
+            if dosbox.poll() is not None:
+                raise RuntimeError(
+                    f"DOSBox exited before opening a window: {dosbox.returncode}")
+        if not window:
+            raise RuntimeError(
+                "DOSBox window not found (run under `xvfb-run -a`)")
 
-    def focus() -> None:
-        subprocess.run(["xdotool", "windowactivate", "--sync", window],
-                       stderr=subprocess.DEVNULL)
-        time.sleep(0.06)
+        def focus() -> None:
+            nonlocal window
+            deadline = time.monotonic() + 5.0
+            while time.monotonic() < deadline:
+                if dosbox.poll() is not None:
+                    raise RuntimeError(
+                        f"DOSBox exited while acquiring focus: "
+                        f"{dosbox.returncode}")
+                found = find_windows()
+                if found:
+                    window = found[-1]
+                for command in (
+                        ["xdotool", "windowfocus", window],
+                        ["xdotool", "windowactivate", "--sync", window]):
+                    try:
+                        focused = subprocess.run(
+                            command,
+                            stderr=subprocess.DEVNULL,
+                            timeout=1.0)
+                    except subprocess.TimeoutExpired:
+                        continue
+                    if focused.returncode == 0:
+                        time.sleep(0.1)
+                        return
+                time.sleep(0.1)
+            raise RuntimeError(
+                f"DOSBox window could not be focused: last_window={window}")
 
-    def key(name: str) -> None:
-        # Real XTEST event (NO --window): SDL/DOSBox drops XSendEvent synthetics.
-        focus()
-        subprocess.run(["xdotool", "key", "--clearmodifiers", name],
-                       stderr=subprocess.DEVNULL)
-        time.sleep(0.15)
+        def key(name: str) -> None:
+            focus()
+            # Real XTEST event: SDL/DOSBox drops the --window XSendEvent path.
+            subprocess.run(
+                ["xdotool", "key", "--clearmodifiers", name],
+                stderr=subprocess.DEVNULL, check=True)
+            time.sleep(0.18)
 
-    def hold(name: str, seconds: float) -> None:
-        focus()
-        subprocess.run(["xdotool", "keydown", name], stderr=subprocess.DEVNULL)
-        time.sleep(seconds)
-        subprocess.run(["xdotool", "keyup", name], stderr=subprocess.DEVNULL)
-        time.sleep(0.1)
+        def capture(level: int) -> Path:
+            before = {
+                path.resolve()
+                for pattern in ("*.png", "*.bmp")
+                for path in run_dir.glob(pattern)
+            }
+            key("ctrl+F5")
+            time.sleep(1)
+            after = [
+                path.resolve()
+                for pattern in ("*.png", "*.bmp")
+                for path in run_dir.glob(pattern)
+                if path.resolve() not in before
+            ]
+            if not after:
+                raise RuntimeError("DOSBox screenshot was not created")
+            source = max(after, key=lambda path: path.stat().st_mtime_ns)
+            target = run_dir / (
+                f"original_level_{level}_gameplay{source.suffix.lower()}")
+            if target.exists():
+                target.unlink()
+            source.replace(target)
+            return target
 
-    time.sleep(5)
-    key(args.start_key)
-    time.sleep(0.4)
-    key(args.start_key)
-    time.sleep(1.5)
-    hold("x", 1.2)  # movement dismisses the level-intro splash into live play
-    time.sleep(1.0)
+        time.sleep(args.startup_seconds)
+        for _ in range(args.start_taps):
+            key(args.start_key)
+            time.sleep(args.start_tap_gap)
+        time.sleep(args.intro_seconds)
+        key(args.intro_key)
+        time.sleep(args.level_start_seconds)
 
-    pid = int(subprocess.check_output(["pgrep", "-n", "dosbox"], text=True).strip())
-    matches = scan_process(pid, DATA_SIGNATURE)
-    if not matches:
-        dosbox.terminate()
-        raise RuntimeError("data signature not found in DOSBox memory")
-    base = matches[-1] - ((RUNTIME_DS << 4) + DATA_STRING_OFFSET)
-    level_before = read_ds(pid, base, LEVEL_BYTE_OFFSET, 1)[0]
+        pid = dosbox.pid
+        matches = scan_process(pid, DATA_SIGNATURE)
+        if not matches:
+            raise RuntimeError("data signature not found in DOSBox memory")
+        base = matches[-1] - ((RUNTIME_DS << 4) + DATA_STRING_OFFSET)
+        state_before = read_transition_state(pid, base)
+        if not MIN_PLAYABLE_LEVEL <= state_before["level"] <= MAX_PLAYABLE_LEVEL:
+            raise RuntimeError(
+                "original did not reach playable state: "
+                f"{format_transition_state('state', state_before)}")
 
-    def trigger_completion(prev_level: int) -> int:
-        # Satisfy the 1000:8283 gate (flag1=1, flag2=1, actor-count=0), acking the
-        # blocking results screen with a keypress, until the level byte advances.
-        deadline = time.time_ns() + 9_000_000_000
-        iteration = 0
-        while time.time_ns() < deadline:
-            write_ds(pid, base, COMPLETION_FLAG1_OFFSET, b"\x01")
-            write_ds(pid, base, COMPLETION_FLAG2_OFFSET, b"\x01")
-            write_ds(pid, base, ACTOR_COUNT_OFFSET, b"\x00\x00")
-            iteration += 1
-            now = read_ds(pid, base, LEVEL_BYTE_OFFSET, 1)[0]
-            if now != prev_level:
-                return now
-            if iteration % 6 == 0:
+        seeds = parse_seed(args.seed)
+        transitions = 0
+        if args.target_level is not None:
+            state = state_before
+            while state["level"] < args.target_level:
+                from_level = state["level"]
+                state = wait_for_state(
+                    pid,
+                    base,
+                    lambda value: value["level"] == from_level
+                    and value["collapse_queue"] == 0,
+                    args.gate_timeout,
+                    f"level {from_level} empty collapse queue",
+                )
+                gate_deadline = time.monotonic() + args.gate_timeout
+                while True:
+                    gate_state = read_transition_state(pid, base)
+                    if gate_state["level"] != from_level:
+                        raise RuntimeError(
+                            f"level changed before completion gate: "
+                            f"{from_level} -> {gate_state['level']}")
+                    if (gate_state["destruction_complete"] != 0
+                            and gate_state["bonus_complete"] != 0
+                            and gate_state["collapse_queue"] == 0):
+                        break
+                    if time.monotonic() >= gate_deadline:
+                        raise RuntimeError(
+                            f"timeout waiting for level {from_level} "
+                            "completion gate: "
+                            f"{format_transition_state('state', gate_state)}")
+                    if gate_state["bonus_complete"] == 0:
+                        write_u16(
+                            pid, base, BONUS_CURRENT_OFFSET,
+                            gate_state["bonus_target"])
+                    if gate_state["destruction_complete"] == 0:
+                        write_u8(
+                            pid, base, DESTRUCTION_CURRENT_OFFSET,
+                            gate_state["destruction_target"])
+                    time.sleep(0.01)
+                print(
+                    "seed_original_level_gate=ok"
+                    f" level={from_level}"
+                    f" bonus={gate_state['bonus_current']}"
+                    f"/{gate_state['bonus_target']}"
+                    f" destruction={gate_state['destruction_current']}"
+                    f"/{gate_state['destruction_target']}"
+                    " bonus_complete=1 destruction_complete=1"
+                    " collapse_queue=0"
+                )
+
+                time.sleep(args.results_seconds)
+                expected_level = from_level + 1
+                deadline = time.monotonic() + args.advance_timeout
+                while True:
+                    key(args.advance_key)
+                    time.sleep(0.5)
+                    state = read_transition_state(pid, base)
+                    if state["level"] == expected_level:
+                        break
+                    if state["level"] != from_level:
+                        raise RuntimeError(
+                            f"unexpected level transition {from_level}"
+                            f" -> {state['level']}")
+                    if time.monotonic() >= deadline:
+                        raise RuntimeError(
+                            f"level {from_level} results key did not advance")
+
+                time.sleep(args.intro_seconds)
+                key(args.intro_key)
+                time.sleep(args.level_start_seconds)
+                state = wait_for_state(
+                    pid,
+                    base,
+                    lambda value: value["level"] == expected_level
+                    and value["destruction_previous"]
+                    == value["destruction_current"]
+                    and value["bonus_previous"] == value["bonus_current"]
+                    and value["destruction_complete"] == 0
+                    and value["bonus_complete"] == 0,
+                    args.gate_timeout,
+                    f"level {expected_level} gameplay",
+                )
+                transitions += 1
+                print(
+                    "seed_original_level_transition=ok"
+                    f" from_level={from_level}"
+                    f" to_level={expected_level}"
+                    f" bonus_target={state['bonus_target']}"
+                    f" destruction_target={state['destruction_target']}"
+                    " gameplay_ready=1"
+                )
+            state_after = state
+        else:
+            for offset, value in seeds:
+                write_u8(pid, base, offset, value)
+            if seeds:
+                time.sleep(args.settle)
                 key("space")
-            time.sleep(0.03)
-        return read_ds(pid, base, LEVEL_BYTE_OFFSET, 1)[0]
+                time.sleep(args.settle)
+            state_after = read_transition_state(pid, base)
 
-    current = level_before
-    if args.advance_to is not None:
-        while current < args.advance_to:
-            nxt = trigger_completion(current)
-            if nxt == current:
-                break
-            current = nxt
-            time.sleep(1.5)
-            hold("x", 1.0)  # dismiss the new level's intro splash
-            time.sleep(0.8)
-
-    seeds = parse_seed(args.seed)
-    for offset, value in seeds:
-        write_ds(pid, base, offset, bytes([value]))
-    if seeds:
-        time.sleep(args.settle)
-        key("space")
-        time.sleep(args.settle)
-
-    level_after = read_ds(pid, base, LEVEL_BYTE_OFFSET, 1)[0]
-    focus()
-    subprocess.run(["xdotool", "key", "--clearmodifiers", "ctrl+F5"],
-                   stderr=subprocess.DEVNULL)
-    time.sleep(1)
-    dosbox.terminate()
-
-    print(
-        "seed_original_level=ok"
-        f" base=0x{base:x} runtime_ds=0x{RUNTIME_DS:04x}"
-        f" level_byte_before={level_before} level_byte_after={level_after}"
-        f" seeds={len(seeds)} advanced={int(level_after != level_before)}"
-    )
-    return 0
+        runtime_state_pre = None
+        runtime_state_post = None
+        if args.dump_runtime_state:
+            pre_state = read_transition_state(pid, base)
+            runtime_state_pre = write_runtime_state_snapshot(
+                run_dir, pid, base, pre_state, "pre_capture")
+        frame = capture(state_after["level"])
+        if args.dump_runtime_state:
+            post_state = read_transition_state(pid, base)
+            runtime_state_post = write_runtime_state_snapshot(
+                run_dir, pid, base, post_state, "post_capture")
+            print(
+                "seed_original_level_runtime_state=ok"
+                f" level={post_state['level']}"
+                f" actor_count={read_u8(pid, base, ACTOR_COUNT_OFFSET)}"
+                f" motion_link_count={read_u8(pid, base, MOTION_LINK_COUNT_OFFSET)}"
+                f" pre_file={runtime_state_pre.name}"
+                f" post_file={runtime_state_post.name}"
+            )
+        print(
+            "seed_original_level=ok"
+            f" base=0x{base:x} runtime_ds=0x{RUNTIME_DS:04x}"
+            f" {format_transition_state('before', state_before)}"
+            f" {format_transition_state('after', state_after)}"
+            f" target_level={args.target_level or 0}"
+            f" transitions={transitions}"
+            f" seeds={len(seeds)}"
+            f" advanced={int(state_after['level'] != state_before['level'])}"
+            f" reached={int(args.target_level is None or state_after['level'] == args.target_level)}"
+            f" frame={frame.name}"
+            f" runtime_state_pre={runtime_state_pre.name if runtime_state_pre else 'none'}"
+            f" runtime_state_post={runtime_state_post.name if runtime_state_post else 'none'}"
+        )
+        return 0
+    finally:
+        if dosbox.poll() is None:
+            dosbox.terminate()
+            try:
+                dosbox.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                dosbox.kill()
+                dosbox.wait(timeout=3)
 
 
 def self_check() -> int:
-    # Static contract check only (no DOSBox): confirm the derivation constants
-    # and the level byte against the shipped executable.
+    # Static contract check only (no DOSBox): pin every executable window used
+    # by the live transition orchestration.
     exe = Path("LEZAC.EXE").read_bytes()
     image = exe[0x770:0x770 + 50480]
     sig_at = image.find(DATA_SIGNATURE)
     if sig_at < 0:
         raise RuntimeError("data signature missing from LEZAC.EXE")
-    # The signature sits at DS:DATA_STRING_OFFSET at runtime; the level byte and
-    # the advance routine are pinned by the recovery notes.
-    if image[0x2051:0x2055] != b"\xfe\x06\xb7\x79":
-        raise RuntimeError("level-advance inc [0x79b7] not at 1000:2051")
-    # The completion gate at 1000:8283 is the trigger we seed. The three cmp
-    # instructions are separated by conditional jumps, so pin each in place:
-    #   1000:8283  80 3e c5 79 00  cmp byte [0x79c5],0
-    #   1000:828a  80 3e c6 79 00  cmp byte [0x79c6],0
-    #   1000:8291  83 3e 80 20 00  cmp word [0x2080],0
-    gate_checks = (
-        (0x8283, b"\x80\x3e\xc5\x79\x00"),
-        (0x828a, b"\x80\x3e\xc6\x79\x00"),
-        (0x8291, b"\x83\x3e\x80\x20\x00"),
-    )
-    for offset, expected in gate_checks:
-        if image[offset:offset + 5] != expected:
-            raise RuntimeError(f"completion gate cmp not at 1000:{offset:04x}")
+    windows = {
+        "level_file_destructible_tile": (
+            0x0D26, bytes.fromhex("bfb4791e57")),
+        "level_file_bonus_target": (
+            0x0D3B, bytes.fromhex("bf86201e57")),
+        "level_file_destruction_target": (
+            0x0D50, bytes.fromhex("bfb3791e57")),
+        "new_game_level_one": (
+            0x2F5A, bytes.fromhex("c606b77901")),
+        "bonus_counter_compare": (
+            0x31BC, bytes.fromhex("a186208946fea18820")),
+        "bonus_complete_flag": (
+            0x31D6, bytes.fromhex("837efe007f0a31c08946fec606c57901")),
+        "destruction_target_compare": (
+            0x3218, bytes.fromhex("a0b37930e48946fea0b57930e43b46fe")),
+        "destruction_complete_flag": (
+            0x323B, bytes.fromhex("31c08946fec606c67901")),
+        "level_completion_gate": (
+            0x8283,
+            bytes.fromhex(
+                "803ec579007425803ec67900741e833e8020007517")),
+        "level_advance": (
+            0x2051, bytes.fromhex("fe06b779")),
+        "completed_game_gate": (
+            0x829B, bytes.fromhex("803eb779077705")),
+    }
+    for name, (offset, expected) in windows.items():
+        actual = image[offset:offset + len(expected)]
+        if actual != expected:
+            raise RuntimeError(
+                f"{name} mismatch at 1000:{offset:04x}: "
+                f"expected={expected.hex()} actual={actual.hex()}")
     print(
         "seed_original_level_self_check=ok"
         f" signature=1000:{sig_at:04x} data_string_offset=0x{DATA_STRING_OFFSET:02x}"
         f" runtime_ds=0x{RUNTIME_DS:04x} level_byte=0x{LEVEL_BYTE_OFFSET:04x}"
-        " advance_routine=1000:2040 inc_level=1000:2051"
-        f" completion_gate=1000:8283 flag1=0x{COMPLETION_FLAG1_OFFSET:04x}"
-        f" flag2=0x{COMPLETION_FLAG2_OFFSET:04x} actor_count=0x{ACTOR_COUNT_OFFSET:04x}"
+        f" level_range={MIN_PLAYABLE_LEVEL}-{MAX_PLAYABLE_LEVEL}"
+        " objective_fields=destructible:ds79b4,bonus_target:ds2086,"
+        "destruction_target:ds79b3"
+        " objective_counters=bonus:ds2088,destruction:ds79b5"
+        " completion_flags=bonus:ds79c5,destruction:ds79c6"
+        " completion_helper=1000:3184"
+        " completion_gate=1000:8283 collapse_queue=ds:2080"
+        " advance_routine=1000:1d61 inc_level=1000:2051"
+        " completed_game_gate=1000:829b"
+        " runtime_tables=ds:1bae/0x26,ds:c21e/0x08,ds:79ea/0x10"
+        " runtime_counts=ds:208d,ds:79f9,ds:c496"
+        " runtime_camera=ds:c216,ds:c218,ds:c20a,ds:c20c"
+        f" pinned_windows={len(windows)}"
     )
     return 0
 
@@ -267,11 +638,24 @@ def main() -> int:
                         help="static contract check against LEZAC.EXE (no DOSBox)")
     parser.add_argument("--run-dir", help="directory with LEZAC.EXE + assets")
     parser.add_argument("--start-key", default="1")
-    parser.add_argument("--advance-to", type=int, default=None,
-                        help="drive the original to this 1-indexed level via the "
-                             "1000:8283 completion trigger before seeding/capturing")
+    parser.add_argument("--start-taps", type=int, default=2)
+    parser.add_argument("--startup-seconds", type=float, default=6.0)
+    parser.add_argument("--start-tap-gap", type=float, default=0.4)
+    parser.add_argument("--intro-seconds", type=float, default=3.0)
+    parser.add_argument("--intro-key", default="1")
+    parser.add_argument("--level-start-seconds", type=float, default=1.5)
+    parser.add_argument(
+        "--target-level", "--advance-to", dest="target_level", type=int,
+        help="reach and capture original playable level 1..7")
+    parser.add_argument("--results-seconds", type=float, default=10.0)
+    parser.add_argument("--advance-key", default="1")
+    parser.add_argument("--gate-timeout", type=float, default=10.0)
+    parser.add_argument("--advance-timeout", type=float, default=10.0)
     parser.add_argument("--seed", action="append",
                         help="OFFSET=VALUE (hex offset) DS byte to write, repeatable")
+    parser.add_argument(
+        "--dump-runtime-state", action="store_true",
+        help="write live actor, visual, and motion-link tables beside the frame")
     parser.add_argument("--settle", type=float, default=4.0)
     parser.add_argument("--approve-procmem", action="store_true")
     parser.add_argument("--approve-runtime-instrumentation", action="store_true")
@@ -284,6 +668,11 @@ def main() -> int:
                      "and --approve-runtime-instrumentation")
     if not args.run_dir:
         parser.error("--run-dir is required for live runs")
+    if args.target_level is not None:
+        if not MIN_PLAYABLE_LEVEL <= args.target_level <= MAX_PLAYABLE_LEVEL:
+            parser.error("--target-level must be in the playable range 1..7")
+        if args.seed:
+            parser.error("--target-level cannot be combined with --seed")
     return run_live(args)
 
 

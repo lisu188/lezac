@@ -1,52 +1,93 @@
-# Level-7 boss head brain (`1000:5CB0`) — reimplementation spec
+# Level-7 Boss Head Routine (`1000:5CB0`)
 
-Complete reverse-engineering of the boss head per-frame update, captured so the
-port's head can be translated instruction-faithfully and diffed frame-by-frame
-against the original (now feasible because the RNG is bit-exact — see
-`--debug-turbo-random`). Actor fields are `ss:[di+...]` relative to the actor
-record passed in `[bp+4]`; negative offsets are the head's extended state.
+This is an instruction-level static control-flow map of the shipped routine,
+not yet a runtime-equivalence claim. The bytes were checked directly in
+`LEZAC.EXE`: MZ image base `0x0770`, function file range
+`0x6420..0x67C2`, and Ghidra range `1000:5CB0..604F`.
 
-## Inputs / globals
-- `DS:0xc204 = 140` — the fixed-point velocity-integration step used to walk the
-  candidate position through the tile grid for collision.
-- `DS:0xc1e0` (far pointer) — the level tile map; `es:[di+offset]` reads tiles.
-- `DS:0x78c2` — head state/mode counter that gates the RNG steering branch.
-- `DS:0x661e` — per-frame count of destructible (`0x75`) tiles the head overlaps.
-- `DS:0x2072` / `DS:0x2074` / `DS:0x799f` — scratch for the damage/effect path.
-- RNG: `0x920:0x13a8` = Turbo Pascal `Random(L)` (see the RNG recovery entry).
+The routine is reached from the behavior-6 dispatch at `1000:6555`, identifying
+it as the level-7 boss-head update rather than the generic contact scanner used
+in older notes. `[BP+4]` is a near pointer to the boss state. Its `SS:[arg+4]`
+field is a far pointer to the associated target record.
 
-## Per-frame algorithm
-1. **Load speed.** `al = [di+0x0e]` split into hi/lo scan bytes (`[bp-1]`,`[bp-2]`).
-2. **Horizontal collision scan.** Integrate a candidate X (`pos += vel*0xc204`
-   stepped `[bp-a]` times), index the tile map, and test tiles:
-   - `0x4c` ("L", left wall) → set left flag `ss:[di-0x22]=1` (also `[di-0x23]`).
-   - `0x52` ("R", right wall) → set right flag `ss:[di-0x21]=1` (also `[di-0x24]`).
-   - `0x01` → solid.
-3. **Destructible scan.** Walking the same grid, tile `0x75` ("u") increments
-   `DS:0x661e` and records the overlap position into `DS:0x2072`.
-4. **RNG steering** (gated on `DS:0x78c2`): `Random(0x1d)`; when the state check
-   `cmp ax,0x46` (70) passes, set `DS:0x2074=0x69`, `DS:0x799f=4`, `call 0x1dca`
-   (effect/sound). When the dwell timer `ss:[di-0x4] <= 0`, pick a new dwell
-   `ss:[di-0xc] = Random(n) + 0x96` (≥150 frames) and a new velocity
-   `ss:[di-0xe] = 0xff6a - Random(n)` (randomized leftward speed).
-5. **Vertical physics.** Gravity accumulates `ss:[di-0xe] += 0x40` per airborne
-   frame; on a floor/ceiling hit the velocity is reflected (`neg`, `*2`,
-   `- 0x12c` for the bounce impulse) and clamped.
-6. **Damage application.** If `DS:0x661e > 0` (head overlaps destructible tiles),
-   double the count (`shl`), compare to the tile's remaining strength
-   `es:[di+0x24]`, decrement the head/target HP `es:[di+0x02]` when exceeded, and
-   subtract the consumed strength from `es:[di+0x24]`. HP reaching `0xff`
-   triggers the segment/phase transition (death-chain entry).
+## Recovered Fields
 
-## Verification plan (lockstep harness)
-1. Seed the original `RandSeed` (`DS:0x1afe`, 4 bytes) to a known value and
-   freeze the player at a fixed tile; capture the head's `x,y,velocity` each
-   frame from the `DS:0x1BAE` actor table for N frames.
-2. Seed the port's `randomSeed_` identically, place the player identically, and
-   run the reimplemented head for N frames.
-3. Assert zero per-frame divergence in `x,y,velocity`. Repeat per segment link
-   and then per enemy behavior.
+- Target word `+0x0E`: packed scan extents; low byte is width and high byte is
+  height.
+- Boss words `-0x2E` and `-0x2C`: position inputs shifted right by three to
+  produce tile coordinates.
+- Boss word `-0x2A`: cached tile-map base index.
+- Boss bytes `-0x22`, `-0x21`, `-0x23`, `-0x24`: top, bottom, left, and right
+  collision flags, respectively.
+- Boss words `-0x0E` and `-0x0C`: vertical and horizontal signed velocities.
+- Boss word `-0x04`: sign predicate used when choosing a new horizontal
+  velocity.
+- `DS:C204 = 140`: tile-map row stride, not a velocity-integration step.
+- `DS:C1E0`: far pointer to the level tile map.
+- `DS:78C2`: global tick/state value used by the periodic RNG gate.
+- `DS:661E`: overlap count for tile value `0x75`.
+- `DS:2072`: last overlapping tile-map index.
+- RNG `0920:13A8`: Turbo Pascal `Random(L)`, pinned by
+  `--debug-turbo-random`.
 
-This spec plus the bit-exact RNG reduces the remaining work to a mechanical
-translation of the above into the port's boss-head update, verified by the
-harness rather than inferred statically.
+## Exact Control Flow
+
+1. Build the tile-map base index:
+
+   ```text
+   base = (boss[-0x2E] >> 3) * DS:C204 + (boss[-0x2C] >> 3)
+   ```
+
+2. Scan all four edges of the packed width/height rectangle:
+
+   | Edge | Start | Step | Samples | Solid range | Flag |
+   | --- | --- | --- | --- | --- | --- |
+   | top | `base - stride` | `+1` | width | `1..0x4C` | `-0x22` |
+   | bottom | `base + height*stride` | `+1` | width | `1..0x52` | `-0x21` |
+   | left | `base - 1` | `+stride` | height | `1..0x4C` | `-0x23` |
+   | right | `base + width` | `+stride` | height | `1..0x4C` | `-0x24` |
+
+   The comparisons are inclusive ranges. Values `0x4C` and `0x52` are upper
+   bounds, not the only colliding tile values.
+
+3. At `1000:5E59`, divide `DS:78C2` by 29 and enter the stochastic branch only
+   when the remainder is zero. Inside that branch:
+
+   - `Random(100) > 70` and an even `DS:78C2` request cursor `0x69` at priority
+     4 through `1000:1DCA`.
+   - If `boss[-0x04] > 0`, set
+     `boss[-0x0C] = Random(800) + 150`.
+   - Otherwise set `boss[-0x0C] = -150 - Random(800)`.
+   - If the bottom collision flag is set, set
+     `boss[-0x0E] = -300 - Random(1500)`.
+
+4. Clear `DS:661E`, scan the occupied rectangle in two-unit increments, count
+   every tile equal to `0x75`, and retain the last matching index in `DS:2072`.
+   If the count is nonzero, call `1000:41C6`. The returned/indexed state at
+   `DS:[DS:2074 + 0x78D5]` conditionally doubles the count.
+
+5. Compare the count with target byte `+0x24`. A greater count decrements
+   target byte `+0x02`; the count is then subtracted from target byte `+0x24`.
+   The routine calls `1000:61E5` with selector `0x2F`. Target byte `+0x02`
+   reaching `0xFF` calls `1000:633C`.
+
+6. Apply gravity and collision reflection:
+
+   - When the bottom flag is clear, add `0x40` to vertical velocity `-0x0E`.
+   - A top collision while velocity is negative, or a bottom collision while
+     velocity is positive, replaces vertical velocity with
+     `-(velocity / 2)`.
+   - The equivalent left/right tests replace horizontal velocity `-0x0C` with
+     `-(velocity / 2)`.
+
+## Remaining Runtime Work
+
+The static branch structure and constants above are pinned, but several
+semantic labels still need live confirmation: ownership of target bytes
+`+0x02`/`+0x24`, the result contract of `1000:41C6`, and the phase transition
+entered through `1000:633C`.
+
+For lockstep validation, seed original `DS:1AFE` and port `randomSeed_`
+identically, hold player/input state constant, and capture the boss position,
+both velocities, four collision flags, target bytes, and RNG seed every frame.
+Promote exact trajectory and phase behavior only after those traces match.

@@ -9,7 +9,7 @@ Baseline: `origin/main`
 The C++ port is functionally complete. Every recovered gameplay, data, UI,
 and sound subsystem of `LEZAC.EXE` has a C++ implementation with
 deterministic validation coverage, and the full CTest suite passes on a
-clean Linux host (374/374 after this iteration's additions). The new
+clean Linux host (377/377 after this iteration's additions). The new
 `--debug-port-completion-status` diagnostic declares that state as
 machine-checkable output: 23 implemented subsystems with their validation
 entry points and the 12 open original-evidence follow-ups, reported with
@@ -36,10 +36,12 @@ under the existing guardrails; they are not missing port functionality.
   `0x08088405`/`+1` makes the generator bit-identical to the original; the new
   `--debug-turbo-random` diagnostic (CTest `turbo_random`) pins the output
   against an independently-computed Turbo Pascal reference
-  (`Random(100)` from seed 0 -> `0,56,29,76,86,17,85,3,95,96,74,16`). All
-  existing determinism/range tests still pass unchanged, and this is the
-  keystone that makes a deterministic lockstep comparison of the RNG-driven
-  AI against the original feasible.
+  (`Random(100)` from seed 0 -> `0,56,29,76,86,17,85,3,95,96,74,16`) and
+  pins the shipped entry/advance byte windows at `0x920:13A8`/`13F7`, the
+  `CS:142D` multiplier word, and `DS:1AFE` seed storage. All existing
+  determinism/range tests still pass unchanged, and this is the keystone that
+  makes a deterministic lockstep comparison of the RNG-driven AI against the
+  original feasible.
 
 - **Confirmed the level-7 GRAN.MST boss against ORIGINAL RUNTIME (was
   static-only).** Using the newly unblocked level-7 access, the original boss
@@ -47,41 +49,46 @@ under the existing guardrails; they are not missing port functionality.
   memory: the actor table `DS:0x1BAE` (8 slots x 0x26 bytes) and the motion
   link table `DS:0x79EA` (8 slots x 0x10 bytes), while the head brain at
   1000:5CB0 executed each frame. Parsing the captured tables shows exactly one
-  head (kind `0x1e`, behavior `6`, hit-box 5x4, one life) and six segments
-  (kind `0x1f`), with six segment motion links -- matching the port's
-  statically-decoded model (`--debug-gran-boss-model`: 7 boss actors, 6 links,
-  head box 5x4) element for element. The evidence is committed as
+  head (kind `0x1e`, behavior `6`, visual 6, hit-box 5x4, one life) and six
+  segments (kind `0x1f`, behavior `5`, visuals 2, 3, 4, 5, 7, and 8), with six
+  one-based segment motion links all targeting visual 6. The allocator count
+  is 9 and the GRAN visual rebase is `+2`, matching the port element for
+  element. The evidence is committed as
   `tests/fixtures/boss_runtime_original_level7.txt` and validated by the new
   `--debug-boss-runtime-evidence` diagnostic (CTest `boss_runtime_evidence`,
   `boss_structure_confirmed=1`), which decodes the port's boss and asserts the
-  head/segment kinds, actor count (7), link count (6), and head hit-box all
-  agree with the captured original runtime. The boss visual (a cluster of
-  colored spheres) was also confirmed to match across a six-frame original
-  motion capture.
+  fixed actor/link slots, kinds, behaviors, visual mapping, actor/link counts,
+  and head hit-box against the captured original runtime
+  (`boss_structure_confirmed=1 boss_placement_confirmed=1
+  boss_segment_motion_confirmed=1`). The colorful
+  lower-right cluster in the natural level-7 frame is static level artwork;
+  the boss starts outside the natural viewport in both builds, so exact
+  frame-by-frame boss motion remains unpromoted.
 
   Beyond structure, the segment MOTION PHYSICS is confirmed: the runtime link
   table (`DS:0x79EA`) is initialised from the GRAN.MST link records, and all
   six segment links match the port's decoded `bossLinks_` element-for-element
   on `gain`, `mode`, `radiusX`, `radiusY`, `offX`, `offY`, and `biasY`
   (`link_params_matched=6/6`), with the same two-spring / four-orbit split
-  (`mode==0xff` orbit). The per-frame `phase`/`outX`/`outY` are runtime-advanced
-  (excluded), and the runtime carries a +2 visual base where the port uses +4
-  -- an internal numbering offset that does not affect the physics or the
-  rendered result. This raises the level-7 boss from static-only decode to a
-  runtime-confirmed structure AND motion model.
+  (`mode==0xff` orbit). The per-frame `phase`/`outX`/`outY` are
+  runtime-advanced and excluded; target/self visual IDs are independently
+  checked against the shared `+2` mapping. This raises the level-7 boss from
+  static-only decode to a runtime-confirmed structure and segment-motion
+  model.
 
   Remaining boss frontier (characterized, not yet frame-aligned): the head
-  brain at `1000:5CB0` integrates the head position each frame as
-  `pos += velocity * DS:0xc204` (captured `DS:0xc204 = 140`) and collides the
-  result against the level map (`DS:0xc1e0`) using boundary tiles `0x4c`/`0x52`,
-  before the higher-level steering (player-seeking + RNG) chooses the velocity.
-  The port models the head's movement at a higher level of abstraction rather
-  than replaying this exact fixed-point integration, so the head TRAJECTORY,
-  the flame-damage windows, the phase-HP transitions, and the death-chain
-  sequencing remain verified only statically. Confirming them against the
-  original requires a deterministic frame-by-frame comparison harness (matched
-  RNG seed + input), which the capture pipeline built this session now makes
-  feasible but which is a distinct, larger effort.
+  brain at `1000:5CB0` uses `DS:C204 = 140` as the tile-map row stride,
+  scans four rectangle edges with distinct inclusive solid-tile bounds, and
+  enters its RNG steering branch only when `DS:78C2 % 29 == 0`. That branch
+  draws exact `Random(100)`, `Random(800)`, and `Random(1500)` values; collision
+  response applies gravity and signed half-speed reflection. The port models
+  the head at a higher level, so exact trajectory, tile-damage ownership,
+  phase-HP transitions, and death-chain sequencing remain unpromoted.
+  Confirming them requires a deterministic frame-by-frame comparison harness
+  with matched RNG seed and input.
+  `docs/recovery/boss_head_brain_spec.md` now records the checked static
+  control flow and constants without promoting those remaining field semantics
+  or the trajectory to runtime parity.
 
 - **Unblocked original level-2..7 capture (multi-session blocker solved).**
   Two long-standing obstacles to comparing the port against the original on
@@ -92,26 +99,26 @@ under the existing guardrails; they are not missing port functionality.
      Real XTEST events (`xdotool windowactivate --sync` to focus, then
      `xdotool key --clearmodifiers <k>` with **no** `--window`, plus
      `keydown`/`keyup` holds for movement) drive gameplay reliably.
-  2. *Completion trigger.* The main-loop completion gate at Ghidra
-     `1000:8283` requires `DS:0x79C5 != 0 && DS:0x79C6 != 0 && WORD DS:0x2080
-     == 0`. `DS:0x2080` is the active-actor count (inc at `1000:40e8`, dec at
-     `1000:586a`); an earlier attempt set only the two flags and never
-     advanced because the actor count was non-zero. Seeding all three via
-     `/proc/<pid>/mem` satisfies the gate; the game runs its own "LIVELLO
-     COMPLETATO" results screen and advances the level byte `DS:0x79B7`.
-     Chaining the trigger drove the original 1->2->...->7->victory and
-     captured every level under DOSBox in-container.
-  `tools/seed_original_level.py` now uses the working XTEST input, exposes
-  `--advance-to <level>` built on the trigger, and its `--self-check` pins the
-  three completion-gate `cmp` instructions at `1000:8283/828a/8291`
-  (CTest `seed_original_level_self_check`).
+  2. *Completion model.* The main-loop gate at Ghidra `1000:8283` requires
+     bonus flag `DS:79C5`, destruction flag `DS:79C6`, and the collapse queue
+     count `DS:2080 == 0`. The harness writes only bonus/destruction current
+     counters `DS:2088`/`DS:79B5` to their level-file targets
+     `DS:2086`/`DS:79B3`; original helper `1000:3184` derives both flags, and
+     the original result/reload path advances `DS:79B7`. Chaining that route
+     captured every playable level `1..7`; value 8 is the completed-game
+     sentinel.
+  `tools/seed_original_level.py` exposes `--target-level <level>` with
+  `--advance-to` retained as a compatibility alias. Its `--self-check` pins
+  the loader, counter/flag derivation, completion gate, increment, runtime
+  tables, and camera globals (CTest `seed_original_level_self_check`).
 
 - **Verified rendering fidelity across all seven levels.** With the original
   now capturable on every level, the port's per-level start frames
   (`--capture-level-frames`, CTest `capture_level_frames`) were compared to
   the original: world geometry matches faithfully on levels 1-7 (terrain
-  profile, brick/truss/pillar structures, platform layout, boss actor cluster
-  on level 7). The HUD objective tallies were verified to match the original
+  profile, brick/truss/pillar structures, platform layout, and level-7
+  lower-right artwork). The boss itself starts outside the natural viewport in
+  both builds. The HUD objective tallies were verified to match the original
   exactly on every level -- required-bonus / required-destruction of
   1/50, 3/60, 7/20, 3/70, 8/65, .../, 1/10 -- confirming both the recovered
   level data and the panel semantics (top row = required bonus, bottom row =
@@ -187,20 +194,21 @@ under the existing guardrails; they are not missing port functionality.
   than the original's exact icon panels (energy bar, score box, player-life
   figures, bomb selector, bomb-count and star tallies); a pixel-faithful HUD
   redesign is the next fidelity step.
-- Built and live-validated the original level-seeding orchestration
-  (`tools/seed_original_level.py`), the substrate for capturing the original
-  at levels 2-8 (the original has no level-skip key -- verified no
-  PageUp/PageDown/F5 scancode handler; advance is only via natural completion
-  -> results -> keypress -> `1000:2040`/`2051` which increments the level byte
-  DS:0x79B7 and reloads geometry). The tool runs plain `dosbox` under
-  `xvfb-run`, drives it to level-1 gameplay, scans /proc/<pid>/mem for the
-  `larax e zaco versione` signature to derive the emulated-memory base
-  (RUNTIME_DS=0x0C8F, DATA_STRING_OFFSET=0x8B), and reads/writes DS globals
-  plus a screenshot -- validated live (read DS:0x79B7=0 for level 1). Open:
-  a pure memory write cannot force a reload, so seeding levels 2-8 still needs
-  the completion CONDITION satisfied; setting DS:0x79C5/0x79C6=1 was tested and
-  does not advance. CTest `seed_original_level_self_check` pins the derivation
-  constants statically.
+- Recovered and live-validated the complete original level-transition path.
+  `tools/seed_original_level.py` now reaches any playable level `1..7` by
+  seeding only the current objective counters, allowing `1000:3184` to derive
+  `DS:79C5/79C6`, waiting for the empty `DS:2080` collapse queue, and then
+  letting the original result routine `1000:1D61` reach the level increment at
+  `1000:2051`. Value 8 is the completed-game sentinel, not a playable level.
+  A full level-1-to-level-7 run completed all six native result/reload flows
+  and captured inspected original level-2 and level-7 gameplay frames. The
+  harness can also write paired runtime snapshots for the 1-based actor table
+  `DS:1BAE`, visual table `DS:C21E`, 1-based motion-link table `DS:79EA`,
+  camera/view globals, and allocator count `DS:C496`. Static evidence is
+  reproducible through `tools/ghidra/DumpLevelTransition.java` and
+  `tools/ghidra/DumpGranPlacement.java`; full commands and observed targets
+  are in
+  `docs/recovery/original_level_transition_seed_2026-07-19.md`.
 - Ran a live original-vs-port pixel comparison (DOSBox capture in-container)
   and fixed two major visual-fidelity bugs it exposed. Disassembling the
   original menu/display routines (`1000:030b`, decoder `1000:82d0`) revealed
@@ -248,8 +256,10 @@ under the existing guardrails; they are not missing port functionality.
   128-step `Sin(i*6.28/128)` table, serial bit `0x80` mirroring); the
   facing anim-set pair table at `DS:0x58/0x59` (boss rows `0x0e`=41..42,
   `0x0f`=43..44, `0x10`=40..40); the level-7 `PROVA.SPR` sprite-bank
-  selector at `1000:2C90`; and the visual-entry rebase making the head the
-  `(100,100)` anchor with segments at the decoded offsets. The port now
+  selector at `1000:2C90`; and live original table captures confirming
+  one-based actor/link indexing, visual allocator count 2 before GRAN and 9
+  after it, a `+2` visual-entry rebase, head visual 6 at `(100,100)`, and
+  segment visuals 2, 3, 4, 5, 7, and 8 at the decoded offsets. The port now
   spawns the boss on level-7 entry via the guardrail-named live consumer
   `spawnLevel7Boss()`, with behaviors 5/6 wired through the existing
   monster update/damage/render paths and boss sprites drawn from the
@@ -260,8 +270,9 @@ under the existing guardrails; they are not missing port functionality.
   both in CTest; the GRAN usage guardrail now reports
   `live_consumer_refs=1` for the single named live consumer. Identified the
   long-standing "probable contact scanner" at `1000:5CB0` as the boss-head
-  brain. Live boss presentation remains `original_runtime_claim=0` pending
-  DOSBox runtime comparison.
+  brain. Live initial placement now reports
+  `original_runtime_placement_claim=1`; exact original motion/collision timing
+  remains `original_runtime_timing_claim=0`.
 - Statically recovered the `GRAN.MST` consumer and file layout from the
   shipped executable. The only reference to the `gran.mst` literal at
   `1000:2AD3` is the level-gate callsite `1000:2E78..2E8A`, which loads the
@@ -279,10 +290,13 @@ under the existing guardrails; they are not missing port functionality.
   multi-segment level-7 boss definition. The new
   `--debug-gran-static-consumer-model` diagnostic pins all 12 supporting
   instruction/literal byte windows and reparses the shipped file with the
-  recovered layout, reporting `original_runtime_claim=0`; CTest covers it and
-  the GRAN usage guardrail allowlists the new debug-only reference. Live
-  gameplay still does not consume `GRAN.MST` — runtime boss presentation
-  remains an original-evidence follow-up.
+  recovered layout, reporting `original_runtime_claim=0` because that
+  diagnostic intentionally covers static evidence only. CTest covers it, and
+  the GRAN usage guardrail permits the named live consumer
+  `spawnLevel7Boss()`. The live seeding oracle, `--debug-gran-boss-model`,
+  `--debug-autoplayer boss_level7`, and `boss_level7` frame sequence now cover
+  the runtime placement mapping; exact original motion timing remains an
+  evidence follow-up.
 - Declared functional port completion with machine-checkable coverage. Added
   `--debug-port-completion-status`, which enumerates the 22 implemented
   subsystems with deterministic validation entry points and the 12 open
@@ -2997,12 +3011,14 @@ under the existing guardrails; they are not missing port functionality.
   handling, and behavior-4 collision response. The synthetic actor-update oracle
   is ready; original runtime/debugger fixtures are still pending.
 - The routine at `1000:5cb0..604f`, long tracked as a "probable contact
-  scanner", is now statically identified as the level-7 boss-head brain:
+  scanner", is now identified as the level-7 boss-head brain:
   the sole call at `1000:6555` sits behind the behavior/state `06` gate,
   which only boss-head actors carry. The existing scanner-named capture
-  targets and fixtures remain valid as addresses; runtime confirmation of
-  the boss-head behavior (and of the actual player/monster contact model
-  elsewhere in `1000:6053..777f`) is still pending original evidence.
+  targets and fixtures remain valid as addresses. Live actor/visual/link
+  snapshots now confirm the boss load and initial placement; frame-by-frame
+  confirmation of its motion/collision behavior, and of the actual
+  player/monster contact model elsewhere in `1000:6053..777f`, still needs
+  original evidence.
 - Runtime reachability of the `DS:79b9` fallback, exact original active-player
   accounting, and exact dead-player visual playback from original frame bytes
   remain unresolved now that the delayed state-2 life-count decrement, fallback
@@ -3020,9 +3036,10 @@ under the existing guardrails; they are not missing port functionality.
   boss actor file read by `1000:08A5` behind the `DS:0x79B7 == 7` gate, and
   the C++ port now plays the boss from that recovered model
   (`spawnLevel7Boss()`, `--debug-gran-boss-model`,
-  `--debug-autoplayer boss_level7`). The remaining gap is runtime-facing
-  fidelity only: original boss presentation/timing still needs DOSBox
-  frame/debugger evidence before visual claims can be promoted.
+  `--debug-autoplayer boss_level7`). Native level transitions and live
+  original actor/visual/link snapshots confirm its one-based table indexing,
+  `+2` visual rebase, and exact initial placement. The remaining gap is exact
+  frame-by-frame boss motion, collision, and presentation timing.
 
 ## Next Planned Target
 

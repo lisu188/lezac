@@ -36,6 +36,41 @@ the complete captured level-1 frame:
 See `docs/recovery/level_intro_exact_recovery_2026-07-19.md` for the recovered
 arithmetic, static addresses, and zero-pixel frame comparison.
 
+## Original Level Oracle
+
+The guarded original-game harness can traverse the native result/reload path
+to any of the seven playable levels and capture both a frame and live runtime
+tables. Prepare a temporary asset copy, then run:
+
+```sh
+mkdir -p /tmp/lezac-original-level7
+cp LEZAC.EXE *.DAT *.SPR *.PAL *.SCH *.SON *.MST *.CAR *.ZBG *.DOC \
+  /tmp/lezac-original-level7/
+xvfb-run -a python3 tools/seed_original_level.py \
+  --run-dir /tmp/lezac-original-level7 \
+  --target-level 7 \
+  --dump-runtime-state \
+  --approve-procmem \
+  --approve-runtime-instrumentation
+```
+
+The harness satisfies each level's objective counters, waits for the original
+completion flags and empty collapse queue, lets `1000:1D61`/`1000:2051`
+advance the level, and dismisses the next intro. It writes
+`original_level_N_gameplay.png` plus pre/post actor, visual, motion-link,
+camera, and view snapshots. Level 8 is the completed-game sentinel, not a
+playable level.
+
+Capture the matching natural level-7 C++ state with:
+
+```sh
+./build/lezac_cpp --capture-frame-sequence boss_level7 /tmp/lezac-cpp-boss7
+```
+
+See
+`docs/recovery/original_level_transition_seed_2026-07-19.md` for the exact
+addresses, all six observed transitions, and the live GRAN table mapping.
+
 ## Build
 
 ```sh
@@ -78,6 +113,7 @@ Dump deterministic C++ frames for comparison against original DOSBox captures:
 ./build/lezac_cpp --capture-frame-sequence monster_spawner_behavior4_level2 /tmp/lezac-cpp-b4-level2
 ./build/lezac_cpp --capture-frame-sequence monster_spawner_behavior4_level3 /tmp/lezac-cpp-b4-level3
 ./build/lezac_cpp --capture-frame-sequence monster_behavior4_target_selection /tmp/lezac-cpp-b4-target
+./build/lezac_cpp --capture-frame-sequence boss_level7 /tmp/lezac-cpp-boss7
 tools/capture_cpp_frames.sh ./build/lezac_cpp /tmp/lezac-cpp-frames level1_bomb_route
 ```
 
@@ -207,7 +243,8 @@ The reconstruction can emit named 320x200 PPM frames and a `manifest.txt` for
 deterministic gameplay scenarios. Current built-in frame exports cover
 `level1_bomb_route`, `monster_spawner_behavior4_level2`,
 `monster_spawner_behavior4_level3`, and
-`monster_behavior4_target_selection`. The level-1 route sequence captures the
+`monster_behavior4_target_selection`, plus the natural `boss_level7` start and
+motion checkpoints. The level-1 route sequence captures the
 menu, level-1 start, the deterministic autoplayer reaching bomb tile `(24,22)`,
 bomb placement, and three explosion/playback checkpoints. The behavior-4
 sequences capture spawn/retarget checkpoints plus manifest metadata for player

@@ -291,6 +291,16 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^frame_sequence=ok scenario=monster_behavior4_target_selection frames=6 size=320x200")
 
+    add_test(NAME frame_sequence_capture_boss_level7_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --capture-frame-sequence
+                boss_level7
+                ${CMAKE_CURRENT_BINARY_DIR}/frame_sequence_capture_boss_level7)
+    set_tests_properties(frame_sequence_capture_boss_level7_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^frame_sequence=ok scenario=boss_level7 frames=4 size=320x200")
+
     add_test(NAME frame_sequence_capture_launch_pad_route_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --capture-frame-sequence
@@ -584,7 +594,7 @@ if(BUILD_TESTING)
         set_tests_properties(seed_original_level_self_check PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^seed_original_level_self_check=ok signature=1000:aaab data_string_offset=0x8b runtime_ds=0x0c8f level_byte=0x79b7 advance_routine=1000:2040 inc_level=1000:2051 completion_gate=1000:8283 flag1=0x79c5 flag2=0x79c6 actor_count=0x2080")
+                "^seed_original_level_self_check=ok signature=1000:aaab data_string_offset=0x8b runtime_ds=0x0c8f level_byte=0x79b7 level_range=1-7 objective_fields=destructible:ds79b4,bonus_target:ds2086,destruction_target:ds79b3 objective_counters=bonus:ds2088,destruction:ds79b5 completion_flags=bonus:ds79c5,destruction:ds79c6 completion_helper=1000:3184 completion_gate=1000:8283 collapse_queue=ds:2080 advance_routine=1000:1d61 inc_level=1000:2051 completed_game_gate=1000:829b runtime_tables=ds:1bae/0x26,ds:c21e/0x08,ds:79ea/0x10 runtime_counts=ds:208d,ds:79f9,ds:c496 runtime_camera=ds:c216,ds:c218,ds:c20a,ds:c20c pinned_windows=11")
 
         add_test(NAME actor_dispatch_gate_sweep_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -2370,7 +2380,7 @@ if(BUILD_TESTING)
     set_tests_properties(gran_boss_model PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^gran_boss_model=ok selector=1000:2c90 level7_bank=prova.spr anim_sets=0x0e:41..42,0x0f:43..44,0x10:40..40 boss_actors=7 head_visual=8 head_hp=10 head_lives=1 head_box=5x4 links=6 spring_links=2 orbit_links=4 actor=head:vis8:100,100:spr40 actor=segment:vis9:92,118:spr42 actor=segment:vis10:139,117:spr43 actor=segment:vis7:88,116:spr45 actor=segment:vis6:93,110:spr45 actor=segment:vis5:142,104:spr46 actor=segment:vis4:138,110:spr46 original_runtime_claim=0")
+            "^gran_boss_model=ok selector=1000:2c90 level7_bank=prova.spr anim_sets=0x0e:41..42,0x0f:43..44,0x10:40..40 boss_actors=7 head_visual=6 head_hp=10 head_lives=1 head_box=5x4 links=6 spring_links=2 orbit_links=4 actor=head:vis6:100,100:spr40 actor=segment:vis7:92,118:spr42 actor=segment:vis8:139,117:spr43 actor=segment:vis5:88,116:spr45 actor=segment:vis4:93,110:spr45 actor=segment:vis3:142,104:spr46 actor=segment:vis2:138,110:spr46 visual_rebase=2 runtime_actor_index_base=1 runtime_link_index_base=1 runtime_visual_count=9 original_runtime_placement_claim=1 original_runtime_timing_claim=0")
 
     add_test(NAME boss_runtime_evidence
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -2379,14 +2389,14 @@ if(BUILD_TESTING)
     set_tests_properties(boss_runtime_evidence PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^boss_runtime_evidence=ok original_head=1 original_segments=6 original_actors=7 original_segment_links=6 original_head_box=5x4 port_head=1 port_segments=6 port_actors=7 port_links=6 port_head_box=5x4 head_kind=0x1e head_behavior=6 segment_kind=0x1f link_params_matched=6/6 original_spring_links=2 original_orbit_links=4 port_spring_links=2 port_orbit_links=4 boss_structure_confirmed=1")
+            "^boss_runtime_evidence=ok original_actor_index_base=1 original_head=1 original_head_visual=6 original_segments=6 segment_visuals=2,3,4,5,7,8 original_actors=7 original_link_index_base=1 original_segment_links=6 original_link_target_visual=6 original_visual_count=9 original_head_box=5x4 port_head=1 port_head_visual=6 port_segments=6 port_actors=7 port_links=6 port_link_target_visual=6 port_head_box=5x4 head_kind=0x1e head_behavior=6 segment_kind=0x1f segment_behavior=5 visual_rebase=2 link_params_matched=6/6 original_spring_links=2 original_orbit_links=4 port_spring_links=2 port_orbit_links=4 boss_structure_confirmed=1 boss_placement_confirmed=1 boss_segment_motion_confirmed=1")
 
     add_test(NAME turbo_random
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-turbo-random)
     set_tests_properties(turbo_random PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^turbo_random=ok seq100_from0=0,56,29,76,86,17,85,3,95,96,74,16 seq1000_from_0x1234abcd=949,374,129,775,697,545,722,975 multiplier=0x08088405 increment=1 extraction=high16_mod_L original=0x920:0x13a8")
+            "^turbo_random=ok seq100_from0=0,56,29,76,86,17,85,3,95,96,74,16 seq1000_from_0x1234abcd=949,374,129,775,697,545,722,975 multiplier=0x08088405 increment=1 extraction=high16_mod_L original=0x920:0x13a8 advance=0x920:0x13f7 seed=ds:1afe multiplier_word=cs:142d static_bytes=1")
 
     add_test(NAME gran_profile
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran)

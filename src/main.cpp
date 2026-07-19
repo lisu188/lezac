@@ -2396,6 +2396,10 @@ public:
             int monsterBehavior = -1;
             int monsterHp = 0;
             int monsterSpawner = 0;
+            int bossPresent = 0;
+            int bossHeadX = -1;
+            int bossHeadY = -1;
+            size_t bossSegments = 0;
         };
 
         std::vector<CapturedFrame> captures;
@@ -2480,6 +2484,16 @@ public:
                 frame.monsterBehavior = monster.behavior;
                 frame.monsterHp = monster.hp;
                 frame.monsterSpawner = monster.hasSpawner ? static_cast<int>(monster.spawnerIndex) + 1 : 0;
+            }
+            frame.bossPresent = bossPresent_ ? 1 : 0;
+            for (const ActiveMonster& monster : monsters_) {
+                if (!monster.alive) continue;
+                if (monster.behavior == 6) {
+                    frame.bossHeadX = monster.x;
+                    frame.bossHeadY = monster.y;
+                } else if (monster.behavior == 5) {
+                    ++frame.bossSegments;
+                }
             }
             writeArgbPpm(joinPath(outDir, frame.file), fb_, kScreenW, kScreenH);
             captures.push_back(std::move(frame));
@@ -2838,6 +2852,40 @@ public:
                     "frame sequence behavior-4 target did not retarget back to player 2");
             }
             capture("050_level3_behavior4_target_p2_return");
+        } else if (scenario == "boss_level7") {
+            pushKeyDown(SDLK_1);
+            processEvents(running);
+            if (menu_ || playerCount_ != 1) {
+                throw std::runtime_error(
+                    "frame sequence failed to start one-player level 7");
+            }
+            resetLevel(6);
+            if (levelIndex_ != 6 || !bossPresent_ ||
+                monsters_.size() != 7 || bossLinks_.size() != 6) {
+                throw std::runtime_error(
+                    "frame sequence did not load the level-7 boss");
+            }
+            randomSeed_ = 0x1234abcd;
+            capture("010_level7_boss_start");
+
+            FrameControls idle;
+            for (int frame = 0; frame < 30; ++frame) {
+                updateWithControls(idle, 1.0f / 60.0f);
+            }
+            if (!bossPresent_ || bossDefeated_ || monsters_.size() != 7) {
+                throw std::runtime_error(
+                    "frame sequence lost the boss before tick 30");
+            }
+            capture("020_level7_boss_tick30");
+
+            for (int frame = 30; frame < 90; ++frame) {
+                updateWithControls(idle, 1.0f / 60.0f);
+            }
+            if (!bossPresent_ || bossDefeated_ || monsters_.size() != 7) {
+                throw std::runtime_error(
+                    "frame sequence lost the boss before tick 90");
+            }
+            capture("030_level7_boss_tick90");
         } else {
             throw std::runtime_error("unknown frame sequence scenario " + scenario);
         }
@@ -2906,7 +2954,11 @@ public:
                      << " monster_v8=" << frame.monsterVx8 << ',' << frame.monsterVy8
                      << " monster_behavior=" << frame.monsterBehavior
                      << " monster_hp=" << frame.monsterHp
-                     << " monster_spawner=" << frame.monsterSpawner << '\n';
+                     << " monster_spawner=" << frame.monsterSpawner
+                     << " boss_present=" << frame.bossPresent
+                     << " boss_head_xy=" << frame.bossHeadX << ','
+                     << frame.bossHeadY
+                     << " boss_segments=" << frame.bossSegments << '\n';
         }
 
         std::cout << "frame_sequence=ok"
@@ -2945,7 +2997,7 @@ public:
         };
         ActiveMonster* head = findHead();
         if (!head || head->kind != 0x1e || head->x != 100 || head->y != 100 ||
-            head->bossVisual != 8 || head->animFrame != 40 ||
+            head->bossVisual != 6 || head->animFrame != 40 ||
             head->bossHpByte != 10 || head->bossLives != 1 ||
             head->bossBoxW != 5 || head->bossBoxH != 4) {
             throw std::runtime_error("boss level7 autoplayer head fields mismatch");
@@ -2959,17 +3011,17 @@ public:
             uint8_t serial;
         };
         static const std::array<ExpectedSegment, 6> kExpectedSegments{{
-            {4, 138, 110, 46, 6},
-            {5, 142, 104, 46, 5},
-            {6, 93, 110, 45, 4},
-            {7, 88, 116, 45, 3},
-            {9, 92, 118, 42, 1},
-            {10, 139, 117, 43, 2},
+            {2, 138, 110, 46, 6},
+            {3, 142, 104, 46, 5},
+            {4, 93, 110, 45, 4},
+            {5, 88, 116, 45, 3},
+            {7, 92, 118, 42, 1},
+            {8, 139, 117, 43, 2},
         }};
         int springLinks = 0;
         int orbitLinks = 0;
         for (const BossMotionLink& link : bossLinks_) {
-            if (link.targetVisual != 8) {
+            if (link.targetVisual != 6) {
                 throw std::runtime_error("boss level7 autoplayer link target mismatch");
             }
             if (link.mode == 0xff) {
@@ -3018,7 +3070,7 @@ public:
         }
         bool orbiterMoved = false;
         for (const ActiveMonster& monster : monsters_) {
-            if (monster.behavior == 5 && monster.bossVisual == 4) {
+            if (monster.behavior == 5 && monster.bossVisual == 2) {
                 // Serial 6 -> orbit link with radius (1,7) and offset (38,10)
                 // around the head: the segment teleports to the link output
                 // each frame.
@@ -5608,7 +5660,7 @@ public:
             "behavior4_branch_runtime_fixture",
             "two_player_panel_artwork_frame_compare",
             "monster_sprite_table_runtime_consumption",
-            "gran_mst_field_semantics",
+            "gran_mst_runtime_motion_timing",
             "ds79b9_fallback_runtime_reachability",
             "level1_route_timing_original_confirmation",
         }};
@@ -7641,154 +7693,299 @@ public:
                   << " original_runtime_claim=0" << '\n';
     }
 
-    // Validate the statically-decoded level-7 boss model against captured
-    // ORIGINAL RUNTIME evidence (the DS:0x1BAE actor table and DS:0x79EA link
-    // table read from a live DOSBox session at level 7). Confirms the head/
-    // segment kinds, actor count, link count, and head hit-box against what the
-    // original game actually built in memory.
+    // Validate the decoded boss against one-based actor/link tables captured
+    // from a live original level-7 session.
     void debugBossRuntimeEvidence(const std::string& fixturePath) {
         std::ifstream in(fixturePath);
-        if (!in) throw std::runtime_error("cannot open boss runtime fixture " + fixturePath);
+        if (!in) {
+            throw std::runtime_error(
+                "cannot open boss runtime fixture " + fixturePath);
+        }
         std::string line, actorHex, linkHex;
-        int headKind = 0, headBehavior = 0, segmentKind = 0, actorEntrySize = 38;
+        int actorEntrySize = 0;
+        int actorSlotCount = 0;
+        int actorIndexBase = 0;
+        int actorCount = 0;
+        int linkEntrySize = 0;
+        int linkSlotCount = 0;
+        int linkIndexBase = 0;
+        int linkCount = 0;
+        int visualAllocatorCount = 0;
+        int visualRebase = 0;
+        int headVisual = -1;
+        int headKind = -1;
+        int headBehavior = -1;
+        int segmentKind = -1;
+        int segmentBehavior = -1;
         while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
             if (line.empty() || line[0] == '#') continue;
             auto eq = line.find('=');
             if (eq == std::string::npos) continue;
             std::string key = line.substr(0, eq), val = line.substr(eq + 1);
             if (key == "actor_table_hex") actorHex = val;
             else if (key == "link_table_hex") linkHex = val;
+            else if (key == "actor_entry_size") actorEntrySize = std::stoi(val, nullptr, 0);
+            else if (key == "actor_slot_count") actorSlotCount = std::stoi(val, nullptr, 0);
+            else if (key == "actor_index_base") actorIndexBase = std::stoi(val, nullptr, 0);
+            else if (key == "actor_count") actorCount = std::stoi(val, nullptr, 0);
+            else if (key == "link_entry_size") linkEntrySize = std::stoi(val, nullptr, 0);
+            else if (key == "link_slot_count") linkSlotCount = std::stoi(val, nullptr, 0);
+            else if (key == "link_index_base") linkIndexBase = std::stoi(val, nullptr, 0);
+            else if (key == "link_count") linkCount = std::stoi(val, nullptr, 0);
+            else if (key == "visual_allocator_count") visualAllocatorCount = std::stoi(val, nullptr, 0);
+            else if (key == "visual_rebase") visualRebase = std::stoi(val, nullptr, 0);
+            else if (key == "head_visual") headVisual = std::stoi(val, nullptr, 0);
             else if (key == "head_kind") headKind = std::stoi(val, nullptr, 0);
             else if (key == "head_behavior") headBehavior = std::stoi(val, nullptr, 0);
             else if (key == "segment_kind") segmentKind = std::stoi(val, nullptr, 0);
-            else if (key == "actor_entry_size") actorEntrySize = std::stoi(val, nullptr, 0);
+            else if (key == "segment_behavior") segmentBehavior = std::stoi(val, nullptr, 0);
         }
-        auto hexToBytes = [](const std::string& h) {
+        auto hexToBytes = [](const std::string& value, const char* label) {
+            if (value.empty() || value.size() % 2 != 0) {
+                throw std::runtime_error(
+                    std::string("invalid ") + label + " hex length");
+            }
             std::vector<uint8_t> b;
-            for (size_t i = 0; i + 1 < h.size(); i += 2)
-                b.push_back(static_cast<uint8_t>(std::stoi(h.substr(i, 2), nullptr, 16)));
+            for (size_t i = 0; i < value.size(); i += 2) {
+                if (!std::isxdigit(static_cast<unsigned char>(value[i])) ||
+                    !std::isxdigit(static_cast<unsigned char>(value[i + 1]))) {
+                    throw std::runtime_error(
+                        std::string("invalid ") + label + " hex byte");
+                }
+                b.push_back(static_cast<uint8_t>(
+                    std::stoi(value.substr(i, 2), nullptr, 16)));
+            }
             return b;
         };
-        std::vector<uint8_t> actors = hexToBytes(actorHex);
-        std::vector<uint8_t> links = hexToBytes(linkHex);
+        std::vector<uint8_t> actors = hexToBytes(actorHex, "actor table");
+        std::vector<uint8_t> links = hexToBytes(linkHex, "link table");
+        if (actorEntrySize != 0x26 || actorSlotCount != 8 ||
+            actorIndexBase != 1 || actorCount != 7 ||
+            linkEntrySize != 0x10 || linkSlotCount != 8 ||
+            linkIndexBase != 1 || linkCount != 6 ||
+            visualAllocatorCount != 9 || visualRebase != 2 ||
+            headVisual != 6 || headKind != 0x1e || headBehavior != 6 ||
+            segmentKind != 0x1f || segmentBehavior != 5 ||
+            actors.size() !=
+                static_cast<size_t>(actorSlotCount * actorEntrySize) ||
+            links.size() !=
+                static_cast<size_t>(linkSlotCount * linkEntrySize)) {
+            throw std::runtime_error("boss runtime fixture metadata mismatch");
+        }
 
-        // Parse the original runtime actor table: locate the head (kind byte
-        // followed by its behavior byte) and count the segments.
-        int origHeadCount = 0, origSegmentCount = 0;
+        const std::set<int> expectedSegmentVisuals{2, 3, 4, 5, 7, 8};
+        int origHeadCount = 0;
+        int origSegmentCount = 0;
+        int origHeadVisual = -1;
+        int origHeadLives = -1;
         int origHeadBoxW = -1, origHeadBoxH = -1;
-        for (size_t off = 0; off + 2 <= actors.size(); ++off) {
-            if (actors[off] == headKind && actors[off + 1] == headBehavior) {
+        bool origActorFieldsMatch = true;
+        std::set<int> origSegmentVisuals;
+        for (int slot = actorIndexBase;
+             slot < actorIndexBase + actorCount; ++slot) {
+            size_t off = static_cast<size_t>(slot * actorEntrySize);
+            int kind = actors[off];
+            int visual = actors[off + 1];
+            int behavior = actors[off + 0x15];
+            if (kind == headKind) {
                 ++origHeadCount;
-                // Head hit-box is the 5x4 pair 14 bytes into the head entry
-                // (kind,behavior,...,boxW,boxH), matching the decoded model.
-                if (off + 15 < actors.size()) {
-                    origHeadBoxW = actors[off + 14];
-                    origHeadBoxH = actors[off + 15];
+                origHeadVisual = visual;
+                origHeadLives = actors[off + 2];
+                origHeadBoxW = actors[off + 0x0e];
+                origHeadBoxH = actors[off + 0x0f];
+                origActorFieldsMatch =
+                    origActorFieldsMatch && behavior == headBehavior &&
+                    actors[off + 0x25] == 0;
+            } else if (kind == segmentKind) {
+                ++origSegmentCount;
+                origSegmentVisuals.insert(visual);
+                origActorFieldsMatch =
+                    origActorFieldsMatch && behavior == segmentBehavior &&
+                    actors[off + 0x25] == actorIndexBase;
+            } else {
+                origActorFieldsMatch = false;
+            }
+        }
+
+        bool origLinksMatch = true;
+        std::set<int> origLinkSelfVisuals;
+        for (int slot = linkIndexBase;
+             slot < linkIndexBase + linkCount; ++slot) {
+            size_t off = static_cast<size_t>(slot * linkEntrySize);
+            int target = links[off];
+            int self = links[off + 1];
+            origLinksMatch = origLinksMatch && target == headVisual;
+            origLinkSelfVisuals.insert(self);
+        }
+        for (int slot = linkIndexBase + linkCount;
+             slot < linkSlotCount; ++slot) {
+            size_t off = static_cast<size_t>(slot * linkEntrySize);
+            for (int i = 0; i < linkEntrySize; ++i) {
+                if (links[off + static_cast<size_t>(i)] != 0) {
+                    origLinksMatch = false;
                 }
             }
         }
-        // Count segments as kind bytes sitting on the head's 38-byte entry grid.
-        int gridSegments = 0;
-        int headIdx = -1;
-        for (size_t off = 0; off + 2 <= actors.size(); ++off)
-            if (actors[off] == headKind && actors[off + 1] == headBehavior) { headIdx = static_cast<int>(off); break; }
-        if (headIdx >= 0) {
-            for (int slot = -1; slot < 8; ++slot) {
-                int idx = headIdx + slot * actorEntrySize;
-                if (idx < 0 || idx + 1 >= static_cast<int>(actors.size())) continue;
-                if (actors[idx] == segmentKind) ++gridSegments;
-            }
-        }
-        int origLinkCount = 0;
-        for (size_t s = 0; s + 16 <= links.size(); s += 16) {
-            bool nz = false;
-            for (size_t k = 0; k < 16; ++k) if (links[s + k]) { nz = true; break; }
-            if (nz) ++origLinkCount;
-        }
-        // slot 0 of the link table is the head record; the rest are segments.
-        int origSegmentLinks = std::max(0, origLinkCount - 1);
-        origSegmentCount = gridSegments;
 
-        // Decode the port's static boss model.
         load();
         resetLevel(6);
-        if (levelIndex_ != 6 || !bossPresent_)
+        if (levelIndex_ != 6 || !bossPresent_) {
             throw std::runtime_error("port did not build the level-7 boss");
+        }
         int portSegments = 0, portHead = 0;
+        int portHeadVisual = -1;
+        int portHeadLives = -1;
         int portHeadBoxW = -1, portHeadBoxH = -1;
+        bool portActorFieldsMatch = true;
+        std::set<int> portSegmentVisuals;
         for (const ActiveMonster& m : monsters_) {
-            if (m.behavior == 6) { ++portHead; portHeadBoxW = m.bossBoxW; portHeadBoxH = m.bossBoxH; }
-            else ++portSegments;
+            if (m.kind == headKind) {
+                ++portHead;
+                portHeadVisual = m.bossVisual;
+                portHeadLives = m.bossLives;
+                portHeadBoxW = m.bossBoxW;
+                portHeadBoxH = m.bossBoxH;
+                portActorFieldsMatch =
+                    portActorFieldsMatch && m.behavior == headBehavior;
+            } else if (m.kind == segmentKind) {
+                ++portSegments;
+                portSegmentVisuals.insert(m.bossVisual);
+                portActorFieldsMatch =
+                    portActorFieldsMatch && m.behavior == segmentBehavior;
+            } else {
+                portActorFieldsMatch = false;
+            }
         }
         int portActors = static_cast<int>(monsters_.size());
         int portLinks = static_cast<int>(bossLinks_.size());
+        bool portLinksMatch = true;
+        std::set<int> portLinkSelfVisuals;
+        for (const BossMotionLink& link : bossLinks_) {
+            portLinksMatch =
+                portLinksMatch && link.targetVisual == headVisual;
+            portLinkSelfVisuals.insert(link.selfVisual);
+        }
 
-        bool match =
+        bool structureMatch =
+            origActorFieldsMatch && origLinksMatch &&
             origHeadCount == 1 && portHead == 1 &&
+            origHeadVisual == headVisual && portHeadVisual == headVisual &&
+            origHeadLives == 1 && portHeadLives == 1 &&
             origSegmentCount == portSegments && portSegments == 6 &&
-            portActors == 7 &&
-            origSegmentLinks == portLinks && portLinks == 6 &&
+            origSegmentVisuals == expectedSegmentVisuals &&
+            origLinkSelfVisuals == expectedSegmentVisuals &&
+            portActorFieldsMatch && portLinksMatch &&
+            portSegmentVisuals == expectedSegmentVisuals &&
+            portLinkSelfVisuals == expectedSegmentVisuals &&
+            portActors == actorCount && portLinks == linkCount &&
+            origHeadBoxW == 5 && origHeadBoxH == 4 &&
             origHeadBoxW == portHeadBoxW && origHeadBoxH == portHeadBoxH;
 
-        // Validate the MOTION PHYSICS of each segment link, not just the count.
+        // Validate the static motion fields of each live segment link.
         // The runtime link table (DS:0x79EA slots 1..6) is initialised from the
         // GRAN.MST link records in order, so its static physics fields must
         // equal the port's decoded bossLinks_[i] element-for-element:
         //   gain (byte2), mode (byte3), radiusX (byte4), radiusY (byte5),
         //   offX (bytes7..8), offY (bytes9..10), biasY (byte15).
-        // Excluded: bytes 11..14 (per-frame outX/outY) and byte6 (phase) are
-        // runtime-advanced, and bytes0..1 (target/self visual) carry a runtime
-        // +2 base vs the port's +4 base (an internal numbering offset that does
-        // not affect physics or rendering). Match by link index.
-        int linkParamMatches = 0, linkParamChecked = 0;
-        int origSpringLinks = 0, origOrbitLinks = 0;
-        for (int slot = 1; slot <= 6; ++slot) {
-            size_t s = static_cast<size_t>(slot) * 16;
-            size_t li = static_cast<size_t>(slot - 1);
-            if (s + 16 > links.size() || li >= bossLinks_.size()) continue;
-            uint8_t gain = links[s + 2];
-            uint8_t mode = links[s + 3];
-            uint8_t radiusX = links[s + 4];
-            uint8_t radiusY = links[s + 5];
-            int16_t offX = static_cast<int16_t>(links[s + 7] | (links[s + 8] << 8));
-            int16_t offY = static_cast<int16_t>(links[s + 9] | (links[s + 10] << 8));
-            int8_t biasY = static_cast<int8_t>(links[s + 15]);
+        // Byte 6 (phase) and bytes 11..14 (outX/outY) are runtime-advanced.
+        // Bytes 0..1 use the shared +2 visual mapping checked above.
+        int linkParamMatches = 0;
+        int linkParamChecked = 0;
+        int origSpringLinks = 0;
+        int origOrbitLinks = 0;
+        for (int slot = linkIndexBase;
+             slot < linkIndexBase + linkCount; ++slot) {
+            size_t off = static_cast<size_t>(slot * linkEntrySize);
+            size_t linkIndex = static_cast<size_t>(slot - linkIndexBase);
+            uint8_t gain = links[off + 2];
+            uint8_t mode = links[off + 3];
+            uint8_t radiusX = links[off + 4];
+            uint8_t radiusY = links[off + 5];
+            int16_t offX = static_cast<int16_t>(
+                links[off + 7] | (links[off + 8] << 8));
+            int16_t offY = static_cast<int16_t>(
+                links[off + 9] | (links[off + 10] << 8));
+            int8_t biasY = static_cast<int8_t>(links[off + 15]);
             if (mode == 0xff) ++origOrbitLinks; else ++origSpringLinks;
-            const BossMotionLink& pl = bossLinks_[li];
             ++linkParamChecked;
-            if (pl.gain == gain && pl.mode == mode &&
-                pl.radiusX == radiusX && pl.radiusY == radiusY &&
-                pl.offX == offX && pl.offY == offY && pl.biasY == biasY) {
+            if (linkIndex >= bossLinks_.size()) continue;
+            const BossMotionLink& portLink = bossLinks_[linkIndex];
+            if (portLink.gain == gain && portLink.mode == mode &&
+                portLink.radiusX == radiusX &&
+                portLink.radiusY == radiusY &&
+                portLink.offX == offX && portLink.offY == offY &&
+                portLink.biasY == biasY) {
                 ++linkParamMatches;
             }
         }
-        int portSpringLinks = 0, portOrbitLinks = 0;
-        for (const BossMotionLink& l : bossLinks_)
-            if (l.mode == 0xff) ++portOrbitLinks; else ++portSpringLinks;
-        bool linkMatch = linkParamChecked == 6 && linkParamMatches == 6 &&
-                         origSpringLinks == portSpringLinks &&
-                         origOrbitLinks == portOrbitLinks;
-        match = match && linkMatch;
+        int portSpringLinks = 0;
+        int portOrbitLinks = 0;
+        for (const BossMotionLink& link : bossLinks_) {
+            if (link.mode == 0xff) {
+                ++portOrbitLinks;
+            } else {
+                ++portSpringLinks;
+            }
+        }
+        bool linkParamsMatch =
+            linkParamChecked == linkCount &&
+            linkParamMatches == linkCount &&
+            origSpringLinks == portSpringLinks &&
+            origOrbitLinks == portOrbitLinks;
+        bool match = structureMatch && linkParamsMatch;
+
+        auto joinSet = [](const std::set<int>& values) {
+            std::ostringstream out;
+            bool first = true;
+            for (int value : values) {
+                if (!first) out << ',';
+                first = false;
+                out << value;
+            }
+            return out.str();
+        };
 
         std::cout << "boss_runtime_evidence=" << (match ? "ok" : "MISMATCH")
+                  << " original_actor_index_base=" << actorIndexBase
                   << " original_head=" << origHeadCount
+                  << " original_head_visual=" << origHeadVisual
                   << " original_segments=" << origSegmentCount
-                  << " original_actors=" << (origHeadCount + origSegmentCount)
-                  << " original_segment_links=" << origSegmentLinks
+                  << " segment_visuals=" << joinSet(origSegmentVisuals)
+                  << " original_actors=" << actorCount
+                  << " original_link_index_base=" << linkIndexBase
+                  << " original_segment_links=" << linkCount
+                  << " original_link_target_visual=" << headVisual
+                  << " original_visual_count=" << visualAllocatorCount
                   << " original_head_box=" << origHeadBoxW << 'x' << origHeadBoxH
                   << " port_head=" << portHead
+                  << " port_head_visual=" << portHeadVisual
                   << " port_segments=" << portSegments
                   << " port_actors=" << portActors
                   << " port_links=" << portLinks
+                  << " port_link_target_visual=" << headVisual
                   << " port_head_box=" << portHeadBoxW << 'x' << portHeadBoxH
-                  << " head_kind=0x1e head_behavior=6 segment_kind=0x1f"
-                  << " link_params_matched=" << linkParamMatches << '/' << linkParamChecked
+                  << " head_kind=0x" << std::hex << headKind << std::dec
+                  << " head_behavior=" << headBehavior
+                  << " segment_kind=0x" << std::hex << segmentKind << std::dec
+                  << " segment_behavior=" << segmentBehavior
+                  << " visual_rebase=" << visualRebase
+                  << " link_params_matched=" << linkParamMatches << '/'
+                  << linkParamChecked
                   << " original_spring_links=" << origSpringLinks
                   << " original_orbit_links=" << origOrbitLinks
                   << " port_spring_links=" << portSpringLinks
                   << " port_orbit_links=" << portOrbitLinks
-                  << " boss_structure_confirmed=" << (match ? 1 : 0) << '\n';
-        if (!match) throw std::runtime_error("boss model does not match original runtime evidence");
+                  << " boss_structure_confirmed="
+                  << (structureMatch ? 1 : 0)
+                  << " boss_placement_confirmed="
+                  << (structureMatch ? 1 : 0)
+                  << " boss_segment_motion_confirmed="
+                  << (linkParamsMatch ? 1 : 0) << '\n';
+        if (!match) {
+            throw std::runtime_error(
+                "boss model does not match original runtime evidence");
+        }
     }
 
     // Verify the port's RNG is bit-identical to the original's Turbo Pascal
@@ -7796,6 +7993,52 @@ public:
     // Random(L)=(RandSeed>>16) mod L. The expected vectors are computed
     // independently from that formula.
     void debugTurboRandom() {
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() < 0x0770 ||
+            exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("LEZAC.EXE missing MZ header");
+        }
+        size_t imageBase = static_cast<size_t>(le16(exeBytes, 0x08)) * 16;
+        if (imageBase != 0x0770) {
+            throw std::runtime_error(
+                "LEZAC.EXE image base changed for Turbo Random scan");
+        }
+        static const uint8_t kRandomEntry[] = {
+            0xe8, 0x4c, 0x00, 0x33, 0xc0, 0x8b, 0xdc, 0x36,
+            0x8b, 0x5f, 0x04, 0x0b, 0xdb, 0x74, 0x04, 0x92,
+            0xf7, 0xf3, 0x92, 0xca, 0x02, 0x00};
+        static const uint8_t kAdvance[] = {
+            0xa1, 0xfe, 0x1a, 0x8b, 0x1e, 0x00, 0x1b, 0x8b,
+            0xc8, 0x2e, 0xf7, 0x26, 0x2d, 0x14, 0xd1, 0xe1,
+            0xd1, 0xe1, 0xd1, 0xe1, 0x02, 0xe9, 0x03, 0xd1,
+            0x03, 0xd3, 0xd1, 0xe3, 0xd1, 0xe3, 0x03, 0xd3,
+            0x02, 0xf3, 0xb1, 0x05, 0xd3, 0xe3, 0x02, 0xf3,
+            0x05, 0x01, 0x00, 0x83, 0xd2, 0x00, 0xa3, 0xfe,
+            0x1a, 0x89, 0x16, 0x00, 0x1b, 0xc3};
+        auto requireBytes = [&](size_t offset, const uint8_t* expected,
+                                size_t length, const char* label) {
+            if (offset + length > exeBytes.size()) {
+                throw std::runtime_error(
+                    std::string("truncated Turbo Random ") + label);
+            }
+            for (size_t i = 0; i < length; ++i) {
+                if (exeBytes[offset + i] != expected[i]) {
+                    throw std::runtime_error(
+                        std::string("Turbo Random ") + label +
+                        " bytes changed");
+                }
+            }
+        };
+        size_t runtimeBase = imageBase + 0x9200;
+        requireBytes(runtimeBase + 0x13a8, kRandomEntry,
+                     sizeof(kRandomEntry), "entry");
+        requireBytes(runtimeBase + 0x13f7, kAdvance,
+                     sizeof(kAdvance), "advance");
+        if (le16(exeBytes, runtimeBase + 0x142d) != 0x8405) {
+            throw std::runtime_error(
+                "Turbo Random multiplier word changed");
+        }
+
         randomSeed_ = 0;
         std::cout << "turbo_random=ok seq100_from0=";
         for (int i = 0; i < 12; ++i) {
@@ -7809,16 +8052,18 @@ public:
             std::cout << randomRangeValue(0, 1000);
         }
         std::cout << " multiplier=0x08088405 increment=1"
-                     " extraction=high16_mod_L original=0x920:0x13a8\n";
+                     " extraction=high16_mod_L original=0x920:0x13a8"
+                     " advance=0x920:0x13f7 seed=ds:1afe"
+                     " multiplier_word=cs:142d static_bytes=1\n";
     }
 
     void debugGranBossModel() {
         // Pins the level-7 boss semantics recovered statically from the
         // shipped executable: the PROVA.SPR bank selector, the DS:0x58/0x59
         // facing anim-set pair table rows used by the boss records, and the
-        // decoded GRAN.MST boss model consumed by spawnLevel7Boss(). This is
-        // static instruction/data evidence; live boss presentation remains
-        // original_runtime_claim=0.
+        // decoded GRAN.MST boss model consumed by spawnLevel7Boss(). Live
+        // process-memory captures pin the 1-based actor/link tables, visual
+        // count 9, and visual rebase 2; motion timing remains unpromoted.
         std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
         if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
             throw std::runtime_error("LEZAC.EXE missing MZ header");
@@ -7902,7 +8147,12 @@ public:
                   << " links=" << bossLinks_.size()
                   << " spring_links=" << springLinks
                   << " orbit_links=" << orbitLinks << ' ' << actorList.str()
-                  << " original_runtime_claim=0" << '\n';
+                  << " visual_rebase=2"
+                  << " runtime_actor_index_base=1"
+                  << " runtime_link_index_base=1"
+                  << " runtime_visual_count=9"
+                  << " original_runtime_placement_claim=1"
+                  << " original_runtime_timing_claim=0" << '\n';
     }
 
     void debugSoundPriorityLatch() {
@@ -18460,10 +18710,10 @@ private:
 
     // Live GRAN.MST consumer backed by the static consumer model
     // (--debug-gran-static-consumer-model / --debug-gran-boss-model). The
-    // original appends these actors at level-7 setup; pre-boss visual entries
-    // are the two players plus the two player-shot slots, so record visual
-    // bytes and link visual bytes are rebased by 4.
-    static constexpr int kBossVisualBase = 4;
+    // original appends these actors at level-7 setup. The live allocator count
+    // DS:0xC496 is 2 before GRAN.MST is loaded, so record and link visual bytes
+    // are rebased by 2.
+    static constexpr int kBossVisualBase = 2;
 
     void spawnLevel7Boss() {
         std::vector<uint8_t> granBytes;

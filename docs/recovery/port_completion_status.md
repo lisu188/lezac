@@ -1,6 +1,6 @@
 # Port Completion Status
 
-Last reviewed: 2026-07-08
+Last reviewed: 2026-07-19
 
 The C++17/SDL2 reconstruction of `LEZAC.EXE` is functionally complete: every
 recovered gameplay, data, UI, and sound subsystem of the original game has a
@@ -50,8 +50,8 @@ reported by the diagnostic; CTest exercises these paths on every run.
   (`--debug-autoplayer monster_behavior4_chase`)
 - `monster_spawners` — spawner lifecycle
   (`--debug-autoplayer monster_spawner_cycle`)
-- `level7_boss` — GRAN.MST multi-segment boss from the statically recovered
-  consumer model (`--debug-autoplayer boss_level7`)
+- `level7_boss` — GRAN.MST multi-segment boss from the static consumer model
+  and live original placement tables (`--debug-autoplayer boss_level7`)
 - `player_death_state2` — death/state-2/reentry
   (`--debug-autoplayer death_reentry`)
 - `two_player` — two-player routes/progression/HUD
@@ -87,12 +87,10 @@ port functionality.
   comparison
 - `monster_sprite_table_runtime_consumption` — original runtime consumption of
   impact/death/reward sprite frames
-- `gran_mst_field_semantics` — original-runtime confirmation of the
-  `GRAN.MST` level-7 boss: the loader gate, file layout, destination tables,
-  head brain, motion links, and death chain are statically recovered
-  (`--debug-gran-static-consumer-model`, `--debug-gran-boss-model`) and the
-  port now plays the boss (`--debug-autoplayer boss_level7`); exact original
-  presentation/timing still needs DOSBox frame/debugger evidence
+- `gran_mst_runtime_motion_timing` — live original capture now confirms the
+  1-based actor/link tables, visual allocator count, `+2` visual rebase, and
+  initial boss placement (`--debug-gran-boss-model`); exact frame-by-frame
+  motion/collision timing still needs paired original evidence
 - `ds79b9_fallback_runtime_reachability` — runtime reachability of the
   `DS:79b9` fallback
 - `level1_route_timing_original_confirmation` — level-1 bomb-route timing

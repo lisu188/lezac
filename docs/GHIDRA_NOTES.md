@@ -157,10 +157,28 @@ quirk.
   `DS:0x79F9` count, get byte `+0x25` linked to the head record index, and the
   16-byte entries are appended to the `DS:0x79EA` table with their first two
   bytes rebased as visual-entry indexes; `DS:0x208D` grows by `N`.
+  Live level-7 snapshots from `tools/seed_original_level.py` resolve the
+  remaining indexing ambiguity: actor slot 0 and motion-link slot 0 are
+  reserved, so both populated tables are one-based. `DS:C496` is 2 before
+  GRAN and 9 after it, making the visual rebase `+2`, not `+4`. The resulting
+  visual slots are head 6 at `(100,100)` and segments 7 `(92,118)`, 8
+  `(139,117)`, 5 `(88,116)`, 4 `(93,110)`, 3 `(142,104)`, and 2
+  `(138,110)`; all six populated link records target head visual 6.
+  `tests/fixtures/boss_runtime_original_level7.txt` preserves the raw eight
+  actor and eight link slots. `--debug-boss-runtime-evidence` parses only live
+  slots `1..7`/`1..6`, reads behavior at actor `+0x15`, and checks the complete
+  mapping against the C++ boss model. It also compares each link's static
+  `gain`, `mode`, `radiusX`, `radiusY`, `offX`, `offY`, and `biasY` fields
+  against `bossLinks_`, confirming all six records and the two-spring /
+  four-orbit split. Runtime-advanced `phase`, `outX`, and `outY` remain outside
+  that claim.
   `--debug-gran-static-consumer-model` pins the 12 instruction/literal byte
-  windows and reparses the shipped file with this layout, keeping
-  `original_runtime_claim=0` until DOSBox runtime evidence covers the live
-  boss presentation. Runtime JSON loading still preserves the historical
+  windows and reparses the shipped file with this layout. Its
+  `original_runtime_claim=0` is intentionally scoped to that static-only
+  diagnostic; the live model separately reports
+  `original_runtime_placement_claim=1` and
+  `original_runtime_timing_claim=0`. Runtime JSON loading still preserves the
+  historical
   `7 * 57` storage split for byte preservation, and `--debug-gran-raw-roundtrip`
   independently loads both `GRAN.MST` and `GRAN.MST.json`, flattens their
   seven opaque records, and reports `raw_json_match=1` only when the converted
@@ -196,8 +214,12 @@ quirk.
   springs `(target - self + offset) * gain` with a per-axis velocity
   pull-back. `--debug-gran-boss-model` pins the selector and anim-table
   bytes and prints the decoded boss table; the C++ port now consumes this
-  model in `spawnLevel7Boss()` (level index 6), spawning the head at the
-  `(100,100)` anchor with segments at the decoded visual offsets.
+  model in `spawnLevel7Boss()` (level index 6), spawning head visual 6 at the
+  `(100,100)` anchor with segment visuals 2, 3, 4, 5, 7, and 8 at the live
+  original offsets. `--capture-frame-sequence boss_level7` records the
+  natural level start and later motion checkpoints with boss metadata; the
+  boss is offscreen at the natural initial camera position in both the
+  original and the port.
   `tools/check_gran_usage_guardrail.py` still restricts `gran_` access: the
   named live consumer `spawnLevel7Boss` plus debug/roundtrip paths only, so
   no additional live gameplay path may consume `GRAN.MST` without extending

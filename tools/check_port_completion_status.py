@@ -179,7 +179,8 @@ def write_synthetic_tree(
 
 def self_test() -> int:
     subsystems = [("resource_loading", "--validate"), ("menu_ui", "--smoke-ui")]
-    items = ["gran_mst_field_semantics", "exact_explosion_sprite_playback"]
+    items = ["gran_mst_runtime_motion_timing",
+             "exact_explosion_sprite_playback"]
     with tempfile.TemporaryDirectory(prefix="lezac-port-completion-") as tmp:
         root = Path(tmp)
         write_synthetic_tree(root, subsystems, items)
@@ -205,12 +206,13 @@ def self_test() -> int:
         doc_path = root / "docs" / "recovery" / "port_completion_status.md"
         doc_text = doc_path.read_text(encoding="utf-8")
         write_text(
-            doc_path, doc_text.replace("- `gran_mst_field_semantics`\n", "")
+            doc_path,
+            doc_text.replace("- `gran_mst_runtime_motion_timing`\n", ""),
         )
         try:
             check_docs(root, subsystems, items)
         except RuntimeError as exc:
-            if "doc:item:gran_mst_field_semantics" not in str(exc):
+            if "doc:item:gran_mst_runtime_motion_timing" not in str(exc):
                 raise
         else:
             raise RuntimeError("selftest missing doc item was not rejected")

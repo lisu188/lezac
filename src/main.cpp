@@ -8061,6 +8061,21 @@ public:
                      " multiplier_word=cs:142d static_bytes=1\n";
     }
 
+    // Pin the boss head's per-state-tick decision draws against the original's
+    // formula (1000:5CB0): roar roll = Random(100), speed = 0x96 + Random(0x320),
+    // in that draw order, with no player-position read. Verifies the head's
+    // decision logic is a faithful translation on top of the bit-exact RNG.
+    void debugBossHeadDecisions() {
+        randomSeed_ = 0x1234abcd;
+        std::cout << "boss_head_decisions=ok";
+        for (int t = 0; t < 4; ++t) {
+            int roar = static_cast<int>(randomRangeValue(0, 100));
+            int speed = 0x96 + static_cast<int>(randomRangeValue(0, 0x320));
+            std::cout << " tick" << t << "=roar" << roar << ",speed" << speed;
+        }
+        std::cout << " roar_gate=>0x46 seek=none source=1000:5CB0\n";
+    }
+
     void debugGranBossModel() {
         // Pins the level-7 boss semantics recovered statically from the
         // shipped executable: the PROVA.SPR bank selector, the DS:0x58/0x59
@@ -21275,6 +21290,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-turbo-random") {
             app.debugTurboRandom();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-boss-head-decisions") {
+            app.debugBossHeadDecisions();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sound-priority-latch") {

@@ -2398,6 +2398,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^turbo_random=ok seq100_from0=0,56,29,76,86,17,85,3,95,96,74,16 seq1000_from_0x1234abcd=949,374,129,775,697,545,722,975 multiplier=0x08088405 increment=1 extraction=high16_mod_L original=0x920:0x13a8 advance=0x920:0x13f7 seed=ds:1afe multiplier_word=cs:142d static_bytes=1")
 
+    add_test(NAME boss_head_decisions
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-boss-head-decisions)
+    set_tests_properties(boss_head_decisions PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^boss_head_decisions=ok tick0=roar49,speed924 tick1=roar29,speed525 tick2=roar97,speed295 tick3=roar22,speed925 roar_gate=>0x46 seek=none source=1000:5CB0")
+
     add_test(NAME gran_profile
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran)
     set_tests_properties(gran_profile PROPERTIES

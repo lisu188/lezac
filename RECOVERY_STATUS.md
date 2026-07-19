@@ -23,6 +23,16 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- Wired the per-level intro splash into interactive play. Pressing 1/2 at the
+  menu and completing a level now show the "PREPARATI PER IL LIVELLO N"
+  screen (fire or a ~3s timeout continues), matching the original's flow. The
+  intro is gated behind a new `interactiveSession_` flag set only by `run()`,
+  so the autoplayer, frame-capture, and smoke tests (which drive `resetLevel`/
+  debug paths, not `run()`) never enter it -- full suite stays green with no
+  test changes. A workflow investigation also established that the original's
+  stripe backdrop is randomised per launch (Turbo RNG reseeded from the wall
+  clock at init), so the exact stripe pattern is not a fixed target; the
+  port's olive-ramp backdrop is a faithful representation.
 - Recovered and reproduced the per-level intro splash. A live original
   capture at level start revealed a "PREPARATI PER IL LIVELLO N" screen
   (diagonal olive-striped backdrop, centred caption) that the port skipped;

@@ -1666,9 +1666,21 @@ public:
         }
     }
 
+    void beginLevelIntro(int index) {
+        // Enter a level. In an interactive session this first shows the
+        // per-level intro splash (matching the original); test/autoplayer paths
+        // leave interactiveSession_ false and go straight into gameplay.
+        resetLevel(index);
+        if (interactiveSession_) {
+            levelIntro_ = true;
+            levelIntroTimer_ = kLevelIntroTicks;
+        }
+    }
+
     void run() {
         load();
         initSdl();
+        interactiveSession_ = true;
         resetLevel(0);
         uint32_t last = SDL_GetTicks();
         bool running = true;
@@ -16797,6 +16809,10 @@ private:
     int collected_ = 0;
     int destroyed_ = 0;
     int completeTimer_ = 0;
+    static constexpr int kLevelIntroTicks = 180;
+    bool interactiveSession_ = false;
+    bool levelIntro_ = false;
+    int levelIntroTimer_ = 0;
     int portalCooldown_ = 0;
     int triggerCooldown_ = 0;
     int portalCooldown2_ = 0;
@@ -17041,7 +17057,7 @@ private:
                 clearRunScores();
                 pendingRecordQueue_.clear();
                 clearPendingRecord();
-                resetLevel(0);
+                beginLevelIntro(0);
                 menu_ = false;
                 menuPage_ = MenuPage::Main;
             } else if (key == SDLK_i) {
@@ -17054,6 +17070,10 @@ private:
             } else if (key == SDLK_s) {
                 showBackground_ = !showBackground_;
             }
+        } else if (!menu_ && levelIntro_) {
+            // During the pre-level splash, fire dismisses it; other gameplay
+            // keys are swallowed so they do not leak into the frozen level.
+            if (isPlayer1FireKey(key) || key == SDLK_RETURN) levelIntro_ = false;
         } else if (!menu_ && key == SDLK_p) {
             paused_ = !paused_;
         } else if (!menu_ && key == SDLK_ESCAPE) {
@@ -17505,6 +17525,15 @@ private:
 
     void update(float dt) {
         if (menu_ || paused_) return;
+        if (levelIntro_) {
+            // The pre-level "PREPARATI PER IL LIVELLO N" splash freezes gameplay
+            // until it times out or the player presses fire.
+            const uint8_t* introKeys = SDL_GetKeyboardState(nullptr);
+            bool fire = introKeys[SDL_SCANCODE_N] || introKeys[SDL_SCANCODE_SPACE] ||
+                        introKeys[SDL_SCANCODE_RETURN] || introKeys[SDL_SCANCODE_RCTRL];
+            if (--levelIntroTimer_ <= 0 || fire) levelIntro_ = false;
+            return;
+        }
         const uint8_t* keys = SDL_GetKeyboardState(nullptr);
         FrameControls controls;
         controls.p1Left = keys[SDL_SCANCODE_LEFT] ||
@@ -17629,7 +17658,7 @@ private:
                 if (isFinalLevel()) {
                     beginEndRun(EndReason::CompletedGame);
                 } else {
-                    resetLevel(levelIndex_ + 1);
+                    beginLevelIntro(levelIndex_ + 1);
                 }
             }
         } else {
@@ -19422,6 +19451,7 @@ private:
 
     void draw() {
         if (menu_) drawMenu();
+        else if (levelIntro_) drawLevelIntro(levelIndex_);
         else drawGame();
         if (SDL_UpdateTexture(texture_, nullptr, fb_.data(),
                               kScreenW * sizeof(uint32_t)) != 0) {

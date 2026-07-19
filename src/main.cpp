@@ -29,6 +29,7 @@ constexpr int kScreenH = 200;
 // destruction-target star (verified from the original HUD icon renderer, which
 // blits 8x8 CARO tiles, not BOMOMIMK sprites, for the objective icons).
 constexpr int kHudDestructionStarTile = 117;
+constexpr int kHudLifeMarkerTile = 115;  // green walking figure
 constexpr int kNameEntryLabelX = 58;
 constexpr int kNameEntrySlotY = 120;
 constexpr int kNameEntrySlotCount = 8;
@@ -20100,9 +20101,24 @@ private:
         }
     }
 
+    // Blit an 8x8 CARO.CAR tile at a screen position (transparent index 0),
+    // the primitive the original HUD uses for its objective/life-marker icons.
+    bool drawHudTile8(int dx, int dy, int id) {
+        const uint8_t* tile = tiles_.tile(id);
+        if (!tile) return false;
+        for (int ty = 0; ty < 8; ++ty) {
+            for (int tx = 0; tx < 8; ++tx) {
+                uint8_t c = tile[ty * 8 + tx];
+                if (c != 0) pixel(dx + tx, dy + ty, argb(palette_, c));
+            }
+        }
+        return true;
+    }
+
     void drawOriginalHudFigure(int x, int y, uint32_t color) {
-        // Small green player-life marker approximating the original's stick
-        // figures at the bottom-left of the HUD band.
+        // Player-life marker: the original blits CARO.CAR tile 115 (a green
+        // walking figure); fall back to a small stick glyph if unavailable.
+        if (drawHudTile8(x, y - 1, kHudLifeMarkerTile)) return;
         static const char* kGlyph[7] = {
             " X ", " X ", "XXX", " X ", " X ", "X X", "X X"};
         for (int gy = 0; gy < 7; ++gy) {
@@ -20187,21 +20203,10 @@ private:
         // The top icon is the level's bonus-collectible graphic: the original
         // draws the level objectiveTile (verified because levels 1 and 3 share
         // objectiveTile 108 and show the identical lemon; L2=grapes, L5=melon).
-        auto drawHudTile = [&](int dx, int dy, int id) {
-            const uint8_t* tile = tiles_.tile(id);
-            if (!tile) return false;
-            for (int ty = 0; ty < 8; ++ty) {
-                for (int tx = 0; tx < 8; ++tx) {
-                    uint8_t c = tile[ty * 8 + tx];
-                    if (c != 0) pixel(dx + tx, dy + ty, argb(palette_, c));
-                }
-            }
-            return true;
-        };
         // Each tally icon sits in its own small black inset box on the panel.
         rect(143, y0 + 9, 10, 10, kBlack);
         rect(143, y0 + 23, 10, 10, kBlack);
-        if (!drawHudTile(144, y0 + 10, level_.objectiveTile)) {
+        if (!drawHudTile8(144, y0 + 10, level_.objectiveTile)) {
             rect(144, y0 + 10, 8, 8, kYellow);
         }
         // The original displays the REMAINING objective (required - current),
@@ -20213,7 +20218,7 @@ private:
                       std::min(99, bonusRemaining));
         text(156, y0 + 11, bonusText, kGreen);
         // Bottom icon: the fixed destruction-target star, CARO.CAR tile 117.
-        if (!drawHudTile(144, y0 + 24, kHudDestructionStarTile)) {
+        if (!drawHudTile8(144, y0 + 24, kHudDestructionStarTile)) {
             rect(144, y0 + 24, 8, 8, kYellow);
         }
         int destRemaining = std::max(

@@ -25,9 +25,11 @@ namespace {
 
 constexpr int kScreenW = 320;
 constexpr int kScreenH = 200;
-// BOMOMIMK sprite indices used by the reconstructed bottom HUD.
-constexpr int kHudDestructionStarSprite = 69;  // fixed destruction-target star
-constexpr int kHudBombSelectorSprite = 57;     // blue bomb shown in the selector
+// CARO.CAR tile index used by the reconstructed bottom HUD: the fixed
+// destruction-target star (verified from the original HUD icon renderer, which
+// blits 8x8 CARO tiles, not BOMOMIMK sprites, for the objective icons).
+constexpr int kHudDestructionStarTile = 117;
+constexpr int kHudLifeMarkerTile = 115;  // green walking figure
 constexpr int kNameEntryLabelX = 58;
 constexpr int kNameEntrySlotY = 120;
 constexpr int kNameEntrySlotCount = 8;
@@ -17676,12 +17678,15 @@ private:
 
     BombProfile bombProfile(BombType type) const {
         switch (type) {
-            case BombType::Small: return {0x0d, 58, 20};
+            // The default (Small) bomb is the blue BOMOMIMK sprite 57, verified
+            // against the original both in the HUD selector box and as a dropped
+            // world bomb (captured under DOSBox); 58 is the green bomb.
+            case BombType::Small: return {0x0d, 57, 20};
             case BombType::Medium: return {0x0e, 59, 30};
             case BombType::Large: return {0x0f, 60, 40};
             case BombType::Super: return {0x10, 60, 200};
         }
-        return {0x0d, 58, 20};
+        return {0x0d, 57, 20};
     }
 
     int explosionVisualType(BombType type) const {
@@ -20096,9 +20101,24 @@ private:
         }
     }
 
+    // Blit an 8x8 CARO.CAR tile at a screen position (transparent index 0),
+    // the primitive the original HUD uses for its objective/life-marker icons.
+    bool drawHudTile8(int dx, int dy, int id) {
+        const uint8_t* tile = tiles_.tile(id);
+        if (!tile) return false;
+        for (int ty = 0; ty < 8; ++ty) {
+            for (int tx = 0; tx < 8; ++tx) {
+                uint8_t c = tile[ty * 8 + tx];
+                if (c != 0) pixel(dx + tx, dy + ty, argb(palette_, c));
+            }
+        }
+        return true;
+    }
+
     void drawOriginalHudFigure(int x, int y, uint32_t color) {
-        // Small green player-life marker approximating the original's stick
-        // figures at the bottom-left of the HUD band.
+        // Player-life marker: the original blits CARO.CAR tile 115 (a green
+        // walking figure); fall back to a small stick glyph if unavailable.
+        if (drawHudTile8(x, y - 1, kHudLifeMarkerTile)) return;
         static const char* kGlyph[7] = {
             " X ", " X ", "XXX", " X ", " X ", "X X", "X X"};
         for (int gy = 0; gy < 7; ++gy) {
@@ -20183,39 +20203,29 @@ private:
         // The top icon is the level's bonus-collectible graphic: the original
         // draws the level objectiveTile (verified because levels 1 and 3 share
         // objectiveTile 108 and show the identical lemon; L2=grapes, L5=melon).
-        auto drawHudTile = [&](int dx, int dy, int id) {
-            const uint8_t* tile = tiles_.tile(id);
-            if (!tile) return false;
-            for (int ty = 0; ty < 8; ++ty) {
-                for (int tx = 0; tx < 8; ++tx) {
-                    uint8_t c = tile[ty * 8 + tx];
-                    if (c != 0) pixel(dx + tx, dy + ty, argb(palette_, c));
-                }
-            }
-            return true;
-        };
         // Each tally icon sits in its own small black inset box on the panel.
         rect(143, y0 + 9, 10, 10, kBlack);
         rect(143, y0 + 23, 10, 10, kBlack);
-        if (!drawHudTile(144, y0 + 10, level_.objectiveTile)) {
+        if (!drawHudTile8(144, y0 + 10, level_.objectiveTile)) {
             rect(144, y0 + 10, 8, 8, kYellow);
         }
+        // The original displays the REMAINING objective (required - current),
+        // counting down to zero as bonuses are collected / tiles destroyed.
+        int bonusRemaining =
+            std::max(0, static_cast<int>(level_.requiredBonus) - collected_);
         char bonusText[4];
         std::snprintf(bonusText, sizeof(bonusText), "%02d",
-                      std::clamp(static_cast<int>(level_.requiredBonus), 0, 99));
+                      std::min(99, bonusRemaining));
         text(156, y0 + 11, bonusText, kGreen);
-        // Bottom icon: the fixed destruction-target star (BOMOMIMK sprite index
-        // resolved from the original HUD renderer).
-        const int destStar = kHudDestructionStarSprite;
-        if (destStar >= 0 && destStar < static_cast<int>(sprites_.sprites.size())) {
-            const Sprite& s = sprites_.sprites[static_cast<size_t>(destStar)];
-            drawSprite(s, 144 + (8 - s.width) / 2, y0 + 24 + (8 - s.height) / 2);
-        } else {
+        // Bottom icon: the fixed destruction-target star, CARO.CAR tile 117.
+        if (!drawHudTile8(144, y0 + 24, kHudDestructionStarTile)) {
             rect(144, y0 + 24, 8, 8, kYellow);
         }
+        int destRemaining = std::max(
+            0, static_cast<int>(level_.requiredDestruction) - destructionPercent());
         char destText[4];
         std::snprintf(destText, sizeof(destText), "%02d",
-                      std::clamp(static_cast<int>(level_.requiredDestruction), 0, 99));
+                      std::min(99, destRemaining));
         text(156, y0 + 25, destText, kGreen);
     }
 

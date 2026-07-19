@@ -58,15 +58,24 @@ under the existing guardrails; they are not missing port functionality.
   required destruction). Fixed a HUD bug where the top tally row rendered the
   life count instead of the required-bonus count.
 
-- **Newly characterized HUD icon follow-ups** (evidence captured, `visual_claim=0`):
-  the original's centre bomb-selector box shows the blue bomb sprite
-  (BOMOMIMK index ~57) rather than the port's green default (index 58); the
-  right tally panel draws real icons -- a per-level bonus collectible (the
-  level's fruit, sourced from the tile sheet, e.g. L1 lemon / L2 grapes /
-  L5 watermelon) on the top row and a fixed destruction star (BOMOMIMK index
-  ~69) on the bottom row -- where the port currently draws plain yellow
-  placeholder squares. Exact sprite/tile indices to be pinned from the
-  original HUD renderer before replacing the placeholders.
+- **Reconstructed the HUD objective icons exactly.** The original HUD icon
+  renderer (tile-blit primitive Ghidra `0x1156`, objective-icon routine
+  `0x1174`) blits 8x8 tiles from `CARO.CAR` (132 tiles). The top tally icon is
+  the level's bonus-collectible tile `DS:0x79b4` (the port's
+  `level.objectiveTile`, e.g. tile 108 lemon / 110 grapes / 107 watermelon);
+  the bottom tally icon is the fixed destruction star, `CARO.CAR` tile 117.
+  The port now blits both (top = objectiveTile, bottom = tile 117) inside the
+  black inset boxes instead of the previous yellow placeholder squares --
+  verified matching the original on levels 1/2/5. The two tally numbers show
+  the REMAINING objective (`required - current`), counting down as bonuses are
+  collected / tiles destroyed (`requiredBonus DS:0x2086 - collected DS:0x2088`;
+  `requiredDestruction DS:0x79b3 - current DS:0x79b5`), zero-padded to two
+  digits. The centre bomb-selector now draws the blue bomb (BOMOMIMK sprite
+  57) confirmed from captured original frames both in the HUD box and as a
+  dropped world bomb; the port's earlier green sprite 58 is a different bomb
+  variant. Remaining HUD nicety (`visual_claim=0`): the life markers use
+  `CARO.CAR` tile 115 in the original where the port still hand-draws them, and
+  the HUD digits are `CARO.CAR` tiles 121-130 rather than the font sprites.
 
 - Corrected the main-menu text after a live original capture showed the
   title draws the menu OPTIONS over the logo art in Italian by default (an

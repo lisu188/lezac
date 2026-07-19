@@ -20359,9 +20359,13 @@ private:
         constexpr uint32_t kBoxGrey = 0xff828282u;
         const int y0 = kScreenH - 46;
 
-        rect(0, y0, kScreenW, 46, kBlack);
-        rect(0, y0, kScreenW, 2, kGrey);
-        rect(0, y0 + 2, kScreenW, 3, kWhite);
+        // The original HUD band begins two pixels below y0: gameplay terrain
+        // shows through at y0..y0+1, then a 3px grey rule (y0+2..y0+4) and a 1px
+        // white rule (y0+5), measured from the original level-1 frame. The black
+        // status area and its content start below that.
+        rect(0, y0 + 2, kScreenW, 44, kBlack);
+        rect(0, y0 + 2, kScreenW, 3, kGrey);
+        rect(0, y0 + 5, kScreenW, 1, kWhite);
 
         // Energy bar: the original draws a single-pixel-tall yellow line
         // (measured at row y0+11, ~1px), not a thick bar.
@@ -20386,31 +20390,34 @@ private:
 
         // Bomb selector box showing the selected bomb's actual sprite (from the
         // BOMOMIMK bank, the same sprite the world bomb uses) and its count.
-        rect(116, y0 + 6, 22, 22, kBoxGrey);
-        rect(118, y0 + 8, 18, 18, 0xff1c1c1cu);
+        // Measured against the original: a 20x20 grey box at (119, y0+7).
+        rect(119, y0 + 7, 20, 20, kBoxGrey);
+        rect(121, y0 + 9, 16, 16, 0xff1c1c1cu);
         const int bombSprite =
             static_cast<int>(bombProfile(bombInventory_.selected).spriteBase);
         if (bombSprite >= 0 &&
             bombSprite < static_cast<int>(sprites_.sprites.size())) {
             const Sprite& sprite = sprites_.sprites[static_cast<size_t>(bombSprite)];
-            const int bx = 118 + (18 - sprite.width) / 2;
-            const int by = y0 + 8 + (18 - sprite.height) / 2;
-            setClip(118, y0 + 8, 118 + 18, y0 + 8 + 18);
+            const int bx = 121 + (16 - sprite.width) / 2;
+            const int by = y0 + 9 + (16 - sprite.height) / 2;
+            setClip(121, y0 + 9, 121 + 16, y0 + 9 + 16);
             drawSprite(sprite, bx, by);
             resetClip();
         } else {
-            rect(119, y0 + 9, 16, 16, bombColor(bombInventory_.selected));
+            rect(121, y0 + 9, 16, 16, bombColor(bombInventory_.selected));
         }
         int selCount = bombInventory_.counts[
             static_cast<size_t>(bombInventory_.selected)];
-        drawHudNumber(118, y0 + 30, std::clamp(selCount, 0, 99), 2);
+        drawHudNumber(120, y0 + 28, std::clamp(selCount, 0, 99), 2);
 
         // Right panel: bomb-count and objective (destruction target) tallies.
-        rect(140, y0 + 6, 40, 34, kBlue);
+        // The original panel spans y0+6..y0+44 (measured 160-198 on level 1),
+        // taller than the earlier 34px box.
+        rect(140, y0 + 6, 40, 39, kBlue);
         rect(140, y0 + 6, 40, 1, kCyan);
-        rect(140, y0 + 39, 40, 1, kCyan);
-        rect(140, y0 + 6, 1, 34, kCyan);
-        rect(179, y0 + 6, 1, 34, kCyan);
+        rect(140, y0 + 44, 40, 1, kCyan);
+        rect(140, y0 + 6, 1, 39, kCyan);
+        rect(179, y0 + 6, 1, 39, kCyan);
         // Top row: bonus-objective icon + the level's required bonus count.
         // Bottom row: destruction-target icon + the required destruction count.
         // These two numbers were verified pixel-for-pixel against the original
@@ -20421,23 +20428,25 @@ private:
         // draws the level objectiveTile (verified because levels 1 and 3 share
         // objectiveTile 108 and show the identical lemon; L2=grapes, L5=melon).
         // Each tally icon sits in its own small black inset box on the panel.
-        rect(143, y0 + 9, 10, 10, kBlack);
-        rect(143, y0 + 23, 10, 10, kBlack);
-        if (!drawHudTile8(144, y0 + 10, level_.objectiveTile)) {
-            rect(144, y0 + 10, 8, 8, kYellow);
+        // Rows are centred in the taller panel: top at y0+13, bottom at y0+27
+        // (measured against the original level-1 frame).
+        rect(143, y0 + 12, 10, 10, kBlack);
+        rect(143, y0 + 26, 10, 10, kBlack);
+        if (!drawHudTile8(144, y0 + 13, level_.objectiveTile)) {
+            rect(144, y0 + 13, 8, 8, kYellow);
         }
         // The original displays the REMAINING objective (required - current),
         // counting down to zero as bonuses are collected / tiles destroyed.
         int bonusRemaining =
             std::max(0, static_cast<int>(level_.requiredBonus) - collected_);
-        drawHudNumber(158, y0 + 10, std::min(99, bonusRemaining), 2);
+        drawHudNumber(158, y0 + 13, std::min(99, bonusRemaining), 2);
         // Bottom icon: the fixed destruction-target star, CARO.CAR tile 117.
-        if (!drawHudTile8(144, y0 + 24, kHudDestructionStarTile)) {
-            rect(144, y0 + 24, 8, 8, kYellow);
+        if (!drawHudTile8(144, y0 + 27, kHudDestructionStarTile)) {
+            rect(144, y0 + 27, 8, 8, kYellow);
         }
         int destRemaining = std::max(
             0, static_cast<int>(level_.requiredDestruction) - destructionPercent());
-        drawHudNumber(158, y0 + 24, std::min(99, destRemaining), 2);
+        drawHudNumber(158, y0 + 27, std::min(99, destRemaining), 2);
     }
 
     void drawHud() {

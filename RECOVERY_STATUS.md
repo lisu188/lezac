@@ -23,29 +23,26 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
-- **Audited the enemy AI for player-seeking divergences.** Extending the head
-  fix, checked every monster behavior: behavior 4 legitimately targets the
-  player (a recovered/tested chaser, `retargetMonster`), and the ground walkers
-  (behaviors 1-3) actually spawn with a fixed heading and reverse only at
-  walls/floor edges -- the original never steers them toward the player. The
-  port carried a latent `nearestPlayer` seek in the walker path that was dead
-  code (spawn always sets a non-zero speed) but could have fired if a walker's
-  velocity ever reached zero; removed it so no walker can seek the player.
-  Full suite unchanged (377/377).
+- **Removed latent player steering from ground walkers.** Behavior 4
+  legitimately targets the selected player, while behaviors 1-3 spawn with a
+  fixed heading and reverse only at walls and floor edges. The port's zero-
+  velocity fallback could steer a walker toward a player even though normal
+  spawns made that path dormant; walkers now default to their positive spawn
+  heading when velocity is zero.
 
-- **Made the boss head brain faithful to `1000:5CB0` (two real behavior fixes).**
-  Reversing the head brain revealed the port's head diverged from the original
-  in two concrete ways, now fixed: (1) the port made the head *seek the player*
-  (`target.x < x ? -speed : speed`), but `1000:5CB0` never reads the player
-  position -- the original head just picks a random speed `0x96 + Random(0x320)`,
-  keeps its facing (walls reverse it), and bounces; the port now does the same.
-  (2) The port was *missing the head roar*: on the `DS:0x78c2 mod 0x1d` state
-  tick the original draws `Random(100)` and, when it exceeds `0x46` (~30%) on an
-  even tick, plays sound cursor `0x69` (`1000:65db`); the port now plays it. The
-  `Random` draws are ordered exactly as the original (roar roll, then speed) so
-  the shared RNG stream stays in step -- which, with the bit-exact generator,
-  keeps the head's decisions aligned with the original's. Boss structure/motion
-  tests and the full suite remain green.
+- **Corrected and strengthened the boss-head control mapping.** The
+  behavior-6 caller at `1000:6053` builds both active players' X/Y deltas,
+  selects the nearest by Manhattan distance at `1000:6500..654D`, then calls
+  `1000:5CB0` with its frame pointer. The head routine therefore reads the
+  selected player's X delta indirectly through caller local `[BP-4]`; it does
+  seek that player horizontally. The port preserves that targeting and now
+  uses the original Manhattan selector. The newly recovered roar remains: on
+  `DS:78C2 % 29 == 0`, the original draws `Random(100)`, requests cursor
+  `0x69` at priority 4 when the result exceeds 70 on an even tick, then draws
+  `Random(800)` for signed speed and conditionally `Random(1500)` for the
+  grounded impulse (`1000:5E59..5EF4`). The level-7 autoplayer now proves
+  left/right targeting, a two-player case where Manhattan and Euclidean
+  selection disagree, roar cursor/priority, and roar-speed-jump RNG order.
 
 - **Corrected the RNG to the original's Turbo Pascal generator (bit-exact).**
   The port's `randomRangeValue` used the Numerical Recipes LCG

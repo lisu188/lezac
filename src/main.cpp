@@ -119,7 +119,7 @@ constexpr uint8_t kBombPlaceSoundPriority = 3;
 constexpr uint16_t kMonsterDeathSoundCursor = 0x003d;
 constexpr uint8_t kMonsterDeathSoundPriority = 12;
 // Level-7 boss head roar: original sets DS:0x2074=0x69, DS:0x799f=4 behind a
-// ~30% RNG gate on the head state tick (1000:5CB0 / 1000:65db).
+// ~30% RNG gate at 1000:5E59..5E8C in the 1000:5CB0 head routine.
 constexpr uint16_t kBossHeadRoarSoundCursor = 0x0069;
 constexpr uint8_t kBossHeadRoarSoundPriority = 4;
 constexpr std::array<uint16_t, 6> kCompatibilitySoundCursors{
@@ -3006,6 +3006,79 @@ public:
             head->bossBoxW != 5 || head->bossBoxH != 4) {
             throw std::runtime_error("boss level7 autoplayer head fields mismatch");
         }
+
+        // The behavior-6 caller builds player deltas, chooses the nearest
+        // active player by Manhattan distance, and passes its X delta to
+        // 1000:5CB0 through caller local [BP-4].
+        const Player savedPlayer = player_;
+        const Player savedPlayer2 = player2_;
+        const int savedPlayerCount = playerCount_;
+        const bool savedPlayerDead = playerDead_;
+        const bool savedPlayer2Dead = player2Dead_;
+        const uint32_t savedRandomSeed = randomSeed_;
+        const SoundLatch savedSoundLatch = soundLatch_;
+
+        playerCount_ = 1;
+        playerDead_ = false;
+        player2Dead_ = false;
+        player_.x = 60.0f;
+        player_.y = 100.0f;
+        ActiveMonster leftProbe = *head;
+        leftProbe.bossTick = 28;
+        leftProbe.vx8 = 1;
+        randomSeed_ = 0;
+        updateBossHead(leftProbe);
+        if (leftProbe.vx8 >= 0) {
+            throw std::runtime_error(
+                "boss head did not target the player to its left");
+        }
+
+        playerCount_ = 2;
+        player_.x = 110.0f;
+        player_.y = 120.0f;
+        player2_.x = 75.0f;
+        player2_.y = 100.0f;
+        const Player& manhattanTarget =
+            nearestPlayer(static_cast<float>(head->x),
+                          static_cast<float>(head->y));
+        if (&manhattanTarget != &player2_) {
+            throw std::runtime_error(
+                "boss head target selection was not Manhattan-nearest");
+        }
+        ActiveMonster manhattanProbe = *head;
+        manhattanProbe.bossTick = 28;
+        manhattanProbe.vx8 = 1;
+        randomSeed_ = 0;
+        updateBossHead(manhattanProbe);
+        if (manhattanProbe.vx8 >= 0) {
+            throw std::runtime_error(
+                "boss head ignored the selected player X delta");
+        }
+
+        playerCount_ = 1;
+        player_.x = 140.0f;
+        player_.y = 100.0f;
+        clearSoundLatch();
+        ActiveMonster roarProbe = *head;
+        roarProbe.bossTick = 57;
+        roarProbe.vx8 = -1;
+        randomSeed_ = 5;
+        updateBossHead(roarProbe);
+        if (roarProbe.vx8 != 728 || !soundLatch_.active ||
+            soundLatch_.latchedOffset != kBossHeadRoarSoundCursor ||
+            soundLatch_.currentSelector != kBossHeadRoarSoundPriority) {
+            throw std::runtime_error(
+                "boss head roar or RNG draw order mismatch");
+        }
+
+        soundLatch_ = savedSoundLatch;
+        player_ = savedPlayer;
+        player2_ = savedPlayer2;
+        playerCount_ = savedPlayerCount;
+        playerDead_ = savedPlayerDead;
+        player2Dead_ = savedPlayer2Dead;
+        randomSeed_ = savedRandomSeed;
+
         // Decoded spawn layout: visual index -> world position and sprite.
         struct ExpectedSegment {
             uint8_t visual;
@@ -3159,6 +3232,10 @@ public:
                   << " orbits=" << orbitLinks
                   << " head_sprite=40 head_box=5x4 head_pos=100,100"
                   << " sprite_bank=prova"
+                  << " head_target=nearest_player"
+                  << " target_metric=manhattan"
+                  << " roar_cursor=0x69 roar_priority=4"
+                  << " rng_order=roar-speed-jump"
                   << " damage_frames=" << damageFrames
                   << " score_award=1000 debris=7 debris_cleared=1"
                   << " frames_inspected=4"
@@ -8061,10 +8138,10 @@ public:
                      " multiplier_word=cs:142d static_bytes=1\n";
     }
 
-    // Pin the boss head's per-state-tick decision draws against the original's
-    // formula (1000:5CB0): roar roll = Random(100), speed = 0x96 + Random(0x320),
-    // in that draw order, with no player-position read. Verifies the head's
-    // decision logic is a faithful translation on top of the bit-exact RNG.
+    // Pin the boss head's unsigned per-state-tick decision draws against
+    // 1000:5CB0: roar roll = Random(100), then speed magnitude =
+    // 0x96 + Random(0x320). The caller-selected X delta supplies the sign and
+    // is exercised by the boss_level7 autoplayer.
     void debugBossHeadDecisions() {
         randomSeed_ = 0x1234abcd;
         std::cout << "boss_head_decisions=ok";
@@ -8073,7 +8150,10 @@ public:
             int speed = 0x96 + static_cast<int>(randomRangeValue(0, 0x320));
             std::cout << " tick" << t << "=roar" << roar << ",speed" << speed;
         }
-        std::cout << " roar_gate=>0x46 seek=none source=1000:5CB0\n";
+        std::cout << " roar_gate=>0x46 magnitude_only=1"
+                     " direction_source=caller_dx"
+                     " direction_test=autoplayer_boss_level7"
+                     " source=1000:5CB0\n";
     }
 
     void debugGranBossModel() {
@@ -18686,11 +18766,11 @@ private:
     const Player& nearestPlayer(float x, float y) const {
         if (playerCount_ <= 1 || player2Dead_) return player_;
         if (playerDead_) return player2_;
-        float dx1 = player_.x - x;
-        float dy1 = player_.y - y;
-        float dx2 = player2_.x - x;
-        float dy2 = player2_.y - y;
-        return (dx2 * dx2 + dy2 * dy2) < (dx1 * dx1 + dy1 * dy1) ? player2_ : player_;
+        float distance1 =
+            std::fabs(player_.x - x) + std::fabs(player_.y - y);
+        float distance2 =
+            std::fabs(player2_.x - x) + std::fabs(player2_.y - y);
+        return distance2 < distance1 ? player2_ : player_;
     }
 
     void updateMonsterMotion(ActiveMonster& monster, float) {
@@ -18895,27 +18975,27 @@ private:
         }
     }
 
-    // Original 1000:5CB0 head brain: every 29 ticks charge toward the nearest
-    // player and jump when grounded; gravity and half-speed bouncing happen in
-    // the shared motion path.
+    // Original 1000:5CB0 head brain: every 29 ticks choose a signed speed from
+    // the caller-selected nearest player's X delta and jump when grounded.
     void updateBossHead(ActiveMonster& monster) {
         ++monster.bossTick;
         if (monster.hurtFlash > 0) --monster.hurtFlash;
-        // Original head brain (1000:5CB0): on the DS:0x78c2 mod 0x1d (29) state
-        // tick the head draws Random(100); when it exceeds 0x46 (~30%) on an
-        // even tick it plays the head roar (sound cursor 0x69). Crucially the
-        // head does NOT seek the player -- 1000:5CB0 never reads the player
-        // position -- it just picks a random speed 0x96 + Random(0x320), keeps
-        // its current facing (walls reverse it), and bounces. The Random draws
-        // are ordered exactly as the original so the shared RNG stream stays in
-        // step: roar roll, then speed, then (if grounded) the jump impulse.
+        // The actor-update caller computes both players' deltas and chooses the
+        // Manhattan-nearest one before entering behavior 6. The callee reads
+        // that selected X delta indirectly through caller local [BP-4].
         if (monster.bossTick % 29 == 0) {
             const int roarRoll = static_cast<int>(randomRangeValue(0, 100));
             if (roarRoll > 0x46 && (monster.bossTick & 1) == 0) {
                 requestSoundCursor(kBossHeadRoarSoundCursor, kBossHeadRoarSoundPriority);
             }
             const int speed = 0x96 + static_cast<int>(randomRangeValue(0, 0x320));
-            monster.vx8 = clampI16(monster.vx8 >= 0 ? speed : -speed);
+            const Player& target =
+                nearestPlayer(static_cast<float>(monster.x),
+                              static_cast<float>(monster.y));
+            monster.vx8 =
+                clampI16(target.x > static_cast<float>(monster.x)
+                             ? speed
+                             : -speed);
             if (monsterCollides(static_cast<float>(monster.x),
                                 static_cast<float>(monster.y) + 1.0f)) {
                 monster.vy8 = clampI16(-(0x12c + static_cast<int>(randomRangeValue(0, 0x5dc))));

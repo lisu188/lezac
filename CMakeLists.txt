@@ -437,7 +437,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_boss_level7_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=boss_level7 boss_actors=7 links=6 springs=2 orbits=4 head_sprite=40 head_box=5x4 head_pos=100,100 sprite_bank=prova damage_frames=[0-9]+ score_award=1000 debris=7 debris_cleared=1 frames_inspected=4 spawn_hash=[0-9a-f]+ motion_hash=[0-9a-f]+ death_hash=[0-9a-f]+ clear_hash=[0-9a-f]+ original_runtime_claim=0")
+            "^autoplayer=ok scenario=boss_level7 boss_actors=7 links=6 springs=2 orbits=4 head_sprite=40 head_box=5x4 head_pos=100,100 sprite_bank=prova head_target=nearest_player target_metric=manhattan roar_cursor=0x69 roar_priority=4 rng_order=roar-speed-jump damage_frames=[0-9]+ score_award=1000 debris=7 debris_cleared=1 frames_inspected=4 spawn_hash=[0-9a-f]+ motion_hash=[0-9a-f]+ death_hash=[0-9a-f]+ clear_hash=[0-9a-f]+ original_runtime_claim=0")
 
     add_test(NAME autoplayer_monster_behavior4_target_selection_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -2403,7 +2403,7 @@ if(BUILD_TESTING)
     set_tests_properties(boss_head_decisions PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^boss_head_decisions=ok tick0=roar49,speed924 tick1=roar29,speed525 tick2=roar97,speed295 tick3=roar22,speed925 roar_gate=>0x46 seek=none source=1000:5CB0")
+            "^boss_head_decisions=ok tick0=roar49,speed924 tick1=roar29,speed525 tick2=roar97,speed295 tick3=roar22,speed925 roar_gate=>0x46 magnitude_only=1 direction_source=caller_dx direction_test=autoplayer_boss_level7 source=1000:5CB0")
 
     add_test(NAME gran_profile
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran)

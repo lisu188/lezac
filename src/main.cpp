@@ -16575,6 +16575,45 @@ public:
                   << " route_clear=1 frame_inspection=1\n";
     }
 
+    void debugAllLevelsRender() {
+        // Regression guard: every shipped level must render a coherent gameplay
+        // frame with the recovered bottom HUD, so the faithful rendering
+        // verified on levels 1-2 is locked in across all levels.
+        load();
+        initSdl();
+        menu_ = false;
+        paused_ = false;
+        levelIntro_ = false;
+        playerCount_ = 1;
+        const int hudY = kScreenH - 46;
+        size_t rendered = 0;
+        std::vector<uint64_t> hashes;
+        for (size_t level = 0; level < levels_.size(); ++level) {
+            resetLevel(static_cast<int>(level));
+            FrameInspection frame =
+                inspectRenderedFrame("all-levels-render-" + std::to_string(level));
+            // World band must have visible level geometry, and the HUD band must
+            // render the recovered bottom panel.
+            if (!regionHasVariation(0, 0, kScreenW, hudY) ||
+                !regionHasVariation(0, hudY, kScreenW, 46)) {
+                throw std::runtime_error("level " + std::to_string(level) +
+                                         " did not render world and HUD");
+            }
+            hashes.push_back(frame.hash);
+            ++rendered;
+        }
+        // Distinct levels must produce distinct frames (no stuck/blank level).
+        for (size_t i = 1; i < hashes.size(); ++i) {
+            if (hashes[i] == hashes[i - 1]) {
+                throw std::runtime_error("levels " + std::to_string(i - 1) +
+                                         " and " + std::to_string(i) +
+                                         " rendered identical frames");
+            }
+        }
+        std::cout << "all_levels_render=ok levels=" << rendered
+                  << " world_visible=1 hud_visible=1 distinct=1\n";
+    }
+
     void debugLevelIntro() {
         load();
         initSdl();
@@ -20682,6 +20721,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-level-intro") {
             app.debugLevelIntro();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-all-levels-render") {
+            app.debugAllLevelsRender();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-two-player-hud-panel") {

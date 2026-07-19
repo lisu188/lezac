@@ -20413,11 +20413,11 @@ private:
         // Right panel: bomb-count and objective (destruction target) tallies.
         // The original panel spans y0+6..y0+44 (measured 160-198 on level 1),
         // taller than the earlier 34px box.
-        rect(140, y0 + 6, 40, 39, kBlue);
-        rect(140, y0 + 6, 40, 1, kCyan);
-        rect(140, y0 + 44, 40, 1, kCyan);
+        rect(140, y0 + 6, 38, 39, kBlue);
+        rect(140, y0 + 6, 38, 1, kCyan);
+        rect(140, y0 + 44, 38, 1, kCyan);
         rect(140, y0 + 6, 1, 39, kCyan);
-        rect(179, y0 + 6, 1, 39, kCyan);
+        rect(177, y0 + 6, 1, 39, kCyan);
         // Top row: bonus-objective icon + the level's required bonus count.
         // Bottom row: destruction-target icon + the required destruction count.
         // These two numbers were verified pixel-for-pixel against the original
@@ -20439,14 +20439,14 @@ private:
         // counting down to zero as bonuses are collected / tiles destroyed.
         int bonusRemaining =
             std::max(0, static_cast<int>(level_.requiredBonus) - collected_);
-        drawHudNumber(158, y0 + 13, std::min(99, bonusRemaining), 2);
+        drawHudNumber(159, y0 + 13, std::min(99, bonusRemaining), 2);
         // Bottom icon: the fixed destruction-target star, CARO.CAR tile 117.
         if (!drawHudTile8(144, y0 + 27, kHudDestructionStarTile)) {
             rect(144, y0 + 27, 8, 8, kYellow);
         }
         int destRemaining = std::max(
             0, static_cast<int>(level_.requiredDestruction) - destructionPercent());
-        drawHudNumber(158, y0 + 27, std::min(99, destRemaining), 2);
+        drawHudNumber(159, y0 + 27, std::min(99, destRemaining), 2);
     }
 
     void drawHud() {

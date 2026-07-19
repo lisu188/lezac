@@ -20655,7 +20655,7 @@ private:
         std::string s = std::to_string(std::max(0, value));
         while (static_cast<int>(s.size()) < minDigits) s.insert(s.begin(), '0');
         for (size_t i = 0; i < s.size(); ++i) {
-            drawHudTile8(x + static_cast<int>(i) * 8, y, 121 + (s[i] - '0'));
+            drawHudTile8(x + static_cast<int>(i) * 9, y, 121 + (s[i] - '0'));
         }
     }
 
@@ -20708,7 +20708,7 @@ private:
         rect(0, y0 + 18, 88, 20, kBlue);
         rect(0, y0 + 18, 2, 20, kCyan);
         int scoreDigits = static_cast<int>(std::to_string(score_).size());
-        int scoreX = std::max(4, 84 - scoreDigits * 8);
+        int scoreX = std::max(4, 84 - scoreDigits * 9);
         drawHudNumber(scoreX, y0 + 24, score_, 1);
 
         // Player-life figures: the original HUD shows SPARE lives (the life in

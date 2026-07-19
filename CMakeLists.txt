@@ -584,7 +584,7 @@ if(BUILD_TESTING)
         set_tests_properties(seed_original_level_self_check PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^seed_original_level_self_check=ok signature=1000:aaab data_string_offset=0x8b runtime_ds=0x0c8f level_byte=0x79b7 advance_routine=1000:2040 inc_level=1000:2051")
+                "^seed_original_level_self_check=ok signature=1000:aaab data_string_offset=0x8b runtime_ds=0x0c8f level_byte=0x79b7 advance_routine=1000:2040 inc_level=1000:2051 completion_gate=1000:8283 flag1=0x79c5 flag2=0x79c6 actor_count=0x2080")
 
         add_test(NAME actor_dispatch_gate_sweep_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -3461,6 +3461,15 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^all_levels_render=ok levels=7 world_visible=1 hud_visible=1 distinct=1")
+
+    add_test(NAME capture_level_frames
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --capture-level-frames
+                ${CMAKE_CURRENT_BINARY_DIR}/capture_level_frames_out)
+    set_tests_properties(capture_level_frames PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^capture_level_frames=ok levels=7 out=")
 
     add_test(NAME hud_stats_live
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

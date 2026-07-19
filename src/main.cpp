@@ -20413,10 +20413,10 @@ private:
         // Right panel: bomb-count and objective (destruction target) tallies.
         // The original panel spans y0+6..y0+44 (measured 160-198 on level 1),
         // taller than the earlier 34px box.
-        rect(140, y0 + 6, 38, 39, kBlue);
-        rect(140, y0 + 6, 38, 1, kCyan);
-        rect(140, y0 + 44, 38, 1, kCyan);
-        rect(140, y0 + 6, 1, 39, kCyan);
+        rect(141, y0 + 6, 37, 39, kBlue);
+        rect(141, y0 + 6, 37, 1, kCyan);
+        rect(141, y0 + 44, 37, 1, kCyan);
+        rect(141, y0 + 6, 1, 39, kCyan);
         rect(177, y0 + 6, 1, 39, kCyan);
         // Top row: bonus-objective icon + the level's required bonus count.
         // Bottom row: destruction-target icon + the required destruction count.

@@ -20324,28 +20324,85 @@ private:
         }
     }
 
+    void drawCenteredMenuLines(const char* title, const char* const* lines,
+                               int count) {
+        const int tx = (kScreenW - static_cast<int>(std::string(title).size()) * 8) / 2;
+        text(std::max(0, tx), 40, title, 0xff90ffb0u, false, 0xff101010u);
+        for (int i = 0; i < count; ++i) {
+            const std::string line = lines[i];
+            const int x = (kScreenW - static_cast<int>(line.size()) * 8) / 2;
+            text(std::max(0, x), 60 + i * 11, line, 0xffffffffu, false, 0xff101010u);
+        }
+        const char* back = menuItalian_ ? "ESC PER TORNARE" : "ESC: BACK";
+        const int bx = (kScreenW - static_cast<int>(std::string(back).size()) * 8) / 2;
+        text(std::max(0, bx), 184, back, 0xff90ffb0u, false, 0xff101010u);
+    }
+
     void drawInfoMenu() {
-        text(119, 48, "INFOS", 0xff90ffb0u, false, 0xff101010u);
-        text(38, 68, "RELEASED APR.23 1996", 0xffffffffu, false, 0xff101010u);
-        text(38, 80, "ZANOBI SOFTWARE", 0xffffffffu, false, 0xff101010u);
-        text(38, 92, "VGA DOS PLATFORM STRATEGY GAME", 0xffffe060u, false, 0xff101010u);
-        text(38, 112, "COLLECT BONUSES AND DESTROY", 0xffffffffu, false, 0xff101010u);
-        text(38, 124, "STRUCTURES WITH FOUR BOMB TYPES.", 0xffffffffu, false, 0xff101010u);
-        text(38, 156, "ESC: BACK", 0xff90ffb0u, false, 0xff101010u);
+        // Recovered from LEZAC.EXE: Italian at 1000:b000, English at 1000:bcab.
+        static const char* kIta[8] = {
+            "PER PROCEDERE NEL GIOCO DOVETE",
+            "RACCOGLIERE BONUS E SOPRATTUTTO",
+            "FAR SALTARE IN ARIA OGNI COSA",
+            "IL RIQUADRO CENTRALE VI INDICA",
+            "IL NUMERO MINIMO DI BONUS DA",
+            "RACCOGLIERE E LA PERCENTUALE DELLE",
+            "COSTRUZIONI DA DISTRUGGERE PER",
+            "COMPLETARE IL QUADRO"};
+        static const char* kEng[7] = {
+            "YOU MUST COLLECT BONUSES AND",
+            "DESTROY BUILDINGS TO PROCEED",
+            "THE CENTRAL WINDOW WILL TELL",
+            "YOU THE NUMBER OF BONUS TO",
+            "COLLECT AND THE PERCENTAGE",
+            "OF BUILDINGS YOU MUST DESTROY",
+            "TO COMPLETE THE LEVEL"};
+        if (menuItalian_) {
+            drawCenteredMenuLines("INFORMAZIONI", kIta, 8);
+        } else {
+            drawCenteredMenuLines("INFOS", kEng, 7);
+        }
     }
 
     void drawInstructionsMenu() {
-        text(82, 48, "INSTRUCTIONS", 0xff90ffb0u, false, 0xff101010u);
-        text(32, 68, "ARROWS OR Z X: MOVE", 0xffffffffu, false, 0xff101010u);
-        text(32, 80, "UP OR M: JUMP", 0xffffffffu, false, 0xff101010u);
-        text(32, 92, "P1 FIRE: N SPACE RCTRL", 0xffffe060u, false, 0xff101010u);
-        text(32, 104, "P2 FIRE: KP0 OR INS", 0xffffe060u, false, 0xff101010u);
-        text(32, 116, "LEFT AND RIGHT: SWITCH BOMB", 0xffffffffu, false, 0xff101010u);
-        text(32, 128, "S: BACKGROUND ON OR OFF", 0xffffffffu, false, 0xff101010u);
-        text(32, 140, "E R: PLAYFIELD WIDTH", 0xffffffffu, false, 0xff101010u);
-        text(32, 152, "P: PAUSE", 0xffffffffu, false, 0xff101010u);
-        text(32, 164, "PAGEUP PAGEDOWN: TEST LEVELS", 0xffffffffu, false, 0xff101010u);
-        text(32, 180, "ESC: BACK", 0xff90ffb0u, false, 0xff101010u);
+        // Recovered keys table + notes from LEZAC.EXE: Italian at 1000:b9xx
+        // ("tasti") / fire+weapon at 1000:aef4, English at 1000:baab / 1000:bbab.
+        struct KeyRow { const char* action; const char* p1; const char* p2; };
+        const char* title = menuItalian_ ? "ISTRUZIONI" : "INSTRUCTIONS";
+        const char* colHdr = menuItalian_ ? "GIOC:1      GIOC:2"
+                                           : "PLAYER1     PLAYER2";
+        static const KeyRow kIta[5] = {
+            {"SINISTRA", "Z", "FRECCE"}, {"DESTRA", "X", "="},
+            {"SCENDI", "C", "="}, {"SALTA", "M", "="}, {"FUOCO", "N", "0"}};
+        static const KeyRow kEng[5] = {
+            {"LEFT", "Z", "ARROWS"}, {"RIGHT", "X", "="},
+            {"DOWN", "C", "="}, {"JUMP", "M", "="}, {"FIRE", "N", "0"}};
+        static const char* kItaNotes[4] = {
+            "ESC ABBANDONA LA PARTITA",
+            "PREMI SINISTRA E DESTRA INSIEME",
+            "PER CAMBIARE BOMBA",
+            "S ATTIVA O DISATTIVA LO SFONDO"};
+        static const char* kEngNotes[4] = {
+            "ESC QUITS GAME",
+            "PRESS LEFT AND RIGHT TOGETHER",
+            "TO CHANGE YOUR WEAPON",
+            "S TOGGLES BACKGROUND"};
+        const KeyRow* rows = menuItalian_ ? kIta : kEng;
+        const char* const* notes = menuItalian_ ? kItaNotes : kEngNotes;
+
+        const int tx = (kScreenW - static_cast<int>(std::string(title).size()) * 8) / 2;
+        text(std::max(0, tx), 34, title, 0xff90ffb0u, false, 0xff101010u);
+        text(120, 52, colHdr, 0xffffe060u, false, 0xff101010u);
+        for (int i = 0; i < 5; ++i) {
+            text(32, 66 + i * 11, rows[i].action, 0xffffffffu, false, 0xff101010u);
+            text(140, 66 + i * 11, rows[i].p1, 0xffffffffu, false, 0xff101010u);
+            text(220, 66 + i * 11, rows[i].p2, 0xffffffffu, false, 0xff101010u);
+        }
+        for (int i = 0; i < 4; ++i) {
+            const std::string line = notes[i];
+            const int x = (kScreenW - static_cast<int>(line.size()) * 8) / 2;
+            text(std::max(0, x), 128 + i * 11, line, 0xffd8f0ffu, false, 0xff101010u);
+        }
     }
 
     void drawRecordsMenu() {

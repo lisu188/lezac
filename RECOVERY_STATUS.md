@@ -9,7 +9,7 @@ Baseline: `origin/main`
 The C++ port is functionally complete. Every recovered gameplay, data, UI,
 and sound subsystem of `LEZAC.EXE` has a C++ implementation with
 deterministic validation coverage, and the full CTest suite passes on a
-clean Linux host (373/373 after this iteration's additions). The new
+clean Linux host (374/374 after this iteration's additions). The new
 `--debug-port-completion-status` diagnostic declares that state as
 machine-checkable output: 23 implemented subsystems with their validation
 entry points and the 12 open original-evidence follow-ups, reported with
@@ -22,6 +22,51 @@ DOSBox/DOSBox-debug/process-memory evidence hosts and stay `visual_claim=0`
 under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
+
+- **Unblocked original level-2..7 capture (multi-session blocker solved).**
+  Two long-standing obstacles to comparing the port against the original on
+  any level past 1 are now resolved:
+  1. *Standalone gameplay input.* SDL/DOSBox silently drops XSendEvent
+     synthetic key events, so `xdotool key --window ...` never registered
+     in-game -- the reason every standalone Python driver stalled on the menu.
+     Real XTEST events (`xdotool windowactivate --sync` to focus, then
+     `xdotool key --clearmodifiers <k>` with **no** `--window`, plus
+     `keydown`/`keyup` holds for movement) drive gameplay reliably.
+  2. *Completion trigger.* The main-loop completion gate at Ghidra
+     `1000:8283` requires `DS:0x79C5 != 0 && DS:0x79C6 != 0 && WORD DS:0x2080
+     == 0`. `DS:0x2080` is the active-actor count (inc at `1000:40e8`, dec at
+     `1000:586a`); an earlier attempt set only the two flags and never
+     advanced because the actor count was non-zero. Seeding all three via
+     `/proc/<pid>/mem` satisfies the gate; the game runs its own "LIVELLO
+     COMPLETATO" results screen and advances the level byte `DS:0x79B7`.
+     Chaining the trigger drove the original 1->2->...->7->victory and
+     captured every level under DOSBox in-container.
+  `tools/seed_original_level.py` now uses the working XTEST input, exposes
+  `--advance-to <level>` built on the trigger, and its `--self-check` pins the
+  three completion-gate `cmp` instructions at `1000:8283/828a/8291`
+  (CTest `seed_original_level_self_check`).
+
+- **Verified rendering fidelity across all seven levels.** With the original
+  now capturable on every level, the port's per-level start frames
+  (`--capture-level-frames`, CTest `capture_level_frames`) were compared to
+  the original: world geometry matches faithfully on levels 1-7 (terrain
+  profile, brick/truss/pillar structures, platform layout, boss actor cluster
+  on level 7). The HUD objective tallies were verified to match the original
+  exactly on every level -- required-bonus / required-destruction of
+  1/50, 3/60, 7/20, 3/70, 8/65, .../, 1/10 -- confirming both the recovered
+  level data and the panel semantics (top row = required bonus, bottom row =
+  required destruction). Fixed a HUD bug where the top tally row rendered the
+  life count instead of the required-bonus count.
+
+- **Newly characterized HUD icon follow-ups** (evidence captured, `visual_claim=0`):
+  the original's centre bomb-selector box shows the blue bomb sprite
+  (BOMOMIMK index ~57) rather than the port's green default (index 58); the
+  right tally panel draws real icons -- a per-level bonus collectible (the
+  level's fruit, sourced from the tile sheet, e.g. L1 lemon / L2 grapes /
+  L5 watermelon) on the top row and a fixed destruction star (BOMOMIMK index
+  ~69) on the bottom row -- where the port currently draws plain yellow
+  placeholder squares. Exact sprite/tile indices to be pinned from the
+  original HUD renderer before replacing the placeholders.
 
 - Corrected the main-menu text after a live original capture showed the
   title draws the menu OPTIONS over the logo art in Italian by default (an

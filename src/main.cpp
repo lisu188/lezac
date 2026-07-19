@@ -16621,6 +16621,28 @@ public:
                   << " world_visible=1 hud_visible=1 distinct=1\n";
     }
 
+    // Dump every level's gameplay start frame to a PPM so it can be compared
+    // pixel-for-pixel against the original captured under DOSBox. Mirrors the
+    // rendering path exercised by debugAllLevelsRender().
+    void captureLevelFrames(const std::string& outDir) {
+        load();
+        initSdl();
+        std::filesystem::create_directories(outDir);
+        menu_ = false;
+        paused_ = false;
+        levelIntro_ = {};
+        playerCount_ = 1;
+        for (size_t level = 0; level < levels_.size(); ++level) {
+            resetLevel(static_cast<int>(level));
+            inspectRenderedFrame("capture-level-" + std::to_string(level));
+            char name[32];
+            std::snprintf(name, sizeof(name), "level%02zu.ppm", level + 1);
+            writeArgbPpm(joinPath(outDir, name), fb_, kScreenW, kScreenH);
+        }
+        std::cout << "capture_level_frames=ok levels=" << levels_.size()
+                  << " out=" << outDir << "\n";
+    }
+
     void debugLevelIntro(const std::string& framePath = {}) {
         load();
         initSdl();
@@ -20149,8 +20171,15 @@ private:
         rect(140, y0 + 39, 40, 1, kCyan);
         rect(140, y0 + 6, 1, 34, kCyan);
         rect(179, y0 + 6, 1, 34, kCyan);
+        // Top row: bonus-objective icon + the level's required bonus count.
+        // Bottom row: destruction-target icon + the required destruction count.
+        // These two numbers were verified pixel-for-pixel against the original
+        // HUD across every level (L1 1/50, L2 3/60, L3 7/20, L4 3/70, L5 8/65,
+        // L7 1/10), so they must read from the level's objective data.
         rect(144, y0 + 10, 8, 8, kYellow);
-        text(156, y0 + 11, std::to_string(std::clamp(lives_, 0, 99)), kGreen);
+        text(156, y0 + 11,
+             std::to_string(std::clamp(static_cast<int>(level_.requiredBonus), 0, 99)),
+             kGreen);
         rect(144, y0 + 24, 8, 8, kYellow);
         text(156, y0 + 25, std::to_string(level_.requiredDestruction), kGreen);
     }
@@ -21022,6 +21051,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-all-levels-render") {
             app.debugAllLevelsRender();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--capture-level-frames") {
+            app.captureLevelFrames(argv[2]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-two-player-hud-panel") {

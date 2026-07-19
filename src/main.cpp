@@ -16944,6 +16944,7 @@ private:
     MenuPage menuPage_ = MenuPage::Main;
     bool paused_ = false;
     bool showBackground_ = true;
+    bool menuItalian_ = true;  // original defaults to Italian; L toggles English
     int gameplayViewWidth_ = kScreenW;
     int clipLeft_ = 0;
     int clipTop_ = 0;
@@ -17294,6 +17295,8 @@ private:
                 requestRecordsPageSound();
             } else if (key == SDLK_s) {
                 showBackground_ = !showBackground_;
+            } else if (key == SDLK_l) {
+                menuItalian_ = !menuItalian_;
             }
         } else if (!menu_ && key == SDLK_p) {
             paused_ = !paused_;
@@ -20257,9 +20260,25 @@ private:
     void drawMenu() {
         drawBackground(0, 0);
         if (menuPage_ == MenuPage::Main) {
-            // The original main menu is the SFONLEF.ZBG title screen itself
-            // (the "LARAX & ZACO" logo art), with the 1/2/I/Z/R keys handled
-            // invisibly. Sub-pages below overlay readable text panels.
+            // The original main menu is the SFONLEF.ZBG title screen with the
+            // menu options drawn directly over the art (Italian by default; L
+            // toggles English). Strings recovered from LEZAC.EXE 1000:b1e3
+            // (Italian) and 1000:bf15 (English).
+            static const char* kItalian[7] = {
+                "PREMI 1 PER UN GIOCATORE", "PREMI 2 PER DUE GIOCATORI",
+                "I: INFORMAZIONI", "Z: ISTRUZIONI", "R: VEDI RECORDS",
+                "L: ENGLISH", "ESC PER USCIRE"};
+            static const char* kEnglish[7] = {
+                "PRESS 1 FOR ONE PLAYER GAME", "PRESS 2 FOR TWO PLAYERS GAME",
+                "I: INFOS", "Z: INSTRUCTIONS", "R: SHOW RECORDS",
+                "L: ITALIANO", "ESC EXITS"};
+            const char* const* lines = menuItalian_ ? kItalian : kEnglish;
+            for (int i = 0; i < 7; ++i) {
+                const std::string line = lines[i];
+                const int x = (kScreenW - static_cast<int>(line.size()) * 8) / 2;
+                text(std::max(0, x), 60 + i * 10, line, 0xffffffffu, false,
+                     0xff000000u);
+            }
             return;
         }
         rect(0, 0, 320, 200, 0x99000000u);

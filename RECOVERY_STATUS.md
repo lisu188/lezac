@@ -73,9 +73,18 @@ under the existing guardrails; they are not missing port functionality.
   digits. The centre bomb-selector now draws the blue bomb (BOMOMIMK sprite
   57) confirmed from captured original frames both in the HUD box and as a
   dropped world bomb; the port's earlier green sprite 58 is a different bomb
-  variant. Remaining HUD nicety (`visual_claim=0`): the life markers use
-  `CARO.CAR` tile 115 in the original where the port still hand-draws them, and
-  the HUD digits are `CARO.CAR` tiles 121-130 rather than the font sprites.
+  variant.
+
+- **Finished the bottom HUD to a pixel-for-pixel match.** The life markers now
+  blit `CARO.CAR` tile 115 (the green walking figure) via the shared
+  `drawHudTile8` helper; every HUD number (score, bomb count, both objective
+  tallies) is drawn from `CARO.CAR` digit tiles 121-130 (`drawHudNumber`); the
+  energy gauge is the original single-pixel-tall line (measured at row y0+11);
+  and the life panel shows SPARE lives (`lives - 1`), so a fresh three-life
+  start draws two markers exactly as every captured original level-start frame
+  does. With these, the reconstructed single-player HUD matches the original
+  bottom band pixel-for-pixel on level 1 (energy bar, score, life figures,
+  bomb selector + count, and the objective tally icons/numbers).
 
 - Corrected the main-menu text after a live original capture showed the
   title draws the menu OPTIONS over the logo art in Italian by default (an

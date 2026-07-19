@@ -20115,6 +20115,16 @@ private:
         return true;
     }
 
+    // Draw a HUD number using CARO.CAR digit tiles 121-130 (digit v -> tile
+    // 121+v), the way the original HUD renders its numbers. 8px per digit.
+    void drawHudNumber(int x, int y, int value, int minDigits) {
+        std::string s = std::to_string(std::max(0, value));
+        while (static_cast<int>(s.size()) < minDigits) s.insert(s.begin(), '0');
+        for (size_t i = 0; i < s.size(); ++i) {
+            drawHudTile8(x + static_cast<int>(i) * 8, y, 121 + (s[i] - '0'));
+        }
+    }
+
     void drawOriginalHudFigure(int x, int y, uint32_t color) {
         // Player-life marker: the original blits CARO.CAR tile 115 (a green
         // walking figure); fall back to a small stick glyph if unavailable.
@@ -20149,21 +20159,24 @@ private:
         rect(0, y0, kScreenW, 2, kGrey);
         rect(0, y0 + 2, kScreenW, 3, kWhite);
 
-        // Energy bar (yellow gauge over black).
+        // Energy bar: the original draws a single-pixel-tall yellow line
+        // (measured at row y0+11, ~1px), not a thick bar.
         const int barW = 96;
         int fill = std::clamp(playerDead_ ? 0 : energy_, 0, 100) * barW / 100;
-        rect(4, y0 + 10, fill, 3, kYellow);
+        rect(4, y0 + 11, fill, 1, kYellow);
 
         // Score panel: blue box with a cyan left edge and a right-aligned green
         // score value.
         rect(0, y0 + 18, 88, 20, kBlue);
         rect(0, y0 + 18, 2, 20, kCyan);
-        std::string scoreText = std::to_string(score_);
-        int scoreX = 84 - static_cast<int>(scoreText.size()) * 8;
-        text(std::max(4, scoreX), y0 + 25, scoreText, kGreen);
+        int scoreDigits = static_cast<int>(std::to_string(score_).size());
+        int scoreX = std::max(4, 84 - scoreDigits * 8);
+        drawHudNumber(scoreX, y0 + 24, score_, 1);
 
-        // Player-life figures.
-        for (int i = 0; i < std::clamp(lives_, 0, 6); ++i) {
+        // Player-life figures: the original HUD shows SPARE lives (the life in
+        // play is not counted), so a fresh 3-life start draws two markers --
+        // matching every captured original level-start frame.
+        for (int i = 0; i < std::clamp(lives_ - 1, 0, 6); ++i) {
             drawOriginalHudFigure(4 + i * 8, y0 + 38, kGreen);
         }
 
@@ -20186,7 +20199,7 @@ private:
         }
         int selCount = bombInventory_.counts[
             static_cast<size_t>(bombInventory_.selected)];
-        text(118, y0 + 30, std::to_string(std::clamp(selCount, 0, 99)), kGreen);
+        drawHudNumber(118, y0 + 30, std::clamp(selCount, 0, 99), 2);
 
         // Right panel: bomb-count and objective (destruction target) tallies.
         rect(140, y0 + 6, 40, 34, kBlue);
@@ -20213,20 +20226,14 @@ private:
         // counting down to zero as bonuses are collected / tiles destroyed.
         int bonusRemaining =
             std::max(0, static_cast<int>(level_.requiredBonus) - collected_);
-        char bonusText[4];
-        std::snprintf(bonusText, sizeof(bonusText), "%02d",
-                      std::min(99, bonusRemaining));
-        text(156, y0 + 11, bonusText, kGreen);
+        drawHudNumber(158, y0 + 10, std::min(99, bonusRemaining), 2);
         // Bottom icon: the fixed destruction-target star, CARO.CAR tile 117.
         if (!drawHudTile8(144, y0 + 24, kHudDestructionStarTile)) {
             rect(144, y0 + 24, 8, 8, kYellow);
         }
         int destRemaining = std::max(
             0, static_cast<int>(level_.requiredDestruction) - destructionPercent());
-        char destText[4];
-        std::snprintf(destText, sizeof(destText), "%02d",
-                      std::min(99, destRemaining));
-        text(156, y0 + 25, destText, kGreen);
+        drawHudNumber(158, y0 + 24, std::min(99, destRemaining), 2);
     }
 
     void drawHud() {

@@ -118,6 +118,10 @@ constexpr uint16_t kBombPlaceSoundCursor = 0xea74;
 constexpr uint8_t kBombPlaceSoundPriority = 3;
 constexpr uint16_t kMonsterDeathSoundCursor = 0x003d;
 constexpr uint8_t kMonsterDeathSoundPriority = 12;
+// Level-7 boss head roar: original sets DS:0x2074=0x69, DS:0x799f=4 behind a
+// ~30% RNG gate on the head state tick (1000:5CB0 / 1000:65db).
+constexpr uint16_t kBossHeadRoarSoundCursor = 0x0069;
+constexpr uint8_t kBossHeadRoarSoundPriority = 4;
 constexpr std::array<uint16_t, 6> kCompatibilitySoundCursors{
     0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0027,
 };
@@ -18633,11 +18637,21 @@ private:
     void updateBossHead(ActiveMonster& monster) {
         ++monster.bossTick;
         if (monster.hurtFlash > 0) --monster.hurtFlash;
+        // Original head brain (1000:5CB0): on the DS:0x78c2 mod 0x1d (29) state
+        // tick the head draws Random(100); when it exceeds 0x46 (~30%) on an
+        // even tick it plays the head roar (sound cursor 0x69). Crucially the
+        // head does NOT seek the player -- 1000:5CB0 never reads the player
+        // position -- it just picks a random speed 0x96 + Random(0x320), keeps
+        // its current facing (walls reverse it), and bounces. The Random draws
+        // are ordered exactly as the original so the shared RNG stream stays in
+        // step: roar roll, then speed, then (if grounded) the jump impulse.
         if (monster.bossTick % 29 == 0) {
-            const Player& target = nearestPlayer(static_cast<float>(monster.x),
-                                                 static_cast<float>(monster.y));
+            const int roarRoll = static_cast<int>(randomRangeValue(0, 100));
+            if (roarRoll > 0x46 && (monster.bossTick & 1) == 0) {
+                requestSoundCursor(kBossHeadRoarSoundCursor, kBossHeadRoarSoundPriority);
+            }
             const int speed = 0x96 + static_cast<int>(randomRangeValue(0, 0x320));
-            monster.vx8 = clampI16(target.x < static_cast<float>(monster.x) ? -speed : speed);
+            monster.vx8 = clampI16(monster.vx8 >= 0 ? speed : -speed);
             if (monsterCollides(static_cast<float>(monster.x),
                                 static_cast<float>(monster.y) + 1.0f)) {
                 monster.vy8 = clampI16(-(0x12c + static_cast<int>(randomRangeValue(0, 0x5dc))));

@@ -23,6 +23,20 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Made the boss head brain faithful to `1000:5CB0` (two real behavior fixes).**
+  Reversing the head brain revealed the port's head diverged from the original
+  in two concrete ways, now fixed: (1) the port made the head *seek the player*
+  (`target.x < x ? -speed : speed`), but `1000:5CB0` never reads the player
+  position -- the original head just picks a random speed `0x96 + Random(0x320)`,
+  keeps its facing (walls reverse it), and bounces; the port now does the same.
+  (2) The port was *missing the head roar*: on the `DS:0x78c2 mod 0x1d` state
+  tick the original draws `Random(100)` and, when it exceeds `0x46` (~30%) on an
+  even tick, plays sound cursor `0x69` (`1000:65db`); the port now plays it. The
+  `Random` draws are ordered exactly as the original (roar roll, then speed) so
+  the shared RNG stream stays in step -- which, with the bit-exact generator,
+  keeps the head's decisions aligned with the original's. Boss structure/motion
+  tests and the full suite remain green.
+
 - **Corrected the RNG to the original's Turbo Pascal generator (bit-exact).**
   The port's `randomRangeValue` used the Numerical Recipes LCG
   (`seed*1664525 + 1013904223`), which is the wrong algorithm. Disassembling

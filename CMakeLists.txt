@@ -578,6 +578,14 @@ if(BUILD_TESTING)
         set_tests_properties(python_tool_syntax_lane_result_preflight PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+        add_test(NAME seed_original_level_self_check
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/seed_original_level.py --self-check)
+        set_tests_properties(seed_original_level_self_check PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^seed_original_level_self_check=ok signature=1000:aaab data_string_offset=0x8b runtime_ds=0x0c8f level_byte=0x79b7 advance_routine=1000:2040 inc_level=1000:2051")
+
         add_test(NAME actor_dispatch_gate_sweep_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_dispatch_gate_sweep_summary.py

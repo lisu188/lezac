@@ -58,6 +58,20 @@ under the existing guardrails; they are not missing port functionality.
   than the original's exact icon panels (energy bar, score box, player-life
   figures, bomb selector, bomb-count and star tallies); a pixel-faithful HUD
   redesign is the next fidelity step.
+- Built and live-validated the original level-seeding orchestration
+  (`tools/seed_original_level.py`), the substrate for capturing the original
+  at levels 2-8 (the original has no level-skip key -- verified no
+  PageUp/PageDown/F5 scancode handler; advance is only via natural completion
+  -> results -> keypress -> `1000:2040`/`2051` which increments the level byte
+  DS:0x79B7 and reloads geometry). The tool runs plain `dosbox` under
+  `xvfb-run`, drives it to level-1 gameplay, scans /proc/<pid>/mem for the
+  `larax e zaco versione` signature to derive the emulated-memory base
+  (RUNTIME_DS=0x0C8F, DATA_STRING_OFFSET=0x8B), and reads/writes DS globals
+  plus a screenshot -- validated live (read DS:0x79B7=0 for level 1). Open:
+  a pure memory write cannot force a reload, so seeding levels 2-8 still needs
+  the completion CONDITION satisfied; setting DS:0x79C5/0x79C6=1 was tested and
+  does not advance. CTest `seed_original_level_self_check` pins the derivation
+  constants statically.
 - Ran a live original-vs-port pixel comparison (DOSBox capture in-container)
   and fixed two major visual-fidelity bugs it exposed. Disassembling the
   original menu/display routines (`1000:030b`, decoder `1000:82d0`) revealed

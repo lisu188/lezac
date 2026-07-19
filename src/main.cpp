@@ -25,6 +25,9 @@ namespace {
 
 constexpr int kScreenW = 320;
 constexpr int kScreenH = 200;
+// BOMOMIMK sprite indices used by the reconstructed bottom HUD.
+constexpr int kHudDestructionStarSprite = 69;  // fixed destruction-target star
+constexpr int kHudBombSelectorSprite = 57;     // blue bomb shown in the selector
 constexpr int kNameEntryLabelX = 58;
 constexpr int kNameEntrySlotY = 120;
 constexpr int kNameEntrySlotCount = 8;
@@ -20176,12 +20179,44 @@ private:
         // These two numbers were verified pixel-for-pixel against the original
         // HUD across every level (L1 1/50, L2 3/60, L3 7/20, L4 3/70, L5 8/65,
         // L7 1/10), so they must read from the level's objective data.
-        rect(144, y0 + 10, 8, 8, kYellow);
-        text(156, y0 + 11,
-             std::to_string(std::clamp(static_cast<int>(level_.requiredBonus), 0, 99)),
-             kGreen);
-        rect(144, y0 + 24, 8, 8, kYellow);
-        text(156, y0 + 25, std::to_string(level_.requiredDestruction), kGreen);
+        //
+        // The top icon is the level's bonus-collectible graphic: the original
+        // draws the level objectiveTile (verified because levels 1 and 3 share
+        // objectiveTile 108 and show the identical lemon; L2=grapes, L5=melon).
+        auto drawHudTile = [&](int dx, int dy, int id) {
+            const uint8_t* tile = tiles_.tile(id);
+            if (!tile) return false;
+            for (int ty = 0; ty < 8; ++ty) {
+                for (int tx = 0; tx < 8; ++tx) {
+                    uint8_t c = tile[ty * 8 + tx];
+                    if (c != 0) pixel(dx + tx, dy + ty, argb(palette_, c));
+                }
+            }
+            return true;
+        };
+        // Each tally icon sits in its own small black inset box on the panel.
+        rect(143, y0 + 9, 10, 10, kBlack);
+        rect(143, y0 + 23, 10, 10, kBlack);
+        if (!drawHudTile(144, y0 + 10, level_.objectiveTile)) {
+            rect(144, y0 + 10, 8, 8, kYellow);
+        }
+        char bonusText[4];
+        std::snprintf(bonusText, sizeof(bonusText), "%02d",
+                      std::clamp(static_cast<int>(level_.requiredBonus), 0, 99));
+        text(156, y0 + 11, bonusText, kGreen);
+        // Bottom icon: the fixed destruction-target star (BOMOMIMK sprite index
+        // resolved from the original HUD renderer).
+        const int destStar = kHudDestructionStarSprite;
+        if (destStar >= 0 && destStar < static_cast<int>(sprites_.sprites.size())) {
+            const Sprite& s = sprites_.sprites[static_cast<size_t>(destStar)];
+            drawSprite(s, 144 + (8 - s.width) / 2, y0 + 24 + (8 - s.height) / 2);
+        } else {
+            rect(144, y0 + 24, 8, 8, kYellow);
+        }
+        char destText[4];
+        std::snprintf(destText, sizeof(destText), "%02d",
+                      std::clamp(static_cast<int>(level_.requiredDestruction), 0, 99));
+        text(156, y0 + 25, destText, kGreen);
     }
 
     void drawHud() {

@@ -25,9 +25,8 @@ namespace {
 
 constexpr int kScreenW = 320;
 constexpr int kScreenH = 200;
-// BOMOMIMK sprite indices used by the reconstructed bottom HUD.
-constexpr int kHudDestructionStarSprite = 69;  // fixed destruction-target star
-constexpr int kHudBombSelectorSprite = 57;     // blue bomb shown in the selector
+// BOMOMIMK sprite index used by the reconstructed bottom HUD.
+constexpr int kHudDestructionStarSprite = 68;  // fixed destruction-target star
 constexpr int kNameEntryLabelX = 58;
 constexpr int kNameEntrySlotY = 120;
 constexpr int kNameEntrySlotCount = 8;
@@ -17676,12 +17675,15 @@ private:
 
     BombProfile bombProfile(BombType type) const {
         switch (type) {
-            case BombType::Small: return {0x0d, 58, 20};
+            // The default (Small) bomb is the blue BOMOMIMK sprite 57, verified
+            // against the original both in the HUD selector box and as a dropped
+            // world bomb (captured under DOSBox); 58 is the green bomb.
+            case BombType::Small: return {0x0d, 57, 20};
             case BombType::Medium: return {0x0e, 59, 30};
             case BombType::Large: return {0x0f, 60, 40};
             case BombType::Super: return {0x10, 60, 200};
         }
-        return {0x0d, 58, 20};
+        return {0x0d, 57, 20};
     }
 
     int explosionVisualType(BombType type) const {

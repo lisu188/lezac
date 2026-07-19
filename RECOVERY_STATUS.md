@@ -23,6 +23,14 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- Corrected the main-menu text after a live original capture showed the
+  title draws the menu OPTIONS over the logo art in Italian by default (an
+  earlier PR removed the text after an intro-frame capture caught the title
+  before the options drew in). The port now overlays the recovered strings
+  from LEZAC.EXE 1000:b1e3 (Italian) / 1000:bf15 (English) on the SFONLEF
+  title -- PREMI 1 PER UN GIOCATORE ... L: ENGLISH / ESC PER USCIRE --
+  defaulting to Italian with the L key toggling English.
+
 - Finished the per-level intro recovery and wired it into interactive play.
   Static analysis pins the palette ramp at `1000:0139`, striped generator at
   `1000:01fc`, level-loader call at `1000:2c01`, localized caption at

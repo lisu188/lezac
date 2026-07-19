@@ -7641,6 +7641,111 @@ public:
                   << " original_runtime_claim=0" << '\n';
     }
 
+    // Validate the statically-decoded level-7 boss model against captured
+    // ORIGINAL RUNTIME evidence (the DS:0x1BAE actor table and DS:0x79EA link
+    // table read from a live DOSBox session at level 7). Confirms the head/
+    // segment kinds, actor count, link count, and head hit-box against what the
+    // original game actually built in memory.
+    void debugBossRuntimeEvidence(const std::string& fixturePath) {
+        std::ifstream in(fixturePath);
+        if (!in) throw std::runtime_error("cannot open boss runtime fixture " + fixturePath);
+        std::string line, actorHex, linkHex;
+        int headKind = 0, headBehavior = 0, segmentKind = 0, actorEntrySize = 38;
+        while (std::getline(in, line)) {
+            if (line.empty() || line[0] == '#') continue;
+            auto eq = line.find('=');
+            if (eq == std::string::npos) continue;
+            std::string key = line.substr(0, eq), val = line.substr(eq + 1);
+            if (key == "actor_table_hex") actorHex = val;
+            else if (key == "link_table_hex") linkHex = val;
+            else if (key == "head_kind") headKind = std::stoi(val, nullptr, 0);
+            else if (key == "head_behavior") headBehavior = std::stoi(val, nullptr, 0);
+            else if (key == "segment_kind") segmentKind = std::stoi(val, nullptr, 0);
+            else if (key == "actor_entry_size") actorEntrySize = std::stoi(val, nullptr, 0);
+        }
+        auto hexToBytes = [](const std::string& h) {
+            std::vector<uint8_t> b;
+            for (size_t i = 0; i + 1 < h.size(); i += 2)
+                b.push_back(static_cast<uint8_t>(std::stoi(h.substr(i, 2), nullptr, 16)));
+            return b;
+        };
+        std::vector<uint8_t> actors = hexToBytes(actorHex);
+        std::vector<uint8_t> links = hexToBytes(linkHex);
+
+        // Parse the original runtime actor table: locate the head (kind byte
+        // followed by its behavior byte) and count the segments.
+        int origHeadCount = 0, origSegmentCount = 0;
+        int origHeadBoxW = -1, origHeadBoxH = -1;
+        for (size_t off = 0; off + 2 <= actors.size(); ++off) {
+            if (actors[off] == headKind && actors[off + 1] == headBehavior) {
+                ++origHeadCount;
+                // Head hit-box is the 5x4 pair 14 bytes into the head entry
+                // (kind,behavior,...,boxW,boxH), matching the decoded model.
+                if (off + 15 < actors.size()) {
+                    origHeadBoxW = actors[off + 14];
+                    origHeadBoxH = actors[off + 15];
+                }
+            }
+        }
+        // Count segments as kind bytes sitting on the head's 38-byte entry grid.
+        int gridSegments = 0;
+        int headIdx = -1;
+        for (size_t off = 0; off + 2 <= actors.size(); ++off)
+            if (actors[off] == headKind && actors[off + 1] == headBehavior) { headIdx = static_cast<int>(off); break; }
+        if (headIdx >= 0) {
+            for (int slot = -1; slot < 8; ++slot) {
+                int idx = headIdx + slot * actorEntrySize;
+                if (idx < 0 || idx + 1 >= static_cast<int>(actors.size())) continue;
+                if (actors[idx] == segmentKind) ++gridSegments;
+            }
+        }
+        int origLinkCount = 0;
+        for (size_t s = 0; s + 16 <= links.size(); s += 16) {
+            bool nz = false;
+            for (size_t k = 0; k < 16; ++k) if (links[s + k]) { nz = true; break; }
+            if (nz) ++origLinkCount;
+        }
+        // slot 0 of the link table is the head record; the rest are segments.
+        int origSegmentLinks = std::max(0, origLinkCount - 1);
+        origSegmentCount = gridSegments;
+
+        // Decode the port's static boss model.
+        load();
+        resetLevel(6);
+        if (levelIndex_ != 6 || !bossPresent_)
+            throw std::runtime_error("port did not build the level-7 boss");
+        int portSegments = 0, portHead = 0;
+        int portHeadBoxW = -1, portHeadBoxH = -1;
+        for (const ActiveMonster& m : monsters_) {
+            if (m.behavior == 6) { ++portHead; portHeadBoxW = m.bossBoxW; portHeadBoxH = m.bossBoxH; }
+            else ++portSegments;
+        }
+        int portActors = static_cast<int>(monsters_.size());
+        int portLinks = static_cast<int>(bossLinks_.size());
+
+        bool match =
+            origHeadCount == 1 && portHead == 1 &&
+            origSegmentCount == portSegments && portSegments == 6 &&
+            portActors == 7 &&
+            origSegmentLinks == portLinks && portLinks == 6 &&
+            origHeadBoxW == portHeadBoxW && origHeadBoxH == portHeadBoxH;
+
+        std::cout << "boss_runtime_evidence=" << (match ? "ok" : "MISMATCH")
+                  << " original_head=" << origHeadCount
+                  << " original_segments=" << origSegmentCount
+                  << " original_actors=" << (origHeadCount + origSegmentCount)
+                  << " original_segment_links=" << origSegmentLinks
+                  << " original_head_box=" << origHeadBoxW << 'x' << origHeadBoxH
+                  << " port_head=" << portHead
+                  << " port_segments=" << portSegments
+                  << " port_actors=" << portActors
+                  << " port_links=" << portLinks
+                  << " port_head_box=" << portHeadBoxW << 'x' << portHeadBoxH
+                  << " head_kind=0x1e head_behavior=6 segment_kind=0x1f"
+                  << " boss_structure_confirmed=" << (match ? 1 : 0) << '\n';
+        if (!match) throw std::runtime_error("boss model does not match original runtime evidence");
+    }
+
     void debugGranBossModel() {
         // Pins the level-7 boss semantics recovered statically from the
         // shipped executable: the PROVA.SPR bank selector, the DS:0x58/0x59
@@ -20827,6 +20932,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-gran-boss-model") {
             app.debugGranBossModel();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-boss-runtime-evidence") {
+            app.debugBossRuntimeEvidence(argv[2]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sound-priority-latch") {

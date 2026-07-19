@@ -2372,6 +2372,15 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^gran_boss_model=ok selector=1000:2c90 level7_bank=prova.spr anim_sets=0x0e:41..42,0x0f:43..44,0x10:40..40 boss_actors=7 head_visual=8 head_hp=10 head_lives=1 head_box=5x4 links=6 spring_links=2 orbit_links=4 actor=head:vis8:100,100:spr40 actor=segment:vis9:92,118:spr42 actor=segment:vis10:139,117:spr43 actor=segment:vis7:88,116:spr45 actor=segment:vis6:93,110:spr45 actor=segment:vis5:142,104:spr46 actor=segment:vis4:138,110:spr46 original_runtime_claim=0")
 
+    add_test(NAME boss_runtime_evidence
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-boss-runtime-evidence
+                tests/fixtures/boss_runtime_original_level7.txt)
+    set_tests_properties(boss_runtime_evidence PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^boss_runtime_evidence=ok original_head=1 original_segments=6 original_actors=7 original_segment_links=6 original_head_box=5x4 port_head=1 port_segments=6 port_actors=7 port_links=6 port_head_box=5x4 head_kind=0x1e head_behavior=6 segment_kind=0x1f boss_structure_confirmed=1")
+
     add_test(NAME gran_profile
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran)
     set_tests_properties(gran_profile PROPERTIES

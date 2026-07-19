@@ -2381,6 +2381,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^boss_runtime_evidence=ok original_head=1 original_segments=6 original_actors=7 original_segment_links=6 original_head_box=5x4 port_head=1 port_segments=6 port_actors=7 port_links=6 port_head_box=5x4 head_kind=0x1e head_behavior=6 segment_kind=0x1f link_params_matched=6/6 original_spring_links=2 original_orbit_links=4 port_spring_links=2 port_orbit_links=4 boss_structure_confirmed=1")
 
+    add_test(NAME turbo_random
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-turbo-random)
+    set_tests_properties(turbo_random PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^turbo_random=ok seq100_from0=0,56,29,76,86,17,85,3,95,96,74,16 seq1000_from_0x1234abcd=949,374,129,775,697,545,722,975 multiplier=0x08088405 increment=1 extraction=high16_mod_L original=0x920:0x13a8")
+
     add_test(NAME gran_profile
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-gran)
     set_tests_properties(gran_profile PROPERTIES

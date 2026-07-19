@@ -23,6 +23,24 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Corrected the RNG to the original's Turbo Pascal generator (bit-exact).**
+  The port's `randomRangeValue` used the Numerical Recipes LCG
+  (`seed*1664525 + 1013904223`), which is the wrong algorithm. Disassembling
+  the shipped runtime-library `Random` at `0x920:0x13a8` shows the original is
+  Borland Turbo Pascal's generator: `RandSeed = RandSeed*0x08088405 + 1`
+  (multiplier low word `0x8405` at `CS:0x142d`, increment 1), extracting
+  `Random(L) = (RandSeed >> 16) mod L` (RandSeed at `DS:0x1afe`). The port
+  already used the `>>16 mod L` extraction but the wrong LCG constants, so
+  every RNG-driven decision (monster spawner HP, behavior rolls, the boss head
+  brain's velocity/timer draws) was drawn from a different stream. Switching to
+  `0x08088405`/`+1` makes the generator bit-identical to the original; the new
+  `--debug-turbo-random` diagnostic (CTest `turbo_random`) pins the output
+  against an independently-computed Turbo Pascal reference
+  (`Random(100)` from seed 0 -> `0,56,29,76,86,17,85,3,95,96,74,16`). All
+  existing determinism/range tests still pass unchanged, and this is the
+  keystone that makes a deterministic lockstep comparison of the RNG-driven
+  AI against the original feasible.
+
 - **Confirmed the level-7 GRAN.MST boss against ORIGINAL RUNTIME (was
   static-only).** Using the newly unblocked level-7 access, the original boss
   was captured live under DOSBox and its runtime tables read from process

@@ -604,7 +604,8 @@ struct ActiveMonster {
 // Semantic view of one 16-byte DS:0x79EA motion-link entry from GRAN.MST.
 // mode != 0xff: spring/follow (out = (target - self + off) * gain, plus a
 // per-axis velocity pull-back of `mode`); mode == 0xff: orbit (out = target +
-// off + radius * sin/cos of a 128-step phase advanced by `gain`).
+// off + radius * sin/cos of a 128-step phase advanced by `gain`, with the
+// Real48 products truncated toward zero when converted back to integers).
 struct BossMotionLink {
     uint8_t targetVisual = 0;
     uint8_t selfVisual = 0;
@@ -8067,6 +8068,444 @@ public:
             throw std::runtime_error(
                 "boss model does not match original runtime evidence");
         }
+    }
+
+    // Replay consecutive, process-frozen original level-7 samples against the
+    // port one tick at a time. This promotes only the actor/link/RNG fields
+    // present in the trace; collision and presentation remain separate claims.
+    void debugBossRuntimeTrace(const std::string& fixturePath) {
+        struct BossTraceSample {
+            uint16_t tick = 0;
+            int tickDelta = 0;
+            uint32_t randomSeed = 0;
+            int actorCount = 0;
+            int visualCount = 0;
+            int linkCount = 0;
+            std::vector<uint8_t> actors;
+            std::vector<uint8_t> visuals;
+            std::vector<uint8_t> links;
+        };
+
+        std::ifstream in(fixturePath);
+        if (!in) {
+            throw std::runtime_error(
+                "cannot open boss runtime trace " + fixturePath);
+        }
+        std::string line;
+        if (!std::getline(in, line)) {
+            throw std::runtime_error("empty boss runtime trace");
+        }
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line != "original_boss_runtime_trace_v1") {
+            throw std::runtime_error("unsupported boss runtime trace header");
+        }
+
+        auto parseInteger = [](const std::string& value,
+                               const std::string& label) -> uint64_t {
+            size_t used = 0;
+            uint64_t parsed = 0;
+            try {
+                parsed = std::stoull(value, &used, 0);
+            } catch (const std::exception&) {
+                throw std::runtime_error(
+                    "invalid boss runtime trace integer " + label);
+            }
+            if (used != value.size()) {
+                throw std::runtime_error(
+                    "invalid boss runtime trace integer " + label);
+            }
+            return parsed;
+        };
+        auto decodeHex = [](const std::string& value,
+                            const std::string& label) {
+            if (value.empty() || value.size() % 2 != 0) {
+                throw std::runtime_error(
+                    "invalid boss runtime trace " + label + " hex length");
+            }
+            std::vector<uint8_t> bytes;
+            bytes.reserve(value.size() / 2);
+            for (size_t i = 0; i < value.size(); i += 2) {
+                if (!std::isxdigit(static_cast<unsigned char>(value[i])) ||
+                    !std::isxdigit(static_cast<unsigned char>(value[i + 1]))) {
+                    throw std::runtime_error(
+                        "invalid boss runtime trace " + label + " hex byte");
+                }
+                bytes.push_back(static_cast<uint8_t>(
+                    std::stoi(value.substr(i, 2), nullptr, 16)));
+            }
+            return bytes;
+        };
+
+        std::map<std::string, std::string> metadata;
+        std::vector<BossTraceSample> samples;
+        while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (line.rfind("sample[", 0) != 0) {
+                size_t eq = line.find('=');
+                if (eq == std::string::npos || eq == 0) {
+                    throw std::runtime_error(
+                        "malformed boss runtime trace metadata");
+                }
+                if (!metadata.emplace(line.substr(0, eq),
+                                      line.substr(eq + 1)).second) {
+                    throw std::runtime_error(
+                        "duplicate boss runtime trace metadata");
+                }
+                continue;
+            }
+
+            std::istringstream row(line);
+            std::string sampleTag;
+            row >> sampleTag;
+            if (sampleTag.size() < 9 || sampleTag.back() != ']') {
+                throw std::runtime_error("malformed boss runtime sample tag");
+            }
+            int sampleIndex = static_cast<int>(parseInteger(
+                sampleTag.substr(7, sampleTag.size() - 8), "sample index"));
+            if (sampleIndex != static_cast<int>(samples.size())) {
+                throw std::runtime_error(
+                    "boss runtime trace sample indices are not contiguous");
+            }
+            std::map<std::string, std::string> fields;
+            std::string token;
+            while (row >> token) {
+                size_t eq = token.find('=');
+                if (eq == std::string::npos || eq == 0 ||
+                    !fields.emplace(token.substr(0, eq),
+                                    token.substr(eq + 1)).second) {
+                    throw std::runtime_error(
+                        "malformed boss runtime sample field");
+                }
+            }
+            auto field = [&](const std::string& key) -> const std::string& {
+                auto it = fields.find(key);
+                if (it == fields.end()) {
+                    throw std::runtime_error(
+                        "boss runtime sample missing " + key);
+                }
+                return it->second;
+            };
+            if (fields.size() != 9) {
+                throw std::runtime_error(
+                    "unexpected boss runtime sample field count");
+            }
+
+            BossTraceSample sample;
+            sample.tick = static_cast<uint16_t>(
+                parseInteger(field("tick"), "tick"));
+            sample.tickDelta = static_cast<int>(
+                parseInteger(field("tick_delta"), "tick delta"));
+            sample.randomSeed = static_cast<uint32_t>(
+                parseInteger(field("random_seed"), "random seed"));
+            sample.actorCount = static_cast<int>(
+                parseInteger(field("actor_count"), "actor count"));
+            sample.visualCount = static_cast<int>(
+                parseInteger(field("visual_count"), "visual count"));
+            sample.linkCount = static_cast<int>(
+                parseInteger(field("motion_link_count"), "link count"));
+            sample.actors = decodeHex(
+                field("actor_table_hex"), "actor table");
+            sample.visuals = decodeHex(
+                field("visual_table_hex"), "visual table");
+            sample.links = decodeHex(
+                field("motion_link_table_hex"), "motion-link table");
+            samples.push_back(std::move(sample));
+        }
+
+        auto meta = [&](const std::string& key) -> const std::string& {
+            auto it = metadata.find(key);
+            if (it == metadata.end()) {
+                throw std::runtime_error(
+                    "boss runtime trace missing metadata " + key);
+            }
+            return it->second;
+        };
+        auto metaInt = [&](const std::string& key) {
+            return parseInteger(meta(key), key);
+        };
+        double settleSeconds = 0.0;
+        size_t settleUsed = 0;
+        try {
+            settleSeconds =
+                std::stod(meta("settle_seconds"), &settleUsed);
+        } catch (const std::exception&) {
+            throw std::runtime_error(
+                "invalid boss runtime trace settle_seconds");
+        }
+        if (meta("source") !=
+                "LEZAC.EXE via DOSBox /proc/mem tick-phase frozen reads" ||
+            metaInt("runtime_ds") != 0x0c8f ||
+            metaInt("level") != 7 ||
+            metaInt("sample_count") != samples.size() ||
+            metaInt("tick_offset") != 0x78c2 ||
+            metaInt("random_seed_offset") != 0x1afe ||
+            metaInt("actor_table_offset") != 0x1bae ||
+            metaInt("actor_entry_size") != 0x26 ||
+            metaInt("actor_index_base") != 1 ||
+            metaInt("visual_table_offset") != 0xc21e ||
+            metaInt("visual_entry_size") != 8 ||
+            metaInt("motion_link_table_offset") != 0x79ea ||
+            metaInt("motion_link_entry_size") != 0x10 ||
+            metaInt("motion_link_index_base") != 1 ||
+            meta("snapshot_guard") != "SIGSTOP/SIGCONT" ||
+            metaInt("max_tick_step") != 1 ||
+            settleUsed != meta("settle_seconds").size() ||
+            !std::isfinite(settleSeconds) || settleSeconds <= 0.0 ||
+            samples.size() < 2) {
+            throw std::runtime_error(
+                "boss runtime trace metadata mismatch");
+        }
+
+        constexpr size_t kActorStride = 0x26;
+        constexpr size_t kVisualStride = 8;
+        constexpr size_t kLinkStride = 0x10;
+        auto readU16 = [](const std::vector<uint8_t>& bytes, size_t offset) {
+            if (offset + 2 > bytes.size()) {
+                throw std::runtime_error(
+                    "boss runtime trace word is out of bounds");
+            }
+            return static_cast<uint16_t>(
+                bytes[offset] | (bytes[offset + 1] << 8));
+        };
+        auto readI16 = [&](const std::vector<uint8_t>& bytes, size_t offset) {
+            return static_cast<int16_t>(readU16(bytes, offset));
+        };
+        const uint16_t tickStart =
+            static_cast<uint16_t>(metaInt("tick_start"));
+        const uint16_t tickEnd =
+            static_cast<uint16_t>(metaInt("tick_end"));
+        for (size_t i = 0; i < samples.size(); ++i) {
+            const BossTraceSample& sample = samples[i];
+            const uint16_t expectedTick =
+                static_cast<uint16_t>(tickStart + i);
+            if (sample.tick != expectedTick ||
+                sample.tickDelta != static_cast<int>(i) ||
+                sample.actorCount != 7 || sample.visualCount != 9 ||
+                sample.linkCount != 6 ||
+                sample.actors.size() != 8 * kActorStride ||
+                sample.visuals.size() != 9 * kVisualStride ||
+                sample.links.size() != 7 * kLinkStride) {
+                throw std::runtime_error(
+                    "boss runtime trace sample layout mismatch");
+            }
+        }
+        if (samples.front().tick != tickStart ||
+            samples.back().tick != tickEnd) {
+            throw std::runtime_error(
+                "boss runtime trace endpoint mismatch");
+        }
+
+        load();
+        resetLevel(6);
+        if (levelIndex_ != 6 || !bossPresent_ ||
+            monsters_.size() != 7 || bossLinks_.size() != 6) {
+            throw std::runtime_error(
+                "port did not build the traced level-7 boss");
+        }
+
+        auto findPortActor = [&](const BossTraceSample& sample,
+                                 int slot) -> ActiveMonster& {
+            const size_t actorOffset =
+                static_cast<size_t>(slot) * kActorStride;
+            const uint8_t kind = sample.actors[actorOffset];
+            const uint8_t visual = sample.actors[actorOffset + 1];
+            ActiveMonster* found = nullptr;
+            for (ActiveMonster& monster : monsters_) {
+                if (monster.kind == kind && monster.bossVisual == visual) {
+                    if (found) {
+                        throw std::runtime_error(
+                            "duplicate port actor in boss runtime trace");
+                    }
+                    found = &monster;
+                }
+            }
+            if (!found) {
+                throw std::runtime_error(
+                    "port actor missing from boss runtime trace");
+            }
+            return *found;
+        };
+        auto failField = [](uint16_t tick, int visual,
+                            const std::string& fieldName,
+                            int expected, int actual) {
+            std::ostringstream message;
+            message << "boss runtime trace mismatch tick=0x"
+                    << std::hex << std::setw(4) << std::setfill('0') << tick
+                    << std::dec << " visual=" << visual
+                    << " field=" << fieldName
+                    << " expected=" << expected
+                    << " actual=" << actual;
+            throw std::runtime_error(message.str());
+        };
+
+        const BossTraceSample& first = samples.front();
+        playerCount_ = 1;
+        playerDead_ = false;
+        player2Dead_ = true;
+        player_.x = static_cast<float>(readI16(first.visuals, 0));
+        player_.y = static_cast<float>(readI16(first.visuals, 2));
+        player_.vx = 0.0f;
+        player_.vy = 0.0f;
+        randomSeed_ = first.randomSeed;
+        for (int slot = 1; slot <= first.actorCount; ++slot) {
+            const size_t actorOffset =
+                static_cast<size_t>(slot) * kActorStride;
+            const uint8_t visual = first.actors[actorOffset + 1];
+            if (visual >= first.visualCount ||
+                first.actors[actorOffset + 0x0b] != 0 ||
+                first.actors[actorOffset + 0x0d] != 0) {
+                throw std::runtime_error(
+                    "boss runtime trace actor fixed-point layout mismatch");
+            }
+            const size_t visualOffset =
+                static_cast<size_t>(visual) * kVisualStride;
+            ActiveMonster& monster = findPortActor(first, slot);
+            monster.x = readI16(first.visuals, visualOffset);
+            monster.y = readI16(first.visuals, visualOffset + 2);
+            monster.vx8 = readI16(first.actors, actorOffset + 0x06);
+            monster.vy8 = readI16(first.actors, actorOffset + 0x08);
+            monster.fracX = first.actors[actorOffset + 0x0a];
+            monster.fracY = first.actors[actorOffset + 0x0c];
+            if (monster.behavior == 6) {
+                monster.bossTick =
+                    static_cast<int>(static_cast<uint16_t>(first.tick - 1));
+            }
+        }
+        for (size_t i = 0; i < bossLinks_.size(); ++i) {
+            const size_t linkOffset = (i + 1) * kLinkStride;
+            BossMotionLink& link = bossLinks_[i];
+            if (link.targetVisual != first.links[linkOffset] ||
+                link.selfVisual != first.links[linkOffset + 1] ||
+                link.gain != first.links[linkOffset + 2] ||
+                link.mode != first.links[linkOffset + 3] ||
+                link.radiusX != first.links[linkOffset + 4] ||
+                link.radiusY != first.links[linkOffset + 5] ||
+                link.offX != readI16(first.links, linkOffset + 7) ||
+                link.offY != readI16(first.links, linkOffset + 9) ||
+                link.biasY !=
+                    static_cast<int8_t>(first.links[linkOffset + 15])) {
+                throw std::runtime_error(
+                    "boss runtime trace static link mismatch");
+            }
+            link.phase = first.links[linkOffset + 6];
+            link.outX = readI16(first.links, linkOffset + 11);
+            link.outY = readI16(first.links, linkOffset + 13);
+        }
+
+        auto requireState = [&](const BossTraceSample& expected) {
+            if (randomSeed_ != expected.randomSeed) {
+                failField(expected.tick, 6, "random_seed",
+                          static_cast<int>(expected.randomSeed),
+                          static_cast<int>(randomSeed_));
+            }
+            for (int slot = 1; slot <= expected.actorCount; ++slot) {
+                const size_t actorOffset =
+                    static_cast<size_t>(slot) * kActorStride;
+                const uint8_t visual = expected.actors[actorOffset + 1];
+                const size_t visualOffset =
+                    static_cast<size_t>(visual) * kVisualStride;
+                if (expected.actors[actorOffset + 0x0b] != 0 ||
+                    expected.actors[actorOffset + 0x0d] != 0) {
+                    throw std::runtime_error(
+                        "boss runtime trace fractional high byte changed");
+                }
+                ActiveMonster& monster = findPortActor(expected, slot);
+                const std::array<std::pair<const char*, int>, 6> fields{{
+                    {"x", monster.x},
+                    {"y", monster.y},
+                    {"vx8", monster.vx8},
+                    {"vy8", monster.vy8},
+                    {"frac_x", monster.fracX},
+                    {"frac_y", monster.fracY},
+                }};
+                const std::array<int, 6> original{{
+                    readI16(expected.visuals, visualOffset),
+                    readI16(expected.visuals, visualOffset + 2),
+                    readI16(expected.actors, actorOffset + 0x06),
+                    readI16(expected.actors, actorOffset + 0x08),
+                    expected.actors[actorOffset + 0x0a],
+                    expected.actors[actorOffset + 0x0c],
+                }};
+                for (size_t fieldIndex = 0;
+                     fieldIndex < fields.size(); ++fieldIndex) {
+                    if (fields[fieldIndex].second != original[fieldIndex]) {
+                        failField(expected.tick, visual,
+                                  fields[fieldIndex].first,
+                                  original[fieldIndex],
+                                  fields[fieldIndex].second);
+                    }
+                }
+            }
+            for (size_t i = 0; i < bossLinks_.size(); ++i) {
+                const size_t linkOffset = (i + 1) * kLinkStride;
+                const BossMotionLink& link = bossLinks_[i];
+                const int visual = expected.links[linkOffset + 1];
+                const std::array<std::pair<const char*, int>, 3> fields{{
+                    {"link_phase", link.phase},
+                    {"link_out_x", link.outX},
+                    {"link_out_y", link.outY},
+                }};
+                const std::array<int, 3> original{{
+                    expected.links[linkOffset + 6],
+                    readI16(expected.links, linkOffset + 11),
+                    readI16(expected.links, linkOffset + 13),
+                }};
+                for (size_t fieldIndex = 0;
+                     fieldIndex < fields.size(); ++fieldIndex) {
+                    if (fields[fieldIndex].second != original[fieldIndex]) {
+                        failField(expected.tick, visual,
+                                  fields[fieldIndex].first,
+                                  original[fieldIndex],
+                                  fields[fieldIndex].second);
+                    }
+                }
+            }
+        };
+
+        requireState(first);
+        int rngEvents = 0;
+        int rngDraws = 0;
+        for (size_t i = 1; i < samples.size(); ++i) {
+            const BossTraceSample& previous = samples[i - 1];
+            const BossTraceSample& expected = samples[i];
+            int draws = 0;
+            uint32_t tracedSeed = previous.randomSeed;
+            while (tracedSeed != expected.randomSeed && draws < 3) {
+                tracedSeed = tracedSeed * 0x08088405u + 1u;
+                ++draws;
+            }
+            const bool decisionTick =
+                static_cast<uint16_t>(expected.tick - 1) % 29 == 0;
+            if (tracedSeed != expected.randomSeed ||
+                (draws > 0) != decisionTick) {
+                throw std::runtime_error(
+                    "boss runtime trace RNG phase mismatch");
+            }
+
+            updateBossLinks();
+            updateMonsters(1.0f / 60.0f);
+            requireState(expected);
+            if (draws > 0) {
+                ++rngEvents;
+                rngDraws += draws;
+            }
+        }
+
+        std::cout << "boss_runtime_trace=ok"
+                  << " samples=" << samples.size()
+                  << " transitions=" << samples.size() - 1
+                  << " tick_start=0x" << std::hex << std::setw(4)
+                  << std::setfill('0') << tickStart
+                  << " tick_end=0x" << std::setw(4) << tickEnd
+                  << std::dec << std::setfill(' ')
+                  << " rng_events=" << rngEvents
+                  << " rng_draws=" << rngDraws
+                  << " actor_fields=7x6"
+                  << " link_fields=6x3"
+                  << " snapshot_guard=sigstop"
+                  << " original_runtime_motion_claim=1"
+                  << " visual_claim=0\n";
     }
 
     // Verify the port's RNG is bit-identical to the original's Turbo Pascal
@@ -18928,12 +19367,13 @@ private:
                 link.phase = static_cast<uint8_t>((link.phase + link.gain) & 0x7f);
                 const float cosValue = bossSinTable_[(link.phase + 0x20) & 0x7f];
                 const float sinValue = bossSinTable_[link.phase];
+                // The original converts both Real48 products with Trunc.
                 link.outX = static_cast<int16_t>(
                     target->x + link.offX +
-                    static_cast<int>(std::lround(cosValue * link.radiusX)));
+                    static_cast<int>(cosValue * link.radiusX));
                 link.outY = static_cast<int16_t>(
                     target->y + link.offY +
-                    static_cast<int>(std::lround(sinValue * link.radiusY)));
+                    static_cast<int>(sinValue * link.radiusY));
             }
         }
     }
@@ -21385,6 +21825,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-runtime-evidence") {
             app.debugBossRuntimeEvidence(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-boss-runtime-trace") {
+            app.debugBossRuntimeTrace(argv[2]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-turbo-random") {

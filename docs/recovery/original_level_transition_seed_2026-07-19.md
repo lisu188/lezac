@@ -116,8 +116,52 @@ deliberately excluded from that static motion-parameter claim.
 
 The C++ `kBossVisualBase`, boss-model diagnostic, and autoplayer expectations
 now use this live `+2` contract. `--debug-gran-boss-model` reports
-`original_runtime_placement_claim=1`; exact original motion timing remains
-unpromoted.
+`original_runtime_placement_claim=1`.
+
+## Frozen Boss Tick Trace
+
+The level-7 route can additionally collect consecutive coherent boss samples:
+
+```sh
+xvfb-run -a python3 tools/seed_original_level.py \
+  --run-dir /tmp/lezac-boss-trace-3e5e619-01 \
+  --target-level 7 \
+  --dump-runtime-state \
+  --trace-boss-ticks 16 \
+  --boss-trace-settle 0.010 \
+  --approve-procmem \
+  --approve-runtime-instrumentation
+```
+
+This still reaches level 7 through six native result/reload transitions. It
+does not patch the level byte, actor state, RNG seed, or player position.
+`DS:78C2` is interrupt-driven and can advance while the actor loop is running,
+so the sampler waits 10 ms after each tick edge and sends `SIGSTOP` to DOSBox
+while reading the actor, visual, motion-link, and RNG tables. It resumes with
+`SIGCONT` immediately afterward and rejects skipped or crossed ticks.
+
+The resulting 16 samples, ticks `0x0015..0x0024`, are preserved in
+`tests/fixtures/boss_runtime_original_level7_trace.txt` (SHA-256
+`aaacccd45a782d4ec613d65cc2d3014fe6e163d1c0e0600a10a70e3e9dba6e3a`).
+`--debug-boss-runtime-trace` seeds the C++ boss from sample 0 and advances 15
+updates in original order (`1000:432A` links before the actor loop). Every
+sample matches all seven actors' visual X/Y, signed 8.8 velocity words, and
+fraction bytes; all six links' phase and output X/Y; and `DS:1AFE`.
+
+The trace also resolves two timing details:
+
+- Orbit products are converted back to integer positions by truncating toward
+  zero. The port previously rounded them, causing immediate one-pixel drift.
+  Truncation matches all 60 captured orbit outputs.
+- The state frozen at global tick N reflects the actor update that consumed
+  tick N-1. The sample at `0x001e` therefore enters the modulo-29 decision for
+  tick 29 and advances seed `0xcdda942f` to `0xac13549d` in exactly two Turbo
+  Pascal draws: `Random(100)=53`, then `Random(800)=51`, producing head
+  velocity `+201` toward player 1.
+
+CTest `boss_runtime_trace` locks the replay as
+`original_runtime_motion_claim=1 visual_claim=0`. The promoted claim is
+limited to this initial free-flight window and the raw state fields above.
 
 ## Camera And Presentation Evidence
 
@@ -153,10 +197,11 @@ Promoted now:
 - exact transition objective fields and completion gate
 - exact GRAN actor/link index bases and visual rebase
 - exact initial GRAN actor-to-visual mapping
+- exact initial 16-sample boss actor/link/RNG motion trace
 - original view and camera globals at captured checkpoints
 
 Still open:
 
-- frame-by-frame original GRAN motion timing and collision outcomes
+- boss terrain collision, damage phases, death-chain timing, and longer runs
 - exact camera/map/presentation transform in the C++ renderer
 - a promoted paired visual fixture under the visual-claim guardrail

@@ -1354,9 +1354,9 @@ debris tags `0x4e21`/`0x4ee8`. It remains a C++ arithmetic/model check with
   entries to the `DS:0x79EA` table — a multi-segment level-7 boss whose
   segments link to the head record through byte `+0x25`. The diagnostic pins
   the 12 supporting instruction/literal byte windows, reparses the shipped
-  399-byte file with the recovered layout (`seven_by_57_layout=0`), and keeps
-  `original_runtime_claim=0` until DOSBox runtime evidence covers the live
-  boss presentation.
+  399-byte file with the recovered layout (`seven_by_57_layout=0`). Its
+  `original_runtime_claim=0` remains scoped to that static diagnostic; the
+  live diagnostics below carry bounded runtime claims.
 - The level-7 boss is now implemented from that recovered model. Entering
   level 7 spawns the decoded multi-segment boss (`spawnLevel7Boss()`): the
   head (kind `0x1e`, behavior 6) charges the nearest player every 29 ticks
@@ -1369,9 +1369,15 @@ debris tags `0x4e21`/`0x4ee8`. It remains a C++ arithmetic/model check with
   `PROVA.SPR` bank the original selects on level 7. `--debug-gran-boss-model`
   pins the sprite-bank selector and anim-set table bytes and prints the
   decoded boss table; `--debug-autoplayer boss_level7` frame-inspects
-  spawn, link motion, the damage phases, and the death chain. Presentation
-  details remain `original_runtime_claim=0` pending DOSBox runtime
-  comparison.
+  spawn, link motion, the damage phases, and the death chain.
+  `--debug-boss-runtime-trace` with
+  `tests/fixtures/boss_runtime_original_level7_trace.txt` replays 16 coherent
+  process-frozen original samples and matches all seven actors' fixed-point
+  motion fields, all six links' phase/outputs, and the Turbo Pascal RNG seed.
+  It also pins truncation of orbit products and the global-tick phase. This
+  initial free-flight window reports `original_runtime_motion_claim=1`;
+  collision, later boss phases, and presentation remain open with
+  `visual_claim=0`.
   `tools/check_gran_usage_guardrail.py` keeps `GRAN.MST` access limited to
   the evidence-backed live consumer `spawnLevel7Boss` plus loading,
   validation, and byte-preserving roundtrip/debug output; additional live

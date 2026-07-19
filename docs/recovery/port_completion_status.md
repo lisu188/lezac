@@ -89,8 +89,10 @@ port functionality.
   impact/death/reward sprite frames
 - `gran_mst_runtime_motion_timing` — live original capture now confirms the
   1-based actor/link tables, visual allocator count, `+2` visual rebase, and
-  initial boss placement (`--debug-gran-boss-model`); exact frame-by-frame
-  motion/collision timing still needs paired original evidence
+  initial boss placement (`--debug-gran-boss-model`). A frozen 16-sample trace
+  now matches initial actor/link/RNG motion exactly
+  (`--debug-boss-runtime-trace`); terrain collision, damage/death phases,
+  longer-run timing, and paired visual evidence remain open
 - `ds79b9_fallback_runtime_reachability` — runtime reachability of the
   `DS:79b9` fallback
 - `level1_route_timing_original_confirmation` — level-1 bomb-route timing

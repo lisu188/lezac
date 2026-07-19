@@ -9,7 +9,7 @@ Baseline: `origin/main`
 The C++ port is functionally complete. Every recovered gameplay, data, UI,
 and sound subsystem of `LEZAC.EXE` has a C++ implementation with
 deterministic validation coverage, and the full CTest suite passes on a
-clean Linux host (377/377 after this iteration's additions). The new
+clean Linux host (379/379 after this iteration's additions). The new
 `--debug-port-completion-status` diagnostic declares that state as
 machine-checkable output: 23 implemented subsystems with their validation
 entry points and the 12 open original-evidence follow-ups, reported with
@@ -22,6 +22,24 @@ DOSBox/DOSBox-debug/process-memory evidence hosts and stay `visual_claim=0`
 under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
+
+- **Promoted a coherent original level-7 boss motion lockstep.**
+  `tools/seed_original_level.py --trace-boss-ticks 16` now waits for
+  consecutive `DS:78C2` edges, settles 10 ms, freezes DOSBox with `SIGSTOP`,
+  reads the actor/visual/motion-link tables plus RNG seed, and resumes with
+  `SIGCONT`. The checked-in ticks `0x0015..0x0024` contain no skipped or
+  crossed tick and are replayed by `--debug-boss-runtime-trace` (CTest
+  `boss_runtime_trace`). All 15 transitions match seven actors' X/Y, signed
+  8.8 velocities and fractions, six links' phase/output fields, and
+  `DS:1AFE` exactly. The trace catches and fixes a real port drift: original
+  orbit products truncate toward zero, whereas the port rounded them.
+  Truncation matches all 60 captured orbit outputs. It also proves the state
+  at tick N consumed tick N-1: sample `0x001e` executes the tick-29 decision,
+  advances seed `0xcdda942f` to `0xac13549d` in two draws
+  (`Random(100)=53`, `Random(800)=51`), and sets rightward velocity 201. The
+  diagnostic reports `original_runtime_motion_claim=1 visual_claim=0`; this
+  claim covers only the sampled free-flight window, not collision,
+  damage/death phases, or presentation.
 
 - **Removed latent player steering from ground walkers.** Behavior 4
   legitimately targets the selected player, while behaviors 1-3 spawn with a
@@ -83,30 +101,27 @@ under the existing guardrails; they are not missing port functionality.
   (`boss_structure_confirmed=1 boss_placement_confirmed=1
   boss_segment_motion_confirmed=1`). The colorful
   lower-right cluster in the natural level-7 frame is static level artwork;
-  the boss starts outside the natural viewport in both builds, so exact
-  frame-by-frame boss motion remains unpromoted.
+  the boss starts outside the natural viewport in both builds.
 
   Beyond structure, the segment MOTION PHYSICS is confirmed: the runtime link
   table (`DS:0x79EA`) is initialised from the GRAN.MST link records, and all
   six segment links match the port's decoded `bossLinks_` element-for-element
   on `gain`, `mode`, `radiusX`, `radiusY`, `offX`, `offY`, and `biasY`
   (`link_params_matched=6/6`), with the same two-spring / four-orbit split
-  (`mode==0xff` orbit). The per-frame `phase`/`outX`/`outY` are
-  runtime-advanced and excluded; target/self visual IDs are independently
-  checked against the shared `+2` mapping. This raises the level-7 boss from
-  static-only decode to a runtime-confirmed structure and segment-motion
-  model.
+  (`mode==0xff` orbit). Target/self visual IDs are independently checked
+  against the shared `+2` mapping. The process-frozen trace described above
+  additionally confirms the runtime-advanced `phase`/`outX`/`outY`, actor
+  fixed-point state, and RNG seed through 15 initial transitions.
 
-  Remaining boss frontier (characterized, not yet frame-aligned): the head
+  Remaining boss frontier (characterized, not covered by the trace): the head
   brain at `1000:5CB0` uses `DS:C204 = 140` as the tile-map row stride,
   scans four rectangle edges with distinct inclusive solid-tile bounds, and
   enters its RNG steering branch only when `DS:78C2 % 29 == 0`. That branch
   draws exact `Random(100)`, `Random(800)`, and `Random(1500)` values; collision
-  response applies gravity and signed half-speed reflection. The port models
-  the head at a higher level, so exact trajectory, tile-damage ownership,
-  phase-HP transitions, and death-chain sequencing remain unpromoted.
-  Confirming them requires a deterministic frame-by-frame comparison harness
-  with matched RNG seed and input.
+  response applies gravity and signed half-speed reflection. The port matches
+  the sampled free-flight trajectory exactly, but terrain-contact outcomes,
+  tile-damage ownership, phase-HP transitions, death-chain sequencing, and
+  paired visual presentation remain unpromoted.
   `docs/recovery/boss_head_brain_spec.md` now records the checked static
   control flow and constants without promoting those remaining field semantics
   or the trajectory to runtime parity.
@@ -292,8 +307,9 @@ under the existing guardrails; they are not missing port functionality.
   `live_consumer_refs=1` for the single named live consumer. Identified the
   long-standing "probable contact scanner" at `1000:5CB0` as the boss-head
   brain. Live initial placement now reports
-  `original_runtime_placement_claim=1`; exact original motion/collision timing
-  remains `original_runtime_timing_claim=0`.
+  `original_runtime_placement_claim=1`; that static diagnostic still reports
+  `original_runtime_timing_claim=0`, while the separate frozen trace promotes
+  its bounded initial-motion claim and leaves collision/phase timing open.
 - Statically recovered the `GRAN.MST` consumer and file layout from the
   shipped executable. The only reference to the `gran.mst` literal at
   `1000:2AD3` is the level-gate callsite `1000:2E78..2E8A`, which loads the
@@ -3059,8 +3075,10 @@ under the existing guardrails; they are not missing port functionality.
   (`spawnLevel7Boss()`, `--debug-gran-boss-model`,
   `--debug-autoplayer boss_level7`). Native level transitions and live
   original actor/visual/link snapshots confirm its one-based table indexing,
-  `+2` visual rebase, and exact initial placement. The remaining gap is exact
-  frame-by-frame boss motion, collision, and presentation timing.
+  `+2` visual rebase, and exact initial placement. A process-frozen 16-sample
+  fixture now confirms the initial actor/link/RNG motion exactly. The remaining
+  gap is terrain collision, damage/death-phase timing, longer runs, and
+  presentation.
 
 ## Next Planned Target
 

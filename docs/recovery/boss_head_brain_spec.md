@@ -87,14 +87,29 @@ offsets used by `1000:5CB0` are actor-update caller locals.
    - The equivalent left/right tests replace horizontal velocity `-0x0C` with
      `-(velocity / 2)`.
 
+## Initial Runtime Lockstep
+
+`tools/seed_original_level.py --trace-boss-ticks 16` captured ticks
+`0x0015..0x0024` from a native level-7 run. A 10 ms post-edge delay plus
+`SIGSTOP`/`SIGCONT` makes each actor, visual, link, and RNG read coherent.
+CTest `boss_runtime_trace` replays the 15 transitions in the C++ port and
+matches, at every sample:
+
+- seven actors' X/Y, signed 8.8 velocities, and fraction bytes
+- six links' phase and output X/Y
+- the complete Turbo Pascal seed at `DS:1AFE`
+
+The trace proves that a state labeled tick N consumed `DS:78C2 == N-1`. At
+sample tick `0x001e`, the tick-29 decision performs exactly two draws from
+seed `0xcdda942f`: `Random(100)=53` and `Random(800)=51`, producing horizontal
+velocity `+201` toward player 1. It also proves that orbit sine/cosine products
+are truncated toward zero rather than rounded; all 60 captured orbit outputs
+match that conversion exactly.
+
 ## Remaining Runtime Work
 
-The static branch structure and constants above are pinned, but several
-semantic labels still need live confirmation: ownership of actor bytes
-`+0x02`/`+0x24`, the result contract of `1000:3A56`, and the phase transition
-entered through `1000:5BCC`.
-
-For lockstep validation, seed original `DS:1AFE` and port `randomSeed_`
-identically, hold player/input state constant, and capture the boss position,
-both velocities, four collision flags, actor bytes, and RNG seed every frame.
-Promote exact trajectory and phase behavior only after those traces match.
+This initial window is free of boss terrain contact and flame damage. Exact
+collision flags and bounce timing, ownership of actor bytes `+0x02`/`+0x24`,
+the result contract of `1000:3A56`, and the phase transition entered through
+`1000:5BCC` still need longer or deliberately routed original traces. No
+visual/presentation claim is made by the process-memory lockstep.

@@ -37,6 +37,8 @@ Guarded: live runs require --approve-procmem and --approve-runtime-instrumentati
 from __future__ import annotations
 
 import argparse
+import os
+import signal
 import subprocess
 import sys
 import time
@@ -64,6 +66,8 @@ MOTION_LINK_TABLE_OFFSET = 0x79EA
 MOTION_LINK_COUNT_OFFSET = 0x79F9
 MOTION_LINK_RECORD_STRIDE = 0x10
 VISUAL_COUNT_OFFSET = 0xC496
+GLOBAL_TICK_OFFSET = 0x78C2
+RANDOM_SEED_OFFSET = 0x1AFE
 CAMERA_X_OFFSET = 0xC216
 CAMERA_Y_OFFSET = 0xC218
 CAMERA_SUB_X_OFFSET = 0xC20A
@@ -134,6 +138,10 @@ def read_u8(pid: int, base: int, offset: int) -> int:
 
 def read_u16(pid: int, base: int, offset: int) -> int:
     return int.from_bytes(read_ds(pid, base, offset, 2), "little")
+
+
+def read_u32(pid: int, base: int, offset: int) -> int:
+    return int.from_bytes(read_ds(pid, base, offset, 4), "little")
 
 
 def read_i16(pid: int, base: int, offset: int) -> int:
@@ -277,6 +285,164 @@ def write_runtime_state_snapshot(
 
     target = run_dir / (
         f"original_level_{state['level']}_runtime_state_{phase}.txt")
+    target.write_text("\n".join(lines) + "\n")
+    return target
+
+
+def read_boss_trace_sample(pid: int, base: int) -> dict[str, int | bytes]:
+    for _ in range(100):
+        tick_before = read_u16(pid, base, GLOBAL_TICK_OFFSET)
+        level = read_u8(pid, base, LEVEL_BYTE_OFFSET)
+        actor_count = read_u8(pid, base, ACTOR_COUNT_OFFSET)
+        visual_count = read_u8(pid, base, VISUAL_COUNT_OFFSET)
+        motion_link_count = read_u8(pid, base, MOTION_LINK_COUNT_OFFSET)
+        if actor_count > 64 or visual_count > 64 or motion_link_count > 64:
+            raise RuntimeError(
+                "implausible original boss trace table count:"
+                f" actors={actor_count} visuals={visual_count}"
+                f" links={motion_link_count}")
+        random_seed = read_u32(pid, base, RANDOM_SEED_OFFSET)
+        actor_bytes = read_ds(
+            pid, base, ACTOR_TABLE_OFFSET,
+            (actor_count + 1) * ACTOR_RECORD_STRIDE)
+        visual_bytes = read_ds(
+            pid, base, VISUAL_TABLE_OFFSET,
+            visual_count * VISUAL_RECORD_STRIDE)
+        motion_link_bytes = read_ds(
+            pid, base, MOTION_LINK_TABLE_OFFSET,
+            (motion_link_count + 1) * MOTION_LINK_RECORD_STRIDE)
+        tick_after = read_u16(pid, base, GLOBAL_TICK_OFFSET)
+        if tick_before == tick_after:
+            return {
+                "tick": tick_before,
+                "level": level,
+                "random_seed": random_seed,
+                "actor_count": actor_count,
+                "visual_count": visual_count,
+                "motion_link_count": motion_link_count,
+                "actor_bytes": actor_bytes,
+                "visual_bytes": visual_bytes,
+                "motion_link_bytes": motion_link_bytes,
+            }
+    raise RuntimeError("boss trace state changed during 100 atomic-read retries")
+
+
+def write_boss_runtime_trace(
+        run_dir: Path,
+        pid: int,
+        base: int,
+        sample_count: int,
+        timeout: float,
+        settle_seconds: float) -> Path:
+    def validate_layout(sample: dict[str, int | bytes], phase: str) -> None:
+        if (sample["level"] != MAX_PLAYABLE_LEVEL
+                or sample["actor_count"] != 7
+                or sample["visual_count"] != 9
+                or sample["motion_link_count"] != 6):
+            raise RuntimeError(
+                f"boss trace {phase} outside the recovered level-7 layout:"
+                f" level={sample['level']} actors={sample['actor_count']}"
+                f" visuals={sample['visual_count']}"
+                f" links={sample['motion_link_count']}")
+
+    if (not hasattr(signal, "SIGSTOP")
+            or not hasattr(signal, "SIGCONT")
+            or not hasattr(os, "WUNTRACED")):
+        raise RuntimeError(
+            "boss tracing requires POSIX SIGSTOP/SIGCONT and waitpid")
+
+    # DS:78C2 is interrupt-driven while the actor loop can straddle its edge.
+    # Sample at a fixed delay after each transition and stop the DOSBox process
+    # around the table reads so actor, visual, link, and RNG state is coherent.
+    previous_tick = read_u16(pid, base, GLOBAL_TICK_OFFSET)
+    samples: list[dict[str, int | bytes]] = []
+    deadline = time.monotonic() + timeout
+    while len(samples) < sample_count:
+        if time.monotonic() >= deadline:
+            raise RuntimeError(
+                "timeout collecting original boss trace:"
+                f" samples={len(samples)}/{sample_count}"
+                f" previous_tick=0x{previous_tick:04x}")
+        current_tick = read_u16(pid, base, GLOBAL_TICK_OFFSET)
+        if current_tick == previous_tick:
+            time.sleep(0.0005)
+            continue
+        tick_step = (current_tick - previous_tick) & 0xFFFF
+        if tick_step != 1:
+            raise RuntimeError(
+                "original boss trace skipped a global tick:"
+                f" previous=0x{previous_tick:04x}"
+                f" current=0x{current_tick:04x}"
+                f" step={tick_step}")
+        time.sleep(settle_seconds)
+        settled_tick = read_u16(pid, base, GLOBAL_TICK_OFFSET)
+        if settled_tick != current_tick:
+            raise RuntimeError(
+                "original boss trace settle crossed a global tick:"
+                f" expected=0x{current_tick:04x}"
+                f" actual=0x{settled_tick:04x}"
+                f" settle_seconds={settle_seconds}")
+        os.kill(pid, signal.SIGSTOP)
+        try:
+            stopped_pid, stopped_status = os.waitpid(pid, os.WUNTRACED)
+            if stopped_pid != pid or not os.WIFSTOPPED(stopped_status):
+                raise RuntimeError(
+                    "DOSBox did not enter a stopped state for boss tracing")
+            sample = read_boss_trace_sample(pid, base)
+        finally:
+            try:
+                os.kill(pid, signal.SIGCONT)
+            except ProcessLookupError:
+                pass
+        if int(sample["tick"]) != current_tick:
+            raise RuntimeError(
+                "frozen original boss sample tick changed:"
+                f" expected=0x{current_tick:04x}"
+                f" actual=0x{int(sample['tick']):04x}")
+        validate_layout(sample, f"sample {len(samples)}")
+        samples.append(sample)
+        previous_tick = current_tick
+
+    start_tick = int(samples[0]["tick"])
+    lines = [
+        "original_boss_runtime_trace_v1",
+        "source=LEZAC.EXE via DOSBox /proc/mem tick-phase frozen reads",
+        f"runtime_ds=0x{RUNTIME_DS:04x}",
+        f"level={MAX_PLAYABLE_LEVEL}",
+        f"sample_count={len(samples)}",
+        f"tick_offset=0x{GLOBAL_TICK_OFFSET:04x}",
+        f"random_seed_offset=0x{RANDOM_SEED_OFFSET:04x}",
+        f"actor_table_offset=0x{ACTOR_TABLE_OFFSET:04x}",
+        f"actor_entry_size={ACTOR_RECORD_STRIDE}",
+        f"actor_index_base=1",
+        f"visual_table_offset=0x{VISUAL_TABLE_OFFSET:04x}",
+        f"visual_entry_size={VISUAL_RECORD_STRIDE}",
+        f"motion_link_table_offset=0x{MOTION_LINK_TABLE_OFFSET:04x}",
+        f"motion_link_entry_size={MOTION_LINK_RECORD_STRIDE}",
+        f"motion_link_index_base=1",
+        f"tick_start=0x{start_tick:04x}",
+        f"tick_end=0x{int(samples[-1]['tick']):04x}",
+        f"settle_seconds={settle_seconds:.6f}",
+        "snapshot_guard=SIGSTOP/SIGCONT",
+        "max_tick_step=1",
+    ]
+    for index, sample in enumerate(samples):
+        tick = int(sample["tick"])
+        lines.append(
+            f"sample[{index}]"
+            f" tick=0x{tick:04x}"
+            f" tick_delta={(tick - start_tick) & 0xFFFF}"
+            f" random_seed=0x{int(sample['random_seed']):08x}"
+            f" actor_count={sample['actor_count']}"
+            f" visual_count={sample['visual_count']}"
+            f" motion_link_count={sample['motion_link_count']}"
+            f" actor_table_hex={bytes(sample['actor_bytes']).hex()}"
+            f" visual_table_hex={bytes(sample['visual_bytes']).hex()}"
+            f" motion_link_table_hex="
+            f"{bytes(sample['motion_link_bytes']).hex()}"
+        )
+
+    target = run_dir / "original_level_7_boss_runtime_trace.txt"
     target.write_text("\n".join(lines) + "\n")
     return target
 
@@ -529,6 +695,20 @@ def run_live(args) -> int:
 
         runtime_state_pre = None
         runtime_state_post = None
+        boss_trace = None
+        if args.trace_boss_ticks:
+            boss_trace = write_boss_runtime_trace(
+                run_dir, pid, base, args.trace_boss_ticks,
+                args.boss_trace_timeout, args.boss_trace_settle)
+            print(
+                "seed_original_level_boss_trace=ok"
+                f" level={state_after['level']}"
+                f" samples={args.trace_boss_ticks}"
+                f" settle_seconds={args.boss_trace_settle:.6f}"
+                " snapshot_guard=SIGSTOP/SIGCONT"
+                " max_tick_step=1"
+                f" file={boss_trace.name}"
+            )
         if args.dump_runtime_state:
             pre_state = read_transition_state(pid, base)
             runtime_state_pre = write_runtime_state_snapshot(
@@ -557,6 +737,7 @@ def run_live(args) -> int:
             f" advanced={int(state_after['level'] != state_before['level'])}"
             f" reached={int(args.target_level is None or state_after['level'] == args.target_level)}"
             f" frame={frame.name}"
+            f" boss_trace={boss_trace.name if boss_trace else 'none'}"
             f" runtime_state_pre={runtime_state_pre.name if runtime_state_pre else 'none'}"
             f" runtime_state_post={runtime_state_post.name if runtime_state_post else 'none'}"
         )
@@ -604,6 +785,13 @@ def self_check() -> int:
             0x2051, bytes.fromhex("fe06b779")),
         "completed_game_gate": (
             0x829B, bytes.fromhex("803eb779077705")),
+        "boss_tick_modulus": (
+            0x5E59,
+            bytes.fromhex("a1c27831d2b91d00f7f19209c07403")),
+        "boss_target_selector": (
+            0x6500,
+            bytes.fromhex(
+                "8b46f69931d029d0998bc88bda8b46f89931d029d09903c113d35250")),
     }
     for name, (offset, expected) in windows.items():
         actual = image[offset:offset + len(expected)]
@@ -626,6 +814,7 @@ def self_check() -> int:
         " completed_game_gate=1000:829b"
         " runtime_tables=ds:1bae/0x26,ds:c21e/0x08,ds:79ea/0x10"
         " runtime_counts=ds:208d,ds:79f9,ds:c496"
+        " boss_trace=tick:ds78c2,seed:ds1afe,tables:actor/visual/link"
         " runtime_camera=ds:c216,ds:c218,ds:c20a,ds:c20c"
         f" pinned_windows={len(windows)}"
     )
@@ -656,6 +845,15 @@ def main() -> int:
     parser.add_argument(
         "--dump-runtime-state", action="store_true",
         help="write live actor, visual, and motion-link tables beside the frame")
+    parser.add_argument(
+        "--trace-boss-ticks", type=int, default=0,
+        help="atomically capture this many consecutive level-7 boss ticks")
+    parser.add_argument(
+        "--boss-trace-timeout", type=float, default=30.0,
+        help="seconds allowed for a level-7 boss tick trace")
+    parser.add_argument(
+        "--boss-trace-settle", type=float, default=0.010,
+        help="seconds after each tick edge before the frozen boss snapshot")
     parser.add_argument("--settle", type=float, default=4.0)
     parser.add_argument("--approve-procmem", action="store_true")
     parser.add_argument("--approve-runtime-instrumentation", action="store_true")
@@ -673,6 +871,15 @@ def main() -> int:
             parser.error("--target-level must be in the playable range 1..7")
         if args.seed:
             parser.error("--target-level cannot be combined with --seed")
+    if args.trace_boss_ticks:
+        if args.trace_boss_ticks < 2:
+            parser.error("--trace-boss-ticks must be at least 2")
+        if args.target_level != MAX_PLAYABLE_LEVEL:
+            parser.error("--trace-boss-ticks requires --target-level 7")
+        if args.boss_trace_timeout <= 0:
+            parser.error("--boss-trace-timeout must be positive")
+        if args.boss_trace_settle <= 0:
+            parser.error("--boss-trace-settle must be positive")
     return run_live(args)
 
 

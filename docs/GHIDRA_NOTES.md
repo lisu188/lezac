@@ -170,8 +170,14 @@ quirk.
   mapping against the C++ boss model. It also compares each link's static
   `gain`, `mode`, `radiusX`, `radiusY`, `offX`, `offY`, and `biasY` fields
   against `bossLinks_`, confirming all six records and the two-spring /
-  four-orbit split. Runtime-advanced `phase`, `outX`, and `outY` remain outside
-  that claim.
+  four-orbit split. A separate process-frozen fixture,
+  `boss_runtime_original_level7_trace.txt`, captures 16 consecutive samples.
+  `--debug-boss-runtime-trace` matches every transition's actor position,
+  signed 8.8 velocity/fraction state, link phase/output, and RNG seed. It
+  proves that orbit Real48 products truncate toward zero and that sample tick
+  N reflects the update that consumed tick N-1. The sampled initial motion is
+  promoted with `visual_claim=0`; terrain collision and later boss phases
+  remain outside that claim.
   `--debug-gran-static-consumer-model` pins the 12 instruction/literal byte
   windows and reparses the shipped file with this layout. Its
   `original_runtime_claim=0` is intentionally scoped to that static-only

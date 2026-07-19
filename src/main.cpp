@@ -19901,9 +19901,23 @@ private:
             drawOriginalHudFigure(4 + i * 8, y0 + 38, kGreen);
         }
 
-        // Bomb selector box with the selected bomb and its count.
+        // Bomb selector box showing the selected bomb's actual sprite (from the
+        // BOMOMIMK bank, the same sprite the world bomb uses) and its count.
         rect(116, y0 + 6, 22, 22, kBoxGrey);
-        rect(119, y0 + 9, 16, 16, bombColor(bombInventory_.selected));
+        rect(118, y0 + 8, 18, 18, 0xff1c1c1cu);
+        const int bombSprite =
+            static_cast<int>(bombProfile(bombInventory_.selected).spriteBase);
+        if (bombSprite >= 0 &&
+            bombSprite < static_cast<int>(sprites_.sprites.size())) {
+            const Sprite& sprite = sprites_.sprites[static_cast<size_t>(bombSprite)];
+            const int bx = 118 + (18 - sprite.width) / 2;
+            const int by = y0 + 8 + (18 - sprite.height) / 2;
+            setClip(118, y0 + 8, 118 + 18, y0 + 8 + 18);
+            drawSprite(sprite, bx, by);
+            resetClip();
+        } else {
+            rect(119, y0 + 9, 16, 16, bombColor(bombInventory_.selected));
+        }
         int selCount = bombInventory_.counts[
             static_cast<size_t>(bombInventory_.selected)];
         text(118, y0 + 30, std::to_string(std::clamp(selCount, 0, 99)), kGreen);

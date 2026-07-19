@@ -23,6 +23,24 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Confirmed the level-7 GRAN.MST boss against ORIGINAL RUNTIME (was
+  static-only).** Using the newly unblocked level-7 access, the original boss
+  was captured live under DOSBox and its runtime tables read from process
+  memory: the actor table `DS:0x1BAE` (8 slots x 0x26 bytes) and the motion
+  link table `DS:0x79EA` (8 slots x 0x10 bytes), while the head brain at
+  1000:5CB0 executed each frame. Parsing the captured tables shows exactly one
+  head (kind `0x1e`, behavior `6`, hit-box 5x4, one life) and six segments
+  (kind `0x1f`), with six segment motion links -- matching the port's
+  statically-decoded model (`--debug-gran-boss-model`: 7 boss actors, 6 links,
+  head box 5x4) element for element. The evidence is committed as
+  `tests/fixtures/boss_runtime_original_level7.txt` and validated by the new
+  `--debug-boss-runtime-evidence` diagnostic (CTest `boss_runtime_evidence`,
+  `boss_structure_confirmed=1`), which decodes the port's boss and asserts the
+  head/segment kinds, actor count (7), link count (6), and head hit-box all
+  agree with the captured original runtime. The boss visual (a cluster of
+  colored spheres) was also confirmed to match across a six-frame original
+  motion capture.
+
 - **Unblocked original level-2..7 capture (multi-session blocker solved).**
   Two long-standing obstacles to comparing the port against the original on
   any level past 1 are now resolved:

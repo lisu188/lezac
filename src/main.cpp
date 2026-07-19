@@ -20686,7 +20686,7 @@ private:
         constexpr uint32_t kBlue = 0xff0018dbu;
         constexpr uint32_t kCyan = 0xff00aaaau;
         constexpr uint32_t kGreen = 0xff00f300u;
-        constexpr uint32_t kBoxGrey = 0xff828282u;
+        constexpr uint32_t kBoxGrey = 0xffa2a2a2u;
         const int y0 = kScreenH - 46;
 
         // The original HUD band begins two pixels below y0: gameplay terrain
@@ -20720,8 +20720,11 @@ private:
 
         // Bomb selector box showing the selected bomb's actual sprite (from the
         // BOMOMIMK bank, the same sprite the world bomb uses) and its count.
-        // Measured against the original: a 20x20 grey box at (119, y0+7).
+        // Measured against the original: a 20x20 beveled grey box at (119, y0+7)
+        // -- a light 1px outer ring (162), a darker 1px inner ring (130), then a
+        // 16x16 near-black well (the pixel counts 76/68 match the two rings).
         rect(119, y0 + 7, 20, 20, kBoxGrey);
+        rect(120, y0 + 8, 18, 18, 0xff828282u);
         rect(121, y0 + 9, 16, 16, 0xff1c1c1cu);
         const int bombSprite =
             static_cast<int>(bombProfile(bombInventory_.selected).spriteBase);
@@ -20738,6 +20741,9 @@ private:
         }
         int selCount = bombInventory_.counts[
             static_cast<size_t>(bombInventory_.selected)];
+        // Blue count panel beneath the bomb box (x119-138, matching the box
+        // width), with the ammo count drawn on it.
+        rect(119, y0 + 27, 20, 9, kBlue);
         drawHudNumber(120, y0 + 28, std::clamp(selCount, 0, 99), 2);
 
         // Right panel: bomb-count and objective (destruction target) tallies.
@@ -20760,8 +20766,13 @@ private:
         // Each tally icon sits in its own small black inset box on the panel.
         // Rows use the original's 16px spacing: top at y0+13, bottom at y0+29
         // (measured against the original level-1 frame).
-        rect(143, y0 + 11, 10, 10, kBlack);
-        rect(143, y0 + 27, 10, 10, kBlack);
+        // Each icon sits in an 8x8 black well framed by a 1px darker-blue border
+        // (4,4,166) against the panel blue (measured: 36px frame per box).
+        constexpr uint32_t kDarkBlue = 0xff0404a6u;
+        rect(143, y0 + 11, 10, 10, kDarkBlue);
+        rect(144, y0 + 12, 8, 8, kBlack);
+        rect(143, y0 + 27, 10, 10, kDarkBlue);
+        rect(144, y0 + 28, 8, 8, kBlack);
         if (!drawHudTile8(144, y0 + 12, level_.objectiveTile)) {
             rect(144, y0 + 12, 8, 8, kYellow);
         }

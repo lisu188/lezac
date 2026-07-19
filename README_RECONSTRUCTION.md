@@ -20,6 +20,22 @@ The remaining mode-6 scanner cue is classified
 `shipped_actor_modes_exclude_6` because the shipped actor constructors and
 level spawners never supply mode 6.
 
+## Exact Level Intro
+
+Interactive level starts now show the recovered original preparation screen:
+the seven-color diagonal stripe generator at `1000:01FC` and the centered
+`PREPARATI PER IL LIVELLO N` caption rendered one character every 81 ms.
+Any non-Escape key consumes the intro, while Escape returns to the menu.
+The deterministic diagnostic pins the original executable caption bytes and
+the complete captured level-1 frame:
+
+```sh
+./build/lezac_cpp --debug-level-intro /tmp/lezac-level-intro.ppm
+```
+
+See `docs/recovery/level_intro_exact_recovery_2026-07-19.md` for the recovered
+arithmetic, static addresses, and zero-pixel frame comparison.
+
 ## Build
 
 ```sh
@@ -175,7 +191,7 @@ python3 tools/compare_state2_visual_row_game_previews.py /tmp/lezac-state2-visua
 ./build/lezac_cpp --debug-portal-sound
 ./build/lezac_cpp --debug-portal-cooldowns
 ./build/lezac_cpp --debug-collision-pushout
-./build/lezac_cpp --debug-level-intro
+./build/lezac_cpp --debug-level-intro /tmp/lezac-level-intro.ppm
 ./build/lezac_cpp --debug-hud-stats-live
 ./build/lezac_cpp --debug-two-player-hud-panel
 ./build/lezac_cpp --capture-frame-sequence level1_bomb_route /tmp/lezac-cpp-frames

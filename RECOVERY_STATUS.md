@@ -1,7 +1,7 @@
 # Recovery Status
 
-Last reviewed: 2026-07-08
-Branch: `claude/cpp-port-completion-y4d1vt`
+Last reviewed: 2026-07-19
+Branch: `main`
 Baseline: `origin/main`
 
 ## Port Completion
@@ -9,7 +9,7 @@ Baseline: `origin/main`
 The C++ port is functionally complete. Every recovered gameplay, data, UI,
 and sound subsystem of `LEZAC.EXE` has a C++ implementation with
 deterministic validation coverage, and the full CTest suite passes on a
-clean Linux host (362/362 after this iteration's additions). The new
+clean Linux host (373/373 after this iteration's additions). The new
 `--debug-port-completion-status` diagnostic declares that state as
 machine-checkable output: 23 implemented subsystems with their validation
 entry points and the 12 open original-evidence follow-ups, reported with
@@ -23,26 +23,24 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
-- Wired the per-level intro splash into interactive play. Pressing 1/2 at the
-  menu and completing a level now show the "PREPARATI PER IL LIVELLO N"
-  screen (fire or a ~3s timeout continues), matching the original's flow. The
-  intro is gated behind a new `interactiveSession_` flag set only by `run()`,
-  so the autoplayer, frame-capture, and smoke tests (which drive `resetLevel`/
-  debug paths, not `run()`) never enter it -- full suite stays green with no
-  test changes. A workflow investigation also established that the original's
-  stripe backdrop is randomised per launch (Turbo RNG reseeded from the wall
-  clock at init), so the exact stripe pattern is not a fixed target; the
-  port's olive-ramp backdrop is a faithful representation.
-- Recovered and reproduced the per-level intro splash. A live original
-  capture at level start revealed a "PREPARATI PER IL LIVELLO N" screen
-  (diagonal olive-striped backdrop, centred caption) that the port skipped;
-  the Italian string is in `LEZAC.EXE` at `1000:b2ab`. Added `drawLevelIntro`
-  and `--debug-level-intro` (CTest `level_intro`) reproducing the striped
-  backdrop and the exact caption. Also fit the gameplay sky gradient to the
-  original sky column (pure-sky `mean_abs_delta` 4.1 -> 1.27). Wiring the
-  intro into the interactive level-start flow and matching the exact stripe
-  phase are follow-ups; the port's autoplayer/frame paths use resetLevel
-  directly and are unaffected.
+- Finished the per-level intro recovery and wired it into interactive play.
+  Static analysis pins the palette ramp at `1000:0139`, striped generator at
+  `1000:01fc`, level-loader call at `1000:2c01`, localized caption at
+  `1000:b2ab`, and fixed-cell renderer at `1000:146a`. The C++ path now uses
+  the original seven-color palette interpolation, scanline/sine stripe
+  recurrence, 11-pixel caption cells, blue/white shadowed font sprites, and
+  the captured 81 ms per-character delay. `--debug-level-intro` (CTest
+  `level_intro`) reproduces the retained original frame with zero differing
+  pixels (`hash=0x85e10db60f7e89f9`), verifies timed gameplay blocking and
+  consumed skip/Escape input, and can emit a PPM frame when given an output
+  path. Menu starts, level transitions, manual reloads, and death restarts now
+  show the intro in the real interactive session; direct deterministic
+  `resetLevel` harness paths remain immediate. The original wall-clock-seeded
+  RNG changes the stripe parameters across launches; the exact fixture pins
+  one captured draw while live play preserves the recovered draw ranges and
+  order. Also fit the gameplay sky gradient to the original sky column
+  (pure-sky `mean_abs_delta` 4.1 -> 1.27). Full evidence is in
+  `docs/recovery/level_intro_exact_recovery_2026-07-19.md`.
 - Reconstructed the single-player bottom HUD to match the original's layout
   and colours (sampled from original frames): a solid-black band with a
   grey/white top border, a yellow energy bar and blue score panel with a

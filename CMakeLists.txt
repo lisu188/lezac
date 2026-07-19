@@ -3452,7 +3452,7 @@ if(BUILD_TESTING)
     set_tests_properties(level_intro PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^level_intro=ok stripes=7 caption=preparati_per_il_livello level_varies=1 frame_inspection=1")
+            "^level_intro=ok stripes=7 palette=176-182 exact_hash=0x85e10db60f7e89f9 exact_pixels=55025 caption_pixels=980 delay_ms=81 level_varies=1 live_flow=1 input_skip=1 escape_menu=1 frame_inspection=1")
 
     add_test(NAME all_levels_render
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

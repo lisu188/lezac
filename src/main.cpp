@@ -93,6 +93,11 @@ constexpr uint8_t kState2VisualEndFrame = 0x4f;
 constexpr uint8_t kState2VisualDelay = 3;
 constexpr int kDamageCooldownTicks = 18;
 constexpr uint32_t kFrameDelayMs = 16;
+constexpr uint32_t kLevelIntroCharacterDelayMs = 81;
+constexpr int kLevelIntroCellAdvance = 11;
+constexpr int kLevelIntroTextY = 94;
+constexpr uint8_t kLevelIntroPaletteFirst = 176;
+constexpr size_t kLevelIntroPaletteCount = 7;
 constexpr int kCollisionPushoutLimit = 1024;
 constexpr int kAudioSampleRate = 22050;
 constexpr int kAudioToneSamples = kAudioSampleRate / 28;
@@ -230,6 +235,19 @@ struct Rgb {
     uint8_t r = 0;
     uint8_t g = 0;
     uint8_t b = 0;
+};
+
+struct LevelIntroPattern {
+    int horizontalStep = 1;
+    int verticalStep = 1;
+    std::array<Rgb, kLevelIntroPaletteCount> colors{};
+};
+
+struct LevelIntroState {
+    bool active = false;
+    uint32_t startedAt = 0;
+    int levelIndex = 0;
+    LevelIntroPattern pattern;
 };
 
 using Palette = std::array<Rgb, 256>;
@@ -1666,22 +1684,11 @@ public:
         }
     }
 
-    void beginLevelIntro(int index) {
-        // Enter a level. In an interactive session this first shows the
-        // per-level intro splash (matching the original); test/autoplayer paths
-        // leave interactiveSession_ false and go straight into gameplay.
-        resetLevel(index);
-        if (interactiveSession_) {
-            levelIntro_ = true;
-            levelIntroTimer_ = kLevelIntroTicks;
-        }
-    }
-
     void run() {
         load();
         initSdl();
-        interactiveSession_ = true;
         resetLevel(0);
+        interactiveLevelIntroEnabled_ = true;
         uint32_t last = SDL_GetTicks();
         bool running = true;
         while (running) {
@@ -16583,7 +16590,7 @@ public:
         initSdl();
         menu_ = false;
         paused_ = false;
-        levelIntro_ = false;
+        levelIntro_ = {};
         playerCount_ = 1;
         const int hudY = kScreenH - 46;
         size_t rendered = 0;
@@ -16614,25 +16621,120 @@ public:
                   << " world_visible=1 hud_visible=1 distinct=1\n";
     }
 
-    void debugLevelIntro() {
+    void debugLevelIntro(const std::string& framePath = {}) {
         load();
         initSdl();
+        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
+        if (exeBytes.size() != 52384 ||
+            exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
+            throw std::runtime_error("level intro executable fixture changed");
+        }
+        const size_t imageBase = static_cast<size_t>(le16(exeBytes, 0x08)) * 16;
+        const size_t captionOffset = imageBase + 0xb2aa;
+        const std::string originalCaption = "preparati per il livello ";
+        if (captionOffset + 1 + originalCaption.size() > exeBytes.size() ||
+            exeBytes[captionOffset] != originalCaption.size() ||
+            !std::equal(originalCaption.begin(), originalCaption.end(),
+                        exeBytes.begin() + static_cast<long>(captionOffset + 1))) {
+            throw std::runtime_error("original level intro caption bytes changed");
+        }
+
+        const LevelIntroPattern fixture = capturedLevelIntroPattern();
+        const std::string level1Caption = levelIntroCaption(0);
         resetClip();
         std::fill(fb_.begin(), fb_.end(), 0xff000000u);
-        drawLevelIntro(0);
+        drawLevelIntro(0, fixture, level1Caption.size());
+        FrameInspection exactFrame;
+        const uint32_t first = fb_.front();
+        exactFrame.hash = 1469598103934665603ull;
+        for (uint32_t pixelValue : fb_) {
+            if (pixelValue != first) ++exactFrame.changedPixels;
+            exactFrame.hash ^= static_cast<uint64_t>(pixelValue);
+            exactFrame.hash *= 1099511628211ull;
+        }
+        constexpr uint64_t kCapturedFrameHash = 0x85e10db60f7e89f9ull;
+        constexpr size_t kCapturedChangedPixels = 55025;
+        constexpr size_t kCapturedBluePixels = 360;
+        constexpr size_t kCapturedWhitePixels = 620;
+        if (exactFrame.hash != kCapturedFrameHash ||
+            exactFrame.changedPixels != kCapturedChangedPixels ||
+            first != 0xff515545u ||
+            countColorInRegion(0, 0, kScreenW, kScreenH, argb(palette_, 1)) !=
+                kCapturedBluePixels ||
+            countColorInRegion(0, 0, kScreenW, kScreenH, argb(palette_, 31)) !=
+                kCapturedWhitePixels) {
+            throw std::runtime_error(
+                "level intro did not match the captured original frame");
+        }
+        if (!framePath.empty()) {
+            writeArgbPpm(framePath, fb_, kScreenW, kScreenH);
+        }
         std::vector<uint32_t> level1Pixels = fb_;
         if (!regionHasVariation(0, 0, kScreenW, 80) ||
-            !regionHasVariation(40, 90, 240, 12)) {
+            !regionHasVariation(16, 93, 282, 9)) {
             throw std::runtime_error("level intro did not render stripes and caption");
         }
         resetClip();
         std::fill(fb_.begin(), fb_.end(), 0xff000000u);
-        drawLevelIntro(2);
-        if (!regionChanged(level1Pixels, 40, 90, 240, 12)) {
+        drawLevelIntro(2, fixture, levelIntroCaption(2).size());
+        if (!regionChanged(level1Pixels, 16, 93, 282, 9)) {
             throw std::runtime_error("level intro caption did not change with level");
         }
-        std::cout << "level_intro=ok stripes=7 caption=preparati_per_il_livello"
-                  << " level_varies=1 frame_inspection=1\n";
+
+        resetLevel(0);
+        menu_ = true;
+        interactiveLevelIntroEnabled_ = true;
+        bool running = true;
+        pushKeyDown(SDLK_1);
+        processEvents(running);
+        if (!levelIntro_.active || menu_ || levelIndex_ != 0 ||
+            visibleLevelIntroCharacters(levelIntro_.startedAt) != 1) {
+            throw std::runtime_error("interactive menu start did not begin level intro");
+        }
+        const uint32_t logicBefore = logicTick_;
+        updateWithControls(FrameControls{}, 1.0f / 60.0f);
+        if (logicTick_ != logicBefore) {
+            throw std::runtime_error("gameplay advanced while level intro was active");
+        }
+        const uint32_t duration =
+            static_cast<uint32_t>(level1Caption.size()) * kLevelIntroCharacterDelayMs;
+        updateLevelIntro(levelIntro_.startedAt + duration - 1);
+        if (!levelIntro_.active ||
+            visibleLevelIntroCharacters(levelIntro_.startedAt + duration - 1) !=
+                level1Caption.size()) {
+            throw std::runtime_error("level intro reveal timing ended early");
+        }
+        updateLevelIntro(levelIntro_.startedAt + duration);
+        if (levelIntro_.active) {
+            throw std::runtime_error("level intro reveal timing did not finish");
+        }
+
+        beginLevelForPlay(1);
+        pushKeyDown(SDLK_SPACE);
+        processEvents(running);
+        if (levelIntro_.active || !bombs_.empty()) {
+            throw std::runtime_error("level intro skip key leaked into gameplay");
+        }
+        beginLevelForPlay(2);
+        pushKeyDown(SDLK_ESCAPE);
+        processEvents(running);
+        if (levelIntro_.active || !menu_ || menuPage_ != MenuPage::Main) {
+            throw std::runtime_error("level intro Escape did not return to menu");
+        }
+        interactiveLevelIntroEnabled_ = false;
+
+        std::cout << "level_intro=ok stripes=7"
+                  << " palette=" << static_cast<int>(kLevelIntroPaletteFirst)
+                  << '-'
+                  << static_cast<int>(kLevelIntroPaletteFirst +
+                                      kLevelIntroPaletteCount - 1)
+                  << " exact_hash=" << hex64(kCapturedFrameHash)
+                  << " exact_pixels=" << kCapturedChangedPixels
+                  << " caption_pixels="
+                  << (kCapturedBluePixels + kCapturedWhitePixels)
+                  << " delay_ms=" << kLevelIntroCharacterDelayMs
+                  << " level_varies=1 live_flow=1 input_skip=1 escape_menu=1"
+                  << " frame_inspection=1\n";
     }
 
     void debugHudStatsLive() {
@@ -16816,6 +16918,8 @@ private:
     std::array<float, 128> bossSinTable_{};
     bool bossPresent_ = false;
     bool bossDefeated_ = false;
+    bool interactiveLevelIntroEnabled_ = false;
+    LevelIntroState levelIntro_;
     std::vector<BonusDrop> bonusDrops_;
     std::vector<Bomb> bombs_;
     std::vector<Flash> flashes_;
@@ -16848,10 +16952,6 @@ private:
     int collected_ = 0;
     int destroyed_ = 0;
     int completeTimer_ = 0;
-    static constexpr int kLevelIntroTicks = 180;
-    bool interactiveSession_ = false;
-    bool levelIntro_ = false;
-    int levelIntroTimer_ = 0;
     int portalCooldown_ = 0;
     int triggerCooldown_ = 0;
     int portalCooldown2_ = 0;
@@ -16985,6 +17085,7 @@ private:
     }
 
     void resetLevel(int index) {
+        levelIntro_ = {};
         ++levelResetGeneration_;
         levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
         level_ = levels_[levelIndex_];
@@ -17064,6 +17165,82 @@ private:
         if (levelIndex_ == 6) spawnLevel7Boss();
     }
 
+    std::string levelIntroCaption(int levelIndex) const {
+        return "PREPARATI PER IL LIVELLO " + std::to_string(levelIndex + 1);
+    }
+
+    LevelIntroPattern makeLevelIntroPattern() {
+        LevelIntroPattern pattern;
+        pattern.horizontalStep = randomInclusive(1, 80);
+        pattern.verticalStep = randomInclusive(1, 80);
+        std::array<int, 3> starts{};
+        std::array<int, 3> deltas{};
+        for (int& start : starts) start = randomInclusive(0, 19);
+        for (int& delta : deltas) delta = randomInclusive(0, 29);
+        for (size_t i = 0; i < pattern.colors.size(); ++i) {
+            auto component = [&](size_t channel) {
+                return vga6To8(static_cast<uint8_t>(
+                    starts[channel] +
+                    deltas[channel] * static_cast<int>(i) /
+                        static_cast<int>(kLevelIntroPaletteCount)));
+            };
+            pattern.colors[i] = {component(0), component(1), component(2)};
+        }
+        return pattern;
+    }
+
+    LevelIntroPattern capturedLevelIntroPattern() const {
+        LevelIntroPattern pattern;
+        pattern.horizontalStep = 37;
+        pattern.verticalStep = 77;
+        constexpr std::array<int, 3> kStarts{17, 18, 16};
+        constexpr std::array<int, 3> kDeltas{21, 23, 9};
+        for (size_t i = 0; i < pattern.colors.size(); ++i) {
+            auto component = [&](size_t channel) {
+                return vga6To8(static_cast<uint8_t>(
+                    kStarts[channel] +
+                    kDeltas[channel] * static_cast<int>(i) /
+                        static_cast<int>(kLevelIntroPaletteCount)));
+            };
+            pattern.colors[i] = {component(0), component(1), component(2)};
+        }
+        return pattern;
+    }
+
+    void beginLevelForPlay(int index) {
+        if (!interactiveLevelIntroEnabled_) {
+            resetLevel(index);
+            return;
+        }
+        LevelIntroPattern pattern = makeLevelIntroPattern();
+        resetLevel(index);
+        levelIntro_.active = true;
+        levelIntro_.startedAt = SDL_GetTicks();
+        levelIntro_.levelIndex = levelIndex_;
+        levelIntro_.pattern = pattern;
+    }
+
+    size_t visibleLevelIntroCharacters(uint32_t now) const {
+        if (!levelIntro_.active) return 0;
+        const size_t captionSize =
+            levelIntroCaption(levelIntro_.levelIndex).size();
+        const uint32_t elapsed = now - levelIntro_.startedAt;
+        return std::min(captionSize,
+                        static_cast<size_t>(elapsed /
+                                            kLevelIntroCharacterDelayMs) +
+                            1);
+    }
+
+    void updateLevelIntro(uint32_t now) {
+        if (!levelIntro_.active) return;
+        const uint32_t duration =
+            static_cast<uint32_t>(levelIntroCaption(levelIntro_.levelIndex).size()) *
+            kLevelIntroCharacterDelayMs;
+        if (now - levelIntro_.startedAt >= duration) {
+            levelIntro_.active = false;
+        }
+    }
+
     const LevelPortal* findStartPortal(uint8_t marker) const {
         for (const LevelPortal& portal : level_.portals) {
             if (portal.key == 0 && portal.marker == marker) {
@@ -17074,6 +17251,15 @@ private:
     }
 
     void onKey(SDL_Keycode key, bool& running) {
+        if (levelIntro_.active) {
+            levelIntro_.active = false;
+            if (key == SDLK_ESCAPE) {
+                paused_ = false;
+                menu_ = true;
+                menuPage_ = MenuPage::Main;
+            }
+            return;
+        }
         if (menu_) {
             if (menuPage_ == MenuPage::NameEntry) {
                 handleNameEntryKey(key);
@@ -17096,7 +17282,7 @@ private:
                 clearRunScores();
                 pendingRecordQueue_.clear();
                 clearPendingRecord();
-                beginLevelIntro(0);
+                beginLevelForPlay(0);
                 menu_ = false;
                 menuPage_ = MenuPage::Main;
             } else if (key == SDLK_i) {
@@ -17109,10 +17295,6 @@ private:
             } else if (key == SDLK_s) {
                 showBackground_ = !showBackground_;
             }
-        } else if (!menu_ && levelIntro_) {
-            // During the pre-level splash, fire dismisses it; other gameplay
-            // keys are swallowed so they do not leak into the frozen level.
-            if (isPlayer1FireKey(key) || key == SDLK_RETURN) levelIntro_ = false;
         } else if (!menu_ && key == SDLK_p) {
             paused_ = !paused_;
         } else if (!menu_ && key == SDLK_ESCAPE) {
@@ -17121,13 +17303,13 @@ private:
             menuPage_ = MenuPage::Main;
         } else if (!menu_ && key == SDLK_F5) {
             paused_ = false;
-            resetLevel(levelIndex_);
+            beginLevelForPlay(levelIndex_);
         } else if (!menu_ && key == SDLK_PAGEUP) {
             paused_ = false;
-            resetLevel(levelIndex_ + 1);
+            beginLevelForPlay(levelIndex_ + 1);
         } else if (!menu_ && key == SDLK_PAGEDOWN) {
             paused_ = false;
-            resetLevel(levelIndex_ - 1);
+            beginLevelForPlay(levelIndex_ - 1);
         } else if (!menu_ && paused_) {
             return;
         } else if (!menu_ && isPlayer1FireKey(key)) {
@@ -17563,16 +17745,11 @@ private:
     }
 
     void update(float dt) {
-        if (menu_ || paused_) return;
-        if (levelIntro_) {
-            // The pre-level "PREPARATI PER IL LIVELLO N" splash freezes gameplay
-            // until it times out or the player presses fire.
-            const uint8_t* introKeys = SDL_GetKeyboardState(nullptr);
-            bool fire = introKeys[SDL_SCANCODE_N] || introKeys[SDL_SCANCODE_SPACE] ||
-                        introKeys[SDL_SCANCODE_RETURN] || introKeys[SDL_SCANCODE_RCTRL];
-            if (--levelIntroTimer_ <= 0 || fire) levelIntro_ = false;
+        if (levelIntro_.active) {
+            updateLevelIntro(SDL_GetTicks());
             return;
         }
+        if (menu_ || paused_) return;
         const uint8_t* keys = SDL_GetKeyboardState(nullptr);
         FrameControls controls;
         controls.p1Left = keys[SDL_SCANCODE_LEFT] ||
@@ -17591,7 +17768,7 @@ private:
     }
 
     void updateWithControls(const FrameControls& controls, float dt) {
-        if (menu_ || paused_) return;
+        if (menu_ || paused_ || levelIntro_.active) return;
         ++logicTick_;
         updateDamageCooldowns();
         bool p1Switch = controls.p1Left && controls.p1Right;
@@ -17697,7 +17874,7 @@ private:
                 if (isFinalLevel()) {
                     beginEndRun(EndReason::CompletedGame);
                 } else {
-                    beginLevelIntro(levelIndex_ + 1);
+                    beginLevelForPlay(levelIndex_ + 1);
                 }
             }
         } else {
@@ -18797,7 +18974,7 @@ private:
     }
 
     void restartCurrentLevelAfterDeath() {
-        resetLevel(levelIndex_);
+        beginLevelForPlay(levelIndex_);
     }
 
     bool scoreQualifies(uint32_t score) const {
@@ -19489,8 +19666,10 @@ private:
     }
 
     void draw() {
-        if (menu_) drawMenu();
-        else if (levelIntro_) drawLevelIntro(levelIndex_);
+        if (levelIntro_.active) {
+            drawLevelIntro(levelIntro_.levelIndex, levelIntro_.pattern,
+                           visibleLevelIntroCharacters(SDL_GetTicks()));
+        } else if (menu_) drawMenu();
         else drawGame();
         if (SDL_UpdateTexture(texture_, nullptr, fb_.data(),
                               kScreenW * sizeof(uint32_t)) != 0) {
@@ -20027,24 +20206,52 @@ private:
                (dead ? (lives <= 0 ? " OUT" : " WAIT") : "");
     }
 
-    void drawLevelIntro(int levelIndex) {
-        // Recovered original screen: before each level the game shows a
-        // diagonal olive-striped backdrop with the centred Italian caption
-        // "PREPARATI PER IL LIVELLO N" (string at LEZAC.EXE 1000:b2ab). The
-        // stripes are a sawtooth ramp of seven olive shades that shifts one
-        // pixel per scanline.
-        static const uint32_t kStripe[7] = {
-            0xff040400u, 0xff101008u, 0xff201c10u, 0xff2c2818u,
-            0xff3c3420u, 0xff494128u, 0xff594d30u};
-        for (int y = 0; y < kScreenH; ++y) {
-            for (int x = 0; x < kScreenW; ++x) {
-                pixel(x, y, kStripe[(((x + y) >> 1) % 7 + 7) % 7]);
+    void drawLevelIntro(int levelIndex, const LevelIntroPattern& pattern,
+                        size_t visibleCharacters) {
+        resetClip();
+        int fraction = 0;
+        int phase = 0;
+        for (int i = 0; i < kScreenW * kScreenH; ++i) {
+            fraction += pattern.horizontalStep;
+            if (fraction > 100) {
+                fraction -= 100;
+                ++phase;
             }
+            if (i % kScreenW == 0) {
+                const int sineIndex = ((i * 3) / 100) % 128;
+                const int wave = static_cast<int>(
+                    std::sin(static_cast<float>(sineIndex) * 6.28f / 128.0f) *
+                    8.0f);
+                fraction += pattern.verticalStep + wave;
+                if (fraction > 100) {
+                    fraction -= 100;
+                    ++phase;
+                }
+            }
+            const Rgb color =
+                pattern.colors[static_cast<size_t>(phase) % pattern.colors.size()];
+            pixel(i % kScreenW, i / kScreenW,
+                  0xff000000u | (static_cast<uint32_t>(color.r) << 16) |
+                      (static_cast<uint32_t>(color.g) << 8) | color.b);
         }
-        std::string caption =
-            "PREPARATI PER IL LIVELLO " + std::to_string(levelIndex + 1);
-        int textX = (kScreenW - static_cast<int>(caption.size()) * 8) / 2;
-        text(std::max(0, textX), 94, caption, 0xffffffffu, false, 0xff000000u);
+
+        const std::string caption = levelIntroCaption(levelIndex);
+        const size_t count = std::min(visibleCharacters, caption.size());
+        int x = kScreenW / 2 -
+                static_cast<int>(caption.size()) * kLevelIntroCellAdvance / 2;
+        for (size_t i = 0; i < count; ++i, x += kLevelIntroCellAdvance) {
+            const int glyphIndex = fontGlyphIndex(caption[i], false);
+            if (glyphIndex < 0 ||
+                glyphIndex >= static_cast<int>(fontSprites_.sprites.size())) {
+                continue;
+            }
+            const Sprite& glyph =
+                fontSprites_.sprites[static_cast<size_t>(glyphIndex)];
+            drawFontSprite(x - 1, kLevelIntroTextY - 1, glyph,
+                           argb(palette_, 1), false);
+            drawFontSprite(x, kLevelIntroTextY, glyph,
+                           argb(palette_, 31), false);
+        }
     }
 
     void drawMenu() {
@@ -20720,7 +20927,7 @@ int main(int argc, char** argv) {
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-level-intro") {
-            app.debugLevelIntro();
+            app.debugLevelIntro(argc > 2 ? argv[2] : "");
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-all-levels-render") {

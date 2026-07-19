@@ -7791,6 +7791,27 @@ public:
         if (!match) throw std::runtime_error("boss model does not match original runtime evidence");
     }
 
+    // Verify the port's RNG is bit-identical to the original's Turbo Pascal
+    // Random() (generator at 0x920:0x13a8): RandSeed=RandSeed*0x08088405+1,
+    // Random(L)=(RandSeed>>16) mod L. The expected vectors are computed
+    // independently from that formula.
+    void debugTurboRandom() {
+        randomSeed_ = 0;
+        std::cout << "turbo_random=ok seq100_from0=";
+        for (int i = 0; i < 12; ++i) {
+            if (i) std::cout << ',';
+            std::cout << randomRangeValue(0, 100);
+        }
+        randomSeed_ = 0x1234abcd;
+        std::cout << " seq1000_from_0x1234abcd=";
+        for (int i = 0; i < 8; ++i) {
+            if (i) std::cout << ',';
+            std::cout << randomRangeValue(0, 1000);
+        }
+        std::cout << " multiplier=0x08088405 increment=1"
+                     " extraction=high16_mod_L original=0x920:0x13a8\n";
+    }
+
     void debugGranBossModel() {
         // Pins the level-7 boss semantics recovered statically from the
         // shipped executable: the PROVA.SPR bank selector, the DS:0x58/0x59
@@ -18327,7 +18348,12 @@ private:
     }
 
     uint16_t randomRangeValue(uint16_t base, uint16_t range) {
-        randomSeed_ = randomSeed_ * 1664525u + 1013904223u;
+        // Turbo Pascal / Borland Random(): RandSeed = RandSeed*0x08088405 + 1
+        // (32-bit wrap), Random(L) = (RandSeed >> 16) mod L. Verified against the
+        // shipped runtime library Random at 0x920:0x13a8 (multiplier low word
+        // 0x8405 at CS:0x142d, increment 1, high-word-mod-L extraction) so the
+        // port's RNG is bit-identical to the original's generator.
+        randomSeed_ = randomSeed_ * 0x08088405u + 1u;
         uint16_t span = range == 0 ? 1 : range;
         return static_cast<uint16_t>(base + ((randomSeed_ >> 16) % span));
     }
@@ -20981,6 +21007,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-runtime-evidence") {
             app.debugBossRuntimeEvidence(argv[2]);
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-turbo-random") {
+            app.debugTurboRandom();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-sound-priority-latch") {

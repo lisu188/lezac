@@ -3446,6 +3446,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^level_intro=ok stripes=7 caption=preparati_per_il_livello level_varies=1 frame_inspection=1")
 
+    add_test(NAME all_levels_render
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-all-levels-render)
+    set_tests_properties(all_levels_render PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^all_levels_render=ok levels=7 world_visible=1 hud_visible=1 distinct=1")
+
     add_test(NAME hud_stats_live
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-hud-stats-live)

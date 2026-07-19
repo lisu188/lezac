@@ -41,6 +41,17 @@ under the existing guardrails; they are not missing port functionality.
   colored spheres) was also confirmed to match across a six-frame original
   motion capture.
 
+  Beyond structure, the segment MOTION PHYSICS is confirmed: the runtime link
+  table (`DS:0x79EA`) is initialised from the GRAN.MST link records, and all
+  six segment links match the port's decoded `bossLinks_` element-for-element
+  on `gain`, `mode`, `radiusX`, `radiusY`, `offX`, `offY`, and `biasY`
+  (`link_params_matched=6/6`), with the same two-spring / four-orbit split
+  (`mode==0xff` orbit). The per-frame `phase`/`outX`/`outY` are runtime-advanced
+  (excluded), and the runtime carries a +2 visual base where the port uses +4
+  -- an internal numbering offset that does not affect the physics or the
+  rendered result. This raises the level-7 boss from static-only decode to a
+  runtime-confirmed structure AND motion model.
+
 - **Unblocked original level-2..7 capture (multi-session blocker solved).**
   Two long-standing obstacles to comparing the port against the original on
   any level past 1 are now resolved:

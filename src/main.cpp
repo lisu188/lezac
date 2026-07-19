@@ -25,8 +25,10 @@ namespace {
 
 constexpr int kScreenW = 320;
 constexpr int kScreenH = 200;
-// BOMOMIMK sprite index used by the reconstructed bottom HUD.
-constexpr int kHudDestructionStarSprite = 68;  // fixed destruction-target star
+// CARO.CAR tile index used by the reconstructed bottom HUD: the fixed
+// destruction-target star (verified from the original HUD icon renderer, which
+// blits 8x8 CARO tiles, not BOMOMIMK sprites, for the objective icons).
+constexpr int kHudDestructionStarTile = 117;
 constexpr int kNameEntryLabelX = 58;
 constexpr int kNameEntrySlotY = 120;
 constexpr int kNameEntrySlotCount = 8;
@@ -20202,22 +20204,23 @@ private:
         if (!drawHudTile(144, y0 + 10, level_.objectiveTile)) {
             rect(144, y0 + 10, 8, 8, kYellow);
         }
+        // The original displays the REMAINING objective (required - current),
+        // counting down to zero as bonuses are collected / tiles destroyed.
+        int bonusRemaining =
+            std::max(0, static_cast<int>(level_.requiredBonus) - collected_);
         char bonusText[4];
         std::snprintf(bonusText, sizeof(bonusText), "%02d",
-                      std::clamp(static_cast<int>(level_.requiredBonus), 0, 99));
+                      std::min(99, bonusRemaining));
         text(156, y0 + 11, bonusText, kGreen);
-        // Bottom icon: the fixed destruction-target star (BOMOMIMK sprite index
-        // resolved from the original HUD renderer).
-        const int destStar = kHudDestructionStarSprite;
-        if (destStar >= 0 && destStar < static_cast<int>(sprites_.sprites.size())) {
-            const Sprite& s = sprites_.sprites[static_cast<size_t>(destStar)];
-            drawSprite(s, 144 + (8 - s.width) / 2, y0 + 24 + (8 - s.height) / 2);
-        } else {
+        // Bottom icon: the fixed destruction-target star, CARO.CAR tile 117.
+        if (!drawHudTile(144, y0 + 24, kHudDestructionStarTile)) {
             rect(144, y0 + 24, 8, 8, kYellow);
         }
+        int destRemaining = std::max(
+            0, static_cast<int>(level_.requiredDestruction) - destructionPercent());
         char destText[4];
         std::snprintf(destText, sizeof(destText), "%02d",
-                      std::clamp(static_cast<int>(level_.requiredDestruction), 0, 99));
+                      std::min(99, destRemaining));
         text(156, y0 + 25, destText, kGreen);
     }
 

@@ -23,6 +23,27 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Verified the recovered camera/sky/world rendering against original
+  captures of all seven level starts and extended the sky table to band 36.**
+  The completion-seed technique advanced the original through every level in
+  one DOSBox run, capturing each start frame plus a DS snapshot. Findings:
+  (1) the rest-pose camera constants (viewW/2-4, viewH/2+4) predict the
+  recovered camera exactly on levels 1,3,4,5,7 (anchor word `DS:0xC21E`
+  matches the port's portal spawn on every level); levels 2 and 6 were caught
+  mid-pan -- the original's camera moves toward its target at a limited pan
+  speed after a level starts (and L6's sky was drawn one 8px camera step
+  ahead of its tiles in the same captured frame), which is the same dynamic
+  behind the walking-lookahead observation; static rest frames are
+  unaffected. (2) The banded parallax sky model holds globally: levels
+  1,3,7 diff at zero bad rows, and the deeper level-2/level-5 views extended
+  the measured DAC table from 30 to 37 entries (band 36 = 174,93,8); the
+  same global table fits levels 1,2,3,4,6,7. (3) All remaining "solid tile"
+  differences on levels 2-7 are the fading level-transition banner text
+  (LIVELLO COMPLETATO / BOMBA BONUS / GIOCATORE 1) plus live sprites -- no
+  world-rendering divergence on any level. Follow-ups: level 5 paints
+  starfield/water backdrop regions over its lower sky; the camera pan/
+  lookahead dynamics need the `DS:0xC21E` consumer routine decoded.
+
 - **Recovered the exact gameplay backdrop, view frames, camera constants and
   the original left/right two-player split, all diffed to the pixel floor
   against in-container DOSBox captures.** Fresh original level-1 captures

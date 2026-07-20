@@ -23,6 +23,28 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Rebuilt the single-player HUD energy bar / score panel to pixel parity.**
+  Captured a fresh full-energy original level-1 gameplay frame (DOSBox under
+  `xvfb-run`, dismissing the `PREPARATI PER IL LIVELLO` splash) and ran a
+  quantitative per-pixel diff of the whole HUD band against the port. The
+  left HUD was structurally wrong in five measured ways, all now fixed:
+  (1) the energy bar was a bare 1px yellow line -- the original is a 102x3
+  grey-framed (182,182,182) track with the yellow (255,255,85) fill on the
+  middle row (full energy = inner 100px, x1..100);
+  (2) the score panel had only a cyan left edge -- the original frames the
+  blue (0,24,219) box with a 1px cyan (0,170,170) border on all four sides,
+  spanning x0..87 / y172..188 (the port drew it 3px too tall);
+  (3) the green score digit sat 1px too low;
+  (4) the life figures overlapped the over-tall panel and were mispositioned
+  (now `i*9` spacing, one row lower, starting at x0);
+  (5) the bomb-selector well was (28,28,28) but the original is (32,32,32).
+  Also capped the 3px grey rule with the original's white end pixels.
+  Result: the full HUD band collapsed from 220 mismatched pixels to 4, and
+  those 4 are the bomb fuse-spark at x128-129 -- verified to be a live
+  animation (the red shades flicker between consecutive original frames while
+  the bomb body stays byte-identical), so no static render can lock its phase.
+  Full suite green (377/377).
+
 - **Removed latent player steering from ground walkers.** Behavior 4
   legitimately targets the selected player, while behaviors 1-3 spawn with a
   fixed heading and reverse only at walls and floor edges. The port's zero-

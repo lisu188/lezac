@@ -20695,27 +20695,36 @@ private:
         // status area and its content start below that.
         rect(0, y0 + 2, kScreenW, 44, kBlack);
         rect(0, y0 + 2, kScreenW, 3, kGrey);
+        // The 3px grey rule is capped by a single white pixel at each end
+        // (x0 and x319 on all three rows), measured from the original frame.
+        rect(0, y0 + 2, 1, 3, kWhite);
+        rect(kScreenW - 1, y0 + 2, 1, 3, kWhite);
         rect(0, y0 + 5, kScreenW, 1, kWhite);
 
-        // Energy bar: the original draws a single-pixel-tall yellow line
-        // (measured at row y0+11, ~1px), not a thick bar.
-        const int barW = 96;
-        int fill = std::clamp(playerDead_ ? 0 : energy_, 0, 100) * barW / 100;
-        rect(4, y0 + 11, fill, 1, kYellow);
+        // Energy bar: a 102x3 grey-framed track (x0..101, spanning y0+10..y0+12)
+        // with a 1px-tall yellow fill on the middle row, its width proportional
+        // to the player's energy -- full energy fills the inner 100px (x1..100).
+        // Measured pixel-for-pixel from the original level-1 frame: the grey
+        // frame (182,182,182) surrounds the yellow (255,255,85) on all sides.
+        rect(0, y0 + 10, 102, 3, kGrey);
+        int energyFill = std::clamp(playerDead_ ? 0 : energy_, 0, 100);
+        rect(1, y0 + 11, energyFill, 1, kYellow);
 
-        // Score panel: blue box with a cyan left edge and a right-aligned green
-        // score value.
-        rect(0, y0 + 18, 88, 20, kBlue);
-        rect(0, y0 + 18, 2, 20, kCyan);
+        // Score panel: an 88x17 cyan-framed box (x0..87, y0+18..y0+34) with a
+        // blue interior and a right-aligned green score value. The original
+        // frames the blue panel with a 1px cyan (0,170,170) border on all four
+        // sides -- not just the left edge -- measured from the level-1 frame.
+        rect(0, y0 + 18, 88, 17, kCyan);
+        rect(1, y0 + 19, 86, 15, kBlue);
         int scoreDigits = static_cast<int>(std::to_string(score_).size());
-        int scoreX = std::max(4, 84 - scoreDigits * 9);
-        drawHudNumber(scoreX, y0 + 24, score_, 1);
+        int scoreX = std::max(4, 81 - scoreDigits * 9);
+        drawHudNumber(scoreX, y0 + 22, score_, 1);
 
         // Player-life figures: the original HUD shows SPARE lives (the life in
         // play is not counted), so a fresh 3-life start draws two markers --
         // matching every captured original level-start frame.
         for (int i = 0; i < std::clamp(lives_ - 1, 0, 6); ++i) {
-            drawOriginalHudFigure(4 + i * 8, y0 + 38, kGreen);
+            drawOriginalHudFigure(i * 9, y0 + 39, kGreen);
         }
 
         // Bomb selector box showing the selected bomb's actual sprite (from the
@@ -20725,7 +20734,7 @@ private:
         // 16x16 near-black well (the pixel counts 76/68 match the two rings).
         rect(119, y0 + 7, 20, 20, kBoxGrey);
         rect(120, y0 + 8, 18, 18, 0xff828282u);
-        rect(121, y0 + 9, 16, 16, 0xff1c1c1cu);
+        rect(121, y0 + 9, 16, 16, 0xff202020u);
         const int bombSprite =
             static_cast<int>(bombProfile(bombInventory_.selected).spriteBase);
         if (bombSprite >= 0 &&

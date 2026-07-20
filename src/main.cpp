@@ -20361,7 +20361,11 @@ private:
         // The band colours are VGA DAC entries the original programs for the
         // sky (they do not appear in BOMPAL.PAL); values are the DAC 6-bit
         // levels scaled by (v<<2)|(v>>4), matching the capture pixels exactly.
-        static constexpr uint8_t kSkyBands[30][3] = {
+        // Bands 0..29 were measured on level 1; 30..36 from the deeper level-2
+        // and level-5 start captures. The same global table fits levels
+        // 1,2,3,4,6,7 (level 5 additionally paints starfield/water backdrop
+        // regions over its lower sky -- tracked as a follow-up).
+        static constexpr uint8_t kSkyBands[37][3] = {
             {8, 4, 56},    {12, 4, 56},   {16, 8, 52},   {20, 12, 52},
             {24, 12, 52},  {28, 16, 48},  {36, 16, 48},  {40, 20, 48},
             {44, 24, 44},  {48, 24, 44},  {52, 28, 44},  {56, 28, 40},
@@ -20369,7 +20373,9 @@ private:
             {81, 40, 36},  {85, 44, 32},  {89, 48, 32},  {93, 48, 32},
             {97, 52, 32},  {105, 52, 28}, {109, 56, 28}, {113, 60, 28},
             {117, 60, 24}, {121, 65, 24}, {125, 65, 24}, {130, 69, 20},
-            {134, 73, 20}, {142, 73, 20},
+            {134, 73, 20}, {142, 73, 20}, {146, 77, 16}, {150, 77, 16},
+            {154, 81, 16}, {158, 85, 12}, {162, 85, 12}, {166, 89, 12},
+            {174, 93, 8},
         };
         if (!showBackground_) {
             for (int y = 0; y < viewH; ++y) {
@@ -20380,7 +20386,7 @@ private:
             return;
         }
         for (int y = 0; y < viewH; ++y) {
-            const int band = std::clamp((y + camY / 8 - 8) / 4, 0, 29);
+            const int band = std::clamp((y + camY / 8 - 8) / 4, 0, 36);
             const uint32_t color = 0xff000000u |
                                    (static_cast<uint32_t>(kSkyBands[band][0]) << 16) |
                                    (static_cast<uint32_t>(kSkyBands[band][1]) << 8) |

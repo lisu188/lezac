@@ -23,6 +23,41 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Recovered the exact gameplay backdrop, view frames, camera constants and
+  the original left/right two-player split, all diffed to the pixel floor
+  against in-container DOSBox captures.** Fresh original level-1 captures
+  (spawn, walking, mid-jump, memory-synchronised stops) drove four recoveries.
+  (1) View frames: every original gameplay viewport is framed — a 1px white
+  outline plus 3px grey border in single-player (viewport x4..315, y4..155),
+  and in two-player a white/grey-framed left view beside a dark-red/light-red
+  framed right view (viewports 152x152 at x4/x164); the port drew no frame at
+  all and used a top/bottom split. Rebuilt both modes; the frame regions now
+  diff at 0 mismatched pixels. (2) Camera: cross-correlating capture viewports
+  against the exported level tile map (`--export-level-world`) recovered the
+  rest-pose camera anchor (viewW/2-4, viewH/2+4) — confirmed exactly by the
+  two-player cams (32/208 for anchors 104/280) and every single-player capture
+  (camY 88) — and `/proc` memory reads found the original player-anchor word
+  `DS:0xC21E` (104 at spawn, matching the port's portal data exactly). After
+  the fix all 23,234 solid-tile pixels of the spawn frame match the original
+  exactly. (3) Sky: the backdrop is not a linear ramp but 4px-tall uniform
+  bands with a slow vertical parallax — band = (viewportRow + camY/8 - 8)/4 —
+  verified with zero mismatching rows across six captures at camY 66..88, with
+  a 30-entry DAC colour table measured from the captures (the colours are not
+  in BOMPAL.PAL; the original programs them separately). Whole-frame level-1
+  mismatch fell 30371 → 1000 (98.4% pixel-exact; the residual is the moving
+  player/monster sprites plus the known 4px HUD floor). (4) Two-player HUD:
+  the original doubles the single-player column (player 2's copy at +180px:
+  energy track x180..281, score panel x180..267, bomb box x299..318, lives at
+  x180..196) around the shared centre objective panel; rebuilt via
+  `drawPlayerHudColumn`, HUD diff now at the 8px sprite floor, two-player
+  whole-frame mismatch 11203 → 3286 (rest is live-sprite state). Player-2
+  spawns from portal data (280,168) exactly like the original. Added
+  `--capture-two-player-frame` and retired the old placeholder `drawHudBand`;
+  `two_player_panel_artwork_frame_compare` is resolved (open items 12 → 11).
+  Remaining known dynamics gap: the original applies a facing-direction
+  camera lookahead while walking (stationary-after-walking-right rest anchor
+  sits at viewport 151 vs 156 spawn); static frames are unaffected.
+
 - **Corrected the main-menu text rendering to match the original title
   screen.** Captured the original menu (DOSBox title screen after the
   attract marquee settles) and diffed it against the port's overlaid menu

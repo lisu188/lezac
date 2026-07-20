@@ -2281,9 +2281,19 @@ public:
         if (bombFrame.hash == playFrame.hash) {
             throw std::runtime_error("level1 bomb placement did not change the frame");
         }
-        if (!regionChanged(playPixels, bombTileX * kTileSize, bombTileY * kTileSize - 64,
-                           kTileSize, kTileSize)) {
-            throw std::runtime_error("level1 bomb tile region did not change after N");
+        // Map the bomb's world tile into screen space through the same camera
+        // math as drawWorldView's single-player viewport (x4..315, y4..155).
+        {
+            const int viewW = 312, viewH = 152;
+            int camX = std::clamp(static_cast<int>(player_.x) - viewW / 2, 0,
+                                  std::max(0, level_.width * 8 - viewW)) - 4;
+            int camY = std::clamp(static_cast<int>(player_.y) - viewH / 2, 0,
+                                  std::max(0, level_.height * 8 - viewH)) - 4;
+            if (!regionChanged(playPixels, bombTileX * kTileSize - camX,
+                               bombTileY * kTileSize - camY, kTileSize,
+                               kTileSize)) {
+                throw std::runtime_error("level1 bomb tile region did not change after N");
+            }
         }
 
         int fuse = bombs_.back().timer;
@@ -5731,7 +5741,7 @@ public:
         // the original runtime, tracked in RECOVERY_STATUS.md. These are not
         // missing port functionality; each stays visual_claim=0 until the
         // matching original fixture is promoted.
-        static const std::array<const char*, 12> kOpenOriginalEvidenceItems{{
+        static const std::array<const char*, 11> kOpenOriginalEvidenceItems{{
             "natural_forward_debris_writeback_3d2d",
             "exact_explosion_sprite_playback",
             "state2_death_presentation_frame_compare",
@@ -5739,7 +5749,6 @@ public:
             "actor_update_original_contact_semantics",
             "contact_scanner_runtime_confirmation",
             "behavior4_branch_runtime_fixture",
-            "two_player_panel_artwork_frame_compare",
             "monster_sprite_table_runtime_consumption",
             "gran_mst_runtime_motion_timing",
             "ds79b9_fallback_runtime_reachability",
@@ -17168,6 +17177,56 @@ public:
                   << " out=" << outDir << "\n";
     }
 
+    // One two-player level-1 start frame, for pixel comparison against an
+    // original two-player DOSBox capture.
+    void captureTwoPlayerFrame(const std::string& outPath) {
+        load();
+        initSdl();
+        menu_ = false;
+        paused_ = false;
+        levelIntro_ = {};
+        playerCount_ = 2;
+        resetLevel(0);
+        inspectRenderedFrame("capture-two-player");
+        writeArgbPpm(outPath, fb_, kScreenW, kScreenH);
+        std::cout << "capture_two_player_frame=ok out=" << outPath
+                  << " p1=" << static_cast<int>(player_.x) << ','
+                  << static_cast<int>(player_.y)
+                  << " p2=" << static_cast<int>(player2_.x) << ','
+                  << static_cast<int>(player2_.y) << "\n";
+    }
+
+    // Render a level's full tile map (world space, no sprites/sky) to a PPM.
+    // Used to recover the original's camera position from a DOSBox gameplay
+    // capture by cross-correlating the capture's viewport against this bitmap.
+    void exportLevelWorld(int levelIndex, const std::string& outPath) {
+        load();
+        initSdl();
+        resetLevel(levelIndex);
+        const int w = level_.width * 8;
+        const int h = level_.height * 8;
+        std::vector<uint32_t> world(static_cast<size_t>(w) * h, 0xff000000u);
+        for (int ty = 0; ty < level_.height; ++ty) {
+            for (int tx = 0; tx < level_.width; ++tx) {
+                int id = tileAt(tx, ty);
+                const uint8_t* tile = tiles_.tile(id);
+                if (!tile || id == 0) continue;
+                for (int y = 0; y < 8; ++y) {
+                    for (int x = 0; x < 8; ++x) {
+                        uint8_t c = tile[y * 8 + x];
+                        if (c != 0) {
+                            world[static_cast<size_t>(ty * 8 + y) * w + tx * 8 + x] =
+                                argb(palette_, c);
+                        }
+                    }
+                }
+            }
+        }
+        writeArgbPpm(outPath, world, w, h);
+        std::cout << "export_level_world=ok level=" << (levelIndex + 1)
+                  << " size=" << w << "x" << h << " out=" << outPath << "\n";
+    }
+
     // Render the main menu (the SFONLEF.ZBG title art with the menu options
     // overlaid) to a single PPM so it can be diffed pixel-for-pixel against the
     // original title/menu screen. `italian` selects the default Italian strings
@@ -17360,12 +17419,22 @@ public:
 
         FrameInspection first = inspectRenderedFrame("two-player-hud-panel-first");
         std::vector<uint32_t> firstPixels = fb_;
-        if (!regionHasVariation(0, 0, kScreenW, 24) ||
-            !regionHasVariation(0, 24, kScreenW, 74) ||
-            !regionHasVariation(0, 100, kScreenW, 24) ||
-            !regionHasVariation(72, 114, 150, 9) ||
-            !regionHasVariation(0, 124, kScreenW, 76)) {
+        // New original layout: side-by-side 152x152 views inside white/grey
+        // (left) and red (right) frames, with the doubled bottom HUD -- the
+        // player-1 column at x0, the player-2 column at x180 and the shared
+        // objective panel at x141 (all measured from the original capture).
+        if (!regionHasVariation(4, 4, 152, 152) ||          // p1 world
+            !regionHasVariation(164, 4, 152, 152) ||        // p2 world
+            !regionHasVariation(0, 160, 140, 40) ||         // p1 HUD column
+            !regionHasVariation(180, 160, 140, 40) ||       // p2 HUD column
+            !regionHasVariation(141, 160, 37, 39)) {        // objective panel
             throw std::runtime_error("two-player HUD panel did not render visible split UI");
+        }
+        // The right view's frame must be the original's red scheme.
+        if (fb_[static_cast<size_t>(0) * kScreenW + 160] != 0xffaa0000u ||
+            fb_[static_cast<size_t>(80) * kScreenW + 161] != 0xffff5555u ||
+            fb_[static_cast<size_t>(80) * kScreenW + 0] != 0xffffffffu) {
+            throw std::runtime_error("two-player view frames lost the original colours");
         }
 
         ++collected_;
@@ -17375,8 +17444,8 @@ public:
         energy2_ = 7;
         FrameInspection second = inspectRenderedFrame("two-player-hud-panel-second");
         if (second.hash == first.hash ||
-            !regionChanged(firstPixels, 0, 100, kScreenW, 24) ||
-            !regionChanged(firstPixels, 72, 114, 150, 9)) {
+            !regionChanged(firstPixels, 141, 160, 37, 39) ||   // objective tallies
+            !regionChanged(firstPixels, 180, 164, 102, 3)) {   // p2 energy bar
             throw std::runtime_error("two-player HUD panel did not react to progress/stat changes");
         }
 
@@ -17388,8 +17457,8 @@ public:
                   << " p2_world_visible=1"
                   << " objective_panel_visible=1"
                   << " objective_panel_changed=1"
-                  << " panel_y=100 panel_h=24"
-                  << " progress_region=72,114,150,9"
+                  << " panel_x=141 panel_w=37"
+                  << " p2_column_x=180"
                   << " frame_inspection=1"
                   << " original_art_claim=0\n";
     }
@@ -20283,12 +20352,25 @@ private:
         }
     }
 
-    void drawGradientSky(int viewX, int viewY, int viewW, int viewH) {
-        // Recovered from original level-1 frames: the level backdrop is a
-        // vertical gradient from dark indigo at the top to warm brown near the
-        // horizon (~row 100), drawn beneath the tiles. SFONLEF.ZBG is the
-        // 320x200 title screen, not the scrolling level backdrop, so levels no
-        // longer tile it as the sky.
+    void drawGradientSky(int viewX, int viewY, int viewW, int viewH, int camY) {
+        // Recovered exactly from original DOSBox captures: the backdrop is a
+        // banded vertical gradient of 4px-tall uniform rows with a slow
+        // vertical parallax -- the band for viewport row vy is
+        // (vy + camY/8 - 8) / 4, verified with zero mismatching rows across
+        // six captures at camY 66..88 (standing, walking and mid-jump).
+        // The band colours are VGA DAC entries the original programs for the
+        // sky (they do not appear in BOMPAL.PAL); values are the DAC 6-bit
+        // levels scaled by (v<<2)|(v>>4), matching the capture pixels exactly.
+        static constexpr uint8_t kSkyBands[30][3] = {
+            {8, 4, 56},    {12, 4, 56},   {16, 8, 52},   {20, 12, 52},
+            {24, 12, 52},  {28, 16, 48},  {36, 16, 48},  {40, 20, 48},
+            {44, 24, 44},  {48, 24, 44},  {52, 28, 44},  {56, 28, 40},
+            {60, 32, 40},  {65, 36, 40},  {73, 36, 36},  {77, 40, 36},
+            {81, 40, 36},  {85, 44, 32},  {89, 48, 32},  {93, 48, 32},
+            {97, 52, 32},  {105, 52, 28}, {109, 56, 28}, {113, 60, 28},
+            {117, 60, 24}, {121, 65, 24}, {125, 65, 24}, {130, 69, 20},
+            {134, 73, 20}, {142, 73, 20},
+        };
         if (!showBackground_) {
             for (int y = 0; y < viewH; ++y) {
                 for (int x = 0; x < viewW; ++x) {
@@ -20297,44 +20379,58 @@ private:
             }
             return;
         }
-        // Ramp fit to the original sky column: a flat dark band for the top ~11
-        // rows, then a linear ramp over ~88 rows to the horizon colour.
-        constexpr int kRampStart = 11, kRampSpan = 88;
-        constexpr int kTopR = 16, kTopG = 8, kTopB = 52;
-        constexpr int kBotR = 118, kBotG = 62, kBotB = 26;
         for (int y = 0; y < viewH; ++y) {
-            const int t = std::clamp(y - kRampStart, 0, kRampSpan);
-            const int r = kTopR + (kBotR - kTopR) * t / kRampSpan;
-            const int g = kTopG + (kBotG - kTopG) * t / kRampSpan;
-            const int b = kTopB + (kBotB - kTopB) * t / kRampSpan;
+            const int band = std::clamp((y + camY / 8 - 8) / 4, 0, 29);
             const uint32_t color = 0xff000000u |
-                                   (static_cast<uint32_t>(r) << 16) |
-                                   (static_cast<uint32_t>(g) << 8) |
-                                   static_cast<uint32_t>(b);
+                                   (static_cast<uint32_t>(kSkyBands[band][0]) << 16) |
+                                   (static_cast<uint32_t>(kSkyBands[band][1]) << 8) |
+                                   static_cast<uint32_t>(kSkyBands[band][2]);
             for (int x = 0; x < viewW; ++x) {
                 pixel(viewX + x, viewY + y, color);
             }
         }
     }
 
+    // The original frames every gameplay viewport: a 1px outline (row y0, row
+    // y159 and the outer columns) around a 3px inner border, with the world
+    // rendered inside. Single-player uses a white outline with a grey border;
+    // in two-player the left view keeps white/grey and the right view uses a
+    // dark-red outline with a light-red border (all measured from original
+    // captures).
+    void drawViewFrame(int x0, int w, uint32_t outline, uint32_t inner) {
+        rect(x0 + 1, 1, w - 2, 3, inner);
+        rect(x0 + 1, 156, w - 2, 3, inner);
+        rect(x0 + 1, 1, 3, 158, inner);
+        rect(x0 + w - 4, 1, 3, 158, inner);
+        rect(x0, 0, w, 1, outline);
+        rect(x0, 159, w, 1, outline);
+        rect(x0, 0, 1, 160, outline);
+        rect(x0 + w - 1, 0, 1, 160, outline);
+    }
+
     void drawGame() {
         std::fill(fb_.begin(), fb_.end(), argb(palette_, 0));
         if (playerCount_ > 1) {
-            drawWorldView(player_, 0, 16, kScreenW, 84);
-            drawWorldView(player2_, 0, 116, kScreenW, 84);
+            // The original two-player mode is a side-by-side split: each view
+            // is a 152x152 viewport inside its own 160px-wide frame.
+            drawWorldView(player_, 4, 4, 152, 152);
+            drawWorldView(player2_, 164, 4, 152, 152);
             resetClip();
-            drawHudBand(100, 2, energy2_, lives2_, player2Dead_,
-                        bombInventory2_, score2_, true);
-            rect(0, 115, kScreenW, 1, 0xfff0d060u);
+            drawViewFrame(0, 160, 0xffffffffu, 0xffb6b6b6u);
+            drawViewFrame(160, 160, 0xffaa0000u, 0xffff5555u);
         } else {
-            int viewW = std::clamp(gameplayViewWidth_, 160, kScreenW);
-            int viewX = (kScreenW - viewW) / 2;
-            drawWorldView(player_, viewX, 0, viewW, kScreenH);
+            // Single-player: one 312x152 viewport (x4..315, y4..155) inside
+            // the white/grey frame. The E/R width adjustment narrows the
+            // world view inside the frame.
+            int viewW = std::clamp(gameplayViewWidth_, 160, 312);
+            int viewX = 4 + (312 - viewW) / 2;
+            drawWorldView(player_, viewX, 4, viewW, 152);
             resetClip();
-            if (viewW < kScreenW) {
-                rect(viewX - 1, 16, 1, kScreenH - 16, 0xfff0d060u);
-                rect(viewX + viewW, 16, 1, kScreenH - 16, 0xfff0d060u);
+            if (viewW < 312) {
+                rect(viewX - 1, 16, 1, 140, 0xfff0d060u);
+                rect(viewX + viewW, 16, 1, 140, 0xfff0d060u);
             }
+            drawViewFrame(0, kScreenW, 0xffffffffu, 0xffb6b6b6u);
         }
         drawHud();
         if (paused_) drawPauseOverlay();
@@ -20344,13 +20440,21 @@ private:
         int worldW = level_.width * 8;
         int worldH = level_.height * 8;
         setClip(viewX, viewY, viewX + viewW, viewY + viewH);
-        int camX = std::clamp(static_cast<int>(cameraPlayer.x) - viewW / 2,
+        // Camera constants recovered by cross-correlating original DOSBox
+        // captures against the exported level tile map: at spawn/rest the
+        // original places the player anchor at viewport (viewW/2 - 4,
+        // viewH/2 + 4) -- verified exactly in the two-player capture (cams
+        // 32/208 for anchors 104/280 in the 152px views) and consistent with
+        // every single-player capture (camY 88 for anchor y=168). The
+        // original also applies a facing-direction lookahead while walking
+        // (documented in RECOVERY_STATUS); the port tracks the rest pose.
+        int camX = std::clamp(static_cast<int>(cameraPlayer.x) - (viewW / 2 - 4),
                               0, std::max(0, worldW - viewW));
-        int camY = std::clamp(static_cast<int>(cameraPlayer.y) - viewH / 2,
+        int camY = std::clamp(static_cast<int>(cameraPlayer.y) - (viewH / 2 + 4),
                               0, std::max(0, worldH - viewH));
         int drawCamX = camX - viewX;
         int drawCamY = camY - viewY;
-        drawGradientSky(viewX, viewY, viewW, viewH);
+        drawGradientSky(viewX, viewY, viewW, viewH, camY);
         drawTiles(drawCamX, drawCamY);
         drawBombs(drawCamX, drawCamY);
         drawDamageQueues(drawCamX, drawCamY);
@@ -20633,23 +20737,6 @@ private:
         }
     }
 
-    void drawHudBand(int y, int playerIndex, int energy, int lives, bool dead,
-                     const BombInventory& inventory, uint32_t score,
-                     bool includeProgress) {
-        rect(0, y, kScreenW, 24, 0xdd000000u);
-        rect(0, y + 23, kScreenW, 1, 0xfff0d060u);
-        text(4, y + 3, "P" + std::to_string(playerIndex), 0xffffe060u);
-        text(22, y + 3, dead ? (lives <= 0 ? "OUT" : "WAIT") : "HP", 0xffffffffu);
-        drawMeter(48, y + 4, 54, 6, dead ? 0 : energy, 100, energyColor(energy));
-        text(108, y + 3, std::to_string(std::clamp(energy, 0, 255)), 0xffffffffu);
-        text(132, y + 3, "L" + std::to_string(lives), 0xffffffffu);
-        drawBombInventoryIcons(154, y + 3, inventory);
-        text(4, y + 14, "S" + std::to_string(score), 0xffffffffu);
-        if (includeProgress) {
-            text(72, y + 14, progressHudText(), 0xffd8f0ffu);
-        }
-    }
-
     // Blit an 8x8 CARO.CAR tile at a screen position (transparent index 0),
     // the primitive the original HUD uses for its objective/life-marker icons.
     bool drawHudTile8(int dx, int dy, int id) {
@@ -20687,16 +20774,15 @@ private:
         }
     }
 
-    void drawSinglePlayerHud() {
-        // Reconstructed from the original level-1 HUD: a solid-black bottom
-        // band with a grey/white top border, a yellow energy bar and blue
-        // score panel on the left, green player-life figures beneath it, a grey
-        // bomb-selector box in the centre, and a blue/cyan panel with bomb and
-        // objective tallies on the right. Colours are sampled from the original
-        // frames (VGA palette).
-        constexpr uint32_t kBlack = 0xff000000u;
+    // One player's HUD column: energy bar, score panel and life figures at
+    // `xoff`, plus the bomb-selector box and its count panel at `xoff + 119`.
+    // The original two-player HUD is exactly the single-player left column
+    // drawn twice -- player 2's copy at xoff 180 (energy track x180..281,
+    // score panel x180..267, bomb box x299..318, lives at x180..196), all
+    // measured from an original two-player capture.
+    void drawPlayerHudColumn(int xoff, int energy, uint32_t score, int lives,
+                             bool dead, const BombInventory& inventory) {
         constexpr uint32_t kGrey = 0xffb6b6b6u;
-        constexpr uint32_t kWhite = 0xffffffffu;
         constexpr uint32_t kYellow = 0xffffff55u;
         constexpr uint32_t kBlue = 0xff0018dbu;
         constexpr uint32_t kCyan = 0xff00aaaau;
@@ -20704,42 +20790,30 @@ private:
         constexpr uint32_t kBoxGrey = 0xffa2a2a2u;
         const int y0 = kScreenH - 46;
 
-        // The original HUD band begins two pixels below y0: gameplay terrain
-        // shows through at y0..y0+1, then a 3px grey rule (y0+2..y0+4) and a 1px
-        // white rule (y0+5), measured from the original level-1 frame. The black
-        // status area and its content start below that.
-        rect(0, y0 + 2, kScreenW, 44, kBlack);
-        rect(0, y0 + 2, kScreenW, 3, kGrey);
-        // The 3px grey rule is capped by a single white pixel at each end
-        // (x0 and x319 on all three rows), measured from the original frame.
-        rect(0, y0 + 2, 1, 3, kWhite);
-        rect(kScreenW - 1, y0 + 2, 1, 3, kWhite);
-        rect(0, y0 + 5, kScreenW, 1, kWhite);
-
         // Energy bar: a 102x3 grey-framed track (x0..101, spanning y0+10..y0+12)
         // with a 1px-tall yellow fill on the middle row, its width proportional
         // to the player's energy -- full energy fills the inner 100px (x1..100).
         // Measured pixel-for-pixel from the original level-1 frame: the grey
         // frame (182,182,182) surrounds the yellow (255,255,85) on all sides.
-        rect(0, y0 + 10, 102, 3, kGrey);
-        int energyFill = std::clamp(playerDead_ ? 0 : energy_, 0, 100);
-        rect(1, y0 + 11, energyFill, 1, kYellow);
+        rect(xoff, y0 + 10, 102, 3, kGrey);
+        int energyFill = std::clamp(dead ? 0 : energy, 0, 100);
+        rect(xoff + 1, y0 + 11, energyFill, 1, kYellow);
 
         // Score panel: an 88x17 cyan-framed box (x0..87, y0+18..y0+34) with a
         // blue interior and a right-aligned green score value. The original
         // frames the blue panel with a 1px cyan (0,170,170) border on all four
         // sides -- not just the left edge -- measured from the level-1 frame.
-        rect(0, y0 + 18, 88, 17, kCyan);
-        rect(1, y0 + 19, 86, 15, kBlue);
-        int scoreDigits = static_cast<int>(std::to_string(score_).size());
+        rect(xoff, y0 + 18, 88, 17, kCyan);
+        rect(xoff + 1, y0 + 19, 86, 15, kBlue);
+        int scoreDigits = static_cast<int>(std::to_string(score).size());
         int scoreX = std::max(4, 81 - scoreDigits * 9);
-        drawHudNumber(scoreX, y0 + 22, score_, 1);
+        drawHudNumber(xoff + scoreX, y0 + 22, static_cast<int>(score), 1);
 
         // Player-life figures: the original HUD shows SPARE lives (the life in
         // play is not counted), so a fresh 3-life start draws two markers --
         // matching every captured original level-start frame.
-        for (int i = 0; i < std::clamp(lives_ - 1, 0, 6); ++i) {
-            drawOriginalHudFigure(i * 9, y0 + 39, kGreen);
+        for (int i = 0; i < std::clamp(lives - 1, 0, 6); ++i) {
+            drawOriginalHudFigure(xoff + i * 9, y0 + 39, kGreen);
         }
 
         // Bomb selector box showing the selected bomb's actual sprite (from the
@@ -20747,30 +20821,51 @@ private:
         // Measured against the original: a 20x20 beveled grey box at (119, y0+7)
         // -- a light 1px outer ring (162), a darker 1px inner ring (130), then a
         // 16x16 near-black well (the pixel counts 76/68 match the two rings).
-        rect(119, y0 + 7, 20, 20, kBoxGrey);
-        rect(120, y0 + 8, 18, 18, 0xff828282u);
-        rect(121, y0 + 9, 16, 16, 0xff202020u);
+        const int bx0 = xoff + 119;
+        rect(bx0, y0 + 7, 20, 20, kBoxGrey);
+        rect(bx0 + 1, y0 + 8, 18, 18, 0xff828282u);
+        rect(bx0 + 2, y0 + 9, 16, 16, 0xff202020u);
         const int bombSprite =
-            static_cast<int>(bombProfile(bombInventory_.selected).spriteBase);
+            static_cast<int>(bombProfile(inventory.selected).spriteBase);
         if (bombSprite >= 0 &&
             bombSprite < static_cast<int>(sprites_.sprites.size())) {
             const Sprite& sprite = sprites_.sprites[static_cast<size_t>(bombSprite)];
-            const int bx = 121 + (16 - sprite.width) / 2;
+            const int bx = bx0 + 2 + (16 - sprite.width) / 2;
             const int by = y0 + 9 + (16 - sprite.height) / 2;
-            setClip(121, y0 + 9, 121 + 16, y0 + 9 + 16);
+            setClip(bx0 + 2, y0 + 9, bx0 + 2 + 16, y0 + 9 + 16);
             drawSprite(sprite, bx, by);
             resetClip();
         } else {
-            rect(121, y0 + 9, 16, 16, bombColor(bombInventory_.selected));
+            rect(bx0 + 2, y0 + 9, 16, 16, bombColor(inventory.selected));
         }
-        int selCount = bombInventory_.counts[
-            static_cast<size_t>(bombInventory_.selected)];
+        int selCount = inventory.counts[static_cast<size_t>(inventory.selected)];
         // Blue count panel beneath the bomb box (x119-138, matching the box
         // width), with the ammo count drawn on it.
-        rect(119, y0 + 27, 20, 9, kBlue);
-        drawHudNumber(120, y0 + 28, std::clamp(selCount, 0, 99), 2);
+        rect(bx0, y0 + 27, 20, 9, kBlue);
+        drawHudNumber(bx0 + 1, y0 + 28, std::clamp(selCount, 0, 99), 2);
+    }
 
-        // Right panel: bomb-count and objective (destruction target) tallies.
+    void drawSinglePlayerHud() {
+        // Reconstructed from the original level-1 HUD: a solid-black bottom
+        // band beneath the view frame, a yellow energy bar and blue score
+        // panel on the left, green player-life figures beneath it, a grey
+        // bomb-selector box in the centre, and a blue/cyan panel with bomb and
+        // objective tallies on the right. Colours are sampled from the original
+        // frames (VGA palette). The grey/white rule above the band is the view
+        // frame's bottom border, drawn by drawViewFrame.
+        rect(0, 160, kScreenW, 40, 0xff000000u);
+        drawPlayerHudColumn(0, energy_, score_, lives_, playerDead_,
+                            bombInventory_);
+        drawHudObjectivePanel();
+    }
+
+    void drawHudObjectivePanel() {
+        constexpr uint32_t kBlack = 0xff000000u;
+        constexpr uint32_t kYellow = 0xffffff55u;
+        constexpr uint32_t kBlue = 0xff0018dbu;
+        constexpr uint32_t kCyan = 0xff00aaaau;
+        const int y0 = kScreenH - 46;
+        // Centre panel: bomb-count and objective (destruction target) tallies.
         // The original panel spans y0+6..y0+44 (measured 160-198 on level 1),
         // taller than the earlier 34px box.
         rect(141, y0 + 6, 37, 39, kBlue);
@@ -20816,12 +20911,18 @@ private:
 
     void drawHud() {
         // The original HUD is a bottom status band (the top of the screen is
-        // gameplay sky).
+        // gameplay sky). Two-player mode doubles the per-player column (player
+        // 2's copy shifted 180px right) around the shared centre objective
+        // panel, exactly as measured from the original two-player capture.
         if (playerCount_ == 1) {
             drawSinglePlayerHud();
         } else {
-            drawHudBand(kScreenH - 24, 1, energy_, lives_, playerDead_,
-                        bombInventory_, score_, false);
+            rect(0, 160, kScreenW, 40, 0xff000000u);
+            drawPlayerHudColumn(0, energy_, score_, lives_, playerDead_,
+                                bombInventory_);
+            drawPlayerHudColumn(180, energy2_, score2_, lives2_, player2Dead_,
+                                bombInventory2_);
+            drawHudObjectivePanel();
         }
         if (isComplete()) {
             rect(76, 84, 168, 24, 0xee000000u);
@@ -21719,6 +21820,14 @@ int main(int argc, char** argv) {
         if (argc > 2 && std::string(argv[1]) == "--capture-menu-frame") {
             bool italian = !(argc > 3 && std::string(argv[3]) == "english");
             app.captureMenuFrame(argv[2], italian);
+            return 0;
+        }
+        if (argc > 3 && std::string(argv[1]) == "--export-level-world") {
+            app.exportLevelWorld(std::stoi(argv[2]), argv[3]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--capture-two-player-frame") {
+            app.captureTwoPlayerFrame(argv[2]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-two-player-hud-panel") {

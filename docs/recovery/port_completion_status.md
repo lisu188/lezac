@@ -68,6 +68,11 @@ under "Remaining Top Gaps". They require original-runtime evidence
 (DOSBox/DOSBox-debug/process-memory captures) and do not represent missing
 port functionality.
 
+Resolved: `two_player_panel_artwork_frame_compare` — the two-player split
+views and doubled HUD were rebuilt from an original in-container DOSBox
+two-player capture and diff to the pixel floor (view frames exact, HUD at
+the sprite-decode floor); see the RECOVERY_STATUS iteration entry.
+
 - `natural_forward_debris_writeback_3d2d` — natural forward debris writeback
   capture at `1000:3D2D`
 - `exact_explosion_sprite_playback` — exact explosion/debris/collapse sprite
@@ -83,8 +88,6 @@ port functionality.
   brain rather than a generic contact scanner
 - `behavior4_branch_runtime_fixture` — behavior-4 branch semantics fixture at
   `1000:728C..731B`
-- `two_player_panel_artwork_frame_compare` — original two-player panel artwork
-  comparison
 - `monster_sprite_table_runtime_consumption` — original runtime consumption of
   impact/death/reward sprite frames
 - `gran_mst_runtime_motion_timing` — live original capture now confirms the

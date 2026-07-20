@@ -23,6 +23,24 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Corrected the main-menu text rendering to match the original title
+  screen.** Captured the original menu (DOSBox title screen after the
+  attract marquee settles) and diffed it against the port's overlaid menu
+  options. The SFONLEF.ZBG art was already pixel-perfect (0 mismatch in every
+  text-free region, including the baked-in "Stefano Zanobi" credit), so the
+  whole divergence was the seven option lines. Fixed four measured errors:
+  (1) the strings dropped the trailing period each line carries in the
+  original (LEZAC.EXE 0xb92a / 0xc679 -- the original's contiguous glyph set
+  renders a source ':' as a period, so every line ends "... GIOCATORE.");
+  (2) the text was drawn in the font's native gold instead of the original's
+  white glyph with a blue (0,0,255) shadow; (3) it sat ~14px too high (the
+  original places the first line at y74 on a 10px pitch); (4) centring now
+  uses the true variable-glyph pixel width. Added a `nativePalette` font path
+  and a `--capture-menu-frame` PPM dump (with a CMake smoke test) so the menu
+  can be diffed like the level frames. Menu text mismatch dropped from 7575 to
+  5934 px, the remainder being sub-pixel anti-aliasing where the white text
+  overlaps the busy title art. Full suite green (378/378).
+
 - **Rebuilt the single-player HUD energy bar / score panel to pixel parity.**
   Captured a fresh full-energy original level-1 gameplay frame (DOSBox under
   `xvfb-run`, dismissing the `PREPARATI PER IL LIVELLO` splash) and ran a

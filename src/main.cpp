@@ -17168,6 +17168,21 @@ public:
                   << " out=" << outDir << "\n";
     }
 
+    // Render the main menu (the SFONLEF.ZBG title art with the menu options
+    // overlaid) to a single PPM so it can be diffed pixel-for-pixel against the
+    // original title/menu screen. `italian` selects the default Italian strings
+    // (the original's default; L toggles English).
+    void captureMenuFrame(const std::string& outPath, bool italian) {
+        load();
+        initSdl();
+        menu_ = true;
+        menuPage_ = MenuPage::Main;
+        menuItalian_ = italian;
+        draw();
+        writeArgbPpm(outPath, fb_, kScreenW, kScreenH);
+        std::cout << "capture_menu_frame=ok out=" << outPath << "\n";
+    }
+
     void debugLevelIntro(const std::string& framePath = {}) {
         load();
         initSdl();
@@ -20906,22 +20921,30 @@ private:
         if (menuPage_ == MenuPage::Main) {
             // The original main menu is the SFONLEF.ZBG title screen with the
             // menu options drawn directly over the art (Italian by default; L
-            // toggles English). Strings recovered from LEZAC.EXE 1000:b1e3
-            // (Italian) and 1000:bf15 (English).
+            // toggles English). The original source (LEZAC.EXE 0xb92a Italian,
+            // 0xc679 English) uses a contiguous glyph set where ';' displays as
+            // a colon and a trailing ':' displays as a period; rendered with the
+            // port's standard-ASCII font map that means a ':' separator and a
+            // '.' terminator -- e.g. "I: INFORMAZIONI." -- and every line ends
+            // in that period, which the earlier transcription had dropped.
             static const char* kItalian[7] = {
-                "PREMI 1 PER UN GIOCATORE", "PREMI 2 PER DUE GIOCATORI",
-                "I: INFORMAZIONI", "Z: ISTRUZIONI", "R: VEDI RECORDS",
-                "L: ENGLISH", "ESC PER USCIRE"};
+                "PREMI 1 PER UN GIOCATORE.", "PREMI 2 PER DUE GIOCATORI.",
+                "I: INFORMAZIONI.", "Z: ISTRUZIONI.", "R: VEDI RECORDS.",
+                "L: ENGLISH.", "ESC PER USCIRE."};
             static const char* kEnglish[7] = {
-                "PRESS 1 FOR ONE PLAYER GAME", "PRESS 2 FOR TWO PLAYERS GAME",
-                "I: INFOS", "Z: INSTRUCTIONS", "R: SHOW RECORDS",
-                "L: ITALIANO", "ESC EXITS"};
+                "PRESS 1 FOR ONE PLAYER GAME.", "PRESS 2 FOR TWO PLAYERS GAME.",
+                "I: INFOS.", "Z: INSTRUCTIONS.", "R: SHOW RECORDS.",
+                "L: ITALIANO.", "ESC EXITS."};
             const char* const* lines = menuItalian_ ? kItalian : kEnglish;
             for (int i = 0; i < 7; ++i) {
                 const std::string line = lines[i];
-                const int x = (kScreenW - static_cast<int>(line.size()) * 8) / 2;
-                text(std::max(0, x), 60 + i * 10, line, 0xffffffffu, false,
-                     0xff000000u);
+                const int x = (kScreenW - textWidth(line)) / 2;
+                // The original draws each line as a white glyph with a blue
+                // (0,0,255) shadow, centred, on a 10px pitch (measured against
+                // the original level-select frame: first line at y74, one pixel
+                // below the vertical middle of the title art).
+                text(std::max(0, x), 74 + i * 10, line, 0xffffffffu, false,
+                     0xff0000ffu);
             }
             return;
         }
@@ -21199,11 +21222,18 @@ private:
         }
     }
 
-    void drawFontSprite(int x, int y, const Sprite& glyph, uint32_t color, bool preservePalette) {
+    void drawFontSprite(int x, int y, const Sprite& glyph, uint32_t color,
+                        bool preservePalette, bool nativePalette = false) {
         for (int yy = 0; yy < glyph.height; ++yy) {
             for (int xx = 0; xx < glyph.width; ++xx) {
                 uint8_t px = glyph.pixels[static_cast<size_t>(yy) * glyph.width + xx];
                 if (px == 0) continue;
+                if (nativePalette) {
+                    // Blit every glyph index through the game palette exactly as
+                    // the original does (no recolour, no synthetic outline).
+                    pixel(x + xx, y + yy, argb(palette_, px));
+                    continue;
+                }
                 pixel(x + xx, y + yy,
                       preservePalette && px != 1 ? argb(palette_, px) : color);
             }
@@ -21228,7 +21258,8 @@ private:
     }
 
     void text(int x, int y, const std::string& s, uint32_t color, bool large = false,
-              uint32_t shadow = 0, int shadowDx = 1, int shadowDy = 1) {
+              uint32_t shadow = 0, int shadowDx = 1, int shadowDy = 1,
+              bool nativePalette = false) {
         int cx = x;
         for (char raw : s) {
             char ch = raw;
@@ -21240,13 +21271,14 @@ private:
             auto drawOne = [&](int px, int py, uint32_t drawColor, bool preservePalette) {
                 if (index >= 0 && index < static_cast<int>(fontSprites_.sprites.size())) {
                     const Sprite& glyph = fontSprites_.sprites[static_cast<size_t>(index)];
-                    drawFontSprite(px, py, glyph, drawColor, preservePalette);
+                    drawFontSprite(px, py, glyph, drawColor, preservePalette,
+                                   nativePalette);
                     return glyph.width + 1;
                 }
                 drawFallbackGlyph(px, py, ch, drawColor);
                 return 9;
             };
-            if (shadow != 0) {
+            if (shadow != 0 && !nativePalette) {
                 drawOne(cx + shadowDx, y + shadowDy, shadow, false);
             }
             cx += drawOne(cx, y, color, true);
@@ -21682,6 +21714,11 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--capture-level-frames") {
             app.captureLevelFrames(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--capture-menu-frame") {
+            bool italian = !(argc > 3 && std::string(argv[3]) == "english");
+            app.captureMenuFrame(argv[2], italian);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-two-player-hud-panel") {

@@ -3504,6 +3504,15 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^capture_level_frames=ok levels=7 out=")
 
+    add_test(NAME capture_menu_frame
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --capture-menu-frame
+                ${CMAKE_CURRENT_BINARY_DIR}/capture_menu_frame_out.ppm)
+    set_tests_properties(capture_menu_frame PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^capture_menu_frame=ok out=")
+
     add_test(NAME hud_stats_live
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-hud-stats-live)

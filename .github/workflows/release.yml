@@ -1,6 +1,7 @@
 name: Release builds
 
 on:
+  pull_request:
   workflow_dispatch:
   push:
     tags:

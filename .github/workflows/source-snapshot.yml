@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - refactor/split-app-entrypoint
+  pull_request:
 
 permissions:
   contents: read

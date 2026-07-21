@@ -20827,23 +20827,21 @@ private:
         int worldW = level_.width * 8;
         int worldH = level_.height * 8;
         setClip(viewX, viewY, viewX + viewW, viewY + viewH);
-        // Camera recovered from the original scroll routine (file 0x3cf7,
-        // called from the main loop with the player visual entry DS:0xC21E):
-        // the target is TILE-QUANTIZED, camX = (x - DS:0x78BC) & ~7 with
-        // 0x78BC = viewW/2 - 4 (152 read live from process memory for the
-        // 312px view; the same formula gives the measured two-player cams
-        // 32/208 for anchors 104/280), camY = (y - 80) & ~7, clamped to the
-        // measured limits DS:2094 = worldW-320 and DS:2096 = worldH-168 (the
-        // original never scrolls the last tile column / two tile rows). The
-        // original chases this target with a smooth pixel pan (mid-pan and
-        // mid-jump captures show intermediate values); the port snaps to the
-        // target, which is identical at rest.
-        int camX = std::clamp(
-            (static_cast<int>(cameraPlayer.x) - (viewW / 2 - 4)) & ~7, 0,
-            std::max(0, worldW - (viewW + 8)));
-        int camY = std::clamp(
-            (static_cast<int>(cameraPlayer.y) - (viewH / 2 + 4)) & ~7, 0,
-            std::max(0, worldH - (viewH + 16)));
+        // Camera fully decoded from the original scroll routine (file 0x3cf7,
+        // fed the player visual entry DS:0xC21E by the main loop): the
+        // routine splits the scroll into a tile-aligned coarse part
+        // (DS:0xC216/0xC218 = (x - 0x78BC) & ~7 / (y - 80) & ~7 with 0x78BC
+        // = viewW/2 - 4) and a fine part (DS:0xC20A/0xC20C = x%8 / y%8)
+        // that recombine to a CONTINUOUS, instantly-applied camera
+        // camX = x - (viewW/2 - 4), camY = y - 80. On the max clamps
+        // (coarse > DS:2094 = (Wt-40)*8 / DS:2096 = (Ht-21)*8) the fine
+        // part is forced to 7, so the effective displayed limits are
+        // worldW-313 and worldH-161 -- verified against the level-6 spawn
+        // (cam 1127/351 for clamps 1120/344) and every walk/jump capture.
+        int camX = std::clamp(static_cast<int>(cameraPlayer.x) - (viewW / 2 - 4),
+                              0, std::max(0, worldW - (viewW + 8) + 7));
+        int camY = std::clamp(static_cast<int>(cameraPlayer.y) - (viewH / 2 + 4),
+                              0, std::max(0, worldH - (viewH + 16) + 7));
         int drawCamX = camX - viewX;
         int drawCamY = camY - viewY;
         drawGradientSky(viewX, viewY, viewW, viewH, camX, camY);

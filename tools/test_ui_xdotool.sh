@@ -20,16 +20,28 @@ cleanup() {
 trap cleanup EXIT
 
 win=""
-for _ in $(seq 1 50); do
-    win=$(xdotool search --name Larax 2>/dev/null | head -n 1 || true)
+for _ in $(seq 1 100); do
+    win=$(xdotool search --onlyvisible --pid "$pid" 2>/dev/null | head -n 1 || true)
+    if [[ -z "$win" ]]; then
+        win=$(xdotool search --name Larax 2>/dev/null | head -n 1 || true)
+    fi
     if [[ -n "$win" ]]; then
         break
+    fi
+    if ! kill -0 "$pid" 2>/dev/null; then
+        set +e
+        wait "$pid"
+        status=$?
+        set -e
+        trap - EXIT
+        echo "process_exited_before_window status=$status" >&2
+        exit 1
     fi
     sleep 0.1
 done
 
 if [[ -z "$win" ]]; then
-    echo "window_not_found" >&2
+    echo "window_not_found pid=$pid" >&2
     exit 1
 fi
 

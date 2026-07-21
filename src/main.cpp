@@ -5757,10 +5757,9 @@ public:
         // the original runtime, tracked in RECOVERY_STATUS.md. These are not
         // missing port functionality; each stays visual_claim=0 until the
         // matching original fixture is promoted.
-        static const std::array<const char*, 11> kOpenOriginalEvidenceItems{{
+        static const std::array<const char*, 10> kOpenOriginalEvidenceItems{{
             "natural_forward_debris_writeback_3d2d",
             "exact_explosion_sprite_playback",
-            "state2_death_presentation_frame_compare",
             "sound_callsite_cursor_priority_map",
             "actor_update_original_contact_semantics",
             "contact_scanner_runtime_confirmation",
@@ -17259,6 +17258,32 @@ public:
                   << " original_runtime_claim=0\n";
     }
 
+    // Render the player-death (state-2) presentation frames for comparison
+    // against captured original death sequences.
+    void captureDeathFrames(const std::string& outDir) {
+        load();
+        initSdl();
+        resetLevel(0);
+        menu_ = false;
+        std::filesystem::create_directories(outDir);
+        energy_ = 0;
+        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
+                     damageCooldown_, 1);
+        int frame = 0;
+        for (int tick = 0; tick < 240; ++tick) {
+            update(1.0f / 60.0f);
+            if (tick % 6 == 0) {
+                inspectRenderedFrame("death-frame");
+                char name[32];
+                std::snprintf(name, sizeof(name), "death_%03d.ppm", frame++);
+                writeArgbPpm(joinPath(outDir, name), fb_, kScreenW, kScreenH);
+            }
+        }
+        std::cout << "capture_death_frames=ok frames=" << frame
+                  << " dead=" << (playerDead_ ? 1 : 0)
+                  << " lives=" << lives_ << " out=" << outDir << "\n";
+    }
+
     // One two-player level-1 start frame, for pixel comparison against an
     // original two-player DOSBox capture.
     void captureTwoPlayerFrame(const std::string& outPath) {
@@ -21078,15 +21103,23 @@ private:
         int x0 = (effect.active ? effect.x : static_cast<int>(player.x)) - camX;
         int y0 = (effect.active ? effect.y : static_cast<int>(player.y)) - camY;
         int index = static_cast<int>(cursor.current);
+        // The state-2 visual rows store sprite values 0x43..0x48; a live
+        // original death capture shows the presentation is the white smoke
+        // puff sequence (BOMOMIMK sprites 73..78), i.e. the stored values
+        // carry a +6 bank rebase -- the same table-vs-bank rebase family the
+        // boss visual recovery documented. Applying the rebase here keeps the
+        // recovered row bytes verbatim while drawing the sprites the original
+        // actually shows.
+        constexpr int kState2SpriteRebase = 6;
         if (!state2VisualCursorPreview_) {
             if (effect.active && effect.visualFrame == cursor.current) {
-                index = static_cast<int>(effect.spriteIndex);
+                index = static_cast<int>(effect.spriteIndex) + kState2SpriteRebase;
                 x0 += static_cast<int>(effect.drawDx);
                 y0 += static_cast<int>(effect.drawDy);
             } else {
                 State2VisualRow row;
                 if (originalState2VisualRow(cursor.current, row)) {
-                    index = static_cast<int>(row.row3);
+                    index = static_cast<int>(row.row3) + kState2SpriteRebase;
                     x0 += static_cast<int>(row.row0);
                     y0 += static_cast<int>(row.row1);
                 }
@@ -22228,6 +22261,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-level-outro") {
             app.debugLevelOutro(argc > 2 ? argv[2] : "");
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--capture-death-frames") {
+            app.captureDeathFrames(argv[2]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-two-player-hud-panel") {

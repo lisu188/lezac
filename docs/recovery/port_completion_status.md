@@ -68,6 +68,14 @@ under "Remaining Top Gaps". They require original-runtime evidence
 (DOSBox/DOSBox-debug/process-memory captures) and do not represent missing
 port functionality.
 
+Resolved: `state2_death_presentation_frame_compare` — a live original death
+was captured (snail contact on level 1, frames plus DS snapshots showing
+`DS:0x79EA` lives 2→1 and the `DS:0x79EC` energy reset on reentry); the
+presentation is the white smoke-puff sequence, BOMOMIMK sprites 73..78,
+confirming a +6 bank rebase over the recovered state-2 visual rows — the
+port now draws those sprites and `--capture-death-frames` reproduces the
+sequence.
+
 Resolved: `two_player_panel_artwork_frame_compare` — the two-player split
 views and doubled HUD were rebuilt from an original in-container DOSBox
 two-player capture and diff to the pixel floor (view frames exact, HUD at
@@ -77,8 +85,6 @@ the sprite-decode floor); see the RECOVERY_STATUS iteration entry.
   capture at `1000:3D2D`
 - `exact_explosion_sprite_playback` — exact explosion/debris/collapse sprite
   playback semantics around `1000:3a56..4d3b`
-- `state2_death_presentation_frame_compare` — paired original-frame comparison
-  for the state-2 death renderer
 - `sound_callsite_cursor_priority_map` — exact cursor/priority mapping for the
   remaining compatibility sound hooks
 - `actor_update_original_contact_semantics` — original contact

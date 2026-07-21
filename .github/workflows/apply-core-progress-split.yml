@@ -1,0 +1,70 @@
+name: Apply core progress split
+
+on:
+  push:
+    branches:
+      - refactor/modular-source-layout
+
+permissions:
+  contents: write
+
+jobs:
+  transform:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/modular-source-layout
+          fetch-depth: 0
+      - name: Split the first core module
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          app_path = Path('src/app/app.cpp')
+          app = app_path.read_text()
+          include_anchor = '#include <vector>\n\nnamespace {\n'
+          include_replacement = '''#include <vector>\n\n#include "core/progress.hpp"\n\nnamespace {\n\nusing lezac::core::countPhysicalDamageProgressCells;\nusing lezac::core::countsForDestructionProgress;\nusing lezac::core::countsForPhysicalDamageProgress;\n'''
+          if include_anchor not in app:
+              raise SystemExit('app include anchor not found')
+          app = app.replace(include_anchor, include_replacement, 1)
+
+          functions = '''bool countsForDestructionProgress(uint8_t tile, uint8_t objectiveTile) {\n    return tile > 1 && tile != 0xff && tile != objectiveTile;\n}\n\nbool countsForPhysicalDamageProgress(uint16_t word) {\n    return word != 0 && (word & kDamagedWordBit) == 0 && word < kDeferredThreshold;\n}\n\nint countPhysicalDamageProgressCells(const std::vector<uint16_t>& words) {\n    return static_cast<int>(std::count_if(words.begin(), words.end(),\n                                          countsForPhysicalDamageProgress));\n}\n\n'''
+          if app.count(functions) != 1:
+              raise SystemExit('core progress function block not found exactly once')
+          app = app.replace(functions, '', 1)
+          app_path.write_text(app)
+
+          core = Path('src/core')
+          core.mkdir(parents=True, exist_ok=True)
+          (core / 'progress.hpp').write_text('''#pragma once\n\n#include <cstdint>\n#include <vector>\n\nnamespace lezac::core {\n\nbool countsForDestructionProgress(uint8_t tile, uint8_t objectiveTile) noexcept;\nbool countsForPhysicalDamageProgress(uint16_t word) noexcept;\nint countPhysicalDamageProgressCells(const std::vector<uint16_t>& words);\n\n}\n''')
+          (core / 'progress.cpp').write_text('''#include "core/progress.hpp"\n\n#include <algorithm>\n\nnamespace lezac::core {\nnamespace {\n\nconstexpr uint16_t kDamagedWordBit = 0x8000;\nconstexpr uint16_t kDeferredThreshold = 0x4000;\n\n}\n\nbool countsForDestructionProgress(uint8_t tile, uint8_t objectiveTile) noexcept {\n    return tile > 1 && tile != 0xff && tile != objectiveTile;\n}\n\nbool countsForPhysicalDamageProgress(uint16_t word) noexcept {\n    return word != 0 && (word & kDamagedWordBit) == 0 && word < kDeferredThreshold;\n}\n\nint countPhysicalDamageProgressCells(const std::vector<uint16_t>& words) {\n    return static_cast<int>(std::count_if(words.begin(), words.end(),\n                                          countsForPhysicalDamageProgress));\n}\n\n}\n''')
+
+          tests = Path('tests/core')
+          tests.mkdir(parents=True, exist_ok=True)
+          (tests / 'progress_test.cpp').write_text('''#include "core/progress.hpp"\n\n#include <cstdint>\n#include <iostream>\n#include <vector>\n\nint main() {\n    using lezac::core::countPhysicalDamageProgressCells;\n    using lezac::core::countsForDestructionProgress;\n    using lezac::core::countsForPhysicalDamageProgress;\n\n    if (countsForDestructionProgress(0, 108) ||\n        countsForDestructionProgress(1, 108) ||\n        countsForDestructionProgress(0xff, 108) ||\n        countsForDestructionProgress(108, 108) ||\n        !countsForDestructionProgress(2, 108)) {\n        return 1;\n    }\n\n    const std::vector<uint16_t> words{0, 1, 0x3fff, 0x4000, 0x8001};\n    if (!countsForPhysicalDamageProgress(1) ||\n        !countsForPhysicalDamageProgress(0x3fff) ||\n        countsForPhysicalDamageProgress(0) ||\n        countsForPhysicalDamageProgress(0x4000) ||\n        countsForPhysicalDamageProgress(0x8001) ||\n        countPhysicalDamageProgressCells(words) != 2) {\n        return 1;\n    }\n\n    std::cout << "core_progress=ok destruction=1 physical=2\\n";\n    return 0;\n}\n''')
+
+          cmake_path = Path('CMakeLists.txt')
+          cmake = cmake_path.read_text()
+          old_target = '''add_executable(lezac_cpp src/main.cpp)\ntarget_compile_definitions(lezac_cpp PRIVATE SDL_MAIN_HANDLED)\ntarget_include_directories(lezac_cpp PRIVATE ${SDL2_INCLUDE_DIRS})\ntarget_link_directories(lezac_cpp PRIVATE ${SDL2_LIBRARY_DIRS})\ntarget_link_libraries(lezac_cpp PRIVATE ${SDL2_LIBRARIES})\ntarget_compile_options(lezac_cpp PRIVATE ${SDL2_CFLAGS_OTHER})\n'''
+          new_target = '''add_library(lezac_core STATIC\n    src/core/progress.cpp\n)\ntarget_include_directories(lezac_core PUBLIC\n    ${CMAKE_CURRENT_SOURCE_DIR}/src\n)\n\nadd_executable(lezac_cpp src/main.cpp)\ntarget_compile_definitions(lezac_cpp PRIVATE SDL_MAIN_HANDLED)\ntarget_include_directories(lezac_cpp PRIVATE ${SDL2_INCLUDE_DIRS})\ntarget_link_directories(lezac_cpp PRIVATE ${SDL2_LIBRARY_DIRS})\ntarget_link_libraries(lezac_cpp PRIVATE lezac_core ${SDL2_LIBRARIES})\ntarget_compile_options(lezac_cpp PRIVATE ${SDL2_CFLAGS_OTHER})\n'''
+          if cmake.count(old_target) != 1:
+              raise SystemExit('CMake executable block not found exactly once')
+          cmake = cmake.replace(old_target, new_target, 1)
+
+          test_anchor = '''if(BUILD_TESTING)\n    find_package(Python3 COMPONENTS Interpreter QUIET)\n\n'''
+          test_block = '''if(BUILD_TESTING)\n    find_package(Python3 COMPONENTS Interpreter QUIET)\n\n    add_executable(lezac_core_progress_test tests/core/progress_test.cpp)\n    target_link_libraries(lezac_core_progress_test PRIVATE lezac_core)\n    add_test(NAME core_progress_helpers COMMAND lezac_core_progress_test)\n    set_tests_properties(core_progress_helpers PROPERTIES\n        PASS_REGULAR_EXPRESSION "^core_progress=ok destruction=1 physical=2")\n\n'''
+          if cmake.count(test_anchor) != 1:
+              raise SystemExit('CMake testing anchor not found exactly once')
+          cmake = cmake.replace(test_anchor, test_block, 1)
+          cmake_path.write_text(cmake)
+          PY
+      - name: Commit the split
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/apply-core-progress-split.yml
+          git add CMakeLists.txt src/app/app.cpp src/core tests/core
+          git commit -m "Extract core progress helpers into an independent library"
+          git push origin HEAD:refactor/modular-source-layout

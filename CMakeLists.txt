@@ -1844,7 +1844,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox
                     --cmake ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
-                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp)
         set_tests_properties(actor_update_runtime_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
@@ -1855,7 +1855,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_scanner_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox
                     --cmake ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
-                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp)
         set_tests_properties(contact_scanner_runtime_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
@@ -1866,7 +1866,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox
                     --cmake ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
-                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp)
         set_tests_properties(behavior4_runtime_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
@@ -1877,7 +1877,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox
                     --cmake ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
-                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp)
         set_tests_properties(visual_table_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
@@ -1897,7 +1897,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox
                     --cmake ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
-                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp)
         set_tests_properties(sound_callsite_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION

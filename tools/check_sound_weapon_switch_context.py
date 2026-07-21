@@ -156,7 +156,7 @@ def main() -> int:
     if rel16_target(executable, base, SOUND_LATCH_CALL) != SOUND_LATCH:
         raise RuntimeError("weapon-switch sound request no longer calls the priority latch")
 
-    source = root / "src" / "main.cpp"
+    source = root / "src" / "app" / "app.cpp"
     for snippet in [
         "constexpr uint8_t kWeaponSwitchHoldTicks = 5;",
         "constexpr uint16_t kWeaponSwitchSoundCursor = 0x0024;",

@@ -231,7 +231,7 @@ def main() -> int:
     args = parser.parse_args()
 
     root = args.repo_root.resolve()
-    check_source(root / "src" / "main.cpp")
+    check_source(root / "src" / "app" / "app.cpp")
     check_docs(root)
     check_cmake(root / "CMakeLists.txt")
     print(

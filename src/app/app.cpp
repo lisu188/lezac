@@ -21,7 +21,13 @@
 #include <utility>
 #include <vector>
 
+#include "core/progress.hpp"
+
 namespace {
+
+using lezac::core::countPhysicalDamageProgressCells;
+using lezac::core::countsForDestructionProgress;
+using lezac::core::countsForPhysicalDamageProgress;
 
 constexpr int kScreenW = 320;
 constexpr int kScreenH = 200;
@@ -361,19 +367,6 @@ struct Level {
     int startingObjectiveTiles = 0;
     int startingDestructibleTiles = 0;
 };
-
-bool countsForDestructionProgress(uint8_t tile, uint8_t objectiveTile) {
-    return tile > 1 && tile != 0xff && tile != objectiveTile;
-}
-
-bool countsForPhysicalDamageProgress(uint16_t word) {
-    return word != 0 && (word & kDamagedWordBit) == 0 && word < kDeferredThreshold;
-}
-
-int countPhysicalDamageProgressCells(const std::vector<uint16_t>& words) {
-    return static_cast<int>(std::count_if(words.begin(), words.end(),
-                                          countsForPhysicalDamageProgress));
-}
 
 struct Record {
     uint32_t score = 0;

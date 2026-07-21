@@ -9,11 +9,18 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL2 REQUIRED sdl2)
 
+add_library(lezac_core STATIC
+    src/core/progress.cpp
+)
+target_include_directories(lezac_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
 add_executable(lezac_cpp src/main.cpp)
 target_compile_definitions(lezac_cpp PRIVATE SDL_MAIN_HANDLED)
 target_include_directories(lezac_cpp PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_directories(lezac_cpp PRIVATE ${SDL2_LIBRARY_DIRS})
-target_link_libraries(lezac_cpp PRIVATE ${SDL2_LIBRARIES})
+target_link_libraries(lezac_cpp PRIVATE lezac_core ${SDL2_LIBRARIES})
 target_compile_options(lezac_cpp PRIVATE ${SDL2_CFLAGS_OTHER})
 
 if(WIN32)
@@ -115,6 +122,12 @@ include(CTest)
 
 if(BUILD_TESTING)
     find_package(Python3 COMPONENTS Interpreter QUIET)
+
+    add_executable(lezac_core_progress_test tests/core/progress_test.cpp)
+    target_link_libraries(lezac_core_progress_test PRIVATE lezac_core)
+    add_test(NAME core_progress_helpers COMMAND lezac_core_progress_test)
+    set_tests_properties(core_progress_helpers PROPERTIES
+        PASS_REGULAR_EXPRESSION "^core_progress=ok destruction=1 physical=2")
 
     add_test(NAME validate_assets COMMAND $<TARGET_FILE:lezac_cpp> --validate)
     set_tests_properties(validate_assets PROPERTIES

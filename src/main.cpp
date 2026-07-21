@@ -259,6 +259,21 @@ struct LevelIntroState {
     LevelIntroPattern pattern;
 };
 
+// Level-completion banner sequence (original routine at file 0x24d3):
+// typed lines over the live gameplay frame, a score count-up per player, then
+// a blocking key wait before the level byte increments.
+struct LevelOutroState {
+    bool active = false;
+    uint32_t startedAt = 0;
+    int destBonus = 0;
+    std::array<int, 2> bombBonus{{0, 0}};
+    std::array<bool, 2> playerActive{{false, false}};
+    std::array<int, 2> awarded{{0, 0}};
+    bool typingSkipped = false;
+    uint32_t typingSkipAt = 0;
+    bool awaitKey = false;
+};
+
 using Palette = std::array<Rgb, 256>;
 
 struct IndexedImage {
@@ -17177,6 +17192,72 @@ public:
                   << " out=" << outDir << "\n";
     }
 
+    // Drive the interactive level-completion banner sequence deterministically
+    // and dump frames for pixel comparison against original DOSBox captures.
+    void debugLevelOutro(const std::string& outDir) {
+        load();
+        initSdl();
+        resetLevel(0);
+        interactiveLevelIntroEnabled_ = true;
+        levelIntro_ = {};
+        menu_ = false;
+        collectAllObjectiveTilesForSmoke();
+        damageRequiredTilesForSmoke();
+        if (!isComplete()) {
+            throw std::runtime_error("level outro debug could not complete level 1");
+        }
+        const uint32_t before = score_;
+        updateLevelCompletion();
+        if (!levelOutro_.active) {
+            throw std::runtime_error("level outro did not activate on completion");
+        }
+        const int expectedBomb = bombInventory_.counts[1] * 100 +
+                                 bombInventory_.counts[2] * 500 +
+                                 bombInventory_.counts[3] * 2000;
+        if (levelOutro_.bombBonus[0] != expectedBomb) {
+            throw std::runtime_error("level outro bomb bonus mismatch");
+        }
+        if (!outDir.empty()) std::filesystem::create_directories(outDir);
+        const std::vector<OutroSegment> segs = levelOutroSchedule();
+        const uint32_t total = segs.back().end;
+        // Walk the schedule virtually by adjusting startedAt so the sequence
+        // is deterministic regardless of wall-clock time.
+        const uint32_t base = SDL_GetTicks();
+        auto renderAt = [&](uint32_t t, const char* name) {
+            levelOutro_.startedAt = base - t;
+            updateLevelOutro(base);
+            inspectRenderedFrame(std::string("level-outro-") + name);
+            if (!outDir.empty()) {
+                writeArgbPpm(joinPath(outDir, std::string(name) + ".ppm"), fb_,
+                             kScreenW, kScreenH);
+            }
+        };
+        renderAt(400, "010_pause");
+        renderAt(500 + 9 * kLevelIntroCharacterDelayMs, "020_line1_typing");
+        renderAt(total, "030_full");
+        if (!levelOutro_.awaitKey) {
+            throw std::runtime_error("level outro did not reach key wait");
+        }
+        const uint32_t awarded = score_ - before;
+        const int destBonus = levelOutro_.destBonus;
+        const uint32_t expected = static_cast<uint32_t>(destBonus + expectedBomb);
+        if (awarded != expected) {
+            throw std::runtime_error("level outro award mismatch");
+        }
+        bool running = true;
+        onKey(SDLK_SPACE, running);
+        if (levelOutro_.active || levelIndex_ != 1) {
+            throw std::runtime_error("level outro key did not advance the level");
+        }
+        std::cout << "level_outro=ok lines=4 delay_ms="
+                  << kLevelIntroCharacterDelayMs
+                  << " dest_bonus=" << destBonus
+                  << " bomb_bonus=" << expectedBomb
+                  << " awarded=" << awarded
+                  << " key_advance=1 next_level=" << (levelIndex_ + 1)
+                  << " original_runtime_claim=0\n";
+    }
+
     // One two-player level-1 start frame, for pixel comparison against an
     // original two-player DOSBox capture.
     void captureTwoPlayerFrame(const std::string& outPath) {
@@ -17551,6 +17632,7 @@ private:
     bool bossDefeated_ = false;
     bool interactiveLevelIntroEnabled_ = false;
     LevelIntroState levelIntro_;
+    LevelOutroState levelOutro_;
     std::vector<BonusDrop> bonusDrops_;
     std::vector<Bomb> bombs_;
     std::vector<Flash> flashes_;
@@ -17718,6 +17800,7 @@ private:
 
     void resetLevel(int index) {
         levelIntro_ = {};
+        levelOutro_ = {};
         ++levelResetGeneration_;
         levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
         level_ = levels_[levelIndex_];
@@ -17889,6 +17972,23 @@ private:
                 paused_ = false;
                 menu_ = true;
                 menuPage_ = MenuPage::Main;
+            }
+            return;
+        }
+        if (levelOutro_.active) {
+            if (levelOutro_.awaitKey) {
+                finishLevelOutro();
+            } else {
+                // The original renderer consumes one key to finish the
+                // current line's remaining typing; jump to the end of the
+                // typing segment in progress.
+                const uint32_t elapsed = SDL_GetTicks() - levelOutro_.startedAt;
+                for (const OutroSegment& seg : levelOutroSchedule()) {
+                    if (seg.typing && elapsed >= seg.start && elapsed < seg.end) {
+                        levelOutro_.startedAt -= (seg.end - elapsed);
+                        break;
+                    }
+                }
             }
             return;
         }
@@ -18502,8 +18602,202 @@ private:
             launchPadMarkers_.end());
     }
 
+    // One banner line of the level-completion sequence (original routine at
+    // file 0x24d3): text, glyph cell advance, palette colours and row.
+    struct OutroLine {
+        std::string text;
+        int cell;
+        uint8_t glyphColor;
+        uint8_t shadowColor;
+        int y;
+        int player;  // -1 for shared lines; 0/1 for the per-player lines
+    };
+
+    // The measured original sequence: "livello completato" (cell 11, white 31
+    // on grey-25 shadow, y=60), "bonus distruzione; N" (cell 9, green 244 on
+    // dark-green 241, y=81), "bomba bonus" (cell 9, green 244 on grey 25,
+    // y=99), then one "giocatore I   B" line per active player (cell 9, white
+    // 31 on magenta 13, y=120, +11 per line). The stored strings render ';'
+    // as ':' through the original glyph set. English variants from the
+    // language table at file 0xCB1A/0xCA1A/0xC91A ("bomba bonus" is an inline
+    // code constant shared by both languages).
+    std::vector<OutroLine> levelOutroLines() const {
+        std::vector<OutroLine> lines;
+        const bool it = menuItalian_;
+        lines.push_back({it ? "LIVELLO COMPLETATO" : "LEVEL COMPLETED",
+                         11, 31, 25, 60, -1});
+        lines.push_back({(it ? std::string("BONUS DISTRUZIONE: ")
+                             : std::string("DESTRUCTION BONUS: ")) +
+                             std::to_string(levelOutro_.destBonus),
+                         9, 244, 241, 81, -1});
+        lines.push_back({"BOMBA BONUS", 9, 244, 25, 99, -1});
+        int y = 120;
+        for (int i = 0; i < 2; ++i) {
+            if (!levelOutro_.playerActive[static_cast<size_t>(i)]) continue;
+            lines.push_back({(it ? std::string("GIOCATORE ")
+                                 : std::string("PLAYER ")) +
+                                 std::to_string(i + 1) + "   " +
+                                 std::to_string(levelOutro_.bombBonus[
+                                     static_cast<size_t>(i)]),
+                             9, 31, 13, y, i});
+            y += 11;
+        }
+        return lines;
+    }
+
+    // Sequential phase boundaries in ms since the outro started: an initial
+    // 500ms pause, each line typed at the original 81ms/char, and after each
+    // per-player line a score count-up (100 points per 15ms tick, matching
+    // the original's 15ms Delay per step) plus a 200ms pause.
+    struct OutroSegment {
+        uint32_t start;
+        uint32_t end;
+        int line;    // index into levelOutroLines(), -1 for pauses/count-ups
+        int player;  // count-up player index, -1 otherwise
+        bool typing;
+    };
+
+    std::vector<OutroSegment> levelOutroSchedule() const {
+        std::vector<OutroSegment> segs;
+        const std::vector<OutroLine> lines = levelOutroLines();
+        uint32_t t = 500;
+        for (size_t k = 0; k < lines.size(); ++k) {
+            const uint32_t dur =
+                static_cast<uint32_t>(lines[k].text.size()) *
+                kLevelIntroCharacterDelayMs;
+            segs.push_back({t, t + dur, static_cast<int>(k), -1, true});
+            t += dur;
+            if (lines[k].player >= 0) {
+                const int total = levelOutro_.destBonus +
+                                  levelOutro_.bombBonus[
+                                      static_cast<size_t>(lines[k].player)];
+                const uint32_t count =
+                    static_cast<uint32_t>((total + 99) / 100) * 15u;
+                segs.push_back({t, t + count, -1, lines[k].player, false});
+                t += count;
+                segs.push_back({t, t + 200, -1, -1, false});
+                t += 200;
+            }
+        }
+        return segs;
+    }
+
+    void beginLevelOutro() {
+        levelOutro_ = {};
+        levelOutro_.active = true;
+        levelOutro_.startedAt = SDL_GetTicks();
+        // The original scores the destruction counter x10 and the remaining
+        // bombs at 100/500/2000 points for medium/big/super (smalls score
+        // nothing) -- verified against a live completion (inventory 200/20/6/0
+        // showed and awarded exactly 5000).
+        levelOutro_.destBonus = destructionPercent() * 10;
+        levelOutro_.playerActive[0] = !playerDead_ || lives_ > 0;
+        levelOutro_.playerActive[1] =
+            playerCount_ > 1 && (!player2Dead_ || lives2_ > 0);
+        auto bombScore = [](const BombInventory& inv) {
+            return inv.counts[1] * 100 + inv.counts[2] * 500 +
+                   inv.counts[3] * 2000;
+        };
+        levelOutro_.bombBonus[0] = bombScore(bombInventory_);
+        levelOutro_.bombBonus[1] = bombScore(bombInventory2_);
+        // Original: sound cursor 0x3d priority 10 as the banner opens.
+        requestSoundCursor(0x3d, 10);
+    }
+
+    void updateLevelOutro(uint32_t now) {
+        if (!levelOutro_.active || levelOutro_.awaitKey) return;
+        const uint32_t elapsed = now - levelOutro_.startedAt;
+        const std::vector<OutroSegment> segs = levelOutroSchedule();
+        for (const OutroSegment& seg : segs) {
+            if (seg.player < 0) continue;
+            const size_t p = static_cast<size_t>(seg.player);
+            const int total = levelOutro_.destBonus + levelOutro_.bombBonus[p];
+            int target = 0;
+            if (elapsed >= seg.end) {
+                target = total;
+            } else if (elapsed > seg.start) {
+                target = std::min(
+                    total, static_cast<int>((elapsed - seg.start) / 15) * 100);
+            }
+            int delta = target - levelOutro_.awarded[p];
+            if (delta > 0) {
+                levelOutro_.awarded[p] = target;
+                if (p == 0) score_ += static_cast<uint32_t>(delta);
+                else score2_ += static_cast<uint32_t>(delta);
+                // Original: Random(4) > 2 requests sound cursor 0x21 per tick.
+                if (randomRangeValue(0, 4) > 2) requestSoundCursor(0x21, 10);
+            }
+        }
+        if (!segs.empty() && elapsed >= segs.back().end) {
+            levelOutro_.awaitKey = true;
+        }
+    }
+
+    void finishLevelOutro() {
+        // Ensure the full bonus landed even if count-up frames were skipped.
+        for (size_t p = 0; p < 2; ++p) {
+            if (!levelOutro_.playerActive[p]) continue;
+            int total = levelOutro_.destBonus + levelOutro_.bombBonus[p];
+            int delta = total - levelOutro_.awarded[p];
+            if (delta > 0) {
+                if (p == 0) score_ += static_cast<uint32_t>(delta);
+                else score2_ += static_cast<uint32_t>(delta);
+            }
+        }
+        levelOutro_ = {};
+        if (isFinalLevel()) {
+            beginEndRun(EndReason::CompletedGame);
+        } else {
+            beginLevelForPlay(levelIndex_ + 1);
+        }
+    }
+
+    void drawLevelOutro() {
+        if (!levelOutro_.active) return;
+        const uint32_t elapsed = SDL_GetTicks() - levelOutro_.startedAt;
+        const std::vector<OutroLine> lines = levelOutroLines();
+        const std::vector<OutroSegment> segs = levelOutroSchedule();
+        for (const OutroSegment& seg : segs) {
+            if (!seg.typing || seg.line < 0 || elapsed <= seg.start) continue;
+            const OutroLine& line = lines[static_cast<size_t>(seg.line)];
+            size_t visible = line.text.size();
+            if (elapsed < seg.end) {
+                visible = std::min(
+                    visible, static_cast<size_t>((elapsed - seg.start) /
+                                                 kLevelIntroCharacterDelayMs));
+            }
+            // The 11px-cell headline uses the large font face; the 9px-cell
+            // lines use the small face (measured against the original banner).
+            const bool large = line.cell == 11;
+            int x = kScreenW / 2 -
+                    static_cast<int>(line.text.size()) * line.cell / 2;
+            for (size_t i = 0; i < visible; ++i, x += line.cell) {
+                const int glyphIndex = fontGlyphIndex(line.text[i], large);
+                if (glyphIndex < 0 ||
+                    glyphIndex >= static_cast<int>(fontSprites_.sprites.size())) {
+                    continue;
+                }
+                const Sprite& glyph =
+                    fontSprites_.sprites[static_cast<size_t>(glyphIndex)];
+                drawFontSprite(x - 1, line.y - 1, glyph,
+                               argb(palette_, line.shadowColor), large);
+                drawFontSprite(x, line.y, glyph,
+                               argb(palette_, line.glyphColor), large);
+            }
+        }
+    }
+
     void updateLevelCompletion() {
         if (isComplete()) {
+            // Interactive play runs the recovered original completion-banner
+            // sequence (typed lines, score count-up, key wait). The
+            // deterministic test/autoplayer path keeps the immediate timed
+            // advance.
+            if (interactiveLevelIntroEnabled_) {
+                if (!levelOutro_.active) beginLevelOutro();
+                updateLevelOutro(SDL_GetTicks());
+                return;
+            }
             if (completeTimer_ == 0) {
                 playCompatibilitySound(kLevelCompleteCompatibilityHookSlot);
             }
@@ -20439,6 +20733,7 @@ private:
             drawViewFrame(0, kScreenW, 0xffffffffu, 0xffb6b6b6u);
         }
         drawHud();
+        drawLevelOutro();
         if (paused_) drawPauseOverlay();
     }
 
@@ -20930,7 +21225,7 @@ private:
                                 bombInventory2_);
             drawHudObjectivePanel();
         }
-        if (isComplete()) {
+        if (isComplete() && !levelOutro_.active) {
             rect(76, 84, 168, 24, 0xee000000u);
             text(92, 92, "LEVEL COMPLETED", 0xffffe060u, false, 0xff301800u);
         }
@@ -21834,6 +22129,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--capture-two-player-frame") {
             app.captureTwoPlayerFrame(argv[2]);
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-level-outro") {
+            app.debugLevelOutro(argc > 2 ? argv[2] : "");
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-two-player-hud-panel") {

@@ -3487,6 +3487,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^level_intro=ok stripes=7 palette=176-182 exact_hash=0x85e10db60f7e89f9 exact_pixels=55025 caption_pixels=980 delay_ms=81 level_varies=1 live_flow=1 input_skip=1 escape_menu=1 frame_inspection=1")
 
+    add_test(NAME level_outro
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-level-outro)
+    set_tests_properties(level_outro PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^level_outro=ok lines=4 delay_ms=81 dest_bonus=510 bomb_bonus=5000 awarded=5510 key_advance=1 next_level=2 original_runtime_claim=0")
+
     add_test(NAME all_levels_render
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-all-levels-render)

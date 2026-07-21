@@ -23,6 +23,36 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Recovered and reimplemented the original level-completion banner sequence
+  (routine at file 0x24d3), pixel-verified against a live original
+  completion.** Seeded a real completion in DOSBox while capturing frames and
+  DS snapshots, then decoded the routine from the disassembly. The original
+  types four centred banner lines over the live gameplay frame at the shared
+  81ms/char delay: "livello completato" (large font, 11px cells, white 31 on
+  grey-25 shadow at y=60), "bonus distruzione; N" (small font, 9px cells,
+  green 244 on dark-green 241 at y=81, N = destruction counter x10),
+  "bomba bonus" (green 244 on grey 25 at y=99) and one
+  "giocatore I   B" line per active player (white 31 on magenta 13 from
+  y=120, +11 per player); the stored strings render ';' as ':' and the
+  English variants live in the language table (file 0xCB1A/0xCA1A/0xC91A;
+  "bomba bonus" is an inline code constant shared by both languages). The
+  bomb bonus B reads the per-player 4-byte record at DS:0x1B69+4i as
+  medium*100 + big*500 + super*2000 (smalls score nothing) -- confirmed live:
+  inventory 200/20/6/0 displayed and awarded exactly 5000, matching the
+  decode byte-for-byte. The sequence opens with sound cursor 0x3d priority
+  10 after a 500ms pause, counts the award into the score at 15ms ticks
+  (Random(4)>2 requesting sound cursor 0x21 per tick), pauses 200ms per
+  player, then blocks on ReadKey before incrementing the level byte. The
+  port now runs this sequence for interactive play (a key finishes the
+  current line's typing, exactly like the original renderer), while the
+  deterministic test/autoplayer path keeps the timed advance. Pixel diff of
+  the port's banner against the original capture: every port text pixel
+  matches on all four lines (the only residuals are world sprites the
+  colour filter picks up). All banner colours are BOMPAL entries
+  (13/25/31/241/244 match the measured DAC values exactly). New
+  `--debug-level-outro` diagnostic + `level_outro` ctest pin the sequence,
+  bonus arithmetic, award total and key advance.
+
 - **Verified the recovered camera/sky/world rendering against original
   captures of all seven level starts and extended the sky table to band 36.**
   The completion-seed technique advanced the original through every level in

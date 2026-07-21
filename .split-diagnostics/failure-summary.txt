@@ -1,0 +1,3 @@
+381/381 Test #381: ui_xdotool_xvfb ......................................................................***Failed    9.18 sec
+99% tests passed, 1 tests failed out of 381
+The following tests FAILED:

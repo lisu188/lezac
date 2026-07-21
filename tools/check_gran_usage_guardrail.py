@@ -61,7 +61,7 @@ def in_range(line_number: int, ranges: dict[str, tuple[int, int]]) -> bool:
 
 
 def check_source(root: Path) -> tuple[int, int, int, int, int]:
-    lines = (root / "src" / "main.cpp").read_text(encoding="utf-8").splitlines()
+    lines = (root / "src" / "app" / "app.cpp").read_text(encoding="utf-8").splitlines()
     ranges = function_ranges(lines)
     missing = [name for name in DEBUG_FUNCTIONS if name not in ranges]
     if missing:
@@ -216,7 +216,7 @@ def write_source(root: Path, live_line: str = "", include_debug: bool = True) ->
         else ""
     )
     write_text(
-        root / "src" / "main.cpp",
+        root / "src" / "app" / "app.cpp",
         "\n".join(
             (
                 "class Game {",

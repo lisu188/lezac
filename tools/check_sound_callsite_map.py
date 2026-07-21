@@ -145,7 +145,7 @@ def main() -> int:
     args = parser.parse_args()
 
     root = args.root.resolve()
-    source = read_text(root / "src" / "main.cpp")
+    source = read_text(root / "src" / "app" / "app.cpp")
     cmake = read_text(root / "CMakeLists.txt")
     readme = read_text(root / "README_RECONSTRUCTION.md")
     ghidra = read_text(root / "docs" / "GHIDRA_NOTES.md")

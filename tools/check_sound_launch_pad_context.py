@@ -228,7 +228,7 @@ def main() -> int:
     total, level6, level7 = check_level_tiles(root)
     check_tile_art(root)
 
-    source = root / "src" / "main.cpp"
+    source = root / "src" / "app" / "app.cpp"
     for snippet in [
         "constexpr uint8_t kLaunchPadTile = 0x27;",
         "constexpr uint16_t kLaunchPadSoundCursor = 0x0035;",

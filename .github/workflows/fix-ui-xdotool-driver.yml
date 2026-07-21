@@ -1,0 +1,38 @@
+name: Fix Xvfb UI driver
+
+on:
+  push:
+    branches:
+      - refactor/modular-source-layout
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/modular-source-layout
+          fetch-depth: 0
+      - run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('CMakeLists.txt')
+          text = path.read_text()
+          old = 'COMMAND ${CMAKE_COMMAND} -E env SDL_AUDIODRIVER=dummy\n                    ${XVFB_RUN_EXECUTABLE} -a'
+          new = 'COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=x11 SDL_AUDIODRIVER=dummy\n                    ${XVFB_RUN_EXECUTABLE} -a'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one Xvfb test command, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/fix-ui-xdotool-driver.yml
+          git rm -f .split-diagnostics/ui-xdotool-output.txt
+          git add CMakeLists.txt
+          git commit -m "Run the Xvfb UI smoke test with the X11 SDL driver"
+          git push origin HEAD:refactor/modular-source-layout

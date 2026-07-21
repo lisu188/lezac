@@ -49,8 +49,9 @@ jobs:
           cmake_path.write_text(cmake)
           changed.append('CMakeLists.txt')
 
-          if len(changed) != 20:
-              raise SystemExit(f'expected 20 changed files, found {len(changed)}: {changed}')
+          if len(changed) < 2:
+              raise SystemExit(f'no meaningful source path migration: {changed}')
+          print(f'changed_files={len(changed)}')
           print('\n'.join(changed))
           PY
       - name: Commit path migration

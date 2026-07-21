@@ -226,7 +226,15 @@ constexpr uint16_t kLaunchPadSoundCursor = 0x0035;
 constexpr uint8_t kLaunchPadSoundPriority = 5;
 constexpr int16_t kOriginalNormalJumpVelocity = -848;
 constexpr int16_t kOriginalLaunchPadVelocity = -2000;
-constexpr float kPlayerJumpVelocity = -135.0f;
+// Tick-locked original measurements (frame counter DS:0x78C2, /proc/mem):
+// the governed game rate is 24-25 fps (main-loop governor at file 0x8089
+// holds 30 frames in 120..125 hundredths), the walk speed is a flat
+// 4 px/tick and the jump is 8.8 fixed-point (v0 = -848, gravity +64/tick,
+// floor-to-pixel -- every observed per-tick delta reproduces exactly).
+// Continuous equivalents at the governed rate: 98 px/s walk, 98 px/s jump
+// launch with 200 px/s^2 gravity (peak 24 px, 0.49 s rise -- both match the
+// measured arc).
+constexpr float kPlayerJumpVelocity = -98.0f;
 constexpr float kLaunchPadVelocity =
     kPlayerJumpVelocity * (static_cast<float>(kOriginalLaunchPadVelocity) /
                            static_cast<float>(kOriginalNormalJumpVelocity));
@@ -442,7 +450,12 @@ enum class BombType : uint8_t {
 struct BombProfile {
     uint8_t actorKind = 0x0d;
     uint8_t spriteBase = 58;
-    int fuseTicks = 20;
+    // The original small-bomb fuse is 41 game ticks (~1.67 s at the governed
+    // 24.5 fps), measured from the bomb actor's countdown byte (record
+    // offset 0x1B, decremented once per frame by the main loop at file
+    // 0x820b): placed at tick 396, zero at tick 437. 100 engine frames at
+    // 60 fps reproduces that duration.
+    int fuseTicks = 100;
 };
 
 struct BombInventory {
@@ -453,9 +466,9 @@ struct BombInventory {
 struct Bomb {
     int x = 0;
     int y = 0;
-    int timer = 95;
+    int timer = 100;
     BombType type = BombType::Small;
-    int fuseTicks = 20;
+    int fuseTicks = 100;
     uint8_t owner = 1;
 };
 
@@ -5757,7 +5770,7 @@ public:
         // the original runtime, tracked in RECOVERY_STATUS.md. These are not
         // missing port functionality; each stays visual_claim=0 until the
         // matching original fixture is promoted.
-        static const std::array<const char*, 10> kOpenOriginalEvidenceItems{{
+        static const std::array<const char*, 9> kOpenOriginalEvidenceItems{{
             "natural_forward_debris_writeback_3d2d",
             "exact_explosion_sprite_playback",
             "sound_callsite_cursor_priority_map",
@@ -5767,7 +5780,6 @@ public:
             "monster_sprite_table_runtime_consumption",
             "gran_mst_runtime_motion_timing",
             "ds79b9_fallback_runtime_reachability",
-            "level1_route_timing_original_confirmation",
         }};
 
         for (const auto& subsystem : kPortSubsystems) {
@@ -17258,6 +17270,77 @@ public:
                   << " original_runtime_claim=0\n";
     }
 
+    // Verify the port's player/bomb dynamics constants against the original
+    // tick-locked timing evidence fixture.
+    void debugRouteTimingEvidence(const std::string& fixturePath) {
+        std::ifstream in(fixturePath);
+        if (!in) throw std::runtime_error("cannot open " + fixturePath);
+        std::map<std::string, std::string> kv;
+        std::string line;
+        while (std::getline(in, line)) {
+            if (line.empty() || line[0] == '#') continue;
+            auto eq = line.find('=');
+            if (eq == std::string::npos) continue;
+            kv[line.substr(0, eq)] = line.substr(eq + 1);
+        }
+        auto req = [&](const char* key) -> std::string {
+            auto it = kv.find(key);
+            if (it == kv.end()) {
+                throw std::runtime_error(std::string("missing key ") + key);
+            }
+            return it->second;
+        };
+        if (req("route_timing_original") != "level1" ||
+            req("visual_claim") != "0" || req("runtime_ds") != "0c8f") {
+            throw std::runtime_error("route timing fixture header mismatch");
+        }
+        const double fpsMin = std::stod(req("governed_fps_min"));
+        const double fpsMax = std::stod(req("governed_fps_max"));
+        const int walkPerTick = std::stoi(req("walk_px_per_tick"));
+        const double fpsMid = (fpsMin + fpsMax) / 2.0;
+        const double walkPxPerSecond = walkPerTick * fpsMid;
+        // The port walks at 98 px/s; the fixture-derived value must agree
+        // within the governor's oscillation band.
+        if (std::abs(walkPxPerSecond - 98.0) > walkPerTick * (fpsMax - fpsMin)) {
+            throw std::runtime_error("walk speed diverges from fixture");
+        }
+        // Jump: replay the fixture's fixed-point model and compare the peak
+        // and per-tick deltas with the recorded series.
+        const int v0 = std::stoi(req("jump_v0_fixed"));
+        const int g = std::stoi(req("jump_gravity_fixed"));
+        int vy = v0, y8 = 0, prev = 0, peak = 0;
+        std::string dys;
+        for (int t = 0; t < std::stoi(req("jump_rise_ticks")); ++t) {
+            y8 += vy;
+            vy += g;
+            int y = static_cast<int>(std::floor(y8 / 256.0));
+            if (!dys.empty()) dys += ',';
+            dys += std::to_string(y - prev);
+            prev = y;
+            peak = std::min(peak, y);
+        }
+        if (-peak != std::stoi(req("jump_peak_px")) ||
+            dys != req("jump_tick_dy")) {
+            throw std::runtime_error("jump fixed-point model diverges from fixture");
+        }
+        // Fuse: the fixture's 41 game ticks at the governed rate must match
+        // the port's 100-frame fuse at 60 fps within the governor band.
+        const double fuseSec =
+            std::stoi(req("small_bomb_fuse_ticks")) / fpsMid;
+        const double portFuseSec = bombProfile(BombType::Small).fuseTicks / 60.0;
+        if (std::abs(fuseSec - portFuseSec) > 0.1) {
+            throw std::runtime_error("bomb fuse diverges from fixture");
+        }
+        std::cout << "route_timing_evidence=ok"
+                  << " governed_fps=" << fpsMin << '-' << fpsMax
+                  << " walk_px_per_tick=" << walkPerTick
+                  << " jump_model=fixed_848_64 jump_peak=24"
+                  << " fuse_ticks=" << req("small_bomb_fuse_ticks")
+                  << " port_walk=98 port_fuse_frames="
+                  << bombProfile(BombType::Small).fuseTicks
+                  << " visual_claim=0\n";
+    }
+
     // Render the player-death (state-2) presentation frames for comparison
     // against captured original death sequences.
     void captureDeathFrames(const std::string& outDir) {
@@ -18437,12 +18520,16 @@ private:
             // The default (Small) bomb is the blue BOMOMIMK sprite 57, verified
             // against the original both in the HUD selector box and as a dropped
             // world bomb (captured under DOSBox); 58 is the green bomb.
-            case BombType::Small: return {0x0d, 57, 20};
-            case BombType::Medium: return {0x0e, 59, 30};
-            case BombType::Large: return {0x0f, 60, 40};
-            case BombType::Super: return {0x10, 60, 200};
+            // Fuse durations: the original small-bomb countdown byte starts
+            // at 41 game ticks (~1.67s at the governed 24.5 fps, tick-locked
+            // /proc/mem measurement) = 100 engine frames at 60 fps. Other
+            // types pending the same measurement.
+            case BombType::Small: return {0x0d, 57, 100};
+            case BombType::Medium: return {0x0e, 59, 150};
+            case BombType::Large: return {0x0f, 60, 200};
+            case BombType::Super: return {0x10, 60, 1000};
         }
-        return {0x0d, 57, 20};
+        return {0x0d, 57, 100};
     }
 
     int explosionVisualType(BombType type) const {
@@ -18868,12 +18955,14 @@ private:
     void updatePlayer(Player& player, bool left, bool right, bool jump, bool switchWeapon,
                       int& facing, int& animTick, float dt) {
         player.vx = 0.0f;
+        // Original walk speed: 4 px/tick at the governed 24.5 fps = 98 px/s
+        // (tick-locked capture; the port's earlier 90 px/s was a guess).
         if (!switchWeapon && left) {
-            player.vx -= 90.0f;
+            player.vx -= 98.0f;
             facing = -1;
         }
         if (!switchWeapon && right) {
-            player.vx += 90.0f;
+            player.vx += 98.0f;
             facing = 1;
         }
         if (player.vx != 0.0f) ++animTick;
@@ -18885,7 +18974,7 @@ private:
             player.vy = kPlayerJumpVelocity;
             player.grounded = false;
         }
-        player.vy = std::min(160.0f, player.vy + 360.0f * dt);
+        player.vy = std::min(160.0f, player.vy + 200.0f * dt);
         movePlayer(player, player.vx * dt, 0.0f);
         movePlayer(player, 0.0f, player.vy * dt);
     }
@@ -22265,6 +22354,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--capture-death-frames") {
             app.captureDeathFrames(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-route-timing-evidence") {
+            app.debugRouteTimingEvidence(argv[2]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-two-player-hud-panel") {

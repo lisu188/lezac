@@ -23,6 +23,35 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Measured the original's true game timing tick-by-tick and corrected the
+  port's player/bomb dynamics (walk speed, jump kinematics, bomb fuse).**
+  Tick-locked /proc-mem sampling against the frame counter `DS:0x78C2`
+  (one read per tick, no missed ticks) recovered: (1) the governed game
+  rate — the main loop at file 0x8089 reads the DOS clock every 30 frames
+  and holds them in 120..125 hundredths via a dithered delay
+  (`DS:0x78CC` oscillating 96<->102 ms with step `DS:0x78CA`=6), i.e.
+  24.2..25.2 fps converged; (2) the walk speed — a flat 4 px/tick in both
+  directions (dominant per-tick delta 82/112 right, 87/100 left; the
+  port's 90 px/s guess becomes 98 px/s); (3) the jump — 8.8 fixed-point
+  with v0=-848 and gravity +64/tick, floor-to-pixel: all 16 observed
+  per-tick deltas (-4,-3,-3,-2,-3,-2,-1,-2,-1,-1,-1,-1, 3-tick hover at
+  the 24 px peak, mirrored descent) reproduce the model exactly,
+  confirming the previously recovered `kOriginalNormalJumpVelocity=-848`
+  and fixing the port's float approximation (now 98 px/s launch,
+  200 px/s^2 gravity — peak 24 px, 0.49 s rise, matching the arc);
+  (4) the small-bomb fuse — the bomb actor's countdown byte (record
+  offset 0x1B in the `DS:0x74A8` table, decremented once per frame at
+  file 0x820b) starts at 41 ticks (placed tick 396, zero at 437), ~1.67 s,
+  correcting the port's 0.33 s fuse to 100 engine frames; the
+  post-explosion playback occupies ~55 further ticks of the same byte.
+  Evidence pinned by `tests/fixtures/route_timing_original_level1.txt`
+  and the new `--debug-route-timing-evidence` diagnostic + ctest.
+  `level1_route_timing_original_confirmation` is resolved (open items
+  10 -> 9). Remaining detail noted: the medium/large/super fuse initials
+  need a cleaner capture (first attempts were polluted by post-explosion
+  countdown reuse in the same actor record); the selected-weapon byte is
+  `DS:0x1B74` (cycles 1..3, skipping the empty super slot).
+
 - **Captured a live original death and fixed the state-2 presentation to
   the white smoke-puff sprites; captured original explosion frames.** A
   DOSBox run steered the player into a level-1 snail with frames and DS

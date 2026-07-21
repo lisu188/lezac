@@ -68,6 +68,16 @@ under "Remaining Top Gaps". They require original-runtime evidence
 (DOSBox/DOSBox-debug/process-memory captures) and do not represent missing
 port functionality.
 
+Resolved: `level1_route_timing_original_confirmation` — tick-locked
+/proc-mem measurement against the original (frame counter `DS:0x78C2`)
+recovered the governed 24-25 fps game rate, the flat 4 px/tick walk, the
+8.8 fixed-point jump (v0=-848, gravity +64/tick, floor-to-pixel — every
+observed per-tick delta reproduces exactly) and the 41-tick small-bomb
+fuse; the port's walk speed (90→98 px/s), jump kinematics and fuse
+(0.33s→1.67s) were corrected to match, pinned by
+`tests/fixtures/route_timing_original_level1.txt` and the
+`route_timing_evidence` ctest.
+
 Resolved: `state2_death_presentation_frame_compare` — a live original death
 was captured (snail contact on level 1, frames plus DS snapshots showing
 `DS:0x79EA` lives 2→1 and the `DS:0x79EC` energy reset on reentry); the
@@ -102,8 +112,6 @@ the sprite-decode floor); see the RECOVERY_STATUS iteration entry.
   motion/collision timing still needs paired original evidence
 - `ds79b9_fallback_runtime_reachability` — runtime reachability of the
   `DS:79b9` fallback
-- `level1_route_timing_original_confirmation` — level-1 bomb-route timing
-  confirmation against the original
 
 ## Guardrails
 

@@ -23,6 +23,23 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Characterized the level-5 parallax city backdrop (behavioural spec
+  complete; artwork source still to locate).** Fresh level-5 captures at
+  three camera positions (rest/jump/walk, with DS snapshots) show the
+  under-horizon region is a separate parallax background layer: it scrolls
+  at camX/4 horizontally (a 209px camera move shifts the skyline exactly 52px,
+  98.2% pixel match) and camY/8 vertically (the water-band boundary tracks
+  camY/8 across all frames), drawn where both level planes are empty
+  (`--debug-level-plane-rect` confirms tile and word layers are zero there).
+  The artwork -- dark (0,0,56) night sky, building silhouettes, (81,81,81)
+  twinkling stars (the only cross-run difference: 27/3504 pixels, star dots
+  toggling), and a 4-band water ramp (32,65,32/40/48/56) -- is deterministic
+  data, identical across independent DOSBox runs, and is neither SFONLEF.ZBG
+  (title art), the level tile planes, nor a quarter-scale silhouette of the
+  level map (63% match, rejected). Levels 1-4/6/7 use the plain gradient
+  table (verified earlier); only level 5's deep region differs. Remaining:
+  locate the skyline artwork/generator in the EXE and port it.
+
 - **Decoded the original camera-scroll routine and made the port's camera
   tile-quantized like the original.** The main loop (file 0x8158) passes the
   player visual entry `DS:0xC21E/0xC220` to the scroll routine at file

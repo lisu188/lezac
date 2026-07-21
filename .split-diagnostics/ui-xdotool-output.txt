@@ -1,0 +1,27 @@
+Internal ctest changing into directory: /home/runner/work/lezac/lezac/build
+UpdateCTestConfiguration  from :/home/runner/work/lezac/lezac/build/DartConfiguration.tcl
+Parse Config file:/home/runner/work/lezac/lezac/build/DartConfiguration.tcl
+UpdateCTestConfiguration  from :/home/runner/work/lezac/lezac/build/DartConfiguration.tcl
+Parse Config file:/home/runner/work/lezac/lezac/build/DartConfiguration.tcl
+Test project /home/runner/work/lezac/lezac/build
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 381
+    Start 381: ui_xdotool_xvfb
+
+381: Test command: /usr/local/bin/cmake "-E" "env" "SDL_AUDIODRIVER=dummy" "/usr/bin/xvfb-run" "-a" "/usr/bin/bash" "/home/runner/work/lezac/lezac/tools/test_ui_xdotool.sh" "/home/runner/work/lezac/lezac/build/lezac_cpp"
+381: Working Directory: /home/runner/work/lezac/lezac
+381: Test timeout computed to be: 1500
+381: ui_xdotool=ok
+1/1 Test #381: ui_xdotool_xvfb ..................   Passed    8.56 sec
+
+The following tests passed:
+	ui_xdotool_xvfb
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   8.66 sec

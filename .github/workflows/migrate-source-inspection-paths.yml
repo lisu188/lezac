@@ -1,0 +1,63 @@
+name: Migrate source inspection paths
+
+on:
+  push:
+    branches:
+      - refactor/modular-source-layout
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/modular-source-layout
+          fetch-depth: 0
+      - name: Update source-aware checks
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          changed = []
+          for path in sorted(Path('tools').glob('*.py')):
+              text = path.read_text()
+              updated = text
+              updated = updated.replace('default_repo_root() / "src" / "main.cpp"',
+                                        'default_repo_root() / "src" / "app" / "app.cpp"')
+              updated = updated.replace('root / "src" / "main.cpp"',
+                                        'root / "src" / "app" / "app.cpp"')
+              updated = updated.replace('"src/main.cpp"', '"src/app/app.cpp"')
+              updated = updated.replace("'src/main.cpp'", "'src/app/app.cpp'")
+              updated = updated.replace('help="src/main.cpp path',
+                                        'help="src/app/app.cpp path')
+              if updated != text:
+                  path.write_text(updated)
+                  changed.append(str(path))
+
+          cmake_path = Path('CMakeLists.txt')
+          cmake = cmake_path.read_text()
+          old = '--source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)'
+          count = cmake.count(old)
+          if count != 5:
+              raise SystemExit(f'expected 5 CMake source arguments, found {count}')
+          cmake = cmake.replace(old,
+                                '--source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp)')
+          cmake_path.write_text(cmake)
+          changed.append('CMakeLists.txt')
+
+          if len(changed) != 20:
+              raise SystemExit(f'expected 20 changed files, found {len(changed)}: {changed}')
+          print('\n'.join(changed))
+          PY
+      - name: Commit path migration
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/migrate-source-inspection-paths.yml
+          git add CMakeLists.txt tools
+          git commit -m "Point source guardrails at the relocated app implementation"
+          git push origin HEAD:refactor/modular-source-layout

@@ -23,6 +23,28 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Captured a live original death and fixed the state-2 presentation to
+  the white smoke-puff sprites; captured original explosion frames.** A
+  DOSBox run steered the player into a level-1 snail with frames and DS
+  snapshots every ~0.15s: `DS:0x79EA` is the lives byte (2->1 on death),
+  `DS:0x79EC` the energy byte (reset to 100 on reentry), and the death
+  presentation is the white smoke-puff sequence -- BOMOMIMK sprites 73..78
+  (puff, grow, disperse, ring, wisps) -- confirming a +6 bank rebase over
+  the recovered state-2 visual rows. The port drew flame sprites 67..72
+  before; it now applies the rebase at draw time (recovered row bytes stay
+  verbatim) and the new `--capture-death-frames` harness reproduces the
+  original sequence. `state2_death_presentation_frame_compare` is resolved
+  (open items 11 -> 10). The same run captured the original bomb explosion
+  presentation: a large starburst at the bomb tile with small star debris
+  scattering (the 67..69 spark sprites) followed by rising flame wisps
+  (70..72) -- consistent with the port's recovered explosion/debris lanes;
+  exact frame-by-frame playback comparison remains under
+  `exact_explosion_sprite_playback`. Also confirmed the backdrop "star
+  twinkle" was a misreading: the only buffer writers are the loader,
+  gradient fill, city fill and star fill (all init-time), and the pixels
+  that differed between captures were moving monster sprites -- the
+  backdrop is fully static after generation.
+
 - **Resolved the camera dynamics completely: the original camera is
   continuous and instant, with exact clamp semantics -- there is no
   pan-chase.** Close reading of the scroll routine's clamp branches (file

@@ -20741,18 +20741,23 @@ private:
         int worldW = level_.width * 8;
         int worldH = level_.height * 8;
         setClip(viewX, viewY, viewX + viewW, viewY + viewH);
-        // Camera constants recovered by cross-correlating original DOSBox
-        // captures against the exported level tile map: at spawn/rest the
-        // original places the player anchor at viewport (viewW/2 - 4,
-        // viewH/2 + 4) -- verified exactly in the two-player capture (cams
-        // 32/208 for anchors 104/280 in the 152px views) and consistent with
-        // every single-player capture (camY 88 for anchor y=168). The
-        // original also applies a facing-direction lookahead while walking
-        // (documented in RECOVERY_STATUS); the port tracks the rest pose.
-        int camX = std::clamp(static_cast<int>(cameraPlayer.x) - (viewW / 2 - 4),
-                              0, std::max(0, worldW - viewW));
-        int camY = std::clamp(static_cast<int>(cameraPlayer.y) - (viewH / 2 + 4),
-                              0, std::max(0, worldH - viewH));
+        // Camera recovered from the original scroll routine (file 0x3cf7,
+        // called from the main loop with the player visual entry DS:0xC21E):
+        // the target is TILE-QUANTIZED, camX = (x - DS:0x78BC) & ~7 with
+        // 0x78BC = viewW/2 - 4 (152 read live from process memory for the
+        // 312px view; the same formula gives the measured two-player cams
+        // 32/208 for anchors 104/280), camY = (y - 80) & ~7, clamped to the
+        // measured limits DS:2094 = worldW-320 and DS:2096 = worldH-168 (the
+        // original never scrolls the last tile column / two tile rows). The
+        // original chases this target with a smooth pixel pan (mid-pan and
+        // mid-jump captures show intermediate values); the port snaps to the
+        // target, which is identical at rest.
+        int camX = std::clamp(
+            (static_cast<int>(cameraPlayer.x) - (viewW / 2 - 4)) & ~7, 0,
+            std::max(0, worldW - (viewW + 8)));
+        int camY = std::clamp(
+            (static_cast<int>(cameraPlayer.y) - (viewH / 2 + 4)) & ~7, 0,
+            std::max(0, worldH - (viewH + 16)));
         int drawCamX = camX - viewX;
         int drawCamY = camY - viewY;
         drawGradientSky(viewX, viewY, viewW, viewH, camY);

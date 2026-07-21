@@ -23,6 +23,22 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Decoded the original camera-scroll routine and made the port's camera
+  tile-quantized like the original.** The main loop (file 0x8158) passes the
+  player visual entry `DS:0xC21E/0xC220` to the scroll routine at file
+  0x3cf7, which computes a tile-quantized target: camX = (x - DS:0x78BC) & ~7
+  with 0x78BC = viewW/2 - 4 (152 for the 312px view, read live from process
+  memory), camY = (y - 80) & ~7, with fine-scroll remainders in
+  DS:0xC20A/0xC20C and clamps DS:0x2094 = worldW-320, DS:0x2096 =
+  worldH-168 (the original never scrolls the last tile column / bottom two
+  tile rows). The quantization exactly explains the measured two-player
+  cams (32/208 for anchors 104/280) and every rest capture; a smooth pixel
+  pan chases the target (mid-pan level starts and mid-jump captures show
+  intermediate values -- the pan chase itself is a remaining dynamics
+  follow-up along with the fine-scroll application). The port now uses the
+  quantized target and measured clamps; solid-tile alignment against the
+  exported world map stays at 0 mismatches.
+
 - **Recovered and reimplemented the original level-completion banner sequence
   (routine at file 0x24d3), pixel-verified against a live original
   completion.** Seeded a real completion in DOSBox while capturing frames and

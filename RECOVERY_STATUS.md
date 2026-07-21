@@ -23,6 +23,24 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Resolved the camera dynamics completely: the original camera is
+  continuous and instant, with exact clamp semantics -- there is no
+  pan-chase.** Close reading of the scroll routine's clamp branches (file
+  0x3cf7) shows the tile-aligned coarse scroll (DS:0xC216/0xC218) and the
+  fine remainders (DS:0xC20A/0xC20C = x%8/y%8) recombine to a continuous,
+  instantly-applied camera camX = x - (viewW/2 - 4), camY = y - 80; on the
+  max clamps (coarse beyond DS:2094 = (Wt-40)*8 / DS:2096 = (Ht-21)*8) the
+  fine part is forced to 7, making the effective displayed limits
+  worldW-313 and worldH-161. Every previously "mid-pan" measurement now
+  reconciles exactly: the level-6 spawn cams (1127/351 = clamps 1120/344
+  plus the forced fine 7), the level-2 start (256+7 = 263 after the spawn
+  fall), and the walking captures (whose "lagged" positions were the
+  player still coasting between the screenshot and the later memory dump
+  -- DOSBox keyup latency, not camera lag). The port now uses the
+  continuous camera with the exact original clamps; the earlier
+  quantized-target model is superseded, and the "smooth pan-chase
+  follow-up" is closed as a non-feature.
+
 - **Decoded and ported the complete original backdrop system (DAC ramp,
   gradient buffer, RNG city skyline, parallax blit).** Dumping the live
   backdrop buffer (far pointer DS:0xC498) from process memory for every

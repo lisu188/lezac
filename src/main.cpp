@@ -1706,6 +1706,7 @@ public:
         } else {
             loadOriginalAssets();
         }
+        buildBackdropBuffer();
     }
 
     void run() {
@@ -17655,6 +17656,7 @@ private:
     bool interactiveLevelIntroEnabled_ = false;
     LevelIntroState levelIntro_;
     LevelOutroState levelOutro_;
+    std::vector<uint8_t> backdropBuffer_;
     std::vector<BonusDrop> bonusDrops_;
     std::vector<Bomb> bombs_;
     std::vector<Flash> flashes_;
@@ -18036,6 +18038,9 @@ private:
                 clearRunScores();
                 pendingRecordQueue_.clear();
                 clearPendingRecord();
+                // The original regenerates the backdrop city from the live
+                // RNG on every game start (file 0x7f64).
+                buildBackdropBuffer();
                 beginLevelForPlay(0);
                 menu_ = false;
                 menuPage_ = MenuPage::Main;
@@ -20668,31 +20673,85 @@ private:
         }
     }
 
-    void drawGradientSky(int viewX, int viewY, int viewW, int viewH, int camY) {
-        // Recovered exactly from original DOSBox captures: the backdrop is a
-        // banded vertical gradient of 4px-tall uniform rows with a slow
-        // vertical parallax -- the band for viewport row vy is
-        // (vy + camY/8 - 8) / 4, verified with zero mismatching rows across
-        // six captures at camY 66..88 (standing, walking and mid-jump).
-        // The band colours are VGA DAC entries the original programs for the
-        // sky (they do not appear in BOMPAL.PAL); values are the DAC 6-bit
-        // levels scaled by (v<<2)|(v>>4), matching the capture pixels exactly.
-        // Bands 0..29 were measured on level 1; 30..36 from the deeper level-2
-        // and level-5 start captures. The same global table fits levels
-        // 1,2,3,4,6,7 (level 5 additionally paints starfield/water backdrop
-        // regions over its lower sky -- tracked as a follow-up).
-        static constexpr uint8_t kSkyBands[37][3] = {
-            {8, 4, 56},    {12, 4, 56},   {16, 8, 52},   {20, 12, 52},
-            {24, 12, 52},  {28, 16, 48},  {36, 16, 48},  {40, 20, 48},
-            {44, 24, 44},  {48, 24, 44},  {52, 28, 44},  {56, 28, 40},
-            {60, 32, 40},  {65, 36, 40},  {73, 36, 36},  {77, 40, 36},
-            {81, 40, 36},  {85, 44, 32},  {89, 48, 32},  {93, 48, 32},
-            {97, 52, 32},  {105, 52, 28}, {109, 56, 28}, {113, 60, 28},
-            {117, 60, 24}, {121, 65, 24}, {125, 65, 24}, {130, 69, 20},
-            {134, 73, 20}, {142, 73, 20}, {146, 77, 16}, {150, 77, 16},
-            {154, 81, 16}, {158, 85, 12}, {162, 85, 12}, {166, 89, 12},
-            {174, 93, 8},
+    // The original backdrop is a pre-rendered 320-wide byte buffer (far
+    // pointer DS:0xC498) blitted under the tiles with a linear copy whose
+    // source starts at (camY/8 + 1 + vy)*320 + camX/4 -- a 1/8 vertical and
+    // 1/4 horizontal parallax, with rows bleeding linearly into the next
+    // buffer row (recovered from the driver blit at file 0x9324 and byte
+    // dumps of the live buffer). The driver init (file 0x9252) programs DAC
+    // entries 176..214 with a computed ramp from (0,0,14) and fills the
+    // buffer with 4-row bands buffer[n] = 176 + n/1280; the game then paints
+    // a city skyline (buildings of palette 176 = night blue, star dots of
+    // palette 22) generated once at startup from the pristine RandSeed (file
+    // 0x7f64) -- deterministic across runs, so the exact building/star
+    // geometry below was extracted from a live buffer dump.
+    static constexpr int kBackdropW = 320;
+    static constexpr int kBackdropRows = 192;
+
+    void buildBackdropBuffer() {
+        backdropBuffer_.assign(static_cast<size_t>(kBackdropW) * kBackdropRows,
+                               0);
+        // Gradient bands: buffer byte k = 176 + k/1280 (driver init).
+        for (int k = 0; k < kBackdropW * kBackdropRows; ++k) {
+            backdropBuffer_[static_cast<size_t>(k)] =
+                static_cast<uint8_t>(176 + std::min(46, k / 1280));
+        }
+        // City skyline: the original generates ten buildings from the live
+        // Turbo Pascal RNG on each game start (file 0x7f64). Building 1 is
+        // the fixed wide base (cols 0..160, top row 130); each of the others
+        // rolls Random(120) for its left edge, Random(20) for width-20..39,
+        // Random(50)+80 for its top row, is filled down to row 160 with the
+        // night colour (176), and gets 20 star dots (palette 22) at
+        // Random-picked interior spots. The RNG draw order matches the
+        // disassembly exactly; a runtime buffer dump verified the fill and
+        // star semantics byte-for-byte.
+        auto put = [&](int r, int c, uint8_t v) {
+            size_t n = static_cast<size_t>(r) * kBackdropW + static_cast<size_t>(c);
+            if (n < backdropBuffer_.size()) backdropBuffer_[n] = v;
         };
+        for (int b = 1; b <= 10; ++b) {
+            int left = randomRangeValue(0, 120);
+            int width = randomRangeValue(0, 20);
+            int top = randomRangeValue(0, 50) + 80;
+            int right = left + 20 + width;
+            if (b == 1) {
+                left = 0;
+                right = 160;
+                top = 130;
+            }
+            for (int r = top; r <= 160; ++r) {
+                for (int c = left; c <= right; ++c) put(r, c, 176);
+            }
+            if (b == 1) continue;
+            for (int s = 0; s < 20; ++s) {
+                int sr = top + randomRangeValue(
+                                   0, static_cast<uint16_t>(160 - top));
+                int sc = left + randomRangeValue(
+                                    0, static_cast<uint16_t>(right - left));
+                put(sr, sc, 22);
+            }
+        }
+    }
+
+    // Palette lookup for backdrop bytes: DAC 176..214 use the driver's
+    // computed ramp from (0,0,14) -- component j*43/38, j*23/38, 14-j*12/38
+    // in 6-bit VGA levels -- everything else resolves through BOMPAL.
+    uint32_t backdropColor(uint8_t idx) const {
+        if (idx >= 176 && idx <= 214) {
+            const int j = idx - 176;
+            const int r6 = j * 43 / 38;
+            const int g6 = j * 23 / 38;
+            const int b6 = 14 - j * 12 / 38;
+            auto up = [](int v) {
+                return static_cast<uint32_t>(((v << 2) | (v >> 4)) & 0xff);
+            };
+            return 0xff000000u | (up(r6) << 16) | (up(g6) << 8) | up(b6);
+        }
+        return argb(palette_, idx);
+    }
+
+    void drawGradientSky(int viewX, int viewY, int viewW, int viewH,
+                         int camX, int camY) {
         if (!showBackground_) {
             for (int y = 0; y < viewH; ++y) {
                 for (int x = 0; x < viewW; ++x) {
@@ -20701,14 +20760,19 @@ private:
             }
             return;
         }
+        if (backdropBuffer_.empty()) return;
+        const long total = static_cast<long>(backdropBuffer_.size());
         for (int y = 0; y < viewH; ++y) {
-            const int band = std::clamp((y + camY / 8 - 8) / 4, 0, 36);
-            const uint32_t color = 0xff000000u |
-                                   (static_cast<uint32_t>(kSkyBands[band][0]) << 16) |
-                                   (static_cast<uint32_t>(kSkyBands[band][1]) << 8) |
-                                   static_cast<uint32_t>(kSkyBands[band][2]);
+            const long n0 = static_cast<long>(camY / 8 + y) * kBackdropW +
+                            camX / 4;
             for (int x = 0; x < viewW; ++x) {
-                pixel(viewX + x, viewY + y, color);
+                const long n = n0 + x;
+                const uint8_t idx =
+                    (n >= 0 && n < total)
+                        ? backdropBuffer_[static_cast<size_t>(n)]
+                        : backdropBuffer_[static_cast<size_t>(
+                              ((n % total) + total) % total)];
+                pixel(viewX + x, viewY + y, backdropColor(idx));
             }
         }
     }
@@ -20782,7 +20846,7 @@ private:
             std::max(0, worldH - (viewH + 16)));
         int drawCamX = camX - viewX;
         int drawCamY = camY - viewY;
-        drawGradientSky(viewX, viewY, viewW, viewH, camY);
+        drawGradientSky(viewX, viewY, viewW, viewH, camX, camY);
         drawTiles(drawCamX, drawCamY);
         drawBombs(drawCamX, drawCamY);
         drawDamageQueues(drawCamX, drawCamY);

@@ -17277,6 +17277,28 @@ public:
                   << static_cast<int>(player2_.y) << "\n";
     }
 
+    // Print the tile and word-layer values for a rectangle of a level, for
+    // identifying what the original renders in regions the tile pass leaves
+    // empty (e.g. the level-5 background silhouettes).
+    void debugLevelPlaneRect(int levelIndex, int tx0, int ty0, int tw, int th) {
+        load();
+        resetLevel(levelIndex);
+        for (int ty = ty0; ty < ty0 + th && ty < level_.height; ++ty) {
+            std::string tl, wl;
+            for (int tx = tx0; tx < tx0 + tw && tx < level_.width; ++tx) {
+                char buf[8];
+                std::snprintf(buf, sizeof(buf), "%02x ", tileAt(tx, ty));
+                tl += buf;
+                uint16_t w = level_.wordLayer[static_cast<size_t>(
+                    ty * level_.width + tx)];
+                std::snprintf(buf, sizeof(buf), "%04x ", w);
+                wl += buf;
+            }
+            std::cout << "t y" << ty << ": " << tl << "\n";
+            std::cout << "w y" << ty << ": " << wl << "\n";
+        }
+    }
+
     // Render a level's full tile map (world space, no sprites/sky) to a PPM.
     // Used to recover the original's camera position from a DOSBox gameplay
     // capture by cross-correlating the capture's viewport against this bitmap.
@@ -22130,6 +22152,12 @@ int main(int argc, char** argv) {
         }
         if (argc > 3 && std::string(argv[1]) == "--export-level-world") {
             app.exportLevelWorld(std::stoi(argv[2]), argv[3]);
+            return 0;
+        }
+        if (argc > 6 && std::string(argv[1]) == "--debug-level-plane-rect") {
+            app.debugLevelPlaneRect(std::stoi(argv[2]), std::stoi(argv[3]),
+                                    std::stoi(argv[4]), std::stoi(argv[5]),
+                                    std::stoi(argv[6]));
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--capture-two-player-frame") {

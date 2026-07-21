@@ -23,6 +23,35 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Decoded and ported the complete original backdrop system (DAC ramp,
+  gradient buffer, RNG city skyline, parallax blit).** Dumping the live
+  backdrop buffer (far pointer DS:0xC498) from process memory for every
+  level revealed the full original pipeline, then each stage was recovered
+  from the disassembly: (1) the driver init at file 0x9252 programs DAC
+  entries 176..214 with a computed ramp from (0,0,14) -- component j*43/38,
+  j*23/38, 14 - j*12/38 in 6-bit VGA levels -- which reproduces every
+  previously measured sky band including the irregular +1/+2 steps, and
+  fills the 320-wide buffer with 4-row bands buffer[n] = 176 + n/1280
+  (bands past the ramp resolve through BOMPAL, giving the water greens
+  216..219); (2) the game paints a city skyline into the buffer on every
+  game start (file 0x7f64): ten buildings from the live Turbo Pascal RNG
+  (building 1 is a fixed wide base, cols 0..160 top row 130; the rest roll
+  Random(120)/Random(20)/Random(50)+80 for left/width/top), filled with
+  night colour 176 down to row 160, plus 20 star dots (palette 22) per
+  building at Random spots -- a runtime buffer dump verified the fill and
+  star semantics byte-for-byte, and comparing runs showed the skyline
+  varies with the session RNG state exactly as an algorithmic feature
+  (the port replays the generator with its bit-exact RNG rather than
+  embedding one observed city); (3) the blit (file 0x9324) copies the
+  buffer linearly from source (camY/8 + vy)*320 + camX/4, i.e. 1/8
+  vertical and 1/4 horizontal parallax with rows bleeding into the next
+  buffer row -- the port now replicates this exactly, replacing the
+  measured band table with the computed system. Level-5's "starfield/
+  water" regions are thereby fully explained and rendered: they are the
+  same global backdrop showing through the level's empty deep rows.
+  Remaining micro-dynamic: the original occasionally redraws the last
+  building's star dots at runtime (the twinkle seen between dumps).
+
 - **Characterized the level-5 parallax city backdrop (behavioural spec
   complete; artwork source still to locate).** Fresh level-5 captures at
   three camera positions (rest/jump/walk, with DS snapshots) show the

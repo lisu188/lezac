@@ -3555,7 +3555,7 @@ if(BUILD_TESTING)
     find_program(XDOTOOL_EXECUTABLE xdotool)
     if(BASH_EXECUTABLE AND XVFB_RUN_EXECUTABLE AND XDOTOOL_EXECUTABLE)
         add_test(NAME ui_xdotool_xvfb
-            COMMAND ${CMAKE_COMMAND} -E env SDL_AUDIODRIVER=dummy
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=x11 SDL_AUDIODRIVER=dummy
                     ${XVFB_RUN_EXECUTABLE} -a
                     ${BASH_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_ui_xdotool.sh

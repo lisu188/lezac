@@ -1,0 +1,44 @@
+CMakeLists.txt:19:add_executable(lezac_cpp src/main.cpp)
+CMakeLists.txt:1847:                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+CMakeLists.txt:1858:                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+CMakeLists.txt:1869:                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+CMakeLists.txt:1880:                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+CMakeLists.txt:1900:                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+tools/check_visual_state2_evidence_map.py:100:    source = (root / "src" / "main.cpp").read_text(encoding="utf-8")
+tools/check_port_completion_status.py:31:    text = (root / "src" / "main.cpp").read_text(encoding="utf-8")
+tools/check_port_completion_status.py:148:    write_text(root / "src" / "main.cpp", synthetic_source(subsystems, items))
+tools/check_port_completion_status.py:196:        write_text(root / "src" / "main.cpp", bad)
+tools/check_behavior4_runtime_oracle_fixtures.py:274:        default=default_repo_root() / "src" / "main.cpp",
+tools/check_behavior4_runtime_oracle_fixtures.py:275:        help="src/main.cpp path to verify command/source snippets; use '' to skip",
+tools/check_sound_compatibility_hooks.py:234:    check_source(root / "src" / "main.cpp")
+tools/check_record_flow_evidence_map.py:73:    source = (root / "src" / "main.cpp").read_text(encoding="utf-8")
+tools/check_sound_weapon_switch_context.py:159:    source = root / "src" / "main.cpp"
+tools/check_actor_contact_evidence_map.py:165:        require(source, needle, "src/main.cpp")
+tools/check_actor_contact_evidence_map.py:302:    check_source(read_text(root / "src" / "main.cpp"))
+tools/check_explosion_lane_result_layout.py:118:    main_cpp = (root / "src" / "main.cpp").read_text(encoding="utf-8")
+tools/check_explosion_lane_result_layout.py:132:        extract_cpp_lane_result_fields(main_cpp),
+tools/check_explosion_lane_result_layout.py:148:        if f" lane_result_{field}=" not in main_cpp:
+tools/check_sound_callsite_oracle_fixtures.py:394:        default=default_repo_root() / "src" / "main.cpp",
+tools/check_sound_callsite_oracle_fixtures.py:395:        help="src/main.cpp path to verify command/source snippets; use '' to skip",
+tools/check_gran_data_evidence_map.py:87:    source = (root / "src" / "main.cpp").read_text(encoding="utf-8")
+tools/check_gran_usage_guardrail.py:64:    lines = (root / "src" / "main.cpp").read_text(encoding="utf-8").splitlines()
+tools/check_gran_usage_guardrail.py:219:        root / "src" / "main.cpp",
+tools/check_sound_state6_context.py:318:    require_text(root / "src" / "main.cpp", blocker)
+tools/check_contact_scanner_runtime_oracle_fixtures.py:290:        default=default_repo_root() / "src" / "main.cpp",
+tools/check_contact_scanner_runtime_oracle_fixtures.py:291:        help="src/main.cpp path to verify command/source snippets; use '' to skip",
+tools/check_explosion_evidence_map.py:137:        require(source, needle, "src/main.cpp")
+tools/check_explosion_evidence_map.py:298:    check_source(read_text(root / "src" / "main.cpp"))
+tools/check_sound_launch_pad_context.py:231:    source = root / "src" / "main.cpp"
+tools/check_visual_table_oracle_fixtures.py:437:        default=default_repo_root() / "src" / "main.cpp",
+tools/check_visual_table_oracle_fixtures.py:438:        help="src/main.cpp path to verify command/source snippets; use '' to skip",
+tools/check_sound_callsite_map.py:148:    source = read_text(root / "src" / "main.cpp")
+tools/check_actor_update_runtime_oracle_fixtures.py:275:        default=default_repo_root() / "src" / "main.cpp",
+tools/check_actor_update_runtime_oracle_fixtures.py:276:        help="src/main.cpp path to verify command/source snippets; use '' to skip",
+docs/recovery/subagents/2026-04-20-end-flow.md:74:- Kept the implementation localized in `src/main.cpp`; the all-in-one file
+docs/recovery/subagents/2026-04-20-sound-cursor.md:19:- Enumerated remaining approximate sound hooks in `src/main.cpp`: objective
+docs/recovery/subagents/2026-04-20-autonomous-recovery.md:91:- `src/main.cpp` remains a maintainability risk as the all-in-one translation
+docs/recovery/subagents/2026-04-20-sound-latch.md:66:- Kept all changes localized in `src/main.cpp`; extracting an audio helper
+docs/recovery/subagents/2026-04-22-collision-clearance-coverage.md:39:  `CMakeLists.txt`, `src/main.cpp`, and status/docs files.
+docs/architecture/source-file-map.md:208:Create the first independently compiled production source file by extracting destruction and physical-damage progress predicates into `core/progress.hpp/.cpp`. Keep call sites unchanged through narrow namespace imports. Update CMake so `src/main.cpp` and `src/core/progress.cpp` compile separately.
+docs/architecture/source-modularization.md:3:`src/main.cpp` currently contains resource decoding, sound, rendering, UI, gameplay simulation, diagnostics, and the executable entry point in one translation unit. A direct mechanical split would create a large, difficult-to-review change and would make fidelity regressions hard to isolate. The decomposition must therefore be incremental and test-preserving.
+docs/GHIDRA_NOTES.md:1590:Current C++ mapping: `State2VisualCursor` in `src/main.cpp` mirrors the

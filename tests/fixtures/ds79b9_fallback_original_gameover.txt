@@ -1,0 +1,30 @@
+# Original LEZAC.EXE game-over fallback (DS:79B9) runtime reachability evidence,
+# captured in-container via DOSBox /proc/mem tick-locked sampling (frame counter
+# DS:0x78C2). Level 1, single player: lives forced to 1 (DS:0x79EA), then the
+# player was killed by standing on its own bombs. When the final life is lost
+# the game runs the fallback path 1000:7ef8..7f2a (distinct from the normal
+# return-to-active restore at 1000:7e85..7ea7): DS:0x79EA lives goes 1->0 and
+# the DS:0x79B9 counter increments (0 -> 1, then climbs to 0x11 while the
+# game-over state is held). This demonstrates the fallback is reachable at
+# runtime, resolving the reachability open item.
+ds79b9_fallback_original=level1
+source=LEZAC.EXE via DOSBox /proc/mem runtime read
+runtime_ds=0c8f
+frame_counter_offset=0x78c2
+fallback_path=1000:7ef8..7f2a
+normal_return_path=1000:7e85..7ea7
+active_gate_offset=0x79b8
+counter_offset=0x79b9
+lives_offset=0x79ea
+energy_offset=0x79ec
+before_active=1
+before_counter=0
+before_lives=1
+death_tick=1033
+after_active=1
+after_counter=1
+after_counter_peak=17
+after_lives=0
+original_reachability=1
+visual_claim=0
+temp_copy=1

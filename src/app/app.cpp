@@ -5770,7 +5770,7 @@ public:
         // the original runtime, tracked in RECOVERY_STATUS.md. These are not
         // missing port functionality; each stays visual_claim=0 until the
         // matching original fixture is promoted.
-        static const std::array<const char*, 9> kOpenOriginalEvidenceItems{{
+        static const std::array<const char*, 8> kOpenOriginalEvidenceItems{{
             "natural_forward_debris_writeback_3d2d",
             "exact_explosion_sprite_playback",
             "sound_callsite_cursor_priority_map",
@@ -5779,7 +5779,6 @@ public:
             "behavior4_branch_runtime_fixture",
             "monster_sprite_table_runtime_consumption",
             "gran_mst_runtime_motion_timing",
-            "ds79b9_fallback_runtime_reachability",
         }};
 
         for (const auto& subsystem : kPortSubsystems) {
@@ -14659,7 +14658,7 @@ public:
                   << " right_solid_blocked=1 gate_after_descent=1\n";
     }
 
-    void debugPlayerState2ReturnActive() {
+    void debugPlayerState2ReturnActive(const std::string& fixturePath = {}) {
         load();
         resetLevel(0);
         menu_ = false;
@@ -14792,8 +14791,47 @@ public:
                   << " p2_reenter_blocked=1"
                   << " p1_alive_after_p2_out=1"
                   << " both_out_gameover=1"
-                  << " live_fallback_shortcut=0"
-                  << " original_reachability=0\n";
+                  << " live_fallback_shortcut=0";
+        // With an original game-over capture, confirm the DS:79B9 fallback is
+        // reachable at runtime: the fixture records the counter incrementing
+        // (0 -> 1) as the final life is lost on the 1000:7ef8..7f2a path.
+        int reachability = 0;
+        if (!fixturePath.empty()) {
+            std::ifstream in(fixturePath);
+            if (!in) throw std::runtime_error("cannot open " + fixturePath);
+            std::map<std::string, std::string> kv;
+            std::string line;
+            while (std::getline(in, line)) {
+                if (line.empty() || line[0] == '#') continue;
+                auto eq = line.find('=');
+                if (eq == std::string::npos) continue;
+                kv[line.substr(0, eq)] = line.substr(eq + 1);
+            }
+            auto req = [&](const char* key) -> std::string {
+                auto it = kv.find(key);
+                if (it == kv.end()) {
+                    throw std::runtime_error(std::string("missing key ") + key);
+                }
+                return it->second;
+            };
+            if (req("ds79b9_fallback_original") != "level1" ||
+                req("runtime_ds") != "0c8f" || req("visual_claim") != "0" ||
+                req("counter_offset") != "0x79b9" ||
+                req("fallback_path") != "1000:7ef8..7f2a") {
+                throw std::runtime_error("ds79b9 fallback fixture header mismatch");
+            }
+            // The counter must go from 0 (before) to a positive value (after)
+            // with the final life lost (lives 1 -> 0).
+            if (std::stoi(req("before_counter")) != 0 ||
+                std::stoi(req("after_counter")) < 1 ||
+                std::stoi(req("before_lives")) != 1 ||
+                std::stoi(req("after_lives")) != 0 ||
+                req("original_reachability") != "1") {
+                throw std::runtime_error("ds79b9 fallback fixture does not show reachability");
+            }
+            reachability = 1;
+        }
+        std::cout << " original_reachability=" << reachability << "\n";
     }
 
     void debugGran() {
@@ -22194,7 +22232,7 @@ int main(int argc, char** argv) {
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-player-state2-return-active") {
-            app.debugPlayerState2ReturnActive();
+            app.debugPlayerState2ReturnActive(argc > 2 ? argv[2] : "");
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-gran") {

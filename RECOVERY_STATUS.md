@@ -23,6 +23,26 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Confirmed the DS:79B9 game-over fallback is reachable at runtime.**
+  On level 1 with lives forced to 1 (`DS:0x79EA`), the player was killed by
+  own-bomb self-damage while the fallback region was tick-locked against
+  `DS:0x78C2`. When the final life is lost the game runs the
+  `1000:7ef8..7f2a` fallback (distinct from the normal return-to-active
+  restore at `1000:7e85..7ea7`): `DS:0x79B9` increments 0->1 (climbing to
+  0x11 while the game-over state is held) and lives `DS:0x79EA` goes 1->0 at
+  the same tick (1033). The state-2 return diagnostic now accepts
+  `tests/fixtures/ds79b9_fallback_original_gameover.txt` and reports
+  `original_reachability=1`, pinned by the `ds79b9_fallback_reachability`
+  ctest. `ds79b9_fallback_runtime_reachability` is resolved (open items
+  9 -> 8).
+
+- **Repaired the refactor's checker fallout.** PR #171 moved the monolith to
+  `src/app/app.cpp` behind a thin `src/main.cpp` shim but left 18
+  source-scanning checker tools (and 5 CMake `--source` args) hardcoding
+  `src/main.cpp`, so 17 checker ctests were failing on main; all source-read
+  paths and CMake arguments were migrated to `src/app/app.cpp` (the compile
+  target still builds the shim).
+
 - **Measured the original's true game timing tick-by-tick and corrected the
   port's player/bomb dynamics (walk speed, jump kinematics, bomb fuse).**
   Tick-locked /proc-mem sampling against the frame counter `DS:0x78C2`

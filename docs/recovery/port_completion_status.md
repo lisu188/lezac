@@ -78,6 +78,16 @@ fuse; the port's walk speed (90→98 px/s), jump kinematics and fuse
 `tests/fixtures/route_timing_original_level1.txt` and the
 `route_timing_evidence` ctest.
 
+Resolved: `ds79b9_fallback_runtime_reachability` — an original last-life
+death was captured on level 1 (lives forced to 1 via `DS:0x79EA`, killed by
+own-bomb self-damage), tick-locked against `DS:0x78C2`: when the final life
+is lost the game runs the `1000:7ef8..7f2a` fallback and `DS:0x79B9`
+increments 0->1 (climbing to 0x11 while the game-over state is held) with
+lives `DS:0x79EA` 1->0. Pinned by
+`tests/fixtures/ds79b9_fallback_original_gameover.txt` and the
+`ds79b9_fallback_reachability` ctest (the diagnostic reports
+`original_reachability=1` with the fixture).
+
 Resolved: `state2_death_presentation_frame_compare` — a live original death
 was captured (snail contact on level 1, frames plus DS snapshots showing
 `DS:0x79EA` lives 2→1 and the `DS:0x79EC` energy reset on reentry); the
@@ -110,8 +120,6 @@ the sprite-decode floor); see the RECOVERY_STATUS iteration entry.
   1-based actor/link tables, visual allocator count, `+2` visual rebase, and
   initial boss placement (`--debug-gran-boss-model`); exact frame-by-frame
   motion/collision timing still needs paired original evidence
-- `ds79b9_fallback_runtime_reachability` — runtime reachability of the
-  `DS:79b9` fallback
 
 ## Guardrails
 

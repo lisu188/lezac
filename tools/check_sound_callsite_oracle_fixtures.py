@@ -391,7 +391,7 @@ def main() -> int:
     parser.add_argument(
         "--source",
         type=Path,
-        default=default_repo_root() / "src" / "main.cpp",
+        default=default_repo_root() / "src" / "app" / "app.cpp",
         help="src/main.cpp path to verify command/source snippets; use '' to skip",
     )
     args = parser.parse_args()

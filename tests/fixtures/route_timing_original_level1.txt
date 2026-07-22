@@ -1,0 +1,33 @@
+# Original LEZAC.EXE level-1 player/bomb timing evidence, captured
+# in-container via DOSBox /proc/mem tick-locked sampling (frame counter
+# DS:0x78C2 polled; one read per tick; player anchor DS:0xC21E/0xC220;
+# bomb actor countdown at record offset 0x1B in the DS:0x74A8 table).
+# The main-loop governor (file 0x8089) holds 30 frames in 120..125
+# hundredths of a second; the converged rate oscillates 24.2..25.2 fps
+# (delay word DS:0x78CC dithering 96<->102 ms with step DS:0x78CA=6).
+# Jump is 8.8 fixed-point: v0=-848, gravity +64 per tick, floor-to-pixel;
+# the per-tick y deltas below reproduce that model exactly.
+route_timing_original=level1
+source=LEZAC.EXE via DOSBox /proc/mem tick-locked read
+runtime_ds=0c8f
+frame_counter_offset=0x78c2
+governor_file_offset=0x8089
+governor_window_frames=30
+governor_target_hundredths_min=120
+governor_target_hundredths_max=125
+governed_fps_min=24.2
+governed_fps_max=25.2
+walk_px_per_tick=4
+walk_px_per_second=98
+jump_v0_fixed=-848
+jump_gravity_fixed=64
+jump_fixed_shift=8
+jump_peak_px=24
+jump_rise_ticks=12
+jump_tick_dy=-4,-3,-3,-2,-3,-2,-1,-2,-1,-1,-1,-1
+small_bomb_fuse_ticks=41
+small_bomb_fuse_place_tick=396
+small_bomb_fuse_zero_tick=437
+explosion_playback_ticks=55
+visual_claim=0
+temp_copy=1

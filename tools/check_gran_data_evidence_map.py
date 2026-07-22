@@ -84,7 +84,7 @@ def check_cmake(root: Path) -> int:
 
 
 def check_source(root: Path) -> int:
-    source = (root / "src" / "main.cpp").read_text(encoding="utf-8")
+    source = (root / "src" / "app" / "app.cpp").read_text(encoding="utf-8")
     for snippet in (
         "constexpr size_t kGranRecordSize = 57",
         "GranBank loadGran",

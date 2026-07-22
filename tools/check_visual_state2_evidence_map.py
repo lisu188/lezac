@@ -97,7 +97,7 @@ def check_cmake(root: Path) -> tuple[int, int, int, int]:
 
 
 def check_source(root: Path) -> int:
-    source = (root / "src" / "main.cpp").read_text(encoding="utf-8")
+    source = (root / "src" / "app" / "app.cpp").read_text(encoding="utf-8")
     for snippet in (
         "--debug-state2-runtime-frame-oracle",
         "--debug-visual-table-oracle",

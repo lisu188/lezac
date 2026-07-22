@@ -167,7 +167,7 @@ if(BUILD_TESTING)
     set_tests_properties(port_completion_status PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "port_completion_status=ok subsystems=23 implemented=23 open_original_evidence_items=10 port_functionally_complete=1 original_fidelity_claim=0")
+            "port_completion_status=ok subsystems=23 implemented=23 open_original_evidence_items=9 port_functionally_complete=1 original_fidelity_claim=0")
 
     add_test(NAME original_asset_load
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-asset-load)
@@ -1831,7 +1831,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_actor_update_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox
                     --cmake ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
-                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp)
         set_tests_properties(actor_update_runtime_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
@@ -1842,7 +1842,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_contact_scanner_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox
                     --cmake ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
-                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp)
         set_tests_properties(contact_scanner_runtime_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
@@ -1853,7 +1853,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_runtime_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox
                     --cmake ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
-                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp)
         set_tests_properties(behavior4_runtime_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
@@ -1864,7 +1864,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_table_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox
                     --cmake ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
-                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp)
         set_tests_properties(visual_table_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
@@ -1884,7 +1884,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_sound_callsite_oracle_fixtures.py
                     ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/dosbox
                     --cmake ${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt
-                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+                    --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp)
         set_tests_properties(sound_callsite_oracle_fixture_expectations PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
@@ -1942,7 +1942,7 @@ if(BUILD_TESTING)
         set_tests_properties(port_completion_status_checker PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^port_completion_status_checker=ok subsystems=23 open_items=10 ctest=3 docs=3")
+                "^port_completion_status_checker=ok subsystems=23 open_items=9 ctest=3 docs=3")
 
         add_test(NAME port_completion_status_checker_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -3371,7 +3371,7 @@ if(BUILD_TESTING)
     set_tests_properties(bomb_fuse PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "bomb_fuse=ok fuse=20 effects=1 flashes=4 delayed_final_life=1 stale_reset_guard=1")
+            "bomb_fuse=ok fuse=100 effects=1 flashes=4 delayed_final_life=1 stale_reset_guard=1")
 
     add_test(NAME explosion_profiles
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosions)
@@ -3486,6 +3486,15 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^level_intro=ok stripes=7 palette=176-182 exact_hash=0x85e10db60f7e89f9 exact_pixels=55025 caption_pixels=980 delay_ms=81 level_varies=1 live_flow=1 input_skip=1 escape_menu=1 frame_inspection=1")
+
+    add_test(NAME route_timing_evidence
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-route-timing-evidence
+                tests/fixtures/route_timing_original_level1.txt)
+    set_tests_properties(route_timing_evidence PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^route_timing_evidence=ok governed_fps=24.2-25.2 walk_px_per_tick=4 jump_model=fixed_848_64 jump_peak=24 fuse_ticks=41 port_walk=98 port_fuse_frames=100 visual_claim=0")
 
     add_test(NAME level_outro
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

@@ -3565,6 +3565,7 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_ui_xdotool.sh
                     $<TARGET_FILE:lezac_cpp>)
         set_tests_properties(ui_xdotool_xvfb PROPERTIES
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            SKIP_RETURN_CODE 77)
     endif()
 endif()

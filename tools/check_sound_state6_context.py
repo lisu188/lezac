@@ -315,7 +315,7 @@ def main() -> int:
 
     blocker = "shipped_actor_modes_exclude_6"
     note_name = "sound_state6_process_memory_attempt_2026-07-16.md"
-    require_text(root / "src" / "main.cpp", blocker)
+    require_text(root / "src" / "app" / "app.cpp", blocker)
     require_text(root / "CMakeLists.txt", "add_test(NAME sound_state6_context")
     for path in [
         root / "README_RECONSTRUCTION.md",

@@ -299,7 +299,7 @@ def main() -> int:
         read_text(root / "docs" / "GHIDRA_NOTES.md"),
         read_text(root / "RECOVERY_STATUS.md"),
     )
-    check_source(read_text(root / "src" / "main.cpp"))
+    check_source(read_text(root / "src" / "app" / "app.cpp"))
     check_tools(root)
     check_fixtures(root)
     check_cmake(cmake)

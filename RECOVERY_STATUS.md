@@ -23,6 +23,45 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Disproved the `behavior4_branch_runtime_fixture` target and retargeted the
+  item.** The item named `1000:728C..731B` as "the behavior-4 branch". The
+  shipped bytes say otherwise, and the disproof is three instructions: the
+  behavior-4 arm ends `1000:714F e9 da 01` (`jmp 0x732C`), stepping clean past
+  the window; the window's only external entry is `1000:7152 3c 03` /
+  `1000:7154 74 03` (`cmp al,3 / je`); and the window's gate local `[bp-0x20]`
+  is written at exactly four sites (`716B` `88 46 e0`, and `71A0`/`71F3`/`723D`
+  `c6 46 e0 01`), all *before* the window, inside the behavior-3 arm. So the
+  window is a behavior-3-only facing/animation-range reload, a behavior-4 actor
+  never executes an instruction in it on any level, and the fixture as
+  specified was **unfillable** — which explains why the candidate skeleton
+  could never be completed and why repeated capture planning against it stalled.
+  The item is **retargeted, not closed**: the real behavior-4 motion path
+  (`1000:70D7..714F`, `73E5`, `741B`) still has no runtime evidence, so the
+  open-item count stays at 5. Pinned by
+  `tools/check_behavior4_window_attribution.py` and the
+  `behavior4_window_attribution` ctest, so the item cannot drift back onto the
+  wrong routine.
+
+- **Ruled out level 1 for the `3D2D` debris item, and measured the original's
+  falling-debris subsystem.** An exhaustive static scan of `LIVELS.SCH` (with
+  the decoder validated against the port's own loader — 47700/47700 tile bytes
+  and 47700/47700 word entries identical) found 501 of 47700 tiles satisfying
+  the static half of the `1000:3D2D` guard, and 87 bomb-seedable debris cells:
+  L1 **0**, L2 6, L3 10, L4 14, L5 12, L6 30, L7 15. Level 1 has 5 bomb objects
+  and **none** with a qualifying tile above it, so every historical level-1
+  sweep for this item was structurally incapable of reaching the branch. A live
+  level-2 capture then measured the subsystem directly: a bomb-seeded debris
+  record **moves** (record 200's tile index 3726 -> 3826, i.e. tile (26,37) ->
+  (26,38)) while carrying its flagged word `0xC00A`, a **cascade** fragment
+  appears in the cell above (record 201 at index 3626 = tile (26,36)), and the
+  record's tile code steps `0x68` -> `0x69`. The port has none of this: its
+  `DebrisRecord` only decrements a timer and never writes back into
+  `level_.tiles` / `level_.wordLayer`. That is a real missing subsystem, but it
+  is **not** being implemented yet — the composition (tick interleaving, fall
+  duration, the `3D2D` staging tag itself) is still inferred, and `3D2D` is an
+  intra-frame event that tick-locked sampling cannot observe. The item stays
+  open pending a breakpoint capture.
+
 - **Lockstepped the level-7 boss head against the original and fixed four
   real divergences.** `tools/seed_original_level.py` advanced the original
   from level 1 to level 7 through its own results routine (six natural

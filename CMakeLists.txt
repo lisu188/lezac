@@ -1944,6 +1944,15 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "^port_completion_status_checker=ok subsystems=23 open_items=5 ctest=3 docs=3")
 
+        add_test(NAME behavior4_window_attribution
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_window_attribution.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(behavior4_window_attribution PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^behavior4_window_attribution=ok window=1000:728C..731B window_bytes=144 behavior4_skip=1000:714F entry_guard=cmp_al_3 gate_writes=4 gate_writes_inside_window=0 behavior4_executes_window=0 attribution=behavior3_only original_fidelity_claim=0")
+
         add_test(NAME port_completion_status_checker_selftest
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_port_completion_status.py

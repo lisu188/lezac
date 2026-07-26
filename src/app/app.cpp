@@ -5786,7 +5786,7 @@ public:
             "natural_forward_debris_writeback_3d2d",
             "exact_explosion_sprite_playback",
             "actor_update_original_contact_semantics",
-            "behavior4_branch_runtime_fixture",
+            "behavior4_motion_runtime_fixture",
             "monster_sprite_table_runtime_consumption",
         }};
 

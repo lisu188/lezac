@@ -17469,14 +17469,19 @@ public:
     // Verify the port's player/bomb dynamics constants against the original
     // tick-locked timing evidence fixture.
     // Per-tick lockstep of the level-7 boss head against a live original
-    // capture. The fixture carries 775 consecutive original game ticks; this
-    // replays three independent models against them:
+    // capture. The fixture carries 775 consecutive original game ticks, and
+    // this checks them in six stages:
     //   1. the 8.8 fixed-point integration (position AND sub-pixel fraction),
     //   2. the velocity rules -- gravity 0x40 gated on the bottom flag with no
     //      clamp, and reflection -(v/2) with truncation toward zero,
-    //   3. the port's own randomRangeValue draw order at every RNG firing.
-    // Model 3 runs the port's actual RNG, so a divergence in the recovered
-    // draw order fails here rather than only in a hand-written expectation.
+    //   3. the port's own randomRangeValue draw order at every RNG firing,
+    //   4. the port's own sine table at every orbit-link phase,
+    //   5. the LIVE updateBossHead()/scanBossHeadEdges() path plus the same
+    //      8.8 integration updateMonsters() applies, per captured tick,
+    //   6. the LIVE updateBossLinks() at all 128 phases of every orbit link.
+    // Stages 1-2 are fixture arithmetic and would stay green through a
+    // regression on their own; stages 5-6 are what make this a real lockstep,
+    // and each recovered rule was checked to actually fail them when undone.
     void debugBossLockstepEvidence(const std::string& fixturePath) {
         std::ifstream in(fixturePath);
         if (!in) throw std::runtime_error("cannot open " + fixturePath);

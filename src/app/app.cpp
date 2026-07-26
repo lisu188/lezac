@@ -17495,6 +17495,8 @@ public:
             int index = 0;
             int gain = 0;
             int radiusY = 0;
+            int selfVisual = 0;
+            int offX = 0;
             std::vector<int> phaseDy;
         };
         std::map<std::string, std::string> kv;
@@ -17517,6 +17519,8 @@ public:
                     std::string value = token.substr(eq + 1);
                     if (key == "gain") orbit.gain = std::stoi(value);
                     else if (key == "radius_y") orbit.radiusY = std::stoi(value);
+                    else if (key == "self_visual") orbit.selfVisual = std::stoi(value);
+                    else if (key == "off_x") orbit.offX = std::stoi(value);
                     else if ((key == "exact_x" || key == "exact_y") &&
                              value.find('/') != std::string::npos &&
                              value.substr(0, value.find('/')) !=
@@ -17717,6 +17721,116 @@ public:
             throw std::runtime_error("boss lockstep evidence lacks orbit links");
         }
 
+        // 5. True lockstep: drive the LIVE update path -- updateBossHead(),
+        // and through it scanBossHeadEdges() -- plus the same 8.8 integration
+        // updateMonsters() applies, one captured tick at a time, and require
+        // the resulting state to equal the original's. Stages 1-4 replay
+        // recovered rules; only this stage fails if the production code
+        // regresses (restoring the 0x07ff clamp, ungating gravity, or putting
+        // the head back through the generic pushout all break it here).
+        ActiveMonster* head = nullptr;
+        for (ActiveMonster& monster : monsters_) {
+            if (monster.behavior == 6) {
+                head = &monster;
+                break;
+            }
+        }
+        if (!head) throw std::runtime_error("boss lockstep found no port boss head");
+        const float savedPlayerX = player_.x;
+        const float savedPlayerY = player_.y;
+        player_.x = static_cast<float>(std::stoi(req("player_x")));
+        player_.y = static_cast<float>(std::stoi(req("player_y")));
+        int livePlayed = 0;
+        int liveEdgeAgreements = 0;
+        int liveEdgeChecked = 0;
+        for (size_t i = 1; i < ticks.size(); ++i) {
+            const BossTick& prev = ticks[i - 1];
+            const BossTick& now = ticks[i];
+            head->x = prev.x;
+            head->y = prev.y;
+            head->fracX = static_cast<uint8_t>(prev.fx);
+            head->fracY = static_cast<uint8_t>(prev.fy);
+            head->vx8 = static_cast<int16_t>(prev.vx);
+            head->vy8 = static_cast<int16_t>(prev.vy);
+            head->hurtFlash = 0;
+            // The original gates on its own tick counter; updateBossHead
+            // pre-increments, so seed one below the captured frame.
+            head->bossTick = prev.frame - 1;
+            randomSeed_ = prev.seed;
+            // The fixture's bottom flag is derived from whether gravity was
+            // taken, so it is only a sound reading on two tick classes: a pure
+            // gravity step (bottom must be clear) and a hold with no RNG and no
+            // reflection (bottom must be set). Reflection ticks are excluded
+            // because a top-edge reflection also suppresses the +0x40 signature.
+            const bool pureGravity = now.vy == prev.vy + gravityStep;
+            const bool pureHold = now.vy == prev.vy && prev.seed == now.seed;
+            if (pureGravity || pureHold) {
+                ++liveEdgeChecked;
+                if (scanBossHeadEdges(*head).bottom == pureHold) {
+                    ++liveEdgeAgreements;
+                }
+            }
+            updateBossHead(*head);
+            integrateAxis8_8(head->x, head->fracX, head->vx8);
+            integrateAxis8_8(head->y, head->fracY, head->vy8);
+            if (head->x != now.x || head->y != now.y ||
+                head->fracX != static_cast<uint8_t>(now.fx) ||
+                head->fracY != static_cast<uint8_t>(now.fy) ||
+                head->vx8 != static_cast<int16_t>(now.vx) ||
+                head->vy8 != static_cast<int16_t>(now.vy) ||
+                randomSeed_ != now.seed) {
+                throw std::runtime_error(
+                    "boss lockstep live updateBossHead diverged at frame " +
+                    std::to_string(now.frame));
+            }
+            ++livePlayed;
+        }
+        player_.x = savedPlayerX;
+        player_.y = savedPlayerY;
+        randomSeed_ = savedSeed;
+        if (livePlayed != static_cast<int>(ticks.size()) - 1) {
+            throw std::runtime_error("boss lockstep live replay is incomplete");
+        }
+        if (liveEdgeChecked == 0 || liveEdgeAgreements != liveEdgeChecked) {
+            throw std::runtime_error("boss lockstep live edge scan disagrees with the original");
+        }
+
+        // 6. Live lockstep for the orbit links: drive updateBossLinks() itself
+        // at every one of the 128 phases and require its output to equal the
+        // original's. Reintroducing the cosine x-term or round-to-nearest
+        // fails here, which stage 4 alone would not catch.
+        int liveOrbitPhases = 0;
+        for (const auto& entry : orbits) {
+            const OrbitLink& orbit = entry.second;
+            BossMotionLink* live = nullptr;
+            for (BossMotionLink& link : bossLinks_) {
+                if (link.mode == 0xff && link.selfVisual == orbit.selfVisual) {
+                    live = &link;
+                    break;
+                }
+            }
+            if (!live) {
+                throw std::runtime_error("boss lockstep found no port orbit link for the captured one");
+            }
+            if (live->offX != orbit.offX || live->radiusY != orbit.radiusY ||
+                live->gain != orbit.gain) {
+                throw std::runtime_error("boss lockstep orbit link parameters differ from the original");
+            }
+            for (size_t phase = 0; phase < orbit.phaseDy.size(); ++phase) {
+                head->x = ticks.front().x;
+                head->y = ticks.front().y;
+                live->phase = static_cast<uint8_t>(
+                    (static_cast<int>(phase) - live->gain) & 0x7f);
+                updateBossLinks();
+                if (live->phase != static_cast<uint8_t>(phase) ||
+                    live->outX - head->x != orbit.offX ||
+                    live->outY - head->y != orbit.phaseDy[phase]) {
+                    throw std::runtime_error("boss lockstep live updateBossLinks diverged");
+                }
+                ++liveOrbitPhases;
+            }
+        }
+
         std::cout << "boss_lockstep_evidence=ok"
                   << " ticks=" << ticks.size()
                   << " frames=" << ticks.front().frame << ".." << ticks.back().frame
@@ -17728,8 +17842,12 @@ public:
                   << " jumps=" << jumpFirings
                   << " max_abs_vy=0x" << std::hex << maxAbsVy << std::dec
                   << " old_clamp=0x7ff"
+                  << " live_updateBossHead=" << livePlayed
+                  << " live_edge_scan_agree=" << liveEdgeAgreements
+                  << "/" << liveEdgeChecked
                   << " orbit_links=" << orbitLinksChecked
                   << " orbit_phases=" << orbitPhasesMatched
+                  << " live_updateBossLinks=" << liveOrbitPhases
                   << " orbit_horizontal_term=none"
                   << " orbit_rounding=trunc_toward_zero"
                   << " gravity_gate=bottom_flag_clear"

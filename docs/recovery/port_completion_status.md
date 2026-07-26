@@ -146,7 +146,10 @@ vertical-only with truncation toward zero. It further settles the `DS:0x79EA`
 question: the motion-link table is one-based, so slot 0's bytes are the lives
 and energy scalars, not a link record — there is no collision. Pinned by
 `tests/fixtures/boss_lockstep_original_level7.txt` and the
-`boss_lockstep_evidence` ctest.
+`boss_lockstep_evidence` ctest, which drives the live `updateBossHead()`,
+`scanBossHeadEdges()` and `updateBossLinks()` against every captured tick
+rather than only replaying recovered arithmetic, so each of the five fixes
+regresses the test if it is undone.
 
 - `natural_forward_debris_writeback_3d2d` — natural forward debris writeback
   capture at `1000:3D2D`

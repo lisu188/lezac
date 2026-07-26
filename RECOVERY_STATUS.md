@@ -68,7 +68,17 @@ under the existing guardrails; they are not missing port functionality.
   100). There is no collision. Pinned by
   `tests/fixtures/boss_lockstep_original_level7.txt` and the new
   `--debug-boss-lockstep-evidence` diagnostic + `boss_lockstep_evidence`
-  ctest, which replays all four models rather than restating them.
+  ctest. The diagnostic drives the **live** update path, not just recovered
+  arithmetic: it seeds a real spawned level-7 head from each captured tick and
+  runs `updateBossHead()` (and through it `scanBossHeadEdges()`) plus the same
+  8.8 integration `updateMonsters()` applies, requiring position, both
+  fractions, both velocities and the RNG seed to land on the original's next
+  tick — 774/774 — and it drives `updateBossLinks()` itself at all 128 phases
+  of every orbit link. The port's own edge scan independently agrees with the
+  original's bottom flag on 687/687 ticks where the flag can be soundly
+  derived. Each of the five fixes was verified to be *caught*: reintroducing
+  the clamp, ungating gravity, breaking the reflection, restoring the cosine
+  x-term, or restoring round-to-nearest each fails the ctest.
   `gran_mst_runtime_motion_timing` and `contact_scanner_runtime_confirmation`
   are both resolved (open items 7 -> 5).
 

@@ -3520,7 +3520,7 @@ if(BUILD_TESTING)
     set_tests_properties(boss_lockstep_evidence PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^boss_lockstep_evidence=ok ticks=775 frames=183..957 integration_exact=774 gravity=602 reflect=81 hold=65 rng=26 jumps=6 max_abs_vy=0xa40 old_clamp=0x7ff orbit_links=4 orbit_phases=512 orbit_horizontal_term=none orbit_rounding=trunc_toward_zero gravity_gate=bottom_flag_clear gravity_clamp=none link_slot0_scalars=1 visual_claim=0")
+            "^boss_lockstep_evidence=ok ticks=775 frames=183..957 integration_exact=774 gravity=602 reflect=81 hold=65 rng=26 jumps=6 max_abs_vy=0xa40 old_clamp=0x7ff live_updateBossHead=774 live_edge_scan_agree=687/687 orbit_links=4 orbit_phases=512 live_updateBossLinks=512 orbit_horizontal_term=none orbit_rounding=trunc_toward_zero gravity_gate=bottom_flag_clear gravity_clamp=none link_slot0_scalars=1 visual_claim=0")
 
     add_test(NAME level_outro
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

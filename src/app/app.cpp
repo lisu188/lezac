@@ -129,6 +129,9 @@ constexpr size_t kCompatibilityObjectivePickupSound = 0;
 constexpr size_t kCompatibilityLevelCompleteSound = 5;
 constexpr size_t kObjectivePickupCompatibilityHookSlot = 0;
 constexpr size_t kLevelCompleteCompatibilityHookSlot = 1;
+// Diagnostic-only latch seed: a pending selector no captured hook priority can
+// outrank, used to show the hooks really go through the priority latch.
+constexpr uint8_t kCompatibilityLatchRejectionSeedPriority = 0xff;
 struct RemainingSoundCompatibilityHook {
     const char* hook;
     size_t index;
@@ -9163,13 +9166,24 @@ public:
         clearSoundLatch();
         requestRecordsPageSound();
         SoundLatch objectiveSeedLatch = soundLatch_;
+        lastPumpedSoundOffset_ = 0;
+        lastPumpedSoundSelector_ = 0;
         collectObjectiveTiles(player_, 1);
-        bool objectiveLatchPreserved = sameSoundLatch(soundLatch_, objectiveSeedLatch);
+        const RemainingSoundCompatibilityHook& objectiveHook =
+            kRemainingSoundCompatibilityHooks[kObjectivePickupCompatibilityHookSlot];
+        // The captured priority beats the seeded records-page request
+        // (selector 2), so the latch must now carry the captured pair; the
+        // tick's pump then routes exactly that pair into synthesis.
+        bool objectiveLatchAccepted =
+            soundLatch_.active &&
+            soundLatch_.latchedOffset == objectiveHook.capturedCursor &&
+            soundLatch_.currentSelector == objectiveHook.capturedPriority;
+        pumpSoundLatch();
+        uint16_t objectivePumpedCursor = lastPumpedSoundOffset_;
+        uint8_t objectivePumpedPriority = lastPumpedSoundSelector_;
         if (compatibilitySoundAttempts_.size() != 1) {
             throw std::runtime_error("objective pickup compatibility sound call count mismatch");
         }
-        const RemainingSoundCompatibilityHook& objectiveHook =
-            kRemainingSoundCompatibilityHooks[kObjectivePickupCompatibilityHookSlot];
         CompatibilitySoundAttempt objectiveAttempt = compatibilitySoundAttempts_.front();
         if (std::string(objectiveHook.hook) != "objective_pickup" ||
             objectiveAttempt.index != objectiveHook.index ||
@@ -9177,11 +9191,35 @@ public:
             collected_ != collectedBefore + 1 ||
             score_ != scoreBefore + 1000u ||
             !objectiveSeedLatch.active ||
-            !objectiveLatchPreserved) {
+            !objectiveLatchAccepted ||
+            objectivePumpedCursor != objectiveHook.capturedCursor ||
+            objectivePumpedPriority != objectiveHook.capturedPriority ||
+            soundLatch_.active) {
             throw std::runtime_error("objective pickup compatibility sound route mismatch");
         }
         int collectedDelta = collected_ - collectedBefore;
         uint32_t scoreDelta = score_ - scoreBefore;
+
+        // Same pickup behind a request the captured priority cannot outrank:
+        // the latch must refuse it and keep the louder pending sound. This is
+        // what makes the recovered priority observable in gameplay rather
+        // than only in the evidence fixture.
+        compatibilitySoundAttempts_.clear();
+        resetLevel(0);
+        std::array<int, 2> loudObjectiveProbe = findSingleObjectiveProbeForSmoke();
+        player_.x = static_cast<float>(loudObjectiveProbe[0]);
+        player_.y = static_cast<float>(loudObjectiveProbe[1]);
+        clearSoundLatch();
+        latchSoundRequest(kRecordsPageSoundCursor, kCompatibilityLatchRejectionSeedPriority);
+        SoundLatch objectiveLoudLatch = soundLatch_;
+        collectObjectiveTiles(player_, 1);
+        bool objectiveHighSeedRejected =
+            compatibilitySoundAttempts_.size() == 1 &&
+            sameSoundLatch(soundLatch_, objectiveLoudLatch);
+        clearSoundLatch();
+        if (!objectiveHighSeedRejected) {
+            throw std::runtime_error("objective pickup compatibility sound ignored latch priority");
+        }
 
         traceCompatibilitySoundAttempts_ = false;
         resetLevel(0);
@@ -9196,21 +9234,32 @@ public:
         clearSoundLatch();
         requestRecordsPageSound();
         SoundLatch levelSeedLatch = soundLatch_;
+        lastPumpedSoundOffset_ = 0;
+        lastPumpedSoundSelector_ = 0;
         int startLevel = levelIndex_;
         updateLevelCompletion();
-        bool levelLatchPreserved = sameSoundLatch(soundLatch_, levelSeedLatch);
+        const RemainingSoundCompatibilityHook& levelHook =
+            kRemainingSoundCompatibilityHooks[kLevelCompleteCompatibilityHookSlot];
+        bool levelLatchAccepted =
+            soundLatch_.active &&
+            soundLatch_.latchedOffset == levelHook.capturedCursor &&
+            soundLatch_.currentSelector == levelHook.capturedPriority;
+        pumpSoundLatch();
+        uint16_t levelPumpedCursor = lastPumpedSoundOffset_;
+        uint8_t levelPumpedPriority = lastPumpedSoundSelector_;
         size_t callsFirstTick = compatibilitySoundAttempts_.size();
         if (callsFirstTick != 1) {
             throw std::runtime_error("level-complete compatibility sound call count mismatch");
         }
-        const RemainingSoundCompatibilityHook& levelHook =
-            kRemainingSoundCompatibilityHooks[kLevelCompleteCompatibilityHookSlot];
         CompatibilitySoundAttempt levelAttempt = compatibilitySoundAttempts_.front();
         if (std::string(levelHook.hook) != "level_complete" ||
             levelAttempt.index != levelHook.index ||
             levelAttempt.cursor != levelHook.capturedCursor ||
             !levelSeedLatch.active ||
-            !levelLatchPreserved) {
+            !levelLatchAccepted ||
+            levelPumpedCursor != levelHook.capturedCursor ||
+            levelPumpedPriority != levelHook.capturedPriority ||
+            soundLatch_.active) {
             throw std::runtime_error("level-complete compatibility sound route mismatch");
         }
 
@@ -9221,9 +9270,33 @@ public:
             ++completionTicksAfterFirst;
         }
         size_t repeatCalls = compatibilitySoundAttempts_.size();
-        traceCompatibilitySoundAttempts_ = false;
         if (repeatCalls != 0 || levelIndex_ != startLevel + 1) {
             throw std::runtime_error("level-complete compatibility sound repeat/advance mismatch");
+        }
+
+        // Completion banner behind a louder pending request: rejected, exactly
+        // like the objective pickup, so the captured priority is live here too.
+        int advancedLevel = levelIndex_ + 1;
+        traceCompatibilitySoundAttempts_ = false;
+        resetLevel(0);
+        collectAllObjectiveTilesForSmoke();
+        damageRequiredTilesForSmoke();
+        if (!isComplete()) {
+            throw std::runtime_error("level-complete latch-priority fixture is incomplete");
+        }
+        compatibilitySoundAttempts_.clear();
+        clearSoundLatch();
+        latchSoundRequest(kRecordsPageSoundCursor, kCompatibilityLatchRejectionSeedPriority);
+        SoundLatch levelLoudLatch = soundLatch_;
+        traceCompatibilitySoundAttempts_ = true;
+        updateLevelCompletion();
+        bool levelHighSeedRejected =
+            compatibilitySoundAttempts_.size() == 1 &&
+            sameSoundLatch(soundLatch_, levelLoudLatch);
+        traceCompatibilitySoundAttempts_ = false;
+        clearSoundLatch();
+        if (!levelHighSeedRejected) {
+            throw std::runtime_error("level-complete compatibility sound ignored latch priority");
         }
 
         std::cout << "remaining_sound_compat_hooks=ok"
@@ -9236,16 +9309,23 @@ public:
                   << " score_delta=" << scoreDelta
                   << " latch_seed=" << hex4(objectiveSeedLatch.latchedOffset)
                   << "/p" << static_cast<int>(objectiveSeedLatch.currentSelector)
-                  << " latch_preserved=" << (objectiveLatchPreserved ? 1 : 0)
+                  << " latch_accepted=" << (objectiveLatchAccepted ? 1 : 0)
+                  << " pumped=" << hex4(objectivePumpedCursor)
+                  << "/p" << static_cast<int>(objectivePumpedPriority)
+                  << " high_seed_rejected=" << (objectiveHighSeedRejected ? 1 : 0)
                   << " level_complete=index" << levelAttempt.index
                   << "/cursor" << hex4(levelAttempt.cursor)
                   << "/blocker=" << levelHook.captureBlocker
                   << " calls_first_tick=" << callsFirstTick
                   << " repeat_calls=" << repeatCalls
-                  << " advanced_level=" << (levelIndex_ + 1)
+                  << " advanced_level=" << advancedLevel
                   << " latch_seed=" << hex4(levelSeedLatch.latchedOffset)
                   << "/p" << static_cast<int>(levelSeedLatch.currentSelector)
-                  << " latch_preserved=" << (levelLatchPreserved ? 1 : 0)
+                  << " latch_accepted=" << (levelLatchAccepted ? 1 : 0)
+                  << " pumped=" << hex4(levelPumpedCursor)
+                  << "/p" << static_cast<int>(levelPumpedPriority)
+                  << " high_seed_rejected=" << (levelHighSeedRejected ? 1 : 0)
+                  << " latch_route_claim=inferred_accepted_pair_only"
                   << " capture_blockers=objective_pickup:rejected_static_candidates,"
                   << "level_complete:no_static_candidate"
                   << " original_cursor_priority_claim=0\n";
@@ -18534,25 +18614,31 @@ private:
         playSoundSamples(samples);
     }
 
-    void playCompatibilitySound(size_t hookSlot) {
+    bool playCompatibilitySound(size_t hookSlot) {
         if (hookSlot >= kRemainingSoundCompatibilityHooks.size()) {
             throw std::runtime_error("unknown compatibility sound hook");
         }
         const RemainingSoundCompatibilityHook& hook =
             kRemainingSoundCompatibilityHooks[hookSlot];
-        // Synthesize from the cursor the ORIGINAL latches, not from the
-        // index->kCompatibilitySoundCursors lookup: the captured
-        // level-complete cursor is 0x003d, whereas the shared table's entry
-        // for that index is 0x0027, so the index path produced an audibly
-        // different sound. The table itself is left alone because the
-        // selector path and the sound_render diagnostics depend on it.
+        // Submit the captured pair through the recovered priority latch, the
+        // same route every other in-game sound callsite uses, instead of
+        // queueing samples directly: the pair was sampled from the ACCEPTED
+        // words (cursor DS:0x78C0, priority DS:0x799E), and in the original
+        // the latch at 1000:165a is the only writer of those words, so the
+        // faithful replay is a latch submission whose priority can lose to a
+        // louder sound already pending. Cursor and priority both matter here;
+        // the index->kCompatibilitySoundCursors lookup is deliberately not
+        // used because its level-complete entry is 0x0027 while the original
+        // latches 0x003d, an audibly different sound. The table itself is
+        // left alone because the selector path and the sound_render
+        // diagnostics depend on it.
         if (traceCompatibilitySoundAttempts_) {
             compatibilitySoundAttempts_.push_back({hook.index, hook.capturedCursor});
         }
-        if (!audioEnabled_ || audioDevice_ == 0 || sounds_.records.empty()) return;
-        std::vector<int16_t> samples = synthesizeSoundCursor(hook.capturedCursor);
-        if (samples.empty()) return;
-        playSoundSamples(samples);
+        // No audio-device early-out: the latch is game state, not audio
+        // state, so a headless run must reach the same latch as an audio run.
+        // pumpSoundLatch() performs the synthesis once per tick.
+        return requestSoundCursor(hook.capturedCursor, hook.capturedPriority);
     }
 
     void playSoundSamples(const std::vector<int16_t>& samples) {
@@ -20074,6 +20160,11 @@ private:
                 collectObjectiveTiles(player_, 1);
             }
         }
+        // Each pickup now submits the objective-pickup hook to the sound
+        // latch. This helper collects a whole map's worth in one call without
+        // ever running a tick, so nothing pumps the latch; drop the stale
+        // request so it cannot outlive the helper and reject a later one.
+        clearSoundLatch();
     }
 
     void damageRequiredTilesForSmoke() {
@@ -20108,6 +20199,9 @@ private:
         if (levelIndex_ != expectedLevel) {
             throw std::runtime_error("level completion did not advance to next level");
         }
+        // updateLevelCompletion() latches the level-complete hook without
+        // pumping it; clear it so the smoke helper leaves no stale request.
+        clearSoundLatch();
     }
 
     void smokeBombObjectDestructionProgress() {

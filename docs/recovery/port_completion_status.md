@@ -79,8 +79,16 @@ objective counter `DS:0x2088` went 0->1) and `level_complete` = cursor
 same runs, independently confirming the port's existing constant. This
 exposed a real audible bug: `playCompatibilitySound` synthesized from the
 shared index table, whose level-complete entry is 0x0027 — a different
-genuine sound start — so the port played the wrong completion sound; it now
-synthesizes from the captured cursor. Pinned by
+genuine sound start — so the port played the wrong completion sound. Both
+hooks now submit the captured cursor *and* the captured priority through the
+recovered priority latch (`requestSoundCursor`), the same route every other
+in-game callsite uses, so the recovered priority is live gameplay behaviour:
+the latch accepts the pair over a seeded records-page request and rejects the
+hook behind a louder pending one (`latch_accepted=1`, `pumped=0x0000/p3` and
+`pumped=0x003d/p10`, `high_seed_rejected=1`). The diagnostic keeps
+`latch_route_claim=inferred_accepted_pair_only`, because the values come from
+the accepted words — whose only writer is the latch at `1000:165a` — while
+the originating callsite is still unattributed. Pinned by
 `tests/fixtures/sound_callsite_original_hooks.txt` and the
 `sound_hook_evidence` ctest.
 

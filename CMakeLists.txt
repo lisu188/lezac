@@ -2461,7 +2461,7 @@ if(BUILD_TESTING)
     set_tests_properties(remaining_sound_compat_hooks PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^remaining_sound_compat_hooks=ok live_hooks=2 helper=playCompatibilitySound objective_pickup=index0/cursor0x0000/blocker=rejected_static_candidates collected_delta=1 score_delta=1000 latch_seed=0x0024/p2 latch_preserved=1 level_complete=index5/cursor0x003d/blocker=no_static_candidate calls_first_tick=1 repeat_calls=0 advanced_level=2 latch_seed=0x0024/p2 latch_preserved=1 capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate original_cursor_priority_claim=0")
+            "^remaining_sound_compat_hooks=ok live_hooks=2 helper=playCompatibilitySound objective_pickup=index0/cursor0x0000/blocker=rejected_static_candidates collected_delta=1 score_delta=1000 latch_seed=0x0024/p2 latch_accepted=1 pumped=0x0000/p3 high_seed_rejected=1 level_complete=index5/cursor0x003d/blocker=no_static_candidate calls_first_tick=1 repeat_calls=0 advanced_level=2 latch_seed=0x0024/p2 latch_accepted=1 pumped=0x003d/p10 high_seed_rejected=1 latch_route_claim=inferred_accepted_pair_only capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate original_cursor_priority_claim=0")
 
     add_test(NAME static_sound_contexts
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-static-sound-contexts)

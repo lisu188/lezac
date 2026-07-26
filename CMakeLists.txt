@@ -167,7 +167,7 @@ if(BUILD_TESTING)
     set_tests_properties(port_completion_status PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "port_completion_status=ok subsystems=23 implemented=23 open_original_evidence_items=8 port_functionally_complete=1 original_fidelity_claim=0")
+            "port_completion_status=ok subsystems=23 implemented=23 open_original_evidence_items=7 port_functionally_complete=1 original_fidelity_claim=0")
 
     add_test(NAME original_asset_load
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-asset-load)
@@ -1761,7 +1761,7 @@ if(BUILD_TESTING)
         set_tests_properties(sound_compatibility_hooks PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=7 helpers=38 docs=3 rejected_objective_candidates=3 capture_blockers=2 runtime_capture_handoffs=4 runtime_route_classifications=3 live_diagnostic=1")
+                "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=7 helpers=40 docs=3 rejected_objective_candidates=3 capture_blockers=2 runtime_capture_handoffs=4 runtime_route_classifications=3 live_diagnostic=1")
 
         add_test(NAME debug_capture_summary_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -1942,7 +1942,7 @@ if(BUILD_TESTING)
         set_tests_properties(port_completion_status_checker PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^port_completion_status_checker=ok subsystems=23 open_items=8 ctest=3 docs=3")
+                "^port_completion_status_checker=ok subsystems=23 open_items=7 ctest=3 docs=3")
 
         add_test(NAME port_completion_status_checker_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -2461,7 +2461,7 @@ if(BUILD_TESTING)
     set_tests_properties(remaining_sound_compat_hooks PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^remaining_sound_compat_hooks=ok live_hooks=2 helper=playCompatibilitySound objective_pickup=index0/cursor0x0000/blocker=rejected_static_candidates collected_delta=1 score_delta=1000 latch_seed=0x0024/p2 latch_preserved=1 level_complete=index5/cursor0x0027/blocker=no_static_candidate calls_first_tick=1 repeat_calls=0 advanced_level=2 latch_seed=0x0024/p2 latch_preserved=1 capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate original_cursor_priority_claim=0")
+            "^remaining_sound_compat_hooks=ok live_hooks=2 helper=playCompatibilitySound objective_pickup=index0/cursor0x0000/blocker=rejected_static_candidates collected_delta=1 score_delta=1000 latch_seed=0x0024/p2 latch_accepted=1 pumped=0x0000/p3 high_seed_rejected=1 level_complete=index5/cursor0x003d/blocker=no_static_candidate calls_first_tick=1 repeat_calls=0 advanced_level=2 latch_seed=0x0024/p2 latch_accepted=1 pumped=0x003d/p10 high_seed_rejected=1 latch_route_claim=inferred_accepted_pair_only capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate original_cursor_priority_claim=0")
 
     add_test(NAME static_sound_contexts
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-static-sound-contexts)
@@ -3494,6 +3494,15 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^level_intro=ok stripes=7 palette=176-182 exact_hash=0x85e10db60f7e89f9 exact_pixels=55025 caption_pixels=980 delay_ms=81 level_varies=1 live_flow=1 input_skip=1 escape_menu=1 frame_inspection=1")
+
+    add_test(NAME sound_hook_evidence
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-sound-hook-evidence
+                tests/fixtures/sound_callsite_original_hooks.txt)
+    set_tests_properties(sound_hook_evidence PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^sound_hook_evidence=ok hooks=2 objective_pickup=0x0000/p3 level_complete=0x003d/p10 accepted_pair=0x78c0/0x799e visual_claim=0")
 
     add_test(NAME route_timing_evidence
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

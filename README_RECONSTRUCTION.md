@@ -1501,11 +1501,21 @@ debris tags `0x4e21`/`0x4ee8`. It remains a C++ arithmetic/model check with
   original evidence proves otherwise. `--debug-remaining-sound-compat-hooks`
   exercises the live C++ objective-pickup and level-complete paths and reports
   `capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate`
-  plus `latch_preserved=1` and `original_cursor_priority_claim=0`, proving
-  only that those named compatibility hooks still funnel to the intended
-  compatibility indices without mutating a seeded recovered latch, and naming
-  why the DOSBox sound-callsite helper must not stage them as original
-  cursor/priority captures yet. `--debug-static-sound-unresolved-contexts`
+  plus `latch_accepted=1`, `pumped=0x0000/p3` and `pumped=0x003d/p10`,
+  `high_seed_rejected=1`,
+  `latch_route_claim=inferred_accepted_pair_only` and
+  `original_cursor_priority_claim=0`. Both compatibility hooks submit their captured
+  cursor *and* captured priority through the recovered priority latch, the
+  same route every other in-game sound callsite uses: the latch accepts the
+  captured pair over a seeded records-page request (selector 2), the tick's
+  pump routes exactly that pair into synthesis, and a louder pending request
+  (selector `0xff`) rejects the hook outright, so the recovered priority is
+  live gameplay behaviour rather than fixture-only data. The route claim stays
+  `inferred_accepted_pair_only` because the values were sampled from the
+  original's accepted words `DS:0x78C0`/`DS:0x799E` — the latch at
+  `1000:165a` is their only writer — while the originating callsite itself is
+  still unattributed, which is also why the DOSBox sound-callsite helper must
+  not stage these as original cursor/priority captures yet. `--debug-static-sound-unresolved-contexts`
   also pins the exact byte windows for those 10 unresolved writes and separates
   their local request shapes: seven local latch calls, four inline priorities,
   two preceding priorities, four no-local-priority cases, three no-latch cases,

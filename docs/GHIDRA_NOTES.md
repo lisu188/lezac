@@ -1418,10 +1418,16 @@ gate around the `0x6c` threshold, and the non-objective tile gate near
 `--debug-remaining-sound-compat-hooks` drives the live C++ objective-pickup and
 level-complete paths and reports
 `capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate`
-with `latch_preserved=1` and `original_cursor_priority_claim=0`; it is a
-regression guard for the remaining `playCompatibilitySound` routes that funnel
-through `playSound(index)` without mutating a seeded recovered latch, not
-original cursor/priority evidence. The blockers keep the rejected objective
+with `latch_accepted=1`, `high_seed_rejected=1`,
+`latch_route_claim=inferred_accepted_pair_only` and
+`original_cursor_priority_claim=0`; it is a regression guard for the remaining
+`playCompatibilitySound` routes, which submit their captured cursor and
+priority through the recovered priority latch (accepted over a seeded
+records-page request, rejected behind a louder pending one). The captured pair
+comes from the original's accepted words `DS:0x78C0`/`DS:0x799E`, whose only
+writer is the latch at `1000:165a`; the originating callsite is still
+unattributed, so this remains a behavioural guard rather than original
+cursor/priority callsite evidence. The blockers keep the rejected objective
 candidates and absent level-complete static candidate out of the DOSBox
 sound-callsite capture helper until new original evidence changes that status.
 `--debug-static-sound-contexts` pins the currently rejected level-complete

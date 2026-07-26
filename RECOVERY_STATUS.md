@@ -23,6 +23,57 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Recovered the compatibility sound-hook cursor/priority map and fixed a
+  real audible bug in the level-complete sound.** The previous sampling
+  attempt watched `DS:0x2074`/`0x799F` and saw only noise -- those are the
+  PENDING scratch pair, written by many unrelated routines. The ACCEPTED
+  pair is `DS:0x78C0` (cursor) / `DS:0x799E` (priority), and sampling it
+  resolved both hooks immediately: `objective_pickup` = cursor 0x0000
+  priority 3, read at the exact tick the objective counter `DS:0x2088` went
+  0 -> 1 (the player was positioned on the level-1 objective tile 108 at
+  tile 27,15 so the game's own pickup logic fired); `level_complete` =
+  cursor 0x003d priority 10, read as the completion banner opened after the
+  objective counters were seeded to their targets, which also matches the
+  static banner routine at file 0x250c..0x2517. The player-damage sound was
+  observed starting at 0x002d/p4 in the same runs, independently confirming
+  the port's existing `kPlayerDamageSoundCursor` and establishing that the
+  accepted cursor's START value identifies a sound (it then advances as the
+  sound plays out). The capture exposed a genuine audible divergence:
+  `playCompatibilitySound` synthesized via the shared
+  `kCompatibilitySoundCursors` index table, whose level-complete entry is
+  0x0027 -- and the sound bank's stop-step map (stops at steps 4,7,17,25,32,
+  35,38,44,48,52,60,85,104,119,129) shows 0x0027 and 0x003d are two
+  DIFFERENT genuine sound starts, so the port played the wrong completion
+  sound. The hook now carries the captured cursor/priority and synthesizes
+  from the captured cursor; the shared table is left untouched because the
+  selector path and the `sound_render` diagnostics depend on it. Pinned by
+  `tests/fixtures/sound_callsite_original_hooks.txt` and the new
+  `--debug-sound-hook-evidence` diagnostic + `sound_hook_evidence` ctest.
+  `sound_callsite_cursor_priority_map` is resolved (open items 8 -> 7).
+
+- **Routed both compatibility hooks through the recovered priority latch.**
+  The first version of the fix queued synthesized samples directly, so the
+  captured *priority* only ever reached the evidence checker. Since the pair
+  was sampled from the accepted words `DS:0x78C0`/`DS:0x799E`, whose only
+  writer in the original is the latch at `1000:165a`, the faithful replay is
+  a latch submission: `playCompatibilitySound` now returns
+  `requestSoundCursor(hook.capturedCursor, hook.capturedPriority)` and
+  `pumpSoundLatch()` performs the synthesis on the tick, exactly like every
+  other in-game callsite. The audio-device early-out was dropped because the
+  latch is game state, not audio state -- keeping it would have desynced
+  headless runs from audio runs. `--debug-remaining-sound-compat-hooks` now
+  proves the recovered priority is live: `latch_accepted=1` over a seeded
+  records-page request (selector 2), `pumped=0x0000/p3` and
+  `pumped=0x003d/p10` showing the pump routes exactly the captured pair, and
+  `high_seed_rejected=1` showing a louder pending request (selector 0xff)
+  refuses the hook outright. It also reports
+  `latch_route_claim=inferred_accepted_pair_only`, because the originating
+  callsite in the original is still unattributed -- only the accepted pair
+  is evidence. `collectAllObjectiveTilesForSmoke()` and
+  `smokeCompleteCurrentLevelFromMapProgress()` now clear the latch, since
+  they drive many pickups/completions without ever running a tick to pump
+  it, and a stale request would otherwise outlive the helper.
+
 - **Confirmed the DS:79B9 game-over fallback is reachable at runtime.**
   On level 1 with lives forced to 1 (`DS:0x79EA`), the player was killed by
   own-bomb self-damage while the fallback region was tick-locked against
@@ -854,9 +905,10 @@ under the existing guardrails; they are not missing port functionality.
 - Encapsulated the two remaining sound compatibility routes behind
   `playCompatibilitySound(...)` and a single
   `kRemainingSoundCompatibilityHooks` metadata table. Objective pickup and
-  level-complete still funnel to the same compatibility `playSound(index)`
-  cursors, now prove `latch_preserved=1` after seeding a recovered
-  records-page latch, still report `original_cursor_priority_claim=0`, and
+  level-complete now submit their captured cursor and priority through the
+  recovered priority latch, proving `latch_accepted=1` over a seeded
+  records-page latch and `high_seed_rejected=1` behind a louder pending
+  request, still report `original_cursor_priority_claim=0`, and
   still carry the blockers
   `objective_pickup:rejected_static_candidates,level_complete:no_static_candidate`,
   but the live gameplay code no longer contains scattered raw compatibility
@@ -1594,12 +1646,12 @@ under the existing guardrails; they are not missing port functionality.
 - Added `--debug-remaining-sound-compat-hooks` to exercise the live C++
   objective-pickup and level-complete compatibility paths. It reports the
   indices/cursors used by those compatibility hooks plus
-  `latch_preserved=1`,
+  `latch_accepted=1`, `high_seed_rejected=1`,
   `capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate`,
   and `original_cursor_priority_claim=0`, so the checker now proves the hooks
-  are reached without mutating a seeded recovered latch while naming why
-  neither hook is currently eligible for a sound-callsite DOSBox capture
-  promotion.
+  are reached and that their captured pair really goes through the priority
+  latch, while naming why neither hook is currently eligible for a
+  sound-callsite DOSBox capture promotion.
 - Added `--debug-static-sound-contexts` to pin the original byte contexts for
   `0x1857`, `0x1a44`, `0x1d9c`, `0x202d`, and `0x2083` as
   name-entry/post-end-flow-record/record-table UI sound writes. It verifies the

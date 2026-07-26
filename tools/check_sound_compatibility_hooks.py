@@ -30,9 +30,17 @@ EXPECTED_HELPER_SNIPPETS = [
     "constexpr size_t kLevelCompleteCompatibilityHookSlot = 1;",
     "struct RemainingSoundCompatibilityHook",
     "const char* captureBlocker;",
+    # The hook carries the cursor/priority captured from the original's
+    # accepted sound pair (DS:0x78C0 / DS:0x799E) and submits BOTH through the
+    # recovered priority latch, the route every other in-game callsite uses;
+    # the shared index table's level-complete entry (0x0027) is a different
+    # genuine sound start, so the index path played the wrong sound. See
+    # tests/fixtures/sound_callsite_original_hooks.txt.
+    "uint16_t capturedCursor;",
+    "uint8_t capturedPriority;",
     "void playSound(size_t index)",
-    "void playCompatibilitySound(size_t hookSlot)",
-    "playSound(hook.index);",
+    "bool playCompatibilitySound(size_t hookSlot)",
+    "return requestSoundCursor(hook.capturedCursor, hook.capturedPriority);",
     "playSound(soundIndexForSelector(selector));",
 ]
 
@@ -125,7 +133,12 @@ def check_source(source_path: Path) -> None:
     require(text, "kRejectedObjectiveSoundCandidates", "source")
     require(text, "remaining_compat_hooks=", "source")
     require(text, "capture_blockers=", "source")
-    require(text, "latch_preserved=", "source")
+    # The hooks go through the latch, so the diagnostic must show the latch
+    # accepting the captured pair, the tick pumping exactly that pair, and a
+    # louder pending request rejecting the hook.
+    require(text, "latch_accepted=", "source")
+    require(text, "high_seed_rejected=", "source")
+    require(text, "latch_route_claim=inferred_accepted_pair_only", "source")
     require(text, "debugRemainingSoundCompatibilityHooks", "source")
     require(text, "--debug-remaining-sound-compat-hooks", "source")
     require(text, "remaining_sound_compat_hooks=ok", "source")
@@ -159,7 +172,13 @@ def check_source(source_path: Path) -> None:
             continue
         call_lines.append((lineno, line.strip()))
 
-    expected_lines = ["playSound(hook.index);"]
+    # The compatibility hook no longer funnels through playSound(index): it
+    # synthesizes from the cursor captured off the original's accepted sound
+    # pair, because the shared index table's level-complete entry (0x0027)
+    # names a different sound than the original's 0x003d. The funnel intent
+    # is preserved -- no scattered direct playSound() calls may reappear
+    # outside the definition and the selector path.
+    expected_lines: list[str] = []
     actual_lines = sorted(line for _, line in call_lines)
     if actual_lines != expected_lines:
         formatted = ", ".join(f"{lineno}:{line}" for lineno, line in call_lines)
@@ -186,7 +205,8 @@ def check_docs(root: Path) -> None:
             label,
         )
         require_collapsed(text, "--debug-remaining-sound-compat-hooks", label)
-        require_collapsed(text, "latch_preserved=1", label)
+        require_collapsed(text, "latch_accepted=1", label)
+        require_collapsed(text, "high_seed_rejected=1", label)
         require_collapsed(text, "--debug-sound-runtime-capture-queue", label)
         require_collapsed(text, "sound_runtime_capture_queue=ok", label)
         require_collapsed(text, "original_cursor_priority_claim=0", label)
@@ -210,7 +230,9 @@ def check_cmake(cmake_path: Path) -> None:
     require(text, "sound_runtime_capture_queue=ok", "CMake")
     require(text, "original_cursor_priority_claim=0", "CMake")
     require(text, "capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate", "CMake")
-    require(text, "latch_preserved=1", "CMake")
+    require(text, "latch_accepted=1 pumped=0x0000/p3 high_seed_rejected=1", "CMake")
+    require(text, "latch_accepted=1 pumped=0x003d/p10 high_seed_rejected=1", "CMake")
+    require(text, "latch_route_claim=inferred_accepted_pair_only", "CMake")
     require(text, EXPECTED_ACTOR_CONTACT_CAPTURE_CANDIDATES, "CMake")
     for snippet in EXPECTED_RUNTIME_CAPTURE_HANDOFFS:
         require(text, snippet, "CMake")
@@ -218,7 +240,7 @@ def check_cmake(cmake_path: Path) -> None:
         require(text, snippet, "CMake")
     require(
         text,
-        "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=7 helpers=38 docs=3 rejected_objective_candidates=3 capture_blockers=2 runtime_capture_handoffs=4 runtime_route_classifications=3 live_diagnostic=1",
+        "^sound_compatibility_hooks=ok live_hooks=2 recovered_hooks=7 helpers=40 docs=3 rejected_objective_candidates=3 capture_blockers=2 runtime_capture_handoffs=4 runtime_route_classifications=3 live_diagnostic=1",
         "CMake",
     )
 

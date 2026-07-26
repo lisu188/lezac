@@ -1,0 +1,36 @@
+# Original LEZAC.EXE compatibility sound-hook cursor/priority evidence,
+# captured in-container via DOSBox /proc/mem sampling of the ACCEPTED sound
+# pair. The accepted cursor lives at DS:0x78C0 and the accepted priority at
+# DS:0x799E; DS:0x2074 / DS:0x799F are the PENDING scratch pair, which many
+# unrelated routines write (an earlier sampling attempt on the pending word
+# produced only noise, which is why the accepted pair is authoritative here).
+#
+# objective_pickup: the player was positioned on the level-1 objective tile
+# (tile id 108 at tile 27,15 -> world 216,120) and the game's own pickup
+# logic fired; the accepted pair was read at the exact tick the objective
+# counter DS:0x2088 went 0 -> 1.
+#
+# level_complete: the level-1 objective counters were seeded to their targets
+# (the technique tools/seed_original_level.py uses: DS:0x2088 <- DS:0x2086,
+# DS:0x79B5 <- DS:0x79B3) so the game derived its own completion flags; the
+# accepted pair was read as the completion banner opened. This value also
+# matches the static banner routine at file 0x250c..0x2517, which writes
+# `mov WORD PTR ds:0x2074,0x3d` then `mov BYTE PTR ds:0x799f,0xa`.
+#
+# The player-damage sound was observed in the same runs starting at cursor
+# 0x002d priority 4, independently confirming the port's existing
+# kPlayerDamageSoundCursor = 0x002d and that a start value identifies a
+# sound (the accepted cursor then advances as the sound plays out).
+sound_callsite_original=level1
+source=LEZAC.EXE via DOSBox /proc/mem runtime read
+runtime_ds=0c8f
+accepted_cursor_offset=0x78c0
+accepted_priority_offset=0x799e
+pending_cursor_offset=0x2074
+pending_priority_offset=0x799f
+objective_counter_offset=0x2088
+hook objective_pickup cursor=0x0000 priority=3 evidence=runtime_counter_transition
+hook level_complete cursor=0x003d priority=10 evidence=runtime_and_static_0x250c
+corroboration player_damage cursor=0x002d priority=4
+visual_claim=0
+temp_copy=1

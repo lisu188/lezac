@@ -10,8 +10,8 @@ from pathlib import Path
 TARGETS = {
     "spawner_loop_start": ("1000:7A6B", "spawner_loop"),
     "spawner_loop_end": ("1000:7C2C", "spawner_loop"),
-    "behavior4_branch_start": ("1000:728C", "behavior4_branch"),
-    "behavior4_branch_end": ("1000:731B", "behavior4_branch"),
+    "behavior4_motion_start": ("1000:70D7", "behavior4_motion"),
+    "behavior4_motion_end": ("1000:714F", "behavior4_motion"),
     "integration_8_8_start": ("1000:73E5", "integration_8_8"),
     "integration_8_8_end": ("1000:741B", "integration_8_8"),
 }
@@ -25,11 +25,11 @@ CMAKE_TESTS = {
         "behavior4_procmem_helper_spawner_loop_end_dry_run",
         "/tmp/lezac-behavior4-procmem-spawner-end-dry-run",
     ),
-    "behavior4_branch_start": (
+    "behavior4_motion_start": (
         "behavior4_procmem_helper_branch_start_dry_run",
         "/tmp/lezac-behavior4-procmem-branch-start-dry-run",
     ),
-    "behavior4_branch_end": (
+    "behavior4_motion_end": (
         "behavior4_procmem_helper_branch_end_dry_run",
         "/tmp/lezac-behavior4-procmem-branch-end-dry-run",
     ),
@@ -172,7 +172,7 @@ def check_docs(root: Path) -> None:
         (ghidra, "GHIDRA_NOTES"),
     ]:
         require(text, "tools/capture_original_behavior4_procmem.sh", label)
-        require(text, "behavior4_branch_start", label)
+        require(text, "behavior4_motion_start", label)
         require(text, "LEZAC_BEHAVIOR4_APPROVE_PROCMEM=1", label)
         require(text, "behavior4_procmem", label)
         require(text, "candidate", label)

@@ -11,8 +11,8 @@ runtime_ds=2B3C
 
 break ghidra=1000:7A6B runtime=FFFF:7A6B label=spawner_loop_start
 break ghidra=1000:7C2C runtime=1A2B:7C2C label=spawner_loop_end
-break ghidra=1000:728C runtime=1A2B:728C label=behavior4_branch_start
-break ghidra=1000:731B runtime=1A2B:731B label=behavior4_branch_end
+break ghidra=1000:70D7 runtime=1A2B:70D7 label=behavior4_motion_start
+break ghidra=1000:714F runtime=1A2B:714F label=behavior4_motion_end
 break ghidra=1000:73E5 runtime=1A2B:73E5 label=integration_8_8_start
 break ghidra=1000:741B runtime=1A2B:741B label=integration_8_8_end
 

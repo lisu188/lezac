@@ -60,7 +60,16 @@ under the existing guardrails; they are not missing port functionality.
   is **not** being implemented yet — the composition (tick interleaving, fall
   duration, the `3D2D` staging tag itself) is still inferred, and `3D2D` is an
   intra-frame event that tick-locked sampling cannot observe. The item stays
-  open pending a breakpoint capture.
+  open pending a breakpoint capture. Both halves are committed so the result is
+  reproducible rather than a prose assertion:
+  `tools/scan_livels_debris_sites.py` recomputes the per-level counts from
+  `LIVELS.SCH` with a decoder that mirrors the port's own
+  `decodeLevelRle3`/`loadRawLevels` and self-checks against the level-1
+  objective tile, wired as the `livels_debris_sites` and
+  `livels_debris_sites_selfcheck` ctests;
+  `tools/capture_original_debris_l2_procmem.py` reproduces the live capture;
+  and the measured record transitions are recorded in
+  `tests/fixtures/debris_measurement_original_level2.txt`.
 
 - **Lockstepped the level-7 boss head against the original and fixed four
   real divergences.** `tools/seed_original_level.py` advanced the original
@@ -806,14 +815,14 @@ under the existing guardrails; they are not missing port functionality.
   now reports `route_preset=` and supports `--route-preset branch-x2` for the
   single `x:2.00` branch smoke route. The live WSL/DOSBox pass at
   `/tmp/lezac-behavior4-spawner-level3-branch-x2` used scenario
-  `monster_spawner_behavior4_level3`, targets `behavior4_branch_start` and
-  `behavior4_branch_end`, timing `before_route`, and route `x:2.00`. Both
+  `monster_spawner_behavior4_level3`, targets `behavior4_motion_start` and
+  `behavior4_motion_end`, timing `before_route`, and route `x:2.00`. Both
   captures loaded runtime patches with `runtime_cs=01ED` and
   `runtime_ds=0C8F`, but the summary recorded `observed_freezes=0`,
   `observed_targets=none`, `runtime_patches_applied=2`,
   `patched_no_freeze_candidates=2`, and
-  `patched_no_freeze_targets=behavior4_branch_start,behavior4_branch_end`;
-  `--require-target-freeze behavior4_branch_start` failed with
+  `patched_no_freeze_targets=behavior4_motion_start,behavior4_motion_end`;
+  `--require-target-freeze behavior4_motion_start` failed with
   `reason=target_freeze_missing`. Inspected `020_route_position` and
   `091_tail_freeze_check` frames for both targets stayed in live gameplay with
   bomb effects, so this is route-pruning evidence only and no behavior-4 branch
@@ -848,7 +857,7 @@ under the existing guardrails; they are not missing port functionality.
   loaded with `runtime_cs=01ED` and `runtime_ds=0C8F`. The summary recorded
   `observed_freezes=3`, `observed_targets=spawner_loop_start,integration_8_8_start,integration_8_8_end`,
   `runtime_patches_applied=6`, `patched_no_freeze_candidates=3`,
-  `patched_no_freeze_targets=spawner_loop_end,behavior4_branch_start,behavior4_branch_end`,
+  `patched_no_freeze_targets=spawner_loop_end,behavior4_motion_start,behavior4_motion_end`,
   `ready_candidates=0`, and `incomplete_candidates=6`. Inspected
   `020_route_position` and `091_tail_freeze_check` frames stayed in live level-1
   playback, so this is anchor reachability and route-pruning evidence only; a
@@ -974,7 +983,7 @@ under the existing guardrails; they are not missing port functionality.
   the top-level capture status or
   the child capture manifest's `freeze_runtime_patch_applied` field. Three
   2026-06-17 WSL smoke captures
-  proved the new classification on live original runs: `behavior4_branch_start`
+  proved the new classification on live original runs: `behavior4_motion_start`
   before-bomb route `x:2.00`, before-bomb route `x:5.00,m:0.50,x:2.00`, and
   before-route route `x:2.00` each observed `runtime_cs=01ED`,
   `runtime_ds=0C8F`, loaded the `01ED:728C` patch, and summarized as
@@ -1084,7 +1093,7 @@ under the existing guardrails; they are not missing port functionality.
   `tools/check_behavior4_procmem_route_sweep.py` and CMake dry-run coverage so
   the behavior-4 process-memory fallback can be exercised as a route/timing
   matrix instead of one anchor at a time. The default matrix targets
-  `behavior4_branch_start` and `integration_8_8_start` for
+  `behavior4_motion_start` and `integration_8_8_start` for
   `monster_behavior4_target_selection` across the reviewed behavior-4 route
   hypotheses with both pre-bomb and pre-route freeze timing; `--all-targets`
   expands the plan to all six anchors. Live runs still require
@@ -1094,7 +1103,7 @@ under the existing guardrails; they are not missing port functionality.
 - Added `tools/capture_original_behavior4_procmem.sh` plus
   `tools/check_behavior4_procmem_helper.py` and CMake dry-run coverage for the
   six behavior-4 runtime anchors: `spawner_loop_start`,
-  `spawner_loop_end`, `behavior4_branch_start`, `behavior4_branch_end`,
+  `spawner_loop_end`, `behavior4_motion_start`, `behavior4_motion_end`,
   `integration_8_8_start`, and `integration_8_8_end`. The helper uses the
   existing DOSBox-debug child process-memory freeze path as a fallback for the
   local debugger command-submission timeout, requires
@@ -2487,7 +2496,7 @@ under the existing guardrails; they are not missing port functionality.
   scenario/level, runtime `CS`/`DS`, behavior-4 spawner fields, actor
   before/after position, 8.8 velocity, motion timer, target/player-dead state,
   optional `DS:` dump rows, and required anchors for the spawner loop
-  `1000:7A6B..7C2C`, behavior-4 branch `1000:728C..731B`, and 8.8 integration
+  `1000:7A6B..7C2C`, behavior-4 motion `1000:70D7..714F`, and 8.8 integration
   `1000:73E5..741B`.
 - Added `tools/capture_original_behavior4_debug.sh <out_dir> [asset_dir]
   <scenario>` for the level-2 spawner, level-3 spawner, and target-selection
@@ -3511,8 +3520,8 @@ lane-div routes `x:4.00,m:0.50,x:3.00`, `x:6.00,m:0.50,x:3.00`, and
 `x:6.00,Left:1.00,m:0.50,x:4.00`, and
 `x:4.00,z:0.50,Left:1.00,m:0.50,x:4.00`. Also do not repeat the
 behavior-4 level-3 spawner branch smoke
-`monster_spawner_behavior4_level3`/`x:2.00` for `behavior4_branch_start` or
-`behavior4_branch_end`; both branch patches loaded and stayed no-freeze. The
+`monster_spawner_behavior4_level3`/`x:2.00` for `behavior4_motion_start` or
+`behavior4_motion_end`; both branch patches loaded and stayed no-freeze. The
 positive `m` routes
 reach the high-debris
 branch/forward-helper area, but the natural helper iterations observed so far
@@ -3535,5 +3544,5 @@ passes and, when useful, writes a
 DOSBox frame/debugger evidence for behavior-4 movement, targeting, and respawn
 timing, but do not treat the all-anchor before-route `x:2.00` behavior-4 pass
 as branch evidence: it froze only `spawner_loop_start`, `integration_8_8_start`,
-and `integration_8_8_end`; `behavior4_branch_start` and
-`behavior4_branch_end` stayed patch-loaded no-freeze.
+and `integration_8_8_end`; `behavior4_motion_start` and
+`behavior4_motion_end` stayed patch-loaded no-freeze.

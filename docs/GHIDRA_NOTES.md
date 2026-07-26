@@ -311,7 +311,7 @@ those same six anchors and keeps the capture target map tied to original code
 before any live behavior-4 fixture is promoted. It intentionally remains a
 static model with `visual_claim=0`.
 `tools/capture_original_behavior4_procmem.sh` exposes guarded process-memory
-freeze targets for the same anchor set, including `behavior4_branch_start`
+freeze targets for the same anchor set, including `behavior4_motion_start`
 at `1000:728C` plus `1000:7A6B`, `1000:7C2C`, `1000:731B`, `1000:73E5`, and
 `1000:741B`, when debugger command submission is unreliable. Live runs require
 `LEZAC_BEHAVIOR4_APPROVE_PROCMEM=1` and
@@ -346,19 +346,19 @@ rows.
 The same day, an all-anchor before-route `x:2.00` pass at
 `/tmp/lezac-behavior4-all-anchor-before-route-x2` loaded all six target patches.
 It froze `spawner_loop_start`, `integration_8_8_start`, and
-`integration_8_8_end`, while `spawner_loop_end`, `behavior4_branch_start`, and
-`behavior4_branch_end` remained patch-loaded no-freeze targets. The new
-target-freeze gate rejects `behavior4_branch_start` on that manifest, preserving
+`integration_8_8_end`, while `spawner_loop_end`, `behavior4_motion_start`, and
+`behavior4_motion_end` remained patch-loaded no-freeze targets. The new
+target-freeze gate rejects `behavior4_motion_start` on that manifest, preserving
 the result as level-1 route-pruning evidence rather than behavior-4 branch
 semantics.
 A focused level-3 spawner branch smoke at
 `/tmp/lezac-behavior4-spawner-level3-branch-x2` then used scenario
-`monster_spawner_behavior4_level3`, targets `behavior4_branch_start` and
-`behavior4_branch_end`, timing `before_route`, and route `x:2.00`. Both
+`monster_spawner_behavior4_level3`, targets `behavior4_motion_start` and
+`behavior4_motion_end`, timing `before_route`, and route `x:2.00`. Both
 captures loaded runtime patches with `runtime_cs=01ED` and `runtime_ds=0C8F`,
 but the summary recorded `observed_freezes=0`, `runtime_patches_applied=2`,
 `patched_no_freeze_candidates=2`, and
-`patched_no_freeze_targets=behavior4_branch_start,behavior4_branch_end`.
+`patched_no_freeze_targets=behavior4_motion_start,behavior4_motion_end`.
 Inspected route and tail frames stayed in live gameplay with bomb effects, so
 this is additional route-pruning evidence and not a behavior-4 branch fixture.
 `tools/check_behavior4_runtime_oracle_fixtures.py` keeps that fixed synthetic

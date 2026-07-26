@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 
 
-REQUIRED_OFFSETS = [0x7A6B, 0x7C2C, 0x728C, 0x731B, 0x73E5, 0x741B]
+REQUIRED_OFFSETS = [0x7A6B, 0x7C2C, 0x70D7, 0x714F, 0x73E5, 0x741B]
 
 EXPECTED_OUTCOMES = {
     "behavior4_runtime_oracle_synthetic.txt": "ok",
@@ -242,7 +242,7 @@ def check_source_contract(source_path: Path) -> None:
     for snippet in [
         "--debug-behavior4-runtime-oracle",
         "debugBehavior4RuntimeOracle",
-        "0x7a6b, 0x7c2c, 0x728c, 0x731b, 0x73e5, 0x741b",
+        "0x7a6b, 0x7c2c, 0x70d7, 0x714f, 0x73e5, 0x741b",
         "spawner_ai=",
         "velocity8=",
         "players_dead=",

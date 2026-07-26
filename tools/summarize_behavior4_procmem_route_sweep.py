@@ -22,14 +22,14 @@ ORACLE_FLAG = "--debug-behavior4-runtime-oracle"
 TARGETS = [
     "spawner_loop_start",
     "spawner_loop_end",
-    "behavior4_branch_start",
-    "behavior4_branch_end",
+    "behavior4_motion_start",
+    "behavior4_motion_end",
     "integration_8_8_start",
     "integration_8_8_end",
 ]
 REQUIRED_KEYS = ["capture", "scenario", "level", "runtime_cs", "runtime_ds"]
 REQUIRED_RECORDS = ["spawner", "actor_before", "actor_after", "players"]
-REQUIRED_BREAKS = ["7a6b", "7c2c", "728c", "731b", "73e5", "741b"]
+REQUIRED_BREAKS = ["7a6b", "7c2c", "70d7", "714f", "73e5", "741b"]
 
 
 @dataclass(frozen=True)

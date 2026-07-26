@@ -133,12 +133,21 @@ struct RemainingSoundCompatibilityHook {
     const char* hook;
     size_t index;
     const char* captureBlocker;
+    // Cursor/priority the ORIGINAL latches for this hook, captured live from
+    // DOSBox by sampling the accepted sound pair (cursor DS:0x78C0, priority
+    // DS:0x799E -- DS:0x2074/0x799F are the pending scratch, which many
+    // routines write). objective_pickup was sampled at the exact tick the
+    // objective counter DS:0x2088 went 0->1; level_complete at the tick the
+    // completion flags derived, and it also matches the static banner
+    // routine at file 0x250c..0x2517 (mov [2074],0x3d / mov [799f],0xa).
+    uint16_t capturedCursor;
+    uint8_t capturedPriority;
 };
 constexpr std::array<RemainingSoundCompatibilityHook, 2> kRemainingSoundCompatibilityHooks{{
     {"objective_pickup", kCompatibilityObjectivePickupSound,
-     "rejected_static_candidates"},
+     "rejected_static_candidates", 0x0000, 3},
     {"level_complete", kCompatibilityLevelCompleteSound,
-     "no_static_candidate"},
+     "no_static_candidate", 0x003d, 10},
 }};
 struct RejectedSoundCandidate {
     uint16_t offset;
@@ -5770,10 +5779,9 @@ public:
         // the original runtime, tracked in RECOVERY_STATUS.md. These are not
         // missing port functionality; each stays visual_claim=0 until the
         // matching original fixture is promoted.
-        static const std::array<const char*, 8> kOpenOriginalEvidenceItems{{
+        static const std::array<const char*, 7> kOpenOriginalEvidenceItems{{
             "natural_forward_debris_writeback_3d2d",
             "exact_explosion_sprite_playback",
-            "sound_callsite_cursor_priority_map",
             "actor_update_original_contact_semantics",
             "contact_scanner_runtime_confirmation",
             "behavior4_branch_runtime_fixture",
@@ -9165,7 +9173,7 @@ public:
         CompatibilitySoundAttempt objectiveAttempt = compatibilitySoundAttempts_.front();
         if (std::string(objectiveHook.hook) != "objective_pickup" ||
             objectiveAttempt.index != objectiveHook.index ||
-            objectiveAttempt.cursor != compatibilitySoundCursor(objectiveHook.index) ||
+            objectiveAttempt.cursor != objectiveHook.capturedCursor ||
             collected_ != collectedBefore + 1 ||
             score_ != scoreBefore + 1000u ||
             !objectiveSeedLatch.active ||
@@ -9200,7 +9208,7 @@ public:
         CompatibilitySoundAttempt levelAttempt = compatibilitySoundAttempts_.front();
         if (std::string(levelHook.hook) != "level_complete" ||
             levelAttempt.index != levelHook.index ||
-            levelAttempt.cursor != compatibilitySoundCursor(levelHook.index) ||
+            levelAttempt.cursor != levelHook.capturedCursor ||
             !levelSeedLatch.active ||
             !levelLatchPreserved) {
             throw std::runtime_error("level-complete compatibility sound route mismatch");
@@ -17308,6 +17316,78 @@ public:
                   << " original_runtime_claim=0\n";
     }
 
+    // Verify the port's compatibility sound-hook cursor/priority map against
+    // the original captured accepted-sound evidence fixture.
+    void debugSoundHookEvidence(const std::string& fixturePath) {
+        load();
+        std::ifstream in(fixturePath);
+        if (!in) throw std::runtime_error("cannot open " + fixturePath);
+        std::map<std::string, std::string> kv;
+        std::map<std::string, std::pair<uint16_t, int>> hooks;
+        std::string line;
+        while (std::getline(in, line)) {
+            if (line.empty() || line[0] == '#') continue;
+            if (line.rfind("hook ", 0) == 0) {
+                std::istringstream hs(line.substr(5));
+                std::string name, curTok, priTok;
+                hs >> name >> curTok >> priTok;
+                if (curTok.rfind("cursor=", 0) != 0 ||
+                    priTok.rfind("priority=", 0) != 0) {
+                    throw std::runtime_error("malformed hook row: " + line);
+                }
+                hooks[name] = {static_cast<uint16_t>(
+                                   std::stoul(curTok.substr(7), nullptr, 16)),
+                               std::stoi(priTok.substr(9))};
+                continue;
+            }
+            auto eq = line.find('=');
+            if (eq == std::string::npos) continue;
+            kv[line.substr(0, eq)] = line.substr(eq + 1);
+        }
+        auto req = [&](const char* key) -> std::string {
+            auto it = kv.find(key);
+            if (it == kv.end()) {
+                throw std::runtime_error(std::string("missing key ") + key);
+            }
+            return it->second;
+        };
+        if (req("sound_callsite_original") != "level1" ||
+            req("runtime_ds") != "0c8f" || req("visual_claim") != "0" ||
+            req("accepted_cursor_offset") != "0x78c0" ||
+            req("accepted_priority_offset") != "0x799e") {
+            throw std::runtime_error("sound hook fixture header mismatch");
+        }
+        // Every live compatibility hook must carry the captured cursor and
+        // priority; a mismatch means the port would play a different sound
+        // than the original.
+        for (const RemainingSoundCompatibilityHook& hook :
+             kRemainingSoundCompatibilityHooks) {
+            auto it = hooks.find(hook.hook);
+            if (it == hooks.end()) {
+                throw std::runtime_error(std::string("fixture lacks hook ") +
+                                         hook.hook);
+            }
+            if (hook.capturedCursor != it->second.first ||
+                static_cast<int>(hook.capturedPriority) != it->second.second) {
+                throw std::runtime_error(std::string("hook ") + hook.hook +
+                                         " diverges from captured evidence");
+            }
+            // The synthesized audio must come from the captured cursor.
+            if (synthesizeSoundCursor(hook.capturedCursor).empty() &&
+                hook.capturedCursor != 0) {
+                throw std::runtime_error(std::string("hook ") + hook.hook +
+                                         " captured cursor yields no audio");
+            }
+        }
+        std::cout << "sound_hook_evidence=ok hooks="
+                  << kRemainingSoundCompatibilityHooks.size()
+                  << " objective_pickup=" << hex4(hooks["objective_pickup"].first)
+                  << "/p" << hooks["objective_pickup"].second
+                  << " level_complete=" << hex4(hooks["level_complete"].first)
+                  << "/p" << hooks["level_complete"].second
+                  << " accepted_pair=0x78c0/0x799e visual_claim=0\n";
+    }
+
     // Verify the port's player/bomb dynamics constants against the original
     // tick-locked timing evidence fixture.
     void debugRouteTimingEvidence(const std::string& fixturePath) {
@@ -18460,7 +18540,19 @@ private:
         }
         const RemainingSoundCompatibilityHook& hook =
             kRemainingSoundCompatibilityHooks[hookSlot];
-        playSound(hook.index);
+        // Synthesize from the cursor the ORIGINAL latches, not from the
+        // index->kCompatibilitySoundCursors lookup: the captured
+        // level-complete cursor is 0x003d, whereas the shared table's entry
+        // for that index is 0x0027, so the index path produced an audibly
+        // different sound. The table itself is left alone because the
+        // selector path and the sound_render diagnostics depend on it.
+        if (traceCompatibilitySoundAttempts_) {
+            compatibilitySoundAttempts_.push_back({hook.index, hook.capturedCursor});
+        }
+        if (!audioEnabled_ || audioDevice_ == 0 || sounds_.records.empty()) return;
+        std::vector<int16_t> samples = synthesizeSoundCursor(hook.capturedCursor);
+        if (samples.empty()) return;
+        playSoundSamples(samples);
     }
 
     void playSoundSamples(const std::vector<int16_t>& samples) {
@@ -22396,6 +22488,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-route-timing-evidence") {
             app.debugRouteTimingEvidence(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-sound-hook-evidence") {
+            app.debugSoundHookEvidence(argv[2]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-two-player-hud-panel") {

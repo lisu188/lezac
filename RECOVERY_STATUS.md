@@ -23,6 +23,34 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Recovered the compatibility sound-hook cursor/priority map and fixed a
+  real audible bug in the level-complete sound.** The previous sampling
+  attempt watched `DS:0x2074`/`0x799F` and saw only noise -- those are the
+  PENDING scratch pair, written by many unrelated routines. The ACCEPTED
+  pair is `DS:0x78C0` (cursor) / `DS:0x799E` (priority), and sampling it
+  resolved both hooks immediately: `objective_pickup` = cursor 0x0000
+  priority 3, read at the exact tick the objective counter `DS:0x2088` went
+  0 -> 1 (the player was positioned on the level-1 objective tile 108 at
+  tile 27,15 so the game's own pickup logic fired); `level_complete` =
+  cursor 0x003d priority 10, read as the completion banner opened after the
+  objective counters were seeded to their targets, which also matches the
+  static banner routine at file 0x250c..0x2517. The player-damage sound was
+  observed starting at 0x002d/p4 in the same runs, independently confirming
+  the port's existing `kPlayerDamageSoundCursor` and establishing that the
+  accepted cursor's START value identifies a sound (it then advances as the
+  sound plays out). The capture exposed a genuine audible divergence:
+  `playCompatibilitySound` synthesized via the shared
+  `kCompatibilitySoundCursors` index table, whose level-complete entry is
+  0x0027 -- and the sound bank's stop-step map (stops at steps 4,7,17,25,32,
+  35,38,44,48,52,60,85,104,119,129) shows 0x0027 and 0x003d are two
+  DIFFERENT genuine sound starts, so the port played the wrong completion
+  sound. The hook now carries the captured cursor/priority and synthesizes
+  from the captured cursor; the shared table is left untouched because the
+  selector path and the `sound_render` diagnostics depend on it. Pinned by
+  `tests/fixtures/sound_callsite_original_hooks.txt` and the new
+  `--debug-sound-hook-evidence` diagnostic + `sound_hook_evidence` ctest.
+  `sound_callsite_cursor_priority_map` is resolved (open items 8 -> 7).
+
 - **Confirmed the DS:79B9 game-over fallback is reachable at runtime.**
   On level 1 with lives forced to 1 (`DS:0x79EA`), the player was killed by
   own-bomb self-damage while the fallback region was tick-locked against

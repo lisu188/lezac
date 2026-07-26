@@ -68,6 +68,22 @@ under "Remaining Top Gaps". They require original-runtime evidence
 (DOSBox/DOSBox-debug/process-memory captures) and do not represent missing
 port functionality.
 
+Resolved: `sound_callsite_cursor_priority_map` — the two remaining
+compatibility hooks were captured live by sampling the ACCEPTED sound pair
+(cursor `DS:0x78C0`, priority `DS:0x799E`; the pending scratch
+`DS:0x2074`/`0x799F` is written by many routines and yields only noise):
+`objective_pickup` = cursor 0x0000 priority 3 (read at the tick the
+objective counter `DS:0x2088` went 0->1) and `level_complete` = cursor
+0x003d priority 10 (also matching the static banner routine at file
+0x250c..0x2517). The player-damage sound was observed at 0x002d/p4 in the
+same runs, independently confirming the port's existing constant. This
+exposed a real audible bug: `playCompatibilitySound` synthesized from the
+shared index table, whose level-complete entry is 0x0027 — a different
+genuine sound start — so the port played the wrong completion sound; it now
+synthesizes from the captured cursor. Pinned by
+`tests/fixtures/sound_callsite_original_hooks.txt` and the
+`sound_hook_evidence` ctest.
+
 Resolved: `level1_route_timing_original_confirmation` — tick-locked
 /proc-mem measurement against the original (frame counter `DS:0x78C2`)
 recovered the governed 24-25 fps game rate, the flat 4 px/tick walk, the
@@ -105,8 +121,6 @@ the sprite-decode floor); see the RECOVERY_STATUS iteration entry.
   capture at `1000:3D2D`
 - `exact_explosion_sprite_playback` — exact explosion/debris/collapse sprite
   playback semantics around `1000:3a56..4d3b`
-- `sound_callsite_cursor_priority_map` — exact cursor/priority mapping for the
-  remaining compatibility sound hooks
 - `actor_update_original_contact_semantics` — original contact
   flags/passability/tile snapping around `1000:6053..777f`
 - `contact_scanner_runtime_confirmation` — runtime confirmation for

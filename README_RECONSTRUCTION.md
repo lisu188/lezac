@@ -254,7 +254,7 @@ Runtime/debugger behavior-4 evidence is normalized with
 format records scenario/level, runtime `CS`/`DS`, spawner fields, actor
 before/after position and 8.8 velocity, motion timer, target/player-dead state,
 and optional raw `DS:` dump rows while anchoring the transcript to
-`1000:7A6B..7C2C`, `1000:728C..731B`, and `1000:73E5..741B`.
+`1000:7A6B..7C2C`, `1000:70D7..714F`, and `1000:73E5..741B`.
 `--debug-behavior4-static-model` pins the shipped executable bytes at those
 six anchor offsets and reports the same target map used by the runtime oracle
 and process-memory helper. It is a static byte guardrail with `visual_claim=0`,
@@ -273,11 +273,11 @@ commands, behavior-4 anchors also have a guarded process-memory fallback:
 LEZAC_BEHAVIOR4_APPROVE_PROCMEM=1 \
 LEZAC_BEHAVIOR4_APPROVE_RUNTIME_INSTRUMENTATION=1 \
   tools/capture_original_behavior4_procmem.sh \
-  /tmp/lezac-behavior4-procmem . behavior4_branch_start
+  /tmp/lezac-behavior4-procmem . behavior4_motion_start
 ```
 
 The wrapper can freeze `spawner_loop_start`, `spawner_loop_end`,
-`behavior4_branch_start`, `behavior4_branch_end`, `integration_8_8_start`, or
+`behavior4_motion_start`, `behavior4_motion_end`, `integration_8_8_start`, or
 `integration_8_8_end`, emits `behavior4_procmem` manifests plus a fill-in
 candidate fixture, and keeps `visual_claim=0` until semantic behavior-4 rows
 are captured and accepted by `--debug-behavior4-runtime-oracle`. Live capture
@@ -285,7 +285,7 @@ status lines include `freeze_runtime_patch_applied=` and `freeze_observed=`, so
 route-sweep manifests can distinguish patch-loaded no-freeze captures directly.
 Use `tools/sweep_original_behavior4_procmem_routes.py` to plan or execute a
 guarded route/timing matrix around that helper. Its default dry-run covers
-`behavior4_branch_start` and `integration_8_8_start` across the reviewed
+`behavior4_motion_start` and `integration_8_8_start` across the reviewed
 behavior-4 route hypotheses with both pre-bomb and pre-route runtime-freeze
 timing; add `--all-targets` only when the host is ready to spend captures on
 all six anchors. Add `--route-preset branch-x2` for the focused `x:2.00`
@@ -301,7 +301,7 @@ per-capture oracle commands, and `--require-ready`,
 `--require-runtime-patch`, and `--require-environment-preflight` gates. Add
 `--write-ready-manifest <path>` to hand ready behavior-4 candidates to the
 generic `tools/run_debug_capture_ready_manifest.py` oracle runner.
-Three 2026-06-17 WSL smoke captures for `behavior4_branch_start` loaded the
+Three 2026-06-17 WSL smoke captures for `behavior4_motion_start` loaded the
 `01ED:728C` runtime patch but did not observe a freeze: before-bomb routes
 `x:2.00` and `x:5.00,m:0.50,x:2.00`, plus before-route route `x:2.00`. Each
 reported `runtime_patches_applied=1`, `observed_freezes=0`,
@@ -312,19 +312,19 @@ An all-anchor before-route pass at
 `--all-targets --timing before_route --route x:2.00`. It loaded all six runtime
 patches and froze the generic `spawner_loop_start`, `integration_8_8_start`,
 and `integration_8_8_end` anchors, but `--require-target-freeze
-behavior4_branch_start` fails with
+behavior4_motion_start` fails with
 `observed_targets=spawner_loop_start,integration_8_8_start,integration_8_8_end`.
 The inspected frames stayed in level-1 playback, so this is anchor
 reachability/route-pruning evidence; behavior-4 branch semantics still require
 a route or seeded setup that reaches behavior-4 actors.
 A focused level-3 spawner branch smoke at
 `/tmp/lezac-behavior4-spawner-level3-branch-x2` used
-scenario `monster_spawner_behavior4_level3`, targets `behavior4_branch_start`
-and `behavior4_branch_end`, timing `before_route`, and route `x:2.00`. Both
+scenario `monster_spawner_behavior4_level3`, targets `behavior4_motion_start`
+and `behavior4_motion_end`, timing `before_route`, and route `x:2.00`. Both
 captures loaded their runtime patches with `runtime_cs=01ED` and
 `runtime_ds=0C8F`, but the summary recorded `observed_freezes=0`,
 `runtime_patches_applied=2`, `patched_no_freeze_candidates=2`, and
-`patched_no_freeze_targets=behavior4_branch_start,behavior4_branch_end`; the
+`patched_no_freeze_targets=behavior4_motion_start,behavior4_motion_end`; the
 strict target gate still fails with `reason=target_freeze_missing`. Inspected
 route-position and tail-freeze frames stayed in live gameplay with bomb-effect
 frames, so this prunes the level-3 spawner `x:2.00` branch smoke rather than
@@ -675,7 +675,7 @@ LEZAC_BEHAVIOR4_DEBUG_DRY_RUN=1 \
   /tmp/lezac-behavior4-debug . monster_behavior4_target_selection
 LEZAC_BEHAVIOR4_PROCMEM_DRY_RUN=1 \
   tools/capture_original_behavior4_procmem.sh \
-  /tmp/lezac-behavior4-procmem . behavior4_branch_start
+  /tmp/lezac-behavior4-procmem . behavior4_motion_start
 python3 tools/sweep_original_behavior4_procmem_routes.py \
   /tmp/lezac-behavior4-procmem-sweep . --dry-run --all-targets \
   --timing before_bomb --route x:2.00

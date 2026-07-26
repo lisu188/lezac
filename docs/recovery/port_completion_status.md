@@ -157,8 +157,20 @@ regresses the test if it is undone.
   playback semantics around `1000:3a56..4d3b`
 - `actor_update_original_contact_semantics` — original contact
   flags/passability/tile snapping around `1000:6053..777f`
-- `behavior4_branch_runtime_fixture` — behavior-4 branch semantics fixture at
-  `1000:728C..731B`
+- `behavior4_motion_runtime_fixture` — behavior-4 motion semantics fixture.
+  **Retargeted, not closed.** This item previously named `1000:728C..731B` as
+  the behavior-4 branch. The shipped bytes disprove that: the behavior-4 arm
+  ends `1000:714F e9 da 01` (`jmp 0x732C`), stepping clean past the window, and
+  the window's only external entry is `1000:7152 3c 03` / `1000:7154 74 03`
+  (`cmp al,3 / je`). Its gate local `[bp-0x20]` is written at exactly four
+  sites (`716B`, `71A0`, `71F3`, `723D`), all before the window inside the
+  behavior-3 arm. A behavior-4 actor therefore never executes that window on
+  any level, so the fixture as originally specified was unfillable — which is
+  why the candidate skeleton could never be completed. Pinned by
+  `tools/check_behavior4_window_attribution.py` and the
+  `behavior4_window_attribution` ctest. The behavior-4 *motion* path
+  (`1000:70D7..714F`, `73E5`, `741B`) is the correct target and still has no
+  runtime evidence, so this item stays open with corrected scope.
 - `monster_sprite_table_runtime_consumption` — original runtime consumption of
   impact/death/reward sprite frames
 

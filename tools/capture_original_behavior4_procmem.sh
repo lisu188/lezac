@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
     echo "usage: $0 out_dir [asset_dir] target" >&2
-    echo "targets: spawner_loop_start spawner_loop_end behavior4_branch_start behavior4_branch_end integration_8_8_start integration_8_8_end" >&2
+    echo "targets: spawner_loop_start spawner_loop_end behavior4_motion_start behavior4_motion_end integration_8_8_start integration_8_8_end" >&2
 }
 
 if [[ $# -lt 2 || $# -gt 3 ]]; then
@@ -31,15 +31,21 @@ case "$target" in
         label=spawner_loop_end
         static_region=spawner_loop
         ;;
-    behavior4_branch_start)
-        ghidra=1000:728C
-        label=behavior4_branch_start
-        static_region=behavior4_branch
+    behavior4_motion_start)
+        # 1000:70D7 `a1 c2 78` (mov ax,ds:0x78c2) opens the behavior-4 retarget
+        # test. The old behavior4_branch_* targets named 1000:728C..731B, which
+        # the shipped bytes show is a behavior-3-only window a behavior-4 actor
+        # never enters -- see tools/check_behavior4_window_attribution.py.
+        ghidra=1000:70D7
+        label=behavior4_motion_start
+        static_region=behavior4_motion
         ;;
-    behavior4_branch_end)
-        ghidra=1000:731B
-        label=behavior4_branch_end
-        static_region=behavior4_branch
+    behavior4_motion_end)
+        # 1000:714F `e9 da 01` (jmp 0x732C) is the behavior-4 arm's terminal
+        # jump, stepping past the behavior-3 window.
+        ghidra=1000:714F
+        label=behavior4_motion_end
+        static_region=behavior4_motion
         ;;
     integration_8_8_start)
         ghidra=1000:73E5
@@ -222,8 +228,8 @@ write_candidate_skeleton() {
         echo "break ghidra=$ghidra runtime=${freeze_runtime_value:-<runtime-cs>:${ghidra#*:}} label=$label observed=process_memory_runtime_freeze_${freeze_observed_value:-unknown}"
         echo "# break ghidra=1000:7A6B runtime=${runtime_cs:-<runtime-cs>}:7A6B label=spawner_loop_start"
         echo "# break ghidra=1000:7C2C runtime=${runtime_cs:-<runtime-cs>}:7C2C label=spawner_loop_end"
-        echo "# break ghidra=1000:728C runtime=${runtime_cs:-<runtime-cs>}:728C label=behavior4_branch_start"
-        echo "# break ghidra=1000:731B runtime=${runtime_cs:-<runtime-cs>}:731B label=behavior4_branch_end"
+        echo "# break ghidra=1000:70D7 runtime=${runtime_cs:-<runtime-cs>}:70D7 label=behavior4_motion_start"
+        echo "# break ghidra=1000:714F runtime=${runtime_cs:-<runtime-cs>}:714F label=behavior4_motion_end"
         echo "# break ghidra=1000:73E5 runtime=${runtime_cs:-<runtime-cs>}:73E5 label=integration_8_8_start"
         echo "# break ghidra=1000:741B runtime=${runtime_cs:-<runtime-cs>}:741B label=integration_8_8_end"
         echo

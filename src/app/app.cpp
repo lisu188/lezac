@@ -5786,7 +5786,7 @@ public:
             "natural_forward_debris_writeback_3d2d",
             "exact_explosion_sprite_playback",
             "actor_update_original_contact_semantics",
-            "behavior4_branch_runtime_fixture",
+            "behavior4_motion_runtime_fixture",
             "monster_sprite_table_runtime_consumption",
         }};
 
@@ -11638,7 +11638,7 @@ public:
             int breakCount = 0;
             int dumpBytes = 0;
             constexpr std::array<uint16_t, 6> kRequiredOffsets{
-                0x7a6b, 0x7c2c, 0x728c, 0x731b, 0x73e5, 0x741b};
+                0x7a6b, 0x7c2c, 0x70d7, 0x714f, 0x73e5, 0x741b};
             std::array<bool, 6> sawRequired{};
 
             std::istringstream lines(text);
@@ -11886,12 +11886,17 @@ public:
             {0x7c2c, "spawner_loop_end", "spawner_loop",
              "a0 82 20 c4 7e f8 26 88 45 25 ff 06 82 20 e9 3e "
              "fe c7 06 82 20 01 00 eb 04 ff 06 82 20 8b 3e 82"},
-            {0x728c, "behavior4_branch_start", "behavior4_branch",
-             "c4 7e 04 26 8a 45 03 88 46 ee c4 7e 04 81 c7 16 "
-             "00 89 7e c6 8c 46 c8 8a 46 ee 30 e4 8b f8 d1 e7"},
-            {0x731b, "behavior4_branch_end", "behavior4_branch",
-             "26 88 45 02 c4 7e c6 26 8a 45 01 c4 7e c6 26 88 "
-             "05 80 7e f1 04 75 5d 8b 46 d6 03 06 04 c2 a3 e8"},
+            // Behavior-4 MOTION anchors. These used to name 1000:728C..731B,
+            // but that window is behavior-3-only: the behavior-4 arm ends
+            // 1000:714F `e9 da 01` (jmp 0x732C), stepping past it, and the
+            // window's only entry is `cmp al,3 / je`. See
+            // tools/check_behavior4_window_attribution.py.
+            {0x70d7, "behavior4_motion_start", "behavior4_motion",
+             "a1 c2 78 31 d2 f7 36 e8 c1 92 09 c0 75 6a a1 72 "
+             "20 31 d2 52 50 8b 46 fa 99 31 d0 29 d0 8b c8 8b"},
+            {0x714f, "behavior4_motion_end", "behavior4_motion",
+             "e9 da 01 3c 03 74 03 e9 d3 01 80 7e dd 00 75 0a "
+             "80 7e dc 00 75 04 b0 00 eb 02 b0 01 88 46 e0 80"},
             {0x73e5, "integration_8_8_start", "integration_8_8",
              "8b 46 f2 30 ff 3d 00 00 7d 02 b7 ff 8a 5e ef 00 "
              "c3 88 5e ef 88 e0 88 fc 11 46 d2 8b 46 f4 30 ff"},
@@ -11934,7 +11939,7 @@ public:
             requireBytes(anchor);
             if (std::string(anchor.region) == "spawner_loop") {
                 ++spawnerAnchors;
-            } else if (std::string(anchor.region) == "behavior4_branch") {
+            } else if (std::string(anchor.region) == "behavior4_motion") {
                 ++branchAnchors;
             } else if (std::string(anchor.region) == "integration_8_8") {
                 ++integrationAnchors;

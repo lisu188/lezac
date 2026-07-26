@@ -90,8 +90,8 @@ def write_ready_candidate(path: Path) -> None:
                 "runtime_ds=0C8F",
                 "break ghidra=1000:7A6B runtime=01ED:7A6B label=spawner_loop_start",
                 "break ghidra=1000:7C2C runtime=01ED:7C2C label=spawner_loop_end",
-                "break ghidra=1000:728C runtime=01ED:728C label=behavior4_branch_start",
-                "break ghidra=1000:731B runtime=01ED:731B label=behavior4_branch_end",
+                "break ghidra=1000:70D7 runtime=01ED:70D7 label=behavior4_motion_start",
+                "break ghidra=1000:714F runtime=01ED:714F label=behavior4_motion_end",
                 "break ghidra=1000:73E5 runtime=01ED:73E5 label=integration_8_8_start",
                 "break ghidra=1000:741B runtime=01ED:741B label=integration_8_8_end",
                 "spawner index=5 behavior=4 ai0=20 ai1=214 ai2=66 hp=4 spawn_timer=30",
@@ -132,7 +132,7 @@ def write_capture_manifest(path: Path, patch_applied: bool, freeze_observed: str
                 "capture=behavior4_process_memory",
                 "runtime_cs=01ED",
                 "runtime_ds=0C8F",
-                "freeze_runtime=01ED:728C",
+                "freeze_runtime=01ED:70D7",
                 f"freeze_runtime_patch_applied={1 if patch_applied else 0}",
                 f"instrumented_freeze_observed={freeze_observed}",
                 "",
@@ -160,13 +160,13 @@ def write_mixed_sweep(base: Path) -> Path:
                 "scenario=monster_behavior4_target_selection",
                 "expected_level=3",
                 "targets=2",
-                "target_names=behavior4_branch_start,integration_8_8_start",
+                "target_names=behavior4_motion_start,integration_8_8_start",
                 "timings=before_route",
                 "routes=2",
                 "route_labels=x2p00,x3p00_z0p50_x2p00",
                 "environment_preflight=ok",
-                "capture_command_behavior4_branch_start_before_route_x2p00=env LEZAC_BEHAVIOR4_ROUTE_STEPS=x:2.00 bash helper",
-                "capture_status_behavior4_branch_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_branch_start ghidra=1000:728C runtime_cs=01ED runtime_ds=0C8F freeze_runtime=01ED:728C freeze_runtime_patch_applied=1 freeze_observed=runtime_child_memory_freeze_observed manifest="
+                "capture_command_behavior4_motion_start_before_route_x2p00=env LEZAC_BEHAVIOR4_ROUTE_STEPS=x:2.00 bash helper",
+                "capture_status_behavior4_motion_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_motion_start ghidra=1000:70D7 runtime_cs=01ED runtime_ds=0C8F freeze_runtime=01ED:70D7 freeze_runtime_patch_applied=1 freeze_observed=runtime_child_memory_freeze_observed manifest="
                 + str(ready_capture)
                 + " candidate_fixture="
                 + str(ready),
@@ -175,7 +175,7 @@ def write_mixed_sweep(base: Path) -> Path:
                 + str(incomplete_capture)
                 + " candidate_fixture="
                 + str(incomplete),
-                "capture_command_behavior4_branch_end_before_bomb_x1p00=env LEZAC_BEHAVIOR4_ROUTE_STEPS=x:1.00 bash helper",
+                "capture_command_behavior4_motion_end_before_bomb_x1p00=env LEZAC_BEHAVIOR4_ROUTE_STEPS=x:1.00 bash helper",
                 "",
             ]
         ),
@@ -197,13 +197,13 @@ def write_ready_sweep(base: Path) -> Path:
                 "scenario=monster_behavior4_target_selection",
                 "expected_level=3",
                 "targets=1",
-                "target_names=behavior4_branch_start",
+                "target_names=behavior4_motion_start",
                 "timings=before_route",
                 "routes=1",
                 "route_labels=x2p00",
                 "environment_preflight=ok",
-                "capture_command_behavior4_branch_start_before_route_x2p00=env bash helper",
-                "capture_status_behavior4_branch_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_branch_start ghidra=1000:728C runtime_cs=01ED runtime_ds=0C8F freeze_runtime_patch_applied=1 freeze_observed=runtime_child_memory_freeze_observed manifest="
+                "capture_command_behavior4_motion_start_before_route_x2p00=env bash helper",
+                "capture_status_behavior4_motion_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_motion_start ghidra=1000:70D7 runtime_cs=01ED runtime_ds=0C8F freeze_runtime_patch_applied=1 freeze_observed=runtime_child_memory_freeze_observed manifest="
                 + str(ready_capture)
                 + " candidate_fixture="
                 + str(ready),
@@ -228,13 +228,13 @@ def write_no_freeze_sweep(base: Path) -> Path:
                 "scenario=monster_behavior4_target_selection",
                 "expected_level=3",
                 "targets=1",
-                "target_names=behavior4_branch_start",
+                "target_names=behavior4_motion_start",
                 "timings=before_route",
                 "routes=1",
                 "route_labels=x2p00",
                 "environment_preflight=skipped",
-                "capture_command_behavior4_branch_start_before_route_x2p00=env bash helper",
-                "capture_status_behavior4_branch_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_branch_start ghidra=1000:728C runtime_cs=01ED runtime_ds=0C8F freeze_runtime_patch_applied=1 freeze_observed=unknown manifest="
+                "capture_command_behavior4_motion_start_before_route_x2p00=env bash helper",
+                "capture_status_behavior4_motion_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_motion_start ghidra=1000:70D7 runtime_cs=01ED runtime_ds=0C8F freeze_runtime_patch_applied=1 freeze_observed=unknown manifest="
                 + str(ready_capture)
                 + " candidate_fixture="
                 + str(ready),
@@ -259,13 +259,13 @@ def write_no_patch_sweep(base: Path) -> Path:
                 "scenario=monster_behavior4_target_selection",
                 "expected_level=3",
                 "targets=1",
-                "target_names=behavior4_branch_start",
+                "target_names=behavior4_motion_start",
                 "timings=before_route",
                 "routes=1",
                 "route_labels=x2p00",
                 "environment_preflight=ok",
-                "capture_command_behavior4_branch_start_before_route_x2p00=env bash helper",
-                "capture_status_behavior4_branch_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_branch_start ghidra=1000:728C runtime_cs=01ED runtime_ds=0C8F freeze_observed=unknown manifest="
+                "capture_command_behavior4_motion_start_before_route_x2p00=env bash helper",
+                "capture_status_behavior4_motion_start_before_route_x2p00=behavior4_procmem=ok mode=capture target=behavior4_motion_start ghidra=1000:70D7 runtime_cs=01ED runtime_ds=0C8F freeze_observed=unknown manifest="
                 + str(ready_capture)
                 + " candidate_fixture="
                 + str(ready),
@@ -303,21 +303,21 @@ def main() -> int:
             "capture_commands=3",
             "completed_captures=2",
             "observed_freezes=1",
-            "observed_targets=behavior4_branch_start",
+            "observed_targets=behavior4_motion_start",
             "runtime_patches_applied=2",
             "patched_no_freeze_candidates=1",
             "patched_no_freeze_targets=integration_8_8_start",
             "ready_candidates=1",
             "incomplete_candidates=1",
             "missing_candidates=1",
-            "missing_labels=behavior4_branch_end_before_bomb_x1p00",
-            "behavior4_procmem_route_sweep_detail label=behavior4_branch_start_before_route_x2p00",
+            "missing_labels=behavior4_motion_end_before_bomb_x1p00",
+            "behavior4_procmem_route_sweep_detail label=behavior4_motion_start_before_route_x2p00",
             "candidate_status=ready",
             "runtime_patch_applied=1",
             "freeze_observed=1",
             "behavior4_procmem_route_sweep_detail label=integration_8_8_start_before_route_x3p00_z0p50_x2p00",
             "candidate_status=incomplete",
-            "candidate_missing=runtime_cs,runtime_ds,spawner,actor_before,actor_after,players,break_7a6b,break_7c2c,break_728c,break_731b,break_73e5,break_741b",
+            "candidate_missing=runtime_cs,runtime_ds,spawner,actor_before,actor_after,players,break_7a6b,break_7c2c,break_70d7,break_714f,break_73e5,break_741b",
             "candidate_placeholders=1",
             "freeze_observed=0",
             "oracle_flag=--debug-behavior4-runtime-oracle",
@@ -341,7 +341,7 @@ def main() -> int:
                 "--require-ready",
                 "--require-observed-freeze",
                 "--require-target-freeze",
-                "behavior4_branch_start",
+                "behavior4_motion_start",
                 "--require-runtime-patch",
                 "--require-environment-preflight",
                 "--write-ready-manifest",
@@ -350,7 +350,7 @@ def main() -> int:
         )
         require(ready_out, "ready_candidates=1", "ready_summary")
         require(ready_out, "observed_freezes=1", "ready_summary")
-        require(ready_out, "observed_targets=behavior4_branch_start", "ready_summary")
+        require(ready_out, "observed_targets=behavior4_motion_start", "ready_summary")
         require(ready_out, "runtime_patches_applied=1", "ready_summary")
         require(ready_out, "patched_no_freeze_candidates=0", "ready_summary")
         require(ready_out, "patched_no_freeze_targets=none", "ready_summary")
@@ -372,8 +372,8 @@ def main() -> int:
             f"candidate_0_manifest={ready}",
             "candidate_0_oracle=behavior4",
             "candidate_0_oracle_flag=--debug-behavior4-runtime-oracle",
-            "candidate_0_source_label=behavior4_branch_start_before_route_x2p00",
-            "candidate_0_target=behavior4_branch_start",
+            "candidate_0_source_label=behavior4_motion_start_before_route_x2p00",
+            "candidate_0_target=behavior4_motion_start",
             "candidate_0_timing=before_route",
             "candidate_0_route_label=x2p00",
         ]:
@@ -405,7 +405,7 @@ def main() -> int:
         require(no_freeze_out, "observed_targets=none", "no_freeze")
         require(
             no_freeze_out,
-            "patched_no_freeze_targets=behavior4_branch_start",
+            "patched_no_freeze_targets=behavior4_motion_start",
             "no_freeze",
         )
         cases += 1
@@ -415,7 +415,7 @@ def main() -> int:
             [
                 str(no_freeze),
                 "--require-target-freeze",
-                "behavior4_branch_start",
+                "behavior4_motion_start",
             ],
             False,
         )
@@ -426,7 +426,7 @@ def main() -> int:
         )
         require(
             missing_target,
-            "required_target=behavior4_branch_start",
+            "required_target=behavior4_motion_start",
             "missing_target_freeze",
         )
         require(

@@ -17,7 +17,7 @@ CAPTURE_CONFIGS = {
         "flag": "--debug-behavior4-runtime-oracle",
         "required_keys": ["capture", "scenario", "level", "runtime_cs", "runtime_ds"],
         "required_records": ["spawner", "actor_before", "actor_after", "players"],
-        "required_breaks": ["7a6b", "7c2c", "728c", "731b", "73e5", "741b"],
+        "required_breaks": ["7a6b", "7c2c", "70d7", "714f", "73e5", "741b"],
     },
     "actor_update_runtime": {
         "oracle": "actor_update",

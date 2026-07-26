@@ -8,3 +8,4 @@ lezac_cpp
 *.wav
 __pycache__/
 *.pyc
+tools/__pycache__/

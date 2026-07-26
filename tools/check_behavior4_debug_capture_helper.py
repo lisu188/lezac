@@ -15,11 +15,11 @@ SCENARIOS = [
 
 ANCHORS = [
     "1000:7A6B..7C2C",
-    "1000:728C..731B",
+    "1000:70D7..714F",
     "1000:73E5..741B",
 ]
 
-BREAKPOINTS = ["7A6B", "7C2C", "728C", "731B", "73E5", "741B"]
+BREAKPOINTS = ["7A6B", "7C2C", "70D7", "714F", "73E5", "741B"]
 
 OUTPUTS = [
     "manifest.txt",

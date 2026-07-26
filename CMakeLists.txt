@@ -1138,7 +1138,7 @@ if(BUILD_TESTING)
                     /tmp/lezac-behavior4-procmem-route-sweep-dry-run
                     ${CMAKE_CURRENT_SOURCE_DIR}
                     --dry-run
-                    --target behavior4_branch_start
+                    --target behavior4_motion_start
                     --target integration_8_8_start
                     --timing before_route
                     --route x:5.00,m:0.50,x:2.00
@@ -1146,7 +1146,7 @@ if(BUILD_TESTING)
         set_tests_properties(behavior4_procmem_route_sweep_dry_run PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^behavior4_procmem_route_sweep=ok mode=dry_run .*scenario=monster_behavior4_target_selection expected_level=3 targets=2 target_names=behavior4_branch_start,integration_8_8_start timings=before_route routes=2 route_labels=x5p00_m0p50_x2p00,x3p00_z0p50_x2p00 capture_commands=4")
+                "^behavior4_procmem_route_sweep=ok mode=dry_run .*scenario=monster_behavior4_target_selection expected_level=3 targets=2 target_names=behavior4_motion_start,integration_8_8_start timings=before_route routes=2 route_labels=x5p00_m0p50_x2p00,x3p00_z0p50_x2p00 capture_commands=4")
 
         add_test(NAME behavior4_procmem_route_sweep_all_targets_dry_run
             COMMAND ${Python3_EXECUTABLE}
@@ -1160,7 +1160,7 @@ if(BUILD_TESTING)
         set_tests_properties(behavior4_procmem_route_sweep_all_targets_dry_run PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^behavior4_procmem_route_sweep=ok mode=dry_run .*expected_level=3 targets=6 target_names=spawner_loop_start,spawner_loop_end,behavior4_branch_start,behavior4_branch_end,integration_8_8_start,integration_8_8_end timings=before_bomb routes=1 route_labels=x2p00 capture_commands=6")
+                "^behavior4_procmem_route_sweep=ok mode=dry_run .*expected_level=3 targets=6 target_names=spawner_loop_start,spawner_loop_end,behavior4_motion_start,behavior4_motion_end,integration_8_8_start,integration_8_8_end timings=before_bomb routes=1 route_labels=x2p00 capture_commands=6")
 
         add_test(NAME behavior4_procmem_route_sweep_output_expectations
             COMMAND ${Python3_EXECUTABLE}
@@ -1357,11 +1357,11 @@ if(BUILD_TESTING)
                         ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_behavior4_procmem.sh
                         /tmp/lezac-behavior4-procmem-branch-start-dry-run
                         ${CMAKE_CURRENT_SOURCE_DIR}
-                        behavior4_branch_start)
+                        behavior4_motion_start)
             set_tests_properties(behavior4_procmem_helper_branch_start_dry_run PROPERTIES
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 PASS_REGULAR_EXPRESSION
-                    "^behavior4_procmem=ok mode=dry_run target=behavior4_branch_start ghidra=1000:728C capture_class=behavior4_runtime static_region=behavior4_branch .*procmem_out=.*environment_preflight=dry_run")
+                    "^behavior4_procmem=ok mode=dry_run target=behavior4_motion_start ghidra=1000:70D7 capture_class=behavior4_runtime static_region=behavior4_motion .*procmem_out=.*environment_preflight=dry_run")
 
             add_test(NAME behavior4_procmem_helper_branch_end_dry_run
                 COMMAND ${CMAKE_COMMAND} -E env LEZAC_BEHAVIOR4_PROCMEM_DRY_RUN=1
@@ -1369,11 +1369,11 @@ if(BUILD_TESTING)
                         ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_behavior4_procmem.sh
                         /tmp/lezac-behavior4-procmem-branch-end-dry-run
                         ${CMAKE_CURRENT_SOURCE_DIR}
-                        behavior4_branch_end)
+                        behavior4_motion_end)
             set_tests_properties(behavior4_procmem_helper_branch_end_dry_run PROPERTIES
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 PASS_REGULAR_EXPRESSION
-                    "^behavior4_procmem=ok mode=dry_run target=behavior4_branch_end ghidra=1000:731B capture_class=behavior4_runtime static_region=behavior4_branch .*procmem_out=.*environment_preflight=dry_run")
+                    "^behavior4_procmem=ok mode=dry_run target=behavior4_motion_end ghidra=1000:714F capture_class=behavior4_runtime static_region=behavior4_motion .*procmem_out=.*environment_preflight=dry_run")
 
             add_test(NAME behavior4_procmem_helper_integration_start_dry_run
                 COMMAND ${CMAKE_COMMAND} -E env LEZAC_BEHAVIOR4_PROCMEM_DRY_RUN=1
@@ -1943,6 +1943,33 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
                 "^port_completion_status_checker=ok subsystems=23 open_items=5 ctest=3 docs=3")
+
+        add_test(NAME livels_debris_sites
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/scan_livels_debris_sites.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/LIVELS.SCH)
+        set_tests_properties(livels_debris_sites PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^livels_debris_sites=ok levels=7 total_tiles=47700 bomb_objects=5,30,54,60,102,142,65 bomb_objects_total=458 seedable=0,6,10,14,12,30,15 seedable_total=87 level1_seedable=0 level1_capture_viable=0 visual_claim=0")
+
+        add_test(NAME livels_debris_sites_selfcheck
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/scan_livels_debris_sites.py
+                    ${CMAKE_CURRENT_SOURCE_DIR}/LIVELS.SCH --self-check)
+        set_tests_properties(livels_debris_sites_selfcheck PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^scan_livels_debris_sites_self_check=ok levels=7 total_tiles=47700 l1_objective_tile=108@27,15")
+
+        add_test(NAME behavior4_window_attribution
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_window_attribution.py
+                    ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(behavior4_window_attribution PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^behavior4_window_attribution=ok window=1000:728C..731B window_bytes=144 behavior4_skip=1000:714F entry_guard=cmp_al_3 gate_writes=4 gate_writes_inside_window=0 behavior4_executes_window=0 attribution=behavior3_only original_fidelity_claim=0")
 
         add_test(NAME port_completion_status_checker_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -2603,7 +2630,7 @@ if(BUILD_TESTING)
     set_tests_properties(behavior4_static_model PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^behavior4_static_model=ok image_base=0x0770 anchors=6 spawner=2 branch=2 integration=2 target_map=0x7a6b:spawner_loop_start/spawner_loop,0x7c2c:spawner_loop_end/spawner_loop,0x728c:behavior4_branch_start/behavior4_branch,0x731b:behavior4_branch_end/behavior4_branch,0x73e5:integration_8_8_start/integration_8_8,0x741b:integration_8_8_end/integration_8_8 runtime_oracle=--debug-behavior4-runtime-oracle procmem_helper=tools/capture_original_behavior4_procmem.sh visual_claim=0")
+            "^behavior4_static_model=ok image_base=0x0770 anchors=6 spawner=2 branch=2 integration=2 target_map=0x7a6b:spawner_loop_start/spawner_loop,0x7c2c:spawner_loop_end/spawner_loop,0x70d7:behavior4_motion_start/behavior4_motion,0x714f:behavior4_motion_end/behavior4_motion,0x73e5:integration_8_8_start/integration_8_8,0x741b:integration_8_8_end/integration_8_8 runtime_oracle=--debug-behavior4-runtime-oracle procmem_helper=tools/capture_original_behavior4_procmem.sh visual_claim=0")
 
     add_test(NAME behavior4_runtime_oracle_synthetic
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-runtime-oracle

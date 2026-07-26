@@ -15,14 +15,14 @@ from pathlib import Path
 TARGETS = [
     "spawner_loop_start",
     "spawner_loop_end",
-    "behavior4_branch_start",
-    "behavior4_branch_end",
+    "behavior4_motion_start",
+    "behavior4_motion_end",
     "integration_8_8_start",
     "integration_8_8_end",
 ]
 
 DEFAULT_TARGETS = [
-    "behavior4_branch_start",
+    "behavior4_motion_start",
     "integration_8_8_start",
 ]
 

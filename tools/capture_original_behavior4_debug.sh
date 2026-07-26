@@ -169,8 +169,8 @@ cat >"$commands_file" <<'EOF_COMMANDS'
 # Keep Ghidra offsets unchanged when translating 1000:offset to <CS>:offset.
 BP <CS>:7A6B  # spawner loop start
 BP <CS>:7C2C  # spawner loop end
-BP <CS>:728C  # behavior-4 branch start
-BP <CS>:731B  # behavior-4 branch end
+BP <CS>:70D7  # behavior-4 motion start
+BP <CS>:714F  # behavior-4 motion end
 BP <CS>:73E5  # 8.8 integration start
 BP <CS>:741B  # 8.8 integration end
 R
@@ -198,7 +198,7 @@ EOF_RUNTIME_COMMANDS
     echo "candidate_fixture=$candidate_fixture"
     echo "environment_preflight_command=$(quote_command "${environment_preflight_command[@]}")"
     echo "environment_preflight_log=$environment_preflight_log"
-    echo "anchors=1000:7A6B..7C2C,1000:728C..731B,1000:73E5..741B"
+    echo "anchors=1000:7A6B..7C2C,1000:70D7..714F,1000:73E5..741B"
     echo "visual_claim=0"
 } >"$manifest"
 
@@ -218,8 +218,8 @@ route=$runtime_route
 #
 # break ghidra=1000:7A6B runtime=<runtime-cs>:7A6B label=spawner_loop_start
 # break ghidra=1000:7C2C runtime=<runtime-cs>:7C2C label=spawner_loop_end
-# break ghidra=1000:728C runtime=<runtime-cs>:728C label=behavior4_branch_start
-# break ghidra=1000:731B runtime=<runtime-cs>:731B label=behavior4_branch_end
+# break ghidra=1000:70D7 runtime=<runtime-cs>:70D7 label=behavior4_motion_start
+# break ghidra=1000:714F runtime=<runtime-cs>:714F label=behavior4_motion_end
 # break ghidra=1000:73E5 runtime=<runtime-cs>:73E5 label=integration_8_8_start
 # break ghidra=1000:741B runtime=<runtime-cs>:741B label=integration_8_8_end
 #
@@ -238,7 +238,7 @@ EOF_FIXTURE
     echo "route=$runtime_route"
     echo "expected_level=$expected_level"
     echo "anchor_spawner_loop=1000:7A6B..7C2C"
-    echo "anchor_behavior4_branch=1000:728C..731B"
+    echo "anchor_behavior4_motion=1000:70D7..714F"
     echo "anchor_integration_8_8=1000:73E5..741B"
     echo "candidate_fixture=$candidate_fixture"
     echo "debugger_commands_runtime=$runtime_commands_file"

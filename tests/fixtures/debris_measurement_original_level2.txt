@@ -1,0 +1,45 @@
+# Original LEZAC.EXE level-2 falling-debris measurement.
+#
+# Reproduce with: tools/capture_original_debris_l2_procmem.py --run-dir <dir>
+# (needs xvfb + dosbox; it drives tools/seed_original_level.py to level 2,
+# parks the player on the crate pile, drops ONE bomb after the 256-tick spawner
+# cooldown, and samples tick-locked on DS:0x78C2 with one 64 KiB pread of the
+# whole data segment per tick so no record can tear).
+#
+# Debris records live at DS:0x2093 with stride 0x0B; record fields used here:
+#   +0x00 u16 tile index into the level plane (index = y*width + x)
+#   +0x02 u16 flagged word (the level word with bit 15 set)
+#   +0x09 u8  tile code
+#
+# What this measures: the original's debris fragments MOVE and carry their
+# flagged word, and a cascade fragment is created in the cell above. The C++
+# port's DebrisRecord only decrements a timer and never writes back into
+# level_.tiles / level_.wordLayer, so this subsystem is missing entirely.
+#
+# NOT measured: the 1000:3D2D staging tag itself. That is an intra-frame event
+# and tick-locked sampling between frames cannot observe it, so this fixture
+# does NOT close natural_forward_debris_writeback_3d2d.
+debris_measurement_original=level2
+source=LEZAC.EXE via DOSBox /proc/mem runtime read
+runtime_ds=0c8f
+level_width=100
+debris_record_base=0x2093
+debris_record_stride=0x0b
+debris_count_offset=0x207e
+first_debris_record_index=200
+pre_bomb_player_px=200
+pre_bomb_player_py=308
+pre_bomb_block_index=3925
+pre_bomb_frame=403
+debris_count_values=0x00c7,0x00c8,0x00c9
+# record 200: distinct (tile_index, flagged_word, tile_code) states in order
+record 200 frame=403 tile_index=3726 tile_xy=26,37 flagged_word=0xc00a tile_code=0x68
+record 200 frame=404 tile_index=3826 tile_xy=26,38 flagged_word=0xc00a tile_code=0x68
+record 200 frame=405 tile_index=3626 tile_xy=26,36 flagged_word=0xc009 tile_code=0x69
+record 200 frame=412 tile_index=3726 tile_xy=26,37 flagged_word=0xc009 tile_code=0x69
+record 200 frame=415 tile_index=3826 tile_xy=26,38 flagged_word=0xc009 tile_code=0x69
+# record 201: distinct (tile_index, flagged_word, tile_code) states in order
+record 201 frame=403 tile_index=0 tile_xy=0,0 flagged_word=0x0000 tile_code=0x00
+record 201 frame=404 tile_index=3626 tile_xy=26,36 flagged_word=0xc009 tile_code=0x69
+visual_claim=0
+temp_copy=1

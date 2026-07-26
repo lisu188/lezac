@@ -23,6 +23,55 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Lockstepped the level-7 boss head against the original and fixed four
+  real divergences.** `tools/seed_original_level.py` advanced the original
+  from level 1 to level 7 through its own results routine (six natural
+  transitions, no flag poking), then 775 consecutive game ticks were sampled
+  tick-locked on `DS:0x78C2` with ONE 64 KiB pread of the whole data segment
+  per tick, so no record could tear across the scattered actor (`0x1BAE`),
+  visual (`0xC21E`) and motion-link (`0x79EA`) tables. The recovered
+  `1000:5CB0` model reproduces the capture exactly: **774/774** transitions on
+  the 8.8 fixed-point integration -- position *and* the sub-pixel fractions at
+  actor `+0x0a`/`+0x0c` driven by the velocity words `+0x06`/`+0x08` -- and all
+  **26** RNG firings replayed bit-exactly through the port's own
+  `randomRangeValue` in the recovered roar/speed/jump draw order on the
+  29-tick gate. That settles `contact_scanner_runtime_confirmation`: a generic
+  contact scanner cannot produce those velocity assignments, so
+  `1000:5CB0..604F` is the boss-head brain at runtime, not just statically.
+  The divergences the capture exposed, all now fixed:
+  1. **A fabricated `0x07ff` gravity clamp.** The original has no clamp
+     anywhere in the routine and demonstrably reaches `vy = 0x0a40`.
+  2. **Gravity applied unconditionally.** The original's `add WORD
+     ss:[di-0xe],0x40` is guarded by `cmp BYTE ss:[di-0x21],0 / jne`, so it
+     only runs when the bottom edge flag is clear -- 65 of the 775 captured
+     ticks hold `vy` unchanged while the head rests. The port now performs the
+     original's four-edge tile scan (linear indexing off
+     `(y>>3)*stride + (x>>3)`, inclusive solid ranges, the bottom edge
+     accepting the wider `1..0x52`) and gates gravity and the jump on it.
+  3. **The head ran through the generic actor pushout**, which reflected it a
+     second time and zeroed an 8.8 fraction the original preserves. Behavior 6
+     now joins behavior 5 outside the pushout and reflects inside the brain as
+     `-(v/2)` with `idiv` truncation toward zero.
+  4. **A spurious 1 px horizontal wobble on the mode-`0xff` links.** Those are
+     a vertical-only oscillation: with the one-tick anchor lag that the
+     pre-loop link recompute at `1000:432A` implies, the output becomes a pure
+     function of the phase byte (0 of 128 phases ambiguous; without the lag,
+     all 128 are), and `out_x = anchor_x + off_x` exactly, 774/774. The
+     vertical term is `trunc(sin[phase] * radius_y)` with `radius_y` from link
+     byte `+0x05` -- byte `+0x04` is not an x radius -- on the shipped table's
+     literal `6.28` scale, matching 128/128 phases for all four orbit links.
+     Rounding to nearest, which the port used, is off by one on 21 of them.
+  The capture also settles the `DS:0x79EA` lives-versus-link-table question
+  structurally: the motion-link table is one-based, so slot 0's bytes are
+  unrelated scalars -- byte 0 is the lives counter (observed 2 -> 1 when the
+  boss reached the player) and byte 2 the energy byte `DS:0x79EC` (observed
+  100). There is no collision. Pinned by
+  `tests/fixtures/boss_lockstep_original_level7.txt` and the new
+  `--debug-boss-lockstep-evidence` diagnostic + `boss_lockstep_evidence`
+  ctest, which replays all four models rather than restating them.
+  `gran_mst_runtime_motion_timing` and `contact_scanner_runtime_confirmation`
+  are both resolved (open items 7 -> 5).
+
 - **Recovered the compatibility sound-hook cursor/priority map and fixed a
   real audible bug in the level-complete sound.** The previous sampling
   attempt watched `DS:0x2074`/`0x799F` and saw only noise -- those are the
@@ -3364,11 +3413,12 @@ under the existing guardrails; they are not missing port functionality.
   scanner", is now identified as the level-7 boss-head brain:
   the sole call at `1000:6555` sits behind the behavior/state `06` gate,
   which only boss-head actors carry. The existing scanner-named capture
-  targets and fixtures remain valid as addresses. Live actor/visual/link
-  snapshots now confirm the boss load and initial placement; frame-by-frame
-  confirmation of its motion/collision behavior, and of the actual
-  player/monster contact model elsewhere in `1000:6053..777f`, still needs
-  original evidence.
+  targets and fixtures remain valid as addresses. This is now confirmed at
+  runtime: 775 consecutive original level-7 ticks reproduce the routine's
+  recovered velocity model exactly (774/774 on the 8.8 integration, 26/26 RNG
+  firings bit-exact), which a generic contact scanner could not do -- see
+  `--debug-boss-lockstep-evidence`. The actual player/monster contact model
+  elsewhere in `1000:6053..777f` still needs original evidence.
 - Runtime reachability of the `DS:79b9` fallback, exact original active-player
   accounting, and exact dead-player visual playback from original frame bytes
   remain unresolved now that the delayed state-2 life-count decrement, fallback
@@ -3388,8 +3438,12 @@ under the existing guardrails; they are not missing port functionality.
   (`spawnLevel7Boss()`, `--debug-gran-boss-model`,
   `--debug-autoplayer boss_level7`). Native level transitions and live
   original actor/visual/link snapshots confirm its one-based table indexing,
-  `+2` visual rebase, and exact initial placement. The remaining gap is exact
-  frame-by-frame boss motion, collision, and presentation timing.
+  `+2` visual rebase, and exact initial placement. Frame-by-frame boss motion
+  and collision are now confirmed too, by a 775-tick original level-7 capture
+  that corrected a fabricated gravity clamp, an ungated gravity add, a double
+  reflection through the generic pushout, and a spurious horizontal term on
+  the mode-`0xff` links (`--debug-boss-lockstep-evidence`). The remaining gap
+  is boss presentation timing (sprite/frame sequencing), not motion.
 
 ## Next Planned Target
 

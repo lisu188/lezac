@@ -167,7 +167,7 @@ if(BUILD_TESTING)
     set_tests_properties(port_completion_status PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "port_completion_status=ok subsystems=23 implemented=23 open_original_evidence_items=7 port_functionally_complete=1 original_fidelity_claim=0")
+            "port_completion_status=ok subsystems=23 implemented=23 open_original_evidence_items=5 port_functionally_complete=1 original_fidelity_claim=0")
 
     add_test(NAME original_asset_load
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-asset-load)
@@ -1915,7 +1915,7 @@ if(BUILD_TESTING)
         set_tests_properties(gran_usage_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^gran_usage_guardrail=ok source_refs=25 load_refs=2 debug_refs=21 member_refs=1 live_consumer_refs=1 live_refs=0 ctest=3 docs=3")
+                "^gran_usage_guardrail=ok source_refs=24 load_refs=2 debug_refs=20 member_refs=1 live_consumer_refs=1 live_refs=0 ctest=3 docs=3")
 
         add_test(NAME gran_usage_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -1942,7 +1942,7 @@ if(BUILD_TESTING)
         set_tests_properties(port_completion_status_checker PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^port_completion_status_checker=ok subsystems=23 open_items=7 ctest=3 docs=3")
+                "^port_completion_status_checker=ok subsystems=23 open_items=5 ctest=3 docs=3")
 
         add_test(NAME port_completion_status_checker_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -3512,6 +3512,15 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^route_timing_evidence=ok governed_fps=24.2-25.2 walk_px_per_tick=4 jump_model=fixed_848_64 jump_peak=24 fuse_ticks=41 port_walk=98 port_fuse_frames=100 visual_claim=0")
+
+    add_test(NAME boss_lockstep_evidence
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-boss-lockstep-evidence
+                tests/fixtures/boss_lockstep_original_level7.txt)
+    set_tests_properties(boss_lockstep_evidence PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^boss_lockstep_evidence=ok ticks=775 frames=183..957 integration_exact=774 gravity=602 reflect=81 hold=65 rng=26 jumps=6 max_abs_vy=0xa40 old_clamp=0x7ff live_updateBossHead=774 live_edge_scan_agree=687/687 orbit_links=4 orbit_phases=512 live_updateBossLinks=512 orbit_horizontal_term=none orbit_rounding=trunc_toward_zero gravity_gate=bottom_flag_clear gravity_clamp=none link_slot0_scalars=1 visual_claim=0")
 
     add_test(NAME level_outro
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

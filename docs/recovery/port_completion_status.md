@@ -125,23 +125,42 @@ views and doubled HUD were rebuilt from an original in-container DOSBox
 two-player capture and diff to the pixel floor (view frames exact, HUD at
 the sprite-decode floor); see the RECOVERY_STATUS iteration entry.
 
+Resolved: `gran_mst_runtime_motion_timing` and
+`contact_scanner_runtime_confirmation` — one live level-7 campaign closed
+both. `tools/seed_original_level.py` advanced the original from level 1 to
+level 7 through its own results routine (six natural transitions), then 775
+consecutive game ticks were sampled tick-locked on `DS:0x78C2` with one 64 KiB
+pread of the whole data segment per tick. The recovered `1000:5CB0` semantics
+reproduce the captured head trajectory exactly — 774/774 transitions on the
+8.8 fixed-point integration including the sub-pixel fractions, and all 26 RNG
+firings replayed bit-exactly through the port's own `randomRangeValue` in the
+recovered roar/speed/jump draw order on the 29-tick gate. A generic contact
+scanner could not produce those velocity assignments, so `1000:5CB0..604F` is
+confirmed at runtime as the boss-head brain. The capture also corrected four
+real port divergences: a fabricated `0x07ff` gravity clamp (the original
+reaches `0x0a40`), gravity applied unconditionally instead of only when the
+bottom edge flag is clear, the head being run through the generic actor
+pushout (double-reflecting it and zeroing an 8.8 fraction the original keeps),
+and a spurious 1 px horizontal wobble on the mode-`0xff` links, whose rule is
+vertical-only with truncation toward zero. It further settles the `DS:0x79EA`
+question: the motion-link table is one-based, so slot 0's bytes are the lives
+and energy scalars, not a link record — there is no collision. Pinned by
+`tests/fixtures/boss_lockstep_original_level7.txt` and the
+`boss_lockstep_evidence` ctest, which drives the live `updateBossHead()`,
+`scanBossHeadEdges()` and `updateBossLinks()` against every captured tick
+rather than only replaying recovered arithmetic, so each of the five fixes
+regresses the test if it is undone.
+
 - `natural_forward_debris_writeback_3d2d` — natural forward debris writeback
   capture at `1000:3D2D`
 - `exact_explosion_sprite_playback` — exact explosion/debris/collapse sprite
   playback semantics around `1000:3a56..4d3b`
 - `actor_update_original_contact_semantics` — original contact
   flags/passability/tile snapping around `1000:6053..777f`
-- `contact_scanner_runtime_confirmation` — runtime confirmation for
-  `1000:5cb0..604f`, now statically identified as the level-7 boss-head
-  brain rather than a generic contact scanner
 - `behavior4_branch_runtime_fixture` — behavior-4 branch semantics fixture at
   `1000:728C..731B`
 - `monster_sprite_table_runtime_consumption` — original runtime consumption of
   impact/death/reward sprite frames
-- `gran_mst_runtime_motion_timing` — live original capture now confirms the
-  1-based actor/link tables, visual allocator count, `+2` visual rebase, and
-  initial boss placement (`--debug-gran-boss-model`); exact frame-by-frame
-  motion/collision timing still needs paired original evidence
 
 ## Guardrails
 

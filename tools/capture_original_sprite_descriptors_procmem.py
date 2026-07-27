@@ -15,11 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path("/home/user/lezac/tools")))
 import seed_original_level as seeder  # noqa: E402
 
-OUT = Path("/tmp/claude-0/-home-user-lezac/"
-           "064a09b8-e325-5628-8402-832b91172260/scratchpad/l1_segdump.bin")
-
-
-def install_hook():
+def install_hook(out_path: Path):
     original = seeder.write_runtime_state_snapshot
 
     def patched(run_dir, pid, base, state, phase):
@@ -36,8 +32,9 @@ def install_hook():
                         break
                     time.sleep(0.01)
                 mem.seek(dsbase)
-                OUT.write_bytes(mem.read(0x10000))
-            print(f"segdump=ok level={state['level']} out={OUT}", flush=True)
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                out_path.write_bytes(mem.read(0x10000))
+            print(f"segdump=ok level={state['level']} out={out_path}", flush=True)
         return original(run_dir, pid, base, state, phase)
 
     seeder.write_runtime_state_snapshot = patched
@@ -46,8 +43,12 @@ def install_hook():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--run-dir", required=True)
+    parser.add_argument("--out", type=Path, default=None,
+                        help="output path for the 64 KiB dump "
+                             "(default: <run-dir>/l1_segdump.bin)")
     args = parser.parse_args()
-    install_hook()
+    out_path = args.out if args.out else Path(args.run_dir) / "l1_segdump.bin"
+    install_hook(out_path)
     sys.argv = [
         "seed_original_level.py",
         "--run-dir", args.run_dir,

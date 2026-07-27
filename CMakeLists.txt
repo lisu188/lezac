@@ -3549,6 +3549,15 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^route_timing_evidence=ok governed_fps=24.2-25.2 walk_px_per_tick=4 jump_model=fixed_848_64 jump_peak=24 fuse_ticks=41 port_walk=98 port_fuse_frames=100 visual_claim=0")
 
+    add_test(NAME sprite_descriptor_evidence
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-sprite-descriptor-evidence
+                tests/fixtures/sprite_descriptor_original_level1.txt)
+    set_tests_properties(sprite_descriptor_evidence PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^sprite_descriptor_evidence=ok entries=92 entry0_reserved=1 matched=91/91 index_base=1 payload_bytes=19985 one_based_confirmed=1 visual_claim=0")
+
     add_test(NAME boss_lockstep_evidence
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-boss-lockstep-evidence

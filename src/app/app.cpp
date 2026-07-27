@@ -18701,6 +18701,83 @@ public:
                   << " visual_claim=0\n";
     }
 
+    // Verify the live sprite-descriptor table captured from the original
+    // against the port's OWN raw SPR loader. The table (DS:0xC322, 92 x
+    // {w:u8, h:u8, pixel_offset:u16le}, entry 0 reserved) proves at runtime
+    // that DGROUP sprite-frame values are one-based over the SPR bank --
+    // the -1 the port applies to every table-derived sprite range.
+    void debugSpriteDescriptorEvidence(const std::string& fixturePath) {
+        std::ifstream in(fixturePath);
+        if (!in) throw std::runtime_error("cannot open " + fixturePath);
+        std::map<std::string, std::string> kv;
+        std::string line;
+        while (std::getline(in, line)) {
+            if (line.empty() || line[0] == '#') continue;
+            auto eq = line.find('=');
+            if (eq == std::string::npos) continue;
+            kv[line.substr(0, eq)] = line.substr(eq + 1);
+        }
+        auto req = [&](const char* key) -> std::string {
+            auto it = kv.find(key);
+            if (it == kv.end()) {
+                throw std::runtime_error(std::string("missing key ") + key);
+            }
+            return it->second;
+        };
+        if (req("sprite_descriptor_original") != "level1" ||
+            req("runtime_ds") != "0c8f" || req("visual_claim") != "0" ||
+            req("descriptor_stride") != "4" || req("index_base") != "1" ||
+            req("sprite_file") != "BOMOMIMK.SPR") {
+            throw std::runtime_error("sprite descriptor fixture header mismatch");
+        }
+        const std::string hex = req("descriptors_hex");
+        const size_t entries = std::stoul(req("descriptor_entries"));
+        if (hex.size() != entries * 4 * 2) {
+            throw std::runtime_error("sprite descriptor blob size mismatch");
+        }
+        std::vector<uint8_t> raw(entries * 4);
+        for (size_t i = 0; i < raw.size(); ++i) {
+            raw[i] = static_cast<uint8_t>(
+                std::stoul(hex.substr(i * 2, 2), nullptr, 16));
+        }
+        // Entry 0 is the reserved slot and must be zero.
+        if (raw[0] || raw[1] || raw[2] || raw[3]) {
+            throw std::runtime_error("sprite descriptor entry 0 is not reserved-zero");
+        }
+        // Compare entries 1..N against the port's own raw loader: entry k
+        // describes FILE sprite k-1, and pixel_offset is the cumulative sum.
+        SpriteBank bank = loadRawSprites("BOMOMIMK.SPR");
+        if (bank.sprites.size() != entries - 1) {
+            throw std::runtime_error("sprite descriptor count mismatch with the port bank");
+        }
+        size_t cumulative = 0;
+        int matched = 0;
+        for (size_t k = 1; k < entries; ++k) {
+            const uint8_t* e = raw.data() + k * 4;
+            const Sprite& s = bank.sprites[k - 1];
+            const uint16_t offset =
+                static_cast<uint16_t>(e[2] | (e[3] << 8));
+            if (e[0] != s.width || e[1] != s.height || offset != cumulative) {
+                throw std::runtime_error(
+                    "sprite descriptor entry " + std::to_string(k) +
+                    " does not match the port bank under one-based mapping");
+            }
+            cumulative += static_cast<size_t>(s.width) * s.height;
+            ++matched;
+        }
+        if (cumulative != std::stoul(req("file_payload_bytes"))) {
+            throw std::runtime_error("sprite descriptor payload total mismatch");
+        }
+        std::cout << "sprite_descriptor_evidence=ok"
+                  << " entries=" << entries
+                  << " entry0_reserved=1"
+                  << " matched=" << matched << "/" << (entries - 1)
+                  << " index_base=1"
+                  << " payload_bytes=" << cumulative
+                  << " one_based_confirmed=1"
+                  << " visual_claim=0\n";
+    }
+
     void debugRouteTimingEvidence(const std::string& fixturePath) {
         std::ifstream in(fixturePath);
         if (!in) throw std::runtime_error("cannot open " + fixturePath);
@@ -24142,6 +24219,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-route-timing-evidence") {
             app.debugRouteTimingEvidence(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-sprite-descriptor-evidence") {
+            app.debugSpriteDescriptorEvidence(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-lockstep-evidence") {

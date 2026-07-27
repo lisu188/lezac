@@ -192,7 +192,13 @@ regresses the test if it is undone.
   (`1000:70D7..714F`, `73E5`, `741B`) is the correct target and still has no
   runtime evidence, so this item stays open with corrected scope.
 - `monster_sprite_table_runtime_consumption` — original runtime consumption of
-  impact/death/reward sprite frames
+  impact/death/reward sprite frames. **Half-settled:** the live descriptor
+  table at `DS:0xC322` (92 x `{w,h,pixel_offset}`, entry 0 reserved) was read
+  from a running session and matches `BOMOMIMK.SPR` under one-based indexing
+  on 91/91 dimensions and offsets, so the `-1` applied to every table-derived
+  sprite range is runtime-confirmed (`sprite_descriptor_evidence` ctest,
+  `tests/fixtures/sprite_descriptor_original_level1.txt`). Which frames
+  actually play at impact/death/reward still needs a live monster-kill trace
 
 ## Guardrails
 

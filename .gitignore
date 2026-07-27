@@ -9,3 +9,5 @@ lezac_cpp
 __pycache__/
 *.pyc
 tools/__pycache__/
+.claude/worktrees/
+.claude/settings.local.json

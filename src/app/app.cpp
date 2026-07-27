@@ -622,6 +622,10 @@ struct ActiveMonster {
     int hp = 1;
     int stateTimer = 0;
     int motionTimer = 0;
+    // Recovered original 2x2 tile-cell edge scan, computed once per tick from
+    // the PRE-integration position by the caller (updateMonsters).
+    struct EdgeFlags { bool top = false, bottom = false, left = false, right = false; };
+    EdgeFlags edges;
     int animTick = 0;
     bool deathCredited = false;
     bool alive = true;
@@ -15737,6 +15741,82 @@ public:
                   << fieldAPayloadMatchesHighSameWordComponents << '\n';
     }
 
+    void debugTurnProbe() {
+        load();
+        resetLevel(0);
+        int minx = 99999, maxx = -1, spawnFrame = -1;
+        std::vector<int> turns;
+        int prevx = -1, prevdir = 0;
+        for (int t = 0; t < 1600; ++t) {
+            updateMonsterSpawners();
+            updateMonsters(1.0f);
+            if (!monsters_.empty()) {
+                const ActiveMonster& m = monsters_.front();
+                if (spawnFrame < 0) spawnFrame = t;
+                if (m.x < minx) minx = m.x;
+                if (m.x > maxx) maxx = m.x;
+                if (prevx >= 0) {
+                    int d = m.x - prevx;
+                    if (d != 0) {
+                        int dir = d > 0 ? 1 : -1;
+                        if (prevdir != 0 && dir != prevdir) turns.push_back(prevx);
+                        prevdir = dir;
+                    }
+                }
+                prevx = m.x;
+            }
+        }
+        std::cout << "turnprobe minx=" << minx << " maxx=" << maxx
+                  << " spawnTick=" << spawnFrame << " turns=";
+        for (size_t i = 0; i < turns.size(); ++i) std::cout << (i ? "," : "") << turns[i];
+        std::cout << " monsters=" << monsters_.size() << '\n';
+    }
+
+    // Live level-1 walker turn-point pin. Drives the REAL port path
+    // (resetLevel -> updateMonsterSpawners -> updateMonsters) for 1600 ticks
+    // and reports the extreme x reached by the behaviour-3 ground walkers.
+    // The original capture (contact_ticks.jsonl, 1459 ticks) turns at x=452 on
+    // 4/4 right turns and x=67 on 3/3 left turns; the pre-recovery port turned
+    // at 457 / 64. This is the cheapest live guard on the two ingredients the
+    // rest of the suite cannot see: tile 0x01 being SOLID (the right wall at
+    // column 59 is tile 0x01) and the +4 column probe bias.
+    void debugWalkerTurnPoints() {
+        load();
+        resetLevel(0);
+        int minx = 99999;
+        int maxx = -1;
+        int rightTurns = 0;
+        int leftTurns = 0;
+        int prevx = -1;
+        int prevdir = 0;
+        for (int tick = 0; tick < 1600; ++tick) {
+            updateMonsterSpawners();
+            updateMonsters(1.0f);
+            if (monsters_.empty()) continue;
+            const ActiveMonster& m = monsters_.front();
+            minx = std::min(minx, m.x);
+            maxx = std::max(maxx, m.x);
+            if (prevx >= 0 && m.x != prevx) {
+                const int dir = m.x > prevx ? 1 : -1;
+                if (prevdir > 0 && dir < 0) ++rightTurns;
+                if (prevdir < 0 && dir > 0) ++leftTurns;
+                prevdir = dir;
+            }
+            prevx = m.x;
+        }
+        if (minx != 67 || maxx != 452) {
+            throw std::runtime_error("level-1 walker turn points changed");
+        }
+        if (rightTurns < 1 || leftTurns < 1) {
+            throw std::runtime_error("level-1 walker did not patrol");
+        }
+        std::cout << "walker_turn_points=ok left_x=" << minx
+                  << " right_x=" << maxx
+                  << " right_turns=" << rightTurns
+                  << " left_turns=" << leftTurns
+                  << " walkers=" << monsters_.size() << '\n';
+    }
+
     void debugSpawners() {
         load();
         std::array<int, 256> kindCounts{};
@@ -16150,12 +16230,98 @@ public:
         walker.behavior = 3;
         walker.ai0 = 0x0100;
         initializeMonsterMotion(walker);
-        if (walker.vx8 != 0x0100 || walker.vy8 != 0 ||
+        // The original's spawn helper is entered with vx = vy = 0; the ground
+        // speed is seeded inside the bottom-contact gate, never at spawn.
+        // Capture evidence: both level-1 walkers hold x = 336 for every one of
+        // their 14/14 airborne spawn-fall ticks, which an at-spawn vx cannot
+        // produce (an ungated vx reproduces 6/2370 samples).
+        if (walker.vx8 != 0 || walker.vy8 != 0 ||
             walker.animStart != 45 || walker.animEnd != 46) {
             throw std::runtime_error("behavior 3 initialization changed");
         }
 
+        // Free fall, seed-on-landing and ground snap, driven through the LIVE
+        // updateMonsters tail (edge scan -> updateMonsterMotion -> recovered
+        // resolution -> 8.8 integration). The gravity step that used to be
+        // asserted inside updateMonsterMotion now lives in that shared tail
+        // gated on the bottom flag, so its coverage moves here.
+        prepareMonsterMotionDebugLevel(false);
+        monsters_.clear();
+        ActiveMonster faller = walker;
+        faller.x = 40;
+        faller.y = 8;          // R = 1, so the bottom probe row 3 is empty
+        faller.alive = true;
+        faller.animDelay = 1;
+        monsters_.push_back(faller);
+        int fallZeroDx = 0;
+        for (int tick = 0; tick < 11; ++tick) {
+            const int beforeX = monsters_.front().x;
+            updateMonsters(0.0f);
+            if (monsters_.front().vx8 == 0 && monsters_.front().x == beforeX) {
+                ++fallZeroDx;
+            }
+        }
+        const int fallVy = monsters_.front().vy8;
+        // 11 airborne ticks: vx never seeded (bottom clear), vy accrues exactly
+        // 0x40 per tick to 11 * 0x40 = 0x2c0, and the 8.8 fraction carries the
+        // walker from y = 8 to y = 24 with fracY = 0x80 left over.
+        if (fallZeroDx != 11 || fallVy != 0x02c0 || monsters_.front().y != 24 ||
+            monsters_.front().fracY != 0x80) {
+            throw std::runtime_error("behavior 3 free fall changed");
+        }
+        updateMonsters(0.0f);                       // the landing tick
+        const ActiveMonster landed = monsters_.front();
+        // Landing: bottom is set, so gravity is skipped, vy is zeroed and the
+        // collision-space y is snapped with `y &= 0xfff8`. The 8.8 fraction is
+        // NOT cleared by the contact -- fracY is still the 0x80 carried in from
+        // the fall (clearing it drops the level-1 lockstep to 1355/2370) -- and
+        // the same tick is the first one to seed vx from ai0, which moves the
+        // walker exactly 1 px.
+        if (landed.vy8 != 0 || landed.y != 24 || (landed.y & 7) != 0 ||
+            landed.fracY != 0x80 || landed.vx8 != 0x0100 || landed.x != 41) {
+            throw std::runtime_error("behavior 3 landing changed");
+        }
+
+        // Landing at a NON-TILE-ALIGNED y, which is what pins the ORDER of the
+        // recovered steps rather than just their content. The original runs
+        // gravity/landing before the vx seed and the behaviour-3 ledge probe
+        // (image 0x716e..0x7200), and that probe derives its tile row from
+        // monster.y -- so on the landing tick it must see the SNAPPED y.
+        // Here the walker arrives at y = 31 (y % 8 == 7) over a floor that
+        // continues. Snapped first, the probe reads row (24+17)/8 = 5, the
+        // floor, and the walker keeps going. Unsnapped it reads row
+        // (31+17)/8 = 6, empty space below the floor, and falsely reverses.
+        // Every other landing in this suite is tile-aligned, where the two
+        // rows coincide, so without this case the ordering is unguarded:
+        // reverting it leaves all 388 tests green.
+        prepareMonsterMotionDebugLevel(false);
+        monsters_.clear();
+        ActiveMonster misaligned = walker;
+        misaligned.x = 40;
+        misaligned.y = 23;
+        misaligned.vx8 = 0;
+        // Gravity clamps at 0x07ff, i.e. 7 px plus a fractional carry, so
+        // reaching y = 31 in one tick needs the carry: 0xff + 0xff overflows
+        // and adds the eighth pixel.
+        misaligned.vy8 = 0x07ff;
+        misaligned.fracX = 0;
+        misaligned.fracY = 0xff;
+        misaligned.alive = true;
+        misaligned.animDelay = 1;
+        monsters_.push_back(misaligned);
+        updateMonsters(0.0f);                       // falls to y = 31
+        const int misalignedFallY = monsters_.front().y;
+        updateMonsters(0.0f);                       // the landing tick
+        const ActiveMonster misalignedLanded = monsters_.front();
+        if (misalignedFallY != 31 || (misalignedFallY & 7) != 7) {
+            throw std::runtime_error("misaligned landing fixture no longer lands off-grid");
+        }
+        if (misalignedLanded.y != 24 || misalignedLanded.vx8 != 0x0100) {
+            throw std::runtime_error("behavior 3 misaligned landing reversed on a continuing floor");
+        }
+
         prepareMonsterMotionDebugLevel(true);
+        monsters_.clear();
         ActiveMonster ledgeWalker = walker;
         ledgeWalker.x = 40;
         ledgeWalker.y = 24;
@@ -16163,8 +16329,16 @@ public:
         ledgeWalker.vy8 = 0;
         ledgeWalker.fracX = 0;
         ledgeWalker.fracY = 0;
-        updateMonsterMotion(ledgeWalker, 0.0f);
-        if (ledgeWalker.vx8 != -0x0100 || ledgeWalker.vy8 != 0x0040 ||
+        ledgeWalker.alive = true;
+        ledgeWalker.animDelay = 1;
+        monsters_.push_back(ledgeWalker);
+        updateMonsters(0.0f);
+        ledgeWalker = monsters_.front();
+        // The ledge reversal still fires, and because the bottom flag is set
+        // the shared tail applies NO gravity: vy stays 0 where the old model
+        // added 0x40 every tick even while grounded.
+        if (ledgeWalker.vx8 != -0x0100 || ledgeWalker.vy8 != 0 ||
+            ledgeWalker.x != 39 || ledgeWalker.fracX != 0 ||
             ledgeWalker.animStart != 43 || ledgeWalker.animEnd != 44) {
             throw std::runtime_error("behavior 3 ledge turn changed");
         }
@@ -16198,6 +16372,15 @@ public:
                   << " b3_init_vx=" << walker.vx8
                   << " b3_init_frame=" << static_cast<int>(walker.animStart)
                   << '-' << static_cast<int>(walker.animEnd)
+                  << " b3_fall_zero_dx=" << fallZeroDx << "/11"
+                  << " b3_fall_vy=" << fallVy
+                  << " b3_land_vy=" << landed.vy8
+                  << " b3_land_y=" << landed.y
+                  << " b3_land_fracy=" << static_cast<int>(landed.fracY)
+                  << " b3_land_vx=" << landed.vx8
+                  << " b3_misaligned_fall_y=" << misalignedFallY
+                  << " b3_misaligned_land_y=" << misalignedLanded.y
+                  << " b3_misaligned_land_vx=" << misalignedLanded.vx8
                   << " b3_ledge_vx=" << ledgeWalker.vx8
                   << " b3_ledge_vy=" << ledgeWalker.vy8
                   << " b3_ledge_frame=" << static_cast<int>(ledgeWalker.animStart)
@@ -16873,26 +17056,95 @@ public:
         if (monsterCollides(monsters_.front().x, monsters_.front().y)) {
             throw std::runtime_error("monster horizontal fixture starts blocked");
         }
+        // Pre-load a non-zero 8.8 fraction so "the contact does not clear the
+        // fraction" is FALSIFIABLE. vx8 = 0x0200 has a zero low byte, so the
+        // integrator cannot change fracX; the only thing that could is a
+        // restored `monster.fracX = 0` on collision.
+        monsters_.front().fracX = 0x40;
         updateMonsters(0.0f);
-        if (monsters_.empty() ||
-            monsterCollides(monsters_.front().x, monsters_.front().y) ||
-            monsters_.front().x != kSolidX * kTileSize - 14 ||
-            monsters_.front().vx8 >= 0) {
-            throw std::runtime_error("monster horizontal pushout did not clear collision");
+        // The original has no pushout search and no revert-to-oldX, so the old
+        // invariant "x is restored to its pre-collision value" is retired: it
+        // was an artefact of the deleted loop. What is asserted instead is the
+        // recovered resolution itself. The right edge flag is read from the
+        // PRE-integration position (x = 26 -> C = (26+4)>>3 = 3, probe column
+        // C+2 = 5 = the solid column), vx is halved toward zero, a fixed 1 px
+        // push is applied, and then ONE 8.8 integration runs:
+        //     26 - 1 (push) - 1 (0x0100 >> 8) = 24 = kSolidX*kTileSize - 16.
+        // fracX is NOT cleared by the contact (the original never clears it;
+        // clearing it drops the level-1 lockstep from 2370/2370 to 1355/2370),
+        // and gravity comes from the shared tail because the bottom flag is
+        // clear here.
+        if (monsters_.empty()) {
+            throw std::runtime_error("monster horizontal reflection lost the monster");
+        }
+        const ActiveMonster monsterH = monsters_.front();
+        if (monsterH.vx8 != -0x0100 ||
+            monsterH.x != kSolidX * kTileSize - 16 ||
+            monsterH.fracX != 0x40 || monsterH.vy8 != 0x0040 ||
+            monsterCollides(monsterH.x, monsterH.y)) {
+            throw std::runtime_error("monster horizontal reflection changed");
+        }
+        // The halved velocity is what carries the actor clear on the following
+        // tick; nothing teleports it out of the wall.
+        updateMonsters(0.0f);
+        const int monsterHStep2X = monsters_.front().x;
+        if (monsterHStep2X != monsterH.x - 1 ||
+            monsters_.front().vx8 != -0x0100) {
+            throw std::runtime_error("monster horizontal separation changed");
         }
 
         monsters_.clear();
-        monsters_.push_back(makeMonster(kFloorX * kTileSize,
-                                        kFloorY * kTileSize - 16, 0, 0x0200));
-        if (monsterCollides(monsters_.front().x, monsters_.front().y)) {
-            throw std::runtime_error("monster vertical fixture starts blocked");
+        // Ceiling case. This is the ONLY sub-case that can observe the order of
+        // the recovered resolution: the original (image 1000:716e, before the
+        // shared tail at 1000:738f) applies gravity FIRST and only then clamps
+        // a still-negative vy to 1, so a monster rising at -0x0100 under a
+        // ceiling ends the tick at vy = 1, not at 1 + 0x40. Nothing in the
+        // level-1 capture fires the top edge (0/2370), so this pin is
+        // disassembly-only and is labelled as such.
+        constexpr int kCeilPx = 200;
+        constexpr int kCeilPy = 200;
+        constexpr int kCeilC = (kCeilPx + 4) >> 3;
+        constexpr int kCeilR = kCeilPy >> 3;
+        setTile(kCeilC, kCeilR - 1, kSolidDebugTile);
+        setTile(kCeilC + 1, kCeilR - 1, kSolidDebugTile);
+        monsters_.push_back(makeMonster(kCeilPx, kCeilPy, 0, -0x0100));
+        {
+            const ActiveMonster::EdgeFlags ceilEdges = scanActorEdges(kCeilPx, kCeilPy);
+            if (!ceilEdges.top || ceilEdges.bottom || ceilEdges.left || ceilEdges.right) {
+                throw std::runtime_error("monster ceiling fixture does not isolate the top edge");
+            }
         }
         updateMonsters(0.0f);
+        const int monsterCeilVy = monsters_.front().vy8;
+        const int monsterCeilY = monsters_.front().y;
+        if (monsterCeilVy != 1 || monsterCeilY != kCeilPy ||
+            monsters_.front().fracY != 1) {
+            throw std::runtime_error("monster ceiling clamp order changed");
+        }
+        setTile(kCeilC, kCeilR - 1, 0);
+        setTile(kCeilC + 1, kCeilR - 1, 0);
+
+        monsters_.clear();
+        // Start 3 px below a tile boundary so the recovered ground snap
+        // `y &= 0xfff8` is observable rather than a no-op. The old
+        // `monsterCollides` precheck cannot be used here -- its 14x16 pixel box
+        // already overlaps the floor row at this y -- so the fixture is stated
+        // in the recovered model's own terms: the bottom flag must be set and
+        // y must not already be tile-aligned.
+        constexpr int kFloorApproachY = kFloorY * kTileSize - 16 + 3;
+        monsters_.push_back(makeMonster(kFloorX * kTileSize, kFloorApproachY, 0, 0x0200));
+        if (!scanActorEdges(kFloorX * kTileSize, kFloorApproachY).bottom ||
+            (kFloorApproachY & 7) == 0) {
+            throw std::runtime_error("monster vertical fixture does not exercise the snap");
+        }
+        updateMonsters(0.0f);
+        const int monsterVY = monsters_.empty() ? -1 : monsters_.front().y;
         if (monsters_.empty() ||
             monsterCollides(monsters_.front().x, monsters_.front().y) ||
-            monsters_.front().y != kFloorY * kTileSize - 16 ||
+            monsterVY != kFloorY * kTileSize - 16 ||
+            (monsterVY & 7) != 0 ||
             monsters_.front().vy8 != 0) {
-            throw std::runtime_error("monster vertical pushout did not clear collision");
+            throw std::runtime_error("monster vertical ground snap changed");
         }
 
         monsters_.clear();
@@ -16925,6 +17177,12 @@ public:
             throw std::runtime_error("behavior-4 vertical half reversal failed");
         }
 
+        // NOTE: this sub-check still runs the OLD pixel predicate
+        // (collides / monsterCollides -> solidPixel -> isPassableObjectCell).
+        // Under the recovered tile classes solidTileSide(0x45) is true, so if
+        // the player box is ever migrated to scanActorEdges this footprint
+        // stops being passable and the scenario must be restated. Do not read
+        // this line as evidence that the original treats 0x45 as passable.
         constexpr int kPassableX = 15;
         constexpr int kPassableY = 5;
         setTile(kPassableX, kPassableY, 0x67);
@@ -16940,8 +17198,12 @@ public:
         std::cout << "collision_pushout=ok"
                   << " player_h_clear=1"
                   << " player_v_clear=1"
-                  << " monster_h_clear=1"
-                  << " monster_v_clear=1"
+                  << " monster_h_vx=" << monsterH.vx8
+                  << " monster_h_x=" << monsterH.x
+                  << " monster_h_fracx=" << static_cast<int>(monsterH.fracX)
+                  << " monster_h_step2_x=" << monsterHStep2X
+                  << " monster_v_y=" << monsterVY
+                  << " monster_ceil_vy=" << monsterCeilVy
                   << " monster_b4_half=1"
                   << " passable_clear=1"
                   << " solid_tile=" << static_cast<int>(kSolidDebugTile) << '\n';
@@ -19108,6 +19370,25 @@ private:
                !isPassableObjectCell(tx, ty);
     }
 
+    // Recovered original edge-class predicates (rank 1). Side/top edges are
+    // solid for tiles 1..0x4C; the bottom edge additionally accepts the
+    // 0x4D..0x52 jump-through platform class. Tiles >= 0x53 never collide.
+    static bool solidTileSide(uint8_t t) { return t >= 1 && t <= 0x4c; }
+    static bool solidTileBottom(uint8_t t) { return t >= 1 && t <= 0x52; }
+
+    ActiveMonster::EdgeFlags scanActorEdges(int x, int yCollide) const {
+        const int C = (x + 4) >> 3;
+        const int R = yCollide >> 3;
+        auto side = [&](int c, int r) { return solidTileSide(static_cast<uint8_t>(tileAt(c, r))); };
+        auto bot = [&](int c, int r) { return solidTileBottom(static_cast<uint8_t>(tileAt(c, r))); };
+        ActiveMonster::EdgeFlags e;
+        e.top = side(C, R - 1) || side(C + 1, R - 1);
+        e.bottom = bot(C, R + 2) || bot(C + 1, R + 2);
+        e.left = side(C - 1, R) || side(C - 1, R + 1);
+        e.right = side(C + 2, R) || side(C + 2, R + 1);
+        return e;
+    }
+
     bool collides(float x, float y) const {
         return solidPixel(x, y) || solidPixel(x + 11.0f, y) ||
                solidPixel(x, y + 15.0f) || solidPixel(x + 11.0f, y + 15.0f);
@@ -19755,13 +20036,19 @@ private:
         level_.width = 12;
         level_.height = 8;
         level_.objectiveTile = 108;
-        level_.tiles.assign(static_cast<size_t>(level_.width) * level_.height, 1);
+        // Background must be tile 0, not tile 1. Tile 1 is passable to the old
+        // `countsForDestructionProgress` predicate (`tile > 1`) but SOLID to the
+        // recovered edge predicates (side 1..0x4C, bottom 1..0x52) -- with a
+        // tile-1 background this "open" 12x8 room is a sealed box and every
+        // actor in it is walled in on all four edges. Tile 0 is passable to
+        // BOTH predicates, so the fixture means the same thing either way.
+        level_.tiles.assign(static_cast<size_t>(level_.width) * level_.height, 0);
         level_.wordLayer.assign(level_.tiles.size(), 0);
         for (int x = 0; x < level_.width; ++x) {
-            tileRef(x, 5) = 2;
+            tileRef(x, 5) = 2;   // floor: solid on every edge under both predicates
         }
         if (ledgeAhead) {
-            tileRef(6, 5) = 1;
+            tileRef(6, 5) = 0;   // hole: passable under both predicates
         }
         playerCount_ = 1;
         playerDead_ = false;
@@ -19866,7 +20153,7 @@ private:
             retargetMonster(monster);
             return;
         }
-        monster.vx8 = groundWalkerSpeed8(monster);
+        monster.vx8 = 0;
         monster.vy8 = 0;
         refreshMonsterAnimationProfile(monster);
     }
@@ -19924,16 +20211,21 @@ private:
         // (initializeMonsterMotion) and reverse only at walls and floor edges;
         // the original never steers them toward the player, so preserve the
         // current facing rather than seeking (defaulting to the spawn heading).
-        int16_t speed = groundWalkerSpeed8(monster);
-        monster.vx8 = monster.vx8 < 0 ? -speed : speed;
-        bool grounded = monsterCollides(monster.x, monster.y + 1.0f);
-        if (grounded) {
+        // Rank 10: the original seeds and renormalises the ground walker's
+        // horizontal speed only while the bottom-contact flag is set; an
+        // airborne walker keeps whatever vx it had (0 at spawn).
+        if (monster.edges.bottom) {
+            const int16_t speed = groundWalkerSpeed8(monster);
+            if (monster.vx8 == 0) {
+                monster.vx8 = speed;
+            } else if (std::abs(monster.vx8) != speed) {
+                monster.vx8 = monster.vx8 > 0 ? speed : static_cast<int16_t>(-speed);
+            }
             float probeX = monster.x + (monster.vx8 < 0 ? -2.0f : 15.0f);
             if (!solidPixel(probeX, monster.y + 17.0f)) {
                 monster.vx8 = -monster.vx8;
             }
         }
-        monster.vy8 = static_cast<int16_t>(std::min<int>(0x07ff, monster.vy8 + 0x40));
         refreshMonsterAnimationProfile(monster);
     }
 
@@ -20333,46 +20625,92 @@ private:
                     std::clamp(next, static_cast<int>(monster.animStart),
                                static_cast<int>(monster.animEnd)));
             }
+            // The capture that recovered this model contains ONE monster kind
+            // (1), ONE behaviour (3) and ONE level. Behaviour 4 (free flyers)
+            // is not evidenced by it -- in particular the original's flyers
+            // have no gravity at all, so running them through the shared
+            // bottom-gated gravity would be a guess. Keep them on the legacy
+            // integrate-then-pushout path until a behaviour-4 capture exists.
+            const bool recoveredResolution =
+                !isBossMotionBehavior(monster.behavior) && monster.behavior != 4;
+            if (recoveredResolution) {
+                monster.edges = scanActorEdges(monster.x, monster.y);
+            } else {
+                monster.edges = {};
+            }
+
+            // Gravity and landing run BEFORE the motion update, which is
+            // where the original puts them (image 0x716e..0x7200: the
+            // bottom-gated gravity/snap block precedes the vx seed and the
+            // behaviour-3 ledge probe). The order matters: the ledge probe
+            // reads a tile row from monster.y, so on the landing tick it must
+            // see the SNAPPED y. Running the snap afterwards let a walker
+            // landing at y % 8 != 0 probe one row too low and falsely reverse
+            // on a platform that continues.
+            if (recoveredResolution) {
+                const ActiveMonster::EdgeFlags& e = monster.edges;
+                if (!e.bottom || monster.vy8 < 0) {
+                    monster.vy8 = static_cast<int16_t>(std::min<int>(0x07ff, monster.vy8 + 0x40));
+                } else if (monster.vy8 > 0) {
+                    monster.vy8 = 0;
+                    monster.y &= ~7;
+                }
+            }
+
             updateMonsterMotion(monster, dt);
 
-            int oldX = monster.x;
-            integrateAxis8_8(monster.x, monster.fracX, monster.vx8);
             // Boss segments (behavior 5) are positioned purely by their
             // motion links in the original and pass through terrain. The boss
             // head (behavior 6) is excluded too: 1000:5CB0 does its own
-            // four-edge scan and reflects there, keeping the 8.8 fraction, so
-            // running it through the generic pushout as well would reflect it
-            // twice and zero a fraction the original preserves.
-            if (!isBossMotionBehavior(monster.behavior) &&
-                monsterCollides(monster.x, monster.y)) {
-                int step = monster.vx8 > 0 ? -1 : 1;
-                int pushes = 0;
-                while (monsterCollides(monster.x, monster.y) && pushes++ < kCollisionPushoutLimit) {
-                    monster.x += step;
+            // four-edge scan and reflects there, keeping the 8.8 fraction.
+            if (recoveredResolution) {
+                const ActiveMonster::EdgeFlags e = monster.edges;
+                if (e.top && monster.vy8 < 0) monster.vy8 = 1;
+                if (e.left && e.right) {
+                    monster.vx8 = 0;
+                } else if ((e.left && monster.vx8 < 0) || (e.right && monster.vx8 > 0)) {
+                    monster.vx8 = static_cast<int16_t>(-monster.vx8 / 2);
+                    monster.x += monster.vx8 < 0 ? -1 : 1;
+                    refreshMonsterAnimationProfile(monster);
                 }
-                if (monsterCollides(monster.x, monster.y)) monster.x = oldX;
-                monster.vx8 = static_cast<int16_t>(
-                    -monster.vx8 / (monster.behavior == 4 ? 2 : 1));
-                monster.fracX = 0;
-                if (monster.behavior == 4) monster.motionTimer = 0;
-                refreshMonsterAnimationProfile(monster);
-            }
+                integrateAxis8_8(monster.y, monster.fracY, monster.vy8);
+                integrateAxis8_8(monster.x, monster.fracX, monster.vx8);
+            } else {
+                int oldX = monster.x;
+                integrateAxis8_8(monster.x, monster.fracX, monster.vx8);
+                if (!isBossMotionBehavior(monster.behavior) &&
+                    monsterCollides(monster.x, monster.y)) {
+                    int step = monster.vx8 > 0 ? -1 : 1;
+                    int pushes = 0;
+                    while (monsterCollides(monster.x, monster.y) &&
+                           pushes++ < kCollisionPushoutLimit) {
+                        monster.x += step;
+                    }
+                    if (monsterCollides(monster.x, monster.y)) monster.x = oldX;
+                    monster.vx8 = static_cast<int16_t>(
+                        -monster.vx8 / (monster.behavior == 4 ? 2 : 1));
+                    monster.fracX = 0;
+                    if (monster.behavior == 4) monster.motionTimer = 0;
+                    refreshMonsterAnimationProfile(monster);
+                }
 
-            int oldY = monster.y;
-            integrateAxis8_8(monster.y, monster.fracY, monster.vy8);
-            if (!isBossMotionBehavior(monster.behavior) &&
-                monsterCollides(monster.x, monster.y)) {
-                int step = monster.vy8 > 0 ? -1 : 1;
-                int pushes = 0;
-                while (monsterCollides(monster.x, monster.y) && pushes++ < kCollisionPushoutLimit) {
-                    monster.y += step;
+                int oldY = monster.y;
+                integrateAxis8_8(monster.y, monster.fracY, monster.vy8);
+                if (!isBossMotionBehavior(monster.behavior) &&
+                    monsterCollides(monster.x, monster.y)) {
+                    int step = monster.vy8 > 0 ? -1 : 1;
+                    int pushes = 0;
+                    while (monsterCollides(monster.x, monster.y) &&
+                           pushes++ < kCollisionPushoutLimit) {
+                        monster.y += step;
+                    }
+                    if (monsterCollides(monster.x, monster.y)) monster.y = oldY;
+                    monster.vy8 = monster.behavior == 4
+                                      ? static_cast<int16_t>(-monster.vy8 / 2)
+                                      : 0;
+                    monster.fracY = 0;
+                    if (monster.behavior == 4) monster.motionTimer = 0;
                 }
-                if (monsterCollides(monster.x, monster.y)) monster.y = oldY;
-                monster.vy8 = monster.behavior == 4
-                                  ? static_cast<int16_t>(-monster.vy8 / 2)
-                                  : 0;
-                monster.fracY = 0;
-                if (monster.behavior == 4) monster.motionTimer = 0;
             }
 
             monster.x = std::clamp(monster.x, 0, std::max(16, level_.width * 8 - 16));
@@ -22936,6 +23274,14 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-word-layer") {
             app.debugWordLayer();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-turn-probe") {
+            app.debugTurnProbe();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-walker-turn-points") {
+            app.debugWalkerTurnPoints();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-spawners") {

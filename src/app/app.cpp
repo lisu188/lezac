@@ -20762,6 +20762,20 @@ private:
     // observed repeat-gap-8 boundaries in walker B's stream.
     void reselectWalkerFacing(ActiveMonster& monster) {
         if (monster.vx8 == 0) return;
+        // Facing reselection only exists for kinds with DISTINCT left/right
+        // pairs. For direction-independent kinds -- e.g. the shipped kind-4
+        // behavior-3 actors on levels 3 and 6, whose range is a static
+        // {53,55} -- a terrain event must stay the no-op it was before this
+        // helper existed, not rewind their animation. Note the guard is on
+        // the KIND's table, not on whether this call changes the range: the
+        // capture adjudicates that a kind-1 wall tick re-selecting the SAME
+        // pair still resets the cursor (walker B, frame 907: dropping the
+        // same-range reset diverges there), so same-range resets are real
+        // evidenced behavior for directional kinds.
+        if (monsterDirectionalFrameRange(monster.kind, -0x0100) ==
+            monsterDirectionalFrameRange(monster.kind, 0x0100)) {
+            return;
+        }
         auto frames = monsterDirectionalFrameRange(monster.kind, monster.vx8);
         monster.animStart = static_cast<uint8_t>(frames[0]);
         monster.animEnd = static_cast<uint8_t>(frames[1]);

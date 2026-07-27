@@ -162,10 +162,21 @@ regresses the test if it is undone.
   `1..0x52`, `vx` seeded only under the bottom flag, `trunc(-vx/2)` reflection
   with a fixed 1 px push, persistent 8.8 fractions, and bottom-gated gravity in
   the original's instruction order. Pinned live by `--debug-walker-turn-points`
-  (`walker_turn_points` ctest), which reproduces the original's exact level-1
-  turn columns 67 and 452. The item stays OPEN: the evidence is one monster kind
-  (1), one behaviour (3), one level, so behaviours 1/2/4/5/6, other kinds, other
-  levels, the player's own collision box and two-player are all unevidenced.
+  (`walker_turn_points` ctest) and the full lockstep
+  `--debug-actor-contact-evidence` (`actor_contact_evidence` ctest,
+  `tests/fixtures/actor_contact_original_level1.txt`: 1459 ticks, 2370/2370
+  walker samples, spawn frames 257/347, 1429/1429 energy, 589/589 animation
+  boundaries). Also recovered and pinned: the spawner dec-then-test countdown
+  with reload-on-spawn (first spawn 256 ticks in, period 90), the 19x19 centre
+  contact test with the `actor+0x14` bias (`|dx|<10` strict; the dy half-extent
+  is byte-read but capture-weak), the vertical hotspot 6 (collision-space
+  `monster.y`), the period-4 animation cadence with the boundary-latched facing
+  flip, and the facing-consume-before-reflection order. The item stays OPEN:
+  the evidence is one monster kind (1), one behaviour (3), one level, so
+  behaviours 1/2/4/5/6, other kinds, other levels, per-tick tile-embedding
+  damage, mode-2 corpse physics, contact multiplicity beyond 0/1, the
+  bottom-edge `0x4D..0x52` jump-through semantics, the `0x7FF` gravity clamp,
+  the player's own collision box and two-player are all unevidenced.
 - `behavior4_motion_runtime_fixture` — behavior-4 motion semantics fixture.
   **Retargeted, not closed.** This item previously named `1000:728C..731B` as
   the behavior-4 branch. The shipped bytes disprove that: the behavior-4 arm

@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -596,7 +597,12 @@ struct Player {
 struct SpawnerState {
     int remaining = 0;
     int availableSlots = 0;
-    int cooldown = 0;
+    // Live countdown byte (original record +0x1B). MUST stay uint8_t: the
+    // original decrements it before any gate (1000:7A9B `dec es:[di+0x1b]`),
+    // so a shipped 0 wraps to 255 and the first spawn lands 256 ticks in
+    // (capture: cd=0xE5 at frame 28, first walker at frame 257, 1458/1458
+    // byte transitions fit the dec-then-reload model).
+    uint8_t cooldown = 0;
 };
 
 struct ActiveMonster {
@@ -617,6 +623,23 @@ struct ActiveMonster {
     uint8_t animDelay = 0;
     uint8_t animMode = 1;
     int8_t animStep = 1;
+    // Recovered original animation cursor (actor anim struct +0x00). The
+    // per-tick advance steps THIS value; animFrame is the VISIBLE sprite (the
+    // visual-table word), rewritten only on advance ticks (1000:60E8..6103).
+    // A facing reselection resets the cursor to the new range base without
+    // touching animFrame, so the flip becomes visible at the next boundary.
+    uint8_t animCursor = 0;
+    // Original actor byte +0x14: the collision-space y is visual_y - hotspotY
+    // (1000:629D `mov al,es:[di+0x14]; cbw; ... sub`). monster.y stores the
+    // COLLISION-space y; rendering adds hotspotY back. Value 6 for kind 1 is
+    // uniquely forced by the motion lockstep (2370/2370 vs <=14/2370 for every
+    // other value 0..22); other kinds are unevidenced and keep 0.
+    uint8_t hotspotY = 0;
+    // Per-tick facing-reselect request, mirroring the original's [bp-0x20]
+    // flag: seeded from wall contact at behaviour-3 dispatch (1000:7159..716B),
+    // set again on the landing snap (1000:71A0) and on the grounded vx
+    // renormalisation (1000:71F3), consumed at 1000:727D.
+    bool facingDirty = false;
     size_t spawnerIndex = 0;
     bool hasSpawner = false;
     int hp = 1;
@@ -2773,7 +2796,9 @@ public:
             player_.y = static_cast<float>(spawner.y);
             player_.vy = -6.0f;
             player_.grounded = false;
-            spawnerStates_[spawnerIndex].cooldown = 0;
+            // Rank 4 (dec-then-test): arm with 1 so the next tick's
+            // decrement lands on 0 and spawns; 0 would wrap to 255.
+            spawnerStates_[spawnerIndex].cooldown = 1;
             capture("020_level2_behavior4_spawner_armed");
 
             FrameControls idle;
@@ -2784,7 +2809,7 @@ public:
             const ActiveMonster& monster = monsters_.front();
             if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
                 monster.kind != spawner.monsterKind || monster.behavior != 4 ||
-                monster.animDelay != std::max<uint8_t>(1, spawner.animationDelay) ||
+                monster.animDelay != spawner.animationDelay ||
                 monster.ai0 < spawner.param0Base ||
                 monster.ai0 >= spanUpper(spawner.param0Base, spawner.param0Range) ||
                 monster.ai1 < spawner.param1Base ||
@@ -2822,7 +2847,8 @@ public:
             player_.y = static_cast<float>(spawner.y - 16);
             player_.vy = -6.0f;
             player_.grounded = false;
-            spawnerStates_[spawnerIndex].cooldown = 0;
+            // Rank 4 (dec-then-test): arm with 1, see the level-2 scenario.
+            spawnerStates_[spawnerIndex].cooldown = 1;
             capture("020_level3_behavior4_spawner_armed");
 
             FrameControls idle;
@@ -2833,7 +2859,7 @@ public:
             const ActiveMonster& monster = monsters_.front();
             if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
                 monster.kind != spawner.monsterKind || monster.behavior != 4 ||
-                monster.animDelay != std::max<uint8_t>(1, spawner.animationDelay) ||
+                monster.animDelay != spawner.animationDelay ||
                 monster.ai0 < spawner.param0Base ||
                 monster.ai0 >= spanUpper(spawner.param0Base, spawner.param0Range) ||
                 monster.ai1 < spawner.param1Base ||
@@ -2867,7 +2893,8 @@ public:
             disableOtherSpawners(spawnerIndex);
             const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
             randomSeed_ = 0x1234abcd;
-            spawnerStates_[spawnerIndex].cooldown = 0;
+            // Rank 4 (dec-then-test): arm with 1, see the level-2 scenario.
+            spawnerStates_[spawnerIndex].cooldown = 1;
             player_.x = static_cast<float>(spawner.x + 40);
             player_.y = static_cast<float>(spawner.y);
             player_.vy = -6.0f;
@@ -4446,7 +4473,7 @@ public:
         player_.y = 168.0f;
         player_.vy = 0.0f;
         player_.grounded = true;
-        spawnerStates_[0].cooldown = 0;
+        spawnerStates_[0].cooldown = 1;  // rank 4: dec-then-test, 1 fires next tick
         int initialSlots = spawnerStates_[0].availableSlots;
         int initialRemaining = spawnerStates_[0].remaining;
 
@@ -4484,7 +4511,7 @@ public:
             throw std::runtime_error("monster spawner death frame did not change");
         }
 
-        spawnerStates_[0].cooldown = 0;
+        spawnerStates_[0].cooldown = 1;  // rank 4: dec-then-test, 1 fires next tick
         updateWithControls(idle, 1.0f / 60.0f);
         int liveSpawnerOwned = static_cast<int>(std::count_if(
             monsters_.begin(), monsters_.end(),
@@ -4548,7 +4575,7 @@ public:
         player_.y = static_cast<float>(spawner.y);
         player_.vy = -6.0f;
         player_.grounded = false;
-        spawnerStates_[spawnerIndex].cooldown = 0;
+        spawnerStates_[spawnerIndex].cooldown = 1;  // rank 4: dec-then-test, 1 fires next tick
 
         FrameInspection startFrame =
             inspectRenderedFrame("autoplayer-monster-spawner-b4-level2-start");
@@ -4560,7 +4587,7 @@ public:
         const ActiveMonster& monster = monsters_.front();
         if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
             monster.kind != spawner.monsterKind || monster.behavior != 4 ||
-            monster.animDelay != std::max<uint8_t>(1, spawner.animationDelay) ||
+            monster.animDelay != spawner.animationDelay ||
             monster.ai0 < spawner.param0Base || monster.ai0 >= spanUpper(spawner.param0Base, spawner.param0Range) ||
             monster.ai1 < spawner.param1Base || monster.ai1 >= spanUpper(spawner.param1Base, spawner.param1Range) ||
             monster.ai2 < spawner.param2Base || monster.ai2 >= spanUpper(spawner.param2Base, spawner.param2Range) ||
@@ -4628,7 +4655,7 @@ public:
         player_.y = static_cast<float>(spawner.y - 16);
         player_.vy = -6.0f;
         player_.grounded = false;
-        spawnerStates_[spawnerIndex].cooldown = 0;
+        spawnerStates_[spawnerIndex].cooldown = 1;  // rank 4: dec-then-test, 1 fires next tick
 
         FrameInspection startFrame =
             inspectRenderedFrame("autoplayer-monster-spawner-b4-level3-start");
@@ -4640,7 +4667,7 @@ public:
         const ActiveMonster& monster = monsters_.front();
         if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
             monster.kind != spawner.monsterKind || monster.behavior != 4 ||
-            monster.animDelay != std::max<uint8_t>(1, spawner.animationDelay) ||
+            monster.animDelay != spawner.animationDelay ||
             monster.ai0 < spawner.param0Base || monster.ai0 >= spanUpper(spawner.param0Base, spawner.param0Range) ||
             monster.ai1 < spawner.param1Base || monster.ai1 >= spanUpper(spawner.param1Base, spawner.param1Range) ||
             monster.ai2 < spawner.param2Base || monster.ai2 >= spanUpper(spawner.param2Base, spawner.param2Range) ||
@@ -4701,7 +4728,7 @@ public:
         }
         const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
         randomSeed_ = 0x1234abcd;
-        spawnerStates_[spawnerIndex].cooldown = 0;
+        spawnerStates_[spawnerIndex].cooldown = 1;  // rank 4: dec-then-test, 1 fires next tick
         player_.x = static_cast<float>(spawner.x + 40);
         player_.y = static_cast<float>(spawner.y);
         player_.vy = -6.0f;
@@ -15789,11 +15816,56 @@ public:
         int leftTurns = 0;
         int prevx = -1;
         int prevdir = 0;
+        // Rank 4/6/9 live pins on the same 1600-tick run. Capture ground
+        // truth: first spawn 256 ticks after level start (the shipped
+        // countdown byte 0 wraps to 255 under dec-then-test), second spawn
+        // 90 later; resting VISUAL y 174 (collision y 168 = 174 - hotspot 6)
+        // with a 7-tick spawn fall 168,168,169,170,171,173,175; sprite word
+        // changes only at (tick - spawn) mod 4 == 0, first visible frame 44
+        // (the left pair's high member), and every facing flip enters on the
+        // new pair's HIGH member at the next boundary.
+        int firstSpawnTick = -1;
+        int secondSpawnTick = -1;
+        int spawnVisualY = -1;
+        int fallTicks = 0;
+        int minVisualY = 99999;
+        int maxVisualY = -1;
+        int lastVisualY = -1;
+        int spawnFrame = -1;
+        int animChanges = 0;
+        int animChangesMod4 = 0;
+        int pairFlips = 0;
+        int pairFlipsEnterHigh = 0;
+        int prevFrame = -1;
+        uint8_t walkerHotspot = 0;
         for (int tick = 0; tick < 1600; ++tick) {
             updateMonsterSpawners();
             updateMonsters(1.0f);
+            if (monsters_.size() >= 2 && secondSpawnTick < 0) secondSpawnTick = tick;
             if (monsters_.empty()) continue;
             const ActiveMonster& m = monsters_.front();
+            const int visualY = m.y + m.hotspotY;
+            if (firstSpawnTick < 0) {
+                firstSpawnTick = tick;
+                spawnVisualY = visualY;
+                spawnFrame = m.animFrame;
+                walkerHotspot = m.hotspotY;
+            }
+            if (visualY != 174) ++fallTicks;
+            minVisualY = std::min(minVisualY, visualY);
+            maxVisualY = std::max(maxVisualY, visualY);
+            lastVisualY = visualY;
+            if (prevFrame >= 0 && m.animFrame != prevFrame) {
+                ++animChanges;
+                if ((tick - firstSpawnTick) % 4 == 0) ++animChangesMod4;
+                const bool prevLeft = prevFrame <= 44;
+                const bool nowLeft = m.animFrame <= 44;
+                if (prevLeft != nowLeft) {
+                    ++pairFlips;
+                    if (m.animFrame == m.animEnd) ++pairFlipsEnterHigh;
+                }
+            }
+            prevFrame = m.animFrame;
             minx = std::min(minx, m.x);
             maxx = std::max(maxx, m.x);
             if (prevx >= 0 && m.x != prevx) {
@@ -15810,11 +15882,37 @@ public:
         if (rightTurns < 1 || leftTurns < 1) {
             throw std::runtime_error("level-1 walker did not patrol");
         }
+        // Rank 4: dec-then-test countdown, reload 0x5A on spawn only.
+        if (firstSpawnTick != 255 || secondSpawnTick != 345 ||
+            secondSpawnTick - firstSpawnTick != 90) {
+            throw std::runtime_error("level-1 spawner timing changed");
+        }
+        // Rank 6: hotspot 6, spawn fall 168->175, resting visual y 174.
+        if (walkerHotspot != 6 || spawnVisualY != 168 || minVisualY != 168 ||
+            maxVisualY != 175 || lastVisualY != 174 || fallTicks != 7) {
+            throw std::runtime_error("level-1 walker vertical hotspot model changed");
+        }
+        // Rank 9: period-4 cadence phase-locked to the spawn tick, spawn
+        // frame 44, flips entering the new pair's high member.
+        if (spawnFrame != 44 || animChanges < 300 ||
+            animChangesMod4 != animChanges || pairFlips < 4 ||
+            pairFlipsEnterHigh != pairFlips) {
+            throw std::runtime_error("level-1 walker animation cadence changed");
+        }
         std::cout << "walker_turn_points=ok left_x=" << minx
                   << " right_x=" << maxx
                   << " right_turns=" << rightTurns
                   << " left_turns=" << leftTurns
-                  << " walkers=" << monsters_.size() << '\n';
+                  << " walkers=" << monsters_.size()
+                  << " spawn_ticks=" << firstSpawnTick << ',' << secondSpawnTick
+                  << " spawn_gap=" << (secondSpawnTick - firstSpawnTick)
+                  << " hotspot_y=" << static_cast<int>(walkerHotspot)
+                  << " rest_visual_y=" << lastVisualY
+                  << " fall_ticks=" << fallTicks
+                  << " spawn_frame=" << spawnFrame
+                  << " anim_mod4=" << animChangesMod4 << '/' << animChanges
+                  << " flip_high=" << pairFlipsEnterHigh << '/' << pairFlips
+                  << '\n';
     }
 
     void debugSpawners() {
@@ -16171,6 +16269,10 @@ public:
         }
         int initialSlots = spawnerStates_[0].availableSlots;
         int initialRemaining = spawnerStates_[0].remaining;
+        // Rank 4: the countdown byte is decremented THEN tested, so arm it
+        // with 1 to spawn on this tick (the level-1 file byte 0 would wrap
+        // to 255 and take 256 ticks).
+        spawnerStates_[0].cooldown = 1;
         updateMonsterSpawners();
         if (monsters_.empty()) {
             throw std::runtime_error("monster spawner did not create an actor");
@@ -16235,8 +16337,11 @@ public:
         // Capture evidence: both level-1 walkers hold x = 336 for every one of
         // their 14/14 airborne spawn-fall ticks, which an at-spawn vx cannot
         // produce (an ungated vx reproduces 6/2370 samples).
+        // The spawn-default sprite set is the LEFT pair (rank 9): both
+        // captured spawns show frame 44, the left pair's high member, so
+        // vx == 0 maps to {43,44}, not the right pair.
         if (walker.vx8 != 0 || walker.vy8 != 0 ||
-            walker.animStart != 45 || walker.animEnd != 46) {
+            walker.animStart != 43 || walker.animEnd != 44) {
             throw std::runtime_error("behavior 3 initialization changed");
         }
 
@@ -17443,6 +17548,44 @@ public:
             soundLatch_.currentSelector != kPlayerDamageSoundPriority) {
             throw std::runtime_error("monster contact drain cadence changed");
         }
+
+        // Rank 5 box-edge pins: the original contact is |dx| < 10 && |dy| < 10
+        // measured centre-to-centre (1000:63C6/63D6), NOT the old 12x16-vs-
+        // 14x16 AABB. dx = +/-9 must damage and dx = -10 / +10 must not; the
+        // dx limit is the uniquely adjudicated half (1364/1364). dy = +9 must
+        // damage and dy = -10 must not; the dy half-extent is only WEAKLY
+        // pinned by the capture (<8 scores 1363/1364, <12 scores 1362/1364),
+        // so this asserts the recovered value without claiming uniqueness.
+        // Every "must not" case here fired under the old AABB, which scored
+        // 30 false positives / 0 false negatives across the capture window.
+        monsters_.clear();
+        pendingDamage_ = 0;
+        pendingDamage2_ = 0;
+        player_.x = 100.0f;
+        player_.y = 24.0f;
+        player2_.x = 300.0f;
+        player2_.y = 24.0f;
+        monsters_.push_back(makeContactMonster(109, 24));  // dx = -9  -> hit
+        monsters_.push_back(makeContactMonster(91, 24));   // dx = +9  -> hit
+        updateMonsters(0.0f);
+        const int nearEdgeHits = pendingDamage_;
+        monsters_.clear();
+        pendingDamage_ = 0;
+        monsters_.push_back(makeContactMonster(110, 24));  // dx = -10 -> miss
+        monsters_.push_back(makeContactMonster(90, 24));   // dx = +10 -> miss (old AABB hit)
+        monsters_.push_back(makeContactMonster(100, 34));  // dy = -10 -> miss (old AABB hit)
+        monsters_.push_back(makeContactMonster(100, 15));  // dy = +9  -> hit
+        updateMonsters(0.0f);
+        const int farEdgeHits = pendingDamage_;
+        if (nearEdgeHits != 2 || farEdgeHits != 1) {
+            std::ostringstream oss;
+            oss << "monster contact box edges changed near=" << nearEdgeHits
+                << " far=" << farEdgeHits;
+            throw std::runtime_error(oss.str());
+        }
+        pendingDamage_ = 0;
+        pendingDamage2_ = 0;
+        monsters_.clear();
         pumpSoundLatch();
         if (soundLatch_.active || lastPumpedSoundOffset_ != kPlayerDamageSoundCursor ||
             lastPumpedSoundSelector_ != kPlayerDamageSoundPriority) {
@@ -17480,6 +17623,8 @@ public:
         std::cout << "monster_contact_damage_live=ok"
                   << " p1_pending=2 p2_pending=1"
                   << " p1_energy=98 p2_energy=99"
+                  << " centre_box=19x19 dx_edge_hits=2/2 dx_edge_misses=2/2"
+                  << " dy_edge_hit=1 dy_edge_miss=1 dy_half_extent=weak"
                   << " hurt_cue=0x" << std::hex << std::setw(4) << std::setfill('0')
                   << kPlayerDamageSoundCursor
                   << " death_cue=0x" << std::setw(4) << kPlayerDeathSoundCursor
@@ -18125,6 +18270,434 @@ public:
                   << " gravity_gate=bottom_flag_clear"
                   << " gravity_clamp=none"
                   << " link_slot0_scalars=1"
+                  << " visual_claim=0\n";
+    }
+
+    // Lockstep replay of the level-1 actor-contact capture (1459 ticks,
+    // frames 28..1486) through the LIVE port path: the real
+    // updateMonsterSpawners(), updateMonsters() (and through it
+    // scanActorEdges, the recovered resolution, integrateAxis8_8, the
+    // animation prologue and actorTouchesPlayer) and
+    // drainPlayerDamageCounters(), one captured tick at a time. Nothing is
+    // reseeded mid-run: the two walkers must be spawned by the port's own
+    // spawner countdown and RNG draws and then free-run for 1230/1140 ticks.
+    //
+    // Exogenous inputs (documented in the fixture header): the player's
+    // captured x/y each tick (human input), the RNG seed on the 4 pre-spawn
+    // frames where out-of-scope original activity moved it, and energy/lives
+    // on the 29 hole=1 rows (the death sequence and post-respawn immunity,
+    // both out of scope). Everything else is CHECKED, throwing on the first
+    // mismatch.
+    //
+    // Row convention: a fixture row holds the state BEFORE the tick of its
+    // frame (equivalently after tick frame-1): row 28 shows cd=0xE5 = 229 =
+    // -(27) mod 256 after the 27 ticks of frames 1..27, the spawn tick of
+    // frame 256 becomes visible in row 257 (cd reloaded to 0x5A, walker at
+    // the spawner with its first advanced frame 44), and a contact during
+    // tick F shows as an energy drop between rows F and F+1 -- which is the
+    // fixture's energy_lag_ticks=1 sampler note, applied here to the FIXTURE
+    // alignment, never to the port.
+    void debugActorContactEvidence(const std::string& fixturePath) {
+        std::ifstream in(fixturePath);
+        if (!in) throw std::runtime_error("cannot open " + fixturePath);
+        struct MonSample {
+            int slot = 0;
+            int x = 0;
+            int visualY = 0;
+            int frame = 0;
+        };
+        struct ContactTick {
+            int frame = 0;
+            uint32_t seed = 0;
+            int px = 0;
+            int py = 0;
+            int energy = 0;
+            int lives = 0;
+            int cd = 0;
+            int bud = 0;
+            int liv = 0;
+            int hole = 0;
+            std::vector<MonSample> mons;
+        };
+        std::map<std::string, std::string> kv;
+        std::vector<ContactTick> ticks;
+        std::string line;
+        while (std::getline(in, line)) {
+            if (line.empty() || line[0] == '#') continue;
+            if (line.rfind("tick ", 0) == 0) {
+                std::istringstream row(line.substr(5));
+                std::string token;
+                ContactTick tick;
+                while (row >> token) {
+                    auto eq = token.find('=');
+                    if (eq == std::string::npos) {
+                        throw std::runtime_error("malformed contact tick row: " + line);
+                    }
+                    std::string key = token.substr(0, eq);
+                    std::string value = token.substr(eq + 1);
+                    if (key == "frame") tick.frame = std::stoi(value);
+                    else if (key == "seed")
+                        tick.seed = static_cast<uint32_t>(std::stoul(value, nullptr, 16));
+                    else if (key == "px") tick.px = std::stoi(value);
+                    else if (key == "py") tick.py = std::stoi(value);
+                    else if (key == "energy") tick.energy = std::stoi(value);
+                    else if (key == "lives") tick.lives = std::stoi(value);
+                    else if (key == "cd")
+                        tick.cd = static_cast<int>(std::stoul(value, nullptr, 16));
+                    else if (key == "bud") tick.bud = std::stoi(value);
+                    else if (key == "liv") tick.liv = std::stoi(value);
+                    else if (key == "hole") tick.hole = std::stoi(value);
+                    else if (key == "mons") {
+                        std::stringstream entries(value);
+                        std::string entry;
+                        while (std::getline(entries, entry, ',')) {
+                            MonSample sample;
+                            if (std::sscanf(entry.c_str(), "%d@%d:%d:%d", &sample.slot,
+                                            &sample.x, &sample.visualY,
+                                            &sample.frame) != 4) {
+                                throw std::runtime_error("malformed mons entry: " + entry);
+                            }
+                            tick.mons.push_back(sample);
+                        }
+                    } else {
+                        throw std::runtime_error("unknown contact tick key: " + key);
+                    }
+                }
+                ticks.push_back(tick);
+                continue;
+            }
+            auto eq = line.find('=');
+            if (eq == std::string::npos) continue;
+            kv[line.substr(0, eq)] = line.substr(eq + 1);
+        }
+        auto req = [&](const char* key) -> std::string {
+            auto it = kv.find(key);
+            if (it == kv.end()) {
+                throw std::runtime_error(std::string("missing key ") + key);
+            }
+            return it->second;
+        };
+        if (req("actor_contact_original") != "level1" || req("runtime_ds") != "0c8f" ||
+            req("visual_claim") != "0" || req("temp_copy") != "1" ||
+            req("energy_lag_ticks") != "1" ||
+            req("spawner_countdown_dec_before_test") != "1" ||
+            req("spawner_reload_only_on_spawn") != "1" ||
+            req("actor_hotspot_y") != "6" ||
+            req("side_edge_tile_max") != "0x4c" ||
+            req("bottom_edge_tile_max") != "0x52" ||
+            req("column_probe_bias") != "4" ||
+            req("wall_reflect") != "trunc_half_toward_zero" ||
+            req("fraction_reset_on_collision") != "0" ||
+            req("vx_seed_gate") != "bottom_flag_set" ||
+            req("anim_period_ticks") != "4" ||
+            req("contact_half_extent_x") != "10" ||
+            // The y half-extent is recorded but WEAK (<8 scores 1363, <12
+            // scores 1362 in the adjudication) -- the header must keep saying
+            // so; only x is asserted strictly.
+            req("contact_half_extent_y_adjudicated") != "0") {
+            throw std::runtime_error("actor contact fixture header mismatch");
+        }
+        if (ticks.size() != static_cast<size_t>(std::stoi(req("tick_count"))) ||
+            ticks.size() < 2 ||
+            ticks.front().frame != std::stoi(req("first_frame")) ||
+            ticks.back().frame != std::stoi(req("last_frame"))) {
+            throw std::runtime_error("actor contact tick count mismatch");
+        }
+        std::set<int> exogenousSeedFrames;
+        {
+            std::stringstream frames(req("exogenous_seed_frames"));
+            std::string value;
+            while (std::getline(frames, value, ',')) {
+                exogenousSeedFrames.insert(std::stoi(value));
+            }
+        }
+        const int expectedFirstSpawn = std::stoi(req("first_spawn_frame"));
+        const int expectedSecondSpawn = std::stoi(req("second_spawn_frame"));
+
+        load();
+        resetLevel(0);
+        if (level_.monsterSpawners.size() != 1 || spawnerStates_.size() != 1) {
+            throw std::runtime_error("actor contact expects the single level-1 spawner");
+        }
+        const MonsterSpawner& spawner = level_.monsterSpawners[0];
+        if (spawner.monsterKind != std::stoi(req("spawner_kind")) ||
+            static_cast<int>(spawner.spawnArg) != std::stoi(req("spawner_behavior")) ||
+            static_cast<int>(spawner.cooldown) !=
+                static_cast<int>(std::stoul(req("spawner_cooldown_file_byte"), nullptr, 16)) ||
+            static_cast<int>(spawner.cooldownReset) !=
+                static_cast<int>(std::stoul(req("spawner_reload"), nullptr, 16)) ||
+            static_cast<int>(spawner.animationDelay) !=
+                std::stoi(req("spawner_anim_delay")) ||
+            static_cast<int>(spawner.spawnBudget) != std::stoi(req("spawner_budget")) ||
+            static_cast<int>(spawner.liveAllowance) !=
+                std::stoi(req("spawner_live_allowance"))) {
+            throw std::runtime_error("actor contact spawner record mismatch");
+        }
+
+        // Exogenous initial state: the captured pre-spawn seed, and the
+        // original's starting lives (never touched by the replayed path).
+        randomSeed_ = ticks.front().seed;
+        lives_ = ticks.front().lives;
+
+        // The minimal live tick, in updateWithControls order (++logicTick_
+        // first, spawners before monsters, damage drained after). The player
+        // update is replaced by the exogenous captured position; bombs,
+        // flashes and portals have no live state in this capture.
+        auto runTick = [&](bool hole) {
+            ++logicTick_;
+            updateDamageCooldowns();
+            updateMonsterSpawners();
+            updateMonsters(1.0f);
+            if (hole) {
+                // Out-of-scope rows (death sequence / respawn immunity): the
+                // recovered predicate fires but the original's damage pipeline
+                // is in a state this fixture does not adjudicate. Suppress the
+                // port's queued damage instead of modelling it.
+                pendingDamage_ = 0;
+                pendingDamage2_ = 0;
+            }
+            drainPlayerDamageCounters();
+        };
+
+        int cdChecks = 0;
+        int sampleChecks = 0;
+        std::vector<int> firstSeenFrame;
+        auto compareRow = [&](const ContactTick& row) {
+            if (static_cast<int>(spawnerStates_[0].cooldown) != row.cd) {
+                throw std::runtime_error(
+                    "actor contact spawner countdown diverged at frame " +
+                    std::to_string(row.frame) + " (port cd=" +
+                    std::to_string(static_cast<int>(spawnerStates_[0].cooldown)) +
+                    " fixture cd=" + std::to_string(row.cd) + ")");
+            }
+            ++cdChecks;
+            if (static_cast<int>(spawnerStates_[0].remaining) != row.bud ||
+                static_cast<int>(spawnerStates_[0].availableSlots) != row.liv) {
+                throw std::runtime_error(
+                    "actor contact spawner budget/slots diverged at frame " +
+                    std::to_string(row.frame));
+            }
+            if (monsters_.size() != row.mons.size()) {
+                throw std::runtime_error(
+                    "actor contact monster count diverged at frame " +
+                    std::to_string(row.frame) + " (port=" +
+                    std::to_string(monsters_.size()) + " fixture=" +
+                    std::to_string(row.mons.size()) + ")");
+            }
+            for (size_t k = 0; k < row.mons.size(); ++k) {
+                const MonSample& s = row.mons[k];
+                const ActiveMonster& m = monsters_[k];
+                // The visual-table slots (2, 3) are stable and ordered by
+                // spawn, exactly like monsters_.
+                if (s.slot != static_cast<int>(k) + 2) {
+                    throw std::runtime_error("actor contact fixture slot order broke");
+                }
+                const int visualY = m.y + static_cast<int>(m.hotspotY);
+                if (m.x != s.x || visualY != s.visualY ||
+                    static_cast<int>(m.animFrame) != s.frame) {
+                    throw std::runtime_error(
+                        "actor contact walker diverged at frame " +
+                        std::to_string(row.frame) + " slot " + std::to_string(s.slot) +
+                        " (port " + std::to_string(m.x) + ":" + std::to_string(visualY) +
+                        ":" + std::to_string(static_cast<int>(m.animFrame)) +
+                        " fixture " + std::to_string(s.x) + ":" +
+                        std::to_string(s.visualY) + ":" + std::to_string(s.frame) + ")");
+                }
+                ++sampleChecks;
+            }
+        };
+
+        // Warm-up: original ticks 1..first_frame-1 ran before the capture
+        // window opened. The seed must not move (behaviour 3 consumes no RNG
+        // and no spawn fires) and the countdown must free-run down to the
+        // captured 0xE5.
+        const int warmupTicks = ticks.front().frame - 1;
+        for (int i = 0; i < warmupTicks; ++i) {
+            runTick(false);
+        }
+        compareRow(ticks.front());
+        if (randomSeed_ != ticks.front().seed) {
+            throw std::runtime_error("actor contact warm-up consumed RNG");
+        }
+        if (energy_ != ticks.front().energy) {
+            throw std::runtime_error("actor contact warm-up changed energy");
+        }
+
+        int seedChecked = 0;
+        int seedWritten = 0;
+        int energyScored = 0;
+        int contactTicks = 0;
+        int holeRows = 0;
+        std::vector<int> spawnFrames;
+        // Live walker statistics (all recomputed from PORT state; every
+        // underlying sample is also individually compared to the fixture).
+        std::vector<int> prevAnimFrame, animChanges, animChangesMod4, flips,
+            flipsHigh, prevX, prevDir, rightTurns, leftTurns, fallTicks;
+        int spawnEnterHigh = 0;
+        int airborne = 0;
+        int airborneZeroDx = 0;
+        uint8_t walkerHotspot = 0xff;
+        for (size_t i = 0; i + 1 < ticks.size(); ++i) {
+            const ContactTick& cur = ticks[i];
+            const ContactTick& next = ticks[i + 1];
+            if (next.frame != cur.frame + 1) {
+                throw std::runtime_error("actor contact frames are not consecutive");
+            }
+            // Exogenous human input for this tick.
+            player_.x = static_cast<float>(cur.px);
+            player_.y = static_cast<float>(cur.py);
+            const size_t before = monsters_.size();
+            runTick(cur.hole != 0);
+            if (monsters_.size() > before) {
+                spawnFrames.push_back(next.frame);
+                for (size_t k = before; k < monsters_.size(); ++k) {
+                    firstSeenFrame.push_back(next.frame);
+                    prevAnimFrame.push_back(-1);
+                    animChanges.push_back(0);
+                    animChangesMod4.push_back(0);
+                    flips.push_back(0);
+                    flipsHigh.push_back(0);
+                    prevX.push_back(-1);
+                    prevDir.push_back(0);
+                    rightTurns.push_back(0);
+                    leftTurns.push_back(0);
+                    fallTicks.push_back(0);
+                }
+            }
+            compareRow(next);
+            if (exogenousSeedFrames.count(next.frame)) {
+                // Out-of-scope original activity moved the seed on this
+                // pre-spawn tick; feed it, do not model it.
+                randomSeed_ = next.seed;
+                ++seedWritten;
+            } else if (randomSeed_ != next.seed) {
+                throw std::runtime_error(
+                    "actor contact RNG seed diverged at frame " +
+                    std::to_string(next.frame));
+            } else {
+                ++seedChecked;
+            }
+            if (cur.hole != 0) {
+                ++holeRows;
+                energy_ = next.energy;
+                lives_ = next.lives;
+                playerDead_ = false;
+            } else {
+                if (energy_ != next.energy) {
+                    throw std::runtime_error(
+                        "actor contact energy diverged at frame " +
+                        std::to_string(next.frame) + " (port=" +
+                        std::to_string(energy_) + " fixture=" +
+                        std::to_string(next.energy) + ")");
+                }
+                ++energyScored;
+                if (next.energy == cur.energy - 1) ++contactTicks;
+            }
+            for (size_t k = 0; k < monsters_.size(); ++k) {
+                const ActiveMonster& m = monsters_[k];
+                walkerHotspot = m.hotspotY;
+                const int visualY = m.y + static_cast<int>(m.hotspotY);
+                if (visualY != 174) {
+                    ++airborne;
+                    ++fallTicks[k];
+                    if (m.x == static_cast<int>(spawner.x)) ++airborneZeroDx;
+                }
+                if (prevAnimFrame[k] >= 0 &&
+                    static_cast<int>(m.animFrame) != prevAnimFrame[k]) {
+                    ++animChanges[k];
+                    if ((next.frame - firstSeenFrame[k]) % 4 == 0) ++animChangesMod4[k];
+                    const bool prevLeft = prevAnimFrame[k] <= 44;
+                    const bool nowLeft = m.animFrame <= 44;
+                    if (prevLeft != nowLeft) {
+                        ++flips[k];
+                        if (m.animFrame == m.animEnd) ++flipsHigh[k];
+                    }
+                } else if (prevAnimFrame[k] < 0 && m.animFrame == m.animEnd) {
+                    // Spawn tick: the first visible frame is the pair's HIGH
+                    // member (anim counter seeded AT the delay, so the first
+                    // entity update advances immediately).
+                    ++spawnEnterHigh;
+                }
+                if (prevAnimFrame[k] < 0 &&
+                    static_cast<int>(m.hotspotY) != std::stoi(req("actor_hotspot_y"))) {
+                    throw std::runtime_error("actor contact live hotspot is not 6");
+                }
+                prevAnimFrame[k] = static_cast<int>(m.animFrame);
+                if (prevX[k] >= 0 && m.x != prevX[k]) {
+                    const int dir = m.x > prevX[k] ? 1 : -1;
+                    if (prevDir[k] > 0 && dir < 0) ++rightTurns[k];
+                    if (prevDir[k] < 0 && dir > 0) ++leftTurns[k];
+                    prevDir[k] = dir;
+                }
+                prevX[k] = m.x;
+            }
+        }
+
+        if (spawnFrames.size() != 2 || spawnFrames[0] != expectedFirstSpawn ||
+            spawnFrames[1] != expectedSecondSpawn) {
+            throw std::runtime_error("actor contact spawn frames diverged");
+        }
+        if (sampleChecks != std::stoi(req("walker_samples"))) {
+            throw std::runtime_error("actor contact walker sample count mismatch");
+        }
+        if (cdChecks != static_cast<int>(ticks.size())) {
+            throw std::runtime_error("actor contact countdown check count mismatch");
+        }
+        if (holeRows != 29 || energyScored != std::stoi(req("scored_transitions")) ||
+            contactTicks != std::stoi(req("contact_ticks"))) {
+            throw std::runtime_error("actor contact energy scoring mismatch");
+        }
+        const int totalAnimChanges = animChanges[0] + animChanges[1];
+        const int totalAnimChangesMod4 = animChangesMod4[0] + animChangesMod4[1];
+        const int totalFlips = flips[0] + flips[1];
+        const int totalFlipsHigh = flipsHigh[0] + flipsHigh[1];
+        if (totalAnimChanges != std::stoi(req("anim_changes")) ||
+            totalAnimChangesMod4 != totalAnimChanges) {
+            throw std::runtime_error("actor contact animation cadence diverged");
+        }
+        if (totalFlips != 9 || totalFlipsHigh != 9 || spawnEnterHigh != 2) {
+            throw std::runtime_error("actor contact facing-flip latch diverged");
+        }
+        if (airborne != 14 || airborneZeroDx != 14 ||
+            fallTicks[0] != 7 || fallTicks[1] != 7) {
+            throw std::runtime_error("actor contact spawn-fall profile diverged");
+        }
+        const int totalRightTurns = rightTurns[0] + rightTurns[1];
+        const int totalLeftTurns = leftTurns[0] + leftTurns[1];
+        if (totalRightTurns != 4 || totalLeftTurns != 3) {
+            throw std::runtime_error("actor contact turn counts diverged");
+        }
+        if (walkerHotspot != 6) {
+            throw std::runtime_error("actor contact live hotspot is not 6");
+        }
+
+        std::cout << "actor_contact_evidence=ok"
+                  << " ticks=" << ticks.size()
+                  << " frames=" << ticks.front().frame << ".." << ticks.back().frame
+                  << " live_ticks=" << (warmupTicks + static_cast<int>(ticks.size()) - 1)
+                  << " spawner_cd=" << cdChecks << "/" << ticks.size()
+                  << " spawn_frames=" << spawnFrames[0] << "," << spawnFrames[1]
+                  << " first_gap=" << (spawnFrames[0] - ticks.front().frame)
+                  << " respawn_period=" << (spawnFrames[1] - spawnFrames[0])
+                  << " rng_draws_per_spawn=4"
+                  << " seed_checked=" << seedChecked << "/" << seedChecked
+                  << " seed_exogenous=" << seedWritten
+                  << " walker_samples=" << sampleChecks << "/" << sampleChecks
+                  << " walkers=" << monsters_.size()
+                  << " hotspot_y=" << static_cast<int>(walkerHotspot)
+                  << " airborne_zero_dx=" << airborneZeroDx << "/" << airborne
+                  << " fall_ticks=" << fallTicks[0] << "," << fallTicks[1]
+                  << " turns_right=" << totalRightTurns << "@452"
+                  << " turns_left=" << totalLeftTurns << "@67"
+                  << " anim_changes=" << totalAnimChanges
+                  << " anim_mod4=" << totalAnimChangesMod4 << "/" << totalAnimChanges
+                  << " anim_flip_high=" << totalFlipsHigh << "/" << totalFlips
+                  << " anim_spawn_high=" << spawnEnterHigh << "/2"
+                  << " anim_period=4"
+                  << " energy_scored=" << energyScored << "/" << energyScored
+                  << " contact_ticks=" << contactTicks
+                  << " contact_half_extent_x=10 dy_half_extent=weak"
+                  << " energy_lag_ticks=1 holes=" << holeRows
                   << " visual_claim=0\n";
     }
 
@@ -20109,9 +20682,34 @@ private:
     }
 
     std::array<int, 2> monsterDirectionalFrameRange(uint8_t kind, int16_t vx8) const {
-        if (kind == 1) return vx8 < 0 ? std::array<int, 2>{43, 44}
-                                      : std::array<int, 2>{45, 46};
+        // vx > 0 selects the right-facing set (1000:72DA `cmp vx,0; jle`);
+        // vx < 0 the left set (1000:7286 `jge`). vx == 0 selects NEITHER in
+        // the reselection; the spawn default is the actor+0x03 (left) set --
+        // both captured spawns show frame 44, the left pair's high member --
+        // so the vx == 0 mapping here is the left set.
+        if (kind == 1) return vx8 > 0 ? std::array<int, 2>{45, 46}
+                                      : std::array<int, 2>{43, 44};
         return monsterFrameRange(kind);
+    }
+
+    // Original actor byte +0x14 per kind. Only kind 1's value is evidenced
+    // (uniquely forced by the 2370/2370 motion lockstep; 6 = 16 - the 17x10
+    // walker sprite's height 10). Every other kind is unadjudicated and keeps
+    // the pre-recovery value 0.
+    static uint8_t monsterHotspotY(uint8_t kind) { return kind == 1 ? 6 : 0; }
+
+    // Rank 5: the original player-vs-actor contact is a 19x19 CENTRE test,
+    // |dx| < 10 && |dy| < 10 with dx = player.x - actor.x and dy = player.y -
+    // (actor.y_visual - actor[+0x14]) (1000:63C6 / 1000:63D6 `cmp ax,0xa; jl`,
+    // one `inc ds:0x79e8` per contacting actor at 1000:63F0). ayCollide is
+    // monster.y, already hotspot-biased (rank 6). The x half-extent 10 is
+    // uniquely adjudicated (1364/1364 vs 1350 at 9, 1355 at 11); the y
+    // half-extent 10 is WEAKLY pinned (<8 scores 1363, <12 scores 1362) and
+    // is recorded as recovered-but-not-proven.
+    bool actorTouchesPlayer(const Player& player, int ax, int ayCollide) const {
+        const int dx = static_cast<int>(player.x) - ax;
+        const int dy = static_cast<int>(player.y) - ayCollide;
+        return dx > -10 && dx < 10 && dy > -10 && dy < 10;
     }
 
     uint16_t randomRangeValue(uint16_t base, uint16_t range) {
@@ -20138,13 +20736,50 @@ private:
         return clampI16(monster.ai1);
     }
 
+    // Legacy range refresh, kept for the paths the capture does not cover
+    // (behaviour-4 retarget, the legacy pushout). For kinds with a static
+    // range it is a no-op; the recovered walker path uses
+    // reselectWalkerFacing instead.
     void refreshMonsterAnimationProfile(ActiveMonster& monster) {
         auto frames = monsterDirectionalFrameRange(monster.kind, monster.vx8);
         if (monster.animStart != frames[0] || monster.animEnd != frames[1]) {
             monster.animStart = static_cast<uint8_t>(frames[0]);
             monster.animEnd = static_cast<uint8_t>(frames[1]);
             monster.animFrame = monster.animStart;
+            monster.animCursor = monster.animStart;
         }
+    }
+
+    // Recovered original facing reselection (1000:7286 vx<0 -> actor+0x03 set,
+    // 1000:72DA vx>0 -> actor+0x04 set; vx==0 selects neither). It rewrites
+    // the range and resets the animation CURSOR to the range base
+    // (1000:72CE..72D8 `mov al,es:[di+1]; mov es:[di],al`) WITHOUT touching
+    // the visible frame or the tick counter, so the flip appears at the next
+    // animation boundary and -- cursor stepping base+1 -- enters on the HIGH
+    // member of the new pair (capture: 7/7 flips visible at the next mod-4
+    // boundary, 9/9 entering high). The reset is unconditional on flagged
+    // ticks even when the set is unchanged; that is what produces the two
+    // observed repeat-gap-8 boundaries in walker B's stream.
+    void reselectWalkerFacing(ActiveMonster& monster) {
+        if (monster.vx8 == 0) return;
+        // Facing reselection only exists for kinds with DISTINCT left/right
+        // pairs. For direction-independent kinds -- e.g. the shipped kind-4
+        // behavior-3 actors on levels 3 and 6, whose range is a static
+        // {53,55} -- a terrain event must stay the no-op it was before this
+        // helper existed, not rewind their animation. Note the guard is on
+        // the KIND's table, not on whether this call changes the range: the
+        // capture adjudicates that a kind-1 wall tick re-selecting the SAME
+        // pair still resets the cursor (walker B, frame 907: dropping the
+        // same-range reset diverges there), so same-range resets are real
+        // evidenced behavior for directional kinds.
+        if (monsterDirectionalFrameRange(monster.kind, -0x0100) ==
+            monsterDirectionalFrameRange(monster.kind, 0x0100)) {
+            return;
+        }
+        auto frames = monsterDirectionalFrameRange(monster.kind, monster.vx8);
+        monster.animStart = static_cast<uint8_t>(frames[0]);
+        monster.animEnd = static_cast<uint8_t>(frames[1]);
+        monster.animCursor = monster.animStart;
     }
 
     void initializeMonsterMotion(ActiveMonster& monster) {
@@ -20217,16 +20852,21 @@ private:
         if (monster.edges.bottom) {
             const int16_t speed = groundWalkerSpeed8(monster);
             if (monster.vx8 == 0) {
+                // Seed (1000:71F9): no facing-reselect request -- only the
+                // renormalisation branch sets the flag (1000:71F3).
                 monster.vx8 = speed;
             } else if (std::abs(monster.vx8) != speed) {
                 monster.vx8 = monster.vx8 > 0 ? speed : static_cast<int16_t>(-speed);
+                monster.facingDirty = true;
             }
             float probeX = monster.x + (monster.vx8 < 0 ? -2.0f : 15.0f);
             if (!solidPixel(probeX, monster.y + 17.0f)) {
                 monster.vx8 = -monster.vx8;
+                // The original sets the reselect flag whenever either
+                // below-edge cell stops being bottom-solid (1000:723D).
+                monster.facingDirty = true;
             }
         }
-        refreshMonsterAnimationProfile(monster);
     }
 
     // Live GRAN.MST consumer backed by the static consumer model
@@ -20301,7 +20941,11 @@ private:
                 actor.animEnd = entrySprite;
             }
             actor.animFrame = entrySprite;
-            actor.animDelay = std::max<uint8_t>(1, record[0x1a]);
+            actor.animCursor = entrySprite;
+            // Raw delay byte: the shared advance (1000:608F) fires when the
+            // counter exceeds it, so 0 keeps the old every-tick cadence and
+            // any nonzero byte means period byte+1.
+            actor.animDelay = record[0x1a];
             if (actor.kind == 0x1e) {
                 actor.bossHpByte = record[0x24];
                 actor.bossLives = record[0x02];
@@ -20560,18 +21204,44 @@ private:
     }
 
     void updateMonsterSpawners() {
+        // Recovered original spawner loop, 1000:7A6B..7C2C. The decisive byte
+        // order per record:
+        //   1000:7A9B  dec  es:[di+0x1b]      ; countdown FIRST, before every
+        //                                     ; gate -- the byte free-runs and
+        //                                     ; wraps 0->255 even when budget
+        //                                     ; or slots are spent
+        //   1000:7AA2  cmp  es:[di+0x1b],0    ; spawn path only when it
+        //              je   ...               ; REACHES 0 this tick
+        //   1000:7AAF  cmp  es:[di+0x0a],0    ; live-slot gate
+        //   1000:7ABC  cmp  es:[di+0x09],0    ; budget gate
+        //   1000:7AC9  cmp  es:[di+0x08],1    ; enabled gate
+        //   1000:7AD6  mov  al,es:[di+0x1c]   ; reload from the reset byte...
+        //   1000:7ADD  mov  es:[di+0x1b],al   ; ...BEFORE the spawn helper
+        //   1000:7B28  call (spawn helper)
+        //   1000:7B2B  cmp  ds:0x2072,1       ; helper failure keeps the
+        //                                     ; reload but spends nothing
+        //   1000:7B38/7B3F dec budget / slots ; only on success, then the RNG
+        //                                     ; draws ai0, ai1, ai2, hp
+        // A blocked spawn (gates fail at countdown 0) does NOT reload, so the
+        // byte wraps and retries 256 ticks later (capture: 5/5 free-running
+        // wraps with live=2). Fit: 1458/1458 byte transitions, first spawn at
+        // frame 257 (0xE5 = 229 ticks after frame 28), period exactly 90.
         for (size_t i = 0; i < spawnerStates_.size() && i < level_.monsterSpawners.size(); ++i) {
             SpawnerState& state = spawnerStates_[i];
             const MonsterSpawner& spawner = level_.monsterSpawners[i];
-            if (!spawner.enabled || state.remaining <= 0 || state.availableSlots <= 0) continue;
+            state.cooldown = static_cast<uint8_t>(state.cooldown - 1);
+            if (state.cooldown != 0) continue;
+            if (state.availableSlots <= 0) continue;
+            if (state.remaining <= 0) continue;
+            if (!spawner.enabled) continue;
+            state.cooldown = spawner.cooldownReset;
             if (monsters_.size() >= 30) continue;
-            if (state.cooldown > 0) {
-                --state.cooldown;
-                continue;
-            }
             ActiveMonster monster;
             monster.x = spawner.x;
-            monster.y = spawner.y;
+            // The spawner y is VISUAL space; monster.y carries the
+            // collision-space y = visual - hotspot (rank 6).
+            monster.hotspotY = monsterHotspotY(spawner.monsterKind);
+            monster.y = static_cast<int>(spawner.y) - monster.hotspotY;
             monster.kind = spawner.monsterKind;
             monster.spawnerIndex = i;
             monster.hasSpawner = true;
@@ -20584,12 +21254,19 @@ private:
             monster.animStart = static_cast<uint8_t>(frames[0]);
             monster.animEnd = static_cast<uint8_t>(frames[1]);
             monster.animFrame = monster.animStart;
-            monster.animDelay = std::max<uint8_t>(1, spawner.animationDelay);
+            monster.animCursor = monster.animStart;
+            // Raw delay byte: the shared advance fires when the counter
+            // EXCEEDS it (1000:608F cmp/ja), so delay 3 means period 4.
+            monster.animDelay = spawner.animationDelay;
+            // The anim init helper (1000:06AB) leaves the counter AT the
+            // delay, so the first entity update advances immediately: the
+            // spawn-tick visible frame is animStart + 1, the pair's high
+            // member (capture: 2/2 spawns show 44).
+            monster.animTick = monster.animDelay;
             initializeMonsterMotion(monster);
             monsters_.push_back(monster);
             --state.remaining;
             --state.availableSlots;
-            state.cooldown = spawner.cooldownReset > 0 ? spawner.cooldownReset : 60;
         }
     }
 
@@ -20609,21 +21286,57 @@ private:
                 }
                 continue;
             }
+            // Recovered original animation advance -- the per-entity PROLOGUE
+            // (1000:6088 `inc es:[di+3]`; 1000:608F `cmp al,es:[di+4]; ja`):
+            // the counter must EXCEED the delay byte, so delay 3 advances
+            // every 4 ticks (capture: 589/589 sprite changes at
+            // (frame - spawn) mod 4 == 0; mod 3 spread 198/196/195). The
+            // advance steps the CURSOR and only then rewrites the visible
+            // frame (the visual-table word write at 1000:613B..6156); between
+            // boundaries the visible frame is untouched, which is what makes
+            // the facing reselection latch.
             ++monster.animTick;
-            if (monster.animTick >= monster.animDelay) {
+            if (monster.animTick > monster.animDelay) {
                 monster.animTick = 0;
-                int next = static_cast<int>(monster.animFrame) + monster.animStep;
+                if (monster.animCursor < monster.animStart ||
+                    monster.animCursor > monster.animEnd) {
+                    // Repair for hand-seeded actors (diagnostics, GRAN.MST
+                    // bosses) that predate the cursor field; the live spawner
+                    // path always keeps the cursor in range.
+                    monster.animCursor = (monster.animFrame >= monster.animStart &&
+                                          monster.animFrame <= monster.animEnd)
+                                             ? monster.animFrame
+                                             : monster.animStart;
+                }
+                int next = static_cast<int>(monster.animCursor) + monster.animStep;
                 if (next > monster.animEnd || next < monster.animStart) {
                     if (monster.animMode == 2) {
                         monster.animStep = -monster.animStep;
-                        next = static_cast<int>(monster.animFrame) + monster.animStep;
+                        next = static_cast<int>(monster.animCursor) + monster.animStep;
                     } else {
+                        // Wrap re-enters at the range base (1000:60DA..60E4
+                        // `mov al,es:[di+1]; mov es:[di],al`).
                         next = monster.animStep >= 0 ? monster.animStart : monster.animEnd;
                     }
                 }
-                monster.animFrame = static_cast<uint8_t>(
+                monster.animCursor = static_cast<uint8_t>(
                     std::clamp(next, static_cast<int>(monster.animStart),
                                static_cast<int>(monster.animEnd)));
+                monster.animFrame = monster.animCursor;
+            }
+
+            // Rank 5: the player-contact test runs BEFORE the tile scan and
+            // the motion update (contact at 1000:63C6..63F0, scan from
+            // 1000:655B), i.e. from the PRE-motion position. monster.y is the
+            // collision-space y (rank 6), which carries the actor +0x14 bias
+            // the original applies at 1000:629D before both the contact test
+            // and the scan.
+            if (!playerDead_ && actorTouchesPlayer(player_, monster.x, monster.y)) {
+                queuePlayerDamage(1);
+            }
+            if (playerCount_ > 1 && !player2Dead_ &&
+                actorTouchesPlayer(player2_, monster.x, monster.y)) {
+                queuePlayerDamage(2);
             }
             // The capture that recovered this model contains ONE monster kind
             // (1), ONE behaviour (3) and ONE level. Behaviour 4 (free flyers)
@@ -20635,8 +21348,13 @@ private:
                 !isBossMotionBehavior(monster.behavior) && monster.behavior != 4;
             if (recoveredResolution) {
                 monster.edges = scanActorEdges(monster.x, monster.y);
+                // Facing-reselect request, seeded from wall contact exactly
+                // where the original's behaviour-3 dispatch does it
+                // (1000:7159..716B: [bp-0x20] = left || right).
+                monster.facingDirty = monster.edges.left || monster.edges.right;
             } else {
                 monster.edges = {};
+                monster.facingDirty = false;
             }
 
             // Gravity and landing run BEFORE the motion update, which is
@@ -20654,6 +21372,8 @@ private:
                 } else if (monster.vy8 > 0) {
                     monster.vy8 = 0;
                     monster.y &= ~7;
+                    // Landing tick requests a facing reselect (1000:71A0).
+                    monster.facingDirty = true;
                 }
             }
 
@@ -20664,6 +21384,25 @@ private:
             // head (behavior 6) is excluded too: 1000:5CB0 does its own
             // four-edge scan and reflects there, keeping the 8.8 fraction.
             if (recoveredResolution) {
+                // The facing consume (1000:727D, reselect branches
+                // 1000:7286/72DA) sits BEFORE the wall reflection in the
+                // instruction stream, so a wall tick consumes the flag with
+                // the PRE-reflection vx and re-selects the OLD facing set --
+                // an unconditional cursor reset to that set's base -- while
+                // the NEW set is selected on the following tick, when the
+                // renormalisation (1000:71F3) raises the flag again with the
+                // reversed vx. The capture adjudicates the order: walker A's
+                // wall tick 374 has the renorm tick 375 land before the next
+                // advance tick 376, so its flip shows at row 377 (the next
+                // boundary), but walker B's wall tick 481 is immediately
+                // followed by the advance tick 482, whose prologue still
+                // steps the OLD right pair (46 at row 483, 3/3 wall turns);
+                // the left pair only appears at row 487. Reselecting after
+                // the reflection flips one boundary early in B's phase.
+                if (monster.facingDirty) {
+                    reselectWalkerFacing(monster);
+                    monster.facingDirty = false;
+                }
                 const ActiveMonster::EdgeFlags e = monster.edges;
                 if (e.top && monster.vy8 < 0) monster.vy8 = 1;
                 if (e.left && e.right) {
@@ -20671,7 +21410,6 @@ private:
                 } else if ((e.left && monster.vx8 < 0) || (e.right && monster.vx8 > 0)) {
                     monster.vx8 = static_cast<int16_t>(-monster.vx8 / 2);
                     monster.x += monster.vx8 < 0 ? -1 : 1;
-                    refreshMonsterAnimationProfile(monster);
                 }
                 integrateAxis8_8(monster.y, monster.fracY, monster.vy8);
                 integrateAxis8_8(monster.x, monster.fracX, monster.vx8);
@@ -20715,14 +21453,6 @@ private:
 
             monster.x = std::clamp(monster.x, 0, std::max(16, level_.width * 8 - 16));
             monster.y = std::clamp(monster.y, 0, std::max(16, level_.height * 8 - 16));
-
-            if (!playerDead_ && playerOverlaps(player_, monster.x, monster.y, 14.0f, 16.0f)) {
-                queuePlayerDamage(1);
-            }
-            if (playerCount_ > 1 && !player2Dead_ &&
-                playerOverlaps(player2_, monster.x, monster.y, 14.0f, 16.0f)) {
-                queuePlayerDamage(2);
-            }
         }
         monsters_.erase(std::remove_if(monsters_.begin(), monsters_.end(),
                                        [](const ActiveMonster& monster) { return !monster.alive; }),
@@ -22182,9 +22912,12 @@ private:
             if (bank.sprites.empty()) continue;
             int index = monsterSpriteIndex(monster);
             if (index < 0 || index >= static_cast<int>(bank.sprites.size())) continue;
+            // monster.y is collision-space; the sprite is drawn at the visual
+            // y = collision y + hotspot (the original re-adds actor +0x14 at
+            // write-back).
             drawSprite(bank.sprites[static_cast<size_t>(index)],
                        static_cast<int>(monster.x) - camX,
-                       static_cast<int>(monster.y) - camY);
+                       static_cast<int>(monster.y) + monster.hotspotY - camY);
         }
     }
 
@@ -23413,6 +24146,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-lockstep-evidence") {
             app.debugBossLockstepEvidence(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-actor-contact-evidence") {
+            app.debugActorContactEvidence(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-sound-hook-evidence") {

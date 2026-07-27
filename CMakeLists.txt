@@ -3367,7 +3367,7 @@ if(BUILD_TESTING)
     set_tests_properties(monster_motion_model PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "monster_motion_model=ok carry_pos=11 carry_frac=4 neg_pos=9 neg_frac=254 b3_init_vx=0 b3_init_frame=45-46 b3_fall_zero_dx=11/11 b3_fall_vy=704 b3_land_vy=0 b3_land_y=24 b3_land_fracy=128 b3_land_vx=256 b3_misaligned_fall_y=31 b3_misaligned_land_y=24 b3_misaligned_land_vx=256 b3_ledge_vx=-256 b3_ledge_vy=0 b3_ledge_frame=43-44 b4_chase_vx=512 b4_chase_vy=0 b4_timer=6 b4_frame=39-41")
+            "monster_motion_model=ok carry_pos=11 carry_frac=4 neg_pos=9 neg_frac=254 b3_init_vx=0 b3_init_frame=43-44 b3_fall_zero_dx=11/11 b3_fall_vy=704 b3_land_vy=0 b3_land_y=24 b3_land_fracy=128 b3_land_vx=256 b3_misaligned_fall_y=31 b3_misaligned_land_y=24 b3_misaligned_land_vx=256 b3_ledge_vx=-256 b3_ledge_vy=0 b3_ledge_frame=43-44 b4_chase_vx=512 b4_chase_vy=0 b4_timer=6 b4_frame=39-41")
 
     add_test(NAME walker_turn_points
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -3376,7 +3376,7 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         TIMEOUT 30
         PASS_REGULAR_EXPRESSION
-            "^walker_turn_points=ok left_x=67 right_x=452 right_turns=2 left_turns=2 walkers=2")
+            "^walker_turn_points=ok left_x=67 right_x=452 right_turns=2 left_turns=2 walkers=2 spawn_ticks=255,345 spawn_gap=90 hotspot_y=6 rest_visual_y=174 fall_ticks=7 spawn_frame=44 anim_mod4=336/336 flip_high=5/5")
 
     add_test(NAME spawners_summary
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-spawners)
@@ -3513,7 +3513,7 @@ if(BUILD_TESTING)
     set_tests_properties(monster_contact_damage_live PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^monster_contact_damage_live=ok p1_pending=2 p2_pending=1 p1_energy=98 p2_energy=99 hurt_cue=0x002d death_cue=0x0056 state2_preserved=1 fatal_dead=1 frame_inspection=1")
+            "^monster_contact_damage_live=ok p1_pending=2 p2_pending=1 p1_energy=98 p2_energy=99 centre_box=19x19 dx_edge_hits=2/2 dx_edge_misses=2/2 dy_edge_hit=1 dy_edge_miss=1 dy_half_extent=weak hurt_cue=0x002d death_cue=0x0056 state2_preserved=1 fatal_dead=1 frame_inspection=1")
 
     add_test(NAME object_collision_jump_live
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -3557,6 +3557,15 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^boss_lockstep_evidence=ok ticks=775 frames=183..957 integration_exact=774 gravity=602 reflect=81 hold=65 rng=26 jumps=6 max_abs_vy=0xa40 old_clamp=0x7ff live_updateBossHead=774 live_edge_scan_agree=687/687 orbit_links=4 orbit_phases=512 live_updateBossLinks=512 orbit_horizontal_term=none orbit_rounding=trunc_toward_zero gravity_gate=bottom_flag_clear gravity_clamp=none link_slot0_scalars=1 visual_claim=0")
+
+    add_test(NAME actor_contact_evidence
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-actor-contact-evidence
+                tests/fixtures/actor_contact_original_level1.txt)
+    set_tests_properties(actor_contact_evidence PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^actor_contact_evidence=ok ticks=1459 frames=28..1486 live_ticks=1485 spawner_cd=1459/1459 spawn_frames=257,347 first_gap=229 respawn_period=90 rng_draws_per_spawn=4 seed_checked=1454/1454 seed_exogenous=4 walker_samples=2370/2370 walkers=2 hotspot_y=6 airborne_zero_dx=14/14 fall_ticks=7,7 turns_right=4@452 turns_left=3@67 anim_changes=589 anim_mod4=589/589 anim_flip_high=9/9 anim_spawn_high=2/2 anim_period=4 energy_scored=1429/1429 contact_ticks=100 contact_half_extent_x=10 dy_half_extent=weak energy_lag_ticks=1 holes=29 visual_claim=0")
 
     add_test(NAME level_outro
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

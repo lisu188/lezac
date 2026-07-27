@@ -23,6 +23,45 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Recovered the remaining capture-evidenced actor divergences (spawner
+  timing, contact box, vertical hotspot, animation cadence) and landed the
+  full level-1 actor lockstep fixture.** The spawner countdown is
+  dec-then-test with reload-on-spawn (`1000:7A9B dec es:[di+0x1b]` before the
+  `7AA2` compare; the three gates jump past the reload, so a blocked spawn
+  free-runs -- 5/5 captured wraps): the model fits **1458/1458** byte
+  transitions, the shipped byte 0 wraps to 255 so the first monster appears
+  **256 ticks** after level start, and the respawn period is the reload byte
+  **90** -- the port previously spawned ~256 ticks early at period 91.
+  Player-vs-monster contact is the original's 19x19 centre test on the
+  hotspot-biased PRE-motion position (`1000:63C6/63D6 cmp ax,0xa / jl`,
+  evaluated before the tile scan at `655B`): `|dx|<10` is uniquely
+  adjudicated **1364/1364** and the old 12x16-vs-14x16 AABB fired **30 false
+  positives** (+30% contact damage); the dy half-extent is byte-confirmed
+  but only weakly capture-pinned and is recorded as weak. The vertical
+  hotspot `actor[+0x14]=6` is uniquely forced by the motion lockstep
+  (**2370/2370** vs <=14/2370 for every other value 0..22): `monster.y` is
+  now collision space, rendered/contacted at `y+6`, with the landing snap
+  unchanged in collision space. Animation advances when the counter strictly
+  EXCEEDS the delay byte (`1000:609A ja`; delay 3 = period 4, **589/589**
+  captured changes at `(frame-spawn) mod 4 == 0`), and a facing flip is
+  latched to the next boundary, entering the pair's high member (**9/9**
+  flips, **2/2** spawns at frame 44) -- the sprite word is written only on
+  advance ticks. Landing the lockstep exposed one further ordering defect
+  invisible to every earlier pin: the facing-flag consume (`1000:727D`) runs
+  BEFORE the wall reflection, adjudicated by walker B's wall-tick phase at
+  frames 481..487.
+  All of it is pinned by the new
+  `tests/fixtures/actor_contact_original_level1.txt` (1459 ticks, frames
+  28..1486) and the `actor_contact_evidence` ctest, which drives the LIVE
+  spawner/scan/resolve/integrate/animation/contact path and requires
+  2370/2370 walker samples, spawn frames 257/347 with the port's own four
+  RNG draws landing on the captured seeds, the countdown byte on 1459/1459
+  rows, 1429/1429 energy transitions over 100 contact ticks, and 589/589
+  animation boundaries. The captured player x/y is exogenous input (human
+  controls), and `energy_lag_ticks=1` is a sampler artifact, not modelled.
+  Twelve knockouts verified: each single revert fails exactly one guard with
+  the predicted first-divergence frame. Suite 389/389.
+
 - **Replaced the actor terrain-contact core with the original's, and closed the
   hole that let it be silently reverted.** A 1459-tick live level-1 capture
   (tick-locked on `DS:0x78C2`, one 64 KiB pread per tick) established a model

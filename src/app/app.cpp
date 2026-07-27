@@ -20598,6 +20598,24 @@ private:
                 monster.edges = {};
             }
 
+            // Gravity and landing run BEFORE the motion update, which is
+            // where the original puts them (image 0x716e..0x7200: the
+            // bottom-gated gravity/snap block precedes the vx seed and the
+            // behaviour-3 ledge probe). The order matters: the ledge probe
+            // reads a tile row from monster.y, so on the landing tick it must
+            // see the SNAPPED y. Running the snap afterwards let a walker
+            // landing at y % 8 != 0 probe one row too low and falsely reverse
+            // on a platform that continues.
+            if (recoveredResolution) {
+                const ActiveMonster::EdgeFlags& e = monster.edges;
+                if (!e.bottom || monster.vy8 < 0) {
+                    monster.vy8 = static_cast<int16_t>(std::min<int>(0x07ff, monster.vy8 + 0x40));
+                } else if (monster.vy8 > 0) {
+                    monster.vy8 = 0;
+                    monster.y &= ~7;
+                }
+            }
+
             updateMonsterMotion(monster, dt);
 
             // Boss segments (behavior 5) are positioned purely by their
@@ -20606,12 +20624,6 @@ private:
             // four-edge scan and reflects there, keeping the 8.8 fraction.
             if (recoveredResolution) {
                 const ActiveMonster::EdgeFlags e = monster.edges;
-                if (!e.bottom || monster.vy8 < 0) {
-                    monster.vy8 = static_cast<int16_t>(std::min<int>(0x07ff, monster.vy8 + 0x40));
-                } else if (monster.vy8 > 0) {
-                    monster.vy8 = 0;
-                    monster.y &= ~7;
-                }
                 if (e.top && monster.vy8 < 0) monster.vy8 = 1;
                 if (e.left && e.right) {
                     monster.vx8 = 0;

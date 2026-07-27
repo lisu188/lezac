@@ -23,6 +23,40 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Replaced the actor terrain-contact core with the original's, and closed the
+  hole that let it be silently reverted.** A 1459-tick live level-1 capture
+  (tick-locked on `DS:0x78C2`, one 64 KiB pread per tick) established a model
+  that reproduces **2370/2370** walker samples; the port's previous rule scores
+  **492/2370**. Every ingredient is load-bearing under knockout: side edges
+  widened to `1..0x52` -> 765/2370, column bias 0/+2/+6 -> ~1050/2370, full
+  `-vx` reflection -> 1224/2370, clearing the 8.8 fraction -> 1355/2370,
+  asserting `vx` every tick -> 6/2370. The recovered core is a 2x2 tile-cell
+  edge scan off `C=(x+4)>>3, R=y_collide>>3` with side/top solid `1..0x4C` and
+  bottom `1..0x52` (the `0x4D..0x52` jump-through class), `vx` seeded only under
+  the bottom flag, `trunc(-vx/2)` reflection with a fixed 1 px push, persistent
+  fractions, and bottom-gated gravity -- all confirmed against the bytes at
+  image `0x716e..0x7400`, including the instruction ORDER
+  (gravity/landing -> vx seed -> ledge -> top/vy -> left&right -> reflect+push
+  -> integrate), which a first attempt got wrong by running gravity last.
+  Measured through the live port path, the level-1 walker now turns at columns
+  **67** and **452**, exactly the original's (67 on 3/3 left turns, 452 on 4/4
+  right turns); before the change it turned at 64 and 457 and provably could not
+  reach 452 under any parameterisation, because tile `0x01` -- the boundary wall
+  -- was passable to the port.
+  Critically, knocking tile `0x01` back to passable left the entire 387-test
+  suite green, so the single most load-bearing ingredient was unguarded. The new
+  `--debug-walker-turn-points` diagnostic (`walker_turn_points` ctest) closes
+  that: it drives the live spawn/scan/resolve/integrate path for 1600 ticks and
+  asserts the turn columns, and the same knockout now fails it. Verified by
+  re-running the knockout after landing.
+  Scope is deliberately narrow: the capture covers ONE monster kind (1), ONE
+  behaviour (3), ONE level. `actor_update_original_contact_semantics` stays
+  OPEN with corrected scope -- behaviours 1/2/4/5/6, other kinds, other levels,
+  the player's own collision box and two-player remain unevidenced, and the
+  plan's lockstep fixture is deliberately NOT landed because it depends on
+  ranks (spawner timing, contact box, hotspot, animation cadence) that are not
+  in this change.
+
 - **Disproved the `behavior4_branch_runtime_fixture` target and retargeted the
   item.** The item named `1000:728C..731B` as "the behavior-4 branch". The
   shipped bytes say otherwise, and the disproof is three instructions: the

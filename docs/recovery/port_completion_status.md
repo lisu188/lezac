@@ -156,7 +156,16 @@ regresses the test if it is undone.
 - `exact_explosion_sprite_playback` — exact explosion/debris/collapse sprite
   playback semantics around `1000:3a56..4d3b`
 - `actor_update_original_contact_semantics` — original contact
-  flags/passability/tile snapping around `1000:6053..777f`
+  flags/passability/tile snapping around `1000:6053..777f`. **Partially
+  recovered.** The terrain-contact core is now the original's: a 2x2 tile-cell
+  edge scan with a `+4` column bias, side/top solid `1..0x4C` and bottom
+  `1..0x52`, `vx` seeded only under the bottom flag, `trunc(-vx/2)` reflection
+  with a fixed 1 px push, persistent 8.8 fractions, and bottom-gated gravity in
+  the original's instruction order. Pinned live by `--debug-walker-turn-points`
+  (`walker_turn_points` ctest), which reproduces the original's exact level-1
+  turn columns 67 and 452. The item stays OPEN: the evidence is one monster kind
+  (1), one behaviour (3), one level, so behaviours 1/2/4/5/6, other kinds, other
+  levels, the player's own collision box and two-player are all unevidenced.
 - `behavior4_motion_runtime_fixture` — behavior-4 motion semantics fixture.
   **Retargeted, not closed.** This item previously named `1000:728C..731B` as
   the behavior-4 branch. The shipped bytes disprove that: the behavior-4 arm

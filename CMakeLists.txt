@@ -3367,7 +3367,16 @@ if(BUILD_TESTING)
     set_tests_properties(monster_motion_model PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "monster_motion_model=ok carry_pos=11 carry_frac=4 neg_pos=9 neg_frac=254 b3_init_vx=256 b3_init_frame=45-46 b3_ledge_vx=-256 b3_ledge_vy=64 b3_ledge_frame=43-44 b4_chase_vx=512 b4_chase_vy=0 b4_timer=6 b4_frame=39-41")
+            "monster_motion_model=ok carry_pos=11 carry_frac=4 neg_pos=9 neg_frac=254 b3_init_vx=0 b3_init_frame=45-46 b3_fall_zero_dx=11/11 b3_fall_vy=704 b3_land_vy=0 b3_land_y=24 b3_land_fracy=128 b3_land_vx=256 b3_ledge_vx=-256 b3_ledge_vy=0 b3_ledge_frame=43-44 b4_chase_vx=512 b4_chase_vy=0 b4_timer=6 b4_frame=39-41")
+
+    add_test(NAME walker_turn_points
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-walker-turn-points)
+    set_tests_properties(walker_turn_points PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        TIMEOUT 30
+        PASS_REGULAR_EXPRESSION
+            "^walker_turn_points=ok left_x=67 right_x=452 right_turns=2 left_turns=2 walkers=2")
 
     add_test(NAME spawners_summary
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-spawners)
@@ -3480,7 +3489,7 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         TIMEOUT 5
         PASS_REGULAR_EXPRESSION
-            "^collision_pushout=ok player_h_clear=1 player_v_clear=1 monster_h_clear=1 monster_v_clear=1 monster_b4_half=1 passable_clear=1 solid_tile=2")
+            "^collision_pushout=ok player_h_clear=1 player_v_clear=1 monster_h_vx=-256 monster_h_x=24 monster_h_fracx=64 monster_h_step2_x=23 monster_v_y=48 monster_ceil_vy=1 monster_b4_half=1 passable_clear=1 solid_tile=2")
 
     add_test(NAME monster_bomb_kill_live
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

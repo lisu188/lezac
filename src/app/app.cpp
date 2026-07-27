@@ -16282,6 +16282,44 @@ public:
             throw std::runtime_error("behavior 3 landing changed");
         }
 
+        // Landing at a NON-TILE-ALIGNED y, which is what pins the ORDER of the
+        // recovered steps rather than just their content. The original runs
+        // gravity/landing before the vx seed and the behaviour-3 ledge probe
+        // (image 0x716e..0x7200), and that probe derives its tile row from
+        // monster.y -- so on the landing tick it must see the SNAPPED y.
+        // Here the walker arrives at y = 31 (y % 8 == 7) over a floor that
+        // continues. Snapped first, the probe reads row (24+17)/8 = 5, the
+        // floor, and the walker keeps going. Unsnapped it reads row
+        // (31+17)/8 = 6, empty space below the floor, and falsely reverses.
+        // Every other landing in this suite is tile-aligned, where the two
+        // rows coincide, so without this case the ordering is unguarded:
+        // reverting it leaves all 388 tests green.
+        prepareMonsterMotionDebugLevel(false);
+        monsters_.clear();
+        ActiveMonster misaligned = walker;
+        misaligned.x = 40;
+        misaligned.y = 23;
+        misaligned.vx8 = 0;
+        // Gravity clamps at 0x07ff, i.e. 7 px plus a fractional carry, so
+        // reaching y = 31 in one tick needs the carry: 0xff + 0xff overflows
+        // and adds the eighth pixel.
+        misaligned.vy8 = 0x07ff;
+        misaligned.fracX = 0;
+        misaligned.fracY = 0xff;
+        misaligned.alive = true;
+        misaligned.animDelay = 1;
+        monsters_.push_back(misaligned);
+        updateMonsters(0.0f);                       // falls to y = 31
+        const int misalignedFallY = monsters_.front().y;
+        updateMonsters(0.0f);                       // the landing tick
+        const ActiveMonster misalignedLanded = monsters_.front();
+        if (misalignedFallY != 31 || (misalignedFallY & 7) != 7) {
+            throw std::runtime_error("misaligned landing fixture no longer lands off-grid");
+        }
+        if (misalignedLanded.y != 24 || misalignedLanded.vx8 != 0x0100) {
+            throw std::runtime_error("behavior 3 misaligned landing reversed on a continuing floor");
+        }
+
         prepareMonsterMotionDebugLevel(true);
         monsters_.clear();
         ActiveMonster ledgeWalker = walker;
@@ -16340,6 +16378,9 @@ public:
                   << " b3_land_y=" << landed.y
                   << " b3_land_fracy=" << static_cast<int>(landed.fracY)
                   << " b3_land_vx=" << landed.vx8
+                  << " b3_misaligned_fall_y=" << misalignedFallY
+                  << " b3_misaligned_land_y=" << misalignedLanded.y
+                  << " b3_misaligned_land_vx=" << misalignedLanded.vx8
                   << " b3_ledge_vx=" << ledgeWalker.vx8
                   << " b3_ledge_vy=" << ledgeWalker.vy8
                   << " b3_ledge_frame=" << static_cast<int>(ledgeWalker.animStart)

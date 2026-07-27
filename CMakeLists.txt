@@ -3367,7 +3367,7 @@ if(BUILD_TESTING)
     set_tests_properties(monster_motion_model PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "monster_motion_model=ok carry_pos=11 carry_frac=4 neg_pos=9 neg_frac=254 b3_init_vx=0 b3_init_frame=45-46 b3_fall_zero_dx=11/11 b3_fall_vy=704 b3_land_vy=0 b3_land_y=24 b3_land_fracy=128 b3_land_vx=256 b3_ledge_vx=-256 b3_ledge_vy=0 b3_ledge_frame=43-44 b4_chase_vx=512 b4_chase_vy=0 b4_timer=6 b4_frame=39-41")
+            "monster_motion_model=ok carry_pos=11 carry_frac=4 neg_pos=9 neg_frac=254 b3_init_vx=0 b3_init_frame=45-46 b3_fall_zero_dx=11/11 b3_fall_vy=704 b3_land_vy=0 b3_land_y=24 b3_land_fracy=128 b3_land_vx=256 b3_misaligned_fall_y=31 b3_misaligned_land_y=24 b3_misaligned_land_vx=256 b3_ledge_vx=-256 b3_ledge_vy=0 b3_ledge_frame=43-44 b4_chase_vx=512 b4_chase_vy=0 b4_timer=6 b4_frame=39-41")
 
     add_test(NAME walker_turn_points
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

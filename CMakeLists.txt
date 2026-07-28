@@ -241,7 +241,7 @@ if(BUILD_TESTING)
     set_tests_properties(level1_frame_inspection_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "level1_frame_inspection=ok level=1 size=60x33 p1_xy=104,168 p1_bomb_tile=13,22 initial_small=200 after_n_small=199 bombs=1 menu_uniform=0 gameplay_uniform=0 menu_game_different=1 hud_nonempty=1 world_nonempty=1 player_visible=1 bomb_visible=1 explosion_visible=1 completion_visible=1 advanced_level=2")
+            "level1_frame_inspection=ok level=1 size=60x33 p1_xy=104,168 p1_bomb_tile=13,21 initial_small=200 after_n_small=199 bombs=1 menu_uniform=0 gameplay_uniform=0 menu_game_different=1 hud_nonempty=1 world_nonempty=1 player_visible=1 bomb_visible=1 explosion_visible=1 completion_visible=1 advanced_level=2")
 
     add_test(NAME frame_sequence_capture_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -317,7 +317,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_level1_bomb_route_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=level1_bomb_route route_frames=[0-9]+ .*p1_bomb_tile=24,22 bombs=1 explosion=1 frame_inspection=1")
+            "^autoplayer=ok scenario=level1_bomb_route route_frames=[0-9]+ .*p1_bomb_tile=24,21 bombs=1 explosion=1 frame_inspection=1")
 
     add_test(NAME autoplayer_pause_flow_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -453,7 +453,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_collapse_playback_route_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=collapse_playback_route collapse_started=1 collapse_count=[0-9]+ playback_frames=24 frame_inspection=1")
+            "^autoplayer=ok scenario=collapse_playback_route collapse_started=1 collapse_count=[0-9]+ playback_frames=23 frame_inspection=1")
 
     add_test(NAME autoplayer_two_player_route_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -3460,6 +3460,13 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "bomb_object_explosion_effects=ok cases=2 .*collapse_level=1 collapse_tile=24,22 collapse_count=2 collapse_start_off=0x0a06 collapse_end_off=0x0a08 collapse_word=0x0009 collapse_flagged=0x8009 .*collapse_affected_bytes=4 .*score_each=50 sound_offset=0xea74")
+
+    add_test(NAME debris_motion_live
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-motion-live)
+    set_tests_properties(debris_motion_live PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^debris_motion_live=ok level=4 seed_tile=70,38 glyph=0x6a word=0x4027 hover_ticks=8 step_stamps=1 cascade=debris retire_ticks=108 flag_cleared=1")
 
     add_test(NAME passable_objects
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-passable-objects)

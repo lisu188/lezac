@@ -70,6 +70,41 @@ under the existing guardrails; they are not missing port functionality.
   promoted, and both reward physics/presentation and transition-effect
   rendering remain outside this focused recovery, so the global
   `original_fidelity_claim=0` is unchanged.
+- **Implemented the original falling-debris subsystem.** The port's
+  `DebrisRecord` previously only decremented a timer; the original's 11-byte
+  records (base `DS:0x2093`, stride 0x0B, first record index 200, cap 1401)
+  are live objects. The new `updateDebrisRecords()` transcribes the loop-2
+  mover from the bytes, in instruction order: signed 8-bit sub-accumulator
+  integration BEFORE gravity, gravity +4 while `vy < 0x7B` gated on the
+  object byte directly below (`4A9D`/`4AA3`/`4AAA`), horizontal friction on
+  stepped ticks, free moves stamping BOTH planes and clearing the vacated
+  cell (`4B7E`/`4B9B`), the cascade re-seed from `wordPlane[oldPos-width]`
+  (`4BD5..4C08`), blocked-move bounce with the exact RNG draw order
+  (`Random(0x1E)-15`, sound `0xEA61+Random(8)`), the fragile/landing shatter
+  gates (`4AE6..4B0B`), retirement at exactly 100 rest-ticks clearing bit
+  0x8000 (`4CFF`/`4D17`), and removal reproducing the `458D` shift-down.
+  The seeder (`1000:370E` port in `queueTileDamage`) no longer writes the
+  object plane at seed time -- the glyph stays put until the fragment's first
+  move, exactly as the L2 capture shows. The frame order was re-wired from
+  the bytes: the actor/bomb update (`1000:6053`, called at `7EE1`) runs
+  BEFORE the debris/effect pass (`1000:45FA` at `805D`) and the collapse
+  pass (`1000:5102` at `8067`) -- verified by re-disassembly, and a reversion
+  knockout fails `collapse_playback_route`.
+  `placeBombAt` now uses the original mapping read from `655B..6582`:
+  `base = ((py>>3)-1)*width + ((px+4)>>3 - 1)`; the L2 capture pins it
+  (player pixel (200,308) -> base 3724, post-walk `DS:C1E8` = 3925, exactly
+  as measured). The bomb-pixel = player-pixel identification is INFERRED from
+  that single consistent point and labelled so in the code.
+  Pinned by the new `--debug-debris-motion-live` diagnostic
+  (`debris_motion_live` ctest), which drives the live seed -> hover -> step ->
+  cascade -> retire chain; three knockouts verified by hand after applying
+  (gravity 4->5, seed-time plane write, frame-order reversion -- each fails
+  its guard). Spec: `docs/recovery/falling_debris_update_spec.md`.
+  **Scope**: `natural_forward_debris_writeback_3d2d` stays OPEN -- the `3D2D`
+  staging tag is an intra-frame event the tick-locked capture cannot observe.
+  The per-tick L2 lockstep fixture and the adversarial verification pass of
+  this subsystem are still pending (they were killed by a session limit) and
+  follow as their own change. Suite 391/391.
 
 - **Read the original's live sprite-descriptor table and proved the one-based
   sprite indexing at runtime.** One /proc-mem pread of a running level-1

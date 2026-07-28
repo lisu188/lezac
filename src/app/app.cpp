@@ -91,6 +91,29 @@ constexpr uint16_t kLaneHelperBlendZeroDivisorOffset = 0x09ac;
 constexpr uint16_t kLaneHelperBlendZeroDivisorError = 0x00c8;
 constexpr size_t kDebrisCapacity = 0x640;
 constexpr size_t kCollapseCapacity = 0x00fa;
+// Falling-debris mover constants (1000:45FA loop 2 / seeder 1000:370E; every
+// citation re-read from LEZAC.EXE at ghidra_addr + 0x770 — see
+// docs/recovery/falling_debris_update_spec.md).
+constexpr size_t kDebrisRecordIndexBase = 0x00c7;  // DS:207E init (file 0x3319);
+                                                   // inc-before-imul at 3783 makes
+                                                   // the first record slot 200, and
+                                                   // the 3753 cap check refuses when
+                                                   // DS:207E >= kDebrisCapacity.
+constexpr int8_t kDebrisGravityCompare = 0x7b;     // 4AA3 cmp vy,0x7b (signed jge)
+constexpr int8_t kDebrisGravityStep = 4;           // 4AAA add vy,4
+constexpr uint8_t kDebrisRetireRestTicks = 0x64;   // 4CFF cmp rest,0x64 (equality)
+constexpr uint8_t kDebrisShatterFrame = 0x76;      // 49B0/4B16 first shatter frame
+constexpr uint8_t kDebrisShatterLastStep = 0x79;   // 49DC terminal-frame trigger
+constexpr uint8_t kDebrisTerminalBase = 0x6b;      // 49EF add ax,0x6b (+Random(5))
+constexpr uint8_t kDebrisDissolveByte = 0xff;      // 49F7 terminal / 4A23 consume
+constexpr uint16_t kDebrisFragileWordFloor = 0xffbc;  // 49A4/49E2 cmp fw,0xffbc (ja)
+constexpr int8_t kDebrisLandingShatterVyGate = 0x3c;  // 4AED cmp vy,0x3c (jle skips)
+constexpr uint16_t kDebrisAutoShatterSoundCursor = 0x27;   // 49BD, priority 5 (49C3)
+constexpr uint8_t kDebrisAutoShatterSoundPriority = 5;
+constexpr uint16_t kDebrisLandingShatterSoundCursor = 0x21;  // 4B2C, priority 2 (4B27)
+constexpr uint8_t kDebrisLandingShatterSoundPriority = 2;
+constexpr uint16_t kDebrisBounceSoundBase = 0xea61;  // 4C51 add ax,0xea61, priority 1
+constexpr uint8_t kDebrisBounceSoundPriority = 1;    // 4C57
 constexpr size_t kGranRecordSize = 57;
 constexpr int kReentryTicks = 180;
 constexpr int kDeathStateTicks = 0x003c;
@@ -531,15 +554,20 @@ struct ExplosionEffect {
     int finalSignedOffset = 0;
 };
 
+// One live falling fragment: the original 11-byte record at
+// DS:0x2093 + 0x0B*slot (first live slot of a level is 200; seeder 1000:370E
+// fills it at 3798/37A1/37AB/37C5/37CD/37D5/37BE/37E3/37EA, mover 1000:45FA
+// loop 2 updates it — see docs/recovery/falling_debris_update_spec.md).
 struct DebrisRecord {
-    int tileIndex = 0;
-    uint16_t flaggedWord = 0;
-    uint8_t forwardPhase = 0;
-    uint8_t reversePhase = 0;
-    std::array<uint8_t, 3> zeroPad{0, 0, 0};
-    uint8_t lookup = 0;
-    uint8_t trailingZero = 0;
-    int timer = 18;
+    int tileIndex = 0;         // +0 u16: cell index (y*width + x)
+    uint16_t flaggedWord = 0;  // +2 u16: word | 0x8000 while airborne
+    int8_t velocityX = 0;      // +4 s8: vx, 128 sub-units per tile (lane DS:78D2)
+    int8_t velocityY = 0;      // +5 s8: vy (lane DS:78D4)
+    int8_t subX = 0;           // +6 s8: x sub-accumulator (lane DS:78D3)
+    int8_t subY = 0;           // +7 s8: y sub-accumulator (lane DS:78D5)
+    uint8_t restTicks = 0;     // +8 u8: consecutive no-move ticks (retire at 100)
+    uint8_t lookup = 0;        // +9 u8: carried tile code (objectByte at seed)
+    uint8_t aux = 0;           // +A u8: bit 7 = "my move spawned a cascade" (4C19)
 };
 
 struct CollapseRecord {
@@ -1832,10 +1860,10 @@ public:
         }
 
         size_t twoPlayerBombs = bombs_.size();
-        int player1BombX = static_cast<int>(player_.x + 6.0f) / 8;
-        int player1BombY = static_cast<int>(player_.y + 12.0f) / 8;
-        int player2BombX = static_cast<int>(player2_.x + 6.0f) / 8;
-        int player2BombY = static_cast<int>(player2_.y + 12.0f) / 8;
+        int player1BombX = (static_cast<int>(player_.x) + 4) / 8;
+        int player1BombY = static_cast<int>(player_.y) / 8;
+        int player2BombX = (static_cast<int>(player2_.x) + 4) / 8;
+        int player2BombY = static_cast<int>(player2_.y) / 8;
         int player1SmallBombs = bombInventory_.counts[0];
         int player2SmallBombs = bombInventory2_.counts[0];
         pushKeyDown(SDLK_n);
@@ -1865,8 +1893,8 @@ public:
         size_t insertBombs = bombs_.size();
         int insertPlayer1SmallBombs = bombInventory_.counts[0];
         int insertPlayer2SmallBombs = bombInventory2_.counts[0];
-        player2BombX = static_cast<int>(player2_.x + 6.0f) / 8;
-        player2BombY = static_cast<int>(player2_.y + 12.0f) / 8;
+        player2BombX = (static_cast<int>(player2_.x) + 4) / 8;
+        player2BombY = static_cast<int>(player2_.y) / 8;
         pushKeyDown(SDLK_INSERT);
         processEvents(running);
         if (bombs_.size() != insertBombs + 1 ||
@@ -2061,10 +2089,13 @@ public:
 
         energy_ = 100;
         damageCooldown_ = 0;
+        // Synthetic zero-velocity fragment parked on the player's own tile:
+        // the live mover leaves it overlapping the player for the next two
+        // passes (it needs 9 gravity ticks before its first row step), which
+        // must drain energy both times.
         DebrisRecord debris;
         debris.tileIndex = (static_cast<int>(player_.y + 8.0f) / 8) * level_.width +
                            (static_cast<int>(player_.x + 6.0f) / 8);
-        debris.timer = 2;
         debrisQueue_.push_back(debris);
         updateFlashes();
         drainPlayerDamageCounters();
@@ -2087,8 +2118,8 @@ public:
         energy_ = 100;
         damageCooldown_ = 0;
         BombProfile contactProfile = bombProfile(BombType::Small);
-        Bomb contactBomb{static_cast<int>(player_.x + 6.0f) / 8,
-                         static_cast<int>(player_.y + 12.0f) / 8,
+        Bomb contactBomb{(static_cast<int>(player_.x) + 4) / 8,
+                         static_cast<int>(player_.y) / 8,
                          contactProfile.fuseTicks, BombType::Small,
                          contactProfile.fuseTicks};
         explode(contactBomb);
@@ -2460,7 +2491,7 @@ public:
             int firstDebrisForward = 0;
             int firstDebrisReverse = 0;
             int firstDebrisLookup = 0;
-            int firstDebrisTimer = 0;
+            int firstDebrisRest = 0;
             int firstCollapseX = -1;
             int firstCollapseY = -1;
             uint16_t firstCollapseStart = 0;
@@ -2519,8 +2550,8 @@ public:
             frame.playerCount = playerCount_;
             frame.p1x = static_cast<int>(player_.x);
             frame.p1y = static_cast<int>(player_.y);
-            frame.p1BombX = static_cast<int>(player_.x + 6.0f) / kTileSize;
-            frame.p1BombY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+            frame.p1BombX = (static_cast<int>(player_.x) + 4) / kTileSize;
+            frame.p1BombY = static_cast<int>(player_.y) / kTileSize;
             frame.p1FootTile = tileAt(
                 static_cast<int>(player_.x + 6.0f) / kTileSize,
                 static_cast<int>(player_.y + 16.0f) / kTileSize);
@@ -2528,8 +2559,8 @@ public:
             if (playerCount_ > 1) {
                 frame.p2x = static_cast<int>(player2_.x);
                 frame.p2y = static_cast<int>(player2_.y);
-                frame.p2BombX = static_cast<int>(player2_.x + 6.0f) / kTileSize;
-                frame.p2BombY = static_cast<int>(player2_.y + 12.0f) / kTileSize;
+                frame.p2BombX = (static_cast<int>(player2_.x) + 4) / kTileSize;
+                frame.p2BombY = static_cast<int>(player2_.y) / kTileSize;
             }
             frame.p2Dead = player2Dead_ ? 1 : 0;
             frame.bombs = bombs_.size();
@@ -2553,10 +2584,10 @@ public:
                 const DebrisRecord& debris = debrisQueue_.front();
                 frame.firstDebrisTile = debris.tileIndex;
                 frame.firstDebrisFlagged = debris.flaggedWord;
-                frame.firstDebrisForward = debris.forwardPhase;
-                frame.firstDebrisReverse = debris.reversePhase;
+                frame.firstDebrisForward = debris.velocityX;
+                frame.firstDebrisReverse = debris.velocityY;
                 frame.firstDebrisLookup = debris.lookup;
-                frame.firstDebrisTimer = debris.timer;
+                frame.firstDebrisRest = debris.restTicks;
             }
             if (!collapseQueue_.empty()) {
                 const CollapseRecord& collapse = collapseQueue_.front();
@@ -2644,16 +2675,16 @@ public:
             capture("010_level1_start");
 
             AutoplayRouteResult route = autoplayLevel1BombRoute();
-            if (route.bombTileX != 24 || route.bombTileY != 22) {
-                throw std::runtime_error("frame sequence autoplayer missed level-1 tile 24,22");
+            if (route.bombTileX != 24 || route.bombTileY != 21) {
+                throw std::runtime_error("frame sequence autoplayer missed level-1 tile 24,21");
             }
             capture("020_level1_tile24_aligned");
 
             pushKeyDown(SDLK_n);
             processEvents(running);
-            if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 22) {
+            if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 21) {
                 throw std::runtime_error(
-                    "frame sequence N key did not place the level-1 tile 24,22 bomb");
+                    "frame sequence N key did not place the level-1 tile 24,21 bomb");
             }
             capture("030_level1_tile24_bomb");
 
@@ -3110,7 +3141,7 @@ public:
                      << " debris0_forward=" << frame.firstDebrisForward
                      << " debris0_reverse=" << frame.firstDebrisReverse
                      << " debris0_lookup=" << frame.firstDebrisLookup
-                     << " debris0_timer=" << frame.firstDebrisTimer
+                     << " debris0_rest=" << frame.firstDebrisRest
                      << " collapse0_xy=" << frame.firstCollapseX << ','
                      << frame.firstCollapseY
                      << " collapse0_start=" << hex4(frame.firstCollapseStart)
@@ -3497,8 +3528,8 @@ public:
 
         FrameInspection startFrame = inspectRenderedFrame("autoplayer-level1-start");
         AutoplayRouteResult route = autoplayLevel1BombRoute();
-        if (route.bombTileX != 24 || route.bombTileY != 22) {
-            throw std::runtime_error("autoplayer missed level-1 tile 24,22");
+        if (route.bombTileX != 24 || route.bombTileY != 21) {
+            throw std::runtime_error("autoplayer missed level-1 tile 24,21");
         }
 
         FrameInspection routeFrame = inspectRenderedFrame("autoplayer-level1-route");
@@ -3511,7 +3542,7 @@ public:
         pushKeyDown(SDLK_n);
         processEvents(running);
         if (bombs_.size() != bombsBefore + 1 || bombs_.back().x != 24 ||
-            bombs_.back().y != 22 || bombInventory_.counts[0] != smallBombsBefore - 1) {
+            bombs_.back().y != 21 || bombInventory_.counts[0] != smallBombsBefore - 1) {
             throw std::runtime_error("autoplayer N key did not place a level-1 route bomb");
         }
 
@@ -5082,14 +5113,14 @@ public:
         }
 
         AutoplayRouteResult route = autoplayLevel1BombRoute();
-        if (route.bombTileX != 24 || route.bombTileY != 22) {
-            throw std::runtime_error("collapse autoplayer missed level-1 tile 24,22");
+        if (route.bombTileX != 24 || route.bombTileY != 21) {
+            throw std::runtime_error("collapse autoplayer missed level-1 tile 24,21");
         }
         FrameInspection routeFrame = inspectRenderedFrame("autoplayer-collapse-route");
 
         pushKeyDown(SDLK_n);
         processEvents(running);
-        if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 22) {
+        if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 21) {
             throw std::runtime_error("collapse autoplayer did not place route bomb");
         }
         int fuse = bombs_.back().timer;
@@ -5112,7 +5143,11 @@ public:
             updateWithControls(idle, 1.0f / 60.0f);
             ++playbackFrames;
         }
-        if (!collapseQueue_.empty() || playbackFrames != 24) {
+        // The reconstruction-only CollapseRecord lifetime is 24 ticks; with
+        // the byte-cited frame order (bomb actors run before the queue pass,
+        // so the spawn tick already decrements once) 23 further frames drain
+        // it.
+        if (!collapseQueue_.empty() || playbackFrames != 23) {
             throw std::runtime_error("collapse autoplayer playback duration mismatch");
         }
         FrameInspection clearFrame = inspectRenderedFrame("autoplayer-collapse-clear");
@@ -5160,8 +5195,8 @@ public:
 
         size_t bombsBefore = bombs_.size();
         int p2SmallBefore = bombInventory2_.counts[0];
-        int bombTileX = static_cast<int>(player2_.x + 6.0f) / kTileSize;
-        int bombTileY = static_cast<int>(player2_.y + 12.0f) / kTileSize;
+        int bombTileX = (static_cast<int>(player2_.x) + 4) / kTileSize;
+        int bombTileY = static_cast<int>(player2_.y) / kTileSize;
         pushKeyDown(SDLK_KP_0);
         processEvents(running);
         if (bombs_.size() != bombsBefore + 1 || bombs_.back().owner != 2 ||
@@ -5385,8 +5420,8 @@ public:
 
         size_t bombsBefore = bombs_.size();
         int p2SmallBefore = bombInventory2_.counts[0];
-        int p2BombX = static_cast<int>(player2_.x + 6.0f) / kTileSize;
-        int p2BombY = static_cast<int>(player2_.y + 12.0f) / kTileSize;
+        int p2BombX = (static_cast<int>(player2_.x) + 4) / kTileSize;
+        int p2BombY = static_cast<int>(player2_.y) / kTileSize;
         pushKeyDown(SDLK_KP_0);
         processEvents(running);
         if (bombs_.size() != bombsBefore + 1 || bombs_.back().owner != 2 ||
@@ -16381,8 +16416,8 @@ public:
                         const DebrisRecord& record = debrisQueue_.back();
                         debrisFlagged = record.flaggedWord;
                         debrisLookup = static_cast<int>(record.lookup);
-                        debrisForwardPhase = static_cast<int>(record.forwardPhase);
-                        debrisReversePhase = static_cast<int>(record.reversePhase);
+                        debrisForwardPhase = static_cast<int>(record.velocityX);
+                        debrisReversePhase = static_cast<int>(record.velocityY);
                         DamagePhaseLookup forward = resolveDamagePhase(record.flaggedWord, false);
                         DamagePhaseLookup reverse = resolveDamagePhase(record.flaggedWord, true);
                         debrisSlot = forward.slotIndex;
@@ -16962,8 +16997,8 @@ public:
         int initialFlashes = static_cast<int>(flashes_.size());
 
         auto pushExpiredPlayerBombs = [&]() {
-            int playerBombX = static_cast<int>(player_.x + 6.0f) / kTileSize;
-            int playerBombY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+            int playerBombX = (static_cast<int>(player_.x) + 4) / kTileSize;
+            int playerBombY = static_cast<int>(player_.y) / kTileSize;
             bombs_.push_back({playerBombX, playerBombY, 1, BombType::Small, 1});
             bombs_.push_back({std::max(0, playerBombX - 4), playerBombY, 1,
                               BombType::Small, 1});
@@ -17199,6 +17234,189 @@ public:
                   << std::dec << std::noshowbase << '\n';
     }
 
+    // Drives the LIVE falling-debris mover (updateDebrisRecords via
+    // updateFlashes) tick by tick and checks the dynamics recovered from the
+    // original level-2 measurement
+    // (tests/fixtures/debris_measurement_original_level2.txt): zero-velocity
+    // seed with the glyph left in place, integrator-before-gravity vy ladder
+    // (vy = 4n, ysub = 2n(n-1)), the first row step at tick 9 stamping both
+    // planes and clearing the vacated cell, the cascade re-seed from the cell
+    // above the vacated one, and eventual retirement clearing bit 0x8000.
+    void debugDebrisMotionLive() {
+        load();
+
+        int probeLevel = -1;
+        int px = -1;
+        int py = -1;
+        for (size_t level = 0; level < levels_.size() && probeLevel < 0; ++level) {
+            resetLevel(static_cast<int>(level));
+            for (int y = 2; y + 1 < level_.height && probeLevel < 0; ++y) {
+                for (int x = 0; x + 1 < level_.width; ++x) {
+                    uint8_t tile = static_cast<uint8_t>(tileAt(x, y));
+                    if (!isBombObjectTile(tile)) continue;
+                    uint16_t above = wordAt(x, y - 1);
+                    if (above < kDeferredThreshold ||
+                        (above & kDamagedWordBit) != 0) {
+                        continue;
+                    }
+                    if ((wordAt(x, y) & kDamagedWordBit) != 0) continue;
+                    Bomb bomb{x, y, 1, BombType::Small, 1, 1};
+                    int objects = 0;
+                    bool only = true;
+                    for (const auto& pos : explosionTilesFor(bomb)) {
+                        if (!isBombObjectTile(
+                                static_cast<uint8_t>(tileAt(pos[0], pos[1])))) {
+                            continue;
+                        }
+                        ++objects;
+                        only = only && pos[0] == x && pos[1] == y;
+                    }
+                    if (objects != 1 || !only) continue;
+                    probeLevel = static_cast<int>(level);
+                    px = x;
+                    py = y;
+                    break;
+                }
+            }
+        }
+        if (probeLevel < 0) {
+            throw std::runtime_error("no seedable debris site found");
+        }
+
+        resetLevel(probeLevel);
+        clearRunScores();
+        clearSoundLatch();
+        monsters_.clear();
+        bonusDrops_.clear();
+        bombs_.clear();
+        flashes_.clear();
+        explosionEffects_.clear();
+        debrisQueue_.clear();
+        collapseQueue_.clear();
+        playerDead_ = true;
+        player2Dead_ = true;
+
+        const int width = level_.width;
+        const int seedIndex = (py - 1) * width + px;
+        const uint8_t seedGlyph = static_cast<uint8_t>(tileAt(px, py - 1));
+        const uint16_t seedWord = wordAt(px, py - 1);
+        const uint16_t flaggedSeedWord =
+            static_cast<uint16_t>(seedWord | kDamagedWordBit);
+        const uint16_t wordTwoAbove = wordAt(px, py - 2);
+        const bool expectCascade =
+            wordTwoAbove > 0 && (wordTwoAbove & kDamagedWordBit) == 0;
+        const bool cascadeIsDebris =
+            expectCascade && wordTwoAbove >= kDeferredThreshold;
+
+        Bomb bomb{px, py, 1, BombType::Small, 1, 1};
+        explode(bomb);
+
+        // Seed payload (1000:370E debris branch).
+        if (debrisQueue_.size() != 1) {
+            throw std::runtime_error("debris seed did not create one record");
+        }
+        {
+            const DebrisRecord& rec = debrisQueue_.front();
+            if (rec.tileIndex != seedIndex || rec.flaggedWord != flaggedSeedWord ||
+                rec.velocityX != 0 || rec.velocityY != 0 || rec.subX != 0 ||
+                rec.subY != 0 || rec.restTicks != 0 || rec.aux != 0 ||
+                rec.lookup != seedGlyph) {
+                throw std::runtime_error("debris seed payload mismatch");
+            }
+        }
+        if (static_cast<uint8_t>(tileAt(px, py - 1)) != seedGlyph) {
+            throw std::runtime_error("debris seed touched the object plane");
+        }
+        if (wordAt(px, py - 1) != flaggedSeedWord) {
+            throw std::runtime_error("debris seed did not flag the word");
+        }
+
+        // Eight airborne hover ticks: integrator before gravity, so after n
+        // ticks vy = 4n and ysub = 2n(n-1); an airborne non-stepping tick
+        // samples restTicks as 1 (reset at 4AB3 before the 4CF8 increment).
+        for (int n = 1; n <= 8; ++n) {
+            updateFlashes();
+            const DebrisRecord& rec = debrisQueue_.front();
+            if (debrisQueue_.size() != 1 || rec.tileIndex != seedIndex ||
+                rec.velocityY != 4 * n || rec.subY != 2 * n * (n - 1) ||
+                rec.velocityX != 0 || rec.subX != 0 || rec.restTicks != 1) {
+                throw std::runtime_error("debris hover ladder mismatch");
+            }
+        }
+
+        // Tick 9: ysub 112 + 32 overflows -> one row step, stamping the
+        // fragment into BOTH planes at the destination and clearing the
+        // vacated cell, then re-seeding the cell above the vacated one.
+        const size_t collapseBefore = collapseQueue_.size();
+        updateFlashes();
+        const int destIndex = seedIndex + width;
+        {
+            const DebrisRecord& rec = debrisQueue_.front();
+            if (rec.tileIndex != destIndex || rec.velocityY != 36 ||
+                rec.subY != 16 || rec.restTicks != 0) {
+                throw std::runtime_error("debris row step mismatch");
+            }
+            if (level_.tiles[static_cast<size_t>(destIndex)] != seedGlyph ||
+                level_.tiles[static_cast<size_t>(seedIndex)] != 0 ||
+                level_.wordLayer[static_cast<size_t>(destIndex)] !=
+                    flaggedSeedWord ||
+                level_.wordLayer[static_cast<size_t>(seedIndex)] != 0) {
+                throw std::runtime_error("debris row step did not stamp both planes");
+            }
+            if (cascadeIsDebris) {
+                if (debrisQueue_.size() != 2 || (rec.aux & 0x80) == 0) {
+                    throw std::runtime_error("debris cascade did not seed a record");
+                }
+                const DebrisRecord& child = debrisQueue_.back();
+                // The live loop bound is re-read each iteration, so the
+                // cascade child is updated in its own birth tick.
+                if (child.tileIndex != seedIndex - width ||
+                    child.flaggedWord !=
+                        static_cast<uint16_t>(wordTwoAbove | kDamagedWordBit) ||
+                    child.velocityY != 4 || child.restTicks != 1) {
+                    throw std::runtime_error("debris cascade child mismatch");
+                }
+            } else if (expectCascade) {
+                if (collapseQueue_.size() != collapseBefore + 1 ||
+                    (rec.aux & 0x80) == 0) {
+                    throw std::runtime_error("debris cascade did not seed collapse");
+                }
+            } else if (debrisQueue_.size() != 1 || (rec.aux & 0x80) != 0) {
+                throw std::runtime_error("unexpected debris cascade");
+            }
+        }
+
+        // Free-run the live path until every fragment has landed, rested 100
+        // consecutive ticks and retired (or dissolved through a shatter
+        // terminal); retirement must clear bit 0x8000 from every airborne
+        // high word.
+        int freeRunTicks = 0;
+        while (!debrisQueue_.empty() && freeRunTicks < 4000) {
+            updateFlashes();
+            ++freeRunTicks;
+        }
+        if (!debrisQueue_.empty()) {
+            throw std::runtime_error("debris fragments did not retire");
+        }
+        for (uint16_t word : level_.wordLayer) {
+            if ((word & kDamagedWordBit) != 0 &&
+                static_cast<uint16_t>(word & ~kDamagedWordBit) >=
+                    kDeferredThreshold) {
+                throw std::runtime_error("retired debris left a flagged high word");
+            }
+        }
+
+        std::cout << "debris_motion_live=ok level=" << (probeLevel + 1)
+                  << " seed_tile=" << px << ',' << (py - 1)
+                  << " glyph=" << std::showbase << std::hex
+                  << static_cast<int>(seedGlyph) << " word=" << seedWord
+                  << std::dec << std::noshowbase << " hover_ticks=8"
+                  << " step_stamps=1 cascade="
+                  << (cascadeIsDebris ? "debris"
+                                      : (expectCascade ? "collapse" : "none"))
+                  << " retire_ticks=" << freeRunTicks << " flag_cleared=1\n";
+    }
+
     void debugPassableObjects() {
         load();
         bool sawBombObject = false;
@@ -17272,7 +17490,7 @@ public:
         menu_ = false;
         playerCount_ = 1;
         AutoplayRouteResult route = autoplayLevel1BombRoute();
-        if (route.bombTileX != 24 || route.bombTileY != 22) {
+        if (route.bombTileX != 24 || route.bombTileY != 21) {
             throw std::runtime_error("level 1 passable-object route remains blocked");
         }
 
@@ -18132,7 +18350,7 @@ public:
         resetLevel(0);
         menu_ = false;
         AutoplayRouteResult route = autoplayLevel1BombRoute();
-        if (route.bombTileX != 24 || route.bombTileY != 22) {
+        if (route.bombTileX != 24 || route.bombTileY != 21) {
             throw std::runtime_error("object jump support blocked level 1 bomb route");
         }
 
@@ -21560,8 +21778,17 @@ private:
             }
         }
         updateLaunchPadMarkers();
-        updateFlashes();
+        // Original per-frame order (main loop, re-read this session): the
+        // bomb/effect actor table at DS:1BAE is updated via 1000:6053 at
+        // 7ECB..7EE8 — which is where an expiring fuse runs the blast and
+        // seeds debris — BEFORE the debris/effect queue pass 1000:45FA is
+        // dispatched at 804E..805D and the collapse pass 1000:5102 at
+        // 8060..8067. So bombs explode first, then the same tick's
+        // updateFlashes gives the freshly seeded records their first mover
+        // pass (the L2 capture shows the seed frame already applying one
+        // gravity tick).
         updateBombs();
+        updateFlashes();
         updateMonsterSpawners();
         updateBossLinks();
         updateMonsters(dt);
@@ -21850,8 +22077,12 @@ private:
             throw std::runtime_error("level1 autoplayer requires active one-player level 1");
         }
 
+        // Standing on the same level-1 floor run (player y = 168), the
+        // recovered placement mapping ((px+4)>>3, py>>3) puts the bomb's
+        // 2x2 top-left at row 21; the footprint rows 21-22 still cover the
+        // bomb-object at (24,22).
         constexpr int kTargetBombX = 24;
-        constexpr int kTargetBombY = 22;
+        constexpr int kTargetBombY = 21;
         constexpr int kMaxRouteFrames = 180;
         constexpr float kDt = 1.0f / 60.0f;
         AutoplayRouteResult result;
@@ -21861,8 +22092,8 @@ private:
         int stagnantFrames = 0;
         int lastX = static_cast<int>(player_.x);
         for (int frame = 0; frame < kMaxRouteFrames; ++frame) {
-            result.bombTileX = static_cast<int>(player_.x + 6.0f) / kTileSize;
-            result.bombTileY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+            result.bombTileX = (static_cast<int>(player_.x) + 4) / kTileSize;
+            result.bombTileY = static_cast<int>(player_.y) / kTileSize;
             if (result.bombTileX == kTargetBombX &&
                 result.bombTileY == kTargetBombY) {
                 break;
@@ -21888,8 +22119,8 @@ private:
 
         result.finalX = static_cast<int>(player_.x);
         result.finalY = static_cast<int>(player_.y);
-        result.bombTileX = static_cast<int>(player_.x + 6.0f) / kTileSize;
-        result.bombTileY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+        result.bombTileX = (static_cast<int>(player_.x) + 4) / kTileSize;
+        result.bombTileY = static_cast<int>(player_.y) / kTileSize;
         if (result.bombTileX != kTargetBombX || result.bombTileY != kTargetBombY) {
             throw std::runtime_error("level1 autoplayer did not reach target tile");
         }
@@ -23356,8 +23587,16 @@ private:
             selectNextAvailableBomb(inventory);
             if (!hasBomb(inventory, inventory.selected)) return;
         }
-        int tx = static_cast<int>(player.x + 6.0f) / 8;
-        int ty = static_cast<int>(player.y + 12.0f) / 8;
+        // Original pixel->tile mapping, from the blast routine at 655B..6582
+        // (re-read this session: base = ((py>>3)-1)*width + (((px+4)>>3)-1))
+        // plus the burn walk at 6CB8..6D1B, whose consumed 2x2 block has its
+        // top-left tile at ((px+4)>>3, py>>3). The L2 capture pins the
+        // arithmetic: player pixel (200,308) at drop -> base 3724 and
+        // post-walk DS:C1E8 = 3925, exactly as measured. The identification
+        // of the bomb actor's pixel position with the dropping player's pixel
+        // position is INFERRED from that single consistent point.
+        int tx = (static_cast<int>(player.x) + 4) / 8;
+        int ty = static_cast<int>(player.y) / 8;
         auto it = std::find_if(bombs_.begin(), bombs_.end(),
                                [&](const Bomb& b) { return b.x == tx && b.y == ty; });
         if (it == bombs_.end()) {
@@ -23532,6 +23771,8 @@ private:
         return counted;
     }
 
+    // Port of seeder 1000:370E for both word classes. The u8 velocity args map
+    // to the seeder's vx/vy args ([bp+0xA]/[bp+0x8], stored at record +4/+5).
     void queueTileDamage(int tx, int ty, uint8_t forwardPhase = 0, uint8_t reversePhase = 0) {
         if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return;
         size_t start = static_cast<size_t>(ty) * level_.width + tx;
@@ -23540,16 +23781,23 @@ private:
         if (word == 0 || (word & kDamagedWordBit) != 0) return;
 
         if (word >= kDeferredThreshold) {
+            // Debris branch 374C..37F4: flags the word (3770/3780), copies the
+            // object byte into the record (37B8/37BE) but never writes the
+            // object plane — the glyph stays put until the fragment's first
+            // move (CONFIRMED by the L2 capture; the earlier markDamagedTile
+            // call here was unfaithful). Cap check 3753: refuse once slot
+            // index base + record count reaches 0x640.
             uint8_t lookup = tileAt(tx, ty) & 0xff;
             uint16_t flaggedWord = static_cast<uint16_t>(word | kDamagedWordBit);
-            level_.wordLayer[start] = flaggedWord;
-            markDamagedTile(tx, ty);
-            if (debrisQueue_.size() < kDebrisCapacity) {
+            // The word is flagged (3770/3780) only after the cap check passes
+            // (3753 jumps straight to the failure return when full).
+            if (kDebrisRecordIndexBase + debrisQueue_.size() < kDebrisCapacity) {
+                level_.wordLayer[start] = flaggedWord;
                 DebrisRecord record;
                 record.tileIndex = static_cast<int>(start);
                 record.flaggedWord = flaggedWord;
-                record.forwardPhase = forwardPhase;
-                record.reversePhase = reversePhase;
+                record.velocityX = static_cast<int8_t>(forwardPhase);
+                record.velocityY = static_cast<int8_t>(reversePhase);
                 record.lookup = lookup;
                 debrisQueue_.push_back(record);
             }
@@ -23622,7 +23870,9 @@ private:
                 const DebrisRecord& record = debrisQueue_[i - 1];
                 if (record.flaggedWord == flaggedWord) {
                     return {static_cast<int>(i),
-                            reverse ? record.reversePhase : record.forwardPhase, true};
+                            static_cast<uint8_t>(reverse ? record.velocityY
+                                                         : record.velocityX),
+                            true};
                 }
             }
             return {};
@@ -23893,6 +24143,245 @@ private:
         }
     }
 
+    // Falling-debris mover: port of 1000:45FA loop 2 (492F..4D37), transcribed
+    // step for step from the disassembly (ghidra addresses; file offset =
+    // addr + 0x770) and lockstepped against the level-2 measurement
+    // (tests/fixtures/debris_measurement_original_level2.txt). See
+    // docs/recovery/falling_debris_update_spec.md for the full byte spec.
+    void updateDebrisRecords() {
+        // Loop-2 emptiness gate (4934 cmp DS:207E,0xC8 / jb exit).
+        if (debrisQueue_.empty()) return;
+        const int width = level_.width;
+        if (width <= 0 || level_.tiles.empty()) return;
+        const int cellCount = static_cast<int>(level_.tiles.size());
+        // The original never indexes outside the map (levels ship with solid
+        // borders); the port clamps instead: out-of-range object bytes read as
+        // solid (blocking moves and supporting fragments), out-of-range words
+        // read 0, and out-of-range writes are dropped.
+        auto objectByteAt = [&](int index) -> uint8_t {
+            return index >= 0 && index < cellCount
+                       ? level_.tiles[static_cast<size_t>(index)]
+                       : uint8_t{0x01};
+        };
+        auto setObjectByte = [&](int index, uint8_t value) {
+            if (index >= 0 && index < cellCount) {
+                level_.tiles[static_cast<size_t>(index)] = value;
+            }
+        };
+        auto wordCellAt = [&](int index) -> uint16_t {
+            return index >= 0 &&
+                           static_cast<size_t>(index) < level_.wordLayer.size()
+                       ? level_.wordLayer[static_cast<size_t>(index)]
+                       : uint16_t{0};
+        };
+        auto setWordCell = [&](int index, uint16_t value) {
+            if (index >= 0 && static_cast<size_t>(index) < level_.wordLayer.size()) {
+                level_.wordLayer[static_cast<size_t>(index)] = value;
+            }
+        };
+
+        // Ascending slot order with the bound re-read live every iteration
+        // (4947 re-reads DS:207E): a record seeded mid-pass by a cascade IS
+        // updated later in this same tick (CONFIRMED by the L2 capture,
+        // frame 404). Removal (458D) shifts the survivors down and rewinds
+        // the caller's counter, which a vector erase without ++i reproduces.
+        for (size_t i = 0; i < debrisQueue_.size();) {
+            // Slot number as the original counts it: [bp-2] starts at 0xC8.
+            const int slot = static_cast<int>(kDebrisRecordIndexBase) + 1 +
+                             static_cast<int>(i);
+            // Lane load 4950..49A1 (DS:78D2/78D3/78D4/78D5).
+            int pos = debrisQueue_[i].tileIndex;
+            int vx = debrisQueue_[i].velocityX;
+            int vy = debrisQueue_[i].velocityY;
+            int subX = debrisQueue_[i].subX;
+            int subY = debrisQueue_[i].subY;
+            uint8_t code = debrisQueue_[i].lookup;
+            const uint16_t fw = debrisQueue_[i].flaggedWord;
+
+            // Fragile-word auto-shatter 49A4..49C8: raw words 0x7FBD..0x7FFF
+            // shatter even without a landing when still carrying a non-shatter
+            // glyph.
+            if (fw > kDebrisFragileWordFloor && code <= 0x66) {
+                code = kDebrisShatterFrame;
+                debrisQueue_[i].lookup = code;
+                requestSoundCursor(kDebrisAutoShatterSoundCursor,
+                                   kDebrisAutoShatterSoundPriority);
+            }
+
+            // Shatter frame stepper 49CB..4A18: one frame per tick; reaching
+            // 0x79 picks the terminal glyph (0x6B+Random(5) for fragile words,
+            // else 0xFF which dissolves through the consume path below); the
+            // object plane is restamped every tick while code >= 0x76.
+            if (code >= kDebrisShatterFrame) {
+                code = static_cast<uint8_t>(code + 1);
+                if (code == kDebrisShatterLastStep) {
+                    code = fw > kDebrisFragileWordFloor
+                               ? static_cast<uint8_t>(kDebrisTerminalBase +
+                                                      randomRangeValue(0, 5))
+                               : kDebrisDissolveByte;
+                }
+                debrisQueue_[i].lookup = code;
+                setObjectByte(pos, code);
+            }
+
+            // 0xFF consume 4A1B..4A75: the fragment dissolves (both planes
+            // cleared) and the cell above is re-seeded through the seeder
+            // (guard 4A5B is word > 0 only; the seeder rejects the rest).
+            if (objectByteAt(pos) == kDebrisDissolveByte) {
+                setObjectByte(pos, 0);   // 4A31
+                setWordCell(pos, 0);     // 4A49
+                debrisQueue_.erase(debrisQueue_.begin() +
+                                   static_cast<std::ptrdiff_t>(i));  // 4A39 -> 458D
+                const int above = pos - width;
+                if (above >= 0 && wordCellAt(above) > 0) {           // 4A5B
+                    queueTileDamage(above % width, above / width);   // 4A72 -> 370E
+                }
+                continue;
+            }
+
+            // Integrator 3EDA (called at 4A81): per axis, a signed 8-bit
+            // sub-accumulator gains v; on signed overflow it loses 0x80 and
+            // the move delta gains one tile in v's direction. x axis first,
+            // then y; both can step in the same tick (diagonal move).
+            int delta = 0;
+            auto integrateAxis = [&](int v, int& sub, int unitMagnitude) {
+                const int unit = v < 0 ? -unitMagnitude : unitMagnitude;  // 3EE4/3F0B
+                int sum = sub + v;                                        // 3EEB/3F11
+                if (sum > 127) {          // 3EED/3F13 jno (signed overflow)
+                    sum -= 128;           // 3EEF/3F15 sub 0x80
+                    delta += unit;        // 3EF2/3F18
+                } else if (sum < -128) {
+                    sum += 128;
+                    delta += unit;
+                }
+                sub = sum;
+            };
+            integrateAxis(vx, subX, 1);
+            integrateAxis(vy, subY, width);
+            bool resting = delta == 0;  // 4A84..4A8B
+
+            // Support / gravity / friction / landing shatter 4A93..4B32,
+            // keyed on the object byte directly below (4A9D).
+            if (objectByteAt(pos + width) == 0) {
+                // Unsupported: gravity +4 while vy < 0x7B signed (so the
+                // attainable terminal value from a zero start is 0x7C), and
+                // the rest counter resets every airborne tick (4AB3).
+                if (vy < kDebrisGravityCompare) vy += kDebrisGravityStep;
+                debrisQueue_[i].restTicks = 0;
+            } else {
+                if (!resting) {
+                    // Horizontal friction 4AC0..4AE2, only on ticks whose
+                    // integrator produced a step.
+                    if (vx > 0) {
+                        --vx;
+                    } else if (vx < 0) {
+                        ++vx;
+                    }
+                }
+                // Landing shatter 4AE6..4B32. The dice is
+                // (DS:78C2 + slot) mod 6 — a frame counter, not the RNG; the
+                // port's logicTick_ stands in for DS:78C2 (INFERRED
+                // equivalence, phase not pinned against the original).
+                if (vy > 0 && vy > kDebrisLandingShatterVyGate && code > 0x66 &&
+                    (logicTick_ + static_cast<uint32_t>(slot)) % 6u > 2u) {
+                    setObjectByte(pos, kDebrisShatterFrame);  // 4B16
+                    debrisQueue_[i].lookup = kDebrisShatterFrame;
+                    code = kDebrisShatterFrame;
+                    requestSoundCursor(kDebrisLandingShatterSoundCursor,
+                                       kDebrisLandingShatterSoundPriority);
+                }
+            }
+
+            // Move 4B35..4CB5.
+            if (delta != 0) {
+                const int dest = pos + delta;
+                if (objectByteAt(dest) == 0) {
+                    // Free move 4B61..4C1D: the fragment is materialized at
+                    // the destination in BOTH planes and erased from the
+                    // vacated cell — these stamps happen on every free move,
+                    // not on rest.
+                    debrisQueue_[i].restTicks = 0;  // 4B6E
+                    setObjectByte(dest, code);      // 4B7E
+                    setObjectByte(pos, 0);          // 4B89
+                    setWordCell(dest, fw);          // 4B9B
+                    setWordCell(pos, 0);            // 4BAB
+                    debrisQueue_[i].tileIndex = dest;  // 4BB5
+                    // Cascade 4BB9..4C19: a move that was not straight up
+                    // re-seeds the cell above the vacated one when its word
+                    // is live and unflagged (words 1..0x3FFF spawn a collapse
+                    // record through the same seeder).
+                    if (delta != -width) {
+                        const int above = pos - width;
+                        const uint16_t aboveWord = wordCellAt(above);
+                        if (above >= 0 && aboveWord > 0 &&
+                            aboveWord < kDamagedWordBit) {  // 4BE4..4BF5
+                            queueTileDamage(above % width, above / width);  // 4C08
+                            // Set even when the seeder is at capacity (no
+                            // DS:79C8 check at 4C0B..4C19). queueTileDamage
+                            // may reallocate the queue, so re-index.
+                            debrisQueue_[i].aux |= 0x80;
+                        }
+                    }
+                    pos = dest;
+                } else {
+                    // Blocked move 4C20..4CAC.
+                    resting = true;  // 4C20
+                    if (vy > 0) {
+                        // Bounce 4C24..4C5F: exactly these two RNG draws in
+                        // this order, then vy = 0.
+                        vx = static_cast<int8_t>(
+                            vx + static_cast<int>(randomRangeValue(0, 0x1e)) -
+                            15);  // 4C2B/4C41, stored through AL
+                        requestSoundOffset(
+                            static_cast<uint16_t>(kDebrisBounceSoundBase +
+                                                  randomRangeValue(0, 8)),
+                            kDebrisBounceSoundPriority);  // 4C4A/4C51/4C57
+                        vy = 0;                           // 4C5F
+                    }
+                    const uint16_t destWord = wordCellAt(dest);  // 4C64..4C75
+                    if (destWord == 0) {
+                        vx = 0;  // 4CAE
+                    }
+                    // destWord > 0: the original merges velocities with the
+                    // struck record through 3BB2/3D46 (the 3D2D staging
+                    // writes). That blender is the still-open
+                    // natural_forward_debris_writeback_3d2d item and is
+                    // deliberately not modelled; the lane bytes are left
+                    // unchanged instead.
+                }
+            }
+
+            // Lane write-back 4CB9..4CEB.
+            debrisQueue_[i].velocityX = static_cast<int8_t>(vx);
+            debrisQueue_[i].velocityY = static_cast<int8_t>(vy);
+            debrisQueue_[i].subX = static_cast<int8_t>(subX);
+            debrisQueue_[i].subY = static_cast<int8_t>(subY);
+
+            // Reconstruction-only rule carried over from the previous port
+            // DebrisRecord loop (not byte-cited): a live fragment damages
+            // players overlapping its current cell each tick.
+            damagePlayersInTileArea(pos % width, pos / width, pos % width,
+                                    pos / width);
+
+            // Rest counter / retirement 4CEF..4D31: after exactly 100
+            // consecutive resting ticks the word keeps its value with bit
+            // 0x8000 cleared, the glyph stays stamped, and the record is
+            // removed. (An airborne non-stepping tick resets the counter at
+            // 4AB3 before this increment, so it samples as 1, never 0.)
+            if (resting) ++debrisQueue_[i].restTicks;  // 4CF8
+            if (debrisQueue_[i].restTicks == kDebrisRetireRestTicks) {  // 4CFF
+                const int restIndex = debrisQueue_[i].tileIndex;
+                setWordCell(restIndex,
+                            static_cast<uint16_t>(wordCellAt(restIndex) &
+                                                  ~kDamagedWordBit));  // 4D17/4D2A
+                debrisQueue_.erase(debrisQueue_.begin() +
+                                   static_cast<std::ptrdiff_t>(i));  // 4D31 -> 458D
+                continue;
+            }
+            ++i;
+        }
+    }
+
     void updateFlashes() {
         for (Flash& f : flashes_) --f.timer;
         flashes_.erase(std::remove_if(flashes_.begin(), flashes_.end(),
@@ -23902,17 +24391,7 @@ private:
         explosionEffects_.erase(std::remove_if(explosionEffects_.begin(), explosionEffects_.end(),
                                                [](const ExplosionEffect& e) { return e.timer <= 0; }),
                                 explosionEffects_.end());
-        for (DebrisRecord& debris : debrisQueue_) {
-            --debris.timer;
-            if (level_.width > 0) {
-                int tx = debris.tileIndex % level_.width;
-                int ty = debris.tileIndex / level_.width;
-                damagePlayersInTileArea(tx, ty, tx, ty);
-            }
-        }
-        debrisQueue_.erase(std::remove_if(debrisQueue_.begin(), debrisQueue_.end(),
-                                          [](const DebrisRecord& debris) { return debris.timer <= 0; }),
-                           debrisQueue_.end());
+        updateDebrisRecords();
         for (CollapseRecord& collapse : collapseQueue_) {
             --collapse.timer;
             if (level_.width > 0) {
@@ -24255,17 +24734,9 @@ private:
     }
 
     void drawDamageQueues(int camX, int camY) {
-        for (const DebrisRecord& debris : debrisQueue_) {
-            if (level_.width <= 0) continue;
-            int tx = debris.tileIndex % level_.width;
-            int ty = debris.tileIndex / level_.width;
-            int px = tx * 8 - camX;
-            int py = ty * 8 - camY;
-            uint32_t color = debris.timer & 1 ? 0xfff0c050u : 0xff7c5030u;
-            rect(px + 2, py + 2, 4, 2, color);
-            rect(px + 1 + ((debris.lookup + debris.forwardPhase) & 1), py + 5,
-                 2 + (debris.reversePhase & 1), 2, 0xffd08040u);
-        }
+        // Falling fragments no longer need an invented overlay: the mover
+        // stamps the carried tile code into level_.tiles on every move
+        // (1000:4B7E), so the ordinary tile renderer draws them.
         for (const CollapseRecord& collapse : collapseQueue_) {
             int px = collapse.x * 8 - camX;
             int py = collapse.y * 8 - camY;
@@ -25501,6 +25972,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-object-explosion-effects") {
             app.debugBombObjectExplosionEffects();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-debris-motion-live") {
+            app.debugDebrisMotionLive();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-passable-objects") {

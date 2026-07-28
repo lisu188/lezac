@@ -1,6 +1,6 @@
 # Frame Comparison Harness
 
-The frame comparison workflow has three parts:
+The frame comparison workflow has four parts:
 
 1. `--capture-frame-sequence <scenario> <out-dir>` in the C++ port emits
    deterministic 320x200 PPM frames plus a manifest. It uses dummy SDL cleanly,
@@ -10,30 +10,37 @@ The frame comparison workflow has three parts:
    `monster_behavior4_target_selection`.
 2. `tools/capture_original_dosbox_frames.sh <out-dir> [asset-dir] [scenario]`
    is a best-effort original-game capture driver for the original semantic
-   `level1_bomb_route` and partial `monster_bomb_reward` starts. It copies
-   original assets to a temporary
-   directory, runs `LEZAC.EXE` in DOSBox under Xvfb, drives the window with
-   `xdotool`, asks DOSBox to save screenshots with Ctrl-F5, renames the
-   screenshots to semantic labels matching the C++ sequence where possible, and
-   writes a manifest. Before launching DOSBox, it runs
+   `level1_bomb_route` and a start/armed smoke capture for
+   `monster_bomb_reward`. It copies original assets to a temporary directory,
+   runs `LEZAC.EXE` in DOSBox under Xvfb, drives the window with `xdotool`, asks
+   DOSBox to save screenshots with Ctrl-F5, renames screenshots to semantic
+   labels where possible, and writes a manifest. Before launching DOSBox, it runs
    `tools/preflight_original_evidence_environment.py --require-frame-capture
    --probe-wsl --require-wsl-bash-on-windows`, writes
    `environment_preflight.log`, and records the preflight command/result in the
    manifest. On Windows this preserves blockers such as
    `wsl_bash_reason=no_default_distro` before any screenshot automation is
-   attempted. The monster-bomb original path intentionally stops at the
-   keyboard-reproducible armed-bomb checkpoint; C++ death/reward frames in that
-   sequence are debugger-seeded synthetic evidence until an original route or
-   debugger setup can prove them.
-3. `tools/frame_compare.py <left> <right> [--diff out.ppm]` compares paired
+   attempted. The monster-bomb path intentionally stops at the
+   keyboard-reproducible armed-bomb checkpoint and does not automate an
+   original monster kill.
+3. `tools/capture_original_monster_sprite_consumption_procmem.py` is the
+   focused original-runtime source for the level-1 kind-1 kill. It requires a
+   caller-created temporary asset copy, always re-executes invisibly under a
+   private `xvfb-run -a`, drives real XTEST controls, and takes one complete
+   64 KiB data-segment snapshot per `DS:0x78C2` tick. It emits raw tick rows, a
+   completion manifest, and headless checkpoint PNGs. The normalized checked-in
+   evidence is
+   `tests/fixtures/monster_sprite_consumption_original_level1.txt`.
+4. `tools/frame_compare.py <left> <right> [--diff out.ppm]` compares paired
    frames and reports exact and thresholded pixel-difference metrics.
 
 `tools/compare_original_cpp_frames.sh <out-dir> [asset-dir] [scenario]` wraps
-those steps for the current evidence workflow. It writes C++ frames,
-DOSBox-original frames, PPM diffs, `frame_compare_summary.txt`, and a manifest
-under the requested output directory. Use a temporary path such as
-`/tmp/lezac-frame-compare-*`; the helper intentionally keeps generated original
-evidence outside the repository.
+the deterministic C++ capture, legacy DOSBox screenshot driver, and paired
+comparison. It does not invoke the focused process-memory monster-kill capture.
+It writes C++ frames, DOSBox-original frames, PPM diffs,
+`frame_compare_summary.txt`, and a manifest under the requested output
+directory. Use a temporary path such as `/tmp/lezac-frame-compare-*`; the
+helper intentionally keeps generated original evidence outside the repository.
 
 The wrapper keeps the bundle reviewable even when the original DOSBox leg
 fails. It records the capture process output in `original_capture_driver.log`,
@@ -67,8 +74,12 @@ monster_bomb_reward:
 000_menu.ppm
 010_monster_bomb_start.ppm
 020_monster_bomb_armed.ppm
+025_monster_bomb_last_pre_fatal.ppm
 030_monster_bomb_death.ppm
-040_monster_bomb_reward_collected.ppm
+040_monster_bomb_corpse_midpoint.ppm
+050_monster_bomb_corpse_last.ppm
+060_monster_bomb_reward_visible.ppm
+070_monster_bomb_reward_collected.ppm
 
 monster_spawner_behavior4_level2:
 000_menu.ppm
@@ -93,6 +104,28 @@ monster_behavior4_target_selection:
 manifest.txt
 ```
 
+Every sequence begins with the shared `000_menu` capture before scenario
+dispatch. The `monster_bomb_reward` branch then adds eight frames, so its
+summary reports nine frames total:
+
+| Label | Deterministic C++ checkpoint |
+| --- | --- |
+| `010_monster_bomb_start` | Level 1 started. |
+| `020_monster_bomb_armed` | Bomb armed with the seeded kind-1 target on sprite `44`, matching the original frame-257 checkpoint identity. |
+| `025_monster_bomb_last_pre_fatal` | Same target on sprite `43`, the authoritative last pre-fatal sprite after the original `44x4,43x2` run. |
+| `030_monster_bomb_death` | Production damage enters kind `0x0c`, state 2, corpse sprite `47`, timer 120; no reward exists yet and `impact_equals_death=1`. |
+| `040_monster_bomb_corpse_midpoint` | Corpse sprite `47` at timer 60. |
+| `050_monster_bomb_corpse_last` | Final corpse sprite `47` frame at timer 1. |
+| `060_monster_bomb_reward_visible` | The next update removes the corpse and creates delayed Present sprite `61`; score is unchanged. |
+| `070_monster_bomb_reward_collected` | Collection removes the Present and adds 2000 points. |
+
+These frames verify the current port's production damage, timer, renderer,
+reward creation, and collection consumers. They do not promote exact original
+reward physics or presentation: the original Present row has timer byte
+`+2 = 100`, initial vertical velocity `-200`, and subsequent motion, while the
+port's `BonusDrop` is static. The sequence therefore reports
+`reward_motion_claim=0` and `visual_claim=0`.
+
 The DOSBox capture driver attempts to write the same labels for
 `level1_bomb_route` without the `.ppm` extension:
 
@@ -109,7 +142,8 @@ original_capture.log
 environment_preflight.log
 ```
 
-For `monster_bomb_reward`, DOSBox currently attempts only:
+For `monster_bomb_reward`, the legacy DOSBox driver currently attempts only a
+start/armed smoke capture:
 
 ```text
 000_menu.png
@@ -120,17 +154,74 @@ original_capture.log
 environment_preflight.log
 ```
 
-The manifest records `not_captured` placeholders for
-`030_monster_bomb_death` and `040_monster_bomb_reward_collected` because those
-current C++ frames rely on synthetic monster placement and reward collection.
-Missing original frames should remain visible in `frame_compare_summary.txt`
+Its manifest records `not_captured` placeholders, with reason
+`legacy_driver_does_not_automate_original_kill_route`, for all remaining
+current C++ labels:
+
+```text
+025_monster_bomb_last_pre_fatal
+030_monster_bomb_death
+040_monster_bomb_corpse_midpoint
+050_monster_bomb_corpse_last
+060_monster_bomb_reward_visible
+070_monster_bomb_reward_collected
+```
+
+The `010` and `020` legacy screenshots are keyboard-route smoke evidence, not
+the authoritative original kill sequence and not automatically promoted paired
+frames. Missing original frames should remain visible in `frame_compare_summary.txt`
 instead of being papered over.
+
+## Focused Original Monster-Kill Evidence
+
+The authoritative original trace is separate from the legacy frame-comparison
+driver. `tools/capture_original_monster_sprite_consumption_procmem.py` runs
+inside private Xvfb, uses a temporary copy of the original assets, waits for
+the known first level-1 kind-1 spawn, and drives the kill and collection with
+XTEST controls. Each sampled tick comes from one complete 64 KiB `DS` read, so
+the actor, visual, RNG, and score rows are not torn.
+
+Its complete capture contains five semantic checkpoints in four distinct
+headless screenshots:
+
+```text
+pre_impact       frame 257  sprite 44
+fatal_impact     frame 263  sprite 47
+corpse_playback  frame 263  sprite 47 (same screenshot as fatal_impact)
+reward_visible   frame 312  Present sprite 61
+collection       frame 366  Present removed, score +2000
+```
+
+The intervening authoritative tick rows establish the full pre-fatal run
+`44x4,43x2`, last pre-fatal sprite `43`, raw original corpse timer byte
+`0x19` decrementing to 1 on its governed cadence across 49 sampled ticks, and
+54 observed reward-visible ticks. The normalized fixture retains the
+checkpoint PNG names and SHA-256 values:
+`tests/fixtures/monster_sprite_consumption_original_level1.txt`.
+
+Those original PNGs are headless observation artifacts, not direct
+same-position pixel pairs for the deterministic C++ frames. Player input and
+position are exogenous, the C++ corpse uses 120 engine frames, the port omits
+the original transition-effect actors, and its Present is static rather than
+matching the original timer/motion. Consequently the fixture and C++ harness
+remain `visual_claim=0`; compare their semantic sprite/timer/reward checkpoints
+side by side without treating the images as an exact pixel-fidelity promotion.
+
+The 2026-07-28 validation captured the C++ sequence with dummy SDL and visually
+inspected `020`/`025`/`030`/`040`/`050`/`060`/`070` beside the headless original
+pre-impact, fatal/corpse, reward-visible, and collection PNGs. The expected
+sprite-44/43 animation change, sprite-47 corpse persistence, Present appearance,
+and collection disappearance were visible. World positions and surrounding
+effects differed because the routes are exogenous and the limitations above
+remain; no pixel-equality result or visual claim was promoted.
 
 These scenarios can also be tested without writing frame files:
 
 ```sh
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer level1_bomb_route
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-autoplayer monster_bomb_reward
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-autoplayer monster_spawner_behavior4_level2
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
@@ -172,6 +263,7 @@ tools/frame_compare.py \
   --diff /tmp/lezac-start-diff.ppm
 
 tools/compare_original_cpp_frames.sh /tmp/lezac-frame-compare .
+# Legacy start/armed smoke bundle; expected to lack the kill-route originals.
 tools/compare_original_cpp_frames.sh /tmp/lezac-frame-compare-monster . monster_bomb_reward
 tools/summarize_frame_compare_bundle.py /tmp/lezac-frame-compare
 tools/summarize_frame_compare_bundle.py /tmp/lezac-frame-compare --require-promotion-ready

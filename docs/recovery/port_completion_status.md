@@ -1,6 +1,6 @@
 # Port Completion Status
 
-Last reviewed: 2026-07-19
+Last reviewed: 2026-07-28
 
 The C++17/SDL2 reconstruction of `LEZAC.EXE` is functionally complete: every
 recovered gameplay, data, UI, and sound subsystem of the original game has a
@@ -151,6 +151,29 @@ and energy scalars, not a link record — there is no collision. Pinned by
 rather than only replaying recovered arithmetic, so each of the five fixes
 regresses the test if it is undone.
 
+Resolved: `monster_sprite_table_runtime_consumption`. A tick-locked original
+level-1 trace records 110 consecutive samples (frames 257..366), with each
+sample taken from one complete 64 KiB data-segment read. The frame-257
+pre-impact checkpoint is sprite `44`; the authoritative pre-fatal run is
+`pre_sprite_runs=44x4,43x2`, so `last_pre_fatal_sprite=43` before sprite `47`
+appears on the fatal tick (`impact_equals_death=1`). The trace also proves a
+49-original-tick corpse interval normalized to 120 port engine frames, delayed
+Present reward sprite `61`, 54 observed original ticks of reward visibility,
+and a `+2000` collection. That reward runtime claim is limited to the observed
+Present/sprite `61`; sprites `62..67` retain static table evidence. The six
+Present-expiry draws are pinned in order as `59`, `13`, `389`, `136`, `443`,
+and `168`, advancing RNG state from `0x90e25b93` to `0x0a08326d`. The captured
+route input and player position are explicitly exogenous; the raw actor and
+visual rows, timing, RNG, and score transitions are authoritative. The
+fixture and production-path diagnostic report `original_runtime_claim=1` and
+`visual_claim=0`. The final four draws describe two transition-effect actors
+that the port consumes but does not yet instantiate or render, so neither the
+visual claim nor the global original-fidelity claim is promoted. The original
+Present row also carries timer byte `+2 = 100`, initial vertical velocity
+`-200`, and subsequent observed motion, while the port's `BonusDrop` remains
+static. This resolution promotes Present sprite identity, observed visibility,
+and collection consumption, not exact reward physics or presentation.
+
 - `natural_forward_debris_writeback_3d2d` — natural forward debris writeback
   capture at `1000:3D2D`
 - `exact_explosion_sprite_playback` — exact explosion/debris/collapse sprite
@@ -191,15 +214,6 @@ regresses the test if it is undone.
   `behavior4_window_attribution` ctest. The behavior-4 *motion* path
   (`1000:70D7..714F`, `73E5`, `741B`) is the correct target and still has no
   runtime evidence, so this item stays open with corrected scope.
-- `monster_sprite_table_runtime_consumption` — original runtime consumption of
-  impact/death/reward sprite frames. **Half-settled:** the live descriptor
-  table at `DS:0xC322` (92 x `{w,h,pixel_offset}`, entry 0 reserved) was read
-  from a running session and matches `BOMOMIMK.SPR` under one-based indexing
-  on 91/91 dimensions and offsets, so the `-1` applied to every table-derived
-  sprite range is runtime-confirmed (`sprite_descriptor_evidence` ctest,
-  `tests/fixtures/sprite_descriptor_original_level1.txt`). Which frames
-  actually play at impact/death/reward still needs a live monster-kill trace
-
 ## Guardrails
 
 - `tools/check_port_completion_status.py` fails when the source tables, this

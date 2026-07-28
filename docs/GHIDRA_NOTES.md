@@ -266,12 +266,47 @@ loader reads three counted fixed-size blocks:
   diamond `67`/5000. `--debug-bonus-reward-static-model` validates those seven
   score words directly from `LEZAC.EXE` and separately verifies that the C++
   sprite mapping `61..67` is in-bounds in the loaded `BOMOMIMK.SPR` bank.
-  `--debug-monster-sprite-table-model` pins the broader current sprite table:
-  normal monster frames `39..41`, `43..46`, `49..51`, and `53..55`, adjacent
-  impact candidates `42,47,48,52,56`, the current death renderer sprite `18`,
-  and reward frames `61..67`. This is asset/table evidence only; exact original
-  runtime consumption of the impact/death/reward frames remains
-  `visual_claim=0`.
+  `--debug-monster-sprite-table-model` pins the broader sprite table, while
+  `tests/fixtures/monster_sprite_consumption_original_level1.txt` now proves
+  one concrete original runtime sequence. Its frame-257 pre-impact checkpoint
+  is sprite `44`, while the authoritative run is
+  `pre_sprite_runs=44x4,43x2`: sprite `44` at frames 257..260, then sprite
+  `43` at frames 261..262 (`last_pre_fatal_sprite=43`). Fatal frame 263
+  changes that actor directly to kind `0x0c`, state `2`, raw timer byte
+  `0x19` (decimal 25), and sprite `47`; the impact and corpse are the same
+  observed frame (`impact_equals_death=1`). The timer decrements to 1 on the
+  original governed cadence while sprite `47` persists for 49 sampled
+  original ticks through frame 311. The port represents that governed-time
+  interval as 120 engine frames at 60 Hz.
+
+  Corpse expiry at frame 312 creates a Present actor on sprite `61`, delayed
+  rather than spawned on the fatal tick. It remains visible for 54 observed
+  original ticks before the driven route collects it at frame 366 and score
+  changes `50 -> 2050`. This runtime reward evidence is scoped to that
+  Present/sprite `61` path; sprites `62..67` retain static table evidence only.
+  Its original actor row has timer byte `+2 = 100`, initial vertical velocity
+  `-200`, and subsequent observed movement. The port's `BonusDrop` is still
+  static, so the promoted consumption claim covers sprite identity, observed
+  visibility, and collection, not exact reward physics or presentation.
+  The route's input and player coordinates are explicitly exogenous; raw
+  actor/visual rows, sprite words, timers, RNG, and score transitions are
+  authoritative. Starting from `RandSeed=0x90e25b93`,
+  expiry makes exactly six draws through the Turbo-Pascal generator:
+  `0x003b95e0 / Random(100)=59`,
+  `0x69716d61 / Random(20)=13`,
+  `0xfea526e6 / Random(600)=389`, `0x88785a7f / 136`,
+  `0x84fb407c / 443`, and `0x0a08326d / 168`. These select the Present,
+  direct-sweep cursor `0xea81`, and two kind-`0x0b` transition effects with
+  velocity pairs `(89,-164)` and `(143,-132)`.
+
+  `--debug-monster-sprite-consumption-evidence` replays the production damage,
+  corpse timer, renderer, delayed Present reward, and collection paths and
+  reports `original_runtime_claim=1`. The port currently consumes the four
+  transition-effect RNG draws without instantiating or drawing those two
+  effect actors; it also does not reproduce the Present actor's timer/motion.
+  The checkpoint screenshots are not a promoted paired pixel comparison.
+  Therefore the focused runtime mapping is confirmed while `visual_claim=0`
+  and the repository-wide `original_fidelity_claim=0` remain.
 
 ## Actor Movement Behaviors
 

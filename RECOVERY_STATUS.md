@@ -23,6 +23,26 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Read the original's live sprite-descriptor table and proved the one-based
+  sprite indexing at runtime.** One /proc-mem pread of a running level-1
+  session (no breakpoints, no writes) captured the table at `DS:0xC322`:
+  92 entries, stride 4, `{width:u8, height:u8, pixel_offset:u16le}`, entry 0
+  reserved-zero -- the same one-based convention as the actor, motion-link and
+  boss tables. Entries 1..91 match `BOMOMIMK.SPR`'s 91 file sprites under
+  `entry k -> file sprite k-1` on **91/91** dimensions AND **91/91**
+  cumulative pixel offsets, totalling exactly the file's 19985 payload bytes;
+  the 0-based mapping scores 77/91 and is refuted by the uniquely-shaped
+  entries (e.g. entry 80 = 10x5, entry 91 = 12x10). This upgrades the
+  DGROUP-frames-are-one-based claim -- and therefore the `-1` the port applies
+  to every table-derived sprite range -- from INFERRED (dimensional coherence
+  only) to runtime-CONFIRMED. Pinned by
+  `tests/fixtures/sprite_descriptor_original_level1.txt` (the raw 368 bytes)
+  and the `sprite_descriptor_evidence` ctest, whose diagnostic compares the
+  captured table against the port's own `loadRawSprites` decode. The
+  runtime-consumption half of `monster_sprite_table_runtime_consumption`
+  (which frames actually PLAY at impact/death/reward) remains open and needs
+  the monster-kill trace.
+
 - **Recovered the remaining capture-evidenced actor divergences (spawner
   timing, contact box, vertical hotspot, animation cadence) and landed the
   full level-1 actor lockstep fixture.** The spawner countdown is

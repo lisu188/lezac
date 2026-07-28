@@ -36,6 +36,37 @@ the complete captured level-1 frame:
 See `docs/recovery/level_intro_exact_recovery_2026-07-19.md` for the recovered
 arithmetic, static addresses, and zero-pixel frame comparison.
 
+## Monster Death and Present Reward Runtime Trace
+
+A tick-locked level-1 original-game trace now closes the runtime-consumption
+half of the monster sprite table for the captured kind-1 kill. The frame-257
+pre-impact checkpoint is sprite `44`; the complete pre-fatal run is
+`pre_sprite_runs=44x4,43x2`, making sprite `43` at frames 261..262 the
+authoritative last pre-fatal sprite. The fatal tick at frame 263 changes it
+directly to the kind-`0x0c`, state-2 corpse on sprite `47`, so
+`impact_equals_death=1`. The corpse lasts 49 original ticks, normalized to
+120 engine frames at the port's 60 Hz update rate. Its expiry then produces a
+Present on sprite `61`; the capture observes it for 54 ticks before collection
+adds 2000 points. This reward runtime claim covers only the observed Present
+on sprite `61`; the other reward sprites `62..67` retain static table evidence
+only.
+
+`tests/fixtures/monster_sprite_consumption_original_level1.txt` preserves the
+110 consecutive whole-DS samples and
+`--debug-monster-sprite-consumption-evidence` replays the live port damage,
+corpse timer, renderer, Present-reward RNG, and collection paths. Captured
+controls and player positions are explicitly exogenous route inputs, not
+lockstep claims.
+The original also creates two transition-effect actors at corpse expiry; the
+port preserves their four RNG draws but does not yet render those effects.
+The original Present actor row also starts with timer byte `+2 = 100` and
+vertical velocity `-200`, followed by observed movement, whereas the port's
+`BonusDrop` remains static. The runtime promotion therefore covers the
+Present's sprite identity, observed visibility, and collection consumption,
+not exact reward physics or presentation. Accordingly
+`original_runtime_claim=1`, while `visual_claim=0` and the repository-wide
+`original_fidelity_claim=0` remain unchanged.
+
 ## Original Level Oracle
 
 The guarded original-game harness can traverse the native result/reload path
@@ -1304,7 +1335,7 @@ debris tags `0x4e21`/`0x4ee8`. It remains a C++ arithmetic/model check with
 
 - `--debug-port-completion-status` declares the functional port completion
   state: 23 implemented subsystems with their deterministic validation entry
-  points, plus the 12 open original-evidence follow-ups tracked in
+  points, plus the four open original-evidence follow-ups tracked in
   `RECOVERY_STATUS.md`. The summary reports `port_functionally_complete=1`
   with `original_fidelity_claim=0`; the open items are fidelity verification
   against the original runtime, not missing port functionality.
@@ -1395,8 +1426,9 @@ debris tags `0x4e21`/`0x4ee8`. It remains a C++ arithmetic/model check with
   score, start positions, teleports, tile triggers, monster spawning, basic
   behavior-specific monster movement/damage, documented monster reward drops,
   static bonus-score table evidence from `LEZAC.EXE` via
-  `--debug-bonus-reward-static-model`, current monster sprite table candidate
-  coverage via `--debug-monster-sprite-table-model`,
+  `--debug-bonus-reward-static-model`, recovered kind-1/Present sprite
+  consumption via `--debug-monster-sprite-consumption-evidence`, and broader
+  table coverage via `--debug-monster-sprite-table-model`,
   spawner live-slot return after monster death animation removal,
   bomb-power damage against monster hit points,
   four-slot bomb inventory/switching, original bomb actor sprites, player

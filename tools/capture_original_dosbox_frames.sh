@@ -314,14 +314,18 @@ capture_monster_bomb_reward() {
     fire
     sleep 0.30
     capture 020_monster_bomb_armed
-    {
-        echo "frame label=030_monster_bomb_death file=not_captured reason=synthetic_cpp_fixture_requires_debugger_seed"
-        echo "frame label=040_monster_bomb_reward_collected file=not_captured reason=synthetic_cpp_fixture_requires_debugger_seed"
-    } >>"$manifest"
-    {
-        echo "capture_skipped=030_monster_bomb_death reason=synthetic_cpp_fixture_requires_debugger_seed"
-        echo "capture_skipped=040_monster_bomb_reward_collected reason=synthetic_cpp_fixture_requires_debugger_seed"
-    } >>"$log"
+    local skipped_label
+    for skipped_label in \
+        025_monster_bomb_last_pre_fatal \
+        030_monster_bomb_death \
+        040_monster_bomb_corpse_midpoint \
+        050_monster_bomb_corpse_last \
+        060_monster_bomb_reward_visible \
+        070_monster_bomb_reward_collected
+    do
+        echo "frame label=$skipped_label file=not_captured reason=legacy_driver_does_not_automate_original_kill_route" >>"$manifest"
+        echo "capture_skipped=$skipped_label reason=legacy_driver_does_not_automate_original_kill_route" >>"$log"
+    done
 }
 
 if [[ "$scenario" == "monster_bomb_reward" ]]; then

@@ -98,6 +98,12 @@ constexpr uint8_t kState2VisualStartFrame = 0x4a;
 constexpr uint8_t kState2VisualEndFrame = 0x4f;
 constexpr uint8_t kState2VisualDelay = 3;
 constexpr int kDamageCooldownTicks = 18;
+// The original kind-1 kill trace holds sprite 47 for DS:78C2 frames 263..311:
+// 49 governed 24.5-fps ticks, or 120 frames at the port's 60-fps engine rate.
+// updateMonsters runs after bomb damage in the same engine frame, so the death
+// actor is initialized one count above the first externally visible value.
+constexpr int kMonsterCorpseSprite = 47;
+constexpr int kMonsterDeathVisibleFrames = 120;
 constexpr uint32_t kFrameDelayMs = 16;
 constexpr uint32_t kLevelIntroCharacterDelayMs = 81;
 constexpr int kLevelIntroCellAdvance = 11;
@@ -651,6 +657,7 @@ struct ActiveMonster {
     EdgeFlags edges;
     int animTick = 0;
     bool deathCredited = false;
+    bool deathRewardPending = false;
     bool alive = true;
     // Level-7 boss fields recovered from the GRAN.MST static consumer model:
     // kind 0x1e runs the original 1000:5CB0 head brain (behavior/state 6) and
@@ -2478,6 +2485,11 @@ public:
             int monsterBehavior = -1;
             int monsterHp = 0;
             int monsterSpawner = 0;
+            int monsterSprite = -1;
+            int monsterStateTimer = 0;
+            size_t rewards = 0;
+            int rewardSprite = -1;
+            std::string rewardType = "none";
             int bossPresent = 0;
             int bossHeadX = -1;
             int bossHeadY = -1;
@@ -2485,6 +2497,18 @@ public:
         };
 
         std::vector<CapturedFrame> captures;
+        auto bonusTypeName = [](BonusType type) {
+            switch (type) {
+                case BonusType::Present: return "present";
+                case BonusType::FirstAid: return "first_aid";
+                case BonusType::HotDog: return "hot_dog";
+                case BonusType::JollyCloud: return "jolly_cloud";
+                case BonusType::YellowBombBox: return "yellow_bomb_box";
+                case BonusType::GreenBombBox: return "green_bomb_box";
+                case BonusType::BigDiamond: return "big_diamond";
+            }
+            return "unknown";
+        };
         auto capture = [&](const std::string& label) {
             CapturedFrame frame;
             frame.label = label;
@@ -2566,6 +2590,13 @@ public:
                 frame.monsterBehavior = monster.behavior;
                 frame.monsterHp = monster.hp;
                 frame.monsterSpawner = monster.hasSpawner ? static_cast<int>(monster.spawnerIndex) + 1 : 0;
+                frame.monsterSprite = monsterSpriteIndex(monster);
+                frame.monsterStateTimer = monster.stateTimer;
+            }
+            frame.rewards = bonusDrops_.size();
+            if (!bonusDrops_.empty()) {
+                frame.rewardSprite = bonusSpriteIndex(bonusDrops_.front().type);
+                frame.rewardType = bonusTypeName(bonusDrops_.front().type);
             }
             frame.bossPresent = bossPresent_ ? 1 : 0;
             for (const ActiveMonster& monster : monsters_) {
@@ -2740,39 +2771,100 @@ public:
             ActiveMonster monster;
             monster.x = monsterTile[0] * kTileSize;
             monster.y = monsterTile[1] * kTileSize - kTileSize;
-            monster.kind = 2;
+            monster.kind = 1;
             monster.behavior = 3;
             monster.ai0 = 0;
             monster.ai1 = 0;
             monster.ai2 = 1;
             monster.hp = 1;
-            monster.animDelay = 1;
+            monster.animDelay = 3;
+            monster.hotspotY = monsterHotspotY(monster.kind);
             refreshMonsterAnimationProfile(monster);
             initializeMonsterMotion(monster);
+            monster.animFrame = 44;
+            monster.animCursor = 44;
             monsters_.push_back(monster);
 
             player_.x = static_cast<float>(
                 std::min(level_.width * kTileSize - 24, (placed.x + 5) * kTileSize));
             player_.y = static_cast<float>(placed.y * kTileSize);
+            randomSeed_ = 0x90e25b93u;
+            uint32_t scoreBefore = score_;
+            if (monsterSpriteIndex(monsters_.front()) != 44) {
+                throw std::runtime_error(
+                    "frame sequence monster pre-impact sprite mismatch");
+            }
             capture("020_monster_bomb_armed");
+
+            monsters_.front().animFrame = 43;
+            monsters_.front().animCursor = 43;
+            if (monsterSpriteIndex(monsters_.front()) != 43) {
+                throw std::runtime_error(
+                    "frame sequence monster last pre-fatal sprite mismatch");
+            }
+            capture("025_monster_bomb_last_pre_fatal");
 
             FrameControls idle;
             updateWithControls(idle, 1.0f / 60.0f);
             if (!bombs_.empty() || monsters_.empty() ||
-                monsters_.front().behavior != 2 || bonusDrops_.empty()) {
+                monsters_.front().behavior != 2 ||
+                monsters_.front().kind != 0x0c ||
+                monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
+                monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
+                !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error("frame sequence monster bomb did not kill monster");
             }
             capture("030_monster_bomb_death");
 
-            uint32_t scoreBefore = score_;
+            for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+                updateWithControls(idle, 1.0f / 60.0f);
+                if (monsters_.size() != 1 ||
+                    monsters_.front().stateTimer !=
+                        kMonsterDeathVisibleFrames - frame ||
+                    monsterSpriteIndex(monsters_.front()) !=
+                        kMonsterCorpseSprite ||
+                    !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+                    throw std::runtime_error(
+                        "frame sequence monster corpse playback mismatch");
+                }
+                if (monsters_.front().stateTimer ==
+                    kMonsterDeathVisibleFrames / 2) {
+                    capture("040_monster_bomb_corpse_midpoint");
+                }
+            }
+            if (monsters_.front().stateTimer != 1) {
+                throw std::runtime_error(
+                    "frame sequence monster corpse last frame mismatch");
+            }
+            capture("050_monster_bomb_corpse_last");
+
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (!monsters_.empty() || bonusDrops_.size() != 1 ||
+                bonusDrops_.front().type != BonusType::Present ||
+                bonusSpriteIndex(bonusDrops_.front().type) != 61 ||
+                randomSeed_ != 0x0a08326du || score_ != scoreBefore) {
+                throw std::runtime_error(
+                    "frame sequence monster delayed reward mismatch");
+            }
+            capture("060_monster_bomb_reward_visible");
+
             BonusDrop drop = bonusDrops_.front();
             player_.x = drop.x;
             player_.y = drop.y;
+            player_.vx = 0.0f;
+            player_.vy = 0.0f;
+            player_.grounded = true;
+            clearSoundLatch();
+            lastPumpedSoundOffset_ = 0;
+            lastPumpedSoundSelector_ = 0;
             updateWithControls(idle, 1.0f / 60.0f);
-            if (score_ <= scoreBefore) {
+            if (!bonusDrops_.empty() || score_ - scoreBefore != 2000 ||
+                soundLatch_.active ||
+                lastPumpedSoundOffset_ != kBonusPickupSoundCursor ||
+                lastPumpedSoundSelector_ != kBonusPickupSoundPriority) {
                 throw std::runtime_error("frame sequence monster reward was not collected");
             }
-            capture("040_monster_bomb_reward_collected");
+            capture("070_monster_bomb_reward_collected");
         } else if (scenario == "monster_spawner_behavior4_level2") {
             pushKeyDown(SDLK_1);
             processEvents(running);
@@ -3041,6 +3133,11 @@ public:
                      << " monster_behavior=" << frame.monsterBehavior
                      << " monster_hp=" << frame.monsterHp
                      << " monster_spawner=" << frame.monsterSpawner
+                     << " monster_sprite=" << frame.monsterSprite
+                     << " monster_state_timer=" << frame.monsterStateTimer
+                     << " rewards=" << frame.rewards
+                     << " reward_sprite=" << frame.rewardSprite
+                     << " reward_type=" << frame.rewardType
                      << " boss_present=" << frame.bossPresent
                      << " boss_head_xy=" << frame.bossHeadX << ','
                      << frame.bossHeadY
@@ -3050,7 +3147,19 @@ public:
         std::cout << "frame_sequence=ok"
                   << " scenario=" << scenario
                   << " frames=" << captures.size()
-                  << " size=" << kScreenW << 'x' << kScreenH
+                  << " size=" << kScreenW << 'x' << kScreenH;
+        if (scenario == "monster_bomb_reward") {
+            std::cout << " pre_sprite=44"
+                      << " last_pre_fatal_sprite=43"
+                      << " pre_sprite_runs=44x4,43x2"
+                      << " corpse_sprite=" << kMonsterCorpseSprite
+                      << " corpse_frames=" << kMonsterDeathVisibleFrames
+                      << " delayed_reward=1 reward_sprite=61 reward_type=present"
+                      << " score_delta=2000"
+                      << " original_runtime_claim=1"
+                      << " reward_motion_claim=0 visual_claim=0";
+        }
+        std::cout
                   << " out=" << outDir
                   << " manifest=manifest.txt\n";
     }
@@ -4204,7 +4313,6 @@ public:
             throw std::runtime_error("monster reward autoplayer failed to start level 1");
         }
 
-        FrameInspection startFrame = inspectRenderedFrame("autoplayer-monster-reward-start");
         pushKeyDown(SDLK_n);
         processEvents(running);
         if (bombs_.empty() || bombs_.back().owner != 1) {
@@ -4224,55 +4332,127 @@ public:
         ActiveMonster monster;
         monster.x = monsterTile[0] * kTileSize;
         monster.y = monsterTile[1] * kTileSize - kTileSize;
-        monster.kind = 2;
+        monster.kind = 1;
         monster.behavior = 3;
         monster.ai0 = 0;
         monster.ai1 = 0;
         monster.ai2 = 1;
         monster.hp = 1;
-        monster.animDelay = 1;
+        monster.animDelay = 3;
+        monster.hotspotY = monsterHotspotY(monster.kind);
         refreshMonsterAnimationProfile(monster);
         initializeMonsterMotion(monster);
+        monster.animFrame = 44;
+        monster.animCursor = 44;
         monsters_.push_back(monster);
 
         player_.x = static_cast<float>(
             std::min(level_.width * kTileSize - 24, (placed.x + 5) * kTileSize));
         player_.y = static_cast<float>(placed.y * kTileSize);
+        randomSeed_ = 0x90e25b93u;
+        uint32_t scoreBefore = score_;
+        if (monsterSpriteIndex(monsters_.front()) != 44) {
+            throw std::runtime_error(
+                "monster reward autoplayer pre-impact sprite mismatch");
+        }
+        FrameInspection preFrame =
+            inspectRenderedFrame("autoplayer-monster-reward-pre-impact");
+        monsters_.front().animFrame = 43;
+        monsters_.front().animCursor = 43;
+        if (monsterSpriteIndex(monsters_.front()) != 43) {
+            throw std::runtime_error(
+                "monster reward autoplayer last pre-fatal sprite mismatch");
+        }
+        FrameInspection lastPreFatalFrame =
+            inspectRenderedFrame("autoplayer-monster-reward-last-pre-fatal");
+
         FrameControls idle;
         updateWithControls(idle, 1.0f / 60.0f);
-        if (bombs_.size() != 0 || monsters_.empty() ||
-            monsters_.front().behavior != 2 || bonusDrops_.empty()) {
+        if (!bombs_.empty() || monsters_.empty() ||
+            monsters_.front().behavior != 2 ||
+            monsters_.front().kind != 0x0c ||
+            monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
+            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
+            !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster reward autoplayer did not kill monster");
         }
         FrameInspection deathFrame = inspectRenderedFrame("autoplayer-monster-reward-death");
-        if (deathFrame.hash == startFrame.hash) {
+        if (lastPreFatalFrame.hash == preFrame.hash ||
+            deathFrame.hash == lastPreFatalFrame.hash) {
             throw std::runtime_error("monster reward death frame did not change");
         }
 
-        uint32_t scoreBefore = score_;
+        FrameInspection midpointFrame;
+        for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (monsters_.size() != 1 ||
+                monsters_.front().stateTimer !=
+                    kMonsterDeathVisibleFrames - frame ||
+                monsterSpriteIndex(monsters_.front()) !=
+                    kMonsterCorpseSprite ||
+                !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+                throw std::runtime_error(
+                    "monster reward autoplayer corpse playback mismatch");
+            }
+            if (monsters_.front().stateTimer ==
+                kMonsterDeathVisibleFrames / 2) {
+                midpointFrame = inspectRenderedFrame(
+                    "autoplayer-monster-reward-corpse-midpoint");
+            }
+        }
+        if (monsters_.front().stateTimer != 1 || midpointFrame.hash == 0) {
+            throw std::runtime_error(
+                "monster reward autoplayer corpse timing mismatch");
+        }
+        inspectRenderedFrame("autoplayer-monster-reward-corpse-last");
+
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (!monsters_.empty() || bonusDrops_.size() != 1 ||
+            bonusDrops_.front().type != BonusType::Present ||
+            bonusSpriteIndex(bonusDrops_.front().type) != 61 ||
+            randomSeed_ != 0x0a08326du || score_ != scoreBefore) {
+            throw std::runtime_error(
+                "monster reward autoplayer delayed reward mismatch");
+        }
+        FrameInspection rewardFrame =
+            inspectRenderedFrame("autoplayer-monster-reward-visible");
+
         BonusDrop drop = bonusDrops_.front();
         player_.x = drop.x;
         player_.y = drop.y;
+        player_.vx = 0.0f;
+        player_.vy = 0.0f;
+        player_.grounded = true;
         clearSoundLatch();
         lastPumpedSoundOffset_ = 0;
         lastPumpedSoundSelector_ = 0;
         updateWithControls(idle, 1.0f / 60.0f);
-        if (score_ <= scoreBefore || soundLatch_.active ||
+        if (!bonusDrops_.empty() || score_ - scoreBefore != 2000 ||
+            soundLatch_.active ||
             lastPumpedSoundOffset_ != kBonusPickupSoundCursor ||
             lastPumpedSoundSelector_ != kBonusPickupSoundPriority) {
             throw std::runtime_error("monster reward autoplayer did not collect reward");
         }
         FrameInspection collectFrame =
             inspectRenderedFrame("autoplayer-monster-reward-collect");
-        if (collectFrame.hash == deathFrame.hash) {
+        if (collectFrame.hash == rewardFrame.hash) {
             throw std::runtime_error("monster reward collection frame did not change");
         }
 
         std::cout << "autoplayer=ok"
                   << " scenario=" << scenario
-                  << " monster_dead=1 reward_collected=1"
+                  << " monster_dead=1"
+                  << " pre_sprite=44"
+                  << " last_pre_fatal_sprite=43"
+                  << " pre_sprite_runs=44x4,43x2"
+                  << " corpse_sprite=" << kMonsterCorpseSprite
+                  << " corpse_frames=" << kMonsterDeathVisibleFrames
+                  << " delayed_reward=1 reward_sprite=61"
+                  << " reward_collected=1"
                   << " score_delta=" << (score_ - scoreBefore)
-                  << " frame_inspection=1\n";
+                  << " frames_inspected=7 frame_inspection=1"
+                  << " original_runtime_claim=1"
+                  << " reward_motion_claim=0 visual_claim=0\n";
     }
 
     void debugAutoplayerMonsterBehavior3Multihit(const std::string& scenario) {
@@ -4347,9 +4527,12 @@ public:
         bombs_.back().timer = 1;
         player_.x = 88.0f;
         player_.y = 24.0f;
+        randomSeed_ = 0x90e25b93u;
         updateWithControls(idle, 1.0f / 60.0f);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
-            bonusDrops_.empty()) {
+            monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
+            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
+            !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster behavior-3 autoplayer second hit did not kill");
         }
         FrameInspection deathFrame =
@@ -4359,9 +4542,33 @@ public:
         }
 
         uint32_t scoreBefore = score_;
+        for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (monsters_.size() != 1 ||
+                monsters_.front().stateTimer !=
+                    kMonsterDeathVisibleFrames - frame ||
+                monsterSpriteIndex(monsters_.front()) !=
+                    kMonsterCorpseSprite ||
+                !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+                throw std::runtime_error(
+                    "monster behavior-3 autoplayer corpse playback mismatch");
+            }
+        }
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (!monsters_.empty() || bonusDrops_.size() != 1 ||
+            bonusDrops_.front().type != BonusType::Present ||
+            bonusSpriteIndex(bonusDrops_.front().type) != 61 ||
+            randomSeed_ != 0x0a08326du || score_ != scoreBefore) {
+            throw std::runtime_error(
+                "monster behavior-3 autoplayer delayed reward mismatch");
+        }
+
         BonusDrop drop = bonusDrops_.front();
         player_.x = drop.x;
         player_.y = drop.y;
+        player_.vx = 0.0f;
+        player_.vy = 0.0f;
+        player_.grounded = true;
         clearSoundLatch();
         lastPumpedSoundRecord_ = -1;
         lastPumpedSoundOffset_ = 0;
@@ -4383,7 +4590,9 @@ public:
                   << " moved_px=" << movedPx
                   << " first_hit_hp=2 second_hit_kill=1 reward_collected=1"
                   << " score_delta=" << (score_ - scoreBefore)
-                  << " frame_inspection=1\n";
+                  << " frame_inspection=1"
+                  << " corpse_frames=" << kMonsterDeathVisibleFrames
+                  << " delayed_reward=1 reward_sprite=61\n";
     }
 
     void debugAutoplayerMonsterBehavior4Chase(const std::string& scenario) {
@@ -4439,9 +4648,12 @@ public:
         bombs_.back().timer = 1;
         player_.x = 96.0f;
         player_.y = 24.0f;
+        randomSeed_ = 0x90e25b93u;
         updateWithControls(idle, 1.0f / 60.0f);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
-            bonusDrops_.empty()) {
+            monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
+            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
+            !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster behavior-4 autoplayer bomb kill mismatch");
         }
         FrameInspection deathFrame =
@@ -4450,10 +4662,33 @@ public:
             throw std::runtime_error("monster behavior-4 death frame did not change");
         }
 
+        for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (monsters_.size() != 1 ||
+                monsters_.front().stateTimer !=
+                    kMonsterDeathVisibleFrames - frame ||
+                monsterSpriteIndex(monsters_.front()) !=
+                    kMonsterCorpseSprite ||
+                !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+                throw std::runtime_error(
+                    "monster behavior-4 autoplayer corpse playback mismatch");
+            }
+        }
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (!monsters_.empty() || bonusDrops_.size() != 1 ||
+            bonusDrops_.front().type != BonusType::Present ||
+            bonusSpriteIndex(bonusDrops_.front().type) != 61 ||
+            randomSeed_ != 0x0a08326du) {
+            throw std::runtime_error(
+                "monster behavior-4 autoplayer delayed reward mismatch");
+        }
+
         std::cout << "autoplayer=ok"
                   << " scenario=" << scenario
                   << " chase_dx=" << chaseDx
-                  << " timer_after=1 killed=1 frame_inspection=1\n";
+                  << " timer_after=1 killed=1 frame_inspection=1"
+                  << " corpse_frames=" << kMonsterDeathVisibleFrames
+                  << " delayed_reward=1 reward_sprite=61\n";
     }
 
     void debugAutoplayerMonsterSpawnerCycle(const std::string& scenario) {
@@ -4501,9 +4736,13 @@ public:
         bombs_.back().timer = 1;
         player_.x = static_cast<float>(monsters_.front().x + 32);
         player_.y = static_cast<float>(monsters_.front().y);
+        randomSeed_ = 0x90e25b93u;
         updateWithControls(idle, 1.0f / 60.0f);
         if (monsters_.empty() || monsters_.front().behavior != 2 ||
-            spawnerStates_[0].availableSlots != initialSlots || bonusDrops_.empty()) {
+            monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
+            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
+            spawnerStates_[0].availableSlots != initialSlots ||
+            !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster spawner autoplayer did not release slot");
         }
         FrameInspection deathFrame = inspectRenderedFrame("autoplayer-monster-spawner-death");
@@ -4528,10 +4767,50 @@ public:
             throw std::runtime_error("monster spawner respawn frame did not change");
         }
 
+        // The respawn legitimately consumed the spawner RNG. Disable further
+        // spawns and reseed the isolated corpse-reward path so the recovered
+        // six-draw transition can be asserted independently.
+        spawnerStates_[0].remaining = 0;
+        randomSeed_ = 0x90e25b93u;
+        auto findCorpse = [&]() -> const ActiveMonster* {
+            for (const ActiveMonster& active : monsters_) {
+                if (active.alive && active.behavior == 2) return &active;
+            }
+            return nullptr;
+        };
+        const ActiveMonster* corpse = findCorpse();
+        if (!corpse || corpse->stateTimer != kMonsterDeathVisibleFrames - 1 ||
+            monsterSpriteIndex(*corpse) != kMonsterCorpseSprite ||
+            !bonusDrops_.empty()) {
+            throw std::runtime_error(
+                "monster spawner autoplayer respawn disturbed corpse playback");
+        }
+        for (int frame = 2; frame < kMonsterDeathVisibleFrames; ++frame) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            corpse = findCorpse();
+            if (!corpse ||
+                corpse->stateTimer != kMonsterDeathVisibleFrames - frame ||
+                monsterSpriteIndex(*corpse) != kMonsterCorpseSprite ||
+                !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+                throw std::runtime_error(
+                    "monster spawner autoplayer corpse playback mismatch");
+            }
+        }
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (findCorpse() || bonusDrops_.size() != 1 ||
+            bonusDrops_.front().type != BonusType::Present ||
+            bonusSpriteIndex(bonusDrops_.front().type) != 61 ||
+            randomSeed_ != 0x0a08326du) {
+            throw std::runtime_error(
+                "monster spawner autoplayer delayed reward mismatch");
+        }
+
         std::cout << "autoplayer=ok"
                   << " scenario=" << scenario
                   << " spawner_index=1 reserved_slot=1 released_slot=1 respawned=1"
-                  << " frame_inspection=1\n";
+                  << " frame_inspection=1"
+                  << " corpse_frames=" << kMonsterDeathVisibleFrames
+                  << " delayed_reward=1 reward_sprite=61\n";
     }
 
     void debugAutoplayerMonsterSpawnerBehavior4Level2(const std::string& scenario) {
@@ -5813,12 +6092,11 @@ public:
         // the original runtime, tracked in RECOVERY_STATUS.md. These are not
         // missing port functionality; each stays visual_claim=0 until the
         // matching original fixture is promoted.
-        static const std::array<const char*, 5> kOpenOriginalEvidenceItems{{
+        static const std::array<const char*, 4> kOpenOriginalEvidenceItems{{
             "natural_forward_debris_writeback_3d2d",
             "exact_explosion_sprite_playback",
             "actor_update_original_contact_semantics",
             "behavior4_motion_runtime_fixture",
-            "monster_sprite_table_runtime_consumption",
         }};
 
         for (const auto& subsystem : kPortSubsystems) {
@@ -6987,12 +7265,12 @@ public:
         std::vector<int> normalFrames{39, 40, 41, 43, 44, 45, 46,
                                       49, 50, 51, 53, 54, 55};
         std::vector<int> impactCandidates{42, 47, 48, 52, 56};
-        std::vector<int> deathCurrent{18};
+        std::vector<int> deathRuntime{kMonsterCorpseSprite};
         std::vector<int> allFrames = normalFrames;
         allFrames.insert(allFrames.end(), impactCandidates.begin(),
                          impactCandidates.end());
-        allFrames.insert(allFrames.end(), deathCurrent.begin(),
-                         deathCurrent.end());
+        allFrames.insert(allFrames.end(), deathRuntime.begin(),
+                         deathRuntime.end());
         allFrames.insert(allFrames.end(), rewardFrames.begin(),
                          rewardFrames.end());
 
@@ -7002,22 +7280,33 @@ public:
                   << " normal_ranges=k1_left:43-44,k1_right:45-46,k2:39-41,k3:49-51,k4:53-55"
                   << " normal_frames=" << joinInts(normalFrames)
                   << " impact_candidates=" << joinInts(impactCandidates)
-                  << " death_current_renderer=" << joinInts(deathCurrent)
+                  << " death_runtime_renderer=" << joinInts(deathRuntime)
                   << " reward_frames=" << joinInts(rewardFrames)
                   << " reward_scores=" << joinInts(scores)
                   << " normal_nonzero=" << nonzeroList(normalFrames)
                   << " impact_nonzero=" << nonzeroList(impactCandidates)
-                  << " death_nonzero=" << nonzeroList(deathCurrent)
+                  << " death_nonzero=" << nonzeroList(deathRuntime)
                   << " reward_nonzero=" << nonzeroList(rewardFrames)
                   << " normal_dims=" << dimensionList(normalFrames)
                   << " impact_dims=" << dimensionList(impactCandidates)
-                  << " death_dims=" << dimensionList(deathCurrent)
+                  << " death_dims=" << dimensionList(deathRuntime)
                   << " reward_dims=" << dimensionList(rewardFrames)
                   << " frame_count=" << allFrames.size()
                   << " frames_16x16=" << count16x16(allFrames)
-                  << " death_runtime_claim=0"
+                  << " pre_sprite=44"
+                  << " last_pre_fatal_sprite=43"
+                  << " pre_sprite_runs=44x4,43x2"
+                  << " impact_equals_death=1"
+                  << " corpse_original_ticks=49"
+                  << " corpse_engine_frames=" << kMonsterDeathVisibleFrames
+                  << " reward_delay=corpse_expiry"
+                  << " death_runtime_claim=1"
+                  << " reward61_runtime_claim=1"
+                  << " original_runtime_claim=1"
+                  << " reward_motion_claim=0"
                   << " visual_claim=0"
-                  << " ghidra=1000:70bc..7513\n";
+                  << " ghidra=1000:70bc..7513"
+                  << " corpse_expiry_ghidra=1000:766d..7750\n";
     }
 
     void debugFixed() {
@@ -9553,7 +9842,9 @@ public:
         refreshMonsterAnimationProfile(monster);
         clearSoundLatch();
         enterMonsterDeath(monster);
-        if (monster.behavior != 2 || monster.stateTimer != 25 ||
+        if (monster.behavior != 2 ||
+            monster.stateTimer != kMonsterDeathVisibleFrames + 1 ||
+            !monster.deathRewardPending || !bonusDrops_.empty() ||
             !soundLatch_.active ||
             soundLatch_.latchedOffset != kMonsterDeathSoundCursor ||
             soundLatch_.currentSelector != kMonsterDeathSoundPriority ||
@@ -9569,8 +9860,10 @@ public:
         std::cout << "monster_death_sound=ok cursor="
                   << hex4(kMonsterDeathSoundCursor)
                   << " priority=" << static_cast<int>(kMonsterDeathSoundPriority)
-                  << " direct_sweep=0 state=2 death_ticks=" << monster.stateTimer
-                  << " reward=1 pumped=1 ghidra=1000:5c9e latch=1000:165a\n";
+                  << " direct_sweep=0 state=2"
+                  << " death_timer_initialized=" << monster.stateTimer
+                  << " reward_pending=1 reward_spawned=0"
+                  << " pumped=1 ghidra=1000:5c9e latch=1000:165a\n";
     }
 
     void debugBombObjectSoundRouting() {
@@ -14924,6 +15217,7 @@ public:
             std::map<std::string, std::string> kv;
             std::string line;
             while (std::getline(in, line)) {
+                if (!line.empty() && line.back() == '\r') line.pop_back();
                 if (line.empty() || line[0] == '#') continue;
                 auto eq = line.find('=');
                 if (eq == std::string::npos) continue;
@@ -16285,15 +16579,36 @@ public:
             throw std::runtime_error("monster spawn did not reserve a live slot");
         }
 
+        randomSeed_ = 0x90e25b93u;
         enterMonsterDeath(monster);
-        if (spawnerStates_[spawnerIndex].availableSlots != initialSlots) {
+        if (spawnerStates_[spawnerIndex].availableSlots != initialSlots ||
+            monster.stateTimer != kMonsterDeathVisibleFrames + 1 ||
+            !monster.deathRewardPending || !bonusDrops_.empty() ||
+            randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster death did not immediately return live slot");
         }
-        int deathTicks = monster.stateTimer;
-        for (int i = 0; i < deathTicks; ++i) {
-            updateMonsters(0.0f);
+        const int initializedTimer = monster.stateTimer;
+        updateMonsters(0.0f);
+        if (monsters_.size() != 1 ||
+            monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
+            !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+            throw std::runtime_error(
+                "monster death first visible timer changed");
         }
-        if (!monsters_.empty() ||
+        for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+            updateMonsters(0.0f);
+            if (monsters_.size() != 1 ||
+                monsters_.front().stateTimer !=
+                    kMonsterDeathVisibleFrames - frame ||
+                !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+                throw std::runtime_error(
+                    "monster slot corpse playback timing changed");
+            }
+        }
+        updateMonsters(0.0f);
+        if (!monsters_.empty() || bonusDrops_.size() != 1 ||
+            bonusDrops_.front().type != BonusType::Present ||
+            randomSeed_ != 0x0a08326du ||
             spawnerStates_[spawnerIndex].availableSlots != initialSlots) {
             throw std::runtime_error("monster removal did not return live slot");
         }
@@ -16303,7 +16618,10 @@ public:
         }
         std::cout << "monster_slots=ok initial_slots=" << initialSlots
                   << " returned_immediate=1"
-                  << " death_ticks=" << deathTicks << '\n';
+                  << " death_timer_initialized=" << initializedTimer
+                  << " first_visible_timer=" << kMonsterDeathVisibleFrames
+                  << " visible_frames=" << kMonsterDeathVisibleFrames
+                  << " reward_delayed=1\n";
     }
 
     void debugMonsterMotionModel() {
@@ -16502,12 +16820,64 @@ public:
         resetLevel(0);
         monsters_.clear();
         bonusDrops_.clear();
+
+        auto finishFrontCorpse = [&](size_t dropsBefore, float rewardX,
+                                     float rewardY) {
+            if (monsters_.size() != 1 ||
+                monsters_.front().behavior != 2 ||
+                monsters_.front().stateTimer !=
+                    kMonsterDeathVisibleFrames + 1 ||
+                monsterSpriteIndex(monsters_.front()) !=
+                    kMonsterCorpseSprite ||
+                !monsters_.front().deathRewardPending ||
+                bonusDrops_.size() != dropsBefore ||
+                randomSeed_ != 0x90e25b93u) {
+                throw std::runtime_error(
+                    "direct monster death initialization mismatch");
+            }
+
+            updateMonsters(0.0f);
+            if (monsters_.size() != 1 ||
+                monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
+                bonusDrops_.size() != dropsBefore ||
+                randomSeed_ != 0x90e25b93u) {
+                throw std::runtime_error(
+                    "direct monster death first visible frame mismatch");
+            }
+            for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+                updateMonsters(0.0f);
+                if (monsters_.size() != 1 ||
+                    monsters_.front().stateTimer !=
+                        kMonsterDeathVisibleFrames - frame ||
+                    monsterSpriteIndex(monsters_.front()) !=
+                        kMonsterCorpseSprite ||
+                    bonusDrops_.size() != dropsBefore ||
+                    randomSeed_ != 0x90e25b93u) {
+                    throw std::runtime_error(
+                        "direct monster corpse playback mismatch");
+                }
+            }
+            updateMonsters(0.0f);
+            if (!monsters_.empty() ||
+                bonusDrops_.size() != dropsBefore + 1 ||
+                bonusDrops_.back().type != BonusType::Present ||
+                bonusSpriteIndex(bonusDrops_.back().type) != 61 ||
+                bonusDrops_.back().x != rewardX ||
+                bonusDrops_.back().y != rewardY ||
+                randomSeed_ != 0x0a08326du) {
+                throw std::runtime_error(
+                    "direct monster delayed reward mismatch");
+            }
+        };
+
         ActiveMonster monster;
         monster.x = 80;
         monster.y = 80;
         monster.kind = 1;
         monster.behavior = 3;
         monster.hp = 3;
+        monster.hotspotY = monsterHotspotY(monster.kind);
+        refreshMonsterAnimationProfile(monster);
         monsters_.push_back(monster);
         std::vector<std::array<int, 2>> tiles{{{10, 11}}};
 
@@ -16517,14 +16887,13 @@ public:
             throw std::runtime_error("small bomb ignored monster hit points");
         }
 
+        randomSeed_ = 0x90e25b93u;
         damageMonstersInExplosion(tiles, BombType::Medium);
         if (monsters_[0].behavior != 2 || monsters_[0].hp != 0 ||
-            bonusDrops_.size() != 1) {
+            !bonusDrops_.empty()) {
             throw std::runtime_error("medium bomb did not finish damaged monster");
         }
-        if (bonusDrops_[0].x != 81.0f || bonusDrops_[0].y != 82.0f) {
-            throw std::runtime_error("monster bonus did not spawn near body center");
-        }
+        finishFrontCorpse(0, 80.0f, 86.0f);
 
         ActiveMonster tough;
         tough.x = 96;
@@ -16532,13 +16901,17 @@ public:
         tough.kind = 4;
         tough.behavior = 3;
         tough.hp = 4;
+        tough.hotspotY = monsterHotspotY(tough.kind);
+        refreshMonsterAnimationProfile(tough);
         monsters_.push_back(tough);
         std::vector<std::array<int, 2>> superTiles{{{12, 11}}};
+        randomSeed_ = 0x90e25b93u;
         damageMonstersInExplosion(superTiles, BombType::Super);
-        if (monsters_[1].behavior != 2 || monsters_[1].hp != 0 ||
-            bonusDrops_.size() != 2) {
+        if (monsters_[0].behavior != 2 || monsters_[0].hp != 0 ||
+            bonusDrops_.size() != 1) {
             throw std::runtime_error("super bomb did not apply full monster damage");
         }
+        finishFrontCorpse(1, 96.0f, 80.0f);
 
         ActiveMonster edge;
         edge.x = 89;
@@ -16546,14 +16919,19 @@ public:
         edge.kind = 1;
         edge.behavior = 3;
         edge.hp = 2;
+        edge.hotspotY = monsterHotspotY(edge.kind);
+        refreshMonsterAnimationProfile(edge);
         monsters_.push_back(edge);
         std::vector<std::array<int, 2>> edgeTiles{{{10, 11}}, {{11, 11}}};
         damageMonstersInExplosion(edgeTiles, BombType::Small);
-        if (monsters_[2].hp != 1) {
+        if (monsters_[0].hp != 1) {
             throw std::runtime_error("monster blast missed partial overlap");
         }
 
-        std::cout << "monster_blast_damage=ok drops=" << bonusDrops_.size() << '\n';
+        std::cout << "monster_blast_damage=ok drops=" << bonusDrops_.size()
+                  << " corpse_sprite=" << kMonsterCorpseSprite
+                  << " corpse_frames=" << kMonsterDeathVisibleFrames
+                  << " delayed_reward=1 reward_sprite=61\n";
     }
 
     void debugBombFuse() {
@@ -17345,17 +17723,37 @@ public:
         monster.behavior = 3;
         monster.ai0 = 0x0800;
         monster.hp = monsterDamageForBomb(BombType::Super);
-        monster.animDelay = 1;
+        monster.animDelay = 3;
+        monster.hotspotY = monsterHotspotY(monster.kind);
         refreshMonsterAnimationProfile(monster);
         initializeMonsterMotion(monster);
         monster.vx8 = 0x0800;
+        monster.animFrame = 44;
+        monster.animCursor = 44;
         monsters_.push_back(monster);
 
+        randomSeed_ = 0x90e25b93u;
+        uint32_t scoreBefore = score_;
+        if (monsterSpriteIndex(monsters_.front()) != 44) {
+            throw std::runtime_error(
+                "live monster bomb pre-impact sprite mismatch");
+        }
         FrameInspection armedFrame = inspectRenderedFrame("monster-bomb-kill-live-armed");
+        monsters_.front().animFrame = 43;
+        monsters_.front().animCursor = 43;
+        if (monsterSpriteIndex(monsters_.front()) != 43) {
+            throw std::runtime_error(
+                "live monster bomb last pre-fatal sprite mismatch");
+        }
+        FrameInspection lastPreFatalFrame =
+            inspectRenderedFrame("monster-bomb-kill-live-last-pre-fatal");
         FrameControls idle;
         updateWithControls(idle, 1.0f / 60.0f);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
-            monsters_.front().hp != 0 || bonusDrops_.empty()) {
+            monsters_.front().kind != 0x0c || monsters_.front().hp != 0 ||
+            monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
+            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
+            !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             std::ostringstream oss;
             oss << "live bomb did not kill overlapping moving monster"
                 << " bombs=" << bombs_.size()
@@ -17370,22 +17768,87 @@ public:
             throw std::runtime_error(oss.str());
         }
         FrameInspection deathFrame = inspectRenderedFrame("monster-bomb-kill-live-death");
-        if (deathFrame.hash == armedFrame.hash) {
+        if (lastPreFatalFrame.hash == armedFrame.hash ||
+            deathFrame.hash == lastPreFatalFrame.hash) {
             throw std::runtime_error("live monster bomb death frame did not change");
         }
 
-        int deathTicks = monsters_.front().stateTimer;
-        for (int i = 0; i < deathTicks; ++i) {
+        FrameInspection midpointFrame;
+        for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
+            if (monsters_.size() != 1 ||
+                monsters_.front().stateTimer !=
+                    kMonsterDeathVisibleFrames - frame ||
+                monsterSpriteIndex(monsters_.front()) !=
+                    kMonsterCorpseSprite ||
+                !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+                throw std::runtime_error(
+                    "live monster bomb corpse playback mismatch");
+            }
+            if (monsters_.front().stateTimer ==
+                kMonsterDeathVisibleFrames / 2) {
+                midpointFrame = inspectRenderedFrame(
+                    "monster-bomb-kill-live-corpse-midpoint");
+            }
         }
-        if (!monsters_.empty()) {
-            throw std::runtime_error("live monster death actor was not removed");
+        if (monsters_.front().stateTimer != 1 || midpointFrame.hash == 0) {
+            throw std::runtime_error("live monster bomb corpse timing mismatch");
+        }
+        FrameInspection lastCorpseFrame =
+            inspectRenderedFrame("monster-bomb-kill-live-corpse-last");
+
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (!monsters_.empty() || bonusDrops_.size() != 1 ||
+            bonusDrops_.front().type != BonusType::Present ||
+            bonusSpriteIndex(bonusDrops_.front().type) != 61 ||
+            randomSeed_ != 0x0a08326du || score_ != scoreBefore) {
+            throw std::runtime_error(
+                "live monster bomb delayed reward mismatch");
+        }
+        FrameInspection rewardFrame =
+            inspectRenderedFrame("monster-bomb-kill-live-reward-visible");
+        if (rewardFrame.hash == lastCorpseFrame.hash) {
+            throw std::runtime_error(
+                "live monster bomb reward frame did not change");
+        }
+
+        BonusDrop drop = bonusDrops_.front();
+        player_.x = drop.x;
+        player_.y = drop.y;
+        player_.vx = 0.0f;
+        player_.vy = 0.0f;
+        player_.grounded = true;
+        clearSoundLatch();
+        lastPumpedSoundOffset_ = 0;
+        lastPumpedSoundSelector_ = 0;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (!bonusDrops_.empty() || score_ - scoreBefore != 2000 ||
+            soundLatch_.active ||
+            lastPumpedSoundOffset_ != kBonusPickupSoundCursor ||
+            lastPumpedSoundSelector_ != kBonusPickupSoundPriority) {
+            throw std::runtime_error(
+                "live monster bomb reward collection mismatch");
+        }
+        FrameInspection collectFrame =
+            inspectRenderedFrame("monster-bomb-kill-live-reward-collected");
+        if (collectFrame.hash == rewardFrame.hash) {
+            throw std::runtime_error(
+                "live monster bomb collection frame did not change");
         }
 
         std::cout << "monster_bomb_kill_live=ok"
                   << " bomb_type=4 damage=" << monsterDamageForBomb(BombType::Super)
-                  << " killed=1 removed=1 reward=1"
-                  << " frame_inspection=1\n";
+                  << " pre_sprite=44"
+                  << " last_pre_fatal_sprite=43"
+                  << " pre_sprite_runs=44x4,43x2"
+                  << " corpse_sprite=" << kMonsterCorpseSprite
+                  << " corpse_frames=" << kMonsterDeathVisibleFrames
+                  << " delayed_reward=1 reward_sprite=61"
+                  << " killed=1 removed=1 reward=1 collected=1"
+                  << " score_delta=" << (score_ - scoreBefore)
+                  << " frames_inspected=7 frame_inspection=1"
+                  << " original_runtime_claim=1"
+                  << " reward_motion_claim=0 visual_claim=0\n";
     }
 
     void debugPlayerDamageDeathLive() {
@@ -17816,6 +18279,7 @@ public:
         std::map<std::string, std::pair<uint16_t, int>> hooks;
         std::string line;
         while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
             if (line.empty() || line[0] == '#') continue;
             if (line.rfind("hook ", 0) == 0) {
                 std::istringstream hs(line.substr(5));
@@ -17921,6 +18385,7 @@ public:
         std::map<int, OrbitLink> orbits;
         std::string line;
         while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
             if (line.empty() || line[0] == '#') continue;
             if (line.rfind("orbit_link ", 0) == 0) {
                 std::istringstream row(line.substr(11));
@@ -18323,6 +18788,7 @@ public:
         std::vector<ContactTick> ticks;
         std::string line;
         while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
             if (line.empty() || line[0] == '#') continue;
             if (line.rfind("tick ", 0) == 0) {
                 std::istringstream row(line.substr(5));
@@ -18701,6 +19167,861 @@ public:
                   << " visual_claim=0\n";
     }
 
+    // Validate the original level-1 monster-kill trace, then replay its
+    // presentation contract through the live port paths. Player input and
+    // position are capture-route inputs; actor/visual rows, sprite changes,
+    // timer playback, reward creation and collection are authoritative.
+    void debugMonsterSpriteConsumptionEvidence(const std::string& fixturePath) {
+        std::ifstream in(fixturePath);
+        if (!in) throw std::runtime_error("cannot open " + fixturePath);
+
+        struct ConsumptionTick {
+            int frame = 0;
+            int delta = 0;
+            std::string phase;
+            std::string checkpointNames;
+            std::string input;
+            int px = 0;
+            int py = 0;
+            uint32_t rng = 0;
+            uint32_t score = 0;
+            int actorCount = 0;
+            int visualCount = 0;
+            int targetSlot = -1;
+            std::string targetActorRaw;
+            int targetVisualSlot = -1;
+            std::string targetVisualRaw;
+            int targetSprite = -1;
+            int rewardActorSlot = -1;
+            std::string rewardActorRaw;
+            int rewardVisualSlot = -1;
+            std::string rewardVisualRaw;
+            int rewardSprite = -1;
+        };
+        struct ConsumptionCheckpoint {
+            std::string name;
+            int frame = 0;
+            std::string screenshot;
+            std::string sha256;
+        };
+
+        auto parseOptionalInt = [](const std::string& value,
+                                   const std::string& field) {
+            if (value == "-") return -1;
+            try {
+                size_t used = 0;
+                int parsed = std::stoi(value, &used);
+                if (used != value.size()) throw std::invalid_argument("tail");
+                return parsed;
+            } catch (const std::exception&) {
+                throw std::runtime_error(
+                    "invalid monster sprite consumption integer " + field +
+                    "=" + value);
+            }
+        };
+        auto parseHex32 = [](const std::string& value,
+                             const std::string& field) {
+            try {
+                size_t used = 0;
+                unsigned long parsed = std::stoul(value, &used, 16);
+                if (used != value.size() || parsed > 0xfffffffful) {
+                    throw std::invalid_argument("range");
+                }
+                return static_cast<uint32_t>(parsed);
+            } catch (const std::exception&) {
+                throw std::runtime_error(
+                    "invalid monster sprite consumption hex " + field +
+                    "=" + value);
+            }
+        };
+        auto isHex = [](const std::string& value, size_t digits) {
+            return value.size() == digits &&
+                   std::all_of(value.begin(), value.end(), [](unsigned char c) {
+                       return std::isxdigit(c) != 0;
+                   });
+        };
+        auto decodeRaw = [&](const std::string& value, size_t bytes,
+                             const std::string& field) {
+            if (!isHex(value, bytes * 2)) {
+                throw std::runtime_error(
+                    "invalid monster sprite consumption raw " + field);
+            }
+            std::vector<uint8_t> decoded(bytes);
+            for (size_t i = 0; i < bytes; ++i) {
+                decoded[i] = static_cast<uint8_t>(
+                    std::stoul(value.substr(i * 2, 2), nullptr, 16));
+            }
+            return decoded;
+        };
+        auto visualMatchesSprite = [](const std::vector<uint8_t>& raw,
+                                      int sprite) {
+            if (raw.size() != 8) return false;
+            std::array<uint8_t, 4> expected{};
+            switch (sprite) {
+                case 43: expected = {0x11, 0x0a, 0x00, 0x2b}; break;
+                case 44: expected = {0x11, 0x0a, 0xaa, 0x2b}; break;
+                case 47: expected = {0x11, 0x0a, 0xa8, 0x2d}; break;
+                case 61: expected = {0x0a, 0x0c, 0xe5, 0x39}; break;
+                default: return false;
+            }
+            return std::equal(expected.begin(), expected.end(), raw.begin() + 4);
+        };
+
+        static constexpr std::array<const char*, 21> kTickFields{{
+            "frame", "delta", "phase", "checkpoints", "input", "px", "py",
+            "rng", "score", "actor_count", "visual_count", "target_slot",
+            "target_actor_raw", "target_visual_slot", "target_visual_raw",
+            "target_sprite", "reward_actor_slot", "reward_actor_raw",
+            "reward_visual_slot", "reward_visual_raw", "reward_sprite",
+        }};
+        static constexpr std::array<const char*, 4> kCheckpointFields{{
+            "name", "frame", "screenshot", "sha256",
+        }};
+
+        std::map<std::string, std::string> kv;
+        std::vector<ConsumptionTick> ticks;
+        std::vector<ConsumptionCheckpoint> checkpoints;
+        std::string line;
+        while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (line.rfind("tick ", 0) == 0) {
+                ConsumptionTick tick;
+                std::set<std::string> seen;
+                std::istringstream row(line.substr(5));
+                std::string token;
+                while (row >> token) {
+                    auto eq = token.find('=');
+                    if (eq == std::string::npos || eq == 0 ||
+                        eq + 1 == token.size()) {
+                        throw std::runtime_error(
+                            "malformed monster sprite consumption tick: " +
+                            line);
+                    }
+                    const std::string key = token.substr(0, eq);
+                    const std::string value = token.substr(eq + 1);
+                    if (!seen.insert(key).second) {
+                        throw std::runtime_error(
+                            "duplicate monster sprite consumption tick key " +
+                            key);
+                    }
+                    if (key == "frame") {
+                        tick.frame = parseOptionalInt(value, key);
+                    } else if (key == "delta") {
+                        tick.delta = parseOptionalInt(value, key);
+                    } else if (key == "phase") {
+                        tick.phase = value;
+                    } else if (key == "checkpoints") {
+                        tick.checkpointNames = value;
+                    } else if (key == "input") {
+                        tick.input = value;
+                    } else if (key == "px") {
+                        tick.px = parseOptionalInt(value, key);
+                    } else if (key == "py") {
+                        tick.py = parseOptionalInt(value, key);
+                    } else if (key == "rng") {
+                        tick.rng = parseHex32(value, key);
+                    } else if (key == "score") {
+                        int parsed = parseOptionalInt(value, key);
+                        if (parsed < 0) {
+                            throw std::runtime_error(
+                                "negative monster sprite consumption score");
+                        }
+                        tick.score = static_cast<uint32_t>(parsed);
+                    } else if (key == "actor_count") {
+                        tick.actorCount = parseOptionalInt(value, key);
+                    } else if (key == "visual_count") {
+                        tick.visualCount = parseOptionalInt(value, key);
+                    } else if (key == "target_slot") {
+                        tick.targetSlot = parseOptionalInt(value, key);
+                    } else if (key == "target_actor_raw") {
+                        tick.targetActorRaw = value;
+                    } else if (key == "target_visual_slot") {
+                        tick.targetVisualSlot = parseOptionalInt(value, key);
+                    } else if (key == "target_visual_raw") {
+                        tick.targetVisualRaw = value;
+                    } else if (key == "target_sprite") {
+                        tick.targetSprite = parseOptionalInt(value, key);
+                    } else if (key == "reward_actor_slot") {
+                        tick.rewardActorSlot = parseOptionalInt(value, key);
+                    } else if (key == "reward_actor_raw") {
+                        tick.rewardActorRaw = value;
+                    } else if (key == "reward_visual_slot") {
+                        tick.rewardVisualSlot = parseOptionalInt(value, key);
+                    } else if (key == "reward_visual_raw") {
+                        tick.rewardVisualRaw = value;
+                    } else if (key == "reward_sprite") {
+                        tick.rewardSprite = parseOptionalInt(value, key);
+                    } else {
+                        throw std::runtime_error(
+                            "unknown monster sprite consumption tick key " +
+                            key);
+                    }
+                }
+                for (const char* field : kTickFields) {
+                    if (!seen.count(field)) {
+                        throw std::runtime_error(
+                            std::string("missing monster sprite consumption tick key ") +
+                            field);
+                    }
+                }
+                if (seen.size() != kTickFields.size()) {
+                    throw std::runtime_error(
+                        "monster sprite consumption tick field count mismatch");
+                }
+                ticks.push_back(std::move(tick));
+                continue;
+            }
+            if (line.rfind("checkpoint ", 0) == 0) {
+                ConsumptionCheckpoint checkpoint;
+                std::set<std::string> seen;
+                std::istringstream row(line.substr(11));
+                std::string token;
+                while (row >> token) {
+                    auto eq = token.find('=');
+                    if (eq == std::string::npos || eq == 0 ||
+                        eq + 1 == token.size()) {
+                        throw std::runtime_error(
+                            "malformed monster sprite consumption checkpoint: " +
+                            line);
+                    }
+                    const std::string key = token.substr(0, eq);
+                    const std::string value = token.substr(eq + 1);
+                    if (!seen.insert(key).second) {
+                        throw std::runtime_error(
+                            "duplicate monster sprite consumption checkpoint key " +
+                            key);
+                    }
+                    if (key == "name") {
+                        checkpoint.name = value;
+                    } else if (key == "frame") {
+                        checkpoint.frame = parseOptionalInt(value, key);
+                    } else if (key == "screenshot") {
+                        checkpoint.screenshot = value;
+                    } else if (key == "sha256") {
+                        checkpoint.sha256 = value;
+                    } else {
+                        throw std::runtime_error(
+                            "unknown monster sprite consumption checkpoint key " +
+                            key);
+                    }
+                }
+                for (const char* field : kCheckpointFields) {
+                    if (!seen.count(field)) {
+                        throw std::runtime_error(
+                            std::string(
+                                "missing monster sprite consumption checkpoint key ") +
+                            field);
+                    }
+                }
+                if (seen.size() != kCheckpointFields.size() ||
+                    checkpoint.screenshot == "-" ||
+                    !isHex(checkpoint.sha256, 64)) {
+                    throw std::runtime_error(
+                        "monster sprite consumption checkpoint field mismatch");
+                }
+                checkpoints.push_back(std::move(checkpoint));
+                continue;
+            }
+            auto eq = line.find('=');
+            if (eq == std::string::npos || eq == 0 || eq + 1 == line.size()) {
+                throw std::runtime_error(
+                    "malformed monster sprite consumption metadata: " + line);
+            }
+            const std::string key = line.substr(0, eq);
+            if (!kv.emplace(key, line.substr(eq + 1)).second) {
+                throw std::runtime_error(
+                    "duplicate monster sprite consumption metadata key " + key);
+            }
+        }
+
+        auto req = [&](const char* key) -> const std::string& {
+            auto it = kv.find(key);
+            if (it == kv.end()) {
+                throw std::runtime_error(
+                    std::string("missing monster sprite consumption key ") + key);
+            }
+            return it->second;
+        };
+        auto reqInt = [&](const char* key) {
+            return parseOptionalInt(req(key), key);
+        };
+        auto reqHex = [&](const char* key) {
+            return parseHex32(req(key), key);
+        };
+
+        static const std::set<std::string> kMetadataFields{
+            "monster_sprite_consumption_original", "schema", "source",
+            "capture_status", "temp_copy", "visual_claim", "runtime_ds",
+            "frame_counter_offset", "actor_table_offset",
+            "actor_count_offset", "actor_stride", "actor_index_base",
+            "visual_table_offset", "visual_count_offset", "visual_stride",
+            "visual_index_base", "descriptor_table_offset",
+            "descriptor_entries", "descriptor_stride",
+            "descriptor_index_base", "descriptor_sha256", "rng_offset",
+            "score_offset", "exogenous_fields", "impact_equals_death",
+            "tick_count", "first_frame", "last_frame", "fatal_frame",
+            "reward_frame", "collection_frame", "pre_sprite",
+            "last_pre_fatal_sprite", "pre_sprite_runs",
+            "corpse_sprite", "corpse_original_ticks",
+            "corpse_engine_frames", "corpse_timer_first",
+            "corpse_timer_last", "reward_sprite", "reward_visible_ticks",
+            "score_before", "score_after", "score_delta", "fatal_rng",
+            "reward_rng", "bomb_type", "bomb_damage",
+        };
+        for (const auto& [key, value] : kv) {
+            (void)value;
+            if (!kMetadataFields.count(key)) {
+                throw std::runtime_error(
+                    "unknown monster sprite consumption metadata key " + key);
+            }
+        }
+        if (kv.size() != kMetadataFields.size()) {
+            throw std::runtime_error(
+                "monster sprite consumption metadata field count mismatch");
+        }
+
+        static constexpr const char* kDescriptorSha256 =
+            "d3f9c69251872acfcbbb253fc783c07a63749a0dc563e667bbf041a96a91d603";
+        if (req("monster_sprite_consumption_original") != "level1" ||
+            req("schema") != "monster_sprite_consumption_v1" ||
+            req("source") !=
+                "LEZAC.EXE via DOSBox /proc/mem tick-locked full-DS reads" ||
+            req("capture_status") != "complete" || req("temp_copy") != "1" ||
+            req("visual_claim") != "0" || req("runtime_ds") != "0c8f" ||
+            req("frame_counter_offset") != "0x78c2" ||
+            req("actor_table_offset") != "0x1bae" ||
+            req("actor_count_offset") != "0x208d" ||
+            req("actor_stride") != "0x26" ||
+            req("actor_index_base") != "1" ||
+            req("visual_table_offset") != "0xc21e" ||
+            req("visual_count_offset") != "0xc496" ||
+            req("visual_stride") != "8" ||
+            req("visual_index_base") != "0" ||
+            req("descriptor_table_offset") != "0xc322" ||
+            req("descriptor_entries") != "92" ||
+            req("descriptor_stride") != "4" ||
+            req("descriptor_index_base") != "1" ||
+            req("descriptor_sha256") != kDescriptorSha256 ||
+            req("rng_offset") != "0x1afe" ||
+            req("score_offset") != "0x785a" ||
+            req("exogenous_fields") != "input,player.x,player.y" ||
+            req("impact_equals_death") != "1") {
+            throw std::runtime_error(
+                "monster sprite consumption fixture header mismatch");
+        }
+
+        const int tickCount = reqInt("tick_count");
+        const int firstFrame = reqInt("first_frame");
+        const int lastFrame = reqInt("last_frame");
+        const int fatalFrame = reqInt("fatal_frame");
+        const int rewardFrame = reqInt("reward_frame");
+        const int collectionFrame = reqInt("collection_frame");
+        const int preSprite = reqInt("pre_sprite");
+        const int lastPreFatalSprite = reqInt("last_pre_fatal_sprite");
+        const std::string preSpriteRunSummary = req("pre_sprite_runs");
+        const int corpseSprite = reqInt("corpse_sprite");
+        const int corpseOriginalTicks = reqInt("corpse_original_ticks");
+        const int corpseEngineFrames = reqInt("corpse_engine_frames");
+        const int corpseTimerFirst = reqInt("corpse_timer_first");
+        const int corpseTimerLast = reqInt("corpse_timer_last");
+        const int rewardSprite = reqInt("reward_sprite");
+        const int rewardVisibleTicks = reqInt("reward_visible_ticks");
+        const int scoreBefore = reqInt("score_before");
+        const int scoreAfter = reqInt("score_after");
+        const int scoreDelta = reqInt("score_delta");
+        const uint32_t fatalRng = reqHex("fatal_rng");
+        const uint32_t rewardRng = reqHex("reward_rng");
+        const int bombTypeNumber = reqInt("bomb_type");
+        const int bombDamage = reqInt("bomb_damage");
+
+        if (tickCount != 110 || firstFrame != 257 || lastFrame != 366 ||
+            fatalFrame != 263 || rewardFrame != 312 ||
+            collectionFrame != 366 || preSprite != 44 ||
+            lastPreFatalSprite != 43 ||
+            preSpriteRunSummary != "44x4,43x2" ||
+            corpseSprite != 47 || corpseOriginalTicks != 49 ||
+            corpseEngineFrames != 120 || corpseTimerFirst != 25 ||
+            corpseTimerLast != 1 || rewardSprite != 61 ||
+            rewardVisibleTicks != 54 || scoreBefore != 50 ||
+            scoreAfter != 2050 || scoreDelta != 2000 ||
+            fatalRng != 0x90e25b93u || rewardRng != 0x0a08326du ||
+            bombTypeNumber != 1 || bombDamage != 1 ||
+            scoreAfter - scoreBefore != scoreDelta ||
+            rewardFrame - fatalFrame != corpseOriginalTicks ||
+            collectionFrame - rewardFrame != rewardVisibleTicks ||
+            lastFrame - firstFrame + 1 != tickCount ||
+            ticks.size() != static_cast<size_t>(tickCount)) {
+            throw std::runtime_error(
+                "monster sprite consumption pinned metadata mismatch");
+        }
+
+        static const std::array<std::string, 5> kCheckpointNames{{
+            "pre_impact", "fatal_impact", "corpse_playback",
+            "reward_visible", "collection",
+        }};
+        static const std::map<std::string,
+                              std::pair<std::string, std::string>>
+            kExpectedCheckpointArtifacts{{
+                {"pre_impact",
+                 {"checkpoint_00257_pre_impact.png",
+                  "da465da938ebde44f95ab03b3aadfdb083d9704db072da34aafcba06e69aac7d"}},
+                {"fatal_impact",
+                 {"checkpoint_00263_fatal_impact_corpse_playback.png",
+                  "6fb8f0729a2dd908c1c9b7e8b043cb1563fe3735bd8628ee18d71d51b7645875"}},
+                {"corpse_playback",
+                 {"checkpoint_00263_fatal_impact_corpse_playback.png",
+                  "6fb8f0729a2dd908c1c9b7e8b043cb1563fe3735bd8628ee18d71d51b7645875"}},
+                {"reward_visible",
+                 {"checkpoint_00312_reward_visible.png",
+                  "55a3353331bda7a1654f97667e1b50313f89b680bd2409c9d961a343fdb420ca"}},
+                {"collection",
+                 {"checkpoint_00366_collection.png",
+                  "579c09940cd5c27d14c24051a74fe1f315b35e834b36ce78d70de939d19f002f"}},
+            }};
+        if (checkpoints.size() != kCheckpointNames.size()) {
+            throw std::runtime_error(
+                "monster sprite consumption checkpoint count mismatch");
+        }
+        std::map<std::string, ConsumptionCheckpoint> checkpointsByName;
+        for (const ConsumptionCheckpoint& checkpoint : checkpoints) {
+            auto expectedArtifact =
+                kExpectedCheckpointArtifacts.find(checkpoint.name);
+            if (std::find(kCheckpointNames.begin(), kCheckpointNames.end(),
+                          checkpoint.name) == kCheckpointNames.end() ||
+                expectedArtifact == kExpectedCheckpointArtifacts.end() ||
+                checkpoint.screenshot != expectedArtifact->second.first ||
+                checkpoint.sha256 != expectedArtifact->second.second ||
+                !checkpointsByName.emplace(checkpoint.name, checkpoint).second) {
+                throw std::runtime_error(
+                    "monster sprite consumption checkpoint artifact mismatch");
+            }
+        }
+        if (checkpointsByName.at("pre_impact").frame >= fatalFrame ||
+            checkpointsByName.at("fatal_impact").frame != fatalFrame ||
+            checkpointsByName.at("corpse_playback").frame != fatalFrame ||
+            checkpointsByName.at("reward_visible").frame != rewardFrame ||
+            checkpointsByName.at("collection").frame != collectionFrame) {
+            throw std::runtime_error(
+                "monster sprite consumption checkpoint frame mismatch");
+        }
+
+        int actorRows = 0;
+        int visualRows = 0;
+        int previousCorpseTimer = -1;
+        std::map<std::string, int> checkpointRows;
+        const ConsumptionTick* preCheckpointTick = nullptr;
+        const ConsumptionTick* fatalTick = nullptr;
+        const ConsumptionTick* rewardTick = nullptr;
+        const ConsumptionTick* collectionTick = nullptr;
+        const ConsumptionTick* lastPreFatalTick = nullptr;
+        std::vector<std::pair<int, int>> preSpriteRuns;
+        int rewardActorTimer = -1;
+        int rewardInitialVy = 0;
+        int rewardNextVy = 0;
+        int rewardInitialY = -1;
+        int rewardNextY = -1;
+        for (size_t i = 0; i < ticks.size(); ++i) {
+            const ConsumptionTick& tick = ticks[i];
+            if (tick.frame != firstFrame + static_cast<int>(i) ||
+                tick.delta != 1 || tick.actorCount < 0 ||
+                tick.visualCount < 0 || tick.input.empty()) {
+                throw std::runtime_error(
+                    "monster sprite consumption tick sequence mismatch");
+            }
+
+            std::set<std::string> rowCheckpointNames;
+            if (tick.checkpointNames != "-") {
+                std::istringstream names(tick.checkpointNames);
+                std::string name;
+                while (std::getline(names, name, ',')) {
+                    auto checkpointIt = checkpointsByName.find(name);
+                    if (name.empty() || checkpointIt == checkpointsByName.end() ||
+                        checkpointIt->second.frame != tick.frame ||
+                        !rowCheckpointNames.insert(name).second) {
+                        throw std::runtime_error(
+                            "monster sprite consumption tick checkpoint mismatch");
+                    }
+                    ++checkpointRows[name];
+                }
+            }
+
+            const bool targetPresent =
+                tick.targetSlot != -1 || tick.targetActorRaw != "-" ||
+                tick.targetVisualSlot != -1 || tick.targetVisualRaw != "-" ||
+                tick.targetSprite != -1;
+            const bool targetComplete =
+                tick.targetSlot > 0 && tick.targetActorRaw != "-" &&
+                tick.targetVisualSlot >= 0 && tick.targetVisualRaw != "-" &&
+                tick.targetSprite >= 0;
+            if (targetPresent != targetComplete) {
+                throw std::runtime_error(
+                    "monster sprite consumption partial target row");
+            }
+            const bool rewardPresent =
+                tick.rewardActorSlot != -1 || tick.rewardActorRaw != "-" ||
+                tick.rewardVisualSlot != -1 || tick.rewardVisualRaw != "-" ||
+                tick.rewardSprite != -1;
+            const bool rewardComplete =
+                tick.rewardActorSlot > 0 && tick.rewardActorRaw != "-" &&
+                tick.rewardVisualSlot >= 0 && tick.rewardVisualRaw != "-" &&
+                tick.rewardSprite >= 0;
+            if (rewardPresent != rewardComplete) {
+                throw std::runtime_error(
+                    "monster sprite consumption partial reward row");
+            }
+
+            std::vector<uint8_t> targetActor;
+            std::vector<uint8_t> targetVisual;
+            if (targetPresent) {
+                targetActor =
+                    decodeRaw(tick.targetActorRaw, 0x26, "target_actor_raw");
+                targetVisual =
+                    decodeRaw(tick.targetVisualRaw, 8, "target_visual_raw");
+                ++actorRows;
+                ++visualRows;
+                if (tick.targetSlot > tick.actorCount ||
+                    tick.targetVisualSlot >= tick.visualCount ||
+                    targetActor[1] != tick.targetVisualSlot ||
+                    !visualMatchesSprite(targetVisual, tick.targetSprite)) {
+                    throw std::runtime_error(
+                        "monster sprite consumption target slot mismatch");
+                }
+            }
+            std::vector<uint8_t> rewardActor;
+            std::vector<uint8_t> rewardVisual;
+            if (rewardPresent) {
+                rewardActor =
+                    decodeRaw(tick.rewardActorRaw, 0x26, "reward_actor_raw");
+                rewardVisual =
+                    decodeRaw(tick.rewardVisualRaw, 8, "reward_visual_raw");
+                ++actorRows;
+                ++visualRows;
+                if (tick.rewardActorSlot > tick.actorCount ||
+                    tick.rewardVisualSlot >= tick.visualCount ||
+                    rewardActor[1] != tick.rewardVisualSlot ||
+                    !visualMatchesSprite(rewardVisual, tick.rewardSprite)) {
+                    throw std::runtime_error(
+                        "monster sprite consumption reward slot mismatch");
+                }
+            }
+
+            const char* expectedPhase = nullptr;
+            if (tick.frame < fatalFrame) {
+                expectedPhase = "pre_impact";
+            } else if (tick.frame == fatalFrame) {
+                expectedPhase = "fatal_impact";
+            } else if (tick.frame < rewardFrame) {
+                expectedPhase = "corpse_playback";
+            } else if (tick.frame < collectionFrame) {
+                expectedPhase = "reward_visible";
+            } else {
+                expectedPhase = "collection";
+            }
+            if (tick.phase != expectedPhase) {
+                throw std::runtime_error(
+                    "monster sprite consumption phase mismatch at frame " +
+                    std::to_string(tick.frame));
+            }
+
+            if (tick.frame < fatalFrame) {
+                if (!targetPresent || rewardPresent || targetActor[0] != 1 ||
+                    targetActor[0x15] != 3 ||
+                    targetActor[0x25] == 0 ||
+                    (tick.targetSprite != 43 && tick.targetSprite != 44)) {
+                    throw std::runtime_error(
+                        "monster sprite consumption pre-impact row mismatch");
+                }
+                if (preSpriteRuns.empty() ||
+                    preSpriteRuns.back().first != tick.targetSprite) {
+                    preSpriteRuns.emplace_back(tick.targetSprite, 1);
+                } else {
+                    ++preSpriteRuns.back().second;
+                }
+                if (tick.frame == fatalFrame - 1) lastPreFatalTick = &tick;
+            } else if (tick.frame < rewardFrame) {
+                if (!targetPresent || rewardPresent ||
+                    tick.targetSprite != corpseSprite ||
+                    targetActor[0] != 0x0c || targetActor[0x15] != 2 ||
+                    targetActor[0x25] == 0 ||
+                    tick.rng != fatalRng) {
+                    throw std::runtime_error(
+                        "monster sprite consumption corpse row mismatch");
+                }
+                const int timer = targetActor[0x02];
+                if (previousCorpseTimer >= 0 &&
+                    !(timer == previousCorpseTimer ||
+                      timer == previousCorpseTimer - 1)) {
+                    throw std::runtime_error(
+                        "monster sprite consumption corpse timer gap");
+                }
+                previousCorpseTimer = timer;
+                if (tick.frame == fatalFrame && timer != corpseTimerFirst) {
+                    throw std::runtime_error(
+                        "monster sprite consumption first corpse timer mismatch");
+                }
+                if (tick.frame == rewardFrame - 1 &&
+                    timer != corpseTimerLast) {
+                    throw std::runtime_error(
+                        "monster sprite consumption last corpse timer mismatch");
+                }
+            } else if (tick.frame < collectionFrame) {
+                if (targetPresent || !rewardPresent ||
+                    tick.rewardSprite != rewardSprite ||
+                    rewardActor[0] != 0x13 || rewardActor[0x15] != 2) {
+                    throw std::runtime_error(
+                        "monster sprite consumption reward row mismatch");
+                }
+                const uint16_t rawVy = static_cast<uint16_t>(
+                    rewardActor[0x08] |
+                    (static_cast<uint16_t>(rewardActor[0x09]) << 8));
+                const int vy = static_cast<int16_t>(rawVy);
+                const int visualY =
+                    static_cast<int>(rewardVisual[0x02]) |
+                    (static_cast<int>(rewardVisual[0x03]) << 8);
+                if (tick.frame == rewardFrame) {
+                    rewardActorTimer = rewardActor[0x02];
+                    rewardInitialVy = vy;
+                    rewardInitialY = visualY;
+                } else if (tick.frame == rewardFrame + 1) {
+                    rewardNextVy = vy;
+                    rewardNextY = visualY;
+                }
+            } else if (targetPresent || rewardPresent) {
+                throw std::runtime_error(
+                    "monster sprite consumption collection row retained actor");
+            }
+
+            const uint32_t expectedScore =
+                tick.frame < collectionFrame
+                    ? static_cast<uint32_t>(scoreBefore)
+                    : static_cast<uint32_t>(scoreAfter);
+            if (tick.score != expectedScore) {
+                throw std::runtime_error(
+                    "monster sprite consumption score transition mismatch");
+            }
+            if (tick.frame == fatalFrame) {
+                fatalTick = &tick;
+                if (tick.rng != fatalRng) {
+                    throw std::runtime_error(
+                        "monster sprite consumption fatal RNG mismatch");
+                }
+            }
+            if (tick.frame == rewardFrame) {
+                rewardTick = &tick;
+                if (tick.rng != rewardRng) {
+                    throw std::runtime_error(
+                        "monster sprite consumption reward RNG mismatch");
+                }
+            }
+            if (tick.frame == collectionFrame) collectionTick = &tick;
+            if (tick.frame == checkpointsByName.at("pre_impact").frame) {
+                preCheckpointTick = &tick;
+            }
+        }
+        for (const std::string& name : kCheckpointNames) {
+            if (checkpointRows[name] != 1) {
+                throw std::runtime_error(
+                    "monster sprite consumption checkpoint row missing " + name);
+            }
+        }
+        static const std::vector<std::pair<int, int>> kExpectedPreSpriteRuns{
+            {44, 4}, {43, 2},
+        };
+        if (!preCheckpointTick || !lastPreFatalTick || !fatalTick ||
+            !rewardTick || !collectionTick ||
+            preCheckpointTick->targetSprite != preSprite ||
+            lastPreFatalTick->targetSprite != lastPreFatalSprite ||
+            preSpriteRuns != kExpectedPreSpriteRuns ||
+            fatalTick->targetSprite != corpseSprite ||
+            rewardTick->rewardSprite != rewardSprite ||
+            collectionTick->score - fatalTick->score !=
+                static_cast<uint32_t>(scoreDelta) ||
+            rewardActorTimer != 100 || rewardInitialVy != -200 ||
+            rewardNextVy != -136 || rewardInitialY != 174 ||
+            rewardNextY != 173 ||
+            previousCorpseTimer != corpseTimerLast ||
+            actorRows != 109 || visualRows != 109) {
+            throw std::runtime_error(
+                "monster sprite consumption authoritative transition mismatch");
+        }
+
+        // Replay the capture contract through the real port update order:
+        // one-tick bomb -> damage/death -> timed corpse renderer -> reward at
+        // removal -> overlap collection. The synthetic level only removes
+        // route input and unrelated spawner/RNG activity.
+        load();
+        initSdl();
+        prepareAutoplayerMonsterFixtureLevel();
+        player_.x = 0.0f;
+        player_.y = 0.0f;
+        player_.vx = 0.0f;
+        player_.vy = 0.0f;
+        player_.grounded = true;
+        score_ = static_cast<uint32_t>(scoreBefore);
+        randomSeed_ = fatalRng;
+
+        ActiveMonster monster;
+        monster.x = 40;
+        monster.y = 24;
+        monster.kind = 1;
+        monster.behavior = 3;
+        monster.ai0 = 0;
+        monster.ai1 = 0;
+        monster.ai2 = 1;
+        monster.hp = bombDamage;
+        monster.animDelay = 3;
+        monster.hotspotY = monsterHotspotY(monster.kind);
+        refreshMonsterAnimationProfile(monster);
+        initializeMonsterMotion(monster);
+        monster.animFrame = static_cast<uint8_t>(preSprite);
+        monster.animCursor = static_cast<uint8_t>(preSprite);
+        monsters_.push_back(monster);
+
+        Bomb bomb;
+        bomb.x = 5;
+        bomb.y = 3;
+        bomb.timer = 1;
+        bomb.type = static_cast<BombType>(bombTypeNumber - 1);
+        bomb.fuseTicks = 1;
+        bomb.owner = 1;
+        bombs_.push_back(bomb);
+        if (monsterDamageForBomb(bomb.type) != bombDamage ||
+            monsterSpriteIndex(monsters_.front()) != preSprite) {
+            throw std::runtime_error(
+                "monster sprite consumption production pre-impact mismatch");
+        }
+        FrameInspection preFrame =
+            inspectRenderedFrame("monster-sprite-consumption-pre-impact");
+        monsters_.front().animFrame =
+            static_cast<uint8_t>(lastPreFatalTick->targetSprite);
+        monsters_.front().animCursor =
+            static_cast<uint8_t>(lastPreFatalTick->targetSprite);
+        if (monsterSpriteIndex(monsters_.front()) != lastPreFatalSprite) {
+            throw std::runtime_error(
+                "monster sprite consumption production last pre-fatal mismatch");
+        }
+        FrameInspection lastPreFatalFrame = inspectRenderedFrame(
+            "monster-sprite-consumption-last-pre-fatal");
+        if (lastPreFatalFrame.hash == preFrame.hash) {
+            throw std::runtime_error(
+                "monster sprite consumption production pre-fatal run did not change");
+        }
+
+        FrameControls idle;
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (!bombs_.empty() || monsters_.size() != 1 ||
+            monsters_.front().behavior != 2 ||
+            monsters_.front().kind != 0x0c || monsters_.front().hp != 0 ||
+            monsters_.front().stateTimer != corpseEngineFrames ||
+            monsterSpriteIndex(monsters_.front()) != corpseSprite ||
+            !bonusDrops_.empty() || randomSeed_ != fatalRng) {
+            throw std::runtime_error(
+                "monster sprite consumption production fatal transition mismatch");
+        }
+        FrameInspection corpseFrame =
+            inspectRenderedFrame("monster-sprite-consumption-corpse");
+        if (corpseFrame.hash == lastPreFatalFrame.hash) {
+            throw std::runtime_error(
+                "monster sprite consumption production renderer did not change");
+        }
+
+        int visibleEngineFrames = 1;
+        for (int frame = 1; frame < corpseEngineFrames; ++frame) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            ++visibleEngineFrames;
+            if (monsters_.size() != 1 ||
+                monsters_.front().stateTimer != corpseEngineFrames - frame ||
+                monsterSpriteIndex(monsters_.front()) != corpseSprite ||
+                !bonusDrops_.empty() || randomSeed_ != fatalRng) {
+                throw std::runtime_error(
+                    "monster sprite consumption production corpse playback mismatch");
+            }
+        }
+        if (visibleEngineFrames != corpseEngineFrames ||
+            monsters_.front().stateTimer != 1) {
+            throw std::runtime_error(
+                "monster sprite consumption production death timing mismatch");
+        }
+
+        updateWithControls(idle, 1.0f / 60.0f);
+        if (!monsters_.empty() || bonusDrops_.size() != 1 ||
+            randomSeed_ != rewardRng ||
+            bonusSpriteIndex(bonusDrops_.front().type) != rewardSprite ||
+            score_ != static_cast<uint32_t>(scoreBefore)) {
+            throw std::runtime_error(
+                "monster sprite consumption production reward mismatch");
+        }
+        int visibleRewardTicks = 1;
+        for (int frame = 1; frame < rewardVisibleTicks; ++frame) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            ++visibleRewardTicks;
+            if (bonusDrops_.size() != 1 ||
+                bonusSpriteIndex(bonusDrops_.front().type) != rewardSprite ||
+                score_ != static_cast<uint32_t>(scoreBefore)) {
+                throw std::runtime_error(
+                    "monster sprite consumption production reward visibility mismatch");
+            }
+        }
+
+        const BonusDrop reward = bonusDrops_.front();
+        player_.x = reward.x;
+        player_.y = reward.y;
+        player_.vx = 0.0f;
+        player_.vy = 0.0f;
+        player_.grounded = true;
+        updateBonusDrops();
+        if (!bonusDrops_.empty() ||
+            score_ != static_cast<uint32_t>(scoreAfter) ||
+            score_ - static_cast<uint32_t>(scoreBefore) !=
+                static_cast<uint32_t>(scoreDelta) ||
+            visibleRewardTicks != rewardVisibleTicks) {
+            throw std::runtime_error(
+                "monster sprite consumption production collection mismatch");
+        }
+
+        std::cout << "monster_sprite_consumption_evidence=ok"
+                  << " fixture=level1"
+                  << " ticks=" << ticks.size()
+                  << " frames=" << ticks.front().frame << ".."
+                  << ticks.back().frame
+                  << " checkpoints=" << checkpoints.size()
+                  << " actor_rows=" << actorRows << "/" << actorRows
+                  << " visual_rows=" << visualRows << "/" << visualRows
+                  << " descriptor_match=1"
+                  << " pre_sprite=" << preSprite
+                  << " last_pre_fatal_sprite=" << lastPreFatalSprite
+                  << " pre_sprite_runs=" << preSpriteRunSummary
+                  << " impact_sprite=" << corpseSprite
+                  << " impact_equals_death=1"
+                  << " death_sprite_runs=" << corpseSprite << "x"
+                  << corpseOriginalTicks
+                  << " death_ticks=" << corpseOriginalTicks
+                  << " engine_death_frames=" << visibleEngineFrames
+                  << " reward_sprite=" << rewardSprite
+                  << " reward_visible_ticks=" << rewardVisibleTicks
+                  << " reward_actor_timer=" << rewardActorTimer
+                  << " reward_initial_vy=" << rewardInitialVy
+                  << " reward_next_vy=" << rewardNextVy
+                  << " reward_y_step=" << (rewardNextY - rewardInitialY)
+                  << " reward_motion_observed=1"
+                  << " score_delta=" << (score_ - scoreBefore)
+                  << " rng_transitions=1/1"
+                  << " exogenous_input=" << ticks.size()
+                  << " exogenous_position=" << ticks.size()
+                  << " production_damage=1"
+                  << " production_death_timer=1"
+                  << " production_renderer=1"
+                  << " production_reward=1"
+                  << " production_collection=1"
+                  << " impact_confirmed=1"
+                  << " death_confirmed=1"
+                  << " reward_confirmed=1"
+                  << " original_runtime_claim=1"
+                  << " reward_motion_claim=0"
+                  << " visual_claim=0\n";
+    }
+
     // Verify the live sprite-descriptor table captured from the original
     // against the port's OWN raw SPR loader. The table (DS:0xC322, 92 x
     // {w:u8, h:u8, pixel_offset:u16le}, entry 0 reserved) proves at runtime
@@ -18712,6 +20033,7 @@ public:
         std::map<std::string, std::string> kv;
         std::string line;
         while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
             if (line.empty() || line[0] == '#') continue;
             auto eq = line.find('=');
             if (eq == std::string::npos) continue;
@@ -18784,6 +20106,7 @@ public:
         std::map<std::string, std::string> kv;
         std::string line;
         while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
             if (line.empty() || line[0] == '#') continue;
             auto eq = line.find('=');
             if (eq == std::string::npos) continue;
@@ -20712,6 +22035,10 @@ private:
     void prepareAutoplayerMonsterFixtureLevel() {
         prepareMonsterMotionDebugLevel(false);
         menu_ = false;
+        // Keep long-running corpse/reward scenarios inside this synthetic
+        // room instead of letting the zeroed objective defaults auto-complete
+        // after 101 updates.
+        level_.requiredBonus = 1;
         spawnerStates_.clear();
         bonusDrops_.clear();
         bombs_.clear();
@@ -21352,6 +22679,10 @@ private:
             if (!monster.alive) continue;
             if (monster.behavior == 2) {
                 if (--monster.stateTimer <= 0) {
+                    if (monster.deathRewardPending) {
+                        finishMonsterDeathReward(monster);
+                        monster.deathRewardPending = false;
+                    }
                     if (monster.bossDebris) {
                         // Original 1000:5BCC debris become power-2 timed
                         // bombs; the port bursts each piece into a flash.
@@ -22406,11 +23737,10 @@ private:
 
     void enterMonsterDeath(ActiveMonster& monster) {
         if (monster.behavior == 2) return;
-        spawnBonusDrop(static_cast<float>(monster.x) + 1.0f,
-                       static_cast<float>(monster.y) + 2.0f);
         monster.behavior = 2;
         monster.kind = 0x0c;
-        monster.stateTimer = 25;
+        monster.stateTimer = kMonsterDeathVisibleFrames + 1;
+        monster.deathRewardPending = true;
         releaseMonsterSlot(monster);
         monster.vx8 = 0;
         monster.vy8 = 0;
@@ -22421,13 +23751,51 @@ private:
         requestMonsterDeathSound();
     }
 
-    void spawnBonusDrop(float x, float y) {
-        int roll = randomRangeValue(0, 7);
+    void spawnBonusDrop(float x, float y, BonusType type) {
         BonusDrop drop;
         drop.x = x;
         drop.y = y;
-        drop.type = static_cast<BonusType>(roll);
+        drop.type = type;
         bonusDrops_.push_back(drop);
+    }
+
+    void finishMonsterDeathReward(ActiveMonster& monster) {
+        // Exact original kind-0x0c expiry path, disassembled at file
+        // 0x7ddd..0x7ec0 (Ghidra 1000:766d..7750) and confirmed by the live
+        // level-1 trace. The transition first rolls Random(100); values below
+        // 40 produce no reward, while the ascending DGROUP thresholds select
+        // one of the seven bonus kinds for rolls 40..99.
+        const int rewardRoll = randomRangeValue(0, 100);
+        static constexpr std::array<int, 7> kRewardUpperBounds{{
+            65, 71, 78, 83, 89, 93, 100,
+        }};
+        if (rewardRoll >= 40) {
+            size_t rewardIndex = 0;
+            while (rewardIndex + 1 < kRewardUpperBounds.size() &&
+                   rewardRoll > kRewardUpperBounds[rewardIndex]) {
+                ++rewardIndex;
+            }
+            spawnBonusDrop(
+                static_cast<float>(monster.x),
+                static_cast<float>(monster.y + monster.hotspotY),
+                static_cast<BonusType>(rewardIndex));
+        }
+
+        // The second draw selects the original direct-sweep sound cursor.
+        const uint16_t rewardSound =
+            static_cast<uint16_t>(0xea74 + randomRangeValue(0, 20));
+        requestSoundCursor(rewardSound, 4);
+
+        // A normal corpse then creates two kind-0x0b transition effects, each
+        // with Random(600)-300 X/Y velocity. Their actor renderer remains
+        // outside this focused sprite-consumption recovery, but preserving the
+        // four evidenced draws keeps subsequent gameplay RNG bit-identical.
+        for (int effect = 0; effect < 2; ++effect) {
+            const int vx8 = static_cast<int>(randomRangeValue(0, 600)) - 300;
+            const int vy8 = static_cast<int>(randomRangeValue(0, 600)) - 300;
+            (void)vx8;
+            (void)vy8;
+        }
     }
 
     void updateBonusDrops() {
@@ -22967,7 +24335,8 @@ private:
             }
             return std::min<int>(static_cast<int>(altSprites_.sprites.size()) - 1, 39);
         }
-        int index = monster.behavior == 2 ? 18 : monster.animFrame;
+        int index = monster.behavior == 2 ? kMonsterCorpseSprite
+                                          : monster.animFrame;
         if (index >= 0 && index < static_cast<int>(sprites_.sprites.size())) return index;
         return std::min<int>(sprites_.sprites.size() - 1, 39);
     }
@@ -24223,6 +25592,12 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-sprite-descriptor-evidence") {
             app.debugSpriteDescriptorEvidence(argv[2]);
+            return 0;
+        }
+        if (argc > 2 &&
+            std::string(argv[1]) ==
+                "--debug-monster-sprite-consumption-evidence") {
+            app.debugMonsterSpriteConsumptionEvidence(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-lockstep-evidence") {

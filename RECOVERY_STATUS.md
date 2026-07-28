@@ -1,6 +1,6 @@
 # Recovery Status
 
-Last reviewed: 2026-07-19
+Last reviewed: 2026-07-28
 Branch: `main`
 Baseline: `origin/main`
 
@@ -9,10 +9,10 @@ Baseline: `origin/main`
 The C++ port is functionally complete. Every recovered gameplay, data, UI,
 and sound subsystem of `LEZAC.EXE` has a C++ implementation with
 deterministic validation coverage, and the full CTest suite passes on a
-clean Linux host (377/377 after this iteration's additions). The new
+clean Linux host. The new
 `--debug-port-completion-status` diagnostic declares that state as
 machine-checkable output: 23 implemented subsystems with their validation
-entry points and the 12 open original-evidence follow-ups, reported with
+entry points and the four open original-evidence follow-ups, reported with
 `port_functionally_complete=1` and `original_fidelity_claim=0`.
 `tools/check_port_completion_status.py` plus
 `docs/recovery/port_completion_status.md` keep the completion claim, the
@@ -22,6 +22,54 @@ DOSBox/DOSBox-debug/process-memory evidence hosts and stay `visual_claim=0`
 under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
+
+- **Captured the original level-1 monster death/Present-reward sequence and
+  recovered its live sprite consumption, timer, and RNG order.** The guarded
+  Xvfb/DOSBox
+  run used a temporary asset copy and sampled 110 consecutive original ticks,
+  frames 257..366, by taking one complete 64 KiB `DS` pread after each
+  `DS:0x78C2` change. The frame-257 pre-impact checkpoint renders sprite
+  **44**, but the authoritative pre-fatal sequence is
+  `pre_sprite_runs=44x4,43x2`: frames 257..260 use sprite **44** and frames
+  261..262 use sprite **43**, so `last_pre_fatal_sprite=43`. At frame 263 the
+  same slot changes directly to kind `0x0c`, behavior/state `2`, raw timer
+  byte `0x19` (decimal 25), and sprite **47**; there is no distinct impact
+  frame (`impact_equals_death=1`). The timer
+  decrements to 1 on the original governed cadence while the corpse remains
+  visible for **49 sampled original ticks**, corresponding to **120 engine
+  frames** in the 60 Hz port. It disappears at frame 312 and only then creates
+  a Present reward on sprite **61**. The reward stays visible for the 54
+  observed ticks until collection at frame 366 changes score **50 -> 2050**
+  (`+2000`). This is runtime evidence only for the observed Present/sprite
+  **61** path; reward sprites **62..67** retain static table evidence only.
+  The expiry path leaves `DS:0x1AFE` unchanged at `0x90e25b93` throughout the
+  corpse, then makes exactly six Turbo-Pascal RNG advances:
+  `0x003b95e0 / Random(100)=59` (Present),
+  `0x69716d61 / Random(20)=13` (sound cursor `0xea81`), then
+  `0xfea526e6 / Random(600)=389`, `0x88785a7f / 136`,
+  `0x84fb407c / 443`, and `0x0a08326d / 168` for the two transition
+  effects' X/Y velocities. The port now follows that delayed reward and RNG
+  order; it consumes the four effect draws but does not yet instantiate or
+  render the two kind-`0x0b` transition actors. The original Present actor row
+  has timer byte `+2 = 100`, initial vertical velocity `-200`, and subsequent
+  motion, while the port's `BonusDrop` is still static. This promotes the
+  Present sprite identity, observed visibility, and collection consumption,
+  not exact reward physics or presentation.
+  `tests/fixtures/monster_sprite_consumption_original_level1.txt` preserves
+  the raw actor/visual rows, descriptor fingerprint, RNG, score, and five
+  screenshot checkpoints. Captured XTEST input and player positions are
+  explicitly exogenous; the authoritative claims are the actor/visual,
+  timing, reward, RNG, and score transitions. The
+  `--debug-monster-sprite-consumption-evidence` replay drives the production
+  damage, corpse timer, sprite renderer, delayed Present reward, and collection
+  paths and reports `impact_confirmed=1`, `death_confirmed=1`,
+  `reward_confirmed=1`, `original_runtime_claim=1`, and `visual_claim=0`.
+  This resolves
+  `monster_sprite_table_runtime_consumption` and reduces the open
+  original-evidence list from five to four. No paired pixel comparison was
+  promoted, and both reward physics/presentation and transition-effect
+  rendering remain outside this focused recovery, so the global
+  `original_fidelity_claim=0` is unchanged.
 
 - **Read the original's live sprite-descriptor table and proved the one-based
   sprite indexing at runtime.** One /proc-mem pread of a running level-1
@@ -38,10 +86,9 @@ under the existing guardrails; they are not missing port functionality.
   only) to runtime-CONFIRMED. Pinned by
   `tests/fixtures/sprite_descriptor_original_level1.txt` (the raw 368 bytes)
   and the `sprite_descriptor_evidence` ctest, whose diagnostic compares the
-  captured table against the port's own `loadRawSprites` decode. The
-  runtime-consumption half of `monster_sprite_table_runtime_consumption`
-  (which frames actually PLAY at impact/death/reward) remains open and needs
-  the monster-kill trace.
+  captured table against the port's own `loadRawSprites` decode. That
+  descriptor mapping is also the basis for decoding the now-complete
+  monster-kill runtime trace described above.
 
 - **Recovered the remaining capture-evidenced actor divergences (spawner
   timing, contact box, vertical hotspot, animation cadence) and landed the
@@ -847,8 +894,8 @@ under the existing guardrails; they are not missing port functionality.
   the runtime placement mapping; exact original motion timing remains an
   evidence follow-up.
 - Declared functional port completion with machine-checkable coverage. Added
-  `--debug-port-completion-status`, which enumerates the 22 implemented
-  subsystems with deterministic validation entry points and the 12 open
+  `--debug-port-completion-status`, which now enumerates the 23 implemented
+  subsystems with deterministic validation entry points and the four open
   original-evidence fidelity items, always reporting
   `port_functionally_complete=1 original_fidelity_claim=0`. Added
   `tools/check_port_completion_status.py` (with `--self-test` rejection
@@ -1325,7 +1372,12 @@ under the existing guardrails; they are not missing port functionality.
   `42,47,48,52,56`, current death renderer sprite `18`, and reward frames
   `61..67` with the recovered reward scores. This narrows the exact
   impact/death/reward frame-table gap but remains asset/table evidence with
-  `visual_claim=0`.
+  `visual_claim=0`. This historical candidate-only state is superseded by the
+  current level-1 runtime trace: frame-257 checkpoint `44`, the authoritative
+  pre-fatal run `44x4,43x2` with last sprite `43`, fatal/corpse `47`, and
+  delayed Present `61`. The runtime reward claim is Present/sprite `61` only;
+  sprites `62..67` remain static mappings, and exact transition-effect
+  rendering remains unpromoted.
 - Added a live central objective/progress line to the two-player HUD band and
   `--debug-two-player-hud-panel` frame inspection. The diagnostic pins both
   split world views, both player HUD bands, the central objective panel region,
@@ -3578,10 +3630,6 @@ under the existing guardrails; they are not missing port functionality.
   remain unresolved. The current C++ central objective panel is covered by
   `--debug-two-player-hud-panel`, but original frame comparison is still
   required before the artwork/layout can be promoted.
-- Exact original runtime consumption of impact/death/reward sprite frames
-  remains unresolved. The current static candidate table is pinned by
-  `--debug-monster-sprite-table-model`, but original frame/debugger evidence is
-  still required before those presentation details can be promoted.
 - `GRAN.MST` loader and field layout are now statically recovered
   (`--debug-gran-static-consumer-model`): it is the level-7 multi-segment
   boss actor file read by `1000:08A5` behind the `DS:0x79B7 == 7` gate, and

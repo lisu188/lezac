@@ -37,7 +37,6 @@ last_pre_fatal_sprite=43
 pre_sprite_runs=44x4,43x2
 corpse_sprite=47
 corpse_original_ticks=49
-corpse_engine_frames=120
 corpse_timer_first=25
 corpse_timer_last=1
 reward_sprite=61

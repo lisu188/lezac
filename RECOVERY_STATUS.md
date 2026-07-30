@@ -23,6 +23,65 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Ran the interactive loop at the original's governed tick rate.** Every
+  per-tick subsystem recovered so far -- walker motion (`vx8 = 0x0100`, one
+  pixel per tick), the spawner's 256-tick first spawn and 90-tick period, the
+  boss 29-tick RNG gate, animation period 4, the bomb fuse, and the new
+  falling-debris state machine -- advances exactly once per `update()` call.
+  But `run()` called `update()` once per 16 ms `SDL_Delay`, so in live play
+  all of it ran at ~60 ticks/s against the original's governed 24.2..25.2:
+  walkers moved ~60 px/s instead of ~24, the first spawn arrived after 4.3 s
+  instead of 10.5 s, and debris fell and retired ~2.4x too fast. Nothing
+  caught it because every test and lockstep diagnostic drives ticks directly,
+  one call per tick -- which is correct; only the live loop's cadence was
+  wrong. The fix is a single governed accumulator in the new
+  `pumpGovernedLoop()`: events are still polled every 4 ms so input stays
+  responsive, but gameplay ticks are issued at a fixed 40.8 ms (24.51/s,
+  mid-band), with a 5-tick catch-up cap so a suspended window cannot
+  fast-forward a level on resume. `run()` now has no cadence code of its own.
+  The original's reference is the dithered governor at file `0x8089`
+  (delay word `DS:0x78CC` alternating 96/102 ms, step `DS:0x78CA` = 6, 30
+  frames per 120..125 hundredths); the port uses a fixed mid-band value
+  rather than reproducing the dither, and says so in the comment.
+  The monster corpse timer had the same defect and is fixed with it:
+  `kMonsterDeathVisibleFrames = 120` was the 60 fps conversion of a measured
+  **49** governed ticks (sprite 47 held across `DS:78C2` frames 263..311), so
+  it becomes `kMonsterDeathVisibleTicks = 49` -- the captured number itself.
+  The monster-sprite-consumption check now replays the corpse for
+  `corpse_original_ticks`, exactly as it already replayed the reward for the
+  measured `reward_visible_ticks=54`; that inconsistency between the two
+  replays in the same function is what the conversion had introduced. The
+  fixture's `corpse_engine_frames=120` key is dropped: it was arithmetic over
+  an engine assumption, not captured data, and the capture tool never emitted
+  it.
+  The bomb fuses were the one set of constants stored as 60 fps frame counts:
+  the small fuse becomes **41**, which is literally the tick-locked
+  measurement (`small_bomb_fuse_ticks=41`; placed 396, zero 437) rather than
+  a rate conversion of it, so `route_timing_evidence` now compares the port
+  constant to the fixture exactly instead of within a 0.1 s tolerance. The
+  other three (61/82/410) keep the 1.5x/2x/10x multiples of the small fuse
+  the port has always used, now in ticks, and stay labelled INFERRED -- only
+  the small fuse has been captured.
+  Pinned by the new `--debug-governed-rate` diagnostic (`governed_rate`
+  ctest), which calls `pumpGovernedLoop()` itself -- the same function
+  `run()` drives the game with -- and measures the realised rate over a
+  5 s wall-clock window. The knockout was run for real: restoring the
+  one-update-per-16 ms pacing inside that function measures 56.73 ticks/s and
+  fails the test. The nominal interval is asserted strictly inside the
+  24.2..25.2 band and the measured rate against the band ceiling; the
+  measured floor carries slack (22.0) because a loaded host can only ever
+  lose ticks, never gain them.
+  **Scope**: constants that were never byte-cited and are not 60 fps
+  conversions are left alone rather than re-tuned by guesswork -- the
+  explosion-flame `Flash` lifetime (12), which sets boss flame damage per
+  tick, the portal/trigger debounce (30), and the port-policy auto-reentry
+  timeout `kReentryTicks` (180, where the original instead waits on a key
+  press at `1000:7ddf`). These are tick counts in the port's model and now
+  run at the original's rate; none has original evidence fixing its duration,
+  so each stays as it was and is listed here rather than silently adjusted.
+  The menus, help pages and level-intro flows run their own wall-clock
+  loops and are out of scope. Suite 392/392.
+
 - **Captured the original level-1 monster death/Present-reward sequence and
   recovered its live sprite consumption, timer, and RNG order.** The guarded
   Xvfb/DOSBox

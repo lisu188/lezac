@@ -122,12 +122,37 @@ constexpr uint8_t kState2VisualEndFrame = 0x4f;
 constexpr uint8_t kState2VisualDelay = 3;
 constexpr int kDamageCooldownTicks = 18;
 // The original kind-1 kill trace holds sprite 47 for DS:78C2 frames 263..311:
-// 49 governed 24.5-fps ticks, or 120 frames at the port's 60-fps engine rate.
-// updateMonsters runs after bomb damage in the same engine frame, so the death
-// actor is initialized one count above the first externally visible value.
+// 49 governed ticks. updateMonsters runs after bomb damage in the same tick,
+// so the death actor is initialized one count above the first externally
+// visible value.
 constexpr int kMonsterCorpseSprite = 47;
-constexpr int kMonsterDeathVisibleFrames = 120;
-constexpr uint32_t kFrameDelayMs = 16;
+constexpr int kMonsterDeathVisibleTicks = 49;
+// The original's main loop is rate-governed: file offset 0x8089 holds 30
+// frames in 120..125 hundredths of a second by dithering the delay word
+// DS:0x78CC between 96 and 102 ms (step DS:0x78CA = 6), so the converged
+// rate oscillates in a 24.2..25.2 fps band (see
+// tests/fixtures/route_timing_original_level1.txt).  One update() call is
+// one original game tick throughout this port, so the interactive loop must
+// fire updates at that rate; kGovernedTickMs is a fixed value sitting
+// mid-band rather than a reproduction of the dither.
+constexpr double kGovernedTickMs = 40.8;  // 24.5 fps, mid-band
+// Events are polled far more often than ticks so that key presses (handled
+// edge-wise in processEvents/onKey) stay responsive between updates.
+constexpr uint32_t kEventPollDelayMs = 4;
+// Upper bound on ticks simulated in one pass after a stall, so a suspended
+// window cannot fast-forward the level on resume.
+constexpr int kMaxCatchUpTicks = 5;
+// Acceptance band for the measured interactive tick rate: the original's
+// governed 24.2..25.2 fps, widened by nothing — a loop paced any other way
+// (the previous 16 ms/60 fps pacing, for instance) falls outside it.
+constexpr double kGovernedRateBandMin = 24.2;
+constexpr double kGovernedRateBandMax = 25.2;
+// A wall-clock measurement on a loaded host can only ever lose ticks, never
+// gain them: once a stall exceeds the catch-up cap the missed ticks are
+// dropped for good. So the measured rate is held to the band's ceiling
+// exactly — that is the bound a too-fast loop (the old 16 ms/60 fps pacing
+// yields ~60) violates — while the floor carries slack for host scheduling.
+constexpr double kGovernedRateMeasuredFloor = 22.0;
 constexpr uint32_t kLevelIntroCharacterDelayMs = 81;
 constexpr int kLevelIntroCellAdvance = 11;
 constexpr int kLevelIntroTextY = 94;
@@ -495,9 +520,9 @@ struct BombProfile {
     // The original small-bomb fuse is 41 game ticks (~1.67 s at the governed
     // 24.5 fps), measured from the bomb actor's countdown byte (record
     // offset 0x1B, decremented once per frame by the main loop at file
-    // 0x820b): placed at tick 396, zero at tick 437. 100 engine frames at
-    // 60 fps reproduces that duration.
-    int fuseTicks = 100;
+    // 0x820b): placed at tick 396, zero at tick 437. One update() call is one
+    // game tick, so the port counts the measured value directly.
+    int fuseTicks = 41;
 };
 
 struct BombInventory {
@@ -508,9 +533,9 @@ struct BombInventory {
 struct Bomb {
     int x = 0;
     int y = 0;
-    int timer = 100;
+    int timer = 41;
     BombType type = BombType::Small;
-    int fuseTicks = 100;
+    int fuseTicks = 41;
     uint8_t owner = 1;
 };
 
@@ -1796,22 +1821,112 @@ public:
         buildBackdropBuffer();
     }
 
+    // The one implementation of the interactive cadence. Events are polled
+    // every kEventPollDelayMs so key presses stay responsive, but gameplay
+    // ticks are handed out by a wall-clock accumulator at the original's
+    // governed rate, because every per-tick subsystem in this port (walker
+    // motion, spawners, boss gates, animation, bomb fuses, falling debris)
+    // advances exactly once per update() call. Runs until `running` clears or
+    // stop() reports true; returns the number of ticks issued.
+    template <typename StopFn>
+    long pumpGovernedLoop(bool& running, StopFn stop) {
+        uint32_t last = SDL_GetTicks();
+        double tickAccumulatorMs = 0.0;
+        long ticks = 0;
+        while (running && !stop()) {
+            processEvents(running);
+            uint32_t now = SDL_GetTicks();
+            tickAccumulatorMs += static_cast<double>(now - last);
+            last = now;
+            tickAccumulatorMs = std::min(tickAccumulatorMs,
+                                         kGovernedTickMs * kMaxCatchUpTicks);
+            bool ticked = false;
+            while (tickAccumulatorMs >= kGovernedTickMs) {
+                tickAccumulatorMs -= kGovernedTickMs;
+                update(static_cast<float>(kGovernedTickMs / 1000.0));
+                ++ticks;
+                ticked = true;
+            }
+            if (ticked) draw();
+            SDL_Delay(kEventPollDelayMs);
+        }
+        return ticks;
+    }
+
     void run() {
         load();
         initSdl();
         resetLevel(0);
         interactiveLevelIntroEnabled_ = true;
-        uint32_t last = SDL_GetTicks();
         bool running = true;
-        while (running) {
-            processEvents(running);
-            uint32_t now = SDL_GetTicks();
-            float dt = std::min(0.05f, (now - last) / 1000.0f);
-            last = now;
-            update(dt);
-            draw();
-            SDL_Delay(kFrameDelayMs);
+        pumpGovernedLoop(running, [] { return false; });
+    }
+
+    // Measure the realised tick rate of the interactive loop over a bounded
+    // wall-clock window. This calls pumpGovernedLoop — the same function
+    // run() drives the game with — so a regression in the live cadence fails
+    // here rather than only showing up in play.
+    void debugGovernedRate(double windowSeconds) {
+        load();
+        initSdl();
+        resetLevel(0);
+        menu_ = false;
+        const uint32_t start = SDL_GetTicks();
+        const uint32_t windowMs =
+            static_cast<uint32_t>(std::max(0.5, windowSeconds) * 1000.0);
+        const uint32_t startLogicTick = logicTick_;
+        bool running = true;
+        const long ticks = pumpGovernedLoop(
+            running, [&] { return SDL_GetTicks() - start >= windowMs; });
+        const double elapsedSeconds =
+            static_cast<double>(SDL_GetTicks() - start) / 1000.0;
+        const double ticksPerSecond =
+            elapsedSeconds > 0.0 ? ticks / elapsedSeconds : 0.0;
+        const long logicTicks =
+            static_cast<long>(logicTick_ - startLogicTick);
+        // The scheduling interval itself is exact and host-independent.
+        const double nominalTicksPerSecond = 1000.0 / kGovernedTickMs;
+        if (nominalTicksPerSecond < kGovernedRateBandMin ||
+            nominalTicksPerSecond > kGovernedRateBandMax) {
+            throw std::runtime_error(
+                "kGovernedTickMs schedules " +
+                std::to_string(nominalTicksPerSecond) +
+                " ticks/s, outside the original's governed band");
         }
+        if (ticksPerSecond > kGovernedRateBandMax) {
+            throw std::runtime_error(
+                "measured tick rate " + std::to_string(ticksPerSecond) +
+                " exceeds the original's governed band");
+        }
+        if (ticksPerSecond < kGovernedRateMeasuredFloor) {
+            throw std::runtime_error(
+                "measured tick rate " + std::to_string(ticksPerSecond) +
+                " fell below the governed band's host-stall floor");
+        }
+        if (logicTicks != ticks) {
+            throw std::runtime_error(
+                "gameplay ticks did not track loop ticks one-for-one");
+        }
+        // Derived wall-clock durations for the per-tick subsystems whose
+        // constants are game ticks: the small-bomb fuse and the debris
+        // rest-to-retire countdown.
+        const double fuseSeconds =
+            bombProfile(BombType::Small).fuseTicks / ticksPerSecond;
+        const double debrisRetireSeconds =
+            static_cast<double>(kDebrisRetireRestTicks) / ticksPerSecond;
+        std::cout << std::fixed << std::setprecision(2)
+                  << "governed_rate=ok"
+                  << " nominal_ticks_per_second=" << nominalTicksPerSecond
+                  << " band=" << kGovernedRateBandMin << '-'
+                  << kGovernedRateBandMax
+                  << " window_s=" << elapsedSeconds
+                  << " ticks=" << ticks
+                  << " measured_ticks_per_second=" << ticksPerSecond
+                  << " logic_ticks_match=1"
+                  << " small_fuse_s=" << fuseSeconds
+                  << " debris_retire_s=" << debrisRetireSeconds
+                  << " visual_claim=0\n"
+                  << std::defaultfloat;
     }
 
     void smokeControls() {
@@ -2840,18 +2955,18 @@ public:
             if (!bombs_.empty() || monsters_.empty() ||
                 monsters_.front().behavior != 2 ||
                 monsters_.front().kind != 0x0c ||
-                monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
+                monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
                 monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error("frame sequence monster bomb did not kill monster");
             }
             capture("030_monster_bomb_death");
 
-            for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+            for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
                 updateWithControls(idle, 1.0f / 60.0f);
                 if (monsters_.size() != 1 ||
                     monsters_.front().stateTimer !=
-                        kMonsterDeathVisibleFrames - frame ||
+                        kMonsterDeathVisibleTicks - frame ||
                     monsterSpriteIndex(monsters_.front()) !=
                         kMonsterCorpseSprite ||
                     !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
@@ -2859,7 +2974,7 @@ public:
                         "frame sequence monster corpse playback mismatch");
                 }
                 if (monsters_.front().stateTimer ==
-                    kMonsterDeathVisibleFrames / 2) {
+                    kMonsterDeathVisibleTicks / 2) {
                     capture("040_monster_bomb_corpse_midpoint");
                 }
             }
@@ -3184,7 +3299,7 @@ public:
                       << " last_pre_fatal_sprite=43"
                       << " pre_sprite_runs=44x4,43x2"
                       << " corpse_sprite=" << kMonsterCorpseSprite
-                      << " corpse_frames=" << kMonsterDeathVisibleFrames
+                      << " corpse_ticks=" << kMonsterDeathVisibleTicks
                       << " delayed_reward=1 reward_sprite=61 reward_type=present"
                       << " score_delta=2000"
                       << " original_runtime_claim=1"
@@ -4402,7 +4517,7 @@ public:
         if (!bombs_.empty() || monsters_.empty() ||
             monsters_.front().behavior != 2 ||
             monsters_.front().kind != 0x0c ||
-            monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
+            monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
             monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster reward autoplayer did not kill monster");
@@ -4414,11 +4529,11 @@ public:
         }
 
         FrameInspection midpointFrame;
-        for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+        for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
             if (monsters_.size() != 1 ||
                 monsters_.front().stateTimer !=
-                    kMonsterDeathVisibleFrames - frame ||
+                    kMonsterDeathVisibleTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
                     kMonsterCorpseSprite ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
@@ -4426,7 +4541,7 @@ public:
                     "monster reward autoplayer corpse playback mismatch");
             }
             if (monsters_.front().stateTimer ==
-                kMonsterDeathVisibleFrames / 2) {
+                kMonsterDeathVisibleTicks / 2) {
                 midpointFrame = inspectRenderedFrame(
                     "autoplayer-monster-reward-corpse-midpoint");
             }
@@ -4477,7 +4592,7 @@ public:
                   << " last_pre_fatal_sprite=43"
                   << " pre_sprite_runs=44x4,43x2"
                   << " corpse_sprite=" << kMonsterCorpseSprite
-                  << " corpse_frames=" << kMonsterDeathVisibleFrames
+                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " delayed_reward=1 reward_sprite=61"
                   << " reward_collected=1"
                   << " score_delta=" << (score_ - scoreBefore)
@@ -4561,7 +4676,7 @@ public:
         randomSeed_ = 0x90e25b93u;
         updateWithControls(idle, 1.0f / 60.0f);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
-            monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
+            monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
             monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster behavior-3 autoplayer second hit did not kill");
@@ -4573,11 +4688,11 @@ public:
         }
 
         uint32_t scoreBefore = score_;
-        for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+        for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
             if (monsters_.size() != 1 ||
                 monsters_.front().stateTimer !=
-                    kMonsterDeathVisibleFrames - frame ||
+                    kMonsterDeathVisibleTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
                     kMonsterCorpseSprite ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
@@ -4622,7 +4737,7 @@ public:
                   << " first_hit_hp=2 second_hit_kill=1 reward_collected=1"
                   << " score_delta=" << (score_ - scoreBefore)
                   << " frame_inspection=1"
-                  << " corpse_frames=" << kMonsterDeathVisibleFrames
+                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " delayed_reward=1 reward_sprite=61\n";
     }
 
@@ -4682,7 +4797,7 @@ public:
         randomSeed_ = 0x90e25b93u;
         updateWithControls(idle, 1.0f / 60.0f);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
-            monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
+            monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
             monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster behavior-4 autoplayer bomb kill mismatch");
@@ -4693,11 +4808,11 @@ public:
             throw std::runtime_error("monster behavior-4 death frame did not change");
         }
 
-        for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+        for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
             if (monsters_.size() != 1 ||
                 monsters_.front().stateTimer !=
-                    kMonsterDeathVisibleFrames - frame ||
+                    kMonsterDeathVisibleTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
                     kMonsterCorpseSprite ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
@@ -4718,7 +4833,7 @@ public:
                   << " scenario=" << scenario
                   << " chase_dx=" << chaseDx
                   << " timer_after=1 killed=1 frame_inspection=1"
-                  << " corpse_frames=" << kMonsterDeathVisibleFrames
+                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " delayed_reward=1 reward_sprite=61\n";
     }
 
@@ -4770,7 +4885,7 @@ public:
         randomSeed_ = 0x90e25b93u;
         updateWithControls(idle, 1.0f / 60.0f);
         if (monsters_.empty() || monsters_.front().behavior != 2 ||
-            monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
+            monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
             monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
             spawnerStates_[0].availableSlots != initialSlots ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
@@ -4810,17 +4925,17 @@ public:
             return nullptr;
         };
         const ActiveMonster* corpse = findCorpse();
-        if (!corpse || corpse->stateTimer != kMonsterDeathVisibleFrames - 1 ||
+        if (!corpse || corpse->stateTimer != kMonsterDeathVisibleTicks - 1 ||
             monsterSpriteIndex(*corpse) != kMonsterCorpseSprite ||
             !bonusDrops_.empty()) {
             throw std::runtime_error(
                 "monster spawner autoplayer respawn disturbed corpse playback");
         }
-        for (int frame = 2; frame < kMonsterDeathVisibleFrames; ++frame) {
+        for (int frame = 2; frame < kMonsterDeathVisibleTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
             corpse = findCorpse();
             if (!corpse ||
-                corpse->stateTimer != kMonsterDeathVisibleFrames - frame ||
+                corpse->stateTimer != kMonsterDeathVisibleTicks - frame ||
                 monsterSpriteIndex(*corpse) != kMonsterCorpseSprite ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
@@ -4840,7 +4955,7 @@ public:
                   << " scenario=" << scenario
                   << " spawner_index=1 reserved_slot=1 released_slot=1 respawned=1"
                   << " frame_inspection=1"
-                  << " corpse_frames=" << kMonsterDeathVisibleFrames
+                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " delayed_reward=1 reward_sprite=61\n";
     }
 
@@ -7333,7 +7448,7 @@ public:
                   << " pre_sprite_runs=44x4,43x2"
                   << " impact_equals_death=1"
                   << " corpse_original_ticks=49"
-                  << " corpse_engine_frames=" << kMonsterDeathVisibleFrames
+                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " reward_delay=corpse_expiry"
                   << " death_runtime_claim=1"
                   << " reward61_runtime_claim=1"
@@ -9878,7 +9993,7 @@ public:
         clearSoundLatch();
         enterMonsterDeath(monster);
         if (monster.behavior != 2 ||
-            monster.stateTimer != kMonsterDeathVisibleFrames + 1 ||
+            monster.stateTimer != kMonsterDeathVisibleTicks + 1 ||
             !monster.deathRewardPending || !bonusDrops_.empty() ||
             !soundLatch_.active ||
             soundLatch_.latchedOffset != kMonsterDeathSoundCursor ||
@@ -16617,7 +16732,7 @@ public:
         randomSeed_ = 0x90e25b93u;
         enterMonsterDeath(monster);
         if (spawnerStates_[spawnerIndex].availableSlots != initialSlots ||
-            monster.stateTimer != kMonsterDeathVisibleFrames + 1 ||
+            monster.stateTimer != kMonsterDeathVisibleTicks + 1 ||
             !monster.deathRewardPending || !bonusDrops_.empty() ||
             randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster death did not immediately return live slot");
@@ -16625,16 +16740,16 @@ public:
         const int initializedTimer = monster.stateTimer;
         updateMonsters(0.0f);
         if (monsters_.size() != 1 ||
-            monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
+            monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error(
                 "monster death first visible timer changed");
         }
-        for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+        for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
             updateMonsters(0.0f);
             if (monsters_.size() != 1 ||
                 monsters_.front().stateTimer !=
-                    kMonsterDeathVisibleFrames - frame ||
+                    kMonsterDeathVisibleTicks - frame ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "monster slot corpse playback timing changed");
@@ -16654,8 +16769,8 @@ public:
         std::cout << "monster_slots=ok initial_slots=" << initialSlots
                   << " returned_immediate=1"
                   << " death_timer_initialized=" << initializedTimer
-                  << " first_visible_timer=" << kMonsterDeathVisibleFrames
-                  << " visible_frames=" << kMonsterDeathVisibleFrames
+                  << " first_visible_timer=" << kMonsterDeathVisibleTicks
+                  << " visible_ticks=" << kMonsterDeathVisibleTicks
                   << " reward_delayed=1\n";
     }
 
@@ -16861,7 +16976,7 @@ public:
             if (monsters_.size() != 1 ||
                 monsters_.front().behavior != 2 ||
                 monsters_.front().stateTimer !=
-                    kMonsterDeathVisibleFrames + 1 ||
+                    kMonsterDeathVisibleTicks + 1 ||
                 monsterSpriteIndex(monsters_.front()) !=
                     kMonsterCorpseSprite ||
                 !monsters_.front().deathRewardPending ||
@@ -16873,17 +16988,17 @@ public:
 
             updateMonsters(0.0f);
             if (monsters_.size() != 1 ||
-                monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
+                monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
                 bonusDrops_.size() != dropsBefore ||
                 randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "direct monster death first visible frame mismatch");
             }
-            for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+            for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
                 updateMonsters(0.0f);
                 if (monsters_.size() != 1 ||
                     monsters_.front().stateTimer !=
-                        kMonsterDeathVisibleFrames - frame ||
+                        kMonsterDeathVisibleTicks - frame ||
                     monsterSpriteIndex(monsters_.front()) !=
                         kMonsterCorpseSprite ||
                     bonusDrops_.size() != dropsBefore ||
@@ -16965,7 +17080,7 @@ public:
 
         std::cout << "monster_blast_damage=ok drops=" << bonusDrops_.size()
                   << " corpse_sprite=" << kMonsterCorpseSprite
-                  << " corpse_frames=" << kMonsterDeathVisibleFrames
+                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " delayed_reward=1 reward_sprite=61\n";
     }
 
@@ -17969,7 +18084,7 @@ public:
         updateWithControls(idle, 1.0f / 60.0f);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().kind != 0x0c || monsters_.front().hp != 0 ||
-            monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
+            monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
             monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             std::ostringstream oss;
@@ -17992,11 +18107,11 @@ public:
         }
 
         FrameInspection midpointFrame;
-        for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+        for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
             if (monsters_.size() != 1 ||
                 monsters_.front().stateTimer !=
-                    kMonsterDeathVisibleFrames - frame ||
+                    kMonsterDeathVisibleTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
                     kMonsterCorpseSprite ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
@@ -18004,7 +18119,7 @@ public:
                     "live monster bomb corpse playback mismatch");
             }
             if (monsters_.front().stateTimer ==
-                kMonsterDeathVisibleFrames / 2) {
+                kMonsterDeathVisibleTicks / 2) {
                 midpointFrame = inspectRenderedFrame(
                     "monster-bomb-kill-live-corpse-midpoint");
             }
@@ -18060,7 +18175,7 @@ public:
                   << " last_pre_fatal_sprite=43"
                   << " pre_sprite_runs=44x4,43x2"
                   << " corpse_sprite=" << kMonsterCorpseSprite
-                  << " corpse_frames=" << kMonsterDeathVisibleFrames
+                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " delayed_reward=1 reward_sprite=61"
                   << " killed=1 removed=1 reward=1 collected=1"
                   << " score_delta=" << (score_ - scoreBefore)
@@ -19682,7 +19797,7 @@ public:
             "reward_frame", "collection_frame", "pre_sprite",
             "last_pre_fatal_sprite", "pre_sprite_runs",
             "corpse_sprite", "corpse_original_ticks",
-            "corpse_engine_frames", "corpse_timer_first",
+            "corpse_timer_first",
             "corpse_timer_last", "reward_sprite", "reward_visible_ticks",
             "score_before", "score_after", "score_delta", "fatal_rng",
             "reward_rng", "bomb_type", "bomb_damage",
@@ -19740,7 +19855,6 @@ public:
         const std::string preSpriteRunSummary = req("pre_sprite_runs");
         const int corpseSprite = reqInt("corpse_sprite");
         const int corpseOriginalTicks = reqInt("corpse_original_ticks");
-        const int corpseEngineFrames = reqInt("corpse_engine_frames");
         const int corpseTimerFirst = reqInt("corpse_timer_first");
         const int corpseTimerLast = reqInt("corpse_timer_last");
         const int rewardSprite = reqInt("reward_sprite");
@@ -19759,7 +19873,7 @@ public:
             lastPreFatalSprite != 43 ||
             preSpriteRunSummary != "44x4,43x2" ||
             corpseSprite != 47 || corpseOriginalTicks != 49 ||
-            corpseEngineFrames != 120 || corpseTimerFirst != 25 ||
+            corpseTimerFirst != 25 ||
             corpseTimerLast != 1 || rewardSprite != 61 ||
             rewardVisibleTicks != 54 || scoreBefore != 50 ||
             scoreAfter != 2050 || scoreDelta != 2000 ||
@@ -20131,7 +20245,7 @@ public:
         if (!bombs_.empty() || monsters_.size() != 1 ||
             monsters_.front().behavior != 2 ||
             monsters_.front().kind != 0x0c || monsters_.front().hp != 0 ||
-            monsters_.front().stateTimer != corpseEngineFrames ||
+            monsters_.front().stateTimer != corpseOriginalTicks ||
             monsterSpriteIndex(monsters_.front()) != corpseSprite ||
             !bonusDrops_.empty() || randomSeed_ != fatalRng) {
             throw std::runtime_error(
@@ -20144,19 +20258,19 @@ public:
                 "monster sprite consumption production renderer did not change");
         }
 
-        int visibleEngineFrames = 1;
-        for (int frame = 1; frame < corpseEngineFrames; ++frame) {
+        int visibleCorpseTicks = 1;
+        for (int frame = 1; frame < corpseOriginalTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
-            ++visibleEngineFrames;
+            ++visibleCorpseTicks;
             if (monsters_.size() != 1 ||
-                monsters_.front().stateTimer != corpseEngineFrames - frame ||
+                monsters_.front().stateTimer != corpseOriginalTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) != corpseSprite ||
                 !bonusDrops_.empty() || randomSeed_ != fatalRng) {
                 throw std::runtime_error(
                     "monster sprite consumption production corpse playback mismatch");
             }
         }
-        if (visibleEngineFrames != corpseEngineFrames ||
+        if (visibleCorpseTicks != corpseOriginalTicks ||
             monsters_.front().stateTimer != 1) {
             throw std::runtime_error(
                 "monster sprite consumption production death timing mismatch");
@@ -20215,7 +20329,7 @@ public:
                   << " death_sprite_runs=" << corpseSprite << "x"
                   << corpseOriginalTicks
                   << " death_ticks=" << corpseOriginalTicks
-                  << " engine_death_frames=" << visibleEngineFrames
+                  << " replayed_death_ticks=" << visibleCorpseTicks
                   << " reward_sprite=" << rewardSprite
                   << " reward_visible_ticks=" << rewardVisibleTicks
                   << " reward_actor_timer=" << rewardActorTimer
@@ -20370,21 +20484,22 @@ public:
             dys != req("jump_tick_dy")) {
             throw std::runtime_error("jump fixed-point model diverges from fixture");
         }
-        // Fuse: the fixture's 41 game ticks at the governed rate must match
-        // the port's 100-frame fuse at 60 fps within the governor band.
-        const double fuseSec =
-            std::stoi(req("small_bomb_fuse_ticks")) / fpsMid;
-        const double portFuseSec = bombProfile(BombType::Small).fuseTicks / 60.0;
-        if (std::abs(fuseSec - portFuseSec) > 0.1) {
+        // Fuse: one update() call is one game tick, so the port's small-bomb
+        // fuse must be the fixture's tick count exactly — no rate conversion.
+        const int fixtureFuseTicks = std::stoi(req("small_bomb_fuse_ticks"));
+        if (bombProfile(BombType::Small).fuseTicks != fixtureFuseTicks) {
             throw std::runtime_error("bomb fuse diverges from fixture");
         }
+        const double fuseSec = fixtureFuseTicks / fpsMid;
         std::cout << "route_timing_evidence=ok"
                   << " governed_fps=" << fpsMin << '-' << fpsMax
                   << " walk_px_per_tick=" << walkPerTick
                   << " jump_model=fixed_848_64 jump_peak=24"
                   << " fuse_ticks=" << req("small_bomb_fuse_ticks")
-                  << " port_walk=98 port_fuse_frames="
+                  << " port_walk=98 port_fuse_ticks="
                   << bombProfile(BombType::Small).fuseTicks
+                  << " fuse_seconds=" << std::fixed << std::setprecision(2)
+                  << fuseSec << std::defaultfloat
                   << " visual_claim=0\n";
     }
 
@@ -21606,14 +21721,16 @@ private:
             // world bomb (captured under DOSBox); 58 is the green bomb.
             // Fuse durations: the original small-bomb countdown byte starts
             // at 41 game ticks (~1.67s at the governed 24.5 fps, tick-locked
-            // /proc/mem measurement) = 100 engine frames at 60 fps. Other
-            // types pending the same measurement.
-            case BombType::Small: return {0x0d, 57, 100};
-            case BombType::Medium: return {0x0e, 59, 150};
-            case BombType::Large: return {0x0f, 60, 200};
-            case BombType::Super: return {0x10, 60, 1000};
+            // /proc/mem measurement). The other three are INFERRED — they
+            // keep the 1.5x/2x/10x multiples of the small fuse the port has
+            // always used, now expressed in game ticks; no capture of their
+            // countdown bytes exists yet.
+            case BombType::Small: return {0x0d, 57, 41};
+            case BombType::Medium: return {0x0e, 59, 61};
+            case BombType::Large: return {0x0f, 60, 82};
+            case BombType::Super: return {0x10, 60, 410};
         }
-        return {0x0d, 57, 100};
+        return {0x0d, 57, 41};
     }
 
     int explosionVisualType(BombType type) const {
@@ -23989,7 +24106,7 @@ private:
         if (monster.behavior == 2) return;
         monster.behavior = 2;
         monster.kind = 0x0c;
-        monster.stateTimer = kMonsterDeathVisibleFrames + 1;
+        monster.stateTimer = kMonsterDeathVisibleTicks + 1;
         monster.deathRewardPending = true;
         releaseMonsterSlot(monster);
         monster.vx8 = 0;
@@ -25976,6 +26093,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-debris-motion-live") {
             app.debugDebrisMotionLive();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-governed-rate") {
+            app.debugGovernedRate(argc > 2 ? std::stod(argv[2]) : 5.0);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-passable-objects") {

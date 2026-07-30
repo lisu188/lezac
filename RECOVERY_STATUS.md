@@ -23,35 +23,62 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
-- **Recovered the monster corpse sprite as a facing pair.** A second
-  original level-1 kill capture -- a right-facing kind-1 walker (frame 46 on
-  the two ticks before impact) -- holds sprite **48** across `DS:78C2` frames
-  357..405. The already-committed capture behind the previous iteration killed
-  a LEFT-facing walker (`pre_sprite_runs=44x4,43x2`) and holds sprite **47**
-  across frames 263..311. Both windows are exactly **49** ticks, so the
-  corpse duration is confirmed twice over; what differs is the sprite, and it
-  differs with facing -- mirroring the walk bands (43-44 left, 45-46 right).
-  The sprite table corroborates the pairing structurally: 47 and 48 are both
-  17x10, the kind-1 walk-frame dimensions, with identical nonzero pixel counts
-  (114 each), which is what a mirrored pair looks like; the other impact
-  candidates (42, 52, 56) are 16x16 and cannot belong to a 17x10 walker.
-  The port hard-coded `kMonsterCorpseSprite = 47` for every monster, so every
-  right-facing kill rendered the wrong corpse. It now latches the corpse
-  sprite at death (`monsterCorpseSprite()`, called from `enterMonsterDeath`
-  before `kind` is overwritten with 0x0c and `vx8` is cleared) and the
-  renderer reads that latch. Pinned by the new `--debug-monster-corpse-facing`
-  diagnostic (`monster_corpse_facing` ctest), which drives the live bomb-kill
-  path once per facing and checks both the sprite and the 49-tick hold, taking
-  its right-facing expectations from the committed fixture rather than from
-  literals. Knockout run for real: restoring the hard-coded 47 fails with
-  `corpse sprite 47 for walker facing frame 46, expected 48`.
-  Evidence: `tests/fixtures/monster_corpse_facing_original_level1.txt` (the
-  per-tick visual records across the kill) and
-  `tools/capture_original_monster_corpse_facing_procmem.py`.
-  **Scope**: only kind 1 is evidenced. Kinds 2/3/4 walk in 16x16 frames, so
-  they cannot use the 17x10 pair, and no death of one has been captured --
-  they keep the left value and stay UNEVIDENCED, exactly as before this
-  change. Suite 395/395.
+- **Corrected the monster impact/corpse sprite rule and withdrew the bomb-fuse
+  measurement.** An adversarial review pass on the two claims below refuted
+  both, and both are fixed here.
+
+  *Corpse sprite.* The previous entry claimed the kind-1 corpse sprite was
+  selected by the animation band ("facing"). It is not. At `1000:745B` the
+  original does `cmp WORD [bp-0xc],0 / jle`, where `[bp-0xc]` is vx, taking
+  dir 1 when vx <= 0 and dir 2 when vx > 0, then indexes
+  `DS:[0x0077 + kind*2 + dir]` and hands the result to the sprite-assign
+  helper `1000:5A75`. DGROUP (image base 0xAA20, anchored on the DS:0x8B
+  "larax e zaco versione 1:0 shareware" string) holds
+  `DS:0x0077.. = 2c 28 28 30 31 2b 2b 35 35 39 39`, giving kind 0 -> 39/39,
+  kind 1 -> **47/48**, kind 2 -> **42**, kind 3 -> **52**, kind 4 -> **56**.
+  So two things were wrong: the discriminator, and the claim that kinds 2/3/4
+  had no corpse sprite of their own -- they were all rendering 47.
+  The two captures could not tell the rules apart because the walk band is
+  selected from the same vx sign at `1000:7286`/`72DA`, so band and velocity
+  agree whenever vx != 0. They part at vx == 0, and the "left-facing" capture
+  is exactly that case: its raw actor bytes show `+0x06` (vx) = 0 on every
+  recorded tick including the fatal one, with `+0x08` (vy) stepping
+  0x0040..0x01C0 -- a monster in its 7-tick spawn fall, not a walker facing
+  left. It got 47 through the `jle` tie-break.
+  The rule is now the byte-cited table, pinned by `--debug-monster-impact-sprites`
+  (`monster_impact_sprites` ctest) across eight cases including two that pair
+  a walk band with the opposite velocity -- the cases that actually separate
+  the two rules -- the vx == 0 case, and one per kind.
+  One thing the previous entry got right and is worth keeping: sprite 47 is
+  the exact byte-for-byte horizontal mirror of 48 (all 170 bytes). The
+  "equal nonzero pixel counts" argument it used was NOT sound on its own --
+  43 and 45 also have equal counts (126) yet differ in 21 bytes under
+  mirroring.
+
+  *Bomb fuse.* The "measured 41-tick small-bomb fuse" is withdrawn. The
+  fixture read `DS:0x74A8` record offset 0x1B as a bomb actor countdown,
+  citing file `0x820b`. That table is the level-file MONSTER SPAWNER table
+  (stride 0x1E, count `DS:0x79A6`, loaded verbatim by the level loader and
+  never appended to) -- this port's own `parseMonsterSpawner` already maps
+  offset 0x1B as the spawner cooldown and 0x1C as its reload -- and file
+  `0x820b` holds the only `dec byte es:[di+0x1b]` in the image, inside that
+  spawner loop, reloading from +0x1C. Tick 437 is the level-1 spawner's THIRD
+  cooldown-zero (first spawn 256, then period 90: 257, 347, 437), the first
+  that persists instead of being reloaded because `liveAllowance` is spent.
+  The "41" was the gap between a bomb keypress at 396 and that unrelated
+  event. The keys are removed from the fixture with the correction recorded
+  in its header, `route_timing_evidence` no longer claims a fuse
+  (`fuse_recovered=0`), and all four fuse values are relabelled UNRECOVERED
+  port policy. They keep their current numbers, which only preserve the
+  port's long-standing wall-clock durations at the governed tick rate.
+  **Scope**: the real actor table is `DS:0x1BAE` stride 0x26, not
+  `DS:0x74A8`; the capture tooling that assumed otherwise is corrected here,
+  and any other claim resting on that table needs re-checking.
+  Also recorded rather than fixed: the port's own reproduction of the level-1
+  kill gives its monster a rightward vx where the original's actor bytes show
+  vx = 0 in a spawn fall, so the port renders 48 where the original rendered
+  47 for that specific scenario -- a velocity-model divergence, not a sprite
+  rule error, to close separately. Suite 395/395.
 
 - **Ran the interactive loop at the original's governed tick rate.** Every
   per-tick subsystem recovered so far -- walker motion (`vx8 = 0x0100`, one
@@ -66,9 +93,16 @@ under the existing guardrails; they are not missing port functionality.
   one call per tick -- which is correct; only the live loop's cadence was
   wrong. The fix is a single governed accumulator in the new
   `pumpGovernedLoop()`: events are still polled every 4 ms so input stays
-  responsive, but gameplay ticks are issued at a fixed 40.8 ms (24.51/s,
-  mid-band), with a 5-tick catch-up cap so a suspended window cannot
-  fast-forward a level on resume. `run()` now has no cadence code of its own.
+  responsive, but gameplay ticks are issued at a fixed 40.8 ms, with a 5-tick
+  catch-up cap so a suspended window cannot fast-forward a level on resume.
+  40.83 ms is the midpoint of the byte-derived target itself (the governor at
+  file `0x810A`/`0x812F` holds 30 frames in 120..125 hundredths = 24.00..25.00
+  fps); the 24.2..25.2 band is what the DOSBox capture measured, slightly
+  above the byte-derived one, and the two are kept distinct.
+  `run()` now has no cadence code of its own -- but note that
+  `governed_rate` pins `pumpGovernedLoop()`, not `run()`: re-introducing a
+  16 ms loop inside `run()` alone still passes the suite. The guard is a
+  structural convention, not coverage of the interactive loop itself.
   The original's reference is the dithered governor at file `0x8089`
   (delay word `DS:0x78CC` alternating 96/102 ms, step `DS:0x78CA` = 6, 30
   frames per 120..125 hundredths); the port uses a fixed mid-band value
@@ -84,14 +118,9 @@ under the existing guardrails; they are not missing port functionality.
   fixture's `corpse_engine_frames=120` key is dropped: it was arithmetic over
   an engine assumption, not captured data, and the capture tool never emitted
   it.
-  The bomb fuses were the one set of constants stored as 60 fps frame counts:
-  the small fuse becomes **41**, which is literally the tick-locked
-  measurement (`small_bomb_fuse_ticks=41`; placed 396, zero 437) rather than
-  a rate conversion of it, so `route_timing_evidence` now compares the port
-  constant to the fixture exactly instead of within a 0.1 s tolerance. The
-  other three (61/82/410) keep the 1.5x/2x/10x multiples of the small fuse
-  the port has always used, now in ticks, and stay labelled INFERRED -- only
-  the small fuse has been captured.
+  The bomb fuses were also stored as 60 fps frame counts and are re-expressed
+  in ticks (41/61/82/410). NOTE: a later entry above withdraws the claim that
+  41 was measured -- all four are UNRECOVERED port policy.
   Pinned by the new `--debug-governed-rate` diagnostic (`governed_rate`
   ctest), which calls `pumpGovernedLoop()` itself -- the same function
   `run()` drives the game with -- and measures the realised rate over a
@@ -104,9 +133,10 @@ under the existing guardrails; they are not missing port functionality.
   **Scope**: constants that were never byte-cited and are not 60 fps
   conversions are left alone rather than re-tuned by guesswork -- the
   explosion-flame `Flash` lifetime (12), which sets boss flame damage per
-  tick, the portal/trigger debounce (30), and the port-policy auto-reentry
-  timeout `kReentryTicks` (180, where the original instead waits on a key
-  press at `1000:7ddf`). These are tick counts in the port's model and now
+  tick, the portal/trigger debounce (30), the damage-cooldown window
+  (`kDamageCooldownTicks` = 18, ~0.30 s -> ~0.73 s), and the port-policy
+  auto-reentry timeout `kReentryTicks` (180, where the original instead waits
+  on a key press at `1000:7ddf`). These are tick counts in the port's model and now
   run at the original's rate; none has original evidence fixing its duration,
   so each stays as it was and is listed here rather than silently adjusted.
   The menus, help pages and level-intro flows run their own wall-clock

@@ -120,18 +120,32 @@ constexpr int kDeathStateTicks = 0x003c;
 constexpr uint8_t kState2VisualStartFrame = 0x4a;
 constexpr uint8_t kState2VisualEndFrame = 0x4f;
 constexpr uint8_t kState2VisualDelay = 3;
+// UNEVIDENCED port policy, like kReentryTicks below: no byte citation and no
+// capture fixes it. Left at its pre-governed-loop value, so its wall-clock
+// duration changed from ~0.30 s to ~0.73 s when the live loop was governed.
 constexpr int kDamageCooldownTicks = 18;
 // The original kind-1 kill trace holds sprite 47 for DS:78C2 frames 263..311:
 // 49 governed ticks. updateMonsters runs after bomb damage in the same tick,
 // so the death actor is initialized one count above the first externally
 // visible value.
-// The kind-1 corpse sprite is a facing pair, mirroring the walk bands
-// (43-44 left, 45-46 right). Two independent level-1 kill captures fix it:
-// a left-facing walker (pre_sprite_runs=44x4,43x2) dies to 47 across
-// DS:78C2 frames 263..311, and a right-facing walker (frame 46 on the two
-// ticks before impact) dies to 48 across frames 357..405. Both sprites are
-// 17x10 -- the kind-1 walk-frame dimensions -- and both are held for exactly
-// 49 ticks.
+// Impact/corpse sprite per monster kind and direction, read from the bytes.
+// At 1000:745B the original does `cmp WORD [bp-0xc],0 / jle` -- [bp-0xc] is
+// vx -- taking dir = 1 when vx <= 0 and dir = 2 when vx > 0, then indexes
+// `al = DS:[0x77 + kind*2 + dir]` and hands the result to the sprite-assign
+// helper 1000:5A75. DGROUP (image base 0xAA20, anchored on the DS:0x8B
+// "larax e zaco versione 1:0 shareware" string) holds
+// DS:0x0077.. = 2c 28 28 30 31 2b 2b 35 35 39 39, so entries [1..10] give
+// kind 0 -> 39/39, kind 1 -> 47/48, kind 2 -> 42/42, kind 3 -> 52/52,
+// kind 4 -> 56/56 after the one-based -> file-sprite -1. Only kind 1 has a
+// direction pair; the others are direction-independent.
+// Two level-1 kill captures agree with the kind-1 entries (47 and 48, each
+// held 49 ticks) but do NOT establish the discriminator: the walk band is
+// selected from the same vx sign at 1000:7286/72DA, so band and velocity
+// agree whenever vx != 0. They part company at vx == 0, where the original
+// takes dir = 1 unconditionally while the band keeps whatever it last had.
+constexpr std::array<std::array<int, 2>, 5> kMonsterImpactSprites{{
+    {{39, 39}}, {{47, 48}}, {{42, 42}}, {{52, 52}}, {{56, 56}},
+}};
 constexpr int kMonsterCorpseSpriteLeft = 47;
 constexpr int kMonsterCorpseSpriteRight = 48;
 constexpr int kMonsterDeathVisibleTicks = 49;
@@ -143,7 +157,13 @@ constexpr int kMonsterDeathVisibleTicks = 49;
 // one original game tick throughout this port, so the interactive loop must
 // fire updates at that rate; kGovernedTickMs is a fixed value sitting
 // mid-band rather than a reproduction of the dither.
-constexpr double kGovernedTickMs = 40.8;  // 24.5 fps, mid-band
+// 40.83 ms is the midpoint of the byte-derived target itself: the governor
+// at file 0x810A/0x812F holds 30 frames in 120..125 hundredths, i.e.
+// 24.00..25.00 fps, whose midpoint period is (1200+1250)/2/30 = 40.83 ms.
+// The 24.2..25.2 band below is what the DOSBox capture MEASURED, which sits
+// slightly above the byte-derived band -- host timing overhead is the likely
+// reason -- so the two are kept distinct rather than conflated.
+constexpr double kGovernedTickMs = 40.8;
 // Events are polled far more often than ticks so that key presses (handled
 // edge-wise in processEvents/onKey) stay responsive between updates.
 constexpr uint32_t kEventPollDelayMs = 4;
@@ -525,11 +545,22 @@ enum class BombType : uint8_t {
 struct BombProfile {
     uint8_t actorKind = 0x0d;
     uint8_t spriteBase = 58;
-    // The original small-bomb fuse is 41 game ticks (~1.67 s at the governed
-    // 24.5 fps), measured from the bomb actor's countdown byte (record
-    // offset 0x1B, decremented once per frame by the main loop at file
-    // 0x820b): placed at tick 396, zero at tick 437. One update() call is one
-    // game tick, so the port counts the measured value directly.
+    // UNRECOVERED. No bomb fuse duration has been read from the original.
+    // The 41 here (and the three values in bombProfile()) are port policy,
+    // chosen to keep roughly the wall-clock durations the port has always
+    // had, now expressed in game ticks.
+    //
+    // An earlier revision claimed 41 was measured from "the bomb actor's
+    // countdown byte at DS:0x74A8 record offset 0x1B, decremented at file
+    // 0x820b". That reading is wrong twice over: DS:0x74A8 stride 0x1E is the
+    // level-file MONSTER SPAWNER table -- this port's own parseMonsterSpawner
+    // maps offset 0x1B as the spawner cooldown and 0x1C as its reload -- not
+    // the actor table, and file 0x820b is that spawner's periodic decrement,
+    // which reloads from +0x1C. The capture's "fuse zero at tick 437" is the
+    // level-1 spawner's third cooldown-zero (257, 347, 437: first spawn at
+    // 256, then period 90). It is the first zero that persists rather than
+    // being reloaded, because liveAllowance has run out by then. The 41 was
+    // just the gap between the bomb keypress and that unrelated event.
     int fuseTicks = 41;
 };
 
@@ -4689,7 +4720,7 @@ public:
         updateWithControls(idle, 1.0f / 60.0f);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
-            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
+            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteRight ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster behavior-3 autoplayer second hit did not kill");
         }
@@ -4706,7 +4737,7 @@ public:
                 monsters_.front().stateTimer !=
                     kMonsterDeathVisibleTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
-                    kMonsterCorpseSpriteLeft ||
+                    kMonsterCorpseSpriteRight ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "monster behavior-3 autoplayer corpse playback mismatch");
@@ -4810,7 +4841,7 @@ public:
         updateWithControls(idle, 1.0f / 60.0f);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
-            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
+            monsterSpriteIndex(monsters_.front()) != kMonsterImpactSprites[2][0] ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster behavior-4 autoplayer bomb kill mismatch");
         }
@@ -4826,7 +4857,7 @@ public:
                 monsters_.front().stateTimer !=
                     kMonsterDeathVisibleTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
-                    kMonsterCorpseSpriteLeft ||
+                    kMonsterImpactSprites[2][0] ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "monster behavior-4 autoplayer corpse playback mismatch");
@@ -16984,14 +17015,15 @@ public:
         monsters_.clear();
         bonusDrops_.clear();
 
+        // expectedSprite is DS:[0x77 + kind*2 + dir] for the monster being
+        // finished: kind 1 pairs on the sign of vx, kinds 2/3/4 do not.
         auto finishFrontCorpse = [&](size_t dropsBefore, float rewardX,
-                                     float rewardY) {
+                                     float rewardY, int expectedSprite) {
             if (monsters_.size() != 1 ||
                 monsters_.front().behavior != 2 ||
                 monsters_.front().stateTimer !=
                     kMonsterDeathVisibleTicks + 1 ||
-                monsterSpriteIndex(monsters_.front()) !=
-                    kMonsterCorpseSpriteLeft ||
+                monsterSpriteIndex(monsters_.front()) != expectedSprite ||
                 !monsters_.front().deathRewardPending ||
                 bonusDrops_.size() != dropsBefore ||
                 randomSeed_ != 0x90e25b93u) {
@@ -17012,8 +17044,7 @@ public:
                 if (monsters_.size() != 1 ||
                     monsters_.front().stateTimer !=
                         kMonsterDeathVisibleTicks - frame ||
-                    monsterSpriteIndex(monsters_.front()) !=
-                        kMonsterCorpseSpriteLeft ||
+                    monsterSpriteIndex(monsters_.front()) != expectedSprite ||
                     bonusDrops_.size() != dropsBefore ||
                     randomSeed_ != 0x90e25b93u) {
                     throw std::runtime_error(
@@ -17056,7 +17087,7 @@ public:
             !bonusDrops_.empty()) {
             throw std::runtime_error("medium bomb did not finish damaged monster");
         }
-        finishFrontCorpse(0, 80.0f, 86.0f);
+        finishFrontCorpse(0, 80.0f, 86.0f, kMonsterCorpseSpriteLeft);
 
         ActiveMonster tough;
         tough.x = 96;
@@ -17074,7 +17105,7 @@ public:
             bonusDrops_.size() != 1) {
             throw std::runtime_error("super bomb did not apply full monster damage");
         }
-        finishFrontCorpse(1, 96.0f, 80.0f);
+        finishFrontCorpse(1, 96.0f, 80.0f, kMonsterImpactSprites[4][0]);
 
         ActiveMonster edge;
         edge.x = 89;
@@ -18043,7 +18074,7 @@ public:
     // original captures fix both cases: a left-facing walker holds sprite 47
     // for DS:78C2 frames 263..311 and a right-facing one holds 48 for frames
     // 357..405 -- 49 ticks each.
-    void debugMonsterCorpseFacing(const std::string& fixturePath) {
+    void debugMonsterImpactSprites(const std::string& fixturePath) {
         // The right-facing half comes from the fixture; the left-facing half
         // is the already-committed monster_sprite_consumption capture.
         std::ifstream in(fixturePath);
@@ -18081,10 +18112,10 @@ public:
             }
             return it->second;
         };
-        if (req("monster_corpse_facing_original") != "level1" ||
+        if (req("monster_impact_sprites_original") != "level1" ||
             req("visual_claim") != "0" || req("runtime_ds") != "0c8f" ||
             req("facing") != "right") {
-            throw std::runtime_error("corpse facing fixture header mismatch");
+            throw std::runtime_error("impact sprite fixture header mismatch");
         }
         const int fixtureCorpseSprite = std::stoi(req("corpse_sprite"));
         const int fixtureCorpseTicks = std::stoi(req("corpse_ticks"));
@@ -18119,13 +18150,25 @@ public:
         load();
         initSdl();
         struct Case {
+            uint8_t kind;
             int animFrame;
             int16_t vx8;
             int expectedSprite;
         };
-        const std::array<Case, 2> cases{{
-            {43, -0x0800, kMonsterCorpseSpriteLeft},
-            {46, 0x0800, fixtureCorpseSprite},
+        // The discriminator is the sign of vx at the damaging tick, NOT the
+        // animation band. Cases 3 and 4 separate the two: they pair a band
+        // with the opposite velocity, which the port can genuinely reach in
+        // the ticks after a turn, and case 5 is the vx == 0 spawn-fall state
+        // the original resolves through the `jle` to the dir-1 column.
+        const std::array<Case, 8> cases{{
+            {1, 43, -0x0800, kMonsterCorpseSpriteLeft},
+            {1, 46, 0x0800, fixtureCorpseSprite},
+            {1, 43, 0x0800, kMonsterCorpseSpriteRight},
+            {1, 46, -0x0800, kMonsterCorpseSpriteLeft},
+            {1, 44, 0x0000, kMonsterCorpseSpriteLeft},
+            {2, 40, 0x0800, 42},
+            {3, 50, 0x0800, 52},
+            {4, 54, 0x0800, 56},
         }};
         std::string observed;
         std::string held;
@@ -18143,7 +18186,7 @@ public:
             pushKeyDown(SDLK_n);
             processEvents(running);
             if (bombs_.empty()) {
-                throw std::runtime_error("corpse facing fixture placed no bomb");
+                throw std::runtime_error("impact sprite fixture placed no bomb");
             }
             Bomb placed = bombs_.back();
             bombs_.back().timer = 1;
@@ -18153,7 +18196,7 @@ public:
             ActiveMonster monster;
             monster.x = placed.x * kTileSize + kTileSize;
             monster.y = placed.y * kTileSize - kTileSize;
-            monster.kind = 1;
+            monster.kind = c.kind;
             monster.behavior = 3;
             monster.ai0 = 0x0800;
             monster.hp = monsterDamageForBomb(BombType::Super);
@@ -18167,13 +18210,13 @@ public:
             monsters_.push_back(monster);
             if (monsterSpriteIndex(monsters_.front()) != c.animFrame) {
                 throw std::runtime_error(
-                    "corpse facing pre-impact sprite mismatch");
+                    "impact sprite pre-impact frame mismatch");
             }
 
             FrameControls idle;
             updateWithControls(idle, 1.0f / 60.0f);
             if (monsters_.size() != 1 || monsters_.front().behavior != 2) {
-                throw std::runtime_error("corpse facing bomb did not kill");
+                throw std::runtime_error("impact sprite fixture bomb did not kill");
             }
             const int corpse = monsterSpriteIndex(monsters_.front());
             if (corpse != c.expectedSprite) {
@@ -18204,12 +18247,15 @@ public:
             if (!held.empty()) held += ',';
             held += std::to_string(ticks);
         }
-        std::cout << "monster_corpse_facing=ok"
-                  << " fixture_frames=" << fixtureFirst << ".." << fixtureLast
-                  << " left_frame=43 right_frame=46"
+        std::cout << "monster_impact_sprites=ok"
+                  << " table=ds:0x0077+kind*2+dir dir_rule=vx>0"
+                  << " ghidra=1000:745b"
+                  << " cases=k1_vx_neg,k1_vx_pos,k1_band_left_vx_pos,"
+                     "k1_band_right_vx_neg,k1_vx_zero,k2,k3,k4"
                   << " corpse_sprites=" << observed
                   << " held_ticks=" << held
-                  << " dims=17x10 kinds_evidenced=1"
+                  << " capture_frames=" << fixtureFirst << ".." << fixtureLast
+                  << " band_independent=1"
                   << " visual_claim=0\n";
     }
 
@@ -18273,7 +18319,7 @@ public:
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().kind != 0x0c || monsters_.front().hp != 0 ||
             monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
-            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
+            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteRight ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             std::ostringstream oss;
             oss << "live bomb did not kill overlapping moving monster"
@@ -18301,7 +18347,7 @@ public:
                 monsters_.front().stateTimer !=
                     kMonsterDeathVisibleTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
-                    kMonsterCorpseSpriteLeft ||
+                    kMonsterCorpseSpriteRight ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "live monster bomb corpse playback mismatch");
@@ -18362,7 +18408,7 @@ public:
                   << " pre_sprite=44"
                   << " last_pre_fatal_sprite=43"
                   << " pre_sprite_runs=44x4,43x2"
-                  << " corpse_sprite=" << kMonsterCorpseSpriteLeft
+                  << " corpse_sprite=" << kMonsterCorpseSpriteRight
                   << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " delayed_reward=1 reward_sprite=61"
                   << " killed=1 removed=1 reward=1 collected=1"
@@ -20672,22 +20718,15 @@ public:
             dys != req("jump_tick_dy")) {
             throw std::runtime_error("jump fixed-point model diverges from fixture");
         }
-        // Fuse: one update() call is one game tick, so the port's small-bomb
-        // fuse must be the fixture's tick count exactly — no rate conversion.
-        const int fixtureFuseTicks = std::stoi(req("small_bomb_fuse_ticks"));
-        if (bombProfile(BombType::Small).fuseTicks != fixtureFuseTicks) {
-            throw std::runtime_error("bomb fuse diverges from fixture");
-        }
-        const double fuseSec = fixtureFuseTicks / fpsMid;
+        // The fixture's former small_bomb_fuse_* keys were a misread of the
+        // monster spawner's cooldown byte, so there is nothing here to check
+        // a fuse against; the keys are gone and this diagnostic no longer
+        // claims one.
         std::cout << "route_timing_evidence=ok"
                   << " governed_fps=" << fpsMin << '-' << fpsMax
                   << " walk_px_per_tick=" << walkPerTick
                   << " jump_model=fixed_848_64 jump_peak=24"
-                  << " fuse_ticks=" << req("small_bomb_fuse_ticks")
-                  << " port_walk=98 port_fuse_ticks="
-                  << bombProfile(BombType::Small).fuseTicks
-                  << " fuse_seconds=" << std::fixed << std::setprecision(2)
-                  << fuseSec << std::defaultfloat
+                  << " port_walk=98 fuse_recovered=0"
                   << " visual_claim=0\n";
     }
 
@@ -21907,12 +21946,12 @@ private:
             // The default (Small) bomb is the blue BOMOMIMK sprite 57, verified
             // against the original both in the HUD selector box and as a dropped
             // world bomb (captured under DOSBox); 58 is the green bomb.
-            // Fuse durations: the original small-bomb countdown byte starts
-            // at 41 game ticks (~1.67s at the governed 24.5 fps, tick-locked
-            // /proc/mem measurement). The other three are INFERRED — they
-            // keep the 1.5x/2x/10x multiples of the small fuse the port has
-            // always used, now expressed in game ticks; no capture of their
-            // countdown bytes exists yet.
+            // Fuse durations are all UNRECOVERED port policy -- see the
+            // note on BombProfile::fuseTicks. No bomb countdown seed has
+            // been located in the image: the only `dec byte es:[di+0x1b]`
+            // in the binary belongs to the monster spawner loop. These four
+            // values only preserve the port's long-standing wall-clock
+            // durations at the governed tick rate.
             case BombType::Small: return {0x0d, 57, 41};
             case BombType::Medium: return {0x0e, 59, 61};
             case BombType::Large: return {0x0f, 60, 82};
@@ -24295,12 +24334,15 @@ private:
     // corpse sprites are 17x10. Kinds 2/3/4 walk in 16x16 frames, so they
     // cannot use this pair, and no death of one has been captured -- they
     // keep the left value and stay UNEVIDENCED, exactly as before.
+    // DS:[0x77 + kind*2 + dir] with dir = (vx > 0) ? 2 : 1 (1000:745B).
+    // Note the `jle`: vx == 0 takes the dir-1 entry, so a monster killed
+    // while stationary -- during its spawn fall, or on a blocked tick --
+    // always gets the first column.
     int monsterCorpseSprite(const ActiveMonster& monster) const {
-        if (monster.kind != 1) return kMonsterCorpseSpriteLeft;
-        const std::array<int, 2> right = monsterDirectionalFrameRange(1, 0x0100);
-        const bool facingRight = monster.animFrame >= right[0] &&
-                                 monster.animFrame <= right[1];
-        return facingRight ? kMonsterCorpseSpriteRight : kMonsterCorpseSpriteLeft;
+        const size_t kind = monster.kind < kMonsterImpactSprites.size()
+                                ? monster.kind
+                                : 0;
+        return kMonsterImpactSprites[kind][monster.vx8 > 0 ? 1 : 0];
     }
 
     void enterMonsterDeath(ActiveMonster& monster) {
@@ -26326,8 +26368,8 @@ int main(int argc, char** argv) {
             app.debugCollisionPushout();
             return 0;
         }
-        if (argc > 2 && std::string(argv[1]) == "--debug-monster-corpse-facing") {
-            app.debugMonsterCorpseFacing(argv[2]);
+        if (argc > 2 && std::string(argv[1]) == "--debug-monster-impact-sprites") {
+            app.debugMonsterImpactSprites(argv[2]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-monster-bomb-kill-live") {

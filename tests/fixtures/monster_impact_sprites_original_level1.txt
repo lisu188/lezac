@@ -12,7 +12,7 @@
 # Visual record bytes 4,5 are the sprite's width,height; bytes 6,7 are
 # the sprite pointer. Within the 17x10 walker band the pointer advances
 # 170 bytes per frame, so index = (pointer - 3698) / 170.
-monster_corpse_facing_original=level1
+monster_impact_sprites_original=level1
 source=LEZAC.EXE via DOSBox /proc/mem tick-locked read
 runtime_ds=0c8f
 frame_counter_offset=0x78c2

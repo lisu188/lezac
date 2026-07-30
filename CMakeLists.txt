@@ -3420,6 +3420,10 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^monster_blast_damage=ok drops=2")
 
+    # NOTE: fuse=41 here only echoes the port's own constant back. No bomb
+    # fuse duration has been recovered from the original, so this pins the
+    # countdown MECHANISM (one decrement per tick, detonation at zero, the
+    # effect/flash chain), not the duration.
     add_test(NAME bomb_fuse COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-fuse)
     set_tests_properties(bomb_fuse PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -3474,17 +3478,19 @@ if(BUILD_TESTING)
     # call. nominal_ticks_per_second is exact; the measured rate is
     # host-dependent and only its ceiling is pinned (the diagnostic itself
     # rejects anything above the band or below the stall floor).
-    # The kind-1 corpse sprite is a facing pair (47 left / 48 right), fixed by
-    # two independent original kill captures; this drives the live bomb-kill
-    # path for each facing and checks the sprite and the 49-tick hold.
-    add_test(NAME monster_corpse_facing
-        COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-corpse-facing
-                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_corpse_facing_original_level1.txt)
-    set_tests_properties(monster_corpse_facing PROPERTIES
+    # The impact/corpse sprite is DS:[0x77 + kind*2 + dir] with dir = (vx>0)?2:1
+    # (1000:745B). This drives the live bomb-kill path for each kind and for
+    # both velocity signs, including the vx==0 case and two cases that pair a
+    # walk band with the opposite velocity, which is what separates the
+    # byte-cited velocity rule from an animation-band rule.
+    add_test(NAME monster_impact_sprites
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-impact-sprites
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_impact_sprites_original_level1.txt)
+    set_tests_properties(monster_impact_sprites PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION
-            "^monster_corpse_facing=ok fixture_frames=357[.][.]405 left_frame=43 right_frame=46 corpse_sprites=47,48 held_ticks=49,49 dims=17x10 kinds_evidenced=1 visual_claim=0")
+            "^monster_impact_sprites=ok table=ds:0x0077[+]kind[*]2[+]dir dir_rule=vx>0 ghidra=1000:745b cases=k1_vx_neg,k1_vx_pos,k1_band_left_vx_pos,k1_band_right_vx_neg,k1_vx_zero,k2,k3,k4 corpse_sprites=47,48,48,47,47,42,52,56 held_ticks=49,49,49,49,49,49,49,49 capture_frames=357[.][.]405 band_independent=1 visual_claim=0")
 
     add_test(NAME governed_rate
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-governed-rate 5)
@@ -3539,7 +3545,7 @@ if(BUILD_TESTING)
     set_tests_properties(monster_bomb_kill_live PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^monster_bomb_kill_live=ok bomb_type=4 damage=4 pre_sprite=44 last_pre_fatal_sprite=43 pre_sprite_runs=44x4,43x2 corpse_sprite=47 corpse_ticks=49 delayed_reward=1 reward_sprite=61 killed=1 removed=1 reward=1 collected=1 score_delta=2000 frames_inspected=7 frame_inspection=1 original_runtime_claim=1 reward_motion_claim=0 visual_claim=0")
+            "^monster_bomb_kill_live=ok bomb_type=4 damage=4 pre_sprite=44 last_pre_fatal_sprite=43 pre_sprite_runs=44x4,43x2 corpse_sprite=48 corpse_ticks=49 delayed_reward=1 reward_sprite=61 killed=1 removed=1 reward=1 collected=1 score_delta=2000 frames_inspected=7 frame_inspection=1 original_runtime_claim=1 reward_motion_claim=0 visual_claim=0")
 
     add_test(NAME player_damage_death_live
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -3589,7 +3595,7 @@ if(BUILD_TESTING)
     set_tests_properties(route_timing_evidence PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^route_timing_evidence=ok governed_fps=24.2-25.2 walk_px_per_tick=4 jump_model=fixed_848_64 jump_peak=24 fuse_ticks=41 port_walk=98 port_fuse_ticks=41 fuse_seconds=1.66 visual_claim=0")
+            "^route_timing_evidence=ok governed_fps=24.2-25.2 walk_px_per_tick=4 jump_model=fixed_848_64 jump_peak=24 port_walk=98 fuse_recovered=0 visual_claim=0")
 
     add_test(NAME sprite_descriptor_evidence
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

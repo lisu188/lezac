@@ -125,7 +125,15 @@ constexpr int kDamageCooldownTicks = 18;
 // 49 governed ticks. updateMonsters runs after bomb damage in the same tick,
 // so the death actor is initialized one count above the first externally
 // visible value.
-constexpr int kMonsterCorpseSprite = 47;
+// The kind-1 corpse sprite is a facing pair, mirroring the walk bands
+// (43-44 left, 45-46 right). Two independent level-1 kill captures fix it:
+// a left-facing walker (pre_sprite_runs=44x4,43x2) dies to 47 across
+// DS:78C2 frames 263..311, and a right-facing walker (frame 46 on the two
+// ticks before impact) dies to 48 across frames 357..405. Both sprites are
+// 17x10 -- the kind-1 walk-frame dimensions -- and both are held for exactly
+// 49 ticks.
+constexpr int kMonsterCorpseSpriteLeft = 47;
+constexpr int kMonsterCorpseSpriteRight = 48;
 constexpr int kMonsterDeathVisibleTicks = 49;
 // The original's main loop is rate-governed: file offset 0x8089 holds 30
 // frames in 120..125 hundredths of a second by dithering the delay word
@@ -677,6 +685,10 @@ struct ActiveMonster {
     uint16_t ai1 = 0;
     uint16_t ai2 = 0;
     uint8_t animFrame = 0;
+    // Latched at death, before `kind` is overwritten with 0x0c and vx8 is
+    // cleared, because the corpse sprite depends on which way the monster
+    // was facing.
+    uint8_t corpseSprite = kMonsterCorpseSpriteLeft;
     uint8_t animStart = 0;
     uint8_t animEnd = 0;
     uint8_t animDelay = 0;
@@ -2956,7 +2968,7 @@ public:
                 monsters_.front().behavior != 2 ||
                 monsters_.front().kind != 0x0c ||
                 monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
-                monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
+                monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error("frame sequence monster bomb did not kill monster");
             }
@@ -2968,7 +2980,7 @@ public:
                     monsters_.front().stateTimer !=
                         kMonsterDeathVisibleTicks - frame ||
                     monsterSpriteIndex(monsters_.front()) !=
-                        kMonsterCorpseSprite ||
+                        kMonsterCorpseSpriteLeft ||
                     !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                     throw std::runtime_error(
                         "frame sequence monster corpse playback mismatch");
@@ -3298,7 +3310,7 @@ public:
             std::cout << " pre_sprite=44"
                       << " last_pre_fatal_sprite=43"
                       << " pre_sprite_runs=44x4,43x2"
-                      << " corpse_sprite=" << kMonsterCorpseSprite
+                      << " corpse_sprite=" << kMonsterCorpseSpriteLeft
                       << " corpse_ticks=" << kMonsterDeathVisibleTicks
                       << " delayed_reward=1 reward_sprite=61 reward_type=present"
                       << " score_delta=2000"
@@ -4518,7 +4530,7 @@ public:
             monsters_.front().behavior != 2 ||
             monsters_.front().kind != 0x0c ||
             monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
-            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
+            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster reward autoplayer did not kill monster");
         }
@@ -4535,7 +4547,7 @@ public:
                 monsters_.front().stateTimer !=
                     kMonsterDeathVisibleTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
-                    kMonsterCorpseSprite ||
+                    kMonsterCorpseSpriteLeft ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "monster reward autoplayer corpse playback mismatch");
@@ -4591,7 +4603,7 @@ public:
                   << " pre_sprite=44"
                   << " last_pre_fatal_sprite=43"
                   << " pre_sprite_runs=44x4,43x2"
-                  << " corpse_sprite=" << kMonsterCorpseSprite
+                  << " corpse_sprite=" << kMonsterCorpseSpriteLeft
                   << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " delayed_reward=1 reward_sprite=61"
                   << " reward_collected=1"
@@ -4677,7 +4689,7 @@ public:
         updateWithControls(idle, 1.0f / 60.0f);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
-            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
+            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster behavior-3 autoplayer second hit did not kill");
         }
@@ -4694,7 +4706,7 @@ public:
                 monsters_.front().stateTimer !=
                     kMonsterDeathVisibleTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
-                    kMonsterCorpseSprite ||
+                    kMonsterCorpseSpriteLeft ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "monster behavior-3 autoplayer corpse playback mismatch");
@@ -4798,7 +4810,7 @@ public:
         updateWithControls(idle, 1.0f / 60.0f);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
-            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
+            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster behavior-4 autoplayer bomb kill mismatch");
         }
@@ -4814,7 +4826,7 @@ public:
                 monsters_.front().stateTimer !=
                     kMonsterDeathVisibleTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
-                    kMonsterCorpseSprite ||
+                    kMonsterCorpseSpriteLeft ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "monster behavior-4 autoplayer corpse playback mismatch");
@@ -4886,7 +4898,7 @@ public:
         updateWithControls(idle, 1.0f / 60.0f);
         if (monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
-            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
+            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
             spawnerStates_[0].availableSlots != initialSlots ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster spawner autoplayer did not release slot");
@@ -4926,7 +4938,7 @@ public:
         };
         const ActiveMonster* corpse = findCorpse();
         if (!corpse || corpse->stateTimer != kMonsterDeathVisibleTicks - 1 ||
-            monsterSpriteIndex(*corpse) != kMonsterCorpseSprite ||
+            monsterSpriteIndex(*corpse) != kMonsterCorpseSpriteLeft ||
             !bonusDrops_.empty()) {
             throw std::runtime_error(
                 "monster spawner autoplayer respawn disturbed corpse playback");
@@ -4936,7 +4948,7 @@ public:
             corpse = findCorpse();
             if (!corpse ||
                 corpse->stateTimer != kMonsterDeathVisibleTicks - frame ||
-                monsterSpriteIndex(*corpse) != kMonsterCorpseSprite ||
+                monsterSpriteIndex(*corpse) != kMonsterCorpseSpriteLeft ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "monster spawner autoplayer corpse playback mismatch");
@@ -7415,7 +7427,8 @@ public:
         std::vector<int> normalFrames{39, 40, 41, 43, 44, 45, 46,
                                       49, 50, 51, 53, 54, 55};
         std::vector<int> impactCandidates{42, 47, 48, 52, 56};
-        std::vector<int> deathRuntime{kMonsterCorpseSprite};
+        std::vector<int> deathRuntime{kMonsterCorpseSpriteLeft,
+                                      kMonsterCorpseSpriteRight};
         std::vector<int> allFrames = normalFrames;
         allFrames.insert(allFrames.end(), impactCandidates.begin(),
                          impactCandidates.end());
@@ -16978,7 +16991,7 @@ public:
                 monsters_.front().stateTimer !=
                     kMonsterDeathVisibleTicks + 1 ||
                 monsterSpriteIndex(monsters_.front()) !=
-                    kMonsterCorpseSprite ||
+                    kMonsterCorpseSpriteLeft ||
                 !monsters_.front().deathRewardPending ||
                 bonusDrops_.size() != dropsBefore ||
                 randomSeed_ != 0x90e25b93u) {
@@ -17000,7 +17013,7 @@ public:
                     monsters_.front().stateTimer !=
                         kMonsterDeathVisibleTicks - frame ||
                     monsterSpriteIndex(monsters_.front()) !=
-                        kMonsterCorpseSprite ||
+                        kMonsterCorpseSpriteLeft ||
                     bonusDrops_.size() != dropsBefore ||
                     randomSeed_ != 0x90e25b93u) {
                     throw std::runtime_error(
@@ -17079,7 +17092,7 @@ public:
         }
 
         std::cout << "monster_blast_damage=ok drops=" << bonusDrops_.size()
-                  << " corpse_sprite=" << kMonsterCorpseSprite
+                  << " corpse_sprite=" << kMonsterCorpseSpriteLeft
                   << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " delayed_reward=1 reward_sprite=61\n";
     }
@@ -18025,6 +18038,181 @@ public:
                   << " solid_tile=" << static_cast<int>(kSolidDebugTile) << '\n';
     }
 
+    // Kill a kind-1 walker facing each way through the live bomb path and
+    // check which corpse sprite the renderer picks, and for how long. Two
+    // original captures fix both cases: a left-facing walker holds sprite 47
+    // for DS:78C2 frames 263..311 and a right-facing one holds 48 for frames
+    // 357..405 -- 49 ticks each.
+    void debugMonsterCorpseFacing(const std::string& fixturePath) {
+        // The right-facing half comes from the fixture; the left-facing half
+        // is the already-committed monster_sprite_consumption capture.
+        std::ifstream in(fixturePath);
+        if (!in) throw std::runtime_error("cannot open " + fixturePath);
+        std::map<std::string, std::string> kv;
+        std::vector<std::pair<int, int>> fixtureTicks;  // frame, sprite index
+        std::string line;
+        while (std::getline(in, line)) {
+            if (line.empty() || line[0] == '#') continue;
+            if (line.rfind("tick ", 0) == 0) {
+                std::istringstream row(line.substr(5));
+                std::string field;
+                int frame = -1, index = -1;
+                while (row >> field) {
+                    auto eq = field.find('=');
+                    if (eq == std::string::npos) continue;
+                    const std::string key = field.substr(0, eq);
+                    const std::string value = field.substr(eq + 1);
+                    if (key == "frame") frame = std::stoi(value);
+                    if (key == "sprite_index" && value != "-") {
+                        index = std::stoi(value);
+                    }
+                }
+                fixtureTicks.emplace_back(frame, index);
+                continue;
+            }
+            auto eq = line.find('=');
+            if (eq == std::string::npos) continue;
+            kv[line.substr(0, eq)] = line.substr(eq + 1);
+        }
+        auto req = [&](const char* key) -> std::string {
+            auto it = kv.find(key);
+            if (it == kv.end()) {
+                throw std::runtime_error(std::string("missing key ") + key);
+            }
+            return it->second;
+        };
+        if (req("monster_corpse_facing_original") != "level1" ||
+            req("visual_claim") != "0" || req("runtime_ds") != "0c8f" ||
+            req("facing") != "right") {
+            throw std::runtime_error("corpse facing fixture header mismatch");
+        }
+        const int fixtureCorpseSprite = std::stoi(req("corpse_sprite"));
+        const int fixtureCorpseTicks = std::stoi(req("corpse_ticks"));
+        const int fixtureFirst = std::stoi(req("corpse_first_frame"));
+        const int fixtureLast = std::stoi(req("corpse_last_frame"));
+        // The recorded rows must actually show that sprite held across that
+        // whole window, and something else on the tick before it.
+        int heldRows = 0;
+        for (const auto& tick : fixtureTicks) {
+            if (tick.first >= fixtureFirst && tick.first <= fixtureLast) {
+                if (tick.second != fixtureCorpseSprite) {
+                    throw std::runtime_error(
+                        "fixture corpse window is not a single sprite");
+                }
+                ++heldRows;
+            } else if (tick.first == fixtureFirst - 1 &&
+                       tick.second == fixtureCorpseSprite) {
+                throw std::runtime_error(
+                    "fixture corpse sprite already present before the kill");
+            }
+        }
+        if (heldRows != fixtureCorpseTicks ||
+            fixtureLast - fixtureFirst + 1 != fixtureCorpseTicks) {
+            throw std::runtime_error("fixture corpse tick count inconsistent");
+        }
+        if (fixtureCorpseSprite != kMonsterCorpseSpriteRight ||
+            fixtureCorpseTicks != kMonsterDeathVisibleTicks) {
+            throw std::runtime_error(
+                "port corpse constants disagree with the fixture");
+        }
+
+        load();
+        initSdl();
+        struct Case {
+            int animFrame;
+            int16_t vx8;
+            int expectedSprite;
+        };
+        const std::array<Case, 2> cases{{
+            {43, -0x0800, kMonsterCorpseSpriteLeft},
+            {46, 0x0800, fixtureCorpseSprite},
+        }};
+        std::string observed;
+        std::string held;
+        for (const Case& c : cases) {
+            prepareAutoplayerMonsterFixtureLevel();
+            monsters_.clear();
+            bombs_.clear();
+            bonusDrops_.clear();
+            bool running = true;
+            player_.x = 80.0f;
+            player_.y = 24.0f;
+            player_.grounded = true;
+            bombInventory_.counts[3] = 1;
+            bombInventory_.selected = BombType::Super;
+            pushKeyDown(SDLK_n);
+            processEvents(running);
+            if (bombs_.empty()) {
+                throw std::runtime_error("corpse facing fixture placed no bomb");
+            }
+            Bomb placed = bombs_.back();
+            bombs_.back().timer = 1;
+            player_.x = 0.0f;
+            player_.y = 0.0f;
+
+            ActiveMonster monster;
+            monster.x = placed.x * kTileSize + kTileSize;
+            monster.y = placed.y * kTileSize - kTileSize;
+            monster.kind = 1;
+            monster.behavior = 3;
+            monster.ai0 = 0x0800;
+            monster.hp = monsterDamageForBomb(BombType::Super);
+            monster.animDelay = 3;
+            monster.hotspotY = monsterHotspotY(monster.kind);
+            refreshMonsterAnimationProfile(monster);
+            initializeMonsterMotion(monster);
+            monster.vx8 = c.vx8;
+            monster.animFrame = static_cast<uint8_t>(c.animFrame);
+            monster.animCursor = static_cast<uint8_t>(c.animFrame);
+            monsters_.push_back(monster);
+            if (monsterSpriteIndex(monsters_.front()) != c.animFrame) {
+                throw std::runtime_error(
+                    "corpse facing pre-impact sprite mismatch");
+            }
+
+            FrameControls idle;
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (monsters_.size() != 1 || monsters_.front().behavior != 2) {
+                throw std::runtime_error("corpse facing bomb did not kill");
+            }
+            const int corpse = monsterSpriteIndex(monsters_.front());
+            if (corpse != c.expectedSprite) {
+                throw std::runtime_error(
+                    "corpse sprite " + std::to_string(corpse) + " for walker " +
+                    "facing frame " + std::to_string(c.animFrame) +
+                    ", expected " + std::to_string(c.expectedSprite));
+            }
+            // The corpse must hold that same sprite for the captured 49 ticks
+            // and be gone on the next one.
+            int ticks = 1;
+            while (!monsters_.empty() && monsters_.front().behavior == 2) {
+                if (monsterSpriteIndex(monsters_.front()) != c.expectedSprite) {
+                    throw std::runtime_error(
+                        "corpse sprite changed during playback");
+                }
+                updateWithControls(idle, 1.0f / 60.0f);
+                if (monsters_.empty()) break;
+                ++ticks;
+            }
+            if (ticks != fixtureCorpseTicks) {
+                throw std::runtime_error(
+                    "corpse held " + std::to_string(ticks) + " ticks, expected " +
+                    std::to_string(fixtureCorpseTicks));
+            }
+            if (!observed.empty()) observed += ',';
+            observed += std::to_string(corpse);
+            if (!held.empty()) held += ',';
+            held += std::to_string(ticks);
+        }
+        std::cout << "monster_corpse_facing=ok"
+                  << " fixture_frames=" << fixtureFirst << ".." << fixtureLast
+                  << " left_frame=43 right_frame=46"
+                  << " corpse_sprites=" << observed
+                  << " held_ticks=" << held
+                  << " dims=17x10 kinds_evidenced=1"
+                  << " visual_claim=0\n";
+    }
+
     void debugMonsterBombKillLive() {
         load();
         initSdl();
@@ -18085,7 +18273,7 @@ public:
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().kind != 0x0c || monsters_.front().hp != 0 ||
             monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
-            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
+            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             std::ostringstream oss;
             oss << "live bomb did not kill overlapping moving monster"
@@ -18113,7 +18301,7 @@ public:
                 monsters_.front().stateTimer !=
                     kMonsterDeathVisibleTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
-                    kMonsterCorpseSprite ||
+                    kMonsterCorpseSpriteLeft ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "live monster bomb corpse playback mismatch");
@@ -18174,7 +18362,7 @@ public:
                   << " pre_sprite=44"
                   << " last_pre_fatal_sprite=43"
                   << " pre_sprite_runs=44x4,43x2"
-                  << " corpse_sprite=" << kMonsterCorpseSprite
+                  << " corpse_sprite=" << kMonsterCorpseSpriteLeft
                   << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " delayed_reward=1 reward_sprite=61"
                   << " killed=1 removed=1 reward=1 collected=1"
@@ -24102,8 +24290,23 @@ private:
         }
     }
 
+    // Which corpse sprite a monster dies to. Evidenced for kind 1 only (see
+    // kMonsterCorpseSpriteLeft/Right): its walk frames and both captured
+    // corpse sprites are 17x10. Kinds 2/3/4 walk in 16x16 frames, so they
+    // cannot use this pair, and no death of one has been captured -- they
+    // keep the left value and stay UNEVIDENCED, exactly as before.
+    int monsterCorpseSprite(const ActiveMonster& monster) const {
+        if (monster.kind != 1) return kMonsterCorpseSpriteLeft;
+        const std::array<int, 2> right = monsterDirectionalFrameRange(1, 0x0100);
+        const bool facingRight = monster.animFrame >= right[0] &&
+                                 monster.animFrame <= right[1];
+        return facingRight ? kMonsterCorpseSpriteRight : kMonsterCorpseSpriteLeft;
+    }
+
     void enterMonsterDeath(ActiveMonster& monster) {
         if (monster.behavior == 2) return;
+        // Latch before kind/vx8 are destroyed below.
+        monster.corpseSprite = static_cast<uint8_t>(monsterCorpseSprite(monster));
         monster.behavior = 2;
         monster.kind = 0x0c;
         monster.stateTimer = kMonsterDeathVisibleTicks + 1;
@@ -24923,7 +25126,7 @@ private:
             }
             return std::min<int>(static_cast<int>(altSprites_.sprites.size()) - 1, 39);
         }
-        int index = monster.behavior == 2 ? kMonsterCorpseSprite
+        int index = monster.behavior == 2 ? static_cast<int>(monster.corpseSprite)
                                           : monster.animFrame;
         if (index >= 0 && index < static_cast<int>(sprites_.sprites.size())) return index;
         return std::min<int>(sprites_.sprites.size() - 1, 39);
@@ -26121,6 +26324,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-collision-pushout") {
             app.debugCollisionPushout();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-monster-corpse-facing") {
+            app.debugMonsterCorpseFacing(argv[2]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-monster-bomb-kill-live") {

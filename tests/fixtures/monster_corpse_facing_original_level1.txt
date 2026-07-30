@@ -1,0 +1,92 @@
+# Original LEZAC.EXE level-1 monster kill capture: the corpse sprite
+# of a RIGHT-facing kind-1 walker. Captured in-container under DOSBox
+# via tick-locked /proc/mem sampling (frame counter DS:0x78C2 polled;
+# one 64 KiB DS pread per tick; visual table DS:0xC21E stride 8, count
+# DS:0xC496). The walker was killed with a small bomb placed ahead of
+# it; the player was moved clear so only the walker died.
+#
+# Companion to monster_sprite_consumption_original_level1.txt, which
+# captured a LEFT-facing walker (pre_sprite_runs=44x4,43x2) dying to
+# sprite 47. Together the two fix the corpse sprite as a facing pair.
+#
+# Visual record bytes 4,5 are the sprite's width,height; bytes 6,7 are
+# the sprite pointer. Within the 17x10 walker band the pointer advances
+# 170 bytes per frame, so index = (pointer - 3698) / 170.
+monster_corpse_facing_original=level1
+source=LEZAC.EXE via DOSBox /proc/mem tick-locked read
+runtime_ds=0c8f
+frame_counter_offset=0x78c2
+visual_table_offset=0xc21e
+visual_count_offset=0xc496
+walker_visual_slot=2
+facing=right
+pre_fatal_frames=45,46
+corpse_sprite=48
+corpse_first_frame=357
+corpse_last_frame=405
+corpse_ticks=49
+corpse_dims=17x10
+visual_claim=0
+temp_copy=1
+tick frame=350 slot=2 x=428 y=174 w=17 h=10 sprite_ptr=0x2c54 sprite_index=45
+tick frame=351 slot=2 x=429 y=174 w=17 h=10 sprite_ptr=0x2c54 sprite_index=45
+tick frame=352 slot=2 x=430 y=174 w=17 h=10 sprite_ptr=0x2c54 sprite_index=45
+tick frame=353 slot=2 x=431 y=174 w=17 h=10 sprite_ptr=0x2cfe sprite_index=46
+tick frame=354 slot=2 x=432 y=174 w=17 h=10 sprite_ptr=0x2cfe sprite_index=46
+tick frame=355 slot=2 x=433 y=174 w=17 h=10 sprite_ptr=0x2cfe sprite_index=46
+tick frame=356 slot=2 x=434 y=174 w=17 h=10 sprite_ptr=0x2cfe sprite_index=46
+tick frame=357 slot=2 x=435 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=358 slot=2 x=436 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=359 slot=2 x=437 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=360 slot=2 x=437 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=361 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=362 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=363 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=364 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=365 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=366 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=367 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=368 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=369 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=370 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=371 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=372 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=373 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=374 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=375 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=376 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=377 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=378 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=379 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=380 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=381 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=382 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=383 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=384 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=385 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=386 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=387 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=388 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=389 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=390 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=391 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=392 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=393 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=394 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=395 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=396 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=397 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=398 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=399 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=400 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=401 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=402 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=403 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=404 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=405 slot=2 x=438 y=174 w=17 h=10 sprite_ptr=0x2e52 sprite_index=48
+tick frame=406 slot=2 x=438 y=174 w=16 h=16 sprite_ptr=0x3e7d sprite_index=-
+tick frame=407 slot=2 x=438 y=174 w=16 h=16 sprite_ptr=0x3f7d sprite_index=-
+tick frame=408 slot=2 x=438 y=174 w=16 h=16 sprite_ptr=0x3f7d sprite_index=-
+tick frame=409 slot=2 x=438 y=174 w=16 h=16 sprite_ptr=0x3f7d sprite_index=-
+tick frame=410 slot=2 x=438 y=174 w=16 h=16 sprite_ptr=0x407d sprite_index=-
+tick frame=411 slot=2 x=438 y=174 w=16 h=16 sprite_ptr=0x407d sprite_index=-

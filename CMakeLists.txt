@@ -3412,7 +3412,7 @@ if(BUILD_TESTING)
     set_tests_properties(monster_sprite_table_model PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^monster_sprite_table_model=ok bank=BOMOMIMK normal_ranges=k1_left:43-44,k1_right:45-46,k2:39-41,k3:49-51,k4:53-55 normal_frames=39,40,41,43,44,45,46,49,50,51,53,54,55 impact_candidates=42,47,48,52,56 death_runtime_renderer=47 reward_frames=61,62,63,64,65,66,67 reward_scores=2000,1000,1500,2000,3000,1000,5000 normal_nonzero=122,118,115,126,124,126,124,159,160,155,138,135,136 impact_nonzero=130,114,114,166,150 death_nonzero=114 reward_nonzero=87,156,135,121,149,153,147 normal_dims=16x16,16x16,16x16,17x10,17x10,17x10,17x10,16x16,16x16,16x16,16x16,16x16,16x16 impact_dims=16x16,17x10,17x10,16x16,16x16 death_dims=17x10 reward_dims=10x12,16x10,16x10,16x10,16x10,16x10,16x16 frame_count=26 frames_16x16=13 pre_sprite=44 last_pre_fatal_sprite=43 pre_sprite_runs=44x4,43x2 impact_equals_death=1 corpse_original_ticks=49 corpse_ticks=49 reward_delay=corpse_expiry death_runtime_claim=1 reward61_runtime_claim=1 original_runtime_claim=1 reward_motion_claim=0 visual_claim=0 ghidra=1000:70bc..7513 corpse_expiry_ghidra=1000:766d..7750")
+            "^monster_sprite_table_model=ok bank=BOMOMIMK normal_ranges=k1_left:43-44,k1_right:45-46,k2:39-41,k3:49-51,k4:53-55 normal_frames=39,40,41,43,44,45,46,49,50,51,53,54,55 impact_candidates=42,47,48,52,56 death_runtime_renderer=47,48 reward_frames=61,62,63,64,65,66,67 reward_scores=2000,1000,1500,2000,3000,1000,5000 normal_nonzero=122,118,115,126,124,126,124,159,160,155,138,135,136 impact_nonzero=130,114,114,166,150 death_nonzero=114,114 reward_nonzero=87,156,135,121,149,153,147 normal_dims=16x16,16x16,16x16,17x10,17x10,17x10,17x10,16x16,16x16,16x16,16x16,16x16,16x16 impact_dims=16x16,17x10,17x10,16x16,16x16 death_dims=17x10,17x10 reward_dims=10x12,16x10,16x10,16x10,16x10,16x10,16x16 frame_count=27 frames_16x16=13 pre_sprite=44 last_pre_fatal_sprite=43 pre_sprite_runs=44x4,43x2 impact_equals_death=1 corpse_original_ticks=49 corpse_ticks=49 reward_delay=corpse_expiry death_runtime_claim=1 reward61_runtime_claim=1 original_runtime_claim=1 reward_motion_claim=0 visual_claim=0 ghidra=1000:70bc..7513 corpse_expiry_ghidra=1000:766d..7750")
 
     add_test(NAME monster_blast_damage
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-blast-damage)
@@ -3474,6 +3474,18 @@ if(BUILD_TESTING)
     # call. nominal_ticks_per_second is exact; the measured rate is
     # host-dependent and only its ceiling is pinned (the diagnostic itself
     # rejects anything above the band or below the stall floor).
+    # The kind-1 corpse sprite is a facing pair (47 left / 48 right), fixed by
+    # two independent original kill captures; this drives the live bomb-kill
+    # path for each facing and checks the sprite and the 49-tick hold.
+    add_test(NAME monster_corpse_facing
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-corpse-facing
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_corpse_facing_original_level1.txt)
+    set_tests_properties(monster_corpse_facing PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^monster_corpse_facing=ok fixture_frames=357[.][.]405 left_frame=43 right_frame=46 corpse_sprites=47,48 held_ticks=49,49 dims=17x10 kinds_evidenced=1 visual_claim=0")
+
     add_test(NAME governed_rate
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-governed-rate 5)
     set_tests_properties(governed_rate PROPERTIES

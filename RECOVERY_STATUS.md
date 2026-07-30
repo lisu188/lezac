@@ -23,6 +23,36 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Recovered the monster corpse sprite as a facing pair.** A second
+  original level-1 kill capture -- a right-facing kind-1 walker (frame 46 on
+  the two ticks before impact) -- holds sprite **48** across `DS:78C2` frames
+  357..405. The already-committed capture behind the previous iteration killed
+  a LEFT-facing walker (`pre_sprite_runs=44x4,43x2`) and holds sprite **47**
+  across frames 263..311. Both windows are exactly **49** ticks, so the
+  corpse duration is confirmed twice over; what differs is the sprite, and it
+  differs with facing -- mirroring the walk bands (43-44 left, 45-46 right).
+  The sprite table corroborates the pairing structurally: 47 and 48 are both
+  17x10, the kind-1 walk-frame dimensions, with identical nonzero pixel counts
+  (114 each), which is what a mirrored pair looks like; the other impact
+  candidates (42, 52, 56) are 16x16 and cannot belong to a 17x10 walker.
+  The port hard-coded `kMonsterCorpseSprite = 47` for every monster, so every
+  right-facing kill rendered the wrong corpse. It now latches the corpse
+  sprite at death (`monsterCorpseSprite()`, called from `enterMonsterDeath`
+  before `kind` is overwritten with 0x0c and `vx8` is cleared) and the
+  renderer reads that latch. Pinned by the new `--debug-monster-corpse-facing`
+  diagnostic (`monster_corpse_facing` ctest), which drives the live bomb-kill
+  path once per facing and checks both the sprite and the 49-tick hold, taking
+  its right-facing expectations from the committed fixture rather than from
+  literals. Knockout run for real: restoring the hard-coded 47 fails with
+  `corpse sprite 47 for walker facing frame 46, expected 48`.
+  Evidence: `tests/fixtures/monster_corpse_facing_original_level1.txt` (the
+  per-tick visual records across the kill) and
+  `tools/capture_original_monster_corpse_facing_procmem.py`.
+  **Scope**: only kind 1 is evidenced. Kinds 2/3/4 walk in 16x16 frames, so
+  they cannot use the 17x10 pair, and no death of one has been captured --
+  they keep the left value and stay UNEVIDENCED, exactly as before this
+  change. Suite 395/395.
+
 - **Ran the interactive loop at the original's governed tick rate.** Every
   per-tick subsystem recovered so far -- walker motion (`vx8 = 0x0100`, one
   pixel per tick), the spawner's 256-tick first spawn and 90-tick period, the

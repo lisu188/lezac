@@ -22,7 +22,11 @@ import seed_original_level as seeder  # noqa: E402
 
 FRAME = 0x78C2
 PLAYER_X, PLAYER_Y = 0xC21E, 0xC220
-ACTOR_TABLE, ACTOR_STRIDE, ACTOR_COUNT = 0x74A8, 0x1E, 0x79A6
+# DS:0x74A8 stride 0x1E is the level-file MONSTER SPAWNER table (count
+# DS:0x79A6), NOT the actor table -- the real actor table is DS:0x1BAE
+# stride 0x26. Sampled here only to record spawner state alongside the
+# visuals; do not read bomb or monster actor fields out of it.
+SPAWNER_TABLE, SPAWNER_STRIDE, SPAWNER_COUNT = 0x74A8, 0x1E, 0x79A6
 VISUAL_TABLE, VISUAL_STRIDE, VISUAL_COUNT = 0xC21E, 8, 0xC496
 ALLOC_COUNT = 0x208D
 RANDSEED = 0x1AFE
@@ -47,7 +51,7 @@ def i16(seg, off):
 
 
 def sample(seg):
-    count = seg[ACTOR_COUNT]
+    count = seg[SPAWNER_COUNT]
     vcount = seg[VISUAL_COUNT]
     if count > 64 or vcount > 64:
         raise RuntimeError("implausible counts")
@@ -59,8 +63,8 @@ def sample(seg):
         "lives": seg[LIVES],
         "alloc": seg[ALLOC_COUNT],
         "counts": [count, vcount],
-        "actors": [seg[ACTOR_TABLE + i * ACTOR_STRIDE:
-                       ACTOR_TABLE + (i + 1) * ACTOR_STRIDE].hex()
+        "spawners": [seg[SPAWNER_TABLE + i * SPAWNER_STRIDE:
+                       SPAWNER_TABLE + (i + 1) * SPAWNER_STRIDE].hex()
                    for i in range(count + 1)],
         "visuals": [[i16(seg, VISUAL_TABLE + i * VISUAL_STRIDE),
                      i16(seg, VISUAL_TABLE + i * VISUAL_STRIDE + 2),

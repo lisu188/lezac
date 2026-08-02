@@ -213,7 +213,39 @@ and collection consumption, not exact reward physics or presentation.
   `tools/check_behavior4_window_attribution.py` and the
   `behavior4_window_attribution` ctest. The behavior-4 *motion* path
   (`1000:70D7..714F`, `73E5`, `741B`) is the correct target and still has no
-  runtime evidence, so this item stays open with corrected scope.
+  runtime evidence for its velocity selection, so this item stays open with
+  corrected scope -- but it is no longer evidence-free.
+
+  A level-2 tick-locked capture
+  (`tests/fixtures/behavior4_motion_original_level2.txt`,
+  `tools/capture_original_behavior4_motion_procmem.py`) now records 666
+  consecutive behaviour-4 ticks of a live kind-2 flyer, sampled from the REAL
+  actor table `DS:0x1BAE` stride 0x26. (Every earlier capture tool pointed at
+  `DS:0x74A8`, which is the level-file monster SPAWNER table; that
+  misidentification is what produced the withdrawn bomb-fuse claim.) It
+  settles three things, pinned by `behavior4_motion_evidence`:
+
+  - the retarget cadence is **14 ticks** (26 clean occurrences), and the
+    port's `motionTimer = max(1, ai0)` schedules the same cadence;
+  - only `+0x06`/`+0x08` (vx/vy), `+0x0A`/`+0x0C` (single-BYTE 8.8 fraction
+    carries), `+0x16` (animation frame) and `+0x19` (delay counter) ever move,
+    so the flyer runs the same integer-pixel + byte-fraction model the port
+    already uses;
+  - the animation range is `0x28..0x2a` with a 3-tick delay, inside the port's
+    kind-2 range.
+
+  The off-cadence velocity changes corroborate two rules the port already
+  implements: a horizontal bounce of `-vx/2` (observed -182 -> +91,
+  -221 -> +110) and a top-edge clamp to `vy = 1`.
+
+  What remains OPEN is the velocity SELECTION formula. No `(base, range)` pair
+  reproduces the observed velocities under `base + Random(range)`, and the
+  capture cannot decide it: the RNG is shared by every actor and two kind-1
+  walkers are live throughout, so the seed delta across one flyer tick cannot
+  be attributed to the flyer's own draws. Closing it needs either a level with
+  a single live actor or a breakpoint capture at the draw site. The fixture
+  carries `velocity_selection_recovered=0` and the diagnostic asserts nothing
+  about it.
 ## Guardrails
 
 - `tools/check_port_completion_status.py` fails when the source tables, this

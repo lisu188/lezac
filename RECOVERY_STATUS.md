@@ -23,6 +23,34 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Captured the original's behaviour-4 flyer motion on level 2.** The item
+  `behavior4_motion_runtime_fixture` had no runtime evidence at all. A
+  tick-locked capture now records 666 consecutive behaviour-4 ticks of a live
+  kind-2 flyer from the REAL actor table `DS:0x1BAE` stride 0x26 -- every
+  earlier capture tool pointed at `DS:0x74A8`, the level-file monster SPAWNER
+  table, which is the misidentification that produced the withdrawn bomb-fuse
+  claim. Settled and pinned by `behavior4_motion_evidence`: the retarget
+  cadence is **14 ticks** (26 clean occurrences, re-derived from the rows
+  rather than read from the fixture header) and the port's
+  `motionTimer = max(1, ai0)` schedules the same cadence; only `+0x06`/`+0x08`
+  (vx/vy), `+0x0A`/`+0x0C` (single-BYTE 8.8 fraction carries), `+0x16` (anim
+  frame) and `+0x19` (delay counter) ever move, so the flyer runs the same
+  integer-pixel + byte-fraction model the port already uses; and the animation
+  range `0x28..0x2a` with a 3-tick delay sits inside the port's kind-2 range.
+  The off-cadence velocity changes corroborate two rules the port already
+  implements -- a `-vx/2` horizontal bounce (observed -182 -> +91,
+  -221 -> +110) and a top-edge clamp to `vy = 1`. Knockout: seeding the port's
+  motion timer one tick high fails with `port seeds a behaviour-4 motion timer
+  of 15, capture shows 14`.
+  **Scope**: the velocity SELECTION formula stays OPEN and the item stays
+  open. No `(base, range)` pair reproduces the observed velocities under
+  `base + Random(range)`, and this capture cannot decide it: the RNG is shared
+  by every actor and two kind-1 walkers are live throughout, so a seed delta
+  across one flyer tick cannot be attributed to the flyer's own draws. Closing
+  it needs a level with a single live actor or a breakpoint capture at the
+  draw site. The fixture carries `velocity_selection_recovered=0` and the
+  diagnostic asserts nothing about it. Suite 398/398.
+
 - **Pinned the debris bounce's RNG draw order.** The review pass found the
   bounce's two draws entirely unguarded: swapping `Random(0x1E)` and
   `Random(8)` -- which desynchronises the shared Turbo Pascal LCG from that

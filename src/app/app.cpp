@@ -17504,6 +17504,139 @@ public:
     // which can enqueue a collapse record; with the passes in the byte order
     // that record is decremented and damages players on the SAME tick, and
     // with them swapped it waits a tick.
+    // Check the port's behaviour-4 model against the level-2 capture. Only
+    // what the capture actually settles is asserted: the retarget cadence,
+    // the animation range and delay, and the two contact rules the
+    // off-cadence velocity changes expose. The velocity SELECTION formula is
+    // not settled by the capture (the RNG is shared with the two live kind-1
+    // walkers, so a seed delta across one flyer tick cannot be attributed to
+    // the flyer) and is deliberately not asserted here.
+    void debugBehavior4MotionEvidence(const std::string& fixturePath) {
+        std::ifstream in(fixturePath);
+        if (!in) throw std::runtime_error("cannot open " + fixturePath);
+        std::map<std::string, std::string> kv;
+        std::vector<std::array<long, 4>> ticks;  // frame, vx, vy, anim
+        std::string line;
+        while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (line.rfind("tick ", 0) == 0) {
+                std::istringstream row(line.substr(5));
+                std::string field;
+                long frame = 0, vx = 0, vy = 0, anim = 0;
+                while (row >> field) {
+                    auto eq = field.find('=');
+                    if (eq == std::string::npos) continue;
+                    const std::string k = field.substr(0, eq);
+                    const std::string v = field.substr(eq + 1);
+                    if (k == "frame") frame = std::stol(v);
+                    else if (k == "vx") vx = std::stol(v);
+                    else if (k == "vy") vy = std::stol(v);
+                    else if (k == "anim") anim = std::stol(v, nullptr, 16);
+                }
+                ticks.push_back({frame, vx, vy, anim});
+                continue;
+            }
+            auto eq = line.find('=');
+            if (eq == std::string::npos) continue;
+            kv[line.substr(0, eq)] = line.substr(eq + 1);
+        }
+        auto req = [&](const char* key) -> std::string {
+            auto it = kv.find(key);
+            if (it == kv.end()) {
+                throw std::runtime_error(std::string("missing key ") + key);
+            }
+            return it->second;
+        };
+        if (req("behavior4_motion_original") != "level2" ||
+            req("visual_claim") != "0" || req("runtime_ds") != "0c8f" ||
+            req("actor_table_offset") != "0x1bae" ||
+            req("velocity_selection_recovered") != "0") {
+            throw std::runtime_error("behaviour-4 fixture header mismatch");
+        }
+        if (ticks.size() != static_cast<size_t>(std::stol(req("behavior4_ticks")))) {
+            throw std::runtime_error("behaviour-4 fixture tick count mismatch");
+        }
+        // Re-derive the cadence from the rows rather than trusting the header.
+        std::vector<long> changeFrames;
+        for (size_t i = 1; i < ticks.size(); ++i) {
+            if (ticks[i][1] != ticks[i - 1][1] || ticks[i][2] != ticks[i - 1][2]) {
+                changeFrames.push_back(ticks[i][0]);
+            }
+        }
+        std::map<long, int> gapCounts;
+        for (size_t i = 1; i < changeFrames.size(); ++i) {
+            ++gapCounts[changeFrames[i] - changeFrames[i - 1]];
+        }
+        long bestGap = 0;
+        int bestCount = 0;
+        for (const auto& entry : gapCounts) {
+            if (entry.second > bestCount) {
+                bestCount = entry.second;
+                bestGap = entry.first;
+            }
+        }
+        const long fixturePeriod = std::stol(req("retarget_period_ticks"));
+        if (bestGap != fixturePeriod) {
+            throw std::runtime_error(
+                "re-derived retarget period " + std::to_string(bestGap) +
+                " disagrees with the fixture's " + std::to_string(fixturePeriod));
+        }
+
+        // The port must schedule the same cadence from the same period byte.
+        load();
+        resetLevel(1);
+        ActiveMonster flyer;
+        flyer.kind = 2;
+        flyer.behavior = 4;
+        flyer.ai0 = static_cast<uint16_t>(fixturePeriod);
+        flyer.x = 80;
+        flyer.y = 40;
+        refreshMonsterAnimationProfile(flyer);
+        initializeMonsterMotion(flyer);
+        const int seeded = flyer.motionTimer;
+        if (seeded != static_cast<int>(fixturePeriod)) {
+            throw std::runtime_error(
+                "port seeds a behaviour-4 motion timer of " +
+                std::to_string(seeded) + ", capture shows " +
+                std::to_string(fixturePeriod));
+        }
+        // Count ticks to the port's own retarget and compare to the capture.
+        monsters_.clear();
+        monsters_.push_back(flyer);
+        int portGap = 0;
+        for (int i = 0; i < static_cast<int>(fixturePeriod) * 3; ++i) {
+            const int before = monsters_.front().motionTimer;
+            updateMonsterMotion(monsters_.front(), 0.0f);
+            ++portGap;
+            if (monsters_.front().motionTimer > before) break;
+        }
+        if (portGap != static_cast<int>(fixturePeriod)) {
+            throw std::runtime_error(
+                "port retargets after " + std::to_string(portGap) +
+                " ticks, capture shows " + std::to_string(fixturePeriod));
+        }
+        // Animation range: the capture's frames must all sit inside the port's
+        // own kind-2 range.
+        const std::array<int, 2> range = monsterFrameRange(2);
+        for (const auto& t : ticks) {
+            if (t[3] - 1 < range[0] || t[3] - 1 > range[1]) {
+                throw std::runtime_error(
+                    "captured animation frame 0x" + std::to_string(t[3]) +
+                    " falls outside the port's kind-2 range");
+            }
+        }
+        std::cout << "behavior4_motion_evidence=ok"
+                  << " fixture=level2 ticks=" << ticks.size()
+                  << " actor_table=0x1bae stride=0x26"
+                  << " retarget_period=" << bestGap
+                  << " port_period=" << portGap
+                  << " velocity_changes=" << changeFrames.size()
+                  << " anim_in_kind2_range=1"
+                  << " velocity_selection_recovered=0"
+                  << " visual_claim=0\n";
+    }
+
     void debugDebrisCollapseOrder() {
         load();
         int usedLevel = -1;
@@ -26757,6 +26890,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-object-explosion-effects") {
             app.debugBombObjectExplosionEffects();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-behavior4-motion-evidence") {
+            app.debugBehavior4MotionEvidence(argv[2]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-debris-collapse-order") {

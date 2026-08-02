@@ -3501,6 +3501,20 @@ if(BUILD_TESTING)
     # 1000:5102 at 8067). Observable because a dissolving fragment re-seeds the
     # cell above through the seeder, which can enqueue a collapse record: in
     # the byte order that record is decremented on the SAME tick.
+    # Level-2 behaviour-4 (kind-2 flyer) motion capture. Asserts only what the
+    # capture settles: the 14-tick retarget cadence (re-derived from the rows,
+    # not read from the header) and that the captured animation frames sit in
+    # the port's kind-2 range. The velocity SELECTION formula is NOT settled --
+    # the RNG is shared with two live walkers, so draws cannot be attributed --
+    # and the fixture carries velocity_selection_recovered=0.
+    add_test(NAME behavior4_motion_evidence
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-motion-evidence
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/behavior4_motion_original_level2.txt)
+    set_tests_properties(behavior4_motion_evidence PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^behavior4_motion_evidence=ok fixture=level2 ticks=666 actor_table=0x1bae stride=0x26 retarget_period=14 port_period=14 velocity_changes=73 anim_in_kind2_range=1 velocity_selection_recovered=0 visual_claim=0")
+
     add_test(NAME debris_collapse_order
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-collapse-order)
     set_tests_properties(debris_collapse_order PROPERTIES

@@ -124,7 +124,8 @@ constexpr int kDeathStateTicks = 0x003c;
 constexpr uint8_t kState2VisualStartFrame = 0x4a;
 constexpr uint8_t kState2VisualEndFrame = 0x4f;
 constexpr uint8_t kState2VisualDelay = 3;
-// UNEVIDENCED port policy, like kReentryTicks below: no byte citation and no
+// UNEVIDENCED port policy (@unevidenced:damage_cooldown_ticks), like
+// kReentryTicks below: no byte citation and no
 // capture fixes it. Left at its pre-governed-loop value, so its wall-clock
 // duration changed from ~0.30 s to ~0.73 s when the live loop was governed.
 constexpr int kDamageCooldownTicks = 18;
@@ -348,7 +349,8 @@ constexpr int16_t kPlayerGravity8 = 64;            // +0x40 per tick
 // The original's actor gravity adds +0x40 per tick and clamps at 0x7FF
 // (1000:7028/702C). The player's measured gravity is that same +0x40, so the
 // clamp is carried over by analogy; no capture reaches terminal velocity, so
-// the clamp VALUE is INFERRED even though the +0x40 step is measured.
+// the clamp VALUE is INFERRED (@unevidenced:player_terminal_velocity) even
+// though the +0x40 step is measured.
 constexpr int16_t kPlayerTerminalVelocity8 = 0x07ff;
 // Float mirror kept for the many call sites that read player.vy as a sign or
 // magnitude; it is always vy8 / 256.
@@ -568,7 +570,8 @@ enum class BombType : uint8_t {
 struct BombProfile {
     uint8_t actorKind = 0x0d;
     uint8_t spriteBase = 58;
-    // UNRECOVERED. No bomb fuse duration has been read from the original.
+    // UNRECOVERED (@unevidenced:bomb_fuse_durations). No bomb fuse duration
+    // has been read from the original.
     // The 41 here (and the three values in bombProfile()) are port policy,
     // chosen to keep roughly the wall-clock durations the port has always
     // had, now expressed in game ticks.
@@ -22882,7 +22885,8 @@ private:
             // The default (Small) bomb is the blue BOMOMIMK sprite 57, verified
             // against the original both in the HUD selector box and as a dropped
             // world bomb (captured under DOSBox); 58 is the green bomb.
-            // Fuse durations are all UNRECOVERED port policy -- see the
+            // Fuse durations are all UNRECOVERED (@unevidenced:bomb_fuse_profile_table)
+            // port policy -- see the
             // note on BombProfile::fuseTicks. No bomb countdown seed has
             // been located in the image: the only `dec byte es:[di+0x1b]`
             // in the binary belongs to the monster spawner loop. These four
@@ -24915,7 +24919,8 @@ private:
         // arithmetic: player pixel (200,308) at drop -> base 3724 and
         // post-walk DS:C1E8 = 3925, exactly as measured. The identification
         // of the bomb actor's pixel position with the dropping player's pixel
-        // position is INFERRED from that single consistent point.
+        // position is INFERRED (@unevidenced:bomb_pixel_equals_player_pixel)
+        // from that single consistent point.
         int tx = (static_cast<int>(player.x) + 4) / 8;
         int ty = static_cast<int>(player.y) / 8;
         auto it = std::find_if(bombs_.begin(), bombs_.end(),
@@ -25310,7 +25315,8 @@ private:
     // kMonsterCorpseSpriteLeft/Right): its walk frames and both captured
     // corpse sprites are 17x10. Kinds 2/3/4 walk in 16x16 frames, so they
     // cannot use this pair, and no death of one has been captured -- they
-    // keep the left value and stay UNEVIDENCED, exactly as before.
+    // keep the left value and stay UNEVIDENCED (@unevidenced:corpse_sprite_non_kind1),
+    // exactly as before.
     // DS:[0x77 + kind*2 + dir] with dir = (vx > 0) ? 2 : 1 (1000:745B).
     // Note the `jle`: vx == 0 takes the dir-1 entry, so a monster killed
     // while stationary -- during its spawn fall, or on a blocked tick --
@@ -25619,7 +25625,7 @@ private:
                 }
                 // Landing shatter 4AE6..4B32. The dice is
                 // (DS:78C2 + slot) mod 6 — a frame counter, not the RNG; the
-                // port's logicTick_ stands in for DS:78C2 (INFERRED
+                // port's logicTick_ stands in for DS:78C2 (INFERRED @unevidenced:debris_shatter_dice_phase,
                 // equivalence, phase not pinned against the original).
                 if (vy > 0 && vy > kDebrisLandingShatterVyGate && code > 0x66 &&
                     (logicTick_ + static_cast<uint32_t>(slot)) % 6u > 2u) {

@@ -2576,6 +2576,11 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "original_damage_counters=ok p1_hits=3 p1_energy=97 p1_hurt_requests=1 p2_hits=2 p2_energy=98 p2_hurt_requests=1 zero_pass_silent=1 state2_hurt_without_subtract=1 underflow_raw=255 death_dispatch=1 live_p1_energy=97 live_p2_energy=98 live_underflow_dead=1 live_state2_energy=100 live_pending_life_loss=1")
 
+    # NOTE: reentry_timer=180 and cooldown=18 echo port constants. kReentryTicks
+    # is a port-invented fallback (the original waits on a key press at
+    # 1000:7ddf) and kDamageCooldownTicks is unevidenced
+    # (@unevidenced:damage_cooldown_ticks). This pins the death-field
+    # MECHANISM, not those durations.
     add_test(NAME player_state2_death_fields
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-player-state2-death-fields)
     set_tests_properties(player_state2_death_fields PROPERTIES
@@ -3421,9 +3426,10 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION "^monster_blast_damage=ok drops=2")
 
     # NOTE: fuse=41 here only echoes the port's own constant back. No bomb
-    # fuse duration has been recovered from the original, so this pins the
-    # countdown MECHANISM (one decrement per tick, detonation at zero, the
-    # effect/flash chain), not the duration.
+    # fuse duration has been recovered from the original (inventory tag
+    # @unevidenced:bomb_fuse_durations), so this pins the countdown MECHANISM
+    # -- one decrement per tick, detonation at zero, the effect/flash chain --
+    # and NOT the duration.
     add_test(NAME bomb_fuse COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-fuse)
     set_tests_properties(bomb_fuse PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -3519,6 +3525,23 @@ if(BUILD_TESTING)
     # 0x76->0x77->0x78->0xFF for a non-fragile word) AND the rest-counter
     # saturation this capture established -- the counter stops at 100 and the
     # record stays, which is now what the port does too.
+    # The inventory of values the ORIGINAL has not established. This repo's
+    # recurring failure has been a green suite verifying the port against
+    # itself -- a pin echoing a port constant with no captured datum behind it
+    # (the withdrawn 41-tick "measured" bomb fuse and the refuted 100-tick
+    # debris retirement both survived that way). This forces every
+    # UNEVIDENCED/UNRECOVERED/INFERRED marker in the source to be tracked in
+    # docs/recovery/unevidenced_constants.md and vice versa, so the set cannot
+    # drift in either direction.
+    add_test(NAME unevidenced_constants
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_unevidenced_constants.py
+                --source ${CMAKE_CURRENT_SOURCE_DIR}/src/app/app.cpp
+                --doc ${CMAKE_CURRENT_SOURCE_DIR}/docs/recovery/unevidenced_constants.md)
+    set_tests_properties(unevidenced_constants PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^unevidenced_constants=ok tracked=7 source=app.cpp doc=unevidenced_constants.md drift=0")
+
     add_test(NAME debris_shatter_playback
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-shatter-playback
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/debris_shatter_playback_original_level2.txt)

@@ -23,6 +23,30 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Made the set of unevidenced values machine-checked.** This session's two
+  wrong models -- the "measured" 41-tick bomb fuse that was really a spawner
+  cooldown, and the 100-tick debris retirement the original never performs --
+  both survived a green suite for the same reason: the tests that covered them
+  echoed a port constant back rather than comparing it to anything original.
+  `bomb_fuse` pinned `fuse=41`; `debris_motion_live` pinned
+  `retire_ticks=108 flag_cleared=1`. Neither number had an original datum
+  behind it, so neither pin could ever fail for the right reason.
+  `docs/recovery/unevidenced_constants.md` is now the explicit inventory of
+  values the ORIGINAL has not established -- seven of them, each with what it
+  affects and why it is unproven -- and
+  `tools/check_unevidenced_constants.py` (`unevidenced_constants` ctest)
+  enforces it in BOTH directions: every `UNEVIDENCED`/`UNRECOVERED`/`INFERRED`
+  marker in `src/app/app.cpp` must carry an `@unevidenced:<tag>` and appear in
+  the doc, and every doc entry must still have its marker in the source.
+  Recovering a value now means deleting the marker and the entry together, in
+  the change that adds the evidence. Both knockouts run for real: an untagged
+  marker fails with `carries an uncertainty marker but no @unevidenced:<tag>`,
+  and deleting a marker while leaving its entry fails with `the inventory
+  lists entries with no marked site left in the source`.
+  The two pins that legitimately echo port policy now say so where they are
+  registered: `bomb_fuse` and `player_state2_death_fields` are annotated as
+  pinning a MECHANISM, not a duration. Suite 402/402.
+
 - **Replaced the debris retirement with the original's saturation model.** The
   captures in the entry below refuted the port's reading of `4CFF cmp
   rest,0x64` as "after exactly 100 resting ticks, clear bit `0x8000` and remove

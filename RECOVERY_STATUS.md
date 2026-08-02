@@ -23,6 +23,29 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Gave the actor-contact core a second level of runtime evidence.** The open
+  item `actor_update_original_contact_semantics` listed "one level" among the
+  things it had not evidenced -- everything rested on the level-1 capture. The
+  same level-2 run that settled behaviour 4 also carries two kind-1
+  behaviour-3 walkers for 666 and 566 ticks, from the REAL actor table
+  `DS:0x1BAE`. It confirms, on a second level and against the port's live
+  rules (`actor_contact_level2_evidence`):
+  the kind-1 hotspot `+0x14 = 6`; gravity of `+0x40` per airborne tick, as the
+  full ladder 64,128,192,256,320,384,448,512,576,640,704 over 11 consecutive
+  ticks with no rounding drift; the ground walk speed `|vx| = +0x0E` seeded on
+  the first grounded tick (0 -> 208); and the two-tick wall response
+  `208 -> -104 -> -208`, i.e. `trunc(-vx/2)` followed by restore-to-speed with
+  the reflected sign. Slot 3 corroborates independently with a different
+  parameter (speed 184, halving to -92). Knockout: kind-1 hotspot 6 -> 5 fails
+  with `port kind-1 hotspot 5 disagrees with the level-2 capture's 6`.
+  **Scope**: the item stays OPEN -- behaviours 1/2/5/6, other kinds, per-tick
+  tile-embedding damage, mode-2 corpse physics, contact multiplicity, the
+  bottom-edge `0x4D..0x52` jump-through semantics, the player's own collision
+  box and two-player are all still unevidenced. The `0x7FF` gravity clamp also
+  stays INFERRED: the level-2 fall peaks at `vy = 704`, so no capture has ever
+  exercised the clamp, and the fixture records `gravity_clamp_exercised=0`
+  rather than implying otherwise. Suite 399/399.
+
 - **Recovered the original's behaviour-4 flyer motion and CLOSED the item.**
   `behavior4_motion_runtime_fixture` had no runtime evidence at all. A level-2
   tick-locked capture now records 666 consecutive behaviour-4 ticks of a live

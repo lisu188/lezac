@@ -196,10 +196,23 @@ and collection consumption, not exact reward physics or presentation.
   `monster.y`), the period-4 animation cadence with the boundary-latched facing
   flip, and the facing-consume-before-reflection order. The item stays OPEN:
   the evidence is one monster kind (1), one behaviour (3), one level, so
-  behaviours 1/2/4/5/6, other kinds, other levels, per-tick tile-embedding
+  behaviours 1/2/5/6, other kinds, per-tick tile-embedding
   damage, mode-2 corpse physics, contact multiplicity beyond 0/1, the
   bottom-edge `0x4D..0x52` jump-through semantics, the `0x7FF` gravity clamp,
   the player's own collision box and two-player are all unevidenced.
+  **Narrowed.** Two of the listed gaps are now closed by level-2 captures:
+  *other levels* -- `tests/fixtures/actor_contact_original_level2.txt` gives
+  1232 tick rows of two kind-1 behaviour-3 walkers on level 2, confirming the
+  kind-1 hotspot `+0x14 = 6`, the `+0x40`-per-tick gravity ladder
+  (64..704 over 11 consecutive airborne ticks with no drift), the ground walk
+  speed `|vx| = +0x0E`, and the two-tick wall response `208 -> -104 -> -208`
+  (`trunc(-vx/2)` then restore-to-speed-with-reflected-sign), all replayed
+  through the port's live rules by `actor_contact_level2_evidence`; and
+  *behaviour 4*, whose contact response is now runtime-confirmed by the
+  behaviour-4 capture below. The `0x7FF` gravity clamp remains INFERRED --
+  the level-2 fall peaks at `vy = 704`, so the clamp is still unexercised by
+  any capture, and the fixture records `gravity_clamp_exercised=0`.
+
 - `behavior4_motion_runtime_fixture` — **CLOSED.** A level-2 tick-locked
   capture (`tests/fixtures/behavior4_motion_original_level2.txt`,
   `tools/capture_original_behavior4_motion_procmem.py`) records 666

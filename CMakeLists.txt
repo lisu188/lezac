@@ -3507,6 +3507,18 @@ if(BUILD_TESTING)
     # the port's kind-2 range. The velocity SELECTION formula is NOT settled --
     # the RNG is shared with two live walkers, so draws cannot be attributed --
     # and the fixture carries velocity_selection_recovered=0.
+    # Second level for the recovered actor-contact core. The level-1 fixture
+    # left "one level" on the open item's unevidenced list; these rows are
+    # level 2 and drive the port's live gravity, walk-speed seeding and
+    # wall-reflection paths.
+    add_test(NAME actor_contact_level2_evidence
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-contact-level2-evidence
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/actor_contact_original_level2.txt)
+    set_tests_properties(actor_contact_level2_evidence PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^actor_contact_level2_evidence=ok level=2 kind=1 behavior=3 walker_a_ticks=666 walker_b_ticks=566 hotspot=6 gravity_step=64 ladder_len=11 walk_speed=208 reflect=208,-104,-208 clamp_exercised=0 visual_claim=0")
+
     add_test(NAME behavior4_motion_evidence
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-behavior4-motion-evidence
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/behavior4_motion_original_level2.txt)

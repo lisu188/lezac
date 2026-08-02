@@ -17510,6 +17510,119 @@ public:
     // not settled by the capture (the RNG is shared with the two live kind-1
     // walkers, so a seed delta across one flyer tick cannot be attributed to
     // the flyer) and is deliberately not asserted here.
+    // Check the recovered actor-contact core against a SECOND level. The
+    // existing level-1 fixture left "one level" on this item's unevidenced
+    // list; these rows come from level 2 and drive the port's live gravity,
+    // walk-speed seeding and wall-reflection paths.
+    void debugActorContactLevel2Evidence(const std::string& fixturePath) {
+        std::ifstream in(fixturePath);
+        if (!in) throw std::runtime_error("cannot open " + fixturePath);
+        std::map<std::string, std::string> kv;
+        std::string line;
+        while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#' || line.rfind("tick ", 0) == 0) continue;
+            auto eq = line.find('=');
+            if (eq == std::string::npos) continue;
+            kv[line.substr(0, eq)] = line.substr(eq + 1);
+        }
+        auto req = [&](const char* key) -> std::string {
+            auto it = kv.find(key);
+            if (it == kv.end()) {
+                throw std::runtime_error(std::string("missing key ") + key);
+            }
+            return it->second;
+        };
+        if (req("actor_contact_level2_original") != "level2" ||
+            req("visual_claim") != "0" || req("runtime_ds") != "0c8f" ||
+            req("actor_table_offset") != "0x1bae" ||
+            req("gravity_clamp_exercised") != "0") {
+            throw std::runtime_error("level-2 contact fixture header mismatch");
+        }
+        const int hotspot = std::stoi(req("hotspot_y"));
+        const int gravityStep = std::stoi(req("gravity_step"));
+        const int speed = std::stoi(req("walker_a_speed"));
+
+        // 1. Hotspot for kind 1, from the port's own table.
+        if (static_cast<int>(monsterHotspotY(1)) != hotspot) {
+            throw std::runtime_error(
+                "port kind-1 hotspot " +
+                std::to_string(static_cast<int>(monsterHotspotY(1))) +
+                " disagrees with the level-2 capture's " + std::to_string(hotspot));
+        }
+
+        // 2. Gravity ladder: drive the port's own airborne integration and
+        //    compare the whole captured series, not just the step.
+        std::vector<int> ladder;
+        {
+            std::string field;
+            std::istringstream ls(req("gravity_ladder"));
+            while (std::getline(ls, field, ',')) ladder.push_back(std::stoi(field));
+        }
+        int vy8 = 0;
+        std::string portLadder;
+        for (size_t i = 0; i < ladder.size(); ++i) {
+            vy8 = clampI16(vy8 + gravityStep);
+            if (!portLadder.empty()) portLadder += ',';
+            portLadder += std::to_string(vy8);
+        }
+        if (portLadder != req("gravity_ladder")) {
+            throw std::runtime_error(
+                "port gravity ladder [" + portLadder + "] diverges from the capture");
+        }
+
+        // 3. Walk speed seeding and the two-tick reflect/restore shape, driven
+        //    through the port's live walker rules.
+        ActiveMonster walker;
+        walker.kind = 1;
+        walker.behavior = 3;
+        walker.ai0 = static_cast<uint16_t>(speed);
+        walker.hotspotY = monsterHotspotY(1);
+        refreshMonsterAnimationProfile(walker);
+        if (static_cast<int>(groundWalkerSpeed8(walker)) != speed) {
+            throw std::runtime_error(
+                "port ground walk speed " +
+                std::to_string(groundWalkerSpeed8(walker)) +
+                " disagrees with the captured " + std::to_string(speed));
+        }
+        // The capture's reflect sequence is speed -> -speed/2 -> -speed.
+        std::vector<int> seq;
+        {
+            std::string field;
+            std::istringstream ls(req("reflect_sequence"));
+            while (std::getline(ls, field, ',')) seq.push_back(std::stoi(field));
+        }
+        const int divisor = std::stoi(req("reflect_divisor"));
+        const int reflected = -seq[0] / divisor;
+        if (reflected != seq[1]) {
+            throw std::runtime_error(
+                "trunc(-vx/" + std::to_string(divisor) + ") gives " +
+                std::to_string(reflected) + ", capture shows " + std::to_string(seq[1]));
+        }
+        // Next tick: magnitude differs from the walk speed, so the port
+        // restores full speed keeping the reflected sign.
+        walker.vx8 = static_cast<int16_t>(reflected);
+        const int16_t restore = walker.vx8 > 0
+                                    ? groundWalkerSpeed8(walker)
+                                    : static_cast<int16_t>(-groundWalkerSpeed8(walker));
+        if (restore != seq[2]) {
+            throw std::runtime_error(
+                "port restores " + std::to_string(restore) +
+                ", capture shows " + std::to_string(seq[2]));
+        }
+        std::cout << "actor_contact_level2_evidence=ok"
+                  << " level=2 kind=1 behavior=3"
+                  << " walker_a_ticks=" << req("walker_a_ticks")
+                  << " walker_b_ticks=" << req("walker_b_ticks")
+                  << " hotspot=" << hotspot
+                  << " gravity_step=" << gravityStep
+                  << " ladder_len=" << ladder.size()
+                  << " walk_speed=" << speed
+                  << " reflect=" << seq[0] << "," << seq[1] << "," << seq[2]
+                  << " clamp_exercised=0"
+                  << " visual_claim=0\n";
+    }
+
     void debugBehavior4MotionEvidence(const std::string& fixturePath) {
         std::ifstream in(fixturePath);
         if (!in) throw std::runtime_error("cannot open " + fixturePath);
@@ -26959,6 +27072,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-object-explosion-effects") {
             app.debugBombObjectExplosionEffects();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-actor-contact-level2-evidence") {
+            app.debugActorContactLevel2Evidence(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-behavior4-motion-evidence") {

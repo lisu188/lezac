@@ -6374,11 +6374,10 @@ public:
         // the original runtime, tracked in RECOVERY_STATUS.md. These are not
         // missing port functionality; each stays visual_claim=0 until the
         // matching original fixture is promoted.
-        static const std::array<const char*, 4> kOpenOriginalEvidenceItems{{
+        static const std::array<const char*, 3> kOpenOriginalEvidenceItems{{
             "natural_forward_debris_writeback_3d2d",
             "exact_explosion_sprite_playback",
             "actor_update_original_contact_semantics",
-            "behavior4_motion_runtime_fixture",
         }};
 
         for (const auto& subsystem : kPortSubsystems) {
@@ -17516,6 +17515,7 @@ public:
         if (!in) throw std::runtime_error("cannot open " + fixturePath);
         std::map<std::string, std::string> kv;
         std::vector<std::array<long, 4>> ticks;  // frame, vx, vy, anim
+        std::vector<uint32_t> seeds;
         std::string line;
         while (std::getline(in, line)) {
             if (!line.empty() && line.back() == '\r') line.pop_back();
@@ -17524,6 +17524,7 @@ public:
                 std::istringstream row(line.substr(5));
                 std::string field;
                 long frame = 0, vx = 0, vy = 0, anim = 0;
+                unsigned long rng = 0;
                 while (row >> field) {
                     auto eq = field.find('=');
                     if (eq == std::string::npos) continue;
@@ -17533,8 +17534,10 @@ public:
                     else if (k == "vx") vx = std::stol(v);
                     else if (k == "vy") vy = std::stol(v);
                     else if (k == "anim") anim = std::stol(v, nullptr, 16);
+                    else if (k == "rng") rng = std::stoul(v, nullptr, 16);
                 }
                 ticks.push_back({frame, vx, vy, anim});
+                seeds.push_back(rng);
                 continue;
             }
             auto eq = line.find('=');
@@ -17551,7 +17554,7 @@ public:
         if (req("behavior4_motion_original") != "level2" ||
             req("visual_claim") != "0" || req("runtime_ds") != "0c8f" ||
             req("actor_table_offset") != "0x1bae" ||
-            req("velocity_selection_recovered") != "0") {
+            req("velocity_selection_recovered") != "1") {
             throw std::runtime_error("behaviour-4 fixture header mismatch");
         }
         if (ticks.size() != static_cast<size_t>(std::stol(req("behavior4_ticks")))) {
@@ -17626,6 +17629,66 @@ public:
                     " falls outside the port's kind-2 range");
             }
         }
+        // Velocity SELECTION: on every tick that advanced the shared LCG by
+        // exactly two steps, replay those two draws through the port's OWN
+        // randomRangeValue and compare. Exceptions must be contact rules
+        // applied after selection, so each one is required to look like a
+        // top-edge clamp (vy == 1) or a -vx/2 bounce off the previous vx.
+        const int ai1 = std::stoi(req("velocity_ai1"));
+        const int selRange = std::stoi(req("velocity_range"));
+        if (selRange != 2 * ai1) {
+            throw std::runtime_error("fixture velocity range is not 2*ai1");
+        }
+        int twoDraw = 0, vxFit = 0, vyFit = 0, clampExc = 0, bounceExc = 0;
+        for (size_t i = 1; i < ticks.size(); ++i) {
+            const uint32_t before = seeds[i - 1];
+            uint32_t probe = before;
+            probe = probe * 0x08088405u + 1u;
+            probe = probe * 0x08088405u + 1u;
+            if (probe != seeds[i]) continue;  // not a two-draw tick
+            ++twoDraw;
+            const uint32_t saved = randomSeed_;
+            randomSeed_ = before;
+            const int drawX = static_cast<int>(
+                randomRangeValue(0, static_cast<uint16_t>(selRange))) - ai1;
+            const int drawY = static_cast<int>(
+                randomRangeValue(0, static_cast<uint16_t>(selRange))) - ai1;
+            randomSeed_ = saved;
+            if (ticks[i][1] == drawX) {
+                ++vxFit;
+            } else if (ticks[i][1] == -drawX / 2 ||
+                       ticks[i][1] == -ticks[i - 1][1] / 2) {
+                // A wall contact on the SAME tick halves and negates the
+                // velocity. Frame 911 is the one observed case and it bounces
+                // the freshly drawn 233 to -116, not the previous vx -- so the
+                // retarget runs first and the contact response second.
+                ++bounceExc;
+            } else {
+                throw std::runtime_error(
+                    "vx at frame " + std::to_string(ticks[i][0]) + " is neither the draw (" +
+                    std::to_string(drawX) + ") nor a -vx/2 bounce");
+            }
+            if (ticks[i][2] == drawY) ++vyFit;
+            else if (ticks[i][2] == 1) ++clampExc;
+            else {
+                throw std::runtime_error(
+                    "vy at frame " + std::to_string(ticks[i][0]) + " is neither the draw (" +
+                    std::to_string(drawY) + ") nor the top-edge clamp");
+            }
+        }
+        if (twoDraw != std::stoi(req("two_draw_ticks"))) {
+            throw std::runtime_error(
+                "re-derived two-draw tick count " + std::to_string(twoDraw) +
+                " disagrees with the fixture");
+        }
+        const std::string vxFitStr = std::to_string(vxFit) + "/" + std::to_string(twoDraw);
+        const std::string vyFitStr = std::to_string(vyFit) + "/" + std::to_string(twoDraw);
+        if (vxFitStr != req("velocity_vx_fit") || vyFitStr != req("velocity_vy_fit")) {
+            throw std::runtime_error(
+                "velocity fit " + vxFitStr + "," + vyFitStr +
+                " disagrees with the fixture");
+        }
+
         std::cout << "behavior4_motion_evidence=ok"
                   << " fixture=level2 ticks=" << ticks.size()
                   << " actor_table=0x1bae stride=0x26"
@@ -17633,7 +17696,13 @@ public:
                   << " port_period=" << portGap
                   << " velocity_changes=" << changeFrames.size()
                   << " anim_in_kind2_range=1"
-                  << " velocity_selection_recovered=0"
+                  << " two_draw_ticks=" << twoDraw
+                  << " vx_fit=" << vxFitStr
+                  << " vy_fit=" << vyFitStr
+                  << " clamp_exceptions=" << clampExc
+                  << " bounce_exceptions=" << bounceExc
+                  << " selection=port_random_2ai1_minus_ai1 ai1=" << ai1
+                  << " velocity_selection_recovered=1"
                   << " visual_claim=0\n";
     }
 

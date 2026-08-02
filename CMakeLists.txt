@@ -167,7 +167,7 @@ if(BUILD_TESTING)
     set_tests_properties(port_completion_status PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "port_completion_status=ok subsystems=23 implemented=23 open_original_evidence_items=4 port_functionally_complete=1 original_fidelity_claim=0")
+            "port_completion_status=ok subsystems=23 implemented=23 open_original_evidence_items=3 port_functionally_complete=1 original_fidelity_claim=0")
 
     add_test(NAME original_asset_load
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-asset-load)
@@ -1951,7 +1951,7 @@ if(BUILD_TESTING)
         set_tests_properties(port_completion_status_checker PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^port_completion_status_checker=ok subsystems=23 open_items=4 ctest=3 docs=3")
+                "^port_completion_status_checker=ok subsystems=23 open_items=3 ctest=3 docs=3")
 
         add_test(NAME livels_debris_sites
             COMMAND ${Python3_EXECUTABLE}
@@ -3513,7 +3513,7 @@ if(BUILD_TESTING)
     set_tests_properties(behavior4_motion_evidence PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^behavior4_motion_evidence=ok fixture=level2 ticks=666 actor_table=0x1bae stride=0x26 retarget_period=14 port_period=14 velocity_changes=73 anim_in_kind2_range=1 velocity_selection_recovered=0 visual_claim=0")
+            "^behavior4_motion_evidence=ok fixture=level2 ticks=666 actor_table=0x1bae stride=0x26 retarget_period=14 port_period=14 velocity_changes=73 anim_in_kind2_range=1 two_draw_ticks=48 vx_fit=47/48 vy_fit=43/48 clamp_exceptions=5 bounce_exceptions=1 selection=port_random_2ai1_minus_ai1 ai1=271 velocity_selection_recovered=1 visual_claim=0")
 
     add_test(NAME debris_collapse_order
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-collapse-order)

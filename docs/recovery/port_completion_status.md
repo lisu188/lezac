@@ -200,52 +200,40 @@ and collection consumption, not exact reward physics or presentation.
   damage, mode-2 corpse physics, contact multiplicity beyond 0/1, the
   bottom-edge `0x4D..0x52` jump-through semantics, the `0x7FF` gravity clamp,
   the player's own collision box and two-player are all unevidenced.
-- `behavior4_motion_runtime_fixture` — behavior-4 motion semantics fixture.
-  **Retargeted, not closed.** This item previously named `1000:728C..731B` as
-  the behavior-4 branch. The shipped bytes disprove that: the behavior-4 arm
-  ends `1000:714F e9 da 01` (`jmp 0x732C`), stepping clean past the window, and
-  the window's only external entry is `1000:7152 3c 03` / `1000:7154 74 03`
-  (`cmp al,3 / je`). Its gate local `[bp-0x20]` is written at exactly four
-  sites (`716B`, `71A0`, `71F3`, `723D`), all before the window inside the
-  behavior-3 arm. A behavior-4 actor therefore never executes that window on
-  any level, so the fixture as originally specified was unfillable — which is
-  why the candidate skeleton could never be completed. Pinned by
-  `tools/check_behavior4_window_attribution.py` and the
-  `behavior4_window_attribution` ctest. The behavior-4 *motion* path
-  (`1000:70D7..714F`, `73E5`, `741B`) is the correct target and still has no
-  runtime evidence for its velocity selection, so this item stays open with
-  corrected scope -- but it is no longer evidence-free.
-
-  A level-2 tick-locked capture
-  (`tests/fixtures/behavior4_motion_original_level2.txt`,
-  `tools/capture_original_behavior4_motion_procmem.py`) now records 666
+- `behavior4_motion_runtime_fixture` — **CLOSED.** A level-2 tick-locked
+  capture (`tests/fixtures/behavior4_motion_original_level2.txt`,
+  `tools/capture_original_behavior4_motion_procmem.py`) records 666
   consecutive behaviour-4 ticks of a live kind-2 flyer, sampled from the REAL
   actor table `DS:0x1BAE` stride 0x26. (Every earlier capture tool pointed at
-  `DS:0x74A8`, which is the level-file monster SPAWNER table; that
-  misidentification is what produced the withdrawn bomb-fuse claim.) It
-  settles three things, pinned by `behavior4_motion_evidence`:
+  `DS:0x74A8`, the level-file monster SPAWNER table; that misidentification is
+  what produced the withdrawn bomb-fuse claim.)
 
-  - the retarget cadence is **14 ticks** (26 clean occurrences), and the
-    port's `motionTimer = max(1, ai0)` schedules the same cadence;
+  RNG attribution is clean: 616 of the 666 ticks advance the shared LCG by
+  ZERO steps, 48 by exactly two, one by four — the two live kind-1 walkers
+  draw nothing while walking, so a retarget tick's two draws are the flyer's.
+
+  Recovered and pinned by `behavior4_motion_evidence`:
+
+  - retarget cadence **14 ticks** (26 clean occurrences, re-derived from the
+    rows), matching the port's `motionTimer = max(1, ai0)`;
+  - velocity selection `v = -ai1 + Random(2*ai1)` with `ai1 = 271`, first draw
+    to vx and second to vy — reproducing **47/48** vx and **43/48** vy when
+    replayed through the port's OWN `randomRangeValue`. Every exception is a
+    contact rule applied after selection in the same tick: five top-edge
+    clamps to `vy = 1`, and one horizontal bounce that halves and negates the
+    freshly drawn value (233 -> -116), which also fixes the ORDER — retarget
+    first, contact response second;
   - only `+0x06`/`+0x08` (vx/vy), `+0x0A`/`+0x0C` (single-BYTE 8.8 fraction
     carries), `+0x16` (animation frame) and `+0x19` (delay counter) ever move,
     so the flyer runs the same integer-pixel + byte-fraction model the port
     already uses;
-  - the animation range is `0x28..0x2a` with a 3-tick delay, inside the port's
-    kind-2 range.
+  - animation range `0x28..0x2a` with a 3-tick delay, inside the port's kind-2
+    range.
 
-  The off-cadence velocity changes corroborate two rules the port already
-  implements: a horizontal bounce of `-vx/2` (observed -182 -> +91,
-  -221 -> +110) and a top-edge clamp to `vy = 1`.
-
-  What remains OPEN is the velocity SELECTION formula. No `(base, range)` pair
-  reproduces the observed velocities under `base + Random(range)`, and the
-  capture cannot decide it: the RNG is shared by every actor and two kind-1
-  walkers are live throughout, so the seed delta across one flyer tick cannot
-  be attributed to the flyer's own draws. Closing it needs either a level with
-  a single live actor or a breakpoint capture at the draw site. The fixture
-  carries `velocity_selection_recovered=0` and the diagnostic asserts nothing
-  about it.
+  The level-2 kind-2 spawner's `param0Base=13 param0Range=2` and
+  `param1Base=270 param1Range=2` bracket the captured `ai0 = 14` and
+  `ai1 = 271`. The 25 velocity changes that consumed NO RNG corroborate the
+  `-vx/2` bounce and the `vy = 1` top clamp the port already implements.
 ## Guardrails
 
 - `tools/check_port_completion_status.py` fails when the source tables, this

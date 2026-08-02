@@ -1,27 +1,40 @@
 # Original LEZAC.EXE level-2 behaviour-4 (kind-2 flyer) motion evidence.
 #
 # Captured in-container under DOSBox, tick-locked on the frame counter
-# DS:0x78C2 with ONE 64 KiB pread of the data segment per tick. Sampled
-# from the REAL actor table DS:0x1BAE stride 0x26 -- NOT DS:0x74A8, which
-# is the level-file monster spawner table; reading actor state out of
-# 0x74A8 is what produced the withdrawn bomb-fuse claim.
+# DS:0x78C2 with ONE 64 KiB pread of the data segment per tick. Sampled from
+# the REAL actor table DS:0x1BAE stride 0x26 -- NOT DS:0x74A8, which is the
+# level-file monster spawner table; reading actor state out of 0x74A8 is what
+# produced the withdrawn bomb-fuse claim.
 #
-# Record layout recovered from the bytes that actually change over the
-# 666 behaviour-4 ticks (only these offsets ever move):
+# Record layout, recovered from the bytes that actually move over the 666
+# behaviour-4 ticks (only these offsets ever change):
 #   +0x06 i16 vx        +0x08 i16 vy
 #   +0x0A u8  x fraction (8.8 carry)   +0x0C u8 y fraction
-#   +0x16 u8  animation frame   +0x19 u8 animation delay counter
-# Constant across the run: +0x00 kind=2, +0x15 behaviour=4,
-#   +0x0E = 0x0e retarget period, +0x17/+0x18 = 0x28/0x2a anim range.
-# The 8.8 fraction lives in a single BYTE at +0x0A/+0x0C (the neighbouring
-# bytes never move), which is the same integer-pixel + byte-fraction model
-# the port already uses for monsters.
+#   +0x16 u8  animation frame          +0x19 u8 animation delay counter
+# Constant across the run: +0x00 kind=2, +0x15 behaviour=4, +0x0E = 0x0e
+# retarget period, +0x17/+0x18 = 0x28/0x2a animation range. The fraction is a
+# single BYTE (the neighbouring bytes never move), the same integer-pixel +
+# byte-fraction model the port already uses for monsters.
 #
-# SCOPE: the velocity SELECTION formula is NOT settled by this capture.
-# The RNG is shared by every actor -- two kind-1 walkers are live
-# throughout -- so the seed delta across one flyer tick cannot be
-# attributed to the flyer's own draws. No (base, range) pair reproduces
-# the observed velocities under base + Random(range); that stays OPEN.
+# RNG ATTRIBUTION IS CLEAN, contrary to a first reading of this capture: 616
+# of the 666 ticks advance the shared LCG by ZERO steps, 48 advance it by
+# exactly 2, and one by 4. The two live kind-1 walkers draw nothing while
+# walking, so the two draws on a retarget tick are the flyer's own.
+#
+# Velocity selection, recovered: vx and vy are each
+#   value = -ai1 + Random(2*ai1)   with ai1 = 271
+# taking the FIRST draw for vx and the SECOND for vy. That reproduces 47/48
+# vx and 43/48 vy; every exception is a contact rule applied to the same tick
+# AFTER selection -- five vy exceptions are the top-edge clamp to vy = 1
+# (frames 393, 407, 617, 631, 645) and the single vx exception at frame 911 is
+# a horizontal bounce. The level-2 kind-2 spawner carries param0Base=13
+# param0Range=2 (so ai0 is 13 or 14; the capture shows 14 = the retarget
+# period) and param1Base=270 param1Range=2 (so ai1 is 270 or 271; the capture
+# shows 271).
+#
+# Corroborated contact rules, from the 25 velocity changes that consumed NO
+# RNG: a horizontal bounce of -vx/2 (observed -182 -> +91, -221 -> +110) and a
+# top-edge clamp to vy = 1.
 behavior4_motion_original=level2
 source=LEZAC.EXE via DOSBox /proc/mem tick-locked read
 runtime_ds=0c8f
@@ -37,10 +50,18 @@ last_frame=953
 retarget_period_ticks=14
 retarget_period_occurrences=26
 velocity_changes=73
+zero_draw_ticks=616
+two_draw_ticks=48
 anim_frame_low=0x28
 anim_frame_high=0x2a
 anim_delay_period=3
-velocity_selection_recovered=0
+velocity_ai1=271
+velocity_range=542
+velocity_selection_recovered=1
+velocity_vx_fit=47/48
+velocity_vy_fit=43/48
+top_edge_clamp_vy=1
+horizontal_bounce_divisor=2
 visual_claim=0
 temp_copy=1
 tick frame=288 vx=0 vy=0 fracx=0 fracy=0 anim=0x29 delay=0 rng=d5aedfb8 raw=0202000b0b0000000000000000000e000f014100000429282a00020101000000000000000301

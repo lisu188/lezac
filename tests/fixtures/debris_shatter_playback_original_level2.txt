@@ -22,11 +22,9 @@
 #    bit 0x8000 of its word is never cleared, and the record is never removed
 #    on that path. Removal is observed only through the 0xFF consume path
 #    The longest observed run is 3359 CONSECUTIVE TICKS at rest == 100
-#    (record 205, from frame 641 to the end of the capture) -- the port would
-#    have removed that record after 100. The port's behaviour is left
-#    unchanged in this change -- the
-#    replacement model needs its own verification pass -- but the divergence
-#    is recorded here rather than carried silently.
+#    (record 205, from frame 641 to the end of the capture) -- the port used to
+#    remove that record after 100. The
+#    replacement model is now implemented and guarded.
 debris_shatter_playback_original=level2
 source=LEZAC.EXE via DOSBox /proc/mem tick-locked read
 runtime_ds=0c8f
@@ -49,7 +47,7 @@ longest_rest_100_run=3359
 longest_rest_100_record=205
 rest_retirement_observed=0
 damaged_bit_ever_cleared=0
-port_retirement_model_refuted=1
+port_matches_saturation=1
 visual_claim=0
 temp_copy=1
 row frame=495 record=202 raw=ac0e07c000400044016a00

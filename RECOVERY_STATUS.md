@@ -23,6 +23,31 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Replaced the debris retirement with the original's saturation model.** The
+  captures in the entry below refuted the port's reading of `4CFF cmp
+  rest,0x64` as "after exactly 100 resting ticks, clear bit `0x8000` and remove
+  the record". It is a saturation guard: the counter stops at 100 and the
+  record stays, still flagged, and records leave the table only through the
+  `0xFF` consume path (`4A1B..4A75`). `updateDebrisRecords()` now does that,
+  and `kDebrisRetireRestTicks` is renamed `kDebrisRestSaturation` so the
+  constant says what the byte means.
+  Persistence is bounded exactly as the original bounds it: the seeder's cap
+  check (`3753`, refuse once `record index base + count` reaches 0x640) is
+  already implemented, so nothing new can overflow -- the original never
+  removed on rest either and lives with the same ceiling.
+  `debris_motion_live` used to pin `retire_ticks=108 flag_cleared=1`, a pure
+  port-behaviour pin with no original datum behind it, which is precisely how
+  the wrong model survived a green suite. It now free-runs 800 ticks and
+  asserts the counter never passes the ceiling (`max_rest=100`), that fragments
+  survive at it (`rested_at_ceiling=2 survivors=2`), and that their cells keep
+  bit `0x8000`. Knockout run for real: restoring the retirement fails with
+  `no debris fragment survived at the rest ceiling after 800 ticks`.
+  The fixture's `port_retirement_model_refuted=1` becomes
+  `port_matches_saturation=1`, and `debris_shatter_playback` now also checks
+  the port's ceiling constant equals the captured saturation value, so the
+  fixture no longer advertises a divergence that has been closed. Suite
+  401/401.
+
 - **Captured the debris shatter playback, and refuted the port's retirement
   model.** Bombing the level-2 sites with the deepest free fall (tile (40,31)
   has 16 clear tiles below it) drives fragments past the landing-shatter gate
@@ -42,12 +67,9 @@ under the existing guardrails; they are not missing port functionality.
   consecutive ticks** at `rest == 100` (record 205), where this port would have
   removed the record after 100. `4CFF` therefore reads as a saturation guard,
   not a retirement trigger.
-  **Scope**: the port's behaviour is left UNCHANGED. The replacement model
-  (saturate, and remove only through the `0xFF` consume path) needs its own
-  verification pass rather than a late edit to a subsystem this large, so the
-  divergence is pinned by `debris_shatter_playback`
-  (`port_retirement_refuted=1`) instead of being carried silently. Suite
-  401/401.
+  **Fixed in the following change**: the port now saturates the counter at the
+  ceiling and keeps the record, removing only through the `0xFF` consume path.
+  Suite 401/401.
 
 - **Observed the natural forward debris writeback at `1000:3D2D`.** This item
   had been recorded as blocked because `3D2D` is an intra-frame staging write

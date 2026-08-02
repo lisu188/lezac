@@ -101,7 +101,11 @@ constexpr size_t kDebrisRecordIndexBase = 0x00c7;  // DS:207E init (file 0x3319)
                                                    // DS:207E >= kDebrisCapacity.
 constexpr int8_t kDebrisGravityCompare = 0x7b;     // 4AA3 cmp vy,0x7b (signed jge)
 constexpr int8_t kDebrisGravityStep = 4;           // 4AAA add vy,4
-constexpr uint8_t kDebrisRetireRestTicks = 0x64;   // 4CFF cmp rest,0x64 (equality)
+// 4CFF cmp rest,0x64 -- the ceiling the resting counter saturates at, NOT a
+// retirement threshold. See the note in updateDebrisRecords(): two level-2
+// captures show the counter stopping here with the record still present and
+// still flagged (longest observed run 3359 consecutive ticks at this value).
+constexpr uint8_t kDebrisRestSaturation = 0x64;
 constexpr uint8_t kDebrisShatterFrame = 0x76;      // 49B0/4B16 first shatter frame
 constexpr uint8_t kDebrisShatterLastStep = 0x79;   // 49DC terminal-frame trigger
 constexpr uint8_t kDebrisTerminalBase = 0x6b;      // 49EF add ax,0x6b (+Random(5))
@@ -2038,11 +2042,11 @@ public:
         }
         // Derived wall-clock durations for the per-tick subsystems whose
         // constants are game ticks: the small-bomb fuse and the debris
-        // rest-to-retire countdown.
+        // rest-counter saturation ceiling.
         const double fuseSeconds =
             bombProfile(BombType::Small).fuseTicks / ticksPerSecond;
-        const double debrisRetireSeconds =
-            static_cast<double>(kDebrisRetireRestTicks) / ticksPerSecond;
+        const double debrisRestSaturationSeconds =
+            static_cast<double>(kDebrisRestSaturation) / ticksPerSecond;
         std::cout << std::fixed << std::setprecision(2)
                   << "governed_rate=ok"
                   << " nominal_ticks_per_second=" << nominalTicksPerSecond
@@ -2056,7 +2060,7 @@ public:
                   << " dropped_ticks=" << governedDroppedTicks_
                   << " drives_run_loop=1"
                   << " small_fuse_s=" << fuseSeconds
-                  << " debris_retire_s=" << debrisRetireSeconds
+                  << " debris_rest_sat_s=" << debrisRestSaturationSeconds
                   << " visual_claim=0\n"
                   << std::defaultfloat;
     }
@@ -17561,7 +17565,7 @@ public:
         };
         if (req("debris_shatter_playback_original") != "level2" ||
             req("visual_claim") != "0" || req("runtime_ds") != "0c8f" ||
-            req("port_retirement_model_refuted") != "1") {
+            req("port_matches_saturation") != "1") {
             throw std::runtime_error("shatter playback fixture header mismatch");
         }
         auto byteAt = [](const std::string& hex, size_t i) {
@@ -17620,13 +17624,18 @@ public:
         // ticks; the capture shows the counter saturating there instead.
         const int restMax = std::stoi(req("rest_max_observed"));
         const long longestRun = std::stol(req("longest_rest_100_run"));
-        if (restMax != static_cast<int>(kDebrisRetireRestTicks)) {
+        if (restMax != static_cast<int>(kDebrisRestSaturation)) {
             throw std::runtime_error(
                 "capture's saturation value disagrees with the port's retire constant");
         }
         if (req("rest_retirement_observed") != "0" ||
             req("damaged_bit_ever_cleared") != "0" || longestRun <= restMax) {
-            throw std::runtime_error("rest-counter refutation fields are inconsistent");
+            throw std::runtime_error("rest-counter fields are inconsistent");
+        }
+        // The port must now agree: its ceiling constant IS the saturation
+        // value, and nothing retires a record on the rest counter.
+        if (static_cast<int>(kDebrisRestSaturation) != restMax) {
+            throw std::runtime_error("port saturation ceiling disagrees with the capture");
         }
         std::cout << "debris_shatter_playback=ok"
                   << " level=2 chain=" << chain
@@ -17635,7 +17644,7 @@ public:
                   << " port_stepper_matches=1"
                   << " rest_saturates_at=" << restMax
                   << " longest_rest_run=" << longestRun
-                  << " retirement_observed=0 port_retirement_refuted=1"
+                  << " retirement_observed=0 port_saturates=1"
                   << " visual_claim=0\n";
     }
 
@@ -18367,23 +18376,44 @@ public:
             }
         }
 
-        // Free-run the live path until every fragment has landed, rested 100
-        // consecutive ticks and retired (or dissolved through a shatter
-        // terminal); retirement must clear bit 0x8000 from every airborne
-        // high word.
-        int freeRunTicks = 0;
-        while (!debrisQueue_.empty() && freeRunTicks < 4000) {
+        // Free-run the live path well past the rest ceiling. Fragments that
+        // come to rest must STAY: the counter saturates at
+        // kDebrisRestSaturation and the record keeps its 0x8000 flag. This is
+        // what two level-2 captures show (longest observed run 3359
+        // consecutive ticks at the ceiling), and it is the opposite of what an
+        // earlier revision of this port did -- it removed the record after
+        // exactly 100 resting ticks. Records leave only through the 0xFF
+        // consume path.
+        const int kFreeRun = kDebrisRestSaturation * 8;
+        int restedAtCeiling = 0;
+        int maxRest = 0;
+        for (int t = 0; t < kFreeRun; ++t) {
             updateFlashes();
-            ++freeRunTicks;
+            for (const DebrisRecord& live : debrisQueue_) {
+                maxRest = std::max(maxRest, static_cast<int>(live.restTicks));
+            }
         }
-        if (!debrisQueue_.empty()) {
-            throw std::runtime_error("debris fragments did not retire");
+        if (maxRest > static_cast<int>(kDebrisRestSaturation)) {
+            throw std::runtime_error(
+                "debris rest counter passed its saturation ceiling (" +
+                std::to_string(maxRest) + ")");
         }
-        for (uint16_t word : level_.wordLayer) {
-            if ((word & kDamagedWordBit) != 0 &&
-                static_cast<uint16_t>(word & ~kDamagedWordBit) >=
-                    kDeferredThreshold) {
-                throw std::runtime_error("retired debris left a flagged high word");
+        for (const DebrisRecord& live : debrisQueue_) {
+            if (live.restTicks == kDebrisRestSaturation) ++restedAtCeiling;
+        }
+        if (debrisQueue_.empty() || restedAtCeiling == 0) {
+            throw std::runtime_error(
+                "no debris fragment survived at the rest ceiling after " +
+                std::to_string(kFreeRun) + " ticks");
+        }
+        // Every surviving fragment's cell must still carry bit 0x8000 -- the
+        // retirement that used to clear it is gone.
+        for (const DebrisRecord& live : debrisQueue_) {
+            const int tx = live.tileIndex % level_.width;
+            const int ty = live.tileIndex / level_.width;
+            if ((wordAt(tx, ty) & kDamagedWordBit) == 0) {
+                throw std::runtime_error(
+                    "a resting debris fragment lost its 0x8000 flag");
             }
         }
 
@@ -18395,7 +18425,11 @@ public:
                   << " step_stamps=1 cascade="
                   << (cascadeIsDebris ? "debris"
                                       : (expectCascade ? "collapse" : "none"))
-                  << " retire_ticks=" << freeRunTicks << " flag_cleared=1\n";
+                  << " free_run=" << kFreeRun
+                  << " max_rest=" << maxRest
+                  << " rested_at_ceiling=" << restedAtCeiling
+                  << " survivors=" << debrisQueue_.size()
+                  << " still_flagged=1 retires_on_rest=0\n";
     }
 
     void debugPassableObjects() {
@@ -25668,20 +25702,21 @@ private:
             damagePlayersInTileArea(pos % width, pos / width, pos % width,
                                     pos / width);
 
-            // Rest counter / retirement 4CEF..4D31: after exactly 100
-            // consecutive resting ticks the word keeps its value with bit
-            // 0x8000 cleared, the glyph stays stamped, and the record is
-            // removed. (An airborne non-stepping tick resets the counter at
-            // 4AB3 before this increment, so it samples as 1, never 0.)
-            if (resting) ++debrisQueue_[i].restTicks;  // 4CF8
-            if (debrisQueue_[i].restTicks == kDebrisRetireRestTicks) {  // 4CFF
-                const int restIndex = debrisQueue_[i].tileIndex;
-                setWordCell(restIndex,
-                            static_cast<uint16_t>(wordCellAt(restIndex) &
-                                                  ~kDamagedWordBit));  // 4D17/4D2A
-                debrisQueue_.erase(debrisQueue_.begin() +
-                                   static_cast<std::ptrdiff_t>(i));  // 4D31 -> 458D
-                continue;
+            // Rest counter 4CEF..4D31. `4CFF cmp rest,0x64` is a SATURATION
+            // guard, not a retirement trigger: the counter stops at 100 and
+            // the record stays put, still flagged. An earlier revision read it
+            // as "after exactly 100 resting ticks, clear bit 0x8000 and remove
+            // the record", which two level-2 captures refute -- across ~7800
+            // sampled ticks no record's rest byte ever exceeds 100, bit 0x8000
+            // is never cleared on this path, and no record is removed by it;
+            // the longest observed run is 3359 consecutive ticks at rest == 100
+            // (tests/fixtures/debris_shatter_playback_original_level2.txt).
+            // Records leave the table only through the 0xFF consume path above
+            // (4A1B..4A75), which the same capture exercises.
+            // (An airborne non-stepping tick resets the counter at 4AB3 before
+            // this increment, so it samples as 1, never 0.)
+            if (resting && debrisQueue_[i].restTicks < kDebrisRestSaturation) {
+                ++debrisQueue_[i].restTicks;  // 4CF8, ceiling at 4CFF
             }
             ++i;
         }

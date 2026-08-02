@@ -430,15 +430,17 @@ Corrected here:
   - the `3D2D` velocity merge, as three pure vx overwrites
     (`tests/fixtures/natural_forward_debris_writeback_original_level2.txt`);
   - the record removal that follows the `0xFF` consume path.
-- **REFUTED**: "the 100-tick retirement completing". The original's rest
-  counter SATURATES at 100 -- it is never observed above it, bit `0x8000` is
-  never cleared on that path, and the record is not removed. The longest
-  observed run is 3359 consecutive ticks at `rest == 100`, where this port
-  would have retired the record after 100. `4CFF` therefore reads as a
-  saturation guard rather than a retirement trigger, and the only removal
-  observed is through the `0xFF` consume path. The port's behaviour is
-  UNCHANGED pending its own verification pass; the divergence is pinned by
-  `debris_shatter_playback`.
+- **CORRECTED**: there is no "100-tick retirement". `4CFF cmp rest,0x64` is a
+  SATURATION guard. The original's rest counter stops at 100 -- never observed
+  above it across ~7800 sampled ticks in two captures -- bit `0x8000` is never
+  cleared on that path, and the record is not removed; the longest observed run
+  is 3359 consecutive ticks at `rest == 100`. An earlier revision of this port
+  read the compare as a retirement trigger and removed the record after exactly
+  100 resting ticks. The port now saturates and keeps the record, and the only
+  removal on any path is the `0xFF` consume route. Guarded by
+  `debris_motion_live` (free-runs 800 ticks and asserts the counter never
+  passes the ceiling, that fragments survive at it, and that their cells keep
+  bit `0x8000`) and by `debris_shatter_playback` (`port_saturates=1`).
 - The bomb-actor-position = player-position link is a single-point inference;
   a second capture at a different pixel phase would pin it.
 - Loop 1's internals (effect codes, `414A`, TP-real spark seeding at `3FA6`)

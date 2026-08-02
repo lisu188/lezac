@@ -3470,7 +3470,7 @@ if(BUILD_TESTING)
     set_tests_properties(debris_motion_live PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^debris_motion_live=ok level=4 seed_tile=70,38 glyph=0x6a word=0x4027 hover_ticks=8 step_stamps=1 cascade=debris retire_ticks=108 flag_cleared=1")
+            "^debris_motion_live=ok level=4 seed_tile=70,38 glyph=0x6a word=0x4027 hover_ticks=8 step_stamps=1 cascade=debris free_run=800 max_rest=100 rested_at_ceiling=2 survivors=2 still_flagged=1 retires_on_rest=0")
 
     # The interactive loop must fire gameplay ticks at the original's governed
     # rate, not at the SDL frame rate: every per-tick subsystem (debris,
@@ -3515,17 +3515,17 @@ if(BUILD_TESTING)
     # Re-derives the pure-vx-overwrite events from the rows (every other byte
     # of the record identical, which rules out friction, bounce and reseed)
     # rather than trusting the fixture's own count.
-    # Debris shatter playback (confirms the port's stepper: one glyph per tick,
+    # Debris shatter playback (the port's stepper: one glyph per tick,
     # 0x76->0x77->0x78->0xFF for a non-fragile word) AND the rest-counter
-    # refutation (the port retires after exactly 100 resting ticks; the
-    # original saturates there and keeps the record for 3359 more).
+    # saturation this capture established -- the counter stops at 100 and the
+    # record stays, which is now what the port does too.
     add_test(NAME debris_shatter_playback
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-shatter-playback
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/debris_shatter_playback_original_level2.txt)
     set_tests_properties(debris_shatter_playback PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^debris_shatter_playback=ok level=2 chain=0x76,0x77,0x78,0xff ticks_per_glyph=1 terminal=dissolve word=0xc007 port_stepper_matches=1 rest_saturates_at=100 longest_rest_run=3359 retirement_observed=0 port_retirement_refuted=1 visual_claim=0")
+            "^debris_shatter_playback=ok level=2 chain=0x76,0x77,0x78,0xff ticks_per_glyph=1 terminal=dissolve word=0xc007 port_stepper_matches=1 rest_saturates_at=100 longest_rest_run=3359 retirement_observed=0 port_saturates=1 visual_claim=0")
 
     add_test(NAME natural_forward_debris_writeback
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-natural-forward-debris-writeback
@@ -3571,7 +3571,7 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION
-            "^governed_rate=ok nominal_ticks_per_second=24.51 band=24.20-25.20 window_s=[0-9.]+ ticks=[0-9]+ measured_ticks_per_second=2[2-5][.][0-9][0-9] logic_ticks_match=1 max_tick_gap_ms=[0-9]+ dropped_ticks=0 drives_run_loop=1 small_fuse_s=1[.][0-9][0-9] debris_retire_s=[0-9.]+ visual_claim=0")
+            "^governed_rate=ok nominal_ticks_per_second=24.51 band=24.20-25.20 window_s=[0-9.]+ ticks=[0-9]+ measured_ticks_per_second=2[2-5][.][0-9][0-9] logic_ticks_match=1 max_tick_gap_ms=[0-9]+ dropped_ticks=0 drives_run_loop=1 small_fuse_s=1[.][0-9][0-9] debris_rest_sat_s=[0-9.]+ visual_claim=0")
 
     add_test(NAME passable_objects
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-passable-objects)

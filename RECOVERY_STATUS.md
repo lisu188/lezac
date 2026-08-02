@@ -38,7 +38,15 @@ under the existing guardrails; they are not missing port functionality.
   COUNT is exactly two and that `vy` is cleared at `4C5F`. Three knockouts run
   for real: swapping the order fails with `bounce kick -14 did not consume the
   FIRST draw`, deleting both draws fails on the count, and moving the sound
-  base off `0xEA61` fails the pin. Suite 396/396.
+  base off `0xEA61` fails the pin.
+  The same diagnostic now also pins the gravity GATE (`4AA3 cmp vy,0x7b`,
+  signed `jge`), which the review found free -- changing it to 0x40 left
+  395/395 green because nothing ever reached terminal velocity. It seeds a
+  fragment just below the gate, checks the +4 still lands, then checks the
+  next airborne tick does NOT accelerate past it, and reports the attainable
+  terminal `vy` (124 = 0x7C from a zero start). Knockout: gate 0x40 yields
+  `terminal_vy=65` and fails. The gravity STEP (+4) was already guarded.
+  Suite 396/396.
 
 - **Put the player on the original's 8.8 fixed-point per-tick model.** The
   player was the last moving thing in the port still running a continuous
@@ -577,11 +585,12 @@ under the existing guardrails; they are not missing port functionality.
   confirming the previously recovered `kOriginalNormalJumpVelocity=-848`
   and fixing the port's float approximation (now 98 px/s launch,
   200 px/s^2 gravity — peak 24 px, 0.49 s rise, matching the arc);
-  (4) the small-bomb fuse — the bomb actor's countdown byte (record
-  offset 0x1B in the `DS:0x74A8` table, decremented once per frame at
-  file 0x820b) starts at 41 ticks (placed tick 396, zero at 437), ~1.67 s,
-  correcting the port's 0.33 s fuse to 100 engine frames; the
-  post-explosion playback occupies ~55 further ticks of the same byte.
+  (4) WITHDRAWN — this entry claimed a 41-tick small-bomb fuse read from
+  "the bomb actor's countdown byte (record offset 0x1B in the `DS:0x74A8`
+  table, decremented at file 0x820b)". `DS:0x74A8` is the monster SPAWNER
+  table and that byte is its cooldown; tick 437 is the level-1 spawner's
+  third cooldown-zero. See the correction entry above. No bomb fuse
+  duration has been recovered.
   Evidence pinned by `tests/fixtures/route_timing_original_level1.txt`
   and the new `--debug-route-timing-evidence` diagnostic + ctest.
   `level1_route_timing_original_confirmation` is resolved (open items

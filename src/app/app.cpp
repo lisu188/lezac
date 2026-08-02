@@ -17571,14 +17571,65 @@ public:
         if (after.velocityY != 0) {
             throw std::runtime_error("bounce did not clear vy at 4C5F");
         }
+        // Copy out before the queue is reused below -- `after` is a reference
+        // into it.
+        const int observedKick = after.velocityX;
+
+        // Gravity gate 4AA3 (`cmp vy,0x7b`, signed jge): airborne fragments
+        // gain +4 while vy is BELOW 0x7b, so the attainable terminal value
+        // from a zero start is 0x7C. Seeding just under the gate and then at
+        // it pins the compare itself -- a smaller gate leaves the first tick
+        // unchanged, a larger one keeps accelerating past 0x7C.
+        int airborneX = -1;
+        int airborneY = -1;
+        for (int y = 2; y + 2 < level_.height && airborneY < 0; ++y) {
+            for (int x = 1; x + 1 < level_.width; ++x) {
+                if (tileAt(x, y) != 0 || tileAt(x, y + 1) != 0) continue;
+                airborneX = x;
+                airborneY = y;
+                break;
+            }
+        }
+        if (airborneX < 0) {
+            throw std::runtime_error("no airborne site for the gravity gate probe");
+        }
+        debrisQueue_.clear();
+        DebrisRecord fall;
+        fall.tileIndex = airborneY * level_.width + airborneX;
+        fall.flaggedWord = static_cast<uint16_t>(0x4000 | kDamagedWordBit);
+        fall.lookup = 0x60;
+        fall.velocityY = static_cast<int8_t>(kDebrisGravityCompare - 3);  // 0x78
+        fall.subY = 0;
+        debrisQueue_.push_back(fall);
+        level_.tiles[static_cast<size_t>(fall.tileIndex)] = fall.lookup;
+        updateDebrisRecords();
+        if (debrisQueue_.empty()) {
+            throw std::runtime_error("gravity gate probe fragment vanished");
+        }
+        const int belowGate = debrisQueue_.front().velocityY;
+        const int expectedTerminal = kDebrisGravityCompare + kDebrisGravityStep - 3;
+        if (belowGate != expectedTerminal) {
+            throw std::runtime_error(
+                "below the gravity gate vy became " + std::to_string(belowGate) +
+                ", expected " + std::to_string(expectedTerminal));
+        }
+        debrisQueue_.front().subY = 0;
+        updateDebrisRecords();
+        if (debrisQueue_.empty() ||
+            debrisQueue_.front().velocityY != belowGate) {
+            throw std::runtime_error("gravity kept accelerating past the gate");
+        }
         std::cout << "debris_bounce_rng=ok"
                   << " draws=2 order=kick_then_sound"
-                  << " kick=" << static_cast<int>(after.velocityX)
+                  << " kick=" << observedKick
                   << " sound_offset=0x" << std::hex << soundLatch_.latchedOffset
                   << std::dec
                   << " sound_base=0x" << std::hex << kDebrisBounceSoundBase
                   << std::dec
                   << " vy_cleared=1 ghidra=1000:4c2b,1000:4c4a"
+                  << " gravity_gate=0x" << std::hex
+                  << static_cast<int>(kDebrisGravityCompare) << std::dec
+                  << " terminal_vy=" << belowGate
                   << " visual_claim=0\n";
     }
 

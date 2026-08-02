@@ -3502,7 +3502,7 @@ if(BUILD_TESTING)
     set_tests_properties(debris_bounce_rng PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^debris_bounce_rng=ok draws=2 order=kick_then_sound kick=-6 sound_offset=0xea68 sound_base=0xea61 vy_cleared=1 ghidra=1000:4c2b,1000:4c4a visual_claim=0")
+            "^debris_bounce_rng=ok draws=2 order=kick_then_sound kick=-6 sound_offset=0xea68 sound_base=0xea61 vy_cleared=1 ghidra=1000:4c2b,1000:4c4a gravity_gate=0x7b terminal_vy=124 visual_claim=0")
 
     add_test(NAME governed_rate
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-governed-rate 5)

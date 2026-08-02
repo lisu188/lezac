@@ -159,10 +159,16 @@ under the existing guardrails; they are not missing port functionality.
   file `0x810A`/`0x812F` holds 30 frames in 120..125 hundredths = 24.00..25.00
   fps); the 24.2..25.2 band is what the DOSBox capture measured, slightly
   above the byte-derived one, and the two are kept distinct.
-  `run()` now has no cadence code of its own -- but note that
-  `governed_rate` pins `pumpGovernedLoop()`, not `run()`: re-introducing a
-  16 ms loop inside `run()` alone still passes the suite. The guard is a
-  structural convention, not coverage of the interactive loop itself.
+  `run()` now has no cadence code of its own, and `governed_rate` covers
+  `run()` itself: the diagnostic arms a deadline and calls the real
+  interactive entry point rather than a copy of its loop, so re-siting a
+  wrong cadence anywhere inside `run()` fails the test (verified: the
+  reviewer's own experiment, a 16 ms loop in `run()` alone, now measures
+  58.20 ticks/s and fails). It also bounds the worst gap between ticks and
+  refuses to report a healthy rate while ticks are being dropped at the
+  catch-up clamp, because an aggregate rate is blind to burstiness -- a loop
+  batching ticks every 163 ms averaged out correctly before and now fails
+  with `worst gap between gameplay ticks was 166 ms`.
   The original's reference is the dithered governor at file `0x8089`
   (delay word `DS:0x78CC` alternating 96/102 ms, step `DS:0x78CA` = 6, 30
   frames per 120..125 hundredths); the port uses a fixed mid-band value

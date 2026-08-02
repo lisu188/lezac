@@ -3510,7 +3510,7 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION
-            "^governed_rate=ok nominal_ticks_per_second=24.51 band=24.20-25.20 window_s=[0-9.]+ ticks=[0-9]+ measured_ticks_per_second=2[2-5][.][0-9][0-9] logic_ticks_match=1 small_fuse_s=1[.][0-9][0-9] debris_retire_s=[0-9.]+ visual_claim=0")
+            "^governed_rate=ok nominal_ticks_per_second=24.51 band=24.20-25.20 window_s=[0-9.]+ ticks=[0-9]+ measured_ticks_per_second=2[2-5][.][0-9][0-9] logic_ticks_match=1 max_tick_gap_ms=[0-9]+ dropped_ticks=0 drives_run_loop=1 small_fuse_s=1[.][0-9][0-9] debris_retire_s=[0-9.]+ visual_claim=0")
 
     add_test(NAME passable_objects
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-passable-objects)

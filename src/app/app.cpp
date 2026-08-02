@@ -181,6 +181,10 @@ constexpr double kGovernedRateBandMax = 25.2;
 // exactly — that is the bound a too-fast loop (the old 16 ms/60 fps pacing
 // yields ~60) violates — while the floor carries slack for host scheduling.
 constexpr double kGovernedRateMeasuredFloor = 22.0;
+// Worst tolerated wall-clock gap between two gameplay ticks. One governed
+// tick is 40.8 ms; this allows a little over two, so ordinary scheduling
+// jitter passes while a loop that batches ticks and sleeps does not.
+constexpr long kGovernedMaxTickGapMs = 90;
 constexpr uint32_t kLevelIntroCharacterDelayMs = 81;
 constexpr int kLevelIntroCellAdvance = 11;
 constexpr int kLevelIntroTextY = 94;
@@ -1898,15 +1902,25 @@ public:
     template <typename StopFn>
     long pumpGovernedLoop(bool& running, StopFn stop) {
         uint32_t last = SDL_GetTicks();
+        uint32_t lastTickAt = last;
         double tickAccumulatorMs = 0.0;
         long ticks = 0;
+        governedDroppedTicks_ = 0;
+        governedMaxTickGapMs_ = 0;
         while (running && !stop()) {
             processEvents(running);
             uint32_t now = SDL_GetTicks();
             tickAccumulatorMs += static_cast<double>(now - last);
             last = now;
-            tickAccumulatorMs = std::min(tickAccumulatorMs,
-                                         kGovernedTickMs * kMaxCatchUpTicks);
+            const double cap = kGovernedTickMs * kMaxCatchUpTicks;
+            if (tickAccumulatorMs > cap) {
+                // Time beyond the catch-up cap is discarded, which silently
+                // loses gameplay ticks; count them so a diagnostic can say so
+                // instead of reporting a healthy average.
+                governedDroppedTicks_ +=
+                    static_cast<long>((tickAccumulatorMs - cap) / kGovernedTickMs);
+                tickAccumulatorMs = cap;
+            }
             bool ticked = false;
             while (tickAccumulatorMs >= kGovernedTickMs) {
                 tickAccumulatorMs -= kGovernedTickMs;
@@ -1914,19 +1928,55 @@ public:
                 ++ticks;
                 ticked = true;
             }
-            if (ticked) draw();
+            if (ticked) {
+                const uint32_t gap = now - lastTickAt;
+                lastTickAt = now;
+                governedMaxTickGapMs_ = std::max(governedMaxTickGapMs_,
+                                                 static_cast<long>(gap));
+                draw();
+            }
             SDL_Delay(kEventPollDelayMs);
         }
         return ticks;
     }
 
-    void run() {
+    // The interactive session itself. run() is nothing but this with no
+    // deadline, and the governed-rate diagnostic calls the SAME function with
+    // one -- so the live loop's cadence is what gets measured, rather than a
+    // second copy of it that could drift out of agreement.
+    template <typename StopFn, typename ReadyFn>
+    long runInteractive(StopFn stop, ReadyFn onReady) {
         load();
         initSdl();
         resetLevel(0);
         interactiveLevelIntroEnabled_ = true;
+        onReady();
         bool running = true;
-        pumpGovernedLoop(running, [] { return false; });
+        governedRunTicks_ = pumpGovernedLoop(running, stop);
+        return governedRunTicks_;
+    }
+
+    // The interactive entry point. The governed-rate diagnostic calls THIS
+    // function -- not a copy of its loop -- after arming the deadline below,
+    // so re-siting a wrong cadence anywhere inside run() fails the test.
+    // In normal play the deadline is zero and the stop condition never fires.
+    void run() {
+        runInteractive(
+            [this] {
+                return governedRunDeadlineMs_ != 0 &&
+                       SDL_GetTicks() - governedRunStartMs_ >=
+                           governedRunDeadlineMs_;
+            },
+            [this] {
+                if (governedRunDeadlineMs_ == 0) return;
+                // Measured runs drop straight into gameplay so ticks are real
+                // gameplay ticks rather than menu frames.
+                menu_ = false;
+                interactiveLevelIntroEnabled_ = false;
+                levelIntro_ = {};
+                governedRunStartMs_ = SDL_GetTicks();
+                governedRunStartLogicTick_ = logicTick_;
+            });
     }
 
     // Measure the realised tick rate of the interactive loop over a bounded
@@ -1934,17 +1984,13 @@ public:
     // run() drives the game with — so a regression in the live cadence fails
     // here rather than only showing up in play.
     void debugGovernedRate(double windowSeconds) {
-        load();
-        initSdl();
-        resetLevel(0);
-        menu_ = false;
-        const uint32_t start = SDL_GetTicks();
-        const uint32_t windowMs =
+        governedRunDeadlineMs_ =
             static_cast<uint32_t>(std::max(0.5, windowSeconds) * 1000.0);
-        const uint32_t startLogicTick = logicTick_;
-        bool running = true;
-        const long ticks = pumpGovernedLoop(
-            running, [&] { return SDL_GetTicks() - start >= windowMs; });
+        // Drive the real interactive entry point.
+        run();
+        const uint32_t start = governedRunStartMs_;
+        const uint32_t startLogicTick = governedRunStartLogicTick_;
+        const long ticks = governedRunTicks_;
         const double elapsedSeconds =
             static_cast<double>(SDL_GetTicks() - start) / 1000.0;
         const double ticksPerSecond =
@@ -1974,6 +2020,22 @@ public:
             throw std::runtime_error(
                 "gameplay ticks did not track loop ticks one-for-one");
         }
+        // An aggregate rate is blind to burstiness: a loop delivering several
+        // ticks at once and then sleeping averages out correctly while
+        // playing nothing like the original. Bound the worst gap between
+        // ticks, and refuse to report a healthy rate while ticks were being
+        // dropped at the catch-up clamp.
+        if (governedMaxTickGapMs_ > kGovernedMaxTickGapMs) {
+            throw std::runtime_error(
+                "worst gap between gameplay ticks was " +
+                std::to_string(governedMaxTickGapMs_) +
+                " ms; the loop is delivering ticks in bursts");
+        }
+        if (governedDroppedTicks_ != 0) {
+            throw std::runtime_error(
+                std::to_string(governedDroppedTicks_) +
+                " gameplay ticks were dropped at the catch-up clamp");
+        }
         // Derived wall-clock durations for the per-tick subsystems whose
         // constants are game ticks: the small-bomb fuse and the debris
         // rest-to-retire countdown.
@@ -1990,6 +2052,9 @@ public:
                   << " ticks=" << ticks
                   << " measured_ticks_per_second=" << ticksPerSecond
                   << " logic_ticks_match=1"
+                  << " max_tick_gap_ms=" << governedMaxTickGapMs_
+                  << " dropped_ticks=" << governedDroppedTicks_
+                  << " drives_run_loop=1"
                   << " small_fuse_s=" << fuseSeconds
                   << " debris_retire_s=" << debrisRetireSeconds
                   << " visual_claim=0\n"
@@ -21412,6 +21477,12 @@ private:
     uint8_t weaponSwitchHoldTicks_ = 0;
     uint8_t weaponSwitchHoldTicks2_ = 0;
     uint32_t logicTick_ = 0;
+    uint32_t governedRunDeadlineMs_ = 0;
+    uint32_t governedRunStartMs_ = 0;
+    uint32_t governedRunStartLogicTick_ = 0;
+    long governedRunTicks_ = 0;
+    long governedDroppedTicks_ = 0;
+    long governedMaxTickGapMs_ = 0;
     uint32_t randomSeed_ = 0x1234abcd;
     uint32_t score_ = 0;
     uint32_t score2_ = 0;

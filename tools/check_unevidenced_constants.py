@@ -19,11 +19,18 @@ from pathlib import Path
 
 MARKERS = ("UNEVIDENCED", "UNRECOVERED", "INFERRED")
 
+# Both files are UTF-8 and the doc uses em-dashes. Path.read_text() without an
+# explicit encoding uses the LOCALE default, which is cp1252 on the Windows
+# runner -- the entries then decode to something the entry pattern cannot
+# match and the checker reports the whole inventory as missing.
+def read_lines(path: Path):
+    return path.read_text(encoding="utf-8").split("\n")
+
 
 def scan_source(path: Path):
     """Return {tag: line_number} for each marked site, keyed by its doc tag."""
     found = {}
-    for number, line in enumerate(path.read_text().split("\n"), start=1):
+    for number, line in enumerate(read_lines(path), start=1):
         if not any(marker in line for marker in MARKERS):
             continue
         tag = re.search(r"@unevidenced:([a-z0-9_]+)", line)
@@ -41,8 +48,8 @@ def scan_source(path: Path):
 
 def scan_doc(path: Path):
     entries = {}
-    for number, line in enumerate(path.read_text().split("\n"), start=1):
-        match = re.match(r"^- `([a-z0-9_]+)`\s*—\s*(.+)$", line)
+    for number, line in enumerate(read_lines(path), start=1):
+        match = re.match("^- `([a-z0-9_]+)`\\s*(?:—|--|-)\\s*(.+)$", line)
         if match:
             entries[match.group(1)] = (number, match.group(2))
     return entries

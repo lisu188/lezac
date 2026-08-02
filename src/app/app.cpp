@@ -17522,6 +17522,123 @@ public:
     // friction, the bounce and a retire+reseed) and records that the port
     // does NOT model the blend, so the divergence is pinned rather than
     // silently carried.
+    // Debris shatter playback, and the rest-counter contradiction. The
+    // shatter half CONFIRMS the port (one glyph per tick, non-fragile
+    // terminal 0xFF); the rest half REFUTES it -- the port retires a record
+    // after exactly 100 resting ticks, and the original's counter saturates
+    // at 100 and keeps the record. Both are asserted so the confirmation is
+    // guarded and the divergence cannot be quietly lost.
+    void debugDebrisShatterPlayback(const std::string& fixturePath) {
+        std::ifstream in(fixturePath);
+        if (!in) throw std::runtime_error("cannot open " + fixturePath);
+        std::map<std::string, std::string> kv;
+        std::vector<std::pair<long, std::string>> rows;
+        std::string line;
+        while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (line.rfind("row ", 0) == 0) {
+                std::istringstream r(line.substr(4));
+                std::string field;
+                long frame = 0; std::string raw;
+                while (r >> field) {
+                    auto eq = field.find('=');
+                    if (eq == std::string::npos) continue;
+                    if (field.substr(0, eq) == "frame") frame = std::stol(field.substr(eq + 1));
+                    else if (field.substr(0, eq) == "raw") raw = field.substr(eq + 1);
+                }
+                rows.emplace_back(frame, raw);
+                continue;
+            }
+            auto eq = line.find('=');
+            if (eq == std::string::npos) continue;
+            kv[line.substr(0, eq)] = line.substr(eq + 1);
+        }
+        auto req = [&](const char* key) -> std::string {
+            auto it = kv.find(key);
+            if (it == kv.end()) throw std::runtime_error(std::string("missing key ") + key);
+            return it->second;
+        };
+        if (req("debris_shatter_playback_original") != "level2" ||
+            req("visual_claim") != "0" || req("runtime_ds") != "0c8f" ||
+            req("port_retirement_model_refuted") != "1") {
+            throw std::runtime_error("shatter playback fixture header mismatch");
+        }
+        auto byteAt = [](const std::string& hex, size_t i) {
+            return static_cast<int>(std::stoul(hex.substr(i * 2, 2), nullptr, 16));
+        };
+        // Re-derive the glyph chain from the rows.
+        std::string chain;
+        long firstShatterFrame = 0;
+        long lastShatterFrame = 0;
+        for (const auto& row : rows) {
+            const int glyph = byteAt(row.second, 9);
+            if (glyph < kDebrisShatterFrame && glyph != kDebrisDissolveByte) continue;
+            if (chain.empty()) firstShatterFrame = row.first;
+            lastShatterFrame = row.first;
+            char buf[8];
+            std::snprintf(buf, sizeof(buf), "0x%02x", glyph);
+            if (!chain.empty()) chain += ',';
+            chain += buf;
+            if (glyph == kDebrisDissolveByte) break;  // terminal ends the chain
+        }
+        if (chain != req("shatter_chain")) {
+            throw std::runtime_error(
+                "re-derived shatter chain [" + chain + "] disagrees with the fixture");
+        }
+        // One glyph per tick: the chain spans exactly as many frames as glyphs.
+        const long glyphCount = static_cast<long>(
+            std::count(chain.begin(), chain.end(), ',') + 1);
+        if (lastShatterFrame - firstShatterFrame + 1 != glyphCount) {
+            throw std::runtime_error("shatter playback is not one glyph per tick");
+        }
+        // The port's stepper must produce that same chain for a non-fragile word.
+        const uint16_t word = static_cast<uint16_t>(std::stoul(req("shatter_word"), nullptr, 16));
+        if (word > kDebrisFragileWordFloor) {
+            throw std::runtime_error("fixture word is above the fragile floor");
+        }
+        std::string portChain;
+        for (uint8_t code = kDebrisShatterFrame;;) {
+            char buf[8];
+            std::snprintf(buf, sizeof(buf), "0x%02x", code);
+            if (!portChain.empty()) portChain += ',';
+            portChain += buf;
+            uint8_t next = static_cast<uint8_t>(code + 1);
+            if (next == kDebrisShatterLastStep) {
+                std::snprintf(buf, sizeof(buf), "0x%02x", kDebrisDissolveByte);
+                portChain += ',';
+                portChain += buf;
+                break;
+            }
+            code = next;
+        }
+        if (portChain != chain) {
+            throw std::runtime_error(
+                "port stepper chain [" + portChain + "] diverges from the capture");
+        }
+        // The refuted half: the port retires at exactly this many resting
+        // ticks; the capture shows the counter saturating there instead.
+        const int restMax = std::stoi(req("rest_max_observed"));
+        const long longestRun = std::stol(req("longest_rest_100_run"));
+        if (restMax != static_cast<int>(kDebrisRetireRestTicks)) {
+            throw std::runtime_error(
+                "capture's saturation value disagrees with the port's retire constant");
+        }
+        if (req("rest_retirement_observed") != "0" ||
+            req("damaged_bit_ever_cleared") != "0" || longestRun <= restMax) {
+            throw std::runtime_error("rest-counter refutation fields are inconsistent");
+        }
+        std::cout << "debris_shatter_playback=ok"
+                  << " level=2 chain=" << chain
+                  << " ticks_per_glyph=1"
+                  << " terminal=dissolve word=0x" << std::hex << word << std::dec
+                  << " port_stepper_matches=1"
+                  << " rest_saturates_at=" << restMax
+                  << " longest_rest_run=" << longestRun
+                  << " retirement_observed=0 port_retirement_refuted=1"
+                  << " visual_claim=0\n";
+    }
+
     void debugNaturalForwardDebrisWriteback(const std::string& fixturePath) {
         std::ifstream in(fixturePath);
         if (!in) throw std::runtime_error("cannot open " + fixturePath);
@@ -27160,6 +27277,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-object-explosion-effects") {
             app.debugBombObjectExplosionEffects();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-debris-shatter-playback") {
+            app.debugDebrisShatterPlayback(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-natural-forward-debris-writeback") {

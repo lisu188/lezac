@@ -416,11 +416,29 @@ Corrected here:
 - This spec does **not** close `natural_forward_debris_writeback_3d2d`: the
   `3D2D` staging write is intra-frame and the tick-locked capture cannot see
   it. The blend-helper description above is static.
-- **Disassembly-only** (never exercised in the L2 window): the auto- and
-  landing-shatter paths, the `0x76→0x77→0x78→terminal` playback and both
-  terminal choices, the bounce (all three RNG sites), the velocity merge and
-  its `3D2D` write, the 100-tick retirement completing, the collapse branch of
-  the seeder, horizontal friction, multi-bounce trajectories.
+- **Disassembly-only** (never exercised in the ORIGINAL 201-tick L2 window):
+  the auto-shatter path, the fragile terminal choice, the bounce (all three
+  RNG sites), the collapse branch of the seeder, horizontal friction,
+  multi-bounce trajectories.
+- **Since exercised** by the deeper level-2 captures
+  (`tools/capture_original_debris_shatter_procmem.py`,
+  `tools/capture_original_natural_forward_debris_procmem.py`, ~3900 ticks
+  each, bombing the sites with the deepest free fall):
+  - the LANDING-shatter path and the `0x76→0x77→0x78→terminal` playback, at
+    ONE GLYPH PER TICK, with the non-fragile `0xFF` terminal
+    (`tests/fixtures/debris_shatter_playback_original_level2.txt`);
+  - the `3D2D` velocity merge, as three pure vx overwrites
+    (`tests/fixtures/natural_forward_debris_writeback_original_level2.txt`);
+  - the record removal that follows the `0xFF` consume path.
+- **REFUTED**: "the 100-tick retirement completing". The original's rest
+  counter SATURATES at 100 -- it is never observed above it, bit `0x8000` is
+  never cleared on that path, and the record is not removed. The longest
+  observed run is 3359 consecutive ticks at `rest == 100`, where this port
+  would have retired the record after 100. `4CFF` therefore reads as a
+  saturation guard rather than a retirement trigger, and the only removal
+  observed is through the `0xFF` consume path. The port's behaviour is
+  UNCHANGED pending its own verification pass; the divergence is pinned by
+  `debris_shatter_playback`.
 - The bomb-actor-position = player-position link is a single-point inference;
   a second capture at a different pixel phase would pin it.
 - Loop 1's internals (effect codes, `414A`, TP-real spark seeding at `3FA6`)

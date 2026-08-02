@@ -3515,6 +3515,18 @@ if(BUILD_TESTING)
     # Re-derives the pure-vx-overwrite events from the rows (every other byte
     # of the record identical, which rules out friction, bounce and reseed)
     # rather than trusting the fixture's own count.
+    # Debris shatter playback (confirms the port's stepper: one glyph per tick,
+    # 0x76->0x77->0x78->0xFF for a non-fragile word) AND the rest-counter
+    # refutation (the port retires after exactly 100 resting ticks; the
+    # original saturates there and keeps the record for 3359 more).
+    add_test(NAME debris_shatter_playback
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-shatter-playback
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/debris_shatter_playback_original_level2.txt)
+    set_tests_properties(debris_shatter_playback PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^debris_shatter_playback=ok level=2 chain=0x76,0x77,0x78,0xff ticks_per_glyph=1 terminal=dissolve word=0xc007 port_stepper_matches=1 rest_saturates_at=100 longest_rest_run=3359 retirement_observed=0 port_retirement_refuted=1 visual_claim=0")
+
     add_test(NAME natural_forward_debris_writeback
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-natural-forward-debris-writeback
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/natural_forward_debris_writeback_original_level2.txt)

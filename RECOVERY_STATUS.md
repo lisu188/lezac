@@ -23,6 +23,32 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Captured the debris shatter playback, and refuted the port's retirement
+  model.** Bombing the level-2 sites with the deepest free fall (tile (40,31)
+  has 16 clear tiles below it) drives fragments past the landing-shatter gate
+  (`4AED cmp vy,0x3c`; max `vy` observed 68).
+  *Confirmed*: the `0x76 -> 0x77 -> 0x78 -> terminal` playback, listed in the
+  spec as disassembly-only and never exercised, runs at ONE GLYPH PER TICK
+  (frames 498/499/500/501) and takes the `0xFF` dissolve terminal for a
+  flagged word of `0xc007`, below the `0xffbc` fragile floor -- exactly the
+  port's stepper and terminal choice, which the diagnostic re-derives from the
+  port's own constants and compares. The record's slot is reused seven ticks
+  later, so the `0xFF` consume path is what removes it.
+  *Refuted*: the port retires a record after exactly 100 resting ticks,
+  clearing bit `0x8000` and removing it (`4CFF`/`4D17`). The original does not.
+  Its rest counter SATURATES at 100 -- never observed above it across ~7800
+  sampled ticks in two captures -- bit `0x8000` is never cleared on that path,
+  and the record is not removed. The longest observed run is **3359
+  consecutive ticks** at `rest == 100` (record 205), where this port would have
+  removed the record after 100. `4CFF` therefore reads as a saturation guard,
+  not a retirement trigger.
+  **Scope**: the port's behaviour is left UNCHANGED. The replacement model
+  (saturate, and remove only through the `0xFF` consume path) needs its own
+  verification pass rather than a late edit to a subsystem this large, so the
+  divergence is pinned by `debris_shatter_playback`
+  (`port_retirement_refuted=1`) instead of being carried silently. Suite
+  401/401.
+
 - **Observed the natural forward debris writeback at `1000:3D2D`.** This item
   had been recorded as blocked because `3D2D` is an intra-frame staging write
   that tick-locked sampling cannot see. That reasoning was incomplete. `3D2D`

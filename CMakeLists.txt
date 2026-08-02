@@ -3497,6 +3497,17 @@ if(BUILD_TESTING)
     # order (the LCG advances the same whatever range is asked for), so this
     # checks the two CONSUMED values: the kick takes Random(0x1E), the sound
     # offset takes Random(8).
+    # The debris pass runs before the collapse pass (1000:45FA at 805D, then
+    # 1000:5102 at 8067). Observable because a dissolving fragment re-seeds the
+    # cell above through the seeder, which can enqueue a collapse record: in
+    # the byte order that record is decremented on the SAME tick.
+    add_test(NAME debris_collapse_order
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-collapse-order)
+    set_tests_properties(debris_collapse_order PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^debris_collapse_order=ok level=1 dissolve_tile=19,10 seeded_timer=24 timer_after_same_tick=23 debris_before_collapse=1 ghidra=1000:45fa@805d,1000:5102@8067 visual_claim=0")
+
     add_test(NAME debris_bounce_rng
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-bounce-rng)
     set_tests_properties(debris_bounce_rng PROPERTIES

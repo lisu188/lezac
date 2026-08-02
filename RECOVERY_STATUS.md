@@ -46,7 +46,16 @@ under the existing guardrails; they are not missing port functionality.
   next airborne tick does NOT accelerate past it, and reports the attainable
   terminal `vy` (124 = 0x7C from a zero start). Knockout: gate 0x40 yields
   `terminal_vy=65` and fails. The gravity STEP (+4) was already guarded.
-  Suite 396/396.
+  The last of the review's unguarded debris claims -- the debris pass running
+  BEFORE the collapse pass (`1000:45FA` at `805D`, then `1000:5102` at
+  `8067`) -- is now covered by `--debug-debris-collapse-order`
+  (`debris_collapse_order` ctest). Swapping the two passes inside
+  `updateFlashes()` left the suite green because nothing observed the
+  difference; it IS observable, though, because a dissolving fragment
+  re-seeds the cell above through the seeder (`4A72` -> `370E`) and that can
+  enqueue a collapse record. In the byte order the new record is decremented
+  on the same tick (timer 24 -> 23); with the passes swapped it still reads
+  24. Knockout run for real, failing with exactly that. Suite 397/397.
 
 - **Put the player on the original's 8.8 fixed-point per-tick model.** The
   player was the last moving thing in the port still running a continuous

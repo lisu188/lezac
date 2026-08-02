@@ -17498,6 +17498,76 @@ public:
     // LCG advances identically whichever range is asked for -- so this
     // checks the two CONSUMED values: the kick must carry the first draw
     // (mod 0x1E) and the sound offset the second (mod 8).
+    // The debris pass runs BEFORE the collapse pass (1000:45FA at 805D, then
+    // 1000:5102 at 8067). That order is observable because a dissolving
+    // fragment re-seeds the cell above through the seeder (4A72 -> 370E),
+    // which can enqueue a collapse record; with the passes in the byte order
+    // that record is decremented and damages players on the SAME tick, and
+    // with them swapped it waits a tick.
+    void debugDebrisCollapseOrder() {
+        load();
+        int usedLevel = -1;
+        int usedX = -1;
+        int usedY = -1;
+        int observedTimer = -1;
+        for (size_t level = 0; level < levels_.size() && usedLevel < 0; ++level) {
+            resetLevel(static_cast<int>(level));
+            for (int y = 2; y + 1 < level_.height && usedLevel < 0; ++y) {
+                for (int x = 1; x + 1 < level_.width; ++x) {
+                    if (wordAt(x, y - 1) == 0) continue;
+                    resetLevel(static_cast<int>(level));
+                    collapseQueue_.clear();
+                    debrisQueue_.clear();
+                    flashes_.clear();
+                    explosionEffects_.clear();
+                    DebrisRecord rec;
+                    rec.tileIndex = y * level_.width + x;
+                    // Non-fragile word (<= 0xffbc) sitting on the last
+                    // shatter step: the stepper takes it to 0x79 and picks
+                    // the 0xFF dissolve glyph, which is the branch that
+                    // re-seeds the cell above through the seeder.
+                    rec.flaggedWord = static_cast<uint16_t>(0x4000);
+                    rec.lookup =
+                        static_cast<uint8_t>(kDebrisShatterLastStep - 1);
+                    debrisQueue_.push_back(rec);
+                    level_.tiles[static_cast<size_t>(rec.tileIndex)] =
+                        rec.lookup;
+                    updateFlashes();
+                    if (collapseQueue_.empty()) continue;
+                    usedLevel = static_cast<int>(level);
+                    usedX = x;
+                    usedY = y;
+                    observedTimer = collapseQueue_.front().timer;
+                    break;
+                }
+            }
+        }
+        if (usedLevel < 0) {
+            throw std::runtime_error(
+                "no site where a dissolving fragment enqueues a collapse");
+        }
+        // CollapseRecord starts at 24; being decremented in the same tick is
+        // the whole signal. If the collapse pass ran first the record would
+        // still read 24.
+        CollapseRecord fresh;
+        const int seeded = fresh.timer;
+        if (observedTimer != seeded - 1) {
+            throw std::runtime_error(
+                "collapse record seeded by the debris pass read timer " +
+                std::to_string(observedTimer) + "; expected " +
+                std::to_string(seeded - 1) +
+                " (the collapse pass must run AFTER the debris pass)");
+        }
+        std::cout << "debris_collapse_order=ok"
+                  << " level=" << usedLevel + 1
+                  << " dissolve_tile=" << usedX << "," << usedY
+                  << " seeded_timer=" << seeded
+                  << " timer_after_same_tick=" << observedTimer
+                  << " debris_before_collapse=1"
+                  << " ghidra=1000:45fa@805d,1000:5102@8067"
+                  << " visual_claim=0\n";
+    }
+
     void debugDebrisBounceRng() {
         load();
         resetLevel(0);
@@ -26687,6 +26757,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-object-explosion-effects") {
             app.debugBombObjectExplosionEffects();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-debris-collapse-order") {
+            app.debugDebrisCollapseOrder();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-debris-bounce-rng") {

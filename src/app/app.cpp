@@ -326,13 +326,28 @@ constexpr int16_t kOriginalLaunchPadVelocity = -2000;
 // holds 30 frames in 120..125 hundredths), the walk speed is a flat
 // 4 px/tick and the jump is 8.8 fixed-point (v0 = -848, gravity +64/tick,
 // floor-to-pixel -- every observed per-tick delta reproduces exactly).
-// Continuous equivalents at the governed rate: 98 px/s walk, 98 px/s jump
-// launch with 200 px/s^2 gravity (peak 24 px, 0.49 s rise -- both match the
-// measured arc).
-constexpr float kPlayerJumpVelocity = -98.0f;
+//
+// The player runs that model directly, the same way every other moving thing
+// in this port does. An earlier revision approximated it with a continuous
+// px/s model (98 px/s launch, 200 px/s^2 gravity); those numbers reproduced
+// the 24 px PEAK but not the arc, because 98 was derived from the walk speed
+// rather than from the jump: -848/256 is -3.3125 px/tick = -81 px/s, and
+// 64/256 is 0.25 px/tick^2 = 150 px/s^2. The peak agreed only by coincidence
+// (98^2 / (2*200) = 24.01). The per-tick deltas did not.
+constexpr int16_t kPlayerWalkVelocity8 = 0x0400;   // flat 4 px/tick
+constexpr int16_t kPlayerJumpVelocity8 = kOriginalNormalJumpVelocity;  // -848
+constexpr int16_t kPlayerGravity8 = 64;            // +0x40 per tick
+// The original's actor gravity adds +0x40 per tick and clamps at 0x7FF
+// (1000:7028/702C). The player's measured gravity is that same +0x40, so the
+// clamp is carried over by analogy; no capture reaches terminal velocity, so
+// the clamp VALUE is INFERRED even though the +0x40 step is measured.
+constexpr int16_t kPlayerTerminalVelocity8 = 0x07ff;
+// Float mirror kept for the many call sites that read player.vy as a sign or
+// magnitude; it is always vy8 / 256.
+constexpr float kPlayerJumpVelocity =
+    static_cast<float>(kOriginalNormalJumpVelocity) / 256.0f;
 constexpr float kLaunchPadVelocity =
-    kPlayerJumpVelocity * (static_cast<float>(kOriginalLaunchPadVelocity) /
-                           static_cast<float>(kOriginalNormalJumpVelocity));
+    static_cast<float>(kOriginalLaunchPadVelocity) / 256.0f;
 constexpr uint8_t kLaunchPadMarkerTimer = 5;
 constexpr uint8_t kLaunchPadMarkerFrame = 0x5b;
 constexpr uint8_t kLaunchPadMarkerKind = 0x0b;
@@ -687,8 +702,17 @@ struct FrameInspection {
 struct Player {
     float x = 24.0f;
     float y = 24.0f;
+    // vx/vy are float MIRRORS of the 8.8 fixed-point velocities below, kept
+    // so the many call sites that test a sign or print a magnitude keep
+    // working. The authoritative state is vx8/vy8 plus the fractional carry;
+    // motion is integrated once per tick with integrateAxis8_8, exactly as
+    // monsters, boss links, debris and launch-pad markers already are.
     float vx = 0.0f;
     float vy = 0.0f;
+    int16_t vx8 = 0;
+    int16_t vy8 = 0;
+    uint8_t fracX = 0;
+    uint8_t fracY = 0;
     bool grounded = false;
 };
 
@@ -20718,15 +20742,89 @@ public:
             dys != req("jump_tick_dy")) {
             throw std::runtime_error("jump fixed-point model diverges from fixture");
         }
+        // Drive the LIVE player rather than replaying the fixture's own
+        // arithmetic: hold right from a settled stance and measure the
+        // per-tick x advance, then hold jump from grounded and record the
+        // per-tick y deltas. These read updatePlayer/movePlayer, so the
+        // port's own walk/jump/gravity constants are what is under test.
+        load();
+        initSdl();
+        resetLevel(0);
+        menu_ = false;
+        const float tickSeconds = static_cast<float>(kGovernedTickMs / 1000.0);
+        FrameControls idle;
+        for (int i = 0; i < 30; ++i) updateWithControls(idle, tickSeconds);
+        if (!player_.grounded) {
+            throw std::runtime_error("player never settled for the walk probe");
+        }
+
+        FrameControls walkRight;
+        walkRight.p1Right = true;
+        const float walkStartX = player_.x;
+        int walkTicks = 0;
+        for (int i = 0; i < 8; ++i) {
+            const float before = player_.x;
+            updateWithControls(walkRight, tickSeconds);
+            if (player_.x == before) break;  // hit a wall; stop measuring
+            ++walkTicks;
+        }
+        if (walkTicks == 0) {
+            throw std::runtime_error("player did not walk for the probe");
+        }
+        const double livePxPerTick =
+            (player_.x - walkStartX) / static_cast<double>(walkTicks);
+        if (std::abs(livePxPerTick - walkPerTick) > 0.5) {
+            throw std::runtime_error(
+                "live walk " + std::to_string(livePxPerTick) +
+                " px/tick diverges from the fixture's " +
+                std::to_string(walkPerTick));
+        }
+
+        // Jump arc: the fixture records the original's per-tick y deltas over
+        // the rise. Sample the live player's y the same way.
+        for (int i = 0; i < 30; ++i) updateWithControls(idle, tickSeconds);
+        if (!player_.grounded) {
+            throw std::runtime_error("player never settled for the jump probe");
+        }
+        FrameControls hold;
+        hold.p1Jump = true;
+        const int riseTicks = std::stoi(req("jump_rise_ticks"));
+        const float jumpStartY = player_.y;
+        std::string liveDys;
+        int livePeak = 0;
+        int prevLiveY = 0;
+        for (int t = 0; t < riseTicks; ++t) {
+            // Jump is an impulse: press on the first tick only, so the arc
+            // measured is the one the original's capture recorded.
+            updateWithControls(t == 0 ? hold : idle, tickSeconds);
+            const int y = static_cast<int>(std::floor(player_.y - jumpStartY));
+            if (!liveDys.empty()) liveDys += ',';
+            liveDys += std::to_string(y - prevLiveY);
+            prevLiveY = y;
+            livePeak = std::min(livePeak, y);
+        }
+        if (-livePeak != std::stoi(req("jump_peak_px")) ||
+            liveDys != req("jump_tick_dy")) {
+            throw std::runtime_error(
+                "live jump arc diverges from fixture: peak " +
+                std::to_string(-livePeak) + " vs " + req("jump_peak_px") +
+                ", dy [" + liveDys + "] vs [" + req("jump_tick_dy") + "]");
+        }
+
         // The fixture's former small_bomb_fuse_* keys were a misread of the
         // monster spawner's cooldown byte, so there is nothing here to check
         // a fuse against; the keys are gone and this diagnostic no longer
         // claims one.
+        // Everything after live_ is measured from the running player, not
+        // echoed from the fixture or from a string constant.
         std::cout << "route_timing_evidence=ok"
                   << " governed_fps=" << fpsMin << '-' << fpsMax
                   << " walk_px_per_tick=" << walkPerTick
-                  << " jump_model=fixed_848_64 jump_peak=24"
-                  << " port_walk=98 fuse_recovered=0"
+                  << " jump_model=fixed_848_64"
+                  << " live_walk_px_per_tick=" << livePxPerTick
+                  << " live_jump_peak=" << -livePeak
+                  << " live_jump_tick_dy=" << liveDys
+                  << " live_driven=1 fuse_recovered=0"
                   << " visual_claim=0\n";
     }
 
@@ -22151,7 +22249,12 @@ private:
             return false;
         }
 
-        player.vy = kLaunchPadVelocity;
+        // The original's launch-pad impulse is -2000 in 8.8 (byte-cited as
+        // kOriginalLaunchPadVelocity). With the player on the fixed-point
+        // model it is used directly instead of through a px/s conversion.
+        player.vy8 = kOriginalLaunchPadVelocity;
+        player.fracY = 0;
+        syncPlayerVelocityMirror(player);
         player.grounded = false;
         LaunchPadMarker marker;
         marker.x = static_cast<int>(player.x) + 4;
@@ -22389,31 +22492,65 @@ private:
         }
     }
 
+    // One call is one governed game tick. The dt parameter is ignored for the
+    // integration -- the original's player is 8.8 fixed-point per tick, not a
+    // continuous px/s model -- and is kept only so the existing call
+    // signatures are undisturbed.
     void updatePlayer(Player& player, bool left, bool right, bool jump, bool switchWeapon,
-                      int& facing, int& animTick, float dt) {
-        player.vx = 0.0f;
-        // Original walk speed: 4 px/tick at the governed 24.5 fps = 98 px/s
-        // (tick-locked capture; the port's earlier 90 px/s was a guess).
+                      int& facing, int& animTick, float) {
+        player.vx8 = 0;
         if (!switchWeapon && left) {
-            player.vx -= 98.0f;
+            player.vx8 = static_cast<int16_t>(player.vx8 - kPlayerWalkVelocity8);
             facing = -1;
         }
         if (!switchWeapon && right) {
-            player.vx += 98.0f;
+            player.vx8 = static_cast<int16_t>(player.vx8 + kPlayerWalkVelocity8);
             facing = 1;
         }
-        if (player.vx != 0.0f) ++animTick;
+        if (player.vx8 != 0) ++animTick;
         else animTick = 0;
         if (!player.grounded && hasObjectJumpSupport(player)) {
             player.grounded = true;
         }
         if (jump && player.grounded) {
-            player.vy = kPlayerJumpVelocity;
+            player.vy8 = kPlayerJumpVelocity8;
             player.grounded = false;
         }
-        player.vy = std::min(160.0f, player.vy + 200.0f * dt);
-        movePlayer(player, player.vx * dt, 0.0f);
-        movePlayer(player, 0.0f, player.vy * dt);
+        // Move THEN apply gravity: the captured arc's first delta is the full
+        // -848 step (-4 px), so the launch tick moves before the first +0x40
+        // is added. Applying gravity first loses that leading step and shifts
+        // the whole series by one tick.
+        syncPlayerVelocityMirror(player);
+        movePlayerFixed(player, player.vx8, true);
+        movePlayerFixed(player, player.vy8, false);
+        if (player.grounded) {
+            // Gravity is gated on standing on something, the same way the
+            // original gates its actors' +0x40 on the tile below. Letting it
+            // accumulate while grounded would leave a residual fractional
+            // carry that perturbs the next jump's arc.
+            player.vy8 = 0;
+            player.fracY = 0;
+        } else {
+            player.vy8 = static_cast<int16_t>(
+                std::min<int>(kPlayerTerminalVelocity8, player.vy8 + kPlayerGravity8));
+        }
+        syncPlayerVelocityMirror(player);
+    }
+
+    static void syncPlayerVelocityMirror(Player& player) {
+        player.vx = player.vx8 / 256.0f;
+        player.vy = player.vy8 / 256.0f;
+    }
+
+    // Integrate one axis by one tick in 8.8 fixed point, then hand the whole
+    // pixel delta to movePlayer so the collision/pushout path is unchanged.
+    void movePlayerFixed(Player& player, int16_t velocity8, bool horizontal) {
+        int pos = static_cast<int>(horizontal ? player.x : player.y);
+        const int before = pos;
+        integrateAxis8_8(pos, horizontal ? player.fracX : player.fracY, velocity8);
+        const float delta = static_cast<float>(pos - before);
+        if (delta == 0.0f) return;
+        movePlayer(player, horizontal ? delta : 0.0f, horizontal ? 0.0f : delta);
     }
 
     AutoplayRouteResult autoplayLevel1BombRoute() {
@@ -22498,6 +22635,8 @@ private:
                 }
                 if (collides(player.x, player.y)) player.y = oldY;
                 player.grounded = dy > 0.0f;
+                player.vy8 = 0;
+                player.fracY = 0;
                 player.vy = 0.0f;
             } else {
                 player.grounded = false;

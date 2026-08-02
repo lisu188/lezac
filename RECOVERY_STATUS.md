@@ -23,6 +23,49 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Put the player on the original's 8.8 fixed-point per-tick model.** The
+  player was the last moving thing in the port still running a continuous
+  float px/s model integrated by `dt`; walkers, boss links, debris and
+  launch-pad markers were already 8.8-per-tick. The capture has recorded the
+  original's player model all along (`jump_v0_fixed=-848`,
+  `jump_gravity_fixed=64`, `jump_fixed_shift=8`, `jump_peak_px=24`, a 12-entry
+  `jump_tick_dy` series, and a flat `walk_px_per_tick=4`), and the port did
+  not reproduce it: `kPlayerJumpVelocity = -98.0f` was derived from the WALK
+  speed, not the jump. In the original's units -848/256 is -3.3125 px/tick
+  (-81 px/s) with gravity 64/256 = 0.25 px/tick^2 (150 px/s^2), against the
+  port's -98 and 200. The 24 px peak agreed only by coincidence
+  (98^2 / (2*200) = 24.01); the arc did not.
+  Nothing caught it because `route_timing_evidence` read the fixture's own
+  `jump_v0_fixed`/`jump_gravity_fixed`, replayed that arithmetic and compared
+  the result back to the fixture's own `jump_tick_dy` -- fixture against
+  itself, never touching `updatePlayer`. A reviewer set the walk constant to
+  60.0f and the jump to -40.0f with all 395 tests still green.
+  `updatePlayer` now integrates `vx8`/`vy8` with the fractional carry through
+  the existing `integrateAxis8_8`, the same integrator the monsters use, and
+  hands whole-pixel deltas to `movePlayer` so the collision/pushout path is
+  untouched. `player.vx`/`vy` stay as float mirrors (always `v8 / 256`) for
+  the many call sites that read a sign or print a magnitude. The `dt`
+  parameter is now ignored for integration, which makes the
+  one-call-is-one-tick invariant true for the player -- the one place a
+  reviewer showed it did not hold. The launch pad uses the byte-cited
+  `-2000` impulse directly instead of a px/s conversion of it.
+  Two ordering facts fell out of matching the captured arc, and both are
+  guarded: the original MOVES then applies gravity (applying gravity first
+  loses the leading -4 step and shifts the whole series), and gravity is
+  gated on standing on something, exactly as the original gates its actors'
+  `+0x40` on the tile below -- letting it accumulate while grounded leaves a
+  residual fractional carry that perturbs the next jump.
+  `route_timing_evidence` now DRIVES the live player for both the walk and
+  the jump and reports what it measured
+  (`live_walk_px_per_tick=4 live_jump_peak=24 live_jump_tick_dy=...`), so the
+  port reproduces all twelve captured per-tick deltas exactly. Five knockouts
+  run for real: walk 4->3 px/tick, v0 -848->-800, gravity +64->+65, gravity
+  before move, and gravity ungated -- each fails the test.
+  **Scope**: the terminal-velocity clamp `0x7FF` is carried over from the
+  original's actor gravity (`1000:7028`/`702C`), whose `+0x40` step matches
+  the player's measured gravity; no capture reaches terminal velocity, so the
+  clamp VALUE stays INFERRED. Suite 395/395.
+
 - **Corrected the monster impact/corpse sprite rule and withdrew the bomb-fuse
   measurement.** An adversarial review pass on the two claims below refuted
   both, and both are fixed here.

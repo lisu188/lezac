@@ -3595,7 +3595,7 @@ if(BUILD_TESTING)
     set_tests_properties(route_timing_evidence PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^route_timing_evidence=ok governed_fps=24.2-25.2 walk_px_per_tick=4 jump_model=fixed_848_64 jump_peak=24 port_walk=98 fuse_recovered=0 visual_claim=0")
+            "^route_timing_evidence=ok governed_fps=24.2-25.2 walk_px_per_tick=4 jump_model=fixed_848_64 live_walk_px_per_tick=4 live_jump_peak=24 live_jump_tick_dy=-4,-3,-3,-2,-3,-2,-1,-2,-1,-1,-1,-1 live_driven=1 fuse_recovered=0 visual_claim=0")
 
     add_test(NAME sprite_descriptor_evidence
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

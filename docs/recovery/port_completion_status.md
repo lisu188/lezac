@@ -175,7 +175,31 @@ static. This resolution promotes Present sprite identity, observed visibility,
 and collection consumption, not exact reward physics or presentation.
 
 - `natural_forward_debris_writeback_3d2d` — natural forward debris writeback
-  capture at `1000:3D2D`
+  at `1000:3D2D`. **Now OBSERVED; the blend formula remains open.**
+  This item was recorded as blocked because `3D2D` is an intra-frame staging
+  write that tick-locked sampling cannot see. That reasoning was incomplete:
+  `3D2D` writes `debris[0x0B*(tag-0x4E20) + 4] = result`, the STRUCK record's
+  vx field, and that value PERSISTS, so the next tick-locked sample shows its
+  effect. What the earlier 201-tick window lacked was a fragment-on-fragment
+  strike, not resolution.
+  `tools/capture_original_natural_forward_debris_procmem.py` bombs a stacked
+  pile of eleven adjacent seedable sites on level 2 (tiles 26..30 x 37..40) to
+  force strikes and samples the whole debris record table (`DS:0x2093`, stride
+  0x0B) for 3927 ticks. Three events occur in which a record's vx changes
+  while EVERY other byte of that record -- tile, word, vy, both
+  sub-accumulators, rest counter, lookup glyph and aux -- is byte-identical
+  across the tick. Nothing else in the recovered model can do that: friction
+  moves vx by exactly +/-1, the bounce moves it by `Random(0x1E)-15` AND
+  clears vy, and a retire+reseed resets the rest counter and sub-accumulators.
+  Pinned by `natural_forward_debris_writeback`, which re-derives the events
+  from the rows rather than trusting the fixture's count.
+  What stays OPEN is the blend FORMULA: the spec's `acc/weight` arithmetic
+  over tagged contributors (`3C98..3CC6`, divide at `3CE3`) is
+  disassembly-only, and this capture samples neither the accumulator nor the
+  tag list, so it proves the writeback happens and what it targets, not how
+  the value is computed. The port deliberately does not model the blend; the
+  fixture records `port_models_blend=0` so that divergence is pinned rather
+  than carried silently.
 - `exact_explosion_sprite_playback` — exact explosion/debris/collapse sprite
   playback semantics around `1000:3a56..4d3b`
 - `actor_update_original_contact_semantics` — original contact

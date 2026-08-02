@@ -23,6 +23,34 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Observed the natural forward debris writeback at `1000:3D2D`.** This item
+  had been recorded as blocked because `3D2D` is an intra-frame staging write
+  that tick-locked sampling cannot see. That reasoning was incomplete. `3D2D`
+  writes `debris[0x0B*(tag-0x4E20) + 4] = result` -- the STRUCK record's vx
+  field -- and that value PERSISTS, so the next tick-locked sample shows its
+  effect. What the earlier 201-tick window lacked was a fragment-on-fragment
+  strike, not resolution.
+  The new capture bombs a stacked pile of eleven adjacent seedable sites on
+  level 2 (tiles 26..30 x 37..40) to force strikes, and samples the whole
+  debris record table (`DS:0x2093`, stride 0x0B) for 3927 ticks. Three events
+  occur in which a record's vx changes while EVERY other byte of that record
+  -- tile, word, vy, both sub-accumulators, rest counter, lookup glyph and aux
+  -- is byte-identical across the tick: `+39 -> +59` (record 201, frame 100),
+  `+2 -> -38` (record 202, frame 155) and `-39 -> -59` (record 200, frame
+  401). Nothing else in the recovered model can produce that: friction moves
+  vx by exactly +/-1, the bounce moves it by `Random(0x1E)-15` AND clears vy,
+  and a retire+reseed resets the rest counter and sub-accumulators. A fourth
+  candidate transition WAS a retire+reseed and is excluded on exactly those
+  grounds. Pinned by `natural_forward_debris_writeback`, which re-derives the
+  events from the rows rather than trusting the fixture's count.
+  **Scope**: the item stays OPEN. What is settled is that the writeback
+  happens naturally and what it targets; the blend FORMULA -- the spec's
+  `acc/weight` over tagged contributors (`3C98..3CC6`, divide at `3CE3`) --
+  is still disassembly-only, because this capture samples neither the
+  accumulator nor the tag list. The port deliberately does not model the
+  blend, and the fixture records `port_models_blend=0` so that divergence is
+  pinned rather than carried silently. Suite 400/400.
+
 - **Gave the actor-contact core a second level of runtime evidence.** The open
   item `actor_update_original_contact_semantics` listed "one level" among the
   things it had not evidenced -- everything rested on the level-1 capture. The

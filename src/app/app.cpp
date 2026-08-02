@@ -17514,6 +17514,94 @@ public:
     // existing level-1 fixture left "one level" on this item's unevidenced
     // list; these rows come from level 2 and drive the port's live gravity,
     // walk-speed seeding and wall-reflection paths.
+    // The natural forward debris writeback at 1000:3D2D, observed. 3D2D sets
+    // the STRUCK record's vx field, and that value persists, so a tick-locked
+    // sampler sees its effect -- the item's "intra-frame, unobservable"
+    // framing was incomplete. This checks the captured events really are pure
+    // vx overwrites (no other byte of the record moves, which rules out
+    // friction, the bounce and a retire+reseed) and records that the port
+    // does NOT model the blend, so the divergence is pinned rather than
+    // silently carried.
+    void debugNaturalForwardDebrisWriteback(const std::string& fixturePath) {
+        std::ifstream in(fixturePath);
+        if (!in) throw std::runtime_error("cannot open " + fixturePath);
+        std::map<std::string, std::string> kv;
+        struct Row { long frame; int record; std::string raw; };
+        std::vector<Row> rows;
+        std::string line;
+        while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (line.find("row ") != std::string::npos) {
+                std::istringstream r(line.substr(line.find("row ") + 4));
+                std::string field;
+                Row row{0, 0, ""};
+                while (r >> field) {
+                    auto eq = field.find('=');
+                    if (eq == std::string::npos) continue;
+                    const std::string k = field.substr(0, eq), v = field.substr(eq + 1);
+                    if (k == "frame") row.frame = std::stol(v);
+                    else if (k == "record") row.record = std::stoi(v);
+                    else if (k == "raw") row.raw = v;
+                }
+                rows.push_back(row);
+                continue;
+            }
+            if (line.rfind("event ", 0) == 0) continue;
+            auto eq = line.find('=');
+            if (eq == std::string::npos) continue;
+            kv[line.substr(0, eq)] = line.substr(eq + 1);
+        }
+        auto req = [&](const char* key) -> std::string {
+            auto it = kv.find(key);
+            if (it == kv.end()) {
+                throw std::runtime_error(std::string("missing key ") + key);
+            }
+            return it->second;
+        };
+        if (req("natural_forward_debris_writeback_original") != "level2" ||
+            req("visual_claim") != "0" || req("runtime_ds") != "0c8f" ||
+            req("debris_table_offset") != "0x2093" ||
+            req("blend_formula_recovered") != "0" ||
+            req("port_models_blend") != "0") {
+            throw std::runtime_error("natural forward writeback fixture header mismatch");
+        }
+        auto byteAt = [](const std::string& hex, size_t i) {
+            return static_cast<int>(std::stoul(hex.substr(i * 2, 2), nullptr, 16));
+        };
+        int pureOverwrites = 0;
+        for (size_t i = 1; i < rows.size(); ++i) {
+            if (rows[i].record != rows[i - 1].record) continue;
+            if (rows[i].frame != rows[i - 1].frame + 1) continue;
+            const std::string& a = rows[i - 1].raw;
+            const std::string& b = rows[i].raw;
+            if (a.size() != b.size()) continue;
+            bool othersIdentical = true;
+            for (size_t k = 0; k * 2 < a.size(); ++k) {
+                if (k == 4) continue;  // +4 is vx, the field 3D2D writes
+                if (byteAt(a, k) != byteAt(b, k)) { othersIdentical = false; break; }
+            }
+            const int vxa = static_cast<int8_t>(byteAt(a, 4));
+            const int vxb = static_cast<int8_t>(byteAt(b, 4));
+            if (othersIdentical && vxa != vxb && std::abs(vxb - vxa) > 1) {
+                ++pureOverwrites;
+            }
+        }
+        const int expected = std::stoi(req("pure_vx_overwrites"));
+        if (pureOverwrites != expected) {
+            throw std::runtime_error(
+                "re-derived " + std::to_string(pureOverwrites) +
+                " pure vx overwrites, fixture records " + std::to_string(expected));
+        }
+        std::cout << "natural_forward_debris_writeback=ok"
+                  << " level=2 ghidra=1000:3d2d"
+                  << " ticks_sampled=" << req("ticks_sampled")
+                  << " pure_vx_overwrites=" << pureOverwrites
+                  << " target=record+4"
+                  << " observable=1 blend_formula_recovered=0 port_models_blend=0"
+                  << " visual_claim=0\n";
+    }
+
     void debugActorContactLevel2Evidence(const std::string& fixturePath) {
         std::ifstream in(fixturePath);
         if (!in) throw std::runtime_error("cannot open " + fixturePath);
@@ -27072,6 +27160,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-object-explosion-effects") {
             app.debugBombObjectExplosionEffects();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-natural-forward-debris-writeback") {
+            app.debugNaturalForwardDebrisWriteback(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-actor-contact-level2-evidence") {

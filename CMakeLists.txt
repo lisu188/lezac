@@ -3511,6 +3511,18 @@ if(BUILD_TESTING)
     # left "one level" on the open item's unevidenced list; these rows are
     # level 2 and drive the port's live gravity, walk-speed seeding and
     # wall-reflection paths.
+    # The natural forward debris writeback at 1000:3D2D, observed on level 2.
+    # Re-derives the pure-vx-overwrite events from the rows (every other byte
+    # of the record identical, which rules out friction, bounce and reseed)
+    # rather than trusting the fixture's own count.
+    add_test(NAME natural_forward_debris_writeback
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-natural-forward-debris-writeback
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/natural_forward_debris_writeback_original_level2.txt)
+    set_tests_properties(natural_forward_debris_writeback PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^natural_forward_debris_writeback=ok level=2 ghidra=1000:3d2d ticks_sampled=3927 pure_vx_overwrites=3 target=record[+]4 observable=1 blend_formula_recovered=0 port_models_blend=0 visual_claim=0")
+
     add_test(NAME actor_contact_level2_evidence
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-contact-level2-evidence
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/actor_contact_original_level2.txt)

@@ -23,6 +23,23 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Pinned the debris bounce's RNG draw order.** The review pass found the
+  bounce's two draws entirely unguarded: swapping `Random(0x1E)` and
+  `Random(8)` -- which desynchronises the shared Turbo Pascal LCG from that
+  point on, changing every subsequent random number in the game -- left
+  395/395 green, and DELETING both draws outright also left 395/395 green.
+  The branch is executed by `debris_motion_live`, so it looked covered and
+  was not.
+  The seed alone cannot pin the order, because the LCG advances identically
+  whichever range is asked for; only the CONSUMED values differ. The new
+  `--debug-debris-bounce-rng` (`debris_bounce_rng` ctest) therefore steps the
+  LCG twice itself and checks that the horizontal kick carries the first draw
+  (mod 0x1E) and the sound offset the second (mod 8), plus that the draw
+  COUNT is exactly two and that `vy` is cleared at `4C5F`. Three knockouts run
+  for real: swapping the order fails with `bounce kick -14 did not consume the
+  FIRST draw`, deleting both draws fails on the count, and moving the sound
+  base off `0xEA61` fails the pin. Suite 396/396.
+
 - **Put the player on the original's 8.8 fixed-point per-tick model.** The
   player was the last moving thing in the port still running a continuous
   float px/s model integrated by `dt`; walkers, boss links, debris and

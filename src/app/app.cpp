@@ -17425,6 +17425,98 @@ public:
     // (vy = 4n, ysub = 2n(n-1)), the first row step at tick 9 stamping both
     // planes and clearing the vacated cell, the cascade re-seed from the cell
     // above the vacated one, and eventual retirement clearing bit 0x8000.
+    // Pin the debris bounce's RNG stream. The original draws Random(0x1E)
+    // for the horizontal kick and THEN Random(8) for the sound
+    // (4C2B/4C41 before 4C4A/4C51), and both draws come off the same shared
+    // Turbo Pascal LCG, so the order and the count decide every subsequent
+    // random number in the game. The seed alone cannot pin the order -- the
+    // LCG advances identically whichever range is asked for -- so this
+    // checks the two CONSUMED values: the kick must carry the first draw
+    // (mod 0x1E) and the sound offset the second (mod 8).
+    void debugDebrisBounceRng() {
+        load();
+        resetLevel(0);
+
+        // Independently step the LCG twice to get what each draw must yield.
+        constexpr uint32_t kSeed = 0x12345678u;
+        const uint32_t s1 = kSeed * 0x08088405u + 1u;
+        const uint32_t s2 = s1 * 0x08088405u + 1u;
+        const int firstDraw = static_cast<int>((s1 >> 16) % 0x1eu);
+        const int secondDraw = static_cast<int>((s2 >> 16) % 8u);
+        const int expectedKick = firstDraw - 15;
+        const uint16_t expectedSound =
+            static_cast<uint16_t>(kDebrisBounceSoundBase + secondDraw);
+        if (firstDraw % 8 == secondDraw &&
+            secondDraw % 0x1e == firstDraw) {
+            throw std::runtime_error(
+                "chosen seed cannot distinguish the two draw orders");
+        }
+
+        // A fragment moving down into an occupied cell: the blocked-move
+        // branch is the bounce. subY is pre-loaded so the signed 8-bit
+        // sub-accumulator overflows on this very tick and the mover actually
+        // attempts the step (delta == 0 would just rest).
+        int siteX = -1;
+        int siteY = -1;
+        for (int y = 2; y + 1 < level_.height && siteY < 0; ++y) {
+            for (int x = 1; x + 1 < level_.width; ++x) {
+                if (tileAt(x, y) != 0 || tileAt(x, y + 1) == 0) continue;
+                siteX = x;
+                siteY = y;
+                break;
+            }
+        }
+        if (siteX < 0) throw std::runtime_error("no bounce site found");
+
+        debrisQueue_.clear();
+        DebrisRecord rec;
+        rec.tileIndex = siteY * level_.width + siteX;
+        rec.flaggedWord = static_cast<uint16_t>(0x4000 | kDamagedWordBit);
+        rec.lookup = 0x60;   // <= 0x66 so the landing-shatter gate cannot fire
+        rec.velocityY = 60;
+        rec.subY = 100;      // 100 + 60 = 160 > 127 -> one row of downward step
+        rec.velocityX = 0;
+        debrisQueue_.push_back(rec);
+        level_.tiles[static_cast<size_t>(rec.tileIndex)] = rec.lookup;
+        logicTick_ = 0;
+
+        clearSoundLatch();
+        randomSeed_ = kSeed;
+        const size_t before = debrisQueue_.size();
+        updateDebrisRecords();
+        if (debrisQueue_.size() != before) {
+            throw std::runtime_error("bounce probe fragment did not survive the tick");
+        }
+        const DebrisRecord& after = debrisQueue_.front();
+        if (randomSeed_ != s2) {
+            throw std::runtime_error(
+                "bounce drew a different number of RNG values than the two at 4C2B/4C4A");
+        }
+        if (static_cast<int>(after.velocityX) != expectedKick) {
+            throw std::runtime_error(
+                "bounce kick " + std::to_string(after.velocityX) +
+                " did not consume the FIRST draw (expected " +
+                std::to_string(expectedKick) + ")");
+        }
+        if (!soundLatch_.active || soundLatch_.latchedOffset != expectedSound) {
+            throw std::runtime_error(
+                "bounce sound offset did not consume the SECOND draw (expected 0x" +
+                std::to_string(expectedSound) + ")");
+        }
+        if (after.velocityY != 0) {
+            throw std::runtime_error("bounce did not clear vy at 4C5F");
+        }
+        std::cout << "debris_bounce_rng=ok"
+                  << " draws=2 order=kick_then_sound"
+                  << " kick=" << static_cast<int>(after.velocityX)
+                  << " sound_offset=0x" << std::hex << soundLatch_.latchedOffset
+                  << std::dec
+                  << " sound_base=0x" << std::hex << kDebrisBounceSoundBase
+                  << std::dec
+                  << " vy_cleared=1 ghidra=1000:4c2b,1000:4c4a"
+                  << " visual_claim=0\n";
+    }
+
     void debugDebrisMotionLive() {
         load();
 
@@ -26473,6 +26565,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-object-explosion-effects") {
             app.debugBombObjectExplosionEffects();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-debris-bounce-rng") {
+            app.debugDebrisBounceRng();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-debris-motion-live") {

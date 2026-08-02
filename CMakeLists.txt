@@ -3492,6 +3492,18 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^monster_impact_sprites=ok table=ds:0x0077[+]kind[*]2[+]dir dir_rule=vx>0 ghidra=1000:745b cases=k1_vx_neg,k1_vx_pos,k1_band_left_vx_pos,k1_band_right_vx_neg,k1_vx_zero,k2,k3,k4 corpse_sprites=47,48,48,47,47,42,52,56 held_ticks=49,49,49,49,49,49,49,49 capture_frames=357[.][.]405 band_independent=1 visual_claim=0")
 
+    # The bounce's two RNG draws come off the shared LCG, so their order and
+    # count decide every later random number. The seed alone cannot pin the
+    # order (the LCG advances the same whatever range is asked for), so this
+    # checks the two CONSUMED values: the kick takes Random(0x1E), the sound
+    # offset takes Random(8).
+    add_test(NAME debris_bounce_rng
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-bounce-rng)
+    set_tests_properties(debris_bounce_rng PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^debris_bounce_rng=ok draws=2 order=kick_then_sound kick=-6 sound_offset=0xea68 sound_base=0xea61 vy_cleared=1 ghidra=1000:4c2b,1000:4c4a visual_claim=0")
+
     add_test(NAME governed_rate
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-governed-rate 5)
     set_tests_properties(governed_rate PROPERTIES

@@ -22,7 +22,9 @@
 #include <utility>
 #include <vector>
 
+#include "core/fixed_point.hpp"
 #include "core/progress.hpp"
+#include "core/random.hpp"
 
 namespace {
 
@@ -720,14 +722,10 @@ int16_t clampI16(int value) {
 }
 
 void integrateAxis8_8(int& pos, uint8_t& frac, int16_t velocity) {
-    uint16_t bits = static_cast<uint16_t>(velocity);
-    uint16_t sum = static_cast<uint16_t>(frac) + (bits & 0x00ffu);
-    frac = static_cast<uint8_t>(sum & 0x00ffu);
-    int delta = static_cast<int>(static_cast<int8_t>((bits >> 8) & 0x00ffu));
-    if (sum > 0x00ffu) {
-        ++delta;
-    }
-    pos += delta;
+    lezac::core::Fixed8_8Axis axis{pos, frac};
+    lezac::core::integrateFixed8_8(axis, velocity);
+    pos = axis.position;
+    frac = axis.fraction;
 }
 
 std::vector<uint8_t> readFile(const std::string& path) {
@@ -22110,14 +22108,10 @@ private:
     }
 
     uint16_t randomRangeValue(uint16_t base, uint16_t range) {
-        // Turbo Pascal / Borland Random(): RandSeed = RandSeed*0x08088405 + 1
-        // (32-bit wrap), Random(L) = (RandSeed >> 16) mod L. Verified against the
-        // shipped runtime library Random at 0x920:0x13a8 (multiplier low word
-        // 0x8405 at CS:0x142d, increment 1, high-word-mod-L extraction) so the
-        // port's RNG is bit-identical to the original's generator.
-        randomSeed_ = randomSeed_ * 0x08088405u + 1u;
-        uint16_t span = range == 0 ? 1 : range;
-        return static_cast<uint16_t>(base + ((randomSeed_ >> 16) % span));
+        lezac::core::TurboRandom random(randomSeed_);
+        const uint16_t value = random.range(base, range);
+        randomSeed_ = random.seed();
+        return value;
     }
 
     int randomInclusive(int low, int high) {

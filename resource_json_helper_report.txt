@@ -1,0 +1,153 @@
+===== extractStringArray occurrences=6 =====
+std::vector<std::string> extractStringArray(const std::string& json, const std::string& key) {
+    std::vector<std::string> rows;
+    std::string needle = "\"" + key + "\"";
+    size_t keyPos = json.find(needle);
+    if (keyPos == std::string::npos) return rows;
+    size_t open = json.find('[', keyPos);
+    if (open == std::string::npos) return rows;
+    size_t depth = 1;
+    for (size_t i = open + 1; i < json.size() && depth > 0; ++i) {
+        char ch = json[i];
+        if (ch == '[') {
+            ++depth;
+        } else if (ch == ']') {
+            --depth;
+        } else if (ch == '"') {
+            size_t end = json.find('"', i + 1);
+            if (end == std::string::npos) break;
+            rows.push_back(json.substr(i + 1, end - i - 1));
+            i = end;
+        }
+    }
+    return rows;
+}
+----- call sites -----
+719: std::vector<std::string> extractStringArray(const std::string& json, const std::string& key) {
+998: for (const auto& row : extractStringArray(json, "pixel_rows_hex")) {
+1065: for (const auto& row : extractStringArray(tileJson, "rows_hex")) {
+1098: for (const auto& row : extractStringArray(spriteJson, "rows_hex")) {
+1510: for (const auto& row : extractStringArray(levelJson, "tiles_rows_hex")) {
+1514: for (const auto& row : extractStringArray(levelJson, "word_rows_hex")) {
+
+===== extractObjectArray occurrences=11 =====
+std::vector<std::string> extractObjectArray(const std::string& json, const std::string& key) {
+    std::vector<std::string> objects;
+    std::string needle = "\"" + key + "\"";
+    size_t keyPos = json.find(needle);
+    if (keyPos == std::string::npos) return objects;
+    size_t open = json.find('[', keyPos);
+    if (open == std::string::npos) return objects;
+    size_t depth = 1;
+    for (size_t i = open + 1; i < json.size() && depth > 0; ++i) {
+        if (json[i] == '[') {
+            ++depth;
+        } else if (json[i] == ']') {
+            --depth;
+        } else if (depth == 1 && json[i] == '{') {
+            size_t objStart = i;
+            size_t objDepth = 1;
+            for (++i; i < json.size() && objDepth > 0; ++i) {
+                if (json[i] == '{') ++objDepth;
+                else if (json[i] == '}') --objDepth;
+            }
+            if (objDepth == 0) {
+                objects.push_back(json.substr(objStart, i - objStart));
+            }
+            --i;
+        }
+    }
+    return objects;
+}
+----- call sites -----
+743: std::vector<std::string> extractObjectArray(const std::string& json, const std::string& key) {
+1060: auto tileObjects = extractObjectArray(json, "tiles");
+1092: auto spriteObjects = extractObjectArray(json, "sprites");
+1145: auto recordObjects = extractObjectArray(json, "records");
+1311: auto recordObjects = extractObjectArray(json, "records");
+1365: auto recordObjects = extractObjectArray(json, "records");
+1493: auto levelObjects = extractObjectArray(json, "levels");
+1519: for (const auto& spawnerJson : extractObjectArray(levelJson, "monsterSpawners")) {
+1543: for (const auto& portalJson : extractObjectArray(levelJson, "portals")) {
+1551: for (const auto& triggerJson : extractObjectArray(levelJson, "tileTriggers")) {
+5504: auto jsonRecords = extractObjectArray(readTextFile("RECS.DAT.json"), "records");
+
+===== extractInt occurrences=50 =====
+int extractInt(const std::string& json, const std::string& key, int fallback = 0) {
+    std::regex re("\"" + key + "\"\\s*:\\s*(-?\\d+)");
+    std::smatch m;
+    if (std::regex_search(json, m, re)) {
+        return std::stoi(m[1].str());
+    }
+    return fallback;
+}
+----- call sites -----
+772: int extractInt(const std::string& json, const std::string& key, int fallback = 0) {
+995: image.width = extractInt(json, "width", kBackgroundW);
+996: image.height = extractInt(json, "height", kBackgroundH);
+1059: bank.count = extractInt(json, "tile_count");
+1096: s.width = extractInt(spriteJson, "width");
+1097: s.height = extractInt(spriteJson, "height");
+1148: r.score = static_cast<uint32_t>(extractInt(recJson, "score"));
+1149: r.level = static_cast<uint8_t>(extractInt(recJson, "level"));
+1309: bank.recordSize = static_cast<uint16_t>(extractInt(json, "record_size"));
+1310: int declaredCount = extractInt(json, "record_count", -1);
+1361: bank.recordSize = static_cast<size_t>(extractInt(json, "record_size", static_cast<int>(kGranRecordSize)));
+1496: level.fileOffset = static_cast<size_t>(extractInt(levelJson, "fileOffset"));
+1497: level.width = extractInt(levelJson, "width");
+1498: level.height = extractInt(levelJson, "height");
+1502: level.objectiveTile = static_cast<uint8_t>(extractInt(levelJson, "objectiveTile"));
+1503: level.requiredBonus = static_cast<uint16_t>(extractInt(levelJson, "requiredBonus"));
+1504: level.requiredDestruction = static_cast<uint8_t>(extractInt(levelJson, "requiredDestruction"));
+1505: level.tileEncodedSize = static_cast<uint16_t>(extractInt(levelJson, "tileEncodedSize"));
+1506: level.wordEncodedSize = static_cast<uint16_t>(extractInt(levelJson, "wordEncodedSize"));
+1507: level.fieldA = static_cast<uint16_t>(extractInt(levelJson, "fieldA"));
+1508: level.fieldB = static_cast<uint16_t>(extractInt(levelJson, "fieldB"));
+1521: spawner.x = static_cast<uint16_t>(extractInt(spawnerJson, "x"));
+1522: spawner.y = static_cast<uint16_t>(extractInt(spawnerJson, "y"));
+1523: spawner.tileIndex = static_cast<uint16_t>(extractInt(spawnerJson, "tileIndex"));
+1524: spawner.savedWordOrLink = static_cast<uint16_t>(extractInt(spawnerJson, "savedWordOrLink"));
+1525: spawner.enabled = static_cast<uint8_t>(extractInt(spawnerJson, "enabled"));
+1526: spawner.spawnBudget = static_cast<uint8_t>(extractInt(spawnerJson, "spawnBudget"));
+1527: spawner.liveAllowance = static_cast<uint8_t>(extractInt(spawnerJson, "liveAllowance"));
+1528: spawner.monsterKind = static_cast<uint8_t>(extractInt(spawnerJson, "monsterKind"));
+1529: spawner.param0Base = static_cast<uint16_t>(extractInt(spawnerJson, "param0Base"));
+1530: spawner.param0Range = static_cast<uint16_t>(extractInt(spawnerJson, "param0Range"));
+1531: spawner.param1Base = static_cast<uint16_t>(extractInt(spawnerJson, "param1Base"));
+1532: spawner.param1Range = static_cast<uint16_t>(extractInt(spawnerJson, "param1Range"));
+1533: spawner.param2Base = static_cast<uint16_t>(extractInt(spawnerJson, "param2Base"));
+1534: spawner.param2Range = static_cast<uint16_t>(extractInt(spawnerJson, "param2Range"));
+1535: spawner.randomBase = static_cast<uint8_t>(extractInt(spawnerJson, "randomBase"));
+1536: spawner.randomRange = static_cast<uint8_t>(extractInt(spawnerJson, "randomRange"));
+1537: spawner.spawnArg = static_cast<uint8_t>(extractInt(spawnerJson, "spawnArg"));
+1538: spawner.cooldown = static_cast<uint8_t>(extractInt(spawnerJson, "cooldown"));
+1539: spawner.cooldownReset = static_cast<uint8_t>(extractInt(spawnerJson, "cooldownReset"));
+1540: spawner.animationDelay = static_cast<uint8_t>(extractInt(spawnerJson, "animationDelay"));
+1545: p.key = static_cast<uint16_t>(extractInt(portalJson, "key"));
+1546: p.x = static_cast<uint16_t>(extractInt(portalJson, "x"));
+1547: p.y = static_cast<uint16_t>(extractInt(portalJson, "y"));
+1548: p.marker = static_cast<uint8_t>(extractInt(portalJson, "marker"));
+1553: rule.wordRangeFirst = static_cast<uint16_t>(extractInt(triggerJson, "wordRangeFirst"));
+1554: rule.wordRangeLast = static_cast<uint16_t>(extractInt(triggerJson, "wordRangeLast"));
+1555: rule.triggerKey = static_cast<uint16_t>(extractInt(triggerJson, "triggerKey"));
+5540: uint32_t jsonScore = static_cast<uint32_t>(extractInt(recJson, "score"));
+5541: uint8_t jsonLevel = static_cast<uint8_t>(extractInt(recJson, "level"));
+
+===== extractString occurrences=7 =====
+std::string extractString(const std::string& json, const std::string& key,
+                          const std::string& fallback = "") {
+    std::regex re("\"" + key + "\"\\s*:\\s*\"([^\"]*)\"");
+    std::smatch m;
+    if (std::regex_search(json, m, re)) {
+        return m[1].str();
+    }
+    return fallback;
+}
+----- call sites -----
+781: std::string extractString(const std::string& json, const std::string& key,
+1150: r.name = extractString(recJson, "decoded_name", "nessuno");
+1151: r.encodedName = extractString(recJson, "encoded_name", "");
+1317: record.bytes = parseHexByteList(extractString(recJson, "bytes_hex"));
+1371: record.bytes = parseHexByteList(extractString(recJson, "bytes_hex"));
+5542: std::string jsonEncoded = extractString(recJson, "encoded_name");
+5543: std::string jsonDecoded = extractString(recJson, "decoded_name");

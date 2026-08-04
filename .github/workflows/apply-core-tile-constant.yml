@@ -1,0 +1,67 @@
+name: Apply core tile constant extraction
+
+on:
+  push:
+    branches:
+      - refactor/core-tile-constant
+    paths:
+      - .core-tile-constant-apply
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/core-tile-constant
+          fetch-depth: 0
+      - name: Apply tile-size ownership move
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          app = Path('src/app/app.cpp')
+          text = app.read_text()
+
+          include_anchor = '#include "core/fixed_point.hpp"\n'
+          include_replacement = '#include "core/constants.hpp"\n#include "core/fixed_point.hpp"\n'
+          if text.count(include_anchor) != 1:
+              raise SystemExit('core include anchor changed')
+          text = text.replace(include_anchor, include_replacement, 1)
+
+          using_anchor = 'using lezac::core::integrateFixed8_8;\n' if 'using lezac::core::integrateFixed8_8;' in text else None
+          if using_anchor:
+              replacement = using_anchor + 'using lezac::core::kTileSize;\n'
+              if text.count(using_anchor) != 1:
+                  raise SystemExit('core using anchor changed')
+              text = text.replace(using_anchor, replacement, 1)
+          else:
+              anchor = 'using lezac::core::countsForPhysicalDamageProgress;\n'
+              replacement = anchor + 'using lezac::core::kTileSize;\n'
+              if text.count(anchor) != 1:
+                  raise SystemExit('fallback core using anchor changed')
+              text = text.replace(anchor, replacement, 1)
+
+          constant = 'constexpr int kTileSize = 8;\n'
+          if text.count(constant) != 1:
+              raise SystemExit('local kTileSize declaration changed')
+          text = text.replace(constant, '', 1)
+          app.write_text(text)
+
+          cmake = Path('CMakeLists.txt')
+          ctext = cmake.read_text()
+          old = '^core_primitives=ok progress=1 fixed=1 random=1'
+          new = '^core_primitives=ok constants=1 progress=1 fixed=1 random=1'
+          if ctext.count(old) != 1:
+              raise SystemExit('core test regex changed')
+          cmake.write_text(ctext.replace(old, new, 1))
+          PY
+          rm .core-tile-constant-apply .github/workflows/apply-core-tile-constant.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Move tile-size constant into core"
+          git push origin HEAD:refactor/core-tile-constant

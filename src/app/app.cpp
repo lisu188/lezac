@@ -31,6 +31,7 @@
 #include "resources/json.hpp"
 #include "resources/palette.hpp"
 #include "resources/sprites.hpp"
+#include "resources/tiles.hpp"
 #include "resources/types.hpp"
 
 namespace {
@@ -40,6 +41,7 @@ using lezac::resources::Palette;
 using lezac::resources::Rgb;
 using lezac::resources::Sprite;
 using lezac::resources::SpriteBank;
+using lezac::resources::TileBank;
 using lezac::resources::parseHexByteList;
 using lezac::resources::parseHexWordList;
 using lezac::resources::readFile;
@@ -53,6 +55,8 @@ using lezac::resources::loadPalette;
 using lezac::resources::loadPaletteFile;
 using lezac::resources::loadRawSprites;
 using lezac::resources::loadSprites;
+using lezac::resources::loadRawTiles;
+using lezac::resources::loadTiles;
 using lezac::resources::vga6To8;
 using lezac::resources::getBytes;
 using lezac::resources::getFixedRecords;
@@ -335,18 +339,6 @@ struct LevelOutroState {
     bool typingSkipped = false;
     uint32_t typingSkipAt = 0;
     bool awaitKey = false;
-};
-
-struct TileBank {
-    int count = 0;
-    std::vector<uint8_t> pixels;
-
-    const uint8_t* tile(int id) const {
-        if (id < 0 || id >= count) {
-            return nullptr;
-        }
-        return pixels.data() + static_cast<size_t>(id) * kTileSize * kTileSize;
-    }
 };
 
 struct MonsterSpawner {
@@ -889,39 +881,6 @@ IndexedImage loadRawBackground(const std::string& path, Palette& paletteOut) {
                                  std::to_string(targetPixels));
     }
     return image;
-}
-
-TileBank loadTiles(const std::string& path) {
-    auto json = readTextFile(path);
-    TileBank bank;
-    bank.count = extractInt(json, "tile_count");
-    auto tileObjects = extractObjectArray(json, "tiles");
-    if (static_cast<int>(tileObjects.size()) != bank.count) {
-        throw std::runtime_error(path + " tile count mismatch");
-    }
-    for (const auto& tileJson : tileObjects) {
-        for (const auto& row : extractStringArray(tileJson, "rows_hex")) {
-            auto bytes = parseHexByteList(row);
-            bank.pixels.insert(bank.pixels.end(), bytes.begin(), bytes.end());
-        }
-    }
-    return bank;
-}
-
-TileBank loadRawTiles(const std::string& path) {
-    auto data = readFile(path);
-    if (data.size() < 2) {
-        throw std::runtime_error(path + " is too small for a tile header");
-    }
-    TileBank bank;
-    bank.count = static_cast<int>((data[0] << 8) | data[1]);
-    size_t payloadSize = data.size() - 2;
-    size_t expectedSize = static_cast<size_t>(bank.count) * kTileSize * kTileSize;
-    if (bank.count <= 0 || payloadSize != expectedSize) {
-        throw std::runtime_error(path + " raw tile payload size mismatch");
-    }
-    bank.pixels.insert(bank.pixels.end(), data.begin() + 2, data.end());
-    return bank;
 }
 
 std::vector<Record> parseJsonRecords(const std::string& json) {

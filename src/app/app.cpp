@@ -69,6 +69,8 @@ using lezac::resources::recLe16;
 using lezac::core::countPhysicalDamageProgressCells;
 using lezac::core::countsForDestructionProgress;
 using lezac::core::countsForPhysicalDamageProgress;
+using lezac::core::kBackgroundH;
+using lezac::core::kBackgroundW;
 using lezac::core::kTileSize;
 
 constexpr int kScreenW = 320;
@@ -86,8 +88,6 @@ constexpr int kNameEntryCursorBoxW = 8;
 constexpr int kNameEntryCursorBoxH = 10;
 constexpr uint32_t kNameEntryCursorBackground = 0xff90ffb0u;
 constexpr uint32_t kNameEntryCursorForeground = 0xff000000u;
-constexpr int kBackgroundW = 320;
-constexpr int kBackgroundH = 200;
 constexpr uint16_t kDamagedWordBit = 0x8000;
 constexpr uint16_t kDeferredThreshold = 0x4000;
 constexpr uint16_t kHighHalfBase = 0x4e20;

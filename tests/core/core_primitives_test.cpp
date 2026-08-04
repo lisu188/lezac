@@ -15,9 +15,11 @@ int main() {
     using lezac::core::countsForDestructionProgress;
     using lezac::core::countsForPhysicalDamageProgress;
     using lezac::core::integrateFixed8_8;
+    using lezac::core::kBackgroundH;
+    using lezac::core::kBackgroundW;
     using lezac::core::kTileSize;
 
-    if (kTileSize != 8) return 1;
+    if (kTileSize != 8 || kBackgroundW != 320 || kBackgroundH != 200) return 1;
 
     if (countsForDestructionProgress(0, 108) ||
         countsForDestructionProgress(1, 108) ||
@@ -79,6 +81,6 @@ int main() {
     TurboRandom zeroRange(0);
     if (zeroRange.range(37, 0) != 37 || zeroRange.seed() != 1) return 1;
 
-    std::cout << "core_primitives=ok constants=1 progress=1 fixed=1 random=1\n";
+    std::cout << "core_primitives=ok constants=3 progress=1 fixed=1 random=1\n";
     return 0;
 }

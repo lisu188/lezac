@@ -47,6 +47,7 @@ using lezac::resources::extractString;
 using lezac::resources::extractStringArray;
 using lezac::resources::loadPalette;
 using lezac::resources::loadPaletteFile;
+using lezac::resources::vga6To8;
 
 using lezac::core::countPhysicalDamageProgressCells;
 using lezac::core::countsForDestructionProgress;

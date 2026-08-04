@@ -1,0 +1,138 @@
+===== kBackgroundW occurrences=8 =====
+85: constexpr int kBackgroundW = 320;
+833: image.width = extractInt(json, "width", kBackgroundW);
+835: image.pixels.reserve(kBackgroundW * kBackgroundH);
+865: static_cast<size_t>(kBackgroundW) * kBackgroundH;
+868: image.width = kBackgroundW;
+5510: static_cast<size_t>(kBackgroundW) * kBackgroundH;
+5542: if (background_.width != kBackgroundW || background_.height != kBackgroundH ||
+5543: backgroundPixels.size() != static_cast<size_t>(kBackgroundW) * kBackgroundH ||
+
+===== kBackgroundH occurrences=8 =====
+86: constexpr int kBackgroundH = 200;
+834: image.height = extractInt(json, "height", kBackgroundH);
+835: image.pixels.reserve(kBackgroundW * kBackgroundH);
+865: static_cast<size_t>(kBackgroundW) * kBackgroundH;
+869: image.height = kBackgroundH;
+5510: static_cast<size_t>(kBackgroundW) * kBackgroundH;
+5542: if (background_.width != kBackgroundW || background_.height != kBackgroundH ||
+5543: backgroundPixels.size() != static_cast<size_t>(kBackgroundW) * kBackgroundH ||
+
+===== loadBackground( occurrences=2 =====
+817: IndexedImage loadBackground(const std::string& path, Palette& paletteOut) {
+1442: background_ = loadBackground("SFONLEF.ZBG.json", backgroundPalette_);
+
+===== loadRawBackground( occurrences=2 =====
+848: IndexedImage loadRawBackground(const std::string& path, Palette& paletteOut) {
+1458: background_ = loadRawBackground("SFONLEF.ZBG", backgroundPalette_);
+
+===== IndexedImage occurrences=7 =====
+38: using lezac::resources::IndexedImage;
+817: IndexedImage loadBackground(const std::string& path, Palette& paletteOut) {
+832: IndexedImage image;
+848: IndexedImage loadRawBackground(const std::string& path, Palette& paletteOut) {
+867: IndexedImage image;
+5950: IndexedImage jsonBackground = background_;
+20286: IndexedImage background_;
+
+===== background source window =====
+790:     std::vector<uint8_t> out(targetSize + 32, 0);
+791:     size_t in = 0;
+792:     size_t pos = 0;
+793: 
+794:     auto run = [&](uint8_t value, size_t len) {
+795:         const size_t end = std::min(pos + len, out.size() - 1);
+796:         for (size_t i = pos; i <= end; ++i) {
+797:             out[i] = value;
+798:         }
+799:         pos += len;
+800:     };
+801: 
+802:     while (pos < targetSize && in + 2 < encoded.size()) {
+803:         uint8_t cmd = encoded[in++];
+804:         uint8_t a = encoded[in++];
+805:         uint8_t b = encoded[in++];
+806:         run(a, static_cast<size_t>((cmd >> 4) + 1));
+807:         if (pos >= targetSize) {
+808:             break;
+809:         }
+810:         run(b, static_cast<size_t>((cmd & 0x0f) + 1));
+811:     }
+812: 
+813:     out.resize(targetSize);
+814:     return out;
+815: }
+816: 
+817: IndexedImage loadBackground(const std::string& path, Palette& paletteOut) {
+818:     auto json = readTextFile(path);
+819:     std::regex rgbRe("\"rgb8\"\\s*:\\s*\\[\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\]");
+820:     auto begin = std::sregex_iterator(json.begin(), json.end(), rgbRe);
+821:     auto end = std::sregex_iterator();
+822:     int pi = 0;
+823:     for (auto it = begin; it != end && pi < 256; ++it, ++pi) {
+824:         paletteOut[pi] = {
+825:             static_cast<uint8_t>(std::stoi((*it)[1].str())),
+826:             static_cast<uint8_t>(std::stoi((*it)[2].str())),
+827:             static_cast<uint8_t>(std::stoi((*it)[3].str())),
+828:         };
+829:     }
+830:     if (pi != 256) throw std::runtime_error(path + " palette section is incomplete");
+831: 
+832:     IndexedImage image;
+833:     image.width = extractInt(json, "width", kBackgroundW);
+834:     image.height = extractInt(json, "height", kBackgroundH);
+835:     image.pixels.reserve(kBackgroundW * kBackgroundH);
+836:     for (const auto& row : extractStringArray(json, "pixel_rows_hex")) {
+837:         auto bytes = parseHexByteList(row);
+838:         image.pixels.insert(image.pixels.end(), bytes.begin(), bytes.end());
+839:     }
+840:     if (image.pixels.size() != static_cast<size_t>(image.width) * image.height) {
+841:         throw std::runtime_error(path + " decoded to " + std::to_string(image.pixels.size()) +
+842:                                  " bytes, expected " +
+843:                                  std::to_string(static_cast<size_t>(image.width) * image.height));
+844:     }
+845:     return image;
+846: }
+847: 
+848: IndexedImage loadRawBackground(const std::string& path, Palette& paletteOut) {
+849:     auto data = readFile(path);
+850:     if (data.size() < 770) {
+851:         throw std::runtime_error(path + " is too small for a palette and header");
+852:     }
+853:     paletteOut = loadPalette(data, 0);
+854: 
+855:     // Recovered from the original ZBG display routine (Ghidra 1000:030b, decoder
+856:     // 1000:82d0). After the 768-byte VGA palette, a 2-byte little-endian length
+857:     // header gives the RLE payload size; the payload is a nibble-paired RLE that
+858:     // decodes to exactly one 320x200 mode-13h screen. Each 3-byte group
+859:     // (b0, b1, b2) emits (b0>>4)+1 copies of b1 followed by (b0&0x0f)+1 copies
+860:     // of b2.
+861:     const size_t rleLength = static_cast<size_t>(data[768]) |
+862:                              (static_cast<size_t>(data[769]) << 8);
+863:     const size_t rleEnd = std::min(data.size(), 770 + rleLength);
+864:     const size_t targetPixels =
+865:         static_cast<size_t>(kBackgroundW) * kBackgroundH;
+866: 
+867:     IndexedImage image;
+868:     image.width = kBackgroundW;
+869:     image.height = kBackgroundH;
+870:     image.pixels.reserve(targetPixels);
+871:     size_t off = 770;
+872:     while (off + 3 <= rleEnd && image.pixels.size() < targetPixels) {
+873:         const uint8_t b0 = data[off];
+874:         const uint8_t value1 = data[off + 1];
+875:         const uint8_t value2 = data[off + 2];
+876:         off += 3;
+877:         image.pixels.insert(image.pixels.end(),
+878:                             static_cast<size_t>((b0 >> 4) & 0x0f) + 1, value1);
+879:         image.pixels.insert(image.pixels.end(),
+880:                             static_cast<size_t>(b0 & 0x0f) + 1, value2);
+881:     }
+882:     if (image.pixels.size() > targetPixels) {
+883:         image.pixels.resize(targetPixels);
+884:     }
+885:     if (image.pixels.size() != targetPixels) {
+886:         throw std::runtime_error(path + " raw RLE decoded to " +
+887:                                  std::to_string(image.pixels.size()) +
+888:                                  " bytes, expected " +
+889:                                  std::to_string(targetPixels));

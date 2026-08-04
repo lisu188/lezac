@@ -1,0 +1,4 @@
+extractU8Array4 occurrences=3
+736: std::array<uint8_t, 4> extractU8Array4(const std::string& json, const std::string& key) {
+1404: rule.from = extractU8Array4(triggerJson, "from");
+1405: rule.to = extractU8Array4(triggerJson, "to");

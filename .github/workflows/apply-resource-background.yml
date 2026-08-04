@@ -1,0 +1,102 @@
+name: Apply background loader extraction
+
+on:
+  push:
+    branches:
+      - refactor/resource-background
+    paths:
+      - .resource-background-apply
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/resource-background
+          fetch-depth: 0
+      - name: Apply background loader extraction
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          app = Path('src/app/app.cpp')
+          text = app.read_text()
+
+          include_anchor = '#include "resources/binary.hpp"\n'
+          include_replacement = '#include "resources/background.hpp"\n#include "resources/binary.hpp"\n'
+          if text.count(include_anchor) != 1:
+              raise SystemExit('resource include anchor changed')
+          text = text.replace(include_anchor, include_replacement, 1)
+
+          using_anchor = 'using lezac::resources::loadPalette;\n'
+          using_replacement = 'using lezac::resources::loadBackground;\n' + using_anchor + 'using lezac::resources::loadRawBackground;\n'
+          if text.count(using_anchor) != 1:
+              raise SystemExit('resource loader using anchor changed')
+          text = text.replace(using_anchor, using_replacement, 1)
+
+          def remove_function(source, signature):
+              if source.count(signature) != 1:
+                  raise SystemExit(f'function signature count changed: {signature}')
+              start = source.index(signature)
+              brace = source.index('{', start + len(signature))
+              depth = 0
+              in_string = False
+              in_char = False
+              escape = False
+              i = brace
+              while i < len(source):
+                  ch = source[i]
+                  if escape:
+                      escape = False
+                  elif ch == '\\' and (in_string or in_char):
+                      escape = True
+                  elif ch == '"' and not in_char:
+                      in_string = not in_string
+                  elif ch == "'" and not in_string:
+                      in_char = not in_char
+                  elif not in_string and not in_char:
+                      if ch == '{':
+                          depth += 1
+                      elif ch == '}':
+                          depth -= 1
+                          if depth == 0:
+                              end = i + 1
+                              while end < len(source) and source[end] in ' \t':
+                                  end += 1
+                              if end < len(source) and source[end] == '\n':
+                                  end += 1
+                              if end < len(source) and source[end] == '\n':
+                                  end += 1
+                              return source[:start] + source[end:]
+                  i += 1
+              raise SystemExit(f'unterminated function: {signature}')
+
+          text = remove_function(text, 'IndexedImage loadBackground(const std::string& path, Palette& paletteOut) ')
+          text = remove_function(text, 'IndexedImage loadRawBackground(const std::string& path, Palette& paletteOut) ')
+          app.write_text(text)
+
+          cmake = Path('CMakeLists.txt')
+          ctext = cmake.read_text()
+          library_anchor = '''add_library(lezac_resources STATIC\n    src/resources/binary.cpp\n    src/resources/io.cpp\n    src/resources/json.cpp\n    src/resources/palette.cpp\n    src/resources/sprites.cpp\n    src/resources/tiles.cpp\n)\n'''
+          library_replacement = '''add_library(lezac_resources STATIC\n    src/resources/background.cpp\n    src/resources/binary.cpp\n    src/resources/io.cpp\n    src/resources/json.cpp\n    src/resources/palette.cpp\n    src/resources/sprites.cpp\n    src/resources/tiles.cpp\n)\n'''
+          if ctext.count(library_anchor) != 1:
+              raise SystemExit('resource library anchor changed')
+          ctext = ctext.replace(library_anchor, library_replacement, 1)
+
+          test_anchor = '''    set_tests_properties(resource_tiles PROPERTIES\n        PASS_REGULAR_EXPRESSION "^resource_tiles=ok json=2 raw=2 tile_lookup=1 guards=4")\n\n    find_package(Python3 COMPONENTS Interpreter QUIET)\n'''
+          test_replacement = '''    set_tests_properties(resource_tiles PROPERTIES\n        PASS_REGULAR_EXPRESSION "^resource_tiles=ok json=2 raw=2 tile_lookup=1 guards=4")\n\n    add_executable(lezac_resource_background_test tests/resources/resource_background_test.cpp)\n    target_link_libraries(lezac_resource_background_test PRIVATE lezac_resources)\n    add_test(NAME resource_background COMMAND lezac_resource_background_test)\n    set_tests_properties(resource_background PROPERTIES\n        PASS_REGULAR_EXPRESSION "^resource_background=ok json=4 raw=64000 palette=256 guards=4")\n\n    find_package(Python3 COMPONENTS Interpreter QUIET)\n'''
+          if ctext.count(test_anchor) != 1:
+              raise SystemExit('resource test anchor changed')
+          ctext = ctext.replace(test_anchor, test_replacement, 1)
+          cmake.write_text(ctext)
+          PY
+          rm .resource-background-apply .github/workflows/apply-resource-background.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Extract background loaders from app monolith"
+          git push origin HEAD:refactor/resource-background

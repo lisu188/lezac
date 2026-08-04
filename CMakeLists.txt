@@ -15,6 +15,7 @@ add_library(lezac_core STATIC
 target_include_directories(lezac_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 add_library(lezac_resources STATIC
+    src/resources/background.cpp
     src/resources/binary.cpp
     src/resources/io.cpp
     src/resources/json.cpp
@@ -170,6 +171,12 @@ if(BUILD_TESTING)
     add_test(NAME resource_tiles COMMAND lezac_resource_tiles_test)
     set_tests_properties(resource_tiles PROPERTIES
         PASS_REGULAR_EXPRESSION "^resource_tiles=ok json=2 raw=2 tile_lookup=1 guards=4")
+
+    add_executable(lezac_resource_background_test tests/resources/resource_background_test.cpp)
+    target_link_libraries(lezac_resource_background_test PRIVATE lezac_resources)
+    add_test(NAME resource_background COMMAND lezac_resource_background_test)
+    set_tests_properties(resource_background PROPERTIES
+        PASS_REGULAR_EXPRESSION "^resource_background=ok json=4 raw=64000 palette=256 guards=4")
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
 

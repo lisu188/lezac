@@ -25,6 +25,7 @@
 #include "core/fixed_point.hpp"
 #include "core/progress.hpp"
 #include "core/random.hpp"
+#include "resources/io.hpp"
 #include "resources/types.hpp"
 
 namespace {
@@ -34,6 +35,10 @@ using lezac::resources::Palette;
 using lezac::resources::Rgb;
 using lezac::resources::Sprite;
 using lezac::resources::SpriteBank;
+using lezac::resources::parseHexByteList;
+using lezac::resources::parseHexWordList;
+using lezac::resources::readFile;
+using lezac::resources::readTextFile;
 
 using lezac::core::countPhysicalDamageProgressCells;
 using lezac::core::countsForDestructionProgress;
@@ -709,56 +714,6 @@ void integrateAxis8_8(int& pos, uint8_t& frac, int16_t velocity) {
     lezac::core::integrateFixed8_8(axis, velocity);
     pos = axis.position;
     frac = axis.fraction;
-}
-
-std::vector<uint8_t> readFile(const std::string& path) {
-    std::ifstream in(path, std::ios::binary);
-    if (!in && path.find('/') == std::string::npos &&
-        path.find('\\') == std::string::npos) {
-        in.clear();
-        in.open("src/" + path, std::ios::binary);
-    }
-    if (!in) {
-        throw std::runtime_error("cannot open " + path);
-    }
-    return std::vector<uint8_t>(std::istreambuf_iterator<char>(in),
-                                std::istreambuf_iterator<char>());
-}
-
-std::string readTextFile(const std::string& path) {
-    std::ifstream in(path);
-    if (!in && path.find('/') == std::string::npos &&
-        path.find('\\') == std::string::npos) {
-        in.clear();
-        in.open("src/" + path);
-    }
-    if (!in) {
-        throw std::runtime_error("cannot open " + path);
-    }
-    return std::string(std::istreambuf_iterator<char>(in),
-                       std::istreambuf_iterator<char>());
-}
-
-std::vector<uint8_t> parseHexByteList(const std::string& hexList) {
-    std::vector<uint8_t> out;
-    std::istringstream iss(hexList);
-    std::string token;
-    while (iss >> token) {
-        int value = std::stoi(token, nullptr, 16);
-        out.push_back(static_cast<uint8_t>(value));
-    }
-    return out;
-}
-
-std::vector<uint16_t> parseHexWordList(const std::string& hexList) {
-    std::vector<uint16_t> out;
-    std::istringstream iss(hexList);
-    std::string token;
-    while (iss >> token) {
-        int value = std::stoi(token, nullptr, 16);
-        out.push_back(static_cast<uint16_t>(value));
-    }
-    return out;
 }
 
 std::vector<std::string> extractStringArray(const std::string& json, const std::string& key) {

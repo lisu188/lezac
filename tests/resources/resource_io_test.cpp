@@ -1,6 +1,7 @@
 #include "resources/io.hpp"
 
 #include <cstdint>
+#include <cstdio>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -15,8 +16,9 @@ int main() {
 
     const std::string path = "resource_io_test.tmp";
     {
+        const char payload[] = {'A', '\n', 'B', '\0', 'C'};
         std::ofstream out(path, std::ios::binary);
-        out << "A\nB\0C";
+        out.write(payload, sizeof(payload));
     }
 
     const std::vector<uint8_t> fileBytes = lezac::resources::readFile(path);

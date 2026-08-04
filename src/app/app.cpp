@@ -46,6 +46,7 @@ using lezac::resources::extractInt;
 using lezac::resources::extractObjectArray;
 using lezac::resources::extractString;
 using lezac::resources::extractStringArray;
+using lezac::resources::extractU8Array4;
 using lezac::resources::loadPalette;
 using lezac::resources::loadPaletteFile;
 using lezac::resources::vga6To8;
@@ -731,21 +732,6 @@ void integrateAxis8_8(int& pos, uint8_t& frac, int16_t velocity) {
     lezac::core::integrateFixed8_8(axis, velocity);
     pos = axis.position;
     frac = axis.fraction;
-}
-
-std::array<uint8_t, 4> extractU8Array4(const std::string& json, const std::string& key) {
-    std::array<uint8_t, 4> out{};
-    std::regex re("\"" + key + "\"\\s*:\\s*\\[([^\\]]*)\\]");
-    std::smatch m;
-    if (!std::regex_search(json, m, re)) return out;
-    std::regex intRe("(\\d+)");
-    int i = 0;
-    std::string body = m[1].str();
-    for (auto it = std::sregex_iterator(body.begin(), body.end(), intRe);
-         it != std::sregex_iterator() && i < 4; ++it, ++i) {
-        out[static_cast<size_t>(i)] = static_cast<uint8_t>(std::stoi((*it)[1].str()));
-    }
-    return out;
 }
 
 uint32_t argb(const Palette& palette, uint8_t index) {

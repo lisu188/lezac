@@ -9,6 +9,9 @@
 
 int main() {
     if (lezac::resources::vga6To8(0) != 0 ||
+        lezac::resources::vga6To8(15) != 60 ||
+        lezac::resources::vga6To8(16) != 65 ||
+        lezac::resources::vga6To8(17) != 69 ||
         lezac::resources::vga6To8(32) != 130 ||
         lezac::resources::vga6To8(63) != 255) return 1;
 

@@ -8,6 +8,10 @@
 #include <vector>
 
 int main() {
+    if (lezac::resources::vga6To8(0) != 0 ||
+        lezac::resources::vga6To8(32) != 130 ||
+        lezac::resources::vga6To8(63) != 255) return 1;
+
     std::vector<uint8_t> raw(770, 0);
     raw[2] = 0;
     raw[3] = 32;
@@ -17,8 +21,8 @@ int main() {
     raw[2 + 255 * 3 + 2] = 17;
 
     const auto palette = lezac::resources::loadPalette(raw, 2);
-    if (palette[0].r != 0 || palette[0].g != 130 || palette[0].b != 255) return 1;
-    if (palette[255].r != 60 || palette[255].g != 65 || palette[255].b != 69) return 2;
+    if (palette[0].r != 0 || palette[0].g != 130 || palette[0].b != 255) return 2;
+    if (palette[255].r != 60 || palette[255].g != 65 || palette[255].b != 69) return 3;
 
     bool truncated = false;
     try {
@@ -26,7 +30,7 @@ int main() {
     } catch (const std::runtime_error&) {
         truncated = true;
     }
-    if (!truncated) return 3;
+    if (!truncated) return 4;
 
     const std::string path = "resource_palette_test.tmp.json";
     {
@@ -42,8 +46,8 @@ int main() {
 
     const auto jsonPalette = lezac::resources::loadPaletteFile(path);
     std::remove(path.c_str());
-    if (jsonPalette[0].r != 0 || jsonPalette[0].g != 1 || jsonPalette[0].b != 2) return 4;
-    if (jsonPalette[255].r != 255 || jsonPalette[255].g != 0 || jsonPalette[255].b != 1) return 5;
+    if (jsonPalette[0].r != 0 || jsonPalette[0].g != 1 || jsonPalette[0].b != 2) return 5;
+    if (jsonPalette[255].r != 255 || jsonPalette[255].g != 0 || jsonPalette[255].b != 1) return 6;
 
     std::cout << "resource_palette=ok raw=256 json=256 truncation=1\n";
     return 0;

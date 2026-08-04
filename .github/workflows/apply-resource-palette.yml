@@ -1,0 +1,72 @@
+name: Apply resource palette extraction
+
+on:
+  push:
+    branches:
+      - refactor/resource-palette
+    paths:
+      - .resource-palette-apply
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/resource-palette
+          fetch-depth: 0
+      - name: Apply resource palette extraction
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          app = Path('src/app/app.cpp')
+          text = app.read_text()
+
+          include_anchor = '#include "resources/json.hpp"\n#include "resources/types.hpp"\n'
+          include_replacement = '#include "resources/json.hpp"\n#include "resources/palette.hpp"\n#include "resources/types.hpp"\n'
+          if text.count(include_anchor) != 1:
+              raise SystemExit('resource include anchor changed')
+          text = text.replace(include_anchor, include_replacement, 1)
+
+          using_anchor = 'using lezac::resources::extractStringArray;\n'
+          using_replacement = '''using lezac::resources::extractStringArray;\nusing lezac::resources::loadPalette;\nusing lezac::resources::loadPaletteFile;\n'''
+          if text.count(using_anchor) != 1:
+              raise SystemExit('resource using anchor changed')
+          text = text.replace(using_anchor, using_replacement, 1)
+
+          blocks = [
+              '''uint8_t vga6To8(uint8_t v) {\n    return static_cast<uint8_t>((v << 2) | (v >> 4));\n}\n\n''',
+              '''Palette loadPalette(const std::vector<uint8_t>& data, size_t off) {\n    if (off + 768 > data.size()) {\n        throw std::runtime_error("palette data is truncated");\n    }\n    Palette palette{};\n    for (int i = 0; i < 256; ++i) {\n        palette[i] = {vga6To8(data[off + i * 3]),\n                      vga6To8(data[off + i * 3 + 1]),\n                      vga6To8(data[off + i * 3 + 2])};\n    }\n    return palette;\n}\n\n''',
+              '''Palette loadPaletteFile(const std::string& path) {\n    auto json = readTextFile(path);\n    std::regex rgbRe("\\\"rgb8\\\"\\\\s*:\\\\s*\\\\[\\\\s*(\\\\d+)\\\\s*,\\\\s*(\\\\d+)\\\\s*,\\\\s*(\\\\d+)\\\\s*\\\\]");\n    auto begin = std::sregex_iterator(json.begin(), json.end(), rgbRe);\n    auto end = std::sregex_iterator();\n    Palette palette{};\n    int i = 0;\n    for (auto it = begin; it != end && i < 256; ++it, ++i) {\n        palette[i] = {\n            static_cast<uint8_t>(std::stoi((*it)[1].str())),\n            static_cast<uint8_t>(std::stoi((*it)[2].str())),\n            static_cast<uint8_t>(std::stoi((*it)[3].str())),\n        };\n    }\n    if (i != 256) {\n        throw std::runtime_error(path + " does not contain 256 rgb8 palette entries");\n    }\n    return palette;\n}\n\n''',
+          ]
+          for block in blocks:
+              if text.count(block) != 1:
+                  raise SystemExit('palette definition changed: ' + block.splitlines()[0])
+              text = text.replace(block, '', 1)
+          app.write_text(text)
+
+          cmake = Path('CMakeLists.txt')
+          ctext = cmake.read_text()
+          library_anchor = '''add_library(lezac_resources STATIC\n    src/resources/io.cpp\n    src/resources/json.cpp\n)\n'''
+          library_replacement = '''add_library(lezac_resources STATIC\n    src/resources/io.cpp\n    src/resources/json.cpp\n    src/resources/palette.cpp\n)\n'''
+          if ctext.count(library_anchor) != 1:
+              raise SystemExit('resource library anchor changed')
+          ctext = ctext.replace(library_anchor, library_replacement, 1)
+
+          test_anchor = '''    set_tests_properties(resource_json PROPERTIES\n        PASS_REGULAR_EXPRESSION "^resource_json=ok rows=2 objects=2 int=-42 string=lezac fallbacks=2")\n\n    find_package(Python3 COMPONENTS Interpreter QUIET)\n'''
+          test_replacement = '''    set_tests_properties(resource_json PROPERTIES\n        PASS_REGULAR_EXPRESSION "^resource_json=ok rows=2 objects=2 int=-42 string=lezac fallbacks=2")\n\n    add_executable(lezac_resource_palette_test tests/resources/resource_palette_test.cpp)\n    target_link_libraries(lezac_resource_palette_test PRIVATE lezac_resources)\n    add_test(NAME resource_palette COMMAND lezac_resource_palette_test)\n    set_tests_properties(resource_palette PROPERTIES\n        PASS_REGULAR_EXPRESSION "^resource_palette=ok raw=256 json=256 truncation=1")\n\n    find_package(Python3 COMPONENTS Interpreter QUIET)\n'''
+          if ctext.count(test_anchor) != 1:
+              raise SystemExit('resource test anchor changed')
+          ctext = ctext.replace(test_anchor, test_replacement, 1)
+          cmake.write_text(ctext)
+          PY
+          rm .resource-palette-apply .github/workflows/apply-resource-palette.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Extract palette loaders from app monolith"
+          git push origin HEAD:refactor/resource-palette

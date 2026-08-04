@@ -1,0 +1,46 @@
+name: Analyze tile loader boundary
+
+on:
+  push:
+    branches:
+      - refactor/tile-loader-analysis
+    paths:
+      - .tile-loader-analyze
+
+permissions:
+  contents: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/tile-loader-analysis
+          fetch-depth: 0
+      - name: Capture tile type, loaders and constant consumers
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('src/app/app.cpp').read_text()
+          lines = text.splitlines()
+          terms = ['kTileSize', 'TileBank', 'loadTiles(', 'loadRawTiles(']
+          out = []
+          for term in terms:
+              hits = [(i, line.strip()) for i, line in enumerate(lines, 1) if term in line]
+              out.append(f'===== {term} occurrences={len(hits)} =====')
+              out += [f'{i}: {line}' for i, line in hits]
+              out.append('')
+          out.append('===== tile source window =====')
+          for i in range(300, 380):
+              out.append(f'{i}: {lines[i-1]}')
+          for i in range(870, 930):
+              out.append(f'{i}: {lines[i-1]}')
+          Path('tile_loader_analysis.txt').write_text('\n'.join(out) + '\n')
+          PY
+          rm .tile-loader-analyze .github/workflows/analyze-tile-loader.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Capture tile loader boundary analysis"
+          git push origin HEAD:refactor/tile-loader-analysis

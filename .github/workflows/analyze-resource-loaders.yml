@@ -1,0 +1,51 @@
+name: Analyze resource loaders
+
+on:
+  push:
+    branches:
+      - refactor/resource-loaders-analysis
+    paths:
+      - .resource-loaders-analyze
+
+permissions:
+  contents: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/resource-loaders-analysis
+          fetch-depth: 0
+      - name: Capture loader call sites and source window
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          lines = Path('src/app/app.cpp').read_text().splitlines()
+          out = []
+          out.append('===== load-like call sites before class App =====')
+          class_line = next((i for i, line in enumerate(lines, 1) if line.startswith('class App')), len(lines))
+          for i, line in enumerate(lines, 1):
+              if i >= class_line:
+                  break
+              stripped = line.strip()
+              if 'load' in stripped and '(' in stripped:
+                  prev = lines[i - 2].strip() if i > 1 else ''
+                  out.append(f'{i-1}: {prev}')
+                  out.append(f'{i}: {stripped}')
+          out.append('')
+          out.append('===== resource-oriented source window =====')
+          start = 780
+          end = min(class_line - 1, 1750)
+          for i in range(start, end + 1):
+              out.append(f'{i}: {lines[i-1]}')
+          Path('resource_loader_analysis.txt').write_text('\n'.join(out))
+          PY
+          rm .resource-loaders-analyze .github/workflows/analyze-resource-loaders.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Capture resource loader analysis"
+          git push origin HEAD:refactor/resource-loaders-analysis

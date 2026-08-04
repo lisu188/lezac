@@ -13,6 +13,7 @@ int main() {
 
     bool truncated16 = false;
     bool truncated32 = false;
+    bool truncated8 = false;
     try {
         lezac::resources::le16(std::vector<uint8_t>{0x01}, 0);
     } catch (const std::runtime_error&) {
@@ -23,7 +24,13 @@ int main() {
     } catch (const std::runtime_error&) {
         truncated32 = true;
     }
-    if (!truncated16 || !truncated32) return 3;
+    try {
+        std::size_t badOff = 0;
+        lezac::resources::getU8(std::vector<uint8_t>{}, badOff);
+    } catch (const std::runtime_error&) {
+        truncated8 = true;
+    }
+    if (!truncated16 || !truncated32 || !truncated8) return 3;
 
     std::size_t off = 0;
     const std::vector<uint8_t> cursorData{0x7f, 0x34, 0x12, 0xde, 0xad};
@@ -59,6 +66,6 @@ int main() {
     }
     if (!truncatedRecords || !truncatedBytes) return 9;
 
-    std::cout << "resource_binary=ok le16=1 le32=1 cursor=1 records=2 bytes=2 truncation=4\n";
+    std::cout << "resource_binary=ok le16=1 le32=1 cursor=1 records=2 bytes=2 truncation=5\n";
     return 0;
 }

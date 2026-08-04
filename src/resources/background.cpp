@@ -50,6 +50,12 @@ IndexedImage loadRawBackground(const std::string& path, Palette& paletteOut) {
     }
     paletteOut = loadPalette(data, 0);
 
+    // Recovered from the original ZBG display routine (Ghidra 1000:030b, decoder
+    // 1000:82d0). After the 768-byte VGA palette, a 2-byte little-endian length
+    // header gives the RLE payload size; the payload is a nibble-paired RLE that
+    // decodes to exactly one 320x200 mode-13h screen. Each 3-byte group
+    // (b0, b1, b2) emits (b0>>4)+1 copies of b1 followed by (b0&0x0f)+1 copies
+    // of b2.
     const std::size_t rleLength = static_cast<std::size_t>(data[768]) |
                                   (static_cast<std::size_t>(data[769]) << 8);
     const std::size_t rleEnd = std::min(data.size(), 770 + rleLength);

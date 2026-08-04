@@ -1,0 +1,291 @@
+===== kTileSize occurrences=131 =====
+82: constexpr int kTileSize = 8;
+344: return pixels.data() + static_cast<size_t>(id) * kTileSize * kTileSize;
+915: size_t expectedSize = static_cast<size_t>(bank.count) * kTileSize * kTileSize;
+2130: if (!regionChanged(playPixels, bombTileX * kTileSize - camX,
+2131: bombTileY * kTileSize - camY, kTileSize,
+2132: kTileSize)) {
+2285: frame.p1BombX = static_cast<int>(player_.x + 6.0f) / kTileSize;
+2286: frame.p1BombY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+2288: static_cast<int>(player_.x + 6.0f) / kTileSize,
+2289: static_cast<int>(player_.y + 16.0f) / kTileSize);
+2294: frame.p2BombX = static_cast<int>(player2_.x + 6.0f) / kTileSize;
+2295: frame.p2BombY = static_cast<int>(player2_.y + 12.0f) / kTileSize;
+2467: player_.x = static_cast<float>(padX * kTileSize);
+2468: player_.y = static_cast<float>(padY * kTileSize - 16);
+2528: if (!monsterCollides(tile[0] * kTileSize, tile[1] * kTileSize - kTileSize)) {
+2535: monster.x = monsterTile[0] * kTileSize;
+2536: monster.y = monsterTile[1] * kTileSize - kTileSize;
+2552: std::min(level_.width * kTileSize - 24, (placed.x + 5) * kTileSize));
+2553: player_.y = static_cast<float>(placed.y * kTileSize);
+3137: const int headTileX = head->x / kTileSize;
+3138: const int headTileY = head->y / kTileSize;
+3471: bombs_.push_back({static_cast<int>(player_.x + 6.0f) / kTileSize,
+3472: static_cast<int>(player_.y + 12.0f) / kTileSize,
+3858: player_.x = static_cast<float>(sourceX * kTileSize);
+3859: player_.y = static_cast<float>(sourceY * kTileSize - kTileSize);
+3923: player_.x = static_cast<float>(padX * kTileSize);
+3924: player_.y = static_cast<float>(padY * kTileSize - 16);
+3929: tileAt(static_cast<int>(player_.x + 6.0f) / kTileSize,
+3930: static_cast<int>(player_.y + 16.0f) / kTileSize) !=
+3935: int overheadX = static_cast<int>(player_.x) / kTileSize;
+3936: int overheadY = static_cast<int>(player_.y - 1.0f) / kTileSize;
+3953: player_.x = static_cast<float>(padX * kTileSize);
+3954: player_.y = static_cast<float>(padY * kTileSize - 16);
+4089: if (!monsterCollides(tile[0] * kTileSize, tile[1] * kTileSize - kTileSize)) {
+4096: monster.x = monsterTile[0] * kTileSize;
+4097: monster.y = monsterTile[1] * kTileSize - kTileSize;
+4113: std::min(level_.width * kTileSize - 24, (placed.x + 5) * kTileSize));
+4114: player_.y = static_cast<float>(placed.y * kTileSize);
+4926: int bombTileX = static_cast<int>(player2_.x + 6.0f) / kTileSize;
+4927: int bombTileY = static_cast<int>(player2_.y + 12.0f) / kTileSize;
+5151: int p2BombX = static_cast<int>(player2_.x + 6.0f) / kTileSize;
+5152: int p2BombY = static_cast<int>(player2_.y + 12.0f) / kTileSize;
+5162: player2_.x = static_cast<float>(objective[0] * kTileSize);
+5163: player2_.y = static_cast<float>(objective[1] * kTileSize);
+5601: tilePayloadSize != static_cast<size_t>(rawTileCount) * kTileSize * kTileSize ||
+16728: int playerBombX = static_cast<int>(player_.x + 6.0f) / kTileSize;
+16729: int playerBombY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+16858: if (solidPixel(static_cast<float>(probe.x * kTileSize + 1),
+16859: static_cast<float>(probe.y * kTileSize + 1))) {
+16871: if (solidPixel(static_cast<float>(probe.x * kTileSize + 1),
+16872: static_cast<float>(probe.y * kTileSize + 1))) {
+16976: float px = static_cast<float>(x * kTileSize + 1);
+16977: float py = static_cast<float>(y * kTileSize + 1);
+17012: if (collides(static_cast<float>(kPassableX * kTileSize),
+17013: static_cast<float>(kPassableY * kTileSize)) ||
+17014: monsterCollides(kPassableX * kTileSize, kPassableY * kTileSize)) {
+17018: solidPixel(static_cast<float>((kPassableX + 1) * kTileSize + 1),
+17019: static_cast<float>(kPassableY * kTileSize + 1))) {
+17025: solidPixel(static_cast<float>(17 * kTileSize + 1),
+17026: static_cast<float>(22 * kTileSize + 1))) {
+17030: !solidPixel(static_cast<float>(53 * kTileSize + 1),
+17031: static_cast<float>(23 * kTileSize + 1))) {
+17095: player_.x = static_cast<float>(x * kTileSize);
+17096: player_.y = static_cast<float>(y * kTileSize - 8);
+17149: player_.x = static_cast<float>(x * kTileSize);
+17150: player_.y = static_cast<float>(y * kTileSize - 8);
+17211: player_.x = static_cast<float>(x * kTileSize);
+17212: player_.y = static_cast<float>(y * kTileSize - 8);
+17269: player_.x = static_cast<float>(kSolidX * kTileSize - 12);
+17270: player_.y = static_cast<float>(kSolidY * kTileSize);
+17276: player_.x != static_cast<float>(kSolidX * kTileSize - 12)) {
+17283: player_.x = static_cast<float>(kFloorX * kTileSize);
+17284: player_.y = static_cast<float>(kFloorY * kTileSize - 16);
+17292: player_.y != static_cast<float>(kFloorY * kTileSize - 16) ||
+17300: monsters_.push_back(makeMonster(kSolidX * kTileSize - 14,
+17301: kSolidY * kTileSize, 0x0200, 0));
+17318: //     26 - 1 (push) - 1 (0x0100 >> 8) = 24 = kSolidX*kTileSize - 16.
+17328: monsterH.x != kSolidX * kTileSize - 16 ||
+17380: constexpr int kFloorApproachY = kFloorY * kTileSize - 16 + 3;
+17381: monsters_.push_back(makeMonster(kFloorX * kTileSize, kFloorApproachY, 0, 0x0200));
+17382: if (!scanActorEdges(kFloorX * kTileSize, kFloorApproachY).bottom ||
+17390: monsterVY != kFloorY * kTileSize - 16 ||
+17397: ActiveMonster behavior4X = makeMonster(kSolidX * kTileSize - 14,
+17398: kSolidY * kTileSize, 0x0400, 0);
+17405: monsters_.front().x != kSolidX * kTileSize - 14 ||
+17412: ActiveMonster behavior4Y = makeMonster(kFloorX * kTileSize,
+17413: kFloorY * kTileSize - 16, 0, 0x0400);
+17420: monsters_.front().y != kFloorY * kTileSize - 16 ||
+17438: if (collides(static_cast<float>(kPassableX * kTileSize),
+17439: static_cast<float>(kPassableY * kTileSize)) ||
+17440: monsterCollides(kPassableX * kTileSize, kPassableY * kTileSize)) {
+17483: monster.x = placed.x * kTileSize + kTileSize;
+17484: monster.y = placed.y * kTileSize - kTileSize;
+17634: int playerTileX = static_cast<int>(player_.x) / kTileSize;
+17873: player_.x = static_cast<float>(kObjectX * kTileSize);
+17874: player_.y = static_cast<float>(kObjectY * kTileSize - 15);
+21102: int tx = static_cast<int>(px) / kTileSize;
+21103: int ty = static_cast<int>(py) / kTileSize;
+21339: int tx = static_cast<int>(player.x + 6.0f) / kTileSize;
+21340: int ty = static_cast<int>(player.y + 16.0f) / kTileSize;
+21627: result.bombTileX = static_cast<int>(player_.x + 6.0f) / kTileSize;
+21628: result.bombTileY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+21654: result.bombTileX = static_cast<int>(player_.x + 6.0f) / kTileSize;
+21655: result.bombTileY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+22327: const int headTileX = monster.x / kTileSize;
+22328: const int headTileY = monster.y / kTileSize;
+22449: {monster.x / kTileSize, monster.y / kTileSize, 12, 2});
+22690: float x = static_cast<float>(tx0 * kTileSize);
+22691: float y = static_cast<float>(ty0 * kTileSize);
+22692: float w = static_cast<float>((tx1 - tx0 + 1) * kTileSize);
+22693: float h = static_cast<float>((ty1 - ty0 + 1) * kTileSize);
+22846: int maxX = std::max(0, level_.width * kTileSize - 1);
+22847: int maxY = std::max(0, level_.height * kTileSize - 1);
+22850: int x0 = px / kTileSize;
+22851: int x1 = (px + 12) / kTileSize;
+22852: int y0 = py / kTileSize;
+22853: int y1 = (py + 16) / kTileSize;
+22874: player_.x = static_cast<float>(x * kTileSize);
+22875: player_.y = static_cast<float>(y * kTileSize);
+23179: effect.computedX = bomb.x * kTileSize;
+23180: effect.computedY = bomb.y * kTileSize;
+23209: int tx = static_cast<int>(px) / kTileSize;
+23210: int ty = static_cast<int>(py) / kTileSize;
+23447: float x = static_cast<float>(tile[0] * kTileSize);
+23448: float y = static_cast<float>(tile[1] * kTileSize);
+23450: 14.0f, 16.0f, x, y, static_cast<float>(kTileSize),
+23451: static_cast<float>(kTileSize))) {
+23477: float x = static_cast<float>(tile[0] * kTileSize);
+23478: float y = static_cast<float>(tile[1] * kTileSize);
+23479: if (playerOverlaps(player, x, y, static_cast<float>(kTileSize),
+23480: static_cast<float>(kTileSize))) {
+
+===== TileBank occurrences=7 =====
+336: struct TileBank {
+890: TileBank loadTiles(const std::string& path) {
+892: TileBank bank;
+907: TileBank loadRawTiles(const std::string& path) {
+912: TileBank bank;
+6001: TileBank jsonTiles = tiles_;
+20337: TileBank tiles_;
+
+===== loadTiles( occurrences=2 =====
+890: TileBank loadTiles(const std::string& path) {
+1493: tiles_ = loadTiles("CARO.CAR.json");
+
+===== loadRawTiles( occurrences=2 =====
+907: TileBank loadRawTiles(const std::string& path) {
+1509: tiles_ = loadRawTiles("CARO.CAR");
+
+===== tile source window =====
+300: constexpr uint8_t kLaunchPadMarkerKind = 0x0b;
+301: constexpr uint8_t kLaunchPadMarkerMode = 5;
+302: constexpr int16_t kLaunchPadMarkerVelocityY8 = -200;
+303: constexpr uint16_t kPlayerDamageSoundCursor = 0x002d;
+304: constexpr uint8_t kPlayerDamageSoundPriority = 4;
+305: constexpr uint16_t kPlayerDeathSoundCursor = 0x0056;
+306: constexpr uint8_t kPlayerDeathSoundPriority = 5;
+307: 
+308: struct LevelIntroPattern {
+309:     int horizontalStep = 1;
+310:     int verticalStep = 1;
+311:     std::array<Rgb, kLevelIntroPaletteCount> colors{};
+312: };
+313: 
+314: struct LevelIntroState {
+315:     bool active = false;
+316:     uint32_t startedAt = 0;
+317:     int levelIndex = 0;
+318:     LevelIntroPattern pattern;
+319: };
+320: 
+321: // Level-completion banner sequence (original routine at file 0x24d3):
+322: // typed lines over the live gameplay frame, a score count-up per player, then
+323: // a blocking key wait before the level byte increments.
+324: struct LevelOutroState {
+325:     bool active = false;
+326:     uint32_t startedAt = 0;
+327:     int destBonus = 0;
+328:     std::array<int, 2> bombBonus{{0, 0}};
+329:     std::array<bool, 2> playerActive{{false, false}};
+330:     std::array<int, 2> awarded{{0, 0}};
+331:     bool typingSkipped = false;
+332:     uint32_t typingSkipAt = 0;
+333:     bool awaitKey = false;
+334: };
+335: 
+336: struct TileBank {
+337:     int count = 0;
+338:     std::vector<uint8_t> pixels;
+339: 
+340:     const uint8_t* tile(int id) const {
+341:         if (id < 0 || id >= count) {
+342:             return nullptr;
+343:         }
+344:         return pixels.data() + static_cast<size_t>(id) * kTileSize * kTileSize;
+345:     }
+346: };
+347: 
+348: struct MonsterSpawner {
+349:     uint16_t x = 0;
+350:     uint16_t y = 0;
+351:     uint16_t tileIndex = 0;
+352:     uint16_t savedWordOrLink = 0;
+353:     uint8_t enabled = 0;
+354:     uint8_t spawnBudget = 0;
+355:     uint8_t liveAllowance = 0;
+356:     uint8_t monsterKind = 0;
+357:     uint16_t param0Base = 0;
+358:     uint16_t param0Range = 0;
+359:     uint16_t param1Base = 0;
+360:     uint16_t param1Range = 0;
+361:     uint16_t param2Base = 0;
+362:     uint16_t param2Range = 0;
+363:     uint8_t randomBase = 0;
+364:     uint8_t randomRange = 0;
+365:     uint8_t spawnArg = 0;
+366:     uint8_t cooldown = 0;
+367:     uint8_t cooldownReset = 0;
+368:     uint8_t animationDelay = 0;
+369: };
+370: 
+371: struct LevelPortal {
+372:     uint16_t key = 0;
+373:     uint16_t x = 0;
+374:     uint16_t y = 0;
+375:     uint8_t marker = 0;
+376: };
+377: 
+378: struct TileTriggerRule {
+379:     uint16_t wordRangeFirst = 0;
+870:         const uint8_t value1 = data[off + 1];
+871:         const uint8_t value2 = data[off + 2];
+872:         off += 3;
+873:         image.pixels.insert(image.pixels.end(),
+874:                             static_cast<size_t>((b0 >> 4) & 0x0f) + 1, value1);
+875:         image.pixels.insert(image.pixels.end(),
+876:                             static_cast<size_t>(b0 & 0x0f) + 1, value2);
+877:     }
+878:     if (image.pixels.size() > targetPixels) {
+879:         image.pixels.resize(targetPixels);
+880:     }
+881:     if (image.pixels.size() != targetPixels) {
+882:         throw std::runtime_error(path + " raw RLE decoded to " +
+883:                                  std::to_string(image.pixels.size()) +
+884:                                  " bytes, expected " +
+885:                                  std::to_string(targetPixels));
+886:     }
+887:     return image;
+888: }
+889: 
+890: TileBank loadTiles(const std::string& path) {
+891:     auto json = readTextFile(path);
+892:     TileBank bank;
+893:     bank.count = extractInt(json, "tile_count");
+894:     auto tileObjects = extractObjectArray(json, "tiles");
+895:     if (static_cast<int>(tileObjects.size()) != bank.count) {
+896:         throw std::runtime_error(path + " tile count mismatch");
+897:     }
+898:     for (const auto& tileJson : tileObjects) {
+899:         for (const auto& row : extractStringArray(tileJson, "rows_hex")) {
+900:             auto bytes = parseHexByteList(row);
+901:             bank.pixels.insert(bank.pixels.end(), bytes.begin(), bytes.end());
+902:         }
+903:     }
+904:     return bank;
+905: }
+906: 
+907: TileBank loadRawTiles(const std::string& path) {
+908:     auto data = readFile(path);
+909:     if (data.size() < 2) {
+910:         throw std::runtime_error(path + " is too small for a tile header");
+911:     }
+912:     TileBank bank;
+913:     bank.count = static_cast<int>((data[0] << 8) | data[1]);
+914:     size_t payloadSize = data.size() - 2;
+915:     size_t expectedSize = static_cast<size_t>(bank.count) * kTileSize * kTileSize;
+916:     if (bank.count <= 0 || payloadSize != expectedSize) {
+917:         throw std::runtime_error(path + " raw tile payload size mismatch");
+918:     }
+919:     bank.pixels.insert(bank.pixels.end(), data.begin() + 2, data.end());
+920:     return bank;
+921: }
+922: 
+923: SpriteBank loadSprites(const std::string& path) {
+924:     auto json = readTextFile(path);
+925:     SpriteBank bank;
+926:     auto spriteObjects = extractObjectArray(json, "sprites");
+927:     bank.sprites.reserve(spriteObjects.size());
+928:     for (const auto& spriteJson : spriteObjects) {
+929:         Sprite s;

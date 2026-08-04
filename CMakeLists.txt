@@ -132,7 +132,7 @@ if(BUILD_TESTING)
     target_link_libraries(lezac_core_primitives_test PRIVATE lezac_core)
     add_test(NAME core_primitives COMMAND lezac_core_primitives_test)
     set_tests_properties(core_primitives PROPERTIES
-        PASS_REGULAR_EXPRESSION "^core_primitives=ok progress=1 fixed=1 random=1")
+        PASS_REGULAR_EXPRESSION "^core_primitives=ok constants=1 progress=1 fixed=1 random=1")
 
     add_executable(lezac_resource_io_test tests/resources/resource_io_test.cpp)
     target_link_libraries(lezac_resource_io_test PRIVATE lezac_resources)

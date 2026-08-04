@@ -25,6 +25,7 @@
 #include "core/fixed_point.hpp"
 #include "core/progress.hpp"
 #include "core/random.hpp"
+#include "resources/binary.hpp"
 #include "resources/io.hpp"
 #include "resources/json.hpp"
 #include "resources/palette.hpp"
@@ -48,6 +49,13 @@ using lezac::resources::extractStringArray;
 using lezac::resources::loadPalette;
 using lezac::resources::loadPaletteFile;
 using lezac::resources::vga6To8;
+using lezac::resources::getBytes;
+using lezac::resources::getFixedRecords;
+using lezac::resources::getU16;
+using lezac::resources::getU8;
+using lezac::resources::le16;
+using lezac::resources::le32;
+using lezac::resources::recLe16;
 
 using lezac::core::countPhysicalDamageProgressCells;
 using lezac::core::countsForDestructionProgress;
@@ -737,66 +745,6 @@ std::array<uint8_t, 4> extractU8Array4(const std::string& json, const std::strin
          it != std::sregex_iterator() && i < 4; ++it, ++i) {
         out[static_cast<size_t>(i)] = static_cast<uint8_t>(std::stoi((*it)[1].str()));
     }
-    return out;
-}
-
-uint16_t le16(const std::vector<uint8_t>& data, size_t off) {
-    if (off + 2 > data.size()) {
-        throw std::runtime_error("unexpected EOF while reading u16");
-    }
-    return static_cast<uint16_t>(data[off] | (data[off + 1] << 8));
-}
-
-uint32_t le32(const std::vector<uint8_t>& data, size_t off) {
-    if (off + 4 > data.size()) {
-        throw std::runtime_error("unexpected EOF while reading u32");
-    }
-    return static_cast<uint32_t>(data[off] | (data[off + 1] << 8) |
-                                 (data[off + 2] << 16) | (data[off + 3] << 24));
-}
-
-template <size_t N>
-uint16_t recLe16(const std::array<uint8_t, N>& rec, size_t off) {
-    return static_cast<uint16_t>(rec[off] | (rec[off + 1] << 8));
-}
-
-uint8_t getU8(const std::vector<uint8_t>& data, size_t& off) {
-    if (off >= data.size()) {
-        throw std::runtime_error("unexpected EOF while reading u8");
-    }
-    return data[off++];
-}
-
-uint16_t getU16(const std::vector<uint8_t>& data, size_t& off) {
-    uint16_t value = le16(data, off);
-    off += 2;
-    return value;
-}
-
-template <size_t N>
-std::vector<std::array<uint8_t, N>> getFixedRecords(const std::vector<uint8_t>& data, size_t& off) {
-    uint8_t count = getU8(data, off);
-    if (off + static_cast<size_t>(count) * N > data.size()) {
-        throw std::runtime_error("truncated fixed record block");
-    }
-    std::vector<std::array<uint8_t, N>> out;
-    out.reserve(count);
-    for (uint8_t i = 0; i < count; ++i) {
-        std::array<uint8_t, N> rec{};
-        std::copy_n(data.begin() + static_cast<long>(off), N, rec.begin());
-        off += N;
-        out.push_back(rec);
-    }
-    return out;
-}
-
-std::vector<uint8_t> getBytes(const std::vector<uint8_t>& data, size_t& off, size_t size) {
-    if (off + size > data.size()) {
-        throw std::runtime_error("truncated byte block");
-    }
-    std::vector<uint8_t> out(data.begin() + static_cast<long>(off),
-                             data.begin() + static_cast<long>(off + size));
-    off += size;
     return out;
 }
 

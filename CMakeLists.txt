@@ -15,6 +15,7 @@ add_library(lezac_core STATIC
 target_include_directories(lezac_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 add_library(lezac_resources STATIC
+    src/resources/binary.cpp
     src/resources/io.cpp
     src/resources/json.cpp
     src/resources/palette.cpp
@@ -149,6 +150,12 @@ if(BUILD_TESTING)
     add_test(NAME resource_palette COMMAND lezac_resource_palette_test)
     set_tests_properties(resource_palette PROPERTIES
         PASS_REGULAR_EXPRESSION "^resource_palette=ok raw=256 json=256 truncation=1")
+
+    add_executable(lezac_resource_binary_test tests/resources/resource_binary_test.cpp)
+    target_link_libraries(lezac_resource_binary_test PRIVATE lezac_resources)
+    add_test(NAME resource_binary COMMAND lezac_resource_binary_test)
+    set_tests_properties(resource_binary PROPERTIES
+        PASS_REGULAR_EXPRESSION "^resource_binary=ok le16=1 le32=1 cursor=1 records=2 bytes=2 truncation=5")
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
 

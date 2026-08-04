@@ -1,0 +1,59 @@
+name: Apply resource data type extraction
+
+on:
+  push:
+    branches:
+      - refactor/resource-data-types
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.head_commit.message != 'Use shared resource data types'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/resource-data-types
+          fetch-depth: 0
+      - name: Apply extraction
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          app = Path('src/app/app.cpp')
+          text = app.read_text()
+
+          include_anchor = '#include "core/random.hpp"\n'
+          include_replacement = '#include "core/random.hpp"\n#include "resources/types.hpp"\n'
+          if text.count(include_anchor) != 1:
+              raise SystemExit('core include anchor changed')
+          text = text.replace(include_anchor, include_replacement, 1)
+
+          namespace_anchor = 'namespace {\n\n'
+          using_block = '''namespace {\n\nusing lezac::resources::IndexedImage;\nusing lezac::resources::Palette;\nusing lezac::resources::Rgb;\nusing lezac::resources::Sprite;\nusing lezac::resources::SpriteBank;\n\n'''
+          if text.count(namespace_anchor) != 1:
+              raise SystemExit('anonymous namespace anchor changed')
+          text = text.replace(namespace_anchor, using_block, 1)
+
+          blocks = [
+              '''struct Rgb {\n    uint8_t r = 0;\n    uint8_t g = 0;\n    uint8_t b = 0;\n};\n\n''',
+              '''using Palette = std::array<Rgb, 256>;\n\n''',
+              '''struct IndexedImage {\n    int width = 0;\n    int height = 0;\n    std::vector<uint8_t> pixels;\n};\n\n''',
+              '''struct Sprite {\n    int width = 0;\n    int height = 0;\n    std::vector<uint8_t> pixels;\n};\n\n''',
+              '''struct SpriteBank {\n    std::vector<Sprite> sprites;\n};\n\n''',
+          ]
+          for block in blocks:
+              if text.count(block) != 1:
+                  raise SystemExit('resource type declaration changed: ' + block.splitlines()[0])
+              text = text.replace(block, '', 1)
+
+          app.write_text(text)
+          PY
+          rm .github/workflows/apply-resource-data-types.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Use shared resource data types"
+          git push origin HEAD:refactor/resource-data-types

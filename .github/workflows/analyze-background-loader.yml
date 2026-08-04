@@ -1,0 +1,44 @@
+name: Analyze background loader boundary
+
+on:
+  push:
+    branches:
+      - refactor/background-loader-analysis
+    paths:
+      - .background-loader-analyze
+
+permissions:
+  contents: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/background-loader-analysis
+          fetch-depth: 0
+      - name: Capture background constants, loaders and consumers
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('src/app/app.cpp').read_text()
+          lines = text.splitlines()
+          terms = ['kBackgroundW', 'kBackgroundH', 'loadBackground(', 'loadRawBackground(', 'IndexedImage']
+          out = []
+          for term in terms:
+              hits = [(i, line.strip()) for i, line in enumerate(lines, 1) if term in line]
+              out.append(f'===== {term} occurrences={len(hits)} =====')
+              out += [f'{i}: {line}' for i, line in hits]
+              out.append('')
+          out.append('===== background source window =====')
+          for i in range(790, 890):
+              out.append(f'{i}: {lines[i-1]}')
+          Path('background_loader_analysis.txt').write_text('\n'.join(out) + '\n')
+          PY
+          rm .background-loader-analyze .github/workflows/analyze-background-loader.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Capture background loader boundary analysis"
+          git push origin HEAD:refactor/background-loader-analysis

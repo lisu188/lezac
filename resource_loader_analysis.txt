@@ -1,0 +1,799 @@
+===== load-like call sites before class App =====
+687: // 0x0f -> 43..44, and 0x10 -> 40..40, drawn from the PROVA.SPR bank that the
+688: // original loads instead of BOMOMIMK.SPR on level 7 (selector 1000:2C90).
+802: 
+803: Palette loadPalette(const std::vector<uint8_t>& data, size_t off) {
+815: 
+816: Palette loadPaletteFile(const std::string& path) {
+911: 
+912: IndexedImage loadBackground(const std::string& path, Palette& paletteOut) {
+942: 
+943: IndexedImage loadRawBackground(const std::string& path, Palette& paletteOut) {
+947: }
+948: paletteOut = loadPalette(data, 0);
+988: 
+989: TileBank loadTiles(const std::string& path) {
+1005: 
+1006: TileBank loadRawTiles(const std::string& path) {
+1012: bank.count = static_cast<int>((data[0] << 8) | data[1]);
+1013: size_t payloadSize = data.size() - 2;
+1014: size_t expectedSize = static_cast<size_t>(bank.count) * kTileSize * kTileSize;
+1015: if (bank.count <= 0 || payloadSize != expectedSize) {
+1015: if (bank.count <= 0 || payloadSize != expectedSize) {
+1016: throw std::runtime_error(path + " raw tile payload size mismatch");
+1021: 
+1022: SpriteBank loadSprites(const std::string& path) {
+1042: 
+1043: SpriteBank loadRawSprites(const std::string& path) {
+1123: 
+1124: std::vector<Record> loadRawRecords(const std::string& path) {
+1127: 
+1128: std::vector<Record> loadRecords(const std::string& path) {
+1238: 
+1239: SoundBank loadSon(const std::string& path) {
+1253: }
+1254: bank.payload.insert(bank.payload.end(), record.bytes.begin(), record.bytes.end());
+1256: }
+1257: if (bank.payload.empty() || bank.payload.size() % kSoundStepSize != 0) {
+1257: if (bank.payload.empty() || bank.payload.size() % kSoundStepSize != 0) {
+1258: throw std::runtime_error(path + " payload is not a whole number of six-byte steps");
+1259: }
+1260: bank.stepCount = bank.payload.size() / kSoundStepSize;
+1263: 
+1264: SoundBank loadRawSon(const std::string& path) {
+1271: size_t payloadSize = bank.stepCount * kSoundStepSize;
+1272: if (data.size() != 2 + payloadSize) {
+1272: if (data.size() != 2 + payloadSize) {
+1273: throw std::runtime_error(path + " raw payload size mismatch");
+1274: }
+1275: bank.payload.insert(bank.payload.end(), data.begin() + 2, data.end());
+1276: bank.recordSize = 130;
+1277: if (bank.payload.size() % bank.recordSize != 0) {
+1277: if (bank.payload.size() % bank.recordSize != 0) {
+1278: throw std::runtime_error(path + " raw payload cannot be split into JSON chunks");
+1279: }
+1280: for (size_t off = 0; off < bank.payload.size(); off += bank.recordSize) {
+1282: record.bytes.insert(record.bytes.end(),
+1283: bank.payload.begin() + static_cast<std::ptrdiff_t>(off),
+1283: bank.payload.begin() + static_cast<std::ptrdiff_t>(off),
+1284: bank.payload.begin() +
+1290: 
+1291: GranBank loadGran(const std::string& path) {
+1312: 
+1313: GranBank loadRawGran(const std::string& path) {
+1369: 
+1370: std::vector<Level> loadRawLevels(const std::string& path) {
+1422: 
+1423: std::vector<Level> loadLevels(const std::string& path) {
+
+===== resource-oriented source window =====
+780:     for (uint8_t i = 0; i < count; ++i) {
+781:         std::array<uint8_t, N> rec{};
+782:         std::copy_n(data.begin() + static_cast<long>(off), N, rec.begin());
+783:         off += N;
+784:         out.push_back(rec);
+785:     }
+786:     return out;
+787: }
+788: 
+789: std::vector<uint8_t> getBytes(const std::vector<uint8_t>& data, size_t& off, size_t size) {
+790:     if (off + size > data.size()) {
+791:         throw std::runtime_error("truncated byte block");
+792:     }
+793:     std::vector<uint8_t> out(data.begin() + static_cast<long>(off),
+794:                              data.begin() + static_cast<long>(off + size));
+795:     off += size;
+796:     return out;
+797: }
+798: 
+799: uint8_t vga6To8(uint8_t v) {
+800:     return static_cast<uint8_t>((v << 2) | (v >> 4));
+801: }
+802: 
+803: Palette loadPalette(const std::vector<uint8_t>& data, size_t off) {
+804:     if (off + 768 > data.size()) {
+805:         throw std::runtime_error("palette data is truncated");
+806:     }
+807:     Palette palette{};
+808:     for (int i = 0; i < 256; ++i) {
+809:         palette[i] = {vga6To8(data[off + i * 3]),
+810:                       vga6To8(data[off + i * 3 + 1]),
+811:                       vga6To8(data[off + i * 3 + 2])};
+812:     }
+813:     return palette;
+814: }
+815: 
+816: Palette loadPaletteFile(const std::string& path) {
+817:     auto json = readTextFile(path);
+818:     std::regex rgbRe("\"rgb8\"\\s*:\\s*\\[\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\]");
+819:     auto begin = std::sregex_iterator(json.begin(), json.end(), rgbRe);
+820:     auto end = std::sregex_iterator();
+821:     Palette palette{};
+822:     int i = 0;
+823:     for (auto it = begin; it != end && i < 256; ++it, ++i) {
+824:         palette[i] = {
+825:             static_cast<uint8_t>(std::stoi((*it)[1].str())),
+826:             static_cast<uint8_t>(std::stoi((*it)[2].str())),
+827:             static_cast<uint8_t>(std::stoi((*it)[3].str())),
+828:         };
+829:     }
+830:     if (i != 256) {
+831:         throw std::runtime_error(path + " does not contain 256 rgb8 palette entries");
+832:     }
+833:     return palette;
+834: }
+835: 
+836: uint32_t argb(const Palette& palette, uint8_t index) {
+837:     const Rgb c = palette[index];
+838:     return 0xff000000u | (static_cast<uint32_t>(c.r) << 16) |
+839:            (static_cast<uint32_t>(c.g) << 8) | c.b;
+840: }
+841: 
+842: std::string hex64(uint64_t value) {
+843:     std::ostringstream oss;
+844:     oss << "0x" << std::hex << std::nouppercase << std::setw(16)
+845:         << std::setfill('0') << value;
+846:     return oss.str();
+847: }
+848: 
+849: std::string hex4(uint16_t value) {
+850:     std::ostringstream oss;
+851:     oss << "0x" << std::hex << std::nouppercase << std::setw(4)
+852:         << std::setfill('0') << value;
+853:     return oss.str();
+854: }
+855: 
+856: std::string hex2(uint8_t value) {
+857:     std::ostringstream oss;
+858:     oss << "0x" << std::hex << std::nouppercase << std::setw(2)
+859:         << std::setfill('0') << static_cast<int>(value);
+860:     return oss.str();
+861: }
+862: 
+863: std::string joinPath(const std::string& dir, const std::string& name) {
+864:     return (std::filesystem::path(dir) / name).string();
+865: }
+866: 
+867: void writeArgbPpm(const std::string& path, const std::vector<uint32_t>& pixels,
+868:                   int width, int height) {
+869:     if (pixels.size() != static_cast<size_t>(width) * height) {
+870:         throw std::runtime_error("frame buffer size mismatch while writing " + path);
+871:     }
+872:     std::ofstream out(path, std::ios::binary);
+873:     if (!out) {
+874:         throw std::runtime_error("cannot create " + path);
+875:     }
+876:     out << "P6\n" << width << ' ' << height << "\n255\n";
+877:     for (uint32_t pixelValue : pixels) {
+878:         out.put(static_cast<char>((pixelValue >> 16) & 0xffu));
+879:         out.put(static_cast<char>((pixelValue >> 8) & 0xffu));
+880:         out.put(static_cast<char>(pixelValue & 0xffu));
+881:     }
+882: }
+883: 
+884: std::vector<uint8_t> decodeLevelRle3(const std::vector<uint8_t>& encoded, size_t targetSize) {
+885:     std::vector<uint8_t> out(targetSize + 32, 0);
+886:     size_t in = 0;
+887:     size_t pos = 0;
+888: 
+889:     auto run = [&](uint8_t value, size_t len) {
+890:         const size_t end = std::min(pos + len, out.size() - 1);
+891:         for (size_t i = pos; i <= end; ++i) {
+892:             out[i] = value;
+893:         }
+894:         pos += len;
+895:     };
+896: 
+897:     while (pos < targetSize && in + 2 < encoded.size()) {
+898:         uint8_t cmd = encoded[in++];
+899:         uint8_t a = encoded[in++];
+900:         uint8_t b = encoded[in++];
+901:         run(a, static_cast<size_t>((cmd >> 4) + 1));
+902:         if (pos >= targetSize) {
+903:             break;
+904:         }
+905:         run(b, static_cast<size_t>((cmd & 0x0f) + 1));
+906:     }
+907: 
+908:     out.resize(targetSize);
+909:     return out;
+910: }
+911: 
+912: IndexedImage loadBackground(const std::string& path, Palette& paletteOut) {
+913:     auto json = readTextFile(path);
+914:     std::regex rgbRe("\"rgb8\"\\s*:\\s*\\[\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\]");
+915:     auto begin = std::sregex_iterator(json.begin(), json.end(), rgbRe);
+916:     auto end = std::sregex_iterator();
+917:     int pi = 0;
+918:     for (auto it = begin; it != end && pi < 256; ++it, ++pi) {
+919:         paletteOut[pi] = {
+920:             static_cast<uint8_t>(std::stoi((*it)[1].str())),
+921:             static_cast<uint8_t>(std::stoi((*it)[2].str())),
+922:             static_cast<uint8_t>(std::stoi((*it)[3].str())),
+923:         };
+924:     }
+925:     if (pi != 256) throw std::runtime_error(path + " palette section is incomplete");
+926: 
+927:     IndexedImage image;
+928:     image.width = extractInt(json, "width", kBackgroundW);
+929:     image.height = extractInt(json, "height", kBackgroundH);
+930:     image.pixels.reserve(kBackgroundW * kBackgroundH);
+931:     for (const auto& row : extractStringArray(json, "pixel_rows_hex")) {
+932:         auto bytes = parseHexByteList(row);
+933:         image.pixels.insert(image.pixels.end(), bytes.begin(), bytes.end());
+934:     }
+935:     if (image.pixels.size() != static_cast<size_t>(image.width) * image.height) {
+936:         throw std::runtime_error(path + " decoded to " + std::to_string(image.pixels.size()) +
+937:                                  " bytes, expected " +
+938:                                  std::to_string(static_cast<size_t>(image.width) * image.height));
+939:     }
+940:     return image;
+941: }
+942: 
+943: IndexedImage loadRawBackground(const std::string& path, Palette& paletteOut) {
+944:     auto data = readFile(path);
+945:     if (data.size() < 770) {
+946:         throw std::runtime_error(path + " is too small for a palette and header");
+947:     }
+948:     paletteOut = loadPalette(data, 0);
+949: 
+950:     // Recovered from the original ZBG display routine (Ghidra 1000:030b, decoder
+951:     // 1000:82d0). After the 768-byte VGA palette, a 2-byte little-endian length
+952:     // header gives the RLE payload size; the payload is a nibble-paired RLE that
+953:     // decodes to exactly one 320x200 mode-13h screen. Each 3-byte group
+954:     // (b0, b1, b2) emits (b0>>4)+1 copies of b1 followed by (b0&0x0f)+1 copies
+955:     // of b2.
+956:     const size_t rleLength = static_cast<size_t>(data[768]) |
+957:                              (static_cast<size_t>(data[769]) << 8);
+958:     const size_t rleEnd = std::min(data.size(), 770 + rleLength);
+959:     const size_t targetPixels =
+960:         static_cast<size_t>(kBackgroundW) * kBackgroundH;
+961: 
+962:     IndexedImage image;
+963:     image.width = kBackgroundW;
+964:     image.height = kBackgroundH;
+965:     image.pixels.reserve(targetPixels);
+966:     size_t off = 770;
+967:     while (off + 3 <= rleEnd && image.pixels.size() < targetPixels) {
+968:         const uint8_t b0 = data[off];
+969:         const uint8_t value1 = data[off + 1];
+970:         const uint8_t value2 = data[off + 2];
+971:         off += 3;
+972:         image.pixels.insert(image.pixels.end(),
+973:                             static_cast<size_t>((b0 >> 4) & 0x0f) + 1, value1);
+974:         image.pixels.insert(image.pixels.end(),
+975:                             static_cast<size_t>(b0 & 0x0f) + 1, value2);
+976:     }
+977:     if (image.pixels.size() > targetPixels) {
+978:         image.pixels.resize(targetPixels);
+979:     }
+980:     if (image.pixels.size() != targetPixels) {
+981:         throw std::runtime_error(path + " raw RLE decoded to " +
+982:                                  std::to_string(image.pixels.size()) +
+983:                                  " bytes, expected " +
+984:                                  std::to_string(targetPixels));
+985:     }
+986:     return image;
+987: }
+988: 
+989: TileBank loadTiles(const std::string& path) {
+990:     auto json = readTextFile(path);
+991:     TileBank bank;
+992:     bank.count = extractInt(json, "tile_count");
+993:     auto tileObjects = extractObjectArray(json, "tiles");
+994:     if (static_cast<int>(tileObjects.size()) != bank.count) {
+995:         throw std::runtime_error(path + " tile count mismatch");
+996:     }
+997:     for (const auto& tileJson : tileObjects) {
+998:         for (const auto& row : extractStringArray(tileJson, "rows_hex")) {
+999:             auto bytes = parseHexByteList(row);
+1000:             bank.pixels.insert(bank.pixels.end(), bytes.begin(), bytes.end());
+1001:         }
+1002:     }
+1003:     return bank;
+1004: }
+1005: 
+1006: TileBank loadRawTiles(const std::string& path) {
+1007:     auto data = readFile(path);
+1008:     if (data.size() < 2) {
+1009:         throw std::runtime_error(path + " is too small for a tile header");
+1010:     }
+1011:     TileBank bank;
+1012:     bank.count = static_cast<int>((data[0] << 8) | data[1]);
+1013:     size_t payloadSize = data.size() - 2;
+1014:     size_t expectedSize = static_cast<size_t>(bank.count) * kTileSize * kTileSize;
+1015:     if (bank.count <= 0 || payloadSize != expectedSize) {
+1016:         throw std::runtime_error(path + " raw tile payload size mismatch");
+1017:     }
+1018:     bank.pixels.insert(bank.pixels.end(), data.begin() + 2, data.end());
+1019:     return bank;
+1020: }
+1021: 
+1022: SpriteBank loadSprites(const std::string& path) {
+1023:     auto json = readTextFile(path);
+1024:     SpriteBank bank;
+1025:     auto spriteObjects = extractObjectArray(json, "sprites");
+1026:     bank.sprites.reserve(spriteObjects.size());
+1027:     for (const auto& spriteJson : spriteObjects) {
+1028:         Sprite s;
+1029:         s.width = extractInt(spriteJson, "width");
+1030:         s.height = extractInt(spriteJson, "height");
+1031:         for (const auto& row : extractStringArray(spriteJson, "rows_hex")) {
+1032:             auto bytes = parseHexByteList(row);
+1033:             s.pixels.insert(s.pixels.end(), bytes.begin(), bytes.end());
+1034:         }
+1035:         if (s.pixels.size() != static_cast<size_t>(s.width) * s.height) {
+1036:             throw std::runtime_error(path + " sprite size mismatch");
+1037:         }
+1038:         bank.sprites.push_back(std::move(s));
+1039:     }
+1040:     return bank;
+1041: }
+1042: 
+1043: SpriteBank loadRawSprites(const std::string& path) {
+1044:     auto data = readFile(path);
+1045:     if (data.empty()) {
+1046:         throw std::runtime_error(path + " is empty");
+1047:     }
+1048:     SpriteBank bank;
+1049:     size_t offset = 0;
+1050:     uint8_t count = data[offset++];
+1051:     bank.sprites.reserve(count);
+1052:     for (uint8_t i = 0; i < count; ++i) {
+1053:         if (offset + 2 > data.size()) {
+1054:             throw std::runtime_error(path + " truncated sprite header");
+1055:         }
+1056:         Sprite sprite;
+1057:         sprite.width = data[offset++];
+1058:         sprite.height = data[offset++];
+1059:         size_t pixelCount = static_cast<size_t>(sprite.width) * sprite.height;
+1060:         if (offset + pixelCount > data.size()) {
+1061:             throw std::runtime_error(path + " truncated sprite pixels");
+1062:         }
+1063:         sprite.pixels.insert(sprite.pixels.end(),
+1064:                              data.begin() + static_cast<std::ptrdiff_t>(offset),
+1065:                              data.begin() +
+1066:                                  static_cast<std::ptrdiff_t>(offset + pixelCount));
+1067:         offset += pixelCount;
+1068:         bank.sprites.push_back(std::move(sprite));
+1069:     }
+1070:     if (offset != data.size()) {
+1071:         throw std::runtime_error(path + " trailing sprite bytes");
+1072:     }
+1073:     return bank;
+1074: }
+1075: 
+1076: std::vector<Record> parseJsonRecords(const std::string& json) {
+1077:     std::vector<Record> records;
+1078:     auto recordObjects = extractObjectArray(json, "records");
+1079:     for (const auto& recJson : recordObjects) {
+1080:         Record r;
+1081:         r.score = static_cast<uint32_t>(extractInt(recJson, "score"));
+1082:         r.level = static_cast<uint8_t>(extractInt(recJson, "level"));
+1083:         r.name = extractString(recJson, "decoded_name", "nessuno");
+1084:         r.encodedName = extractString(recJson, "encoded_name", "");
+1085:         records.push_back(r);
+1086:     }
+1087:     return records;
+1088: }
+1089: 
+1090: std::string decodeRawRecordName(std::string encoded) {
+1091:     std::replace(encoded.begin(), encoded.end(), ':', ' ');
+1092:     while (!encoded.empty() && encoded.back() == ' ') {
+1093:         encoded.pop_back();
+1094:     }
+1095:     return encoded.empty() ? std::string("nessuno") : encoded;
+1096: }
+1097: 
+1098: std::vector<Record> parseRawRecords(const std::vector<uint8_t>& data,
+1099:                                     const std::string& path) {
+1100:     constexpr size_t kRecordSize = 13;
+1101:     if (data.empty()) {
+1102:         throw std::runtime_error(path + " is empty");
+1103:     }
+1104:     uint8_t count = data[0];
+1105:     if (data.size() != 1 + static_cast<size_t>(count) * kRecordSize) {
+1106:         throw std::runtime_error(path + " raw record table size mismatch");
+1107:     }
+1108:     std::vector<Record> records;
+1109:     records.reserve(count);
+1110:     for (size_t i = 0; i < count; ++i) {
+1111:         size_t off = 1 + i * kRecordSize;
+1112:         Record record;
+1113:         record.score = le32(data, off);
+1114:         record.level = data[off + 4];
+1115:         std::string encoded(data.begin() + static_cast<std::ptrdiff_t>(off + 5),
+1116:                             data.begin() + static_cast<std::ptrdiff_t>(off + 13));
+1117:         record.name = decodeRawRecordName(encoded);
+1118:         record.encodedName = encoded;
+1119:         records.push_back(std::move(record));
+1120:     }
+1121:     return records;
+1122: }
+1123: 
+1124: std::vector<Record> loadRawRecords(const std::string& path) {
+1125:     return parseRawRecords(readFile(path), path);
+1126: }
+1127: 
+1128: std::vector<Record> loadRecords(const std::string& path) {
+1129:     auto data = readFile(path);
+1130:     auto first = std::find_if(data.begin(), data.end(), [](uint8_t byte) {
+1131:         return !std::isspace(static_cast<unsigned char>(byte));
+1132:     });
+1133:     if (first != data.end() && *first == '{') {
+1134:         return parseJsonRecords(std::string(data.begin(), data.end()));
+1135:     }
+1136:     return parseRawRecords(data, path);
+1137: }
+1138: 
+1139: std::string encodeRecordName(const std::string& name) {
+1140:     std::string out = name;
+1141:     out.resize(8, ':');
+1142:     for (char& ch : out) {
+1143:         if (ch == ' ') ch = ':';
+1144:     }
+1145:     return out;
+1146: }
+1147: 
+1148: std::string encodedRecordName(const Record& record) {
+1149:     if (record.encodedName.size() == 8) {
+1150:         return record.encodedName;
+1151:     }
+1152:     return encodeRecordName(record.name);
+1153: }
+1154: 
+1155: Record makeRecord(uint32_t score, uint8_t level, const std::string& enteredName) {
+1156:     Record record;
+1157:     record.score = score;
+1158:     record.level = level;
+1159:     record.encodedName = encodeRecordName(enteredName);
+1160:     record.name = decodeRawRecordName(record.encodedName);
+1161:     return record;
+1162: }
+1163: 
+1164: bool isJsonRecordPath(const std::string& path) {
+1165:     std::string ext = std::filesystem::path(path).extension().string();
+1166:     std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) {
+1167:         return static_cast<char>(std::tolower(ch));
+1168:     });
+1169:     return ext == ".json";
+1170: }
+1171: 
+1172: void saveRecords(const std::string& path, const std::vector<Record>& records) {
+1173:     if (!isJsonRecordPath(path)) {
+1174:         std::ofstream out(path, std::ios::binary);
+1175:         if (!out) {
+1176:             throw std::runtime_error("cannot create " + path);
+1177:         }
+1178:         size_t count = std::min<size_t>(records.size(), 255);
+1179:         out.put(static_cast<char>(count));
+1180:         for (size_t i = 0; i < count; ++i) {
+1181:             uint32_t score = records[i].score;
+1182:             out.put(static_cast<char>(score & 0xffu));
+1183:             out.put(static_cast<char>((score >> 8) & 0xffu));
+1184:             out.put(static_cast<char>((score >> 16) & 0xffu));
+1185:             out.put(static_cast<char>((score >> 24) & 0xffu));
+1186:             out.put(static_cast<char>(records[i].level));
+1187:             std::string name = encodedRecordName(records[i]);
+1188:             out.write(name.data(), static_cast<std::streamsize>(name.size()));
+1189:         }
+1190:         return;
+1191:     }
+1192: 
+1193:     std::ofstream out(path);
+1194:     if (!out) {
+1195:         throw std::runtime_error("cannot create " + path);
+1196:     }
+1197:     size_t count = std::min<size_t>(records.size(), 255);
+1198:     out << "{\n";
+1199:     out << "  \"file\": \"RECS.DAT\",\n";
+1200:     out << "  \"type\": \"high_scores\",\n";
+1201:     out << "  \"record_count\": " << count << ",\n";
+1202:     out << "  \"records\": [\n";
+1203:     for (size_t i = 0; i < count; ++i) {
+1204:         std::string name = encodedRecordName(records[i]);
+1205:         out << "    {\n";
+1206:         out << "      \"index\": " << i << ",\n";
+1207:         out << "      \"score\": " << records[i].score << ",\n";
+1208:         out << "      \"level\": " << static_cast<int>(records[i].level) << ",\n";
+1209:         out << "      \"encoded_name\": " << std::quoted(name) << ",\n";
+1210:         out << "      \"decoded_name\": " << std::quoted(records[i].name) << "\n";
+1211:         out << "    }" << (i + 1 == count ? "\n" : ",\n");
+1212:     }
+1213:     out << "  ]\n";
+1214:     out << "}\n";
+1215: }
+1216: 
+1217: bool insertRecord(std::vector<Record>& records, Record record, size_t maxRecords = 7) {
+1218:     std::vector<Record> before = records;
+1219:     records.push_back(std::move(record));
+1220:     std::stable_sort(records.begin(), records.end(),
+1221:                      [](const Record& a, const Record& b) {
+1222:                          return a.score > b.score;
+1223:                      });
+1224:     if (records.size() > maxRecords) {
+1225:         records.resize(maxRecords);
+1226:     }
+1227:     if (records.size() != before.size()) return true;
+1228:     for (size_t i = 0; i < records.size(); ++i) {
+1229:         if (records[i].score != before[i].score ||
+1230:             records[i].level != before[i].level ||
+1231:             records[i].name != before[i].name ||
+1232:             encodedRecordName(records[i]) != encodedRecordName(before[i])) {
+1233:             return true;
+1234:         }
+1235:     }
+1236:     return false;
+1237: }
+1238: 
+1239: SoundBank loadSon(const std::string& path) {
+1240:     auto json = readTextFile(path);
+1241:     SoundBank bank;
+1242:     bank.recordSize = static_cast<uint16_t>(extractInt(json, "record_size"));
+1243:     int declaredCount = extractInt(json, "record_count", -1);
+1244:     auto recordObjects = extractObjectArray(json, "records");
+1245:     if (declaredCount >= 0 && declaredCount != static_cast<int>(recordObjects.size())) {
+1246:         throw std::runtime_error(path + " record_count does not match records array");
+1247:     }
+1248:     for (const auto& recJson : recordObjects) {
+1249:         SoundEffectRecord record;
+1250:         record.bytes = parseHexByteList(extractString(recJson, "bytes_hex"));
+1251:         if (record.bytes.size() != bank.recordSize) {
+1252:             throw std::runtime_error(path + " record length does not match record_size");
+1253:         }
+1254:         bank.payload.insert(bank.payload.end(), record.bytes.begin(), record.bytes.end());
+1255:         bank.records.push_back(std::move(record));
+1256:     }
+1257:     if (bank.payload.empty() || bank.payload.size() % kSoundStepSize != 0) {
+1258:         throw std::runtime_error(path + " payload is not a whole number of six-byte steps");
+1259:     }
+1260:     bank.stepCount = bank.payload.size() / kSoundStepSize;
+1261:     return bank;
+1262: }
+1263: 
+1264: SoundBank loadRawSon(const std::string& path) {
+1265:     auto data = readFile(path);
+1266:     if (data.size() < 2) {
+1267:         throw std::runtime_error(path + " is too small for a sound header");
+1268:     }
+1269:     SoundBank bank;
+1270:     bank.stepCount = le16(data, 0);
+1271:     size_t payloadSize = bank.stepCount * kSoundStepSize;
+1272:     if (data.size() != 2 + payloadSize) {
+1273:         throw std::runtime_error(path + " raw payload size mismatch");
+1274:     }
+1275:     bank.payload.insert(bank.payload.end(), data.begin() + 2, data.end());
+1276:     bank.recordSize = 130;
+1277:     if (bank.payload.size() % bank.recordSize != 0) {
+1278:         throw std::runtime_error(path + " raw payload cannot be split into JSON chunks");
+1279:     }
+1280:     for (size_t off = 0; off < bank.payload.size(); off += bank.recordSize) {
+1281:         SoundEffectRecord record;
+1282:         record.bytes.insert(record.bytes.end(),
+1283:                             bank.payload.begin() + static_cast<std::ptrdiff_t>(off),
+1284:                             bank.payload.begin() +
+1285:                                 static_cast<std::ptrdiff_t>(off + bank.recordSize));
+1286:         bank.records.push_back(std::move(record));
+1287:     }
+1288:     return bank;
+1289: }
+1290: 
+1291: GranBank loadGran(const std::string& path) {
+1292:     auto json = readTextFile(path);
+1293:     GranBank bank;
+1294:     bank.recordSize = static_cast<size_t>(extractInt(json, "record_size", static_cast<int>(kGranRecordSize)));
+1295:     if (bank.recordSize != kGranRecordSize) {
+1296:         throw std::runtime_error(path + " record_size does not match GRAN.MST fixed record size");
+1297:     }
+1298:     auto recordObjects = extractObjectArray(json, "records");
+1299:     if (recordObjects.size() != 7) {
+1300:         throw std::runtime_error(path + " records array does not contain seven records");
+1301:     }
+1302:     for (const auto& recJson : recordObjects) {
+1303:         GranRecord record;
+1304:         record.bytes = parseHexByteList(extractString(recJson, "bytes_hex"));
+1305:         if (record.bytes.size() != bank.recordSize) {
+1306:             throw std::runtime_error(path + " record length does not match record_size");
+1307:         }
+1308:         bank.records.push_back(std::move(record));
+1309:     }
+1310:     return bank;
+1311: }
+1312: 
+1313: GranBank loadRawGran(const std::string& path) {
+1314:     auto data = readFile(path);
+1315:     if (data.size() != 7 * kGranRecordSize) {
+1316:         throw std::runtime_error(path + " raw size does not match seven GRAN records");
+1317:     }
+1318:     GranBank bank;
+1319:     bank.recordSize = kGranRecordSize;
+1320:     for (size_t off = 0; off < data.size(); off += kGranRecordSize) {
+1321:         GranRecord record;
+1322:         record.bytes.insert(record.bytes.end(),
+1323:                             data.begin() + static_cast<std::ptrdiff_t>(off),
+1324:                             data.begin() +
+1325:                                 static_cast<std::ptrdiff_t>(off + kGranRecordSize));
+1326:         bank.records.push_back(std::move(record));
+1327:     }
+1328:     return bank;
+1329: }
+1330: 
+1331: MonsterSpawner parseMonsterSpawner(const std::array<uint8_t, 30>& rec) {
+1332:     MonsterSpawner spawner;
+1333:     spawner.x = recLe16(rec, 0);
+1334:     spawner.y = recLe16(rec, 2);
+1335:     spawner.tileIndex = recLe16(rec, 4);
+1336:     spawner.savedWordOrLink = recLe16(rec, 6);
+1337:     spawner.enabled = rec[8];
+1338:     spawner.spawnBudget = rec[9];
+1339:     spawner.liveAllowance = rec[10];
+1340:     spawner.monsterKind = rec[11];
+1341:     spawner.param0Base = recLe16(rec, 12);
+1342:     spawner.param0Range = recLe16(rec, 14);
+1343:     spawner.param1Base = recLe16(rec, 16);
+1344:     spawner.param1Range = recLe16(rec, 18);
+1345:     spawner.param2Base = recLe16(rec, 20);
+1346:     spawner.param2Range = recLe16(rec, 22);
+1347:     spawner.randomBase = rec[24];
+1348:     spawner.randomRange = rec[25];
+1349:     spawner.spawnArg = rec[26];
+1350:     spawner.cooldown = rec[27];
+1351:     spawner.cooldownReset = rec[28];
+1352:     spawner.animationDelay = rec[29];
+1353:     return spawner;
+1354: }
+1355: 
+1356: LevelPortal parseLevelPortal(const std::array<uint8_t, 7>& rec) {
+1357:     return {recLe16(rec, 0), recLe16(rec, 2), recLe16(rec, 4), rec[6]};
+1358: }
+1359: 
+1360: TileTriggerRule parseTileTriggerRule(const std::array<uint8_t, 14>& rec) {
+1361:     TileTriggerRule rule;
+1362:     rule.wordRangeFirst = recLe16(rec, 0);
+1363:     rule.wordRangeLast = recLe16(rec, 2);
+1364:     rule.triggerKey = recLe16(rec, 4);
+1365:     std::copy_n(rec.begin() + 6, 4, rule.from.begin());
+1366:     std::copy_n(rec.begin() + 10, 4, rule.to.begin());
+1367:     return rule;
+1368: }
+1369: 
+1370: std::vector<Level> loadRawLevels(const std::string& path) {
+1371:     std::vector<uint8_t> data = readFile(path);
+1372:     std::vector<Level> levels;
+1373:     size_t off = 0;
+1374:     while (off < data.size()) {
+1375:         Level level;
+1376:         level.fileOffset = off;
+1377:         level.width = getU16(data, off);
+1378:         level.height = getU16(data, off);
+1379:         if (level.width <= 0 || level.height <= 0 || level.width > 300 || level.height > 200) {
+1380:             throw std::runtime_error(path + " has invalid raw level dimensions");
+1381:         }
+1382:         level.objectiveTile = getU8(data, off);
+1383:         level.requiredBonus = getU16(data, off);
+1384:         level.requiredDestruction = getU8(data, off);
+1385: 
+1386:         level.tileEncodedSize = getU16(data, off);
+1387:         std::vector<uint8_t> tileEncoded = getBytes(data, off, level.tileEncodedSize);
+1388:         size_t tileCount = static_cast<size_t>(level.width) * level.height;
+1389:         level.tiles = decodeLevelRle3(tileEncoded, tileCount);
+1390: 
+1391:         level.wordEncodedSize = getU16(data, off);
+1392:         std::vector<uint8_t> wordEncoded = getBytes(data, off, level.wordEncodedSize);
+1393:         std::vector<uint8_t> wordBytes = decodeLevelRle3(wordEncoded, tileCount * 2);
+1394:         level.wordLayer.reserve(tileCount);
+1395:         for (size_t i = 0; i + 1 < wordBytes.size(); i += 2) {
+1396:             level.wordLayer.push_back(le16(wordBytes, i));
+1397:         }
+1398: 
+1399:         level.fieldA = getU16(data, off);
+1400:         level.fieldB = getU16(data, off);
+1401: 
+1402:         for (const auto& rec : getFixedRecords<30>(data, off)) {
+1403:             level.monsterSpawners.push_back(parseMonsterSpawner(rec));
+1404:         }
+1405:         for (const auto& rec : getFixedRecords<7>(data, off)) {
+1406:             level.portals.push_back(parseLevelPortal(rec));
+1407:         }
+1408:         for (const auto& rec : getFixedRecords<14>(data, off)) {
+1409:             level.tileTriggers.push_back(parseTileTriggerRule(rec));
+1410:         }
+1411: 
+1412:         if (level.tiles.size() != tileCount || level.wordLayer.size() != tileCount) {
+1413:             throw std::runtime_error(path + " raw level arrays are inconsistent");
+1414:         }
+1415:         level.startingObjectiveTiles = static_cast<int>(
+1416:             std::count(level.tiles.begin(), level.tiles.end(), level.objectiveTile));
+1417:         level.startingDestructibleTiles = countPhysicalDamageProgressCells(level.wordLayer);
+1418:         levels.push_back(std::move(level));
+1419:     }
+1420:     return levels;
+1421: }
+1422: 
+1423: std::vector<Level> loadLevels(const std::string& path) {
+1424:     auto json = readTextFile(path);
+1425:     std::vector<Level> levels;
+1426:     auto levelObjects = extractObjectArray(json, "levels");
+1427:     for (const auto& levelJson : levelObjects) {
+1428:         Level level;
+1429:         level.fileOffset = static_cast<size_t>(extractInt(levelJson, "fileOffset"));
+1430:         level.width = extractInt(levelJson, "width");
+1431:         level.height = extractInt(levelJson, "height");
+1432:         if (level.width <= 0 || level.height <= 0 || level.width > 300 || level.height > 200) {
+1433:             throw std::runtime_error(path + " has invalid level dimensions");
+1434:         }
+1435:         level.objectiveTile = static_cast<uint8_t>(extractInt(levelJson, "objectiveTile"));
+1436:         level.requiredBonus = static_cast<uint16_t>(extractInt(levelJson, "requiredBonus"));
+1437:         level.requiredDestruction = static_cast<uint8_t>(extractInt(levelJson, "requiredDestruction"));
+1438:         level.tileEncodedSize = static_cast<uint16_t>(extractInt(levelJson, "tileEncodedSize"));
+1439:         level.wordEncodedSize = static_cast<uint16_t>(extractInt(levelJson, "wordEncodedSize"));
+1440:         level.fieldA = static_cast<uint16_t>(extractInt(levelJson, "fieldA"));
+1441:         level.fieldB = static_cast<uint16_t>(extractInt(levelJson, "fieldB"));
+1442: 
+1443:         for (const auto& row : extractStringArray(levelJson, "tiles_rows_hex")) {
+1444:             auto bytes = parseHexByteList(row);
+1445:             level.tiles.insert(level.tiles.end(), bytes.begin(), bytes.end());
+1446:         }
+1447:         for (const auto& row : extractStringArray(levelJson, "word_rows_hex")) {
+1448:             auto words = parseHexWordList(row);
+1449:             level.wordLayer.insert(level.wordLayer.end(), words.begin(), words.end());
+1450:         }
+1451: 
+1452:         for (const auto& spawnerJson : extractObjectArray(levelJson, "monsterSpawners")) {
+1453:             MonsterSpawner spawner;
+1454:             spawner.x = static_cast<uint16_t>(extractInt(spawnerJson, "x"));
+1455:             spawner.y = static_cast<uint16_t>(extractInt(spawnerJson, "y"));
+1456:             spawner.tileIndex = static_cast<uint16_t>(extractInt(spawnerJson, "tileIndex"));
+1457:             spawner.savedWordOrLink = static_cast<uint16_t>(extractInt(spawnerJson, "savedWordOrLink"));
+1458:             spawner.enabled = static_cast<uint8_t>(extractInt(spawnerJson, "enabled"));
+1459:             spawner.spawnBudget = static_cast<uint8_t>(extractInt(spawnerJson, "spawnBudget"));
+1460:             spawner.liveAllowance = static_cast<uint8_t>(extractInt(spawnerJson, "liveAllowance"));
+1461:             spawner.monsterKind = static_cast<uint8_t>(extractInt(spawnerJson, "monsterKind"));
+1462:             spawner.param0Base = static_cast<uint16_t>(extractInt(spawnerJson, "param0Base"));
+1463:             spawner.param0Range = static_cast<uint16_t>(extractInt(spawnerJson, "param0Range"));
+1464:             spawner.param1Base = static_cast<uint16_t>(extractInt(spawnerJson, "param1Base"));
+1465:             spawner.param1Range = static_cast<uint16_t>(extractInt(spawnerJson, "param1Range"));
+1466:             spawner.param2Base = static_cast<uint16_t>(extractInt(spawnerJson, "param2Base"));
+1467:             spawner.param2Range = static_cast<uint16_t>(extractInt(spawnerJson, "param2Range"));
+1468:             spawner.randomBase = static_cast<uint8_t>(extractInt(spawnerJson, "randomBase"));
+1469:             spawner.randomRange = static_cast<uint8_t>(extractInt(spawnerJson, "randomRange"));
+1470:             spawner.spawnArg = static_cast<uint8_t>(extractInt(spawnerJson, "spawnArg"));
+1471:             spawner.cooldown = static_cast<uint8_t>(extractInt(spawnerJson, "cooldown"));
+1472:             spawner.cooldownReset = static_cast<uint8_t>(extractInt(spawnerJson, "cooldownReset"));
+1473:             spawner.animationDelay = static_cast<uint8_t>(extractInt(spawnerJson, "animationDelay"));
+1474:             level.monsterSpawners.push_back(spawner);
+1475:         }
+1476:         for (const auto& portalJson : extractObjectArray(levelJson, "portals")) {
+1477:             LevelPortal p;
+1478:             p.key = static_cast<uint16_t>(extractInt(portalJson, "key"));
+1479:             p.x = static_cast<uint16_t>(extractInt(portalJson, "x"));
+1480:             p.y = static_cast<uint16_t>(extractInt(portalJson, "y"));
+1481:             p.marker = static_cast<uint8_t>(extractInt(portalJson, "marker"));
+1482:             level.portals.push_back(p);
+1483:         }
+1484:         for (const auto& triggerJson : extractObjectArray(levelJson, "tileTriggers")) {
+1485:             TileTriggerRule rule;
+1486:             rule.wordRangeFirst = static_cast<uint16_t>(extractInt(triggerJson, "wordRangeFirst"));
+1487:             rule.wordRangeLast = static_cast<uint16_t>(extractInt(triggerJson, "wordRangeLast"));
+1488:             rule.triggerKey = static_cast<uint16_t>(extractInt(triggerJson, "triggerKey"));
+1489:             rule.from = extractU8Array4(triggerJson, "from");
+1490:             rule.to = extractU8Array4(triggerJson, "to");
+1491:             level.tileTriggers.push_back(rule);
+1492:         }
+1493: 
+1494:         const size_t tileCount = static_cast<size_t>(level.width) * level.height;
+1495:         if (level.tiles.size() != tileCount || level.wordLayer.size() != tileCount) {
+1496:             throw std::runtime_error(path + " level arrays are inconsistent");
+1497:         }
+1498: 
+1499:         level.startingObjectiveTiles = static_cast<int>(
+1500:             std::count(level.tiles.begin(), level.tiles.end(), level.objectiveTile));
+1501:         level.startingDestructibleTiles = countPhysicalDamageProgressCells(level.wordLayer);
+1502:         if (level.fieldB != static_cast<uint16_t>(level.startingDestructibleTiles)) {
+1503:             throw std::runtime_error(path + " fieldB does not match low word-layer damage count");
+1504:         }
+1505:         levels.push_back(std::move(level));
+1506:     }
+1507:     return levels;
+1508: }
+1509: 

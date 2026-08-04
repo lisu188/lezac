@@ -6,12 +6,9 @@
 #include <stdexcept>
 
 namespace lezac::resources {
-namespace {
 
-uint8_t vga6To8(uint8_t v) {
+uint8_t vga6To8(uint8_t v) noexcept {
     return static_cast<uint8_t>((v << 2) | (v >> 4));
-}
-
 }
 
 Palette loadPalette(const std::vector<uint8_t>& data, std::size_t off) {

@@ -14,11 +14,16 @@ add_library(lezac_core STATIC
 )
 target_include_directories(lezac_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
+add_library(lezac_resources STATIC
+    src/resources/io.cpp
+)
+target_include_directories(lezac_resources PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
 add_executable(lezac_cpp src/main.cpp)
 target_compile_definitions(lezac_cpp PRIVATE SDL_MAIN_HANDLED)
 target_include_directories(lezac_cpp PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_directories(lezac_cpp PRIVATE ${SDL2_LIBRARY_DIRS})
-target_link_libraries(lezac_cpp PRIVATE lezac_core ${SDL2_LIBRARIES})
+target_link_libraries(lezac_cpp PRIVATE lezac_core lezac_resources ${SDL2_LIBRARIES})
 target_compile_options(lezac_cpp PRIVATE ${SDL2_CFLAGS_OTHER})
 
 if(WIN32)
@@ -124,6 +129,12 @@ if(BUILD_TESTING)
     add_test(NAME core_primitives COMMAND lezac_core_primitives_test)
     set_tests_properties(core_primitives PROPERTIES
         PASS_REGULAR_EXPRESSION "^core_primitives=ok progress=1 fixed=1 random=1")
+
+    add_executable(lezac_resource_io_test tests/resources/resource_io_test.cpp)
+    target_link_libraries(lezac_resource_io_test PRIVATE lezac_resources)
+    add_test(NAME resource_io COMMAND lezac_resource_io_test)
+    set_tests_properties(resource_io PROPERTIES
+        PASS_REGULAR_EXPRESSION "^resource_io=ok bytes=4 words=4 binary=5 text=5")
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
 

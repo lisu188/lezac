@@ -25,8 +25,15 @@
 #include "core/fixed_point.hpp"
 #include "core/progress.hpp"
 #include "core/random.hpp"
+#include "resources/types.hpp"
 
 namespace {
+
+using lezac::resources::IndexedImage;
+using lezac::resources::Palette;
+using lezac::resources::Rgb;
+using lezac::resources::Sprite;
+using lezac::resources::SpriteBank;
 
 using lezac::core::countPhysicalDamageProgressCells;
 using lezac::core::countsForDestructionProgress;
@@ -275,12 +282,6 @@ constexpr uint8_t kPlayerDamageSoundPriority = 4;
 constexpr uint16_t kPlayerDeathSoundCursor = 0x0056;
 constexpr uint8_t kPlayerDeathSoundPriority = 5;
 
-struct Rgb {
-    uint8_t r = 0;
-    uint8_t g = 0;
-    uint8_t b = 0;
-};
-
 struct LevelIntroPattern {
     int horizontalStep = 1;
     int verticalStep = 1;
@@ -307,24 +308,6 @@ struct LevelOutroState {
     bool typingSkipped = false;
     uint32_t typingSkipAt = 0;
     bool awaitKey = false;
-};
-
-using Palette = std::array<Rgb, 256>;
-
-struct IndexedImage {
-    int width = 0;
-    int height = 0;
-    std::vector<uint8_t> pixels;
-};
-
-struct Sprite {
-    int width = 0;
-    int height = 0;
-    std::vector<uint8_t> pixels;
-};
-
-struct SpriteBank {
-    std::vector<Sprite> sprites;
 };
 
 struct TileBank {

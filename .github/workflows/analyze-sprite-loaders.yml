@@ -1,0 +1,78 @@
+name: Analyze sprite loaders
+
+on:
+  push:
+    branches:
+      - refactor/sprite-loader-analysis
+    paths:
+      - .sprite-loader-analyze
+
+permissions:
+  contents: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/sprite-loader-analysis
+          fetch-depth: 0
+      - name: Capture sprite loader definitions and consumers
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          text = Path('src/app/app.cpp').read_text()
+          lines = text.splitlines()
+          names = ['loadSprites', 'loadRawSprites']
+
+          def definition(name):
+              marker = name + '('
+              pos = text.find(marker)
+              if pos < 0:
+                  raise SystemExit(f'missing {name}')
+              line_start = text.rfind('\n', 0, pos) + 1
+              brace = text.find('{', pos)
+              depth = 0
+              in_string = False
+              in_char = False
+              escape = False
+              for i in range(brace, len(text)):
+                  ch = text[i]
+                  if escape:
+                      escape = False
+                  elif ch == '\\' and (in_string or in_char):
+                      escape = True
+                  elif ch == '"' and not in_char:
+                      in_string = not in_string
+                  elif ch == "'" and not in_string:
+                      in_char = not in_char
+                  elif not in_string and not in_char:
+                      if ch == '{': depth += 1
+                      elif ch == '}':
+                          depth -= 1
+                          if depth == 0:
+                              end = i + 1
+                              while end < len(text) and text[end] in ' \t': end += 1
+                              if end < len(text) and text[end] == '\n': end += 1
+                              return text[line_start:end]
+              raise SystemExit(f'unterminated {name}')
+
+          out = []
+          for name in names:
+              out.append(f'===== {name} =====')
+              out.append(definition(name).rstrip())
+              out.append('----- consumers -----')
+              for i, line in enumerate(lines, 1):
+                  if name + '(' in line:
+                      out.append(f'{i}: {line.strip()}')
+              out.append('')
+          Path('sprite_loader_analysis.txt').write_text('\n'.join(out))
+          PY
+          rm .sprite-loader-analyze .github/workflows/analyze-sprite-loaders.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Capture sprite loader analysis"
+          git push origin HEAD:refactor/sprite-loader-analysis

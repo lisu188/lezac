@@ -1,0 +1,42 @@
+name: Fix palette consumer import
+
+on:
+  push:
+    branches:
+      - refactor/resource-palette
+    paths:
+      - .resource-palette-fix
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/resource-palette
+          fetch-depth: 0
+      - name: Restore shared VGA conversion import
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          app = Path('src/app/app.cpp')
+          text = app.read_text()
+          anchor = 'using lezac::resources::loadPaletteFile;\n'
+          replacement = 'using lezac::resources::loadPaletteFile;\nusing lezac::resources::vga6To8;\n'
+          if text.count(anchor) != 1:
+              raise SystemExit('palette using anchor changed')
+          if 'using lezac::resources::vga6To8;' in text:
+              raise SystemExit('vga6To8 import already present')
+          text = text.replace(anchor, replacement, 1)
+          app.write_text(text)
+          PY
+          rm .resource-palette-fix .github/workflows/fix-resource-palette-consumer.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Use shared VGA palette conversion in level intro"
+          git push origin HEAD:refactor/resource-palette

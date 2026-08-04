@@ -1,0 +1,38 @@
+name: Fix resource binary test contract
+
+on:
+  push:
+    branches:
+      - refactor/resource-binary
+    paths:
+      - .resource-binary-test-contract
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/resource-binary
+          fetch-depth: 0
+      - name: Update truncation count
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('CMakeLists.txt')
+          text = path.read_text()
+          old = 'resource_binary=ok le16=1 le32=1 cursor=1 records=2 bytes=2 truncation=4'
+          new = 'resource_binary=ok le16=1 le32=1 cursor=1 records=2 bytes=2 truncation=5'
+          if text.count(old) != 1:
+              raise SystemExit('resource_binary CMake contract changed')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          rm .resource-binary-test-contract .github/workflows/fix-resource-binary-test-contract.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Count all binary truncation guards"
+          git push origin HEAD:refactor/resource-binary

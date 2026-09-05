@@ -6,19 +6,22 @@ observation. It exists because this project's recurring failure mode has not
 been missing functionality; it has been a green test suite that verifies the
 port agrees with *itself*.
 
-Two shipped models died of exactly that:
+Two examples show why both measurements and their interpretation need review:
 
 - A "measured" 41-tick small-bomb fuse, read from `DS:0x74A8` record offset
   `0x1B`. That table is the level-file monster **spawner** table and the byte is
   its cooldown; tick 437 was the level-1 spawner's third cooldown-zero. The
   `bomb_fuse` ctest pinned `fuse=41` — the port's own constant echoed back — and
   passed throughout.
-- A debris **retirement** after exactly 100 resting ticks. `4CFF cmp rest,0x64`
-  is a saturation guard; the original never removes a record on that path. The
-  `debris_motion_live` ctest pinned `retire_ticks=108 flag_cleared=1`, pure port
-  behaviour with no original datum behind it, and passed throughout.
+- Debris **saturation** at 100 was inferred from raw table bytes without
+  checking whether those slots were live. The original does retire the
+  record, clearing the map flag but leaving stale tail bytes at rest=100.
+  The previous `debris_motion_live` assertion that such records must survive
+  was therefore wrong. The bounded
+  [rest-counter capture](debris_rest_runtime_2026-09-05.md) now checks the
+  original live bound, map flags, compaction and counter edge cases.
 
-Both were found by measuring something the repo had asserted without measuring.
+Both were found by testing the assumptions behind the accepted evidence.
 So the point of this file is not documentation — it is to make the set of
 unproven values **machine-checked**, so nothing can quietly join it or slip out
 of it. `tools/check_unevidenced_constants.py` (ctest `unevidenced_constants`)

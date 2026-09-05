@@ -14,17 +14,14 @@
 #    confirms the port's stepper (one frame per tick) and its non-fragile
 #    terminal choice.
 #
-# 2. REST COUNTER: the port's retirement model is REFUTED by these rows. The
-#    port reads 4CFF (cmp rest,0x64) as "after exactly 100 resting ticks,
-#    clear bit 0x8000 and remove the record". The original does not do that.
-#    The counter SATURATES at 100 and the record stays: across this capture
-#    and the natural-forward capture, no record's rest byte ever exceeds 100,
-#    bit 0x8000 of its word is never cleared, and the record is never removed
-#    on that path. Removal is observed only through the 0xFF consume path
-#    The longest observed run is 3359 CONSECUTIVE TICKS at rest == 100
-#    (record 205, from frame 641 to the end of the capture) -- the port used to
-#    remove that record after 100. The
-#    replacement model is now implemented and guarded.
+# 2. REST COUNTER INTERPRETATION WITHDRAWN 2026-09-05. The sampler scanned
+#    slots 200..279 regardless of the live queue bound; this fixture omitted
+#    that bound entirely. Persistent raw bytes therefore cannot establish a
+#    live record or saturation. The bounded debris_rest_original.txt capture
+#    proves retirement clears the MAP word flag and removes the live record,
+#    while the old table slot retains rest=100 and its flagged record word.
+#    Raw rows below are unchanged. Withdrawn summary fields are retained with
+#    an explicit prefix for provenance, not as accepted lifetime evidence.
 debris_shatter_playback_original=level2
 source=LEZAC.EXE via DOSBox /proc/mem tick-locked read
 runtime_ds=0c8f
@@ -42,12 +39,14 @@ slot_reused_frame=508
 landing_shatter_gate=0x3c
 max_vy_observed=68
 rest_max_observed=100
-rest_saturates=1
+rest_interpretation=withdrawn_unbounded_slot_scan
+live_bounds_present=0
+withdrawn_rest_saturates=1
 longest_rest_100_run=3359
 longest_rest_100_record=205
-rest_retirement_observed=0
-damaged_bit_ever_cleared=0
-port_matches_saturation=1
+withdrawn_rest_retirement_observed=0
+withdrawn_damaged_bit_ever_cleared=0
+capture_time_port_matches_saturation=1
 visual_claim=0
 temp_copy=1
 row frame=495 record=202 raw=ac0e07c000400044016a00

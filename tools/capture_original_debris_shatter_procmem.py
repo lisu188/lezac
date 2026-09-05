@@ -15,11 +15,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import seed_original_level as seeder  # noqa: E402
+from original_debris_table import decode_live_debris  # noqa: E402
 
 FRAME = 0x78C2
-DEBRIS_BASE, DEBRIS_STRIDE = 0x2093, 0x0B
-DEBRIS_FIRST, DEBRIS_SCAN = 200, 80
-DEBRIS_COUNT_OFF = 0x207E
 PLAYER_X, PLAYER_Y = 0xC21E, 0xC220
 RANDSEED = 0x1AFE
 LANES = 0x78D2
@@ -60,18 +58,12 @@ def run(pid, base, window, out_path, sites, cap_seconds):
             if f == prev:
                 continue
             prev = f
-            recs = []
-            for i in range(DEBRIS_FIRST, DEBRIS_FIRST + DEBRIS_SCAN):
-                off = DEBRIS_BASE + i * DEBRIS_STRIDE
-                if off + DEBRIS_STRIDE > 0x10000:
-                    break
-                raw = s[off:off + DEBRIS_STRIDE]
-                if raw != b"\x00" * DEBRIS_STRIDE:
-                    recs.append([i, raw.hex()])
+            last_live, recs = decode_live_debris(s)
             sink.write(json.dumps({
                 "frame": f,
                 "randseed": struct.unpack_from("<I", s, RANDSEED)[0],
-                "dcount": u16(s, DEBRIS_COUNT_OFF),
+                "dcount": last_live,
+                "live_records_only": True,
                 "lanes": s[LANES:LANES + 4].hex(),
                 "recs": recs,
             }) + "\n")

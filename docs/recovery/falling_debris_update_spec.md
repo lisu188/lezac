@@ -265,8 +265,10 @@ For slot `k = [bp-2]`, record `rec` at `DS:2093 + 0x0B*k`:
    Note the order interplay with step 6: an unsupported fragment that did not
    step has `rec+8` reset to 0 at `4AB3` **before** the `4CF8` increment, so
    it samples as 1, never 0 (**CONFIRMED-bytes+capture**, the rest=0/1
-   pattern in the trace). **Retirement completing is disassembly-only** (the
-   capture's fragments died at ~3 rest ticks via step 4).
+   pattern in the trace). **Retirement and same-tick compaction are confirmed
+   by bounded original probes**, including the distinction between live
+   records and stale tail bytes. See
+   [the 2026-09-05 rest capture](debris_rest_runtime_2026-09-05.md).
 
 10. `inc [bp-2]` (`4D34`), loop while `[bp-2] <= DS:207E` (`4944..494B`).
 
@@ -439,17 +441,16 @@ Corrected here:
   - the `3D2D` velocity merge, as three pure vx overwrites
     (`tests/fixtures/natural_forward_debris_writeback_original_level2.txt`);
   - the record removal that follows the `0xFF` consume path.
-- **CORRECTED**: there is no "100-tick retirement". `4CFF cmp rest,0x64` is a
-  SATURATION guard. The original's rest counter stops at 100 -- never observed
-  above it across ~7800 sampled ticks in two captures -- bit `0x8000` is never
-  cleared on that path, and the record is not removed; the longest observed run
-  is 3359 consecutive ticks at `rest == 100`. An earlier revision of this port
-  read the compare as a retirement trigger and removed the record after exactly
-  100 resting ticks. The port now saturates and keeps the record, and the only
-  removal on any path is the `0xFF` consume route. Guarded by
-  `debris_motion_live` (free-runs 800 ticks and asserts the counter never
-  passes the ceiling, that fragments survive at it, and that their cells keep
-  bit `0x8000`) and by `debris_shatter_playback` (`port_saturates=1`).
+- **SATURATION INFERENCE WITHDRAWN (2026-09-05)**: the older samplers read
+  slots 200..279 even beyond the live bound, and the reduced fixture omitted
+  that bound. Persistent bytes at rest=100 do not prove a live record.
+  Bounded original probes show that `4CFF` is an equality retirement test:
+  the map word loses bit `0x8000`, the glyph stays, and the live queue shrinks
+  while the old tail bytes remain unchanged. The C++ mover now follows that
+  behavior. `debris_rest_original` covers nine cases including compaction,
+  movement/gravity resets and byte wrapping; `debris_motion_live` exercises
+  retirement in a longer production route. The old shatter fixture retains
+  its raw rows but explicitly withdraws its lifetime interpretation.
 - The bomb-actor-position = player-position link is a single-point inference;
   a second capture at a different pixel phase would pin it.
 - Loop 1's internals (effect codes, `414A`, TP-real spark seeding at `3FA6`)

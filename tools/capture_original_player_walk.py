@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Capture original player input response and integration under private DOSBox.
 
-Only normalized control bytes are injected, at a guarded player-update stop.
+Normalized control bytes are injected at a guarded player-update stop. The
+explicit cursor_restore probe additionally seeds only the two animation cursors.
 Positions, velocities, collision flags and fractions are not seeded. Guarded
 checkpoint trampolines replay displaced instructions without changing motion.
 All live runs use a temporary asset copy and require both approval flags.
@@ -26,7 +27,7 @@ import seed_original_level as seeder
 
 CS = 0x01ED
 SCRATCH = 0xF700
-HOOKS = ((0x6813, 3), (0x6B55, 3), (0x741E, 4))
+HOOKS = ((0x6813, 3), (0x6B55, 3), (0x741E, 4), (0x6064, 4))
 WINDOWS = {
     0x6813: bytes.fromhex("a0841b30e48bd0a0831b30e403c23d0200"),
     0x6B55: bytes.fromhex("8b46f49931d029d099b90001f7f9"),
@@ -37,6 +38,10 @@ WINDOWS = {
     0x5B9C: bytes.fromhex("3d2b007d0b8b7e0431c0368945f4eb1c"),
     0x66F3: bytes.fromhex("8a46cf3c007403e91b09"),
     0x6743: bytes.fromhex("8346f240817ef2ff077e05c746f2ff07"),
+    0x6064: bytes.fromhex("268a45018846edc47e0481c71600"),
+    0x6085: bytes.fromhex("c47ec626fe4503c47ec6268a4503"),
+    0x6B93: bytes.fromhex("c47e0426807d02057538"),
+    0x60F1: bytes.fromhex("c47e0481c71d000657c47e0481c7160006576a079a0e09"),
 }
 ROUTES = {
     "braking": [("right", 20), ("idle", 28), ("left", 20), ("idle", 28)],
@@ -45,6 +50,9 @@ ROUTES = {
                      ("left", 20), ("idle", 7), ("left", 12), ("idle", 28)],
     "air_coast": [("right", 10), ("jump_right", 1), ("idle", 28)],
     "switch_coast": [("right", 20), ("both", 8), ("idle", 28)],
+    "idle_resume": [("idle", 260), ("right", 20), ("idle", 28)],
+    "cursor_restore": [("idle", 6)],
+    "short_idle": [("right", 20), ("idle", 3), ("right", 4), ("idle", 28)],
 }
 CONTROLS = {"idle": (0, 0, 0, 0, 0), "left": (0, 1, 0, 0, 0),
             "right": (0, 0, 1, 0, 0), "jump_right": (1, 0, 1, 0, 0),
@@ -58,6 +66,9 @@ def trampoline(stage: int, image: bytes) -> bytes:
     skip = None
     if stage == 3:
         code += bytes.fromhex("807ecf007500")  # Only normalized player behavior 0.
+        skip = len(code) - 1
+    elif stage == 4:
+        code += bytes.fromhex("26807d15007500")  # ES:DI already selects the actor.
         skip = len(code) - 1
     for index, op in enumerate(("8cc8", "8cd8", "8cc0", "8cd0", "89e0", "89e8")):
         code += bytes.fromhex(op) + b"\x2e\xa3" + struct.pack("<H", SCRATCH + 2 + 2 * index)
@@ -80,13 +91,14 @@ def check_image(exe: Path) -> bytes:
     for offset, expected in WINDOWS.items():
         if image[offset:offset + len(expected)] != expected:
             raise RuntimeError(f"instruction mismatch at 1000:{offset:04x}")
-    for stage in range(1, 4):
+    for stage in range(1, 5):
         trampoline(stage, image)
     print(f"player_walk_capture_self_check=ok windows={len(WINDOWS)} live=0", flush=True)
     return image
 
 
-def capture(pid: int, base: int, output: Path, image: bytes, route: str) -> None:
+def capture(pid: int, base: int, output: Path, image: bytes, route: str,
+            animation: bool = False) -> None:
     ds, cs = base + (seeder.RUNTIME_DS << 4), base + (CS << 4)
     with open(f"/proc/{pid}/mem", "r+b", buffering=0) as mem:
         def read(address: int, count: int) -> bytes:
@@ -144,19 +156,47 @@ def capture(pid: int, base: int, output: Path, image: bytes, route: str) -> None
         if read(cs + 0xF400, 0x312) != bytes(0x312):
             raise RuntimeError("instrumentation area is not empty")
 
-        def install() -> None:
-            for stage, (entry, _) in enumerate(HOOKS, 1):
+        def install(stages) -> None:
+            for stage in stages:
+                entry, _ = HOOKS[stage - 1]
                 target = 0xF400 + (stage - 1) * 0x80
                 write(cs + target, trampoline(stage, image))
                 write(cs + entry, jump(entry, target))
-        stopped(install)
-        rows = ["# Original player walk response; only normalized controls are exogenous.",
+        stopped(lambda: install([4] if animation else [1, 2, 3]))
+        entry_regs = wait(4) if animation else None
+        if animation:
+            stopped(lambda: install([1, 2, 3]))
+        capture_kind = "player_animation_original_v1" if animation else "player_walk_original_v1"
+        rows = ["# Original player trace; normalized controls and any declared cursor probe are exogenous.",
                 "# pre/response/post = SS:BP-3A..BP-1; regs=CS,DS,ES,SS,saved-SP,BP.",
-                f"capture=player_walk_original_v1 route={route} temp_copy=1"]
+                f"capture={capture_kind} route={route} temp_copy=1 cursor_seeded={int(route == 'cursor_restore')}"]
+        descriptors = read(ds + 0xC322, 92 * 4)
+        if animation:
+            rows.append(f"sprites descriptors={descriptors.hex()}")
+
+        def actor_at(regs):
+            caller, _ = locals_at(regs)
+            actual_base = cs - (regs[0] << 4)
+            offset, segment = struct.unpack("<HH", read(caller + 4, 4))
+            address = actual_base + (segment << 4) + offset
+            actor = read(address, 0x26)
+            return address, actor, read(ds + 0xC21E + actor[1] * 8, 8)
+
         previous = None
         samples = 0
         for phase, ticks in ROUTES[route]:
             for _ in range(ticks):
+                extra = ""
+                if animation:
+                    if samples:
+                        entry_regs = wait(4)
+                    elif route == "cursor_restore":
+                        address, _, _ = actor_at(entry_regs)
+                        write(address + 0x16, bytes([6, 5, 6, 1, 1, 3, 1,
+                                                    8, 8, 9, 2, 2, 1, 1]))
+                    _, entry_actor, entry_visual = actor_at(entry_regs)
+                    extra = f" entry={entry_actor.hex()} entry_visual={entry_visual.hex()}"
+                    release(4)
                 regs = wait(1)
                 frame = word(ds + 0x78C2)
                 if previous is not None and frame != (previous + 1) & 0xFFFF:
@@ -176,11 +216,18 @@ def capture(pid: int, base: int, output: Path, image: bytes, route: str) -> None
                 release(2)
                 after_regs = wait(3)
                 _, after = locals_at(after_regs)
+                if animation:
+                    _, final_actor, final_visual = actor_at(after_regs)
+                    sprite = next((i - 1 for i in range(1, 92)
+                                   if descriptors[i * 4:i * 4 + 4] == final_visual[4:]), None)
+                    if sprite is None:
+                        raise RuntimeError("player visual has no original sprite descriptor")
+                    extra += f" final_actor={final_actor.hex()} final_visual={final_visual.hex()} sprite={sprite}"
                 if word(ds + 0x78C2) != frame:
                     raise RuntimeError("player checkpoints crossed a frame")
                 rows.append(f"tick frame={frame} phase={phase} raw={actor.hex()} visual={visual.hex()} "
                             f"pre={before.hex()} response={response.hex()} post={after.hex()} "
-                            f"regs={struct.pack('<6H', *regs).hex()}")
+                            f"regs={struct.pack('<6H', *regs).hex()}{extra}")
                 samples += 1
                 if samples in (8, 20, 32):
                     window = subprocess.check_output(["xdotool", "search", "--name", "DOSBox"], text=True).split()[-1]
@@ -192,7 +239,7 @@ def capture(pid: int, base: int, output: Path, image: bytes, route: str) -> None
         output.write_text("\n".join(rows) + "\n", encoding="ascii")
 
         def resume() -> None:
-            for entry, _ in HOOKS:
+            for entry, _ in HOOKS[:4 if animation else 3]:
                 write(cs + entry, image[entry:entry + 3])
             release(3)
         stopped(resume)
@@ -203,6 +250,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--self-check", action="store_true")
     parser.add_argument("--route", choices=ROUTES, default="braking")
+    parser.add_argument("--animation", action="store_true",
+                        help="also capture pre-advance and post-input animation/visual state")
+    parser.add_argument("--approve-animation-seed", action="store_true",
+                        help="allow the cursor_restore probe to seed only actor +16..+23")
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--out", type=Path)
     parser.add_argument("--approve-procmem", action="store_true")
@@ -214,6 +265,8 @@ def main() -> int:
         return 0
     if not (args.run_dir and args.out and args.approve_procmem and args.approve_runtime_instrumentation):
         parser.error("live capture requires temporary run-dir, out and both approval flags")
+    if args.route == "cursor_restore" and not (args.animation and args.approve_animation_seed):
+        parser.error("cursor_restore requires --animation and --approve-animation-seed")
     if args.out.exists() or list(args.out.parent.glob(args.out.stem + "_*.png")):
         parser.error("output already exists; use a fresh path")
     environment.validate_temp_run_dir(args.run_dir.resolve())
@@ -226,7 +279,7 @@ def main() -> int:
 
     def hook(run_dir, pid, base, state, phase):
         if phase == "pre_capture":
-            capture(pid, base, args.out, image, args.route)
+            capture(pid, base, args.out, image, args.route, args.animation)
         return original(run_dir, pid, base, state, phase)
     seeder.write_runtime_state_snapshot = hook
     sys.argv = ["seed_original_level.py", "--run-dir", str(args.run_dir), "--target-level", "1",

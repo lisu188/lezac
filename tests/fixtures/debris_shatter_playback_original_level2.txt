@@ -1,0 +1,69 @@
+# Original LEZAC.EXE level-2 debris SHATTER PLAYBACK and REST-COUNTER evidence.
+#
+# Tick-locked, one 64 KiB DS pread per tick, debris record table DS:0x2093
+# stride 0x0B. Bombs eleven drops at the level-2 sites with the deepest free
+# fall (tile (40,31) has 16 clear tiles below it) so fragments build enough
+# vertical speed to trip the landing-shatter gate (4AED cmp vy,0x3c).
+#
+# 1. SHATTER PLAYBACK, previously disassembly-only. The spec listed the
+#    0x76 -> 0x77 -> 0x78 -> terminal chain as never exercised. It is captured
+#    here, ONE GLYPH PER TICK, on a record whose flagged word is 0xc007 --
+#    below the 0xffbc fragile floor -- so the terminal is the 0xFF dissolve
+#    rather than the 0x6b+Random(5) fragile terminal. The record's slot is
+#    reused seven ticks later, i.e. the 0xFF consume path removed it. This
+#    confirms the port's stepper (one frame per tick) and its non-fragile
+#    terminal choice.
+#
+# 2. REST COUNTER: the port's retirement model is REFUTED by these rows. The
+#    port reads 4CFF (cmp rest,0x64) as "after exactly 100 resting ticks,
+#    clear bit 0x8000 and remove the record". The original does not do that.
+#    The counter SATURATES at 100 and the record stays: across this capture
+#    and the natural-forward capture, no record's rest byte ever exceeds 100,
+#    bit 0x8000 of its word is never cleared, and the record is never removed
+#    on that path. Removal is observed only through the 0xFF consume path
+#    The longest observed run is 3359 CONSECUTIVE TICKS at rest == 100
+#    (record 205, from frame 641 to the end of the capture) -- the port used to
+#    remove that record after 100. The
+#    replacement model is now implemented and guarded.
+debris_shatter_playback_original=level2
+source=LEZAC.EXE via DOSBox /proc/mem tick-locked read
+runtime_ds=0c8f
+debris_table_offset=0x2093
+debris_stride=0x0b
+ticks_sampled=3920
+shatter_record=202
+shatter_chain=0x76,0x77,0x78,0xff
+shatter_chain_frames=498,499,500,501
+shatter_ticks_per_glyph=1
+shatter_word=0xc007
+fragile_floor=0xffbc
+terminal_is_dissolve=1
+slot_reused_frame=508
+landing_shatter_gate=0x3c
+max_vy_observed=68
+rest_max_observed=100
+rest_saturates=1
+longest_rest_100_run=3359
+longest_rest_100_record=205
+rest_retirement_observed=0
+damaged_bit_ever_cleared=0
+port_matches_saturation=1
+visual_claim=0
+temp_copy=1
+row frame=495 record=202 raw=ac0e07c000400044016a00
+row frame=496 record=202 raw=100f07c000440004006a00
+row frame=497 record=202 raw=100f07c000440048016a00
+row frame=498 record=202 raw=100f07c0000c000c027600
+row frame=499 record=202 raw=100f07c0000c0018037700
+row frame=500 record=202 raw=100f07c0000c0024047800
+row frame=501 record=202 raw=100f07c0000c002404ff00
+row frame=502 record=202 raw=100f07c0000c002404ff00
+row frame=503 record=202 raw=100f07c0000c002404ff00
+row frame=504 record=202 raw=100f07c0000c002404ff00
+row frame=505 record=202 raw=100f07c0000c002404ff00
+row frame=506 record=202 raw=100f07c0000c002404ff00
+row frame=507 record=202 raw=100f07c0000c002404ff00
+row frame=508 record=202 raw=460e1ec003270000004900
+row frame=509 record=202 raw=460e1ec003270327014900
+row frame=510 record=202 raw=aa0e1fc0061e0c3c024900
+row frame=511 record=202 raw=aa0e1fc0061e125a034900

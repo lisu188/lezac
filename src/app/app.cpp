@@ -140,20 +140,105 @@ constexpr uint16_t kLaneHelperBlendZeroDivisorOffset = 0x09ac;
 constexpr uint16_t kLaneHelperBlendZeroDivisorError = 0x00c8;
 constexpr size_t kDebrisCapacity = 0x640;
 constexpr size_t kCollapseCapacity = 0x00fa;
+// Falling-debris mover constants (1000:45FA loop 2 / seeder 1000:370E; every
+// citation re-read from LEZAC.EXE at ghidra_addr + 0x770 — see
+// docs/recovery/falling_debris_update_spec.md).
+constexpr size_t kDebrisRecordIndexBase = 0x00c7;  // DS:207E init (file 0x3319);
+                                                   // inc-before-imul at 3783 makes
+                                                   // the first record slot 200, and
+                                                   // the 3753 cap check refuses when
+                                                   // DS:207E >= kDebrisCapacity.
+constexpr int8_t kDebrisGravityCompare = 0x7b;     // 4AA3 cmp vy,0x7b (signed jge)
+constexpr int8_t kDebrisGravityStep = 4;           // 4AAA add vy,4
+// 4CFF cmp rest,0x64 -- the ceiling the resting counter saturates at, NOT a
+// retirement threshold. See the note in updateDebrisRecords(): two level-2
+// captures show the counter stopping here with the record still present and
+// still flagged (longest observed run 3359 consecutive ticks at this value).
+constexpr uint8_t kDebrisRestSaturation = 0x64;
+constexpr uint8_t kDebrisShatterFrame = 0x76;      // 49B0/4B16 first shatter frame
+constexpr uint8_t kDebrisShatterLastStep = 0x79;   // 49DC terminal-frame trigger
+constexpr uint8_t kDebrisTerminalBase = 0x6b;      // 49EF add ax,0x6b (+Random(5))
+constexpr uint8_t kDebrisDissolveByte = 0xff;      // 49F7 terminal / 4A23 consume
+constexpr uint16_t kDebrisFragileWordFloor = 0xffbc;  // 49A4/49E2 cmp fw,0xffbc (ja)
+constexpr int8_t kDebrisLandingShatterVyGate = 0x3c;  // 4AED cmp vy,0x3c (jle skips)
+constexpr uint16_t kDebrisAutoShatterSoundCursor = 0x27;   // 49BD, priority 5 (49C3)
+constexpr uint8_t kDebrisAutoShatterSoundPriority = 5;
+constexpr uint16_t kDebrisLandingShatterSoundCursor = 0x21;  // 4B2C, priority 2 (4B27)
+constexpr uint8_t kDebrisLandingShatterSoundPriority = 2;
+constexpr uint16_t kDebrisBounceSoundBase = 0xea61;  // 4C51 add ax,0xea61, priority 1
+constexpr uint8_t kDebrisBounceSoundPriority = 1;    // 4C57
 constexpr size_t kGranRecordSize = 57;
 constexpr int kReentryTicks = 180;
 constexpr int kDeathStateTicks = 0x003c;
 constexpr uint8_t kState2VisualStartFrame = 0x4a;
 constexpr uint8_t kState2VisualEndFrame = 0x4f;
 constexpr uint8_t kState2VisualDelay = 3;
+// UNEVIDENCED port policy (@unevidenced:damage_cooldown_ticks), like
+// kReentryTicks below: no byte citation and no
+// capture fixes it. Left at its pre-governed-loop value, so its wall-clock
+// duration changed from ~0.30 s to ~0.73 s when the live loop was governed.
 constexpr int kDamageCooldownTicks = 18;
 // The original kind-1 kill trace holds sprite 47 for DS:78C2 frames 263..311:
-// 49 governed 24.5-fps ticks, or 120 frames at the port's 60-fps engine rate.
-// updateMonsters runs after bomb damage in the same engine frame, so the death
-// actor is initialized one count above the first externally visible value.
-constexpr int kMonsterCorpseSprite = 47;
-constexpr int kMonsterDeathVisibleFrames = 120;
-constexpr uint32_t kFrameDelayMs = 16;
+// 49 governed ticks. updateMonsters runs after bomb damage in the same tick,
+// so the death actor is initialized one count above the first externally
+// visible value.
+// Impact/corpse sprite per monster kind and direction, read from the bytes.
+// At 1000:745B the original does `cmp WORD [bp-0xc],0 / jle` -- [bp-0xc] is
+// vx -- taking dir = 1 when vx <= 0 and dir = 2 when vx > 0, then indexes
+// `al = DS:[0x77 + kind*2 + dir]` and hands the result to the sprite-assign
+// helper 1000:5A75. DGROUP (image base 0xAA20, anchored on the DS:0x8B
+// "larax e zaco versione 1:0 shareware" string) holds
+// DS:0x0077.. = 2c 28 28 30 31 2b 2b 35 35 39 39, so entries [1..10] give
+// kind 0 -> 39/39, kind 1 -> 47/48, kind 2 -> 42/42, kind 3 -> 52/52,
+// kind 4 -> 56/56 after the one-based -> file-sprite -1. Only kind 1 has a
+// direction pair; the others are direction-independent.
+// Two level-1 kill captures agree with the kind-1 entries (47 and 48, each
+// held 49 ticks) but do NOT establish the discriminator: the walk band is
+// selected from the same vx sign at 1000:7286/72DA, so band and velocity
+// agree whenever vx != 0. They part company at vx == 0, where the original
+// takes dir = 1 unconditionally while the band keeps whatever it last had.
+constexpr std::array<std::array<int, 2>, 5> kMonsterImpactSprites{{
+    {{39, 39}}, {{47, 48}}, {{42, 42}}, {{52, 52}}, {{56, 56}},
+}};
+constexpr int kMonsterCorpseSpriteLeft = 47;
+constexpr int kMonsterCorpseSpriteRight = 48;
+constexpr int kMonsterDeathVisibleTicks = 49;
+// The original's main loop is rate-governed: file offset 0x8089 holds 30
+// frames in 120..125 hundredths of a second by dithering the delay word
+// DS:0x78CC between 96 and 102 ms (step DS:0x78CA = 6), so the converged
+// rate oscillates in a 24.2..25.2 fps band (see
+// tests/fixtures/route_timing_original_level1.txt).  One update() call is
+// one original game tick throughout this port, so the interactive loop must
+// fire updates at that rate; kGovernedTickMs is a fixed value sitting
+// mid-band rather than a reproduction of the dither.
+// 40.83 ms is the midpoint of the byte-derived target itself: the governor
+// at file 0x810A/0x812F holds 30 frames in 120..125 hundredths, i.e.
+// 24.00..25.00 fps, whose midpoint period is (1200+1250)/2/30 = 40.83 ms.
+// The 24.2..25.2 band below is what the DOSBox capture MEASURED, which sits
+// slightly above the byte-derived band -- host timing overhead is the likely
+// reason -- so the two are kept distinct rather than conflated.
+constexpr double kGovernedTickMs = 40.8;
+// Events are polled far more often than ticks so that key presses (handled
+// edge-wise in processEvents/onKey) stay responsive between updates.
+constexpr uint32_t kEventPollDelayMs = 4;
+// Upper bound on ticks simulated in one pass after a stall, so a suspended
+// window cannot fast-forward the level on resume.
+constexpr int kMaxCatchUpTicks = 5;
+// Acceptance band for the measured interactive tick rate: the original's
+// governed 24.2..25.2 fps, widened by nothing — a loop paced any other way
+// (the previous 16 ms/60 fps pacing, for instance) falls outside it.
+constexpr double kGovernedRateBandMin = 24.2;
+constexpr double kGovernedRateBandMax = 25.2;
+// A wall-clock measurement on a loaded host can only ever lose ticks, never
+// gain them: once a stall exceeds the catch-up cap the missed ticks are
+// dropped for good. So the measured rate is held to the band's ceiling
+// exactly — that is the bound a too-fast loop (the old 16 ms/60 fps pacing
+// yields ~60) violates — while the floor carries slack for host scheduling.
+constexpr double kGovernedRateMeasuredFloor = 22.0;
+// Worst tolerated wall-clock gap between two gameplay ticks. One governed
+// tick is 40.8 ms; this allows a little over two, so ordinary scheduling
+// jitter passes while a loop that batches ticks and sleeps does not.
+constexpr long kGovernedMaxTickGapMs = 90;
 constexpr uint32_t kLevelIntroCharacterDelayMs = 81;
 constexpr int kLevelIntroCellAdvance = 11;
 constexpr int kLevelIntroTextY = 94;
@@ -299,13 +384,29 @@ constexpr int16_t kOriginalLaunchPadVelocity = -2000;
 // holds 30 frames in 120..125 hundredths), the walk speed is a flat
 // 4 px/tick and the jump is 8.8 fixed-point (v0 = -848, gravity +64/tick,
 // floor-to-pixel -- every observed per-tick delta reproduces exactly).
-// Continuous equivalents at the governed rate: 98 px/s walk, 98 px/s jump
-// launch with 200 px/s^2 gravity (peak 24 px, 0.49 s rise -- both match the
-// measured arc).
-constexpr float kPlayerJumpVelocity = -98.0f;
+//
+// The player runs that model directly, the same way every other moving thing
+// in this port does. An earlier revision approximated it with a continuous
+// px/s model (98 px/s launch, 200 px/s^2 gravity); those numbers reproduced
+// the 24 px PEAK but not the arc, because 98 was derived from the walk speed
+// rather than from the jump: -848/256 is -3.3125 px/tick = -81 px/s, and
+// 64/256 is 0.25 px/tick^2 = 150 px/s^2. The peak agreed only by coincidence
+// (98^2 / (2*200) = 24.01). The per-tick deltas did not.
+constexpr int16_t kPlayerWalkVelocity8 = 0x0400;   // flat 4 px/tick
+constexpr int16_t kPlayerJumpVelocity8 = kOriginalNormalJumpVelocity;  // -848
+constexpr int16_t kPlayerGravity8 = 64;            // +0x40 per tick
+// The original's actor gravity adds +0x40 per tick and clamps at 0x7FF
+// (1000:7028/702C). The player's measured gravity is that same +0x40, so the
+// clamp is carried over by analogy; no capture reaches terminal velocity, so
+// the clamp VALUE is INFERRED (@unevidenced:player_terminal_velocity) even
+// though the +0x40 step is measured.
+constexpr int16_t kPlayerTerminalVelocity8 = 0x07ff;
+// Float mirror kept for the many call sites that read player.vy as a sign or
+// magnitude; it is always vy8 / 256.
+constexpr float kPlayerJumpVelocity =
+    static_cast<float>(kOriginalNormalJumpVelocity) / 256.0f;
 constexpr float kLaunchPadVelocity =
-    kPlayerJumpVelocity * (static_cast<float>(kOriginalLaunchPadVelocity) /
-                           static_cast<float>(kOriginalNormalJumpVelocity));
+    static_cast<float>(kOriginalLaunchPadVelocity) / 256.0f;
 constexpr uint8_t kLaunchPadMarkerTimer = 5;
 constexpr uint8_t kLaunchPadMarkerFrame = 0x5b;
 constexpr uint8_t kLaunchPadMarkerKind = 0x0b;
@@ -469,12 +570,24 @@ enum class BombType : uint8_t {
 struct BombProfile {
     uint8_t actorKind = 0x0d;
     uint8_t spriteBase = 58;
-    // The original small-bomb fuse is 41 game ticks (~1.67 s at the governed
-    // 24.5 fps), measured from the bomb actor's countdown byte (record
-    // offset 0x1B, decremented once per frame by the main loop at file
-    // 0x820b): placed at tick 396, zero at tick 437. 100 engine frames at
-    // 60 fps reproduces that duration.
-    int fuseTicks = 100;
+    // UNRECOVERED (@unevidenced:bomb_fuse_durations). No bomb fuse duration
+    // has been read from the original.
+    // The 41 here (and the three values in bombProfile()) are port policy,
+    // chosen to keep roughly the wall-clock durations the port has always
+    // had, now expressed in game ticks.
+    //
+    // An earlier revision claimed 41 was measured from "the bomb actor's
+    // countdown byte at DS:0x74A8 record offset 0x1B, decremented at file
+    // 0x820b". That reading is wrong twice over: DS:0x74A8 stride 0x1E is the
+    // level-file MONSTER SPAWNER table -- this port's own parseMonsterSpawner
+    // maps offset 0x1B as the spawner cooldown and 0x1C as its reload -- not
+    // the actor table, and file 0x820b is that spawner's periodic decrement,
+    // which reloads from +0x1C. The capture's "fuse zero at tick 437" is the
+    // level-1 spawner's third cooldown-zero (257, 347, 437: first spawn at
+    // 256, then period 90). It is the first zero that persists rather than
+    // being reloaded, because liveAllowance has run out by then. The 41 was
+    // just the gap between the bomb keypress and that unrelated event.
+    int fuseTicks = 41;
 };
 
 struct BombInventory {
@@ -485,9 +598,9 @@ struct BombInventory {
 struct Bomb {
     int x = 0;
     int y = 0;
-    int timer = 100;
+    int timer = 41;
     BombType type = BombType::Small;
-    int fuseTicks = 100;
+    int fuseTicks = 41;
     uint8_t owner = 1;
 };
 
@@ -531,15 +644,20 @@ struct ExplosionEffect {
     int finalSignedOffset = 0;
 };
 
+// One live falling fragment: the original 11-byte record at
+// DS:0x2093 + 0x0B*slot (first live slot of a level is 200; seeder 1000:370E
+// fills it at 3798/37A1/37AB/37C5/37CD/37D5/37BE/37E3/37EA, mover 1000:45FA
+// loop 2 updates it — see docs/recovery/falling_debris_update_spec.md).
 struct DebrisRecord {
-    int tileIndex = 0;
-    uint16_t flaggedWord = 0;
-    uint8_t forwardPhase = 0;
-    uint8_t reversePhase = 0;
-    std::array<uint8_t, 3> zeroPad{0, 0, 0};
-    uint8_t lookup = 0;
-    uint8_t trailingZero = 0;
-    int timer = 18;
+    int tileIndex = 0;         // +0 u16: cell index (y*width + x)
+    uint16_t flaggedWord = 0;  // +2 u16: word | 0x8000 while airborne
+    int8_t velocityX = 0;      // +4 s8: vx, 128 sub-units per tile (lane DS:78D2)
+    int8_t velocityY = 0;      // +5 s8: vy (lane DS:78D4)
+    int8_t subX = 0;           // +6 s8: x sub-accumulator (lane DS:78D3)
+    int8_t subY = 0;           // +7 s8: y sub-accumulator (lane DS:78D5)
+    uint8_t restTicks = 0;     // +8 u8: no-move ticks, saturating at 100
+    uint8_t lookup = 0;        // +9 u8: carried tile code (objectByte at seed)
+    uint8_t aux = 0;           // +A u8: bit 7 = "my move spawned a cascade" (4C19)
 };
 
 struct CollapseRecord {
@@ -595,8 +713,17 @@ struct FrameInspection {
 struct Player {
     float x = 24.0f;
     float y = 24.0f;
+    // vx/vy are float MIRRORS of the 8.8 fixed-point velocities below, kept
+    // so the many call sites that test a sign or print a magnitude keep
+    // working. The authoritative state is vx8/vy8 plus the fractional carry;
+    // motion is integrated once per tick with integrateAxis8_8, exactly as
+    // monsters, boss links, debris and launch-pad markers already are.
     float vx = 0.0f;
     float vy = 0.0f;
+    int16_t vx8 = 0;
+    int16_t vy8 = 0;
+    uint8_t fracX = 0;
+    uint8_t fracY = 0;
     bool grounded = false;
 };
 
@@ -624,6 +751,10 @@ struct ActiveMonster {
     uint16_t ai1 = 0;
     uint16_t ai2 = 0;
     uint8_t animFrame = 0;
+    // Latched at death, before `kind` is overwritten with 0x0c and vx8 is
+    // cleared, because the corpse sprite depends on which way the monster
+    // was facing.
+    uint8_t corpseSprite = kMonsterCorpseSpriteLeft;
     uint8_t animStart = 0;
     uint8_t animEnd = 0;
     uint8_t animDelay = 0;
@@ -1366,22 +1497,173 @@ public:
         buildBackdropBuffer();
     }
 
-    void run() {
+    // The one implementation of the interactive cadence. Events are polled
+    // every kEventPollDelayMs so key presses stay responsive, but gameplay
+    // ticks are handed out by a wall-clock accumulator at the original's
+    // governed rate, because every per-tick subsystem in this port (walker
+    // motion, spawners, boss gates, animation, bomb fuses, falling debris)
+    // advances exactly once per update() call. Runs until `running` clears or
+    // stop() reports true; returns the number of ticks issued.
+    template <typename StopFn>
+    long pumpGovernedLoop(bool& running, StopFn stop) {
+        uint32_t last = SDL_GetTicks();
+        uint32_t lastTickAt = last;
+        double tickAccumulatorMs = 0.0;
+        long ticks = 0;
+        governedDroppedTicks_ = 0;
+        governedMaxTickGapMs_ = 0;
+        while (running && !stop()) {
+            processEvents(running);
+            uint32_t now = SDL_GetTicks();
+            tickAccumulatorMs += static_cast<double>(now - last);
+            last = now;
+            const double cap = kGovernedTickMs * kMaxCatchUpTicks;
+            if (tickAccumulatorMs > cap) {
+                // Time beyond the catch-up cap is discarded, which silently
+                // loses gameplay ticks; count them so a diagnostic can say so
+                // instead of reporting a healthy average.
+                governedDroppedTicks_ +=
+                    static_cast<long>((tickAccumulatorMs - cap) / kGovernedTickMs);
+                tickAccumulatorMs = cap;
+            }
+            bool ticked = false;
+            while (tickAccumulatorMs >= kGovernedTickMs) {
+                tickAccumulatorMs -= kGovernedTickMs;
+                update(static_cast<float>(kGovernedTickMs / 1000.0));
+                ++ticks;
+                ticked = true;
+            }
+            if (ticked) {
+                const uint32_t gap = now - lastTickAt;
+                lastTickAt = now;
+                governedMaxTickGapMs_ = std::max(governedMaxTickGapMs_,
+                                                 static_cast<long>(gap));
+                draw();
+            }
+            SDL_Delay(kEventPollDelayMs);
+        }
+        return ticks;
+    }
+
+    // The interactive session itself. run() is nothing but this with no
+    // deadline, and the governed-rate diagnostic calls the SAME function with
+    // one -- so the live loop's cadence is what gets measured, rather than a
+    // second copy of it that could drift out of agreement.
+    template <typename StopFn, typename ReadyFn>
+    long runInteractive(StopFn stop, ReadyFn onReady) {
         load();
         initSdl();
         resetLevel(0);
         interactiveLevelIntroEnabled_ = true;
-        uint32_t last = SDL_GetTicks();
+        onReady();
         bool running = true;
-        while (running) {
-            processEvents(running);
-            uint32_t now = SDL_GetTicks();
-            float dt = std::min(0.05f, (now - last) / 1000.0f);
-            last = now;
-            update(dt);
-            draw();
-            SDL_Delay(kFrameDelayMs);
+        governedRunTicks_ = pumpGovernedLoop(running, stop);
+        return governedRunTicks_;
+    }
+
+    // The interactive entry point. The governed-rate diagnostic calls THIS
+    // function -- not a copy of its loop -- after arming the deadline below,
+    // so re-siting a wrong cadence anywhere inside run() fails the test.
+    // In normal play the deadline is zero and the stop condition never fires.
+    void run() {
+        runInteractive(
+            [this] {
+                return governedRunDeadlineMs_ != 0 &&
+                       SDL_GetTicks() - governedRunStartMs_ >=
+                           governedRunDeadlineMs_;
+            },
+            [this] {
+                if (governedRunDeadlineMs_ == 0) return;
+                // Measured runs drop straight into gameplay so ticks are real
+                // gameplay ticks rather than menu frames.
+                menu_ = false;
+                interactiveLevelIntroEnabled_ = false;
+                levelIntro_ = {};
+                governedRunStartMs_ = SDL_GetTicks();
+                governedRunStartLogicTick_ = logicTick_;
+            });
+    }
+
+    // Measure the realised tick rate of the interactive loop over a bounded
+    // wall-clock window. This calls pumpGovernedLoop — the same function
+    // run() drives the game with — so a regression in the live cadence fails
+    // here rather than only showing up in play.
+    void debugGovernedRate(double windowSeconds) {
+        governedRunDeadlineMs_ =
+            static_cast<uint32_t>(std::max(0.5, windowSeconds) * 1000.0);
+        // Drive the real interactive entry point.
+        run();
+        const uint32_t start = governedRunStartMs_;
+        const uint32_t startLogicTick = governedRunStartLogicTick_;
+        const long ticks = governedRunTicks_;
+        const double elapsedSeconds =
+            static_cast<double>(SDL_GetTicks() - start) / 1000.0;
+        const double ticksPerSecond =
+            elapsedSeconds > 0.0 ? ticks / elapsedSeconds : 0.0;
+        const long logicTicks =
+            static_cast<long>(logicTick_ - startLogicTick);
+        // The scheduling interval itself is exact and host-independent.
+        const double nominalTicksPerSecond = 1000.0 / kGovernedTickMs;
+        if (nominalTicksPerSecond < kGovernedRateBandMin ||
+            nominalTicksPerSecond > kGovernedRateBandMax) {
+            throw std::runtime_error(
+                "kGovernedTickMs schedules " +
+                std::to_string(nominalTicksPerSecond) +
+                " ticks/s, outside the original's governed band");
         }
+        if (ticksPerSecond > kGovernedRateBandMax) {
+            throw std::runtime_error(
+                "measured tick rate " + std::to_string(ticksPerSecond) +
+                " exceeds the original's governed band");
+        }
+        if (ticksPerSecond < kGovernedRateMeasuredFloor) {
+            throw std::runtime_error(
+                "measured tick rate " + std::to_string(ticksPerSecond) +
+                " fell below the governed band's host-stall floor");
+        }
+        if (logicTicks != ticks) {
+            throw std::runtime_error(
+                "gameplay ticks did not track loop ticks one-for-one");
+        }
+        // An aggregate rate is blind to burstiness: a loop delivering several
+        // ticks at once and then sleeping averages out correctly while
+        // playing nothing like the original. Bound the worst gap between
+        // ticks, and refuse to report a healthy rate while ticks were being
+        // dropped at the catch-up clamp.
+        if (governedMaxTickGapMs_ > kGovernedMaxTickGapMs) {
+            throw std::runtime_error(
+                "worst gap between gameplay ticks was " +
+                std::to_string(governedMaxTickGapMs_) +
+                " ms; the loop is delivering ticks in bursts");
+        }
+        if (governedDroppedTicks_ != 0) {
+            throw std::runtime_error(
+                std::to_string(governedDroppedTicks_) +
+                " gameplay ticks were dropped at the catch-up clamp");
+        }
+        // Derived wall-clock durations for the per-tick subsystems whose
+        // constants are game ticks: the small-bomb fuse and the debris
+        // rest-counter saturation ceiling.
+        const double fuseSeconds =
+            bombProfile(BombType::Small).fuseTicks / ticksPerSecond;
+        const double debrisRestSaturationSeconds =
+            static_cast<double>(kDebrisRestSaturation) / ticksPerSecond;
+        std::cout << std::fixed << std::setprecision(2)
+                  << "governed_rate=ok"
+                  << " nominal_ticks_per_second=" << nominalTicksPerSecond
+                  << " band=" << kGovernedRateBandMin << '-'
+                  << kGovernedRateBandMax
+                  << " window_s=" << elapsedSeconds
+                  << " ticks=" << ticks
+                  << " measured_ticks_per_second=" << ticksPerSecond
+                  << " logic_ticks_match=1"
+                  << " max_tick_gap_ms=" << governedMaxTickGapMs_
+                  << " dropped_ticks=" << governedDroppedTicks_
+                  << " drives_run_loop=1"
+                  << " small_fuse_s=" << fuseSeconds
+                  << " debris_rest_sat_s=" << debrisRestSaturationSeconds
+                  << " visual_claim=0\n"
+                  << std::defaultfloat;
     }
 
     void smokeControls() {
@@ -1430,10 +1712,10 @@ public:
         }
 
         size_t twoPlayerBombs = bombs_.size();
-        int player1BombX = static_cast<int>(player_.x + 6.0f) / 8;
-        int player1BombY = static_cast<int>(player_.y + 12.0f) / 8;
-        int player2BombX = static_cast<int>(player2_.x + 6.0f) / 8;
-        int player2BombY = static_cast<int>(player2_.y + 12.0f) / 8;
+        int player1BombX = (static_cast<int>(player_.x) + 4) / 8;
+        int player1BombY = static_cast<int>(player_.y) / 8;
+        int player2BombX = (static_cast<int>(player2_.x) + 4) / 8;
+        int player2BombY = static_cast<int>(player2_.y) / 8;
         int player1SmallBombs = bombInventory_.counts[0];
         int player2SmallBombs = bombInventory2_.counts[0];
         pushKeyDown(SDLK_n);
@@ -1463,8 +1745,8 @@ public:
         size_t insertBombs = bombs_.size();
         int insertPlayer1SmallBombs = bombInventory_.counts[0];
         int insertPlayer2SmallBombs = bombInventory2_.counts[0];
-        player2BombX = static_cast<int>(player2_.x + 6.0f) / 8;
-        player2BombY = static_cast<int>(player2_.y + 12.0f) / 8;
+        player2BombX = (static_cast<int>(player2_.x) + 4) / 8;
+        player2BombY = static_cast<int>(player2_.y) / 8;
         pushKeyDown(SDLK_INSERT);
         processEvents(running);
         if (bombs_.size() != insertBombs + 1 ||
@@ -1659,10 +1941,13 @@ public:
 
         energy_ = 100;
         damageCooldown_ = 0;
+        // Synthetic zero-velocity fragment parked on the player's own tile:
+        // the live mover leaves it overlapping the player for the next two
+        // passes (it needs 9 gravity ticks before its first row step), which
+        // must drain energy both times.
         DebrisRecord debris;
         debris.tileIndex = (static_cast<int>(player_.y + 8.0f) / 8) * level_.width +
                            (static_cast<int>(player_.x + 6.0f) / 8);
-        debris.timer = 2;
         debrisQueue_.push_back(debris);
         updateFlashes();
         drainPlayerDamageCounters();
@@ -1685,8 +1970,8 @@ public:
         energy_ = 100;
         damageCooldown_ = 0;
         BombProfile contactProfile = bombProfile(BombType::Small);
-        Bomb contactBomb{static_cast<int>(player_.x + 6.0f) / 8,
-                         static_cast<int>(player_.y + 12.0f) / 8,
+        Bomb contactBomb{(static_cast<int>(player_.x) + 4) / 8,
+                         static_cast<int>(player_.y) / 8,
                          contactProfile.fuseTicks, BombType::Small,
                          contactProfile.fuseTicks};
         explode(contactBomb);
@@ -2058,7 +2343,7 @@ public:
             int firstDebrisForward = 0;
             int firstDebrisReverse = 0;
             int firstDebrisLookup = 0;
-            int firstDebrisTimer = 0;
+            int firstDebrisRest = 0;
             int firstCollapseX = -1;
             int firstCollapseY = -1;
             uint16_t firstCollapseStart = 0;
@@ -2117,8 +2402,8 @@ public:
             frame.playerCount = playerCount_;
             frame.p1x = static_cast<int>(player_.x);
             frame.p1y = static_cast<int>(player_.y);
-            frame.p1BombX = static_cast<int>(player_.x + 6.0f) / kTileSize;
-            frame.p1BombY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+            frame.p1BombX = (static_cast<int>(player_.x) + 4) / kTileSize;
+            frame.p1BombY = static_cast<int>(player_.y) / kTileSize;
             frame.p1FootTile = tileAt(
                 static_cast<int>(player_.x + 6.0f) / kTileSize,
                 static_cast<int>(player_.y + 16.0f) / kTileSize);
@@ -2126,8 +2411,8 @@ public:
             if (playerCount_ > 1) {
                 frame.p2x = static_cast<int>(player2_.x);
                 frame.p2y = static_cast<int>(player2_.y);
-                frame.p2BombX = static_cast<int>(player2_.x + 6.0f) / kTileSize;
-                frame.p2BombY = static_cast<int>(player2_.y + 12.0f) / kTileSize;
+                frame.p2BombX = (static_cast<int>(player2_.x) + 4) / kTileSize;
+                frame.p2BombY = static_cast<int>(player2_.y) / kTileSize;
             }
             frame.p2Dead = player2Dead_ ? 1 : 0;
             frame.bombs = bombs_.size();
@@ -2151,10 +2436,10 @@ public:
                 const DebrisRecord& debris = debrisQueue_.front();
                 frame.firstDebrisTile = debris.tileIndex;
                 frame.firstDebrisFlagged = debris.flaggedWord;
-                frame.firstDebrisForward = debris.forwardPhase;
-                frame.firstDebrisReverse = debris.reversePhase;
+                frame.firstDebrisForward = debris.velocityX;
+                frame.firstDebrisReverse = debris.velocityY;
                 frame.firstDebrisLookup = debris.lookup;
-                frame.firstDebrisTimer = debris.timer;
+                frame.firstDebrisRest = debris.restTicks;
             }
             if (!collapseQueue_.empty()) {
                 const CollapseRecord& collapse = collapseQueue_.front();
@@ -2242,16 +2527,16 @@ public:
             capture("010_level1_start");
 
             AutoplayRouteResult route = autoplayLevel1BombRoute();
-            if (route.bombTileX != 24 || route.bombTileY != 22) {
-                throw std::runtime_error("frame sequence autoplayer missed level-1 tile 24,22");
+            if (route.bombTileX != 24 || route.bombTileY != 21) {
+                throw std::runtime_error("frame sequence autoplayer missed level-1 tile 24,21");
             }
             capture("020_level1_tile24_aligned");
 
             pushKeyDown(SDLK_n);
             processEvents(running);
-            if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 22) {
+            if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 21) {
                 throw std::runtime_error(
-                    "frame sequence N key did not place the level-1 tile 24,22 bomb");
+                    "frame sequence N key did not place the level-1 tile 24,21 bomb");
             }
             capture("030_level1_tile24_bomb");
 
@@ -2407,26 +2692,26 @@ public:
             if (!bombs_.empty() || monsters_.empty() ||
                 monsters_.front().behavior != 2 ||
                 monsters_.front().kind != 0x0c ||
-                monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
-                monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
+                monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
+                monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error("frame sequence monster bomb did not kill monster");
             }
             capture("030_monster_bomb_death");
 
-            for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+            for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
                 updateWithControls(idle, 1.0f / 60.0f);
                 if (monsters_.size() != 1 ||
                     monsters_.front().stateTimer !=
-                        kMonsterDeathVisibleFrames - frame ||
+                        kMonsterDeathVisibleTicks - frame ||
                     monsterSpriteIndex(monsters_.front()) !=
-                        kMonsterCorpseSprite ||
+                        kMonsterCorpseSpriteLeft ||
                     !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                     throw std::runtime_error(
                         "frame sequence monster corpse playback mismatch");
                 }
                 if (monsters_.front().stateTimer ==
-                    kMonsterDeathVisibleFrames / 2) {
+                    kMonsterDeathVisibleTicks / 2) {
                     capture("040_monster_bomb_corpse_midpoint");
                 }
             }
@@ -2717,7 +3002,7 @@ public:
                      << " debris0_forward=" << frame.firstDebrisForward
                      << " debris0_reverse=" << frame.firstDebrisReverse
                      << " debris0_lookup=" << frame.firstDebrisLookup
-                     << " debris0_timer=" << frame.firstDebrisTimer
+                     << " debris0_rest=" << frame.firstDebrisRest
                      << " collapse0_xy=" << frame.firstCollapseX << ','
                      << frame.firstCollapseY
                      << " collapse0_start=" << hex4(frame.firstCollapseStart)
@@ -2759,8 +3044,8 @@ public:
             std::cout << " pre_sprite=44"
                       << " last_pre_fatal_sprite=43"
                       << " pre_sprite_runs=44x4,43x2"
-                      << " corpse_sprite=" << kMonsterCorpseSprite
-                      << " corpse_frames=" << kMonsterDeathVisibleFrames
+                      << " corpse_sprite=" << kMonsterCorpseSpriteLeft
+                      << " corpse_ticks=" << kMonsterDeathVisibleTicks
                       << " delayed_reward=1 reward_sprite=61 reward_type=present"
                       << " score_delta=2000"
                       << " original_runtime_claim=1"
@@ -3104,8 +3389,8 @@ public:
 
         FrameInspection startFrame = inspectRenderedFrame("autoplayer-level1-start");
         AutoplayRouteResult route = autoplayLevel1BombRoute();
-        if (route.bombTileX != 24 || route.bombTileY != 22) {
-            throw std::runtime_error("autoplayer missed level-1 tile 24,22");
+        if (route.bombTileX != 24 || route.bombTileY != 21) {
+            throw std::runtime_error("autoplayer missed level-1 tile 24,21");
         }
 
         FrameInspection routeFrame = inspectRenderedFrame("autoplayer-level1-route");
@@ -3118,7 +3403,7 @@ public:
         pushKeyDown(SDLK_n);
         processEvents(running);
         if (bombs_.size() != bombsBefore + 1 || bombs_.back().x != 24 ||
-            bombs_.back().y != 22 || bombInventory_.counts[0] != smallBombsBefore - 1) {
+            bombs_.back().y != 21 || bombInventory_.counts[0] != smallBombsBefore - 1) {
             throw std::runtime_error("autoplayer N key did not place a level-1 route bomb");
         }
 
@@ -3978,8 +4263,8 @@ public:
         if (!bombs_.empty() || monsters_.empty() ||
             monsters_.front().behavior != 2 ||
             monsters_.front().kind != 0x0c ||
-            monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
-            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
+            monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
+            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster reward autoplayer did not kill monster");
         }
@@ -3990,19 +4275,19 @@ public:
         }
 
         FrameInspection midpointFrame;
-        for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+        for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
             if (monsters_.size() != 1 ||
                 monsters_.front().stateTimer !=
-                    kMonsterDeathVisibleFrames - frame ||
+                    kMonsterDeathVisibleTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
-                    kMonsterCorpseSprite ||
+                    kMonsterCorpseSpriteLeft ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "monster reward autoplayer corpse playback mismatch");
             }
             if (monsters_.front().stateTimer ==
-                kMonsterDeathVisibleFrames / 2) {
+                kMonsterDeathVisibleTicks / 2) {
                 midpointFrame = inspectRenderedFrame(
                     "autoplayer-monster-reward-corpse-midpoint");
             }
@@ -4052,8 +4337,8 @@ public:
                   << " pre_sprite=44"
                   << " last_pre_fatal_sprite=43"
                   << " pre_sprite_runs=44x4,43x2"
-                  << " corpse_sprite=" << kMonsterCorpseSprite
-                  << " corpse_frames=" << kMonsterDeathVisibleFrames
+                  << " corpse_sprite=" << kMonsterCorpseSpriteLeft
+                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " delayed_reward=1 reward_sprite=61"
                   << " reward_collected=1"
                   << " score_delta=" << (score_ - scoreBefore)
@@ -4137,8 +4422,8 @@ public:
         randomSeed_ = 0x90e25b93u;
         updateWithControls(idle, 1.0f / 60.0f);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
-            monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
-            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
+            monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
+            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteRight ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster behavior-3 autoplayer second hit did not kill");
         }
@@ -4149,13 +4434,13 @@ public:
         }
 
         uint32_t scoreBefore = score_;
-        for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+        for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
             if (monsters_.size() != 1 ||
                 monsters_.front().stateTimer !=
-                    kMonsterDeathVisibleFrames - frame ||
+                    kMonsterDeathVisibleTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
-                    kMonsterCorpseSprite ||
+                    kMonsterCorpseSpriteRight ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "monster behavior-3 autoplayer corpse playback mismatch");
@@ -4198,7 +4483,7 @@ public:
                   << " first_hit_hp=2 second_hit_kill=1 reward_collected=1"
                   << " score_delta=" << (score_ - scoreBefore)
                   << " frame_inspection=1"
-                  << " corpse_frames=" << kMonsterDeathVisibleFrames
+                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " delayed_reward=1 reward_sprite=61\n";
     }
 
@@ -4278,8 +4563,8 @@ public:
         randomSeed_ = 0x90e25b93u;
         updateWithControls(idle, 1.0f / 60.0f);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
-            monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
-            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
+            monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
+            monsterSpriteIndex(monsters_.front()) != kMonsterImpactSprites[2][0] ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster behavior-4 autoplayer bomb kill mismatch");
         }
@@ -4289,13 +4574,13 @@ public:
             throw std::runtime_error("monster behavior-4 death frame did not change");
         }
 
-        for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+        for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
             if (monsters_.size() != 1 ||
                 monsters_.front().stateTimer !=
-                    kMonsterDeathVisibleFrames - frame ||
+                    kMonsterDeathVisibleTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
-                    kMonsterCorpseSprite ||
+                    kMonsterImpactSprites[2][0] ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "monster behavior-4 autoplayer corpse playback mismatch");
@@ -4314,7 +4599,7 @@ public:
                   << " scenario=" << scenario
                   << " chase_dx=" << chaseDx
                   << " timer_after=2 killed=1 frame_inspection=1"
-                  << " corpse_frames=" << kMonsterDeathVisibleFrames
+                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " delayed_reward=1 reward_sprite=61\n";
     }
 
@@ -4366,8 +4651,8 @@ public:
         randomSeed_ = 0x90e25b93u;
         updateWithControls(idle, 1.0f / 60.0f);
         if (monsters_.empty() || monsters_.front().behavior != 2 ||
-            monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
-            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
+            monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
+            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
             spawnerStates_[0].availableSlots != initialSlots ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster spawner autoplayer did not release slot");
@@ -4406,18 +4691,18 @@ public:
             return nullptr;
         };
         const ActiveMonster* corpse = findCorpse();
-        if (!corpse || corpse->stateTimer != kMonsterDeathVisibleFrames - 1 ||
-            monsterSpriteIndex(*corpse) != kMonsterCorpseSprite ||
+        if (!corpse || corpse->stateTimer != kMonsterDeathVisibleTicks - 1 ||
+            monsterSpriteIndex(*corpse) != kMonsterCorpseSpriteLeft ||
             !bonusDrops_.empty()) {
             throw std::runtime_error(
                 "monster spawner autoplayer respawn disturbed corpse playback");
         }
-        for (int frame = 2; frame < kMonsterDeathVisibleFrames; ++frame) {
+        for (int frame = 2; frame < kMonsterDeathVisibleTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
             corpse = findCorpse();
             if (!corpse ||
-                corpse->stateTimer != kMonsterDeathVisibleFrames - frame ||
-                monsterSpriteIndex(*corpse) != kMonsterCorpseSprite ||
+                corpse->stateTimer != kMonsterDeathVisibleTicks - frame ||
+                monsterSpriteIndex(*corpse) != kMonsterCorpseSpriteLeft ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "monster spawner autoplayer corpse playback mismatch");
@@ -4436,7 +4721,7 @@ public:
                   << " scenario=" << scenario
                   << " spawner_index=1 reserved_slot=1 released_slot=1 respawned=1"
                   << " frame_inspection=1"
-                  << " corpse_frames=" << kMonsterDeathVisibleFrames
+                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " delayed_reward=1 reward_sprite=61\n";
     }
 
@@ -4718,14 +5003,14 @@ public:
         }
 
         AutoplayRouteResult route = autoplayLevel1BombRoute();
-        if (route.bombTileX != 24 || route.bombTileY != 22) {
-            throw std::runtime_error("collapse autoplayer missed level-1 tile 24,22");
+        if (route.bombTileX != 24 || route.bombTileY != 21) {
+            throw std::runtime_error("collapse autoplayer missed level-1 tile 24,21");
         }
         FrameInspection routeFrame = inspectRenderedFrame("autoplayer-collapse-route");
 
         pushKeyDown(SDLK_n);
         processEvents(running);
-        if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 22) {
+        if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 21) {
             throw std::runtime_error("collapse autoplayer did not place route bomb");
         }
         int fuse = bombs_.back().timer;
@@ -4748,7 +5033,11 @@ public:
             updateWithControls(idle, 1.0f / 60.0f);
             ++playbackFrames;
         }
-        if (!collapseQueue_.empty() || playbackFrames != 24) {
+        // The reconstruction-only CollapseRecord lifetime is 24 ticks; with
+        // the byte-cited frame order (bomb actors run before the queue pass,
+        // so the spawn tick already decrements once) 23 further frames drain
+        // it.
+        if (!collapseQueue_.empty() || playbackFrames != 23) {
             throw std::runtime_error("collapse autoplayer playback duration mismatch");
         }
         FrameInspection clearFrame = inspectRenderedFrame("autoplayer-collapse-clear");
@@ -4796,8 +5085,8 @@ public:
 
         size_t bombsBefore = bombs_.size();
         int p2SmallBefore = bombInventory2_.counts[0];
-        int bombTileX = static_cast<int>(player2_.x + 6.0f) / kTileSize;
-        int bombTileY = static_cast<int>(player2_.y + 12.0f) / kTileSize;
+        int bombTileX = (static_cast<int>(player2_.x) + 4) / kTileSize;
+        int bombTileY = static_cast<int>(player2_.y) / kTileSize;
         pushKeyDown(SDLK_KP_0);
         processEvents(running);
         if (bombs_.size() != bombsBefore + 1 || bombs_.back().owner != 2 ||
@@ -5021,8 +5310,8 @@ public:
 
         size_t bombsBefore = bombs_.size();
         int p2SmallBefore = bombInventory2_.counts[0];
-        int p2BombX = static_cast<int>(player2_.x + 6.0f) / kTileSize;
-        int p2BombY = static_cast<int>(player2_.y + 12.0f) / kTileSize;
+        int p2BombX = (static_cast<int>(player2_.x) + 4) / kTileSize;
+        int p2BombY = static_cast<int>(player2_.y) / kTileSize;
         pushKeyDown(SDLK_KP_0);
         processEvents(running);
         if (bombs_.size() != bombsBefore + 1 || bombs_.back().owner != 2 ||
@@ -6901,7 +7190,8 @@ public:
         std::vector<int> normalFrames{39, 40, 41, 43, 44, 45, 46,
                                       49, 50, 51, 53, 54, 55};
         std::vector<int> impactCandidates{42, 47, 48, 52, 56};
-        std::vector<int> deathRuntime{kMonsterCorpseSprite};
+        std::vector<int> deathRuntime{kMonsterCorpseSpriteLeft,
+                                      kMonsterCorpseSpriteRight};
         std::vector<int> allFrames = normalFrames;
         allFrames.insert(allFrames.end(), impactCandidates.begin(),
                          impactCandidates.end());
@@ -6934,7 +7224,7 @@ public:
                   << " pre_sprite_runs=44x4,43x2"
                   << " impact_equals_death=1"
                   << " corpse_original_ticks=49"
-                  << " corpse_engine_frames=" << kMonsterDeathVisibleFrames
+                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " reward_delay=corpse_expiry"
                   << " death_runtime_claim=1"
                   << " reward61_runtime_claim=1"
@@ -9479,7 +9769,7 @@ public:
         clearSoundLatch();
         enterMonsterDeath(monster);
         if (monster.behavior != 2 ||
-            monster.stateTimer != kMonsterDeathVisibleFrames + 1 ||
+            monster.stateTimer != kMonsterDeathVisibleTicks + 1 ||
             !monster.deathRewardPending || !bonusDrops_.empty() ||
             !soundLatch_.active ||
             soundLatch_.latchedOffset != kMonsterDeathSoundCursor ||
@@ -16017,8 +16307,8 @@ public:
                         const DebrisRecord& record = debrisQueue_.back();
                         debrisFlagged = record.flaggedWord;
                         debrisLookup = static_cast<int>(record.lookup);
-                        debrisForwardPhase = static_cast<int>(record.forwardPhase);
-                        debrisReversePhase = static_cast<int>(record.reversePhase);
+                        debrisForwardPhase = static_cast<int>(record.velocityX);
+                        debrisReversePhase = static_cast<int>(record.velocityY);
                         DamagePhaseLookup forward = resolveDamagePhase(record.flaggedWord, false);
                         DamagePhaseLookup reverse = resolveDamagePhase(record.flaggedWord, true);
                         debrisSlot = forward.slotIndex;
@@ -16218,7 +16508,7 @@ public:
         randomSeed_ = 0x90e25b93u;
         enterMonsterDeath(monster);
         if (spawnerStates_[spawnerIndex].availableSlots != initialSlots ||
-            monster.stateTimer != kMonsterDeathVisibleFrames + 1 ||
+            monster.stateTimer != kMonsterDeathVisibleTicks + 1 ||
             !monster.deathRewardPending || !bonusDrops_.empty() ||
             randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster death did not immediately return live slot");
@@ -16226,16 +16516,16 @@ public:
         const int initializedTimer = monster.stateTimer;
         updateMonsters(0.0f);
         if (monsters_.size() != 1 ||
-            monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
+            monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error(
                 "monster death first visible timer changed");
         }
-        for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+        for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
             updateMonsters(0.0f);
             if (monsters_.size() != 1 ||
                 monsters_.front().stateTimer !=
-                    kMonsterDeathVisibleFrames - frame ||
+                    kMonsterDeathVisibleTicks - frame ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "monster slot corpse playback timing changed");
@@ -16255,8 +16545,8 @@ public:
         std::cout << "monster_slots=ok initial_slots=" << initialSlots
                   << " returned_immediate=1"
                   << " death_timer_initialized=" << initializedTimer
-                  << " first_visible_timer=" << kMonsterDeathVisibleFrames
-                  << " visible_frames=" << kMonsterDeathVisibleFrames
+                  << " first_visible_timer=" << kMonsterDeathVisibleTicks
+                  << " visible_ticks=" << kMonsterDeathVisibleTicks
                   << " reward_delayed=1\n";
     }
 
@@ -16465,14 +16755,15 @@ public:
         monsters_.clear();
         bonusDrops_.clear();
 
+        // expectedSprite is DS:[0x77 + kind*2 + dir] for the monster being
+        // finished: kind 1 pairs on the sign of vx, kinds 2/3/4 do not.
         auto finishFrontCorpse = [&](size_t dropsBefore, float rewardX,
-                                     float rewardY) {
+                                     float rewardY, int expectedSprite) {
             if (monsters_.size() != 1 ||
                 monsters_.front().behavior != 2 ||
                 monsters_.front().stateTimer !=
-                    kMonsterDeathVisibleFrames + 1 ||
-                monsterSpriteIndex(monsters_.front()) !=
-                    kMonsterCorpseSprite ||
+                    kMonsterDeathVisibleTicks + 1 ||
+                monsterSpriteIndex(monsters_.front()) != expectedSprite ||
                 !monsters_.front().deathRewardPending ||
                 bonusDrops_.size() != dropsBefore ||
                 randomSeed_ != 0x90e25b93u) {
@@ -16482,19 +16773,18 @@ public:
 
             updateMonsters(0.0f);
             if (monsters_.size() != 1 ||
-                monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
+                monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
                 bonusDrops_.size() != dropsBefore ||
                 randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "direct monster death first visible frame mismatch");
             }
-            for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+            for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
                 updateMonsters(0.0f);
                 if (monsters_.size() != 1 ||
                     monsters_.front().stateTimer !=
-                        kMonsterDeathVisibleFrames - frame ||
-                    monsterSpriteIndex(monsters_.front()) !=
-                        kMonsterCorpseSprite ||
+                        kMonsterDeathVisibleTicks - frame ||
+                    monsterSpriteIndex(monsters_.front()) != expectedSprite ||
                     bonusDrops_.size() != dropsBefore ||
                     randomSeed_ != 0x90e25b93u) {
                     throw std::runtime_error(
@@ -16537,7 +16827,7 @@ public:
             !bonusDrops_.empty()) {
             throw std::runtime_error("medium bomb did not finish damaged monster");
         }
-        finishFrontCorpse(0, 80.0f, 86.0f);
+        finishFrontCorpse(0, 80.0f, 86.0f, kMonsterCorpseSpriteLeft);
 
         ActiveMonster tough;
         tough.x = 96;
@@ -16555,7 +16845,7 @@ public:
             bonusDrops_.size() != 1) {
             throw std::runtime_error("super bomb did not apply full monster damage");
         }
-        finishFrontCorpse(1, 96.0f, 80.0f);
+        finishFrontCorpse(1, 96.0f, 80.0f, kMonsterImpactSprites[4][0]);
 
         ActiveMonster edge;
         edge.x = 89;
@@ -16573,8 +16863,8 @@ public:
         }
 
         std::cout << "monster_blast_damage=ok drops=" << bonusDrops_.size()
-                  << " corpse_sprite=" << kMonsterCorpseSprite
-                  << " corpse_frames=" << kMonsterDeathVisibleFrames
+                  << " corpse_sprite=" << kMonsterCorpseSpriteLeft
+                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " delayed_reward=1 reward_sprite=61\n";
     }
 
@@ -16606,8 +16896,8 @@ public:
         int initialFlashes = static_cast<int>(flashes_.size());
 
         auto pushExpiredPlayerBombs = [&]() {
-            int playerBombX = static_cast<int>(player_.x + 6.0f) / kTileSize;
-            int playerBombY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+            int playerBombX = (static_cast<int>(player_.x) + 4) / kTileSize;
+            int playerBombY = static_cast<int>(player_.y) / kTileSize;
             bombs_.push_back({playerBombX, playerBombY, 1, BombType::Small, 1});
             bombs_.push_back({std::max(0, playerBombX - 4), playerBombY, 1,
                               BombType::Small, 1});
@@ -16843,6 +17133,960 @@ public:
                   << std::dec << std::noshowbase << '\n';
     }
 
+    // Drives the LIVE falling-debris mover (updateDebrisRecords via
+    // updateFlashes) tick by tick and checks the dynamics recovered from the
+    // original level-2 measurement
+    // (tests/fixtures/debris_measurement_original_level2.txt): zero-velocity
+    // seed with the glyph left in place, integrator-before-gravity vy ladder
+    // (vy = 4n, ysub = 2n(n-1)), the first row step at tick 9 stamping both
+    // planes and clearing the vacated cell, the cascade re-seed from the cell
+    // above the vacated one, and eventual retirement clearing bit 0x8000.
+    // Pin the debris bounce's RNG stream. The original draws Random(0x1E)
+    // for the horizontal kick and THEN Random(8) for the sound
+    // (4C2B/4C41 before 4C4A/4C51), and both draws come off the same shared
+    // Turbo Pascal LCG, so the order and the count decide every subsequent
+    // random number in the game. The seed alone cannot pin the order -- the
+    // LCG advances identically whichever range is asked for -- so this
+    // checks the two CONSUMED values: the kick must carry the first draw
+    // (mod 0x1E) and the sound offset the second (mod 8).
+    // The debris pass runs BEFORE the collapse pass (1000:45FA at 805D, then
+    // 1000:5102 at 8067). That order is observable because a dissolving
+    // fragment re-seeds the cell above through the seeder (4A72 -> 370E),
+    // which can enqueue a collapse record; with the passes in the byte order
+    // that record is decremented and damages players on the SAME tick, and
+    // with them swapped it waits a tick.
+    // Check the port's behaviour-4 model against the level-2 capture. Only
+    // what the capture actually settles is asserted: the retarget cadence,
+    // the animation range and delay, and the two contact rules the
+    // off-cadence velocity changes expose. The velocity SELECTION formula is
+    // not settled by the capture (the RNG is shared with the two live kind-1
+    // walkers, so a seed delta across one flyer tick cannot be attributed to
+    // the flyer) and is deliberately not asserted here.
+    // Check the recovered actor-contact core against a SECOND level. The
+    // existing level-1 fixture left "one level" on this item's unevidenced
+    // list; these rows come from level 2 and drive the port's live gravity,
+    // walk-speed seeding and wall-reflection paths.
+    // The natural forward debris writeback at 1000:3D2D, observed. 3D2D sets
+    // the STRUCK record's vx field, and that value persists, so a tick-locked
+    // sampler sees its effect -- the item's "intra-frame, unobservable"
+    // framing was incomplete. This checks the captured events really are pure
+    // vx overwrites (no other byte of the record moves, which rules out
+    // friction, the bounce and a retire+reseed) and records that the port
+    // does NOT model the blend, so the divergence is pinned rather than
+    // silently carried.
+    // Debris shatter playback, and the rest-counter contradiction. The
+    // shatter half CONFIRMS the port (one glyph per tick, non-fragile
+    // terminal 0xFF); the rest half REFUTES it -- the port retires a record
+    // after exactly 100 resting ticks, and the original's counter saturates
+    // at 100 and keeps the record. Both are asserted so the confirmation is
+    // guarded and the divergence cannot be quietly lost.
+    void debugDebrisShatterPlayback(const std::string& fixturePath) {
+        std::ifstream in(fixturePath);
+        if (!in) throw std::runtime_error("cannot open " + fixturePath);
+        std::map<std::string, std::string> kv;
+        std::vector<std::pair<long, std::string>> rows;
+        std::string line;
+        while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (line.rfind("row ", 0) == 0) {
+                std::istringstream r(line.substr(4));
+                std::string field;
+                long frame = 0; std::string raw;
+                while (r >> field) {
+                    auto eq = field.find('=');
+                    if (eq == std::string::npos) continue;
+                    if (field.substr(0, eq) == "frame") frame = std::stol(field.substr(eq + 1));
+                    else if (field.substr(0, eq) == "raw") raw = field.substr(eq + 1);
+                }
+                rows.emplace_back(frame, raw);
+                continue;
+            }
+            auto eq = line.find('=');
+            if (eq == std::string::npos) continue;
+            kv[line.substr(0, eq)] = line.substr(eq + 1);
+        }
+        auto req = [&](const char* key) -> std::string {
+            auto it = kv.find(key);
+            if (it == kv.end()) throw std::runtime_error(std::string("missing key ") + key);
+            return it->second;
+        };
+        if (req("debris_shatter_playback_original") != "level2" ||
+            req("visual_claim") != "0" || req("runtime_ds") != "0c8f" ||
+            req("port_matches_saturation") != "1") {
+            throw std::runtime_error("shatter playback fixture header mismatch");
+        }
+        auto byteAt = [](const std::string& hex, size_t i) {
+            return static_cast<int>(std::stoul(hex.substr(i * 2, 2), nullptr, 16));
+        };
+        // Re-derive the glyph chain from the rows.
+        std::string chain;
+        long firstShatterFrame = 0;
+        long lastShatterFrame = 0;
+        for (const auto& row : rows) {
+            const int glyph = byteAt(row.second, 9);
+            if (glyph < kDebrisShatterFrame && glyph != kDebrisDissolveByte) continue;
+            if (chain.empty()) firstShatterFrame = row.first;
+            lastShatterFrame = row.first;
+            char buf[8];
+            std::snprintf(buf, sizeof(buf), "0x%02x", glyph);
+            if (!chain.empty()) chain += ',';
+            chain += buf;
+            if (glyph == kDebrisDissolveByte) break;  // terminal ends the chain
+        }
+        if (chain != req("shatter_chain")) {
+            throw std::runtime_error(
+                "re-derived shatter chain [" + chain + "] disagrees with the fixture");
+        }
+        // One glyph per tick: the chain spans exactly as many frames as glyphs.
+        const long glyphCount = static_cast<long>(
+            std::count(chain.begin(), chain.end(), ',') + 1);
+        if (lastShatterFrame - firstShatterFrame + 1 != glyphCount) {
+            throw std::runtime_error("shatter playback is not one glyph per tick");
+        }
+        // The port's stepper must produce that same chain for a non-fragile word.
+        const uint16_t word = static_cast<uint16_t>(std::stoul(req("shatter_word"), nullptr, 16));
+        if (word > kDebrisFragileWordFloor) {
+            throw std::runtime_error("fixture word is above the fragile floor");
+        }
+        std::string portChain;
+        for (uint8_t code = kDebrisShatterFrame;;) {
+            char buf[8];
+            std::snprintf(buf, sizeof(buf), "0x%02x", code);
+            if (!portChain.empty()) portChain += ',';
+            portChain += buf;
+            uint8_t next = static_cast<uint8_t>(code + 1);
+            if (next == kDebrisShatterLastStep) {
+                std::snprintf(buf, sizeof(buf), "0x%02x", kDebrisDissolveByte);
+                portChain += ',';
+                portChain += buf;
+                break;
+            }
+            code = next;
+        }
+        if (portChain != chain) {
+            throw std::runtime_error(
+                "port stepper chain [" + portChain + "] diverges from the capture");
+        }
+        // The refuted half: the port retires at exactly this many resting
+        // ticks; the capture shows the counter saturating there instead.
+        const int restMax = std::stoi(req("rest_max_observed"));
+        const long longestRun = std::stol(req("longest_rest_100_run"));
+        if (restMax != static_cast<int>(kDebrisRestSaturation)) {
+            throw std::runtime_error(
+                "capture's saturation value disagrees with the port's retire constant");
+        }
+        if (req("rest_retirement_observed") != "0" ||
+            req("damaged_bit_ever_cleared") != "0" || longestRun <= restMax) {
+            throw std::runtime_error("rest-counter fields are inconsistent");
+        }
+        // The port must now agree: its ceiling constant IS the saturation
+        // value, and nothing retires a record on the rest counter.
+        if (static_cast<int>(kDebrisRestSaturation) != restMax) {
+            throw std::runtime_error("port saturation ceiling disagrees with the capture");
+        }
+        std::cout << "debris_shatter_playback=ok"
+                  << " level=2 chain=" << chain
+                  << " ticks_per_glyph=1"
+                  << " terminal=dissolve word=0x" << std::hex << word << std::dec
+                  << " port_stepper_matches=1"
+                  << " rest_saturates_at=" << restMax
+                  << " longest_rest_run=" << longestRun
+                  << " retirement_observed=0 port_saturates=1"
+                  << " visual_claim=0\n";
+    }
+
+    void debugNaturalForwardDebrisWriteback(const std::string& fixturePath) {
+        std::ifstream in(fixturePath);
+        if (!in) throw std::runtime_error("cannot open " + fixturePath);
+        std::map<std::string, std::string> kv;
+        struct Row { long frame; int record; std::string raw; };
+        std::vector<Row> rows;
+        std::string line;
+        while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (line.find("row ") != std::string::npos) {
+                std::istringstream r(line.substr(line.find("row ") + 4));
+                std::string field;
+                Row row{0, 0, ""};
+                while (r >> field) {
+                    auto eq = field.find('=');
+                    if (eq == std::string::npos) continue;
+                    const std::string k = field.substr(0, eq), v = field.substr(eq + 1);
+                    if (k == "frame") row.frame = std::stol(v);
+                    else if (k == "record") row.record = std::stoi(v);
+                    else if (k == "raw") row.raw = v;
+                }
+                rows.push_back(row);
+                continue;
+            }
+            if (line.rfind("event ", 0) == 0) continue;
+            auto eq = line.find('=');
+            if (eq == std::string::npos) continue;
+            kv[line.substr(0, eq)] = line.substr(eq + 1);
+        }
+        auto req = [&](const char* key) -> std::string {
+            auto it = kv.find(key);
+            if (it == kv.end()) {
+                throw std::runtime_error(std::string("missing key ") + key);
+            }
+            return it->second;
+        };
+        if (req("natural_forward_debris_writeback_original") != "level2" ||
+            req("visual_claim") != "0" || req("runtime_ds") != "0c8f" ||
+            req("debris_table_offset") != "0x2093" ||
+            req("blend_formula_recovered") != "0" ||
+            req("port_models_blend") != "0") {
+            throw std::runtime_error("natural forward writeback fixture header mismatch");
+        }
+        auto byteAt = [](const std::string& hex, size_t i) {
+            return static_cast<int>(std::stoul(hex.substr(i * 2, 2), nullptr, 16));
+        };
+        int pureOverwrites = 0;
+        for (size_t i = 1; i < rows.size(); ++i) {
+            if (rows[i].record != rows[i - 1].record) continue;
+            if (rows[i].frame != rows[i - 1].frame + 1) continue;
+            const std::string& a = rows[i - 1].raw;
+            const std::string& b = rows[i].raw;
+            if (a.size() != b.size()) continue;
+            bool othersIdentical = true;
+            for (size_t k = 0; k * 2 < a.size(); ++k) {
+                if (k == 4) continue;  // +4 is vx, the field 3D2D writes
+                if (byteAt(a, k) != byteAt(b, k)) { othersIdentical = false; break; }
+            }
+            const int vxa = static_cast<int8_t>(byteAt(a, 4));
+            const int vxb = static_cast<int8_t>(byteAt(b, 4));
+            if (othersIdentical && vxa != vxb && std::abs(vxb - vxa) > 1) {
+                ++pureOverwrites;
+            }
+        }
+        const int expected = std::stoi(req("pure_vx_overwrites"));
+        if (pureOverwrites != expected) {
+            throw std::runtime_error(
+                "re-derived " + std::to_string(pureOverwrites) +
+                " pure vx overwrites, fixture records " + std::to_string(expected));
+        }
+        std::cout << "natural_forward_debris_writeback=ok"
+                  << " level=2 ghidra=1000:3d2d"
+                  << " ticks_sampled=" << req("ticks_sampled")
+                  << " pure_vx_overwrites=" << pureOverwrites
+                  << " target=record+4"
+                  << " observable=1 blend_formula_recovered=0 port_models_blend=0"
+                  << " visual_claim=0\n";
+    }
+
+    void debugActorContactLevel2Evidence(const std::string& fixturePath) {
+        std::ifstream in(fixturePath);
+        if (!in) throw std::runtime_error("cannot open " + fixturePath);
+        std::map<std::string, std::string> kv;
+        std::string line;
+        while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#' || line.rfind("tick ", 0) == 0) continue;
+            auto eq = line.find('=');
+            if (eq == std::string::npos) continue;
+            kv[line.substr(0, eq)] = line.substr(eq + 1);
+        }
+        auto req = [&](const char* key) -> std::string {
+            auto it = kv.find(key);
+            if (it == kv.end()) {
+                throw std::runtime_error(std::string("missing key ") + key);
+            }
+            return it->second;
+        };
+        if (req("actor_contact_level2_original") != "level2" ||
+            req("visual_claim") != "0" || req("runtime_ds") != "0c8f" ||
+            req("actor_table_offset") != "0x1bae" ||
+            req("gravity_clamp_exercised") != "0") {
+            throw std::runtime_error("level-2 contact fixture header mismatch");
+        }
+        const int hotspot = std::stoi(req("hotspot_y"));
+        const int gravityStep = std::stoi(req("gravity_step"));
+        const int speed = std::stoi(req("walker_a_speed"));
+
+        // 1. Hotspot for kind 1, from the port's own table.
+        if (static_cast<int>(monsterHotspotY(1)) != hotspot) {
+            throw std::runtime_error(
+                "port kind-1 hotspot " +
+                std::to_string(static_cast<int>(monsterHotspotY(1))) +
+                " disagrees with the level-2 capture's " + std::to_string(hotspot));
+        }
+
+        // 2. Gravity ladder: drive the port's own airborne integration and
+        //    compare the whole captured series, not just the step.
+        std::vector<int> ladder;
+        {
+            std::string field;
+            std::istringstream ls(req("gravity_ladder"));
+            while (std::getline(ls, field, ',')) ladder.push_back(std::stoi(field));
+        }
+        int vy8 = 0;
+        std::string portLadder;
+        for (size_t i = 0; i < ladder.size(); ++i) {
+            vy8 = clampI16(vy8 + gravityStep);
+            if (!portLadder.empty()) portLadder += ',';
+            portLadder += std::to_string(vy8);
+        }
+        if (portLadder != req("gravity_ladder")) {
+            throw std::runtime_error(
+                "port gravity ladder [" + portLadder + "] diverges from the capture");
+        }
+
+        // 3. Walk speed seeding and the two-tick reflect/restore shape, driven
+        //    through the port's live walker rules.
+        ActiveMonster walker;
+        walker.kind = 1;
+        walker.behavior = 3;
+        walker.ai0 = static_cast<uint16_t>(speed);
+        walker.hotspotY = monsterHotspotY(1);
+        refreshMonsterAnimationProfile(walker);
+        if (static_cast<int>(groundWalkerSpeed8(walker)) != speed) {
+            throw std::runtime_error(
+                "port ground walk speed " +
+                std::to_string(groundWalkerSpeed8(walker)) +
+                " disagrees with the captured " + std::to_string(speed));
+        }
+        // The capture's reflect sequence is speed -> -speed/2 -> -speed.
+        std::vector<int> seq;
+        {
+            std::string field;
+            std::istringstream ls(req("reflect_sequence"));
+            while (std::getline(ls, field, ',')) seq.push_back(std::stoi(field));
+        }
+        const int divisor = std::stoi(req("reflect_divisor"));
+        const int reflected = -seq[0] / divisor;
+        if (reflected != seq[1]) {
+            throw std::runtime_error(
+                "trunc(-vx/" + std::to_string(divisor) + ") gives " +
+                std::to_string(reflected) + ", capture shows " + std::to_string(seq[1]));
+        }
+        // Next tick: magnitude differs from the walk speed, so the port
+        // restores full speed keeping the reflected sign.
+        walker.vx8 = static_cast<int16_t>(reflected);
+        const int16_t restore = walker.vx8 > 0
+                                    ? groundWalkerSpeed8(walker)
+                                    : static_cast<int16_t>(-groundWalkerSpeed8(walker));
+        if (restore != seq[2]) {
+            throw std::runtime_error(
+                "port restores " + std::to_string(restore) +
+                ", capture shows " + std::to_string(seq[2]));
+        }
+        std::cout << "actor_contact_level2_evidence=ok"
+                  << " level=2 kind=1 behavior=3"
+                  << " walker_a_ticks=" << req("walker_a_ticks")
+                  << " walker_b_ticks=" << req("walker_b_ticks")
+                  << " hotspot=" << hotspot
+                  << " gravity_step=" << gravityStep
+                  << " ladder_len=" << ladder.size()
+                  << " walk_speed=" << speed
+                  << " reflect=" << seq[0] << "," << seq[1] << "," << seq[2]
+                  << " clamp_exercised=0"
+                  << " visual_claim=0\n";
+    }
+
+    void debugBehavior4MotionEvidence(const std::string& fixturePath) {
+        std::ifstream in(fixturePath);
+        if (!in) throw std::runtime_error("cannot open " + fixturePath);
+        std::map<std::string, std::string> kv;
+        std::vector<std::array<long, 4>> ticks;  // frame, vx, vy, anim
+        std::vector<uint32_t> seeds;
+        std::string line;
+        while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (line.rfind("tick ", 0) == 0) {
+                std::istringstream row(line.substr(5));
+                std::string field;
+                long frame = 0, vx = 0, vy = 0, anim = 0;
+                unsigned long rng = 0;
+                while (row >> field) {
+                    auto eq = field.find('=');
+                    if (eq == std::string::npos) continue;
+                    const std::string k = field.substr(0, eq);
+                    const std::string v = field.substr(eq + 1);
+                    if (k == "frame") frame = std::stol(v);
+                    else if (k == "vx") vx = std::stol(v);
+                    else if (k == "vy") vy = std::stol(v);
+                    else if (k == "anim") anim = std::stol(v, nullptr, 16);
+                    else if (k == "rng") rng = std::stoul(v, nullptr, 16);
+                }
+                ticks.push_back({frame, vx, vy, anim});
+                seeds.push_back(rng);
+                continue;
+            }
+            auto eq = line.find('=');
+            if (eq == std::string::npos) continue;
+            kv[line.substr(0, eq)] = line.substr(eq + 1);
+        }
+        auto req = [&](const char* key) -> std::string {
+            auto it = kv.find(key);
+            if (it == kv.end()) {
+                throw std::runtime_error(std::string("missing key ") + key);
+            }
+            return it->second;
+        };
+        if (req("behavior4_motion_original") != "level2" ||
+            req("visual_claim") != "0" || req("runtime_ds") != "0c8f" ||
+            req("actor_table_offset") != "0x1bae" ||
+            req("velocity_selection_recovered") != "1") {
+            throw std::runtime_error("behaviour-4 fixture header mismatch");
+        }
+        if (ticks.size() != static_cast<size_t>(std::stol(req("behavior4_ticks")))) {
+            throw std::runtime_error("behaviour-4 fixture tick count mismatch");
+        }
+        // Re-derive the cadence from the rows rather than trusting the header.
+        std::vector<long> changeFrames;
+        for (size_t i = 1; i < ticks.size(); ++i) {
+            if (ticks[i][1] != ticks[i - 1][1] || ticks[i][2] != ticks[i - 1][2]) {
+                changeFrames.push_back(ticks[i][0]);
+            }
+        }
+        std::map<long, int> gapCounts;
+        for (size_t i = 1; i < changeFrames.size(); ++i) {
+            ++gapCounts[changeFrames[i] - changeFrames[i - 1]];
+        }
+        long bestGap = 0;
+        int bestCount = 0;
+        for (const auto& entry : gapCounts) {
+            if (entry.second > bestCount) {
+                bestCount = entry.second;
+                bestGap = entry.first;
+            }
+        }
+        const long fixturePeriod = std::stol(req("retarget_period_ticks"));
+        if (bestGap != fixturePeriod) {
+            throw std::runtime_error(
+                "re-derived retarget period " + std::to_string(bestGap) +
+                " disagrees with the fixture's " + std::to_string(fixturePeriod));
+        }
+
+        // The port must schedule the same cadence from the same period byte.
+        load();
+        resetLevel(1);
+        ActiveMonster flyer;
+        flyer.kind = 2;
+        flyer.behavior = 4;
+        flyer.ai0 = static_cast<uint16_t>(fixturePeriod);
+        flyer.ai1 = static_cast<uint16_t>(std::stoi(req("velocity_ai1")));
+        flyer.x = 80;
+        flyer.y = 40;
+        refreshMonsterAnimationProfile(flyer);
+        initializeMonsterMotion(flyer);
+        if (flyer.vx8 != 0 || flyer.vy8 != 0 || flyer.motionTimer != 0) {
+            throw std::runtime_error("behavior4 spawn steered before the shared gate");
+        }
+        logicTick_ = 0;
+        updateMonsterMotion(flyer, 0.0f);
+        const int seeded = flyer.motionTimer;
+        if (seeded != static_cast<int>(fixturePeriod)) {
+            throw std::runtime_error(
+                "port seeds a behaviour-4 motion timer of " +
+                std::to_string(seeded) + ", capture shows " +
+                std::to_string(fixturePeriod));
+        }
+        // Count ticks to the port's own retarget and compare to the capture.
+        monsters_.clear();
+        monsters_.push_back(flyer);
+        int portGap = 0;
+        for (int i = 0; i < static_cast<int>(fixturePeriod) * 3; ++i) {
+            const int before = monsters_.front().motionTimer;
+            ++logicTick_;
+            updateMonsterMotion(monsters_.front(), 0.0f);
+            ++portGap;
+            if (monsters_.front().motionTimer > before) break;
+        }
+        if (portGap != static_cast<int>(fixturePeriod)) {
+            throw std::runtime_error(
+                "port retargets after " + std::to_string(portGap) +
+                " ticks, capture shows " + std::to_string(fixturePeriod));
+        }
+        // Animation range: the capture's frames must all sit inside the port's
+        // own kind-2 range.
+        const std::array<int, 2> range = monsterFrameRange(2);
+        for (const auto& t : ticks) {
+            if (t[3] - 1 < range[0] || t[3] - 1 > range[1]) {
+                throw std::runtime_error(
+                    "captured animation frame 0x" + std::to_string(t[3]) +
+                    " falls outside the port's kind-2 range");
+            }
+        }
+        // Velocity SELECTION: on every tick that advanced the shared LCG by
+        // exactly two steps, replay those two draws through the port's OWN
+        // randomRangeValue and compare. Exceptions must be contact rules
+        // applied after selection, so each one is required to look like a
+        // top-edge clamp (vy == 1) or a -vx/2 bounce off the previous vx.
+        const int ai1 = std::stoi(req("velocity_ai1"));
+        const int selRange = std::stoi(req("velocity_range"));
+        if (selRange != 2 * ai1) {
+            throw std::runtime_error("fixture velocity range is not 2*ai1");
+        }
+        int twoDraw = 0, vxFit = 0, vyFit = 0, clampExc = 0, bounceExc = 0;
+        for (size_t i = 1; i < ticks.size(); ++i) {
+            const uint32_t before = seeds[i - 1];
+            uint32_t probe = before;
+            probe = probe * 0x08088405u + 1u;
+            probe = probe * 0x08088405u + 1u;
+            if (probe != seeds[i]) continue;  // not a two-draw tick
+            ++twoDraw;
+            const uint32_t saved = randomSeed_;
+            randomSeed_ = before;
+            const int drawX = static_cast<int>(
+                randomRangeValue(0, static_cast<uint16_t>(selRange))) - ai1;
+            const int drawY = static_cast<int>(
+                randomRangeValue(0, static_cast<uint16_t>(selRange))) - ai1;
+            randomSeed_ = saved;
+            if (ticks[i][1] == drawX) {
+                ++vxFit;
+            } else if (ticks[i][1] == -drawX / 2 ||
+                       ticks[i][1] == -ticks[i - 1][1] / 2) {
+                // A wall contact on the SAME tick halves and negates the
+                // velocity. Frame 911 is the one observed case and it bounces
+                // the freshly drawn 233 to -116, not the previous vx -- so the
+                // retarget runs first and the contact response second.
+                ++bounceExc;
+            } else {
+                throw std::runtime_error(
+                    "vx at frame " + std::to_string(ticks[i][0]) + " is neither the draw (" +
+                    std::to_string(drawX) + ") nor a -vx/2 bounce");
+            }
+            if (ticks[i][2] == drawY) ++vyFit;
+            else if (ticks[i][2] == 1) ++clampExc;
+            else {
+                throw std::runtime_error(
+                    "vy at frame " + std::to_string(ticks[i][0]) + " is neither the draw (" +
+                    std::to_string(drawY) + ") nor the top-edge clamp");
+            }
+        }
+        if (twoDraw != std::stoi(req("two_draw_ticks"))) {
+            throw std::runtime_error(
+                "re-derived two-draw tick count " + std::to_string(twoDraw) +
+                " disagrees with the fixture");
+        }
+        const std::string vxFitStr = std::to_string(vxFit) + "/" + std::to_string(twoDraw);
+        const std::string vyFitStr = std::to_string(vyFit) + "/" + std::to_string(twoDraw);
+        if (vxFitStr != req("velocity_vx_fit") || vyFitStr != req("velocity_vy_fit")) {
+            throw std::runtime_error(
+                "velocity fit " + vxFitStr + "," + vyFitStr +
+                " disagrees with the fixture");
+        }
+
+        std::cout << "behavior4_motion_evidence=ok"
+                  << " fixture=level2 ticks=" << ticks.size()
+                  << " actor_table=0x1bae stride=0x26"
+                  << " retarget_period=" << bestGap
+                  << " port_period=" << portGap
+                  << " velocity_changes=" << changeFrames.size()
+                  << " anim_in_kind2_range=1"
+                  << " two_draw_ticks=" << twoDraw
+                  << " vx_fit=" << vxFitStr
+                  << " vy_fit=" << vyFitStr
+                  << " clamp_exceptions=" << clampExc
+                  << " bounce_exceptions=" << bounceExc
+                  << " selection=port_random_2ai1_minus_ai1 ai1=" << ai1
+                  << " velocity_selection_recovered=1"
+                  << " visual_claim=0\n";
+    }
+
+    void debugDebrisCollapseOrder() {
+        load();
+        int usedLevel = -1;
+        int usedX = -1;
+        int usedY = -1;
+        int observedTimer = -1;
+        for (size_t level = 0; level < levels_.size() && usedLevel < 0; ++level) {
+            resetLevel(static_cast<int>(level));
+            for (int y = 2; y + 1 < level_.height && usedLevel < 0; ++y) {
+                for (int x = 1; x + 1 < level_.width; ++x) {
+                    if (wordAt(x, y - 1) == 0) continue;
+                    resetLevel(static_cast<int>(level));
+                    collapseQueue_.clear();
+                    debrisQueue_.clear();
+                    flashes_.clear();
+                    explosionEffects_.clear();
+                    DebrisRecord rec;
+                    rec.tileIndex = y * level_.width + x;
+                    // Non-fragile word (<= 0xffbc) sitting on the last
+                    // shatter step: the stepper takes it to 0x79 and picks
+                    // the 0xFF dissolve glyph, which is the branch that
+                    // re-seeds the cell above through the seeder.
+                    rec.flaggedWord = static_cast<uint16_t>(0x4000);
+                    rec.lookup =
+                        static_cast<uint8_t>(kDebrisShatterLastStep - 1);
+                    debrisQueue_.push_back(rec);
+                    level_.tiles[static_cast<size_t>(rec.tileIndex)] =
+                        rec.lookup;
+                    updateFlashes();
+                    if (collapseQueue_.empty()) continue;
+                    usedLevel = static_cast<int>(level);
+                    usedX = x;
+                    usedY = y;
+                    observedTimer = collapseQueue_.front().timer;
+                    break;
+                }
+            }
+        }
+        if (usedLevel < 0) {
+            throw std::runtime_error(
+                "no site where a dissolving fragment enqueues a collapse");
+        }
+        // CollapseRecord starts at 24; being decremented in the same tick is
+        // the whole signal. If the collapse pass ran first the record would
+        // still read 24.
+        CollapseRecord fresh;
+        const int seeded = fresh.timer;
+        if (observedTimer != seeded - 1) {
+            throw std::runtime_error(
+                "collapse record seeded by the debris pass read timer " +
+                std::to_string(observedTimer) + "; expected " +
+                std::to_string(seeded - 1) +
+                " (the collapse pass must run AFTER the debris pass)");
+        }
+        std::cout << "debris_collapse_order=ok"
+                  << " level=" << usedLevel + 1
+                  << " dissolve_tile=" << usedX << "," << usedY
+                  << " seeded_timer=" << seeded
+                  << " timer_after_same_tick=" << observedTimer
+                  << " debris_before_collapse=1"
+                  << " ghidra=1000:45fa@805d,1000:5102@8067"
+                  << " visual_claim=0\n";
+    }
+
+    void debugDebrisBounceRng() {
+        load();
+        resetLevel(0);
+
+        // Independently step the LCG twice to get what each draw must yield.
+        constexpr uint32_t kSeed = 0x12345678u;
+        const uint32_t s1 = kSeed * 0x08088405u + 1u;
+        const uint32_t s2 = s1 * 0x08088405u + 1u;
+        const int firstDraw = static_cast<int>((s1 >> 16) % 0x1eu);
+        const int secondDraw = static_cast<int>((s2 >> 16) % 8u);
+        const int expectedKick = firstDraw - 15;
+        const uint16_t expectedSound =
+            static_cast<uint16_t>(kDebrisBounceSoundBase + secondDraw);
+        if (firstDraw % 8 == secondDraw &&
+            secondDraw % 0x1e == firstDraw) {
+            throw std::runtime_error(
+                "chosen seed cannot distinguish the two draw orders");
+        }
+
+        // A fragment moving down into an occupied cell: the blocked-move
+        // branch is the bounce. subY is pre-loaded so the signed 8-bit
+        // sub-accumulator overflows on this very tick and the mover actually
+        // attempts the step (delta == 0 would just rest).
+        int siteX = -1;
+        int siteY = -1;
+        for (int y = 2; y + 1 < level_.height && siteY < 0; ++y) {
+            for (int x = 1; x + 1 < level_.width; ++x) {
+                if (tileAt(x, y) != 0 || tileAt(x, y + 1) == 0) continue;
+                siteX = x;
+                siteY = y;
+                break;
+            }
+        }
+        if (siteX < 0) throw std::runtime_error("no bounce site found");
+
+        debrisQueue_.clear();
+        DebrisRecord rec;
+        rec.tileIndex = siteY * level_.width + siteX;
+        rec.flaggedWord = static_cast<uint16_t>(0x4000 | kDamagedWordBit);
+        rec.lookup = 0x60;   // <= 0x66 so the landing-shatter gate cannot fire
+        rec.velocityY = 60;
+        rec.subY = 100;      // 100 + 60 = 160 > 127 -> one row of downward step
+        rec.velocityX = 0;
+        debrisQueue_.push_back(rec);
+        level_.tiles[static_cast<size_t>(rec.tileIndex)] = rec.lookup;
+        logicTick_ = 0;
+
+        clearSoundLatch();
+        randomSeed_ = kSeed;
+        const size_t before = debrisQueue_.size();
+        updateDebrisRecords();
+        if (debrisQueue_.size() != before) {
+            throw std::runtime_error("bounce probe fragment did not survive the tick");
+        }
+        const DebrisRecord& after = debrisQueue_.front();
+        if (randomSeed_ != s2) {
+            throw std::runtime_error(
+                "bounce drew a different number of RNG values than the two at 4C2B/4C4A");
+        }
+        if (static_cast<int>(after.velocityX) != expectedKick) {
+            throw std::runtime_error(
+                "bounce kick " + std::to_string(after.velocityX) +
+                " did not consume the FIRST draw (expected " +
+                std::to_string(expectedKick) + ")");
+        }
+        if (!soundLatch_.active || soundLatch_.latchedOffset != expectedSound) {
+            throw std::runtime_error(
+                "bounce sound offset did not consume the SECOND draw (expected 0x" +
+                std::to_string(expectedSound) + ")");
+        }
+        if (after.velocityY != 0) {
+            throw std::runtime_error("bounce did not clear vy at 4C5F");
+        }
+        // Copy out before the queue is reused below -- `after` is a reference
+        // into it.
+        const int observedKick = after.velocityX;
+
+        // Gravity gate 4AA3 (`cmp vy,0x7b`, signed jge): airborne fragments
+        // gain +4 while vy is BELOW 0x7b, so the attainable terminal value
+        // from a zero start is 0x7C. Seeding just under the gate and then at
+        // it pins the compare itself -- a smaller gate leaves the first tick
+        // unchanged, a larger one keeps accelerating past 0x7C.
+        int airborneX = -1;
+        int airborneY = -1;
+        for (int y = 2; y + 2 < level_.height && airborneY < 0; ++y) {
+            for (int x = 1; x + 1 < level_.width; ++x) {
+                if (tileAt(x, y) != 0 || tileAt(x, y + 1) != 0) continue;
+                airborneX = x;
+                airborneY = y;
+                break;
+            }
+        }
+        if (airborneX < 0) {
+            throw std::runtime_error("no airborne site for the gravity gate probe");
+        }
+        debrisQueue_.clear();
+        DebrisRecord fall;
+        fall.tileIndex = airborneY * level_.width + airborneX;
+        fall.flaggedWord = static_cast<uint16_t>(0x4000 | kDamagedWordBit);
+        fall.lookup = 0x60;
+        fall.velocityY = static_cast<int8_t>(kDebrisGravityCompare - 3);  // 0x78
+        fall.subY = 0;
+        debrisQueue_.push_back(fall);
+        level_.tiles[static_cast<size_t>(fall.tileIndex)] = fall.lookup;
+        updateDebrisRecords();
+        if (debrisQueue_.empty()) {
+            throw std::runtime_error("gravity gate probe fragment vanished");
+        }
+        const int belowGate = debrisQueue_.front().velocityY;
+        const int expectedTerminal = kDebrisGravityCompare + kDebrisGravityStep - 3;
+        if (belowGate != expectedTerminal) {
+            throw std::runtime_error(
+                "below the gravity gate vy became " + std::to_string(belowGate) +
+                ", expected " + std::to_string(expectedTerminal));
+        }
+        debrisQueue_.front().subY = 0;
+        updateDebrisRecords();
+        if (debrisQueue_.empty() ||
+            debrisQueue_.front().velocityY != belowGate) {
+            throw std::runtime_error("gravity kept accelerating past the gate");
+        }
+        std::cout << "debris_bounce_rng=ok"
+                  << " draws=2 order=kick_then_sound"
+                  << " kick=" << observedKick
+                  << " sound_offset=0x" << std::hex << soundLatch_.latchedOffset
+                  << std::dec
+                  << " sound_base=0x" << std::hex << kDebrisBounceSoundBase
+                  << std::dec
+                  << " vy_cleared=1 ghidra=1000:4c2b,1000:4c4a"
+                  << " gravity_gate=0x" << std::hex
+                  << static_cast<int>(kDebrisGravityCompare) << std::dec
+                  << " terminal_vy=" << belowGate
+                  << " visual_claim=0\n";
+    }
+
+    void debugDebrisMotionLive() {
+        load();
+
+        int probeLevel = -1;
+        int px = -1;
+        int py = -1;
+        for (size_t level = 0; level < levels_.size() && probeLevel < 0; ++level) {
+            resetLevel(static_cast<int>(level));
+            for (int y = 2; y + 1 < level_.height && probeLevel < 0; ++y) {
+                for (int x = 0; x + 1 < level_.width; ++x) {
+                    uint8_t tile = static_cast<uint8_t>(tileAt(x, y));
+                    if (!isBombObjectTile(tile)) continue;
+                    uint16_t above = wordAt(x, y - 1);
+                    if (above < kDeferredThreshold ||
+                        (above & kDamagedWordBit) != 0) {
+                        continue;
+                    }
+                    if ((wordAt(x, y) & kDamagedWordBit) != 0) continue;
+                    Bomb bomb{x, y, 1, BombType::Small, 1, 1};
+                    int objects = 0;
+                    bool only = true;
+                    for (const auto& pos : explosionTilesFor(bomb)) {
+                        if (!isBombObjectTile(
+                                static_cast<uint8_t>(tileAt(pos[0], pos[1])))) {
+                            continue;
+                        }
+                        ++objects;
+                        only = only && pos[0] == x && pos[1] == y;
+                    }
+                    if (objects != 1 || !only) continue;
+                    probeLevel = static_cast<int>(level);
+                    px = x;
+                    py = y;
+                    break;
+                }
+            }
+        }
+        if (probeLevel < 0) {
+            throw std::runtime_error("no seedable debris site found");
+        }
+
+        resetLevel(probeLevel);
+        clearRunScores();
+        clearSoundLatch();
+        monsters_.clear();
+        bonusDrops_.clear();
+        bombs_.clear();
+        flashes_.clear();
+        explosionEffects_.clear();
+        debrisQueue_.clear();
+        collapseQueue_.clear();
+        playerDead_ = true;
+        player2Dead_ = true;
+
+        const int width = level_.width;
+        const int seedIndex = (py - 1) * width + px;
+        const uint8_t seedGlyph = static_cast<uint8_t>(tileAt(px, py - 1));
+        const uint16_t seedWord = wordAt(px, py - 1);
+        const uint16_t flaggedSeedWord =
+            static_cast<uint16_t>(seedWord | kDamagedWordBit);
+        const uint16_t wordTwoAbove = wordAt(px, py - 2);
+        const bool expectCascade =
+            wordTwoAbove > 0 && (wordTwoAbove & kDamagedWordBit) == 0;
+        const bool cascadeIsDebris =
+            expectCascade && wordTwoAbove >= kDeferredThreshold;
+
+        Bomb bomb{px, py, 1, BombType::Small, 1, 1};
+        explode(bomb);
+
+        // Seed payload (1000:370E debris branch).
+        if (debrisQueue_.size() != 1) {
+            throw std::runtime_error("debris seed did not create one record");
+        }
+        {
+            const DebrisRecord& rec = debrisQueue_.front();
+            if (rec.tileIndex != seedIndex || rec.flaggedWord != flaggedSeedWord ||
+                rec.velocityX != 0 || rec.velocityY != 0 || rec.subX != 0 ||
+                rec.subY != 0 || rec.restTicks != 0 || rec.aux != 0 ||
+                rec.lookup != seedGlyph) {
+                throw std::runtime_error("debris seed payload mismatch");
+            }
+        }
+        if (static_cast<uint8_t>(tileAt(px, py - 1)) != seedGlyph) {
+            throw std::runtime_error("debris seed touched the object plane");
+        }
+        if (wordAt(px, py - 1) != flaggedSeedWord) {
+            throw std::runtime_error("debris seed did not flag the word");
+        }
+
+        // Eight airborne hover ticks: integrator before gravity, so after n
+        // ticks vy = 4n and ysub = 2n(n-1); an airborne non-stepping tick
+        // samples restTicks as 1 (reset at 4AB3 before the 4CF8 increment).
+        for (int n = 1; n <= 8; ++n) {
+            updateFlashes();
+            const DebrisRecord& rec = debrisQueue_.front();
+            if (debrisQueue_.size() != 1 || rec.tileIndex != seedIndex ||
+                rec.velocityY != 4 * n || rec.subY != 2 * n * (n - 1) ||
+                rec.velocityX != 0 || rec.subX != 0 || rec.restTicks != 1) {
+                throw std::runtime_error("debris hover ladder mismatch");
+            }
+        }
+
+        // Tick 9: ysub 112 + 32 overflows -> one row step, stamping the
+        // fragment into BOTH planes at the destination and clearing the
+        // vacated cell, then re-seeding the cell above the vacated one.
+        const size_t collapseBefore = collapseQueue_.size();
+        updateFlashes();
+        const int destIndex = seedIndex + width;
+        {
+            const DebrisRecord& rec = debrisQueue_.front();
+            if (rec.tileIndex != destIndex || rec.velocityY != 36 ||
+                rec.subY != 16 || rec.restTicks != 0) {
+                throw std::runtime_error("debris row step mismatch");
+            }
+            if (level_.tiles[static_cast<size_t>(destIndex)] != seedGlyph ||
+                level_.tiles[static_cast<size_t>(seedIndex)] != 0 ||
+                level_.wordLayer[static_cast<size_t>(destIndex)] !=
+                    flaggedSeedWord ||
+                level_.wordLayer[static_cast<size_t>(seedIndex)] != 0) {
+                throw std::runtime_error("debris row step did not stamp both planes");
+            }
+            if (cascadeIsDebris) {
+                if (debrisQueue_.size() != 2 || (rec.aux & 0x80) == 0) {
+                    throw std::runtime_error("debris cascade did not seed a record");
+                }
+                const DebrisRecord& child = debrisQueue_.back();
+                // The live loop bound is re-read each iteration, so the
+                // cascade child is updated in its own birth tick.
+                if (child.tileIndex != seedIndex - width ||
+                    child.flaggedWord !=
+                        static_cast<uint16_t>(wordTwoAbove | kDamagedWordBit) ||
+                    child.velocityY != 4 || child.restTicks != 1) {
+                    throw std::runtime_error("debris cascade child mismatch");
+                }
+            } else if (expectCascade) {
+                if (collapseQueue_.size() != collapseBefore + 1 ||
+                    (rec.aux & 0x80) == 0) {
+                    throw std::runtime_error("debris cascade did not seed collapse");
+                }
+            } else if (debrisQueue_.size() != 1 || (rec.aux & 0x80) != 0) {
+                throw std::runtime_error("unexpected debris cascade");
+            }
+        }
+
+        // Free-run the live path well past the rest ceiling. Fragments that
+        // come to rest must STAY: the counter saturates at
+        // kDebrisRestSaturation and the record keeps its 0x8000 flag. This is
+        // what two level-2 captures show (longest observed run 3359
+        // consecutive ticks at the ceiling), and it is the opposite of what an
+        // earlier revision of this port did -- it removed the record after
+        // exactly 100 resting ticks. Records leave only through the 0xFF
+        // consume path.
+        const int kFreeRun = kDebrisRestSaturation * 8;
+        int restedAtCeiling = 0;
+        int maxRest = 0;
+        for (int t = 0; t < kFreeRun; ++t) {
+            updateFlashes();
+            for (const DebrisRecord& live : debrisQueue_) {
+                maxRest = std::max(maxRest, static_cast<int>(live.restTicks));
+            }
+        }
+        if (maxRest > static_cast<int>(kDebrisRestSaturation)) {
+            throw std::runtime_error(
+                "debris rest counter passed its saturation ceiling (" +
+                std::to_string(maxRest) + ")");
+        }
+        for (const DebrisRecord& live : debrisQueue_) {
+            if (live.restTicks == kDebrisRestSaturation) ++restedAtCeiling;
+        }
+        if (debrisQueue_.empty() || restedAtCeiling == 0) {
+            throw std::runtime_error(
+                "no debris fragment survived at the rest ceiling after " +
+                std::to_string(kFreeRun) + " ticks");
+        }
+        // Every surviving fragment's cell must still carry bit 0x8000 -- the
+        // retirement that used to clear it is gone.
+        for (const DebrisRecord& live : debrisQueue_) {
+            const int tx = live.tileIndex % level_.width;
+            const int ty = live.tileIndex / level_.width;
+            if ((wordAt(tx, ty) & kDamagedWordBit) == 0) {
+                throw std::runtime_error(
+                    "a resting debris fragment lost its 0x8000 flag");
+            }
+        }
+
+        std::cout << "debris_motion_live=ok level=" << (probeLevel + 1)
+                  << " seed_tile=" << px << ',' << (py - 1)
+                  << " glyph=" << std::showbase << std::hex
+                  << static_cast<int>(seedGlyph) << " word=" << seedWord
+                  << std::dec << std::noshowbase << " hover_ticks=8"
+                  << " step_stamps=1 cascade="
+                  << (cascadeIsDebris ? "debris"
+                                      : (expectCascade ? "collapse" : "none"))
+                  << " free_run=" << kFreeRun
+                  << " max_rest=" << maxRest
+                  << " rested_at_ceiling=" << restedAtCeiling
+                  << " survivors=" << debrisQueue_.size()
+                  << " still_flagged=1 retires_on_rest=0\n";
+    }
+
     void debugPassableObjects() {
         load();
         bool sawBombObject = false;
@@ -16916,7 +18160,7 @@ public:
         menu_ = false;
         playerCount_ = 1;
         AutoplayRouteResult route = autoplayLevel1BombRoute();
-        if (route.bombTileX != 24 || route.bombTileY != 22) {
+        if (route.bombTileX != 24 || route.bombTileY != 21) {
             throw std::runtime_error("level 1 passable-object route remains blocked");
         }
 
@@ -17341,6 +18585,197 @@ public:
                   << " solid_tile=" << static_cast<int>(kSolidDebugTile) << '\n';
     }
 
+    // Kill a kind-1 walker facing each way through the live bomb path and
+    // check which corpse sprite the renderer picks, and for how long. Two
+    // original captures fix both cases: a left-facing walker holds sprite 47
+    // for DS:78C2 frames 263..311 and a right-facing one holds 48 for frames
+    // 357..405 -- 49 ticks each.
+    void debugMonsterImpactSprites(const std::string& fixturePath) {
+        // The right-facing half comes from the fixture; the left-facing half
+        // is the already-committed monster_sprite_consumption capture.
+        std::ifstream in(fixturePath);
+        if (!in) throw std::runtime_error("cannot open " + fixturePath);
+        std::map<std::string, std::string> kv;
+        std::vector<std::pair<int, int>> fixtureTicks;  // frame, sprite index
+        std::string line;
+        while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (line.rfind("tick ", 0) == 0) {
+                std::istringstream row(line.substr(5));
+                std::string field;
+                int frame = -1, index = -1;
+                while (row >> field) {
+                    auto eq = field.find('=');
+                    if (eq == std::string::npos) continue;
+                    const std::string key = field.substr(0, eq);
+                    const std::string value = field.substr(eq + 1);
+                    if (key == "frame") frame = std::stoi(value);
+                    if (key == "sprite_index" && value != "-") {
+                        index = std::stoi(value);
+                    }
+                }
+                fixtureTicks.emplace_back(frame, index);
+                continue;
+            }
+            auto eq = line.find('=');
+            if (eq == std::string::npos) continue;
+            kv[line.substr(0, eq)] = line.substr(eq + 1);
+        }
+        auto req = [&](const char* key) -> std::string {
+            auto it = kv.find(key);
+            if (it == kv.end()) {
+                throw std::runtime_error(std::string("missing key ") + key);
+            }
+            return it->second;
+        };
+        if (req("monster_impact_sprites_original") != "level1" ||
+            req("visual_claim") != "0" || req("runtime_ds") != "0c8f" ||
+            req("facing") != "right") {
+            throw std::runtime_error("impact sprite fixture header mismatch");
+        }
+        const int fixtureCorpseSprite = std::stoi(req("corpse_sprite"));
+        const int fixtureCorpseTicks = std::stoi(req("corpse_ticks"));
+        const int fixtureFirst = std::stoi(req("corpse_first_frame"));
+        const int fixtureLast = std::stoi(req("corpse_last_frame"));
+        // The recorded rows must actually show that sprite held across that
+        // whole window, and something else on the tick before it.
+        int heldRows = 0;
+        for (const auto& tick : fixtureTicks) {
+            if (tick.first >= fixtureFirst && tick.first <= fixtureLast) {
+                if (tick.second != fixtureCorpseSprite) {
+                    throw std::runtime_error(
+                        "fixture corpse window is not a single sprite");
+                }
+                ++heldRows;
+            } else if (tick.first == fixtureFirst - 1 &&
+                       tick.second == fixtureCorpseSprite) {
+                throw std::runtime_error(
+                    "fixture corpse sprite already present before the kill");
+            }
+        }
+        if (heldRows != fixtureCorpseTicks ||
+            fixtureLast - fixtureFirst + 1 != fixtureCorpseTicks) {
+            throw std::runtime_error("fixture corpse tick count inconsistent");
+        }
+        if (fixtureCorpseSprite != kMonsterCorpseSpriteRight ||
+            fixtureCorpseTicks != kMonsterDeathVisibleTicks) {
+            throw std::runtime_error(
+                "port corpse constants disagree with the fixture");
+        }
+
+        load();
+        initSdl();
+        struct Case {
+            uint8_t kind;
+            int animFrame;
+            int16_t vx8;
+            int expectedSprite;
+        };
+        // The discriminator is the sign of vx at the damaging tick, NOT the
+        // animation band. Cases 3 and 4 separate the two: they pair a band
+        // with the opposite velocity, which the port can genuinely reach in
+        // the ticks after a turn, and case 5 is the vx == 0 spawn-fall state
+        // the original resolves through the `jle` to the dir-1 column.
+        const std::array<Case, 8> cases{{
+            {1, 43, -0x0800, kMonsterCorpseSpriteLeft},
+            {1, 46, 0x0800, fixtureCorpseSprite},
+            {1, 43, 0x0800, kMonsterCorpseSpriteRight},
+            {1, 46, -0x0800, kMonsterCorpseSpriteLeft},
+            {1, 44, 0x0000, kMonsterCorpseSpriteLeft},
+            {2, 40, 0x0800, 42},
+            {3, 50, 0x0800, 52},
+            {4, 54, 0x0800, 56},
+        }};
+        std::string observed;
+        std::string held;
+        for (const Case& c : cases) {
+            prepareAutoplayerMonsterFixtureLevel();
+            monsters_.clear();
+            bombs_.clear();
+            bonusDrops_.clear();
+            bool running = true;
+            player_.x = 80.0f;
+            player_.y = 24.0f;
+            player_.grounded = true;
+            bombInventory_.counts[3] = 1;
+            bombInventory_.selected = BombType::Super;
+            pushKeyDown(SDLK_n);
+            processEvents(running);
+            if (bombs_.empty()) {
+                throw std::runtime_error("impact sprite fixture placed no bomb");
+            }
+            Bomb placed = bombs_.back();
+            bombs_.back().timer = 1;
+            player_.x = 0.0f;
+            player_.y = 0.0f;
+
+            ActiveMonster monster;
+            monster.x = placed.x * kTileSize + kTileSize;
+            monster.y = placed.y * kTileSize - kTileSize;
+            monster.kind = c.kind;
+            monster.behavior = 3;
+            monster.ai0 = 0x0800;
+            monster.hp = monsterDamageForBomb(BombType::Super);
+            monster.animDelay = 3;
+            monster.hotspotY = monsterHotspotY(monster.kind);
+            refreshMonsterAnimationProfile(monster);
+            initializeMonsterMotion(monster);
+            monster.vx8 = c.vx8;
+            monster.animFrame = static_cast<uint8_t>(c.animFrame);
+            monster.animCursor = static_cast<uint8_t>(c.animFrame);
+            monsters_.push_back(monster);
+            if (monsterSpriteIndex(monsters_.front()) != c.animFrame) {
+                throw std::runtime_error(
+                    "impact sprite pre-impact frame mismatch");
+            }
+
+            FrameControls idle;
+            updateWithControls(idle, 1.0f / 60.0f);
+            if (monsters_.size() != 1 || monsters_.front().behavior != 2) {
+                throw std::runtime_error("impact sprite fixture bomb did not kill");
+            }
+            const int corpse = monsterSpriteIndex(monsters_.front());
+            if (corpse != c.expectedSprite) {
+                throw std::runtime_error(
+                    "corpse sprite " + std::to_string(corpse) + " for walker " +
+                    "facing frame " + std::to_string(c.animFrame) +
+                    ", expected " + std::to_string(c.expectedSprite));
+            }
+            // The corpse must hold that same sprite for the captured 49 ticks
+            // and be gone on the next one.
+            int ticks = 1;
+            while (!monsters_.empty() && monsters_.front().behavior == 2) {
+                if (monsterSpriteIndex(monsters_.front()) != c.expectedSprite) {
+                    throw std::runtime_error(
+                        "corpse sprite changed during playback");
+                }
+                updateWithControls(idle, 1.0f / 60.0f);
+                if (monsters_.empty()) break;
+                ++ticks;
+            }
+            if (ticks != fixtureCorpseTicks) {
+                throw std::runtime_error(
+                    "corpse held " + std::to_string(ticks) + " ticks, expected " +
+                    std::to_string(fixtureCorpseTicks));
+            }
+            if (!observed.empty()) observed += ',';
+            observed += std::to_string(corpse);
+            if (!held.empty()) held += ',';
+            held += std::to_string(ticks);
+        }
+        std::cout << "monster_impact_sprites=ok"
+                  << " table=ds:0x0077+kind*2+dir dir_rule=vx>0"
+                  << " ghidra=1000:745b"
+                  << " cases=k1_vx_neg,k1_vx_pos,k1_band_left_vx_pos,"
+                     "k1_band_right_vx_neg,k1_vx_zero,k2,k3,k4"
+                  << " corpse_sprites=" << observed
+                  << " held_ticks=" << held
+                  << " capture_frames=" << fixtureFirst << ".." << fixtureLast
+                  << " band_independent=1"
+                  << " visual_claim=0\n";
+    }
+
     void debugMonsterBombKillLive() {
         load();
         initSdl();
@@ -17400,8 +18835,8 @@ public:
         updateWithControls(idle, 1.0f / 60.0f);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().kind != 0x0c || monsters_.front().hp != 0 ||
-            monsters_.front().stateTimer != kMonsterDeathVisibleFrames ||
-            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSprite ||
+            monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
+            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteRight ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             std::ostringstream oss;
             oss << "live bomb did not kill overlapping moving monster"
@@ -17423,19 +18858,19 @@ public:
         }
 
         FrameInspection midpointFrame;
-        for (int frame = 1; frame < kMonsterDeathVisibleFrames; ++frame) {
+        for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
             if (monsters_.size() != 1 ||
                 monsters_.front().stateTimer !=
-                    kMonsterDeathVisibleFrames - frame ||
+                    kMonsterDeathVisibleTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
-                    kMonsterCorpseSprite ||
+                    kMonsterCorpseSpriteRight ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "live monster bomb corpse playback mismatch");
             }
             if (monsters_.front().stateTimer ==
-                kMonsterDeathVisibleFrames / 2) {
+                kMonsterDeathVisibleTicks / 2) {
                 midpointFrame = inspectRenderedFrame(
                     "monster-bomb-kill-live-corpse-midpoint");
             }
@@ -17490,8 +18925,8 @@ public:
                   << " pre_sprite=44"
                   << " last_pre_fatal_sprite=43"
                   << " pre_sprite_runs=44x4,43x2"
-                  << " corpse_sprite=" << kMonsterCorpseSprite
-                  << " corpse_frames=" << kMonsterDeathVisibleFrames
+                  << " corpse_sprite=" << kMonsterCorpseSpriteRight
+                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " delayed_reward=1 reward_sprite=61"
                   << " killed=1 removed=1 reward=1 collected=1"
                   << " score_delta=" << (score_ - scoreBefore)
@@ -17781,7 +19216,7 @@ public:
         resetLevel(0);
         menu_ = false;
         AutoplayRouteResult route = autoplayLevel1BombRoute();
-        if (route.bombTileX != 24 || route.bombTileY != 22) {
+        if (route.bombTileX != 24 || route.bombTileY != 21) {
             throw std::runtime_error("object jump support blocked level 1 bomb route");
         }
 
@@ -19444,7 +20879,7 @@ public:
             "reward_frame", "collection_frame", "pre_sprite",
             "last_pre_fatal_sprite", "pre_sprite_runs",
             "corpse_sprite", "corpse_original_ticks",
-            "corpse_engine_frames", "corpse_timer_first",
+            "corpse_timer_first",
             "corpse_timer_last", "reward_sprite", "reward_visible_ticks",
             "score_before", "score_after", "score_delta", "fatal_rng",
             "reward_rng", "bomb_type", "bomb_damage",
@@ -19502,7 +20937,6 @@ public:
         const std::string preSpriteRunSummary = req("pre_sprite_runs");
         const int corpseSprite = reqInt("corpse_sprite");
         const int corpseOriginalTicks = reqInt("corpse_original_ticks");
-        const int corpseEngineFrames = reqInt("corpse_engine_frames");
         const int corpseTimerFirst = reqInt("corpse_timer_first");
         const int corpseTimerLast = reqInt("corpse_timer_last");
         const int rewardSprite = reqInt("reward_sprite");
@@ -19521,7 +20955,7 @@ public:
             lastPreFatalSprite != 43 ||
             preSpriteRunSummary != "44x4,43x2" ||
             corpseSprite != 47 || corpseOriginalTicks != 49 ||
-            corpseEngineFrames != 120 || corpseTimerFirst != 25 ||
+            corpseTimerFirst != 25 ||
             corpseTimerLast != 1 || rewardSprite != 61 ||
             rewardVisibleTicks != 54 || scoreBefore != 50 ||
             scoreAfter != 2050 || scoreDelta != 2000 ||
@@ -19893,7 +21327,7 @@ public:
         if (!bombs_.empty() || monsters_.size() != 1 ||
             monsters_.front().behavior != 2 ||
             monsters_.front().kind != 0x0c || monsters_.front().hp != 0 ||
-            monsters_.front().stateTimer != corpseEngineFrames ||
+            monsters_.front().stateTimer != corpseOriginalTicks ||
             monsterSpriteIndex(monsters_.front()) != corpseSprite ||
             !bonusDrops_.empty() || randomSeed_ != fatalRng) {
             throw std::runtime_error(
@@ -19906,19 +21340,19 @@ public:
                 "monster sprite consumption production renderer did not change");
         }
 
-        int visibleEngineFrames = 1;
-        for (int frame = 1; frame < corpseEngineFrames; ++frame) {
+        int visibleCorpseTicks = 1;
+        for (int frame = 1; frame < corpseOriginalTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
-            ++visibleEngineFrames;
+            ++visibleCorpseTicks;
             if (monsters_.size() != 1 ||
-                monsters_.front().stateTimer != corpseEngineFrames - frame ||
+                monsters_.front().stateTimer != corpseOriginalTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) != corpseSprite ||
                 !bonusDrops_.empty() || randomSeed_ != fatalRng) {
                 throw std::runtime_error(
                     "monster sprite consumption production corpse playback mismatch");
             }
         }
-        if (visibleEngineFrames != corpseEngineFrames ||
+        if (visibleCorpseTicks != corpseOriginalTicks ||
             monsters_.front().stateTimer != 1) {
             throw std::runtime_error(
                 "monster sprite consumption production death timing mismatch");
@@ -19977,7 +21411,7 @@ public:
                   << " death_sprite_runs=" << corpseSprite << "x"
                   << corpseOriginalTicks
                   << " death_ticks=" << corpseOriginalTicks
-                  << " engine_death_frames=" << visibleEngineFrames
+                  << " replayed_death_ticks=" << visibleCorpseTicks
                   << " reward_sprite=" << rewardSprite
                   << " reward_visible_ticks=" << rewardVisibleTicks
                   << " reward_actor_timer=" << rewardActorTimer
@@ -20132,21 +21566,89 @@ public:
             dys != req("jump_tick_dy")) {
             throw std::runtime_error("jump fixed-point model diverges from fixture");
         }
-        // Fuse: the fixture's 41 game ticks at the governed rate must match
-        // the port's 100-frame fuse at 60 fps within the governor band.
-        const double fuseSec =
-            std::stoi(req("small_bomb_fuse_ticks")) / fpsMid;
-        const double portFuseSec = bombProfile(BombType::Small).fuseTicks / 60.0;
-        if (std::abs(fuseSec - portFuseSec) > 0.1) {
-            throw std::runtime_error("bomb fuse diverges from fixture");
+        // Drive the LIVE player rather than replaying the fixture's own
+        // arithmetic: hold right from a settled stance and measure the
+        // per-tick x advance, then hold jump from grounded and record the
+        // per-tick y deltas. These read updatePlayer/movePlayer, so the
+        // port's own walk/jump/gravity constants are what is under test.
+        load();
+        initSdl();
+        resetLevel(0);
+        menu_ = false;
+        const float tickSeconds = static_cast<float>(kGovernedTickMs / 1000.0);
+        FrameControls idle;
+        for (int i = 0; i < 30; ++i) updateWithControls(idle, tickSeconds);
+        if (!player_.grounded) {
+            throw std::runtime_error("player never settled for the walk probe");
         }
+
+        FrameControls walkRight;
+        walkRight.p1Right = true;
+        const float walkStartX = player_.x;
+        int walkTicks = 0;
+        for (int i = 0; i < 8; ++i) {
+            const float before = player_.x;
+            updateWithControls(walkRight, tickSeconds);
+            if (player_.x == before) break;  // hit a wall; stop measuring
+            ++walkTicks;
+        }
+        if (walkTicks == 0) {
+            throw std::runtime_error("player did not walk for the probe");
+        }
+        const double livePxPerTick =
+            (player_.x - walkStartX) / static_cast<double>(walkTicks);
+        if (std::abs(livePxPerTick - walkPerTick) > 0.5) {
+            throw std::runtime_error(
+                "live walk " + std::to_string(livePxPerTick) +
+                " px/tick diverges from the fixture's " +
+                std::to_string(walkPerTick));
+        }
+
+        // Jump arc: the fixture records the original's per-tick y deltas over
+        // the rise. Sample the live player's y the same way.
+        for (int i = 0; i < 30; ++i) updateWithControls(idle, tickSeconds);
+        if (!player_.grounded) {
+            throw std::runtime_error("player never settled for the jump probe");
+        }
+        FrameControls hold;
+        hold.p1Jump = true;
+        const int riseTicks = std::stoi(req("jump_rise_ticks"));
+        const float jumpStartY = player_.y;
+        std::string liveDys;
+        int livePeak = 0;
+        int prevLiveY = 0;
+        for (int t = 0; t < riseTicks; ++t) {
+            // Jump is an impulse: press on the first tick only, so the arc
+            // measured is the one the original's capture recorded.
+            updateWithControls(t == 0 ? hold : idle, tickSeconds);
+            const int y = static_cast<int>(std::floor(player_.y - jumpStartY));
+            if (!liveDys.empty()) liveDys += ',';
+            liveDys += std::to_string(y - prevLiveY);
+            prevLiveY = y;
+            livePeak = std::min(livePeak, y);
+        }
+        if (-livePeak != std::stoi(req("jump_peak_px")) ||
+            liveDys != req("jump_tick_dy")) {
+            throw std::runtime_error(
+                "live jump arc diverges from fixture: peak " +
+                std::to_string(-livePeak) + " vs " + req("jump_peak_px") +
+                ", dy [" + liveDys + "] vs [" + req("jump_tick_dy") + "]");
+        }
+
+        // The fixture's former small_bomb_fuse_* keys were a misread of the
+        // monster spawner's cooldown byte, so there is nothing here to check
+        // a fuse against; the keys are gone and this diagnostic no longer
+        // claims one.
+        // Everything after live_ is measured from the running player, not
+        // echoed from the fixture or from a string constant.
         std::cout << "route_timing_evidence=ok"
                   << " governed_fps=" << fpsMin << '-' << fpsMax
                   << " walk_px_per_tick=" << walkPerTick
-                  << " jump_model=fixed_848_64 jump_peak=24"
-                  << " fuse_ticks=" << req("small_bomb_fuse_ticks")
-                  << " port_walk=98 port_fuse_frames="
-                  << bombProfile(BombType::Small).fuseTicks
+                  << " jump_model=fixed_848_64"
+                  << " live_walk_px_per_tick=" << livePxPerTick
+                  << " live_jump_peak=" << -livePeak
+                  << " live_jump_tick_dy=" << liveDys
+                  << " live_driven=1 fuse_recovered=0"
                   << " visual_claim=0\n";
     }
 
@@ -20642,6 +22144,12 @@ private:
     uint8_t weaponSwitchHoldTicks_ = 0;
     uint8_t weaponSwitchHoldTicks2_ = 0;
     uint32_t logicTick_ = 0;
+    uint32_t governedRunDeadlineMs_ = 0;
+    uint32_t governedRunStartMs_ = 0;
+    uint32_t governedRunStartLogicTick_ = 0;
+    long governedRunTicks_ = 0;
+    long governedDroppedTicks_ = 0;
+    long governedMaxTickGapMs_ = 0;
     uint32_t randomSeed_ = 0x1234abcd;
     uint32_t score_ = 0;
     uint32_t score2_ = 0;
@@ -21375,16 +22883,19 @@ private:
             // The default (Small) bomb is the blue BOMOMIMK sprite 57, verified
             // against the original both in the HUD selector box and as a dropped
             // world bomb (captured under DOSBox); 58 is the green bomb.
-            // Fuse durations: the original small-bomb countdown byte starts
-            // at 41 game ticks (~1.67s at the governed 24.5 fps, tick-locked
-            // /proc/mem measurement) = 100 engine frames at 60 fps. Other
-            // types pending the same measurement.
-            case BombType::Small: return {0x0d, 57, 100};
-            case BombType::Medium: return {0x0e, 59, 150};
-            case BombType::Large: return {0x0f, 60, 200};
-            case BombType::Super: return {0x10, 60, 1000};
+            // Fuse durations are all UNRECOVERED (@unevidenced:bomb_fuse_profile_table)
+            // port policy -- see the
+            // note on BombProfile::fuseTicks. No bomb countdown seed has
+            // been located in the image: the only `dec byte es:[di+0x1b]`
+            // in the binary belongs to the monster spawner loop. These four
+            // values only preserve the port's long-standing wall-clock
+            // durations at the governed tick rate.
+            case BombType::Small: return {0x0d, 57, 41};
+            case BombType::Medium: return {0x0e, 59, 61};
+            case BombType::Large: return {0x0f, 60, 82};
+            case BombType::Super: return {0x10, 60, 410};
         }
-        return {0x0d, 57, 100};
+        return {0x0d, 57, 41};
     }
 
     int explosionVisualType(BombType type) const {
@@ -21549,8 +23060,17 @@ private:
             }
         }
         updateLaunchPadMarkers();
-        updateFlashes();
+        // Original per-frame order (main loop, re-read this session): the
+        // bomb/effect actor table at DS:1BAE is updated via 1000:6053 at
+        // 7ECB..7EE8 — which is where an expiring fuse runs the blast and
+        // seeds debris — BEFORE the debris/effect queue pass 1000:45FA is
+        // dispatched at 804E..805D and the collapse pass 1000:5102 at
+        // 8060..8067. So bombs explode first, then the same tick's
+        // updateFlashes gives the freshly seeded records their first mover
+        // pass (the L2 capture shows the seed frame already applying one
+        // gravity tick).
         updateBombs();
+        updateFlashes();
         updateMonsterSpawners();
         updateBossLinks();
         updateMonsters(dt);
@@ -21569,7 +23089,12 @@ private:
             return false;
         }
 
-        player.vy = kLaunchPadVelocity;
+        // The original's launch-pad impulse is -2000 in 8.8 (byte-cited as
+        // kOriginalLaunchPadVelocity). With the player on the fixed-point
+        // model it is used directly instead of through a px/s conversion.
+        player.vy8 = kOriginalLaunchPadVelocity;
+        player.fracY = 0;
+        syncPlayerVelocityMirror(player);
         player.grounded = false;
         LaunchPadMarker marker;
         marker.x = static_cast<int>(player.x) + 4;
@@ -21807,31 +23332,65 @@ private:
         }
     }
 
+    // One call is one governed game tick. The dt parameter is ignored for the
+    // integration -- the original's player is 8.8 fixed-point per tick, not a
+    // continuous px/s model -- and is kept only so the existing call
+    // signatures are undisturbed.
     void updatePlayer(Player& player, bool left, bool right, bool jump, bool switchWeapon,
-                      int& facing, int& animTick, float dt) {
-        player.vx = 0.0f;
-        // Original walk speed: 4 px/tick at the governed 24.5 fps = 98 px/s
-        // (tick-locked capture; the port's earlier 90 px/s was a guess).
+                      int& facing, int& animTick, float) {
+        player.vx8 = 0;
         if (!switchWeapon && left) {
-            player.vx -= 98.0f;
+            player.vx8 = static_cast<int16_t>(player.vx8 - kPlayerWalkVelocity8);
             facing = -1;
         }
         if (!switchWeapon && right) {
-            player.vx += 98.0f;
+            player.vx8 = static_cast<int16_t>(player.vx8 + kPlayerWalkVelocity8);
             facing = 1;
         }
-        if (player.vx != 0.0f) ++animTick;
+        if (player.vx8 != 0) ++animTick;
         else animTick = 0;
         if (!player.grounded && hasObjectJumpSupport(player)) {
             player.grounded = true;
         }
         if (jump && player.grounded) {
-            player.vy = kPlayerJumpVelocity;
+            player.vy8 = kPlayerJumpVelocity8;
             player.grounded = false;
         }
-        player.vy = std::min(160.0f, player.vy + 200.0f * dt);
-        movePlayer(player, player.vx * dt, 0.0f);
-        movePlayer(player, 0.0f, player.vy * dt);
+        // Move THEN apply gravity: the captured arc's first delta is the full
+        // -848 step (-4 px), so the launch tick moves before the first +0x40
+        // is added. Applying gravity first loses that leading step and shifts
+        // the whole series by one tick.
+        syncPlayerVelocityMirror(player);
+        movePlayerFixed(player, player.vx8, true);
+        movePlayerFixed(player, player.vy8, false);
+        if (player.grounded) {
+            // Gravity is gated on standing on something, the same way the
+            // original gates its actors' +0x40 on the tile below. Letting it
+            // accumulate while grounded would leave a residual fractional
+            // carry that perturbs the next jump's arc.
+            player.vy8 = 0;
+            player.fracY = 0;
+        } else {
+            player.vy8 = static_cast<int16_t>(
+                std::min<int>(kPlayerTerminalVelocity8, player.vy8 + kPlayerGravity8));
+        }
+        syncPlayerVelocityMirror(player);
+    }
+
+    static void syncPlayerVelocityMirror(Player& player) {
+        player.vx = player.vx8 / 256.0f;
+        player.vy = player.vy8 / 256.0f;
+    }
+
+    // Integrate one axis by one tick in 8.8 fixed point, then hand the whole
+    // pixel delta to movePlayer so the collision/pushout path is unchanged.
+    void movePlayerFixed(Player& player, int16_t velocity8, bool horizontal) {
+        int pos = static_cast<int>(horizontal ? player.x : player.y);
+        const int before = pos;
+        integrateAxis8_8(pos, horizontal ? player.fracX : player.fracY, velocity8);
+        const float delta = static_cast<float>(pos - before);
+        if (delta == 0.0f) return;
+        movePlayer(player, horizontal ? delta : 0.0f, horizontal ? 0.0f : delta);
     }
 
     AutoplayRouteResult autoplayLevel1BombRoute() {
@@ -21839,8 +23398,12 @@ private:
             throw std::runtime_error("level1 autoplayer requires active one-player level 1");
         }
 
+        // Standing on the same level-1 floor run (player y = 168), the
+        // recovered placement mapping ((px+4)>>3, py>>3) puts the bomb's
+        // 2x2 top-left at row 21; the footprint rows 21-22 still cover the
+        // bomb-object at (24,22).
         constexpr int kTargetBombX = 24;
-        constexpr int kTargetBombY = 22;
+        constexpr int kTargetBombY = 21;
         constexpr int kMaxRouteFrames = 180;
         constexpr float kDt = 1.0f / 60.0f;
         AutoplayRouteResult result;
@@ -21850,8 +23413,8 @@ private:
         int stagnantFrames = 0;
         int lastX = static_cast<int>(player_.x);
         for (int frame = 0; frame < kMaxRouteFrames; ++frame) {
-            result.bombTileX = static_cast<int>(player_.x + 6.0f) / kTileSize;
-            result.bombTileY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+            result.bombTileX = (static_cast<int>(player_.x) + 4) / kTileSize;
+            result.bombTileY = static_cast<int>(player_.y) / kTileSize;
             if (result.bombTileX == kTargetBombX &&
                 result.bombTileY == kTargetBombY) {
                 break;
@@ -21877,8 +23440,8 @@ private:
 
         result.finalX = static_cast<int>(player_.x);
         result.finalY = static_cast<int>(player_.y);
-        result.bombTileX = static_cast<int>(player_.x + 6.0f) / kTileSize;
-        result.bombTileY = static_cast<int>(player_.y + 12.0f) / kTileSize;
+        result.bombTileX = (static_cast<int>(player_.x) + 4) / kTileSize;
+        result.bombTileY = static_cast<int>(player_.y) / kTileSize;
         if (result.bombTileX != kTargetBombX || result.bombTileY != kTargetBombY) {
             throw std::runtime_error("level1 autoplayer did not reach target tile");
         }
@@ -21912,6 +23475,8 @@ private:
                 }
                 if (collides(player.x, player.y)) player.y = oldY;
                 player.grounded = dy > 0.0f;
+                player.vy8 = 0;
+                player.fracY = 0;
                 player.vy = 0.0f;
             } else {
                 player.grounded = false;
@@ -23338,8 +24903,17 @@ private:
             selectNextAvailableBomb(inventory);
             if (!hasBomb(inventory, inventory.selected)) return;
         }
-        int tx = static_cast<int>(player.x + 6.0f) / 8;
-        int ty = static_cast<int>(player.y + 12.0f) / 8;
+        // Original pixel->tile mapping, from the blast routine at 655B..6582
+        // (re-read this session: base = ((py>>3)-1)*width + (((px+4)>>3)-1))
+        // plus the burn walk at 6CB8..6D1B, whose consumed 2x2 block has its
+        // top-left tile at ((px+4)>>3, py>>3). The L2 capture pins the
+        // arithmetic: player pixel (200,308) at drop -> base 3724 and
+        // post-walk DS:C1E8 = 3925, exactly as measured. The identification
+        // of the bomb actor's pixel position with the dropping player's pixel
+        // position is INFERRED (@unevidenced:bomb_pixel_equals_player_pixel)
+        // from that single consistent point.
+        int tx = (static_cast<int>(player.x) + 4) / 8;
+        int ty = static_cast<int>(player.y) / 8;
         auto it = std::find_if(bombs_.begin(), bombs_.end(),
                                [&](const Bomb& b) { return b.x == tx && b.y == ty; });
         if (it == bombs_.end()) {
@@ -23514,6 +25088,8 @@ private:
         return counted;
     }
 
+    // Port of seeder 1000:370E for both word classes. The u8 velocity args map
+    // to the seeder's vx/vy args ([bp+0xA]/[bp+0x8], stored at record +4/+5).
     void queueTileDamage(int tx, int ty, uint8_t forwardPhase = 0, uint8_t reversePhase = 0) {
         if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return;
         size_t start = static_cast<size_t>(ty) * level_.width + tx;
@@ -23522,16 +25098,23 @@ private:
         if (word == 0 || (word & kDamagedWordBit) != 0) return;
 
         if (word >= kDeferredThreshold) {
+            // Debris branch 374C..37F4: flags the word (3770/3780), copies the
+            // object byte into the record (37B8/37BE) but never writes the
+            // object plane — the glyph stays put until the fragment's first
+            // move (CONFIRMED by the L2 capture; the earlier markDamagedTile
+            // call here was unfaithful). Cap check 3753: refuse once slot
+            // index base + record count reaches 0x640.
             uint8_t lookup = tileAt(tx, ty) & 0xff;
             uint16_t flaggedWord = static_cast<uint16_t>(word | kDamagedWordBit);
-            level_.wordLayer[start] = flaggedWord;
-            markDamagedTile(tx, ty);
-            if (debrisQueue_.size() < kDebrisCapacity) {
+            // The word is flagged (3770/3780) only after the cap check passes
+            // (3753 jumps straight to the failure return when full).
+            if (kDebrisRecordIndexBase + debrisQueue_.size() < kDebrisCapacity) {
+                level_.wordLayer[start] = flaggedWord;
                 DebrisRecord record;
                 record.tileIndex = static_cast<int>(start);
                 record.flaggedWord = flaggedWord;
-                record.forwardPhase = forwardPhase;
-                record.reversePhase = reversePhase;
+                record.velocityX = static_cast<int8_t>(forwardPhase);
+                record.velocityY = static_cast<int8_t>(reversePhase);
                 record.lookup = lookup;
                 debrisQueue_.push_back(record);
             }
@@ -23604,7 +25187,9 @@ private:
                 const DebrisRecord& record = debrisQueue_[i - 1];
                 if (record.flaggedWord == flaggedWord) {
                     return {static_cast<int>(i),
-                            reverse ? record.reversePhase : record.forwardPhase, true};
+                            static_cast<uint8_t>(reverse ? record.velocityY
+                                                         : record.velocityX),
+                            true};
                 }
             }
             return {};
@@ -23717,11 +25302,30 @@ private:
         }
     }
 
+    // Which corpse sprite a monster dies to. Evidenced for kind 1 only (see
+    // kMonsterCorpseSpriteLeft/Right): its walk frames and both captured
+    // corpse sprites are 17x10. Kinds 2/3/4 walk in 16x16 frames, so they
+    // cannot use this pair, and no death of one has been captured -- they
+    // keep the left value and stay UNEVIDENCED (@unevidenced:corpse_sprite_non_kind1),
+    // exactly as before.
+    // DS:[0x77 + kind*2 + dir] with dir = (vx > 0) ? 2 : 1 (1000:745B).
+    // Note the `jle`: vx == 0 takes the dir-1 entry, so a monster killed
+    // while stationary -- during its spawn fall, or on a blocked tick --
+    // always gets the first column.
+    int monsterCorpseSprite(const ActiveMonster& monster) const {
+        const size_t kind = monster.kind < kMonsterImpactSprites.size()
+                                ? monster.kind
+                                : 0;
+        return kMonsterImpactSprites[kind][monster.vx8 > 0 ? 1 : 0];
+    }
+
     void enterMonsterDeath(ActiveMonster& monster) {
         if (monster.behavior == 2) return;
+        // Latch before kind/vx8 are destroyed below.
+        monster.corpseSprite = static_cast<uint8_t>(monsterCorpseSprite(monster));
         monster.behavior = 2;
         monster.kind = 0x0c;
-        monster.stateTimer = kMonsterDeathVisibleFrames + 1;
+        monster.stateTimer = kMonsterDeathVisibleTicks + 1;
         monster.deathRewardPending = true;
         releaseMonsterSlot(monster);
         monster.vx8 = 0;
@@ -23875,6 +25479,246 @@ private:
         }
     }
 
+    // Falling-debris mover: port of 1000:45FA loop 2 (492F..4D37), transcribed
+    // step for step from the disassembly (ghidra addresses; file offset =
+    // addr + 0x770) and lockstepped against the level-2 measurement
+    // (tests/fixtures/debris_measurement_original_level2.txt). See
+    // docs/recovery/falling_debris_update_spec.md for the full byte spec.
+    void updateDebrisRecords() {
+        // Loop-2 emptiness gate (4934 cmp DS:207E,0xC8 / jb exit).
+        if (debrisQueue_.empty()) return;
+        const int width = level_.width;
+        if (width <= 0 || level_.tiles.empty()) return;
+        const int cellCount = static_cast<int>(level_.tiles.size());
+        // The original never indexes outside the map (levels ship with solid
+        // borders); the port clamps instead: out-of-range object bytes read as
+        // solid (blocking moves and supporting fragments), out-of-range words
+        // read 0, and out-of-range writes are dropped.
+        auto objectByteAt = [&](int index) -> uint8_t {
+            return index >= 0 && index < cellCount
+                       ? level_.tiles[static_cast<size_t>(index)]
+                       : uint8_t{0x01};
+        };
+        auto setObjectByte = [&](int index, uint8_t value) {
+            if (index >= 0 && index < cellCount) {
+                level_.tiles[static_cast<size_t>(index)] = value;
+            }
+        };
+        auto wordCellAt = [&](int index) -> uint16_t {
+            return index >= 0 &&
+                           static_cast<size_t>(index) < level_.wordLayer.size()
+                       ? level_.wordLayer[static_cast<size_t>(index)]
+                       : uint16_t{0};
+        };
+        auto setWordCell = [&](int index, uint16_t value) {
+            if (index >= 0 && static_cast<size_t>(index) < level_.wordLayer.size()) {
+                level_.wordLayer[static_cast<size_t>(index)] = value;
+            }
+        };
+
+        // Ascending slot order with the bound re-read live every iteration
+        // (4947 re-reads DS:207E): a record seeded mid-pass by a cascade IS
+        // updated later in this same tick (CONFIRMED by the L2 capture,
+        // frame 404). Removal (458D) shifts the survivors down and rewinds
+        // the caller's counter, which a vector erase without ++i reproduces.
+        for (size_t i = 0; i < debrisQueue_.size();) {
+            // Slot number as the original counts it: [bp-2] starts at 0xC8.
+            const int slot = static_cast<int>(kDebrisRecordIndexBase) + 1 +
+                             static_cast<int>(i);
+            // Lane load 4950..49A1 (DS:78D2/78D3/78D4/78D5).
+            int pos = debrisQueue_[i].tileIndex;
+            int vx = debrisQueue_[i].velocityX;
+            int vy = debrisQueue_[i].velocityY;
+            int subX = debrisQueue_[i].subX;
+            int subY = debrisQueue_[i].subY;
+            uint8_t code = debrisQueue_[i].lookup;
+            const uint16_t fw = debrisQueue_[i].flaggedWord;
+
+            // Fragile-word auto-shatter 49A4..49C8: raw words 0x7FBD..0x7FFF
+            // shatter even without a landing when still carrying a non-shatter
+            // glyph.
+            if (fw > kDebrisFragileWordFloor && code <= 0x66) {
+                code = kDebrisShatterFrame;
+                debrisQueue_[i].lookup = code;
+                requestSoundCursor(kDebrisAutoShatterSoundCursor,
+                                   kDebrisAutoShatterSoundPriority);
+            }
+
+            // Shatter frame stepper 49CB..4A18: one frame per tick; reaching
+            // 0x79 picks the terminal glyph (0x6B+Random(5) for fragile words,
+            // else 0xFF which dissolves through the consume path below); the
+            // object plane is restamped every tick while code >= 0x76.
+            if (code >= kDebrisShatterFrame) {
+                code = static_cast<uint8_t>(code + 1);
+                if (code == kDebrisShatterLastStep) {
+                    code = fw > kDebrisFragileWordFloor
+                               ? static_cast<uint8_t>(kDebrisTerminalBase +
+                                                      randomRangeValue(0, 5))
+                               : kDebrisDissolveByte;
+                }
+                debrisQueue_[i].lookup = code;
+                setObjectByte(pos, code);
+            }
+
+            // 0xFF consume 4A1B..4A75: the fragment dissolves (both planes
+            // cleared) and the cell above is re-seeded through the seeder
+            // (guard 4A5B is word > 0 only; the seeder rejects the rest).
+            if (objectByteAt(pos) == kDebrisDissolveByte) {
+                setObjectByte(pos, 0);   // 4A31
+                setWordCell(pos, 0);     // 4A49
+                debrisQueue_.erase(debrisQueue_.begin() +
+                                   static_cast<std::ptrdiff_t>(i));  // 4A39 -> 458D
+                const int above = pos - width;
+                if (above >= 0 && wordCellAt(above) > 0) {           // 4A5B
+                    queueTileDamage(above % width, above / width);   // 4A72 -> 370E
+                }
+                continue;
+            }
+
+            // Integrator 3EDA (called at 4A81): per axis, a signed 8-bit
+            // sub-accumulator gains v; on signed overflow it loses 0x80 and
+            // the move delta gains one tile in v's direction. x axis first,
+            // then y; both can step in the same tick (diagonal move).
+            int delta = 0;
+            auto integrateAxis = [&](int v, int& sub, int unitMagnitude) {
+                const int unit = v < 0 ? -unitMagnitude : unitMagnitude;  // 3EE4/3F0B
+                int sum = sub + v;                                        // 3EEB/3F11
+                if (sum > 127) {          // 3EED/3F13 jno (signed overflow)
+                    sum -= 128;           // 3EEF/3F15 sub 0x80
+                    delta += unit;        // 3EF2/3F18
+                } else if (sum < -128) {
+                    sum += 128;
+                    delta += unit;
+                }
+                sub = sum;
+            };
+            integrateAxis(vx, subX, 1);
+            integrateAxis(vy, subY, width);
+            bool resting = delta == 0;  // 4A84..4A8B
+
+            // Support / gravity / friction / landing shatter 4A93..4B32,
+            // keyed on the object byte directly below (4A9D).
+            if (objectByteAt(pos + width) == 0) {
+                // Unsupported: gravity +4 while vy < 0x7B signed (so the
+                // attainable terminal value from a zero start is 0x7C), and
+                // the rest counter resets every airborne tick (4AB3).
+                if (vy < kDebrisGravityCompare) vy += kDebrisGravityStep;
+                debrisQueue_[i].restTicks = 0;
+            } else {
+                if (!resting) {
+                    // Horizontal friction 4AC0..4AE2, only on ticks whose
+                    // integrator produced a step.
+                    if (vx > 0) {
+                        --vx;
+                    } else if (vx < 0) {
+                        ++vx;
+                    }
+                }
+                // Landing shatter 4AE6..4B32. The dice is
+                // (DS:78C2 + slot) mod 6 — a frame counter, not the RNG; the
+                // port's logicTick_ stands in for DS:78C2 (INFERRED @unevidenced:debris_shatter_dice_phase,
+                // equivalence, phase not pinned against the original).
+                if (vy > 0 && vy > kDebrisLandingShatterVyGate && code > 0x66 &&
+                    (logicTick_ + static_cast<uint32_t>(slot)) % 6u > 2u) {
+                    setObjectByte(pos, kDebrisShatterFrame);  // 4B16
+                    debrisQueue_[i].lookup = kDebrisShatterFrame;
+                    code = kDebrisShatterFrame;
+                    requestSoundCursor(kDebrisLandingShatterSoundCursor,
+                                       kDebrisLandingShatterSoundPriority);
+                }
+            }
+
+            // Move 4B35..4CB5.
+            if (delta != 0) {
+                const int dest = pos + delta;
+                if (objectByteAt(dest) == 0) {
+                    // Free move 4B61..4C1D: the fragment is materialized at
+                    // the destination in BOTH planes and erased from the
+                    // vacated cell — these stamps happen on every free move,
+                    // not on rest.
+                    debrisQueue_[i].restTicks = 0;  // 4B6E
+                    setObjectByte(dest, code);      // 4B7E
+                    setObjectByte(pos, 0);          // 4B89
+                    setWordCell(dest, fw);          // 4B9B
+                    setWordCell(pos, 0);            // 4BAB
+                    debrisQueue_[i].tileIndex = dest;  // 4BB5
+                    // Cascade 4BB9..4C19: a move that was not straight up
+                    // re-seeds the cell above the vacated one when its word
+                    // is live and unflagged (words 1..0x3FFF spawn a collapse
+                    // record through the same seeder).
+                    if (delta != -width) {
+                        const int above = pos - width;
+                        const uint16_t aboveWord = wordCellAt(above);
+                        if (above >= 0 && aboveWord > 0 &&
+                            aboveWord < kDamagedWordBit) {  // 4BE4..4BF5
+                            queueTileDamage(above % width, above / width);  // 4C08
+                            // Set even when the seeder is at capacity (no
+                            // DS:79C8 check at 4C0B..4C19). queueTileDamage
+                            // may reallocate the queue, so re-index.
+                            debrisQueue_[i].aux |= 0x80;
+                        }
+                    }
+                    pos = dest;
+                } else {
+                    // Blocked move 4C20..4CAC.
+                    resting = true;  // 4C20
+                    if (vy > 0) {
+                        // Bounce 4C24..4C5F: exactly these two RNG draws in
+                        // this order, then vy = 0.
+                        vx = static_cast<int8_t>(
+                            vx + static_cast<int>(randomRangeValue(0, 0x1e)) -
+                            15);  // 4C2B/4C41, stored through AL
+                        requestSoundOffset(
+                            static_cast<uint16_t>(kDebrisBounceSoundBase +
+                                                  randomRangeValue(0, 8)),
+                            kDebrisBounceSoundPriority);  // 4C4A/4C51/4C57
+                        vy = 0;                           // 4C5F
+                    }
+                    const uint16_t destWord = wordCellAt(dest);  // 4C64..4C75
+                    if (destWord == 0) {
+                        vx = 0;  // 4CAE
+                    }
+                    // destWord > 0: the original merges velocities with the
+                    // struck record through 3BB2/3D46 (the 3D2D staging
+                    // writes). That blender is the still-open
+                    // natural_forward_debris_writeback_3d2d item and is
+                    // deliberately not modelled; the lane bytes are left
+                    // unchanged instead.
+                }
+            }
+
+            // Lane write-back 4CB9..4CEB.
+            debrisQueue_[i].velocityX = static_cast<int8_t>(vx);
+            debrisQueue_[i].velocityY = static_cast<int8_t>(vy);
+            debrisQueue_[i].subX = static_cast<int8_t>(subX);
+            debrisQueue_[i].subY = static_cast<int8_t>(subY);
+
+            // Reconstruction-only rule carried over from the previous port
+            // DebrisRecord loop (not byte-cited): a live fragment damages
+            // players overlapping its current cell each tick.
+            damagePlayersInTileArea(pos % width, pos / width, pos % width,
+                                    pos / width);
+
+            // Rest counter 4CEF..4D31. `4CFF cmp rest,0x64` is a SATURATION
+            // guard, not a retirement trigger: the counter stops at 100 and
+            // the record stays put, still flagged. An earlier revision read it
+            // as "after exactly 100 resting ticks, clear bit 0x8000 and remove
+            // the record", which two level-2 captures refute -- across ~7800
+            // sampled ticks no record's rest byte ever exceeds 100, bit 0x8000
+            // is never cleared on this path, and no record is removed by it;
+            // the longest observed run is 3359 consecutive ticks at rest == 100
+            // (tests/fixtures/debris_shatter_playback_original_level2.txt).
+            // Records leave the table only through the 0xFF consume path above
+            // (4A1B..4A75), which the same capture exercises.
+            // (An airborne non-stepping tick resets the counter at 4AB3 before
+            // this increment, so it samples as 1, never 0.)
+            if (resting && debrisQueue_[i].restTicks < kDebrisRestSaturation) {
+                ++debrisQueue_[i].restTicks;  // 4CF8, ceiling at 4CFF
+            }
+            ++i;
+        }
+    }
+
     void updateFlashes() {
         for (Flash& f : flashes_) --f.timer;
         flashes_.erase(std::remove_if(flashes_.begin(), flashes_.end(),
@@ -23884,17 +25728,7 @@ private:
         explosionEffects_.erase(std::remove_if(explosionEffects_.begin(), explosionEffects_.end(),
                                                [](const ExplosionEffect& e) { return e.timer <= 0; }),
                                 explosionEffects_.end());
-        for (DebrisRecord& debris : debrisQueue_) {
-            --debris.timer;
-            if (level_.width > 0) {
-                int tx = debris.tileIndex % level_.width;
-                int ty = debris.tileIndex / level_.width;
-                damagePlayersInTileArea(tx, ty, tx, ty);
-            }
-        }
-        debrisQueue_.erase(std::remove_if(debrisQueue_.begin(), debrisQueue_.end(),
-                                          [](const DebrisRecord& debris) { return debris.timer <= 0; }),
-                           debrisQueue_.end());
+        updateDebrisRecords();
         for (CollapseRecord& collapse : collapseQueue_) {
             --collapse.timer;
             if (level_.width > 0) {
@@ -24237,17 +26071,9 @@ private:
     }
 
     void drawDamageQueues(int camX, int camY) {
-        for (const DebrisRecord& debris : debrisQueue_) {
-            if (level_.width <= 0) continue;
-            int tx = debris.tileIndex % level_.width;
-            int ty = debris.tileIndex / level_.width;
-            int px = tx * 8 - camX;
-            int py = ty * 8 - camY;
-            uint32_t color = debris.timer & 1 ? 0xfff0c050u : 0xff7c5030u;
-            rect(px + 2, py + 2, 4, 2, color);
-            rect(px + 1 + ((debris.lookup + debris.forwardPhase) & 1), py + 5,
-                 2 + (debris.reversePhase & 1), 2, 0xffd08040u);
-        }
+        // Falling fragments no longer need an invented overlay: the mover
+        // stamps the carried tile code into level_.tiles on every move
+        // (1000:4B7E), so the ordinary tile renderer draws them.
         for (const CollapseRecord& collapse : collapseQueue_) {
             int px = collapse.x * 8 - camX;
             int py = collapse.y * 8 - camY;
@@ -24317,7 +26143,7 @@ private:
             }
             return std::min<int>(static_cast<int>(altSprites_.sprites.size()) - 1, 39);
         }
-        int index = monster.behavior == 2 ? kMonsterCorpseSprite
+        int index = monster.behavior == 2 ? static_cast<int>(monster.corpseSprite)
                                           : monster.animFrame;
         if (index >= 0 && index < static_cast<int>(sprites_.sprites.size())) return index;
         return std::min<int>(sprites_.sprites.size() - 1, 39);
@@ -25485,6 +27311,38 @@ int main(int argc, char** argv) {
             app.debugBombObjectExplosionEffects();
             return 0;
         }
+        if (argc > 2 && std::string(argv[1]) == "--debug-debris-shatter-playback") {
+            app.debugDebrisShatterPlayback(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-natural-forward-debris-writeback") {
+            app.debugNaturalForwardDebrisWriteback(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-actor-contact-level2-evidence") {
+            app.debugActorContactLevel2Evidence(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-behavior4-motion-evidence") {
+            app.debugBehavior4MotionEvidence(argv[2]);
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-debris-collapse-order") {
+            app.debugDebrisCollapseOrder();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-debris-bounce-rng") {
+            app.debugDebrisBounceRng();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-debris-motion-live") {
+            app.debugDebrisMotionLive();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-governed-rate") {
+            app.debugGovernedRate(argc > 2 ? std::stod(argv[2]) : 5.0);
+            return 0;
+        }
         if (argc > 1 && std::string(argv[1]) == "--debug-passable-objects") {
             app.debugPassableObjects();
             return 0;
@@ -25507,6 +27365,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-collision-pushout") {
             app.debugCollisionPushout();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-monster-impact-sprites") {
+            app.debugMonsterImpactSprites(argv[2]);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-monster-bomb-kill-live") {

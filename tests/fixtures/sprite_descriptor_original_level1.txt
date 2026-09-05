@@ -4,8 +4,12 @@
 #
 # Table: DS:0xC322, 92 entries, stride 4: { width:u8, height:u8,
 # pixel_offset:u16le }. Entry 0 is the zeroed reserved slot -- the same
-# one-based convention as the actor (0x74A8), motion-link (0x79EA) and boss
-# (0x1BAE) tables. Entries 1..91 describe BOMOMIMK.SPR's 91 sprites with
+# one-based convention as the spawner (0x74A8), motion-link (0x79EA) and
+# actor (0x1BAE) tables. (An earlier revision of this header called 0x74A8
+# the actor table; 0x74A8 stride 0x1E is the level-file monster SPAWNER
+# table and the actor table is 0x1BAE stride 0x26. The one-based claim this
+# fixture makes is unaffected -- it rests on the 0xC322 descriptor entries
+# themselves, which are matched 91/91 against BOMOMIMK.SPR below.) Entries 1..91 describe BOMOMIMK.SPR's 91 sprites with
 # entry k mapping to FILE sprite k-1: dimensions match 91/91 and
 # pixel_offset is the cumulative w*h sum, totalling exactly the file's
 # 19985 payload bytes.

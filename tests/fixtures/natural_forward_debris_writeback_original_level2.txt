@@ -1,0 +1,54 @@
+# Original LEZAC.EXE level-2 NATURAL FORWARD debris writeback at 1000:3D2D.
+#
+# 3D2D writes debris[0x0B*(tag-0x4E20) + 4] = result -- the STRUCK record's vx
+# field -- with the blended impact velocity (spec: docs/recovery/
+# falling_debris_update_spec.md, x-blend 3BB2..3D45). The item was recorded as
+# unobservable because 3D2D is an intra-frame staging write. That reasoning was
+# incomplete: the value it writes PERSISTS in the record, so a tick-locked
+# sampler sees its effect on the next sample. What the earlier 201-tick window
+# lacked was a fragment-on-fragment strike, not the resolution to observe one.
+#
+# This capture bombs a stacked pile of eleven adjacent seedable sites on level
+# 2 (tiles 26..30 x 37..40) to force strikes, and samples the whole debris
+# record table (DS:0x2093, stride 0x0B) every tick for 3927 ticks.
+#
+# THE OBSERVABLE: a record whose vx changes while EVERY other byte of the
+# record -- tile, word, vy, both sub-accumulators, rest counter, lookup glyph
+# and aux -- is byte-identical across the tick. Friction moves vx by exactly
+# +/-1; the bounce moves it by Random(0x1E)-15 AND clears vy; a retire+reseed
+# resets the rest counter and sub-accumulators. None of those can produce a
+# pure vx overwrite. Three occur in this window.
+#
+# STILL OPEN: the blend FORMULA. The spec's acc/weight arithmetic over tagged
+# contributors (3C98..3CC6, divide at 3CE3) is disassembly-only, and this
+# capture does not sample the intermediate accumulator or the tag list, so it
+# proves the writeback HAPPENS and what it targets, not how the value is
+# computed. The port deliberately does not model the blend; that divergence is
+# recorded here rather than papered over.
+natural_forward_debris_writeback_original=level2
+source=LEZAC.EXE via DOSBox /proc/mem tick-locked read
+runtime_ds=0c8f
+debris_table_offset=0x2093
+debris_stride=0x0b
+ticks_sampled=3927
+bomb_sites=11
+pure_vx_overwrites=3
+blend_formula_recovered=0
+port_models_blend=0
+visual_claim=0
+temp_copy=1
+event frame=100 record=201
+  row frame=98 record=201 raw=590f12c027002700016800
+  row frame=99 record=201 raw=590f12c027004e00026800
+  row frame=100 record=201 raw=590f12c03b004e00026800
+  row frame=101 record=201 raw=590f12c03b004e00026800
+event frame=155 record=202
+  row frame=153 record=202 raw=560f0fc00200440d2f6800
+  row frame=154 record=202 raw=560f0fc00200460d306800
+  row frame=155 record=202 raw=560f0fc0da00460d306800
+  row frame=156 record=202 raw=560f0fc0da00460d306800
+event frame=401 record=200
+  row frame=399 record=200 raw=560f09c0d900d900016900
+  row frame=400 record=200 raw=560f09c0d900b200026900
+  row frame=401 record=200 raw=560f09c0c500b200026900
+  row frame=402 record=200 raw=560f09c0c500b200026900

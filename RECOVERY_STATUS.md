@@ -23,6 +23,373 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Integrated the falling-debris recovery with current main (2026-09-05).**
+  Both level-2 and level-3 evidence sets are retained. The level-3 production
+  replay supersedes the older private-countdown interpretation; behavior-4
+  stays open for the unevidenced targeting and collision scope. The impact
+  sprite parser now accepts CRLF fixture files as well as LF files. The
+  following historical iteration entries retain their original validation
+  counts; any former behavior-4 closure/countdown claim is superseded here.
+
+- **Made the set of unevidenced values machine-checked.** This session's two
+  wrong models -- the "measured" 41-tick bomb fuse that was really a spawner
+  cooldown, and the 100-tick debris retirement the original never performs --
+  both survived a green suite for the same reason: the tests that covered them
+  echoed a port constant back rather than comparing it to anything original.
+  `bomb_fuse` pinned `fuse=41`; `debris_motion_live` pinned
+  `retire_ticks=108 flag_cleared=1`. Neither number had an original datum
+  behind it, so neither pin could ever fail for the right reason.
+  `docs/recovery/unevidenced_constants.md` is now the explicit inventory of
+  values the ORIGINAL has not established -- seven of them, each with what it
+  affects and why it is unproven -- and
+  `tools/check_unevidenced_constants.py` (`unevidenced_constants` ctest)
+  enforces it in BOTH directions: every `UNEVIDENCED`/`UNRECOVERED`/`INFERRED`
+  marker in `src/app/app.cpp` must carry an `@unevidenced:<tag>` and appear in
+  the doc, and every doc entry must still have its marker in the source.
+  Recovering a value now means deleting the marker and the entry together, in
+  the change that adds the evidence. Both knockouts run for real: an untagged
+  marker fails with `carries an uncertainty marker but no @unevidenced:<tag>`,
+  and deleting a marker while leaving its entry fails with `the inventory
+  lists entries with no marked site left in the source`.
+  The two pins that legitimately echo port policy now say so where they are
+  registered: `bomb_fuse` and `player_state2_death_fields` are annotated as
+  pinning a MECHANISM, not a duration. Suite 402/402.
+
+- **Replaced the debris retirement with the original's saturation model.** The
+  captures in the entry below refuted the port's reading of `4CFF cmp
+  rest,0x64` as "after exactly 100 resting ticks, clear bit `0x8000` and remove
+  the record". It is a saturation guard: the counter stops at 100 and the
+  record stays, still flagged, and records leave the table only through the
+  `0xFF` consume path (`4A1B..4A75`). `updateDebrisRecords()` now does that,
+  and `kDebrisRetireRestTicks` is renamed `kDebrisRestSaturation` so the
+  constant says what the byte means.
+  Persistence is bounded exactly as the original bounds it: the seeder's cap
+  check (`3753`, refuse once `record index base + count` reaches 0x640) is
+  already implemented, so nothing new can overflow -- the original never
+  removed on rest either and lives with the same ceiling.
+  `debris_motion_live` used to pin `retire_ticks=108 flag_cleared=1`, a pure
+  port-behaviour pin with no original datum behind it, which is precisely how
+  the wrong model survived a green suite. It now free-runs 800 ticks and
+  asserts the counter never passes the ceiling (`max_rest=100`), that fragments
+  survive at it (`rested_at_ceiling=2 survivors=2`), and that their cells keep
+  bit `0x8000`. Knockout run for real: restoring the retirement fails with
+  `no debris fragment survived at the rest ceiling after 800 ticks`.
+  The fixture's `port_retirement_model_refuted=1` becomes
+  `port_matches_saturation=1`, and `debris_shatter_playback` now also checks
+  the port's ceiling constant equals the captured saturation value, so the
+  fixture no longer advertises a divergence that has been closed. Suite
+  401/401.
+
+- **Captured the debris shatter playback, and refuted the port's retirement
+  model.** Bombing the level-2 sites with the deepest free fall (tile (40,31)
+  has 16 clear tiles below it) drives fragments past the landing-shatter gate
+  (`4AED cmp vy,0x3c`; max `vy` observed 68).
+  *Confirmed*: the `0x76 -> 0x77 -> 0x78 -> terminal` playback, listed in the
+  spec as disassembly-only and never exercised, runs at ONE GLYPH PER TICK
+  (frames 498/499/500/501) and takes the `0xFF` dissolve terminal for a
+  flagged word of `0xc007`, below the `0xffbc` fragile floor -- exactly the
+  port's stepper and terminal choice, which the diagnostic re-derives from the
+  port's own constants and compares. The record's slot is reused seven ticks
+  later, so the `0xFF` consume path is what removes it.
+  *Refuted*: the port retires a record after exactly 100 resting ticks,
+  clearing bit `0x8000` and removing it (`4CFF`/`4D17`). The original does not.
+  Its rest counter SATURATES at 100 -- never observed above it across ~7800
+  sampled ticks in two captures -- bit `0x8000` is never cleared on that path,
+  and the record is not removed. The longest observed run is **3359
+  consecutive ticks** at `rest == 100` (record 205), where this port would have
+  removed the record after 100. `4CFF` therefore reads as a saturation guard,
+  not a retirement trigger.
+  **Fixed in the following change**: the port now saturates the counter at the
+  ceiling and keeps the record, removing only through the `0xFF` consume path.
+  Suite 401/401.
+
+- **Observed the natural forward debris writeback at `1000:3D2D`.** This item
+  had been recorded as blocked because `3D2D` is an intra-frame staging write
+  that tick-locked sampling cannot see. That reasoning was incomplete. `3D2D`
+  writes `debris[0x0B*(tag-0x4E20) + 4] = result` -- the STRUCK record's vx
+  field -- and that value PERSISTS, so the next tick-locked sample shows its
+  effect. What the earlier 201-tick window lacked was a fragment-on-fragment
+  strike, not resolution.
+  The new capture bombs a stacked pile of eleven adjacent seedable sites on
+  level 2 (tiles 26..30 x 37..40) to force strikes, and samples the whole
+  debris record table (`DS:0x2093`, stride 0x0B) for 3927 ticks. Three events
+  occur in which a record's vx changes while EVERY other byte of that record
+  -- tile, word, vy, both sub-accumulators, rest counter, lookup glyph and aux
+  -- is byte-identical across the tick: `+39 -> +59` (record 201, frame 100),
+  `+2 -> -38` (record 202, frame 155) and `-39 -> -59` (record 200, frame
+  401). Nothing else in the recovered model can produce that: friction moves
+  vx by exactly +/-1, the bounce moves it by `Random(0x1E)-15` AND clears vy,
+  and a retire+reseed resets the rest counter and sub-accumulators. A fourth
+  candidate transition WAS a retire+reseed and is excluded on exactly those
+  grounds. Pinned by `natural_forward_debris_writeback`, which re-derives the
+  events from the rows rather than trusting the fixture's count.
+  **Scope**: the item stays OPEN. What is settled is that the writeback
+  happens naturally and what it targets; the blend FORMULA -- the spec's
+  `acc/weight` over tagged contributors (`3C98..3CC6`, divide at `3CE3`) --
+  is still disassembly-only, because this capture samples neither the
+  accumulator nor the tag list. The port deliberately does not model the
+  blend, and the fixture records `port_models_blend=0` so that divergence is
+  pinned rather than carried silently. Suite 400/400.
+
+- **Gave the actor-contact core a second level of runtime evidence.** The open
+  item `actor_update_original_contact_semantics` listed "one level" among the
+  things it had not evidenced -- everything rested on the level-1 capture. The
+  same level-2 run that settled behaviour 4 also carries two kind-1
+  behaviour-3 walkers for 666 and 566 ticks, from the REAL actor table
+  `DS:0x1BAE`. It confirms, on a second level and against the port's live
+  rules (`actor_contact_level2_evidence`):
+  the kind-1 hotspot `+0x14 = 6`; gravity of `+0x40` per airborne tick, as the
+  full ladder 64,128,192,256,320,384,448,512,576,640,704 over 11 consecutive
+  ticks with no rounding drift; the ground walk speed `|vx| = +0x0E` seeded on
+  the first grounded tick (0 -> 208); and the two-tick wall response
+  `208 -> -104 -> -208`, i.e. `trunc(-vx/2)` followed by restore-to-speed with
+  the reflected sign. Slot 3 corroborates independently with a different
+  parameter (speed 184, halving to -92). Knockout: kind-1 hotspot 6 -> 5 fails
+  with `port kind-1 hotspot 5 disagrees with the level-2 capture's 6`.
+  **Scope**: the item stays OPEN -- behaviours 1/2/5/6, other kinds, per-tick
+  tile-embedding damage, mode-2 corpse physics, contact multiplicity, the
+  bottom-edge `0x4D..0x52` jump-through semantics, the player's own collision
+  box and two-player are all still unevidenced. The `0x7FF` gravity clamp also
+  stays INFERRED: the level-2 fall peaks at `vy = 704`, so no capture has ever
+  exercised the clamp, and the fixture records `gravity_clamp_exercised=0`
+  rather than implying otherwise. Suite 399/399.
+
+- **Recovered the original's behaviour-4 flyer motion and CLOSED the item.**
+  `behavior4_motion_runtime_fixture` had no runtime evidence at all. A level-2
+  tick-locked capture now records 666 consecutive behaviour-4 ticks of a live
+  kind-2 flyer from the REAL actor table `DS:0x1BAE` stride 0x26 -- every
+  earlier capture tool pointed at `DS:0x74A8`, the level-file monster SPAWNER
+  table, which is the misidentification that produced the withdrawn bomb-fuse
+  claim.
+  My first reading of this capture said RNG attribution was impossible because
+  the LCG is shared with the two live walkers. That was wrong, and measuring it
+  settled the item: **616 of the 666 ticks advance the LCG by ZERO steps**, 48
+  by exactly two and one by four -- walkers draw nothing while walking, so a
+  retarget tick's two draws are the flyer's own.
+  Recovered and pinned by `behavior4_motion_evidence`: the retarget cadence is
+  **14 ticks** (26 clean occurrences, re-derived from the rows rather than read
+  from the header), matching the port's `motionTimer = max(1, ai0)`; and the
+  velocity selection is `v = -ai1 + Random(2*ai1)` with `ai1 = 271`, first draw
+  to vx and second to vy, reproducing **47/48** vx and **43/48** vy when
+  replayed through the port's OWN `randomRangeValue`. Every exception is a
+  contact rule applied after selection on the same tick -- five top-edge clamps
+  to `vy = 1`, and one horizontal bounce that halves and negates the FRESHLY
+  DRAWN value (233 -> -116), which also fixes the order: retarget first,
+  contact response second. The level-2 kind-2 spawner's `param0Base=13
+  param0Range=2` and `param1Base=270 param1Range=2` bracket the captured
+  `ai0 = 14` and `ai1 = 271`.
+  The record layout is recovered from what actually moves: only `+0x06`/`+0x08`
+  (vx/vy), `+0x0A`/`+0x0C` (single-BYTE 8.8 fraction carries), `+0x16` (anim
+  frame) and `+0x19` (delay counter) ever change, so the flyer runs the same
+  integer-pixel + byte-fraction model the port already uses. The 25 velocity
+  changes that consumed NO RNG corroborate the `-vx/2` bounce and `vy = 1` top
+  clamp the port already implements. Knockout: seeding the port's motion timer
+  one tick high fails with `port seeds a behaviour-4 motion timer of 15,
+  capture shows 14`.
+  Open original-evidence items drop from four to **three**. Suite 398/398.
+
+- **Pinned the debris bounce's RNG draw order.** The review pass found the
+  bounce's two draws entirely unguarded: swapping `Random(0x1E)` and
+  `Random(8)` -- which desynchronises the shared Turbo Pascal LCG from that
+  point on, changing every subsequent random number in the game -- left
+  395/395 green, and DELETING both draws outright also left 395/395 green.
+  The branch is executed by `debris_motion_live`, so it looked covered and
+  was not.
+  The seed alone cannot pin the order, because the LCG advances identically
+  whichever range is asked for; only the CONSUMED values differ. The new
+  `--debug-debris-bounce-rng` (`debris_bounce_rng` ctest) therefore steps the
+  LCG twice itself and checks that the horizontal kick carries the first draw
+  (mod 0x1E) and the sound offset the second (mod 8), plus that the draw
+  COUNT is exactly two and that `vy` is cleared at `4C5F`. Three knockouts run
+  for real: swapping the order fails with `bounce kick -14 did not consume the
+  FIRST draw`, deleting both draws fails on the count, and moving the sound
+  base off `0xEA61` fails the pin.
+  The same diagnostic now also pins the gravity GATE (`4AA3 cmp vy,0x7b`,
+  signed `jge`), which the review found free -- changing it to 0x40 left
+  395/395 green because nothing ever reached terminal velocity. It seeds a
+  fragment just below the gate, checks the +4 still lands, then checks the
+  next airborne tick does NOT accelerate past it, and reports the attainable
+  terminal `vy` (124 = 0x7C from a zero start). Knockout: gate 0x40 yields
+  `terminal_vy=65` and fails. The gravity STEP (+4) was already guarded.
+  The last of the review's unguarded debris claims -- the debris pass running
+  BEFORE the collapse pass (`1000:45FA` at `805D`, then `1000:5102` at
+  `8067`) -- is now covered by `--debug-debris-collapse-order`
+  (`debris_collapse_order` ctest). Swapping the two passes inside
+  `updateFlashes()` left the suite green because nothing observed the
+  difference; it IS observable, though, because a dissolving fragment
+  re-seeds the cell above through the seeder (`4A72` -> `370E`) and that can
+  enqueue a collapse record. In the byte order the new record is decremented
+  on the same tick (timer 24 -> 23); with the passes swapped it still reads
+  24. Knockout run for real, failing with exactly that. Suite 397/397.
+
+- **Put the player on the original's 8.8 fixed-point per-tick model.** The
+  player was the last moving thing in the port still running a continuous
+  float px/s model integrated by `dt`; walkers, boss links, debris and
+  launch-pad markers were already 8.8-per-tick. The capture has recorded the
+  original's player model all along (`jump_v0_fixed=-848`,
+  `jump_gravity_fixed=64`, `jump_fixed_shift=8`, `jump_peak_px=24`, a 12-entry
+  `jump_tick_dy` series, and a flat `walk_px_per_tick=4`), and the port did
+  not reproduce it: `kPlayerJumpVelocity = -98.0f` was derived from the WALK
+  speed, not the jump. In the original's units -848/256 is -3.3125 px/tick
+  (-81 px/s) with gravity 64/256 = 0.25 px/tick^2 (150 px/s^2), against the
+  port's -98 and 200. The 24 px peak agreed only by coincidence
+  (98^2 / (2*200) = 24.01); the arc did not.
+  Nothing caught it because `route_timing_evidence` read the fixture's own
+  `jump_v0_fixed`/`jump_gravity_fixed`, replayed that arithmetic and compared
+  the result back to the fixture's own `jump_tick_dy` -- fixture against
+  itself, never touching `updatePlayer`. A reviewer set the walk constant to
+  60.0f and the jump to -40.0f with all 395 tests still green.
+  `updatePlayer` now integrates `vx8`/`vy8` with the fractional carry through
+  the existing `integrateAxis8_8`, the same integrator the monsters use, and
+  hands whole-pixel deltas to `movePlayer` so the collision/pushout path is
+  untouched. `player.vx`/`vy` stay as float mirrors (always `v8 / 256`) for
+  the many call sites that read a sign or print a magnitude. The `dt`
+  parameter is now ignored for integration, which makes the
+  one-call-is-one-tick invariant true for the player -- the one place a
+  reviewer showed it did not hold. The launch pad uses the byte-cited
+  `-2000` impulse directly instead of a px/s conversion of it.
+  Two ordering facts fell out of matching the captured arc, and both are
+  guarded: the original MOVES then applies gravity (applying gravity first
+  loses the leading -4 step and shifts the whole series), and gravity is
+  gated on standing on something, exactly as the original gates its actors'
+  `+0x40` on the tile below -- letting it accumulate while grounded leaves a
+  residual fractional carry that perturbs the next jump.
+  `route_timing_evidence` now DRIVES the live player for both the walk and
+  the jump and reports what it measured
+  (`live_walk_px_per_tick=4 live_jump_peak=24 live_jump_tick_dy=...`), so the
+  port reproduces all twelve captured per-tick deltas exactly. Five knockouts
+  run for real: walk 4->3 px/tick, v0 -848->-800, gravity +64->+65, gravity
+  before move, and gravity ungated -- each fails the test.
+  **Scope**: the terminal-velocity clamp `0x7FF` is carried over from the
+  original's actor gravity (`1000:7028`/`702C`), whose `+0x40` step matches
+  the player's measured gravity; no capture reaches terminal velocity, so the
+  clamp VALUE stays INFERRED. Suite 395/395.
+
+- **Corrected the monster impact/corpse sprite rule and withdrew the bomb-fuse
+  measurement.** An adversarial review pass on the two claims below refuted
+  both, and both are fixed here.
+
+  *Corpse sprite.* The previous entry claimed the kind-1 corpse sprite was
+  selected by the animation band ("facing"). It is not. At `1000:745B` the
+  original does `cmp WORD [bp-0xc],0 / jle`, where `[bp-0xc]` is vx, taking
+  dir 1 when vx <= 0 and dir 2 when vx > 0, then indexes
+  `DS:[0x0077 + kind*2 + dir]` and hands the result to the sprite-assign
+  helper `1000:5A75`. DGROUP (image base 0xAA20, anchored on the DS:0x8B
+  "larax e zaco versione 1:0 shareware" string) holds
+  `DS:0x0077.. = 2c 28 28 30 31 2b 2b 35 35 39 39`, giving kind 0 -> 39/39,
+  kind 1 -> **47/48**, kind 2 -> **42**, kind 3 -> **52**, kind 4 -> **56**.
+  So two things were wrong: the discriminator, and the claim that kinds 2/3/4
+  had no corpse sprite of their own -- they were all rendering 47.
+  The two captures could not tell the rules apart because the walk band is
+  selected from the same vx sign at `1000:7286`/`72DA`, so band and velocity
+  agree whenever vx != 0. They part at vx == 0, and the "left-facing" capture
+  is exactly that case: its raw actor bytes show `+0x06` (vx) = 0 on every
+  recorded tick including the fatal one, with `+0x08` (vy) stepping
+  0x0040..0x01C0 -- a monster in its 7-tick spawn fall, not a walker facing
+  left. It got 47 through the `jle` tie-break.
+  The rule is now the byte-cited table, pinned by `--debug-monster-impact-sprites`
+  (`monster_impact_sprites` ctest) across eight cases including two that pair
+  a walk band with the opposite velocity -- the cases that actually separate
+  the two rules -- the vx == 0 case, and one per kind.
+  One thing the previous entry got right and is worth keeping: sprite 47 is
+  the exact byte-for-byte horizontal mirror of 48 (all 170 bytes). The
+  "equal nonzero pixel counts" argument it used was NOT sound on its own --
+  43 and 45 also have equal counts (126) yet differ in 21 bytes under
+  mirroring.
+
+  *Bomb fuse.* The "measured 41-tick small-bomb fuse" is withdrawn. The
+  fixture read `DS:0x74A8` record offset 0x1B as a bomb actor countdown,
+  citing file `0x820b`. That table is the level-file MONSTER SPAWNER table
+  (stride 0x1E, count `DS:0x79A6`, loaded verbatim by the level loader and
+  never appended to) -- this port's own `parseMonsterSpawner` already maps
+  offset 0x1B as the spawner cooldown and 0x1C as its reload -- and file
+  `0x820b` holds the only `dec byte es:[di+0x1b]` in the image, inside that
+  spawner loop, reloading from +0x1C. Tick 437 is the level-1 spawner's THIRD
+  cooldown-zero (first spawn 256, then period 90: 257, 347, 437), the first
+  that persists instead of being reloaded because `liveAllowance` is spent.
+  The "41" was the gap between a bomb keypress at 396 and that unrelated
+  event. The keys are removed from the fixture with the correction recorded
+  in its header, `route_timing_evidence` no longer claims a fuse
+  (`fuse_recovered=0`), and all four fuse values are relabelled UNRECOVERED
+  port policy. They keep their current numbers, which only preserve the
+  port's long-standing wall-clock durations at the governed tick rate.
+  **Scope**: the real actor table is `DS:0x1BAE` stride 0x26, not
+  `DS:0x74A8`; the capture tooling that assumed otherwise is corrected here,
+  and any other claim resting on that table needs re-checking.
+  Also recorded rather than fixed: the port's own reproduction of the level-1
+  kill gives its monster a rightward vx where the original's actor bytes show
+  vx = 0 in a spawn fall, so the port renders 48 where the original rendered
+  47 for that specific scenario -- a velocity-model divergence, not a sprite
+  rule error, to close separately. Suite 395/395.
+
+- **Ran the interactive loop at the original's governed tick rate.** Every
+  per-tick subsystem recovered so far -- walker motion (`vx8 = 0x0100`, one
+  pixel per tick), the spawner's 256-tick first spawn and 90-tick period, the
+  boss 29-tick RNG gate, animation period 4, the bomb fuse, and the new
+  falling-debris state machine -- advances exactly once per `update()` call.
+  But `run()` called `update()` once per 16 ms `SDL_Delay`, so in live play
+  all of it ran at ~60 ticks/s against the original's governed 24.2..25.2:
+  walkers moved ~60 px/s instead of ~24, the first spawn arrived after 4.3 s
+  instead of 10.5 s, and debris fell and retired ~2.4x too fast. Nothing
+  caught it because every test and lockstep diagnostic drives ticks directly,
+  one call per tick -- which is correct; only the live loop's cadence was
+  wrong. The fix is a single governed accumulator in the new
+  `pumpGovernedLoop()`: events are still polled every 4 ms so input stays
+  responsive, but gameplay ticks are issued at a fixed 40.8 ms, with a 5-tick
+  catch-up cap so a suspended window cannot fast-forward a level on resume.
+  40.83 ms is the midpoint of the byte-derived target itself (the governor at
+  file `0x810A`/`0x812F` holds 30 frames in 120..125 hundredths = 24.00..25.00
+  fps); the 24.2..25.2 band is what the DOSBox capture measured, slightly
+  above the byte-derived one, and the two are kept distinct.
+  `run()` now has no cadence code of its own, and `governed_rate` covers
+  `run()` itself: the diagnostic arms a deadline and calls the real
+  interactive entry point rather than a copy of its loop, so re-siting a
+  wrong cadence anywhere inside `run()` fails the test (verified: the
+  reviewer's own experiment, a 16 ms loop in `run()` alone, now measures
+  58.20 ticks/s and fails). It also bounds the worst gap between ticks and
+  refuses to report a healthy rate while ticks are being dropped at the
+  catch-up clamp, because an aggregate rate is blind to burstiness -- a loop
+  batching ticks every 163 ms averaged out correctly before and now fails
+  with `worst gap between gameplay ticks was 166 ms`.
+  The original's reference is the dithered governor at file `0x8089`
+  (delay word `DS:0x78CC` alternating 96/102 ms, step `DS:0x78CA` = 6, 30
+  frames per 120..125 hundredths); the port uses a fixed mid-band value
+  rather than reproducing the dither, and says so in the comment.
+  The monster corpse timer had the same defect and is fixed with it:
+  `kMonsterDeathVisibleFrames = 120` was the 60 fps conversion of a measured
+  **49** governed ticks (sprite 47 held across `DS:78C2` frames 263..311), so
+  it becomes `kMonsterDeathVisibleTicks = 49` -- the captured number itself.
+  The monster-sprite-consumption check now replays the corpse for
+  `corpse_original_ticks`, exactly as it already replayed the reward for the
+  measured `reward_visible_ticks=54`; that inconsistency between the two
+  replays in the same function is what the conversion had introduced. The
+  fixture's `corpse_engine_frames=120` key is dropped: it was arithmetic over
+  an engine assumption, not captured data, and the capture tool never emitted
+  it.
+  The bomb fuses were also stored as 60 fps frame counts and are re-expressed
+  in ticks (41/61/82/410). NOTE: a later entry above withdraws the claim that
+  41 was measured -- all four are UNRECOVERED port policy.
+  Pinned by the new `--debug-governed-rate` diagnostic (`governed_rate`
+  ctest), which calls `pumpGovernedLoop()` itself -- the same function
+  `run()` drives the game with -- and measures the realised rate over a
+  5 s wall-clock window. The knockout was run for real: restoring the
+  one-update-per-16 ms pacing inside that function measures 56.73 ticks/s and
+  fails the test. The nominal interval is asserted strictly inside the
+  24.2..25.2 band and the measured rate against the band ceiling; the
+  measured floor carries slack (22.0) because a loaded host can only ever
+  lose ticks, never gain them.
+  **Scope**: constants that were never byte-cited and are not 60 fps
+  conversions are left alone rather than re-tuned by guesswork -- the
+  explosion-flame `Flash` lifetime (12), which sets boss flame damage per
+  tick, the portal/trigger debounce (30), the damage-cooldown window
+  (`kDamageCooldownTicks` = 18, ~0.30 s -> ~0.73 s), and the port-policy
+  auto-reentry timeout `kReentryTicks` (180, where the original instead waits
+  on a key press at `1000:7ddf`). These are tick counts in the port's model and now
+  run at the original's rate; none has original evidence fixing its duration,
+  so each stays as it was and is listed here rather than silently adjusted.
+  The menus, help pages and level-intro flows run their own wall-clock
+  loops and are out of scope. Suite 392/392.
+
 - **Recovered behavior-4 motion from two original level-3 captures.** Each
   contains 80 natural ticks and 80 ticks with explicitly seeded near-player
   coordinates. The production `updateMonsters` path reproduces all 318
@@ -86,6 +453,41 @@ under the existing guardrails; they are not missing port functionality.
   promoted, and both reward physics/presentation and transition-effect
   rendering remain outside this focused recovery, so the global
   `original_fidelity_claim=0` is unchanged.
+- **Implemented the original falling-debris subsystem.** The port's
+  `DebrisRecord` previously only decremented a timer; the original's 11-byte
+  records (base `DS:0x2093`, stride 0x0B, first record index 200, cap 1401)
+  are live objects. The new `updateDebrisRecords()` transcribes the loop-2
+  mover from the bytes, in instruction order: signed 8-bit sub-accumulator
+  integration BEFORE gravity, gravity +4 while `vy < 0x7B` gated on the
+  object byte directly below (`4A9D`/`4AA3`/`4AAA`), horizontal friction on
+  stepped ticks, free moves stamping BOTH planes and clearing the vacated
+  cell (`4B7E`/`4B9B`), the cascade re-seed from `wordPlane[oldPos-width]`
+  (`4BD5..4C08`), blocked-move bounce with the exact RNG draw order
+  (`Random(0x1E)-15`, sound `0xEA61+Random(8)`), the fragile/landing shatter
+  gates (`4AE6..4B0B`), retirement at exactly 100 rest-ticks clearing bit
+  0x8000 (`4CFF`/`4D17`), and removal reproducing the `458D` shift-down.
+  The seeder (`1000:370E` port in `queueTileDamage`) no longer writes the
+  object plane at seed time -- the glyph stays put until the fragment's first
+  move, exactly as the L2 capture shows. The frame order was re-wired from
+  the bytes: the actor/bomb update (`1000:6053`, called at `7EE1`) runs
+  BEFORE the debris/effect pass (`1000:45FA` at `805D`) and the collapse
+  pass (`1000:5102` at `8067`) -- verified by re-disassembly, and a reversion
+  knockout fails `collapse_playback_route`.
+  `placeBombAt` now uses the original mapping read from `655B..6582`:
+  `base = ((py>>3)-1)*width + ((px+4)>>3 - 1)`; the L2 capture pins it
+  (player pixel (200,308) -> base 3724, post-walk `DS:C1E8` = 3925, exactly
+  as measured). The bomb-pixel = player-pixel identification is INFERRED from
+  that single consistent point and labelled so in the code.
+  Pinned by the new `--debug-debris-motion-live` diagnostic
+  (`debris_motion_live` ctest), which drives the live seed -> hover -> step ->
+  cascade -> retire chain; three knockouts verified by hand after applying
+  (gravity 4->5, seed-time plane write, frame-order reversion -- each fails
+  its guard). Spec: `docs/recovery/falling_debris_update_spec.md`.
+  **Scope**: `natural_forward_debris_writeback_3d2d` stays OPEN -- the `3D2D`
+  staging tag is an intra-frame event the tick-locked capture cannot observe.
+  The per-tick L2 lockstep fixture and the adversarial verification pass of
+  this subsystem are still pending (they were killed by a session limit) and
+  follow as their own change. Suite 391/391.
 
 - **Read the original's live sprite-descriptor table and proved the one-based
   sprite indexing at runtime.** One /proc-mem pread of a running level-1
@@ -373,11 +775,12 @@ under the existing guardrails; they are not missing port functionality.
   confirming the previously recovered `kOriginalNormalJumpVelocity=-848`
   and fixing the port's float approximation (now 98 px/s launch,
   200 px/s^2 gravity — peak 24 px, 0.49 s rise, matching the arc);
-  (4) the small-bomb fuse — the bomb actor's countdown byte (record
-  offset 0x1B in the `DS:0x74A8` table, decremented once per frame at
-  file 0x820b) starts at 41 ticks (placed tick 396, zero at 437), ~1.67 s,
-  correcting the port's 0.33 s fuse to 100 engine frames; the
-  post-explosion playback occupies ~55 further ticks of the same byte.
+  (4) WITHDRAWN — this entry claimed a 41-tick small-bomb fuse read from
+  "the bomb actor's countdown byte (record offset 0x1B in the `DS:0x74A8`
+  table, decremented at file 0x820b)". `DS:0x74A8` is the monster SPAWNER
+  table and that byte is its cooldown; tick 437 is the level-1 spawner's
+  third cooldown-zero. See the correction entry above. No bomb fuse
+  duration has been recovered.
   Evidence pinned by `tests/fixtures/route_timing_original_level1.txt`
   and the new `--debug-route-timing-evidence` diagnostic + ctest.
   `level1_route_timing_original_confirmation` is resolved (open items

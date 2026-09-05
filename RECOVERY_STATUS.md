@@ -1,6 +1,6 @@
 # Recovery Status
 
-Last reviewed: 2026-07-28
+Last reviewed: 2026-09-05
 Branch: `main`
 Baseline: `origin/main`
 
@@ -22,6 +22,22 @@ DOSBox/DOSBox-debug/process-memory evidence hosts and stay `visual_claim=0`
 under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
+
+- **Recovered behavior-4 motion from two original level-3 captures.** Each
+  contains 80 natural ticks and 80 ticks with explicitly seeded near-player
+  coordinates. The production `updateMonsters` path reproduces all 318
+  transitions, including velocity, integer position, fractional carries and
+  the ten isolated far-retarget RNG pairs. Steering is gated by the shared
+  16-bit frame counter modulo `ai0`, not a private actor countdown. Near
+  steering truncates toward zero: speed 494 at delta (40,20) yields (441,220).
+  Flyers now retain fractions and use pre-integration edge response without
+  gravity; one original top collision is captured. Floor/side rules also have
+  static and synthetic coverage, not complete runtime coverage. Original and
+  C++ screenshots were inspected, but are not synchronized pixel comparisons.
+  `behavior4_motion_runtime_fixture` stays open for the remaining scope;
+  `visual_claim=0` and the four-item evidence table are unchanged. See
+  `docs/recovery/behavior4_runtime_2026-08-10.md` for commands, hashes, tested
+  transitions and limitations. Full local validation: 403/403 CTest tests.
 
 - **Captured the original level-1 monster death/Present-reward sequence and
   recovered its live sprite consumption, timer, and RNG order.** The guarded

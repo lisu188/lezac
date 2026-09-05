@@ -67,6 +67,21 @@ not exact reward physics or presentation. Accordingly
 `original_runtime_claim=1`, while `visual_claim=0` and the repository-wide
 `original_fidelity_claim=0` remain unchanged.
 
+## Behavior-4 Motion Runtime Traces
+
+Two original level-3 captures now replay 318 motion transitions through the
+production C++ flyer update. They recover the shared 16-bit retarget clock,
+truncating diagonal steering, RNG draw order and persistent 8.8 fractions.
+The near-player coordinates were deliberately seeded; two-player targeting,
+other kinds and complete collision/presentation parity are not claimed.
+
+```sh
+ctest --test-dir build -R behavior4 --output-on-failure
+```
+
+See `docs/recovery/behavior4_runtime_2026-08-10.md` for the original commands,
+fixture hashes and inspected screenshots.
+
 ## Original Level Oracle
 
 The guarded original-game harness can traverse the native result/reload path

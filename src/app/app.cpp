@@ -2484,7 +2484,7 @@ public:
             randomSeed_ = 0x1234abcd;
             player_.x = static_cast<float>(spawner.x + 40);
             player_.y = static_cast<float>(spawner.y);
-            player_.vy = -6.0f;
+            player_.vy = 0.0f;
             player_.grounded = false;
             // Rank 4 (dec-then-test): arm with 1 so the next tick's
             // decrement lands on 0 and spawns; 0 would wrap to 255.
@@ -2496,6 +2496,10 @@ public:
             if (monsters_.size() != 1) {
                 throw std::runtime_error("frame sequence did not spawn level-2 behavior-4 actor");
             }
+            if (monsters_.front().vx8 != 0 || monsters_.front().vy8 != 0) {
+                throw std::runtime_error("behavior4 spawn bypassed the global gate");
+            }
+            advanceBehavior4DebugToRetarget();
             const ActiveMonster& monster = monsters_.front();
             if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
                 monster.kind != spawner.monsterKind || monster.behavior != 4 ||
@@ -2508,7 +2512,7 @@ public:
                 monster.ai2 >= spanUpper(spawner.param2Base, spawner.param2Range) ||
                 monster.hp < spawner.randomBase ||
                 monster.hp >= spanUpper(spawner.randomBase, spawner.randomRange) ||
-                monster.motionTimer != std::max<int>(1, monster.ai0) - 1 ||
+                monster.motionTimer != monster.ai0 ||
                 monster.vx8 <= 0 || monster.vy8 != 0 || monster.x <= spawner.x) {
                 throw std::runtime_error(
                     "frame sequence level-2 behavior-4 spawn fields mismatched");
@@ -2546,6 +2550,10 @@ public:
             if (monsters_.size() != 1) {
                 throw std::runtime_error("frame sequence did not spawn level-3 behavior-4 actor");
             }
+            if (monsters_.front().vx8 != 0 || monsters_.front().vy8 != 0) {
+                throw std::runtime_error("behavior4 spawn bypassed the global gate");
+            }
+            advanceBehavior4DebugToRetarget();
             const ActiveMonster& monster = monsters_.front();
             if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
                 monster.kind != spawner.monsterKind || monster.behavior != 4 ||
@@ -2558,7 +2566,7 @@ public:
                 monster.ai2 >= spanUpper(spawner.param2Base, spawner.param2Range) ||
                 monster.hp < spawner.randomBase ||
                 monster.hp >= spanUpper(spawner.randomBase, spawner.randomRange) ||
-                monster.motionTimer != std::max<int>(1, monster.ai0) - 1 ||
+                monster.motionTimer != monster.ai0 ||
                 monster.vx8 <= 0 || monster.vy8 >= 0) {
                 throw std::runtime_error(
                     "frame sequence level-3 behavior-4 spawn fields mismatched");
@@ -2597,33 +2605,34 @@ public:
 
             FrameControls idle;
             updateWithControls(idle, 1.0f / 60.0f);
+            advanceBehavior4DebugToRetarget();
             if (monsters_.size() != 1 || monsters_.front().behavior != 4 ||
                 monsters_.front().vx8 >= 0 || monsters_.front().x >= spawner.x) {
                 throw std::runtime_error(
                     "frame sequence behavior-4 target did not prefer player 2");
             }
-            int xAfterP2 = monsters_.front().x;
             capture("030_level3_behavior4_target_p2");
 
             player2Dead_ = true;
             player_.x = static_cast<float>(monsters_.front().x + 24);
             player_.y = static_cast<float>(monsters_.front().y);
-            monsters_.front().motionTimer = 1;
             updateWithControls(idle, 1.0f / 60.0f);
-            if (monsters_.front().vx8 <= 0 || monsters_.front().x <= xAfterP2) {
+            const int beforeP1 = advanceBehavior4DebugToRetarget();
+            if (monsters_.front().vx8 <= 0 ||
+                monsters_.front().x * 256 + monsters_.front().fracX <= beforeP1) {
                 throw std::runtime_error(
                     "frame sequence behavior-4 target did not retarget player 1");
             }
-            int xAfterP1 = monsters_.front().x;
             capture("040_level3_behavior4_target_p1");
 
             playerDead_ = true;
             player2Dead_ = false;
             player2_.x = static_cast<float>(monsters_.front().x - 24);
             player2_.y = static_cast<float>(monsters_.front().y);
-            monsters_.front().motionTimer = 1;
             updateWithControls(idle, 1.0f / 60.0f);
-            if (monsters_.front().vx8 >= 0 || monsters_.front().x >= xAfterP1) {
+            const int beforeP2 = advanceBehavior4DebugToRetarget();
+            if (monsters_.front().vx8 >= 0 ||
+                monsters_.front().x * 256 + monsters_.front().fracX >= beforeP2) {
                 throw std::runtime_error(
                     "frame sequence behavior-4 target did not retarget back to player 2");
             }
@@ -4193,6 +4202,22 @@ public:
                   << " delayed_reward=1 reward_sprite=61\n";
     }
 
+    // Actor-only diagnostic ticks keep the exogenous target stationary while
+    // exercising the same global clock and update path as gameplay.
+    int advanceBehavior4DebugToRetarget() {
+        if (monsters_.empty() || monsters_.front().ai0 == 0) {
+            throw std::runtime_error("behavior4 diagnostic has no retarget period");
+        }
+        const uint16_t period = monsters_.front().ai0;
+        int previousFixedX = 0;
+        do {
+            previousFixedX = monsters_.front().x * 256 + monsters_.front().fracX;
+            ++logicTick_;
+            updateMonsters(0.0f);
+        } while (static_cast<uint16_t>(logicTick_) % period != 0);
+        return previousFixedX;
+    }
+
     void debugAutoplayerMonsterBehavior4Chase(const std::string& scenario) {
         load();
         initSdl();
@@ -4218,8 +4243,12 @@ public:
         FrameInspection startFrame = inspectRenderedFrame("autoplayer-monster-b4-start");
         FrameControls idle;
         updateWithControls(idle, 1.0f / 60.0f);
+        if (monsters_.front().vx8 != 0 || monsters_.front().vy8 != 0) {
+            throw std::runtime_error("behavior4 moved before the global retarget gate");
+        }
+        advanceBehavior4DebugToRetarget();
         if (monsters_.empty() || monsters_.front().behavior != 4 ||
-            monsters_.front().motionTimer != 1 || monsters_.front().x <= 40) {
+            monsters_.front().motionTimer != 2 || monsters_.front().x <= 40) {
             throw std::runtime_error("monster behavior-4 autoplayer did not chase");
         }
         int chaseDx = monsters_.front().x - 40;
@@ -4284,7 +4313,7 @@ public:
         std::cout << "autoplayer=ok"
                   << " scenario=" << scenario
                   << " chase_dx=" << chaseDx
-                  << " timer_after=1 killed=1 frame_inspection=1"
+                  << " timer_after=2 killed=1 frame_inspection=1"
                   << " corpse_frames=" << kMonsterDeathVisibleFrames
                   << " delayed_reward=1 reward_sprite=61\n";
     }
@@ -4450,7 +4479,7 @@ public:
         randomSeed_ = 0x1234abcd;
         player_.x = static_cast<float>(spawner.x + 40);
         player_.y = static_cast<float>(spawner.y);
-        player_.vy = -6.0f;
+        player_.vy = 0.0f;
         player_.grounded = false;
         spawnerStates_[spawnerIndex].cooldown = 1;  // rank 4: dec-then-test, 1 fires next tick
 
@@ -4461,6 +4490,10 @@ public:
         if (monsters_.size() != 1) {
             throw std::runtime_error("monster behavior-4 level2 autoplayer did not spawn one actor");
         }
+        if (monsters_.front().vx8 != 0 || monsters_.front().vy8 != 0) {
+            throw std::runtime_error("behavior4 spawn bypassed the global gate");
+        }
+        advanceBehavior4DebugToRetarget();
         const ActiveMonster& monster = monsters_.front();
         if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
             monster.kind != spawner.monsterKind || monster.behavior != 4 ||
@@ -4469,7 +4502,7 @@ public:
             monster.ai1 < spawner.param1Base || monster.ai1 >= spanUpper(spawner.param1Base, spawner.param1Range) ||
             monster.ai2 < spawner.param2Base || monster.ai2 >= spanUpper(spawner.param2Base, spawner.param2Range) ||
             monster.hp < spawner.randomBase || monster.hp >= spanUpper(spawner.randomBase, spawner.randomRange) ||
-            monster.motionTimer != std::max<int>(1, monster.ai0) - 1 ||
+            monster.motionTimer != monster.ai0 ||
             monster.vx8 <= 0 || monster.vy8 != 0 || monster.x <= spawner.x) {
             throw std::runtime_error("monster behavior-4 level2 autoplayer spawn fields mismatched");
         }
@@ -4541,6 +4574,10 @@ public:
         if (monsters_.size() != 1) {
             throw std::runtime_error("monster behavior-4 level3 autoplayer did not spawn one actor");
         }
+        if (monsters_.front().vx8 != 0 || monsters_.front().vy8 != 0) {
+            throw std::runtime_error("behavior4 spawn bypassed the global gate");
+        }
+        advanceBehavior4DebugToRetarget();
         const ActiveMonster& monster = monsters_.front();
         if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
             monster.kind != spawner.monsterKind || monster.behavior != 4 ||
@@ -4549,7 +4586,7 @@ public:
             monster.ai1 < spawner.param1Base || monster.ai1 >= spanUpper(spawner.param1Base, spawner.param1Range) ||
             monster.ai2 < spawner.param2Base || monster.ai2 >= spanUpper(spawner.param2Base, spawner.param2Range) ||
             monster.hp < spawner.randomBase || monster.hp >= spanUpper(spawner.randomBase, spawner.randomRange) ||
-            monster.motionTimer != std::max<int>(1, monster.ai0) - 1 ||
+            monster.motionTimer != monster.ai0 ||
             monster.vx8 <= 0 || monster.vy8 >= 0) {
             throw std::runtime_error("monster behavior-4 level3 autoplayer spawn fields mismatched");
         }
@@ -4619,11 +4656,11 @@ public:
             inspectRenderedFrame("autoplayer-monster-b4-target-start");
         FrameControls idle;
         updateWithControls(idle, 1.0f / 60.0f);
+        advanceBehavior4DebugToRetarget();
         if (monsters_.size() != 1 || monsters_.front().behavior != 4 ||
             monsters_.front().vx8 >= 0 || monsters_.front().x >= spawner.x) {
             throw std::runtime_error("monster behavior-4 target autoplayer did not prefer player 2");
         }
-        int xAfterP2 = monsters_.front().x;
         FrameInspection p2Frame =
             inspectRenderedFrame("autoplayer-monster-b4-target-p2");
         if (p2Frame.hash == startFrame.hash) {
@@ -4633,12 +4670,12 @@ public:
         player2Dead_ = true;
         player_.x = static_cast<float>(monsters_.front().x + 24);
         player_.y = static_cast<float>(monsters_.front().y);
-        monsters_.front().motionTimer = 1;
         updateWithControls(idle, 1.0f / 60.0f);
-        if (monsters_.front().vx8 <= 0 || monsters_.front().x <= xAfterP2) {
+        const int beforeP1 = advanceBehavior4DebugToRetarget();
+        if (monsters_.front().vx8 <= 0 ||
+            monsters_.front().x * 256 + monsters_.front().fracX <= beforeP1) {
             throw std::runtime_error("monster behavior-4 target autoplayer did not retarget player 1");
         }
-        int xAfterP1 = monsters_.front().x;
         FrameInspection p1Frame =
             inspectRenderedFrame("autoplayer-monster-b4-target-p1");
         if (p1Frame.hash == p2Frame.hash) {
@@ -4649,9 +4686,10 @@ public:
         player2Dead_ = false;
         player2_.x = static_cast<float>(monsters_.front().x - 24);
         player2_.y = static_cast<float>(monsters_.front().y);
-        monsters_.front().motionTimer = 1;
         updateWithControls(idle, 1.0f / 60.0f);
-        if (monsters_.front().vx8 >= 0 || monsters_.front().x >= xAfterP1) {
+        const int beforeP2 = advanceBehavior4DebugToRetarget();
+        if (monsters_.front().vx8 >= 0 ||
+            monsters_.front().x * 256 + monsters_.front().fracX >= beforeP2) {
             throw std::runtime_error("monster behavior-4 target autoplayer did not retarget back to player 2");
         }
         FrameInspection p2ReturnFrame =
@@ -16376,13 +16414,21 @@ public:
         flyer.ai1 = 0x0200;
         flyer.ai2 = 100;
         initializeMonsterMotion(flyer);
-        if (flyer.vx8 != 0x0200 || flyer.vy8 != 0 || flyer.motionTimer != 7 ||
+        if (flyer.vx8 != 0 || flyer.vy8 != 0 || flyer.motionTimer != 0 ||
             flyer.animStart != 39 || flyer.animEnd != 41) {
-            throw std::runtime_error("behavior 4 chase initialization changed");
+            throw std::runtime_error("behavior 4 stationary initialization changed");
         }
+        logicTick_ = 6;
+        updateMonsterMotion(flyer, 0.0f);
+        if (flyer.vx8 != 0 || flyer.vy8 != 0 || flyer.motionTimer != 1) {
+            throw std::runtime_error("behavior4 steered before global gate");
+        }
+        logicTick_ = 7;
+        updateMonsterMotion(flyer, 0.0f);
+        logicTick_ = 8;
         updateMonsterMotion(flyer, 0.0f);
         if (flyer.motionTimer != 6 || flyer.vx8 != 0x0200 || flyer.vy8 != 0) {
-            throw std::runtime_error("behavior 4 countdown tick changed");
+            throw std::runtime_error("behavior 4 global modulo tick changed");
         }
 
         std::cout << "monster_motion_model=ok"
@@ -17232,14 +17278,17 @@ public:
         ActiveMonster behavior4X = makeMonster(kSolidX * kTileSize - 14,
                                                kSolidY * kTileSize, 0x0400, 0);
         behavior4X.behavior = 4;
-        behavior4X.motionTimer = 2;
+        behavior4X.ai0 = 7;
+        behavior4X.fracX = 0x40;
+        logicTick_ = 1;
         monsters_.push_back(behavior4X);
         updateMonsters(0.0f);
         if (monsters_.empty() ||
             monsterCollides(monsters_.front().x, monsters_.front().y) ||
-            monsters_.front().x != kSolidX * kTileSize - 14 ||
+            monsters_.front().x != kSolidX * kTileSize - 17 ||
             monsters_.front().vx8 != -0x0200 ||
-            monsters_.front().motionTimer != 0) {
+            monsters_.front().fracX != 0x40 ||
+            monsters_.front().motionTimer != 6) {
             throw std::runtime_error("behavior-4 horizontal half reversal failed");
         }
 
@@ -17247,14 +17296,16 @@ public:
         ActiveMonster behavior4Y = makeMonster(kFloorX * kTileSize,
                                                kFloorY * kTileSize - 16, 0, 0x0400);
         behavior4Y.behavior = 4;
-        behavior4Y.motionTimer = 2;
+        behavior4Y.ai0 = 7;
+        behavior4Y.fracY = 0x80;
         monsters_.push_back(behavior4Y);
         updateMonsters(0.0f);
         if (monsters_.empty() ||
             monsterCollides(monsters_.front().x, monsters_.front().y) ||
-            monsters_.front().y != kFloorY * kTileSize - 16 ||
+            monsters_.front().y != kFloorY * kTileSize - 18 ||
             monsters_.front().vy8 != -0x0200 ||
-            monsters_.front().motionTimer != 0) {
+            monsters_.front().fracY != 0x80 ||
+            monsters_.front().motionTimer != 6) {
             throw std::runtime_error("behavior-4 vertical half reversal failed");
         }
 
@@ -17938,6 +17989,337 @@ public:
                   << " level_complete=" << hex4(hooks["level_complete"].first)
                   << "/p" << hooks["level_complete"].second
                   << " accepted_pair=0x78c0/0x799e visual_claim=0\n";
+    }
+
+    void debugBehavior4LockstepEvidence(const std::string& fixturePath) {
+        std::ifstream in(fixturePath);
+        if (!in) throw std::runtime_error("cannot open " + fixturePath);
+        struct Behavior4Tick {
+            int frame = 0;
+            std::string phase;
+            int seeded = 0;
+            int slot = 0;
+            int kind = 0;
+            int behavior = 0;
+            int visual = 0;
+            int x = 0;
+            int y = 0;
+            int fx = 0;
+            int fy = 0;
+            int vx = 0;
+            int vy = 0;
+            int ai0 = 0;
+            int ai1 = 0;
+            int ai2 = 0;
+            int hotspotY = 0;
+            int hp = 0;
+            int source = 0;
+            int p1x = 0;
+            int p1y = 0;
+            uint32_t seed = 0;
+            std::string raw;
+        };
+        std::map<std::string, std::string> kv;
+        std::vector<Behavior4Tick> ticks;
+        std::string line;
+        while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (line.rfind("tick ", 0) == 0) {
+                std::istringstream row(line.substr(5));
+                Behavior4Tick tick;
+                row >> tick.frame;
+                std::set<std::string> seen;
+                std::string token;
+                while (row >> token) {
+                    const size_t equals = token.find('=');
+                    if (equals == std::string::npos) {
+                        throw std::runtime_error(
+                            "malformed behavior4 tick row: " + line);
+                    }
+                    const std::string key = token.substr(0, equals);
+                    const std::string value = token.substr(equals + 1);
+                    if (!seen.insert(key).second) {
+                        throw std::runtime_error("duplicate behavior4 tick key: " + key);
+                    }
+                    auto integer = [&]() {
+                        size_t end = 0;
+                        const int result = std::stoi(value, &end, 0);
+                        if (end != value.size()) {
+                            throw std::runtime_error("invalid behavior4 integer: " + key);
+                        }
+                        return result;
+                    };
+                    if (key == "phase") tick.phase = value;
+                    else if (key == "seeded") tick.seeded = integer();
+                    else if (key == "slot") tick.slot = integer();
+                    else if (key == "kind") tick.kind = integer();
+                    else if (key == "behavior") tick.behavior = integer();
+                    else if (key == "visual") tick.visual = integer();
+                    else if (key == "x") tick.x = integer();
+                    else if (key == "y") tick.y = integer();
+                    else if (key == "fx") tick.fx = integer();
+                    else if (key == "fy") tick.fy = integer();
+                    else if (key == "vx") tick.vx = integer();
+                    else if (key == "vy") tick.vy = integer();
+                    else if (key == "ai0") tick.ai0 = integer();
+                    else if (key == "ai1") tick.ai1 = integer();
+                    else if (key == "ai2") tick.ai2 = integer();
+                    else if (key == "hotspot_y") tick.hotspotY = integer();
+                    else if (key == "hp") tick.hp = integer();
+                    else if (key == "source") tick.source = integer();
+                    else if (key == "p1x") tick.p1x = integer();
+                    else if (key == "p1y") tick.p1y = integer();
+                    else if (key == "seed") {
+                        tick.seed = static_cast<uint32_t>(
+                            std::stoul(value, nullptr, 0));
+                    } else if (key == "raw") {
+                        tick.raw = value;
+                    } else {
+                        throw std::runtime_error(
+                            "unknown behavior4 tick key: " + key);
+                    }
+                }
+                if (seen.size() != 22) {
+                    throw std::runtime_error("missing behavior4 tick field");
+                }
+                ticks.push_back(std::move(tick));
+                continue;
+            }
+            const size_t equals = line.find('=');
+            if (equals != std::string::npos) {
+                kv[line.substr(0, equals)] = line.substr(equals + 1);
+            }
+        }
+        auto req = [&](const char* key) -> const std::string& {
+            auto found = kv.find(key);
+            if (found == kv.end()) {
+                throw std::runtime_error(std::string("missing key ") + key);
+            }
+            return found->second;
+        };
+        if (req("behavior4_lockstep_original") != "level3" ||
+            req("schema") != "lezac_original_behavior4_lockstep_v1" ||
+            req("runtime_ds") != "0c8f" || req("temp_copy") != "1" ||
+            req("visual_claim") != "0" || req("target_kind") != "2" ||
+            req("target_behavior") != "4" ||
+            req("target_source_spawner") != "2" ||
+            req("player_position_exogenous") != "seeded_near_only") {
+            throw std::runtime_error("behavior4 lockstep fixture header mismatch");
+        }
+        const size_t expectedTicks = static_cast<size_t>(
+            std::stoi(req("tick_count")));
+        const int expectedNatural = std::stoi(req("natural_tick_count"));
+        const int expectedSeeded = std::stoi(req("seeded_tick_count"));
+        if (ticks.size() != expectedTicks || ticks.size() < 2 ||
+            expectedNatural + expectedSeeded != static_cast<int>(ticks.size())) {
+            throw std::runtime_error("behavior4 lockstep tick count mismatch");
+        }
+        int nearDx = 0;
+        int nearDy = 0;
+        {
+            const std::string offset = req("near_offset");
+            const size_t comma = offset.find(',');
+            if (comma == std::string::npos) {
+                throw std::runtime_error("behavior4 near offset is malformed");
+            }
+            nearDx = std::stoi(offset.substr(0, comma));
+            nearDy = std::stoi(offset.substr(comma + 1));
+        }
+
+        int integrationExact = 0;
+        int naturalRows = 0;
+        int seededRows = 0;
+        int farRetargets = 0;
+        int homingRetargets = 0;
+        int targetRngSeedsExact = 0;
+        int offGateVelocityChanges = 0;
+        const uint32_t savedRandomSeed = randomSeed_;
+        for (size_t i = 0; i < ticks.size(); ++i) {
+            const Behavior4Tick& tick = ticks[i];
+            if (tick.slot != std::stoi(req("target_slot")) || tick.kind != 2 ||
+                tick.behavior != 4 || tick.source != 2 || tick.raw.size() != 76 ||
+                tick.ai0 <= 0 || tick.frame < 0 || tick.frame > 65535 ||
+                tick.x < -32768 || tick.x > 32767 ||
+                tick.y < -32768 || tick.y > 32767 ||
+                tick.fx < 0 || tick.fx > 255 || tick.fy < 0 || tick.fy > 255) {
+                throw std::runtime_error("behavior4 lockstep actor row mismatch");
+            }
+            std::vector<uint8_t> raw;
+            for (size_t offset = 0; offset < tick.raw.size(); offset += 2) {
+                const std::string byte = tick.raw.substr(offset, 2);
+                if (!std::all_of(byte.begin(), byte.end(), [](unsigned char c) {
+                        return std::isxdigit(c) != 0;
+                    })) throw std::runtime_error("invalid behavior4 raw byte");
+                raw.push_back(static_cast<uint8_t>(std::stoul(byte, nullptr, 16)));
+            }
+            if (raw[0] != tick.kind || raw[1] != tick.visual ||
+                raw[0x15] != tick.behavior || raw[0x14] != tick.hotspotY ||
+                raw[0x24] != tick.hp || raw[0x25] != tick.source ||
+                static_cast<int16_t>(le16(raw, 6)) != tick.vx ||
+                static_cast<int16_t>(le16(raw, 8)) != tick.vy ||
+                le16(raw, 10) != tick.fx || le16(raw, 12) != tick.fy ||
+                le16(raw, 14) != tick.ai0 || le16(raw, 16) != tick.ai1 ||
+                le16(raw, 18) != tick.ai2) {
+                throw std::runtime_error("behavior4 decoded fields disagree with raw actor");
+            }
+            if ((tick.seeded != 0 && tick.seeded != 1) ||
+                tick.phase != (tick.seeded ? "seeded_near" : "natural_far") ||
+                tick.seeded != (i >= static_cast<size_t>(expectedNatural))) {
+                throw std::runtime_error("behavior4 phase sequence mismatch");
+            }
+            if (tick.seeded) ++seededRows;
+            else ++naturalRows;
+            if (i == 0) continue;
+            const Behavior4Tick& prev = ticks[i - 1];
+            if (tick.frame != prev.frame + 1) {
+                throw std::runtime_error("behavior4 lockstep frames are not consecutive");
+            }
+            const int integratedX = prev.x * 256 + prev.fx + tick.vx;
+            const int integratedY = prev.y * 256 + prev.fy + tick.vy;
+            if ((integratedX >> 8) != tick.x || (integratedX & 0xff) != tick.fx ||
+                (integratedY >> 8) != tick.y || (integratedY & 0xff) != tick.fy) {
+                throw std::runtime_error(
+                    "behavior4 lockstep 8.8 integration mismatch at frame " +
+                    std::to_string(tick.frame));
+            }
+            ++integrationExact;
+
+            const bool gate = prev.ai0 > 0 && prev.frame % prev.ai0 == 0;
+            const int targetX = tick.seeded ? prev.x + nearDx : prev.p1x;
+            const int targetY = tick.seeded ? prev.y + nearDy : prev.p1y;
+            const int dx = targetX - prev.x;
+            const int dy = targetY - prev.y;
+            const bool homing = std::abs(dx) + std::abs(dy) < prev.ai2;
+            if (gate && homing) {
+                const double length = std::max(1.0, std::hypot(
+                    static_cast<double>(dx), static_cast<double>(dy)));
+                const int expectedVx = static_cast<int>(prev.ai1 * dx / length);
+                const int expectedVy = static_cast<int>(prev.ai1 * dy / length);
+                if (tick.vx != expectedVx || tick.vy != expectedVy ||
+                    tick.seed != prev.seed) {
+                    throw std::runtime_error(
+                        "behavior4 homing retarget mismatch at frame " +
+                        std::to_string(tick.frame));
+                }
+                ++homingRetargets;
+            } else if (gate) {
+                randomSeed_ = prev.seed;
+                const uint16_t range = static_cast<uint16_t>(prev.ai1 * 2);
+                const int expectedVx =
+                    static_cast<int>(randomRangeValue(0, range)) - prev.ai1;
+                const int expectedVy =
+                    static_cast<int>(randomRangeValue(0, range)) - prev.ai1;
+                if (tick.vx != expectedVx || tick.vy != expectedVy) {
+                    throw std::runtime_error(
+                        "behavior4 random retarget mismatch at frame " +
+                        std::to_string(tick.frame));
+                }
+                if (randomSeed_ == tick.seed) ++targetRngSeedsExact;
+                ++farRetargets;
+            } else if (tick.vx != prev.vx || tick.vy != prev.vy) {
+                ++offGateVelocityChanges;
+            }
+        }
+        randomSeed_ = savedRandomSeed;
+        if (naturalRows != expectedNatural || seededRows != expectedSeeded ||
+            farRetargets == 0 || homingRetargets == 0) {
+            throw std::runtime_error("behavior4 lockstep lacks a motion class");
+        }
+        if (ticks.front().frame != std::stoi(req("first_frame")) ||
+            ticks.back().frame != std::stoi(req("last_frame"))) {
+            throw std::runtime_error("behavior4 frame endpoints mismatch");
+        }
+
+        // Drive the production scan -> behavior-4 update -> common response ->
+        // 8.8 integration path one original transition at a time. Natural
+        // player rows are sampled state. In the seeded phase, the sampler
+        // writes (actor + near_offset) immediately after the previous row, so
+        // that exact injected coordinate is the next update's target input.
+        load();
+        resetLevel(2);
+        playerCount_ = 1;
+        playerDead_ = false;
+        int liveTransitions = 0;
+        for (size_t i = 1; i < ticks.size(); ++i) {
+            const Behavior4Tick& prev = ticks[i - 1];
+            const Behavior4Tick& now = ticks[i];
+            ActiveMonster monster;
+            monster.x = prev.x;
+            monster.y = prev.y - prev.hotspotY;
+            monster.fracX = static_cast<uint8_t>(prev.fx);
+            monster.fracY = static_cast<uint8_t>(prev.fy);
+            monster.vx8 = static_cast<int16_t>(prev.vx);
+            monster.vy8 = static_cast<int16_t>(prev.vy);
+            monster.kind = static_cast<uint8_t>(prev.kind);
+            monster.behavior = static_cast<uint8_t>(prev.behavior);
+            monster.ai0 = static_cast<uint16_t>(prev.ai0);
+            monster.ai1 = static_cast<uint16_t>(prev.ai1);
+            monster.ai2 = static_cast<uint16_t>(prev.ai2);
+            monster.hotspotY = static_cast<uint8_t>(prev.hotspotY);
+            monster.hp = prev.hp;
+            monster.animStart = 39;
+            monster.animEnd = 41;
+            monster.animFrame = 39;
+            monster.animCursor = 39;
+            monster.animDelay = 2;
+            monster.alive = true;
+            monsters_.clear();
+            monsters_.push_back(monster);
+            if (now.seeded) {
+                player_.x = static_cast<float>(prev.x + nearDx);
+                player_.y = static_cast<float>(prev.y + nearDy);
+            } else {
+                player_.x = static_cast<float>(prev.p1x);
+                player_.y = static_cast<float>(prev.p1y);
+            }
+            logicTick_ = static_cast<uint32_t>(prev.frame);
+            randomSeed_ = prev.seed;
+            pendingDamage_ = 0;
+            updateMonsters(0.0f);
+            if (monsters_.size() != 1) {
+                throw std::runtime_error("behavior4 live replay lost actor");
+            }
+            const ActiveMonster& replay = monsters_.front();
+            // Other actors can consume the shared RNG between off-gate rows.
+            // These captures isolate every target gate, so those transitions
+            // and unchanged-seed rows must also match the production RNG.
+            if ((prev.frame % prev.ai0 == 0 || prev.seed == now.seed) &&
+                randomSeed_ != now.seed) {
+                throw std::runtime_error(
+                    "behavior4 live RNG diverged at frame " +
+                    std::to_string(now.frame));
+            }
+            if (replay.x != now.x || replay.y + replay.hotspotY != now.y ||
+                replay.fracX != static_cast<uint8_t>(now.fx) ||
+                replay.fracY != static_cast<uint8_t>(now.fy) ||
+                replay.vx8 != static_cast<int16_t>(now.vx) ||
+                replay.vy8 != static_cast<int16_t>(now.vy)) {
+                throw std::runtime_error(
+                    "behavior4 live update diverged at frame " +
+                    std::to_string(now.frame) + " replay=" +
+                    std::to_string(replay.x) + ',' + std::to_string(replay.y) +
+                    ',' + std::to_string(replay.vx8) + ',' +
+                    std::to_string(replay.vy8) + " original=" +
+                    std::to_string(now.x) + ',' + std::to_string(now.y) + ',' +
+                    std::to_string(now.vx) + ',' + std::to_string(now.vy));
+            }
+            ++liveTransitions;
+        }
+        randomSeed_ = savedRandomSeed;
+
+        std::cout << "behavior4_lockstep_evidence=ok"
+                  << " ticks=" << ticks.size()
+                  << " frames=" << ticks.front().frame << ".." << ticks.back().frame
+                  << " integration_exact=" << integrationExact
+                  << " far_retargets=" << farRetargets
+                  << " homing_retargets=" << homingRetargets
+                  << " target_rng_seed_exact=" << targetRngSeedsExact
+                  << " off_gate_collision_changes=" << offGateVelocityChanges
+                  << " live_updateMonsters=" << liveTransitions
+                  << " retarget_clock=global_frame_mod_ai0"
+                  << " homing_rounding=trunc_toward_zero"
+                  << " temp_copy=1 visual_claim=0\n";
     }
 
     // Verify the port's player/bomb dynamics constants against the original
@@ -20960,6 +21342,15 @@ private:
         return e;
     }
 
+    bool scanActorStrongBottom(int x, int yCollide) const {
+        const int column = (x + 4) >> 3;
+        const int row = yCollide >> 3;
+        return solidTileSide(
+                   static_cast<uint8_t>(tileAt(column, row + 2))) ||
+               solidTileSide(
+                   static_cast<uint8_t>(tileAt(column + 1, row + 2)));
+    }
+
     bool collides(float x, float y) const {
         return solidPixel(x, y) || solidPixel(x + 11.0f, y) ||
                solidPixel(x, y + 15.0f) || solidPixel(x + 11.0f, y + 15.0f);
@@ -21782,8 +22173,14 @@ private:
 
     void initializeMonsterMotion(ActiveMonster& monster) {
         if (monster.behavior == 4) {
+            // Original 1000:70D7 gates behavior-4 steering on the shared
+            // DS:78C2 frame counter. A newly spawned actor therefore stays
+            // still until that global clock is divisible by actor +0x0E;
+            // there is no private per-actor countdown and no spawn-time draw.
+            monster.vx8 = 0;
+            monster.vy8 = 0;
             monster.motionTimer = 0;
-            retargetMonster(monster);
+            refreshMonsterAnimationProfile(monster);
             return;
         }
         monster.vx8 = 0;
@@ -21794,13 +22191,17 @@ private:
     void retargetMonster(ActiveMonster& monster) {
         int16_t speed = retargetSpeed8(monster);
         const Player& target = nearestPlayer(monster.x, monster.y);
-        float dx = target.x - monster.x;
-        float dy = target.y - monster.y;
-        float threshold = std::max(1.0f, static_cast<float>(monster.ai2));
+        double dx = static_cast<int>(target.x) - monster.x;
+        double dy = static_cast<int>(target.y) - monster.y;
+        double threshold = monster.ai2;
         if (std::fabs(dx) + std::fabs(dy) < threshold) {
-            float len = std::max(1.0f, std::hypot(dx, dy));
-            monster.vx8 = clampI16(static_cast<int>(std::lround(speed * dx / len)));
-            monster.vy8 = clampI16(static_cast<int>(std::lround(speed * dy / len)));
+            double len = std::max(1.0, std::hypot(dx, dy));
+            // The original vector helper at 1000:346B converts both scaled
+            // reals with truncation toward zero. The diagonal runtime capture
+            // is decisive: speed 494 and delta (40,20) produce (441,220), not
+            // the rounded (442,221).
+            monster.vx8 = clampI16(static_cast<int>(speed * dx / len));
+            monster.vy8 = clampI16(static_cast<int>(speed * dy / len));
         } else {
             int range = std::max(1, static_cast<int>(monster.ai1) * 2);
             int vxFixed = static_cast<int>(randomRangeValue(0, static_cast<uint16_t>(range))) -
@@ -21810,8 +22211,6 @@ private:
             monster.vx8 = clampI16(vxFixed);
             monster.vy8 = clampI16(vyFixed);
         }
-        monster.motionTimer = std::max<int>(1, monster.ai0);
-        refreshMonsterAnimationProfile(monster);
     }
 
     const Player& nearestPlayer(float x, float y) const {
@@ -21834,9 +22233,16 @@ private:
             return;
         }
         if (monster.behavior == 4) {
-            if (--monster.motionTimer <= 0) {
+            const uint16_t period = monster.ai0;
+            const uint16_t originalTick = static_cast<uint16_t>(logicTick_);
+            if (period != 0 && originalTick % period == 0) {
                 retargetMonster(monster);
             }
+            // Diagnostic only: ticks until the next shared gate, not AI state.
+            monster.motionTimer = period == 0
+                                      ? 0
+                                      : static_cast<int>(
+                                            period - (originalTick % period));
             return;
         }
 
@@ -22340,20 +22746,19 @@ private:
                 actorTouchesPlayer(player2_, monster.x, monster.y)) {
                 queuePlayerDamage(2);
             }
-            // The capture that recovered this model contains ONE monster kind
-            // (1), ONE behaviour (3) and ONE level. Behaviour 4 (free flyers)
-            // is not evidenced by it -- in particular the original's flyers
-            // have no gravity at all, so running them through the shared
-            // bottom-gated gravity would be a guess. Keep them on the legacy
-            // integrate-then-pushout path until a behaviour-4 capture exists.
+            // The level-3 behavior-4 lockstep extends the recovered edge-scan
+            // path to free flyers. They use the same pre-integration scan and
+            // common top/side response, but have their own bottom reflection
+            // before steering and never receive gravity.
             const bool recoveredResolution =
-                !isBossMotionBehavior(monster.behavior) && monster.behavior != 4;
+                !isBossMotionBehavior(monster.behavior);
             if (recoveredResolution) {
                 monster.edges = scanActorEdges(monster.x, monster.y);
                 // Facing-reselect request, seeded from wall contact exactly
                 // where the original's behaviour-3 dispatch does it
                 // (1000:7159..716B: [bp-0x20] = left || right).
-                monster.facingDirty = monster.edges.left || monster.edges.right;
+                monster.facingDirty = monster.behavior == 3 &&
+                                      (monster.edges.left || monster.edges.right);
             } else {
                 monster.edges = {};
                 monster.facingDirty = false;
@@ -22367,7 +22772,7 @@ private:
             // see the SNAPPED y. Running the snap afterwards let a walker
             // landing at y % 8 != 0 probe one row too low and falsely reverse
             // on a platform that continues.
-            if (recoveredResolution) {
+            if (recoveredResolution && monster.behavior != 4) {
                 const ActiveMonster::EdgeFlags& e = monster.edges;
                 if (!e.bottom || monster.vy8 < 0) {
                     monster.vy8 = static_cast<int16_t>(std::min<int>(0x07ff, monster.vy8 + 0x40));
@@ -22376,6 +22781,22 @@ private:
                     monster.y &= ~7;
                     // Landing tick requests a facing reselect (1000:71A0).
                     monster.facingDirty = true;
+                }
+            }
+
+            // Behavior 4's dedicated pre-steering floor response
+            // (1000:7062..70B9) uses the narrower side-solid class 1..0x4C
+            // for the two bottom cells. A strong bottom plus top contact
+            // zeroes vy; otherwise a positive vy reflects by -vy/2. The
+            // global-clock steering gate follows and may replace that result.
+            if (monster.behavior == 4) {
+                const bool strongBottom =
+                    scanActorStrongBottom(monster.x, monster.y);
+                if (strongBottom && monster.edges.top) {
+                    monster.vy8 = 0;
+                }
+                if (strongBottom && monster.vy8 > 0) {
+                    monster.vy8 = static_cast<int16_t>(-(monster.vy8 / 2));
                 }
             }
 
@@ -22401,7 +22822,7 @@ private:
                 // steps the OLD right pair (46 at row 483, 3/3 wall turns);
                 // the left pair only appears at row 487. Reselecting after
                 // the reflection flips one boundary early in B's phase.
-                if (monster.facingDirty) {
+                if (monster.behavior == 3 && monster.facingDirty) {
                     reselectWalkerFacing(monster);
                     monster.facingDirty = false;
                 }
@@ -22416,41 +22837,8 @@ private:
                 integrateAxis8_8(monster.y, monster.fracY, monster.vy8);
                 integrateAxis8_8(monster.x, monster.fracX, monster.vx8);
             } else {
-                int oldX = monster.x;
                 integrateAxis8_8(monster.x, monster.fracX, monster.vx8);
-                if (!isBossMotionBehavior(monster.behavior) &&
-                    monsterCollides(monster.x, monster.y)) {
-                    int step = monster.vx8 > 0 ? -1 : 1;
-                    int pushes = 0;
-                    while (monsterCollides(monster.x, monster.y) &&
-                           pushes++ < kCollisionPushoutLimit) {
-                        monster.x += step;
-                    }
-                    if (monsterCollides(monster.x, monster.y)) monster.x = oldX;
-                    monster.vx8 = static_cast<int16_t>(
-                        -monster.vx8 / (monster.behavior == 4 ? 2 : 1));
-                    monster.fracX = 0;
-                    if (monster.behavior == 4) monster.motionTimer = 0;
-                    refreshMonsterAnimationProfile(monster);
-                }
-
-                int oldY = monster.y;
                 integrateAxis8_8(monster.y, monster.fracY, monster.vy8);
-                if (!isBossMotionBehavior(monster.behavior) &&
-                    monsterCollides(monster.x, monster.y)) {
-                    int step = monster.vy8 > 0 ? -1 : 1;
-                    int pushes = 0;
-                    while (monsterCollides(monster.x, monster.y) &&
-                           pushes++ < kCollisionPushoutLimit) {
-                        monster.y += step;
-                    }
-                    if (monsterCollides(monster.x, monster.y)) monster.y = oldY;
-                    monster.vy8 = monster.behavior == 4
-                                      ? static_cast<int16_t>(-monster.vy8 / 2)
-                                      : 0;
-                    monster.fracY = 0;
-                    if (monster.behavior == 4) monster.motionTimer = 0;
-                }
             }
 
             monster.x = std::clamp(monster.x, 0, std::max(16, level_.width * 8 - 16));
@@ -25192,6 +25580,11 @@ int main(int argc, char** argv) {
             std::string(argv[1]) ==
                 "--debug-monster-sprite-consumption-evidence") {
             app.debugMonsterSpriteConsumptionEvidence(argv[2]);
+            return 0;
+        }
+        if (argc > 2 &&
+            std::string(argv[1]) == "--debug-behavior4-lockstep-evidence") {
+            app.debugBehavior4LockstepEvidence(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-lockstep-evidence") {

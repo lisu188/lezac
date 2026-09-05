@@ -1,8 +1,8 @@
 # Recovery Status
 
 Last reviewed: 2026-09-05
-Branch: `codex/recover-pickup-transient-actors` (validated integration batch)
-Baseline: `origin/main` at PR #208
+Branch: `codex/recover-monster-death-transients` (validated integration batch)
+Baseline: `origin/main` at PR #209
 
 ## Port Completion
 
@@ -11,10 +11,11 @@ its compatible tests were insufficient evidence for the previous claim.
 Original player routes exposed absent automatic pickups and map-moving
 collapse behavior. The new recovery matches 609 original player states,
 144 continuous collapse/map states, and 27 seeded collapse update probes.
-The latest batch adds 144 continuous pickup/RNG/shake checkpoints and a
-21-checkpoint seeded fracture-actor lifecycle. Shared actor allocation and
+Recent batches add 144 continuous pickup/RNG/shake checkpoints, a
+21-checkpoint seeded fracture-actor lifecycle, and 328 seeded corpse-expiry
+checkpoints with 455 matching live effect states. Shared actor allocation and
 ordering, unrestricted interactions, and wider original-runtime comparisons
-still need work. All 429 dummy-SDL tests and the separate interactive Xvfb
+still need work. All 432 dummy-SDL tests and the separate interactive Xvfb
 test pass. There is no evidence-based overall completion percentage:
 passing-test percentage measures regression health, not recovered behavior.
 `--debug-port-completion-status` reports
@@ -24,13 +25,20 @@ passing-test percentage measures regression health, not recovered behavior.
 
 ## Current Recovery
 
+- Normal corpse expiry now creates the two original moving particles and,
+  on a failed reward roll, the in-place fade. Eight guarded original cases
+  cover both frame parities, 29/30-slot boundaries, inherited fractions,
+  animation and retirement. All 328 continuous checkpoints pass; reward
+  motion and the full corpse countdown remain open. See
+  [death-effect evidence](docs/recovery/monster_death_transients_runtime_2026-09-05.md).
 - Pickup indicators and fracture smoke now use the original behavior-5
   timer, motion, sprites and animation. The natural pickup route matches
   24 live indicator states; the seeded fracture trace matches 15 live
   states, all six sprites, and retirement. Camera-shake RNG exposed by
   the natural route is reproduced across all 144 checkpoints.
-- Allocation limits are statically derived and locally tested, not a
-  full-pool original-runtime claim. Original pickup allocation failure can
+- Pickup/fracture allocation limits are statically derived and locally
+  tested; death-particle pool limits now also have original runtime probes.
+  Original pickup allocation failure can
   clear the last actor's animation; that edge case and global actor order
   remain open. See [transient actor evidence](docs/recovery/transient_actors_runtime_2026-09-05.md).
 - Player hard landing, down/drop-through, ordinary landing and floor down

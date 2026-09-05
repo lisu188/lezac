@@ -201,8 +201,11 @@ checkpoint PNG names and SHA-256 values:
 
 Those original PNGs are headless observation artifacts, not direct
 same-position pixel pairs for the deterministic C++ frames. Player input and
-position are exogenous, the C++ corpse uses 120 engine frames, the port omits
-the original transition-effect actors, and its Present is static rather than
+position are exogenous. At capture time, C++ used 120 corpse frames and
+omitted the transition actors. Later work corrected the visible corpse span
+to 49 frames; the 2026-09-05
+[death-effect recovery](monster_death_transients_runtime_2026-09-05.md) adds
+the missing particles and fade. The Present is still static rather than
 matching the original timer/motion. Consequently the fixture and C++ harness
 remain `visual_claim=0`; compare their semantic sprite/timer/reward checkpoints
 side by side without treating the images as an exact pixel-fidelity promotion.

@@ -21924,6 +21924,185 @@ public:
             std::equal(visible.begin() + 4, visible.end(), descriptors.begin() + descriptor);
     }
 
+    void debugDeathTransientsOriginal(const std::string& fixturePath, const std::string& outDir) {
+        load();
+        initSdl();
+        std::ifstream input(fixturePath);
+        if (!input) throw std::runtime_error("cannot open " + fixturePath);
+        std::ofstream manifest;
+        if (!outDir.empty()) {
+            std::filesystem::create_directories(outDir);
+            manifest.open(joinPath(outDir, "manifest.csv"));
+            if (!manifest) throw std::runtime_error("cannot create death-effects manifest");
+            manifest << "case,sample,frame,actor_count,effect_count,rng,frame_hash,effects\n";
+        }
+        auto bytes = [](const std::string& hex, size_t size) {
+            if (hex.size() != size * 2 || hex.find_first_not_of("0123456789abcdef") != std::string::npos) {
+                throw std::runtime_error("invalid death-effects bytes");
+            }
+            std::vector<uint8_t> result;
+            for (size_t i = 0; i < size; ++i) {
+                result.push_back(static_cast<uint8_t>(std::stoul(hex.substr(i * 2, 2), nullptr, 16)));
+            }
+            return result;
+        };
+        using Entry = std::pair<std::vector<uint8_t>, std::vector<uint8_t>>;
+        auto entries = [&](const std::string& value) {
+            std::vector<Entry> result;
+            if (value == "-") return result;
+            std::istringstream list(value);
+            std::string entry;
+            while (std::getline(list, entry, ',')) {
+                const auto colon = entry.find(':');
+                if (colon == std::string::npos) throw std::runtime_error("invalid death-effects entry");
+                result.emplace_back(bytes(entry.substr(0, colon), 38), bytes(entry.substr(colon + 1), 8));
+            }
+            return result;
+        };
+        const std::map<std::string, std::array<uint32_t, 3>> probes{
+            {"reward_even", {0x90e25b93u, 1, 0}}, {"reward_odd", {0x90e25b93u, 1, 1}},
+            {"no_reward_even", {0, 1, 0}}, {"no_reward_odd", {0, 1, 1}},
+            {"reward_pool29", {0x90e25b93u, 29, 1}}, {"reward_pool30", {0x90e25b93u, 30, 1}},
+            {"no_reward_pool30", {0, 30, 1}}, {"no_reward_fraction", {0, 1, 1}},
+        };
+        bool header = false, complete = false;
+        int samples = 0, totalSamples = 0, effectStates = 0, rewardStates = 0;
+        int previousFrame = -1;
+        uint64_t lastHash = 0;
+        std::string name, line;
+        std::set<std::string> seen;
+        std::vector<uint8_t> descriptors;
+        while (std::getline(input, line)) {
+            if (line.empty() || line.front() == '#') continue;
+            std::map<std::string, std::string> fields;
+            std::istringstream row(line);
+            std::string field;
+            while (row >> field) {
+                const auto equal = field.find('=');
+                if (equal != std::string::npos) fields.emplace(field.substr(0, equal), field.substr(equal + 1));
+            }
+            if (complete) throw std::runtime_error("data after death-effects completion");
+            if (line.rfind("capture=", 0) == 0) {
+                if (header || fields.at("capture") != "death_transients_original_v1" ||
+                    fields.at("seeded") != "1" || fields.at("temp_copy") != "1" ||
+                    fields.at("spawners") != "0" || fields.at("player") != "240,168") {
+                    throw std::runtime_error("invalid death-effects provenance");
+                }
+                header = true;
+            } else if (line.rfind("sprites ", 0) == 0) {
+                if (!header || !descriptors.empty()) throw std::runtime_error("invalid death-effects descriptors");
+                descriptors = bytes(fields.at("descriptors"), 92 * 4);
+            } else if (line.rfind("case ", 0) == 0) {
+                if (!header || descriptors.empty() || !name.empty()) throw std::runtime_error("invalid death-effects case");
+                name = fields.at("name");
+                const auto spec = probes.find(name);
+                if (spec == probes.end() || !seen.insert(name).second ||
+                    std::stoul(fields.at("rng"), nullptr, 16) != spec->second[0] ||
+                    std::stoul(fields.at("count")) != spec->second[1] ||
+                    std::stoul(fields.at("parity")) != spec->second[2] ||
+                    fields.at("x") != "336" || fields.at("y") != "174") {
+                    throw std::runtime_error("unexpected death-effects seed");
+                }
+                auto original = bytes(fields.at("corpse"), 38);
+                if (original[0] != 0x0c || original[2] != 0 || original[0x15] != 2 ||
+                    original[0x14] != 6 || le16(original, 6) || le16(original, 8) ||
+                    le16(original, 10) != (name == "no_reward_fraction" ? 0x9a : 0) ||
+                    le16(original, 12) != (name == "no_reward_fraction" ? 0x4e : 0)) {
+                    throw std::runtime_error("unexpected original corpse fields");
+                }
+                resetLevel(0);
+                menu_ = false;
+                spawnerStates_.clear();
+                player_.x = 240;
+                player_.y = 168;
+                ActiveMonster corpse;
+                corpse.x = 336;
+                corpse.y = 168;
+                corpse.hotspotY = 6;
+                corpse.kind = 0x0c;
+                corpse.behavior = 2;
+                corpse.stateTimer = 0;
+                corpse.deathRewardPending = true;
+                corpse.fracX = original[10];
+                corpse.fracY = original[12];
+                monsters_.push_back(corpse);
+                for (uint32_t i = 1; i < spec->second[1]; ++i) {
+                    ActiveMonster filler;
+                    filler.x = 440;
+                    filler.y = 240;
+                    filler.behavior = 2;
+                    filler.stateTimer = 1000;
+                    monsters_.push_back(filler);
+                }
+                randomSeed_ = spec->second[0];
+                samples = 0;
+                previousFrame = -1;
+            } else if (line.rfind("tick ", 0) == 0) {
+                if (name.empty() || samples >= 41 || std::stoi(fields.at("sample")) != samples) {
+                    throw std::runtime_error("invalid death-effects sample");
+                }
+                const int frame = std::stoi(fields.at("frame"));
+                if ((!samples && (frame & 1) != static_cast<int>(probes.at(name)[2])) ||
+                    (samples && frame != ((previousFrame + 1) & 0xffff))) {
+                    throw std::runtime_error("death-effects frame discontinuity");
+                }
+                if (!samples) logicTick_ = static_cast<uint16_t>(frame - 1);
+                updateWithControls({}, 0.0f);
+                const auto expected = entries(fields.at("effects"));
+                const auto rewards = entries(fields.at("rewards"));
+                auto fail = [&] { throw std::runtime_error("original death-effects mismatch: " + name +
+                                                          " sample=" + std::to_string(samples)); };
+                if (transientActors_.size() != expected.size() || bonusDrops_.size() != rewards.size() ||
+                    sharedActorCount() != std::stoul(fields.at("count")) ||
+                    randomSeed_ != le32(bytes(fields.at("rng"), 4), 0)) fail();
+                for (size_t i = 0; i < expected.size(); ++i) {
+                    if (!transientMatchesOriginal(transientActors_[i], expected[i].first,
+                                                   expected[i].second, descriptors)) fail();
+                    ++effectStates;
+                }
+                for (size_t i = 0; i < rewards.size(); ++i) {
+                    const auto sprite = bonusSpriteIndex(bonusDrops_[i].type);
+                    if (!std::equal(rewards[i].second.begin() + 4, rewards[i].second.end(),
+                                    descriptors.begin() + (sprite + 1) * 4)) fail();
+                    if (!samples && (bonusDrops_[i].x != le16(rewards[i].second, 0) ||
+                                     bonusDrops_[i].y != le16(rewards[i].second, 2))) fail();
+                    ++rewardStates;
+                }
+                const auto label = name + "_" + std::to_string(samples);
+                lastHash = inspectRenderedFrame(label).hash;
+                if (!outDir.empty()) {
+                    writeArgbPpm(joinPath(outDir, label + ".ppm"), fb_, kScreenW, kScreenH);
+                    manifest << name << ',' << samples << ',' << frame << ',' << sharedActorCount() << ','
+                             << transientActors_.size() << ',' << std::hex << randomSeed_ << ',' << lastHash << std::dec << ',';
+                    for (const auto& actor : transientActors_) {
+                        manifest << int(actor.kind) << ':' << actor.x << ':' << actor.y << ':' << actor.vx8 << ':'
+                                 << actor.vy8 << ':' << int(actor.timer) << ':' << int(actor.spriteIndex) << '|';
+                    }
+                    manifest << '\n';
+                    if (!manifest) throw std::runtime_error("cannot write death-effects manifest");
+                }
+                ++samples;
+                ++totalSamples;
+                previousFrame = frame;
+            } else if (line.rfind("end ", 0) == 0) {
+                if (name.empty() || samples != 41 || fields.at("samples") != "41" || !transientActors_.empty()) {
+                    throw std::runtime_error("incomplete death-effects lifecycle");
+                }
+                name.clear();
+            } else if (line.rfind("complete ", 0) == 0) {
+                if (!name.empty() || seen.size() != probes.size() || fields.at("cases") != "8") {
+                    throw std::runtime_error("incomplete death-effects fixture");
+                }
+                complete = true;
+            } else throw std::runtime_error("unexpected death-effects row");
+        }
+        if (!complete) throw std::runtime_error("missing death-effects completion");
+        std::cout << "death_transients_original=ok cases=" << seen.size() << " samples=" << totalSamples
+                  << " effect_states=" << effectStates << " reward_presence_states=" << rewardStates
+                  << " seeded=1 creation_frame_update=1 capacity=30 inherited_fraction=1 retired=1"
+                  << " reward_motion_claim=0 frame_inspection=1 frame_hash=" << std::hex << lastHash << std::dec << '\n';
+    }
+
     void debugFractureActorOriginal(const std::string& fixturePath, const std::string& outDir) {
         load();
         initSdl();
@@ -24538,7 +24717,9 @@ private:
     }
 
     size_t sharedActorCount() const {
-        return monsters_.size() + bombs_.size() + bonusDrops_.size() +
+        const auto liveMonsters = std::count_if(monsters_.begin(), monsters_.end(),
+            [](const ActiveMonster& monster) { return monster.alive; });
+        return static_cast<size_t>(liveMonsters) + bombs_.size() + bonusDrops_.size() +
                launchPadMarkers_.size() + transientActors_.size();
     }
 
@@ -24554,10 +24735,11 @@ private:
             [](const TransientActor& actor) { return actor.kind == 0x0a; }));
     }
 
-    void spawnTransientActor(int x, int y, int16_t vy8, uint8_t sprite,
-                             uint8_t kind, uint8_t timer) {
+    TransientActor* spawnTransientActor(int x, int y, int16_t vy8, uint8_t sprite,
+                             uint8_t kind, uint8_t timer,
+                             ActorAnimation animation = {0, 0, 0, 0, 0, 0, 1}) {
         // 1000:2F9F has one 30-slot pool for non-player actors.
-        if (sharedActorCount() >= 30) return;
+        if (sharedActorCount() >= 30) return nullptr;
         TransientActor actor;
         actor.x = x;
         actor.y = y;
@@ -24566,22 +24748,25 @@ private:
         actor.timer = timer;
         actor.spriteIndex = static_cast<uint8_t>(sprite - 1);
         actor.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(actor.spriteIndex).height);
-        if (kind == 0x0b) actor.animation = ActorAnimation::initialize(74, 79, 2, 1);
+        actor.animation = animation;
         transientActors_.push_back(actor);
+        return &transientActors_.back();
+    }
+
+    void updateTransientActor(TransientActor& actor) {
+        if (actor.animation.advance(ActorAnimation{})) {
+            actor.spriteIndex = static_cast<uint8_t>(actor.animation.current - 1);
+        }
+        // 1000:65A2..65D7 bypasses collision/gravity and deletes before
+        // integration when the byte reaches zero, not on animation wrap.
+        actor.timer = static_cast<uint8_t>(actor.timer - (logicTick_ & 1u));
+        if (actor.timer == 0) return;
+        integrateAxis8_8(actor.y, actor.fracY, actor.vy8);
+        integrateAxis8_8(actor.x, actor.fracX, actor.vx8);
     }
 
     void updateTransientActors() {
-        for (auto& actor : transientActors_) {
-            if (actor.animation.advance(ActorAnimation{})) {
-                actor.spriteIndex = static_cast<uint8_t>(actor.animation.current - 1);
-            }
-            // 1000:65A2..65D7 bypasses collision/gravity and deletes before
-            // integration when the byte reaches zero, not on animation wrap.
-            actor.timer = static_cast<uint8_t>(actor.timer - (logicTick_ & 1u));
-            if (actor.timer == 0) continue;
-            integrateAxis8_8(actor.y, actor.fracY, actor.vy8);
-            integrateAxis8_8(actor.x, actor.fracX, actor.vx8);
-        }
+        for (auto& actor : transientActors_) updateTransientActor(actor);
         transientActors_.erase(std::remove_if(transientActors_.begin(), transientActors_.end(),
             [](const TransientActor& actor) { return actor.timer == 0; }), transientActors_.end());
     }
@@ -25361,6 +25546,9 @@ private:
             if (!monster.alive) continue;
             if (monster.behavior == 2) {
                 if (--monster.stateTimer <= 0) {
+                    // Corpse expiry reuses its slot for the reward or fade.
+                    // Do not count both representations during allocation.
+                    monster.alive = false;
                     if (monster.deathRewardPending) {
                         finishMonsterDeathReward(monster);
                         monster.deathRewardPending = false;
@@ -25372,7 +25560,6 @@ private:
                             {monster.x / kTileSize, monster.y / kTileSize, 12, 2});
                     }
                     releaseMonsterSlot(monster);
-                    monster.alive = false;
                 }
                 continue;
             }
@@ -26555,6 +26742,9 @@ private:
         // 40 produce no reward, while the ascending DGROUP thresholds select
         // one of the seven bonus kinds for rolls 40..99.
         const int rewardRoll = randomRangeValue(0, 100);
+        const uint16_t rewardSound =
+            static_cast<uint16_t>(0xea74 + randomRangeValue(0, 20));
+        requestSoundCursor(rewardSound, 4);
         static constexpr std::array<int, 7> kRewardUpperBounds{{
             65, 71, 78, 83, 89, 93, 100,
         }};
@@ -26568,22 +26758,32 @@ private:
                 static_cast<float>(monster.x),
                 static_cast<float>(monster.y + monster.hotspotY),
                 static_cast<BonusType>(rewardIndex));
+        } else {
+            // 1000:760D converts the existing corpse in place, even at full
+            // capacity. Its fractions survive; this frame does not tick it twice.
+            TransientActor fade;
+            fade.x = monster.x;
+            fade.y = monster.y + monster.hotspotY;
+            fade.kind = 0;
+            fade.timer = 18;
+            fade.fracX = monster.fracX;
+            fade.fracY = monster.fracY;
+            fade.spriteIndex = 68;
+            fade.animation = ActorAnimation::initialize(69, 79, 2, 1);
+            transientActors_.push_back(fade);
         }
 
-        // The second draw selects the original direct-sweep sound cursor.
-        const uint16_t rewardSound =
-            static_cast<uint16_t>(0xea74 + randomRangeValue(0, 20));
-        requestSoundCursor(rewardSound, 4);
-
-        // A normal corpse then creates two kind-0x0b transition effects, each
-        // with Random(600)-300 X/Y velocity. Their actor renderer remains
-        // outside this focused sprite-consumption recovery, but preserving the
-        // four evidenced draws keeps subsequent gameplay RNG bit-identical.
+        // 1000:772A..777D draws both velocities even on allocation failure.
+        // The dynamic actor-loop bound at 7ECB visits appended actors this frame.
         for (int effect = 0; effect < 2; ++effect) {
             const int vx8 = static_cast<int>(randomRangeValue(0, 600)) - 300;
             const int vy8 = static_cast<int>(randomRangeValue(0, 600)) - 300;
-            (void)vx8;
-            (void)vy8;
+            if (auto* actor = spawnTransientActor(monster.x, monster.y + monster.hotspotY,
+                    static_cast<int16_t>(vy8), 13, 0x0b, 15,
+                    ActorAnimation::initialize(69, 79, 2, 2))) {
+                actor->vx8 = static_cast<int16_t>(vx8);
+                updateTransientActor(*actor);
+            }
         }
     }
 
@@ -27097,7 +27297,7 @@ private:
                 const int actorCell = last - randomRangeValue(0,
                     static_cast<uint16_t>(last % width - first % width + 1));
                 spawnTransientActor((actorCell % width) * 8, (actorCell / width) * 8,
-                                    0, 74, 0x0b, 8);
+                                    0, 74, 0x0b, 8, ActorAnimation::initialize(74, 79, 2, 1));
             }
             if (fracture || record.restTicks == 95) {
                 for (int cell : cells()) level_.wordLayer[static_cast<size_t>(cell)] &= ~kDamagedWordBit;
@@ -28707,6 +28907,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-fracture-actor-original") {
             app.debugFractureActorOriginal(argv[2], argc > 3 ? argv[3] : "");
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-death-transients-original") {
+            app.debugDeathTransientsOriginal(argv[2], argc > 3 ? argv[3] : "");
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-transient-actor-limits") {

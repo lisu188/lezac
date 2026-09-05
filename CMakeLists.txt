@@ -3872,6 +3872,26 @@ if(BUILD_TESTING)
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^fracture_actor_original=ok samples=21 live_states=15 sprites=6 retired=1 creation_rng=1 seeded=1 frame_inspection=1")
 
+    add_test(NAME death_transients_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-death-transients-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/death_transients_original.txt)
+    set_tests_properties(death_transients_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^death_transients_original=ok cases=8 samples=328 effect_states=455 reward_presence_states=164 seeded=1 creation_frame_update=1 capacity=30 inherited_fraction=1 retired=1 reward_motion_claim=0 frame_inspection=1")
+
+    add_test(NAME death_transients_capture_contract
+        COMMAND ${Python3_EXECUTABLE} tools/capture_original_death_transients.py --self-check)
+    set_tests_properties(death_transients_capture_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^death_transients_capture_self_check=ok windows=7 cases=8 live=0")
+
+    add_test(NAME death_transients_fixture
+        COMMAND ${Python3_EXECUTABLE} tools/check_death_transients_fixture.py --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(death_transients_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^death_transients_fixture=ok lf=1 crlf=1 truncated_rejected=1 timer_mutation_rejected=1 no_output_files=1")
+
     add_test(NAME transient_actor_limits
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-transient-actor-limits)
     set_tests_properties(transient_actor_limits PROPERTIES

@@ -70,7 +70,10 @@ They are not an exhaustive list of functional recovery gaps. Missing
 shared-actor allocation/order edge cases, collision semantics, and complete
 natural bomb/collapse progression still need implementation and original
 evidence. Pickup/fracture transients now have focused original replays; see
-[transient actor evidence](transient_actors_runtime_2026-09-05.md). This does
+[transient actor evidence](transient_actors_runtime_2026-09-05.md). Normal
+corpse-expiry particles and fading actors also have
+[focused original replays](monster_death_transients_runtime_2026-09-05.md).
+Full corpse countdown and reward motion still need recovery. This does
 not close the broader actor-pool or rendering fidelity gaps. There is no
 defensible overall completion percentage without an exhaustive behavior
 inventory; the test pass rate is not a completion metric.

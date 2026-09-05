@@ -1,25 +1,41 @@
 # Recovery Status
 
 Last reviewed: 2026-09-05
-Branch: `main`
-Baseline: `origin/main`
+Branch: `codex/recover-player-down-landing` (validated integration batch)
+Baseline: `origin/main` at PR #207
 
 ## Port Completion
 
-The C++ port is functionally complete. Every recovered gameplay, data, UI,
-and sound subsystem of `LEZAC.EXE` has a C++ implementation with
-deterministic validation coverage, and the full CTest suite passes on a
-clean Linux host. The new
-`--debug-port-completion-status` diagnostic declares that state as
-machine-checkable output: 23 implemented subsystems with their validation
-entry points and the four open original-evidence follow-ups, reported with
-`port_functionally_complete=1` and `original_fidelity_claim=0`.
-`tools/check_port_completion_status.py` plus
-`docs/recovery/port_completion_status.md` keep the completion claim, the
-docs, and the CTest expectation aligned. The "Remaining Top Gaps" below are
-fidelity verification items against the original runtime — they require
-DOSBox/DOSBox-debug/process-memory evidence hosts and stay `visual_claim=0`
-under the existing guardrails; they are not missing port functionality.
+The C++ port is not yet functionally complete. The subsystem inventory and
+its compatible tests were insufficient evidence for the previous claim.
+Original player routes exposed absent automatic pickups and map-moving
+collapse behavior. The new recovery matches 609 original player states,
+144 continuous collapse/map states, and 27 seeded collapse update probes.
+All 17 regressions exposed by this recovery are resolved: 426 tests pass
+under dummy SDL, and the separate interactive Xvfb test passes. Transient
+actors, unrestricted event ordering, and wider original-runtime comparisons
+still need work. `--debug-port-completion-status` reports
+`port_functionally_complete=0` and `original_fidelity_claim=0`.
+`tools/check_port_completion_status.py` and
+`docs/recovery/port_completion_status.md` track the corrected claim.
+
+## Current Recovery
+
+- Player hard landing, down/drop-through, ordinary landing and floor down
+  gates: five continuous original routes, 609 matching motion/cursor/sprite
+  states. No per-tick player or map seeding is used in C++.
+- Pickup-driven collapse: 144 matching original map deltas and all 15-byte
+  record states through the 95-count retirement gate. The seeder no longer
+  erases the platform or awards destruction before it fractures.
+- Collapse step probes: 27 seeded original cases, 28 full collapse records,
+  four debris records, map writes, destruction counters, and RNG all match.
+  The fracture-cell RNG draw is restored. The natural pickup autoplayer
+  follows an intact platform through movement and retirement over 102 ticks.
+- Initial level-1 payload prefixes match. The original decoder reads beyond
+  the compressed input; one tile and six trailing words differ outside that
+  payload. Those differences are reported, not copied into the port.
+- See [runtime notes](docs/recovery/player_posture_collapse_runtime_2026-09-05.md)
+  for the commands, byte anchors, screenshots, and remaining recovery gaps.
 
 ## Completed This Iteration
 

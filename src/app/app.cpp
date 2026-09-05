@@ -658,10 +658,13 @@ struct CollapseRecord {
     uint16_t flaggedWord = 0;
     uint8_t forwardPhase = 0;
     uint8_t reversePhase = 0;
+    int8_t subX = 0;
+    int8_t subY = 0;
+    uint8_t flags = 0;
+    uint8_t restTicks = 0;
     uint16_t argMagnitude = 0;
     uint8_t affectedBytes = 0;
     int count = 0;
-    int timer = 24;
 };
 
 struct DamagePhaseLookup {
@@ -750,6 +753,7 @@ struct Player {
     ActorAnimation animationBackup{0, 0, 0, 0, 0, 0, 0};
     uint8_t idleTicks = 0;
     uint8_t spriteIndex = 0;
+    uint16_t dropTicks = 0;
 };
 
 struct SpawnerState {
@@ -2378,7 +2382,7 @@ public:
             int firstCollapseReverse = 0;
             int firstCollapseAffected = 0;
             int firstCollapseCount = 0;
-            int firstCollapseTimer = 0;
+            int firstCollapseRest = 0;
             int firstEffectX = -1;
             int firstEffectY = -1;
             int firstEffectVisual = 0;
@@ -2477,7 +2481,7 @@ public:
                 frame.firstCollapseReverse = collapse.reversePhase;
                 frame.firstCollapseAffected = collapse.affectedBytes;
                 frame.firstCollapseCount = collapse.count;
-                frame.firstCollapseTimer = collapse.timer;
+                frame.firstCollapseRest = collapse.restTicks;
             }
             if (!explosionEffects_.empty()) {
                 const ExplosionEffect& effect = explosionEffects_.front();
@@ -3037,7 +3041,7 @@ public:
                      << " collapse0_reverse=" << frame.firstCollapseReverse
                      << " collapse0_affected=" << frame.firstCollapseAffected
                      << " collapse0_count=" << frame.firstCollapseCount
-                     << " collapse0_timer=" << frame.firstCollapseTimer
+                     << " collapse0_rest=" << frame.firstCollapseRest
                      << " effect0_xy=" << frame.firstEffectX << ','
                      << frame.firstEffectY
                      << " effect0_visual=" << frame.firstEffectVisual
@@ -5027,67 +5031,51 @@ public:
             throw std::runtime_error("collapse autoplayer failed to start level 1");
         }
 
-        AutoplayRouteResult route = autoplayLevel1BombRoute();
-        if (route.bombTileX != 24 || route.bombTileY != 21) {
-            throw std::runtime_error("collapse autoplayer missed level-1 tile 24,21");
+        // Same controls as the natural original platform_collapse trace.
+        // Walking collects the supporting object; no bomb or map seed is
+        // needed. The platform moves intact, then unflags at rest=95.
+        const auto firstGlyph = tileAt(23, 21), secondGlyph = tileAt(24, 21);
+        FrameInspection startFrame = inspectRenderedFrame("autoplayer-collapse-start");
+        int firstActive = -1, retired = -1, collapseCount = 0, lastRest = -1;
+        bool moved = false;
+        uint64_t movedHash = 0;
+        for (int frame = 0; frame < 144; ++frame) {
+            FrameControls controls;
+            controls.p1Right = frame < 16;
+            updateWithControls(controls, 1.0f / 60.0f);
+            if (!collapseQueue_.empty()) {
+                const auto& record = collapseQueue_.front();
+                if (firstActive < 0) {
+                    firstActive = frame;
+                    collapseCount = record.count;
+                }
+                lastRest = record.restTicks;
+                if (!moved && record.startOffsetBytes == 2 * (22 * level_.width + 23)) {
+                    moved = true;
+                    movedHash = inspectRenderedFrame("autoplayer-collapse-moved").hash;
+                }
+            } else if (firstActive >= 0 && retired < 0) {
+                retired = frame;
+            }
         }
-        // Small bombs now land on the one-way platform above the trigger.
-        // Use the real switch chord twice to select a stocked large bomb;
-        // its 16px collision height keeps this stationary throw below it.
-        FrameControls idle;
-        FrameControls switchBomb;
-        switchBomb.p1Left = switchBomb.p1Right = true;
-        driveAutoplayerWeaponSwitchChord(switchBomb);
-        driveAutoplayerWeaponSwitchChord(switchBomb);
-        FrameInspection routeFrame = inspectRenderedFrame("autoplayer-collapse-route");
-
-        pushKeyDown(SDLK_n);
-        processEvents(running);
-        if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 21) {
-            throw std::runtime_error("collapse autoplayer did not place route bomb");
+        if (firstActive < 0 || retired < 0 || collapseCount != 2 || !moved || lastRest != 94 ||
+            destroyed_ != 0 || score_ != 50 || !collapseQueue_.empty() ||
+            tileAt(23, 21) != 0 || tileAt(24, 21) != 0 ||
+            tileAt(23, 22) != firstGlyph || tileAt(24, 22) != secondGlyph ||
+            wordAt(23, 22) != 9 || wordAt(24, 22) != 9) {
+            throw std::runtime_error("natural pickup/collapse route did not move and retire intact");
         }
-        if (!bombs_.back().moving || bombs_.back().vx8 != 0 || bombs_.back().type != BombType::Large) {
-            throw std::runtime_error("collapse autoplayer did not select a stationary large throw");
+        FrameInspection clearFrame = inspectRenderedFrame("autoplayer-collapse-retired");
+        if (movedHash == startFrame.hash || clearFrame.hash == startFrame.hash) {
+            throw std::runtime_error("collapse map movement did not change the frame");
         }
-        int fuse = bombs_.back().timer;
-        for (int i = 0; i < fuse; ++i) {
-            updateWithControls(idle, 1.0f / 60.0f);
-        }
-        if (!bombs_.empty() || explosionEffects_.empty() || collapseQueue_.empty()) {
-            throw std::runtime_error("collapse autoplayer did not start collapse playback: bombs=" +
-                std::to_string(bombs_.size()) + " effects=" + std::to_string(explosionEffects_.size()) +
-                " origin=" + (explosionEffects_.empty() ? "none" :
-                    std::to_string(explosionEffects_.back().x) + "," +
-                    std::to_string(explosionEffects_.back().y)));
-        }
-        int collapseCount = collapseQueue_.front().count;
-        FrameInspection explosionFrame =
-            inspectRenderedFrame("autoplayer-collapse-explosion");
-        if (explosionFrame.hash == routeFrame.hash) {
-            throw std::runtime_error("collapse explosion frame did not change");
-        }
-
-        int playbackFrames = 0;
-        while (!collapseQueue_.empty() && playbackFrames < 32) {
-            updateWithControls(idle, 1.0f / 60.0f);
-            ++playbackFrames;
-        }
-        // The reconstruction-only CollapseRecord lifetime is 24 ticks; with
-        // the byte-cited frame order (bomb actors run before the queue pass,
-        // so the spawn tick already decrements once) 23 further frames drain
-        // it.
-        if (!collapseQueue_.empty() || playbackFrames != 23) {
-            throw std::runtime_error("collapse autoplayer playback duration mismatch");
-        }
-        FrameInspection clearFrame = inspectRenderedFrame("autoplayer-collapse-clear");
-        if (clearFrame.hash == explosionFrame.hash) {
-            throw std::runtime_error("collapse clear frame did not change");
-        }
+        const int playbackFrames = retired - firstActive;
 
         std::cout << "autoplayer=ok"
                   << " scenario=" << scenario
                   << " collapse_started=1 collapse_count=" << collapseCount
                   << " playback_frames=" << playbackFrames
+                  << " pickup_started=1 moved_rows=1 retired_rest=95 destroyed=0"
                   << " frame_inspection=1\n";
     }
 
@@ -5366,7 +5354,7 @@ public:
         uint32_t p2ScoreBefore = score2_;
         collectObjectiveTiles(player2_, 2);
         if (collected_ != 1 || score_ != p1ScoreBefore ||
-            score2_ != p2ScoreBefore + 1000) {
+            score2_ != p2ScoreBefore + 800) {
             throw std::runtime_error("two-player progression p2 objective score mismatch");
         }
         FrameInspection scoreFrame = inspectRenderedFrame("autoplayer-two-progress-score");
@@ -6024,9 +6012,9 @@ public:
             const char* name;
             const char* validation;
         };
-        // Functional port coverage: every gameplay/data subsystem recovered
-        // from LEZAC.EXE has a C++ implementation and a deterministic
-        // validation entry point listed here.
+        // Subsystem inventory, not proof of full original behavior. The
+        // pickup/collapse capture exposed missing production functionality
+        // despite the previous inventory-based completion claim.
         static const std::array<PortSubsystem, 23> kPortSubsystems{{
             {"resource_loading", "--validate"},
             {"shipped_file_manifest", "--debug-shipped-file-manifest"},
@@ -6052,10 +6040,8 @@ public:
             {"pause_end_flow", "--debug-autoplayer pause_flow"},
             {"autoplayer_frame_harness", "--capture-frame-sequence"},
         }};
-        // Open original-evidence follow-ups: fidelity verification against
-        // the original runtime, tracked in RECOVERY_STATUS.md. These are not
-        // missing port functionality; each stays visual_claim=0 until the
-        // matching original fixture is promoted.
+        // Historical original-evidence follow-ups. Functional recovery gaps
+        // are additionally tracked in RECOVERY_STATUS.md.
         static const std::array<const char*, 4> kOpenOriginalEvidenceItems{{
             "natural_forward_debris_writeback_3d2d",
             "exact_explosion_sprite_playback",
@@ -6077,7 +6063,7 @@ public:
                   << " implemented=" << kPortSubsystems.size()
                   << " open_original_evidence_items="
                   << kOpenOriginalEvidenceItems.size()
-                  << " port_functionally_complete=1"
+                  << " port_functionally_complete=0"
                   << " original_fidelity_claim=0" << '\n';
     }
 
@@ -9472,7 +9458,7 @@ public:
             objectiveAttempt.index != objectiveHook.index ||
             objectiveAttempt.cursor != objectiveHook.capturedCursor ||
             collected_ != collectedBefore + 1 ||
-            score_ != scoreBefore + 1000u ||
+            score_ != scoreBefore + 800u ||
             !objectiveSeedLatch.active ||
             !objectiveLatchAccepted ||
             objectivePumpedCursor != objectiveHook.capturedCursor ||
@@ -17286,7 +17272,7 @@ public:
                 throw std::runtime_error("bomb object low-word routing mismatch");
             }
             const CollapseRecord& record = collapseQueue_.front();
-            if (record.flaggedWord != flaggedAbove || destroyed_ != record.count ||
+            if (record.flaggedWord != flaggedAbove || destroyed_ != 0 ||
                 record.count <= 0) {
                 throw std::runtime_error("bomb object collapse record mismatch");
             }
@@ -17869,7 +17855,7 @@ public:
         int usedLevel = -1;
         int usedX = -1;
         int usedY = -1;
-        int observedTimer = -1;
+        int observedRest = -1;
         for (size_t level = 0; level < levels_.size() && usedLevel < 0; ++level) {
             resetLevel(static_cast<int>(level));
             for (int y = 2; y + 1 < level_.height && usedLevel < 0; ++y) {
@@ -17897,7 +17883,7 @@ public:
                     usedLevel = static_cast<int>(level);
                     usedX = x;
                     usedY = y;
-                    observedTimer = collapseQueue_.front().timer;
+                    observedRest = collapseQueue_.front().restTicks;
                     break;
                 }
             }
@@ -17906,30 +17892,27 @@ public:
             throw std::runtime_error(
                 "no site where a dissolving fragment enqueues a collapse");
         }
-        // CollapseRecord starts at 24; being decremented in the same tick is
-        // the whole signal. If the collapse pass ran first the record would
-        // still read 24.
-        CollapseRecord fresh;
-        const int seeded = fresh.timer;
-        if (observedTimer != seeded - 1) {
+        // The recovered record starts at rest=0; 1000:552C increments it
+        // after motion. A record seeded after this pass would still be zero.
+        if (observedRest != 1) {
             throw std::runtime_error(
-                "collapse record seeded by the debris pass read timer " +
-                std::to_string(observedTimer) + "; expected " +
-                std::to_string(seeded - 1) +
+                "collapse record seeded by the debris pass read rest " +
+                std::to_string(observedRest) + "; expected 1" +
                 " (the collapse pass must run AFTER the debris pass)");
         }
         std::cout << "debris_collapse_order=ok"
                   << " level=" << usedLevel + 1
                   << " dissolve_tile=" << usedX << "," << usedY
-                  << " seeded_timer=" << seeded
-                  << " timer_after_same_tick=" << observedTimer
+                  << " seeded_rest=0"
+                  << " rest_after_same_tick=" << observedRest
                   << " debris_before_collapse=1"
                   << " ghidra=1000:45fa@805d,1000:5102@8067"
                   << " visual_claim=0\n";
     }
 
     void debugDebrisImpacts(const std::string& fixturePath,
-                           const std::string& outDir = "", bool restSuite = false) {
+                           const std::string& outDir = "", bool restSuite = false,
+                           bool collapseSuite = false) {
         load();
         initSdl();
         if (!outDir.empty()) std::filesystem::create_directories(outDir);
@@ -17977,8 +17960,9 @@ public:
         while (std::getline(input, line)) {
             if (!line.empty() && line.back() == '\r') line.pop_back();
             if (line.empty() || line[0] == '#') continue;
-            const std::string expectedHeader = std::string("capture=debris_") +
-                (restSuite ? "rest" : "impacts") + "_original_v1 seeded=1 temp_copy=1 visual_claim=0";
+            const std::string expectedHeader = "capture=" +
+                std::string(collapseSuite ? "collapse_steps" : restSuite ? "debris_rest" : "debris_impacts") +
+                "_original_v1 seeded=1 temp_copy=1 visual_claim=0";
             if (line == expectedHeader) {
                 header = true;
                 continue;
@@ -18007,6 +17991,7 @@ public:
             debrisQueue_.clear();
             collapseQueue_.clear();
             randomSeed_ = 0x12345678u;
+            if (collapseSuite) nextCollapseFragmentWord_ = 0x4000;
             logicTick_ = static_cast<uint32_t>(std::stoul(fields.at("tick")));
             require(level_.width == std::stoi(fields.at("width")), "map width mismatch");
             auto visitCells = [&](const std::string& value, bool apply) {
@@ -18027,8 +18012,10 @@ public:
                 }
             };
             visitCells(fields.at("cells"), true);
-            for (const auto& raw : split(fields.at("debris"), ',')) {
-                debrisQueue_.push_back(decodeDebris(raw));
+            if (fields.at("debris") != "none") {
+                for (const auto& raw : split(fields.at("debris"), ',')) {
+                    debrisQueue_.push_back(decodeDebris(raw));
+                }
             }
             if (restSuite) {
                 require(std::stoul(fields.at("live_slot_before")) ==
@@ -18044,11 +18031,17 @@ public:
                     record.word = record.flaggedWord & ~kDamagedWordBit;
                     record.forwardPhase = raw[6];
                     record.reversePhase = raw[7];
+                    record.subX = static_cast<int8_t>(raw[8]);
+                    record.subY = static_cast<int8_t>(raw[9]);
+                    record.argMagnitude = le16(raw, 10);
+                    record.flags = raw[12];
+                    record.restTicks = raw[13];
                     record.affectedBytes = raw[14];
                     collapseQueue_.push_back(record);
                 }
             }
-            updateDebrisRecords();
+            if (collapseSuite) updateCollapseRecords();
+            else updateDebrisRecords();
             const auto expected = fields.at("after_debris") == "none"
                                       ? std::vector<std::string>{}
                                       : split(fields.at("after_debris"), ',');
@@ -18088,23 +18081,38 @@ public:
                             actual.flaggedWord == le16(raw, 4) && actual.forwardPhase == raw[6] &&
                             actual.reversePhase == raw[7] && actual.affectedBytes == raw[14],
                         "collapse bounds/key/lanes/weight mismatch");
+                if (collapseSuite) {
+                    require(static_cast<uint8_t>(actual.subX) == raw[8] &&
+                                static_cast<uint8_t>(actual.subY) == raw[9] &&
+                                actual.argMagnitude == le16(raw, 10) && actual.flags == raw[12] &&
+                                actual.restTicks == raw[13], "collapse fractions/magnitude/flags/rest mismatch");
+                }
                 ++comparedCollapseRecords;
             }
             visitCells(fields.at("after_cells"), false);
             require(randomSeed_ == le32(bytes(fields.at("rng"), 4), 0), "RNG mismatch");
+            if (collapseSuite) {
+                require(destroyed_ == std::stoi(fields.at("destroyed")), "fracture progress mismatch");
+                require(nextCollapseFragmentWord_ == std::stoul(fields.at("next_word"), nullptr, 16),
+                        "fragment word counter mismatch");
+            }
             lastHash = inspectRenderedFrame("debris-impact-" + name).hash;
             if (!outDir.empty()) writeArgbPpm(joinPath(outDir, name + ".ppm"), fb_, kScreenW, kScreenH);
         }
-        if (cases.size() != 9 || comparedRecords != (restSuite ? 6u : 16u) ||
-            comparedCollapseRecords != (restSuite ? 0u : 3u) ||
+        if (cases.size() != (collapseSuite ? 27u : 9u) ||
+            (collapseSuite && (comparedRecords != 4 || comparedCollapseRecords != 28)) ||
+            (!collapseSuite && (comparedRecords != (restSuite ? 6u : 16u) ||
+                               comparedCollapseRecords != (restSuite ? 0u : 3u))) ||
             (restSuite && !staleTailExcluded)) {
             throw std::runtime_error("incomplete original impact fixture");
         }
-        std::cout << (restSuite ? "debris_rest=ok cases=" : "debris_impacts=ok cases=") << cases.size()
+        std::cout << (collapseSuite ? "collapse_steps=ok cases=" : restSuite ? "debris_rest=ok cases=" : "debris_impacts=ok cases=") << cases.size()
                   << " debris_records=" << comparedRecords
                   << " collapse_records=" << comparedCollapseRecords
                   << " seeded_original=1 natural_route_claim=0"
-                  << " frames_inspected=9 last_hash=" << std::hex << lastHash << std::dec << '\n';
+                  << " frames_inspected=" << cases.size() << " last_hash=" << std::hex << lastHash << std::dec;
+        if (collapseSuite) std::cout << " transient_actor_claim=0";
+        std::cout << '\n';
     }
 
     void debugDebrisBounceRng() {
@@ -19308,19 +19316,20 @@ public:
         lives_ = 3;
         damageCooldown_ = 0;
 
-        CollapseRecord hazard;
-        int maxTx = std::max(0, level_.width - 1);
-        int maxTy = std::max(0, level_.height - 1);
-        int playerTileX = static_cast<int>(player_.x) / kTileSize;
-        int tx0 = std::clamp(playerTileX - 2, 0, maxTx);
-        int ty0 = 0;
-        int tx1 = std::clamp(playerTileX + 3, 0, maxTx);
-        int ty1 = maxTy;
-        hazard.startOffsetBytes = static_cast<uint16_t>((ty0 * level_.width + tx0) * 2);
-        hazard.endOffsetBytes = static_cast<uint16_t>((ty1 * level_.width + tx1) * 2);
-        hazard.timer = 240;
-        hazard.count = 1;
-        collapseQueue_.push_back(hazard);
+        // A stationary behavior-3 actor supplies the original contact-counter
+        // path (1000:63F0 -> frame-loop 7F68). The former arbitrary collapse
+        // rectangle was not backed by any original damage callsite.
+        ActiveMonster hazard;
+        hazard.x = static_cast<int>(player_.x);
+        hazard.y = static_cast<int>(player_.y);
+        hazard.kind = 1;
+        hazard.behavior = 3;
+        hazard.ai0 = 0;
+        hazard.ai1 = 0;
+        hazard.hp = 3;
+        refreshMonsterAnimationProfile(hazard);
+        initializeMonsterMotion(hazard);
+        monsters_.push_back(hazard);
 
         FrameInspection startFrame = inspectRenderedFrame("player-damage-live-start");
         FrameControls idle;
@@ -19331,7 +19340,7 @@ public:
             oss << "live hazard did not drain player HP"
                 << " energy=" << energy_
                 << " pending=" << static_cast<int>(pendingDamage_)
-                << " collapse=" << collapseQueue_.size()
+                << " monsters=" << monsters_.size()
                 << " p_xy=" << static_cast<int>(player_.x) << ','
                 << static_cast<int>(player_.y);
             throw std::runtime_error(oss.str());
@@ -19352,7 +19361,7 @@ public:
                 << " pending_life_loss=" << (pendingLifeLoss_ ? 1 : 0)
                 << " dead=" << (playerDead_ ? 1 : 0)
                 << " death_timer=" << deathStateTimer_
-                << " collapse=" << collapseQueue_.size();
+                << " monsters=" << monsters_.size();
             throw std::runtime_error(oss.str());
         }
         while (pendingLifeLoss_ && frames < 260) {
@@ -19367,7 +19376,7 @@ public:
                 << " lives=" << lives_
                 << " dead=" << (playerDead_ ? 1 : 0)
                 << " death_timer=" << deathStateTimer_
-                << " collapse=" << collapseQueue_.size();
+                << " monsters=" << monsters_.size();
             throw std::runtime_error(oss.str());
         }
         tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
@@ -19395,7 +19404,7 @@ public:
                   << " reentry_state=" << (playerDead_ ? 0 : 1)
                   << " frame_inspection=1"
                   << " frames_to_state2=" << framesToState2
-                  << " delayed_life_loss=1\n";
+                  << " delayed_life_loss=1 damage_source=monster_contact\n";
     }
 
     void debugMonsterContactDamageLive() {
@@ -21882,8 +21891,13 @@ public:
                   << " visual_claim=0\n";
     }
 
+    enum class PlayerReplayKind { Motion, Animation, Posture };
+
     void debugPlayerWalkOriginal(const std::string& fixtureDir, const std::string& outDir = "",
-                                 bool checkAnimation = false) {
+                                 PlayerReplayKind kind = PlayerReplayKind::Motion,
+                                 const std::string& routeFilter = "") {
+        const bool checkAnimation = kind != PlayerReplayKind::Motion;
+        const bool checkPosture = kind == PlayerReplayKind::Posture;
         load();
         initSdl();
         std::ofstream manifest;
@@ -21891,7 +21905,7 @@ public:
             std::filesystem::create_directories(outDir);
             manifest.open(joinPath(outDir, "manifest.csv"));
             if (!manifest) throw std::runtime_error("cannot create player walk manifest");
-            manifest << "route,sample,phase,frame,x,y,vx8,vy8,frac_x,frac_y,sprite,cursor,idle,frame_hash\n";
+            manifest << "route,sample,phase,frame,x,y,vx8,vy8,frac_x,frac_y,sprite,cursor,idle,drop,collapse,frame_hash\n";
         }
         auto bytes = [](const std::string& hex, size_t size) {
             if (hex.size() != size * 2 || hex.find_first_not_of("0123456789abcdef") != std::string::npos) {
@@ -21912,8 +21926,17 @@ public:
             routes.push_back({"short_idle", 55});
             routes.push_back({"cursor_restore", 6});
         }
+        if (checkPosture) routes = {{"platform_drop", 91}, {"hill_jump_fall", 192},
+                                   {"down_floor", 28}, {"hill_fall", 154}, {"platform_collapse", 144}};
+        if (!routeFilter.empty()) {
+            routes.erase(std::remove_if(routes.begin(), routes.end(), [&](const auto& route) {
+                return route.first != routeFilter;
+            }), routes.end());
+            if (routes.empty()) throw std::runtime_error("unknown original player route filter");
+        }
         int samples = 0, overspeed = 0, airCoast = 0;
         int spriteChanges = 0, coastingIdle = 0;
+        int worldStates = 0, initialTileDifferences = 0, initialWordDifferences = 0;
         uint64_t lastHash = 0;
         for (const auto& [route, expectedCount] : routes) {
             std::ifstream input(joinPath(fixtureDir, route + ".txt"));
@@ -21921,6 +21944,9 @@ public:
             resetLevel(0);
             menu_ = false;
             bool header = false, complete = false;
+            bool world = false;
+            const auto initialTiles = level_.tiles;
+            const auto initialWords = level_.wordLayer;
             std::vector<uint8_t> descriptors;
             auto spriteIndex = [&](const std::vector<uint8_t>& visual) -> uint8_t {
                 for (size_t i = 1; i < descriptors.size() / 4; ++i) {
@@ -21938,7 +21964,8 @@ public:
                                         const std::vector<uint8_t>& visual, const std::string& stage) {
                 if (player.animation.packed() != animationFrom(actor, 0x16).packed() ||
                     player.animationBackup.packed() != animationFrom(actor, 0x1D).packed() ||
-                    player.idleTicks != actor[2] || player.spriteIndex != spriteIndex(visual)) {
+                    player.idleTicks != actor[2] || player.spriteIndex != spriteIndex(visual) ||
+                    player.dropTicks != le16(actor, 0x0E)) {
                     throw std::runtime_error(route + " original animation mismatch " + stage);
                 }
             };
@@ -21983,6 +22010,44 @@ public:
                     }
                     continue;
                 }
+                if (line.rfind("world ", 0) == 0) {
+                    if (!header || count || world || fields.at("width") != "60" || fields.at("height") != "33") {
+                        throw std::runtime_error("invalid original world header");
+                    }
+                    world = true;
+                    const auto originalTiles = readFile(joinPath(fixtureDir, route + ".tiles.bin"));
+                    const auto originalWords = readFile(joinPath(fixtureDir, route + ".words.bin"));
+                    if (originalTiles.size() != initialTiles.size() || originalWords.size() != initialWords.size() * 2) {
+                        throw std::runtime_error("original world plane dimensions mismatch");
+                    }
+                    const auto levelFile = readFile("LIVELS.SCH");
+                    auto payloadExtent = [&](size_t at, size_t length) {
+                        size_t extent = 0;
+                        for (size_t end = at + length; at + 2 < end; at += 3) {
+                            const uint8_t command = levelFile.at(at);
+                            extent += (command >> 4) + (command & 15) + 2;
+                        }
+                        return extent;
+                    };
+                    const size_t tileExtent = payloadExtent(level_.fileOffset + 10, level_.tileEncodedSize);
+                    const size_t wordExtent = payloadExtent(level_.fileOffset + 12 + level_.tileEncodedSize,
+                                                             level_.wordEncodedSize);
+                    for (size_t i = 0; i < initialTiles.size(); ++i) {
+                        if (originalTiles[i] != initialTiles[i]) {
+                            if (i < tileExtent) throw std::runtime_error("original initial tile payload mismatch");
+                            ++initialTileDifferences;
+                        }
+                        if (le16(originalWords, i * 2) != initialWords[i]) {
+                            if (i * 2 < wordExtent) throw std::runtime_error("original initial word payload mismatch");
+                            ++initialWordDifferences;
+                        }
+                    }
+                    // Original 082D:0000 ignores the encoded length and reads
+                    // stale input-buffer bytes to fill the final partial row.
+                    // Compare the defined payload and all subsequent deltas;
+                    // report those initial tail differences, never seed them.
+                    continue;
+                }
                 if (line.rfind("complete ", 0) == 0) {
                     if (!header || complete || count != expectedCount || std::stoi(fields.at("samples")) != count) {
                         throw std::runtime_error("incomplete original player route");
@@ -22020,8 +22085,41 @@ public:
                         player_.animation = animationFrom(entry, 0x16);
                         player_.animationBackup = animationFrom(entry, 0x1D);
                         player_.idleTicks = entry[2];
+                        player_.dropTicks = le16(entry, 0x0E);
                         player_.spriteIndex = spriteIndex(bytes(fields.at("entry_visual"), 8));
                     }
+                }
+                if (world) {
+                    auto appendWord = [](std::vector<uint8_t>& target, uint16_t value) {
+                        target.push_back(static_cast<uint8_t>(value));
+                        target.push_back(static_cast<uint8_t>(value >> 8));
+                    };
+                    std::vector<uint8_t> changes, records;
+                    for (size_t i = 0; i < initialTiles.size(); ++i) {
+                        if (level_.tiles[i] != initialTiles[i] || level_.wordLayer[i] != initialWords[i]) {
+                            appendWord(changes, static_cast<uint16_t>(i));
+                            changes.push_back(level_.tiles[i]);
+                            appendWord(changes, level_.wordLayer[i]);
+                        }
+                    }
+                    for (const auto& record : collapseQueue_) {
+                        appendWord(records, record.startOffsetBytes);
+                        appendWord(records, record.endOffsetBytes);
+                        appendWord(records, record.flaggedWord);
+                        records.insert(records.end(), {record.forwardPhase, record.reversePhase,
+                            static_cast<uint8_t>(record.subX), static_cast<uint8_t>(record.subY)});
+                        appendWord(records, record.argMagnitude);
+                        records.insert(records.end(), {record.flags, record.restTicks, record.affectedBytes});
+                    }
+                    auto expected = [&](const char* name) {
+                        const std::string value = fields.at(name);
+                        return value == "-" ? std::vector<uint8_t>{} : bytes(value, value.size() / 2);
+                    };
+                    if (changes != expected("entry_map") || records != expected("entry_collapse")) {
+                        throw std::runtime_error(route + " original world mismatch at " + std::to_string(count) +
+                            (changes != expected("entry_map") ? " map" : " collapse"));
+                    }
+                    ++worldStates;
                 }
                 if (checkAnimation) {
                     requireAnimation(player_, bytes(fields.at("entry"), 0x26),
@@ -22030,6 +22128,8 @@ public:
                     if (advanced.animation.advance(advanced.animationBackup)) {
                         advanced.spriteIndex = static_cast<uint8_t>(advanced.animation.current - 1);
                     }
+                    int advancedY = static_cast<int>(advanced.y);
+                    updatePlayerGravity(advanced, before[0x19] != 0, 0, advancedY);
                     requireAnimation(advanced, raw, visual, "advance " + std::to_string(count));
                 }
                 if (static_cast<int>(player_.x) != le16(visual, 0) ||
@@ -22043,18 +22143,26 @@ public:
                 if (phase == "left") controls.p1Left = true;
                 else if (phase == "right") controls.p1Right = true;
                 else if (phase == "jump_right") controls.p1Right = controls.p1Jump = true;
+                else if (phase == "jump_left") controls.p1Left = controls.p1Jump = true;
+                else if (phase == "jump") controls.p1Jump = true;
+                else if (phase == "down") controls.p1Down = true;
+                else if (phase == "jump_down") controls.p1Jump = controls.p1Down = true;
                 else if (phase == "both") controls.p1Left = controls.p1Right = true;
                 else if (phase != "idle") throw std::runtime_error("unknown original player controls");
                 const bool left = controls.p1Left && phase != "both";
                 const bool right = controls.p1Right && phase != "both";
-                if (before[0x15] || before[0x14] ||
-                    playerWalkVelocity(localWord(before, -12), left, right, before[0x19] != 0) !=
+                int16_t responseVelocity = localWord(before, -12);
+                if (left && before[0x15]) responseVelocity = -250;
+                if (right && before[0x14]) responseVelocity = 250;
+                if (playerWalkVelocity(responseVelocity, left, right, before[0x19] != 0) !=
                         localWord(response, -12)) {
                     throw std::runtime_error(route + " original player input response mismatch");
                 }
                 overspeed += std::abs(localWord(response, -12)) > kPlayerWalkVelocity8;
                 airCoast += phase == "idle" && !before[0x19] && localWord(response, -12) != 0;
                 const uint8_t previousSprite = player_.spriteIndex;
+                const uint16_t previousDrop = player_.dropTicks;
+                const auto previousTiles = world ? level_.tiles : std::vector<uint8_t>{};
                 updateWithControls(controls, 1.0f / 60.0f);
                 if (checkAnimation) {
                     const auto finalVisual = bytes(fields.at("final_visual"), 8);
@@ -22080,7 +22188,8 @@ public:
                     throw std::runtime_error(message.str());
                 }
                 if (count == 0 || phase != previousPhase || count + 1 == expectedCount ||
-                    (checkAnimation && player_.spriteIndex != previousSprite)) {
+                    (checkAnimation && player_.spriteIndex != previousSprite) || player_.dropTicks != previousDrop ||
+                    (world && previousTiles != level_.tiles)) {
                     const std::string label = route + "_" + std::to_string(count);
                     lastHash = inspectRenderedFrame(label).hash;
                     if (!outDir.empty()) {
@@ -22089,7 +22198,7 @@ public:
                                  << player_.x << ',' << player_.y << ',' << player_.vx8 << ',' << player_.vy8
                                  << ',' << int(player_.fracX) << ',' << int(player_.fracY) << ','
                                  << int(player_.spriteIndex) << ',' << int(player_.animation.current)
-                                 << ',' << int(player_.idleTicks) << ','
+                                 << ',' << int(player_.idleTicks) << ',' << player_.dropTicks << ',' << collapseQueue_.size() << ','
                                  << std::hex << lastHash << std::dec << '\n';
                     }
                 }
@@ -22100,13 +22209,18 @@ public:
             }
             if (!complete) throw std::runtime_error("missing original player completion row");
         }
-        std::cout << (checkAnimation ? "player_animation_original=ok" : "player_walk_original=ok")
+        std::cout << (checkPosture ? "player_posture_original=ok" :
+                      checkAnimation ? "player_animation_original=ok" : "player_walk_original=ok")
                   << " cases=" << routes.size() << " samples=" << samples
                   << " full_motion_states=" << samples << " input_responses=" << samples
                   << " overspeed_states=" << overspeed << " air_coast_states=" << airCoast;
         if (checkAnimation) std::cout << " animation_states=" << samples << " sprite_descriptors=" << samples
                                      << " sprite_changes=" << spriteChanges << " coasting_idle=" << coastingIdle
-                                     << " natural_samples=" << samples - 6 << " cursor_seeded_samples=6";
+                                     << " natural_samples=" << samples - (checkPosture ? 0 : 6)
+                                     << " cursor_seeded_samples=" << (checkPosture ? 0 : 6);
+        if (checkPosture) std::cout << " world_states=" << worldStates
+                                   << " initial_tile_differences=" << initialTileDifferences
+                                   << " initial_word_differences=" << initialWordDifferences;
         std::cout << " frame_inspection=1 frame_hash=" << std::hex << lastHash << std::dec << '\n';
     }
 
@@ -22682,6 +22796,7 @@ private:
     std::vector<ExplosionEffect> explosionEffects_;
     std::vector<DebrisRecord> debrisQueue_;
     std::vector<CollapseRecord> collapseQueue_;
+    uint16_t nextCollapseFragmentWord_ = 0;
     std::vector<uint32_t> fb_ = std::vector<uint32_t>(kScreenW * kScreenH);
     SDL_Window* window_ = nullptr;
     SDL_Renderer* renderer_ = nullptr;
@@ -22861,6 +22976,7 @@ private:
         debrisQueue_.clear();
         collapseQueue_.clear();
         paused_ = false;
+        nextCollapseFragmentWord_ = level_.fieldA;
         collected_ = 0;
         destroyed_ = 0;
         completeTimer_ = 0;
@@ -23624,9 +23740,9 @@ private:
             updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
                           playerCount_ == 1 || player2Dead_);
         } else {
-            activateLaunchPad(player_, p1Down);
-            updatePlayer(player_, controls.p1Left, controls.p1Right, p1Jump, p1Switch, 0);
             collectObjectiveTiles(player_, 1);
+            activateLaunchPad(player_, p1Down);
+            updatePlayer(player_, controls.p1Left, controls.p1Right, p1Jump, p1Switch, 0, p1Down);
             updatePortalsAndTriggers(player_, portalCooldown_, triggerCooldown_, p1Down);
         }
         if (playerCount_ > 1) {
@@ -23636,9 +23752,9 @@ private:
                 updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
                               playerDead_);
             } else {
-                activateLaunchPad(player2_, p2Down);
-                updatePlayer(player2_, controls.p2Left, controls.p2Right, p2Jump, p2Switch, 19);
                 collectObjectiveTiles(player2_, 2);
+                activateLaunchPad(player2_, p2Down);
+                updatePlayer(player2_, controls.p2Left, controls.p2Right, p2Jump, p2Switch, 19, p2Down);
                 updatePortalsAndTriggers(player2_, portalCooldown2_, triggerCooldown2_,
                                          p2Down);
             }
@@ -23916,10 +24032,37 @@ private:
         }
     }
 
+    static void selectPlayerPosture(Player& player, uint8_t spriteBase, bool dropping) {
+        // 1000:6772..67FE and 69BB..6A43 preserve the running cursor, or
+        // initialize an idle backup, before selecting the temporary pose.
+        if (player.animation.first == spriteBase + 18) return;
+        player.animationBackup = player.animation.mode == 0 ?
+            ActorAnimation::initialize(spriteBase + 1, spriteBase + 1, 2, 3) : player.animation;
+        player.animation = ActorAnimation::initialize(spriteBase + 17,
+                                                       spriteBase + (dropping ? 19 : 18), 3, 3);
+        player.spriteIndex = spriteBase + 17;
+    }
+
+    static void updatePlayerGravity(Player& player, bool bottom, uint8_t spriteBase, int& y) {
+        // 1000:6743..6813 precedes input; a new jump does not add gravity.
+        if (!bottom || player.vy8 < 0) {
+            player.vy8 = static_cast<int16_t>(std::min<int>(kPlayerTerminalVelocity8,
+                                                           player.vy8 + kPlayerGravity8));
+        } else if (player.vy8 > 0) {
+            y &= ~7;
+            if (player.vy8 > 1600) {
+                selectPlayerPosture(player, spriteBase, false);
+                player.vy8 = static_cast<int16_t>(-player.vy8 / 4);
+            } else {
+                player.vy8 = 0;
+            }
+        }
+    }
+
     // One call is one governed tick: animation advances before input and
     // motion integrates in 8.8 fixed point, independent of wall-clock dt.
     void updatePlayer(Player& player, bool left, bool right, bool jump, bool switchWeapon,
-                      uint8_t spriteBase) {
+                      uint8_t spriteBase, bool down = false) {
         if (player.animation.advance(player.animationBackup)) {
             player.spriteIndex = static_cast<uint8_t>(player.animation.current - 1);
         }
@@ -23934,14 +24077,26 @@ private:
         left = left && !switchWeapon;
         right = right && !switchWeapon;
 
-        // Player branch 1000:6743..6813 runs gravity/landing before input.
-        // The jump impulse comes later, so its first integration is -848.
-        if (!edges.bottom || player.vy8 < 0) {
-            player.vy8 = static_cast<int16_t>(std::min<int>(kPlayerTerminalVelocity8,
-                                                           player.vy8 + kPlayerGravity8));
-        } else if (player.vy8 > 0) {
-            y &= ~7;
-            player.vy8 = static_cast<int16_t>(player.vy8 > 1600 ? -player.vy8 / 4 : 0);
+        updatePlayerGravity(player, edges.bottom, spriteBase, y);
+        if (!switchWeapon) {
+            const int bottomLeft = tileAt(column, row + 2);
+            const bool specialDown = bottomLeft == 0x45 ||
+                (bottomLeft == kLaunchPadTile && !edges.top);
+            if (down && !specialDown) {
+                if (!edges.bottom || player.vy8 != 0 || player.dropTicks != 0 ||
+                    scanActorStrongBottom(x, static_cast<int>(player.y))) {
+                    down = false;
+                } else {
+                    selectPlayerPosture(player, spriteBase, true);
+                    player.dropTicks = 4;
+                }
+            }
+            if (player.dropTicks != 0) {
+                // 1000:6A5E..6A76 lowers the local Y before integration.
+                y += 2;
+                --player.dropTicks;
+                player.idleTicks = 0xF8;
+            }
         }
         if (left) {
             if (stepLeft) {
@@ -23967,7 +24122,7 @@ private:
         }
         player.vx8 = playerWalkVelocity(player.vx8, left, right, edges.bottom);
         player.animation.delay = static_cast<uint8_t>(4 - std::abs(player.vx8) / 256);
-        if (!left && !right && ++player.idleTicks == 5) {
+        if (!left && !right && !down && ++player.idleTicks == 5) {
             player.animation.mode = 0;
             // The cursor becomes 1 even for player 2; its displayed idle
             // descriptor is independently selected as 20 (1000:6BAD..6BD1).
@@ -24073,27 +24228,46 @@ private:
         if (result.bombTileX != kTargetBombX || result.bombTileY != kTargetBombY || player_.vx8 != 0) {
             throw std::runtime_error("level1 autoplayer did not reach target tile");
         }
-        if (collides(player_.x, player_.y)) {
-            throw std::runtime_error("level1 autoplayer finished inside collision");
+        // The collected object's one-way platform can move into the actor's
+        // lower row. It supports from below but is not a full solid AABB.
+        for (int y = result.bombTileY; y <= result.bombTileY + 1; ++y) {
+            for (int x = result.bombTileX; x <= result.bombTileX + 1; ++x) {
+                if (solidTileSide(static_cast<uint8_t>(tileAt(x, y)))) {
+                    throw std::runtime_error("level1 autoplayer finished inside a full solid tile");
+                }
+            }
         }
         return result;
     }
 
     void collectObjectiveTiles(const Player& player, uint8_t playerIndex) {
-        int x0 = static_cast<int>(player.x) / 8;
-        int x1 = static_cast<int>(player.x + 12.0f) / 8;
-        int y0 = static_cast<int>(player.y) / 8;
-        int y1 = static_cast<int>(player.y + 16.0f) / 8;
-        for (int y = y0; y <= y1; ++y) {
-            for (int x = x0; x <= x1; ++x) {
-                if (x >= 0 && y >= 0 && x < level_.width && y < level_.height &&
-                    tileAt(x, y) == level_.objectiveTile) {
-                    tileRef(x, y) = 1;
-                    ++collected_;
-                    addScore(playerIndex, 1000);
-                    playCompatibilitySound(kObjectivePickupCompatibilityHookSlot);
-                }
-            }
+        // 1000:6CB8..6DAA visits the cached actor interior clockwise. Scores
+        // are DS:0002..0019, file 0xB192; consume/seeder are 5AFD / 370E.
+        constexpr std::array<int, 12> scores{
+            50, 100, 200, 250, 500, 800, 1000, 1500, 2000, 3000, 5000, 1000};
+        const int x0 = (static_cast<int>(player.x) + 4) >> 3;
+        const int y0 = static_cast<int>(player.y) >> 3;
+        int score = 0;
+        bool high = false;
+        for (const auto& cell : std::array<std::array<int, 2>, 4>{{
+                 {{x0, y0}}, {{x0 + 1, y0}}, {{x0 + 1, y0 + 1}}, {{x0, y0 + 1}}}}) {
+            const int x = cell[0], y = cell[1];
+            const uint8_t tile = static_cast<uint8_t>(tileAt(x, y));
+            if (!isBombObjectTile(tile)) continue;
+            if (tile == 0x72) applyTileTrigger(wordAt(x, y));
+            if (!consumeBombObjectTile(x, y)) continue;
+            queueTileDamage(x, y - 1, 0, 0, true);
+            if (tile == level_.objectiveTile) ++collected_;
+            score += scores[tile - 0x67];
+            high = high || isHighBombObjectSoundTile(tile);
+        }
+        if (score != 0) {
+            addScore(playerIndex, score);
+            // The low pickup pair is also the already captured objective
+            // hook (cursor 0, priority 3). Retain its diagnostic funnel;
+            // mixed/high pickups select the original high-object branch.
+            if (high) requestBombObjectScoreSound(true);
+            else playCompatibilitySound(kObjectivePickupCompatibilityHookSlot);
         }
     }
 
@@ -25224,11 +25398,12 @@ private:
         int maxY = std::max(0, level_.height * kTileSize - 1);
         for (int py = 0; py <= maxY; ++py) {
             for (int px = 0; px <= maxX; ++px) {
-                int x0 = px / kTileSize;
-                int x1 = (px + 12) / kTileSize;
+                int x0 = (px + 4) / kTileSize;
+                int x1 = x0 + 1;
                 int y0 = py / kTileSize;
-                int y1 = (py + 16) / kTileSize;
+                int y1 = y0 + 1;
                 int objectiveTiles = 0;
+                int pickupTiles = 0;
                 for (int y = y0; y <= y1; ++y) {
                     for (int x = x0; x <= x1; ++x) {
                         if (x >= 0 && y >= 0 && x < level_.width &&
@@ -25236,9 +25411,10 @@ private:
                             tileAt(x, y) == level_.objectiveTile) {
                             ++objectiveTiles;
                         }
+                        if (isBombObjectTile(static_cast<uint8_t>(tileAt(x, y)))) ++pickupTiles;
                     }
                 }
-                if (objectiveTiles == 1) return {px, py};
+                if (objectiveTiles == 1 && pickupTiles == 1) return {px, py};
             }
         }
         throw std::runtime_error("level has no single-objective probe position");
@@ -25270,7 +25446,14 @@ private:
                 if (!countsForPhysicalDamageProgress(wordAt(x, y))) {
                     continue;
                 }
-                queueTileDamage(x, y);
+                // Explicit UI/progression fixture stimulus: give each group
+                // a large downward impulse, then let the original mover
+                // fracture it on impact. Seeding alone earns no progress.
+                // This is not a natural player-completed level route.
+                queueTileDamage(x, y, 0, 127);
+                for (int tick = 0; tick < 512 && !collapseQueue_.empty(); ++tick) {
+                    updateCollapseRecords();
+                }
             }
         }
         if (destroyed_ < target) {
@@ -25703,7 +25886,9 @@ private:
         if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return false;
         uint8_t& tile = tileRef(tx, ty);
         if (!isBombObjectTile(tile)) return false;
-        tile = (wordAt(tx, ty) & 0x8000u) != 0 ? 0xff : 0;
+        const bool flagged = (wordAt(tx, ty) & 0x8000u) != 0;
+        tile = flagged ? 0xff : 0;
+        if (!flagged) level_.wordLayer[static_cast<size_t>(ty) * level_.width + tx] = 0;
         return true;
     }
 
@@ -25720,7 +25905,7 @@ private:
     // Port of seeder 1000:370E for both word classes. The u8 velocity args map
     // to the seeder's vx/vy args ([bp+0xA]/[bp+0x8], stored at record +4/+5).
     void queueTileDamage(int tx, int ty, uint8_t forwardPhase = 0, uint8_t reversePhase = 0,
-                         bool preserveCollapseGlyphs = false) {
+                         bool preserveCollapseGlyphs = true) {
         if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return;
         size_t start = static_cast<size_t>(ty) * level_.width + tx;
         if (start >= level_.wordLayer.size()) return;
@@ -25751,6 +25936,7 @@ private:
             return;
         }
 
+        if (collapseQueue_.size() >= kCollapseCapacity) return;
         std::vector<size_t> stack{start};
         std::vector<size_t> group;
         while (!stack.empty()) {
@@ -25788,7 +25974,6 @@ private:
             maxY = std::max(maxY, y);
             if (!preserveCollapseGlyphs) markDamagedTile(x, y);
         }
-        destroyed_ += static_cast<int>(group.size());
         if (!group.empty() && collapseQueue_.size() < kCollapseCapacity) {
             CollapseRecord record;
             record.x = tx;
@@ -26377,6 +26562,202 @@ private:
         }
     }
 
+    void updateCollapseRecords() {
+        if (level_.width <= 0 || level_.tiles.empty()) return;
+        const int width = level_.width;
+        struct Contact { int cell; uint16_t word; };
+        struct Scan {
+            bool blocked = false;
+            int firstColumn = 10000;
+            int lastColumn = 0;
+            std::vector<Contact> contacts;
+        };
+        auto mapWord = [&](int cell) -> uint16_t {
+            return cell >= 0 && static_cast<size_t>(cell) < level_.wordLayer.size() ?
+                level_.wordLayer[static_cast<size_t>(cell)] : 0;
+        };
+        auto mapTile = [&](int cell) -> uint8_t {
+            return cell >= 0 && static_cast<size_t>(cell) < level_.tiles.size() ?
+                level_.tiles[static_cast<size_t>(cell)] : 1;
+        };
+        // 1000:5102 visits the records newest-first. Cascades appended during
+        // this pass start moving on the following tick.
+        for (size_t remaining = collapseQueue_.size(); remaining > 0; --remaining) {
+            const size_t slot = remaining - 1;
+            CollapseRecord record = collapseQueue_[slot];
+            int first = record.startOffsetBytes / 2;
+            int last = record.endOffsetBytes / 2;
+            int vx = static_cast<int8_t>(record.forwardPhase);
+            int vy = static_cast<int8_t>(record.reversePhase);
+            const int incomingX = vx, incomingY = vy;
+            bool moved = false;
+            auto cells = [&] {
+                std::vector<int> result;
+                for (int y = first / width; y <= last / width; ++y) {
+                    for (int x = first % width; x <= last % width; ++x) {
+                        const int cell = y * width + x;
+                        if (mapWord(cell) == record.flaggedWord) result.push_back(cell);
+                    }
+                }
+                return result;
+            };
+            auto scan = [&](int delta) {
+                Scan result;
+                for (int cell : cells()) {
+                    const int target = cell + delta;
+                    const uint16_t word = mapWord(target);
+                    if (mapTile(target) == 0 || word == record.flaggedWord) continue;
+                    result.blocked = true;
+                    result.firstColumn = std::min(result.firstColumn, target % width);
+                    result.lastColumn = std::max(result.lastColumn, target % width);
+                    if (word != 0 && std::none_of(result.contacts.begin(), result.contacts.end(),
+                        [&](const Contact& contact) { return contact.word == word; })) {
+                        result.contacts.push_back({target, word});
+                    }
+                }
+                return result;
+            };
+            auto seedAbove = [&] {
+                for (const auto& contact : scan(-width).contacts) {
+                    if (contact.word < kDamagedWordBit) {
+                        queueTileDamage(contact.cell % width, contact.cell / width, 0, 1, true);
+                    }
+                }
+            };
+            auto move = [&](int delta) {
+                Scan result = scan(delta);
+                moved = false;
+                if (result.blocked) return result;
+                auto source = cells();
+                if (delta > 0) std::reverse(source.begin(), source.end());
+                for (int cell : source) {
+                    const int target = cell + delta;
+                    level_.wordLayer[static_cast<size_t>(target)] = mapWord(cell);
+                    level_.wordLayer[static_cast<size_t>(cell)] = 0;
+                    level_.tiles[static_cast<size_t>(target)] = mapTile(cell);
+                    level_.tiles[static_cast<size_t>(cell)] = 0;
+                }
+                first += delta;
+                last += delta;
+                moved = true;
+                return result;
+            };
+            auto blend = [&](const Scan& result, int& velocity, bool reverse) {
+                int weight = record.affectedBytes;
+                int sum = velocity * weight;
+                std::vector<DamagePhaseLookup> targets;
+                for (const auto& contact : result.contacts) {
+                    if ((contact.word & kDamagedWordBit) == 0) {
+                        const size_t beforeDebris = debrisQueue_.size();
+                        const size_t beforeCollapse = collapseQueue_.size();
+                        queueTileDamage(contact.cell % width, contact.cell / width, 0, 0, true);
+                        if (beforeDebris == debrisQueue_.size() && beforeCollapse == collapseQueue_.size()) return;
+                    }
+                    auto match = resolveDamagePhase(static_cast<uint16_t>(contact.word | kDamagedWordBit), reverse);
+                    if (match.slotIndex == 0) return;
+                    const int contribution = match.debris ? 1 : collapseQueue_[match.slotIndex - 1].affectedBytes;
+                    weight += contribution;
+                    sum += contribution * static_cast<int8_t>(match.phase);
+                    targets.push_back(match);
+                }
+                if (weight == 0) return;
+                velocity = static_cast<int8_t>(sum / weight);
+                for (const auto& match : targets) {
+                    const size_t index = static_cast<size_t>(match.slotIndex - 1);
+                    if (match.debris) {
+                        if (reverse) debrisQueue_[index].velocityY = static_cast<int8_t>(velocity);
+                        else debrisQueue_[index].velocityX = static_cast<int8_t>(velocity);
+                    } else {
+                        if (reverse) collapseQueue_[index].reversePhase = static_cast<uint8_t>(velocity);
+                        else collapseQueue_[index].forwardPhase = static_cast<uint8_t>(velocity);
+                    }
+                }
+            };
+            auto integrate = [](int velocity, int8_t& fraction) {
+                int sum = fraction + velocity;
+                const bool overflow = sum > 127 || sum < -128;
+                if (sum > 127) sum -= 128;
+                else if (sum < -128) sum += 128;
+                fraction = static_cast<int8_t>(sum);
+                return overflow ? (velocity < 0 ? -1 : 1) : 0;
+            };
+            const int dx = integrate(vx, record.subX);
+            if (dx != 0) {
+                if ((record.flags & 0x80) == 0) seedAbove();
+                else record.flags &= 0x7f;
+                const auto result = move(dx);
+                if (!result.contacts.empty()) blend(result, vx, false);
+            }
+            const int dy = integrate(vy, record.subY);
+            if (dy != 0) {
+                if (dy > 0 && (record.flags & 0x80) == 0) {
+                    record.flags |= 0x80;
+                    seedAbove();
+                } else if (dy < 0) record.flags &= 0x7f;
+                const auto result = move(dy * width);
+                if (result.blocked && vy > 0) {
+                    vy = 0;
+                    requestSoundOffset(static_cast<uint16_t>(kDebrisBounceSoundBase + randomRangeValue(0, 8)), 1);
+                }
+                if (!result.contacts.empty()) blend(result, vy, true);
+            }
+            const auto support = scan(width);
+            if (!support.blocked) {
+                if (vy < 123) vy += 4;
+                moved = true;
+                record.flags &= 0xfc;
+            } else {
+                const int left = first % width, right = last % width;
+                const int halfWidth = (right - left) / 2;
+                const int centerLeft = left + halfWidth, centerRight = right - halfWidth;
+                if (std::abs(vy) < 10 && std::abs(vx) < 30) {
+                    if (support.firstColumn > centerLeft && (record.flags & 2) == 0) {
+                        if (!scan(-1).blocked) { vx = -15; record.flags |= 1; }
+                        else record.flags &= 0xfc;
+                    } else if (support.lastColumn < centerRight && (record.flags & 1) == 0) {
+                        if (!scan(1).blocked) { vx = 15; record.flags |= 2; }
+                        else record.flags &= 0xfc;
+                    }
+                    if (support.firstColumn <= centerLeft && support.lastColumn >= centerRight) record.flags &= 0xfc;
+                }
+                if (vx > 0) --vx;
+                else if (vx < 0) ++vx;
+            }
+            if (moved) record.restTicks = 0;
+            ++record.restTicks;
+            const int magnitude = std::abs(vx) + std::abs(vy);
+            const bool fracture = std::abs(static_cast<int>(record.argMagnitude) - magnitude) > 63;
+            if (fracture) {
+                requestSoundOffset(0xea74, 3);
+                for (int cell : cells()) {
+                    level_.wordLayer[static_cast<size_t>(cell)] = nextCollapseFragmentWord_++;
+                    level_.tiles[static_cast<size_t>(cell)] = static_cast<uint8_t>(0x47 + (logicTick_ & 2));
+                    ++destroyed_;
+                    const auto x = static_cast<uint8_t>(incomingX + randomRangeValue(0, 20) - 10);
+                    const auto y = static_cast<uint8_t>(incomingY - randomRangeValue(0, 40));
+                    queueTileDamage(cell % width, cell / width, x, y, true);
+                }
+                // 1000:558C draws the fracture actor's cell even when actor
+                // allocation fails. Keep this draw in the shared RNG stream;
+                // the actor's presentation/lifetime is not mapped yet.
+                randomRangeValue(0, static_cast<uint16_t>(last % width - first % width + 1));
+            }
+            if (fracture || record.restTicks == 95) {
+                for (int cell : cells()) level_.wordLayer[static_cast<size_t>(cell)] &= ~kDamagedWordBit;
+                collapseQueue_.erase(collapseQueue_.begin() + static_cast<std::ptrdiff_t>(slot));
+                continue;
+            }
+            record.startOffsetBytes = static_cast<uint16_t>(first * 2);
+            record.endOffsetBytes = static_cast<uint16_t>(last * 2);
+            record.x = first % width;
+            record.y = first / width;
+            record.forwardPhase = static_cast<uint8_t>(vx);
+            record.reversePhase = static_cast<uint8_t>(vy);
+            record.argMagnitude = static_cast<uint16_t>(magnitude);
+            collapseQueue_[slot] = record;
+        }
+    }
+
     void updateFlashes() {
         for (Flash& f : flashes_) --f.timer;
         flashes_.erase(std::remove_if(flashes_.begin(), flashes_.end(),
@@ -26387,21 +26768,7 @@ private:
                                                [](const ExplosionEffect& e) { return e.timer <= 0; }),
                                 explosionEffects_.end());
         updateDebrisRecords();
-        for (CollapseRecord& collapse : collapseQueue_) {
-            --collapse.timer;
-            if (level_.width > 0) {
-                int startCell = collapse.startOffsetBytes / 2;
-                int endCell = collapse.endOffsetBytes / 2;
-                int tx0 = startCell % level_.width;
-                int ty0 = startCell / level_.width;
-                int tx1 = endCell % level_.width;
-                int ty1 = endCell / level_.width;
-                damagePlayersInTileArea(tx0, ty0, tx1, ty1);
-            }
-        }
-        collapseQueue_.erase(std::remove_if(collapseQueue_.begin(), collapseQueue_.end(),
-                                            [](const CollapseRecord& collapse) { return collapse.timer <= 0; }),
-                             collapseQueue_.end());
+        updateCollapseRecords();
     }
 
     int destructionPercent() const {
@@ -26732,16 +27099,9 @@ private:
         // Falling fragments no longer need an invented overlay: the mover
         // stamps the carried tile code into level_.tiles on every move
         // (1000:4B7E), so the ordinary tile renderer draws them.
-        for (const CollapseRecord& collapse : collapseQueue_) {
-            int px = collapse.x * 8 - camX;
-            int py = collapse.y * 8 - camY;
-            int age = 24 - collapse.timer;
-            uint32_t color = age & 1 ? 0xff805840u : 0xffb87848u;
-            rect(px, py + std::min(5, age / 2), 8, std::max(1, 6 - age / 5), color);
-            if (collapse.count > 1) {
-                rect(px + 1, py + 1, std::min(6, collapse.count), 1, 0xfff0c070u);
-            }
-        }
+        // Collapse groups likewise move their original glyphs in the map.
+        (void)camX;
+        (void)camY;
     }
 
     void drawExplosionEffects(int camX, int camY) {
@@ -27972,7 +28332,12 @@ int main(int argc, char** argv) {
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-player-animation-original") {
-            app.debugPlayerWalkOriginal(argv[2], argc > 3 ? argv[3] : "", true);
+            app.debugPlayerWalkOriginal(argv[2], argc > 3 ? argv[3] : "", App::PlayerReplayKind::Animation);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-player-posture-original") {
+            app.debugPlayerWalkOriginal(argv[2], argc > 3 ? argv[3] : "", App::PlayerReplayKind::Posture,
+                                       argc > 4 ? argv[4] : "");
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-bomb-motion-original") {
@@ -28013,6 +28378,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-debris-rest") {
             app.debugDebrisImpacts(argv[2], argc > 3 ? argv[3] : "", true);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-collapse-steps-original") {
+            app.debugDebrisImpacts(argv[2], argc > 3 ? argv[3] : "", false, true);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-debris-motion-live") {

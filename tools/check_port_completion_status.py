@@ -32,6 +32,7 @@ def parse_source(root: Path) -> tuple[list[tuple[str, str]], list[str]]:
     require(text, "--debug-port-completion-status", "source:dispatch")
     require(text, "void debugPortCompletionStatus()", "source:method")
     require(text, "original_fidelity_claim=0", "source:fidelity_claim")
+    require(text, "port_functionally_complete=0", "source:completion_claim")
 
     subsystem_block = re.search(
         r"std::array<PortSubsystem,\s*(\d+)>\s*kPortSubsystems\{\{(.*?)\}\};",
@@ -78,7 +79,7 @@ def check_cmake(root: Path, subsystem_count: int, item_count: int) -> int:
         "port_completion_status=ok"
         f" subsystems={subsystem_count} implemented={subsystem_count}"
         f" open_original_evidence_items={item_count}"
-        " port_functionally_complete=1 original_fidelity_claim=0",
+        " port_functionally_complete=0 original_fidelity_claim=0",
         "cmake:summary",
     )
     require(cmake, "check_port_completion_status.py", "cmake:checker")
@@ -128,7 +129,7 @@ def synthetic_source(
             " kOpenOriginalEvidenceItems{{",
             item_rows,
             "        }};",
-            '        std::cout << " original_fidelity_claim=0";',
+            '        std::cout << " port_functionally_complete=0 original_fidelity_claim=0";',
             "    }",
             "};",
             'if (flag == "--debug-port-completion-status") {}',
@@ -155,7 +156,7 @@ def write_synthetic_tree(
                 '"port_completion_status=ok'
                 f" subsystems={len(subsystems)} implemented={len(subsystems)}"
                 f" open_original_evidence_items={len(items)}"
-                ' port_functionally_complete=1 original_fidelity_claim=0"',
+                ' port_functionally_complete=0 original_fidelity_claim=0"',
                 "add_test(NAME port_completion_status_checker",
                 "  COMMAND python tools/check_port_completion_status.py)",
                 "add_test(NAME port_completion_status_checker_selftest",

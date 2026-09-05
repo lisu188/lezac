@@ -2,16 +2,18 @@
 
 Last reviewed: 2026-09-05
 
-The C++17/SDL2 reconstruction of `LEZAC.EXE` is functionally complete: every
-recovered gameplay, data, UI, and sound subsystem of the original game has a
-C++ implementation with deterministic validation coverage. The diagnostic
-`--debug-port-completion-status` declares this state as machine-checkable
-output, and `tools/check_port_completion_status.py` keeps the source table,
-this document, and the CTest expectation aligned.
+The C++17/SDL2 reconstruction of `LEZAC.EXE` is not yet functionally complete.
+The earlier claim was based on a subsystem inventory and compatible tests,
+not a complete comparison with original behavior. The 2026-09-05 player and
+collapse captures exposed absent pickup handling and a placeholder collapse
+timer in place of actual map movement. Recovery is in progress; see
+[the runtime evidence](player_posture_collapse_runtime_2026-09-05.md).
+`--debug-port-completion-status` now reports `port_functionally_complete=0`.
+`tools/check_port_completion_status.py` keeps the inventory and that claim
+aligned with the CTest expectation.
 
-The completion claim is a *functional port* claim only. Remaining
-original-evidence follow-ups are fidelity verification items against the
-original runtime; each stays `visual_claim=0` and
+Remaining work includes both functional recovery and original-evidence
+verification. Claims stay `visual_claim=0` and
 `original_fidelity_claim=0` until the matching original fixture is promoted
 under the existing guardrails (`tools/check_visual_claim_guardrail.py`,
 `tools/check_runtime_evidence_guardrail.py`).
@@ -63,10 +65,10 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
-These are fidelity verification follow-ups tracked in `RECOVERY_STATUS.md`
-under "Remaining Top Gaps". They require original-runtime evidence
-(DOSBox/DOSBox-debug/process-memory captures) and do not represent missing
-port functionality.
+These are historical fidelity follow-ups tracked in `RECOVERY_STATUS.md`.
+They are not an exhaustive list of functional recovery gaps. Missing
+pickup/fracture transient actors, collision semantics, and complete natural
+bomb/collapse progression still need implementation and original evidence.
 
 Resolved: `sound_callsite_cursor_priority_map` — the two remaining
 compatibility hooks were captured live by sampling the ACCEPTED sound pair

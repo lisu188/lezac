@@ -322,7 +322,7 @@ pixel diffs remained large:
 060_level1_tile24_playback_12 exact_different_pixels=55473 mean_abs_delta=79.061042
 ```
 
-The same C++ manifest records one collapse queue entry and no debris queue
+The same historical C++ manifest recorded one collapse queue entry and no debris queue
 entry for the level-1 blast:
 
 ```text
@@ -330,7 +330,12 @@ entry for the level-1 blast:
 050_level1_tile24_playback_4 collapse0_xy=24,21 collapse0_start=0x0a06 collapse0_end=0x0a08 collapse0_flagged=0x8009 collapse0_forward=0 collapse0_reverse=0 collapse0_affected=4 collapse0_count=2 collapse0_timer=20 effect0_xy=24,22 effect0_visual=1 effect0_detail=117 effect0_timer=4 effect0_variant=5
 ```
 
-That queue state should be compared with the original high-debris lane fixtures:
+The 2026-09-05 player/collapse recovery supersedes the timer fields above:
+current manifests expose `collapse0_rest`, and the production mover now
+updates map glyphs and retires at rest=95. The old 24-tick overlay is gone.
+See [the newer runtime evidence](player_posture_collapse_runtime_2026-09-05.md).
+
+That historical queue state was compared with the original high-debris lane fixtures:
 the original post-call stops for the same collapse span preserve helper-written
 lane bytes, including `collapse0_forward=0x00` and `collapse0_reverse=0x04`,
 with helper input globals `DS:78D2=0xF7` and `DS:78D4=0xFC`. This is a concrete

@@ -42,6 +42,9 @@ WINDOWS = {
     0x6085: bytes.fromhex("c47ec626fe4503c47ec6268a4503"),
     0x6B93: bytes.fromhex("c47e0426807d02057538"),
     0x60F1: bytes.fromhex("c47e0481c71d000657c47e0481c7160006576a079a0e09"),
+    0x6768: bytes.fromhex("817ef240067f03e99c00"),
+    0x6A47: bytes.fromhex("c47e0426c7450e0400"),
+    0x6A5E: bytes.fromhex("c47e0426837d0e0076138346d202"),
 }
 ROUTES = {
     "braking": [("right", 20), ("idle", 28), ("left", 20), ("idle", 28)],
@@ -53,10 +56,19 @@ ROUTES = {
     "idle_resume": [("idle", 260), ("right", 20), ("idle", 28)],
     "cursor_restore": [("idle", 6)],
     "short_idle": [("right", 20), ("idle", 3), ("right", 4), ("idle", 28)],
+    "down_floor": [("down", 12), ("jump_down", 12), ("idle", 4)],
+    "platform_drop": [("right", 16), ("idle", 28), ("jump", 1), ("idle", 30),
+                      ("down", 1), ("idle", 15)],
+    "platform_collapse": [("right", 16), ("idle", 128)],
+    "hill_fall": [("left", 80), ("jump_right", 1), ("right", 45), ("idle", 28)],
+    "hill_jump_fall": [("jump_left", 100), ("idle", 28), ("jump_right", 1),
+                       ("right", 35), ("idle", 28)],
 }
 CONTROLS = {"idle": (0, 0, 0, 0, 0), "left": (0, 1, 0, 0, 0),
             "right": (0, 0, 1, 0, 0), "jump_right": (1, 0, 1, 0, 0),
-            "both": (0, 1, 1, 0, 0)}
+            "both": (0, 1, 1, 0, 0), "down": (0, 0, 0, 0, 1),
+            "jump": (1, 0, 0, 0, 0), "jump_down": (1, 0, 0, 0, 1),
+            "jump_left": (1, 1, 0, 0, 0)}
 
 
 def trampoline(stage: int, image: bytes) -> bytes:
@@ -98,7 +110,7 @@ def check_image(exe: Path) -> bytes:
 
 
 def capture(pid: int, base: int, output: Path, image: bytes, route: str,
-            animation: bool = False) -> None:
+            animation: bool = False, world: bool = False) -> None:
     ds, cs = base + (seeder.RUNTIME_DS << 4), base + (CS << 4)
     with open(f"/proc/{pid}/mem", "r+b", buffering=0) as mem:
         def read(address: int, count: int) -> bytes:
@@ -139,6 +151,13 @@ def capture(pid: int, base: int, output: Path, image: bytes, route: str,
                         raise RuntimeError("unexpected runtime segments")
                     return tuple(registers)
                 time.sleep(0.001)
+            try:
+                windows = subprocess.check_output(["xdotool", "search", "--name", "DOSBox"], text=True).split()
+                if windows:
+                    subprocess.run(["import", "-window", windows[-1],
+                                    str(output.with_suffix(".failure.png"))], check=True, timeout=5)
+            except (subprocess.SubprocessError, OSError) as error:
+                print(f"failure screenshot unavailable: {error}", file=sys.stderr)
             raise RuntimeError(f"stage {stage} timeout: marker={word(cs + SCRATCH)} "
                                f"frame={word(ds + 0x78C2)}")
 
@@ -173,6 +192,45 @@ def capture(pid: int, base: int, output: Path, image: bytes, route: str,
         descriptors = read(ds + 0xC322, 92 * 4)
         if animation:
             rows.append(f"sprites descriptors={descriptors.hex()}")
+            if word(ds + 0xC204) != 60:
+                raise RuntimeError("player capture requires the level-1 tile stride")
+            offset, segment = struct.unpack("<HH", read(ds + 0xC1E0, 4))
+            actual_base = cs - (entry_regs[0] << 4)
+            output.with_suffix(".tiles.bin").write_bytes(
+                read(actual_base + (segment << 4) + offset, 60 * 33))
+
+        def map_planes():
+            planes = []
+            for pointer, stride in ((0xC1E0, 1), (0x6612, 2)):
+                offset, segment = struct.unpack("<HH", read(ds + pointer, 4))
+                planes.append(read(actual_base + (segment << 4) + offset, 60 * 33 * stride))
+            return planes
+
+        if world:
+            initial_tiles, initial_words = map_planes()
+            output.with_suffix(".words.bin").write_bytes(initial_words)
+            rows.append(f"world width=60 height=33 pickup_tables={read(ds + 2, 48).hex()}")
+
+        world_changed = False
+        last_world_key = None
+
+        def world_state(prefix):
+            nonlocal world_changed, last_world_key
+            tiles, words = map_planes()
+            changes = bytearray()
+            for index, tile in enumerate(tiles):
+                at = index * 2
+                if tile != initial_tiles[index] or words[at:at + 2] != initial_words[at:at + 2]:
+                    changes += struct.pack("<HB", index, tile) + words[at:at + 2]
+            count = word(ds + 0x2080)
+            if count > 250:
+                raise RuntimeError("collapse count exceeds original capacity")
+            records = read(ds + 0x6620, count * 15)
+            key = (tiles, words, count)
+            world_changed = world_changed or key != last_world_key
+            last_world_key = key
+            return (f" {prefix}_map={changes.hex() or '-'}"
+                    f" {prefix}_collapse={records.hex() or '-'}")
 
         def actor_at(regs):
             caller, _ = locals_at(regs)
@@ -187,6 +245,7 @@ def capture(pid: int, base: int, output: Path, image: bytes, route: str,
         for phase, ticks in ROUTES[route]:
             for _ in range(ticks):
                 extra = ""
+                world_changed = False
                 if animation:
                     if samples:
                         entry_regs = wait(4)
@@ -196,6 +255,8 @@ def capture(pid: int, base: int, output: Path, image: bytes, route: str,
                                                     8, 8, 9, 2, 2, 1, 1]))
                     _, entry_actor, entry_visual = actor_at(entry_regs)
                     extra = f" entry={entry_actor.hex()} entry_visual={entry_visual.hex()}"
+                    if world:
+                        extra += world_state("entry")
                     release(4)
                 regs = wait(1)
                 frame = word(ds + 0x78C2)
@@ -209,6 +270,8 @@ def capture(pid: int, base: int, output: Path, image: bytes, route: str,
                 if actor[0x15] != 0 or before[0x3A - 0x1D] != 1:
                     raise RuntimeError("checkpoint is not active player 1")
                 visual = read(ds + 0xC21E + actor[1] * 8, 8)
+                if animation:
+                    extra += f" edge_tiles={read(ds + 0x2048, 16).hex()}"
                 write(ds + 0x1B82, bytes(CONTROLS[phase]))
                 release(1)
                 response_regs = wait(2)
@@ -222,14 +285,19 @@ def capture(pid: int, base: int, output: Path, image: bytes, route: str,
                                    if descriptors[i * 4:i * 4 + 4] == final_visual[4:]), None)
                     if sprite is None:
                         raise RuntimeError("player visual has no original sprite descriptor")
-                    extra += f" final_actor={final_actor.hex()} final_visual={final_visual.hex()} sprite={sprite}"
+                    extra += (f" final_actor={final_actor.hex()} final_visual={final_visual.hex()} sprite={sprite}"
+                              f" normalized={read(ds + 0x1B82, 5).hex()}")
+                    if world:
+                        extra += world_state("final")
                 if word(ds + 0x78C2) != frame:
                     raise RuntimeError("player checkpoints crossed a frame")
                 rows.append(f"tick frame={frame} phase={phase} raw={actor.hex()} visual={visual.hex()} "
                             f"pre={before.hex()} response={response.hex()} post={after.hex()} "
                             f"regs={struct.pack('<6H', *regs).hex()}{extra}")
                 samples += 1
-                if samples in (8, 20, 32):
+                if samples in (8, 20, 32) or (world and world_changed) or (animation and
+                    (entry_actor[0x16:0x24] != final_actor[0x16:0x24] or
+                     entry_actor[0x0E:0x10] != final_actor[0x0E:0x10])):
                     window = subprocess.check_output(["xdotool", "search", "--name", "DOSBox"], text=True).split()[-1]
                     screenshot = output.with_name(f"{output.stem}_{samples:03d}.png")
                     subprocess.run(["import", "-window", window, str(screenshot)], check=True, timeout=5)
@@ -252,10 +320,15 @@ def main() -> int:
     parser.add_argument("--route", choices=ROUTES, default="braking")
     parser.add_argument("--animation", action="store_true",
                         help="also capture pre-advance and post-input animation/visual state")
+    parser.add_argument("--world", action="store_true",
+                        help="with --animation, capture collapse records and sparse map changes")
     parser.add_argument("--approve-animation-seed", action="store_true",
                         help="allow the cursor_restore probe to seed only actor +16..+23")
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--out", type=Path)
+    parser.add_argument("--startup-seconds", type=float, default=6.0)
+    parser.add_argument("--intro-seconds", type=float, default=3.0)
+    parser.add_argument("--level-start-seconds", type=float, default=1.5)
     parser.add_argument("--approve-procmem", action="store_true")
     parser.add_argument("--approve-runtime-instrumentation", action="store_true")
     args = parser.parse_args()
@@ -267,7 +340,10 @@ def main() -> int:
         parser.error("live capture requires temporary run-dir, out and both approval flags")
     if args.route == "cursor_restore" and not (args.animation and args.approve_animation_seed):
         parser.error("cursor_restore requires --animation and --approve-animation-seed")
-    if args.out.exists() or list(args.out.parent.glob(args.out.stem + "_*.png")):
+    if args.world and not args.animation:
+        parser.error("--world requires --animation")
+    if (args.out.exists() or args.out.with_suffix(".tiles.bin").exists() or
+        args.out.with_suffix(".words.bin").exists() or list(args.out.parent.glob(args.out.stem + "_*.png"))):
         parser.error("output already exists; use a fresh path")
     environment.validate_temp_run_dir(args.run_dir.resolve())
     if hashlib.sha256((args.run_dir / "LEZAC.EXE").read_bytes()).digest() != hashlib.sha256(exe.read_bytes()).digest():
@@ -279,10 +355,13 @@ def main() -> int:
 
     def hook(run_dir, pid, base, state, phase):
         if phase == "pre_capture":
-            capture(pid, base, args.out, image, args.route, args.animation)
+            capture(pid, base, args.out, image, args.route, args.animation, args.world)
         return original(run_dir, pid, base, state, phase)
     seeder.write_runtime_state_snapshot = hook
     sys.argv = ["seed_original_level.py", "--run-dir", str(args.run_dir), "--target-level", "1",
+                "--startup-seconds", str(args.startup_seconds),
+                "--intro-seconds", str(args.intro_seconds),
+                "--level-start-seconds", str(args.level_start_seconds),
                 "--approve-procmem", "--approve-runtime-instrumentation", "--dump-runtime-state"]
     return seeder.main()
 

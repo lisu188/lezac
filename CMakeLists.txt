@@ -231,7 +231,7 @@ if(BUILD_TESTING)
     set_tests_properties(port_completion_status PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "port_completion_status=ok subsystems=23 implemented=23 open_original_evidence_items=4 port_functionally_complete=1 original_fidelity_claim=0")
+            "port_completion_status=ok subsystems=23 implemented=23 open_original_evidence_items=4 port_functionally_complete=0 original_fidelity_claim=0")
 
     add_test(NAME original_asset_load
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-asset-load)
@@ -517,7 +517,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_collapse_playback_route_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=collapse_playback_route collapse_started=1 collapse_count=[0-9]+ playback_frames=23 frame_inspection=1")
+            "^autoplayer=ok scenario=collapse_playback_route collapse_started=1 collapse_count=2 playback_frames=102 pickup_started=1 moved_rows=1 retired_rest=95 destroyed=0 frame_inspection=1")
 
     add_test(NAME autoplayer_two_player_route_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -533,7 +533,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_two_player_progression_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=two_player_progression p1_moved=1 p2_death_timer=60 p2_reentered=1 p2_bomb_tile=[0-9]+,[0-9]+ p2_fire_key=kp0 p2_score=1000 collected=1 frame_inspection=1")
+            "^autoplayer=ok scenario=two_player_progression p1_moved=1 p2_death_timer=60 p2_reentered=1 p2_bomb_tile=[0-9]+,[0-9]+ p2_fire_key=kp0 p2_score=800 collected=1 frame_inspection=1")
 
     if(Python3_Interpreter_FOUND)
         add_test(NAME python_tool_syntax_lane_result_preflight
@@ -2561,7 +2561,7 @@ if(BUILD_TESTING)
     set_tests_properties(remaining_sound_compat_hooks PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^remaining_sound_compat_hooks=ok live_hooks=2 helper=playCompatibilitySound objective_pickup=index0/cursor0x0000/blocker=rejected_static_candidates collected_delta=1 score_delta=1000 latch_seed=0x0024/p2 latch_accepted=1 pumped=0x0000/p3 high_seed_rejected=1 level_complete=index5/cursor0x003d/blocker=no_static_candidate calls_first_tick=1 repeat_calls=0 advanced_level=2 latch_seed=0x0024/p2 latch_accepted=1 pumped=0x003d/p10 high_seed_rejected=1 latch_route_claim=inferred_accepted_pair_only capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate original_cursor_priority_claim=0")
+            "^remaining_sound_compat_hooks=ok live_hooks=2 helper=playCompatibilitySound objective_pickup=index0/cursor0x0000/blocker=rejected_static_candidates collected_delta=1 score_delta=800 latch_seed=0x0024/p2 latch_accepted=1 pumped=0x0000/p3 high_seed_rejected=1 level_complete=index5/cursor0x003d/blocker=no_static_candidate calls_first_tick=1 repeat_calls=0 advanced_level=2 latch_seed=0x0024/p2 latch_accepted=1 pumped=0x003d/p10 high_seed_rejected=1 latch_route_claim=inferred_accepted_pair_only capture_blockers=objective_pickup:rejected_static_candidates,level_complete:no_static_candidate original_cursor_priority_claim=0")
 
     add_test(NAME static_sound_contexts
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-static-sound-contexts)
@@ -3668,6 +3668,22 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^debris_impacts_capture_self_check=ok windows=5 seeded=1 live=0")
 
+    add_test(NAME collapse_steps_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-collapse-steps-original
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/collapse_steps_original.txt)
+    set_tests_properties(collapse_steps_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^collapse_steps=ok cases=27 debris_records=4 collapse_records=28 seeded_original=1 natural_route_claim=0 frames_inspected=27 last_hash=[0-9a-f]+ transient_actor_claim=0")
+
+    add_test(NAME collapse_steps_capture_self_check
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_collapse_steps.py --self-check)
+    set_tests_properties(collapse_steps_capture_self_check PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^collapse_steps_capture_self_check=ok windows=3 probes=27 live=0")
+
     add_test(NAME debris_rest_original
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-rest
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/debris_rest_original.txt)
@@ -3705,7 +3721,7 @@ if(BUILD_TESTING)
     set_tests_properties(debris_collapse_order PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^debris_collapse_order=ok level=1 dissolve_tile=19,10 seeded_timer=24 timer_after_same_tick=23 debris_before_collapse=1 ghidra=1000:45fa@805d,1000:5102@8067 visual_claim=0")
+            "^debris_collapse_order=ok level=1 dissolve_tile=19,10 seeded_rest=0 rest_after_same_tick=1 debris_before_collapse=1 ghidra=1000:45fa@805d,1000:5102@8067 visual_claim=0")
 
     add_test(NAME debris_bounce_rng
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-bounce-rng)
@@ -3775,7 +3791,7 @@ if(BUILD_TESTING)
     set_tests_properties(player_damage_death_live PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^player_damage_death_live=ok first_energy=99 frames_to_life_loss=[0-9]+ lives=2 reentry_state=1 frame_inspection=1 frames_to_state2=[0-9]+ delayed_life_loss=1")
+            "^player_damage_death_live=ok first_energy=99 frames_to_life_loss=161 lives=2 reentry_state=1 frame_inspection=1 frames_to_state2=101 delayed_life_loss=1 damage_source=monster_contact")
 
     add_test(NAME monster_contact_damage_live
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -3822,7 +3838,7 @@ if(BUILD_TESTING)
         COMMAND ${Python3_EXECUTABLE} tools/capture_original_player_walk.py --self-check)
     set_tests_properties(player_walk_capture_contract PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        PASS_REGULAR_EXPRESSION "^player_walk_capture_self_check=ok windows=13 live=0")
+        PASS_REGULAR_EXPRESSION "^player_walk_capture_self_check=ok windows=16 live=0")
 
     add_test(NAME player_animation_original
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-player-animation-original
@@ -3831,6 +3847,14 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^player_animation_original=ok cases=8 samples=814 full_motion_states=814 input_responses=814 overspeed_states=19 air_coast_states=12 animation_states=814 sprite_descriptors=814 sprite_changes=161 coasting_idle=189 natural_samples=808 cursor_seeded_samples=6 frame_inspection=1")
+
+    add_test(NAME player_posture_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-player-posture-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/player_posture_original)
+    set_tests_properties(player_posture_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^player_posture_original=ok cases=5 samples=609 full_motion_states=609 input_responses=609 overspeed_states=34 air_coast_states=28 animation_states=609 sprite_descriptors=609 sprite_changes=125 coasting_idle=98 natural_samples=609 cursor_seeded_samples=0 world_states=144 initial_tile_differences=1 initial_word_differences=6 frame_inspection=1")
 
     add_test(NAME route_timing_evidence
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

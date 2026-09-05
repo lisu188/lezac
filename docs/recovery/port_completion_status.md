@@ -212,8 +212,15 @@ and collection consumption, not exact reward physics or presentation.
   why the candidate skeleton could never be completed. Pinned by
   `tools/check_behavior4_window_attribution.py` and the
   `behavior4_window_attribution` ctest. The behavior-4 *motion* path
-  (`1000:70D7..714F`, `73E5`, `741B`) is the correct target and still has no
-  runtime evidence, so this item stays open with corrected scope.
+  (`1000:70D7..714F`, `73E5`, `741B`) is the correct target. Two original
+  level-3 captures now pin 318 production motion transitions for a kind-2
+  flyer: the shared 16-bit modulo clock, zero-velocity spawn waiting,
+  truncating horizontal/diagonal homing, ten isolated far-retarget RNG pairs,
+  persistent 8.8 fractions and one top collision. The near-player phases are
+  explicitly seeded, not natural routes. Other kinds/levels, two-player
+  targeting and full floor/side runtime coverage remain outside this replay;
+  the item stays open. See `behavior4_runtime_2026-08-10.md`. Screenshot review
+  is not paired pixel parity, so `visual_claim=0` remains unchanged.
 ## Guardrails
 
 - `tools/check_port_completion_status.py` fails when the source tables, this

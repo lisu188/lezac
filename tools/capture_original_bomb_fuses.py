@@ -33,6 +33,9 @@ WINDOWS = {
     0x75B4: bytes.fromhex("c47e0426807d0200740dc47e0426807d02ff7403e9b401"),
     0x75CB: bytes.fromhex("807ef10c762d"),
     0x3052: bytes.fromhex("26884502"),
+    0x6C2B: bytes.fromhex("8b46f48bf0d1e001f099b90200f7f9508b46f22df40150"),
+    0x7028: bytes.fromhex("8346f240817ef2ff077e05c746f2ff07"),
+    0x5B9C: bytes.fromhex("3d2b007d0b8b7e0431c0368945f4eb1c"),
 }
 
 
@@ -77,7 +80,8 @@ def check_image(exe: Path) -> bytes:
     return image
 
 
-def capture(pid: int, base: int, output: Path, image: bytes, weapon: int, parity: int) -> None:
+def capture(pid: int, base: int, output: Path, image: bytes, weapon: int, parity: int,
+            approach: str = "none", approach_ticks: int = 6) -> None:
     ds, cs = base + (seeder.RUNTIME_DS << 4), base + (CS << 4)
     with open(f"/proc/{pid}/mem", "r+b", buffering=0) as mem:
         def read(address: int, count: int) -> bytes:
@@ -140,11 +144,29 @@ def capture(pid: int, base: int, output: Path, image: bytes, weapon: int, parity
         stopped(install)
         window = subprocess.check_output(["xdotool", "search", "--name", "DOSBox"], text=True).split()[-1]
         subprocess.run(["xdotool", "windowfocus", "--sync", window], check=True)
+        approach_key = {"left": "z", "right": "x", "jump": "m"}.get(approach)
+        if approach_key:
+            start_frame = word(ds + 0x78C2)
+            subprocess.run(["xdotool", "keydown", approach_key], check=True)
+            deadline = time.monotonic() + 8
+            while ((word(ds + 0x78C2) - start_frame) & 0xFFFF) < approach_ticks:
+                if time.monotonic() > deadline:
+                    raise RuntimeError("approach input did not advance game frames")
+                time.sleep(0.001)
         subprocess.run(["xdotool", "keydown", "n"], check=True)
         registers = wait(1)
         subprocess.run(["xdotool", "keyup", "n"], check=True)
+        if approach_key:
+            subprocess.run(["xdotool", "keyup", approach_key], check=True)
         memory_base = cs - (registers[0] << 4)
-        write(memory_base + (registers[3] << 4) + registers[5] - 0x12, bytes([weapon]))
+        caller = memory_base + (registers[3] << 4) + registers[5]
+        launch = [struct.unpack("<h", read(caller + offset, 2))[0]
+                  for offset in (-0x2C, -0x2E, -0x0C, -0x0E)]
+        if ((approach == "left" and launch[2] >= 0) or
+                (approach == "right" and launch[2] <= 0) or
+                (approach == "jump" and launch[3] >= 0)):
+            raise RuntimeError(f"approach did not produce requested velocity: {approach} {launch}")
+        write(caller - 0x12, bytes([weapon]))
         release(1)
         registers = wait(2)
         placement_frame = word(ds + 0x78C2)
@@ -156,11 +178,19 @@ def capture(pid: int, base: int, output: Path, image: bytes, weapon: int, parity
         if initial[0] != 12 + weapon or initial[0x15] != 2:
             raise RuntimeError(f"constructor did not create selected bomb: {initial.hex()}")
         print(f"bomb_constructor weapon={weapon} frame={frame} raw={initial.hex()}", flush=True)
+        initial_visual = read(ds + 0xC21E + initial[1] * 8, 8)
+        descriptors = read(ds + 0xC322, 92 * 4)
+        sprite = next((i - 1 for i in range(1, 92)
+                       if descriptors[i * 4:i * 4 + 4] == initial_visual[4:]), None)
+        if sprite is None:
+            raise RuntimeError("constructed bomb visual has no sprite descriptor")
         lines = [
             "# Original DOSBox bomb trace; weapon choice and frame parity are exogenous.",
             "# register_order=cs,ds,es,ss,sp_after_pushf_pusha,bp; little-endian words",
             f"capture=bomb_fuse_original_v1 weapon={weapon} parity={parity} temp_copy=1",
             f"seed frame={frame} natural_frame={placement_frame} slot={slot} raw={initial.hex()} "
+            f"input={','.join(str(value) for value in launch)} visual={initial_visual.hex()} "
+            f"sprite={sprite} approach={approach} approach_ticks={approach_ticks} "
             f"regs={struct.pack('<6H', *registers).hex()}",
         ]
         release(2)
@@ -207,6 +237,8 @@ def main() -> int:
     parser.add_argument("--self-check", action="store_true")
     parser.add_argument("--weapon", type=int, choices=range(1, 5), default=1)
     parser.add_argument("--parity", type=int, choices=(0, 1), default=0)
+    parser.add_argument("--approach", choices=("none", "left", "right", "jump"), default="none")
+    parser.add_argument("--approach-ticks", type=int, choices=range(1, 121), default=6)
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--out", type=Path)
     parser.add_argument("--approve-procmem", action="store_true")
@@ -230,7 +262,8 @@ def main() -> int:
 
     def hook(run_dir, pid, base, state, phase):
         if phase == "pre_capture":
-            capture(pid, base, args.out, image, args.weapon, args.parity)
+            capture(pid, base, args.out, image, args.weapon, args.parity,
+                    args.approach, args.approach_ticks)
         return original(run_dir, pid, base, state, phase)
     seeder.write_runtime_state_snapshot = hook
     sys.argv = ["seed_original_level.py", "--run-dir", str(args.run_dir), "--target-level", "1",

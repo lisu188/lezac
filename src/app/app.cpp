@@ -567,7 +567,7 @@ enum class BombType : uint8_t {
 
 struct BombProfile {
     uint8_t actorKind = 0x0d;
-    uint8_t spriteBase = 58;
+    uint8_t spriteBase = 57;
     // Twice the original actor +0x02 seed; placement accounts for the first
     // update's parity. See bomb_fuse_runtime_2026-09-05.md and the eight traces.
     int fuseTicks = 40;
@@ -585,6 +585,15 @@ struct Bomb {
     BombType type = BombType::Small;
     int fuseTicks = 40;
     uint8_t owner = 1;
+    int pixelX = 0;
+    int pixelY = 0;
+    int16_t vx8 = 0;
+    int16_t vy8 = 0;
+    uint8_t fracX = 0;
+    uint8_t fracY = 0;
+    // Tile-only aggregate probes represent an already-positioned blast.
+    // Every gameplay placement enables the original actor motion path.
+    bool moving = false;
 };
 
 struct Flash {
@@ -4989,6 +4998,14 @@ public:
         if (route.bombTileX != 24 || route.bombTileY != 21) {
             throw std::runtime_error("collapse autoplayer missed level-1 tile 24,21");
         }
+        // Small bombs now land on the one-way platform above the trigger.
+        // Use the real switch chord twice to select a stocked large bomb;
+        // its 16px collision height keeps this stationary throw below it.
+        FrameControls idle;
+        FrameControls switchBomb;
+        switchBomb.p1Left = switchBomb.p1Right = true;
+        driveAutoplayerWeaponSwitchChord(switchBomb);
+        driveAutoplayerWeaponSwitchChord(switchBomb);
         FrameInspection routeFrame = inspectRenderedFrame("autoplayer-collapse-route");
 
         pushKeyDown(SDLK_n);
@@ -4996,13 +5013,19 @@ public:
         if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 21) {
             throw std::runtime_error("collapse autoplayer did not place route bomb");
         }
+        if (!bombs_.back().moving || bombs_.back().vx8 != 0 || bombs_.back().type != BombType::Large) {
+            throw std::runtime_error("collapse autoplayer did not select a stationary large throw");
+        }
         int fuse = bombs_.back().timer;
-        FrameControls idle;
         for (int i = 0; i < fuse; ++i) {
             updateWithControls(idle, 1.0f / 60.0f);
         }
         if (!bombs_.empty() || explosionEffects_.empty() || collapseQueue_.empty()) {
-            throw std::runtime_error("collapse autoplayer did not start collapse playback");
+            throw std::runtime_error("collapse autoplayer did not start collapse playback: bombs=" +
+                std::to_string(bombs_.size()) + " effects=" + std::to_string(explosionEffects_.size()) +
+                " origin=" + (explosionEffects_.empty() ? "none" :
+                    std::to_string(explosionEffects_.back().x) + "," +
+                    std::to_string(explosionEffects_.back().y)));
         }
         int collapseCount = collapseQueue_.front().count;
         FrameInspection explosionFrame =
@@ -16852,14 +16875,20 @@ public:
     }
 
     void debugBombFuseOriginal(const std::string& fixtureDir,
-                              const std::string& outDir = "") {
+                              const std::string& outDir = "", bool motionSuite = false) {
         load();
         initSdl();
         if (!outDir.empty()) std::filesystem::create_directories(outDir);
         int samples = 0;
+        int motionSamples = 0;
         uint64_t lastHash = 0;
-        auto bytes = [](const std::string& hex) {
-            if (hex.size() != 0x26 * 2 ||
+        std::ofstream manifest;
+        if (!outDir.empty()) {
+            manifest.open(joinPath(outDir, "manifest.csv"));
+            manifest << "case,checkpoint,frame,bombs,pixel_x,pixel_y,vx8,vy8,frac_x,frac_y,timer,frame_hash\n";
+        }
+        auto bytes = [](const std::string& hex, size_t size = 0x26) {
+            if (hex.size() != size * 2 ||
                 hex.find_first_not_of("0123456789abcdef") != std::string::npos) {
                 throw std::runtime_error("invalid bomb actor record");
             }
@@ -16869,19 +16898,46 @@ public:
             }
             return raw;
         };
+        const std::array<std::string, 4> approaches{"none", "left", "right", "jump"};
         for (int weapon = 1; weapon <= 4; ++weapon) {
-            for (int parity = 0; parity <= 1; ++parity) {
+            for (int variant = 0; variant < (motionSuite ? 4 : 2); ++variant) {
+                const int parity = motionSuite ? 0 : variant;
                 const std::string name = "weapon" + std::to_string(weapon) +
-                                         "_phase" + std::to_string(parity);
+                    (motionSuite ? "_" + approaches[variant] : "_phase" + std::to_string(parity));
                 std::ifstream input(joinPath(fixtureDir, name + ".txt"));
                 if (!input) throw std::runtime_error("missing bomb trace " + name);
                 bool header = false, seeded = false, expired = false;
                 int count = 0, previousFrame = -1, originalCounter = -1;
+                auto checkMotion = [&](const Bomb& bomb, const std::vector<uint8_t>& raw,
+                                       const std::vector<uint8_t>& visual) {
+                    if (bomb.pixelX != le16(visual, 0) || bomb.pixelY != le16(visual, 2) ||
+                        bomb.vx8 != static_cast<int16_t>(le16(raw, 6)) ||
+                        bomb.vy8 != static_cast<int16_t>(le16(raw, 8)) ||
+                        bomb.fracX != raw[10] || bomb.fracY != raw[12] ||
+                        bombHeightOffset(bomb.type) != raw[0x14]) {
+                        std::ostringstream message;
+                        message << name << " bomb motion mismatch at " << previousFrame
+                                << " got=" << bomb.pixelX << ',' << bomb.pixelY << ','
+                                << bomb.vx8 << ',' << bomb.vy8 << ','
+                                << int(bomb.fracX) << ',' << int(bomb.fracY)
+                                << " original=" << le16(visual, 0) << ',' << le16(visual, 2)
+                                << ',' << static_cast<int16_t>(le16(raw, 6)) << ','
+                                << static_cast<int16_t>(le16(raw, 8)) << ','
+                                << int(raw[10]) << ',' << int(raw[12]);
+                        throw std::runtime_error(message.str());
+                    }
+                };
                 auto inspect = [&](const std::string& checkpoint) {
                     lastHash = inspectRenderedFrame(name + checkpoint).hash;
                     if (!outDir.empty()) {
                         writeArgbPpm(joinPath(outDir, name + checkpoint + ".ppm"),
                                      fb_, kScreenW, kScreenH);
+                        const Bomb b = bombs_.empty() ? Bomb{} : bombs_.front();
+                        manifest << name << ',' << checkpoint << ',' << logicTick_ << ','
+                                 << bombs_.size() << ',' << b.pixelX << ',' << b.pixelY << ','
+                                 << b.vx8 << ',' << b.vy8 << ',' << int(b.fracX) << ','
+                                 << int(b.fracY) << ',' << (bombs_.empty() ? 0 : b.timer) << ','
+                                 << std::hex << lastHash << std::dec << '\n';
                     }
                 };
                 std::string line;
@@ -16914,6 +16970,19 @@ public:
                         resetLevel(0);
                         menu_ = false;
                         logicTick_ = static_cast<uint32_t>(previousFrame);
+                        if (motionSuite) {
+                            int x, y, vx, vy;
+                            if (std::sscanf(fields.at("input").c_str(), "%d,%d,%d,%d", &x, &y, &vx, &vy) != 4 ||
+                                fields.at("approach") != approaches[variant] ||
+                                (variant == 1 && vx >= 0) || (variant == 2 && vx <= 0) ||
+                                (variant == 3 && vy >= 0)) {
+                                throw std::runtime_error("missing original launch input evidence");
+                            }
+                            player_.x = static_cast<float>(x);
+                            player_.y = static_cast<float>(y);
+                            player_.vx8 = static_cast<int16_t>(vx);
+                            player_.vy8 = static_cast<int16_t>(vy);
+                        }
                         bombInventory_.selected = static_cast<BombType>(weapon - 1);
                         bombInventory_.counts.fill(2);
                         handlePlayerFire(player_, energy_, lives_, playerDead_, reentryTimer_,
@@ -16922,6 +16991,12 @@ public:
                         if (bombs_.size() != 1 || bombs_[0].fuseTicks != 2 * originalCounter ||
                             bombInventory_.counts[static_cast<size_t>(weapon - 1)] != 1) {
                             throw std::runtime_error("port fuse differs from original constructor");
+                        }
+                        if (motionSuite) {
+                            checkMotion(bombs_.front(), raw, bytes(fields.at("visual"), 8));
+                            if (bombProfile(bombs_.front().type).spriteBase != std::stoi(fields.at("sprite"))) {
+                                throw std::runtime_error("bomb sprite differs from original descriptor");
+                            }
                         }
                         seeded = true;
                         inspect("_armed");
@@ -16951,10 +17026,22 @@ public:
                             if (!bombs_.empty() || explosionEffects_.empty()) {
                                 throw std::runtime_error("bomb did not explode at original expiry");
                             }
+                            if (motionSuite) {
+                                auto visual = bytes(fields.at("visual"), 8);
+                                if (explosionEffects_.back().x != (le16(visual, 0) + 4) / 8 ||
+                                    explosionEffects_.back().y != le16(visual, 2) / 8) {
+                                    throw std::runtime_error("explosion remained at the bomb placement tile");
+                                }
+                            }
                             inspect("_expiry");
                         } else {
                             if (bombs_.size() != 1 || (bombs_[0].timer + 1) / 2 != originalCounter) {
                                 throw std::runtime_error("bomb countdown differs from original at " + std::to_string(frame));
+                            }
+                            if (motionSuite) {
+                                checkMotion(bombs_.front(), raw, bytes(fields.at("visual"), 8));
+                                ++motionSamples;
+                                if (count == 7) inspect("_flight");
                             }
                             if (bombs_[0].timer == 1) inspect("_last");
                         }
@@ -16974,8 +17061,11 @@ public:
                 if (!expired) throw std::runtime_error("incomplete bomb trace " + name);
             }
         }
-        std::cout << "bomb_fuse_original=ok cases=8 samples=" << samples
+        std::cout << (motionSuite ? "bomb_motion_original=ok cases=16" : "bomb_fuse_original=ok cases=8")
+                  << " samples=" << samples
                   << " seeds=20,30,40,200 first_update_next_frame=1 pause=1"
+                  << (motionSuite ? " live_motion_states=" + std::to_string(motionSamples) +
+                                    " expiry_positions=16 sprites=57,58,59,60" : "")
                   << " frame_hash=" << std::hex << lastHash << std::dec << "\n";
     }
 
@@ -23158,8 +23248,8 @@ private:
             // 1000:75A7..75B0 subtracts DS:78C2 & 1. These are the maximum
             // game-update counts, not the original byte countdown values.
             case BombType::Small: return {0x0d, 57, 40};
-            case BombType::Medium: return {0x0e, 59, 60};
-            case BombType::Large: return {0x0f, 60, 80};
+            case BombType::Medium: return {0x0e, 58, 60};
+            case BombType::Large: return {0x0f, 59, 80};
             case BombType::Super: return {0x10, 60, 400};
         }
         return {0x0d, 57, 40};
@@ -25176,9 +25266,9 @@ private:
         // top-left tile at ((px+4)>>3, py>>3). The L2 capture pins the
         // arithmetic: player pixel (200,308) at drop -> base 3724 and
         // post-walk DS:C1E8 = 3925, exactly as measured. The identification
-        // of the bomb actor's pixel position with the dropping player's pixel
-        // position is INFERRED (@unevidenced:bomb_pixel_equals_player_pixel)
-        // from that single consistent point.
+        // of initial bomb pixels with player pixels is also explicit in the
+        // constructor call at 1000:6C25..6C5B. Motion refreshes these tile
+        // coordinates from the bomb's own pixels before detonation.
         int tx = (static_cast<int>(player.x) + 4) / 8;
         int ty = static_cast<int>(player.y) / 8;
         auto it = std::find_if(bombs_.begin(), bombs_.end(),
@@ -25192,6 +25282,15 @@ private:
             int timer = profile.fuseTicks - static_cast<int>((logicTick_ + 1) & 1u);
             bombs_.push_back({tx, ty, timer, inventory.selected,
                               profile.fuseTicks, owner});
+            Bomb& bomb = bombs_.back();
+            bomb.pixelX = static_cast<int>(player.x);
+            bomb.pixelY = static_cast<int>(player.y);
+            // 6C2B..6C41 scales vx by 3/2 (signed truncation), and subtracts
+            // 500 from vy. The actor constructor clamps each to +/-0x07ff
+            // and clears both fractional accumulators.
+            bomb.vx8 = static_cast<int16_t>(std::clamp(3 * player.vx8 / 2, -0x07ff, 0x07ff));
+            bomb.vy8 = static_cast<int16_t>(std::clamp(player.vy8 - 500, -0x07ff, 0x07ff));
+            bomb.moving = true;
             requestBombPlaceSound();
             int& count = inventory.counts[static_cast<size_t>(bombTypeIndex(inventory.selected))];
             count = std::max(0, count - 1);
@@ -25199,9 +25298,57 @@ private:
         }
     }
 
+    int bombHeightOffset(BombType type) const {
+        const size_t sprite = bombProfile(type).spriteBase;
+        return 16 - sprites_.sprites.at(sprite).height;
+    }
+
+    void updateBombMotion(Bomb& bomb) {
+        if (!bomb.moving) return;
+        const int heightOffset = bombHeightOffset(bomb.type);
+        int collideY = bomb.pixelY - heightOffset;
+        ActiveMonster::EdgeFlags edges;
+        if (bomb.type == BombType::Small) {
+            // 1000:65DA..6640 selects four single cells for actor kind 0x0d.
+            // Other bombs use the usual two-cell actor edges.
+            const int column = (bomb.pixelX + 4) >> 3;
+            const int row = collideY >> 3;
+            edges.top = solidTileSide(static_cast<uint8_t>(tileAt(column, row)));
+            edges.bottom = solidTileBottom(static_cast<uint8_t>(tileAt(column, row + 2)));
+            edges.left = solidTileSide(static_cast<uint8_t>(tileAt(column - 1, row + 1)));
+            edges.right = solidTileSide(static_cast<uint8_t>(tileAt(column + 1, row + 1)));
+        } else {
+            edges = scanActorEdges(bomb.pixelX, collideY);
+        }
+        // Behavior 2 (1000:7018..7058): gravity, floor snap, then friction.
+        if (!edges.bottom || bomb.vy8 < 0) {
+            bomb.vy8 = static_cast<int16_t>(std::min(0x07ff, bomb.vy8 + 0x40));
+        } else if (bomb.vy8 > 0) {
+            bomb.vy8 = 0;
+            collideY &= ~7;
+        }
+        if (edges.bottom) {
+            bomb.vx8 = static_cast<int16_t>(std::abs(bomb.vx8) < 43 ? 0 :
+                                          bomb.vx8 + (bomb.vx8 < 0 ? 42 : -42));
+        }
+        if (edges.top && bomb.vy8 < 0) bomb.vy8 = 1;
+        if (edges.left && edges.right) {
+            bomb.vx8 = 0;
+        } else if ((edges.left && bomb.vx8 < 0) || (edges.right && bomb.vx8 > 0)) {
+            bomb.vx8 = static_cast<int16_t>(-bomb.vx8 / 2);
+            bomb.pixelX += bomb.vx8 < 0 ? -1 : 1;
+        }
+        integrateAxis8_8(collideY, bomb.fracY, bomb.vy8);
+        integrateAxis8_8(bomb.pixelX, bomb.fracX, bomb.vx8);
+        bomb.pixelY = collideY + heightOffset;
+        bomb.x = (bomb.pixelX + 4) >> 3;
+        bomb.y = bomb.pixelY >> 3;
+    }
+
     void updateBombs() {
         std::vector<Bomb> expired;
         for (Bomb& b : bombs_) {
+            updateBombMotion(b);
             if (--b.timer <= 0) expired.push_back(b);
         }
         bombs_.erase(std::remove_if(bombs_.begin(), bombs_.end(),
@@ -26340,8 +26487,8 @@ private:
 
     void drawBombs(int camX, int camY) {
         for (const Bomb& b : bombs_) {
-            int x = b.x * 8 - camX;
-            int y = b.y * 8 - camY;
+            int x = (b.moving ? b.pixelX : b.x * 8) - camX;
+            int y = (b.moving ? b.pixelY : b.y * 8) - camY;
             int index = static_cast<int>(bombProfile(b.type).spriteBase);
             if (index >= 0 && index < static_cast<int>(sprites_.sprites.size())) {
                 drawSprite(sprites_.sprites[static_cast<size_t>(index)], x, y);
@@ -27610,6 +27757,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-bomb-fuse-original") {
             app.debugBombFuseOriginal(argv[2], argc > 3 ? argv[3] : "");
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-bomb-motion-original") {
+            app.debugBombFuseOriginal(argv[2], argc > 3 ? argv[3] : "", true);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-object-explosion-effects") {

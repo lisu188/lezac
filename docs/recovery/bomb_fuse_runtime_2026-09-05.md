@@ -91,9 +91,11 @@ final-life transition and stale-expired-bomb reset guard.
 The original PNG checkpoint shows level-1 gameplay and the armed blue small
 bomb. Original frame-table bytes are retained for every sample. This recovery
 does not claim bomb trajectory, exact explosion rendering, or cross-game
-global-frame alignment: the original bombs visibly move, while the current
-port still keeps placed bombs stationary. Absolute wall-clock seconds also
-remain subject to the separately recovered game governor.
+global-frame alignment. At the time of this fuse recovery, placed bombs in
+the port were stationary. The subsequent
+[bomb motion recovery](bomb_motion_runtime_2026-09-05.md) implements and
+validates their trajectories separately. Absolute wall-clock seconds remain
+subject to the separately recovered game governor.
 
 ## Validation
 

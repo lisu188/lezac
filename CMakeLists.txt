@@ -3510,7 +3510,15 @@ if(BUILD_TESTING)
         COMMAND ${Python3_EXECUTABLE} tools/capture_original_bomb_fuses.py --self-check)
     set_tests_properties(bomb_fuse_capture_contract PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        PASS_REGULAR_EXPRESSION "^bomb_fuse_capture_self_check=ok windows=6 live=0")
+        PASS_REGULAR_EXPRESSION "^bomb_fuse_capture_self_check=ok windows=9 live=0")
+
+    add_test(NAME bomb_motion_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-motion-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/bomb_motion_original)
+    set_tests_properties(bomb_motion_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^bomb_motion_original=ok cases=16 samples=2304 seeds=20,30,40,200 first_update_next_frame=1 pause=1 live_motion_states=2288 expiry_positions=16 sprites=57,58,59,60")
 
     add_test(NAME explosion_profiles
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosions)
@@ -3626,7 +3634,7 @@ if(BUILD_TESTING)
     set_tests_properties(unevidenced_constants PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^unevidenced_constants=ok tracked=5 source=app.cpp doc=unevidenced_constants.md drift=0")
+            "^unevidenced_constants=ok tracked=4 source=app.cpp doc=unevidenced_constants.md drift=0")
 
     add_test(NAME debris_shatter_playback
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-shatter-playback

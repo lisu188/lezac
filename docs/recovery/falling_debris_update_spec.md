@@ -248,7 +248,10 @@ For slot `k = [bp-2]`, record `rec` at `DS:2093 + 0x0B*k`:
       `DS:655E = w`; `call 3BB2(count=1, var @DS:78D2)` (`4C8F..4C96`);
       then `DS:655E = w | 0x8000`; `call 3D46(count=1, var @DS:78D4)`
       (`4C99..4CA9`). Else (`w == 0`): `vx = 0` (`4CAE`).
-      **Disassembly-only** (no impact occurred inside the capture window).
+      **Confirmed in seeded original collisions**, including bounce before
+      blending and new-target seeding; see
+      [the 2026-09-05 capture](debris_impact_runtime_2026-09-05.md).
+      The older natural movement window did not contain an impact.
 
 8. **Lane write-back** (`4CB9..4CEB`): `rec+5 ← 78D4`, `rec+6 ← 78D3`,
    `rec+7 ← 78D5`, `rec+4 ← 78D2` (that memory order; no semantic effect).
@@ -320,7 +323,13 @@ matchers.** Flow (x variant; y identical with the alternate offsets):
    the forward-writeback item; **that item stays open**, see scope notes).
 5. Write `result` through the var pointer → lane byte (`3D3F`).
 
-**Disassembly-only** end to end.
+The single-target (`DS:2078 = 1`, caller weight 1) path is now exercised
+end to end by seeded original loop-2 collisions and replayed through the
+production C++ mover. This includes both record classes, unsigned collapse
+weights, negative truncation, newest-match selection and seeding a new
+target. General multi-target helper calls and a complete natural bomb-route
+collision replay remain outside that evidence. See
+[the capture and validation notes](debris_impact_runtime_2026-09-05.md).
 
 ## RNG Draw Sites (lockstep order)
 

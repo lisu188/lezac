@@ -1,6 +1,6 @@
 # Port Completion Status
 
-Last reviewed: 2026-07-28
+Last reviewed: 2026-09-05
 
 The C++17/SDL2 reconstruction of `LEZAC.EXE` is functionally complete: every
 recovered gameplay, data, UI, and sound subsystem of the original game has a
@@ -237,7 +237,7 @@ and collection consumption, not exact reward physics or presentation.
   the level-2 fall peaks at `vy = 704`, so the clamp is still unexercised by
   any capture, and the fixture records `gravity_clamp_exercised=0`.
 
-- `behavior4_motion_runtime_fixture` — **CLOSED.** A level-2 tick-locked
+- `behavior4_motion_runtime_fixture` — **Partially recovered, still open.** A level-2 tick-locked
   capture (`tests/fixtures/behavior4_motion_original_level2.txt`,
   `tools/capture_original_behavior4_motion_procmem.py`) records 666
   consecutive behaviour-4 ticks of a live kind-2 flyer, sampled from the REAL
@@ -252,7 +252,8 @@ and collection consumption, not exact reward physics or presentation.
   Recovered and pinned by `behavior4_motion_evidence`:
 
   - retarget cadence **14 ticks** (26 clean occurrences, re-derived from the
-    rows), matching the port's `motionTimer = max(1, ai0)`;
+    rows), consistent with `ai0=14`; this interval alone does not identify
+    private versus shared-clock phase. The level-3 replay below settles that;
   - velocity selection `v = -ai1 + Random(2*ai1)` with `ai1 = 271`, first draw
     to vx and second to vy — reproducing **47/48** vx and **43/48** vy when
     replayed through the port's OWN `randomRangeValue`. Every exception is a
@@ -271,6 +272,27 @@ and collection consumption, not exact reward physics or presentation.
   `param1Base=270 param1Range=2` bracket the captured `ai0 = 14` and
   `ai1 = 271`. The 25 velocity changes that consumed NO RNG corroborate the
   `-vx/2` bounce and the `vy = 1` top clamp the port already implements.
+  **Level-3 extension and corrected scope.** This item previously named `1000:728C..731B` as
+  the behavior-4 branch. The shipped bytes disprove that: the behavior-4 arm
+  ends `1000:714F e9 da 01` (`jmp 0x732C`), stepping clean past the window, and
+  the window's only external entry is `1000:7152 3c 03` / `1000:7154 74 03`
+  (`cmp al,3 / je`). Its gate local `[bp-0x20]` is written at exactly four
+  sites (`716B`, `71A0`, `71F3`, `723D`), all before the window inside the
+  behavior-3 arm. A behavior-4 actor therefore never executes that window on
+  any level, so the fixture as originally specified was unfillable — which is
+  why the candidate skeleton could never be completed. Pinned by
+  `tools/check_behavior4_window_attribution.py` and the
+  `behavior4_window_attribution` ctest. The behavior-4 *motion* path
+  (`1000:70D7..714F`, `73E5`, `741B`) is the correct target. Two original
+  level-3 captures now pin 318 production motion transitions for a kind-2
+  flyer: the shared 16-bit modulo clock, zero-velocity spawn waiting,
+  truncating horizontal/diagonal homing, ten isolated far-retarget RNG pairs,
+  persistent 8.8 fractions and one top collision. The near-player phases are
+  explicitly seeded, not natural routes. Other kinds and remaining levels,
+  two-player targeting and full floor/side runtime coverage remain outside
+  these focused captures;
+  the item stays open. See `behavior4_runtime_2026-08-10.md`. Screenshot review
+  is not paired pixel parity, so `visual_claim=0` remains unchanged.
 ## Guardrails
 
 - `tools/check_port_completion_status.py` fails when the source tables, this

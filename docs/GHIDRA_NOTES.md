@@ -315,14 +315,17 @@ The shipped spawners use actor behavior values `3` and `4`.
 - Behavior `3` is a ground walker. The C++ reconstruction uses randomized actor
   parameter `ai0` as an 8.8 fixed-point horizontal speed magnitude, applies
   gravity, and flips direction/profile on wall or ledge collision.
-- Behavior `4` is timed retarget/random movement. The reconstruction uses `ai0`
-  as the retarget tick period, `ai1` as 8.8 fixed-point movement magnitude, and
-  `ai2` as the Manhattan-distance threshold for chasing the player before
-  falling back to random signed velocities. Each active actor carries its own
-  countdown so actors spawned at different times do not retarget in lockstep.
+- Behavior `4` is shared-clock retarget/random movement. Steering runs when
+  the 16-bit `DS:78C2` frame counter is divisible by `ai0`, not on a private
+  actor countdown. `ai1` is the signed 8.8 movement magnitude; a strict
+  Manhattan distance below `ai2` selects normalized homing with truncation
+  toward zero, otherwise X then Y draw `Random(2*ai1)-ai1`. A new actor waits
+  with zero velocity until the shared gate. Two original level-3 traces pin
+  318 production motion transitions; see
+  `docs/recovery/behavior4_runtime_2026-08-10.md` for the bounded claim.
 
-These mappings follow the Ghidra analysis around `1000:70bc..7148` and
-`1000:728c..731b`.
+The behavior-4 arm is `1000:7062..714F`, with the modulo gate at `70D7`.
+`1000:728C..731B` belongs to behavior-3 facing reselection, not behavior 4.
 
 Active monsters now use the original-style signed 8.8 velocity fields and
 fractional accumulator bytes. The integration helper mirrors the byte-carry
@@ -331,9 +334,12 @@ then add the signed high velocity byte plus carry to the integer position. This
 preserves the original floor-style behavior for negative fractional velocities.
 `--debug-monster-motion-model` now locks that 8.8 carry behavior and the current
 behavior `3`/`4` branch hypotheses in a synthetic fixture, including kind-1
-directional frame selection and behavior-4 countdown retargeting. This is a
+directional frame selection and behavior-4 shared-clock retargeting. This is a
 regression oracle for the current reconstruction model, not proof that the
 remaining AI/collision rules are exact.
+The following older capture tooling retains its historical target names. Its
+`728C..731B` target was misattributed; use the new lockstep sampler for actual
+behavior-4 motion. The old fixtures remain parser/static regressions only.
 `--debug-behavior4-runtime-oracle` is the normalized evidence parser for future
 DOSBox-debug behavior-4 captures. It requires runtime `CS`/`DS`, semantic
 spawner and actor before/after records, target/player-dead state, and

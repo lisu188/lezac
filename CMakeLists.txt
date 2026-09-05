@@ -231,7 +231,7 @@ if(BUILD_TESTING)
     set_tests_properties(port_completion_status PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "port_completion_status=ok subsystems=23 implemented=23 open_original_evidence_items=3 port_functionally_complete=1 original_fidelity_claim=0")
+            "port_completion_status=ok subsystems=23 implemented=23 open_original_evidence_items=4 port_functionally_complete=1 original_fidelity_claim=0")
 
     add_test(NAME original_asset_load
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-asset-load)
@@ -469,7 +469,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_monster_behavior4_chase_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=monster_behavior4_chase chase_dx=[0-9]+ timer_after=1 killed=1 frame_inspection=1")
+            "^autoplayer=ok scenario=monster_behavior4_chase chase_dx=[0-9]+ timer_after=2 killed=1 frame_inspection=1")
 
     add_test(NAME autoplayer_monster_spawner_cycle_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -3562,6 +3562,17 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^monster_impact_sprites=ok table=ds:0x0077[+]kind[*]2[+]dir dir_rule=vx>0 ghidra=1000:745b cases=k1_vx_neg,k1_vx_pos,k1_band_left_vx_pos,k1_band_right_vx_neg,k1_vx_zero,k2,k3,k4 corpse_sprites=47,48,48,47,47,42,52,56 held_ticks=49,49,49,49,49,49,49,49 capture_frames=357[.][.]405 band_independent=1 visual_claim=0")
 
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME monster_impact_fixture_newlines
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_monster_impact_fixture_newlines.py
+                    --exe $<TARGET_FILE:lezac_cpp>)
+        set_tests_properties(monster_impact_fixture_newlines PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^monster_impact_fixture_newlines=ok lf=1 crlf=1")
+    endif()
+
     # The bounce's two RNG draws come off the shared LCG, so their order and
     # count decide every later random number. The seed alone cannot pin the
     # order (the LCG advances the same whatever range is asked for), so this
@@ -3775,6 +3786,35 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^monster_sprite_consumption_evidence=ok fixture=level1 ticks=110 frames=257..366 checkpoints=5 actor_rows=109/109 visual_rows=109/109 descriptor_match=1 pre_sprite=44 last_pre_fatal_sprite=43 pre_sprite_runs=44x4,43x2 impact_sprite=47 impact_equals_death=1 death_sprite_runs=47x49 death_ticks=49 replayed_death_ticks=49 reward_sprite=61 reward_visible_ticks=54 reward_actor_timer=100 reward_initial_vy=-200 reward_next_vy=-136 reward_y_step=-1 reward_motion_observed=1 score_delta=2000 rng_transitions=1/1 exogenous_input=110 exogenous_position=110 production_damage=1 production_death_timer=1 production_renderer=1 production_reward=1 production_collection=1 impact_confirmed=1 death_confirmed=1 reward_confirmed=1 original_runtime_claim=1 reward_motion_claim=0 visual_claim=0")
+
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME behavior4_lockstep_guard
+            COMMAND ${Python3_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_behavior4_lockstep.py
+                    --exe $<TARGET_FILE:lezac_cpp>)
+        set_tests_properties(behavior4_lockstep_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "behavior4_lockstep_guard=ok malformed=7 capture_hash=verified static_windows=6")
+    endif()
+
+    add_test(NAME behavior4_lockstep_diagonal
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-behavior4-lockstep-evidence
+                tests/fixtures/behavior4_lockstep_original_level3.txt)
+    set_tests_properties(behavior4_lockstep_diagonal PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^behavior4_lockstep_evidence=ok ticks=160 frames=298..457 integration_exact=159 far_retargets=5 homing_retargets=5 target_rng_seed_exact=5 off_gate_collision_changes=0 live_updateMonsters=159 retarget_clock=global_frame_mod_ai0 homing_rounding=trunc_toward_zero temp_copy=1 visual_claim=0")
+
+    add_test(NAME behavior4_lockstep_horizontal
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-behavior4-lockstep-evidence
+                tests/fixtures/behavior4_lockstep_original_level3_horizontal.txt)
+    set_tests_properties(behavior4_lockstep_horizontal PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^behavior4_lockstep_evidence=ok ticks=160 frames=299..458 integration_exact=159 far_retargets=5 homing_retargets=6 target_rng_seed_exact=5 off_gate_collision_changes=1 live_updateMonsters=159 retarget_clock=global_frame_mod_ai0 homing_rounding=trunc_toward_zero temp_copy=1 visual_claim=0")
 
     add_test(NAME boss_lockstep_evidence
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

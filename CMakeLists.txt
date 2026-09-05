@@ -3489,16 +3489,28 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^monster_blast_damage=ok drops=2")
 
-    # NOTE: fuse=41 here only echoes the port's own constant back. No bomb
-    # fuse duration has been recovered from the original (inventory tag
-    # @unevidenced:bomb_fuse_durations), so this pins the countdown MECHANISM
-    # -- one decrement per tick, detonation at zero, the effect/flash chain --
-    # and NOT the duration.
+    # Even placement frame: first countdown runs on an odd frame, so the
+    # original byte seed of 20 expires after 39 updates. The trace test below
+    # covers every countdown sample for all four weapons and both phases.
     add_test(NAME bomb_fuse COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-fuse)
     set_tests_properties(bomb_fuse PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "bomb_fuse=ok fuse=41 effects=1 flashes=4 delayed_final_life=1 stale_reset_guard=1")
+            "bomb_fuse=ok fuse=39 effects=1 flashes=4 delayed_final_life=1 stale_reset_guard=1")
+
+    add_test(NAME bomb_fuse_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-fuse-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/bomb_fuses_original)
+    set_tests_properties(bomb_fuse_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^bomb_fuse_original=ok cases=8 samples=1156 seeds=20,30,40,200 first_update_next_frame=1 pause=1")
+
+    add_test(NAME bomb_fuse_capture_contract
+        COMMAND ${Python3_EXECUTABLE} tools/capture_original_bomb_fuses.py --self-check)
+    set_tests_properties(bomb_fuse_capture_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^bomb_fuse_capture_self_check=ok windows=6 live=0")
 
     add_test(NAME explosion_profiles
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-explosions)
@@ -3614,7 +3626,7 @@ if(BUILD_TESTING)
     set_tests_properties(unevidenced_constants PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^unevidenced_constants=ok tracked=7 source=app.cpp doc=unevidenced_constants.md drift=0")
+            "^unevidenced_constants=ok tracked=5 source=app.cpp doc=unevidenced_constants.md drift=0")
 
     add_test(NAME debris_shatter_playback
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-shatter-playback

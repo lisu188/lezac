@@ -568,24 +568,9 @@ enum class BombType : uint8_t {
 struct BombProfile {
     uint8_t actorKind = 0x0d;
     uint8_t spriteBase = 58;
-    // UNRECOVERED (@unevidenced:bomb_fuse_durations). No bomb fuse duration
-    // has been read from the original.
-    // The 41 here (and the three values in bombProfile()) are port policy,
-    // chosen to keep roughly the wall-clock durations the port has always
-    // had, now expressed in game ticks.
-    //
-    // An earlier revision claimed 41 was measured from "the bomb actor's
-    // countdown byte at DS:0x74A8 record offset 0x1B, decremented at file
-    // 0x820b". That reading is wrong twice over: DS:0x74A8 stride 0x1E is the
-    // level-file MONSTER SPAWNER table -- this port's own parseMonsterSpawner
-    // maps offset 0x1B as the spawner cooldown and 0x1C as its reload -- not
-    // the actor table, and file 0x820b is that spawner's periodic decrement,
-    // which reloads from +0x1C. The capture's "fuse zero at tick 437" is the
-    // level-1 spawner's third cooldown-zero (257, 347, 437: first spawn at
-    // 256, then period 90). It is the first zero that persists rather than
-    // being reloaded, because liveAllowance has run out by then. The 41 was
-    // just the gap between the bomb keypress and that unrelated event.
-    int fuseTicks = 41;
+    // Twice the original actor +0x02 seed; placement accounts for the first
+    // update's parity. See bomb_fuse_runtime_2026-09-05.md and the eight traces.
+    int fuseTicks = 40;
 };
 
 struct BombInventory {
@@ -596,9 +581,9 @@ struct BombInventory {
 struct Bomb {
     int x = 0;
     int y = 0;
-    int timer = 41;
+    int timer = 40;
     BombType type = BombType::Small;
-    int fuseTicks = 41;
+    int fuseTicks = 40;
     uint8_t owner = 1;
 };
 
@@ -16866,6 +16851,134 @@ public:
                   << " delayed_reward=1 reward_sprite=61\n";
     }
 
+    void debugBombFuseOriginal(const std::string& fixtureDir,
+                              const std::string& outDir = "") {
+        load();
+        initSdl();
+        if (!outDir.empty()) std::filesystem::create_directories(outDir);
+        int samples = 0;
+        uint64_t lastHash = 0;
+        auto bytes = [](const std::string& hex) {
+            if (hex.size() != 0x26 * 2 ||
+                hex.find_first_not_of("0123456789abcdef") != std::string::npos) {
+                throw std::runtime_error("invalid bomb actor record");
+            }
+            std::vector<uint8_t> raw;
+            for (size_t i = 0; i < hex.size(); i += 2) {
+                raw.push_back(static_cast<uint8_t>(std::stoul(hex.substr(i, 2), nullptr, 16)));
+            }
+            return raw;
+        };
+        for (int weapon = 1; weapon <= 4; ++weapon) {
+            for (int parity = 0; parity <= 1; ++parity) {
+                const std::string name = "weapon" + std::to_string(weapon) +
+                                         "_phase" + std::to_string(parity);
+                std::ifstream input(joinPath(fixtureDir, name + ".txt"));
+                if (!input) throw std::runtime_error("missing bomb trace " + name);
+                bool header = false, seeded = false, expired = false;
+                int count = 0, previousFrame = -1, originalCounter = -1;
+                auto inspect = [&](const std::string& checkpoint) {
+                    lastHash = inspectRenderedFrame(name + checkpoint).hash;
+                    if (!outDir.empty()) {
+                        writeArgbPpm(joinPath(outDir, name + checkpoint + ".ppm"),
+                                     fb_, kScreenW, kScreenH);
+                    }
+                };
+                std::string line;
+                while (std::getline(input, line)) {
+                    if (line.empty() || line[0] == '#' || line == "\r") continue;
+                    std::istringstream row(line);
+                    std::string kind, token;
+                    row >> kind;
+                    std::map<std::string, std::string> fields;
+                    while (row >> token) {
+                        const auto equal = token.find('=');
+                        if (equal == std::string::npos ||
+                            !fields.emplace(token.substr(0, equal), token.substr(equal + 1)).second) {
+                            throw std::runtime_error("malformed bomb trace row");
+                        }
+                    }
+                    if (kind == "capture=bomb_fuse_original_v1") {
+                        if (header || std::stoi(fields.at("weapon")) != weapon ||
+                            std::stoi(fields.at("parity")) != parity || fields.at("temp_copy") != "1") {
+                            throw std::runtime_error("bomb trace header mismatch");
+                        }
+                        header = true;
+                    } else if (kind == "seed") {
+                        if (!header || seeded) throw std::runtime_error("unexpected bomb seed");
+                        auto raw = bytes(fields.at("raw"));
+                        previousFrame = std::stoi(fields.at("frame"));
+                        if ((previousFrame & 1) != parity || raw[0] != 12 + weapon || raw[0x15] != 2) {
+                            throw std::runtime_error("bomb constructor identity mismatch");
+                        }
+                        resetLevel(0);
+                        menu_ = false;
+                        logicTick_ = static_cast<uint32_t>(previousFrame);
+                        bombInventory_.selected = static_cast<BombType>(weapon - 1);
+                        bombInventory_.counts.fill(2);
+                        handlePlayerFire(player_, energy_, lives_, playerDead_, reentryTimer_,
+                                         damageCooldown_, bombInventory_, 1);
+                        originalCounter = raw[2];
+                        if (bombs_.size() != 1 || bombs_[0].fuseTicks != 2 * originalCounter ||
+                            bombInventory_.counts[static_cast<size_t>(weapon - 1)] != 1) {
+                            throw std::runtime_error("port fuse differs from original constructor");
+                        }
+                        seeded = true;
+                        inspect("_armed");
+                        paused_ = true;
+                        const int timer = bombs_[0].timer;
+                        updateWithControls(FrameControls{}, 1.0f / 60.0f);
+                        if (bombs_[0].timer != timer || logicTick_ != static_cast<uint32_t>(previousFrame)) {
+                            throw std::runtime_error("paused bomb advanced");
+                        }
+                        paused_ = false;
+                    } else if (kind == "tick") {
+                        if (!seeded || expired || originalCounter <= 0) {
+                            throw std::runtime_error("bomb tick outside live trace");
+                        }
+                        auto raw = bytes(fields.at("raw"));
+                        const int frame = std::stoi(fields.at("frame"));
+                        if (frame != ((previousFrame + 1) & 0xffff) ||
+                            raw[0] != 12 + weapon || raw[0x15] != 2 ||
+                            raw[2] != originalCounter - (frame & 1)) {
+                            throw std::runtime_error("original bomb trace is not consecutive");
+                        }
+                        previousFrame = frame;
+                        originalCounter = raw[2];
+                        ++logicTick_;
+                        updateBombs();
+                        if (originalCounter == 0) {
+                            if (!bombs_.empty() || explosionEffects_.empty()) {
+                                throw std::runtime_error("bomb did not explode at original expiry");
+                            }
+                            inspect("_expiry");
+                        } else {
+                            if (bombs_.size() != 1 || (bombs_[0].timer + 1) / 2 != originalCounter) {
+                                throw std::runtime_error("bomb countdown differs from original at " + std::to_string(frame));
+                            }
+                            if (bombs_[0].timer == 1) inspect("_last");
+                        }
+                        ++count;
+                        ++samples;
+                    } else if (kind == "expiry") {
+                        if (!seeded || expired || originalCounter != 0 ||
+                            std::stoi(fields.at("updates")) != count ||
+                            std::stoi(fields.at("frame")) != previousFrame) {
+                            throw std::runtime_error("bomb expiry checkpoint mismatch");
+                        }
+                        expired = true;
+                    } else {
+                        throw std::runtime_error("unknown bomb trace row");
+                    }
+                }
+                if (!expired) throw std::runtime_error("incomplete bomb trace " + name);
+            }
+        }
+        std::cout << "bomb_fuse_original=ok cases=8 samples=" << samples
+                  << " seeds=20,30,40,200 first_update_next_frame=1 pause=1"
+                  << " frame_hash=" << std::hex << lastHash << std::dec << "\n";
+    }
+
     void debugBombFuse() {
         load();
         resetLevel(0);
@@ -23041,19 +23154,15 @@ private:
             // The default (Small) bomb is the blue BOMOMIMK sprite 57, verified
             // against the original both in the HUD selector box and as a dropped
             // world bomb (captured under DOSBox); 58 is the green bomb.
-            // Fuse durations are all UNRECOVERED (@unevidenced:bomb_fuse_profile_table)
-            // port policy -- see the
-            // note on BombProfile::fuseTicks. No bomb countdown seed has
-            // been located in the image: the only `dec byte es:[di+0x1b]`
-            // in the binary belongs to the monster spawner loop. These four
-            // values only preserve the port's long-standing wall-clock
-            // durations at the governed tick rate.
-            case BombType::Small: return {0x0d, 57, 41};
-            case BombType::Medium: return {0x0e, 59, 61};
-            case BombType::Large: return {0x0f, 60, 82};
-            case BombType::Super: return {0x10, 60, 410};
+            // 1000:6C0A..6C25 seeds actor +0x02 with 20/30/40/200.
+            // 1000:75A7..75B0 subtracts DS:78C2 & 1. These are the maximum
+            // game-update counts, not the original byte countdown values.
+            case BombType::Small: return {0x0d, 57, 40};
+            case BombType::Medium: return {0x0e, 59, 60};
+            case BombType::Large: return {0x0f, 60, 80};
+            case BombType::Super: return {0x10, 60, 400};
         }
-        return {0x0d, 57, 41};
+        return {0x0d, 57, 40};
     }
 
     int explosionVisualType(BombType type) const {
@@ -25076,7 +25185,12 @@ private:
                                [&](const Bomb& b) { return b.x == tx && b.y == ty; });
         if (it == bombs_.end()) {
             BombProfile profile = bombProfile(inventory.selected);
-            bombs_.push_back({tx, ty, profile.fuseTicks, inventory.selected,
+            // Fire events precede the next updateWithControls increment.
+            // Original captures likewise first update the bomb on the frame
+            // after construction. Encode the odd-frame byte countdown as
+            // remaining game ticks, retaining the existing Bomb timer model.
+            int timer = profile.fuseTicks - static_cast<int>((logicTick_ + 1) & 1u);
+            bombs_.push_back({tx, ty, timer, inventory.selected,
                               profile.fuseTicks, owner});
             requestBombPlaceSound();
             int& count = inventory.counts[static_cast<size_t>(bombTypeIndex(inventory.selected))];
@@ -27492,6 +27606,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-fuse") {
             app.debugBombFuse();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-bomb-fuse-original") {
+            app.debugBombFuseOriginal(argv[2], argc > 3 ? argv[3] : "");
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-bomb-object-explosion-effects") {

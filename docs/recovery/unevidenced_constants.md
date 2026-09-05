@@ -12,7 +12,8 @@ Two examples show why both measurements and their interpretation need review:
   `0x1B`. That table is the level-file monster **spawner** table and the byte is
   its cooldown; tick 437 was the level-1 spawner's third cooldown-zero. The
   `bomb_fuse` ctest pinned `fuse=41` — the port's own constant echoed back — and
-  passed throughout.
+  passed throughout. The actual actor countdown and all four constructors
+  are now covered by the [bomb fuse capture](bomb_fuse_runtime_2026-09-05.md).
 - Debris **saturation** at 100 was inferred from raw table bytes without
   checking whether those slots were live. The original does retire the
   record, clearing the map flag but leaving stale tail bytes at rest=100.
@@ -51,17 +52,6 @@ That distinction should be stated wherever such a pin is registered.
   velocity — the deepest observed fall peaks at `vy = 704` — so the clamp VALUE
   is an inference from the actor path, not a measurement of the player path.
 
-- `bomb_fuse_durations` — `BombProfile::fuseTicks = 41`. See the note above:
-  the previous "measurement" was a misread spawner cooldown. No bomb countdown
-  seed has been located in the image; the only `dec byte es:[di+0x1b]` in the
-  binary belongs to the monster spawner loop. This value only preserves the
-  port's long-standing wall-clock duration.
-
-- `bomb_fuse_profile_table` — the Small/Medium/Large/Super fuses
-  (`41/61/82/410`) in `bombProfile()`. Same status as above; the three
-  non-small values additionally have no measurement of any kind behind their
-  ratios.
-
 - `bomb_pixel_equals_player_pixel` — the identification of a placed bomb
   actor's pixel position with the dropping player's pixel position. Inferred
   from ONE consistent point: player pixel (200,308) → base 3724 →
@@ -85,5 +75,5 @@ That distinction should be stated wherever such a pin is registered.
 Values that are byte-cited or capture-backed do not belong here even when they
 look arbitrary — for example the `+0x40` gravity step, the `0x7b` debris
 gravity gate, the 14-tick behaviour-4 retarget period, the `ai1 = 271` velocity
-range, the 49-tick corpse hold and the 100-tick debris rest ceiling are all
+range, the 120-tick corpse hold and retirement at debris rest count 100 are all
 established, and each has a diagnostic that would fail if it changed.

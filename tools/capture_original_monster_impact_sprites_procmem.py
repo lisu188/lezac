@@ -2,7 +2,7 @@
 """Capture 3: kill the level-1 walker with a bomb and trace the death frames.
 
 Adaptive: samples the walker's live position each tick and places a bomb
-~45 px ahead of its movement direction (small-bomb fuse is 41 ticks, walker
+~45 px ahead of its movement direction (small-bomb fuse is 39/40 updates, walker
 speed ~1 px/tick), then teleports the player clear. Retries until the actor
 record shows the death conversion, then keeps sampling ~120 ticks for the
 reward popup.
@@ -36,9 +36,9 @@ SAFE_X, SAFE_Y = 104, 120
 MAX_TICKS = 2600
 POST_DEATH_TICKS = 140
 # Ticks an armed bomb stayed allocated in run 1 (DS:0x208D 2->3 at frame
-# 1326, back to 2 at 1350). Used only to lead the walker; the authoritative
-# fuse measurement remains the 41 ticks in the route-timing fixture, which
-# this run should also let us re-check.
+# 1326, back to 2 at 1350). Used only as this legacy route's lead heuristic,
+# not fuse evidence. See capture_original_bomb_fuses.py for the actual actor
+# countdown (20, decremented on odd frames, expiring after 39/40 updates).
 ARMED_TICKS = 24
 
 

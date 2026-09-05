@@ -96,11 +96,18 @@ Resolved: `level1_route_timing_original_confirmation` — tick-locked
 /proc-mem measurement against the original (frame counter `DS:0x78C2`)
 recovered the governed 24-25 fps game rate, the flat 4 px/tick walk, the
 8.8 fixed-point jump (v0=-848, gravity +64/tick, floor-to-pixel — every
-observed per-tick delta reproduces exactly) and the 41-tick small-bomb
-fuse; the port's walk speed (90→98 px/s), jump kinematics and fuse
-(0.33s→1.67s) were corrected to match, pinned by
+observed per-tick delta reproduces exactly). The earlier 41-tick small-bomb
+fuse claim was withdrawn: it sampled a monster spawner, not a bomb. The
+movement evidence is pinned by
 `tests/fixtures/route_timing_original_level1.txt` and the
 `route_timing_evidence` ctest.
+
+Bomb fuse timing is now independently recovered from the actual actor table
+at `DS:1BAE`, field `+0x02`: constructor seeds 20/30/40/200, subtracting the
+odd-frame bit, with first update on the frame after placement. Eight original
+traces cover both phases of all four weapons; see
+[bomb fuse runtime evidence](bomb_fuse_runtime_2026-09-05.md). This does not
+establish bomb trajectory or explosion visual parity.
 
 Resolved: `ds79b9_fallback_runtime_reachability` — an original last-life
 death was captured on level 1 (lives forced to 1 via `DS:0x79EA`, killed by

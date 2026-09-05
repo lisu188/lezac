@@ -4,8 +4,8 @@
 This repo's recurring failure mode has been a green suite that verifies the
 port agrees with itself: a pin echoing a port constant back, with no captured
 or byte-cited datum behind it. Several wrong models survived that way -- a
-"measured" bomb fuse that was really a spawner cooldown, and a debris
-retirement that the original never performs.
+"measured" bomb fuse that was really a spawner cooldown, and debris saturation
+inferred from inactive table slots after original retirement.
 
 This checker makes the set of unevidenced values explicit and machine-checked.
 Every site in src/app/app.cpp carrying an UNEVIDENCED / UNRECOVERED / INFERRED

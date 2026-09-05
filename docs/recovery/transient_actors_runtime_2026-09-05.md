@@ -128,11 +128,18 @@ seed now advances `3AA9A995 -> 956923EA -> 90E25B93`, preserving the original
 corpse/reward fixture seed and subsequent reward checks. All six focused
 tests pass after this correction.
 
+Final review also places shake after all actor updates. A same-frame corpse
+retirement/shake diagnostic pins the original reward seed: six actor draws
+end at 0A08326D, then shake's seventh draw ends at 67913022 with offset 5.
+It requires the Present reward; placing shake first instead selects a
+different reward. This is a static main-loop ordering regression, not a
+claim that the entire reconstructed actor pass is ordered identically.
+
 Final validation: the full 430-case CTest run passed 429 tests and skipped
-the interactive test under dummy SDL (66.00 seconds). Running
+the interactive test under dummy SDL (37.09 seconds after the ordering fix). Running
 `env -u SDL_VIDEODRIVER -u SDL_AUDIODRIVER ctest --test-dir build --output-on-failure -R '^ui_xdotool_xvfb$'`
-passed the remaining UI test (5.04 seconds). The full log is preserved at
-`build-codex-tmp/transient-full-tests-passing.log`. `git diff --check` passes.
+passed the remaining UI test (3.72 seconds). The full log is preserved at
+`build-codex-tmp/transient-order-full-tests-passing.log`. `git diff --check` passes.
 The existing `debugDebrisShatterPlayback` snprintf compiler warning remains
 unrelated to this batch.
 
@@ -141,6 +148,8 @@ Original pickup screenshot `pickup_transients_043.png` and C++ replay
 50 indicator is visible above the player; drawing it after players avoids
 occlusion. Original `fracture_actor_v2_005.png` and C++ `fracture_actor_5.ppm`
 were also inspected and shown. The white puff uses the shipped sprites.
+The later original `_010.png` and C++ `_10.ppm` pair was inspected and shown
+as an additional smoke-animation checkpoint.
 Screenshots are comparable states, not frame-aligned pixel-parity evidence;
 camera framing and HUD/ammunition differ in the seeded fracture setup.
 

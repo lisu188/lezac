@@ -3877,7 +3877,7 @@ if(BUILD_TESTING)
     set_tests_properties(transient_actor_limits PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
-        PASS_REGULAR_EXPRESSION "^transient_actor_limits=ok pickup_cap=14 shared_cap=30 clockwise_cells=4 rng_gate=1 pause=1 reset=1 render_rng=0 static_contract=1")
+        PASS_REGULAR_EXPRESSION "^transient_actor_limits=ok pickup_cap=14 shared_cap=30 clockwise_cells=4 rng_gate=1 pause=1 reset=1 render_rng=0 shake_after_actors=1 static_contract=1")
 
     add_test(NAME route_timing_evidence
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

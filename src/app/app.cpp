@@ -22088,8 +22088,26 @@ public:
         if (!transientActors_.empty() || cameraShakeTicks_ || cameraShakeOffset_) {
             throw std::runtime_error("level reset retained transient state");
         }
+        prepareAutoplayerMonsterFixtureLevel();
+        ActiveMonster corpse;
+        corpse.x = 72;
+        corpse.y = 16;
+        corpse.kind = 0x0c;
+        corpse.behavior = 2;
+        corpse.stateTimer = 1;
+        corpse.deathRewardPending = true;
+        monsters_.push_back(corpse);
+        randomSeed_ = 0x90e25b93u;
+        cameraShakeTicks_ = 3;
+        updateWithControls({}, 0.0f);
+        // Six corpse-reward draws precede the seventh draw for camera shake.
+        if (!monsters_.empty() || bonusDrops_.size() != 1 ||
+            bonusDrops_.front().type != BonusType::Present ||
+            randomSeed_ != 0x67913022u || cameraShakeTicks_ != 2 || cameraShakeOffset_ != 5) {
+            throw std::runtime_error("camera shake preceded actor reward RNG");
+        }
         std::cout << "transient_actor_limits=ok pickup_cap=14 shared_cap=30 clockwise_cells=4"
-                  << " rng_gate=1 pause=1 reset=1 render_rng=0 static_contract=1 frame_hash="
+                  << " rng_gate=1 pause=1 reset=1 render_rng=0 shake_after_actors=1 static_contract=1 frame_hash="
                   << std::hex << rendered.hash << std::dec << '\n';
     }
 
@@ -24049,11 +24067,11 @@ private:
         // gravity tick).
         updateBombs();
         updateFlashes();
-        updateCameraShake();
         updateMonsterSpawners();
         updateBossLinks();
         updateMonsters(dt);
         updateBonusDrops();
+        updateCameraShake();
         drainPlayerDamageCounters();
         updateLevelCompletion();
         pumpSoundLatch();

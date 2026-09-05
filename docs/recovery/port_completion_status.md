@@ -193,13 +193,16 @@ and collection consumption, not exact reward physics or presentation.
   clears vy, and a retire+reseed resets the rest counter and sub-accumulators.
   Pinned by `natural_forward_debris_writeback`, which re-derives the events
   from the rows rather than trusting the fixture's count.
-  What stays OPEN is the blend FORMULA: the spec's `acc/weight` arithmetic
-  over tagged contributors (`3C98..3CC6`, divide at `3CE3`) is
-  disassembly-only, and this capture samples neither the accumulator nor the
-  tag list, so it proves the writeback happens and what it targets, not how
-  the value is computed. The port deliberately does not model the blend; the
-  fixture records `port_models_blend=0` so that divergence is pinned rather
-  than carried silently.
+  The natural trace still lacks the contributing inputs, so it does not
+  establish the formula or a complete natural collision replay. A separate
+  [seeded original collision capture](debris_impact_runtime_2026-09-05.md)
+  now validates the single-target weighted average, signed truncation,
+  newest-record matching, bounce-before-blend order and same-tick seeding.
+  The production mover implements that bounded path. The historical trace's
+  `port_models_blend=0` header is preserved as capture-time metadata; its
+  diagnostic now reports the current implementation separately. The open
+  item remains pending a complete natural-route comparison, not a missing
+  single-target arithmetic implementation.
 - `exact_explosion_sprite_playback` — exact explosion/debris/collapse sprite
   playback semantics around `1000:3a56..4d3b`
 - `actor_update_original_contact_semantics` — original contact

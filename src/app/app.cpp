@@ -17171,9 +17171,9 @@ public:
     // sampler sees its effect -- the item's "intra-frame, unobservable"
     // framing was incomplete. This checks the captured events really are pure
     // vx overwrites (no other byte of the record moves, which rules out
-    // friction, the bounce and a retire+reseed) and records that the port
-    // does NOT model the blend, so the divergence is pinned rather than
-    // silently carried.
+    // friction, the bounce and a retire+reseed). These historical rows do not
+    // contain the blend inputs; debugDebrisImpacts separately replays seeded
+    // original collisions through the production mover.
     // Debris shatter playback, and the rest-counter contradiction. The
     // shatter half CONFIRMS the port (one glyph per tick, non-fragile
     // terminal 0xFF); the rest half REFUTES it -- the port retires a record
@@ -17372,7 +17372,7 @@ public:
                   << " ticks_sampled=" << req("ticks_sampled")
                   << " pure_vx_overwrites=" << pureOverwrites
                   << " target=record+4"
-                  << " observable=1 blend_formula_recovered=0 port_models_blend=0"
+                  << " observable=1 blend_formula_recovered=0 port_models_blend=1"
                   << " visual_claim=0\n";
     }
 
@@ -17752,6 +17752,158 @@ public:
                   << " visual_claim=0\n";
     }
 
+    void debugDebrisImpacts(const std::string& fixturePath,
+                           const std::string& outDir = "") {
+        load();
+        initSdl();
+        if (!outDir.empty()) std::filesystem::create_directories(outDir);
+        std::ifstream input(fixturePath);
+        if (!input) throw std::runtime_error("cannot open " + fixturePath);
+        auto split = [](const std::string& value, char separator) {
+            std::vector<std::string> fields;
+            std::istringstream stream(value);
+            std::string field;
+            while (std::getline(stream, field, separator)) fields.push_back(field);
+            return fields;
+        };
+        auto bytes = [](const std::string& hex, size_t size) {
+            if (hex.size() != 2 * size ||
+                hex.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos) {
+                throw std::runtime_error("invalid impact fixture byte record");
+            }
+            std::vector<uint8_t> result;
+            for (size_t i = 0; i < hex.size(); i += 2) {
+                result.push_back(static_cast<uint8_t>(std::stoul(hex.substr(i, 2), nullptr, 16)));
+            }
+            return result;
+        };
+        auto decodeDebris = [&](const std::string& hex) {
+            const auto raw = bytes(hex, 11);
+            DebrisRecord record;
+            record.tileIndex = le16(raw, 0);
+            record.flaggedWord = le16(raw, 2);
+            record.velocityX = static_cast<int8_t>(raw[4]);
+            record.velocityY = static_cast<int8_t>(raw[5]);
+            record.subX = static_cast<int8_t>(raw[6]);
+            record.subY = static_cast<int8_t>(raw[7]);
+            record.restTicks = raw[8];
+            record.lookup = raw[9];
+            record.aux = raw[10];
+            return record;
+        };
+        bool header = false;
+        std::set<std::string> cases;
+        size_t comparedRecords = 0;
+        uint64_t lastHash = 0;
+        std::string line;
+        while (std::getline(input, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (line == "capture=debris_impacts_original_v1 seeded=1 temp_copy=1 visual_claim=0") {
+                header = true;
+                continue;
+            }
+            if (!header) throw std::runtime_error("missing original impact fixture header");
+            std::map<std::string, std::string> fields;
+            std::istringstream row(line);
+            std::string token;
+            while (row >> token) {
+                const auto equals = token.find('=');
+                if (equals == std::string::npos ||
+                    !fields.emplace(token.substr(0, equals), token.substr(equals + 1)).second) {
+                    throw std::runtime_error("invalid impact fixture field");
+                }
+            }
+            const std::string name = fields.at("case");
+            auto require = [&](bool condition, const std::string& message) {
+                if (!condition) throw std::runtime_error(name + ": " + message);
+            };
+            require(cases.insert(name).second, "duplicate case");
+            resetLevel(0);
+            menu_ = false;
+            levelIntro_.active = false;
+            playerDead_ = player2Dead_ = true;
+            monsters_.clear();
+            debrisQueue_.clear();
+            collapseQueue_.clear();
+            randomSeed_ = 0x12345678u;
+            logicTick_ = static_cast<uint32_t>(std::stoul(fields.at("tick")));
+            require(level_.width == std::stoi(fields.at("width")), "map width mismatch");
+            auto visitCells = [&](const std::string& value, bool apply) {
+                for (const auto& cell : split(value, ',')) {
+                    const auto parts = split(cell, ':');
+                    require(parts.size() == 3, "invalid map cell");
+                    const size_t index = std::stoul(parts[0]);
+                    const auto glyph = static_cast<uint8_t>(std::stoul(parts[1], nullptr, 16));
+                    const auto word = static_cast<uint16_t>(std::stoul(parts[2], nullptr, 16));
+                    require(index < level_.tiles.size() && index < level_.wordLayer.size(), "map cell outside level");
+                    if (apply) {
+                        level_.tiles[index] = glyph;
+                        level_.wordLayer[index] = word;
+                    } else {
+                        require(level_.tiles[index] == glyph && level_.wordLayer[index] == word,
+                                "object/word write mismatch at " + std::to_string(index));
+                    }
+                }
+            };
+            visitCells(fields.at("cells"), true);
+            for (const auto& raw : split(fields.at("debris"), ',')) {
+                debrisQueue_.push_back(decodeDebris(raw));
+            }
+            if (fields.at("collapse") != "none") {
+                for (const auto& hex : split(fields.at("collapse"), ',')) {
+                    const auto raw = bytes(hex, 15);
+                    CollapseRecord record;
+                    record.startOffsetBytes = le16(raw, 0);
+                    record.endOffsetBytes = le16(raw, 2);
+                    record.flaggedWord = le16(raw, 4);
+                    record.word = record.flaggedWord & ~kDamagedWordBit;
+                    record.forwardPhase = raw[6];
+                    record.reversePhase = raw[7];
+                    record.affectedBytes = raw[14];
+                    collapseQueue_.push_back(record);
+                }
+            }
+            updateDebrisRecords();
+            const auto expected = split(fields.at("after_debris"), ',');
+            require(debrisQueue_.size() == expected.size(), "debris count mismatch");
+            for (size_t i = 0; i < expected.size(); ++i) {
+                const auto reference = decodeDebris(expected[i]);
+                const auto& actual = debrisQueue_[i];
+                require(actual.tileIndex == reference.tileIndex && actual.flaggedWord == reference.flaggedWord &&
+                            actual.velocityX == reference.velocityX && actual.velocityY == reference.velocityY &&
+                            actual.subX == reference.subX && actual.subY == reference.subY &&
+                            actual.restTicks == reference.restTicks && actual.lookup == reference.lookup &&
+                            actual.aux == reference.aux,
+                        "11-byte debris record mismatch at slot " + std::to_string(i + 200));
+                ++comparedRecords;
+            }
+            const auto collapseExpected = fields.at("after_collapse") == "none"
+                                              ? std::vector<std::string>{}
+                                              : split(fields.at("after_collapse"), ',');
+            require(collapseQueue_.size() == collapseExpected.size(), "collapse count mismatch");
+            for (size_t i = 0; i < collapseExpected.size(); ++i) {
+                const auto raw = bytes(collapseExpected[i], 15);
+                const auto& actual = collapseQueue_[i];
+                require(actual.startOffsetBytes == le16(raw, 0) && actual.endOffsetBytes == le16(raw, 2) &&
+                            actual.flaggedWord == le16(raw, 4) && actual.forwardPhase == raw[6] &&
+                            actual.reversePhase == raw[7] && actual.affectedBytes == raw[14],
+                        "collapse bounds/key/lanes/weight mismatch");
+            }
+            visitCells(fields.at("after_cells"), false);
+            require(randomSeed_ == le32(bytes(fields.at("rng"), 4), 0), "RNG mismatch");
+            lastHash = inspectRenderedFrame("debris-impact-" + name).hash;
+            if (!outDir.empty()) writeArgbPpm(joinPath(outDir, name + ".ppm"), fb_, kScreenW, kScreenH);
+        }
+        if (cases.size() != 9 || comparedRecords != 16) {
+            throw std::runtime_error("incomplete original impact fixture");
+        }
+        std::cout << "debris_impacts=ok cases=" << cases.size()
+                  << " debris_records=" << comparedRecords
+                  << " collapse_records=3 seeded_original=1 natural_route_claim=0"
+                  << " frames_inspected=9 last_hash=" << std::hex << lastHash << std::dec << '\n';
+    }
+
     void debugDebrisBounceRng() {
         load();
         resetLevel(0);
@@ -17798,6 +17950,18 @@ public:
         debrisQueue_.push_back(rec);
         level_.tiles[static_cast<size_t>(rec.tileIndex)] = rec.lookup;
         logicTick_ = 0;
+
+        // Give the struck fragment the expected kick so the now-implemented
+        // blend leaves it unchanged. This probe isolates RNG order; the
+        // original collision fixture checks a nontrivial bounce-and-blend.
+        DebrisRecord target;
+        target.tileIndex = rec.tileIndex + level_.width;
+        target.flaggedWord = 0xc002;
+        target.velocityX = static_cast<int8_t>(expectedKick);
+        target.lookup = 0x60;
+        debrisQueue_.push_back(target);
+        level_.tiles[static_cast<size_t>(target.tileIndex)] = target.lookup;
+        level_.wordLayer[static_cast<size_t>(target.tileIndex)] = target.flaggedWord;
 
         clearSoundLatch();
         randomSeed_ = kSeed;
@@ -25090,7 +25254,8 @@ private:
 
     // Port of seeder 1000:370E for both word classes. The u8 velocity args map
     // to the seeder's vx/vy args ([bp+0xA]/[bp+0x8], stored at record +4/+5).
-    void queueTileDamage(int tx, int ty, uint8_t forwardPhase = 0, uint8_t reversePhase = 0) {
+    void queueTileDamage(int tx, int ty, uint8_t forwardPhase = 0, uint8_t reversePhase = 0,
+                         bool preserveCollapseGlyphs = false) {
         if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return;
         size_t start = static_cast<size_t>(ty) * level_.width + tx;
         if (start >= level_.wordLayer.size()) return;
@@ -25156,7 +25321,7 @@ private:
             minY = std::min(minY, y);
             maxX = std::max(maxX, x);
             maxY = std::max(maxY, y);
-            markDamagedTile(x, y);
+            if (!preserveCollapseGlyphs) markDamagedTile(x, y);
         }
         destroyed_ += static_cast<int>(group.size());
         if (!group.empty() && collapseQueue_.size() < kCollapseCapacity) {
@@ -25202,6 +25367,39 @@ private:
             }
         }
         return {};
+    }
+
+    // Single-target form of 1000:3BB2 / 3D46 used by blocked debris moves.
+    // The caller contributes weight 1; a collapse contributes its unsigned
+    // +0x0e byte, while a fragment contributes 1. Neither helper draws RNG.
+    void blendDebrisImpactLane(int target, uint16_t word, int& velocity,
+                               bool reverse) {
+        if ((word & kDamagedWordBit) == 0) {
+            const size_t debrisBefore = debrisQueue_.size();
+            const size_t collapseBefore = collapseQueue_.size();
+            // Collision seeding leaves the object plane intact (original
+            // new_collapse probe); older explosion playback marks it early.
+            queueTileDamage(target % level_.width, target / level_.width, 0, 0, true);
+            // 3C2D / 3DC1 return without writing the caller on seeder failure.
+            if (debrisBefore == debrisQueue_.size() &&
+                collapseBefore == collapseQueue_.size()) return;
+        }
+        const DamagePhaseLookup match = resolveDamagePhase(
+            static_cast<uint16_t>(word | kDamagedWordBit), reverse);
+        // The original expects a matching live record. Stale flagged map
+        // cells in the reconstruction must not become an invalid table write.
+        if (match.slotIndex == 0) return;
+        const size_t index = static_cast<size_t>(match.slotIndex - 1);
+        const int weight = match.debris ? 1 : collapseQueue_[index].affectedBytes;
+        const int other = static_cast<int8_t>(match.phase);
+        velocity = (velocity + other * weight) / (1 + weight);
+        if (match.debris) {
+            if (reverse) debrisQueue_[index].velocityY = static_cast<int8_t>(velocity);
+            else debrisQueue_[index].velocityX = static_cast<int8_t>(velocity);
+        } else {
+            if (reverse) collapseQueue_[index].reversePhase = static_cast<uint8_t>(velocity);
+            else collapseQueue_[index].forwardPhase = static_cast<uint8_t>(velocity);
+        }
     }
 
     void explode(const Bomb& bomb) {
@@ -25677,13 +25875,14 @@ private:
                     const uint16_t destWord = wordCellAt(dest);  // 4C64..4C75
                     if (destWord == 0) {
                         vx = 0;  // 4CAE
+                    } else {
+                        blendDebrisImpactLane(dest, destWord, vx, false);  // 4C96
+                        // X may have seeded the target. The original forces
+                        // its flag for the Y matcher at 4C99 before 4CA9.
+                        blendDebrisImpactLane(
+                            dest, static_cast<uint16_t>(destWord | kDamagedWordBit),
+                            vy, true);
                     }
-                    // destWord > 0: the original merges velocities with the
-                    // struck record through 3BB2/3D46 (the 3D2D staging
-                    // writes). That blender is the still-open
-                    // natural_forward_debris_writeback_3d2d item and is
-                    // deliberately not modelled; the lane bytes are left
-                    // unchanged instead.
                 }
             }
 
@@ -27333,6 +27532,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-debris-bounce-rng") {
             app.debugDebrisBounceRng();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-debris-impacts") {
+            app.debugDebrisImpacts(argv[2], argc > 3 ? argv[3] : "");
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-debris-motion-live") {

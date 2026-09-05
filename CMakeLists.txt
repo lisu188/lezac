@@ -3631,7 +3631,23 @@ if(BUILD_TESTING)
     set_tests_properties(natural_forward_debris_writeback PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^natural_forward_debris_writeback=ok level=2 ghidra=1000:3d2d ticks_sampled=3927 pure_vx_overwrites=3 target=record[+]4 observable=1 blend_formula_recovered=0 port_models_blend=0 visual_claim=0")
+            "^natural_forward_debris_writeback=ok level=2 ghidra=1000:3d2d ticks_sampled=3927 pure_vx_overwrites=3 target=record[+]4 observable=1 blend_formula_recovered=0 port_models_blend=1 visual_claim=0")
+
+    add_test(NAME debris_impacts_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-impacts
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/debris_impacts_original.txt)
+    set_tests_properties(debris_impacts_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^debris_impacts=ok cases=9 debris_records=16 collapse_records=3 seeded_original=1 natural_route_claim=0 frames_inspected=9 last_hash=[0-9a-f]+")
+
+    add_test(NAME debris_impacts_capture_self_check
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_debris_impacts.py --self-check)
+    set_tests_properties(debris_impacts_capture_self_check PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^debris_impacts_capture_self_check=ok windows=4 seeded=1 live=0")
 
     add_test(NAME actor_contact_level2_evidence
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-contact-level2-evidence

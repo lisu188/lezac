@@ -2015,7 +2015,7 @@ if(BUILD_TESTING)
         set_tests_properties(port_completion_status_checker PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^port_completion_status_checker=ok subsystems=23 open_items=3 ctest=3 docs=3")
+                "^port_completion_status_checker=ok subsystems=23 open_items=4 ctest=3 docs=3")
 
         add_test(NAME livels_debris_sites
             COMMAND ${Python3_EXECUTABLE}

@@ -3634,7 +3634,7 @@ if(BUILD_TESTING)
     set_tests_properties(unevidenced_constants PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^unevidenced_constants=ok tracked=4 source=app.cpp doc=unevidenced_constants.md drift=0")
+            "^unevidenced_constants=ok tracked=3 source=app.cpp doc=unevidenced_constants.md drift=0")
 
     add_test(NAME debris_shatter_playback
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-shatter-playback
@@ -3791,7 +3791,7 @@ if(BUILD_TESTING)
     set_tests_properties(object_collision_jump_live PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^object_collision_jump_live=ok support_cell=17,22 jump_vy=-[0-9]+ route_clear=1 frame_inspection=1")
+            "^object_collision_jump_live=ok object_cell=17,22 object_support=0 settled_before_jump=1 jump_vy=-[0-9]+ route_clear=1 frame_inspection=1")
 
     add_test(NAME level_intro
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -3809,6 +3809,20 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
             "^sound_hook_evidence=ok hooks=2 objective_pickup=0x0000/p3 level_complete=0x003d/p10 accepted_pair=0x78c0/0x799e visual_claim=0")
+
+    add_test(NAME player_walk_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-player-walk-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/player_walk_original)
+    set_tests_properties(player_walk_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^player_walk_original=ok cases=5 samples=445 full_motion_states=445 input_responses=445 overspeed_states=16 air_coast_states=12 frame_inspection=1")
+
+    add_test(NAME player_walk_capture_contract
+        COMMAND ${Python3_EXECUTABLE} tools/capture_original_player_walk.py --self-check)
+    set_tests_properties(player_walk_capture_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^player_walk_capture_self_check=ok windows=9 live=0")
 
     add_test(NAME route_timing_evidence
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

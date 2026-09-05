@@ -94,13 +94,23 @@ the originating callsite is still unattributed. Pinned by
 
 Resolved: `level1_route_timing_original_confirmation` — tick-locked
 /proc-mem measurement against the original (frame counter `DS:0x78C2`)
-recovered the governed 24-25 fps game rate, the flat 4 px/tick walk, the
+recovered the governed 24-25 fps game rate, the 4 px/tick cruising walk, the
 8.8 fixed-point jump (v0=-848, gravity +64/tick, floor-to-pixel — every
 observed per-tick delta reproduces exactly). The earlier 41-tick small-bomb
 fuse claim was withdrawn: it sampled a monster spawner, not a bomb. The
 movement evidence is pinned by
 `tests/fixtures/route_timing_original_level1.txt` and the
 `route_timing_evidence` ctest.
+
+The subsequent [player movement recovery](player_walk_runtime_2026-09-05.md)
+corrects the earlier instantaneous-speed interpretation. Five original input
+streams now match 445 continuous production updates in X/Y, VX/VY and both
+fractional carries, covering acceleration, grounded braking, reversal,
+reacceleration, airborne coasting, ceiling contact, landing and the weapon
+chord. Input adds 64 toward the nominal 1024 threshold; grounded coasting
+subtracts 42. Gravity/landing runs before input, and the jump impulse precedes
+shared collision and Y/X integration. This does not close exact animation,
+hard-landing presentation, step-hop runtime or all-level interaction fidelity.
 
 Bomb fuse timing is now independently recovered from the actual actor table
 at `DS:1BAE`, field `+0x02`: constructor seeds 20/30/40/200, subtracting the

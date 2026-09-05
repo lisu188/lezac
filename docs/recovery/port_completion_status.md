@@ -106,8 +106,12 @@ Bomb fuse timing is now independently recovered from the actual actor table
 at `DS:1BAE`, field `+0x02`: constructor seeds 20/30/40/200, subtracting the
 odd-frame bit, with first update on the frame after placement. Eight original
 traces cover both phases of all four weapons; see
-[bomb fuse runtime evidence](bomb_fuse_runtime_2026-09-05.md). This does not
-establish bomb trajectory or explosion visual parity.
+[bomb fuse runtime evidence](bomb_fuse_runtime_2026-09-05.md). A subsequent
+[bomb motion recovery](bomb_motion_runtime_2026-09-05.md) matches 16 original
+idle, left, right and jump throws across all four weapons: inherited launch
+velocity, collision, gravity, friction, fractional carry and sprite-height
+offsets. These focused traces do not establish complete explosion visual
+parity or unrestricted cross-gameplay lockstep.
 
 Resolved: `ds79b9_fallback_runtime_reachability` — an original last-life
 death was captured on level 1 (lives forced to 1 via `DS:0x79EA`, killed by

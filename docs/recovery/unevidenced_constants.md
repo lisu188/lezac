@@ -52,12 +52,6 @@ That distinction should be stated wherever such a pin is registered.
   velocity — the deepest observed fall peaks at `vy = 704` — so the clamp VALUE
   is an inference from the actor path, not a measurement of the player path.
 
-- `bomb_pixel_equals_player_pixel` — the identification of a placed bomb
-  actor's pixel position with the dropping player's pixel position. Inferred
-  from ONE consistent point: player pixel (200,308) → base 3724 →
-  post-walk `DS:C1E8` = 3925, exactly as measured. A second capture at a
-  different pixel phase would settle it.
-
 - `corpse_sprite_non_kind1` — the corpse sprite for monster kinds other than 1.
   The byte-cited table `DS:[0x0077 + kind*2 + dir]` gives kind 2 → 42,
   kind 3 → 52, kind 4 → 56, and the port uses those; what is unevidenced is
@@ -77,3 +71,8 @@ look arbitrary — for example the `+0x40` gravity step, the `0x7b` debris
 gravity gate, the 14-tick behaviour-4 retarget period, the `ai1 = 271` velocity
 range, the 120-tick corpse hold and retirement at debris rest count 100 are all
 established, and each has a diagnostic that would fail if it changed.
+
+Initial bomb pixels equaling the player's cached pixels are also established
+by the constructor call and all 16
+[bomb motion traces](bomb_motion_runtime_2026-09-05.md). The former
+`bomb_pixel_equals_player_pixel` entry was removed with that evidence.

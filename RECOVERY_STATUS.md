@@ -23,6 +23,22 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Recovered player acceleration, braking and integration ordering
+  (2026-09-05).** Five original level-1 control streams provide 445 consecutive
+  motion states. The production player update reproduces all X/Y, VX/VY and
+  fractional-carry fields continuously, including airborne coasting, ceiling
+  contact, landing, reversal and the both-direction weapon chord. Walking
+  accelerates by 64 per tick; grounded release removes 42, retaining carry.
+  The 1024 threshold is tested before adding, so reacceleration can reach
+  1050. This supersedes the earlier instantaneous-walk and move-then-gravity
+  interpretations below: gravity/landing precedes input, then the jump
+  impulse and shared edge collision precede Y/X integration. The earlier
+  4-pixel timing fixture measures cruising speed, not the startup ramp.
+  Terminal velocity is now cited directly from the player branch. See
+  [player movement evidence](docs/recovery/player_walk_runtime_2026-09-05.md).
+  Exact animation cadence, hard-landing presentation, step-hop runtime
+  confirmation and unrestricted cross-gameplay lockstep remain open.
+
 - **Integrated the falling-debris recovery with current main (2026-09-05).**
   Both level-2 and level-3 evidence sets are retained. The level-3 production
   replay supersedes the older private-countdown interpretation; behavior-4

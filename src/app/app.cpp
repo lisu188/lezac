@@ -242,7 +242,6 @@ constexpr int kLevelIntroCellAdvance = 11;
 constexpr int kLevelIntroTextY = 94;
 constexpr uint8_t kLevelIntroPaletteFirst = 176;
 constexpr size_t kLevelIntroPaletteCount = 7;
-constexpr int kCollisionPushoutLimit = 1024;
 constexpr int kAudioSampleRate = 22050;
 constexpr int kAudioToneSamples = kAudioSampleRate / 28;
 constexpr size_t kSoundStepSize = 6;
@@ -390,14 +389,12 @@ constexpr int16_t kOriginalLaunchPadVelocity = -2000;
 // rather than from the jump: -848/256 is -3.3125 px/tick = -81 px/s, and
 // 64/256 is 0.25 px/tick^2 = 150 px/s^2. The peak agreed only by coincidence
 // (98^2 / (2*200) = 24.01). The per-tick deltas did not.
-constexpr int16_t kPlayerWalkVelocity8 = 0x0400;   // flat 4 px/tick
+constexpr int16_t kPlayerWalkVelocity8 = 0x0400;   // acceleration threshold, not a hard clamp
+constexpr int16_t kPlayerWalkAcceleration8 = 0x0040;
 constexpr int16_t kPlayerJumpVelocity8 = kOriginalNormalJumpVelocity;  // -848
 constexpr int16_t kPlayerGravity8 = 64;            // +0x40 per tick
-// The original's actor gravity adds +0x40 per tick and clamps at 0x7FF
-// (1000:7028/702C). The player's measured gravity is that same +0x40, so the
-// clamp is carried over by analogy; no capture reaches terminal velocity, so
-// the clamp VALUE is INFERRED (@unevidenced:player_terminal_velocity) even
-// though the +0x40 step is measured.
+// The player-specific branch 1000:6743..6753 also explicitly clamps at
+// 0x07ff. This is now byte-cited, not borrowed from monster gravity.
 constexpr int16_t kPlayerTerminalVelocity8 = 0x07ff;
 // Float mirror kept for the many call sites that read player.vy as a sign or
 // magnitude; it is always vy8 / 256.
@@ -18752,32 +18749,34 @@ public:
         constexpr int kSolidY = 5;
         setTile(kSolidX, kSolidY, kSolidDebugTile);
 
-        player_.x = static_cast<float>(kSolidX * kTileSize - 12);
+        player_ = Player{};
+        player_.x = static_cast<float>(kSolidX * kTileSize - 14);
         player_.y = static_cast<float>(kSolidY * kTileSize);
+        player_.vx8 = 0x0200;
+        player_.fracX = 64;
         if (collides(player_.x, player_.y)) {
             throw std::runtime_error("player horizontal fixture starts blocked");
         }
-        movePlayer(player_, 2.0f, 0.0f);
+        updatePlayer(player_, false, false, false, false, playerFacing_, playerAnimTick_, 0.0f);
         if (collides(player_.x, player_.y) ||
-            player_.x != static_cast<float>(kSolidX * kTileSize - 12)) {
-            throw std::runtime_error("player horizontal pushout did not clear collision");
+            player_.x != static_cast<float>(kSolidX * kTileSize - 16) ||
+            player_.vx8 != -0x0100 || player_.fracX != 64) {
+            throw std::runtime_error("player horizontal reflection did not retain fractional carry");
         }
 
         constexpr int kFloorX = 10;
         constexpr int kFloorY = 8;
         setTile(kFloorX, kFloorY, kSolidDebugTile);
+        player_ = Player{};
         player_.x = static_cast<float>(kFloorX * kTileSize);
-        player_.y = static_cast<float>(kFloorY * kTileSize - 16);
-        player_.grounded = false;
-        player_.vy = 12.0f;
-        if (collides(player_.x, player_.y)) {
-            throw std::runtime_error("player vertical fixture starts blocked");
-        }
-        movePlayer(player_, 0.0f, 2.0f);
+        player_.y = static_cast<float>(kFloorY * kTileSize - 13);
+        player_.vy8 = 0x0200;
+        player_.fracY = 77;
+        updatePlayer(player_, false, false, false, false, playerFacing_, playerAnimTick_, 0.0f);
         if (collides(player_.x, player_.y) ||
             player_.y != static_cast<float>(kFloorY * kTileSize - 16) ||
-            !player_.grounded || player_.vy != 0.0f) {
-            throw std::runtime_error("player vertical pushout did not land cleanly");
+            !player_.grounded || player_.vy8 != 0 || player_.fracY != 77) {
+            throw std::runtime_error("player ground snap did not retain fractional carry");
         }
 
         playerDead_ = true;
@@ -19548,15 +19547,15 @@ public:
         playerCount_ = 1;
         constexpr int kObjectX = 17;
         constexpr int kObjectY = 22;
-        if (!isObjectJumpSupportCell(kObjectX, kObjectY) ||
+        if (tileAt(kObjectX, kObjectY) != 0x60 || wordAt(kObjectX, kObjectY) != 1 ||
             !isPassableObjectCell(kObjectX, kObjectY)) {
-            throw std::runtime_error("level 1 object support fixture is not a passable object cell");
+            throw std::runtime_error("level 1 object fixture is not the expected passable cell");
         }
+        player_ = Player{};
         player_.x = static_cast<float>(kObjectX * kTileSize);
         player_.y = static_cast<float>(kObjectY * kTileSize - 15);
-        player_.vy = 0.0f;
-        player_.grounded = false;
-        if (collides(player_.x, player_.y)) {
+        if (collides(player_.x, player_.y) ||
+            scanActorEdges(static_cast<int>(player_.x), static_cast<int>(player_.y)).bottom) {
             throw std::runtime_error("object jump fixture starts blocked");
         }
         FrameInspection startFrame = inspectRenderedFrame("object-jump-live-start");
@@ -19565,8 +19564,16 @@ public:
         jump.p1Jump = true;
         float startY = player_.y;
         updateWithControls(jump, 1.0f / 60.0f);
-        if (player_.vy >= 0.0f || player_.y >= startY || player_.grounded) {
-            throw std::runtime_error("passable object cell did not provide jump support");
+        if (player_.vy8 != kPlayerGravity8 || player_.y < startY || player_.grounded) {
+            throw std::runtime_error("passable object incorrectly provided jump support");
+        }
+        bool reachedFloor = false;
+        for (int i = 0; i < 16 && player_.vy8 >= 0; ++i) {
+            reachedFloor = scanActorEdges(static_cast<int>(player_.x), static_cast<int>(player_.y)).bottom;
+            updateWithControls(jump, 1.0f / 60.0f);
+        }
+        if (!reachedFloor || player_.vy8 != kPlayerJumpVelocity8 || player_.grounded) {
+            throw std::runtime_error("held jump did not launch after naturally reaching solid floor");
         }
         int jumpVy = static_cast<int>(std::lround(player_.vy));
         FrameInspection jumpFrame = inspectRenderedFrame("object-jump-live-airborne");
@@ -19578,11 +19585,12 @@ public:
         menu_ = false;
         AutoplayRouteResult route = autoplayLevel1BombRoute();
         if (route.bombTileX != 24 || route.bombTileY != 21) {
-            throw std::runtime_error("object jump support blocked level 1 bomb route");
+            throw std::runtime_error("object collision blocked level 1 bomb route");
         }
 
         std::cout << "object_collision_jump_live=ok"
-                  << " support_cell=" << kObjectX << ',' << kObjectY
+                  << " object_cell=" << kObjectX << ',' << kObjectY
+                  << " object_support=0 settled_before_jump=1"
                   << " jump_vy=" << jumpVy
                   << " route_clear=1 frame_inspection=1\n";
     }
@@ -21875,6 +21883,149 @@ public:
                   << " visual_claim=0\n";
     }
 
+    void debugPlayerWalkOriginal(const std::string& fixtureDir, const std::string& outDir = "") {
+        load();
+        initSdl();
+        std::ofstream manifest;
+        if (!outDir.empty()) {
+            std::filesystem::create_directories(outDir);
+            manifest.open(joinPath(outDir, "manifest.csv"));
+            if (!manifest) throw std::runtime_error("cannot create player walk manifest");
+            manifest << "route,sample,phase,frame,x,y,vx8,vy8,frac_x,frac_y,frame_hash\n";
+        }
+        auto bytes = [](const std::string& hex, size_t size) {
+            if (hex.size() != size * 2 || hex.find_first_not_of("0123456789abcdef") != std::string::npos) {
+                throw std::runtime_error("invalid original player record");
+            }
+            std::vector<uint8_t> raw(size);
+            for (size_t i = 0; i < size; ++i) raw[i] = static_cast<uint8_t>(std::stoul(hex.substr(i * 2, 2), nullptr, 16));
+            return raw;
+        };
+        auto localWord = [](const std::vector<uint8_t>& raw, int offset) {
+            return static_cast<int16_t>(le16(raw, static_cast<size_t>(0x3A + offset)));
+        };
+        const std::array<std::pair<std::string, int>, 5> routes{{
+            {"braking", 96}, {"reversal", 120}, {"reaccelerate", 134},
+            {"air_coast", 39}, {"switch_coast", 56}}};
+        int samples = 0, overspeed = 0, airCoast = 0;
+        uint64_t lastHash = 0;
+        for (const auto& [route, expectedCount] : routes) {
+            std::ifstream input(joinPath(fixtureDir, route + ".txt"));
+            if (!input) throw std::runtime_error("missing original player route " + route);
+            resetLevel(0);
+            menu_ = false;
+            bool header = false, complete = false;
+            int count = 0, previousFrame = -1;
+            std::string line, previousPhase;
+            while (std::getline(input, line)) {
+                if (line.empty() || line.front() == '#') continue;
+                std::istringstream parts(line);
+                std::map<std::string, std::string> fields;
+                std::string field;
+                while (parts >> field) {
+                    const size_t equal = field.find('=');
+                    if (equal != std::string::npos) fields.emplace(field.substr(0, equal), field.substr(equal + 1));
+                }
+                if (line.rfind("capture=", 0) == 0) {
+                    if (header || fields.at("capture") != "player_walk_original_v1" ||
+                        fields.at("route") != route || fields.at("temp_copy") != "1") {
+                        throw std::runtime_error("invalid original player header");
+                    }
+                    header = true;
+                    continue;
+                }
+                if (line.rfind("complete ", 0) == 0) {
+                    if (!header || count != expectedCount || std::stoi(fields.at("samples")) != count) {
+                        throw std::runtime_error("incomplete original player route");
+                    }
+                    complete = true;
+                    continue;
+                }
+                if (line.rfind("tick ", 0) != 0 || !header || complete) {
+                    throw std::runtime_error("unexpected original player row");
+                }
+                const auto raw = bytes(fields.at("raw"), 0x26);
+                const auto visual = bytes(fields.at("visual"), 8);
+                const auto before = bytes(fields.at("pre"), 0x3A);
+                const auto response = bytes(fields.at("response"), 0x3A);
+                const auto after = bytes(fields.at("post"), 0x3A);
+                const int frame = std::stoi(fields.at("frame"));
+                const std::string phase = fields.at("phase");
+                if (raw[0] != 0 || raw[0x14] != 0 || raw[0x15] != 0 ||
+                    (count && frame != ((previousFrame + 1) & 0xffff))) {
+                    throw std::runtime_error("invalid or non-consecutive original player state");
+                }
+                if (!count) {
+                    player_.x = static_cast<float>(le16(visual, 0));
+                    player_.y = static_cast<float>(le16(visual, 2));
+                    player_.vx8 = static_cast<int16_t>(le16(raw, 6));
+                    player_.vy8 = static_cast<int16_t>(le16(raw, 8));
+                    player_.fracX = raw[10];
+                    player_.fracY = raw[12];
+                    player_.grounded = before[0x19] != 0;
+                    syncPlayerVelocityMirror(player_);
+                    logicTick_ = static_cast<uint32_t>(frame - 1);
+                }
+                if (static_cast<int>(player_.x) != le16(visual, 0) ||
+                    static_cast<int>(player_.y) != le16(visual, 2) ||
+                    player_.vx8 != static_cast<int16_t>(le16(raw, 6)) ||
+                    player_.vy8 != static_cast<int16_t>(le16(raw, 8)) ||
+                    player_.fracX != raw[10] || player_.fracY != raw[12]) {
+                    throw std::runtime_error(route + " original player continuity mismatch at " + std::to_string(count));
+                }
+                FrameControls controls;
+                if (phase == "left") controls.p1Left = true;
+                else if (phase == "right") controls.p1Right = true;
+                else if (phase == "jump_right") controls.p1Right = controls.p1Jump = true;
+                else if (phase == "both") controls.p1Left = controls.p1Right = true;
+                else if (phase != "idle") throw std::runtime_error("unknown original player controls");
+                const bool left = controls.p1Left && phase != "both";
+                const bool right = controls.p1Right && phase != "both";
+                if (before[0x15] || before[0x14] ||
+                    playerWalkVelocity(localWord(before, -12), left, right, before[0x19] != 0) !=
+                        localWord(response, -12)) {
+                    throw std::runtime_error(route + " original player input response mismatch");
+                }
+                overspeed += std::abs(localWord(response, -12)) > kPlayerWalkVelocity8;
+                airCoast += phase == "idle" && !before[0x19] && localWord(response, -12) != 0;
+                updateWithControls(controls, 1.0f / 60.0f);
+                if (static_cast<int>(player_.x) != localWord(after, -44) ||
+                    static_cast<int>(player_.y) != localWord(after, -46) ||
+                    player_.vx8 != localWord(after, -12) || player_.vy8 != localWord(after, -14) ||
+                    player_.fracX != after[0x2A] || player_.fracY != after[0x29]) {
+                    std::ostringstream message;
+                    message << route << " original player motion mismatch at " << count
+                            << " got=" << player_.x << ',' << player_.y << ',' << player_.vx8 << ','
+                            << player_.vy8 << ',' << int(player_.fracX) << ',' << int(player_.fracY)
+                            << " original=" << localWord(after, -44) << ',' << localWord(after, -46)
+                            << ',' << localWord(after, -12) << ',' << localWord(after, -14)
+                            << ',' << int(after[0x2A]) << ',' << int(after[0x29]);
+                    throw std::runtime_error(message.str());
+                }
+                if (count == 0 || phase != previousPhase || count + 1 == expectedCount) {
+                    const std::string label = route + "_" + std::to_string(count);
+                    lastHash = inspectRenderedFrame(label).hash;
+                    if (!outDir.empty()) {
+                        writeArgbPpm(joinPath(outDir, label + ".ppm"), fb_, kScreenW, kScreenH);
+                        manifest << route << ',' << count << ',' << phase << ',' << frame << ','
+                                 << player_.x << ',' << player_.y << ',' << player_.vx8 << ',' << player_.vy8
+                                 << ',' << int(player_.fracX) << ',' << int(player_.fracY) << ','
+                                 << std::hex << lastHash << std::dec << '\n';
+                    }
+                }
+                ++count;
+                ++samples;
+                previousFrame = frame;
+                previousPhase = phase;
+            }
+            if (!complete) throw std::runtime_error("missing original player completion row");
+        }
+        std::cout << "player_walk_original=ok cases=5 samples=" << samples
+                  << " full_motion_states=" << samples << " input_responses=" << samples
+                  << " overspeed_states=" << overspeed << " air_coast_states=" << airCoast
+                  << " frame_inspection=1 frame_hash=" << std::hex << lastHash << std::dec << '\n';
+    }
+
     void debugRouteTimingEvidence(const std::string& fixturePath) {
         std::ifstream in(fixturePath);
         if (!in) throw std::runtime_error("cannot open " + fixturePath);
@@ -21945,6 +22096,9 @@ public:
 
         FrameControls walkRight;
         walkRight.p1Right = true;
+        // The old fixture measured cruising speed, not the acceleration ramp.
+        // Reach that state through live controls before measuring eight ticks.
+        for (int i = 0; i < 16; ++i) updateWithControls(walkRight, tickSeconds);
         const float walkStartX = player_.x;
         int walkTicks = 0;
         for (int i = 0; i < 8; ++i) {
@@ -23695,42 +23849,59 @@ private:
     // signatures are undisturbed.
     void updatePlayer(Player& player, bool left, bool right, bool jump, bool switchWeapon,
                       int& facing, int& animTick, float) {
-        player.vx8 = 0;
-        if (!switchWeapon && left) {
-            player.vx8 = static_cast<int16_t>(player.vx8 - kPlayerWalkVelocity8);
+        int x = static_cast<int>(player.x);
+        int y = static_cast<int>(player.y);
+        auto edges = scanActorEdges(x, y);
+        const int column = (x + 4) >> 3;
+        const int row = y >> 3;
+        const bool stepLeft = edges.left && !solidTileSide(static_cast<uint8_t>(tileAt(column - 1, row)));
+        const bool stepRight = edges.right && !solidTileSide(static_cast<uint8_t>(tileAt(column + 2, row)));
+        left = left && !switchWeapon;
+        right = right && !switchWeapon;
+
+        // Player branch 1000:6743..6813 runs gravity/landing before input.
+        // The jump impulse comes later, so its first integration is -848.
+        if (!edges.bottom || player.vy8 < 0) {
+            player.vy8 = static_cast<int16_t>(std::min<int>(kPlayerTerminalVelocity8,
+                                                           player.vy8 + kPlayerGravity8));
+        } else if (player.vy8 > 0) {
+            y &= ~7;
+            player.vy8 = static_cast<int16_t>(player.vy8 > 1600 ? -player.vy8 / 4 : 0);
+        }
+        if (left) {
+            if (stepLeft) {
+                player.vy8 = -500;
+                player.vx8 = -250;
+                edges.left = false;
+            }
             facing = -1;
         }
-        if (!switchWeapon && right) {
-            player.vx8 = static_cast<int16_t>(player.vx8 + kPlayerWalkVelocity8);
+        if (right) {
+            if (stepRight) {
+                player.vy8 = -500;
+                player.vx8 = 250;
+                edges.right = false;
+            }
             facing = 1;
         }
+        player.vx8 = playerWalkVelocity(player.vx8, left, right, edges.bottom);
         if (player.vx8 != 0) ++animTick;
         else animTick = 0;
-        if (!player.grounded && hasObjectJumpSupport(player)) {
-            player.grounded = true;
-        }
-        if (jump && player.grounded) {
+        if (jump && edges.bottom && player.vy8 == 0) {
             player.vy8 = kPlayerJumpVelocity8;
-            player.grounded = false;
         }
-        // Move THEN apply gravity: the captured arc's first delta is the full
-        // -848 step (-4 px), so the launch tick moves before the first +0x40
-        // is added. Applying gravity first loses that leading step and shifts
-        // the whole series by one tick.
-        syncPlayerVelocityMirror(player);
-        movePlayerFixed(player, player.vx8, true);
-        movePlayerFixed(player, player.vy8, false);
-        if (player.grounded) {
-            // Gravity is gated on standing on something, the same way the
-            // original gates its actors' +0x40 on the tile below. Letting it
-            // accumulate while grounded would leave a residual fractional
-            // carry that perturbs the next jump's arc.
-            player.vy8 = 0;
-            player.fracY = 0;
-        } else {
-            player.vy8 = static_cast<int16_t>(
-                std::min<int>(kPlayerTerminalVelocity8, player.vy8 + kPlayerGravity8));
+        if (edges.top && player.vy8 < 0) player.vy8 = 1;
+        if (edges.left && edges.right) {
+            player.vx8 = 0;
+        } else if ((edges.left && player.vx8 < 0) || (edges.right && player.vx8 > 0)) {
+            player.vx8 = static_cast<int16_t>(-player.vx8 / 2);
+            x += player.vx8 < 0 ? -1 : 1;
         }
+        integrateAxis8_8(y, player.fracY, player.vy8);
+        integrateAxis8_8(x, player.fracX, player.vx8);
+        player.x = static_cast<float>(x);
+        player.y = static_cast<float>(y);
+        player.grounded = edges.bottom && player.vy8 == 0;
         syncPlayerVelocityMirror(player);
     }
 
@@ -23739,15 +23910,19 @@ private:
         player.vy = player.vy8 / 256.0f;
     }
 
-    // Integrate one axis by one tick in 8.8 fixed point, then hand the whole
-    // pixel delta to movePlayer so the collision/pushout path is unchanged.
-    void movePlayerFixed(Player& player, int16_t velocity8, bool horizontal) {
-        int pos = static_cast<int>(horizontal ? player.x : player.y);
-        const int before = pos;
-        integrateAxis8_8(pos, horizontal ? player.fracX : player.fracY, velocity8);
-        const float delta = static_cast<float>(pos - before);
-        if (delta == 0.0f) return;
-        movePlayer(player, horizontal ? delta : 0.0f, horizontal ? 0.0f : delta);
+    static int16_t actorFloorFriction(int16_t velocity) {
+        // Original shared helper 1000:5B86, called by players and bombs.
+        return static_cast<int16_t>(std::abs(velocity) < 43 ? 0 :
+                                    velocity + (velocity < 0 ? 42 : -42));
+    }
+
+    static int16_t playerWalkVelocity(int16_t velocity, bool left, bool right, bool bottom) {
+        // 1000:6AC6/6B1C test before adding. Reaccelerating after friction
+        // can cross +/-1024; clamping the result would change the original.
+        if (left && velocity > -kPlayerWalkVelocity8) velocity -= kPlayerWalkAcceleration8;
+        if (right && velocity < kPlayerWalkVelocity8) velocity += kPlayerWalkAcceleration8;
+        if (bottom && !left && !right) velocity = actorFloorFriction(velocity);
+        return velocity;
     }
 
     AutoplayRouteResult autoplayLevel1BombRoute() {
@@ -23773,13 +23948,22 @@ private:
             result.bombTileX = (static_cast<int>(player_.x) + 4) / kTileSize;
             result.bombTileY = static_cast<int>(player_.y) / kTileSize;
             if (result.bombTileX == kTargetBombX &&
-                result.bombTileY == kTargetBombY) {
+                result.bombTileY == kTargetBombY && player_.vx8 == 0) {
                 break;
             }
 
+            // Plan braking on this flat floor using the recovered friction
+            // and fractional carry, then execute only ordinary controls.
+            int stopX = static_cast<int>(player_.x);
+            uint8_t stopFraction = player_.fracX;
+            int16_t stopVelocity = player_.vx8;
+            while (stopVelocity != 0) {
+                stopVelocity = actorFloorFriction(stopVelocity);
+                integrateAxis8_8(stopX, stopFraction, stopVelocity);
+            }
             FrameControls controls;
-            controls.p1Right = result.bombTileX < kTargetBombX;
-            controls.p1Left = result.bombTileX > kTargetBombX;
+            controls.p1Right = stopX < kTargetBombX * kTileSize - 4;
+            controls.p1Left = stopX >= (kTargetBombX + 1) * kTileSize - 4;
             updateWithControls(controls, kDt);
             ++result.frames;
 
@@ -23799,48 +23983,13 @@ private:
         result.finalY = static_cast<int>(player_.y);
         result.bombTileX = (static_cast<int>(player_.x) + 4) / kTileSize;
         result.bombTileY = static_cast<int>(player_.y) / kTileSize;
-        if (result.bombTileX != kTargetBombX || result.bombTileY != kTargetBombY) {
+        if (result.bombTileX != kTargetBombX || result.bombTileY != kTargetBombY || player_.vx8 != 0) {
             throw std::runtime_error("level1 autoplayer did not reach target tile");
         }
         if (collides(player_.x, player_.y)) {
             throw std::runtime_error("level1 autoplayer finished inside collision");
         }
         return result;
-    }
-
-    void movePlayer(Player& player, float dx, float dy) {
-        if (dx != 0.0f) {
-            float oldX = player.x;
-            player.x += dx;
-            if (collides(player.x, player.y)) {
-                float step = dx > 0.0f ? -1.0f : 1.0f;
-                int pushes = 0;
-                while (collides(player.x, player.y) && pushes++ < kCollisionPushoutLimit) {
-                    player.x += step;
-                }
-                if (collides(player.x, player.y)) player.x = oldX;
-            }
-        }
-        if (dy != 0.0f) {
-            float oldY = player.y;
-            player.y += dy;
-            if (collides(player.x, player.y)) {
-                float step = dy > 0.0f ? -1.0f : 1.0f;
-                int pushes = 0;
-                while (collides(player.x, player.y) && pushes++ < kCollisionPushoutLimit) {
-                    player.y += step;
-                }
-                if (collides(player.x, player.y)) player.y = oldY;
-                player.grounded = dy > 0.0f;
-                player.vy8 = 0;
-                player.fracY = 0;
-                player.vy = 0.0f;
-            } else {
-                player.grounded = false;
-            }
-        }
-        player.x = std::clamp(player.x, 0.0f, std::max(16.0f, level_.width * 8.0f - 16.0f));
-        player.y = std::clamp(player.y, 0.0f, std::max(16.0f, level_.height * 8.0f - 16.0f));
     }
 
     void collectObjectiveTiles(const Player& player, uint8_t playerIndex) {
@@ -25328,8 +25477,7 @@ private:
             collideY &= ~7;
         }
         if (edges.bottom) {
-            bomb.vx8 = static_cast<int16_t>(std::abs(bomb.vx8) < 43 ? 0 :
-                                          bomb.vx8 + (bomb.vx8 < 0 ? 42 : -42));
+            bomb.vx8 = actorFloorFriction(bomb.vx8);
         }
         if (edges.top && bomb.vy8 < 0) bomb.vy8 = 1;
         if (edges.left && edges.right) {
@@ -25414,27 +25562,6 @@ private:
         uint8_t tile = static_cast<uint8_t>(tileAt(tx, ty));
         if (isPassableObjectTile(tile)) return true;
         return countsForPhysicalDamageProgress(wordAt(tx, ty));
-    }
-
-    bool isObjectJumpSupportCell(int tx, int ty) const {
-        uint8_t tile = static_cast<uint8_t>(tileAt(tx, ty));
-        return isBombObjectTile(tile) || countsForPhysicalDamageProgress(wordAt(tx, ty));
-    }
-
-    bool objectJumpSupportPixel(float px, float py) const {
-        int tx = static_cast<int>(px) / kTileSize;
-        int ty = static_cast<int>(py) / kTileSize;
-        return isObjectJumpSupportCell(tx, ty);
-    }
-
-    bool hasObjectJumpSupport(const Player& player) const {
-        float left = player.x + 1.0f;
-        float right = player.x + 10.0f;
-        float bottom = player.y + 15.0f;
-        return objectJumpSupportPixel(left, bottom) ||
-               objectJumpSupportPixel(right, bottom) ||
-               objectJumpSupportPixel(left, bottom + 1.0f) ||
-               objectJumpSupportPixel(right, bottom + 1.0f);
     }
 
     bool requestBombObjectScoreSound(bool sawHighObjectTile) {
@@ -27757,6 +27884,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-bomb-fuse-original") {
             app.debugBombFuseOriginal(argv[2], argc > 3 ? argv[3] : "");
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-player-walk-original") {
+            app.debugPlayerWalkOriginal(argv[2], argc > 3 ? argv[3] : "");
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-bomb-motion-original") {

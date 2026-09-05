@@ -44,14 +44,6 @@ That distinction should be stated wherever such a pin is registered.
   pacing. Echoed by the `player_state2_death_fields` and
   `player_state2_return_active` pins.
 
-- `player_terminal_velocity` — `kPlayerTerminalVelocity8 = 0x07ff`. The
-  player's falling terminal velocity. The `+0x40` per-tick gravity step IS
-  measured (`tests/fixtures/route_timing_original_level1.txt`), and the clamp is
-  carried over by analogy from the original's actor gravity
-  (`1000:7028`/`702C`), whose step matches. But no capture reaches terminal
-  velocity — the deepest observed fall peaks at `vy = 704` — so the clamp VALUE
-  is an inference from the actor path, not a measurement of the player path.
-
 - `corpse_sprite_non_kind1` — the corpse sprite for monster kinds other than 1.
   The byte-cited table `DS:[0x0077 + kind*2 + dir]` gives kind 2 → 42,
   kind 3 → 52, kind 4 → 56, and the port uses those; what is unevidenced is
@@ -76,3 +68,9 @@ Initial bomb pixels equaling the player's cached pixels are also established
 by the constructor call and all 16
 [bomb motion traces](bomb_motion_runtime_2026-09-05.md). The former
 `bomb_pixel_equals_player_pixel` entry was removed with that evidence.
+
+The player's terminal velocity `0x07FF` is explicitly present in the
+player-specific gravity branch at `1000:6743..6753`, independently of monster
+gravity. The former `player_terminal_velocity` entry was removed with the
+[player movement recovery](player_walk_runtime_2026-09-05.md). The value is
+instruction-backed; the five movement traces do not reach terminal velocity.

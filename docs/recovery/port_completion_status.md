@@ -67,8 +67,13 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 These are historical fidelity follow-ups tracked in `RECOVERY_STATUS.md`.
 They are not an exhaustive list of functional recovery gaps. Missing
-pickup/fracture transient actors, collision semantics, and complete natural
-bomb/collapse progression still need implementation and original evidence.
+shared-actor allocation/order edge cases, collision semantics, and complete
+natural bomb/collapse progression still need implementation and original
+evidence. Pickup/fracture transients now have focused original replays; see
+[transient actor evidence](transient_actors_runtime_2026-09-05.md). This does
+not close the broader actor-pool or rendering fidelity gaps. There is no
+defensible overall completion percentage without an exhaustive behavior
+inventory; the test pass rate is not a completion metric.
 
 Resolved: `sound_callsite_cursor_priority_map` — the two remaining
 compatibility hooks were captured live by sampling the ACCEPTED sound pair

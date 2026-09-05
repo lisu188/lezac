@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import signal
 import struct
+import subprocess
 import sys
 import time
 
@@ -30,6 +31,7 @@ WINDOWS = {
     START: bytes.fromhex("a180208946fea104c2d1e0a36620"),
     END: bytes.fromhex("837efe007403e996fa"),
     0x5571: bytes.fromhex("833e72203f7703e98700"),
+    0x65A2: bytes.fromhex("807ecf057532a1c278250100"),
 }
 
 
@@ -134,7 +136,8 @@ def probes(width: int) -> list[Probe]:
     return result
 
 
-def capture(run_dir: Path, pid: int, base: int, output: Path, image: bytes) -> None:
+def capture(run_dir: Path, pid: int, base: int, output: Path, image: bytes,
+            actor_output: Path | None = None) -> None:
     cs, ds = base + (CS << 4), base + (seeder.RUNTIME_DS << 4)
     with open(f"/proc/{pid}/mem", "r+b", buffering=0) as mem:
         def read(address: int, count: int) -> bytes:
@@ -240,6 +243,53 @@ def capture(run_dir: Path, pid: int, base: int, output: Path, image: bytes) -> N
             write(cs + SCRATCH + 14, struct.pack("<H", 2))
             wait(1)
         output.write_text("\n".join(lines) + "\n", encoding="ascii")
+        if actor_output is not None:
+            probe = next(p for p in probes(width) if p.name == "blocked_down64")
+            for cell, (tile, key) in probe.cells.items():
+                write(objects + cell, bytes([tile]))
+                write(words + 2 * cell, struct.pack("<H", key))
+            write(ds + 0x6620, probe.collapse[0])
+            write(ds + 0x1AFE, struct.pack("<I", 0x12345678))
+            write(ds + 0x78C4, struct.pack("<H", 0x4000))
+            write(ds + 0x78C8, bytes(2))
+            write(cs + SCRATCH + 14, struct.pack("<H", 1))
+            wait(2)
+            actor_lines = ["# Seeded fracture, then unmodified original actor updates.",
+                f"# executable_sha256={hashlib.sha256((run_dir / 'LEZAC.EXE').read_bytes()).hexdigest()}",
+                "capture=fracture_actor_original_v1 seeded=1 temp_copy=1",
+                f"seed width={width} first={20 * width + 23} last={20 * width + 24}"
+                " vy=64 sub_y=100 rng=12345678 next_word=4000",
+                f"sprites descriptors={read(ds + 0xC322, 92 * 4).hex()}"]
+            for sample in range(21):
+                entries = []
+                for slot in range(1, read(ds + 0x208D, 1)[0] + 1):
+                    actor = read(ds + 0x1BAE + slot * 38, 38)
+                    if actor[0] == 0x0b and actor[0x15] == 5:
+                        visual = read(ds + 0xC21E + actor[1] * 8, 8)
+                        entries.append(f"{actor.hex()}:{visual.hex()}")
+                actor_lines.append(f"tick frame={word(ds + 0x78C2)} actors={','.join(entries) or '-'}")
+                if sample == 0:
+                    actor_lines.append(f"creation_rng={read(ds + 0x1AFE, 4).hex()}")
+                if sample in (1, 5, 10, 16):
+                    window = subprocess.check_output(["xdotool", "search", "--name", "DOSBox"], text=True).split()[-1]
+                    subprocess.run(["import", "-window", window,
+                        str(actor_output.with_name(f"{actor_output.stem}_{sample:03d}.png"))], check=True, timeout=5)
+                if sample == 20:
+                    break
+                # A harmless record keeps the existing collapse checkpoints
+                # reachable. The captured actor itself is never reseeded.
+                write(ds + 0x2080, struct.pack("<H", 1))
+                write(ds + 0x207E, struct.pack("<H", 199))
+                write(ds + 0x6620, record(20 * width + 23, 20 * width + 24))
+                write(cs + SCRATCH + 14, struct.pack("<H", 2))
+                wait(1)
+                write(cs + SCRATCH + 14, struct.pack("<H", 1))
+                wait(2)
+            actor_lines.append("complete samples=21")
+            actor_output.write_text("\n".join(actor_lines) + "\n", encoding="ascii")
+            write(ds + 0x2080, struct.pack("<H", 1))
+            write(cs + SCRATCH + 14, struct.pack("<H", 2))
+            wait(1)
         # Entry's caller was already taken with count=1, so run one valid
         # harmless record on release instead of entering the zero-count loop.
         write(ds + 0x6620, record(20 * width + 23, 20 * width + 24))
@@ -255,6 +305,8 @@ def main() -> int:
     parser.add_argument("--self-check", action="store_true")
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--out", type=Path)
+    parser.add_argument("--actor-out", type=Path,
+                        help="also capture one seeded fracture actor through retirement")
     parser.add_argument("--approve-procmem", action="store_true")
     parser.add_argument("--approve-runtime-instrumentation", action="store_true")
     args = parser.parse_args()
@@ -271,6 +323,10 @@ def main() -> int:
         parser.error("live capture requires a temporary run-dir, out and both approval flags")
     if args.out.exists():
         parser.error("output already exists")
+    if args.actor_out and (args.actor_out.resolve() == args.out.resolve() or
+            args.actor_out.exists() or
+            list(args.actor_out.parent.glob(args.actor_out.stem + "_*.png"))):
+        parser.error("actor output already exists or aliases collapse output")
     environment.validate_temp_run_dir(args.run_dir.resolve())
     environment.SCRIPT_PATH = Path(__file__).resolve()
     environment.XVFB_MARKER = "LEZAC_COLLAPSE_STEPS_INSIDE_XVFB"
@@ -278,7 +334,7 @@ def main() -> int:
     original = seeder.write_runtime_state_snapshot
     def hook(run_dir, pid, base, state, phase):
         if phase == "pre_capture":
-            capture(run_dir, pid, base, args.out, image)
+            capture(run_dir, pid, base, args.out, image, args.actor_out)
         return original(run_dir, pid, base, state, phase)
     seeder.write_runtime_state_snapshot = hook
     sys.argv = ["seed_original_level.py", "--run-dir", str(args.run_dir), "--target-level", "1",

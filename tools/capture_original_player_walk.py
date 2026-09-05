@@ -45,6 +45,10 @@ WINDOWS = {
     0x6768: bytes.fromhex("817ef240067f03e99c00"),
     0x6A47: bytes.fromhex("c47e0426c7450e0400"),
     0x6A5E: bytes.fromhex("c47e0426837d0e0076138346d202"),
+    0x65A2: bytes.fromhex("807ecf057532a1c278250100"),
+    0x2FAD: bytes.fromhex("803e8d201e7203"),
+    0x6D88: bytes.fromhex("803e8e200e7372"),
+    0x806A: bytes.fromhex("833e9c20007423"),
 }
 ROUTES = {
     "braking": [("right", 20), ("idle", 28), ("left", 20), ("idle", 28)],
@@ -110,7 +114,7 @@ def check_image(exe: Path) -> bytes:
 
 
 def capture(pid: int, base: int, output: Path, image: bytes, route: str,
-            animation: bool = False, world: bool = False) -> None:
+            animation: bool = False, world: bool = False, transients: bool = False) -> None:
     ds, cs = base + (seeder.RUNTIME_DS << 4), base + (CS << 4)
     with open(f"/proc/{pid}/mem", "r+b", buffering=0) as mem:
         def read(address: int, count: int) -> bytes:
@@ -211,6 +215,24 @@ def capture(pid: int, base: int, output: Path, image: bytes, route: str,
             output.with_suffix(".words.bin").write_bytes(initial_words)
             rows.append(f"world width=60 height=33 pickup_tables={read(ds + 2, 48).hex()}")
 
+        if transients:
+            rows.append("transients behavior=5 actor_capacity=30 pickup_capacity=14 seeded=0")
+
+        def transient_state(prefix):
+            count = read(ds + 0x208D, 1)[0]
+            if count > 30:
+                raise RuntimeError("original shared actor count exceeds capacity")
+            entries = []
+            for slot in range(1, count + 1):
+                actor = read(ds + 0x1BAE + slot * 38, 38)
+                if actor[0x15] == 5:
+                    visual = read(ds + 0xC21E + actor[1] * 8, 8)
+                    entries.append(f"{slot}:{actor.hex()}:{visual.hex()}")
+            return (f" {prefix}_transients={','.join(entries) or '-'}"
+                    f" {prefix}_actor_count={count} {prefix}_pickup_count={read(ds + 0x208E, 1)[0]}"
+                    f" {prefix}_shake={read(ds + 0x2098, 6).hex()}"
+                    f" {prefix}_rng={read(ds + 0x1AFE, 4).hex()}")
+
         world_changed = False
         last_world_key = None
 
@@ -257,6 +279,8 @@ def capture(pid: int, base: int, output: Path, image: bytes, route: str,
                     extra = f" entry={entry_actor.hex()} entry_visual={entry_visual.hex()}"
                     if world:
                         extra += world_state("entry")
+                    if transients:
+                        extra += transient_state("entry")
                     release(4)
                 regs = wait(1)
                 frame = word(ds + 0x78C2)
@@ -289,13 +313,15 @@ def capture(pid: int, base: int, output: Path, image: bytes, route: str,
                               f" normalized={read(ds + 0x1B82, 5).hex()}")
                     if world:
                         extra += world_state("final")
+                    if transients:
+                        extra += transient_state("final")
                 if word(ds + 0x78C2) != frame:
                     raise RuntimeError("player checkpoints crossed a frame")
                 rows.append(f"tick frame={frame} phase={phase} raw={actor.hex()} visual={visual.hex()} "
                             f"pre={before.hex()} response={response.hex()} post={after.hex()} "
                             f"regs={struct.pack('<6H', *regs).hex()}{extra}")
                 samples += 1
-                if samples in (8, 20, 32) or (world and world_changed) or (animation and
+                if samples in (8, 20, 32) or (transients and 32 <= samples <= 60) or (world and world_changed) or (animation and
                     (entry_actor[0x16:0x24] != final_actor[0x16:0x24] or
                      entry_actor[0x0E:0x10] != final_actor[0x0E:0x10])):
                     window = subprocess.check_output(["xdotool", "search", "--name", "DOSBox"], text=True).split()[-1]
@@ -322,6 +348,8 @@ def main() -> int:
                         help="also capture pre-advance and post-input animation/visual state")
     parser.add_argument("--world", action="store_true",
                         help="with --animation, capture collapse records and sparse map changes")
+    parser.add_argument("--transients", action="store_true",
+                        help="with --animation, capture shared behavior-5 actors, visuals and RNG")
     parser.add_argument("--approve-animation-seed", action="store_true",
                         help="allow the cursor_restore probe to seed only actor +16..+23")
     parser.add_argument("--run-dir", type=Path)
@@ -342,6 +370,8 @@ def main() -> int:
         parser.error("cursor_restore requires --animation and --approve-animation-seed")
     if args.world and not args.animation:
         parser.error("--world requires --animation")
+    if args.transients and not args.animation:
+        parser.error("--transients requires --animation")
     if (args.out.exists() or args.out.with_suffix(".tiles.bin").exists() or
         args.out.with_suffix(".words.bin").exists() or list(args.out.parent.glob(args.out.stem + "_*.png"))):
         parser.error("output already exists; use a fresh path")
@@ -355,7 +385,7 @@ def main() -> int:
 
     def hook(run_dir, pid, base, state, phase):
         if phase == "pre_capture":
-            capture(pid, base, args.out, image, args.route, args.animation, args.world)
+            capture(pid, base, args.out, image, args.route, args.animation, args.world, args.transients)
         return original(run_dir, pid, base, state, phase)
     seeder.write_runtime_state_snapshot = hook
     sys.argv = ["seed_original_level.py", "--run-dir", str(args.run_dir), "--target-level", "1",

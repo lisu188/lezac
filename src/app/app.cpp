@@ -734,6 +734,20 @@ struct ActorAnimation {
     }
 };
 
+struct TransientActor {
+    int x = 0;
+    int y = 0;
+    int16_t vx8 = 0;
+    int16_t vy8 = 0;
+    uint8_t fracX = 0;
+    uint8_t fracY = 0;
+    uint8_t kind = 0x0a;
+    uint8_t timer = 12;
+    uint8_t hotspotY = 0;
+    uint8_t spriteIndex = 0;
+    ActorAnimation animation{0, 0, 0, 0, 0, 0, 1};
+};
+
 struct Player {
     float x = 24.0f;
     float y = 24.0f;
@@ -4448,12 +4462,13 @@ public:
         bombs_.back().timer = 1;
         player_.x = 88.0f;
         player_.y = 24.0f;
-        randomSeed_ = 0x90e25b93u;
+        // Two bomb-shake draws lead into the original reward fixture seed.
+        randomSeed_ = 0x3aa9a995u;
         updateWithControls(idle, 1.0f / 60.0f);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
             monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteRight ||
-            !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+            !bonusDrops_.empty() || randomSeed_ != 0x956923eau) {
             throw std::runtime_error("monster behavior-3 autoplayer second hit did not kill");
         }
         FrameInspection deathFrame =
@@ -4589,12 +4604,13 @@ public:
         bombs_.back().timer = 1;
         player_.x = 96.0f;
         player_.y = 24.0f;
-        randomSeed_ = 0x90e25b93u;
+        // Two bomb-shake draws lead into the original reward fixture seed.
+        randomSeed_ = 0x3aa9a995u;
         updateWithControls(idle, 1.0f / 60.0f);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
             monsterSpriteIndex(monsters_.front()) != kMonsterImpactSprites[2][0] ||
-            !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+            !bonusDrops_.empty() || randomSeed_ != 0x956923eau) {
             throw std::runtime_error("monster behavior-4 autoplayer bomb kill mismatch");
         }
         FrameInspection deathFrame =
@@ -19183,7 +19199,8 @@ public:
         monster.animCursor = 44;
         monsters_.push_back(monster);
 
-        randomSeed_ = 0x90e25b93u;
+        // Two bomb-shake draws lead into the original reward fixture seed.
+        randomSeed_ = 0x3aa9a995u;
         uint32_t scoreBefore = score_;
         if (monsterSpriteIndex(monsters_.front()) != 44) {
             throw std::runtime_error(
@@ -19204,7 +19221,7 @@ public:
             monsters_.front().kind != 0x0c || monsters_.front().hp != 0 ||
             monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
             monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteRight ||
-            !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+            !bonusDrops_.empty() || randomSeed_ != 0x956923eau) {
             std::ostringstream oss;
             oss << "live bomb did not kill overlapping moving monster"
                 << " bombs=" << bombs_.size()
@@ -21891,13 +21908,199 @@ public:
                   << " visual_claim=0\n";
     }
 
-    enum class PlayerReplayKind { Motion, Animation, Posture };
+    static bool transientMatchesOriginal(const TransientActor& actor,
+            const std::vector<uint8_t>& original, const std::vector<uint8_t>& visible,
+            const std::vector<uint8_t>& descriptors) {
+        const auto animation = actor.animation.packed();
+        const size_t descriptor = (static_cast<size_t>(actor.spriteIndex) + 1) * 4;
+        return original.size() == 38 && visible.size() == 8 && descriptor + 4 <= descriptors.size() &&
+            actor.kind == original[0] && actor.timer == original[2] && original[0x15] == 5 &&
+            actor.vx8 == static_cast<int16_t>(le16(original, 6)) &&
+            actor.vy8 == static_cast<int16_t>(le16(original, 8)) &&
+            actor.fracX == le16(original, 10) && actor.fracY == le16(original, 12) &&
+            actor.hotspotY == original[0x14] &&
+            std::equal(animation.begin(), animation.end(), original.begin() + 0x16) &&
+            actor.x == le16(visible, 0) && actor.y == le16(visible, 2) &&
+            std::equal(visible.begin() + 4, visible.end(), descriptors.begin() + descriptor);
+    }
+
+    void debugFractureActorOriginal(const std::string& fixturePath, const std::string& outDir) {
+        load();
+        initSdl();
+        resetLevel(0);
+        menu_ = false;
+        if (!outDir.empty()) std::filesystem::create_directories(outDir);
+        std::ifstream input(fixturePath);
+        if (!input) throw std::runtime_error("cannot open " + fixturePath);
+        auto bytes = [](const std::string& hex, size_t size) {
+            if (hex.size() != size * 2 || hex.find_first_not_of("0123456789abcdef") != std::string::npos) {
+                throw std::runtime_error("invalid fracture actor bytes");
+            }
+            std::vector<uint8_t> result;
+            for (size_t i = 0; i < size; ++i) {
+                result.push_back(static_cast<uint8_t>(std::stoul(hex.substr(i * 2, 2), nullptr, 16)));
+            }
+            return result;
+        };
+        bool header = false, seeded = false, complete = false, rngChecked = false;
+        int samples = 0, live = 0, previousFrame = -1;
+        uint64_t lastHash = 0;
+        std::set<uint8_t> spritesSeen;
+        std::vector<uint8_t> descriptors;
+        std::string line;
+        while (std::getline(input, line)) {
+            if (line.empty() || line.front() == '#') continue;
+            std::istringstream row(line);
+            std::map<std::string, std::string> fields;
+            std::string field;
+            while (row >> field) {
+                auto equal = field.find('=');
+                if (equal != std::string::npos) fields.emplace(field.substr(0, equal), field.substr(equal + 1));
+            }
+            if (line.rfind("capture=", 0) == 0) {
+                if (header || fields.at("capture") != "fracture_actor_original_v1" ||
+                    fields.at("seeded") != "1" || fields.at("temp_copy") != "1") {
+                    throw std::runtime_error("invalid fracture actor provenance");
+                }
+                header = true;
+            } else if (line.rfind("seed ", 0) == 0) {
+                if (!header || seeded || samples || fields.at("width") != "60" ||
+                    fields.at("first") != "1223" || fields.at("last") != "1224" ||
+                    fields.at("vy") != "64" || fields.at("sub_y") != "100" ||
+                    fields.at("rng") != "12345678" || fields.at("next_word") != "4000") {
+                    throw std::runtime_error("unexpected fracture actor seed");
+                }
+                for (int y = 17; y < 24; ++y) for (int x = 19; x < 31; ++x) {
+                    tileRef(x, y) = y == 21 ? 1 : 0;
+                    wordRef(x, y) = 0;
+                }
+                tileRef(23, 20) = 0x50;
+                tileRef(24, 20) = 0x51;
+                wordRef(23, 20) = wordRef(24, 20) = 0x8009;
+                CollapseRecord record;
+                record.startOffsetBytes = 1223 * 2;
+                record.endOffsetBytes = 1224 * 2;
+                record.flaggedWord = 0x8009;
+                record.reversePhase = 64;
+                record.subY = 100;
+                record.argMagnitude = 64;
+                record.affectedBytes = 4;
+                collapseQueue_.push_back(record);
+                randomSeed_ = 0x12345678;
+                nextCollapseFragmentWord_ = 0x4000;
+                seeded = true;
+            } else if (line.rfind("sprites ", 0) == 0) {
+                descriptors = bytes(fields.at("descriptors"), 92 * 4);
+            } else if (line.rfind("creation_rng=", 0) == 0) {
+                if (samples != 1 || randomSeed_ != le32(bytes(fields.at("creation_rng"), 4), 0)) {
+                    throw std::runtime_error("fracture creation RNG mismatch");
+                }
+                rngChecked = true;
+            } else if (line.rfind("complete ", 0) == 0) {
+                if (complete || samples != 21 || fields.at("samples") != "21") {
+                    throw std::runtime_error("incomplete fracture actor trace");
+                }
+                complete = true;
+            } else if (line.rfind("tick ", 0) == 0) {
+                const int frame = std::stoi(fields.at("frame"));
+                if (!header || !seeded || complete || descriptors.empty() ||
+                    (samples && frame != ((previousFrame + 1) & 0xffff))) {
+                    throw std::runtime_error("invalid fracture actor checkpoint");
+                }
+                logicTick_ = static_cast<uint32_t>(frame);
+                if (!samples) updateCollapseRecords();
+                else updateTransientActors();
+                const auto value = fields.at("actors");
+                if (value == "-") {
+                    if (!transientActors_.empty()) throw std::runtime_error("fracture actor did not retire");
+                } else {
+                    const auto colon = value.find(':');
+                    if (colon == std::string::npos || transientActors_.size() != 1 ||
+                        !transientMatchesOriginal(transientActors_.front(), bytes(value.substr(0, colon), 38),
+                                                   bytes(value.substr(colon + 1), 8), descriptors)) {
+                        throw std::runtime_error("original fracture actor mismatch at " + std::to_string(samples));
+                    }
+                    ++live;
+                    spritesSeen.insert(transientActors_.front().spriteIndex);
+                }
+                const auto label = "fracture_actor_" + std::to_string(samples);
+                lastHash = inspectRenderedFrame(label).hash;
+                if (!outDir.empty()) writeArgbPpm(joinPath(outDir, label + ".ppm"), fb_, kScreenW, kScreenH);
+                ++samples;
+                previousFrame = frame;
+            } else throw std::runtime_error("unexpected fracture actor fixture row");
+        }
+        if (!complete || !rngChecked || live < 15 || live > 16 || spritesSeen.size() != 6 ||
+            !transientActors_.empty()) throw std::runtime_error("fracture actor lifecycle coverage missing");
+        std::cout << "fracture_actor_original=ok samples=" << samples << " live_states=" << live
+                  << " sprites=" << spritesSeen.size() << " retired=1 creation_rng=1 seeded=1"
+                  << " frame_inspection=1 frame_hash=" << std::hex << lastHash << std::dec << '\n';
+    }
+
+    void debugTransientActorLimits() {
+        load();
+        initSdl();
+        resetLevel(0);
+        prepareMonsterMotionDebugLevel(false);
+        menu_ = false;
+        player_.x = player_.y = 16;
+        auto pickups = [&] {
+            tileRef(2, 2) = 0x67; tileRef(3, 2) = 0x68;
+            tileRef(3, 3) = 0x69; tileRef(2, 3) = 0x6a;
+        };
+        auto checkDraws = [&](int draws, size_t expectedCount) {
+            pickups();
+            lezac::core::TurboRandom expected(randomSeed_);
+            for (int i = 0; i < draws; ++i) expected.range(0, 200);
+            collectObjectiveTiles(player_, 1);
+            if (randomSeed_ != expected.seed() || transientActors_.size() != expectedCount) {
+                throw std::runtime_error("transient allocation/RNG boundary mismatch");
+            }
+        };
+        checkDraws(4, 4);
+        const std::array<std::array<int, 2>, 4> positions{{{{14,14}}, {{26,14}}, {{26,26}}, {{14,26}}}};
+        for (size_t i = 0; i < 4; ++i) {
+            if (transientActors_[i].x != positions[i][0] || transientActors_[i].y != positions[i][1] ||
+                transientActors_[i].spriteIndex != 79 + i) throw std::runtime_error("pickup effect footprint mismatch");
+        }
+        transientActors_.resize(13);
+        checkDraws(1, 14);
+        checkDraws(0, 14);
+        transientActors_.clear();
+        monsters_.resize(30);
+        checkDraws(4, 0);
+        monsters_.clear();
+        spawnTransientActor(20, 20, -128, 80, 0x0a, 12);
+        paused_ = true;
+        const auto seed = randomSeed_;
+        updateWithControls({}, 0.0f);
+        if (transientActors_.front().y != 20 || transientActors_.front().timer != 12 || randomSeed_ != seed) {
+            throw std::runtime_error("paused transient changed");
+        }
+        paused_ = false;
+        cameraShakeTicks_ = 3;
+        updateCameraShake();
+        const auto rendered = inspectRenderedFrame("transient-limits");
+        const auto renderSeed = randomSeed_;
+        inspectRenderedFrame("transient-limits-repeat");
+        if (randomSeed_ != renderSeed) throw std::runtime_error("render advanced shake RNG");
+        resetLevel(0);
+        if (!transientActors_.empty() || cameraShakeTicks_ || cameraShakeOffset_) {
+            throw std::runtime_error("level reset retained transient state");
+        }
+        std::cout << "transient_actor_limits=ok pickup_cap=14 shared_cap=30 clockwise_cells=4"
+                  << " rng_gate=1 pause=1 reset=1 render_rng=0 static_contract=1 frame_hash="
+                  << std::hex << rendered.hash << std::dec << '\n';
+    }
+
+    enum class PlayerReplayKind { Motion, Animation, Posture, Transients };
 
     void debugPlayerWalkOriginal(const std::string& fixtureDir, const std::string& outDir = "",
                                  PlayerReplayKind kind = PlayerReplayKind::Motion,
                                  const std::string& routeFilter = "") {
         const bool checkAnimation = kind != PlayerReplayKind::Motion;
-        const bool checkPosture = kind == PlayerReplayKind::Posture;
+        const bool checkTransients = kind == PlayerReplayKind::Transients;
+        const bool checkPosture = kind == PlayerReplayKind::Posture || checkTransients;
         load();
         initSdl();
         std::ofstream manifest;
@@ -21928,6 +22131,7 @@ public:
         }
         if (checkPosture) routes = {{"platform_drop", 91}, {"hill_jump_fall", 192},
                                    {"down_floor", 28}, {"hill_fall", 154}, {"platform_collapse", 144}};
+        if (checkTransients) routes = {{"platform_collapse", 144}};
         if (!routeFilter.empty()) {
             routes.erase(std::remove_if(routes.begin(), routes.end(), [&](const auto& route) {
                 return route.first != routeFilter;
@@ -21937,6 +22141,7 @@ public:
         int samples = 0, overspeed = 0, airCoast = 0;
         int spriteChanges = 0, coastingIdle = 0;
         int worldStates = 0, initialTileDifferences = 0, initialWordDifferences = 0;
+        int transientStates = 0, rngStates = 0, shakeStates = 0;
         uint64_t lastHash = 0;
         for (const auto& [route, expectedCount] : routes) {
             std::ifstream input(joinPath(fixtureDir, route + ".txt"));
@@ -21945,6 +22150,7 @@ public:
             menu_ = false;
             bool header = false, complete = false;
             bool world = false;
+            bool transientHeader = false;
             const auto initialTiles = level_.tiles;
             const auto initialWords = level_.wordLayer;
             std::vector<uint8_t> descriptors;
@@ -22008,6 +22214,15 @@ public:
                         }
                         pixelOffset += sprite.pixels.size();
                     }
+                    continue;
+                }
+                if (line.rfind("transients ", 0) == 0) {
+                    if (!checkTransients || !header || count || transientHeader ||
+                        fields.at("behavior") != "5" || fields.at("actor_capacity") != "30" ||
+                        fields.at("pickup_capacity") != "14" || fields.at("seeded") != "0") {
+                        throw std::runtime_error("invalid original transient header");
+                    }
+                    transientHeader = true;
                     continue;
                 }
                 if (line.rfind("world ", 0) == 0) {
@@ -22080,6 +22295,13 @@ public:
                     player_.grounded = before[0x19] != 0;
                     syncPlayerVelocityMirror(player_);
                     logicTick_ = static_cast<uint32_t>(frame - 1);
+                    if (checkTransients) {
+                        if (!transientHeader || fields.at("entry_transients") != "-") {
+                            throw std::runtime_error("transient route must begin before allocation");
+                        }
+                        const auto seed = bytes(fields.at("entry_rng"), 4);
+                        randomSeed_ = le32(seed, 0);
+                    }
                     if (checkAnimation) {
                         const auto entry = bytes(fields.at("entry"), 0x26);
                         player_.animation = animationFrom(entry, 0x16);
@@ -22088,6 +22310,23 @@ public:
                         player_.dropTicks = le16(entry, 0x0E);
                         player_.spriteIndex = spriteIndex(bytes(fields.at("entry_visual"), 8));
                     }
+                }
+                if (checkTransients) {
+                    if (fields.count("entry_shake")) {
+                        const auto shake = bytes(fields.at("entry_shake"), 6);
+                        if (cameraShakeOffset_ != le16(shake, 0) || cameraShakeTicks_ != le16(shake, 2) ||
+                            (cameraShakeTicks_ > 0) != (le16(shake, 4) != 0)) {
+                            throw std::runtime_error("original camera shake mismatch at " + std::to_string(count));
+                        }
+                        ++shakeStates;
+                    }
+                    if (randomSeed_ != le32(bytes(fields.at("entry_rng"), 4), 0)) {
+                        std::ostringstream error;
+                        error << "original transient RNG mismatch at " << count << " cpp=" << std::hex
+                              << randomSeed_ << " original=" << le32(bytes(fields.at("entry_rng"), 4), 0);
+                        throw std::runtime_error(error.str());
+                    }
+                    ++rngStates;
                 }
                 if (world) {
                     auto appendWord = [](std::vector<uint8_t>& target, uint16_t value) {
@@ -22164,6 +22403,35 @@ public:
                 const uint16_t previousDrop = player_.dropTicks;
                 const auto previousTiles = world ? level_.tiles : std::vector<uint8_t>{};
                 updateWithControls(controls, 1.0f / 60.0f);
+                if (checkTransients) {
+                    std::vector<std::pair<std::vector<uint8_t>, std::vector<uint8_t>>> expected;
+                    std::istringstream entries(fields.at("final_transients"));
+                    std::string entry;
+                    while (std::getline(entries, entry, ',')) {
+                        if (entry == "-") break;
+                        const auto first = entry.find(':');
+                        const auto second = entry.find(':', first + 1);
+                        if (first == std::string::npos || second == std::string::npos) {
+                            throw std::runtime_error("invalid original transient entry");
+                        }
+                        expected.emplace_back(bytes(entry.substr(first + 1, second - first - 1), 38),
+                                              bytes(entry.substr(second + 1), 8));
+                    }
+                    if (expected.size() != transientActors_.size() ||
+                        std::stoul(fields.at("final_pickup_count")) != pickupActorCount() ||
+                        std::stoul(fields.at("final_actor_count")) != sharedActorCount()) {
+                        throw std::runtime_error("original transient count mismatch at " + std::to_string(count));
+                    }
+                    for (size_t i = 0; i < expected.size(); ++i) {
+                        const auto& actor = transientActors_[i];
+                        const auto& original = expected[i].first;
+                        const auto& visible = expected[i].second;
+                        if (!transientMatchesOriginal(actor, original, visible, descriptors)) {
+                            throw std::runtime_error("original transient state mismatch at " + std::to_string(count));
+                        }
+                        ++transientStates;
+                    }
+                }
                 if (checkAnimation) {
                     const auto finalVisual = bytes(fields.at("final_visual"), 8);
                     requireAnimation(player_, bytes(fields.at("final_actor"), 0x26), finalVisual,
@@ -22187,7 +22455,7 @@ public:
                             << ',' << int(after[0x2A]) << ',' << int(after[0x29]);
                     throw std::runtime_error(message.str());
                 }
-                if (count == 0 || phase != previousPhase || count + 1 == expectedCount ||
+                if (count == 0 || phase != previousPhase || count + 1 == expectedCount || checkTransients ||
                     (checkAnimation && player_.spriteIndex != previousSprite) || player_.dropTicks != previousDrop ||
                     (world && previousTiles != level_.tiles)) {
                     const std::string label = route + "_" + std::to_string(count);
@@ -22209,7 +22477,7 @@ public:
             }
             if (!complete) throw std::runtime_error("missing original player completion row");
         }
-        std::cout << (checkPosture ? "player_posture_original=ok" :
+        std::cout << (checkTransients ? "pickup_transients_original=ok" : checkPosture ? "player_posture_original=ok" :
                       checkAnimation ? "player_animation_original=ok" : "player_walk_original=ok")
                   << " cases=" << routes.size() << " samples=" << samples
                   << " full_motion_states=" << samples << " input_responses=" << samples
@@ -22221,6 +22489,8 @@ public:
         if (checkPosture) std::cout << " world_states=" << worldStates
                                    << " initial_tile_differences=" << initialTileDifferences
                                    << " initial_word_differences=" << initialWordDifferences;
+        if (checkTransients) std::cout << " transient_states=" << transientStates << " rng_states=" << rngStates
+                                       << " shake_states=" << shakeStates;
         std::cout << " frame_inspection=1 frame_hash=" << std::hex << lastHash << std::dec << '\n';
     }
 
@@ -22793,6 +23063,9 @@ private:
     std::vector<Bomb> bombs_;
     std::vector<Flash> flashes_;
     std::vector<LaunchPadMarker> launchPadMarkers_;
+    std::vector<TransientActor> transientActors_;
+    uint16_t cameraShakeTicks_ = 0;
+    uint16_t cameraShakeOffset_ = 0;
     std::vector<ExplosionEffect> explosionEffects_;
     std::vector<DebrisRecord> debrisQueue_;
     std::vector<CollapseRecord> collapseQueue_;
@@ -22972,6 +23245,8 @@ private:
         bombs_.clear();
         flashes_.clear();
         launchPadMarkers_.clear();
+        transientActors_.clear();
+        cameraShakeTicks_ = cameraShakeOffset_ = 0;
         explosionEffects_.clear();
         debrisQueue_.clear();
         collapseQueue_.clear();
@@ -23716,6 +23991,9 @@ private:
     void updateWithControls(const FrameControls& controls, float dt) {
         if (menu_ || paused_ || levelIntro_.active) return;
         ++logicTick_;
+        // 1000:7ECB..7EE8 precedes the player calls at 7F59. New pickup
+        // and collapse-fracture actors therefore start on the next frame.
+        updateTransientActors();
         updateDamageCooldowns();
         bool p1Switch = controls.p1Left && controls.p1Right;
         bool p2Switch = controls.p2Left && controls.p2Right;
@@ -23771,6 +24049,7 @@ private:
         // gravity tick).
         updateBombs();
         updateFlashes();
+        updateCameraShake();
         updateMonsterSpawners();
         updateBossLinks();
         updateMonsters(dt);
@@ -24240,11 +24519,61 @@ private:
         return result;
     }
 
+    size_t sharedActorCount() const {
+        return monsters_.size() + bombs_.size() + bonusDrops_.size() +
+               launchPadMarkers_.size() + transientActors_.size();
+    }
+
+    void updateCameraShake() {
+        // 1000:806A..8091 advances once per game frame, never per render.
+        if (cameraShakeTicks_ == 0) return;
+        cameraShakeOffset_ = randomRangeValue(0, static_cast<uint16_t>(cameraShakeTicks_ * 2));
+        if (--cameraShakeTicks_ == 0) cameraShakeOffset_ = 0;
+    }
+
+    size_t pickupActorCount() const {
+        return static_cast<size_t>(std::count_if(transientActors_.begin(), transientActors_.end(),
+            [](const TransientActor& actor) { return actor.kind == 0x0a; }));
+    }
+
+    void spawnTransientActor(int x, int y, int16_t vy8, uint8_t sprite,
+                             uint8_t kind, uint8_t timer) {
+        // 1000:2F9F has one 30-slot pool for non-player actors.
+        if (sharedActorCount() >= 30) return;
+        TransientActor actor;
+        actor.x = x;
+        actor.y = y;
+        actor.vy8 = vy8;
+        actor.kind = kind;
+        actor.timer = timer;
+        actor.spriteIndex = static_cast<uint8_t>(sprite - 1);
+        actor.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(actor.spriteIndex).height);
+        if (kind == 0x0b) actor.animation = ActorAnimation::initialize(74, 79, 2, 1);
+        transientActors_.push_back(actor);
+    }
+
+    void updateTransientActors() {
+        for (auto& actor : transientActors_) {
+            if (actor.animation.advance(ActorAnimation{})) {
+                actor.spriteIndex = static_cast<uint8_t>(actor.animation.current - 1);
+            }
+            // 1000:65A2..65D7 bypasses collision/gravity and deletes before
+            // integration when the byte reaches zero, not on animation wrap.
+            actor.timer = static_cast<uint8_t>(actor.timer - (logicTick_ & 1u));
+            if (actor.timer == 0) continue;
+            integrateAxis8_8(actor.y, actor.fracY, actor.vy8);
+            integrateAxis8_8(actor.x, actor.fracX, actor.vx8);
+        }
+        transientActors_.erase(std::remove_if(transientActors_.begin(), transientActors_.end(),
+            [](const TransientActor& actor) { return actor.timer == 0; }), transientActors_.end());
+    }
+
     void collectObjectiveTiles(const Player& player, uint8_t playerIndex) {
         // 1000:6CB8..6DAA visits the cached actor interior clockwise. Scores
         // are DS:0002..0019, file 0xB192; consume/seeder are 5AFD / 370E.
         constexpr std::array<int, 12> scores{
             50, 100, 200, 250, 500, 800, 1000, 1500, 2000, 3000, 5000, 1000};
+        constexpr std::array<uint8_t, 12> pickupSprites{80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 86};
         const int x0 = (static_cast<int>(player.x) + 4) >> 3;
         const int y0 = static_cast<int>(player.y) >> 3;
         int score = 0;
@@ -24260,6 +24589,13 @@ private:
             if (tile == level_.objectiveTile) ++collected_;
             score += scores[tile - 0x67];
             high = high || isHighBombObjectSoundTile(tile);
+            if (pickupActorCount() < 14) {
+                // 1000:6D88..6DFA draws even if the shared allocator is full.
+                const auto vy8 = static_cast<int16_t>(-40 - randomRangeValue(0, 200));
+                spawnTransientActor(static_cast<int>(player.x) + (x == x0 ? -2 : 10),
+                    static_cast<int>(player.y) + (y == y0 ? -2 : 10), vy8,
+                    pickupSprites[tile - 0x67], 0x0a, 12);
+            }
         }
         if (score != 0) {
             addScore(playerIndex, score);
@@ -25793,6 +26129,7 @@ private:
     }
 
     void spawnExplosionEffect(const Bomb& bomb) {
+        if (explosionVisualType(bomb.type) > 1) cameraShakeTicks_ = 2;  // 1000:4164
         int visualType = explosionVisualType(bomb.type);
         int ticks = explosionEffectTicks(visualType);
         ExplosionEffect effect;
@@ -26697,6 +27034,7 @@ private:
                 const auto result = move(dy * width);
                 if (result.blocked && vy > 0) {
                     vy = 0;
+                    cameraShakeTicks_ = 3;  // 1000:5388
                     requestSoundOffset(static_cast<uint16_t>(kDebrisBounceSoundBase + randomRangeValue(0, 8)), 1);
                 }
                 if (!result.contacts.empty()) blend(result, vy, true);
@@ -26737,10 +27075,11 @@ private:
                     const auto y = static_cast<uint8_t>(incomingY - randomRangeValue(0, 40));
                     queueTileDamage(cell % width, cell / width, x, y, true);
                 }
-                // 1000:558C draws the fracture actor's cell even when actor
-                // allocation fails. Keep this draw in the shared RNG stream;
-                // the actor's presentation/lifetime is not mapped yet.
-                randomRangeValue(0, static_cast<uint16_t>(last % width - first % width + 1));
+                // 1000:558C selects a cell backward from the bottom-right.
+                const int actorCell = last - randomRangeValue(0,
+                    static_cast<uint16_t>(last % width - first % width + 1));
+                spawnTransientActor((actorCell % width) * 8, (actorCell / width) * 8,
+                                    0, 74, 0x0b, 8);
             }
             if (fracture || record.restTicks == 95) {
                 for (int cell : cells()) level_.wordLayer[static_cast<size_t>(cell)] &= ~kDamagedWordBit;
@@ -27015,6 +27354,7 @@ private:
                               0, std::max(0, worldW - (viewW + 8) + 7));
         int camY = std::clamp(static_cast<int>(cameraPlayer.y) - (viewH / 2 + 4),
                               0, std::max(0, worldH - (viewH + 16) + 7));
+        camX += cameraShakeOffset_;  // 1000:36F6 adds to the fine X scroll.
         int drawCamX = camX - viewX;
         int drawCamY = camY - viewY;
         drawGradientSky(viewX, viewY, viewW, viewH, camX, camY);
@@ -27037,6 +27377,9 @@ private:
                    state2Visual2_.active) {
             drawState2PlayerVisual(player2_, state2Visual2_, state2Effect2_,
                                    drawCamX, drawCamY);
+        }
+        for (const auto& actor : transientActors_) {
+            drawSprite(sprites_.sprites.at(actor.spriteIndex), actor.x - drawCamX, actor.y - drawCamY);
         }
     }
 
@@ -28338,6 +28681,18 @@ int main(int argc, char** argv) {
         if (argc > 2 && std::string(argv[1]) == "--debug-player-posture-original") {
             app.debugPlayerWalkOriginal(argv[2], argc > 3 ? argv[3] : "", App::PlayerReplayKind::Posture,
                                        argc > 4 ? argv[4] : "");
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-pickup-transients-original") {
+            app.debugPlayerWalkOriginal(argv[2], argc > 3 ? argv[3] : "", App::PlayerReplayKind::Transients);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-fracture-actor-original") {
+            app.debugFractureActorOriginal(argv[2], argc > 3 ? argv[3] : "");
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-transient-actor-limits") {
+            app.debugTransientActorLimits();
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-bomb-motion-original") {

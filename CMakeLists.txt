@@ -3682,7 +3682,7 @@ if(BUILD_TESTING)
     set_tests_properties(collapse_steps_capture_self_check PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^collapse_steps_capture_self_check=ok windows=3 probes=27 live=0")
+            "^collapse_steps_capture_self_check=ok windows=4 probes=27 live=0")
 
     add_test(NAME debris_rest_original
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-rest
@@ -3838,7 +3838,7 @@ if(BUILD_TESTING)
         COMMAND ${Python3_EXECUTABLE} tools/capture_original_player_walk.py --self-check)
     set_tests_properties(player_walk_capture_contract PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        PASS_REGULAR_EXPRESSION "^player_walk_capture_self_check=ok windows=16 live=0")
+        PASS_REGULAR_EXPRESSION "^player_walk_capture_self_check=ok windows=20 live=0")
 
     add_test(NAME player_animation_original
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-player-animation-original
@@ -3855,6 +3855,29 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION "^player_posture_original=ok cases=5 samples=609 full_motion_states=609 input_responses=609 overspeed_states=34 air_coast_states=28 animation_states=609 sprite_descriptors=609 sprite_changes=125 coasting_idle=98 natural_samples=609 cursor_seeded_samples=0 world_states=144 initial_tile_differences=1 initial_word_differences=6 frame_inspection=1")
+
+    add_test(NAME pickup_transients_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-pickup-transients-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/pickup_transients_original)
+    set_tests_properties(pickup_transients_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "transient_states=24 rng_states=144 shake_states=144 frame_inspection=1")
+
+    add_test(NAME fracture_actor_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-fracture-actor-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/fracture_actor_original.txt)
+    set_tests_properties(fracture_actor_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^fracture_actor_original=ok samples=21 live_states=15 sprites=6 retired=1 creation_rng=1 seeded=1 frame_inspection=1")
+
+    add_test(NAME transient_actor_limits
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-transient-actor-limits)
+    set_tests_properties(transient_actor_limits PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^transient_actor_limits=ok pickup_cap=14 shared_cap=30 clockwise_cells=4 rng_gate=1 pause=1 reset=1 render_rng=0 shake_after_actors=1 static_contract=1")
 
     add_test(NAME route_timing_evidence
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

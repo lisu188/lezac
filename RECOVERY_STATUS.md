@@ -1,8 +1,8 @@
 # Recovery Status
 
 Last reviewed: 2026-09-05
-Branch: `codex/recover-player-down-landing` (validated integration batch)
-Baseline: `origin/main` at PR #207
+Branch: `codex/recover-pickup-transient-actors` (validated integration batch)
+Baseline: `origin/main` at PR #208
 
 ## Port Completion
 
@@ -11,16 +11,28 @@ its compatible tests were insufficient evidence for the previous claim.
 Original player routes exposed absent automatic pickups and map-moving
 collapse behavior. The new recovery matches 609 original player states,
 144 continuous collapse/map states, and 27 seeded collapse update probes.
-All 17 regressions exposed by this recovery are resolved: 426 tests pass
-under dummy SDL, and the separate interactive Xvfb test passes. Transient
-actors, unrestricted event ordering, and wider original-runtime comparisons
-still need work. `--debug-port-completion-status` reports
+The latest batch adds 144 continuous pickup/RNG/shake checkpoints and a
+21-checkpoint seeded fracture-actor lifecycle. Shared actor allocation and
+ordering, unrestricted interactions, and wider original-runtime comparisons
+still need work. All 429 dummy-SDL tests and the separate interactive Xvfb
+test pass. There is no evidence-based overall completion percentage:
+passing-test percentage measures regression health, not recovered behavior.
+`--debug-port-completion-status` reports
 `port_functionally_complete=0` and `original_fidelity_claim=0`.
 `tools/check_port_completion_status.py` and
 `docs/recovery/port_completion_status.md` track the corrected claim.
 
 ## Current Recovery
 
+- Pickup indicators and fracture smoke now use the original behavior-5
+  timer, motion, sprites and animation. The natural pickup route matches
+  24 live indicator states; the seeded fracture trace matches 15 live
+  states, all six sprites, and retirement. Camera-shake RNG exposed by
+  the natural route is reproduced across all 144 checkpoints.
+- Allocation limits are statically derived and locally tested, not a
+  full-pool original-runtime claim. Original pickup allocation failure can
+  clear the last actor's animation; that edge case and global actor order
+  remain open. See [transient actor evidence](docs/recovery/transient_actors_runtime_2026-09-05.md).
 - Player hard landing, down/drop-through, ordinary landing and floor down
   gates: five continuous original routes, 609 matching motion/cursor/sprite
   states. No per-tick player or map seeding is used in C++.

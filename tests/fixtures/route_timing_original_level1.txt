@@ -1,12 +1,21 @@
 # Original LEZAC.EXE level-1 player/bomb timing evidence, captured
 # in-container via DOSBox /proc/mem tick-locked sampling (frame counter
-# DS:0x78C2 polled; one read per tick; player anchor DS:0xC21E/0xC220;
-# bomb actor countdown at record offset 0x1B in the DS:0x74A8 table).
+# DS:0x78C2 polled; one read per tick; player anchor DS:0xC21E/0xC220).
 # The main-loop governor (file 0x8089) holds 30 frames in 120..125
 # hundredths of a second; the converged rate oscillates 24.2..25.2 fps
 # (delay word DS:0x78CC dithering 96<->102 ms with step DS:0x78CA=6).
 # Jump is 8.8 fixed-point: v0=-848, gravity +64 per tick, floor-to-pixel;
 # the per-tick y deltas below reproduce that model exactly.
+# CORRECTION: this fixture previously carried small_bomb_fuse_ticks=41,
+# small_bomb_fuse_place_tick=396 and small_bomb_fuse_zero_tick=437, described
+# as the bomb actor's countdown byte at DS:0x74A8 record offset 0x1B. That was
+# a misread. DS:0x74A8 stride 0x1E is the level-file MONSTER SPAWNER table and
+# offset 0x1B is the spawner cooldown, reloaded from 0x1C; the sole
+# `dec byte es:[di+0x1b]` in the image (file 0x820b) is that spawner loop.
+# Tick 437 is the level-1 spawner's THIRD cooldown-zero (first spawn 256, then
+# period 90: 257, 347, 437) -- the first that persists instead of being
+# reloaded, because liveAllowance is exhausted. The keys are removed rather
+# than corrected: no bomb fuse duration has been recovered from the original.
 route_timing_original=level1
 source=LEZAC.EXE via DOSBox /proc/mem tick-locked read
 runtime_ds=0c8f
@@ -25,9 +34,6 @@ jump_fixed_shift=8
 jump_peak_px=24
 jump_rise_ticks=12
 jump_tick_dy=-4,-3,-3,-2,-3,-2,-1,-2,-1,-1,-1,-1
-small_bomb_fuse_ticks=41
-small_bomb_fuse_place_tick=396
-small_bomb_fuse_zero_tick=437
 explosion_playback_ticks=55
 visual_claim=0
 temp_copy=1

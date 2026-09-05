@@ -175,7 +175,31 @@ static. This resolution promotes Present sprite identity, observed visibility,
 and collection consumption, not exact reward physics or presentation.
 
 - `natural_forward_debris_writeback_3d2d` — natural forward debris writeback
-  capture at `1000:3D2D`
+  at `1000:3D2D`. **Now OBSERVED; the blend formula remains open.**
+  This item was recorded as blocked because `3D2D` is an intra-frame staging
+  write that tick-locked sampling cannot see. That reasoning was incomplete:
+  `3D2D` writes `debris[0x0B*(tag-0x4E20) + 4] = result`, the STRUCK record's
+  vx field, and that value PERSISTS, so the next tick-locked sample shows its
+  effect. What the earlier 201-tick window lacked was a fragment-on-fragment
+  strike, not resolution.
+  `tools/capture_original_natural_forward_debris_procmem.py` bombs a stacked
+  pile of eleven adjacent seedable sites on level 2 (tiles 26..30 x 37..40) to
+  force strikes and samples the whole debris record table (`DS:0x2093`, stride
+  0x0B) for 3927 ticks. Three events occur in which a record's vx changes
+  while EVERY other byte of that record -- tile, word, vy, both
+  sub-accumulators, rest counter, lookup glyph and aux -- is byte-identical
+  across the tick. Nothing else in the recovered model can do that: friction
+  moves vx by exactly +/-1, the bounce moves it by `Random(0x1E)-15` AND
+  clears vy, and a retire+reseed resets the rest counter and sub-accumulators.
+  Pinned by `natural_forward_debris_writeback`, which re-derives the events
+  from the rows rather than trusting the fixture's count.
+  What stays OPEN is the blend FORMULA: the spec's `acc/weight` arithmetic
+  over tagged contributors (`3C98..3CC6`, divide at `3CE3`) is
+  disassembly-only, and this capture samples neither the accumulator nor the
+  tag list, so it proves the writeback happens and what it targets, not how
+  the value is computed. The port deliberately does not model the blend; the
+  fixture records `port_models_blend=0` so that divergence is pinned rather
+  than carried silently.
 - `exact_explosion_sprite_playback` — exact explosion/debris/collapse sprite
   playback semantics around `1000:3a56..4d3b`
 - `actor_update_original_contact_semantics` — original contact
@@ -196,24 +220,57 @@ and collection consumption, not exact reward physics or presentation.
   `monster.y`), the period-4 animation cadence with the boundary-latched facing
   flip, and the facing-consume-before-reflection order. The item stays OPEN:
   the evidence is one monster kind (1), one behaviour (3), one level, so
-  behaviours 1/2/4/5/6, other kinds, other levels, per-tick tile-embedding
+  behaviours 1/2/5/6, other kinds, per-tick tile-embedding
   damage, mode-2 corpse physics, contact multiplicity beyond 0/1, the
   bottom-edge `0x4D..0x52` jump-through semantics, the `0x7FF` gravity clamp,
   the player's own collision box and two-player are all unevidenced.
-- `behavior4_motion_runtime_fixture` — behavior-4 motion semantics fixture.
-  **Retargeted, not closed.** This item previously named `1000:728C..731B` as
-  the behavior-4 branch. The shipped bytes disprove that: the behavior-4 arm
-  ends `1000:714F e9 da 01` (`jmp 0x732C`), stepping clean past the window, and
-  the window's only external entry is `1000:7152 3c 03` / `1000:7154 74 03`
-  (`cmp al,3 / je`). Its gate local `[bp-0x20]` is written at exactly four
-  sites (`716B`, `71A0`, `71F3`, `723D`), all before the window inside the
-  behavior-3 arm. A behavior-4 actor therefore never executes that window on
-  any level, so the fixture as originally specified was unfillable — which is
-  why the candidate skeleton could never be completed. Pinned by
-  `tools/check_behavior4_window_attribution.py` and the
-  `behavior4_window_attribution` ctest. The behavior-4 *motion* path
-  (`1000:70D7..714F`, `73E5`, `741B`) is the correct target and still has no
-  runtime evidence, so this item stays open with corrected scope.
+  **Narrowed.** Two of the listed gaps are now closed by level-2 captures:
+  *other levels* -- `tests/fixtures/actor_contact_original_level2.txt` gives
+  1232 tick rows of two kind-1 behaviour-3 walkers on level 2, confirming the
+  kind-1 hotspot `+0x14 = 6`, the `+0x40`-per-tick gravity ladder
+  (64..704 over 11 consecutive airborne ticks with no drift), the ground walk
+  speed `|vx| = +0x0E`, and the two-tick wall response `208 -> -104 -> -208`
+  (`trunc(-vx/2)` then restore-to-speed-with-reflected-sign), all replayed
+  through the port's live rules by `actor_contact_level2_evidence`; and
+  *behaviour 4*, whose contact response is now runtime-confirmed by the
+  behaviour-4 capture below. The `0x7FF` gravity clamp remains INFERRED --
+  the level-2 fall peaks at `vy = 704`, so the clamp is still unexercised by
+  any capture, and the fixture records `gravity_clamp_exercised=0`.
+
+- `behavior4_motion_runtime_fixture` — **CLOSED.** A level-2 tick-locked
+  capture (`tests/fixtures/behavior4_motion_original_level2.txt`,
+  `tools/capture_original_behavior4_motion_procmem.py`) records 666
+  consecutive behaviour-4 ticks of a live kind-2 flyer, sampled from the REAL
+  actor table `DS:0x1BAE` stride 0x26. (Every earlier capture tool pointed at
+  `DS:0x74A8`, the level-file monster SPAWNER table; that misidentification is
+  what produced the withdrawn bomb-fuse claim.)
+
+  RNG attribution is clean: 616 of the 666 ticks advance the shared LCG by
+  ZERO steps, 48 by exactly two, one by four — the two live kind-1 walkers
+  draw nothing while walking, so a retarget tick's two draws are the flyer's.
+
+  Recovered and pinned by `behavior4_motion_evidence`:
+
+  - retarget cadence **14 ticks** (26 clean occurrences, re-derived from the
+    rows), matching the port's `motionTimer = max(1, ai0)`;
+  - velocity selection `v = -ai1 + Random(2*ai1)` with `ai1 = 271`, first draw
+    to vx and second to vy — reproducing **47/48** vx and **43/48** vy when
+    replayed through the port's OWN `randomRangeValue`. Every exception is a
+    contact rule applied after selection in the same tick: five top-edge
+    clamps to `vy = 1`, and one horizontal bounce that halves and negates the
+    freshly drawn value (233 -> -116), which also fixes the ORDER — retarget
+    first, contact response second;
+  - only `+0x06`/`+0x08` (vx/vy), `+0x0A`/`+0x0C` (single-BYTE 8.8 fraction
+    carries), `+0x16` (animation frame) and `+0x19` (delay counter) ever move,
+    so the flyer runs the same integer-pixel + byte-fraction model the port
+    already uses;
+  - animation range `0x28..0x2a` with a 3-tick delay, inside the port's kind-2
+    range.
+
+  The level-2 kind-2 spawner's `param0Base=13 param0Range=2` and
+  `param1Base=270 param1Range=2` bracket the captured `ai0 = 14` and
+  `ai1 = 271`. The 25 velocity changes that consumed NO RNG corroborate the
+  `-vx/2` bounce and the `vy = 1` top clamp the port already implements.
 ## Guardrails
 
 - `tools/check_port_completion_status.py` fails when the source tables, this

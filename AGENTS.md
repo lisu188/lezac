@@ -53,6 +53,11 @@
   inspection whenever possible. Capture screenshots, SDL frame dumps, debugger
   memory/frame-table bytes, or other visual-frame evidence and record what was
   inspected; do not rely only on process exit status for visual behavior.
+- Show the user screenshots frequently during UI, rendering, DOSBox, and
+  gameplay recovery work, at each useful visual checkpoint rather than only
+  in the final response. Prefer clearly labeled original-game and C++ port
+  captures of comparable states. Note timing or camera differences, and do
+  not imply frame alignment or pixel parity unless it was verified.
 
 ## Autoplayer and frame-harness testing
 

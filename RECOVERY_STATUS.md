@@ -23,6 +23,19 @@ under the existing guardrails; they are not missing port functionality.
 
 ## Completed This Iteration
 
+- **Recovered player walking and coasting animation (2026-09-05).** Eight
+  original traces match 814 continuous production motion/cursor/descriptor
+  states, including 161 sprite changes: 808 natural-motion samples and six
+  from an explicitly declared cursor-only restore probe. Animation advances
+  before input; its delay depends on post-input speed. Directional selection
+  and the displayed descriptor are separate, and short idle pauses accumulate
+  toward the five-count stop. Mode 3 restores its saved cursor, correcting
+  the older diagnostic's reversed copy direction. See
+  [player animation evidence](docs/recovery/player_animation_runtime_2026-09-05.md).
+  This narrows the animation gap listed in the preceding movement recovery;
+  hard landings, down-key actions, P2 runtime presentation and unrestricted
+  event ordering remain open. No full-game or pixel-parity claim is made.
+
 - **Recovered player acceleration, braking and integration ordering
   (2026-09-05).** Five original level-1 control streams provide 445 consecutive
   motion states. The production player update reproduces all X/Y, VX/VY and

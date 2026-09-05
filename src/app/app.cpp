@@ -699,6 +699,38 @@ struct FrameInspection {
     uint64_t hash = 0;
 };
 
+struct ActorAnimation {
+    uint8_t current = 2;
+    uint8_t first = 2;
+    uint8_t last = 9;
+    uint8_t counter = 1;
+    uint8_t delay = 1;
+    uint8_t mode = 1;
+    int8_t step = 1;
+
+    std::array<uint8_t, 7> packed() const {
+        return {current, first, last, counter, delay, mode, static_cast<uint8_t>(step)};
+    }
+
+    static ActorAnimation initialize(uint8_t first, uint8_t last, uint8_t delay, uint8_t mode) {
+        return {first, first, last, delay, delay, mode, 1};
+    }
+
+    bool advance(const ActorAnimation& backup) {
+        // 1000:6078..615A advances before the actor's behavior/input branch.
+        if (mode == 0 || ++counter <= delay) return false;
+        counter = 0;
+        current = static_cast<uint8_t>(current + step);
+        if (mode == 2) {
+            if (current >= last || current <= first) step = static_cast<int8_t>(-step);
+        } else if (current > last) {
+            current = first;
+            if (mode == 3) *this = backup;
+        }
+        return true;
+    }
+};
+
 struct Player {
     float x = 24.0f;
     float y = 24.0f;
@@ -714,6 +746,10 @@ struct Player {
     uint8_t fracX = 0;
     uint8_t fracY = 0;
     bool grounded = false;
+    ActorAnimation animation;
+    ActorAnimation animationBackup{0, 0, 0, 0, 0, 0, 0};
+    uint8_t idleTicks = 0;
+    uint8_t spriteIndex = 0;
 };
 
 struct SpawnerState {
@@ -10264,8 +10300,7 @@ public:
     void debugOriginalState2AnimationInit() {
         auto initialize = [](uint8_t arg04, uint8_t arg06, uint8_t arg08,
                              uint8_t arg0a) {
-            return std::array<uint8_t, 7>{arg0a, arg0a, arg08, arg06,
-                                          arg06, arg04, 1};
+            return ActorAnimation::initialize(arg0a, arg08, arg06, arg04).packed();
         };
 
         std::array<uint8_t, 7> bytes = initialize(4, 6, 8, 12);
@@ -10282,45 +10317,9 @@ public:
     }
 
     void debugOriginalState2AnimationAdvance() {
-        struct AnimationCursor {
-            uint8_t current = 0;
-            uint8_t first = 0;
-            uint8_t last = 0;
-            uint8_t counter = 0;
-            uint8_t delay = 0;
-            uint8_t mode = 0;
-            int8_t step = 1;
-        };
-
-        auto packed = [](const AnimationCursor& cursor) {
-            return std::array<uint8_t, 7>{
-                cursor.current, cursor.first, cursor.last, cursor.counter,
-                cursor.delay, cursor.mode, static_cast<uint8_t>(cursor.step)};
-        };
-
-        auto tick = [&](AnimationCursor& cursor,
-                        std::array<uint8_t, 7>* mode3Backup = nullptr) {
-            if (cursor.mode == 0) return;
-            ++cursor.counter;
-            if (cursor.counter <= cursor.delay) return;
-
-            cursor.counter = 0;
-            cursor.current = static_cast<uint8_t>(
-                static_cast<int>(cursor.current) + static_cast<int>(cursor.step));
-
-            if (cursor.mode == 2) {
-                if (cursor.current >= cursor.last || cursor.current <= cursor.first) {
-                    cursor.step = static_cast<int8_t>(-cursor.step);
-                }
-                return;
-            }
-
-            if (cursor.current > cursor.last) {
-                cursor.current = cursor.first;
-                if (cursor.mode == 3 && mode3Backup != nullptr) {
-                    *mode3Backup = packed(cursor);
-                }
-            }
+        using AnimationCursor = ActorAnimation;
+        auto tick = [](AnimationCursor& cursor, const AnimationCursor* mode3Backup = nullptr) {
+            cursor.advance(mode3Backup ? *mode3Backup : AnimationCursor{});
         };
 
         AnimationCursor death{0x72, 0x72, 0x79, 3, 3, 1, 1};
@@ -10340,7 +10339,7 @@ public:
         }
 
         AnimationCursor mode3{6, 5, 6, 1, 1, 3, 1};
-        std::array<uint8_t, 7> backup{};
+        const AnimationCursor backup{8, 8, 9, 2, 2, 1, 1};
         tick(mode3, &backup);
 
         AnimationCursor disabled{8, 8, 9, 9, 1, 0, 1};
@@ -10349,8 +10348,8 @@ public:
         if (mode1FirstFrame != 0x73 || mode1After5 != 0x74 ||
             wrap.current != 0x72 || wrap.counter != 0 ||
             pingpongSequence != std::array<uint8_t, 4>{4, 3, 2, 3} ||
-            pingpong.step != 1 || mode3.current != 5 || backup[0] != 5 ||
-            backup[5] != 3 || disabled.current != 8 || disabled.counter != 9) {
+            pingpong.step != 1 || mode3.packed() != backup.packed() ||
+            disabled.current != 8 || disabled.counter != 9) {
             throw std::runtime_error("original state-2 animation advance mismatch");
         }
 
@@ -10359,7 +10358,7 @@ public:
                   << " mode1_first_frame=0x73 mode1_after_5=0x74"
                   << " wrap_frame=0x72 wrap_counter=0"
                   << " mode2_seq=4,3,2,3 mode2_final_step=1"
-                  << " mode3_backup_frame=5 mode3_backup_mode=3"
+                  << " mode3_restored_frame=8 mode3_restored_mode=1"
                   << " mode0_unchanged=1 ghidra=1000:6053\n";
     }
 
@@ -18757,7 +18756,7 @@ public:
         if (collides(player_.x, player_.y)) {
             throw std::runtime_error("player horizontal fixture starts blocked");
         }
-        updatePlayer(player_, false, false, false, false, playerFacing_, playerAnimTick_, 0.0f);
+        updatePlayer(player_, false, false, false, false, 0);
         if (collides(player_.x, player_.y) ||
             player_.x != static_cast<float>(kSolidX * kTileSize - 16) ||
             player_.vx8 != -0x0100 || player_.fracX != 64) {
@@ -18772,7 +18771,7 @@ public:
         player_.y = static_cast<float>(kFloorY * kTileSize - 13);
         player_.vy8 = 0x0200;
         player_.fracY = 77;
-        updatePlayer(player_, false, false, false, false, playerFacing_, playerAnimTick_, 0.0f);
+        updatePlayer(player_, false, false, false, false, 0);
         if (collides(player_.x, player_.y) ||
             player_.y != static_cast<float>(kFloorY * kTileSize - 16) ||
             !player_.grounded || player_.vy8 != 0 || player_.fracY != 77) {
@@ -21883,7 +21882,8 @@ public:
                   << " visual_claim=0\n";
     }
 
-    void debugPlayerWalkOriginal(const std::string& fixtureDir, const std::string& outDir = "") {
+    void debugPlayerWalkOriginal(const std::string& fixtureDir, const std::string& outDir = "",
+                                 bool checkAnimation = false) {
         load();
         initSdl();
         std::ofstream manifest;
@@ -21891,7 +21891,7 @@ public:
             std::filesystem::create_directories(outDir);
             manifest.open(joinPath(outDir, "manifest.csv"));
             if (!manifest) throw std::runtime_error("cannot create player walk manifest");
-            manifest << "route,sample,phase,frame,x,y,vx8,vy8,frac_x,frac_y,frame_hash\n";
+            manifest << "route,sample,phase,frame,x,y,vx8,vy8,frac_x,frac_y,sprite,cursor,idle,frame_hash\n";
         }
         auto bytes = [](const std::string& hex, size_t size) {
             if (hex.size() != size * 2 || hex.find_first_not_of("0123456789abcdef") != std::string::npos) {
@@ -21904,10 +21904,16 @@ public:
         auto localWord = [](const std::vector<uint8_t>& raw, int offset) {
             return static_cast<int16_t>(le16(raw, static_cast<size_t>(0x3A + offset)));
         };
-        const std::array<std::pair<std::string, int>, 5> routes{{
+        std::vector<std::pair<std::string, int>> routes{
             {"braking", 96}, {"reversal", 120}, {"reaccelerate", 134},
-            {"air_coast", 39}, {"switch_coast", 56}}};
+            {"air_coast", 39}, {"switch_coast", 56}};
+        if (checkAnimation) {
+            routes.push_back({"idle_resume", 308});
+            routes.push_back({"short_idle", 55});
+            routes.push_back({"cursor_restore", 6});
+        }
         int samples = 0, overspeed = 0, airCoast = 0;
+        int spriteChanges = 0, coastingIdle = 0;
         uint64_t lastHash = 0;
         for (const auto& [route, expectedCount] : routes) {
             std::ifstream input(joinPath(fixtureDir, route + ".txt"));
@@ -21915,6 +21921,27 @@ public:
             resetLevel(0);
             menu_ = false;
             bool header = false, complete = false;
+            std::vector<uint8_t> descriptors;
+            auto spriteIndex = [&](const std::vector<uint8_t>& visual) -> uint8_t {
+                for (size_t i = 1; i < descriptors.size() / 4; ++i) {
+                    if (std::equal(visual.begin() + 4, visual.end(), descriptors.begin() + i * 4)) {
+                        return static_cast<uint8_t>(i - 1);
+                    }
+                }
+                throw std::runtime_error("original player sprite descriptor missing");
+            };
+            auto animationFrom = [](const std::vector<uint8_t>& actor, size_t at) {
+                return ActorAnimation{actor[at], actor[at + 1], actor[at + 2], actor[at + 3],
+                                      actor[at + 4], actor[at + 5], static_cast<int8_t>(actor[at + 6])};
+            };
+            auto requireAnimation = [&](const Player& player, const std::vector<uint8_t>& actor,
+                                        const std::vector<uint8_t>& visual, const std::string& stage) {
+                if (player.animation.packed() != animationFrom(actor, 0x16).packed() ||
+                    player.animationBackup.packed() != animationFrom(actor, 0x1D).packed() ||
+                    player.idleTicks != actor[2] || player.spriteIndex != spriteIndex(visual)) {
+                    throw std::runtime_error(route + " original animation mismatch " + stage);
+                }
+            };
             int count = 0, previousFrame = -1;
             std::string line, previousPhase;
             while (std::getline(input, line)) {
@@ -21927,21 +21954,44 @@ public:
                     if (equal != std::string::npos) fields.emplace(field.substr(0, equal), field.substr(equal + 1));
                 }
                 if (line.rfind("capture=", 0) == 0) {
-                    if (header || fields.at("capture") != "player_walk_original_v1" ||
+                    if (header || fields.at("capture") != (checkAnimation ? "player_animation_original_v1" : "player_walk_original_v1") ||
                         fields.at("route") != route || fields.at("temp_copy") != "1") {
                         throw std::runtime_error("invalid original player header");
+                    }
+                    if (checkAnimation && ((route == "cursor_restore" && fields.at("cursor_seeded") != "1") ||
+                        (route != "cursor_restore" && fields.count("cursor_seeded") && fields.at("cursor_seeded") != "0"))) {
+                        throw std::runtime_error("unexpected original animation seed provenance");
                     }
                     header = true;
                     continue;
                 }
+                if (line.rfind("sprites ", 0) == 0) {
+                    if (!checkAnimation || !header || !descriptors.empty() || count) {
+                        throw std::runtime_error("unexpected original sprite descriptor table");
+                    }
+                    descriptors = bytes(fields.at("descriptors"), 92 * 4);
+                    size_t pixelOffset = 0;
+                    if (sprites_.sprites.size() != 91) throw std::runtime_error("unexpected player sprite bank");
+                    for (size_t i = 0; i < sprites_.sprites.size(); ++i) {
+                        const auto& sprite = sprites_.sprites[i];
+                        const size_t at = (i + 1) * 4;
+                        if (descriptors[at] != sprite.width || descriptors[at + 1] != sprite.height ||
+                            le16(descriptors, at + 2) != pixelOffset) {
+                            throw std::runtime_error("original sprite table differs from decoded bank");
+                        }
+                        pixelOffset += sprite.pixels.size();
+                    }
+                    continue;
+                }
                 if (line.rfind("complete ", 0) == 0) {
-                    if (!header || count != expectedCount || std::stoi(fields.at("samples")) != count) {
+                    if (!header || complete || count != expectedCount || std::stoi(fields.at("samples")) != count) {
                         throw std::runtime_error("incomplete original player route");
                     }
                     complete = true;
                     continue;
                 }
-                if (line.rfind("tick ", 0) != 0 || !header || complete) {
+                if (line.rfind("tick ", 0) != 0 || !header || complete ||
+                    (checkAnimation && descriptors.empty())) {
                     throw std::runtime_error("unexpected original player row");
                 }
                 const auto raw = bytes(fields.at("raw"), 0x26);
@@ -21965,6 +22015,22 @@ public:
                     player_.grounded = before[0x19] != 0;
                     syncPlayerVelocityMirror(player_);
                     logicTick_ = static_cast<uint32_t>(frame - 1);
+                    if (checkAnimation) {
+                        const auto entry = bytes(fields.at("entry"), 0x26);
+                        player_.animation = animationFrom(entry, 0x16);
+                        player_.animationBackup = animationFrom(entry, 0x1D);
+                        player_.idleTicks = entry[2];
+                        player_.spriteIndex = spriteIndex(bytes(fields.at("entry_visual"), 8));
+                    }
+                }
+                if (checkAnimation) {
+                    requireAnimation(player_, bytes(fields.at("entry"), 0x26),
+                                     bytes(fields.at("entry_visual"), 8), "entry " + std::to_string(count));
+                    Player advanced = player_;
+                    if (advanced.animation.advance(advanced.animationBackup)) {
+                        advanced.spriteIndex = static_cast<uint8_t>(advanced.animation.current - 1);
+                    }
+                    requireAnimation(advanced, raw, visual, "advance " + std::to_string(count));
                 }
                 if (static_cast<int>(player_.x) != le16(visual, 0) ||
                     static_cast<int>(player_.y) != le16(visual, 2) ||
@@ -21988,7 +22054,18 @@ public:
                 }
                 overspeed += std::abs(localWord(response, -12)) > kPlayerWalkVelocity8;
                 airCoast += phase == "idle" && !before[0x19] && localWord(response, -12) != 0;
+                const uint8_t previousSprite = player_.spriteIndex;
                 updateWithControls(controls, 1.0f / 60.0f);
+                if (checkAnimation) {
+                    const auto finalVisual = bytes(fields.at("final_visual"), 8);
+                    requireAnimation(player_, bytes(fields.at("final_actor"), 0x26), finalVisual,
+                                     "response " + std::to_string(count));
+                    if (std::stoi(fields.at("sprite")) != spriteIndex(finalVisual)) {
+                        throw std::runtime_error("original player sprite index disagrees with descriptor");
+                    }
+                    spriteChanges += player_.spriteIndex != previousSprite;
+                    coastingIdle += player_.spriteIndex == 0 && player_.vx8 != 0 && phase == "idle";
+                }
                 if (static_cast<int>(player_.x) != localWord(after, -44) ||
                     static_cast<int>(player_.y) != localWord(after, -46) ||
                     player_.vx8 != localWord(after, -12) || player_.vy8 != localWord(after, -14) ||
@@ -22002,7 +22079,8 @@ public:
                             << ',' << int(after[0x2A]) << ',' << int(after[0x29]);
                     throw std::runtime_error(message.str());
                 }
-                if (count == 0 || phase != previousPhase || count + 1 == expectedCount) {
+                if (count == 0 || phase != previousPhase || count + 1 == expectedCount ||
+                    (checkAnimation && player_.spriteIndex != previousSprite)) {
                     const std::string label = route + "_" + std::to_string(count);
                     lastHash = inspectRenderedFrame(label).hash;
                     if (!outDir.empty()) {
@@ -22010,6 +22088,8 @@ public:
                         manifest << route << ',' << count << ',' << phase << ',' << frame << ','
                                  << player_.x << ',' << player_.y << ',' << player_.vx8 << ',' << player_.vy8
                                  << ',' << int(player_.fracX) << ',' << int(player_.fracY) << ','
+                                 << int(player_.spriteIndex) << ',' << int(player_.animation.current)
+                                 << ',' << int(player_.idleTicks) << ','
                                  << std::hex << lastHash << std::dec << '\n';
                     }
                 }
@@ -22020,10 +22100,14 @@ public:
             }
             if (!complete) throw std::runtime_error("missing original player completion row");
         }
-        std::cout << "player_walk_original=ok cases=5 samples=" << samples
+        std::cout << (checkAnimation ? "player_animation_original=ok" : "player_walk_original=ok")
+                  << " cases=" << routes.size() << " samples=" << samples
                   << " full_motion_states=" << samples << " input_responses=" << samples
-                  << " overspeed_states=" << overspeed << " air_coast_states=" << airCoast
-                  << " frame_inspection=1 frame_hash=" << std::hex << lastHash << std::dec << '\n';
+                  << " overspeed_states=" << overspeed << " air_coast_states=" << airCoast;
+        if (checkAnimation) std::cout << " animation_states=" << samples << " sprite_descriptors=" << samples
+                                     << " sprite_changes=" << spriteChanges << " coasting_idle=" << coastingIdle
+                                     << " natural_samples=" << samples - 6 << " cursor_seeded_samples=6";
+        std::cout << " frame_inspection=1 frame_hash=" << std::hex << lastHash << std::dec << '\n';
     }
 
     void debugRouteTimingEvidence(const std::string& fixturePath) {
@@ -22628,10 +22712,6 @@ private:
     int triggerCooldown_ = 0;
     int portalCooldown2_ = 0;
     int triggerCooldown2_ = 0;
-    int playerFacing_ = 1;
-    int player2Facing_ = 1;
-    int playerAnimTick_ = 0;
-    int player2AnimTick_ = 0;
     int energy_ = 100;
     int energy2_ = 100;
     int lives_ = 3;
@@ -22770,6 +22850,7 @@ private:
         level_ = levels_[levelIndex_];
         player_ = {};
         player2_ = {};
+        player2_.animation = ActorAnimation::initialize(21, 28, 1, 1);
         spawnerStates_.clear();
         monsters_.clear();
         bonusDrops_.clear();
@@ -22787,10 +22868,6 @@ private:
         triggerCooldown_ = 0;
         portalCooldown2_ = 0;
         triggerCooldown2_ = 0;
-        playerFacing_ = 1;
-        player2Facing_ = 1;
-        playerAnimTick_ = 0;
-        player2AnimTick_ = 0;
         energy_ = 100;
         energy2_ = 100;
         playerDead_ = false;
@@ -23548,9 +23625,7 @@ private:
                           playerCount_ == 1 || player2Dead_);
         } else {
             activateLaunchPad(player_, p1Down);
-            updatePlayer(player_, controls.p1Left, controls.p1Right,
-                         p1Jump, p1Switch,
-                         playerFacing_, playerAnimTick_, dt);
+            updatePlayer(player_, controls.p1Left, controls.p1Right, p1Jump, p1Switch, 0);
             collectObjectiveTiles(player_, 1);
             updatePortalsAndTriggers(player_, portalCooldown_, triggerCooldown_, p1Down);
         }
@@ -23562,9 +23637,7 @@ private:
                               playerDead_);
             } else {
                 activateLaunchPad(player2_, p2Down);
-                updatePlayer(player2_, controls.p2Left, controls.p2Right,
-                             p2Jump, p2Switch,
-                             player2Facing_, player2AnimTick_, dt);
+                updatePlayer(player2_, controls.p2Left, controls.p2Right, p2Jump, p2Switch, 19);
                 collectObjectiveTiles(player2_, 2);
                 updatePortalsAndTriggers(player2_, portalCooldown2_, triggerCooldown2_,
                                          p2Down);
@@ -23843,12 +23916,14 @@ private:
         }
     }
 
-    // One call is one governed game tick. The dt parameter is ignored for the
-    // integration -- the original's player is 8.8 fixed-point per tick, not a
-    // continuous px/s model -- and is kept only so the existing call
-    // signatures are undisturbed.
+    // One call is one governed tick: animation advances before input and
+    // motion integrates in 8.8 fixed point, independent of wall-clock dt.
     void updatePlayer(Player& player, bool left, bool right, bool jump, bool switchWeapon,
-                      int& facing, int& animTick, float) {
+                      uint8_t spriteBase) {
+        if (player.animation.advance(player.animationBackup)) {
+            player.spriteIndex = static_cast<uint8_t>(player.animation.current - 1);
+        }
+        const uint8_t inputFrame = player.animation.current;
         int x = static_cast<int>(player.x);
         int y = static_cast<int>(player.y);
         auto edges = scanActorEdges(x, y);
@@ -23874,7 +23949,10 @@ private:
                 player.vx8 = -250;
                 edges.left = false;
             }
-            facing = -1;
+            if (inputFrame < spriteBase + 10 || inputFrame > spriteBase + 17) {
+                player.animation = ActorAnimation::initialize(spriteBase + 10, spriteBase + 17, 0, 1);
+                player.idleTicks = 0;
+            }
         }
         if (right) {
             if (stepRight) {
@@ -23882,11 +23960,20 @@ private:
                 player.vx8 = 250;
                 edges.right = false;
             }
-            facing = 1;
+            if (inputFrame < spriteBase + 2 || inputFrame > spriteBase + 9) {
+                player.animation = ActorAnimation::initialize(spriteBase + 2, spriteBase + 9, 0, 1);
+                player.idleTicks = 0;
+            }
         }
         player.vx8 = playerWalkVelocity(player.vx8, left, right, edges.bottom);
-        if (player.vx8 != 0) ++animTick;
-        else animTick = 0;
+        player.animation.delay = static_cast<uint8_t>(4 - std::abs(player.vx8) / 256);
+        if (!left && !right && ++player.idleTicks == 5) {
+            player.animation.mode = 0;
+            // The cursor becomes 1 even for player 2; its displayed idle
+            // descriptor is independently selected as 20 (1000:6BAD..6BD1).
+            player.animation.current = 1;
+            player.spriteIndex = spriteBase;
+        }
         if (jump && edges.bottom && player.vy8 == 0) {
             player.vy8 = kPlayerJumpVelocity8;
         }
@@ -24124,10 +24211,6 @@ private:
         bombInventory2_ = {};
         weaponSwitchHoldTicks_ = 0;
         weaponSwitchHoldTicks2_ = 0;
-        playerFacing_ = 1;
-        player2Facing_ = 1;
-        playerAnimTick_ = 0;
-        player2AnimTick_ = 0;
         logicTick_ = 0;
         clearSoundLatch();
         lastPumpedSoundRecord_ = -1;
@@ -26576,13 +26659,13 @@ private:
         drawBonusDrops(drawCamX, drawCamY);
         drawMonsters(drawCamX, drawCamY);
         if (!playerDead_) {
-            drawPlayer(player_, playerFacing_, playerAnimTick_, drawCamX, drawCamY, 0);
+            drawPlayer(player_, drawCamX, drawCamY);
         } else if (deathStateTimer_ > 0 && state2Visual_.active) {
             drawState2PlayerVisual(player_, state2Visual_, state2Effect_,
                                    drawCamX, drawCamY);
         }
         if (playerCount_ > 1 && !player2Dead_) {
-            drawPlayer(player2_, player2Facing_, player2AnimTick_, drawCamX, drawCamY, 19);
+            drawPlayer(player2_, drawCamX, drawCamY);
         } else if (playerCount_ > 1 && deathStateTimer2_ > 0 &&
                    state2Visual2_.active) {
             drawState2PlayerVisual(player2_, state2Visual2_, state2Effect2_,
@@ -26776,14 +26859,12 @@ private:
         }
     }
 
-    void drawPlayer(const Player& player, int facing, int animTick, int camX, int camY,
-                    int frameOffset) {
+    void drawPlayer(const Player& player, int camX, int camY) {
         int x0 = static_cast<int>(player.x) - camX;
         int y0 = static_cast<int>(player.y) - camY;
         const SpriteBank& bank = sprites_.sprites.empty() ? altSprites_ : sprites_;
         if (!bank.sprites.empty()) {
-            int frame = player.grounded ? (animTick / 8) % 9 : 4;
-            int index = frameOffset + (facing < 0 ? 9 + frame : frame);
+            int index = player.spriteIndex;
             if (index >= static_cast<int>(bank.sprites.size())) index = 0;
             drawSprite(bank.sprites[static_cast<size_t>(index)], x0, y0);
         } else {
@@ -27888,6 +27969,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-player-walk-original") {
             app.debugPlayerWalkOriginal(argv[2], argc > 3 ? argv[3] : "");
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-player-animation-original") {
+            app.debugPlayerWalkOriginal(argv[2], argc > 3 ? argv[3] : "", true);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-bomb-motion-original") {

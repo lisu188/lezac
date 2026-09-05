@@ -112,6 +112,15 @@ subtracts 42. Gravity/landing runs before input, and the jump impulse precedes
 shared collision and Y/X integration. This does not close exact animation,
 hard-landing presentation, step-hop runtime or all-level interaction fidelity.
 
+The subsequent [player animation recovery](player_animation_runtime_2026-09-05.md)
+matches 814 motion/cursor/descriptor states with 161 sprite changes: 808
+natural-motion samples and six explicitly cursor-seeded samples. Walking,
+coasting, direction changes, short idle pauses and airborne sprite cadence
+now use the original pre-input advancement and speed-dependent delay. The
+controlled mode-3 probe confirms restoration from backup to active cursor.
+This narrows the animation follow-up above, but does not close hard-landing,
+down-key, portal/death/reentry or live P2 presentation evidence.
+
 Bomb fuse timing is now independently recovered from the actual actor table
 at `DS:1BAE`, field `+0x02`: constructor seeds 20/30/40/200, subtracting the
 odd-frame bit, with first update on the frame after placement. Eight original

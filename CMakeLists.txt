@@ -2671,7 +2671,7 @@ if(BUILD_TESTING)
     set_tests_properties(state2_animation_advance_model PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "original_state2_animation_advance=ok death_start=0x72 death_end=0x79 delay=3 mode1_first_frame=0x73 mode1_after_5=0x74 wrap_frame=0x72 wrap_counter=0 mode2_seq=4,3,2,3 mode2_final_step=1 mode3_backup_frame=5 mode3_backup_mode=3 mode0_unchanged=1 ghidra=1000:6053")
+            "original_state2_animation_advance=ok death_start=0x72 death_end=0x79 delay=3 mode1_first_frame=0x73 mode1_after_5=0x74 wrap_frame=0x72 wrap_counter=0 mode2_seq=4,3,2,3 mode2_final_step=1 mode3_restored_frame=8 mode3_restored_mode=1 mode0_unchanged=1 ghidra=1000:6053")
 
     add_test(NAME state2_visual_row_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-visual-row-model)
@@ -3822,7 +3822,15 @@ if(BUILD_TESTING)
         COMMAND ${Python3_EXECUTABLE} tools/capture_original_player_walk.py --self-check)
     set_tests_properties(player_walk_capture_contract PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-        PASS_REGULAR_EXPRESSION "^player_walk_capture_self_check=ok windows=9 live=0")
+        PASS_REGULAR_EXPRESSION "^player_walk_capture_self_check=ok windows=13 live=0")
+
+    add_test(NAME player_animation_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-player-animation-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/player_animation_original)
+    set_tests_properties(player_animation_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^player_animation_original=ok cases=8 samples=814 full_motion_states=814 input_responses=814 overspeed_states=19 air_coast_states=12 animation_states=814 sprite_descriptors=814 sprite_changes=161 coasting_idle=189 natural_samples=808 cursor_seeded_samples=6 frame_inspection=1")
 
     add_test(NAME route_timing_evidence
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

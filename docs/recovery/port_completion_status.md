@@ -193,8 +193,12 @@ and collection consumption, not exact reward physics or presentation.
   clears vy, and a retire+reseed resets the rest counter and sub-accumulators.
   Pinned by `natural_forward_debris_writeback`, which re-derives the events
   from the rows rather than trusting the fixture's count.
-  The natural trace still lacks the contributing inputs, so it does not
-  establish the formula or a complete natural collision replay. A separate
+  The natural trace still lacks the contributing inputs and per-row live
+  bounds, so it does not establish the formula, live-record membership or
+  a complete natural collision replay. The
+  [retirement correction](debris_rest_runtime_2026-09-05.md) demonstrates
+  why persistent raw slots must not be treated as live records; the natural
+  samplers now exclude inactive tails. A separate
   [seeded original collision capture](debris_impact_runtime_2026-09-05.md)
   now validates the single-target weighted average, signed truncation,
   newest-record matching, bounce-before-blend order and same-tick seeding.

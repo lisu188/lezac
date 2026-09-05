@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture one original loop-2 tick per explicitly seeded collision.
+"""Capture one original loop-2 tick per seeded collision or lifetime probe.
 
 The temporary DOSBox child is stopped at 1000:492F and 1000:4D3A by
 guarded CS trampolines. No helper or physics instruction is changed. Inputs
@@ -9,6 +9,7 @@ are artificial, not a natural bomb route or a visual-parity claim.
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import hashlib
 import os
 from pathlib import Path
@@ -30,6 +31,7 @@ WINDOWS = {
     END: bytes.fromhex("c9c3c70674201027"),
     0x3BB2: bytes.fromhex("5589e5b810009adf04"),
     0x3D46: bytes.fromhex("5589e5b810009adf04"),
+    0x4CEF: bytes.fromhex("807eeb007407c47ee626fe4508c47ee626807d0864752e"),
 }
 
 
@@ -59,15 +61,87 @@ def check_image(exe: Path) -> bytes:
     for offset, expected in WINDOWS.items():
         if image[offset:offset + len(expected)] != expected:
             raise RuntimeError(f"original instruction mismatch: 1000:{offset:04x}")
-    print("debris_impacts_capture_self_check=ok windows=4 seeded=1 live=0", flush=True)
+    print(f"debris_impacts_capture_self_check=ok windows={len(WINDOWS)} seeded=1 live=0", flush=True)
     return image
 
 
-def record(tile: int, word: int, vx: int, vy: int, sx: int = 0) -> bytes:
-    return struct.pack("<HHbbbbBBB", tile, word, vx, vy, sx, 0, 0, 0x60, 0)
+def record(tile: int, word: int, vx: int, vy: int, sx: int = 0, rest: int = 0) -> bytes:
+    return struct.pack("<HHbbbbBBB", tile, word, vx, vy, sx, 0, rest, 0x60, 0)
 
 
-def capture(run_dir: Path, pid: int, base: int, output: Path, image: bytes) -> None:
+@dataclass
+class Probe:
+    name: str
+    debris: list[bytes]
+    collapse: list[bytes]
+    cells: dict[int, tuple[int, int]]
+
+
+def base_cells(width: int) -> dict[int, tuple[int, int]]:
+    return {y * width + x: (1 if y == 21 else 0, 0)
+            for y in range(18, 23) for x in range(20, 29)}
+
+
+def impact_probes(width: int) -> list[Probe]:
+    caller = 20 * width + 23
+    cases = (
+        ("debris_positive", 1, 50, -40, "debris", -20, 20, 1),
+        ("debris_negative", -1, -50, -41, "debris", 20, 20, 1),
+        ("debris_zero_round", 1, 2, -1, "debris", 0, 0, 1),
+        ("debris_bounce_before_blend", 1, 50, 60, "debris", -20, 20, 1),
+        ("collapse_unsigned_weight", 1, 50, -40, "collapse", -20, 20, 255),
+        ("collapse_negative_round", -1, -50, -41, "collapse", 3, 2, 14),
+        ("new_debris", 1, 50, -40, "new_debris", 0, 0, 1),
+        ("new_collapse", 1, 50, -40, "new_collapse", 0, 0, 2),
+        ("newest_debris_match", 1, 50, -40, "duplicate", -20, 20, 1),
+    )
+    probes = []
+    for name, direction, vx, vy, kind, other_x, other_y, weight in cases:
+        target = caller + direction
+        high = kind not in ("collapse", "new_collapse")
+        word = 0x4002 if high else 9
+        seeded = kind.startswith("new_")
+        debris = [record(caller, 0xC001, vx, vy, 127 if direction > 0 else -128)]
+        collapse = []
+        cells = base_cells(width)
+        cells[caller] = (0x60, 0xC001)
+        cells[target] = (0x60, word if seeded else word | 0x8000)
+        if not seeded:
+            if high:
+                debris.append(record(target, word | 0x8000, 99 if kind == "duplicate" else other_x, 0 if kind == "duplicate" else other_y))
+                if kind == "duplicate":
+                    debris.append(record(caller + 4, word | 0x8000, other_x, other_y))
+                    cells[caller + 4] = (0x60, word | 0x8000)
+            else:
+                collapse.append(struct.pack("<HHHbbHHBBB", target * 2, target * 2, word | 0x8000, other_x, other_y, 0, 0, 0, 0, weight))
+        probes.append(Probe(name, debris, collapse, cells))
+    return probes
+
+
+def rest_probes(width: int) -> list[Probe]:
+    caller = 20 * width + 23
+    probes = []
+    for name, rest in (("rest_98", 98), ("rest_99", 99), ("rest_100", 100),
+                       ("rest_255", 255), ("airborne_rest_99", 99),
+                       ("free_move_rest_99", 99), ("blocked_rest_99", 99),
+                       ("rest_99_shift", 99), ("rest_99_double", 99)):
+        cells = base_cells(width)
+        cells[caller] = (0x60, 0xC001)
+        stepped = name in ("free_move_rest_99", "blocked_rest_99")
+        debris = [record(caller, 0xC001, 40 if stepped else 0, 0, 100 if stepped else 0, rest)]
+        if name == "airborne_rest_99":
+            cells[caller + width] = (0, 0)
+        if name == "blocked_rest_99":
+            cells[caller + 1] = (1, 0)
+        if name in ("rest_99_shift", "rest_99_double"):
+            cells[caller + 3] = (0x60, 0xC002)
+            debris.append(record(caller + 3, 0xC002, 9 if name == "rest_99_shift" else 0,
+                                 0, rest=0 if name == "rest_99_shift" else 99))
+        probes.append(Probe(name, debris, [], cells))
+    return probes
+
+
+def capture(run_dir: Path, pid: int, base: int, output: Path, image: bytes, suite: str) -> None:
     ds = base + (seeder.RUNTIME_DS << 4)
     cs = base + (CS << 4)
     start_body = trampoline(1, START_BODY)
@@ -143,54 +217,24 @@ def capture(run_dir: Path, pid: int, base: int, output: Path, image: bytes) -> N
             raise RuntimeError(f"unexpected level-1 width {width}")
         objects = memory_base + (u16(ds + 0xC1FE) << 4)
         words = memory_base + (u16(ds + 0x6614) << 4) + u16(ds + 0x6612)
-        cells = [y * width + x for y in range(18, 23) for x in range(20, 29)]
-        caller = 20 * width + 23
-        cases = (
-            ("debris_positive", 1, 50, -40, "debris", -20, 20, 1),
-            ("debris_negative", -1, -50, -41, "debris", 20, 20, 1),
-            ("debris_zero_round", 1, 2, -1, "debris", 0, 0, 1),
-            ("debris_bounce_before_blend", 1, 50, 60, "debris", -20, 20, 1),
-            ("collapse_unsigned_weight", 1, 50, -40, "collapse", -20, 20, 255),
-            ("collapse_negative_round", -1, -50, -41, "collapse", 3, 2, 14),
-            ("new_debris", 1, 50, -40, "new_debris", 0, 0, 1),
-            ("new_collapse", 1, 50, -40, "new_collapse", 0, 0, 2),
-            ("newest_debris_match", 1, 50, -40, "duplicate", -20, 20, 1),
-        )
+        cells = list(base_cells(width))
+        probes = rest_probes(width) if suite == "rest" else impact_probes(width)
         lines = [
-            "# Seeded original DOSBox loop-2 collisions; not natural-route evidence.",
+            "# Seeded original DOSBox loop-2 probes; not natural-route evidence.",
             f"# executable_sha256={hashlib.sha256((run_dir / 'LEZAC.EXE').read_bytes()).hexdigest()}",
             f"# freeze=1000:492f,1000:4d3a runtime_cs={actual_cs:04x} runtime_ds={actual_ds:04x}",
             "# register_order=cs,ds,es,ss,sp,bp little_endian_words=1",
-            "capture=debris_impacts_original_v1 seeded=1 temp_copy=1 visual_claim=0",
+            f"capture=debris_{suite}_original_v1 seeded=1 temp_copy=1 visual_claim=0",
         ]
 
         def snapshot_cells() -> str:
             return ",".join(f"{cell}:{read(objects + cell, 1).hex()}:{u16(words + 2 * cell):04x}" for cell in cells)
 
-        for name, direction, vx, vy, kind, other_x, other_y, weight in cases:
-            target = caller + direction
-            high = kind not in ("collapse", "new_collapse")
-            word = 0x4002 if high else 9
-            seeded = kind.startswith("new_")
-            debris = [record(caller, 0xC001, vx, vy, 127 if direction > 0 else -128)]
-            collapse = []
-            if not seeded:
-                if high:
-                    debris.append(record(target, word | 0x8000, 99 if kind == "duplicate" else other_x, 0 if kind == "duplicate" else other_y))
-                    if kind == "duplicate":
-                        debris.append(record(caller + 4, word | 0x8000, other_x, other_y))
-                else:
-                    collapse.append(struct.pack("<HHHbbHHBBB", target * 2, target * 2, word | 0x8000, other_x, other_y, 0, 0, 0, 0, weight))
-            for cell in cells:
-                write(objects + cell, b"\x01" if cell // width == 21 else b"\x00")
-                write(words + 2 * cell, bytes(2))
-            write(objects + caller, b"\x60")
-            write(words + 2 * caller, struct.pack("<H", 0xC001))
-            write(objects + target, b"\x60")
-            write(words + 2 * target, struct.pack("<H", word if seeded else word | 0x8000))
-            if kind == "duplicate":
-                write(objects + caller + 4, b"\x60")
-                write(words + 2 * (caller + 4), struct.pack("<H", word | 0x8000))
+        for probe in probes:
+            name, debris, collapse = probe.name, probe.debris, probe.collapse
+            for cell, (glyph, word) in probe.cells.items():
+                write(objects + cell, bytes([glyph]))
+                write(words + 2 * cell, struct.pack("<H", word))
             write(ds + 0x207E, struct.pack("<H", 199 + len(debris)))
             write(ds + 0x2080, struct.pack("<H", len(collapse)))
             write(ds + 0x292B, b"".join(debris) + bytes(44))
@@ -202,10 +246,10 @@ def capture(run_dir: Path, pid: int, base: int, output: Path, image: bytes) -> N
             after_registers = wait_stage(2)
             count = u16(ds + 0x207E) - 199
             collapse_count = u16(ds + 0x2080)
-            if not 1 <= count <= 4 or not 0 <= collapse_count <= 1:
+            if not 0 <= count <= 4 or not 0 <= collapse_count <= 1:
                 raise RuntimeError("unexpected output queue count")
             after_debris = [read(ds + 0x292B + 11 * i, 11).hex() for i in range(count)]
-            if after_debris[0] == debris[0].hex():
+            if after_debris and after_debris[0] == debris[0].hex():
                 raise RuntimeError(f"{name}: no mover progress; capture rejected")
             after_collapse = [read(ds + 0x6620 + 15 * i, 15).hex() for i in range(collapse_count)]
             lines.append(" ".join((
@@ -214,8 +258,10 @@ def capture(run_dir: Path, pid: int, base: int, output: Path, image: bytes) -> N
                 "cells=" + before_cells, "after_cells=" + snapshot_cells(),
                 "debris=" + ",".join(r.hex() for r in debris),
                 "collapse=" + (",".join(r.hex() for r in collapse) or "none"),
-                "after_debris=" + ",".join(after_debris),
+                "after_debris=" + (",".join(after_debris) or "none"),
                 "after_collapse=" + (",".join(after_collapse) or "none"),
+                f"live_slot_before={199 + len(debris)} live_slot_after={199 + count}",
+                "inactive_tail=" + read(ds + 0x292B + 11 * count, 11).hex(),
                 "rng=" + read(ds + 0x1AFE, 4).hex(),
             )))
             print(f"debris_impact_original={name} after={','.join(after_debris)} regs={after_registers.hex()}", flush=True)
@@ -239,6 +285,7 @@ def capture(run_dir: Path, pid: int, base: int, output: Path, image: bytes) -> N
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--self-check", action="store_true")
+    parser.add_argument("--suite", choices=("impacts", "rest"), default="impacts")
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--out", type=Path)
     parser.add_argument("--approve-procmem", action="store_true")
@@ -258,7 +305,7 @@ def main() -> int:
 
     def hook(run_dir, pid, base, state, phase):
         if phase == "pre_capture":
-            capture(run_dir, pid, base, args.out, image)
+            capture(run_dir, pid, base, args.out, image, args.suite)
         return original(run_dir, pid, base, state, phase)
     seeder.write_runtime_state_snapshot = hook
     sys.argv = ["seed_original_level.py", "--run-dir", str(args.run_dir), "--target-level", "1",

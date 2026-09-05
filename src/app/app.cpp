@@ -150,11 +150,9 @@ constexpr size_t kDebrisRecordIndexBase = 0x00c7;  // DS:207E init (file 0x3319)
                                                    // DS:207E >= kDebrisCapacity.
 constexpr int8_t kDebrisGravityCompare = 0x7b;     // 4AA3 cmp vy,0x7b (signed jge)
 constexpr int8_t kDebrisGravityStep = 4;           // 4AAA add vy,4
-// 4CFF cmp rest,0x64 -- the ceiling the resting counter saturates at, NOT a
-// retirement threshold. See the note in updateDebrisRecords(): two level-2
-// captures show the counter stopping here with the record still present and
-// still flagged (longest observed run 3359 consecutive ticks at this value).
-constexpr uint8_t kDebrisRestSaturation = 0x64;
+// 4CFF equality check after the byte increment: clear the map flag and erase
+// the live record at 100. Stale tail bytes are not cleared by the original.
+constexpr uint8_t kDebrisRestRetireTicks = 0x64;
 constexpr uint8_t kDebrisShatterFrame = 0x76;      // 49B0/4B16 first shatter frame
 constexpr uint8_t kDebrisShatterLastStep = 0x79;   // 49DC terminal-frame trigger
 constexpr uint8_t kDebrisTerminalBase = 0x6b;      // 49EF add ax,0x6b (+Random(5))
@@ -655,7 +653,7 @@ struct DebrisRecord {
     int8_t velocityY = 0;      // +5 s8: vy (lane DS:78D4)
     int8_t subX = 0;           // +6 s8: x sub-accumulator (lane DS:78D3)
     int8_t subY = 0;           // +7 s8: y sub-accumulator (lane DS:78D5)
-    uint8_t restTicks = 0;     // +8 u8: no-move ticks, saturating at 100
+    uint8_t restTicks = 0;     // +8 u8: no-move ticks; retire when increment reaches 100
     uint8_t lookup = 0;        // +9 u8: carried tile code (objectByte at seed)
     uint8_t aux = 0;           // +A u8: bit 7 = "my move spawned a cascade" (4C19)
 };
@@ -1643,11 +1641,11 @@ public:
         }
         // Derived wall-clock durations for the per-tick subsystems whose
         // constants are game ticks: the small-bomb fuse and the debris
-        // rest-counter saturation ceiling.
+        // rest-counter retirement threshold.
         const double fuseSeconds =
             bombProfile(BombType::Small).fuseTicks / ticksPerSecond;
-        const double debrisRestSaturationSeconds =
-            static_cast<double>(kDebrisRestSaturation) / ticksPerSecond;
+        const double debrisRestRetirementSeconds =
+            static_cast<double>(kDebrisRestRetireTicks) / ticksPerSecond;
         std::cout << std::fixed << std::setprecision(2)
                   << "governed_rate=ok"
                   << " nominal_ticks_per_second=" << nominalTicksPerSecond
@@ -1661,7 +1659,7 @@ public:
                   << " dropped_ticks=" << governedDroppedTicks_
                   << " drives_run_loop=1"
                   << " small_fuse_s=" << fuseSeconds
-                  << " debris_rest_sat_s=" << debrisRestSaturationSeconds
+                  << " debris_rest_retire_s=" << debrisRestRetirementSeconds
                   << " visual_claim=0\n"
                   << std::defaultfloat;
     }
@@ -17174,12 +17172,9 @@ public:
     // friction, the bounce and a retire+reseed). These historical rows do not
     // contain the blend inputs; debugDebrisImpacts separately replays seeded
     // original collisions through the production mover.
-    // Debris shatter playback, and the rest-counter contradiction. The
-    // shatter half CONFIRMS the port (one glyph per tick, non-fragile
-    // terminal 0xFF); the rest half REFUTES it -- the port retires a record
-    // after exactly 100 resting ticks, and the original's counter saturates
-    // at 100 and keeps the record. Both are asserted so the confirmation is
-    // guarded and the divergence cannot be quietly lost.
+    // The historical glyph chain remains useful. Its lifetime inference was
+    // withdrawn: the sampler included inactive slots and the fixture omitted
+    // their live bounds. debugDebrisImpacts(..., true) replays bounded stops.
     void debugDebrisShatterPlayback(const std::string& fixturePath) {
         std::ifstream in(fixturePath);
         if (!in) throw std::runtime_error("cannot open " + fixturePath);
@@ -17213,7 +17208,8 @@ public:
         };
         if (req("debris_shatter_playback_original") != "level2" ||
             req("visual_claim") != "0" || req("runtime_ds") != "0c8f" ||
-            req("port_matches_saturation") != "1") {
+            req("rest_interpretation") != "withdrawn_unbounded_slot_scan" ||
+            req("live_bounds_present") != "0") {
             throw std::runtime_error("shatter playback fixture header mismatch");
         }
         auto byteAt = [](const std::string& hex, size_t i) {
@@ -17268,31 +17264,12 @@ public:
             throw std::runtime_error(
                 "port stepper chain [" + portChain + "] diverges from the capture");
         }
-        // The refuted half: the port retires at exactly this many resting
-        // ticks; the capture shows the counter saturating there instead.
-        const int restMax = std::stoi(req("rest_max_observed"));
-        const long longestRun = std::stol(req("longest_rest_100_run"));
-        if (restMax != static_cast<int>(kDebrisRestSaturation)) {
-            throw std::runtime_error(
-                "capture's saturation value disagrees with the port's retire constant");
-        }
-        if (req("rest_retirement_observed") != "0" ||
-            req("damaged_bit_ever_cleared") != "0" || longestRun <= restMax) {
-            throw std::runtime_error("rest-counter fields are inconsistent");
-        }
-        // The port must now agree: its ceiling constant IS the saturation
-        // value, and nothing retires a record on the rest counter.
-        if (static_cast<int>(kDebrisRestSaturation) != restMax) {
-            throw std::runtime_error("port saturation ceiling disagrees with the capture");
-        }
         std::cout << "debris_shatter_playback=ok"
                   << " level=2 chain=" << chain
                   << " ticks_per_glyph=1"
                   << " terminal=dissolve word=0x" << std::hex << word << std::dec
                   << " port_stepper_matches=1"
-                  << " rest_saturates_at=" << restMax
-                  << " longest_rest_run=" << longestRun
-                  << " retirement_observed=0 port_saturates=1"
+                  << " rest_lifetime_claim=0 stale_slots_not_liveness=1"
                   << " visual_claim=0\n";
     }
 
@@ -17753,7 +17730,7 @@ public:
     }
 
     void debugDebrisImpacts(const std::string& fixturePath,
-                           const std::string& outDir = "") {
+                           const std::string& outDir = "", bool restSuite = false) {
         load();
         initSdl();
         if (!outDir.empty()) std::filesystem::create_directories(outDir);
@@ -17794,12 +17771,16 @@ public:
         bool header = false;
         std::set<std::string> cases;
         size_t comparedRecords = 0;
+        size_t comparedCollapseRecords = 0;
+        bool staleTailExcluded = false;
         uint64_t lastHash = 0;
         std::string line;
         while (std::getline(input, line)) {
             if (!line.empty() && line.back() == '\r') line.pop_back();
             if (line.empty() || line[0] == '#') continue;
-            if (line == "capture=debris_impacts_original_v1 seeded=1 temp_copy=1 visual_claim=0") {
+            const std::string expectedHeader = std::string("capture=debris_") +
+                (restSuite ? "rest" : "impacts") + "_original_v1 seeded=1 temp_copy=1 visual_claim=0";
+            if (line == expectedHeader) {
                 header = true;
                 continue;
             }
@@ -17850,6 +17831,10 @@ public:
             for (const auto& raw : split(fields.at("debris"), ',')) {
                 debrisQueue_.push_back(decodeDebris(raw));
             }
+            if (restSuite) {
+                require(std::stoul(fields.at("live_slot_before")) ==
+                            kDebrisRecordIndexBase + debrisQueue_.size(), "input live bound mismatch");
+            }
             if (fields.at("collapse") != "none") {
                 for (const auto& hex : split(fields.at("collapse"), ',')) {
                     const auto raw = bytes(hex, 15);
@@ -17865,8 +17850,23 @@ public:
                 }
             }
             updateDebrisRecords();
-            const auto expected = split(fields.at("after_debris"), ',');
+            const auto expected = fields.at("after_debris") == "none"
+                                      ? std::vector<std::string>{}
+                                      : split(fields.at("after_debris"), ',');
             require(debrisQueue_.size() == expected.size(), "debris count mismatch");
+            if (restSuite) {
+                require(std::stoul(fields.at("live_slot_after")) ==
+                            kDebrisRecordIndexBase + expected.size(), "output live bound mismatch");
+                if (name == "rest_99") {
+                    const auto tail = decodeDebris(fields.at("inactive_tail"));
+                    require(expected.empty() && tail.restTicks == 100 &&
+                                tail.flaggedWord == 0xc001 &&
+                                level_.wordLayer.at(static_cast<size_t>(tail.tileIndex)) == 0x4001 &&
+                                level_.tiles.at(static_cast<size_t>(tail.tileIndex)) == tail.lookup,
+                            "inactive tail was mistaken for a live record");
+                    staleTailExcluded = true;
+                }
+            }
             for (size_t i = 0; i < expected.size(); ++i) {
                 const auto reference = decodeDebris(expected[i]);
                 const auto& actual = debrisQueue_[i];
@@ -17889,18 +17889,22 @@ public:
                             actual.flaggedWord == le16(raw, 4) && actual.forwardPhase == raw[6] &&
                             actual.reversePhase == raw[7] && actual.affectedBytes == raw[14],
                         "collapse bounds/key/lanes/weight mismatch");
+                ++comparedCollapseRecords;
             }
             visitCells(fields.at("after_cells"), false);
             require(randomSeed_ == le32(bytes(fields.at("rng"), 4), 0), "RNG mismatch");
             lastHash = inspectRenderedFrame("debris-impact-" + name).hash;
             if (!outDir.empty()) writeArgbPpm(joinPath(outDir, name + ".ppm"), fb_, kScreenW, kScreenH);
         }
-        if (cases.size() != 9 || comparedRecords != 16) {
+        if (cases.size() != 9 || comparedRecords != (restSuite ? 6u : 16u) ||
+            comparedCollapseRecords != (restSuite ? 0u : 3u) ||
+            (restSuite && !staleTailExcluded)) {
             throw std::runtime_error("incomplete original impact fixture");
         }
-        std::cout << "debris_impacts=ok cases=" << cases.size()
+        std::cout << (restSuite ? "debris_rest=ok cases=" : "debris_impacts=ok cases=") << cases.size()
                   << " debris_records=" << comparedRecords
-                  << " collapse_records=3 seeded_original=1 natural_route_claim=0"
+                  << " collapse_records=" << comparedCollapseRecords
+                  << " seeded_original=1 natural_route_claim=0"
                   << " frames_inspected=9 last_hash=" << std::hex << lastHash << std::dec << '\n';
     }
 
@@ -18195,45 +18199,35 @@ public:
             }
         }
 
-        // Free-run the live path well past the rest ceiling. Fragments that
-        // come to rest must STAY: the counter saturates at
-        // kDebrisRestSaturation and the record keeps its 0x8000 flag. This is
-        // what two level-2 captures show (longest observed run 3359
-        // consecutive ticks at the ceiling), and it is the opposite of what an
-        // earlier revision of this port did -- it removed the record after
-        // exactly 100 resting ticks. Records leave only through the 0xFF
-        // consume path.
-        const int kFreeRun = kDebrisRestSaturation * 8;
-        int restedAtCeiling = 0;
+        // Free-run production updates and distinguish rest retirement (glyph
+        // retained, map word unflagged) from the dissolve path (both cleared).
+        const int kFreeRun = kDebrisRestRetireTicks * 8;
+        int retiredWithGlyph = 0;
         int maxRest = 0;
         for (int t = 0; t < kFreeRun; ++t) {
+            const auto before = debrisQueue_;
             updateFlashes();
             for (const DebrisRecord& live : debrisQueue_) {
                 maxRest = std::max(maxRest, static_cast<int>(live.restTicks));
             }
+            for (const DebrisRecord& previous : before) {
+                if (previous.restTicks == kDebrisRestRetireTicks - 1 &&
+                    level_.wordLayer.at(static_cast<size_t>(previous.tileIndex)) ==
+                        (previous.flaggedWord & ~kDamagedWordBit) &&
+                    level_.tiles.at(static_cast<size_t>(previous.tileIndex)) != 0) {
+                    ++retiredWithGlyph;
+                }
+            }
         }
-        if (maxRest > static_cast<int>(kDebrisRestSaturation)) {
+        if (maxRest >= static_cast<int>(kDebrisRestRetireTicks)) {
             throw std::runtime_error(
-                "debris rest counter passed its saturation ceiling (" +
+                "live debris remained at its retirement threshold (" +
                 std::to_string(maxRest) + ")");
         }
-        for (const DebrisRecord& live : debrisQueue_) {
-            if (live.restTicks == kDebrisRestSaturation) ++restedAtCeiling;
-        }
-        if (debrisQueue_.empty() || restedAtCeiling == 0) {
+        if (!debrisQueue_.empty() || retiredWithGlyph == 0) {
             throw std::runtime_error(
-                "no debris fragment survived at the rest ceiling after " +
+                "debris did not retire with its glyph intact after " +
                 std::to_string(kFreeRun) + " ticks");
-        }
-        // Every surviving fragment's cell must still carry bit 0x8000 -- the
-        // retirement that used to clear it is gone.
-        for (const DebrisRecord& live : debrisQueue_) {
-            const int tx = live.tileIndex % level_.width;
-            const int ty = live.tileIndex / level_.width;
-            if ((wordAt(tx, ty) & kDamagedWordBit) == 0) {
-                throw std::runtime_error(
-                    "a resting debris fragment lost its 0x8000 flag");
-            }
         }
 
         std::cout << "debris_motion_live=ok level=" << (probeLevel + 1)
@@ -18246,9 +18240,9 @@ public:
                                       : (expectCascade ? "collapse" : "none"))
                   << " free_run=" << kFreeRun
                   << " max_rest=" << maxRest
-                  << " rested_at_ceiling=" << restedAtCeiling
+                  << " retired_with_glyph=" << retiredWithGlyph
                   << " survivors=" << debrisQueue_.size()
-                  << " still_flagged=1 retires_on_rest=0\n";
+                  << " flag_cleared=1 retires_on_rest=1\n";
     }
 
     void debugPassableObjects() {
@@ -25898,21 +25892,15 @@ private:
             damagePlayersInTileArea(pos % width, pos / width, pos % width,
                                     pos / width);
 
-            // Rest counter 4CEF..4D31. `4CFF cmp rest,0x64` is a SATURATION
-            // guard, not a retirement trigger: the counter stops at 100 and
-            // the record stays put, still flagged. An earlier revision read it
-            // as "after exactly 100 resting ticks, clear bit 0x8000 and remove
-            // the record", which two level-2 captures refute -- across ~7800
-            // sampled ticks no record's rest byte ever exceeds 100, bit 0x8000
-            // is never cleared on this path, and no record is removed by it;
-            // the longest observed run is 3359 consecutive ticks at rest == 100
-            // (tests/fixtures/debris_shatter_playback_original_level2.txt).
-            // Records leave the table only through the 0xFF consume path above
-            // (4A1B..4A75), which the same capture exercises.
-            // (An airborne non-stepping tick resets the counter at 4AB3 before
-            // this increment, so it samples as 1, never 0.)
-            if (resting && debrisQueue_[i].restTicks < kDebrisRestSaturation) {
-                ++debrisQueue_[i].restTicks;  // 4CF8, ceiling at 4CFF
+            // 4CF8 increments a byte; 4CFF tests equality with 100. Removal
+            // clears only the map flag, leaves the glyph, and rewinds the
+            // live loop so the shifted successor is processed this tick.
+            // The original leaves stale tail bytes; they do not stay live.
+            if (resting) ++debrisQueue_[i].restTicks;
+            if (debrisQueue_[i].restTicks == kDebrisRestRetireTicks) {
+                setWordCell(pos, static_cast<uint16_t>(wordCellAt(pos) & ~kDamagedWordBit));
+                debrisQueue_.erase(debrisQueue_.begin() + static_cast<std::ptrdiff_t>(i));
+                continue;
             }
             ++i;
         }
@@ -27536,6 +27524,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-debris-impacts") {
             app.debugDebrisImpacts(argv[2], argc > 3 ? argv[3] : "");
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-debris-rest") {
+            app.debugDebrisImpacts(argv[2], argc > 3 ? argv[3] : "", true);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-debris-motion-live") {

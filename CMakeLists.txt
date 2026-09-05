@@ -3540,7 +3540,7 @@ if(BUILD_TESTING)
     set_tests_properties(debris_motion_live PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^debris_motion_live=ok level=4 seed_tile=70,38 glyph=0x6a word=0x4027 hover_ticks=8 step_stamps=1 cascade=debris free_run=800 max_rest=100 rested_at_ceiling=2 survivors=2 still_flagged=1 retires_on_rest=0")
+            "^debris_motion_live=ok level=4 seed_tile=70,38 glyph=0x6a word=0x4027 hover_ticks=8 step_stamps=1 cascade=debris free_run=800 max_rest=99 retired_with_glyph=2 survivors=0 flag_cleared=1 retires_on_rest=1")
 
     # The interactive loop must fire gameplay ticks at the original's governed
     # rate, not at the SDL frame rate: every per-tick subsystem (debris,
@@ -3597,14 +3597,13 @@ if(BUILD_TESTING)
     # of the record identical, which rules out friction, bounce and reseed)
     # rather than trusting the fixture's own count.
     # Debris shatter playback (the port's stepper: one glyph per tick,
-    # 0x76->0x77->0x78->0xFF for a non-fragile word) AND the rest-counter
-    # saturation this capture established -- the counter stops at 100 and the
-    # record stays, which is now what the port does too.
+    # 0x76->0x77->0x78->0xFF for a non-fragile word). The historical lifetime
+    # interpretation was withdrawn because the rows omit the live queue bound.
     # The inventory of values the ORIGINAL has not established. This repo's
     # recurring failure has been a green suite verifying the port against
     # itself -- a pin echoing a port constant with no captured datum behind it
-    # (the withdrawn 41-tick "measured" bomb fuse and the refuted 100-tick
-    # debris retirement both survived that way). This forces every
+    # (the withdrawn 41-tick "measured" bomb fuse and the erroneous debris
+    # saturation inference both survived that way). This forces every
     # UNEVIDENCED/UNRECOVERED/INFERRED marker in the source to be tracked in
     # docs/recovery/unevidenced_constants.md and vice versa, so the set cannot
     # drift in either direction.
@@ -3623,7 +3622,7 @@ if(BUILD_TESTING)
     set_tests_properties(debris_shatter_playback PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^debris_shatter_playback=ok level=2 chain=0x76,0x77,0x78,0xff ticks_per_glyph=1 terminal=dissolve word=0xc007 port_stepper_matches=1 rest_saturates_at=100 longest_rest_run=3359 retirement_observed=0 port_saturates=1 visual_claim=0")
+            "^debris_shatter_playback=ok level=2 chain=0x76,0x77,0x78,0xff ticks_per_glyph=1 terminal=dissolve word=0xc007 port_stepper_matches=1 rest_lifetime_claim=0 stale_slots_not_liveness=1 visual_claim=0")
 
     add_test(NAME natural_forward_debris_writeback
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-natural-forward-debris-writeback
@@ -3647,7 +3646,23 @@ if(BUILD_TESTING)
     set_tests_properties(debris_impacts_capture_self_check PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^debris_impacts_capture_self_check=ok windows=4 seeded=1 live=0")
+            "^debris_impacts_capture_self_check=ok windows=5 seeded=1 live=0")
+
+    add_test(NAME debris_rest_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-rest
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/debris_rest_original.txt)
+    set_tests_properties(debris_rest_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION
+            "^debris_rest=ok cases=9 debris_records=6 collapse_records=0 seeded_original=1 natural_route_claim=0 frames_inspected=9 last_hash=[0-9a-f]+")
+
+    add_test(NAME original_debris_table
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_original_debris_table.py)
+    set_tests_properties(original_debris_table PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "^original_debris_table=ok stale_tail_cases=3 full_live_range=1 invalid_bounds=2 truncated_guard=1")
 
     add_test(NAME actor_contact_level2_evidence
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-contact-level2-evidence
@@ -3685,7 +3700,7 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION
-            "^governed_rate=ok nominal_ticks_per_second=24.51 band=24.20-25.20 window_s=[0-9.]+ ticks=[0-9]+ measured_ticks_per_second=2[2-5][.][0-9][0-9] logic_ticks_match=1 max_tick_gap_ms=[0-9]+ dropped_ticks=0 drives_run_loop=1 small_fuse_s=1[.][0-9][0-9] debris_rest_sat_s=[0-9.]+ visual_claim=0")
+            "^governed_rate=ok nominal_ticks_per_second=24.51 band=24.20-25.20 window_s=[0-9.]+ ticks=[0-9]+ measured_ticks_per_second=2[2-5][.][0-9][0-9] logic_ticks_match=1 max_tick_gap_ms=[0-9]+ dropped_ticks=0 drives_run_loop=1 small_fuse_s=1[.][0-9][0-9] debris_rest_retire_s=[0-9.]+ visual_claim=0")
 
     add_test(NAME passable_objects
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-passable-objects)

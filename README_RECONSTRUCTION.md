@@ -1351,9 +1351,11 @@ debris tags `0x4e21`/`0x4ee8`. It remains a C++ arithmetic/model check with
 - `--debug-port-completion-status` declares the functional port completion
   state: 23 implemented subsystems with their deterministic validation entry
   points, plus the four open original-evidence follow-ups tracked in
-  `RECOVERY_STATUS.md`. The summary reports `port_functionally_complete=1`
-  with `original_fidelity_claim=0`; the open items are fidelity verification
-  against the original runtime, not missing port functionality.
+  `RECOVERY_STATUS.md`. The summary reports `port_functionally_complete=0`
+  with `original_fidelity_claim=0`. The inventory is not a completeness
+  proof: original pickup/collapse captures exposed missing functionality,
+  and recovery plus regression updates are still in progress. See
+  `docs/recovery/player_posture_collapse_runtime_2026-09-05.md`.
   `tools/check_port_completion_status.py` keeps the source tables,
   `docs/recovery/port_completion_status.md`, and the CTest expectation
   aligned.

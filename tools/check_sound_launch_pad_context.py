@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Lock the recovered 1000:6924 launch-pad path and its runtime table row."""
+"""Lock the launch path and reject the superseded zero-row interpretation."""
 
 from __future__ import annotations
 
@@ -225,6 +225,12 @@ def main() -> int:
     if len(sprites["sprites"]) != 91:
         raise RuntimeError("BOMOMIMK.SPR no longer contains 91 sprites")
 
+    for level, expected in ((6, "0c0a994d"), (7, "0c0ad351")):
+        rows = (root / "tests/fixtures" / f"launch_marker_level{level}_original.txt").read_text(encoding="ascii").splitlines()
+        table = bytes.fromhex(next(row.split("=", 1)[1] for row in rows if row.startswith("sprites descriptors=")))
+        if table[364:368].hex() != expected or table[:4] != bytes(4):
+            raise RuntimeError("fresh launch descriptor disagrees with real sprite 91")
+
     total, level6, level7 = check_level_tiles(root)
     check_tile_art(root)
 
@@ -233,7 +239,7 @@ def main() -> int:
         "constexpr uint8_t kLaunchPadTile = 0x27;",
         "constexpr uint16_t kLaunchPadSoundCursor = 0x0035;",
         "constexpr uint8_t kLaunchPadSoundPriority = 5;",
-        "bool activateLaunchPad(Player& player, bool down)",
+        "bool activateLaunchPad(Player& player, bool down, int localY)",
         "void updateLaunchPadMarkers(uint64_t onlyOrder = 0)",
         "case SharedActorKind::Marker: updateLaunchPadMarkers(entry.order); break;",
         "bool requestLaunchPadSound()",
@@ -267,7 +273,7 @@ def main() -> int:
         f"launch_gate={fmt(LAUNCH_TILE_GATE)} sound=0x0035/p5 "
         "launch_velocity=-2000 normal_jump_velocity=-848 "
         "marker=frame0x5b/kind0x0b/mode5/timer5/vy-200 "
-        "visual_row=DS:C48E:00000000 sentinel=1 "
+        "visual_row=DS:C48E:0c0a994d obsolete_zero_row_rejected=1 "
         f"launch_tiles={total} level6={level6} level7={level7} docs=4"
     )
     return 0

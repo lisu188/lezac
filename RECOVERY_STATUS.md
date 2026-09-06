@@ -1,8 +1,8 @@
 # Recovery Status
 
 Last reviewed: 2026-09-06
-Branch: `codex/recover-shared-visual-order` (validated integration batch)
-Baseline: `origin/main` at PR #220
+Branch: `codex/recover-launch-marker-visuals` (integration batch)
+Baseline: `origin/main` at PR #221
 
 ## Port Completion
 
@@ -35,10 +35,13 @@ including spawning before an effect frees a slot later in the frame.
 Shared-order recovery adds 410 continuous passes and 7,685 ordered actor
 states, covering stable deletion, slot-preserving conversions and same-pass
 tail appends. Visual-order recovery adds 80 controlled full/split-width views
-and 2,821,120 matching normalized pixels. It also exposes contradictory older
-launch-marker invisibility evidence that needs a fresh launch observation.
-All 480 tests, including interactive Xvfb checks, pass in 106.36 seconds;
-log: `build-codex-tmp/visual-order-full-tests.log`.
+and 2,821,120 matching normalized pixels. Launch recovery adds 240 original
+views and 11,381,760 matching normalized pixels on levels 6/7. It fixes the
+visible marker, shared allocation limit, impulse ordering, fractional carry
+and level-7 player sprite bank. These are position/pool-seeded comparisons,
+not complete natural routes. Final Linux validation passes 487/487 tests in
+100.14 seconds (`build-codex-tmp/launch-marker-final-tests.log`); the Windows
+launch/boss-focused checks pass 10/10 in 41.31 seconds.
 There is no evidence-based overall completion percentage:
 passing-test percentage measures regression health, not recovered behavior.
 `--debug-port-completion-status` reports
@@ -48,11 +51,17 @@ passing-test percentage measures regression health, not recovered behavior.
 
 ## Current Recovery
 
+- The original Down input now launches after gravity, retaining player carry.
+  The visible marker uses the original 9/10-update lifetime and 30-slot pool
+  gate; rejection does not cancel launch or sound. Level-6/7 captures also
+  restore the level-7 player sprite bank. All 240 controlled view comparisons
+  match with the observed backdrop and normalized colors. The historical
+  invisible/sentinel claim is superseded. See
+  [launch evidence](docs/recovery/launch_marker_runtime_2026-09-06.md).
 - Rendering now follows shared visual order, with players before non-player
   actors. Original overlapping pairs, mixed scenes, clipping and camera
-  shake match in full/split-width views. The older zero-row launch-marker
-  claim is contradicted by the new descriptor/frame captures; actual launch
-  rendering/lifecycle recovery remains open. See
+  shake match in full/split-width views. The subsequent launch batch above
+  resolves the zero-row contradiction with actual launch observations. See
   [visual-order evidence](docs/recovery/visual_order_runtime_2026-09-06.md).
 - Non-player updates now follow shared construction order across the typed
   C++ storage. Ten original cases verify adjacent retirement, reversed
@@ -1402,9 +1411,11 @@ passing-test percentage measures regression health, not recovered behavior.
   now triggers only after five held updates followed by release and reports
   `weapon_switch_sound=ok`.
 - Recovered the Down-gated launch pad at `1000:6924`, including cursor
-  `0x0035`/priority 5, vertical velocity `-2000`, the invisible frame-`0x5B`
+  `0x0035`/priority 5, vertical velocity `-2000`, the frame-`0x5B`
   mode-5 marker, and the shared portal Down gate. The deterministic
   `launch_pad_route` validates gameplay and captures five rendered frames.
+  The original invisible-marker interpretation is superseded by the
+  2026-09-06 actual launch captures; the marker is visible.
 - Classified the contact-scanner mode-6 sound route as dormant in shipped
   data. The recovery queue retains it for seeded evidence with blocker
   `shipped_actor_modes_exclude_6`; no natural or visual claim was promoted.

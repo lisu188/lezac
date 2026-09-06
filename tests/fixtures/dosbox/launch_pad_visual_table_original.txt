@@ -1,4 +1,7 @@
 # Original LEZAC.EXE process-memory table probe captured from a temporary copy.
+# SUPERSEDED 2026-09-06: the actual-register launch captures contradict this
+# zero-row/sentinel interpretation. Historical fields below are preserved,
+# not corrected or promoted as current evidence. See launch_marker_runtime_2026-09-06.md.
 capture=launch_pad_visual_table
 source=dosbox-debug-process-memory
 temp_copy=1

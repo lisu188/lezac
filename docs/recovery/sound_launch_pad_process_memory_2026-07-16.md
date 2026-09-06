@@ -1,5 +1,12 @@
 # Launch-pad sound and marker recovery (2026-07-16)
 
+**Historical report, corrected 2026-09-06.** The invisible/sentinel conclusion
+below is disproved by actual launch captures on levels 6 and 7. The descriptor
+table is one-based: frame 91 is the last real sprite, not the zero entry.
+The old register labels also failed to distinguish helper-relative addresses
+from actual CS/DS. The original fixture remains unchanged apart from its
+supersession notice. See [current launch evidence](launch_marker_runtime_2026-09-06.md).
+
 ## Result
 
 Original callsite `1000:6924` is the sound request for the down-activated

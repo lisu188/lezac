@@ -2689,6 +2689,258 @@ public:
                   << " actual_dac=1 frame_wrap=1 byte_wrap=1 seeded_scene=1 natural_route=0 whole_game_parity=0\n";
     }
 
+    void debugLaunchMarkerOriginal(const std::string& fixture, const std::string& outDir) {
+        load();
+        initSdl();
+        const auto normalizedPalette = palette_;
+        const std::array<std::string, 10> names{"pool0_even", "pool0_odd", "pool29_even", "pool29_odd",
+            "pool30_even", "pool30_odd", "up_down", "idle", "fraction_even", "fraction_odd"};
+        int stage = 0, level = 0, caseIndex = 0, sample = 0, initialCount = 0, firstFrame = 0;
+        size_t compared = 0, differences = 0, markerStates = 0;
+        std::string name, control;
+        auto fail = [&](const std::string& what) {
+            throw std::runtime_error("launch-marker " + name + " sample=" + std::to_string(sample) + ": " + what);
+        };
+        auto number = [&](const std::string& text) {
+            size_t end = 0;
+            const int value = std::stoi(text, &end);
+            if (end != text.size()) fail("invalid integer");
+            return value;
+        };
+        auto bytes = [&](const std::string& text, size_t size) {
+            if (text.size() != size * 2 || text.find_first_not_of("0123456789abcdef") != std::string::npos) fail("invalid bytes");
+            std::vector<uint8_t> result(size);
+            for (size_t i = 0; i < size; ++i) result[i] = static_cast<uint8_t>(std::stoul(text.substr(i * 2, 2), nullptr, 16));
+            return result;
+        };
+        auto decodeRle = [&](const std::string& text, size_t size) {
+            std::vector<uint8_t> result;
+            std::istringstream list(text); std::string run;
+            if (text.empty() || text.back() == ',') fail("invalid RLE");
+            while (std::getline(list, run, ',')) {
+                const auto colon = run.find(':');
+                if (colon == std::string::npos) fail("invalid RLE");
+                const int count = number(run.substr(0, colon));
+                if (count <= 0 || static_cast<size_t>(count) > size - result.size()) fail("RLE overflow");
+                result.insert(result.end(), count, bytes(run.substr(colon + 1), 1)[0]);
+            }
+            if (result.size() != size) fail("truncated pixels");
+            return result;
+        };
+        auto animation = [](const std::vector<uint8_t>& raw, size_t at) {
+            return ActorAnimation{raw[at], raw[at + 1], raw[at + 2], raw[at + 3], raw[at + 4], raw[at + 5], static_cast<int8_t>(raw[at + 6])};
+        };
+        std::vector<uint8_t> originalMap, originalBackdrop, descriptors;
+        auto checkPlayer = [&](const std::vector<uint8_t>& raw) {
+            if (raw[0] || raw[1] || raw[0x14] || raw[0x15] || player_.vx8 != static_cast<int16_t>(le16(raw, 6)) ||
+                player_.vy8 != static_cast<int16_t>(le16(raw, 8)) || player_.fracX != le16(raw, 10) || player_.fracY != le16(raw, 12) ||
+                player_.idleTicks != raw[2] || player_.dropTicks != le16(raw, 14) || player_.animation.packed() != animation(raw, 0x16).packed() ||
+                player_.animationBackup.packed() != animation(raw, 0x1D).packed()) fail("player continuity mismatch");
+        };
+        auto checkActors = [&](const std::map<std::string, std::string>& fields) {
+            const auto ordered = sharedActorEntries();
+            if (number(fields.at("count")) != static_cast<int>(ordered.size()) ||
+                number(fields.at("visuals")) != static_cast<int>(ordered.size() + 2)) fail("shared capacity mismatch");
+            std::vector<std::pair<std::vector<uint8_t>, std::vector<uint8_t>>> entries;
+            std::istringstream list(fields.at("actors")); std::string item;
+            if (fields.at("actors") != "-") while (std::getline(list, item, ',')) {
+                const auto colon = item.find(':');
+                if (colon == std::string::npos || entries.size() >= 30) fail("invalid actor record");
+                entries.emplace_back(bytes(item.substr(0, colon), 38), bytes(item.substr(colon + 1), 8));
+            }
+            if (entries.size() != ordered.size()) fail("actor record count mismatch");
+            for (size_t i = 0; i < entries.size(); ++i) {
+                const auto& raw = entries[i].first; const auto& visual = entries[i].second;
+                const auto& entry = ordered[i];
+                if (raw[1] != i + 2) fail("visual order mismatch");
+                if (entry.kind == SharedActorKind::Effect) {
+                    if (!transientMatchesOriginal(transientActors_[entry.index], raw, visual, descriptors)) fail("filler mismatch");
+                } else if (entry.kind == SharedActorKind::Marker) {
+                    const auto& marker = launchPadMarkers_[entry.index];
+                    if (raw[0] != marker.kind || raw[2] != marker.timer || raw[0x14] != 6 || raw[0x15] != marker.mode || raw[0x1B] ||
+                        static_cast<int16_t>(le16(raw, 6)) != marker.velocityX8 || static_cast<int16_t>(le16(raw, 8)) != marker.velocityY8 ||
+                        le16(raw, 10) != marker.fracX || le16(raw, 12) != marker.fracY || le16(visual, 0) != marker.x || le16(visual, 2) != marker.y ||
+                        !std::equal(visual.begin() + 4, visual.end(), descriptors.begin() + marker.frame * 4)) fail("marker state mismatch");
+                    ++markerStates;
+                } else fail("unexpected actor kind");
+            }
+        };
+        std::ifstream input(fixture);
+        if (!input) fail("cannot open fixture");
+        std::ofstream manifest;
+        if (!outDir.empty()) {
+            std::filesystem::create_directories(outDir);
+            manifest.open(joinPath(outDir, "manifest.csv"));
+            if (!manifest) fail("cannot create manifest");
+            manifest << "case,sample,frame,x,y,vy8,fraction_y,markers,actors,different_pixels\n";
+        }
+        std::string line;
+        bool complete = false;
+        while (std::getline(input, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (complete) fail("record after completion");
+            std::istringstream row(line); std::string tag, token;
+            row >> tag;
+            if (tag.find('=') != std::string::npos) row = std::istringstream(line);
+            std::map<std::string, std::string> fields;
+            while (row >> token) {
+                const auto equal = token.find('=');
+                if (equal == std::string::npos || !fields.emplace(token.substr(0, equal), token.substr(equal + 1)).second) fail("invalid fields");
+            }
+            auto requireFields = [&](std::initializer_list<const char*> keys) {
+                if (fields.size() != keys.size()) fail("invalid field count");
+                for (const auto* key : keys) if (!fields.count(key)) fail("missing field");
+            };
+            auto registers = [&](const std::string& text, bool view) {
+                const auto regs = bytes(text, 12);
+                if (le16(regs, 0) != 0x01a2 || le16(regs, 2) != 0x0c44 || le16(regs, 6) != 0x18b3 ||
+                    (view && le16(regs, 4) != 0xa000) || le16(regs, 8) != (view ? 0x3fe4 : 0x3fa2) ||
+                    le16(regs, 10) != (view ? 0x3ffe : 0x3fee)) fail("register mismatch");
+            };
+            if (tag == "capture=launch_marker_original_v1") {
+                requireFields({"capture", "level", "temp_copy", "seeded_position", "seeded_pool", "cached_gate_seed", "observed_backdrop", "natural_route"});
+                level = number(fields.at("level"));
+                if (stage || (level != 6 && level != 7) || fields.at("temp_copy") != "1" || fields.at("seeded_position") != "1" ||
+                    fields.at("seeded_pool") != "1" || fields.at("cached_gate_seed") != "0" || fields.at("observed_backdrop") != "1" ||
+                    fields.at("natural_route") != "0") fail("invalid provenance");
+                for (int i = 0; i < level; ++i) resetLevel(i);
+                stage = 1;
+            } else if (tag == "map") {
+                requireFields({"width", "height", "bytes"});
+                if (stage != 1 || number(fields.at("width")) != level_.width || number(fields.at("height")) != level_.height) fail("invalid map");
+                originalMap = bytes(fields.at("bytes"), level_.width * level_.height);
+                stage = 2;
+            } else if (tag == "backdrop") {
+                requireFields({"bytes"});
+                if (stage != 2 || !originalBackdrop.empty()) fail("misplaced backdrop");
+                originalBackdrop = decodeRle(fields.at("bytes"), 60000);
+                for (size_t i = 0; i < originalBackdrop.size(); ++i) {
+                    if ((i < 80 * 320 || i >= 162 * 320) && originalBackdrop[i] != backdropBuffer_[i]) fail("background gradient mismatch");
+                }
+            } else if (tag == "sprites") {
+                requireFields({"descriptors"});
+                if (stage != 2 || originalBackdrop.empty()) fail("misplaced descriptors");
+                descriptors = bytes(fields.at("descriptors"), 368);
+                size_t offset = 0;
+                const auto& bank = level == 7 ? altSprites_ : sprites_;
+                for (size_t i = 0; i < bank.sprites.size(); ++i) {
+                    const auto& sprite = bank.sprites[i]; const auto at = (i + 1) * 4;
+                    if (descriptors[at] != sprite.width || descriptors[at + 1] != sprite.height || le16(descriptors, at + 2) != offset) fail("sprite bank mismatch");
+                    offset += sprite.width * sprite.height;
+                }
+                stage = 3;
+            } else if (tag == "case") {
+                requireFields({"name", "frame", "initial_count", "control", "pad_x", "pad_y", "x", "y", "entry"});
+                if (stage != 3 || caseIndex >= 10 || fields.at("name") != names[caseIndex]) fail("invalid case order");
+                name = fields.at("name"); sample = 0; control = fields.at("control"); firstFrame = number(fields.at("frame"));
+                initialCount = number(fields.at("initial_count"));
+                if (firstFrame != 100 + (caseIndex & 1) || initialCount != (caseIndex < 2 || caseIndex >= 6 ? 0 : (caseIndex < 4 ? 29 : 30)) ||
+                    control != (caseIndex == 6 ? "jump_down" : (caseIndex == 7 ? "idle" : "down"))) fail("invalid case seed");
+                for (int i = 0; i < level; ++i) resetLevel(i);
+                level_.tiles = originalMap;
+                std::copy(originalBackdrop.begin(), originalBackdrop.end(), backdropBuffer_.begin());
+                menu_ = false; levelIntro_.active = false; playerCount_ = 1;
+                monsters_.clear(); bossLinks_.clear(); bombs_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear(); transientActors_.clear();
+                for (auto& spawner : spawnerStates_) { spawner.remaining = 0; spawner.availableSlots = 0; }
+                const int padX = number(fields.at("pad_x")), padY = number(fields.at("pad_y"));
+                const int x = number(fields.at("x")), y = number(fields.at("y"));
+                if (x != padX * 8 || y != padY * 8 - 16 || tileAt(padX, padY) != 0x27) fail("invalid real pad seed");
+                const auto raw = bytes(fields.at("entry"), 38);
+                player_.x = static_cast<float>(x); player_.y = static_cast<float>(y); player_.vx8 = player_.vy8 = 0;
+                player_.fracX = caseIndex >= 8 ? 83 : 0; player_.fracY = caseIndex >= 8 ? 149 : 0;
+                player_.animation = animation(raw, 0x16); player_.animationBackup = animation(raw, 0x1D);
+                player_.idleTicks = raw[2]; player_.dropTicks = 0; player_.spriteIndex = 0;
+                syncPlayerVelocityMirror(player_);
+                logicTick_ = firstFrame - 1; lives_ = 99; energy_ = 100;
+                clearSoundLatch(); lastPumpedSoundOffset_ = 0; lastPumpedSoundSelector_ = 0;
+                checkPlayer(raw);
+                // Match the original seeding boundary after the non-player
+                // pass, so odd-frame fillers are not advanced an extra time.
+                debugActorPassObserver_ = [&] {
+                    if (sample) return;
+                    for (int i = 0; i < initialCount; ++i) {
+                        TransientActor filler; filler.x = filler.y = 8; filler.kind = 0; filler.timer = 240;
+                        filler.spriteIndex = 79; filler.animation = {0, 0, 0, 0, 0, 0, 0}; filler.actorOrder = claimActorOrder();
+                        transientActors_.push_back(filler);
+                    }
+                };
+                stage = 4;
+            } else if (tag == "tick") {
+                requireFields({"sample", "frame", "entry", "pre", "response", "edges", "sound_snapshot", "accepted_sound", "priority", "normalized",
+                    "before_regs", "after_regs", "count", "visuals", "result", "player", "actors"});
+                if (stage != 4 || sample >= 12 || number(fields.at("sample")) != sample || number(fields.at("frame")) != firstFrame + sample) fail("nonconsecutive tick");
+                registers(fields.at("before_regs"), false); registers(fields.at("after_regs"), false);
+                checkPlayer(bytes(fields.at("entry"), 38));
+                const auto visual = bytes(fields.at("player"), 8), pre = bytes(fields.at("pre"), 58), response = bytes(fields.at("response"), 58);
+                const auto edges = bytes(fields.at("edges"), 16);
+                if (le16(visual, 0) != static_cast<int>(player_.x) || le16(visual, 2) != static_cast<int>(player_.y)) fail("player position discontinuity");
+                const bool launching = sample == 0 && control == "down";
+                if (sample == 0 && (edges[13] != 0x27 || pre[24] != 0)) fail("original launch gate not satisfied");
+                if (fields.at("sound_snapshot") != (launching ? "350005" : "-")) fail("sound latch mismatch");
+                const auto accepted = bytes(fields.at("accepted_sound"), 2);
+                if (number(fields.at("priority")) < 0 || number(fields.at("priority")) > 255 || le16(accepted, 0) > 130) fail("invalid sound state");
+                if (fields.at("normalized") != (launching ? "0000000001" : "0000000000")) fail("input normalization mismatch");
+                FrameControls controls;
+                controls.p1Down = sample == 0 && control != "idle";
+                controls.p1Jump = sample == 0 && control == "jump_down";
+                updateWithControls(controls, 1.0f / 60.0f);
+                if (player_.vy8 != static_cast<int16_t>(le16(response, 44))) fail("launch/gravity velocity mismatch");
+                if (launching && (lastPumpedSoundOffset_ != 0x35 || lastPumpedSoundSelector_ != 5 ||
+                    number(fields.at("result")) != (initialCount < 30 ? 1 : 0))) fail("allocation/sound result mismatch");
+                checkActors(fields);
+                stage = 5;
+            } else if (tag == "view") {
+                requireFields({"sample", "frame", "regs", "count", "visuals", "result", "player", "actors", "coarse_x", "coarse_y",
+                    "fine_x", "fine_y", "source", "destination", "indexed_sha256", "pixels"});
+                if (stage != 5 || number(fields.at("sample")) != sample || number(fields.at("frame")) != firstFrame + sample + 1) fail("nonconsecutive view");
+                registers(fields.at("regs"), true);
+                checkActors(fields);
+                const auto visual = bytes(fields.at("player"), 8);
+                const int x = static_cast<int>(player_.x), y = static_cast<int>(player_.y);
+                if (x != le16(visual, 0) || y != le16(visual, 2) || !std::equal(visual.begin() + 4, visual.end(),
+                    descriptors.begin() + (player_.spriteIndex + 1) * 4)) fail("player rendered position/sprite mismatch");
+                const int camX = std::clamp(x - 152, 0, level_.width * 8 - 313);
+                const int camY = std::clamp(y - 80, 0, level_.height * 8 - 161);
+                if (number(fields.at("coarse_x")) != (camX & ~7) || number(fields.at("coarse_y")) != (camY & ~7) ||
+                    number(fields.at("fine_x")) != (camX & 7) || number(fields.at("fine_y")) != (camY & 7) ||
+                    fields.at("source") != "8" || fields.at("destination") != "1284") fail("camera mismatch");
+                const auto expected = decodeRle(fields.at("pixels"), 312 * 152);
+                bytes(fields.at("indexed_sha256"), 32);
+                const auto gameplayPalette = palette_; palette_ = normalizedPalette;
+                std::fill(fb_.begin(), fb_.end(), argb(palette_, 0));
+                drawWorldView(player_, 4, 4, 312, 152); resetClip();
+                std::vector<uint32_t> actual;
+                size_t different = 0;
+                for (int yy = 0; yy < 152; ++yy) for (int xx = 0; xx < 312; ++xx) {
+                    const auto pixel = fb_[(yy + 4) * kScreenW + xx + 4]; actual.push_back(pixel);
+                    if (pixel != backdropColor(expected[yy * 312 + xx])) ++different;
+                }
+                palette_ = gameplayPalette;
+                if (!outDir.empty()) {
+                    writeArgbPpm(joinPath(outDir, name + "_" + std::to_string(sample) + ".ppm"), actual, 312, 152);
+                    manifest << name << ',' << sample << ',' << firstFrame + sample + 1 << ',' << x << ',' << y << ',' << player_.vy8 << ','
+                             << static_cast<int>(player_.fracY) << ',' << launchPadMarkers_.size() << ',' << sharedActorCount() << ',' << different << '\n';
+                }
+                if (level_.tiles != originalMap) fail("map changed");
+                differences += different; compared += expected.size();
+                ++sample; stage = 4;
+            } else if (tag == "end") {
+                requireFields({"samples"});
+                if (stage != 4 || sample != 12 || fields.at("samples") != "12" || !launchPadMarkers_.empty()) fail("incomplete marker lifetime");
+                debugActorPassObserver_ = {}; ++caseIndex; stage = 3;
+            } else if (tag == "complete") {
+                requireFields({"cases", "samples", "views"});
+                if (stage != 3 || caseIndex != 10 || fields.at("cases") != "10" || fields.at("samples") != "120" || fields.at("views") != "120") fail("incomplete coverage");
+                complete = true;
+            } else fail("unknown record");
+        }
+        if (!complete) fail("missing completion");
+        if (differences) fail("pixel mismatches=" + std::to_string(differences));
+        std::cout << "launch_marker_original=ok level=" << level << " cases=10 samples=120 views=120 marker_states=" << markerStates
+                  << " compared_pixels=" << compared << " different_pixels=0 capacity=30 normalized_rgb=1 cached_gate_seed=0 natural_route=0 whole_game_parity=0\n";
+    }
+
     void debugVisualOrderOriginal(const std::string& fixture, const std::string& outDir) {
         load();
         initSdl();
@@ -4095,6 +4347,27 @@ public:
                     "frame sequence behavior-4 target did not retarget back to player 2");
             }
             capture("050_level3_behavior4_target_p2_return");
+        } else if (scenario == "boss_level7_fight") {
+            pushKeyDown(SDLK_1);
+            processEvents(running);
+            resetLevel(6);
+            randomSeed_ = 0x1234abcd;
+            capture("010_level7_approach");
+            for (int frame = 0; frame < 220; ++frame) {
+                FrameControls controls;
+                controls.p1Left = frame < 140;
+                controls.p1Right = frame >= 140;
+                controls.p1Jump = frame == 140 || frame == 180;
+                if (frame == 70 || frame == 110 || frame == 150 || frame == 190) {
+                    pushKeyDown(SDLK_n);
+                    processEvents(running);
+                }
+                updateWithControls(controls, 1.0f / 60.0f);
+                if (frame == 109) capture("020_level7_encounter_tick110");
+                if (frame == 139) capture("030_level7_bombs_tick140");
+                if (frame == 179) capture("040_level7_evade_tick180");
+                if (frame == 219) capture("050_level7_fight_tick220");
+            }
         } else if (scenario == "boss_level7") {
             pushKeyDown(SDLK_1);
             processEvents(running);
@@ -5247,7 +5520,7 @@ public:
         int overheadY = static_cast<int>(player_.y - 1.0f) / kTileSize;
         uint8_t overheadTile = static_cast<uint8_t>(tileAt(overheadX, overheadY));
         tileRef(overheadX, overheadY) = 2;
-        if (activateLaunchPad(player_, true) || !launchPadMarkers_.empty()) {
+        if (activateLaunchPad(player_, true, static_cast<int>(player_.y)) || !launchPadMarkers_.empty()) {
             throw std::runtime_error("launch-pad overhead gate accepted blocked launch");
         }
         tileRef(overheadX, overheadY) = overheadTile;
@@ -5286,11 +5559,18 @@ public:
             marker.kind != kLaunchPadMarkerKind ||
             marker.mode != kLaunchPadMarkerMode ||
             marker.velocityY8 != kLaunchPadMarkerVelocityY8) {
-            throw std::runtime_error("launch-pad invisible marker mismatch");
+            throw std::runtime_error("launch-pad marker mismatch");
         }
 
         FrameInspection launchedFrame =
             inspectRenderedFrame("autoplayer-launch-pad-launched");
+        const auto visibleMarkers = launchPadMarkers_;
+        launchPadMarkers_.clear();
+        const FrameInspection withoutMarker = inspectRenderedFrame("autoplayer-launch-pad-no-marker-control");
+        launchPadMarkers_ = visibleMarkers;
+        if (launchedFrame.hash == withoutMarker.hash) {
+            throw std::runtime_error("launch-pad marker was not rendered");
+        }
         if (launchedFrame.hash == readyFrame.hash) {
             throw std::runtime_error("launch-pad activation did not change frame");
         }
@@ -5319,7 +5599,7 @@ public:
                   << " marker_frame=0x5b marker_kind=0x0b marker_mode=5"
                   << " marker_timer=" << static_cast<int>(kLaunchPadMarkerTimer)
                   << " marker_lifetime_updates=" << markerLifetimeUpdates
-                  << " sound=0x0035/p5 marker_invisible=1 frame_inspection=1\n";
+                  << " sound=0x0035/p5 marker_visible=1 frame_inspection=1\n";
     }
 
     void debugAutoplayerRecordsFlow(const std::string& scenario) {
@@ -25948,7 +26228,6 @@ private:
             refreshState2EffectEntry(player_, state2Visual_, state2Effect_);
         } else {
             collectObjectiveTiles(player_, 1);
-            activateLaunchPad(player_, p1Down);
             updatePlayer(player_, controls.p1Left, controls.p1Right, p1Jump, p1Switch, 0, p1Down);
             updatePortalsAndTriggers(player_, portalCooldown_, triggerCooldown_, p1Down);
         }
@@ -25959,7 +26238,6 @@ private:
                 refreshState2EffectEntry(player2_, state2Visual2_, state2Effect2_);
             } else {
                 collectObjectiveTiles(player2_, 2);
-                activateLaunchPad(player2_, p2Down);
                 updatePlayer(player2_, controls.p2Left, controls.p2Right, p2Jump, p2Switch, 19, p2Down);
                 updatePortalsAndTriggers(player2_, portalCooldown2_, triggerCooldown2_,
                                          p2Down);
@@ -25973,12 +26251,12 @@ private:
         pumpSoundLatch();
     }
 
-    bool activateLaunchPad(Player& player, bool down) {
+    bool activateLaunchPad(Player& player, bool down, int localY) {
         if (!down) return false;
-        int tx = static_cast<int>(player.x + 6.0f) / kTileSize;
-        int ty = static_cast<int>(player.y + 16.0f) / kTileSize;
+        int tx = (static_cast<int>(player.x) + 4) >> 3;
+        int ty = (static_cast<int>(player.y) >> 3) + 2;
         if (tileAt(tx, ty) != kLaunchPadTile ||
-            collides(player.x, player.y - 1.0f)) {
+            scanActorEdges(static_cast<int>(player.x), static_cast<int>(player.y)).top) {
             return false;
         }
 
@@ -25986,15 +26264,18 @@ private:
         // kOriginalLaunchPadVelocity). With the player on the fixed-point
         // model it is used directly instead of through a px/s conversion.
         player.vy8 = kOriginalLaunchPadVelocity;
-        player.fracY = 0;
         syncPlayerVelocityMirror(player);
         player.grounded = false;
-        LaunchPadMarker marker;
-        marker.x = static_cast<int>(player.x) + 4;
-        marker.y = static_cast<int>(player.y) + 13;
-        marker.actorOrder = claimActorOrder();
-        launchPadMarkers_.push_back(marker);
         requestLaunchPadSound();
+        // 1000:691F..6950 launches and requests sound before the shared
+        // constructor can reject the cosmetic marker at its 30-slot limit.
+        if (sharedActorCount() < 30) {
+            LaunchPadMarker marker;
+            marker.x = static_cast<int>(player.x) + 4;
+            marker.y = localY + 13;
+            marker.actorOrder = claimActorOrder();
+            launchPadMarkers_.push_back(marker);
+        }
         return true;
     }
 
@@ -26274,6 +26555,7 @@ private:
 
         updatePlayerGravity(player, edges.bottom, spriteBase, y);
         if (!switchWeapon) {
+            activateLaunchPad(player, down, y);
             const int bottomLeft = tileAt(column, row + 2);
             const bool specialDown = bottomLeft == 0x45 ||
                 (bottomLeft == kLaunchPadTile && !edges.top);
@@ -29620,7 +29902,12 @@ private:
                         drawSprite(sprites_.sprites.at(actor.spriteIndex), actor.x - xCamera, actor.y - yCamera);
                         break;
                     }
-                    case SharedActorKind::Marker: break;
+                    case SharedActorKind::Marker: {
+                        const auto& marker = launchPadMarkers_[entry.index];
+                        const auto& bank = levelIndex_ == 6 ? altSprites_ : sprites_;
+                        drawSprite(bank.sprites.at(marker.frame - 1), marker.x - xCamera, marker.y - yCamera);
+                        break;
+                    }
                 }
             }
         };
@@ -29798,7 +30085,7 @@ private:
     void drawPlayer(const Player& player, int camX, int camY) {
         int x0 = static_cast<int>(player.x) - camX;
         int y0 = static_cast<int>(player.y) - camY;
-        const SpriteBank& bank = sprites_.sprites.empty() ? altSprites_ : sprites_;
+        const SpriteBank& bank = levelIndex_ == 6 || sprites_.sprites.empty() ? altSprites_ : sprites_;
         if (!bank.sprites.empty()) {
             int index = player.spriteIndex;
             if (index >= static_cast<int>(bank.sprites.size())) index = 0;
@@ -31152,6 +31439,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-shared-actor-order-original") {
             app.debugSharedActorOrderOriginal(argv[2], argc > 3 ? argv[3] : "");
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-launch-marker-original") {
+            app.debugLaunchMarkerOriginal(argv[2], argc > 3 ? argv[3] : "");
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-visual-order-original") {

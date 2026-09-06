@@ -1,8 +1,8 @@
 # Recovery Status
 
 Last reviewed: 2026-09-06
-Branch: `codex/recover-shared-actor-capacity` (validated integration batch)
-Baseline: `origin/main` at PR #218
+Branch: `codex/recover-shared-actor-order` (validated integration batch)
+Baseline: `origin/main` at PR #219
 
 ## Port Completion
 
@@ -32,8 +32,10 @@ reads. Red-palette recovery now adds 244 fixed-scene original frames and
 rollover. The gameplay clock now remains continuous across level changes.
 Shared-capacity recovery adds 16 original bomb/spawner allocation probes,
 including spawning before an effect frees a slot later in the frame.
-All 471 CTests, including interactive Xvfb checks, pass in 104.91 seconds;
-log: `build-codex-tmp/shared-capacity-full-tests.log`.
+Shared-order recovery adds 410 continuous passes and 7,685 ordered actor
+states, covering stable deletion, slot-preserving conversions and same-pass
+tail appends. All 474 CTests, including interactive Xvfb checks, pass in
+124.97 seconds; log: `build-codex-tmp/shared-order-full-tests.log`.
 There is no evidence-based overall completion percentage:
 passing-test percentage measures regression health, not recovered behavior.
 `--debug-port-completion-status` reports
@@ -43,10 +45,16 @@ passing-test percentage measures regression health, not recovered behavior.
 
 ## Current Recovery
 
+- Non-player updates now follow shared construction order across the typed
+  C++ storage. Ten original cases verify adjacent retirement, reversed
+  mixed-type order and full-pool bomb/corpse conversions. The fixture guard
+  rejects 79 mutations and two truncations. Sprite order and wider actor
+  interactions remain open. See
+  [shared-order evidence](docs/recovery/shared_actor_order_runtime_2026-09-06.md).
 - Bombs and monster spawners now use the shared 30-slot actor limit. Sixteen
   original seeded cases verify successful/rejected allocations, inventory,
   RNG and spawner reload semantics. Spawning now precedes effect expiry in
-  the production frame. Wider shared dispatch/compaction remains open. See
+  the production frame. The subsequent shared-order batch is described above. See
   [shared-capacity evidence](docs/recovery/shared_actor_capacity_runtime_2026-09-06.md).
 - The original six-entry red palette now animates on its five-frame gate,
   retaining separate displayed colors and pending phase. Two fixtures cover

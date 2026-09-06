@@ -68,10 +68,13 @@ reported by the diagnostic; CTest exercises these paths on every run.
 These are historical fidelity follow-ups tracked in `RECOVERY_STATUS.md`.
 New [shared-capacity evidence](shared_actor_capacity_runtime_2026-09-06.md)
 covers 16 original bomb/spawner allocation boundaries and fixes spawning
-before same-frame effect expiry. Wider shared actor ordering/compaction and
-other constructor paths remain open.
+before same-frame effect expiry. The subsequent [shared-order recovery](shared_actor_order_runtime_2026-09-06.md)
+matches 410 original passes and 7,685 ordered actor states, replacing grouped
+updates with stable shared dispatch, in-place conversion and same-pass tail
+appends. Sprite ordering, boss-link repair and other constructor paths remain
+open.
 They are not an exhaustive list of functional recovery gaps. Missing
-shared-actor allocation/order edge cases, collision semantics, and complete
+shared-actor allocation/interaction edge cases, collision semantics, and complete
 natural bomb/collapse progression still need implementation and original
 evidence. Pickup/fracture transients now have focused original replays; see
 [transient actor evidence](transient_actors_runtime_2026-09-05.md). Normal

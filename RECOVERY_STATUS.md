@@ -1,8 +1,8 @@
 # Recovery Status
 
 Last reviewed: 2026-09-06
-Branch: `codex/recover-tall-background` (validated integration batch)
-Baseline: `origin/main` at PR #216
+Branch: `codex/recover-red-palette` (validated integration batch)
+Baseline: `origin/main` at PR #217
 
 ## Port Completion
 
@@ -27,10 +27,11 @@ chain/capacity states. The render-boundary batch matches 60 controlled views
 and 2,115,840 pixels, fixing two-player backdrop pitch and shake row crossing.
 Tall-level recovery adds 71 views and 3,002,304 normalized pixels, replacing
 the backdrop overflow fallback with allocation metadata and live tile-map
-reads. Runtime red-palette changes exposed by screenshot inspection remain
-unrecovered; normalized pixel matches do not prove those displayed colors.
-All 461 CTests, including interactive Xvfb validation, pass in 107.59 seconds.
-The log is `build-codex-tmp/tall-background-full-tests.log`.
+reads. Red-palette recovery now adds 244 fixed-scene original frames and
+11,571,456 pixels compared using sampled VGA colors, including frame/byte
+rollover. The gameplay clock now remains continuous across level changes.
+All 466 CTests, including interactive Xvfb checks, pass in 108.39 seconds;
+log: `build-codex-tmp/red-palette-full-tests.log`.
 There is no evidence-based overall completion percentage:
 passing-test percentage measures regression health, not recovered behavior.
 `--debug-port-completion-status` reports
@@ -40,6 +41,10 @@ passing-test percentage measures regression health, not recovered behavior.
 
 ## Current Recovery
 
+- The original six-entry red palette now animates on its five-frame gate,
+  retaining separate displayed colors and pending phase. Two fixtures cover
+  levels 1/4 with 55 writes; all 24 screenshot checkpoints match. See
+  [red-palette evidence](docs/recovery/red_palette_runtime_2026-09-06.md).
 - Tall-level background overreads now follow the original far pointer into
   the previous map's allocation metadata and the current live tile bytes.
   Five captures cover levels 3..6, cleared/patterned maps and a split-width

@@ -362,6 +362,38 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "render_boundary_fixture=ok captures=7 lf_crlf=1 truncated_rejected=7 mutations_rejected=174 no_output_files=1")
     endif()
 
+    foreach(palette_level IN ITEMS 1 4)
+        add_test(NAME red_palette_level${palette_level}_original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    $<TARGET_FILE:lezac_cpp> --debug-red-palette-original
+                    tests/fixtures/red_palette_level${palette_level}_original.txt)
+        set_tests_properties(red_palette_level${palette_level}_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "red_palette_original=ok cases=4 samples=122 writes=[0-9]+ compared_pixels=5785728 actual_dac=1 frame_wrap=1 byte_wrap=1 seeded_scene=1 natural_route=0 whole_game_parity=0")
+    endforeach()
+    add_test(NAME red_palette_lifecycle
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-red-palette-lifecycle)
+    set_tests_properties(red_palette_lifecycle PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "red_palette_lifecycle=ok gameplay_cadence=1 pause_menu_intro_hold=1 level_frame_preserved=1 new_game_frame_reset=1 phase_preserved=1 frame_wrap=1")
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME red_palette_capture_contract
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_red_palette.py --self-check)
+        set_tests_properties(red_palette_capture_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "palette_capture_self_check=ok windows=6 cases=4 samples=122 live=0")
+        add_test(NAME red_palette_fixture_guard
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_red_palette_fixture.py
+                    --exe $<TARGET_FILE:lezac_cpp>)
+        set_tests_properties(red_palette_fixture_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "red_palette_fixture=ok captures=2 lf_crlf=1 truncated_rejected=2 mutations_rejected=42 indexed_hashes=1 no_output_files=1")
+    endif()
+
     add_test(NAME level1_frame_inspection_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-level1-frame-inspection)

@@ -93,7 +93,10 @@ two-player backdrop pitch and shake row-crossing foreground. Another
 [71 tall-level views](tall_background_runtime_2026-09-06.md) match 3,002,304
 normalized pixels and recover background overreads into allocator metadata
 and the live map. Screenshot inspection separately exposed unrecovered
-runtime red-palette changes at indices 230..235. Live actor
+runtime red-palette changes at indices 230..235. The subsequent
+[red-palette recovery](red_palette_runtime_2026-09-06.md) matches 244 original
+fixed-scene frames and 11,571,456 pixels using sampled VGA colors, including
+the update cadence and frame/byte rollover. Live actor
 ordering, HUD phase and natural-route rendering still need evidence. There is no
 defensible overall completion percentage without an exhaustive behavior
 inventory; the test pass rate is not a completion metric.

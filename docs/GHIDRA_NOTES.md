@@ -55,7 +55,9 @@ source index is copied through the active palette, including visible `0xff`.
 - `1000:68C5..6967` cancels simultaneous Up+Down, gates portal and launch-pad
   activation on Down, and recognizes tile `0x27` as the launch center. The
   launch request at `1000:6924` uses cursor `0x0035`, priority 5, velocity
-  `-2000`, and a short-lived invisible frame-`0x5B` mode-5 marker. The C++
+  `-2000`, and a short-lived visible frame-`0x5B` mode-5 marker. The older
+  invisible/sentinel interpretation is superseded by actual level-6/7
+  launch captures (see `recovery/launch_marker_runtime_2026-09-06.md`). The C++
   `launch_pad_route` covers the recovered route and rendered checkpoints.
 - The scanner request at `1000:5E81` is reachable only from actor mode 6.
   Shipped constructor immediates, direct actor-mode stores, and all 15 level

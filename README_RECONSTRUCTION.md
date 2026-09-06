@@ -111,6 +111,7 @@ Capture the matching natural level-7 C++ state with:
 
 ```sh
 ./build/lezac_cpp --capture-frame-sequence boss_level7 /tmp/lezac-cpp-boss7
+./build/lezac_cpp --capture-frame-sequence boss_level7_fight /tmp/lezac-cpp-boss7-fight
 ```
 
 See

@@ -467,6 +467,34 @@ if(BUILD_TESTING)
         endif()
     endforeach()
 
+    foreach(launch_level IN ITEMS 6 7)
+        add_test(NAME launch_marker_level${launch_level}_original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    $<TARGET_FILE:lezac_cpp> --debug-launch-marker-original
+                    tests/fixtures/launch_marker_level${launch_level}_original.txt)
+        set_tests_properties(launch_marker_level${launch_level}_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "launch_marker_original=ok level=${launch_level} cases=10 samples=120 views=120 marker_states=114 compared_pixels=5690880 different_pixels=0 capacity=30 normalized_rgb=1 cached_gate_seed=0 natural_route=0 whole_game_parity=0")
+        if(Python3_Interpreter_FOUND)
+            add_test(NAME launch_marker_level${launch_level}_capture_contract
+                COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_launch_marker.py --self-check --level ${launch_level})
+            set_tests_properties(launch_marker_level${launch_level}_capture_contract PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION "launch_marker_capture_self_check=ok windows=39 cases=10 live=0")
+            add_test(NAME launch_marker_level${launch_level}_fixture_guard
+                COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_launch_marker_fixture.py --exe $<TARGET_FILE:lezac_cpp> --level ${launch_level})
+            set_tests_properties(launch_marker_level${launch_level}_fixture_guard PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION "launch_marker_fixture=ok level=${launch_level} views=120 lf_crlf=1 truncated_rejected=2 mutations_rejected=63 indexed_hashes=120 no_output_files=1")
+        endif()
+    endforeach()
+    add_test(NAME frame_sequence_boss_level7_fight_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --capture-frame-sequence boss_level7_fight ${CMAKE_CURRENT_BINARY_DIR}/boss_level7_fight_frames)
+    set_tests_properties(frame_sequence_boss_level7_fight_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "frame_sequence=ok scenario=boss_level7_fight frames=6 size=320x200")
+
     add_test(NAME level1_frame_inspection_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-level1-frame-inspection)
@@ -605,7 +633,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_launch_pad_route_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=launch_pad_route level=6 pad_tile=[0-9]+,[0-9]+ input=down up_down_cancelled=1 overhead_blocked=1 original_velocity=-2000 normal_jump_velocity=-848 marker_frame=0x5b marker_kind=0x0b marker_mode=5 marker_timer=5 marker_lifetime_updates=9 sound=0x0035/p5 marker_invisible=1 frame_inspection=1")
+            "^autoplayer=ok scenario=launch_pad_route level=6 pad_tile=[0-9]+,[0-9]+ input=down up_down_cancelled=1 overhead_blocked=1 original_velocity=-2000 normal_jump_velocity=-848 marker_frame=0x5b marker_kind=0x0b marker_mode=5 marker_timer=5 marker_lifetime_updates=9 sound=0x0035/p5 marker_visible=1 frame_inspection=1")
 
     add_test(NAME autoplayer_records_flow_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -1521,7 +1549,7 @@ if(BUILD_TESTING)
         set_tests_properties(sound_launch_pad_context PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^sound_launch_pad_context=ok .*input_irq=1000:10A5 .*down_gate=1000:68E2 portal_gate=1000:68EC launch_gate=1000:6912 sound=0x0035/p5 launch_velocity=-2000 normal_jump_velocity=-848 marker=frame0x5b/kind0x0b/mode5/timer5/vy-200 visual_row=DS:C48E:00000000 sentinel=1 launch_tiles=7 level6=4 level7=3 docs=4")
+                "^sound_launch_pad_context=ok .*input_irq=1000:10A5 .*down_gate=1000:68E2 portal_gate=1000:68EC launch_gate=1000:6912 sound=0x0035/p5 launch_velocity=-2000 normal_jump_velocity=-848 marker=frame0x5b/kind0x0b/mode5/timer5/vy-200 visual_row=DS:C48E:0c0a994d obsolete_zero_row_rejected=1 launch_tiles=7 level6=4 level7=3 docs=4")
 
         add_test(NAME actor_contact_static_model
             COMMAND $<TARGET_FILE:lezac_cpp> --debug-actor-contact-static-model)

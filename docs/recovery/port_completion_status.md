@@ -75,7 +75,11 @@ appends. The subsequent [visual-order recovery](visual_order_runtime_2026-09-06.
 matches 80 controlled overlapping-actor views and 2,821,120 normalized pixels,
 including clipping and shake. Boss-link repair and other constructor paths
 remain open. New guarded descriptor captures also contradict the older
-launch-marker invisibility claim; a fresh actual launch observation is needed.
+launch-marker invisibility claim. The subsequent [actual launch recovery](launch_marker_runtime_2026-09-06.md)
+resolves it with level-6/7 original input, 30-slot boundaries, fractional
+player starts and complete marker lifetimes. Its 240 controlled views match
+11,381,760 normalized pixels, using the observed original backdrop. Natural
+launch routes and wider two-player interactions are not closed by these probes.
 They are not an exhaustive list of functional recovery gaps. Missing
 shared-actor allocation/interaction edge cases, collision semantics, and complete
 natural bomb/collapse progression still need implementation and original

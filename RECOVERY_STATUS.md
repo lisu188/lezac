@@ -1,8 +1,8 @@
 # Recovery Status
 
 Last reviewed: 2026-09-06
-Branch: `codex/recover-render-phase` (validated integration batch)
-Baseline: `origin/main` at PR #215
+Branch: `codex/recover-tall-background` (validated integration batch)
+Baseline: `origin/main` at PR #216
 
 ## Port Completion
 
@@ -25,8 +25,12 @@ PR #214 replaced it with live flame propagation and delayed repeated damage,
 verified against 1,040 continuous original states; PR #215 added 520 original
 chain/capacity states. The render-boundary batch matches 60 controlled views
 and 2,115,840 pixels, fixing two-player backdrop pitch and shake row crossing.
-All 455 tests, including interactive Xvfb validation, pass in 29.48 seconds.
-The full log is preserved at `build-codex-tmp/render-boundary-full-tests.log`.
+Tall-level recovery adds 71 views and 3,002,304 normalized pixels, replacing
+the backdrop overflow fallback with allocation metadata and live tile-map
+reads. Runtime red-palette changes exposed by screenshot inspection remain
+unrecovered; normalized pixel matches do not prove those displayed colors.
+All 461 CTests, including interactive Xvfb validation, pass in 107.59 seconds.
+The log is `build-codex-tmp/tall-background-full-tests.log`.
 There is no evidence-based overall completion percentage:
 passing-test percentage measures regression health, not recovered behavior.
 `--debug-port-completion-status` reports
@@ -36,6 +40,11 @@ passing-test percentage measures regression health, not recovered behavior.
 
 ## Current Recovery
 
+- Tall-level background overreads now follow the original far pointer into
+  the previous map's allocation metadata and the current live tile bytes.
+  Five captures cover levels 3..6, cleared/patterned maps and a split-width
+  control. See [tall-background evidence](docs/recovery/tall_background_runtime_2026-09-06.md),
+  including the separately observed red-palette discrepancy.
 - Synchronized original view captures now verify terrain, one player sprite,
   camera limits/fine scrolling, background toggles and positive shake for
   full/split-width views. The renderer fixes the original row-crossing tail

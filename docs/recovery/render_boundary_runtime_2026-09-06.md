@@ -120,6 +120,8 @@ ordering/capacity, sprites overlapping a wrapped buffer edge, simultaneous
 P2 activity, arbitrary viewport widths, all levels, or backdrop skyline RNG
 alignment across independent runs. The captured skyline is an explicit
 renderer input, not proof of generation seed parity. Reads beyond the
-driver's 60,000 initialized background bytes on tall levels remain unverified;
-the previous padded backing and overflow fallback are retained there.
+driver's 60,000 initialized background bytes were unverified in this batch.
+The subsequent [tall-level recovery](tall_background_runtime_2026-09-06.md)
+replaces that padded backing and fallback using original heap/map evidence,
+and records a separate runtime red-palette discrepancy.
 Global functional-completion and original-fidelity claims remain false.

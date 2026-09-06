@@ -28,6 +28,12 @@ WINDOWS = {
     0x36F6: bytes.fromhex("a1982099"),
     0x8AC0 + 0x00F4: bytes.fromhex("a09cc43c01"),
     0x8AC0 + 0x03C8: bytes.fromhex("bada031eb800a0"),
+    0x13FF - 0x770: bytes.fromhex("a116660b061866741e"),
+    0x1437 - 0x770: bytes.fromhex("a1ba7805100050"),
+    0x14D0 - 0x770: bytes.fromhex("a1ba7805100050"),
+    0x1506 - 0x770: bytes.fromhex("c43ee0c18cc0408bd031c0"),
+    0x9D70 - 0x770: bytes.fromhex("2689450426895506"),
+    0x9E01 - 0x770: bytes.fromhex("0507008bd0d1dad1ead1ead1ea250800c3"),
 }
 CASES = (
     ("minimum", 104, 64, 0, 1),
@@ -60,7 +66,26 @@ def write_preview(path, pixels, width, height, palette):
     path.write_bytes(f"P6\n{width} {height}\n255\n".encode("ascii") + rgb)
 
 
-def capture(pid, base, output, image, split_view):
+def tall_cases(width, height, spawn):
+    right, bottom = width * 8 - 32, height * 8 - 24
+    return (
+        ("upper", 104, 64, 0, 1),
+        ("spawn", *spawn, 0, 1),
+        ("center", width * 4, height * 4, 0, 1),
+        ("lower_left", 104, bottom, 0, 1),
+        ("lower_right", right, bottom, 0, 1),
+        ("clear_upper", 104, 64, 0, 1),
+        *((f"clear_threshold_{i}", right, 80 + i * 8, 0, 1) for i in (35, 36, 37)),
+        ("clear_bottom_left", 104, bottom, 0, 1),
+        ("clear_bottom_right", right, bottom, 0, 1),
+        ("clear_bottom_shake", right, bottom, 7, 1),
+        ("clear_bottom_off", right, bottom, 0, 0),
+        ("alias_bottom_left", 104, bottom, 0, 1),
+        ("alias_bottom_right", right, bottom, 0, 1),
+    )
+
+
+def capture(pid, base, output, image, split_view, level):
     cs = base + (actors.CS << 4)
     ds = base + (seeder.RUNTIME_DS << 4)
     actors.HOOKS = HOOKS
@@ -120,38 +145,65 @@ def capture(pid, base, output, image, split_view):
         regs = wait(1, initial=True)
         memory_base = cs - (regs[0] << 4)
         objects = memory_base + (word(ds + 0xC1FE) << 4)
-        backdrop = memory_base + (word(ds + 0xC49A) << 4) + word(ds + 0xC498)
-        width, height = word(ds + 0xC204), 33
+        backdrop_segment, backdrop_offset = word(ds + 0xC49A), word(ds + 0xC498)
+        backdrop = memory_base + (backdrop_segment << 4) + backdrop_offset
+
+        def read_backdrop(start, count):
+            offset = (backdrop_offset + start) & 0xffff
+            first = min(count, 65536 - offset)
+            segment = memory_base + (backdrop_segment << 4)
+            return read(segment + offset, first) + (read(segment, count - first) if first < count else b"")
+
+        width = word(ds + 0xC204)
+        height = word(ds + 0x2096) // 8 + 21
         pitch = 160 if split_view else 320
         view_width = pitch - 8
-        if width != 60 or word(ds + 0xC1EC) != pitch or word(ds + 0xC1EE) != 160:
+        dimensions = ((60, 33), (100, 53), (150, 60), (100, 58), (110, 62), (180, 64), (140, 52))
+        if (width, height) != dimensions[level - 1] or word(ds + 0xC1EC) != pitch or word(ds + 0xC1EE) != 160:
             raise RuntimeError("unexpected level/view dimensions")
+        cases = CASES if level == 1 else tall_cases(width, height, struct.unpack("<HH", read(ds + 0xC21E, 4)))
         tiles = read(objects, width * height)
         background = read(backdrop, 60000)
         descriptors = read(ds + 0xC322, 368)
         lines = [
             "# Seeded rendering probes, not a natural gameplay route or whole-game parity claim.",
-            "capture=render_boundary_original_v1 level=1 seeded=1 temp_copy=1 before=7a13 after=7a57"
+            f"capture={'render_boundary_tall_original_v2' if level != 1 else 'render_boundary_original_v1'} level={level} seeded=1 temp_copy=1 before=7a13 after=7a57"
             f" pitch={pitch} active_visuals=1",
             "# executable_sha256=" + hashlib.sha256((Path(__file__).resolve().parent.parent / "LEZAC.EXE").read_bytes()).hexdigest(),
             f"map width={width} height={height} bytes={tiles.hex()}",
             f"backdrop bytes={rle(background)}",
             f"sprites descriptors={descriptors.hex()}",
         ]
-        for name, x, y, shake, enabled in CASES:
-            write(objects, tiles)
+        if level != 1:
+            pointers = {key: read(ds + at, 4).hex() for key, at in (
+                ("backdrop", 0xC498), ("tile_bytes", 0xC1E0), ("tile_words", 0x6612),
+                ("tile_allocation", 0x661A), ("word_allocation", 0x6616))}
+            lines.append(f"heap segment={backdrop_segment} offset={backdrop_offset}"
+                         f" tail={rle(read_backdrop(60000, 5536))}"
+                         f" draw_segment={word(ds + 0xC212)} map_segment={word(ds + 0xC1FE)}"
+                         f" sprite_segment={word(ds + 0xC1FA)}"
+                         + "".join(f" {key}={value}" for key, value in pointers.items()))
+        for name, x, y, shake, enabled in cases:
+            mode = "alias" if name.startswith("alias_") else "clear" if name.startswith("clear_") else "level"
+            rendered_tiles = tiles if mode == "level" else bytes(len(tiles))
+            if mode == "alias":
+                rendered_tiles = bytes(1 + i % 174 for i in range(512)) + rendered_tiles[512:]
+            write(objects, rendered_tiles)
             write(ds + 0x79E6, b"\x01\x00")
             write(ds + 0x79A6, b"\x00")
             write(ds + 0x208D, b"\x00")
             write(ds + 0xC496, b"\x01")
             write(ds + 0xC49C, bytes([enabled]))
             write(ds + 0x2098, struct.pack("<h", shake))
+            if level != 1:
+                write(ds + 0x79EA, b"\x63\x63\x64\x64")
             visual = struct.pack("<HH", x, y) + descriptors[4:8]
             write(ds + 0xC21E, visual)
             frame = word(ds + 0x78C2)
+            tail_before = read_backdrop(60000, 5536) if level != 1 else b""
             release(1)
             after = wait(2)
-            if word(ds + 0x78C2) != frame or read(objects, len(tiles)) != tiles or read(ds + 0xC21E, 8) != visual:
+            if word(ds + 0x78C2) != frame or read(objects, len(tiles)) != rendered_tiles or read(ds + 0xC21E, 8) != visual:
                 raise RuntimeError("render boundary changed input state")
             globals_ = {key: word(ds + offset) for key, offset in (
                 ("coarse_x", 0xC216), ("coarse_y", 0xC218),
@@ -169,8 +221,10 @@ def capture(pid, base, output, image, split_view):
                          f" sprite=0 frame={frame} before_regs={struct.pack('<6H', *regs).hex()}"
                          f" after_regs={struct.pack('<6H', *after).hex()}"
                          + "".join(f" {key}={value}" for key, value in globals_.items())
+                         + (f" map_mode={mode}"
+                            f" tail_before={rle(tail_before)} tail_after={rle(read_backdrop(60000, 5536))}" if level != 1 else "")
                          + f" pixels={rle(pixels)}")
-            if name in ("spawn", "fine_x_3", "maximum", "background_off"):
+            if name in ("spawn", "fine_x_3", "maximum", "background_off", "lower_right", "clear_bottom_right", "clear_threshold_36", "alias_bottom_right"):
                 write_preview(output.with_name(f"{output.stem}_{name}.ppm"), pixels, view_width, 152, palette)
                 window = subprocess.check_output(["xdotool", "search", "--name", "DOSBox"], text=True).split()[-1]
                 subprocess.run(["import", "-window", window,
@@ -180,7 +234,7 @@ def capture(pid, base, output, image, split_view):
                   f" indexed_sha256={hashlib.sha256(pixels).hexdigest()}", flush=True)
             release(2)
             regs = wait(1)
-        lines.append(f"complete views={len(CASES)}")
+        lines.append(f"complete views={len(cases)}")
         output.write_text("\n".join(lines) + "\n", encoding="ascii")
         for entry, length in HOOKS:
             write(cs + entry, image[entry:entry + length])
@@ -191,6 +245,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--self-check", action="store_true")
     parser.add_argument("--split-view", action="store_true", help="initialize two-player mode, then isolate its left view")
+    parser.add_argument("--level", type=int, choices=(1, 3, 4, 5, 6), default=1)
+    parser.add_argument("--intro-seconds", type=float, default=8)
+    parser.add_argument("--level-start-seconds", type=float, default=5)
+    parser.add_argument("--results-seconds", type=float, default=10)
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--out", type=Path)
     parser.add_argument("--approve-procmem", action="store_true")
@@ -204,7 +262,8 @@ def main():
             raise RuntimeError(f"instruction mismatch at image offset {at:04x}")
     for stage in (1, 2):
         actors.trampoline(stage, image)
-    print(f"render_capture_self_check=ok windows={len(WINDOWS)} cases={len(CASES)} live=0"
+    case_count = len(CASES) if args.level == 1 else len(tall_cases(180, 64, (104, 168)))
+    print(f"render_capture_self_check=ok windows={len(WINDOWS)} cases={case_count} live=0"
           f" executable_sha256={hashlib.sha256(exe).hexdigest()}", flush=True)
     if args.self_check:
         return 0
@@ -222,13 +281,14 @@ def main():
 
     def hook(run_dir, pid, base, state, phase):
         if phase == "pre_capture":
-            capture(pid, base, args.out, image, args.split_view)
+            capture(pid, base, args.out, image, args.split_view, args.level)
         return original(run_dir, pid, base, state, phase)
 
     seeder.write_runtime_state_snapshot = hook
-    sys.argv = ["seed_original_level.py", "--run-dir", str(args.run_dir), "--target-level", "1",
+    sys.argv = ["seed_original_level.py", "--run-dir", str(args.run_dir), "--target-level", str(args.level),
                 "--start-key", "2" if args.split_view else "1",
-                "--startup-seconds", "10", "--intro-seconds", "8", "--level-start-seconds", "5",
+                "--startup-seconds", "10", "--intro-seconds", str(args.intro_seconds),
+                "--level-start-seconds", str(args.level_start_seconds), "--results-seconds", str(args.results_seconds),
                 "--approve-procmem", "--approve-runtime-instrumentation", "--dump-runtime-state"]
     return seeder.main()
 

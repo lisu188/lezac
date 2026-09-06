@@ -7,12 +7,17 @@ super bombs on level 1, both grounded and airborne. Each case starts in a
 fresh DOSBox child and runs 65 captured non-player actor passes. State is
 seeded only at the case boundary, never between samples.
 
-The C++ replay verifies 520 states, comprising 3,666 live flame-record
+The two C++ replays verify 1,040 states, comprising 7,332 live flame-record
 observations, both terrain planes, debris/collapse counts, target monster
 position and HP, shared actor count, the global RNG, and player position,
 fixed-point velocity/fractions, energy, life count, behavior, death countdown,
 idle counter and all seven animation bytes. Every state is rendered and
 inspected. This is not natural-route or pixel-parity evidence.
+
+The low-HP set follows fatal conversion without reseeding: 400 corpse states,
+65 reward states and 1,530 transient-effect states. Five cases produce a
+reward and three fade without one. The high-HP set additionally verifies
+1,283 transient-effect states, rather than only their aggregate count.
 
 ## Provenance
 
@@ -52,6 +57,37 @@ An earlier eight-case attempt in one child timed out before the final case.
 It was not promoted. A fresh isolated final case succeeded; fresh children
 for every case subsequently produced the complete v3 and v5 captures. The
 timeout is a capture failure, not a recovered game rule.
+
+### Fatal Follow-Up
+
+- Canonical fixture: `tests/fixtures/flame_fatal_lifecycle_original.txt`.
+- SHA-256: `3fad9801e84d5e0e311373a2b8bb3f5bb69e56d9b9c63d4bb34bae4a8bb8932f`.
+- Raw capture: `build-codex-tmp/flame-fatal-all-weapons-v8.txt`, with eight
+  per-case files and PNGs beside it. Promoted byte-for-byte.
+- Same executable, hooks, register values, temporary-copy workflow and
+  23 instruction guards as above. The only seed change is target raw HP 3,
+  equivalent to four damage units in the C++ representation.
+- The preceding isolated small-ground capture is
+  `build-codex-tmp/flame-small-ground-fatal-v6.txt`. It has 65 samples,
+  50 corpse states and 13 reward states, without intervening writes.
+
+```sh
+python3 tools/capture_original_monster_damage.py --flame-lifecycle \
+  --flame-raw-hp 3 --run-dir /tmp/lezac-flame-fatal-v8 \
+  --out build-codex-tmp/flame-fatal-all-weapons-v8.txt \
+  --approve-procmem --approve-runtime-instrumentation
+```
+
+The small-ground target becomes kind 0C/behavior 2 at sample 2, retains raw
+HP byte 03, and starts raw countdown 25. At sample 52 it becomes kind 17,
+the yellow bomb-box reward, with timer 100 and VY -200. The retained corpse
+HP byte is not a live health value; the C++ semantic dead marker is HP zero.
+
+Inspecting every transient exposed an inaccurate replay seed: airborne bomb
+actors must run normal motion before expiry and preserve their explicit
+hotspot 8. The resulting fade retains fraction Y 0x40, but has zero velocity.
+The harness previously marked the bomb nonmoving and lost this fraction.
+Gameplay constructors still derive the hotspot from their selected sprite.
 
 ## Recovered Rules
 
@@ -110,11 +146,16 @@ boss capture.
 env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
   ./build/lezac_cpp --debug-flame-lifecycle-original \
   tests/fixtures/flame_lifecycle_original.txt build-codex-tmp/flame-cpp-frames
-ctest --test-dir build -R '^flame_lifecycle_' --output-on-failure
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
+  ./build/lezac_cpp --debug-flame-lifecycle-original \
+  tests/fixtures/flame_fatal_lifecycle_original.txt build-codex-tmp/flame-fatal-cpp
+ctest --test-dir build -R '^flame_.*lifecycle' --output-on-failure
 ```
 
-All three flame tests pass: continuous replay, capture guards, LF/CRLF,
-missing completion and seven field mutations. Optional frame output includes
+All five flame tests pass: both continuous replays, capture guards, LF/CRLF,
+missing completion and eight/ten field mutations for high/fatal HP. Added
+mutations cover transient timers, corpse countdown and reward kind.
+Optional frame output includes
 PPMs and a CSV manifest of state, RNG and frame hashes. Replay without an
 output directory must not write frames.
 
@@ -124,18 +165,52 @@ hook is stopped; HUD and terrain presentation differences remain visible.
 The player animation cursor is compared, but immediate death-descriptor
 presentation, all rendered pixels and cached HUD energy bytes are not.
 
-Integration is still in progress: old monster reward/sprite scenarios assume
-instant hits and old RNG schedules. Do not restore the refuted production
-behavior or change original expected bytes to satisfy them. Natural routes,
+Fatal small-ground sample 64 and super-ground sample 20 were also inspected
+and shown as labeled original/C++ pairs. The latter pair is
+`build-codex-tmp/flame-fatal-all-weapons-v8_super_ground_super_ground_020.png`
+and `build-codex-tmp/flame-fatal-super-ground-20-cpp.png`; the complete C++
+frame set is `build-codex-tmp/flame-fatal-all-cpp-v8/`.
+
+The reward, behavior-3 multihit, behavior-4 chase, spawner and super-bomb
+diagnostics now advance live updates until flame contact. They do not
+restore instant weapon-sized hits. Particle RNG draws precede the reward;
+the level-1 reward route also retains terrain RNG draws and now produces a
+yellow bomb box worth 3,000, not the old forced present. The isolated
+super-bomb probe uses a one-pixel/tick walker so the moving corpse and reward
+remain visible, and reaches fatal damage after 14 updates.
+
+Impact-sprite direction cases are explicitly synthetic damage unit probes.
+The old polling sprite-consumption observation is still validated in full,
+but its synthetic instant-bomb replay was removed. It now invokes the
+continuous fatal fixture for production damage, corpse, reward and effect
+checks, explicitly without polling phase alignment. Collection is tested by
+the live autoplayer, not claimed for the continuous original fixture.
+
+Do not restore the refuted production behavior or change original expected
+bytes to satisfy legacy diagnostics. The unused production-side
+`monsterDamageForBomb` helper remains only for the separately marked
+`monster_blast_damage` unit diagnostic. Natural routes,
 chain reaction/capacity cases, broader mixed actor-pool ordering, two-player
 flame interactions, and full death/reentry presentation remain follow-up
-work. Passing this 520-state set is not a whole-game completion percentage.
+work. Passing these 1,040 states is not a whole-game completion percentage.
 
-Latest full integration run: 437/446 tests passed in 48.68 seconds, including
+Initial full integration run: 437/446 tests passed in 48.68 seconds, including
 the interactive Xvfb test and all three new flame tests. Nine failures remain:
 monster reward frame capture/autoplayer, behavior-3 multihit, behavior-4 chase,
 spawner cycle, impact sprites and its newline wrapper, live bomb kill, and
 the old sprite-consumption evidence diagnostic. Full log:
-`build-codex-tmp/flame-player-integration-second-full.log`. No merge is
-authorized through these failures. The earlier 16-failure run is preserved
+`build-codex-tmp/flame-player-integration-second-full.log`. The earlier
+16-failure run is preserved
 as `build-codex-tmp/flame-player-integration-tests.log`.
+
+The fatal-integration follow-up passed 447/448 in 25.71 seconds, resolving
+all nine failures above. Its only failure was an uncertainty-inventory
+marker missing the uppercase keyword required by the checker; the marker
+has been corrected without removing the outstanding entry. Log:
+`build-codex-tmp/flame-fatal-integration-full-tests.log`.
+
+Final local validation: 448/448 tests passed in 24.88 seconds under Xvfb,
+including the interactive UI check and all five flame tests. Full log:
+`build-codex-tmp/flame-fatal-integration-full-passing.log`. `git diff --check`
+also passes. The pre-existing `debugDebrisShatterPlayback` snprintf warning
+is unchanged.

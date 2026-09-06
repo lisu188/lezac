@@ -79,9 +79,11 @@ Normal corpse motion/countdown and seeded kind-1 fatal conversion now have
 [12 continuous original replays](corpse_lifecycle_runtime_2026-09-06.md).
 Nonfatal impact and zero-based HP conversion now have
 [143 continuous original states](monster_impact_runtime_2026-09-06.md).
-The same work captures delayed, repeated small-bomb flame damage that the
-port's immediate one-point hit does not implement. Live explosion propagation,
-damage timing and collection interactions still need recovery. This
+Live explosion propagation and delayed repeated damage now have
+[1,040 continuous original states](flame_lifecycle_runtime_2026-09-06.md),
+including all four weapons, player damage and fatal monster/reward states.
+Natural collection routes, chain/capacity edge cases and two-player flame
+interactions still need broader recovery and verification. This
 does not close the broader actor-pool or rendering fidelity gaps. There is no
 defensible overall completion percentage without an exhaustive behavior
 inventory; the test pass rate is not a completion metric.

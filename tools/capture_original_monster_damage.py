@@ -68,10 +68,12 @@ def initial_actor(spec):
     return raw, start, y
 
 
-def capture(pid, base, output, image, bomb_order, flame_lifecycle=False, flame_case=None):
+def capture(pid, base, output, image, bomb_order, flame_lifecycle=False, flame_case=None, flame_raw_hp=255):
     probes = FLAME_PROBES if flame_lifecycle else ORDER_PROBES if bomb_order else PROBES
     if flame_case:
         probes = {flame_case: FLAME_PROBES[flame_case]}
+    if flame_lifecycle:
+        probes = {name: spec[:3] + (flame_raw_hp,) + spec[4:] for name, spec in probes.items()}
     samples = 65 if flame_lifecycle else 25 if bomb_order else 13
     cs, ds = base + (actors.CS << 4), base + (seeder.RUNTIME_DS << 4)
     with open(f"/proc/{pid}/mem", "r+b", buffering=0) as mem:
@@ -139,6 +141,8 @@ def capture(pid, base, output, image, bomb_order, flame_lifecycle=False, flame_c
                  "# register_order=cs,ds,es,ss,saved-sp,bp little_endian_words=1",
                  f"capture={mode}_original_v1 seeded=1 temp_copy=1 player=240,168 spawners=0",
                  f"sprites descriptors={descriptors.hex()}"]
+        if flame_lifecycle:
+            lines[3] += f" target_raw_hp={flame_raw_hp}"
         for name, spec in probes.items():
             if bomb_order or flame_lifecycle:
                 while word(ds + 0x78C2) % 2 != 1:
@@ -247,6 +251,7 @@ def main():
     mode.add_argument("--bomb-order", action="store_true")
     mode.add_argument("--flame-lifecycle", action="store_true")
     parser.add_argument("--flame-case", choices=tuple(FLAME_PROBES))
+    parser.add_argument("--flame-raw-hp", type=int, default=255)
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--out", type=Path)
     parser.add_argument("--approve-procmem", action="store_true")
@@ -254,6 +259,8 @@ def main():
     args = parser.parse_args()
     if args.flame_case and not args.flame_lifecycle:
         parser.error("flame-case requires flame-lifecycle")
+    if not 0 <= args.flame_raw_hp <= 255 or (args.flame_raw_hp != 255 and not args.flame_lifecycle):
+        parser.error("flame-raw-hp requires flame-lifecycle and a byte value")
     exe = (Path(__file__).resolve().parent.parent / "LEZAC.EXE").read_bytes()
     image = exe[0x770:]
     windows = WINDOWS | (FLAME_WINDOWS if args.flame_lifecycle else {})
@@ -279,6 +286,7 @@ def main():
             part = args.out.with_name(f"{args.out.stem}_{name}.txt")
             subprocess.run([sys.executable, str(Path(__file__).resolve()), "--flame-lifecycle",
                             "--flame-case", name, "--run-dir", str(args.run_dir), "--out", str(part),
+                            "--flame-raw-hp", str(args.flame_raw_hp),
                             "--approve-procmem", "--approve-runtime-instrumentation"], check=True)
             rows = part.read_text(encoding="ascii").splitlines()
             if rows[-1] != "complete cases=1":
@@ -302,7 +310,7 @@ def main():
 
     def hook(run_dir, pid, base, state, phase):
         if phase == "pre_capture":
-            capture(pid, base, args.out, image, args.bomb_order, args.flame_lifecycle, args.flame_case)
+            capture(pid, base, args.out, image, args.bomb_order, args.flame_lifecycle, args.flame_case, args.flame_raw_hp)
         return original(run_dir, pid, base, state, phase)
     seeder.write_runtime_state_snapshot = hook
     sys.argv = ["seed_original_level.py", "--run-dir", str(args.run_dir), "--target-level", "1",

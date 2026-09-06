@@ -56,8 +56,10 @@ That distinction should be stated wherever such a pin is registered.
   damage from `monsterDamageForBomb`. Live `explode` no longer calls it:
   `flame_lifecycle_original` now verifies 520 continuous original states for
   all four weapons, with flame records, terrain, monster/player damage and
-  RNG comparison. The old synthetic instant-hit tests require migration;
-  they must not be used as evidence for original explosion damage. See
+  RNG comparison. The remaining `monster_blast_damage` unit diagnostic
+  exercises the obsolete helper, not production explosion damage. The live
+  bomb/reward routes now use delayed flames, and a second 520-state original
+  replay covers fatal conversion through corpse expiry and rewards. See
   `flame_lifecycle_runtime_2026-09-06.md` for scope and remaining gaps.
 
 - `debris_shatter_dice_phase` — the port's `logicTick_` standing in for the

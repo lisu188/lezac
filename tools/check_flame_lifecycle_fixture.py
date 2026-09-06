@@ -11,9 +11,11 @@ import tempfile
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--exe", type=Path, required=True)
+    parser.add_argument("--fatal", action="store_true")
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
-    source = (root / "tests/fixtures/flame_lifecycle_original.txt").read_text(encoding="ascii")
+    name = "flame_fatal_lifecycle" if args.fatal else "flame_lifecycle"
+    source = (root / f"tests/fixtures/{name}_original.txt").read_text(encoding="ascii")
     env = dict(os.environ, SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy")
     before = set(root.glob("*.ppm"))
     with tempfile.TemporaryDirectory(prefix="lezac-flame-fixture-") as directory:
@@ -57,9 +59,14 @@ def main():
         mutate("tick sample=1 ", "player", lambda value: None, "missing flame player state")
         mutate("tick sample=1 ", "rng", lambda value: "00000000", "RNG")
         mutate("tick sample=1 ", "frame", lambda value: str(int(value) + 1), "nonconsecutive flame tick")
+        mutate("tick sample=0 ", "others", lambda value: value[:4] + "00" + value[6:], "effect=0")
+        if args.fatal:
+            mutate("tick sample=2 ", "target", lambda value: value[:4] + "18" + value[6:], "corpse countdown")
+            mutate("tick sample=52 ", "target", lambda value: "18" + value[2:], "reward")
     if set(root.glob("*.ppm")) != before:
         raise RuntimeError("replay without output directory wrote frames")
-    print("flame_lifecycle_fixture=ok lf=1 crlf=1 truncated_rejected=1 mutations_rejected=7 no_output_files=1")
+    mutations = 10 if args.fatal else 8
+    print(f"{name}_fixture=ok lf=1 crlf=1 truncated_rejected=1 mutations_rejected={mutations} no_output_files=1")
 
 
 if __name__ == "__main__":

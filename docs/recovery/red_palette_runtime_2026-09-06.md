@@ -58,7 +58,9 @@ instrumentation, not a replaced level loader.
 
 `tools/capture_original_red_palette.py` guards six instruction windows and
 instruments main CS:7A13 (before rendering) and CS:81F6 (after the palette
-gate). Runtime main CS/DS are 01ed/0c8f. The trampoline saves/restores flags
+gate). Captured runtime main CS/DS are 01a2/0c44; the tool's nominal
+01ed/0c8f pair is relative to the seeder's adjusted host-memory base.
+The trampoline saves/restores flags
 and general registers, sets the VGA read index through port 0x3c7, and reads
 all 768 DAC components through 0x3c9 into private scratch at CS:F800/FB00.
 This changes the DAC read cursor, not its color values. The original writes

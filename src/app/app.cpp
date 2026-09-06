@@ -2684,6 +2684,218 @@ public:
                   << " actual_dac=1 frame_wrap=1 byte_wrap=1 seeded_scene=1 natural_route=0 whole_game_parity=0\n";
     }
 
+    void debugSharedCapacityOriginal(const std::string& fixture, const std::string& outDir) {
+        load();
+        initSdl();
+        auto bytes = [](const std::string& text, size_t size) {
+            if (text.size() != size * 2 || text.find_first_not_of("0123456789abcdef") != std::string::npos)
+                throw std::runtime_error("invalid shared-capacity bytes");
+            std::vector<uint8_t> result(size);
+            for (size_t i = 0; i < size; ++i) result[i] = static_cast<uint8_t>(std::stoul(text.substr(i * 2, 2), nullptr, 16));
+            return result;
+        };
+        using Entry = std::pair<std::vector<uint8_t>, std::vector<uint8_t>>;
+        auto entries = [&](const std::string& text) {
+            std::vector<Entry> result;
+            std::istringstream stream(text);
+            std::string item;
+            if (text != "-") while (std::getline(stream, item, ',')) {
+                const auto colon = item.find(':');
+                if (colon == std::string::npos) throw std::runtime_error("invalid shared-capacity actor");
+                result.emplace_back(bytes(item.substr(0, colon), 38), bytes(item.substr(colon + 1), 8));
+            }
+            return result;
+        };
+        auto number = [](const std::string& text) {
+            size_t end = 0;
+            const int value = std::stoi(text, &end);
+            if (end != text.size() || value < 0 || value > 65535) throw std::runtime_error("invalid shared-capacity integer");
+            return value;
+        };
+        std::ifstream input(fixture);
+        if (!input) throw std::runtime_error("cannot open shared-capacity fixture");
+        std::ofstream manifest;
+        if (!outDir.empty()) {
+            std::filesystem::create_directories(outDir);
+            manifest.open(joinPath(outDir, "manifest.csv"));
+            if (!manifest) throw std::runtime_error("cannot create shared-capacity manifest");
+            manifest << "case,frame,actors,bombs,monsters,effects,rng,frame_hash\n";
+        }
+        std::string line, mode, name;
+        std::map<std::string, std::string> before;
+        std::vector<uint8_t> descriptors;
+        std::vector<Entry> initial;
+        int stage = 0, cases = 0, weapon = 0, count = 0, frame = 0, accepted = 0, rejected = 0;
+        bool complete = false;
+        auto fail = [&](const std::string& what) { throw std::runtime_error("shared-capacity " + name + ": " + what); };
+        while (std::getline(input, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (complete) fail("record after completion");
+            std::istringstream row(line);
+            std::string tag, token;
+            row >> tag;
+            std::map<std::string, std::string> fields;
+            if (tag.find('=') != std::string::npos) row = std::istringstream(line);
+            while (row >> token) {
+                const auto equal = token.find('=');
+                if (equal == std::string::npos || !fields.emplace(token.substr(0, equal), token.substr(equal + 1)).second)
+                    fail("invalid fields");
+            }
+            if (tag == "capture=shared_capacity_original_v1") {
+                if (stage || fields.at("seeded") != "1" || fields.at("temp_copy") != "1" || fields.at("level") != "1") fail("invalid provenance");
+                mode = fields.at("mode");
+                if (mode != "bomb" && mode != "spawner") fail("invalid mode");
+                stage = 1;
+            } else if (tag == "sprites") {
+                if (stage != 1) fail("misplaced descriptors");
+                descriptors = bytes(fields.at("descriptors"), 368);
+                for (size_t i = 1; i < 92; ++i) {
+                    const auto& sprite = sprites_.sprites.at(i - 1);
+                    if (descriptors[i * 4] != sprite.width || descriptors[i * 4 + 1] != sprite.height) fail("descriptor mismatch");
+                }
+                stage = 2;
+            } else if (tag == "case") {
+                if (stage != 2 || cases >= (mode == "bomb" ? 12 : 4)) fail("invalid case order");
+                weapon = mode == "bomb" ? cases / 3 + 1 : 0;
+                count = mode == "spawner" && cases == 3 ? 30 : std::array<int, 3>{0, 29, 30}[cases % 3];
+                name = (mode == "bomb" ? "weapon" + std::to_string(weapon) : "spawner") + "_pool" + std::to_string(count);
+                if (mode == "spawner" && cases == 3) name += "_expiring";
+                if (fields.at("name") != name || number(fields.at("weapon")) != weapon || number(fields.at("count")) != count) fail("invalid case seed");
+                resetLevel(0);
+                menu_ = paused_ = levelIntro_.active = false;
+                monsters_.clear(); bombs_.clear(); transientActors_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear();
+                soundLatch_ = {};
+                player_.x = 104; player_.y = 168; player_.vx8 = player_.vy8 = 0;
+                const std::string expectedLaunch = mode == "bomb" ? "104,168,0,0" : "0,0,0,0";
+                if (fields.at("launch") != expectedLaunch) fail("invalid launch seed");
+                stage = 3;
+            } else if (tag == "before") {
+                if (stage != 3) fail("missing case");
+                before = fields;
+                frame = number(fields.at("frame"));
+                if (number(fields.at("count")) != count || number(fields.at("visuals")) != count + 2 || fields.at("rng") != "78563412" ||
+                    fields.at("inventory") != "09090909" || fields.at("result") != "0" || fields.at("fire") != "0" ||
+                    number(fields.at("selected")) != (weapon ? weapon : 1)) fail("invalid before state");
+                logicTick_ = static_cast<uint16_t>(frame - 1);
+                randomSeed_ = le32(bytes(fields.at("rng"), 4), 0);
+                bombInventory_.counts.fill(9);
+                bombInventory_.selected = static_cast<BombType>(weapon ? weapon - 1 : 0);
+                initial = entries(fields.at("actors"));
+                if (initial.size() != static_cast<size_t>(count)) fail("invalid filler count");
+                for (size_t i = 0; i < initial.size(); ++i) {
+                    std::vector<uint8_t> expected(38);
+                    expected[1] = static_cast<uint8_t>(i + 2); expected[2] = 240; expected[0x15] = 5;
+                    if (name == "spawner_pool30_expiring" && i == 0) expected[2] = 1;
+                    if (initial[i].first != expected) fail("invalid filler seed");
+                    TransientActor actor;
+                    actor.kind = 0; actor.timer = expected[2]; actor.spriteIndex = 79;
+                    actor.x = 160 + static_cast<int>(i % 10) * 12;
+                    actor.y = 88 + static_cast<int>(i / 10) * 16;
+                    actor.animation = {0, 0, 0, 0, 0, 0, 0};
+                    if (!transientMatchesOriginal(actor, initial[i].first, initial[i].second, descriptors)) fail("invalid filler visual");
+                    transientActors_.push_back(actor);
+                }
+                const auto raw = bytes(fields.at("spawner"), 30);
+                std::array<uint8_t, 30> record{};
+                std::copy(raw.begin(), raw.end(), record.begin());
+                if (record[8] != 1 || record[9] != 7 || record[10] != 2 || record[27] != 1) fail("invalid spawner seed");
+                level_.monsterSpawners = {parseMonsterSpawner(record)};
+                spawnerStates_.resize(1);
+                spawnerStates_[0].remaining = record[9]; spawnerStates_[0].availableSlots = record[10]; spawnerStates_[0].cooldown = record[27];
+                stage = 4;
+            } else if (tag == "after") {
+                if (stage != 4) fail("missing before state");
+                if (mode == "bomb") placeBombAt(player_, bombInventory_, 1);
+                else updateMonsterSpawners();
+                const bool success = sharedActorCount() > static_cast<size_t>(count);
+                if (sharedActorCount() != static_cast<size_t>(number(fields.at("count")))) fail("actor count mismatch");
+                if (number(fields.at("result")) != success || number(fields.at("visuals")) != static_cast<int>(sharedActorCount()) + 2 ||
+                    number(fields.at("frame")) != frame) fail("allocation result mismatch");
+                const auto expectedInventory = bytes(fields.at("inventory"), 4);
+                for (size_t i = 0; i < 4; ++i) if (bombInventory_.counts[i] != expectedInventory[i]) fail("inventory mismatch");
+                if (number(fields.at("selected")) != bombTypeIndex(bombInventory_.selected) + 1 ||
+                    number(fields.at("fire")) != (mode == "bomb" && success) || soundLatch_.active != (mode == "bomb" && success)) fail("fire side effect mismatch");
+                if (randomSeed_ != le32(bytes(fields.at("rng"), 4), 0)) fail("RNG mismatch");
+                const auto preRegs = bytes(before.at("regs"), 12), postRegs = bytes(fields.at("regs"), 12);
+                if (le16(preRegs, 2) - le16(preRegs, 0) != 0xaa2) fail("invalid runtime segments");
+                for (size_t at : {0u, 2u, 6u, 8u, 10u}) if (le16(preRegs, at) != le16(postRegs, at)) fail("register mismatch");
+                auto expectedSpawner = bytes(before.at("spawner"), 30);
+                if (mode == "spawner") {
+                    expectedSpawner[9] = static_cast<uint8_t>(spawnerStates_[0].remaining);
+                    expectedSpawner[10] = static_cast<uint8_t>(spawnerStates_[0].availableSlots);
+                    expectedSpawner[27] = static_cast<uint8_t>(spawnerStates_[0].cooldown);
+                }
+                if (bytes(fields.at("spawner"), 30) != expectedSpawner) fail("spawner budget/countdown mismatch");
+                const auto actual = entries(fields.at("actors"));
+                if (actual.size() != sharedActorCount()) fail("actor entries mismatch");
+                for (size_t i = 0; i < initial.size(); ++i) if (actual[i] != initial[i] ||
+                    !transientMatchesOriginal(transientActors_.at(i), actual[i].first, actual[i].second, descriptors)) fail("existing actor changed");
+                if (success) {
+                    const auto& raw = actual.back().first;
+                    const auto& visual = actual.back().second;
+                    if (raw[1] != count + 2) fail("allocated visual slot mismatch");
+                    int sprite = 0;
+                    if (mode == "bomb") {
+                        const auto& bomb = bombs_.at(0);
+                        if (bombs_.size() != 1 || raw[0] != 13 + bombTypeIndex(bomb.type) || raw[2] != (bomb.timer + 1) / 2 ||
+                            raw[0x15] != 2 || raw[0x14] != bombHeightOffset(bomb.type) || bomb.pixelX != le16(visual, 0) || bomb.pixelY != le16(visual, 2) ||
+                            bomb.vx8 != static_cast<int16_t>(le16(raw, 6)) || bomb.vy8 != static_cast<int16_t>(le16(raw, 8)) ||
+                            bomb.fracX != le16(raw, 10) || bomb.fracY != le16(raw, 12)) fail("bomb constructor mismatch");
+                        sprite = static_cast<int>(bombProfile(bomb.type).spriteBase);
+                    } else {
+                        const auto& monster = monsters_.at(0);
+                        if (monsters_.size() != 1 || raw[0] != monster.kind || raw[0x15] != monster.behavior || raw[0x24] != monster.hp - 1 ||
+                            monster.x != le16(visual, 0) || monster.y + monster.hotspotY != le16(visual, 2) || raw[0x14] != monster.hotspotY ||
+                            le16(raw, 14) != monster.ai0 || le16(raw, 16) != monster.ai1 || le16(raw, 18) != monster.ai2 ||
+                            raw[0x25] != monster.spawnerIndex + 1 || raw[0x16] != monster.animCursor + 1 || raw[0x17] != monster.animStart + 1 ||
+                            raw[0x18] != monster.animEnd + 1 || raw[0x19] != monster.animTick || raw[0x1a] != monster.animDelay ||
+                            raw[0x1b] != monster.animMode || static_cast<int8_t>(raw[0x1c]) != monster.animStep ||
+                            le16(raw, 6) != monster.vx8 || le16(raw, 8) != monster.vy8 || le16(raw, 10) != monster.fracX || le16(raw, 12) != monster.fracY)
+                            fail("monster constructor mismatch");
+                        sprite = monsterSpriteIndex(monster);
+                    }
+                    if (!std::equal(visual.begin() + 4, visual.end(), descriptors.begin() + (sprite + 1) * 4)) fail("new actor descriptor mismatch");
+                    ++accepted;
+                } else ++rejected;
+                const auto inspected = inspectRenderedFrame("shared-capacity-" + name);
+                if (!outDir.empty()) {
+                    writeArgbPpm(joinPath(outDir, name + ".ppm"), fb_, kScreenW, kScreenH);
+                    manifest << name << ',' << frame << ',' << sharedActorCount() << ',' << bombs_.size() << ',' << monsters_.size()
+                             << ',' << transientActors_.size() << ',' << randomSeed_ << ',' << inspected.hash << '\n';
+                }
+                stage = 5;
+            } else if (tag == "frame") {
+                if (name == "spawner_pool30_expiring") {
+                    if (frame != 91) fail("invalid expiry frame seed");
+                    // Re-run this captured boundary through the production frame,
+                    // including allocation before the first effect retires.
+                    spawnerStates_[0].cooldown = 1;
+                    updateWithControls(FrameControls{}, 1.0f / 60.0f);
+                    if (!monsters_.empty() || spawnerStates_[0].cooldown != 90 || spawnerStates_[0].remaining != 7 ||
+                        spawnerStates_[0].availableSlots != 2 || randomSeed_ != 0x12345678) fail("spawn-before-expiry ordering mismatch");
+                    if (!outDir.empty()) {
+                        const auto next = inspectRenderedFrame("shared-capacity-expiry");
+                        writeArgbPpm(joinPath(outDir, name + "_next_render.ppm"), fb_, kScreenW, kScreenH);
+                        manifest << name << "_next_render," << frame << ',' << sharedActorCount() << ',' << bombs_.size() << ',' << monsters_.size()
+                                 << ',' << transientActors_.size() << ',' << randomSeed_ << ',' << next.hash << '\n';
+                    }
+                }
+                if (stage != 5 || fields.at("name") != name || number(fields.at("count")) != static_cast<int>(sharedActorCount()) ||
+                    number(fields.at("frame")) != static_cast<uint16_t>(frame + 1) || fields.at("phase") != "next_render") fail("invalid frame checkpoint");
+                ++cases;
+                stage = 2;
+            } else if (tag == "complete") {
+                if (stage != 2 || cases != (mode == "bomb" ? 12 : 4) || number(fields.at("cases")) != cases ||
+                    fields.at("seeded") != "1" || fields.at("natural_route") != "0") fail("incomplete coverage");
+                complete = true;
+            } else fail("unknown record");
+        }
+        if (!complete) fail("missing completion");
+        std::cout << "shared_capacity_original=ok mode=" << mode << " cases=" << cases << " accepted=" << accepted << " rejected=" << rejected
+                  << " existing_actors_unchanged=1 inventory=1 rng=1 spawner_reload=1 seeded=1 natural_route=0 whole_game_parity=0\n";
+    }
+
     void debugRedPaletteLifecycle() {
         load();
         initSdl();
@@ -25284,6 +25496,9 @@ private:
     void updateWithControls(const FrameControls& controls, float dt) {
         if (menu_ || paused_ || levelIntro_.active) return;
         ++logicTick_;
+        // 1000:7A6B precedes state-2 and both actor passes. An effect that
+        // expires later this frame still occupies its slot during spawning.
+        updateMonsterSpawners();
         // State-2 countdown precedes both actor passes (1000:7C89).
         if (playerDead_) {
             updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
@@ -25319,7 +25534,6 @@ private:
         // at 7F4E..7F5B. Both precede flame/debris 805D and collapse 8067.
         updateLaunchPadMarkers();
         updateBombs();
-        updateMonsterSpawners();
         updateBossLinks();
         const size_t existingRewards = bonusDrops_.size();
         updateMonsters(dt);
@@ -26657,7 +26871,7 @@ private:
             if (state.remaining <= 0) continue;
             if (!spawner.enabled) continue;
             state.cooldown = spawner.cooldownReset;
-            if (monsters_.size() >= 30) continue;
+            if (sharedActorCount() >= 30) continue;
             ActiveMonster monster;
             monster.x = spawner.x;
             // The spawner y is VISUAL space; monster.y carries the
@@ -27377,6 +27591,8 @@ private:
     }
 
     void placeBombAt(const Player& player, BombInventory& inventory, uint8_t owner) {
+        // Original 1000:2F9F failure leaves inventory and fire side effects alone.
+        if (sharedActorCount() >= 30) return;
         if (!hasBomb(inventory, inventory.selected)) {
             selectNextAvailableBomb(inventory);
             if (!hasBomb(inventory, inventory.selected)) return;
@@ -30427,6 +30643,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-red-palette-lifecycle") {
             app.debugRedPaletteLifecycle();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-shared-capacity-original") {
+            app.debugSharedCapacityOriginal(argv[2], argc > 3 ? argv[3] : "");
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-level1-frame-inspection") {

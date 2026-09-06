@@ -71,8 +71,11 @@ covers 16 original bomb/spawner allocation boundaries and fixes spawning
 before same-frame effect expiry. The subsequent [shared-order recovery](shared_actor_order_runtime_2026-09-06.md)
 matches 410 original passes and 7,685 ordered actor states, replacing grouped
 updates with stable shared dispatch, in-place conversion and same-pass tail
-appends. Sprite ordering, boss-link repair and other constructor paths remain
-open.
+appends. The subsequent [visual-order recovery](visual_order_runtime_2026-09-06.md)
+matches 80 controlled overlapping-actor views and 2,821,120 normalized pixels,
+including clipping and shake. Boss-link repair and other constructor paths
+remain open. New guarded descriptor captures also contradict the older
+launch-marker invisibility claim; a fresh actual launch observation is needed.
 They are not an exhaustive list of functional recovery gaps. Missing
 shared-actor allocation/interaction edge cases, collision semantics, and complete
 natural bomb/collapse progression still need implementation and original

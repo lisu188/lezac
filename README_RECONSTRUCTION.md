@@ -8,6 +8,18 @@ Borland/Turbo Pascal MZ executable, so the port is written as maintainable C++
 from Ghidra-assisted disassembly, original strings, original docs, and the
 companion data files.
 
+## Continuous Level-7 Boss Recovery
+
+Two original DOSBox traces now match 1,200 continuous production updates and
+60 controlled playfields. They correct the shared boss clock, one-based
+sprite indexing and boss visual-slot order. See
+[the evidence and remaining scope](docs/recovery/boss_continuous_runtime_2026-09-06.md).
+
+```sh
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp \
+  --debug-boss-continuous-original tests/fixtures/boss_continuous_near_original_level7.txt /tmp/lezac-boss-comparison
+```
+
 ## Recovered July Sound Routes
 
 The original weapon-switch path at `1000:6844` holds the horizontal chord for

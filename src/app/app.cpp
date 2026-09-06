@@ -861,13 +861,14 @@ struct ActiveMonster {
     int bossTick = 0;
     int hurtFlash = 0;
     uint64_t actorOrder = 0;
+    uint64_t bossVisualOrder = 0;
     bool bossDebris = false;
 };
 
 // Semantic view of one 16-byte DS:0x79EA motion-link entry from GRAN.MST.
 // mode != 0xff: spring/follow (out = (target - self + off) * gain, plus a
-// per-axis velocity pull-back of `mode`); mode == 0xff: orbit (out = target +
-// off + radius * sin/cos of a 128-step phase advanced by `gain`).
+// per-axis velocity pull-back of `mode`); mode == 0xff: vertical oscillation
+// about the target, with a 128-step phase advanced by `gain`.
 struct BossMotionLink {
     uint8_t targetVisual = 0;
     uint8_t selfVisual = 0;
@@ -2687,6 +2688,220 @@ public:
         if (differences) throw std::runtime_error("red palette pixel mismatches=" + std::to_string(differences));
         std::cout << "red_palette_original=ok cases=4 samples=" << total << " writes=" << writes << " compared_pixels=" << compared
                   << " actual_dac=1 frame_wrap=1 byte_wrap=1 seeded_scene=1 natural_route=0 whole_game_parity=0\n";
+    }
+
+    void debugBossContinuousOriginal(const std::string& fixture, const std::string& outDir) {
+        load(); initSdl();
+        const auto normalizedPalette = palette_;
+        const std::array<std::string, 3> names{"idle_phase", "approach", "clock_wrap"};
+        const std::array<int, 10> viewSamples{0, 1, 15, 16, 28, 57, 99, 139, 179, 199};
+        std::string name;
+        int stage = 0, caseIndex = 0, sample = 0, firstFrame = 0, views = 0;
+        size_t actorStates = 0, linkStates = 0, effectStates = 0, compared = 0, differences = 0;
+        auto fail = [&](const std::string& what) {
+            throw std::runtime_error("boss-continuous " + name + " sample=" + std::to_string(sample) + ": " + what);
+        };
+        auto number = [&](const std::string& text) {
+            size_t end = 0; const int n = std::stoi(text, &end);
+            if (end != text.size()) fail("invalid integer");
+            return n;
+        };
+        auto bytes = [&](const std::string& text, size_t count) {
+            if (text.size() != count * 2 || text.find_first_not_of("0123456789abcdef") != std::string::npos) fail("invalid bytes");
+            std::vector<uint8_t> raw(count);
+            for (size_t i = 0; i < count; ++i) raw[i] = static_cast<uint8_t>(std::stoul(text.substr(i * 2, 2), nullptr, 16));
+            return raw;
+        };
+        auto rle = [&](const std::string& text, size_t count) {
+            std::vector<uint8_t> raw; std::istringstream input(text); std::string run;
+            if (text.empty() || text.back() == ',') fail("invalid RLE");
+            while (std::getline(input, run, ',')) {
+                const auto colon = run.find(':');
+                if (colon == std::string::npos) fail("invalid RLE");
+                const int n = number(run.substr(0, colon));
+                if (n <= 0 || static_cast<size_t>(n) > count - raw.size()) fail("RLE overflow");
+                raw.insert(raw.end(), n, bytes(run.substr(colon + 1), 1)[0]);
+            }
+            if (raw.size() != count) fail("truncated RLE");
+            return raw;
+        };
+        auto animation = [](const std::vector<uint8_t>& raw, size_t at) {
+            return ActorAnimation{raw[at], raw[at + 1], raw[at + 2], raw[at + 3], raw[at + 4], raw[at + 5], static_cast<int8_t>(raw[at + 6])};
+        };
+        auto registers = [&](const std::string& text, int boundary) {
+            const auto raw = bytes(text, 12);
+            if (le16(raw, 0) != 0x01a2 || le16(raw, 2) != 0x0c44 || le16(raw, 6) != 0x18b3 ||
+                (boundary != 2 && le16(raw, 4) != (boundary == 1 ? 0x0c44 : 0xa000)) ||
+                le16(raw, 8) != (boundary == 2 ? 0x3fa2 : 0x3fe4) || le16(raw, 10) != (boundary == 2 ? 0x3fee : 0x3ffe)) fail("runtime register mismatch");
+        };
+        std::vector<uint8_t> originalMap, originalWords, originalBackdrop, descriptors;
+        auto spriteIndex = [&](const std::vector<uint8_t>& visual) {
+            for (size_t i = 1; i < descriptors.size() / 4; ++i) {
+                if (std::equal(visual.begin() + 4, visual.end(), descriptors.begin() + i * 4)) return static_cast<int>(i - 1);
+            }
+            fail("unknown sprite descriptor"); return 0;
+        };
+        auto state = [&](const std::map<std::string, std::string>& fields, bool seed) {
+            const auto ordered = sharedActorEntries();
+            if (number(fields.at("count")) != static_cast<int>(ordered.size()) ||
+                number(fields.at("visuals")) != static_cast<int>(ordered.size() + 2) || fields.at("link_count") != "6" ||
+                monsters_.size() != 7 || bossLinks_.size() != 6 || (seed && ordered.size() != 7)) fail("actor/link count");
+            const auto rng = bytes(fields.at("rng"), 4);
+            const uint32_t random = le16(rng, 0) | (static_cast<uint32_t>(le16(rng, 2)) << 16);
+            if (seed) randomSeed_ = random;
+            if (randomSeed_ != random) fail("RNG mismatch got=" + std::to_string(randomSeed_) + " wanted=" + std::to_string(random));
+            const auto p = bytes(fields.at("p1"), 38), visual = bytes(fields.at("player"), 8);
+            if (seed) {
+                player_.x = static_cast<float>(le16(visual, 0)); player_.y = static_cast<float>(le16(visual, 2));
+                player_.vx8 = static_cast<int16_t>(le16(p, 6)); player_.vy8 = static_cast<int16_t>(le16(p, 8));
+                player_.fracX = p[10]; player_.fracY = p[12]; player_.idleTicks = p[2]; player_.dropTicks = le16(p, 14);
+                player_.animation = animation(p, 22); player_.animationBackup = animation(p, 29);
+                player_.spriteIndex = static_cast<uint8_t>(spriteIndex(visual));
+                energy_ = number(fields.at("energy")); lives_ = number(fields.at("lives"));
+                syncPlayerVelocityMirror(player_);
+            }
+            if (p[0] || p[1] || p[21] || fields.at("player_state") != "1" || playerDead_ ||
+                static_cast<int>(player_.x) != le16(visual, 0) || static_cast<int>(player_.y) != le16(visual, 2) ||
+                player_.vx8 != static_cast<int16_t>(le16(p, 6)) || player_.vy8 != static_cast<int16_t>(le16(p, 8)) ||
+                player_.fracX != le16(p, 10) || player_.fracY != le16(p, 12) || player_.idleTicks != p[2] || player_.dropTicks != le16(p, 14) ||
+                player_.animation.packed() != animation(p, 22).packed() || player_.animationBackup.packed() != animation(p, 29).packed() ||
+                player_.spriteIndex != spriteIndex(visual) || energy_ != number(fields.at("energy")) || lives_ != number(fields.at("lives"))) fail("player state mismatch");
+            const auto links = bytes(fields.at("links"), 96);
+            for (size_t i = 0; i < bossLinks_.size(); ++i) {
+                auto& link = bossLinks_[i]; const size_t at = i * 16;
+                if (link.targetVisual != links[at] || link.selfVisual != links[at + 1] || link.gain != links[at + 2] || link.mode != links[at + 3] ||
+                    link.radiusX != links[at + 4] || link.radiusY != links[at + 5] || link.offX != static_cast<int16_t>(le16(links, at + 7)) ||
+                    link.offY != static_cast<int16_t>(le16(links, at + 9)) || link.biasY != static_cast<int8_t>(links[at + 15])) fail("link constructor mismatch");
+                if (seed) { link.phase = links[at + 6]; link.outX = static_cast<int16_t>(le16(links, at + 11)); link.outY = static_cast<int16_t>(le16(links, at + 13)); }
+                if (link.phase != links[at + 6] || link.outX != static_cast<int16_t>(le16(links, at + 11)) || link.outY != static_cast<int16_t>(le16(links, at + 13))) {
+                    fail("link " + std::to_string(i) + " output got=" + std::to_string(link.outX) + "," + std::to_string(link.outY) +
+                         " wanted=" + std::to_string(static_cast<int16_t>(le16(links, at + 11))) + "," + std::to_string(static_cast<int16_t>(le16(links, at + 13))));
+                }
+                if (!seed) ++linkStates;
+            }
+            std::istringstream input(fields.at("actors")); std::string record; size_t index = 0;
+            while (std::getline(input, record, ',')) {
+                if (index >= ordered.size()) fail("too many actor records");
+                const auto colon = record.find(':'); if (colon == std::string::npos) fail("invalid actor record");
+                const auto raw = bytes(record.substr(0, colon), 38), v = bytes(record.substr(colon + 1), 8);
+                if (index >= monsters_.size()) {
+                    const auto& entry = ordered[index];
+                    if (entry.kind != SharedActorKind::Effect || raw[1] != index + 2 ||
+                        !transientMatchesOriginal(transientActors_[entry.index], raw, v, descriptors)) fail("route effect mismatch");
+                    ++index; ++effectStates; continue;
+                }
+                auto& m = monsters_[index];
+                if (m.kind != raw[0] || m.bossVisual != raw[1] || m.behavior != raw[21]) fail("actor constructor mismatch");
+                if (seed) {
+                    if (m.animMode != raw[27] || (raw[27] == 0 && m.animFrame != spriteIndex(v)) || (raw[27] != 0 &&
+                        (m.animStart + 1 != raw[23] || m.animEnd + 1 != raw[24] || m.animDelay != raw[26]))) fail("boss animation constructor mismatch");
+                    m.hotspotY = raw[20]; m.x = le16(v, 0); m.y = le16(v, 2) - m.hotspotY;
+                    m.vx8 = static_cast<int16_t>(le16(raw, 6)); m.vy8 = static_cast<int16_t>(le16(raw, 8));
+                    m.fracX = raw[10]; m.fracY = raw[12];
+                    m.animFrame = static_cast<uint8_t>(spriteIndex(v));
+                    m.animCursor = raw[22] - 1; m.animStart = raw[23] - 1; m.animEnd = raw[24] - 1;
+                    m.animTick = raw[25]; m.animDelay = raw[26]; m.animMode = raw[27]; m.animStep = static_cast<int8_t>(raw[28]);
+                    m.bossHpByte = raw[36]; m.bossLives = raw[2];
+                }
+                if (m.x != le16(v, 0) || m.y + m.hotspotY != le16(v, 2) || m.vx8 != static_cast<int16_t>(le16(raw, 6)) ||
+                    m.vy8 != static_cast<int16_t>(le16(raw, 8)) || m.fracX != le16(raw, 10) || m.fracY != le16(raw, 12)) {
+                    fail("actor " + std::to_string(index) + " motion got=" + std::to_string(m.x) + "," + std::to_string(m.y + m.hotspotY) +
+                         "/" + std::to_string(m.vx8) + "," + std::to_string(m.vy8) + " wanted=" + std::to_string(le16(v, 0)) + "," + std::to_string(le16(v, 2)) +
+                         "/" + std::to_string(static_cast<int16_t>(le16(raw, 6))) + "," + std::to_string(static_cast<int16_t>(le16(raw, 8))));
+                }
+                if (m.hotspotY != raw[20] || monsterSpriteIndex(m) != spriteIndex(v) ||
+                    static_cast<uint8_t>(m.animCursor + 1) != raw[22] || static_cast<uint8_t>(m.animStart + 1) != raw[23] ||
+                    static_cast<uint8_t>(m.animEnd + 1) != raw[24] || m.animTick != raw[25] || m.animDelay != raw[26] || m.animMode != raw[27] || m.animStep != static_cast<int8_t>(raw[28])) fail("actor " + std::to_string(index) + " animation mismatch");
+                if (m.behavior == 6 && (m.bossHpByte != raw[36] || m.bossLives != raw[2] || m.bossBoxW != raw[14] || m.bossBoxH != raw[15])) fail("head health/extents mismatch");
+                if (m.behavior == 5 && (m.linkA != raw[14] || m.linkB != raw[15] || m.linkC != raw[16])) fail("segment serial mismatch");
+                ++index; if (!seed) ++actorStates;
+            }
+            if (index != ordered.size()) fail("incomplete actor records");
+        };
+        std::ifstream input(fixture); if (!input) fail("cannot open fixture");
+        std::ofstream manifest;
+        if (!outDir.empty()) { std::filesystem::create_directories(outDir); manifest.open(joinPath(outDir, "manifest.csv"));
+            if (!manifest) fail("cannot create manifest"); manifest << "case,sample,frame,p1_x,p1_y,energy,head_x,head_y,different_pixels\n"; }
+        std::string line; bool complete = false;
+        while (std::getline(input, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (complete) fail("record after completion");
+            std::istringstream row(line); std::string tag, token; row >> tag;
+            if (tag.find('=') != std::string::npos) row = std::istringstream(line);
+            std::map<std::string, std::string> f;
+            while (row >> token) { const auto eq = token.find('='); if (eq == std::string::npos || !f.emplace(token.substr(0, eq), token.substr(eq + 1)).second) fail("invalid fields"); }
+            if (tag == "capture=boss_continuous_original_v1") {
+                if (stage || f.size() != 7 || f.at("level") != "7" || f.at("temp_copy") != "1" || f.at("seeded_case_boundary") != "1" ||
+                    f.at("per_tick_actor_seed") != "0" || f.at("observed_backdrop") != "1" || f.at("natural_campaign") != "0") fail("invalid provenance");
+                for (int i = 0; i < 7; ++i) resetLevel(i); stage = 1;
+            } else if (tag == "map") {
+                if (stage != 1 || f.size() != 4 || f.at("width") != "140" || f.at("height") != "52") fail("invalid map");
+                originalMap = bytes(f.at("bytes"), 7280); originalWords = bytes(f.at("words"), 14560); stage = 2;
+            } else if (tag == "backdrop") {
+                if (stage != 2 || f.size() != 1) fail("misplaced backdrop"); originalBackdrop = rle(f.at("bytes"), 60000); stage = 3;
+                for (size_t i = 0; i < originalBackdrop.size(); ++i) {
+                    if ((i < 80 * 320 || i >= 162 * 320) && originalBackdrop[i] != backdropBuffer_[i]) fail("background gradient mismatch");
+                }
+            } else if (tag == "sprites") {
+                if (stage != 3 || f.size() != 1) fail("misplaced sprites"); descriptors = bytes(f.at("descriptors"), 368);
+                size_t offset = 0;
+                for (size_t i = 0; i < altSprites_.sprites.size(); ++i) { const auto& s = altSprites_.sprites[i]; const size_t at = (i + 1) * 4;
+                    if (descriptors[at] != s.width || descriptors[at + 1] != s.height || le16(descriptors, at + 2) != offset) fail("sprite bank mismatch"); offset += s.width * s.height; }
+                stage = 4;
+            } else if (tag == "case") {
+                if (stage != 4 || caseIndex >= 3 || f.size() != 14 || f.at("name") != names[caseIndex]) fail("invalid case");
+                name = f.at("name"); firstFrame = number(f.at("frame")); sample = 0;
+                if (firstFrame != (caseIndex == 2 ? 65520 : 100 + caseIndex)) fail("invalid clock seed");
+                registers(f.at("regs"), 1);
+                for (int i = 0; i < 7; ++i) resetLevel(i);
+                menu_ = false; levelIntro_.active = false; playerCount_ = 1;
+                level_.tiles = originalMap; std::copy(originalBackdrop.begin(), originalBackdrop.end(), backdropBuffer_.begin());
+                for (auto& spawner : spawnerStates_) { spawner.remaining = 0; spawner.availableSlots = 0; }
+                logicTick_ = firstFrame - 1;
+                state(f, true); stage = 5;
+            } else if (tag == "tick") {
+                if (stage != 5 || sample >= 200 || f.size() != 17 || number(f.at("sample")) != sample || number(f.at("frame")) != (firstFrame + sample + 1) % 65536) fail("nonconsecutive tick");
+                registers(f.at("input_regs"), 2); registers(f.at("regs"), 3);
+                const std::string control = name == "approach" && sample < 100 ? "left" : (name == "approach" && sample < 140 ? "right" : "idle");
+                if (f.at("control") != control) fail("input mismatch");
+                FrameControls controls; controls.p1Left = control == "left"; controls.p1Right = control == "right";
+                updateWithControls(controls, 1.0f / 60.0f); state(f, false);
+                auto map = originalMap;
+                if (f.at("map") != "-") { std::istringstream delta(f.at("map")); std::string item;
+                    while (std::getline(delta, item, ',')) { const auto colon = item.find(':'); if (colon == std::string::npos) fail("invalid map delta");
+                        const int at = number(item.substr(0, colon)); if (at < 0 || static_cast<size_t>(at) >= map.size()) fail("map delta index"); map[at] = bytes(item.substr(colon + 1), 1)[0]; } }
+                if (level_.tiles != map) fail("map mismatch");
+                if (std::find(viewSamples.begin(), viewSamples.end(), sample) != viewSamples.end()) stage = 6;
+                else ++sample;
+            } else if (tag == "view") {
+                if (stage != 6 || f.size() != 9 || number(f.at("sample")) != sample) fail("misplaced view");
+                const int camX = std::clamp(static_cast<int>(player_.x) - 152, 0, level_.width * 8 - 313);
+                const int camY = std::clamp(static_cast<int>(player_.y) - 80, 0, level_.height * 8 - 161);
+                if (number(f.at("coarse_x")) != (camX & ~7) || number(f.at("coarse_y")) != (camY & ~7) ||
+                    number(f.at("fine_x")) != (camX & 7) || number(f.at("fine_y")) != (camY & 7) ||
+                    f.at("source") != "8" || f.at("destination") != "1284") fail("camera mismatch");
+                bytes(f.at("indexed_sha256"), 32); const auto expected = rle(f.at("pixels"), 312 * 152);
+                const auto currentPalette = palette_; palette_ = normalizedPalette;
+                std::fill(fb_.begin(), fb_.end(), argb(palette_, 0)); drawWorldView(player_, 4, 4, 312, 152); resetClip();
+                std::vector<uint32_t> actual; size_t different = 0;
+                for (int y = 0; y < 152; ++y) for (int x = 0; x < 312; ++x) { const auto pixel = fb_[(y + 4) * kScreenW + x + 4]; actual.push_back(pixel);
+                    if (pixel != backdropColor(expected[y * 312 + x])) ++different; }
+                palette_ = currentPalette;
+                if (!outDir.empty()) { writeArgbPpm(joinPath(outDir, name + "_" + std::to_string(sample) + ".ppm"), actual, 312, 152);
+                    manifest << name << ',' << sample << ',' << number(f.at("sample")) + firstFrame + 1 << ',' << player_.x << ',' << player_.y << ',' << energy_
+                             << ',' << monsters_[0].x << ',' << monsters_[0].y << ',' << different << '\n'; }
+                differences += different; compared += expected.size(); ++views; ++sample; stage = 5;
+            } else if (tag == "end") {
+                if (stage != 5 || sample != 200 || f.size() != 1 || f.at("samples") != "200") fail("incomplete case"); ++caseIndex; stage = 4;
+            } else if (tag == "complete") {
+                if (stage != 4 || caseIndex != 3 || f.size() != 3 || f.at("cases") != "3" || f.at("samples") != "600" || f.at("views") != "30" || views != 30) fail("incomplete coverage"); complete = true;
+            } else fail("unknown record");
+        }
+        if (!complete) fail("missing completion");
+        if (differences) fail("pixel mismatches=" + std::to_string(differences));
+        std::cout << "boss_continuous_original=ok cases=3 samples=600 actor_states=" << actorStates << " link_states=" << linkStates
+                  << " effect_states=" << effectStates << " views=" << views << " compared_pixels=" << compared << " different_pixels=0 seeded_case_boundary=1 per_tick_actor_seed=0 whole_game_parity=0\n";
     }
 
     void debugLaunchMarkerOriginal(const std::string& fixture, const std::string& outDir) {
@@ -4528,7 +4743,7 @@ public:
         };
         ActiveMonster* head = findHead();
         if (!head || head->kind != 0x1e || head->x != 100 || head->y != 100 ||
-            head->bossVisual != 6 || head->animFrame != 40 ||
+            head->bossVisual != 6 || head->animFrame != 39 ||
             head->bossHpByte != 10 || head->bossLives != 1 ||
             head->bossBoxW != 5 || head->bossBoxH != 4) {
             throw std::runtime_error("boss level7 autoplayer head fields mismatch");
@@ -4551,7 +4766,8 @@ public:
         player_.x = 60.0f;
         player_.y = 100.0f;
         ActiveMonster leftProbe = *head;
-        leftProbe.bossTick = 28;
+        const auto savedBossProbeTick = logicTick_;
+        logicTick_ = 29;
         leftProbe.vx8 = 1;
         randomSeed_ = 0;
         updateBossHead(leftProbe);
@@ -4573,7 +4789,7 @@ public:
                 "boss head target selection was not Manhattan-nearest");
         }
         ActiveMonster manhattanProbe = *head;
-        manhattanProbe.bossTick = 28;
+        logicTick_ = 29;
         manhattanProbe.vx8 = 1;
         randomSeed_ = 0;
         updateBossHead(manhattanProbe);
@@ -4587,7 +4803,7 @@ public:
         player_.y = 100.0f;
         clearSoundLatch();
         ActiveMonster roarProbe = *head;
-        roarProbe.bossTick = 57;
+        logicTick_ = 58;
         roarProbe.vx8 = -1;
         randomSeed_ = 5;
         updateBossHead(roarProbe);
@@ -4598,6 +4814,7 @@ public:
                 "boss head roar or RNG draw order mismatch");
         }
 
+        logicTick_ = savedBossProbeTick;
         soundLatch_ = savedSoundLatch;
         player_ = savedPlayer;
         player2_ = savedPlayer2;
@@ -4615,12 +4832,12 @@ public:
             uint8_t serial;
         };
         static const std::array<ExpectedSegment, 6> kExpectedSegments{{
-            {2, 138, 110, 46, 6},
-            {3, 142, 104, 46, 5},
-            {4, 93, 110, 45, 4},
-            {5, 88, 116, 45, 3},
-            {7, 92, 118, 42, 1},
-            {8, 139, 117, 43, 2},
+            {2, 138, 110, 45, 6},
+            {3, 142, 104, 45, 5},
+            {4, 93, 110, 44, 4},
+            {5, 88, 116, 44, 3},
+            {7, 92, 118, 41, 1},
+            {8, 139, 117, 42, 2},
         }};
         int springLinks = 0;
         int orbitLinks = 0;
@@ -4669,7 +4886,7 @@ public:
             updateWithControls(idle, 1.0f / 60.0f);
         }
         head = findHead();
-        if (!head || head->bossTick != 30) {
+        if (!head || head->bossTick != static_cast<uint16_t>(logicTick_)) {
             throw std::runtime_error("boss level7 autoplayer head did not tick");
         }
         bool orbiterMoved = false;
@@ -21843,7 +22060,7 @@ public:
             throw std::runtime_error("boss lockstep evidence lacks orbit links");
         }
 
-        // 5. True lockstep: drive the LIVE update path -- updateBossHead(),
+        // 5. Single-transition replay: drive the LIVE updateBossHead(),
         // and through it scanBossHeadEdges() -- plus the same 8.8 integration
         // updateMonsters() applies, one captured tick at a time, and require
         // the resulting state to equal the original's. Stages 1-4 replay
@@ -21875,9 +22092,10 @@ public:
             head->vx8 = static_cast<int16_t>(prev.vx);
             head->vy8 = static_cast<int16_t>(prev.vy);
             head->hurtFlash = 0;
-            // The original gates on its own tick counter; updateBossHead
-            // pre-increments, so seed one below the captured frame.
-            head->bossTick = prev.frame - 1;
+            // This historical fixture checks individual transitions. The
+            // continuous boss fixture exercises the shared clock without
+            // restoring it (or actor/RNG state) before each update.
+            logicTick_ = prev.frame;
             randomSeed_ = prev.seed;
             // The fixture's bottom flag is derived from whether gravity was
             // taken, so it is only a sound reading on two tick classes: a pure
@@ -21917,7 +22135,7 @@ public:
             throw std::runtime_error("boss lockstep live edge scan disagrees with the original");
         }
 
-        // 6. Live lockstep for the orbit links: drive updateBossLinks() itself
+        // 6. Single-phase replay for orbit links: drive updateBossLinks() itself
         // at every one of the 128 phases and require its output to equal the
         // original's. Reintroducing the cosine x-term or round-to-nearest
         // fails here, which stage 4 alone would not catch.
@@ -27309,6 +27527,7 @@ private:
             bossLinks_.push_back(link);
         }
 
+        const uint64_t firstBossVisualOrder = nextActorOrder_;
         for (size_t i = 0; i < recordCount; ++i) {
             const uint8_t* record = granBytes.data() + recordsBase + i * 0x26;
             ActiveMonster actor;
@@ -27327,14 +27546,17 @@ private:
             const uint8_t animSet = record[0x03];
             if (animSet != 0 && animSet < kBossAnimSets.size() &&
                 kBossAnimSets[animSet][0] != 0) {
-                actor.animStart = kBossAnimSets[animSet][0];
-                actor.animEnd = kBossAnimSets[animSet][1];
+                actor.animStart = kBossAnimSets[animSet][0] - 1;
+                actor.animEnd = kBossAnimSets[animSet][1] - 1;
+                actor.animMode = 1;
             } else {
-                actor.animStart = entrySprite;
-                actor.animEnd = entrySprite;
+                actor.animStart = entrySprite - 1;
+                actor.animEnd = entrySprite - 1;
+                actor.animMode = 0;
             }
-            actor.animFrame = entrySprite;
-            actor.animCursor = entrySprite;
+            // GRAN.MST and the animation table carry one-based descriptors.
+            actor.animFrame = entrySprite - 1;
+            actor.animCursor = actor.animStart;
             // Raw delay byte: the shared advance (1000:608F) fires when the
             // counter exceeds it, so 0 keeps the old every-tick cadence and
             // any nonzero byte means period byte+1.
@@ -27355,6 +27577,7 @@ private:
                 actor.hp = 255;
             }
             actor.actorOrder = claimActorOrder();
+            actor.bossVisualOrder = firstBossVisualOrder + entryOrder;
             monsters_.push_back(actor);
         }
         bossPresent_ = true;
@@ -27497,7 +27720,8 @@ private:
     }
 
     void updateBossHead(ActiveMonster& monster) {
-        ++monster.bossTick;
+        // 1000:5E59 divides the shared 16-bit DS:78C2 clock, including wrap.
+        monster.bossTick = static_cast<uint16_t>(logicTick_);
         if (monster.hurtFlash > 0) --monster.hurtFlash;
         // The original scans all four edges up front and the later gravity,
         // jump and reflection steps all read those flags, so scan first.
@@ -29874,7 +30098,18 @@ private:
         int drawCamY = camY - viewY;
         drawGradientSky(viewX, viewY, viewW, viewH, camX, camY);
         adoptUnorderedActors();
-        const auto visualOrder = sharedActorEntries();
+        auto visualOrder = sharedActorEntries();
+        auto visualKey = [&](const SharedActorEntry& entry) {
+            if (entry.kind == SharedActorKind::Monster && monsters_[entry.index].bossVisualOrder) {
+                return monsters_[entry.index].bossVisualOrder;
+            }
+            return entry.order;
+        };
+        // GRAN.MST reserves a visual block whose slot order differs from its
+        // actor-update order. Stable visual keys also survive later deletions.
+        std::stable_sort(visualOrder.begin(), visualOrder.end(), [&](const auto& a, const auto& b) {
+            return visualKey(a) < visualKey(b);
+        });
         auto drawForeground = [&](int xCamera, int yCamera) {
             drawTiles(xCamera, yCamera);
             drawDamageQueues(xCamera, yCamera);
@@ -31439,6 +31674,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-shared-actor-order-original") {
             app.debugSharedActorOrderOriginal(argv[2], argc > 3 ? argv[3] : "");
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-boss-continuous-original") {
+            app.debugBossContinuousOriginal(argv[2], argc > 3 ? argv[3] : "");
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-launch-marker-original") {

@@ -3992,6 +3992,26 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^flame_fatal_lifecycle_fixture=ok lf=1 crlf=1 truncated_rejected=1 mutations_rejected=10 no_output_files=1")
 
+    add_test(NAME flame_stress_lifecycle_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-flame-lifecycle-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/flame_stress_lifecycle_original.txt)
+    set_tests_properties(flame_stress_lifecycle_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^flame_lifecycle_original=ok cases=8 samples=520 records=3492 player_states=520 .*effect_states=736 seeded_pool_records=970 peak_flames=198")
+
+    add_test(NAME flame_stress_lifecycle_capture_contract
+        COMMAND ${Python3_EXECUTABLE} tools/capture_original_monster_damage.py --flame-stress --self-check)
+    set_tests_properties(flame_stress_lifecycle_capture_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^monster_damage_capture_self_check=ok windows=28 live=0")
+
+    add_test(NAME flame_stress_lifecycle_fixture
+        COMMAND ${Python3_EXECUTABLE} tools/check_flame_lifecycle_fixture.py --stress --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(flame_stress_lifecycle_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^flame_stress_lifecycle_fixture=ok lf=1 crlf=1 truncated_rejected=1 mutations_rejected=14 no_output_files=1")
+
     add_test(NAME transient_actor_limits
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-transient-actor-limits)
     set_tests_properties(transient_actor_limits PROPERTIES

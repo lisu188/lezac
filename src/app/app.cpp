@@ -21880,6 +21880,7 @@ public:
         bool header = false, complete = false;
         int sample = 0, total = 0, frame = 0, records = 0, playerStates = 0;
         int targetRawHp = 255, corpseStates = 0, rewardStates = 0, effectStates = 0;
+        int seededPoolRecords = 0, peakFlames = 0;
         uint64_t lastHash = 0;
         std::ofstream frameManifest;
         if (!outDir.empty()) {
@@ -21910,9 +21911,21 @@ public:
                 const auto split = name.find('_');
                 const std::array<std::string, 4> weapons{"small", "medium", "large", "super"};
                 const auto weapon = std::find(weapons.begin(), weapons.end(), name.substr(0, split));
-                const std::string place = name.substr(split + 1);
+                const auto profileSplit = name.find('_', split + 1);
+                const std::string place = name.substr(split + 1, profileSplit == std::string::npos ?
+                    std::string::npos : profileSplit - split - 1);
+                const std::string profile = profileSplit == std::string::npos ? "" : name.substr(profileSplit + 1);
+                const std::map<std::string, int> profiles{
+                    {"chain_clear", 1}, {"chain_word", 1}, {"chain_retire", 1},
+                    {"capacity_190", 190}, {"capacity_191", 191}, {"capacity_198", 198},
+                    {"chain_full", 190}, {"chain_reuse", 198}};
                 if (weapon == weapons.end() || (place != "air" && place != "ground") || !seen.insert(name).second)
                     throw std::runtime_error("unknown flame case");
+                if ((profileSplit != std::string::npos && profile.empty()) ||
+                    (!profile.empty() && (weapon != weapons.begin() || place != "air" || !profiles.count(profile))) ||
+                    fields.count("initial_flames") != static_cast<size_t>(!profile.empty()) ||
+                    fields.count("terrain") != static_cast<size_t>(!profile.empty()))
+                    throw std::runtime_error("invalid flame stress profile");
                 const int y = place == "air" ? 96 : 176;
                 const auto raw = bytes(fields.at("raw"), 38);
                 const auto bombRaw = bytes(fields.at("bomb"), 38);
@@ -21935,6 +21948,43 @@ public:
                 monsters_.clear();
                 baseline = level_.tiles;
                 baselineWords = level_.wordLayer;
+                if (!profile.empty()) {
+                    const int count = profiles.at(profile);
+                    const bool chain = profile.rfind("chain_", 0) == 0;
+                    const int mover = profile == "chain_reuse" ? count - 2 : count - 1;
+                    std::istringstream entries(fields.at("initial_flames"));
+                    std::string entry;
+                    for (int slot = 0; slot < count; ++slot) {
+                        if (!std::getline(entries, entry, ',')) throw std::runtime_error("missing flame seed record");
+                        const auto colon = entry.find(':');
+                        auto expected = std::vector<uint8_t>{0x82, 0x02, 0, 0, 0, 0,
+                            static_cast<uint8_t>(slot % 64), 0, static_cast<uint8_t>(2 + slot % 3), 0x75, 0};
+                        uint8_t mass = std::array<uint8_t, 3>{1, 9, 221}[slot % 3];
+                        if (chain && slot == mover) {
+                            expected[4] = 79;
+                            expected[6] = 64;
+                            expected[8] = profile == "chain_retire" || profile == "chain_reuse" ? 1 : 8;
+                            expected[10] = 5;
+                            mass = 1;
+                        }
+                        if (profile == "chain_reuse" && slot == count - 1) expected[8] = 1;
+                        if (bytes(entry.substr(0, colon), 11) != expected || bytes(entry.substr(colon + 1), 1)[0] != mass)
+                            throw std::runtime_error("invalid flame seed record");
+                        flameRecords_.push_back({642, static_cast<int8_t>(expected[4]), 0,
+                            static_cast<int8_t>(expected[6]), 0, expected[8], 0x75, expected[10], mass});
+                    }
+                    if (std::getline(entries, entry, ',')) throw std::runtime_error("extra flame seed record");
+                    const std::string terrain = "642:00:0000" + std::string(chain ?
+                        (profile == "chain_word" ? ",643:66:0001" : ",643:66:0000") : "");
+                    if (fields.at("terrain") != terrain) throw std::runtime_error("invalid flame seed terrain");
+                    level_.tiles[642] = 0;
+                    level_.wordLayer[642] = 0;
+                    if (chain) {
+                        level_.tiles[643] = 0x66;
+                        level_.wordLayer[643] = profile == "chain_word" ? 1 : 0;
+                    }
+                    seededPoolRecords += count;
+                }
                 player_.x = 240;
                 player_.y = 168;
                 lives_ = 99;
@@ -21994,6 +22044,7 @@ public:
                 };
                 debugActorPassObserver_ = [&] {
                     if (std::stoul(fields.at("count")) != flameRecords_.size()) fail("count=" + std::to_string(flameRecords_.size()));
+                    peakFlames = std::max(peakFlames, static_cast<int>(flameRecords_.size()));
                     std::istringstream entries(fields.at("records"));
                     std::string entry;
                     size_t i = 0;
@@ -22140,7 +22191,8 @@ public:
         if (!complete) throw std::runtime_error("missing flame completion");
         std::cout << "flame_lifecycle_original=ok cases=" << seen.size() << " samples=" << total << " records=" << records
                   << " player_states=" << playerStates << " continuous=1 map_planes=2 actor_damage=1 rng=1 frame_inspection=1 frame_hash=" << std::hex << lastHash << std::dec
-                  << " corpse_states=" << corpseStates << " reward_states=" << rewardStates << " effect_states=" << effectStates << '\n';
+                  << " corpse_states=" << corpseStates << " reward_states=" << rewardStates << " effect_states=" << effectStates
+                  << " seeded_pool_records=" << seededPoolRecords << " peak_flames=" << peakFlames << '\n';
     }
 
     void debugMonsterDamageOriginal(const std::string& fixturePath, const std::string& outDir) {
@@ -27028,6 +27080,7 @@ private:
                 const uint8_t code = object(target);
                 uint16_t word = wordAt(target % level_.width, target / level_.width);
                 if (code == 0x66) {
+                    // 1000:468E: consume the chain tile even when the pool is full.
                     stamp(target, word > 0x7fff ? 0xff : 0);
                     if (word <= 0x7fff && static_cast<size_t>(target) < level_.wordLayer.size()) {
                         level_.wordLayer[target] = 0;

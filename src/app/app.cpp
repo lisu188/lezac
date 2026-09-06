@@ -201,6 +201,7 @@ constexpr std::array<std::array<int, 2>, 5> kMonsterImpactSprites{{
 }};
 constexpr int kMonsterCorpseSpriteLeft = 47;
 constexpr int kMonsterCorpseSpriteRight = 48;
+// Minimum visible duration; fatal conversion on an odd frame adds one update.
 constexpr int kMonsterDeathVisibleTicks = 49;
 // The original's main loop is rate-governed: file offset 0x8089 holds 30
 // frames in 120..125 hundredths of a second by dithering the delay word
@@ -795,9 +796,7 @@ struct ActiveMonster {
     uint16_t ai1 = 0;
     uint16_t ai2 = 0;
     uint8_t animFrame = 0;
-    // Latched at death, before `kind` is overwritten with 0x0c and vx8 is
-    // cleared, because the corpse sprite depends on which way the monster
-    // was facing.
+    // Latched before kind changes to 0x0c; later bounces do not change the sprite.
     uint8_t corpseSprite = kMonsterCorpseSpriteLeft;
     uint8_t animStart = 0;
     uint8_t animEnd = 0;
@@ -824,6 +823,7 @@ struct ActiveMonster {
     size_t spawnerIndex = 0;
     bool hasSpawner = false;
     int hp = 1;
+    // Normal corpses store remaining updates, not the original half-rate byte.
     int stateTimer = 0;
     int motionTimer = 0;
     // Recovered original 2x2 tile-cell edge scan, computed once per tick from
@@ -2429,6 +2429,7 @@ public:
         };
 
         std::vector<CapturedFrame> captures;
+        int capturedCorpseTicks = 0;
         auto bonusTypeName = [](BonusType type) {
             switch (type) {
                 case BonusType::Present: return "present";
@@ -2738,21 +2739,22 @@ public:
 
             FrameControls idle;
             updateWithControls(idle, 1.0f / 60.0f);
+            capturedCorpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
             if (!bombs_.empty() || monsters_.empty() ||
                 monsters_.front().behavior != 2 ||
                 monsters_.front().kind != 0x0c ||
-                monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
+                monsters_.front().stateTimer != capturedCorpseTicks ||
                 monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error("frame sequence monster bomb did not kill monster");
             }
             capture("030_monster_bomb_death");
 
-            for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
+            for (int frame = 1; frame < capturedCorpseTicks; ++frame) {
                 updateWithControls(idle, 1.0f / 60.0f);
                 if (monsters_.size() != 1 ||
                     monsters_.front().stateTimer !=
-                        kMonsterDeathVisibleTicks - frame ||
+                        capturedCorpseTicks - frame ||
                     monsterSpriteIndex(monsters_.front()) !=
                         kMonsterCorpseSpriteLeft ||
                     !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
@@ -2760,7 +2762,7 @@ public:
                         "frame sequence monster corpse playback mismatch");
                 }
                 if (monsters_.front().stateTimer ==
-                    kMonsterDeathVisibleTicks / 2) {
+                    capturedCorpseTicks / 2) {
                     capture("040_monster_bomb_corpse_midpoint");
                 }
             }
@@ -3094,7 +3096,7 @@ public:
                       << " last_pre_fatal_sprite=43"
                       << " pre_sprite_runs=44x4,43x2"
                       << " corpse_sprite=" << kMonsterCorpseSpriteLeft
-                      << " corpse_ticks=" << kMonsterDeathVisibleTicks
+                      << " corpse_ticks=" << capturedCorpseTicks
                       << " delayed_reward=1 reward_sprite=61 reward_type=present"
                       << " score_delta=2000"
                       << " original_runtime_claim=1"
@@ -4309,10 +4311,11 @@ public:
 
         FrameControls idle;
         updateWithControls(idle, 1.0f / 60.0f);
+        const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
         if (!bombs_.empty() || monsters_.empty() ||
             monsters_.front().behavior != 2 ||
             monsters_.front().kind != 0x0c ||
-            monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
+            monsters_.front().stateTimer != corpseTicks ||
             monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster reward autoplayer did not kill monster");
@@ -4324,11 +4327,11 @@ public:
         }
 
         FrameInspection midpointFrame;
-        for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
+        for (int frame = 1; frame < corpseTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
             if (monsters_.size() != 1 ||
                 monsters_.front().stateTimer !=
-                    kMonsterDeathVisibleTicks - frame ||
+                    corpseTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
                     kMonsterCorpseSpriteLeft ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
@@ -4336,7 +4339,7 @@ public:
                     "monster reward autoplayer corpse playback mismatch");
             }
             if (monsters_.front().stateTimer ==
-                kMonsterDeathVisibleTicks / 2) {
+                corpseTicks / 2) {
                 midpointFrame = inspectRenderedFrame(
                     "autoplayer-monster-reward-corpse-midpoint");
             }
@@ -4387,7 +4390,7 @@ public:
                   << " last_pre_fatal_sprite=43"
                   << " pre_sprite_runs=44x4,43x2"
                   << " corpse_sprite=" << kMonsterCorpseSpriteLeft
-                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
+                  << " corpse_ticks=" << corpseTicks
                   << " delayed_reward=1 reward_sprite=61"
                   << " reward_collected=1"
                   << " score_delta=" << (score_ - scoreBefore)
@@ -4471,8 +4474,9 @@ public:
         // Two bomb-shake draws lead into the original reward fixture seed.
         randomSeed_ = 0x3aa9a995u;
         updateWithControls(idle, 1.0f / 60.0f);
+        const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
-            monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
+            monsters_.front().stateTimer != corpseTicks ||
             monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteRight ||
             !bonusDrops_.empty() || randomSeed_ != 0x956923eau) {
             throw std::runtime_error("monster behavior-3 autoplayer second hit did not kill");
@@ -4484,11 +4488,11 @@ public:
         }
 
         uint32_t scoreBefore = score_;
-        for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
+        for (int frame = 1; frame < corpseTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
             if (monsters_.size() != 1 ||
                 monsters_.front().stateTimer !=
-                    kMonsterDeathVisibleTicks - frame ||
+                    corpseTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
                     kMonsterCorpseSpriteRight ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
@@ -4533,7 +4537,7 @@ public:
                   << " first_hit_hp=2 second_hit_kill=1 reward_collected=1"
                   << " score_delta=" << (score_ - scoreBefore)
                   << " frame_inspection=1"
-                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
+                  << " corpse_ticks=" << corpseTicks
                   << " delayed_reward=1 reward_sprite=61\n";
     }
 
@@ -4613,8 +4617,9 @@ public:
         // Two bomb-shake draws lead into the original reward fixture seed.
         randomSeed_ = 0x3aa9a995u;
         updateWithControls(idle, 1.0f / 60.0f);
+        const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
-            monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
+            monsters_.front().stateTimer != corpseTicks ||
             monsterSpriteIndex(monsters_.front()) != kMonsterImpactSprites[2][0] ||
             !bonusDrops_.empty() || randomSeed_ != 0x956923eau) {
             throw std::runtime_error("monster behavior-4 autoplayer bomb kill mismatch");
@@ -4625,11 +4630,11 @@ public:
             throw std::runtime_error("monster behavior-4 death frame did not change");
         }
 
-        for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
+        for (int frame = 1; frame < corpseTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
             if (monsters_.size() != 1 ||
                 monsters_.front().stateTimer !=
-                    kMonsterDeathVisibleTicks - frame ||
+                    corpseTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
                     kMonsterImpactSprites[2][0] ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
@@ -4650,7 +4655,7 @@ public:
                   << " scenario=" << scenario
                   << " chase_dx=" << chaseDx
                   << " timer_after=2 killed=1 frame_inspection=1"
-                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
+                  << " corpse_ticks=" << corpseTicks
                   << " delayed_reward=1 reward_sprite=61\n";
     }
 
@@ -16767,8 +16772,7 @@ public:
 
         // expectedSprite is DS:[0x77 + kind*2 + dir] for the monster being
         // finished: kind 1 pairs on the sign of vx, kinds 2/3/4 do not.
-        auto finishFrontCorpse = [&](size_t dropsBefore, float rewardX,
-                                     float rewardY, int expectedSprite) {
+        auto finishFrontCorpse = [&](size_t dropsBefore, int expectedSprite) {
             if (monsters_.size() != 1 ||
                 monsters_.front().behavior != 2 ||
                 monsters_.front().stateTimer !=
@@ -16801,13 +16805,20 @@ public:
                         "direct monster corpse playback mismatch");
                 }
             }
+            ActiveMonster handoff = monsters_.front();
+            updateTimedActorMotion(handoff.x, handoff.y, handoff.vx8, handoff.vy8,
+                                   handoff.fracX, handoff.fracY, scanActorEdges(handoff.x, handoff.y));
             updateMonsters(0.0f);
             if (!monsters_.empty() ||
                 bonusDrops_.size() != dropsBefore + 1 ||
                 bonusDrops_.back().type != BonusType::Present ||
                 bonusSpriteIndex(bonusDrops_.back().type) != 61 ||
-                bonusDrops_.back().x != rewardX ||
-                bonusDrops_.back().y != rewardY ||
+                bonusDrops_.back().x != handoff.x ||
+                bonusDrops_.back().y != handoff.y + handoff.hotspotY ||
+                bonusDrops_.back().vx8 != handoff.vx8 ||
+                bonusDrops_.back().vy8 != handoff.vy8 - 200 ||
+                bonusDrops_.back().fracX != handoff.fracX ||
+                bonusDrops_.back().fracY != handoff.fracY ||
                 randomSeed_ != 0x0a08326du) {
                 throw std::runtime_error(
                     "direct monster delayed reward mismatch");
@@ -16837,7 +16848,7 @@ public:
             !bonusDrops_.empty()) {
             throw std::runtime_error("medium bomb did not finish damaged monster");
         }
-        finishFrontCorpse(0, 80.0f, 86.0f, kMonsterCorpseSpriteLeft);
+        finishFrontCorpse(0, kMonsterCorpseSpriteLeft);
 
         ActiveMonster tough;
         tough.x = 96;
@@ -16855,7 +16866,7 @@ public:
             bonusDrops_.size() != 1) {
             throw std::runtime_error("super bomb did not apply full monster damage");
         }
-        finishFrontCorpse(1, 96.0f, 80.0f, kMonsterImpactSprites[4][0]);
+        finishFrontCorpse(1, kMonsterImpactSprites[4][0]);
 
         ActiveMonster edge;
         edge.x = 89;
@@ -19131,8 +19142,9 @@ public:
                     "facing frame " + std::to_string(c.animFrame) +
                     ", expected " + std::to_string(c.expectedSprite));
             }
-            // The corpse must hold that same sprite for the captured 49 ticks
-            // and be gone on the next one.
+            // This synthetic route is not phase-aligned to the polling fixture.
+            // The atomic lifecycle fixture establishes the odd-frame countdown.
+            const int expectedTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
             int ticks = 1;
             while (!monsters_.empty() && monsters_.front().behavior == 2) {
                 if (monsterSpriteIndex(monsters_.front()) != c.expectedSprite) {
@@ -19143,10 +19155,10 @@ public:
                 if (monsters_.empty()) break;
                 ++ticks;
             }
-            if (ticks != fixtureCorpseTicks) {
+            if (ticks != expectedTicks) {
                 throw std::runtime_error(
                     "corpse held " + std::to_string(ticks) + " ticks, expected " +
-                    std::to_string(fixtureCorpseTicks));
+                    std::to_string(expectedTicks));
             }
             if (!observed.empty()) observed += ',';
             observed += std::to_string(corpse);
@@ -19223,9 +19235,10 @@ public:
             inspectRenderedFrame("monster-bomb-kill-live-last-pre-fatal");
         FrameControls idle;
         updateWithControls(idle, 1.0f / 60.0f);
+        const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().kind != 0x0c || monsters_.front().hp != 0 ||
-            monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
+            monsters_.front().stateTimer != corpseTicks ||
             monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteRight ||
             !bonusDrops_.empty() || randomSeed_ != 0x956923eau) {
             std::ostringstream oss;
@@ -19248,11 +19261,11 @@ public:
         }
 
         FrameInspection midpointFrame;
-        for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
+        for (int frame = 1; frame < corpseTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
             if (monsters_.size() != 1 ||
                 monsters_.front().stateTimer !=
-                    kMonsterDeathVisibleTicks - frame ||
+                    corpseTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
                     kMonsterCorpseSpriteRight ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
@@ -19260,7 +19273,7 @@ public:
                     "live monster bomb corpse playback mismatch");
             }
             if (monsters_.front().stateTimer ==
-                kMonsterDeathVisibleTicks / 2) {
+                corpseTicks / 2) {
                 midpointFrame = inspectRenderedFrame(
                     "monster-bomb-kill-live-corpse-midpoint");
             }
@@ -19316,7 +19329,7 @@ public:
                   << " last_pre_fatal_sprite=43"
                   << " pre_sprite_runs=44x4,43x2"
                   << " corpse_sprite=" << kMonsterCorpseSpriteRight
-                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
+                  << " corpse_ticks=" << corpseTicks
                   << " delayed_reward=1 reward_sprite=61"
                   << " killed=1 removed=1 reward=1 collected=1"
                   << " score_delta=" << (score_ - scoreBefore)
@@ -21663,7 +21676,9 @@ public:
         // Replay the capture contract through the real port update order:
         // one-tick bomb -> damage/death -> timed corpse renderer -> reward at
         // removal -> overlap collection. The synthetic level only removes
-        // route input and unrelated spawner/RNG activity.
+        // route input and unrelated spawner/RNG activity. Its fatal frame is
+        // not phase-aligned to the old polling capture; the atomic corpse
+        // lifecycle fixture independently validates the half-rate countdown.
         load();
         initSdl();
         prepareAutoplayerMonsterFixtureLevel();
@@ -21724,10 +21739,11 @@ public:
 
         FrameControls idle;
         updateWithControls(idle, 1.0f / 60.0f);
+        const int replayCorpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
         if (!bombs_.empty() || monsters_.size() != 1 ||
             monsters_.front().behavior != 2 ||
             monsters_.front().kind != 0x0c || monsters_.front().hp != 0 ||
-            monsters_.front().stateTimer != corpseOriginalTicks ||
+            monsters_.front().stateTimer != replayCorpseTicks ||
             monsterSpriteIndex(monsters_.front()) != corpseSprite ||
             !bonusDrops_.empty() || randomSeed_ != fatalRng) {
             throw std::runtime_error(
@@ -21741,18 +21757,18 @@ public:
         }
 
         int visibleCorpseTicks = 1;
-        for (int frame = 1; frame < corpseOriginalTicks; ++frame) {
+        for (int frame = 1; frame < replayCorpseTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
             ++visibleCorpseTicks;
             if (monsters_.size() != 1 ||
-                monsters_.front().stateTimer != corpseOriginalTicks - frame ||
+                monsters_.front().stateTimer != replayCorpseTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) != corpseSprite ||
                 !bonusDrops_.empty() || randomSeed_ != fatalRng) {
                 throw std::runtime_error(
                     "monster sprite consumption production corpse playback mismatch");
             }
         }
-        if (visibleCorpseTicks != corpseOriginalTicks ||
+        if (visibleCorpseTicks != replayCorpseTicks ||
             monsters_.front().stateTimer != 1) {
             throw std::runtime_error(
                 "monster sprite consumption production death timing mismatch");
@@ -21930,8 +21946,13 @@ public:
             std::equal(visible.begin() + 4, visible.end(), descriptors.begin() + descriptor);
     }
 
+    enum class DeathReplayKind { Effects, Rewards, Corpses };
+
     void debugDeathTransientsOriginal(const std::string& fixturePath, const std::string& outDir,
-                                     bool rewardLifecycle = false) {
+                                     DeathReplayKind kind = DeathReplayKind::Effects) {
+        const bool rewardLifecycle = kind == DeathReplayKind::Rewards;
+        const bool corpseLifecycle = kind == DeathReplayKind::Corpses;
+        const bool lifecycle = rewardLifecycle || corpseLifecycle;
         load();
         initSdl();
         std::ifstream input(fixturePath);
@@ -21941,7 +21962,8 @@ public:
             std::filesystem::create_directories(outDir);
             manifest.open(joinPath(outDir, "manifest.csv"));
             if (!manifest) throw std::runtime_error("cannot create death-effects manifest");
-            manifest << "case,sample,frame,actor_count,effect_count,rng,frame_hash,effects,rewards\n";
+            manifest << "case,sample,frame,actor_count,effect_count,rng,frame_hash,effects,rewards"
+                     << (corpseLifecycle ? ",corpses\n" : "\n");
         }
         auto bytes = [](const std::string& hex, size_t size) {
             if (hex.size() != size * 2 || hex.find_first_not_of("0123456789abcdef") != std::string::npos) {
@@ -21977,15 +21999,31 @@ public:
             {336, 174, -300, -200}, {336, 30, 0, 2040}, {336, 174, 0, -1900},
             {440, 174, 1800, -200},
         }};
+        const std::map<std::string, std::array<int, 4>> corpseMotion{
+            {"ground_even", {336,174,0,0}}, {"ground_odd", {336,174,0,0}},
+            {"air_even", {336,130,389,-800}}, {"air_odd", {336,130,389,-800}},
+            {"wall", {430,174,600,-200}}, {"left", {336,174,-300,-200}},
+            {"terminal", {336,30,0,2040}}, {"no_reward", {336,174,0,0}},
+            {"fatal_ground_even", {336,174,208,0}}, {"fatal_ground_odd", {336,174,208,0}},
+            {"fatal_air_even", {336,130,389,-800}}, {"fatal_air_odd", {336,130,389,-800}},
+        };
         if (rewardLifecycle) {
             probes = {{"expiry_even", {0x90e25b93u, 1, 0}}, {"expiry_odd", {0x90e25b93u, 1, 1}}};
             for (uint32_t kind = 0; kind < 7; ++kind) {
                 probes.emplace("kind_" + std::to_string(kind), std::array<uint32_t, 3>{0x12345678u, 1, kind % 2});
             }
         }
-        const int samplesPerCase = rewardLifecycle ? 241 : 41;
+        if (corpseLifecycle) {
+            probes.clear();
+            for (const auto& item : corpseMotion) {
+                const auto& label = item.first;
+                const uint32_t odd = label.find("odd") != std::string::npos || label == "left" || label == "no_reward";
+                probes.emplace(label, std::array<uint32_t,3>{label == "no_reward" ? 0u : 0x90e25b93u, 1, odd});
+            }
+        }
+        const int samplesPerCase = corpseLifecycle ? 301 : rewardLifecycle ? 241 : 41;
         bool header = false, complete = false;
-        int samples = 0, totalSamples = 0, effectStates = 0, rewardStates = 0;
+        int samples = 0, totalSamples = 0, effectStates = 0, rewardStates = 0, corpseStates = 0;
         int previousFrame = -1;
         uint64_t lastHash = 0;
         std::string name, line;
@@ -22002,7 +22040,7 @@ public:
             }
             if (complete) throw std::runtime_error("data after death-effects completion");
             if (line.rfind("capture=", 0) == 0) {
-                if (header || fields.at("capture") != (rewardLifecycle ? "reward_lifecycle_original_v1" : "death_transients_original_v1") ||
+                if (header || fields.at("capture") != (corpseLifecycle ? "corpse_lifecycle_original_v1" : rewardLifecycle ? "reward_lifecycle_original_v1" : "death_transients_original_v1") ||
                     fields.at("seeded") != "1" || fields.at("temp_copy") != "1" ||
                     fields.at("spawners") != "0" || fields.at("player") != "240,168") {
                     throw std::runtime_error("invalid death-effects provenance");
@@ -22017,7 +22055,8 @@ public:
                 const auto spec = probes.find(name);
                 const int rewardKind = rewardLifecycle && name.rfind("kind_", 0) == 0 ? std::stoi(name.substr(5)) : -1;
                 const bool directReward = rewardKind >= 0;
-                const auto motion = directReward && rewardKind < 7 ? rewardMotion.at(rewardKind) : std::array<int, 4>{336, 174, 0, 0};
+                const bool fatal = corpseLifecycle && name.rfind("fatal_", 0) == 0;
+                const auto motion = corpseLifecycle ? corpseMotion.at(name) : directReward && rewardKind < 7 ? rewardMotion.at(rewardKind) : std::array<int, 4>{336, 174, 0, 0};
                 if (spec == probes.end() || !seen.insert(name).second ||
                     std::stoul(fields.at("rng"), nullptr, 16) != spec->second[0] ||
                     std::stoul(fields.at("count")) != spec->second[1] ||
@@ -22027,12 +22066,13 @@ public:
                 }
                 auto original = bytes(fields.at("corpse"), 38);
                 const int hotspot = directReward ? 16 - sprites_.sprites.at(61 + rewardKind).height : 6;
-                if (original[0] != (directReward ? 0x13 + rewardKind : 0x0c) ||
-                    original[2] != (directReward ? 100 : 0) || original[0x15] != 2 || original[0x1b] != 0 ||
+                if (original[0] != (directReward ? 0x13 + rewardKind : fatal ? 1 : 0x0c) ||
+                    original[2] != (directReward ? 100 : corpseLifecycle && !fatal ? 25 : 0) ||
+                    original[0x15] != (fatal ? 3 : 2) || original[0x1b] != 0 ||
                     original[0x14] != hotspot || static_cast<int16_t>(le16(original, 6)) != motion[2] ||
                     static_cast<int16_t>(le16(original, 8)) != motion[3] ||
-                    le16(original, 10) != (rewardLifecycle || name == "no_reward_fraction" ? 0x9a : 0) ||
-                    le16(original, 12) != (rewardLifecycle || name == "no_reward_fraction" ? 0x4e : 0)) {
+                    le16(original, 10) != (lifecycle || name == "no_reward_fraction" ? 0x9a : 0) ||
+                    le16(original, 12) != (lifecycle || name == "no_reward_fraction" ? 0x4e : 0)) {
                     throw std::runtime_error("unexpected original corpse fields: " + name);
                 }
                 resetLevel(0);
@@ -22041,15 +22081,26 @@ public:
                 player_.x = 240;
                 player_.y = 168;
                 ActiveMonster corpse;
-                corpse.x = 336;
-                corpse.y = 168;
+                corpse.x = motion[0];
+                corpse.y = motion[1] - 6;
                 corpse.hotspotY = 6;
-                corpse.kind = 0x0c;
-                corpse.behavior = 2;
-                corpse.stateTimer = 0;
-                corpse.deathRewardPending = true;
+                corpse.kind = original[0];
+                corpse.behavior = original[0x15];
+                corpse.stateTimer = corpseLifecycle && !fatal ? 2 * original[2] - static_cast<int>(spec->second[2]) : 0;
+                corpse.deathRewardPending = !fatal;
                 corpse.fracX = original[10];
                 corpse.fracY = original[12];
+                corpse.vx8 = static_cast<int16_t>(motion[2]);
+                corpse.vy8 = static_cast<int16_t>(motion[3]);
+                corpse.ai0 = le16(original, 0x0e);
+                corpse.hp = original[0x24] + 1;
+                corpse.animMode = original[0x1b];
+                if (corpseLifecycle) {
+                    const int damageCell = std::stoi(fields.at("damage_cell"));
+                    const int expectedCell = fatal ? (corpse.y >> 3) * level_.width + ((corpse.x + 4) >> 3) : -1;
+                    if (damageCell != expectedCell || original[0x25] != 0) throw std::runtime_error("invalid corpse damage seed");
+                    if (fatal) tileRef(damageCell % level_.width, damageCell / level_.width) = 0x75;
+                }
                 if (directReward) {
                     spawnBonusDrop(static_cast<float>(motion[0]), static_cast<float>(motion[1]), static_cast<BonusType>(rewardKind));
                     auto& reward = bonusDrops_.back();
@@ -22082,11 +22133,29 @@ public:
                 updateWithControls({}, 0.0f);
                 const auto expected = entries(fields.at("effects"));
                 const auto rewards = entries(fields.at("rewards"));
+                const auto corpses = corpseLifecycle ? entries(fields.at("corpses")) : std::vector<Entry>{};
                 auto fail = [&] { throw std::runtime_error("original death-effects mismatch: " + name +
                                                           " sample=" + std::to_string(samples)); };
                 if (transientActors_.size() != expected.size() || bonusDrops_.size() != rewards.size() ||
                     sharedActorCount() != std::stoul(fields.at("count")) ||
                     randomSeed_ != le32(bytes(fields.at("rng"), 4), 0)) fail();
+                if (corpseLifecycle) {
+                    if (monsters_.size() != corpses.size()) fail();
+                    for (size_t i = 0; i < corpses.size(); ++i) {
+                        const auto& corpse = monsters_[i];
+                        const auto& raw = corpses[i].first;
+                        const auto& visual = corpses[i].second;
+                        const int sprite = monsterSpriteIndex(corpse);
+                        if (raw[0] != corpse.kind || raw[2] != (corpse.stateTimer + 1) / 2 ||
+                            raw[0x15] != corpse.behavior || raw[0x14] != corpse.hotspotY || raw[0x1b] != corpse.animMode ||
+                            static_cast<int16_t>(le16(raw, 6)) != corpse.vx8 ||
+                            static_cast<int16_t>(le16(raw, 8)) != corpse.vy8 ||
+                            le16(raw, 10) != corpse.fracX || le16(raw, 12) != corpse.fracY ||
+                            le16(visual, 0) != corpse.x || le16(visual, 2) != corpse.y + corpse.hotspotY ||
+                            !std::equal(visual.begin() + 4, visual.end(), descriptors.begin() + (sprite + 1) * 4)) fail();
+                        ++corpseStates;
+                    }
+                }
                 for (size_t i = 0; i < expected.size(); ++i) {
                     if (!transientMatchesOriginal(transientActors_[i], expected[i].first,
                                                    expected[i].second, descriptors)) fail();
@@ -22098,7 +22167,7 @@ public:
                                     descriptors.begin() + (sprite + 1) * 4)) fail();
                     if (!samples && (bonusDrops_[i].x != le16(rewards[i].second, 0) ||
                                      bonusDrops_[i].y != le16(rewards[i].second, 2))) fail();
-                    if (rewardLifecycle) {
+                    if (lifecycle) {
                         const auto& reward = bonusDrops_[i];
                         const auto& raw = rewards[i].first;
                         if (raw[0] != 0x13 + static_cast<int>(reward.type) || raw[2] != reward.timer ||
@@ -22113,7 +22182,10 @@ public:
                 const auto label = name + "_" + std::to_string(samples);
                 lastHash = inspectRenderedFrame(label).hash;
                 if (!outDir.empty()) {
-                    if (!rewardLifecycle || std::set<int>{0, 1, 10, 40, 199, 210, 235, 240}.count(samples)) {
+                    const bool checkpoint = corpseLifecycle
+                        ? std::set<int>{0, 1, 10, 40, 49, 51, 60, 199, 210, 235, 240, 260, 300}.count(samples) != 0
+                        : std::set<int>{0, 1, 10, 40, 199, 210, 235, 240}.count(samples) != 0;
+                    if (!lifecycle || checkpoint) {
                         writeArgbPpm(joinPath(outDir, label + ".ppm"), fb_, kScreenW, kScreenH);
                     }
                     manifest << name << ',' << samples << ',' << frame << ',' << sharedActorCount() << ','
@@ -22128,6 +22200,14 @@ public:
                                  << reward.vx8 << ':' << reward.vy8 << ':' << int(reward.fracX) << ':'
                                  << int(reward.fracY) << ':' << int(reward.timer) << '|';
                     }
+                    if (corpseLifecycle) {
+                        manifest << ',';
+                        for (const auto& corpse : monsters_) {
+                            manifest << int(corpse.kind) << ':' << corpse.x << ':' << corpse.y << ':'
+                                     << corpse.vx8 << ':' << corpse.vy8 << ':' << int(corpse.fracX) << ':'
+                                     << int(corpse.fracY) << ':' << (corpse.stateTimer + 1) / 2 << '|';
+                        }
+                    }
                     manifest << '\n';
                     if (!manifest) throw std::runtime_error("cannot write death-effects manifest");
                 }
@@ -22136,7 +22216,7 @@ public:
                 previousFrame = frame;
             } else if (line.rfind("end ", 0) == 0) {
                 if (name.empty() || samples != samplesPerCase || std::stoi(fields.at("samples")) != samplesPerCase ||
-                    !transientActors_.empty() || (rewardLifecycle && !bonusDrops_.empty())) {
+                    !transientActors_.empty() || (lifecycle && !bonusDrops_.empty()) || (corpseLifecycle && !monsters_.empty())) {
                     throw std::runtime_error("incomplete death-effects lifecycle");
                 }
                 name.clear();
@@ -22148,10 +22228,12 @@ public:
             } else throw std::runtime_error("unexpected death-effects row");
         }
         if (!complete) throw std::runtime_error("missing death-effects completion");
-        std::cout << (rewardLifecycle ? "reward_lifecycle_original" : "death_transients_original") << "=ok cases=" << seen.size() << " samples=" << totalSamples
+        std::cout << (corpseLifecycle ? "corpse_lifecycle_original" : rewardLifecycle ? "reward_lifecycle_original" : "death_transients_original") << "=ok cases=" << seen.size() << " samples=" << totalSamples
                   << " effect_states=" << effectStates << " reward_presence_states=" << rewardStates << " seeded=1"
-                  << (rewardLifecycle ? " reward_creation_deferred=1" : " creation_frame_update=1 capacity=30")
-                  << " inherited_fraction=1 retired=1 reward_motion_claim=" << rewardLifecycle
+                  << (lifecycle ? " reward_creation_deferred=1" : " creation_frame_update=1 capacity=30")
+                  << " inherited_fraction=1 retired=1 reward_motion_claim=" << lifecycle;
+        if (corpseLifecycle) std::cout << " corpse_states=" << corpseStates << " fatal_cases=4 corpse_motion_claim=1";
+        std::cout
                   << " frame_inspection=1 frame_hash=" << std::hex << lastHash << std::dec << '\n';
     }
 
@@ -25599,6 +25681,10 @@ private:
         for (ActiveMonster& monster : monsters_) {
             if (!monster.alive) continue;
             if (monster.behavior == 2) {
+                if (monster.kind == 0x0c) {
+                    updateTimedActorMotion(monster.x, monster.y, monster.vx8, monster.vy8,
+                                           monster.fracX, monster.fracY, scanActorEdges(monster.x, monster.y));
+                }
                 if (--monster.stateTimer <= 0) {
                     // Corpse expiry reuses its slot for the reward or fade.
                     // Do not count both representations during allocation.
@@ -25617,6 +25703,8 @@ private:
                 }
                 continue;
             }
+            const int damageColumn = (monster.x + 4) >> 3;
+            const int damageRow = monster.y >> 3;
             // Recovered original animation advance -- the per-entity PROLOGUE
             // (1000:6088 `inc es:[di+3]`; 1000:608F `cmp al,es:[di+4]; ja`):
             // the counter must EXCEED the delay byte, so delay 3 advances
@@ -25766,6 +25854,16 @@ private:
 
             monster.x = std::clamp(monster.x, 0, std::max(16, level_.width * 8 - 16));
             monster.y = std::clamp(monster.y, 0, std::max(16, level_.height * 8 - 16));
+            if (monster.kind >= 1 && monster.kind <= 8) {
+                int damage = 0;
+                // 1000:7427 calls 56B6 using the pre-motion 2x2 footprint.
+                for (int dy = 0; dy < 2; ++dy) for (int dx = 0; dx < 2; ++dx) {
+                    const int glyph = tileAt(damageColumn + dx, damageRow + dy);
+                    if (glyph == 0x75) damage += 2;
+                    else if (glyph >= 1 && glyph <= 0x4c) ++damage;
+                }
+                if (damage) damageMonster(monster, damage, true);
+            }
         }
         monsters_.erase(std::remove_if(monsters_.begin(), monsters_.end(),
                                        [](const ActiveMonster& monster) { return !monster.alive; }),
@@ -26714,14 +26812,14 @@ private:
         return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
     }
 
-    void damageMonster(ActiveMonster& monster, int damage) {
+    void damageMonster(ActiveMonster& monster, int damage, bool updatedThisTick = false) {
         if (monster.behavior == 2) return;
         // Boss actors are exempt from generic damage (original 1000:7427
         // applies shot damage to kinds 1..8 only).
         if (monster.behavior == 5 || monster.behavior == 6) return;
         monster.hp = std::max(0, monster.hp - std::max(1, damage));
         if (monster.hp == 0) {
-            enterMonsterDeath(monster);
+            enterMonsterDeath(monster, updatedThisTick);
         }
     }
 
@@ -26751,9 +26849,8 @@ private:
     // Which corpse sprite a monster dies to. Evidenced for kind 1 only (see
     // kMonsterCorpseSpriteLeft/Right): its walk frames and both captured
     // corpse sprites are 17x10. Kinds 2/3/4 walk in 16x16 frames, so they
-    // cannot use this pair, and no death of one has been captured -- they
-    // keep the left value and stay UNEVIDENCED (@unevidenced:corpse_sprite_non_kind1),
-    // exactly as before.
+    // use the statically mapped table entries below. Their runtime consumption
+    // remains UNEVIDENCED (@unevidenced:corpse_sprite_non_kind1).
     // DS:[0x77 + kind*2 + dir] with dir = (vx > 0) ? 2 : 1 (1000:745B).
     // Note the `jle`: vx == 0 takes the dir-1 entry, so a monster killed
     // while stationary -- during its spawn fall, or on a blocked tick --
@@ -26765,21 +26862,19 @@ private:
         return kMonsterImpactSprites[kind][monster.vx8 > 0 ? 1 : 0];
     }
 
-    void enterMonsterDeath(ActiveMonster& monster) {
+    void enterMonsterDeath(ActiveMonster& monster, bool updatedThisTick = false) {
         if (monster.behavior == 2) return;
-        // Latch before kind/vx8 are destroyed below.
+        // Fatal conversion follows movement; the velocity and fractions survive.
         monster.corpseSprite = static_cast<uint8_t>(monsterCorpseSprite(monster));
         monster.behavior = 2;
         monster.kind = 0x0c;
-        monster.stateTimer = kMonsterDeathVisibleTicks + 1;
+        // Encode raw timer 25's odd-frame countdown as remaining updates.
+        // External blast conversion precedes this tick's monster dispatch.
+        monster.stateTimer = 50 - static_cast<int>((logicTick_ + 1) & 1u) + (updatedThisTick ? 0 : 1);
+        monster.animMode = 0;
+        monster.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(monster.corpseSprite).height);
         monster.deathRewardPending = true;
         releaseMonsterSlot(monster);
-        monster.vx8 = 0;
-        monster.vy8 = 0;
-        monster.fracX = 0;
-        monster.fracY = 0;
-        flashes_.push_back({static_cast<int>(monster.x + 7.0f) / 8,
-                            static_cast<int>(monster.y + 8.0f) / 8, 18});
         requestMonsterDeathSound();
     }
 
@@ -28997,7 +29092,11 @@ int main(int argc, char** argv) {
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-reward-lifecycle-original") {
-            app.debugDeathTransientsOriginal(argv[2], argc > 3 ? argv[3] : "", true);
+            app.debugDeathTransientsOriginal(argv[2], argc > 3 ? argv[3] : "", App::DeathReplayKind::Rewards);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-corpse-lifecycle-original") {
+            app.debugDeathTransientsOriginal(argv[2], argc > 3 ? argv[3] : "", App::DeathReplayKind::Corpses);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-transient-actor-limits") {

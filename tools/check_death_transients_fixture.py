@@ -11,10 +11,12 @@ import tempfile
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--exe", type=Path, required=True)
-    parser.add_argument("--reward-lifecycle", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--reward-lifecycle", action="store_true")
+    mode.add_argument("--corpse-lifecycle", action="store_true")
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
-    name = "reward_lifecycle" if args.reward_lifecycle else "death_transients"
+    name = "corpse_lifecycle" if args.corpse_lifecycle else "reward_lifecycle" if args.reward_lifecycle else "death_transients"
     source = (root / f"tests/fixtures/{name}_original.txt").read_text(encoding="ascii")
     env = dict(os.environ, SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy")
     before = set(root.glob("*.ppm"))
@@ -42,12 +44,12 @@ def main():
         rows = source.splitlines()
         index = next(i for i, line in enumerate(rows) if line.startswith("tick "))
         fields = dict(token.split("=", 1) for token in rows[index].split()[1:])
-        target = "rewards" if args.reward_lifecycle else "effects"
+        target = "corpses" if args.corpse_lifecycle else "rewards" if args.reward_lifecycle else "effects"
         offset = 16 if args.reward_lifecycle else 4
         value = fields[target]
         fields[target] = value[:offset] + "00" + value[offset + 2:]
         rows[index] = "tick " + " ".join(f"{key}={value}" for key, value in fields.items())
-        case = "expiry_even" if args.reward_lifecycle else "reward_even"
+        case = "ground_even" if args.corpse_lifecycle else "expiry_even" if args.reward_lifecycle else "reward_even"
         run("\n".join(rows) + "\n", f"original death-effects mismatch: {case} sample=0")
     if set(root.glob("*.ppm")) != before:
         raise RuntimeError("replay without output directory wrote frame files")

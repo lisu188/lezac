@@ -52,15 +52,15 @@ That distinction should be stated wherever such a pin is registered.
   `monster_damage_original` capture verifies the nonfatal impact sprites of
   kinds 2/3/4, but does not kill those kinds.
 
-- `bomb_direct_monster_damage` - `monsterDamageForBomb` returns weapon-sized
-  damage applied immediately by `explode`. This is now refuted, not merely
-  unproven: the seeded original small-bomb trace first damages two updates
-  after expiry, then drains 4, 6 and 2 HP from transient flame cells. Swapping
-  bomb/monster slots at the same frame parity produces the same target trace.
-  `bomb_actor_order_observation` checks that evidence and explicitly reports
-  `cpp_damage_claim=0`. The current synthetic bomb tests still pin port policy;
-  they do not establish original explosion damage. Live flame propagation,
-  timing and damage integration remain to be recovered together.
+- `bomb_direct_monster_damage` - legacy diagnostics still use weapon-sized
+  damage from `monsterDamageForBomb`. Live `explode` no longer calls it:
+  `flame_lifecycle_original` now verifies 520 continuous original states for
+  all four weapons, with flame records, terrain, monster/player damage and
+  RNG comparison. The remaining `monster_blast_damage` unit diagnostic
+  exercises the obsolete helper, not production explosion damage. The live
+  bomb/reward routes now use delayed flames, and a second 520-state original
+  replay covers fatal conversion through corpse expiry and rewards. See
+  `flame_lifecycle_runtime_2026-09-06.md` for scope and remaining gaps.
 
 - `debris_shatter_dice_phase` — the port's `logicTick_` standing in for the
   original's `DS:78C2` in the landing-shatter dice `(frame + slot) % 6 > 2`.

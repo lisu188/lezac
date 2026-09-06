@@ -323,7 +323,7 @@ if(BUILD_TESTING)
     set_tests_properties(frame_sequence_capture_monster_bomb_reward_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^frame_sequence=ok scenario=monster_bomb_reward frames=9 size=320x200 pre_sprite=44 last_pre_fatal_sprite=43 pre_sprite_runs=44x4,43x2 corpse_sprite=47 corpse_ticks=50 delayed_reward=1 reward_sprite=61 reward_type=present score_delta=2000 original_runtime_claim=1 reward_motion_claim=0 visual_claim=0")
+            "^frame_sequence=ok scenario=monster_bomb_reward frames=9 size=320x200 seeded_monster=1 flame_updates=3 corpse_sprite=47 corpse_ticks=50 delayed_reward=1 reward_sprite=65 reward_type=yellow_bomb_box score_delta=3000 original_runtime_claim=0 reward_motion_claim=0 visual_claim=0")
 
     add_test(NAME frame_sequence_capture_monster_spawner_behavior4_level2_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -453,7 +453,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_monster_bomb_reward_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=monster_bomb_reward monster_dead=1 pre_sprite=44 last_pre_fatal_sprite=43 pre_sprite_runs=44x4,43x2 corpse_sprite=47 corpse_ticks=50 delayed_reward=1 reward_sprite=61 reward_collected=1 score_delta=2000 frames_inspected=7 frame_inspection=1 original_runtime_claim=1 reward_motion_claim=0 visual_claim=0")
+            "^autoplayer=ok scenario=monster_bomb_reward monster_dead=1 seeded_monster=1 flame_updates=3 corpse_sprite=47 corpse_ticks=50 delayed_reward=1 reward_sprite=65 reward_collected=1 score_delta=3000 frames_inspected=10 frame_inspection=1 original_runtime_claim=0 reward_motion_claim=0 visual_claim=0")
 
     add_test(NAME autoplayer_monster_behavior3_multihit_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -461,7 +461,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_monster_behavior3_multihit_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=monster_behavior3_multihit moved_px=[0-9]+ first_hit_hp=2 second_hit_kill=1 reward_collected=1 score_delta=[0-9]+ frame_inspection=1")
+            "^autoplayer=ok scenario=monster_behavior3_multihit moved_px=[0-9]+ first_hit_hp=1 second_hit_kill=1 reward_collected=1 score_delta=[0-9]+ frame_inspection=1")
 
     add_test(NAME autoplayer_monster_behavior4_chase_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -3496,7 +3496,7 @@ if(BUILD_TESTING)
     set_tests_properties(bomb_fuse PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "bomb_fuse=ok fuse=39 effects=1 flashes=4 delayed_final_life=1 stale_reset_guard=1")
+            "bomb_fuse=ok fuse=39 effects=1 flames=8 delayed_final_life=1 stale_reset_guard=1")
 
     add_test(NAME bomb_fuse_original
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-fuse-original
@@ -3553,7 +3553,7 @@ if(BUILD_TESTING)
     set_tests_properties(bomb_object_explosion_effects PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "bomb_object_explosion_effects=ok cases=2 .*collapse_level=1 collapse_tile=24,22 collapse_count=2 collapse_start_off=0x0a06 collapse_end_off=0x0a08 collapse_word=0x0009 collapse_flagged=0x8009 .*collapse_affected_bytes=4 .*score_each=50 sound_offset=0xea74")
+            "bomb_object_explosion_effects=ok cases=2 .*collapse_level=1 collapse_tile=24,22 collapse_count=2 collapse_start_off=0x0a06 collapse_end_off=0x0a08 collapse_word=0x0009 collapse_flagged=0x8009 .*collapse_affected_bytes=4 .*score_table=1 expiry_consumption=0 explicit_pickup=1 sound_offset=0xea74")
 
     add_test(NAME debris_motion_live
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-motion-live)
@@ -3783,7 +3783,7 @@ if(BUILD_TESTING)
     set_tests_properties(monster_bomb_kill_live PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^monster_bomb_kill_live=ok bomb_type=4 damage=4 pre_sprite=44 last_pre_fatal_sprite=43 pre_sprite_runs=44x4,43x2 corpse_sprite=48 corpse_ticks=50 delayed_reward=1 reward_sprite=61 killed=1 removed=1 reward=1 collected=1 score_delta=2000 frames_inspected=7 frame_inspection=1 original_runtime_claim=1 reward_motion_claim=0 visual_claim=0")
+            "^monster_bomb_kill_live=ok bomb_type=4 initial_hp=4 seeded_monster=1 flame_updates=14 corpse_sprite=48 corpse_ticks=49 delayed_reward=1 reward_sprite=61 killed=1 removed=1 reward=1 collected=1 score_delta=2000 frames_inspected=20 frame_inspection=1 original_runtime_claim=0 reward_motion_claim=0 visual_claim=0")
 
     add_test(NAME player_damage_death_live
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -3958,6 +3958,40 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^bomb_actor_order_observation=ok cases=2 samples=50 first_damage_sample=2 damage=4,6,2 total_damage=12 same_phase=1 mutations_rejected=8 cpp_damage_claim=0")
 
+    add_test(NAME flame_lifecycle_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-flame-lifecycle-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/flame_lifecycle_original.txt)
+    set_tests_properties(flame_lifecycle_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^flame_lifecycle_original=ok cases=8 samples=520 records=3666 player_states=520 continuous=1 map_planes=2 actor_damage=1 rng=1 frame_inspection=1")
+
+    add_test(NAME flame_lifecycle_capture_contract
+        COMMAND ${Python3_EXECUTABLE} tools/capture_original_monster_damage.py --flame-lifecycle --self-check)
+    set_tests_properties(flame_lifecycle_capture_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^monster_damage_capture_self_check=ok windows=23 live=0")
+
+    add_test(NAME flame_lifecycle_fixture
+        COMMAND ${Python3_EXECUTABLE} tools/check_flame_lifecycle_fixture.py --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(flame_lifecycle_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^flame_lifecycle_fixture=ok lf=1 crlf=1 truncated_rejected=1 mutations_rejected=8 no_output_files=1")
+
+    add_test(NAME flame_fatal_lifecycle_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-flame-lifecycle-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/flame_fatal_lifecycle_original.txt)
+    set_tests_properties(flame_fatal_lifecycle_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^flame_lifecycle_original=ok cases=8 samples=520 records=3666 player_states=520 .*corpse_states=400 reward_states=65 effect_states=1530")
+
+    add_test(NAME flame_fatal_lifecycle_fixture
+        COMMAND ${Python3_EXECUTABLE} tools/check_flame_lifecycle_fixture.py --fatal --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(flame_fatal_lifecycle_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^flame_fatal_lifecycle_fixture=ok lf=1 crlf=1 truncated_rejected=1 mutations_rejected=10 no_output_files=1")
+
     add_test(NAME transient_actor_limits
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-transient-actor-limits)
     set_tests_properties(transient_actor_limits PROPERTIES
@@ -3991,7 +4025,7 @@ if(BUILD_TESTING)
     set_tests_properties(monster_sprite_consumption_evidence PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^monster_sprite_consumption_evidence=ok fixture=level1 ticks=110 frames=257..366 checkpoints=5 actor_rows=109/109 visual_rows=109/109 descriptor_match=1 pre_sprite=44 last_pre_fatal_sprite=43 pre_sprite_runs=44x4,43x2 impact_sprite=47 impact_equals_death=1 death_sprite_runs=47x49 death_ticks=49 replayed_death_ticks=50 reward_sprite=61 reward_visible_ticks=54 reward_actor_timer=100 reward_initial_vy=-200 reward_next_vy=-136 reward_y_step=-1 reward_motion_observed=1 score_delta=2000 rng_transitions=1/1 exogenous_input=110 exogenous_position=110 production_damage=1 production_death_timer=1 production_renderer=1 production_reward=1 production_collection=1 impact_confirmed=1 death_confirmed=1 reward_confirmed=1 original_runtime_claim=1 reward_motion_claim=0 visual_claim=0")
+            "monster_sprite_consumption_evidence=ok fixture=level1 ticks=110 frames=257..366 checkpoints=5 actor_rows=109/109 visual_rows=109/109 descriptor_match=1 pre_sprite=44 last_pre_fatal_sprite=43 pre_sprite_runs=44x4,43x2 impact_sprite=47 impact_equals_death=1 death_sprite_runs=47x49 death_ticks=49 reward_sprite=61 reward_visible_ticks=54 reward_actor_timer=100 reward_initial_vy=-200 reward_next_vy=-136 reward_y_step=-1 reward_motion_observed=1 score_delta=2000 rng_transitions=1/1 exogenous_input=110 exogenous_position=110 production_damage=1 production_death_timer=1 production_renderer=1 production_reward=1 production_collection=0 continuous_flame_replay=1 polling_phase_alignment=0 impact_confirmed=1 death_confirmed=1 reward_confirmed=1 original_runtime_claim=1 reward_motion_claim=0 visual_claim=0")
 
     if(Python3_Interpreter_FOUND)
         add_test(NAME behavior4_lockstep_guard

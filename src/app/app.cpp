@@ -11,6 +11,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -593,6 +594,8 @@ struct Bomb {
     // Tile-only aggregate probes represent an already-positioned blast.
     // Every gameplay placement enables the original actor motion path.
     bool moving = false;
+    // Actor +0x14; -1 derives the constructor value from the selected sprite.
+    int8_t hotspotY = -1;
 };
 
 struct Flash {
@@ -734,6 +737,13 @@ struct ActorAnimation {
         }
         return true;
     }
+};
+
+// 1000:3FA6 seeds these low 11-byte queue records; 45FA updates them.
+struct FlameRecord {
+    uint16_t cell = 0;
+    int8_t vx = 0, vy = 0, subX = 0, subY = 0;
+    uint8_t timer = 0, glyph = 0x75, variant = 0, mass = 1;
 };
 
 struct TransientActor {
@@ -1990,24 +2000,21 @@ public:
 
         energy_ = 100;
         damageCooldown_ = 0;
-        // Synthetic zero-velocity fragment parked on the player's own tile:
-        // the live mover leaves it overlapping the player for the next two
-        // passes (it needs 9 gravity ticks before its first row step), which
-        // must drain energy both times.
+        // A fragment record alone must not bypass the player's terrain scan.
         DebrisRecord debris;
         debris.tileIndex = (static_cast<int>(player_.y + 8.0f) / 8) * level_.width +
                            (static_cast<int>(player_.x + 6.0f) / 8);
         debrisQueue_.push_back(debris);
         updateFlashes();
         drainPlayerDamageCounters();
-        if (energy_ >= 100) {
-            throw std::runtime_error("active debris did not drain player energy");
+        if (energy_ != 100) {
+            throw std::runtime_error("debris mover applied extra player damage");
         }
         int afterDebrisEnergy = energy_;
         updateFlashes();
         drainPlayerDamageCounters();
-        if (energy_ >= afterDebrisEnergy) {
-            throw std::runtime_error("active debris did not drain on the next pass");
+        if (energy_ != afterDebrisEnergy) {
+            throw std::runtime_error("debris mover applied extra damage on the next pass");
         }
 
         pushKeyDown(SDLK_SPACE);
@@ -2024,7 +2031,12 @@ public:
                          contactProfile.fuseTicks, BombType::Small,
                          contactProfile.fuseTicks};
         explode(contactBomb);
-        drainPlayerDamageCounters();
+        if (energy_ != 100) throw std::runtime_error("bomb expiry applied instant damage");
+        for (int tick = 0; tick < 8 && energy_ == 100; ++tick) {
+            updateFlashes();
+            applyPlayerTerrainDamage(player_, energy_);
+            drainPlayerDamageCounters();
+        }
         if (energy_ >= 100) {
             throw std::runtime_error("bomb explosion did not drain player energy");
         }
@@ -2307,7 +2319,7 @@ public:
         for (int i = 0; i < fuse; ++i) {
             update(1.0f / 60.0f);
         }
-        if (!bombs_.empty() || explosionEffects_.empty() || flashes_.empty()) {
+        if (!bombs_.empty() || explosionEffects_.empty() || flameRecords_.empty()) {
             throw std::runtime_error("level1 N bomb did not explode through update loop");
         }
         FrameInspection explosionFrame = inspectRenderedFrame("level1-n-explosion");
@@ -2430,6 +2442,7 @@ public:
 
         std::vector<CapturedFrame> captures;
         int capturedCorpseTicks = 0;
+        int capturedFlameUpdates = 0;
         auto bonusTypeName = [](BonusType type) {
             switch (type) {
                 case BonusType::Present: return "present";
@@ -2663,7 +2676,7 @@ public:
                 updateWithControls(idle, 1.0f / 60.0f);
             }
             if (launchPadMarkers_.size() != 1 ||
-                launchPadMarkers_.front().timer != 2) {
+                launchPadMarkers_.front().timer != 3) {
                 throw std::runtime_error("frame sequence launch marker midpoint mismatch");
             }
             capture("030_level6_launch_pad_airborne");
@@ -2673,7 +2686,7 @@ public:
                 updateWithControls(idle, 1.0f / 60.0f);
                 ++markerUpdates;
             }
-            if (!launchPadMarkers_.empty() || markerUpdates != 8) {
+            if (!launchPadMarkers_.empty() || markerUpdates != 10) {
                 throw std::runtime_error("frame sequence launch marker lifetime mismatch");
             }
             capture("040_level6_launch_pad_marker_expired");
@@ -2721,7 +2734,7 @@ public:
             player_.x = static_cast<float>(
                 std::min(level_.width * kTileSize - 24, (placed.x + 5) * kTileSize));
             player_.y = static_cast<float>(placed.y * kTileSize);
-            randomSeed_ = 0x90e25b93u;
+            randomSeed_ = 0x28148fe7u;  // Four particle draws lead to the fixed reward seed.
             uint32_t scoreBefore = score_;
             if (monsterSpriteIndex(monsters_.front()) != 44) {
                 throw std::runtime_error(
@@ -2735,12 +2748,16 @@ public:
                 throw std::runtime_error(
                     "frame sequence monster last pre-fatal sprite mismatch");
             }
-            capture("025_monster_bomb_last_pre_fatal");
+            capture("025_monster_bomb_seeded_sprite");
 
             FrameControls idle;
-            updateWithControls(idle, 1.0f / 60.0f);
+            for (int tick = 0; tick < 16 && !monsters_.empty() && monsters_.front().behavior != 2; ++tick) {
+                updateWithControls(idle, 1.0f / 60.0f);
+                inspectRenderedFrame("monster-reward-flame-" + std::to_string(tick));
+                ++capturedFlameUpdates;
+            }
             capturedCorpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
-            if (!bombs_.empty() || monsters_.empty() ||
+            if (capturedFlameUpdates < 2 || !bombs_.empty() || monsters_.empty() ||
                 monsters_.front().behavior != 2 ||
                 monsters_.front().kind != 0x0c ||
                 monsters_.front().stateTimer != capturedCorpseTicks ||
@@ -2757,9 +2774,10 @@ public:
                         capturedCorpseTicks - frame ||
                     monsterSpriteIndex(monsters_.front()) !=
                         kMonsterCorpseSpriteLeft ||
-                    !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+                    !bonusDrops_.empty()) {
                     throw std::runtime_error(
-                        "frame sequence monster corpse playback mismatch");
+                        "frame sequence monster corpse playback mismatch tick=" + std::to_string(frame) +
+                        " monsters=" + std::to_string(monsters_.size()) + " rng=" + std::to_string(randomSeed_));
                 }
                 if (monsters_.front().stateTimer ==
                     capturedCorpseTicks / 2) {
@@ -2772,13 +2790,16 @@ public:
             }
             capture("050_monster_bomb_corpse_last");
 
+            lezac::core::TurboRandom rewardRandom(randomSeed_);
+            for (int draw = 0; draw < 6; ++draw) rewardRandom.range(0, 1);
             updateWithControls(idle, 1.0f / 60.0f);
             if (!monsters_.empty() || bonusDrops_.size() != 1 ||
-                bonusDrops_.front().type != BonusType::Present ||
-                bonusSpriteIndex(bonusDrops_.front().type) != 61 ||
-                randomSeed_ != 0x0a08326du || score_ != scoreBefore) {
+                bonusDrops_.front().type != BonusType::YellowBombBox ||
+                bonusSpriteIndex(bonusDrops_.front().type) != 65 ||
+                randomSeed_ != rewardRandom.seed() || score_ != scoreBefore) {
                 throw std::runtime_error(
-                    "frame sequence monster delayed reward mismatch");
+                    "frame sequence monster delayed reward mismatch rng=" + std::to_string(randomSeed_) +
+                    " drops=" + std::to_string(bonusDrops_.size()));
             }
             capture("060_monster_bomb_reward_visible");
 
@@ -2792,7 +2813,7 @@ public:
             lastPumpedSoundOffset_ = 0;
             lastPumpedSoundSelector_ = 0;
             updateWithControls(idle, 1.0f / 60.0f);
-            if (!bonusDrops_.empty() || score_ - scoreBefore != 2000 ||
+            if (!bonusDrops_.empty() || score_ - scoreBefore != 3000 ||
                 soundLatch_.active ||
                 lastPumpedSoundOffset_ != kBonusPickupSoundCursor ||
                 lastPumpedSoundSelector_ != kBonusPickupSoundPriority) {
@@ -3092,14 +3113,12 @@ public:
                   << " frames=" << captures.size()
                   << " size=" << kScreenW << 'x' << kScreenH;
         if (scenario == "monster_bomb_reward") {
-            std::cout << " pre_sprite=44"
-                      << " last_pre_fatal_sprite=43"
-                      << " pre_sprite_runs=44x4,43x2"
+            std::cout << " seeded_monster=1 flame_updates=" << capturedFlameUpdates
                       << " corpse_sprite=" << kMonsterCorpseSpriteLeft
                       << " corpse_ticks=" << capturedCorpseTicks
-                      << " delayed_reward=1 reward_sprite=61 reward_type=present"
-                      << " score_delta=2000"
-                      << " original_runtime_claim=1"
+                      << " delayed_reward=1 reward_sprite=65 reward_type=yellow_bomb_box"
+                      << " score_delta=3000"
+                      << " original_runtime_claim=0"
                       << " reward_motion_claim=0 visual_claim=0";
         }
         std::cout
@@ -3304,7 +3323,7 @@ public:
                 "boss level7 autoplayer boss motion left the frame unchanged");
         }
 
-        // Drive the recovered flame-drain damage model: seed flame flashes
+        // Drive the recovered flame-drain damage model: seed flame cells
         // over the head box each frame until the lives underflow fires the
         // death chain (phase 1 overkill, byte-wrap refill, second underflow).
         const uint32_t scoreBefore = score_;
@@ -3313,12 +3332,23 @@ public:
         while (!bossDefeated_ && damageFrames < 600) {
             head = findHead();
             if (!head) break;
-            flashes_.clear();
+            for (const auto& ray : flameRecords_) {
+                if (ray.cell < level_.tiles.size() && level_.tiles[ray.cell] == 0x75)
+                    level_.tiles[ray.cell] = 0;
+            }
+            flameRecords_.clear();
             const int headTileX = head->x / kTileSize;
             const int headTileY = head->y / kTileSize;
             for (int dx = 0; dx < head->bossBoxW; dx += 2) {
                 for (int dy = 0; dy < head->bossBoxH; ++dy) {
-                    flashes_.push_back({headTileX + dx, headTileY + dy, 2, 2});
+                    const int cell = (headTileY + dy) * level_.width + headTileX + dx;
+                    if (cell < 0 || static_cast<size_t>(cell) >= level_.tiles.size()) continue;
+                    level_.tiles[cell] = 0x75;
+                    FlameRecord ray;
+                    ray.cell = static_cast<uint16_t>(cell);
+                    ray.timer = 2;
+                    ray.mass = 9;
+                    flameRecords_.push_back(ray);
                 }
             }
             updateWithControls(idle, 1.0f / 60.0f);
@@ -4292,7 +4322,7 @@ public:
         player_.x = static_cast<float>(
             std::min(level_.width * kTileSize - 24, (placed.x + 5) * kTileSize));
         player_.y = static_cast<float>(placed.y * kTileSize);
-        randomSeed_ = 0x90e25b93u;
+        randomSeed_ = 0x28148fe7u;  // Four particle draws lead to the fixed reward seed.
         uint32_t scoreBefore = score_;
         if (monsterSpriteIndex(monsters_.front()) != 44) {
             throw std::runtime_error(
@@ -4310,9 +4340,14 @@ public:
             inspectRenderedFrame("autoplayer-monster-reward-last-pre-fatal");
 
         FrameControls idle;
-        updateWithControls(idle, 1.0f / 60.0f);
+        int flameUpdates = 0;
+        for (int tick = 0; tick < 16 && !monsters_.empty() && monsters_.front().behavior != 2; ++tick) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            inspectRenderedFrame("autoplayer-monster-reward-flame-" + std::to_string(tick));
+            ++flameUpdates;
+        }
         const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
-        if (!bombs_.empty() || monsters_.empty() ||
+        if (flameUpdates < 2 || !bombs_.empty() || monsters_.empty() ||
             monsters_.front().behavior != 2 ||
             monsters_.front().kind != 0x0c ||
             monsters_.front().stateTimer != corpseTicks ||
@@ -4334,9 +4369,10 @@ public:
                     corpseTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
                     kMonsterCorpseSpriteLeft ||
-                !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+                !bonusDrops_.empty()) {
                 throw std::runtime_error(
-                    "monster reward autoplayer corpse playback mismatch");
+                    "monster reward autoplayer corpse playback mismatch tick=" + std::to_string(frame) +
+                    " monsters=" + std::to_string(monsters_.size()) + " rng=" + std::to_string(randomSeed_));
             }
             if (monsters_.front().stateTimer ==
                 corpseTicks / 2) {
@@ -4350,13 +4386,16 @@ public:
         }
         inspectRenderedFrame("autoplayer-monster-reward-corpse-last");
 
+        lezac::core::TurboRandom rewardRandom(randomSeed_);
+        for (int draw = 0; draw < 6; ++draw) rewardRandom.range(0, 1);
         updateWithControls(idle, 1.0f / 60.0f);
         if (!monsters_.empty() || bonusDrops_.size() != 1 ||
-            bonusDrops_.front().type != BonusType::Present ||
-            bonusSpriteIndex(bonusDrops_.front().type) != 61 ||
-            randomSeed_ != 0x0a08326du || score_ != scoreBefore) {
+            bonusDrops_.front().type != BonusType::YellowBombBox ||
+            bonusSpriteIndex(bonusDrops_.front().type) != 65 ||
+            randomSeed_ != rewardRandom.seed() || score_ != scoreBefore) {
             throw std::runtime_error(
-                "monster reward autoplayer delayed reward mismatch");
+                "monster reward autoplayer delayed reward mismatch rng=" + std::to_string(randomSeed_) +
+                " drops=" + std::to_string(bonusDrops_.size()));
         }
         FrameInspection rewardFrame =
             inspectRenderedFrame("autoplayer-monster-reward-visible");
@@ -4371,7 +4410,7 @@ public:
         lastPumpedSoundOffset_ = 0;
         lastPumpedSoundSelector_ = 0;
         updateWithControls(idle, 1.0f / 60.0f);
-        if (!bonusDrops_.empty() || score_ - scoreBefore != 2000 ||
+        if (!bonusDrops_.empty() || score_ - scoreBefore != 3000 ||
             soundLatch_.active ||
             lastPumpedSoundOffset_ != kBonusPickupSoundCursor ||
             lastPumpedSoundSelector_ != kBonusPickupSoundPriority) {
@@ -4386,16 +4425,14 @@ public:
         std::cout << "autoplayer=ok"
                   << " scenario=" << scenario
                   << " monster_dead=1"
-                  << " pre_sprite=44"
-                  << " last_pre_fatal_sprite=43"
-                  << " pre_sprite_runs=44x4,43x2"
+                  << " seeded_monster=1 flame_updates=" << flameUpdates
                   << " corpse_sprite=" << kMonsterCorpseSpriteLeft
                   << " corpse_ticks=" << corpseTicks
-                  << " delayed_reward=1 reward_sprite=61"
+                  << " delayed_reward=1 reward_sprite=65"
                   << " reward_collected=1"
                   << " score_delta=" << (score_ - scoreBefore)
-                  << " frames_inspected=7 frame_inspection=1"
-                  << " original_runtime_claim=1"
+                  << " frames_inspected=" << (7 + flameUpdates) << " frame_inspection=1"
+                  << " original_runtime_claim=0"
                   << " reward_motion_claim=0 visual_claim=0\n";
     }
 
@@ -4442,9 +4479,11 @@ public:
         bombs_.back().timer = 1;
         player_.x = 88.0f;
         player_.y = 24.0f;
-        updateWithControls(idle, 1.0f / 60.0f);
+        randomSeed_ = 0x28148fe7u;
+        for (int tick = 0; tick < 16 && !monsters_.empty() && monsters_.front().hp == 3; ++tick)
+            updateWithControls(idle, 1.0f / 60.0f);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 3 ||
-            monsters_.front().hp != 2 || !bonusDrops_.empty()) {
+            monsters_.front().hp != 1 || !bonusDrops_.empty()) {
             throw std::runtime_error("monster behavior-3 autoplayer first hit mismatch");
         }
         FrameInspection firstHitFrame =
@@ -4453,32 +4492,15 @@ public:
             throw std::runtime_error("monster behavior-3 first-hit frame did not change");
         }
 
-        FrameControls switchControls;
-        switchControls.p1Left = true;
-        switchControls.p1Right = true;
-        driveAutoplayerWeaponSwitchChord(switchControls);
-        if (bombInventory_.selected != BombType::Medium) {
-            throw std::runtime_error("monster behavior-3 autoplayer did not switch to medium");
-        }
-
-        player_.x = 40.0f;
-        player_.y = 24.0f;
-        pushKeyDown(SDLK_n);
-        processEvents(running);
-        if (bombs_.empty() || bombs_.back().type != BombType::Medium) {
-            throw std::runtime_error("monster behavior-3 autoplayer did not place medium bomb");
-        }
-        bombs_.back().timer = 1;
-        player_.x = 88.0f;
-        player_.y = 24.0f;
-        // Two bomb-shake draws lead into the original reward fixture seed.
-        randomSeed_ = 0x3aa9a995u;
-        updateWithControls(idle, 1.0f / 60.0f);
+        // The same expanding flame hits on successive actor passes. Do not
+        // replace that live continuation with a second weapon-sized hit.
+        for (int tick = 0; tick < 16 && !monsters_.empty() && monsters_.front().behavior != 2; ++tick)
+            updateWithControls(idle, 1.0f / 60.0f);
         const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().stateTimer != corpseTicks ||
             monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteRight ||
-            !bonusDrops_.empty() || randomSeed_ != 0x956923eau) {
+            !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster behavior-3 autoplayer second hit did not kill");
         }
         FrameInspection deathFrame =
@@ -4534,7 +4556,7 @@ public:
         std::cout << "autoplayer=ok"
                   << " scenario=" << scenario
                   << " moved_px=" << movedPx
-                  << " first_hit_hp=2 second_hit_kill=1 reward_collected=1"
+                  << " first_hit_hp=1 second_hit_kill=1 reward_collected=1"
                   << " score_delta=" << (score_ - scoreBefore)
                   << " frame_inspection=1"
                   << " corpse_ticks=" << corpseTicks
@@ -4614,14 +4636,15 @@ public:
         bombs_.back().timer = 1;
         player_.x = 96.0f;
         player_.y = 24.0f;
-        // Two bomb-shake draws lead into the original reward fixture seed.
-        randomSeed_ = 0x3aa9a995u;
-        updateWithControls(idle, 1.0f / 60.0f);
+        // Six particle draws and two shake draws precede the isolated reward.
+        randomSeed_ = 0xb6414b7bu;
+        for (int tick = 0; tick < 16 && !monsters_.empty() && monsters_.front().behavior != 2; ++tick)
+            updateWithControls(idle, 1.0f / 60.0f);
         const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().stateTimer != corpseTicks ||
             monsterSpriteIndex(monsters_.front()) != kMonsterImpactSprites[2][0] ||
-            !bonusDrops_.empty() || randomSeed_ != 0x956923eau) {
+            !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster behavior-4 autoplayer bomb kill mismatch");
         }
         FrameInspection deathFrame =
@@ -4709,10 +4732,12 @@ public:
         bombs_.back().timer = 1;
         player_.x = static_cast<float>(monsters_.front().x + 32);
         player_.y = static_cast<float>(monsters_.front().y);
-        randomSeed_ = 0x956923eau;  // The medium blast's two shake draws produce 90E25B93.
-        updateWithControls(idle, 1.0f / 60.0f);
+        randomSeed_ = 0xb6414b7bu;  // Six particle and two shake draws produce 90E25B93.
+        for (int tick = 0; tick < 16 && !monsters_.empty() && monsters_.front().behavior != 2; ++tick)
+            updateWithControls(idle, 1.0f / 60.0f);
+        const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
         if (monsters_.empty() || monsters_.front().behavior != 2 ||
-            monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
+            monsters_.front().stateTimer != corpseTicks ||
             monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
             spawnerStates_[0].availableSlots != initialSlots ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
@@ -4752,17 +4777,17 @@ public:
             return nullptr;
         };
         const ActiveMonster* corpse = findCorpse();
-        if (!corpse || corpse->stateTimer != kMonsterDeathVisibleTicks - 1 ||
+        if (!corpse || corpse->stateTimer != corpseTicks - 1 ||
             monsterSpriteIndex(*corpse) != kMonsterCorpseSpriteLeft ||
             !bonusDrops_.empty()) {
             throw std::runtime_error(
                 "monster spawner autoplayer respawn disturbed corpse playback");
         }
-        for (int frame = 2; frame < kMonsterDeathVisibleTicks; ++frame) {
+        for (int frame = 2; frame < corpseTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
             corpse = findCorpse();
             if (!corpse ||
-                corpse->stateTimer != kMonsterDeathVisibleTicks - frame ||
+                corpse->stateTimer != corpseTicks - frame ||
                 monsterSpriteIndex(*corpse) != kMonsterCorpseSpriteLeft ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
@@ -4782,7 +4807,7 @@ public:
                   << " scenario=" << scenario
                   << " spawner_index=1 reserved_slot=1 released_slot=1 respawned=1"
                   << " frame_inspection=1"
-                  << " corpse_ticks=" << kMonsterDeathVisibleTicks
+                  << " corpse_ticks=" << corpseTicks
                   << " delayed_reward=1 reward_sprite=61\n";
     }
 
@@ -5344,11 +5369,13 @@ public:
         p1Only.p1Right = true;
         int p1BeforeSolo = static_cast<int>(player_.x);
         int p2DeadX = static_cast<int>(player2_.x);
+        int p2DeathVelocity = std::abs(player2_.vx8);
         for (int i = 0; i < 10; ++i) {
             updateWithControls(p1Only, 1.0f / 60.0f);
         }
         if (static_cast<int>(player_.x) <= p1BeforeSolo ||
-            static_cast<int>(player2_.x) != p2DeadX || !player2Dead_) {
+            static_cast<int>(player2_.x) <= p2DeadX || !player2Dead_ ||
+            std::abs(player2_.vx8) >= p2DeathVelocity) {
             throw std::runtime_error("two-player progression p1 did not remain active");
         }
 
@@ -17110,11 +17137,11 @@ public:
         }
 
         updateBombs();
-        if (!bombs_.empty() || explosionEffects_.empty() || flashes_.empty()) {
+        if (!bombs_.empty() || explosionEffects_.empty() || flameRecords_.empty()) {
             throw std::runtime_error("bomb fuse did not produce an explosion");
         }
         int initialEffects = static_cast<int>(explosionEffects_.size());
-        int initialFlashes = static_cast<int>(flashes_.size());
+        int initialFlames = static_cast<int>(flameRecords_.size());
 
         auto pushExpiredPlayerBombs = [&]() {
             int playerBombX = (static_cast<int>(player_.x) + 4) / kTileSize;
@@ -17133,10 +17160,10 @@ public:
         flashes_.clear();
         explosionEffects_.clear();
         pushExpiredPlayerBombs();
-        updateBombs();
+        for (int tick = 0; tick < 10 && !playerDead_; ++tick) updateWithControls({}, 0);
         if (menu_ || !playerDead_ || lives_ != 1 || !pendingLifeLoss_ ||
             deathStateTimer_ != kDeathStateTicks || !bombs_.empty() ||
-            flashes_.empty() || explosionEffects_.empty()) {
+            flameRecords_.empty() || explosionEffects_.empty()) {
             throw std::runtime_error("final-life bomb did not enter delayed state-2");
         }
         for (int i = 0; i < kDeathStateTicks; ++i) {
@@ -17144,7 +17171,7 @@ public:
                           true);
         }
         if (!menu_ || menuPage_ != MenuPage::GameOver || !bombs_.empty() ||
-            !flashes_.empty() || !explosionEffects_.empty()) {
+            !flameRecords_.empty() || !explosionEffects_.empty()) {
             throw std::runtime_error("final-life bomb did not reset after state-2");
         }
 
@@ -17157,15 +17184,15 @@ public:
         flashes_.clear();
         explosionEffects_.clear();
         pushExpiredPlayerBombs();
-        updateBombs();
+        for (int tick = 0; tick < 10 && !menu_; ++tick) updateWithControls({}, 0);
         if (!menu_ || menuPage_ != MenuPage::GameOver || !bombs_.empty() ||
-            !flashes_.empty() || !explosionEffects_.empty()) {
+            !flameRecords_.empty() || !explosionEffects_.empty()) {
             throw std::runtime_error("stale expired bomb exploded after reset");
         }
 
         std::cout << "bomb_fuse=ok fuse=" << fuseTicks
                   << " effects=" << initialEffects
-                  << " flashes=" << initialFlashes
+                  << " flames=" << initialFlames
                   << " delayed_final_life=1 stale_reset_guard=1\n";
     }
 
@@ -17254,6 +17281,16 @@ public:
 
             Bomb bomb{probe.x, probe.y, 1, BombType::Small, 1, 1};
             explode(bomb);
+            if (tileAt(probe.x, probe.y) != probe.tile || score_ != 0 ||
+                !debrisQueue_.empty() || !collapseQueue_.empty() || flameRecords_.size() != 8 ||
+                explosionEffects_.size() != 1) {
+                throw std::runtime_error("bomb expiry consumed an object before flame playback");
+            }
+            // Explicit pickup/seeder fixture, independent of flame movement.
+            Player collector;
+            collector.x = static_cast<float>(probe.x * kTileSize - 4);
+            collector.y = static_cast<float>(probe.y * kTileSize);
+            collectObjectiveTiles(collector, 1);
 
             uint8_t expectedTile =
                 (probe.objectWord & kDamagedWordBit) != 0 ? 0xff : 0;
@@ -17264,10 +17301,11 @@ public:
                            static_cast<float>(probe.y * kTileSize + 1))) {
                 throw std::runtime_error("consumed bomb object blocked movement");
             }
-            if (score_ != 50) {
-                throw std::runtime_error("bomb object explosion did not award one object score");
+            const std::array<int, 12> pickupScores{50, 100, 200, 250, 500, 800, 1000, 1500, 2000, 3000, 5000, 1000};
+            if (score_ != static_cast<uint32_t>(pickupScores.at(probe.tile - 0x67))) {
+                throw std::runtime_error("explicit object pickup did not award its table score");
             }
-            if (flashes_.size() != 4 || explosionEffects_.size() != 1) {
+            if (flameRecords_.size() != 8 || explosionEffects_.size() != 1) {
                 throw std::runtime_error("bomb object explosion footprint/effect mismatch");
             }
             if (!soundLatch_.active ||
@@ -17349,7 +17387,7 @@ public:
                   << " debris_level=" << (debrisProbe.level + 1)
                   << " debris_tile=" << debrisProbe.x << ',' << debrisProbe.y
                   << " debris_lookup=" << debris.debrisLookup
-                  << " score_each=50 sound_offset=" << std::showbase << std::hex
+                  << " score_table=1 expiry_consumption=0 explicit_pickup=1 sound_offset=" << std::showbase << std::hex
                   << explosionSoundOffset(1)
                   << std::dec << std::noshowbase << '\n';
     }
@@ -18366,8 +18404,10 @@ public:
         const bool cascadeIsDebris =
             expectCascade && wordTwoAbove >= kDeferredThreshold;
 
-        Bomb bomb{px, py, 1, BombType::Small, 1, 1};
-        explode(bomb);
+        // Explicit support removal, then the production 370E seeder. Bomb
+        // expiry itself no longer consumes this collectible.
+        if (!consumeBombObjectTile(px, py)) throw std::runtime_error("debris support was not collectible");
+        queueTileDamage(px, py - 1, 0, 0, true);
 
         // Seed payload (1000:370E debris branch).
         if (debrisQueue_.size() != 1) {
@@ -19099,29 +19139,16 @@ public:
             monsters_.clear();
             bombs_.clear();
             bonusDrops_.clear();
-            bool running = true;
-            player_.x = 80.0f;
-            player_.y = 24.0f;
-            player_.grounded = true;
-            bombInventory_.counts[3] = 1;
-            bombInventory_.selected = BombType::Super;
-            pushKeyDown(SDLK_n);
-            processEvents(running);
-            if (bombs_.empty()) {
-                throw std::runtime_error("impact sprite fixture placed no bomb");
-            }
-            Bomb placed = bombs_.back();
-            bombs_.back().timer = 1;
             player_.x = 0.0f;
             player_.y = 0.0f;
 
             ActiveMonster monster;
-            monster.x = placed.x * kTileSize + kTileSize;
-            monster.y = placed.y * kTileSize - kTileSize;
+            monster.x = 88;
+            monster.y = 16;
             monster.kind = c.kind;
             monster.behavior = 3;
             monster.ai0 = 0x0800;
-            monster.hp = monsterDamageForBomb(BombType::Super);
+            monster.hp = 1;
             monster.animDelay = 3;
             monster.hotspotY = monsterHotspotY(monster.kind);
             refreshMonsterAnimationProfile(monster);
@@ -19136,9 +19163,12 @@ public:
             }
 
             FrameControls idle;
-            updateWithControls(idle, 1.0f / 60.0f);
+            // A sprite-selection unit probe, not a bomb-timing simulation.
+            // Continuous original flame fixtures cover the actual fatal path.
+            ++logicTick_;
+            damageMonster(monsters_.front(), 1, true);
             if (monsters_.size() != 1 || monsters_.front().behavior != 2) {
-                throw std::runtime_error("impact sprite fixture bomb did not kill");
+                throw std::runtime_error("impact sprite unit stimulus did not kill");
             }
             const int corpse = monsterSpriteIndex(monsters_.front());
             if (corpse != c.expectedSprite) {
@@ -19179,7 +19209,7 @@ public:
                   << " held_ticks=" << held
                   << " capture_frames=" << fixtureFirst << ".." << fixtureLast
                   << " band_independent=1"
-                  << " visual_claim=0\n";
+                  << " visual_claim=0 synthetic_damage=1\n";
     }
 
     void debugMonsterBombKillLive() {
@@ -19211,41 +19241,40 @@ public:
         monster.y = placed.y * kTileSize - kTileSize;
         monster.kind = 1;
         monster.behavior = 3;
-        monster.ai0 = 0x0800;
-        monster.hp = monsterDamageForBomb(BombType::Super);
+        monster.ai0 = 0x0100;
+        monster.hp = 4;
         monster.animDelay = 3;
         monster.hotspotY = monsterHotspotY(monster.kind);
         refreshMonsterAnimationProfile(monster);
         initializeMonsterMotion(monster);
-        monster.vx8 = 0x0800;
+        monster.vx8 = 0x0100;
         monster.animFrame = 44;
         monster.animCursor = 44;
         monsters_.push_back(monster);
 
-        // Two bomb-shake draws lead into the original reward fixture seed.
-        randomSeed_ = 0x3aa9a995u;
+        // Ten particle draws and two shake draws precede the isolated reward.
+        randomSeed_ = 0xa102224fu;
         uint32_t scoreBefore = score_;
         if (monsterSpriteIndex(monsters_.front()) != 44) {
             throw std::runtime_error(
                 "live monster bomb pre-impact sprite mismatch");
         }
         FrameInspection armedFrame = inspectRenderedFrame("monster-bomb-kill-live-armed");
-        monsters_.front().animFrame = 43;
-        monsters_.front().animCursor = 43;
-        if (monsterSpriteIndex(monsters_.front()) != 43) {
-            throw std::runtime_error(
-                "live monster bomb last pre-fatal sprite mismatch");
-        }
-        FrameInspection lastPreFatalFrame =
-            inspectRenderedFrame("monster-bomb-kill-live-last-pre-fatal");
         FrameControls idle;
-        updateWithControls(idle, 1.0f / 60.0f);
+        int flameUpdates = 0;
+        for (int tick = 0; tick < 16 && !monsters_.empty() && monsters_.front().behavior != 2; ++tick) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            ++flameUpdates;
+            inspectRenderedFrame("monster-bomb-kill-live-flame");
+        }
         const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
+        const int corpseSprite = !monsters_.empty() && monsters_.front().vx8 > 0
+            ? kMonsterCorpseSpriteRight : kMonsterCorpseSpriteLeft;
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().kind != 0x0c || monsters_.front().hp != 0 ||
             monsters_.front().stateTimer != corpseTicks ||
-            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteRight ||
-            !bonusDrops_.empty() || randomSeed_ != 0x956923eau) {
+            monsterSpriteIndex(monsters_.front()) != corpseSprite ||
+            !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             std::ostringstream oss;
             oss << "live bomb did not kill overlapping moving monster"
                 << " bombs=" << bombs_.size()
@@ -19260,8 +19289,7 @@ public:
             throw std::runtime_error(oss.str());
         }
         FrameInspection deathFrame = inspectRenderedFrame("monster-bomb-kill-live-death");
-        if (lastPreFatalFrame.hash == armedFrame.hash ||
-            deathFrame.hash == lastPreFatalFrame.hash) {
+        if (deathFrame.hash == armedFrame.hash) {
             throw std::runtime_error("live monster bomb death frame did not change");
         }
 
@@ -19272,7 +19300,7 @@ public:
                 monsters_.front().stateTimer !=
                     corpseTicks - frame ||
                 monsterSpriteIndex(monsters_.front()) !=
-                    kMonsterCorpseSpriteRight ||
+                    corpseSprite ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "live monster bomb corpse playback mismatch");
@@ -19329,17 +19357,15 @@ public:
         }
 
         std::cout << "monster_bomb_kill_live=ok"
-                  << " bomb_type=4 damage=" << monsterDamageForBomb(BombType::Super)
-                  << " pre_sprite=44"
-                  << " last_pre_fatal_sprite=43"
-                  << " pre_sprite_runs=44x4,43x2"
-                  << " corpse_sprite=" << kMonsterCorpseSpriteRight
+                  << " bomb_type=4 initial_hp=4 seeded_monster=1"
+                  << " flame_updates=" << flameUpdates
+                  << " corpse_sprite=" << corpseSprite
                   << " corpse_ticks=" << corpseTicks
                   << " delayed_reward=1 reward_sprite=61"
                   << " killed=1 removed=1 reward=1 collected=1"
                   << " score_delta=" << (score_ - scoreBefore)
-                  << " frames_inspected=7 frame_inspection=1"
-                  << " original_runtime_claim=1"
+                  << " frames_inspected=" << (6 + flameUpdates) << " frame_inspection=1"
+                  << " original_runtime_claim=0"
                   << " reward_motion_claim=0 visual_claim=0\n";
     }
 
@@ -21678,142 +21704,13 @@ public:
                 "monster sprite consumption authoritative transition mismatch");
         }
 
-        // Replay the capture contract through the real port update order:
-        // one-tick bomb -> damage/death -> timed corpse renderer -> reward at
-        // removal -> overlap collection. The synthetic level only removes
-        // route input and unrelated spawner/RNG activity. Its fatal frame is
-        // not phase-aligned to the old polling capture; the atomic corpse
-        // lifecycle fixture independently validates the half-rate countdown.
-        load();
-        initSdl();
-        prepareAutoplayerMonsterFixtureLevel();
-        player_.x = 0.0f;
-        player_.y = 0.0f;
-        player_.vx = 0.0f;
-        player_.vy = 0.0f;
-        player_.grounded = true;
-        score_ = static_cast<uint32_t>(scoreBefore);
-        randomSeed_ = fatalRng;
-
-        ActiveMonster monster;
-        monster.x = 40;
-        monster.y = 24;
-        monster.kind = 1;
-        monster.behavior = 3;
-        monster.ai0 = 0;
-        monster.ai1 = 0;
-        monster.ai2 = 1;
-        monster.hp = bombDamage;
-        monster.animDelay = 3;
-        monster.hotspotY = monsterHotspotY(monster.kind);
-        refreshMonsterAnimationProfile(monster);
-        initializeMonsterMotion(monster);
-        monster.animFrame = static_cast<uint8_t>(preSprite);
-        monster.animCursor = static_cast<uint8_t>(preSprite);
-        monsters_.push_back(monster);
-
-        Bomb bomb;
-        bomb.x = 5;
-        bomb.y = 3;
-        bomb.timer = 1;
-        bomb.type = static_cast<BombType>(bombTypeNumber - 1);
-        bomb.fuseTicks = 1;
-        bomb.owner = 1;
-        bombs_.push_back(bomb);
-        if (monsterDamageForBomb(bomb.type) != bombDamage ||
-            monsterSpriteIndex(monsters_.front()) != preSprite) {
-            throw std::runtime_error(
-                "monster sprite consumption production pre-impact mismatch");
-        }
-        FrameInspection preFrame =
-            inspectRenderedFrame("monster-sprite-consumption-pre-impact");
-        monsters_.front().animFrame =
-            static_cast<uint8_t>(lastPreFatalTick->targetSprite);
-        monsters_.front().animCursor =
-            static_cast<uint8_t>(lastPreFatalTick->targetSprite);
-        if (monsterSpriteIndex(monsters_.front()) != lastPreFatalSprite) {
-            throw std::runtime_error(
-                "monster sprite consumption production last pre-fatal mismatch");
-        }
-        FrameInspection lastPreFatalFrame = inspectRenderedFrame(
-            "monster-sprite-consumption-last-pre-fatal");
-        if (lastPreFatalFrame.hash == preFrame.hash) {
-            throw std::runtime_error(
-                "monster sprite consumption production pre-fatal run did not change");
-        }
-
-        FrameControls idle;
-        updateWithControls(idle, 1.0f / 60.0f);
-        const int replayCorpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
-        if (!bombs_.empty() || monsters_.size() != 1 ||
-            monsters_.front().behavior != 2 ||
-            monsters_.front().kind != 0x0c || monsters_.front().hp != 0 ||
-            monsters_.front().stateTimer != replayCorpseTicks ||
-            monsterSpriteIndex(monsters_.front()) != corpseSprite ||
-            !bonusDrops_.empty() || randomSeed_ != fatalRng) {
-            throw std::runtime_error(
-                "monster sprite consumption production fatal transition mismatch");
-        }
-        FrameInspection corpseFrame =
-            inspectRenderedFrame("monster-sprite-consumption-corpse");
-        if (corpseFrame.hash == lastPreFatalFrame.hash) {
-            throw std::runtime_error(
-                "monster sprite consumption production renderer did not change");
-        }
-
-        int visibleCorpseTicks = 1;
-        for (int frame = 1; frame < replayCorpseTicks; ++frame) {
-            updateWithControls(idle, 1.0f / 60.0f);
-            ++visibleCorpseTicks;
-            if (monsters_.size() != 1 ||
-                monsters_.front().stateTimer != replayCorpseTicks - frame ||
-                monsterSpriteIndex(monsters_.front()) != corpseSprite ||
-                !bonusDrops_.empty() || randomSeed_ != fatalRng) {
-                throw std::runtime_error(
-                    "monster sprite consumption production corpse playback mismatch");
-            }
-        }
-        if (visibleCorpseTicks != replayCorpseTicks ||
-            monsters_.front().stateTimer != 1) {
-            throw std::runtime_error(
-                "monster sprite consumption production death timing mismatch");
-        }
-
-        updateWithControls(idle, 1.0f / 60.0f);
-        if (!monsters_.empty() || bonusDrops_.size() != 1 ||
-            randomSeed_ != rewardRng ||
-            bonusSpriteIndex(bonusDrops_.front().type) != rewardSprite ||
-            score_ != static_cast<uint32_t>(scoreBefore)) {
-            throw std::runtime_error(
-                "monster sprite consumption production reward mismatch");
-        }
-        int visibleRewardTicks = 1;
-        for (int frame = 1; frame < rewardVisibleTicks; ++frame) {
-            updateWithControls(idle, 1.0f / 60.0f);
-            ++visibleRewardTicks;
-            if (bonusDrops_.size() != 1 ||
-                bonusSpriteIndex(bonusDrops_.front().type) != rewardSprite ||
-                score_ != static_cast<uint32_t>(scoreBefore)) {
-                throw std::runtime_error(
-                    "monster sprite consumption production reward visibility mismatch");
-            }
-        }
-
-        const BonusDrop reward = bonusDrops_.front();
-        player_.x = reward.x;
-        player_.y = reward.y;
-        player_.vx = 0.0f;
-        player_.vy = 0.0f;
-        player_.grounded = true;
-        updateBonusDrops();
-        if (!bonusDrops_.empty() ||
-            score_ != static_cast<uint32_t>(scoreAfter) ||
-            score_ - static_cast<uint32_t>(scoreBefore) !=
-                static_cast<uint32_t>(scoreDelta) ||
-            visibleRewardTicks != rewardVisibleTicks) {
-            throw std::runtime_error(
-                "monster sprite consumption production collection mismatch");
-        }
+        // The polling fixture above establishes observed sprite consumption,
+        // not a phase-aligned damage replay. Use the atomic low-HP flame
+        // capture for continuous production damage, corpse, reward and effect
+        // comparisons. Collection remains covered by the live autoplayer.
+        const auto flameFixture = std::filesystem::path(fixturePath).parent_path() /
+            "flame_fatal_lifecycle_original.txt";
+        debugFlameLifecycleOriginal(flameFixture.string(), "");
 
         std::cout << "monster_sprite_consumption_evidence=ok"
                   << " fixture=level1"
@@ -21832,7 +21729,6 @@ public:
                   << " death_sprite_runs=" << corpseSprite << "x"
                   << corpseOriginalTicks
                   << " death_ticks=" << corpseOriginalTicks
-                  << " replayed_death_ticks=" << visibleCorpseTicks
                   << " reward_sprite=" << rewardSprite
                   << " reward_visible_ticks=" << rewardVisibleTicks
                   << " reward_actor_timer=" << rewardActorTimer
@@ -21840,7 +21736,7 @@ public:
                   << " reward_next_vy=" << rewardNextVy
                   << " reward_y_step=" << (rewardNextY - rewardInitialY)
                   << " reward_motion_observed=1"
-                  << " score_delta=" << (score_ - scoreBefore)
+                  << " score_delta=" << scoreDelta
                   << " rng_transitions=1/1"
                   << " exogenous_input=" << ticks.size()
                   << " exogenous_position=" << ticks.size()
@@ -21848,7 +21744,7 @@ public:
                   << " production_death_timer=1"
                   << " production_renderer=1"
                   << " production_reward=1"
-                  << " production_collection=1"
+                  << " production_collection=0 continuous_flame_replay=1 polling_phase_alignment=0"
                   << " impact_confirmed=1"
                   << " death_confirmed=1"
                   << " reward_confirmed=1"
@@ -21952,6 +21848,300 @@ public:
     }
 
     enum class DeathReplayKind { Effects, Rewards, Corpses };
+
+    void debugFlameLifecycleOriginal(const std::string& fixturePath, const std::string& outDir) {
+        load();
+        initSdl();
+        std::ifstream input(fixturePath);
+        if (!input) throw std::runtime_error("cannot open flame fixture");
+        auto bytes = [](const std::string& hex, size_t count) {
+            if (hex.size() != count * 2 || hex.find_first_not_of("0123456789abcdef") != std::string::npos)
+                throw std::runtime_error("invalid flame fixture bytes");
+            std::vector<uint8_t> value;
+            for (size_t i = 0; i < count; ++i) value.push_back(static_cast<uint8_t>(std::stoul(hex.substr(i * 2, 2), nullptr, 16)));
+            return value;
+        };
+        auto fieldsFor = [](const std::string& line) {
+            std::map<std::string, std::string> fields;
+            std::istringstream stream(line);
+            std::string token;
+            while (stream >> token) {
+                const auto eq = token.find('=');
+                if (eq != std::string::npos && !fields.emplace(token.substr(0, eq), token.substr(eq + 1)).second)
+                    throw std::runtime_error("duplicate flame field");
+            }
+            return fields;
+        };
+        std::string line, name;
+        std::set<std::string> seen;
+        std::map<std::string, std::string> tick;
+        std::vector<uint8_t> baseline, descriptors;
+        std::vector<uint16_t> baselineWords;
+        bool header = false, complete = false;
+        int sample = 0, total = 0, frame = 0, records = 0, playerStates = 0;
+        int targetRawHp = 255, corpseStates = 0, rewardStates = 0, effectStates = 0;
+        uint64_t lastHash = 0;
+        std::ofstream frameManifest;
+        if (!outDir.empty()) {
+            std::filesystem::create_directories(outDir);
+            frameManifest.open(joinPath(outDir, "manifest.csv"));
+            if (!frameManifest) throw std::runtime_error("cannot create flame frame manifest");
+            frameManifest << "case,sample,frame,player_x,player_y,energy,dead,death_timer,target_visual_x,target_visual_y,hp,flames,debris,collapse,rng,frame_hash\n";
+        }
+        while (std::getline(input, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (complete) throw std::runtime_error("data after flame completion");
+            const auto fields = fieldsFor(line);
+            if (line.rfind("capture=", 0) == 0) {
+                if (header || fields.at("capture") != "flame_lifecycle_original_v1" ||
+                    fields.at("seeded") != "1" || fields.at("temp_copy") != "1" ||
+                    fields.at("player") != "240,168" || fields.at("spawners") != "0")
+                    throw std::runtime_error("invalid flame provenance");
+                header = true;
+                if (fields.count("target_raw_hp")) targetRawHp = std::stoi(fields.at("target_raw_hp"));
+                if (targetRawHp < 0 || targetRawHp > 255) throw std::runtime_error("invalid flame target HP");
+            } else if (line.rfind("sprites ", 0) == 0) {
+                if (!header || !descriptors.empty()) throw std::runtime_error("invalid flame descriptors");
+                descriptors = bytes(fields.at("descriptors"), 368);
+            } else if (line.rfind("case ", 0) == 0) {
+                if (!name.empty() || descriptors.empty()) throw std::runtime_error("invalid flame case boundary");
+                name = fields.at("name");
+                const auto split = name.find('_');
+                const std::array<std::string, 4> weapons{"small", "medium", "large", "super"};
+                const auto weapon = std::find(weapons.begin(), weapons.end(), name.substr(0, split));
+                const std::string place = name.substr(split + 1);
+                if (weapon == weapons.end() || (place != "air" && place != "ground") || !seen.insert(name).second)
+                    throw std::runtime_error("unknown flame case");
+                const int y = place == "air" ? 96 : 176;
+                const auto raw = bytes(fields.at("raw"), 38);
+                const auto bombRaw = bytes(fields.at("bomb"), 38);
+                auto expectedBomb = std::vector<uint8_t>(38, 0);
+                expectedBomb[0] = static_cast<uint8_t>(13 + weapon - weapons.begin());
+                expectedBomb[1] = 3;
+                expectedBomb[0x14] = 8;
+                expectedBomb[0x15] = 2;
+                auto expectedMonster = bytes("010200010200000000009a004e0000000000000006032c2c2d0303010100000000000000ff00", 38);
+                expectedMonster[0x24] = static_cast<uint8_t>(targetRawHp);
+                if (raw != expectedMonster ||
+                    bombRaw != expectedBomb ||
+                    fields.at("x") != "336" || fields.at("bomb_x") != "336" ||
+                    std::stoi(fields.at("y")) != y - 2 || std::stoi(fields.at("bomb_y")) != y ||
+                    fields.at("rng") != "12345678" || fields.at("cell") != "-1")
+                    throw std::runtime_error("invalid flame seed");
+                resetLevel(0);
+                menu_ = false;
+                spawnerStates_.clear();
+                monsters_.clear();
+                baseline = level_.tiles;
+                baselineWords = level_.wordLayer;
+                player_.x = 240;
+                player_.y = 168;
+                lives_ = 99;
+                ActiveMonster monster;
+                monster.kind = 1;
+                monster.behavior = 3;
+                monster.x = 336;
+                monster.y = y - 8;
+                monster.hotspotY = 6;
+                monster.fracX = 0x9a;
+                monster.fracY = 0x4e;
+                monster.hp = targetRawHp + 1;
+                monster.animFrame = monster.animCursor = monster.animStart = 43;
+                monster.animEnd = 44;
+                monster.animTick = monster.animDelay = 3;
+                monsters_.push_back(monster);
+                Bomb bomb;
+                bomb.x = 42;
+                bomb.y = y / 8;
+                bomb.pixelX = 336;
+                bomb.pixelY = y;
+                bomb.type = static_cast<BombType>(weapon - weapons.begin());
+                bomb.timer = 1;
+                bomb.moving = true;
+                bomb.hotspotY = static_cast<int8_t>(bombRaw[0x14]);
+                bombs_.push_back(bomb);
+                frame = std::stoi(fields.at("frame"));
+                logicTick_ = frame - 1;
+                randomSeed_ = 0x12345678;
+                sample = 0;
+            } else if (line.rfind("tick ", 0) == 0) {
+                if (name.empty() || !tick.empty() || std::stoi(fields.at("sample")) != sample ||
+                    std::stoi(fields.at("frame")) != frame || sample >= 65)
+                    throw std::runtime_error("nonconsecutive flame tick");
+                tick = fields;
+                if (!tick.count("player") || !tick.count("player_flags"))
+                    throw std::runtime_error("missing flame player state");
+                if (sample == 0) {
+                    const auto split = tick.at("player").find(':');
+                    const auto raw = bytes(tick.at("player").substr(0, split), 38);
+                    const auto visual = bytes(tick.at("player").substr(split + 1), 8);
+                    if (raw[0] != 0 || raw[0x15] != 0 || raw[0x24] != 100 ||
+                        le16(visual, 0) != 240 || le16(visual, 2) != 168 ||
+                        le16(raw, 6) != 0 || le16(raw, 8) != 0)
+                        throw std::runtime_error("invalid initial flame player state");
+                    // The first non-player pass does not update this actor.
+                    player_.fracX = raw[0x0a];
+                    player_.fracY = raw[0x0c];
+                    player_.idleTicks = raw[2];
+                    player_.animation = {raw[0x16], raw[0x17], raw[0x18], raw[0x19],
+                        raw[0x1a], raw[0x1b], static_cast<int8_t>(raw[0x1c])};
+                }
+            } else if (line.rfind("flames ", 0) == 0) {
+                if (tick.empty() || std::stoi(fields.at("sample")) != sample) throw std::runtime_error("missing flame tick");
+                auto fail = [&](const std::string& what) {
+                    throw std::runtime_error("original flame mismatch: " + name + " sample=" + std::to_string(sample) + " " + what);
+                };
+                debugActorPassObserver_ = [&] {
+                    if (std::stoul(fields.at("count")) != flameRecords_.size()) fail("count=" + std::to_string(flameRecords_.size()));
+                    std::istringstream entries(fields.at("records"));
+                    std::string entry;
+                    size_t i = 0;
+                    if (fields.at("records") != "-") while (std::getline(entries, entry, ',')) {
+                        const auto split = entry.find(':');
+                        const auto raw = bytes(entry.substr(0, split), 11);
+                        const auto mass = bytes(entry.substr(split + 1), 1);
+                        if (i >= flameRecords_.size()) fail("extra record");
+                        const auto& ray = flameRecords_[i];
+                        if (le16(raw, 0) != ray.cell || static_cast<int8_t>(raw[4]) != ray.vx ||
+                            static_cast<int8_t>(raw[5]) != ray.vy || static_cast<int8_t>(raw[6]) != ray.subX ||
+                            static_cast<int8_t>(raw[7]) != ray.subY || raw[8] != ray.timer || raw[9] != ray.glyph ||
+                            raw[10] != ray.variant || mass[0] != ray.mass) fail("record=" + std::to_string(i + 1));
+                        ++i;
+                    }
+                    if (i != flameRecords_.size()) fail("missing record");
+                    records += static_cast<int>(i);
+                    auto compareMap = [&](const std::string& text, bool words) {
+                        std::map<int, int> expected, actual;
+                        std::istringstream items(text);
+                        std::string item;
+                        if (text != "-") while (std::getline(items, item, ',')) {
+                            const auto split = item.find(':');
+                            const int cell = std::stoi(item.substr(0, split));
+                            const auto value = bytes(item.substr(split + 1), words ? 2 : 1);
+                            if (!expected.emplace(cell, words ? le16(value, 0) : value[0]).second) fail("duplicate map cell");
+                        }
+                        for (size_t cell = 0; cell < baseline.size(); ++cell) {
+                            const int value = words ? level_.wordLayer[cell] : level_.tiles[cell];
+                            if (value != (words ? baselineWords[cell] : baseline[cell])) actual.emplace(static_cast<int>(cell), value);
+                        }
+                        if (actual != expected) {
+                            for (const auto& pair : actual) if (!expected.count(pair.first) || expected.at(pair.first) != pair.second)
+                                fail(std::string(words ? "word" : "map") + " cell=" + std::to_string(pair.first) + " actual=" + std::to_string(pair.second));
+                            for (const auto& pair : expected) if (!actual.count(pair.first))
+                                fail(std::string(words ? "word" : "map") + " missing=" + std::to_string(pair.first) + " expected=" + std::to_string(pair.second));
+                            fail(words ? "missing word delta" : "missing map delta");
+                        }
+                    };
+                    compareMap(tick.at("map"), false);
+                    compareMap(fields.at("words"), true);
+                    if (std::stoul(fields.at("debris")) != debrisQueue_.size() + 199 ||
+                        std::stoul(fields.at("collapse")) != collapseQueue_.size()) fail("terrain queues");
+                    const auto split = tick.at("target").find(':');
+                    const auto raw = bytes(tick.at("target").substr(0, split), 38);
+                    const auto visual = bytes(tick.at("target").substr(split + 1), 8);
+                    using ActorEntry = std::pair<std::vector<uint8_t>, std::vector<uint8_t>>;
+                    std::vector<ActorEntry> effects;
+                    if (raw[0] == 1 || raw[0] == 0x0c) {
+                        if (monsters_.size() != 1 || !bonusDrops_.empty()) fail("target count");
+                        const auto& monster = monsters_.front();
+                        if ((raw[0] == 1 && static_cast<uint8_t>(monster.hp - 1) != raw[0x24]) ||
+                            monster.kind != raw[0] || monster.behavior != raw[0x15] ||
+                            monster.x != le16(visual, 0) || monster.y + monster.hotspotY != le16(visual, 2) ||
+                            monster.hotspotY != raw[0x14] || monster.animMode != raw[0x1b] ||
+                            monster.vx8 != static_cast<int16_t>(le16(raw, 6)) ||
+                            monster.vy8 != static_cast<int16_t>(le16(raw, 8)) ||
+                            monster.fracX != le16(raw, 10) || monster.fracY != le16(raw, 12)) fail("monster");
+                        if (!std::equal(visual.begin() + 4, visual.end(),
+                            descriptors.begin() + (monsterSpriteIndex(monster) + 1) * 4)) fail("monster descriptor");
+                        if (raw[0] == 0x0c) {
+                            if (raw[2] != (monster.stateTimer + 1) / 2) fail("corpse countdown");
+                            ++corpseStates;
+                        }
+                    } else if (raw[0] >= 0x13 && raw[0] <= 0x19) {
+                        if (!monsters_.empty() || bonusDrops_.size() != 1) fail("reward count");
+                        const auto& reward = bonusDrops_.front();
+                        if (raw[0] != 0x13 + static_cast<int>(reward.type) || raw[2] != reward.timer ||
+                            raw[0x14] != reward.hotspotY || raw[0x15] != 2 || raw[0x1b] != 0 ||
+                            static_cast<int16_t>(le16(raw, 6)) != reward.vx8 ||
+                            static_cast<int16_t>(le16(raw, 8)) != reward.vy8 ||
+                            le16(raw, 10) != reward.fracX || le16(raw, 12) != reward.fracY ||
+                            le16(visual, 0) != reward.x || le16(visual, 2) != reward.y ||
+                            !std::equal(visual.begin() + 4, visual.end(),
+                                descriptors.begin() + (bonusSpriteIndex(reward.type) + 1) * 4)) fail("reward");
+                        ++rewardStates;
+                    } else if (raw[0] == 0) {
+                        if (!monsters_.empty() || !bonusDrops_.empty()) fail("fade target count");
+                        effects.emplace_back(raw, visual);
+                    } else fail("unexpected target kind");
+                    if (tick.at("others") != "-") {
+                        std::istringstream otherActors(tick.at("others"));
+                        std::string actor;
+                        while (std::getline(otherActors, actor, ',')) {
+                            const auto colon = actor.find(':');
+                            effects.emplace_back(bytes(actor.substr(0, colon), 38), bytes(actor.substr(colon + 1), 8));
+                        }
+                    }
+                    if (effects.size() != transientActors_.size()) fail("effect count");
+                    for (size_t effect = 0; effect < effects.size(); ++effect) {
+                        if (!transientMatchesOriginal(transientActors_[effect], effects[effect].first,
+                                                      effects[effect].second, descriptors)) fail("effect=" + std::to_string(effect));
+                        ++effectStates;
+                    }
+                    if (sharedActorCount() != std::stoul(tick.at("count"))) fail("actor count");
+                    if (randomSeed_ != le32(bytes(tick.at("rng"), 4), 0)) fail("RNG");
+                    if (tick.count("player")) {
+                        const auto playerSplit = tick.at("player").find(':');
+                        const auto playerRaw = bytes(tick.at("player").substr(0, playerSplit), 38);
+                        const auto playerVisual = bytes(tick.at("player").substr(playerSplit + 1), 8);
+                        if (player_.x != le16(playerVisual, 0) || player_.y != le16(playerVisual, 2) ||
+                            player_.vx8 != static_cast<int16_t>(le16(playerRaw, 6)) ||
+                            player_.vy8 != static_cast<int16_t>(le16(playerRaw, 8)) ||
+                            player_.fracX != playerRaw[0x0a] || player_.fracY != playerRaw[0x0c] ||
+                            energy_ != playerRaw[0x24] || playerDead_ != (playerRaw[0x15] == 2) ||
+                            deathStateTimer_ != le16(playerRaw, 0x10))
+                            fail("player motion/energy/death actual=" + std::to_string(player_.x) + "," +
+                                std::to_string(player_.y) + " hp=" + std::to_string(energy_) +
+                                " timer=" + std::to_string(deathStateTimer_));
+                        const auto animation = playerDead_ ? std::array<uint8_t, 7>{
+                            state2Visual_.current, state2Visual_.first, state2Visual_.last,
+                            state2Visual_.counter, state2Visual_.delay, state2Visual_.mode,
+                            static_cast<uint8_t>(state2Visual_.step)} : player_.animation.packed();
+                        if (!std::equal(animation.begin(), animation.end(), playerRaw.begin() + 0x16) ||
+                            player_.idleTicks != playerRaw[2]) fail("player animation");
+                        const auto flags = bytes(tick.at("player_flags"), 14);
+                        if (flags[1] != 1 || flags[5] != lives_) fail("player life/state flags");
+                        ++playerStates;
+                    }
+                    lastHash = inspectRenderedFrame(name + "-" + std::to_string(sample)).hash;
+                    if (!outDir.empty()) {
+                        writeArgbPpm(joinPath(outDir, name + "_" + std::to_string(sample) + ".ppm"), fb_, kScreenW, kScreenH);
+                        frameManifest << name << ',' << sample << ',' << frame << ',' << player_.x << ',' << player_.y
+                            << ',' << energy_ << ',' << playerDead_ << ',' << deathStateTimer_ << ',' << le16(visual, 0)
+                            << ',' << le16(visual, 2) << ',' << (monsters_.empty() ? 0 : monsters_.front().hp) << ',' << flameRecords_.size() << ','
+                            << debrisQueue_.size() << ',' << collapseQueue_.size() << ',' << std::hex << randomSeed_
+                            << ',' << lastHash << std::dec << '\n';
+                    }
+                };
+                updateWithControls({}, 0);
+                debugActorPassObserver_ = {};
+                tick.clear();
+                ++sample;
+                ++frame;
+                ++total;
+            } else if (line.rfind("end ", 0) == 0) {
+                if (name.empty() || sample != 65 || !tick.empty() || fields.at("samples") != "65") throw std::runtime_error("incomplete flame case");
+                name.clear();
+            } else if (line.rfind("complete ", 0) == 0) {
+                if (!name.empty() || seen.empty() || seen.size() != std::stoul(fields.at("cases"))) throw std::runtime_error("incomplete flame fixture");
+                complete = true;
+            } else throw std::runtime_error("unknown flame fixture row");
+        }
+        if (!complete) throw std::runtime_error("missing flame completion");
+        std::cout << "flame_lifecycle_original=ok cases=" << seen.size() << " samples=" << total << " records=" << records
+                  << " player_states=" << playerStates << " continuous=1 map_planes=2 actor_damage=1 rng=1 frame_inspection=1 frame_hash=" << std::hex << lastHash << std::dec
+                  << " corpse_states=" << corpseStates << " reward_states=" << rewardStates << " effect_states=" << effectStates << '\n';
+    }
 
     void debugMonsterDamageOriginal(const std::string& fixturePath, const std::string& outDir) {
         load();
@@ -23613,6 +23803,8 @@ private:
     uint16_t cameraShakeTicks_ = 0;
     uint16_t cameraShakeOffset_ = 0;
     std::vector<ExplosionEffect> explosionEffects_;
+    std::vector<FlameRecord> flameRecords_;
+    std::function<void()> debugActorPassObserver_;
     std::vector<DebrisRecord> debrisQueue_;
     std::vector<CollapseRecord> collapseQueue_;
     uint16_t nextCollapseFragmentWord_ = 0;
@@ -23794,6 +23986,7 @@ private:
         transientActors_.clear();
         cameraShakeTicks_ = cameraShakeOffset_ = 0;
         explosionEffects_.clear();
+        flameRecords_.clear();
         debrisQueue_.clear();
         collapseQueue_.clear();
         paused_ = false;
@@ -24537,6 +24730,16 @@ private:
     void updateWithControls(const FrameControls& controls, float dt) {
         if (menu_ || paused_ || levelIntro_.active) return;
         ++logicTick_;
+        // State-2 countdown precedes both actor passes (1000:7C89).
+        if (playerDead_) {
+            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+                          playerCount_ == 1 || player2Dead_);
+        }
+        if (playerCount_ > 1 && player2Dead_) {
+            updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
+                          playerDead_);
+        }
+        if (menu_ || levelIntro_.active) return;
         // 1000:7ECB..7EE8 precedes the player calls at 7F59. New pickup
         // and collapse-fracture actors therefore start on the next frame.
         updateTransientActors();
@@ -24558,11 +24761,21 @@ private:
         if (portalCooldown2_ > 0) --portalCooldown2_;
         if (triggerCooldown2_ > 0) --triggerCooldown2_;
 
+        // 1000:7ECB..7EE8 dispatches non-player actors before the players
+        // at 7F4E..7F5B. Both precede flame/debris 805D and collapse 8067.
+        updateLaunchPadMarkers();
+        updateBombs();
+        updateMonsterSpawners();
+        updateBossLinks();
+        const size_t existingRewards = bonusDrops_.size();
+        updateMonsters(dt);
+        updateBonusDrops(existingRewards);
+        if (debugActorPassObserver_) debugActorPassObserver_();
+
         if (playerDead_) {
             updateState2VisualCursor(state2Visual_);
+            if (deathStateTimer_ > 0) updateDyingPlayerMotion(player_);
             refreshState2EffectEntry(player_, state2Visual_, state2Effect_);
-            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
-                          playerCount_ == 1 || player2Dead_);
         } else {
             collectObjectiveTiles(player_, 1);
             activateLaunchPad(player_, p1Down);
@@ -24572,9 +24785,8 @@ private:
         if (playerCount_ > 1) {
             if (player2Dead_) {
                 updateState2VisualCursor(state2Visual2_);
+                if (deathStateTimer2_ > 0) updateDyingPlayerMotion(player2_);
                 refreshState2EffectEntry(player2_, state2Visual2_, state2Effect2_);
-                updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
-                              playerDead_);
             } else {
                 collectObjectiveTiles(player2_, 2);
                 activateLaunchPad(player2_, p2Down);
@@ -24583,26 +24795,9 @@ private:
                                          p2Down);
             }
         }
-        updateLaunchPadMarkers();
-        // Original per-frame order (main loop, re-read this session): the
-        // bomb/effect actor table at DS:1BAE is updated via 1000:6053 at
-        // 7ECB..7EE8 — which is where an expiring fuse runs the blast and
-        // seeds debris — BEFORE the debris/effect queue pass 1000:45FA is
-        // dispatched at 804E..805D and the collapse pass 1000:5102 at
-        // 8060..8067. So bombs explode first, then the same tick's
-        // updateFlashes gives the freshly seeded records their first mover
-        // pass (the L2 capture shows the seed frame already applying one
-        // gravity tick).
-        updateBombs();
-        updateFlashes();
-        updateMonsterSpawners();
-        updateBossLinks();
-        // Reusing a corpse slot does not dispatch the new reward again this pass.
-        const size_t existingRewards = bonusDrops_.size();
-        updateMonsters(dt);
-        updateBonusDrops(existingRewards);
-        updateCameraShake();
         drainPlayerDamageCounters();
+        updateFlashes();
+        updateCameraShake();
         updateLevelCompletion();
         pumpSoundLatch();
     }
@@ -24959,6 +25154,55 @@ private:
         if (jump && edges.bottom && player.vy8 == 0) {
             player.vy8 = kPlayerJumpVelocity8;
         }
+        applyPlayerTerrainDamage(player, spriteBase == 19 ? energy2_ : energy_);
+        integratePlayerMotion(player, x, y, edges);
+    }
+
+    void applyPlayerTerrainDamage(Player& player, int& energy) {
+        // 1000:6F90..7011 scans TL, TR, BR, BL before integration. Only
+        // the last flame cell supplies impulse, using its highest pool slot.
+        const int x = (static_cast<int>(player.x) + 4) >> 3;
+        const int y = static_cast<int>(player.y) >> 3;
+        const std::array<std::array<int, 2>, 4> cells{{{x,y}, {x+1,y}, {x+1,y+1}, {x,y+1}}};
+        int damage = 0, flameCell = 0;
+        for (size_t i = 0; i < cells.size(); ++i) {
+            const auto& cell = cells[i];
+            const int glyph = tileAt(cell[0], cell[1]);
+            if (glyph == 0x75) {
+                damage += 2;
+                flameCell = cell[1] * level_.width + cell[0];
+            } else if (i < 2 && glyph >= 1 && glyph <= 0x4c) {
+                damage += 2;
+            }
+        }
+        if (flameCell != 0) {
+            const auto ray = std::find_if(flameRecords_.rbegin(), flameRecords_.rend(),
+                [flameCell](const FlameRecord& item) { return item.cell == flameCell; });
+            if (ray != flameRecords_.rend()) {
+                player.vx8 = static_cast<int16_t>(ray->vx * 8);
+                player.vy8 = static_cast<int16_t>(ray->vy * 8);
+                if (ray->mass > 1) damage += ray->mass / 10;
+            }
+        }
+        energy = static_cast<uint8_t>(energy - damage);
+    }
+
+    void updateDyingPlayerMotion(Player& player) {
+        // Behavior 2 (1000:7018) preserves velocity and fractional carries.
+        int x = static_cast<int>(player.x), y = static_cast<int>(player.y);
+        const auto edges = scanActorEdges(x, y);
+        if (!edges.bottom || player.vy8 < 0) {
+            player.vy8 = static_cast<int16_t>(std::min<int>(2047, player.vy8 + 64));
+        } else if (player.vy8 > 0) {
+            player.vy8 = 0;
+            y &= ~7;
+        }
+        if (edges.bottom) player.vx8 = actorFloorFriction(player.vx8);
+        integratePlayerMotion(player, x, y, edges);
+    }
+
+    static void integratePlayerMotion(Player& player, int x, int y,
+                                      const ActiveMonster::EdgeFlags& edges) {
         if (edges.top && player.vy8 < 0) player.vy8 = 1;
         if (edges.left && edges.right) {
             player.vx8 = 0;
@@ -25256,6 +25500,7 @@ private:
         flashes_.clear();
         launchPadMarkers_.clear();
         explosionEffects_.clear();
+        flameRecords_.clear();
         debrisQueue_.clear();
         collapseQueue_.clear();
         collected_ = 0;
@@ -25776,24 +26021,24 @@ private:
 
     // Original head damage scan (1000:5EF4): every frame, flame tiles (0x75)
     // in every second column of the head's tile box each add one damage
-    // point, doubled when the owning bomb's power byte exceeds 1; overkill
+    // point, doubled when the last cell's highest flame-slot mass exceeds 1; overkill
     // beyond the HP byte costs a life (with byte-wrap HP refill), and a lives
-    // underflow triggers the death chain. The port drains from the live
-    // per-tile explosion flashes, which mirror the original flame persistence.
+    // underflow triggers the death chain (1000:5F5F..5FB3).
     void damageBossHeadFromFlames(ActiveMonster& monster) {
-        if (flashes_.empty()) return;
-        int damage = 0;
+        int damage = 0, lastCell = 0;
         const int headTileX = monster.x / kTileSize;
         const int headTileY = monster.y / kTileSize;
-        for (const Flash& flash : flashes_) {
-            const int dx = flash.x - headTileX;
-            const int dy = flash.y - headTileY;
-            if (dx >= 0 && dx < monster.bossBoxW && (dx % 2) == 0 && dy >= 0 &&
-                dy < monster.bossBoxH) {
-                damage += flash.power > 1 ? 2 : 1;
+        for (int dy = 0; dy < monster.bossBoxH; ++dy) {
+            for (int dx = 0; dx < monster.bossBoxW; dx += 2) {
+                if (tileAt(headTileX + dx, headTileY + dy) != 0x75) continue;
+                ++damage;
+                lastCell = (headTileY + dy) * level_.width + headTileX + dx;
             }
         }
         if (damage == 0) return;
+        const auto ray = std::find_if(flameRecords_.rbegin(), flameRecords_.rend(),
+            [lastCell](const FlameRecord& item) { return item.cell == lastCell; });
+        if (ray != flameRecords_.rend() && ray->mass > 1) damage *= 2;
         if (damage > monster.bossHpByte) {
             if (monster.bossLives == 0) {
                 bossDeathChain();
@@ -26125,8 +26370,7 @@ private:
                                   uint8_t startMarker) {
         uint8_t amount = pending;
         pending = 0;
-        if (amount == 0) return;
-        requestPlayerDamageSound();
+        if (amount != 0) requestPlayerDamageSound();
         if (dead) return;
         uint8_t updatedEnergy =
             static_cast<uint8_t>(std::clamp(energy, 0, 255) - amount);
@@ -26176,8 +26420,7 @@ private:
         State2VisualCursor& cursor = state2VisualCursorFor(startMarker);
         resetState2VisualCursor(cursor);
         refreshState2EffectEntry(player, cursor, state2EffectEntryFor(startMarker));
-        player.vx = 0.0f;
-        player.vy = 0.0f;
+        syncPlayerVelocityMirror(player);
         player.grounded = false;
         if (lives <= 0) {
             dead = true;
@@ -26628,7 +26871,7 @@ private:
 
     void updateBombMotion(Bomb& bomb) {
         if (!bomb.moving) return;
-        const int heightOffset = bombHeightOffset(bomb.type);
+        const int heightOffset = bomb.hotspotY >= 0 ? bomb.hotspotY : bombHeightOffset(bomb.type);
         int collideY = bomb.pixelY - heightOffset;
         ActiveMonster::EdgeFlags edges;
         if (bomb.type == BombType::Small) {
@@ -26682,7 +26925,6 @@ private:
         for (const Bomb& b : expired) {
             if (levelResetGeneration_ != generation) break;
             explode(b);
-            drainPlayerDamageCounters();
         }
     }
 
@@ -26720,7 +26962,116 @@ private:
         effect.computedX = bomb.x * kTileSize;
         effect.computedY = bomb.y * kTileSize;
         explosionEffects_.push_back(effect);
+        seedFlameRecords(bomb.y * level_.width + bomb.x, visualType);
         requestSoundOffset(effect.soundOffset, effect.soundSelector);
+    }
+
+    void seedFlameRecords(int cell, int type) {
+        // Exact finite constructor outputs. Turbo Pascal's real48 sine/cosine
+        // and truncation produce asymmetric bytes, including 79 rather than 80.
+        static const std::array<std::vector<std::array<int, 2>>, 4> velocities{{
+            {{79,0},{56,-56},{0,-79},{-56,-56},{-79,0},{-56,56},{0,79},{56,56}},
+            {{109,0},{95,-54},{55,-95},{0,-109},{-54,-95},{-95,-55},
+             {-109,0},{-95,54},{-55,95},{0,109},{54,95},{95,55}},
+            {{109,0},{101,-41},{79,-76},{44,-100},{3,-109},{-37,-103},
+             {-73,-81},{-98,-48},{-109,-7},{-104,33},{-84,70},{-51,97},
+             {-11,109},{30,105},{67,86},{95,55},{108,15}},
+            {{0,-125},{-32,-121},{-62,-109},{-88,-89},{-109,-63},{-121,-32},{-125,0},
+             {125,0},{121,-32},{109,-62},{89,-89},{63,-109},{32,-121},
+             {-125,0},{-121,32},{-109,62},{-89,88},{-63,108},{-32,121},{0,125},
+             {21,124},{52,114},{80,96},{103,72},{118,43},{125,11}},
+        }};
+        if (type < 1 || type > 4) return;
+        const auto& rays = velocities[static_cast<size_t>(type - 1)];
+        for (size_t i = 0; i < rays.size() && flameRecords_.size() < 198; ++i) {
+            int origin = cell;
+            if (type == 4) {
+                if (i >= 20) origin += level_.width + 1;
+                else if (i >= 13) origin += level_.width;
+                else if (i >= 7) ++origin;
+            }
+            FlameRecord record;
+            record.cell = static_cast<uint16_t>(origin);
+            record.vx = static_cast<int8_t>(rays[i][0]);
+            record.vy = static_cast<int8_t>(rays[i][1]);
+            record.timer = static_cast<uint8_t>(explosionEffectTicks(type));
+            record.variant = explosionVariantByte(type);
+            record.mass = static_cast<uint8_t>(type == 4 ? 221 : type == 3 ? 9 : 1);
+            flameRecords_.push_back(record);
+        }
+    }
+
+    void updateFlameRecords() {
+        auto object = [&](int cell) -> uint8_t {
+            return cell >= 0 && static_cast<size_t>(cell) < level_.tiles.size() ? level_.tiles[cell] : 1;
+        };
+        auto stamp = [&](int cell, uint8_t value) {
+            if (cell >= 0 && static_cast<size_t>(cell) < level_.tiles.size()) level_.tiles[cell] = value;
+        };
+        // Descending live slots. New chain-reaction records wait until next pass.
+        for (size_t slot = flameRecords_.size(); slot > 0; --slot) {
+            const size_t index = slot - 1;
+            FlameRecord ray = flameRecords_[index];
+            int delta = 0;
+            auto integrate = [&](int8_t velocity, int8_t& fraction, int step) {
+                int sum = fraction + velocity;
+                if (sum > 127 || sum < -128) {
+                    sum += sum > 127 ? -128 : 128;
+                    delta += velocity < 0 ? -step : step;
+                }
+                fraction = static_cast<int8_t>(sum);
+            };
+            integrate(ray.vx, ray.subX, 1);
+            integrate(ray.vy, ray.subY, level_.width);
+            if (delta != 0) {
+                const int target = static_cast<uint16_t>(ray.cell + delta);
+                const uint8_t code = object(target);
+                uint16_t word = wordAt(target % level_.width, target / level_.width);
+                if (code == 0x66) {
+                    stamp(target, word > 0x7fff ? 0xff : 0);
+                    if (word <= 0x7fff && static_cast<size_t>(target) < level_.wordLayer.size()) {
+                        level_.wordLayer[target] = 0;
+                        word = 0;
+                    }
+                    seedFlameRecords(target, 1);
+                    requestSoundOffset(explosionSoundOffset(1), explosionSoundSelector(1));
+                }
+                if (code == 0 || code == 0x75) {
+                    if (object(ray.cell) == 0x75) stamp(ray.cell, 0);
+                    stamp(target, ray.glyph);
+                    ray.cell = static_cast<uint16_t>(target);
+                } else if (word != 0) {
+                    if ((word & kDamagedWordBit) == 0) {
+                        queueTileDamage(target % level_.width, target / level_.width, 0, 0, true);
+                    }
+                    const auto match = resolveDamagePhase(static_cast<uint16_t>(word | kDamagedWordBit), false);
+                    if (match.slotIndex != 0) {
+                        const size_t other = static_cast<size_t>(match.slotIndex - 1);
+                        const int weight = match.debris ? 1 : collapseQueue_[other].affectedBytes;
+                        auto blend = [&](int own, int incoming) {
+                            const int16_t numerator = static_cast<int16_t>(own * ray.mass + incoming * weight);
+                            return static_cast<int8_t>(numerator / (ray.mass + weight));
+                        };
+                        if (match.debris) {
+                            auto& debris = debrisQueue_[other];
+                            debris.velocityX = blend(ray.vx, debris.velocityX);
+                            debris.velocityY = blend(ray.vy, debris.velocityY);
+                            if ((word & kDamagedWordBit) != 0 && ray.variant > 0) stamp(target, 0xff);
+                        } else {
+                            auto& collapse = collapseQueue_[other];
+                            collapse.forwardPhase = static_cast<uint8_t>(blend(ray.vx, static_cast<int8_t>(collapse.forwardPhase)));
+                            collapse.reversePhase = static_cast<uint8_t>(blend(ray.vy, static_cast<int8_t>(collapse.reversePhase)));
+                        }
+                    }
+                }
+            }
+            if (ray.variant > 0) --ray.variant;
+            --ray.timer;
+            if (ray.timer == 0) {
+                if (object(ray.cell) == 0x75) stamp(ray.cell, 0);
+                flameRecords_.erase(flameRecords_.begin() + static_cast<std::ptrdiff_t>(index));
+            } else flameRecords_[index] = ray;
+        }
     }
 
     bool isBombObjectTile(uint8_t tile) const {
@@ -26964,34 +27315,23 @@ private:
     }
 
     void explode(const Bomb& bomb) {
-        auto tiles = explosionTilesFor(bomb);
         spawnExplosionEffect(bomb);
-        bool consumedBombObject = false;
-        bool consumedHighBombObject = false;
-        for (const auto& pos : tiles) {
-            int x = pos[0];
-            int y = pos[1];
-            flashes_.push_back(
-                {x, y, 12, static_cast<uint8_t>(monsterDamageForBomb(bomb.type))});
-            uint8_t objectTile = static_cast<uint8_t>(tileAt(x, y));
-            if (consumeBombObjectTile(x, y)) {
-                consumedBombObject = true;
-                consumedHighBombObject =
-                    consumedHighBombObject || isHighBombObjectSoundTile(objectTile);
-                addScore(bomb.owner, 50);
-                queueTileDamage(x, y - 1);
-            }
-        }
-        if (consumedBombObject) {
-            requestBombObjectScoreSound(consumedHighBombObject);
-        }
-        damageMonstersInExplosion(tiles, bomb.type);
-        damagePlayersInExplosion(tiles);
+        TransientActor fade;
+        fade.x = bomb.pixelX;
+        fade.y = bomb.pixelY;
+        fade.kind = 0;
+        fade.timer = 18;
+        fade.fracX = bomb.fracX;
+        fade.fracY = bomb.fracY;
+        fade.spriteIndex = 68;
+        fade.animation = ActorAnimation::initialize(69, 79, 2, 1);
+        transientActors_.push_back(fade);
+        spawnExpiryParticles(bomb.pixelX, bomb.pixelY, bombTypeIndex(bomb.type) + 2);
     }
 
     int monsterDamageForBomb(BombType type) const {
-        // Original flame-driven damage remains UNRECOVERED (@unevidenced:bomb_direct_monster_damage).
-        // The seeded small-bomb trace refutes this immediate, weapon-sized hit.
+        // UNEVIDENCED legacy diagnostic only (@unevidenced:bomb_direct_monster_damage).
+        // Live explode() now seeds flame records and never calls this helper.
         return std::clamp(bombTypeIndex(type) + 1, 1, 4);
     }
 
@@ -27152,12 +27492,16 @@ private:
             transientActors_.push_back(fade);
         }
 
+        spawnExpiryParticles(monster.x, monster.y + monster.hotspotY);
+    }
+
+    void spawnExpiryParticles(int x, int y, int count = 2) {
         // 1000:772A..777D draws both velocities even on allocation failure.
         // The dynamic actor-loop bound at 7ECB visits appended actors this frame.
-        for (int effect = 0; effect < 2; ++effect) {
+        for (int effect = 0; effect < count; ++effect) {
             const int vx8 = static_cast<int>(randomRangeValue(0, 600)) - 300;
             const int vy8 = static_cast<int>(randomRangeValue(0, 600)) - 300;
-            if (auto* actor = spawnTransientActor(monster.x, monster.y + monster.hotspotY,
+            if (auto* actor = spawnTransientActor(x, y,
                     static_cast<int16_t>(vy8), 13, 0x0b, 15,
                     ActorAnimation::initialize(69, 79, 2, 2))) {
                 actor->vx8 = static_cast<int16_t>(vx8);
@@ -27497,12 +27841,6 @@ private:
             debrisQueue_[i].subX = static_cast<int8_t>(subX);
             debrisQueue_[i].subY = static_cast<int8_t>(subY);
 
-            // Reconstruction-only rule carried over from the previous port
-            // DebrisRecord loop (not byte-cited): a live fragment damages
-            // players overlapping its current cell each tick.
-            damagePlayersInTileArea(pos % width, pos / width, pos % width,
-                                    pos / width);
-
             // 4CF8 increments a byte; 4CFF tests equality with 100. Removal
             // clears only the map flag, leaves the glyph, and rewinds the
             // live loop so the shifted successor is processed this tick.
@@ -27724,6 +28062,7 @@ private:
         explosionEffects_.erase(std::remove_if(explosionEffects_.begin(), explosionEffects_.end(),
                                                [](const ExplosionEffect& e) { return e.timer <= 0; }),
                                 explosionEffects_.end());
+        updateFlameRecords();
         updateDebrisRecords();
         updateCollapseRecords();
     }
@@ -28066,39 +28405,9 @@ private:
     }
 
     void drawExplosionEffects(int camX, int camY) {
-        for (const ExplosionEffect& effect : explosionEffects_) {
-            int age = effect.totalTimer - effect.timer;
-            int px = effect.x * 8 - camX;
-            int py = effect.y * 8 - camY;
-            uint32_t hot = age & 1 ? 0xfffff0a0u : 0xffff7040u;
-            uint32_t core = effect.visualSelector == 4 ? 0xffffffffu : 0xffffc050u;
-            auto cell = [&](int tx, int ty, int inset, uint32_t color) {
-                rect(px + tx * 8 + inset, py + ty * 8 + inset,
-                     std::max(1, 8 - inset * 2), std::max(1, 8 - inset * 2), color);
-            };
-            if (effect.visualSelector == 4) {
-                int inset = std::clamp(age / 9, 0, 3);
-                cell(0, 0, inset, hot);
-                cell(1, 0, inset, core);
-                cell(1, 1, inset, hot);
-                cell(0, 1, inset, core);
-                if ((age % 6) < 3) {
-                    rect(px - 2, py + 6, 20, 4, 0xffffa040u);
-                    rect(px + 6, py - 2, 4, 20, 0xffffa040u);
-                }
-            } else {
-                int inset = std::clamp(age / 3, 0, 3);
-                cell(0, 0, inset, hot);
-                if (effect.visualSelector >= 2) {
-                    rect(px - 4, py + 3, 16, 2, core);
-                    rect(px + 3, py - 4, 2, 16, core);
-                }
-                if (effect.visualSelector >= 3 && (age % 4) < 2) {
-                    rect(px - 2, py - 2, 4, 4, 0xfffff0f0u);
-                    rect(px + 6, py + 6, 4, 4, 0xfffff0f0u);
-                }
-            }
-        }
+        // Flame glyphs are now drawn by the ordinary object-plane renderer.
+        (void)camX;
+        (void)camY;
     }
 
     bool isBossActor(const ActiveMonster& monster) const {
@@ -29323,6 +29632,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-monster-damage-original") {
             app.debugMonsterDamageOriginal(argv[2], argc > 3 ? argv[3] : "");
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-flame-lifecycle-original") {
+            app.debugFlameLifecycleOriginal(argv[2], argc > 3 ? argv[3] : "");
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-transient-actor-limits") {

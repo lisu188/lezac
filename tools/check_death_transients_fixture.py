@@ -14,9 +14,11 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--reward-lifecycle", action="store_true")
     mode.add_argument("--corpse-lifecycle", action="store_true")
+    mode.add_argument("--monster-damage", action="store_true")
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
-    name = "corpse_lifecycle" if args.corpse_lifecycle else "reward_lifecycle" if args.reward_lifecycle else "death_transients"
+    name = "monster_damage" if args.monster_damage else "corpse_lifecycle" if args.corpse_lifecycle else "reward_lifecycle" if args.reward_lifecycle else "death_transients"
+    error_name = "monster-damage" if args.monster_damage else "death-effects"
     source = (root / f"tests/fixtures/{name}_original.txt").read_text(encoding="ascii")
     env = dict(os.environ, SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy")
     before = set(root.glob("*.ppm"))
@@ -40,20 +42,20 @@ def main():
         run(source)
         run(source.replace("\n", "\r\n"))
         run("\n".join(line for line in source.splitlines() if not line.startswith("complete ")) + "\n",
-            "missing death-effects completion")
+            f"missing {error_name} completion")
         rows = source.splitlines()
         index = next(i for i, line in enumerate(rows) if line.startswith("tick "))
         fields = dict(token.split("=", 1) for token in rows[index].split()[1:])
-        target = "corpses" if args.corpse_lifecycle else "rewards" if args.reward_lifecycle else "effects"
-        offset = 16 if args.reward_lifecycle else 4
+        target = "target" if args.monster_damage else "corpses" if args.corpse_lifecycle else "rewards" if args.reward_lifecycle else "effects"
+        offset = 50 if args.monster_damage else 16 if args.reward_lifecycle else 4
         value = fields[target]
         fields[target] = value[:offset] + "00" + value[offset + 2:]
         rows[index] = "tick " + " ".join(f"{key}={value}" for key, value in fields.items())
-        case = "ground_even" if args.corpse_lifecycle else "expiry_even" if args.reward_lifecycle else "reward_even"
-        run("\n".join(rows) + "\n", f"original death-effects mismatch: {case} sample=0")
+        case = "right_delay3" if args.monster_damage else "ground_even" if args.corpse_lifecycle else "expiry_even" if args.reward_lifecycle else "reward_even"
+        run("\n".join(rows) + "\n", f"original {error_name} mismatch: {case} sample=0")
     if set(root.glob("*.ppm")) != before:
         raise RuntimeError("replay without output directory wrote frame files")
-    mutation = "velocity" if args.reward_lifecycle else "timer"
+    mutation = "animation" if args.monster_damage else "velocity" if args.reward_lifecycle else "timer"
     print(f"{name}_fixture=ok lf=1 crlf=1 truncated_rejected=1 {mutation}_mutation_rejected=1 no_output_files=1")
 
 

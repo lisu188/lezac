@@ -3634,7 +3634,7 @@ if(BUILD_TESTING)
     set_tests_properties(unevidenced_constants PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^unevidenced_constants=ok tracked=3 source=app.cpp doc=unevidenced_constants.md drift=0")
+            "^unevidenced_constants=ok tracked=4 source=app.cpp doc=unevidenced_constants.md drift=0")
 
     add_test(NAME debris_shatter_playback
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-shatter-playback
@@ -3931,6 +3931,32 @@ if(BUILD_TESTING)
     set_tests_properties(corpse_lifecycle_fixture PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^corpse_lifecycle_fixture=ok lf=1 crlf=1 truncated_rejected=1 timer_mutation_rejected=1 no_output_files=1")
+
+    add_test(NAME monster_damage_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-monster-damage-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/monster_damage_original.txt)
+    set_tests_properties(monster_damage_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^monster_damage_original=ok cases=11 samples=143 nonfatal_hits=12 impact_states=40 fatal_transitions=2 spawner_hp_cases=4 seeded=1 continuous=1 animation_bytes=7 map_deltas=1 frame_inspection=1")
+
+    add_test(NAME monster_damage_capture_contract
+        COMMAND ${Python3_EXECUTABLE} tools/capture_original_monster_damage.py --self-check)
+    set_tests_properties(monster_damage_capture_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^monster_damage_capture_self_check=ok windows=17 live=0")
+
+    add_test(NAME monster_damage_fixture
+        COMMAND ${Python3_EXECUTABLE} tools/check_death_transients_fixture.py --monster-damage --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(monster_damage_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^monster_damage_fixture=ok lf=1 crlf=1 truncated_rejected=1 animation_mutation_rejected=1 no_output_files=1")
+
+    add_test(NAME bomb_actor_order_observation
+        COMMAND ${Python3_EXECUTABLE} tools/check_bomb_actor_order_fixture.py)
+    set_tests_properties(bomb_actor_order_observation PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^bomb_actor_order_observation=ok cases=2 samples=50 first_damage_sample=2 damage=4,6,2 total_damage=12 same_phase=1 mutations_rejected=8 cpp_damage_claim=0")
 
     add_test(NAME transient_actor_limits
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-transient-actor-limits)

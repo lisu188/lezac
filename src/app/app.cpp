@@ -2846,8 +2846,8 @@ public:
                 monster.ai1 >= spanUpper(spawner.param1Base, spawner.param1Range) ||
                 monster.ai2 < spawner.param2Base ||
                 monster.ai2 >= spanUpper(spawner.param2Base, spawner.param2Range) ||
-                monster.hp < spawner.randomBase ||
-                monster.hp >= spanUpper(spawner.randomBase, spawner.randomRange) ||
+                monster.hp - 1 < spawner.randomBase ||
+                monster.hp - 1 >= spanUpper(spawner.randomBase, spawner.randomRange) ||
                 monster.motionTimer != monster.ai0 ||
                 monster.vx8 <= 0 || monster.vy8 != 0 || monster.x <= spawner.x) {
                 throw std::runtime_error(
@@ -2900,8 +2900,8 @@ public:
                 monster.ai1 >= spanUpper(spawner.param1Base, spawner.param1Range) ||
                 monster.ai2 < spawner.param2Base ||
                 monster.ai2 >= spanUpper(spawner.param2Base, spawner.param2Range) ||
-                monster.hp < spawner.randomBase ||
-                monster.hp >= spanUpper(spawner.randomBase, spawner.randomRange) ||
+                monster.hp - 1 < spawner.randomBase ||
+                monster.hp - 1 >= spanUpper(spawner.randomBase, spawner.randomRange) ||
                 monster.motionTimer != monster.ai0 ||
                 monster.vx8 <= 0 || monster.vy8 >= 0) {
                 throw std::runtime_error(
@@ -4694,17 +4694,22 @@ public:
             throw std::runtime_error("monster spawner live frame did not change");
         }
 
+        if (monsters_.front().hp != static_cast<int>(level_.monsterSpawners[0].randomBase) + 1) {
+            throw std::runtime_error("monster spawner HP byte was not converted to remaining health");
+        }
+        bombInventory_.counts[1] = 1;
+        bombInventory_.selected = BombType::Medium;
         player_.x = static_cast<float>(monsters_.front().x);
         player_.y = static_cast<float>(monsters_.front().y);
         pushKeyDown(SDLK_n);
         processEvents(running);
-        if (bombs_.empty() || bombs_.back().type != BombType::Small) {
-            throw std::runtime_error("monster spawner autoplayer did not place small bomb");
+        if (bombs_.empty() || bombs_.back().type != BombType::Medium) {
+            throw std::runtime_error("monster spawner autoplayer did not place medium bomb");
         }
         bombs_.back().timer = 1;
         player_.x = static_cast<float>(monsters_.front().x + 32);
         player_.y = static_cast<float>(monsters_.front().y);
-        randomSeed_ = 0x90e25b93u;
+        randomSeed_ = 0x956923eau;  // The medium blast's two shake draws produce 90E25B93.
         updateWithControls(idle, 1.0f / 60.0f);
         if (monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
@@ -4842,7 +4847,7 @@ public:
             monster.ai0 < spawner.param0Base || monster.ai0 >= spanUpper(spawner.param0Base, spawner.param0Range) ||
             monster.ai1 < spawner.param1Base || monster.ai1 >= spanUpper(spawner.param1Base, spawner.param1Range) ||
             monster.ai2 < spawner.param2Base || monster.ai2 >= spanUpper(spawner.param2Base, spawner.param2Range) ||
-            monster.hp < spawner.randomBase || monster.hp >= spanUpper(spawner.randomBase, spawner.randomRange) ||
+            monster.hp - 1 < spawner.randomBase || monster.hp - 1 >= spanUpper(spawner.randomBase, spawner.randomRange) ||
             monster.motionTimer != monster.ai0 ||
             monster.vx8 <= 0 || monster.vy8 != 0 || monster.x <= spawner.x) {
             throw std::runtime_error("monster behavior-4 level2 autoplayer spawn fields mismatched");
@@ -4926,7 +4931,7 @@ public:
             monster.ai0 < spawner.param0Base || monster.ai0 >= spanUpper(spawner.param0Base, spawner.param0Range) ||
             monster.ai1 < spawner.param1Base || monster.ai1 >= spanUpper(spawner.param1Base, spawner.param1Range) ||
             monster.ai2 < spawner.param2Base || monster.ai2 >= spanUpper(spawner.param2Base, spawner.param2Range) ||
-            monster.hp < spawner.randomBase || monster.hp >= spanUpper(spawner.randomBase, spawner.randomRange) ||
+            monster.hp - 1 < spawner.randomBase || monster.hp - 1 >= spanUpper(spawner.randomBase, spawner.randomRange) ||
             monster.motionTimer != monster.ai0 ||
             monster.vx8 <= 0 || monster.vy8 >= 0) {
             throw std::runtime_error("monster behavior-4 level3 autoplayer spawn fields mismatched");
@@ -21948,6 +21953,216 @@ public:
 
     enum class DeathReplayKind { Effects, Rewards, Corpses };
 
+    void debugMonsterDamageOriginal(const std::string& fixturePath, const std::string& outDir) {
+        load();
+        initSdl();
+        std::ifstream input(fixturePath);
+        if (!input) throw std::runtime_error("cannot open monster-damage fixture");
+        const std::map<std::string, std::array<int, 5>> probes{
+            {"right_delay3", {1,2048,3,31,98}}, {"left_delay3", {1,-2048,3,31,98}},
+            {"right_delay1", {1,2048,1,31,98}}, {"right_delay4", {1,2048,4,31,98}},
+            {"right_delay7", {1,2048,7,31,98}}, {"kind2", {2,2048,3,31,98}},
+            {"kind3", {3,2048,3,31,98}}, {"kind4", {4,2048,3,31,98}},
+            {"repeated_ground", {1,0,3,9,174}}, {"fatal_air", {1,2048,3,0,98}},
+            {"control_air", {1,2048,3,31,98}},
+        };
+        auto bytes = [](const std::string& hex, size_t size) {
+            if (hex.size() != size * 2 || hex.find_first_not_of("0123456789abcdef") != std::string::npos) {
+                throw std::runtime_error("invalid monster-damage bytes");
+            }
+            std::vector<uint8_t> result;
+            for (size_t i = 0; i < size; ++i) result.push_back(static_cast<uint8_t>(std::stoul(hex.substr(i * 2, 2), nullptr, 16)));
+            return result;
+        };
+        std::ofstream manifest;
+        if (!outDir.empty()) {
+            std::filesystem::create_directories(outDir);
+            manifest.open(joinPath(outDir, "manifest.csv"));
+            if (!manifest) throw std::runtime_error("cannot create monster-damage manifest");
+            manifest << "case,sample,frame,x,y,vx,vy,hp,kind,behavior,sprite,cursor,counter,hash\n";
+        }
+        std::string line, name;
+        std::set<std::string> seen;
+        std::vector<uint8_t> descriptors, baselineMap;
+        bool header = false, complete = false;
+        int sample = 0, total = 0, previousFrame = -1;
+        int nonfatalHits = 0, impactStates = 0, fatalTransitions = 0;
+        uint64_t lastHash = 0;
+        while (std::getline(input, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (complete) throw std::runtime_error("data after monster-damage completion");
+            std::istringstream row(line);
+            std::map<std::string, std::string> fields;
+            std::string token;
+            while (row >> token) {
+                const auto eq = token.find('=');
+                if (eq != std::string::npos && !fields.emplace(token.substr(0, eq), token.substr(eq + 1)).second) {
+                    throw std::runtime_error("duplicate monster-damage field");
+                }
+            }
+            if (line.rfind("capture=", 0) == 0) {
+                if (header || fields.at("capture") != "monster_damage_original_v1" ||
+                    fields.at("seeded") != "1" || fields.at("temp_copy") != "1" ||
+                    fields.at("player") != "240,168" || fields.at("spawners") != "0") {
+                    throw std::runtime_error("invalid monster-damage provenance");
+                }
+                header = true;
+            } else if (line.rfind("sprites ", 0) == 0) {
+                if (!header || !descriptors.empty()) throw std::runtime_error("invalid monster-damage descriptors");
+                descriptors = bytes(fields.at("descriptors"), 92 * 4);
+            } else if (line.rfind("case ", 0) == 0) {
+                if (!name.empty() || descriptors.empty()) throw std::runtime_error("invalid monster-damage case boundary");
+                name = fields.at("name");
+                if (!probes.count(name) || !seen.insert(name).second) throw std::runtime_error("unknown monster-damage case");
+                const auto spec = probes.at(name);
+                const auto raw = bytes(fields.at("raw"), 38);
+                const auto range = monsterDirectionalFrameRange(static_cast<uint8_t>(spec[0]), static_cast<int16_t>(spec[1]));
+                if (raw[0] != spec[0] || raw[1] != 2 || raw[2] != 0 || raw[0x15] != 3 ||
+                    raw[3] != (spec[0] == 1 ? 1 : spec[0] + 9) || raw[4] != (spec[0] == 1 ? 2 : spec[0] + 9) ||
+                    static_cast<int16_t>(le16(raw, 6)) != spec[1] || le16(raw, 8) != 0 ||
+                    le16(raw, 10) != 0x9a || le16(raw, 12) != 0x4e || le16(raw, 14) != std::abs(spec[1]) ||
+                    raw[0x14] != (spec[0] == 1 ? 6 : 0) || raw[0x16] != range[0] + 1 ||
+                    raw[0x17] != range[0] + 1 || raw[0x18] != range[1] + 1 ||
+                    raw[0x19] != spec[2] || raw[0x1a] != spec[2] || raw[0x1b] != 1 || raw[0x1c] != 1 ||
+                    raw[0x24] != spec[3] || raw[0x25] != 0 || fields.at("x") != "336" ||
+                    std::stoi(fields.at("y")) != spec[4] || fields.at("rng") != "12345678") {
+                    throw std::runtime_error("invalid monster-damage seed: " + name);
+                }
+                resetLevel(0);
+                menu_ = false;
+                spawnerStates_.clear();
+                monsters_.clear();
+                baselineMap = level_.tiles;
+                player_.x = 240;
+                player_.y = 168;
+                ActiveMonster monster;
+                monster.x = 336;
+                monster.y = spec[4] - raw[0x14];
+                monster.kind = raw[0];
+                monster.behavior = raw[0x15];
+                monster.hotspotY = raw[0x14];
+                monster.vx8 = static_cast<int16_t>(spec[1]);
+                monster.fracX = raw[10];
+                monster.fracY = raw[12];
+                monster.ai0 = le16(raw, 14);
+                monster.hp = raw[0x24] + 1;
+                monster.animFrame = monster.animCursor = raw[0x16] - 1;
+                monster.animStart = raw[0x17] - 1;
+                monster.animEnd = raw[0x18] - 1;
+                monster.animTick = raw[0x19];
+                monster.animDelay = raw[0x1a];
+                monster.animMode = raw[0x1b];
+                monster.animStep = raw[0x1c];
+                monsters_.push_back(monster);
+                const int cell = std::stoi(fields.at("cell"));
+                const int expectedCell = name == "control_air" ? -1 : (monster.y >> 3) * 60 + 42 + (spec[1] < 0);
+                if (cell != expectedCell) throw std::runtime_error("invalid monster-damage tile seed");
+                if (cell >= 0) level_.tiles.at(static_cast<size_t>(cell)) = 0x75;
+                previousFrame = std::stoi(fields.at("frame")) - 1;
+                logicTick_ = static_cast<uint64_t>(previousFrame);
+                randomSeed_ = 0x12345678;
+                sample = 0;
+            } else if (line.rfind("tick ", 0) == 0) {
+                auto fail = [&] { throw std::runtime_error("original monster-damage mismatch: " + name + " sample=" + std::to_string(sample)); };
+                if (name.empty() || sample >= 13 || std::stoi(fields.at("sample")) != sample ||
+                    std::stoi(fields.at("frame")) != previousFrame + 1 || monsters_.size() != 1) fail();
+                const int hpBefore = monsters_.front().hp;
+                const int behaviorBefore = monsters_.front().behavior;
+                updateWithControls({}, 0.0f);
+                if (monsters_.size() != 1 || sharedActorCount() != 1 || fields.at("count") != "1" ||
+                    fields.at("others") != "-" || randomSeed_ != le32(bytes(fields.at("rng"), 4), 0)) fail();
+                const auto split = fields.at("target").find(':');
+                const auto raw = bytes(fields.at("target").substr(0, split), 38);
+                const auto visual = bytes(fields.at("target").substr(split + 1), 8);
+                const auto& monster = monsters_.front();
+                const int sprite = monsterSpriteIndex(monster);
+                if (raw[0] != monster.kind || raw[0x15] != monster.behavior || raw[0x14] != monster.hotspotY ||
+                    raw[2] != (monster.stateTimer + 1) / 2 ||
+                    static_cast<int16_t>(le16(raw, 6)) != monster.vx8 || static_cast<int16_t>(le16(raw, 8)) != monster.vy8 ||
+                    le16(raw, 10) != monster.fracX || le16(raw, 12) != monster.fracY ||
+                    raw[0x16] != monster.animCursor + 1 || raw[0x17] != monster.animStart + 1 ||
+                    raw[0x18] != monster.animEnd + 1 || raw[0x19] != monster.animTick ||
+                    raw[0x1a] != monster.animDelay || raw[0x1b] != monster.animMode || raw[0x1c] != static_cast<uint8_t>(monster.animStep) ||
+                    (monster.behavior != 2 && raw[0x24] != monster.hp - 1) ||
+                    le16(visual, 0) != monster.x || le16(visual, 2) != monster.y + monster.hotspotY ||
+                    !std::equal(visual.begin() + 4, visual.end(), descriptors.begin() + (sprite + 1) * 4)) fail();
+                std::map<int, int> expectedMap, actualMap;
+                if (fields.at("map") != "-") {
+                    std::istringstream cells(fields.at("map"));
+                    while (std::getline(cells, token, ',')) {
+                        const auto colon = token.find(':');
+                        if (colon == std::string::npos || !expectedMap.emplace(std::stoi(token.substr(0, colon)),
+                            std::stoi(token.substr(colon + 1), nullptr, 16)).second) fail();
+                    }
+                }
+                for (size_t i = 0; i < baselineMap.size(); ++i) {
+                    if (level_.tiles[i] != baselineMap[i]) actualMap.emplace(static_cast<int>(i), level_.tiles[i]);
+                }
+                if (actualMap != expectedMap) fail();
+                if (monster.hp > 0 && monster.hp < hpBefore) ++nonfatalHits;
+                if (monster.behavior == 2 && behaviorBefore != 2) ++fatalTransitions;
+                if (monster.behavior != 2 && sprite == monsterCorpseSprite(monster)) ++impactStates;
+                const std::string label = name + "_" + std::to_string(sample);
+                lastHash = inspectRenderedFrame(label).hash;
+                if (!outDir.empty()) {
+                    writeArgbPpm(joinPath(outDir, label + ".ppm"), fb_, kScreenW, kScreenH);
+                    manifest << name << ',' << sample << ',' << logicTick_ << ',' << monster.x << ','
+                             << monster.y + monster.hotspotY << ',' << monster.vx8 << ',' << monster.vy8 << ','
+                             << monster.hp << ',' << int(monster.kind) << ',' << int(monster.behavior) << ','
+                             << sprite << ',' << int(monster.animCursor) << ',' << monster.animTick << ','
+                             << std::hex << lastHash << std::dec << '\n';
+                    if (!manifest) throw std::runtime_error("cannot write monster-damage manifest");
+                }
+                ++sample;
+                ++total;
+                ++previousFrame;
+            } else if (line.rfind("end ", 0) == 0) {
+                if (name.empty() || sample != 13 || fields.at("samples") != "13") throw std::runtime_error("incomplete monster-damage case");
+                name.clear();
+            } else if (line.rfind("complete ", 0) == 0) {
+                if (!name.empty() || seen.size() != probes.size() || std::stoul(fields.at("cases")) != probes.size()) {
+                    throw std::runtime_error("incomplete monster-damage fixture");
+                }
+                complete = true;
+            } else throw std::runtime_error("unexpected monster-damage row");
+        }
+        if (!complete) throw std::runtime_error("missing monster-damage completion");
+        // 1000:7BC2 stores the low byte; 74B5 kills only after it goes negative.
+        for (int rawHp : {0, 1, 2, 255}) {
+            resetLevel(0);
+            monsters_.clear();
+            level_.monsterSpawners.resize(1);
+            spawnerStates_.resize(1);
+            auto& spawner = level_.monsterSpawners.front();
+            spawner.enabled = true;
+            spawner.randomBase = static_cast<uint8_t>(rawHp);
+            spawner.randomRange = 0;
+            auto& state = spawnerStates_.front();
+            state.cooldown = 1;
+            state.availableSlots = 1;
+            state.remaining = 1;
+            updateMonsterSpawners();
+            if (monsters_.size() != 1 || monsters_.front().hp != rawHp + 1) {
+                throw std::runtime_error("monster spawner HP mapping mismatch");
+            }
+            if (rawHp) {
+                damageMonster(monsters_.front(), rawHp);
+                if (monsters_.front().hp != 1 || monsters_.front().behavior == 2) {
+                    throw std::runtime_error("monster died at original HP byte zero");
+                }
+            }
+            damageMonster(monsters_.front(), 1);
+            if (monsters_.front().hp != 0 || monsters_.front().behavior != 2 || state.availableSlots != 1) {
+                throw std::runtime_error("monster failed to die below original HP byte zero");
+            }
+        }
+        std::cout << "monster_damage_original=ok cases=" << seen.size() << " samples=" << total
+                  << " nonfatal_hits=" << nonfatalHits << " impact_states=" << impactStates
+                  << " fatal_transitions=" << fatalTransitions << " spawner_hp_cases=4 seeded=1 continuous=1 animation_bytes=7"
+                  << " map_deltas=1 frame_inspection=1 frame_hash=" << std::hex << lastHash << std::dec << '\n';
+    }
+
     void debugDeathTransientsOriginal(const std::string& fixturePath, const std::string& outDir,
                                      DeathReplayKind kind = DeathReplayKind::Effects) {
         const bool rewardLifecycle = kind == DeathReplayKind::Rewards;
@@ -25656,7 +25871,7 @@ private:
             monster.ai0 = randomRangeValue(spawner.param0Base, spawner.param0Range);
             monster.ai1 = randomRangeValue(spawner.param1Base, spawner.param1Range);
             monster.ai2 = randomRangeValue(spawner.param2Base, spawner.param2Range);
-            monster.hp = std::max<int>(1, randomRangeValue(spawner.randomBase, spawner.randomRange));
+            monster.hp = 1 + static_cast<uint8_t>(randomRangeValue(spawner.randomBase, spawner.randomRange));
             auto frames = monsterDirectionalFrameRange(monster.kind, monster.vx8);
             monster.animStart = static_cast<uint8_t>(frames[0]);
             monster.animEnd = static_cast<uint8_t>(frames[1]);
@@ -25714,8 +25929,8 @@ private:
             // frame (the visual-table word write at 1000:613B..6156); between
             // boundaries the visible frame is untouched, which is what makes
             // the facing reselection latch.
-            ++monster.animTick;
-            if (monster.animTick > monster.animDelay) {
+            if (monster.animMode != 0) monster.animTick = static_cast<uint8_t>(monster.animTick + 1);
+            if (monster.animMode != 0 && monster.animTick > monster.animDelay) {
                 monster.animTick = 0;
                 if (monster.animCursor < monster.animStart ||
                     monster.animCursor > monster.animEnd) {
@@ -26775,6 +26990,8 @@ private:
     }
 
     int monsterDamageForBomb(BombType type) const {
+        // Original flame-driven damage remains UNRECOVERED (@unevidenced:bomb_direct_monster_damage).
+        // The seeded small-bomb trace refutes this immediate, weapon-sized hit.
         return std::clamp(bombTypeIndex(type) + 1, 1, 4);
     }
 
@@ -26817,6 +27034,11 @@ private:
         // Boss actors are exempt from generic damage (original 1000:7427
         // applies shot damage to kinds 1..8 only).
         if (monster.behavior == 5 || monster.behavior == 6) return;
+        // 1000:745B..74A6 changes the displayed sprite, not the animation
+        // cursor. The byte rewind holds this impact until the next advance.
+        monster.animFrame = static_cast<uint8_t>(monsterCorpseSprite(monster));
+        monster.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(monster.animFrame).height);
+        monster.animTick = static_cast<uint8_t>(monster.animDelay - 4);
         monster.hp = std::max(0, monster.hp - std::max(1, damage));
         if (monster.hp == 0) {
             enterMonsterDeath(monster, updatedThisTick);
@@ -29097,6 +29319,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-corpse-lifecycle-original") {
             app.debugDeathTransientsOriginal(argv[2], argc > 3 ? argv[3] : "", App::DeathReplayKind::Corpses);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-monster-damage-original") {
+            app.debugMonsterDamageOriginal(argv[2], argc > 3 ? argv[3] : "");
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-transient-actor-limits") {

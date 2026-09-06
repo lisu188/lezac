@@ -48,8 +48,19 @@ That distinction should be stated wherever such a pin is registered.
   The byte-cited table `DS:[0x0077 + kind*2 + dir]` gives kind 2 → 42,
   kind 3 → 52, kind 4 → 56, and the port uses those; what is unevidenced is
   that no death of a non-kind-1 monster has been CAPTURED, so the table read is
-  trusted without a runtime confirmation of the kind-1 sort that
-  `monster_impact_sprites` provides.
+  trusted without a fatal-conversion runtime confirmation. The newer
+  `monster_damage_original` capture verifies the nonfatal impact sprites of
+  kinds 2/3/4, but does not kill those kinds.
+
+- `bomb_direct_monster_damage` - `monsterDamageForBomb` returns weapon-sized
+  damage applied immediately by `explode`. This is now refuted, not merely
+  unproven: the seeded original small-bomb trace first damages two updates
+  after expiry, then drains 4, 6 and 2 HP from transient flame cells. Swapping
+  bomb/monster slots at the same frame parity produces the same target trace.
+  `bomb_actor_order_observation` checks that evidence and explicitly reports
+  `cpp_damage_claim=0`. The current synthetic bomb tests still pin port policy;
+  they do not establish original explosion damage. Live flame propagation,
+  timing and damage integration remain to be recovered together.
 
 - `debris_shatter_dice_phase` — the port's `logicTick_` standing in for the
   original's `DS:78C2` in the landing-shatter dice `(frame + slot) % 6 > 2`.
@@ -61,7 +72,8 @@ That distinction should be stated wherever such a pin is registered.
 Values that are byte-cited or capture-backed do not belong here even when they
 look arbitrary — for example the `+0x40` gravity step, the `0x7b` debris
 gravity gate, the 14-tick behaviour-4 retarget period, the `ai1 = 271` velocity
-range, the 120-tick corpse hold and retirement at debris rest count 100 are all
+range, the phase-dependent 49/50-update normal corpse lifetime and retirement
+at debris rest count 100 are all
 established, and each has a diagnostic that would fail if it changed.
 
 Initial bomb pixels equaling the player's cached pixels are also established

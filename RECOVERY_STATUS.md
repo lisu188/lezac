@@ -1,8 +1,8 @@
 # Recovery Status
 
 Last reviewed: 2026-09-06
-Branch: `codex/recover-corpse-lifecycle` (validated integration batch)
-Baseline: `origin/main` at PR #211
+Branch: `codex/recover-monster-impact` (validated integration batch)
+Baseline: `origin/main` at PR #212
 
 ## Port Completion
 
@@ -18,10 +18,14 @@ continuous checkpoints, 1,789 reward states and 438 effect states. Shared actor 
 ordering, unrestricted interactions, and wider original-runtime comparisons
 still need work. Corpse lifecycle recovery adds 3,612 continuous checkpoints,
 including four original fatal conversions, 586 corpse states, 2,200 reward
-states and 1,104 effect states. All 438 headless tests and the separate
-interactive Xvfb test pass (439 total). The full headless run took 53.51
-seconds; the separate interactive test took 3.66 seconds. The full log is
-preserved at `build-codex-tmp/corpse-lifecycle-full-tests-passing.log`.
+states and 1,104 effect states. Impact recovery adds 143 continuous states
+and fixes nonfatal presentation and zero-based spawner HP conversion. A
+separate 50-state original trace refutes the immediate bomb-damage model;
+live explosion propagation and damage integration remain missing.
+All 442 headless tests and the separate interactive Xvfb test pass (443
+total). The full headless run took 51.78 seconds; the separate interactive
+test took 3.69 seconds. The full log is preserved at
+`build-codex-tmp/monster-impact-full-tests-passing.log`.
 There is no evidence-based overall completion percentage:
 passing-test percentage measures regression health, not recovered behavior.
 `--debug-port-completion-status` reports
@@ -31,6 +35,15 @@ passing-test percentage measures regression health, not recovered behavior.
 
 ## Current Recovery
 
+- Nonfatal impact now changes the displayed sprite while preserving the
+  animation cursor, with the original byte-counter rewind/wrap. Eleven
+  original cases match 143 continuous states, including 12 nonfatal hits,
+  40 living impact states and two fatal transitions. Spawner HP now maps
+  the original zero-based byte to remaining health correctly. The paired
+  original small-bomb trace shows delayed 4/6/2-point flame hits instead of
+  the port's immediate one-point hit. That explosion model is explicitly
+  open and machine-tracked, not promoted as C++ parity. See
+  [impact and bomb-damage evidence](docs/recovery/monster_impact_runtime_2026-09-06.md).
 - Normal corpse motion, half-rate countdown and four seeded kind-1 fatal
   conversions now match 12 complete original lifecycles. Fatal conversion
   preserves velocity/fractions after movement and yields a 49/50-update

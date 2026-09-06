@@ -77,7 +77,11 @@ Reward motion and expiry now have
 [nine continuous original replays](reward_lifecycle_runtime_2026-09-06.md).
 Normal corpse motion/countdown and seeded kind-1 fatal conversion now have
 [12 continuous original replays](corpse_lifecycle_runtime_2026-09-06.md).
-Natural bomb ordering and collection interactions still need recovery. This
+Nonfatal impact and zero-based HP conversion now have
+[143 continuous original states](monster_impact_runtime_2026-09-06.md).
+The same work captures delayed, repeated small-bomb flame damage that the
+port's immediate one-point hit does not implement. Live explosion propagation,
+damage timing and collection interactions still need recovery. This
 does not close the broader actor-pool or rendering fidelity gaps. There is no
 defensible overall completion percentage without an exhaustive behavior
 inventory; the test pass rate is not a completion metric.

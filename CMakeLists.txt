@@ -495,6 +495,36 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "frame_sequence=ok scenario=boss_level7_fight frames=6 size=320x200")
 
+    add_test(NAME boss_continuous_original
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-boss-continuous-original tests/fixtures/boss_continuous_original_level7.txt)
+    set_tests_properties(boss_continuous_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "boss_continuous_original=ok cases=3 samples=600 actor_states=4200 link_states=3600 effect_states=46 views=30 compared_pixels=1422720 different_pixels=0 seeded_case_boundary=1 per_tick_actor_seed=0 whole_game_parity=0")
+    add_test(NAME boss_continuous_near_original
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-boss-continuous-original tests/fixtures/boss_continuous_near_original_level7.txt)
+    set_tests_properties(boss_continuous_near_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "boss_continuous_original=ok cases=3 samples=600 actor_states=4200 link_states=3600 effect_states=46 views=30 compared_pixels=1422720 different_pixels=0 seeded_case_boundary=1 per_tick_actor_seed=0 whole_game_parity=0")
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME boss_continuous_capture_contract
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_boss_continuous.py --self-check)
+        set_tests_properties(boss_continuous_capture_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "boss_continuous_capture_self_check=ok windows=34 cases=3 samples=200 live=0")
+        add_test(NAME boss_continuous_fixture_guard
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_boss_continuous_fixture.py --exe $<TARGET_FILE:lezac_cpp>)
+        set_tests_properties(boss_continuous_fixture_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "boss_continuous_fixture=ok near=0 cases=3 samples=600 indexed_hashes=30 lf_crlf=1 truncations_rejected=2 mutations_rejected=86 no_output_files=1")
+        add_test(NAME boss_continuous_near_fixture_guard
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_boss_continuous_fixture.py --exe $<TARGET_FILE:lezac_cpp> --near)
+        set_tests_properties(boss_continuous_near_fixture_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "boss_continuous_fixture=ok near=1 cases=3 samples=600 indexed_hashes=30 lf_crlf=1 truncations_rejected=2 mutations_rejected=86 no_output_files=1")
+    endif()
+
     add_test(NAME level1_frame_inspection_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-level1-frame-inspection)
@@ -2676,7 +2706,7 @@ if(BUILD_TESTING)
     set_tests_properties(gran_boss_model PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^gran_boss_model=ok selector=1000:2c90 level7_bank=prova.spr anim_sets=0x0e:41..42,0x0f:43..44,0x10:40..40 boss_actors=7 head_visual=6 head_hp=10 head_lives=1 head_box=5x4 links=6 spring_links=2 orbit_links=4 actor=head:vis6:100,100:spr40 actor=segment:vis7:92,118:spr42 actor=segment:vis8:139,117:spr43 actor=segment:vis5:88,116:spr45 actor=segment:vis4:93,110:spr45 actor=segment:vis3:142,104:spr46 actor=segment:vis2:138,110:spr46 visual_rebase=2 runtime_actor_index_base=1 runtime_link_index_base=1 runtime_visual_count=9 original_runtime_placement_claim=1 original_runtime_timing_claim=0")
+            "^gran_boss_model=ok selector=1000:2c90 level7_bank=prova.spr anim_sets=0x0e:41..42,0x0f:43..44,0x10:40..40 boss_actors=7 head_visual=6 head_hp=10 head_lives=1 head_box=5x4 links=6 spring_links=2 orbit_links=4 actor=head:vis6:100,100:spr39 actor=segment:vis7:92,118:spr41 actor=segment:vis8:139,117:spr42 actor=segment:vis5:88,116:spr44 actor=segment:vis4:93,110:spr44 actor=segment:vis3:142,104:spr45 actor=segment:vis2:138,110:spr45 visual_rebase=2 runtime_actor_index_base=1 runtime_link_index_base=1 runtime_visual_count=9 original_runtime_placement_claim=1 original_runtime_timing_claim=0")
 
     add_test(NAME boss_runtime_evidence
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

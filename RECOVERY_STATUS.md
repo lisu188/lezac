@@ -1,8 +1,8 @@
 # Recovery Status
 
 Last reviewed: 2026-09-06
-Branch: `codex/recover-launch-marker-visuals` (integration batch)
-Baseline: `origin/main` at PR #221
+Branch: `codex/recover-boss-continuous-runtime` (integration batch)
+Baseline: `origin/main` at PR #222
 
 ## Port Completion
 
@@ -39,7 +39,7 @@ and 2,821,120 matching normalized pixels. Launch recovery adds 240 original
 views and 11,381,760 matching normalized pixels on levels 6/7. It fixes the
 visible marker, shared allocation limit, impulse ordering, fractional carry
 and level-7 player sprite bank. These are position/pool-seeded comparisons,
-not complete natural routes. Final Linux validation passes 487/487 tests in
+not complete natural routes. Launch-batch Linux validation passed 487/487 tests in
 100.14 seconds (`build-codex-tmp/launch-marker-final-tests.log`); the Windows
 launch/boss-focused checks pass 10/10 in 41.31 seconds.
 There is no evidence-based overall completion percentage:
@@ -51,6 +51,15 @@ passing-test percentage measures regression health, not recovered behavior.
 
 ## Current Recovery
 
+- Continuous boss recovery matches two 600-update original captures, including
+  shared-clock rollover, player contact damage and natural pickup effects.
+  It fixes the private boss clock, one-based sprite consumption and the
+  distinction between boss update order and visual-slot order. All 60
+  controlled views and 2,845,440 normalized pixels match. Complete boss
+  defeat, death/reentry and two-player combat remain open. See
+  [continuous boss evidence](docs/recovery/boss_continuous_runtime_2026-09-06.md).
+  Final validation passes 492/492 Linux tests in 158.00 seconds and 19/19
+  focused Windows tests in 74.92 seconds; both builds succeed.
 - The original Down input now launches after gravity, retaining player carry.
   The visible marker uses the original 9/10-update lifetime and 30-slot pool
   gate; rejection does not cancel launch or sound. Level-6/7 captures also

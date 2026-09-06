@@ -1,5 +1,10 @@
 # Level-7 Boss Head Routine (`1000:5CB0`)
 
+Follow-up: [continuous original replays](boss_continuous_runtime_2026-09-06.md)
+now confirm the shared-clock/motion path and correct the production clock,
+sprite indexing and draw order. Flame-driven defeat and the complete death
+chain below still need continuous original evidence.
+
 This is an instruction-level static control-flow map of the shipped routine,
 not yet a runtime-equivalence claim. The bytes were checked directly in
 `LEZAC.EXE`: MZ image base `0x0770`, function file range

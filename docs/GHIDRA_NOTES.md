@@ -1840,6 +1840,24 @@ commits the same pending score/name instead of discarding it.
 `RECS.DAT` converted resource shape, record/name/end-flow debug commands, CTest
 output contracts, and the `1000:1845..1ad4` / `1000:1b14..1d42` docs anchors.
 
+## Continuous Level-7 Boss Evidence
+
+The new `7EBB`/`6813`/`7A57` captures run all seven boss actors and six links
+continuously for two sets of 600 updates. The old `boss_lockstep_evidence`
+diagnostic restored actor/RNG/timer state before each transition, masking a
+private-clock error. `1000:5E59` reads shared `DS:78C2`, not an actor age;
+the production head now follows that 16-bit clock through rollover.
+
+GRAN.MST sprite/animation values are one-based descriptors. The constructor
+now converts them to zero-based decoded indexes and preserves static versus
+animated segments. Boss actor order `6,7,8,5,4,3,2` is not visual draw order:
+the driver draws increasing slots. Separate stable boss visual-order keys
+remove 3,941 near-encounter pixel differences without changing update order.
+All 60 controlled views now match 2,845,440 normalized pixels; player contact
+damage and naturally spawned pickup effects also match. Defeat, death/reentry
+and wider combat remain open. See
+[continuous boss evidence](recovery/boss_continuous_runtime_2026-09-06.md).
+
 ## Code Mapping
 
 - Level JSON loading: `loadLevels`; raw binary validation: `loadRawLevels`.

@@ -255,6 +255,16 @@ observed visibility and collection consumption. Global actor ordering,
 natural corpse physics and pixel fidelity remain open;
 `original_fidelity_claim=0` is unchanged.
 
+The subsequent [continuous boss recovery](boss_continuous_runtime_2026-09-06.md)
+adds two 600-update full production replays without per-tick actor/RNG/timer
+restoration. They fix the shared boss clock, one-based sprite indexes and
+boss visual-slot order. They match 8,400 boss states, 7,200 link states,
+92 pickup-effect states and 2,845,440 normalized pixels in 60 views, including
+contact damage. The older `boss_lockstep_evidence` name refers to a diagnostic
+that checks individually restored transitions, not full continuous gameplay.
+Boss defeat conversion, player death/reentry, longer natural combat and
+two-player interactions remain open.
+
 - `natural_forward_debris_writeback_3d2d` — natural forward debris writeback
   at `1000:3D2D`. **Now OBSERVED; the blend formula remains open.**
   This item was recorded as blocked because `3D2D` is an intra-frame staging

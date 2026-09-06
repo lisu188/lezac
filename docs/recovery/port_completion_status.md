@@ -1,6 +1,6 @@
 # Port Completion Status
 
-Last reviewed: 2026-09-05
+Last reviewed: 2026-09-06
 
 The C++17/SDL2 reconstruction of `LEZAC.EXE` is not yet functionally complete.
 The earlier claim was based on a subsystem inventory and compatible tests,
@@ -73,7 +73,9 @@ evidence. Pickup/fracture transients now have focused original replays; see
 [transient actor evidence](transient_actors_runtime_2026-09-05.md). Normal
 corpse-expiry particles and fading actors also have
 [focused original replays](monster_death_transients_runtime_2026-09-05.md).
-Full corpse countdown and reward motion still need recovery. This does
+Reward motion and expiry now have
+[nine continuous original replays](reward_lifecycle_runtime_2026-09-06.md).
+Full corpse countdown and natural collection interactions still need recovery. This does
 not close the broader actor-pool or rendering fidelity gaps. There is no
 defensible overall completion percentage without an exhaustive behavior
 inventory; the test pass rate is not a completion metric.
@@ -197,22 +199,26 @@ sample taken from one complete 64 KiB data-segment read. The frame-257
 pre-impact checkpoint is sprite `44`; the authoritative pre-fatal run is
 `pre_sprite_runs=44x4,43x2`, so `last_pre_fatal_sprite=43` before sprite `47`
 appears on the fatal tick (`impact_equals_death=1`). The trace also proves a
-49-original-tick corpse interval normalized to 120 port engine frames, delayed
+49-original-tick corpse interval (the historical port used 120 frames; current
+C++ uses 49), delayed
 Present reward sprite `61`, 54 observed original ticks of reward visibility,
 and a `+2000` collection. That reward runtime claim is limited to the observed
-Present/sprite `61`; sprites `62..67` retain static table evidence. The six
+Present/sprite `61`; the later seeded reward-lifecycle replay covers motion
+for all seven types, not natural selection or collection for all types. The six
 Present-expiry draws are pinned in order as `59`, `13`, `389`, `136`, `443`,
 and `168`, advancing RNG state from `0x90e25b93` to `0x0a08326d`. The captured
 route input and player position are explicitly exogenous; the raw actor and
 visual rows, timing, RNG, and score transitions are authoritative. The
 fixture and production-path diagnostic report `original_runtime_claim=1` and
-`visual_claim=0`. The final four draws describe two transition-effect actors
-that the port consumes but does not yet instantiate or render, so neither the
-visual claim nor the global original-fidelity claim is promoted. The original
+`visual_claim=0`. The final four draws describe two transition-effect actors,
+now instantiated and rendered by the death-effect recovery. The original
 Present row also carries timer byte `+2 = 100`, initial vertical velocity
-`-200`, and subsequent observed motion, while the port's `BonusDrop` remains
-static. This resolution promotes Present sprite identity, observed visibility,
-and collection consumption, not exact reward physics or presentation.
+`-200`, and subsequent observed motion. The newer reward-lifecycle replay
+linked above verifies those physics, countdown and fade states continuously.
+The older trace's own promotion remains limited to Present sprite identity,
+observed visibility and collection consumption. Global actor ordering,
+natural corpse physics and pixel fidelity remain open;
+`original_fidelity_claim=0` is unchanged.
 
 - `natural_forward_debris_writeback_3d2d` — natural forward debris writeback
   at `1000:3D2D`. **Now OBSERVED; the blend formula remains open.**

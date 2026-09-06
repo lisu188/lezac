@@ -40,6 +40,27 @@ PROBES = (
     ("no_reward_pool30", 0, 30, 1),
     ("no_reward_fraction", 0, 1, 1),
 )
+REWARD_PROBES = (
+    ("expiry_even", 0x90E25B93, 1, 0),
+    ("expiry_odd", 0x90E25B93, 1, 1),
+    *((f"kind_{kind}", 0x12345678, 1, kind % 2) for kind in range(7)),
+)
+REWARD_MOTION = (
+    (336, 174, 0, -200),
+    (336, 130, 389, -800),
+    (430, 174, 600, -200),
+    (336, 174, -300, -200),
+    (336, 30, 0, 2040),
+    (336, 174, 0, -1900),
+    (440, 174, 1800, -200),
+)
+REWARD_WINDOWS = {
+    0x7018: bytes.fromhex("3c02753f807edf00"),
+    0x75A7: bytes.fromhex("a1c278250100c47e0426284502"),
+    0x76DE: bytes.fromhex("26c6450264"),
+    0x76EE: bytes.fromhex("26816d08c800"),
+    0x7644: bytes.fromhex("a06c008846ee"),
+}
 
 
 def trampoline(stage: int, image: bytes) -> bytes:
@@ -60,7 +81,9 @@ def trampoline(stage: int, image: bytes) -> bytes:
     return bytes(code)
 
 
-def capture(pid: int, base: int, output: Path, image: bytes) -> None:
+def capture(pid: int, base: int, output: Path, image: bytes, reward_lifecycle=False) -> None:
+    probes = REWARD_PROBES if reward_lifecycle else PROBES
+    sample_count = 241 if reward_lifecycle else 41
     cs, ds = base + (CS << 4), base + (seeder.RUNTIME_DS << 4)
     with open(f"/proc/{pid}/mem", "r+b", buffering=0) as mem:
         def read(address, count):
@@ -94,7 +117,7 @@ def capture(pid: int, base: int, output: Path, image: bytes) -> None:
         def release(stage):
             write(cs + SCRATCH + 14, struct.pack("<H", stage))
 
-        for at, expected in WINDOWS.items():
+        for at, expected in (WINDOWS | (REWARD_WINDOWS if reward_lifecycle else {})).items():
             if read(cs + at, len(expected)) != expected:
                 raise RuntimeError(f"runtime instruction mismatch at {at:04x}")
         if read(cs + 0xF400, 0x212) != bytes(0x212):
@@ -117,15 +140,26 @@ def capture(pid: int, base: int, output: Path, image: bytes) -> None:
         lines = ["# Seeded original actor-pass probes; no natural-route or pixel-parity claim.",
                  "# executable_sha256=" + hashlib.sha256((Path(__file__).resolve().parent.parent / "LEZAC.EXE").read_bytes()).hexdigest(),
                  "# register_order=cs,ds,es,ss,saved-sp,bp little_endian_words=1",
-                 "capture=death_transients_original_v1 seeded=1 temp_copy=1 spawners=0 player=240,168",
+                 f"capture={'reward_lifecycle' if reward_lifecycle else 'death_transients'}_original_v1"
+                 " seeded=1 temp_copy=1 spawners=0 player=240,168",
                  f"sprites descriptors={read(ds + 0xC322, 92 * 4).hex()}"]
-        for name, seed, count, parity in PROBES:
+        for name, seed, count, parity in probes:
             while word(ds + 0x78C2) % 2 != parity:
                 release(1)
                 wait(2)
                 release(2)
                 regs = wait(1)
             corpse = bytearray.fromhex("0c0200010200000000000000000023010000000006022c2c2dff030001000000000000000101")
+            x, y, sprite = 336, 174, 48
+            if reward_lifecycle:
+                corpse[10], corpse[12] = 0x9a, 0x4e
+                if name.startswith("kind_"):
+                    kind = int(name.removeprefix("kind_"))
+                    x, y, vx, vy = REWARD_MOTION[kind]
+                    corpse[0], corpse[2] = 0x13 + kind, 100
+                    struct.pack_into("<hh", corpse, 6, vx, vy)
+                    sprite = 62 + kind
+                    corpse[0x14] = 16 - read(ds + 0xC322 + sprite * 4 + 1, 1)[0]
             if name == "no_reward_fraction":
                 corpse[10], corpse[12] = 0x9a, 0x4e
             filler = bytearray(38)
@@ -135,7 +169,7 @@ def capture(pid: int, base: int, output: Path, image: bytes) -> None:
             write(ds + 0x208E, bytes(1))
             write(ds + 0xC496, bytes([count + 2]))
             write(ds + 0x1BAE + 38, corpse)
-            write(ds + 0xC21E + 16, struct.pack("<HH", 336, 174) + read(ds + 0xC322 + 48 * 4, 4))
+            write(ds + 0xC21E + 16, struct.pack("<HH", x, y) + read(ds + 0xC322 + sprite * 4, 4))
             for slot in range(2, count + 1):
                 filler[1] = slot + 1
                 write(ds + 0x1BAE + slot * 38, filler)
@@ -146,8 +180,8 @@ def capture(pid: int, base: int, output: Path, image: bytes) -> None:
             write(ds + 0x207E, struct.pack("<H", 199))
             write(ds + 0xC21E, struct.pack("<HH", 240, 168))
             lines.append(f"case name={name} rng={seed:08x} count={count} parity={parity}"
-                         f" corpse={corpse.hex()} x=336 y=174 regs={regs}")
-            for sample in range(41):
+                         f" corpse={corpse.hex()} x={x} y={y} regs={regs}")
+            for sample in range(sample_count):
                 frame = word(ds + 0x78C2)
                 release(1)
                 after_regs = wait(2)
@@ -160,7 +194,7 @@ def capture(pid: int, base: int, output: Path, image: bytes) -> None:
                 for slot in range(1, actor_count + 1):
                     actor = read(ds + 0x1BAE + slot * 38, 38)
                     visual = read(ds + 0xC21E + actor[1] * 8, 8)
-                    if struct.unpack_from("<H", visual)[0] == 440:
+                    if not reward_lifecycle and struct.unpack_from("<H", visual)[0] == 440:
                         continue
                     row = f"{actor.hex()}:{visual.hex()}"
                     if actor[0x15] == 5:
@@ -172,16 +206,18 @@ def capture(pid: int, base: int, output: Path, image: bytes) -> None:
                 lines.append(f"tick sample={sample} frame={frame} count={actor_count}"
                              f" rng={read(ds + 0x1AFE, 4).hex()} effects={','.join(effects) or '-'}"
                              f" rewards={','.join(rewards) or '-'} regs={after_regs}")
-                if name == "reward_odd" and sample in (1, 5, 10, 20, 30):
+                screenshot = (name == "reward_odd" and sample in (1, 5, 10, 20, 30)) or (
+                    reward_lifecycle and name in ("expiry_odd", "kind_1") and sample in (1, 10, 40, 199, 210, 235))
+                if screenshot:
                     window = subprocess.check_output(["xdotool", "search", "--name", "DOSBox"], text=True).split()[-1]
                     subprocess.run(["import", "-window", window,
                         str(output.with_name(f"{output.stem}_{name}_{sample:03d}.png"))], check=True, timeout=5)
                 release(2)
                 regs = wait(1)
-            lines.append("end samples=41")
+            lines.append(f"end samples={sample_count}")
             output.write_text("\n".join(lines) + "\n", encoding="ascii")
-            print(f"death_transients_original={name} samples=41", flush=True)
-        lines.append(f"complete cases={len(PROBES)}")
+            print(f"death_transients_original={name} samples={sample_count}", flush=True)
+        lines.append(f"complete cases={len(probes)}")
         output.write_text("\n".join(lines) + "\n", encoding="ascii")
         for entry, length in HOOKS:
             write(cs + entry, image[entry:entry + length])
@@ -191,6 +227,7 @@ def capture(pid: int, base: int, output: Path, image: bytes) -> None:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--self-check", action="store_true")
+    parser.add_argument("--reward-lifecycle", action="store_true")
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--out", type=Path)
     parser.add_argument("--approve-procmem", action="store_true")
@@ -198,12 +235,14 @@ def main():
     args = parser.parse_args()
     exe = (Path(__file__).resolve().parent.parent / "LEZAC.EXE").read_bytes()
     image = exe[0x770:]
-    for at, expected in WINDOWS.items():
+    windows = WINDOWS | (REWARD_WINDOWS if args.reward_lifecycle else {})
+    for at, expected in windows.items():
         if image[at:at + len(expected)] != expected:
             raise RuntimeError(f"instruction mismatch at 1000:{at:04x}")
     for stage in (1, 2):
         trampoline(stage, image)
-    print(f"death_transients_capture_self_check=ok windows={len(WINDOWS)} cases={len(PROBES)} live=0"
+    print(f"death_transients_capture_self_check=ok windows={len(windows)}"
+          f" cases={len(REWARD_PROBES if args.reward_lifecycle else PROBES)} live=0"
           f" executable_sha256={hashlib.sha256(exe).hexdigest()}", flush=True)
     if args.self_check:
         return 0
@@ -220,7 +259,7 @@ def main():
     original = seeder.write_runtime_state_snapshot
     def hook(run_dir, pid, base, state, phase):
         if phase == "pre_capture":
-            capture(pid, base, args.out, image)
+            capture(pid, base, args.out, image, args.reward_lifecycle)
         return original(run_dir, pid, base, state, phase)
     seeder.write_runtime_state_snapshot = hook
     sys.argv = ["seed_original_level.py", "--run-dir", str(args.run_dir), "--target-level", "1",

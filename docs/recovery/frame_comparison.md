@@ -113,18 +113,19 @@ summary reports nine frames total:
 | `010_monster_bomb_start` | Level 1 started. |
 | `020_monster_bomb_armed` | Bomb armed with the seeded kind-1 target on sprite `44`, matching the original frame-257 checkpoint identity. |
 | `025_monster_bomb_last_pre_fatal` | Same target on sprite `43`, the authoritative last pre-fatal sprite after the original `44x4,43x2` run. |
-| `030_monster_bomb_death` | Production damage enters kind `0x0c`, state 2, corpse sprite `47`, timer 120; no reward exists yet and `impact_equals_death=1`. |
-| `040_monster_bomb_corpse_midpoint` | Corpse sprite `47` at timer 60. |
+| `030_monster_bomb_death` | Production damage enters kind `0x0c`, state 2, corpse sprite `47`, timer 49; no reward exists yet and `impact_equals_death=1`. |
+| `040_monster_bomb_corpse_midpoint` | Corpse sprite `47` at timer 24. |
 | `050_monster_bomb_corpse_last` | Final corpse sprite `47` frame at timer 1. |
 | `060_monster_bomb_reward_visible` | The next update removes the corpse and creates delayed Present sprite `61`; score is unchanged. |
 | `070_monster_bomb_reward_collected` | Collection removes the Present and adds 2000 points. |
 
 These frames verify the current port's production damage, timer, renderer,
 reward creation, and collection consumers. They do not promote exact original
-reward physics or presentation: the original Present row has timer byte
-`+2 = 100`, initial vertical velocity `-200`, and subsequent motion, while the
-port's `BonusDrop` is static. The sequence therefore reports
-`reward_motion_claim=0` and `visual_claim=0`.
+reward physics or presentation. This historical sequence reports
+`reward_motion_claim=0` and `visual_claim=0`; the separate
+[reward-lifecycle replay](reward_lifecycle_runtime_2026-09-06.md) now verifies
+continuous physics, timer and fade states for seven reward types. It does not
+promote the older route's pixel or natural-interaction claims.
 
 The DOSBox capture driver attempts to write the same labels for
 `level1_bomb_route` without the `.ppm` extension:
@@ -205,8 +206,8 @@ position are exogenous. At capture time, C++ used 120 corpse frames and
 omitted the transition actors. Later work corrected the visible corpse span
 to 49 frames; the 2026-09-05
 [death-effect recovery](monster_death_transients_runtime_2026-09-05.md) adds
-the missing particles and fade. The Present is still static rather than
-matching the original timer/motion. Consequently the fixture and C++ harness
+the missing particles and fade. The 2026-09-06 reward-lifecycle recovery
+replaces static rewards with original timer/motion/fade behavior. The older fixture and C++ harness
 remain `visual_claim=0`; compare their semantic sprite/timer/reward checkpoints
 side by side without treating the images as an exact pixel-fidelity promotion.
 

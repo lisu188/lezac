@@ -61,6 +61,26 @@ REWARD_WINDOWS = {
     0x76EE: bytes.fromhex("26816d08c800"),
     0x7644: bytes.fromhex("a06c008846ee"),
 }
+CORPSE_MOTION = {
+    "ground_even": (336, 174, 0, 0, 0x90E25B93, 0),
+    "ground_odd": (336, 174, 0, 0, 0x90E25B93, 1),
+    "air_even": (336, 130, 389, -800, 0x90E25B93, 0),
+    "air_odd": (336, 130, 389, -800, 0x90E25B93, 1),
+    "wall": (430, 174, 600, -200, 0x90E25B93, 0),
+    "left": (336, 174, -300, -200, 0x90E25B93, 1),
+    "terminal": (336, 30, 0, 2040, 0x90E25B93, 0),
+    "no_reward": (336, 174, 0, 0, 0, 1),
+    "fatal_ground_even": (336, 174, 208, 0, 0x90E25B93, 0),
+    "fatal_ground_odd": (336, 174, 208, 0, 0x90E25B93, 1),
+    "fatal_air_even": (336, 130, 389, -800, 0x90E25B93, 0),
+    "fatal_air_odd": (336, 130, 389, -800, 0x90E25B93, 1),
+}
+CORPSE_PROBES = tuple((name, spec[4], 1, spec[5]) for name, spec in CORPSE_MOTION.items())
+CORPSE_WINDOWS = {
+    0x74BB: bytes.fromhex("c47e0426c6451b00"),
+    0x74CC: bytes.fromhex("c47ec626c6451502c47ec626c6050cc47ec626c6450219"),
+    0x56B6: bytes.fromhex("c6061e6600b90400"),
+}
 
 
 def trampoline(stage: int, image: bytes) -> bytes:
@@ -81,9 +101,10 @@ def trampoline(stage: int, image: bytes) -> bytes:
     return bytes(code)
 
 
-def capture(pid: int, base: int, output: Path, image: bytes, reward_lifecycle=False) -> None:
-    probes = REWARD_PROBES if reward_lifecycle else PROBES
-    sample_count = 241 if reward_lifecycle else 41
+def capture(pid: int, base: int, output: Path, image: bytes, reward_lifecycle=False, corpse_lifecycle=False) -> None:
+    probes = CORPSE_PROBES if corpse_lifecycle else REWARD_PROBES if reward_lifecycle else PROBES
+    sample_count = 301 if corpse_lifecycle else 241 if reward_lifecycle else 41
+    lifecycle = reward_lifecycle or corpse_lifecycle
     cs, ds = base + (CS << 4), base + (seeder.RUNTIME_DS << 4)
     with open(f"/proc/{pid}/mem", "r+b", buffering=0) as mem:
         def read(address, count):
@@ -117,7 +138,8 @@ def capture(pid: int, base: int, output: Path, image: bytes, reward_lifecycle=Fa
         def release(stage):
             write(cs + SCRATCH + 14, struct.pack("<H", stage))
 
-        for at, expected in (WINDOWS | (REWARD_WINDOWS if reward_lifecycle else {})).items():
+        windows = WINDOWS | (REWARD_WINDOWS if lifecycle else {}) | (CORPSE_WINDOWS if corpse_lifecycle else {})
+        for at, expected in windows.items():
             if read(cs + at, len(expected)) != expected:
                 raise RuntimeError(f"runtime instruction mismatch at {at:04x}")
         if read(cs + 0xF400, 0x212) != bytes(0x212):
@@ -136,14 +158,24 @@ def capture(pid: int, base: int, output: Path, image: bytes, reward_lifecycle=Fa
         finally:
             os.kill(pid, signal.SIGCONT)
         regs = wait(1)
+        actual_cs = struct.unpack_from("<H", bytes.fromhex(regs))[0]
+        objects = cs - (actual_cs << 4) + (word(ds + 0xC1FE) << 4)
+        width = word(ds + 0xC204)
+        if width != 60:
+            raise RuntimeError("unexpected level width")
+        seeded_tile = None
         write(ds + 0x79A6, bytes(1))
         lines = ["# Seeded original actor-pass probes; no natural-route or pixel-parity claim.",
                  "# executable_sha256=" + hashlib.sha256((Path(__file__).resolve().parent.parent / "LEZAC.EXE").read_bytes()).hexdigest(),
                  "# register_order=cs,ds,es,ss,saved-sp,bp little_endian_words=1",
-                 f"capture={'reward_lifecycle' if reward_lifecycle else 'death_transients'}_original_v1"
+                 f"capture={'corpse_lifecycle' if corpse_lifecycle else 'reward_lifecycle' if reward_lifecycle else 'death_transients'}_original_v1"
                  " seeded=1 temp_copy=1 spawners=0 player=240,168",
                  f"sprites descriptors={read(ds + 0xC322, 92 * 4).hex()}"]
         for name, seed, count, parity in probes:
+            if seeded_tile is not None:
+                cell, value = seeded_tile
+                write(objects + cell, value)
+                seeded_tile = None
             while word(ds + 0x78C2) % 2 != parity:
                 release(1)
                 wait(2)
@@ -151,7 +183,7 @@ def capture(pid: int, base: int, output: Path, image: bytes, reward_lifecycle=Fa
                 regs = wait(1)
             corpse = bytearray.fromhex("0c0200010200000000000000000023010000000006022c2c2dff030001000000000000000101")
             x, y, sprite = 336, 174, 48
-            if reward_lifecycle:
+            if lifecycle:
                 corpse[10], corpse[12] = 0x9a, 0x4e
                 if name.startswith("kind_"):
                     kind = int(name.removeprefix("kind_"))
@@ -160,6 +192,17 @@ def capture(pid: int, base: int, output: Path, image: bytes, reward_lifecycle=Fa
                     struct.pack_into("<hh", corpse, 6, vx, vy)
                     sprite = 62 + kind
                     corpse[0x14] = 16 - read(ds + 0xC322 + sprite * 4 + 1, 1)[0]
+                elif corpse_lifecycle:
+                    x, y, vx, vy, _, _ = CORPSE_MOTION[name]
+                    struct.pack_into("<hh", corpse, 6, vx, vy)
+                    corpse[2], corpse[0x25] = 25, 0
+                    if name.startswith("fatal_"):
+                        corpse[0], corpse[2], corpse[0x15], corpse[0x24] = 1, 0, 3, 0
+                        struct.pack_into("<H", corpse, 0x0e, 208)
+                        sprite = 44
+                        cell = ((y - 6) >> 3) * width + ((x + 4) >> 3)
+                        seeded_tile = (cell, read(objects + cell, 1))
+                        write(objects + cell, b"\x75")
             if name == "no_reward_fraction":
                 corpse[10], corpse[12] = 0x9a, 0x4e
             filler = bytearray(38)
@@ -180,7 +223,8 @@ def capture(pid: int, base: int, output: Path, image: bytes, reward_lifecycle=Fa
             write(ds + 0x207E, struct.pack("<H", 199))
             write(ds + 0xC21E, struct.pack("<HH", 240, 168))
             lines.append(f"case name={name} rng={seed:08x} count={count} parity={parity}"
-                         f" corpse={corpse.hex()} x={x} y={y} regs={regs}")
+                         f" corpse={corpse.hex()} x={x} y={y} regs={regs}"
+                         + (f" damage_cell={seeded_tile[0] if seeded_tile else -1}" if corpse_lifecycle else ""))
             for sample in range(sample_count):
                 frame = word(ds + 0x78C2)
                 release(1)
@@ -190,24 +234,28 @@ def capture(pid: int, base: int, output: Path, image: bytes, reward_lifecycle=Fa
                 actor_count = read(ds + 0x208D, 1)[0]
                 if actor_count > 30:
                     raise RuntimeError("actor count exceeds original pool")
-                effects, rewards = [], []
+                effects, rewards, corpses = [], [], []
                 for slot in range(1, actor_count + 1):
                     actor = read(ds + 0x1BAE + slot * 38, 38)
                     visual = read(ds + 0xC21E + actor[1] * 8, 8)
-                    if not reward_lifecycle and struct.unpack_from("<H", visual)[0] == 440:
+                    if not lifecycle and struct.unpack_from("<H", visual)[0] == 440:
                         continue
                     row = f"{actor.hex()}:{visual.hex()}"
                     if actor[0x15] == 5:
                         effects.append(row)
                     elif 0x13 <= actor[0] <= 0x19:
                         rewards.append(row)
+                    elif corpse_lifecycle and actor[0] == 0x0c and actor[0x15] == 2:
+                        corpses.append(row)
                     else:
                         raise RuntimeError(f"unexpected post-expiry actor {actor.hex()}")
                 lines.append(f"tick sample={sample} frame={frame} count={actor_count}"
                              f" rng={read(ds + 0x1AFE, 4).hex()} effects={','.join(effects) or '-'}"
-                             f" rewards={','.join(rewards) or '-'} regs={after_regs}")
+                             f" rewards={','.join(rewards) or '-'} regs={after_regs}"
+                             + (f" corpses={','.join(corpses) or '-'}" if corpse_lifecycle else ""))
                 screenshot = (name == "reward_odd" and sample in (1, 5, 10, 20, 30)) or (
-                    reward_lifecycle and name in ("expiry_odd", "kind_1") and sample in (1, 10, 40, 199, 210, 235))
+                    reward_lifecycle and name in ("expiry_odd", "kind_1") and sample in (1, 10, 40, 199, 210, 235)) or (
+                    corpse_lifecycle and name in ("air_odd", "fatal_air_odd") and sample in (1, 10, 40, 49, 51, 60, 260))
                 if screenshot:
                     window = subprocess.check_output(["xdotool", "search", "--name", "DOSBox"], text=True).split()[-1]
                     subprocess.run(["import", "-window", window,
@@ -219,6 +267,9 @@ def capture(pid: int, base: int, output: Path, image: bytes, reward_lifecycle=Fa
             print(f"death_transients_original={name} samples={sample_count}", flush=True)
         lines.append(f"complete cases={len(probes)}")
         output.write_text("\n".join(lines) + "\n", encoding="ascii")
+        if seeded_tile is not None:
+            cell, value = seeded_tile
+            write(objects + cell, value)
         for entry, length in HOOKS:
             write(cs + entry, image[entry:entry + length])
         release(1)
@@ -227,7 +278,9 @@ def capture(pid: int, base: int, output: Path, image: bytes, reward_lifecycle=Fa
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--self-check", action="store_true")
-    parser.add_argument("--reward-lifecycle", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--reward-lifecycle", action="store_true")
+    mode.add_argument("--corpse-lifecycle", action="store_true")
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--out", type=Path)
     parser.add_argument("--approve-procmem", action="store_true")
@@ -235,14 +288,14 @@ def main():
     args = parser.parse_args()
     exe = (Path(__file__).resolve().parent.parent / "LEZAC.EXE").read_bytes()
     image = exe[0x770:]
-    windows = WINDOWS | (REWARD_WINDOWS if args.reward_lifecycle else {})
+    windows = WINDOWS | (REWARD_WINDOWS if args.reward_lifecycle or args.corpse_lifecycle else {}) | (CORPSE_WINDOWS if args.corpse_lifecycle else {})
     for at, expected in windows.items():
         if image[at:at + len(expected)] != expected:
             raise RuntimeError(f"instruction mismatch at 1000:{at:04x}")
     for stage in (1, 2):
         trampoline(stage, image)
     print(f"death_transients_capture_self_check=ok windows={len(windows)}"
-          f" cases={len(REWARD_PROBES if args.reward_lifecycle else PROBES)} live=0"
+          f" cases={len(CORPSE_PROBES if args.corpse_lifecycle else REWARD_PROBES if args.reward_lifecycle else PROBES)} live=0"
           f" executable_sha256={hashlib.sha256(exe).hexdigest()}", flush=True)
     if args.self_check:
         return 0
@@ -259,7 +312,7 @@ def main():
     original = seeder.write_runtime_state_snapshot
     def hook(run_dir, pid, base, state, phase):
         if phase == "pre_capture":
-            capture(pid, base, args.out, image, args.reward_lifecycle)
+            capture(pid, base, args.out, image, args.reward_lifecycle, args.corpse_lifecycle)
         return original(run_dir, pid, base, state, phase)
     seeder.write_runtime_state_snapshot = hook
     sys.argv = ["seed_original_level.py", "--run-dir", str(args.run_dir), "--target-level", "1",

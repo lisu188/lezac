@@ -323,7 +323,7 @@ if(BUILD_TESTING)
     set_tests_properties(frame_sequence_capture_monster_bomb_reward_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^frame_sequence=ok scenario=monster_bomb_reward frames=9 size=320x200 pre_sprite=44 last_pre_fatal_sprite=43 pre_sprite_runs=44x4,43x2 corpse_sprite=47 corpse_ticks=49 delayed_reward=1 reward_sprite=61 reward_type=present score_delta=2000 original_runtime_claim=1 reward_motion_claim=0 visual_claim=0")
+            "^frame_sequence=ok scenario=monster_bomb_reward frames=9 size=320x200 pre_sprite=44 last_pre_fatal_sprite=43 pre_sprite_runs=44x4,43x2 corpse_sprite=47 corpse_ticks=50 delayed_reward=1 reward_sprite=61 reward_type=present score_delta=2000 original_runtime_claim=1 reward_motion_claim=0 visual_claim=0")
 
     add_test(NAME frame_sequence_capture_monster_spawner_behavior4_level2_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -453,7 +453,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_monster_bomb_reward_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=monster_bomb_reward monster_dead=1 pre_sprite=44 last_pre_fatal_sprite=43 pre_sprite_runs=44x4,43x2 corpse_sprite=47 corpse_ticks=49 delayed_reward=1 reward_sprite=61 reward_collected=1 score_delta=2000 frames_inspected=7 frame_inspection=1 original_runtime_claim=1 reward_motion_claim=0 visual_claim=0")
+            "^autoplayer=ok scenario=monster_bomb_reward monster_dead=1 pre_sprite=44 last_pre_fatal_sprite=43 pre_sprite_runs=44x4,43x2 corpse_sprite=47 corpse_ticks=50 delayed_reward=1 reward_sprite=61 reward_collected=1 score_delta=2000 frames_inspected=7 frame_inspection=1 original_runtime_claim=1 reward_motion_claim=0 visual_claim=0")
 
     add_test(NAME autoplayer_monster_behavior3_multihit_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -3580,7 +3580,7 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
         PASS_REGULAR_EXPRESSION
-            "^monster_impact_sprites=ok table=ds:0x0077[+]kind[*]2[+]dir dir_rule=vx>0 ghidra=1000:745b cases=k1_vx_neg,k1_vx_pos,k1_band_left_vx_pos,k1_band_right_vx_neg,k1_vx_zero,k2,k3,k4 corpse_sprites=47,48,48,47,47,42,52,56 held_ticks=49,49,49,49,49,49,49,49 capture_frames=357[.][.]405 band_independent=1 visual_claim=0")
+            "^monster_impact_sprites=ok table=ds:0x0077[+]kind[*]2[+]dir dir_rule=vx>0 ghidra=1000:745b cases=k1_vx_neg,k1_vx_pos,k1_band_left_vx_pos,k1_band_right_vx_neg,k1_vx_zero,k2,k3,k4 corpse_sprites=47,48,48,47,47,42,52,56 held_ticks=50,50,50,50,50,50,50,50 capture_frames=357[.][.]405 band_independent=1 visual_claim=0")
 
     if(Python3_Interpreter_FOUND)
         add_test(NAME monster_impact_fixture_newlines
@@ -3783,7 +3783,7 @@ if(BUILD_TESTING)
     set_tests_properties(monster_bomb_kill_live PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^monster_bomb_kill_live=ok bomb_type=4 damage=4 pre_sprite=44 last_pre_fatal_sprite=43 pre_sprite_runs=44x4,43x2 corpse_sprite=48 corpse_ticks=49 delayed_reward=1 reward_sprite=61 killed=1 removed=1 reward=1 collected=1 score_delta=2000 frames_inspected=7 frame_inspection=1 original_runtime_claim=1 reward_motion_claim=0 visual_claim=0")
+            "^monster_bomb_kill_live=ok bomb_type=4 damage=4 pre_sprite=44 last_pre_fatal_sprite=43 pre_sprite_runs=44x4,43x2 corpse_sprite=48 corpse_ticks=50 delayed_reward=1 reward_sprite=61 killed=1 removed=1 reward=1 collected=1 score_delta=2000 frames_inspected=7 frame_inspection=1 original_runtime_claim=1 reward_motion_claim=0 visual_claim=0")
 
     add_test(NAME player_damage_death_live
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -3912,6 +3912,26 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^reward_lifecycle_fixture=ok lf=1 crlf=1 truncated_rejected=1 velocity_mutation_rejected=1 no_output_files=1")
 
+    add_test(NAME corpse_lifecycle_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-corpse-lifecycle-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/corpse_lifecycle_original.txt)
+    set_tests_properties(corpse_lifecycle_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^corpse_lifecycle_original=ok cases=12 samples=3612 effect_states=1104 reward_presence_states=2200 seeded=1 reward_creation_deferred=1 inherited_fraction=1 retired=1 reward_motion_claim=1 corpse_states=586 fatal_cases=4 corpse_motion_claim=1 frame_inspection=1")
+
+    add_test(NAME corpse_lifecycle_capture_contract
+        COMMAND ${Python3_EXECUTABLE} tools/capture_original_death_transients.py --corpse-lifecycle --self-check)
+    set_tests_properties(corpse_lifecycle_capture_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^death_transients_capture_self_check=ok windows=15 cases=12 live=0")
+
+    add_test(NAME corpse_lifecycle_fixture
+        COMMAND ${Python3_EXECUTABLE} tools/check_death_transients_fixture.py --corpse-lifecycle --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(corpse_lifecycle_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^corpse_lifecycle_fixture=ok lf=1 crlf=1 truncated_rejected=1 timer_mutation_rejected=1 no_output_files=1")
+
     add_test(NAME transient_actor_limits
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-transient-actor-limits)
     set_tests_properties(transient_actor_limits PROPERTIES
@@ -3945,7 +3965,7 @@ if(BUILD_TESTING)
     set_tests_properties(monster_sprite_consumption_evidence PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^monster_sprite_consumption_evidence=ok fixture=level1 ticks=110 frames=257..366 checkpoints=5 actor_rows=109/109 visual_rows=109/109 descriptor_match=1 pre_sprite=44 last_pre_fatal_sprite=43 pre_sprite_runs=44x4,43x2 impact_sprite=47 impact_equals_death=1 death_sprite_runs=47x49 death_ticks=49 replayed_death_ticks=49 reward_sprite=61 reward_visible_ticks=54 reward_actor_timer=100 reward_initial_vy=-200 reward_next_vy=-136 reward_y_step=-1 reward_motion_observed=1 score_delta=2000 rng_transitions=1/1 exogenous_input=110 exogenous_position=110 production_damage=1 production_death_timer=1 production_renderer=1 production_reward=1 production_collection=1 impact_confirmed=1 death_confirmed=1 reward_confirmed=1 original_runtime_claim=1 reward_motion_claim=0 visual_claim=0")
+            "^monster_sprite_consumption_evidence=ok fixture=level1 ticks=110 frames=257..366 checkpoints=5 actor_rows=109/109 visual_rows=109/109 descriptor_match=1 pre_sprite=44 last_pre_fatal_sprite=43 pre_sprite_runs=44x4,43x2 impact_sprite=47 impact_equals_death=1 death_sprite_runs=47x49 death_ticks=49 replayed_death_ticks=50 reward_sprite=61 reward_visible_ticks=54 reward_actor_timer=100 reward_initial_vy=-200 reward_next_vy=-136 reward_y_step=-1 reward_motion_observed=1 score_delta=2000 rng_transitions=1/1 exogenous_input=110 exogenous_position=110 production_damage=1 production_death_timer=1 production_renderer=1 production_reward=1 production_collection=1 impact_confirmed=1 death_confirmed=1 reward_confirmed=1 original_runtime_claim=1 reward_motion_claim=0 visual_claim=0")
 
     if(Python3_Interpreter_FOUND)
         add_test(NAME behavior4_lockstep_guard

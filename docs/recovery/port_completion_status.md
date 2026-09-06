@@ -75,8 +75,10 @@ corpse-expiry particles and fading actors also have
 [focused original replays](monster_death_transients_runtime_2026-09-05.md).
 Reward motion and expiry now have
 [nine continuous original replays](reward_lifecycle_runtime_2026-09-06.md).
-Full corpse countdown and natural collection interactions still need recovery. This does
-not close the broader actor-pool or rendering fidelity gaps. There is no
+Normal corpse motion/countdown and seeded kind-1 fatal conversion now have
+[12 continuous original replays](corpse_lifecycle_runtime_2026-09-06.md).
+Natural bomb ordering and collection interactions still need recovery. This
+does not close the broader actor-pool or rendering fidelity gaps. There is no
 defensible overall completion percentage without an exhaustive behavior
 inventory; the test pass rate is not a completion metric.
 
@@ -199,8 +201,8 @@ sample taken from one complete 64 KiB data-segment read. The frame-257
 pre-impact checkpoint is sprite `44`; the authoritative pre-fatal run is
 `pre_sprite_runs=44x4,43x2`, so `last_pre_fatal_sprite=43` before sprite `47`
 appears on the fatal tick (`impact_equals_death=1`). The trace also proves a
-49-original-tick corpse interval (the historical port used 120 frames; current
-C++ uses 49), delayed
+49-original-tick corpse interval (the historical port used 120 frames; the
+new atomic lifecycle evidence establishes 49/50 updates by fatal phase), delayed
 Present reward sprite `61`, 54 observed original ticks of reward visibility,
 and a `+2000` collection. That reward runtime claim is limited to the observed
 Present/sprite `61`; the later seeded reward-lifecycle replay covers motion

@@ -318,18 +318,48 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION
                 "render_boundary_original=ok views=30 width=${render_width} compared_pixels=${render_pixels} normalized_rgb=1 gradient_generation=1 seeded_map_backdrop=1 natural_route=0 whole_game_parity=0")
     endforeach()
+    foreach(render_level IN ITEMS 3 4 5 6)
+        if(render_level EQUAL 3 OR render_level EQUAL 6)
+            set(render_views 13)
+            set(render_pixels 616512)
+        else()
+            set(render_views 15)
+            set(render_pixels 711360)
+        endif()
+        add_test(NAME render_boundary_tall_level${render_level}
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    $<TARGET_FILE:lezac_cpp> --debug-render-boundary-original
+                    tests/fixtures/render_boundary_tall_level${render_level}_original.txt)
+        set_tests_properties(render_boundary_tall_level${render_level} PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "render_boundary_original=ok views=${render_views} width=312 compared_pixels=${render_pixels} normalized_rgb=1 gradient_generation=1 seeded_map_backdrop=1 natural_route=0 whole_game_parity=0")
+    endforeach()
+    add_test(NAME render_boundary_tall_split
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-render-boundary-original
+                tests/fixtures/render_boundary_tall_level3_split_original.txt)
+    set_tests_properties(render_boundary_tall_split PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "render_boundary_original=ok views=15 width=152 compared_pixels=346560 normalized_rgb=1 gradient_generation=1 seeded_map_backdrop=1 natural_route=0 whole_game_parity=0")
     if(Python3_Interpreter_FOUND)
         add_test(NAME render_boundary_capture_contract
             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_render_boundary.py --self-check)
         set_tests_properties(render_boundary_capture_contract PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-            PASS_REGULAR_EXPRESSION "render_capture_self_check=ok windows=6 cases=30 live=0")
+            PASS_REGULAR_EXPRESSION "render_capture_self_check=ok windows=12 cases=30 live=0")
+        add_test(NAME render_boundary_tall_capture_contract
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_render_boundary.py --self-check --level 6)
+        set_tests_properties(render_boundary_tall_capture_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "render_capture_self_check=ok windows=12 cases=15 live=0")
         add_test(NAME render_boundary_fixture_guard
             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_render_boundary_fixture.py
                     --exe $<TARGET_FILE:lezac_cpp>)
         set_tests_properties(render_boundary_fixture_guard PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-            PASS_REGULAR_EXPRESSION "render_boundary_fixture=ok captures=2 lf_crlf=1 truncated_rejected=2 mutations_rejected=28 no_output_files=1")
+            PASS_REGULAR_EXPRESSION "render_boundary_fixture=ok captures=7 lf_crlf=1 truncated_rejected=7 mutations_rejected=174 no_output_files=1")
     endif()
 
     add_test(NAME level1_frame_inspection_dummy

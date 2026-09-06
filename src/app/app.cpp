@@ -2303,6 +2303,8 @@ public:
         bool header = false, map = false, backdrop = false, sprites = false, complete = false;
         int viewWidth = 0;
         int lastFrame = -1;
+        bool tall = false, aliasProbe = false, heap = false;
+        std::vector<uint8_t> originalMap, originalTail;
         std::set<std::string> names;
         std::set<std::string> expectedNames{"minimum", "spawn", "center", "maximum", "shake_positive",
                                             "shake_fine_carry", "background_off", "background_off_carry"};
@@ -2325,22 +2327,36 @@ public:
                     throw std::runtime_error("duplicate render-boundary field");
             }
             if (line.rfind("capture=", 0) == 0) {
-                if (header || fields.at("capture") != "render_boundary_original_v1" || fields.at("level") != "1" ||
+                aliasProbe = fields.at("capture") == "render_boundary_tall_original_v2";
+                tall = aliasProbe || fields.at("capture") == "render_boundary_tall_original_v1";
+                const int level = number(fields.at("level"));
+                if (header || (!tall && fields.at("capture") != "render_boundary_original_v1") ||
+                    (tall ? level < 3 || level > 6 : level != 1) ||
                     fields.at("seeded") != "1" || fields.at("temp_copy") != "1" ||
                     fields.at("before") != "7a13" || fields.at("after") != "7a57" ||
                     fields.at("active_visuals") != "1" ||
                     (fields.at("pitch") != "160" && fields.at("pitch") != "320"))
                     throw std::runtime_error("invalid render-boundary provenance");
                 viewWidth = number(fields.at("pitch")) - 8;
+                for (int i = 0; i < level; ++i) resetLevel(i);
+                monsters_.clear();
+                if (tall) expectedNames = {"upper", "spawn", "center", "lower_left", "lower_right", "clear_upper",
+                    "clear_threshold_35", "clear_threshold_36", "clear_threshold_37", "clear_bottom_left",
+                    "clear_bottom_right", "clear_bottom_shake", "clear_bottom_off"};
+                if (aliasProbe) {
+                    expectedNames.insert("alias_bottom_left");
+                    expectedNames.insert("alias_bottom_right");
+                }
                 playerCount_ = viewWidth == 152 ? 2 : 1;
                 buildBackdropBuffer();
                 // The original split-view probe disables P2 after initialization.
                 playerCount_ = 1;
                 header = true;
             } else if (line.rfind("map ", 0) == 0) {
-                if (!header || map || fields.at("width") != "60" || fields.at("height") != "33")
+                if (!header || map || number(fields.at("width")) != level_.width || number(fields.at("height")) != level_.height)
                     throw std::runtime_error("invalid render-boundary map");
-                level_.tiles = bytes(fields.at("bytes"), 60 * 33);
+                level_.tiles = bytes(fields.at("bytes"), level_.width * level_.height);
+                originalMap = level_.tiles;
                 map = true;
             } else if (line.rfind("backdrop ", 0) == 0) {
                 if (!map || backdrop) throw std::runtime_error("invalid render-boundary backdrop");
@@ -2350,7 +2366,7 @@ public:
                          i >= static_cast<size_t>(162 * backdropPitch_)) && original[i] != backdropBuffer_[i])
                         throw std::runtime_error("render-boundary background gradient mismatch");
                 }
-                backdropBuffer_ = original;
+                std::copy(original.begin(), original.end(), backdropBuffer_.begin());
                 backdrop = true;
             } else if (line.rfind("sprites ", 0) == 0) {
                 if (!backdrop || sprites) throw std::runtime_error("invalid render-boundary descriptors");
@@ -2366,9 +2382,31 @@ public:
                     offset += sprite.width * sprite.height;
                 }
                 sprites = true;
+            } else if (line.rfind("heap ", 0) == 0) {
+                if (!tall || !sprites || heap || number(fields.at("offset")) != 8 ||
+                    number(fields.at("map_segment")) * 16 != number(fields.at("segment")) * 16 + 60016)
+                    throw std::runtime_error("invalid render-boundary heap");
+                originalTail = decodeRle(fields.at("tail"), 5536);
+                auto pointer = [&](const std::string& key) {
+                    const auto data = bytes(fields.at(key), 4);
+                    return (data[2] | data[3] << 8) * 16 + (data[0] | data[1] << 8);
+                };
+                const int base = number(fields.at("segment")) * 16 + 8;
+                const int count = level_.width * level_.height;
+                const int words = ((base + 60000 + ((count + 23) & ~7) + 15) & ~15);
+                if (pointer("backdrop") != base || pointer(aliasProbe ? "tile_bytes" : "damage_words") != base + 60008 ||
+                    pointer("tile_words") != words || (aliasProbe &&
+                    (pointer("tile_allocation") != base + 60000 ||
+                     pointer("word_allocation") != base + 60000 + ((count + 23) & ~7))))
+                    throw std::runtime_error("render-boundary allocation pointer mismatch");
+                for (size_t i = 0; i < originalTail.size(); ++i) {
+                    if (originalTail[i] != backdropByte(60000 + i))
+                        throw std::runtime_error("render-boundary heap/map alias mismatch");
+                }
+                heap = true;
             } else if (line.rfind("view ", 0) == 0) {
                 const std::string name = fields.at("name");
-                if (!sprites || name.empty() || name.find_first_not_of("abcdefghijklmnopqrstuvwxyz_0123456789") != std::string::npos ||
+                if (!sprites || (tall && !heap) || name.empty() || name.find_first_not_of("abcdefghijklmnopqrstuvwxyz_0123456789") != std::string::npos ||
                     !names.insert(name).second || fields.at("sprite") != "0" ||
                     fields.at("destination") != "1284" || fields.at("source") != "8")
                     throw std::runtime_error("invalid render-boundary view");
@@ -2385,7 +2423,7 @@ public:
                 lastFrame = frame;
                 player_.x = static_cast<float>(number(fields.at("x")));
                 player_.y = static_cast<float>(number(fields.at("y")));
-                if (player_.x < 0 || player_.x > 479 || player_.y < 0 || player_.y > 263)
+                if (player_.x < 0 || player_.x >= level_.width * 8 || player_.y < 0 || player_.y >= level_.height * 8)
                     throw std::runtime_error("render-boundary position outside level");
                 player_.spriteIndex = 0;
                 const int shake = number(fields.at("shake"));
@@ -2396,16 +2434,29 @@ public:
                 if (background != 0 && background != 1) throw std::runtime_error("invalid render-boundary toggle");
                 showBackground_ = background != 0;
                 const int camX = std::clamp(static_cast<int>(player_.x) - (viewWidth / 2 - 4),
-                                            0, 480 - (viewWidth + 8) + 7);
-                const int camY = std::clamp(static_cast<int>(player_.y) - 80, 0, 103);
+                                            0, level_.width * 8 - (viewWidth + 8) + 7);
+                const int camY = std::clamp(static_cast<int>(player_.y) - 80, 0, level_.height * 8 - 168 + 7);
                 if (number(fields.at("coarse_x")) != (camX & ~7) ||
                     number(fields.at("coarse_y")) != (camY & ~7) ||
                     number(fields.at("fine_x")) != (camX & 7) + shake ||
                     number(fields.at("fine_y")) != (camY & 7) ||
-                    number(fields.at("map_offset")) != (camY / 8) * 60 + camX / 8 ||
+                    number(fields.at("map_offset")) != (camY / 8) * level_.width + camX / 8 ||
                     number(fields.at("backdrop_stride")) != backdropPitch_ ||
                     number(fields.at("backdrop_delta")) != 0 || number(fields.at("glyph_base")) != 32628)
                     throw std::runtime_error("render-boundary camera/driver mismatch");
+                if (tall) {
+                    const std::string mode = fields.at("map_mode");
+                    if (mode != (name.rfind("alias_", 0) == 0 ? "alias" : name.rfind("clear_", 0) == 0 ? "clear" : "level"))
+                        throw std::runtime_error("invalid render-boundary map mode");
+                    level_.tiles = originalMap;
+                    if (mode != "level") std::fill(level_.tiles.begin(), level_.tiles.end(), 0);
+                    if (mode == "alias") for (size_t i = 0; i < 512; ++i) level_.tiles[i] = static_cast<uint8_t>(1 + i % 174);
+                    std::vector<uint8_t> tail(5536);
+                    for (size_t i = 0; i < tail.size(); ++i) tail[i] = backdropByte(60000 + i);
+                    if (decodeRle(fields.at("tail_before"), 5536) != tail ||
+                        decodeRle(fields.at("tail_after"), 5536) != tail)
+                        throw std::runtime_error("render-boundary live heap/map alias mismatch");
+                }
                 const auto expected = decodeRle(fields.at("pixels"), viewWidth * 152);
                 std::fill(fb_.begin(), fb_.end(), argb(palette_, 0));
                 drawWorldView(player_, 4, 4, viewWidth, 152);
@@ -2431,7 +2482,7 @@ public:
                 mismatches += different;
                 compared += expected.size();
             } else if (line.rfind("complete ", 0) == 0) {
-                if (!sprites || names != expectedNames || number(fields.at("views")) != 30)
+                if (!sprites || names != expectedNames || number(fields.at("views")) != static_cast<int>(expectedNames.size()))
                     throw std::runtime_error("incomplete render-boundary coverage");
                 complete = true;
             } else {
@@ -24039,6 +24090,8 @@ private:
     LevelOutroState levelOutro_;
     std::vector<uint8_t> backdropBuffer_;
     int backdropPitch_ = 320;
+    std::array<uint8_t, 8> backdropHeapPadding_{};
+    size_t backdropMapTileCount_ = 0;
     std::vector<BonusDrop> bonusDrops_;
     std::vector<Bomb> bombs_;
     std::vector<Flash> flashes_;
@@ -24216,8 +24269,17 @@ private:
         levelIntro_ = {};
         levelOutro_ = {};
         ++levelResetGeneration_;
+        // FreeMem leaves the previous map's rounded size in its alignment gap.
+        // The word plane is freed first, so both frees retract the heap top.
+        if (backdropMapTileCount_ != 0) {
+            const size_t rounded = (backdropMapTileCount_ + 23) & ~size_t(7);
+            backdropHeapPadding_[4] = static_cast<uint8_t>(rounded & 15);
+            backdropHeapPadding_[6] = static_cast<uint8_t>(rounded >> 4);
+            backdropHeapPadding_[7] = static_cast<uint8_t>(rounded >> 12);
+        }
         levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
         level_ = levels_[levelIndex_];
+        backdropMapTileCount_ = static_cast<size_t>(level_.width) * level_.height;
         player_ = {};
         player2_ = {};
         player2_.animation = ActorAnimation::initialize(21, 28, 1, 1);
@@ -28402,9 +28464,7 @@ private:
 
     void buildBackdropBuffer() {
         backdropPitch_ = playerCount_ > 1 ? 160 : 320;
-        // Keep the previous padding for unobserved tall-level overflow reads.
-        // Only the driver's first 60000 initialized bytes are recovered here.
-        backdropBuffer_.assign(320 * 192, 222);
+        backdropBuffer_.resize(60000);
         // Driver init fills exactly 60000 bytes, including byte wrap past 255.
         for (int k = 0; k < 60000; ++k) {
             backdropBuffer_[static_cast<size_t>(k)] =
@@ -28464,6 +28524,18 @@ private:
         return argb(palette_, idx);
     }
 
+    uint8_t backdropByte(size_t offset) const {
+        // Original far pointer is segment:0008. Tall views overrun its 60000
+        // bytes into an 8-byte allocation gap, then the aligned live tile map.
+        const size_t address = (offset + 8) & 0xffff;
+        if (address < 8) return 0;
+        offset = address - 8;
+        if (offset < backdropBuffer_.size()) return backdropBuffer_[offset];
+        if (offset < 60008) return backdropHeapPadding_[offset - 60000];
+        const size_t tile = offset - 60008;
+        return tile < level_.tiles.size() ? level_.tiles[tile] : 0;
+    }
+
     void drawGradientSky(int viewX, int viewY, int viewW, int viewH,
                          int camX, int camY) {
         if (!showBackground_) {
@@ -28475,18 +28547,11 @@ private:
             return;
         }
         if (backdropBuffer_.empty()) return;
-        const long total = static_cast<long>(backdropBuffer_.size());
         for (int y = 0; y < viewH; ++y) {
-            const long n0 = static_cast<long>(camY / 8 + y) * backdropPitch_ +
+            const size_t n0 = static_cast<size_t>(camY / 8 + y) * backdropPitch_ +
                             camX / 4;
             for (int x = 0; x < viewW; ++x) {
-                const long n = n0 + x;
-                const uint8_t idx =
-                    (n >= 0 && n < total)
-                        ? backdropBuffer_[static_cast<size_t>(n)]
-                        : backdropBuffer_[static_cast<size_t>(
-                              ((n % total) + total) % total)];
-                pixel(viewX + x, viewY + y, backdropColor(idx));
+                pixel(viewX + x, viewY + y, backdropColor(backdropByte(n0 + x)));
             }
         }
     }

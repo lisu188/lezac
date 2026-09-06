@@ -596,6 +596,7 @@ struct Bomb {
     bool moving = false;
     // Actor +0x14; -1 derives the constructor value from the selected sprite.
     int8_t hotspotY = -1;
+    uint64_t actorOrder = 0;
 };
 
 struct Flash {
@@ -616,6 +617,7 @@ struct LaunchPadMarker {
     uint8_t frame = kLaunchPadMarkerFrame;
     uint8_t kind = kLaunchPadMarkerKind;
     uint8_t mode = kLaunchPadMarkerMode;
+    uint64_t actorOrder = 0;
 };
 
 struct ExplosionEffect {
@@ -758,6 +760,7 @@ struct TransientActor {
     uint8_t hotspotY = 0;
     uint8_t spriteIndex = 0;
     ActorAnimation animation{0, 0, 0, 0, 0, 0, 1};
+    uint64_t actorOrder = 0;
 };
 
 struct Player {
@@ -857,6 +860,7 @@ struct ActiveMonster {
     uint8_t linkC = 0;
     int bossTick = 0;
     int hurtFlash = 0;
+    uint64_t actorOrder = 0;
     bool bossDebris = false;
 };
 
@@ -910,6 +914,7 @@ struct BonusDrop {
     uint8_t hotspotY = 0;
     uint8_t timer = 100;
     bool collected = false;
+    uint64_t actorOrder = 0;
 };
 
 int16_t clampI16(int value) {
@@ -2682,6 +2687,202 @@ public:
         if (differences) throw std::runtime_error("red palette pixel mismatches=" + std::to_string(differences));
         std::cout << "red_palette_original=ok cases=4 samples=" << total << " writes=" << writes << " compared_pixels=" << compared
                   << " actual_dac=1 frame_wrap=1 byte_wrap=1 seeded_scene=1 natural_route=0 whole_game_parity=0\n";
+    }
+
+    void debugSharedActorOrderOriginal(const std::string& fixture, const std::string& outDir) {
+        load();
+        initSdl();
+        auto bytes = [](const std::string& text, size_t size) {
+            if (text.size() != size * 2 || text.find_first_not_of("0123456789abcdef") != std::string::npos)
+                throw std::runtime_error("invalid shared-order bytes");
+            std::vector<uint8_t> result(size);
+            for (size_t i = 0; i < size; ++i) result[i] = static_cast<uint8_t>(std::stoul(text.substr(i * 2, 2), nullptr, 16));
+            return result;
+        };
+        using Entry = std::pair<std::vector<uint8_t>, std::vector<uint8_t>>;
+        auto entries = [&](const std::string& text) {
+            std::vector<Entry> result;
+            std::istringstream stream(text);
+            std::string item;
+            if (text != "-") while (std::getline(stream, item, ',')) {
+                const auto colon = item.find(':');
+                if (colon == std::string::npos) throw std::runtime_error("invalid shared-order actor");
+                result.emplace_back(bytes(item.substr(0, colon), 38), bytes(item.substr(colon + 1), 8));
+            }
+            return result;
+        };
+        const std::array<std::string, 10> names{"retire_front", "retire_back", "corpse_front_full", "effect_front_full",
+            "corpse_bomb_full", "bomb_corpse_full", "two_bombs_full", "two_corpses_full", "mixed_forward", "mixed_reverse"};
+        std::ifstream input(fixture);
+        if (!input) throw std::runtime_error("cannot open shared-order fixture");
+        std::ofstream manifest;
+        if (!outDir.empty()) {
+            std::filesystem::create_directories(outDir);
+            manifest.open(joinPath(outDir, "manifest.csv"));
+            if (!manifest) throw std::runtime_error("cannot create shared-order manifest");
+            manifest << "case,sample,frame,actors,rng,frame_hash\n";
+        }
+        std::vector<uint8_t> baseline, words, descriptors;
+        std::string line, name;
+        int stage = 0, cases = 0, sample = 0, total = 0, compared = 0;
+        bool complete = false;
+        auto fail = [&](const std::string& what) { throw std::runtime_error("shared-order " + name + " sample=" + std::to_string(sample) + ": " + what); };
+        while (std::getline(input, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (complete) fail("record after completion");
+            std::istringstream row(line);
+            std::string tag, token;
+            row >> tag;
+            std::map<std::string, std::string> fields;
+            if (tag.find('=') != std::string::npos) row = std::istringstream(line);
+            while (row >> token) {
+                const auto equal = token.find('=');
+                if (equal == std::string::npos || !fields.emplace(token.substr(0, equal), token.substr(equal + 1)).second) fail("invalid fields");
+            }
+            auto requireFields = [&](std::initializer_list<const char*> keys) {
+                if (fields.size() != keys.size()) fail("invalid field count");
+                for (const auto* key : keys) if (!fields.count(key)) fail("missing field");
+            };
+            auto checkRegisters = [&] {
+                const auto regs = bytes(fields.at("regs"), 12);
+                if (le16(regs, 0) != 0x01a2 || le16(regs, 2) != 0x0c44 || le16(regs, 4) != 0x0c44 ||
+                    le16(regs, 6) != 0x18b3 || le16(regs, 8) != 0x3fe4 || le16(regs, 10) != 0x3ffe) fail("register mismatch");
+            };
+            if (tag == "capture=shared_actor_order_original_v1") {
+                requireFields({"capture", "seeded", "temp_copy", "level", "player", "spawners"});
+                if (stage || fields.at("seeded") != "1" || fields.at("temp_copy") != "1" || fields.at("level") != "1" ||
+                    fields.at("player") != "240,168" || fields.at("spawners") != "0") fail("invalid provenance");
+                stage = 1;
+            } else if (tag == "map") {
+                requireFields({"bytes", "words"});
+                if (stage != 1) fail("misplaced map");
+                baseline = bytes(fields.at("bytes"), 1980); words = bytes(fields.at("words"), 3960);
+                stage = 2;
+            } else if (tag == "sprites") {
+                requireFields({"descriptors"});
+                if (stage != 2) fail("misplaced descriptors");
+                descriptors = bytes(fields.at("descriptors"), 368);
+                stage = 3;
+            } else if (tag == "case") {
+                requireFields({"name", "frame", "rng", "samples", "actors", "regs"});
+                if (stage != 3 || cases >= 10 || fields.at("name") != names[cases] || fields.at("frame") != "101" ||
+                    fields.at("rng") != "12345678" || fields.at("samples") != "41") fail("invalid case seed");
+                name = fields.at("name"); sample = 0;
+                checkRegisters();
+                resetLevel(0); menu_ = false; levelIntro_.active = false;
+                spawnerStates_.clear(); monsters_.clear(); bombs_.clear(); bonusDrops_.clear(); transientActors_.clear(); launchPadMarkers_.clear();
+                player_.x = 240; player_.y = 168; lives_ = 99;
+                level_.tiles = baseline;
+                for (size_t i = 0; i < baseline.size(); ++i) level_.wordLayer[i] = le16(words, i * 2);
+                logicTick_ = 100; randomSeed_ = 0x12345678;
+                const auto seeded = entries(fields.at("actors"));
+                if (seeded.size() != (cases >= 2 && cases <= 7 ? 30u : 4u)) fail("invalid seed count");
+                for (size_t i = 0; i < seeded.size(); ++i) {
+                    const auto& raw = seeded[i].first; const auto& visual = seeded[i].second;
+                    if (raw[1] != i + 2) fail("invalid seeded visual slot");
+                    int sprite = -1;
+                    for (size_t j = 1; j < 92; ++j) if (std::equal(visual.begin() + 4, visual.end(), descriptors.begin() + j * 4)) sprite = static_cast<int>(j - 1);
+                    if (sprite < 0) fail("invalid seed descriptor");
+                    if (raw[0x15] == 5) {
+                        TransientActor effect;
+                        effect.actorOrder = i + 1; effect.kind = raw[0]; effect.timer = raw[2]; effect.hotspotY = raw[0x14]; effect.spriteIndex = static_cast<uint8_t>(sprite);
+                        effect.x = le16(visual, 0); effect.y = le16(visual, 2);
+                        effect.vx8 = static_cast<int16_t>(le16(raw, 6)); effect.vy8 = static_cast<int16_t>(le16(raw, 8));
+                        effect.fracX = raw[10]; effect.fracY = raw[12];
+                        effect.animation = {raw[0x16], raw[0x17], raw[0x18], raw[0x19], raw[0x1a], raw[0x1b], static_cast<int8_t>(raw[0x1c])};
+                        transientActors_.push_back(effect);
+                    } else if (raw[0] >= 13 && raw[0] <= 16 && raw[0x15] == 2) {
+                        Bomb bomb;
+                        bomb.actorOrder = i + 1; bomb.type = static_cast<BombType>(raw[0] - 13); bomb.timer = 2 * raw[2] - 1;
+                        bomb.fuseTicks = bombProfile(bomb.type).fuseTicks; bomb.moving = true; bomb.hotspotY = static_cast<int8_t>(raw[0x14]);
+                        bomb.pixelX = le16(visual, 0); bomb.pixelY = le16(visual, 2); bomb.x = (bomb.pixelX + 4) >> 3; bomb.y = bomb.pixelY >> 3;
+                        bomb.vx8 = static_cast<int16_t>(le16(raw, 6)); bomb.vy8 = static_cast<int16_t>(le16(raw, 8));
+                        bomb.fracX = raw[10]; bomb.fracY = raw[12]; bombs_.push_back(bomb);
+                    } else if (raw[0] == 12 && raw[0x15] == 2) {
+                        ActiveMonster corpse;
+                        corpse.actorOrder = i + 1; corpse.kind = 12; corpse.behavior = 2; corpse.hotspotY = raw[0x14]; corpse.corpseSprite = static_cast<uint8_t>(sprite);
+                        corpse.x = le16(visual, 0); corpse.y = le16(visual, 2) - corpse.hotspotY;
+                        corpse.vx8 = static_cast<int16_t>(le16(raw, 6)); corpse.vy8 = static_cast<int16_t>(le16(raw, 8));
+                        corpse.fracX = raw[10]; corpse.fracY = raw[12]; corpse.stateTimer = raw[2] ? 2 * raw[2] - 1 : 0;
+                        corpse.animMode = 0; corpse.deathRewardPending = true; monsters_.push_back(corpse);
+                    } else if (raw[0] >= 19 && raw[0] <= 25 && raw[0x15] == 2) {
+                        BonusDrop reward;
+                        reward.actorOrder = i + 1; reward.type = static_cast<BonusType>(raw[0] - 19); reward.timer = raw[2]; reward.hotspotY = raw[0x14];
+                        reward.x = le16(visual, 0); reward.y = le16(visual, 2);
+                        reward.vx8 = static_cast<int16_t>(le16(raw, 6)); reward.vy8 = static_cast<int16_t>(le16(raw, 8));
+                        reward.fracX = raw[10]; reward.fracY = raw[12]; bonusDrops_.push_back(reward);
+                    } else fail("unhandled seed actor");
+                }
+                nextActorOrder_ = seeded.size() + 1;
+                stage = 4;
+            } else if (tag == "tick") {
+                requireFields({"sample", "frame", "count", "visuals", "rng", "actors", "map", "regs"});
+                if (stage != 4 || sample >= 41 || std::stoi(fields.at("sample")) != sample || std::stoi(fields.at("frame")) != 101 + sample) fail("nonconsecutive tick");
+                checkRegisters();
+                debugActorPassObserver_ = [&] {
+                    const auto expected = entries(fields.at("actors"));
+                    const auto actual = sharedActorEntries();
+                    if (actual.size() != expected.size() || actual.size() != std::stoul(fields.at("count")) || actual.size() + 2 != std::stoul(fields.at("visuals"))) fail("count mismatch");
+                    if (randomSeed_ != le32(bytes(fields.at("rng"), 4), 0)) fail("RNG mismatch");
+                    for (size_t i = 0; i < actual.size(); ++i) {
+                        const auto& item = actual[i]; const auto& raw = expected[i].first; const auto& visual = expected[i].second;
+                        const auto suffix = " at slot=" + std::to_string(i + 1);
+                        if (raw[1] != i + 2) fail("visual compaction mismatch" + suffix);
+                        int x = 0, y = 0, sprite = 0, kind = 0, timer = 0, hotspot = 0, behavior = 2;
+                        int16_t vx = 0, vy = 0; uint8_t fx = 0, fy = 0;
+                        if (item.kind == SharedActorKind::Effect) {
+                            if (!transientMatchesOriginal(transientActors_[item.index], raw, visual, descriptors)) fail("effect/order mismatch" + suffix);
+                            ++compared; continue;
+                        } else if (item.kind == SharedActorKind::Bomb) {
+                            const auto& b = bombs_[item.index]; kind = bombProfile(b.type).actorKind; timer = (b.timer + 1) / 2;
+                            x = b.pixelX; y = b.pixelY; vx = b.vx8; vy = b.vy8; fx = b.fracX; fy = b.fracY;
+                            hotspot = b.hotspotY < 0 ? bombHeightOffset(b.type) : b.hotspotY; sprite = static_cast<int>(bombProfile(b.type).spriteBase);
+                        } else if (item.kind == SharedActorKind::Monster) {
+                            const auto& c = monsters_[item.index]; kind = c.kind; timer = (c.stateTimer + 1) / 2;
+                            x = c.x; y = c.y + c.hotspotY; vx = c.vx8; vy = c.vy8; fx = c.fracX; fy = c.fracY;
+                            hotspot = c.hotspotY; sprite = monsterSpriteIndex(c); behavior = c.behavior;
+                        } else if (item.kind == SharedActorKind::Reward) {
+                            const auto& r = bonusDrops_[item.index]; kind = 19 + static_cast<int>(r.type); timer = r.timer;
+                            x = static_cast<int>(r.x); y = static_cast<int>(r.y); vx = r.vx8; vy = r.vy8; fx = r.fracX; fy = r.fracY;
+                            hotspot = r.hotspotY; sprite = bonusSpriteIndex(r.type);
+                        } else fail("unexpected marker");
+                        if (raw[0] != kind || raw[2] != timer || raw[0x14] != hotspot || raw[0x15] != behavior ||
+                            static_cast<int16_t>(le16(raw, 6)) != vx || static_cast<int16_t>(le16(raw, 8)) != vy || le16(raw, 10) != fx || le16(raw, 12) != fy ||
+                            le16(visual, 0) != x || le16(visual, 2) != y || !std::equal(visual.begin() + 4, visual.end(), descriptors.begin() + (sprite + 1) * 4))
+                            fail("actor/order mismatch" + suffix + " kind=" + std::to_string(kind) + " xy=" + std::to_string(x) + "," + std::to_string(y));
+                        ++compared;
+                    }
+                    std::map<int, int> wanted, changed;
+                    std::istringstream cells(fields.at("map")); std::string cell;
+                    if (fields.at("map") != "-") while (std::getline(cells, cell, ',')) {
+                        const auto colon = cell.find(':');
+                        if (colon == std::string::npos || !wanted.emplace(std::stoi(cell.substr(0, colon)), bytes(cell.substr(colon + 1), 1)[0]).second) fail("invalid map delta");
+                    }
+                    for (size_t i = 0; i < baseline.size(); ++i) if (level_.tiles[i] != baseline[i]) changed.emplace(static_cast<int>(i), level_.tiles[i]);
+                    if (wanted != changed) fail("map mismatch");
+                    if (!outDir.empty() && (sample == 0 || sample == 9 || sample == 29 || sample == 39)) {
+                        const auto inspection = inspectRenderedFrame("shared-order-" + name);
+                        writeArgbPpm(joinPath(outDir, name + "_" + std::to_string(sample) + ".ppm"), fb_, kScreenW, kScreenH);
+                        manifest << name << ',' << sample << ',' << logicTick_ << ',' << actual.size() << ',' << randomSeed_ << ',' << inspection.hash << '\n';
+                    }
+                };
+                updateWithControls({}, 1.0f / 60.0f);
+                debugActorPassObserver_ = {};
+                ++sample; ++total;
+            } else if (tag == "end") {
+                requireFields({"samples"});
+                if (stage != 4 || sample != 41 || fields.at("samples") != "41") fail("incomplete case");
+                ++cases; stage = 3;
+            } else if (tag == "complete") {
+                requireFields({"cases", "samples"});
+                if (stage != 3 || cases != 10 || total != 410 || fields.at("cases") != "10" || fields.at("samples") != "410") fail("incomplete coverage");
+                complete = true;
+            } else fail("unknown record");
+        }
+        if (!complete) fail("missing completion");
+        std::cout << "shared_actor_order_original=ok cases=" << cases << " samples=" << total << " actor_states=" << compared
+                  << " stable_compaction=1 same_pass_appends=1 in_place_conversion=1 rng=1 map=1 seeded=1 natural_route=0 whole_game_parity=0\n";
     }
 
     void debugSharedCapacityOriginal(const std::string& fixture, const std::string& outDir) {
@@ -24618,6 +24819,8 @@ private:
     uint8_t weaponSwitchHoldTicks_ = 0;
     uint8_t weaponSwitchHoldTicks2_ = 0;
     uint32_t logicTick_ = 0;
+    uint64_t nextActorOrder_ = 1;
+    bool orderedActorPass_ = false;
     uint32_t governedRunDeadlineMs_ = 0;
     uint32_t governedRunStartMs_ = 0;
     uint32_t governedRunStartLogicTick_ = 0;
@@ -24747,6 +24950,7 @@ private:
         launchPadMarkers_.clear();
         transientActors_.clear();
         cameraShakeTicks_ = cameraShakeOffset_ = 0;
+        nextActorOrder_ = 1;
         explosionEffects_.clear();
         flameRecords_.clear();
         debrisQueue_.clear();
@@ -25511,7 +25715,6 @@ private:
         if (menu_ || levelIntro_.active) return;
         // 1000:7ECB..7EE8 precedes the player calls at 7F59. New pickup
         // and collapse-fracture actors therefore start on the next frame.
-        updateTransientActors();
         updateDamageCooldowns();
         bool p1Switch = controls.p1Left && controls.p1Right;
         bool p2Switch = controls.p2Left && controls.p2Right;
@@ -25532,12 +25735,8 @@ private:
 
         // 1000:7ECB..7EE8 dispatches non-player actors before the players
         // at 7F4E..7F5B. Both precede flame/debris 805D and collapse 8067.
-        updateLaunchPadMarkers();
-        updateBombs();
         updateBossLinks();
-        const size_t existingRewards = bonusDrops_.size();
-        updateMonsters(dt);
-        updateBonusDrops(existingRewards);
+        updateOrderedActors(dt);
         if (debugActorPassObserver_) debugActorPassObserver_();
 
         if (playerDead_) {
@@ -25590,13 +25789,15 @@ private:
         LaunchPadMarker marker;
         marker.x = static_cast<int>(player.x) + 4;
         marker.y = static_cast<int>(player.y) + 13;
+        marker.actorOrder = claimActorOrder();
         launchPadMarkers_.push_back(marker);
         requestLaunchPadSound();
         return true;
     }
 
-    void updateLaunchPadMarkers() {
+    void updateLaunchPadMarkers(uint64_t onlyOrder = 0) {
         for (LaunchPadMarker& marker : launchPadMarkers_) {
+            if (onlyOrder && marker.actorOrder != onlyOrder) continue;
             if ((logicTick_ & 1u) != 0 && marker.timer > 0) {
                 --marker.timer;
             }
@@ -26080,6 +26281,76 @@ private:
         return result;
     }
 
+    enum class SharedActorKind { Effect, Marker, Bomb, Monster, Reward };
+    struct SharedActorEntry {
+        uint64_t order;
+        SharedActorKind kind;
+        size_t index;
+    };
+
+    std::vector<SharedActorEntry> sharedActorEntries() const {
+        std::vector<SharedActorEntry> result;
+        for (size_t i = 0; i < transientActors_.size(); ++i) result.push_back({transientActors_[i].actorOrder, SharedActorKind::Effect, i});
+        for (size_t i = 0; i < launchPadMarkers_.size(); ++i) result.push_back({launchPadMarkers_[i].actorOrder, SharedActorKind::Marker, i});
+        for (size_t i = 0; i < bombs_.size(); ++i) result.push_back({bombs_[i].actorOrder, SharedActorKind::Bomb, i});
+        for (size_t i = 0; i < monsters_.size(); ++i) if (monsters_[i].alive) result.push_back({monsters_[i].actorOrder, SharedActorKind::Monster, i});
+        for (size_t i = 0; i < bonusDrops_.size(); ++i) if (!bonusDrops_[i].collected) result.push_back({bonusDrops_[i].actorOrder, SharedActorKind::Reward, i});
+        std::stable_sort(result.begin(), result.end(), [](const SharedActorEntry& a, const SharedActorEntry& b) { return a.order < b.order; });
+        return result;
+    }
+
+    void adoptUnorderedActors() {
+        // Directly seeded diagnostics predate shared ordering. Real producers
+        // claim an order at construction; explicit original replays seed it.
+        const auto entries = sharedActorEntries();
+        for (const auto& entry : entries) nextActorOrder_ = std::max(nextActorOrder_, entry.order + 1);
+        for (const auto& entry : entries) {
+            if (entry.order) continue;
+            const uint64_t order = nextActorOrder_++;
+            switch (entry.kind) {
+                case SharedActorKind::Effect: transientActors_[entry.index].actorOrder = order; break;
+                case SharedActorKind::Marker: launchPadMarkers_[entry.index].actorOrder = order; break;
+                case SharedActorKind::Bomb: bombs_[entry.index].actorOrder = order; break;
+                case SharedActorKind::Monster: monsters_[entry.index].actorOrder = order; break;
+                case SharedActorKind::Reward: bonusDrops_[entry.index].actorOrder = order; break;
+            }
+        }
+    }
+
+    uint64_t claimActorOrder() {
+        adoptUnorderedActors();
+        return nextActorOrder_++;
+    }
+
+    void updateOrderedActors(float dt) {
+        adoptUnorderedActors();
+        if (orderedActorPass_) throw std::runtime_error("recursive shared actor pass");
+        orderedActorPass_ = true;
+        struct PassGuard { bool& active; ~PassGuard() { active = false; } } guard{orderedActorPass_};
+        uint64_t previous = 0;
+        while (true) {
+            // Original 3358 shifts records stably; 65C6 rewinds the cursor.
+            // Retaining birth order implements both without stale vector indices.
+            // In-place conversions keep their order; tail appends run this pass.
+            const auto entries = sharedActorEntries();
+            const auto found = std::find_if(entries.begin(), entries.end(), [&](const SharedActorEntry& entry) { return entry.order > previous; });
+            if (found == entries.end()) break;
+            const auto entry = *found;
+            previous = entry.order;
+            switch (entry.kind) {
+                case SharedActorKind::Effect: {
+                    updateTransientActor(transientActors_.at(entry.index));
+                    if (!transientActors_[entry.index].timer) transientActors_.erase(transientActors_.begin() + static_cast<std::ptrdiff_t>(entry.index));
+                    break;
+                }
+                case SharedActorKind::Marker: updateLaunchPadMarkers(entry.order); break;
+                case SharedActorKind::Bomb: updateBombs(entry.order); break;
+                case SharedActorKind::Monster: updateMonsters(dt, entry.order); break;
+                case SharedActorKind::Reward: updateBonusDrops(std::numeric_limits<size_t>::max(), entry.order); break;
+            }
+        }
+    }
+
     size_t sharedActorCount() const {
         const auto liveMonsters = std::count_if(monsters_.begin(), monsters_.end(),
             [](const ActiveMonster& monster) { return monster.alive; });
@@ -26113,6 +26384,7 @@ private:
         actor.spriteIndex = static_cast<uint8_t>(sprite - 1);
         actor.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(actor.spriteIndex).height);
         actor.animation = animation;
+        actor.actorOrder = claimActorOrder();
         transientActors_.push_back(actor);
         return &transientActors_.back();
     }
@@ -26597,6 +26869,7 @@ private:
                 actor.linkC = record[0x10];
                 actor.hp = 255;
             }
+            actor.actorOrder = claimActorOrder();
             monsters_.push_back(actor);
         }
         bossPresent_ = true;
@@ -26900,14 +27173,16 @@ private:
             // member (capture: 2/2 spawns show 44).
             monster.animTick = monster.animDelay;
             initializeMonsterMotion(monster);
+            monster.actorOrder = claimActorOrder();
             monsters_.push_back(monster);
             --state.remaining;
             --state.availableSlots;
         }
     }
 
-    void updateMonsters(float dt) {
+    void updateMonsters(float dt, uint64_t onlyOrder = 0) {
         for (ActiveMonster& monster : monsters_) {
+            if (onlyOrder && monster.actorOrder != onlyOrder) continue;
             if (!monster.alive) continue;
             if (monster.behavior == 2) {
                 if (monster.kind == 0x0c) {
@@ -27617,9 +27892,11 @@ private:
             // after construction. Encode the odd-frame byte countdown as
             // remaining game ticks, retaining the existing Bomb timer model.
             int timer = profile.fuseTicks - static_cast<int>((logicTick_ + 1) & 1u);
+            const uint64_t actorOrder = claimActorOrder();
             bombs_.push_back({tx, ty, timer, inventory.selected,
                               profile.fuseTicks, owner});
             Bomb& bomb = bombs_.back();
+            bomb.actorOrder = actorOrder;
             bomb.pixelX = static_cast<int>(player.x);
             bomb.pixelY = static_cast<int>(player.y);
             // 6C2B..6C41 scales vx by 3/2 (signed truncation), and subtracts
@@ -27683,14 +27960,15 @@ private:
         integrateAxis8_8(x, fracX, vx);
     }
 
-    void updateBombs() {
+    void updateBombs(uint64_t onlyOrder = 0) {
         std::vector<Bomb> expired;
         for (Bomb& b : bombs_) {
+            if (onlyOrder && b.actorOrder != onlyOrder) continue;
             updateBombMotion(b);
             if (--b.timer <= 0) expired.push_back(b);
         }
         bombs_.erase(std::remove_if(bombs_.begin(), bombs_.end(),
-                                    [](const Bomb& b) { return b.timer <= 0; }),
+                                    [onlyOrder](const Bomb& b) { return b.timer <= 0 && (!onlyOrder || b.actorOrder == onlyOrder); }),
                      bombs_.end());
         int generation = levelResetGeneration_;
         for (const Bomb& b : expired) {
@@ -28097,6 +28375,7 @@ private:
         fade.fracY = bomb.fracY;
         fade.spriteIndex = 68;
         fade.animation = ActorAnimation::initialize(69, 79, 2, 1);
+        fade.actorOrder = bomb.actorOrder;
         transientActors_.push_back(fade);
         spawnExpiryParticles(bomb.pixelX, bomb.pixelY, bombTypeIndex(bomb.type) + 2);
     }
@@ -28218,6 +28497,7 @@ private:
         drop.y = y;
         drop.type = type;
         drop.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(bonusSpriteIndex(type)).height);
+        drop.actorOrder = claimActorOrder();
         bonusDrops_.push_back(drop);
     }
 
@@ -28245,6 +28525,7 @@ private:
                 static_cast<float>(monster.y + monster.hotspotY),
                 static_cast<BonusType>(rewardIndex));
             BonusDrop& reward = bonusDrops_.back();
+            reward.actorOrder = monster.actorOrder;
             reward.vx8 = monster.vx8;
             reward.vy8 = static_cast<int16_t>(monster.vy8 - 200);
             reward.fracX = monster.fracX;
@@ -28261,6 +28542,7 @@ private:
             fade.fracY = monster.fracY;
             fade.spriteIndex = 68;
             fade.animation = ActorAnimation::initialize(69, 79, 2, 1);
+            fade.actorOrder = monster.actorOrder;
             transientActors_.push_back(fade);
         }
 
@@ -28277,15 +28559,16 @@ private:
                     static_cast<int16_t>(vy8), 13, 0x0b, 15,
                     ActorAnimation::initialize(69, 79, 2, 2))) {
                 actor->vx8 = static_cast<int16_t>(vx8);
-                updateTransientActor(*actor);
+                if (!orderedActorPass_) updateTransientActor(*actor);
             }
         }
     }
 
-    void updateBonusDrops(size_t initialDrops = std::numeric_limits<size_t>::max()) {
+    void updateBonusDrops(size_t initialDrops = std::numeric_limits<size_t>::max(), uint64_t onlyOrder = 0) {
         initialDrops = std::min(initialDrops, bonusDrops_.size());
         for (size_t i = 0; i < initialDrops && i < bonusDrops_.size(); ++i) {
             BonusDrop& drop = bonusDrops_[i];
+            if (onlyOrder && drop.actorOrder != onlyOrder) continue;
             if (drop.collected) continue;
             bool p1Overlaps = !playerDead_ &&
                               playerOverlaps(player_, drop.x, drop.y, 12.0f, 12.0f);
@@ -28320,6 +28603,7 @@ private:
                 // DS:006C selects one-based sprite 74 for expired rewards.
                 fade.spriteIndex = 73;
                 fade.animation = ActorAnimation::initialize(74, 79, 2, 1);
+                fade.actorOrder = moving.actorOrder;
                 transientActors_.push_back(fade);
             }
         }
@@ -30647,6 +30931,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-shared-capacity-original") {
             app.debugSharedCapacityOriginal(argv[2], argc > 3 ? argv[3] : "");
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-shared-actor-order-original") {
+            app.debugSharedActorOrderOriginal(argv[2], argc > 3 ? argv[3] : "");
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-level1-frame-inspection") {

@@ -420,6 +420,26 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "shared_capacity_fixture=ok captures=2 lf_crlf=1 truncated_rejected=2 mutations_rejected=64 no_output_files=1")
     endif()
 
+    add_test(NAME shared_actor_order_original
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-shared-actor-order-original
+                tests/fixtures/shared_actor_order_original.txt)
+    set_tests_properties(shared_actor_order_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "shared_actor_order_original=ok cases=10 samples=410 actor_states=7685 stable_compaction=1 same_pass_appends=1 in_place_conversion=1 rng=1 map=1 seeded=1 natural_route=0 whole_game_parity=0")
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME shared_actor_order_capture_contract
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_shared_actor_order.py --self-check)
+        set_tests_properties(shared_actor_order_capture_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "shared_actor_order_capture_self_check=ok windows=15 cases=10 live=0")
+        add_test(NAME shared_actor_order_fixture_guard
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_shared_actor_order_fixture.py --exe $<TARGET_FILE:lezac_cpp>)
+        set_tests_properties(shared_actor_order_fixture_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "shared_actor_order_fixture=ok cases=10 samples=410 lf_crlf=1 truncated_rejected=2 mutations_rejected=79 no_output_files=1")
+    endif()
+
     add_test(NAME level1_frame_inspection_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-level1-frame-inspection)

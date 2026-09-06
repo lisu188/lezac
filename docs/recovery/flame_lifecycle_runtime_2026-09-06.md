@@ -110,6 +110,9 @@ and collision paths, transfers mass-weighted momentum to debris/collapse
 records, decrements timer/variant bytes, and compacts retired slots. Newly
 appended chain records wait until the following pass. Chain dispatch and
 capacity handling are byte-derived but not exercised by these eight cases.
+The separate [chain/capacity capture](flame_chain_capacity_runtime_2026-09-06.md)
+now adds eight focused cases for unflagged chain tiles, full/partial pool
+allocation, descending retirement and mass-array compaction.
 
 Bomb expiry at `1000:75CB` dispatches flames and converts the same actor to
 a stationary fade. It also appends 2/3/4/5 randomized particles for the four

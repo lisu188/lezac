@@ -44,6 +44,9 @@ ORDER_PROBES = {
 FLAME_PROBES = {f"{weapon}_{place}": (1, 0, 3, 255, y - 2, "bomb")
                 for place, y in (("ground", 176), ("air", 96))
                 for weapon in ("small", "medium", "large", "super")}
+STRESS_PROBES = {f"small_air_{profile}": FLAME_PROBES["small_air"] for profile in (
+    "chain_clear", "chain_word", "chain_retire", "capacity_190", "capacity_191",
+    "capacity_198", "chain_full", "chain_reuse")}
 FLAME_WINDOWS = {
     0x3EDA: bytes.fromhex("a0d2788a26d378bb0100"),
     0x403B: bytes.fromhex("813e7620c600"),
@@ -53,6 +56,38 @@ FLAME_WINDOWS = {
     0x6FCA: bytes.fromhex("c1e0038946f4"),
     0x7018: bytes.fromhex("3c02753f"),
 }
+STRESS_WINDOWS = {
+    0x468E: bytes.fromhex("807eef667546"),
+    0x46B5: bytes.fromhex("8b46f6c43ee0c103f826c60500"),
+    0x46D2: bytes.fromhex("ff76f66a01e870fa"),
+    0x454B: bytes.fromhex("1e07a176202b4606bb0b00"),
+    0x48E0: bytes.fromhex("c47ee626807d0a00"),
+}
+
+
+def flame_stress_seed(name):
+    """Explicit case-boundary seeds; no state writes during continuation."""
+    profile = name.removeprefix("small_air_")
+    if name not in STRESS_PROBES:
+        return [], []
+    count = int(profile.rsplit("_", 1)[1]) if profile.startswith("capacity_") else (
+        190 if profile == "chain_full" else 198 if profile == "chain_reuse" else 1)
+    records = []
+    for index in range(count):
+        raw = struct.pack("<HHbbbbBBB", 642, 0, 0, 0, index % 64, 0,
+                          2 + index % 3, 0x75, 0)
+        records.append((raw, (1, 9, 221)[index % 3]))
+    terrain = [(642, 0, 0)]
+    if profile.startswith("chain_"):
+        slot = count - 2 if profile == "chain_reuse" else count - 1
+        timer = 1 if profile in ("chain_retire", "chain_reuse") else 8
+        records[slot] = (struct.pack("<HHbbbbBBB", 642, 0, 79, 0, 64, 0,
+                                    timer, 0x75, 5), 1)
+        if profile == "chain_reuse":
+            raw, mass = records[-1]
+            records[-1] = (raw[:8] + b"\x01" + raw[9:], mass)
+        terrain.append((643, 0x66, 1 if profile == "chain_word" else 0))
+    return records, terrain
 
 
 def initial_actor(spec):
@@ -71,7 +106,7 @@ def initial_actor(spec):
 def capture(pid, base, output, image, bomb_order, flame_lifecycle=False, flame_case=None, flame_raw_hp=255):
     probes = FLAME_PROBES if flame_lifecycle else ORDER_PROBES if bomb_order else PROBES
     if flame_case:
-        probes = {flame_case: FLAME_PROBES[flame_case]}
+        probes = {flame_case: (FLAME_PROBES | STRESS_PROBES)[flame_case]}
     if flame_lifecycle:
         probes = {name: spec[:3] + (flame_raw_hp,) + spec[4:] for name, spec in probes.items()}
     samples = 65 if flame_lifecycle else 25 if bomb_order else 13
@@ -108,7 +143,8 @@ def capture(pid, base, output, image, bomb_order, flame_lifecycle=False, flame_c
         def release(stage):
             write(cs + actors.SCRATCH + 14, struct.pack("<H", stage))
 
-        for at, expected in (WINDOWS | (FLAME_WINDOWS if flame_lifecycle else {})).items():
+        for at, expected in (WINDOWS | (FLAME_WINDOWS if flame_lifecycle else {}) |
+                             (STRESS_WINDOWS if flame_case in STRESS_PROBES else {})).items():
             if read(cs + at, len(expected)) != expected:
                 raise RuntimeError(f"runtime instruction mismatch at {at:04x}")
         if read(cs + 0xF400, 0x212) != bytes(0x212):
@@ -182,9 +218,21 @@ def capture(pid, base, output, image, bomb_order, flame_lifecycle=False, flame_c
             write(ds + 0xC496, bytes([len(seeded) + 2]))
             for index, raw in enumerate(seeded, 1):
                 write(ds + 0x1BAE + 38 * index, raw)
+            initial_flames, terrain = flame_stress_seed(name)
+            for slot, (raw, mass) in enumerate(initial_flames, 1):
+                write(ds + 0x2093 + 11 * slot, raw)
+                write(ds + 0x78D5 + slot, bytes([mass]))
+            if initial_flames:
+                write(ds + 0x2076, struct.pack("<H", len(initial_flames)))
+            for index, code, value in terrain:
+                write(objects + index, bytes([code]))
+                write(words + index * 2, struct.pack("<H", value))
             lines.append(f"case name={name} raw={monster.hex()} x=336 y={y} cell={cell}"
                          f" frame={word(ds + 0x78C2)} rng=12345678 regs={regs}"
                          + (f" bomb={bomb.hex()} bomb_x=336 bomb_y={bomb_y}" if bomb_order or flame_lifecycle else ""))
+            if initial_flames:
+                lines[-1] += " initial_flames=" + ",".join(raw.hex() + f":{mass:02x}" for raw, mass in initial_flames)
+                lines[-1] += " terrain=" + ",".join(f"{index}:{code:02x}:{value:04x}" for index, code, value in terrain)
             for sample in range(samples):
                 frame = word(ds + 0x78C2)
                 release(1)
@@ -250,20 +298,23 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--bomb-order", action="store_true")
     mode.add_argument("--flame-lifecycle", action="store_true")
-    parser.add_argument("--flame-case", choices=tuple(FLAME_PROBES))
+    mode.add_argument("--flame-stress", action="store_true")
+    parser.add_argument("--flame-case", choices=tuple(FLAME_PROBES | STRESS_PROBES))
     parser.add_argument("--flame-raw-hp", type=int, default=255)
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--out", type=Path)
     parser.add_argument("--approve-procmem", action="store_true")
     parser.add_argument("--approve-runtime-instrumentation", action="store_true")
     args = parser.parse_args()
+    args.flame_lifecycle = args.flame_lifecycle or args.flame_stress
     if args.flame_case and not args.flame_lifecycle:
         parser.error("flame-case requires flame-lifecycle")
     if not 0 <= args.flame_raw_hp <= 255 or (args.flame_raw_hp != 255 and not args.flame_lifecycle):
         parser.error("flame-raw-hp requires flame-lifecycle and a byte value")
     exe = (Path(__file__).resolve().parent.parent / "LEZAC.EXE").read_bytes()
     image = exe[0x770:]
-    windows = WINDOWS | (FLAME_WINDOWS if args.flame_lifecycle else {})
+    windows = WINDOWS | (FLAME_WINDOWS if args.flame_lifecycle else {}) | (
+        STRESS_WINDOWS if args.flame_stress or args.flame_case in STRESS_PROBES else {})
     for at, expected in windows.items():
         if image[at:at + len(expected)] != expected:
             raise RuntimeError(f"instruction mismatch at 1000:{at:04x}")
@@ -282,7 +333,8 @@ def main():
     if args.flame_lifecycle and not args.flame_case:
         combined = []
         common_header = None
-        for name in FLAME_PROBES:
+        probes = STRESS_PROBES if args.flame_stress else FLAME_PROBES
+        for name in probes:
             part = args.out.with_name(f"{args.out.stem}_{name}.txt")
             subprocess.run([sys.executable, str(Path(__file__).resolve()), "--flame-lifecycle",
                             "--flame-case", name, "--run-dir", str(args.run_dir), "--out", str(part),
@@ -300,7 +352,7 @@ def main():
                 combined.extend(rows[:boundary])
                 combined.append("# each_case_fresh_dosbox_child=1 initial_player_lives=99")
             combined.extend(rows[boundary:-1])
-        combined.append(f"complete cases={len(FLAME_PROBES)}")
+        combined.append(f"complete cases={len(probes)}")
         args.out.write_text("\n".join(combined) + "\n", encoding="ascii")
         return 0
     environment.SCRIPT_PATH = Path(__file__).resolve()

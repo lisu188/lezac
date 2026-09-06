@@ -82,8 +82,10 @@ Nonfatal impact and zero-based HP conversion now have
 Live explosion propagation and delayed repeated damage now have
 [1,040 continuous original states](flame_lifecycle_runtime_2026-09-06.md),
 including all four weapons, player damage and fatal monster/reward states.
-Natural collection routes, chain/capacity edge cases and two-player flame
-interactions still need broader recovery and verification. This
+Another [520 original states](flame_chain_capacity_runtime_2026-09-06.md)
+cover basic chain reactions, pool limits and compaction. Natural collection
+routes, flagged-word chain interactions and two-player flames still need
+broader recovery and verification. This
 does not close the broader actor-pool or rendering fidelity gaps. There is no
 defensible overall completion percentage without an exhaustive behavior
 inventory; the test pass rate is not a completion metric.

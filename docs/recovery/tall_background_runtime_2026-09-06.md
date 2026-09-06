@@ -142,7 +142,9 @@ while its static BOMPAL color is (255,0,0). These runtime palette changes are
 not reproduced by this normalized renderer test. The exact pairs and counts
 are recorded locally in `build-codex-tmp/tall-palette-analysis.json`.
 
-Remaining work includes that red-palette behavior, skyline RNG alignment,
+The subsequent [red-palette recovery](red_palette_runtime_2026-09-06.md)
+implements that palette behavior with fresh before/after DAC captures.
+Remaining work includes skyline RNG alignment,
 natural-route rendering, HUD phase, shared actor ordering/capacity, and
 simultaneous P2 activity. This is not a general Pascal heap emulator: other
 allocation histories, boss/new-game heap reuse and arbitrary map/view sizes

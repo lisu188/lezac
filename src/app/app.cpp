@@ -2495,6 +2495,249 @@ public:
                   << " normalized_rgb=1 gradient_generation=1 seeded_map_backdrop=1 natural_route=0 whole_game_parity=0\n";
     }
 
+    void debugRedPaletteOriginal(const std::string& fixture, const std::string& outDir) {
+        load();
+        initSdl();
+        auto number = [](const std::string& text) {
+            size_t end = 0;
+            const int value = std::stoi(text, &end);
+            if (end != text.size() || value < 0 || value > 65535)
+                throw std::runtime_error("invalid palette integer");
+            return value;
+        };
+        auto bytes = [](const std::string& hex, size_t count) {
+            if (hex.size() != count * 2 || hex.find_first_not_of("0123456789abcdef") != std::string::npos)
+                throw std::runtime_error("invalid palette bytes");
+            std::vector<uint8_t> result(count);
+            for (size_t i = 0; i < count; ++i)
+                result[i] = static_cast<uint8_t>(std::stoul(hex.substr(i * 2, 2), nullptr, 16));
+            return result;
+        };
+        auto rle = [&](const std::string& value, size_t size) {
+            std::vector<uint8_t> result;
+            std::istringstream stream(value);
+            std::string run;
+            if (value.empty() || value.back() == ',') throw std::runtime_error("invalid palette run");
+            while (std::getline(stream, run, ',')) {
+                const size_t colon = run.find(':');
+                if (colon == std::string::npos) throw std::runtime_error("invalid palette run");
+                const int count = number(run.substr(0, colon));
+                if (!count || result.size() + count > size) throw std::runtime_error("palette run overflow");
+                result.insert(result.end(), count, bytes(run.substr(colon + 1), 1)[0]);
+            }
+            if (result.size() != size) throw std::runtime_error("truncated palette pixels");
+            return result;
+        };
+        auto dacColor = [](const std::vector<uint8_t>& dac, size_t index) {
+            return 0xff000000u | (static_cast<uint32_t>(vga6To8(dac[index * 3])) << 16) |
+                   (static_cast<uint32_t>(vga6To8(dac[index * 3 + 1])) << 8) | vga6To8(dac[index * 3 + 2]);
+        };
+        auto checkDac = [&](const std::vector<uint8_t>& dac) {
+            if (std::any_of(dac.begin(), dac.end(), [](uint8_t value) { return value > 63; }))
+                throw std::runtime_error("invalid six-bit palette DAC");
+            for (size_t i = 230; i < 236; ++i)
+                if (argb(palette_, static_cast<uint8_t>(i)) != dacColor(dac, i))
+                    throw std::runtime_error("red palette DAC mismatch");
+        };
+        std::ifstream input(fixture);
+        if (!input) throw std::runtime_error("cannot open red palette fixture");
+        std::ofstream manifest;
+        if (!outDir.empty()) {
+            std::filesystem::create_directories(outDir);
+            manifest.open(joinPath(outDir, "manifest.csv"));
+            if (!manifest) throw std::runtime_error("cannot create red palette manifest");
+            manifest << "case,sample,frame,before_phase,after_phase,different_pixels,frame_hash\n";
+        }
+        const std::array<std::string, 4> cases{"continuous", "frame_wrap", "zero_phase", "byte_wrap"};
+        const std::array<int, 4> counts{71, 24, 16, 11}, frames{0, 65520, 0, 0}, phases{0, 62, 0, 250};
+        int stage = 0, caseIndex = -1, sample = 0, expectedFrame = 0, total = 0, writes = 0;
+        bool view = false, complete = false;
+        std::vector<uint8_t> indexed;
+        std::string pixelDigest, line;
+        size_t compared = 0, differences = 0;
+        while (std::getline(input, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (complete) throw std::runtime_error("data after palette completion");
+            std::map<std::string, std::string> fields;
+            std::istringstream stream(line);
+            std::string token;
+            while (stream >> token) {
+                const size_t eq = token.find('=');
+                if (eq != std::string::npos && !fields.emplace(token.substr(0, eq), token.substr(eq + 1)).second)
+                    throw std::runtime_error("duplicate palette field");
+            }
+            auto value = [&](const std::string& key) { return number(fields.at(key)); };
+            if (line.rfind("capture=", 0) == 0) {
+                const int level = value("level");
+                if (stage || fields.at("capture") != "red_palette_original_v1" || (level != 1 && level != 4) ||
+                    fields.at("seeded") != "1" || fields.at("temp_copy") != "1" || fields.at("before") != "7a13" ||
+                    fields.at("after") != "81f6" || fields.at("pitch") != "320" || fields.at("active_visuals") != "1")
+                    throw std::runtime_error("invalid red palette provenance");
+                for (int i = 0; i < level; ++i) resetLevel(i);
+                playerCount_ = 1;
+                monsters_.clear();
+                buildBackdropBuffer();
+                stage = 1;
+            } else if (line.rfind("map ", 0) == 0) {
+                if (stage != 1 || value("width") != level_.width || value("height") != level_.height)
+                    throw std::runtime_error("invalid palette map");
+                level_.tiles = bytes(fields.at("bytes"), level_.width * level_.height);
+                stage = 2;
+            } else if (line.rfind("backdrop ", 0) == 0) {
+                if (stage != 2) throw std::runtime_error("invalid palette backdrop");
+                backdropBuffer_ = rle(fields.at("bytes"), 60000);
+                stage = 3;
+            } else if (line.rfind("sprites ", 0) == 0) {
+                if (stage != 3) throw std::runtime_error("invalid palette descriptors");
+                const auto descriptors = bytes(fields.at("descriptors"), 368);
+                size_t offset = 0;
+                for (size_t i = 0; i < sprites_.sprites.size(); ++i) {
+                    const auto& sprite = sprites_.sprites[i];
+                    const size_t at = (i + 1) * 4;
+                    if (at + 4 > descriptors.size() || descriptors[at] != sprite.width || descriptors[at + 1] != sprite.height ||
+                        (descriptors[at + 2] | descriptors[at + 3] << 8) != static_cast<int>(offset))
+                        throw std::runtime_error("palette sprite descriptor mismatch");
+                    offset += sprite.width * sprite.height;
+                }
+                stage = 4;
+            } else if (line.rfind("case ", 0) == 0) {
+                if (stage != 4 || caseIndex == 3 || (caseIndex >= 0 && sample != counts[caseIndex]))
+                    throw std::runtime_error("incomplete palette case");
+                ++caseIndex;
+                expectedFrame = value("frame");
+                if (fields.at("name") != cases[caseIndex] || value("samples") != counts[caseIndex] ||
+                    value("seeded") != (caseIndex != 0) || (caseIndex &&
+                    (expectedFrame != frames[caseIndex] || value("phase") != phases[caseIndex])))
+                    throw std::runtime_error("invalid palette case seed");
+                if (!caseIndex) {
+                    // Reconstruct the natural startup history, not the observed pending phase.
+                    for (int frame = 1; frame < expectedFrame; ++frame) updateRedPalette(static_cast<uint16_t>(frame));
+                } else redPalettePhase_ = static_cast<uint8_t>(phases[caseIndex]);
+                if (redPalettePhase_ != value("phase")) throw std::runtime_error("palette initial phase mismatch");
+                sample = 0;
+            } else if (line.rfind("view ", 0) == 0) {
+                if (caseIndex != 0 || sample || view || value("x") != (levelIndex_ == 0 ? 104 : 248) ||
+                    value("y") != (levelIndex_ == 0 ? 168 : 360) || value("sprite") || value("shake"))
+                    throw std::runtime_error("invalid palette view");
+                player_.x = static_cast<float>(value("x"));
+                player_.y = static_cast<float>(value("y"));
+                player_.spriteIndex = 0;
+                indexed = rle(fields.at("pixels"), 312 * 152);
+                if (std::set<uint8_t>(indexed.begin(), indexed.end()).size() < 16)
+                    throw std::runtime_error("palette view lacks gameplay variation");
+                view = true;
+            } else if (line.rfind("sample ", 0) == 0) {
+                if (!view || caseIndex < 0 || fields.at("case") != cases[caseIndex] || value("index") != sample ||
+                    sample >= counts[caseIndex] || value("frame") != expectedFrame)
+                    throw std::runtime_error("nonconsecutive palette sample");
+                const auto before = bytes(fields.at("before_regs"), 12), after = bytes(fields.at("after_regs"), 12);
+                auto word = [](const std::vector<uint8_t>& data, size_t at) { return data[at] | data[at + 1] << 8; };
+                if (!std::equal(before.begin(), before.begin() + 4, after.begin()) ||
+                    !std::equal(before.begin() + 6, before.end(), after.begin() + 6) || word(before, 2) - word(before, 0) != 0xAA2)
+                    throw std::runtime_error("palette register mismatch");
+                bytes(fields.at("indexed_sha256"), 32);
+                if (pixelDigest.empty()) pixelDigest = fields.at("indexed_sha256");
+                if (pixelDigest != fields.at("indexed_sha256")) throw std::runtime_error("palette indexed view changed");
+                if (redPalettePhase_ != value("before_phase")) throw std::runtime_error("palette pre-phase mismatch");
+                checkDac(bytes(fields.at("before_dac"), 768));
+                updateRedPalette(static_cast<uint16_t>(expectedFrame));
+                if (expectedFrame % 5 == 0) ++writes;
+                if (redPalettePhase_ != value("after_phase")) throw std::runtime_error("palette post-phase mismatch");
+                const auto dac = bytes(fields.at("after_dac"), 768);
+                checkDac(dac);
+                std::fill(fb_.begin(), fb_.end(), 0xff000000u);
+                drawWorldView(player_, 4, 4, 312, 152);
+                resetClip();
+                size_t different = 0;
+                uint64_t hash = 1469598103934665603ull;
+                std::vector<uint32_t> pixels;
+                for (size_t i = 0; i < indexed.size(); ++i) {
+                    const auto color = fb_[(i / 312 + 4) * kScreenW + i % 312 + 4];
+                    pixels.push_back(color);
+                    hash = (hash ^ color) * 1099511628211ull;
+                    if (color != dacColor(dac, indexed[i])) ++different;
+                }
+                if (!outDir.empty()) {
+                    manifest << cases[caseIndex] << ',' << sample << ',' << expectedFrame << ',' << value("before_phase")
+                             << ',' << value("after_phase") << ',' << different << ',' << hash << '\n';
+                    if (!sample || sample == counts[caseIndex] - 1 || (!caseIndex && (sample == 4 || sample == 5 || sample == 34 || sample == 35))) {
+                        std::ostringstream name;
+                        name << cases[caseIndex] << '_' << std::setw(3) << std::setfill('0') << sample << ".ppm";
+                        writeArgbPpm(joinPath(outDir, name.str()), pixels, 312, 152);
+                    }
+                }
+                differences += different;
+                compared += indexed.size();
+                expectedFrame = (expectedFrame + 1) & 65535;
+                ++sample;
+                ++total;
+            } else if (line.rfind("complete ", 0) == 0) {
+                if (caseIndex != 3 || sample != counts[3] || value("cases") != 4 || value("samples") != 122 || total != 122)
+                    throw std::runtime_error("incomplete palette coverage");
+                complete = true;
+            } else throw std::runtime_error("unknown palette record");
+        }
+        if (!complete) throw std::runtime_error("missing palette completion");
+        if (differences) throw std::runtime_error("red palette pixel mismatches=" + std::to_string(differences));
+        std::cout << "red_palette_original=ok cases=4 samples=" << total << " writes=" << writes << " compared_pixels=" << compared
+                  << " actual_dac=1 frame_wrap=1 byte_wrap=1 seeded_scene=1 natural_route=0 whole_game_parity=0\n";
+    }
+
+    void debugRedPaletteLifecycle() {
+        load();
+        initSdl();
+        resetLevel(0);
+        menu_ = false;
+        spawnerStates_.clear();
+        const uint32_t originalRed = argb(palette_, 230);
+        auto tick = [&] { updateWithControls(FrameControls{}, 1.0f / 60.0f); };
+        for (int i = 0; i < 4; ++i) tick();
+        if (logicTick_ != 4 || redPalettePhase_ != 0 || argb(palette_, 230) != originalRed)
+            throw std::runtime_error("palette changed before fifth gameplay frame");
+        tick();
+        if (redPalettePhase_ != 7 || argb(palette_, 230) != 0xff000000u)
+            throw std::runtime_error("gameplay omitted first palette update");
+        tick();
+        tick();
+        paused_ = true;
+        tick();
+        paused_ = false;
+        menu_ = true;
+        tick();
+        menu_ = false;
+        levelIntro_.active = true;
+        tick();
+        levelIntro_.active = false;
+        if (logicTick_ != 7 || redPalettePhase_ != 7)
+            throw std::runtime_error("inactive gameplay advanced palette clock");
+        beginLevelForPlay(1);
+        spawnerStates_.clear();
+        if (logicTick_ != 7 || redPalettePhase_ != 7)
+            throw std::runtime_error("level transition reset palette history");
+        for (int i = 0; i < 3; ++i) tick();
+        if (logicTick_ != 10 || redPalettePhase_ != 14 || argb(palette_, 230) != 0xff1c0000u)
+            throw std::runtime_error("palette cadence shifted after level transition");
+        menu_ = true;
+        beginLevelForPlay(0);
+        menu_ = false;
+        if (logicTick_ != 0 || redPalettePhase_ != 14)
+            throw std::runtime_error("new-game palette clock/phase mismatch");
+        spawnerStates_.clear();
+        logicTick_ = 65534;
+        redPalettePhase_ = 62;
+        tick();
+        if (redPalettePhase_ != 20 || argb(palette_, 230) != 0xfffb0000u)
+            throw std::runtime_error("palette frame 65535 mismatch");
+        tick();
+        if (redPalettePhase_ != 27 || argb(palette_, 230) != 0xff510000u)
+            throw std::runtime_error("palette frame zero wrap mismatch");
+        tick();
+        if (redPalettePhase_ != 27) throw std::runtime_error("palette updated on wrapped frame one");
+        std::cout << "red_palette_lifecycle=ok gameplay_cadence=1 pause_menu_intro_hold=1 level_frame_preserved=1"
+                     " new_game_frame_reset=1 phase_preserved=1 frame_wrap=1\n";
+    }
+
     void debugLevel1FrameInspection() {
         load();
         initSdl();
@@ -24090,6 +24333,7 @@ private:
     LevelOutroState levelOutro_;
     std::vector<uint8_t> backdropBuffer_;
     int backdropPitch_ = 320;
+    uint8_t redPalettePhase_ = 0;
     std::array<uint8_t, 8> backdropHeapPadding_{};
     size_t backdropMapTileCount_ = 0;
     std::vector<BonusDrop> bonusDrops_;
@@ -24400,12 +24644,16 @@ private:
     }
 
     void beginLevelForPlay(int index) {
+        // Original level advance jumps to file 0x7f4c, past the new-game clock reset.
+        const uint32_t frame = menu_ ? 0 : logicTick_;
         if (!interactiveLevelIntroEnabled_) {
             resetLevel(index);
+            logicTick_ = frame;
             return;
         }
         LevelIntroPattern pattern = makeLevelIntroPattern();
         resetLevel(index);
+        logicTick_ = frame;
         levelIntro_.active = true;
         levelIntro_.startedAt = SDL_GetTicks();
         levelIntro_.levelIndex = levelIndex_;
@@ -25104,6 +25352,7 @@ private:
         drainPlayerDamageCounters();
         updateFlashes();
         updateCameraShake();
+        updateRedPalette(static_cast<uint16_t>(logicTick_));
         updateLevelCompletion();
         pumpSoundLatch();
     }
@@ -28536,6 +28785,19 @@ private:
         return tile < level_.tiles.size() ? level_.tiles[tile] : 0;
     }
 
+    void updateRedPalette(uint16_t frame) {
+        if (frame % 5 != 0) return;
+        uint8_t red = redPalettePhase_;
+        for (size_t i = 230; i < 236; ++i) {
+            palette_[i] = {vga6To8(static_cast<uint8_t>(red & 63)), 0, 0};
+            red = static_cast<uint8_t>(red + 7);
+            // The writer's signed comparison differs from the unsigned phase update.
+            if (red > 63 && red < 128) red = 20;
+        }
+        redPalettePhase_ = static_cast<uint8_t>(redPalettePhase_ + 7);
+        if (redPalettePhase_ > 63) redPalettePhase_ = 20;
+    }
+
     void drawGradientSky(int viewX, int viewY, int viewW, int viewH,
                          int camX, int camY) {
         if (!showBackground_) {
@@ -30157,6 +30419,14 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-render-boundary-original") {
             app.debugRenderBoundaryOriginal(argv[2], argc > 3 ? argv[3] : "");
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-red-palette-original") {
+            app.debugRedPaletteOriginal(argv[2], argc > 3 ? argv[3] : "");
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-red-palette-lifecycle") {
+            app.debugRedPaletteLifecycle();
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-level1-frame-inspection") {

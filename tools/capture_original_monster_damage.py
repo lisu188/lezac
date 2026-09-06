@@ -41,6 +41,18 @@ ORDER_PROBES = {
     "bomb_first": (1, 0, 3, 31, 174, "bomb"),
     "monster_first": (1, 0, 3, 31, 174, "bomb"),
 }
+FLAME_PROBES = {f"{weapon}_{place}": (1, 0, 3, 255, y - 2, "bomb")
+                for place, y in (("ground", 176), ("air", 96))
+                for weapon in ("small", "medium", "large", "super")}
+FLAME_WINDOWS = {
+    0x3EDA: bytes.fromhex("a0d2788a26d378bb0100"),
+    0x403B: bytes.fromhex("813e7620c600"),
+    0x45FA: bytes.fromhex("5589e5b81a00"),
+    0x48F1: bytes.fromhex("c47ee626fe4d08"),
+    0x6F9B: bytes.fromhex("c70672200200c6068c2002"),
+    0x6FCA: bytes.fromhex("c1e0038946f4"),
+    0x7018: bytes.fromhex("3c02753f"),
+}
 
 
 def initial_actor(spec):
@@ -56,9 +68,11 @@ def initial_actor(spec):
     return raw, start, y
 
 
-def capture(pid, base, output, image, bomb_order):
-    probes = ORDER_PROBES if bomb_order else PROBES
-    samples = 25 if bomb_order else 13
+def capture(pid, base, output, image, bomb_order, flame_lifecycle=False, flame_case=None):
+    probes = FLAME_PROBES if flame_lifecycle else ORDER_PROBES if bomb_order else PROBES
+    if flame_case:
+        probes = {flame_case: FLAME_PROBES[flame_case]}
+    samples = 65 if flame_lifecycle else 25 if bomb_order else 13
     cs, ds = base + (actors.CS << 4), base + (seeder.RUNTIME_DS << 4)
     with open(f"/proc/{pid}/mem", "r+b", buffering=0) as mem:
         def read(address, size):
@@ -92,7 +106,7 @@ def capture(pid, base, output, image, bomb_order):
         def release(stage):
             write(cs + actors.SCRATCH + 14, struct.pack("<H", stage))
 
-        for at, expected in WINDOWS.items():
+        for at, expected in (WINDOWS | (FLAME_WINDOWS if flame_lifecycle else {})).items():
             if read(cs + at, len(expected)) != expected:
                 raise RuntimeError(f"runtime instruction mismatch at {at:04x}")
         if read(cs + 0xF400, 0x212) != bytes(0x212):
@@ -119,14 +133,14 @@ def capture(pid, base, output, image, bomb_order):
             raise RuntimeError("unexpected level width")
         initial_objects, initial_words = read(objects, 1980), read(words, 3960)
         descriptors = read(ds + 0xC322, 92 * 4)
-        mode = "bomb_actor_order" if bomb_order else "monster_damage"
+        mode = "flame_lifecycle" if flame_lifecycle else "bomb_actor_order" if bomb_order else "monster_damage"
         lines = ["# Seeded original actor-pass probes; no natural-route or pixel-parity claim.",
                  "# executable_sha256=" + hashlib.sha256((Path(__file__).resolve().parent.parent / "LEZAC.EXE").read_bytes()).hexdigest(),
                  "# register_order=cs,ds,es,ss,saved-sp,bp little_endian_words=1",
                  f"capture={mode}_original_v1 seeded=1 temp_copy=1 player=240,168 spawners=0",
                  f"sprites descriptors={descriptors.hex()}"]
         for name, spec in probes.items():
-            if bomb_order:
+            if bomb_order or flame_lifecycle:
                 while word(ds + 0x78C2) % 2 != 1:
                     release(1)
                     wait(2)
@@ -139,6 +153,9 @@ def capture(pid, base, output, image, bomb_order):
             write(ds + 0x2080, bytes(2))
             write(ds + 0x207E, struct.pack("<H", 199))
             write(ds + 0x208E, bytes(1))
+            if flame_lifecycle:
+                write(ds + 0x2076, bytes(2))
+                write(ds + 0x79EA, bytes([99]))
             write(ds + 0xC21E, struct.pack("<HH", 240, 168))
             write(ds + 0x1AFE, struct.pack("<I", 0x12345678))
             monster, sprite, y = initial_actor(spec)
@@ -149,10 +166,13 @@ def capture(pid, base, output, image, bomb_order):
                 cell = -1
             write(ds + 0xC21E + 16, struct.pack("<HH", 336, y) + descriptors[sprite * 4:sprite * 4 + 4])
             seeded = [monster]
-            if bomb_order:
+            if bomb_order or flame_lifecycle:
                 bomb = bytearray(38)
                 bomb[0], bomb[1], bomb[0x14], bomb[0x15] = 0x0d, 3, 8, 2
-                write(ds + 0xC21E + 24, struct.pack("<HH", 336, 176) + descriptors[58 * 4:59 * 4])
+                weapon = ("small", "medium", "large", "super").index(name.split("_")[0]) if flame_lifecycle else 0
+                bomb[0] += weapon
+                bomb_y = y + 2 if flame_lifecycle else 176
+                write(ds + 0xC21E + 24, struct.pack("<HH", 336, bomb_y) + descriptors[(58 + weapon) * 4:(59 + weapon) * 4])
                 seeded = [bomb, monster] if name == "bomb_first" else [monster, bomb]
             write(ds + 0x208D, bytes([len(seeded)]))
             write(ds + 0xC496, bytes([len(seeded) + 2]))
@@ -160,7 +180,7 @@ def capture(pid, base, output, image, bomb_order):
                 write(ds + 0x1BAE + 38 * index, raw)
             lines.append(f"case name={name} raw={monster.hex()} x=336 y={y} cell={cell}"
                          f" frame={word(ds + 0x78C2)} rng=12345678 regs={regs}"
-                         + (f" bomb={bomb.hex()} bomb_x=336 bomb_y=176" if bomb_order else ""))
+                         + (f" bomb={bomb.hex()} bomb_x=336 bomb_y={bomb_y}" if bomb_order or flame_lifecycle else ""))
             for sample in range(samples):
                 frame = word(ds + 0x78C2)
                 release(1)
@@ -186,7 +206,25 @@ def capture(pid, base, output, image, bomb_order):
                 lines.append(f"tick sample={sample} frame={frame} count={count} target={target or '-'}"
                              f" others={','.join(others) or '-'} map={delta}"
                              f" rng={read(ds + 0x1AFE, 4).hex()} regs={after_regs}")
-                if name in ("right_delay3", "kind2", "bomb_first", "monster_first") and sample in (1, 4, 8, 12):
+                if flame_lifecycle:
+                    player = read(ds + 0x1B88, 38)
+                    lines[-1] += (f" player={player.hex()}:" + read(ds + 0xC21E + player[1] * 8, 8).hex()
+                                  + f" player_flags={read(ds + 0x79E5, 14).hex()}")
+                    flame_count = word(ds + 0x2076)
+                    if flame_count > 198:
+                        raise RuntimeError("invalid flame count")
+                    records = ",".join(read(ds + 0x2093 + 11 * slot, 11).hex() + ":" +
+                                       read(ds + 0x78D5 + slot, 1).hex()
+                                       for slot in range(1, flame_count + 1)) or "-"
+                    current_words = read(words, 3960)
+                    word_delta = ",".join(f"{i // 2}:{current_words[i:i + 2].hex()}"
+                                           for i in range(0, 3960, 2)
+                                           if current_words[i:i + 2] != initial_words[i:i + 2]) or "-"
+                    lines.append(f"flames sample={sample} count={flame_count} records={records} words={word_delta}"
+                                 f" debris={word(ds + 0x207E)} collapse={word(ds + 0x2080)}")
+                    output.write_text("\n".join(lines) + "\n", encoding="ascii")
+                checkpoints = (1, 4, 8, 12, 20, 36, 64) if flame_lifecycle else (1, 4, 8, 12)
+                if (flame_lifecycle or name in ("right_delay3", "kind2", "bomb_first", "monster_first")) and sample in checkpoints:
                     window = subprocess.check_output(["xdotool", "search", "--name", "DOSBox"], text=True).split()[-1]
                     subprocess.run(["import", "-window", window,
                         str(output.with_name(f"{output.stem}_{name}_{sample:03d}.png"))], check=True, timeout=5)
@@ -205,20 +243,26 @@ def capture(pid, base, output, image, bomb_order):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--self-check", action="store_true")
-    parser.add_argument("--bomb-order", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--bomb-order", action="store_true")
+    mode.add_argument("--flame-lifecycle", action="store_true")
+    parser.add_argument("--flame-case", choices=tuple(FLAME_PROBES))
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--out", type=Path)
     parser.add_argument("--approve-procmem", action="store_true")
     parser.add_argument("--approve-runtime-instrumentation", action="store_true")
     args = parser.parse_args()
+    if args.flame_case and not args.flame_lifecycle:
+        parser.error("flame-case requires flame-lifecycle")
     exe = (Path(__file__).resolve().parent.parent / "LEZAC.EXE").read_bytes()
     image = exe[0x770:]
-    for at, expected in WINDOWS.items():
+    windows = WINDOWS | (FLAME_WINDOWS if args.flame_lifecycle else {})
+    for at, expected in windows.items():
         if image[at:at + len(expected)] != expected:
             raise RuntimeError(f"instruction mismatch at 1000:{at:04x}")
     for stage in (1, 2):
         actors.trampoline(stage, image)
-    print(f"monster_damage_capture_self_check=ok windows={len(WINDOWS)} live=0", flush=True)
+    print(f"monster_damage_capture_self_check=ok windows={len(windows)} live=0", flush=True)
     if args.self_check:
         return 0
     if not (args.run_dir and args.out and args.approve_procmem and args.approve_runtime_instrumentation):
@@ -228,6 +272,29 @@ def main():
     environment.validate_temp_run_dir(args.run_dir.resolve())
     if (args.run_dir / "LEZAC.EXE").read_bytes() != exe:
         parser.error("temporary executable differs from guarded original")
+    if args.flame_lifecycle and not args.flame_case:
+        combined = []
+        common_header = None
+        for name in FLAME_PROBES:
+            part = args.out.with_name(f"{args.out.stem}_{name}.txt")
+            subprocess.run([sys.executable, str(Path(__file__).resolve()), "--flame-lifecycle",
+                            "--flame-case", name, "--run-dir", str(args.run_dir), "--out", str(part),
+                            "--approve-procmem", "--approve-runtime-instrumentation"], check=True)
+            rows = part.read_text(encoding="ascii").splitlines()
+            if rows[-1] != "complete cases=1":
+                raise RuntimeError("incomplete isolated flame case")
+            boundary = next(i for i, row in enumerate(rows) if row.startswith("case "))
+            header = [row for row in rows[:boundary] if not row.startswith("#")]
+            if common_header is not None and header != common_header:
+                raise RuntimeError("isolated flame provenance/descriptors differ")
+            common_header = header
+            if not combined:
+                combined.extend(rows[:boundary])
+                combined.append("# each_case_fresh_dosbox_child=1 initial_player_lives=99")
+            combined.extend(rows[boundary:-1])
+        combined.append(f"complete cases={len(FLAME_PROBES)}")
+        args.out.write_text("\n".join(combined) + "\n", encoding="ascii")
+        return 0
     environment.SCRIPT_PATH = Path(__file__).resolve()
     environment.XVFB_MARKER = "LEZAC_MONSTER_DAMAGE_INSIDE_XVFB"
     environment.enter_private_xvfb(sys.argv[1:])
@@ -235,7 +302,7 @@ def main():
 
     def hook(run_dir, pid, base, state, phase):
         if phase == "pre_capture":
-            capture(pid, base, args.out, image, args.bomb_order)
+            capture(pid, base, args.out, image, args.bomb_order, args.flame_lifecycle, args.flame_case)
         return original(run_dir, pid, base, state, phase)
     seeder.write_runtime_state_snapshot = hook
     sys.argv = ["seed_original_level.py", "--run-dir", str(args.run_dir), "--target-level", "1",

@@ -3496,7 +3496,7 @@ if(BUILD_TESTING)
     set_tests_properties(bomb_fuse PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "bomb_fuse=ok fuse=39 effects=1 flashes=4 delayed_final_life=1 stale_reset_guard=1")
+            "bomb_fuse=ok fuse=39 effects=1 flames=8 delayed_final_life=1 stale_reset_guard=1")
 
     add_test(NAME bomb_fuse_original
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-bomb-fuse-original
@@ -3553,7 +3553,7 @@ if(BUILD_TESTING)
     set_tests_properties(bomb_object_explosion_effects PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "bomb_object_explosion_effects=ok cases=2 .*collapse_level=1 collapse_tile=24,22 collapse_count=2 collapse_start_off=0x0a06 collapse_end_off=0x0a08 collapse_word=0x0009 collapse_flagged=0x8009 .*collapse_affected_bytes=4 .*score_each=50 sound_offset=0xea74")
+            "bomb_object_explosion_effects=ok cases=2 .*collapse_level=1 collapse_tile=24,22 collapse_count=2 collapse_start_off=0x0a06 collapse_end_off=0x0a08 collapse_word=0x0009 collapse_flagged=0x8009 .*collapse_affected_bytes=4 .*score_table=1 expiry_consumption=0 explicit_pickup=1 sound_offset=0xea74")
 
     add_test(NAME debris_motion_live
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-debris-motion-live)
@@ -3957,6 +3957,26 @@ if(BUILD_TESTING)
     set_tests_properties(bomb_actor_order_observation PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^bomb_actor_order_observation=ok cases=2 samples=50 first_damage_sample=2 damage=4,6,2 total_damage=12 same_phase=1 mutations_rejected=8 cpp_damage_claim=0")
+
+    add_test(NAME flame_lifecycle_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-flame-lifecycle-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/flame_lifecycle_original.txt)
+    set_tests_properties(flame_lifecycle_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^flame_lifecycle_original=ok cases=8 samples=520 records=3666 player_states=520 continuous=1 map_planes=2 actor_damage=1 rng=1 frame_inspection=1")
+
+    add_test(NAME flame_lifecycle_capture_contract
+        COMMAND ${Python3_EXECUTABLE} tools/capture_original_monster_damage.py --flame-lifecycle --self-check)
+    set_tests_properties(flame_lifecycle_capture_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^monster_damage_capture_self_check=ok windows=23 live=0")
+
+    add_test(NAME flame_lifecycle_fixture
+        COMMAND ${Python3_EXECUTABLE} tools/check_flame_lifecycle_fixture.py --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(flame_lifecycle_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^flame_lifecycle_fixture=ok lf=1 crlf=1 truncated_rejected=1 mutations_rejected=7 no_output_files=1")
 
     add_test(NAME transient_actor_limits
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-transient-actor-limits)

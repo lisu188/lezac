@@ -11,9 +11,11 @@ import tempfile
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--exe", type=Path, required=True)
+    parser.add_argument("--reward-lifecycle", action="store_true")
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
-    source = (root / "tests/fixtures/death_transients_original.txt").read_text(encoding="ascii")
+    name = "reward_lifecycle" if args.reward_lifecycle else "death_transients"
+    source = (root / f"tests/fixtures/{name}_original.txt").read_text(encoding="ascii")
     env = dict(os.environ, SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy")
     before = set(root.glob("*.ppm"))
     with tempfile.TemporaryDirectory(prefix="lezac-death-fixture-") as directory:
@@ -22,14 +24,14 @@ def main():
         def run(content, error=None):
             fixture.write_bytes(content.encode("ascii"))
             result = subprocess.run(
-                [str(args.exe.resolve()), "--debug-death-transients-original", str(fixture)],
+                [str(args.exe.resolve()), f"--debug-{name.replace('_', '-')}-original", str(fixture)],
                 cwd=root, env=env, capture_output=True, text=True, timeout=30,
             )
             output = result.stdout + result.stderr
             if error is None:
-                valid = result.returncode == 0 and "death_transients_original=ok" in output
+                valid = result.returncode == 0 and f"{name}_original=ok" in output
             else:
-                valid = result.returncode != 0 and error in output and "death_transients_original=ok" not in output
+                valid = result.returncode != 0 and error in output and f"{name}_original=ok" not in output
             if not valid:
                 raise RuntimeError(f"expected={error or 'success'}: {output}")
 
@@ -40,13 +42,17 @@ def main():
         rows = source.splitlines()
         index = next(i for i, line in enumerate(rows) if line.startswith("tick "))
         fields = dict(token.split("=", 1) for token in rows[index].split()[1:])
-        effects = fields["effects"]
-        fields["effects"] = effects[:4] + "00" + effects[6:]
+        target = "rewards" if args.reward_lifecycle else "effects"
+        offset = 16 if args.reward_lifecycle else 4
+        value = fields[target]
+        fields[target] = value[:offset] + "00" + value[offset + 2:]
         rows[index] = "tick " + " ".join(f"{key}={value}" for key, value in fields.items())
-        run("\n".join(rows) + "\n", "original death-effects mismatch: reward_even sample=0")
+        case = "expiry_even" if args.reward_lifecycle else "reward_even"
+        run("\n".join(rows) + "\n", f"original death-effects mismatch: {case} sample=0")
     if set(root.glob("*.ppm")) != before:
         raise RuntimeError("replay without output directory wrote frame files")
-    print("death_transients_fixture=ok lf=1 crlf=1 truncated_rejected=1 timer_mutation_rejected=1 no_output_files=1")
+    mutation = "velocity" if args.reward_lifecycle else "timer"
+    print(f"{name}_fixture=ok lf=1 crlf=1 truncated_rejected=1 {mutation}_mutation_rejected=1 no_output_files=1")
 
 
 if __name__ == "__main__":

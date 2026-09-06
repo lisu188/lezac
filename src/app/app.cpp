@@ -13,6 +13,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <regex>
 #include <set>
@@ -892,7 +893,12 @@ struct BonusDrop {
     float x = 0.0f;
     float y = 0.0f;
     BonusType type = BonusType::Present;
-    int animTick = 0;
+    int16_t vx8 = 0;
+    int16_t vy8 = 0;
+    uint8_t fracX = 0;
+    uint8_t fracY = 0;
+    uint8_t hotspotY = 0;
+    uint8_t timer = 100;
     bool collected = false;
 };
 
@@ -21924,7 +21930,8 @@ public:
             std::equal(visible.begin() + 4, visible.end(), descriptors.begin() + descriptor);
     }
 
-    void debugDeathTransientsOriginal(const std::string& fixturePath, const std::string& outDir) {
+    void debugDeathTransientsOriginal(const std::string& fixturePath, const std::string& outDir,
+                                     bool rewardLifecycle = false) {
         load();
         initSdl();
         std::ifstream input(fixturePath);
@@ -21934,7 +21941,7 @@ public:
             std::filesystem::create_directories(outDir);
             manifest.open(joinPath(outDir, "manifest.csv"));
             if (!manifest) throw std::runtime_error("cannot create death-effects manifest");
-            manifest << "case,sample,frame,actor_count,effect_count,rng,frame_hash,effects\n";
+            manifest << "case,sample,frame,actor_count,effect_count,rng,frame_hash,effects,rewards\n";
         }
         auto bytes = [](const std::string& hex, size_t size) {
             if (hex.size() != size * 2 || hex.find_first_not_of("0123456789abcdef") != std::string::npos) {
@@ -21959,12 +21966,24 @@ public:
             }
             return result;
         };
-        const std::map<std::string, std::array<uint32_t, 3>> probes{
+        std::map<std::string, std::array<uint32_t, 3>> probes{
             {"reward_even", {0x90e25b93u, 1, 0}}, {"reward_odd", {0x90e25b93u, 1, 1}},
             {"no_reward_even", {0, 1, 0}}, {"no_reward_odd", {0, 1, 1}},
             {"reward_pool29", {0x90e25b93u, 29, 1}}, {"reward_pool30", {0x90e25b93u, 30, 1}},
             {"no_reward_pool30", {0, 30, 1}}, {"no_reward_fraction", {0, 1, 1}},
         };
+        const std::array<std::array<int, 4>, 7> rewardMotion{{
+            {336, 174, 0, -200}, {336, 130, 389, -800}, {430, 174, 600, -200},
+            {336, 174, -300, -200}, {336, 30, 0, 2040}, {336, 174, 0, -1900},
+            {440, 174, 1800, -200},
+        }};
+        if (rewardLifecycle) {
+            probes = {{"expiry_even", {0x90e25b93u, 1, 0}}, {"expiry_odd", {0x90e25b93u, 1, 1}}};
+            for (uint32_t kind = 0; kind < 7; ++kind) {
+                probes.emplace("kind_" + std::to_string(kind), std::array<uint32_t, 3>{0x12345678u, 1, kind % 2});
+            }
+        }
+        const int samplesPerCase = rewardLifecycle ? 241 : 41;
         bool header = false, complete = false;
         int samples = 0, totalSamples = 0, effectStates = 0, rewardStates = 0;
         int previousFrame = -1;
@@ -21983,7 +22002,7 @@ public:
             }
             if (complete) throw std::runtime_error("data after death-effects completion");
             if (line.rfind("capture=", 0) == 0) {
-                if (header || fields.at("capture") != "death_transients_original_v1" ||
+                if (header || fields.at("capture") != (rewardLifecycle ? "reward_lifecycle_original_v1" : "death_transients_original_v1") ||
                     fields.at("seeded") != "1" || fields.at("temp_copy") != "1" ||
                     fields.at("spawners") != "0" || fields.at("player") != "240,168") {
                     throw std::runtime_error("invalid death-effects provenance");
@@ -21996,19 +22015,25 @@ public:
                 if (!header || descriptors.empty() || !name.empty()) throw std::runtime_error("invalid death-effects case");
                 name = fields.at("name");
                 const auto spec = probes.find(name);
+                const int rewardKind = rewardLifecycle && name.rfind("kind_", 0) == 0 ? std::stoi(name.substr(5)) : -1;
+                const bool directReward = rewardKind >= 0;
+                const auto motion = directReward && rewardKind < 7 ? rewardMotion.at(rewardKind) : std::array<int, 4>{336, 174, 0, 0};
                 if (spec == probes.end() || !seen.insert(name).second ||
                     std::stoul(fields.at("rng"), nullptr, 16) != spec->second[0] ||
                     std::stoul(fields.at("count")) != spec->second[1] ||
                     std::stoul(fields.at("parity")) != spec->second[2] ||
-                    fields.at("x") != "336" || fields.at("y") != "174") {
+                    std::stoi(fields.at("x")) != motion[0] || std::stoi(fields.at("y")) != motion[1]) {
                     throw std::runtime_error("unexpected death-effects seed");
                 }
                 auto original = bytes(fields.at("corpse"), 38);
-                if (original[0] != 0x0c || original[2] != 0 || original[0x15] != 2 ||
-                    original[0x14] != 6 || le16(original, 6) || le16(original, 8) ||
-                    le16(original, 10) != (name == "no_reward_fraction" ? 0x9a : 0) ||
-                    le16(original, 12) != (name == "no_reward_fraction" ? 0x4e : 0)) {
-                    throw std::runtime_error("unexpected original corpse fields");
+                const int hotspot = directReward ? 16 - sprites_.sprites.at(61 + rewardKind).height : 6;
+                if (original[0] != (directReward ? 0x13 + rewardKind : 0x0c) ||
+                    original[2] != (directReward ? 100 : 0) || original[0x15] != 2 || original[0x1b] != 0 ||
+                    original[0x14] != hotspot || static_cast<int16_t>(le16(original, 6)) != motion[2] ||
+                    static_cast<int16_t>(le16(original, 8)) != motion[3] ||
+                    le16(original, 10) != (rewardLifecycle || name == "no_reward_fraction" ? 0x9a : 0) ||
+                    le16(original, 12) != (rewardLifecycle || name == "no_reward_fraction" ? 0x4e : 0)) {
+                    throw std::runtime_error("unexpected original corpse fields: " + name);
                 }
                 resetLevel(0);
                 menu_ = false;
@@ -22025,7 +22050,14 @@ public:
                 corpse.deathRewardPending = true;
                 corpse.fracX = original[10];
                 corpse.fracY = original[12];
-                monsters_.push_back(corpse);
+                if (directReward) {
+                    spawnBonusDrop(static_cast<float>(motion[0]), static_cast<float>(motion[1]), static_cast<BonusType>(rewardKind));
+                    auto& reward = bonusDrops_.back();
+                    reward.vx8 = static_cast<int16_t>(motion[2]);
+                    reward.vy8 = static_cast<int16_t>(motion[3]);
+                    reward.fracX = original[10];
+                    reward.fracY = original[12];
+                } else monsters_.push_back(corpse);
                 for (uint32_t i = 1; i < spec->second[1]; ++i) {
                     ActiveMonster filler;
                     filler.x = 440;
@@ -22038,7 +22070,7 @@ public:
                 samples = 0;
                 previousFrame = -1;
             } else if (line.rfind("tick ", 0) == 0) {
-                if (name.empty() || samples >= 41 || std::stoi(fields.at("sample")) != samples) {
+                if (name.empty() || samples >= samplesPerCase || std::stoi(fields.at("sample")) != samples) {
                     throw std::runtime_error("invalid death-effects sample");
                 }
                 const int frame = std::stoi(fields.at("frame"));
@@ -22066,17 +22098,35 @@ public:
                                     descriptors.begin() + (sprite + 1) * 4)) fail();
                     if (!samples && (bonusDrops_[i].x != le16(rewards[i].second, 0) ||
                                      bonusDrops_[i].y != le16(rewards[i].second, 2))) fail();
+                    if (rewardLifecycle) {
+                        const auto& reward = bonusDrops_[i];
+                        const auto& raw = rewards[i].first;
+                        if (raw[0] != 0x13 + static_cast<int>(reward.type) || raw[2] != reward.timer ||
+                            raw[0x14] != reward.hotspotY || raw[0x15] != 2 || raw[0x1b] != 0 ||
+                            static_cast<int16_t>(le16(raw, 6)) != reward.vx8 ||
+                            static_cast<int16_t>(le16(raw, 8)) != reward.vy8 ||
+                            le16(raw, 10) != reward.fracX || le16(raw, 12) != reward.fracY ||
+                            le16(rewards[i].second, 0) != reward.x || le16(rewards[i].second, 2) != reward.y) fail();
+                    }
                     ++rewardStates;
                 }
                 const auto label = name + "_" + std::to_string(samples);
                 lastHash = inspectRenderedFrame(label).hash;
                 if (!outDir.empty()) {
-                    writeArgbPpm(joinPath(outDir, label + ".ppm"), fb_, kScreenW, kScreenH);
+                    if (!rewardLifecycle || std::set<int>{0, 1, 10, 40, 199, 210, 235, 240}.count(samples)) {
+                        writeArgbPpm(joinPath(outDir, label + ".ppm"), fb_, kScreenW, kScreenH);
+                    }
                     manifest << name << ',' << samples << ',' << frame << ',' << sharedActorCount() << ','
                              << transientActors_.size() << ',' << std::hex << randomSeed_ << ',' << lastHash << std::dec << ',';
                     for (const auto& actor : transientActors_) {
                         manifest << int(actor.kind) << ':' << actor.x << ':' << actor.y << ':' << actor.vx8 << ':'
                                  << actor.vy8 << ':' << int(actor.timer) << ':' << int(actor.spriteIndex) << '|';
+                    }
+                    manifest << ',';
+                    for (const auto& reward : bonusDrops_) {
+                        manifest << int(reward.type) << ':' << reward.x << ':' << reward.y << ':'
+                                 << reward.vx8 << ':' << reward.vy8 << ':' << int(reward.fracX) << ':'
+                                 << int(reward.fracY) << ':' << int(reward.timer) << '|';
                     }
                     manifest << '\n';
                     if (!manifest) throw std::runtime_error("cannot write death-effects manifest");
@@ -22085,22 +22135,24 @@ public:
                 ++totalSamples;
                 previousFrame = frame;
             } else if (line.rfind("end ", 0) == 0) {
-                if (name.empty() || samples != 41 || fields.at("samples") != "41" || !transientActors_.empty()) {
+                if (name.empty() || samples != samplesPerCase || std::stoi(fields.at("samples")) != samplesPerCase ||
+                    !transientActors_.empty() || (rewardLifecycle && !bonusDrops_.empty())) {
                     throw std::runtime_error("incomplete death-effects lifecycle");
                 }
                 name.clear();
             } else if (line.rfind("complete ", 0) == 0) {
-                if (!name.empty() || seen.size() != probes.size() || fields.at("cases") != "8") {
+                if (!name.empty() || seen.size() != probes.size() || std::stoul(fields.at("cases")) != probes.size()) {
                     throw std::runtime_error("incomplete death-effects fixture");
                 }
                 complete = true;
             } else throw std::runtime_error("unexpected death-effects row");
         }
         if (!complete) throw std::runtime_error("missing death-effects completion");
-        std::cout << "death_transients_original=ok cases=" << seen.size() << " samples=" << totalSamples
-                  << " effect_states=" << effectStates << " reward_presence_states=" << rewardStates
-                  << " seeded=1 creation_frame_update=1 capacity=30 inherited_fraction=1 retired=1"
-                  << " reward_motion_claim=0 frame_inspection=1 frame_hash=" << std::hex << lastHash << std::dec << '\n';
+        std::cout << (rewardLifecycle ? "reward_lifecycle_original" : "death_transients_original") << "=ok cases=" << seen.size() << " samples=" << totalSamples
+                  << " effect_states=" << effectStates << " reward_presence_states=" << rewardStates << " seeded=1"
+                  << (rewardLifecycle ? " reward_creation_deferred=1" : " creation_frame_update=1 capacity=30")
+                  << " inherited_fraction=1 retired=1 reward_motion_claim=" << rewardLifecycle
+                  << " frame_inspection=1 frame_hash=" << std::hex << lastHash << std::dec << '\n';
     }
 
     void debugFractureActorOriginal(const std::string& fixturePath, const std::string& outDir) {
@@ -24248,8 +24300,10 @@ private:
         updateFlashes();
         updateMonsterSpawners();
         updateBossLinks();
+        // Reusing a corpse slot does not dispatch the new reward again this pass.
+        const size_t existingRewards = bonusDrops_.size();
         updateMonsters(dt);
-        updateBonusDrops();
+        updateBonusDrops(existingRewards);
         updateCameraShake();
         drainPlayerDamageCounters();
         updateLevelCompletion();
@@ -26276,28 +26330,30 @@ private:
         } else {
             edges = scanActorEdges(bomb.pixelX, collideY);
         }
-        // Behavior 2 (1000:7018..7058): gravity, floor snap, then friction.
-        if (!edges.bottom || bomb.vy8 < 0) {
-            bomb.vy8 = static_cast<int16_t>(std::min(0x07ff, bomb.vy8 + 0x40));
-        } else if (bomb.vy8 > 0) {
-            bomb.vy8 = 0;
-            collideY &= ~7;
-        }
-        if (edges.bottom) {
-            bomb.vx8 = actorFloorFriction(bomb.vx8);
-        }
-        if (edges.top && bomb.vy8 < 0) bomb.vy8 = 1;
-        if (edges.left && edges.right) {
-            bomb.vx8 = 0;
-        } else if ((edges.left && bomb.vx8 < 0) || (edges.right && bomb.vx8 > 0)) {
-            bomb.vx8 = static_cast<int16_t>(-bomb.vx8 / 2);
-            bomb.pixelX += bomb.vx8 < 0 ? -1 : 1;
-        }
-        integrateAxis8_8(collideY, bomb.fracY, bomb.vy8);
-        integrateAxis8_8(bomb.pixelX, bomb.fracX, bomb.vx8);
+        updateTimedActorMotion(bomb.pixelX, collideY, bomb.vx8, bomb.vy8,
+                               bomb.fracX, bomb.fracY, edges);
         bomb.pixelY = collideY + heightOffset;
         bomb.x = (bomb.pixelX + 4) >> 3;
         bomb.y = bomb.pixelY >> 3;
+    }
+
+    // Shared behavior 2 (1000:7018..7058), followed by common response/integration.
+    void updateTimedActorMotion(int& x, int& y, int16_t& vx, int16_t& vy,
+            uint8_t& fracX, uint8_t& fracY, const ActiveMonster::EdgeFlags& edges) {
+        if (!edges.bottom || vy < 0) vy = static_cast<int16_t>(std::min(0x07ff, vy + 0x40));
+        else if (vy > 0) {
+            vy = 0;
+            y &= ~7;
+        }
+        if (edges.bottom) vx = actorFloorFriction(vx);
+        if (edges.top && vy < 0) vy = 1;
+        if (edges.left && edges.right) vx = 0;
+        else if ((edges.left && vx < 0) || (edges.right && vx > 0)) {
+            vx = static_cast<int16_t>(-vx / 2);
+            x += vx < 0 ? -1 : 1;
+        }
+        integrateAxis8_8(y, fracY, vy);
+        integrateAxis8_8(x, fracX, vx);
     }
 
     void updateBombs() {
@@ -26732,6 +26788,7 @@ private:
         drop.x = x;
         drop.y = y;
         drop.type = type;
+        drop.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(bonusSpriteIndex(type)).height);
         bonusDrops_.push_back(drop);
     }
 
@@ -26758,6 +26815,11 @@ private:
                 static_cast<float>(monster.x),
                 static_cast<float>(monster.y + monster.hotspotY),
                 static_cast<BonusType>(rewardIndex));
+            BonusDrop& reward = bonusDrops_.back();
+            reward.vx8 = monster.vx8;
+            reward.vy8 = static_cast<int16_t>(monster.vy8 - 200);
+            reward.fracX = monster.fracX;
+            reward.fracY = monster.fracY;
         } else {
             // 1000:760D converts the existing corpse in place, even at full
             // capacity. Its fractions survive; this frame does not tick it twice.
@@ -26787,12 +26849,11 @@ private:
         }
     }
 
-    void updateBonusDrops() {
-        size_t initialDrops = bonusDrops_.size();
+    void updateBonusDrops(size_t initialDrops = std::numeric_limits<size_t>::max()) {
+        initialDrops = std::min(initialDrops, bonusDrops_.size());
         for (size_t i = 0; i < initialDrops && i < bonusDrops_.size(); ++i) {
             BonusDrop& drop = bonusDrops_[i];
             if (drop.collected) continue;
-            ++drop.animTick;
             bool p1Overlaps = !playerDead_ &&
                               playerOverlaps(player_, drop.x, drop.y, 12.0f, 12.0f);
             bool p2Overlaps = playerCount_ > 1 && !player2Dead_ &&
@@ -26803,6 +26864,30 @@ private:
                 collectBonusDrop(drop, player_, energy_, bombInventory_, 1);
             } else if (p2Overlaps) {
                 collectBonusDrop(drop, player2_, energy2_, bombInventory2_, 2);
+            }
+            // Collection can append a cloud's rewards and invalidate drop.
+            if (bonusDrops_[i].collected) continue;
+            BonusDrop& moving = bonusDrops_[i];
+            int x = static_cast<int>(moving.x);
+            int y = static_cast<int>(moving.y) - moving.hotspotY;
+            updateTimedActorMotion(x, y, moving.vx8, moving.vy8, moving.fracX, moving.fracY,
+                                   scanActorEdges(x, y));
+            moving.x = static_cast<float>(x);
+            moving.y = static_cast<float>(y + moving.hotspotY);
+            moving.timer = static_cast<uint8_t>(moving.timer - (logicTick_ & 1u));
+            if (moving.timer == 0 || moving.timer == 0xff) {
+                moving.collected = true;
+                TransientActor fade;
+                fade.kind = 0;
+                fade.x = x;
+                fade.y = static_cast<int>(moving.y);
+                fade.fracX = moving.fracX;
+                fade.fracY = moving.fracY;
+                fade.timer = 18;
+                // DS:006C selects one-based sprite 74 for expired rewards.
+                fade.spriteIndex = 73;
+                fade.animation = ActorAnimation::initialize(74, 79, 2, 1);
+                transientActors_.push_back(fade);
             }
         }
         bonusDrops_.erase(std::remove_if(bonusDrops_.begin(), bonusDrops_.end(),
@@ -26873,12 +26958,10 @@ private:
 
     void spawnBonusRain(const Player& collector) {
         for (int i = 0; i < 4; ++i) {
-            BonusDrop drop;
-            drop.x = std::clamp(collector.x - 24.0f + i * 16.0f, 0.0f,
-                                std::max(16.0f, level_.width * 8.0f - 16.0f));
-            drop.y = std::max(16.0f, collector.y - 48.0f - i * 4.0f);
-            drop.type = i % 2 == 0 ? BonusType::Present : BonusType::BigDiamond;
-            bonusDrops_.push_back(drop);
+            spawnBonusDrop(std::clamp(collector.x - 24.0f + i * 16.0f, 0.0f,
+                                     std::max(16.0f, level_.width * 8.0f - 16.0f)),
+                           std::max(16.0f, collector.y - 48.0f - i * 4.0f),
+                           i % 2 == 0 ? BonusType::Present : BonusType::BigDiamond);
         }
     }
 
@@ -27770,7 +27853,7 @@ private:
     void drawBonusDrops(int camX, int camY) {
         for (const BonusDrop& drop : bonusDrops_) {
             int x = static_cast<int>(drop.x) - camX;
-            int y = static_cast<int>(drop.y) - camY + ((drop.animTick / 16) & 1);
+            int y = static_cast<int>(drop.y) - camY;
             int index = bonusSpriteIndex(drop.type);
             if (index >= 0 && index < static_cast<int>(sprites_.sprites.size())) {
                 drawSprite(sprites_.sprites[static_cast<size_t>(index)], x, y);
@@ -28911,6 +28994,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-death-transients-original") {
             app.debugDeathTransientsOriginal(argv[2], argc > 3 ? argv[3] : "");
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-reward-lifecycle-original") {
+            app.debugDeathTransientsOriginal(argv[2], argc > 3 ? argv[3] : "", true);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-transient-actor-limits") {

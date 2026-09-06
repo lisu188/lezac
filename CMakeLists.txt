@@ -3892,6 +3892,26 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "^death_transients_fixture=ok lf=1 crlf=1 truncated_rejected=1 timer_mutation_rejected=1 no_output_files=1")
 
+    add_test(NAME reward_lifecycle_original
+        COMMAND $<TARGET_FILE:lezac_cpp> --debug-reward-lifecycle-original
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/reward_lifecycle_original.txt)
+    set_tests_properties(reward_lifecycle_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy"
+        PASS_REGULAR_EXPRESSION "^reward_lifecycle_original=ok cases=9 samples=2169 effect_states=438 reward_presence_states=1789 seeded=1 reward_creation_deferred=1 inherited_fraction=1 retired=1 reward_motion_claim=1 frame_inspection=1")
+
+    add_test(NAME reward_lifecycle_capture_contract
+        COMMAND ${Python3_EXECUTABLE} tools/capture_original_death_transients.py --reward-lifecycle --self-check)
+    set_tests_properties(reward_lifecycle_capture_contract PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^death_transients_capture_self_check=ok windows=12 cases=9 live=0")
+
+    add_test(NAME reward_lifecycle_fixture
+        COMMAND ${Python3_EXECUTABLE} tools/check_death_transients_fixture.py --reward-lifecycle --exe $<TARGET_FILE:lezac_cpp>)
+    set_tests_properties(reward_lifecycle_fixture PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^reward_lifecycle_fixture=ok lf=1 crlf=1 truncated_rejected=1 velocity_mutation_rejected=1 no_output_files=1")
+
     add_test(NAME transient_actor_limits
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-transient-actor-limits)
     set_tests_properties(transient_actor_limits PROPERTIES

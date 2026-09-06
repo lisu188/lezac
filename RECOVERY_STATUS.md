@@ -1,8 +1,8 @@
 # Recovery Status
 
-Last reviewed: 2026-09-05
-Branch: `codex/recover-monster-death-transients` (validated integration batch)
-Baseline: `origin/main` at PR #209
+Last reviewed: 2026-09-06
+Branch: `codex/recover-reward-motion` (validated integration batch)
+Baseline: `origin/main` at PR #210
 
 ## Port Completion
 
@@ -13,10 +13,14 @@ collapse behavior. The new recovery matches 609 original player states,
 144 continuous collapse/map states, and 27 seeded collapse update probes.
 Recent batches add 144 continuous pickup/RNG/shake checkpoints, a
 21-checkpoint seeded fracture-actor lifecycle, and 328 seeded corpse-expiry
-checkpoints with 455 matching live effect states. Shared actor allocation and
+checkpoints with 455 matching live effect states. Reward recovery adds 2,169
+continuous checkpoints, 1,789 reward states and 438 effect states. Shared actor allocation and
 ordering, unrestricted interactions, and wider original-runtime comparisons
-still need work. All 432 dummy-SDL tests and the separate interactive Xvfb
-test pass. There is no evidence-based overall completion percentage:
+still need work. All 435 dummy-SDL tests and the separate interactive Xvfb
+test pass (436 total). The full headless run took 47.18 seconds; the separate
+interactive test took 3.72 seconds. The full log is preserved at
+`build-codex-tmp/reward-lifecycle-full-tests-passing.log`.
+There is no evidence-based overall completion percentage:
 passing-test percentage measures regression health, not recovered behavior.
 `--debug-port-completion-status` reports
 `port_functionally_complete=0` and `original_fidelity_claim=0`.
@@ -25,11 +29,18 @@ passing-test percentage measures regression health, not recovered behavior.
 
 ## Current Recovery
 
+- Reward movement, countdown and expiry now match nine seeded original
+  lifecycles across all seven reward types. The port inherits fractions,
+  applies the original upward impulse and sprite-height hotspot, shares
+  behavior-2 physics with bombs, and replaces expired rewards with the
+  original fade. Creation does not double-update the reused corpse slot.
+  Full corpse physics/countdown, natural collection and global actor order
+  remain open. See [reward-lifecycle evidence](docs/recovery/reward_lifecycle_runtime_2026-09-06.md).
 - Normal corpse expiry now creates the two original moving particles and,
   on a failed reward roll, the in-place fade. Eight guarded original cases
   cover both frame parities, 29/30-slot boundaries, inherited fractions,
-  animation and retirement. All 328 continuous checkpoints pass; reward
-  motion and the full corpse countdown remain open. See
+  animation and retirement. All 328 continuous checkpoints pass; the full
+  corpse countdown remains open. See
   [death-effect evidence](docs/recovery/monster_death_transients_runtime_2026-09-05.md).
 - Pickup indicators and fracture smoke now use the original behavior-5
   timer, motion, sprites and animation. The natural pickup route matches
@@ -472,7 +483,9 @@ passing-test percentage measures regression health, not recovered behavior.
   transitions and limitations. Full local validation: 403/403 CTest tests.
 
 - **Captured the original level-1 monster death/Present-reward sequence and
-  recovered its live sprite consumption, timer, and RNG order.** The guarded
+  recovered its live sprite consumption, timer, and RNG order.** The following
+  is a capture-time account; its static-reward and missing-particle limitations
+  are superseded by the 2026-09-05/06 recoveries linked above. The guarded
   Xvfb/DOSBox
   run used a temporary asset copy and sampled 110 consecutive original ticks,
   frames 257..366, by taking one complete 64 KiB `DS` pread after each

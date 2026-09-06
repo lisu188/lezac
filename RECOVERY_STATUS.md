@@ -1,8 +1,8 @@
 # Recovery Status
 
 Last reviewed: 2026-09-06
-Branch: `codex/recover-monster-impact` (validated integration batch)
-Baseline: `origin/main` at PR #212
+Branch: `codex/recover-render-phase` (validated integration batch)
+Baseline: `origin/main` at PR #215
 
 ## Port Completion
 
@@ -20,12 +20,13 @@ still need work. Corpse lifecycle recovery adds 3,612 continuous checkpoints,
 including four original fatal conversions, 586 corpse states, 2,200 reward
 states and 1,104 effect states. Impact recovery adds 143 continuous states
 and fixes nonfatal presentation and zero-based spawner HP conversion. A
-separate 50-state original trace refutes the immediate bomb-damage model;
-live explosion propagation and damage integration remain missing.
-All 442 headless tests and the separate interactive Xvfb test pass (443
-total). The full headless run took 51.78 seconds; the separate interactive
-test took 3.69 seconds. The full log is preserved at
-`build-codex-tmp/monster-impact-full-tests-passing.log`.
+separate 50-state original trace refuted the immediate bomb-damage model.
+PR #214 replaced it with live flame propagation and delayed repeated damage,
+verified against 1,040 continuous original states; PR #215 added 520 original
+chain/capacity states. The render-boundary batch matches 60 controlled views
+and 2,115,840 pixels, fixing two-player backdrop pitch and shake row crossing.
+All 455 tests, including interactive Xvfb validation, pass in 29.48 seconds.
+The full log is preserved at `build-codex-tmp/render-boundary-full-tests.log`.
 There is no evidence-based overall completion percentage:
 passing-test percentage measures regression health, not recovered behavior.
 `--debug-port-completion-status` reports
@@ -35,14 +36,26 @@ passing-test percentage measures regression health, not recovered behavior.
 
 ## Current Recovery
 
+- Synchronized original view captures now verify terrain, one player sprite,
+  camera limits/fine scrolling, background toggles and positive shake for
+  full/split-width views. The renderer fixes the original row-crossing tail
+  and the two-player backdrop's 160-byte pitch. This does not prove live
+  actor order, HUD phase or natural-route rendering. See
+  [render-boundary evidence](docs/recovery/render_boundary_runtime_2026-09-06.md).
+- Continuous flame propagation now covers all four weapons, delayed monster
+  and player damage, fatal conversions and reward handoff. Basic chains,
+  record capacity and compaction also match original states. Natural routes,
+  flagged-word chains and two-player flames remain open. See
+  [flame lifecycle](docs/recovery/flame_lifecycle_runtime_2026-09-06.md) and
+  [chain/capacity evidence](docs/recovery/flame_chain_capacity_runtime_2026-09-06.md).
 - Nonfatal impact now changes the displayed sprite while preserving the
   animation cursor, with the original byte-counter rewind/wrap. Eleven
   original cases match 143 continuous states, including 12 nonfatal hits,
   40 living impact states and two fatal transitions. Spawner HP now maps
   the original zero-based byte to remaining health correctly. The paired
-  original small-bomb trace shows delayed 4/6/2-point flame hits instead of
-  the port's immediate one-point hit. That explosion model is explicitly
-  open and machine-tracked, not promoted as C++ parity. See
+  original small-bomb trace exposed delayed 4/6/2-point flame hits instead of
+  the port's former immediate one-point hit, leading to the flame recovery
+  above. See
   [impact and bomb-damage evidence](docs/recovery/monster_impact_runtime_2026-09-06.md).
 - Normal corpse motion, half-rate countdown and four seeded kind-1 fatal
   conversions now match 12 complete original lifecycles. Fatal conversion

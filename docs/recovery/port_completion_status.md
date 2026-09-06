@@ -87,6 +87,10 @@ cover basic chain reactions, pool limits and compaction. Natural collection
 routes, flagged-word chain interactions and two-player flames still need
 broader recovery and verification. This
 does not close the broader actor-pool or rendering fidelity gaps. There is no
+definitive whole-game rendering result. New [render-boundary evidence](render_boundary_runtime_2026-09-06.md)
+matches 60 controlled full/split-width views (2,115,840 pixels), fixing the
+two-player backdrop pitch and shake row-crossing foreground. Live actor
+ordering, HUD phase and natural-route rendering still need evidence. There is no
 defensible overall completion percentage without an exhaustive behavior
 inventory; the test pass rate is not a completion metric.
 

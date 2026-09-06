@@ -2253,6 +2253,197 @@ public:
                   << " frame_inspection=1\n";
     }
 
+    void debugRenderBoundaryOriginal(const std::string& fixture, const std::string& outDir) {
+        load();
+        initSdl();
+        resetLevel(0);
+        playerCount_ = 1;
+        monsters_.clear();
+        std::ifstream input(fixture);
+        if (!input) throw std::runtime_error("cannot open render-boundary fixture");
+        auto bytes = [](const std::string& hex, size_t count) {
+            if (hex.size() != count * 2 || hex.find_first_not_of("0123456789abcdef") != std::string::npos)
+                throw std::runtime_error("invalid render-boundary bytes");
+            std::vector<uint8_t> result;
+            for (size_t i = 0; i < count; ++i)
+                result.push_back(static_cast<uint8_t>(std::stoul(hex.substr(i * 2, 2), nullptr, 16)));
+            return result;
+        };
+        auto number = [](const std::string& text) {
+            size_t end = 0;
+            int value = std::stoi(text, &end);
+            if (end != text.size()) throw std::runtime_error("invalid render-boundary integer");
+            return value;
+        };
+        auto decodeRle = [&](const std::string& text, size_t size) {
+            if (text.empty() || text.back() == ',') throw std::runtime_error("invalid render-boundary run");
+            std::vector<uint8_t> result;
+            std::istringstream stream(text);
+            std::string run;
+            while (std::getline(stream, run, ',')) {
+                const size_t colon = run.find(':');
+                if (colon == std::string::npos) throw std::runtime_error("invalid render-boundary run");
+                const int count = number(run.substr(0, colon));
+                const auto value = bytes(run.substr(colon + 1), 1);
+                if (count <= 0 || static_cast<size_t>(count) > size - result.size())
+                    throw std::runtime_error("render-boundary run overflow");
+                result.insert(result.end(), static_cast<size_t>(count), value[0]);
+            }
+            if (result.size() != size) throw std::runtime_error("truncated render-boundary pixels");
+            return result;
+        };
+        std::ofstream manifest;
+        if (!outDir.empty()) {
+            std::filesystem::create_directories(outDir);
+            manifest.open(joinPath(outDir, "manifest.csv"));
+            if (!manifest) throw std::runtime_error("cannot create render-boundary manifest");
+            manifest << "name,original_frame,view_width,x,y,shake,background,camera_x,camera_y,different_pixels,frame_hash\n";
+        }
+        std::string line;
+        bool header = false, map = false, backdrop = false, sprites = false, complete = false;
+        int viewWidth = 0;
+        int lastFrame = -1;
+        std::set<std::string> names;
+        std::set<std::string> expectedNames{"minimum", "spawn", "center", "maximum", "shake_positive",
+                                            "shake_fine_carry", "background_off", "background_off_carry"};
+        for (int i = 1; i < 8; ++i) {
+            expectedNames.insert("fine_x_" + std::to_string(i));
+            expectedNames.insert("fine_y_" + std::to_string(i));
+        }
+        for (int i = 0; i < 8; ++i) expectedNames.insert("shake_phase_" + std::to_string(i));
+        size_t mismatches = 0, compared = 0;
+        while (std::getline(input, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (complete) throw std::runtime_error("data after render-boundary completion");
+            std::map<std::string, std::string> fields;
+            std::istringstream stream(line);
+            std::string token;
+            while (stream >> token) {
+                const size_t eq = token.find('=');
+                if (eq != std::string::npos && !fields.emplace(token.substr(0, eq), token.substr(eq + 1)).second)
+                    throw std::runtime_error("duplicate render-boundary field");
+            }
+            if (line.rfind("capture=", 0) == 0) {
+                if (header || fields.at("capture") != "render_boundary_original_v1" || fields.at("level") != "1" ||
+                    fields.at("seeded") != "1" || fields.at("temp_copy") != "1" ||
+                    fields.at("before") != "7a13" || fields.at("after") != "7a57" ||
+                    fields.at("active_visuals") != "1" ||
+                    (fields.at("pitch") != "160" && fields.at("pitch") != "320"))
+                    throw std::runtime_error("invalid render-boundary provenance");
+                viewWidth = number(fields.at("pitch")) - 8;
+                playerCount_ = viewWidth == 152 ? 2 : 1;
+                buildBackdropBuffer();
+                // The original split-view probe disables P2 after initialization.
+                playerCount_ = 1;
+                header = true;
+            } else if (line.rfind("map ", 0) == 0) {
+                if (!header || map || fields.at("width") != "60" || fields.at("height") != "33")
+                    throw std::runtime_error("invalid render-boundary map");
+                level_.tiles = bytes(fields.at("bytes"), 60 * 33);
+                map = true;
+            } else if (line.rfind("backdrop ", 0) == 0) {
+                if (!map || backdrop) throw std::runtime_error("invalid render-boundary backdrop");
+                const auto original = decodeRle(fields.at("bytes"), 60000);
+                for (size_t i = 0; i < original.size(); ++i) {
+                    if ((i < static_cast<size_t>(80 * backdropPitch_) ||
+                         i >= static_cast<size_t>(162 * backdropPitch_)) && original[i] != backdropBuffer_[i])
+                        throw std::runtime_error("render-boundary background gradient mismatch");
+                }
+                backdropBuffer_ = original;
+                backdrop = true;
+            } else if (line.rfind("sprites ", 0) == 0) {
+                if (!backdrop || sprites) throw std::runtime_error("invalid render-boundary descriptors");
+                const auto descriptors = bytes(fields.at("descriptors"), 368);
+                size_t offset = 0;
+                for (size_t i = 0; i < sprites_.sprites.size(); ++i) {
+                    const auto& sprite = sprites_.sprites[i];
+                    const size_t at = (i + 1) * 4;
+                    if (at + 4 > descriptors.size() || descriptors[at] != sprite.width ||
+                        descriptors[at + 1] != sprite.height ||
+                        (descriptors[at + 2] | descriptors[at + 3] << 8) != static_cast<int>(offset))
+                        throw std::runtime_error("render-boundary sprite descriptor mismatch");
+                    offset += sprite.width * sprite.height;
+                }
+                sprites = true;
+            } else if (line.rfind("view ", 0) == 0) {
+                const std::string name = fields.at("name");
+                if (!sprites || name.empty() || name.find_first_not_of("abcdefghijklmnopqrstuvwxyz_0123456789") != std::string::npos ||
+                    !names.insert(name).second || fields.at("sprite") != "0" ||
+                    fields.at("destination") != "1284" || fields.at("source") != "8")
+                    throw std::runtime_error("invalid render-boundary view");
+                const auto before = bytes(fields.at("before_regs"), 12);
+                const auto after = bytes(fields.at("after_regs"), 12);
+                auto word = [](const std::vector<uint8_t>& data, size_t at) { return data[at] | data[at + 1] << 8; };
+                if (!std::equal(before.begin(), before.begin() + 4, after.begin()) ||
+                    !std::equal(before.begin() + 6, before.end(), after.begin() + 6) ||
+                    word(after, 2) - word(after, 0) != 0xAA2 || word(after, 4) != 0xA000)
+                    throw std::runtime_error("render-boundary segment mismatch");
+                const int frame = number(fields.at("frame"));
+                if (frame < 0 || frame > 65535 || (lastFrame >= 0 && frame != ((lastFrame + 1) & 65535)))
+                    throw std::runtime_error("nonconsecutive render-boundary frame");
+                lastFrame = frame;
+                player_.x = static_cast<float>(number(fields.at("x")));
+                player_.y = static_cast<float>(number(fields.at("y")));
+                if (player_.x < 0 || player_.x > 479 || player_.y < 0 || player_.y > 263)
+                    throw std::runtime_error("render-boundary position outside level");
+                player_.spriteIndex = 0;
+                const int shake = number(fields.at("shake"));
+                if (shake < 0 || shake > 7)
+                    throw std::runtime_error("invalid render-boundary shake");
+                cameraShakeOffset_ = static_cast<uint16_t>(shake);
+                const int background = number(fields.at("background"));
+                if (background != 0 && background != 1) throw std::runtime_error("invalid render-boundary toggle");
+                showBackground_ = background != 0;
+                const int camX = std::clamp(static_cast<int>(player_.x) - (viewWidth / 2 - 4),
+                                            0, 480 - (viewWidth + 8) + 7);
+                const int camY = std::clamp(static_cast<int>(player_.y) - 80, 0, 103);
+                if (number(fields.at("coarse_x")) != (camX & ~7) ||
+                    number(fields.at("coarse_y")) != (camY & ~7) ||
+                    number(fields.at("fine_x")) != (camX & 7) + shake ||
+                    number(fields.at("fine_y")) != (camY & 7) ||
+                    number(fields.at("map_offset")) != (camY / 8) * 60 + camX / 8 ||
+                    number(fields.at("backdrop_stride")) != backdropPitch_ ||
+                    number(fields.at("backdrop_delta")) != 0 || number(fields.at("glyph_base")) != 32628)
+                    throw std::runtime_error("render-boundary camera/driver mismatch");
+                const auto expected = decodeRle(fields.at("pixels"), viewWidth * 152);
+                std::fill(fb_.begin(), fb_.end(), argb(palette_, 0));
+                drawWorldView(player_, 4, 4, viewWidth, 152);
+                resetClip();
+                size_t different = 0;
+                uint64_t hash = 1469598103934665603ull;
+                std::vector<uint32_t> view;
+                for (int y = 0; y < 152; ++y) {
+                    for (int x = 0; x < viewWidth; ++x) {
+                        const uint32_t actual = fb_[(y + 4) * kScreenW + x + 4];
+                        view.push_back(actual);
+                        hash = (hash ^ actual) * 1099511628211ull;
+                        if (actual != backdropColor(expected[y * viewWidth + x])) ++different;
+                    }
+                }
+                if (!outDir.empty()) {
+                    writeArgbPpm(joinPath(outDir, name + ".ppm"), view, viewWidth, 152);
+                    manifest << name << ',' << frame << ',' << viewWidth << ',' << static_cast<int>(player_.x)
+                             << ',' << static_cast<int>(player_.y) << ',' << shake << ',' << background << ','
+                             << camX + shake << ',' << camY << ',' << different << ',' << hash << '\n';
+                }
+                std::cout << "render_boundary_view=" << name << " different_pixels=" << different << '\n';
+                mismatches += different;
+                compared += expected.size();
+            } else if (line.rfind("complete ", 0) == 0) {
+                if (!sprites || names != expectedNames || number(fields.at("views")) != 30)
+                    throw std::runtime_error("incomplete render-boundary coverage");
+                complete = true;
+            } else {
+                throw std::runtime_error("unknown render-boundary record");
+            }
+        }
+        if (!complete) throw std::runtime_error("missing render-boundary completion");
+        if (mismatches) throw std::runtime_error("render-boundary pixel mismatches=" + std::to_string(mismatches));
+        std::cout << "render_boundary_original=ok views=" << names.size() << " width=" << viewWidth << " compared_pixels=" << compared
+                  << " normalized_rgb=1 gradient_generation=1 seeded_map_backdrop=1 natural_route=0 whole_game_parity=0\n";
+    }
+
     void debugLevel1FrameInspection() {
         load();
         initSdl();
@@ -23847,6 +24038,7 @@ private:
     LevelIntroState levelIntro_;
     LevelOutroState levelOutro_;
     std::vector<uint8_t> backdropBuffer_;
+    int backdropPitch_ = 320;
     std::vector<BonusDrop> bonusDrops_;
     std::vector<Bomb> bombs_;
     std::vector<Flash> flashes_;
@@ -28195,28 +28387,28 @@ private:
         }
     }
 
-    // The original backdrop is a pre-rendered 320-wide byte buffer (far
+    // The original backdrop is a pre-rendered byte buffer (far
     // pointer DS:0xC498) blitted under the tiles with a linear copy whose
-    // source starts at (camY/8 + 1 + vy)*320 + camX/4 -- a 1/8 vertical and
+    // source starts at (camY/8 + vy)*pitch + camX/4 -- a 1/8 vertical and
     // 1/4 horizontal parallax, with rows bleeding linearly into the next
     // buffer row (recovered from the driver blit at file 0x9324 and byte
     // dumps of the live buffer). The driver init (file 0x9252) programs DAC
     // entries 176..214 with a computed ramp from (0,0,14) and fills the
-    // buffer with 4-row bands buffer[n] = 176 + n/1280; the game then paints
+    // buffer with 4-row bands buffer[n] = byte(176 + n/(4*pitch)); the game then paints
     // a city skyline (buildings of palette 176 = night blue, star dots of
-    // palette 22) generated once at startup from the pristine RandSeed (file
-    // 0x7f64) -- deterministic across runs, so the exact building/star
-    // geometry below was extracted from a live buffer dump.
-    static constexpr int kBackdropW = 320;
-    static constexpr int kBackdropRows = 192;
+    // palette 22) from the live RNG at each game start (file 0x7f64).
+    // Pitch is latched at initialization: 320 for P1, 160 for split-screen.
+    // Later viewport narrowing does not regenerate or repack this buffer.
 
     void buildBackdropBuffer() {
-        backdropBuffer_.assign(static_cast<size_t>(kBackdropW) * kBackdropRows,
-                               0);
-        // Gradient bands: buffer byte k = 176 + k/1280 (driver init).
-        for (int k = 0; k < kBackdropW * kBackdropRows; ++k) {
+        backdropPitch_ = playerCount_ > 1 ? 160 : 320;
+        // Keep the previous padding for unobserved tall-level overflow reads.
+        // Only the driver's first 60000 initialized bytes are recovered here.
+        backdropBuffer_.assign(320 * 192, 222);
+        // Driver init fills exactly 60000 bytes, including byte wrap past 255.
+        for (int k = 0; k < 60000; ++k) {
             backdropBuffer_[static_cast<size_t>(k)] =
-                static_cast<uint8_t>(176 + std::min(46, k / 1280));
+                static_cast<uint8_t>(176 + k / (4 * backdropPitch_));
         }
         // City skyline: the original generates ten buildings from the live
         // Turbo Pascal RNG on each game start (file 0x7f64). Building 1 is
@@ -28228,7 +28420,7 @@ private:
         // disassembly exactly; a runtime buffer dump verified the fill and
         // star semantics byte-for-byte.
         auto put = [&](int r, int c, uint8_t v) {
-            size_t n = static_cast<size_t>(r) * kBackdropW + static_cast<size_t>(c);
+            size_t n = static_cast<size_t>(r) * backdropPitch_ + static_cast<size_t>(c);
             if (n < backdropBuffer_.size()) backdropBuffer_[n] = v;
         };
         for (int b = 1; b <= 10; ++b) {
@@ -28285,7 +28477,7 @@ private:
         if (backdropBuffer_.empty()) return;
         const long total = static_cast<long>(backdropBuffer_.size());
         for (int y = 0; y < viewH; ++y) {
-            const long n0 = static_cast<long>(camY / 8 + y) * kBackdropW +
+            const long n0 = static_cast<long>(camY / 8 + y) * backdropPitch_ +
                             camX / 4;
             for (int x = 0; x < viewW; ++x) {
                 const long n = n0 + x;
@@ -28364,33 +28556,50 @@ private:
                               0, std::max(0, worldW - (viewW + 8) + 7));
         int camY = std::clamp(static_cast<int>(cameraPlayer.y) - (viewH / 2 + 4),
                               0, std::max(0, worldH - (viewH + 16) + 7));
+        const int fineX = (camX & 7) + cameraShakeOffset_;
         camX += cameraShakeOffset_;  // 1000:36F6 adds to the fine X scroll.
         int drawCamX = camX - viewX;
         int drawCamY = camY - viewY;
         drawGradientSky(viewX, viewY, viewW, viewH, camX, camY);
-        drawTiles(drawCamX, drawCamY);
-        drawBombs(drawCamX, drawCamY);
-        drawDamageQueues(drawCamX, drawCamY);
-        drawFlashes(drawCamX, drawCamY);
-        drawExplosionEffects(drawCamX, drawCamY);
-        drawBonusDrops(drawCamX, drawCamY);
-        drawMonsters(drawCamX, drawCamY);
-        if (!playerDead_) {
-            drawPlayer(player_, drawCamX, drawCamY);
-        } else if (deathStateTimer_ > 0 && state2Visual_.active) {
-            drawState2PlayerVisual(player_, state2Visual_, state2Effect_,
-                                   drawCamX, drawCamY);
+        auto drawForeground = [&](int xCamera, int yCamera) {
+            drawTiles(xCamera, yCamera);
+            drawBombs(xCamera, yCamera);
+            drawDamageQueues(xCamera, yCamera);
+            drawFlashes(xCamera, yCamera);
+            drawExplosionEffects(xCamera, yCamera);
+            drawBonusDrops(xCamera, yCamera);
+            drawMonsters(xCamera, yCamera);
+            if (!playerDead_) {
+                drawPlayer(player_, xCamera, yCamera);
+            } else if (deathStateTimer_ > 0 && state2Visual_.active) {
+                drawState2PlayerVisual(player_, state2Visual_, state2Effect_, xCamera, yCamera);
+            }
+            if (playerCount_ > 1 && !player2Dead_) {
+                drawPlayer(player2_, xCamera, yCamera);
+            } else if (playerCount_ > 1 && deathStateTimer2_ > 0 && state2Visual2_.active) {
+                drawState2PlayerVisual(player2_, state2Visual2_, state2Effect2_, xCamera, yCamera);
+            }
+            for (const auto& actor : transientActors_) {
+                drawSprite(sprites_.sprites.at(actor.spriteIndex), actor.x - xCamera, actor.y - yCamera);
+            }
+        };
+        // 18AC:03C8 copies viewW pixels from a viewW+8-pitch buffer without
+        // clipping fine X after shake. Its right tail aliases the next row's
+        // left foreground; the backdrop was already copied at the fine origin.
+        const int rowPitch = viewW + 8;
+        int remaining = viewW;
+        int screenX = viewX;
+        int sourceX = fineX;
+        while (remaining > 0) {
+            const int rowCarry = sourceX / rowPitch;
+            const int span = std::min(remaining, rowPitch - sourceX % rowPitch);
+            setClip(screenX, viewY, screenX + span, viewY + viewH);
+            drawForeground(drawCamX - rowCarry * rowPitch, drawCamY + rowCarry);
+            screenX += span;
+            sourceX += span;
+            remaining -= span;
         }
-        if (playerCount_ > 1 && !player2Dead_) {
-            drawPlayer(player2_, drawCamX, drawCamY);
-        } else if (playerCount_ > 1 && deathStateTimer2_ > 0 &&
-                   state2Visual2_.active) {
-            drawState2PlayerVisual(player2_, state2Visual2_, state2Effect2_,
-                                   drawCamX, drawCamY);
-        }
-        for (const auto& actor : transientActors_) {
-            drawSprite(sprites_.sprites.at(actor.spriteIndex), actor.x - drawCamX, actor.y - drawCamY);
-        }
+        setClip(viewX, viewY, viewX + viewW, viewY + viewH);
     }
 
     void drawTiles(int camX, int camY) {
@@ -29879,6 +30088,10 @@ int main(int argc, char** argv) {
                 frames = std::stoi(argv[2]);
             }
             app.smokeUi(frames);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-render-boundary-original") {
+            app.debugRenderBoundaryOriginal(argv[2], argc > 3 ? argv[3] : "");
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-level1-frame-inspection") {

@@ -299,6 +299,39 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^menu_frame_flow=ok pages=main,info,instructions,records unique_frames=[0-9]+ gameplay_background_toggle=1 records_sound_cursor=0x0024 records_sound_priority=2 start_game=1 escape_exit=1 frame_inspection=1")
 
+    foreach(render_mode IN ITEMS single split)
+        if(render_mode STREQUAL "single")
+            set(render_fixture render_boundary_original.txt)
+            set(render_width 312)
+            set(render_pixels 1422720)
+        else()
+            set(render_fixture render_boundary_split_original.txt)
+            set(render_width 152)
+            set(render_pixels 693120)
+        endif()
+        add_test(NAME render_boundary_${render_mode}
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    $<TARGET_FILE:lezac_cpp> --debug-render-boundary-original
+                    tests/fixtures/${render_fixture})
+        set_tests_properties(render_boundary_${render_mode} PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "render_boundary_original=ok views=30 width=${render_width} compared_pixels=${render_pixels} normalized_rgb=1 gradient_generation=1 seeded_map_backdrop=1 natural_route=0 whole_game_parity=0")
+    endforeach()
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME render_boundary_capture_contract
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_render_boundary.py --self-check)
+        set_tests_properties(render_boundary_capture_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "render_capture_self_check=ok windows=6 cases=30 live=0")
+        add_test(NAME render_boundary_fixture_guard
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_render_boundary_fixture.py
+                    --exe $<TARGET_FILE:lezac_cpp>)
+        set_tests_properties(render_boundary_fixture_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "render_boundary_fixture=ok captures=2 lf_crlf=1 truncated_rejected=2 mutations_rejected=28 no_output_files=1")
+    endif()
+
     add_test(NAME level1_frame_inspection_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-level1-frame-inspection)

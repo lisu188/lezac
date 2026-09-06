@@ -14,6 +14,9 @@ uint32_t le32(const std::vector<uint8_t>& data, std::size_t off);
 
 template <std::size_t N>
 uint16_t recLe16(const std::array<uint8_t, N>& rec, std::size_t off) {
+    if (off > N || N - off < 2) {
+        throw std::runtime_error("unexpected EOF while reading record u16");
+    }
     return static_cast<uint16_t>(rec[off] | (rec[off + 1] << 8));
 }
 
@@ -23,18 +26,22 @@ uint16_t getU16(const std::vector<uint8_t>& data, std::size_t& off);
 template <std::size_t N>
 std::vector<std::array<uint8_t, N>> getFixedRecords(const std::vector<uint8_t>& data,
                                                      std::size_t& off) {
-    uint8_t count = getU8(data, off);
-    if (off + static_cast<std::size_t>(count) * N > data.size()) {
+    std::size_t cursor = off;
+    uint8_t count = getU8(data, cursor);
+    if (count != 0 && N > (data.size() - cursor) / count) {
         throw std::runtime_error("truncated fixed record block");
     }
     std::vector<std::array<uint8_t, N>> out;
     out.reserve(count);
     for (uint8_t i = 0; i < count; ++i) {
         std::array<uint8_t, N> rec{};
-        std::copy_n(data.begin() + static_cast<long>(off), N, rec.begin());
-        off += N;
+        std::copy_n(data.begin() +
+                        static_cast<std::vector<uint8_t>::difference_type>(cursor),
+                    N, rec.begin());
+        cursor += N;
         out.push_back(rec);
     }
+    off = cursor;
     return out;
 }
 

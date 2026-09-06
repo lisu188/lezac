@@ -2689,6 +2689,209 @@ public:
                   << " actual_dac=1 frame_wrap=1 byte_wrap=1 seeded_scene=1 natural_route=0 whole_game_parity=0\n";
     }
 
+    void debugVisualOrderOriginal(const std::string& fixture, const std::string& outDir) {
+        load();
+        initSdl();
+        resetLevel(0);
+        const std::array<std::string, 4> kinds{"effect", "bomb", "monster", "reward"};
+        std::set<std::string> expectedNames{"control", "mixed_forward", "mixed_reverse", "two_players", "two_players_mixed", "last_sprite_control"};
+        for (size_t i = 0; i < kinds.size(); ++i) {
+            expectedNames.insert("player_" + kinds[i]);
+            for (size_t j = i + 1; j < kinds.size(); ++j) {
+                expectedNames.insert(kinds[i] + "_" + kinds[j]);
+                expectedNames.insert(kinds[j] + "_" + kinds[i]);
+            }
+        }
+        for (const std::string edge : {"left", "right", "top", "bottom", "corner"})
+            for (int reverse = 0; reverse < 2; ++reverse) expectedNames.insert("clip_" + edge + "_" + std::to_string(reverse));
+        for (int phase = 0; phase < 8; ++phase) expectedNames.insert("shake_" + std::to_string(phase));
+        const std::map<std::string, int> spriteIds{{"effect", 69}, {"bomb", 57}, {"monster", 43}, {"reward", 62}, {"last_sprite", 90}};
+        auto fail = [](const std::string& what) { throw std::runtime_error("visual-order " + what); };
+        auto number = [&](const std::string& text) {
+            size_t end = 0;
+            const int value = std::stoi(text, &end);
+            if (end != text.size()) fail("invalid integer");
+            return value;
+        };
+        auto bytes = [&](const std::string& text, size_t size) {
+            if (text.size() != size * 2 || text.find_first_not_of("0123456789abcdef") != std::string::npos) fail("invalid bytes");
+            std::vector<uint8_t> result(size);
+            for (size_t i = 0; i < size; ++i) result[i] = static_cast<uint8_t>(std::stoul(text.substr(i * 2, 2), nullptr, 16));
+            return result;
+        };
+        auto decodeRle = [&](const std::string& text, size_t size) {
+            std::vector<uint8_t> result;
+            std::istringstream stream(text);
+            std::string run;
+            if (text.empty() || text.back() == ',') fail("invalid RLE");
+            while (std::getline(stream, run, ',')) {
+                const auto colon = run.find(':');
+                if (colon == std::string::npos) fail("invalid RLE");
+                const int count = number(run.substr(0, colon));
+                if (count <= 0 || static_cast<size_t>(count) > size - result.size()) fail("RLE overflow");
+                result.insert(result.end(), count, bytes(run.substr(colon + 1), 1)[0]);
+            }
+            if (result.size() != size) fail("truncated pixels");
+            return result;
+        };
+        std::ifstream input(fixture);
+        if (!input) fail("cannot open fixture");
+        std::ofstream manifest;
+        if (!outDir.empty()) {
+            std::filesystem::create_directories(outDir);
+            manifest.open(joinPath(outDir, "manifest.csv"));
+            if (!manifest) fail("cannot create manifest");
+            manifest << "name,frame,pitch,visuals,shake,different_pixels,frame_hash\n";
+        }
+        std::string line;
+        int stage = 0, pitch = 0, lastFrame = -1;
+        size_t mismatches = 0, compared = 0;
+        bool complete = false;
+        std::set<std::string> names;
+        std::map<std::string, std::vector<uint8_t>> originalViews;
+        std::vector<uint8_t> descriptors;
+        while (std::getline(input, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty() || line[0] == '#') continue;
+            if (complete) fail("record after completion");
+            std::istringstream row(line);
+            std::string tag, token;
+            row >> tag;
+            if (tag.find('=') != std::string::npos) row = std::istringstream(line);
+            std::map<std::string, std::string> fields;
+            while (row >> token) {
+                const auto equal = token.find('=');
+                if (equal == std::string::npos || !fields.emplace(token.substr(0, equal), token.substr(equal + 1)).second) fail("invalid fields");
+            }
+            auto requireFields = [&](std::initializer_list<const char*> keys) {
+                if (fields.size() != keys.size()) fail("invalid field count");
+                for (const auto* key : keys) if (!fields.count(key)) fail("missing field");
+            };
+            if (tag == "capture=visual_order_original_v1") {
+                requireFields({"capture", "level", "seeded", "temp_copy", "before", "after", "pitch"});
+                if (stage || fields.at("level") != "1" || fields.at("seeded") != "1" || fields.at("temp_copy") != "1" ||
+                    fields.at("before") != "7a13" || fields.at("after") != "7a57") fail("invalid provenance");
+                pitch = number(fields.at("pitch"));
+                if (pitch != 160 && pitch != 320) fail("invalid pitch");
+                playerCount_ = pitch == 160 ? 2 : 1;
+                buildBackdropBuffer();
+                stage = 1;
+            } else if (tag == "map") {
+                requireFields({"bytes"});
+                if (stage != 1) fail("misplaced map");
+                level_.tiles = bytes(fields.at("bytes"), 1980);
+                stage = 2;
+            } else if (tag == "backdrop") {
+                requireFields({"bytes"});
+                if (stage != 2) fail("misplaced backdrop");
+                const auto original = decodeRle(fields.at("bytes"), 60000);
+                for (size_t i = 0; i < original.size(); ++i) if ((i < static_cast<size_t>(80 * pitch) ||
+                    i >= static_cast<size_t>(162 * pitch)) && original[i] != backdropBuffer_[i]) fail("background gradient mismatch");
+                std::copy(original.begin(), original.end(), backdropBuffer_.begin());
+                stage = 3;
+            } else if (tag == "sprites") {
+                requireFields({"descriptors"});
+                if (stage != 3) fail("misplaced sprites");
+                descriptors = bytes(fields.at("descriptors"), 368);
+                size_t offset = 0;
+                for (size_t i = 0; i < sprites_.sprites.size(); ++i) {
+                    const auto& sprite = sprites_.sprites[i]; const auto at = (i + 1) * 4;
+                    if (descriptors.at(at) != sprite.width || descriptors.at(at + 1) != sprite.height || le16(descriptors, at + 2) != offset)
+                        fail("sprite descriptor mismatch");
+                    offset += sprite.width * sprite.height;
+                }
+                stage = 4;
+            } else if (tag == "view") {
+                requireFields({"name", "order", "x", "y", "actor_x", "actor_y", "p2", "shake", "count", "frame", "visuals",
+                    "before_regs", "after_regs", "coarse_x", "coarse_y", "fine_x", "fine_y", "source", "destination", "indexed_sha256", "pixels"});
+                const auto name = fields.at("name");
+                if (stage != 4 || !expectedNames.count(name) || !names.insert(name).second) fail("invalid view name");
+                const int frame = number(fields.at("frame"));
+                if (frame < 0 || frame > 65535 || (lastFrame >= 0 && frame != ((lastFrame + 1) & 65535))) fail("nonconsecutive frame");
+                lastFrame = frame;
+                const auto before = bytes(fields.at("before_regs"), 12), after = bytes(fields.at("after_regs"), 12);
+                if (!std::equal(before.begin(), before.begin() + 4, after.begin()) ||
+                    !std::equal(before.begin() + 6, before.end(), after.begin() + 6) ||
+                    le16(after, 2) - le16(after, 0) != 0xaa2 || le16(after, 4) != 0xa000) fail("register mismatch");
+                const int x = number(fields.at("x")), y = number(fields.at("y"));
+                const int ax = number(fields.at("actor_x")), ay = number(fields.at("actor_y"));
+                const int p2 = number(fields.at("p2")), shake = number(fields.at("shake"));
+                if (x < 0 || x >= 480 || y < 0 || y >= 264 || ax < 0 || ax >= 480 || ay < 0 || ay >= 264 ||
+                    (p2 != 0 && p2 != 1) || shake < 0 || shake > 7) fail("invalid scene seed");
+                const int camX = std::clamp(x - ((pitch - 8) / 2 - 4), 0, 480 - pitch + 7);
+                const int camY = std::clamp(y - 80, 0, 264 - 168 + 7);
+                if (number(fields.at("coarse_x")) != (camX & ~7) || number(fields.at("coarse_y")) != (camY & ~7) ||
+                    number(fields.at("fine_x")) != (camX & 7) + shake || number(fields.at("fine_y")) != (camY & 7) ||
+                    fields.at("source") != "8" || fields.at("destination") != "1284") fail("camera mismatch");
+                std::vector<std::string> order;
+                std::istringstream list(fields.at("order")); std::string kind;
+                if (fields.at("order") != "-") while (std::getline(list, kind, ',')) {
+                    if (!spriteIds.count(kind)) fail("invalid actor kind");
+                    order.push_back(kind);
+                }
+                if (order.size() > 4 || number(fields.at("count")) != static_cast<int>(order.size() + 2)) fail("visual count mismatch");
+                const auto visuals = bytes(fields.at("visuals"), (order.size() + 2) * 8);
+                for (size_t i = 0; i < order.size() + 2; ++i) {
+                    const int sprite = i == 0 ? 0 : (i == 1 ? (p2 ? 20 : -1) : spriteIds.at(order[i - 2]));
+                    const auto descriptor = static_cast<size_t>(sprite + 1) * 4;
+                    const int visualX = i == 1 && !p2 ? 65535 : (i < 2 ? x : ax);
+                    const int visualY = i == 1 && !p2 ? 65535 : (i < 2 ? y : ay);
+                    if (le16(visuals, i * 8) != visualX || le16(visuals, i * 8 + 2) != visualY ||
+                        !std::equal(visuals.begin() + i * 8 + 4, visuals.begin() + i * 8 + 8, descriptors.begin() + descriptor)) fail("visual seed mismatch");
+                }
+                monsters_.clear(); bombs_.clear(); bonusDrops_.clear(); transientActors_.clear(); launchPadMarkers_.clear();
+                player_.x = player2_.x = static_cast<float>(x); player_.y = player2_.y = static_cast<float>(y);
+                player_.spriteIndex = 0; player2_.spriteIndex = 20; playerCount_ = p2 ? 2 : 1;
+                cameraShakeOffset_ = static_cast<uint16_t>(shake);
+                for (size_t i = 0; i < order.size(); ++i) {
+                    const auto& type = order[i];
+                    if (type == "effect" || type == "last_sprite") {
+                        TransientActor effect; effect.actorOrder = i + 1; effect.x = ax; effect.y = ay; effect.timer = 20;
+                        effect.spriteIndex = static_cast<uint8_t>(spriteIds.at(type)); transientActors_.push_back(effect);
+                    } else if (type == "bomb") {
+                        Bomb bomb; bomb.actorOrder = i + 1; bomb.moving = true; bomb.pixelX = ax; bomb.pixelY = ay; bombs_.push_back(bomb);
+                    } else if (type == "monster") {
+                        ActiveMonster monster; monster.actorOrder = i + 1; monster.x = ax; monster.hotspotY = 6;
+                        monster.y = ay - monster.hotspotY; monster.animFrame = 43; monster.behavior = 1; monsters_.push_back(monster);
+                    } else {
+                        BonusDrop reward; reward.actorOrder = i + 1; reward.x = static_cast<float>(ax); reward.y = static_cast<float>(ay);
+                        reward.type = BonusType::FirstAid; bonusDrops_.push_back(reward);
+                    }
+                }
+                const auto expected = decodeRle(fields.at("pixels"), (pitch - 8) * 152);
+                bytes(fields.at("indexed_sha256"), 32);
+                originalViews.emplace(name, expected);
+                std::fill(fb_.begin(), fb_.end(), argb(palette_, 0));
+                drawWorldView(player_, 4, 4, pitch - 8, 152);
+                resetClip();
+                std::vector<uint32_t> actual;
+                size_t different = 0;
+                uint64_t hash = 1469598103934665603ull;
+                for (int yy = 0; yy < 152; ++yy) for (int xx = 0; xx < pitch - 8; ++xx) {
+                    const auto pixel = fb_[(yy + 4) * kScreenW + xx + 4]; actual.push_back(pixel);
+                    hash = (hash ^ pixel) * 1099511628211ull;
+                    if (pixel != backdropColor(expected[yy * (pitch - 8) + xx])) ++different;
+                }
+                if (!outDir.empty()) {
+                    writeArgbPpm(joinPath(outDir, name + ".ppm"), actual, pitch - 8, 152);
+                    manifest << name << ',' << frame << ',' << pitch << ',' << order.size() + 2 << ',' << shake << ',' << different << ',' << hash << '\n';
+                }
+                std::cout << "visual_order_view=" << name << " different_pixels=" << different << '\n';
+                mismatches += different; compared += expected.size();
+            } else if (tag == "complete") {
+                requireFields({"views", "discriminating_pairs"});
+                if (stage != 4 || names != expectedNames || fields.at("views") != "40" || fields.at("discriminating_pairs") != "6") fail("incomplete coverage");
+                for (size_t i = 0; i < kinds.size(); ++i) for (size_t j = i + 1; j < kinds.size(); ++j)
+                    if (originalViews.at(kinds[i] + "_" + kinds[j]) == originalViews.at(kinds[j] + "_" + kinds[i])) fail("non-discriminating pair");
+                complete = true;
+            } else fail("unknown record");
+        }
+        if (!complete) fail("missing completion");
+        if (mismatches) fail("pixel mismatches=" + std::to_string(mismatches));
+        std::cout << "visual_order_original=ok views=" << names.size() << " pixels=" << compared
+                  << " different_pixels=0 discriminating_pairs=6 players=1 clipping=1 shake=1 normalized_rgb=1 seeded_visuals=1 natural_route=0 whole_game_parity=0\n";
+    }
+
     void debugSharedActorOrderOriginal(const std::string& fixture, const std::string& outDir) {
         load();
         initSdl();
@@ -29388,14 +29591,13 @@ private:
         int drawCamX = camX - viewX;
         int drawCamY = camY - viewY;
         drawGradientSky(viewX, viewY, viewW, viewH, camX, camY);
+        adoptUnorderedActors();
+        const auto visualOrder = sharedActorEntries();
         auto drawForeground = [&](int xCamera, int yCamera) {
             drawTiles(xCamera, yCamera);
-            drawBombs(xCamera, yCamera);
             drawDamageQueues(xCamera, yCamera);
             drawFlashes(xCamera, yCamera);
             drawExplosionEffects(xCamera, yCamera);
-            drawBonusDrops(xCamera, yCamera);
-            drawMonsters(xCamera, yCamera);
             if (!playerDead_) {
                 drawPlayer(player_, xCamera, yCamera);
             } else if (deathStateTimer_ > 0 && state2Visual_.active) {
@@ -29406,8 +29608,20 @@ private:
             } else if (playerCount_ > 1 && deathStateTimer2_ > 0 && state2Visual2_.active) {
                 drawState2PlayerVisual(player2_, state2Visual2_, state2Effect2_, xCamera, yCamera);
             }
-            for (const auto& actor : transientActors_) {
-                drawSprite(sprites_.sprites.at(actor.spriteIndex), actor.x - xCamera, actor.y - yCamera);
+            // Driver 08AC:0207..02E9 draws visual slots in increasing order,
+            // with the two player slots preceding every non-player actor.
+            for (const auto& entry : visualOrder) {
+                switch (entry.kind) {
+                    case SharedActorKind::Bomb: drawBombs(xCamera, yCamera, entry.order); break;
+                    case SharedActorKind::Monster: drawMonsters(xCamera, yCamera, entry.order); break;
+                    case SharedActorKind::Reward: drawBonusDrops(xCamera, yCamera, entry.order); break;
+                    case SharedActorKind::Effect: {
+                        const auto& actor = transientActors_[entry.index];
+                        drawSprite(sprites_.sprites.at(actor.spriteIndex), actor.x - xCamera, actor.y - yCamera);
+                        break;
+                    }
+                    case SharedActorKind::Marker: break;
+                }
             }
         };
         // 18AC:03C8 copies viewW pixels from a viewW+8-pitch buffer without
@@ -29451,8 +29665,9 @@ private:
         }
     }
 
-    void drawBombs(int camX, int camY) {
+    void drawBombs(int camX, int camY, uint64_t onlyOrder = 0) {
         for (const Bomb& b : bombs_) {
+            if (onlyOrder && b.actorOrder != onlyOrder) continue;
             int x = (b.moving ? b.pixelX : b.x * 8) - camX;
             int y = (b.moving ? b.pixelY : b.y * 8) - camY;
             int index = static_cast<int>(bombProfile(b.type).spriteBase);
@@ -29535,9 +29750,10 @@ private:
         }
     }
 
-    void drawMonsters(int camX, int camY) {
+    void drawMonsters(int camX, int camY, uint64_t onlyOrder = 0) {
         if (sprites_.sprites.empty()) return;
         for (const ActiveMonster& monster : monsters_) {
+            if (onlyOrder && monster.actorOrder != onlyOrder) continue;
             if (!monster.alive) continue;
             const SpriteBank& bank = monsterSpriteBank(monster);
             if (bank.sprites.empty()) continue;
@@ -29565,8 +29781,9 @@ private:
         return 61;
     }
 
-    void drawBonusDrops(int camX, int camY) {
+    void drawBonusDrops(int camX, int camY, uint64_t onlyOrder = 0) {
         for (const BonusDrop& drop : bonusDrops_) {
+            if (onlyOrder && drop.actorOrder != onlyOrder) continue;
             int x = static_cast<int>(drop.x) - camX;
             int y = static_cast<int>(drop.y) - camY;
             int index = bonusSpriteIndex(drop.type);
@@ -30935,6 +31152,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-shared-actor-order-original") {
             app.debugSharedActorOrderOriginal(argv[2], argc > 3 ? argv[3] : "");
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-visual-order-original") {
+            app.debugVisualOrderOriginal(argv[2], argc > 3 ? argv[3] : "");
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-level1-frame-inspection") {

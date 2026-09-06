@@ -440,6 +440,33 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "shared_actor_order_fixture=ok cases=10 samples=410 lf_crlf=1 truncated_rejected=2 mutations_rejected=79 no_output_files=1")
     endif()
 
+    foreach(visual_mode IN ITEMS single split)
+        add_test(NAME visual_order_${visual_mode}_original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    $<TARGET_FILE:lezac_cpp> --debug-visual-order-original
+                    tests/fixtures/visual_order_${visual_mode}_original.txt)
+        set_tests_properties(visual_order_${visual_mode}_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "visual_order_original=ok views=40 pixels=[0-9]+ different_pixels=0 discriminating_pairs=6 players=1 clipping=1 shake=1 normalized_rgb=1 seeded_visuals=1 natural_route=0 whole_game_parity=0")
+        if(Python3_Interpreter_FOUND)
+            set(visual_mode_args)
+            if(visual_mode STREQUAL "split")
+                list(APPEND visual_mode_args --split-view)
+            endif()
+            add_test(NAME visual_order_${visual_mode}_capture_contract
+                COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_visual_order.py --self-check ${visual_mode_args})
+            set_tests_properties(visual_order_${visual_mode}_capture_contract PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION "visual_order_capture_self_check=ok windows=17 views=40 live=0")
+            add_test(NAME visual_order_${visual_mode}_fixture_guard
+                COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_visual_order_fixture.py
+                        --exe $<TARGET_FILE:lezac_cpp> --mode ${visual_mode})
+            set_tests_properties(visual_order_${visual_mode}_fixture_guard PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION "visual_order_fixture=ok mode=${visual_mode} views=40 lf_crlf=1 truncated_rejected=2 mutations_rejected=49 indexed_hashes=40 no_output_files=1")
+        endif()
+    endforeach()
+
     add_test(NAME level1_frame_inspection_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-level1-frame-inspection)

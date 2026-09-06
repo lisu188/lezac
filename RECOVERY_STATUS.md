@@ -1,8 +1,8 @@
 # Recovery Status
 
 Last reviewed: 2026-09-06
-Branch: `codex/recover-shared-actor-order` (validated integration batch)
-Baseline: `origin/main` at PR #219
+Branch: `codex/recover-shared-visual-order` (validated integration batch)
+Baseline: `origin/main` at PR #220
 
 ## Port Completion
 
@@ -34,8 +34,11 @@ Shared-capacity recovery adds 16 original bomb/spawner allocation probes,
 including spawning before an effect frees a slot later in the frame.
 Shared-order recovery adds 410 continuous passes and 7,685 ordered actor
 states, covering stable deletion, slot-preserving conversions and same-pass
-tail appends. All 474 CTests, including interactive Xvfb checks, pass in
-124.97 seconds; log: `build-codex-tmp/shared-order-full-tests.log`.
+tail appends. Visual-order recovery adds 80 controlled full/split-width views
+and 2,821,120 matching normalized pixels. It also exposes contradictory older
+launch-marker invisibility evidence that needs a fresh launch observation.
+All 480 tests, including interactive Xvfb checks, pass in 106.36 seconds;
+log: `build-codex-tmp/visual-order-full-tests.log`.
 There is no evidence-based overall completion percentage:
 passing-test percentage measures regression health, not recovered behavior.
 `--debug-port-completion-status` reports
@@ -45,11 +48,17 @@ passing-test percentage measures regression health, not recovered behavior.
 
 ## Current Recovery
 
+- Rendering now follows shared visual order, with players before non-player
+  actors. Original overlapping pairs, mixed scenes, clipping and camera
+  shake match in full/split-width views. The older zero-row launch-marker
+  claim is contradicted by the new descriptor/frame captures; actual launch
+  rendering/lifecycle recovery remains open. See
+  [visual-order evidence](docs/recovery/visual_order_runtime_2026-09-06.md).
 - Non-player updates now follow shared construction order across the typed
   C++ storage. Ten original cases verify adjacent retirement, reversed
   mixed-type order and full-pool bomb/corpse conversions. The fixture guard
-  rejects 79 mutations and two truncations. Sprite order and wider actor
-  interactions remain open. See
+  rejects 79 mutations and two truncations. The subsequent controlled sprite
+  ordering recovery is described above; wider interactions remain open. See
   [shared-order evidence](docs/recovery/shared_actor_order_runtime_2026-09-06.md).
 - Bombs and monster spawners now use the shared 30-slot actor limit. Sixteen
   original seeded cases verify successful/rejected allocations, inventory,

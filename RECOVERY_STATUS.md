@@ -1,8 +1,8 @@
 # Recovery Status
 
 Last reviewed: 2026-09-06
-Branch: `codex/recover-red-palette` (validated integration batch)
-Baseline: `origin/main` at PR #217
+Branch: `codex/recover-shared-actor-capacity` (validated integration batch)
+Baseline: `origin/main` at PR #218
 
 ## Port Completion
 
@@ -30,8 +30,10 @@ the backdrop overflow fallback with allocation metadata and live tile-map
 reads. Red-palette recovery now adds 244 fixed-scene original frames and
 11,571,456 pixels compared using sampled VGA colors, including frame/byte
 rollover. The gameplay clock now remains continuous across level changes.
-All 466 CTests, including interactive Xvfb checks, pass in 108.39 seconds;
-log: `build-codex-tmp/red-palette-full-tests.log`.
+Shared-capacity recovery adds 16 original bomb/spawner allocation probes,
+including spawning before an effect frees a slot later in the frame.
+All 471 CTests, including interactive Xvfb checks, pass in 104.91 seconds;
+log: `build-codex-tmp/shared-capacity-full-tests.log`.
 There is no evidence-based overall completion percentage:
 passing-test percentage measures regression health, not recovered behavior.
 `--debug-port-completion-status` reports
@@ -41,6 +43,11 @@ passing-test percentage measures regression health, not recovered behavior.
 
 ## Current Recovery
 
+- Bombs and monster spawners now use the shared 30-slot actor limit. Sixteen
+  original seeded cases verify successful/rejected allocations, inventory,
+  RNG and spawner reload semantics. Spawning now precedes effect expiry in
+  the production frame. Wider shared dispatch/compaction remains open. See
+  [shared-capacity evidence](docs/recovery/shared_actor_capacity_runtime_2026-09-06.md).
 - The original six-entry red palette now animates on its five-frame gate,
   retaining separate displayed colors and pending phase. Two fixtures cover
   levels 1/4 with 55 writes; all 24 screenshot checkpoints match. See

@@ -66,6 +66,10 @@ reported by the diagnostic; CTest exercises these paths on every run.
 ## Open Original-Evidence Items
 
 These are historical fidelity follow-ups tracked in `RECOVERY_STATUS.md`.
+New [shared-capacity evidence](shared_actor_capacity_runtime_2026-09-06.md)
+covers 16 original bomb/spawner allocation boundaries and fixes spawning
+before same-frame effect expiry. Wider shared actor ordering/compaction and
+other constructor paths remain open.
 They are not an exhaustive list of functional recovery gaps. Missing
 shared-actor allocation/order edge cases, collision semantics, and complete
 natural bomb/collapse progression still need implementation and original

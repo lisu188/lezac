@@ -394,6 +394,32 @@ if(BUILD_TESTING)
                 "red_palette_fixture=ok captures=2 lf_crlf=1 truncated_rejected=2 mutations_rejected=42 indexed_hashes=1 no_output_files=1")
     endif()
 
+    foreach(capacity_mode IN ITEMS bomb spawner)
+        add_test(NAME shared_capacity_${capacity_mode}_original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    $<TARGET_FILE:lezac_cpp> --debug-shared-capacity-original
+                    tests/fixtures/shared_capacity_${capacity_mode}_original.txt)
+        set_tests_properties(shared_capacity_${capacity_mode}_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "shared_capacity_original=ok mode=${capacity_mode} cases=[0-9]+ accepted=[0-9]+ rejected=[0-9]+ existing_actors_unchanged=1 inventory=1 rng=1 spawner_reload=1 seeded=1 natural_route=0 whole_game_parity=0")
+        if(Python3_Interpreter_FOUND)
+            add_test(NAME shared_capacity_${capacity_mode}_capture_contract
+                COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_shared_capacity.py
+                        --self-check --mode ${capacity_mode})
+            set_tests_properties(shared_capacity_${capacity_mode}_capture_contract PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION "shared_capacity_capture_self_check=ok windows=8 live=0")
+        endif()
+    endforeach()
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME shared_capacity_fixture_guard
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_shared_capacity_fixture.py
+                    --exe $<TARGET_FILE:lezac_cpp>)
+        set_tests_properties(shared_capacity_fixture_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "shared_capacity_fixture=ok captures=2 lf_crlf=1 truncated_rejected=2 mutations_rejected=64 no_output_files=1")
+    endif()
+
     add_test(NAME level1_frame_inspection_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-level1-frame-inspection)

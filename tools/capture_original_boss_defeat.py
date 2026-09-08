@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture continuous original level-7 boss defeat after a boundary-seeded bomb."""
+"""Capture original level-7 fatal/nonfatal boss hits from a boundary-seeded bomb."""
 
 import argparse
 import hashlib
@@ -25,12 +25,21 @@ WINDOWS = player.WINDOWS | render.WINDOWS | {
     0x7EC5: bytes.fromhex("c70682200100"),
 }
 CASES = (("defeat_even", 100), ("defeat_odd", 101))
+IMPACT_CASES = (("hit_even", 100), ("hit_odd", 101))
+IMPACT_WINDOWS = {
+    0x43E8: bytes.fromhex("8b9520c2c47ef4268b45022bc2"),
+    0x4503: bytes.fromhex("c47ef4268b450231d203c113d3"),
+    0x5AE9: bytes.fromhex("b810002bc28b7e0436c47d0426884514"),
+}
 SAMPLES = 180
 VIEWS = (0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179)
 
 
-def capture(pid, base, output, image, near_encounter=False):
+def capture(pid, base, output, image, near_encounter=False, nonfatal=False):
     actors.HOOKS = HOOKS
+    cases = IMPACT_CASES if nonfatal else CASES
+    prefix = "boss_impact" if nonfatal else "boss_defeat"
+    windows = WINDOWS | (IMPACT_WINDOWS if nonfatal else {})
     cs, ds = base + (actors.CS << 4), base + (seeder.RUNTIME_DS << 4)
     with open(f"/proc/{pid}/mem", "r+b", buffering=0) as mem:
         def read(at, size):
@@ -71,7 +80,7 @@ def capture(pid, base, output, image, near_encounter=False):
                 time.sleep(0.001)
             raise RuntimeError(f"boss stage {stage} timeout")
 
-        for at, expected in WINDOWS.items():
+        for at, expected in windows.items():
             if read(cs + at, len(expected)) != expected:
                 raise RuntimeError(f"original boss instruction mismatch at {at:04x}")
         if read(cs + 0xF400, 0x212) != bytes(0x212):
@@ -123,7 +132,7 @@ def capture(pid, base, output, image, near_encounter=False):
                  f"# natural_idle_warmup_updates={warmup} near_encounter={int(near_encounter)} forced_boss_position=0",
                  "# register_order=cs,ds,es,ss,saved-sp,bp little_endian_words=1",
                  "# executable_sha256=" + hashlib.sha256((ROOT / "LEZAC.EXE").read_bytes()).hexdigest(),
-                 "capture=boss_defeat_probe_v1 level=7 temp_copy=1 seeded_case_boundary=1 seeded_head_hp=0 seeded_head_lives=0 seeded_bomb=1 per_tick_actor_seed=0 natural_campaign=0",
+                 f"capture={prefix}_probe_v1 level=7 temp_copy=1 seeded_case_boundary=1 seeded_head_hp=0 seeded_head_lives={int(nonfatal)} seeded_bomb=1 per_tick_actor_seed=0 natural_campaign=0",
                  f"map width={width} height={height} bytes={tiles.hex()} words={map_words.hex()}",
                  f"backdrop bytes={render.rle(background)}",
                  f"sprites descriptors={descriptors.hex()}"]
@@ -149,7 +158,7 @@ def capture(pid, base, output, image, near_encounter=False):
                     f" player_state={read(ds + 0x79E6, 1)[0]} energy={read(ds + 0x79EC, 1)[0]} lives={read(ds + 0x79EA, 1)[0]}"
                     f" actors={','.join(rows) or '-'} flames={flames} globals={read(ds + 0x79C0, 58).hex()}")
 
-        for name, frame in CASES:
+        for name, frame in cases:
             write(objects, tiles)
             write(words, map_words)
             write(ds + 0x1BD4, initial_actors)
@@ -170,7 +179,7 @@ def capture(pid, base, output, image, near_encounter=False):
             write(ds + 0xC49C, b"\x01")
             write(ds + 0x1AFE, struct.pack("<I", 0x12345678))
             write(ds + 0x78C2, struct.pack("<H", frame))
-            write(ds + 0x1BD4 + 2, bytes(1))
+            write(ds + 0x1BD4 + 2, bytes([int(nonfatal)]))
             write(ds + 0x1BD4 + 36, bytes(1))
             head_visual = initial_actors[1]
             head_x, head_y = struct.unpack_from("<HH", initial_visuals, head_visual * 8)
@@ -214,8 +223,8 @@ def capture(pid, base, output, image, near_encounter=False):
                     output.write_text("\n".join(lines) + "\n", encoding="ascii")
             lines.append(f"end samples={SAMPLES}")
             output.write_text("\n".join(lines) + "\n", encoding="ascii")
-            print(f"boss_defeat_original case={name} samples={SAMPLES} views={len(VIEWS)}", flush=True)
-        lines.append(f"complete cases={len(CASES)} samples={len(CASES) * SAMPLES} views={len(CASES) * len(VIEWS)}")
+            print(f"{prefix}_original case={name} samples={SAMPLES} views={len(VIEWS)}", flush=True)
+        lines.append(f"complete cases={len(cases)} samples={len(cases) * SAMPLES} views={len(cases) * len(VIEWS)}")
         output.write_text("\n".join(lines) + "\n", encoding="ascii")
         for at, length in HOOKS:
             write(cs + at, image[at:at + length])
@@ -228,20 +237,23 @@ def main():
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--out", type=Path)
     parser.add_argument("--near-encounter", action="store_true")
+    parser.add_argument("--nonfatal", action="store_true")
     parser.add_argument("--approve-procmem", action="store_true")
     parser.add_argument("--approve-runtime-instrumentation", action="store_true")
     args = parser.parse_args()
+    prefix = "boss_impact" if args.nonfatal else "boss_defeat"
+    windows = WINDOWS | (IMPACT_WINDOWS if args.nonfatal else {})
     exe = (ROOT / "LEZAC.EXE").read_bytes()
     if hashlib.sha256(exe).hexdigest() != "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec":
         raise RuntimeError("original executable hash mismatch")
     image = exe[0x770:]
     actors.HOOKS = HOOKS
-    for at, expected in WINDOWS.items():
+    for at, expected in windows.items():
         if image[at:at + len(expected)] != expected:
             raise RuntimeError(f"boss instruction mismatch at {at:04x}")
     for stage in range(1, len(HOOKS) + 1):
         actors.trampoline(stage, image)
-    print(f"boss_defeat_capture_self_check=ok windows={len(WINDOWS)} cases={len(CASES)} samples={SAMPLES} live=0", flush=True)
+    print(f"{prefix}_capture_self_check=ok windows={len(windows)} cases={len(CASES)} samples={SAMPLES} live=0", flush=True)
     if args.self_check:
         return 0
     if not (args.run_dir and args.out and args.approve_procmem and args.approve_runtime_instrumentation):
@@ -253,12 +265,13 @@ def main():
         parser.error("temporary executable differs from guarded original")
     environment.SCRIPT_PATH = Path(__file__).resolve()
     environment.XVFB_MARKER = "LEZAC_BOSS_DEFEAT_XVFB"
+    os.environ["SDL_AUDIODRIVER"] = "dummy"
     environment.enter_private_xvfb(sys.argv[1:])
     original = seeder.write_runtime_state_snapshot
 
     def hook(run_dir, pid, base, state, phase):
         if phase == "pre_capture":
-            capture(pid, base, args.out, image, args.near_encounter)
+            capture(pid, base, args.out, image, args.near_encounter, args.nonfatal)
         return original(run_dir, pid, base, state, phase)
 
     seeder.write_runtime_state_snapshot = hook

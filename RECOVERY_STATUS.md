@@ -1,8 +1,20 @@
 # Recovery Status
 
 Last reviewed: 2026-09-08
-Branch: `codex/recover-boss-defeat-chain` (integration batch)
-Baseline: `origin/main` at PR #223
+Branch: `codex/recover-boss-nonfatal-impact` (integration batch)
+Baseline: `origin/main` at PR #225
+
+## Nonfatal Boss Hit Recovery
+
+Two original captures now replay 720 continuous updates after nonfatal boss
+hits, matching 5,040 boss states, 4,320 link states, 370 effect states, 224
+flame states and 60 playfields (2,845,440 normalized pixels, no differences).
+They expose and fix spring/orbital links reading collision Y instead of
+visual Y after the head's signed hotspot changes to -4. Repeated damage,
+byte-wrap HP, one life loss per case and ongoing animation/motion match the
+original. See [the nonfatal-hit evidence](docs/recovery/boss_impact_runtime_2026-09-08.md).
+These seeded encounters do not prove full-health natural victory or whole-game
+fidelity. All agent-launched captures now run with dummy audio.
 
 ## Boss Defeat Recovery
 

@@ -1862,6 +1862,18 @@ damage and naturally spawned pickup effects also match. Defeat, death/reentry
 and wider combat remain open. See
 [continuous boss evidence](recovery/boss_continuous_runtime_2026-09-06.md).
 
+### Nonfatal Boss Link Coordinates (2026-09-08)
+
+The link helper at `1000:432A` reads visual-table Y, including signed actor
+hotspots. Spring reads at `1000:43E8` use `DS:C220+8*self` and target
+`ES:[DI+2]`; the orbit branch uses target visual Y at `1000:4503`.
+A nonfatal hit sets hotspot -4 through `1000:5A75`. The previous C++ link
+calculation omitted that offset and first diverged by `4*15=60` in spring
+0 at sample 3. Corrected production updates match 720 original passes,
+4,320 link states and 60 normalized views. Repeated HP damage, one life loss
+per case and continued head animation also match. See
+[the capture contract and limits](recovery/boss_impact_runtime_2026-09-08.md).
+
 ## Code Mapping
 
 - Level JSON loading: `loadLevels`; raw binary validation: `loadRawLevels`.

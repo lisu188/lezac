@@ -2,8 +2,11 @@
 
 Follow-up: [continuous original replays](boss_continuous_runtime_2026-09-06.md)
 now confirm the shared-clock/motion path and correct the production clock,
-sprite indexing and draw order. Flame-driven defeat and the complete death
-chain below still need continuous original evidence.
+sprite indexing and draw order. Subsequent [defeat traces](boss_defeat_runtime_2026-09-06.md)
+cover the fatal conversion chain, [small-bomb hits](boss_impact_runtime_2026-09-08.md)
+cover surviving-head links, and [largest-bomb traces](boss_mass_runtime_2026-09-08.md)
+cover doubled damage and player death/reentry waiting. Full-health natural
+victory and mixed-mass interactions remain open.
 
 This is an instruction-level static control-flow map of the shipped routine,
 not yet a runtime-equivalence claim. The bytes were checked directly in

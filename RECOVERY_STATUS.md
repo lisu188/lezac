@@ -1,8 +1,20 @@
 # Recovery Status
 
 Last reviewed: 2026-09-08
-Branch: `codex/recover-boss-nonfatal-impact` (integration batch)
-Baseline: `origin/main` at PR #225
+Branch: `codex/recover-boss-explosion-mass` (integration batch)
+Baseline: `origin/main` at PR #227
+
+## Larger-Bomb Boss Combat
+
+Two more original captures match 720 continuous updates, 5,928 flame states,
+1,324 effect states and 60 normalized playfields. They verify the largest
+bomb's doubled boss-damage branch and expose player death/reentry presentation
+differences: the port now latches death sprites only on animation advances,
+uses the level's active bank, and moves the waiting player to the start
+marker at countdown expiry. The near capture matches 120 dying and 198
+waiting states. Input-driven reentry, longer-wait behavior and full-health
+natural combat remain open. See
+[the mass/death evidence](docs/recovery/boss_mass_runtime_2026-09-08.md).
 
 ## Nonfatal Boss Hit Recovery
 

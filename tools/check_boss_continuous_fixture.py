@@ -16,6 +16,7 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--defeat", action="store_true")
     mode.add_argument("--impact", action="store_true")
+    mode.add_argument("--mass", action="store_true")
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
     filename = "boss_continuous_near_original_level7.txt" if args.near else "boss_continuous_original_level7.txt"
@@ -26,8 +27,11 @@ def main():
     if args.impact:
         filename = "boss_impact_near_original_level7.txt" if args.near else "boss_impact_original_level7.txt"
         expected_hash = "0ac513b52f734875a4ed3944c6fb08f590e1f3825db23821a71ca6f8c2d486e9" if args.near else "dfdf3475a192d82bd3d1bf75ed0b1282bf26e1ae0a8ae180822dbb621ed03a23"
-    bomb_probe = args.defeat or args.impact
-    prefix = "boss_impact" if args.impact else ("boss_defeat" if args.defeat else "boss_continuous")
+    if args.mass:
+        filename = "boss_mass_near_original_level7.txt" if args.near else "boss_mass_original_level7.txt"
+        expected_hash = "ab87a9f1afaa102e74e10bef648bf08e82af25a2786e42f96a2d5a9b0935d37e" if args.near else "bc0bc4a06a5a9124a371af1a34facfc6360cfdb1805adfbac6282d928e7f4905"
+    bomb_probe = args.defeat or args.impact or args.mass
+    prefix = "boss_mass" if args.mass else ("boss_impact" if args.impact else ("boss_defeat" if args.defeat else "boss_continuous"))
     cases, samples = (2, 360) if bomb_probe else (3, 600)
     source = (root / "tests/fixtures" / filename).read_text(encoding="ascii")
     if hashlib.sha256(source.encode("ascii")).hexdigest() != expected_hash:
@@ -125,8 +129,8 @@ def main():
             mutate("tick ", "actors", lambda v, at=offset: actor(v, 0, 1, at))
         mutate("tick ", "actors", lambda v: actor(v, 1, 0, 14))
         mutate("tick ", "actors", lambda v: actor(v, 6, 1, 2))
-        if args.impact:
-            for case in ("hit_even", "hit_odd"):
+        if args.impact or args.mass:
+            for case in (("massive_even", "massive_odd") if args.mass else ("hit_even", "hit_odd")):
                 for offset in (2, 36):
                     mutate("case ", "actors", lambda v, at=offset: actor(v, 0, 0, at), case)
                 for offset in (2, 20, 36):
@@ -142,6 +146,29 @@ def main():
             mutate("tick sample=20 ", "actors", lambda v: actor(v, 0, 1, 6))
             mutate("capture=", "seeded_head_hp", lambda _: "1")
             mutate("capture=", "seeded_head_lives", lambda _: "0")
+            if args.mass:
+                mutate("capture=", "seeded_weapon", lambda _: "0")
+                for case in ("massive_even", "massive_odd"):
+                    for offset in (0, 1, 2, 20, 21):
+                        mutate("case ", "actors", lambda v, at=offset: actor(v, 7, 0, at), case)
+                    for offset in (0, 2, 4, 6):
+                        mutate("case ", "actors", lambda v, at=offset: actor(v, 7, 1, at), case)
+                    if args.near:
+                        for sample in (21, 22):
+                            for offset in (16, 21, 22, 23, 24, 25, 26, 27, 28, 36):
+                                mutate(f"tick sample={sample} ", "p1", lambda v, at=offset: byte(v, at), case)
+                        for offset in (4, 6):
+                            mutate("tick sample=22 ", "player", lambda v, at=offset: byte(v, at), case)
+                        for offset in (2, 6, 8, 10, 12, 16, 21, 22, 25, 36):
+                            mutate("tick sample=81 ", "p1", lambda v, at=offset: byte(v, at), case)
+                        for offset in (0, 2, 4, 6):
+                            mutate("tick sample=81 ", "player", lambda v, at=offset: byte(v, at), case)
+                        for field in ("player_state", "lives"):
+                            mutate("tick sample=81 ", field, lambda v: str(int(v) + 1), case)
+                        for offset in (16, 21, 22, 25):
+                            mutate("tick sample=179 ", "p1", lambda v, at=offset: byte(v, at), case)
+                        for offset in (0, 2, 6):
+                            mutate("tick sample=179 ", "player", lambda v, at=offset: byte(v, at), case)
         elif args.defeat:
             for offset in (0, 4, 5, 6, 7, 8, 9, 10):
                 mutate("tick sample=99 ", "flames", lambda v, at=offset: actor(v, 0, 0, at))
@@ -167,7 +194,7 @@ def main():
         mutate("view ", "pixels", lambda _: "-1:00")
         mutate("view ", "pixels", lambda _: "1:gg")
         mutate("view sample=179 " if bomb_probe else "view sample=199 ", "pixels", pixel,
-               "hit_odd" if args.impact else ("defeat_odd" if args.defeat else "clock_wrap"))
+               "massive_odd" if args.mass else ("hit_odd" if args.impact else ("defeat_odd" if args.defeat else "clock_wrap")))
         mutate("complete ", "samples", lambda _: "599")
         index = next(i for i, row in enumerate(rows) if row.startswith("tick "))
         for changed in (rows[:index] + rows[index + 1:], rows + [rows[index]],

@@ -2692,14 +2692,18 @@ public:
                   << " actual_dac=1 frame_wrap=1 byte_wrap=1 seeded_scene=1 natural_route=0 whole_game_parity=0\n";
     }
 
-    enum class BossReplay { Continuous, Defeat, Impact };
+    enum class BossReplay { Continuous, Defeat, Impact, Mass };
 
     void debugBossContinuousOriginal(const std::string& fixture, const std::string& outDir, BossReplay mode = BossReplay::Continuous) {
         load(); initSdl();
         const auto normalizedPalette = palette_;
-        const bool defeat = mode == BossReplay::Defeat, impact = mode == BossReplay::Impact;
+        const bool mass = mode == BossReplay::Mass;
+        const bool defeat = mode == BossReplay::Defeat, impact = mode == BossReplay::Impact || mass;
         const bool bombProbe = defeat || impact;
-        const std::vector<std::string> names = impact ? std::vector<std::string>{"hit_even", "hit_odd"} :
+        const int seededWeapon = mass ? 3 : 0;
+        const std::string replay = mass ? "boss_mass" : (impact ? "boss_impact" : (defeat ? "boss_defeat" : "boss_continuous"));
+        const std::vector<std::string> names = mass ? std::vector<std::string>{"massive_even", "massive_odd"} :
+            impact ? std::vector<std::string>{"hit_even", "hit_odd"} :
             defeat ? std::vector<std::string>{"defeat_even", "defeat_odd"} :
             std::vector<std::string>{"idle_phase", "approach", "clock_wrap"};
         const std::vector<int> viewSamples = bombProbe ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179} :
@@ -2709,6 +2713,8 @@ public:
         int stage = 0, caseIndex = 0, sample = 0, firstFrame = 0, views = 0;
         size_t actorStates = 0, linkStates = 0, effectStates = 0, compared = 0, differences = 0;
         size_t flameStates = 0, damageUpdates = 0, lifeLosses = 0;
+        size_t dyingStates = 0, waitingStates = 0;
+        int deathObjectiveCount = 0;
         auto fail = [&](const std::string& what) {
             throw std::runtime_error("boss-continuous " + name + " sample=" + std::to_string(sample) + ": " + what);
         };
@@ -2776,12 +2782,22 @@ public:
                 energy_ = number(fields.at("energy")); lives_ = number(fields.at("lives"));
                 syncPlayerVelocityMirror(player_);
             }
-            if (p[0] || p[1] || p[21] || fields.at("player_state") != "1" || playerDead_ ||
-                static_cast<int>(player_.x) != le16(visual, 0) || static_cast<int>(player_.y) != le16(visual, 2) ||
+            const auto playerAnimation = playerDead_ ? std::array<uint8_t, 7>{state2Visual_.current, state2Visual_.first,
+                state2Visual_.last, state2Visual_.counter, state2Visual_.delay, state2Visual_.mode, static_cast<uint8_t>(state2Visual_.step)} : player_.animation.packed();
+            if (p[0] || p[1] || (p[21] != 0 && p[21] != 2) || playerDead_ != (p[21] == 2) ||
+                fields.at("player_state") != (playerDead_ && !pendingLifeLoss_ ? "2" : "1") ||
+                energy_ != p[36] || static_cast<uint16_t>(playerDead_ && !pendingLifeLoss_ ? reentryTimer_ + 1 - kReentryTicks : deathStateTimer_) != le16(p, 16))
+                fail("player death/energy mismatch got=" + std::to_string(energy_) + "/" + std::to_string(deathStateTimer_));
+            if (static_cast<int>(player_.x) != le16(visual, 0) || static_cast<int>(player_.y) != le16(visual, 2) ||
                 player_.vx8 != static_cast<int16_t>(le16(p, 6)) || player_.vy8 != static_cast<int16_t>(le16(p, 8)) ||
-                player_.fracX != le16(p, 10) || player_.fracY != le16(p, 12) || player_.idleTicks != p[2] || player_.dropTicks != le16(p, 14) ||
-                player_.animation.packed() != animation(p, 22).packed() || player_.animationBackup.packed() != animation(p, 29).packed() ||
-                player_.spriteIndex != spriteIndex(visual) || energy_ != number(fields.at("energy")) || lives_ != number(fields.at("lives"))) fail("player state mismatch");
+                player_.fracX != le16(p, 10) || player_.fracY != le16(p, 12) || player_.idleTicks != p[2] || player_.dropTicks != le16(p, 14))
+                fail("player motion mismatch got=" + std::to_string(player_.x) + "," + std::to_string(player_.y));
+            if (playerAnimation != animation(p, 22).packed() || player_.animationBackup.packed() != animation(p, 29).packed() ||
+                player_.spriteIndex != spriteIndex(visual)) fail("player animation mismatch got sprite=" + std::to_string(player_.spriteIndex) + " wanted=" + std::to_string(spriteIndex(visual)));
+            // Death helper 30A3 leaves the remaining-objective count in 2074;
+            // the caller copies that scratch byte to the HUD cache at 7FC2.
+            if ((playerDead_ && deathStateTimer_ == kDeathStateTicks ? deathObjectiveCount : energy_) != number(fields.at("energy")) || lives_ != number(fields.at("lives"))) fail("player cached energy/lives mismatch");
+            if (!seed && playerDead_) { if (pendingLifeLoss_) ++dyingStates; else ++waitingStates; }
             const auto links = bytes(fields.at("links"), 96);
             for (size_t i = 0; i < bossLinks_.size(); ++i) {
                 auto& link = bossLinks_[i]; const size_t at = i * 16;
@@ -2807,8 +2823,8 @@ public:
                 if (raw[1] != 2 + std::distance(visualOrder.begin(), visualSlot)) fail("visual slot/order mismatch");
                 if (entry.kind == SharedActorKind::Bomb && bombProbe && seed) {
                     auto& bomb = bombs_[entry.index];
-                    if (raw[0] != 13 || raw[1] != 9 || raw[2] || raw[21] != 2 || raw[20] != 8 || spriteIndex(v) != 57)
-                        fail("invalid defeat bomb seed");
+                    if (raw[0] != 13 + seededWeapon || raw[1] != 9 || raw[2] || raw[21] != 2 || raw[20] != 8 || spriteIndex(v) != 57 + seededWeapon)
+                        fail("invalid boss bomb seed");
                     bomb.pixelX = le16(v, 0); bomb.pixelY = le16(v, 2); bomb.hotspotY = 8;
                     bomb.moving = true; bomb.timer = 0;
                     if (bomb.pixelX != monsters_[0].x + 16 || bomb.pixelY != monsters_[0].y + 8) fail("bomb seed position");
@@ -2879,9 +2895,10 @@ public:
             if (tag.find('=') != std::string::npos) row = std::istringstream(line);
             std::map<std::string, std::string> f;
             while (row >> token) { const auto eq = token.find('='); if (eq == std::string::npos || !f.emplace(token.substr(0, eq), token.substr(eq + 1)).second) fail("invalid fields"); }
-            if (tag == (impact ? "capture=boss_impact_probe_v1" : (defeat ? "capture=boss_defeat_probe_v1" : "capture=boss_continuous_original_v1"))) {
-                if (stage || f.size() != (bombProbe ? 9u : 7u) || f.at("level") != "7" || f.at("temp_copy") != "1" || f.at("seeded_case_boundary") != "1" ||
+            if (tag == "capture=" + replay + (bombProbe ? "_probe_v1" : "_original_v1")) {
+                if (stage || f.size() != (mass ? 10u : (bombProbe ? 9u : 7u)) || f.at("level") != "7" || f.at("temp_copy") != "1" || f.at("seeded_case_boundary") != "1" ||
                     f.at("per_tick_actor_seed") != "0" || (!bombProbe && f.at("observed_backdrop") != "1") || f.at("natural_campaign") != "0" ||
+                    (mass && f.at("seeded_weapon") != "3") ||
                     (bombProbe && (f.at("seeded_head_hp") != "0" || f.at("seeded_head_lives") != (impact ? "1" : "0") || f.at("seeded_bomb") != "1"))) fail("invalid provenance");
                 for (int i = 0; i < 7; ++i) resetLevel(i); stage = 1;
             } else if (tag == "map") {
@@ -2909,16 +2926,20 @@ public:
                 if (bombProbe) for (size_t i = 0; i < level_.wordLayer.size(); ++i) level_.wordLayer[i] = le16(originalWords, i * 2);
                 for (auto& spawner : spawnerStates_) { spawner.remaining = 0; spawner.availableSlots = 0; }
                 logicTick_ = firstFrame - 1;
-                if (bombProbe) { Bomb bomb; bomb.actorOrder = claimActorOrder(); bombs_.push_back(bomb); }
+                if (bombProbe) { Bomb bomb; bomb.type = static_cast<BombType>(seededWeapon); bomb.actorOrder = claimActorOrder(); bombs_.push_back(bomb); }
                 state(f, true); stage = 5;
             } else if (tag == "tick") {
                 if (stage != 5 || sample >= samplesPerCase || f.size() != (bombProbe ? 19u : 17u) || number(f.at("sample")) != sample || number(f.at("frame")) != (firstFrame + sample + 1) % 65536) fail("nonconsecutive tick");
-                registers(f.at("input_regs"), 2); registers(f.at("regs"), 3);
+                if (playerDead_) {
+                    if (f.at("input_regs") != "-") fail("unexpected input during death");
+                } else registers(f.at("input_regs"), 2);
+                registers(f.at("regs"), 3);
                 const std::string control = name == "approach" && sample < 100 ? "left" : (name == "approach" && sample < 140 ? "right" : "idle");
                 if (f.at("control") != control) fail("input mismatch");
                 FrameControls controls; controls.p1Left = control == "left"; controls.p1Right = control == "right";
                 const int oldHp = impact ? monsters_[0].bossHpByte : 0;
                 const int oldLives = impact ? monsters_[0].bossLives : 0;
+                deathObjectiveCount = remainingObjectiveTiles();
                 updateWithControls(controls, 1.0f / 60.0f); state(f, false);
                 if (impact) {
                     damageUpdates += monsters_[0].bossHpByte != oldHp;
@@ -2963,10 +2984,11 @@ public:
         }
         if (!complete) fail("missing completion");
         if (differences) fail("pixel mismatches=" + std::to_string(differences));
-        std::cout << (impact ? "boss_impact_original=ok" : (defeat ? "boss_defeat_original=ok" : "boss_continuous_original=ok")) << " cases=" << caseIndex << " samples=" << caseIndex * samplesPerCase
+        std::cout << replay << "_original=ok cases=" << caseIndex << " samples=" << caseIndex * samplesPerCase
                   << " actor_states=" << actorStates << " link_states=" << linkStates
                   << " effect_states=" << effectStates << " views=" << views << " compared_pixels=" << compared << " different_pixels=0 seeded_case_boundary=1 per_tick_actor_seed=0 whole_game_parity=0";
         if (impact) std::cout << " damage_updates=" << damageUpdates << " life_losses=" << lifeLosses << " flame_states=" << flameStates;
+        if (mass) std::cout << " player_dying_states=" << dyingStates << " player_waiting_states=" << waitingStates;
         std::cout << '\n';
     }
 
@@ -12439,8 +12461,10 @@ public:
             return inspection;
         };
         auto renderGamePreview = [&](const std::string& file, bool cursorPreview) {
+            state2VisualRowPreview_ = true;
             state2VisualCursorPreview_ = cursorPreview;
             drawGame();
+            state2VisualRowPreview_ = false;
             FrameInspection inspection = inspectBuffer(file);
             writeArgbPpm(joinPath(outDir, file), fb_, kScreenW, kScreenH);
             return inspection;
@@ -25578,6 +25602,7 @@ private:
     State2EffectEntry state2Effect_;
     State2EffectEntry state2Effect2_;
     bool state2VisualCursorPreview_ = false;
+    bool state2VisualRowPreview_ = false;
     int damageCooldown_ = 0;
     int damageCooldown2_ = 0;
     uint8_t pendingDamage_ = 0;
@@ -26509,8 +26534,10 @@ private:
         if (debugActorPassObserver_) debugActorPassObserver_();
 
         if (playerDead_) {
-            updateState2VisualCursor(state2Visual_);
-            if (deathStateTimer_ > 0) updateDyingPlayerMotion(player_);
+            if (deathStateTimer_ > 0) {
+                if (updateState2VisualCursor(state2Visual_)) player_.spriteIndex = state2Visual_.current - 1;
+                updateDyingPlayerMotion(player_);
+            }
             refreshState2EffectEntry(player_, state2Visual_, state2Effect_);
         } else {
             collectObjectiveTiles(player_, 1);
@@ -26519,8 +26546,10 @@ private:
         }
         if (playerCount_ > 1) {
             if (player2Dead_) {
-                updateState2VisualCursor(state2Visual2_);
-                if (deathStateTimer2_ > 0) updateDyingPlayerMotion(player2_);
+                if (deathStateTimer2_ > 0) {
+                    if (updateState2VisualCursor(state2Visual2_)) player2_.spriteIndex = state2Visual2_.current - 1;
+                    updateDyingPlayerMotion(player2_);
+                }
                 refreshState2EffectEntry(player2_, state2Visual2_, state2Effect2_);
             } else {
                 collectObjectiveTiles(player2_, 2);
@@ -28330,10 +28359,10 @@ private:
         cursor.active = true;
     }
 
-    void updateState2VisualCursor(State2VisualCursor& cursor) {
-        if (!cursor.active || cursor.mode == 0) return;
+    bool updateState2VisualCursor(State2VisualCursor& cursor) {
+        if (!cursor.active || cursor.mode == 0) return false;
         ++cursor.counter;
-        if (cursor.counter <= cursor.delay) return;
+        if (cursor.counter <= cursor.delay) return false;
         cursor.counter = 0;
         cursor.current = static_cast<uint8_t>(
             static_cast<int>(cursor.current) + static_cast<int>(cursor.step));
@@ -28341,11 +28370,12 @@ private:
             if (cursor.current >= cursor.last || cursor.current <= cursor.first) {
                 cursor.step = static_cast<int8_t>(-cursor.step);
             }
-            return;
+            return true;
         }
         if (cursor.current > cursor.last) {
             cursor.current = cursor.first;
         }
+        return true;
     }
 
     bool allPlayersOutOfLives() const {
@@ -28511,6 +28541,16 @@ private:
             --deathStateTimer;
             if (deathStateTimer > 0) return;
             finalizePendingLifeLoss(dead, lives, timer, startMarker);
+            if (lives > 0) {
+                // 1000:7D11 calls the start-marker locator at 056B before
+                // waiting for input; it preserves motion and animation bytes.
+                if (const LevelPortal* start = findStartPortal(startMarker)) {
+                    player.x = static_cast<float>(start->x);
+                    player.y = static_cast<float>(start->y);
+                }
+                player.idleTicks = 0;
+                player.spriteIndex = 0x27 - 1;
+            }
         }
         if (lives <= 0) return;
         if (!canReenterLevel()) {
@@ -30211,12 +30251,12 @@ private:
             drawExplosionEffects(xCamera, yCamera);
             if (!playerDead_) {
                 drawPlayer(player_, xCamera, yCamera);
-            } else if (deathStateTimer_ > 0 && state2Visual_.active) {
+            } else if (lives_ > 0 && state2Visual_.active) {
                 drawState2PlayerVisual(player_, state2Visual_, state2Effect_, xCamera, yCamera);
             }
             if (playerCount_ > 1 && !player2Dead_) {
                 drawPlayer(player2_, xCamera, yCamera);
-            } else if (playerCount_ > 1 && deathStateTimer2_ > 0 && state2Visual2_.active) {
+            } else if (playerCount_ > 1 && lives2_ > 0 && state2Visual2_.active) {
                 drawState2PlayerVisual(player2_, state2Visual2_, state2Effect2_, xCamera, yCamera);
             }
             // Driver 08AC:0207..02E9 draws visual slots in increasing order,
@@ -30425,16 +30465,17 @@ private:
     void drawState2PlayerVisual(const Player& player, const State2VisualCursor& cursor,
                                 const State2EffectEntry& effect,
                                 int camX, int camY) {
+        // 1000:30A3 leaves the descriptor intact; 1000:60E8 rewrites it only
+        // when animation advances, using the current level's sprite bank.
+        if (!state2VisualCursorPreview_ && !state2VisualRowPreview_) {
+            drawPlayer(player, camX, camY);
+            return;
+        }
         int x0 = (effect.active ? effect.x : static_cast<int>(player.x)) - camX;
         int y0 = (effect.active ? effect.y : static_cast<int>(player.y)) - camY;
         int index = static_cast<int>(cursor.current);
-        // The state-2 visual rows store sprite values 0x43..0x48; a live
-        // original death capture shows the presentation is the white smoke
-        // puff sequence (BOMOMIMK sprites 73..78), i.e. the stored values
-        // carry a +6 bank rebase -- the same table-vs-bank rebase family the
-        // boss visual recovery documented. Applying the rebase here keeps the
-        // recovered row bytes verbatim while drawing the sprites the original
-        // actually shows.
+        // Retain the provisional row/cursor comparison as an explicit debug
+        // preview. Gameplay uses the observed descriptor latch above.
         constexpr int kState2SpriteRebase = 6;
         if (!state2VisualCursorPreview_) {
             if (effect.active && effect.visualFrame == cursor.current) {
@@ -31774,6 +31815,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-impact-original") {
             app.debugBossContinuousOriginal(argv[2], argc > 3 ? argv[3] : "", App::BossReplay::Impact);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-boss-mass-original") {
+            app.debugBossContinuousOriginal(argv[2], argc > 3 ? argv[3] : "", App::BossReplay::Mass);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-continuous-original") {

@@ -1874,6 +1874,19 @@ calculation omitted that offset and first diverged by `4*15=60` in spring
 per case and continued head animation also match. See
 [the capture contract and limits](recovery/boss_impact_runtime_2026-09-08.md).
 
+### Largest Bomb And Player Death (2026-09-08)
+
+`1000:5F5F` doubles the entire sampled boss-flame count when the last cell's
+highest matching slot has mass >1; `3A56` searches slots in reverse. Two
+kind-16 bomb traces verify 29 doubled damage updates and 5,928 flame states.
+The near capture also verifies player death: `30A3` preserves the visible
+descriptor until animation advances, and `7D11` places the waiting player at
+the start marker when its 60-update countdown expires. `7D78` sets global
+state 2, `7D94` takes the waiting descriptor from `DS:C3C0`, and `7F40` skips
+the waiting player's actor pass. Production fixes match all 720 updates and
+60 normalized views. Actual reentry input, long-wait behavior and whole-game
+fidelity remain open. See [the evidence](recovery/boss_mass_runtime_2026-09-08.md).
+
 ## Code Mapping
 
 - Level JSON loading: `loadLevels`; raw binary validation: `loadRawLevels`.

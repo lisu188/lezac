@@ -13,10 +13,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--exe", type=Path, required=True)
     parser.add_argument("--near", action="store_true")
+    parser.add_argument("--defeat", action="store_true")
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
     filename = "boss_continuous_near_original_level7.txt" if args.near else "boss_continuous_original_level7.txt"
     expected_hash = "01e2f3a9ba39081afabbe2efc4d109f023459f84f48c96093c0db9db3bf3c0ce" if args.near else "feed00ccbe888044caa5bcd5c00a66db5edf5ec425feacb6a2766591a53b066a"
+    if args.defeat:
+        filename = "boss_defeat_near_original_level7.txt" if args.near else "boss_defeat_original_level7.txt"
+        expected_hash = "0c4602d0744626c785c0c4cb34526a214bd914f2e844c2bc1e70247bcf5752c7" if args.near else "48d148036784c48b992cb2924d14d99b49ab8f477cd7e2f885773500c47ce8d4"
+    prefix = "boss_defeat" if args.defeat else "boss_continuous"
+    cases, samples = (2, 360) if args.defeat else (3, 600)
     source = (root / "tests/fixtures" / filename).read_text(encoding="ascii")
     if hashlib.sha256(source.encode("ascii")).hexdigest() != expected_hash:
         raise RuntimeError("original boss capture hash mismatch")
@@ -43,11 +49,11 @@ def main():
 
         def run(text, valid=False):
             fixture.write_bytes(text.encode("ascii"))
-            result = subprocess.run([str(args.exe.resolve()), "--debug-boss-continuous-original", str(fixture)],
+            result = subprocess.run([str(args.exe.resolve()), "--debug-" + prefix.replace("_", "-") + "-original", str(fixture)],
                                     cwd=root, env=env, capture_output=True, text=True, timeout=90)
             output = result.stdout + result.stderr
-            success = result.returncode == 0 and "boss_continuous_original=ok cases=3 samples=600" in output
-            failure = result.returncode != 0 and "boss-continuous" in output and "boss_continuous_original=ok" not in output
+            success = result.returncode == 0 and f"{prefix}_original=ok cases={cases} samples={samples}" in output
+            failure = result.returncode != 0 and "boss-continuous" in output and f"{prefix}_original=ok" not in output
             if not (success if valid else failure):
                 raise RuntimeError(f"expected_valid={valid}: {output}")
 
@@ -87,7 +93,7 @@ def main():
             actors[index] = ":".join(parts)
             return ",".join(actors)
 
-        for field in ("temp_copy", "seeded_case_boundary", "observed_backdrop"):
+        for field in (("temp_copy", "seeded_case_boundary", "seeded_bomb") if args.defeat else ("temp_copy", "seeded_case_boundary", "observed_backdrop")):
             mutate("capture=", field, lambda _: "0")
         for field in ("per_tick_actor_seed", "natural_campaign"):
             mutate("capture=", field, lambda _: "1")
@@ -113,8 +119,22 @@ def main():
             mutate("tick ", "actors", lambda v, at=offset: actor(v, 0, 1, at))
         mutate("tick ", "actors", lambda v: actor(v, 1, 0, 14))
         mutate("tick ", "actors", lambda v: actor(v, 6, 1, 2))
-        mutate("tick sample=15 ", "actors", lambda v: actor(v, 7, 0, 2), "approach")
-        mutate("tick sample=199 ", "rng", lambda v: byte(v, 0), "clock_wrap")
+        if args.defeat:
+            for offset in (0, 4, 5, 6, 7, 8, 9, 10):
+                mutate("tick sample=99 ", "flames", lambda v, at=offset: actor(v, 0, 0, at))
+            mutate("tick sample=99 ", "flames", lambda v: actor(v, 0, 1, 0))
+            for offset in (0, 2, 6, 8, 20, 21, 27, 36):
+                mutate("tick sample=3 ", "actors", lambda v, at=offset: actor(v, 0, 0, at))
+            mutate("tick sample=3 ", "actors", lambda v: actor(v, 1, 0, 2))
+            mutate("tick sample=3 ", "actors", lambda v: actor(v, 1, 0, 37))
+            mutate("tick sample=3 ", "actors", lambda v: actor(v, 0, 0, 18))
+            mutate("tick sample=139 ", "actors", lambda v: actor(v, 0, 0, 2))
+            mutate("tick sample=179 ", "rng", lambda v: byte(v, 0), "defeat_odd")
+            for field in ("seeded_head_hp", "seeded_head_lives"):
+                mutate("capture=", field, lambda _: "1")
+        else:
+            mutate("tick sample=15 ", "actors", lambda v: actor(v, 7, 0, 2), "approach")
+            mutate("tick sample=199 ", "rng", lambda v: byte(v, 0), "clock_wrap")
         mutate("tick ", "map", lambda _: "0:ff")
         for field in ("coarse_x", "coarse_y", "fine_x", "fine_y", "source", "destination"):
             mutate("view ", field, lambda v: str(int(v) + 1))
@@ -123,7 +143,7 @@ def main():
         mutate("view ", "pixels", lambda _: "999999:00")
         mutate("view ", "pixels", lambda _: "-1:00")
         mutate("view ", "pixels", lambda _: "1:gg")
-        mutate("view sample=199 ", "pixels", pixel, "clock_wrap")
+        mutate("view sample=179 " if args.defeat else "view sample=199 ", "pixels", pixel, "defeat_odd" if args.defeat else "clock_wrap")
         mutate("complete ", "samples", lambda _: "599")
         index = next(i for i, row in enumerate(rows) if row.startswith("tick "))
         for changed in (rows[:index] + rows[index + 1:], rows + [rows[index]],
@@ -133,7 +153,7 @@ def main():
             mutations += 1
     if set(root.glob("*.ppm")) != before:
         raise RuntimeError("unrequested boss frame output")
-    print(f"boss_continuous_fixture=ok near={int(args.near)} cases=3 samples=600 indexed_hashes={views} lf_crlf=1 truncations_rejected=2 mutations_rejected={mutations} no_output_files=1")
+    print(f"{prefix}_fixture=ok near={int(args.near)} cases={cases} samples={samples} indexed_hashes={views} lf_crlf=1 truncations_rejected=2 mutations_rejected={mutations} no_output_files=1")
 
 
 if __name__ == "__main__":

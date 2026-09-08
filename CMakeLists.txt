@@ -495,6 +495,33 @@ if(BUILD_TESTING)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION "frame_sequence=ok scenario=boss_level7_fight frames=6 size=320x200")
 
+    foreach(variant IN ITEMS "" "near_")
+        add_test(NAME boss_defeat_${variant}original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-boss-defeat-original tests/fixtures/boss_defeat_${variant}original_level7.txt)
+        set_tests_properties(boss_defeat_${variant}original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "boss_defeat_original=ok cases=2 samples=360 actor_states=1361 link_states=24 effect_states=1865 views=30 compared_pixels=1422720 different_pixels=0 seeded_case_boundary=1 per_tick_actor_seed=0 whole_game_parity=0")
+        if(Python3_Interpreter_FOUND)
+            set(near_args)
+            if(variant STREQUAL "near_")
+                set(near_args --near)
+            endif()
+            add_test(NAME boss_defeat_${variant}fixture_guard
+                COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_boss_continuous_fixture.py --exe $<TARGET_FILE:lezac_cpp> --defeat ${near_args})
+            set_tests_properties(boss_defeat_${variant}fixture_guard PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION "boss_defeat_fixture=ok near=[01] cases=2 samples=360 indexed_hashes=30 lf_crlf=1 truncations_rejected=2 mutations_rejected=108 no_output_files=1")
+        endif()
+    endforeach()
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME boss_defeat_capture_contract
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_boss_defeat.py --self-check)
+        set_tests_properties(boss_defeat_capture_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "boss_defeat_capture_self_check=ok windows=34 cases=2 samples=180 live=0")
+    endif()
+
     add_test(NAME boss_continuous_original
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-boss-continuous-original tests/fixtures/boss_continuous_original_level7.txt)
@@ -727,7 +754,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_boss_level7_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=boss_level7 boss_actors=7 links=6 springs=2 orbits=4 head_sprite=40 head_box=5x4 head_pos=100,100 sprite_bank=prova head_target=nearest_player target_metric=manhattan roar_cursor=0x69 roar_priority=4 rng_order=roar-speed-jump damage_frames=[0-9]+ score_award=1000 debris=7 debris_cleared=1 frames_inspected=4 spawn_hash=[0-9a-f]+ motion_hash=[0-9a-f]+ death_hash=[0-9a-f]+ clear_hash=[0-9a-f]+ original_runtime_claim=0")
+            "^autoplayer=ok scenario=boss_level7 boss_actors=7 links=6 springs=2 orbits=4 head_sprite=40 head_box=5x4 head_pos=100,100 sprite_bank=prova head_target=nearest_player target_metric=manhattan roar_cursor=0x69 roar_priority=4 rng_order=roar-speed-jump damage_frames=[0-9]+ score_award=0 trigger_key=1000 debris=7 debris_cleared=1 frames_inspected=4 spawn_hash=[0-9a-f]+ motion_hash=[0-9a-f]+ death_hash=[0-9a-f]+ clear_hash=[0-9a-f]+ original_runtime_claim=0")
 
     add_test(NAME autoplayer_monster_behavior4_target_selection_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

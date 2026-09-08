@@ -1426,7 +1426,9 @@ debris tags `0x4e21`/`0x4ee8`. It remains a C++ arithmetic/model check with
   higher-power bombs) with byte-wrap phase HP and a lives underflow death,
   and six invulnerable segments (kind `0x1f`, behavior 5) ride the decoded
   spring/orbit motion links around the head. Boss death converts all pieces
-  to timed debris, awards 1000 points, and boss sprites draw from the
+  to moving kind-14 bombs and opens tile-trigger key 1000 (not a score award).
+  See [the continuous defeat replay](docs/recovery/boss_defeat_runtime_2026-09-06.md).
+  Boss sprites draw from the
   `PROVA.SPR` bank the original selects on level 7. `--debug-gran-boss-model`
   pins the sprite-bank selector and anim-set table bytes and prints the
   decoded boss table; `--debug-autoplayer boss_level7` frame-inspects

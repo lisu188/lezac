@@ -597,6 +597,7 @@ struct Bomb {
     // Actor +0x14; -1 derives the constructor value from the selected sprite.
     int8_t hotspotY = -1;
     uint64_t actorOrder = 0;
+    uint64_t bossVisualOrder = 0;
 };
 
 struct Flash {
@@ -761,6 +762,7 @@ struct TransientActor {
     uint8_t spriteIndex = 0;
     ActorAnimation animation{0, 0, 0, 0, 0, 0, 1};
     uint64_t actorOrder = 0;
+    uint64_t bossVisualOrder = 0;
 };
 
 struct Player {
@@ -827,7 +829,7 @@ struct ActiveMonster {
     // COLLISION-space y; rendering adds hotspotY back. Value 6 for kind 1 is
     // uniquely forced by the motion lockstep (2370/2370 vs <=14/2370 for every
     // other value 0..22); other kinds are unevidenced and keep 0.
-    uint8_t hotspotY = 0;
+    int8_t hotspotY = 0;
     // Per-tick facing-reselect request, mirroring the original's [bp-0x20]
     // flag: seeded from wall contact at behaviour-3 dispatch (1000:7159..716B),
     // set again on the landing snap (1000:71A0) and on the grounded vx
@@ -859,10 +861,10 @@ struct ActiveMonster {
     uint8_t linkB = 0;
     uint8_t linkC = 0;
     int bossTick = 0;
-    int hurtFlash = 0;
     uint64_t actorOrder = 0;
     uint64_t bossVisualOrder = 0;
     bool bossDebris = false;
+    uint16_t bossGroup = 0;
 };
 
 // Semantic view of one 16-byte DS:0x79EA motion-link entry from GRAN.MST.
@@ -2690,11 +2692,14 @@ public:
                   << " actual_dac=1 frame_wrap=1 byte_wrap=1 seeded_scene=1 natural_route=0 whole_game_parity=0\n";
     }
 
-    void debugBossContinuousOriginal(const std::string& fixture, const std::string& outDir) {
+    void debugBossContinuousOriginal(const std::string& fixture, const std::string& outDir, bool defeat = false) {
         load(); initSdl();
         const auto normalizedPalette = palette_;
-        const std::array<std::string, 3> names{"idle_phase", "approach", "clock_wrap"};
-        const std::array<int, 10> viewSamples{0, 1, 15, 16, 28, 57, 99, 139, 179, 199};
+        const std::vector<std::string> names = defeat ? std::vector<std::string>{"defeat_even", "defeat_odd"} :
+            std::vector<std::string>{"idle_phase", "approach", "clock_wrap"};
+        const std::vector<int> viewSamples = defeat ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179} :
+            std::vector<int>{0, 1, 15, 16, 28, 57, 99, 139, 179, 199};
+        const int samplesPerCase = defeat ? 180 : 200;
         std::string name;
         int stage = 0, caseIndex = 0, sample = 0, firstFrame = 0, views = 0;
         size_t actorStates = 0, linkStates = 0, effectStates = 0, compared = 0, differences = 0;
@@ -2743,9 +2748,14 @@ public:
         };
         auto state = [&](const std::map<std::string, std::string>& fields, bool seed) {
             const auto ordered = sharedActorEntries();
+            auto visualOrder = ordered;
+            std::stable_sort(visualOrder.begin(), visualOrder.end(), [&](const auto& a, const auto& b) {
+                return sharedActorVisualKey(a) < sharedActorVisualKey(b);
+            });
             if (number(fields.at("count")) != static_cast<int>(ordered.size()) ||
                 number(fields.at("visuals")) != static_cast<int>(ordered.size() + 2) || fields.at("link_count") != "6" ||
-                monsters_.size() != 7 || bossLinks_.size() != 6 || (seed && ordered.size() != 7)) fail("actor/link count");
+                (!defeat && monsters_.size() != 7) || bossLinks_.size() != 6 ||
+                (seed && ordered.size() != static_cast<size_t>(defeat ? 8 : 7))) fail("actor/link count got=" + std::to_string(ordered.size()));
             const auto rng = bytes(fields.at("rng"), 4);
             const uint32_t random = le16(rng, 0) | (static_cast<uint32_t>(le16(rng, 2)) << 16);
             if (seed) randomSeed_ = random;
@@ -2769,33 +2779,47 @@ public:
             const auto links = bytes(fields.at("links"), 96);
             for (size_t i = 0; i < bossLinks_.size(); ++i) {
                 auto& link = bossLinks_[i]; const size_t at = i * 16;
-                if (link.targetVisual != links[at] || link.selfVisual != links[at + 1] || link.gain != links[at + 2] || link.mode != links[at + 3] ||
+                if ((!defeat || !bossDefeated_) && (link.targetVisual != links[at] || link.selfVisual != links[at + 1] || link.gain != links[at + 2] || link.mode != links[at + 3] ||
                     link.radiusX != links[at + 4] || link.radiusY != links[at + 5] || link.offX != static_cast<int16_t>(le16(links, at + 7)) ||
-                    link.offY != static_cast<int16_t>(le16(links, at + 9)) || link.biasY != static_cast<int8_t>(links[at + 15])) fail("link constructor mismatch");
+                    link.offY != static_cast<int16_t>(le16(links, at + 9)) || link.biasY != static_cast<int8_t>(links[at + 15]))) fail("link constructor mismatch");
                 if (seed) { link.phase = links[at + 6]; link.outX = static_cast<int16_t>(le16(links, at + 11)); link.outY = static_cast<int16_t>(le16(links, at + 13)); }
-                if (link.phase != links[at + 6] || link.outX != static_cast<int16_t>(le16(links, at + 11)) || link.outY != static_cast<int16_t>(le16(links, at + 13))) {
+                // Defeated actors no longer consume links. Their stale original
+                // visual-slot bookkeeping is retained as provenance, not replayed.
+                if ((!defeat || !bossDefeated_) && (link.phase != links[at + 6] || link.outX != static_cast<int16_t>(le16(links, at + 11)) || link.outY != static_cast<int16_t>(le16(links, at + 13)))) {
                     fail("link " + std::to_string(i) + " output got=" + std::to_string(link.outX) + "," + std::to_string(link.outY) +
                          " wanted=" + std::to_string(static_cast<int16_t>(le16(links, at + 11))) + "," + std::to_string(static_cast<int16_t>(le16(links, at + 13))));
                 }
-                if (!seed) ++linkStates;
+                if (!seed && (!defeat || !bossDefeated_)) ++linkStates;
             }
             std::istringstream input(fields.at("actors")); std::string record; size_t index = 0;
-            while (std::getline(input, record, ',')) {
+            while (fields.at("actors") != "-" && std::getline(input, record, ',')) {
                 if (index >= ordered.size()) fail("too many actor records");
                 const auto colon = record.find(':'); if (colon == std::string::npos) fail("invalid actor record");
                 const auto raw = bytes(record.substr(0, colon), 38), v = bytes(record.substr(colon + 1), 8);
-                if (index >= monsters_.size()) {
-                    const auto& entry = ordered[index];
-                    if (entry.kind != SharedActorKind::Effect || raw[1] != index + 2 ||
+                const auto& entry = ordered[index];
+                const auto visualSlot = std::find_if(visualOrder.begin(), visualOrder.end(), [&](const auto& item) { return item.order == entry.order; });
+                if (raw[1] != 2 + std::distance(visualOrder.begin(), visualSlot)) fail("visual slot/order mismatch");
+                if (entry.kind == SharedActorKind::Bomb && defeat && seed) {
+                    auto& bomb = bombs_[entry.index];
+                    if (raw[0] != 13 || raw[1] != 9 || raw[2] || raw[21] != 2 || raw[20] != 8 || spriteIndex(v) != 57)
+                        fail("invalid defeat bomb seed");
+                    bomb.pixelX = le16(v, 0); bomb.pixelY = le16(v, 2); bomb.hotspotY = 8;
+                    bomb.moving = true; bomb.timer = 0;
+                    if (bomb.pixelX != monsters_[0].x + 16 || bomb.pixelY != monsters_[0].y + 8) fail("bomb seed position");
+                    ++index; continue;
+                }
+                if (entry.kind != SharedActorKind::Monster) {
+                    if (entry.kind != SharedActorKind::Effect || (!defeat && raw[1] != index + 2) ||
                         !transientMatchesOriginal(transientActors_[entry.index], raw, v, descriptors)) fail("route effect mismatch");
                     ++index; ++effectStates; continue;
                 }
-                auto& m = monsters_[index];
-                if (m.kind != raw[0] || m.bossVisual != raw[1] || m.behavior != raw[21]) fail("actor constructor mismatch");
+                auto& m = monsters_[entry.index];
+                if (m.kind != raw[0] || (!defeat && m.bossVisual != raw[1]) || m.behavior != raw[21]) fail("actor constructor mismatch");
+                if (m.bossGroup != (m.bossVisual == 6 ? le16(raw, 18) : raw[37])) fail("boss owner mismatch");
                 if (seed) {
                     if (m.animMode != raw[27] || (raw[27] == 0 && m.animFrame != spriteIndex(v)) || (raw[27] != 0 &&
                         (m.animStart + 1 != raw[23] || m.animEnd + 1 != raw[24] || m.animDelay != raw[26]))) fail("boss animation constructor mismatch");
-                    m.hotspotY = raw[20]; m.x = le16(v, 0); m.y = le16(v, 2) - m.hotspotY;
+                    m.hotspotY = static_cast<int8_t>(raw[20]); m.x = le16(v, 0); m.y = le16(v, 2) - m.hotspotY;
                     m.vx8 = static_cast<int16_t>(le16(raw, 6)); m.vy8 = static_cast<int16_t>(le16(raw, 8));
                     m.fracX = raw[10]; m.fracY = raw[12];
                     m.animFrame = static_cast<uint8_t>(spriteIndex(v));
@@ -2809,14 +2833,30 @@ public:
                          "/" + std::to_string(m.vx8) + "," + std::to_string(m.vy8) + " wanted=" + std::to_string(le16(v, 0)) + "," + std::to_string(le16(v, 2)) +
                          "/" + std::to_string(static_cast<int16_t>(le16(raw, 6))) + "," + std::to_string(static_cast<int16_t>(le16(raw, 8))));
                 }
-                if (m.hotspotY != raw[20] || monsterSpriteIndex(m) != spriteIndex(v) ||
+                if (static_cast<uint8_t>(m.hotspotY) != raw[20] || monsterSpriteIndex(m) != spriteIndex(v) ||
                     static_cast<uint8_t>(m.animCursor + 1) != raw[22] || static_cast<uint8_t>(m.animStart + 1) != raw[23] ||
                     static_cast<uint8_t>(m.animEnd + 1) != raw[24] || m.animTick != raw[25] || m.animDelay != raw[26] || m.animMode != raw[27] || m.animStep != static_cast<int8_t>(raw[28])) fail("actor " + std::to_string(index) + " animation mismatch");
                 if (m.behavior == 6 && (m.bossHpByte != raw[36] || m.bossLives != raw[2] || m.bossBoxW != raw[14] || m.bossBoxH != raw[15])) fail("head health/extents mismatch");
+                if (m.bossDebris && m.bossVisual == 6 && m.bossHpByte != raw[36]) fail("defeated head health mismatch");
                 if (m.behavior == 5 && (m.linkA != raw[14] || m.linkB != raw[15] || m.linkC != raw[16])) fail("segment serial mismatch");
+                if (m.bossDebris && (m.kind != 14 || m.stateTimer != raw[2] || m.animMode)) fail("defeat conversion/countdown mismatch");
                 ++index; if (!seed) ++actorStates;
             }
             if (index != ordered.size()) fail("incomplete actor records");
+            if (defeat) {
+                bytes(fields.at("globals"), 58);
+                std::istringstream flames(fields.at("flames")); size_t i = 0;
+                while (fields.at("flames") != "-" && std::getline(flames, record, ',')) {
+                    const auto colon = record.find(':'); if (colon == std::string::npos) fail("invalid flame record");
+                    const auto raw = bytes(record.substr(0, colon), 11), mass = bytes(record.substr(colon + 1), 1);
+                    if (i >= flameRecords_.size()) fail("extra flame");
+                    const auto& ray = flameRecords_[i++];
+                    if (le16(raw, 0) != ray.cell || static_cast<int8_t>(raw[4]) != ray.vx || static_cast<int8_t>(raw[5]) != ray.vy ||
+                        static_cast<int8_t>(raw[6]) != ray.subX || static_cast<int8_t>(raw[7]) != ray.subY || raw[8] != ray.timer ||
+                        raw[9] != ray.glyph || raw[10] != ray.variant || mass[0] != ray.mass) fail("flame mismatch slot=" + std::to_string(i));
+                }
+                if (i != flameRecords_.size()) fail("missing flames");
+            }
         };
         std::ifstream input(fixture); if (!input) fail("cannot open fixture");
         std::ofstream manifest;
@@ -2831,9 +2871,10 @@ public:
             if (tag.find('=') != std::string::npos) row = std::istringstream(line);
             std::map<std::string, std::string> f;
             while (row >> token) { const auto eq = token.find('='); if (eq == std::string::npos || !f.emplace(token.substr(0, eq), token.substr(eq + 1)).second) fail("invalid fields"); }
-            if (tag == "capture=boss_continuous_original_v1") {
-                if (stage || f.size() != 7 || f.at("level") != "7" || f.at("temp_copy") != "1" || f.at("seeded_case_boundary") != "1" ||
-                    f.at("per_tick_actor_seed") != "0" || f.at("observed_backdrop") != "1" || f.at("natural_campaign") != "0") fail("invalid provenance");
+            if (tag == (defeat ? "capture=boss_defeat_probe_v1" : "capture=boss_continuous_original_v1")) {
+                if (stage || f.size() != (defeat ? 9u : 7u) || f.at("level") != "7" || f.at("temp_copy") != "1" || f.at("seeded_case_boundary") != "1" ||
+                    f.at("per_tick_actor_seed") != "0" || (!defeat && f.at("observed_backdrop") != "1") || f.at("natural_campaign") != "0" ||
+                    (defeat && (f.at("seeded_head_hp") != "0" || f.at("seeded_head_lives") != "0" || f.at("seeded_bomb") != "1"))) fail("invalid provenance");
                 for (int i = 0; i < 7; ++i) resetLevel(i); stage = 1;
             } else if (tag == "map") {
                 if (stage != 1 || f.size() != 4 || f.at("width") != "140" || f.at("height") != "52") fail("invalid map");
@@ -2850,18 +2891,20 @@ public:
                     if (descriptors[at] != s.width || descriptors[at + 1] != s.height || le16(descriptors, at + 2) != offset) fail("sprite bank mismatch"); offset += s.width * s.height; }
                 stage = 4;
             } else if (tag == "case") {
-                if (stage != 4 || caseIndex >= 3 || f.size() != 14 || f.at("name") != names[caseIndex]) fail("invalid case");
+                if (stage != 4 || caseIndex >= static_cast<int>(names.size()) || f.size() != (defeat ? 16u : 14u) || f.at("name") != names[caseIndex]) fail("invalid case");
                 name = f.at("name"); firstFrame = number(f.at("frame")); sample = 0;
                 if (firstFrame != (caseIndex == 2 ? 65520 : 100 + caseIndex)) fail("invalid clock seed");
                 registers(f.at("regs"), 1);
                 for (int i = 0; i < 7; ++i) resetLevel(i);
                 menu_ = false; levelIntro_.active = false; playerCount_ = 1;
                 level_.tiles = originalMap; std::copy(originalBackdrop.begin(), originalBackdrop.end(), backdropBuffer_.begin());
+                if (defeat) for (size_t i = 0; i < level_.wordLayer.size(); ++i) level_.wordLayer[i] = le16(originalWords, i * 2);
                 for (auto& spawner : spawnerStates_) { spawner.remaining = 0; spawner.availableSlots = 0; }
                 logicTick_ = firstFrame - 1;
+                if (defeat) { Bomb bomb; bomb.actorOrder = claimActorOrder(); bombs_.push_back(bomb); }
                 state(f, true); stage = 5;
             } else if (tag == "tick") {
-                if (stage != 5 || sample >= 200 || f.size() != 17 || number(f.at("sample")) != sample || number(f.at("frame")) != (firstFrame + sample + 1) % 65536) fail("nonconsecutive tick");
+                if (stage != 5 || sample >= samplesPerCase || f.size() != (defeat ? 19u : 17u) || number(f.at("sample")) != sample || number(f.at("frame")) != (firstFrame + sample + 1) % 65536) fail("nonconsecutive tick");
                 registers(f.at("input_regs"), 2); registers(f.at("regs"), 3);
                 const std::string control = name == "approach" && sample < 100 ? "left" : (name == "approach" && sample < 140 ? "right" : "idle");
                 if (f.at("control") != control) fail("input mismatch");
@@ -2871,7 +2914,10 @@ public:
                 if (f.at("map") != "-") { std::istringstream delta(f.at("map")); std::string item;
                     while (std::getline(delta, item, ',')) { const auto colon = item.find(':'); if (colon == std::string::npos) fail("invalid map delta");
                         const int at = number(item.substr(0, colon)); if (at < 0 || static_cast<size_t>(at) >= map.size()) fail("map delta index"); map[at] = bytes(item.substr(colon + 1), 1)[0]; } }
-                if (level_.tiles != map) fail("map mismatch");
+                if (level_.tiles != map) {
+                    const size_t at = static_cast<size_t>(std::mismatch(level_.tiles.begin(), level_.tiles.end(), map.begin()).first - level_.tiles.begin());
+                    fail("map mismatch cell=" + std::to_string(at) + " got=" + std::to_string(level_.tiles[at]) + " wanted=" + std::to_string(map[at]));
+                }
                 if (std::find(viewSamples.begin(), viewSamples.end(), sample) != viewSamples.end()) stage = 6;
                 else ++sample;
             } else if (tag == "view") {
@@ -2879,7 +2925,7 @@ public:
                 const int camX = std::clamp(static_cast<int>(player_.x) - 152, 0, level_.width * 8 - 313);
                 const int camY = std::clamp(static_cast<int>(player_.y) - 80, 0, level_.height * 8 - 161);
                 if (number(f.at("coarse_x")) != (camX & ~7) || number(f.at("coarse_y")) != (camY & ~7) ||
-                    number(f.at("fine_x")) != (camX & 7) || number(f.at("fine_y")) != (camY & 7) ||
+                    number(f.at("fine_x")) != (camX & 7) + cameraShakeOffset_ || number(f.at("fine_y")) != (camY & 7) ||
                     f.at("source") != "8" || f.at("destination") != "1284") fail("camera mismatch");
                 bytes(f.at("indexed_sha256"), 32); const auto expected = rle(f.at("pixels"), 312 * 152);
                 const auto currentPalette = palette_; palette_ = normalizedPalette;
@@ -2890,17 +2936,19 @@ public:
                 palette_ = currentPalette;
                 if (!outDir.empty()) { writeArgbPpm(joinPath(outDir, name + "_" + std::to_string(sample) + ".ppm"), actual, 312, 152);
                     manifest << name << ',' << sample << ',' << number(f.at("sample")) + firstFrame + 1 << ',' << player_.x << ',' << player_.y << ',' << energy_
-                             << ',' << monsters_[0].x << ',' << monsters_[0].y << ',' << different << '\n'; }
+                             << ',' << (monsters_.empty() ? -1 : monsters_[0].x) << ',' << (monsters_.empty() ? -1 : monsters_[0].y) << ',' << different << '\n'; }
                 differences += different; compared += expected.size(); ++views; ++sample; stage = 5;
             } else if (tag == "end") {
-                if (stage != 5 || sample != 200 || f.size() != 1 || f.at("samples") != "200") fail("incomplete case"); ++caseIndex; stage = 4;
+                if (stage != 5 || sample != samplesPerCase || f.size() != 1 || number(f.at("samples")) != samplesPerCase) fail("incomplete case"); ++caseIndex; stage = 4;
             } else if (tag == "complete") {
-                if (stage != 4 || caseIndex != 3 || f.size() != 3 || f.at("cases") != "3" || f.at("samples") != "600" || f.at("views") != "30" || views != 30) fail("incomplete coverage"); complete = true;
+                if (stage != 4 || caseIndex != static_cast<int>(names.size()) || f.size() != 3 || number(f.at("cases")) != caseIndex ||
+                    number(f.at("samples")) != caseIndex * samplesPerCase || f.at("views") != "30" || views != 30) fail("incomplete coverage"); complete = true;
             } else fail("unknown record");
         }
         if (!complete) fail("missing completion");
         if (differences) fail("pixel mismatches=" + std::to_string(differences));
-        std::cout << "boss_continuous_original=ok cases=3 samples=600 actor_states=" << actorStates << " link_states=" << linkStates
+        std::cout << (defeat ? "boss_defeat_original=ok" : "boss_continuous_original=ok") << " cases=" << caseIndex << " samples=" << caseIndex * samplesPerCase
+                  << " actor_states=" << actorStates << " link_states=" << linkStates
                   << " effect_states=" << effectStates << " views=" << views << " compared_pixels=" << compared << " different_pixels=0 seeded_case_boundary=1 per_tick_actor_seed=0 whole_game_parity=0\n";
     }
 
@@ -4944,9 +4992,9 @@ public:
             }
             updateWithControls(idle, 1.0f / 60.0f);
             head = findHead();
-            if (head && head->hurtFlash > 0) {
+            if (head && head->animFrame == 0x2f - 1) {
                 sawHurtFlash = true;
-                if (monsterSpriteIndex(*head) != 0x2f) {
+                if (monsterSpriteIndex(*head) != 0x2f - 1) {
                     throw std::runtime_error(
                         "boss level7 autoplayer hurt flash sprite mismatch");
                 }
@@ -4956,8 +5004,11 @@ public:
         if (!bossDefeated_ || !sawHurtFlash) {
             throw std::runtime_error("boss level7 autoplayer did not defeat the boss");
         }
-        if (score_ != scoreBefore + 1000) {
-            throw std::runtime_error("boss level7 autoplayer death award mismatch");
+        if (score_ != scoreBefore) {
+            throw std::runtime_error("boss level7 autoplayer invented death award");
+        }
+        for (int cell : {5709, 5710, 5849, 5850, 5989, 5990}) {
+            if (level_.tiles.at(cell) != 0) throw std::runtime_error("boss level7 gate did not open");
         }
         int debrisCount = 0;
         for (const ActiveMonster& monster : monsters_) {
@@ -4971,7 +5022,7 @@ public:
         FrameInspection deathFrame =
             inspectRenderedFrame("autoplayer-boss-level7-death");
 
-        for (int frame = 0; frame < 90; ++frame) {
+        for (int frame = 0; frame < 160; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
         }
         for (const ActiveMonster& monster : monsters_) {
@@ -4992,7 +5043,7 @@ public:
                   << " roar_cursor=0x69 roar_priority=4"
                   << " rng_order=roar-speed-jump"
                   << " damage_frames=" << damageFrames
-                  << " score_award=1000 debris=7 debris_cleared=1"
+                  << " score_award=0 trigger_key=1000 debris=7 debris_cleared=1"
                   << " frames_inspected=4"
                   << " spawn_hash=" << std::hex << spawnFrame.hash
                   << " motion_hash=" << motionFrame.hash
@@ -22091,7 +22142,6 @@ public:
             head->fracY = static_cast<uint8_t>(prev.fy);
             head->vx8 = static_cast<int16_t>(prev.vx);
             head->vy8 = static_cast<int16_t>(prev.vy);
-            head->hurtFlash = 0;
             // This historical fixture checks individual transitions. The
             // continuous boss fixture exercises the shared clock without
             // restoring it (or actor/RNG state) before each update.
@@ -27002,6 +27052,14 @@ private:
         return result;
     }
 
+    uint64_t sharedActorVisualKey(const SharedActorEntry& entry) const {
+        if (entry.kind == SharedActorKind::Monster && monsters_[entry.index].bossVisualOrder)
+            return monsters_[entry.index].bossVisualOrder;
+        if (entry.kind == SharedActorKind::Effect && transientActors_[entry.index].bossVisualOrder)
+            return transientActors_[entry.index].bossVisualOrder;
+        return entry.order;
+    }
+
     void adoptUnorderedActors() {
         // Directly seeded diagnostics predate shared ordering. Real producers
         // claim an order at construction; explicit original replays seed it.
@@ -27528,12 +27586,16 @@ private:
         }
 
         const uint64_t firstBossVisualOrder = nextActorOrder_;
+        const auto bossGroup = static_cast<uint16_t>(sharedActorCount() + 1);
         for (size_t i = 0; i < recordCount; ++i) {
             const uint8_t* record = granBytes.data() + recordsBase + i * 0x26;
             ActiveMonster actor;
             actor.kind = record[0x00];
             actor.behavior = record[0x15];
             actor.bossVisual = static_cast<uint8_t>(record[0x01] + kBossVisualBase);
+            // The GRAN reader rewrites the head +0x12 and segment +0x25
+            // owner fields to the group's first one-based actor slot.
+            actor.bossGroup = bossGroup;
             const size_t entryOrder = static_cast<size_t>(actor.bossVisual) - kBossVisualBase;
             if (entryOrder >= recordCount) continue;
             const int dx = static_cast<int16_t>(granBytes[pairsBase + entryOrder * 4] |
@@ -27722,7 +27784,6 @@ private:
     void updateBossHead(ActiveMonster& monster) {
         // 1000:5E59 divides the shared 16-bit DS:78C2 clock, including wrap.
         monster.bossTick = static_cast<uint16_t>(logicTick_);
-        if (monster.hurtFlash > 0) --monster.hurtFlash;
         // The original scans all four edges up front and the later gravity,
         // jump and reflection steps all read those flags, so scan first.
         const BossHeadEdges edges = scanBossHeadEdges(monster);
@@ -27746,6 +27807,7 @@ private:
                 monster.vy8 = clampI16(-(0x12c + static_cast<int>(randomRangeValue(0, 0x5dc))));
             }
         }
+        damageBossHeadFromFlames(monster);
         // Gravity (file 0x673b..0x6742): `add WORD ss:[di-0xe],0x40` is guarded
         // by `cmp BYTE ss:[di-0x21],0 / jne`, so it is applied ONLY when the
         // bottom flag is clear, and there is no upper clamp anywhere in
@@ -27767,7 +27829,6 @@ private:
         if ((edges.left && monster.vx8 < 0) || (edges.right && monster.vx8 > 0)) {
             monster.vx8 = static_cast<int16_t>(-(monster.vx8 / 2));
         }
-        damageBossHeadFromFlames(monster);
     }
 
     // Original head damage scan (1000:5EF4): every frame, flame tiles (0x75)
@@ -27791,32 +27852,36 @@ private:
             [lastCell](const FlameRecord& item) { return item.cell == lastCell; });
         if (ray != flameRecords_.rend() && ray->mass > 1) damage *= 2;
         if (damage > monster.bossHpByte) {
-            if (monster.bossLives == 0) {
-                bossDeathChain();
-                return;
-            }
             --monster.bossLives;
-            monster.hurtFlash = 12;
         }
         monster.bossHpByte = static_cast<uint8_t>(monster.bossHpByte - damage);
+        // 1000:5A75 replaces the visible descriptor and signed hotspot only.
+        // The caller still holds collision-space Y until its final writeback.
+        monster.animFrame = 0x2f - 1;
+        monster.hotspotY = static_cast<int8_t>(16 - altSprites_.sprites.at(monster.animFrame).height);
+        if (monster.bossLives == 0xff) bossDeathChain(monster);
     }
 
-    // Original 1000:5BCC: convert every segment linked to the head, then the
-    // head itself, into timed debris and award the completion fanfare score.
-    void bossDeathChain() {
+    // Original 1000:5BCC: convert linked segments and the head into kind-14
+    // bombs, then invoke tile-trigger 1000 through 1000:5740. No score award.
+    void bossDeathChain(ActiveMonster& head) {
         for (ActiveMonster& monster : monsters_) {
             if (!monster.alive) continue;
-            if (monster.behavior == 5) {
+            if (monster.kind == 0x1f && monster.bossGroup == head.bossGroup) {
+                monster.kind = 0x0e;
                 monster.behavior = 2;
                 monster.bossDebris = true;
+                monster.animMode = 0;
                 monster.stateTimer = 0x28 + static_cast<int>(randomRangeValue(0, 10));
-            } else if (monster.behavior == 6) {
-                monster.behavior = 2;
-                monster.bossDebris = true;
-                monster.stateTimer = 0x3c;
             }
         }
-        addScore(1, 1000);
+        head.kind = 0x0e;
+        head.behavior = 2;
+        head.bossDebris = true;
+        head.animMode = 0;
+        head.stateTimer = 0x3c;
+        applyTileTrigger(1000);
+        requestTileTriggerSound();
         bossDefeated_ = true;
         requestMonsterDeathSound();
     }
@@ -27894,6 +27959,25 @@ private:
             if (onlyOrder && monster.actorOrder != onlyOrder) continue;
             if (!monster.alive) continue;
             if (monster.behavior == 2) {
+                if (monster.bossDebris) {
+                    updateTimedActorMotion(monster.x, monster.y, monster.vx8, monster.vy8,
+                                           monster.fracX, monster.fracY, scanActorEdges(monster.x, monster.y));
+                    if (logicTick_ & 1u) monster.stateTimer = static_cast<uint8_t>(monster.stateTimer - 1);
+                    if (monster.stateTimer == 0 || monster.stateTimer == 0xff) {
+                        Bomb bomb;
+                        bomb.type = BombType::Medium;
+                        bomb.pixelX = monster.x;
+                        bomb.pixelY = monster.y + monster.hotspotY;
+                        bomb.x = monster.x >> 3;
+                        bomb.y = bomb.pixelY >> 3;
+                        bomb.fracX = monster.fracX; bomb.fracY = monster.fracY;
+                        bomb.actorOrder = monster.actorOrder;
+                        bomb.bossVisualOrder = monster.bossVisualOrder;
+                        monster.alive = false;
+                        explode(bomb);
+                    }
+                    continue;
+                }
                 if (monster.kind == 0x0c) {
                     updateTimedActorMotion(monster.x, monster.y, monster.vx8, monster.vy8,
                                            monster.fracX, monster.fracY, scanActorEdges(monster.x, monster.y));
@@ -27905,12 +27989,6 @@ private:
                     if (monster.deathRewardPending) {
                         finishMonsterDeathReward(monster);
                         monster.deathRewardPending = false;
-                    }
-                    if (monster.bossDebris) {
-                        // Original 1000:5BCC debris become power-2 timed
-                        // bombs; the port bursts each piece into a flash.
-                        flashes_.push_back(
-                            {monster.x / kTileSize, monster.y / kTileSize, 12, 2});
                     }
                     releaseMonsterSlot(monster);
                 }
@@ -28646,7 +28724,8 @@ private:
         updateTimedActorMotion(bomb.pixelX, collideY, bomb.vx8, bomb.vy8,
                                bomb.fracX, bomb.fracY, edges);
         bomb.pixelY = collideY + heightOffset;
-        bomb.x = (bomb.pixelX + 4) >> 3;
+        // 1000:75E3 uses visual X directly, without the collision-scan +4.
+        bomb.x = bomb.pixelX >> 3;
         bomb.y = bomb.pixelY >> 3;
     }
 
@@ -29085,6 +29164,7 @@ private:
         fade.spriteIndex = 68;
         fade.animation = ActorAnimation::initialize(69, 79, 2, 1);
         fade.actorOrder = bomb.actorOrder;
+        fade.bossVisualOrder = bomb.bossVisualOrder;
         transientActors_.push_back(fade);
         spawnExpiryParticles(bomb.pixelX, bomb.pixelY, bombTypeIndex(bomb.type) + 2);
     }
@@ -30099,16 +30179,10 @@ private:
         drawGradientSky(viewX, viewY, viewW, viewH, camX, camY);
         adoptUnorderedActors();
         auto visualOrder = sharedActorEntries();
-        auto visualKey = [&](const SharedActorEntry& entry) {
-            if (entry.kind == SharedActorKind::Monster && monsters_[entry.index].bossVisualOrder) {
-                return monsters_[entry.index].bossVisualOrder;
-            }
-            return entry.order;
-        };
         // GRAN.MST reserves a visual block whose slot order differs from its
         // actor-update order. Stable visual keys also survive later deletions.
         std::stable_sort(visualOrder.begin(), visualOrder.end(), [&](const auto& a, const auto& b) {
-            return visualKey(a) < visualKey(b);
+            return sharedActorVisualKey(a) < sharedActorVisualKey(b);
         });
         auto drawForeground = [&](int xCamera, int yCamera) {
             drawTiles(xCamera, yCamera);
@@ -30248,9 +30322,7 @@ private:
 
     int monsterSpriteIndex(const ActiveMonster& monster) const {
         if (isBossActor(monster)) {
-            // Hurt flash uses sprite 0x2f in the original head brain
-            // (1000:5A75); debris keeps the last animation frame.
-            int bossIndex = monster.hurtFlash > 0 ? 0x2f : monster.animFrame;
+            int bossIndex = monster.animFrame;
             if (bossIndex >= 0 &&
                 bossIndex < static_cast<int>(altSprites_.sprites.size())) {
                 return bossIndex;
@@ -31674,6 +31746,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-shared-actor-order-original") {
             app.debugSharedActorOrderOriginal(argv[2], argc > 3 ? argv[3] : "");
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-boss-defeat-original") {
+            app.debugBossContinuousOriginal(argv[2], argc > 3 ? argv[3] : "", true);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-continuous-original") {

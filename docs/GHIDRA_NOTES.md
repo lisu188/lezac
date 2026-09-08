@@ -206,8 +206,12 @@ quirk.
   1); overkill beyond the HP byte `+0x24` decrements the lives byte `+0x02`
   with byte-wrap HP refill, and a lives underflow calls the death chain at
   `1000:5BCC`, which converts every segment whose `+0x25` matches the head's
-  `+0x12` index (plus the head) into kind-`0x0E` timed debris and awards
-  1000 points. Segment motion runs entirely through the 16-byte
+  `+0x12` index (plus the head) into kind-`0x0E` timed bombs and calls
+  tile-trigger key 1000 through `1000:5740`. The earlier interpretation as
+  a 1000-point award was wrong: the routine rewrites the six gate tiles.
+  [Continuous defeat evidence](recovery/boss_defeat_runtime_2026-09-06.md)
+  now covers conversion, physics, half-rate fuses, explosions and cleanup.
+  Segment motion runs entirely through the 16-byte
   `DS:0x79EA` link entries (count `DS:0x79F9`), recomputed each frame by
   `1000:432A` before the actor loop and applied by `1000:5872` per serial
   byte in `+0x0e` lo/hi and `+0x10` lo (bit `0x80` mirrors the spring

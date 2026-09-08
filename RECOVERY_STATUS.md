@@ -1,8 +1,22 @@
 # Recovery Status
 
-Last reviewed: 2026-09-06
-Branch: `codex/recover-boss-continuous-runtime` (integration batch)
-Baseline: `origin/main` at PR #222
+Last reviewed: 2026-09-08
+Branch: `codex/recover-boss-defeat-chain` (integration batch)
+Baseline: `origin/main` at PR #223
+
+## Boss Defeat Recovery
+
+Two original defeat captures now replay 720 consecutive updates through
+production gameplay: 2,722 boss states, 3,730 effect states, 2,912 flame
+states and 60 playfield views (2,845,440 normalized pixels, zero differences).
+The port now preserves owner-filtered conversion, motion, frozen sprites,
+signed impact hotspot, odd-clock timer decrements, normal medium explosions,
+stable visual order and cleanup. The former 1000-point award was a mistaken
+reading of tile-trigger key 1000; the original opens a six-tile gate instead.
+Details, hashes, commands and limits are in
+[the defeat evidence](docs/recovery/boss_defeat_runtime_2026-09-06.md).
+These are boundary-seeded fatal-bomb scenes, not natural full-health victories.
+The complete-game goal remains open.
 
 ## Port Completion
 
@@ -1436,8 +1450,8 @@ passing-test percentage measures regression health, not recovered behavior.
   from head `+0x0e`, 29-tick homing charges with grounded jumps, half-speed
   bounces, per-frame flame-tile `0x75` damage with power doubling, byte-wrap
   phase HP at `+0x24` with lives byte `+0x02`, death chain `1000:5BCC`
-  converting linked segments plus head to kind-`0x0E` timed debris with a
-  1000-point award); the segment motion-link system (16-byte `DS:0x79EA`
+  converting linked segments plus head to kind-`0x0E` timed bombs and
+  invoking tile-trigger key 1000, not awarding points); the segment motion-link system (16-byte `DS:0x79EA`
   entries recomputed by `1000:432A` and applied by `1000:5872`: spring mode
   `(target-self+offset)*gain` with per-axis pull-back, orbit mode over a
   128-step `Sin(i*6.28/128)` table, serial bit `0x80` mirroring); the

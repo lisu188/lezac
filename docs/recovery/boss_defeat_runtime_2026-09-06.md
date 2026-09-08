@@ -128,6 +128,11 @@ two-player combat or whole-game fidelity. The word plane is an initial
 environmental seed, not a per-tick writeback oracle. Raw globals and reserved
 actor/flame bytes are provenance unless explicitly mapped above.
 
+The later [nonfatal-hit recovery](boss_impact_runtime_2026-09-08.md) adds
+continuous small-bomb damage cases with a surviving head, fixing link Y
+coordinates after the signed hotspot change. Its narrower scope and the
+remaining combat questions are documented separately.
+
 After defeat, no boss actor consumes links. The original keeps updating and
 remapping unused visual-link bookkeeping; those post-defeat link bytes are
 retained but not semantically replayed. Only the 24 active link states per

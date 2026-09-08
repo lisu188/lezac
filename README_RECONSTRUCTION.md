@@ -20,6 +20,17 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp \
   --debug-boss-continuous-original tests/fixtures/boss_continuous_near_original_level7.txt /tmp/lezac-boss-comparison
 ```
 
+The [nonfatal-hit recovery](docs/recovery/boss_impact_runtime_2026-09-08.md)
+adds 720 continuous original updates after small-bomb hits. It fixes boss
+link coordinates after damage changes the head's hotspot; all 60 controlled
+playfields match after palette normalization. Full-health natural combat
+and whole-game fidelity remain open.
+
+```sh
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp \
+  --debug-boss-impact-original tests/fixtures/boss_impact_near_original_level7.txt /tmp/lezac-boss-hit-comparison
+```
+
 ## Recovered July Sound Routes
 
 The original weapon-switch path at `1000:6844` holds the horizontal chord for

@@ -101,12 +101,18 @@ signed hotspot -4, and conversion into moving kind-14 timed bombs. The
 a score award. Four seeded cases cover both shared-clock parities and
 visible/offscreen starting positions through complete actor cleanup.
 
+The [2026-09-08 nonfatal replay](boss_impact_runtime_2026-09-08.md) adds four
+180-update surviving-head cases. It confirms repeated HP subtraction with
+byte wrap and zero-based life loss, continued animation with the signed -4 hotspot,
+and link inputs from visual Y rather than collision Y. Both spring endpoints
+and orbital anchors use that visual coordinate.
+
 ## Remaining Runtime Work
 
 The static branch structure and constants above are pinned, but several
-semantic details still need wider live confirmation: nonfatal cycles of
-actor bytes `+0x02`/`+0x24`, all `1000:3A56` mass cases, full-health natural
-victory, and player death/reentry during combat.
+semantic details still need wider live confirmation: all `1000:3A56` mass
+cases, full-health natural victory, two-player combat, and player death/reentry
+during combat. The nonfatal fixtures cover only the documented small-bomb seeds.
 
 For lockstep validation, seed original `DS:1AFE` and port `randomSeed_`
 identically, hold player/input state constant, and capture the boss position,

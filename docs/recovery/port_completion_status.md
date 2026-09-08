@@ -1,6 +1,6 @@
 # Port Completion Status
 
-Last reviewed: 2026-09-06
+Last reviewed: 2026-09-08
 
 The C++17/SDL2 reconstruction of `LEZAC.EXE` is not yet functionally complete.
 The earlier claim was based on a subsystem inventory and compatible tests,
@@ -267,8 +267,12 @@ The [continuous defeat recovery](boss_defeat_runtime_2026-09-06.md) adds
 60 exact normalized playfield views after a boundary-seeded fatal bomb.
 It replaces stationary flashes with moving kind-14 bombs, corrects the
 signed impact hotspot, and opens trigger-key 1000 instead of awarding points.
-Nonfatal boss damage cycles, player death/reentry during combat, longer
-natural combat and two-player interactions remain open. Unused post-defeat
+The subsequent [nonfatal boss-hit recovery](boss_impact_runtime_2026-09-08.md)
+matches another 720 updates, 5,040 boss states, 4,320 link states and 60 exact
+normalized views. It corrects link Y inputs after damage changes the head's
+hotspot and verifies repeated damage without defeat. All flame-mass branches,
+player death/reentry during combat, longer natural combat and two-player
+interactions remain open. Unused post-defeat
 link bookkeeping and actual VGA palette/HUD comparison are not covered by
 these defeat fixtures.
 

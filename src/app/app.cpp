@@ -2692,17 +2692,23 @@ public:
                   << " actual_dac=1 frame_wrap=1 byte_wrap=1 seeded_scene=1 natural_route=0 whole_game_parity=0\n";
     }
 
-    void debugBossContinuousOriginal(const std::string& fixture, const std::string& outDir, bool defeat = false) {
+    enum class BossReplay { Continuous, Defeat, Impact };
+
+    void debugBossContinuousOriginal(const std::string& fixture, const std::string& outDir, BossReplay mode = BossReplay::Continuous) {
         load(); initSdl();
         const auto normalizedPalette = palette_;
-        const std::vector<std::string> names = defeat ? std::vector<std::string>{"defeat_even", "defeat_odd"} :
+        const bool defeat = mode == BossReplay::Defeat, impact = mode == BossReplay::Impact;
+        const bool bombProbe = defeat || impact;
+        const std::vector<std::string> names = impact ? std::vector<std::string>{"hit_even", "hit_odd"} :
+            defeat ? std::vector<std::string>{"defeat_even", "defeat_odd"} :
             std::vector<std::string>{"idle_phase", "approach", "clock_wrap"};
-        const std::vector<int> viewSamples = defeat ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179} :
+        const std::vector<int> viewSamples = bombProbe ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179} :
             std::vector<int>{0, 1, 15, 16, 28, 57, 99, 139, 179, 199};
-        const int samplesPerCase = defeat ? 180 : 200;
+        const int samplesPerCase = bombProbe ? 180 : 200;
         std::string name;
         int stage = 0, caseIndex = 0, sample = 0, firstFrame = 0, views = 0;
         size_t actorStates = 0, linkStates = 0, effectStates = 0, compared = 0, differences = 0;
+        size_t flameStates = 0, damageUpdates = 0, lifeLosses = 0;
         auto fail = [&](const std::string& what) {
             throw std::runtime_error("boss-continuous " + name + " sample=" + std::to_string(sample) + ": " + what);
         };
@@ -2755,7 +2761,7 @@ public:
             if (number(fields.at("count")) != static_cast<int>(ordered.size()) ||
                 number(fields.at("visuals")) != static_cast<int>(ordered.size() + 2) || fields.at("link_count") != "6" ||
                 (!defeat && monsters_.size() != 7) || bossLinks_.size() != 6 ||
-                (seed && ordered.size() != static_cast<size_t>(defeat ? 8 : 7))) fail("actor/link count got=" + std::to_string(ordered.size()));
+                (seed && ordered.size() != static_cast<size_t>(bombProbe ? 8 : 7))) fail("actor/link count got=" + std::to_string(ordered.size()));
             const auto rng = bytes(fields.at("rng"), 4);
             const uint32_t random = le16(rng, 0) | (static_cast<uint32_t>(le16(rng, 2)) << 16);
             if (seed) randomSeed_ = random;
@@ -2799,7 +2805,7 @@ public:
                 const auto& entry = ordered[index];
                 const auto visualSlot = std::find_if(visualOrder.begin(), visualOrder.end(), [&](const auto& item) { return item.order == entry.order; });
                 if (raw[1] != 2 + std::distance(visualOrder.begin(), visualSlot)) fail("visual slot/order mismatch");
-                if (entry.kind == SharedActorKind::Bomb && defeat && seed) {
+                if (entry.kind == SharedActorKind::Bomb && bombProbe && seed) {
                     auto& bomb = bombs_[entry.index];
                     if (raw[0] != 13 || raw[1] != 9 || raw[2] || raw[21] != 2 || raw[20] != 8 || spriteIndex(v) != 57)
                         fail("invalid defeat bomb seed");
@@ -2809,7 +2815,7 @@ public:
                     ++index; continue;
                 }
                 if (entry.kind != SharedActorKind::Monster) {
-                    if (entry.kind != SharedActorKind::Effect || (!defeat && raw[1] != index + 2) ||
+                    if (entry.kind != SharedActorKind::Effect || (!bombProbe && raw[1] != index + 2) ||
                         !transientMatchesOriginal(transientActors_[entry.index], raw, v, descriptors)) fail("route effect mismatch");
                     ++index; ++effectStates; continue;
                 }
@@ -2817,6 +2823,7 @@ public:
                 if (m.kind != raw[0] || (!defeat && m.bossVisual != raw[1]) || m.behavior != raw[21]) fail("actor constructor mismatch");
                 if (m.bossGroup != (m.bossVisual == 6 ? le16(raw, 18) : raw[37])) fail("boss owner mismatch");
                 if (seed) {
+                    if (bombProbe && index == 0 && (raw[36] != 0 || raw[2] != (impact ? 1 : 0))) fail("head health seed contradicts provenance");
                     if (m.animMode != raw[27] || (raw[27] == 0 && m.animFrame != spriteIndex(v)) || (raw[27] != 0 &&
                         (m.animStart + 1 != raw[23] || m.animEnd + 1 != raw[24] || m.animDelay != raw[26]))) fail("boss animation constructor mismatch");
                     m.hotspotY = static_cast<int8_t>(raw[20]); m.x = le16(v, 0); m.y = le16(v, 2) - m.hotspotY;
@@ -2843,7 +2850,7 @@ public:
                 ++index; if (!seed) ++actorStates;
             }
             if (index != ordered.size()) fail("incomplete actor records");
-            if (defeat) {
+            if (bombProbe) {
                 bytes(fields.at("globals"), 58);
                 std::istringstream flames(fields.at("flames")); size_t i = 0;
                 while (fields.at("flames") != "-" && std::getline(flames, record, ',')) {
@@ -2856,6 +2863,7 @@ public:
                         raw[9] != ray.glyph || raw[10] != ray.variant || mass[0] != ray.mass) fail("flame mismatch slot=" + std::to_string(i));
                 }
                 if (i != flameRecords_.size()) fail("missing flames");
+                if (!seed) flameStates += i;
             }
         };
         std::ifstream input(fixture); if (!input) fail("cannot open fixture");
@@ -2871,10 +2879,10 @@ public:
             if (tag.find('=') != std::string::npos) row = std::istringstream(line);
             std::map<std::string, std::string> f;
             while (row >> token) { const auto eq = token.find('='); if (eq == std::string::npos || !f.emplace(token.substr(0, eq), token.substr(eq + 1)).second) fail("invalid fields"); }
-            if (tag == (defeat ? "capture=boss_defeat_probe_v1" : "capture=boss_continuous_original_v1")) {
-                if (stage || f.size() != (defeat ? 9u : 7u) || f.at("level") != "7" || f.at("temp_copy") != "1" || f.at("seeded_case_boundary") != "1" ||
-                    f.at("per_tick_actor_seed") != "0" || (!defeat && f.at("observed_backdrop") != "1") || f.at("natural_campaign") != "0" ||
-                    (defeat && (f.at("seeded_head_hp") != "0" || f.at("seeded_head_lives") != "0" || f.at("seeded_bomb") != "1"))) fail("invalid provenance");
+            if (tag == (impact ? "capture=boss_impact_probe_v1" : (defeat ? "capture=boss_defeat_probe_v1" : "capture=boss_continuous_original_v1"))) {
+                if (stage || f.size() != (bombProbe ? 9u : 7u) || f.at("level") != "7" || f.at("temp_copy") != "1" || f.at("seeded_case_boundary") != "1" ||
+                    f.at("per_tick_actor_seed") != "0" || (!bombProbe && f.at("observed_backdrop") != "1") || f.at("natural_campaign") != "0" ||
+                    (bombProbe && (f.at("seeded_head_hp") != "0" || f.at("seeded_head_lives") != (impact ? "1" : "0") || f.at("seeded_bomb") != "1"))) fail("invalid provenance");
                 for (int i = 0; i < 7; ++i) resetLevel(i); stage = 1;
             } else if (tag == "map") {
                 if (stage != 1 || f.size() != 4 || f.at("width") != "140" || f.at("height") != "52") fail("invalid map");
@@ -2891,25 +2899,31 @@ public:
                     if (descriptors[at] != s.width || descriptors[at + 1] != s.height || le16(descriptors, at + 2) != offset) fail("sprite bank mismatch"); offset += s.width * s.height; }
                 stage = 4;
             } else if (tag == "case") {
-                if (stage != 4 || caseIndex >= static_cast<int>(names.size()) || f.size() != (defeat ? 16u : 14u) || f.at("name") != names[caseIndex]) fail("invalid case");
+                if (stage != 4 || caseIndex >= static_cast<int>(names.size()) || f.size() != (bombProbe ? 16u : 14u) || f.at("name") != names[caseIndex]) fail("invalid case");
                 name = f.at("name"); firstFrame = number(f.at("frame")); sample = 0;
                 if (firstFrame != (caseIndex == 2 ? 65520 : 100 + caseIndex)) fail("invalid clock seed");
                 registers(f.at("regs"), 1);
                 for (int i = 0; i < 7; ++i) resetLevel(i);
                 menu_ = false; levelIntro_.active = false; playerCount_ = 1;
                 level_.tiles = originalMap; std::copy(originalBackdrop.begin(), originalBackdrop.end(), backdropBuffer_.begin());
-                if (defeat) for (size_t i = 0; i < level_.wordLayer.size(); ++i) level_.wordLayer[i] = le16(originalWords, i * 2);
+                if (bombProbe) for (size_t i = 0; i < level_.wordLayer.size(); ++i) level_.wordLayer[i] = le16(originalWords, i * 2);
                 for (auto& spawner : spawnerStates_) { spawner.remaining = 0; spawner.availableSlots = 0; }
                 logicTick_ = firstFrame - 1;
-                if (defeat) { Bomb bomb; bomb.actorOrder = claimActorOrder(); bombs_.push_back(bomb); }
+                if (bombProbe) { Bomb bomb; bomb.actorOrder = claimActorOrder(); bombs_.push_back(bomb); }
                 state(f, true); stage = 5;
             } else if (tag == "tick") {
-                if (stage != 5 || sample >= samplesPerCase || f.size() != (defeat ? 19u : 17u) || number(f.at("sample")) != sample || number(f.at("frame")) != (firstFrame + sample + 1) % 65536) fail("nonconsecutive tick");
+                if (stage != 5 || sample >= samplesPerCase || f.size() != (bombProbe ? 19u : 17u) || number(f.at("sample")) != sample || number(f.at("frame")) != (firstFrame + sample + 1) % 65536) fail("nonconsecutive tick");
                 registers(f.at("input_regs"), 2); registers(f.at("regs"), 3);
                 const std::string control = name == "approach" && sample < 100 ? "left" : (name == "approach" && sample < 140 ? "right" : "idle");
                 if (f.at("control") != control) fail("input mismatch");
                 FrameControls controls; controls.p1Left = control == "left"; controls.p1Right = control == "right";
+                const int oldHp = impact ? monsters_[0].bossHpByte : 0;
+                const int oldLives = impact ? monsters_[0].bossLives : 0;
                 updateWithControls(controls, 1.0f / 60.0f); state(f, false);
+                if (impact) {
+                    damageUpdates += monsters_[0].bossHpByte != oldHp;
+                    lifeLosses += monsters_[0].bossLives != oldLives;
+                }
                 auto map = originalMap;
                 if (f.at("map") != "-") { std::istringstream delta(f.at("map")); std::string item;
                     while (std::getline(delta, item, ',')) { const auto colon = item.find(':'); if (colon == std::string::npos) fail("invalid map delta");
@@ -2939,7 +2953,9 @@ public:
                              << ',' << (monsters_.empty() ? -1 : monsters_[0].x) << ',' << (monsters_.empty() ? -1 : monsters_[0].y) << ',' << different << '\n'; }
                 differences += different; compared += expected.size(); ++views; ++sample; stage = 5;
             } else if (tag == "end") {
-                if (stage != 5 || sample != samplesPerCase || f.size() != 1 || number(f.at("samples")) != samplesPerCase) fail("incomplete case"); ++caseIndex; stage = 4;
+                if (stage != 5 || sample != samplesPerCase || f.size() != 1 || number(f.at("samples")) != samplesPerCase) fail("incomplete case");
+                if (impact && (bossDefeated_ || monsters_[0].kind != 30 || monsters_[0].bossLives != 0 || monsters_[0].hotspotY != -4)) fail("nonfatal hit did not leave an active damaged head");
+                ++caseIndex; stage = 4;
             } else if (tag == "complete") {
                 if (stage != 4 || caseIndex != static_cast<int>(names.size()) || f.size() != 3 || number(f.at("cases")) != caseIndex ||
                     number(f.at("samples")) != caseIndex * samplesPerCase || f.at("views") != "30" || views != 30) fail("incomplete coverage"); complete = true;
@@ -2947,9 +2963,11 @@ public:
         }
         if (!complete) fail("missing completion");
         if (differences) fail("pixel mismatches=" + std::to_string(differences));
-        std::cout << (defeat ? "boss_defeat_original=ok" : "boss_continuous_original=ok") << " cases=" << caseIndex << " samples=" << caseIndex * samplesPerCase
+        std::cout << (impact ? "boss_impact_original=ok" : (defeat ? "boss_defeat_original=ok" : "boss_continuous_original=ok")) << " cases=" << caseIndex << " samples=" << caseIndex * samplesPerCase
                   << " actor_states=" << actorStates << " link_states=" << linkStates
-                  << " effect_states=" << effectStates << " views=" << views << " compared_pixels=" << compared << " different_pixels=0 seeded_case_boundary=1 per_tick_actor_seed=0 whole_game_parity=0\n";
+                  << " effect_states=" << effectStates << " views=" << views << " compared_pixels=" << compared << " different_pixels=0 seeded_case_boundary=1 per_tick_actor_seed=0 whole_game_parity=0";
+        if (impact) std::cout << " damage_updates=" << damageUpdates << " life_losses=" << lifeLosses << " flame_states=" << flameStates;
+        std::cout << '\n';
     }
 
     void debugLaunchMarkerOriginal(const std::string& fixture, const std::string& outDir) {
@@ -27667,8 +27685,10 @@ private:
                 if (!target || !self) continue;
                 link.outX = static_cast<int16_t>(
                     (target->x - self->x + link.offX) * link.gain);
+                // 1000:43E8 reads DS:C220 visual Y, including the head's
+                // signed hotspot after a nonfatal hit changes its descriptor.
                 link.outY = static_cast<int16_t>(
-                    (target->y - self->y + link.offY) * link.gain + link.biasY);
+                    (target->y + target->hotspotY - self->y - self->hotspotY + link.offY) * link.gain + link.biasY);
             } else {
                 if (!target) continue;
                 // Mode 0xff is a VERTICAL-only oscillation about the anchor,
@@ -27686,7 +27706,7 @@ private:
                 const float sinValue = bossSinTable_[link.phase];
                 link.outX = static_cast<int16_t>(target->x + link.offX);
                 link.outY = static_cast<int16_t>(
-                    target->y + link.offY +
+                    target->y + target->hotspotY + link.offY +
                     static_cast<int>(sinValue * link.radiusY));
             }
         }
@@ -31749,7 +31769,11 @@ int main(int argc, char** argv) {
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-defeat-original") {
-            app.debugBossContinuousOriginal(argv[2], argc > 3 ? argv[3] : "", true);
+            app.debugBossContinuousOriginal(argv[2], argc > 3 ? argv[3] : "", App::BossReplay::Defeat);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-boss-impact-original") {
+            app.debugBossContinuousOriginal(argv[2], argc > 3 ? argv[3] : "", App::BossReplay::Impact);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-continuous-original") {

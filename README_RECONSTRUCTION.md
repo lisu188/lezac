@@ -31,6 +31,17 @@ env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp \
   --debug-boss-impact-original tests/fixtures/boss_impact_near_original_level7.txt /tmp/lezac-boss-hit-comparison
 ```
 
+The [largest-bomb replay](docs/recovery/boss_mass_runtime_2026-09-08.md)
+adds 720 original updates and 60 matching normalized playfields, including
+player death and the wait at the reentry marker. It fixes death descriptor
+latching and marker placement; input-driven reentry and longer natural
+combat are still open.
+
+```sh
+env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./build/lezac_cpp \
+  --debug-boss-mass-original tests/fixtures/boss_mass_near_original_level7.txt /tmp/lezac-boss-mass-comparison
+```
+
 ## Recovered July Sound Routes
 
 The original weapon-switch path at `1000:6844` holds the horizontal chord for

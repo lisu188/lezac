@@ -26,20 +26,33 @@ WINDOWS = player.WINDOWS | render.WINDOWS | {
 }
 CASES = (("defeat_even", 100), ("defeat_odd", 101))
 IMPACT_CASES = (("hit_even", 100), ("hit_odd", 101))
+MASS_CASES = (("massive_even", 100), ("massive_odd", 101))
 IMPACT_WINDOWS = {
     0x43E8: bytes.fromhex("8b9520c2c47ef4268b45022bc2"),
     0x4503: bytes.fromhex("c47ef4268b450231d203c113d3"),
     0x5AE9: bytes.fromhex("b810002bc28b7e0436c47d0426884514"),
 }
+MASS_WINDOWS = {
+    0x3A56: bytes.fromhex("a1762048bb0b00f7e389c38b879e203b067220"),
+    0x5F5F: bytes.fromhex("803e1e66007e4de8edda8b3e742080bdd578017609a01e6698d1e0a21e66"),
+    0x3108: bytes.fromhex("c47efc81c716000657a06c0050a06d00506a036a01"),
+    0x7C93: bytes.fromhex("c47efc26ff4d10c47efc26837d1000"),
+    0x7D11: bytes.fromhex("6b3e82202681c7621b1e57a0822050e84888"),
+    0x7D78: bytes.fromhex("8b3e8220c685e57902"),
+    0x7D94: bytes.fromhex("a1c0c3c47ef826894506"),
+    0x7F40: bytes.fromhex("8b3e822080bde579017403e9f600"),
+}
 SAMPLES = 180
 VIEWS = (0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179)
 
 
-def capture(pid, base, output, image, near_encounter=False, nonfatal=False):
+def capture(pid, base, output, image, near_encounter=False, nonfatal=False, massive=False):
     actors.HOOKS = HOOKS
-    cases = IMPACT_CASES if nonfatal else CASES
-    prefix = "boss_impact" if nonfatal else "boss_defeat"
-    windows = WINDOWS | (IMPACT_WINDOWS if nonfatal else {})
+    nonfatal = nonfatal or massive
+    weapon = 3 if massive else 0
+    cases = MASS_CASES if massive else (IMPACT_CASES if nonfatal else CASES)
+    prefix = "boss_mass" if massive else ("boss_impact" if nonfatal else "boss_defeat")
+    windows = WINDOWS | (IMPACT_WINDOWS if nonfatal else {}) | (MASS_WINDOWS if massive else {})
     cs, ds = base + (actors.CS << 4), base + (seeder.RUNTIME_DS << 4)
     with open(f"/proc/{pid}/mem", "r+b", buffering=0) as mem:
         def read(at, size):
@@ -132,7 +145,8 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False):
                  f"# natural_idle_warmup_updates={warmup} near_encounter={int(near_encounter)} forced_boss_position=0",
                  "# register_order=cs,ds,es,ss,saved-sp,bp little_endian_words=1",
                  "# executable_sha256=" + hashlib.sha256((ROOT / "LEZAC.EXE").read_bytes()).hexdigest(),
-                 f"capture={prefix}_probe_v1 level=7 temp_copy=1 seeded_case_boundary=1 seeded_head_hp=0 seeded_head_lives={int(nonfatal)} seeded_bomb=1 per_tick_actor_seed=0 natural_campaign=0",
+                 f"capture={prefix}_probe_v1 level=7 temp_copy=1 seeded_case_boundary=1 seeded_head_hp=0 seeded_head_lives={int(nonfatal)} seeded_bomb=1"
+                 + (f" seeded_weapon={weapon}" if massive else "") + " per_tick_actor_seed=0 natural_campaign=0",
                  f"map width={width} height={height} bytes={tiles.hex()} words={map_words.hex()}",
                  f"backdrop bytes={render.rle(background)}",
                  f"sprites descriptors={descriptors.hex()}"]
@@ -184,9 +198,9 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False):
             head_visual = initial_actors[1]
             head_x, head_y = struct.unpack_from("<HH", initial_visuals, head_visual * 8)
             bomb = bytearray(38)
-            bomb[0], bomb[1], bomb[20], bomb[21] = 13, 9, 8, 2
+            bomb[0], bomb[1], bomb[20], bomb[21] = 13 + weapon, 9, 8, 2
             write(ds + 0x1BAE + 8 * 38, bomb)
-            write(ds + 0xC21E + 9 * 8, struct.pack("<HH", head_x + 16, head_y + 8) + descriptors[58 * 4:59 * 4])
+            write(ds + 0xC21E + 9 * 8, struct.pack("<HH", head_x + 16, head_y + 8) + descriptors[(58 + weapon) * 4:(59 + weapon) * 4])
             write(ds + 0x208D, b"\x08")
             write(ds + 0xC496, b"\x0a")
             lines.append(f"case name={name} frame={frame} regs={struct.pack('<6H', *regs).hex()} " + state())
@@ -237,12 +251,14 @@ def main():
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--out", type=Path)
     parser.add_argument("--near-encounter", action="store_true")
-    parser.add_argument("--nonfatal", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--nonfatal", action="store_true")
+    mode.add_argument("--mass", action="store_true", help="nonfatal head hit with the largest bomb; player damage remains enabled")
     parser.add_argument("--approve-procmem", action="store_true")
     parser.add_argument("--approve-runtime-instrumentation", action="store_true")
     args = parser.parse_args()
-    prefix = "boss_impact" if args.nonfatal else "boss_defeat"
-    windows = WINDOWS | (IMPACT_WINDOWS if args.nonfatal else {})
+    prefix = "boss_mass" if args.mass else ("boss_impact" if args.nonfatal else "boss_defeat")
+    windows = WINDOWS | (IMPACT_WINDOWS if args.nonfatal or args.mass else {}) | (MASS_WINDOWS if args.mass else {})
     exe = (ROOT / "LEZAC.EXE").read_bytes()
     if hashlib.sha256(exe).hexdigest() != "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec":
         raise RuntimeError("original executable hash mismatch")
@@ -271,7 +287,7 @@ def main():
 
     def hook(run_dir, pid, base, state, phase):
         if phase == "pre_capture":
-            capture(pid, base, args.out, image, args.near_encounter, args.nonfatal)
+            capture(pid, base, args.out, image, args.near_encounter, args.nonfatal, args.mass)
         return original(run_dir, pid, base, state, phase)
 
     seeder.write_runtime_state_snapshot = hook

@@ -270,9 +270,12 @@ signed impact hotspot, and opens trigger-key 1000 instead of awarding points.
 The subsequent [nonfatal boss-hit recovery](boss_impact_runtime_2026-09-08.md)
 matches another 720 updates, 5,040 boss states, 4,320 link states and 60 exact
 normalized views. It corrects link Y inputs after damage changes the head's
-hotspot and verifies repeated damage without defeat. All flame-mass branches,
-player death/reentry during combat, longer natural combat and two-player
-interactions remain open. Unused post-defeat
+hotspot and verifies repeated damage without defeat. The subsequent
+[largest-bomb recovery](boss_mass_runtime_2026-09-08.md) matches another
+720 updates and 60 normalized views, including 120 player dying and 198
+reentry-wait states. It corrects death descriptor latching, the active sprite
+bank and waiting-player placement. Mixed flame masses, actual reentry input,
+long waits, longer natural combat and two-player interactions remain open. Unused post-defeat
 link bookkeeping and actual VGA palette/HUD comparison are not covered by
 these defeat fixtures.
 

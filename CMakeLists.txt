@@ -551,6 +551,43 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "boss_impact_capture_self_check=ok windows=37 cases=2 samples=180 live=0")
     endif()
 
+    foreach(variant IN ITEMS "" "near_")
+        set(near_args)
+        set(damage_updates 12)
+        set(effect_states 813)
+        set(dying_states 0)
+        set(waiting_states 0)
+        set(mutations 148)
+        if(variant STREQUAL "near_")
+            set(near_args --near)
+            set(damage_updates 17)
+            set(effect_states 511)
+            set(dying_states 120)
+            set(waiting_states 198)
+            set(mutations 238)
+        endif()
+        add_test(NAME boss_mass_${variant}original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-boss-mass-original tests/fixtures/boss_mass_${variant}original_level7.txt)
+        set_tests_properties(boss_mass_${variant}original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "boss_mass_original=ok cases=2 samples=360 actor_states=2520 link_states=2160 effect_states=${effect_states} views=30 compared_pixels=1422720 different_pixels=0 seeded_case_boundary=1 per_tick_actor_seed=0 whole_game_parity=0 damage_updates=${damage_updates} life_losses=2 flame_states=2964 player_dying_states=${dying_states} player_waiting_states=${waiting_states}")
+        if(Python3_Interpreter_FOUND)
+            add_test(NAME boss_mass_${variant}fixture_guard
+                COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_boss_continuous_fixture.py --exe $<TARGET_FILE:lezac_cpp> --mass ${near_args})
+            set_tests_properties(boss_mass_${variant}fixture_guard PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                PASS_REGULAR_EXPRESSION "boss_mass_fixture=ok near=[01] cases=2 samples=360 indexed_hashes=30 lf_crlf=1 truncations_rejected=2 mutations_rejected=${mutations} no_output_files=1")
+        endif()
+    endforeach()
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME boss_mass_capture_contract
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_boss_defeat.py --mass --self-check)
+        set_tests_properties(boss_mass_capture_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "boss_mass_capture_self_check=ok windows=45 cases=2 samples=180 live=0")
+    endif()
+
     add_test(NAME boss_continuous_original
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-boss-continuous-original tests/fixtures/boss_continuous_original_level7.txt)

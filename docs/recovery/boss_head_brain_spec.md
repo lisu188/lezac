@@ -92,12 +92,21 @@ offsets used by `1000:5CB0` are actor-update caller locals.
    - The equivalent left/right tests replace horizontal velocity `-0x0C` with
      `-(velocity / 2)`.
 
+## Defeat Runtime Evidence
+
+The [2026-09-06 continuous defeat replay](boss_defeat_runtime_2026-09-06.md)
+confirms fatal HP/life underflow, selector `0x2F` as decoded sprite 46 with
+signed hotspot -4, and conversion into moving kind-14 timed bombs. The
+`1000:5BCC` argument 1000 is a tile-trigger key passed to `1000:5740`, not
+a score award. Four seeded cases cover both shared-clock parities and
+visible/offscreen starting positions through complete actor cleanup.
+
 ## Remaining Runtime Work
 
 The static branch structure and constants above are pinned, but several
-semantic labels still need live confirmation: ownership of actor bytes
-`+0x02`/`+0x24`, the result contract of `1000:3A56`, and the phase transition
-entered through `1000:5BCC`.
+semantic details still need wider live confirmation: nonfatal cycles of
+actor bytes `+0x02`/`+0x24`, all `1000:3A56` mass cases, full-health natural
+victory, and player death/reentry during combat.
 
 For lockstep validation, seed original `DS:1AFE` and port `randomSeed_`
 identically, hold player/input state constant, and capture the boss position,

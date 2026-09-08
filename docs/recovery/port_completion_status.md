@@ -262,8 +262,15 @@ boss visual-slot order. They match 8,400 boss states, 7,200 link states,
 92 pickup-effect states and 2,845,440 normalized pixels in 60 views, including
 contact damage. The older `boss_lockstep_evidence` name refers to a diagnostic
 that checks individually restored transitions, not full continuous gameplay.
-Boss defeat conversion, player death/reentry, longer natural combat and
-two-player interactions remain open.
+The [continuous defeat recovery](boss_defeat_runtime_2026-09-06.md) adds
+720 updates, 2,722 boss states, 3,730 effect states, 2,912 flame states and
+60 exact normalized playfield views after a boundary-seeded fatal bomb.
+It replaces stationary flashes with moving kind-14 bombs, corrects the
+signed impact hotspot, and opens trigger-key 1000 instead of awarding points.
+Nonfatal boss damage cycles, player death/reentry during combat, longer
+natural combat and two-player interactions remain open. Unused post-defeat
+link bookkeeping and actual VGA palette/HUD comparison are not covered by
+these defeat fixtures.
 
 - `natural_forward_debris_writeback_3d2d` — natural forward debris writeback
   at `1000:3D2D`. **Now OBSERVED; the blend formula remains open.**

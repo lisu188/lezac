@@ -47,6 +47,11 @@
 - Follow existing project patterns and conventions.
 - Avoid introducing new dependencies unless necessary.
 - Call out uncertainty instead of guessing.
+- Run all agent-launched games, DOSBox sessions, captures, and tests without
+  audible output. Set `SDL_AUDIODRIVER=dummy` for both the original game and
+  the C++ port, including interactive/debugger launches and child processes.
+  Do not enable speaker output unless the user explicitly asks, and do not
+  change the system-wide speaker volume.
 - If the repository is missing a remote or PR creation is not possible, state
   that explicitly.
 - When testing UI, rendering, DOSBox, or live gameplay behavior, use frame
@@ -134,7 +139,8 @@ Original DOSBox captures for comparison currently automate the same semantic
 labels for `level1_bomb_route` only and write a manifest:
 
 ```sh
-tools/capture_original_dosbox_frames.sh /tmp/lezac-original-frames .
+env SDL_AUDIODRIVER=dummy \
+  tools/capture_original_dosbox_frames.sh /tmp/lezac-original-frames .
 ```
 
 DOSBox key injection remains best-effort. Always inspect the produced frames and
@@ -162,14 +168,16 @@ Create a temporary DOSBox run directory:
 ```sh
 mkdir -p /tmp/lezac-dosbox
 cp LEZAC.EXE *.DAT *.SPR *.PAL *.SCH *.SON *.MST *.CAR *.ZBG *.DOC /tmp/lezac-dosbox/
-dosbox -c "mount c /tmp/lezac-dosbox" -c "c:" -c "LEZAC.EXE"
+env SDL_AUDIODRIVER=dummy \
+  dosbox -c "mount c /tmp/lezac-dosbox" -c "c:" -c "LEZAC.EXE"
 ```
 
 Run directly from the repository only when intentional file writes are
 acceptable:
 
 ```sh
-dosbox -c "mount c ." -c "c:" -c "LEZAC.EXE"
+env SDL_AUDIODRIVER=dummy \
+  dosbox -c "mount c ." -c "c:" -c "LEZAC.EXE"
 ```
 
 Use DOSBox to verify focused behavior questions, then encode the recovered rule
@@ -210,7 +218,7 @@ loader inside DOSBox:
 ```sh
 mkdir -p /tmp/lezac-dosbox
 cp LEZAC.EXE *.DAT *.SPR *.PAL *.SCH *.SON *.MST *.CAR *.ZBG *.DOC /tmp/lezac-dosbox/
-env TERM=xterm-256color xvfb-run -a dosbox-debug \
+env SDL_AUDIODRIVER=dummy TERM=xterm-256color xvfb-run -a dosbox-debug \
   -c "mount c /tmp/lezac-dosbox" \
   -c "c:" \
   -c "DEBUG LEZAC.EXE"
@@ -242,7 +250,7 @@ For terminal-log evidence, a real X terminal can be run under Xvfb and captured
 with `script`:
 
 ```sh
-xvfb-run -a bash -lc '
+env SDL_AUDIODRIVER=dummy xvfb-run -a bash -lc '
 zutty -title LEZACDBG -geometry 100x50 \
   -e script -q -f /tmp/lezac-debug-zutty.log \
   -c "env TERM=xterm-256color dosbox-debug -c \"mount c /tmp/lezac-dosbox\" -c \"c:\" -c \"DEBUG LEZAC.EXE\""

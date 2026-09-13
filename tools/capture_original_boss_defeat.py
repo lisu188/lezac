@@ -6,7 +6,9 @@ import hashlib
 import os
 from pathlib import Path
 import signal
+import shutil
 import struct
+import subprocess
 import sys
 import time
 
@@ -20,6 +22,14 @@ import seed_original_level as seeder
 
 ROOT = Path(__file__).resolve().parent.parent
 HOOKS = ((0x7EBB, 5), (0x6813, 3), (0x7A57, 5))
+REENTRY_HOOKS = HOOKS + ((0x7EF8, 4), (0x7F03, 6), (0x2ADC, 3), (0x2C72, 5), (0x2C77, 3))
+REENTRY_WINDOWS = {
+    0x7EF8: bytes.fromhex("fe06b979803eb979e6"),
+    0x7F03: bytes.fromhex("c70682200100"),
+    0x2ADC: bytes.fromhex("5589e5"),
+    0x2C77: bytes.fromhex("a25820"),
+}
+INTRO_CALL = bytes.fromhex("9a0f034a08")
 WINDOWS = player.WINDOWS | render.WINDOWS | {
     0x7EBB: bytes.fromhex("803ef97900"),
     0x7EC5: bytes.fromhex("c70682200100"),
@@ -44,15 +54,23 @@ MASS_WINDOWS = {
 }
 SAMPLES = 180
 VIEWS = (0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179)
+REENTRY_VIEWS = VIEWS + (199, 239, 259, 279, 319, 379, 419)
 
 
-def capture(pid, base, output, image, near_encounter=False, nonfatal=False, massive=False):
-    actors.HOOKS = HOOKS
+def capture(pid, base, output, image, near_encounter=False, nonfatal=False, massive=False,
+            reentry_wait=False, run_dir=None):
+    hooks = REENTRY_HOOKS if reentry_wait else HOOKS
+    actors.HOOKS = hooks
+    actors.SCRATCH = 0xF800 if reentry_wait else 0xF600
+    massive = massive or reentry_wait
     nonfatal = nonfatal or massive
     weapon = 3 if massive else 0
-    cases = MASS_CASES if massive else (IMPACT_CASES if nonfatal else CASES)
+    cases = MASS_CASES[:1] if reentry_wait else MASS_CASES if massive else (IMPACT_CASES if nonfatal else CASES)
+    samples = 420 if reentry_wait else SAMPLES
+    views = REENTRY_VIEWS if reentry_wait else VIEWS
     prefix = "boss_mass" if massive else ("boss_impact" if nonfatal else "boss_defeat")
     windows = WINDOWS | (IMPACT_WINDOWS if nonfatal else {}) | (MASS_WINDOWS if massive else {})
+    windows |= REENTRY_WINDOWS if reentry_wait else {}
     cs, ds = base + (actors.CS << 4), base + (seeder.RUNTIME_DS << 4)
     with open(f"/proc/{pid}/mem", "r+b", buffering=0) as mem:
         def read(at, size):
@@ -74,14 +92,68 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
         sequence = 0
 
         stopped_stage = 0
+        lines = []
+        sample = -1
+        resets = 0
+        boundary_counts = {stage: 0 for stage in range(4, 9)}
+
+        def key(name):
+            windows = subprocess.check_output(["xdotool", "search", "--name", "DOSBox"], text=True, timeout=5).split()
+            if len(windows) != 1:
+                raise RuntimeError("expected one DOSBox window on private display")
+            subprocess.run(["xdotool", "windowfocus", windows[0]], check=True, timeout=5)
+            subprocess.run(["xdotool", "key", "--clearmodifiers", name], check=True, timeout=5)
+
+        def boundary(stage, regs):
+            nonlocal resets
+            labels = {4: "fallback_increment", 5: "fallback_promote", 6: "level_init", 7: "intro_wait", 8: "intro_ack"}
+            if stage not in labels or sample < 0:
+                raise RuntimeError("unexpected reentry boundary")
+            boundary_counts[stage] += 1
+            fields = (f"boundary sample={sample} stage={labels[stage]} frame={word(ds + 0x78C2)}"
+                      f" regs={struct.pack('<6H', *regs).hex()} counter={read(ds + 0x79B9, 1)[0]}"
+                      f" flags={read(ds + 0x79E5, 9).hex()} gate={read(ds + 0x79CA, 1)[0]}"
+                      f" p1={read(ds + 0x1B88, 38).hex()} p2={read(ds + 0x1BAE, 38).hex()}"
+                      f" visuals={read(ds + 0xC21E, 16).hex()} rng={read(ds + 0x1AFE, 4).hex()}")
+            lines.append(fields)
+            if stage != 4:
+                print(fields, flush=True)
+            if stage == 7:
+                before = set(run_dir.glob("*.png")) | set(run_dir.glob("*.bmp"))
+                key("ctrl+F5")
+                deadline = time.monotonic() + 5
+                fresh = set()
+                while time.monotonic() < deadline and not fresh:
+                    time.sleep(0.1)
+                    fresh = (set(run_dir.glob("*.png")) | set(run_dir.glob("*.bmp"))) - before
+                if len(fresh) != 1:
+                    raise RuntimeError("restart intro screenshot not created")
+                source = fresh.pop()
+                destination = output.with_name(f"{output.stem}_intro_{resets}{source.suffix}")
+                shutil.copyfile(source, destination)
+                lines.append(f"intro sample={sample} file={destination.name} sha256={hashlib.sha256(destination.read_bytes()).hexdigest()}")
+                release(stage)
+                key("Return")
+            else:
+                release(stage)
+            if stage == 8:
+                resets += 1
+            if stage != 4:
+                output.write_text("\n".join(lines) + "\n", encoding="ascii")
 
         def wait(stage, initial=False, allow_view=False):
             nonlocal sequence, stopped_stage
-            deadline = time.monotonic() + 10
+            deadline = time.monotonic() + 60
             while time.monotonic() < deadline:
                 marker, *regs, flag, current = struct.unpack("<9H", read(cs + actors.SCRATCH, 18))
                 if marker and not flag and current > sequence:
                     sequence = current
+                    if reentry_wait and marker >= 4:
+                        if regs[1] - regs[0] != 0xAA2:
+                            raise RuntimeError("unexpected reentry boundary segments")
+                        boundary(marker, regs)
+                        deadline = time.monotonic() + 60
+                        continue
                     if marker == stage or (allow_view and marker == 3):
                         if regs[1] - regs[0] != 0xAA2:
                             raise RuntimeError("unexpected original boss segments")
@@ -91,12 +163,16 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
                         raise RuntimeError(f"boss stage {marker}, wanted {stage}")
                     release(marker)
                 time.sleep(0.001)
-            raise RuntimeError(f"boss stage {stage} timeout")
+            if lines:
+                output.write_text("\n".join(lines) + "\n", encoding="ascii")
+            raise RuntimeError(f"boss stage {stage} timeout marker={marker} flag={flag} sequence={sequence}/{current}"
+                               f" frame={word(ds + 0x78C2)} flags={read(ds + 0x79E5, 9).hex()} registers={regs}")
 
         for at, expected in windows.items():
             if read(cs + at, len(expected)) != expected:
                 raise RuntimeError(f"original boss instruction mismatch at {at:04x}")
-        if read(cs + 0xF400, 0x212) != bytes(0x212):
+        arena_size = actors.SCRATCH + 18 - 0xF400
+        if read(cs + 0xF400, arena_size) != bytes(arena_size):
             raise RuntimeError("boss instrumentation scratch not empty")
         os.kill(pid, signal.SIGSTOP)
         try:
@@ -105,7 +181,9 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
                 if time.monotonic() > deadline:
                     raise RuntimeError("boss child stop timeout")
                 time.sleep(0.001)
-            for stage, (entry, _) in enumerate(HOOKS, 1):
+            for stage, (entry, _) in enumerate(hooks, 1):
+                if stage == 7:
+                    continue
                 target = 0xF400 + (stage - 1) * 0x80
                 write(cs + target, actors.trampoline(stage, image))
                 write(cs + entry, jump(entry, target))
@@ -113,6 +191,15 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
             os.kill(pid, signal.SIGCONT)
         regs = wait(1, initial=True)
         memory_base = cs - (regs[0] << 4)
+        runtime_image = bytearray(image)
+        if reentry_wait:
+            # Install the far-call hook only after measuring the actual load segment.
+            expected_far = INTRO_CALL[:3] + struct.pack("<H", 0x084A + regs[0])
+            if image[0x2C72:0x2C77] != INTRO_CALL or read(cs + 0x2C72, 5) != expected_far:
+                raise RuntimeError("unexpected relocated intro keyboard call")
+            runtime_image[0x2C72:0x2C77] = expected_far
+            write(cs + 0xF700, actors.trampoline(7, runtime_image))
+            write(cs + 0x2C72, jump(0x2C72, 0xF700))
         warmup = 0
         while near_encounter and warmup < 600:
             head_visual = read(ds + 0x1BD5, 1)[0]
@@ -170,7 +257,8 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
                     f" links={read(ds + 0x79FA, link_count * 16).hex()} rng={read(ds + 0x1AFE, 4).hex()}"
                     f" p1={read(ds + 0x1B88, 38).hex()} player={read(ds + 0xC21E, 8).hex()}"
                     f" player_state={read(ds + 0x79E6, 1)[0]} energy={read(ds + 0x79EC, 1)[0]} lives={read(ds + 0x79EA, 1)[0]}"
-                    f" actors={','.join(rows) or '-'} flames={flames} globals={read(ds + 0x79C0, 58).hex()}")
+                    f" actors={','.join(rows) or '-'} flames={flames} globals={read(ds + 0x79C0, 58).hex()}"
+                    + (f" fallback={read(ds + 0x79B9, 1)[0]} resets={resets}" if reentry_wait else ""))
 
         for name, frame in cases:
             write(objects, tiles)
@@ -205,7 +293,7 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
             write(ds + 0xC496, b"\x0a")
             lines.append(f"case name={name} frame={frame} regs={struct.pack('<6H', *regs).hex()} " + state())
             output.write_text("\n".join(lines) + "\n", encoding="ascii")
-            for sample in range(SAMPLES):
+            for sample in range(samples):
                 if word(ds + 0x78C2) != (frame + sample) % 65536:
                     raise RuntimeError("nonconsecutive original boss pass")
                 release(1)
@@ -219,10 +307,13 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
                 else:
                     input_regs = "-"
                     view = before
+                if reentry_wait:
+                    objects = memory_base + (word(ds + 0xC1FE) << 4)
+                    words = memory_base + (word(ds + 0x6614) << 4) + word(ds + 0x6612)
                 delta = ",".join(f"{i}:{value:02x}" for i, value in enumerate(read(objects, len(tiles))) if value != tiles[i]) or "-"
                 lines.append(f"tick sample={sample} frame={word(ds + 0x78C2)} control={control} input_regs={input_regs}"
                              f" regs={struct.pack('<6H', *view).hex()} map={delta} " + state())
-                if sample in VIEWS:
+                if sample in views:
                     values = {key: word(ds + at) for key, at in (("coarse_x", 0xC216), ("coarse_y", 0xC218), ("fine_x", 0xC20A),
                               ("fine_y", 0xC20C), ("source", 0xC214), ("destination", 0xC1F4))}
                     source = values["source"] + values["fine_x"] + values["fine_y"] * 320
@@ -235,13 +326,15 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
                 regs = wait(1)
                 if sample % 20 == 19:
                     output.write_text("\n".join(lines) + "\n", encoding="ascii")
-            lines.append(f"end samples={SAMPLES}")
+            if reentry_wait and (boundary_counts != {4: 230, 5: 1, 6: 1, 7: 1, 8: 1} or resets != 1):
+                raise RuntimeError(f"incomplete reentry boundary coverage: {boundary_counts}")
+            lines.append(f"end samples={samples}")
             output.write_text("\n".join(lines) + "\n", encoding="ascii")
-            print(f"{prefix}_original case={name} samples={SAMPLES} views={len(VIEWS)}", flush=True)
-        lines.append(f"complete cases={len(cases)} samples={len(cases) * SAMPLES} views={len(cases) * len(VIEWS)}")
+            print(f"{prefix}_original case={name} samples={samples} views={len(views)}", flush=True)
+        lines.append(f"complete cases={len(cases)} samples={len(cases) * samples} views={len(cases) * len(views)}")
         output.write_text("\n".join(lines) + "\n", encoding="ascii")
-        for at, length in HOOKS:
-            write(cs + at, image[at:at + length])
+        for at, length in hooks:
+            write(cs + at, runtime_image[at:at + length])
         release(1)
 
 
@@ -254,22 +347,33 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--nonfatal", action="store_true")
     mode.add_argument("--mass", action="store_true", help="nonfatal head hit with the largest bomb; player damage remains enabled")
+    mode.add_argument("--reentry-wait", action="store_true", help="one near largest-bomb case through the shared fallback, intro acknowledgement, and 420 rendered frames")
     parser.add_argument("--approve-procmem", action="store_true")
     parser.add_argument("--approve-runtime-instrumentation", action="store_true")
     args = parser.parse_args()
+    if args.reentry_wait:
+        args.mass = True
+        args.near_encounter = True
     prefix = "boss_mass" if args.mass else ("boss_impact" if args.nonfatal else "boss_defeat")
     windows = WINDOWS | (IMPACT_WINDOWS if args.nonfatal or args.mass else {}) | (MASS_WINDOWS if args.mass else {})
+    windows |= REENTRY_WINDOWS | {0x2C72: INTRO_CALL} if args.reentry_wait else {}
     exe = (ROOT / "LEZAC.EXE").read_bytes()
     if hashlib.sha256(exe).hexdigest() != "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec":
         raise RuntimeError("original executable hash mismatch")
     image = exe[0x770:]
-    actors.HOOKS = HOOKS
+    actors.HOOKS = REENTRY_HOOKS if args.reentry_wait else HOOKS
+    actors.SCRATCH = 0xF800 if args.reentry_wait else 0xF600
+    if args.reentry_wait:
+        relocation_count, relocation_table = struct.unpack_from("<H", exe, 6)[0], struct.unpack_from("<H", exe, 24)[0]
+        relocations = [struct.unpack_from("<HH", exe, relocation_table + i * 4) for i in range(relocation_count)]
+        if struct.unpack_from("<H", exe, 22)[0] != 0 or (0x2C75, 0) not in relocations:
+            raise RuntimeError("unexpected intro far-call MZ relocation")
     for at, expected in windows.items():
         if image[at:at + len(expected)] != expected:
             raise RuntimeError(f"boss instruction mismatch at {at:04x}")
-    for stage in range(1, len(HOOKS) + 1):
+    for stage in range(1, len(actors.HOOKS) + 1):
         actors.trampoline(stage, image)
-    print(f"{prefix}_capture_self_check=ok windows={len(windows)} cases={len(CASES)} samples={SAMPLES} live=0", flush=True)
+    print(f"{prefix}_capture_self_check=ok windows={len(windows)} cases={1 if args.reentry_wait else len(CASES)} samples={420 if args.reentry_wait else SAMPLES} live=0", flush=True)
     if args.self_check:
         return 0
     if not (args.run_dir and args.out and args.approve_procmem and args.approve_runtime_instrumentation):
@@ -287,7 +391,7 @@ def main():
 
     def hook(run_dir, pid, base, state, phase):
         if phase == "pre_capture":
-            capture(pid, base, args.out, image, args.near_encounter, args.nonfatal, args.mass)
+            capture(pid, base, args.out, image, args.near_encounter, args.nonfatal, args.mass, args.reentry_wait, run_dir)
         return original(run_dir, pid, base, state, phase)
 
     seeder.write_runtime_state_snapshot = hook

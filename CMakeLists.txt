@@ -586,6 +586,19 @@ if(BUILD_TESTING)
         set_tests_properties(boss_mass_capture_contract PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION "boss_mass_capture_self_check=ok windows=45 cases=2 samples=180 live=0")
+        add_test(NAME reentry_wait_capture_contract
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_boss_defeat.py --reentry-wait --self-check)
+        set_tests_properties(reentry_wait_capture_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "boss_mass_capture_self_check=ok windows=50 cases=1 samples=420 live=0")
+        add_test(NAME reentry_wait_original_evidence
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_reentry_wait_evidence.py --self-test)
+        set_tests_properties(reentry_wait_original_evidence PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            TIMEOUT 180
+            PASS_REGULAR_EXPRESSION "original_reentry_evidence=ok samples=420 increment_boundaries=230 intro=1 views=22 death=15 waiting=75 restart=304 mutations=1939 production_replay=0 whole_game_parity=0")
     endif()
 
     add_test(NAME boss_continuous_original

@@ -1,6 +1,6 @@
 # Port Completion Status
 
-Last reviewed: 2026-09-08
+Last reviewed: 2026-09-13
 
 The C++17/SDL2 reconstruction of `LEZAC.EXE` is not yet functionally complete.
 The earlier claim was based on a subsystem inventory and compatible tests,
@@ -189,13 +189,22 @@ lives `DS:0x79EA` 1->0. Pinned by
 `ds79b9_fallback_reachability` ctest (the diagnostic reports
 `original_reachability=1` with the fixture).
 
+The full shared-wait boundary is now observed separately in a 420-frame
+level-7 trace: counter 230, state promotion, the blocking level intro and
+resumed gameplay with lives preserved. The production 180-tick per-player
+timeout and the diagnostic's one-increment promotion remain incorrect;
+neither is validated by the older reachability test. See
+[the new evidence and remaining implementation work](player_reentry_wait_runtime_2026-09-13.md).
+
 Resolved: `state2_death_presentation_frame_compare` — a live original death
 was captured (snail contact on level 1, frames plus DS snapshots showing
 `DS:0x79EA` lives 2→1 and the `DS:0x79EC` energy reset on reentry); the
-presentation is the white smoke-puff sequence, BOMOMIMK sprites 73..78,
-confirming a +6 bank rebase over the recovered state-2 visual rows — the
-port now draws those sprites and `--capture-death-frames` reproduces the
-sequence.
+historical interpretation used a +6 row rebase and a smoke-puff preview.
+That interpretation is superseded for gameplay by the continuous level-7
+death evidence: animation advances latch `cursor-1` from the active level
+bank, while the initial death descriptor is preserved. The old row preview
+is debug-only. See [the current descriptor evidence](boss_mass_runtime_2026-09-08.md);
+normal-bank descriptor lockstep remains a follow-up.
 
 Resolved: `two_player_panel_artwork_frame_compare` — the two-player split
 views and doubled HUD were rebuilt from an original in-container DOSBox

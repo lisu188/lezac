@@ -1,8 +1,18 @@
 # Recovery Status
 
-Last reviewed: 2026-09-08
-Branch: `codex/recover-boss-explosion-mass` (integration batch)
-Baseline: `origin/main` at PR #227
+Last reviewed: 2026-09-13
+Branch: `codex/recover-player-reentry-wait` (original evidence batch)
+Baseline: `origin/main` at PR #228
+
+## Shared Reentry Fallback
+
+Two silent original runs now pass through the long death wait, the level-7
+intro and resumed gameplay. The promoted 420-frame trace records exactly 230
+shared-counter increments, preserved lives, the blocking intro keyboard call,
+and the reset map/actors. It disproves the port's per-player 180-tick timeout;
+that production correction and continuous C++ replay remain open. The new
+evidence test explicitly reports `production_replay=0`. See
+[the full boundary observation](docs/recovery/player_reentry_wait_runtime_2026-09-13.md).
 
 ## Larger-Bomb Boss Combat
 

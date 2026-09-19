@@ -55,10 +55,11 @@ MASS_WINDOWS = {
 SAMPLES = 180
 VIEWS = (0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179)
 REENTRY_VIEWS = VIEWS + (199, 239, 259, 279, 319, 379, 419)
+FIRE_REENTRY_VIEWS = (0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 100, 101, 102, 119, 139)
 
 
 def capture(pid, base, output, image, near_encounter=False, nonfatal=False, massive=False,
-            reentry_wait=False, run_dir=None):
+            reentry_wait=False, run_dir=None, zero_reserve=False, fire_reentry=False):
     hooks = REENTRY_HOOKS if reentry_wait else HOOKS
     actors.HOOKS = hooks
     actors.SCRATCH = 0xF800 if reentry_wait else 0xF600
@@ -68,6 +69,10 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
     cases = MASS_CASES[:1] if reentry_wait else MASS_CASES if massive else (IMPACT_CASES if nonfatal else CASES)
     samples = 420 if reentry_wait else SAMPLES
     views = REENTRY_VIEWS if reentry_wait else VIEWS
+    if zero_reserve:
+        cases = (("zero_reserve_even", 100),)
+    if fire_reentry:
+        cases, samples, views = (("fire_reentry_even", 100),), 140, FIRE_REENTRY_VIEWS
     prefix = "boss_mass" if massive else ("boss_impact" if nonfatal else "boss_defeat")
     windows = WINDOWS | (IMPACT_WINDOWS if nonfatal else {}) | (MASS_WINDOWS if massive else {})
     windows |= REENTRY_WINDOWS if reentry_wait else {}
@@ -115,6 +120,8 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
                       f" flags={read(ds + 0x79E5, 9).hex()} gate={read(ds + 0x79CA, 1)[0]}"
                       f" p1={read(ds + 0x1B88, 38).hex()} p2={read(ds + 0x1BAE, 38).hex()}"
                       f" visuals={read(ds + 0xC21E, 16).hex()} rng={read(ds + 0x1AFE, 4).hex()}")
+            if zero_reserve or fire_reentry:
+                fields += f" active_players={read(ds + 0x79B8, 1)[0]}"
             lines.append(fields)
             if stage != 4:
                 print(fields, flush=True)
@@ -258,7 +265,8 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
                     f" p1={read(ds + 0x1B88, 38).hex()} player={read(ds + 0xC21E, 8).hex()}"
                     f" player_state={read(ds + 0x79E6, 1)[0]} energy={read(ds + 0x79EC, 1)[0]} lives={read(ds + 0x79EA, 1)[0]}"
                     f" actors={','.join(rows) or '-'} flames={flames} globals={read(ds + 0x79C0, 58).hex()}"
-                    + (f" fallback={read(ds + 0x79B9, 1)[0]} resets={resets}" if reentry_wait else ""))
+                    + (f" fallback={read(ds + 0x79B9, 1)[0]} resets={resets}" if reentry_wait else "")
+                    + (f" active_players={read(ds + 0x79B8, 1)[0]}" if zero_reserve or fire_reentry else ""))
 
         for name, frame in cases:
             write(objects, tiles)
@@ -271,7 +279,7 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
             write(ds + 0xC496, b"\x09")
             write(ds + 0x79F9, b"\x06")
             write(ds + 0x79E6, b"\x01\x00")
-            write(ds + 0x79EA, b"\x63\x63\x64\x64")
+            write(ds + 0x79EA, bytes([1 if zero_reserve else 99, 99, 100, 100]))
             write(ds + 0x79A6, bytes(1))
             write(ds + 0x2080, bytes(2))
             write(ds + 0x207E, struct.pack("<H", 199))
@@ -294,6 +302,9 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
             lines.append(f"case name={name} frame={frame} regs={struct.pack('<6H', *regs).hex()} " + state())
             output.write_text("\n".join(lines) + "\n", encoding="ascii")
             for sample in range(samples):
+                if fire_reentry and sample == 100:
+                    lines.append("key sample=100 address=1b7b value=01 after_state_prepass=1")
+                    write(ds + 0x1B7B, b"\x01")
                 if word(ds + 0x78C2) != (frame + sample) % 65536:
                     raise RuntimeError("nonconsecutive original boss pass")
                 release(1)
@@ -326,8 +337,10 @@ def capture(pid, base, output, image, near_encounter=False, nonfatal=False, mass
                 regs = wait(1)
                 if sample % 20 == 19:
                     output.write_text("\n".join(lines) + "\n", encoding="ascii")
-            if reentry_wait and (boundary_counts != {4: 230, 5: 1, 6: 1, 7: 1, 8: 1} or resets != 1):
+            if reentry_wait and not fire_reentry and (boundary_counts != {4: 230, 5: 1, 6: 1, 7: 1, 8: 1} or resets != 1):
                 raise RuntimeError(f"incomplete reentry boundary coverage: {boundary_counts}")
+            if fire_reentry and (resets or boundary_counts[4] == 0 or read(ds + 0x79E6, 1) != b"\x01"):
+                raise RuntimeError("input reentry did not resume the player")
             lines.append(f"end samples={samples}")
             output.write_text("\n".join(lines) + "\n", encoding="ascii")
             print(f"{prefix}_original case={name} samples={samples} views={len(views)}", flush=True)
@@ -348,9 +361,12 @@ def main():
     mode.add_argument("--nonfatal", action="store_true")
     mode.add_argument("--mass", action="store_true", help="nonfatal head hit with the largest bomb; player damage remains enabled")
     mode.add_argument("--reentry-wait", action="store_true", help="one near largest-bomb case through the shared fallback, intro acknowledgement, and 420 rendered frames")
+    mode.add_argument("--zero-reserve", action="store_true", help="shared fallback from one reserve life to zero, without eliminating the player")
+    mode.add_argument("--fire-reentry", action="store_true", help="seed the fire latch after sample 100's state prepass and capture 140 frames")
     parser.add_argument("--approve-procmem", action="store_true")
     parser.add_argument("--approve-runtime-instrumentation", action="store_true")
     args = parser.parse_args()
+    args.reentry_wait = args.reentry_wait or args.zero_reserve or args.fire_reentry
     if args.reentry_wait:
         args.mass = True
         args.near_encounter = True
@@ -373,7 +389,7 @@ def main():
             raise RuntimeError(f"boss instruction mismatch at {at:04x}")
     for stage in range(1, len(actors.HOOKS) + 1):
         actors.trampoline(stage, image)
-    print(f"{prefix}_capture_self_check=ok windows={len(windows)} cases={1 if args.reentry_wait else len(CASES)} samples={420 if args.reentry_wait else SAMPLES} live=0", flush=True)
+    print(f"{prefix}_capture_self_check=ok windows={len(windows)} cases={1 if args.reentry_wait else len(CASES)} samples={140 if args.fire_reentry else 420 if args.reentry_wait else SAMPLES} live=0", flush=True)
     if args.self_check:
         return 0
     if not (args.run_dir and args.out and args.approve_procmem and args.approve_runtime_instrumentation):
@@ -391,7 +407,8 @@ def main():
 
     def hook(run_dir, pid, base, state, phase):
         if phase == "pre_capture":
-            capture(pid, base, args.out, image, args.near_encounter, args.nonfatal, args.mass, args.reentry_wait, run_dir)
+            capture(pid, base, args.out, image, args.near_encounter, args.nonfatal, args.mass, args.reentry_wait, run_dir,
+                    args.zero_reserve, args.fire_reentry)
         return original(run_dir, pid, base, state, phase)
 
     seeder.write_runtime_state_snapshot = hook

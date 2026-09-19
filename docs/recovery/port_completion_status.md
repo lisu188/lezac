@@ -189,12 +189,16 @@ lives `DS:0x79EA` 1->0. Pinned by
 `ds79b9_fallback_reachability` ctest (the diagnostic reports
 `original_reachability=1` with the fixture).
 
-The full shared-wait boundary is now observed separately in a 420-frame
-level-7 trace: counter 230, state promotion, the blocking level intro and
-resumed gameplay with lives preserved. The production 180-tick per-player
-timeout and the diagnostic's one-increment promotion remain incorrect;
-neither is validated by the older reachability test. See
-[the new evidence and remaining implementation work](player_reentry_wait_runtime_2026-09-13.md).
+The full shared-wait boundary is now observed separately and replayed through
+production updates in three level-7 traces: 980 states, 60 normalized views,
+two timed restarts (including reserve zero), and a fire-key return. The
+production per-player timeout is replaced by counter 230, state promotion,
+the blocking introduction and resumed gameplay with lives preserved. The
+diagnostic's one-increment promotion is corrected too, but its other model
+predicates are not an original runtime oracle. The older reachability
+fixture's interpretation of life zero as game over is superseded: zero is
+still in play; byte FF marks out. See
+[the production recovery and remaining gaps](shared_death_lifecycle_runtime_2026-09-13.md).
 
 Resolved: `state2_death_presentation_frame_compare` — a live original death
 was captured (snail contact on level 1, frames plus DS snapshots showing

@@ -25,7 +25,8 @@ jobs:
           python3 - <<'PY'
           import base64, gzip, hashlib, pathlib, subprocess
           root = pathlib.Path('.')
-          data = gzip.decompress(base64.b64decode((root / '.github/level1-completion.patch.b64').read_bytes()))
+          encoded = b''.join((root / f'.github/level1-completion.part{i}').read_bytes() for i in range(6))
+          data = gzip.decompress(base64.b64decode(encoded, validate=True))
           assert hashlib.sha256(data).hexdigest() == 'be6ae729ad920ce6b0fa3344633f0580d2862930b73ca1e83cd47bebd4516f7e'
           patch = pathlib.Path('/tmp/level1-completion.patch')
           patch.write_bytes(data)
@@ -69,7 +70,7 @@ jobs:
           test "$(git rev-parse origin/main)" = 92a0cd3180ce3467f662c192d6d337c2a3b11365
           test "$(git rev-parse origin/codex/level1-natural-completion)" = "$GITHUB_SHA"
           git add CMakeLists.txt src/app/app.cpp docs/recovery/level1_completion_2026-09-19.md tests/routes/level1_complete_1p.route tests/routes/level1_complete_2p.route tools/capture_original_level1_completion.py tools/test_level1_completion.py
-          git rm .github/level1-completion.patch.b64 .github/workflows/level1-completion-delivery.yml
+          git rm .github/level1-completion.part? .github/workflows/level1-completion-delivery.yml
           git diff --cached --check
           git config user.name 'Lezac validation'
           git config user.email 'lezac-validation@users.noreply.github.com'

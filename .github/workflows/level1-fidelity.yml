@@ -17,9 +17,14 @@ jobs:
   source:
     name: Pin Level 1 validation source
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Prepare native validation headers
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libsdl2-dev
+          tar -czf level1-sdl-headers.tar.gz -C /usr/include SDL2 x86_64-linux-gnu/SDL2
       - name: Archive exact source revision
         run: |
           git rev-parse HEAD > source-revision.txt
@@ -30,5 +35,6 @@ jobs:
           path: |
             source-revision.txt
             level1-source.tar.gz
+            level1-sdl-headers.tar.gz
           retention-days: 3
           if-no-files-found: error

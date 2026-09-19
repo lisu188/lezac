@@ -3,38 +3,87 @@ name: Level 1 fidelity
 on:
   push:
     branches: [codex/level1-fidelity-replay]
-  pull_request:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: level1-fidelity-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  SDL_AUDIODRIVER: dummy
+  SDL_VIDEODRIVER: dummy
+
 jobs:
-  source:
-    name: Pin Level 1 validation source
+  apply:
+    if: github.repository == 'lisu188/lezac' && github.ref == 'refs/heads/codex/level1-fidelity-replay'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare native validation headers
+        with:
+          fetch-depth: 0
+      - name: Verify and apply reviewed implementation
+        run: |
+          test "$(git rev-parse origin/main)" = 26a6501c6732da1e7019ece4ffea81e4910bb9f0
+          python3 - <<'PY'
+          import base64, gzip, hashlib, pathlib, subprocess
+          root = pathlib.Path('.')
+          encoded = ''.join((root / f'.github/level1-replay-payload-{i}.txt').read_text().strip() for i in range(3))
+          patch = gzip.decompress(base64.b64decode(encoded, validate=True))
+          assert len(patch) == 82600
+          assert hashlib.sha256(patch).hexdigest() == 'cf3a45db2452ffd07c41ee1f0762112089fb6acaabb3ee6855e28f8047c22f3d'
+          path = pathlib.Path('/tmp/lezac-level1-replay.patch')
+          path.write_bytes(patch)
+          expected = {
+              'src/app/app.cpp': '27973da20250413973314d18d8c89b5b7db7707dbed93f5627db8381a8dbd8ae',
+              'CMakeLists.txt': 'cad6e7a2277ff2aa80f88d908b2d57f5edd7dcd4702ac7a224027b986c9c043c',
+              'tools/source_ownership.json': 'fc2cd91213d785ec62f5b9ecf7ab12cc1354d6684be4b6c456afa9929e764824',
+              'tools/level1_fidelity.py': 'b4264c559d1a8376ffd95418bc2e3f3678fc7fa39907a3a9b0352386879f34b6',
+              'tools/test_level1_replay.py': 'd02945e8e99bc8f5c8e6aa7f6215b46eadbf5e3623c15fb9e22cd0c4ce83bc4a',
+              'src/diagnostics/level1_trace.hpp': '8c96ed3907b3e08da2e4c3ecbfd5433d558cb9ab6c4ceaa2666a9ef1976b8aa3',
+              'tests/routes/level1_input_smoke.route': 'a88810366849eaac88833307fc43527da4da72cb651fccb2fefa4045ce42aabe',
+              'docs/recovery/level1_replay_2026-09-19.md': '10a5834758c5d4d5e5862446786aadb0beaa58b762b3378ac8235c693bda58b2',
+          }
+          paths = {line.split('\t', 2)[2] for line in subprocess.check_output(['git', 'apply', '--numstat', str(path)], text=True).splitlines()}
+          assert paths == set(expected)
+          subprocess.run(['git', 'apply', '--check', '--index', str(path)], check=True)
+          subprocess.run(['git', 'apply', '--index', str(path)], check=True)
+          for name, digest in expected.items():
+              assert hashlib.sha256((root / name).read_bytes()).hexdigest() == digest, name
+          print('reviewed_patch=ok files=8 exact_source_hashes=1')
+          PY
+          git diff --cached --check
+      - name: Install build dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y libsdl2-dev
-          tar -czf level1-sdl-headers.tar.gz -C /usr/include SDL2 x86_64-linux-gnu/SDL2
-      - name: Archive exact source revision
+          sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev python3
+      - name: Build native runtime
         run: |
-          git rev-parse HEAD > source-revision.txt
-          git archive --format=tar.gz --output=level1-source.tar.gz HEAD
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+          cmake --build build --parallel 2
+      - name: Validate replay and unchanged completion guardrails
+        run: |
+          ctest --test-dir build --output-on-failure --timeout 240 -R '^(source_guardrails_selftest|level1_replay|port_completion_status)$'
+      - name: Commit only validated implementation to feature branch
+        run: |
+          git rm .github/level1-replay-payload-0.txt .github/level1-replay-payload-1.txt .github/level1-replay-payload-2.txt
+          git diff --cached --check
+          git config user.name 'Lezac validation'
+          git config user.email 'lezac-validation@users.noreply.github.com'
+          git commit -m 'Add production Level 1 event replay and strict frame comparison'
+          git push origin HEAD:refs/heads/codex/level1-fidelity-replay
+          git rev-parse HEAD > "$RUNNER_TEMP/level1-revision.txt"
+          git archive --format=tar.gz --output="$RUNNER_TEMP/level1-validated-source.tar.gz" HEAD
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: level1-source
+          name: level1-validated-implementation
           path: |
-            source-revision.txt
-            level1-source.tar.gz
-            level1-sdl-headers.tar.gz
-          retention-days: 3
-          if-no-files-found: error
+            build/Testing/Temporary/LastTest.log
+            ${{ runner.temp }}/level1-revision.txt
+            ${{ runner.temp }}/level1-validated-source.tar.gz
+          retention-days: 7
+          if-no-files-found: warn

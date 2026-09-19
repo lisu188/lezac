@@ -61,7 +61,8 @@
     },
     "diagnostics": {
       "diagnostics": [
-        "src/app/app.cpp"
+        "src/app/app.cpp",
+        "src/diagnostics/level1_trace.hpp"
       ]
     }
   }

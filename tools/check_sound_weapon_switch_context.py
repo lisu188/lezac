@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from source_guardrails import source_text, diagnostic_text
+
 
 IMAGE_SEGMENT = "1000"
 PLAYER1_COUNTER_POINTER = 0x61CC
@@ -156,7 +158,8 @@ def main() -> int:
     if rel16_target(executable, base, SOUND_LATCH_CALL) != SOUND_LATCH:
         raise RuntimeError("weapon-switch sound request no longer calls the priority latch")
 
-    source = root / "src" / "app" / "app.cpp"
+    source = source_text(root, ("core", "sound", "gameplay"))
+    diagnostic = diagnostic_text(root)
     for snippet in [
         "constexpr uint8_t kWeaponSwitchHoldTicks = 5;",
         "constexpr uint16_t kWeaponSwitchSoundCursor = 0x0024;",
@@ -168,7 +171,8 @@ def main() -> int:
         "weapon_switch_sound=ok",
         "--debug-weapon-switch-sound",
     ]:
-        require_text(source, snippet)
+        if snippet not in (diagnostic if snippet in ("weapon_switch_sound=ok", "--debug-weapon-switch-sound") else source):
+            raise RuntimeError(f"source missing {snippet!r}")
 
     cmake = root / "CMakeLists.txt"
     require_text(cmake, "add_test(NAME sound_weapon_switch_context")

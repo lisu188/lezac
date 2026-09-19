@@ -8,7 +8,7 @@ or byte-cited datum behind it. Several wrong models survived that way -- a
 inferred from inactive table slots after original retirement.
 
 This checker makes the set of unevidenced values explicit and machine-checked.
-Every site in src/app/app.cpp carrying an UNEVIDENCED / UNRECOVERED / INFERRED
+Every mapped production source site carrying an UNEVIDENCED / UNRECOVERED / INFERRED
 marker must appear in docs/recovery/unevidenced_constants.md, and every entry
 in that doc must still exist in the source. Neither side can drift.
 """
@@ -16,6 +16,8 @@ import argparse
 import re
 import sys
 from pathlib import Path
+
+from source_guardrails import source_files, legacy_source_root
 
 MARKERS = ("UNEVIDENCED", "UNRECOVERED", "INFERRED")
 
@@ -27,7 +29,7 @@ def read_lines(path: Path):
     return path.read_text(encoding="utf-8").split("\n")
 
 
-def scan_source(path: Path):
+def scan_single_source(path: Path):
     """Return {tag: line_number} for each marked site, keyed by its doc tag."""
     found = {}
     for number, line in enumerate(read_lines(path), start=1):
@@ -43,6 +45,20 @@ def scan_source(path: Path):
         if key in found:
             raise SystemExit(f"{path}:{number}: duplicate @unevidenced tag '{key}'")
         found[key] = number
+    return found
+
+
+def scan_source(path: Path):
+    """Scan mapped production files; retain explicit standalone file support."""
+    root = legacy_source_root(path)
+    if root is None:
+        return scan_single_source(path)
+    found = {}
+    for source in source_files(root, roles=("runtime", "diagnostics", "dispatch")):
+        for tag, number in scan_single_source(source.path).items():
+            if tag in found:
+                raise SystemExit(f"{source.relative}:{number}: duplicate @unevidenced tag '{tag}'")
+            found[tag] = (source.relative, number)
     return found
 
 
@@ -64,7 +80,7 @@ def main() -> int:
     source = Path(args.source)
     doc = Path(args.doc)
     for path in (source, doc):
-        if not path.is_file():
+        if not path.is_file() and not (path == source and legacy_source_root(source) is not None):
             raise SystemExit(f"missing {path}")
 
     in_source = scan_source(source)

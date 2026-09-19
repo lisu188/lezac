@@ -13,6 +13,8 @@ import argparse
 import re
 from pathlib import Path
 
+from source_guardrails import source_text, diagnostic_text
+
 
 EXPECTED_LIVE_HOOKS = {
     "level_complete": (
@@ -121,15 +123,16 @@ def require_collapsed(text: str, snippet: str, label: str) -> None:
         raise RuntimeError(f"{label} missing snippet: {snippet}")
 
 
-def check_source(source_path: Path) -> None:
-    text = source_path.read_text(encoding="utf-8")
+def check_source(root: Path) -> None:
+    runtime = source_text(root, ("sound", "gameplay", "ui"))
+    text = diagnostic_text(root)
     for snippet in EXPECTED_HELPER_SNIPPETS:
-        require(text, snippet, "source")
+        require(runtime, snippet, "source")
     for snippet in EXPECTED_RECOVERED_HOOK_SNIPPETS:
-        require(text, snippet, "source")
+        require(runtime, snippet, "source")
     for snippet in EXPECTED_LIVE_HOOKS.values():
-        require(text, snippet, "source")
-    require(text, "kRemainingSoundCompatibilityHooks", "source")
+        require(runtime, snippet, "source")
+    require(runtime, "kRemainingSoundCompatibilityHooks", "source")
     require(text, "kRejectedObjectiveSoundCandidates", "source")
     require(text, "remaining_compat_hooks=", "source")
     require(text, "capture_blockers=", "source")
@@ -163,7 +166,7 @@ def check_source(source_path: Path) -> None:
         require(text, snippet, "source")
 
     call_lines = []
-    for lineno, line in enumerate(text.splitlines(), start=1):
+    for lineno, line in enumerate(source_text(root, None, ("runtime", "diagnostics", "dispatch")).splitlines(), start=1):
         if "playSound(" not in line:
             continue
         if "void playSound(" in line:
@@ -253,7 +256,7 @@ def main() -> int:
     args = parser.parse_args()
 
     root = args.repo_root.resolve()
-    check_source(root / "src" / "app" / "app.cpp")
+    check_source(root)
     check_docs(root)
     check_cmake(root / "CMakeLists.txt")
     print(

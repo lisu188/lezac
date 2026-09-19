@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from source_guardrails import diagnostic_text
+
 
 STATE2_FIXTURES = (
     "state2_runtime_frame_oracle_bad_breakpoint.txt",
@@ -97,7 +99,7 @@ def check_cmake(root: Path) -> tuple[int, int, int, int]:
 
 
 def check_source(root: Path) -> int:
-    source = (root / "src" / "app" / "app.cpp").read_text(encoding="utf-8")
+    source = diagnostic_text(root)
     for snippet in (
         "--debug-state2-runtime-frame-oracle",
         "--debug-visual-table-oracle",

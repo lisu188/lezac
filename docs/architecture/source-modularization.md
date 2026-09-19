@@ -1,6 +1,46 @@
 # Source modularization plan
 
-`src/main.cpp` currently contains resource decoding, sound, rendering, UI, gameplay simulation, diagnostics, and the executable entry point in one translation unit. A direct mechanical split would create a large, difficult-to-review change and would make fidelity regressions hard to isolate. The decomposition must therefore be incremental and test-preserving.
+The runtime and diagnostics currently share the large `src/app/app.cpp` class;
+`src/main.cpp` includes that implementation. Core primitives and several resource
+codecs already compile independently. Complete the extraction incrementally,
+preserving recovered behavior and its evidence.
+
+## Class ownership
+
+| Area | Classes and responsibilities |
+|---|---|
+| Application | `App` composes subsystems; `SdlRuntime` manages SDL lifetime and `InputMapper` translates input. |
+| Resources | `AssetCatalog` owns immutable assets; format-specific codecs preserve binary and JSON behavior. |
+| Sound | `SoundEngine` owns synthesis and the priority latch; `SdlAudioOutput` owns queued device output. |
+| Rendering | `GameRenderer`, `Canvas`, text and HUD helpers compose frames; `PresentationState` owns runtime palette/backdrop data; `SdlDisplay` owns display handles. |
+| UI | `UiController` owns menu/pause/name entry; `LevelFlow` owns intro/outro presentation; `RecordStore` owns persistence. |
+| Gameplay | `GameSession` coordinates `LevelWorld`, `PlayerRoster`, `ActorSystem` and `TerrainEffects`. |
+| Diagnostics | `CommandRegistry` dispatches existing commands; subsystem handlers and `ScenarioRunner` inspect, replay and capture through public APIs. |
+
+Keep plain value records and pure decoding/arithmetic functions. Do not introduce
+entity inheritance, ECS, a deferred event bus or a universal mutable context.
+One application-owned `TurboRandom` is borrowed by all existing consumers,
+including backdrop generation and intro/outro effects; preserve its consumption
+order and reset sites. Injected clocks preserve existing sampling boundaries.
+
+`LevelWorld` owns mutable tiles/words, objectives, portals/triggers and collision.
+`PlayerRoster` owns both players and shared reentry state. `ActorSystem` retains
+typed containers under one scheduler, a shared 30-slot capacity, birth order and
+independent visual-order keys. `TerrainEffects` owns flames, debris and collapse.
+Actor/debris appends can run in the same pass; preserve in-place transformations,
+numeric widths, signed wrapping, and player-one-before-player-two processing.
+Level reset preserves run-level lives and scores.
+
+Before drawing, explicitly prepare actor ordering at the existing adoption
+boundary, then render through const views. Do not normalize fixtures early.
+Backdrop simulated overflow deliberately reads padding and live map bytes;
+runtime palette state is separate from immutable asset data. Sound priority
+requests resolve synchronously and pumping retains its current tick boundary.
+
+Diagnostics use read snapshots, explicit typed fixture/replay operations and
+named phase observers. Separate read-only observations from phase-targeted replay
+mutations, including actor injection between non-player and player updates.
+Move each diagnostic family with its subsystem instead of granting private access.
 
 ## Target layout
 
@@ -80,9 +120,10 @@ Rules:
 
 Each phase must preserve the configured CTest count and output contracts.
 
-1. Extract POD models, constants, byte readers, fixed-point helpers, and pure utility functions.
+0. Establish a fresh test/CLI/frame baseline and migrate source-aware checks to explicit ownership and qualified methods without weakening predicates.
+1. Extract remaining POD models, constants, byte readers, fixed-point helpers, and pure utility functions; retain existing core/resource modules.
 2. Extract original/JSON resource loaders and resource validation.
-3. Extract sound models, playback state, priority latch, and audio callback.
+3. Extract sound models, playback state, priority latch, synthesis, and queued SDL audio output.
 4. Extract sprite, tile, background, palette, text, HUD, and frame rendering.
 5. Extract menus, records, name entry, setup, pause, intro, and end-flow UI.
 6. Extract level state, players, actors, monsters, bombs, explosions, collapse, portals, and boss logic.
@@ -96,6 +137,10 @@ Each phase must preserve the configured CTest count and output contracts.
 - No renamed constants or changed numeric types unless backed by a separate test.
 - Moved code should remain byte-for-byte identical where practical.
 - Every PR must run the full CTest suite.
+- Preserve CLI arguments/defaults/output, asset selection, install layout and capture manifests. Compare deterministic before/after C++ frames pixel-for-pixel and inspect actual frames; this does not establish additional original-game fidelity.
+- Run all games, captures and test children silently with `SDL_AUDIODRIVER=dummy`.
+- Source-aware checks use an explicit ownership map; diagnostic copies must not satisfy production requirements. Mutation tests cover removed/unauthorized consumers and lost/duplicated evidence annotations.
+- Keep test declarations in CMakeLists.txt while evidence readers inspect that file. Optional tool availability can affect configured test counts; establish the baseline separately per platform.
 - Public interfaces should expose domain types rather than raw pointers into `App`.
 - SDL handles remain owned by rendering/audio infrastructure and use RAII wrappers before crossing module boundaries.
 

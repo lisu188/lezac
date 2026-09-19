@@ -8,6 +8,8 @@ import hashlib
 import json
 from pathlib import Path
 
+from source_guardrails import source_text, diagnostic_text
+
 
 EXPECTED_RECORD_SIZE = 57
 EXPECTED_RECORDS = 7
@@ -84,7 +86,7 @@ def check_cmake(root: Path) -> int:
 
 
 def check_source(root: Path) -> int:
-    source = (root / "src" / "app" / "app.cpp").read_text(encoding="utf-8")
+    source = source_text(root, "resources")
     for snippet in (
         "constexpr size_t kGranRecordSize = 57",
         "GranBank loadGran",
@@ -92,7 +94,7 @@ def check_source(root: Path) -> int:
         "records array does not contain seven records",
         "GRAN.MST raw/json payload mismatch",
     ):
-        require(source, snippet, "source")
+        require(diagnostic_text(root) if snippet == "GRAN.MST raw/json payload mismatch" else source, snippet, "source")
     return 5
 
 

@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "owners": {
+    "core": {
+      "runtime": [
+        "src/core/constants.hpp",
+        "src/core/fixed_point.hpp",
+        "src/core/progress.cpp",
+        "src/core/progress.hpp",
+        "src/core/random.hpp"
+      ]
+    },
+    "resources": {
+      "runtime": [
+        "src/app/app.cpp",
+        "src/resources/background.cpp",
+        "src/resources/background.hpp",
+        "src/resources/binary.cpp",
+        "src/resources/binary.hpp",
+        "src/resources/io.cpp",
+        "src/resources/io.hpp",
+        "src/resources/json.cpp",
+        "src/resources/json.hpp",
+        "src/resources/palette.cpp",
+        "src/resources/palette.hpp",
+        "src/resources/sprites.cpp",
+        "src/resources/sprites.hpp",
+        "src/resources/tiles.cpp",
+        "src/resources/tiles.hpp",
+        "src/resources/types.hpp"
+      ]
+    },
+    "sound": {
+      "runtime": [
+        "src/app/app.cpp"
+      ]
+    },
+    "rendering": {
+      "runtime": [
+        "src/app/app.cpp"
+      ]
+    },
+    "ui": {
+      "runtime": [
+        "src/app/app.cpp"
+      ]
+    },
+    "gameplay": {
+      "runtime": [
+        "src/app/app.cpp"
+      ]
+    },
+    "app": {
+      "runtime": [
+        "src/app/app.cpp"
+      ],
+      "dispatch": [
+        "src/main.cpp",
+        "src/app/app.cpp"
+      ]
+    },
+    "diagnostics": {
+      "diagnostics": [
+        "src/app/app.cpp"
+      ]
+    }
+  }
+}

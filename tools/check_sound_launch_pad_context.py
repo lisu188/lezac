@@ -7,6 +7,8 @@ import argparse
 import json
 from pathlib import Path
 
+from source_guardrails import source_text, diagnostic_text
+
 
 IMAGE_SEGMENT = "1000"
 INPUT_IRQ_KEYS = 0x10A5
@@ -234,7 +236,8 @@ def main() -> int:
     total, level6, level7 = check_level_tiles(root)
     check_tile_art(root)
 
-    source = root / "src" / "app" / "app.cpp"
+    source = source_text(root, ("core", "sound", "gameplay"))
+    diagnostic = diagnostic_text(root)
     for snippet in [
         "constexpr uint8_t kLaunchPadTile = 0x27;",
         "constexpr uint16_t kLaunchPadSoundCursor = 0x0035;",
@@ -247,7 +250,8 @@ def main() -> int:
         'scenario == "launch_pad_route"',
         '{0x6924, "launch_pad"}',
     ]:
-        require_text(source, snippet)
+        if snippet not in (diagnostic if snippet.startswith("void debug") or snippet.startswith("scenario ==") or snippet.startswith("{0x6924") else source):
+            raise RuntimeError(f"source missing {snippet!r}")
 
     cmake = root / "CMakeLists.txt"
     require_text(cmake, "add_test(NAME sound_launch_pad_context")

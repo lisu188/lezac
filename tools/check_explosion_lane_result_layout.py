@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+
+from source_guardrails import diagnostic_text
 import re
 
 
@@ -115,7 +117,7 @@ def main() -> int:
     args = parser.parse_args()
     root = args.repo_root.resolve()
 
-    main_cpp = (root / "src" / "app" / "app.cpp").read_text(encoding="utf-8")
+    main_cpp = diagnostic_text(root)
     capture = (
         root / "tools" / "capture_original_explosion_procmem.py"
     ).read_text(encoding="utf-8")

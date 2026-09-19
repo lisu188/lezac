@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
-import re
 import tempfile
+
+from source_guardrails import source_files, function_ranges as cpp_function_ranges
 
 
 DEBUG_FUNCTIONS = (
@@ -39,21 +41,7 @@ def require(text: str, snippet: str, case: str) -> None:
 
 def function_ranges(lines: list[str],
                     names: tuple[str, ...] = DEBUG_FUNCTIONS) -> dict[str, tuple[int, int]]:
-    ranges: dict[str, tuple[int, int]] = {}
-    for index, line in enumerate(lines):
-        match = re.match(r"\s+void\s+([A-Za-z0-9_]+)\s*\([^)]*\)\s*\{", line)
-        if not match or match.group(1) not in names:
-            continue
-        depth = 0
-        end = index
-        for cursor in range(index, len(lines)):
-            depth += lines[cursor].count("{")
-            depth -= lines[cursor].count("}")
-            end = cursor
-            if depth == 0:
-                break
-        ranges[match.group(1)] = (index + 1, end + 1)
-    return ranges
+    return cpp_function_ranges("\n".join(lines), names)
 
 
 def in_range(line_number: int, ranges: dict[str, tuple[int, int]]) -> bool:
@@ -61,43 +49,43 @@ def in_range(line_number: int, ranges: dict[str, tuple[int, int]]) -> bool:
 
 
 def check_source(root: Path) -> tuple[int, int, int, int, int]:
-    lines = (root / "src" / "app" / "app.cpp").read_text(encoding="utf-8").splitlines()
-    ranges = function_ranges(lines)
-    missing = [name for name in DEBUG_FUNCTIONS if name not in ranges]
+    sources = source_files(root, roles=("runtime", "diagnostics", "dispatch"))
+    found_debug = set()
+    found_live = set()
+    source_refs = load_refs = debug_refs = member_refs = live_consumer_refs = 0
+    live_refs: list[str] = []
+    for source in sources:
+        lines = source.text.splitlines()
+        ranges = function_ranges(lines) if "diagnostics" in source.roles else {}
+        live_ranges = function_ranges(lines, LIVE_FUNCTIONS) if "runtime" in source.roles else {}
+        if found_debug.intersection(ranges) or found_live.intersection(live_ranges):
+            raise RuntimeError(f"{source.relative}: duplicate GRAN consumer definition")
+        found_debug.update(ranges)
+        found_live.update(live_ranges)
+        for line_number, line in enumerate(lines, start=1):
+            if "gran_" not in line:
+                continue
+            source_refs += 1
+            if "runtime" in source.roles and (
+                'gran_ = loadGran("GRAN.MST.json")' in line
+                or 'gran_ = loadRawGran("GRAN.MST")' in line
+            ):
+                load_refs += 1
+            elif "runtime" in source.roles and "GranBank gran_;" in line:
+                member_refs += 1
+            elif in_range(line_number, ranges):
+                debug_refs += 1
+            elif in_range(line_number, live_ranges):
+                live_consumer_refs += 1
+            else:
+                live_refs.append(f"{source.relative}:{line_number}:{line.strip()}")
+
+    missing = [name for name in DEBUG_FUNCTIONS if name not in found_debug]
     if missing:
         raise RuntimeError("missing debug function range(s): " + ",".join(missing))
-    live_ranges = function_ranges(lines, LIVE_FUNCTIONS)
-    missing_live = [name for name in LIVE_FUNCTIONS if name not in live_ranges]
+    missing_live = [name for name in LIVE_FUNCTIONS if name not in found_live]
     if missing_live:
-        raise RuntimeError(
-            "missing live consumer function range(s): " + ",".join(missing_live))
-
-    source_refs = 0
-    load_refs = 0
-    debug_refs = 0
-    member_refs = 0
-    live_consumer_refs = 0
-    live_refs: list[str] = []
-    for line_number, line in enumerate(lines, start=1):
-        if "gran_" not in line:
-            continue
-        source_refs += 1
-        if (
-            'gran_ = loadGran("GRAN.MST.json")' in line
-            or 'gran_ = loadRawGran("GRAN.MST")' in line
-        ):
-            load_refs += 1
-            continue
-        if "GranBank gran_;" in line:
-            member_refs += 1
-            continue
-        if in_range(line_number, ranges):
-            debug_refs += 1
-            continue
-        if in_range(line_number, live_ranges):
-            live_consumer_refs += 1
-            continue
-        live_refs.append(f"{line_number}:{line.strip()}")
+        raise RuntimeError("missing live consumer function range(s): " + ",".join(missing_live))
 
     if live_refs:
         raise RuntimeError("unexpected live GRAN references: " + "; ".join(live_refs))
@@ -138,6 +126,13 @@ def write_text(path: Path, text: str) -> None:
 
 
 def write_contract_files(root: Path) -> None:
+    write_text(root / "tools/source_ownership.json", json.dumps({
+        "version": 1,
+        "owners": {
+            "app": {"runtime": ["src/app/app.cpp"], "dispatch": ["src/app/app.cpp"]},
+            "diagnostics": {"diagnostics": ["src/app/app.cpp"]},
+        },
+    }))
     write_text(
         root / "CMakeLists.txt",
         "\n".join(

@@ -8,6 +8,8 @@ from collections import Counter
 import json
 from pathlib import Path
 
+from source_guardrails import diagnostic_text
+
 
 IMAGE_SEGMENT = "1000"
 ACTOR_CONSTRUCTOR = 0x2F9F
@@ -315,7 +317,8 @@ def main() -> int:
 
     blocker = "shipped_actor_modes_exclude_6"
     note_name = "sound_state6_process_memory_attempt_2026-07-16.md"
-    require_text(root / "src" / "app" / "app.cpp", blocker)
+    if blocker not in diagnostic_text(root):
+        raise RuntimeError(f"diagnostic source missing {blocker!r}")
     require_text(root / "CMakeLists.txt", "add_test(NAME sound_state6_context")
     for path in [
         root / "README_RECONSTRUCTION.md",

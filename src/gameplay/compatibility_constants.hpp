@@ -147,11 +147,6 @@ constexpr double kGovernedRateMeasuredFloor = 22.0;
 // tick is 40.8 ms; this allows a little over two, so ordinary scheduling
 // jitter passes while a loop that batches ticks and sleeps does not.
 constexpr long kGovernedMaxTickGapMs = 90;
-constexpr uint32_t kLevelIntroCharacterDelayMs = 81;
-constexpr int kLevelIntroCellAdvance = 11;
-constexpr int kLevelIntroTextY = 94;
-constexpr uint8_t kLevelIntroPaletteFirst = 176;
-constexpr size_t kLevelIntroPaletteCount = 7;
 constexpr uint8_t kWeaponSwitchHoldTicks = 5;
 constexpr uint8_t kLaunchPadTile = 0x27;
 constexpr int16_t kOriginalNormalJumpVelocity = -848;

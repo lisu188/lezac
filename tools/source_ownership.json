@@ -47,7 +47,22 @@
         "src/sound/sdl_audio_output.hpp",
         "src/sound/sound_engine.cpp",
         "src/sound/sound_engine.hpp",
-        "src/sound/sound_models.hpp"
+        "src/sound/sound_models.hpp",
+        "src/gameplay/actor_system.cpp",
+        "src/gameplay/compatibility_constants.hpp",
+        "src/gameplay/game_session.cpp",
+        "src/gameplay/game_session_bombs.cpp",
+        "src/gameplay/game_session_boss.cpp",
+        "src/gameplay/game_session_monsters.cpp",
+        "src/gameplay/game_session_owner_operations.cpp",
+        "src/gameplay/game_session_players.cpp",
+        "src/gameplay/game_session_replay.cpp",
+        "src/gameplay/game_session_rewards.cpp",
+        "src/gameplay/game_session_scheduler.cpp",
+        "src/gameplay/game_session_terrain.cpp",
+        "src/gameplay/level_world.cpp",
+        "src/gameplay/player_roster.cpp",
+        "src/gameplay/terrain_effects.cpp"
       ]
     },
     "rendering": {
@@ -84,9 +99,32 @@
     },
     "gameplay": {
       "runtime": [
-        "src/app/app.cpp",
         "src/gameplay/actor_models.hpp",
-        "src/gameplay/frame_controls.hpp"
+        "src/gameplay/actor_system.cpp",
+        "src/gameplay/actor_system.hpp",
+        "src/gameplay/compatibility_constants.hpp",
+        "src/gameplay/frame_controls.hpp",
+        "src/gameplay/game_session.cpp",
+        "src/gameplay/game_session.hpp",
+        "src/gameplay/game_session_bombs.cpp",
+        "src/gameplay/game_session_boss.cpp",
+        "src/gameplay/game_session_monsters.cpp",
+        "src/gameplay/game_session_owner_operations.cpp",
+        "src/gameplay/game_session_players.cpp",
+        "src/gameplay/game_session_replay.cpp",
+        "src/gameplay/game_session_rewards.cpp",
+        "src/gameplay/game_session_scheduler.cpp",
+        "src/gameplay/game_session_terrain.cpp",
+        "src/gameplay/gameplay_fixture.hpp",
+        "src/gameplay/level_world.cpp",
+        "src/gameplay/level_world.hpp",
+        "src/gameplay/motion_math.hpp",
+        "src/gameplay/player_roster.cpp",
+        "src/gameplay/player_roster.hpp",
+        "src/gameplay/replay_target.hpp",
+        "src/gameplay/terrain_effects.cpp",
+        "src/gameplay/terrain_effects.hpp",
+        "src/gameplay/world_models.hpp"
       ]
     },
     "app": {
@@ -113,7 +151,13 @@
         "src/diagnostics/sound/sound_evidence_diagnostics.cpp",
         "src/diagnostics/sound/sound_synthesis_diagnostics.cpp",
         "src/diagnostics/ui_diagnostics.cpp",
-        "src/diagnostics/ui_diagnostics.hpp"
+        "src/diagnostics/ui_diagnostics.hpp",
+        "src/diagnostics/gameplay/gameplay_replay.cpp",
+        "src/diagnostics/gameplay/gameplay_replay.hpp",
+        "src/diagnostics/gameplay/gameplay_replay_1.cpp",
+        "src/diagnostics/gameplay/gameplay_replay_2.cpp",
+        "src/diagnostics/gameplay/gameplay_replay_3.cpp",
+        "src/diagnostics/gameplay/gameplay_replay_4.cpp"
       ]
     }
   }

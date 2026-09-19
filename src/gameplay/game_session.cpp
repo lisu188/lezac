@@ -1,18 +1,13 @@
 #include "gameplay/game_session.hpp"
-#include "core/fixed_point.hpp"
+#include "gameplay/motion_math.hpp"
 #include "core/progress.hpp"
+#include "resources/binary.hpp"
 #include <cmath>
 
 namespace lezac::gameplay {
 using namespace lezac::core;
-namespace {
-int16_t clampI16(int value) { return static_cast<int16_t>(std::clamp(value, -32768, 32767)); }
-void integrateAxis8_8(int& pos, uint8_t& frac, int16_t velocity) {
-    core::Fixed8_8Axis axis{pos, frac};
-    core::integrateFixed8_8(axis, velocity);
-    pos = axis.position; frac = axis.fraction;
-}
-}
+using detail::clampI16;
+using detail::integrateAxis8_8;
 
 GameSession::GameSession(const AssetCatalog& assets, sound::SoundEngine& sound, core::TurboRandom& random)
     : assets_(assets), sound_(sound), random_(random), levels_(assets.levels()),
@@ -31,6 +26,58 @@ void GameSession::startRun(int playerCount) {
 }
 void GameSession::notifyReentryBoundary(const char* phase) const {
     if (hooks_.reentryBoundaryObserver) hooks_.reentryBoundaryObserver(phase, view());
+}
+
+void GameSession::beginLevelSelection(int index, bool fromMenu, const DecodeLevelPlane& decodePlane) {
+    // Level advance skips the original new-game clock reset (file 0x7f4c).
+    levelIntroFrame_ = fromMenu ? 0 : logicTick_;
+    if (levelRestartPromoted_) notifyReentryBoundary("level_init");
+    levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
+    level_ = levels_[levelIndex_];
+    // The presentation owner retains the shared compressed-input tail.
+    if (!level_.encodedTiles.empty()) {
+        level_.tiles = decodePlane(level_.encodedTiles, level_.tiles.size());
+        const auto words = decodePlane(level_.encodedWords, level_.wordLayer.size() * 2);
+        for (size_t i = 0; i < level_.wordLayer.size(); ++i) level_.wordLayer[i] = resources::le16(words, i * 2);
+    }
+}
+
+void GameSession::finishLevelSetup(int index) {
+    if (levelRestartPromoted_) notifyReentryBoundary("intro_ack");
+    const uint32_t frame = levelIntroFrame_;
+    const int countdown1 = reentryTimer_, countdown2 = reentryTimer2_;
+    const uint8_t fallback = noActivePlayerTicks_;
+    Level decodedLevel = std::move(level_);
+    resetLevel(index);
+    level_ = std::move(decodedLevel);
+    logicTick_ = frame;
+    reentryTimer_ = countdown1;
+    reentryTimer2_ = countdown2;
+    noActivePlayerTicks_ = fallback;
+    player_.animation = ActorAnimation::initialize(2, 9, 1, 1);
+}
+
+CompletionAction GameSession::advanceCompletionState(bool interactive) {
+    if (!isComplete()) {
+        completeTimer_ = 0;
+        return CompletionAction::None;
+    }
+    if (interactive) return CompletionAction::UpdateOutro;
+    if (completeTimer_ == 0) playCompatibilitySound(kLevelCompleteCompatibilityHookSlot);
+    if (++completeTimer_ > 100) {
+        return isFinalLevel() ? CompletionAction::EndRun : CompletionAction::NextLevel;
+    }
+    return CompletionAction::None;
+}
+
+std::vector<SharedActorEntry> GameSession::renderActorOrder() {
+    // Adoption stays at the existing draw boundary, before visual ordering.
+    adoptUnorderedActors();
+    auto order = sharedActorEntries();
+    std::stable_sort(order.begin(), order.end(), [&](const auto& a, const auto& b) {
+        return sharedActorVisualKey(a) < sharedActorVisualKey(b);
+    });
+    return order;
 }
 void GameSession::applyAfterActorPassActions() {
     auto actions = std::move(afterActorPassActions_);

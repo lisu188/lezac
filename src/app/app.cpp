@@ -62,6 +62,7 @@
 #include "sound/sound_engine.hpp"
 #include "sound/sdl_audio_output.hpp"
 #include "diagnostics/sound/sound_diagnostics.hpp"
+#include "diagnostics/gameplay/gameplay_replay.hpp"
 
 namespace {
 using lezac::diagnostics::FrameInspection;
@@ -94,6 +95,7 @@ using lezac::ui::OutroSegment;
 using lezac::ui::levelIntroCaption;
 
 using namespace lezac::sound;
+using namespace lezac::gameplay;
 
 using lezac::resources::MonsterSpawner;
 using lezac::resources::LevelPortal;
@@ -179,258 +181,23 @@ using lezac::ui::kNameEntryCursorBoxW;
 using lezac::ui::kNameEntryCursorBoxH;
 using lezac::ui::kNameEntryCursorBackground;
 using lezac::ui::kNameEntryCursorForeground;
-constexpr uint16_t kDamagedWordBit = 0x8000;
-constexpr uint16_t kDeferredThreshold = 0x4000;
-constexpr uint16_t kHighHalfBase = 0x4e20;
-constexpr size_t kDebrisStride = 0x0b;
-constexpr size_t kCollapseStride = 0x0f;
-constexpr uint16_t kDamageForwardLookupRoutine = 0x3a7e;
-constexpr uint16_t kDamageReverseLookupRoutine = 0x3b18;
-constexpr uint16_t kDamageForwardPassRoutine = 0x3bb2;
-constexpr uint16_t kDamageReversePassRoutine = 0x3d46;
-constexpr uint16_t kExplosionEffectUpdateRoutine = 0x45fa;
-constexpr uint16_t kHighDebrisTargetSample = 0x4b3f;
-constexpr uint16_t kHighDebrisTargetByteGate = 0x4b61;
-constexpr uint16_t kHighDebrisZeroTargetBranch = 0x4b6a;
-constexpr uint16_t kHighDebrisNonzeroTargetBranch = 0x4c20;
-constexpr uint16_t kHighDebrisWordLoad = 0x4c64;
-constexpr uint16_t kHighDebrisWordGate = 0x4c75;
-constexpr uint16_t kHighDebrisWordGateSkip = 0x4cae;
-constexpr uint16_t kExplosionEffectForwardCall = 0x4c96;
-constexpr uint16_t kExplosionEffectForwardReturn = 0x4c99;
-constexpr uint16_t kExplosionEffectReverseCall = 0x4ca9;
-constexpr uint16_t kExplosionEffectReverseReturn = 0x4cac;
-constexpr uint16_t kHighDebrisLaneTargetOffsetGlobal = 0x659a;
-constexpr uint16_t kHighDebrisLaneWordGlobal = 0x655e;
-constexpr uint16_t kHighDebrisLaneUpdateFlag = 0x2078;
-constexpr uint16_t kLaneHelperStagingWordBase = 0x655c;
-constexpr uint16_t kLaneHelperStagingTargetBase = 0x6598;
-constexpr uint16_t kLaneHelperStagingTagBase = 0x65d4;
-constexpr uint16_t kLaneHelperSelectorGlobal = 0x2074;
-constexpr uint16_t kLaneHelperDebrisCountGlobal = 0x207e;
-constexpr uint16_t kLaneHelperCollapseCountGlobal = 0x2080;
-constexpr uint16_t kLaneHelperNeighborLaneScratch = 0x661e;
-constexpr uint16_t kLaneHelperCollapseWeightBase = 0x661f;
-constexpr uint16_t kExplosionEffectForwardInputGlobal = 0x78d2;
-constexpr uint16_t kExplosionEffectReverseInputGlobal = 0x78d4;
-constexpr uint16_t kCollapseForwardLaneBase = 0x6617;
-constexpr uint16_t kCollapseReverseLaneBase = 0x6618;
-constexpr uint16_t kDebrisForwardLaneBase = 0x2097;
-constexpr uint16_t kDebrisReverseLaneBase = 0x2098;
-constexpr uint8_t kCollapseForwardLaneRecordOffset = 0x06;
-constexpr uint8_t kCollapseReverseLaneRecordOffset = 0x07;
-constexpr uint8_t kCollapseWeightRecordOffset = 0x0e;
-constexpr uint8_t kDebrisForwardLaneRecordOffset = 0x04;
-constexpr uint8_t kDebrisReverseLaneRecordOffset = 0x05;
-constexpr uint16_t kLaneHelperBlendFarSegment = 0x0920;
-constexpr uint16_t kLaneHelperBlendFarOffset = 0x0945;
-constexpr uint16_t kLaneHelperBlendZeroDivisorOffset = 0x09ac;
-constexpr uint16_t kLaneHelperBlendZeroDivisorError = 0x00c8;
-constexpr size_t kDebrisCapacity = 0x640;
-constexpr size_t kCollapseCapacity = 0x00fa;
-// Falling-debris mover constants (1000:45FA loop 2 / seeder 1000:370E; every
-// citation re-read from LEZAC.EXE at ghidra_addr + 0x770 â€” see
-// docs/recovery/falling_debris_update_spec.md).
-constexpr size_t kDebrisRecordIndexBase = 0x00c7;  // DS:207E init (file 0x3319);
-                                                   // inc-before-imul at 3783 makes
-                                                   // the first record slot 200, and
-                                                   // the 3753 cap check refuses when
-                                                   // DS:207E >= kDebrisCapacity.
-constexpr int8_t kDebrisGravityCompare = 0x7b;     // 4AA3 cmp vy,0x7b (signed jge)
-constexpr int8_t kDebrisGravityStep = 4;           // 4AAA add vy,4
-// 4CFF equality check after the byte increment: clear the map flag and erase
-// the live record at 100. Stale tail bytes are not cleared by the original.
-constexpr uint8_t kDebrisRestRetireTicks = 0x64;
-constexpr uint8_t kDebrisShatterFrame = 0x76;      // 49B0/4B16 first shatter frame
-constexpr uint8_t kDebrisShatterLastStep = 0x79;   // 49DC terminal-frame trigger
-constexpr uint8_t kDebrisTerminalBase = 0x6b;      // 49EF add ax,0x6b (+Random(5))
-constexpr uint8_t kDebrisDissolveByte = 0xff;      // 49F7 terminal / 4A23 consume
-constexpr uint16_t kDebrisFragileWordFloor = 0xffbc;  // 49A4/49E2 cmp fw,0xffbc (ja)
-constexpr int8_t kDebrisLandingShatterVyGate = 0x3c;  // 4AED cmp vy,0x3c (jle skips)
-constexpr uint16_t kDebrisAutoShatterSoundCursor = 0x27;   // 49BD, priority 5 (49C3)
-constexpr uint8_t kDebrisAutoShatterSoundPriority = 5;
-constexpr uint16_t kDebrisLandingShatterSoundCursor = 0x21;  // 4B2C, priority 2 (4B27)
-constexpr uint8_t kDebrisLandingShatterSoundPriority = 2;
-constexpr uint16_t kDebrisBounceSoundBase = 0xea61;  // 4C51 add ax,0xea61, priority 1
-constexpr uint8_t kDebrisBounceSoundPriority = 1;    // 4C57
-using lezac::resources::kGranRecordSize;
-constexpr int kDeathStateTicks = 0x003c;
-constexpr int kReentryTicks = kDeathStateTicks;  // Raw actor countdown, not a reentry timeout.
-constexpr uint8_t kSharedReentryTicks = 0xe6;  // 1000:7EFC compares DS:79B9 with 230.
-using lezac::gameplay::kState2VisualStartFrame;
-using lezac::gameplay::kState2VisualEndFrame;
-using lezac::gameplay::kState2VisualDelay;
-// UNEVIDENCED port policy (@unevidenced:damage_cooldown_ticks): no byte citation and no
-// capture fixes it. Left at its pre-governed-loop value, so its wall-clock
-// duration changed from ~0.30 s to ~0.73 s when the live loop was governed.
-constexpr int kDamageCooldownTicks = 18;
-// The original kind-1 kill trace holds sprite 47 for DS:78C2 frames 263..311:
-// 49 governed ticks. updateMonsters runs after bomb damage in the same tick,
-// so the death actor is initialized one count above the first externally
-// visible value.
-// Impact/corpse sprite per monster kind and direction, read from the bytes.
-// At 1000:745B the original does `cmp WORD [bp-0xc],0 / jle` -- [bp-0xc] is
-// vx -- taking dir = 1 when vx <= 0 and dir = 2 when vx > 0, then indexes
-// `al = DS:[0x77 + kind*2 + dir]` and hands the result to the sprite-assign
-// helper 1000:5A75. DGROUP (image base 0xAA20, anchored on the DS:0x8B
-// "larax e zaco versione 1:0 shareware" string) holds
-// DS:0x0077.. = 2c 28 28 30 31 2b 2b 35 35 39 39, so entries [1..10] give
-// kind 0 -> 39/39, kind 1 -> 47/48, kind 2 -> 42/42, kind 3 -> 52/52,
-// kind 4 -> 56/56 after the one-based -> file-sprite -1. Only kind 1 has a
-// direction pair; the others are direction-independent.
-// Two level-1 kill captures agree with the kind-1 entries (47 and 48, each
-// held 49 ticks) but do NOT establish the discriminator: the walk band is
-// selected from the same vx sign at 1000:7286/72DA, so band and velocity
-// agree whenever vx != 0. They part company at vx == 0, where the original
-// takes dir = 1 unconditionally while the band keeps whatever it last had.
-constexpr std::array<std::array<int, 2>, 5> kMonsterImpactSprites{{
-    {{39, 39}}, {{47, 48}}, {{42, 42}}, {{52, 52}}, {{56, 56}},
-}};
-using lezac::gameplay::kMonsterCorpseSpriteLeft;
-constexpr int kMonsterCorpseSpriteRight = 48;
-// Minimum visible duration; fatal conversion on an odd frame adds one update.
-constexpr int kMonsterDeathVisibleTicks = 49;
-// The original's main loop is rate-governed: file offset 0x8089 holds 30
-// frames in 120..125 hundredths of a second by dithering the delay word
-// DS:0x78CC between 96 and 102 ms (step DS:0x78CA = 6), so the converged
-// rate oscillates in a 24.2..25.2 fps band (see
-// tests/fixtures/route_timing_original_level1.txt).  One update() call is
-// one original game tick throughout this port, so the interactive loop must
-// fire updates at that rate; kGovernedTickMs is a fixed value sitting
-// mid-band rather than a reproduction of the dither.
-// 40.83 ms is the midpoint of the byte-derived target itself: the governor
-// at file 0x810A/0x812F holds 30 frames in 120..125 hundredths, i.e.
-// 24.00..25.00 fps, whose midpoint period is (1200+1250)/2/30 = 40.83 ms.
-// The 24.2..25.2 band below is what the DOSBox capture MEASURED, which sits
-// slightly above the byte-derived band -- host timing overhead is the likely
-// reason -- so the two are kept distinct rather than conflated.
-constexpr double kGovernedTickMs = 40.8;
-// Events are polled far more often than ticks so that key presses (handled
-// edge-wise in processEvents/onKey) stay responsive between updates.
-constexpr uint32_t kEventPollDelayMs = 4;
-// Upper bound on ticks simulated in one pass after a stall, so a suspended
-// window cannot fast-forward the level on resume.
-constexpr int kMaxCatchUpTicks = 5;
-// Acceptance band for the measured interactive tick rate: the original's
-// governed 24.2..25.2 fps, widened by nothing â€” a loop paced any other way
-// (the previous 16 ms/60 fps pacing, for instance) falls outside it.
-constexpr double kGovernedRateBandMin = 24.2;
-constexpr double kGovernedRateBandMax = 25.2;
-// A wall-clock measurement on a loaded host can only ever lose ticks, never
-// gain them: once a stall exceeds the catch-up cap the missed ticks are
-// dropped for good. So the measured rate is held to the band's ceiling
-// exactly â€” that is the bound a too-fast loop (the old 16 ms/60 fps pacing
-// yields ~60) violates â€” while the floor carries slack for host scheduling.
-constexpr double kGovernedRateMeasuredFloor = 22.0;
-// Worst tolerated wall-clock gap between two gameplay ticks. One governed
-// tick is 40.8 ms; this allows a little over two, so ordinary scheduling
-// jitter passes while a loop that batches ticks and sleeps does not.
-constexpr long kGovernedMaxTickGapMs = 90;
 using lezac::ui::kLevelIntroCharacterDelayMs;
 using lezac::ui::kLevelIntroCellAdvance;
 using lezac::ui::kLevelIntroTextY;
 using lezac::ui::kLevelIntroPaletteFirst;
 using lezac::ui::kLevelIntroPaletteCount;
-constexpr uint8_t kWeaponSwitchHoldTicks = 5;
-constexpr uint8_t kLaunchPadTile = 0x27;
-constexpr int16_t kOriginalNormalJumpVelocity = -848;
-constexpr int16_t kOriginalLaunchPadVelocity = -2000;
-// Tick-locked original measurements (frame counter DS:0x78C2, /proc/mem):
-// the governed game rate is 24-25 fps (main-loop governor at file 0x8089
-// holds 30 frames in 120..125 hundredths), the walk speed is a flat
-// 4 px/tick and the jump is 8.8 fixed-point (v0 = -848, gravity +64/tick,
-// floor-to-pixel -- every observed per-tick delta reproduces exactly).
-//
-// The player runs that model directly, the same way every other moving thing
-// in this port does. An earlier revision approximated it with a continuous
-// px/s model (98 px/s launch, 200 px/s^2 gravity); those numbers reproduced
-// the 24 px PEAK but not the arc, because 98 was derived from the walk speed
-// rather than from the jump: -848/256 is -3.3125 px/tick = -81 px/s, and
-// 64/256 is 0.25 px/tick^2 = 150 px/s^2. The peak agreed only by coincidence
-// (98^2 / (2*200) = 24.01). The per-tick deltas did not.
-constexpr int16_t kPlayerWalkVelocity8 = 0x0400;   // acceleration threshold, not a hard clamp
-constexpr int16_t kPlayerWalkAcceleration8 = 0x0040;
-constexpr int16_t kPlayerJumpVelocity8 = kOriginalNormalJumpVelocity;  // -848
-constexpr int16_t kPlayerGravity8 = 64;            // +0x40 per tick
-// The player-specific branch 1000:6743..6753 also explicitly clamps at
-// 0x07ff. This is now byte-cited, not borrowed from monster gravity.
-constexpr int16_t kPlayerTerminalVelocity8 = 0x07ff;
-// Float mirror kept for the many call sites that read player.vy as a sign or
-// magnitude; it is always vy8 / 256.
-constexpr float kPlayerJumpVelocity =
-    static_cast<float>(kOriginalNormalJumpVelocity) / 256.0f;
-constexpr float kLaunchPadVelocity =
-    static_cast<float>(kOriginalLaunchPadVelocity) / 256.0f;
-using lezac::gameplay::kLaunchPadMarkerTimer;
-using lezac::gameplay::kLaunchPadMarkerFrame;
-using lezac::gameplay::kLaunchPadMarkerKind;
-using lezac::gameplay::kLaunchPadMarkerMode;
-using lezac::gameplay::kLaunchPadMarkerVelocityY8;
-constexpr uint16_t kPlayerDamageSoundCursor = 0x002d;
-constexpr uint8_t kPlayerDamageSoundPriority = 4;
-constexpr uint16_t kPlayerDeathSoundCursor = 0x0056;
-constexpr uint8_t kPlayerDeathSoundPriority = 5;
 
 
-struct ExplosionEffect {
-    int x = 0;
-    int y = 0;
-    uint8_t visualSelector = 1;
-    uint8_t dispatcherState = 4;
-    uint8_t slotIndex = 1;
-    uint8_t sourceIndex = 0;
-    bool inactive = false;
-    int timer = 8;
-    int totalTimer = 8;
-    uint16_t soundOffset = kExplosionDirectSweepSoundOffsets[0];
-    uint8_t soundSelector = kExplosionSoundSelectors[0];
-    uint8_t seedTicksByte = 8;
-    uint8_t detailByte = 0x75;
-    uint8_t variantByte = 5;
-    int computedX = 0;
-    int computedY = 0;
-    int finalSignedOffset = 0;
-};
 
 // One live falling fragment: the original 11-byte record at
 // DS:0x2093 + 0x0B*slot (first live slot of a level is 200; seeder 1000:370E
 // fills it at 3798/37A1/37AB/37C5/37CD/37D5/37BE/37E3/37EA, mover 1000:45FA
 // loop 2 updates it â€” see docs/recovery/falling_debris_update_spec.md).
-struct DebrisRecord {
-    int tileIndex = 0;         // +0 u16: cell index (y*width + x)
-    uint16_t flaggedWord = 0;  // +2 u16: word | 0x8000 while airborne
-    int8_t velocityX = 0;      // +4 s8: vx, 128 sub-units per tile (lane DS:78D2)
-    int8_t velocityY = 0;      // +5 s8: vy (lane DS:78D4)
-    int8_t subX = 0;           // +6 s8: x sub-accumulator (lane DS:78D3)
-    int8_t subY = 0;           // +7 s8: y sub-accumulator (lane DS:78D5)
-    uint8_t restTicks = 0;     // +8 u8: no-move ticks; retire when increment reaches 100
-    uint8_t lookup = 0;        // +9 u8: carried tile code (objectByte at seed)
-    uint8_t aux = 0;           // +A u8: bit 7 = "my move spawned a cascade" (4C19)
-};
 
-struct CollapseRecord {
-    int x = 0;
-    int y = 0;
-    uint16_t startOffsetBytes = 0;
-    uint16_t endOffsetBytes = 0;
-    uint16_t word = 0;
-    uint16_t flaggedWord = 0;
-    uint8_t forwardPhase = 0;
-    uint8_t reversePhase = 0;
-    int8_t subX = 0;
-    int8_t subY = 0;
-    uint8_t flags = 0;
-    uint8_t restTicks = 0;
-    uint16_t argMagnitude = 0;
-    uint8_t affectedBytes = 0;
-    int count = 0;
-};
 
-struct DamagePhaseLookup {
-    int slotIndex = 0;
-    uint8_t phase = 0;
-    bool debris = false;
-};
+
+
+
 
 struct LaneWriteTagModel {
     uint16_t tag = 0;
@@ -457,51 +224,17 @@ LaneWriteTagModel laneWriteTagModelForTag(uint16_t tag) {
 }
 
 // 1000:3FA6 seeds these low 11-byte queue records; 45FA updates them.
-struct FlameRecord {
-    uint16_t cell = 0;
-    int8_t vx = 0, vy = 0, subX = 0, subY = 0;
-    uint8_t timer = 0, glyph = 0x75, variant = 0, mass = 1;
-};
 
-struct SpawnerState {
-    int remaining = 0;
-    int availableSlots = 0;
-    // Live countdown byte (original record +0x1B). MUST stay uint8_t: the
-    // original decrements it before any gate (1000:7A9B `dec es:[di+0x1b]`),
-    // so a shipped 0 wraps to 255 and the first spawn lands 256 ticks in
-    // (capture: cd=0xE5 at frame 28, first walker at frame 257, 1458/1458
-    // byte transitions fit the dec-then-reload model).
-    uint8_t cooldown = 0;
-};
+
+
 
 // Semantic view of one 16-byte DS:0x79EA motion-link entry from GRAN.MST.
 // mode != 0xff: spring/follow (out = (target - self + off) * gain, plus a
 // per-axis velocity pull-back of `mode`); mode == 0xff: vertical oscillation
 // about the target, with a 128-step phase advanced by `gain`.
-struct BossMotionLink {
-    uint8_t targetVisual = 0;
-    uint8_t selfVisual = 0;
-    uint8_t gain = 0;
-    uint8_t mode = 0;
-    uint8_t radiusX = 0;
-    uint8_t radiusY = 0;
-    uint8_t phase = 0;
-    int16_t offX = 0;
-    int16_t offY = 0;
-    int16_t outX = 0;
-    int16_t outY = 0;
-    int8_t biasY = 0;
-};
 
-// Facing anim-set pair table recovered from the shipped data segment
-// (DS:0x58/0x59, image linear 0xAA20): boss sets 0x0e -> frames 41..42,
-// 0x0f -> 43..44, and 0x10 -> 40..40, drawn from the PROVA.SPR bank that the
-// original loads instead of BOMOMIMK.SPR on level 7 (selector 1000:2C90).
-constexpr std::array<std::array<uint8_t, 2>, 17> kBossAnimSets{{
-    {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
-    {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
-    {41, 42}, {43, 44}, {40, 40},
-}};
+
+
 
 int16_t clampI16(int value) {
     return static_cast<int16_t>(std::clamp(value, -32768, 32767));
@@ -582,7 +315,40 @@ class App {
     }
 
 public:
-    App() = default;
+    App() {
+        GameplayHooks hooks;
+        hooks.menuActive = [this] { return ui_.snapshot().menu; };
+        hooks.tickBlocked = [this] { return ui_.snapshot().menu || ui_.snapshot().paused || levelFlow_.intro().active; };
+        hooks.reentryBlocked = [this] { return ui_.snapshot().menu || levelFlow_.intro().active; };
+        hooks.beforeReset = [this] {
+            levelFlow_.restoreIntro({}); levelFlow_.restoreOutro({}); ui_.setPaused(false);
+        };
+        hooks.mapSizeChanged = [this](size_t count) { presentation_.beginLevel(count); };
+        hooks.beginLevel = [this](int index) {
+            gameplayReplay_.refresh(); beginLevelForPlay(index); gameplayReplay_.commit();
+        };
+        hooks.gameOver = [this] {
+            gameplayReplay_.refresh(); beginGameOver(); gameplayReplay_.commit();
+        };
+        hooks.levelCompletion = [this] {
+            gameplayReplay_.refresh(); updateLevelCompletion(); gameplayReplay_.commit();
+        };
+        hooks.pumpSound = [this] { pumpSoundLatch(); };
+        hooks.updateRedPalette = [this](uint16_t frame) { presentation_.updateRedPalette(frame); };
+        hooks.actorPassObserver = [this](const GameplayView&) {
+            if (!debugActorPassObserver_) return;
+            gameplayReplay_.beginBoundary();
+            debugActorPassObserver_();
+            gameplayReplay_.endBoundary();
+        };
+        hooks.reentryBoundaryObserver = [this](const char* phase, const GameplayView&) {
+            if (!debugReentryBoundaryObserver_) return;
+            gameplayReplay_.beginBoundary();
+            debugReentryBoundaryObserver_(phase);
+            gameplayReplay_.endBoundary();
+        };
+        gameplay_.setHooks(std::move(hooks));
+    }
     App(const App&) = delete;
     App& operator=(const App&) = delete;
     void debugLevel1Replay(const std::string& routePath, const std::string& outDir) {
@@ -612,7 +378,7 @@ public:
             {"seed", std::to_string(route.seed)}, {"width", "320"}, {"height", "200"},
             {"original_fidelity_claim", "false"}}) << '\n';
         SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
-        randomSeed_ = route.seed;
+        gameplayReplay_.fixture().randomSeed_ = route.seed;
         replayClockEnabled_ = true;
         replayMilliseconds_ = 0;
         std::array<uint8_t, SDL_NUM_SCANCODES> keys{};
@@ -681,8 +447,8 @@ public:
                 if (!running) throw std::runtime_error("level1 replay quit before route end");
                 checkpoint("input", false);
                 tickAndPresent(static_cast<float>(route.stepUs) / 1000000.0f, [&] { checkpoint("present", true); });
-                completionObserved = completionObserved || (levelIndex_ == 0 && levelFlow_.outro().active);
-                level2Playable = level2Playable || (completionObserved && levelIndex_ == 1 && !ui_.snapshot().menu && !ui_.snapshot().paused && !levelFlow_.intro().active && !levelFlow_.outro().active);
+                completionObserved = completionObserved || (gameplayReplay_.fixture().levelIndex_ == 0 && levelFlow_.outro().active);
+                level2Playable = level2Playable || (completionObserved && gameplayReplay_.fixture().levelIndex_ == 1 && !ui_.snapshot().menu && !ui_.snapshot().paused && !levelFlow_.intro().active && !levelFlow_.outro().active);
                 checkpoint("post_update", false);
             }
             output << trace::object({{"kind", trace::quote("complete")},
@@ -834,7 +600,7 @@ public:
                 levelFlow_.setInteractiveEnabled(false);
                 levelFlow_.restoreIntro({});
                 governedRunStartMs_ = SDL_GetTicks();
-                governedRunStartLogicTick_ = logicTick_;
+                governedRunStartLogicTick_ = gameplayReplay_.fixture().logicTick_;
             });
     }
 
@@ -855,7 +621,7 @@ public:
         const double ticksPerSecond =
             elapsedSeconds > 0.0 ? ticks / elapsedSeconds : 0.0;
         const long logicTicks =
-            static_cast<long>(logicTick_ - startLogicTick);
+            static_cast<long>(gameplayReplay_.fixture().logicTick_ - startLogicTick);
         // The scheduling interval itself is exact and host-independent.
         const double nominalTicksPerSecond = 1000.0 / kGovernedTickMs;
         if (nominalTicksPerSecond < kGovernedRateBandMin ||
@@ -952,7 +718,7 @@ public:
 
         pushKeyDown(SDLK_2);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 2) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 2) {
             throw std::runtime_error("two-player key did not start two-player mode");
         }
 
@@ -965,54 +731,54 @@ public:
             throw std::runtime_error("two-player game changed one-player view width");
         }
 
-        size_t twoPlayerBombs = bombs_.size();
-        int player1BombX = (static_cast<int>(player_.x) + 4) / 8;
-        int player1BombY = static_cast<int>(player_.y) / 8;
-        int player2BombX = (static_cast<int>(player2_.x) + 4) / 8;
-        int player2BombY = static_cast<int>(player2_.y) / 8;
-        int player1SmallBombs = bombInventory_.counts[0];
-        int player2SmallBombs = bombInventory2_.counts[0];
+        size_t twoPlayerBombs = gameplayReplay_.fixture().bombs_.size();
+        int player1BombX = (static_cast<int>(gameplayReplay_.fixture().player_.x) + 4) / 8;
+        int player1BombY = static_cast<int>(gameplayReplay_.fixture().player_.y) / 8;
+        int player2BombX = (static_cast<int>(gameplayReplay_.fixture().player2_.x) + 4) / 8;
+        int player2BombY = static_cast<int>(gameplayReplay_.fixture().player2_.y) / 8;
+        int player1SmallBombs = gameplayReplay_.fixture().bombInventory_.counts[0];
+        int player2SmallBombs = gameplayReplay_.fixture().bombInventory2_.counts[0];
         pushKeyDown(SDLK_n);
         processEvents(running);
         updateWithControls({}, 0);
-        if (bombs_.size() != twoPlayerBombs + 1 ||
-            bombs_.back().owner != 1 ||
-            bombs_.back().x != player1BombX || bombs_.back().y != player1BombY) {
+        if (gameplayReplay_.fixture().bombs_.size() != twoPlayerBombs + 1 ||
+            gameplayReplay_.fixture().bombs_.back().owner != 1 ||
+            gameplayReplay_.fixture().bombs_.back().x != player1BombX || gameplayReplay_.fixture().bombs_.back().y != player1BombY) {
             throw std::runtime_error("N key did not place player 1 bomb in two-player mode");
         }
-        if (bombInventory_.counts[0] != player1SmallBombs - 1 ||
-            bombInventory2_.counts[0] != player2SmallBombs) {
+        if (gameplayReplay_.fixture().bombInventory_.counts[0] != player1SmallBombs - 1 ||
+            gameplayReplay_.fixture().bombInventory2_.counts[0] != player2SmallBombs) {
             throw std::runtime_error("N key did not consume player 1 inventory only");
         }
         pushKeyDown(SDLK_KP_0);
         processEvents(running);
         updateWithControls({}, 0);
-        if (bombs_.size() != twoPlayerBombs + 2 ||
-            bombs_.back().owner != 2 ||
-            bombs_.back().x != player2BombX || bombs_.back().y != player2BombY) {
+        if (gameplayReplay_.fixture().bombs_.size() != twoPlayerBombs + 2 ||
+            gameplayReplay_.fixture().bombs_.back().owner != 2 ||
+            gameplayReplay_.fixture().bombs_.back().x != player2BombX || gameplayReplay_.fixture().bombs_.back().y != player2BombY) {
             throw std::runtime_error("keypad 0 did not place player 2 bomb in two-player mode");
         }
-        if (bombInventory_.counts[0] != player1SmallBombs - 1 ||
-            bombInventory2_.counts[0] != player2SmallBombs - 1) {
+        if (gameplayReplay_.fixture().bombInventory_.counts[0] != player1SmallBombs - 1 ||
+            gameplayReplay_.fixture().bombInventory2_.counts[0] != player2SmallBombs - 1) {
             throw std::runtime_error("keypad 0 did not consume player 2 inventory only");
         }
 
         resetLevel(0);
-        size_t insertBombs = bombs_.size();
-        int insertPlayer1SmallBombs = bombInventory_.counts[0];
-        int insertPlayer2SmallBombs = bombInventory2_.counts[0];
-        player2BombX = (static_cast<int>(player2_.x) + 4) / 8;
-        player2BombY = static_cast<int>(player2_.y) / 8;
+        size_t insertBombs = gameplayReplay_.fixture().bombs_.size();
+        int insertPlayer1SmallBombs = gameplayReplay_.fixture().bombInventory_.counts[0];
+        int insertPlayer2SmallBombs = gameplayReplay_.fixture().bombInventory2_.counts[0];
+        player2BombX = (static_cast<int>(gameplayReplay_.fixture().player2_.x) + 4) / 8;
+        player2BombY = static_cast<int>(gameplayReplay_.fixture().player2_.y) / 8;
         pushKeyDown(SDLK_INSERT);
         processEvents(running);
         updateWithControls({}, 0);
-        if (bombs_.size() != insertBombs + 1 ||
-            bombs_.back().owner != 2 ||
-            bombs_.back().x != player2BombX || bombs_.back().y != player2BombY) {
+        if (gameplayReplay_.fixture().bombs_.size() != insertBombs + 1 ||
+            gameplayReplay_.fixture().bombs_.back().owner != 2 ||
+            gameplayReplay_.fixture().bombs_.back().x != player2BombX || gameplayReplay_.fixture().bombs_.back().y != player2BombY) {
             throw std::runtime_error("Insert did not place player 2 bomb in two-player mode");
         }
-        if (bombInventory_.counts[0] != insertPlayer1SmallBombs ||
-            bombInventory2_.counts[0] != insertPlayer2SmallBombs - 1) {
+        if (gameplayReplay_.fixture().bombInventory_.counts[0] != insertPlayer1SmallBombs ||
+            gameplayReplay_.fixture().bombInventory2_.counts[0] != insertPlayer2SmallBombs - 1) {
             throw std::runtime_error("Insert did not consume player 2 inventory only");
         }
 
@@ -1024,105 +790,105 @@ public:
 
         pushKeyDown(SDLK_2);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 2) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 2) {
             throw std::runtime_error("two-player restart key did not leave menu");
         }
 
-        energy_ = 0;
-        lives_ = 3;
-        lives2_ = 3;
-        damageCooldown_ = 0;
-        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                     damageCooldown_, 1);
-        int timeoutLevel = levelIndex_;
-        float player2XBeforeTimeout = player2_.x;
-        float player2YBeforeTimeout = player2_.y;
+        gameplayReplay_.fixture().energy_ = 0;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().lives2_ = 3;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
+        damagePlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                     gameplayReplay_.fixture().damageCooldown_, 1);
+        int timeoutLevel = gameplayReplay_.fixture().levelIndex_;
+        float player2XBeforeTimeout = gameplayReplay_.fixture().player2_.x;
+        float player2YBeforeTimeout = gameplayReplay_.fixture().player2_.y;
         for (int i = 0; i < kDeathStateTicks + kSharedReentryTicks + 2; ++i) {
-            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
-                          playerCount_ == 1 || player2Dead_);
+            updateReentry(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_, 1,
+                          gameplayReplay_.fixture().playerCount_ == 1 || gameplayReplay_.fixture().player2Dead_);
             if (updateSharedReentryFallback()) throw std::runtime_error("active partner did not reset shared counter");
         }
-        if (levelIndex_ != timeoutLevel || !playerDead_ || player2Dead_ ||
-            reentryTimer_ != static_cast<uint16_t>(-kSharedReentryTicks - 2) || noActivePlayerTicks_ != 0 || player2_.x != player2XBeforeTimeout ||
-            player2_.y != player2YBeforeTimeout) {
+        if (gameplayReplay_.fixture().levelIndex_ != timeoutLevel || !gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().player2Dead_ ||
+            gameplayReplay_.fixture().reentryTimer_ != static_cast<uint16_t>(-kSharedReentryTicks - 2) || gameplayReplay_.fixture().noActivePlayerTicks_ != 0 || gameplayReplay_.fixture().player2_.x != player2XBeforeTimeout ||
+            gameplayReplay_.fixture().player2_.y != player2YBeforeTimeout) {
             throw std::runtime_error("single-player reentry timeout reset two-player level");
         }
-        lives_ = 3;
-        lives2_ = 3;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().lives2_ = 3;
         resetLevel(0);
 
-        energy2_ = 0;
-        lives_ = 3;
-        lives2_ = 3;
-        damageCooldown2_ = 0;
-        size_t beforePlayer2ReentryBombs = bombs_.size();
-        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                     damageCooldown2_, 2);
-        if (ui_.snapshot().menu || !player2Dead_ || lives2_ != 3 || !pendingLifeLoss2_ ||
-            reentryTimer2_ <= 0 || playerDead_) {
+        gameplayReplay_.fixture().energy2_ = 0;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().lives2_ = 3;
+        gameplayReplay_.fixture().damageCooldown2_ = 0;
+        size_t beforePlayer2ReentryBombs = gameplayReplay_.fixture().bombs_.size();
+        damagePlayer(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_,
+                     gameplayReplay_.fixture().damageCooldown2_, 2);
+        if (ui_.snapshot().menu || !gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().lives2_ != 3 || !gameplayReplay_.fixture().pendingLifeLoss2_ ||
+            gameplayReplay_.fixture().reentryTimer2_ <= 0 || gameplayReplay_.fixture().playerDead_) {
             throw std::runtime_error("player 2 death did not enter reentry state");
         }
         pushKeyDown(SDLK_KP_0);
         processEvents(running);
-        if (!player2Dead_ || energy2_ != 100 ||
-            bombs_.size() != beforePlayer2ReentryBombs || damageCooldown2_ != 0) {
+        if (!gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().energy2_ != 100 ||
+            gameplayReplay_.fixture().bombs_.size() != beforePlayer2ReentryBombs || gameplayReplay_.fixture().damageCooldown2_ != 0) {
             throw std::runtime_error("keypad 0 bypassed player 2 state-2 death gate");
         }
         for (int i = 0; i < kDeathStateTicks; ++i) {
-            updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
-                          playerDead_);
+            updateReentry(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_, 2,
+                          gameplayReplay_.fixture().playerDead_);
         }
         pushKeyDown(SDLK_KP_0);
         processEvents(running);
         updateWithControls({}, 0);
-        if (player2Dead_ || energy2_ != 100 || lives2_ != 2 ||
-            bombs_.size() != beforePlayer2ReentryBombs || damageCooldown2_ != 0) {
+        if (gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().energy2_ != 100 || gameplayReplay_.fixture().lives2_ != 2 ||
+            gameplayReplay_.fixture().bombs_.size() != beforePlayer2ReentryBombs || gameplayReplay_.fixture().damageCooldown2_ != 0) {
             throw std::runtime_error("keypad 0 did not reenter player 2 after death");
         }
-        size_t afterPlayer2ReentryBombs = bombs_.size();
-        int player2BombsAfterReentry = bombInventory2_.counts[0];
+        size_t afterPlayer2ReentryBombs = gameplayReplay_.fixture().bombs_.size();
+        int player2BombsAfterReentry = gameplayReplay_.fixture().bombInventory2_.counts[0];
         pushKeyDown(SDLK_KP_0);
         processEvents(running);
         updateWithControls({}, 0);
-        if (bombs_.size() != afterPlayer2ReentryBombs + 1 ||
-            bombInventory2_.counts[0] != player2BombsAfterReentry - 1) {
+        if (gameplayReplay_.fixture().bombs_.size() != afterPlayer2ReentryBombs + 1 ||
+            gameplayReplay_.fixture().bombInventory2_.counts[0] != player2BombsAfterReentry - 1) {
             throw std::runtime_error("keypad 0 did not fire for player 2 after reentry");
         }
 
-        energy2_ = 0;
-        lives_ = 3;
-        lives2_ = 0;
-        damageCooldown2_ = 0;
-        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                     damageCooldown2_, 2);
-        if (ui_.snapshot().menu || !player2Dead_ || lives2_ != 0 || !pendingLifeLoss2_ ||
-            lives_ != 3 || playerDead_) {
+        gameplayReplay_.fixture().energy2_ = 0;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().lives2_ = 0;
+        gameplayReplay_.fixture().damageCooldown2_ = 0;
+        damagePlayer(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_,
+                     gameplayReplay_.fixture().damageCooldown2_, 2);
+        if (ui_.snapshot().menu || !gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().lives2_ != 0 || !gameplayReplay_.fixture().pendingLifeLoss2_ ||
+            gameplayReplay_.fixture().lives_ != 3 || gameplayReplay_.fixture().playerDead_) {
             throw std::runtime_error("player 2 final life did not enter state-2");
         }
-        size_t afterPlayer2OutBombs = bombs_.size();
+        size_t afterPlayer2OutBombs = gameplayReplay_.fixture().bombs_.size();
         pushKeyDown(SDLK_KP_0);
         processEvents(running);
-        if (!player2Dead_ || bombs_.size() != afterPlayer2OutBombs) {
+        if (!gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().bombs_.size() != afterPlayer2OutBombs) {
             throw std::runtime_error("player 2 reentered or fired during final state-2");
         }
         for (int i = 0; i < kDeathStateTicks; ++i) {
-            updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
-                          playerDead_);
+            updateReentry(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_, 2,
+                          gameplayReplay_.fixture().playerDead_);
         }
-        if (ui_.snapshot().menu || !player2Dead_ || lives2_ != -1 || pendingLifeLoss2_) {
+        if (ui_.snapshot().menu || !gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().lives2_ != -1 || gameplayReplay_.fixture().pendingLifeLoss2_) {
             throw std::runtime_error("player 2 final life was not consumed after state-2");
         }
 
-        energy_ = 0;
-        lives_ = 0;
-        damageCooldown_ = 0;
-        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                     damageCooldown_, 1);
-        if (ui_.snapshot().menu || !playerDead_ || lives_ != 0 || !pendingLifeLoss_) {
+        gameplayReplay_.fixture().energy_ = 0;
+        gameplayReplay_.fixture().lives_ = 0;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
+        damagePlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                     gameplayReplay_.fixture().damageCooldown_, 1);
+        if (ui_.snapshot().menu || !gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().lives_ != 0 || !gameplayReplay_.fixture().pendingLifeLoss_) {
             throw std::runtime_error("player 1 final life did not enter state-2");
         }
         for (int i = 0; i < kDeathStateTicks; ++i) {
-            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+            updateReentry(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_, 1,
                           true);
         }
         if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::GameOver) {
@@ -1137,30 +903,30 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 1) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1) {
             throw std::runtime_error("start key did not leave menu");
         }
 
-        energy_ = 0;
-        lives_ = 3;
-        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                     damageCooldown_, 1);
-        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ || reentryTimer_ <= 0) {
+        gameplayReplay_.fixture().energy_ = 0;
+        gameplayReplay_.fixture().lives_ = 3;
+        damagePlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                     gameplayReplay_.fixture().damageCooldown_, 1);
+        if (!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().lives_ != 3 || !gameplayReplay_.fixture().pendingLifeLoss_ || gameplayReplay_.fixture().reentryTimer_ <= 0) {
             throw std::runtime_error("player death did not enter reentry state");
         }
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
-        if (!playerDead_ || damageCooldown_ != 0) {
+        if (!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().damageCooldown_ != 0) {
             throw std::runtime_error("fire key bypassed state-2 death gate");
         }
         for (int i = 0; i < kDeathStateTicks; ++i) {
-            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+            updateReentry(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_, 1,
                           true);
         }
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
         updateWithControls({}, 0);
-        if (playerDead_ || energy_ != 100 || lives_ != 2 || damageCooldown_ != 0) {
+        if (gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().energy_ != 100 || gameplayReplay_.fixture().lives_ != 2 || gameplayReplay_.fixture().damageCooldown_ != 0) {
             throw std::runtime_error("fire key did not reenter after death");
         }
 
@@ -1169,80 +935,80 @@ public:
             canReenterLevel()) {
             throw std::runtime_error("objective destruction did not block reentry");
         }
-        energy_ = 0;
-        lives_ = 3;
-        damageCooldown_ = 0;
-        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                     damageCooldown_, 1);
+        gameplayReplay_.fixture().energy_ = 0;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
+        damagePlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                     gameplayReplay_.fixture().damageCooldown_, 1);
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
-        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ ||
-            remainingObjectiveTiles() != level_.startingObjectiveTiles - 1) {
+        if (!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().lives_ != 3 || !gameplayReplay_.fixture().pendingLifeLoss_ ||
+            remainingObjectiveTiles() != gameplayReplay_.fixture().level_.startingObjectiveTiles - 1) {
             throw std::runtime_error("fire bypassed unwinnable state-2 gate");
         }
         for (int i = 0; i < kDeathStateTicks; ++i) {
-            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+            updateReentry(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_, 1,
                           true);
         }
         updateSharedReentryFallback();
-        if (playerDead_ || lives_ != 2 ||
-            remainingObjectiveTiles() != level_.startingObjectiveTiles) {
+        if (gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().lives_ != 2 ||
+            remainingObjectiveTiles() != gameplayReplay_.fixture().level_.startingObjectiveTiles) {
             throw std::runtime_error("fire reentered instead of restarting unwinnable level");
         }
 
-        size_t bombCount = bombs_.size();
-        int smallBombs = bombInventory_.counts[0];
+        size_t bombCount = gameplayReplay_.fixture().bombs_.size();
+        int smallBombs = gameplayReplay_.fixture().bombInventory_.counts[0];
         pushKeyDown(SDLK_n);
         processEvents(running);
         updateWithControls({}, 0);
-        if (bombs_.size() != bombCount + 1) {
+        if (gameplayReplay_.fixture().bombs_.size() != bombCount + 1) {
             throw std::runtime_error("N key did not place a bomb");
         }
-        if (bombInventory_.counts[0] != smallBombs - 1) {
+        if (gameplayReplay_.fixture().bombInventory_.counts[0] != smallBombs - 1) {
             throw std::runtime_error("N key did not consume bomb inventory");
         }
 
-        energy_ = 100;
-        damageCooldown_ = 0;
+        gameplayReplay_.fixture().energy_ = 100;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
         // A fragment record alone must not bypass the player's terrain scan.
         DebrisRecord debris;
-        debris.tileIndex = (static_cast<int>(player_.y + 8.0f) / 8) * level_.width +
-                           (static_cast<int>(player_.x + 6.0f) / 8);
-        debrisQueue_.push_back(debris);
+        debris.tileIndex = (static_cast<int>(gameplayReplay_.fixture().player_.y + 8.0f) / 8) * gameplayReplay_.fixture().level_.width +
+                           (static_cast<int>(gameplayReplay_.fixture().player_.x + 6.0f) / 8);
+        gameplayReplay_.fixture().debrisQueue_.push_back(debris);
         updateFlashes();
         drainPlayerDamageCounters();
-        if (energy_ != 100) {
+        if (gameplayReplay_.fixture().energy_ != 100) {
             throw std::runtime_error("debris mover applied extra player damage");
         }
-        int afterDebrisEnergy = energy_;
+        int afterDebrisEnergy = gameplayReplay_.fixture().energy_;
         updateFlashes();
         drainPlayerDamageCounters();
-        if (energy_ != afterDebrisEnergy) {
+        if (gameplayReplay_.fixture().energy_ != afterDebrisEnergy) {
             throw std::runtime_error("debris mover applied extra damage on the next pass");
         }
 
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
         updateWithControls({}, 0);
-        if (bombs_.size() != bombCount + 2) {
+        if (gameplayReplay_.fixture().bombs_.size() != bombCount + 2) {
             throw std::runtime_error("second fire did not create another bomb in the same cell");
         }
 
-        energy_ = 100;
-        damageCooldown_ = 0;
+        gameplayReplay_.fixture().energy_ = 100;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
         BombProfile contactProfile = bombProfile(BombType::Small);
-        Bomb contactBomb{(static_cast<int>(player_.x) + 4) / 8,
-                         static_cast<int>(player_.y) / 8,
+        Bomb contactBomb{(static_cast<int>(gameplayReplay_.fixture().player_.x) + 4) / 8,
+                         static_cast<int>(gameplayReplay_.fixture().player_.y) / 8,
                          contactProfile.fuseTicks, BombType::Small,
                          contactProfile.fuseTicks};
         explode(contactBomb);
-        if (energy_ != 100) throw std::runtime_error("bomb expiry applied instant damage");
-        for (int tick = 0; tick < 8 && energy_ == 100; ++tick) {
+        if (gameplayReplay_.fixture().energy_ != 100) throw std::runtime_error("bomb expiry applied instant damage");
+        for (int tick = 0; tick < 8 && gameplayReplay_.fixture().energy_ == 100; ++tick) {
             updateFlashes();
-            applyPlayerTerrainDamage(player_, energy_);
+            applyPlayerTerrainDamage(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_);
             drainPlayerDamageCounters();
         }
-        if (energy_ >= 100) {
+        if (gameplayReplay_.fixture().energy_ >= 100) {
             throw std::runtime_error("bomb explosion did not drain player energy");
         }
 
@@ -1286,19 +1052,19 @@ public:
 
         pushKeyDown(SDLK_PAGEUP);
         processEvents(running);
-        if (levelIndex_ != 1) {
+        if (gameplayReplay_.fixture().levelIndex_ != 1) {
             throw std::runtime_error("PageUp did not advance level");
         }
 
         pushKeyDown(SDLK_PAGEDOWN);
         processEvents(running);
-        if (levelIndex_ != 0) {
+        if (gameplayReplay_.fixture().levelIndex_ != 0) {
             throw std::runtime_error("PageDown did not return to level 1");
         }
 
         pushKeyDown(SDLK_PAGEUP);
         processEvents(running);
-        if (levelIndex_ != 1) {
+        if (gameplayReplay_.fixture().levelIndex_ != 1) {
             throw std::runtime_error("second PageUp did not advance level");
         }
 
@@ -1306,7 +1072,7 @@ public:
         processEvents(running);
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1 || gameplayReplay_.fixture().levelIndex_ != 0) {
             throw std::runtime_error("menu start did not reset to level 1");
         }
 
@@ -1314,17 +1080,17 @@ public:
         resetLevel(0);
         smokeCompleteCurrentLevelFromMapProgress();
 
-        size_t preResetBombs = bombs_.size();
+        size_t preResetBombs = gameplayReplay_.fixture().bombs_.size();
         pushKeyDown(SDLK_n);
         processEvents(running);
         updateWithControls({}, 0);
-        if (bombs_.size() != preResetBombs + 1) {
+        if (gameplayReplay_.fixture().bombs_.size() != preResetBombs + 1) {
             throw std::runtime_error("pre-reset bomb was not placed");
         }
 
         pushKeyDown(SDLK_F5);
         processEvents(running);
-        if (!bombs_.empty()) {
+        if (!gameplayReplay_.fixture().bombs_.empty()) {
             throw std::runtime_error("reset key did not clear active bombs");
         }
 
@@ -1335,17 +1101,17 @@ public:
         }
 
         auto prepareWaitingPair = [&] {
-            playerCount_ = 2;
-            lives_ = lives2_ = 3;
+            gameplayReplay_.fixture().playerCount_ = 2;
+            gameplayReplay_.fixture().lives_ = gameplayReplay_.fixture().lives2_ = 3;
             resetLevel(0);
             ui_.setMenu(false);
-            for (auto& spawner : spawnerStates_) spawner.remaining = 0;
-            energy_ = energy2_ = 0;
-            damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_, damageCooldown_, 1);
-            damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, damageCooldown2_, 2);
+            for (auto& spawner : gameplayReplay_.fixture().spawnerStates_) spawner.remaining = 0;
+            gameplayReplay_.fixture().energy_ = gameplayReplay_.fixture().energy2_ = 0;
+            damagePlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_, gameplayReplay_.fixture().damageCooldown_, 1);
+            damagePlayer(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_, gameplayReplay_.fixture().damageCooldown2_, 2);
             for (int i = 0; i < kDeathStateTicks - 1; ++i) {
-                updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1, false);
-                updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2, false);
+                updateReentry(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_, 1, false);
+                updateReentry(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_, 2, false);
             }
         };
         prepareWaitingPair();
@@ -1357,11 +1123,11 @@ public:
         if (SDL_PushEvent(&released) < 0) throw std::runtime_error("cannot push reentry key release");
         processEvents(running);
         updateWithControls({}, 0);
-        if (!playerDead_ || player2Dead_ || reentryFire1_ || reentryFire2_ || !bombs_.empty()) {
+        if (!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().reentryFire1_ || gameplayReplay_.fixture().reentryFire2_ || !gameplayReplay_.fixture().bombs_.empty()) {
             throw std::runtime_error("released early reentry key was retained");
         }
         for (int i = 0; i < 3; ++i) updateWithControls({}, 0);
-        if (!playerDead_ || noActivePlayerTicks_ != 0 || reentryTimer_ != 0xfffd) {
+        if (!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().noActivePlayerTicks_ != 0 || gameplayReplay_.fixture().reentryTimer_ != 0xfffd) {
             throw std::runtime_error("active partner did not keep the waiting player in place");
         }
         for (bool events : {false, true}) {
@@ -1375,11 +1141,11 @@ public:
                 controls.p1Reenter = controls.p2Reenter = true;
             }
             updateWithControls(controls, 0);
-            if (playerDead_ || !player2Dead_ || reentryFire1_ || reentryFire2_ || !bombs_.empty()) {
+            if (gameplayReplay_.fixture().playerDead_ || !gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().reentryFire1_ || gameplayReplay_.fixture().reentryFire2_ || !gameplayReplay_.fixture().bombs_.empty()) {
                 throw std::runtime_error("P1 reentry did not consume both fire latches");
             }
             updateWithControls({}, 0);
-            if (!player2Dead_ || reentryTimer2_ != 0xffff || noActivePlayerTicks_ != 0) {
+            if (!gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().reentryTimer2_ != 0xffff || gameplayReplay_.fixture().noActivePlayerTicks_ != 0) {
                 throw std::runtime_error("consumed P2 reentry key survived into the next update");
             }
         }
@@ -1457,7 +1223,7 @@ public:
         }
         ui_.setShowBackground(true);
         press(SDLK_1);
-        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1 || gameplayReplay_.fixture().levelIndex_ != 0) {
             throw std::runtime_error("menu frame flow did not start one-player game");
         }
         FrameInspection gameFrame =
@@ -1513,8 +1279,8 @@ public:
         load();
         initSdl();
         resetLevel(0);
-        playerCount_ = 1;
-        monsters_.clear();
+        gameplayReplay_.fixture().playerCount_ = 1;
+        gameplayReplay_.fixture().monsters_.clear();
         std::ifstream input(fixture);
         if (!input) throw std::runtime_error("cannot open render-boundary fixture");
         auto bytes = [](const std::string& hex, size_t count) {
@@ -1595,7 +1361,7 @@ public:
                     throw std::runtime_error("invalid render-boundary provenance");
                 viewWidth = number(fields.at("pitch")) - 8;
                 for (int i = 0; i < level; ++i) resetLevel(i);
-                monsters_.clear();
+                gameplayReplay_.fixture().monsters_.clear();
                 if (tall) expectedNames = {"upper", "spawn", "center", "lower_left", "lower_right", "clear_upper",
                     "clear_threshold_35", "clear_threshold_36", "clear_threshold_37", "clear_bottom_left",
                     "clear_bottom_right", "clear_bottom_shake", "clear_bottom_off"};
@@ -1603,16 +1369,16 @@ public:
                     expectedNames.insert("alias_bottom_left");
                     expectedNames.insert("alias_bottom_right");
                 }
-                playerCount_ = viewWidth == 152 ? 2 : 1;
+                gameplayReplay_.fixture().playerCount_ = viewWidth == 152 ? 2 : 1;
                 buildBackdropBuffer();
                 // The original split-view probe disables P2 after initialization.
-                playerCount_ = 1;
+                gameplayReplay_.fixture().playerCount_ = 1;
                 header = true;
             } else if (line.rfind("map ", 0) == 0) {
-                if (!header || map || number(fields.at("width")) != level_.width || number(fields.at("height")) != level_.height)
+                if (!header || map || number(fields.at("width")) != gameplayReplay_.fixture().level_.width || number(fields.at("height")) != gameplayReplay_.fixture().level_.height)
                     throw std::runtime_error("invalid render-boundary map");
-                level_.tiles = bytes(fields.at("bytes"), level_.width * level_.height);
-                originalMap = level_.tiles;
+                gameplayReplay_.fixture().level_.tiles = bytes(fields.at("bytes"), gameplayReplay_.fixture().level_.width * gameplayReplay_.fixture().level_.height);
+                originalMap = gameplayReplay_.fixture().level_.tiles;
                 map = true;
             } else if (line.rfind("backdrop ", 0) == 0) {
                 if (!map || backdrop) throw std::runtime_error("invalid render-boundary backdrop");
@@ -1648,7 +1414,7 @@ public:
                     return (data[2] | data[3] << 8) * 16 + (data[0] | data[1] << 8);
                 };
                 const int base = number(fields.at("segment")) * 16 + 8;
-                const int count = level_.width * level_.height;
+                const int count = gameplayReplay_.fixture().level_.width * gameplayReplay_.fixture().level_.height;
                 const int words = ((base + 60000 + ((count + 23) & ~7) + 15) & ~15);
                 if (pointer("backdrop") != base || pointer(aliasProbe ? "tile_bytes" : "damage_words") != base + 60008 ||
                     pointer("tile_words") != words || (aliasProbe &&
@@ -1656,7 +1422,7 @@ public:
                      pointer("word_allocation") != base + 60000 + ((count + 23) & ~7))))
                     throw std::runtime_error("render-boundary allocation pointer mismatch");
                 for (size_t i = 0; i < originalTail.size(); ++i) {
-                    if (originalTail[i] != presentation_.backdropByte(60000 + i, level_.tiles))
+                    if (originalTail[i] != presentation_.backdropByte(60000 + i, gameplayReplay_.fixture().level_.tiles))
                         throw std::runtime_error("render-boundary heap/map alias mismatch");
                 }
                 heap = true;
@@ -1677,26 +1443,26 @@ public:
                 if (frame < 0 || frame > 65535 || (lastFrame >= 0 && frame != ((lastFrame + 1) & 65535)))
                     throw std::runtime_error("nonconsecutive render-boundary frame");
                 lastFrame = frame;
-                player_.x = static_cast<float>(number(fields.at("x")));
-                player_.y = static_cast<float>(number(fields.at("y")));
-                if (player_.x < 0 || player_.x >= level_.width * 8 || player_.y < 0 || player_.y >= level_.height * 8)
+                gameplayReplay_.fixture().player_.x = static_cast<float>(number(fields.at("x")));
+                gameplayReplay_.fixture().player_.y = static_cast<float>(number(fields.at("y")));
+                if (gameplayReplay_.fixture().player_.x < 0 || gameplayReplay_.fixture().player_.x >= gameplayReplay_.fixture().level_.width * 8 || gameplayReplay_.fixture().player_.y < 0 || gameplayReplay_.fixture().player_.y >= gameplayReplay_.fixture().level_.height * 8)
                     throw std::runtime_error("render-boundary position outside level");
-                player_.spriteIndex = 0;
+                gameplayReplay_.fixture().player_.spriteIndex = 0;
                 const int shake = number(fields.at("shake"));
                 if (shake < 0 || shake > 7)
                     throw std::runtime_error("invalid render-boundary shake");
-                cameraShakeOffset_ = static_cast<uint16_t>(shake);
+                gameplayReplay_.fixture().cameraShakeOffset_ = static_cast<uint16_t>(shake);
                 const int background = number(fields.at("background"));
                 if (background != 0 && background != 1) throw std::runtime_error("invalid render-boundary toggle");
                 ui_.setShowBackground(background != 0);
-                const int camX = std::clamp(static_cast<int>(player_.x) - (viewWidth / 2 - 4),
-                                            0, level_.width * 8 - (viewWidth + 8) + 7);
-                const int camY = std::clamp(static_cast<int>(player_.y) - 80, 0, level_.height * 8 - 168 + 7);
+                const int camX = std::clamp(static_cast<int>(gameplayReplay_.fixture().player_.x) - (viewWidth / 2 - 4),
+                                            0, gameplayReplay_.fixture().level_.width * 8 - (viewWidth + 8) + 7);
+                const int camY = std::clamp(static_cast<int>(gameplayReplay_.fixture().player_.y) - 80, 0, gameplayReplay_.fixture().level_.height * 8 - 168 + 7);
                 if (number(fields.at("coarse_x")) != (camX & ~7) ||
                     number(fields.at("coarse_y")) != (camY & ~7) ||
                     number(fields.at("fine_x")) != (camX & 7) + shake ||
                     number(fields.at("fine_y")) != (camY & 7) ||
-                    number(fields.at("map_offset")) != (camY / 8) * level_.width + camX / 8 ||
+                    number(fields.at("map_offset")) != (camY / 8) * gameplayReplay_.fixture().level_.width + camX / 8 ||
                     number(fields.at("backdrop_stride")) != presentation_.backdropPitch() ||
                     number(fields.at("backdrop_delta")) != 0 || number(fields.at("glyph_base")) != 32628)
                     throw std::runtime_error("render-boundary camera/driver mismatch");
@@ -1704,18 +1470,18 @@ public:
                     const std::string mode = fields.at("map_mode");
                     if (mode != (name.rfind("alias_", 0) == 0 ? "alias" : name.rfind("clear_", 0) == 0 ? "clear" : "level"))
                         throw std::runtime_error("invalid render-boundary map mode");
-                    level_.tiles = originalMap;
-                    if (mode != "level") std::fill(level_.tiles.begin(), level_.tiles.end(), 0);
-                    if (mode == "alias") for (size_t i = 0; i < 512; ++i) level_.tiles[i] = static_cast<uint8_t>(1 + i % 174);
+                    gameplayReplay_.fixture().level_.tiles = originalMap;
+                    if (mode != "level") std::fill(gameplayReplay_.fixture().level_.tiles.begin(), gameplayReplay_.fixture().level_.tiles.end(), 0);
+                    if (mode == "alias") for (size_t i = 0; i < 512; ++i) gameplayReplay_.fixture().level_.tiles[i] = static_cast<uint8_t>(1 + i % 174);
                     std::vector<uint8_t> tail(5536);
-                    for (size_t i = 0; i < tail.size(); ++i) tail[i] = presentation_.backdropByte(60000 + i, level_.tiles);
+                    for (size_t i = 0; i < tail.size(); ++i) tail[i] = presentation_.backdropByte(60000 + i, gameplayReplay_.fixture().level_.tiles);
                     if (decodeRle(fields.at("tail_before"), 5536) != tail ||
                         decodeRle(fields.at("tail_after"), 5536) != tail)
                         throw std::runtime_error("render-boundary live heap/map alias mismatch");
                 }
                 const auto expected = decodeRle(fields.at("pixels"), viewWidth * 152);
                 std::fill(fb_.begin(), fb_.end(), argb(palette_, 0));
-                drawWorldView(player_, 4, 4, viewWidth, 152);
+                drawWorldView(gameplayReplay_.fixture().player_, 4, 4, viewWidth, 152);
                 canvas_.resetClip();
                 size_t different = 0;
                 uint64_t hash = 1469598103934665603ull;
@@ -1730,8 +1496,8 @@ public:
                 }
                 if (!outDir.empty()) {
                     writeArgbPpm(joinPath(outDir, name + ".ppm"), view, viewWidth, 152);
-                    manifest << name << ',' << frame << ',' << viewWidth << ',' << static_cast<int>(player_.x)
-                             << ',' << static_cast<int>(player_.y) << ',' << shake << ',' << background << ','
+                    manifest << name << ',' << frame << ',' << viewWidth << ',' << static_cast<int>(gameplayReplay_.fixture().player_.x)
+                             << ',' << static_cast<int>(gameplayReplay_.fixture().player_.y) << ',' << shake << ',' << background << ','
                              << camX + shake << ',' << camY << ',' << different << ',' << hash << '\n';
                 }
                 std::cout << "render_boundary_view=" << name << " different_pixels=" << different << '\n';
@@ -1831,14 +1597,14 @@ public:
                     fields.at("after") != "81f6" || fields.at("pitch") != "320" || fields.at("active_visuals") != "1")
                     throw std::runtime_error("invalid red palette provenance");
                 for (int i = 0; i < level; ++i) resetLevel(i);
-                playerCount_ = 1;
-                monsters_.clear();
+                gameplayReplay_.fixture().playerCount_ = 1;
+                gameplayReplay_.fixture().monsters_.clear();
                 buildBackdropBuffer();
                 stage = 1;
             } else if (line.rfind("map ", 0) == 0) {
-                if (stage != 1 || value("width") != level_.width || value("height") != level_.height)
+                if (stage != 1 || value("width") != gameplayReplay_.fixture().level_.width || value("height") != gameplayReplay_.fixture().level_.height)
                     throw std::runtime_error("invalid palette map");
-                level_.tiles = bytes(fields.at("bytes"), level_.width * level_.height);
+                gameplayReplay_.fixture().level_.tiles = bytes(fields.at("bytes"), gameplayReplay_.fixture().level_.width * gameplayReplay_.fixture().level_.height);
                 stage = 2;
             } else if (line.rfind("backdrop ", 0) == 0) {
                 if (stage != 2) throw std::runtime_error("invalid palette backdrop");
@@ -1873,12 +1639,12 @@ public:
                 if (presentation_.redPalettePhase() != value("phase")) throw std::runtime_error("palette initial phase mismatch");
                 sample = 0;
             } else if (line.rfind("view ", 0) == 0) {
-                if (caseIndex != 0 || sample || view || value("x") != (levelIndex_ == 0 ? 104 : 248) ||
-                    value("y") != (levelIndex_ == 0 ? 168 : 360) || value("sprite") || value("shake"))
+                if (caseIndex != 0 || sample || view || value("x") != (gameplayReplay_.fixture().levelIndex_ == 0 ? 104 : 248) ||
+                    value("y") != (gameplayReplay_.fixture().levelIndex_ == 0 ? 168 : 360) || value("sprite") || value("shake"))
                     throw std::runtime_error("invalid palette view");
-                player_.x = static_cast<float>(value("x"));
-                player_.y = static_cast<float>(value("y"));
-                player_.spriteIndex = 0;
+                gameplayReplay_.fixture().player_.x = static_cast<float>(value("x"));
+                gameplayReplay_.fixture().player_.y = static_cast<float>(value("y"));
+                gameplayReplay_.fixture().player_.spriteIndex = 0;
                 indexed = rle(fields.at("pixels"), 312 * 152);
                 if (std::set<uint8_t>(indexed.begin(), indexed.end()).size() < 16)
                     throw std::runtime_error("palette view lacks gameplay variation");
@@ -1903,7 +1669,7 @@ public:
                 const auto dac = bytes(fields.at("after_dac"), 768);
                 checkDac(dac);
                 std::fill(fb_.begin(), fb_.end(), 0xff000000u);
-                drawWorldView(player_, 4, 4, 312, 152);
+                drawWorldView(gameplayReplay_.fixture().player_, 4, 4, 312, 152);
                 canvas_.resetClip();
                 size_t different = 0;
                 uint64_t hash = 1469598103934665603ull;
@@ -2025,55 +1791,55 @@ public:
             });
             if (number(fields.at("count")) != static_cast<int>(ordered.size()) ||
                 number(fields.at("visuals")) != static_cast<int>(ordered.size() + 2) || fields.at("link_count") != "6" ||
-                (!defeat && monsters_.size() != 7) || bossLinks_.size() != 6 ||
+                (!defeat && gameplayReplay_.fixture().monsters_.size() != 7) || gameplayReplay_.fixture().bossLinks_.size() != 6 ||
                 (seed && ordered.size() != static_cast<size_t>(bombProbe ? 8 : 7))) fail("actor/link count got=" + std::to_string(ordered.size()));
             const auto rng = bytes(fields.at("rng"), 4);
             const uint32_t random = le16(rng, 0) | (static_cast<uint32_t>(le16(rng, 2)) << 16);
-            if (seed) randomSeed_ = random;
-            if (randomSeed_ != random) fail("RNG mismatch got=" + std::to_string(randomSeed_) + " wanted=" + std::to_string(random));
+            if (seed) gameplayReplay_.fixture().randomSeed_ = random;
+            if (gameplayReplay_.fixture().randomSeed_ != random) fail("RNG mismatch got=" + std::to_string(gameplayReplay_.fixture().randomSeed_) + " wanted=" + std::to_string(random));
             const auto p = bytes(fields.at("p1"), 38), visual = bytes(fields.at("player"), 8);
             if (seed) {
-                player_.x = static_cast<float>(le16(visual, 0)); player_.y = static_cast<float>(le16(visual, 2));
-                player_.vx8 = static_cast<int16_t>(le16(p, 6)); player_.vy8 = static_cast<int16_t>(le16(p, 8));
-                player_.fracX = p[10]; player_.fracY = p[12]; player_.idleTicks = p[2]; player_.dropTicks = le16(p, 14);
-                player_.animation = animation(p, 22); player_.animationBackup = animation(p, 29);
-                player_.spriteIndex = static_cast<uint8_t>(spriteIndex(visual));
-                energy_ = number(fields.at("energy")); lives_ = number(fields.at("lives"));
-                reentryTimer_ = le16(p, 16);
-                syncPlayerVelocityMirror(player_);
+                gameplayReplay_.fixture().player_.x = static_cast<float>(le16(visual, 0)); gameplayReplay_.fixture().player_.y = static_cast<float>(le16(visual, 2));
+                gameplayReplay_.fixture().player_.vx8 = static_cast<int16_t>(le16(p, 6)); gameplayReplay_.fixture().player_.vy8 = static_cast<int16_t>(le16(p, 8));
+                gameplayReplay_.fixture().player_.fracX = p[10]; gameplayReplay_.fixture().player_.fracY = p[12]; gameplayReplay_.fixture().player_.idleTicks = p[2]; gameplayReplay_.fixture().player_.dropTicks = le16(p, 14);
+                gameplayReplay_.fixture().player_.animation = animation(p, 22); gameplayReplay_.fixture().player_.animationBackup = animation(p, 29);
+                gameplayReplay_.fixture().player_.spriteIndex = static_cast<uint8_t>(spriteIndex(visual));
+                gameplayReplay_.fixture().energy_ = number(fields.at("energy")); gameplayReplay_.fixture().lives_ = number(fields.at("lives"));
+                gameplayReplay_.fixture().reentryTimer_ = le16(p, 16);
+                syncPlayerVelocityMirror(gameplayReplay_.fixture().player_);
             }
-            const auto playerAnimation = playerDead_ ? std::array<uint8_t, 7>{state2Visual_.current, state2Visual_.first,
-                state2Visual_.last, state2Visual_.counter, state2Visual_.delay, state2Visual_.mode, static_cast<uint8_t>(state2Visual_.step)} : player_.animation.packed();
-            if (p[0] || p[1] || (p[21] != 0 && p[21] != 2) || playerDead_ != (p[21] == 2) ||
-                fields.at("player_state") != (playerDead_ && !pendingLifeLoss_ ? "2" : "1") ||
-                energy_ != p[36] || static_cast<uint16_t>(reentryTimer_) != le16(p, 16))
-                fail("player death/energy mismatch got=" + std::to_string(energy_) + "/" + std::to_string(deathStateTimer_));
-            if (static_cast<int>(player_.x) != le16(visual, 0) || static_cast<int>(player_.y) != le16(visual, 2) ||
-                player_.vx8 != static_cast<int16_t>(le16(p, 6)) || player_.vy8 != static_cast<int16_t>(le16(p, 8)) ||
-                player_.fracX != le16(p, 10) || player_.fracY != le16(p, 12) || player_.idleTicks != p[2] || player_.dropTicks != le16(p, 14))
-                fail("player motion mismatch got=" + std::to_string(player_.x) + "," + std::to_string(player_.y));
-            if (playerAnimation != animation(p, 22).packed() || player_.animationBackup.packed() != animation(p, 29).packed() ||
-                player_.spriteIndex != spriteIndex(visual)) fail("player animation mismatch got sprite=" + std::to_string(player_.spriteIndex) + " wanted=" + std::to_string(spriteIndex(visual)));
+            const auto playerAnimation = gameplayReplay_.fixture().playerDead_ ? std::array<uint8_t, 7>{gameplayReplay_.fixture().state2Visual_.current, gameplayReplay_.fixture().state2Visual_.first,
+                gameplayReplay_.fixture().state2Visual_.last, gameplayReplay_.fixture().state2Visual_.counter, gameplayReplay_.fixture().state2Visual_.delay, gameplayReplay_.fixture().state2Visual_.mode, static_cast<uint8_t>(gameplayReplay_.fixture().state2Visual_.step)} : gameplayReplay_.fixture().player_.animation.packed();
+            if (p[0] || p[1] || (p[21] != 0 && p[21] != 2) || gameplayReplay_.fixture().playerDead_ != (p[21] == 2) ||
+                fields.at("player_state") != (gameplayReplay_.fixture().playerDead_ && !gameplayReplay_.fixture().pendingLifeLoss_ ? "2" : "1") ||
+                gameplayReplay_.fixture().energy_ != p[36] || static_cast<uint16_t>(gameplayReplay_.fixture().reentryTimer_) != le16(p, 16))
+                fail("player death/energy mismatch got=" + std::to_string(gameplayReplay_.fixture().energy_) + "/" + std::to_string(gameplayReplay_.fixture().deathStateTimer_));
+            if (static_cast<int>(gameplayReplay_.fixture().player_.x) != le16(visual, 0) || static_cast<int>(gameplayReplay_.fixture().player_.y) != le16(visual, 2) ||
+                gameplayReplay_.fixture().player_.vx8 != static_cast<int16_t>(le16(p, 6)) || gameplayReplay_.fixture().player_.vy8 != static_cast<int16_t>(le16(p, 8)) ||
+                gameplayReplay_.fixture().player_.fracX != le16(p, 10) || gameplayReplay_.fixture().player_.fracY != le16(p, 12) || gameplayReplay_.fixture().player_.idleTicks != p[2] || gameplayReplay_.fixture().player_.dropTicks != le16(p, 14))
+                fail("player motion mismatch got=" + std::to_string(gameplayReplay_.fixture().player_.x) + "," + std::to_string(gameplayReplay_.fixture().player_.y));
+            if (playerAnimation != animation(p, 22).packed() || gameplayReplay_.fixture().player_.animationBackup.packed() != animation(p, 29).packed() ||
+                gameplayReplay_.fixture().player_.spriteIndex != spriteIndex(visual)) fail("player animation mismatch got sprite=" + std::to_string(gameplayReplay_.fixture().player_.spriteIndex) + " wanted=" + std::to_string(spriteIndex(visual)));
             // Death helper 30A3 leaves the remaining-objective count in 2074;
             // the caller copies that scratch byte to the HUD cache at 7FC2.
-            if ((resetFrame ? 255 : playerDead_ && deathStateTimer_ == kDeathStateTicks ? deathObjectiveCount : energy_) != number(fields.at("energy")) || lives_ != number(fields.at("lives"))) fail("player cached energy/lives mismatch");
-            if (reentry && (number(fields.at("fallback")) != noActivePlayerTicks_ || number(fields.at("resets")) != replayResets ||
+            if ((resetFrame ? 255 : gameplayReplay_.fixture().playerDead_ && gameplayReplay_.fixture().deathStateTimer_ == kDeathStateTicks ? deathObjectiveCount : gameplayReplay_.fixture().energy_) != number(fields.at("energy")) || gameplayReplay_.fixture().lives_ != number(fields.at("lives"))) fail("player cached energy/lives mismatch");
+            if (reentry && (number(fields.at("fallback")) != gameplayReplay_.fixture().noActivePlayerTicks_ || number(fields.at("resets")) != replayResets ||
                 (activeCount && fields.at("active_players") != "1"))) fail("shared fallback state mismatch");
-            if (!seed && playerDead_) { if (pendingLifeLoss_) ++dyingStates; else ++waitingStates; }
+            if (!seed && gameplayReplay_.fixture().playerDead_) { if (gameplayReplay_.fixture().pendingLifeLoss_) ++dyingStates; else ++waitingStates; }
             const auto links = bytes(fields.at("links"), 96);
-            for (size_t i = 0; i < bossLinks_.size(); ++i) {
-                auto& link = bossLinks_[i]; const size_t at = i * 16;
-                if ((!defeat || !bossDefeated_) && (link.targetVisual != links[at] || link.selfVisual != links[at + 1] || link.gain != links[at + 2] || link.mode != links[at + 3] ||
+            for (size_t i = 0; i < gameplayReplay_.fixture().bossLinks_.size(); ++i) {
+                auto& link = gameplayReplay_.fixture().bossLinks_[i]; const size_t at = i * 16;
+                if ((!defeat || !gameplayReplay_.fixture().bossDefeated_) && (link.targetVisual != links[at] || link.selfVisual != links[at + 1] || link.gain != links[at + 2] || link.mode != links[at + 3] ||
                     link.radiusX != links[at + 4] || link.radiusY != links[at + 5] || link.offX != static_cast<int16_t>(le16(links, at + 7)) ||
                     link.offY != static_cast<int16_t>(le16(links, at + 9)) || link.biasY != static_cast<int8_t>(links[at + 15]))) fail("link constructor mismatch");
                 if (seed) { link.phase = links[at + 6]; link.outX = static_cast<int16_t>(le16(links, at + 11)); link.outY = static_cast<int16_t>(le16(links, at + 13)); }
                 // Defeated actors no longer consume links. Their stale original
                 // visual-slot bookkeeping is retained as provenance, not replayed.
-                if ((!defeat || !bossDefeated_) && (link.phase != links[at + 6] || link.outX != static_cast<int16_t>(le16(links, at + 11)) || link.outY != static_cast<int16_t>(le16(links, at + 13)))) {
+                if ((!defeat || !gameplayReplay_.fixture().bossDefeated_) && (link.phase != links[at + 6] || link.outX != static_cast<int16_t>(le16(links, at + 11)) || link.outY != static_cast<int16_t>(le16(links, at + 13)))) {
                     fail("link " + std::to_string(i) + " output got=" + std::to_string(link.outX) + "," + std::to_string(link.outY) +
                          " wanted=" + std::to_string(static_cast<int16_t>(le16(links, at + 11))) + "," + std::to_string(static_cast<int16_t>(le16(links, at + 13))));
                 }
-                if (!seed && (!defeat || !bossDefeated_)) ++linkStates;
+                if (!seed && (!defeat || !gameplayReplay_.fixture().bossDefeated_)) ++linkStates;
             }
             std::istringstream input(fields.at("actors")); std::string record; size_t index = 0;
             while (fields.at("actors") != "-" && std::getline(input, record, ',')) {
@@ -2084,20 +1850,20 @@ public:
                 const auto visualSlot = std::find_if(visualOrder.begin(), visualOrder.end(), [&](const auto& item) { return item.order == entry.order; });
                 if (raw[1] != 2 + std::distance(visualOrder.begin(), visualSlot)) fail("visual slot/order mismatch");
                 if (entry.kind == SharedActorKind::Bomb && bombProbe && seed) {
-                    auto& bomb = bombs_[entry.index];
+                    auto& bomb = gameplayReplay_.fixture().bombs_[entry.index];
                     if (raw[0] != 13 + seededWeapon || raw[1] != 9 || raw[2] || raw[21] != 2 || raw[20] != 8 || spriteIndex(v) != 57 + seededWeapon)
                         fail("invalid boss bomb seed");
                     bomb.pixelX = le16(v, 0); bomb.pixelY = le16(v, 2); bomb.hotspotY = 8;
                     bomb.moving = true; bomb.timer = 0;
-                    if (bomb.pixelX != monsters_[0].x + 16 || bomb.pixelY != monsters_[0].y + 8) fail("bomb seed position");
+                    if (bomb.pixelX != gameplayReplay_.fixture().monsters_[0].x + 16 || bomb.pixelY != gameplayReplay_.fixture().monsters_[0].y + 8) fail("bomb seed position");
                     ++index; continue;
                 }
                 if (entry.kind != SharedActorKind::Monster) {
                     if (entry.kind != SharedActorKind::Effect || (!bombProbe && raw[1] != index + 2) ||
-                        !transientMatchesOriginal(transientActors_[entry.index], raw, v, descriptors)) fail("route effect mismatch");
+                        !transientMatchesOriginal(gameplayReplay_.fixture().transientActors_[entry.index], raw, v, descriptors)) fail("route effect mismatch");
                     ++index; ++effectStates; continue;
                 }
-                auto& m = monsters_[entry.index];
+                auto& m = gameplayReplay_.fixture().monsters_[entry.index];
                 if (m.kind != raw[0] || (!defeat && m.bossVisual != raw[1]) || m.behavior != raw[21]) fail("actor constructor mismatch");
                 if (m.bossGroup != (m.bossVisual == 6 ? le16(raw, 18) : raw[37])) fail("boss owner mismatch");
                 if (seed) {
@@ -2134,13 +1900,13 @@ public:
                 while (fields.at("flames") != "-" && std::getline(flames, record, ',')) {
                     const auto colon = record.find(':'); if (colon == std::string::npos) fail("invalid flame record");
                     const auto raw = bytes(record.substr(0, colon), 11), mass = bytes(record.substr(colon + 1), 1);
-                    if (i >= flameRecords_.size()) fail("extra flame");
-                    const auto& ray = flameRecords_[i++];
+                    if (i >= gameplayReplay_.fixture().flameRecords_.size()) fail("extra flame");
+                    const auto& ray = gameplayReplay_.fixture().flameRecords_[i++];
                     if (le16(raw, 0) != ray.cell || static_cast<int8_t>(raw[4]) != ray.vx || static_cast<int8_t>(raw[5]) != ray.vy ||
                         static_cast<int8_t>(raw[6]) != ray.subX || static_cast<int8_t>(raw[7]) != ray.subY || raw[8] != ray.timer ||
                         raw[9] != ray.glyph || raw[10] != ray.variant || mass[0] != ray.mass) fail("flame mismatch slot=" + std::to_string(i));
                 }
-                if (i != flameRecords_.size()) fail("missing flames");
+                if (i != gameplayReplay_.fixture().flameRecords_.size()) fail("missing flames");
                 if (!seed) flameStates += i;
             }
         };
@@ -2151,21 +1917,21 @@ public:
         if (reentry) debugReentryBoundaryObserver_ = [&](const char* phase) {
             if (boundaryIndex >= pendingBoundaries.size()) fail("unexpected lifecycle boundary " + std::string(phase));
             const auto& f = pendingBoundaries[boundaryIndex++];
-            if (f.at("stage") != phase || number(f.at("frame")) != (logicTick_ & 0xffff) ||
-                number(f.at("counter")) != noActivePlayerTicks_ || number(f.at("gate")) != static_cast<int>(reentryGate_)) fail("lifecycle boundary " + std::string(phase));
+            if (f.at("stage") != phase || number(f.at("frame")) != (gameplayReplay_.fixture().logicTick_ & 0xffff) ||
+                number(f.at("counter")) != gameplayReplay_.fixture().noActivePlayerTicks_ || number(f.at("gate")) != static_cast<int>(gameplayReplay_.fixture().reentryGate_)) fail("lifecycle boundary " + std::string(phase));
             const auto p = bytes(f.at("p1"), 38), flags = bytes(f.at("flags"), 9), visual = bytes(f.at("visuals"), 16);
             const auto rng = bytes(f.at("rng"), 4);
-            if (randomSeed_ != (le16(rng, 0) | (static_cast<uint32_t>(le16(rng, 2)) << 16))) fail("boundary RNG " + std::string(phase));
-            if (flags[1] != originalPlayerState(1) || flags[2] != originalPlayerState(2) || flags[5] != lives_ ||
-                p[21] != (playerDead_ ? 2 : 0) || p[36] != energy_ || le16(p, 16) != reentryTimer_ ||
-                p[2] != player_.idleTicks || static_cast<int16_t>(le16(p, 6)) != player_.vx8 ||
-                static_cast<int16_t>(le16(p, 8)) != player_.vy8 || le16(p, 10) != player_.fracX || le16(p, 12) != player_.fracY ||
-                le16(visual, 0) != static_cast<int>(player_.x) || le16(visual, 2) != static_cast<int>(player_.y) ||
-                spriteIndex(std::vector<uint8_t>(visual.begin(), visual.begin() + 8)) != player_.spriteIndex)
+            if (gameplayReplay_.fixture().randomSeed_ != (le16(rng, 0) | (static_cast<uint32_t>(le16(rng, 2)) << 16))) fail("boundary RNG " + std::string(phase));
+            if (flags[1] != originalPlayerState(1) || flags[2] != originalPlayerState(2) || flags[5] != gameplayReplay_.fixture().lives_ ||
+                p[21] != (gameplayReplay_.fixture().playerDead_ ? 2 : 0) || p[36] != gameplayReplay_.fixture().energy_ || le16(p, 16) != gameplayReplay_.fixture().reentryTimer_ ||
+                p[2] != gameplayReplay_.fixture().player_.idleTicks || static_cast<int16_t>(le16(p, 6)) != gameplayReplay_.fixture().player_.vx8 ||
+                static_cast<int16_t>(le16(p, 8)) != gameplayReplay_.fixture().player_.vy8 || le16(p, 10) != gameplayReplay_.fixture().player_.fracX || le16(p, 12) != gameplayReplay_.fixture().player_.fracY ||
+                le16(visual, 0) != static_cast<int>(gameplayReplay_.fixture().player_.x) || le16(visual, 2) != static_cast<int>(gameplayReplay_.fixture().player_.y) ||
+                spriteIndex(std::vector<uint8_t>(visual.begin(), visual.begin() + 8)) != gameplayReplay_.fixture().player_.spriteIndex)
                 fail("boundary player " + std::string(phase));
-            const std::array<uint8_t, 7> deathAnimation{state2Visual_.current, state2Visual_.first, state2Visual_.last,
-                state2Visual_.counter, state2Visual_.delay, state2Visual_.mode, static_cast<uint8_t>(state2Visual_.step)};
-            if (animation(p, 22).packed() != deathAnimation || animation(p, 29).packed() != player_.animationBackup.packed()) fail("boundary animation");
+            const std::array<uint8_t, 7> deathAnimation{gameplayReplay_.fixture().state2Visual_.current, gameplayReplay_.fixture().state2Visual_.first, gameplayReplay_.fixture().state2Visual_.last,
+                gameplayReplay_.fixture().state2Visual_.counter, gameplayReplay_.fixture().state2Visual_.delay, gameplayReplay_.fixture().state2Visual_.mode, static_cast<uint8_t>(gameplayReplay_.fixture().state2Visual_.step)};
+            if (animation(p, 22).packed() != deathAnimation || animation(p, 29).packed() != gameplayReplay_.fixture().player_.animationBackup.packed()) fail("boundary animation");
             ++boundaryCounts[phase];
             if (std::string(phase) == "intro_wait" && !outDir.empty()) {
                 gameRenderer_.drawLevelIntro(levelFlow_.intro().levelIndex, levelFlow_.intro().pattern, levelIntroCaption(levelFlow_.intro().levelIndex).size());
@@ -2207,12 +1973,12 @@ public:
                 if (firstFrame != (caseIndex == 2 ? 65520 : 100 + caseIndex)) fail("invalid clock seed");
                 registers(f.at("regs"), 1);
                 for (int i = 0; i < 7; ++i) resetLevel(i);
-                ui_.setMenu(false); levelFlow_.setIntroActiveForFixture(false); playerCount_ = 1;
-                level_.tiles = originalMap; presentation_.writeBackdropPrefix(originalBackdrop);
-                if (bombProbe) for (size_t i = 0; i < level_.wordLayer.size(); ++i) level_.wordLayer[i] = le16(originalWords, i * 2);
-                for (auto& spawner : spawnerStates_) { spawner.remaining = 0; spawner.availableSlots = 0; }
-                logicTick_ = firstFrame - 1;
-                if (bombProbe) { Bomb bomb; bomb.type = static_cast<BombType>(seededWeapon); bomb.actorOrder = claimActorOrder(); bombs_.push_back(bomb); }
+                ui_.setMenu(false); levelFlow_.setIntroActiveForFixture(false); gameplayReplay_.fixture().playerCount_ = 1;
+                gameplayReplay_.fixture().level_.tiles = originalMap; presentation_.writeBackdropPrefix(originalBackdrop);
+                if (bombProbe) for (size_t i = 0; i < gameplayReplay_.fixture().level_.wordLayer.size(); ++i) gameplayReplay_.fixture().level_.wordLayer[i] = le16(originalWords, i * 2);
+                for (auto& spawner : gameplayReplay_.fixture().spawnerStates_) { spawner.remaining = 0; spawner.availableSlots = 0; }
+                gameplayReplay_.fixture().logicTick_ = firstFrame - 1;
+                if (bombProbe) { Bomb bomb; bomb.type = static_cast<BombType>(seededWeapon); bomb.actorOrder = claimActorOrder(); gameplayReplay_.fixture().bombs_.push_back(bomb); }
                 state(f, true); stage = 5;
             } else if (reentry && tag == "boundary") {
                 if (stage != 5 || f.size() != (activeCount ? 12u : 11u) || number(f.at("sample")) != sample) fail("misplaced lifecycle boundary");
@@ -2237,7 +2003,7 @@ public:
             } else if (tag == "tick") {
                 if (stage != 5 || sample >= samplesPerCase || f.size() != (reentry ? (activeCount ? 22u : 21u) : bombProbe ? 19u : 17u) || number(f.at("sample")) != sample || number(f.at("frame")) != (firstFrame + sample + 1) % 65536) fail("nonconsecutive tick");
                 const bool reenterNow = fireReentry && keyRecorded && sample == 101;
-                if (playerDead_ && !reenterNow) {
+                if (gameplayReplay_.fixture().playerDead_ && !reenterNow) {
                     if (f.at("input_regs") != "-") fail("unexpected input during death");
                 } else registers(f.at("input_regs"), 2);
                 registers(f.at("regs"), 3);
@@ -2245,52 +2011,52 @@ public:
                 if (f.at("control") != control) fail("input mismatch");
                 FrameControls controls; controls.p1Left = control == "left"; controls.p1Right = control == "right";
                 controls.p1Reenter = reenterNow;
-                const int oldHp = impact ? monsters_[0].bossHpByte : 0;
-                const int oldLives = impact ? monsters_[0].bossLives : 0;
+                const int oldHp = impact ? gameplayReplay_.fixture().monsters_[0].bossHpByte : 0;
+                const int oldLives = impact ? gameplayReplay_.fixture().monsters_[0].bossLives : 0;
                 deathObjectiveCount = remainingObjectiveTiles();
-                const int generation = levelResetGeneration_;
+                const int generation = gameplayReplay_.fixture().levelResetGeneration_;
                 boundaryIndex = 0;
                 updateWithControls(controls, 1.0f / 60.0f);
                 if (boundaryIndex != pendingBoundaries.size()) fail("missing lifecycle boundary");
                 pendingBoundaries.clear();
-                resetFrame = generation != levelResetGeneration_;
+                resetFrame = generation != gameplayReplay_.fixture().levelResetGeneration_;
                 if (resetFrame) ++replayResets;
                 state(f, false);
                 if (impact) {
-                    damageUpdates += monsters_[0].bossHpByte != oldHp;
-                    lifeLosses += monsters_[0].bossLives != oldLives;
+                    damageUpdates += gameplayReplay_.fixture().monsters_[0].bossHpByte != oldHp;
+                    lifeLosses += gameplayReplay_.fixture().monsters_[0].bossLives != oldLives;
                 }
                 auto map = originalMap;
                 if (f.at("map") != "-") { std::istringstream delta(f.at("map")); std::string item;
                     while (std::getline(delta, item, ',')) { const auto colon = item.find(':'); if (colon == std::string::npos) fail("invalid map delta");
                         const int at = number(item.substr(0, colon)); if (at < 0 || static_cast<size_t>(at) >= map.size()) fail("map delta index"); map[at] = bytes(item.substr(colon + 1), 1)[0]; } }
-                if (level_.tiles != map) {
-                    const size_t at = static_cast<size_t>(std::mismatch(level_.tiles.begin(), level_.tiles.end(), map.begin()).first - level_.tiles.begin());
-                    fail("map mismatch cell=" + std::to_string(at) + " got=" + std::to_string(level_.tiles[at]) + " wanted=" + std::to_string(map[at]));
+                if (gameplayReplay_.fixture().level_.tiles != map) {
+                    const size_t at = static_cast<size_t>(std::mismatch(gameplayReplay_.fixture().level_.tiles.begin(), gameplayReplay_.fixture().level_.tiles.end(), map.begin()).first - gameplayReplay_.fixture().level_.tiles.begin());
+                    fail("map mismatch cell=" + std::to_string(at) + " got=" + std::to_string(gameplayReplay_.fixture().level_.tiles[at]) + " wanted=" + std::to_string(map[at]));
                 }
                 if (std::find(viewSamples.begin(), viewSamples.end(), sample) != viewSamples.end()) stage = 6;
                 else ++sample;
             } else if (tag == "view") {
                 if (stage != 6 || f.size() != 9 || number(f.at("sample")) != sample) fail("misplaced view");
-                const int camX = std::clamp(static_cast<int>(player_.x) - 152, 0, level_.width * 8 - 313);
-                const int camY = std::clamp(static_cast<int>(player_.y) - 80, 0, level_.height * 8 - 161);
+                const int camX = std::clamp(static_cast<int>(gameplayReplay_.fixture().player_.x) - 152, 0, gameplayReplay_.fixture().level_.width * 8 - 313);
+                const int camY = std::clamp(static_cast<int>(gameplayReplay_.fixture().player_.y) - 80, 0, gameplayReplay_.fixture().level_.height * 8 - 161);
                 if (number(f.at("coarse_x")) != (camX & ~7) || number(f.at("coarse_y")) != (camY & ~7) ||
-                    number(f.at("fine_x")) != (camX & 7) + cameraShakeOffset_ || number(f.at("fine_y")) != (camY & 7) ||
+                    number(f.at("fine_x")) != (camX & 7) + gameplayReplay_.fixture().cameraShakeOffset_ || number(f.at("fine_y")) != (camY & 7) ||
                     f.at("source") != "8" || f.at("destination") != "1284") fail("camera mismatch");
                 bytes(f.at("indexed_sha256"), 32); const auto expected = rle(f.at("pixels"), 312 * 152);
                 const auto currentPalette = palette_; presentation_.setPalette(normalizedPalette);
-                std::fill(fb_.begin(), fb_.end(), argb(palette_, 0)); drawWorldView(player_, 4, 4, 312, 152); canvas_.resetClip();
+                std::fill(fb_.begin(), fb_.end(), argb(palette_, 0)); drawWorldView(gameplayReplay_.fixture().player_, 4, 4, 312, 152); canvas_.resetClip();
                 std::vector<uint32_t> actual; size_t different = 0;
                 for (int y = 0; y < 152; ++y) for (int x = 0; x < 312; ++x) { const auto pixel = fb_[(y + 4) * kScreenW + x + 4]; actual.push_back(pixel);
                     if (pixel != presentation_.backdropColor(expected[y * 312 + x])) ++different; }
                 presentation_.setPalette(currentPalette);
                 if (!outDir.empty()) { writeArgbPpm(joinPath(outDir, name + "_" + std::to_string(sample) + ".ppm"), actual, 312, 152);
-                    manifest << name << ',' << sample << ',' << number(f.at("sample")) + firstFrame + 1 << ',' << player_.x << ',' << player_.y << ',' << energy_
-                             << ',' << (monsters_.empty() ? -1 : monsters_[0].x) << ',' << (monsters_.empty() ? -1 : monsters_[0].y) << ',' << different << '\n'; }
+                    manifest << name << ',' << sample << ',' << number(f.at("sample")) + firstFrame + 1 << ',' << gameplayReplay_.fixture().player_.x << ',' << gameplayReplay_.fixture().player_.y << ',' << gameplayReplay_.fixture().energy_
+                             << ',' << (gameplayReplay_.fixture().monsters_.empty() ? -1 : gameplayReplay_.fixture().monsters_[0].x) << ',' << (gameplayReplay_.fixture().monsters_.empty() ? -1 : gameplayReplay_.fixture().monsters_[0].y) << ',' << different << '\n'; }
                 differences += different; compared += expected.size(); ++views; ++sample; stage = 5;
             } else if (tag == "end") {
                 if (stage != 5 || sample != samplesPerCase || f.size() != 1 || number(f.at("samples")) != samplesPerCase) fail("incomplete case");
-                if (impact && (bossDefeated_ || monsters_[0].kind != 30 || monsters_[0].bossLives != (restartReentry ? 1 : 0) || monsters_[0].hotspotY != (restartReentry ? 0 : -4))) fail("unexpected final boss state");
+                if (impact && (gameplayReplay_.fixture().bossDefeated_ || gameplayReplay_.fixture().monsters_[0].kind != 30 || gameplayReplay_.fixture().monsters_[0].bossLives != (restartReentry ? 1 : 0) || gameplayReplay_.fixture().monsters_[0].hotspotY != (restartReentry ? 0 : -4))) fail("unexpected final boss state");
                 ++caseIndex; stage = 4;
             } else if (tag == "complete") {
                 if (stage != 4 || caseIndex != static_cast<int>(names.size()) || f.size() != 3 || number(f.at("cases")) != caseIndex ||
@@ -2300,8 +2066,8 @@ public:
         if (!complete) fail("missing completion");
         if (restartReentry && (replayResets != 1 || introRecords != 1 || !pendingBoundaries.empty() || boundaryCounts !=
             std::map<std::string, int>{{"fallback_increment", 230}, {"fallback_promote", 1}, {"level_init", 1}, {"intro_wait", 1}, {"intro_ack", 1}})) fail("incomplete shared restart coverage");
-        if (fireReentry && (!keyRecorded || playerDead_ || dyingStates != kDeathStateTicks || waitingStates == 0 ||
-            reentryTimer_ != static_cast<uint16_t>(-static_cast<int>(waitingStates)) || replayResets || introRecords ||
+        if (fireReentry && (!keyRecorded || gameplayReplay_.fixture().playerDead_ || dyingStates != kDeathStateTicks || waitingStates == 0 ||
+            gameplayReplay_.fixture().reentryTimer_ != static_cast<uint16_t>(-static_cast<int>(waitingStates)) || replayResets || introRecords ||
             !pendingBoundaries.empty() || boundaryCounts != std::map<std::string, int>{{"fallback_increment", static_cast<int>(waitingStates)}})) fail("incomplete input reentry coverage");
         debugReentryBoundaryObserver_ = {};
         if (differences) fail("pixel mismatches=" + std::to_string(differences));
@@ -2357,10 +2123,10 @@ public:
         };
         std::vector<uint8_t> originalMap, originalBackdrop, descriptors;
         auto checkPlayer = [&](const std::vector<uint8_t>& raw) {
-            if (raw[0] || raw[1] || raw[0x14] || raw[0x15] || player_.vx8 != static_cast<int16_t>(le16(raw, 6)) ||
-                player_.vy8 != static_cast<int16_t>(le16(raw, 8)) || player_.fracX != le16(raw, 10) || player_.fracY != le16(raw, 12) ||
-                player_.idleTicks != raw[2] || player_.dropTicks != le16(raw, 14) || player_.animation.packed() != animation(raw, 0x16).packed() ||
-                player_.animationBackup.packed() != animation(raw, 0x1D).packed()) fail("player continuity mismatch");
+            if (raw[0] || raw[1] || raw[0x14] || raw[0x15] || gameplayReplay_.fixture().player_.vx8 != static_cast<int16_t>(le16(raw, 6)) ||
+                gameplayReplay_.fixture().player_.vy8 != static_cast<int16_t>(le16(raw, 8)) || gameplayReplay_.fixture().player_.fracX != le16(raw, 10) || gameplayReplay_.fixture().player_.fracY != le16(raw, 12) ||
+                gameplayReplay_.fixture().player_.idleTicks != raw[2] || gameplayReplay_.fixture().player_.dropTicks != le16(raw, 14) || gameplayReplay_.fixture().player_.animation.packed() != animation(raw, 0x16).packed() ||
+                gameplayReplay_.fixture().player_.animationBackup.packed() != animation(raw, 0x1D).packed()) fail("player continuity mismatch");
         };
         auto checkActors = [&](const std::map<std::string, std::string>& fields) {
             const auto ordered = sharedActorEntries();
@@ -2379,9 +2145,9 @@ public:
                 const auto& entry = ordered[i];
                 if (raw[1] != i + 2) fail("visual order mismatch");
                 if (entry.kind == SharedActorKind::Effect) {
-                    if (!transientMatchesOriginal(transientActors_[entry.index], raw, visual, descriptors)) fail("filler mismatch");
+                    if (!transientMatchesOriginal(gameplayReplay_.fixture().transientActors_[entry.index], raw, visual, descriptors)) fail("filler mismatch");
                 } else if (entry.kind == SharedActorKind::Marker) {
-                    const auto& marker = launchPadMarkers_[entry.index];
+                    const auto& marker = gameplayReplay_.fixture().launchPadMarkers_[entry.index];
                     if (raw[0] != marker.kind || raw[2] != marker.timer || raw[0x14] != 6 || raw[0x15] != marker.mode || raw[0x1B] ||
                         static_cast<int16_t>(le16(raw, 6)) != marker.velocityX8 || static_cast<int16_t>(le16(raw, 8)) != marker.velocityY8 ||
                         le16(raw, 10) != marker.fracX || le16(raw, 12) != marker.fracY || le16(visual, 0) != marker.x || le16(visual, 2) != marker.y ||
@@ -2433,8 +2199,8 @@ public:
                 stage = 1;
             } else if (tag == "map") {
                 requireFields({"width", "height", "bytes"});
-                if (stage != 1 || number(fields.at("width")) != level_.width || number(fields.at("height")) != level_.height) fail("invalid map");
-                originalMap = bytes(fields.at("bytes"), level_.width * level_.height);
+                if (stage != 1 || number(fields.at("width")) != gameplayReplay_.fixture().level_.width || number(fields.at("height")) != gameplayReplay_.fixture().level_.height) fail("invalid map");
+                originalMap = bytes(fields.at("bytes"), gameplayReplay_.fixture().level_.width * gameplayReplay_.fixture().level_.height);
                 stage = 2;
             } else if (tag == "backdrop") {
                 requireFields({"bytes"});
@@ -2463,33 +2229,32 @@ public:
                 if (firstFrame != 100 + (caseIndex & 1) || initialCount != (caseIndex < 2 || caseIndex >= 6 ? 0 : (caseIndex < 4 ? 29 : 30)) ||
                     control != (caseIndex == 6 ? "jump_down" : (caseIndex == 7 ? "idle" : "down"))) fail("invalid case seed");
                 for (int i = 0; i < level; ++i) resetLevel(i);
-                level_.tiles = originalMap;
+                gameplayReplay_.fixture().level_.tiles = originalMap;
                 presentation_.writeBackdropPrefix(originalBackdrop);
-                ui_.setMenu(false); levelFlow_.setIntroActiveForFixture(false); playerCount_ = 1;
-                monsters_.clear(); bossLinks_.clear(); bombs_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear(); transientActors_.clear();
-                for (auto& spawner : spawnerStates_) { spawner.remaining = 0; spawner.availableSlots = 0; }
+                ui_.setMenu(false); levelFlow_.setIntroActiveForFixture(false); gameplayReplay_.fixture().playerCount_ = 1;
+                gameplayReplay_.fixture().monsters_.clear(); gameplayReplay_.fixture().bossLinks_.clear(); gameplayReplay_.fixture().bombs_.clear(); gameplayReplay_.fixture().bonusDrops_.clear(); gameplayReplay_.fixture().launchPadMarkers_.clear(); gameplayReplay_.fixture().transientActors_.clear();
+                for (auto& spawner : gameplayReplay_.fixture().spawnerStates_) { spawner.remaining = 0; spawner.availableSlots = 0; }
                 const int padX = number(fields.at("pad_x")), padY = number(fields.at("pad_y"));
                 const int x = number(fields.at("x")), y = number(fields.at("y"));
                 if (x != padX * 8 || y != padY * 8 - 16 || tileAt(padX, padY) != 0x27) fail("invalid real pad seed");
                 const auto raw = bytes(fields.at("entry"), 38);
-                player_.x = static_cast<float>(x); player_.y = static_cast<float>(y); player_.vx8 = player_.vy8 = 0;
-                player_.fracX = caseIndex >= 8 ? 83 : 0; player_.fracY = caseIndex >= 8 ? 149 : 0;
-                player_.animation = animation(raw, 0x16); player_.animationBackup = animation(raw, 0x1D);
-                player_.idleTicks = raw[2]; player_.dropTicks = 0; player_.spriteIndex = 0;
-                syncPlayerVelocityMirror(player_);
-                logicTick_ = firstFrame - 1; lives_ = 99; energy_ = 100;
+                gameplayReplay_.fixture().player_.x = static_cast<float>(x); gameplayReplay_.fixture().player_.y = static_cast<float>(y); gameplayReplay_.fixture().player_.vx8 = gameplayReplay_.fixture().player_.vy8 = 0;
+                gameplayReplay_.fixture().player_.fracX = caseIndex >= 8 ? 83 : 0; gameplayReplay_.fixture().player_.fracY = caseIndex >= 8 ? 149 : 0;
+                gameplayReplay_.fixture().player_.animation = animation(raw, 0x16); gameplayReplay_.fixture().player_.animationBackup = animation(raw, 0x1D);
+                gameplayReplay_.fixture().player_.idleTicks = raw[2]; gameplayReplay_.fixture().player_.dropTicks = 0; gameplayReplay_.fixture().player_.spriteIndex = 0;
+                syncPlayerVelocityMirror(gameplayReplay_.fixture().player_);
+                gameplayReplay_.fixture().logicTick_ = firstFrame - 1; gameplayReplay_.fixture().lives_ = 99; gameplayReplay_.fixture().energy_ = 100;
                 clearSoundLatch(); sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
                 checkPlayer(raw);
                 // Match the original seeding boundary after the non-player
                 // pass, so odd-frame fillers are not advanced an extra time.
-                debugActorPassObserver_ = [&] {
-                    if (sample) return;
-                    for (int i = 0; i < initialCount; ++i) {
-                        TransientActor filler; filler.x = filler.y = 8; filler.kind = 0; filler.timer = 240;
-                        filler.spriteIndex = 79; filler.animation = {0, 0, 0, 0, 0, 0, 0}; filler.actorOrder = claimActorOrder();
-                        transientActors_.push_back(filler);
-                    }
-                };
+                AfterActorPassAction action;
+                for (int i = 0; i < initialCount; ++i) {
+                    TransientActor filler; filler.x = filler.y = 8; filler.kind = 0; filler.timer = 240;
+                    filler.spriteIndex = 79; filler.animation = {0, 0, 0, 0, 0, 0, 0};
+                    action.appendActors.push_back(filler);
+                }
+                gameplay_.scheduleAfterActorPass(std::move(action));
                 stage = 4;
             } else if (tag == "tick") {
                 requireFields({"sample", "frame", "entry", "pre", "response", "edges", "sound_snapshot", "accepted_sound", "priority", "normalized",
@@ -2499,7 +2264,7 @@ public:
                 checkPlayer(bytes(fields.at("entry"), 38));
                 const auto visual = bytes(fields.at("player"), 8), pre = bytes(fields.at("pre"), 58), response = bytes(fields.at("response"), 58);
                 const auto edges = bytes(fields.at("edges"), 16);
-                if (le16(visual, 0) != static_cast<int>(player_.x) || le16(visual, 2) != static_cast<int>(player_.y)) fail("player position discontinuity");
+                if (le16(visual, 0) != static_cast<int>(gameplayReplay_.fixture().player_.x) || le16(visual, 2) != static_cast<int>(gameplayReplay_.fixture().player_.y)) fail("player position discontinuity");
                 const bool launching = sample == 0 && control == "down";
                 if (sample == 0 && (edges[13] != 0x27 || pre[24] != 0)) fail("original launch gate not satisfied");
                 if (fields.at("sound_snapshot") != (launching ? "350005" : "-")) fail("sound latch mismatch");
@@ -2510,7 +2275,7 @@ public:
                 controls.p1Down = sample == 0 && control != "idle";
                 controls.p1Jump = sample == 0 && control == "jump_down";
                 updateWithControls(controls, 1.0f / 60.0f);
-                if (player_.vy8 != static_cast<int16_t>(le16(response, 44))) fail("launch/gravity velocity mismatch");
+                if (gameplayReplay_.fixture().player_.vy8 != static_cast<int16_t>(le16(response, 44))) fail("launch/gravity velocity mismatch");
                 if (launching && (sound_.lastPumped().offset != 0x35 || sound_.lastPumped().selector != 5 ||
                     number(fields.at("result")) != (initialCount < 30 ? 1 : 0))) fail("allocation/sound result mismatch");
                 checkActors(fields);
@@ -2522,11 +2287,11 @@ public:
                 registers(fields.at("regs"), true);
                 checkActors(fields);
                 const auto visual = bytes(fields.at("player"), 8);
-                const int x = static_cast<int>(player_.x), y = static_cast<int>(player_.y);
+                const int x = static_cast<int>(gameplayReplay_.fixture().player_.x), y = static_cast<int>(gameplayReplay_.fixture().player_.y);
                 if (x != le16(visual, 0) || y != le16(visual, 2) || !std::equal(visual.begin() + 4, visual.end(),
-                    descriptors.begin() + (player_.spriteIndex + 1) * 4)) fail("player rendered position/sprite mismatch");
-                const int camX = std::clamp(x - 152, 0, level_.width * 8 - 313);
-                const int camY = std::clamp(y - 80, 0, level_.height * 8 - 161);
+                    descriptors.begin() + (gameplayReplay_.fixture().player_.spriteIndex + 1) * 4)) fail("player rendered position/sprite mismatch");
+                const int camX = std::clamp(x - 152, 0, gameplayReplay_.fixture().level_.width * 8 - 313);
+                const int camY = std::clamp(y - 80, 0, gameplayReplay_.fixture().level_.height * 8 - 161);
                 if (number(fields.at("coarse_x")) != (camX & ~7) || number(fields.at("coarse_y")) != (camY & ~7) ||
                     number(fields.at("fine_x")) != (camX & 7) || number(fields.at("fine_y")) != (camY & 7) ||
                     fields.at("source") != "8" || fields.at("destination") != "1284") fail("camera mismatch");
@@ -2534,7 +2299,7 @@ public:
                 bytes(fields.at("indexed_sha256"), 32);
                 const auto gameplayPalette = palette_; presentation_.setPalette(normalizedPalette);
                 std::fill(fb_.begin(), fb_.end(), argb(palette_, 0));
-                drawWorldView(player_, 4, 4, 312, 152); canvas_.resetClip();
+                drawWorldView(gameplayReplay_.fixture().player_, 4, 4, 312, 152); canvas_.resetClip();
                 std::vector<uint32_t> actual;
                 size_t different = 0;
                 for (int yy = 0; yy < 152; ++yy) for (int xx = 0; xx < 312; ++xx) {
@@ -2544,15 +2309,15 @@ public:
                 presentation_.setPalette(gameplayPalette);
                 if (!outDir.empty()) {
                     writeArgbPpm(joinPath(outDir, name + "_" + std::to_string(sample) + ".ppm"), actual, 312, 152);
-                    manifest << name << ',' << sample << ',' << firstFrame + sample + 1 << ',' << x << ',' << y << ',' << player_.vy8 << ','
-                             << static_cast<int>(player_.fracY) << ',' << launchPadMarkers_.size() << ',' << sharedActorCount() << ',' << different << '\n';
+                    manifest << name << ',' << sample << ',' << firstFrame + sample + 1 << ',' << x << ',' << y << ',' << gameplayReplay_.fixture().player_.vy8 << ','
+                             << static_cast<int>(gameplayReplay_.fixture().player_.fracY) << ',' << gameplayReplay_.fixture().launchPadMarkers_.size() << ',' << sharedActorCount() << ',' << different << '\n';
                 }
-                if (level_.tiles != originalMap) fail("map changed");
+                if (gameplayReplay_.fixture().level_.tiles != originalMap) fail("map changed");
                 differences += different; compared += expected.size();
                 ++sample; stage = 4;
             } else if (tag == "end") {
                 requireFields({"samples"});
-                if (stage != 4 || sample != 12 || fields.at("samples") != "12" || !launchPadMarkers_.empty()) fail("incomplete marker lifetime");
+                if (stage != 4 || sample != 12 || fields.at("samples") != "12" || !gameplayReplay_.fixture().launchPadMarkers_.empty()) fail("incomplete marker lifetime");
                 debugActorPassObserver_ = {}; ++caseIndex; stage = 3;
             } else if (tag == "complete") {
                 requireFields({"cases", "samples", "views"});
@@ -2650,13 +2415,13 @@ public:
                     fields.at("before") != "7a13" || fields.at("after") != "7a57") fail("invalid provenance");
                 pitch = number(fields.at("pitch"));
                 if (pitch != 160 && pitch != 320) fail("invalid pitch");
-                playerCount_ = pitch == 160 ? 2 : 1;
+                gameplayReplay_.fixture().playerCount_ = pitch == 160 ? 2 : 1;
                 buildBackdropBuffer();
                 stage = 1;
             } else if (tag == "map") {
                 requireFields({"bytes"});
                 if (stage != 1) fail("misplaced map");
-                level_.tiles = bytes(fields.at("bytes"), 1980);
+                gameplayReplay_.fixture().level_.tiles = bytes(fields.at("bytes"), 1980);
                 stage = 2;
             } else if (tag == "backdrop") {
                 requireFields({"bytes"});
@@ -2716,30 +2481,30 @@ public:
                     if (le16(visuals, i * 8) != visualX || le16(visuals, i * 8 + 2) != visualY ||
                         !std::equal(visuals.begin() + i * 8 + 4, visuals.begin() + i * 8 + 8, descriptors.begin() + descriptor)) fail("visual seed mismatch");
                 }
-                monsters_.clear(); bombs_.clear(); bonusDrops_.clear(); transientActors_.clear(); launchPadMarkers_.clear();
-                player_.x = player2_.x = static_cast<float>(x); player_.y = player2_.y = static_cast<float>(y);
-                player_.spriteIndex = 0; player2_.spriteIndex = 20; playerCount_ = p2 ? 2 : 1;
-                cameraShakeOffset_ = static_cast<uint16_t>(shake);
+                gameplayReplay_.fixture().monsters_.clear(); gameplayReplay_.fixture().bombs_.clear(); gameplayReplay_.fixture().bonusDrops_.clear(); gameplayReplay_.fixture().transientActors_.clear(); gameplayReplay_.fixture().launchPadMarkers_.clear();
+                gameplayReplay_.fixture().player_.x = gameplayReplay_.fixture().player2_.x = static_cast<float>(x); gameplayReplay_.fixture().player_.y = gameplayReplay_.fixture().player2_.y = static_cast<float>(y);
+                gameplayReplay_.fixture().player_.spriteIndex = 0; gameplayReplay_.fixture().player2_.spriteIndex = 20; gameplayReplay_.fixture().playerCount_ = p2 ? 2 : 1;
+                gameplayReplay_.fixture().cameraShakeOffset_ = static_cast<uint16_t>(shake);
                 for (size_t i = 0; i < order.size(); ++i) {
                     const auto& type = order[i];
                     if (type == "effect" || type == "last_sprite") {
                         TransientActor effect; effect.actorOrder = i + 1; effect.x = ax; effect.y = ay; effect.timer = 20;
-                        effect.spriteIndex = static_cast<uint8_t>(spriteIds.at(type)); transientActors_.push_back(effect);
+                        effect.spriteIndex = static_cast<uint8_t>(spriteIds.at(type)); gameplayReplay_.fixture().transientActors_.push_back(effect);
                     } else if (type == "bomb") {
-                        Bomb bomb; bomb.actorOrder = i + 1; bomb.moving = true; bomb.pixelX = ax; bomb.pixelY = ay; bombs_.push_back(bomb);
+                        Bomb bomb; bomb.actorOrder = i + 1; bomb.moving = true; bomb.pixelX = ax; bomb.pixelY = ay; gameplayReplay_.fixture().bombs_.push_back(bomb);
                     } else if (type == "monster") {
                         ActiveMonster monster; monster.actorOrder = i + 1; monster.x = ax; monster.hotspotY = 6;
-                        monster.y = ay - monster.hotspotY; monster.animFrame = 43; monster.behavior = 1; monsters_.push_back(monster);
+                        monster.y = ay - monster.hotspotY; monster.animFrame = 43; monster.behavior = 1; gameplayReplay_.fixture().monsters_.push_back(monster);
                     } else {
                         BonusDrop reward; reward.actorOrder = i + 1; reward.x = static_cast<float>(ax); reward.y = static_cast<float>(ay);
-                        reward.type = BonusType::FirstAid; bonusDrops_.push_back(reward);
+                        reward.type = BonusType::FirstAid; gameplayReplay_.fixture().bonusDrops_.push_back(reward);
                     }
                 }
                 const auto expected = decodeRle(fields.at("pixels"), (pitch - 8) * 152);
                 bytes(fields.at("indexed_sha256"), 32);
                 originalViews.emplace(name, expected);
                 std::fill(fb_.begin(), fb_.end(), argb(palette_, 0));
-                drawWorldView(player_, 4, 4, pitch - 8, 152);
+                drawWorldView(gameplayReplay_.fixture().player_, 4, 4, pitch - 8, 152);
                 canvas_.resetClip();
                 std::vector<uint32_t> actual;
                 size_t different = 0;
@@ -2851,11 +2616,11 @@ public:
                 name = fields.at("name"); sample = 0;
                 checkRegisters();
                 resetLevel(0); ui_.setMenu(false); levelFlow_.setIntroActiveForFixture(false);
-                spawnerStates_.clear(); monsters_.clear(); bombs_.clear(); bonusDrops_.clear(); transientActors_.clear(); launchPadMarkers_.clear();
-                player_.x = 240; player_.y = 168; lives_ = 99;
-                level_.tiles = baseline;
-                for (size_t i = 0; i < baseline.size(); ++i) level_.wordLayer[i] = le16(words, i * 2);
-                logicTick_ = 100; randomSeed_ = 0x12345678;
+                gameplayReplay_.fixture().spawnerStates_.clear(); gameplayReplay_.fixture().monsters_.clear(); gameplayReplay_.fixture().bombs_.clear(); gameplayReplay_.fixture().bonusDrops_.clear(); gameplayReplay_.fixture().transientActors_.clear(); gameplayReplay_.fixture().launchPadMarkers_.clear();
+                gameplayReplay_.fixture().player_.x = 240; gameplayReplay_.fixture().player_.y = 168; gameplayReplay_.fixture().lives_ = 99;
+                gameplayReplay_.fixture().level_.tiles = baseline;
+                for (size_t i = 0; i < baseline.size(); ++i) gameplayReplay_.fixture().level_.wordLayer[i] = le16(words, i * 2);
+                gameplayReplay_.fixture().logicTick_ = 100; gameplayReplay_.fixture().randomSeed_ = 0x12345678;
                 const auto seeded = entries(fields.at("actors"));
                 if (seeded.size() != (cases >= 2 && cases <= 7 ? 30u : 4u)) fail("invalid seed count");
                 for (size_t i = 0; i < seeded.size(); ++i) {
@@ -2871,30 +2636,30 @@ public:
                         effect.vx8 = static_cast<int16_t>(le16(raw, 6)); effect.vy8 = static_cast<int16_t>(le16(raw, 8));
                         effect.fracX = raw[10]; effect.fracY = raw[12];
                         effect.animation = {raw[0x16], raw[0x17], raw[0x18], raw[0x19], raw[0x1a], raw[0x1b], static_cast<int8_t>(raw[0x1c])};
-                        transientActors_.push_back(effect);
+                        gameplayReplay_.fixture().transientActors_.push_back(effect);
                     } else if (raw[0] >= 13 && raw[0] <= 16 && raw[0x15] == 2) {
                         Bomb bomb;
                         bomb.actorOrder = i + 1; bomb.type = static_cast<BombType>(raw[0] - 13); bomb.timer = 2 * raw[2] - 1;
                         bomb.fuseTicks = bombProfile(bomb.type).fuseTicks; bomb.moving = true; bomb.hotspotY = static_cast<int8_t>(raw[0x14]);
                         bomb.pixelX = le16(visual, 0); bomb.pixelY = le16(visual, 2); bomb.x = (bomb.pixelX + 4) >> 3; bomb.y = bomb.pixelY >> 3;
                         bomb.vx8 = static_cast<int16_t>(le16(raw, 6)); bomb.vy8 = static_cast<int16_t>(le16(raw, 8));
-                        bomb.fracX = raw[10]; bomb.fracY = raw[12]; bombs_.push_back(bomb);
+                        bomb.fracX = raw[10]; bomb.fracY = raw[12]; gameplayReplay_.fixture().bombs_.push_back(bomb);
                     } else if (raw[0] == 12 && raw[0x15] == 2) {
                         ActiveMonster corpse;
                         corpse.actorOrder = i + 1; corpse.kind = 12; corpse.behavior = 2; corpse.hotspotY = raw[0x14]; corpse.corpseSprite = static_cast<uint8_t>(sprite);
                         corpse.x = le16(visual, 0); corpse.y = le16(visual, 2) - corpse.hotspotY;
                         corpse.vx8 = static_cast<int16_t>(le16(raw, 6)); corpse.vy8 = static_cast<int16_t>(le16(raw, 8));
                         corpse.fracX = raw[10]; corpse.fracY = raw[12]; corpse.stateTimer = raw[2] ? 2 * raw[2] - 1 : 0;
-                        corpse.animMode = 0; corpse.deathRewardPending = true; monsters_.push_back(corpse);
+                        corpse.animMode = 0; corpse.deathRewardPending = true; gameplayReplay_.fixture().monsters_.push_back(corpse);
                     } else if (raw[0] >= 19 && raw[0] <= 25 && raw[0x15] == 2) {
                         BonusDrop reward;
                         reward.actorOrder = i + 1; reward.type = static_cast<BonusType>(raw[0] - 19); reward.timer = raw[2]; reward.hotspotY = raw[0x14];
                         reward.x = le16(visual, 0); reward.y = le16(visual, 2);
                         reward.vx8 = static_cast<int16_t>(le16(raw, 6)); reward.vy8 = static_cast<int16_t>(le16(raw, 8));
-                        reward.fracX = raw[10]; reward.fracY = raw[12]; bonusDrops_.push_back(reward);
+                        reward.fracX = raw[10]; reward.fracY = raw[12]; gameplayReplay_.fixture().bonusDrops_.push_back(reward);
                     } else fail("unhandled seed actor");
                 }
-                nextActorOrder_ = seeded.size() + 1;
+                gameplayReplay_.fixture().nextActorOrder_ = seeded.size() + 1;
                 stage = 4;
             } else if (tag == "tick") {
                 requireFields({"sample", "frame", "count", "visuals", "rng", "actors", "map", "regs"});
@@ -2904,7 +2669,7 @@ public:
                     const auto expected = entries(fields.at("actors"));
                     const auto actual = sharedActorEntries();
                     if (actual.size() != expected.size() || actual.size() != std::stoul(fields.at("count")) || actual.size() + 2 != std::stoul(fields.at("visuals"))) fail("count mismatch");
-                    if (randomSeed_ != le32(bytes(fields.at("rng"), 4), 0)) fail("RNG mismatch");
+                    if (gameplayReplay_.fixture().randomSeed_ != le32(bytes(fields.at("rng"), 4), 0)) fail("RNG mismatch");
                     for (size_t i = 0; i < actual.size(); ++i) {
                         const auto& item = actual[i]; const auto& raw = expected[i].first; const auto& visual = expected[i].second;
                         const auto suffix = " at slot=" + std::to_string(i + 1);
@@ -2912,18 +2677,18 @@ public:
                         int x = 0, y = 0, sprite = 0, kind = 0, timer = 0, hotspot = 0, behavior = 2;
                         int16_t vx = 0, vy = 0; uint8_t fx = 0, fy = 0;
                         if (item.kind == SharedActorKind::Effect) {
-                            if (!transientMatchesOriginal(transientActors_[item.index], raw, visual, descriptors)) fail("effect/order mismatch" + suffix);
+                            if (!transientMatchesOriginal(gameplayReplay_.fixture().transientActors_[item.index], raw, visual, descriptors)) fail("effect/order mismatch" + suffix);
                             ++compared; continue;
                         } else if (item.kind == SharedActorKind::Bomb) {
-                            const auto& b = bombs_[item.index]; kind = bombProfile(b.type).actorKind; timer = (b.timer + 1) / 2;
+                            const auto& b = gameplayReplay_.fixture().bombs_[item.index]; kind = bombProfile(b.type).actorKind; timer = (b.timer + 1) / 2;
                             x = b.pixelX; y = b.pixelY; vx = b.vx8; vy = b.vy8; fx = b.fracX; fy = b.fracY;
                             hotspot = b.hotspotY < 0 ? bombHeightOffset(b.type) : b.hotspotY; sprite = static_cast<int>(bombProfile(b.type).spriteBase);
                         } else if (item.kind == SharedActorKind::Monster) {
-                            const auto& c = monsters_[item.index]; kind = c.kind; timer = (c.stateTimer + 1) / 2;
+                            const auto& c = gameplayReplay_.fixture().monsters_[item.index]; kind = c.kind; timer = (c.stateTimer + 1) / 2;
                             x = c.x; y = c.y + c.hotspotY; vx = c.vx8; vy = c.vy8; fx = c.fracX; fy = c.fracY;
                             hotspot = c.hotspotY; sprite = gameRenderer_.monsterSpriteIndex(c); behavior = c.behavior;
                         } else if (item.kind == SharedActorKind::Reward) {
-                            const auto& r = bonusDrops_[item.index]; kind = 19 + static_cast<int>(r.type); timer = r.timer;
+                            const auto& r = gameplayReplay_.fixture().bonusDrops_[item.index]; kind = 19 + static_cast<int>(r.type); timer = r.timer;
                             x = static_cast<int>(r.x); y = static_cast<int>(r.y); vx = r.vx8; vy = r.vy8; fx = r.fracX; fy = r.fracY;
                             hotspot = r.hotspotY; sprite = bonusSpriteIndex(r.type);
                         } else fail("unexpected marker");
@@ -2939,12 +2704,12 @@ public:
                         const auto colon = cell.find(':');
                         if (colon == std::string::npos || !wanted.emplace(std::stoi(cell.substr(0, colon)), bytes(cell.substr(colon + 1), 1)[0]).second) fail("invalid map delta");
                     }
-                    for (size_t i = 0; i < baseline.size(); ++i) if (level_.tiles[i] != baseline[i]) changed.emplace(static_cast<int>(i), level_.tiles[i]);
+                    for (size_t i = 0; i < baseline.size(); ++i) if (gameplayReplay_.fixture().level_.tiles[i] != baseline[i]) changed.emplace(static_cast<int>(i), gameplayReplay_.fixture().level_.tiles[i]);
                     if (wanted != changed) fail("map mismatch");
                     if (!outDir.empty() && (sample == 0 || sample == 9 || sample == 29 || sample == 39)) {
                         const auto inspection = inspectRenderedFrame("shared-order-" + name);
                         writeArgbPpm(joinPath(outDir, name + "_" + std::to_string(sample) + ".ppm"), fb_, kScreenW, kScreenH);
-                        manifest << name << ',' << sample << ',' << logicTick_ << ',' << actual.size() << ',' << randomSeed_ << ',' << inspection.hash << '\n';
+                        manifest << name << ',' << sample << ',' << gameplayReplay_.fixture().logicTick_ << ',' << actual.size() << ',' << gameplayReplay_.fixture().randomSeed_ << ',' << inspection.hash << '\n';
                     }
                 };
                 updateWithControls({}, 1.0f / 60.0f);
@@ -3045,9 +2810,9 @@ public:
                 if (fields.at("name") != name || number(fields.at("weapon")) != weapon || number(fields.at("count")) != count) fail("invalid case seed");
                 resetLevel(0);
                 ui_.setMenu(false); ui_.setPaused(false); levelFlow_.setIntroActiveForFixture(false);
-                monsters_.clear(); bombs_.clear(); transientActors_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear();
+                gameplayReplay_.fixture().monsters_.clear(); gameplayReplay_.fixture().bombs_.clear(); gameplayReplay_.fixture().transientActors_.clear(); gameplayReplay_.fixture().bonusDrops_.clear(); gameplayReplay_.fixture().launchPadMarkers_.clear();
                 sound_.restoreLatchForFixture({});
-                player_.x = 104; player_.y = 168; player_.vx8 = player_.vy8 = 0;
+                gameplayReplay_.fixture().player_.x = 104; gameplayReplay_.fixture().player_.y = 168; gameplayReplay_.fixture().player_.vx8 = gameplayReplay_.fixture().player_.vy8 = 0;
                 const std::string expectedLaunch = mode == "bomb" ? "104,168,0,0" : "0,0,0,0";
                 if (fields.at("launch") != expectedLaunch) fail("invalid launch seed");
                 stage = 3;
@@ -3058,10 +2823,10 @@ public:
                 if (number(fields.at("count")) != count || number(fields.at("visuals")) != count + 2 || fields.at("rng") != "78563412" ||
                     fields.at("inventory") != "09090909" || fields.at("result") != "0" || fields.at("fire") != "0" ||
                     number(fields.at("selected")) != (weapon ? weapon : 1)) fail("invalid before state");
-                logicTick_ = static_cast<uint16_t>(frame - 1);
-                randomSeed_ = le32(bytes(fields.at("rng"), 4), 0);
-                bombInventory_.counts.fill(9);
-                bombInventory_.selected = static_cast<BombType>(weapon ? weapon - 1 : 0);
+                gameplayReplay_.fixture().logicTick_ = static_cast<uint16_t>(frame - 1);
+                gameplayReplay_.fixture().randomSeed_ = le32(bytes(fields.at("rng"), 4), 0);
+                gameplayReplay_.fixture().bombInventory_.counts.fill(9);
+                gameplayReplay_.fixture().bombInventory_.selected = static_cast<BombType>(weapon ? weapon - 1 : 0);
                 initial = entries(fields.at("actors"));
                 if (initial.size() != static_cast<size_t>(count)) fail("invalid filler count");
                 for (size_t i = 0; i < initial.size(); ++i) {
@@ -3075,58 +2840,58 @@ public:
                     actor.y = 88 + static_cast<int>(i / 10) * 16;
                     actor.animation = {0, 0, 0, 0, 0, 0, 0};
                     if (!transientMatchesOriginal(actor, initial[i].first, initial[i].second, descriptors)) fail("invalid filler visual");
-                    transientActors_.push_back(actor);
+                    gameplayReplay_.fixture().transientActors_.push_back(actor);
                 }
                 const auto raw = bytes(fields.at("spawner"), 30);
                 std::array<uint8_t, 30> record{};
                 std::copy(raw.begin(), raw.end(), record.begin());
                 if (record[8] != 1 || record[9] != 7 || record[10] != 2 || record[27] != 1) fail("invalid spawner seed");
-                level_.monsterSpawners = {parseMonsterSpawner(record)};
-                spawnerStates_.resize(1);
-                spawnerStates_[0].remaining = record[9]; spawnerStates_[0].availableSlots = record[10]; spawnerStates_[0].cooldown = record[27];
+                gameplayReplay_.fixture().level_.monsterSpawners = {parseMonsterSpawner(record)};
+                gameplayReplay_.fixture().spawnerStates_.resize(1);
+                gameplayReplay_.fixture().spawnerStates_[0].remaining = record[9]; gameplayReplay_.fixture().spawnerStates_[0].availableSlots = record[10]; gameplayReplay_.fixture().spawnerStates_[0].cooldown = record[27];
                 stage = 4;
             } else if (tag == "after") {
                 if (stage != 4) fail("missing before state");
-                if (mode == "bomb") placeBombAt(player_, bombInventory_, 1);
+                if (mode == "bomb") placeBombAt(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().bombInventory_, 1);
                 else updateMonsterSpawners();
                 const bool success = sharedActorCount() > static_cast<size_t>(count);
                 if (sharedActorCount() != static_cast<size_t>(number(fields.at("count")))) fail("actor count mismatch");
                 if (number(fields.at("result")) != success || number(fields.at("visuals")) != static_cast<int>(sharedActorCount()) + 2 ||
                     number(fields.at("frame")) != frame) fail("allocation result mismatch");
                 const auto expectedInventory = bytes(fields.at("inventory"), 4);
-                for (size_t i = 0; i < 4; ++i) if (bombInventory_.counts[i] != expectedInventory[i]) fail("inventory mismatch");
-                if (number(fields.at("selected")) != bombTypeIndex(bombInventory_.selected) + 1 ||
+                for (size_t i = 0; i < 4; ++i) if (gameplayReplay_.fixture().bombInventory_.counts[i] != expectedInventory[i]) fail("inventory mismatch");
+                if (number(fields.at("selected")) != bombTypeIndex(gameplayReplay_.fixture().bombInventory_.selected) + 1 ||
                     number(fields.at("fire")) != (mode == "bomb" && success) || sound_.latch().active != (mode == "bomb" && success)) fail("fire side effect mismatch");
-                if (randomSeed_ != le32(bytes(fields.at("rng"), 4), 0)) fail("RNG mismatch");
+                if (gameplayReplay_.fixture().randomSeed_ != le32(bytes(fields.at("rng"), 4), 0)) fail("RNG mismatch");
                 const auto preRegs = bytes(before.at("regs"), 12), postRegs = bytes(fields.at("regs"), 12);
                 if (le16(preRegs, 2) - le16(preRegs, 0) != 0xaa2) fail("invalid runtime segments");
                 for (size_t at : {0u, 2u, 6u, 8u, 10u}) if (le16(preRegs, at) != le16(postRegs, at)) fail("register mismatch");
                 auto expectedSpawner = bytes(before.at("spawner"), 30);
                 if (mode == "spawner") {
-                    expectedSpawner[9] = static_cast<uint8_t>(spawnerStates_[0].remaining);
-                    expectedSpawner[10] = static_cast<uint8_t>(spawnerStates_[0].availableSlots);
-                    expectedSpawner[27] = static_cast<uint8_t>(spawnerStates_[0].cooldown);
+                    expectedSpawner[9] = static_cast<uint8_t>(gameplayReplay_.fixture().spawnerStates_[0].remaining);
+                    expectedSpawner[10] = static_cast<uint8_t>(gameplayReplay_.fixture().spawnerStates_[0].availableSlots);
+                    expectedSpawner[27] = static_cast<uint8_t>(gameplayReplay_.fixture().spawnerStates_[0].cooldown);
                 }
                 if (bytes(fields.at("spawner"), 30) != expectedSpawner) fail("spawner budget/countdown mismatch");
                 const auto actual = entries(fields.at("actors"));
                 if (actual.size() != sharedActorCount()) fail("actor entries mismatch");
                 for (size_t i = 0; i < initial.size(); ++i) if (actual[i] != initial[i] ||
-                    !transientMatchesOriginal(transientActors_.at(i), actual[i].first, actual[i].second, descriptors)) fail("existing actor changed");
+                    !transientMatchesOriginal(gameplayReplay_.fixture().transientActors_.at(i), actual[i].first, actual[i].second, descriptors)) fail("existing actor changed");
                 if (success) {
                     const auto& raw = actual.back().first;
                     const auto& visual = actual.back().second;
                     if (raw[1] != count + 2) fail("allocated visual slot mismatch");
                     int sprite = 0;
                     if (mode == "bomb") {
-                        const auto& bomb = bombs_.at(0);
-                        if (bombs_.size() != 1 || raw[0] != 13 + bombTypeIndex(bomb.type) || raw[2] != (bomb.timer + 1) / 2 ||
+                        const auto& bomb = gameplayReplay_.fixture().bombs_.at(0);
+                        if (gameplayReplay_.fixture().bombs_.size() != 1 || raw[0] != 13 + bombTypeIndex(bomb.type) || raw[2] != (bomb.timer + 1) / 2 ||
                             raw[0x15] != 2 || raw[0x14] != bombHeightOffset(bomb.type) || bomb.pixelX != le16(visual, 0) || bomb.pixelY != le16(visual, 2) ||
                             bomb.vx8 != static_cast<int16_t>(le16(raw, 6)) || bomb.vy8 != static_cast<int16_t>(le16(raw, 8)) ||
                             bomb.fracX != le16(raw, 10) || bomb.fracY != le16(raw, 12)) fail("bomb constructor mismatch");
                         sprite = static_cast<int>(bombProfile(bomb.type).spriteBase);
                     } else {
-                        const auto& monster = monsters_.at(0);
-                        if (monsters_.size() != 1 || raw[0] != monster.kind || raw[0x15] != monster.behavior || raw[0x24] != monster.hp - 1 ||
+                        const auto& monster = gameplayReplay_.fixture().monsters_.at(0);
+                        if (gameplayReplay_.fixture().monsters_.size() != 1 || raw[0] != monster.kind || raw[0x15] != monster.behavior || raw[0x24] != monster.hp - 1 ||
                             monster.x != le16(visual, 0) || monster.y + monster.hotspotY != le16(visual, 2) || raw[0x14] != monster.hotspotY ||
                             le16(raw, 14) != monster.ai0 || le16(raw, 16) != monster.ai1 || le16(raw, 18) != monster.ai2 ||
                             raw[0x25] != monster.spawnerIndex + 1 || raw[0x16] != monster.animCursor + 1 || raw[0x17] != monster.animStart + 1 ||
@@ -3142,8 +2907,8 @@ public:
                 const auto inspected = inspectRenderedFrame("shared-capacity-" + name);
                 if (!outDir.empty()) {
                     writeArgbPpm(joinPath(outDir, name + ".ppm"), fb_, kScreenW, kScreenH);
-                    manifest << name << ',' << frame << ',' << sharedActorCount() << ',' << bombs_.size() << ',' << monsters_.size()
-                             << ',' << transientActors_.size() << ',' << randomSeed_ << ',' << inspected.hash << '\n';
+                    manifest << name << ',' << frame << ',' << sharedActorCount() << ',' << gameplayReplay_.fixture().bombs_.size() << ',' << gameplayReplay_.fixture().monsters_.size()
+                             << ',' << gameplayReplay_.fixture().transientActors_.size() << ',' << gameplayReplay_.fixture().randomSeed_ << ',' << inspected.hash << '\n';
                 }
                 stage = 5;
             } else if (tag == "frame") {
@@ -3151,15 +2916,15 @@ public:
                     if (frame != 91) fail("invalid expiry frame seed");
                     // Re-run this captured boundary through the production frame,
                     // including allocation before the first effect retires.
-                    spawnerStates_[0].cooldown = 1;
+                    gameplayReplay_.fixture().spawnerStates_[0].cooldown = 1;
                     updateWithControls(FrameControls{}, 1.0f / 60.0f);
-                    if (!monsters_.empty() || spawnerStates_[0].cooldown != 90 || spawnerStates_[0].remaining != 7 ||
-                        spawnerStates_[0].availableSlots != 2 || randomSeed_ != 0x12345678) fail("spawn-before-expiry ordering mismatch");
+                    if (!gameplayReplay_.fixture().monsters_.empty() || gameplayReplay_.fixture().spawnerStates_[0].cooldown != 90 || gameplayReplay_.fixture().spawnerStates_[0].remaining != 7 ||
+                        gameplayReplay_.fixture().spawnerStates_[0].availableSlots != 2 || gameplayReplay_.fixture().randomSeed_ != 0x12345678) fail("spawn-before-expiry ordering mismatch");
                     if (!outDir.empty()) {
                         const auto next = inspectRenderedFrame("shared-capacity-expiry");
                         writeArgbPpm(joinPath(outDir, name + "_next_render.ppm"), fb_, kScreenW, kScreenH);
-                        manifest << name << "_next_render," << frame << ',' << sharedActorCount() << ',' << bombs_.size() << ',' << monsters_.size()
-                                 << ',' << transientActors_.size() << ',' << randomSeed_ << ',' << next.hash << '\n';
+                        manifest << name << "_next_render," << frame << ',' << sharedActorCount() << ',' << gameplayReplay_.fixture().bombs_.size() << ',' << gameplayReplay_.fixture().monsters_.size()
+                                 << ',' << gameplayReplay_.fixture().transientActors_.size() << ',' << gameplayReplay_.fixture().randomSeed_ << ',' << next.hash << '\n';
                     }
                 }
                 if (stage != 5 || fields.at("name") != name || number(fields.at("count")) != static_cast<int>(sharedActorCount()) ||
@@ -3182,11 +2947,11 @@ public:
         initSdl();
         resetLevel(0);
         ui_.setMenu(false);
-        spawnerStates_.clear();
+        gameplayReplay_.fixture().spawnerStates_.clear();
         const uint32_t originalRed = argb(palette_, 230);
         auto tick = [&] { updateWithControls(FrameControls{}, 1.0f / 60.0f); };
         for (int i = 0; i < 4; ++i) tick();
-        if (logicTick_ != 4 || presentation_.redPalettePhase() != 0 || argb(palette_, 230) != originalRed)
+        if (gameplayReplay_.fixture().logicTick_ != 4 || presentation_.redPalettePhase() != 0 || argb(palette_, 230) != originalRed)
             throw std::runtime_error("palette changed before fifth gameplay frame");
         tick();
         if (presentation_.redPalettePhase() != 7 || argb(palette_, 230) != 0xff000000u)
@@ -3202,22 +2967,22 @@ public:
         levelFlow_.setIntroActiveForFixture(true);
         tick();
         levelFlow_.setIntroActiveForFixture(false);
-        if (logicTick_ != 7 || presentation_.redPalettePhase() != 7)
+        if (gameplayReplay_.fixture().logicTick_ != 7 || presentation_.redPalettePhase() != 7)
             throw std::runtime_error("inactive gameplay advanced palette clock");
         beginLevelForPlay(1);
-        spawnerStates_.clear();
-        if (logicTick_ != 7 || presentation_.redPalettePhase() != 7)
+        gameplayReplay_.fixture().spawnerStates_.clear();
+        if (gameplayReplay_.fixture().logicTick_ != 7 || presentation_.redPalettePhase() != 7)
             throw std::runtime_error("level transition reset palette history");
         for (int i = 0; i < 3; ++i) tick();
-        if (logicTick_ != 10 || presentation_.redPalettePhase() != 14 || argb(palette_, 230) != 0xff1c0000u)
+        if (gameplayReplay_.fixture().logicTick_ != 10 || presentation_.redPalettePhase() != 14 || argb(palette_, 230) != 0xff1c0000u)
             throw std::runtime_error("palette cadence shifted after level transition");
         ui_.setMenu(true);
         beginLevelForPlay(0);
         ui_.setMenu(false);
-        if (logicTick_ != 0 || presentation_.redPalettePhase() != 14)
+        if (gameplayReplay_.fixture().logicTick_ != 0 || presentation_.redPalettePhase() != 14)
             throw std::runtime_error("new-game palette clock/phase mismatch");
-        spawnerStates_.clear();
-        logicTick_ = 65534;
+        gameplayReplay_.fixture().spawnerStates_.clear();
+        gameplayReplay_.fixture().logicTick_ = 65534;
         presentation_.restoreRedPalettePhase(62);
         tick();
         if (presentation_.redPalettePhase() != 20 || argb(palette_, 230) != 0xfffb0000u)
@@ -3237,15 +3002,15 @@ public:
         resetLevel(0);
         bool running = true;
 
-        int initialPlayerX = static_cast<int>(player_.x);
-        int initialPlayerY = static_cast<int>(player_.y);
+        int initialPlayerX = static_cast<int>(gameplayReplay_.fixture().player_.x);
+        int initialPlayerY = static_cast<int>(gameplayReplay_.fixture().player_.y);
         FrameInspection menuFrame = inspectRenderedFrame("level1-menu");
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0 ||
-            level_.width != 60 || level_.height != 33 ||
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1 || gameplayReplay_.fixture().levelIndex_ != 0 ||
+            gameplayReplay_.fixture().level_.width != 60 || gameplayReplay_.fixture().level_.height != 33 ||
             initialPlayerX != 104 || initialPlayerY != 168 ||
-            bombInventory_.counts[0] != 200) {
+            gameplayReplay_.fixture().bombInventory_.counts[0] != 200) {
             throw std::runtime_error("level1 frame smoke did not start one-player level 1");
         }
         FrameInspection playFrame = inspectRenderedFrame("level1-start");
@@ -3263,19 +3028,19 @@ public:
             throw std::runtime_error("level1 player sprite region was not visible");
         }
 
-        size_t bombsBefore = bombs_.size();
-        int smallBombsBefore = bombInventory_.counts[0];
+        size_t bombsBefore = gameplayReplay_.fixture().bombs_.size();
+        int smallBombsBefore = gameplayReplay_.fixture().bombInventory_.counts[0];
         pushKeyDown(SDLK_n);
         processEvents(running);
         updateWithControls({}, 0);
-        if (bombs_.size() != bombsBefore + 1 ||
-            bombInventory_.counts[0] != smallBombsBefore - 1) {
+        if (gameplayReplay_.fixture().bombs_.size() != bombsBefore + 1 ||
+            gameplayReplay_.fixture().bombInventory_.counts[0] != smallBombsBefore - 1) {
             throw std::runtime_error("level1 N key did not place and consume a bomb");
         }
         FrameInspection bombFrame = inspectRenderedFrame("level1-n-bomb");
-        int bombTileX = bombs_.back().x;
-        int bombTileY = bombs_.back().y;
-        int smallBombsAfterN = bombInventory_.counts[0];
+        int bombTileX = gameplayReplay_.fixture().bombs_.back().x;
+        int bombTileY = gameplayReplay_.fixture().bombs_.back().y;
+        int smallBombsAfterN = gameplayReplay_.fixture().bombInventory_.counts[0];
         if (bombFrame.hash == playFrame.hash) {
             throw std::runtime_error("level1 bomb placement did not change the frame");
         }
@@ -3283,10 +3048,10 @@ public:
         // math as drawWorldView's single-player viewport (x4..315, y4..155).
         {
             const int viewW = 312, viewH = 152;
-            int camX = std::clamp(static_cast<int>(player_.x) - viewW / 2, 0,
-                                  std::max(0, level_.width * 8 - viewW)) - 4;
-            int camY = std::clamp(static_cast<int>(player_.y) - viewH / 2, 0,
-                                  std::max(0, level_.height * 8 - viewH)) - 4;
+            int camX = std::clamp(static_cast<int>(gameplayReplay_.fixture().player_.x) - viewW / 2, 0,
+                                  std::max(0, gameplayReplay_.fixture().level_.width * 8 - viewW)) - 4;
+            int camY = std::clamp(static_cast<int>(gameplayReplay_.fixture().player_.y) - viewH / 2, 0,
+                                  std::max(0, gameplayReplay_.fixture().level_.height * 8 - viewH)) - 4;
             if (!frameInspector_.regionChanged(playPixels, bombTileX * kTileSize - camX,
                                bombTileY * kTileSize - camY, kTileSize,
                                kTileSize)) {
@@ -3294,11 +3059,11 @@ public:
             }
         }
 
-        int fuse = bombs_.back().timer;
+        int fuse = gameplayReplay_.fixture().bombs_.back().timer;
         for (int i = 0; i < fuse; ++i) {
             update(1.0f / 60.0f);
         }
-        if (!bombs_.empty() || explosionEffects_.empty() || flameRecords_.empty()) {
+        if (!gameplayReplay_.fixture().bombs_.empty() || gameplayReplay_.fixture().explosionEffects_.empty() || gameplayReplay_.fixture().flameRecords_.empty()) {
             throw std::runtime_error("level1 N bomb did not explode through update loop");
         }
         FrameInspection explosionFrame = inspectRenderedFrame("level1-n-explosion");
@@ -3318,7 +3083,7 @@ public:
         for (int i = 0; i <= 100; ++i) {
             update(1.0f / 60.0f);
         }
-        if (levelIndex_ != 1) {
+        if (gameplayReplay_.fixture().levelIndex_ != 1) {
             throw std::runtime_error("level1 frame smoke did not advance to level 2");
         }
         FrameInspection nextLevelFrame = inspectRenderedFrame("level2-start");
@@ -3336,7 +3101,7 @@ public:
                   << " menu_game_different=" << (menuFrame.hash != playFrame.hash ? 1 : 0)
                   << " hud_nonempty=1 world_nonempty=1 player_visible=1"
                   << " bomb_visible=1 explosion_visible=1 completion_visible=1"
-                  << " advanced_level=" << (levelIndex_ + 1)
+                  << " advanced_level=" << (gameplayReplay_.fixture().levelIndex_ + 1)
                   << '\n';
     }
 
@@ -3440,30 +3205,30 @@ public:
             frame.file = label + ".ppm";
             frame.inspection = inspectRenderedFrame(label);
             frame.menu = ui_.snapshot().menu ? 1 : 0;
-            frame.level = levelIndex_ + 1;
-            frame.playerCount = playerCount_;
-            frame.p1x = static_cast<int>(player_.x);
-            frame.p1y = static_cast<int>(player_.y);
-            frame.p1BombX = (static_cast<int>(player_.x) + 4) / kTileSize;
-            frame.p1BombY = static_cast<int>(player_.y) / kTileSize;
+            frame.level = gameplayReplay_.fixture().levelIndex_ + 1;
+            frame.playerCount = gameplayReplay_.fixture().playerCount_;
+            frame.p1x = static_cast<int>(gameplayReplay_.fixture().player_.x);
+            frame.p1y = static_cast<int>(gameplayReplay_.fixture().player_.y);
+            frame.p1BombX = (static_cast<int>(gameplayReplay_.fixture().player_.x) + 4) / kTileSize;
+            frame.p1BombY = static_cast<int>(gameplayReplay_.fixture().player_.y) / kTileSize;
             frame.p1FootTile = tileAt(
-                static_cast<int>(player_.x + 6.0f) / kTileSize,
-                static_cast<int>(player_.y + 16.0f) / kTileSize);
-            frame.p1Dead = playerDead_ ? 1 : 0;
-            if (playerCount_ > 1) {
-                frame.p2x = static_cast<int>(player2_.x);
-                frame.p2y = static_cast<int>(player2_.y);
-                frame.p2BombX = (static_cast<int>(player2_.x) + 4) / kTileSize;
-                frame.p2BombY = static_cast<int>(player2_.y) / kTileSize;
+                static_cast<int>(gameplayReplay_.fixture().player_.x + 6.0f) / kTileSize,
+                static_cast<int>(gameplayReplay_.fixture().player_.y + 16.0f) / kTileSize);
+            frame.p1Dead = gameplayReplay_.fixture().playerDead_ ? 1 : 0;
+            if (gameplayReplay_.fixture().playerCount_ > 1) {
+                frame.p2x = static_cast<int>(gameplayReplay_.fixture().player2_.x);
+                frame.p2y = static_cast<int>(gameplayReplay_.fixture().player2_.y);
+                frame.p2BombX = (static_cast<int>(gameplayReplay_.fixture().player2_.x) + 4) / kTileSize;
+                frame.p2BombY = static_cast<int>(gameplayReplay_.fixture().player2_.y) / kTileSize;
             }
-            frame.p2Dead = player2Dead_ ? 1 : 0;
-            frame.bombs = bombs_.size();
-            frame.flashes = flashes_.size();
-            frame.launchMarkers = launchPadMarkers_.size();
+            frame.p2Dead = gameplayReplay_.fixture().player2Dead_ ? 1 : 0;
+            frame.bombs = gameplayReplay_.fixture().bombs_.size();
+            frame.flashes = gameplayReplay_.fixture().flashes_.size();
+            frame.launchMarkers = gameplayReplay_.fixture().launchPadMarkers_.size();
             frame.lastSoundOffset = sound_.lastPumped().offset;
             frame.lastSoundPriority = sound_.lastPumped().selector;
-            if (!launchPadMarkers_.empty()) {
-                const LaunchPadMarker& marker = launchPadMarkers_.front();
+            if (!gameplayReplay_.fixture().launchPadMarkers_.empty()) {
+                const LaunchPadMarker& marker = gameplayReplay_.fixture().launchPadMarkers_.front();
                 frame.launchMarkerX = marker.x;
                 frame.launchMarkerY = marker.y;
                 frame.launchMarkerTimer = marker.timer;
@@ -3471,11 +3236,11 @@ public:
                 frame.launchMarkerKind = marker.kind;
                 frame.launchMarkerMode = marker.mode;
             }
-            frame.explosions = explosionEffects_.size();
-            frame.debris = debrisQueue_.size();
-            frame.collapse = collapseQueue_.size();
-            if (!debrisQueue_.empty()) {
-                const DebrisRecord& debris = debrisQueue_.front();
+            frame.explosions = gameplayReplay_.fixture().explosionEffects_.size();
+            frame.debris = gameplayReplay_.fixture().debrisQueue_.size();
+            frame.collapse = gameplayReplay_.fixture().collapseQueue_.size();
+            if (!gameplayReplay_.fixture().debrisQueue_.empty()) {
+                const DebrisRecord& debris = gameplayReplay_.fixture().debrisQueue_.front();
                 frame.firstDebrisTile = debris.tileIndex;
                 frame.firstDebrisFlagged = debris.flaggedWord;
                 frame.firstDebrisForward = debris.velocityX;
@@ -3483,8 +3248,8 @@ public:
                 frame.firstDebrisLookup = debris.lookup;
                 frame.firstDebrisRest = debris.restTicks;
             }
-            if (!collapseQueue_.empty()) {
-                const CollapseRecord& collapse = collapseQueue_.front();
+            if (!gameplayReplay_.fixture().collapseQueue_.empty()) {
+                const CollapseRecord& collapse = gameplayReplay_.fixture().collapseQueue_.front();
                 frame.firstCollapseX = collapse.x;
                 frame.firstCollapseY = collapse.y;
                 frame.firstCollapseStart = collapse.startOffsetBytes;
@@ -3496,8 +3261,8 @@ public:
                 frame.firstCollapseCount = collapse.count;
                 frame.firstCollapseRest = collapse.restTicks;
             }
-            if (!explosionEffects_.empty()) {
-                const ExplosionEffect& effect = explosionEffects_.front();
+            if (!gameplayReplay_.fixture().explosionEffects_.empty()) {
+                const ExplosionEffect& effect = gameplayReplay_.fixture().explosionEffects_.front();
                 frame.firstEffectX = effect.x;
                 frame.firstEffectY = effect.y;
                 frame.firstEffectVisual = effect.visualSelector;
@@ -3505,9 +3270,9 @@ public:
                 frame.firstEffectTimer = effect.timer;
                 frame.firstEffectVariant = effect.variantByte;
             }
-            frame.monsters = monsters_.size();
-            if (!monsters_.empty()) {
-                const ActiveMonster& monster = monsters_.front();
+            frame.monsters = gameplayReplay_.fixture().monsters_.size();
+            if (!gameplayReplay_.fixture().monsters_.empty()) {
+                const ActiveMonster& monster = gameplayReplay_.fixture().monsters_.front();
                 frame.monsterX = monster.x;
                 frame.monsterY = monster.y;
                 frame.monsterVx8 = monster.vx8;
@@ -3518,13 +3283,13 @@ public:
                 frame.monsterSprite = gameRenderer_.monsterSpriteIndex(monster);
                 frame.monsterStateTimer = monster.stateTimer;
             }
-            frame.rewards = bonusDrops_.size();
-            if (!bonusDrops_.empty()) {
-                frame.rewardSprite = bonusSpriteIndex(bonusDrops_.front().type);
-                frame.rewardType = bonusTypeName(bonusDrops_.front().type);
+            frame.rewards = gameplayReplay_.fixture().bonusDrops_.size();
+            if (!gameplayReplay_.fixture().bonusDrops_.empty()) {
+                frame.rewardSprite = bonusSpriteIndex(gameplayReplay_.fixture().bonusDrops_.front().type);
+                frame.rewardType = bonusTypeName(gameplayReplay_.fixture().bonusDrops_.front().type);
             }
-            frame.bossPresent = bossPresent_ ? 1 : 0;
-            for (const ActiveMonster& monster : monsters_) {
+            frame.bossPresent = gameplayReplay_.fixture().bossPresent_ ? 1 : 0;
+            for (const ActiveMonster& monster : gameplayReplay_.fixture().monsters_) {
                 if (!monster.alive) continue;
                 if (monster.behavior == 6) {
                     frame.bossHeadX = monster.x;
@@ -3542,18 +3307,18 @@ public:
             return static_cast<uint16_t>(base + std::max<uint16_t>(1, range));
         };
         auto findSpawnerByBehavior = [&](uint8_t behavior) {
-            for (size_t i = 0; i < level_.monsterSpawners.size(); ++i) {
-                if (level_.monsterSpawners[i].spawnArg == behavior) {
+            for (size_t i = 0; i < gameplayReplay_.fixture().level_.monsterSpawners.size(); ++i) {
+                if (gameplayReplay_.fixture().level_.monsterSpawners[i].spawnArg == behavior) {
                     return i;
                 }
             }
-            return level_.monsterSpawners.size();
+            return gameplayReplay_.fixture().level_.monsterSpawners.size();
         };
         auto disableOtherSpawners = [&](size_t keepIndex) {
-            for (size_t i = 0; i < spawnerStates_.size(); ++i) {
+            for (size_t i = 0; i < gameplayReplay_.fixture().spawnerStates_.size(); ++i) {
                 if (i != keepIndex) {
-                    spawnerStates_[i].remaining = 0;
-                    spawnerStates_[i].availableSlots = 0;
+                    gameplayReplay_.fixture().spawnerStates_[i].remaining = 0;
+                    gameplayReplay_.fixture().spawnerStates_[i].availableSlots = 0;
                 }
             }
         };
@@ -3563,7 +3328,7 @@ public:
         if (scenario == "level1_bomb_route") {
             pushKeyDown(SDLK_1);
             processEvents(running);
-            if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
+            if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1 || gameplayReplay_.fixture().levelIndex_ != 0) {
                 throw std::runtime_error("frame sequence failed to start one-player level 1");
             }
             capture("010_level1_start");
@@ -3577,17 +3342,17 @@ public:
             pushKeyDown(SDLK_n);
             processEvents(running);
             updateWithControls({}, 0);
-            if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 21) {
+            if (gameplayReplay_.fixture().bombs_.empty() || gameplayReplay_.fixture().bombs_.back().x != 24 || gameplayReplay_.fixture().bombs_.back().y != 21) {
                 throw std::runtime_error(
                     "frame sequence N key did not place the level-1 tile 24,21 bomb");
             }
             capture("030_level1_tile24_bomb");
 
-            int fuse = bombs_.back().timer;
+            int fuse = gameplayReplay_.fixture().bombs_.back().timer;
             for (int i = 0; i < fuse; ++i) {
                 update(1.0f / 60.0f);
             }
-            if (!bombs_.empty() || explosionEffects_.empty()) {
+            if (!gameplayReplay_.fixture().bombs_.empty() || gameplayReplay_.fixture().explosionEffects_.empty()) {
                 throw std::runtime_error("frame sequence bomb did not reach explosion playback");
             }
             capture("040_level1_tile24_explosion");
@@ -3605,18 +3370,18 @@ public:
             pushKeyDown(SDLK_1);
             processEvents(running);
             resetLevel(5);
-            if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 5) {
+            if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1 || gameplayReplay_.fixture().levelIndex_ != 5) {
                 throw std::runtime_error("frame sequence failed to start launch-pad route");
             }
-            for (SpawnerState& state : spawnerStates_) {
+            for (SpawnerState& state : gameplayReplay_.fixture().spawnerStates_) {
                 state.remaining = 0;
                 state.availableSlots = 0;
             }
 
             int padX = -1;
             int padY = -1;
-            for (int y = 0; y < level_.height && padX < 0; ++y) {
-                for (int x = 0; x < level_.width; ++x) {
+            for (int y = 0; y < gameplayReplay_.fixture().level_.height && padX < 0; ++y) {
+                for (int x = 0; x < gameplayReplay_.fixture().level_.width; ++x) {
                     if (tileAt(x, y) == kLaunchPadTile) {
                         padX = x;
                         padY = y;
@@ -3627,11 +3392,11 @@ public:
             if (padX < 0) {
                 throw std::runtime_error("frame sequence found no level-6 launch pad");
             }
-            player_.x = static_cast<float>(padX * kTileSize);
-            player_.y = static_cast<float>(padY * kTileSize - 16);
-            player_.vx = 0.0f;
-            player_.vy = 0.0f;
-            player_.grounded = true;
+            gameplayReplay_.fixture().player_.x = static_cast<float>(padX * kTileSize);
+            gameplayReplay_.fixture().player_.y = static_cast<float>(padY * kTileSize - 16);
+            gameplayReplay_.fixture().player_.vx = 0.0f;
+            gameplayReplay_.fixture().player_.vy = 0.0f;
+            gameplayReplay_.fixture().player_.grounded = true;
             clearSoundLatch();
             sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
             capture("010_level6_launch_pad_ready");
@@ -3640,7 +3405,7 @@ public:
             FrameControls down;
             down.p1Down = true;
             updateWithControls(down, 1.0f / 60.0f);
-            if (launchPadMarkers_.size() != 1 || player_.vy >= 0.0f ||
+            if (gameplayReplay_.fixture().launchPadMarkers_.size() != 1 || gameplayReplay_.fixture().player_.vy >= 0.0f ||
                 sound_.lastPumped().offset != kLaunchPadSoundCursor ||
                 sound_.lastPumped().selector != kLaunchPadSoundPriority) {
                 throw std::runtime_error("frame sequence launch-pad activation mismatch");
@@ -3654,25 +3419,25 @@ public:
             for (int i = 0; i < 4; ++i) {
                 updateWithControls(idle, 1.0f / 60.0f);
             }
-            if (launchPadMarkers_.size() != 1 ||
-                launchPadMarkers_.front().timer != 3) {
+            if (gameplayReplay_.fixture().launchPadMarkers_.size() != 1 ||
+                gameplayReplay_.fixture().launchPadMarkers_.front().timer != 3) {
                 throw std::runtime_error("frame sequence launch marker midpoint mismatch");
             }
             capture("030_level6_launch_pad_airborne");
 
             int markerUpdates = 4;
-            while (!launchPadMarkers_.empty() && markerUpdates < 12) {
+            while (!gameplayReplay_.fixture().launchPadMarkers_.empty() && markerUpdates < 12) {
                 updateWithControls(idle, 1.0f / 60.0f);
                 ++markerUpdates;
             }
-            if (!launchPadMarkers_.empty() || markerUpdates != 10) {
+            if (!gameplayReplay_.fixture().launchPadMarkers_.empty() || markerUpdates != 10) {
                 throw std::runtime_error("frame sequence launch marker lifetime mismatch");
             }
             capture("040_level6_launch_pad_marker_expired");
         } else if (scenario == "monster_bomb_reward") {
             pushKeyDown(SDLK_1);
             processEvents(running);
-            if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
+            if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1 || gameplayReplay_.fixture().levelIndex_ != 0) {
                 throw std::runtime_error("frame sequence failed to start monster bomb route");
             }
             capture("010_monster_bomb_start");
@@ -3680,11 +3445,11 @@ public:
             pushKeyDown(SDLK_n);
             processEvents(running);
             updateWithControls({}, 0);
-            if (bombs_.empty() || bombs_.back().owner != 1) {
+            if (gameplayReplay_.fixture().bombs_.empty() || gameplayReplay_.fixture().bombs_.back().owner != 1) {
                 throw std::runtime_error("frame sequence monster bomb did not place bomb");
             }
-            bombs_.back().timer = 1;
-            Bomb placed = bombs_.back();
+            gameplayReplay_.fixture().bombs_.back().timer = 1;
+            Bomb placed = gameplayReplay_.fixture().bombs_.back();
             auto tiles = explosionTilesFor(placed);
             std::array<int, 2> monsterTile = tiles.front();
             for (const auto& tile : tiles) {
@@ -3709,90 +3474,90 @@ public:
             initializeMonsterMotion(monster);
             monster.animFrame = 44;
             monster.animCursor = 44;
-            monsters_.push_back(monster);
+            gameplayReplay_.fixture().monsters_.push_back(monster);
 
-            player_.x = static_cast<float>(
-                std::min(level_.width * kTileSize - 24, (placed.x + 5) * kTileSize));
-            player_.y = static_cast<float>(placed.y * kTileSize);
-            randomSeed_ = 0x28148fe7u;  // Four particle draws lead to the fixed reward seed.
-            uint32_t scoreBefore = score_;
-            if (gameRenderer_.monsterSpriteIndex(monsters_.front()) != 44) {
+            gameplayReplay_.fixture().player_.x = static_cast<float>(
+                std::min(gameplayReplay_.fixture().level_.width * kTileSize - 24, (placed.x + 5) * kTileSize));
+            gameplayReplay_.fixture().player_.y = static_cast<float>(placed.y * kTileSize);
+            gameplayReplay_.fixture().randomSeed_ = 0x28148fe7u;  // Four particle draws lead to the fixed reward seed.
+            uint32_t scoreBefore = gameplayReplay_.fixture().score_;
+            if (gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) != 44) {
                 throw std::runtime_error(
                     "frame sequence monster pre-impact sprite mismatch");
             }
             capture("020_monster_bomb_armed");
 
-            monsters_.front().animFrame = 43;
-            monsters_.front().animCursor = 43;
-            if (gameRenderer_.monsterSpriteIndex(monsters_.front()) != 43) {
+            gameplayReplay_.fixture().monsters_.front().animFrame = 43;
+            gameplayReplay_.fixture().monsters_.front().animCursor = 43;
+            if (gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) != 43) {
                 throw std::runtime_error(
                     "frame sequence monster last pre-fatal sprite mismatch");
             }
             capture("025_monster_bomb_seeded_sprite");
 
             FrameControls idle;
-            for (int tick = 0; tick < 16 && !monsters_.empty() && monsters_.front().behavior != 2; ++tick) {
+            for (int tick = 0; tick < 16 && !gameplayReplay_.fixture().monsters_.empty() && gameplayReplay_.fixture().monsters_.front().behavior != 2; ++tick) {
                 updateWithControls(idle, 1.0f / 60.0f);
                 inspectRenderedFrame("monster-reward-flame-" + std::to_string(tick));
                 ++capturedFlameUpdates;
             }
-            capturedCorpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
-            if (capturedFlameUpdates < 2 || !bombs_.empty() || monsters_.empty() ||
-                monsters_.front().behavior != 2 ||
-                monsters_.front().kind != 0x0c ||
-                monsters_.front().stateTimer != capturedCorpseTicks ||
-                gameRenderer_.monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
-                !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+            capturedCorpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(gameplayReplay_.fixture().logicTick_ & 1u);
+            if (capturedFlameUpdates < 2 || !gameplayReplay_.fixture().bombs_.empty() || gameplayReplay_.fixture().monsters_.empty() ||
+                gameplayReplay_.fixture().monsters_.front().behavior != 2 ||
+                gameplayReplay_.fixture().monsters_.front().kind != 0x0c ||
+                gameplayReplay_.fixture().monsters_.front().stateTimer != capturedCorpseTicks ||
+                gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) != kMonsterCorpseSpriteLeft ||
+                !gameplayReplay_.fixture().bonusDrops_.empty() || gameplayReplay_.fixture().randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error("frame sequence monster bomb did not kill monster");
             }
             capture("030_monster_bomb_death");
 
             for (int frame = 1; frame < capturedCorpseTicks; ++frame) {
                 updateWithControls(idle, 1.0f / 60.0f);
-                if (monsters_.size() != 1 ||
-                    monsters_.front().stateTimer !=
+                if (gameplayReplay_.fixture().monsters_.size() != 1 ||
+                    gameplayReplay_.fixture().monsters_.front().stateTimer !=
                         capturedCorpseTicks - frame ||
-                    gameRenderer_.monsterSpriteIndex(monsters_.front()) !=
+                    gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) !=
                         kMonsterCorpseSpriteLeft ||
-                    !bonusDrops_.empty()) {
+                    !gameplayReplay_.fixture().bonusDrops_.empty()) {
                     throw std::runtime_error(
                         "frame sequence monster corpse playback mismatch tick=" + std::to_string(frame) +
-                        " monsters=" + std::to_string(monsters_.size()) + " rng=" + std::to_string(randomSeed_));
+                        " monsters=" + std::to_string(gameplayReplay_.fixture().monsters_.size()) + " rng=" + std::to_string(gameplayReplay_.fixture().randomSeed_));
                 }
-                if (monsters_.front().stateTimer ==
+                if (gameplayReplay_.fixture().monsters_.front().stateTimer ==
                     capturedCorpseTicks / 2) {
                     capture("040_monster_bomb_corpse_midpoint");
                 }
             }
-            if (monsters_.front().stateTimer != 1) {
+            if (gameplayReplay_.fixture().monsters_.front().stateTimer != 1) {
                 throw std::runtime_error(
                     "frame sequence monster corpse last frame mismatch");
             }
             capture("050_monster_bomb_corpse_last");
 
-            lezac::core::TurboRandom rewardRandom(randomSeed_);
+            lezac::core::TurboRandom rewardRandom(gameplayReplay_.fixture().randomSeed_);
             for (int draw = 0; draw < 6; ++draw) rewardRandom.range(0, 1);
             updateWithControls(idle, 1.0f / 60.0f);
-            if (!monsters_.empty() || bonusDrops_.size() != 1 ||
-                bonusDrops_.front().type != BonusType::YellowBombBox ||
-                bonusSpriteIndex(bonusDrops_.front().type) != 65 ||
-                randomSeed_ != rewardRandom.seed() || score_ != scoreBefore) {
+            if (!gameplayReplay_.fixture().monsters_.empty() || gameplayReplay_.fixture().bonusDrops_.size() != 1 ||
+                gameplayReplay_.fixture().bonusDrops_.front().type != BonusType::YellowBombBox ||
+                bonusSpriteIndex(gameplayReplay_.fixture().bonusDrops_.front().type) != 65 ||
+                gameplayReplay_.fixture().randomSeed_ != rewardRandom.seed() || gameplayReplay_.fixture().score_ != scoreBefore) {
                 throw std::runtime_error(
-                    "frame sequence monster delayed reward mismatch rng=" + std::to_string(randomSeed_) +
-                    " drops=" + std::to_string(bonusDrops_.size()));
+                    "frame sequence monster delayed reward mismatch rng=" + std::to_string(gameplayReplay_.fixture().randomSeed_) +
+                    " drops=" + std::to_string(gameplayReplay_.fixture().bonusDrops_.size()));
             }
             capture("060_monster_bomb_reward_visible");
 
-            BonusDrop drop = bonusDrops_.front();
-            player_.x = drop.x;
-            player_.y = drop.y;
-            player_.vx = 0.0f;
-            player_.vy = 0.0f;
-            player_.grounded = true;
+            BonusDrop drop = gameplayReplay_.fixture().bonusDrops_.front();
+            gameplayReplay_.fixture().player_.x = drop.x;
+            gameplayReplay_.fixture().player_.y = drop.y;
+            gameplayReplay_.fixture().player_.vx = 0.0f;
+            gameplayReplay_.fixture().player_.vy = 0.0f;
+            gameplayReplay_.fixture().player_.grounded = true;
             clearSoundLatch();
             sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
             updateWithControls(idle, 1.0f / 60.0f);
-            if (!bonusDrops_.empty() || score_ - scoreBefore != 3000 ||
+            if (!gameplayReplay_.fixture().bonusDrops_.empty() || gameplayReplay_.fixture().score_ - scoreBefore != 3000 ||
                 sound_.latch().active ||
                 sound_.lastPumped().offset != kBonusPickupSoundCursor ||
                 sound_.lastPumped().selector != kBonusPickupSoundPriority) {
@@ -3802,41 +3567,41 @@ public:
         } else if (scenario == "monster_spawner_behavior4_level2") {
             pushKeyDown(SDLK_1);
             processEvents(running);
-            if (ui_.snapshot().menu || playerCount_ != 1) {
+            if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1) {
                 throw std::runtime_error("frame sequence failed to start one-player level 2");
             }
             resetLevel(1);
-            if (levelIndex_ != 1) {
+            if (gameplayReplay_.fixture().levelIndex_ != 1) {
                 throw std::runtime_error("frame sequence did not load level 2");
             }
             capture("010_level2_start");
 
             size_t spawnerIndex = findSpawnerByBehavior(4);
-            if (spawnerIndex >= level_.monsterSpawners.size()) {
+            if (spawnerIndex >= gameplayReplay_.fixture().level_.monsterSpawners.size()) {
                 throw std::runtime_error("frame sequence found no level-2 behavior-4 spawner");
             }
             disableOtherSpawners(spawnerIndex);
-            const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
-            randomSeed_ = 0x1234abcd;
-            player_.x = static_cast<float>(spawner.x + 40);
-            player_.y = static_cast<float>(spawner.y);
-            player_.vy = 0.0f;
-            player_.grounded = false;
+            const MonsterSpawner& spawner = gameplayReplay_.fixture().level_.monsterSpawners[spawnerIndex];
+            gameplayReplay_.fixture().randomSeed_ = 0x1234abcd;
+            gameplayReplay_.fixture().player_.x = static_cast<float>(spawner.x + 40);
+            gameplayReplay_.fixture().player_.y = static_cast<float>(spawner.y);
+            gameplayReplay_.fixture().player_.vy = 0.0f;
+            gameplayReplay_.fixture().player_.grounded = false;
             // Rank 4 (dec-then-test): arm with 1 so the next tick's
             // decrement lands on 0 and spawns; 0 would wrap to 255.
-            spawnerStates_[spawnerIndex].cooldown = 1;
+            gameplayReplay_.fixture().spawnerStates_[spawnerIndex].cooldown = 1;
             capture("020_level2_behavior4_spawner_armed");
 
             FrameControls idle;
             updateWithControls(idle, 1.0f / 60.0f);
-            if (monsters_.size() != 1) {
+            if (gameplayReplay_.fixture().monsters_.size() != 1) {
                 throw std::runtime_error("frame sequence did not spawn level-2 behavior-4 actor");
             }
-            if (monsters_.front().vx8 != 0 || monsters_.front().vy8 != 0) {
+            if (gameplayReplay_.fixture().monsters_.front().vx8 != 0 || gameplayReplay_.fixture().monsters_.front().vy8 != 0) {
                 throw std::runtime_error("behavior4 spawn bypassed the global gate");
             }
             advanceBehavior4DebugToRetarget();
-            const ActiveMonster& monster = monsters_.front();
+            const ActiveMonster& monster = gameplayReplay_.fixture().monsters_.front();
             if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
                 monster.kind != spawner.monsterKind || monster.behavior != 4 ||
                 monster.animDelay != spawner.animationDelay ||
@@ -3857,40 +3622,40 @@ public:
         } else if (scenario == "monster_spawner_behavior4_level3") {
             pushKeyDown(SDLK_1);
             processEvents(running);
-            if (ui_.snapshot().menu || playerCount_ != 1) {
+            if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1) {
                 throw std::runtime_error("frame sequence failed to start one-player level 3");
             }
             resetLevel(2);
-            if (levelIndex_ != 2) {
+            if (gameplayReplay_.fixture().levelIndex_ != 2) {
                 throw std::runtime_error("frame sequence did not load level 3");
             }
             capture("010_level3_start");
 
             size_t spawnerIndex = findSpawnerByBehavior(4);
-            if (spawnerIndex >= level_.monsterSpawners.size()) {
+            if (spawnerIndex >= gameplayReplay_.fixture().level_.monsterSpawners.size()) {
                 throw std::runtime_error("frame sequence found no level-3 behavior-4 spawner");
             }
             disableOtherSpawners(spawnerIndex);
-            const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
-            randomSeed_ = 0x1234abcd;
-            player_.x = static_cast<float>(spawner.x + 24);
-            player_.y = static_cast<float>(spawner.y - 16);
-            player_.vy = -6.0f;
-            player_.grounded = false;
+            const MonsterSpawner& spawner = gameplayReplay_.fixture().level_.monsterSpawners[spawnerIndex];
+            gameplayReplay_.fixture().randomSeed_ = 0x1234abcd;
+            gameplayReplay_.fixture().player_.x = static_cast<float>(spawner.x + 24);
+            gameplayReplay_.fixture().player_.y = static_cast<float>(spawner.y - 16);
+            gameplayReplay_.fixture().player_.vy = -6.0f;
+            gameplayReplay_.fixture().player_.grounded = false;
             // Rank 4 (dec-then-test): arm with 1, see the level-2 scenario.
-            spawnerStates_[spawnerIndex].cooldown = 1;
+            gameplayReplay_.fixture().spawnerStates_[spawnerIndex].cooldown = 1;
             capture("020_level3_behavior4_spawner_armed");
 
             FrameControls idle;
             updateWithControls(idle, 1.0f / 60.0f);
-            if (monsters_.size() != 1) {
+            if (gameplayReplay_.fixture().monsters_.size() != 1) {
                 throw std::runtime_error("frame sequence did not spawn level-3 behavior-4 actor");
             }
-            if (monsters_.front().vx8 != 0 || monsters_.front().vy8 != 0) {
+            if (gameplayReplay_.fixture().monsters_.front().vx8 != 0 || gameplayReplay_.fixture().monsters_.front().vy8 != 0) {
                 throw std::runtime_error("behavior4 spawn bypassed the global gate");
             }
             advanceBehavior4DebugToRetarget();
-            const ActiveMonster& monster = monsters_.front();
+            const ActiveMonster& monster = gameplayReplay_.fixture().monsters_.front();
             if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
                 monster.kind != spawner.monsterKind || monster.behavior != 4 ||
                 monster.animDelay != spawner.animationDelay ||
@@ -3911,64 +3676,64 @@ public:
         } else if (scenario == "monster_behavior4_target_selection") {
             pushKeyDown(SDLK_2);
             processEvents(running);
-            if (ui_.snapshot().menu || playerCount_ != 2 || playerDead_ || player2Dead_) {
+            if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 2 || gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().player2Dead_) {
                 throw std::runtime_error("frame sequence failed to start two-player level 3");
             }
             resetLevel(2);
-            if (levelIndex_ != 2) {
+            if (gameplayReplay_.fixture().levelIndex_ != 2) {
                 throw std::runtime_error("frame sequence did not load level 3");
             }
             capture("010_level3_two_player_start");
 
             size_t spawnerIndex = findSpawnerByBehavior(4);
-            if (spawnerIndex >= level_.monsterSpawners.size()) {
+            if (spawnerIndex >= gameplayReplay_.fixture().level_.monsterSpawners.size()) {
                 throw std::runtime_error("frame sequence found no level-3 behavior-4 spawner");
             }
             disableOtherSpawners(spawnerIndex);
-            const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
-            randomSeed_ = 0x1234abcd;
+            const MonsterSpawner& spawner = gameplayReplay_.fixture().level_.monsterSpawners[spawnerIndex];
+            gameplayReplay_.fixture().randomSeed_ = 0x1234abcd;
             // Rank 4 (dec-then-test): arm with 1, see the level-2 scenario.
-            spawnerStates_[spawnerIndex].cooldown = 1;
-            player_.x = static_cast<float>(spawner.x + 40);
-            player_.y = static_cast<float>(spawner.y);
-            player_.vy = -6.0f;
-            player2_.x = static_cast<float>(spawner.x - 16);
-            player2_.y = static_cast<float>(spawner.y);
-            player2_.vy = -6.0f;
-            playerDead_ = false;
-            player2Dead_ = false;
+            gameplayReplay_.fixture().spawnerStates_[spawnerIndex].cooldown = 1;
+            gameplayReplay_.fixture().player_.x = static_cast<float>(spawner.x + 40);
+            gameplayReplay_.fixture().player_.y = static_cast<float>(spawner.y);
+            gameplayReplay_.fixture().player_.vy = -6.0f;
+            gameplayReplay_.fixture().player2_.x = static_cast<float>(spawner.x - 16);
+            gameplayReplay_.fixture().player2_.y = static_cast<float>(spawner.y);
+            gameplayReplay_.fixture().player2_.vy = -6.0f;
+            gameplayReplay_.fixture().playerDead_ = false;
+            gameplayReplay_.fixture().player2Dead_ = false;
             capture("020_level3_behavior4_target_armed");
 
             FrameControls idle;
             updateWithControls(idle, 1.0f / 60.0f);
             advanceBehavior4DebugToRetarget();
-            if (monsters_.size() != 1 || monsters_.front().behavior != 4 ||
-                monsters_.front().vx8 >= 0 || monsters_.front().x >= spawner.x) {
+            if (gameplayReplay_.fixture().monsters_.size() != 1 || gameplayReplay_.fixture().monsters_.front().behavior != 4 ||
+                gameplayReplay_.fixture().monsters_.front().vx8 >= 0 || gameplayReplay_.fixture().monsters_.front().x >= spawner.x) {
                 throw std::runtime_error(
                     "frame sequence behavior-4 target did not prefer player 2");
             }
             capture("030_level3_behavior4_target_p2");
 
-            player2Dead_ = true;
-            player_.x = static_cast<float>(monsters_.front().x + 24);
-            player_.y = static_cast<float>(monsters_.front().y);
+            gameplayReplay_.fixture().player2Dead_ = true;
+            gameplayReplay_.fixture().player_.x = static_cast<float>(gameplayReplay_.fixture().monsters_.front().x + 24);
+            gameplayReplay_.fixture().player_.y = static_cast<float>(gameplayReplay_.fixture().monsters_.front().y);
             updateWithControls(idle, 1.0f / 60.0f);
             const int beforeP1 = advanceBehavior4DebugToRetarget();
-            if (monsters_.front().vx8 <= 0 ||
-                monsters_.front().x * 256 + monsters_.front().fracX <= beforeP1) {
+            if (gameplayReplay_.fixture().monsters_.front().vx8 <= 0 ||
+                gameplayReplay_.fixture().monsters_.front().x * 256 + gameplayReplay_.fixture().monsters_.front().fracX <= beforeP1) {
                 throw std::runtime_error(
                     "frame sequence behavior-4 target did not retarget player 1");
             }
             capture("040_level3_behavior4_target_p1");
 
-            playerDead_ = true;
-            player2Dead_ = false;
-            player2_.x = static_cast<float>(monsters_.front().x - 24);
-            player2_.y = static_cast<float>(monsters_.front().y);
+            gameplayReplay_.fixture().playerDead_ = true;
+            gameplayReplay_.fixture().player2Dead_ = false;
+            gameplayReplay_.fixture().player2_.x = static_cast<float>(gameplayReplay_.fixture().monsters_.front().x - 24);
+            gameplayReplay_.fixture().player2_.y = static_cast<float>(gameplayReplay_.fixture().monsters_.front().y);
             updateWithControls(idle, 1.0f / 60.0f);
             const int beforeP2 = advanceBehavior4DebugToRetarget();
-            if (monsters_.front().vx8 >= 0 ||
-                monsters_.front().x * 256 + monsters_.front().fracX >= beforeP2) {
+            if (gameplayReplay_.fixture().monsters_.front().vx8 >= 0 ||
+                gameplayReplay_.fixture().monsters_.front().x * 256 + gameplayReplay_.fixture().monsters_.front().fracX >= beforeP2) {
                 throw std::runtime_error(
                     "frame sequence behavior-4 target did not retarget back to player 2");
             }
@@ -3977,7 +3742,7 @@ public:
             pushKeyDown(SDLK_1);
             processEvents(running);
             resetLevel(6);
-            randomSeed_ = 0x1234abcd;
+            gameplayReplay_.fixture().randomSeed_ = 0x1234abcd;
             capture("010_level7_approach");
             for (int frame = 0; frame < 220; ++frame) {
                 FrameControls controls;
@@ -3997,24 +3762,24 @@ public:
         } else if (scenario == "boss_level7") {
             pushKeyDown(SDLK_1);
             processEvents(running);
-            if (ui_.snapshot().menu || playerCount_ != 1) {
+            if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1) {
                 throw std::runtime_error(
                     "frame sequence failed to start one-player level 7");
             }
             resetLevel(6);
-            if (levelIndex_ != 6 || !bossPresent_ ||
-                monsters_.size() != 7 || bossLinks_.size() != 6) {
+            if (gameplayReplay_.fixture().levelIndex_ != 6 || !gameplayReplay_.fixture().bossPresent_ ||
+                gameplayReplay_.fixture().monsters_.size() != 7 || gameplayReplay_.fixture().bossLinks_.size() != 6) {
                 throw std::runtime_error(
                     "frame sequence did not load the level-7 boss");
             }
-            randomSeed_ = 0x1234abcd;
+            gameplayReplay_.fixture().randomSeed_ = 0x1234abcd;
             capture("010_level7_boss_start");
 
             FrameControls idle;
             for (int frame = 0; frame < 30; ++frame) {
                 updateWithControls(idle, 1.0f / 60.0f);
             }
-            if (!bossPresent_ || bossDefeated_ || monsters_.size() != 7) {
+            if (!gameplayReplay_.fixture().bossPresent_ || gameplayReplay_.fixture().bossDefeated_ || gameplayReplay_.fixture().monsters_.size() != 7) {
                 throw std::runtime_error(
                     "frame sequence lost the boss before tick 30");
             }
@@ -4023,7 +3788,7 @@ public:
             for (int frame = 30; frame < 90; ++frame) {
                 updateWithControls(idle, 1.0f / 60.0f);
             }
-            if (!bossPresent_ || bossDefeated_ || monsters_.size() != 7) {
+            if (!gameplayReplay_.fixture().bossPresent_ || gameplayReplay_.fixture().bossDefeated_ || gameplayReplay_.fixture().monsters_.size() != 7) {
                 throw std::runtime_error(
                     "frame sequence lost the boss before tick 90");
             }
@@ -4134,20 +3899,20 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 1) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1) {
             throw std::runtime_error("boss level7 autoplayer failed to start");
         }
         resetLevel(6);
-        if (levelIndex_ != 6 || !bossPresent_) {
+        if (gameplayReplay_.fixture().levelIndex_ != 6 || !gameplayReplay_.fixture().bossPresent_) {
             throw std::runtime_error("boss level7 autoplayer did not spawn the boss");
         }
-        if (monsters_.size() != 7 || bossLinks_.size() != 6) {
+        if (gameplayReplay_.fixture().monsters_.size() != 7 || gameplayReplay_.fixture().bossLinks_.size() != 6) {
             throw std::runtime_error("boss level7 autoplayer boss shape mismatch");
         }
-        randomSeed_ = 0x1234abcd;
+        gameplayReplay_.fixture().randomSeed_ = 0x1234abcd;
 
         auto findHead = [&]() -> ActiveMonster* {
-            for (ActiveMonster& monster : monsters_) {
+            for (ActiveMonster& monster : gameplayReplay_.fixture().monsters_) {
                 if (monster.alive && monster.behavior == 6) return &monster;
             }
             return nullptr;
@@ -4163,60 +3928,60 @@ public:
         // The behavior-6 caller builds player deltas, chooses the nearest
         // active player by Manhattan distance, and passes its X delta to
         // 1000:5CB0 through caller local [BP-4].
-        const Player savedPlayer = player_;
-        const Player savedPlayer2 = player2_;
-        const int savedPlayerCount = playerCount_;
-        const bool savedPlayerDead = playerDead_;
-        const bool savedPlayer2Dead = player2Dead_;
-        const uint32_t savedRandomSeed = randomSeed_;
+        const Player savedPlayer = gameplayReplay_.fixture().player_;
+        const Player savedPlayer2 = gameplayReplay_.fixture().player2_;
+        const int savedPlayerCount = gameplayReplay_.fixture().playerCount_;
+        const bool savedPlayerDead = gameplayReplay_.fixture().playerDead_;
+        const bool savedPlayer2Dead = gameplayReplay_.fixture().player2Dead_;
+        const uint32_t savedRandomSeed = gameplayReplay_.fixture().randomSeed_;
         const SoundLatch savedSoundLatch = sound_.latch();
 
-        playerCount_ = 1;
-        playerDead_ = false;
-        player2Dead_ = false;
-        player_.x = 60.0f;
-        player_.y = 100.0f;
+        gameplayReplay_.fixture().playerCount_ = 1;
+        gameplayReplay_.fixture().playerDead_ = false;
+        gameplayReplay_.fixture().player2Dead_ = false;
+        gameplayReplay_.fixture().player_.x = 60.0f;
+        gameplayReplay_.fixture().player_.y = 100.0f;
         ActiveMonster leftProbe = *head;
-        const auto savedBossProbeTick = logicTick_;
-        logicTick_ = 29;
+        const auto savedBossProbeTick = gameplayReplay_.fixture().logicTick_;
+        gameplayReplay_.fixture().logicTick_ = 29;
         leftProbe.vx8 = 1;
-        randomSeed_ = 0;
+        gameplayReplay_.fixture().randomSeed_ = 0;
         updateBossHead(leftProbe);
         if (leftProbe.vx8 >= 0) {
             throw std::runtime_error(
                 "boss head did not target the player to its left");
         }
 
-        playerCount_ = 2;
-        player_.x = 110.0f;
-        player_.y = 120.0f;
-        player2_.x = 75.0f;
-        player2_.y = 100.0f;
+        gameplayReplay_.fixture().playerCount_ = 2;
+        gameplayReplay_.fixture().player_.x = 110.0f;
+        gameplayReplay_.fixture().player_.y = 120.0f;
+        gameplayReplay_.fixture().player2_.x = 75.0f;
+        gameplayReplay_.fixture().player2_.y = 100.0f;
         const Player& manhattanTarget =
             nearestPlayer(static_cast<float>(head->x),
                           static_cast<float>(head->y));
-        if (&manhattanTarget != &player2_) {
+        if (&manhattanTarget != &gameplayReplay_.fixture().player2_) {
             throw std::runtime_error(
                 "boss head target selection was not Manhattan-nearest");
         }
         ActiveMonster manhattanProbe = *head;
-        logicTick_ = 29;
+        gameplayReplay_.fixture().logicTick_ = 29;
         manhattanProbe.vx8 = 1;
-        randomSeed_ = 0;
+        gameplayReplay_.fixture().randomSeed_ = 0;
         updateBossHead(manhattanProbe);
         if (manhattanProbe.vx8 >= 0) {
             throw std::runtime_error(
                 "boss head ignored the selected player X delta");
         }
 
-        playerCount_ = 1;
-        player_.x = 140.0f;
-        player_.y = 100.0f;
+        gameplayReplay_.fixture().playerCount_ = 1;
+        gameplayReplay_.fixture().player_.x = 140.0f;
+        gameplayReplay_.fixture().player_.y = 100.0f;
         clearSoundLatch();
         ActiveMonster roarProbe = *head;
-        logicTick_ = 58;
+        gameplayReplay_.fixture().logicTick_ = 58;
         roarProbe.vx8 = -1;
-        randomSeed_ = 5;
+        gameplayReplay_.fixture().randomSeed_ = 5;
         updateBossHead(roarProbe);
         if (roarProbe.vx8 != 728 || !sound_.latch().active ||
             sound_.latch().latchedOffset != kBossHeadRoarSoundCursor ||
@@ -4225,14 +3990,14 @@ public:
                 "boss head roar or RNG draw order mismatch");
         }
 
-        logicTick_ = savedBossProbeTick;
+        gameplayReplay_.fixture().logicTick_ = savedBossProbeTick;
         sound_.restoreLatchForFixture(savedSoundLatch);
-        player_ = savedPlayer;
-        player2_ = savedPlayer2;
-        playerCount_ = savedPlayerCount;
-        playerDead_ = savedPlayerDead;
-        player2Dead_ = savedPlayer2Dead;
-        randomSeed_ = savedRandomSeed;
+        gameplayReplay_.fixture().player_ = savedPlayer;
+        gameplayReplay_.fixture().player2_ = savedPlayer2;
+        gameplayReplay_.fixture().playerCount_ = savedPlayerCount;
+        gameplayReplay_.fixture().playerDead_ = savedPlayerDead;
+        gameplayReplay_.fixture().player2Dead_ = savedPlayer2Dead;
+        gameplayReplay_.fixture().randomSeed_ = savedRandomSeed;
 
         // Decoded spawn layout: visual index -> world position and sprite.
         struct ExpectedSegment {
@@ -4252,7 +4017,7 @@ public:
         }};
         int springLinks = 0;
         int orbitLinks = 0;
-        for (const BossMotionLink& link : bossLinks_) {
+        for (const BossMotionLink& link : gameplayReplay_.fixture().bossLinks_) {
             if (link.targetVisual != 6) {
                 throw std::runtime_error("boss level7 autoplayer link target mismatch");
             }
@@ -4267,7 +4032,7 @@ public:
         }
         for (const ExpectedSegment& expected : kExpectedSegments) {
             bool found = false;
-            for (const ActiveMonster& monster : monsters_) {
+            for (const ActiveMonster& monster : gameplayReplay_.fixture().monsters_) {
                 if (monster.behavior == 5 && monster.bossVisual == expected.visual) {
                     if (monster.kind != 0x1f || monster.x != expected.x ||
                         monster.y != expected.y ||
@@ -4286,8 +4051,8 @@ public:
         }
         // Park the player near the boss cluster so the camera keeps the boss
         // on screen for the inspected frames.
-        player_.x = 60.0f;
-        player_.y = 120.0f;
+        gameplayReplay_.fixture().player_.x = 60.0f;
+        gameplayReplay_.fixture().player_.y = 120.0f;
         FrameInspection spawnFrame = inspectRenderedFrame("autoplayer-boss-level7-spawn");
 
         FrameControls idle;
@@ -4297,17 +4062,17 @@ public:
             updateWithControls(idle, 1.0f / 60.0f);
         }
         head = findHead();
-        if (!head || head->bossTick != static_cast<uint16_t>(logicTick_)) {
+        if (!head || head->bossTick != static_cast<uint16_t>(gameplayReplay_.fixture().logicTick_)) {
             throw std::runtime_error("boss level7 autoplayer head did not tick");
         }
         bool orbiterMoved = false;
-        for (const ActiveMonster& monster : monsters_) {
+        for (const ActiveMonster& monster : gameplayReplay_.fixture().monsters_) {
             if (monster.behavior == 5 && monster.bossVisual == 2) {
                 // Serial 6 -> orbit link with radius (1,7) and offset (38,10)
                 // around the head: the segment teleports to the link output
                 // each frame.
                 orbiterMoved = monster.x != orbiterStartX || monster.y != orbiterStartY;
-                const BossMotionLink& orbit = bossLinks_[5];
+                const BossMotionLink& orbit = gameplayReplay_.fixture().bossLinks_[5];
                 if (orbit.mode != 0xff || monster.x != orbit.outX ||
                     monster.y != orbit.outY) {
                     throw std::runtime_error(
@@ -4328,29 +4093,29 @@ public:
         // Drive the recovered flame-drain damage model: seed flame cells
         // over the head box each frame until the lives underflow fires the
         // death chain (phase 1 overkill, byte-wrap refill, second underflow).
-        const uint32_t scoreBefore = score_;
+        const uint32_t scoreBefore = gameplayReplay_.fixture().score_;
         int damageFrames = 0;
         bool sawHurtFlash = false;
-        while (!bossDefeated_ && damageFrames < 600) {
+        while (!gameplayReplay_.fixture().bossDefeated_ && damageFrames < 600) {
             head = findHead();
             if (!head) break;
-            for (const auto& ray : flameRecords_) {
-                if (ray.cell < level_.tiles.size() && level_.tiles[ray.cell] == 0x75)
-                    level_.tiles[ray.cell] = 0;
+            for (const auto& ray : gameplayReplay_.fixture().flameRecords_) {
+                if (ray.cell < gameplayReplay_.fixture().level_.tiles.size() && gameplayReplay_.fixture().level_.tiles[ray.cell] == 0x75)
+                    gameplayReplay_.fixture().level_.tiles[ray.cell] = 0;
             }
-            flameRecords_.clear();
+            gameplayReplay_.fixture().flameRecords_.clear();
             const int headTileX = head->x / kTileSize;
             const int headTileY = head->y / kTileSize;
             for (int dx = 0; dx < head->bossBoxW; dx += 2) {
                 for (int dy = 0; dy < head->bossBoxH; ++dy) {
-                    const int cell = (headTileY + dy) * level_.width + headTileX + dx;
-                    if (cell < 0 || static_cast<size_t>(cell) >= level_.tiles.size()) continue;
-                    level_.tiles[cell] = 0x75;
+                    const int cell = (headTileY + dy) * gameplayReplay_.fixture().level_.width + headTileX + dx;
+                    if (cell < 0 || static_cast<size_t>(cell) >= gameplayReplay_.fixture().level_.tiles.size()) continue;
+                    gameplayReplay_.fixture().level_.tiles[cell] = 0x75;
                     FlameRecord ray;
                     ray.cell = static_cast<uint16_t>(cell);
                     ray.timer = 2;
                     ray.mass = 9;
-                    flameRecords_.push_back(ray);
+                    gameplayReplay_.fixture().flameRecords_.push_back(ray);
                 }
             }
             updateWithControls(idle, 1.0f / 60.0f);
@@ -4364,17 +4129,17 @@ public:
             }
             ++damageFrames;
         }
-        if (!bossDefeated_ || !sawHurtFlash) {
+        if (!gameplayReplay_.fixture().bossDefeated_ || !sawHurtFlash) {
             throw std::runtime_error("boss level7 autoplayer did not defeat the boss");
         }
-        if (score_ != scoreBefore) {
+        if (gameplayReplay_.fixture().score_ != scoreBefore) {
             throw std::runtime_error("boss level7 autoplayer invented death award");
         }
         for (int cell : {5709, 5710, 5849, 5850, 5989, 5990}) {
-            if (level_.tiles.at(cell) != 0) throw std::runtime_error("boss level7 gate did not open");
+            if (gameplayReplay_.fixture().level_.tiles.at(cell) != 0) throw std::runtime_error("boss level7 gate did not open");
         }
         int debrisCount = 0;
-        for (const ActiveMonster& monster : monsters_) {
+        for (const ActiveMonster& monster : gameplayReplay_.fixture().monsters_) {
             if (monster.alive && monster.bossDebris && monster.behavior == 2) {
                 ++debrisCount;
             }
@@ -4388,7 +4153,7 @@ public:
         for (int frame = 0; frame < 160; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
         }
-        for (const ActiveMonster& monster : monsters_) {
+        for (const ActiveMonster& monster : gameplayReplay_.fixture().monsters_) {
             if (monster.bossDebris) {
                 throw std::runtime_error("boss level7 autoplayer debris did not clear");
             }
@@ -4469,7 +4234,7 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1 || gameplayReplay_.fixture().levelIndex_ != 0) {
             throw std::runtime_error("autoplayer failed to start one-player level 1");
         }
 
@@ -4484,13 +4249,13 @@ public:
             throw std::runtime_error("autoplayer route did not change the rendered frame");
         }
 
-        size_t bombsBefore = bombs_.size();
-        int smallBombsBefore = bombInventory_.counts[0];
+        size_t bombsBefore = gameplayReplay_.fixture().bombs_.size();
+        int smallBombsBefore = gameplayReplay_.fixture().bombInventory_.counts[0];
         pushKeyDown(SDLK_n);
         processEvents(running);
         updateWithControls({}, 0);
-        if (bombs_.size() != bombsBefore + 1 || bombs_.back().x != 24 ||
-            bombs_.back().y != 21 || bombInventory_.counts[0] != smallBombsBefore - 1) {
+        if (gameplayReplay_.fixture().bombs_.size() != bombsBefore + 1 || gameplayReplay_.fixture().bombs_.back().x != 24 ||
+            gameplayReplay_.fixture().bombs_.back().y != 21 || gameplayReplay_.fixture().bombInventory_.counts[0] != smallBombsBefore - 1) {
             throw std::runtime_error("autoplayer N key did not place a level-1 route bomb");
         }
 
@@ -4499,12 +4264,12 @@ public:
             throw std::runtime_error("autoplayer bomb placement did not change frame");
         }
 
-        int fuse = bombs_.back().timer;
+        int fuse = gameplayReplay_.fixture().bombs_.back().timer;
         FrameControls idle;
         for (int i = 0; i < fuse; ++i) {
             updateWithControls(idle, 1.0f / 60.0f);
         }
-        if (!bombs_.empty() || explosionEffects_.empty()) {
+        if (!gameplayReplay_.fixture().bombs_.empty() || gameplayReplay_.fixture().explosionEffects_.empty()) {
             throw std::runtime_error("autoplayer route bomb did not explode");
         }
 
@@ -4530,18 +4295,18 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (ui_.snapshot().menu || ui_.snapshot().paused || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || ui_.snapshot().paused || gameplayReplay_.fixture().playerCount_ != 1 || gameplayReplay_.fixture().levelIndex_ != 0) {
             throw std::runtime_error("pause flow failed to start one-player level 1");
         }
 
         FrameInspection startFrame = inspectRenderedFrame("autoplayer-pause-start");
-        size_t bombsBefore = bombs_.size();
-        int smallBombsBefore = bombInventory_.counts[0];
+        size_t bombsBefore = gameplayReplay_.fixture().bombs_.size();
+        int smallBombsBefore = gameplayReplay_.fixture().bombInventory_.counts[0];
         pushKeyDown(SDLK_n);
         processEvents(running);
         updateWithControls({}, 0);
-        if (bombs_.size() != bombsBefore + 1 ||
-            bombInventory_.counts[0] != smallBombsBefore - 1) {
+        if (gameplayReplay_.fixture().bombs_.size() != bombsBefore + 1 ||
+            gameplayReplay_.fixture().bombInventory_.counts[0] != smallBombsBefore - 1) {
             throw std::runtime_error("pause flow failed to arm a bomb before pausing");
         }
 
@@ -4550,13 +4315,13 @@ public:
             throw std::runtime_error("pause flow armed frame did not change");
         }
         std::vector<uint32_t> armedPixels = fb_;
-        uint32_t logicBeforePause = logicTick_;
-        int bombTimerBeforePause = bombs_.back().timer;
-        float playerXBeforePause = player_.x;
-        float playerYBeforePause = player_.y;
-        float playerVyBeforePause = player_.vy;
-        size_t bombsArmed = bombs_.size();
-        int smallBombsArmed = bombInventory_.counts[0];
+        uint32_t logicBeforePause = gameplayReplay_.fixture().logicTick_;
+        int bombTimerBeforePause = gameplayReplay_.fixture().bombs_.back().timer;
+        float playerXBeforePause = gameplayReplay_.fixture().player_.x;
+        float playerYBeforePause = gameplayReplay_.fixture().player_.y;
+        float playerVyBeforePause = gameplayReplay_.fixture().player_.vy;
+        size_t bombsArmed = gameplayReplay_.fixture().bombs_.size();
+        int smallBombsArmed = gameplayReplay_.fixture().bombInventory_.counts[0];
 
         pushKeyDown(SDLK_p);
         processEvents(running);
@@ -4576,13 +4341,13 @@ public:
         pausedControls.p1Jump = true;
         updateWithControls(pausedControls, 1.0f / 60.0f);
         update(1.0f / 60.0f);
-        if (!ui_.snapshot().paused || logicTick_ != logicBeforePause ||
-            bombs_.size() != bombsArmed ||
-            bombs_.back().timer != bombTimerBeforePause ||
-            bombInventory_.counts[0] != smallBombsArmed ||
-            player_.x != playerXBeforePause ||
-            player_.y != playerYBeforePause ||
-            player_.vy != playerVyBeforePause) {
+        if (!ui_.snapshot().paused || gameplayReplay_.fixture().logicTick_ != logicBeforePause ||
+            gameplayReplay_.fixture().bombs_.size() != bombsArmed ||
+            gameplayReplay_.fixture().bombs_.back().timer != bombTimerBeforePause ||
+            gameplayReplay_.fixture().bombInventory_.counts[0] != smallBombsArmed ||
+            gameplayReplay_.fixture().player_.x != playerXBeforePause ||
+            gameplayReplay_.fixture().player_.y != playerYBeforePause ||
+            gameplayReplay_.fixture().player_.vy != playerVyBeforePause) {
             throw std::runtime_error("paused gameplay state advanced");
         }
         inspectRenderedFrame("autoplayer-pause-frozen");
@@ -4598,8 +4363,8 @@ public:
         }
 
         updateWithControls(pausedControls, 1.0f / 60.0f);
-        if (logicTick_ != logicBeforePause + 1 ||
-            bombs_.back().timer >= bombTimerBeforePause) {
+        if (gameplayReplay_.fixture().logicTick_ != logicBeforePause + 1 ||
+            gameplayReplay_.fixture().bombs_.back().timer >= bombTimerBeforePause) {
             throw std::runtime_error("gameplay did not advance after unpausing");
         }
         inspectRenderedFrame("autoplayer-pause-advanced");
@@ -4634,19 +4399,19 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1 || gameplayReplay_.fixture().levelIndex_ != 0) {
             throw std::runtime_error("death autoplayer failed to start one-player level 1");
         }
 
         updateWithControls(FrameControls{}, 1.0f / 60.0f);
         FrameInspection startFrame = inspectRenderedFrame("autoplayer-death-start");
-        energy_ = 0;
-        lives_ = 3;
-        damageCooldown_ = 0;
-        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                     damageCooldown_, 1);
-        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ || energy_ != 100 ||
-            reentryTimer_ != kReentryTicks || deathStateTimer_ != kDeathStateTicks) {
+        gameplayReplay_.fixture().energy_ = 0;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
+        damagePlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                     gameplayReplay_.fixture().damageCooldown_, 1);
+        if (!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().lives_ != 3 || !gameplayReplay_.fixture().pendingLifeLoss_ || gameplayReplay_.fixture().energy_ != 100 ||
+            gameplayReplay_.fixture().reentryTimer_ != kReentryTicks || gameplayReplay_.fixture().deathStateTimer_ != kDeathStateTicks) {
             throw std::runtime_error("death autoplayer did not enter state-2");
         }
 
@@ -4657,7 +4422,7 @@ public:
 
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
-        if (!playerDead_ || damageCooldown_ != 0) {
+        if (!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().damageCooldown_ != 0) {
             throw std::runtime_error("death autoplayer early reentry was accepted");
         }
 
@@ -4665,8 +4430,8 @@ public:
         for (int i = 0; i < kDeathStateTicks; ++i) {
             updateWithControls(idle, 1.0f / 60.0f);
         }
-        if (playerDead_ || energy_ != 100 || lives_ != 2 ||
-            deathStateTimer_ != 0 || reentryTimer_ != 0 || damageCooldown_ != 0 || !bombs_.empty()) {
+        if (gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().energy_ != 100 || gameplayReplay_.fixture().lives_ != 2 ||
+            gameplayReplay_.fixture().deathStateTimer_ != 0 || gameplayReplay_.fixture().reentryTimer_ != 0 || gameplayReplay_.fixture().damageCooldown_ != 0 || !gameplayReplay_.fixture().bombs_.empty()) {
             throw std::runtime_error("death autoplayer did not reenter after countdown");
         }
 
@@ -4675,27 +4440,27 @@ public:
             throw std::runtime_error("death autoplayer reentry frame did not change");
         }
 
-        int manualReentryLives = lives_;
+        int manualReentryLives = gameplayReplay_.fixture().lives_;
 
         resetLevel(0);
-        int waitRestartGeneration = levelResetGeneration_;
-        float waitStartX = player_.x;
-        float waitStartY = player_.y;
-        player_.x += 40.0f;
-        player_.y -= 8.0f;
+        int waitRestartGeneration = gameplayReplay_.fixture().levelResetGeneration_;
+        float waitStartX = gameplayReplay_.fixture().player_.x;
+        float waitStartY = gameplayReplay_.fixture().player_.y;
+        gameplayReplay_.fixture().player_.x += 40.0f;
+        gameplayReplay_.fixture().player_.y -= 8.0f;
         BombProfile profile = bombProfile(BombType::Small);
-        bombs_.push_back({static_cast<int>(player_.x + 6.0f) / kTileSize,
-                          static_cast<int>(player_.y + 12.0f) / kTileSize,
+        gameplayReplay_.fixture().bombs_.push_back({static_cast<int>(gameplayReplay_.fixture().player_.x + 6.0f) / kTileSize,
+                          static_cast<int>(gameplayReplay_.fixture().player_.y + 12.0f) / kTileSize,
                           profile.fuseTicks, BombType::Small,
                           profile.fuseTicks, 1});
-        energy_ = 0;
-        lives_ = 3;
-        damageCooldown_ = 0;
-        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                     damageCooldown_, 1);
-        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ ||
-            reentryTimer_ != kReentryTicks || deathStateTimer_ != kDeathStateTicks ||
-            bombs_.empty()) {
+        gameplayReplay_.fixture().energy_ = 0;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
+        damagePlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                     gameplayReplay_.fixture().damageCooldown_, 1);
+        if (!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().lives_ != 3 || !gameplayReplay_.fixture().pendingLifeLoss_ ||
+            gameplayReplay_.fixture().reentryTimer_ != kReentryTicks || gameplayReplay_.fixture().deathStateTimer_ != kDeathStateTicks ||
+            gameplayReplay_.fixture().bombs_.empty()) {
             throw std::runtime_error("death autoplayer wait-restart setup failed");
         }
         FrameInspection waitDeathFrame =
@@ -4704,23 +4469,23 @@ public:
         for (; waitRestartFrames < kDeathStateTicks + kSharedReentryTicks + 4;
              ++waitRestartFrames) {
             updateWithControls(idle, 1.0f / 60.0f);
-            if (levelResetGeneration_ > waitRestartGeneration) break;
+            if (gameplayReplay_.fixture().levelResetGeneration_ > waitRestartGeneration) break;
         }
-        if (levelResetGeneration_ <= waitRestartGeneration || playerDead_ ||
-            lives_ != 2 || pendingLifeLoss_ || deathStateTimer_ != 0 ||
-            reentryTimer_ != static_cast<uint16_t>(1 - kSharedReentryTicks) || !bombs_.empty() ||
-            player_.x != waitStartX || player_.y != waitStartY) {
+        if (gameplayReplay_.fixture().levelResetGeneration_ <= waitRestartGeneration || gameplayReplay_.fixture().playerDead_ ||
+            gameplayReplay_.fixture().lives_ != 2 || gameplayReplay_.fixture().pendingLifeLoss_ || gameplayReplay_.fixture().deathStateTimer_ != 0 ||
+            gameplayReplay_.fixture().reentryTimer_ != static_cast<uint16_t>(1 - kSharedReentryTicks) || !gameplayReplay_.fixture().bombs_.empty() ||
+            gameplayReplay_.fixture().player_.x != waitStartX || gameplayReplay_.fixture().player_.y != waitStartY) {
             std::ostringstream oss;
             oss << "death autoplayer wait did not restart level"
-                << " generation=" << levelResetGeneration_
+                << " generation=" << gameplayReplay_.fixture().levelResetGeneration_
                 << " before=" << waitRestartGeneration
-                << " dead=" << (playerDead_ ? 1 : 0)
-                << " lives=" << lives_
-                << " pending=" << (pendingLifeLoss_ ? 1 : 0)
-                << " death_timer=" << deathStateTimer_
-                << " reentry_timer=" << reentryTimer_
-                << " bombs=" << bombs_.size()
-                << " xy=" << player_.x << ',' << player_.y
+                << " dead=" << (gameplayReplay_.fixture().playerDead_ ? 1 : 0)
+                << " lives=" << gameplayReplay_.fixture().lives_
+                << " pending=" << (gameplayReplay_.fixture().pendingLifeLoss_ ? 1 : 0)
+                << " death_timer=" << gameplayReplay_.fixture().deathStateTimer_
+                << " reentry_timer=" << gameplayReplay_.fixture().reentryTimer_
+                << " bombs=" << gameplayReplay_.fixture().bombs_.size()
+                << " xy=" << gameplayReplay_.fixture().player_.x << ',' << gameplayReplay_.fixture().player_.y
                 << " start_xy=" << waitStartX << ',' << waitStartY;
             throw std::runtime_error(oss.str());
         }
@@ -4737,14 +4502,14 @@ public:
             throw std::runtime_error("death autoplayer could not create unwinnable level");
         }
         int missingObjectiveTiles = remainingObjectiveTiles();
-        int unwinnableGeneration = levelResetGeneration_;
-        energy_ = 0;
-        lives_ = 3;
-        damageCooldown_ = 0;
-        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                     damageCooldown_, 1);
-        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ ||
-            reentryTimer_ != kDeathStateTicks || deathStateTimer_ != kDeathStateTicks ||
+        int unwinnableGeneration = gameplayReplay_.fixture().levelResetGeneration_;
+        gameplayReplay_.fixture().energy_ = 0;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
+        damagePlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                     gameplayReplay_.fixture().damageCooldown_, 1);
+        if (!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().lives_ != 3 || !gameplayReplay_.fixture().pendingLifeLoss_ ||
+            gameplayReplay_.fixture().reentryTimer_ != kDeathStateTicks || gameplayReplay_.fixture().deathStateTimer_ != kDeathStateTicks ||
             remainingObjectiveTiles() != missingObjectiveTiles) {
             throw std::runtime_error("death autoplayer unwinnable setup failed");
         }
@@ -4752,20 +4517,20 @@ public:
             inspectRenderedFrame("autoplayer-death-unwinnable-state2");
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
-        if (!playerDead_ || lives_ != 3 ||
-            levelResetGeneration_ != unwinnableGeneration) {
+        if (!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().lives_ != 3 ||
+            gameplayReplay_.fixture().levelResetGeneration_ != unwinnableGeneration) {
             throw std::runtime_error("death autoplayer early unwinnable fire restarted");
         }
         int unwinnableRestartFrames = 0;
         for (; unwinnableRestartFrames < kDeathStateTicks + 4;
              ++unwinnableRestartFrames) {
             updateWithControls(idle, 1.0f / 60.0f);
-            if (levelResetGeneration_ > unwinnableGeneration) break;
+            if (gameplayReplay_.fixture().levelResetGeneration_ > unwinnableGeneration) break;
         }
-        if (levelResetGeneration_ <= unwinnableGeneration || playerDead_ ||
-            lives_ != 2 || pendingLifeLoss_ || deathStateTimer_ != 0 ||
-            reentryTimer_ != 0 ||
-            remainingObjectiveTiles() != level_.startingObjectiveTiles) {
+        if (gameplayReplay_.fixture().levelResetGeneration_ <= unwinnableGeneration || gameplayReplay_.fixture().playerDead_ ||
+            gameplayReplay_.fixture().lives_ != 2 || gameplayReplay_.fixture().pendingLifeLoss_ || gameplayReplay_.fixture().deathStateTimer_ != 0 ||
+            gameplayReplay_.fixture().reentryTimer_ != 0 ||
+            remainingObjectiveTiles() != gameplayReplay_.fixture().level_.startingObjectiveTiles) {
             throw std::runtime_error("death autoplayer unwinnable restart failed");
         }
         FrameInspection unwinnableRestartFrame =
@@ -4778,7 +4543,7 @@ public:
                   << " scenario=" << scenario
                   << " death_state_ticks=" << kDeathStateTicks
                   << " lives=" << manualReentryLives
-                  << " energy=" << energy_
+                  << " energy=" << gameplayReplay_.fixture().energy_
                   << " reentered=1 wait_restart=1"
                   << " unwinnable_restart=1 early_unwinnable_fire_blocked=1"
                   << " frame_inspection=1\n";
@@ -4792,26 +4557,26 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1 || gameplayReplay_.fixture().levelIndex_ != 0) {
             throw std::runtime_error("death visual autoplayer failed to start level 1");
         }
 
         updateWithControls(FrameControls{}, 1.0f / 60.0f);
         FrameInspection startFrame = inspectRenderedFrame("autoplayer-death-visual-start");
-        energy_ = 0;
-        lives_ = 3;
-        damageCooldown_ = 0;
-        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                     damageCooldown_, 1);
-        if (!playerDead_ || !state2Visual_.active ||
-            state2Visual_.current != kState2VisualStartFrame ||
-            deathStateTimer_ != kDeathStateTicks) {
+        gameplayReplay_.fixture().energy_ = 0;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
+        damagePlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                     gameplayReplay_.fixture().damageCooldown_, 1);
+        if (!gameplayReplay_.fixture().playerDead_ || !gameplayReplay_.fixture().state2Visual_.active ||
+            gameplayReplay_.fixture().state2Visual_.current != kState2VisualStartFrame ||
+            gameplayReplay_.fixture().deathStateTimer_ != kDeathStateTicks) {
             throw std::runtime_error("death visual autoplayer did not seed state-2 cursor");
         }
         auto cursorPreviewFrame = [&](const std::string& label) {
-            state2VisualCursorPreview_ = true;
+            gameplayReplay_.fixture().state2VisualCursorPreview_ = true;
             FrameInspection inspection = inspectRenderedFrame(label);
-            state2VisualCursorPreview_ = false;
+            gameplayReplay_.fixture().state2VisualCursorPreview_ = false;
             return inspection;
         };
         auto visualRowFor = [&](uint8_t frame) {
@@ -4827,7 +4592,7 @@ public:
         if (deathStartFrame.hash == startFrame.hash) {
             throw std::runtime_error("death visual initial frame did not change rendering");
         }
-        State2EffectEntry effect4a = state2Effect_;
+        State2EffectEntry effect4a = gameplayReplay_.fixture().state2Effect_;
         FrameInspection cursorStartFrame =
             cursorPreviewFrame("autoplayer-death-visual-cursor-frame-4a");
         if (cursorStartFrame.hash == deathStartFrame.hash) {
@@ -4836,8 +4601,8 @@ public:
 
         FrameControls idle;
         updateWithControls(idle, 1.0f / 60.0f);
-        if (state2Visual_.current != static_cast<uint8_t>(kState2VisualStartFrame + 1) ||
-            deathStateTimer_ != kDeathStateTicks - 1) {
+        if (gameplayReplay_.fixture().state2Visual_.current != static_cast<uint8_t>(kState2VisualStartFrame + 1) ||
+            gameplayReplay_.fixture().deathStateTimer_ != kDeathStateTicks - 1) {
             throw std::runtime_error("death visual cursor did not advance on first tick");
         }
         FrameInspection tick1Frame =
@@ -4845,7 +4610,7 @@ public:
         if (tick1Frame.hash == deathStartFrame.hash) {
             throw std::runtime_error("death visual first tick frame did not change");
         }
-        State2EffectEntry effect4b = state2Effect_;
+        State2EffectEntry effect4b = gameplayReplay_.fixture().state2Effect_;
         FrameInspection cursorTick1Frame =
             cursorPreviewFrame("autoplayer-death-visual-cursor-frame-4b");
         if (cursorTick1Frame.hash == tick1Frame.hash ||
@@ -4856,7 +4621,7 @@ public:
         for (int i = 0; i < kState2VisualDelay + 1; ++i) {
             updateWithControls(idle, 1.0f / 60.0f);
         }
-        if (state2Visual_.current != static_cast<uint8_t>(kState2VisualStartFrame + 2)) {
+        if (gameplayReplay_.fixture().state2Visual_.current != static_cast<uint8_t>(kState2VisualStartFrame + 2)) {
             throw std::runtime_error("death visual cursor did not reach the third frame");
         }
         FrameInspection tick5Frame =
@@ -4864,14 +4629,14 @@ public:
         if (tick5Frame.hash == tick1Frame.hash) {
             throw std::runtime_error("death visual third frame did not change");
         }
-        State2EffectEntry effect4c = state2Effect_;
+        State2EffectEntry effect4c = gameplayReplay_.fixture().state2Effect_;
         FrameInspection cursorTick5Frame =
             cursorPreviewFrame("autoplayer-death-visual-cursor-frame-4c");
         if (cursorTick5Frame.hash == tick5Frame.hash ||
             cursorTick5Frame.hash == cursorTick1Frame.hash) {
             throw std::runtime_error("death visual cursor frame 4c did not advance");
         }
-        if (state2VisualCursorPreview_) {
+        if (gameplayReplay_.fixture().state2VisualCursorPreview_) {
             throw std::runtime_error("death visual cursor preview flag leaked");
         }
 
@@ -4893,8 +4658,8 @@ public:
             row4c.row0 != 16 || row4c.row1 != 16) {
             throw std::runtime_error("death visual sprite sequence mismatch");
         }
-        int playerEffectX = static_cast<int>(player_.x);
-        int playerEffectY = static_cast<int>(player_.y);
+        int playerEffectX = static_cast<int>(gameplayReplay_.fixture().player_.x);
+        int playerEffectY = static_cast<int>(gameplayReplay_.fixture().player_.y);
         auto effectMatches = [&](const State2EffectEntry& effect,
                                  uint8_t frame,
                                  const State2VisualRow& row) {
@@ -4948,16 +4713,16 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1 || gameplayReplay_.fixture().levelIndex_ != 0) {
             throw std::runtime_error("level transition autoplayer failed to start level 1");
         }
 
         FrameInspection startFrame = inspectRenderedFrame("autoplayer-transition-start");
-        int requiredBonus = level_.requiredBonus;
-        int requiredDestruction = level_.requiredDestruction;
+        int requiredBonus = gameplayReplay_.fixture().level_.requiredBonus;
+        int requiredDestruction = gameplayReplay_.fixture().level_.requiredDestruction;
         collectAllObjectiveTilesForSmoke();
         damageRequiredTilesForSmoke();
-        if (!isComplete() || collected_ < requiredBonus ||
+        if (!isComplete() || gameplayReplay_.fixture().collected_ < requiredBonus ||
             destructionPercent() < requiredDestruction) {
             throw std::runtime_error("level transition autoplayer did not satisfy progress");
         }
@@ -4969,12 +4734,12 @@ public:
 
         FrameControls idle;
         int frames = 0;
-        while (levelIndex_ == 0 && frames <= 101) {
+        while (gameplayReplay_.fixture().levelIndex_ == 0 && frames <= 101) {
             updateWithControls(idle, 1.0f / 60.0f);
             ++frames;
         }
-        if (levelIndex_ != 1 || ui_.snapshot().menu || frames != 101 || collected_ != 0 ||
-            completeTimer_ != 0) {
+        if (gameplayReplay_.fixture().levelIndex_ != 1 || ui_.snapshot().menu || frames != 101 || gameplayReplay_.fixture().collected_ != 0 ||
+            gameplayReplay_.fixture().completeTimer_ != 0) {
             throw std::runtime_error("level transition autoplayer did not enter level 2");
         }
 
@@ -4988,7 +4753,7 @@ public:
                   << " start_level=1 completed_bonus=" << requiredBonus
                   << " completed_destruction=" << requiredDestruction
                   << " transition_frames=" << frames
-                  << " advanced_level=" << (levelIndex_ + 1)
+                  << " advanced_level=" << (gameplayReplay_.fixture().levelIndex_ + 1)
                   << " frame_inspection=1\n";
     }
 
@@ -5000,7 +4765,7 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1 || gameplayReplay_.fixture().levelIndex_ != 0) {
             throw std::runtime_error("portal/weapon autoplayer failed to start level 1");
         }
 
@@ -5014,12 +4779,12 @@ public:
             sourceY = -1;
             portalKey = 0;
             destination = nullptr;
-            for (int y = 1; y < level_.height && !destination; ++y) {
-                for (int x = 0; x < level_.width && !destination; ++x) {
+            for (int y = 1; y < gameplayReplay_.fixture().level_.height && !destination; ++y) {
+                for (int x = 0; x < gameplayReplay_.fixture().level_.width && !destination; ++x) {
                     if (tileAt(x, y) != 0x45) continue;
                     uint16_t key = static_cast<uint16_t>(wordAt(x, y) & 0x7fffu);
                     if (key == 0) continue;
-                    for (const LevelPortal& portal : level_.portals) {
+                    for (const LevelPortal& portal : gameplayReplay_.fixture().level_.portals) {
                         if (portal.key == key) {
                             sourceX = x;
                             sourceY = y;
@@ -5042,7 +4807,7 @@ public:
                 }
             }
         } else {
-            portalLevel = levelIndex_;
+            portalLevel = gameplayReplay_.fixture().levelIndex_;
         }
         if (portalLevel < 0) {
             throw std::runtime_error("portal/weapon autoplayer found no portal source");
@@ -5054,18 +4819,18 @@ public:
         switchControls.p1Left = true;
         switchControls.p1Right = true;
         driveAutoplayerWeaponSwitchChord(switchControls);
-        if (bombInventory_.selected != BombType::Medium) {
+        if (gameplayReplay_.fixture().bombInventory_.selected != BombType::Medium) {
             throw std::runtime_error("portal/weapon autoplayer did not switch to medium bomb");
         }
 
-        size_t bombsBefore = bombs_.size();
-        int mediumBefore = bombInventory_.counts[1];
+        size_t bombsBefore = gameplayReplay_.fixture().bombs_.size();
+        int mediumBefore = gameplayReplay_.fixture().bombInventory_.counts[1];
         pushKeyDown(SDLK_n);
         processEvents(running);
         updateWithControls({}, 0);
-        if (bombs_.size() != bombsBefore + 1 ||
-            bombs_.back().type != BombType::Medium ||
-            bombInventory_.counts[1] != mediumBefore - 1) {
+        if (gameplayReplay_.fixture().bombs_.size() != bombsBefore + 1 ||
+            gameplayReplay_.fixture().bombs_.back().type != BombType::Medium ||
+            gameplayReplay_.fixture().bombInventory_.counts[1] != mediumBefore - 1) {
             throw std::runtime_error("portal/weapon autoplayer did not place medium bomb");
         }
         FrameInspection bombFrame = inspectRenderedFrame("autoplayer-portal-weapon-bomb");
@@ -5073,16 +4838,16 @@ public:
             throw std::runtime_error("portal/weapon bomb frame did not change");
         }
 
-        player_.x = static_cast<float>(sourceX * kTileSize);
-        player_.y = static_cast<float>(sourceY * kTileSize - kTileSize);
+        gameplayReplay_.fixture().player_.x = static_cast<float>(sourceX * kTileSize);
+        gameplayReplay_.fixture().player_.y = static_cast<float>(sourceY * kTileSize - kTileSize);
         clearSoundLatch();
         sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
         FrameControls idle;
         idle.p1Down = true;
         updateWithControls(idle, 1.0f / 60.0f);
-        if (player_.x != static_cast<float>(destination->x) ||
-            player_.y != static_cast<float>(destination->y) ||
-            portalCooldown_ != 30 || sound_.latch().active ||
+        if (gameplayReplay_.fixture().player_.x != static_cast<float>(destination->x) ||
+            gameplayReplay_.fixture().player_.y != static_cast<float>(destination->y) ||
+            gameplayReplay_.fixture().portalCooldown_ != 30 || sound_.latch().active ||
             sound_.lastPumped().offset != kPortalTeleportSoundCursor ||
             sound_.lastPumped().selector != kPortalTeleportSoundPriority) {
             throw std::runtime_error("portal/weapon autoplayer did not trigger portal");
@@ -5095,14 +4860,14 @@ public:
 
         std::cout << "autoplayer=ok"
                   << " scenario=" << scenario
-                  << " level=" << (levelIndex_ + 1)
+                  << " level=" << (gameplayReplay_.fixture().levelIndex_ + 1)
                   << " switched_weapon=2 medium_bomb=1"
                   << " switch_hold_ticks=" << static_cast<int>(kWeaponSwitchHoldTicks)
                   << " switch_trigger=release switch_sound=0x0024/p2"
                   << " portal_key=" << portalKey
                   << " portal_from=" << sourceX << ',' << sourceY
                   << " portal_to=" << destination->x << ',' << destination->y
-                  << " cooldown=" << portalCooldown_
+                  << " cooldown=" << gameplayReplay_.fixture().portalCooldown_
                   << " frame_inspection=1\n";
     }
 
@@ -5114,18 +4879,18 @@ public:
         pushKeyDown(SDLK_1);
         processEvents(running);
         resetLevel(5);
-        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 5) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1 || gameplayReplay_.fixture().levelIndex_ != 5) {
             throw std::runtime_error("launch-pad autoplayer failed to start level 6");
         }
-        for (SpawnerState& state : spawnerStates_) {
+        for (SpawnerState& state : gameplayReplay_.fixture().spawnerStates_) {
             state.remaining = 0;
             state.availableSlots = 0;
         }
 
         int padX = -1;
         int padY = -1;
-        for (int y = 0; y < level_.height && padX < 0; ++y) {
-            for (int x = 0; x < level_.width; ++x) {
+        for (int y = 0; y < gameplayReplay_.fixture().level_.height && padX < 0; ++y) {
+            for (int x = 0; x < gameplayReplay_.fixture().level_.width; ++x) {
                 if (tileAt(x, y) == kLaunchPadTile) {
                     padX = x;
                     padY = y;
@@ -5137,23 +4902,23 @@ public:
             throw std::runtime_error("launch-pad autoplayer found no level-6 pad");
         }
 
-        player_.x = static_cast<float>(padX * kTileSize);
-        player_.y = static_cast<float>(padY * kTileSize - 16);
-        player_.vx = 0.0f;
-        player_.vy = 0.0f;
-        player_.grounded = true;
-        if (collides(player_.x, player_.y) ||
-            tileAt(static_cast<int>(player_.x + 6.0f) / kTileSize,
-                   static_cast<int>(player_.y + 16.0f) / kTileSize) !=
+        gameplayReplay_.fixture().player_.x = static_cast<float>(padX * kTileSize);
+        gameplayReplay_.fixture().player_.y = static_cast<float>(padY * kTileSize - 16);
+        gameplayReplay_.fixture().player_.vx = 0.0f;
+        gameplayReplay_.fixture().player_.vy = 0.0f;
+        gameplayReplay_.fixture().player_.grounded = true;
+        if (collides(gameplayReplay_.fixture().player_.x, gameplayReplay_.fixture().player_.y) ||
+            tileAt(static_cast<int>(gameplayReplay_.fixture().player_.x + 6.0f) / kTileSize,
+                   static_cast<int>(gameplayReplay_.fixture().player_.y + 16.0f) / kTileSize) !=
                 kLaunchPadTile) {
             throw std::runtime_error("launch-pad autoplayer did not align with pad");
         }
 
-        int overheadX = static_cast<int>(player_.x) / kTileSize;
-        int overheadY = static_cast<int>(player_.y - 1.0f) / kTileSize;
+        int overheadX = static_cast<int>(gameplayReplay_.fixture().player_.x) / kTileSize;
+        int overheadY = static_cast<int>(gameplayReplay_.fixture().player_.y - 1.0f) / kTileSize;
         uint8_t overheadTile = static_cast<uint8_t>(tileAt(overheadX, overheadY));
         tileRef(overheadX, overheadY) = 2;
-        if (activateLaunchPad(player_, true, static_cast<int>(player_.y)) || !launchPadMarkers_.empty()) {
+        if (activateLaunchPad(gameplayReplay_.fixture().player_, true, static_cast<int>(gameplayReplay_.fixture().player_.y)) || !gameplayReplay_.fixture().launchPadMarkers_.empty()) {
             throw std::runtime_error("launch-pad overhead gate accepted blocked launch");
         }
         tileRef(overheadX, overheadY) = overheadTile;
@@ -5163,29 +4928,29 @@ public:
         cancelled.p1Jump = true;
         cancelled.p1Down = true;
         updateWithControls(cancelled, 1.0f / 60.0f);
-        if (!launchPadMarkers_.empty() || player_.vy < 0.0f ||
+        if (!gameplayReplay_.fixture().launchPadMarkers_.empty() || gameplayReplay_.fixture().player_.vy < 0.0f ||
             sound_.lastPumped().offset == kLaunchPadSoundCursor) {
             throw std::runtime_error("launch-pad Up+Down cancellation failed");
         }
-        player_.x = static_cast<float>(padX * kTileSize);
-        player_.y = static_cast<float>(padY * kTileSize - 16);
-        player_.vx = 0.0f;
-        player_.vy = 0.0f;
-        player_.grounded = true;
+        gameplayReplay_.fixture().player_.x = static_cast<float>(padX * kTileSize);
+        gameplayReplay_.fixture().player_.y = static_cast<float>(padY * kTileSize - 16);
+        gameplayReplay_.fixture().player_.vx = 0.0f;
+        gameplayReplay_.fixture().player_.vy = 0.0f;
+        gameplayReplay_.fixture().player_.grounded = true;
 
         clearSoundLatch();
         sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
-        float readyY = player_.y;
+        float readyY = gameplayReplay_.fixture().player_.y;
         FrameControls down;
         down.p1Down = true;
         updateWithControls(down, 1.0f / 60.0f);
-        if (player_.y >= readyY || player_.vy >= 0.0f || player_.grounded ||
-            launchPadMarkers_.size() != 1 || sound_.latch().active ||
+        if (gameplayReplay_.fixture().player_.y >= readyY || gameplayReplay_.fixture().player_.vy >= 0.0f || gameplayReplay_.fixture().player_.grounded ||
+            gameplayReplay_.fixture().launchPadMarkers_.size() != 1 || sound_.latch().active ||
             sound_.lastPumped().offset != kLaunchPadSoundCursor ||
             sound_.lastPumped().selector != kLaunchPadSoundPriority) {
             throw std::runtime_error("launch-pad activation mismatch");
         }
-        const LaunchPadMarker& marker = launchPadMarkers_.front();
+        const LaunchPadMarker& marker = gameplayReplay_.fixture().launchPadMarkers_.front();
         if (marker.timer != kLaunchPadMarkerTimer ||
             marker.frame != kLaunchPadMarkerFrame ||
             marker.kind != kLaunchPadMarkerKind ||
@@ -5196,10 +4961,10 @@ public:
 
         FrameInspection launchedFrame =
             inspectRenderedFrame("autoplayer-launch-pad-launched");
-        const auto visibleMarkers = launchPadMarkers_;
-        launchPadMarkers_.clear();
+        const auto visibleMarkers = gameplayReplay_.fixture().launchPadMarkers_;
+        gameplayReplay_.fixture().launchPadMarkers_.clear();
         const FrameInspection withoutMarker = inspectRenderedFrame("autoplayer-launch-pad-no-marker-control");
-        launchPadMarkers_ = visibleMarkers;
+        gameplayReplay_.fixture().launchPadMarkers_ = visibleMarkers;
         if (launchedFrame.hash == withoutMarker.hash) {
             throw std::runtime_error("launch-pad marker was not rendered");
         }
@@ -5209,11 +4974,11 @@ public:
 
         FrameControls idle;
         int markerLifetimeUpdates = 0;
-        while (!launchPadMarkers_.empty() && markerLifetimeUpdates < 12) {
+        while (!gameplayReplay_.fixture().launchPadMarkers_.empty() && markerLifetimeUpdates < 12) {
             updateWithControls(idle, 1.0f / 60.0f);
             ++markerLifetimeUpdates;
         }
-        if (!launchPadMarkers_.empty() || markerLifetimeUpdates != 9) {
+        if (!gameplayReplay_.fixture().launchPadMarkers_.empty() || markerLifetimeUpdates != 9) {
             throw std::runtime_error("launch-pad marker lifetime mismatch");
         }
         FrameInspection airborneFrame =
@@ -5246,9 +5011,9 @@ public:
 
         resetLevel(0);
         FrameInspection menuFrame = inspectRenderedFrame("autoplayer-record-menu");
-        playerCount_ = 1;
-        score_ = 999999u;
-        levelIndex_ = 2;
+        gameplayReplay_.fixture().playerCount_ = 1;
+        gameplayReplay_.fixture().score_ = 999999u;
+        gameplayReplay_.fixture().levelIndex_ = 2;
         beginGameOver();
         if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::NameEntry ||
             recordStore_.pending().score != 999999u || recordStore_.pending().level != 3 ||
@@ -5295,18 +5060,18 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1 || gameplayReplay_.fixture().levelIndex_ != 0) {
             throw std::runtime_error("monster reward autoplayer failed to start level 1");
         }
 
         pushKeyDown(SDLK_n);
         processEvents(running);
         updateWithControls({}, 0);
-        if (bombs_.empty() || bombs_.back().owner != 1) {
+        if (gameplayReplay_.fixture().bombs_.empty() || gameplayReplay_.fixture().bombs_.back().owner != 1) {
             throw std::runtime_error("monster reward autoplayer did not place bomb");
         }
-        bombs_.back().timer = 1;
-        Bomb placed = bombs_.back();
+        gameplayReplay_.fixture().bombs_.back().timer = 1;
+        Bomb placed = gameplayReplay_.fixture().bombs_.back();
         auto tiles = explosionTilesFor(placed);
         std::array<int, 2> monsterTile = tiles.front();
         for (const auto& tile : tiles) {
@@ -5331,22 +5096,22 @@ public:
         initializeMonsterMotion(monster);
         monster.animFrame = 44;
         monster.animCursor = 44;
-        monsters_.push_back(monster);
+        gameplayReplay_.fixture().monsters_.push_back(monster);
 
-        player_.x = static_cast<float>(
-            std::min(level_.width * kTileSize - 24, (placed.x + 5) * kTileSize));
-        player_.y = static_cast<float>(placed.y * kTileSize);
-        randomSeed_ = 0x28148fe7u;  // Four particle draws lead to the fixed reward seed.
-        uint32_t scoreBefore = score_;
-        if (gameRenderer_.monsterSpriteIndex(monsters_.front()) != 44) {
+        gameplayReplay_.fixture().player_.x = static_cast<float>(
+            std::min(gameplayReplay_.fixture().level_.width * kTileSize - 24, (placed.x + 5) * kTileSize));
+        gameplayReplay_.fixture().player_.y = static_cast<float>(placed.y * kTileSize);
+        gameplayReplay_.fixture().randomSeed_ = 0x28148fe7u;  // Four particle draws lead to the fixed reward seed.
+        uint32_t scoreBefore = gameplayReplay_.fixture().score_;
+        if (gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) != 44) {
             throw std::runtime_error(
                 "monster reward autoplayer pre-impact sprite mismatch");
         }
         FrameInspection preFrame =
             inspectRenderedFrame("autoplayer-monster-reward-pre-impact");
-        monsters_.front().animFrame = 43;
-        monsters_.front().animCursor = 43;
-        if (gameRenderer_.monsterSpriteIndex(monsters_.front()) != 43) {
+        gameplayReplay_.fixture().monsters_.front().animFrame = 43;
+        gameplayReplay_.fixture().monsters_.front().animCursor = 43;
+        if (gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) != 43) {
             throw std::runtime_error(
                 "monster reward autoplayer last pre-fatal sprite mismatch");
         }
@@ -5355,18 +5120,18 @@ public:
 
         FrameControls idle;
         int flameUpdates = 0;
-        for (int tick = 0; tick < 16 && !monsters_.empty() && monsters_.front().behavior != 2; ++tick) {
+        for (int tick = 0; tick < 16 && !gameplayReplay_.fixture().monsters_.empty() && gameplayReplay_.fixture().monsters_.front().behavior != 2; ++tick) {
             updateWithControls(idle, 1.0f / 60.0f);
             inspectRenderedFrame("autoplayer-monster-reward-flame-" + std::to_string(tick));
             ++flameUpdates;
         }
-        const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
-        if (flameUpdates < 2 || !bombs_.empty() || monsters_.empty() ||
-            monsters_.front().behavior != 2 ||
-            monsters_.front().kind != 0x0c ||
-            monsters_.front().stateTimer != corpseTicks ||
-            gameRenderer_.monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
-            !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+        const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(gameplayReplay_.fixture().logicTick_ & 1u);
+        if (flameUpdates < 2 || !gameplayReplay_.fixture().bombs_.empty() || gameplayReplay_.fixture().monsters_.empty() ||
+            gameplayReplay_.fixture().monsters_.front().behavior != 2 ||
+            gameplayReplay_.fixture().monsters_.front().kind != 0x0c ||
+            gameplayReplay_.fixture().monsters_.front().stateTimer != corpseTicks ||
+            gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) != kMonsterCorpseSpriteLeft ||
+            !gameplayReplay_.fixture().bonusDrops_.empty() || gameplayReplay_.fixture().randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster reward autoplayer did not kill monster");
         }
         FrameInspection deathFrame = inspectRenderedFrame("autoplayer-monster-reward-death");
@@ -5378,52 +5143,52 @@ public:
         FrameInspection midpointFrame;
         for (int frame = 1; frame < corpseTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
-            if (monsters_.size() != 1 ||
-                monsters_.front().stateTimer !=
+            if (gameplayReplay_.fixture().monsters_.size() != 1 ||
+                gameplayReplay_.fixture().monsters_.front().stateTimer !=
                     corpseTicks - frame ||
-                gameRenderer_.monsterSpriteIndex(monsters_.front()) !=
+                gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) !=
                     kMonsterCorpseSpriteLeft ||
-                !bonusDrops_.empty()) {
+                !gameplayReplay_.fixture().bonusDrops_.empty()) {
                 throw std::runtime_error(
                     "monster reward autoplayer corpse playback mismatch tick=" + std::to_string(frame) +
-                    " monsters=" + std::to_string(monsters_.size()) + " rng=" + std::to_string(randomSeed_));
+                    " monsters=" + std::to_string(gameplayReplay_.fixture().monsters_.size()) + " rng=" + std::to_string(gameplayReplay_.fixture().randomSeed_));
             }
-            if (monsters_.front().stateTimer ==
+            if (gameplayReplay_.fixture().monsters_.front().stateTimer ==
                 corpseTicks / 2) {
                 midpointFrame = inspectRenderedFrame(
                     "autoplayer-monster-reward-corpse-midpoint");
             }
         }
-        if (monsters_.front().stateTimer != 1 || midpointFrame.hash == 0) {
+        if (gameplayReplay_.fixture().monsters_.front().stateTimer != 1 || midpointFrame.hash == 0) {
             throw std::runtime_error(
                 "monster reward autoplayer corpse timing mismatch");
         }
         inspectRenderedFrame("autoplayer-monster-reward-corpse-last");
 
-        lezac::core::TurboRandom rewardRandom(randomSeed_);
+        lezac::core::TurboRandom rewardRandom(gameplayReplay_.fixture().randomSeed_);
         for (int draw = 0; draw < 6; ++draw) rewardRandom.range(0, 1);
         updateWithControls(idle, 1.0f / 60.0f);
-        if (!monsters_.empty() || bonusDrops_.size() != 1 ||
-            bonusDrops_.front().type != BonusType::YellowBombBox ||
-            bonusSpriteIndex(bonusDrops_.front().type) != 65 ||
-            randomSeed_ != rewardRandom.seed() || score_ != scoreBefore) {
+        if (!gameplayReplay_.fixture().monsters_.empty() || gameplayReplay_.fixture().bonusDrops_.size() != 1 ||
+            gameplayReplay_.fixture().bonusDrops_.front().type != BonusType::YellowBombBox ||
+            bonusSpriteIndex(gameplayReplay_.fixture().bonusDrops_.front().type) != 65 ||
+            gameplayReplay_.fixture().randomSeed_ != rewardRandom.seed() || gameplayReplay_.fixture().score_ != scoreBefore) {
             throw std::runtime_error(
-                "monster reward autoplayer delayed reward mismatch rng=" + std::to_string(randomSeed_) +
-                " drops=" + std::to_string(bonusDrops_.size()));
+                "monster reward autoplayer delayed reward mismatch rng=" + std::to_string(gameplayReplay_.fixture().randomSeed_) +
+                " drops=" + std::to_string(gameplayReplay_.fixture().bonusDrops_.size()));
         }
         FrameInspection rewardFrame =
             inspectRenderedFrame("autoplayer-monster-reward-visible");
 
-        BonusDrop drop = bonusDrops_.front();
-        player_.x = drop.x;
-        player_.y = drop.y;
-        player_.vx = 0.0f;
-        player_.vy = 0.0f;
-        player_.grounded = true;
+        BonusDrop drop = gameplayReplay_.fixture().bonusDrops_.front();
+        gameplayReplay_.fixture().player_.x = drop.x;
+        gameplayReplay_.fixture().player_.y = drop.y;
+        gameplayReplay_.fixture().player_.vx = 0.0f;
+        gameplayReplay_.fixture().player_.vy = 0.0f;
+        gameplayReplay_.fixture().player_.grounded = true;
         clearSoundLatch();
         sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
         updateWithControls(idle, 1.0f / 60.0f);
-        if (!bonusDrops_.empty() || score_ - scoreBefore != 3000 ||
+        if (!gameplayReplay_.fixture().bonusDrops_.empty() || gameplayReplay_.fixture().score_ - scoreBefore != 3000 ||
             sound_.latch().active ||
             sound_.lastPumped().offset != kBonusPickupSoundCursor ||
             sound_.lastPumped().selector != kBonusPickupSoundPriority) {
@@ -5443,7 +5208,7 @@ public:
                   << " corpse_ticks=" << corpseTicks
                   << " delayed_reward=1 reward_sprite=65"
                   << " reward_collected=1"
-                  << " score_delta=" << (score_ - scoreBefore)
+                  << " score_delta=" << (gameplayReplay_.fixture().score_ - scoreBefore)
                   << " frames_inspected=" << (7 + flameUpdates) << " frame_inspection=1"
                   << " original_runtime_claim=0"
                   << " reward_motion_claim=0 visual_claim=0\n";
@@ -5455,8 +5220,8 @@ public:
         prepareAutoplayerMonsterFixtureLevel();
         bool running = true;
 
-        player_.x = 80.0f;
-        player_.y = 24.0f;
+        gameplayReplay_.fixture().player_.x = 80.0f;
+        gameplayReplay_.fixture().player_.y = 24.0f;
         ActiveMonster monster;
         monster.x = 40;
         monster.y = 24;
@@ -5467,37 +5232,37 @@ public:
         monster.animDelay = 1;
         refreshMonsterAnimationProfile(monster);
         initializeMonsterMotion(monster);
-        monsters_.push_back(monster);
+        gameplayReplay_.fixture().monsters_.push_back(monster);
 
         FrameInspection startFrame = inspectRenderedFrame("autoplayer-monster-b3-start");
         FrameControls idle;
         updateWithControls(idle, 1.0f / 60.0f);
-        if (monsters_.empty() || monsters_.front().behavior != 3 ||
-            monsters_.front().x <= 40 || monsters_.front().hp != 3) {
+        if (gameplayReplay_.fixture().monsters_.empty() || gameplayReplay_.fixture().monsters_.front().behavior != 3 ||
+            gameplayReplay_.fixture().monsters_.front().x <= 40 || gameplayReplay_.fixture().monsters_.front().hp != 3) {
             throw std::runtime_error("monster behavior-3 autoplayer did not advance walker");
         }
-        int movedPx = monsters_.front().x - 40;
+        int movedPx = gameplayReplay_.fixture().monsters_.front().x - 40;
         FrameInspection moveFrame = inspectRenderedFrame("autoplayer-monster-b3-move");
         if (moveFrame.hash == startFrame.hash) {
             throw std::runtime_error("monster behavior-3 move frame did not change");
         }
 
-        player_.x = 40.0f;
-        player_.y = 24.0f;
+        gameplayReplay_.fixture().player_.x = 40.0f;
+        gameplayReplay_.fixture().player_.y = 24.0f;
         pushKeyDown(SDLK_n);
         processEvents(running);
         updateWithControls({}, 0);
-        if (bombs_.empty() || bombs_.back().type != BombType::Small) {
+        if (gameplayReplay_.fixture().bombs_.empty() || gameplayReplay_.fixture().bombs_.back().type != BombType::Small) {
             throw std::runtime_error("monster behavior-3 autoplayer did not place small bomb");
         }
-        bombs_.back().timer = 1;
-        player_.x = 88.0f;
-        player_.y = 24.0f;
-        randomSeed_ = 0x28148fe7u;
-        for (int tick = 0; tick < 16 && !monsters_.empty() && monsters_.front().hp == 3; ++tick)
+        gameplayReplay_.fixture().bombs_.back().timer = 1;
+        gameplayReplay_.fixture().player_.x = 88.0f;
+        gameplayReplay_.fixture().player_.y = 24.0f;
+        gameplayReplay_.fixture().randomSeed_ = 0x28148fe7u;
+        for (int tick = 0; tick < 16 && !gameplayReplay_.fixture().monsters_.empty() && gameplayReplay_.fixture().monsters_.front().hp == 3; ++tick)
             updateWithControls(idle, 1.0f / 60.0f);
-        if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 3 ||
-            monsters_.front().hp != 1 || !bonusDrops_.empty()) {
+        if (!gameplayReplay_.fixture().bombs_.empty() || gameplayReplay_.fixture().monsters_.empty() || gameplayReplay_.fixture().monsters_.front().behavior != 3 ||
+            gameplayReplay_.fixture().monsters_.front().hp != 1 || !gameplayReplay_.fixture().bonusDrops_.empty()) {
             throw std::runtime_error("monster behavior-3 autoplayer first hit mismatch");
         }
         FrameInspection firstHitFrame =
@@ -5508,13 +5273,13 @@ public:
 
         // The same expanding flame hits on successive actor passes. Do not
         // replace that live continuation with a second weapon-sized hit.
-        for (int tick = 0; tick < 16 && !monsters_.empty() && monsters_.front().behavior != 2; ++tick)
+        for (int tick = 0; tick < 16 && !gameplayReplay_.fixture().monsters_.empty() && gameplayReplay_.fixture().monsters_.front().behavior != 2; ++tick)
             updateWithControls(idle, 1.0f / 60.0f);
-        const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
-        if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
-            monsters_.front().stateTimer != corpseTicks ||
-            gameRenderer_.monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteRight ||
-            !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+        const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(gameplayReplay_.fixture().logicTick_ & 1u);
+        if (!gameplayReplay_.fixture().bombs_.empty() || gameplayReplay_.fixture().monsters_.empty() || gameplayReplay_.fixture().monsters_.front().behavior != 2 ||
+            gameplayReplay_.fixture().monsters_.front().stateTimer != corpseTicks ||
+            gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) != kMonsterCorpseSpriteRight ||
+            !gameplayReplay_.fixture().bonusDrops_.empty() || gameplayReplay_.fixture().randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster behavior-3 autoplayer second hit did not kill");
         }
         FrameInspection deathFrame =
@@ -5523,38 +5288,38 @@ public:
             throw std::runtime_error("monster behavior-3 death frame did not change");
         }
 
-        uint32_t scoreBefore = score_;
+        uint32_t scoreBefore = gameplayReplay_.fixture().score_;
         for (int frame = 1; frame < corpseTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
-            if (monsters_.size() != 1 ||
-                monsters_.front().stateTimer !=
+            if (gameplayReplay_.fixture().monsters_.size() != 1 ||
+                gameplayReplay_.fixture().monsters_.front().stateTimer !=
                     corpseTicks - frame ||
-                gameRenderer_.monsterSpriteIndex(monsters_.front()) !=
+                gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) !=
                     kMonsterCorpseSpriteRight ||
-                !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+                !gameplayReplay_.fixture().bonusDrops_.empty() || gameplayReplay_.fixture().randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "monster behavior-3 autoplayer corpse playback mismatch");
             }
         }
         updateWithControls(idle, 1.0f / 60.0f);
-        if (!monsters_.empty() || bonusDrops_.size() != 1 ||
-            bonusDrops_.front().type != BonusType::Present ||
-            bonusSpriteIndex(bonusDrops_.front().type) != 61 ||
-            randomSeed_ != 0x0a08326du || score_ != scoreBefore) {
+        if (!gameplayReplay_.fixture().monsters_.empty() || gameplayReplay_.fixture().bonusDrops_.size() != 1 ||
+            gameplayReplay_.fixture().bonusDrops_.front().type != BonusType::Present ||
+            bonusSpriteIndex(gameplayReplay_.fixture().bonusDrops_.front().type) != 61 ||
+            gameplayReplay_.fixture().randomSeed_ != 0x0a08326du || gameplayReplay_.fixture().score_ != scoreBefore) {
             throw std::runtime_error(
                 "monster behavior-3 autoplayer delayed reward mismatch");
         }
 
-        BonusDrop drop = bonusDrops_.front();
-        player_.x = drop.x;
-        player_.y = drop.y;
-        player_.vx = 0.0f;
-        player_.vy = 0.0f;
-        player_.grounded = true;
+        BonusDrop drop = gameplayReplay_.fixture().bonusDrops_.front();
+        gameplayReplay_.fixture().player_.x = drop.x;
+        gameplayReplay_.fixture().player_.y = drop.y;
+        gameplayReplay_.fixture().player_.vx = 0.0f;
+        gameplayReplay_.fixture().player_.vy = 0.0f;
+        gameplayReplay_.fixture().player_.grounded = true;
         clearSoundLatch();
         sound_.restorePlaybackForFixture({});
         updateWithControls(idle, 1.0f / 60.0f);
-        if (score_ <= scoreBefore || sound_.latch().active ||
+        if (gameplayReplay_.fixture().score_ <= scoreBefore || sound_.latch().active ||
             sound_.lastPumped().offset != kBonusPickupSoundCursor ||
             sound_.lastPumped().selector != kBonusPickupSoundPriority) {
             throw std::runtime_error("monster behavior-3 autoplayer did not collect reward");
@@ -5569,7 +5334,7 @@ public:
                   << " scenario=" << scenario
                   << " moved_px=" << movedPx
                   << " first_hit_hp=1 second_hit_kill=1 reward_collected=1"
-                  << " score_delta=" << (score_ - scoreBefore)
+                  << " score_delta=" << (gameplayReplay_.fixture().score_ - scoreBefore)
                   << " frame_inspection=1"
                   << " corpse_ticks=" << corpseTicks
                   << " delayed_reward=1 reward_sprite=61\n";
@@ -5578,16 +5343,16 @@ public:
     // Actor-only diagnostic ticks keep the exogenous target stationary while
     // exercising the same global clock and update path as gameplay.
     int advanceBehavior4DebugToRetarget() {
-        if (monsters_.empty() || monsters_.front().ai0 == 0) {
+        if (gameplayReplay_.fixture().monsters_.empty() || gameplayReplay_.fixture().monsters_.front().ai0 == 0) {
             throw std::runtime_error("behavior4 diagnostic has no retarget period");
         }
-        const uint16_t period = monsters_.front().ai0;
+        const uint16_t period = gameplayReplay_.fixture().monsters_.front().ai0;
         int previousFixedX = 0;
         do {
-            previousFixedX = monsters_.front().x * 256 + monsters_.front().fracX;
-            ++logicTick_;
+            previousFixedX = gameplayReplay_.fixture().monsters_.front().x * 256 + gameplayReplay_.fixture().monsters_.front().fracX;
+            ++gameplayReplay_.fixture().logicTick_;
             updateMonsters(0.0f);
-        } while (static_cast<uint16_t>(logicTick_) % period != 0);
+        } while (static_cast<uint16_t>(gameplayReplay_.fixture().logicTick_) % period != 0);
         return previousFixedX;
     }
 
@@ -5597,8 +5362,8 @@ public:
         prepareAutoplayerMonsterFixtureLevel();
         bool running = true;
 
-        player_.x = 80.0f;
-        player_.y = 24.0f;
+        gameplayReplay_.fixture().player_.x = 80.0f;
+        gameplayReplay_.fixture().player_.y = 24.0f;
         ActiveMonster monster;
         monster.x = 40;
         monster.y = 24;
@@ -5611,20 +5376,20 @@ public:
         monster.animDelay = 1;
         refreshMonsterAnimationProfile(monster);
         initializeMonsterMotion(monster);
-        monsters_.push_back(monster);
+        gameplayReplay_.fixture().monsters_.push_back(monster);
 
         FrameInspection startFrame = inspectRenderedFrame("autoplayer-monster-b4-start");
         FrameControls idle;
         updateWithControls(idle, 1.0f / 60.0f);
-        if (monsters_.front().vx8 != 0 || monsters_.front().vy8 != 0) {
+        if (gameplayReplay_.fixture().monsters_.front().vx8 != 0 || gameplayReplay_.fixture().monsters_.front().vy8 != 0) {
             throw std::runtime_error("behavior4 moved before the global retarget gate");
         }
         advanceBehavior4DebugToRetarget();
-        if (monsters_.empty() || monsters_.front().behavior != 4 ||
-            monsters_.front().motionTimer != 2 || monsters_.front().x <= 40) {
+        if (gameplayReplay_.fixture().monsters_.empty() || gameplayReplay_.fixture().monsters_.front().behavior != 4 ||
+            gameplayReplay_.fixture().monsters_.front().motionTimer != 2 || gameplayReplay_.fixture().monsters_.front().x <= 40) {
             throw std::runtime_error("monster behavior-4 autoplayer did not chase");
         }
-        int chaseDx = monsters_.front().x - 40;
+        int chaseDx = gameplayReplay_.fixture().monsters_.front().x - 40;
         FrameInspection chaseFrame = inspectRenderedFrame("autoplayer-monster-b4-chase");
         if (chaseFrame.hash == startFrame.hash) {
             throw std::runtime_error("monster behavior-4 chase frame did not change");
@@ -5634,30 +5399,30 @@ public:
         switchControls.p1Left = true;
         switchControls.p1Right = true;
         driveAutoplayerWeaponSwitchChord(switchControls);
-        if (bombInventory_.selected != BombType::Medium) {
+        if (gameplayReplay_.fixture().bombInventory_.selected != BombType::Medium) {
             throw std::runtime_error("monster behavior-4 autoplayer did not switch to medium");
         }
 
-        player_.x = static_cast<float>(monsters_.front().x);
-        player_.y = static_cast<float>(monsters_.front().y);
+        gameplayReplay_.fixture().player_.x = static_cast<float>(gameplayReplay_.fixture().monsters_.front().x);
+        gameplayReplay_.fixture().player_.y = static_cast<float>(gameplayReplay_.fixture().monsters_.front().y);
         pushKeyDown(SDLK_n);
         processEvents(running);
         updateWithControls({}, 0);
-        if (bombs_.empty() || bombs_.back().type != BombType::Medium) {
+        if (gameplayReplay_.fixture().bombs_.empty() || gameplayReplay_.fixture().bombs_.back().type != BombType::Medium) {
             throw std::runtime_error("monster behavior-4 autoplayer did not place medium bomb");
         }
-        bombs_.back().timer = 1;
-        player_.x = 96.0f;
-        player_.y = 24.0f;
+        gameplayReplay_.fixture().bombs_.back().timer = 1;
+        gameplayReplay_.fixture().player_.x = 96.0f;
+        gameplayReplay_.fixture().player_.y = 24.0f;
         // Six particle draws and two shake draws precede the isolated reward.
-        randomSeed_ = 0xb6414b7bu;
-        for (int tick = 0; tick < 16 && !monsters_.empty() && monsters_.front().behavior != 2; ++tick)
+        gameplayReplay_.fixture().randomSeed_ = 0xb6414b7bu;
+        for (int tick = 0; tick < 16 && !gameplayReplay_.fixture().monsters_.empty() && gameplayReplay_.fixture().monsters_.front().behavior != 2; ++tick)
             updateWithControls(idle, 1.0f / 60.0f);
-        const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
-        if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
-            monsters_.front().stateTimer != corpseTicks ||
-            gameRenderer_.monsterSpriteIndex(monsters_.front()) != kMonsterImpactSprites[2][0] ||
-            !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+        const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(gameplayReplay_.fixture().logicTick_ & 1u);
+        if (!gameplayReplay_.fixture().bombs_.empty() || gameplayReplay_.fixture().monsters_.empty() || gameplayReplay_.fixture().monsters_.front().behavior != 2 ||
+            gameplayReplay_.fixture().monsters_.front().stateTimer != corpseTicks ||
+            gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) != kMonsterImpactSprites[2][0] ||
+            !gameplayReplay_.fixture().bonusDrops_.empty() || gameplayReplay_.fixture().randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster behavior-4 autoplayer bomb kill mismatch");
         }
         FrameInspection deathFrame =
@@ -5668,21 +5433,21 @@ public:
 
         for (int frame = 1; frame < corpseTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
-            if (monsters_.size() != 1 ||
-                monsters_.front().stateTimer !=
+            if (gameplayReplay_.fixture().monsters_.size() != 1 ||
+                gameplayReplay_.fixture().monsters_.front().stateTimer !=
                     corpseTicks - frame ||
-                gameRenderer_.monsterSpriteIndex(monsters_.front()) !=
+                gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) !=
                     kMonsterImpactSprites[2][0] ||
-                !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+                !gameplayReplay_.fixture().bonusDrops_.empty() || gameplayReplay_.fixture().randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "monster behavior-4 autoplayer corpse playback mismatch");
             }
         }
         updateWithControls(idle, 1.0f / 60.0f);
-        if (!monsters_.empty() || bonusDrops_.size() != 1 ||
-            bonusDrops_.front().type != BonusType::Present ||
-            bonusSpriteIndex(bonusDrops_.front().type) != 61 ||
-            randomSeed_ != 0x0a08326du) {
+        if (!gameplayReplay_.fixture().monsters_.empty() || gameplayReplay_.fixture().bonusDrops_.size() != 1 ||
+            gameplayReplay_.fixture().bonusDrops_.front().type != BonusType::Present ||
+            bonusSpriteIndex(gameplayReplay_.fixture().bonusDrops_.front().type) != 61 ||
+            gameplayReplay_.fixture().randomSeed_ != 0x0a08326du) {
             throw std::runtime_error(
                 "monster behavior-4 autoplayer delayed reward mismatch");
         }
@@ -5703,26 +5468,26 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0 || spawnerStates_.empty()) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1 || gameplayReplay_.fixture().levelIndex_ != 0 || gameplayReplay_.fixture().spawnerStates_.empty()) {
             throw std::runtime_error("monster spawner autoplayer failed to start level 1");
         }
 
-        randomSeed_ = 0x1234abcd;
-        player_.x = 320.0f;
-        player_.y = 168.0f;
-        player_.vy = 0.0f;
-        player_.grounded = true;
-        spawnerStates_[0].cooldown = 1;  // rank 4: dec-then-test, 1 fires next tick
-        int initialSlots = spawnerStates_[0].availableSlots;
-        int initialRemaining = spawnerStates_[0].remaining;
+        gameplayReplay_.fixture().randomSeed_ = 0x1234abcd;
+        gameplayReplay_.fixture().player_.x = 320.0f;
+        gameplayReplay_.fixture().player_.y = 168.0f;
+        gameplayReplay_.fixture().player_.vy = 0.0f;
+        gameplayReplay_.fixture().player_.grounded = true;
+        gameplayReplay_.fixture().spawnerStates_[0].cooldown = 1;  // rank 4: dec-then-test, 1 fires next tick
+        int initialSlots = gameplayReplay_.fixture().spawnerStates_[0].availableSlots;
+        int initialRemaining = gameplayReplay_.fixture().spawnerStates_[0].remaining;
 
         FrameInspection startFrame = inspectRenderedFrame("autoplayer-monster-spawner-start");
         FrameControls idle;
         updateWithControls(idle, 1.0f / 60.0f);
-        if (monsters_.empty() || !monsters_.front().hasSpawner ||
-            monsters_.front().spawnerIndex != 0 || monsters_.front().behavior != 3 ||
-            spawnerStates_[0].availableSlots != initialSlots - 1 ||
-            spawnerStates_[0].remaining != initialRemaining - 1) {
+        if (gameplayReplay_.fixture().monsters_.empty() || !gameplayReplay_.fixture().monsters_.front().hasSpawner ||
+            gameplayReplay_.fixture().monsters_.front().spawnerIndex != 0 || gameplayReplay_.fixture().monsters_.front().behavior != 3 ||
+            gameplayReplay_.fixture().spawnerStates_[0].availableSlots != initialSlots - 1 ||
+            gameplayReplay_.fixture().spawnerStates_[0].remaining != initialRemaining - 1) {
             throw std::runtime_error("monster spawner autoplayer did not spawn actor");
         }
         FrameInspection spawnFrame = inspectRenderedFrame("autoplayer-monster-spawner-live");
@@ -5730,31 +5495,31 @@ public:
             throw std::runtime_error("monster spawner live frame did not change");
         }
 
-        if (monsters_.front().hp != static_cast<int>(level_.monsterSpawners[0].randomBase) + 1) {
+        if (gameplayReplay_.fixture().monsters_.front().hp != static_cast<int>(gameplayReplay_.fixture().level_.monsterSpawners[0].randomBase) + 1) {
             throw std::runtime_error("monster spawner HP byte was not converted to remaining health");
         }
-        bombInventory_.counts[1] = 1;
-        bombInventory_.selected = BombType::Medium;
-        player_.x = static_cast<float>(monsters_.front().x);
-        player_.y = static_cast<float>(monsters_.front().y);
+        gameplayReplay_.fixture().bombInventory_.counts[1] = 1;
+        gameplayReplay_.fixture().bombInventory_.selected = BombType::Medium;
+        gameplayReplay_.fixture().player_.x = static_cast<float>(gameplayReplay_.fixture().monsters_.front().x);
+        gameplayReplay_.fixture().player_.y = static_cast<float>(gameplayReplay_.fixture().monsters_.front().y);
         pushKeyDown(SDLK_n);
         processEvents(running);
         updateWithControls({}, 0);
-        if (bombs_.empty() || bombs_.back().type != BombType::Medium) {
+        if (gameplayReplay_.fixture().bombs_.empty() || gameplayReplay_.fixture().bombs_.back().type != BombType::Medium) {
             throw std::runtime_error("monster spawner autoplayer did not place medium bomb");
         }
-        bombs_.back().timer = 1;
-        player_.x = static_cast<float>(monsters_.front().x + 32);
-        player_.y = static_cast<float>(monsters_.front().y);
-        randomSeed_ = 0xb6414b7bu;  // Six particle and two shake draws produce 90E25B93.
-        for (int tick = 0; tick < 16 && !monsters_.empty() && monsters_.front().behavior != 2; ++tick)
+        gameplayReplay_.fixture().bombs_.back().timer = 1;
+        gameplayReplay_.fixture().player_.x = static_cast<float>(gameplayReplay_.fixture().monsters_.front().x + 32);
+        gameplayReplay_.fixture().player_.y = static_cast<float>(gameplayReplay_.fixture().monsters_.front().y);
+        gameplayReplay_.fixture().randomSeed_ = 0xb6414b7bu;  // Six particle and two shake draws produce 90E25B93.
+        for (int tick = 0; tick < 16 && !gameplayReplay_.fixture().monsters_.empty() && gameplayReplay_.fixture().monsters_.front().behavior != 2; ++tick)
             updateWithControls(idle, 1.0f / 60.0f);
-        const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
-        if (monsters_.empty() || monsters_.front().behavior != 2 ||
-            monsters_.front().stateTimer != corpseTicks ||
-            gameRenderer_.monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
-            spawnerStates_[0].availableSlots != initialSlots ||
-            !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+        const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(gameplayReplay_.fixture().logicTick_ & 1u);
+        if (gameplayReplay_.fixture().monsters_.empty() || gameplayReplay_.fixture().monsters_.front().behavior != 2 ||
+            gameplayReplay_.fixture().monsters_.front().stateTimer != corpseTicks ||
+            gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) != kMonsterCorpseSpriteLeft ||
+            gameplayReplay_.fixture().spawnerStates_[0].availableSlots != initialSlots ||
+            !gameplayReplay_.fixture().bonusDrops_.empty() || gameplayReplay_.fixture().randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster spawner autoplayer did not release slot");
         }
         FrameInspection deathFrame = inspectRenderedFrame("autoplayer-monster-spawner-death");
@@ -5762,15 +5527,15 @@ public:
             throw std::runtime_error("monster spawner death frame did not change");
         }
 
-        spawnerStates_[0].cooldown = 1;  // rank 4: dec-then-test, 1 fires next tick
+        gameplayReplay_.fixture().spawnerStates_[0].cooldown = 1;  // rank 4: dec-then-test, 1 fires next tick
         updateWithControls(idle, 1.0f / 60.0f);
         int liveSpawnerOwned = static_cast<int>(std::count_if(
-            monsters_.begin(), monsters_.end(),
+            gameplayReplay_.fixture().monsters_.begin(), gameplayReplay_.fixture().monsters_.end(),
             [](const ActiveMonster& monster) {
                 return monster.alive && monster.hasSpawner && monster.behavior != 2;
             }));
-        if (liveSpawnerOwned != 1 || spawnerStates_[0].availableSlots != initialSlots - 1 ||
-            spawnerStates_[0].remaining != initialRemaining - 2) {
+        if (liveSpawnerOwned != 1 || gameplayReplay_.fixture().spawnerStates_[0].availableSlots != initialSlots - 1 ||
+            gameplayReplay_.fixture().spawnerStates_[0].remaining != initialRemaining - 2) {
             throw std::runtime_error("monster spawner autoplayer did not respawn actor");
         }
         FrameInspection respawnFrame =
@@ -5782,10 +5547,10 @@ public:
         // The respawn legitimately consumed the spawner RNG. Disable further
         // spawns and reseed the isolated corpse-reward path so the recovered
         // six-draw transition can be asserted independently.
-        spawnerStates_[0].remaining = 0;
-        randomSeed_ = 0x90e25b93u;
+        gameplayReplay_.fixture().spawnerStates_[0].remaining = 0;
+        gameplayReplay_.fixture().randomSeed_ = 0x90e25b93u;
         auto findCorpse = [&]() -> const ActiveMonster* {
-            for (const ActiveMonster& active : monsters_) {
+            for (const ActiveMonster& active : gameplayReplay_.fixture().monsters_) {
                 if (active.alive && active.behavior == 2) return &active;
             }
             return nullptr;
@@ -5793,7 +5558,7 @@ public:
         const ActiveMonster* corpse = findCorpse();
         if (!corpse || corpse->stateTimer != corpseTicks - 1 ||
             gameRenderer_.monsterSpriteIndex(*corpse) != kMonsterCorpseSpriteLeft ||
-            !bonusDrops_.empty()) {
+            !gameplayReplay_.fixture().bonusDrops_.empty()) {
             throw std::runtime_error(
                 "monster spawner autoplayer respawn disturbed corpse playback");
         }
@@ -5803,16 +5568,16 @@ public:
             if (!corpse ||
                 corpse->stateTimer != corpseTicks - frame ||
                 gameRenderer_.monsterSpriteIndex(*corpse) != kMonsterCorpseSpriteLeft ||
-                !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+                !gameplayReplay_.fixture().bonusDrops_.empty() || gameplayReplay_.fixture().randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "monster spawner autoplayer corpse playback mismatch");
             }
         }
         updateWithControls(idle, 1.0f / 60.0f);
-        if (findCorpse() || bonusDrops_.size() != 1 ||
-            bonusDrops_.front().type != BonusType::Present ||
-            bonusSpriteIndex(bonusDrops_.front().type) != 61 ||
-            randomSeed_ != 0x0a08326du) {
+        if (findCorpse() || gameplayReplay_.fixture().bonusDrops_.size() != 1 ||
+            gameplayReplay_.fixture().bonusDrops_.front().type != BonusType::Present ||
+            bonusSpriteIndex(gameplayReplay_.fixture().bonusDrops_.front().type) != 61 ||
+            gameplayReplay_.fixture().randomSeed_ != 0x0a08326du) {
             throw std::runtime_error(
                 "monster spawner autoplayer delayed reward mismatch");
         }
@@ -5833,53 +5598,53 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 1) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1) {
             throw std::runtime_error("monster behavior-4 level2 autoplayer failed to start");
         }
         resetLevel(1);
-        if (levelIndex_ != 1) {
+        if (gameplayReplay_.fixture().levelIndex_ != 1) {
             throw std::runtime_error("monster behavior-4 level2 autoplayer did not load level 2");
         }
 
         auto spanUpper = [](uint16_t base, uint16_t range) {
             return static_cast<uint16_t>(base + std::max<uint16_t>(1, range));
         };
-        size_t spawnerIndex = level_.monsterSpawners.size();
-        for (size_t i = 0; i < level_.monsterSpawners.size(); ++i) {
-            if (level_.monsterSpawners[i].spawnArg == 4) {
+        size_t spawnerIndex = gameplayReplay_.fixture().level_.monsterSpawners.size();
+        for (size_t i = 0; i < gameplayReplay_.fixture().level_.monsterSpawners.size(); ++i) {
+            if (gameplayReplay_.fixture().level_.monsterSpawners[i].spawnArg == 4) {
                 spawnerIndex = i;
                 break;
             }
         }
-        if (spawnerIndex >= level_.monsterSpawners.size()) {
+        if (spawnerIndex >= gameplayReplay_.fixture().level_.monsterSpawners.size()) {
             throw std::runtime_error("monster behavior-4 level2 autoplayer found no spawner");
         }
-        for (size_t i = 0; i < spawnerStates_.size(); ++i) {
+        for (size_t i = 0; i < gameplayReplay_.fixture().spawnerStates_.size(); ++i) {
             if (i != spawnerIndex) {
-                spawnerStates_[i].remaining = 0;
-                spawnerStates_[i].availableSlots = 0;
+                gameplayReplay_.fixture().spawnerStates_[i].remaining = 0;
+                gameplayReplay_.fixture().spawnerStates_[i].availableSlots = 0;
             }
         }
-        const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
-        randomSeed_ = 0x1234abcd;
-        player_.x = static_cast<float>(spawner.x + 40);
-        player_.y = static_cast<float>(spawner.y);
-        player_.vy = 0.0f;
-        player_.grounded = false;
-        spawnerStates_[spawnerIndex].cooldown = 1;  // rank 4: dec-then-test, 1 fires next tick
+        const MonsterSpawner& spawner = gameplayReplay_.fixture().level_.monsterSpawners[spawnerIndex];
+        gameplayReplay_.fixture().randomSeed_ = 0x1234abcd;
+        gameplayReplay_.fixture().player_.x = static_cast<float>(spawner.x + 40);
+        gameplayReplay_.fixture().player_.y = static_cast<float>(spawner.y);
+        gameplayReplay_.fixture().player_.vy = 0.0f;
+        gameplayReplay_.fixture().player_.grounded = false;
+        gameplayReplay_.fixture().spawnerStates_[spawnerIndex].cooldown = 1;  // rank 4: dec-then-test, 1 fires next tick
 
         FrameInspection startFrame =
             inspectRenderedFrame("autoplayer-monster-spawner-b4-level2-start");
         FrameControls idle;
         updateWithControls(idle, 1.0f / 60.0f);
-        if (monsters_.size() != 1) {
+        if (gameplayReplay_.fixture().monsters_.size() != 1) {
             throw std::runtime_error("monster behavior-4 level2 autoplayer did not spawn one actor");
         }
-        if (monsters_.front().vx8 != 0 || monsters_.front().vy8 != 0) {
+        if (gameplayReplay_.fixture().monsters_.front().vx8 != 0 || gameplayReplay_.fixture().monsters_.front().vy8 != 0) {
             throw std::runtime_error("behavior4 spawn bypassed the global gate");
         }
         advanceBehavior4DebugToRetarget();
-        const ActiveMonster& monster = monsters_.front();
+        const ActiveMonster& monster = gameplayReplay_.fixture().monsters_.front();
         if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
             monster.kind != spawner.monsterKind || monster.behavior != 4 ||
             monster.animDelay != spawner.animationDelay ||
@@ -5917,53 +5682,53 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 1) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1) {
             throw std::runtime_error("monster behavior-4 level3 autoplayer failed to start");
         }
         resetLevel(2);
-        if (levelIndex_ != 2) {
+        if (gameplayReplay_.fixture().levelIndex_ != 2) {
             throw std::runtime_error("monster behavior-4 level3 autoplayer did not load level 3");
         }
 
         auto spanUpper = [](uint16_t base, uint16_t range) {
             return static_cast<uint16_t>(base + std::max<uint16_t>(1, range));
         };
-        size_t spawnerIndex = level_.monsterSpawners.size();
-        for (size_t i = 0; i < level_.monsterSpawners.size(); ++i) {
-            if (level_.monsterSpawners[i].spawnArg == 4) {
+        size_t spawnerIndex = gameplayReplay_.fixture().level_.monsterSpawners.size();
+        for (size_t i = 0; i < gameplayReplay_.fixture().level_.monsterSpawners.size(); ++i) {
+            if (gameplayReplay_.fixture().level_.monsterSpawners[i].spawnArg == 4) {
                 spawnerIndex = i;
                 break;
             }
         }
-        if (spawnerIndex >= level_.monsterSpawners.size()) {
+        if (spawnerIndex >= gameplayReplay_.fixture().level_.monsterSpawners.size()) {
             throw std::runtime_error("monster behavior-4 level3 autoplayer found no spawner");
         }
-        for (size_t i = 0; i < spawnerStates_.size(); ++i) {
+        for (size_t i = 0; i < gameplayReplay_.fixture().spawnerStates_.size(); ++i) {
             if (i != spawnerIndex) {
-                spawnerStates_[i].remaining = 0;
-                spawnerStates_[i].availableSlots = 0;
+                gameplayReplay_.fixture().spawnerStates_[i].remaining = 0;
+                gameplayReplay_.fixture().spawnerStates_[i].availableSlots = 0;
             }
         }
-        const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
-        randomSeed_ = 0x1234abcd;
-        player_.x = static_cast<float>(spawner.x + 24);
-        player_.y = static_cast<float>(spawner.y - 16);
-        player_.vy = -6.0f;
-        player_.grounded = false;
-        spawnerStates_[spawnerIndex].cooldown = 1;  // rank 4: dec-then-test, 1 fires next tick
+        const MonsterSpawner& spawner = gameplayReplay_.fixture().level_.monsterSpawners[spawnerIndex];
+        gameplayReplay_.fixture().randomSeed_ = 0x1234abcd;
+        gameplayReplay_.fixture().player_.x = static_cast<float>(spawner.x + 24);
+        gameplayReplay_.fixture().player_.y = static_cast<float>(spawner.y - 16);
+        gameplayReplay_.fixture().player_.vy = -6.0f;
+        gameplayReplay_.fixture().player_.grounded = false;
+        gameplayReplay_.fixture().spawnerStates_[spawnerIndex].cooldown = 1;  // rank 4: dec-then-test, 1 fires next tick
 
         FrameInspection startFrame =
             inspectRenderedFrame("autoplayer-monster-spawner-b4-level3-start");
         FrameControls idle;
         updateWithControls(idle, 1.0f / 60.0f);
-        if (monsters_.size() != 1) {
+        if (gameplayReplay_.fixture().monsters_.size() != 1) {
             throw std::runtime_error("monster behavior-4 level3 autoplayer did not spawn one actor");
         }
-        if (monsters_.front().vx8 != 0 || monsters_.front().vy8 != 0) {
+        if (gameplayReplay_.fixture().monsters_.front().vx8 != 0 || gameplayReplay_.fixture().monsters_.front().vy8 != 0) {
             throw std::runtime_error("behavior4 spawn bypassed the global gate");
         }
         advanceBehavior4DebugToRetarget();
-        const ActiveMonster& monster = monsters_.front();
+        const ActiveMonster& monster = gameplayReplay_.fixture().monsters_.front();
         if (!monster.hasSpawner || monster.spawnerIndex != spawnerIndex ||
             monster.kind != spawner.monsterKind || monster.behavior != 4 ||
             monster.animDelay != spawner.animationDelay ||
@@ -6001,49 +5766,49 @@ public:
 
         pushKeyDown(SDLK_2);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 2 || playerDead_ || player2Dead_) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 2 || gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().player2Dead_) {
             throw std::runtime_error("monster behavior-4 target autoplayer failed to start");
         }
         resetLevel(2);
-        if (levelIndex_ != 2) {
+        if (gameplayReplay_.fixture().levelIndex_ != 2) {
             throw std::runtime_error("monster behavior-4 target autoplayer did not load level 3");
         }
 
-        size_t spawnerIndex = level_.monsterSpawners.size();
-        for (size_t i = 0; i < level_.monsterSpawners.size(); ++i) {
-            if (level_.monsterSpawners[i].spawnArg == 4) {
+        size_t spawnerIndex = gameplayReplay_.fixture().level_.monsterSpawners.size();
+        for (size_t i = 0; i < gameplayReplay_.fixture().level_.monsterSpawners.size(); ++i) {
+            if (gameplayReplay_.fixture().level_.monsterSpawners[i].spawnArg == 4) {
                 spawnerIndex = i;
                 break;
             }
         }
-        if (spawnerIndex >= level_.monsterSpawners.size()) {
+        if (spawnerIndex >= gameplayReplay_.fixture().level_.monsterSpawners.size()) {
             throw std::runtime_error("monster behavior-4 target autoplayer found no spawner");
         }
-        for (size_t i = 0; i < spawnerStates_.size(); ++i) {
+        for (size_t i = 0; i < gameplayReplay_.fixture().spawnerStates_.size(); ++i) {
             if (i != spawnerIndex) {
-                spawnerStates_[i].remaining = 0;
-                spawnerStates_[i].availableSlots = 0;
+                gameplayReplay_.fixture().spawnerStates_[i].remaining = 0;
+                gameplayReplay_.fixture().spawnerStates_[i].availableSlots = 0;
             }
         }
-        const MonsterSpawner& spawner = level_.monsterSpawners[spawnerIndex];
-        randomSeed_ = 0x1234abcd;
-        spawnerStates_[spawnerIndex].cooldown = 1;  // rank 4: dec-then-test, 1 fires next tick
-        player_.x = static_cast<float>(spawner.x + 40);
-        player_.y = static_cast<float>(spawner.y);
-        player_.vy = -6.0f;
-        player2_.x = static_cast<float>(spawner.x - 16);
-        player2_.y = static_cast<float>(spawner.y);
-        player2_.vy = -6.0f;
-        playerDead_ = false;
-        player2Dead_ = false;
+        const MonsterSpawner& spawner = gameplayReplay_.fixture().level_.monsterSpawners[spawnerIndex];
+        gameplayReplay_.fixture().randomSeed_ = 0x1234abcd;
+        gameplayReplay_.fixture().spawnerStates_[spawnerIndex].cooldown = 1;  // rank 4: dec-then-test, 1 fires next tick
+        gameplayReplay_.fixture().player_.x = static_cast<float>(spawner.x + 40);
+        gameplayReplay_.fixture().player_.y = static_cast<float>(spawner.y);
+        gameplayReplay_.fixture().player_.vy = -6.0f;
+        gameplayReplay_.fixture().player2_.x = static_cast<float>(spawner.x - 16);
+        gameplayReplay_.fixture().player2_.y = static_cast<float>(spawner.y);
+        gameplayReplay_.fixture().player2_.vy = -6.0f;
+        gameplayReplay_.fixture().playerDead_ = false;
+        gameplayReplay_.fixture().player2Dead_ = false;
 
         FrameInspection startFrame =
             inspectRenderedFrame("autoplayer-monster-b4-target-start");
         FrameControls idle;
         updateWithControls(idle, 1.0f / 60.0f);
         advanceBehavior4DebugToRetarget();
-        if (monsters_.size() != 1 || monsters_.front().behavior != 4 ||
-            monsters_.front().vx8 >= 0 || monsters_.front().x >= spawner.x) {
+        if (gameplayReplay_.fixture().monsters_.size() != 1 || gameplayReplay_.fixture().monsters_.front().behavior != 4 ||
+            gameplayReplay_.fixture().monsters_.front().vx8 >= 0 || gameplayReplay_.fixture().monsters_.front().x >= spawner.x) {
             throw std::runtime_error("monster behavior-4 target autoplayer did not prefer player 2");
         }
         FrameInspection p2Frame =
@@ -6052,13 +5817,13 @@ public:
             throw std::runtime_error("monster behavior-4 target player-2 frame did not change");
         }
 
-        player2Dead_ = true;
-        player_.x = static_cast<float>(monsters_.front().x + 24);
-        player_.y = static_cast<float>(monsters_.front().y);
+        gameplayReplay_.fixture().player2Dead_ = true;
+        gameplayReplay_.fixture().player_.x = static_cast<float>(gameplayReplay_.fixture().monsters_.front().x + 24);
+        gameplayReplay_.fixture().player_.y = static_cast<float>(gameplayReplay_.fixture().monsters_.front().y);
         updateWithControls(idle, 1.0f / 60.0f);
         const int beforeP1 = advanceBehavior4DebugToRetarget();
-        if (monsters_.front().vx8 <= 0 ||
-            monsters_.front().x * 256 + monsters_.front().fracX <= beforeP1) {
+        if (gameplayReplay_.fixture().monsters_.front().vx8 <= 0 ||
+            gameplayReplay_.fixture().monsters_.front().x * 256 + gameplayReplay_.fixture().monsters_.front().fracX <= beforeP1) {
             throw std::runtime_error("monster behavior-4 target autoplayer did not retarget player 1");
         }
         FrameInspection p1Frame =
@@ -6067,14 +5832,14 @@ public:
             throw std::runtime_error("monster behavior-4 target player-1 frame did not change");
         }
 
-        playerDead_ = true;
-        player2Dead_ = false;
-        player2_.x = static_cast<float>(monsters_.front().x - 24);
-        player2_.y = static_cast<float>(monsters_.front().y);
+        gameplayReplay_.fixture().playerDead_ = true;
+        gameplayReplay_.fixture().player2Dead_ = false;
+        gameplayReplay_.fixture().player2_.x = static_cast<float>(gameplayReplay_.fixture().monsters_.front().x - 24);
+        gameplayReplay_.fixture().player2_.y = static_cast<float>(gameplayReplay_.fixture().monsters_.front().y);
         updateWithControls(idle, 1.0f / 60.0f);
         const int beforeP2 = advanceBehavior4DebugToRetarget();
-        if (monsters_.front().vx8 >= 0 ||
-            monsters_.front().x * 256 + monsters_.front().fracX >= beforeP2) {
+        if (gameplayReplay_.fixture().monsters_.front().vx8 >= 0 ||
+            gameplayReplay_.fixture().monsters_.front().x * 256 + gameplayReplay_.fixture().monsters_.front().fracX >= beforeP2) {
             throw std::runtime_error("monster behavior-4 target autoplayer did not retarget back to player 2");
         }
         FrameInspection p2ReturnFrame =
@@ -6098,7 +5863,7 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1 || gameplayReplay_.fixture().levelIndex_ != 0) {
             throw std::runtime_error("collapse autoplayer failed to start level 1");
         }
 
@@ -6114,14 +5879,14 @@ public:
             FrameControls controls;
             controls.p1Right = frame < 16;
             updateWithControls(controls, 1.0f / 60.0f);
-            if (!collapseQueue_.empty()) {
-                const auto& record = collapseQueue_.front();
+            if (!gameplayReplay_.fixture().collapseQueue_.empty()) {
+                const auto& record = gameplayReplay_.fixture().collapseQueue_.front();
                 if (firstActive < 0) {
                     firstActive = frame;
                     collapseCount = record.count;
                 }
                 lastRest = record.restTicks;
-                if (!moved && record.startOffsetBytes == 2 * (22 * level_.width + 23)) {
+                if (!moved && record.startOffsetBytes == 2 * (22 * gameplayReplay_.fixture().level_.width + 23)) {
                     moved = true;
                     movedHash = inspectRenderedFrame("autoplayer-collapse-moved").hash;
                 }
@@ -6130,7 +5895,7 @@ public:
             }
         }
         if (firstActive < 0 || retired < 0 || collapseCount != 2 || !moved || lastRest != 94 ||
-            destroyed_ != 0 || score_ != 50 || !collapseQueue_.empty() ||
+            gameplayReplay_.fixture().destroyed_ != 0 || gameplayReplay_.fixture().score_ != 50 || !gameplayReplay_.fixture().collapseQueue_.empty() ||
             tileAt(23, 21) != 0 || tileAt(24, 21) != 0 ||
             tileAt(23, 22) != firstGlyph || tileAt(24, 22) != secondGlyph ||
             wordAt(23, 22) != 9 || wordAt(24, 22) != 9) {
@@ -6158,21 +5923,21 @@ public:
 
         pushKeyDown(SDLK_2);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 2 || playerDead_ || player2Dead_) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 2 || gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().player2Dead_) {
             throw std::runtime_error("two-player autoplayer failed to start");
         }
 
         FrameInspection startFrame = inspectRenderedFrame("autoplayer-two-player-start");
-        int p1StartX = static_cast<int>(player_.x);
-        int p2StartX = static_cast<int>(player2_.x);
-        int p2StartY = static_cast<int>(player2_.y);
+        int p1StartX = static_cast<int>(gameplayReplay_.fixture().player_.x);
+        int p2StartX = static_cast<int>(gameplayReplay_.fixture().player2_.x);
+        int p2StartY = static_cast<int>(gameplayReplay_.fixture().player2_.y);
         FrameControls controls;
         controls.p2Right = true;
         for (int i = 0; i < 24; ++i) {
             updateWithControls(controls, 1.0f / 60.0f);
         }
-        if (static_cast<int>(player2_.x) <= p2StartX + 12 ||
-            static_cast<int>(player_.x) != p1StartX || collides(player2_.x, player2_.y)) {
+        if (static_cast<int>(gameplayReplay_.fixture().player2_.x) <= p2StartX + 12 ||
+            static_cast<int>(gameplayReplay_.fixture().player_.x) != p1StartX || collides(gameplayReplay_.fixture().player2_.x, gameplayReplay_.fixture().player2_.y)) {
             throw std::runtime_error("two-player autoplayer did not move player 2 cleanly");
         }
 
@@ -6181,16 +5946,16 @@ public:
             throw std::runtime_error("two-player autoplayer movement frame did not change");
         }
 
-        size_t bombsBefore = bombs_.size();
-        int p2SmallBefore = bombInventory2_.counts[0];
-        int bombTileX = (static_cast<int>(player2_.x) + 4) / kTileSize;
-        int bombTileY = static_cast<int>(player2_.y) / kTileSize;
+        size_t bombsBefore = gameplayReplay_.fixture().bombs_.size();
+        int p2SmallBefore = gameplayReplay_.fixture().bombInventory2_.counts[0];
+        int bombTileX = (static_cast<int>(gameplayReplay_.fixture().player2_.x) + 4) / kTileSize;
+        int bombTileY = static_cast<int>(gameplayReplay_.fixture().player2_.y) / kTileSize;
         pushKeyDown(SDLK_KP_0);
         processEvents(running);
         updateWithControls({}, 0);
-        if (bombs_.size() != bombsBefore + 1 || bombs_.back().owner != 2 ||
-            bombs_.back().x != bombTileX || bombs_.back().y != bombTileY ||
-            bombInventory2_.counts[0] != p2SmallBefore - 1) {
+        if (gameplayReplay_.fixture().bombs_.size() != bombsBefore + 1 || gameplayReplay_.fixture().bombs_.back().owner != 2 ||
+            gameplayReplay_.fixture().bombs_.back().x != bombTileX || gameplayReplay_.fixture().bombs_.back().y != bombTileY ||
+            gameplayReplay_.fixture().bombInventory2_.counts[0] != p2SmallBefore - 1) {
             throw std::runtime_error("two-player autoplayer keypad 0 did not place player 2 bomb");
         }
 
@@ -6203,8 +5968,8 @@ public:
                   << " scenario=" << scenario
                   << " p1_x=" << p1StartX
                   << " p2_start_xy=" << p2StartX << ',' << p2StartY
-                  << " p2_final_xy=" << static_cast<int>(player2_.x) << ','
-                  << static_cast<int>(player2_.y)
+                  << " p2_final_xy=" << static_cast<int>(gameplayReplay_.fixture().player2_.x) << ','
+                  << static_cast<int>(gameplayReplay_.fixture().player2_.y)
                   << " p2_bomb_tile=" << bombTileX << ',' << bombTileY
                   << " p2_fire_key=kp0 bombs=1 frame_inspection=1\n";
     }
@@ -6217,7 +5982,7 @@ public:
 
         pushKeyDown(SDLK_2);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 2 || playerDead_ || player2Dead_) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 2 || gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().player2Dead_) {
             throw std::runtime_error("two-player death visual autoplayer failed to start");
         }
 
@@ -6239,30 +6004,30 @@ public:
                    effect.spriteIndex == row.row3;
         };
         auto cursorPreviewFrame = [&](const std::string& label) {
-            state2VisualCursorPreview_ = true;
+            gameplayReplay_.fixture().state2VisualCursorPreview_ = true;
             FrameInspection inspection = inspectRenderedFrame(label);
-            state2VisualCursorPreview_ = false;
+            gameplayReplay_.fixture().state2VisualCursorPreview_ = false;
             return inspection;
         };
 
         updateWithControls(FrameControls{}, 1.0f / 60.0f);
         FrameInspection startFrame =
             inspectRenderedFrame("autoplayer-two-player-death-visual-start");
-        int p1StartX = static_cast<int>(player_.x);
-        int p1StartY = static_cast<int>(player_.y);
-        int p2StartX = static_cast<int>(player2_.x);
-        int p2StartY = static_cast<int>(player2_.y);
+        int p1StartX = static_cast<int>(gameplayReplay_.fixture().player_.x);
+        int p1StartY = static_cast<int>(gameplayReplay_.fixture().player_.y);
+        int p2StartX = static_cast<int>(gameplayReplay_.fixture().player2_.x);
+        int p2StartY = static_cast<int>(gameplayReplay_.fixture().player2_.y);
 
-        energy2_ = 0;
-        lives2_ = 3;
-        damageCooldown2_ = 0;
-        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                     damageCooldown2_, 2);
+        gameplayReplay_.fixture().energy2_ = 0;
+        gameplayReplay_.fixture().lives2_ = 3;
+        gameplayReplay_.fixture().damageCooldown2_ = 0;
+        damagePlayer(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_,
+                     gameplayReplay_.fixture().damageCooldown2_, 2);
         State2VisualRow row4a = visualRowFor(kState2VisualStartFrame);
-        if (playerDead_ || !player2Dead_ || state2Effect_.active ||
-            !state2Visual2_.active ||
-            state2Visual2_.current != kState2VisualStartFrame ||
-            !effectMatches(state2Effect2_, player2_, kState2VisualStartFrame,
+        if (gameplayReplay_.fixture().playerDead_ || !gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().state2Effect_.active ||
+            !gameplayReplay_.fixture().state2Visual2_.active ||
+            gameplayReplay_.fixture().state2Visual2_.current != kState2VisualStartFrame ||
+            !effectMatches(gameplayReplay_.fixture().state2Effect2_, gameplayReplay_.fixture().player2_, kState2VisualStartFrame,
                            row4a)) {
             throw std::runtime_error("player 2 death visual effect entry mismatch");
         }
@@ -6282,10 +6047,10 @@ public:
         updateWithControls(idle, 1.0f / 60.0f);
         State2VisualRow row4b =
             visualRowFor(static_cast<uint8_t>(kState2VisualStartFrame + 1));
-        if (!player2Dead_ || deathStateTimer2_ != kDeathStateTicks - 1 ||
-            state2Visual2_.current !=
+        if (!gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().deathStateTimer2_ != kDeathStateTicks - 1 ||
+            gameplayReplay_.fixture().state2Visual2_.current !=
                 static_cast<uint8_t>(kState2VisualStartFrame + 1) ||
-            !effectMatches(state2Effect2_, player2_,
+            !effectMatches(gameplayReplay_.fixture().state2Effect2_, gameplayReplay_.fixture().player2_,
                            static_cast<uint8_t>(kState2VisualStartFrame + 1),
                            row4b)) {
             throw std::runtime_error("player 2 death visual tick mismatch");
@@ -6296,17 +6061,17 @@ public:
             throw std::runtime_error("player 2 death visual tick frame did not change");
         }
 
-        energy_ = 0;
-        lives_ = 3;
-        damageCooldown_ = 0;
-        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                     damageCooldown_, 1);
-        if (!playerDead_ || !player2Dead_ || !state2Effect_.active ||
-            !state2Effect2_.active ||
-            !effectMatches(state2Effect_, player_, kState2VisualStartFrame,
+        gameplayReplay_.fixture().energy_ = 0;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
+        damagePlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                     gameplayReplay_.fixture().damageCooldown_, 1);
+        if (!gameplayReplay_.fixture().playerDead_ || !gameplayReplay_.fixture().player2Dead_ || !gameplayReplay_.fixture().state2Effect_.active ||
+            !gameplayReplay_.fixture().state2Effect2_.active ||
+            !effectMatches(gameplayReplay_.fixture().state2Effect_, gameplayReplay_.fixture().player_, kState2VisualStartFrame,
                            row4a) ||
-            (state2Effect_.x == state2Effect2_.x &&
-             state2Effect_.y == state2Effect2_.y)) {
+            (gameplayReplay_.fixture().state2Effect_.x == gameplayReplay_.fixture().state2Effect2_.x &&
+             gameplayReplay_.fixture().state2Effect_.y == gameplayReplay_.fixture().state2Effect2_.y)) {
             throw std::runtime_error("two-player death visual slots aliased");
         }
         FrameInspection bothDeathFrame =
@@ -6314,7 +6079,7 @@ public:
         if (bothDeathFrame.hash == p2TickFrame.hash) {
             throw std::runtime_error("two-player death visual second slot frame did not change");
         }
-        if (state2VisualCursorPreview_) {
+        if (gameplayReplay_.fixture().state2VisualCursorPreview_) {
             throw std::runtime_error("two-player death visual cursor preview flag leaked");
         }
 
@@ -6328,8 +6093,8 @@ public:
                   << " p2_sprites=" << static_cast<int>(row4a.row3) << ','
                   << static_cast<int>(row4b.row3)
                   << " p1_frame=0x" << std::hex
-                  << static_cast<int>(state2Effect_.visualFrame) << std::dec
-                  << " p1_sprite=" << static_cast<int>(state2Effect_.spriteIndex)
+                  << static_cast<int>(gameplayReplay_.fixture().state2Effect_.visualFrame) << std::dec
+                  << " p1_sprite=" << static_cast<int>(gameplayReplay_.fixture().state2Effect_.spriteIndex)
                   << " draw_offset=16,16"
                   << " effects_separate=1"
                   << " cursor_legacy_hash_mismatch=1"
@@ -6344,13 +6109,13 @@ public:
 
         pushKeyDown(SDLK_2);
         processEvents(running);
-        if (ui_.snapshot().menu || playerCount_ != 2 || playerDead_ || player2Dead_) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 2 || gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().player2Dead_) {
             throw std::runtime_error("two-player progression autoplayer failed to start");
         }
 
         FrameInspection startFrame = inspectRenderedFrame("autoplayer-two-progress-start");
-        int p1StartX = static_cast<int>(player_.x);
-        int p2StartX = static_cast<int>(player2_.x);
+        int p1StartX = static_cast<int>(gameplayReplay_.fixture().player_.x);
+        int p2StartX = static_cast<int>(gameplayReplay_.fixture().player2_.x);
 
         FrameControls bothRight;
         bothRight.p1Right = true;
@@ -6358,8 +6123,8 @@ public:
         for (int i = 0; i < 18; ++i) {
             updateWithControls(bothRight, 1.0f / 60.0f);
         }
-        if (static_cast<int>(player_.x) <= p1StartX + 8 ||
-            static_cast<int>(player2_.x) <= p2StartX + 8) {
+        if (static_cast<int>(gameplayReplay_.fixture().player_.x) <= p1StartX + 8 ||
+            static_cast<int>(gameplayReplay_.fixture().player2_.x) <= p2StartX + 8) {
             throw std::runtime_error("two-player progression did not move both players");
         }
         FrameInspection movedFrame = inspectRenderedFrame("autoplayer-two-progress-moved");
@@ -6367,13 +6132,13 @@ public:
             throw std::runtime_error("two-player progression movement frame did not change");
         }
 
-        energy2_ = 0;
-        lives2_ = 3;
-        damageCooldown2_ = 0;
-        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                     damageCooldown2_, 2);
-        if (!player2Dead_ || lives2_ != 3 || !pendingLifeLoss2_ ||
-            deathStateTimer2_ != kDeathStateTicks || !state2Visual2_.active) {
+        gameplayReplay_.fixture().energy2_ = 0;
+        gameplayReplay_.fixture().lives2_ = 3;
+        gameplayReplay_.fixture().damageCooldown2_ = 0;
+        damagePlayer(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_,
+                     gameplayReplay_.fixture().damageCooldown2_, 2);
+        if (!gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().lives2_ != 3 || !gameplayReplay_.fixture().pendingLifeLoss2_ ||
+            gameplayReplay_.fixture().deathStateTimer2_ != kDeathStateTicks || !gameplayReplay_.fixture().state2Visual2_.active) {
             throw std::runtime_error("two-player progression did not enter player-2 state-2");
         }
         FrameInspection p2DeathFrame = inspectRenderedFrame("autoplayer-two-progress-p2-death");
@@ -6383,27 +6148,27 @@ public:
 
         FrameControls p1Only;
         p1Only.p1Right = true;
-        int p1BeforeSolo = static_cast<int>(player_.x);
-        int p2DeadX = static_cast<int>(player2_.x);
-        int p2DeathVelocity = std::abs(player2_.vx8);
+        int p1BeforeSolo = static_cast<int>(gameplayReplay_.fixture().player_.x);
+        int p2DeadX = static_cast<int>(gameplayReplay_.fixture().player2_.x);
+        int p2DeathVelocity = std::abs(gameplayReplay_.fixture().player2_.vx8);
         for (int i = 0; i < 10; ++i) {
             updateWithControls(p1Only, 1.0f / 60.0f);
         }
-        if (static_cast<int>(player_.x) <= p1BeforeSolo ||
-            static_cast<int>(player2_.x) <= p2DeadX || !player2Dead_ ||
-            std::abs(player2_.vx8) >= p2DeathVelocity) {
+        if (static_cast<int>(gameplayReplay_.fixture().player_.x) <= p1BeforeSolo ||
+            static_cast<int>(gameplayReplay_.fixture().player2_.x) <= p2DeadX || !gameplayReplay_.fixture().player2Dead_ ||
+            std::abs(gameplayReplay_.fixture().player2_.vx8) >= p2DeathVelocity) {
             throw std::runtime_error("two-player progression p1 did not remain active");
         }
 
         FrameControls idle;
-        while (deathStateTimer2_ > 0) {
+        while (gameplayReplay_.fixture().deathStateTimer2_ > 0) {
             updateWithControls(idle, 1.0f / 60.0f);
         }
         pushKeyDown(SDLK_KP_0);
         processEvents(running);
         updateWithControls(idle, 1.0f / 60.0f);
-        if (player2Dead_ || lives2_ != 2 || energy2_ != 100 ||
-            damageCooldown2_ != 0 || state2Visual2_.active) {
+        if (gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().lives2_ != 2 || gameplayReplay_.fixture().energy2_ != 100 ||
+            gameplayReplay_.fixture().damageCooldown2_ != 0 || gameplayReplay_.fixture().state2Visual2_.active) {
             throw std::runtime_error("two-player progression keypad 0 did not reenter player 2");
         }
         FrameInspection reentryFrame = inspectRenderedFrame("autoplayer-two-progress-reentry");
@@ -6411,27 +6176,27 @@ public:
             throw std::runtime_error("two-player progression reentry frame did not change");
         }
 
-        size_t bombsBefore = bombs_.size();
-        int p2SmallBefore = bombInventory2_.counts[0];
-        int p2BombX = (static_cast<int>(player2_.x) + 4) / kTileSize;
-        int p2BombY = static_cast<int>(player2_.y) / kTileSize;
+        size_t bombsBefore = gameplayReplay_.fixture().bombs_.size();
+        int p2SmallBefore = gameplayReplay_.fixture().bombInventory2_.counts[0];
+        int p2BombX = (static_cast<int>(gameplayReplay_.fixture().player2_.x) + 4) / kTileSize;
+        int p2BombY = static_cast<int>(gameplayReplay_.fixture().player2_.y) / kTileSize;
         pushKeyDown(SDLK_KP_0);
         processEvents(running);
         updateWithControls({}, 0);
-        if (bombs_.size() != bombsBefore + 1 || bombs_.back().owner != 2 ||
-            bombs_.back().x != p2BombX || bombs_.back().y != p2BombY ||
-            bombInventory2_.counts[0] != p2SmallBefore - 1) {
+        if (gameplayReplay_.fixture().bombs_.size() != bombsBefore + 1 || gameplayReplay_.fixture().bombs_.back().owner != 2 ||
+            gameplayReplay_.fixture().bombs_.back().x != p2BombX || gameplayReplay_.fixture().bombs_.back().y != p2BombY ||
+            gameplayReplay_.fixture().bombInventory2_.counts[0] != p2SmallBefore - 1) {
             throw std::runtime_error("two-player progression keypad 0 did not place p2 bomb after reentry");
         }
 
         auto objective = findObjectiveTileForSmoke();
-        player2_.x = static_cast<float>(objective[0] * kTileSize);
-        player2_.y = static_cast<float>(objective[1] * kTileSize);
-        uint32_t p1ScoreBefore = score_;
-        uint32_t p2ScoreBefore = score2_;
-        collectObjectiveTiles(player2_, 2);
-        if (collected_ != 1 || score_ != p1ScoreBefore ||
-            score2_ != p2ScoreBefore + 800) {
+        gameplayReplay_.fixture().player2_.x = static_cast<float>(objective[0] * kTileSize);
+        gameplayReplay_.fixture().player2_.y = static_cast<float>(objective[1] * kTileSize);
+        uint32_t p1ScoreBefore = gameplayReplay_.fixture().score_;
+        uint32_t p2ScoreBefore = gameplayReplay_.fixture().score2_;
+        collectObjectiveTiles(gameplayReplay_.fixture().player2_, 2);
+        if (gameplayReplay_.fixture().collected_ != 1 || gameplayReplay_.fixture().score_ != p1ScoreBefore ||
+            gameplayReplay_.fixture().score2_ != p2ScoreBefore + 800) {
             throw std::runtime_error("two-player progression p2 objective score mismatch");
         }
         FrameInspection scoreFrame = inspectRenderedFrame("autoplayer-two-progress-score");
@@ -6444,8 +6209,8 @@ public:
                   << " p1_moved=1 p2_death_timer=" << kDeathStateTicks
                   << " p2_reentered=1 p2_bomb_tile=" << p2BombX << ',' << p2BombY
                   << " p2_fire_key=kp0"
-                  << " p2_score=" << score2_
-                  << " collected=" << collected_
+                  << " p2_score=" << gameplayReplay_.fixture().score2_
+                  << " collected=" << gameplayReplay_.fixture().collected_
                   << " frame_inspection=1\n";
     }
 
@@ -7043,8 +6808,8 @@ public:
             return std::string(bytes.begin() + static_cast<std::ptrdiff_t>(off),
                                bytes.begin() + static_cast<std::ptrdiff_t>(off + 8));
         };
-        score_ = 999999u;
-        levelIndex_ = 0;
+        gameplayReplay_.fixture().score_ = 999999u;
+        gameplayReplay_.fixture().levelIndex_ = 0;
         beginGameOver();
         if (ui_.snapshot().page != MenuPage::NameEntry) {
             throw std::runtime_error("high score did not open name entry");
@@ -7057,8 +6822,8 @@ public:
             throw std::runtime_error("Escape committed pending record instead of cancelling");
         }
 
-        score_ = 999999u;
-        levelIndex_ = 0;
+        gameplayReplay_.fixture().score_ = 999999u;
+        gameplayReplay_.fixture().levelIndex_ = 0;
         beginGameOver();
         if (ui_.snapshot().page != MenuPage::NameEntry) {
             throw std::runtime_error("second high score did not open name entry");
@@ -7081,8 +6846,8 @@ public:
             throw std::runtime_error("short name did not use colon padding");
         }
 
-        score_ = 1000000u;
-        levelIndex_ = 0;
+        gameplayReplay_.fixture().score_ = 1000000u;
+        gameplayReplay_.fixture().levelIndex_ = 0;
         beginGameOver();
         if (ui_.snapshot().page != MenuPage::NameEntry) {
             throw std::runtime_error("third high score did not open name entry");
@@ -7105,8 +6870,8 @@ public:
             throw std::runtime_error("name-entry cap or space encoding changed");
         }
 
-        score_ = 1000001u;
-        levelIndex_ = 0;
+        gameplayReplay_.fixture().score_ = 1000001u;
+        gameplayReplay_.fixture().levelIndex_ = 0;
         beginGameOver();
         if (ui_.snapshot().page != MenuPage::NameEntry) {
             throw std::runtime_error("fourth high score did not open name entry");
@@ -7119,8 +6884,8 @@ public:
             throw std::runtime_error("empty name-entry encoding changed");
         }
 
-        score_ = 1000002u;
-        levelIndex_ = 0;
+        gameplayReplay_.fixture().score_ = 1000002u;
+        gameplayReplay_.fixture().levelIndex_ = 0;
         beginGameOver();
         if (ui_.snapshot().page != MenuPage::NameEntry) {
             throw std::runtime_error("fifth high score did not open name entry");
@@ -7153,8 +6918,8 @@ public:
     void debugRecordNameEntryCursor() {
         load();
         initSdl();
-        score_ = 999999u;
-        levelIndex_ = 0;
+        gameplayReplay_.fixture().score_ = 999999u;
+        gameplayReplay_.fixture().levelIndex_ = 0;
         beginGameOver();
         if (ui_.snapshot().page != MenuPage::NameEntry || !recordStore_.pending().name.empty()) {
             throw std::runtime_error("record name cursor fixture did not open name entry");
@@ -7233,8 +6998,8 @@ public:
         recordStore_.setPath(path);
         saveRecords(recordStore_.path(), recordStore_.records());
         initSdl();
-        score_ = 999999u;
-        levelIndex_ = 0;
+        gameplayReplay_.fixture().score_ = 999999u;
+        gameplayReplay_.fixture().levelIndex_ = 0;
         beginGameOver();
         if (ui_.snapshot().page != MenuPage::NameEntry || !recordStore_.pending().name.empty()) {
             throw std::runtime_error("record name repeat fixture did not open name entry");
@@ -7295,8 +7060,8 @@ public:
     void debugRecordSaveFailure(const std::string& path) {
         load();
         recordStore_.setPath(path);
-        score_ = 999999u;
-        levelIndex_ = 0;
+        gameplayReplay_.fixture().score_ = 999999u;
+        gameplayReplay_.fixture().levelIndex_ = 0;
         beginGameOver();
         recordStore_.setPendingNameForFixture("FAIL");
         finalizePendingRecord();
@@ -7347,7 +7112,7 @@ public:
 
         resetLevel(0);
         ui_.setMenu(false);
-        int startLevel = levelIndex_;
+        int startLevel = gameplayReplay_.fixture().levelIndex_;
         collectAllObjectiveTilesForSmoke();
         damageRequiredTilesForSmoke();
         if (!isComplete()) {
@@ -7356,21 +7121,21 @@ public:
         for (int i = 0; i <= 100; ++i) {
             updateLevelCompletion();
         }
-        int completionLevel = levelIndex_ + 1;
-        if (levelIndex_ != startLevel + 1 || ui_.snapshot().menu || recordStore_.pending().score != 0 ||
+        int completionLevel = gameplayReplay_.fixture().levelIndex_ + 1;
+        if (gameplayReplay_.fixture().levelIndex_ != startLevel + 1 || ui_.snapshot().menu || recordStore_.pending().score != 0 ||
             ui_.snapshot().page == MenuPage::NameEntry) {
             throw std::runtime_error("mid-game completion entered end-flow records");
         }
 
-        playerCount_ = 1;
-        score_ = 999997u;
-        score2_ = 0;
-        levelIndex_ = 2;
+        gameplayReplay_.fixture().playerCount_ = 1;
+        gameplayReplay_.fixture().score_ = 999997u;
+        gameplayReplay_.fixture().score2_ = 0;
+        gameplayReplay_.fixture().levelIndex_ = 2;
         beginGameOver();
         if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::NameEntry ||
             recordStore_.pending().score != 999997u || recordStore_.pending().level != 3 ||
-            recordStore_.pending().player != 1 || lives_ != 3 || lives2_ != 3 ||
-            levelIndex_ != 0) {
+            recordStore_.pending().player != 1 || gameplayReplay_.fixture().lives_ != 3 || gameplayReplay_.fixture().lives2_ != 3 ||
+            gameplayReplay_.fixture().levelIndex_ != 0) {
             throw std::runtime_error("single-player qualifying game-over state mismatch");
         }
         recordStore_.setPendingNameForFixture("one");
@@ -7379,9 +7144,9 @@ public:
             throw std::runtime_error("single-player record was not committed");
         }
 
-        score_ = 1u;
-        score2_ = 0;
-        levelIndex_ = 0;
+        gameplayReplay_.fixture().score_ = 1u;
+        gameplayReplay_.fixture().score2_ = 0;
+        gameplayReplay_.fixture().levelIndex_ = 0;
         beginGameOver();
         if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::GameOver || recordStore_.pending().score != 0 ||
             recordStore_.pending().level != 0 || !recordStore_.pending().name.empty()) {
@@ -7389,26 +7154,26 @@ public:
         }
         bool running = true;
         onKey(SDLK_RETURN, running);
-        if (ui_.snapshot().page != MenuPage::Main || score_ != 0 || score2_ != 0) {
+        if (ui_.snapshot().page != MenuPage::Main || gameplayReplay_.fixture().score_ != 0 || gameplayReplay_.fixture().score2_ != 0) {
             throw std::runtime_error("game-over confirm did not clear score state");
         }
 
         recordStore_.replaceRecords(baselineRecords);
         saveRecords(recordStore_.path(), recordStore_.records());
-        playerCount_ = 1;
-        score_ = recordStore_.records().back().score;
-        score2_ = 0;
-        levelIndex_ = 2;
+        gameplayReplay_.fixture().playerCount_ = 1;
+        gameplayReplay_.fixture().score_ = recordStore_.records().back().score;
+        gameplayReplay_.fixture().score2_ = 0;
+        gameplayReplay_.fixture().levelIndex_ = 2;
         beginGameOver();
         if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::GameOver || recordStore_.pending().score != 0 ||
             recordStore_.pending().level != 0 || !recordStore_.pending().name.empty()) {
             throw std::runtime_error("score equal to record cutoff qualified");
         }
 
-        playerCount_ = 2;
-        score_ = 1u;
-        score2_ = 999998u;
-        levelIndex_ = 4;
+        gameplayReplay_.fixture().playerCount_ = 2;
+        gameplayReplay_.fixture().score_ = 1u;
+        gameplayReplay_.fixture().score2_ = 999998u;
+        gameplayReplay_.fixture().levelIndex_ = 4;
         beginGameOver();
         if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::NameEntry ||
             recordStore_.pending().score != 999998u || recordStore_.pending().level != 5 ||
@@ -7421,10 +7186,10 @@ public:
             throw std::runtime_error("player 2 record was not committed");
         }
 
-        playerCount_ = 2;
-        score_ = 999996u;
-        score2_ = 999995u;
-        levelIndex_ = 5;
+        gameplayReplay_.fixture().playerCount_ = 2;
+        gameplayReplay_.fixture().score_ = 999996u;
+        gameplayReplay_.fixture().score2_ = 999995u;
+        gameplayReplay_.fixture().levelIndex_ = 5;
         beginGameOver();
         if (ui_.snapshot().page != MenuPage::NameEntry || recordStore_.pending().player != 1 ||
             recordStore_.pending().score != 999996u) {
@@ -7438,7 +7203,7 @@ public:
         }
         recordStore_.setPendingNameForFixture("dog");
         finalizePendingRecord();
-        if (ui_.snapshot().page != MenuPage::Records || score_ != 0 || score2_ != 0 ||
+        if (ui_.snapshot().page != MenuPage::Records || gameplayReplay_.fixture().score_ != 0 || gameplayReplay_.fixture().score2_ != 0 ||
             !containsRecord(999996u, "cat") || !containsRecord(999995u, "dog")) {
             throw std::runtime_error("two-player queued records did not finish cleanly");
         }
@@ -7448,16 +7213,16 @@ public:
         if (recordStore_.records().size() < 7 || recordStore_.records()[5].score <= recordStore_.records()[6].score + 1) {
             throw std::runtime_error("baseline records cannot exercise p2 re-check");
         }
-        playerCount_ = 2;
-        score_ = recordStore_.records().front().score + 1000u;
-        score2_ = recordStore_.records()[6].score + 1u;
-        levelIndex_ = 4;
+        gameplayReplay_.fixture().playerCount_ = 2;
+        gameplayReplay_.fixture().score_ = recordStore_.records().front().score + 1000u;
+        gameplayReplay_.fixture().score2_ = recordStore_.records()[6].score + 1u;
+        gameplayReplay_.fixture().levelIndex_ = 4;
         beginGameOver();
         if (ui_.snapshot().page != MenuPage::NameEntry || recordStore_.pending().player != 1 ||
-            recordStore_.pending().score != score_) {
+            recordStore_.pending().score != gameplayReplay_.fixture().score_) {
             throw std::runtime_error("threshold re-check did not start with player 1");
         }
-        uint32_t recheckP2Score = score2_;
+        uint32_t recheckP2Score = gameplayReplay_.fixture().score2_;
         recordStore_.setPendingNameForFixture("top");
         finalizePendingRecord();
         if (ui_.snapshot().page != MenuPage::Records || recordStore_.pending().score != 0 ||
@@ -7465,18 +7230,18 @@ public:
             throw std::runtime_error("player 2 was not re-checked after player 1 insert");
         }
 
-        playerCount_ = 1;
+        gameplayReplay_.fixture().playerCount_ = 1;
         resetLevel(static_cast<int>(levels_.size()) - 1);
         ui_.setMenu(false);
         collectAllObjectiveTilesForSmoke();
         damageRequiredTilesForSmoke();
-        score_ = 1u;
-        score2_ = 0;
+        gameplayReplay_.fixture().score_ = 1u;
+        gameplayReplay_.fixture().score2_ = 0;
         for (int i = 0; i <= 100; ++i) {
             updateLevelCompletion();
         }
         if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::CompletedGame ||
-            ui_.snapshot().lastEndReason != EndReason::CompletedGame || levelIndex_ != 0 ||
+            ui_.snapshot().lastEndReason != EndReason::CompletedGame || gameplayReplay_.fixture().levelIndex_ != 0 ||
             recordStore_.pending().score != 0) {
             throw std::runtime_error("final level completion did not enter completed-game flow");
         }
@@ -7496,14 +7261,14 @@ public:
         bool running = true;
 
         FrameInspection mainFrame = inspectRenderedFrame("end-flow-main-menu");
-        playerCount_ = 2;
-        score_ = 1u;
-        score2_ = 2u;
-        levelIndex_ = 3;
+        gameplayReplay_.fixture().playerCount_ = 2;
+        gameplayReplay_.fixture().score_ = 1u;
+        gameplayReplay_.fixture().score2_ = 2u;
+        gameplayReplay_.fixture().levelIndex_ = 3;
         beginGameOver();
         if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::GameOver ||
             ui_.snapshot().lastEndReason != EndReason::GameOver ||
-            recordStore_.pending().score != 0 || score_ != 1u || score2_ != 2u) {
+            recordStore_.pending().score != 0 || gameplayReplay_.fixture().score_ != 1u || gameplayReplay_.fixture().score2_ != 2u) {
             throw std::runtime_error("game-over frame fixture entered wrong state");
         }
         FrameInspection gameOverFrame = inspectRenderedFrame("end-flow-game-over");
@@ -7515,7 +7280,7 @@ public:
         pushKeyDown(SDLK_RETURN);
         processEvents(running);
         if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::Main ||
-            score_ != 0 || score2_ != 0) {
+            gameplayReplay_.fixture().score_ != 0 || gameplayReplay_.fixture().score2_ != 0) {
             throw std::runtime_error("game-over confirm did not clear scores");
         }
         FrameInspection afterGameOverFrame =
@@ -7524,13 +7289,13 @@ public:
             throw std::runtime_error("game-over confirm did not redraw menu");
         }
 
-        playerCount_ = 1;
+        gameplayReplay_.fixture().playerCount_ = 1;
         resetLevel(static_cast<int>(levels_.size()) - 1);
         ui_.setMenu(false);
         collectAllObjectiveTilesForSmoke();
         damageRequiredTilesForSmoke();
-        score_ = 1u;
-        score2_ = 0;
+        gameplayReplay_.fixture().score_ = 1u;
+        gameplayReplay_.fixture().score2_ = 0;
         if (!isComplete() || !isFinalLevel()) {
             throw std::runtime_error("completed-game frame fixture did not satisfy final level");
         }
@@ -7539,7 +7304,7 @@ public:
         }
         if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::CompletedGame ||
             ui_.snapshot().lastEndReason != EndReason::CompletedGame ||
-            recordStore_.pending().score != 0 || levelIndex_ != 0 || score_ != 1u) {
+            recordStore_.pending().score != 0 || gameplayReplay_.fixture().levelIndex_ != 0 || gameplayReplay_.fixture().score_ != 1u) {
             throw std::runtime_error("final-level completion did not show completed-game page");
         }
         FrameInspection completedFrame =
@@ -7552,7 +7317,7 @@ public:
 
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
-        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::Main || score_ != 0) {
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::Main || gameplayReplay_.fixture().score_ != 0) {
             throw std::runtime_error("completed-game confirm did not clear score");
         }
         FrameInspection finalMenuFrame =
@@ -7591,11 +7356,11 @@ public:
         load();
         resetLevel(0);
         printBombInventory("initial");
-        bombInventory_.selected = BombType::Medium;
+        gameplayReplay_.fixture().bombInventory_.selected = BombType::Medium;
         printBombInventory("selected_medium");
-        grantNormalBombSet(bombInventory_);
+        grantNormalBombSet(gameplayReplay_.fixture().bombInventory_);
         printBombInventory("after_yellow_box");
-        grantSuperBombSet(bombInventory_);
+        grantSuperBombSet(gameplayReplay_.fixture().bombInventory_);
         printBombInventory("after_green_box");
         BombProfile profile = bombProfile(BombType::Super);
         Bomb bomb{10, 10, profile.fuseTicks, BombType::Super, profile.fuseTicks};
@@ -7606,14 +7371,14 @@ public:
     void debugBonuses() {
         load();
         resetLevel(0);
-        Player collector = player_;
+        Player collector = gameplayReplay_.fixture().player_;
         BombInventory inventory;
         int energy = 50;
 
         auto expectScore = [&](BonusType type, uint32_t expectedScore) {
-            uint32_t before = score_;
+            uint32_t before = gameplayReplay_.fixture().score_;
             applyBonus(type, collector, energy, inventory);
-            if (score_ != before + expectedScore) {
+            if (gameplayReplay_.fixture().score_ != before + expectedScore) {
                 throw std::runtime_error("bonus score table mismatch");
             }
         };
@@ -7629,17 +7394,17 @@ public:
             }
         }
 
-        score_ = 0;
+        gameplayReplay_.fixture().score_ = 0;
         energy = 50;
         expectScore(BonusType::Present, 2000);
         if (energy != 50) throw std::runtime_error("present changed energy");
 
-        score_ = 0;
+        gameplayReplay_.fixture().score_ = 0;
         energy = 20;
         expectScore(BonusType::FirstAid, 1000);
         if (energy != 100) throw std::runtime_error("first aid did not restore energy");
 
-        score_ = 0;
+        gameplayReplay_.fixture().score_ = 0;
         energy = 50;
         expectScore(BonusType::HotDog, 1500);
         if (energy != 83) throw std::runtime_error("hot dog did not add one-third energy");
@@ -7647,58 +7412,58 @@ public:
         applyBonus(BonusType::HotDog, collector, energy, inventory);
         if (energy != 100) throw std::runtime_error("hot dog did not clamp energy");
 
-        score_ = 0;
-        bonusDrops_.clear();
+        gameplayReplay_.fixture().score_ = 0;
+        gameplayReplay_.fixture().bonusDrops_.clear();
         expectScore(BonusType::JollyCloud, 2000);
-        if (bonusDrops_.size() != 4 ||
-            bonusDrops_[0].type != BonusType::Present ||
-            bonusDrops_[1].type != BonusType::BigDiamond ||
-            bonusDrops_[2].type != BonusType::Present ||
-            bonusDrops_[3].type != BonusType::BigDiamond) {
+        if (gameplayReplay_.fixture().bonusDrops_.size() != 4 ||
+            gameplayReplay_.fixture().bonusDrops_[0].type != BonusType::Present ||
+            gameplayReplay_.fixture().bonusDrops_[1].type != BonusType::BigDiamond ||
+            gameplayReplay_.fixture().bonusDrops_[2].type != BonusType::Present ||
+            gameplayReplay_.fixture().bonusDrops_[3].type != BonusType::BigDiamond) {
             throw std::runtime_error("jolly cloud did not spawn bonus rain");
         }
 
-        bonusDrops_.clear();
-        bonusDrops_.shrink_to_fit();
+        gameplayReplay_.fixture().bonusDrops_.clear();
+        gameplayReplay_.fixture().bonusDrops_.shrink_to_fit();
         BonusDrop cloud;
-        cloud.x = player_.x;
-        cloud.y = player_.y;
+        cloud.x = gameplayReplay_.fixture().player_.x;
+        cloud.y = gameplayReplay_.fixture().player_.y;
         cloud.type = BonusType::JollyCloud;
-        bonusDrops_.push_back(cloud);
-        bonusDrops_.shrink_to_fit();
+        gameplayReplay_.fixture().bonusDrops_.push_back(cloud);
+        gameplayReplay_.fixture().bonusDrops_.shrink_to_fit();
         updateBonusDrops();
-        if (bonusDrops_.size() != 4 ||
-            std::any_of(bonusDrops_.begin(), bonusDrops_.end(),
+        if (gameplayReplay_.fixture().bonusDrops_.size() != 4 ||
+            std::any_of(gameplayReplay_.fixture().bonusDrops_.begin(), gameplayReplay_.fixture().bonusDrops_.end(),
                         [](const BonusDrop& drop) { return drop.collected; })) {
             throw std::runtime_error("jolly cloud collection corrupted bonus drops");
         }
 
-        playerCount_ = 2;
-        playerDead_ = false;
-        player2Dead_ = false;
-        player_.x = 95.0f;
-        player_.y = 100.0f;
-        player2_.x = 100.0f;
-        player2_.y = 100.0f;
-        energy_ = 50;
-        energy2_ = 50;
-        bonusDrops_.clear();
+        gameplayReplay_.fixture().playerCount_ = 2;
+        gameplayReplay_.fixture().playerDead_ = false;
+        gameplayReplay_.fixture().player2Dead_ = false;
+        gameplayReplay_.fixture().player_.x = 95.0f;
+        gameplayReplay_.fixture().player_.y = 100.0f;
+        gameplayReplay_.fixture().player2_.x = 100.0f;
+        gameplayReplay_.fixture().player2_.y = 100.0f;
+        gameplayReplay_.fixture().energy_ = 50;
+        gameplayReplay_.fixture().energy2_ = 50;
+        gameplayReplay_.fixture().bonusDrops_.clear();
         BonusDrop sharedDrop;
         sharedDrop.x = 100.0f;
         sharedDrop.y = 100.0f;
         sharedDrop.type = BonusType::FirstAid;
-        bonusDrops_.push_back(sharedDrop);
+        gameplayReplay_.fixture().bonusDrops_.push_back(sharedDrop);
         updateBonusDrops();
-        if (energy_ != 50 || energy2_ != 100 || !bonusDrops_.empty()) {
+        if (gameplayReplay_.fixture().energy_ != 50 || gameplayReplay_.fixture().energy2_ != 100 || !gameplayReplay_.fixture().bonusDrops_.empty()) {
             throw std::runtime_error("shared bonus was not awarded to nearest player");
         }
-        playerCount_ = 1;
+        gameplayReplay_.fixture().playerCount_ = 1;
 
-        score_ = 0;
+        gameplayReplay_.fixture().score_ = 0;
         inventory = {};
         inventory.counts = {0, 0, 0, 0};
         inventory.selected = BombType::Super;
-        randomSeed_ = 0x1234abcd;
+        gameplayReplay_.fixture().randomSeed_ = 0x1234abcd;
         expectScore(BonusType::YellowBombBox, 3000);
         if (inventory.counts[0] != 200 || inventory.counts[1] <= 0 ||
             inventory.counts[2] <= 0 || inventory.counts[3] != 0 ||
@@ -7706,11 +7471,11 @@ public:
             throw std::runtime_error("yellow bomb box did not grant normal set");
         }
 
-        score_ = 0;
+        gameplayReplay_.fixture().score_ = 0;
         inventory = {};
         inventory.counts = {0, 0, 0, 0};
         inventory.selected = BombType::Super;
-        randomSeed_ = 0x1234abcd;
+        gameplayReplay_.fixture().randomSeed_ = 0x1234abcd;
         expectScore(BonusType::GreenBombBox, 1000);
         if (inventory.counts[0] != 200 || inventory.counts[1] <= 0 ||
             inventory.counts[2] <= 0 || inventory.counts[3] <= 0 ||
@@ -7718,7 +7483,7 @@ public:
             throw std::runtime_error("green bomb box did not grant super set");
         }
 
-        score_ = 0;
+        gameplayReplay_.fixture().score_ = 0;
         expectScore(BonusType::BigDiamond, 5000);
 
         clearSoundLatch();
@@ -7738,7 +7503,7 @@ public:
             throw std::runtime_error("bonus pickup sound cursor did not pump");
         }
         std::cout << "bonuses=ok sprites=" << spriteScores.size()
-                  << " rain=" << bonusDrops_.size()
+                  << " rain=" << gameplayReplay_.fixture().bonusDrops_.size()
                   << " sound_cursor=" << std::showbase << std::hex
                   << kBonusPickupSoundCursor << std::dec << std::noshowbase
                   << " sound_priority="
@@ -8416,7 +8181,7 @@ public:
 
         load();
         resetLevel(6);
-        if (levelIndex_ != 6 || !bossPresent_) {
+        if (gameplayReplay_.fixture().levelIndex_ != 6 || !gameplayReplay_.fixture().bossPresent_) {
             throw std::runtime_error("port did not build the level-7 boss");
         }
         int portSegments = 0, portHead = 0;
@@ -8425,7 +8190,7 @@ public:
         int portHeadBoxW = -1, portHeadBoxH = -1;
         bool portActorFieldsMatch = true;
         std::set<int> portSegmentVisuals;
-        for (const ActiveMonster& m : monsters_) {
+        for (const ActiveMonster& m : gameplayReplay_.fixture().monsters_) {
             if (m.kind == headKind) {
                 ++portHead;
                 portHeadVisual = m.bossVisual;
@@ -8443,11 +8208,11 @@ public:
                 portActorFieldsMatch = false;
             }
         }
-        int portActors = static_cast<int>(monsters_.size());
-        int portLinks = static_cast<int>(bossLinks_.size());
+        int portActors = static_cast<int>(gameplayReplay_.fixture().monsters_.size());
+        int portLinks = static_cast<int>(gameplayReplay_.fixture().bossLinks_.size());
         bool portLinksMatch = true;
         std::set<int> portLinkSelfVisuals;
-        for (const BossMotionLink& link : bossLinks_) {
+        for (const BossMotionLink& link : gameplayReplay_.fixture().bossLinks_) {
             portLinksMatch =
                 portLinksMatch && link.targetVisual == headVisual;
             portLinkSelfVisuals.insert(link.selfVisual);
@@ -8495,8 +8260,8 @@ public:
             int8_t biasY = static_cast<int8_t>(links[off + 15]);
             if (mode == 0xff) ++origOrbitLinks; else ++origSpringLinks;
             ++linkParamChecked;
-            if (linkIndex >= bossLinks_.size()) continue;
-            const BossMotionLink& portLink = bossLinks_[linkIndex];
+            if (linkIndex >= gameplayReplay_.fixture().bossLinks_.size()) continue;
+            const BossMotionLink& portLink = gameplayReplay_.fixture().bossLinks_[linkIndex];
             if (portLink.gain == gain && portLink.mode == mode &&
                 portLink.radiusX == radiusX &&
                 portLink.radiusY == radiusY &&
@@ -8507,7 +8272,7 @@ public:
         }
         int portSpringLinks = 0;
         int portOrbitLinks = 0;
-        for (const BossMotionLink& link : bossLinks_) {
+        for (const BossMotionLink& link : gameplayReplay_.fixture().bossLinks_) {
             if (link.mode == 0xff) {
                 ++portOrbitLinks;
             } else {
@@ -8625,13 +8390,13 @@ public:
                 "Turbo Random multiplier word changed");
         }
 
-        randomSeed_ = 0;
+        gameplayReplay_.fixture().randomSeed_ = 0;
         std::cout << "turbo_random=ok seq100_from0=";
         for (int i = 0; i < 12; ++i) {
             if (i) std::cout << ',';
             std::cout << randomRangeValue(0, 100);
         }
-        randomSeed_ = 0x1234abcd;
+        gameplayReplay_.fixture().randomSeed_ = 0x1234abcd;
         std::cout << " seq1000_from_0x1234abcd=";
         for (int i = 0; i < 8; ++i) {
             if (i) std::cout << ',';
@@ -8648,7 +8413,7 @@ public:
     // 0x96 + Random(0x320). The caller-selected X delta supplies the sign and
     // is exercised by the boss_level7 autoplayer.
     void debugBossHeadDecisions() {
-        randomSeed_ = 0x1234abcd;
+        gameplayReplay_.fixture().randomSeed_ = 0x1234abcd;
         std::cout << "boss_head_decisions=ok";
         for (int t = 0; t < 4; ++t) {
             int roar = static_cast<int>(randomRangeValue(0, 100));
@@ -8711,13 +8476,13 @@ public:
         // the semantic table.
         load();
         resetLevel(6);
-        if (levelIndex_ != 6 || !bossPresent_ || monsters_.size() != 7 ||
-            bossLinks_.size() != 6) {
+        if (gameplayReplay_.fixture().levelIndex_ != 6 || !gameplayReplay_.fixture().bossPresent_ || gameplayReplay_.fixture().monsters_.size() != 7 ||
+            gameplayReplay_.fixture().bossLinks_.size() != 6) {
             throw std::runtime_error("boss model decode did not produce the boss");
         }
         int springLinks = 0;
         int orbitLinks = 0;
-        for (const BossMotionLink& link : bossLinks_) {
+        for (const BossMotionLink& link : gameplayReplay_.fixture().bossLinks_) {
             if (link.mode == 0xff) {
                 ++orbitLinks;
             } else {
@@ -8726,8 +8491,8 @@ public:
         }
         std::ostringstream actorList;
         const ActiveMonster* head = nullptr;
-        for (size_t i = 0; i < monsters_.size(); ++i) {
-            const ActiveMonster& monster = monsters_[i];
+        for (size_t i = 0; i < gameplayReplay_.fixture().monsters_.size(); ++i) {
+            const ActiveMonster& monster = gameplayReplay_.fixture().monsters_[i];
             if (i != 0) actorList << ' ';
             actorList << "actor=" << (monster.behavior == 6 ? "head" : "segment")
                       << ":vis" << static_cast<int>(monster.bossVisual) << ":"
@@ -8742,13 +8507,13 @@ public:
                   << " selector=1000:2c90"
                   << " level7_bank=prova.spr"
                   << " anim_sets=0x0e:41..42,0x0f:43..44,0x10:40..40"
-                  << " boss_actors=" << monsters_.size()
+                  << " boss_actors=" << gameplayReplay_.fixture().monsters_.size()
                   << " head_visual=" << static_cast<int>(head->bossVisual)
                   << " head_hp=" << static_cast<int>(head->bossHpByte)
                   << " head_lives=" << static_cast<int>(head->bossLives)
                   << " head_box=" << static_cast<int>(head->bossBoxW) << 'x'
                   << static_cast<int>(head->bossBoxH)
-                  << " links=" << bossLinks_.size()
+                  << " links=" << gameplayReplay_.fixture().bossLinks_.size()
                   << " spring_links=" << springLinks
                   << " orbit_links=" << orbitLinks << ' ' << actorList.str()
                   << " visual_rebase=2"
@@ -8865,15 +8630,15 @@ public:
         sound_.setCompatibilityTracing(true);
         sound_.clearCompatibilityAttempts();
         std::array<int, 2> objectiveProbe = findSingleObjectiveProbeForSmoke();
-        player_.x = static_cast<float>(objectiveProbe[0]);
-        player_.y = static_cast<float>(objectiveProbe[1]);
-        int collectedBefore = collected_;
-        uint32_t scoreBefore = score_;
+        gameplayReplay_.fixture().player_.x = static_cast<float>(objectiveProbe[0]);
+        gameplayReplay_.fixture().player_.y = static_cast<float>(objectiveProbe[1]);
+        int collectedBefore = gameplayReplay_.fixture().collected_;
+        uint32_t scoreBefore = gameplayReplay_.fixture().score_;
         clearSoundLatch();
         requestRecordsPageSound();
         SoundLatch objectiveSeedLatch = sound_.latch();
         sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
-        collectObjectiveTiles(player_, 1);
+        collectObjectiveTiles(gameplayReplay_.fixture().player_, 1);
         const RemainingSoundCompatibilityHook& objectiveHook =
             kRemainingSoundCompatibilityHooks[kObjectivePickupCompatibilityHookSlot];
         // The captured priority beats the seeded records-page request
@@ -8893,8 +8658,8 @@ public:
         if (std::string(objectiveHook.hook) != "objective_pickup" ||
             objectiveAttempt.index != objectiveHook.index ||
             objectiveAttempt.cursor != objectiveHook.capturedCursor ||
-            collected_ != collectedBefore + 1 ||
-            score_ != scoreBefore + 800u ||
+            gameplayReplay_.fixture().collected_ != collectedBefore + 1 ||
+            gameplayReplay_.fixture().score_ != scoreBefore + 800u ||
             !objectiveSeedLatch.active ||
             !objectiveLatchAccepted ||
             objectivePumpedCursor != objectiveHook.capturedCursor ||
@@ -8902,8 +8667,8 @@ public:
             sound_.latch().active) {
             throw std::runtime_error("objective pickup compatibility sound route mismatch");
         }
-        int collectedDelta = collected_ - collectedBefore;
-        uint32_t scoreDelta = score_ - scoreBefore;
+        int collectedDelta = gameplayReplay_.fixture().collected_ - collectedBefore;
+        uint32_t scoreDelta = gameplayReplay_.fixture().score_ - scoreBefore;
 
         // Same pickup behind a request the captured priority cannot outrank:
         // the latch must refuse it and keep the louder pending sound. This is
@@ -8912,12 +8677,12 @@ public:
         sound_.clearCompatibilityAttempts();
         resetLevel(0);
         std::array<int, 2> loudObjectiveProbe = findSingleObjectiveProbeForSmoke();
-        player_.x = static_cast<float>(loudObjectiveProbe[0]);
-        player_.y = static_cast<float>(loudObjectiveProbe[1]);
+        gameplayReplay_.fixture().player_.x = static_cast<float>(loudObjectiveProbe[0]);
+        gameplayReplay_.fixture().player_.y = static_cast<float>(loudObjectiveProbe[1]);
         clearSoundLatch();
         latchSoundRequest(kRecordsPageSoundCursor, kCompatibilityLatchRejectionSeedPriority);
         SoundLatch objectiveLoudLatch = sound_.latch();
-        collectObjectiveTiles(player_, 1);
+        collectObjectiveTiles(gameplayReplay_.fixture().player_, 1);
         bool objectiveHighSeedRejected =
             sound_.compatibilityAttempts().size() == 1 &&
             sameSoundLatch(sound_.latch(), objectiveLoudLatch);
@@ -8940,7 +8705,7 @@ public:
         requestRecordsPageSound();
         SoundLatch levelSeedLatch = sound_.latch();
         sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
-        int startLevel = levelIndex_;
+        int startLevel = gameplayReplay_.fixture().levelIndex_;
         updateLevelCompletion();
         const RemainingSoundCompatibilityHook& levelHook =
             kRemainingSoundCompatibilityHooks[kLevelCompleteCompatibilityHookSlot];
@@ -8969,18 +8734,18 @@ public:
 
         sound_.clearCompatibilityAttempts();
         int completionTicksAfterFirst = 0;
-        while (levelIndex_ == startLevel && completionTicksAfterFirst <= 120) {
+        while (gameplayReplay_.fixture().levelIndex_ == startLevel && completionTicksAfterFirst <= 120) {
             updateLevelCompletion();
             ++completionTicksAfterFirst;
         }
         size_t repeatCalls = sound_.compatibilityAttempts().size();
-        if (repeatCalls != 0 || levelIndex_ != startLevel + 1) {
+        if (repeatCalls != 0 || gameplayReplay_.fixture().levelIndex_ != startLevel + 1) {
             throw std::runtime_error("level-complete compatibility sound repeat/advance mismatch");
         }
 
         // Completion banner behind a louder pending request: rejected, exactly
         // like the objective pickup, so the captured priority is live here too.
-        int advancedLevel = levelIndex_ + 1;
+        int advancedLevel = gameplayReplay_.fixture().levelIndex_ + 1;
         sound_.setCompatibilityTracing(false);
         resetLevel(0);
         collectAllObjectiveTilesForSmoke();
@@ -9042,8 +8807,8 @@ public:
         clearSoundLatch();
         sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
 
-        score_ = 999999u;
-        levelIndex_ = 0;
+        gameplayReplay_.fixture().score_ = 999999u;
+        gameplayReplay_.fixture().levelIndex_ = 0;
         beginGameOver();
         if (ui_.snapshot().page != MenuPage::NameEntry ||
             !sound_.latch().active ||
@@ -9134,34 +8899,34 @@ public:
     void debugWeaponSwitchSoundRouting() {
         load();
         resetLevel(0);
-        bombInventory_.selected = BombType::Small;
-        grantNormalBombSet(bombInventory_);
+        gameplayReplay_.fixture().bombInventory_.selected = BombType::Small;
+        grantNormalBombSet(gameplayReplay_.fixture().bombInventory_);
         clearSoundLatch();
         sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
 
         for (uint8_t tick = 0; tick < kWeaponSwitchHoldTicks - 1; ++tick) {
-            updateWeaponSwitch(bombInventory_, weaponSwitchHoldTicks_, true);
+            updateWeaponSwitch(gameplayReplay_.fixture().bombInventory_, gameplayReplay_.fixture().weaponSwitchHoldTicks_, true);
         }
-        if (weaponSwitchHoldTicks_ != kWeaponSwitchHoldTicks - 1 ||
-            bombInventory_.selected != BombType::Small || sound_.latch().active) {
+        if (gameplayReplay_.fixture().weaponSwitchHoldTicks_ != kWeaponSwitchHoldTicks - 1 ||
+            gameplayReplay_.fixture().bombInventory_.selected != BombType::Small || sound_.latch().active) {
             throw std::runtime_error("short weapon-switch chord changed state");
         }
-        updateWeaponSwitch(bombInventory_, weaponSwitchHoldTicks_, false);
-        if (weaponSwitchHoldTicks_ != 0 ||
-            bombInventory_.selected != BombType::Small || sound_.latch().active) {
+        updateWeaponSwitch(gameplayReplay_.fixture().bombInventory_, gameplayReplay_.fixture().weaponSwitchHoldTicks_, false);
+        if (gameplayReplay_.fixture().weaponSwitchHoldTicks_ != 0 ||
+            gameplayReplay_.fixture().bombInventory_.selected != BombType::Small || sound_.latch().active) {
             throw std::runtime_error("short weapon-switch release was not ignored");
         }
 
         for (uint8_t tick = 0; tick < kWeaponSwitchHoldTicks; ++tick) {
-            updateWeaponSwitch(bombInventory_, weaponSwitchHoldTicks_, true);
+            updateWeaponSwitch(gameplayReplay_.fixture().bombInventory_, gameplayReplay_.fixture().weaponSwitchHoldTicks_, true);
         }
-        if (weaponSwitchHoldTicks_ != kWeaponSwitchHoldTicks ||
-            bombInventory_.selected != BombType::Small || sound_.latch().active) {
+        if (gameplayReplay_.fixture().weaponSwitchHoldTicks_ != kWeaponSwitchHoldTicks ||
+            gameplayReplay_.fixture().bombInventory_.selected != BombType::Small || sound_.latch().active) {
             throw std::runtime_error("held weapon-switch chord triggered before release");
         }
-        updateWeaponSwitch(bombInventory_, weaponSwitchHoldTicks_, false);
-        if (weaponSwitchHoldTicks_ != 0 ||
-            bombInventory_.selected != BombType::Medium ||
+        updateWeaponSwitch(gameplayReplay_.fixture().bombInventory_, gameplayReplay_.fixture().weaponSwitchHoldTicks_, false);
+        if (gameplayReplay_.fixture().weaponSwitchHoldTicks_ != 0 ||
+            gameplayReplay_.fixture().bombInventory_.selected != BombType::Medium ||
             !sound_.latch().active ||
             sound_.latch().latchedOffset != kWeaponSwitchSoundCursor ||
             sound_.latch().currentSelector != kWeaponSwitchSoundPriority ||
@@ -9187,14 +8952,14 @@ public:
     void debugBombPlaceSoundRouting() {
         load();
         resetLevel(0);
-        bombInventory_.selected = BombType::Small;
-        grantNormalBombSet(bombInventory_);
+        gameplayReplay_.fixture().bombInventory_.selected = BombType::Small;
+        grantNormalBombSet(gameplayReplay_.fixture().bombInventory_);
         clearSoundLatch();
-        size_t beforeBombs = bombs_.size();
-        int beforeSmallBombs = bombInventory_.counts[0];
-        placeBombAt(player_, bombInventory_, 1);
-        if (bombs_.size() != beforeBombs + 1 ||
-            bombInventory_.counts[0] != beforeSmallBombs - 1 ||
+        size_t beforeBombs = gameplayReplay_.fixture().bombs_.size();
+        int beforeSmallBombs = gameplayReplay_.fixture().bombInventory_.counts[0];
+        placeBombAt(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().bombInventory_, 1);
+        if (gameplayReplay_.fixture().bombs_.size() != beforeBombs + 1 ||
+            gameplayReplay_.fixture().bombInventory_.counts[0] != beforeSmallBombs - 1 ||
             !sound_.latch().active ||
             sound_.latch().latchedOffset != kBombPlaceSoundCursor ||
             sound_.latch().currentSelector != kBombPlaceSoundPriority ||
@@ -9227,7 +8992,7 @@ public:
         enterMonsterDeath(monster);
         if (monster.behavior != 2 ||
             monster.stateTimer != kMonsterDeathVisibleTicks + 1 ||
-            !monster.deathRewardPending || !bonusDrops_.empty() ||
+            !monster.deathRewardPending || !gameplayReplay_.fixture().bonusDrops_.empty() ||
             !sound_.latch().active ||
             sound_.latch().latchedOffset != kMonsterDeathSoundCursor ||
             sound_.latch().currentSelector != kMonsterDeathSoundPriority ||
@@ -9295,21 +9060,21 @@ public:
         load();
         resetLevel(0);
 
-        energy_ = 100;
-        lives_ = 3;
-        playerDead_ = false;
-        reentryTimer_ = 0;
-        damageCooldown_ = 0;
+        gameplayReplay_.fixture().energy_ = 100;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().playerDead_ = false;
+        gameplayReplay_.fixture().reentryTimer_ = 0;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
         clearSoundLatch();
-        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                     damageCooldown_, 1);
-        if (energy_ != 99 || playerDead_ || lives_ != 3 ||
-            damageCooldown_ != 0 || !sound_.latch().active ||
+        damagePlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                     gameplayReplay_.fixture().damageCooldown_, 1);
+        if (gameplayReplay_.fixture().energy_ != 99 || gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().lives_ != 3 ||
+            gameplayReplay_.fixture().damageCooldown_ != 0 || !sound_.latch().active ||
             sound_.latch().latchedOffset != kPlayerDamageSoundCursor ||
             sound_.latch().currentSelector != kPlayerDamageSoundPriority) {
             throw std::runtime_error("player damage sound request mismatch");
         }
-        int nonlethalEnergy = energy_;
+        int nonlethalEnergy = gameplayReplay_.fixture().energy_;
         pumpSoundLatch();
         if (sound_.latch().active || sound_.lastPumped().offset != kPlayerDamageSoundCursor ||
             sound_.lastPumped().selector != kPlayerDamageSoundPriority) {
@@ -9317,14 +9082,14 @@ public:
         }
 
         clearSoundLatch();
-        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                     damageCooldown_, 1);
-        bool secondDamageAccepted = energy_ == 98 && sound_.latch().active &&
+        damagePlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                     gameplayReplay_.fixture().damageCooldown_, 1);
+        bool secondDamageAccepted = gameplayReplay_.fixture().energy_ == 98 && sound_.latch().active &&
                                     sound_.latch().latchedOffset == kPlayerDamageSoundCursor;
         if (!secondDamageAccepted) {
             throw std::runtime_error("player damage sound did not accept second hit");
         }
-        int secondEnergy = energy_;
+        int secondEnergy = gameplayReplay_.fixture().energy_;
 
         clearSoundLatch();
         bool smallExplosionAccepted = requestSoundOffset(explosionSoundOffset(1),
@@ -9347,15 +9112,15 @@ public:
         }
 
         clearSoundLatch();
-        energy_ = 0;
-        lives_ = 3;
-        playerDead_ = false;
-        reentryTimer_ = 0;
-        damageCooldown_ = 0;
-        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                     damageCooldown_, 1);
-        if (energy_ != 100 || !playerDead_ || lives_ != 3 || !pendingLifeLoss_ ||
-            reentryTimer_ != kReentryTicks || !sound_.latch().active ||
+        gameplayReplay_.fixture().energy_ = 0;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().playerDead_ = false;
+        gameplayReplay_.fixture().reentryTimer_ = 0;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
+        damagePlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                     gameplayReplay_.fixture().damageCooldown_, 1);
+        if (gameplayReplay_.fixture().energy_ != 100 || !gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().lives_ != 3 || !gameplayReplay_.fixture().pendingLifeLoss_ ||
+            gameplayReplay_.fixture().reentryTimer_ != kReentryTicks || !sound_.latch().active ||
             sound_.latch().latchedOffset != kPlayerDeathSoundCursor ||
             sound_.latch().currentSelector != kPlayerDeathSoundPriority) {
             throw std::runtime_error("player death sound did not replace hurt sound");
@@ -9369,10 +9134,10 @@ public:
         std::cout << "player_damage_sound=ok nonlethal_energy=" << nonlethalEnergy
                   << " second_energy=" << secondEnergy
                   << " nonlethal_cooldown=0"
-                  << " death_energy=" << energy_
-                  << " dead=" << (playerDead_ ? 1 : 0)
-                  << " lives=" << lives_
-                  << " pending_life_loss=" << (pendingLifeLoss_ ? 1 : 0)
+                  << " death_energy=" << gameplayReplay_.fixture().energy_
+                  << " dead=" << (gameplayReplay_.fixture().playerDead_ ? 1 : 0)
+                  << " lives=" << gameplayReplay_.fixture().lives_
+                  << " pending_life_loss=" << (gameplayReplay_.fixture().pendingLifeLoss_ ? 1 : 0)
                   << " cursor=" << std::showbase << std::hex
                   << kPlayerDamageSoundCursor << std::dec << std::noshowbase
                   << " priority=" << static_cast<int>(kPlayerDamageSoundPriority)
@@ -9417,15 +9182,15 @@ public:
         }
 
         load();
-        playerCount_ = 2;
+        gameplayReplay_.fixture().playerCount_ = 2;
         resetLevel(0);
         ui_.setMenu(false);
-        energy_ = 100;
-        energy2_ = 100;
-        lives_ = 3;
-        lives2_ = 3;
-        playerDead_ = false;
-        player2Dead_ = false;
+        gameplayReplay_.fixture().energy_ = 100;
+        gameplayReplay_.fixture().energy2_ = 100;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().lives2_ = 3;
+        gameplayReplay_.fixture().playerDead_ = false;
+        gameplayReplay_.fixture().player2Dead_ = false;
         clearSoundLatch();
         queuePlayerDamage(1);
         queuePlayerDamage(1);
@@ -9433,8 +9198,8 @@ public:
         queuePlayerDamage(2);
         queuePlayerDamage(2);
         drainPlayerDamageCounters();
-        if (energy_ != 97 || energy2_ != 98 || pendingDamage_ != 0 ||
-            pendingDamage2_ != 0 || playerDead_ || player2Dead_ ||
+        if (gameplayReplay_.fixture().energy_ != 97 || gameplayReplay_.fixture().energy2_ != 98 || gameplayReplay_.fixture().pendingDamage_ != 0 ||
+            gameplayReplay_.fixture().pendingDamage2_ != 0 || gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().player2Dead_ ||
             !sound_.latch().active ||
             sound_.latch().latchedOffset != kPlayerDamageSoundCursor ||
             sound_.latch().currentSelector != kPlayerDamageSoundPriority) {
@@ -9442,14 +9207,14 @@ public:
         }
 
         clearSoundLatch();
-        energy_ = 1;
-        lives_ = 3;
-        playerDead_ = false;
-        deathStateTimer_ = 0;
+        gameplayReplay_.fixture().energy_ = 1;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().playerDead_ = false;
+        gameplayReplay_.fixture().deathStateTimer_ = 0;
         queuePlayerDamage(1, 2);
         drainPlayerDamageCounters();
-        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ || energy_ != 100 ||
-            deathStateTimer_ != kDeathStateTicks || pendingDamage_ != 0 ||
+        if (!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().lives_ != 3 || !gameplayReplay_.fixture().pendingLifeLoss_ || gameplayReplay_.fixture().energy_ != 100 ||
+            gameplayReplay_.fixture().deathStateTimer_ != kDeathStateTicks || gameplayReplay_.fixture().pendingDamage_ != 0 ||
             !sound_.latch().active ||
             sound_.latch().latchedOffset != kPlayerDeathSoundCursor ||
             sound_.latch().currentSelector != kPlayerDeathSoundPriority) {
@@ -9457,11 +9222,11 @@ public:
         }
 
         clearSoundLatch();
-        energy_ = 100;
-        playerDead_ = true;
+        gameplayReplay_.fixture().energy_ = 100;
+        gameplayReplay_.fixture().playerDead_ = true;
         queuePlayerDamage(1, 4);
         drainPlayerDamageCounters();
-        if (energy_ != 100 || !playerDead_ || pendingDamage_ != 0 ||
+        if (gameplayReplay_.fixture().energy_ != 100 || !gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().pendingDamage_ != 0 ||
             !sound_.latch().active ||
             sound_.latch().latchedOffset != kPlayerDamageSoundCursor ||
             sound_.latch().currentSelector != kPlayerDamageSoundPriority) {
@@ -9488,74 +9253,74 @@ public:
         resetLevel(0);
         ui_.setMenu(false);
 
-        player_.vx = 12.0f;
-        player_.vy = -9.0f;
-        player_.grounded = true;
-        energy_ = 0;
-        lives_ = 3;
-        damageCooldown_ = 0;
-        deathStateTimer_ = 0;
+        gameplayReplay_.fixture().player_.vx = 12.0f;
+        gameplayReplay_.fixture().player_.vy = -9.0f;
+        gameplayReplay_.fixture().player_.grounded = true;
+        gameplayReplay_.fixture().energy_ = 0;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
+        gameplayReplay_.fixture().deathStateTimer_ = 0;
         clearSoundLatch();
-        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                     damageCooldown_, 1);
-        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ || energy_ != 100 ||
-            reentryTimer_ != kReentryTicks ||
-            deathStateTimer_ != kDeathStateTicks ||
-            player_.vx != 0.0f || player_.vy != 0.0f || player_.grounded ||
+        damagePlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                     gameplayReplay_.fixture().damageCooldown_, 1);
+        if (!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().lives_ != 3 || !gameplayReplay_.fixture().pendingLifeLoss_ || gameplayReplay_.fixture().energy_ != 100 ||
+            gameplayReplay_.fixture().reentryTimer_ != kReentryTicks ||
+            gameplayReplay_.fixture().deathStateTimer_ != kDeathStateTicks ||
+            gameplayReplay_.fixture().player_.vx != 0.0f || gameplayReplay_.fixture().player_.vy != 0.0f || gameplayReplay_.fixture().player_.grounded ||
             !sound_.latch().active || sound_.latch().latchedOffset != kPlayerDeathSoundCursor ||
             sound_.latch().currentSelector != kPlayerDeathSoundPriority) {
             throw std::runtime_error("player state-2 death fields mismatch");
         }
         pumpSoundLatch();
-        tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                         damageCooldown_, 1);
-        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ || energy_ != 100 ||
-            reentryTimer_ != kReentryTicks ||
-            deathStateTimer_ != kDeathStateTicks || damageCooldown_ != 0) {
+        tryReenterPlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                         gameplayReplay_.fixture().damageCooldown_, 1);
+        if (!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().lives_ != 3 || !gameplayReplay_.fixture().pendingLifeLoss_ || gameplayReplay_.fixture().energy_ != 100 ||
+            gameplayReplay_.fixture().reentryTimer_ != kReentryTicks ||
+            gameplayReplay_.fixture().deathStateTimer_ != kDeathStateTicks || gameplayReplay_.fixture().damageCooldown_ != 0) {
             throw std::runtime_error("player state-2 early reentry was accepted");
         }
         for (int i = 0; i < 59; ++i) {
-            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+            updateReentry(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_, 1,
                           true);
         }
-        tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                         damageCooldown_, 1);
-        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ ||
-            deathStateTimer_ != 1) {
+        tryReenterPlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                         gameplayReplay_.fixture().damageCooldown_, 1);
+        if (!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().lives_ != 3 || !gameplayReplay_.fixture().pendingLifeLoss_ ||
+            gameplayReplay_.fixture().deathStateTimer_ != 1) {
             throw std::runtime_error("player state-2 59-tick gate mismatch");
         }
-        updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+        updateReentry(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_, 1,
                       true);
-        tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                         damageCooldown_, 1);
-        if (playerDead_ || lives_ != 2 || energy_ != 100 ||
-            reentryTimer_ != 0 || deathStateTimer_ != 0 ||
-            damageCooldown_ != 0 || player_.vx != 0.0f ||
-            player_.vy != 0.0f || player_.grounded) {
+        tryReenterPlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                         gameplayReplay_.fixture().damageCooldown_, 1);
+        if (gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().lives_ != 2 || gameplayReplay_.fixture().energy_ != 100 ||
+            gameplayReplay_.fixture().reentryTimer_ != 0 || gameplayReplay_.fixture().deathStateTimer_ != 0 ||
+            gameplayReplay_.fixture().damageCooldown_ != 0 || gameplayReplay_.fixture().player_.vx != 0.0f ||
+            gameplayReplay_.fixture().player_.vy != 0.0f || gameplayReplay_.fixture().player_.grounded) {
             throw std::runtime_error("player state-2 reentry clear mismatch");
         }
 
-        playerCount_ = 2;
-        lives_ = 3;
-        lives2_ = 1;
+        gameplayReplay_.fixture().playerCount_ = 2;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().lives2_ = 1;
         resetLevel(0);
         ui_.setMenu(false);
-        energy2_ = 0;
-        damageCooldown2_ = 0;
-        deathStateTimer2_ = 0;
-        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                     damageCooldown2_, 2);
-        if (ui_.snapshot().menu || playerDead_ || !player2Dead_ || lives_ != 3 || lives2_ != 1 ||
-            !pendingLifeLoss2_ || energy2_ != 100 || reentryTimer2_ != kReentryTicks ||
-            deathStateTimer2_ != kDeathStateTicks) {
+        gameplayReplay_.fixture().energy2_ = 0;
+        gameplayReplay_.fixture().damageCooldown2_ = 0;
+        gameplayReplay_.fixture().deathStateTimer2_ = 0;
+        damagePlayer(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_,
+                     gameplayReplay_.fixture().damageCooldown2_, 2);
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerDead_ || !gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().lives_ != 3 || gameplayReplay_.fixture().lives2_ != 1 ||
+            !gameplayReplay_.fixture().pendingLifeLoss2_ || gameplayReplay_.fixture().energy2_ != 100 || gameplayReplay_.fixture().reentryTimer2_ != kReentryTicks ||
+            gameplayReplay_.fixture().deathStateTimer2_ != kDeathStateTicks) {
             throw std::runtime_error("player 2 zero-life state-2 fields mismatch");
         }
         for (int i = 0; i < kDeathStateTicks; ++i) {
-            updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
-                          playerDead_);
+            updateReentry(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_, 2,
+                          gameplayReplay_.fixture().playerDead_);
         }
-        if (ui_.snapshot().menu || !player2Dead_ || lives2_ != 0 || pendingLifeLoss2_ ||
-            deathStateTimer2_ != 0 || reentryTimer2_ != 0) {
+        if (ui_.snapshot().menu || !gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().lives2_ != 0 || gameplayReplay_.fixture().pendingLifeLoss2_ ||
+            gameplayReplay_.fixture().deathStateTimer2_ != 0 || gameplayReplay_.fixture().reentryTimer2_ != 0) {
             throw std::runtime_error("player 2 zero-life state-2 timer mismatch");
         }
 
@@ -9578,21 +9343,21 @@ public:
         load();
         for (int marker : {1, 2}) {
             for (bool gate : {false, true}) {
-                playerCount_ = 2; lives_ = lives2_ = 1; resetLevel(0); ui_.setMenu(false);
-                const auto originalTiles = level_.tiles;
-                if (!gate) level_.tiles.assign(level_.tiles.size(), 0);
-                auto& player = marker == 1 ? player_ : player2_;
-                auto& energy = marker == 1 ? energy_ : energy2_;
-                auto& lives = marker == 1 ? lives_ : lives2_;
-                auto& dead = marker == 1 ? playerDead_ : player2Dead_;
-                auto& timer = marker == 1 ? reentryTimer_ : reentryTimer2_;
-                auto& cooldown = marker == 1 ? damageCooldown_ : damageCooldown2_;
-                auto& supply = marker == 1 ? bombInventory_ : bombInventory2_;
+                gameplayReplay_.fixture().playerCount_ = 2; gameplayReplay_.fixture().lives_ = gameplayReplay_.fixture().lives2_ = 1; resetLevel(0); ui_.setMenu(false);
+                const auto originalTiles = gameplayReplay_.fixture().level_.tiles;
+                if (!gate) gameplayReplay_.fixture().level_.tiles.assign(gameplayReplay_.fixture().level_.tiles.size(), 0);
+                auto& player = marker == 1 ? gameplayReplay_.fixture().player_ : gameplayReplay_.fixture().player2_;
+                auto& energy = marker == 1 ? gameplayReplay_.fixture().energy_ : gameplayReplay_.fixture().energy2_;
+                auto& lives = marker == 1 ? gameplayReplay_.fixture().lives_ : gameplayReplay_.fixture().lives2_;
+                auto& dead = marker == 1 ? gameplayReplay_.fixture().playerDead_ : gameplayReplay_.fixture().player2Dead_;
+                auto& timer = marker == 1 ? gameplayReplay_.fixture().reentryTimer_ : gameplayReplay_.fixture().reentryTimer2_;
+                auto& cooldown = marker == 1 ? gameplayReplay_.fixture().damageCooldown_ : gameplayReplay_.fixture().damageCooldown2_;
+                auto& supply = marker == 1 ? gameplayReplay_.fixture().bombInventory_ : gameplayReplay_.fixture().bombInventory2_;
                 supply.counts = {1, 2, 0, 7}; supply.selected = BombType::Super;
                 beginPlayerDeath(player, energy, lives, dead, timer, static_cast<uint8_t>(marker));
-                if (reentryGate_ != gate || timer != 60) throw std::runtime_error("death gate latch");
-                if (gate) level_.tiles.assign(level_.tiles.size(), 0);
-                else level_.tiles = originalTiles;
+                if (gameplayReplay_.fixture().reentryGate_ != gate || timer != 60) throw std::runtime_error("death gate latch");
+                if (gate) gameplayReplay_.fixture().level_.tiles.assign(gameplayReplay_.fixture().level_.tiles.size(), 0);
+                else gameplayReplay_.fixture().level_.tiles = originalTiles;
                 if (canReenterLevel() == gate) throw std::runtime_error("gate mutation stimulus");
                 for (int tick = 0; tick < 59; ++tick) {
                     updateReentry(player, energy, lives, dead, timer, static_cast<uint8_t>(marker), false);
@@ -9606,21 +9371,21 @@ public:
                     supply.selected != BombType::Super || player.singlePixelSprite == gate) {
                     throw std::runtime_error("expiry inventory/descriptor mismatch");
                 }
-                reentryFire1_ = reentryFire2_ = true;
+                gameplayReplay_.fixture().reentryFire1_ = gameplayReplay_.fixture().reentryFire2_ = true;
                 tryReenterPlayer(player, energy, lives, dead, timer, cooldown, static_cast<uint8_t>(marker));
-                if (dead == gate || reentryGate_ != gate || (gate && (reentryFire1_ || reentryFire2_))) {
+                if (dead == gate || gameplayReplay_.fixture().reentryGate_ != gate || (gate && (gameplayReplay_.fixture().reentryFire1_ || gameplayReplay_.fixture().reentryFire2_))) {
                     throw std::runtime_error("latched gate changed during waiting");
                 }
             }
         }
-        lives_ = lives2_ = 1; resetLevel(0); ui_.setMenu(false);
-        const auto originalTiles = level_.tiles;
-        level_.tiles.assign(level_.tiles.size(), 0);
-        beginPlayerDeath(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
-        if (reentryGate_) throw std::runtime_error("P1 closed gate");
-        level_.tiles = originalTiles;
-        beginPlayerDeath(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2);
-        if (!reentryGate_) throw std::runtime_error("P2 death did not update shared gate");
+        gameplayReplay_.fixture().lives_ = gameplayReplay_.fixture().lives2_ = 1; resetLevel(0); ui_.setMenu(false);
+        const auto originalTiles = gameplayReplay_.fixture().level_.tiles;
+        gameplayReplay_.fixture().level_.tiles.assign(gameplayReplay_.fixture().level_.tiles.size(), 0);
+        beginPlayerDeath(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_, 1);
+        if (gameplayReplay_.fixture().reentryGate_) throw std::runtime_error("P1 closed gate");
+        gameplayReplay_.fixture().level_.tiles = originalTiles;
+        beginPlayerDeath(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_, 2);
+        if (!gameplayReplay_.fixture().reentryGate_) throw std::runtime_error("P2 death did not update shared gate");
         std::cout << "original_state2_return_model=ok cases=4 production=1"
                   << " gate_latched_at_death=1 shared_gate=1 timer_start=60"
                   << " early_fire_blocked=1 reserve_zero_playable=1\n";
@@ -10013,13 +9778,13 @@ public:
         resetLevel(0);
         std::filesystem::create_directories(outDir);
         ui_.setMenu(false);
-        playerCount_ = 1;
+        gameplayReplay_.fixture().playerCount_ = 1;
         gameplayViewWidth_ = kScreenW;
-        player_.x = 104.0f;
-        player_.y = 168.0f;
-        playerDead_ = true;
-        deathStateTimer_ = kDeathStateTicks;
-        resetState2VisualCursor(state2Visual_);
+        gameplayReplay_.fixture().player_.x = 104.0f;
+        gameplayReplay_.fixture().player_.y = 168.0f;
+        gameplayReplay_.fixture().playerDead_ = true;
+        gameplayReplay_.fixture().deathStateTimer_ = kDeathStateTicks;
+        resetState2VisualCursor(gameplayReplay_.fixture().state2Visual_);
 
         struct GamePreviewFrame {
             uint8_t visualFrame = 0;
@@ -10056,10 +9821,10 @@ public:
             return inspection;
         };
         auto renderGamePreview = [&](const std::string& file, bool cursorPreview) {
-            state2VisualRowPreview_ = true;
-            state2VisualCursorPreview_ = cursorPreview;
+            gameplayReplay_.fixture().state2VisualRowPreview_ = true;
+            gameplayReplay_.fixture().state2VisualCursorPreview_ = cursorPreview;
             drawGame();
-            state2VisualRowPreview_ = false;
+            gameplayReplay_.fixture().state2VisualRowPreview_ = false;
             FrameInspection inspection = inspectBuffer(file);
             writeArgbPpm(joinPath(outDir, file), fb_, kScreenW, kScreenH);
             return inspection;
@@ -10093,13 +9858,13 @@ public:
             drawOffsetSequence << static_cast<int>(row.row0) << ','
                                << static_cast<int>(row.row1);
 
-            state2Visual_.current = frame;
-            state2Visual_.first = kState2VisualStartFrame;
-            state2Visual_.last = kState2VisualEndFrame;
-            state2Visual_.counter = kState2VisualDelay;
-            state2Visual_.delay = kState2VisualDelay;
-            state2Visual_.active = true;
-            refreshState2EffectEntry(player_, state2Visual_, state2Effect_);
+            gameplayReplay_.fixture().state2Visual_.current = frame;
+            gameplayReplay_.fixture().state2Visual_.first = kState2VisualStartFrame;
+            gameplayReplay_.fixture().state2Visual_.last = kState2VisualEndFrame;
+            gameplayReplay_.fixture().state2Visual_.counter = kState2VisualDelay;
+            gameplayReplay_.fixture().state2Visual_.delay = kState2VisualDelay;
+            gameplayReplay_.fixture().state2Visual_.active = true;
+            refreshState2EffectEntry(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().state2Visual_, gameplayReplay_.fixture().state2Effect_);
             std::string frameSuffix = bareHex2(frame);
             preview.currentFile = "state2_game_current_" + frameSuffix + ".ppm";
             preview.cursorFile = "state2_game_cursor_" + frameSuffix + ".ppm";
@@ -10112,7 +9877,7 @@ public:
                 preview.currentInspection.hash != preview.cursorInspection.hash;
             previews.push_back(std::move(preview));
         }
-        state2VisualCursorPreview_ = false;
+        gameplayReplay_.fixture().state2VisualCursorPreview_ = false;
 
         std::ofstream manifest(joinPath(outDir, "manifest.txt"));
         if (!manifest) {
@@ -10124,8 +9889,8 @@ public:
         manifest << "current_renderer=effect_entry_row_byte3\n";
         manifest << "current_base=state2_effect_entry\n";
         manifest << "current_draw_offsets=effect_entry_row_byte0,row_byte1\n";
-        manifest << "effect_entry_xy=" << static_cast<int>(player_.x) << ','
-                 << static_cast<int>(player_.y) << '\n';
+        manifest << "effect_entry_xy=" << static_cast<int>(gameplayReplay_.fixture().player_.x) << ','
+                 << static_cast<int>(gameplayReplay_.fixture().player_.y) << '\n';
         manifest << "cursor_renderer=debug_only\n";
         manifest << "visual_claim=0\n";
         manifest << "frame_count=" << previews.size() << '\n';
@@ -10152,8 +9917,8 @@ public:
                   << " cursor_minus_current=" << cursorMinusCurrent
                   << " draw_offsets=" << drawOffsetSequence.str()
                   << " cursor_hash_mismatch=" << (cursorHashMismatch ? 1 : 0)
-                  << " effect_entry_xy=" << static_cast<int>(player_.x)
-                  << ',' << static_cast<int>(player_.y)
+                  << " effect_entry_xy=" << static_cast<int>(gameplayReplay_.fixture().player_.x)
+                  << ',' << static_cast<int>(gameplayReplay_.fixture().player_.y)
                   << " current_renderer=effect_entry_row_byte3"
                   << " current_base=state2_effect_entry"
                   << " current_draw_offsets=effect_entry_row_byte0,row_byte1"
@@ -13909,8 +13674,8 @@ public:
         }
         if (!complete) fail("missing completion");
 
-        load(); initSdl(); playerCount_ = 2; resetLevel(0); ui_.setMenu(false); ui_.setPaused(false);
-        bombInventory_.counts.fill(0); bombInventory2_.counts.fill(0);
+        load(); initSdl(); gameplayReplay_.fixture().playerCount_ = 2; resetLevel(0); ui_.setMenu(false); ui_.setPaused(false);
+        gameplayReplay_.fixture().bombInventory_.counts.fill(0); gameplayReplay_.fixture().bombInventory2_.counts.fill(0);
         bool running = true;
         std::array<uint8_t, SDL_NUM_SCANCODES> keys{};
         for (size_t sample = 0; sample < hardware.size(); sample += 2) {
@@ -13926,16 +13691,16 @@ public:
             }
             processEvents(running);
             const auto controls = controlsFromKeyboard(keys.data());
-            const std::vector<uint8_t> p1{controls.p1Jump, controls.p1Left, controls.p1Right, reentryFire1_, controls.p1Down};
-            const std::vector<uint8_t> p2{controls.p2Jump, controls.p2Left, controls.p2Right, reentryFire2_, controls.p2Down};
+            const std::vector<uint8_t> p1{controls.p1Jump, controls.p1Left, controls.p1Right, gameplayReplay_.fixture().reentryFire1_, controls.p1Down};
+            const std::vector<uint8_t> p2{controls.p2Jump, controls.p2Left, controls.p2Right, gameplayReplay_.fixture().reentryFire2_, controls.p2Down};
             if (p1 != normalized[sample] || p2 != normalized[sample + 1]) fail("C++ adapter sample " + std::to_string(sample));
             updateWithControls(controls, 1.0f / 60.0f);
-            if (!bombs_.empty()) fail("empty inventories fired");
+            if (!gameplayReplay_.fixture().bombs_.empty()) fail("empty inventories fired");
         }
         const auto frame = inspectRenderedFrame("key-ownership");
         if (!outPath.empty()) writeArgbPpm(outPath, fb_, kScreenW, kScreenH);
         // Port convenience aliases are deliberately separate from original evidence.
-        playerCount_ = 1;
+        gameplayReplay_.fixture().playerCount_ = 1;
         for (size_t i : {size_t(0), size_t(1), size_t(2), size_t(4)}) {
             keys.fill(0); keys[scans[i]] = 1;
             const auto original = controlsFromKeyboard(keys.data());
@@ -13954,28 +13719,28 @@ public:
         if (!trace) throw std::runtime_error("key-ownership live trace unavailable");
         uint32_t started = 0, previousTick = UINT32_MAX;
         runInteractive([&] {
-            if (logicTick_ != previousTick) {
-                previousTick = logicTick_;
+            if (gameplayReplay_.fixture().logicTick_ != previousTick) {
+                previousTick = gameplayReplay_.fixture().logicTick_;
                 const auto frame = inspectRenderedFrame("key-ownership-live");
-                const std::string file = "tick_" + std::to_string(logicTick_) + ".ppm";
+                const std::string file = "tick_" + std::to_string(gameplayReplay_.fixture().logicTick_) + ".ppm";
                 writeArgbPpm(joinPath(outDir, file), fb_, kScreenW, kScreenH);
                 const auto* keys = SDL_GetKeyboardState(nullptr);
-                trace << "sample tick=" << logicTick_ << " keys=";
+                trace << "sample tick=" << gameplayReplay_.fixture().logicTick_ << " keys=";
                 for (auto scan : {SDL_SCANCODE_Z, SDL_SCANCODE_X, SDL_SCANCODE_M, SDL_SCANCODE_C,
                                   SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN}) trace << int(keys[scan]);
-                trace << " p1x=" << player_.x << " p1y=" << player_.y << " p1vx=" << player_.vx8
-                      << " p2x=" << player2_.x << " p2y=" << player2_.y << " p2vx=" << player2_.vx8
-                      << " dead1=" << playerDead_ << " dead2=" << player2Dead_
+                trace << " p1x=" << gameplayReplay_.fixture().player_.x << " p1y=" << gameplayReplay_.fixture().player_.y << " p1vx=" << gameplayReplay_.fixture().player_.vx8
+                      << " p2x=" << gameplayReplay_.fixture().player2_.x << " p2y=" << gameplayReplay_.fixture().player2_.y << " p2vx=" << gameplayReplay_.fixture().player2_.vx8
+                      << " dead1=" << gameplayReplay_.fixture().playerDead_ << " dead2=" << gameplayReplay_.fixture().player2Dead_
                       << " hash=" << std::hex << frame.hash << std::dec << " file=" << file << '\n' << std::flush;
             }
             return SDL_GetTicks() - started > 30000;
         }, [&] {
-            playerCount_ = 2; resetLevel(0); ui_.setMenu(false); ui_.setPaused(false);
+            gameplayReplay_.fixture().playerCount_ = 2; resetLevel(0); ui_.setMenu(false); ui_.setPaused(false);
             levelFlow_.setInteractiveEnabled(false); levelFlow_.restoreIntro({});
             started = SDL_GetTicks();
             std::cout << "key_ownership_live=ready audio=" << (SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "none") << '\n' << std::flush;
         });
-        std::cout << "key_ownership_live=stopped ticks=" << logicTick_ << '\n';
+        std::cout << "key_ownership_live=stopped ticks=" << gameplayReplay_.fixture().logicTick_ << '\n';
     }
 
     void debugActiveFireOriginal(const std::string& fixture) {
@@ -13997,9 +13762,9 @@ public:
             return result;
         };
         auto reset = [&] {
-            playerCount_ = 2; resetLevel(0); ui_.setMenu(false); ui_.setPaused(false);
-            monsters_.clear(); bombs_.clear(); transientActors_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear();
-            level_.monsterSpawners.clear(); spawnerStates_.clear();
+            gameplayReplay_.fixture().playerCount_ = 2; resetLevel(0); ui_.setMenu(false); ui_.setPaused(false);
+            gameplayReplay_.fixture().monsters_.clear(); gameplayReplay_.fixture().bombs_.clear(); gameplayReplay_.fixture().transientActors_.clear(); gameplayReplay_.fixture().bonusDrops_.clear(); gameplayReplay_.fixture().launchPadMarkers_.clear();
+            gameplayReplay_.fixture().level_.monsterSpawners.clear(); gameplayReplay_.fixture().spawnerStates_.clear();
         };
         int cases = 0;
         bool header = false, complete = false;
@@ -14040,29 +13805,29 @@ public:
                     bytes(f.at("keys"), 2) != keys || number(f.at("x")) != 104 || number(f.at("y")) != 168 ||
                     number(f.at("vx")) != vx || number(f.at("vy")) != vy || f.at("regs") != "a201440c440cb318a23fee3f") fail(name + " seed/register mismatch");
                 reset();
-                auto& player = playerIndex == 1 ? player_ : player2_;
-                auto& supply = playerIndex == 1 ? bombInventory_ : bombInventory2_;
+                auto& player = playerIndex == 1 ? gameplayReplay_.fixture().player_ : gameplayReplay_.fixture().player2_;
+                auto& supply = playerIndex == 1 ? gameplayReplay_.fixture().bombInventory_ : gameplayReplay_.fixture().bombInventory2_;
                 player.vx8 = static_cast<int16_t>(vx); player.vy8 = static_cast<int16_t>(vy);
                 supply.selected = static_cast<BombType>(weapon - 1);
                 std::copy(inventory.begin(), inventory.end(), supply.counts.begin());
                 for (int i = 0; i < pool; ++i) {
                     Bomb bomb; bomb.x = 13; bomb.y = 21; bomb.pixelX = 104; bomb.pixelY = 168;
                     bomb.type = supply.selected; bomb.timer = 40; bomb.fuseTicks = 40;
-                    bomb.actorOrder = claimActorOrder(); bombs_.push_back(bomb);
+                    bomb.actorOrder = claimActorOrder(); gameplayReplay_.fixture().bombs_.push_back(bomb);
                 }
-                reentryFire1_ = keys[0] != 0; reentryFire2_ = keys[1] != 0;
+                gameplayReplay_.fixture().reentryFire1_ = keys[0] != 0; gameplayReplay_.fixture().reentryFire2_ = keys[1] != 0;
                 tryActivePlayerFireAt(player, 104, 168, static_cast<uint8_t>(playerIndex));
                 const auto expectedInventory = bytes(f.at("inventory_after"), 4), expectedKeys = bytes(f.at("keys_after"), 2);
                 if (number(f.at("pool_after")) != static_cast<int>(sharedActorCount()) ||
                     !std::equal(supply.counts.begin(), supply.counts.end(), expectedInventory.begin()) ||
                     number(f.at("weapon_after")) != bombTypeIndex(supply.selected) + 1 ||
-                    expectedKeys[0] != static_cast<int>(reentryFire1_) || expectedKeys[1] != static_cast<int>(reentryFire2_)) fail(name + " state mismatch");
+                    expectedKeys[0] != static_cast<int>(gameplayReplay_.fixture().reentryFire1_) || expectedKeys[1] != static_cast<int>(gameplayReplay_.fixture().reentryFire2_)) fail(name + " state mismatch");
                 const bool attempted = fire && inventory[weapon - 1] != 0;
-                const bool created = bombs_.size() > static_cast<size_t>(pool);
+                const bool created = gameplayReplay_.fixture().bombs_.size() > static_cast<size_t>(pool);
                 if (f.at("result") != (created ? "0100" : attempted ? "0000" : "5a5a")) fail(name + " constructor result");
                 const auto raw = bytes(f.at("raw"), 38), visual = bytes(f.at("visual"), 8);
                 if (created) {
-                    const auto& bomb = bombs_.back();
+                    const auto& bomb = gameplayReplay_.fixture().bombs_.back();
                     if (raw[0] != bombTypeIndex(bomb.type) + 13 || raw[1] != pool + 2 || raw[2] != (bomb.timer + 1) / 2 ||
                         raw[21] != 2 || raw[20] != bombHeightOffset(bomb.type) || le16(raw, 6) != static_cast<uint16_t>(bomb.vx8) ||
                         le16(raw, 8) != static_cast<uint16_t>(bomb.vy8) || le16(raw, 10) != bomb.fracX || le16(raw, 12) != bomb.fracY ||
@@ -14082,44 +13847,44 @@ public:
         bool running = true;
         reset();
         pushKeyDown(SDLK_n); pushKeyDown(SDLK_KP_0); processEvents(running);
-        if (!bombs_.empty()) fail("fire ran in event handler");
-        const int p2Ammo = bombInventory2_.counts[0];
+        if (!gameplayReplay_.fixture().bombs_.empty()) fail("fire ran in event handler");
+        const int p2Ammo = gameplayReplay_.fixture().bombInventory2_.counts[0];
         updateWithControls(FrameControls{}, 1.0f / 60.0f);
-        if (bombs_.size() != 1 || bombs_.front().owner != 1 || bombInventory2_.counts[0] != p2Ammo ||
-            reentryFire1_ || reentryFire2_ || bombs_.front().pixelY != 168 || bombs_.front().vy8 != -500 ||
-            bombs_.front().fracY != 0 || bombs_.front().timer != 40) fail("ordered fire/birth frame");
+        if (gameplayReplay_.fixture().bombs_.size() != 1 || gameplayReplay_.fixture().bombs_.front().owner != 1 || gameplayReplay_.fixture().bombInventory2_.counts[0] != p2Ammo ||
+            gameplayReplay_.fixture().reentryFire1_ || gameplayReplay_.fixture().reentryFire2_ || gameplayReplay_.fixture().bombs_.front().pixelY != 168 || gameplayReplay_.fixture().bombs_.front().vy8 != -500 ||
+            gameplayReplay_.fixture().bombs_.front().fracY != 0 || gameplayReplay_.fixture().bombs_.front().timer != 40) fail("ordered fire/birth frame");
         updateWithControls(FrameControls{}, 1.0f / 60.0f);
-        if (bombs_.size() != 1 || bombs_.front().timer != 39) fail("first bomb update");
+        if (gameplayReplay_.fixture().bombs_.size() != 1 || gameplayReplay_.fixture().bombs_.front().timer != 39) fail("first bomb update");
         pushKeyDown(SDLK_n, true); processEvents(running);
-        if (bombs_.size() != 1) fail("repeat ran in event handler");
+        if (gameplayReplay_.fixture().bombs_.size() != 1) fail("repeat ran in event handler");
         updateWithControls(FrameControls{}, 1.0f / 60.0f);
-        if (bombs_.size() != 2 || bombs_.back().owner != 1) fail("P1 repeated make lost");
-        reset(); bombInventory_.counts[0] = 0;
+        if (gameplayReplay_.fixture().bombs_.size() != 2 || gameplayReplay_.fixture().bombs_.back().owner != 1) fail("P1 repeated make lost");
+        reset(); gameplayReplay_.fixture().bombInventory_.counts[0] = 0;
         pushKeyDown(SDLK_n); pushKeyDown(SDLK_KP_0); processEvents(running);
         updateWithControls(FrameControls{}, 1.0f / 60.0f);
-        if (bombs_.size() != 1 || bombs_.front().owner != 2) fail("empty P1 blocked P2");
+        if (gameplayReplay_.fixture().bombs_.size() != 1 || gameplayReplay_.fixture().bombs_.front().owner != 2) fail("empty P1 blocked P2");
         pushKeyDown(SDLK_KP_0, true); processEvents(running);
         updateWithControls(FrameControls{}, 1.0f / 60.0f);
-        if (bombs_.size() != 2 || bombs_.back().owner != 2) fail("P2 repeated make lost");
-        reset(); bombInventory_.counts[0] = 0;
+        if (gameplayReplay_.fixture().bombs_.size() != 2 || gameplayReplay_.fixture().bombs_.back().owner != 2) fail("P2 repeated make lost");
+        reset(); gameplayReplay_.fixture().bombInventory_.counts[0] = 0;
         pushKeyDown(SDLK_n); processEvents(running);
         updateWithControls(FrameControls{}, 1.0f / 60.0f);
-        if (!bombs_.empty() || !reentryFire1_ || bombInventory_.selected != BombType::Small) fail("empty latch/selection");
-        bombInventory_.counts[0] = 1;
+        if (!gameplayReplay_.fixture().bombs_.empty() || !gameplayReplay_.fixture().reentryFire1_ || gameplayReplay_.fixture().bombInventory_.selected != BombType::Small) fail("empty latch/selection");
+        gameplayReplay_.fixture().bombInventory_.counts[0] = 1;
         updateWithControls(FrameControls{}, 1.0f / 60.0f);
-        if (bombs_.size() != 1 || reentryFire1_ || bombInventory_.selected != BombType::Small) fail("retained empty latch");
+        if (gameplayReplay_.fixture().bombs_.size() != 1 || gameplayReplay_.fixture().reentryFire1_ || gameplayReplay_.fixture().bombInventory_.selected != BombType::Small) fail("retained empty latch");
         reset(); pushKeyDown(SDLK_n); processEvents(running);
         SDL_Event up{}; up.type = SDL_KEYUP; up.key.keysym.sym = SDLK_n; SDL_PushEvent(&up); processEvents(running);
         updateWithControls(FrameControls{}, 1.0f / 60.0f);
-        if (!bombs_.empty()) fail("released fire created bomb");
+        if (!gameplayReplay_.fixture().bombs_.empty()) fail("released fire created bomb");
         reset(); pushKeyDown(SDLK_n); processEvents(running);
         FrameControls movement; movement.p1Right = true; movement.p1Jump = true;
         updateWithControls(movement, 1.0f / 60.0f);
-        if (bombs_.size() != 1 || bombs_.front().vx8 != 96 || bombs_.front().vy8 != kPlayerJumpVelocity8 - 500 ||
-            bombs_.front().pixelY != 168 || player_.y >= 168) fail("post-input pre-integration launch");
-        reset(); player_.dropTicks = 4; pushKeyDown(SDLK_n); processEvents(running);
+        if (gameplayReplay_.fixture().bombs_.size() != 1 || gameplayReplay_.fixture().bombs_.front().vx8 != 96 || gameplayReplay_.fixture().bombs_.front().vy8 != kPlayerJumpVelocity8 - 500 ||
+            gameplayReplay_.fixture().bombs_.front().pixelY != 168 || gameplayReplay_.fixture().player_.y >= 168) fail("post-input pre-integration launch");
+        reset(); gameplayReplay_.fixture().player_.dropTicks = 4; pushKeyDown(SDLK_n); processEvents(running);
         updateWithControls(FrameControls{}, 1.0f / 60.0f);
-        if (bombs_.size() != 1 || bombs_.front().pixelY != 170) fail("drop local Y");
+        if (gameplayReplay_.fixture().bombs_.size() != 1 || gameplayReplay_.fixture().bombs_.front().pixelY != 170) fail("drop local Y");
         const auto frame = inspectRenderedFrame("active_fire_drop");
         std::cout << "active_fire_original=ok cases=" << cases
                   << " players=2 governed_input=1 seeded=1 natural=0 whole_game_parity=0 frame_hash=" << std::hex << frame.hash << std::dec << '\n';
@@ -14175,7 +13940,7 @@ public:
                 width = number(f.at("width")); height = number(f.at("height"));
                 descriptors = bytes(f.at("descriptors"), 92 * 4);
                 resetLevel(0);
-                if (width != level_.width || height != level_.height) fail("map dimensions");
+                if (width != gameplayReplay_.fixture().level_.width || height != gameplayReplay_.fixture().level_.height) fail("map dimensions");
                 stage = 2;
             } else if (tag == "case" && stage == 2) {
                 if (f.size() != 20 || !names.insert(f.at("name")).second || cases >= 54) fail("case fields/count");
@@ -14194,15 +13959,15 @@ public:
                     le16(regs, 0) != 0x01a2 || le16(regs, 2) != 0x0c44 || le16(regs, 6) != 0x18b3 ||
                     le16(regs, 8) != 0x3fe4 || le16(regs, 10) != 0x3ffe ||
                     le16(regs, 4) != (endsInMap ? 0x3ea9 : 0x0c44)) fail(f.at("name") + " seed/register mismatch");
-                playerCount_ = 2; lives_ = lives2_ = 1; resetLevel(0); ui_.setMenu(false);
-                level_.tiles.assign(level_.tiles.size(), 0);
+                gameplayReplay_.fixture().playerCount_ = 2; gameplayReplay_.fixture().lives_ = gameplayReplay_.fixture().lives2_ = 1; resetLevel(0); ui_.setMenu(false);
+                gameplayReplay_.fixture().level_.tiles.assign(gameplayReplay_.fixture().level_.tiles.size(), 0);
                 const uint16_t cell = static_cast<uint16_t>(((static_cast<uint16_t>(y + 7) >> 3) + 1) * width + 3);
-                if (cell + 1 >= level_.tiles.size()) fail("probe outside object plane");
-                level_.tiles[cell] = static_cast<uint8_t>(left); level_.tiles[cell + 1] = static_cast<uint8_t>(right);
-                auto& player = marker == 1 ? player_ : player2_;
-                auto& energy = marker == 1 ? energy_ : energy2_;
-                auto& countdown = marker == 1 ? reentryTimer_ : reentryTimer2_;
-                auto& supply = marker == 1 ? bombInventory_ : bombInventory2_;
+                if (cell + 1 >= gameplayReplay_.fixture().level_.tiles.size()) fail("probe outside object plane");
+                gameplayReplay_.fixture().level_.tiles[cell] = static_cast<uint8_t>(left); gameplayReplay_.fixture().level_.tiles[cell + 1] = static_cast<uint8_t>(right);
+                auto& player = marker == 1 ? gameplayReplay_.fixture().player_ : gameplayReplay_.fixture().player2_;
+                auto& energy = marker == 1 ? gameplayReplay_.fixture().energy_ : gameplayReplay_.fixture().energy2_;
+                auto& countdown = marker == 1 ? gameplayReplay_.fixture().reentryTimer_ : gameplayReplay_.fixture().reentryTimer2_;
+                auto& supply = marker == 1 ? gameplayReplay_.fixture().bombInventory_ : gameplayReplay_.fixture().bombInventory2_;
                 player.x = 24; player.y = static_cast<float>(y);
                 player.vx8 = static_cast<int16_t>(le16(before, 6)); player.vy8 = static_cast<int16_t>(le16(before, 8));
                 player.fracX = before[10]; player.fracY = before[12]; player.idleTicks = before[2]; player.dropTicks = le16(before, 14);
@@ -14215,15 +13980,15 @@ public:
                 }
                 if (!descriptorFound) fail("seed descriptor");
                 energy = before[36]; countdown = timer;
-                playerDead_ = player2Dead_ = true;
-                (marker == 1 ? lives2_ : lives_) = -1;
+                gameplayReplay_.fixture().playerDead_ = gameplayReplay_.fixture().player2Dead_ = true;
+                (marker == 1 ? gameplayReplay_.fixture().lives2_ : gameplayReplay_.fixture().lives_) = -1;
                 const bool dying = timer == 1 || timer == 2;
                 pendingLifeLossFor(static_cast<uint8_t>(marker)) = dying;
                 deathStateTimerFor(static_cast<uint8_t>(marker)) = dying ? timer : 0;
                 auto& cursor = state2VisualCursorFor(static_cast<uint8_t>(marker));
                 cursor = {before[22], before[23], before[24], before[25], before[26], before[27], static_cast<int8_t>(before[28]), true};
                 for (size_t i = 0; i < 4; ++i) supply.counts[i] = inventory[i];
-                reentryGate_ = gate != 0;
+                gameplayReplay_.fixture().reentryGate_ = gate != 0;
                 FrameControls controls; controls.p1Reenter = controls.p2Reenter = fire != 0;
                 updatePlayerReentryPrepass(controls);
                 auto actual = before;
@@ -14231,7 +13996,7 @@ public:
                 putWord(actual, 6, player.vx8); putWord(actual, 8, player.vy8);
                 putWord(actual, 10, player.fracX); putWord(actual, 12, player.fracY);
                 putWord(actual, 14, player.dropTicks); putWord(actual, 16, static_cast<uint16_t>(countdown));
-                const bool dead = marker == 1 ? playerDead_ : player2Dead_;
+                const bool dead = marker == 1 ? gameplayReplay_.fixture().playerDead_ : gameplayReplay_.fixture().player2Dead_;
                 actual[21] = dead ? 2 : static_cast<uint8_t>(marker - 1); actual[36] = static_cast<uint8_t>(energy);
                 const auto activeAnimation = dead ? ActorAnimation{cursor.current, cursor.first, cursor.last, cursor.counter, cursor.delay, cursor.mode, cursor.step}.packed() : player.animation.packed();
                 std::copy(activeAnimation.begin(), activeAnimation.end(), actual.begin() + 22);
@@ -14243,9 +14008,9 @@ public:
                 if (actual != expected || actualVisual != expectedVisual ||
                     !std::equal(supply.counts.begin(), supply.counts.end(), expectedInventory.begin()) ||
                     states[0] != originalPlayerState(1) || states[1] != originalPlayerState(2) ||
-                    number(f.at("lives")) != (marker == 1 ? lives_ : lives2_) ||
-                    number(f.at("gate_after")) != static_cast<int>(reentryGate_) || number(f.at("counter")) != noActivePlayerTicks_ ||
-                    keys[0] != static_cast<int>(reentryFire1_) || keys[1] != static_cast<int>(reentryFire2_)) fail(f.at("name") + " production state mismatch");
+                    number(f.at("lives")) != (marker == 1 ? gameplayReplay_.fixture().lives_ : gameplayReplay_.fixture().lives2_) ||
+                    number(f.at("gate_after")) != static_cast<int>(gameplayReplay_.fixture().reentryGate_) || number(f.at("counter")) != gameplayReplay_.fixture().noActivePlayerTicks_ ||
+                    keys[0] != static_cast<int>(gameplayReplay_.fixture().reentryFire1_) || keys[1] != static_cast<int>(gameplayReplay_.fixture().reentryFire2_)) fail(f.at("name") + " production state mismatch");
                 ++cases;
             } else if (tag == "complete" && stage == 2) {
                 if (f.size() != 2 || f.at("cases") != "54" || f.at("whole_game_parity") != "0" || cases != 54) fail("incomplete capture");
@@ -14259,7 +14024,7 @@ public:
 
     void debugOriginalState2EffectPlacement() {
         load(); resetLevel(0);
-        level_.width = 60; level_.height = 10;
+        gameplayReplay_.fixture().level_.width = 60; gameplayReplay_.fixture().level_.height = 10;
         struct Probe { int left, right, y, expected; };
         const std::array<Probe, 14> probes{{
             {0, 0, 40, 40}, {1, 0, 40, 39}, {2, 0, 40, 39},
@@ -14269,13 +14034,13 @@ public:
             {1, 0, 0, 65535}, {1, 0, 65535, 65534},
         }};
         for (const auto& probe : probes) {
-            level_.tiles.assign(600, 0);
+            gameplayReplay_.fixture().level_.tiles.assign(600, 0);
             const uint16_t cell = static_cast<uint16_t>(((static_cast<uint16_t>(probe.y + 7) >> 3) + 1) * 60 + 3);
-            level_.tiles[cell] = static_cast<uint8_t>(probe.left);
-            level_.tiles[cell + 1] = static_cast<uint8_t>(probe.right);
-            player_.x = 24; player_.y = static_cast<float>(probe.y);
-            updateWaitingPlayerPlacement(player_);
-            if (player_.y != probe.expected || player_.x != 24) {
+            gameplayReplay_.fixture().level_.tiles[cell] = static_cast<uint8_t>(probe.left);
+            gameplayReplay_.fixture().level_.tiles[cell + 1] = static_cast<uint8_t>(probe.right);
+            gameplayReplay_.fixture().player_.x = 24; gameplayReplay_.fixture().player_.y = static_cast<float>(probe.y);
+            updateWaitingPlayerPlacement(gameplayReplay_.fixture().player_);
+            if (gameplayReplay_.fixture().player_.y != probe.expected || gameplayReplay_.fixture().player_.x != 24) {
                 throw std::runtime_error("original waiting placement mismatch");
             }
         }
@@ -14287,117 +14052,117 @@ public:
         load();
         resetLevel(0);
         ui_.setMenu(false);
-        energy_ = 0;
-        lives_ = 3;
-        damageCooldown_ = 0;
-        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                     damageCooldown_, 1);
-        if (!playerDead_ || deathStateTimer_ != kDeathStateTicks ||
-            reentryTimer_ != kReentryTicks) {
+        gameplayReplay_.fixture().energy_ = 0;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
+        damagePlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                     gameplayReplay_.fixture().damageCooldown_, 1);
+        if (!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().deathStateTimer_ != kDeathStateTicks ||
+            gameplayReplay_.fixture().reentryTimer_ != kReentryTicks) {
             throw std::runtime_error("player return-active death setup mismatch");
         }
-        tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                         damageCooldown_, 1);
-        if (!playerDead_ || deathStateTimer_ != kDeathStateTicks ||
-            reentryTimer_ != kReentryTicks || damageCooldown_ != 0) {
+        tryReenterPlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                         gameplayReplay_.fixture().damageCooldown_, 1);
+        if (!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().deathStateTimer_ != kDeathStateTicks ||
+            gameplayReplay_.fixture().reentryTimer_ != kReentryTicks || gameplayReplay_.fixture().damageCooldown_ != 0) {
             throw std::runtime_error("player return-active immediate gate mismatch");
         }
         for (int i = 0; i < 59; ++i) {
-            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+            updateReentry(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_, 1,
                           true);
         }
-        tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                         damageCooldown_, 1);
-        if (!playerDead_ || deathStateTimer_ != 1) {
+        tryReenterPlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                         gameplayReplay_.fixture().damageCooldown_, 1);
+        if (!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().deathStateTimer_ != 1) {
             throw std::runtime_error("player return-active 59-tick gate mismatch");
         }
-        updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+        updateReentry(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_, 1,
                       true);
-        tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                         damageCooldown_, 1);
-        if (playerDead_ || energy_ != 100 || lives_ != 2 ||
-            deathStateTimer_ != 0 || reentryTimer_ != 0 ||
-            damageCooldown_ != 0) {
+        tryReenterPlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                         gameplayReplay_.fixture().damageCooldown_, 1);
+        if (gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().energy_ != 100 || gameplayReplay_.fixture().lives_ != 2 ||
+            gameplayReplay_.fixture().deathStateTimer_ != 0 || gameplayReplay_.fixture().reentryTimer_ != 0 ||
+            gameplayReplay_.fixture().damageCooldown_ != 0) {
             throw std::runtime_error("player return-active gate restore mismatch");
         }
 
-        playerCount_ = 2;
-        lives_ = 3;
-        lives2_ = 3;
+        gameplayReplay_.fixture().playerCount_ = 2;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().lives2_ = 3;
         resetLevel(0);
         ui_.setMenu(false);
-        energy2_ = 0;
-        damageCooldown2_ = 0;
-        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                     damageCooldown2_, 2);
-        tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                         damageCooldown2_, 2);
-        if (!player2Dead_ || deathStateTimer2_ != kDeathStateTicks ||
-            damageCooldown2_ != 0) {
+        gameplayReplay_.fixture().energy2_ = 0;
+        gameplayReplay_.fixture().damageCooldown2_ = 0;
+        damagePlayer(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_,
+                     gameplayReplay_.fixture().damageCooldown2_, 2);
+        tryReenterPlayer(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_,
+                         gameplayReplay_.fixture().damageCooldown2_, 2);
+        if (!gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().deathStateTimer2_ != kDeathStateTicks ||
+            gameplayReplay_.fixture().damageCooldown2_ != 0) {
             throw std::runtime_error("player 2 immediate gate mismatch");
         }
         for (int i = 0; i < 60; ++i) {
-            updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                          2, playerDead_);
+            updateReentry(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_,
+                          2, gameplayReplay_.fixture().playerDead_);
         }
-        tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                         damageCooldown2_, 2);
-        if (player2Dead_ || energy2_ != 100 || lives2_ != 2 ||
-            deathStateTimer2_ != 0 || reentryTimer2_ != 0 ||
-            damageCooldown2_ != 0) {
+        tryReenterPlayer(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_,
+                         gameplayReplay_.fixture().damageCooldown2_, 2);
+        if (gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().energy2_ != 100 || gameplayReplay_.fixture().lives2_ != 2 ||
+            gameplayReplay_.fixture().deathStateTimer2_ != 0 || gameplayReplay_.fixture().reentryTimer2_ != 0 ||
+            gameplayReplay_.fixture().damageCooldown2_ != 0) {
             throw std::runtime_error("player 2 gate restore mismatch");
         }
 
-        lives_ = 3;
-        lives2_ = 1;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().lives2_ = 1;
         resetLevel(0);
         ui_.setMenu(false);
-        energy2_ = 0;
-        damageCooldown2_ = 0;
-        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                     damageCooldown2_, 2);
+        gameplayReplay_.fixture().energy2_ = 0;
+        gameplayReplay_.fixture().damageCooldown2_ = 0;
+        damagePlayer(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_,
+                     gameplayReplay_.fixture().damageCooldown2_, 2);
         for (int i = 0; i < 60; ++i) {
-            updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                          2, playerDead_);
+            updateReentry(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_,
+                          2, gameplayReplay_.fixture().playerDead_);
         }
-        tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                         damageCooldown2_, 2);
-        if (ui_.snapshot().menu || playerDead_ || player2Dead_ || lives2_ != 0 ||
-            deathStateTimer2_ != 0) {
+        tryReenterPlayer(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_,
+                         gameplayReplay_.fixture().damageCooldown2_, 2);
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().lives2_ != 0 ||
+            gameplayReplay_.fixture().deathStateTimer2_ != 0) {
             throw std::runtime_error("player 2 zero-reserve reentry mismatch");
         }
-        energy2_ = 0;
-        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, damageCooldown2_, 2);
-        for (int i = 0; i < 60; ++i) updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2, false);
-        bool p2OutStaysDead = player2Dead_ && lives2_ == -1 && deathStateTimer2_ == 0;
-        int p2ReentryTimerBefore = reentryTimer2_;
-        int p2DamageCooldownBefore = damageCooldown2_;
-        int p2EnergyBefore = energy2_;
-        tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                         damageCooldown2_, 2);
-        bool p2ReenterBlocked = player2Dead_ && lives2_ == -1 &&
-                                reentryTimer2_ == p2ReentryTimerBefore &&
-                                damageCooldown2_ == p2DamageCooldownBefore &&
-                                energy2_ == p2EnergyBefore;
-        bool p1AliveAfterP2Out = !playerDead_ && lives_ > 0 && !ui_.snapshot().menu;
+        gameplayReplay_.fixture().energy2_ = 0;
+        damagePlayer(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_, gameplayReplay_.fixture().damageCooldown2_, 2);
+        for (int i = 0; i < 60; ++i) updateReentry(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_, 2, false);
+        bool p2OutStaysDead = gameplayReplay_.fixture().player2Dead_ && gameplayReplay_.fixture().lives2_ == -1 && gameplayReplay_.fixture().deathStateTimer2_ == 0;
+        int p2ReentryTimerBefore = gameplayReplay_.fixture().reentryTimer2_;
+        int p2DamageCooldownBefore = gameplayReplay_.fixture().damageCooldown2_;
+        int p2EnergyBefore = gameplayReplay_.fixture().energy2_;
+        tryReenterPlayer(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().reentryTimer2_,
+                         gameplayReplay_.fixture().damageCooldown2_, 2);
+        bool p2ReenterBlocked = gameplayReplay_.fixture().player2Dead_ && gameplayReplay_.fixture().lives2_ == -1 &&
+                                gameplayReplay_.fixture().reentryTimer2_ == p2ReentryTimerBefore &&
+                                gameplayReplay_.fixture().damageCooldown2_ == p2DamageCooldownBefore &&
+                                gameplayReplay_.fixture().energy2_ == p2EnergyBefore;
+        bool p1AliveAfterP2Out = !gameplayReplay_.fixture().playerDead_ && gameplayReplay_.fixture().lives_ > 0 && !ui_.snapshot().menu;
         if (!p2OutStaysDead || !p2ReenterBlocked || !p1AliveAfterP2Out) {
             throw std::runtime_error("player 2 zero-life fallback boundary mismatch");
         }
 
-        lives_ = 0;
-        energy_ = 0;
-        damageCooldown_ = 0;
-        deathStateTimer_ = 0;
-        pendingLifeLoss_ = false;
-        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                     damageCooldown_, 1);
-        if (!playerDead_ || !pendingLifeLoss_ ||
-            deathStateTimer_ != kDeathStateTicks || lives_ != 0) {
+        gameplayReplay_.fixture().lives_ = 0;
+        gameplayReplay_.fixture().energy_ = 0;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
+        gameplayReplay_.fixture().deathStateTimer_ = 0;
+        gameplayReplay_.fixture().pendingLifeLoss_ = false;
+        damagePlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                     gameplayReplay_.fixture().damageCooldown_, 1);
+        if (!gameplayReplay_.fixture().playerDead_ || !gameplayReplay_.fixture().pendingLifeLoss_ ||
+            gameplayReplay_.fixture().deathStateTimer_ != kDeathStateTicks || gameplayReplay_.fixture().lives_ != 0) {
             throw std::runtime_error("player 1 final-life state-2 setup mismatch");
         }
         for (int i = 0; i < 60; ++i) {
-            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_,
-                          1, player2Dead_);
+            updateReentry(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                          1, gameplayReplay_.fixture().player2Dead_);
         }
         bool bothOutGameover = ui_.snapshot().menu && ui_.snapshot().page == MenuPage::GameOver &&
                                ui_.snapshot().lastEndReason == EndReason::GameOver;
@@ -14767,9 +14532,9 @@ public:
         int totalFieldB = 0;
         for (size_t i = 0; i < expectedFieldB.size(); ++i) {
             resetLevel(static_cast<int>(i));
-            int denominator = level_.startingDestructibleTiles;
-            int rawFieldB = static_cast<int>(level_.fieldB);
-            int required = static_cast<int>(level_.requiredDestruction);
+            int denominator = gameplayReplay_.fixture().level_.startingDestructibleTiles;
+            int rawFieldB = static_cast<int>(gameplayReplay_.fixture().level_.fieldB);
+            int required = static_cast<int>(gameplayReplay_.fixture().level_.requiredDestruction);
             int threshold = (required * denominator + 99) / 100;
             if (denominator != rawFieldB ||
                 denominator != expectedFieldB[i] ||
@@ -14777,18 +14542,18 @@ public:
                 threshold != expectedThresholds[i]) {
                 throw std::runtime_error("level completion denominator fixture changed");
             }
-            collected_ = level_.requiredBonus;
-            destroyed_ = std::max(0, threshold - 1);
+            gameplayReplay_.fixture().collected_ = gameplayReplay_.fixture().level_.requiredBonus;
+            gameplayReplay_.fixture().destroyed_ = std::max(0, threshold - 1);
             if (isComplete()) {
                 throw std::runtime_error("level completed before fieldB threshold");
             }
             ++blockedBeforeThreshold;
-            destroyed_ = threshold;
+            gameplayReplay_.fixture().destroyed_ = threshold;
             if (!isComplete()) {
                 throw std::runtime_error("level did not complete at fieldB threshold");
             }
             ++completedAtThreshold;
-            destroyed_ = denominator;
+            gameplayReplay_.fixture().destroyed_ = denominator;
             if (destructionPercent() != 100 || !isComplete()) {
                 throw std::runtime_error("level destruction percent did not saturate at fieldB");
             }
@@ -15285,8 +15050,8 @@ public:
         for (int t = 0; t < 1600; ++t) {
             updateMonsterSpawners();
             updateMonsters(1.0f);
-            if (!monsters_.empty()) {
-                const ActiveMonster& m = monsters_.front();
+            if (!gameplayReplay_.fixture().monsters_.empty()) {
+                const ActiveMonster& m = gameplayReplay_.fixture().monsters_.front();
                 if (spawnFrame < 0) spawnFrame = t;
                 if (m.x < minx) minx = m.x;
                 if (m.x > maxx) maxx = m.x;
@@ -15304,7 +15069,7 @@ public:
         std::cout << "turnprobe minx=" << minx << " maxx=" << maxx
                   << " spawnTick=" << spawnFrame << " turns=";
         for (size_t i = 0; i < turns.size(); ++i) std::cout << (i ? "," : "") << turns[i];
-        std::cout << " monsters=" << monsters_.size() << '\n';
+        std::cout << " monsters=" << gameplayReplay_.fixture().monsters_.size() << '\n';
     }
 
     // Live level-1 walker turn-point pin. Drives the REAL port path
@@ -15349,9 +15114,9 @@ public:
         for (int tick = 0; tick < 1600; ++tick) {
             updateMonsterSpawners();
             updateMonsters(1.0f);
-            if (monsters_.size() >= 2 && secondSpawnTick < 0) secondSpawnTick = tick;
-            if (monsters_.empty()) continue;
-            const ActiveMonster& m = monsters_.front();
+            if (gameplayReplay_.fixture().monsters_.size() >= 2 && secondSpawnTick < 0) secondSpawnTick = tick;
+            if (gameplayReplay_.fixture().monsters_.empty()) continue;
+            const ActiveMonster& m = gameplayReplay_.fixture().monsters_.front();
             const int visualY = m.y + m.hotspotY;
             if (firstSpawnTick < 0) {
                 firstSpawnTick = tick;
@@ -15411,7 +15176,7 @@ public:
                   << " right_x=" << maxx
                   << " right_turns=" << rightTurns
                   << " left_turns=" << leftTurns
-                  << " walkers=" << monsters_.size()
+                  << " walkers=" << gameplayReplay_.fixture().monsters_.size()
                   << " spawn_ticks=" << firstSpawnTick << ',' << secondSpawnTick
                   << " spawn_gap=" << (secondSpawnTick - firstSpawnTick)
                   << " hotspot_y=" << static_cast<int>(walkerHotspot)
@@ -15513,8 +15278,8 @@ public:
 
         auto findWord = [&](int levelIndex, bool highWord) -> std::array<int, 2> {
             resetLevel(levelIndex);
-            for (int y = 0; y < level_.height; ++y) {
-                for (int x = 0; x < level_.width; ++x) {
+            for (int y = 0; y < gameplayReplay_.fixture().level_.height; ++y) {
+                for (int x = 0; x < gameplayReplay_.fixture().level_.width; ++x) {
                     uint16_t word = wordAt(x, y);
                     bool candidate = word != 0 && (word & kDamagedWordBit) == 0;
                     if (!candidate) continue;
@@ -15557,8 +15322,8 @@ public:
                 if (pos[0] >= 0) {
                     uint16_t word = wordAt(pos[0], pos[1]);
                     queueTileDamage(pos[0], pos[1], 2, 3);
-                    if (!collapseQueue_.empty()) {
-                        const CollapseRecord& record = collapseQueue_.back();
+                    if (!gameplayReplay_.fixture().collapseQueue_.empty()) {
+                        const CollapseRecord& record = gameplayReplay_.fixture().collapseQueue_.back();
                         collapseFlagged = record.flaggedWord;
                         collapseCount = record.count;
                         collapseForwardPhase = static_cast<int>(record.forwardPhase);
@@ -15591,8 +15356,8 @@ public:
                 if (pos[0] >= 0) {
                     uint16_t word = wordAt(pos[0], pos[1]);
                     queueTileDamage(pos[0], pos[1], 4, 5);
-                    if (!debrisQueue_.empty()) {
-                        const DebrisRecord& record = debrisQueue_.back();
+                    if (!gameplayReplay_.fixture().debrisQueue_.empty()) {
+                        const DebrisRecord& record = gameplayReplay_.fixture().debrisQueue_.back();
                         debrisFlagged = record.flaggedWord;
                         debrisLookup = static_cast<int>(record.lookup);
                         debrisForwardPhase = static_cast<int>(record.velocityX);
@@ -15772,62 +15537,62 @@ public:
     void debugMonsterSlots() {
         load();
         resetLevel(0);
-        if (spawnerStates_.empty()) {
+        if (gameplayReplay_.fixture().spawnerStates_.empty()) {
             throw std::runtime_error("level has no spawner state");
         }
-        int initialSlots = spawnerStates_[0].availableSlots;
-        int initialRemaining = spawnerStates_[0].remaining;
+        int initialSlots = gameplayReplay_.fixture().spawnerStates_[0].availableSlots;
+        int initialRemaining = gameplayReplay_.fixture().spawnerStates_[0].remaining;
         // Rank 4: the countdown byte is decremented THEN tested, so arm it
         // with 1 to spawn on this tick (the level-1 file byte 0 would wrap
         // to 255 and take 256 ticks).
-        spawnerStates_[0].cooldown = 1;
+        gameplayReplay_.fixture().spawnerStates_[0].cooldown = 1;
         updateMonsterSpawners();
-        if (monsters_.empty()) {
+        if (gameplayReplay_.fixture().monsters_.empty()) {
             throw std::runtime_error("monster spawner did not create an actor");
         }
-        ActiveMonster& monster = monsters_.front();
+        ActiveMonster& monster = gameplayReplay_.fixture().monsters_.front();
         size_t spawnerIndex = monster.spawnerIndex;
-        if (spawnerIndex >= spawnerStates_.size() ||
-            spawnerStates_[spawnerIndex].availableSlots != initialSlots - 1 ||
-            spawnerStates_[spawnerIndex].remaining != initialRemaining - 1) {
+        if (spawnerIndex >= gameplayReplay_.fixture().spawnerStates_.size() ||
+            gameplayReplay_.fixture().spawnerStates_[spawnerIndex].availableSlots != initialSlots - 1 ||
+            gameplayReplay_.fixture().spawnerStates_[spawnerIndex].remaining != initialRemaining - 1) {
             throw std::runtime_error("monster spawn did not reserve a live slot");
         }
 
-        randomSeed_ = 0x90e25b93u;
+        gameplayReplay_.fixture().randomSeed_ = 0x90e25b93u;
         enterMonsterDeath(monster);
-        if (spawnerStates_[spawnerIndex].availableSlots != initialSlots ||
+        if (gameplayReplay_.fixture().spawnerStates_[spawnerIndex].availableSlots != initialSlots ||
             monster.stateTimer != kMonsterDeathVisibleTicks + 1 ||
-            !monster.deathRewardPending || !bonusDrops_.empty() ||
-            randomSeed_ != 0x90e25b93u) {
+            !monster.deathRewardPending || !gameplayReplay_.fixture().bonusDrops_.empty() ||
+            gameplayReplay_.fixture().randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster death did not immediately return live slot");
         }
         const int initializedTimer = monster.stateTimer;
         updateMonsters(0.0f);
-        if (monsters_.size() != 1 ||
-            monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
-            !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+        if (gameplayReplay_.fixture().monsters_.size() != 1 ||
+            gameplayReplay_.fixture().monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
+            !gameplayReplay_.fixture().bonusDrops_.empty() || gameplayReplay_.fixture().randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error(
                 "monster death first visible timer changed");
         }
         for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
             updateMonsters(0.0f);
-            if (monsters_.size() != 1 ||
-                monsters_.front().stateTimer !=
+            if (gameplayReplay_.fixture().monsters_.size() != 1 ||
+                gameplayReplay_.fixture().monsters_.front().stateTimer !=
                     kMonsterDeathVisibleTicks - frame ||
-                !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+                !gameplayReplay_.fixture().bonusDrops_.empty() || gameplayReplay_.fixture().randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "monster slot corpse playback timing changed");
             }
         }
         updateMonsters(0.0f);
-        if (!monsters_.empty() || bonusDrops_.size() != 1 ||
-            bonusDrops_.front().type != BonusType::Present ||
-            randomSeed_ != 0x0a08326du ||
-            spawnerStates_[spawnerIndex].availableSlots != initialSlots) {
+        if (!gameplayReplay_.fixture().monsters_.empty() || gameplayReplay_.fixture().bonusDrops_.size() != 1 ||
+            gameplayReplay_.fixture().bonusDrops_.front().type != BonusType::Present ||
+            gameplayReplay_.fixture().randomSeed_ != 0x0a08326du ||
+            gameplayReplay_.fixture().spawnerStates_[spawnerIndex].availableSlots != initialSlots) {
             throw std::runtime_error("monster removal did not return live slot");
         }
         updateMonsters(0.0f);
-        if (spawnerStates_[spawnerIndex].availableSlots != initialSlots) {
+        if (gameplayReplay_.fixture().spawnerStates_[spawnerIndex].availableSlots != initialSlots) {
             throw std::runtime_error("monster live slot was returned more than once");
         }
         std::cout << "monster_slots=ok initial_slots=" << initialSlots
@@ -15883,31 +15648,31 @@ public:
         // asserted inside updateMonsterMotion now lives in that shared tail
         // gated on the bottom flag, so its coverage moves here.
         prepareMonsterMotionDebugLevel(false);
-        monsters_.clear();
+        gameplayReplay_.fixture().monsters_.clear();
         ActiveMonster faller = walker;
         faller.x = 40;
         faller.y = 8;          // R = 1, so the bottom probe row 3 is empty
         faller.alive = true;
         faller.animDelay = 1;
-        monsters_.push_back(faller);
+        gameplayReplay_.fixture().monsters_.push_back(faller);
         int fallZeroDx = 0;
         for (int tick = 0; tick < 11; ++tick) {
-            const int beforeX = monsters_.front().x;
+            const int beforeX = gameplayReplay_.fixture().monsters_.front().x;
             updateMonsters(0.0f);
-            if (monsters_.front().vx8 == 0 && monsters_.front().x == beforeX) {
+            if (gameplayReplay_.fixture().monsters_.front().vx8 == 0 && gameplayReplay_.fixture().monsters_.front().x == beforeX) {
                 ++fallZeroDx;
             }
         }
-        const int fallVy = monsters_.front().vy8;
+        const int fallVy = gameplayReplay_.fixture().monsters_.front().vy8;
         // 11 airborne ticks: vx never seeded (bottom clear), vy accrues exactly
         // 0x40 per tick to 11 * 0x40 = 0x2c0, and the 8.8 fraction carries the
         // walker from y = 8 to y = 24 with fracY = 0x80 left over.
-        if (fallZeroDx != 11 || fallVy != 0x02c0 || monsters_.front().y != 24 ||
-            monsters_.front().fracY != 0x80) {
+        if (fallZeroDx != 11 || fallVy != 0x02c0 || gameplayReplay_.fixture().monsters_.front().y != 24 ||
+            gameplayReplay_.fixture().monsters_.front().fracY != 0x80) {
             throw std::runtime_error("behavior 3 free fall changed");
         }
         updateMonsters(0.0f);                       // the landing tick
-        const ActiveMonster landed = monsters_.front();
+        const ActiveMonster landed = gameplayReplay_.fixture().monsters_.front();
         // Landing: bottom is set, so gravity is skipped, vy is zeroed and the
         // collision-space y is snapped with `y &= 0xfff8`. The 8.8 fraction is
         // NOT cleared by the contact -- fracY is still the 0x80 carried in from
@@ -15932,7 +15697,7 @@ public:
         // rows coincide, so without this case the ordering is unguarded:
         // reverting it leaves all 388 tests green.
         prepareMonsterMotionDebugLevel(false);
-        monsters_.clear();
+        gameplayReplay_.fixture().monsters_.clear();
         ActiveMonster misaligned = walker;
         misaligned.x = 40;
         misaligned.y = 23;
@@ -15945,11 +15710,11 @@ public:
         misaligned.fracY = 0xff;
         misaligned.alive = true;
         misaligned.animDelay = 1;
-        monsters_.push_back(misaligned);
+        gameplayReplay_.fixture().monsters_.push_back(misaligned);
         updateMonsters(0.0f);                       // falls to y = 31
-        const int misalignedFallY = monsters_.front().y;
+        const int misalignedFallY = gameplayReplay_.fixture().monsters_.front().y;
         updateMonsters(0.0f);                       // the landing tick
-        const ActiveMonster misalignedLanded = monsters_.front();
+        const ActiveMonster misalignedLanded = gameplayReplay_.fixture().monsters_.front();
         if (misalignedFallY != 31 || (misalignedFallY & 7) != 7) {
             throw std::runtime_error("misaligned landing fixture no longer lands off-grid");
         }
@@ -15958,7 +15723,7 @@ public:
         }
 
         prepareMonsterMotionDebugLevel(true);
-        monsters_.clear();
+        gameplayReplay_.fixture().monsters_.clear();
         ActiveMonster ledgeWalker = walker;
         ledgeWalker.x = 40;
         ledgeWalker.y = 24;
@@ -15968,9 +15733,9 @@ public:
         ledgeWalker.fracY = 0;
         ledgeWalker.alive = true;
         ledgeWalker.animDelay = 1;
-        monsters_.push_back(ledgeWalker);
+        gameplayReplay_.fixture().monsters_.push_back(ledgeWalker);
         updateMonsters(0.0f);
-        ledgeWalker = monsters_.front();
+        ledgeWalker = gameplayReplay_.fixture().monsters_.front();
         // The ledge reversal still fires, and because the bottom flag is set
         // the shared tail applies NO gravity: vy stays 0 where the old model
         // added 0x40 every tick even while grounded.
@@ -15981,8 +15746,8 @@ public:
         }
 
         prepareMonsterMotionDebugLevel(false);
-        player_.x = 80.0f;
-        player_.y = 24.0f;
+        gameplayReplay_.fixture().player_.x = 80.0f;
+        gameplayReplay_.fixture().player_.y = 24.0f;
         ActiveMonster flyer;
         flyer.x = 40;
         flyer.y = 24;
@@ -15996,14 +15761,14 @@ public:
             flyer.animStart != 39 || flyer.animEnd != 41) {
             throw std::runtime_error("behavior 4 stationary initialization changed");
         }
-        logicTick_ = 6;
+        gameplayReplay_.fixture().logicTick_ = 6;
         updateMonsterMotion(flyer, 0.0f);
         if (flyer.vx8 != 0 || flyer.vy8 != 0 || flyer.motionTimer != 1) {
             throw std::runtime_error("behavior4 steered before global gate");
         }
-        logicTick_ = 7;
+        gameplayReplay_.fixture().logicTick_ = 7;
         updateMonsterMotion(flyer, 0.0f);
-        logicTick_ = 8;
+        gameplayReplay_.fixture().logicTick_ = 8;
         updateMonsterMotion(flyer, 0.0f);
         if (flyer.motionTimer != 6 || flyer.vx8 != 0x0200 || flyer.vy8 != 0) {
             throw std::runtime_error("behavior 4 global modulo tick changed");
@@ -16040,59 +15805,59 @@ public:
     void debugMonsterBlastDamage() {
         load();
         resetLevel(0);
-        monsters_.clear();
-        bonusDrops_.clear();
+        gameplayReplay_.fixture().monsters_.clear();
+        gameplayReplay_.fixture().bonusDrops_.clear();
 
         // expectedSprite is DS:[0x77 + kind*2 + dir] for the monster being
         // finished: kind 1 pairs on the sign of vx, kinds 2/3/4 do not.
         auto finishFrontCorpse = [&](size_t dropsBefore, int expectedSprite) {
-            if (monsters_.size() != 1 ||
-                monsters_.front().behavior != 2 ||
-                monsters_.front().stateTimer !=
+            if (gameplayReplay_.fixture().monsters_.size() != 1 ||
+                gameplayReplay_.fixture().monsters_.front().behavior != 2 ||
+                gameplayReplay_.fixture().monsters_.front().stateTimer !=
                     kMonsterDeathVisibleTicks + 1 ||
-                gameRenderer_.monsterSpriteIndex(monsters_.front()) != expectedSprite ||
-                !monsters_.front().deathRewardPending ||
-                bonusDrops_.size() != dropsBefore ||
-                randomSeed_ != 0x90e25b93u) {
+                gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) != expectedSprite ||
+                !gameplayReplay_.fixture().monsters_.front().deathRewardPending ||
+                gameplayReplay_.fixture().bonusDrops_.size() != dropsBefore ||
+                gameplayReplay_.fixture().randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "direct monster death initialization mismatch");
             }
 
             updateMonsters(0.0f);
-            if (monsters_.size() != 1 ||
-                monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
-                bonusDrops_.size() != dropsBefore ||
-                randomSeed_ != 0x90e25b93u) {
+            if (gameplayReplay_.fixture().monsters_.size() != 1 ||
+                gameplayReplay_.fixture().monsters_.front().stateTimer != kMonsterDeathVisibleTicks ||
+                gameplayReplay_.fixture().bonusDrops_.size() != dropsBefore ||
+                gameplayReplay_.fixture().randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "direct monster death first visible frame mismatch");
             }
             for (int frame = 1; frame < kMonsterDeathVisibleTicks; ++frame) {
                 updateMonsters(0.0f);
-                if (monsters_.size() != 1 ||
-                    monsters_.front().stateTimer !=
+                if (gameplayReplay_.fixture().monsters_.size() != 1 ||
+                    gameplayReplay_.fixture().monsters_.front().stateTimer !=
                         kMonsterDeathVisibleTicks - frame ||
-                    gameRenderer_.monsterSpriteIndex(monsters_.front()) != expectedSprite ||
-                    bonusDrops_.size() != dropsBefore ||
-                    randomSeed_ != 0x90e25b93u) {
+                    gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) != expectedSprite ||
+                    gameplayReplay_.fixture().bonusDrops_.size() != dropsBefore ||
+                    gameplayReplay_.fixture().randomSeed_ != 0x90e25b93u) {
                     throw std::runtime_error(
                         "direct monster corpse playback mismatch");
                 }
             }
-            ActiveMonster handoff = monsters_.front();
+            ActiveMonster handoff = gameplayReplay_.fixture().monsters_.front();
             updateTimedActorMotion(handoff.x, handoff.y, handoff.vx8, handoff.vy8,
                                    handoff.fracX, handoff.fracY, scanActorEdges(handoff.x, handoff.y));
             updateMonsters(0.0f);
-            if (!monsters_.empty() ||
-                bonusDrops_.size() != dropsBefore + 1 ||
-                bonusDrops_.back().type != BonusType::Present ||
-                bonusSpriteIndex(bonusDrops_.back().type) != 61 ||
-                bonusDrops_.back().x != handoff.x ||
-                bonusDrops_.back().y != handoff.y + handoff.hotspotY ||
-                bonusDrops_.back().vx8 != handoff.vx8 ||
-                bonusDrops_.back().vy8 != handoff.vy8 - 200 ||
-                bonusDrops_.back().fracX != handoff.fracX ||
-                bonusDrops_.back().fracY != handoff.fracY ||
-                randomSeed_ != 0x0a08326du) {
+            if (!gameplayReplay_.fixture().monsters_.empty() ||
+                gameplayReplay_.fixture().bonusDrops_.size() != dropsBefore + 1 ||
+                gameplayReplay_.fixture().bonusDrops_.back().type != BonusType::Present ||
+                bonusSpriteIndex(gameplayReplay_.fixture().bonusDrops_.back().type) != 61 ||
+                gameplayReplay_.fixture().bonusDrops_.back().x != handoff.x ||
+                gameplayReplay_.fixture().bonusDrops_.back().y != handoff.y + handoff.hotspotY ||
+                gameplayReplay_.fixture().bonusDrops_.back().vx8 != handoff.vx8 ||
+                gameplayReplay_.fixture().bonusDrops_.back().vy8 != handoff.vy8 - 200 ||
+                gameplayReplay_.fixture().bonusDrops_.back().fracX != handoff.fracX ||
+                gameplayReplay_.fixture().bonusDrops_.back().fracY != handoff.fracY ||
+                gameplayReplay_.fixture().randomSeed_ != 0x0a08326du) {
                 throw std::runtime_error(
                     "direct monster delayed reward mismatch");
             }
@@ -16106,19 +15871,19 @@ public:
         monster.hp = 3;
         monster.hotspotY = monsterHotspotY(monster.kind);
         refreshMonsterAnimationProfile(monster);
-        monsters_.push_back(monster);
+        gameplayReplay_.fixture().monsters_.push_back(monster);
         std::vector<std::array<int, 2>> tiles{{{10, 11}}};
 
         damageMonstersInExplosion(tiles, BombType::Small);
-        if (monsters_[0].behavior == 2 || monsters_[0].hp != 2 ||
-            !bonusDrops_.empty()) {
+        if (gameplayReplay_.fixture().monsters_[0].behavior == 2 || gameplayReplay_.fixture().monsters_[0].hp != 2 ||
+            !gameplayReplay_.fixture().bonusDrops_.empty()) {
             throw std::runtime_error("small bomb ignored monster hit points");
         }
 
-        randomSeed_ = 0x90e25b93u;
+        gameplayReplay_.fixture().randomSeed_ = 0x90e25b93u;
         damageMonstersInExplosion(tiles, BombType::Medium);
-        if (monsters_[0].behavior != 2 || monsters_[0].hp != 0 ||
-            !bonusDrops_.empty()) {
+        if (gameplayReplay_.fixture().monsters_[0].behavior != 2 || gameplayReplay_.fixture().monsters_[0].hp != 0 ||
+            !gameplayReplay_.fixture().bonusDrops_.empty()) {
             throw std::runtime_error("medium bomb did not finish damaged monster");
         }
         finishFrontCorpse(0, kMonsterCorpseSpriteLeft);
@@ -16131,12 +15896,12 @@ public:
         tough.hp = 4;
         tough.hotspotY = monsterHotspotY(tough.kind);
         refreshMonsterAnimationProfile(tough);
-        monsters_.push_back(tough);
+        gameplayReplay_.fixture().monsters_.push_back(tough);
         std::vector<std::array<int, 2>> superTiles{{{12, 11}}};
-        randomSeed_ = 0x90e25b93u;
+        gameplayReplay_.fixture().randomSeed_ = 0x90e25b93u;
         damageMonstersInExplosion(superTiles, BombType::Super);
-        if (monsters_[0].behavior != 2 || monsters_[0].hp != 0 ||
-            bonusDrops_.size() != 1) {
+        if (gameplayReplay_.fixture().monsters_[0].behavior != 2 || gameplayReplay_.fixture().monsters_[0].hp != 0 ||
+            gameplayReplay_.fixture().bonusDrops_.size() != 1) {
             throw std::runtime_error("super bomb did not apply full monster damage");
         }
         finishFrontCorpse(1, kMonsterImpactSprites[4][0]);
@@ -16149,14 +15914,14 @@ public:
         edge.hp = 2;
         edge.hotspotY = monsterHotspotY(edge.kind);
         refreshMonsterAnimationProfile(edge);
-        monsters_.push_back(edge);
+        gameplayReplay_.fixture().monsters_.push_back(edge);
         std::vector<std::array<int, 2>> edgeTiles{{{10, 11}}, {{11, 11}}};
         damageMonstersInExplosion(edgeTiles, BombType::Small);
-        if (monsters_[0].hp != 1) {
+        if (gameplayReplay_.fixture().monsters_[0].hp != 1) {
             throw std::runtime_error("monster blast missed partial overlap");
         }
 
-        std::cout << "monster_blast_damage=ok drops=" << bonusDrops_.size()
+        std::cout << "monster_blast_damage=ok drops=" << gameplayReplay_.fixture().bonusDrops_.size()
                   << " corpse_sprite=" << kMonsterCorpseSpriteLeft
                   << " corpse_ticks=" << kMonsterDeathVisibleTicks
                   << " delayed_reward=1 reward_sprite=61\n";
@@ -16220,11 +15985,11 @@ public:
                     if (!outDir.empty()) {
                         writeArgbPpm(joinPath(outDir, name + checkpoint + ".ppm"),
                                      fb_, kScreenW, kScreenH);
-                        const Bomb b = bombs_.empty() ? Bomb{} : bombs_.front();
-                        manifest << name << ',' << checkpoint << ',' << logicTick_ << ','
-                                 << bombs_.size() << ',' << b.pixelX << ',' << b.pixelY << ','
+                        const Bomb b = gameplayReplay_.fixture().bombs_.empty() ? Bomb{} : gameplayReplay_.fixture().bombs_.front();
+                        manifest << name << ',' << checkpoint << ',' << gameplayReplay_.fixture().logicTick_ << ','
+                                 << gameplayReplay_.fixture().bombs_.size() << ',' << b.pixelX << ',' << b.pixelY << ','
                                  << b.vx8 << ',' << b.vy8 << ',' << int(b.fracX) << ','
-                                 << int(b.fracY) << ',' << (bombs_.empty() ? 0 : b.timer) << ','
+                                 << int(b.fracY) << ',' << (gameplayReplay_.fixture().bombs_.empty() ? 0 : b.timer) << ','
                                  << std::hex << lastHash << std::dec << '\n';
                     }
                 };
@@ -16257,7 +16022,7 @@ public:
                         }
                         resetLevel(0);
                         ui_.setMenu(false);
-                        logicTick_ = static_cast<uint32_t>(previousFrame);
+                        gameplayReplay_.fixture().logicTick_ = static_cast<uint32_t>(previousFrame);
                         if (motionSuite) {
                             int x, y, vx, vy;
                             if (std::sscanf(fields.at("input").c_str(), "%d,%d,%d,%d", &x, &y, &vx, &vy) != 4 ||
@@ -16266,33 +16031,33 @@ public:
                                 (variant == 3 && vy >= 0)) {
                                 throw std::runtime_error("missing original launch input evidence");
                             }
-                            player_.x = static_cast<float>(x);
-                            player_.y = static_cast<float>(y);
-                            player_.vx8 = static_cast<int16_t>(vx);
-                            player_.vy8 = static_cast<int16_t>(vy);
+                            gameplayReplay_.fixture().player_.x = static_cast<float>(x);
+                            gameplayReplay_.fixture().player_.y = static_cast<float>(y);
+                            gameplayReplay_.fixture().player_.vx8 = static_cast<int16_t>(vx);
+                            gameplayReplay_.fixture().player_.vy8 = static_cast<int16_t>(vy);
                         }
-                        bombInventory_.selected = static_cast<BombType>(weapon - 1);
-                        bombInventory_.counts.fill(2);
+                        gameplayReplay_.fixture().bombInventory_.selected = static_cast<BombType>(weapon - 1);
+                        gameplayReplay_.fixture().bombInventory_.counts.fill(2);
                         // This fixture begins at the original constructor boundary,
                         // after input/gravity have already produced the launch locals.
-                        placeBombAt(player_, bombInventory_, 1);
+                        placeBombAt(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().bombInventory_, 1);
                         originalCounter = raw[2];
-                        if (bombs_.size() != 1 || bombs_[0].fuseTicks != 2 * originalCounter ||
-                            bombInventory_.counts[static_cast<size_t>(weapon - 1)] != 1) {
+                        if (gameplayReplay_.fixture().bombs_.size() != 1 || gameplayReplay_.fixture().bombs_[0].fuseTicks != 2 * originalCounter ||
+                            gameplayReplay_.fixture().bombInventory_.counts[static_cast<size_t>(weapon - 1)] != 1) {
                             throw std::runtime_error("port fuse differs from original constructor");
                         }
                         if (motionSuite) {
-                            checkMotion(bombs_.front(), raw, bytes(fields.at("visual"), 8));
-                            if (bombProfile(bombs_.front().type).spriteBase != std::stoi(fields.at("sprite"))) {
+                            checkMotion(gameplayReplay_.fixture().bombs_.front(), raw, bytes(fields.at("visual"), 8));
+                            if (bombProfile(gameplayReplay_.fixture().bombs_.front().type).spriteBase != std::stoi(fields.at("sprite"))) {
                                 throw std::runtime_error("bomb sprite differs from original descriptor");
                             }
                         }
                         seeded = true;
                         inspect("_armed");
                         ui_.setPaused(true);
-                        const int timer = bombs_[0].timer;
+                        const int timer = gameplayReplay_.fixture().bombs_[0].timer;
                         updateWithControls(FrameControls{}, 1.0f / 60.0f);
-                        if (bombs_[0].timer != timer || logicTick_ != static_cast<uint32_t>(previousFrame)) {
+                        if (gameplayReplay_.fixture().bombs_[0].timer != timer || gameplayReplay_.fixture().logicTick_ != static_cast<uint32_t>(previousFrame)) {
                             throw std::runtime_error("paused bomb advanced");
                         }
                         ui_.setPaused(false);
@@ -16309,30 +16074,30 @@ public:
                         }
                         previousFrame = frame;
                         originalCounter = raw[2];
-                        ++logicTick_;
+                        ++gameplayReplay_.fixture().logicTick_;
                         updateBombs();
                         if (originalCounter == 0) {
-                            if (!bombs_.empty() || explosionEffects_.empty()) {
+                            if (!gameplayReplay_.fixture().bombs_.empty() || gameplayReplay_.fixture().explosionEffects_.empty()) {
                                 throw std::runtime_error("bomb did not explode at original expiry");
                             }
                             if (motionSuite) {
                                 auto visual = bytes(fields.at("visual"), 8);
-                                if (explosionEffects_.back().x != (le16(visual, 0) + 4) / 8 ||
-                                    explosionEffects_.back().y != le16(visual, 2) / 8) {
+                                if (gameplayReplay_.fixture().explosionEffects_.back().x != (le16(visual, 0) + 4) / 8 ||
+                                    gameplayReplay_.fixture().explosionEffects_.back().y != le16(visual, 2) / 8) {
                                     throw std::runtime_error("explosion remained at the bomb placement tile");
                                 }
                             }
                             inspect("_expiry");
                         } else {
-                            if (bombs_.size() != 1 || (bombs_[0].timer + 1) / 2 != originalCounter) {
+                            if (gameplayReplay_.fixture().bombs_.size() != 1 || (gameplayReplay_.fixture().bombs_[0].timer + 1) / 2 != originalCounter) {
                                 throw std::runtime_error("bomb countdown differs from original at " + std::to_string(frame));
                             }
                             if (motionSuite) {
-                                checkMotion(bombs_.front(), raw, bytes(fields.at("visual"), 8));
+                                checkMotion(gameplayReplay_.fixture().bombs_.front(), raw, bytes(fields.at("visual"), 8));
                                 ++motionSamples;
                                 if (count == 7) inspect("_flight");
                             }
-                            if (bombs_[0].timer == 1) inspect("_last");
+                            if (gameplayReplay_.fixture().bombs_[0].timer == 1) inspect("_last");
                         }
                         ++count;
                         ++samples;
@@ -16361,74 +16126,74 @@ public:
     void debugBombFuse() {
         load();
         resetLevel(0);
-        bombs_.clear();
-        flashes_.clear();
-        explosionEffects_.clear();
-        int beforeSmallBombs = bombInventory_.counts[0];
-        placeBombAt(player_, bombInventory_, 1);
-        if (bombs_.size() != 1 || bombInventory_.counts[0] != beforeSmallBombs - 1) {
+        gameplayReplay_.fixture().bombs_.clear();
+        gameplayReplay_.fixture().flashes_.clear();
+        gameplayReplay_.fixture().explosionEffects_.clear();
+        int beforeSmallBombs = gameplayReplay_.fixture().bombInventory_.counts[0];
+        placeBombAt(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().bombInventory_, 1);
+        if (gameplayReplay_.fixture().bombs_.size() != 1 || gameplayReplay_.fixture().bombInventory_.counts[0] != beforeSmallBombs - 1) {
             throw std::runtime_error("bomb placement did not create a timed bomb");
         }
 
-        int fuseTicks = bombs_[0].timer;
+        int fuseTicks = gameplayReplay_.fixture().bombs_[0].timer;
         for (int i = 1; i < fuseTicks; ++i) {
             updateBombs();
-            if (bombs_.size() != 1 || bombs_[0].timer != fuseTicks - i) {
+            if (gameplayReplay_.fixture().bombs_.size() != 1 || gameplayReplay_.fixture().bombs_[0].timer != fuseTicks - i) {
                 throw std::runtime_error("bomb expired before fuse reached zero");
             }
         }
 
         updateBombs();
-        if (!bombs_.empty() || explosionEffects_.empty() || flameRecords_.empty()) {
+        if (!gameplayReplay_.fixture().bombs_.empty() || gameplayReplay_.fixture().explosionEffects_.empty() || gameplayReplay_.fixture().flameRecords_.empty()) {
             throw std::runtime_error("bomb fuse did not produce an explosion");
         }
-        int initialEffects = static_cast<int>(explosionEffects_.size());
-        int initialFlames = static_cast<int>(flameRecords_.size());
+        int initialEffects = static_cast<int>(gameplayReplay_.fixture().explosionEffects_.size());
+        int initialFlames = static_cast<int>(gameplayReplay_.fixture().flameRecords_.size());
 
         auto pushExpiredPlayerBombs = [&]() {
-            int playerBombX = (static_cast<int>(player_.x) + 4) / kTileSize;
-            int playerBombY = static_cast<int>(player_.y) / kTileSize;
-            bombs_.push_back({playerBombX, playerBombY, 1, BombType::Small, 1});
-            bombs_.push_back({std::max(0, playerBombX - 4), playerBombY, 1,
+            int playerBombX = (static_cast<int>(gameplayReplay_.fixture().player_.x) + 4) / kTileSize;
+            int playerBombY = static_cast<int>(gameplayReplay_.fixture().player_.y) / kTileSize;
+            gameplayReplay_.fixture().bombs_.push_back({playerBombX, playerBombY, 1, BombType::Small, 1});
+            gameplayReplay_.fixture().bombs_.push_back({std::max(0, playerBombX - 4), playerBombY, 1,
                               BombType::Small, 1});
         };
 
         resetLevel(0);
         ui_.setMenu(false);
-        energy_ = 0;
-        lives_ = 0;
-        damageCooldown_ = 0;
-        bombs_.clear();
-        flashes_.clear();
-        explosionEffects_.clear();
+        gameplayReplay_.fixture().energy_ = 0;
+        gameplayReplay_.fixture().lives_ = 0;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
+        gameplayReplay_.fixture().bombs_.clear();
+        gameplayReplay_.fixture().flashes_.clear();
+        gameplayReplay_.fixture().explosionEffects_.clear();
         pushExpiredPlayerBombs();
-        for (int tick = 0; tick < 10 && !playerDead_; ++tick) updateWithControls({}, 0);
-        if (ui_.snapshot().menu || !playerDead_ || lives_ != 0 || !pendingLifeLoss_ ||
-            deathStateTimer_ != kDeathStateTicks || !bombs_.empty() ||
-            flameRecords_.empty() || explosionEffects_.empty()) {
+        for (int tick = 0; tick < 10 && !gameplayReplay_.fixture().playerDead_; ++tick) updateWithControls({}, 0);
+        if (ui_.snapshot().menu || !gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().lives_ != 0 || !gameplayReplay_.fixture().pendingLifeLoss_ ||
+            gameplayReplay_.fixture().deathStateTimer_ != kDeathStateTicks || !gameplayReplay_.fixture().bombs_.empty() ||
+            gameplayReplay_.fixture().flameRecords_.empty() || gameplayReplay_.fixture().explosionEffects_.empty()) {
             throw std::runtime_error("final-life bomb did not enter delayed state-2");
         }
         for (int i = 0; i < kDeathStateTicks; ++i) {
-            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
+            updateReentry(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_, 1,
                           true);
         }
-        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::GameOver || !bombs_.empty() ||
-            !flameRecords_.empty() || !explosionEffects_.empty()) {
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::GameOver || !gameplayReplay_.fixture().bombs_.empty() ||
+            !gameplayReplay_.fixture().flameRecords_.empty() || !gameplayReplay_.fixture().explosionEffects_.empty()) {
             throw std::runtime_error("final-life bomb did not reset after state-2");
         }
 
         resetLevel(0);
         ui_.setMenu(false);
-        energy_ = 0;
-        lives_ = 0;
-        damageCooldown_ = 0;
-        bombs_.clear();
-        flashes_.clear();
-        explosionEffects_.clear();
+        gameplayReplay_.fixture().energy_ = 0;
+        gameplayReplay_.fixture().lives_ = 0;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
+        gameplayReplay_.fixture().bombs_.clear();
+        gameplayReplay_.fixture().flashes_.clear();
+        gameplayReplay_.fixture().explosionEffects_.clear();
         pushExpiredPlayerBombs();
         for (int tick = 0; tick < kDeathStateTicks + 10 && !ui_.snapshot().menu; ++tick) updateWithControls({}, 0);
-        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::GameOver || !bombs_.empty() ||
-            !flameRecords_.empty() || !explosionEffects_.empty()) {
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::GameOver || !gameplayReplay_.fixture().bombs_.empty() ||
+            !gameplayReplay_.fixture().flameRecords_.empty() || !gameplayReplay_.fixture().explosionEffects_.empty()) {
             throw std::runtime_error("stale expired bomb exploded after reset");
         }
 
@@ -16464,8 +16229,8 @@ public:
         auto findProbe = [&](bool wantHighWord, Probe& out) {
             for (size_t level = 0; level < levels_.size(); ++level) {
                 resetLevel(static_cast<int>(level));
-                for (int y = 1; y + 1 < level_.height; ++y) {
-                    for (int x = 0; x + 1 < level_.width; ++x) {
+                for (int y = 1; y + 1 < gameplayReplay_.fixture().level_.height; ++y) {
+                    for (int x = 0; x + 1 < gameplayReplay_.fixture().level_.width; ++x) {
                         uint8_t tile = static_cast<uint8_t>(tileAt(x, y));
                         if (!isBombObjectTile(tile)) continue;
                         uint16_t objectWord = wordAt(x, y);
@@ -16501,15 +16266,15 @@ public:
             resetLevel(probe.level);
             clearRunScores();
             clearSoundLatch();
-            monsters_.clear();
-            bonusDrops_.clear();
-            bombs_.clear();
-            flashes_.clear();
-            explosionEffects_.clear();
-            debrisQueue_.clear();
-            collapseQueue_.clear();
-            playerDead_ = true;
-            player2Dead_ = true;
+            gameplayReplay_.fixture().monsters_.clear();
+            gameplayReplay_.fixture().bonusDrops_.clear();
+            gameplayReplay_.fixture().bombs_.clear();
+            gameplayReplay_.fixture().flashes_.clear();
+            gameplayReplay_.fixture().explosionEffects_.clear();
+            gameplayReplay_.fixture().debrisQueue_.clear();
+            gameplayReplay_.fixture().collapseQueue_.clear();
+            gameplayReplay_.fixture().playerDead_ = true;
+            gameplayReplay_.fixture().player2Dead_ = true;
 
             if (static_cast<uint8_t>(tileAt(probe.x, probe.y)) != probe.tile ||
                 wordAt(probe.x, probe.y) != probe.objectWord ||
@@ -16523,9 +16288,9 @@ public:
 
             Bomb bomb{probe.x, probe.y, 1, BombType::Small, 1, 1};
             explode(bomb);
-            if (tileAt(probe.x, probe.y) != probe.tile || score_ != 0 ||
-                !debrisQueue_.empty() || !collapseQueue_.empty() || flameRecords_.size() != 8 ||
-                explosionEffects_.size() != 1) {
+            if (tileAt(probe.x, probe.y) != probe.tile || gameplayReplay_.fixture().score_ != 0 ||
+                !gameplayReplay_.fixture().debrisQueue_.empty() || !gameplayReplay_.fixture().collapseQueue_.empty() || gameplayReplay_.fixture().flameRecords_.size() != 8 ||
+                gameplayReplay_.fixture().explosionEffects_.size() != 1) {
                 throw std::runtime_error("bomb expiry consumed an object before flame playback");
             }
             // Explicit pickup/seeder fixture, independent of flame movement.
@@ -16544,10 +16309,10 @@ public:
                 throw std::runtime_error("consumed bomb object blocked movement");
             }
             const std::array<int, 12> pickupScores{50, 100, 200, 250, 500, 800, 1000, 1500, 2000, 3000, 5000, 1000};
-            if (score_ != static_cast<uint32_t>(pickupScores.at(probe.tile - 0x67))) {
+            if (gameplayReplay_.fixture().score_ != static_cast<uint32_t>(pickupScores.at(probe.tile - 0x67))) {
                 throw std::runtime_error("explicit object pickup did not award its table score");
             }
-            if (flameRecords_.size() != 8 || explosionEffects_.size() != 1) {
+            if (gameplayReplay_.fixture().flameRecords_.size() != 8 || gameplayReplay_.fixture().explosionEffects_.size() != 1) {
                 throw std::runtime_error("bomb object explosion footprint/effect mismatch");
             }
             if (!sound_.latch().active ||
@@ -16567,12 +16332,12 @@ public:
             }
 
             if (expectDebris) {
-                if (debrisQueue_.size() != 1 || !collapseQueue_.empty() ||
-                    destroyed_ != 0 || !forward.debris || !reverse.debris) {
+                if (gameplayReplay_.fixture().debrisQueue_.size() != 1 || !gameplayReplay_.fixture().collapseQueue_.empty() ||
+                    gameplayReplay_.fixture().destroyed_ != 0 || !forward.debris || !reverse.debris) {
                     throw std::runtime_error("bomb object high-word routing mismatch");
                 }
-                const DebrisRecord& record = debrisQueue_.front();
-                int expectedIndex = (probe.y - 1) * level_.width + probe.x;
+                const DebrisRecord& record = gameplayReplay_.fixture().debrisQueue_.front();
+                int expectedIndex = (probe.y - 1) * gameplayReplay_.fixture().level_.width + probe.x;
                 if (record.tileIndex != expectedIndex ||
                     record.flaggedWord != flaggedAbove) {
                     throw std::runtime_error("bomb object debris record mismatch");
@@ -16585,12 +16350,12 @@ public:
                 return result;
             }
 
-            if (collapseQueue_.size() != 1 || !debrisQueue_.empty() ||
+            if (gameplayReplay_.fixture().collapseQueue_.size() != 1 || !gameplayReplay_.fixture().debrisQueue_.empty() ||
                 forward.debris || reverse.debris) {
                 throw std::runtime_error("bomb object low-word routing mismatch");
             }
-            const CollapseRecord& record = collapseQueue_.front();
-            if (record.flaggedWord != flaggedAbove || destroyed_ != 0 ||
+            const CollapseRecord& record = gameplayReplay_.fixture().collapseQueue_.front();
+            if (record.flaggedWord != flaggedAbove || gameplayReplay_.fixture().destroyed_ != 0 ||
                 record.count <= 0) {
                 throw std::runtime_error("bomb object collapse record mismatch");
             }
@@ -17056,7 +16821,7 @@ public:
         if (flyer.vx8 != 0 || flyer.vy8 != 0 || flyer.motionTimer != 0) {
             throw std::runtime_error("behavior4 spawn steered before the shared gate");
         }
-        logicTick_ = 0;
+        gameplayReplay_.fixture().logicTick_ = 0;
         updateMonsterMotion(flyer, 0.0f);
         const int seeded = flyer.motionTimer;
         if (seeded != static_cast<int>(fixturePeriod)) {
@@ -17066,15 +16831,15 @@ public:
                 std::to_string(fixturePeriod));
         }
         // Count ticks to the port's own retarget and compare to the capture.
-        monsters_.clear();
-        monsters_.push_back(flyer);
+        gameplayReplay_.fixture().monsters_.clear();
+        gameplayReplay_.fixture().monsters_.push_back(flyer);
         int portGap = 0;
         for (int i = 0; i < static_cast<int>(fixturePeriod) * 3; ++i) {
-            const int before = monsters_.front().motionTimer;
-            ++logicTick_;
-            updateMonsterMotion(monsters_.front(), 0.0f);
+            const int before = gameplayReplay_.fixture().monsters_.front().motionTimer;
+            ++gameplayReplay_.fixture().logicTick_;
+            updateMonsterMotion(gameplayReplay_.fixture().monsters_.front(), 0.0f);
             ++portGap;
-            if (monsters_.front().motionTimer > before) break;
+            if (gameplayReplay_.fixture().monsters_.front().motionTimer > before) break;
         }
         if (portGap != static_cast<int>(fixturePeriod)) {
             throw std::runtime_error(
@@ -17109,13 +16874,13 @@ public:
             probe = probe * 0x08088405u + 1u;
             if (probe != seeds[i]) continue;  // not a two-draw tick
             ++twoDraw;
-            const uint32_t saved = randomSeed_;
-            randomSeed_ = before;
+            const uint32_t saved = gameplayReplay_.fixture().randomSeed_;
+            gameplayReplay_.fixture().randomSeed_ = before;
             const int drawX = static_cast<int>(
                 randomRangeValue(0, static_cast<uint16_t>(selRange))) - ai1;
             const int drawY = static_cast<int>(
                 randomRangeValue(0, static_cast<uint16_t>(selRange))) - ai1;
-            randomSeed_ = saved;
+            gameplayReplay_.fixture().randomSeed_ = saved;
             if (ticks[i][1] == drawX) {
                 ++vxFit;
             } else if (ticks[i][1] == -drawX / 2 ||
@@ -17176,16 +16941,16 @@ public:
         int observedRest = -1;
         for (size_t level = 0; level < levels_.size() && usedLevel < 0; ++level) {
             resetLevel(static_cast<int>(level));
-            for (int y = 2; y + 1 < level_.height && usedLevel < 0; ++y) {
-                for (int x = 1; x + 1 < level_.width; ++x) {
+            for (int y = 2; y + 1 < gameplayReplay_.fixture().level_.height && usedLevel < 0; ++y) {
+                for (int x = 1; x + 1 < gameplayReplay_.fixture().level_.width; ++x) {
                     if (wordAt(x, y - 1) == 0) continue;
                     resetLevel(static_cast<int>(level));
-                    collapseQueue_.clear();
-                    debrisQueue_.clear();
-                    flashes_.clear();
-                    explosionEffects_.clear();
+                    gameplayReplay_.fixture().collapseQueue_.clear();
+                    gameplayReplay_.fixture().debrisQueue_.clear();
+                    gameplayReplay_.fixture().flashes_.clear();
+                    gameplayReplay_.fixture().explosionEffects_.clear();
                     DebrisRecord rec;
-                    rec.tileIndex = y * level_.width + x;
+                    rec.tileIndex = y * gameplayReplay_.fixture().level_.width + x;
                     // Non-fragile word (<= 0xffbc) sitting on the last
                     // shatter step: the stepper takes it to 0x79 and picks
                     // the 0xFF dissolve glyph, which is the branch that
@@ -17193,15 +16958,15 @@ public:
                     rec.flaggedWord = static_cast<uint16_t>(0x4000);
                     rec.lookup =
                         static_cast<uint8_t>(kDebrisShatterLastStep - 1);
-                    debrisQueue_.push_back(rec);
-                    level_.tiles[static_cast<size_t>(rec.tileIndex)] =
+                    gameplayReplay_.fixture().debrisQueue_.push_back(rec);
+                    gameplayReplay_.fixture().level_.tiles[static_cast<size_t>(rec.tileIndex)] =
                         rec.lookup;
                     updateFlashes();
-                    if (collapseQueue_.empty()) continue;
+                    if (gameplayReplay_.fixture().collapseQueue_.empty()) continue;
                     usedLevel = static_cast<int>(level);
                     usedX = x;
                     usedY = y;
-                    observedRest = collapseQueue_.front().restTicks;
+                    observedRest = gameplayReplay_.fixture().collapseQueue_.front().restTicks;
                     break;
                 }
             }
@@ -17304,14 +17069,14 @@ public:
             resetLevel(0);
             ui_.setMenu(false);
             levelFlow_.setIntroActiveForFixture(false);
-            playerDead_ = player2Dead_ = true;
-            monsters_.clear();
-            debrisQueue_.clear();
-            collapseQueue_.clear();
-            randomSeed_ = 0x12345678u;
-            if (collapseSuite) nextCollapseFragmentWord_ = 0x4000;
-            logicTick_ = static_cast<uint32_t>(std::stoul(fields.at("tick")));
-            require(level_.width == std::stoi(fields.at("width")), "map width mismatch");
+            gameplayReplay_.fixture().playerDead_ = gameplayReplay_.fixture().player2Dead_ = true;
+            gameplayReplay_.fixture().monsters_.clear();
+            gameplayReplay_.fixture().debrisQueue_.clear();
+            gameplayReplay_.fixture().collapseQueue_.clear();
+            gameplayReplay_.fixture().randomSeed_ = 0x12345678u;
+            if (collapseSuite) gameplayReplay_.fixture().nextCollapseFragmentWord_ = 0x4000;
+            gameplayReplay_.fixture().logicTick_ = static_cast<uint32_t>(std::stoul(fields.at("tick")));
+            require(gameplayReplay_.fixture().level_.width == std::stoi(fields.at("width")), "map width mismatch");
             auto visitCells = [&](const std::string& value, bool apply) {
                 for (const auto& cell : split(value, ',')) {
                     const auto parts = split(cell, ':');
@@ -17319,12 +17084,12 @@ public:
                     const size_t index = std::stoul(parts[0]);
                     const auto glyph = static_cast<uint8_t>(std::stoul(parts[1], nullptr, 16));
                     const auto word = static_cast<uint16_t>(std::stoul(parts[2], nullptr, 16));
-                    require(index < level_.tiles.size() && index < level_.wordLayer.size(), "map cell outside level");
+                    require(index < gameplayReplay_.fixture().level_.tiles.size() && index < gameplayReplay_.fixture().level_.wordLayer.size(), "map cell outside level");
                     if (apply) {
-                        level_.tiles[index] = glyph;
-                        level_.wordLayer[index] = word;
+                        gameplayReplay_.fixture().level_.tiles[index] = glyph;
+                        gameplayReplay_.fixture().level_.wordLayer[index] = word;
                     } else {
-                        require(level_.tiles[index] == glyph && level_.wordLayer[index] == word,
+                        require(gameplayReplay_.fixture().level_.tiles[index] == glyph && gameplayReplay_.fixture().level_.wordLayer[index] == word,
                                 "object/word write mismatch at " + std::to_string(index));
                     }
                 }
@@ -17332,12 +17097,12 @@ public:
             visitCells(fields.at("cells"), true);
             if (fields.at("debris") != "none") {
                 for (const auto& raw : split(fields.at("debris"), ',')) {
-                    debrisQueue_.push_back(decodeDebris(raw));
+                    gameplayReplay_.fixture().debrisQueue_.push_back(decodeDebris(raw));
                 }
             }
             if (restSuite) {
                 require(std::stoul(fields.at("live_slot_before")) ==
-                            kDebrisRecordIndexBase + debrisQueue_.size(), "input live bound mismatch");
+                            kDebrisRecordIndexBase + gameplayReplay_.fixture().debrisQueue_.size(), "input live bound mismatch");
             }
             if (fields.at("collapse") != "none") {
                 for (const auto& hex : split(fields.at("collapse"), ',')) {
@@ -17355,7 +17120,7 @@ public:
                     record.flags = raw[12];
                     record.restTicks = raw[13];
                     record.affectedBytes = raw[14];
-                    collapseQueue_.push_back(record);
+                    gameplayReplay_.fixture().collapseQueue_.push_back(record);
                 }
             }
             if (collapseSuite) updateCollapseRecords();
@@ -17363,7 +17128,7 @@ public:
             const auto expected = fields.at("after_debris") == "none"
                                       ? std::vector<std::string>{}
                                       : split(fields.at("after_debris"), ',');
-            require(debrisQueue_.size() == expected.size(), "debris count mismatch");
+            require(gameplayReplay_.fixture().debrisQueue_.size() == expected.size(), "debris count mismatch");
             if (restSuite) {
                 require(std::stoul(fields.at("live_slot_after")) ==
                             kDebrisRecordIndexBase + expected.size(), "output live bound mismatch");
@@ -17371,15 +17136,15 @@ public:
                     const auto tail = decodeDebris(fields.at("inactive_tail"));
                     require(expected.empty() && tail.restTicks == 100 &&
                                 tail.flaggedWord == 0xc001 &&
-                                level_.wordLayer.at(static_cast<size_t>(tail.tileIndex)) == 0x4001 &&
-                                level_.tiles.at(static_cast<size_t>(tail.tileIndex)) == tail.lookup,
+                                gameplayReplay_.fixture().level_.wordLayer.at(static_cast<size_t>(tail.tileIndex)) == 0x4001 &&
+                                gameplayReplay_.fixture().level_.tiles.at(static_cast<size_t>(tail.tileIndex)) == tail.lookup,
                             "inactive tail was mistaken for a live record");
                     staleTailExcluded = true;
                 }
             }
             for (size_t i = 0; i < expected.size(); ++i) {
                 const auto reference = decodeDebris(expected[i]);
-                const auto& actual = debrisQueue_[i];
+                const auto& actual = gameplayReplay_.fixture().debrisQueue_[i];
                 require(actual.tileIndex == reference.tileIndex && actual.flaggedWord == reference.flaggedWord &&
                             actual.velocityX == reference.velocityX && actual.velocityY == reference.velocityY &&
                             actual.subX == reference.subX && actual.subY == reference.subY &&
@@ -17391,10 +17156,10 @@ public:
             const auto collapseExpected = fields.at("after_collapse") == "none"
                                               ? std::vector<std::string>{}
                                               : split(fields.at("after_collapse"), ',');
-            require(collapseQueue_.size() == collapseExpected.size(), "collapse count mismatch");
+            require(gameplayReplay_.fixture().collapseQueue_.size() == collapseExpected.size(), "collapse count mismatch");
             for (size_t i = 0; i < collapseExpected.size(); ++i) {
                 const auto raw = bytes(collapseExpected[i], 15);
-                const auto& actual = collapseQueue_[i];
+                const auto& actual = gameplayReplay_.fixture().collapseQueue_[i];
                 require(actual.startOffsetBytes == le16(raw, 0) && actual.endOffsetBytes == le16(raw, 2) &&
                             actual.flaggedWord == le16(raw, 4) && actual.forwardPhase == raw[6] &&
                             actual.reversePhase == raw[7] && actual.affectedBytes == raw[14],
@@ -17408,10 +17173,10 @@ public:
                 ++comparedCollapseRecords;
             }
             visitCells(fields.at("after_cells"), false);
-            require(randomSeed_ == le32(bytes(fields.at("rng"), 4), 0), "RNG mismatch");
+            require(gameplayReplay_.fixture().randomSeed_ == le32(bytes(fields.at("rng"), 4), 0), "RNG mismatch");
             if (collapseSuite) {
-                require(destroyed_ == std::stoi(fields.at("destroyed")), "fracture progress mismatch");
-                require(nextCollapseFragmentWord_ == std::stoul(fields.at("next_word"), nullptr, 16),
+                require(gameplayReplay_.fixture().destroyed_ == std::stoi(fields.at("destroyed")), "fracture progress mismatch");
+                require(gameplayReplay_.fixture().nextCollapseFragmentWord_ == std::stoul(fields.at("next_word"), nullptr, 16),
                         "fragment word counter mismatch");
             }
             lastHash = inspectRenderedFrame("debris-impact-" + name).hash;
@@ -17458,8 +17223,8 @@ public:
         // attempts the step (delta == 0 would just rest).
         int siteX = -1;
         int siteY = -1;
-        for (int y = 2; y + 1 < level_.height && siteY < 0; ++y) {
-            for (int x = 1; x + 1 < level_.width; ++x) {
+        for (int y = 2; y + 1 < gameplayReplay_.fixture().level_.height && siteY < 0; ++y) {
+            for (int x = 1; x + 1 < gameplayReplay_.fixture().level_.width; ++x) {
                 if (tileAt(x, y) != 0 || tileAt(x, y + 1) == 0) continue;
                 siteX = x;
                 siteY = y;
@@ -17468,39 +17233,39 @@ public:
         }
         if (siteX < 0) throw std::runtime_error("no bounce site found");
 
-        debrisQueue_.clear();
+        gameplayReplay_.fixture().debrisQueue_.clear();
         DebrisRecord rec;
-        rec.tileIndex = siteY * level_.width + siteX;
+        rec.tileIndex = siteY * gameplayReplay_.fixture().level_.width + siteX;
         rec.flaggedWord = static_cast<uint16_t>(0x4000 | kDamagedWordBit);
         rec.lookup = 0x60;   // <= 0x66 so the landing-shatter gate cannot fire
         rec.velocityY = 60;
         rec.subY = 100;      // 100 + 60 = 160 > 127 -> one row of downward step
         rec.velocityX = 0;
-        debrisQueue_.push_back(rec);
-        level_.tiles[static_cast<size_t>(rec.tileIndex)] = rec.lookup;
-        logicTick_ = 0;
+        gameplayReplay_.fixture().debrisQueue_.push_back(rec);
+        gameplayReplay_.fixture().level_.tiles[static_cast<size_t>(rec.tileIndex)] = rec.lookup;
+        gameplayReplay_.fixture().logicTick_ = 0;
 
         // Give the struck fragment the expected kick so the now-implemented
         // blend leaves it unchanged. This probe isolates RNG order; the
         // original collision fixture checks a nontrivial bounce-and-blend.
         DebrisRecord target;
-        target.tileIndex = rec.tileIndex + level_.width;
+        target.tileIndex = rec.tileIndex + gameplayReplay_.fixture().level_.width;
         target.flaggedWord = 0xc002;
         target.velocityX = static_cast<int8_t>(expectedKick);
         target.lookup = 0x60;
-        debrisQueue_.push_back(target);
-        level_.tiles[static_cast<size_t>(target.tileIndex)] = target.lookup;
-        level_.wordLayer[static_cast<size_t>(target.tileIndex)] = target.flaggedWord;
+        gameplayReplay_.fixture().debrisQueue_.push_back(target);
+        gameplayReplay_.fixture().level_.tiles[static_cast<size_t>(target.tileIndex)] = target.lookup;
+        gameplayReplay_.fixture().level_.wordLayer[static_cast<size_t>(target.tileIndex)] = target.flaggedWord;
 
         clearSoundLatch();
-        randomSeed_ = kSeed;
-        const size_t before = debrisQueue_.size();
+        gameplayReplay_.fixture().randomSeed_ = kSeed;
+        const size_t before = gameplayReplay_.fixture().debrisQueue_.size();
         updateDebrisRecords();
-        if (debrisQueue_.size() != before) {
+        if (gameplayReplay_.fixture().debrisQueue_.size() != before) {
             throw std::runtime_error("bounce probe fragment did not survive the tick");
         }
-        const DebrisRecord& after = debrisQueue_.front();
-        if (randomSeed_ != s2) {
+        const DebrisRecord& after = gameplayReplay_.fixture().debrisQueue_.front();
+        if (gameplayReplay_.fixture().randomSeed_ != s2) {
             throw std::runtime_error(
                 "bounce drew a different number of RNG values than the two at 4C2B/4C4A");
         }
@@ -17529,8 +17294,8 @@ public:
         // unchanged, a larger one keeps accelerating past 0x7C.
         int airborneX = -1;
         int airborneY = -1;
-        for (int y = 2; y + 2 < level_.height && airborneY < 0; ++y) {
-            for (int x = 1; x + 1 < level_.width; ++x) {
+        for (int y = 2; y + 2 < gameplayReplay_.fixture().level_.height && airborneY < 0; ++y) {
+            for (int x = 1; x + 1 < gameplayReplay_.fixture().level_.width; ++x) {
                 if (tileAt(x, y) != 0 || tileAt(x, y + 1) != 0) continue;
                 airborneX = x;
                 airborneY = y;
@@ -17540,30 +17305,30 @@ public:
         if (airborneX < 0) {
             throw std::runtime_error("no airborne site for the gravity gate probe");
         }
-        debrisQueue_.clear();
+        gameplayReplay_.fixture().debrisQueue_.clear();
         DebrisRecord fall;
-        fall.tileIndex = airborneY * level_.width + airborneX;
+        fall.tileIndex = airborneY * gameplayReplay_.fixture().level_.width + airborneX;
         fall.flaggedWord = static_cast<uint16_t>(0x4000 | kDamagedWordBit);
         fall.lookup = 0x60;
         fall.velocityY = static_cast<int8_t>(kDebrisGravityCompare - 3);  // 0x78
         fall.subY = 0;
-        debrisQueue_.push_back(fall);
-        level_.tiles[static_cast<size_t>(fall.tileIndex)] = fall.lookup;
+        gameplayReplay_.fixture().debrisQueue_.push_back(fall);
+        gameplayReplay_.fixture().level_.tiles[static_cast<size_t>(fall.tileIndex)] = fall.lookup;
         updateDebrisRecords();
-        if (debrisQueue_.empty()) {
+        if (gameplayReplay_.fixture().debrisQueue_.empty()) {
             throw std::runtime_error("gravity gate probe fragment vanished");
         }
-        const int belowGate = debrisQueue_.front().velocityY;
+        const int belowGate = gameplayReplay_.fixture().debrisQueue_.front().velocityY;
         const int expectedTerminal = kDebrisGravityCompare + kDebrisGravityStep - 3;
         if (belowGate != expectedTerminal) {
             throw std::runtime_error(
                 "below the gravity gate vy became " + std::to_string(belowGate) +
                 ", expected " + std::to_string(expectedTerminal));
         }
-        debrisQueue_.front().subY = 0;
+        gameplayReplay_.fixture().debrisQueue_.front().subY = 0;
         updateDebrisRecords();
-        if (debrisQueue_.empty() ||
-            debrisQueue_.front().velocityY != belowGate) {
+        if (gameplayReplay_.fixture().debrisQueue_.empty() ||
+            gameplayReplay_.fixture().debrisQueue_.front().velocityY != belowGate) {
             throw std::runtime_error("gravity kept accelerating past the gate");
         }
         std::cout << "debris_bounce_rng=ok"
@@ -17588,8 +17353,8 @@ public:
         int py = -1;
         for (size_t level = 0; level < levels_.size() && probeLevel < 0; ++level) {
             resetLevel(static_cast<int>(level));
-            for (int y = 2; y + 1 < level_.height && probeLevel < 0; ++y) {
-                for (int x = 0; x + 1 < level_.width; ++x) {
+            for (int y = 2; y + 1 < gameplayReplay_.fixture().level_.height && probeLevel < 0; ++y) {
+                for (int x = 0; x + 1 < gameplayReplay_.fixture().level_.width; ++x) {
                     uint8_t tile = static_cast<uint8_t>(tileAt(x, y));
                     if (!isBombObjectTile(tile)) continue;
                     uint16_t above = wordAt(x, y - 1);
@@ -17624,17 +17389,17 @@ public:
         resetLevel(probeLevel);
         clearRunScores();
         clearSoundLatch();
-        monsters_.clear();
-        bonusDrops_.clear();
-        bombs_.clear();
-        flashes_.clear();
-        explosionEffects_.clear();
-        debrisQueue_.clear();
-        collapseQueue_.clear();
-        playerDead_ = true;
-        player2Dead_ = true;
+        gameplayReplay_.fixture().monsters_.clear();
+        gameplayReplay_.fixture().bonusDrops_.clear();
+        gameplayReplay_.fixture().bombs_.clear();
+        gameplayReplay_.fixture().flashes_.clear();
+        gameplayReplay_.fixture().explosionEffects_.clear();
+        gameplayReplay_.fixture().debrisQueue_.clear();
+        gameplayReplay_.fixture().collapseQueue_.clear();
+        gameplayReplay_.fixture().playerDead_ = true;
+        gameplayReplay_.fixture().player2Dead_ = true;
 
-        const int width = level_.width;
+        const int width = gameplayReplay_.fixture().level_.width;
         const int seedIndex = (py - 1) * width + px;
         const uint8_t seedGlyph = static_cast<uint8_t>(tileAt(px, py - 1));
         const uint16_t seedWord = wordAt(px, py - 1);
@@ -17652,11 +17417,11 @@ public:
         queueTileDamage(px, py - 1, 0, 0, true);
 
         // Seed payload (1000:370E debris branch).
-        if (debrisQueue_.size() != 1) {
+        if (gameplayReplay_.fixture().debrisQueue_.size() != 1) {
             throw std::runtime_error("debris seed did not create one record");
         }
         {
-            const DebrisRecord& rec = debrisQueue_.front();
+            const DebrisRecord& rec = gameplayReplay_.fixture().debrisQueue_.front();
             if (rec.tileIndex != seedIndex || rec.flaggedWord != flaggedSeedWord ||
                 rec.velocityX != 0 || rec.velocityY != 0 || rec.subX != 0 ||
                 rec.subY != 0 || rec.restTicks != 0 || rec.aux != 0 ||
@@ -17676,8 +17441,8 @@ public:
         // samples restTicks as 1 (reset at 4AB3 before the 4CF8 increment).
         for (int n = 1; n <= 8; ++n) {
             updateFlashes();
-            const DebrisRecord& rec = debrisQueue_.front();
-            if (debrisQueue_.size() != 1 || rec.tileIndex != seedIndex ||
+            const DebrisRecord& rec = gameplayReplay_.fixture().debrisQueue_.front();
+            if (gameplayReplay_.fixture().debrisQueue_.size() != 1 || rec.tileIndex != seedIndex ||
                 rec.velocityY != 4 * n || rec.subY != 2 * n * (n - 1) ||
                 rec.velocityX != 0 || rec.subX != 0 || rec.restTicks != 1) {
                 throw std::runtime_error("debris hover ladder mismatch");
@@ -17687,27 +17452,27 @@ public:
         // Tick 9: ysub 112 + 32 overflows -> one row step, stamping the
         // fragment into BOTH planes at the destination and clearing the
         // vacated cell, then re-seeding the cell above the vacated one.
-        const size_t collapseBefore = collapseQueue_.size();
+        const size_t collapseBefore = gameplayReplay_.fixture().collapseQueue_.size();
         updateFlashes();
         const int destIndex = seedIndex + width;
         {
-            const DebrisRecord& rec = debrisQueue_.front();
+            const DebrisRecord& rec = gameplayReplay_.fixture().debrisQueue_.front();
             if (rec.tileIndex != destIndex || rec.velocityY != 36 ||
                 rec.subY != 16 || rec.restTicks != 0) {
                 throw std::runtime_error("debris row step mismatch");
             }
-            if (level_.tiles[static_cast<size_t>(destIndex)] != seedGlyph ||
-                level_.tiles[static_cast<size_t>(seedIndex)] != 0 ||
-                level_.wordLayer[static_cast<size_t>(destIndex)] !=
+            if (gameplayReplay_.fixture().level_.tiles[static_cast<size_t>(destIndex)] != seedGlyph ||
+                gameplayReplay_.fixture().level_.tiles[static_cast<size_t>(seedIndex)] != 0 ||
+                gameplayReplay_.fixture().level_.wordLayer[static_cast<size_t>(destIndex)] !=
                     flaggedSeedWord ||
-                level_.wordLayer[static_cast<size_t>(seedIndex)] != 0) {
+                gameplayReplay_.fixture().level_.wordLayer[static_cast<size_t>(seedIndex)] != 0) {
                 throw std::runtime_error("debris row step did not stamp both planes");
             }
             if (cascadeIsDebris) {
-                if (debrisQueue_.size() != 2 || (rec.aux & 0x80) == 0) {
+                if (gameplayReplay_.fixture().debrisQueue_.size() != 2 || (rec.aux & 0x80) == 0) {
                     throw std::runtime_error("debris cascade did not seed a record");
                 }
-                const DebrisRecord& child = debrisQueue_.back();
+                const DebrisRecord& child = gameplayReplay_.fixture().debrisQueue_.back();
                 // The live loop bound is re-read each iteration, so the
                 // cascade child is updated in its own birth tick.
                 if (child.tileIndex != seedIndex - width ||
@@ -17717,11 +17482,11 @@ public:
                     throw std::runtime_error("debris cascade child mismatch");
                 }
             } else if (expectCascade) {
-                if (collapseQueue_.size() != collapseBefore + 1 ||
+                if (gameplayReplay_.fixture().collapseQueue_.size() != collapseBefore + 1 ||
                     (rec.aux & 0x80) == 0) {
                     throw std::runtime_error("debris cascade did not seed collapse");
                 }
-            } else if (debrisQueue_.size() != 1 || (rec.aux & 0x80) != 0) {
+            } else if (gameplayReplay_.fixture().debrisQueue_.size() != 1 || (rec.aux & 0x80) != 0) {
                 throw std::runtime_error("unexpected debris cascade");
             }
         }
@@ -17732,16 +17497,16 @@ public:
         int retiredWithGlyph = 0;
         int maxRest = 0;
         for (int t = 0; t < kFreeRun; ++t) {
-            const auto before = debrisQueue_;
+            const auto before = gameplayReplay_.fixture().debrisQueue_;
             updateFlashes();
-            for (const DebrisRecord& live : debrisQueue_) {
+            for (const DebrisRecord& live : gameplayReplay_.fixture().debrisQueue_) {
                 maxRest = std::max(maxRest, static_cast<int>(live.restTicks));
             }
             for (const DebrisRecord& previous : before) {
                 if (previous.restTicks == kDebrisRestRetireTicks - 1 &&
-                    level_.wordLayer.at(static_cast<size_t>(previous.tileIndex)) ==
+                    gameplayReplay_.fixture().level_.wordLayer.at(static_cast<size_t>(previous.tileIndex)) ==
                         (previous.flaggedWord & ~kDamagedWordBit) &&
-                    level_.tiles.at(static_cast<size_t>(previous.tileIndex)) != 0) {
+                    gameplayReplay_.fixture().level_.tiles.at(static_cast<size_t>(previous.tileIndex)) != 0) {
                     ++retiredWithGlyph;
                 }
             }
@@ -17751,7 +17516,7 @@ public:
                 "live debris remained at its retirement threshold (" +
                 std::to_string(maxRest) + ")");
         }
-        if (!debrisQueue_.empty() || retiredWithGlyph == 0) {
+        if (!gameplayReplay_.fixture().debrisQueue_.empty() || retiredWithGlyph == 0) {
             throw std::runtime_error(
                 "debris did not retire with its glyph intact after " +
                 std::to_string(kFreeRun) + " ticks");
@@ -17768,7 +17533,7 @@ public:
                   << " free_run=" << kFreeRun
                   << " max_rest=" << maxRest
                   << " retired_with_glyph=" << retiredWithGlyph
-                  << " survivors=" << debrisQueue_.size()
+                  << " survivors=" << gameplayReplay_.fixture().debrisQueue_.size()
                   << " flag_cleared=1 retires_on_rest=1\n";
     }
 
@@ -17780,8 +17545,8 @@ public:
 
         for (size_t level = 0; level < levels_.size(); ++level) {
             resetLevel(static_cast<int>(level));
-            for (int y = 0; y < level_.height; ++y) {
-                for (int x = 0; x < level_.width; ++x) {
+            for (int y = 0; y < gameplayReplay_.fixture().level_.height; ++y) {
+                for (int x = 0; x < gameplayReplay_.fixture().level_.width; ++x) {
                     uint8_t tile = static_cast<uint8_t>(tileAt(x, y));
                     float px = static_cast<float>(x * kTileSize + 1);
                     float py = static_cast<float>(y * kTileSize + 1);
@@ -17795,7 +17560,7 @@ public:
                         if (solidPixel(px, py)) {
                             throw std::runtime_error("portal tile blocks movement");
                         }
-                    } else if (countsForDestructionProgress(tile, level_.objectiveTile) &&
+                    } else if (countsForDestructionProgress(tile, gameplayReplay_.fixture().level_.objectiveTile) &&
                                !isPassableObjectCell(x, y)) {
                         sawSolid = true;
                         if (!solidPixel(px, py)) {
@@ -17811,8 +17576,8 @@ public:
         }
 
         resetLevel(0);
-        std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
-        std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+        std::fill(gameplayReplay_.fixture().level_.tiles.begin(), gameplayReplay_.fixture().level_.tiles.end(), uint8_t{0});
+        std::fill(gameplayReplay_.fixture().level_.wordLayer.begin(), gameplayReplay_.fixture().level_.wordLayer.end(), uint16_t{0});
         constexpr int kPassableX = 6;
         constexpr int kPassableY = 6;
         tileRef(kPassableX, kPassableY) = 0x45;
@@ -17843,7 +17608,7 @@ public:
         }
 
         ui_.setMenu(false);
-        playerCount_ = 1;
+        gameplayReplay_.fixture().playerCount_ = 1;
         AutoplayRouteResult route = autoplayLevel1BombRoute();
         if (route.bombTileX != 24 || route.bombTileY != 21) {
             throw std::runtime_error("level 1 passable-object route remains blocked");
@@ -17860,13 +17625,13 @@ public:
         load();
         for (size_t level = 0; level < levels_.size(); ++level) {
             resetLevel(static_cast<int>(level));
-            for (const TileTriggerRule& rule : level_.tileTriggers) {
+            for (const TileTriggerRule& rule : gameplayReplay_.fixture().level_.tileTriggers) {
                 int expectedRewrites = 0;
-                size_t count = std::min(level_.tiles.size(), level_.wordLayer.size());
+                size_t count = std::min(gameplayReplay_.fixture().level_.tiles.size(), gameplayReplay_.fixture().level_.wordLayer.size());
                 for (size_t i = 0; i < count; ++i) {
-                    uint16_t word = static_cast<uint16_t>(level_.wordLayer[i] & 0x7fffu);
+                    uint16_t word = static_cast<uint16_t>(gameplayReplay_.fixture().level_.wordLayer[i] & 0x7fffu);
                     if (word < rule.wordRangeFirst || word > rule.wordRangeLast) continue;
-                    uint8_t tile = level_.tiles[i];
+                    uint8_t tile = gameplayReplay_.fixture().level_.tiles[i];
                     for (size_t slot = 0; slot < rule.from.size(); ++slot) {
                         uint8_t from = rule.from[slot];
                         if (from == 0 || tile != from) continue;
@@ -17877,11 +17642,11 @@ public:
                 }
                 if (expectedRewrites == 0) continue;
 
-                int beforeDestroyed = destroyed_;
+                int beforeDestroyed = gameplayReplay_.fixture().destroyed_;
                 if (!applyTileTrigger(rule.triggerKey)) {
                     throw std::runtime_error("trigger accounting test did not rewrite tiles");
                 }
-                if (destroyed_ != beforeDestroyed) {
+                if (gameplayReplay_.fixture().destroyed_ != beforeDestroyed) {
                     throw std::runtime_error("trigger rewrite changed physical destruction progress");
                 }
                 std::cout << "trigger_accounting=ok level=" << (level + 1)
@@ -17896,18 +17661,18 @@ public:
         load();
         for (size_t level = 0; level < levels_.size(); ++level) {
             resetLevel(static_cast<int>(level));
-            for (int y = 1; y < level_.height; ++y) {
-                for (int x = 0; x < level_.width; ++x) {
+            for (int y = 1; y < gameplayReplay_.fixture().level_.height; ++y) {
+                for (int x = 0; x < gameplayReplay_.fixture().level_.width; ++x) {
                     if (tileAt(x, y) != 0x72) continue;
                     uint16_t key = static_cast<uint16_t>(wordAt(x, y) & 0x7fffu);
                     if (key == 0) continue;
 
-                    player_.x = static_cast<float>(x * kTileSize);
-                    player_.y = static_cast<float>(y * kTileSize - 8);
+                    gameplayReplay_.fixture().player_.x = static_cast<float>(x * kTileSize);
+                    gameplayReplay_.fixture().player_.y = static_cast<float>(y * kTileSize - 8);
                     int portalCooldown = 0;
                     int triggerCooldown = 0;
                     clearSoundLatch();
-                    updatePortalsAndTriggers(player_, portalCooldown, triggerCooldown,
+                    updatePortalsAndTriggers(gameplayReplay_.fixture().player_, portalCooldown, triggerCooldown,
                                              false);
 
                     if (triggerCooldown != 30 || !sound_.latch().active ||
@@ -17942,13 +17707,13 @@ public:
         load();
         for (size_t level = 0; level < levels_.size(); ++level) {
             resetLevel(static_cast<int>(level));
-            for (int y = 1; y < level_.height; ++y) {
-                for (int x = 0; x < level_.width; ++x) {
+            for (int y = 1; y < gameplayReplay_.fixture().level_.height; ++y) {
+                for (int x = 0; x < gameplayReplay_.fixture().level_.width; ++x) {
                     if (tileAt(x, y) != 0x45) continue;
                     uint16_t key = static_cast<uint16_t>(wordAt(x, y) & 0x7fffu);
                     if (key == 0) continue;
                     const LevelPortal* destination = nullptr;
-                    for (const LevelPortal& portal : level_.portals) {
+                    for (const LevelPortal& portal : gameplayReplay_.fixture().level_.portals) {
                         if (portal.key == key) {
                             destination = &portal;
                             break;
@@ -17956,17 +17721,17 @@ public:
                     }
                     if (!destination) continue;
 
-                    player_.x = static_cast<float>(x * kTileSize);
-                    player_.y = static_cast<float>(y * kTileSize - 8);
+                    gameplayReplay_.fixture().player_.x = static_cast<float>(x * kTileSize);
+                    gameplayReplay_.fixture().player_.y = static_cast<float>(y * kTileSize - 8);
                     int portalCooldown = 0;
                     int triggerCooldown = 0;
                     clearSoundLatch();
-                    updatePortalsAndTriggers(player_, portalCooldown, triggerCooldown,
+                    updatePortalsAndTriggers(gameplayReplay_.fixture().player_, portalCooldown, triggerCooldown,
                                              true);
 
                     if (portalCooldown != 30 ||
-                        player_.x != static_cast<float>(destination->x) ||
-                        player_.y != static_cast<float>(destination->y) ||
+                        gameplayReplay_.fixture().player_.x != static_cast<float>(destination->x) ||
+                        gameplayReplay_.fixture().player_.y != static_cast<float>(destination->y) ||
                         !sound_.latch().active ||
                         sound_.latch().latchedOffset != kPortalTeleportSoundCursor ||
                         sound_.latch().currentSelector != kPortalTeleportSoundPriority) {
@@ -17999,13 +17764,13 @@ public:
         load();
         for (size_t level = 0; level < levels_.size(); ++level) {
             resetLevel(static_cast<int>(level));
-            for (int y = 1; y < level_.height; ++y) {
-                for (int x = 0; x < level_.width; ++x) {
+            for (int y = 1; y < gameplayReplay_.fixture().level_.height; ++y) {
+                for (int x = 0; x < gameplayReplay_.fixture().level_.width; ++x) {
                     if (tileAt(x, y) != 0x45) continue;
                     uint16_t key = static_cast<uint16_t>(wordAt(x, y) & 0x7fffu);
                     if (key == 0) continue;
                     const LevelPortal* destination = nullptr;
-                    for (const LevelPortal& portal : level_.portals) {
+                    for (const LevelPortal& portal : gameplayReplay_.fixture().level_.portals) {
                         if (portal.key == key) {
                             destination = &portal;
                             break;
@@ -18013,24 +17778,24 @@ public:
                     }
                     if (!destination) continue;
 
-                    playerCount_ = 2;
-                    portalCooldown_ = 0;
-                    portalCooldown2_ = 0;
-                    triggerCooldown_ = 0;
-                    triggerCooldown2_ = 0;
-                    player_.x = static_cast<float>(x * kTileSize);
-                    player_.y = static_cast<float>(y * kTileSize - 8);
-                    player2_ = player_;
+                    gameplayReplay_.fixture().playerCount_ = 2;
+                    gameplayReplay_.fixture().portalCooldown_ = 0;
+                    gameplayReplay_.fixture().portalCooldown2_ = 0;
+                    gameplayReplay_.fixture().triggerCooldown_ = 0;
+                    gameplayReplay_.fixture().triggerCooldown2_ = 0;
+                    gameplayReplay_.fixture().player_.x = static_cast<float>(x * kTileSize);
+                    gameplayReplay_.fixture().player_.y = static_cast<float>(y * kTileSize - 8);
+                    gameplayReplay_.fixture().player2_ = gameplayReplay_.fixture().player_;
 
-                    updatePortalsAndTriggers(player_, portalCooldown_, triggerCooldown_,
+                    updatePortalsAndTriggers(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().portalCooldown_, gameplayReplay_.fixture().triggerCooldown_,
                                              true);
-                    updatePortalsAndTriggers(player2_, portalCooldown2_, triggerCooldown2_,
+                    updatePortalsAndTriggers(gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().portalCooldown2_, gameplayReplay_.fixture().triggerCooldown2_,
                                              true);
-                    if (player_.x != static_cast<float>(destination->x) ||
-                        player_.y != static_cast<float>(destination->y) ||
-                        player2_.x != static_cast<float>(destination->x) ||
-                        player2_.y != static_cast<float>(destination->y) ||
-                        portalCooldown_ == 0 || portalCooldown2_ == 0) {
+                    if (gameplayReplay_.fixture().player_.x != static_cast<float>(destination->x) ||
+                        gameplayReplay_.fixture().player_.y != static_cast<float>(destination->y) ||
+                        gameplayReplay_.fixture().player2_.x != static_cast<float>(destination->x) ||
+                        gameplayReplay_.fixture().player2_.y != static_cast<float>(destination->y) ||
+                        gameplayReplay_.fixture().portalCooldown_ == 0 || gameplayReplay_.fixture().portalCooldown2_ == 0) {
                         throw std::runtime_error("portal cooldown blocked player 2");
                     }
                     std::cout << "portal_cooldowns=ok level=" << (level + 1)
@@ -18045,11 +17810,11 @@ public:
     void debugCollisionPushout() {
         load();
         resetLevel(0);
-        std::fill(level_.tiles.begin(), level_.tiles.end(), uint8_t{0});
-        std::fill(level_.wordLayer.begin(), level_.wordLayer.end(), uint16_t{0});
+        std::fill(gameplayReplay_.fixture().level_.tiles.begin(), gameplayReplay_.fixture().level_.tiles.end(), uint8_t{0});
+        std::fill(gameplayReplay_.fixture().level_.wordLayer.begin(), gameplayReplay_.fixture().level_.wordLayer.end(), uint16_t{0});
 
         auto setTile = [&](int x, int y, uint8_t tile) {
-            if (x < 0 || y < 0 || x >= level_.width || y >= level_.height) {
+            if (x < 0 || y < 0 || x >= gameplayReplay_.fixture().level_.width || y >= gameplayReplay_.fixture().level_.height) {
                 throw std::runtime_error("synthetic collision tile outside level bounds");
             }
             tileRef(x, y) = tile;
@@ -18076,49 +17841,49 @@ public:
         constexpr int kSolidY = 5;
         setTile(kSolidX, kSolidY, kSolidDebugTile);
 
-        player_ = Player{};
-        player_.x = static_cast<float>(kSolidX * kTileSize - 14);
-        player_.y = static_cast<float>(kSolidY * kTileSize);
-        player_.vx8 = 0x0200;
-        player_.fracX = 64;
-        if (collides(player_.x, player_.y)) {
+        gameplayReplay_.fixture().player_ = Player{};
+        gameplayReplay_.fixture().player_.x = static_cast<float>(kSolidX * kTileSize - 14);
+        gameplayReplay_.fixture().player_.y = static_cast<float>(kSolidY * kTileSize);
+        gameplayReplay_.fixture().player_.vx8 = 0x0200;
+        gameplayReplay_.fixture().player_.fracX = 64;
+        if (collides(gameplayReplay_.fixture().player_.x, gameplayReplay_.fixture().player_.y)) {
             throw std::runtime_error("player horizontal fixture starts blocked");
         }
-        updatePlayer(player_, false, false, false, false, 0);
-        if (collides(player_.x, player_.y) ||
-            player_.x != static_cast<float>(kSolidX * kTileSize - 16) ||
-            player_.vx8 != -0x0100 || player_.fracX != 64) {
+        updatePlayer(gameplayReplay_.fixture().player_, false, false, false, false, 0);
+        if (collides(gameplayReplay_.fixture().player_.x, gameplayReplay_.fixture().player_.y) ||
+            gameplayReplay_.fixture().player_.x != static_cast<float>(kSolidX * kTileSize - 16) ||
+            gameplayReplay_.fixture().player_.vx8 != -0x0100 || gameplayReplay_.fixture().player_.fracX != 64) {
             throw std::runtime_error("player horizontal reflection did not retain fractional carry");
         }
 
         constexpr int kFloorX = 10;
         constexpr int kFloorY = 8;
         setTile(kFloorX, kFloorY, kSolidDebugTile);
-        player_ = Player{};
-        player_.x = static_cast<float>(kFloorX * kTileSize);
-        player_.y = static_cast<float>(kFloorY * kTileSize - 13);
-        player_.vy8 = 0x0200;
-        player_.fracY = 77;
-        updatePlayer(player_, false, false, false, false, 0);
-        if (collides(player_.x, player_.y) ||
-            player_.y != static_cast<float>(kFloorY * kTileSize - 16) ||
-            !player_.grounded || player_.vy8 != 0 || player_.fracY != 77) {
+        gameplayReplay_.fixture().player_ = Player{};
+        gameplayReplay_.fixture().player_.x = static_cast<float>(kFloorX * kTileSize);
+        gameplayReplay_.fixture().player_.y = static_cast<float>(kFloorY * kTileSize - 13);
+        gameplayReplay_.fixture().player_.vy8 = 0x0200;
+        gameplayReplay_.fixture().player_.fracY = 77;
+        updatePlayer(gameplayReplay_.fixture().player_, false, false, false, false, 0);
+        if (collides(gameplayReplay_.fixture().player_.x, gameplayReplay_.fixture().player_.y) ||
+            gameplayReplay_.fixture().player_.y != static_cast<float>(kFloorY * kTileSize - 16) ||
+            !gameplayReplay_.fixture().player_.grounded || gameplayReplay_.fixture().player_.vy8 != 0 || gameplayReplay_.fixture().player_.fracY != 77) {
             throw std::runtime_error("player ground snap did not retain fractional carry");
         }
 
-        playerDead_ = true;
-        player2Dead_ = true;
-        monsters_.clear();
-        monsters_.push_back(makeMonster(kSolidX * kTileSize - 14,
+        gameplayReplay_.fixture().playerDead_ = true;
+        gameplayReplay_.fixture().player2Dead_ = true;
+        gameplayReplay_.fixture().monsters_.clear();
+        gameplayReplay_.fixture().monsters_.push_back(makeMonster(kSolidX * kTileSize - 14,
                                         kSolidY * kTileSize, 0x0200, 0));
-        if (monsterCollides(monsters_.front().x, monsters_.front().y)) {
+        if (monsterCollides(gameplayReplay_.fixture().monsters_.front().x, gameplayReplay_.fixture().monsters_.front().y)) {
             throw std::runtime_error("monster horizontal fixture starts blocked");
         }
         // Pre-load a non-zero 8.8 fraction so "the contact does not clear the
         // fraction" is FALSIFIABLE. vx8 = 0x0200 has a zero low byte, so the
         // integrator cannot change fracX; the only thing that could is a
         // restored `monster.fracX = 0` on collision.
-        monsters_.front().fracX = 0x40;
+        gameplayReplay_.fixture().monsters_.front().fracX = 0x40;
         updateMonsters(0.0f);
         // The original has no pushout search and no revert-to-oldX, so the old
         // invariant "x is restored to its pre-collision value" is retired: it
@@ -18132,10 +17897,10 @@ public:
         // clearing it drops the level-1 lockstep from 2370/2370 to 1355/2370),
         // and gravity comes from the shared tail because the bottom flag is
         // clear here.
-        if (monsters_.empty()) {
+        if (gameplayReplay_.fixture().monsters_.empty()) {
             throw std::runtime_error("monster horizontal reflection lost the monster");
         }
-        const ActiveMonster monsterH = monsters_.front();
+        const ActiveMonster monsterH = gameplayReplay_.fixture().monsters_.front();
         if (monsterH.vx8 != -0x0100 ||
             monsterH.x != kSolidX * kTileSize - 16 ||
             monsterH.fracX != 0x40 || monsterH.vy8 != 0x0040 ||
@@ -18145,13 +17910,13 @@ public:
         // The halved velocity is what carries the actor clear on the following
         // tick; nothing teleports it out of the wall.
         updateMonsters(0.0f);
-        const int monsterHStep2X = monsters_.front().x;
+        const int monsterHStep2X = gameplayReplay_.fixture().monsters_.front().x;
         if (monsterHStep2X != monsterH.x - 1 ||
-            monsters_.front().vx8 != -0x0100) {
+            gameplayReplay_.fixture().monsters_.front().vx8 != -0x0100) {
             throw std::runtime_error("monster horizontal separation changed");
         }
 
-        monsters_.clear();
+        gameplayReplay_.fixture().monsters_.clear();
         // Ceiling case. This is the ONLY sub-case that can observe the order of
         // the recovered resolution: the original (image 1000:716e, before the
         // shared tail at 1000:738f) applies gravity FIRST and only then clamps
@@ -18165,7 +17930,7 @@ public:
         constexpr int kCeilR = kCeilPy >> 3;
         setTile(kCeilC, kCeilR - 1, kSolidDebugTile);
         setTile(kCeilC + 1, kCeilR - 1, kSolidDebugTile);
-        monsters_.push_back(makeMonster(kCeilPx, kCeilPy, 0, -0x0100));
+        gameplayReplay_.fixture().monsters_.push_back(makeMonster(kCeilPx, kCeilPy, 0, -0x0100));
         {
             const ActiveMonster::EdgeFlags ceilEdges = scanActorEdges(kCeilPx, kCeilPy);
             if (!ceilEdges.top || ceilEdges.bottom || ceilEdges.left || ceilEdges.right) {
@@ -18173,16 +17938,16 @@ public:
             }
         }
         updateMonsters(0.0f);
-        const int monsterCeilVy = monsters_.front().vy8;
-        const int monsterCeilY = monsters_.front().y;
+        const int monsterCeilVy = gameplayReplay_.fixture().monsters_.front().vy8;
+        const int monsterCeilY = gameplayReplay_.fixture().monsters_.front().y;
         if (monsterCeilVy != 1 || monsterCeilY != kCeilPy ||
-            monsters_.front().fracY != 1) {
+            gameplayReplay_.fixture().monsters_.front().fracY != 1) {
             throw std::runtime_error("monster ceiling clamp order changed");
         }
         setTile(kCeilC, kCeilR - 1, 0);
         setTile(kCeilC + 1, kCeilR - 1, 0);
 
-        monsters_.clear();
+        gameplayReplay_.fixture().monsters_.clear();
         // Start 3 px below a tile boundary so the recovered ground snap
         // `y &= 0xfff8` is observable rather than a no-op. The old
         // `monsterCollides` precheck cannot be used here -- its 14x16 pixel box
@@ -18190,53 +17955,53 @@ public:
         // in the recovered model's own terms: the bottom flag must be set and
         // y must not already be tile-aligned.
         constexpr int kFloorApproachY = kFloorY * kTileSize - 16 + 3;
-        monsters_.push_back(makeMonster(kFloorX * kTileSize, kFloorApproachY, 0, 0x0200));
+        gameplayReplay_.fixture().monsters_.push_back(makeMonster(kFloorX * kTileSize, kFloorApproachY, 0, 0x0200));
         if (!scanActorEdges(kFloorX * kTileSize, kFloorApproachY).bottom ||
             (kFloorApproachY & 7) == 0) {
             throw std::runtime_error("monster vertical fixture does not exercise the snap");
         }
         updateMonsters(0.0f);
-        const int monsterVY = monsters_.empty() ? -1 : monsters_.front().y;
-        if (monsters_.empty() ||
-            monsterCollides(monsters_.front().x, monsters_.front().y) ||
+        const int monsterVY = gameplayReplay_.fixture().monsters_.empty() ? -1 : gameplayReplay_.fixture().monsters_.front().y;
+        if (gameplayReplay_.fixture().monsters_.empty() ||
+            monsterCollides(gameplayReplay_.fixture().monsters_.front().x, gameplayReplay_.fixture().monsters_.front().y) ||
             monsterVY != kFloorY * kTileSize - 16 ||
             (monsterVY & 7) != 0 ||
-            monsters_.front().vy8 != 0) {
+            gameplayReplay_.fixture().monsters_.front().vy8 != 0) {
             throw std::runtime_error("monster vertical ground snap changed");
         }
 
-        monsters_.clear();
+        gameplayReplay_.fixture().monsters_.clear();
         ActiveMonster behavior4X = makeMonster(kSolidX * kTileSize - 14,
                                                kSolidY * kTileSize, 0x0400, 0);
         behavior4X.behavior = 4;
         behavior4X.ai0 = 7;
         behavior4X.fracX = 0x40;
-        logicTick_ = 1;
-        monsters_.push_back(behavior4X);
+        gameplayReplay_.fixture().logicTick_ = 1;
+        gameplayReplay_.fixture().monsters_.push_back(behavior4X);
         updateMonsters(0.0f);
-        if (monsters_.empty() ||
-            monsterCollides(monsters_.front().x, monsters_.front().y) ||
-            monsters_.front().x != kSolidX * kTileSize - 17 ||
-            monsters_.front().vx8 != -0x0200 ||
-            monsters_.front().fracX != 0x40 ||
-            monsters_.front().motionTimer != 6) {
+        if (gameplayReplay_.fixture().monsters_.empty() ||
+            monsterCollides(gameplayReplay_.fixture().monsters_.front().x, gameplayReplay_.fixture().monsters_.front().y) ||
+            gameplayReplay_.fixture().monsters_.front().x != kSolidX * kTileSize - 17 ||
+            gameplayReplay_.fixture().monsters_.front().vx8 != -0x0200 ||
+            gameplayReplay_.fixture().monsters_.front().fracX != 0x40 ||
+            gameplayReplay_.fixture().monsters_.front().motionTimer != 6) {
             throw std::runtime_error("behavior-4 horizontal half reversal failed");
         }
 
-        monsters_.clear();
+        gameplayReplay_.fixture().monsters_.clear();
         ActiveMonster behavior4Y = makeMonster(kFloorX * kTileSize,
                                                kFloorY * kTileSize - 16, 0, 0x0400);
         behavior4Y.behavior = 4;
         behavior4Y.ai0 = 7;
         behavior4Y.fracY = 0x80;
-        monsters_.push_back(behavior4Y);
+        gameplayReplay_.fixture().monsters_.push_back(behavior4Y);
         updateMonsters(0.0f);
-        if (monsters_.empty() ||
-            monsterCollides(monsters_.front().x, monsters_.front().y) ||
-            monsters_.front().y != kFloorY * kTileSize - 18 ||
-            monsters_.front().vy8 != -0x0200 ||
-            monsters_.front().fracY != 0x80 ||
-            monsters_.front().motionTimer != 6) {
+        if (gameplayReplay_.fixture().monsters_.empty() ||
+            monsterCollides(gameplayReplay_.fixture().monsters_.front().x, gameplayReplay_.fixture().monsters_.front().y) ||
+            gameplayReplay_.fixture().monsters_.front().y != kFloorY * kTileSize - 18 ||
+            gameplayReplay_.fixture().monsters_.front().vy8 != -0x0200 ||
+            gameplayReplay_.fixture().monsters_.front().fracY != 0x80 ||
+            gameplayReplay_.fixture().monsters_.front().motionTimer != 6) {
             throw std::runtime_error("behavior-4 vertical half reversal failed");
         }
 
@@ -18378,11 +18143,11 @@ public:
         std::string held;
         for (const Case& c : cases) {
             prepareAutoplayerMonsterFixtureLevel();
-            monsters_.clear();
-            bombs_.clear();
-            bonusDrops_.clear();
-            player_.x = 0.0f;
-            player_.y = 0.0f;
+            gameplayReplay_.fixture().monsters_.clear();
+            gameplayReplay_.fixture().bombs_.clear();
+            gameplayReplay_.fixture().bonusDrops_.clear();
+            gameplayReplay_.fixture().player_.x = 0.0f;
+            gameplayReplay_.fixture().player_.y = 0.0f;
 
             ActiveMonster monster;
             monster.x = 88;
@@ -18398,8 +18163,8 @@ public:
             monster.vx8 = c.vx8;
             monster.animFrame = static_cast<uint8_t>(c.animFrame);
             monster.animCursor = static_cast<uint8_t>(c.animFrame);
-            monsters_.push_back(monster);
-            if (gameRenderer_.monsterSpriteIndex(monsters_.front()) != c.animFrame) {
+            gameplayReplay_.fixture().monsters_.push_back(monster);
+            if (gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) != c.animFrame) {
                 throw std::runtime_error(
                     "impact sprite pre-impact frame mismatch");
             }
@@ -18407,12 +18172,12 @@ public:
             FrameControls idle;
             // A sprite-selection unit probe, not a bomb-timing simulation.
             // Continuous original flame fixtures cover the actual fatal path.
-            ++logicTick_;
-            damageMonster(monsters_.front(), 1, true);
-            if (monsters_.size() != 1 || monsters_.front().behavior != 2) {
+            ++gameplayReplay_.fixture().logicTick_;
+            damageMonster(gameplayReplay_.fixture().monsters_.front(), 1, true);
+            if (gameplayReplay_.fixture().monsters_.size() != 1 || gameplayReplay_.fixture().monsters_.front().behavior != 2) {
                 throw std::runtime_error("impact sprite unit stimulus did not kill");
             }
-            const int corpse = gameRenderer_.monsterSpriteIndex(monsters_.front());
+            const int corpse = gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front());
             if (corpse != c.expectedSprite) {
                 throw std::runtime_error(
                     "corpse sprite " + std::to_string(corpse) + " for walker " +
@@ -18421,15 +18186,15 @@ public:
             }
             // This synthetic route is not phase-aligned to the polling fixture.
             // The atomic lifecycle fixture establishes the odd-frame countdown.
-            const int expectedTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
+            const int expectedTicks = kMonsterDeathVisibleTicks + static_cast<int>(gameplayReplay_.fixture().logicTick_ & 1u);
             int ticks = 1;
-            while (!monsters_.empty() && monsters_.front().behavior == 2) {
-                if (gameRenderer_.monsterSpriteIndex(monsters_.front()) != c.expectedSprite) {
+            while (!gameplayReplay_.fixture().monsters_.empty() && gameplayReplay_.fixture().monsters_.front().behavior == 2) {
+                if (gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) != c.expectedSprite) {
                     throw std::runtime_error(
                         "corpse sprite changed during playback");
                 }
                 updateWithControls(idle, 1.0f / 60.0f);
-                if (monsters_.empty()) break;
+                if (gameplayReplay_.fixture().monsters_.empty()) break;
                 ++ticks;
             }
             if (ticks != expectedTicks) {
@@ -18460,24 +18225,24 @@ public:
         prepareAutoplayerMonsterFixtureLevel();
         bool running = true;
 
-        player_.x = 80.0f;
-        player_.y = 24.0f;
-        player_.grounded = true;
-        bombInventory_.counts[3] = 1;
-        bombInventory_.selected = BombType::Super;
-        int superBefore = bombInventory_.counts[3];
+        gameplayReplay_.fixture().player_.x = 80.0f;
+        gameplayReplay_.fixture().player_.y = 24.0f;
+        gameplayReplay_.fixture().player_.grounded = true;
+        gameplayReplay_.fixture().bombInventory_.counts[3] = 1;
+        gameplayReplay_.fixture().bombInventory_.selected = BombType::Super;
+        int superBefore = gameplayReplay_.fixture().bombInventory_.counts[3];
         pushKeyDown(SDLK_n);
         processEvents(running);
         updateWithControls({}, 0);
-        if (bombs_.empty() || bombs_.back().type != BombType::Super ||
-            bombInventory_.counts[3] != superBefore - 1) {
+        if (gameplayReplay_.fixture().bombs_.empty() || gameplayReplay_.fixture().bombs_.back().type != BombType::Super ||
+            gameplayReplay_.fixture().bombInventory_.counts[3] != superBefore - 1) {
             throw std::runtime_error("live monster bomb fixture did not place a super bomb");
         }
 
-        Bomb placed = bombs_.back();
-        bombs_.back().timer = 1;
-        player_.x = 0.0f;
-        player_.y = 0.0f;
+        Bomb placed = gameplayReplay_.fixture().bombs_.back();
+        gameplayReplay_.fixture().bombs_.back().timer = 1;
+        gameplayReplay_.fixture().player_.x = 0.0f;
+        gameplayReplay_.fixture().player_.y = 0.0f;
 
         ActiveMonster monster;
         monster.x = placed.x * kTileSize + kTileSize;
@@ -18493,41 +18258,41 @@ public:
         monster.vx8 = 0x0100;
         monster.animFrame = 44;
         monster.animCursor = 44;
-        monsters_.push_back(monster);
+        gameplayReplay_.fixture().monsters_.push_back(monster);
 
         // Ten particle draws and two shake draws precede the isolated reward.
-        randomSeed_ = 0xa102224fu;
-        uint32_t scoreBefore = score_;
-        if (gameRenderer_.monsterSpriteIndex(monsters_.front()) != 44) {
+        gameplayReplay_.fixture().randomSeed_ = 0xa102224fu;
+        uint32_t scoreBefore = gameplayReplay_.fixture().score_;
+        if (gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) != 44) {
             throw std::runtime_error(
                 "live monster bomb pre-impact sprite mismatch");
         }
         FrameInspection armedFrame = inspectRenderedFrame("monster-bomb-kill-live-armed");
         FrameControls idle;
         int flameUpdates = 0;
-        for (int tick = 0; tick < 16 && !monsters_.empty() && monsters_.front().behavior != 2; ++tick) {
+        for (int tick = 0; tick < 16 && !gameplayReplay_.fixture().monsters_.empty() && gameplayReplay_.fixture().monsters_.front().behavior != 2; ++tick) {
             updateWithControls(idle, 1.0f / 60.0f);
             ++flameUpdates;
             inspectRenderedFrame("monster-bomb-kill-live-flame");
         }
-        const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
-        const int corpseSprite = !monsters_.empty() && monsters_.front().vx8 > 0
+        const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(gameplayReplay_.fixture().logicTick_ & 1u);
+        const int corpseSprite = !gameplayReplay_.fixture().monsters_.empty() && gameplayReplay_.fixture().monsters_.front().vx8 > 0
             ? kMonsterCorpseSpriteRight : kMonsterCorpseSpriteLeft;
-        if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
-            monsters_.front().kind != 0x0c || monsters_.front().hp != 0 ||
-            monsters_.front().stateTimer != corpseTicks ||
-            gameRenderer_.monsterSpriteIndex(monsters_.front()) != corpseSprite ||
-            !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+        if (!gameplayReplay_.fixture().bombs_.empty() || gameplayReplay_.fixture().monsters_.empty() || gameplayReplay_.fixture().monsters_.front().behavior != 2 ||
+            gameplayReplay_.fixture().monsters_.front().kind != 0x0c || gameplayReplay_.fixture().monsters_.front().hp != 0 ||
+            gameplayReplay_.fixture().monsters_.front().stateTimer != corpseTicks ||
+            gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) != corpseSprite ||
+            !gameplayReplay_.fixture().bonusDrops_.empty() || gameplayReplay_.fixture().randomSeed_ != 0x90e25b93u) {
             std::ostringstream oss;
             oss << "live bomb did not kill overlapping moving monster"
-                << " bombs=" << bombs_.size()
-                << " monsters=" << monsters_.size();
-            if (!monsters_.empty()) {
-                oss << " behavior=" << static_cast<int>(monsters_.front().behavior)
-                    << " hp=" << monsters_.front().hp
-                    << " xy=" << monsters_.front().x << ',' << monsters_.front().y;
+                << " bombs=" << gameplayReplay_.fixture().bombs_.size()
+                << " monsters=" << gameplayReplay_.fixture().monsters_.size();
+            if (!gameplayReplay_.fixture().monsters_.empty()) {
+                oss << " behavior=" << static_cast<int>(gameplayReplay_.fixture().monsters_.front().behavior)
+                    << " hp=" << gameplayReplay_.fixture().monsters_.front().hp
+                    << " xy=" << gameplayReplay_.fixture().monsters_.front().x << ',' << gameplayReplay_.fixture().monsters_.front().y;
             }
-            oss << " drops=" << bonusDrops_.size()
+            oss << " drops=" << gameplayReplay_.fixture().bonusDrops_.size()
                 << " bomb_tile=" << placed.x << ',' << placed.y;
             throw std::runtime_error(oss.str());
         }
@@ -18539,32 +18304,32 @@ public:
         FrameInspection midpointFrame;
         for (int frame = 1; frame < corpseTicks; ++frame) {
             updateWithControls(idle, 1.0f / 60.0f);
-            if (monsters_.size() != 1 ||
-                monsters_.front().stateTimer !=
+            if (gameplayReplay_.fixture().monsters_.size() != 1 ||
+                gameplayReplay_.fixture().monsters_.front().stateTimer !=
                     corpseTicks - frame ||
-                gameRenderer_.monsterSpriteIndex(monsters_.front()) !=
+                gameRenderer_.monsterSpriteIndex(gameplayReplay_.fixture().monsters_.front()) !=
                     corpseSprite ||
-                !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
+                !gameplayReplay_.fixture().bonusDrops_.empty() || gameplayReplay_.fixture().randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "live monster bomb corpse playback mismatch");
             }
-            if (monsters_.front().stateTimer ==
+            if (gameplayReplay_.fixture().monsters_.front().stateTimer ==
                 corpseTicks / 2) {
                 midpointFrame = inspectRenderedFrame(
                     "monster-bomb-kill-live-corpse-midpoint");
             }
         }
-        if (monsters_.front().stateTimer != 1 || midpointFrame.hash == 0) {
+        if (gameplayReplay_.fixture().monsters_.front().stateTimer != 1 || midpointFrame.hash == 0) {
             throw std::runtime_error("live monster bomb corpse timing mismatch");
         }
         FrameInspection lastCorpseFrame =
             inspectRenderedFrame("monster-bomb-kill-live-corpse-last");
 
         updateWithControls(idle, 1.0f / 60.0f);
-        if (!monsters_.empty() || bonusDrops_.size() != 1 ||
-            bonusDrops_.front().type != BonusType::Present ||
-            bonusSpriteIndex(bonusDrops_.front().type) != 61 ||
-            randomSeed_ != 0x0a08326du || score_ != scoreBefore) {
+        if (!gameplayReplay_.fixture().monsters_.empty() || gameplayReplay_.fixture().bonusDrops_.size() != 1 ||
+            gameplayReplay_.fixture().bonusDrops_.front().type != BonusType::Present ||
+            bonusSpriteIndex(gameplayReplay_.fixture().bonusDrops_.front().type) != 61 ||
+            gameplayReplay_.fixture().randomSeed_ != 0x0a08326du || gameplayReplay_.fixture().score_ != scoreBefore) {
             throw std::runtime_error(
                 "live monster bomb delayed reward mismatch");
         }
@@ -18575,16 +18340,16 @@ public:
                 "live monster bomb reward frame did not change");
         }
 
-        BonusDrop drop = bonusDrops_.front();
-        player_.x = drop.x;
-        player_.y = drop.y;
-        player_.vx = 0.0f;
-        player_.vy = 0.0f;
-        player_.grounded = true;
+        BonusDrop drop = gameplayReplay_.fixture().bonusDrops_.front();
+        gameplayReplay_.fixture().player_.x = drop.x;
+        gameplayReplay_.fixture().player_.y = drop.y;
+        gameplayReplay_.fixture().player_.vx = 0.0f;
+        gameplayReplay_.fixture().player_.vy = 0.0f;
+        gameplayReplay_.fixture().player_.grounded = true;
         clearSoundLatch();
         sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
         updateWithControls(idle, 1.0f / 60.0f);
-        if (!bonusDrops_.empty() || score_ - scoreBefore != 2000 ||
+        if (!gameplayReplay_.fixture().bonusDrops_.empty() || gameplayReplay_.fixture().score_ - scoreBefore != 2000 ||
             sound_.latch().active ||
             sound_.lastPumped().offset != kBonusPickupSoundCursor ||
             sound_.lastPumped().selector != kBonusPickupSoundPriority) {
@@ -18605,7 +18370,7 @@ public:
                   << " corpse_ticks=" << corpseTicks
                   << " delayed_reward=1 reward_sprite=61"
                   << " killed=1 removed=1 reward=1 collected=1"
-                  << " score_delta=" << (score_ - scoreBefore)
+                  << " score_delta=" << (gameplayReplay_.fixture().score_ - scoreBefore)
                   << " frames_inspected=" << (6 + flameUpdates) << " frame_inspection=1"
                   << " original_runtime_claim=0"
                   << " reward_motion_claim=0 visual_claim=0\n";
@@ -18615,22 +18380,22 @@ public:
         load();
         initSdl();
         prepareAutoplayerMonsterFixtureLevel();
-        level_.requiredBonus = 1;
-        level_.startingObjectiveTiles = 1;
-        tileRef(0, 0) = level_.objectiveTile;
-        player_.x = 80.0f;
-        player_.y = 24.0f;
-        player_.grounded = true;
-        energy_ = 100;
-        lives_ = 3;
-        damageCooldown_ = 0;
+        gameplayReplay_.fixture().level_.requiredBonus = 1;
+        gameplayReplay_.fixture().level_.startingObjectiveTiles = 1;
+        tileRef(0, 0) = gameplayReplay_.fixture().level_.objectiveTile;
+        gameplayReplay_.fixture().player_.x = 80.0f;
+        gameplayReplay_.fixture().player_.y = 24.0f;
+        gameplayReplay_.fixture().player_.grounded = true;
+        gameplayReplay_.fixture().energy_ = 100;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
 
         // A stationary behavior-3 actor supplies the original contact-counter
         // path (1000:63F0 -> frame-loop 7F68). The former arbitrary collapse
         // rectangle was not backed by any original damage callsite.
         ActiveMonster hazard;
-        hazard.x = static_cast<int>(player_.x);
-        hazard.y = static_cast<int>(player_.y);
+        hazard.x = static_cast<int>(gameplayReplay_.fixture().player_.x);
+        hazard.y = static_cast<int>(gameplayReplay_.fixture().player_.y);
         hazard.kind = 1;
         hazard.behavior = 3;
         hazard.ai0 = 0;
@@ -18638,67 +18403,67 @@ public:
         hazard.hp = 3;
         refreshMonsterAnimationProfile(hazard);
         initializeMonsterMotion(hazard);
-        monsters_.push_back(hazard);
+        gameplayReplay_.fixture().monsters_.push_back(hazard);
 
         FrameInspection startFrame = inspectRenderedFrame("player-damage-live-start");
         FrameControls idle;
         updateWithControls(idle, 1.0f / 60.0f);
-        int firstEnergy = energy_;
-        if (firstEnergy >= 100 || playerDead_) {
+        int firstEnergy = gameplayReplay_.fixture().energy_;
+        if (firstEnergy >= 100 || gameplayReplay_.fixture().playerDead_) {
             std::ostringstream oss;
             oss << "live hazard did not drain player HP"
-                << " energy=" << energy_
-                << " pending=" << static_cast<int>(pendingDamage_)
-                << " monsters=" << monsters_.size()
-                << " p_xy=" << static_cast<int>(player_.x) << ','
-                << static_cast<int>(player_.y);
+                << " energy=" << gameplayReplay_.fixture().energy_
+                << " pending=" << static_cast<int>(gameplayReplay_.fixture().pendingDamage_)
+                << " monsters=" << gameplayReplay_.fixture().monsters_.size()
+                << " p_xy=" << static_cast<int>(gameplayReplay_.fixture().player_.x) << ','
+                << static_cast<int>(gameplayReplay_.fixture().player_.y);
             throw std::runtime_error(oss.str());
         }
 
         int frames = 1;
-        while (!playerDead_ && frames < 140) {
+        while (!gameplayReplay_.fixture().playerDead_ && frames < 140) {
             updateWithControls(idle, 1.0f / 60.0f);
             ++frames;
         }
         int framesToState2 = frames;
-        if (!playerDead_ || !pendingLifeLoss_ || lives_ != 3 || energy_ != 100) {
+        if (!gameplayReplay_.fixture().playerDead_ || !gameplayReplay_.fixture().pendingLifeLoss_ || gameplayReplay_.fixture().lives_ != 3 || gameplayReplay_.fixture().energy_ != 100) {
             std::ostringstream oss;
             oss << "live repeated hazard did not enter delayed state-2"
                 << " frames=" << frames
-                << " energy=" << energy_
-                << " lives=" << lives_
-                << " pending_life_loss=" << (pendingLifeLoss_ ? 1 : 0)
-                << " dead=" << (playerDead_ ? 1 : 0)
-                << " death_timer=" << deathStateTimer_
-                << " monsters=" << monsters_.size();
+                << " energy=" << gameplayReplay_.fixture().energy_
+                << " lives=" << gameplayReplay_.fixture().lives_
+                << " pending_life_loss=" << (gameplayReplay_.fixture().pendingLifeLoss_ ? 1 : 0)
+                << " dead=" << (gameplayReplay_.fixture().playerDead_ ? 1 : 0)
+                << " death_timer=" << gameplayReplay_.fixture().deathStateTimer_
+                << " monsters=" << gameplayReplay_.fixture().monsters_.size();
             throw std::runtime_error(oss.str());
         }
-        while (pendingLifeLoss_ && frames < 260) {
+        while (gameplayReplay_.fixture().pendingLifeLoss_ && frames < 260) {
             updateWithControls(idle, 1.0f / 60.0f);
             ++frames;
         }
-        if (lives_ != 2 || energy_ != 100) {
+        if (gameplayReplay_.fixture().lives_ != 2 || gameplayReplay_.fixture().energy_ != 100) {
             std::ostringstream oss;
             oss << "live repeated hazard did not consume a life"
                 << " frames=" << frames
-                << " energy=" << energy_
-                << " lives=" << lives_
-                << " dead=" << (playerDead_ ? 1 : 0)
-                << " death_timer=" << deathStateTimer_
-                << " monsters=" << monsters_.size();
+                << " energy=" << gameplayReplay_.fixture().energy_
+                << " lives=" << gameplayReplay_.fixture().lives_
+                << " dead=" << (gameplayReplay_.fixture().playerDead_ ? 1 : 0)
+                << " death_timer=" << gameplayReplay_.fixture().deathStateTimer_
+                << " monsters=" << gameplayReplay_.fixture().monsters_.size();
             throw std::runtime_error(oss.str());
         }
-        tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                         damageCooldown_, 1);
-        if (playerDead_ || energy_ != 100 || lives_ != 2 ||
-            damageCooldown_ != 0) {
+        tryReenterPlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                         gameplayReplay_.fixture().damageCooldown_, 1);
+        if (gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().energy_ != 100 || gameplayReplay_.fixture().lives_ != 2 ||
+            gameplayReplay_.fixture().damageCooldown_ != 0) {
             std::ostringstream oss;
             oss << "live repeated hazard did not reenter after state-2 countdown"
-                << " energy=" << energy_
-                << " lives=" << lives_
-                << " dead=" << (playerDead_ ? 1 : 0)
-                << " cooldown=" << damageCooldown_
-                << " death_timer=" << deathStateTimer_;
+                << " energy=" << gameplayReplay_.fixture().energy_
+                << " lives=" << gameplayReplay_.fixture().lives_
+                << " dead=" << (gameplayReplay_.fixture().playerDead_ ? 1 : 0)
+                << " cooldown=" << gameplayReplay_.fixture().damageCooldown_
+                << " death_timer=" << gameplayReplay_.fixture().deathStateTimer_;
             throw std::runtime_error(oss.str());
         }
         FrameInspection deathFrame = inspectRenderedFrame("player-damage-live-death");
@@ -18709,8 +18474,8 @@ public:
         std::cout << "player_damage_death_live=ok"
                   << " first_energy=" << firstEnergy
                   << " frames_to_life_loss=" << frames
-                  << " lives=" << lives_
-                  << " reentry_state=" << (playerDead_ ? 0 : 1)
+                  << " lives=" << gameplayReplay_.fixture().lives_
+                  << " reentry_state=" << (gameplayReplay_.fixture().playerDead_ ? 0 : 1)
                   << " frame_inspection=1"
                   << " frames_to_state2=" << framesToState2
                   << " delayed_life_loss=1 damage_source=monster_contact\n";
@@ -18720,17 +18485,17 @@ public:
         load();
         initSdl();
         prepareAutoplayerMonsterFixtureLevel();
-        playerCount_ = 2;
-        playerDead_ = false;
-        player2Dead_ = false;
-        player_.x = 40.0f;
-        player_.y = 24.0f;
-        player2_.x = 80.0f;
-        player2_.y = 24.0f;
-        energy_ = 100;
-        energy2_ = 100;
-        lives_ = 3;
-        lives2_ = 3;
+        gameplayReplay_.fixture().playerCount_ = 2;
+        gameplayReplay_.fixture().playerDead_ = false;
+        gameplayReplay_.fixture().player2Dead_ = false;
+        gameplayReplay_.fixture().player_.x = 40.0f;
+        gameplayReplay_.fixture().player_.y = 24.0f;
+        gameplayReplay_.fixture().player2_.x = 80.0f;
+        gameplayReplay_.fixture().player2_.y = 24.0f;
+        gameplayReplay_.fixture().energy_ = 100;
+        gameplayReplay_.fixture().energy2_ = 100;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().lives2_ = 3;
 
         auto makeContactMonster = [&](int x, int y) {
             ActiveMonster monster;
@@ -18748,26 +18513,26 @@ public:
             return monster;
         };
 
-        monsters_.push_back(makeContactMonster(40, 24));
-        monsters_.push_back(makeContactMonster(48, 24));
-        monsters_.push_back(makeContactMonster(80, 24));
+        gameplayReplay_.fixture().monsters_.push_back(makeContactMonster(40, 24));
+        gameplayReplay_.fixture().monsters_.push_back(makeContactMonster(48, 24));
+        gameplayReplay_.fixture().monsters_.push_back(makeContactMonster(80, 24));
 
         FrameInspection startFrame = inspectRenderedFrame("monster-contact-damage-start");
         updateMonsters(0.0f);
-        if (pendingDamage_ != 2 || pendingDamage2_ != 1 ||
-            energy_ != 100 || energy2_ != 100) {
+        if (gameplayReplay_.fixture().pendingDamage_ != 2 || gameplayReplay_.fixture().pendingDamage2_ != 1 ||
+            gameplayReplay_.fixture().energy_ != 100 || gameplayReplay_.fixture().energy2_ != 100) {
             std::ostringstream oss;
             oss << "monster contact did not accumulate expected pending damage"
-                << " p1_pending=" << static_cast<int>(pendingDamage_)
-                << " p2_pending=" << static_cast<int>(pendingDamage2_)
-                << " p1_energy=" << energy_
-                << " p2_energy=" << energy2_;
+                << " p1_pending=" << static_cast<int>(gameplayReplay_.fixture().pendingDamage_)
+                << " p2_pending=" << static_cast<int>(gameplayReplay_.fixture().pendingDamage2_)
+                << " p1_energy=" << gameplayReplay_.fixture().energy_
+                << " p2_energy=" << gameplayReplay_.fixture().energy2_;
             throw std::runtime_error(oss.str());
         }
 
         drainPlayerDamageCounters();
-        if (pendingDamage_ != 0 || pendingDamage2_ != 0 ||
-            energy_ != 98 || energy2_ != 99 || playerDead_ || player2Dead_ ||
+        if (gameplayReplay_.fixture().pendingDamage_ != 0 || gameplayReplay_.fixture().pendingDamage2_ != 0 ||
+            gameplayReplay_.fixture().energy_ != 98 || gameplayReplay_.fixture().energy2_ != 99 || gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().player2Dead_ ||
             !sound_.latch().active || sound_.latch().latchedOffset != kPlayerDamageSoundCursor ||
             sound_.latch().currentSelector != kPlayerDamageSoundPriority) {
             throw std::runtime_error("monster contact drain cadence changed");
@@ -18782,34 +18547,34 @@ public:
         // so this asserts the recovered value without claiming uniqueness.
         // Every "must not" case here fired under the old AABB, which scored
         // 30 false positives / 0 false negatives across the capture window.
-        monsters_.clear();
-        pendingDamage_ = 0;
-        pendingDamage2_ = 0;
-        player_.x = 100.0f;
-        player_.y = 24.0f;
-        player2_.x = 300.0f;
-        player2_.y = 24.0f;
-        monsters_.push_back(makeContactMonster(109, 24));  // dx = -9  -> hit
-        monsters_.push_back(makeContactMonster(91, 24));   // dx = +9  -> hit
+        gameplayReplay_.fixture().monsters_.clear();
+        gameplayReplay_.fixture().pendingDamage_ = 0;
+        gameplayReplay_.fixture().pendingDamage2_ = 0;
+        gameplayReplay_.fixture().player_.x = 100.0f;
+        gameplayReplay_.fixture().player_.y = 24.0f;
+        gameplayReplay_.fixture().player2_.x = 300.0f;
+        gameplayReplay_.fixture().player2_.y = 24.0f;
+        gameplayReplay_.fixture().monsters_.push_back(makeContactMonster(109, 24));  // dx = -9  -> hit
+        gameplayReplay_.fixture().monsters_.push_back(makeContactMonster(91, 24));   // dx = +9  -> hit
         updateMonsters(0.0f);
-        const int nearEdgeHits = pendingDamage_;
-        monsters_.clear();
-        pendingDamage_ = 0;
-        monsters_.push_back(makeContactMonster(110, 24));  // dx = -10 -> miss
-        monsters_.push_back(makeContactMonster(90, 24));   // dx = +10 -> miss (old AABB hit)
-        monsters_.push_back(makeContactMonster(100, 34));  // dy = -10 -> miss (old AABB hit)
-        monsters_.push_back(makeContactMonster(100, 15));  // dy = +9  -> hit
+        const int nearEdgeHits = gameplayReplay_.fixture().pendingDamage_;
+        gameplayReplay_.fixture().monsters_.clear();
+        gameplayReplay_.fixture().pendingDamage_ = 0;
+        gameplayReplay_.fixture().monsters_.push_back(makeContactMonster(110, 24));  // dx = -10 -> miss
+        gameplayReplay_.fixture().monsters_.push_back(makeContactMonster(90, 24));   // dx = +10 -> miss (old AABB hit)
+        gameplayReplay_.fixture().monsters_.push_back(makeContactMonster(100, 34));  // dy = -10 -> miss (old AABB hit)
+        gameplayReplay_.fixture().monsters_.push_back(makeContactMonster(100, 15));  // dy = +9  -> hit
         updateMonsters(0.0f);
-        const int farEdgeHits = pendingDamage_;
+        const int farEdgeHits = gameplayReplay_.fixture().pendingDamage_;
         if (nearEdgeHits != 2 || farEdgeHits != 1) {
             std::ostringstream oss;
             oss << "monster contact box edges changed near=" << nearEdgeHits
                 << " far=" << farEdgeHits;
             throw std::runtime_error(oss.str());
         }
-        pendingDamage_ = 0;
-        pendingDamage2_ = 0;
-        monsters_.clear();
+        gameplayReplay_.fixture().pendingDamage_ = 0;
+        gameplayReplay_.fixture().pendingDamage2_ = 0;
+        gameplayReplay_.fixture().monsters_.clear();
         pumpSoundLatch();
         if (sound_.latch().active || sound_.lastPumped().offset != kPlayerDamageSoundCursor ||
             sound_.lastPumped().selector != kPlayerDamageSoundPriority) {
@@ -18820,25 +18585,25 @@ public:
             throw std::runtime_error("monster contact hurt frame did not change");
         }
 
-        playerDead_ = true;
-        energy_ = 100;
-        pendingDamage_ = 3;
+        gameplayReplay_.fixture().playerDead_ = true;
+        gameplayReplay_.fixture().energy_ = 100;
+        gameplayReplay_.fixture().pendingDamage_ = 3;
         clearSoundLatch();
         drainPlayerDamageCounters();
-        if (energy_ != 100 || !playerDead_ || pendingDamage_ != 0 ||
+        if (gameplayReplay_.fixture().energy_ != 100 || !gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().pendingDamage_ != 0 ||
             !sound_.latch().active || sound_.latch().latchedOffset != kPlayerDamageSoundCursor) {
             throw std::runtime_error("state-2 contact damage did not preserve energy with hurt cue");
         }
 
-        playerDead_ = false;
-        energy_ = 1;
-        lives_ = 3;
-        pendingDamage_ = 2;
-        deathStateTimer_ = 0;
+        gameplayReplay_.fixture().playerDead_ = false;
+        gameplayReplay_.fixture().energy_ = 1;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().pendingDamage_ = 2;
+        gameplayReplay_.fixture().deathStateTimer_ = 0;
         clearSoundLatch();
         drainPlayerDamageCounters();
-        if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ || energy_ != 100 ||
-            deathStateTimer_ != kDeathStateTicks || pendingDamage_ != 0 ||
+        if (!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().lives_ != 3 || !gameplayReplay_.fixture().pendingLifeLoss_ || gameplayReplay_.fixture().energy_ != 100 ||
+            gameplayReplay_.fixture().deathStateTimer_ != kDeathStateTicks || gameplayReplay_.fixture().pendingDamage_ != 0 ||
             !sound_.latch().active || sound_.latch().latchedOffset != kPlayerDeathSoundCursor ||
             sound_.latch().currentSelector != kPlayerDeathSoundPriority) {
             throw std::runtime_error("fatal monster contact did not dispatch death");
@@ -18861,38 +18626,38 @@ public:
         initSdl();
         resetLevel(0);
         ui_.setMenu(false);
-        playerCount_ = 1;
+        gameplayReplay_.fixture().playerCount_ = 1;
         constexpr int kObjectX = 17;
         constexpr int kObjectY = 22;
         if (tileAt(kObjectX, kObjectY) != 0x60 || wordAt(kObjectX, kObjectY) != 1 ||
             !isPassableObjectCell(kObjectX, kObjectY)) {
             throw std::runtime_error("level 1 object fixture is not the expected passable cell");
         }
-        player_ = Player{};
-        player_.x = static_cast<float>(kObjectX * kTileSize);
-        player_.y = static_cast<float>(kObjectY * kTileSize - 15);
-        if (collides(player_.x, player_.y) ||
-            scanActorEdges(static_cast<int>(player_.x), static_cast<int>(player_.y)).bottom) {
+        gameplayReplay_.fixture().player_ = Player{};
+        gameplayReplay_.fixture().player_.x = static_cast<float>(kObjectX * kTileSize);
+        gameplayReplay_.fixture().player_.y = static_cast<float>(kObjectY * kTileSize - 15);
+        if (collides(gameplayReplay_.fixture().player_.x, gameplayReplay_.fixture().player_.y) ||
+            scanActorEdges(static_cast<int>(gameplayReplay_.fixture().player_.x), static_cast<int>(gameplayReplay_.fixture().player_.y)).bottom) {
             throw std::runtime_error("object jump fixture starts blocked");
         }
         FrameInspection startFrame = inspectRenderedFrame("object-jump-live-start");
 
         FrameControls jump;
         jump.p1Jump = true;
-        float startY = player_.y;
+        float startY = gameplayReplay_.fixture().player_.y;
         updateWithControls(jump, 1.0f / 60.0f);
-        if (player_.vy8 != kPlayerGravity8 || player_.y < startY || player_.grounded) {
+        if (gameplayReplay_.fixture().player_.vy8 != kPlayerGravity8 || gameplayReplay_.fixture().player_.y < startY || gameplayReplay_.fixture().player_.grounded) {
             throw std::runtime_error("passable object incorrectly provided jump support");
         }
         bool reachedFloor = false;
-        for (int i = 0; i < 16 && player_.vy8 >= 0; ++i) {
-            reachedFloor = scanActorEdges(static_cast<int>(player_.x), static_cast<int>(player_.y)).bottom;
+        for (int i = 0; i < 16 && gameplayReplay_.fixture().player_.vy8 >= 0; ++i) {
+            reachedFloor = scanActorEdges(static_cast<int>(gameplayReplay_.fixture().player_.x), static_cast<int>(gameplayReplay_.fixture().player_.y)).bottom;
             updateWithControls(jump, 1.0f / 60.0f);
         }
-        if (!reachedFloor || player_.vy8 != kPlayerJumpVelocity8 || player_.grounded) {
+        if (!reachedFloor || gameplayReplay_.fixture().player_.vy8 != kPlayerJumpVelocity8 || gameplayReplay_.fixture().player_.grounded) {
             throw std::runtime_error("held jump did not launch after naturally reaching solid floor");
         }
-        int jumpVy = static_cast<int>(std::lround(player_.vy));
+        int jumpVy = static_cast<int>(std::lround(gameplayReplay_.fixture().player_.vy));
         FrameInspection jumpFrame = inspectRenderedFrame("object-jump-live-airborne");
         if (jumpFrame.hash == startFrame.hash) {
             throw std::runtime_error("object jump frame did not change");
@@ -18921,7 +18686,7 @@ public:
         ui_.setMenu(false);
         ui_.setPaused(false);
         levelFlow_.restoreIntro({});
-        playerCount_ = 1;
+        gameplayReplay_.fixture().playerCount_ = 1;
         const int hudY = kScreenH - 46;
         size_t rendered = 0;
         std::vector<uint64_t> hashes;
@@ -18961,7 +18726,7 @@ public:
         ui_.setMenu(false);
         ui_.setPaused(false);
         levelFlow_.restoreIntro({});
-        playerCount_ = 1;
+        gameplayReplay_.fixture().playerCount_ = 1;
         for (size_t level = 0; level < levels_.size(); ++level) {
             resetLevel(static_cast<int>(level));
             inspectRenderedFrame("capture-level-" + std::to_string(level));
@@ -18987,14 +18752,14 @@ public:
         if (!isComplete()) {
             throw std::runtime_error("level outro debug could not complete level 1");
         }
-        const uint32_t before = score_;
+        const uint32_t before = gameplayReplay_.fixture().score_;
         updateLevelCompletion();
         if (!levelFlow_.outro().active) {
             throw std::runtime_error("level outro did not activate on completion");
         }
-        const int expectedBomb = bombInventory_.counts[1] * 100 +
-                                 bombInventory_.counts[2] * 500 +
-                                 bombInventory_.counts[3] * 2000;
+        const int expectedBomb = gameplayReplay_.fixture().bombInventory_.counts[1] * 100 +
+                                 gameplayReplay_.fixture().bombInventory_.counts[2] * 500 +
+                                 gameplayReplay_.fixture().bombInventory_.counts[3] * 2000;
         if (levelFlow_.outro().bombBonus[0] != expectedBomb) {
             throw std::runtime_error("level outro bomb bonus mismatch");
         }
@@ -19019,7 +18784,7 @@ public:
         if (!levelFlow_.outro().awaitKey) {
             throw std::runtime_error("level outro did not reach key wait");
         }
-        const uint32_t awarded = score_ - before;
+        const uint32_t awarded = gameplayReplay_.fixture().score_ - before;
         const int destBonus = levelFlow_.outro().destBonus;
         const uint32_t expected = static_cast<uint32_t>(destBonus + expectedBomb);
         if (awarded != expected) {
@@ -19027,7 +18792,7 @@ public:
         }
         bool running = true;
         onKey(SDLK_SPACE, running);
-        if (levelFlow_.outro().active || levelIndex_ != 1) {
+        if (levelFlow_.outro().active || gameplayReplay_.fixture().levelIndex_ != 1) {
             throw std::runtime_error("level outro key did not advance the level");
         }
         std::cout << "level_outro=ok lines=4 delay_ms="
@@ -19035,7 +18800,7 @@ public:
                   << " dest_bonus=" << destBonus
                   << " bomb_bonus=" << expectedBomb
                   << " awarded=" << awarded
-                  << " key_advance=1 next_level=" << (levelIndex_ + 1)
+                  << " key_advance=1 next_level=" << (gameplayReplay_.fixture().levelIndex_ + 1)
                   << " original_runtime_claim=0\n";
     }
 
@@ -19189,7 +18954,7 @@ public:
         int homingRetargets = 0;
         int targetRngSeedsExact = 0;
         int offGateVelocityChanges = 0;
-        const uint32_t savedRandomSeed = randomSeed_;
+        const uint32_t savedRandomSeed = gameplayReplay_.fixture().randomSeed_;
         for (size_t i = 0; i < ticks.size(); ++i) {
             const Behavior4Tick& tick = ticks[i];
             if (tick.slot != std::stoi(req("target_slot")) || tick.kind != 2 ||
@@ -19259,7 +19024,7 @@ public:
                 }
                 ++homingRetargets;
             } else if (gate) {
-                randomSeed_ = prev.seed;
+                gameplayReplay_.fixture().randomSeed_ = prev.seed;
                 const uint16_t range = static_cast<uint16_t>(prev.ai1 * 2);
                 const int expectedVx =
                     static_cast<int>(randomRangeValue(0, range)) - prev.ai1;
@@ -19270,13 +19035,13 @@ public:
                         "behavior4 random retarget mismatch at frame " +
                         std::to_string(tick.frame));
                 }
-                if (randomSeed_ == tick.seed) ++targetRngSeedsExact;
+                if (gameplayReplay_.fixture().randomSeed_ == tick.seed) ++targetRngSeedsExact;
                 ++farRetargets;
             } else if (tick.vx != prev.vx || tick.vy != prev.vy) {
                 ++offGateVelocityChanges;
             }
         }
-        randomSeed_ = savedRandomSeed;
+        gameplayReplay_.fixture().randomSeed_ = savedRandomSeed;
         if (naturalRows != expectedNatural || seededRows != expectedSeeded ||
             farRetargets == 0 || homingRetargets == 0) {
             throw std::runtime_error("behavior4 lockstep lacks a motion class");
@@ -19293,8 +19058,8 @@ public:
         // that exact injected coordinate is the next update's target input.
         load();
         resetLevel(2);
-        playerCount_ = 1;
-        playerDead_ = false;
+        gameplayReplay_.fixture().playerCount_ = 1;
+        gameplayReplay_.fixture().playerDead_ = false;
         int liveTransitions = 0;
         for (size_t i = 1; i < ticks.size(); ++i) {
             const Behavior4Tick& prev = ticks[i - 1];
@@ -19319,28 +19084,28 @@ public:
             monster.animCursor = 39;
             monster.animDelay = 2;
             monster.alive = true;
-            monsters_.clear();
-            monsters_.push_back(monster);
+            gameplayReplay_.fixture().monsters_.clear();
+            gameplayReplay_.fixture().monsters_.push_back(monster);
             if (now.seeded) {
-                player_.x = static_cast<float>(prev.x + nearDx);
-                player_.y = static_cast<float>(prev.y + nearDy);
+                gameplayReplay_.fixture().player_.x = static_cast<float>(prev.x + nearDx);
+                gameplayReplay_.fixture().player_.y = static_cast<float>(prev.y + nearDy);
             } else {
-                player_.x = static_cast<float>(prev.p1x);
-                player_.y = static_cast<float>(prev.p1y);
+                gameplayReplay_.fixture().player_.x = static_cast<float>(prev.p1x);
+                gameplayReplay_.fixture().player_.y = static_cast<float>(prev.p1y);
             }
-            logicTick_ = static_cast<uint32_t>(prev.frame);
-            randomSeed_ = prev.seed;
-            pendingDamage_ = 0;
+            gameplayReplay_.fixture().logicTick_ = static_cast<uint32_t>(prev.frame);
+            gameplayReplay_.fixture().randomSeed_ = prev.seed;
+            gameplayReplay_.fixture().pendingDamage_ = 0;
             updateMonsters(0.0f);
-            if (monsters_.size() != 1) {
+            if (gameplayReplay_.fixture().monsters_.size() != 1) {
                 throw std::runtime_error("behavior4 live replay lost actor");
             }
-            const ActiveMonster& replay = monsters_.front();
+            const ActiveMonster& replay = gameplayReplay_.fixture().monsters_.front();
             // Other actors can consume the shared RNG between off-gate rows.
             // These captures isolate every target gate, so those transitions
             // and unchanged-seed rows must also match the production RNG.
             if ((prev.frame % prev.ai0 == 0 || prev.seed == now.seed) &&
-                randomSeed_ != now.seed) {
+                gameplayReplay_.fixture().randomSeed_ != now.seed) {
                 throw std::runtime_error(
                     "behavior4 live RNG diverged at frame " +
                     std::to_string(now.frame));
@@ -19361,7 +19126,7 @@ public:
             }
             ++liveTransitions;
         }
-        randomSeed_ = savedRandomSeed;
+        gameplayReplay_.fixture().randomSeed_ = savedRandomSeed;
 
         std::cout << "behavior4_lockstep_evidence=ok"
                   << " ticks=" << ticks.size()
@@ -19568,7 +19333,7 @@ public:
         const int speedRange = std::stoi(req("speed_range"));
         const int jumpBase = std::stoi(req("jump_base"));
         const int jumpRange = std::stoi(req("jump_range"));
-        const uint32_t savedSeed = randomSeed_;
+        const uint32_t savedSeed = gameplayReplay_.fixture().randomSeed_;
         int rngMatched = 0;
         int jumpFirings = 0;
         for (size_t i = 1; i < ticks.size(); ++i) {
@@ -19578,7 +19343,7 @@ public:
             if ((prev.frame % modulus) != 0) {
                 throw std::runtime_error("boss lockstep RNG fired off the 29-tick gate");
             }
-            randomSeed_ = prev.seed;
+            gameplayReplay_.fixture().randomSeed_ = prev.seed;
             randomRangeValue(0, 100);
             const int speed = speedBase + static_cast<int>(randomRangeValue(0, speedRange));
             const int expectedVx = now.vx > 0 ? speed : -speed;
@@ -19595,12 +19360,12 @@ public:
             } else if (now.vy != prev.vy + gravityStep) {
                 throw std::runtime_error("boss lockstep grounded RNG tick skipped gravity");
             }
-            if (randomSeed_ != now.seed) {
+            if (gameplayReplay_.fixture().randomSeed_ != now.seed) {
                 throw std::runtime_error("boss lockstep RNG seed did not land on the captured value");
             }
             ++rngMatched;
         }
-        randomSeed_ = savedSeed;
+        gameplayReplay_.fixture().randomSeed_ = savedSeed;
         if (rngMatched == 0 || jumpFirings == 0) {
             throw std::runtime_error("boss lockstep evidence lacks RNG firings");
         }
@@ -19614,7 +19379,7 @@ public:
         }
         load();
         resetLevel(6);
-        if (!bossPresent_ || bossLinks_.empty()) {
+        if (!gameplayReplay_.fixture().bossPresent_ || gameplayReplay_.fixture().bossLinks_.empty()) {
             throw std::runtime_error("boss lockstep could not spawn the port boss");
         }
         int orbitPhasesMatched = 0;
@@ -19626,7 +19391,7 @@ public:
             }
             for (size_t phase = 0; phase < orbit.phaseDy.size(); ++phase) {
                 const int replay =
-                    static_cast<int>(bossSinTable_[phase] * orbit.radiusY);
+                    static_cast<int>(gameplayReplay_.fixture().bossSinTable_[phase] * orbit.radiusY);
                 if (orbit.phaseDy[phase] - replay != orbit.phaseDy[0]) {
                     throw std::runtime_error("boss lockstep orbit phase curve mismatch");
                 }
@@ -19646,17 +19411,17 @@ public:
         // regresses (restoring the 0x07ff clamp, ungating gravity, or putting
         // the head back through the generic pushout all break it here).
         ActiveMonster* head = nullptr;
-        for (ActiveMonster& monster : monsters_) {
+        for (ActiveMonster& monster : gameplayReplay_.fixture().monsters_) {
             if (monster.behavior == 6) {
                 head = &monster;
                 break;
             }
         }
         if (!head) throw std::runtime_error("boss lockstep found no port boss head");
-        const float savedPlayerX = player_.x;
-        const float savedPlayerY = player_.y;
-        player_.x = static_cast<float>(std::stoi(req("player_x")));
-        player_.y = static_cast<float>(std::stoi(req("player_y")));
+        const float savedPlayerX = gameplayReplay_.fixture().player_.x;
+        const float savedPlayerY = gameplayReplay_.fixture().player_.y;
+        gameplayReplay_.fixture().player_.x = static_cast<float>(std::stoi(req("player_x")));
+        gameplayReplay_.fixture().player_.y = static_cast<float>(std::stoi(req("player_y")));
         int livePlayed = 0;
         int liveEdgeAgreements = 0;
         int liveEdgeChecked = 0;
@@ -19672,8 +19437,8 @@ public:
             // This historical fixture checks individual transitions. The
             // continuous boss fixture exercises the shared clock without
             // restoring it (or actor/RNG state) before each update.
-            logicTick_ = prev.frame;
-            randomSeed_ = prev.seed;
+            gameplayReplay_.fixture().logicTick_ = prev.frame;
+            gameplayReplay_.fixture().randomSeed_ = prev.seed;
             // The fixture's bottom flag is derived from whether gravity was
             // taken, so it is only a sound reading on two tick classes: a pure
             // gravity step (bottom must be clear) and a hold with no RNG and no
@@ -19695,16 +19460,16 @@ public:
                 head->fracY != static_cast<uint8_t>(now.fy) ||
                 head->vx8 != static_cast<int16_t>(now.vx) ||
                 head->vy8 != static_cast<int16_t>(now.vy) ||
-                randomSeed_ != now.seed) {
+                gameplayReplay_.fixture().randomSeed_ != now.seed) {
                 throw std::runtime_error(
                     "boss lockstep live updateBossHead diverged at frame " +
                     std::to_string(now.frame));
             }
             ++livePlayed;
         }
-        player_.x = savedPlayerX;
-        player_.y = savedPlayerY;
-        randomSeed_ = savedSeed;
+        gameplayReplay_.fixture().player_.x = savedPlayerX;
+        gameplayReplay_.fixture().player_.y = savedPlayerY;
+        gameplayReplay_.fixture().randomSeed_ = savedSeed;
         if (livePlayed != static_cast<int>(ticks.size()) - 1) {
             throw std::runtime_error("boss lockstep live replay is incomplete");
         }
@@ -19720,7 +19485,7 @@ public:
         for (const auto& entry : orbits) {
             const OrbitLink& orbit = entry.second;
             BossMotionLink* live = nullptr;
-            for (BossMotionLink& link : bossLinks_) {
+            for (BossMotionLink& link : gameplayReplay_.fixture().bossLinks_) {
                 if (link.mode == 0xff && link.selfVisual == orbit.selfVisual) {
                     live = &link;
                     break;
@@ -19917,10 +19682,10 @@ public:
 
         load();
         resetLevel(0);
-        if (level_.monsterSpawners.size() != 1 || spawnerStates_.size() != 1) {
+        if (gameplayReplay_.fixture().level_.monsterSpawners.size() != 1 || gameplayReplay_.fixture().spawnerStates_.size() != 1) {
             throw std::runtime_error("actor contact expects the single level-1 spawner");
         }
-        const MonsterSpawner& spawner = level_.monsterSpawners[0];
+        const MonsterSpawner& spawner = gameplayReplay_.fixture().level_.monsterSpawners[0];
         if (spawner.monsterKind != std::stoi(req("spawner_kind")) ||
             static_cast<int>(spawner.spawnArg) != std::stoi(req("spawner_behavior")) ||
             static_cast<int>(spawner.cooldown) !=
@@ -19937,15 +19702,15 @@ public:
 
         // Exogenous initial state: the captured pre-spawn seed, and the
         // original's starting lives (never touched by the replayed path).
-        randomSeed_ = ticks.front().seed;
-        lives_ = ticks.front().lives;
+        gameplayReplay_.fixture().randomSeed_ = ticks.front().seed;
+        gameplayReplay_.fixture().lives_ = ticks.front().lives;
 
         // The minimal live tick, in updateWithControls order (++logicTick_
         // first, spawners before monsters, damage drained after). The player
         // update is replaced by the exogenous captured position; bombs,
         // flashes and portals have no live state in this capture.
         auto runTick = [&](bool hole) {
-            ++logicTick_;
+            ++gameplayReplay_.fixture().logicTick_;
             updateDamageCooldowns();
             updateMonsterSpawners();
             updateMonsters(1.0f);
@@ -19954,8 +19719,8 @@ public:
                 // recovered predicate fires but the original's damage pipeline
                 // is in a state this fixture does not adjudicate. Suppress the
                 // port's queued damage instead of modelling it.
-                pendingDamage_ = 0;
-                pendingDamage2_ = 0;
+                gameplayReplay_.fixture().pendingDamage_ = 0;
+                gameplayReplay_.fixture().pendingDamage2_ = 0;
             }
             drainPlayerDamageCounters();
         };
@@ -19964,30 +19729,30 @@ public:
         int sampleChecks = 0;
         std::vector<int> firstSeenFrame;
         auto compareRow = [&](const ContactTick& row) {
-            if (static_cast<int>(spawnerStates_[0].cooldown) != row.cd) {
+            if (static_cast<int>(gameplayReplay_.fixture().spawnerStates_[0].cooldown) != row.cd) {
                 throw std::runtime_error(
                     "actor contact spawner countdown diverged at frame " +
                     std::to_string(row.frame) + " (port cd=" +
-                    std::to_string(static_cast<int>(spawnerStates_[0].cooldown)) +
+                    std::to_string(static_cast<int>(gameplayReplay_.fixture().spawnerStates_[0].cooldown)) +
                     " fixture cd=" + std::to_string(row.cd) + ")");
             }
             ++cdChecks;
-            if (static_cast<int>(spawnerStates_[0].remaining) != row.bud ||
-                static_cast<int>(spawnerStates_[0].availableSlots) != row.liv) {
+            if (static_cast<int>(gameplayReplay_.fixture().spawnerStates_[0].remaining) != row.bud ||
+                static_cast<int>(gameplayReplay_.fixture().spawnerStates_[0].availableSlots) != row.liv) {
                 throw std::runtime_error(
                     "actor contact spawner budget/slots diverged at frame " +
                     std::to_string(row.frame));
             }
-            if (monsters_.size() != row.mons.size()) {
+            if (gameplayReplay_.fixture().monsters_.size() != row.mons.size()) {
                 throw std::runtime_error(
                     "actor contact monster count diverged at frame " +
                     std::to_string(row.frame) + " (port=" +
-                    std::to_string(monsters_.size()) + " fixture=" +
+                    std::to_string(gameplayReplay_.fixture().monsters_.size()) + " fixture=" +
                     std::to_string(row.mons.size()) + ")");
             }
             for (size_t k = 0; k < row.mons.size(); ++k) {
                 const MonSample& s = row.mons[k];
-                const ActiveMonster& m = monsters_[k];
+                const ActiveMonster& m = gameplayReplay_.fixture().monsters_[k];
                 // The visual-table slots (2, 3) are stable and ordered by
                 // spawn, exactly like monsters_.
                 if (s.slot != static_cast<int>(k) + 2) {
@@ -20017,10 +19782,10 @@ public:
             runTick(false);
         }
         compareRow(ticks.front());
-        if (randomSeed_ != ticks.front().seed) {
+        if (gameplayReplay_.fixture().randomSeed_ != ticks.front().seed) {
             throw std::runtime_error("actor contact warm-up consumed RNG");
         }
-        if (energy_ != ticks.front().energy) {
+        if (gameplayReplay_.fixture().energy_ != ticks.front().energy) {
             throw std::runtime_error("actor contact warm-up changed energy");
         }
 
@@ -20045,13 +19810,13 @@ public:
                 throw std::runtime_error("actor contact frames are not consecutive");
             }
             // Exogenous human input for this tick.
-            player_.x = static_cast<float>(cur.px);
-            player_.y = static_cast<float>(cur.py);
-            const size_t before = monsters_.size();
+            gameplayReplay_.fixture().player_.x = static_cast<float>(cur.px);
+            gameplayReplay_.fixture().player_.y = static_cast<float>(cur.py);
+            const size_t before = gameplayReplay_.fixture().monsters_.size();
             runTick(cur.hole != 0);
-            if (monsters_.size() > before) {
+            if (gameplayReplay_.fixture().monsters_.size() > before) {
                 spawnFrames.push_back(next.frame);
-                for (size_t k = before; k < monsters_.size(); ++k) {
+                for (size_t k = before; k < gameplayReplay_.fixture().monsters_.size(); ++k) {
                     firstSeenFrame.push_back(next.frame);
                     prevAnimFrame.push_back(-1);
                     animChanges.push_back(0);
@@ -20069,9 +19834,9 @@ public:
             if (exogenousSeedFrames.count(next.frame)) {
                 // Out-of-scope original activity moved the seed on this
                 // pre-spawn tick; feed it, do not model it.
-                randomSeed_ = next.seed;
+                gameplayReplay_.fixture().randomSeed_ = next.seed;
                 ++seedWritten;
-            } else if (randomSeed_ != next.seed) {
+            } else if (gameplayReplay_.fixture().randomSeed_ != next.seed) {
                 throw std::runtime_error(
                     "actor contact RNG seed diverged at frame " +
                     std::to_string(next.frame));
@@ -20080,22 +19845,22 @@ public:
             }
             if (cur.hole != 0) {
                 ++holeRows;
-                energy_ = next.energy;
-                lives_ = next.lives;
-                playerDead_ = false;
+                gameplayReplay_.fixture().energy_ = next.energy;
+                gameplayReplay_.fixture().lives_ = next.lives;
+                gameplayReplay_.fixture().playerDead_ = false;
             } else {
-                if (energy_ != next.energy) {
+                if (gameplayReplay_.fixture().energy_ != next.energy) {
                     throw std::runtime_error(
                         "actor contact energy diverged at frame " +
                         std::to_string(next.frame) + " (port=" +
-                        std::to_string(energy_) + " fixture=" +
+                        std::to_string(gameplayReplay_.fixture().energy_) + " fixture=" +
                         std::to_string(next.energy) + ")");
                 }
                 ++energyScored;
                 if (next.energy == cur.energy - 1) ++contactTicks;
             }
-            for (size_t k = 0; k < monsters_.size(); ++k) {
-                const ActiveMonster& m = monsters_[k];
+            for (size_t k = 0; k < gameplayReplay_.fixture().monsters_.size(); ++k) {
+                const ActiveMonster& m = gameplayReplay_.fixture().monsters_[k];
                 walkerHotspot = m.hotspotY;
                 const int visualY = m.y + static_cast<int>(m.hotspotY);
                 if (visualY != 174) {
@@ -20184,7 +19949,7 @@ public:
                   << " seed_checked=" << seedChecked << "/" << seedChecked
                   << " seed_exogenous=" << seedWritten
                   << " walker_samples=" << sampleChecks << "/" << sampleChecks
-                  << " walkers=" << monsters_.size()
+                  << " walkers=" << gameplayReplay_.fixture().monsters_.size()
                   << " hotspot_y=" << static_cast<int>(walkerHotspot)
                   << " airborne_zero_dx=" << airborneZeroDx << "/" << airborne
                   << " fall_ticks=" << fallTicks[0] << "," << fallTicks[1]
@@ -21120,10 +20885,10 @@ public:
                     throw std::runtime_error("invalid flame seed");
                 resetLevel(0);
                 ui_.setMenu(false);
-                spawnerStates_.clear();
-                monsters_.clear();
-                baseline = level_.tiles;
-                baselineWords = level_.wordLayer;
+                gameplayReplay_.fixture().spawnerStates_.clear();
+                gameplayReplay_.fixture().monsters_.clear();
+                baseline = gameplayReplay_.fixture().level_.tiles;
+                baselineWords = gameplayReplay_.fixture().level_.wordLayer;
                 if (!profile.empty()) {
                     const int count = profiles.at(profile);
                     const bool chain = profile.rfind("chain_", 0) == 0;
@@ -21146,24 +20911,24 @@ public:
                         if (profile == "chain_reuse" && slot == count - 1) expected[8] = 1;
                         if (bytes(entry.substr(0, colon), 11) != expected || bytes(entry.substr(colon + 1), 1)[0] != mass)
                             throw std::runtime_error("invalid flame seed record");
-                        flameRecords_.push_back({642, static_cast<int8_t>(expected[4]), 0,
+                        gameplayReplay_.fixture().flameRecords_.push_back({642, static_cast<int8_t>(expected[4]), 0,
                             static_cast<int8_t>(expected[6]), 0, expected[8], 0x75, expected[10], mass});
                     }
                     if (std::getline(entries, entry, ',')) throw std::runtime_error("extra flame seed record");
                     const std::string terrain = "642:00:0000" + std::string(chain ?
                         (profile == "chain_word" ? ",643:66:0001" : ",643:66:0000") : "");
                     if (fields.at("terrain") != terrain) throw std::runtime_error("invalid flame seed terrain");
-                    level_.tiles[642] = 0;
-                    level_.wordLayer[642] = 0;
+                    gameplayReplay_.fixture().level_.tiles[642] = 0;
+                    gameplayReplay_.fixture().level_.wordLayer[642] = 0;
                     if (chain) {
-                        level_.tiles[643] = 0x66;
-                        level_.wordLayer[643] = profile == "chain_word" ? 1 : 0;
+                        gameplayReplay_.fixture().level_.tiles[643] = 0x66;
+                        gameplayReplay_.fixture().level_.wordLayer[643] = profile == "chain_word" ? 1 : 0;
                     }
                     seededPoolRecords += count;
                 }
-                player_.x = 240;
-                player_.y = 168;
-                lives_ = 99;
+                gameplayReplay_.fixture().player_.x = 240;
+                gameplayReplay_.fixture().player_.y = 168;
+                gameplayReplay_.fixture().lives_ = 99;
                 ActiveMonster monster;
                 monster.kind = 1;
                 monster.behavior = 3;
@@ -21176,7 +20941,7 @@ public:
                 monster.animFrame = monster.animCursor = monster.animStart = 43;
                 monster.animEnd = 44;
                 monster.animTick = monster.animDelay = 3;
-                monsters_.push_back(monster);
+                gameplayReplay_.fixture().monsters_.push_back(monster);
                 Bomb bomb;
                 bomb.x = 42;
                 bomb.y = y / 8;
@@ -21186,10 +20951,10 @@ public:
                 bomb.timer = 1;
                 bomb.moving = true;
                 bomb.hotspotY = static_cast<int8_t>(bombRaw[0x14]);
-                bombs_.push_back(bomb);
+                gameplayReplay_.fixture().bombs_.push_back(bomb);
                 frame = std::stoi(fields.at("frame"));
-                logicTick_ = frame - 1;
-                randomSeed_ = 0x12345678;
+                gameplayReplay_.fixture().logicTick_ = frame - 1;
+                gameplayReplay_.fixture().randomSeed_ = 0x12345678;
                 sample = 0;
             } else if (line.rfind("tick ", 0) == 0) {
                 if (name.empty() || !tick.empty() || std::stoi(fields.at("sample")) != sample ||
@@ -21207,10 +20972,10 @@ public:
                         le16(raw, 6) != 0 || le16(raw, 8) != 0)
                         throw std::runtime_error("invalid initial flame player state");
                     // The first non-player pass does not update this actor.
-                    player_.fracX = raw[0x0a];
-                    player_.fracY = raw[0x0c];
-                    player_.idleTicks = raw[2];
-                    player_.animation = {raw[0x16], raw[0x17], raw[0x18], raw[0x19],
+                    gameplayReplay_.fixture().player_.fracX = raw[0x0a];
+                    gameplayReplay_.fixture().player_.fracY = raw[0x0c];
+                    gameplayReplay_.fixture().player_.idleTicks = raw[2];
+                    gameplayReplay_.fixture().player_.animation = {raw[0x16], raw[0x17], raw[0x18], raw[0x19],
                         raw[0x1a], raw[0x1b], static_cast<int8_t>(raw[0x1c])};
                 }
             } else if (line.rfind("flames ", 0) == 0) {
@@ -21219,8 +20984,8 @@ public:
                     throw std::runtime_error("original flame mismatch: " + name + " sample=" + std::to_string(sample) + " " + what);
                 };
                 debugActorPassObserver_ = [&] {
-                    if (std::stoul(fields.at("count")) != flameRecords_.size()) fail("count=" + std::to_string(flameRecords_.size()));
-                    peakFlames = std::max(peakFlames, static_cast<int>(flameRecords_.size()));
+                    if (std::stoul(fields.at("count")) != gameplayReplay_.fixture().flameRecords_.size()) fail("count=" + std::to_string(gameplayReplay_.fixture().flameRecords_.size()));
+                    peakFlames = std::max(peakFlames, static_cast<int>(gameplayReplay_.fixture().flameRecords_.size()));
                     std::istringstream entries(fields.at("records"));
                     std::string entry;
                     size_t i = 0;
@@ -21228,15 +20993,15 @@ public:
                         const auto split = entry.find(':');
                         const auto raw = bytes(entry.substr(0, split), 11);
                         const auto mass = bytes(entry.substr(split + 1), 1);
-                        if (i >= flameRecords_.size()) fail("extra record");
-                        const auto& ray = flameRecords_[i];
+                        if (i >= gameplayReplay_.fixture().flameRecords_.size()) fail("extra record");
+                        const auto& ray = gameplayReplay_.fixture().flameRecords_[i];
                         if (le16(raw, 0) != ray.cell || static_cast<int8_t>(raw[4]) != ray.vx ||
                             static_cast<int8_t>(raw[5]) != ray.vy || static_cast<int8_t>(raw[6]) != ray.subX ||
                             static_cast<int8_t>(raw[7]) != ray.subY || raw[8] != ray.timer || raw[9] != ray.glyph ||
                             raw[10] != ray.variant || mass[0] != ray.mass) fail("record=" + std::to_string(i + 1));
                         ++i;
                     }
-                    if (i != flameRecords_.size()) fail("missing record");
+                    if (i != gameplayReplay_.fixture().flameRecords_.size()) fail("missing record");
                     records += static_cast<int>(i);
                     auto compareMap = [&](const std::string& text, bool words) {
                         std::map<int, int> expected, actual;
@@ -21249,7 +21014,7 @@ public:
                             if (!expected.emplace(cell, words ? le16(value, 0) : value[0]).second) fail("duplicate map cell");
                         }
                         for (size_t cell = 0; cell < baseline.size(); ++cell) {
-                            const int value = words ? level_.wordLayer[cell] : level_.tiles[cell];
+                            const int value = words ? gameplayReplay_.fixture().level_.wordLayer[cell] : gameplayReplay_.fixture().level_.tiles[cell];
                             if (value != (words ? baselineWords[cell] : baseline[cell])) actual.emplace(static_cast<int>(cell), value);
                         }
                         if (actual != expected) {
@@ -21262,16 +21027,16 @@ public:
                     };
                     compareMap(tick.at("map"), false);
                     compareMap(fields.at("words"), true);
-                    if (std::stoul(fields.at("debris")) != debrisQueue_.size() + 199 ||
-                        std::stoul(fields.at("collapse")) != collapseQueue_.size()) fail("terrain queues");
+                    if (std::stoul(fields.at("debris")) != gameplayReplay_.fixture().debrisQueue_.size() + 199 ||
+                        std::stoul(fields.at("collapse")) != gameplayReplay_.fixture().collapseQueue_.size()) fail("terrain queues");
                     const auto split = tick.at("target").find(':');
                     const auto raw = bytes(tick.at("target").substr(0, split), 38);
                     const auto visual = bytes(tick.at("target").substr(split + 1), 8);
                     using ActorEntry = std::pair<std::vector<uint8_t>, std::vector<uint8_t>>;
                     std::vector<ActorEntry> effects;
                     if (raw[0] == 1 || raw[0] == 0x0c) {
-                        if (monsters_.size() != 1 || !bonusDrops_.empty()) fail("target count");
-                        const auto& monster = monsters_.front();
+                        if (gameplayReplay_.fixture().monsters_.size() != 1 || !gameplayReplay_.fixture().bonusDrops_.empty()) fail("target count");
+                        const auto& monster = gameplayReplay_.fixture().monsters_.front();
                         if ((raw[0] == 1 && static_cast<uint8_t>(monster.hp - 1) != raw[0x24]) ||
                             monster.kind != raw[0] || monster.behavior != raw[0x15] ||
                             monster.x != le16(visual, 0) || monster.y + monster.hotspotY != le16(visual, 2) ||
@@ -21286,8 +21051,8 @@ public:
                             ++corpseStates;
                         }
                     } else if (raw[0] >= 0x13 && raw[0] <= 0x19) {
-                        if (!monsters_.empty() || bonusDrops_.size() != 1) fail("reward count");
-                        const auto& reward = bonusDrops_.front();
+                        if (!gameplayReplay_.fixture().monsters_.empty() || gameplayReplay_.fixture().bonusDrops_.size() != 1) fail("reward count");
+                        const auto& reward = gameplayReplay_.fixture().bonusDrops_.front();
                         if (raw[0] != 0x13 + static_cast<int>(reward.type) || raw[2] != reward.timer ||
                             raw[0x14] != reward.hotspotY || raw[0x15] != 2 || raw[0x1b] != 0 ||
                             static_cast<int16_t>(le16(raw, 6)) != reward.vx8 ||
@@ -21298,7 +21063,7 @@ public:
                                 descriptors.begin() + (bonusSpriteIndex(reward.type) + 1) * 4)) fail("reward");
                         ++rewardStates;
                     } else if (raw[0] == 0) {
-                        if (!monsters_.empty() || !bonusDrops_.empty()) fail("fade target count");
+                        if (!gameplayReplay_.fixture().monsters_.empty() || !gameplayReplay_.fixture().bonusDrops_.empty()) fail("fade target count");
                         effects.emplace_back(raw, visual);
                     } else fail("unexpected target kind");
                     if (tick.at("others") != "-") {
@@ -21309,44 +21074,44 @@ public:
                             effects.emplace_back(bytes(actor.substr(0, colon), 38), bytes(actor.substr(colon + 1), 8));
                         }
                     }
-                    if (effects.size() != transientActors_.size()) fail("effect count");
+                    if (effects.size() != gameplayReplay_.fixture().transientActors_.size()) fail("effect count");
                     for (size_t effect = 0; effect < effects.size(); ++effect) {
-                        if (!transientMatchesOriginal(transientActors_[effect], effects[effect].first,
+                        if (!transientMatchesOriginal(gameplayReplay_.fixture().transientActors_[effect], effects[effect].first,
                                                       effects[effect].second, descriptors)) fail("effect=" + std::to_string(effect));
                         ++effectStates;
                     }
                     if (sharedActorCount() != std::stoul(tick.at("count"))) fail("actor count");
-                    if (randomSeed_ != le32(bytes(tick.at("rng"), 4), 0)) fail("RNG");
+                    if (gameplayReplay_.fixture().randomSeed_ != le32(bytes(tick.at("rng"), 4), 0)) fail("RNG");
                     if (tick.count("player")) {
                         const auto playerSplit = tick.at("player").find(':');
                         const auto playerRaw = bytes(tick.at("player").substr(0, playerSplit), 38);
                         const auto playerVisual = bytes(tick.at("player").substr(playerSplit + 1), 8);
-                        if (player_.x != le16(playerVisual, 0) || player_.y != le16(playerVisual, 2) ||
-                            player_.vx8 != static_cast<int16_t>(le16(playerRaw, 6)) ||
-                            player_.vy8 != static_cast<int16_t>(le16(playerRaw, 8)) ||
-                            player_.fracX != playerRaw[0x0a] || player_.fracY != playerRaw[0x0c] ||
-                            energy_ != playerRaw[0x24] || playerDead_ != (playerRaw[0x15] == 2) ||
-                            deathStateTimer_ != le16(playerRaw, 0x10))
-                            fail("player motion/energy/death actual=" + std::to_string(player_.x) + "," +
-                                std::to_string(player_.y) + " hp=" + std::to_string(energy_) +
-                                " timer=" + std::to_string(deathStateTimer_));
-                        const auto animation = playerDead_ ? std::array<uint8_t, 7>{
-                            state2Visual_.current, state2Visual_.first, state2Visual_.last,
-                            state2Visual_.counter, state2Visual_.delay, state2Visual_.mode,
-                            static_cast<uint8_t>(state2Visual_.step)} : player_.animation.packed();
+                        if (gameplayReplay_.fixture().player_.x != le16(playerVisual, 0) || gameplayReplay_.fixture().player_.y != le16(playerVisual, 2) ||
+                            gameplayReplay_.fixture().player_.vx8 != static_cast<int16_t>(le16(playerRaw, 6)) ||
+                            gameplayReplay_.fixture().player_.vy8 != static_cast<int16_t>(le16(playerRaw, 8)) ||
+                            gameplayReplay_.fixture().player_.fracX != playerRaw[0x0a] || gameplayReplay_.fixture().player_.fracY != playerRaw[0x0c] ||
+                            gameplayReplay_.fixture().energy_ != playerRaw[0x24] || gameplayReplay_.fixture().playerDead_ != (playerRaw[0x15] == 2) ||
+                            gameplayReplay_.fixture().deathStateTimer_ != le16(playerRaw, 0x10))
+                            fail("player motion/energy/death actual=" + std::to_string(gameplayReplay_.fixture().player_.x) + "," +
+                                std::to_string(gameplayReplay_.fixture().player_.y) + " hp=" + std::to_string(gameplayReplay_.fixture().energy_) +
+                                " timer=" + std::to_string(gameplayReplay_.fixture().deathStateTimer_));
+                        const auto animation = gameplayReplay_.fixture().playerDead_ ? std::array<uint8_t, 7>{
+                            gameplayReplay_.fixture().state2Visual_.current, gameplayReplay_.fixture().state2Visual_.first, gameplayReplay_.fixture().state2Visual_.last,
+                            gameplayReplay_.fixture().state2Visual_.counter, gameplayReplay_.fixture().state2Visual_.delay, gameplayReplay_.fixture().state2Visual_.mode,
+                            static_cast<uint8_t>(gameplayReplay_.fixture().state2Visual_.step)} : gameplayReplay_.fixture().player_.animation.packed();
                         if (!std::equal(animation.begin(), animation.end(), playerRaw.begin() + 0x16) ||
-                            player_.idleTicks != playerRaw[2]) fail("player animation");
+                            gameplayReplay_.fixture().player_.idleTicks != playerRaw[2]) fail("player animation");
                         const auto flags = bytes(tick.at("player_flags"), 14);
-                        if (flags[1] != 1 || flags[5] != lives_) fail("player life/state flags");
+                        if (flags[1] != 1 || flags[5] != gameplayReplay_.fixture().lives_) fail("player life/state flags");
                         ++playerStates;
                     }
                     lastHash = inspectRenderedFrame(name + "-" + std::to_string(sample)).hash;
                     if (!outDir.empty()) {
                         writeArgbPpm(joinPath(outDir, name + "_" + std::to_string(sample) + ".ppm"), fb_, kScreenW, kScreenH);
-                        frameManifest << name << ',' << sample << ',' << frame << ',' << player_.x << ',' << player_.y
-                            << ',' << energy_ << ',' << playerDead_ << ',' << deathStateTimer_ << ',' << le16(visual, 0)
-                            << ',' << le16(visual, 2) << ',' << (monsters_.empty() ? 0 : monsters_.front().hp) << ',' << flameRecords_.size() << ','
-                            << debrisQueue_.size() << ',' << collapseQueue_.size() << ',' << std::hex << randomSeed_
+                        frameManifest << name << ',' << sample << ',' << frame << ',' << gameplayReplay_.fixture().player_.x << ',' << gameplayReplay_.fixture().player_.y
+                            << ',' << gameplayReplay_.fixture().energy_ << ',' << gameplayReplay_.fixture().playerDead_ << ',' << gameplayReplay_.fixture().deathStateTimer_ << ',' << le16(visual, 0)
+                            << ',' << le16(visual, 2) << ',' << (gameplayReplay_.fixture().monsters_.empty() ? 0 : gameplayReplay_.fixture().monsters_.front().hp) << ',' << gameplayReplay_.fixture().flameRecords_.size() << ','
+                            << gameplayReplay_.fixture().debrisQueue_.size() << ',' << gameplayReplay_.fixture().collapseQueue_.size() << ',' << std::hex << gameplayReplay_.fixture().randomSeed_
                             << ',' << lastHash << std::dec << '\n';
                     }
                 };
@@ -21449,11 +21214,11 @@ public:
                 }
                 resetLevel(0);
                 ui_.setMenu(false);
-                spawnerStates_.clear();
-                monsters_.clear();
-                baselineMap = level_.tiles;
-                player_.x = 240;
-                player_.y = 168;
+                gameplayReplay_.fixture().spawnerStates_.clear();
+                gameplayReplay_.fixture().monsters_.clear();
+                baselineMap = gameplayReplay_.fixture().level_.tiles;
+                gameplayReplay_.fixture().player_.x = 240;
+                gameplayReplay_.fixture().player_.y = 168;
                 ActiveMonster monster;
                 monster.x = 336;
                 monster.y = spec[4] - raw[0x14];
@@ -21472,28 +21237,28 @@ public:
                 monster.animDelay = raw[0x1a];
                 monster.animMode = raw[0x1b];
                 monster.animStep = raw[0x1c];
-                monsters_.push_back(monster);
+                gameplayReplay_.fixture().monsters_.push_back(monster);
                 const int cell = std::stoi(fields.at("cell"));
                 const int expectedCell = name == "control_air" ? -1 : (monster.y >> 3) * 60 + 42 + (spec[1] < 0);
                 if (cell != expectedCell) throw std::runtime_error("invalid monster-damage tile seed");
-                if (cell >= 0) level_.tiles.at(static_cast<size_t>(cell)) = 0x75;
+                if (cell >= 0) gameplayReplay_.fixture().level_.tiles.at(static_cast<size_t>(cell)) = 0x75;
                 previousFrame = std::stoi(fields.at("frame")) - 1;
-                logicTick_ = static_cast<uint64_t>(previousFrame);
-                randomSeed_ = 0x12345678;
+                gameplayReplay_.fixture().logicTick_ = static_cast<uint64_t>(previousFrame);
+                gameplayReplay_.fixture().randomSeed_ = 0x12345678;
                 sample = 0;
             } else if (line.rfind("tick ", 0) == 0) {
                 auto fail = [&] { throw std::runtime_error("original monster-damage mismatch: " + name + " sample=" + std::to_string(sample)); };
                 if (name.empty() || sample >= 13 || std::stoi(fields.at("sample")) != sample ||
-                    std::stoi(fields.at("frame")) != previousFrame + 1 || monsters_.size() != 1) fail();
-                const int hpBefore = monsters_.front().hp;
-                const int behaviorBefore = monsters_.front().behavior;
+                    std::stoi(fields.at("frame")) != previousFrame + 1 || gameplayReplay_.fixture().monsters_.size() != 1) fail();
+                const int hpBefore = gameplayReplay_.fixture().monsters_.front().hp;
+                const int behaviorBefore = gameplayReplay_.fixture().monsters_.front().behavior;
                 updateWithControls({}, 0.0f);
-                if (monsters_.size() != 1 || sharedActorCount() != 1 || fields.at("count") != "1" ||
-                    fields.at("others") != "-" || randomSeed_ != le32(bytes(fields.at("rng"), 4), 0)) fail();
+                if (gameplayReplay_.fixture().monsters_.size() != 1 || sharedActorCount() != 1 || fields.at("count") != "1" ||
+                    fields.at("others") != "-" || gameplayReplay_.fixture().randomSeed_ != le32(bytes(fields.at("rng"), 4), 0)) fail();
                 const auto split = fields.at("target").find(':');
                 const auto raw = bytes(fields.at("target").substr(0, split), 38);
                 const auto visual = bytes(fields.at("target").substr(split + 1), 8);
-                const auto& monster = monsters_.front();
+                const auto& monster = gameplayReplay_.fixture().monsters_.front();
                 const int sprite = gameRenderer_.monsterSpriteIndex(monster);
                 if (raw[0] != monster.kind || raw[0x15] != monster.behavior || raw[0x14] != monster.hotspotY ||
                     raw[2] != (monster.stateTimer + 1) / 2 ||
@@ -21515,7 +21280,7 @@ public:
                     }
                 }
                 for (size_t i = 0; i < baselineMap.size(); ++i) {
-                    if (level_.tiles[i] != baselineMap[i]) actualMap.emplace(static_cast<int>(i), level_.tiles[i]);
+                    if (gameplayReplay_.fixture().level_.tiles[i] != baselineMap[i]) actualMap.emplace(static_cast<int>(i), gameplayReplay_.fixture().level_.tiles[i]);
                 }
                 if (actualMap != expectedMap) fail();
                 if (monster.hp > 0 && monster.hp < hpBefore) ++nonfatalHits;
@@ -21525,7 +21290,7 @@ public:
                 lastHash = inspectRenderedFrame(label).hash;
                 if (!outDir.empty()) {
                     writeArgbPpm(joinPath(outDir, label + ".ppm"), fb_, kScreenW, kScreenH);
-                    manifest << name << ',' << sample << ',' << logicTick_ << ',' << monster.x << ','
+                    manifest << name << ',' << sample << ',' << gameplayReplay_.fixture().logicTick_ << ',' << monster.x << ','
                              << monster.y + monster.hotspotY << ',' << monster.vx8 << ',' << monster.vy8 << ','
                              << monster.hp << ',' << int(monster.kind) << ',' << int(monster.behavior) << ','
                              << sprite << ',' << int(monster.animCursor) << ',' << monster.animTick << ','
@@ -21549,29 +21314,29 @@ public:
         // 1000:7BC2 stores the low byte; 74B5 kills only after it goes negative.
         for (int rawHp : {0, 1, 2, 255}) {
             resetLevel(0);
-            monsters_.clear();
-            level_.monsterSpawners.resize(1);
-            spawnerStates_.resize(1);
-            auto& spawner = level_.monsterSpawners.front();
+            gameplayReplay_.fixture().monsters_.clear();
+            gameplayReplay_.fixture().level_.monsterSpawners.resize(1);
+            gameplayReplay_.fixture().spawnerStates_.resize(1);
+            auto& spawner = gameplayReplay_.fixture().level_.monsterSpawners.front();
             spawner.enabled = true;
             spawner.randomBase = static_cast<uint8_t>(rawHp);
             spawner.randomRange = 0;
-            auto& state = spawnerStates_.front();
+            auto& state = gameplayReplay_.fixture().spawnerStates_.front();
             state.cooldown = 1;
             state.availableSlots = 1;
             state.remaining = 1;
             updateMonsterSpawners();
-            if (monsters_.size() != 1 || monsters_.front().hp != rawHp + 1) {
+            if (gameplayReplay_.fixture().monsters_.size() != 1 || gameplayReplay_.fixture().monsters_.front().hp != rawHp + 1) {
                 throw std::runtime_error("monster spawner HP mapping mismatch");
             }
             if (rawHp) {
-                damageMonster(monsters_.front(), rawHp);
-                if (monsters_.front().hp != 1 || monsters_.front().behavior == 2) {
+                damageMonster(gameplayReplay_.fixture().monsters_.front(), rawHp);
+                if (gameplayReplay_.fixture().monsters_.front().hp != 1 || gameplayReplay_.fixture().monsters_.front().behavior == 2) {
                     throw std::runtime_error("monster died at original HP byte zero");
                 }
             }
-            damageMonster(monsters_.front(), 1);
-            if (monsters_.front().hp != 0 || monsters_.front().behavior != 2 || state.availableSlots != 1) {
+            damageMonster(gameplayReplay_.fixture().monsters_.front(), 1);
+            if (gameplayReplay_.fixture().monsters_.front().hp != 0 || gameplayReplay_.fixture().monsters_.front().behavior != 2 || state.availableSlots != 1) {
                 throw std::runtime_error("monster failed to die below original HP byte zero");
             }
         }
@@ -21710,9 +21475,9 @@ public:
                 }
                 resetLevel(0);
                 ui_.setMenu(false);
-                spawnerStates_.clear();
-                player_.x = 240;
-                player_.y = 168;
+                gameplayReplay_.fixture().spawnerStates_.clear();
+                gameplayReplay_.fixture().player_.x = 240;
+                gameplayReplay_.fixture().player_.y = 168;
                 ActiveMonster corpse;
                 corpse.x = motion[0];
                 corpse.y = motion[1] - 6;
@@ -21730,27 +21495,27 @@ public:
                 corpse.animMode = original[0x1b];
                 if (corpseLifecycle) {
                     const int damageCell = std::stoi(fields.at("damage_cell"));
-                    const int expectedCell = fatal ? (corpse.y >> 3) * level_.width + ((corpse.x + 4) >> 3) : -1;
+                    const int expectedCell = fatal ? (corpse.y >> 3) * gameplayReplay_.fixture().level_.width + ((corpse.x + 4) >> 3) : -1;
                     if (damageCell != expectedCell || original[0x25] != 0) throw std::runtime_error("invalid corpse damage seed");
-                    if (fatal) tileRef(damageCell % level_.width, damageCell / level_.width) = 0x75;
+                    if (fatal) tileRef(damageCell % gameplayReplay_.fixture().level_.width, damageCell / gameplayReplay_.fixture().level_.width) = 0x75;
                 }
                 if (directReward) {
                     spawnBonusDrop(static_cast<float>(motion[0]), static_cast<float>(motion[1]), static_cast<BonusType>(rewardKind));
-                    auto& reward = bonusDrops_.back();
+                    auto& reward = gameplayReplay_.fixture().bonusDrops_.back();
                     reward.vx8 = static_cast<int16_t>(motion[2]);
                     reward.vy8 = static_cast<int16_t>(motion[3]);
                     reward.fracX = original[10];
                     reward.fracY = original[12];
-                } else monsters_.push_back(corpse);
+                } else gameplayReplay_.fixture().monsters_.push_back(corpse);
                 for (uint32_t i = 1; i < spec->second[1]; ++i) {
                     ActiveMonster filler;
                     filler.x = 440;
                     filler.y = 240;
                     filler.behavior = 2;
                     filler.stateTimer = 1000;
-                    monsters_.push_back(filler);
+                    gameplayReplay_.fixture().monsters_.push_back(filler);
                 }
-                randomSeed_ = spec->second[0];
+                gameplayReplay_.fixture().randomSeed_ = spec->second[0];
                 samples = 0;
                 previousFrame = -1;
             } else if (line.rfind("tick ", 0) == 0) {
@@ -21762,20 +21527,20 @@ public:
                     (samples && frame != ((previousFrame + 1) & 0xffff))) {
                     throw std::runtime_error("death-effects frame discontinuity");
                 }
-                if (!samples) logicTick_ = static_cast<uint16_t>(frame - 1);
+                if (!samples) gameplayReplay_.fixture().logicTick_ = static_cast<uint16_t>(frame - 1);
                 updateWithControls({}, 0.0f);
                 const auto expected = entries(fields.at("effects"));
                 const auto rewards = entries(fields.at("rewards"));
                 const auto corpses = corpseLifecycle ? entries(fields.at("corpses")) : std::vector<Entry>{};
                 auto fail = [&] { throw std::runtime_error("original death-effects mismatch: " + name +
                                                           " sample=" + std::to_string(samples)); };
-                if (transientActors_.size() != expected.size() || bonusDrops_.size() != rewards.size() ||
+                if (gameplayReplay_.fixture().transientActors_.size() != expected.size() || gameplayReplay_.fixture().bonusDrops_.size() != rewards.size() ||
                     sharedActorCount() != std::stoul(fields.at("count")) ||
-                    randomSeed_ != le32(bytes(fields.at("rng"), 4), 0)) fail();
+                    gameplayReplay_.fixture().randomSeed_ != le32(bytes(fields.at("rng"), 4), 0)) fail();
                 if (corpseLifecycle) {
-                    if (monsters_.size() != corpses.size()) fail();
+                    if (gameplayReplay_.fixture().monsters_.size() != corpses.size()) fail();
                     for (size_t i = 0; i < corpses.size(); ++i) {
-                        const auto& corpse = monsters_[i];
+                        const auto& corpse = gameplayReplay_.fixture().monsters_[i];
                         const auto& raw = corpses[i].first;
                         const auto& visual = corpses[i].second;
                         const int sprite = gameRenderer_.monsterSpriteIndex(corpse);
@@ -21790,18 +21555,18 @@ public:
                     }
                 }
                 for (size_t i = 0; i < expected.size(); ++i) {
-                    if (!transientMatchesOriginal(transientActors_[i], expected[i].first,
+                    if (!transientMatchesOriginal(gameplayReplay_.fixture().transientActors_[i], expected[i].first,
                                                    expected[i].second, descriptors)) fail();
                     ++effectStates;
                 }
                 for (size_t i = 0; i < rewards.size(); ++i) {
-                    const auto sprite = bonusSpriteIndex(bonusDrops_[i].type);
+                    const auto sprite = bonusSpriteIndex(gameplayReplay_.fixture().bonusDrops_[i].type);
                     if (!std::equal(rewards[i].second.begin() + 4, rewards[i].second.end(),
                                     descriptors.begin() + (sprite + 1) * 4)) fail();
-                    if (!samples && (bonusDrops_[i].x != le16(rewards[i].second, 0) ||
-                                     bonusDrops_[i].y != le16(rewards[i].second, 2))) fail();
+                    if (!samples && (gameplayReplay_.fixture().bonusDrops_[i].x != le16(rewards[i].second, 0) ||
+                                     gameplayReplay_.fixture().bonusDrops_[i].y != le16(rewards[i].second, 2))) fail();
                     if (lifecycle) {
-                        const auto& reward = bonusDrops_[i];
+                        const auto& reward = gameplayReplay_.fixture().bonusDrops_[i];
                         const auto& raw = rewards[i].first;
                         if (raw[0] != 0x13 + static_cast<int>(reward.type) || raw[2] != reward.timer ||
                             raw[0x14] != reward.hotspotY || raw[0x15] != 2 || raw[0x1b] != 0 ||
@@ -21822,20 +21587,20 @@ public:
                         writeArgbPpm(joinPath(outDir, label + ".ppm"), fb_, kScreenW, kScreenH);
                     }
                     manifest << name << ',' << samples << ',' << frame << ',' << sharedActorCount() << ','
-                             << transientActors_.size() << ',' << std::hex << randomSeed_ << ',' << lastHash << std::dec << ',';
-                    for (const auto& actor : transientActors_) {
+                             << gameplayReplay_.fixture().transientActors_.size() << ',' << std::hex << gameplayReplay_.fixture().randomSeed_ << ',' << lastHash << std::dec << ',';
+                    for (const auto& actor : gameplayReplay_.fixture().transientActors_) {
                         manifest << int(actor.kind) << ':' << actor.x << ':' << actor.y << ':' << actor.vx8 << ':'
                                  << actor.vy8 << ':' << int(actor.timer) << ':' << int(actor.spriteIndex) << '|';
                     }
                     manifest << ',';
-                    for (const auto& reward : bonusDrops_) {
+                    for (const auto& reward : gameplayReplay_.fixture().bonusDrops_) {
                         manifest << int(reward.type) << ':' << reward.x << ':' << reward.y << ':'
                                  << reward.vx8 << ':' << reward.vy8 << ':' << int(reward.fracX) << ':'
                                  << int(reward.fracY) << ':' << int(reward.timer) << '|';
                     }
                     if (corpseLifecycle) {
                         manifest << ',';
-                        for (const auto& corpse : monsters_) {
+                        for (const auto& corpse : gameplayReplay_.fixture().monsters_) {
                             manifest << int(corpse.kind) << ':' << corpse.x << ':' << corpse.y << ':'
                                      << corpse.vx8 << ':' << corpse.vy8 << ':' << int(corpse.fracX) << ':'
                                      << int(corpse.fracY) << ':' << (corpse.stateTimer + 1) / 2 << '|';
@@ -21849,7 +21614,7 @@ public:
                 previousFrame = frame;
             } else if (line.rfind("end ", 0) == 0) {
                 if (name.empty() || samples != samplesPerCase || std::stoi(fields.at("samples")) != samplesPerCase ||
-                    !transientActors_.empty() || (lifecycle && !bonusDrops_.empty()) || (corpseLifecycle && !monsters_.empty())) {
+                    !gameplayReplay_.fixture().transientActors_.empty() || (lifecycle && !gameplayReplay_.fixture().bonusDrops_.empty()) || (corpseLifecycle && !gameplayReplay_.fixture().monsters_.empty())) {
                     throw std::runtime_error("incomplete death-effects lifecycle");
                 }
                 name.clear();
@@ -21931,14 +21696,14 @@ public:
                 record.subY = 100;
                 record.argMagnitude = 64;
                 record.affectedBytes = 4;
-                collapseQueue_.push_back(record);
-                randomSeed_ = 0x12345678;
-                nextCollapseFragmentWord_ = 0x4000;
+                gameplayReplay_.fixture().collapseQueue_.push_back(record);
+                gameplayReplay_.fixture().randomSeed_ = 0x12345678;
+                gameplayReplay_.fixture().nextCollapseFragmentWord_ = 0x4000;
                 seeded = true;
             } else if (line.rfind("sprites ", 0) == 0) {
                 descriptors = bytes(fields.at("descriptors"), 92 * 4);
             } else if (line.rfind("creation_rng=", 0) == 0) {
-                if (samples != 1 || randomSeed_ != le32(bytes(fields.at("creation_rng"), 4), 0)) {
+                if (samples != 1 || gameplayReplay_.fixture().randomSeed_ != le32(bytes(fields.at("creation_rng"), 4), 0)) {
                     throw std::runtime_error("fracture creation RNG mismatch");
                 }
                 rngChecked = true;
@@ -21953,21 +21718,21 @@ public:
                     (samples && frame != ((previousFrame + 1) & 0xffff))) {
                     throw std::runtime_error("invalid fracture actor checkpoint");
                 }
-                logicTick_ = static_cast<uint32_t>(frame);
+                gameplayReplay_.fixture().logicTick_ = static_cast<uint32_t>(frame);
                 if (!samples) updateCollapseRecords();
                 else updateTransientActors();
                 const auto value = fields.at("actors");
                 if (value == "-") {
-                    if (!transientActors_.empty()) throw std::runtime_error("fracture actor did not retire");
+                    if (!gameplayReplay_.fixture().transientActors_.empty()) throw std::runtime_error("fracture actor did not retire");
                 } else {
                     const auto colon = value.find(':');
-                    if (colon == std::string::npos || transientActors_.size() != 1 ||
-                        !transientMatchesOriginal(transientActors_.front(), bytes(value.substr(0, colon), 38),
+                    if (colon == std::string::npos || gameplayReplay_.fixture().transientActors_.size() != 1 ||
+                        !transientMatchesOriginal(gameplayReplay_.fixture().transientActors_.front(), bytes(value.substr(0, colon), 38),
                                                    bytes(value.substr(colon + 1), 8), descriptors)) {
                         throw std::runtime_error("original fracture actor mismatch at " + std::to_string(samples));
                     }
                     ++live;
-                    spritesSeen.insert(transientActors_.front().spriteIndex);
+                    spritesSeen.insert(gameplayReplay_.fixture().transientActors_.front().spriteIndex);
                 }
                 const auto label = "fracture_actor_" + std::to_string(samples);
                 lastHash = inspectRenderedFrame(label).hash;
@@ -21977,7 +21742,7 @@ public:
             } else throw std::runtime_error("unexpected fracture actor fixture row");
         }
         if (!complete || !rngChecked || live < 15 || live > 16 || spritesSeen.size() != 6 ||
-            !transientActors_.empty()) throw std::runtime_error("fracture actor lifecycle coverage missing");
+            !gameplayReplay_.fixture().transientActors_.empty()) throw std::runtime_error("fracture actor lifecycle coverage missing");
         std::cout << "fracture_actor_original=ok samples=" << samples << " live_states=" << live
                   << " sprites=" << spritesSeen.size() << " retired=1 creation_rng=1 seeded=1"
                   << " frame_inspection=1 frame_hash=" << std::hex << lastHash << std::dec << '\n';
@@ -21989,49 +21754,49 @@ public:
         resetLevel(0);
         prepareMonsterMotionDebugLevel(false);
         ui_.setMenu(false);
-        player_.x = player_.y = 16;
+        gameplayReplay_.fixture().player_.x = gameplayReplay_.fixture().player_.y = 16;
         auto pickups = [&] {
             tileRef(2, 2) = 0x67; tileRef(3, 2) = 0x68;
             tileRef(3, 3) = 0x69; tileRef(2, 3) = 0x6a;
         };
         auto checkDraws = [&](int draws, size_t expectedCount) {
             pickups();
-            lezac::core::TurboRandom expected(randomSeed_);
+            lezac::core::TurboRandom expected(gameplayReplay_.fixture().randomSeed_);
             for (int i = 0; i < draws; ++i) expected.range(0, 200);
-            collectObjectiveTiles(player_, 1);
-            if (randomSeed_ != expected.seed() || transientActors_.size() != expectedCount) {
+            collectObjectiveTiles(gameplayReplay_.fixture().player_, 1);
+            if (gameplayReplay_.fixture().randomSeed_ != expected.seed() || gameplayReplay_.fixture().transientActors_.size() != expectedCount) {
                 throw std::runtime_error("transient allocation/RNG boundary mismatch");
             }
         };
         checkDraws(4, 4);
         const std::array<std::array<int, 2>, 4> positions{{{{14,14}}, {{26,14}}, {{26,26}}, {{14,26}}}};
         for (size_t i = 0; i < 4; ++i) {
-            if (transientActors_[i].x != positions[i][0] || transientActors_[i].y != positions[i][1] ||
-                transientActors_[i].spriteIndex != 79 + i) throw std::runtime_error("pickup effect footprint mismatch");
+            if (gameplayReplay_.fixture().transientActors_[i].x != positions[i][0] || gameplayReplay_.fixture().transientActors_[i].y != positions[i][1] ||
+                gameplayReplay_.fixture().transientActors_[i].spriteIndex != 79 + i) throw std::runtime_error("pickup effect footprint mismatch");
         }
-        transientActors_.resize(13);
+        gameplayReplay_.fixture().transientActors_.resize(13);
         checkDraws(1, 14);
         checkDraws(0, 14);
-        transientActors_.clear();
-        monsters_.resize(30);
+        gameplayReplay_.fixture().transientActors_.clear();
+        gameplayReplay_.fixture().monsters_.resize(30);
         checkDraws(4, 0);
-        monsters_.clear();
+        gameplayReplay_.fixture().monsters_.clear();
         spawnTransientActor(20, 20, -128, 80, 0x0a, 12);
         ui_.setPaused(true);
-        const auto seed = randomSeed_;
+        const auto seed = gameplayReplay_.fixture().randomSeed_;
         updateWithControls({}, 0.0f);
-        if (transientActors_.front().y != 20 || transientActors_.front().timer != 12 || randomSeed_ != seed) {
+        if (gameplayReplay_.fixture().transientActors_.front().y != 20 || gameplayReplay_.fixture().transientActors_.front().timer != 12 || gameplayReplay_.fixture().randomSeed_ != seed) {
             throw std::runtime_error("paused transient changed");
         }
         ui_.setPaused(false);
-        cameraShakeTicks_ = 3;
+        gameplayReplay_.fixture().cameraShakeTicks_ = 3;
         updateCameraShake();
         const auto rendered = inspectRenderedFrame("transient-limits");
-        const auto renderSeed = randomSeed_;
+        const auto renderSeed = gameplayReplay_.fixture().randomSeed_;
         inspectRenderedFrame("transient-limits-repeat");
-        if (randomSeed_ != renderSeed) throw std::runtime_error("render advanced shake RNG");
+        if (gameplayReplay_.fixture().randomSeed_ != renderSeed) throw std::runtime_error("render advanced shake RNG");
         resetLevel(0);
-        if (!transientActors_.empty() || cameraShakeTicks_ || cameraShakeOffset_) {
+        if (!gameplayReplay_.fixture().transientActors_.empty() || gameplayReplay_.fixture().cameraShakeTicks_ || gameplayReplay_.fixture().cameraShakeOffset_) {
             throw std::runtime_error("level reset retained transient state");
         }
         prepareAutoplayerMonsterFixtureLevel();
@@ -22042,14 +21807,14 @@ public:
         corpse.behavior = 2;
         corpse.stateTimer = 1;
         corpse.deathRewardPending = true;
-        monsters_.push_back(corpse);
-        randomSeed_ = 0x90e25b93u;
-        cameraShakeTicks_ = 3;
+        gameplayReplay_.fixture().monsters_.push_back(corpse);
+        gameplayReplay_.fixture().randomSeed_ = 0x90e25b93u;
+        gameplayReplay_.fixture().cameraShakeTicks_ = 3;
         updateWithControls({}, 0.0f);
         // Six corpse-reward draws precede the seventh draw for camera shake.
-        if (!monsters_.empty() || bonusDrops_.size() != 1 ||
-            bonusDrops_.front().type != BonusType::Present ||
-            randomSeed_ != 0x67913022u || cameraShakeTicks_ != 2 || cameraShakeOffset_ != 5) {
+        if (!gameplayReplay_.fixture().monsters_.empty() || gameplayReplay_.fixture().bonusDrops_.size() != 1 ||
+            gameplayReplay_.fixture().bonusDrops_.front().type != BonusType::Present ||
+            gameplayReplay_.fixture().randomSeed_ != 0x67913022u || gameplayReplay_.fixture().cameraShakeTicks_ != 2 || gameplayReplay_.fixture().cameraShakeOffset_ != 5) {
             throw std::runtime_error("camera shake preceded actor reward RNG");
         }
         std::cout << "transient_actor_limits=ok pickup_cap=14 shared_cap=30 clockwise_cells=4"
@@ -22115,8 +21880,8 @@ public:
             bool header = false, complete = false;
             bool world = false;
             bool transientHeader = false;
-            const auto initialTiles = level_.tiles;
-            const auto initialWords = level_.wordLayer;
+            const auto initialTiles = gameplayReplay_.fixture().level_.tiles;
+            const auto initialWords = gameplayReplay_.fixture().level_.wordLayer;
             std::vector<uint8_t> descriptors;
             auto spriteIndex = [&](const std::vector<uint8_t>& visual) -> uint8_t {
                 for (size_t i = 1; i < descriptors.size() / 4; ++i) {
@@ -22208,9 +21973,9 @@ public:
                         }
                         return extent;
                     };
-                    const size_t tileExtent = payloadExtent(level_.fileOffset + 10, level_.tileEncodedSize);
-                    const size_t wordExtent = payloadExtent(level_.fileOffset + 12 + level_.tileEncodedSize,
-                                                             level_.wordEncodedSize);
+                    const size_t tileExtent = payloadExtent(gameplayReplay_.fixture().level_.fileOffset + 10, gameplayReplay_.fixture().level_.tileEncodedSize);
+                    const size_t wordExtent = payloadExtent(gameplayReplay_.fixture().level_.fileOffset + 12 + gameplayReplay_.fixture().level_.tileEncodedSize,
+                                                             gameplayReplay_.fixture().level_.wordEncodedSize);
                     for (size_t i = 0; i < initialTiles.size(); ++i) {
                         if (originalTiles[i] != initialTiles[i]) {
                             if (i < tileExtent) throw std::runtime_error("original initial tile payload mismatch");
@@ -22250,44 +22015,44 @@ public:
                     throw std::runtime_error("invalid or non-consecutive original player state");
                 }
                 if (!count) {
-                    player_.x = static_cast<float>(le16(visual, 0));
-                    player_.y = static_cast<float>(le16(visual, 2));
-                    player_.vx8 = static_cast<int16_t>(le16(raw, 6));
-                    player_.vy8 = static_cast<int16_t>(le16(raw, 8));
-                    player_.fracX = raw[10];
-                    player_.fracY = raw[12];
-                    player_.grounded = before[0x19] != 0;
-                    syncPlayerVelocityMirror(player_);
-                    logicTick_ = static_cast<uint32_t>(frame - 1);
+                    gameplayReplay_.fixture().player_.x = static_cast<float>(le16(visual, 0));
+                    gameplayReplay_.fixture().player_.y = static_cast<float>(le16(visual, 2));
+                    gameplayReplay_.fixture().player_.vx8 = static_cast<int16_t>(le16(raw, 6));
+                    gameplayReplay_.fixture().player_.vy8 = static_cast<int16_t>(le16(raw, 8));
+                    gameplayReplay_.fixture().player_.fracX = raw[10];
+                    gameplayReplay_.fixture().player_.fracY = raw[12];
+                    gameplayReplay_.fixture().player_.grounded = before[0x19] != 0;
+                    syncPlayerVelocityMirror(gameplayReplay_.fixture().player_);
+                    gameplayReplay_.fixture().logicTick_ = static_cast<uint32_t>(frame - 1);
                     if (checkTransients) {
                         if (!transientHeader || fields.at("entry_transients") != "-") {
                             throw std::runtime_error("transient route must begin before allocation");
                         }
                         const auto seed = bytes(fields.at("entry_rng"), 4);
-                        randomSeed_ = le32(seed, 0);
+                        gameplayReplay_.fixture().randomSeed_ = le32(seed, 0);
                     }
                     if (checkAnimation) {
                         const auto entry = bytes(fields.at("entry"), 0x26);
-                        player_.animation = animationFrom(entry, 0x16);
-                        player_.animationBackup = animationFrom(entry, 0x1D);
-                        player_.idleTicks = entry[2];
-                        player_.dropTicks = le16(entry, 0x0E);
-                        player_.spriteIndex = spriteIndex(bytes(fields.at("entry_visual"), 8));
+                        gameplayReplay_.fixture().player_.animation = animationFrom(entry, 0x16);
+                        gameplayReplay_.fixture().player_.animationBackup = animationFrom(entry, 0x1D);
+                        gameplayReplay_.fixture().player_.idleTicks = entry[2];
+                        gameplayReplay_.fixture().player_.dropTicks = le16(entry, 0x0E);
+                        gameplayReplay_.fixture().player_.spriteIndex = spriteIndex(bytes(fields.at("entry_visual"), 8));
                     }
                 }
                 if (checkTransients) {
                     if (fields.count("entry_shake")) {
                         const auto shake = bytes(fields.at("entry_shake"), 6);
-                        if (cameraShakeOffset_ != le16(shake, 0) || cameraShakeTicks_ != le16(shake, 2) ||
-                            (cameraShakeTicks_ > 0) != (le16(shake, 4) != 0)) {
+                        if (gameplayReplay_.fixture().cameraShakeOffset_ != le16(shake, 0) || gameplayReplay_.fixture().cameraShakeTicks_ != le16(shake, 2) ||
+                            (gameplayReplay_.fixture().cameraShakeTicks_ > 0) != (le16(shake, 4) != 0)) {
                             throw std::runtime_error("original camera shake mismatch at " + std::to_string(count));
                         }
                         ++shakeStates;
                     }
-                    if (randomSeed_ != le32(bytes(fields.at("entry_rng"), 4), 0)) {
+                    if (gameplayReplay_.fixture().randomSeed_ != le32(bytes(fields.at("entry_rng"), 4), 0)) {
                         std::ostringstream error;
                         error << "original transient RNG mismatch at " << count << " cpp=" << std::hex
-                              << randomSeed_ << " original=" << le32(bytes(fields.at("entry_rng"), 4), 0);
+                              << gameplayReplay_.fixture().randomSeed_ << " original=" << le32(bytes(fields.at("entry_rng"), 4), 0);
                         throw std::runtime_error(error.str());
                     }
                     ++rngStates;
@@ -22299,13 +22064,13 @@ public:
                     };
                     std::vector<uint8_t> changes, records;
                     for (size_t i = 0; i < initialTiles.size(); ++i) {
-                        if (level_.tiles[i] != initialTiles[i] || level_.wordLayer[i] != initialWords[i]) {
+                        if (gameplayReplay_.fixture().level_.tiles[i] != initialTiles[i] || gameplayReplay_.fixture().level_.wordLayer[i] != initialWords[i]) {
                             appendWord(changes, static_cast<uint16_t>(i));
-                            changes.push_back(level_.tiles[i]);
-                            appendWord(changes, level_.wordLayer[i]);
+                            changes.push_back(gameplayReplay_.fixture().level_.tiles[i]);
+                            appendWord(changes, gameplayReplay_.fixture().level_.wordLayer[i]);
                         }
                     }
-                    for (const auto& record : collapseQueue_) {
+                    for (const auto& record : gameplayReplay_.fixture().collapseQueue_) {
                         appendWord(records, record.startOffsetBytes);
                         appendWord(records, record.endOffsetBytes);
                         appendWord(records, record.flaggedWord);
@@ -22325,9 +22090,9 @@ public:
                     ++worldStates;
                 }
                 if (checkAnimation) {
-                    requireAnimation(player_, bytes(fields.at("entry"), 0x26),
+                    requireAnimation(gameplayReplay_.fixture().player_, bytes(fields.at("entry"), 0x26),
                                      bytes(fields.at("entry_visual"), 8), "entry " + std::to_string(count));
-                    Player advanced = player_;
+                    Player advanced = gameplayReplay_.fixture().player_;
                     if (advanced.animation.advance(advanced.animationBackup)) {
                         advanced.spriteIndex = static_cast<uint8_t>(advanced.animation.current - 1);
                     }
@@ -22335,11 +22100,11 @@ public:
                     updatePlayerGravity(advanced, before[0x19] != 0, 0, advancedY);
                     requireAnimation(advanced, raw, visual, "advance " + std::to_string(count));
                 }
-                if (static_cast<int>(player_.x) != le16(visual, 0) ||
-                    static_cast<int>(player_.y) != le16(visual, 2) ||
-                    player_.vx8 != static_cast<int16_t>(le16(raw, 6)) ||
-                    player_.vy8 != static_cast<int16_t>(le16(raw, 8)) ||
-                    player_.fracX != raw[10] || player_.fracY != raw[12]) {
+                if (static_cast<int>(gameplayReplay_.fixture().player_.x) != le16(visual, 0) ||
+                    static_cast<int>(gameplayReplay_.fixture().player_.y) != le16(visual, 2) ||
+                    gameplayReplay_.fixture().player_.vx8 != static_cast<int16_t>(le16(raw, 6)) ||
+                    gameplayReplay_.fixture().player_.vy8 != static_cast<int16_t>(le16(raw, 8)) ||
+                    gameplayReplay_.fixture().player_.fracX != raw[10] || gameplayReplay_.fixture().player_.fracY != raw[12]) {
                     throw std::runtime_error(route + " original player continuity mismatch at " + std::to_string(count));
                 }
                 FrameControls controls;
@@ -22363,9 +22128,9 @@ public:
                 }
                 overspeed += std::abs(localWord(response, -12)) > kPlayerWalkVelocity8;
                 airCoast += phase == "idle" && !before[0x19] && localWord(response, -12) != 0;
-                const uint8_t previousSprite = player_.spriteIndex;
-                const uint16_t previousDrop = player_.dropTicks;
-                const auto previousTiles = world ? level_.tiles : std::vector<uint8_t>{};
+                const uint8_t previousSprite = gameplayReplay_.fixture().player_.spriteIndex;
+                const uint16_t previousDrop = gameplayReplay_.fixture().player_.dropTicks;
+                const auto previousTiles = world ? gameplayReplay_.fixture().level_.tiles : std::vector<uint8_t>{};
                 updateWithControls(controls, 1.0f / 60.0f);
                 if (checkTransients) {
                     std::vector<std::pair<std::vector<uint8_t>, std::vector<uint8_t>>> expected;
@@ -22381,13 +22146,13 @@ public:
                         expected.emplace_back(bytes(entry.substr(first + 1, second - first - 1), 38),
                                               bytes(entry.substr(second + 1), 8));
                     }
-                    if (expected.size() != transientActors_.size() ||
+                    if (expected.size() != gameplayReplay_.fixture().transientActors_.size() ||
                         std::stoul(fields.at("final_pickup_count")) != pickupActorCount() ||
                         std::stoul(fields.at("final_actor_count")) != sharedActorCount()) {
                         throw std::runtime_error("original transient count mismatch at " + std::to_string(count));
                     }
                     for (size_t i = 0; i < expected.size(); ++i) {
-                        const auto& actor = transientActors_[i];
+                        const auto& actor = gameplayReplay_.fixture().transientActors_[i];
                         const auto& original = expected[i].first;
                         const auto& visible = expected[i].second;
                         if (!transientMatchesOriginal(actor, original, visible, descriptors)) {
@@ -22398,39 +22163,39 @@ public:
                 }
                 if (checkAnimation) {
                     const auto finalVisual = bytes(fields.at("final_visual"), 8);
-                    requireAnimation(player_, bytes(fields.at("final_actor"), 0x26), finalVisual,
+                    requireAnimation(gameplayReplay_.fixture().player_, bytes(fields.at("final_actor"), 0x26), finalVisual,
                                      "response " + std::to_string(count));
                     if (std::stoi(fields.at("sprite")) != spriteIndex(finalVisual)) {
                         throw std::runtime_error("original player sprite index disagrees with descriptor");
                     }
-                    spriteChanges += player_.spriteIndex != previousSprite;
-                    coastingIdle += player_.spriteIndex == 0 && player_.vx8 != 0 && phase == "idle";
+                    spriteChanges += gameplayReplay_.fixture().player_.spriteIndex != previousSprite;
+                    coastingIdle += gameplayReplay_.fixture().player_.spriteIndex == 0 && gameplayReplay_.fixture().player_.vx8 != 0 && phase == "idle";
                 }
-                if (static_cast<int>(player_.x) != localWord(after, -44) ||
-                    static_cast<int>(player_.y) != localWord(after, -46) ||
-                    player_.vx8 != localWord(after, -12) || player_.vy8 != localWord(after, -14) ||
-                    player_.fracX != after[0x2A] || player_.fracY != after[0x29]) {
+                if (static_cast<int>(gameplayReplay_.fixture().player_.x) != localWord(after, -44) ||
+                    static_cast<int>(gameplayReplay_.fixture().player_.y) != localWord(after, -46) ||
+                    gameplayReplay_.fixture().player_.vx8 != localWord(after, -12) || gameplayReplay_.fixture().player_.vy8 != localWord(after, -14) ||
+                    gameplayReplay_.fixture().player_.fracX != after[0x2A] || gameplayReplay_.fixture().player_.fracY != after[0x29]) {
                     std::ostringstream message;
                     message << route << " original player motion mismatch at " << count
-                            << " got=" << player_.x << ',' << player_.y << ',' << player_.vx8 << ','
-                            << player_.vy8 << ',' << int(player_.fracX) << ',' << int(player_.fracY)
+                            << " got=" << gameplayReplay_.fixture().player_.x << ',' << gameplayReplay_.fixture().player_.y << ',' << gameplayReplay_.fixture().player_.vx8 << ','
+                            << gameplayReplay_.fixture().player_.vy8 << ',' << int(gameplayReplay_.fixture().player_.fracX) << ',' << int(gameplayReplay_.fixture().player_.fracY)
                             << " original=" << localWord(after, -44) << ',' << localWord(after, -46)
                             << ',' << localWord(after, -12) << ',' << localWord(after, -14)
                             << ',' << int(after[0x2A]) << ',' << int(after[0x29]);
                     throw std::runtime_error(message.str());
                 }
                 if (count == 0 || phase != previousPhase || count + 1 == expectedCount || checkTransients ||
-                    (checkAnimation && player_.spriteIndex != previousSprite) || player_.dropTicks != previousDrop ||
-                    (world && previousTiles != level_.tiles)) {
+                    (checkAnimation && gameplayReplay_.fixture().player_.spriteIndex != previousSprite) || gameplayReplay_.fixture().player_.dropTicks != previousDrop ||
+                    (world && previousTiles != gameplayReplay_.fixture().level_.tiles)) {
                     const std::string label = route + "_" + std::to_string(count);
                     lastHash = inspectRenderedFrame(label).hash;
                     if (!outDir.empty()) {
                         writeArgbPpm(joinPath(outDir, label + ".ppm"), fb_, kScreenW, kScreenH);
                         manifest << route << ',' << count << ',' << phase << ',' << frame << ','
-                                 << player_.x << ',' << player_.y << ',' << player_.vx8 << ',' << player_.vy8
-                                 << ',' << int(player_.fracX) << ',' << int(player_.fracY) << ','
-                                 << int(player_.spriteIndex) << ',' << int(player_.animation.current)
-                                 << ',' << int(player_.idleTicks) << ',' << player_.dropTicks << ',' << collapseQueue_.size() << ','
+                                 << gameplayReplay_.fixture().player_.x << ',' << gameplayReplay_.fixture().player_.y << ',' << gameplayReplay_.fixture().player_.vx8 << ',' << gameplayReplay_.fixture().player_.vy8
+                                 << ',' << int(gameplayReplay_.fixture().player_.fracX) << ',' << int(gameplayReplay_.fixture().player_.fracY) << ','
+                                 << int(gameplayReplay_.fixture().player_.spriteIndex) << ',' << int(gameplayReplay_.fixture().player_.animation.current)
+                                 << ',' << int(gameplayReplay_.fixture().player_.idleTicks) << ',' << gameplayReplay_.fixture().player_.dropTicks << ',' << gameplayReplay_.fixture().collapseQueue_.size() << ','
                                  << std::hex << lastHash << std::dec << '\n';
                     }
                 }
@@ -22522,7 +22287,7 @@ public:
         const float tickSeconds = static_cast<float>(kGovernedTickMs / 1000.0);
         FrameControls idle;
         for (int i = 0; i < 30; ++i) updateWithControls(idle, tickSeconds);
-        if (!player_.grounded) {
+        if (!gameplayReplay_.fixture().player_.grounded) {
             throw std::runtime_error("player never settled for the walk probe");
         }
 
@@ -22531,19 +22296,19 @@ public:
         // The old fixture measured cruising speed, not the acceleration ramp.
         // Reach that state through live controls before measuring eight ticks.
         for (int i = 0; i < 16; ++i) updateWithControls(walkRight, tickSeconds);
-        const float walkStartX = player_.x;
+        const float walkStartX = gameplayReplay_.fixture().player_.x;
         int walkTicks = 0;
         for (int i = 0; i < 8; ++i) {
-            const float before = player_.x;
+            const float before = gameplayReplay_.fixture().player_.x;
             updateWithControls(walkRight, tickSeconds);
-            if (player_.x == before) break;  // hit a wall; stop measuring
+            if (gameplayReplay_.fixture().player_.x == before) break;  // hit a wall; stop measuring
             ++walkTicks;
         }
         if (walkTicks == 0) {
             throw std::runtime_error("player did not walk for the probe");
         }
         const double livePxPerTick =
-            (player_.x - walkStartX) / static_cast<double>(walkTicks);
+            (gameplayReplay_.fixture().player_.x - walkStartX) / static_cast<double>(walkTicks);
         if (std::abs(livePxPerTick - walkPerTick) > 0.5) {
             throw std::runtime_error(
                 "live walk " + std::to_string(livePxPerTick) +
@@ -22554,13 +22319,13 @@ public:
         // Jump arc: the fixture records the original's per-tick y deltas over
         // the rise. Sample the live player's y the same way.
         for (int i = 0; i < 30; ++i) updateWithControls(idle, tickSeconds);
-        if (!player_.grounded) {
+        if (!gameplayReplay_.fixture().player_.grounded) {
             throw std::runtime_error("player never settled for the jump probe");
         }
         FrameControls hold;
         hold.p1Jump = true;
         const int riseTicks = std::stoi(req("jump_rise_ticks"));
-        const float jumpStartY = player_.y;
+        const float jumpStartY = gameplayReplay_.fixture().player_.y;
         std::string liveDys;
         int livePeak = 0;
         int prevLiveY = 0;
@@ -22568,7 +22333,7 @@ public:
             // Jump is an impulse: press on the first tick only, so the arc
             // measured is the one the original's capture recorded.
             updateWithControls(t == 0 ? hold : idle, tickSeconds);
-            const int y = static_cast<int>(std::floor(player_.y - jumpStartY));
+            const int y = static_cast<int>(std::floor(gameplayReplay_.fixture().player_.y - jumpStartY));
             if (!liveDys.empty()) liveDys += ',';
             liveDys += std::to_string(y - prevLiveY);
             prevLiveY = y;
@@ -22607,9 +22372,9 @@ public:
         resetLevel(0);
         ui_.setMenu(false);
         std::filesystem::create_directories(outDir);
-        energy_ = 0;
-        damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
-                     damageCooldown_, 1);
+        gameplayReplay_.fixture().energy_ = 0;
+        damagePlayer(gameplayReplay_.fixture().player_, gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().reentryTimer_,
+                     gameplayReplay_.fixture().damageCooldown_, 1);
         int frame = 0;
         for (int tick = 0; tick < 240; ++tick) {
             update(1.0f / 60.0f);
@@ -22621,8 +22386,8 @@ public:
             }
         }
         std::cout << "capture_death_frames=ok frames=" << frame
-                  << " dead=" << (playerDead_ ? 1 : 0)
-                  << " lives=" << lives_ << " out=" << outDir << "\n";
+                  << " dead=" << (gameplayReplay_.fixture().playerDead_ ? 1 : 0)
+                  << " lives=" << gameplayReplay_.fixture().lives_ << " out=" << outDir << "\n";
     }
 
     // One two-player level-1 start frame, for pixel comparison against an
@@ -22633,15 +22398,15 @@ public:
         ui_.setMenu(false);
         ui_.setPaused(false);
         levelFlow_.restoreIntro({});
-        playerCount_ = 2;
+        gameplayReplay_.fixture().playerCount_ = 2;
         resetLevel(0);
         inspectRenderedFrame("capture-two-player");
         writeArgbPpm(outPath, fb_, kScreenW, kScreenH);
         std::cout << "capture_two_player_frame=ok out=" << outPath
-                  << " p1=" << static_cast<int>(player_.x) << ','
-                  << static_cast<int>(player_.y)
-                  << " p2=" << static_cast<int>(player2_.x) << ','
-                  << static_cast<int>(player2_.y) << "\n";
+                  << " p1=" << static_cast<int>(gameplayReplay_.fixture().player_.x) << ','
+                  << static_cast<int>(gameplayReplay_.fixture().player_.y)
+                  << " p2=" << static_cast<int>(gameplayReplay_.fixture().player2_.x) << ','
+                  << static_cast<int>(gameplayReplay_.fixture().player2_.y) << "\n";
     }
 
     // Print the tile and word-layer values for a rectangle of a level, for
@@ -22650,14 +22415,14 @@ public:
     void debugLevelPlaneRect(int levelIndex, int tx0, int ty0, int tw, int th) {
         load();
         resetLevel(levelIndex);
-        for (int ty = ty0; ty < ty0 + th && ty < level_.height; ++ty) {
+        for (int ty = ty0; ty < ty0 + th && ty < gameplayReplay_.fixture().level_.height; ++ty) {
             std::string tl, wl;
-            for (int tx = tx0; tx < tx0 + tw && tx < level_.width; ++tx) {
+            for (int tx = tx0; tx < tx0 + tw && tx < gameplayReplay_.fixture().level_.width; ++tx) {
                 char buf[8];
                 std::snprintf(buf, sizeof(buf), "%02x ", tileAt(tx, ty));
                 tl += buf;
-                uint16_t w = level_.wordLayer[static_cast<size_t>(
-                    ty * level_.width + tx)];
+                uint16_t w = gameplayReplay_.fixture().level_.wordLayer[static_cast<size_t>(
+                    ty * gameplayReplay_.fixture().level_.width + tx)];
                 std::snprintf(buf, sizeof(buf), "%04x ", w);
                 wl += buf;
             }
@@ -22673,11 +22438,11 @@ public:
         load();
         initSdl();
         resetLevel(levelIndex);
-        const int w = level_.width * 8;
-        const int h = level_.height * 8;
+        const int w = gameplayReplay_.fixture().level_.width * 8;
+        const int h = gameplayReplay_.fixture().level_.height * 8;
         std::vector<uint32_t> world(static_cast<size_t>(w) * h, 0xff000000u);
-        for (int ty = 0; ty < level_.height; ++ty) {
-            for (int tx = 0; tx < level_.width; ++tx) {
+        for (int ty = 0; ty < gameplayReplay_.fixture().level_.height; ++ty) {
+            for (int tx = 0; tx < gameplayReplay_.fixture().level_.width; ++tx) {
                 int id = tileAt(tx, ty);
                 const uint8_t* tile = tiles_.tile(id);
                 if (!tile || id == 0) continue;
@@ -22778,13 +22543,13 @@ public:
         bool running = true;
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (!levelFlow_.intro().active || ui_.snapshot().menu || levelIndex_ != 0 ||
+        if (!levelFlow_.intro().active || ui_.snapshot().menu || gameplayReplay_.fixture().levelIndex_ != 0 ||
             visibleLevelIntroCharacters(levelFlow_.intro().startedAt) != 1) {
             throw std::runtime_error("interactive menu start did not begin level intro");
         }
-        const uint32_t logicBefore = logicTick_;
+        const uint32_t logicBefore = gameplayReplay_.fixture().logicTick_;
         updateWithControls(FrameControls{}, 1.0f / 60.0f);
-        if (logicTick_ != logicBefore) {
+        if (gameplayReplay_.fixture().logicTick_ != logicBefore) {
             throw std::runtime_error("gameplay advanced while level intro was active");
         }
         const uint32_t duration =
@@ -22807,13 +22572,13 @@ public:
         beginLevelForPlay(1);
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
-        if (levelFlow_.intro().active || !bombs_.empty()) {
+        if (levelFlow_.intro().active || !gameplayReplay_.fixture().bombs_.empty()) {
             throw std::runtime_error("level intro skip key leaked into gameplay");
         }
         beginLevelForPlay(2);
         pushKeyDown(SDLK_ESCAPE);
         processEvents(running);
-        if (levelFlow_.intro().active || ui_.snapshot().menu || levelIndex_ != 2) {
+        if (levelFlow_.intro().active || ui_.snapshot().menu || gameplayReplay_.fixture().levelIndex_ != 2) {
             throw std::runtime_error("level intro Escape did not acknowledge the intro");
         }
         levelFlow_.setInteractiveEnabled(false);
@@ -22837,12 +22602,12 @@ public:
         initSdl();
         resetLevel(0);
         ui_.setMenu(false);
-        playerCount_ = 1;
-        energy_ = 73;
-        lives_ = 2;
-        score_ = 12345;
-        bombInventory_.selected = BombType::Large;
-        bombInventory_.counts = {199, 7, 3, 1};
+        gameplayReplay_.fixture().playerCount_ = 1;
+        gameplayReplay_.fixture().energy_ = 73;
+        gameplayReplay_.fixture().lives_ = 2;
+        gameplayReplay_.fixture().score_ = 12345;
+        gameplayReplay_.fixture().bombInventory_.selected = BombType::Large;
+        gameplayReplay_.fixture().bombInventory_.counts = {199, 7, 3, 1};
 
         const int hudY = kScreenH - 46;
         FrameInspection first = inspectRenderedFrame("hud-stats-live-first");
@@ -22853,10 +22618,10 @@ public:
             throw std::runtime_error("HUD stats panel did not render visible gauges/icons");
         }
 
-        energy_ = 21;
-        lives_ = 1;
-        bombInventory_.selected = BombType::Super;
-        bombInventory_.counts[3] = 0;
+        gameplayReplay_.fixture().energy_ = 21;
+        gameplayReplay_.fixture().lives_ = 1;
+        gameplayReplay_.fixture().bombInventory_.selected = BombType::Super;
+        gameplayReplay_.fixture().bombInventory_.counts[3] = 0;
         FrameInspection second = inspectRenderedFrame("hud-stats-live-second");
         if (second.hash == first.hash ||
             !frameInspector_.regionChanged(firstPixels, 0, hudY, kScreenW, 46)) {
@@ -22873,23 +22638,23 @@ public:
         initSdl();
         resetLevel(0);
         ui_.setMenu(false);
-        playerCount_ = 2;
-        player_.x = 96.0f;
-        player_.y = 168.0f;
-        player2_.x = 152.0f;
-        player2_.y = 168.0f;
-        energy_ = 88;
-        energy2_ = 41;
-        lives_ = 3;
-        lives2_ = 1;
-        score_ = 1234;
-        score2_ = 5678;
-        collected_ = 2;
-        destroyed_ = std::max(1, level_.startingDestructibleTiles / 3);
-        bombInventory_.selected = BombType::Medium;
-        bombInventory_.counts = {199, 4, 2, 1};
-        bombInventory2_.selected = BombType::Super;
-        bombInventory2_.counts = {188, 3, 1, 0};
+        gameplayReplay_.fixture().playerCount_ = 2;
+        gameplayReplay_.fixture().player_.x = 96.0f;
+        gameplayReplay_.fixture().player_.y = 168.0f;
+        gameplayReplay_.fixture().player2_.x = 152.0f;
+        gameplayReplay_.fixture().player2_.y = 168.0f;
+        gameplayReplay_.fixture().energy_ = 88;
+        gameplayReplay_.fixture().energy2_ = 41;
+        gameplayReplay_.fixture().lives_ = 3;
+        gameplayReplay_.fixture().lives2_ = 1;
+        gameplayReplay_.fixture().score_ = 1234;
+        gameplayReplay_.fixture().score2_ = 5678;
+        gameplayReplay_.fixture().collected_ = 2;
+        gameplayReplay_.fixture().destroyed_ = std::max(1, gameplayReplay_.fixture().level_.startingDestructibleTiles / 3);
+        gameplayReplay_.fixture().bombInventory_.selected = BombType::Medium;
+        gameplayReplay_.fixture().bombInventory_.counts = {199, 4, 2, 1};
+        gameplayReplay_.fixture().bombInventory2_.selected = BombType::Super;
+        gameplayReplay_.fixture().bombInventory2_.counts = {188, 3, 1, 0};
 
         for (int tick = 0; tick < 30; ++tick) updateWithControls(FrameControls{}, 1.0f / 60.0f);
         FrameInspection first = inspectRenderedFrame("two-player-hud-panel-first");
@@ -22912,11 +22677,11 @@ public:
             throw std::runtime_error("two-player view frames lost the original colours");
         }
 
-        ++collected_;
-        destroyed_ = std::min(level_.startingDestructibleTiles,
-                              destroyed_ + std::max(1, level_.startingDestructibleTiles / 5));
-        score2_ += 250;
-        energy2_ = 7;
+        ++gameplayReplay_.fixture().collected_;
+        gameplayReplay_.fixture().destroyed_ = std::min(gameplayReplay_.fixture().level_.startingDestructibleTiles,
+                              gameplayReplay_.fixture().destroyed_ + std::max(1, gameplayReplay_.fixture().level_.startingDestructibleTiles / 5));
+        gameplayReplay_.fixture().score2_ += 250;
+        gameplayReplay_.fixture().energy2_ = 7;
         for (int tick = 0; tick < 30; ++tick) updateWithControls(FrameControls{}, 1.0f / 60.0f);
         FrameInspection second = inspectRenderedFrame("two-player-hud-panel-second");
         if (second.hash == first.hash ||
@@ -23012,18 +22777,18 @@ private:
         };
         auto player = [&](const Player& p, int index) {
             const bool second = index == 2;
-            const auto& inventory = second ? bombInventory2_ : bombInventory_;
+            const auto& inventory = second ? gameplayReplay_.fixture().bombInventory2_ : gameplayReplay_.fixture().bombInventory_;
             return trace::object({{"x", std::to_string(p.x)}, {"y", std::to_string(p.y)},
                 {"vx8", std::to_string(p.vx8)}, {"vy8", std::to_string(p.vy8)},
                 {"frac_x", std::to_string(p.fracX)}, {"frac_y", std::to_string(p.fracY)},
                 {"animation", animation(p.animation)}, {"animation_backup", animation(p.animationBackup)},
                 {"sprite", numbers({p.spriteIndex, p.singlePixelSprite, p.idleTicks, p.dropTicks, p.grounded})},
-                {"health", numbers({second ? energy2_ : energy_, second ? lives2_ : lives_,
-                    second ? player2Dead_ : playerDead_, second ? damageCooldown2_ : damageCooldown_,
-                    second ? pendingDamage2_ : pendingDamage_})},
-                {"waiting", numbers({second ? reentryTimer2_ : reentryTimer_, second ? deathStateTimer2_ : deathStateTimer_,
-                    second ? pendingLifeLoss2_ : pendingLifeLoss_, second ? reentryFire2_ : reentryFire1_})},
-                {"score", std::to_string(second ? score2_ : score_)},
+                {"health", numbers({second ? gameplayReplay_.fixture().energy2_ : gameplayReplay_.fixture().energy_, second ? gameplayReplay_.fixture().lives2_ : gameplayReplay_.fixture().lives_,
+                    second ? gameplayReplay_.fixture().player2Dead_ : gameplayReplay_.fixture().playerDead_, second ? gameplayReplay_.fixture().damageCooldown2_ : gameplayReplay_.fixture().damageCooldown_,
+                    second ? gameplayReplay_.fixture().pendingDamage2_ : gameplayReplay_.fixture().pendingDamage_})},
+                {"waiting", numbers({second ? gameplayReplay_.fixture().reentryTimer2_ : gameplayReplay_.fixture().reentryTimer_, second ? gameplayReplay_.fixture().deathStateTimer2_ : gameplayReplay_.fixture().deathStateTimer_,
+                    second ? gameplayReplay_.fixture().pendingLifeLoss2_ : gameplayReplay_.fixture().pendingLifeLoss_, second ? gameplayReplay_.fixture().reentryFire2_ : gameplayReplay_.fixture().reentryFire1_})},
+                {"score", std::to_string(second ? gameplayReplay_.fixture().score2_ : gameplayReplay_.fixture().score_)},
                 {"hud_score", numbers({presentation_.hudScores()[second ? 1 : 0].value, presentation_.hudScores()[second ? 1 : 0].phase,
                     presentation_.hudScores()[second ? 1 : 0].current[0], presentation_.hudScores()[second ? 1 : 0].current[1], presentation_.hudScores()[second ? 1 : 0].current[2],
                     presentation_.hudScores()[second ? 1 : 0].current[3], presentation_.hudScores()[second ? 1 : 0].current[4], presentation_.hudScores()[second ? 1 : 0].current[5],
@@ -23033,11 +22798,11 @@ private:
                     presentation_.hudScores()[second ? 1 : 0].target[6], presentation_.hudScores()[second ? 1 : 0].target[7], presentation_.hudScores()[second ? 1 : 0].target[8]})},
                 {"inventory", numbers({inventory.counts[0], inventory.counts[1], inventory.counts[2], inventory.counts[3],
                     static_cast<int>(inventory.selected)})},
-                {"cooldowns", numbers({second ? portalCooldown2_ : portalCooldown_, second ? triggerCooldown2_ : triggerCooldown_,
-                    second ? weaponSwitchHoldTicks2_ : weaponSwitchHoldTicks_})}});
+                {"cooldowns", numbers({second ? gameplayReplay_.fixture().portalCooldown2_ : gameplayReplay_.fixture().portalCooldown_, second ? gameplayReplay_.fixture().triggerCooldown2_ : gameplayReplay_.fixture().triggerCooldown_,
+                    second ? gameplayReplay_.fixture().weaponSwitchHoldTicks2_ : gameplayReplay_.fixture().weaponSwitchHoldTicks_})}});
         };
         std::vector<uint8_t> words, colors;
-        for (auto word : level_.wordLayer) {
+        for (auto word : gameplayReplay_.fixture().level_.wordLayer) {
             words.push_back(static_cast<uint8_t>(word));
             words.push_back(static_cast<uint8_t>(word >> 8));
         }
@@ -23045,13 +22810,13 @@ private:
             colors.push_back(color.r); colors.push_back(color.g); colors.push_back(color.b);
         }
         std::vector<std::string> bombs, monsters, rewards, effects, flames, debris, collapse, spawners, transients, markers, flashes;
-        for (const auto& b : bombs_) bombs.push_back(trace::object({
+        for (const auto& b : gameplayReplay_.fixture().bombs_) bombs.push_back(trace::object({
             {"order", std::to_string(b.actorOrder)}, {"visual_order", std::to_string(b.bossVisualOrder)},
             {"owner", std::to_string(b.owner)}, {"type", std::to_string(static_cast<int>(b.type))},
             {"position", numbers({b.x, b.y, b.pixelX, b.pixelY, b.hotspotY})},
             {"motion", numbers({b.vx8, b.vy8, b.fracX, b.fracY, b.moving})},
             {"fuse", numbers({b.timer, b.fuseTicks})}}));
-        for (const auto& m : monsters_) monsters.push_back(trace::object({
+        for (const auto& m : gameplayReplay_.fixture().monsters_) monsters.push_back(trace::object({
             {"order", std::to_string(m.actorOrder)}, {"visual_order", std::to_string(m.bossVisualOrder)},
             {"position", numbers({m.x, m.y, m.hotspotY})}, {"motion", numbers({m.vx8, m.vy8, m.fracX, m.fracY})},
             {"identity", numbers({m.kind, m.behavior, static_cast<int64_t>(m.spawnerIndex), m.hasSpawner})},
@@ -23059,53 +22824,53 @@ private:
             {"animation", numbers({m.animCursor, m.animFrame, m.animStart, m.animEnd, m.animDelay, m.animMode, m.animStep, m.animTick})},
             {"health", numbers({m.hp, m.alive, m.stateTimer, m.motionTimer, m.deathCredited, m.deathRewardPending, m.corpseSprite})},
             {"edges", numbers({m.edges.top, m.edges.bottom, m.edges.left, m.edges.right})}}));
-        for (const auto& r : bonusDrops_) rewards.push_back(trace::object({
+        for (const auto& r : gameplayReplay_.fixture().bonusDrops_) rewards.push_back(trace::object({
             {"order", std::to_string(r.actorOrder)}, {"x", std::to_string(r.x)}, {"y", std::to_string(r.y)},
             {"state", numbers({static_cast<int>(r.type), r.vx8, r.vy8, r.fracX, r.fracY, r.hotspotY, r.timer, r.collected})}}));
-        for (const auto& e : explosionEffects_) effects.push_back(numbers({e.x, e.y, e.visualSelector, e.dispatcherState,
+        for (const auto& e : gameplayReplay_.fixture().explosionEffects_) effects.push_back(numbers({e.x, e.y, e.visualSelector, e.dispatcherState,
             e.slotIndex, e.sourceIndex, e.inactive, e.timer, e.totalTimer, e.soundOffset, e.soundSelector,
             e.seedTicksByte, e.detailByte, e.variantByte, e.computedX, e.computedY, e.finalSignedOffset}));
-        for (const auto& f : flameRecords_) flames.push_back(numbers({f.cell, f.vx, f.vy, f.subX, f.subY,
+        for (const auto& f : gameplayReplay_.fixture().flameRecords_) flames.push_back(numbers({f.cell, f.vx, f.vy, f.subX, f.subY,
             f.timer, f.glyph, f.variant, f.mass}));
-        for (const auto& d : debrisQueue_) debris.push_back(numbers({d.tileIndex, d.flaggedWord, d.velocityX,
+        for (const auto& d : gameplayReplay_.fixture().debrisQueue_) debris.push_back(numbers({d.tileIndex, d.flaggedWord, d.velocityX,
             d.velocityY, d.subX, d.subY, d.restTicks, d.lookup, d.aux}));
-        for (const auto& c : collapseQueue_) collapse.push_back(numbers({c.x, c.y, c.startOffsetBytes, c.endOffsetBytes,
+        for (const auto& c : gameplayReplay_.fixture().collapseQueue_) collapse.push_back(numbers({c.x, c.y, c.startOffsetBytes, c.endOffsetBytes,
             c.word, c.flaggedWord, c.forwardPhase, c.reversePhase, c.subX, c.subY, c.flags, c.restTicks,
             c.argMagnitude, c.affectedBytes, c.count}));
-        for (const auto& s : spawnerStates_) spawners.push_back(numbers({s.remaining, s.availableSlots, s.cooldown}));
-        for (const auto& t : transientActors_) transients.push_back(trace::object({
+        for (const auto& s : gameplayReplay_.fixture().spawnerStates_) spawners.push_back(numbers({s.remaining, s.availableSlots, s.cooldown}));
+        for (const auto& t : gameplayReplay_.fixture().transientActors_) transients.push_back(trace::object({
             {"order", std::to_string(t.actorOrder)}, {"visual_order", std::to_string(t.bossVisualOrder)},
             {"state", numbers({t.x, t.y, t.vx8, t.vy8, t.fracX, t.fracY, t.kind, t.timer, t.hotspotY, t.spriteIndex})},
             {"animation", animation(t.animation)}}));
-        for (const auto& m : launchPadMarkers_) markers.push_back(trace::object({
+        for (const auto& m : gameplayReplay_.fixture().launchPadMarkers_) markers.push_back(trace::object({
             {"order", std::to_string(m.actorOrder)}, {"state", numbers({m.x, m.y, m.fracX, m.fracY,
                 m.velocityX8, m.velocityY8, m.timer, m.frame, m.kind, m.mode})}}));
-        for (const auto& f : flashes_) flashes.push_back(numbers({f.x, f.y, f.timer, f.power}));
-        trace::Fields state{{"level", std::to_string(levelIndex_ + 1)}, {"logic_tick", std::to_string(logicTick_)},
-            {"random_seed", std::to_string(randomSeed_)}, {"player_count", std::to_string(playerCount_)},
+        for (const auto& f : gameplayReplay_.fixture().flashes_) flashes.push_back(numbers({f.x, f.y, f.timer, f.power}));
+        trace::Fields state{{"level", std::to_string(gameplayReplay_.fixture().levelIndex_ + 1)}, {"logic_tick", std::to_string(gameplayReplay_.fixture().logicTick_)},
+            {"random_seed", std::to_string(gameplayReplay_.fixture().randomSeed_)}, {"player_count", std::to_string(gameplayReplay_.fixture().playerCount_)},
             {"flow", numbers({ui_.snapshot().menu, static_cast<int>(ui_.snapshot().page), ui_.snapshot().paused, levelFlow_.intro().active, levelFlow_.outro().active,
-                levelFlow_.outro().awaitKey, levelResetGeneration_, levelRestartPromoted_})},
+                levelFlow_.outro().awaitKey, gameplayReplay_.fixture().levelResetGeneration_, gameplayReplay_.fixture().levelRestartPromoted_})},
             {"presentation", numbers({gameplayViewWidth_, ui_.snapshot().showBackground, ui_.snapshot().italian, presentation_.backdropPitch(), presentation_.redPalettePhase(),
-                cameraShakeTicks_, cameraShakeOffset_})},
+                gameplayReplay_.fixture().cameraShakeTicks_, gameplayReplay_.fixture().cameraShakeOffset_})},
             {"hud", numbers({presentation_.hudPreviousCollected(), presentation_.hudPreviousDestruction(), presentation_.hudDestructionPercent(), presentation_.hudColumnReady()[0], presentation_.hudColumnReady()[1],
                 presentation_.hudPaletteQueue().count, presentation_.hudPaletteQueue().entries[0].index, presentation_.hudPaletteQueue().entries[1].index,
                 presentation_.hudPaletteQueue().entries[0].current[0], presentation_.hudPaletteQueue().entries[0].current[1], presentation_.hudPaletteQueue().entries[0].current[2],
                 presentation_.hudPaletteQueue().entries[1].current[0], presentation_.hudPaletteQueue().entries[1].current[1], presentation_.hudPaletteQueue().entries[1].current[2],
                 presentation_.hudPaletteQueue().entries[0].target[0], presentation_.hudPaletteQueue().entries[0].target[1], presentation_.hudPaletteQueue().entries[0].target[2],
                 presentation_.hudPaletteQueue().entries[1].target[0], presentation_.hudPaletteQueue().entries[1].target[1], presentation_.hudPaletteQueue().entries[1].target[2]})},
-            {"progress", numbers({collected_, destroyed_, level_.requiredBonus, level_.requiredDestruction, level_.fieldB,
-                completeTimer_, nextCollapseFragmentWord_})},
-            {"dimensions", numbers({level_.width, level_.height})}, {"tiles_hex", quote(trace::hexBytes(level_.tiles))},
+            {"progress", numbers({gameplayReplay_.fixture().collected_, gameplayReplay_.fixture().destroyed_, gameplayReplay_.fixture().level_.requiredBonus, gameplayReplay_.fixture().level_.requiredDestruction, gameplayReplay_.fixture().level_.fieldB,
+                gameplayReplay_.fixture().completeTimer_, gameplayReplay_.fixture().nextCollapseFragmentWord_})},
+            {"dimensions", numbers({gameplayReplay_.fixture().level_.width, gameplayReplay_.fixture().level_.height})}, {"tiles_hex", quote(trace::hexBytes(gameplayReplay_.fixture().level_.tiles))},
             {"words_hex", quote(trace::hexBytes(words))}, {"palette_rgb_hex", quote(trace::hexBytes(colors))},
             {"backdrop_fnv1a64", quote(trace::fingerprint(presentation_.backdropBuffer()))},
-            {"players", trace::array({player(player_, 1), player(player2_, 2)})},
-            {"reentry", numbers({reentryGate_, noActivePlayerTicks_, levelIntroFrame_})},
+            {"players", trace::array({player(gameplayReplay_.fixture().player_, 1), player(gameplayReplay_.fixture().player2_, 2)})},
+            {"reentry", numbers({gameplayReplay_.fixture().reentryGate_, gameplayReplay_.fixture().noActivePlayerTicks_, gameplayReplay_.fixture().levelIntroFrame_})},
             {"intro", numbers({levelFlow_.intro().startedAt, levelFlow_.intro().levelIndex, levelFlow_.intro().pattern.horizontalStep,
                 levelFlow_.intro().pattern.verticalStep})},
             {"outro", numbers({levelFlow_.outro().startedAt, levelFlow_.outro().destBonus, levelFlow_.outro().bombBonus[0], levelFlow_.outro().bombBonus[1],
                 levelFlow_.outro().awarded[0], levelFlow_.outro().awarded[1], levelFlow_.outro().playerActive[0], levelFlow_.outro().playerActive[1],
                 levelFlow_.outro().typingSkipped, levelFlow_.outro().typingSkipAt})},
-            {"next_actor_order", std::to_string(nextActorOrder_)},
+            {"next_actor_order", std::to_string(gameplayReplay_.fixture().nextActorOrder_)},
             {"sound_latch", numbers({sound_.latch().active, sound_.latch().currentSelector, sound_.latch().latchedOffset,
                 static_cast<int64_t>(sound_.latch().recordIndex), sound_.latch().directSweep,
                 sound_.lastPumped().record, sound_.lastPumped().offset, sound_.lastPumped().selector})},
@@ -23141,87 +22906,90 @@ private:
     const SoundBank& sounds_ = assets_.sounds();
     lezac::sound::SoundEngine sound_{sounds_};
     lezac::sound::SdlAudioOutput audioOutput_;
+    lezac::core::TurboRandom random_{0x1234abcd};
+    GameSession gameplay_{assets_, sound_, random_};
+    mutable lezac::diagnostics::GameplayReplay gameplayReplay_{gameplay_};
     const GranBank& gran_ = assets_.gran();
     const std::vector<Level>& levels_ = assets_.levels();
-    Level level_;
-    int levelIndex_ = 0;
-    int playerCount_ = 1;
-    Player player_;
-    Player player2_;
-    std::vector<SpawnerState> spawnerStates_;
-    std::vector<ActiveMonster> monsters_;
-    std::vector<BossMotionLink> bossLinks_;
-    std::array<float, 128> bossSinTable_{};
-    bool bossPresent_ = false;
-    bool bossDefeated_ = false;
-    std::vector<BonusDrop> bonusDrops_;
-    std::vector<Bomb> bombs_;
-    std::vector<Flash> flashes_;
-    std::vector<LaunchPadMarker> launchPadMarkers_;
-    std::vector<TransientActor> transientActors_;
-    uint16_t cameraShakeTicks_ = 0;
-    uint16_t cameraShakeOffset_ = 0;
-    std::vector<ExplosionEffect> explosionEffects_;
-    std::vector<FlameRecord> flameRecords_;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     std::function<void()> debugActorPassObserver_;
     std::function<void(const char*)> debugReentryBoundaryObserver_;
-    std::vector<DebrisRecord> debrisQueue_;
-    std::vector<CollapseRecord> collapseQueue_;
-    uint16_t nextCollapseFragmentWord_ = 0;
+
+
+
     std::vector<uint32_t>& fb_ = canvas_.pixels();
     int gameplayViewWidth_ = kScreenW;
-    int collected_ = 0;
-    int destroyed_ = 0;
-    int completeTimer_ = 0;
-    int portalCooldown_ = 0;
-    int triggerCooldown_ = 0;
-    int portalCooldown2_ = 0;
-    int triggerCooldown2_ = 0;
-    int energy_ = 100;
-    int energy2_ = 100;
-    int lives_ = 3;
-    int lives2_ = 3;
-    bool playerDead_ = false;
-    bool player2Dead_ = false;
-    int reentryTimer_ = 0;
-    int reentryTimer2_ = 0;
-    bool reentryFire1_ = false;
-    bool reentryFire2_ = false;
-    bool reentryGate_ = true;
-    uint8_t noActivePlayerTicks_ = 0;
-    bool levelRestartPromoted_ = false;
-    uint32_t levelIntroFrame_ = 0;
-    int deathStateTimer_ = 0;
-    int deathStateTimer2_ = 0;
-    bool pendingLifeLoss_ = false;
-    bool pendingLifeLoss2_ = false;
-    State2VisualCursor state2Visual_;
-    State2VisualCursor state2Visual2_;
-    State2EffectEntry state2Effect_;
-    State2EffectEntry state2Effect2_;
-    bool state2VisualCursorPreview_ = false;
-    bool state2VisualRowPreview_ = false;
-    int damageCooldown_ = 0;
-    int damageCooldown2_ = 0;
-    uint8_t pendingDamage_ = 0;
-    uint8_t pendingDamage2_ = 0;
-    int levelResetGeneration_ = 0;
-    BombInventory bombInventory_;
-    BombInventory bombInventory2_;
-    uint8_t weaponSwitchHoldTicks_ = 0;
-    uint8_t weaponSwitchHoldTicks2_ = 0;
-    uint32_t logicTick_ = 0;
-    uint64_t nextActorOrder_ = 1;
-    bool orderedActorPass_ = false;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     uint32_t governedRunDeadlineMs_ = 0;
     uint32_t governedRunStartMs_ = 0;
     uint32_t governedRunStartLogicTick_ = 0;
     long governedRunTicks_ = 0;
     long governedDroppedTicks_ = 0;
     long governedMaxTickGapMs_ = 0;
-    uint32_t randomSeed_ = 0x1234abcd;
-    uint32_t score_ = 0;
-    uint32_t score2_ = 0;
+
+
+
 
     void initSdl() {
         sdl_.initialize();
@@ -23237,13 +23005,13 @@ private:
             if (e.type == SDL_QUIT) {
                 running = false;
             } else if (e.type == SDL_KEYUP) {
-                if (isPlayer1FireKey(e.key.keysym.sym)) reentryFire1_ = false;
-                if (isPlayer2FireKey(e.key.keysym.sym)) reentryFire2_ = false;
+                if (isPlayer1FireKey(e.key.keysym.sym)) gameplayReplay_.fixture().reentryFire1_ = false;
+                if (isPlayer2FireKey(e.key.keysym.sym)) gameplayReplay_.fixture().reentryFire2_ = false;
             } else if (e.type == SDL_KEYDOWN &&
                        (!e.key.repeat ||
                         (!ui_.snapshot().menu && !ui_.snapshot().paused && !levelFlow_.intro().active && !levelFlow_.outro().active &&
                          (isPlayer1FireKey(e.key.keysym.sym) ||
-                          (playerCount_ > 1 && isPlayer2FireKey(e.key.keysym.sym)))) ||
+                          (gameplayReplay_.fixture().playerCount_ > 1 && isPlayer2FireKey(e.key.keysym.sym)))) ||
                         shouldAcceptRepeatedNameEntryKey(e.key.keysym.sym))) {
                 onKey(e.key.keysym.sym, running);
             }
@@ -23267,97 +23035,7 @@ private:
         }
     }
 
-    void resetLevel(int index) {
-        levelFlow_.restoreIntro({});
-        levelFlow_.restoreOutro({});
-        ++levelResetGeneration_;
-        // FreeMem leaves the previous map's rounded size in its alignment gap.
-        // The word plane is freed first, so both frees retract the heap top.
-        levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
-        level_ = levels_[levelIndex_];
-        presentation_.beginLevel(static_cast<size_t>(level_.width) * level_.height);
-        player_ = {};
-        player2_ = {};
-        player2_.animation = ActorAnimation::initialize(21, 28, 1, 1);
-        spawnerStates_.clear();
-        monsters_.clear();
-        bonusDrops_.clear();
-        bombs_.clear();
-        flashes_.clear();
-        launchPadMarkers_.clear();
-        transientActors_.clear();
-        cameraShakeTicks_ = cameraShakeOffset_ = 0;
-        nextActorOrder_ = 1;
-        explosionEffects_.clear();
-        flameRecords_.clear();
-        debrisQueue_.clear();
-        collapseQueue_.clear();
-        ui_.setPaused(false);
-        nextCollapseFragmentWord_ = level_.fieldA;
-        collected_ = 0;
-        destroyed_ = 0;
-        presentation_.resetHudForLevel();
-        completeTimer_ = 0;
-        portalCooldown_ = 0;
-        triggerCooldown_ = 0;
-        portalCooldown2_ = 0;
-        triggerCooldown2_ = 0;
-        energy_ = 100;
-        energy2_ = 100;
-        playerDead_ = false;
-        player2Dead_ = false;
-        reentryTimer_ = 0;
-        reentryTimer2_ = 0;
-        reentryFire1_ = reentryFire2_ = false;
-        reentryGate_ = true;
-        noActivePlayerTicks_ = 0;
-        levelRestartPromoted_ = false;
-        deathStateTimer_ = 0;
-        deathStateTimer2_ = 0;
-        pendingLifeLoss_ = false;
-        pendingLifeLoss2_ = false;
-        state2Visual_ = {};
-        state2Visual2_ = {};
-        state2Effect_ = {};
-        state2Effect2_ = {};
-        damageCooldown_ = 0;
-        damageCooldown2_ = 0;
-        pendingDamage_ = 0;
-        pendingDamage2_ = 0;
-        bombInventory_ = {};
-        bombInventory2_ = {};
-        weaponSwitchHoldTicks_ = 0;
-        weaponSwitchHoldTicks2_ = 0;
-        logicTick_ = 0;
-        for (const MonsterSpawner& spawner : level_.monsterSpawners) {
-            SpawnerState state;
-            state.remaining = spawner.enabled ? spawner.spawnBudget : 0;
-            state.availableSlots = spawner.liveAllowance;
-            state.cooldown = spawner.cooldown;
-            spawnerStates_.push_back(state);
-        }
-        if (const LevelPortal* start = findStartPortal(1)) {
-            player_.x = static_cast<float>(start->x);
-            player_.y = static_cast<float>(start->y);
-        }
-        if (const LevelPortal* start = findStartPortal(2)) {
-            player2_.x = static_cast<float>(start->x);
-            player2_.y = static_cast<float>(start->y);
-        } else {
-            player2_.x = std::min(player_.x + 16.0f, std::max(16.0f, level_.width * 8.0f - 16.0f));
-            player2_.y = player_.y;
-        }
-        if (playerCount_ > 1) {
-            playerDead_ = lives_ < 0;
-            player2Dead_ = lives2_ < 0;
-        }
-        bossLinks_.clear();
-        bossPresent_ = false;
-        bossDefeated_ = false;
-        // The original loads gran.mst at the end of level setup only when the
-        // current-level byte DS:0x79B7 equals 7 (callsite 1000:2E78).
-        if (levelIndex_ == 6) spawnLevel7Boss();
-    }
+    void resetLevel(int index) { gameplayReplay_.resetLevel(index); }
 
     LevelIntroPattern makeLevelIntroPattern() {
         return LevelFlow::makeLevelIntroPattern([this](int low, int high) { return randomInclusive(low, high); });
@@ -23369,11 +23047,11 @@ private:
 
     void beginLevelForPlay(int index) {
         // Original level advance jumps to file 0x7f4c, past the new-game clock reset.
-        levelIntroFrame_ = ui_.snapshot().menu ? 0 : logicTick_;
+        gameplayReplay_.fixture().levelIntroFrame_ = ui_.snapshot().menu ? 0 : gameplayReplay_.fixture().logicTick_;
         presentation_.beginOriginalPlay(ui_.snapshot().menu);
-        if (levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("level_init");
-        levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
-        level_ = levels_[levelIndex_];
+        if (gameplayReplay_.fixture().levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("level_init");
+        gameplayReplay_.fixture().levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
+        gameplayReplay_.fixture().level_ = levels_[gameplayReplay_.fixture().levelIndex_];
         // 1000:0E34/0E90 read both compressed planes into DS:C498, the
         // background buffer. Decoder 082D:0000 continues through its retained
         // tail until the requested output length, ignoring compressed length.
@@ -23381,32 +23059,32 @@ private:
             return presentation_.decodeLevelPlane(encoded, outputSize);
         };
         // JSON assets already contain decoded maps, without original input bytes.
-        if (!level_.encodedTiles.empty()) {
-            level_.tiles = decodePlane(level_.encodedTiles, level_.tiles.size());
-            const auto words = decodePlane(level_.encodedWords, level_.wordLayer.size() * 2);
-            for (size_t i = 0; i < level_.wordLayer.size(); ++i) level_.wordLayer[i] = le16(words, i * 2);
+        if (!gameplayReplay_.fixture().level_.encodedTiles.empty()) {
+            gameplayReplay_.fixture().level_.tiles = decodePlane(gameplayReplay_.fixture().level_.encodedTiles, gameplayReplay_.fixture().level_.tiles.size());
+            const auto words = decodePlane(gameplayReplay_.fixture().level_.encodedWords, gameplayReplay_.fixture().level_.wordLayer.size() * 2);
+            for (size_t i = 0; i < gameplayReplay_.fixture().level_.wordLayer.size(); ++i) gameplayReplay_.fixture().level_.wordLayer[i] = le16(words, i * 2);
         }
         LevelIntroPattern pattern = makeLevelIntroPattern();
-        levelFlow_.beginIntro(levelIndex_, std::move(pattern), presentationMilliseconds());
-        if (levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("intro_wait");
+        levelFlow_.beginIntro(gameplayReplay_.fixture().levelIndex_, std::move(pattern), presentationMilliseconds());
+        if (gameplayReplay_.fixture().levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("intro_wait");
         if (!levelFlow_.interactiveEnabled()) finishLevelIntro();
     }
 
     void finishLevelIntro() {
         if (!levelFlow_.intro().active) return;
-        if (levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("intro_ack");
+        if (gameplayReplay_.fixture().levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("intro_ack");
         const int index = levelFlow_.intro().levelIndex;
-        const uint32_t frame = levelIntroFrame_;
-        const int countdown1 = reentryTimer_, countdown2 = reentryTimer2_;
-        const uint8_t fallback = noActivePlayerTicks_;
-        Level decodedLevel = std::move(level_);
+        const uint32_t frame = gameplayReplay_.fixture().levelIntroFrame_;
+        const int countdown1 = gameplayReplay_.fixture().reentryTimer_, countdown2 = gameplayReplay_.fixture().reentryTimer2_;
+        const uint8_t fallback = gameplayReplay_.fixture().noActivePlayerTicks_;
+        Level decodedLevel = std::move(gameplayReplay_.fixture().level_);
         resetLevel(index);
-        level_ = std::move(decodedLevel);
-        logicTick_ = frame;
-        reentryTimer_ = countdown1;
-        reentryTimer2_ = countdown2;
-        noActivePlayerTicks_ = fallback;
-        player_.animation = ActorAnimation::initialize(2, 9, 1, 1);
+        gameplayReplay_.fixture().level_ = std::move(decodedLevel);
+        gameplayReplay_.fixture().logicTick_ = frame;
+        gameplayReplay_.fixture().reentryTimer_ = countdown1;
+        gameplayReplay_.fixture().reentryTimer2_ = countdown2;
+        gameplayReplay_.fixture().noActivePlayerTicks_ = fallback;
+        gameplayReplay_.fixture().player_.animation = ActorAnimation::initialize(2, 9, 1, 1);
         buildBackdropBuffer();
     }
 
@@ -23418,26 +23096,19 @@ private:
         levelFlow_.updateLevelIntro(now);
     }
 
-    const LevelPortal* findStartPortal(uint8_t marker) const {
-        for (const LevelPortal& portal : level_.portals) {
-            if (portal.key == 0 && portal.marker == marker) {
-                return &portal;
-            }
-        }
-        return nullptr;
-    }
+    const LevelPortal* findStartPortal(uint8_t marker) const { return gameplayReplay_.findStartPortal(marker); }
 
     UiActions uiActions() {
         return {
             [this] { clearRunScores(); },
-            [this](int players) { playerCount_ = players; lives_ = 3; lives2_ = 3; },
+            [this](int players) { gameplayReplay_.fixture().playerCount_ = players; gameplayReplay_.fixture().lives_ = 3; gameplayReplay_.fixture().lives2_ = 3; },
             [this](int index) { beginLevelForPlay(index); },
-            [this] { lives_ = 3; lives2_ = 3; resetLevel(0); },
+            [this] { gameplayReplay_.fixture().lives_ = 3; gameplayReplay_.fixture().lives2_ = 3; resetLevel(0); },
             [this] { requestRecordNamePromptSound(); },
             [this] { requestRecordNameCommitSound(); },
             [this] { requestRecordsPageSound(); },
             [this](int player) {
-                (player == 2 ? reentryFire2_ : reentryFire1_) = true;
+                (player == 2 ? gameplayReplay_.fixture().reentryFire2_ : gameplayReplay_.fixture().reentryFire1_) = true;
             },
             [this](int delta) { adjustGameplayViewWidth(delta); },
         };
@@ -23450,7 +23121,7 @@ private:
             else levelFlow_.skipOutroTyping(presentationMilliseconds(), ui_.snapshot().italian);
             return;
         }
-        ui_.onKey(InputMapper::key(key), running, levelIndex_, playerCount_, recordStore_, uiActions());
+        ui_.onKey(InputMapper::key(key), running, gameplayReplay_.fixture().levelIndex_, gameplayReplay_.fixture().playerCount_, recordStore_, uiActions());
     }
 
     bool isPlayer1FireKey(SDL_Keycode key) const {
@@ -23461,13 +23132,7 @@ private:
         return UiController::isPlayer2FireKey(InputMapper::key(key));
     }
 
-    void tryActivePlayerFireAt(const Player& player, int x, int y, uint8_t playerIndex) {
-        if (!(playerIndex == 2 ? reentryFire2_ : reentryFire1_)) return;
-        Player launch = player;
-        launch.x = static_cast<float>(x);
-        launch.y = static_cast<float>(y);
-        placeBombAt(launch, playerIndex == 2 ? bombInventory2_ : bombInventory_, playerIndex);
-    }
+    void tryActivePlayerFireAt(const Player& player, int x, int y, uint8_t playerIndex) { gameplayReplay_.tryActivePlayerFireAt(player, x, y, playerIndex); }
 
     void handleNameEntryKey(SDL_Keycode key) {
         ui_.handleNameEntryKey(InputMapper::key(key), recordStore_, uiActions());
@@ -23504,160 +23169,61 @@ private:
     }
 
 
-    int tileAt(int tx, int ty) const {
-        if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return 0;
-        return level_.tiles[static_cast<size_t>(ty) * level_.width + tx];
-    }
+    int tileAt(int tx, int ty) const { return gameplayReplay_.tileAt(tx, ty); }
 
-    uint16_t wordAt(int tx, int ty) const {
-        if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return 0;
-        size_t index = static_cast<size_t>(ty) * level_.width + tx;
-        return index < level_.wordLayer.size() ? level_.wordLayer[index] : 0;
-    }
+    uint16_t wordAt(int tx, int ty) const { return gameplayReplay_.wordAt(tx, ty); }
 
-    uint8_t& tileRef(int tx, int ty) {
-        return level_.tiles[static_cast<size_t>(ty) * level_.width + tx];
-    }
+    uint8_t& tileRef(int tx, int ty) { return gameplayReplay_.tileRef(tx, ty); }
 
-    uint16_t& wordRef(int tx, int ty) {
-        return level_.wordLayer[static_cast<size_t>(ty) * level_.width + tx];
-    }
+    uint16_t& wordRef(int tx, int ty) { return gameplayReplay_.wordRef(tx, ty); }
 
-    bool solidPixel(float px, float py) const {
-        int tx = static_cast<int>(px) / kTileSize;
-        int ty = static_cast<int>(py) / kTileSize;
-        uint8_t tileByte = static_cast<uint8_t>(tileAt(tx, ty));
-        return countsForDestructionProgress(tileByte, level_.objectiveTile) &&
-               !isPassableObjectCell(tx, ty);
-    }
+    bool solidPixel(float px, float py) const { return gameplayReplay_.solidPixel(px, py); }
 
     // Recovered original edge-class predicates (rank 1). Side/top edges are
     // solid for tiles 1..0x4C; the bottom edge additionally accepts the
     // 0x4D..0x52 jump-through platform class. Tiles >= 0x53 never collide.
-    static bool solidTileSide(uint8_t t) { return t >= 1 && t <= 0x4c; }
-    static bool solidTileBottom(uint8_t t) { return t >= 1 && t <= 0x52; }
+    bool solidTileSide(uint8_t t) { return gameplayReplay_.solidTileSide(t); }
+    bool solidTileBottom(uint8_t t) { return gameplayReplay_.solidTileBottom(t); }
 
-    ActiveMonster::EdgeFlags scanActorEdges(int x, int yCollide) const {
-        const int C = (x + 4) >> 3;
-        const int R = yCollide >> 3;
-        auto side = [&](int c, int r) { return solidTileSide(static_cast<uint8_t>(tileAt(c, r))); };
-        auto bot = [&](int c, int r) { return solidTileBottom(static_cast<uint8_t>(tileAt(c, r))); };
-        ActiveMonster::EdgeFlags e;
-        e.top = side(C, R - 1) || side(C + 1, R - 1);
-        e.bottom = bot(C, R + 2) || bot(C + 1, R + 2);
-        e.left = side(C - 1, R) || side(C - 1, R + 1);
-        e.right = side(C + 2, R) || side(C + 2, R + 1);
-        return e;
-    }
+    ActiveMonster::EdgeFlags scanActorEdges(int x, int yCollide) const { return gameplayReplay_.scanActorEdges(x, yCollide); }
 
-    bool scanActorStrongBottom(int x, int yCollide) const {
-        const int column = (x + 4) >> 3;
-        const int row = yCollide >> 3;
-        return solidTileSide(
-                   static_cast<uint8_t>(tileAt(column, row + 2))) ||
-               solidTileSide(
-                   static_cast<uint8_t>(tileAt(column + 1, row + 2)));
-    }
+    bool scanActorStrongBottom(int x, int yCollide) const { return gameplayReplay_.scanActorStrongBottom(x, yCollide); }
 
-    bool collides(float x, float y) const {
-        return solidPixel(x, y) || solidPixel(x + 11.0f, y) ||
-               solidPixel(x, y + 15.0f) || solidPixel(x + 11.0f, y + 15.0f);
-    }
+    bool collides(float x, float y) const { return gameplayReplay_.collides(x, y); }
 
-    bool monsterCollides(float x, float y) const {
-        return solidPixel(x, y) || solidPixel(x + 13.0f, y) ||
-               solidPixel(x, y + 15.0f) || solidPixel(x + 13.0f, y + 15.0f);
-    }
+    bool monsterCollides(float x, float y) const { return gameplayReplay_.monsterCollides(x, y); }
 
-    bool playerOverlaps(const Player& player, float x, float y, float w, float h) const {
-        return player.x < x + w && player.x + 12.0f > x &&
-               player.y < y + h && player.y + 16.0f > y;
-    }
+    bool playerOverlaps(const Player& player, float x, float y, float w, float h) const { return gameplayReplay_.playerOverlaps(player, x, y, w, h); }
 
-    int bombTypeIndex(BombType type) const {
-        return static_cast<int>(type);
-    }
+    int bombTypeIndex(BombType type) const { return gameplayReplay_.bombTypeIndex(type); }
 
-    int explosionVisualType(BombType type) const {
-        return std::clamp(bombTypeIndex(type) + 1, 1, 4);
-    }
+    int explosionVisualType(BombType type) const { return gameplayReplay_.explosionVisualType(type); }
 
-    uint8_t explosionDispatcherState(int visualSelector) const {
-        return static_cast<uint8_t>(std::clamp(visualSelector + 3, 4, 7));
-    }
+    uint8_t explosionDispatcherState(int visualSelector) const { return gameplayReplay_.explosionDispatcherState(visualSelector); }
 
-    int explosionEffectTicks(int visualType) const {
-        switch (visualType) {
-            case 1: return 8;
-            case 2: return 9;
-            case 3: return 9;
-            case 4: return 0x3a;
-        }
-        return 8;
-    }
+    int explosionEffectTicks(int visualType) const { return gameplayReplay_.explosionEffectTicks(visualType); }
 
-    uint8_t explosionVariantByte(int visualType) const {
-        switch (visualType) {
-            case 1: return 5;
-            case 2: return 5;
-            case 3: return 3;
-            case 4: return 0x0a;
-        }
-        return 5;
-    }
+    uint8_t explosionVariantByte(int visualType) const { return gameplayReplay_.explosionVariantByte(visualType); }
 
-    uint16_t explosionSoundOffset(int visualType) const {
-        if (visualType >= 1 &&
-            visualType <= static_cast<int>(kExplosionDirectSweepSoundOffsets.size())) {
-            return kExplosionDirectSweepSoundOffsets[static_cast<size_t>(visualType - 1)];
-        }
-        return kExplosionDirectSweepSoundOffsets[0];
-    }
+    uint16_t explosionSoundOffset(int visualType) const { return gameplayReplay_.explosionSoundOffset(visualType); }
 
-    uint8_t explosionSoundSelector(int visualType) const {
-        if (visualType >= 1 &&
-            visualType <= static_cast<int>(kExplosionSoundSelectors.size())) {
-            return kExplosionSoundSelectors[static_cast<size_t>(visualType - 1)];
-        }
-        return kExplosionSoundSelectors[0];
-    }
+    uint8_t explosionSoundSelector(int visualType) const { return gameplayReplay_.explosionSoundSelector(visualType); }
 
-    bool hasBomb(const BombInventory& inventory, BombType type) const {
-        return inventory.counts[static_cast<size_t>(bombTypeIndex(type))] > 0;
-    }
+    bool hasBomb(const BombInventory& inventory, BombType type) const { return gameplayReplay_.hasBomb(inventory, type); }
 
     void printBombInventory(const std::string& label) const {
         std::cout << label << "_bombs="
-                  << bombInventory_.counts[0] << ','
-                  << bombInventory_.counts[1] << ','
-                  << bombInventory_.counts[2] << ','
-                  << bombInventory_.counts[3]
-                  << " selected=" << (bombTypeIndex(bombInventory_.selected) + 1) << '\n';
+                  << gameplayReplay_.fixture().bombInventory_.counts[0] << ','
+                  << gameplayReplay_.fixture().bombInventory_.counts[1] << ','
+                  << gameplayReplay_.fixture().bombInventory_.counts[2] << ','
+                  << gameplayReplay_.fixture().bombInventory_.counts[3]
+                  << " selected=" << (bombTypeIndex(gameplayReplay_.fixture().bombInventory_.selected) + 1) << '\n';
     }
 
-    void selectNextAvailableBomb(BombInventory& inventory) {
-        int start = bombTypeIndex(inventory.selected);
-        for (int step = 1; step <= 4; ++step) {
-            int idx = (start + step) % 4;
-            if (inventory.counts[static_cast<size_t>(idx)] > 0) {
-                inventory.selected = static_cast<BombType>(idx);
-                return;
-            }
-        }
-    }
+    void selectNextAvailableBomb(BombInventory& inventory) { gameplayReplay_.selectNextAvailableBomb(inventory); }
 
     void updateWeaponSwitch(BombInventory& inventory, uint8_t& holdTicks,
-                            bool pressed) {
-        if (pressed) {
-            ++holdTicks;
-            return;
-        }
-        if (holdTicks >= kWeaponSwitchHoldTicks) {
-            requestWeaponSwitchSound();
-            selectNextAvailableBomb(inventory);
-        }
-        holdTicks = 0;
-    }
+                            bool pressed) { gameplayReplay_.updateWeaponSwitch(inventory, holdTicks, pressed); }
 
     void driveAutoplayerWeaponSwitchChord(const FrameControls& controls) {
         for (uint8_t tick = 0; tick < kWeaponSwitchHoldTicks; ++tick) {
@@ -23667,7 +23233,7 @@ private:
     }
 
     FrameControls controlsFromKeyboard(const uint8_t* keys) const {
-        return InputMapper::controlsFromKeyboard(keys, playerCount_);
+        return InputMapper::controlsFromKeyboard(keys, gameplayReplay_.fixture().playerCount_);
     }
 
     void update(float dt) {
@@ -23679,156 +23245,22 @@ private:
         updateWithControls(controlsFromKeyboard(replayKeyboard_ ? replayKeyboard_ : SDL_GetKeyboardState(nullptr)), dt);
     }
 
-    void updatePlayerReentryPrepass(const FrameControls& controls) {
-        // State-2 countdown precedes both actor passes (1000:7C89).
-        // 1000:7E9D/7EA2 clear BOTH latches on the first successful reentry.
-        if (!reentryGate_) noActivePlayerTicks_ = kSharedReentryTicks - 1;
-        reentryFire1_ = reentryFire1_ || controls.p1Reenter;
-        reentryFire2_ = reentryFire2_ || controls.p2Reenter;
-        if (playerDead_) {
-            updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
-                          playerCount_ == 1 || player2Dead_);
-            if (reentryFire1_) tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_, damageCooldown_, 1);
-        }
-        if (playerCount_ > 1 && player2Dead_) {
-            updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
-                          playerDead_);
-            if (reentryFire2_) tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, damageCooldown2_, 2);
-        }
-    }
+    void updatePlayerReentryPrepass(const FrameControls& controls) { gameplayReplay_.updatePlayerReentryPrepass(controls); }
 
-    void updateWithControls(const FrameControls& controls, float dt) {
-        if (ui_.snapshot().menu || ui_.snapshot().paused || levelFlow_.intro().active) return;
-        ++logicTick_;
-        prepareHudObjectives();
-        if (gameplayPresentation_) gameplayPresentation_();
-        // 1000:7A6B precedes state-2 and both actor passes. An effect that
-        // expires later this frame still occupies its slot during spawning.
-        updateMonsterSpawners();
-        updatePlayerReentryPrepass(controls);
-        if (ui_.snapshot().menu || levelFlow_.intro().active) return;
-        // 1000:7ECB..7EE8 precedes the player calls at 7F59. New pickup
-        // and collapse-fracture actors therefore start on the next frame.
-        updateDamageCooldowns();
-        bool p1Switch = controls.p1Left && controls.p1Right;
-        bool p2Switch = controls.p2Left && controls.p2Right;
-        bool p1Jump = controls.p1Jump && !controls.p1Down;
-        bool p1Down = controls.p1Down && !controls.p1Jump;
-        bool p2Jump = controls.p2Jump && !controls.p2Down;
-        bool p2Down = controls.p2Down && !controls.p2Jump;
-        updateWeaponSwitch(bombInventory_, weaponSwitchHoldTicks_, p1Switch);
-        if (playerCount_ > 1) {
-            updateWeaponSwitch(bombInventory2_, weaponSwitchHoldTicks2_, p2Switch);
-        } else {
-            weaponSwitchHoldTicks2_ = 0;
-        }
-        if (portalCooldown_ > 0) --portalCooldown_;
-        if (triggerCooldown_ > 0) --triggerCooldown_;
-        if (portalCooldown2_ > 0) --portalCooldown2_;
-        if (triggerCooldown2_ > 0) --triggerCooldown2_;
-
-        // 1000:7ECB..7EE8 dispatches non-player actors before the players
-        // at 7F4E..7F5B. Both precede flame/debris 805D and collapse 8067.
-        updateBossLinks();
-        updateOrderedActors(dt);
-        if (debugActorPassObserver_) debugActorPassObserver_();
-        if (updateSharedReentryFallback()) return;
-
-        if (playerDead_) {
-            if (deathStateTimer_ > 0) {
-                if (updateState2VisualCursor(state2Visual_)) {
-                    player_.spriteIndex = state2Visual_.current - 1;
-                    player_.singlePixelSprite = false;
-                }
-                updateDyingPlayerMotion(player_);
-            }
-            refreshState2EffectEntry(player_, state2Visual_, state2Effect_);
-        } else {
-            collectObjectiveTiles(player_, 1);
-            updatePlayer(player_, controls.p1Left, controls.p1Right, p1Jump, p1Switch, 0, p1Down);
-            updatePortalsAndTriggers(player_, portalCooldown_, triggerCooldown_, p1Down);
-        }
-        if (playerCount_ > 1) {
-            if (player2Dead_) {
-                if (deathStateTimer2_ > 0) {
-                    if (updateState2VisualCursor(state2Visual2_)) {
-                        player2_.spriteIndex = state2Visual2_.current - 1;
-                        player2_.singlePixelSprite = false;
-                    }
-                    updateDyingPlayerMotion(player2_);
-                }
-                refreshState2EffectEntry(player2_, state2Visual2_, state2Effect2_);
-            } else {
-                collectObjectiveTiles(player2_, 2);
-                updatePlayer(player2_, controls.p2Left, controls.p2Right, p2Jump, p2Switch, 19, p2Down);
-                updatePortalsAndTriggers(player2_, portalCooldown2_, triggerCooldown2_,
-                                         p2Down);
-            }
-        }
-        drainPlayerDamageCounters();
-        updateHudScores();
-        updateFlashes();
-        updateCameraShake();
-        presentation_.advanceHudPalette();
-        presentation_.updateRedPalette(static_cast<uint16_t>(logicTick_));
-        updateLevelCompletion();
-        pumpSoundLatch();
-    }
+    void updateWithControls(const FrameControls& controls, float dt) { gameplayReplay_.updateWithControls(controls, dt); }
 
     void prepareHudObjectives() {
-        presentation_.prepareHudObjectives(static_cast<uint16_t>(logicTick_), collected_, destructionPercent());
+        presentation_.prepareHudObjectives(static_cast<uint16_t>(gameplayReplay_.fixture().logicTick_), gameplayReplay_.fixture().collected_, destructionPercent());
     }
 
     void updateHudScores() {
-        presentation_.updateHudScores(playerCount_, {{score_, score2_}}, {{playerDead_, player2Dead_}},
-                                      {{deathStateTimer_, deathStateTimer2_}});
+        presentation_.updateHudScores(gameplayReplay_.fixture().playerCount_, {{gameplayReplay_.fixture().score_, gameplayReplay_.fixture().score2_}}, {{gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().player2Dead_}},
+                                      {{gameplayReplay_.fixture().deathStateTimer_, gameplayReplay_.fixture().deathStateTimer2_}});
     }
 
-    bool activateLaunchPad(Player& player, bool down, int localY) {
-        if (!down) return false;
-        int tx = (static_cast<int>(player.x) + 4) >> 3;
-        int ty = (static_cast<int>(player.y) >> 3) + 2;
-        if (tileAt(tx, ty) != kLaunchPadTile ||
-            scanActorEdges(static_cast<int>(player.x), static_cast<int>(player.y)).top) {
-            return false;
-        }
+    bool activateLaunchPad(Player& player, bool down, int localY) { return gameplayReplay_.activateLaunchPad(player, down, localY); }
 
-        // The original's launch-pad impulse is -2000 in 8.8 (byte-cited as
-        // kOriginalLaunchPadVelocity). With the player on the fixed-point
-        // model it is used directly instead of through a px/s conversion.
-        player.vy8 = kOriginalLaunchPadVelocity;
-        syncPlayerVelocityMirror(player);
-        player.grounded = false;
-        requestLaunchPadSound();
-        // 1000:691F..6950 launches and requests sound before the shared
-        // constructor can reject the cosmetic marker at its 30-slot limit.
-        if (sharedActorCount() < 30) {
-            LaunchPadMarker marker;
-            marker.x = static_cast<int>(player.x) + 4;
-            marker.y = localY + 13;
-            marker.actorOrder = claimActorOrder();
-            launchPadMarkers_.push_back(marker);
-        }
-        return true;
-    }
-
-    void updateLaunchPadMarkers(uint64_t onlyOrder = 0) {
-        for (LaunchPadMarker& marker : launchPadMarkers_) {
-            if (onlyOrder && marker.actorOrder != onlyOrder) continue;
-            if ((logicTick_ & 1u) != 0 && marker.timer > 0) {
-                --marker.timer;
-            }
-            if (marker.timer == 0) continue;
-            integrateAxis8_8(marker.x, marker.fracX, marker.velocityX8);
-            integrateAxis8_8(marker.y, marker.fracY, marker.velocityY8);
-        }
-        launchPadMarkers_.erase(
-            std::remove_if(launchPadMarkers_.begin(), launchPadMarkers_.end(),
-                           [](const LaunchPadMarker& marker) {
-                               return marker.timer == 0;
-                           }),
-            launchPadMarkers_.end());
-    }
+    void updateLaunchPadMarkers(uint64_t onlyOrder = 0) { gameplayReplay_.updateLaunchPadMarkers(onlyOrder); }
 
     // One banner line of the level-completion sequence (original routine at
     // file 0x24d3): text, glyph cell advance, palette colours and row.
@@ -23856,21 +23288,21 @@ private:
 
     void beginLevelOutro() {
         levelFlow_.beginOutro(presentationMilliseconds(), destructionPercent(),
-            {{!playerDead_ || lives_ >= 0, playerCount_ > 1 && (!player2Dead_ || lives2_ >= 0)}},
-            {{bombInventory_.counts, bombInventory2_.counts}});
+            {{!gameplayReplay_.fixture().playerDead_ || gameplayReplay_.fixture().lives_ >= 0, gameplayReplay_.fixture().playerCount_ > 1 && (!gameplayReplay_.fixture().player2Dead_ || gameplayReplay_.fixture().lives2_ >= 0)}},
+            {{gameplayReplay_.fixture().bombInventory_.counts, gameplayReplay_.fixture().bombInventory2_.counts}});
         requestSoundCursor(0x3d, 10);
     }
 
     void updateLevelOutro(uint32_t now) {
         levelFlow_.updateOutro(now, ui_.snapshot().italian,
-            [this](size_t p, uint32_t delta) { (p == 0 ? score_ : score2_) += delta; },
+            [this](size_t p, uint32_t delta) { (p == 0 ? gameplayReplay_.fixture().score_ : gameplayReplay_.fixture().score2_) += delta; },
             [this] { if (randomRangeValue(0, 4) > 2) requestSoundCursor(0x21, 10); });
     }
 
     void finishLevelOutro() {
-        levelFlow_.finishOutro([this](size_t p, uint32_t delta) { (p == 0 ? score_ : score2_) += delta; });
+        levelFlow_.finishOutro([this](size_t p, uint32_t delta) { (p == 0 ? gameplayReplay_.fixture().score_ : gameplayReplay_.fixture().score2_) += delta; });
         if (isFinalLevel()) beginEndRun(EndReason::CompletedGame);
-        else beginLevelForPlay(levelIndex_ + 1);
+        else beginLevelForPlay(gameplayReplay_.fixture().levelIndex_ + 1);
     }
 
     void updateLevelCompletion() {
@@ -23884,214 +23316,45 @@ private:
                 updateLevelOutro(presentationMilliseconds());
                 return;
             }
-            if (completeTimer_ == 0) {
+            if (gameplayReplay_.fixture().completeTimer_ == 0) {
                 playCompatibilitySound(kLevelCompleteCompatibilityHookSlot);
             }
-            if (++completeTimer_ > 100) {
+            if (++gameplayReplay_.fixture().completeTimer_ > 100) {
                 if (isFinalLevel()) {
                     beginEndRun(EndReason::CompletedGame);
                 } else {
-                    beginLevelForPlay(levelIndex_ + 1);
+                    beginLevelForPlay(gameplayReplay_.fixture().levelIndex_ + 1);
                 }
             }
         } else {
-            completeTimer_ = 0;
+            gameplayReplay_.fixture().completeTimer_ = 0;
         }
     }
 
-    static void selectPlayerPosture(Player& player, uint8_t spriteBase, bool dropping) {
-        // 1000:6772..67FE and 69BB..6A43 preserve the running cursor, or
-        // initialize an idle backup, before selecting the temporary pose.
-        if (player.animation.first == spriteBase + 18) return;
-        player.animationBackup = player.animation.mode == 0 ?
-            ActorAnimation::initialize(spriteBase + 1, spriteBase + 1, 2, 3) : player.animation;
-        player.animation = ActorAnimation::initialize(spriteBase + 17,
-                                                       spriteBase + (dropping ? 19 : 18), 3, 3);
-        player.spriteIndex = spriteBase + 17;
-        player.singlePixelSprite = false;
-    }
+    void selectPlayerPosture(Player& player, uint8_t spriteBase, bool dropping) { gameplayReplay_.selectPlayerPosture(player, spriteBase, dropping); }
 
-    static void updatePlayerGravity(Player& player, bool bottom, uint8_t spriteBase, int& y) {
-        // 1000:6743..6813 precedes input; a new jump does not add gravity.
-        if (!bottom || player.vy8 < 0) {
-            player.vy8 = static_cast<int16_t>(std::min<int>(kPlayerTerminalVelocity8,
-                                                           player.vy8 + kPlayerGravity8));
-        } else if (player.vy8 > 0) {
-            y &= ~7;
-            if (player.vy8 > 1600) {
-                selectPlayerPosture(player, spriteBase, false);
-                player.vy8 = static_cast<int16_t>(-player.vy8 / 4);
-            } else {
-                player.vy8 = 0;
-            }
-        }
-    }
+    void updatePlayerGravity(Player& player, bool bottom, uint8_t spriteBase, int& y) { gameplayReplay_.updatePlayerGravity(player, bottom, spriteBase, y); }
 
     // One call is one governed tick: animation advances before input and
     // motion integrates in 8.8 fixed point, independent of wall-clock dt.
     void updatePlayer(Player& player, bool left, bool right, bool jump, bool switchWeapon,
-                      uint8_t spriteBase, bool down = false) {
-        if (player.animation.advance(player.animationBackup)) {
-            player.spriteIndex = static_cast<uint8_t>(player.animation.current - 1);
-            player.singlePixelSprite = false;
-        }
-        const uint8_t inputFrame = player.animation.current;
-        int x = static_cast<int>(player.x);
-        int y = static_cast<int>(player.y);
-        auto edges = scanActorEdges(x, y);
-        const int column = (x + 4) >> 3;
-        const int row = y >> 3;
-        const bool stepLeft = edges.left && !solidTileSide(static_cast<uint8_t>(tileAt(column - 1, row)));
-        const bool stepRight = edges.right && !solidTileSide(static_cast<uint8_t>(tileAt(column + 2, row)));
-        left = left && !switchWeapon;
-        right = right && !switchWeapon;
+                      uint8_t spriteBase, bool down = false) { gameplayReplay_.updatePlayer(player, left, right, jump, switchWeapon, spriteBase, down); }
 
-        updatePlayerGravity(player, edges.bottom, spriteBase, y);
-        if (!switchWeapon) {
-            activateLaunchPad(player, down, y);
-            const int bottomLeft = tileAt(column, row + 2);
-            const bool specialDown = bottomLeft == 0x45 ||
-                (bottomLeft == kLaunchPadTile && !edges.top);
-            if (down && !specialDown) {
-                if (!edges.bottom || player.vy8 != 0 || player.dropTicks != 0 ||
-                    scanActorStrongBottom(x, static_cast<int>(player.y))) {
-                    down = false;
-                } else {
-                    selectPlayerPosture(player, spriteBase, true);
-                    player.dropTicks = 4;
-                }
-            }
-            if (player.dropTicks != 0) {
-                // 1000:6A5E..6A76 lowers the local Y before integration.
-                y += 2;
-                --player.dropTicks;
-                player.idleTicks = 0xF8;
-            }
-        }
-        if (left) {
-            if (stepLeft) {
-                player.vy8 = -500;
-                player.vx8 = -250;
-                edges.left = false;
-            }
-            if (inputFrame < spriteBase + 10 || inputFrame > spriteBase + 17) {
-                player.animation = ActorAnimation::initialize(spriteBase + 10, spriteBase + 17, 0, 1);
-                player.idleTicks = 0;
-            }
-        }
-        if (right) {
-            if (stepRight) {
-                player.vy8 = -500;
-                player.vx8 = 250;
-                edges.right = false;
-            }
-            if (inputFrame < spriteBase + 2 || inputFrame > spriteBase + 9) {
-                player.animation = ActorAnimation::initialize(spriteBase + 2, spriteBase + 9, 0, 1);
-                player.idleTicks = 0;
-            }
-        }
-        player.vx8 = playerWalkVelocity(player.vx8, left, right, edges.bottom);
-        player.animation.delay = static_cast<uint8_t>(4 - std::abs(player.vx8) / 256);
-        if (!left && !right && !down && ++player.idleTicks == 5) {
-            player.animation.mode = 0;
-            // The cursor becomes 1 even for player 2; its displayed idle
-            // descriptor is independently selected as 20 (1000:6BAD..6BD1).
-            player.animation.current = 1;
-            player.spriteIndex = spriteBase;
-            player.singlePixelSprite = false;
-        }
-        if (jump && edges.bottom && player.vy8 == 0) {
-            player.vy8 = kPlayerJumpVelocity8;
-        }
-        // 1000:6BD5 uses the updated velocity and local drop/ground Y, before
-        // terrain damage and integration. The non-player pass is already over.
-        tryActivePlayerFireAt(player, x, y, spriteBase == 19 ? 2 : 1);
-        applyPlayerTerrainDamage(player, spriteBase == 19 ? energy2_ : energy_);
-        integratePlayerMotion(player, x, y, edges);
-    }
+    void applyPlayerTerrainDamage(Player& player, int& energy) { gameplayReplay_.applyPlayerTerrainDamage(player, energy); }
 
-    void applyPlayerTerrainDamage(Player& player, int& energy) {
-        // 1000:6F90..7011 scans TL, TR, BR, BL before integration. Only
-        // the last flame cell supplies impulse, using its highest pool slot.
-        const int x = (static_cast<int>(player.x) + 4) >> 3;
-        const int y = static_cast<int>(player.y) >> 3;
-        const std::array<std::array<int, 2>, 4> cells{{{x,y}, {x+1,y}, {x+1,y+1}, {x,y+1}}};
-        int damage = 0, flameCell = 0;
-        for (size_t i = 0; i < cells.size(); ++i) {
-            const auto& cell = cells[i];
-            const int glyph = tileAt(cell[0], cell[1]);
-            if (glyph == 0x75) {
-                damage += 2;
-                flameCell = cell[1] * level_.width + cell[0];
-            } else if (i < 2 && glyph >= 1 && glyph <= 0x4c) {
-                damage += 2;
-            }
-        }
-        if (flameCell != 0) {
-            const auto ray = std::find_if(flameRecords_.rbegin(), flameRecords_.rend(),
-                [flameCell](const FlameRecord& item) { return item.cell == flameCell; });
-            if (ray != flameRecords_.rend()) {
-                player.vx8 = static_cast<int16_t>(ray->vx * 8);
-                player.vy8 = static_cast<int16_t>(ray->vy * 8);
-                if (ray->mass > 1) damage += ray->mass / 10;
-            }
-        }
-        energy = static_cast<uint8_t>(energy - damage);
-    }
+    void updateDyingPlayerMotion(Player& player) { gameplayReplay_.updateDyingPlayerMotion(player); }
 
-    void updateDyingPlayerMotion(Player& player) {
-        // Behavior 2 (1000:7018) preserves velocity and fractional carries.
-        int x = static_cast<int>(player.x), y = static_cast<int>(player.y);
-        const auto edges = scanActorEdges(x, y);
-        if (!edges.bottom || player.vy8 < 0) {
-            player.vy8 = static_cast<int16_t>(std::min<int>(2047, player.vy8 + 64));
-        } else if (player.vy8 > 0) {
-            player.vy8 = 0;
-            y &= ~7;
-        }
-        if (edges.bottom) player.vx8 = actorFloorFriction(player.vx8);
-        integratePlayerMotion(player, x, y, edges);
-    }
+    void integratePlayerMotion(Player& player, int x, int y,
+                                      const ActiveMonster::EdgeFlags& edges) { gameplayReplay_.integratePlayerMotion(player, x, y, edges); }
 
-    static void integratePlayerMotion(Player& player, int x, int y,
-                                      const ActiveMonster::EdgeFlags& edges) {
-        if (edges.top && player.vy8 < 0) player.vy8 = 1;
-        if (edges.left && edges.right) {
-            player.vx8 = 0;
-        } else if ((edges.left && player.vx8 < 0) || (edges.right && player.vx8 > 0)) {
-            player.vx8 = static_cast<int16_t>(-player.vx8 / 2);
-            x += player.vx8 < 0 ? -1 : 1;
-        }
-        integrateAxis8_8(y, player.fracY, player.vy8);
-        integrateAxis8_8(x, player.fracX, player.vx8);
-        player.x = static_cast<float>(x);
-        player.y = static_cast<float>(y);
-        player.grounded = edges.bottom && player.vy8 == 0;
-        syncPlayerVelocityMirror(player);
-    }
+    void syncPlayerVelocityMirror(Player& player) { gameplayReplay_.syncPlayerVelocityMirror(player); }
 
-    static void syncPlayerVelocityMirror(Player& player) {
-        player.vx = player.vx8 / 256.0f;
-        player.vy = player.vy8 / 256.0f;
-    }
+    int16_t actorFloorFriction(int16_t velocity) { return gameplayReplay_.actorFloorFriction(velocity); }
 
-    static int16_t actorFloorFriction(int16_t velocity) {
-        // Original shared helper 1000:5B86, called by players and bombs.
-        return static_cast<int16_t>(std::abs(velocity) < 43 ? 0 :
-                                    velocity + (velocity < 0 ? 42 : -42));
-    }
-
-    static int16_t playerWalkVelocity(int16_t velocity, bool left, bool right, bool bottom) {
-        // 1000:6AC6/6B1C test before adding. Reaccelerating after friction
-        // can cross +/-1024; clamping the result would change the original.
-        if (left && velocity > -kPlayerWalkVelocity8) velocity -= kPlayerWalkAcceleration8;
-        if (right && velocity < kPlayerWalkVelocity8) velocity += kPlayerWalkAcceleration8;
-        if (bottom && !left && !right) velocity = actorFloorFriction(velocity);
-        return velocity;
-    }
+    int16_t playerWalkVelocity(int16_t velocity, bool left, bool right, bool bottom) { return gameplayReplay_.playerWalkVelocity(velocity, left, right, bottom); }
 
     AutoplayRouteResult autoplayLevel1BombRoute() {
-        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || gameplayReplay_.fixture().playerCount_ != 1 || gameplayReplay_.fixture().levelIndex_ != 0) {
             throw std::runtime_error("level1 autoplayer requires active one-player level 1");
         }
 
@@ -24104,24 +23367,24 @@ private:
         constexpr int kMaxRouteFrames = 180;
         constexpr float kDt = 1.0f / 60.0f;
         AutoplayRouteResult result;
-        result.startX = static_cast<int>(player_.x);
-        result.startY = static_cast<int>(player_.y);
+        result.startX = static_cast<int>(gameplayReplay_.fixture().player_.x);
+        result.startY = static_cast<int>(gameplayReplay_.fixture().player_.y);
 
         int stagnantFrames = 0;
-        int lastX = static_cast<int>(player_.x);
+        int lastX = static_cast<int>(gameplayReplay_.fixture().player_.x);
         for (int frame = 0; frame < kMaxRouteFrames; ++frame) {
-            result.bombTileX = (static_cast<int>(player_.x) + 4) / kTileSize;
-            result.bombTileY = static_cast<int>(player_.y) / kTileSize;
+            result.bombTileX = (static_cast<int>(gameplayReplay_.fixture().player_.x) + 4) / kTileSize;
+            result.bombTileY = static_cast<int>(gameplayReplay_.fixture().player_.y) / kTileSize;
             if (result.bombTileX == kTargetBombX &&
-                result.bombTileY == kTargetBombY && player_.vx8 == 0) {
+                result.bombTileY == kTargetBombY && gameplayReplay_.fixture().player_.vx8 == 0) {
                 break;
             }
 
             // Plan braking on this flat floor using the recovered friction
             // and fractional carry, then execute only ordinary controls.
-            int stopX = static_cast<int>(player_.x);
-            uint8_t stopFraction = player_.fracX;
-            int16_t stopVelocity = player_.vx8;
+            int stopX = static_cast<int>(gameplayReplay_.fixture().player_.x);
+            uint8_t stopFraction = gameplayReplay_.fixture().player_.fracX;
+            int16_t stopVelocity = gameplayReplay_.fixture().player_.vx8;
             while (stopVelocity != 0) {
                 stopVelocity = actorFloorFriction(stopVelocity);
                 integrateAxis8_8(stopX, stopFraction, stopVelocity);
@@ -24132,7 +23395,7 @@ private:
             updateWithControls(controls, kDt);
             ++result.frames;
 
-            int currentX = static_cast<int>(player_.x);
+            int currentX = static_cast<int>(gameplayReplay_.fixture().player_.x);
             if (std::abs(currentX - lastX) <= 1) {
                 ++stagnantFrames;
             } else {
@@ -24144,11 +23407,11 @@ private:
             }
         }
 
-        result.finalX = static_cast<int>(player_.x);
-        result.finalY = static_cast<int>(player_.y);
-        result.bombTileX = (static_cast<int>(player_.x) + 4) / kTileSize;
-        result.bombTileY = static_cast<int>(player_.y) / kTileSize;
-        if (result.bombTileX != kTargetBombX || result.bombTileY != kTargetBombY || player_.vx8 != 0) {
+        result.finalX = static_cast<int>(gameplayReplay_.fixture().player_.x);
+        result.finalY = static_cast<int>(gameplayReplay_.fixture().player_.y);
+        result.bombTileX = (static_cast<int>(gameplayReplay_.fixture().player_.x) + 4) / kTileSize;
+        result.bombTileY = static_cast<int>(gameplayReplay_.fixture().player_.y) / kTileSize;
+        if (result.bombTileX != kTargetBombX || result.bombTileY != kTargetBombY || gameplayReplay_.fixture().player_.vx8 != 0) {
             throw std::runtime_error("level1 autoplayer did not reach target tile");
         }
         // The collected object's one-way platform can move into the actor's
@@ -24163,252 +23426,65 @@ private:
         return result;
     }
 
-    std::vector<SharedActorEntry> sharedActorEntries() const {
-        std::vector<SharedActorEntry> result;
-        for (size_t i = 0; i < transientActors_.size(); ++i) result.push_back({transientActors_[i].actorOrder, SharedActorKind::Effect, i});
-        for (size_t i = 0; i < launchPadMarkers_.size(); ++i) result.push_back({launchPadMarkers_[i].actorOrder, SharedActorKind::Marker, i});
-        for (size_t i = 0; i < bombs_.size(); ++i) result.push_back({bombs_[i].actorOrder, SharedActorKind::Bomb, i});
-        for (size_t i = 0; i < monsters_.size(); ++i) if (monsters_[i].alive) result.push_back({monsters_[i].actorOrder, SharedActorKind::Monster, i});
-        for (size_t i = 0; i < bonusDrops_.size(); ++i) if (!bonusDrops_[i].collected) result.push_back({bonusDrops_[i].actorOrder, SharedActorKind::Reward, i});
-        std::stable_sort(result.begin(), result.end(), [](const SharedActorEntry& a, const SharedActorEntry& b) { return a.order < b.order; });
-        return result;
-    }
+    std::vector<SharedActorEntry> sharedActorEntries() const { return gameplayReplay_.sharedActorEntries(); }
 
-    uint64_t sharedActorVisualKey(const SharedActorEntry& entry) const {
-        if (entry.kind == SharedActorKind::Monster && monsters_[entry.index].bossVisualOrder)
-            return monsters_[entry.index].bossVisualOrder;
-        if (entry.kind == SharedActorKind::Effect && transientActors_[entry.index].bossVisualOrder)
-            return transientActors_[entry.index].bossVisualOrder;
-        return entry.order;
-    }
+    uint64_t sharedActorVisualKey(const SharedActorEntry& entry) const { return gameplayReplay_.sharedActorVisualKey(entry); }
 
-    void adoptUnorderedActors() {
-        // Directly seeded diagnostics predate shared ordering. Real producers
-        // claim an order at construction; explicit original replays seed it.
-        const auto entries = sharedActorEntries();
-        for (const auto& entry : entries) nextActorOrder_ = std::max(nextActorOrder_, entry.order + 1);
-        for (const auto& entry : entries) {
-            if (entry.order) continue;
-            const uint64_t order = nextActorOrder_++;
-            switch (entry.kind) {
-                case SharedActorKind::Effect: transientActors_[entry.index].actorOrder = order; break;
-                case SharedActorKind::Marker: launchPadMarkers_[entry.index].actorOrder = order; break;
-                case SharedActorKind::Bomb: bombs_[entry.index].actorOrder = order; break;
-                case SharedActorKind::Monster: monsters_[entry.index].actorOrder = order; break;
-                case SharedActorKind::Reward: bonusDrops_[entry.index].actorOrder = order; break;
-            }
-        }
-    }
+    void adoptUnorderedActors() { gameplayReplay_.adoptUnorderedActors(); }
 
-    uint64_t claimActorOrder() {
-        adoptUnorderedActors();
-        return nextActorOrder_++;
-    }
+    uint64_t claimActorOrder() { return gameplayReplay_.claimActorOrder(); }
 
-    void updateOrderedActors(float dt) {
-        adoptUnorderedActors();
-        if (orderedActorPass_) throw std::runtime_error("recursive shared actor pass");
-        orderedActorPass_ = true;
-        struct PassGuard { bool& active; ~PassGuard() { active = false; } } guard{orderedActorPass_};
-        uint64_t previous = 0;
-        while (true) {
-            // Original 3358 shifts records stably; 65C6 rewinds the cursor.
-            // Retaining birth order implements both without stale vector indices.
-            // In-place conversions keep their order; tail appends run this pass.
-            const auto entries = sharedActorEntries();
-            const auto found = std::find_if(entries.begin(), entries.end(), [&](const SharedActorEntry& entry) { return entry.order > previous; });
-            if (found == entries.end()) break;
-            const auto entry = *found;
-            previous = entry.order;
-            switch (entry.kind) {
-                case SharedActorKind::Effect: {
-                    updateTransientActor(transientActors_.at(entry.index));
-                    if (!transientActors_[entry.index].timer) transientActors_.erase(transientActors_.begin() + static_cast<std::ptrdiff_t>(entry.index));
-                    break;
-                }
-                case SharedActorKind::Marker: updateLaunchPadMarkers(entry.order); break;
-                case SharedActorKind::Bomb: updateBombs(entry.order); break;
-                case SharedActorKind::Monster: updateMonsters(dt, entry.order); break;
-                case SharedActorKind::Reward: updateBonusDrops(std::numeric_limits<size_t>::max(), entry.order); break;
-            }
-        }
-    }
+    void updateOrderedActors(float dt) { gameplayReplay_.updateOrderedActors(dt); }
 
-    size_t sharedActorCount() const {
-        const auto liveMonsters = std::count_if(monsters_.begin(), monsters_.end(),
-            [](const ActiveMonster& monster) { return monster.alive; });
-        return static_cast<size_t>(liveMonsters) + bombs_.size() + bonusDrops_.size() +
-               launchPadMarkers_.size() + transientActors_.size();
-    }
+    size_t sharedActorCount() const { return gameplayReplay_.sharedActorCount(); }
 
-    void updateCameraShake() {
-        // 1000:806A..8091 advances once per game frame, never per render.
-        if (cameraShakeTicks_ == 0) return;
-        cameraShakeOffset_ = randomRangeValue(0, static_cast<uint16_t>(cameraShakeTicks_ * 2));
-        if (--cameraShakeTicks_ == 0) cameraShakeOffset_ = 0;
-    }
+    void updateCameraShake() { gameplayReplay_.updateCameraShake(); }
 
-    size_t pickupActorCount() const {
-        return static_cast<size_t>(std::count_if(transientActors_.begin(), transientActors_.end(),
-            [](const TransientActor& actor) { return actor.kind == 0x0a; }));
-    }
+    size_t pickupActorCount() const { return gameplayReplay_.pickupActorCount(); }
 
     TransientActor* spawnTransientActor(int x, int y, int16_t vy8, uint8_t sprite,
                              uint8_t kind, uint8_t timer,
-                             ActorAnimation animation = {0, 0, 0, 0, 0, 0, 1}) {
-        // 1000:2F9F has one 30-slot pool for non-player actors.
-        if (sharedActorCount() >= 30) return nullptr;
-        TransientActor actor;
-        actor.x = x;
-        actor.y = y;
-        actor.vy8 = vy8;
-        actor.kind = kind;
-        actor.timer = timer;
-        actor.spriteIndex = static_cast<uint8_t>(sprite - 1);
-        actor.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(actor.spriteIndex).height);
-        actor.animation = animation;
-        actor.actorOrder = claimActorOrder();
-        transientActors_.push_back(actor);
-        return &transientActors_.back();
-    }
+                             ActorAnimation animation = {0, 0, 0, 0, 0, 0, 1}) { return gameplayReplay_.spawnTransientActor(x, y, vy8, sprite, kind, timer, animation); }
 
-    void updateTransientActor(TransientActor& actor) {
-        if (actor.animation.advance(ActorAnimation{})) {
-            actor.spriteIndex = static_cast<uint8_t>(actor.animation.current - 1);
-        }
-        // 1000:65A2..65D7 bypasses collision/gravity and deletes before
-        // integration when the byte reaches zero, not on animation wrap.
-        actor.timer = static_cast<uint8_t>(actor.timer - (logicTick_ & 1u));
-        if (actor.timer == 0) return;
-        integrateAxis8_8(actor.y, actor.fracY, actor.vy8);
-        integrateAxis8_8(actor.x, actor.fracX, actor.vx8);
-    }
+    void updateTransientActor(TransientActor& actor) { gameplayReplay_.updateTransientActor(actor); }
 
-    void updateTransientActors() {
-        for (auto& actor : transientActors_) updateTransientActor(actor);
-        transientActors_.erase(std::remove_if(transientActors_.begin(), transientActors_.end(),
-            [](const TransientActor& actor) { return actor.timer == 0; }), transientActors_.end());
-    }
+    void updateTransientActors() { gameplayReplay_.updateTransientActors(); }
 
-    void collectObjectiveTiles(const Player& player, uint8_t playerIndex) {
-        // 1000:6CB8..6DAA visits the cached actor interior clockwise. Scores
-        // are DS:0002..0019, file 0xB192; consume/seeder are 5AFD / 370E.
-        constexpr std::array<int, 12> scores{
-            50, 100, 200, 250, 500, 800, 1000, 1500, 2000, 3000, 5000, 1000};
-        constexpr std::array<uint8_t, 12> pickupSprites{80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 86};
-        const int x0 = (static_cast<int>(player.x) + 4) >> 3;
-        const int y0 = static_cast<int>(player.y) >> 3;
-        int score = 0;
-        bool high = false;
-        for (const auto& cell : std::array<std::array<int, 2>, 4>{{
-                 {{x0, y0}}, {{x0 + 1, y0}}, {{x0 + 1, y0 + 1}}, {{x0, y0 + 1}}}}) {
-            const int x = cell[0], y = cell[1];
-            const uint8_t tile = static_cast<uint8_t>(tileAt(x, y));
-            if (!isBombObjectTile(tile)) continue;
-            if (tile == 0x72) applyTileTrigger(wordAt(x, y));
-            if (!consumeBombObjectTile(x, y)) continue;
-            queueTileDamage(x, y - 1, 0, 0, true);
-            if (tile == level_.objectiveTile) ++collected_;
-            score += scores[tile - 0x67];
-            high = high || isHighBombObjectSoundTile(tile);
-            if (pickupActorCount() < 14) {
-                // 1000:6D88..6DFA draws even if the shared allocator is full.
-                const auto vy8 = static_cast<int16_t>(-40 - randomRangeValue(0, 200));
-                spawnTransientActor(static_cast<int>(player.x) + (x == x0 ? -2 : 10),
-                    static_cast<int>(player.y) + (y == y0 ? -2 : 10), vy8,
-                    pickupSprites[tile - 0x67], 0x0a, 12);
-            }
-        }
-        if (score != 0) {
-            addScore(playerIndex, score);
-            // The low pickup pair is also the already captured objective
-            // hook (cursor 0, priority 3). Retain its diagnostic funnel;
-            // mixed/high pickups select the original high-object branch.
-            if (high) requestBombObjectScoreSound(true);
-            else playCompatibilitySound(kObjectivePickupCompatibilityHookSlot);
-        }
-    }
+    void collectObjectiveTiles(const Player& player, uint8_t playerIndex) { gameplayReplay_.collectObjectiveTiles(player, playerIndex); }
 
     void updatePortalsAndTriggers(Player& player, int& portalCooldown,
-                                  int& triggerCooldown, bool down) {
-        int tx = static_cast<int>(player.x + 6.0f) / 8;
-        int ty = static_cast<int>(player.y + 12.0f) / 8;
-        int tile = tileAt(tx, ty);
-        uint16_t key = static_cast<uint16_t>(wordAt(tx, ty) & 0x7fffu);
+                                  int& triggerCooldown, bool down) { gameplayReplay_.updatePortalsAndTriggers(player, portalCooldown, triggerCooldown, down); }
 
-        if (down && tile == 0x45 && key != 0 && portalCooldown == 0) {
-            for (const LevelPortal& portal : level_.portals) {
-                if (portal.key == key) {
-                    player.x = static_cast<float>(portal.x);
-                    player.y = static_cast<float>(portal.y);
-                    player.vx = 0.0f;
-                    player.vy = 0.0f;
-                    portalCooldown = 30;
-                    requestPortalTeleportSound();
-                    break;
-                }
-            }
-        } else if (tile == 0x72 && triggerCooldown == 0) {
-            if (applyTileTrigger(wordAt(tx, ty))) {
-                triggerCooldown = 30;
-                requestTileTriggerSound();
-            }
-        }
-    }
+    bool applyTileTrigger(uint16_t key) { return gameplayReplay_.applyTileTrigger(key); }
 
-    bool applyTileTrigger(uint16_t key) {
-        bool changed = false;
-        for (const TileTriggerRule& rule : level_.tileTriggers) {
-            if (rule.triggerKey != key) continue;
-            size_t count = std::min(level_.tiles.size(), level_.wordLayer.size());
-            for (size_t i = 0; i < count; ++i) {
-                uint16_t word = static_cast<uint16_t>(level_.wordLayer[i] & 0x7fffu);
-                if (word < rule.wordRangeFirst || word > rule.wordRangeLast) continue;
-                for (size_t slot = 0; slot < rule.from.size(); ++slot) {
-                    uint8_t from = rule.from[slot];
-                    if (from != 0 && level_.tiles[i] == from) {
-                        uint8_t to = rule.to[slot];
-                        accountTileRewrite(level_.tiles[i], to);
-                        level_.tiles[i] = to;
-                        changed = true;
-                    }
-                }
-            }
-        }
-        return changed;
-    }
-
-    void accountTileRewrite(uint8_t from, uint8_t to) {
-        (void)from;
-        (void)to;
-    }
+    void accountTileRewrite(uint8_t from, uint8_t to) { gameplayReplay_.accountTileRewrite(from, to); }
 
     void prepareMonsterMotionDebugLevel(bool ledgeAhead) {
-        level_ = {};
-        level_.width = 12;
-        level_.height = 8;
-        level_.objectiveTile = 108;
+        gameplayReplay_.fixture().level_ = {};
+        gameplayReplay_.fixture().level_.width = 12;
+        gameplayReplay_.fixture().level_.height = 8;
+        gameplayReplay_.fixture().level_.objectiveTile = 108;
         // Background must be tile 0, not tile 1. Tile 1 is passable to the old
         // `countsForDestructionProgress` predicate (`tile > 1`) but SOLID to the
         // recovered edge predicates (side 1..0x4C, bottom 1..0x52) -- with a
         // tile-1 background this "open" 12x8 room is a sealed box and every
         // actor in it is walled in on all four edges. Tile 0 is passable to
         // BOTH predicates, so the fixture means the same thing either way.
-        level_.tiles.assign(static_cast<size_t>(level_.width) * level_.height, 0);
-        level_.wordLayer.assign(level_.tiles.size(), 0);
-        for (int x = 0; x < level_.width; ++x) {
+        gameplayReplay_.fixture().level_.tiles.assign(static_cast<size_t>(gameplayReplay_.fixture().level_.width) * gameplayReplay_.fixture().level_.height, 0);
+        gameplayReplay_.fixture().level_.wordLayer.assign(gameplayReplay_.fixture().level_.tiles.size(), 0);
+        for (int x = 0; x < gameplayReplay_.fixture().level_.width; ++x) {
             tileRef(x, 5) = 2;   // floor: solid on every edge under both predicates
         }
         if (ledgeAhead) {
             tileRef(6, 5) = 0;   // hole: passable under both predicates
         }
-        playerCount_ = 1;
-        playerDead_ = false;
-        player2Dead_ = true;
-        player_ = {};
-        player2_ = {};
-        monsters_.clear();
-        randomSeed_ = 0x1234abcd;
+        gameplayReplay_.fixture().playerCount_ = 1;
+        gameplayReplay_.fixture().playerDead_ = false;
+        gameplayReplay_.fixture().player2Dead_ = true;
+        gameplayReplay_.fixture().player_ = {};
+        gameplayReplay_.fixture().player2_ = {};
+        gameplayReplay_.fixture().monsters_.clear();
+        gameplayReplay_.fixture().randomSeed_ = 0x1234abcd;
     }
 
     void prepareAutoplayerMonsterFixtureLevel() {
@@ -24417,64 +23493,47 @@ private:
         // Keep long-running corpse/reward scenarios inside this synthetic
         // room instead of letting the zeroed objective defaults auto-complete
         // after 101 updates.
-        level_.requiredBonus = 1;
-        spawnerStates_.clear();
-        bonusDrops_.clear();
-        bombs_.clear();
-        flashes_.clear();
-        launchPadMarkers_.clear();
-        explosionEffects_.clear();
-        flameRecords_.clear();
-        debrisQueue_.clear();
-        collapseQueue_.clear();
-        collected_ = 0;
-        destroyed_ = 0;
-        completeTimer_ = 0;
-        portalCooldown_ = 0;
-        triggerCooldown_ = 0;
-        portalCooldown2_ = 0;
-        triggerCooldown2_ = 0;
-        energy_ = 100;
-        energy2_ = 100;
-        damageCooldown_ = 0;
-        damageCooldown2_ = 0;
-        pendingDamage_ = 0;
-        pendingDamage2_ = 0;
-        bombInventory_ = {};
-        bombInventory2_ = {};
-        weaponSwitchHoldTicks_ = 0;
-        weaponSwitchHoldTicks2_ = 0;
-        logicTick_ = 0;
+        gameplayReplay_.fixture().level_.requiredBonus = 1;
+        gameplayReplay_.fixture().spawnerStates_.clear();
+        gameplayReplay_.fixture().bonusDrops_.clear();
+        gameplayReplay_.fixture().bombs_.clear();
+        gameplayReplay_.fixture().flashes_.clear();
+        gameplayReplay_.fixture().launchPadMarkers_.clear();
+        gameplayReplay_.fixture().explosionEffects_.clear();
+        gameplayReplay_.fixture().flameRecords_.clear();
+        gameplayReplay_.fixture().debrisQueue_.clear();
+        gameplayReplay_.fixture().collapseQueue_.clear();
+        gameplayReplay_.fixture().collected_ = 0;
+        gameplayReplay_.fixture().destroyed_ = 0;
+        gameplayReplay_.fixture().completeTimer_ = 0;
+        gameplayReplay_.fixture().portalCooldown_ = 0;
+        gameplayReplay_.fixture().triggerCooldown_ = 0;
+        gameplayReplay_.fixture().portalCooldown2_ = 0;
+        gameplayReplay_.fixture().triggerCooldown2_ = 0;
+        gameplayReplay_.fixture().energy_ = 100;
+        gameplayReplay_.fixture().energy2_ = 100;
+        gameplayReplay_.fixture().damageCooldown_ = 0;
+        gameplayReplay_.fixture().damageCooldown2_ = 0;
+        gameplayReplay_.fixture().pendingDamage_ = 0;
+        gameplayReplay_.fixture().pendingDamage2_ = 0;
+        gameplayReplay_.fixture().bombInventory_ = {};
+        gameplayReplay_.fixture().bombInventory2_ = {};
+        gameplayReplay_.fixture().weaponSwitchHoldTicks_ = 0;
+        gameplayReplay_.fixture().weaponSwitchHoldTicks2_ = 0;
+        gameplayReplay_.fixture().logicTick_ = 0;
         clearSoundLatch();
         sound_.restorePlaybackForFixture({});
     }
 
-    std::array<int, 2> monsterFrameRange(uint8_t kind) const {
-        switch (kind) {
-            case 1: return {43, 44};
-            case 2: return {39, 41};
-            case 3: return {49, 51};
-            case 4: return {53, 55};
-            default: return {39, 41};
-        }
-    }
+    std::array<int, 2> monsterFrameRange(uint8_t kind) const { return gameplayReplay_.monsterFrameRange(kind); }
 
-    std::array<int, 2> monsterDirectionalFrameRange(uint8_t kind, int16_t vx8) const {
-        // vx > 0 selects the right-facing set (1000:72DA `cmp vx,0; jle`);
-        // vx < 0 the left set (1000:7286 `jge`). vx == 0 selects NEITHER in
-        // the reselection; the spawn default is the actor+0x03 (left) set --
-        // both captured spawns show frame 44, the left pair's high member --
-        // so the vx == 0 mapping here is the left set.
-        if (kind == 1) return vx8 > 0 ? std::array<int, 2>{45, 46}
-                                      : std::array<int, 2>{43, 44};
-        return monsterFrameRange(kind);
-    }
+    std::array<int, 2> monsterDirectionalFrameRange(uint8_t kind, int16_t vx8) const { return gameplayReplay_.monsterDirectionalFrameRange(kind, vx8); }
 
     // Original actor byte +0x14 per kind. Only kind 1's value is evidenced
     // (uniquely forced by the 2370/2370 motion lockstep; 6 = 16 - the 17x10
     // walker sprite's height 10). Every other kind is unadjudicated and keeps
     // the pre-recovery value 0.
-    static uint8_t monsterHotspotY(uint8_t kind) { return kind == 1 ? 6 : 0; }
+    uint8_t monsterHotspotY(uint8_t kind) { return gameplayReplay_.monsterHotspotY(kind); }
 
     // Rank 5: the original player-vs-actor contact is a 19x19 CENTRE test,
     // |dx| < 10 && |dy| < 10 with dx = player.x - actor.x and dy = player.y -
@@ -24484,45 +23543,21 @@ private:
     // uniquely adjudicated (1364/1364 vs 1350 at 9, 1355 at 11); the y
     // half-extent 10 is WEAKLY pinned (<8 scores 1363, <12 scores 1362) and
     // is recorded as recovered-but-not-proven.
-    bool actorTouchesPlayer(const Player& player, int ax, int ayCollide) const {
-        const int dx = static_cast<int>(player.x) - ax;
-        const int dy = static_cast<int>(player.y) - ayCollide;
-        return dx > -10 && dx < 10 && dy > -10 && dy < 10;
-    }
+    bool actorTouchesPlayer(const Player& player, int ax, int ayCollide) const { return gameplayReplay_.actorTouchesPlayer(player, ax, ayCollide); }
 
-    uint16_t randomRangeValue(uint16_t base, uint16_t range) {
-        lezac::core::TurboRandom random(randomSeed_);
-        const uint16_t value = random.range(base, range);
-        randomSeed_ = random.seed();
-        return value;
-    }
+    uint16_t randomRangeValue(uint16_t base, uint16_t range) { return gameplayReplay_.randomRangeValue(base, range); }
 
-    int randomInclusive(int low, int high) {
-        return static_cast<int>(randomRangeValue(static_cast<uint16_t>(low),
-                                                 static_cast<uint16_t>(high - low + 1)));
-    }
+    int randomInclusive(int low, int high) { return gameplayReplay_.randomInclusive(low, high); }
 
-    int16_t groundWalkerSpeed8(const ActiveMonster& monster) const {
-        return clampI16(monster.ai0);
-    }
+    int16_t groundWalkerSpeed8(const ActiveMonster& monster) const { return gameplayReplay_.groundWalkerSpeed8(monster); }
 
-    int16_t retargetSpeed8(const ActiveMonster& monster) const {
-        return clampI16(monster.ai1);
-    }
+    int16_t retargetSpeed8(const ActiveMonster& monster) const { return gameplayReplay_.retargetSpeed8(monster); }
 
     // Legacy range refresh, kept for the paths the capture does not cover
     // (behaviour-4 retarget, the legacy pushout). For kinds with a static
     // range it is a no-op; the recovered walker path uses
     // reselectWalkerFacing instead.
-    void refreshMonsterAnimationProfile(ActiveMonster& monster) {
-        auto frames = monsterDirectionalFrameRange(monster.kind, monster.vx8);
-        if (monster.animStart != frames[0] || monster.animEnd != frames[1]) {
-            monster.animStart = static_cast<uint8_t>(frames[0]);
-            monster.animEnd = static_cast<uint8_t>(frames[1]);
-            monster.animFrame = monster.animStart;
-            monster.animCursor = monster.animStart;
-        }
-    }
+    void refreshMonsterAnimationProfile(ActiveMonster& monster) { gameplayReplay_.refreshMonsterAnimationProfile(monster); }
 
     // Recovered original facing reselection (1000:7286 vx<0 -> actor+0x03 set,
     // 1000:72DA vx>0 -> actor+0x04 set; vx==0 selects neither). It rewrites
@@ -24534,330 +23569,34 @@ private:
     // boundary, 9/9 entering high). The reset is unconditional on flagged
     // ticks even when the set is unchanged; that is what produces the two
     // observed repeat-gap-8 boundaries in walker B's stream.
-    void reselectWalkerFacing(ActiveMonster& monster) {
-        if (monster.vx8 == 0) return;
-        // Facing reselection only exists for kinds with DISTINCT left/right
-        // pairs. For direction-independent kinds -- e.g. the shipped kind-4
-        // behavior-3 actors on levels 3 and 6, whose range is a static
-        // {53,55} -- a terrain event must stay the no-op it was before this
-        // helper existed, not rewind their animation. Note the guard is on
-        // the KIND's table, not on whether this call changes the range: the
-        // capture adjudicates that a kind-1 wall tick re-selecting the SAME
-        // pair still resets the cursor (walker B, frame 907: dropping the
-        // same-range reset diverges there), so same-range resets are real
-        // evidenced behavior for directional kinds.
-        if (monsterDirectionalFrameRange(monster.kind, -0x0100) ==
-            monsterDirectionalFrameRange(monster.kind, 0x0100)) {
-            return;
-        }
-        auto frames = monsterDirectionalFrameRange(monster.kind, monster.vx8);
-        monster.animStart = static_cast<uint8_t>(frames[0]);
-        monster.animEnd = static_cast<uint8_t>(frames[1]);
-        monster.animCursor = monster.animStart;
-    }
+    void reselectWalkerFacing(ActiveMonster& monster) { gameplayReplay_.reselectWalkerFacing(monster); }
 
-    void initializeMonsterMotion(ActiveMonster& monster) {
-        if (monster.behavior == 4) {
-            // Original 1000:70D7 gates behavior-4 steering on the shared
-            // DS:78C2 frame counter. A newly spawned actor therefore stays
-            // still until that global clock is divisible by actor +0x0E;
-            // there is no private per-actor countdown and no spawn-time draw.
-            monster.vx8 = 0;
-            monster.vy8 = 0;
-            monster.motionTimer = 0;
-            refreshMonsterAnimationProfile(monster);
-            return;
-        }
-        monster.vx8 = 0;
-        monster.vy8 = 0;
-        refreshMonsterAnimationProfile(monster);
-    }
+    void initializeMonsterMotion(ActiveMonster& monster) { gameplayReplay_.initializeMonsterMotion(monster); }
 
-    void retargetMonster(ActiveMonster& monster) {
-        int16_t speed = retargetSpeed8(monster);
-        const Player& target = nearestPlayer(monster.x, monster.y);
-        double dx = static_cast<int>(target.x) - monster.x;
-        double dy = static_cast<int>(target.y) - monster.y;
-        double threshold = monster.ai2;
-        if (std::fabs(dx) + std::fabs(dy) < threshold) {
-            double len = std::max(1.0, std::hypot(dx, dy));
-            // The original vector helper at 1000:346B converts both scaled
-            // reals with truncation toward zero. The diagonal runtime capture
-            // is decisive: speed 494 and delta (40,20) produce (441,220), not
-            // the rounded (442,221).
-            monster.vx8 = clampI16(static_cast<int>(speed * dx / len));
-            monster.vy8 = clampI16(static_cast<int>(speed * dy / len));
-        } else {
-            int range = std::max(1, static_cast<int>(monster.ai1) * 2);
-            int vxFixed = static_cast<int>(randomRangeValue(0, static_cast<uint16_t>(range))) -
-                          static_cast<int>(monster.ai1);
-            int vyFixed = static_cast<int>(randomRangeValue(0, static_cast<uint16_t>(range))) -
-                          static_cast<int>(monster.ai1);
-            monster.vx8 = clampI16(vxFixed);
-            monster.vy8 = clampI16(vyFixed);
-        }
-    }
+    void retargetMonster(ActiveMonster& monster) { gameplayReplay_.retargetMonster(monster); }
 
-    const Player& nearestPlayer(float x, float y) const {
-        if (playerCount_ <= 1 || player2Dead_) return player_;
-        if (playerDead_) return player2_;
-        float distance1 =
-            std::fabs(player_.x - x) + std::fabs(player_.y - y);
-        float distance2 =
-            std::fabs(player2_.x - x) + std::fabs(player2_.y - y);
-        return distance2 < distance1 ? player2_ : player_;
-    }
+    const Player& nearestPlayer(float x, float y) const { return gameplayReplay_.nearestPlayer(x, y); }
 
-    void updateMonsterMotion(ActiveMonster& monster, float) {
-        if (monster.behavior == 6) {
-            updateBossHead(monster);
-            return;
-        }
-        if (monster.behavior == 5) {
-            applyBossSegmentLinks(monster);
-            return;
-        }
-        if (monster.behavior == 4) {
-            const uint16_t period = monster.ai0;
-            const uint16_t originalTick = static_cast<uint16_t>(logicTick_);
-            if (period != 0 && originalTick % period == 0) {
-                retargetMonster(monster);
-            }
-            // Diagnostic only: ticks until the next shared gate, not AI state.
-            monster.motionTimer = period == 0
-                                      ? 0
-                                      : static_cast<int>(
-                                            period - (originalTick % period));
-            return;
-        }
-
-        // Ground walkers (behaviors 1-3) face the direction set at spawn
-        // (initializeMonsterMotion) and reverse only at walls and floor edges;
-        // the original never steers them toward the player, so preserve the
-        // current facing rather than seeking (defaulting to the spawn heading).
-        // Rank 10: the original seeds and renormalises the ground walker's
-        // horizontal speed only while the bottom-contact flag is set; an
-        // airborne walker keeps whatever vx it had (0 at spawn).
-        if (monster.edges.bottom) {
-            const int16_t speed = groundWalkerSpeed8(monster);
-            if (monster.vx8 == 0) {
-                // Seed (1000:71F9): no facing-reselect request -- only the
-                // renormalisation branch sets the flag (1000:71F3).
-                monster.vx8 = speed;
-            } else if (std::abs(monster.vx8) != speed) {
-                monster.vx8 = monster.vx8 > 0 ? speed : static_cast<int16_t>(-speed);
-                monster.facingDirty = true;
-            }
-            float probeX = monster.x + (monster.vx8 < 0 ? -2.0f : 15.0f);
-            if (!solidPixel(probeX, monster.y + 17.0f)) {
-                monster.vx8 = -monster.vx8;
-                // The original sets the reselect flag whenever either
-                // below-edge cell stops being bottom-solid (1000:723D).
-                monster.facingDirty = true;
-            }
-        }
-    }
+    void updateMonsterMotion(ActiveMonster& monster, float unused1) { gameplayReplay_.updateMonsterMotion(monster, unused1); }
 
     // Live GRAN.MST consumer backed by the static consumer model
     // (--debug-gran-static-consumer-model / --debug-gran-boss-model). The
     // original appends these actors at level-7 setup. The live allocator count
     // DS:0xC496 is 2 before GRAN.MST is loaded, so record and link visual bytes
     // are rebased by 2.
-    static constexpr int kBossVisualBase = 2;
 
-    void spawnLevel7Boss() {
-        std::vector<uint8_t> granBytes;
-        for (const GranRecord& record : gran_.records) {
-            granBytes.insert(granBytes.end(), record.bytes.begin(), record.bytes.end());
-        }
-        if (granBytes.size() != 399 || granBytes[0] != 7) return;
-        size_t pos = 1;
-        const size_t recordCount = granBytes[0];
-        const size_t recordsBase = pos;
-        pos += recordCount * 0x26;
-        const size_t spritesBase = pos;
-        pos += recordCount;
-        const size_t pairsBase = pos;
-        pos += recordCount * 4;
-        const size_t extraCount = granBytes[pos++];
-        const size_t extrasBase = pos;
-        if (pos + extraCount * 16 != granBytes.size()) return;
 
-        for (size_t i = 0; i < bossSinTable_.size(); ++i) {
-            // The original fills a 128-entry Real48 table with Sin(i*6.28/128).
-            bossSinTable_[i] = std::sin(static_cast<float>(i) * 6.28f / 128.0f);
-        }
+    void spawnLevel7Boss() { gameplayReplay_.spawnLevel7Boss(); }
 
-        bossLinks_.clear();
-        for (size_t i = 0; i < extraCount; ++i) {
-            const uint8_t* extra = granBytes.data() + extrasBase + i * 16;
-            BossMotionLink link;
-            link.targetVisual = static_cast<uint8_t>(extra[0] + kBossVisualBase);
-            link.selfVisual = static_cast<uint8_t>(extra[1] + kBossVisualBase);
-            link.gain = extra[2];
-            link.mode = extra[3];
-            link.radiusX = extra[4];
-            link.radiusY = extra[5];
-            link.phase = extra[6];
-            link.offX = static_cast<int16_t>(extra[7] | (extra[8] << 8));
-            link.offY = static_cast<int16_t>(extra[9] | (extra[10] << 8));
-            // The loader copies the complete link before the first actor pass.
-            link.outX = static_cast<int16_t>(extra[11] | (extra[12] << 8));
-            link.outY = static_cast<int16_t>(extra[13] | (extra[14] << 8));
-            link.biasY = static_cast<int8_t>(extra[15]);
-            bossLinks_.push_back(link);
-        }
-
-        const uint64_t firstBossVisualOrder = nextActorOrder_;
-        const auto bossGroup = static_cast<uint16_t>(sharedActorCount() + 1);
-        for (size_t i = 0; i < recordCount; ++i) {
-            const uint8_t* record = granBytes.data() + recordsBase + i * 0x26;
-            ActiveMonster actor;
-            actor.kind = record[0x00];
-            actor.behavior = record[0x15];
-            actor.bossVisual = static_cast<uint8_t>(record[0x01] + kBossVisualBase);
-            // The GRAN reader rewrites the head +0x12 and segment +0x25
-            // owner fields to the group's first one-based actor slot.
-            actor.bossGroup = bossGroup;
-            const size_t entryOrder = static_cast<size_t>(actor.bossVisual) - kBossVisualBase;
-            if (entryOrder >= recordCount) continue;
-            const int dx = static_cast<int16_t>(granBytes[pairsBase + entryOrder * 4] |
-                                                (granBytes[pairsBase + entryOrder * 4 + 1] << 8));
-            const int dy = static_cast<int16_t>(granBytes[pairsBase + entryOrder * 4 + 2] |
-                                                (granBytes[pairsBase + entryOrder * 4 + 3] << 8));
-            actor.x = 100 + dx;
-            actor.y = 100 + dy;
-            const uint8_t entrySprite = granBytes[spritesBase + entryOrder];
-            const uint8_t animSet = record[0x03];
-            if (animSet != 0 && animSet < kBossAnimSets.size() &&
-                kBossAnimSets[animSet][0] != 0) {
-                actor.animStart = kBossAnimSets[animSet][0] - 1;
-                actor.animEnd = kBossAnimSets[animSet][1] - 1;
-                actor.animMode = 1;
-                actor.animCursor = actor.animStart;
-                actor.animTick = record[0x1a];
-            } else {
-                // A zero animation-set selector leaves the copied bytes intact.
-                actor.animCursor = static_cast<uint8_t>(record[0x16] - 1);
-                actor.animStart = static_cast<uint8_t>(record[0x17] - 1);
-                actor.animEnd = static_cast<uint8_t>(record[0x18] - 1);
-                actor.animTick = record[0x19];
-                actor.animMode = record[0x1b];
-                actor.animStep = static_cast<int8_t>(record[0x1c]);
-            }
-            // GRAN.MST and the animation table carry one-based descriptors.
-            actor.animFrame = entrySprite - 1;
-            // Raw delay byte: the shared advance (1000:608F) fires when the
-            // counter exceeds it, so 0 keeps the old every-tick cadence and
-            // any nonzero byte means period byte+1.
-            actor.animDelay = record[0x1a];
-            if (actor.kind == 0x1e) {
-                actor.bossHpByte = record[0x24];
-                actor.bossLives = record[0x02];
-                actor.bossBoxW = record[0x0e];
-                actor.bossBoxH = record[0x0f];
-                actor.hp = actor.bossHpByte;
-            } else {
-                // Segments carry serial link bytes at +0x0e/+0x10; at level
-                // entry the DS:0x79F9 rebase base is zero, so the shipped
-                // serials index bossLinks_ 1-based directly.
-                actor.linkA = record[0x0e];
-                actor.linkB = record[0x0f];
-                actor.linkC = record[0x10];
-                actor.hp = 255;
-            }
-            actor.actorOrder = claimActorOrder();
-            actor.bossVisualOrder = firstBossVisualOrder + entryOrder;
-            monsters_.push_back(actor);
-        }
-        bossPresent_ = true;
-    }
-
-    ActiveMonster* findBossActorByVisual(uint8_t visual) {
-        for (ActiveMonster& monster : monsters_) {
-            if (monster.alive && !monster.bossDebris &&
-                (monster.behavior == 5 || monster.behavior == 6) &&
-                monster.bossVisual == visual) {
-                return &monster;
-            }
-        }
-        return nullptr;
-    }
+    ActiveMonster* findBossActorByVisual(uint8_t visual) { return gameplayReplay_.findBossActorByVisual(visual); }
 
     // Original per-frame link recompute at 1000:432A, run before the actor
     // update loop.
-    void updateBossLinks() {
-        if (bossLinks_.empty()) return;
-        for (BossMotionLink& link : bossLinks_) {
-            ActiveMonster* target = findBossActorByVisual(link.targetVisual);
-            if (link.mode != 0xff) {
-                ActiveMonster* self = findBossActorByVisual(link.selfVisual);
-                if (!target || !self) continue;
-                link.outX = static_cast<int16_t>(
-                    (target->x - self->x + link.offX) * link.gain);
-                // 1000:43E8 reads DS:C220 visual Y, including the head's
-                // signed hotspot after a nonfatal hit changes its descriptor.
-                link.outY = static_cast<int16_t>(
-                    (target->y + target->hotspotY - self->y - self->hotspotY + link.offY) * link.gain + link.biasY);
-            } else {
-                if (!target) continue;
-                // Mode 0xff is a VERTICAL-only oscillation about the anchor,
-                // not a two-axis orbit. A live level-7 capture pins the rule
-                // over all 128 phases and all four orbit links, 774/774 ticks
-                // exact on both axes:
-                //   outX = anchor.x + offX                     (no x term)
-                //   outY = anchor.y + offY + trunc(sin[phase] * radiusY)
-                // radiusY is link byte +0x05; byte +0x04 is not an x radius,
-                // so the cosine term the port used to add was a spurious 1 px
-                // horizontal wobble. The scale is the shipped table's literal
-                // 6.28 (not 2*pi), and the product truncates toward zero --
-                // rounding to nearest is off by one on 21 of the 128 phases.
-                link.phase = static_cast<uint8_t>((link.phase + link.gain) & 0x7f);
-                const float sinValue = bossSinTable_[link.phase];
-                link.outX = static_cast<int16_t>(target->x + link.offX);
-                link.outY = static_cast<int16_t>(
-                    target->y + target->hotspotY + link.offY +
-                    static_cast<int>(sinValue * link.radiusY));
-            }
-        }
-    }
+    void updateBossLinks() { gameplayReplay_.updateBossLinks(); }
 
     // Original 1000:5872: apply one serial link to the calling segment; bit
     // 0x80 mirrors the spring contribution.
-    void applyBossSegmentLinks(ActiveMonster& monster) {
-        const std::array<uint8_t, 3> serials{monster.linkA, monster.linkB, monster.linkC};
-        for (uint8_t serial : serials) {
-            if (serial == 0) break;
-            int sign = 1;
-            uint8_t index = serial;
-            if (index > 0x80) {
-                index = static_cast<uint8_t>(index - 0x80);
-                sign = -1;
-            }
-            if (index == 0 || index > bossLinks_.size()) continue;
-            const BossMotionLink& link = bossLinks_[index - 1];
-            if (link.mode != 0xff) {
-                monster.vx8 = clampI16(monster.vx8 + sign * link.outX);
-                monster.vy8 = clampI16(monster.vy8 + sign * link.outY);
-                const int limit = link.mode;
-                if (std::abs(monster.vx8) > limit) {
-                    monster.vx8 = static_cast<int16_t>(
-                        monster.vx8 - (monster.vx8 > 0 ? limit : -limit));
-                }
-                if (std::abs(monster.vy8) > limit) {
-                    monster.vy8 = static_cast<int16_t>(
-                        monster.vy8 - (monster.vy8 > 0 ? limit : -limit));
-                }
-            } else {
-                monster.x = link.outX;
-                monster.y = link.outY;
-                monster.vx8 = 0;
-                monster.vy8 = 0;
-                monster.fracX = 0;
-                monster.fracY = 0;
-            }
-        }
-    }
+    void applyBossSegmentLinks(ActiveMonster& monster) { gameplayReplay_.applyBossSegmentLinks(monster); }
 
     // Original 1000:5CB0 head brain: every 29 ticks choose a signed speed from
     // the caller-selected nearest player's X delta and jump when grounded.
@@ -24871,647 +23610,91 @@ private:
     // sideways.
     // Behaviors the original moves outside the generic actor pushout: 5 is a
     // link-driven boss segment, 6 is the boss head with its own edge scan.
-    static bool isBossMotionBehavior(int behavior) {
-        return behavior == 5 || behavior == 6;
-    }
+    bool isBossMotionBehavior(int behavior) { return gameplayReplay_.isBossMotionBehavior(behavior); }
 
-    struct BossHeadEdges {
-        bool top = false;
-        bool bottom = false;
-        bool left = false;
-        bool right = false;
-    };
 
-    bool bossScanTileSolid(int index, int upper) const {
-        if (index < 0 || static_cast<size_t>(index) >= level_.tiles.size()) {
-            return false;
-        }
-        int tile = level_.tiles[static_cast<size_t>(index)];
-        return tile >= 1 && tile <= upper;
-    }
 
-    BossHeadEdges scanBossHeadEdges(const ActiveMonster& monster) const {
-        BossHeadEdges edges;
-        const int stride = level_.width;
-        const int width = monster.bossBoxW;
-        const int height = monster.bossBoxH;
-        const int base = (monster.y >> 3) * stride + (monster.x >> 3);
-        for (int i = 0; i < width; ++i) {
-            if (bossScanTileSolid(base - stride + i, 0x4c)) edges.top = true;
-            if (bossScanTileSolid(base + height * stride + i, 0x52)) {
-                edges.bottom = true;
-            }
-        }
-        for (int i = 0; i < height; ++i) {
-            if (bossScanTileSolid(base - 1 + i * stride, 0x4c)) edges.left = true;
-            if (bossScanTileSolid(base + width + i * stride, 0x4c)) {
-                edges.right = true;
-            }
-        }
-        return edges;
-    }
+    bool bossScanTileSolid(int index, int upper) const { return gameplayReplay_.bossScanTileSolid(index, upper); }
 
-    void updateBossHead(ActiveMonster& monster) {
-        // 1000:5E59 divides the shared 16-bit DS:78C2 clock, including wrap.
-        monster.bossTick = static_cast<uint16_t>(logicTick_);
-        // The original scans all four edges up front and the later gravity,
-        // jump and reflection steps all read those flags, so scan first.
-        const BossHeadEdges edges = scanBossHeadEdges(monster);
-        // The actor-update caller computes both players' deltas and chooses the
-        // Manhattan-nearest one before entering behavior 6. The callee reads
-        // that selected X delta indirectly through caller local [BP-4].
-        if (monster.bossTick % 29 == 0) {
-            const int roarRoll = static_cast<int>(randomRangeValue(0, 100));
-            if (roarRoll > 0x46 && (monster.bossTick & 1) == 0) {
-                requestSoundCursor(kBossHeadRoarSoundCursor, kBossHeadRoarSoundPriority);
-            }
-            const int speed = 0x96 + static_cast<int>(randomRangeValue(0, 0x320));
-            const Player& target =
-                nearestPlayer(static_cast<float>(monster.x),
-                              static_cast<float>(monster.y));
-            monster.vx8 =
-                clampI16(target.x > static_cast<float>(monster.x)
-                             ? speed
-                             : -speed);
-            if (edges.bottom) {
-                monster.vy8 = clampI16(-(0x12c + static_cast<int>(randomRangeValue(0, 0x5dc))));
-            }
-        }
-        damageBossHeadFromFlames(monster);
-        // Gravity (file 0x673b..0x6742): `add WORD ss:[di-0xe],0x40` is guarded
-        // by `cmp BYTE ss:[di-0x21],0 / jne`, so it is applied ONLY when the
-        // bottom flag is clear, and there is no upper clamp anywhere in
-        // 1000:5CB0..604F. A live level-7 capture reaches vy 0x0a40, well past
-        // the 0x07ff the port used to clamp to.
-        if (!edges.bottom) {
-            monster.vy8 = clampI16(monster.vy8 + 0x40);
-        }
-        // Reflection (file 0x6743..0x67bf): a top edge with negative velocity,
-        // or a bottom edge with positive velocity, replaces the velocity with
-        // -(v/2) using `idiv` truncation toward zero; the left/right pair does
-        // the same for the horizontal velocity. The original does NOT reset the
-        // 8.8 sub-pixel fraction here, and does not push the head out of the
-        // tile -- the scan runs one tile outside the box, so the reversal
-        // happens before the head enters solid geometry.
-        if ((edges.top && monster.vy8 < 0) || (edges.bottom && monster.vy8 > 0)) {
-            monster.vy8 = static_cast<int16_t>(-(monster.vy8 / 2));
-        }
-        if ((edges.left && monster.vx8 < 0) || (edges.right && monster.vx8 > 0)) {
-            monster.vx8 = static_cast<int16_t>(-(monster.vx8 / 2));
-        }
-    }
+    BossHeadEdges scanBossHeadEdges(const ActiveMonster& monster) const { return gameplayReplay_.scanBossHeadEdges(monster); }
+
+    void updateBossHead(ActiveMonster& monster) { gameplayReplay_.updateBossHead(monster); }
 
     // Original head damage scan (1000:5EF4): every frame, flame tiles (0x75)
     // in every second column of the head's tile box each add one damage
     // point, doubled when the last cell's highest flame-slot mass exceeds 1; overkill
     // beyond the HP byte costs a life (with byte-wrap HP refill), and a lives
     // underflow triggers the death chain (1000:5F5F..5FB3).
-    void damageBossHeadFromFlames(ActiveMonster& monster) {
-        int damage = 0, lastCell = 0;
-        const int headTileX = monster.x / kTileSize;
-        const int headTileY = monster.y / kTileSize;
-        for (int dy = 0; dy < monster.bossBoxH; ++dy) {
-            for (int dx = 0; dx < monster.bossBoxW; dx += 2) {
-                if (tileAt(headTileX + dx, headTileY + dy) != 0x75) continue;
-                ++damage;
-                lastCell = (headTileY + dy) * level_.width + headTileX + dx;
-            }
-        }
-        if (damage == 0) return;
-        const auto ray = std::find_if(flameRecords_.rbegin(), flameRecords_.rend(),
-            [lastCell](const FlameRecord& item) { return item.cell == lastCell; });
-        if (ray != flameRecords_.rend() && ray->mass > 1) damage *= 2;
-        if (damage > monster.bossHpByte) {
-            --monster.bossLives;
-        }
-        monster.bossHpByte = static_cast<uint8_t>(monster.bossHpByte - damage);
-        // 1000:5A75 replaces the visible descriptor and signed hotspot only.
-        // The caller still holds collision-space Y until its final writeback.
-        monster.animFrame = 0x2f - 1;
-        monster.hotspotY = static_cast<int8_t>(16 - altSprites_.sprites.at(monster.animFrame).height);
-        if (monster.bossLives == 0xff) bossDeathChain(monster);
-    }
+    void damageBossHeadFromFlames(ActiveMonster& monster) { gameplayReplay_.damageBossHeadFromFlames(monster); }
 
     // Original 1000:5BCC: convert linked segments and the head into kind-14
     // bombs, then invoke tile-trigger 1000 through 1000:5740. No score award.
-    void bossDeathChain(ActiveMonster& head) {
-        for (ActiveMonster& monster : monsters_) {
-            if (!monster.alive) continue;
-            if (monster.kind == 0x1f && monster.bossGroup == head.bossGroup) {
-                monster.kind = 0x0e;
-                monster.behavior = 2;
-                monster.bossDebris = true;
-                monster.animMode = 0;
-                monster.stateTimer = 0x28 + static_cast<int>(randomRangeValue(0, 10));
-            }
-        }
-        head.kind = 0x0e;
-        head.behavior = 2;
-        head.bossDebris = true;
-        head.animMode = 0;
-        head.stateTimer = 0x3c;
-        applyTileTrigger(1000);
-        requestTileTriggerSound();
-        bossDefeated_ = true;
-        requestMonsterDeathSound();
-    }
+    void bossDeathChain(ActiveMonster& head) { gameplayReplay_.bossDeathChain(head); }
 
-    void updateMonsterSpawners() {
-        // Recovered original spawner loop, 1000:7A6B..7C2C. The decisive byte
-        // order per record:
-        //   1000:7A9B  dec  es:[di+0x1b]      ; countdown FIRST, before every
-        //                                     ; gate -- the byte free-runs and
-        //                                     ; wraps 0->255 even when budget
-        //                                     ; or slots are spent
-        //   1000:7AA2  cmp  es:[di+0x1b],0    ; spawn path only when it
-        //              je   ...               ; REACHES 0 this tick
-        //   1000:7AAF  cmp  es:[di+0x0a],0    ; live-slot gate
-        //   1000:7ABC  cmp  es:[di+0x09],0    ; budget gate
-        //   1000:7AC9  cmp  es:[di+0x08],1    ; enabled gate
-        //   1000:7AD6  mov  al,es:[di+0x1c]   ; reload from the reset byte...
-        //   1000:7ADD  mov  es:[di+0x1b],al   ; ...BEFORE the spawn helper
-        //   1000:7B28  call (spawn helper)
-        //   1000:7B2B  cmp  ds:0x2072,1       ; helper failure keeps the
-        //                                     ; reload but spends nothing
-        //   1000:7B38/7B3F dec budget / slots ; only on success, then the RNG
-        //                                     ; draws ai0, ai1, ai2, hp
-        // A blocked spawn (gates fail at countdown 0) does NOT reload, so the
-        // byte wraps and retries 256 ticks later (capture: 5/5 free-running
-        // wraps with live=2). Fit: 1458/1458 byte transitions, first spawn at
-        // frame 257 (0xE5 = 229 ticks after frame 28), period exactly 90.
-        for (size_t i = 0; i < spawnerStates_.size() && i < level_.monsterSpawners.size(); ++i) {
-            SpawnerState& state = spawnerStates_[i];
-            const MonsterSpawner& spawner = level_.monsterSpawners[i];
-            state.cooldown = static_cast<uint8_t>(state.cooldown - 1);
-            if (state.cooldown != 0) continue;
-            if (state.availableSlots <= 0) continue;
-            if (state.remaining <= 0) continue;
-            if (!spawner.enabled) continue;
-            state.cooldown = spawner.cooldownReset;
-            if (sharedActorCount() >= 30) continue;
-            ActiveMonster monster;
-            monster.x = spawner.x;
-            // The spawner y is VISUAL space; monster.y carries the
-            // collision-space y = visual - hotspot (rank 6).
-            monster.hotspotY = monsterHotspotY(spawner.monsterKind);
-            monster.y = static_cast<int>(spawner.y) - monster.hotspotY;
-            monster.kind = spawner.monsterKind;
-            monster.spawnerIndex = i;
-            monster.hasSpawner = true;
-            monster.behavior = spawner.spawnArg;
-            monster.ai0 = randomRangeValue(spawner.param0Base, spawner.param0Range);
-            monster.ai1 = randomRangeValue(spawner.param1Base, spawner.param1Range);
-            monster.ai2 = randomRangeValue(spawner.param2Base, spawner.param2Range);
-            monster.hp = 1 + static_cast<uint8_t>(randomRangeValue(spawner.randomBase, spawner.randomRange));
-            auto frames = monsterDirectionalFrameRange(monster.kind, monster.vx8);
-            monster.animStart = static_cast<uint8_t>(frames[0]);
-            monster.animEnd = static_cast<uint8_t>(frames[1]);
-            monster.animFrame = monster.animStart;
-            monster.animCursor = monster.animStart;
-            // Raw delay byte: the shared advance fires when the counter
-            // EXCEEDS it (1000:608F cmp/ja), so delay 3 means period 4.
-            monster.animDelay = spawner.animationDelay;
-            // The anim init helper (1000:06AB) leaves the counter AT the
-            // delay, so the first entity update advances immediately: the
-            // spawn-tick visible frame is animStart + 1, the pair's high
-            // member (capture: 2/2 spawns show 44).
-            monster.animTick = monster.animDelay;
-            initializeMonsterMotion(monster);
-            monster.actorOrder = claimActorOrder();
-            monsters_.push_back(monster);
-            --state.remaining;
-            --state.availableSlots;
-        }
-    }
+    void updateMonsterSpawners() { gameplayReplay_.updateMonsterSpawners(); }
 
-    void updateMonsters(float dt, uint64_t onlyOrder = 0) {
-        for (ActiveMonster& monster : monsters_) {
-            if (onlyOrder && monster.actorOrder != onlyOrder) continue;
-            if (!monster.alive) continue;
-            if (monster.behavior == 2) {
-                if (monster.bossDebris) {
-                    updateTimedActorMotion(monster.x, monster.y, monster.vx8, monster.vy8,
-                                           monster.fracX, monster.fracY, scanActorEdges(monster.x, monster.y));
-                    if (logicTick_ & 1u) monster.stateTimer = static_cast<uint8_t>(monster.stateTimer - 1);
-                    if (monster.stateTimer == 0 || monster.stateTimer == 0xff) {
-                        Bomb bomb;
-                        bomb.type = BombType::Medium;
-                        bomb.pixelX = monster.x;
-                        bomb.pixelY = monster.y + monster.hotspotY;
-                        bomb.x = monster.x >> 3;
-                        bomb.y = bomb.pixelY >> 3;
-                        bomb.fracX = monster.fracX; bomb.fracY = monster.fracY;
-                        bomb.actorOrder = monster.actorOrder;
-                        bomb.bossVisualOrder = monster.bossVisualOrder;
-                        monster.alive = false;
-                        explode(bomb);
-                    }
-                    continue;
-                }
-                if (monster.kind == 0x0c) {
-                    updateTimedActorMotion(monster.x, monster.y, monster.vx8, monster.vy8,
-                                           monster.fracX, monster.fracY, scanActorEdges(monster.x, monster.y));
-                }
-                if (--monster.stateTimer <= 0) {
-                    // Corpse expiry reuses its slot for the reward or fade.
-                    // Do not count both representations during allocation.
-                    monster.alive = false;
-                    if (monster.deathRewardPending) {
-                        finishMonsterDeathReward(monster);
-                        monster.deathRewardPending = false;
-                    }
-                    releaseMonsterSlot(monster);
-                }
-                continue;
-            }
-            const int damageColumn = (monster.x + 4) >> 3;
-            const int damageRow = monster.y >> 3;
-            // Recovered original animation advance -- the per-entity PROLOGUE
-            // (1000:6088 `inc es:[di+3]`; 1000:608F `cmp al,es:[di+4]; ja`):
-            // the counter must EXCEED the delay byte, so delay 3 advances
-            // every 4 ticks (capture: 589/589 sprite changes at
-            // (frame - spawn) mod 4 == 0; mod 3 spread 198/196/195). The
-            // advance steps the CURSOR and only then rewrites the visible
-            // frame (the visual-table word write at 1000:613B..6156); between
-            // boundaries the visible frame is untouched, which is what makes
-            // the facing reselection latch.
-            if (monster.animMode != 0) monster.animTick = static_cast<uint8_t>(monster.animTick + 1);
-            if (monster.animMode != 0 && monster.animTick > monster.animDelay) {
-                monster.animTick = 0;
-                if (monster.animCursor < monster.animStart ||
-                    monster.animCursor > monster.animEnd) {
-                    // Repair for hand-seeded actors (diagnostics, GRAN.MST
-                    // bosses) that predate the cursor field; the live spawner
-                    // path always keeps the cursor in range.
-                    monster.animCursor = (monster.animFrame >= monster.animStart &&
-                                          monster.animFrame <= monster.animEnd)
-                                             ? monster.animFrame
-                                             : monster.animStart;
-                }
-                int next = static_cast<int>(monster.animCursor) + monster.animStep;
-                if (next > monster.animEnd || next < monster.animStart) {
-                    if (monster.animMode == 2) {
-                        monster.animStep = -monster.animStep;
-                        next = static_cast<int>(monster.animCursor) + monster.animStep;
-                    } else {
-                        // Wrap re-enters at the range base (1000:60DA..60E4
-                        // `mov al,es:[di+1]; mov es:[di],al`).
-                        next = monster.animStep >= 0 ? monster.animStart : monster.animEnd;
-                    }
-                }
-                monster.animCursor = static_cast<uint8_t>(
-                    std::clamp(next, static_cast<int>(monster.animStart),
-                               static_cast<int>(monster.animEnd)));
-                monster.animFrame = monster.animCursor;
-            }
+    void updateMonsters(float dt, uint64_t onlyOrder = 0) { gameplayReplay_.updateMonsters(dt, onlyOrder); }
 
-            // Rank 5: the player-contact test runs BEFORE the tile scan and
-            // the motion update (contact at 1000:63C6..63F0, scan from
-            // 1000:655B), i.e. from the PRE-motion position. monster.y is the
-            // collision-space y (rank 6), which carries the actor +0x14 bias
-            // the original applies at 1000:629D before both the contact test
-            // and the scan.
-            if (!playerDead_ && actorTouchesPlayer(player_, monster.x, monster.y)) {
-                queuePlayerDamage(1);
-            }
-            if (playerCount_ > 1 && !player2Dead_ &&
-                actorTouchesPlayer(player2_, monster.x, monster.y)) {
-                queuePlayerDamage(2);
-            }
-            // The level-3 behavior-4 lockstep extends the recovered edge-scan
-            // path to free flyers. They use the same pre-integration scan and
-            // common top/side response, but have their own bottom reflection
-            // before steering and never receive gravity.
-            const bool recoveredResolution =
-                !isBossMotionBehavior(monster.behavior);
-            if (recoveredResolution) {
-                monster.edges = scanActorEdges(monster.x, monster.y);
-                // Facing-reselect request, seeded from wall contact exactly
-                // where the original's behaviour-3 dispatch does it
-                // (1000:7159..716B: [bp-0x20] = left || right).
-                monster.facingDirty = monster.behavior == 3 &&
-                                      (monster.edges.left || monster.edges.right);
-            } else {
-                monster.edges = {};
-                monster.facingDirty = false;
-            }
+    void releaseMonsterSlot(ActiveMonster& monster) { gameplayReplay_.releaseMonsterSlot(monster); }
 
-            // Gravity and landing run BEFORE the motion update, which is
-            // where the original puts them (image 0x716e..0x7200: the
-            // bottom-gated gravity/snap block precedes the vx seed and the
-            // behaviour-3 ledge probe). The order matters: the ledge probe
-            // reads a tile row from monster.y, so on the landing tick it must
-            // see the SNAPPED y. Running the snap afterwards let a walker
-            // landing at y % 8 != 0 probe one row too low and falsely reverse
-            // on a platform that continues.
-            if (recoveredResolution && monster.behavior != 4) {
-                const ActiveMonster::EdgeFlags& e = monster.edges;
-                if (!e.bottom || monster.vy8 < 0) {
-                    monster.vy8 = static_cast<int16_t>(std::min<int>(0x07ff, monster.vy8 + 0x40));
-                } else if (monster.vy8 > 0) {
-                    monster.vy8 = 0;
-                    monster.y &= ~7;
-                    // Landing tick requests a facing reselect (1000:71A0).
-                    monster.facingDirty = true;
-                }
-            }
+    void updateDamageCooldowns() { gameplayReplay_.updateDamageCooldowns(); }
 
-            // Behavior 4's dedicated pre-steering floor response
-            // (1000:7062..70B9) uses the narrower side-solid class 1..0x4C
-            // for the two bottom cells. A strong bottom plus top contact
-            // zeroes vy; otherwise a positive vy reflects by -vy/2. The
-            // global-clock steering gate follows and may replace that result.
-            if (monster.behavior == 4) {
-                const bool strongBottom =
-                    scanActorStrongBottom(monster.x, monster.y);
-                if (strongBottom && monster.edges.top) {
-                    monster.vy8 = 0;
-                }
-                if (strongBottom && monster.vy8 > 0) {
-                    monster.vy8 = static_cast<int16_t>(-(monster.vy8 / 2));
-                }
-            }
+    void queuePlayerDamage(uint8_t startMarker, uint8_t amount = 1) { gameplayReplay_.queuePlayerDamage(startMarker, amount); }
 
-            updateMonsterMotion(monster, dt);
-
-            // Boss segments (behavior 5) are positioned purely by their
-            // motion links in the original and pass through terrain. The boss
-            // head (behavior 6) is excluded too: 1000:5CB0 does its own
-            // four-edge scan and reflects there, keeping the 8.8 fraction.
-            if (recoveredResolution) {
-                // The facing consume (1000:727D, reselect branches
-                // 1000:7286/72DA) sits BEFORE the wall reflection in the
-                // instruction stream, so a wall tick consumes the flag with
-                // the PRE-reflection vx and re-selects the OLD facing set --
-                // an unconditional cursor reset to that set's base -- while
-                // the NEW set is selected on the following tick, when the
-                // renormalisation (1000:71F3) raises the flag again with the
-                // reversed vx. The capture adjudicates the order: walker A's
-                // wall tick 374 has the renorm tick 375 land before the next
-                // advance tick 376, so its flip shows at row 377 (the next
-                // boundary), but walker B's wall tick 481 is immediately
-                // followed by the advance tick 482, whose prologue still
-                // steps the OLD right pair (46 at row 483, 3/3 wall turns);
-                // the left pair only appears at row 487. Reselecting after
-                // the reflection flips one boundary early in B's phase.
-                if (monster.behavior == 3 && monster.facingDirty) {
-                    reselectWalkerFacing(monster);
-                    monster.facingDirty = false;
-                }
-                const ActiveMonster::EdgeFlags e = monster.edges;
-                if (e.top && monster.vy8 < 0) monster.vy8 = 1;
-                if (e.left && e.right) {
-                    monster.vx8 = 0;
-                } else if ((e.left && monster.vx8 < 0) || (e.right && monster.vx8 > 0)) {
-                    monster.vx8 = static_cast<int16_t>(-monster.vx8 / 2);
-                    monster.x += monster.vx8 < 0 ? -1 : 1;
-                }
-                integrateAxis8_8(monster.y, monster.fracY, monster.vy8);
-                integrateAxis8_8(monster.x, monster.fracX, monster.vx8);
-            } else {
-                integrateAxis8_8(monster.x, monster.fracX, monster.vx8);
-                integrateAxis8_8(monster.y, monster.fracY, monster.vy8);
-            }
-
-            monster.x = std::clamp(monster.x, 0, std::max(16, level_.width * 8 - 16));
-            monster.y = std::clamp(monster.y, 0, std::max(16, level_.height * 8 - 16));
-            if (monster.kind >= 1 && monster.kind <= 8) {
-                int damage = 0;
-                // 1000:7427 calls 56B6 using the pre-motion 2x2 footprint.
-                for (int dy = 0; dy < 2; ++dy) for (int dx = 0; dx < 2; ++dx) {
-                    const int glyph = tileAt(damageColumn + dx, damageRow + dy);
-                    if (glyph == 0x75) damage += 2;
-                    else if (glyph >= 1 && glyph <= 0x4c) ++damage;
-                }
-                if (damage) damageMonster(monster, damage, true);
-            }
-        }
-        monsters_.erase(std::remove_if(monsters_.begin(), monsters_.end(),
-                                       [](const ActiveMonster& monster) { return !monster.alive; }),
-                        monsters_.end());
-    }
-
-    void releaseMonsterSlot(ActiveMonster& monster) {
-        if (!monster.hasSpawner || monster.deathCredited) return;
-        if (monster.spawnerIndex < spawnerStates_.size()) {
-            ++spawnerStates_[monster.spawnerIndex].availableSlots;
-            monster.deathCredited = true;
-            monster.hasSpawner = false;
-        }
-    }
-
-    void updateDamageCooldowns() {
-        if (damageCooldown_ > 0) --damageCooldown_;
-        if (damageCooldown2_ > 0) --damageCooldown2_;
-    }
-
-    void queuePlayerDamage(uint8_t startMarker, uint8_t amount = 1) {
-        if (amount == 0) return;
-        bool secondPlayer = startMarker == 2 && playerCount_ > 1;
-        bool dead = secondPlayer ? player2Dead_ : playerDead_;
-        int cooldown = secondPlayer ? damageCooldown2_ : damageCooldown_;
-        if (!dead && cooldown > 0) return;
-        uint8_t& pending = secondPlayer ? pendingDamage2_ : pendingDamage_;
-        pending = static_cast<uint8_t>(pending + amount);
-    }
-
-    void drainPlayerDamageCounters() {
-        drainPlayerDamageCounter(player_, energy_, lives_, playerDead_, reentryTimer_,
-                                 pendingDamage_, 1);
-        if (playerCount_ > 1) {
-            drainPlayerDamageCounter(player2_, energy2_, lives2_, player2Dead_,
-                                     reentryTimer2_, pendingDamage2_, 2);
-        } else {
-            pendingDamage2_ = 0;
-        }
-    }
+    void drainPlayerDamageCounters() { gameplayReplay_.drainPlayerDamageCounters(); }
 
     void drainPlayerDamageCounter(Player& player, int& energy, int& lives,
                                   bool& dead, int& timer, uint8_t& pending,
-                                  uint8_t startMarker) {
-        uint8_t amount = pending;
-        pending = 0;
-        if (amount != 0) requestPlayerDamageSound();
-        if (dead) return;
-        uint8_t updatedEnergy =
-            static_cast<uint8_t>(std::clamp(energy, 0, 255) - amount);
-        energy = static_cast<int>(updatedEnergy);
-        if (static_cast<uint16_t>(updatedEnergy) > 0x00c8) {
-            beginPlayerDeath(player, energy, lives, dead, timer, startMarker);
-        }
-    }
+                                  uint8_t startMarker) { gameplayReplay_.drainPlayerDamageCounter(player, energy, lives, dead, timer, pending, startMarker); }
 
     void damagePlayer(Player& player, int& energy, int& lives, bool& dead,
-                      int& timer, int& damageCooldown, uint8_t startMarker) {
-        (void)damageCooldown;
-        uint8_t immediateDamage = 1;
-        drainPlayerDamageCounter(player, energy, lives, dead, timer,
-                                 immediateDamage, startMarker);
-    }
+                      int& timer, int& damageCooldown, uint8_t startMarker) { gameplayReplay_.damagePlayer(player, energy, lives, dead, timer, damageCooldown, startMarker); }
 
     bool playerOverlapsTileArea(const Player& player, int tx0, int ty0,
-                                int tx1, int ty1) const {
-        float x = static_cast<float>(tx0 * kTileSize);
-        float y = static_cast<float>(ty0 * kTileSize);
-        float w = static_cast<float>((tx1 - tx0 + 1) * kTileSize);
-        float h = static_cast<float>((ty1 - ty0 + 1) * kTileSize);
-        return playerOverlaps(player, x, y, w, h);
-    }
+                                int tx1, int ty1) const { return gameplayReplay_.playerOverlapsTileArea(player, tx0, ty0, tx1, ty1); }
 
-    void damagePlayersInTileArea(int tx0, int ty0, int tx1, int ty1) {
-        tx0 = std::clamp(tx0, 0, std::max(0, level_.width - 1));
-        tx1 = std::clamp(tx1, 0, std::max(0, level_.width - 1));
-        ty0 = std::clamp(ty0, 0, std::max(0, level_.height - 1));
-        ty1 = std::clamp(ty1, 0, std::max(0, level_.height - 1));
-        if (tx0 > tx1) std::swap(tx0, tx1);
-        if (ty0 > ty1) std::swap(ty0, ty1);
-        if (playerOverlapsTileArea(player_, tx0, ty0, tx1, ty1)) {
-            queuePlayerDamage(1);
-        }
-        if (playerCount_ > 1 && playerOverlapsTileArea(player2_, tx0, ty0, tx1, ty1)) {
-            queuePlayerDamage(2);
-        }
-    }
+    void damagePlayersInTileArea(int tx0, int ty0, int tx1, int ty1) { gameplayReplay_.damagePlayersInTileArea(tx0, ty0, tx1, ty1); }
 
     void beginPlayerDeath(Player& player, int& energy, int& lives, bool& dead,
-                          int& timer, uint8_t startMarker) {
-        // 1000:30C1..30F5 latches one shared gate at death. Waiting does not
-        // recompute it when objective tiles or the collected count change.
-        reentryGate_ = canReenterLevel();
-        pendingLifeLossFor(startMarker) = lives >= 0;
-        energy = 100;
-        deathStateTimerFor(startMarker) = kDeathStateTicks;
-        State2VisualCursor& cursor = state2VisualCursorFor(startMarker);
-        resetState2VisualCursor(cursor);
-        refreshState2EffectEntry(player, cursor, state2EffectEntryFor(startMarker));
-        syncPlayerVelocityMirror(player);
-        player.grounded = false;
-        if (lives < 0) {
-            dead = true;
-            timer = 0;
-            cursor.active = false;
-            state2EffectEntryFor(startMarker).active = false;
-            requestPlayerDeathSound();
-            if (allPlayersOutOfLives()) beginGameOver();
-            return;
-        }
-        dead = true;
-        timer = kDeathStateTicks;
-        requestPlayerDeathSound();
-    }
+                          int& timer, uint8_t startMarker) { gameplayReplay_.beginPlayerDeath(player, energy, lives, dead, timer, startMarker); }
 
-    State2VisualCursor& state2VisualCursorFor(uint8_t startMarker) {
-        return startMarker == 2 && playerCount_ > 1 ? state2Visual2_
-                                                     : state2Visual_;
-    }
+    State2VisualCursor& state2VisualCursorFor(uint8_t startMarker) { return gameplayReplay_.state2VisualCursorFor(startMarker); }
 
-    State2EffectEntry& state2EffectEntryFor(uint8_t startMarker) {
-        return startMarker == 2 && playerCount_ > 1 ? state2Effect2_
-                                                     : state2Effect_;
-    }
+    State2EffectEntry& state2EffectEntryFor(uint8_t startMarker) { return gameplayReplay_.state2EffectEntryFor(startMarker); }
 
     void refreshState2EffectEntry(const Player& player,
                                   const State2VisualCursor& cursor,
-                                  State2EffectEntry& entry) {
-        entry.active = cursor.active;
-        if (!entry.active) return;
-        entry.x = static_cast<int>(player.x);
-        entry.y = static_cast<int>(player.y);
-        entry.visualFrame = cursor.current;
-        State2VisualRow row;
-        if (originalState2VisualRow(cursor.current, row)) {
-            entry.drawDx = row.row0;
-            entry.drawDy = row.row1;
-            entry.row2 = row.row2;
-            entry.spriteIndex = row.row3;
-            return;
-        }
-        entry.drawDx = 0;
-        entry.drawDy = 0;
-        entry.row2 = 0;
-        entry.spriteIndex = cursor.current;
-    }
+                                  State2EffectEntry& entry) { gameplayReplay_.refreshState2EffectEntry(player, cursor, entry); }
 
-    void resetState2VisualCursor(State2VisualCursor& cursor) {
-        cursor.current = kState2VisualStartFrame;
-        cursor.first = kState2VisualStartFrame;
-        cursor.last = kState2VisualEndFrame;
-        cursor.counter = kState2VisualDelay;
-        cursor.delay = kState2VisualDelay;
-        cursor.mode = 1;
-        cursor.step = 1;
-        cursor.active = true;
-    }
+    void resetState2VisualCursor(State2VisualCursor& cursor) { gameplayReplay_.resetState2VisualCursor(cursor); }
 
-    bool updateState2VisualCursor(State2VisualCursor& cursor) {
-        if (!cursor.active || cursor.mode == 0) return false;
-        ++cursor.counter;
-        if (cursor.counter <= cursor.delay) return false;
-        cursor.counter = 0;
-        cursor.current = static_cast<uint8_t>(
-            static_cast<int>(cursor.current) + static_cast<int>(cursor.step));
-        if (cursor.mode == 2) {
-            if (cursor.current >= cursor.last || cursor.current <= cursor.first) {
-                cursor.step = static_cast<int8_t>(-cursor.step);
-            }
-            return true;
-        }
-        if (cursor.current > cursor.last) {
-            cursor.current = cursor.first;
-        }
-        return true;
-    }
+    bool updateState2VisualCursor(State2VisualCursor& cursor) { return gameplayReplay_.updateState2VisualCursor(cursor); }
 
-    bool allPlayersOutOfLives() const {
-        return playerCount_ <= 1 ? lives_ < 0 : lives_ < 0 && lives2_ < 0;
-    }
+    bool allPlayersOutOfLives() const { return gameplayReplay_.allPlayersOutOfLives(); }
 
-    int& deathStateTimerFor(uint8_t startMarker) {
-        return startMarker == 2 && playerCount_ > 1 ? deathStateTimer2_
-                                                     : deathStateTimer_;
-    }
+    int& deathStateTimerFor(uint8_t startMarker) { return gameplayReplay_.deathStateTimerFor(startMarker); }
 
-    bool& pendingLifeLossFor(uint8_t startMarker) {
-        return startMarker == 2 && playerCount_ > 1 ? pendingLifeLoss2_
-                                                     : pendingLifeLoss_;
-    }
+    bool& pendingLifeLossFor(uint8_t startMarker) { return gameplayReplay_.pendingLifeLossFor(startMarker); }
 
     void finalizePendingLifeLoss(bool& dead, int& lives, int& timer,
-                                 uint8_t startMarker) {
-        bool& pending = pendingLifeLossFor(startMarker);
-        if (!pending) return;
-        pending = false;
-        --lives;  // The original reserve byte marks out at FF, not at zero.
-        if (lives < 0) {
-            dead = true;
-            timer = 0;
-            state2VisualCursorFor(startMarker).active = false;
-            state2EffectEntryFor(startMarker).active = false;
-            if (allPlayersOutOfLives()) beginGameOver();
-        }
-    }
+                                 uint8_t startMarker) { gameplayReplay_.finalizePendingLifeLoss(dead, lives, timer, startMarker); }
 
-    bool canReenterLevel() const {
-        return collected_ + remainingObjectiveTiles() >= level_.requiredBonus;
-    }
+    bool canReenterLevel() const { return gameplayReplay_.canReenterLevel(); }
 
-    int remainingObjectiveTiles() const {
-        return static_cast<int>(std::count(level_.tiles.begin(), level_.tiles.end(),
-                                           level_.objectiveTile));
-    }
+    int remainingObjectiveTiles() const { return gameplayReplay_.remainingObjectiveTiles(); }
 
     std::array<int, 2> findObjectiveTileForSmoke() const {
-        for (int y = 0; y < level_.height; ++y) {
-            for (int x = 0; x < level_.width; ++x) {
-                if (tileAt(x, y) == level_.objectiveTile) return {x, y};
+        for (int y = 0; y < gameplayReplay_.fixture().level_.height; ++y) {
+            for (int x = 0; x < gameplayReplay_.fixture().level_.width; ++x) {
+                if (tileAt(x, y) == gameplayReplay_.fixture().level_.objectiveTile) return {x, y};
             }
         }
         throw std::runtime_error("level has no objective tile for smoke");
     }
 
     std::array<int, 2> findSingleObjectiveProbeForSmoke() const {
-        int maxX = std::max(0, level_.width * kTileSize - 1);
-        int maxY = std::max(0, level_.height * kTileSize - 1);
+        int maxX = std::max(0, gameplayReplay_.fixture().level_.width * kTileSize - 1);
+        int maxY = std::max(0, gameplayReplay_.fixture().level_.height * kTileSize - 1);
         for (int py = 0; py <= maxY; ++py) {
             for (int px = 0; px <= maxX; ++px) {
                 int x0 = (px + 4) / kTileSize;
@@ -25522,9 +23705,9 @@ private:
                 int pickupTiles = 0;
                 for (int y = y0; y <= y1; ++y) {
                     for (int x = x0; x <= x1; ++x) {
-                        if (x >= 0 && y >= 0 && x < level_.width &&
-                            y < level_.height &&
-                            tileAt(x, y) == level_.objectiveTile) {
+                        if (x >= 0 && y >= 0 && x < gameplayReplay_.fixture().level_.width &&
+                            y < gameplayReplay_.fixture().level_.height &&
+                            tileAt(x, y) == gameplayReplay_.fixture().level_.objectiveTile) {
                             ++objectiveTiles;
                         }
                         if (isBombObjectTile(static_cast<uint8_t>(tileAt(x, y)))) ++pickupTiles;
@@ -25537,12 +23720,12 @@ private:
     }
 
     void collectAllObjectiveTilesForSmoke() {
-        for (int y = 0; y < level_.height; ++y) {
-            for (int x = 0; x < level_.width; ++x) {
-                if (tileAt(x, y) != level_.objectiveTile) continue;
-                player_.x = static_cast<float>(x * kTileSize);
-                player_.y = static_cast<float>(y * kTileSize);
-                collectObjectiveTiles(player_, 1);
+        for (int y = 0; y < gameplayReplay_.fixture().level_.height; ++y) {
+            for (int x = 0; x < gameplayReplay_.fixture().level_.width; ++x) {
+                if (tileAt(x, y) != gameplayReplay_.fixture().level_.objectiveTile) continue;
+                gameplayReplay_.fixture().player_.x = static_cast<float>(x * kTileSize);
+                gameplayReplay_.fixture().player_.y = static_cast<float>(y * kTileSize);
+                collectObjectiveTiles(gameplayReplay_.fixture().player_, 1);
             }
         }
         // Each pickup now submits the objective-pickup hook to the sound
@@ -25553,12 +23736,12 @@ private:
     }
 
     void damageRequiredTilesForSmoke() {
-        int target = (static_cast<int>(level_.requiredDestruction) *
-                          level_.startingDestructibleTiles +
+        int target = (static_cast<int>(gameplayReplay_.fixture().level_.requiredDestruction) *
+                          gameplayReplay_.fixture().level_.startingDestructibleTiles +
                       99) /
                      100;
-        for (int y = 0; y < level_.height && destroyed_ < target; ++y) {
-            for (int x = 0; x < level_.width && destroyed_ < target; ++x) {
+        for (int y = 0; y < gameplayReplay_.fixture().level_.height && gameplayReplay_.fixture().destroyed_ < target; ++y) {
+            for (int x = 0; x < gameplayReplay_.fixture().level_.width && gameplayReplay_.fixture().destroyed_ < target; ++x) {
                 if (!countsForPhysicalDamageProgress(wordAt(x, y))) {
                     continue;
                 }
@@ -25567,18 +23750,18 @@ private:
                 // fracture it on impact. Seeding alone earns no progress.
                 // This is not a natural player-completed level route.
                 queueTileDamage(x, y, 0, 127);
-                for (int tick = 0; tick < 512 && !collapseQueue_.empty(); ++tick) {
+                for (int tick = 0; tick < 512 && !gameplayReplay_.fixture().collapseQueue_.empty(); ++tick) {
                     updateCollapseRecords();
                 }
             }
         }
-        if (destroyed_ < target) {
+        if (gameplayReplay_.fixture().destroyed_ < target) {
             throw std::runtime_error("level lacks enough destructible progress tiles");
         }
     }
 
     void smokeCompleteCurrentLevelFromMapProgress() {
-        int startLevel = levelIndex_;
+        int startLevel = gameplayReplay_.fixture().levelIndex_;
         collectAllObjectiveTilesForSmoke();
         damageRequiredTilesForSmoke();
         if (!isComplete()) {
@@ -25588,7 +23771,7 @@ private:
             updateLevelCompletion();
         }
         int expectedLevel = (startLevel + 1) % static_cast<int>(levels_.size());
-        if (levelIndex_ != expectedLevel) {
+        if (gameplayReplay_.fixture().levelIndex_ != expectedLevel) {
             throw std::runtime_error("level completion did not advance to next level");
         }
         // updateLevelCompletion() latches the level-complete hook without
@@ -25597,15 +23780,15 @@ private:
     }
 
     void smokeBombObjectDestructionProgress() {
-        for (int y = 0; y < level_.height; ++y) {
-            for (int x = 0; x < level_.width; ++x) {
+        for (int y = 0; y < gameplayReplay_.fixture().level_.height; ++y) {
+            for (int x = 0; x < gameplayReplay_.fixture().level_.width; ++x) {
                 uint8_t tile = tileAt(x, y);
                 if (!isBombObjectTile(tile)) continue;
-                int before = destroyed_;
+                int before = gameplayReplay_.fixture().destroyed_;
                 if (!consumeBombObjectTile(x, y)) {
                     throw std::runtime_error("bomb object tile was not consumed");
                 }
-                if (destroyed_ != before) {
+                if (gameplayReplay_.fixture().destroyed_ != before) {
                     throw std::runtime_error("bomb object consumption changed physical destruction");
                 }
                 if (tileAt(x, y) == tile) {
@@ -25617,136 +23800,33 @@ private:
         throw std::runtime_error("no bomb object tile found for destruction smoke");
     }
 
-    void updateWaitingPlayerPlacement(Player& player) {
-        const uint16_t x = static_cast<uint16_t>(player.x);
-        const uint16_t y = static_cast<uint16_t>(player.y);
-        const uint16_t row = (static_cast<uint16_t>(y + 7) >> 3) + 1;
-        const uint16_t cell = static_cast<uint16_t>(row * level_.width + (x >> 3));
-        auto solid = [&](uint16_t at) {
-            const uint8_t tile = at < level_.tiles.size() ? level_.tiles[at] : 0;
-            return tile >= 1 && tile <= 76;
-        };
-        // 1000:7E41 jumps directly to DEC on the left cell. Only the right
-        // cell has the unsigned Y > 24 guard; neither branch gates fire.
-        if (solid(cell) || (solid(static_cast<uint16_t>(cell + 1)) && y > 24)) {
-            player.y = static_cast<float>(static_cast<uint16_t>(y - 1));
-        }
-    }
+    void updateWaitingPlayerPlacement(Player& player) { gameplayReplay_.updateWaitingPlayerPlacement(player); }
 
     void updateReentry(Player& player, int& energy, int& lives, bool& dead,
-                       int& timer, uint8_t startMarker, bool allowLevelRestart) {
-        (void)energy;
-        (void)allowLevelRestart;
-        if (!dead || lives < 0) return;
-        timer = static_cast<uint16_t>(timer - 1);
-        int& deathStateTimer = deathStateTimerFor(startMarker);
-        if (deathStateTimer > 0) --deathStateTimer;
-        if (timer == 0) {
-            pendingLifeLossFor(startMarker) = true;
-            finalizePendingLifeLoss(dead, lives, timer, startMarker);
-            if (lives >= 0 && !ui_.snapshot().menu) {
-                // 1000:7D11 calls the start-marker locator at 056B before
-                // waiting for input; it preserves motion and animation bytes.
-                if (const LevelPortal* start = findStartPortal(startMarker)) {
-                    player.x = static_cast<float>(start->x);
-                    player.y = static_cast<float>(start->y);
-                }
-                player.idleTicks = 0;
-                player.spriteIndex = 0x27 - 1;
-                player.singlePixelSprite = !reentryGate_;
-                auto& inventory = startMarker == 2 ? bombInventory2_ : bombInventory_;
-                constexpr std::array<int, 3> minimum{100, 10, 2};
-                for (size_t i = 0; i < minimum.size(); ++i) {
-                    inventory.counts[i] = std::max(inventory.counts[i], minimum[i]);
-                }
-            }
-        }
-        if (lives < 0 || ui_.snapshot().menu) return;
-        if (!reentryGate_) noActivePlayerTicks_ = kSharedReentryTicks - 1;
-        if (originalPlayerState(startMarker) == 2) updateWaitingPlayerPlacement(player);
-    }
+                       int& timer, uint8_t startMarker, bool allowLevelRestart) { gameplayReplay_.updateReentry(player, energy, lives, dead, timer, startMarker, allowLevelRestart); }
 
-    uint8_t originalPlayerState(uint8_t player) const {
-        if (player == 2 && playerCount_ < 2) return 0;
-        const int lives = player == 2 ? lives2_ : lives_;
-        const bool dead = player == 2 ? player2Dead_ : playerDead_;
-        const bool pending = player == 2 ? pendingLifeLoss2_ : pendingLifeLoss_;
-        if (lives < 0) return 0;
-        return dead && !pending && !levelRestartPromoted_ ? 2 : 1;
-    }
+    uint8_t originalPlayerState(uint8_t player) const { return gameplayReplay_.originalPlayerState(player); }
 
-    bool updateSharedReentryFallback() {
-        if (originalPlayerState(1) == 1 || originalPlayerState(2) == 1) {
-            noActivePlayerTicks_ = 0;
-            return false;
-        }
-        if (debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("fallback_increment");
-        ++noActivePlayerTicks_;
-        if (noActivePlayerTicks_ != kSharedReentryTicks) return false;
-        if (debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("fallback_promote");
-        levelRestartPromoted_ = true;
-        restartCurrentLevelAfterDeath();
-        return true;
-    }
+    bool updateSharedReentryFallback() { return gameplayReplay_.updateSharedReentryFallback(); }
 
     void tryReenterPlayer(Player& player, int& energy, int& lives, bool& dead,
-                          int& timer, int& damageCooldown, uint8_t startMarker) {
-        if (!dead) return;
-        if (deathStateTimerFor(startMarker) > 0) return;
-        finalizePendingLifeLoss(dead, lives, timer, startMarker);
-        if (lives < 0) return;
-        if (!reentryGate_) {
-            return;
-        }
-        const auto& animation = state2VisualCursorFor(startMarker);
-        player.animation = ActorAnimation{animation.current, animation.first, animation.last,
-            animation.counter, animation.delay, animation.mode, animation.step};
-        energy = 100;
-        deathStateTimerFor(startMarker) = 0;
-        state2VisualCursorFor(startMarker).active = false;
-        state2EffectEntryFor(startMarker).active = false;
-        (void)damageCooldown;
-        dead = false;
-        reentryFire1_ = reentryFire2_ = false;
-    }
+                          int& timer, int& damageCooldown, uint8_t startMarker) { gameplayReplay_.tryReenterPlayer(player, energy, lives, dead, timer, damageCooldown, startMarker); }
 
-    void respawnPlayerAtStart(Player& player, int& energy, uint8_t startMarker) {
-        energy = 100;
-        player.vx = 0.0f;
-        player.vy = 0.0f;
-        player.grounded = false;
-        if (const LevelPortal* start = findStartPortal(startMarker)) {
-            player.x = static_cast<float>(start->x);
-            player.y = static_cast<float>(start->y);
-        }
-    }
+    void respawnPlayerAtStart(Player& player, int& energy, uint8_t startMarker) { gameplayReplay_.respawnPlayerAtStart(player, energy, startMarker); }
 
-    void restartCurrentLevelAfterDeath() {
-        beginLevelForPlay(levelIndex_);
-    }
+    void restartCurrentLevelAfterDeath() { gameplayReplay_.restartCurrentLevelAfterDeath(); }
 
     bool scoreQualifies(uint32_t score) const {
         return recordStore_.scoreQualifies(score);
     }
 
-    uint32_t& scoreForPlayer(uint8_t player) {
-        return player == 2 && playerCount_ > 1 ? score2_ : score_;
-    }
+    uint32_t& scoreForPlayer(uint8_t player) { return gameplayReplay_.scoreForPlayer(player); }
 
-    void addScore(uint8_t player, uint32_t amount) {
-        scoreForPlayer(player) += amount;
-    }
+    void addScore(uint8_t player, uint32_t amount) { gameplayReplay_.addScore(player, amount); }
 
-    void clearRunScores() {
-        score_ = 0;
-        score2_ = 0;
-        presentation_.clearHudScores();
-    }
+    void clearRunScores() { gameplayReplay_.clearRunScores(); }
 
-    bool isFinalLevel() const {
-        return !levels_.empty() &&
-               levelIndex_ + 1 >= static_cast<int>(levels_.size());
-    }
+    bool isFinalLevel() const { return gameplayReplay_.isFinalLevel(); }
 
     MenuPage endMenuPage(EndReason reason) const {
         return UiController::endMenuPage(reason);
@@ -25757,7 +23837,7 @@ private:
     }
 
     void beginEndRun(EndReason reason) {
-        ui_.beginEndRun(reason, levelIndex_, playerCount_, score_, score2_, recordStore_, uiActions());
+        ui_.beginEndRun(reason, gameplayReplay_.fixture().levelIndex_, gameplayReplay_.fixture().playerCount_, gameplayReplay_.fixture().score_, gameplayReplay_.fixture().score2_, recordStore_, uiActions());
     }
 
     void finalizePendingRecord() {
@@ -25776,288 +23856,39 @@ private:
         return ui_.startNextPendingRecord(recordStore_, uiActions());
     }
 
-    void placeBombAt(const Player& player, BombInventory& inventory, uint8_t owner) {
-        // 1000:6C00 leaves an empty selection and both fire latches unchanged.
-        if (!hasBomb(inventory, inventory.selected)) return;
-        // Both latches are consumed after a constructor attempt, even when
-        // the shared actor pool rejects it (1000:6CA9..6CAE).
-        reentryFire1_ = reentryFire2_ = false;
-        if (sharedActorCount() >= 30) return;
-        // Original pixel->tile mapping, from the blast routine at 655B..6582
-        // (re-read this session: base = ((py>>3)-1)*width + (((px+4)>>3)-1))
-        // plus the burn walk at 6CB8..6D1B, whose consumed 2x2 block has its
-        // top-left tile at ((px+4)>>3, py>>3). The L2 capture pins the
-        // arithmetic: player pixel (200,308) at drop -> base 3724 and
-        // post-walk DS:C1E8 = 3925, exactly as measured. The identification
-        // of initial bomb pixels with player pixels is also explicit in the
-        // constructor call at 1000:6C25..6C5B. Motion refreshes these tile
-        // coordinates from the bomb's own pixels before detonation.
-        int tx = (static_cast<int>(player.x) + 4) / 8;
-        int ty = static_cast<int>(player.y) / 8;
-        BombProfile profile = bombProfile(inventory.selected);
-        // First update is on the frame after construction. Encode the
-        // odd-frame byte countdown as remaining game ticks.
-        int timer = profile.fuseTicks - static_cast<int>((logicTick_ + 1) & 1u);
-        const uint64_t actorOrder = claimActorOrder();
-        bombs_.push_back({tx, ty, timer, inventory.selected, profile.fuseTicks, owner});
-        Bomb& bomb = bombs_.back();
-        bomb.actorOrder = actorOrder;
-        bomb.pixelX = static_cast<int>(player.x);
-        bomb.pixelY = static_cast<int>(player.y);
-        // 6C2B..6C41 scales vx by 3/2 (signed truncation), and subtracts
-        // 500 from vy. The actor constructor clamps each to +/-0x07ff
-        // and clears both fractional accumulators.
-        bomb.vx8 = static_cast<int16_t>(std::clamp(3 * player.vx8 / 2, -0x07ff, 0x07ff));
-        bomb.vy8 = static_cast<int16_t>(std::clamp(player.vy8 - 500, -0x07ff, 0x07ff));
-        bomb.moving = true;
-        requestBombPlaceSound();
-        --inventory.counts[static_cast<size_t>(bombTypeIndex(inventory.selected))];
-    }
+    void placeBombAt(const Player& player, BombInventory& inventory, uint8_t owner) { gameplayReplay_.placeBombAt(player, inventory, owner); }
 
-    int bombHeightOffset(BombType type) const {
-        const size_t sprite = bombProfile(type).spriteBase;
-        return 16 - sprites_.sprites.at(sprite).height;
-    }
+    int bombHeightOffset(BombType type) const { return gameplayReplay_.bombHeightOffset(type); }
 
-    void updateBombMotion(Bomb& bomb) {
-        if (!bomb.moving) return;
-        const int heightOffset = bomb.hotspotY >= 0 ? bomb.hotspotY : bombHeightOffset(bomb.type);
-        int collideY = bomb.pixelY - heightOffset;
-        ActiveMonster::EdgeFlags edges;
-        if (bomb.type == BombType::Small) {
-            // 1000:65DA..6640 selects four single cells for actor kind 0x0d.
-            // Other bombs use the usual two-cell actor edges.
-            const int column = (bomb.pixelX + 4) >> 3;
-            const int row = collideY >> 3;
-            edges.top = solidTileSide(static_cast<uint8_t>(tileAt(column, row)));
-            edges.bottom = solidTileBottom(static_cast<uint8_t>(tileAt(column, row + 2)));
-            edges.left = solidTileSide(static_cast<uint8_t>(tileAt(column - 1, row + 1)));
-            edges.right = solidTileSide(static_cast<uint8_t>(tileAt(column + 1, row + 1)));
-        } else {
-            edges = scanActorEdges(bomb.pixelX, collideY);
-        }
-        updateTimedActorMotion(bomb.pixelX, collideY, bomb.vx8, bomb.vy8,
-                               bomb.fracX, bomb.fracY, edges);
-        bomb.pixelY = collideY + heightOffset;
-        // 1000:75E3 uses visual X directly, without the collision-scan +4.
-        bomb.x = bomb.pixelX >> 3;
-        bomb.y = bomb.pixelY >> 3;
-    }
+    void updateBombMotion(Bomb& bomb) { gameplayReplay_.updateBombMotion(bomb); }
 
     // Shared behavior 2 (1000:7018..7058), followed by common response/integration.
     void updateTimedActorMotion(int& x, int& y, int16_t& vx, int16_t& vy,
-            uint8_t& fracX, uint8_t& fracY, const ActiveMonster::EdgeFlags& edges) {
-        if (!edges.bottom || vy < 0) vy = static_cast<int16_t>(std::min(0x07ff, vy + 0x40));
-        else if (vy > 0) {
-            vy = 0;
-            y &= ~7;
-        }
-        if (edges.bottom) vx = actorFloorFriction(vx);
-        if (edges.top && vy < 0) vy = 1;
-        if (edges.left && edges.right) vx = 0;
-        else if ((edges.left && vx < 0) || (edges.right && vx > 0)) {
-            vx = static_cast<int16_t>(-vx / 2);
-            x += vx < 0 ? -1 : 1;
-        }
-        integrateAxis8_8(y, fracY, vy);
-        integrateAxis8_8(x, fracX, vx);
-    }
+            uint8_t& fracX, uint8_t& fracY, const ActiveMonster::EdgeFlags& edges) { gameplayReplay_.updateTimedActorMotion(x, y, vx, vy, fracX, fracY, edges); }
 
-    void updateBombs(uint64_t onlyOrder = 0) {
-        std::vector<Bomb> expired;
-        for (Bomb& b : bombs_) {
-            if (onlyOrder && b.actorOrder != onlyOrder) continue;
-            updateBombMotion(b);
-            if (--b.timer <= 0) expired.push_back(b);
-        }
-        bombs_.erase(std::remove_if(bombs_.begin(), bombs_.end(),
-                                    [onlyOrder](const Bomb& b) { return b.timer <= 0 && (!onlyOrder || b.actorOrder == onlyOrder); }),
-                     bombs_.end());
-        int generation = levelResetGeneration_;
-        for (const Bomb& b : expired) {
-            if (levelResetGeneration_ != generation) break;
-            explode(b);
-        }
-    }
+    void updateBombs(uint64_t onlyOrder = 0) { gameplayReplay_.updateBombs(onlyOrder); }
 
-    std::vector<std::array<int, 2>> explosionTilesFor(const Bomb& bomb) const {
-        std::vector<std::array<int, 2>> tiles;
-        auto add = [&](int x, int y) {
-            if (x < 0 || y < 0 || x >= level_.width || y >= level_.height) return;
-            std::array<int, 2> pos{x, y};
-            if (std::find(tiles.begin(), tiles.end(), pos) == tiles.end()) {
-                tiles.push_back(pos);
-            }
-        };
-        add(bomb.x, bomb.y);
-        add(bomb.x + 1, bomb.y);
-        add(bomb.x + 1, bomb.y + 1);
-        add(bomb.x, bomb.y + 1);
-        return tiles;
-    }
+    std::vector<std::array<int, 2>> explosionTilesFor(const Bomb& bomb) const { return gameplayReplay_.explosionTilesFor(bomb); }
 
-    void spawnExplosionEffect(const Bomb& bomb) {
-        if (explosionVisualType(bomb.type) > 1) cameraShakeTicks_ = 2;  // 1000:4164
-        int visualType = explosionVisualType(bomb.type);
-        int ticks = explosionEffectTicks(visualType);
-        ExplosionEffect effect;
-        effect.x = bomb.x;
-        effect.y = bomb.y;
-        effect.visualSelector = static_cast<uint8_t>(visualType);
-        effect.dispatcherState = explosionDispatcherState(visualType);
-        effect.timer = ticks;
-        effect.totalTimer = ticks;
-        effect.soundOffset = explosionSoundOffset(visualType);
-        effect.soundSelector = explosionSoundSelector(visualType);
-        effect.seedTicksByte = static_cast<uint8_t>(ticks & 0xff);
-        effect.variantByte = explosionVariantByte(visualType);
-        effect.computedX = bomb.x * kTileSize;
-        effect.computedY = bomb.y * kTileSize;
-        explosionEffects_.push_back(effect);
-        seedFlameRecords(bomb.y * level_.width + bomb.x, visualType);
-        requestSoundOffset(effect.soundOffset, effect.soundSelector);
-    }
+    void spawnExplosionEffect(const Bomb& bomb) { gameplayReplay_.spawnExplosionEffect(bomb); }
 
-    void seedFlameRecords(int cell, int type) {
-        // Exact finite constructor outputs. Turbo Pascal's real48 sine/cosine
-        // and truncation produce asymmetric bytes, including 79 rather than 80.
-        static const std::array<std::vector<std::array<int, 2>>, 4> velocities{{
-            {{79,0},{56,-56},{0,-79},{-56,-56},{-79,0},{-56,56},{0,79},{56,56}},
-            {{109,0},{95,-54},{55,-95},{0,-109},{-54,-95},{-95,-55},
-             {-109,0},{-95,54},{-55,95},{0,109},{54,95},{95,55}},
-            {{109,0},{101,-41},{79,-76},{44,-100},{3,-109},{-37,-103},
-             {-73,-81},{-98,-48},{-109,-7},{-104,33},{-84,70},{-51,97},
-             {-11,109},{30,105},{67,86},{95,55},{108,15}},
-            {{0,-125},{-32,-121},{-62,-109},{-88,-89},{-109,-63},{-121,-32},{-125,0},
-             {125,0},{121,-32},{109,-62},{89,-89},{63,-109},{32,-121},
-             {-125,0},{-121,32},{-109,62},{-89,88},{-63,108},{-32,121},{0,125},
-             {21,124},{52,114},{80,96},{103,72},{118,43},{125,11}},
-        }};
-        if (type < 1 || type > 4) return;
-        const auto& rays = velocities[static_cast<size_t>(type - 1)];
-        for (size_t i = 0; i < rays.size() && flameRecords_.size() < 198; ++i) {
-            int origin = cell;
-            if (type == 4) {
-                if (i >= 20) origin += level_.width + 1;
-                else if (i >= 13) origin += level_.width;
-                else if (i >= 7) ++origin;
-            }
-            FlameRecord record;
-            record.cell = static_cast<uint16_t>(origin);
-            record.vx = static_cast<int8_t>(rays[i][0]);
-            record.vy = static_cast<int8_t>(rays[i][1]);
-            record.timer = static_cast<uint8_t>(explosionEffectTicks(type));
-            record.variant = explosionVariantByte(type);
-            record.mass = static_cast<uint8_t>(type == 4 ? 221 : type == 3 ? 9 : 1);
-            flameRecords_.push_back(record);
-        }
-    }
+    void seedFlameRecords(int cell, int type) { gameplayReplay_.seedFlameRecords(cell, type); }
 
-    void updateFlameRecords() {
-        auto object = [&](int cell) -> uint8_t {
-            return cell >= 0 && static_cast<size_t>(cell) < level_.tiles.size() ? level_.tiles[cell] : 1;
-        };
-        auto stamp = [&](int cell, uint8_t value) {
-            if (cell >= 0 && static_cast<size_t>(cell) < level_.tiles.size()) level_.tiles[cell] = value;
-        };
-        // Descending live slots. New chain-reaction records wait until next pass.
-        for (size_t slot = flameRecords_.size(); slot > 0; --slot) {
-            const size_t index = slot - 1;
-            FlameRecord ray = flameRecords_[index];
-            int delta = 0;
-            auto integrate = [&](int8_t velocity, int8_t& fraction, int step) {
-                int sum = fraction + velocity;
-                if (sum > 127 || sum < -128) {
-                    sum += sum > 127 ? -128 : 128;
-                    delta += velocity < 0 ? -step : step;
-                }
-                fraction = static_cast<int8_t>(sum);
-            };
-            integrate(ray.vx, ray.subX, 1);
-            integrate(ray.vy, ray.subY, level_.width);
-            if (delta != 0) {
-                const int target = static_cast<uint16_t>(ray.cell + delta);
-                const uint8_t code = object(target);
-                uint16_t word = wordAt(target % level_.width, target / level_.width);
-                if (code == 0x66) {
-                    // 1000:468E: consume the chain tile even when the pool is full.
-                    stamp(target, word > 0x7fff ? 0xff : 0);
-                    if (word <= 0x7fff && static_cast<size_t>(target) < level_.wordLayer.size()) {
-                        level_.wordLayer[target] = 0;
-                        word = 0;
-                    }
-                    seedFlameRecords(target, 1);
-                    requestSoundOffset(explosionSoundOffset(1), explosionSoundSelector(1));
-                }
-                if (code == 0 || code == 0x75) {
-                    if (object(ray.cell) == 0x75) stamp(ray.cell, 0);
-                    stamp(target, ray.glyph);
-                    ray.cell = static_cast<uint16_t>(target);
-                } else if (word != 0) {
-                    if ((word & kDamagedWordBit) == 0) {
-                        queueTileDamage(target % level_.width, target / level_.width, 0, 0, true);
-                    }
-                    const auto match = resolveDamagePhase(static_cast<uint16_t>(word | kDamagedWordBit), false);
-                    if (match.slotIndex != 0) {
-                        const size_t other = static_cast<size_t>(match.slotIndex - 1);
-                        const int weight = match.debris ? 1 : collapseQueue_[other].affectedBytes;
-                        auto blend = [&](int own, int incoming) {
-                            const int16_t numerator = static_cast<int16_t>(own * ray.mass + incoming * weight);
-                            return static_cast<int8_t>(numerator / (ray.mass + weight));
-                        };
-                        if (match.debris) {
-                            auto& debris = debrisQueue_[other];
-                            debris.velocityX = blend(ray.vx, debris.velocityX);
-                            debris.velocityY = blend(ray.vy, debris.velocityY);
-                            if ((word & kDamagedWordBit) != 0 && ray.variant > 0) stamp(target, 0xff);
-                        } else {
-                            auto& collapse = collapseQueue_[other];
-                            collapse.forwardPhase = static_cast<uint8_t>(blend(ray.vx, static_cast<int8_t>(collapse.forwardPhase)));
-                            collapse.reversePhase = static_cast<uint8_t>(blend(ray.vy, static_cast<int8_t>(collapse.reversePhase)));
-                        }
-                    }
-                }
-            }
-            if (ray.variant > 0) --ray.variant;
-            --ray.timer;
-            if (ray.timer == 0) {
-                if (object(ray.cell) == 0x75) stamp(ray.cell, 0);
-                flameRecords_.erase(flameRecords_.begin() + static_cast<std::ptrdiff_t>(index));
-            } else flameRecords_[index] = ray;
-        }
-    }
+    void updateFlameRecords() { gameplayReplay_.updateFlameRecords(); }
 
-    bool isBombObjectTile(uint8_t tile) const {
-        return tile > 0x66 && tile < 0x73;
-    }
+    bool isBombObjectTile(uint8_t tile) const { return gameplayReplay_.isBombObjectTile(tile); }
 
-    bool isHighBombObjectSoundTile(uint8_t tile) const {
-        return tile > kBombObjectHighSoundThreshold;
-    }
+    bool isHighBombObjectSoundTile(uint8_t tile) const { return gameplayReplay_.isHighBombObjectSoundTile(tile); }
 
-    bool isPassableObjectTile(uint8_t tile) const {
-        return tile == 0x45 || isBombObjectTile(tile);
-    }
+    bool isPassableObjectTile(uint8_t tile) const { return gameplayReplay_.isPassableObjectTile(tile); }
 
-    bool isPassableObjectCell(int tx, int ty) const {
-        uint8_t tile = static_cast<uint8_t>(tileAt(tx, ty));
-        if (isPassableObjectTile(tile)) return true;
-        return countsForPhysicalDamageProgress(wordAt(tx, ty));
-    }
+    bool isPassableObjectCell(int tx, int ty) const { return gameplayReplay_.isPassableObjectCell(tx, ty); }
 
-    bool requestBombObjectScoreSound(bool sawHighObjectTile) {
-        return requestSoundCursor(sawHighObjectTile ? kBombObjectHighSoundCursor
-                                                    : kBombObjectDefaultSoundCursor,
-                                  kBombObjectSoundPriority);
-    }
+    bool requestBombObjectScoreSound(bool sawHighObjectTile) { return gameplayReplay_.requestBombObjectScoreSound(sawHighObjectTile); }
 
-    bool requestBombPlaceSound() {
-        return requestSoundOffset(kBombPlaceSoundCursor, kBombPlaceSoundPriority);
-    }
+    bool requestBombPlaceSound() { return gameplayReplay_.requestBombPlaceSound(); }
 
-    bool requestMonsterDeathSound() {
-        return requestSoundCursor(kMonsterDeathSoundCursor, kMonsterDeathSoundPriority);
-    }
+    bool requestMonsterDeathSound() { return gameplayReplay_.requestMonsterDeathSound(); }
 
     bool requestRecordNamePromptSound() {
         return requestSoundCursor(kRecordNamePromptSoundCursor,
@@ -26073,295 +23904,54 @@ private:
         return requestSoundCursor(kRecordsPageSoundCursor, kRecordsPageSoundPriority);
     }
 
-    bool requestWeaponSwitchSound() {
-        return requestSoundCursor(kWeaponSwitchSoundCursor, kWeaponSwitchSoundPriority);
-    }
+    bool requestWeaponSwitchSound() { return gameplayReplay_.requestWeaponSwitchSound(); }
 
-    bool requestLaunchPadSound() {
-        return requestSoundCursor(kLaunchPadSoundCursor, kLaunchPadSoundPriority);
-    }
+    bool requestLaunchPadSound() { return gameplayReplay_.requestLaunchPadSound(); }
 
-    bool requestPortalTeleportSound() {
-        return requestSoundCursor(kPortalTeleportSoundCursor, kPortalTeleportSoundPriority);
-    }
+    bool requestPortalTeleportSound() { return gameplayReplay_.requestPortalTeleportSound(); }
 
-    bool requestTileTriggerSound() {
-        return requestSoundCursor(kTileTriggerSoundCursor, kTileTriggerSoundPriority);
-    }
+    bool requestTileTriggerSound() { return gameplayReplay_.requestTileTriggerSound(); }
 
-    bool requestPlayerDamageSound() {
-        return requestSoundCursor(kPlayerDamageSoundCursor, kPlayerDamageSoundPriority);
-    }
+    bool requestPlayerDamageSound() { return gameplayReplay_.requestPlayerDamageSound(); }
 
-    bool requestPlayerDeathSound() {
-        return requestSoundCursor(kPlayerDeathSoundCursor, kPlayerDeathSoundPriority);
-    }
+    bool requestPlayerDeathSound() { return gameplayReplay_.requestPlayerDeathSound(); }
 
-    bool consumeBombObjectTile(int tx, int ty) {
-        if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return false;
-        uint8_t& tile = tileRef(tx, ty);
-        if (!isBombObjectTile(tile)) return false;
-        const bool flagged = (wordAt(tx, ty) & 0x8000u) != 0;
-        tile = flagged ? 0xff : 0;
-        if (!flagged) level_.wordLayer[static_cast<size_t>(ty) * level_.width + tx] = 0;
-        return true;
-    }
+    bool consumeBombObjectTile(int tx, int ty) { return gameplayReplay_.consumeBombObjectTile(tx, ty); }
 
-    bool markDamagedTile(int tx, int ty) {
-        if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return false;
-        uint8_t& tile = tileRef(tx, ty);
-        bool counted = countsForDestructionProgress(tile, level_.objectiveTile);
-        if (tile != level_.objectiveTile) {
-            tile = 1;
-        }
-        return counted;
-    }
+    bool markDamagedTile(int tx, int ty) { return gameplayReplay_.markDamagedTile(tx, ty); }
 
     // Port of seeder 1000:370E for both word classes. The u8 velocity args map
     // to the seeder's vx/vy args ([bp+0xA]/[bp+0x8], stored at record +4/+5).
     void queueTileDamage(int tx, int ty, uint8_t forwardPhase = 0, uint8_t reversePhase = 0,
-                         bool preserveCollapseGlyphs = true) {
-        if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return;
-        size_t start = static_cast<size_t>(ty) * level_.width + tx;
-        if (start >= level_.wordLayer.size()) return;
-        uint16_t word = level_.wordLayer[start];
-        if (word == 0 || (word & kDamagedWordBit) != 0) return;
+                         bool preserveCollapseGlyphs = true) { gameplayReplay_.queueTileDamage(tx, ty, forwardPhase, reversePhase, preserveCollapseGlyphs); }
 
-        if (word >= kDeferredThreshold) {
-            // Debris branch 374C..37F4: flags the word (3770/3780), copies the
-            // object byte into the record (37B8/37BE) but never writes the
-            // object plane â€” the glyph stays put until the fragment's first
-            // move (CONFIRMED by the L2 capture; the earlier markDamagedTile
-            // call here was unfaithful). Cap check 3753: refuse once slot
-            // index base + record count reaches 0x640.
-            uint8_t lookup = tileAt(tx, ty) & 0xff;
-            uint16_t flaggedWord = static_cast<uint16_t>(word | kDamagedWordBit);
-            // The word is flagged (3770/3780) only after the cap check passes
-            // (3753 jumps straight to the failure return when full).
-            if (kDebrisRecordIndexBase + debrisQueue_.size() < kDebrisCapacity) {
-                level_.wordLayer[start] = flaggedWord;
-                DebrisRecord record;
-                record.tileIndex = static_cast<int>(start);
-                record.flaggedWord = flaggedWord;
-                record.velocityX = static_cast<int8_t>(forwardPhase);
-                record.velocityY = static_cast<int8_t>(reversePhase);
-                record.lookup = lookup;
-                debrisQueue_.push_back(record);
-            }
-            return;
-        }
-
-        if (collapseQueue_.size() >= kCollapseCapacity) return;
-        std::vector<size_t> stack{start};
-        std::vector<size_t> group;
-        while (!stack.empty()) {
-            size_t index = stack.back();
-            stack.pop_back();
-            if (index >= level_.wordLayer.size() || level_.wordLayer[index] != word) continue;
-            level_.wordLayer[index] = static_cast<uint16_t>(word | kDamagedWordBit);
-            group.push_back(index);
-
-            int x = static_cast<int>(index % static_cast<size_t>(level_.width));
-            int y = static_cast<int>(index / static_cast<size_t>(level_.width));
-            auto pushNeighbor = [&](int nx, int ny) {
-                if (nx < 0 || ny < 0 || nx >= level_.width || ny >= level_.height) return;
-                size_t next = static_cast<size_t>(ny) * level_.width + nx;
-                if (next < level_.wordLayer.size() && level_.wordLayer[next] == word) {
-                    stack.push_back(next);
-                }
-            };
-            pushNeighbor(x + 1, y);
-            pushNeighbor(x - 1, y);
-            pushNeighbor(x, y + 1);
-            pushNeighbor(x, y - 1);
-        }
-
-        int minX = level_.width;
-        int minY = level_.height;
-        int maxX = 0;
-        int maxY = 0;
-        for (size_t index : group) {
-            int x = static_cast<int>(index % static_cast<size_t>(level_.width));
-            int y = static_cast<int>(index / static_cast<size_t>(level_.width));
-            minX = std::min(minX, x);
-            minY = std::min(minY, y);
-            maxX = std::max(maxX, x);
-            maxY = std::max(maxY, y);
-            if (!preserveCollapseGlyphs) markDamagedTile(x, y);
-        }
-        if (!group.empty() && collapseQueue_.size() < kCollapseCapacity) {
-            CollapseRecord record;
-            record.x = tx;
-            record.y = ty;
-            record.startOffsetBytes = static_cast<uint16_t>((minY * level_.width + minX) * 2);
-            record.endOffsetBytes = static_cast<uint16_t>((maxY * level_.width + maxX) * 2);
-            record.word = word;
-            record.flaggedWord = static_cast<uint16_t>(word | kDamagedWordBit);
-            record.forwardPhase = forwardPhase;
-            record.reversePhase = reversePhase;
-            int signedForward = static_cast<int>(static_cast<int8_t>(forwardPhase));
-            int signedReverse = static_cast<int>(static_cast<int8_t>(reversePhase));
-            record.argMagnitude = static_cast<uint16_t>(std::abs(signedForward) +
-                                                        std::abs(signedReverse));
-            record.affectedBytes = static_cast<uint8_t>((group.size() * 2) & 0xff);
-            record.count = static_cast<int>(group.size());
-            collapseQueue_.push_back(record);
-        }
-    }
-
-    DamagePhaseLookup resolveDamagePhase(uint16_t flaggedWord, bool reverse) const {
-        if ((flaggedWord & kDamagedWordBit) == 0) return {};
-        uint16_t key = static_cast<uint16_t>(flaggedWord & ~kDamagedWordBit);
-        if (key >= kDeferredThreshold) {
-            for (size_t i = debrisQueue_.size(); i > 0; --i) {
-                const DebrisRecord& record = debrisQueue_[i - 1];
-                if (record.flaggedWord == flaggedWord) {
-                    return {static_cast<int>(i),
-                            static_cast<uint8_t>(reverse ? record.velocityY
-                                                         : record.velocityX),
-                            true};
-                }
-            }
-            return {};
-        }
-        for (size_t i = collapseQueue_.size(); i > 0; --i) {
-            const CollapseRecord& record = collapseQueue_[i - 1];
-            if (record.flaggedWord == flaggedWord) {
-                return {static_cast<int>(i),
-                        reverse ? record.reversePhase : record.forwardPhase, false};
-            }
-        }
-        return {};
-    }
+    DamagePhaseLookup resolveDamagePhase(uint16_t flaggedWord, bool reverse) const { return gameplayReplay_.resolveDamagePhase(flaggedWord, reverse); }
 
     // Single-target form of 1000:3BB2 / 3D46 used by blocked debris moves.
     // The caller contributes weight 1; a collapse contributes its unsigned
     // +0x0e byte, while a fragment contributes 1. Neither helper draws RNG.
     void blendDebrisImpactLane(int target, uint16_t word, int& velocity,
-                               bool reverse) {
-        if ((word & kDamagedWordBit) == 0) {
-            const size_t debrisBefore = debrisQueue_.size();
-            const size_t collapseBefore = collapseQueue_.size();
-            // Collision seeding leaves the object plane intact (original
-            // new_collapse probe); older explosion playback marks it early.
-            queueTileDamage(target % level_.width, target / level_.width, 0, 0, true);
-            // 3C2D / 3DC1 return without writing the caller on seeder failure.
-            if (debrisBefore == debrisQueue_.size() &&
-                collapseBefore == collapseQueue_.size()) return;
-        }
-        const DamagePhaseLookup match = resolveDamagePhase(
-            static_cast<uint16_t>(word | kDamagedWordBit), reverse);
-        // The original expects a matching live record. Stale flagged map
-        // cells in the reconstruction must not become an invalid table write.
-        if (match.slotIndex == 0) return;
-        const size_t index = static_cast<size_t>(match.slotIndex - 1);
-        const int weight = match.debris ? 1 : collapseQueue_[index].affectedBytes;
-        const int other = static_cast<int8_t>(match.phase);
-        velocity = (velocity + other * weight) / (1 + weight);
-        if (match.debris) {
-            if (reverse) debrisQueue_[index].velocityY = static_cast<int8_t>(velocity);
-            else debrisQueue_[index].velocityX = static_cast<int8_t>(velocity);
-        } else {
-            if (reverse) collapseQueue_[index].reversePhase = static_cast<uint8_t>(velocity);
-            else collapseQueue_[index].forwardPhase = static_cast<uint8_t>(velocity);
-        }
-    }
+                               bool reverse) { gameplayReplay_.blendDebrisImpactLane(target, word, velocity, reverse); }
 
-    void explode(const Bomb& bomb) {
-        spawnExplosionEffect(bomb);
-        TransientActor fade;
-        fade.x = bomb.pixelX;
-        fade.y = bomb.pixelY;
-        fade.kind = 0;
-        fade.timer = 18;
-        fade.fracX = bomb.fracX;
-        fade.fracY = bomb.fracY;
-        fade.spriteIndex = 68;
-        fade.animation = ActorAnimation::initialize(69, 79, 2, 1);
-        fade.actorOrder = bomb.actorOrder;
-        fade.bossVisualOrder = bomb.bossVisualOrder;
-        transientActors_.push_back(fade);
-        spawnExpiryParticles(bomb.pixelX, bomb.pixelY, bombTypeIndex(bomb.type) + 2);
-    }
+    void explode(const Bomb& bomb) { gameplayReplay_.explode(bomb); }
 
-    int monsterDamageForBomb(BombType type) const {
-        // UNEVIDENCED legacy diagnostic only (@unevidenced:bomb_direct_monster_damage).
-        // Live explode() now seeds flame records and never calls this helper.
-        return std::clamp(bombTypeIndex(type) + 1, 1, 4);
-    }
+    int monsterDamageForBomb(BombType type) const { return gameplayReplay_.monsterDamageForBomb(type); }
 
     void damageMonstersInExplosion(const std::vector<std::array<int, 2>>& tiles,
-                                   BombType type) {
-        int damage = monsterDamageForBomb(type);
-        for (ActiveMonster& monster : monsters_) {
-            if (!monster.alive) continue;
-            // Boss actors are exempt from the generic shot-damage path in
-            // the original (1000:7427); the head instead drains from live
-            // flames each frame in updateBossHead.
-            if (monster.behavior == 5 || monster.behavior == 6) continue;
-            if (monsterOverlapsExplosionTiles(monster, tiles)) {
-                damageMonster(monster, damage);
-            }
-        }
-    }
+                                   BombType type) { gameplayReplay_.damageMonstersInExplosion(tiles, type); }
 
     bool monsterOverlapsExplosionTiles(const ActiveMonster& monster,
-                                       const std::vector<std::array<int, 2>>& tiles) const {
-        for (const auto& tile : tiles) {
-            float x = static_cast<float>(tile[0] * kTileSize);
-            float y = static_cast<float>(tile[1] * kTileSize);
-            if (rectsOverlap(static_cast<float>(monster.x), static_cast<float>(monster.y),
-                             14.0f, 16.0f, x, y, static_cast<float>(kTileSize),
-                             static_cast<float>(kTileSize))) {
-                return true;
-            }
-        }
-        return false;
-    }
+                                       const std::vector<std::array<int, 2>>& tiles) const { return gameplayReplay_.monsterOverlapsExplosionTiles(monster, tiles); }
 
     bool rectsOverlap(float ax, float ay, float aw, float ah,
-                      float bx, float by, float bw, float bh) const {
-        return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
-    }
+                      float bx, float by, float bw, float bh) const { return gameplayReplay_.rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh); }
 
-    void damageMonster(ActiveMonster& monster, int damage, bool updatedThisTick = false) {
-        if (monster.behavior == 2) return;
-        // Boss actors are exempt from generic damage (original 1000:7427
-        // applies shot damage to kinds 1..8 only).
-        if (monster.behavior == 5 || monster.behavior == 6) return;
-        // 1000:745B..74A6 changes the displayed sprite, not the animation
-        // cursor. The byte rewind holds this impact until the next advance.
-        monster.animFrame = static_cast<uint8_t>(monsterCorpseSprite(monster));
-        monster.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(monster.animFrame).height);
-        monster.animTick = static_cast<uint8_t>(monster.animDelay - 4);
-        monster.hp = std::max(0, monster.hp - std::max(1, damage));
-        if (monster.hp == 0) {
-            enterMonsterDeath(monster, updatedThisTick);
-        }
-    }
+    void damageMonster(ActiveMonster& monster, int damage, bool updatedThisTick = false) { gameplayReplay_.damageMonster(monster, damage, updatedThisTick); }
 
     bool playerOverlapsAnyExplosionTile(const Player& player,
-                                        const std::vector<std::array<int, 2>>& tiles) const {
-        for (const auto& tile : tiles) {
-            float x = static_cast<float>(tile[0] * kTileSize);
-            float y = static_cast<float>(tile[1] * kTileSize);
-            if (playerOverlaps(player, x, y, static_cast<float>(kTileSize),
-                               static_cast<float>(kTileSize))) {
-                return true;
-            }
-        }
-        return false;
-    }
+                                        const std::vector<std::array<int, 2>>& tiles) const { return gameplayReplay_.playerOverlapsAnyExplosionTile(player, tiles); }
 
-    void damagePlayersInExplosion(const std::vector<std::array<int, 2>>& tiles) {
-        if (!playerDead_ && playerOverlapsAnyExplosionTile(player_, tiles)) {
-            queuePlayerDamage(1);
-        }
-        if (playerCount_ > 1 && !player2Dead_ &&
-            playerOverlapsAnyExplosionTile(player2_, tiles)) {
-            queuePlayerDamage(2);
-        }
-    }
+    void damagePlayersInExplosion(const std::vector<std::array<int, 2>>& tiles) { gameplayReplay_.damagePlayersInExplosion(tiles); }
 
     // Which corpse sprite a monster dies to. Evidenced for kind 1 only (see
     // kMonsterCorpseSpriteLeft/Right): its walk frames and both captured
@@ -26372,679 +23962,55 @@ private:
     // Note the `jle`: vx == 0 takes the dir-1 entry, so a monster killed
     // while stationary -- during its spawn fall, or on a blocked tick --
     // always gets the first column.
-    int monsterCorpseSprite(const ActiveMonster& monster) const {
-        const size_t kind = monster.kind < kMonsterImpactSprites.size()
-                                ? monster.kind
-                                : 0;
-        return kMonsterImpactSprites[kind][monster.vx8 > 0 ? 1 : 0];
-    }
+    int monsterCorpseSprite(const ActiveMonster& monster) const { return gameplayReplay_.monsterCorpseSprite(monster); }
 
-    void enterMonsterDeath(ActiveMonster& monster, bool updatedThisTick = false) {
-        if (monster.behavior == 2) return;
-        // Fatal conversion follows movement; the velocity and fractions survive.
-        monster.corpseSprite = static_cast<uint8_t>(monsterCorpseSprite(monster));
-        monster.behavior = 2;
-        monster.kind = 0x0c;
-        // Encode raw timer 25's odd-frame countdown as remaining updates.
-        // External blast conversion precedes this tick's monster dispatch.
-        monster.stateTimer = 50 - static_cast<int>((logicTick_ + 1) & 1u) + (updatedThisTick ? 0 : 1);
-        monster.animMode = 0;
-        monster.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(monster.corpseSprite).height);
-        monster.deathRewardPending = true;
-        releaseMonsterSlot(monster);
-        requestMonsterDeathSound();
-    }
+    void enterMonsterDeath(ActiveMonster& monster, bool updatedThisTick = false) { gameplayReplay_.enterMonsterDeath(monster, updatedThisTick); }
 
-    void spawnBonusDrop(float x, float y, BonusType type) {
-        BonusDrop drop;
-        drop.x = x;
-        drop.y = y;
-        drop.type = type;
-        drop.hotspotY = static_cast<uint8_t>(16 - sprites_.sprites.at(bonusSpriteIndex(type)).height);
-        drop.actorOrder = claimActorOrder();
-        bonusDrops_.push_back(drop);
-    }
+    void spawnBonusDrop(float x, float y, BonusType type) { gameplayReplay_.spawnBonusDrop(x, y, type); }
 
-    void finishMonsterDeathReward(ActiveMonster& monster) {
-        // Exact original kind-0x0c expiry path, disassembled at file
-        // 0x7ddd..0x7ec0 (Ghidra 1000:766d..7750) and confirmed by the live
-        // level-1 trace. The transition first rolls Random(100); values below
-        // 40 produce no reward, while the ascending DGROUP thresholds select
-        // one of the seven bonus kinds for rolls 40..99.
-        const int rewardRoll = randomRangeValue(0, 100);
-        const uint16_t rewardSound =
-            static_cast<uint16_t>(0xea74 + randomRangeValue(0, 20));
-        requestSoundCursor(rewardSound, 4);
-        static constexpr std::array<int, 7> kRewardUpperBounds{{
-            65, 71, 78, 83, 89, 93, 100,
-        }};
-        if (rewardRoll >= 40) {
-            size_t rewardIndex = 0;
-            while (rewardIndex + 1 < kRewardUpperBounds.size() &&
-                   rewardRoll > kRewardUpperBounds[rewardIndex]) {
-                ++rewardIndex;
-            }
-            spawnBonusDrop(
-                static_cast<float>(monster.x),
-                static_cast<float>(monster.y + monster.hotspotY),
-                static_cast<BonusType>(rewardIndex));
-            BonusDrop& reward = bonusDrops_.back();
-            reward.actorOrder = monster.actorOrder;
-            reward.vx8 = monster.vx8;
-            reward.vy8 = static_cast<int16_t>(monster.vy8 - 200);
-            reward.fracX = monster.fracX;
-            reward.fracY = monster.fracY;
-        } else {
-            // 1000:760D converts the existing corpse in place, even at full
-            // capacity. Its fractions survive; this frame does not tick it twice.
-            TransientActor fade;
-            fade.x = monster.x;
-            fade.y = monster.y + monster.hotspotY;
-            fade.kind = 0;
-            fade.timer = 18;
-            fade.fracX = monster.fracX;
-            fade.fracY = monster.fracY;
-            fade.spriteIndex = 68;
-            fade.animation = ActorAnimation::initialize(69, 79, 2, 1);
-            fade.actorOrder = monster.actorOrder;
-            transientActors_.push_back(fade);
-        }
+    void finishMonsterDeathReward(ActiveMonster& monster) { gameplayReplay_.finishMonsterDeathReward(monster); }
 
-        spawnExpiryParticles(monster.x, monster.y + monster.hotspotY);
-    }
+    void spawnExpiryParticles(int x, int y, int count = 2) { gameplayReplay_.spawnExpiryParticles(x, y, count); }
 
-    void spawnExpiryParticles(int x, int y, int count = 2) {
-        // 1000:772A..777D draws both velocities even on allocation failure.
-        // The dynamic actor-loop bound at 7ECB visits appended actors this frame.
-        for (int effect = 0; effect < count; ++effect) {
-            const int vx8 = static_cast<int>(randomRangeValue(0, 600)) - 300;
-            const int vy8 = static_cast<int>(randomRangeValue(0, 600)) - 300;
-            if (auto* actor = spawnTransientActor(x, y,
-                    static_cast<int16_t>(vy8), 13, 0x0b, 15,
-                    ActorAnimation::initialize(69, 79, 2, 2))) {
-                actor->vx8 = static_cast<int16_t>(vx8);
-                if (!orderedActorPass_) updateTransientActor(*actor);
-            }
-        }
-    }
+    void updateBonusDrops(size_t initialDrops = std::numeric_limits<size_t>::max(), uint64_t onlyOrder = 0) { gameplayReplay_.updateBonusDrops(initialDrops, onlyOrder); }
 
-    void updateBonusDrops(size_t initialDrops = std::numeric_limits<size_t>::max(), uint64_t onlyOrder = 0) {
-        initialDrops = std::min(initialDrops, bonusDrops_.size());
-        for (size_t i = 0; i < initialDrops && i < bonusDrops_.size(); ++i) {
-            BonusDrop& drop = bonusDrops_[i];
-            if (onlyOrder && drop.actorOrder != onlyOrder) continue;
-            if (drop.collected) continue;
-            bool p1Overlaps = !playerDead_ &&
-                              playerOverlaps(player_, drop.x, drop.y, 12.0f, 12.0f);
-            bool p2Overlaps = playerCount_ > 1 && !player2Dead_ &&
-                              playerOverlaps(player2_, drop.x, drop.y, 12.0f, 12.0f);
-            if (p1Overlaps &&
-                (!p2Overlaps ||
-                 bonusDistanceSq(player_, drop) <= bonusDistanceSq(player2_, drop))) {
-                collectBonusDrop(drop, player_, energy_, bombInventory_, 1);
-            } else if (p2Overlaps) {
-                collectBonusDrop(drop, player2_, energy2_, bombInventory2_, 2);
-            }
-            // Collection can append a cloud's rewards and invalidate drop.
-            if (bonusDrops_[i].collected) continue;
-            BonusDrop& moving = bonusDrops_[i];
-            int x = static_cast<int>(moving.x);
-            int y = static_cast<int>(moving.y) - moving.hotspotY;
-            updateTimedActorMotion(x, y, moving.vx8, moving.vy8, moving.fracX, moving.fracY,
-                                   scanActorEdges(x, y));
-            moving.x = static_cast<float>(x);
-            moving.y = static_cast<float>(y + moving.hotspotY);
-            moving.timer = static_cast<uint8_t>(moving.timer - (logicTick_ & 1u));
-            if (moving.timer == 0 || moving.timer == 0xff) {
-                moving.collected = true;
-                TransientActor fade;
-                fade.kind = 0;
-                fade.x = x;
-                fade.y = static_cast<int>(moving.y);
-                fade.fracX = moving.fracX;
-                fade.fracY = moving.fracY;
-                fade.timer = 18;
-                // DS:006C selects one-based sprite 74 for expired rewards.
-                fade.spriteIndex = 73;
-                fade.animation = ActorAnimation::initialize(74, 79, 2, 1);
-                fade.actorOrder = moving.actorOrder;
-                transientActors_.push_back(fade);
-            }
-        }
-        bonusDrops_.erase(std::remove_if(bonusDrops_.begin(), bonusDrops_.end(),
-                                         [](const BonusDrop& drop) { return drop.collected; }),
-                          bonusDrops_.end());
-    }
-
-    float bonusDistanceSq(const Player& player, const BonusDrop& drop) const {
-        float dx = (player.x + 6.0f) - (drop.x + 6.0f);
-        float dy = (player.y + 8.0f) - (drop.y + 6.0f);
-        return dx * dx + dy * dy;
-    }
+    float bonusDistanceSq(const Player& player, const BonusDrop& drop) const { return gameplayReplay_.bonusDistanceSq(player, drop); }
 
     void collectBonusDrop(BonusDrop& drop, const Player& collector, int& energy,
-                          BombInventory& inventory, uint8_t playerIndex) {
-        BonusType type = drop.type;
-        drop.collected = true;
-        applyBonus(type, collector, energy, inventory, playerIndex);
-        requestSoundCursor(kBonusPickupSoundCursor, kBonusPickupSoundPriority);
-    }
+                          BombInventory& inventory, uint8_t playerIndex) { gameplayReplay_.collectBonusDrop(drop, collector, energy, inventory, playerIndex); }
 
     void applyBonus(BonusType type, const Player& collector, int& energy,
-                    BombInventory& inventory, uint8_t playerIndex = 1) {
-        switch (type) {
-            case BonusType::Present:
-                addScore(playerIndex, 2000);
-                break;
-            case BonusType::FirstAid:
-                addScore(playerIndex, 1000);
-                energy = 100;
-                break;
-            case BonusType::HotDog:
-                addScore(playerIndex, 1500);
-                energy = std::min(100, energy + 33);
-                break;
-            case BonusType::JollyCloud:
-                addScore(playerIndex, 2000);
-                spawnBonusRain(collector);
-                break;
-            case BonusType::YellowBombBox:
-                addScore(playerIndex, 3000);
-                grantNormalBombSet(inventory);
-                break;
-            case BonusType::GreenBombBox:
-                addScore(playerIndex, 1000);
-                grantSuperBombSet(inventory);
-                break;
-            case BonusType::BigDiamond:
-                addScore(playerIndex, 5000);
-                break;
-        }
-    }
+                    BombInventory& inventory, uint8_t playerIndex = 1) { gameplayReplay_.applyBonus(type, collector, energy, inventory, playerIndex); }
 
-    void grantNormalBombSet(BombInventory& inventory) {
-        inventory.counts[0] = 200;
-        inventory.counts[1] = std::min(99, inventory.counts[1] + randomInclusive(1, 10));
-        inventory.counts[2] = std::min(99, inventory.counts[2] + randomInclusive(1, 4));
-        if (!hasBomb(inventory, inventory.selected)) selectNextAvailableBomb(inventory);
-    }
+    void grantNormalBombSet(BombInventory& inventory) { gameplayReplay_.grantNormalBombSet(inventory); }
 
-    void grantSuperBombSet(BombInventory& inventory) {
-        inventory.counts[0] = 200;
-        inventory.counts[1] = std::min(99, inventory.counts[1] + randomInclusive(1, 13));
-        inventory.counts[2] = std::min(99, inventory.counts[2] + randomInclusive(2, 6));
-        inventory.counts[3] = std::min(99, inventory.counts[3] + randomInclusive(1, 2));
-        if (!hasBomb(inventory, inventory.selected)) selectNextAvailableBomb(inventory);
-    }
+    void grantSuperBombSet(BombInventory& inventory) { gameplayReplay_.grantSuperBombSet(inventory); }
 
-    void spawnBonusRain(const Player& collector) {
-        for (int i = 0; i < 4; ++i) {
-            spawnBonusDrop(std::clamp(collector.x - 24.0f + i * 16.0f, 0.0f,
-                                     std::max(16.0f, level_.width * 8.0f - 16.0f)),
-                           std::max(16.0f, collector.y - 48.0f - i * 4.0f),
-                           i % 2 == 0 ? BonusType::Present : BonusType::BigDiamond);
-        }
-    }
+    void spawnBonusRain(const Player& collector) { gameplayReplay_.spawnBonusRain(collector); }
 
     // Falling-debris mover: port of 1000:45FA loop 2 (492F..4D37), transcribed
     // step for step from the disassembly (ghidra addresses; file offset =
     // addr + 0x770) and lockstepped against the level-2 measurement
     // (tests/fixtures/debris_measurement_original_level2.txt). See
     // docs/recovery/falling_debris_update_spec.md for the full byte spec.
-    void updateDebrisRecords() {
-        // Loop-2 emptiness gate (4934 cmp DS:207E,0xC8 / jb exit).
-        if (debrisQueue_.empty()) return;
-        const int width = level_.width;
-        if (width <= 0 || level_.tiles.empty()) return;
-        const int cellCount = static_cast<int>(level_.tiles.size());
-        // The original never indexes outside the map (levels ship with solid
-        // borders); the port clamps instead: out-of-range object bytes read as
-        // solid (blocking moves and supporting fragments), out-of-range words
-        // read 0, and out-of-range writes are dropped.
-        auto objectByteAt = [&](int index) -> uint8_t {
-            return index >= 0 && index < cellCount
-                       ? level_.tiles[static_cast<size_t>(index)]
-                       : uint8_t{0x01};
-        };
-        auto setObjectByte = [&](int index, uint8_t value) {
-            if (index >= 0 && index < cellCount) {
-                level_.tiles[static_cast<size_t>(index)] = value;
-            }
-        };
-        auto wordCellAt = [&](int index) -> uint16_t {
-            return index >= 0 &&
-                           static_cast<size_t>(index) < level_.wordLayer.size()
-                       ? level_.wordLayer[static_cast<size_t>(index)]
-                       : uint16_t{0};
-        };
-        auto setWordCell = [&](int index, uint16_t value) {
-            if (index >= 0 && static_cast<size_t>(index) < level_.wordLayer.size()) {
-                level_.wordLayer[static_cast<size_t>(index)] = value;
-            }
-        };
+    void updateDebrisRecords() { gameplayReplay_.updateDebrisRecords(); }
 
-        // Ascending slot order with the bound re-read live every iteration
-        // (4947 re-reads DS:207E): a record seeded mid-pass by a cascade IS
-        // updated later in this same tick (CONFIRMED by the L2 capture,
-        // frame 404). Removal (458D) shifts the survivors down and rewinds
-        // the caller's counter, which a vector erase without ++i reproduces.
-        for (size_t i = 0; i < debrisQueue_.size();) {
-            // Slot number as the original counts it: [bp-2] starts at 0xC8.
-            const int slot = static_cast<int>(kDebrisRecordIndexBase) + 1 +
-                             static_cast<int>(i);
-            // Lane load 4950..49A1 (DS:78D2/78D3/78D4/78D5).
-            int pos = debrisQueue_[i].tileIndex;
-            int vx = debrisQueue_[i].velocityX;
-            int vy = debrisQueue_[i].velocityY;
-            int subX = debrisQueue_[i].subX;
-            int subY = debrisQueue_[i].subY;
-            uint8_t code = debrisQueue_[i].lookup;
-            const uint16_t fw = debrisQueue_[i].flaggedWord;
+    void updateCollapseRecords() { gameplayReplay_.updateCollapseRecords(); }
 
-            // Fragile-word auto-shatter 49A4..49C8: raw words 0x7FBD..0x7FFF
-            // shatter even without a landing when still carrying a non-shatter
-            // glyph.
-            if (fw > kDebrisFragileWordFloor && code <= 0x66) {
-                code = kDebrisShatterFrame;
-                debrisQueue_[i].lookup = code;
-                requestSoundCursor(kDebrisAutoShatterSoundCursor,
-                                   kDebrisAutoShatterSoundPriority);
-            }
+    void updateFlashes() { gameplayReplay_.updateFlashes(); }
 
-            // Shatter frame stepper 49CB..4A18: one frame per tick; reaching
-            // 0x79 picks the terminal glyph (0x6B+Random(5) for fragile words,
-            // else 0xFF which dissolves through the consume path below); the
-            // object plane is restamped every tick while code >= 0x76.
-            if (code >= kDebrisShatterFrame) {
-                code = static_cast<uint8_t>(code + 1);
-                if (code == kDebrisShatterLastStep) {
-                    code = fw > kDebrisFragileWordFloor
-                               ? static_cast<uint8_t>(kDebrisTerminalBase +
-                                                      randomRangeValue(0, 5))
-                               : kDebrisDissolveByte;
-                }
-                debrisQueue_[i].lookup = code;
-                setObjectByte(pos, code);
-            }
+    int destructionPercent() const { return gameplayReplay_.destructionPercent(); }
 
-            // 0xFF consume 4A1B..4A75: the fragment dissolves (both planes
-            // cleared) and the cell above is re-seeded through the seeder
-            // (guard 4A5B is word > 0 only; the seeder rejects the rest).
-            if (objectByteAt(pos) == kDebrisDissolveByte) {
-                setObjectByte(pos, 0);   // 4A31
-                setWordCell(pos, 0);     // 4A49
-                debrisQueue_.erase(debrisQueue_.begin() +
-                                   static_cast<std::ptrdiff_t>(i));  // 4A39 -> 458D
-                const int above = pos - width;
-                if (above >= 0 && wordCellAt(above) > 0) {           // 4A5B
-                    queueTileDamage(above % width, above / width);   // 4A72 -> 370E
-                }
-                continue;
-            }
-
-            // Integrator 3EDA (called at 4A81): per axis, a signed 8-bit
-            // sub-accumulator gains v; on signed overflow it loses 0x80 and
-            // the move delta gains one tile in v's direction. x axis first,
-            // then y; both can step in the same tick (diagonal move).
-            int delta = 0;
-            auto integrateAxis = [&](int v, int& sub, int unitMagnitude) {
-                const int unit = v < 0 ? -unitMagnitude : unitMagnitude;  // 3EE4/3F0B
-                int sum = sub + v;                                        // 3EEB/3F11
-                if (sum > 127) {          // 3EED/3F13 jno (signed overflow)
-                    sum -= 128;           // 3EEF/3F15 sub 0x80
-                    delta += unit;        // 3EF2/3F18
-                } else if (sum < -128) {
-                    sum += 128;
-                    delta += unit;
-                }
-                sub = sum;
-            };
-            integrateAxis(vx, subX, 1);
-            integrateAxis(vy, subY, width);
-            bool resting = delta == 0;  // 4A84..4A8B
-
-            // Support / gravity / friction / landing shatter 4A93..4B32,
-            // keyed on the object byte directly below (4A9D).
-            if (objectByteAt(pos + width) == 0) {
-                // Unsupported: gravity +4 while vy < 0x7B signed (so the
-                // attainable terminal value from a zero start is 0x7C), and
-                // the rest counter resets every airborne tick (4AB3).
-                if (vy < kDebrisGravityCompare) vy += kDebrisGravityStep;
-                debrisQueue_[i].restTicks = 0;
-            } else {
-                if (!resting) {
-                    // Horizontal friction 4AC0..4AE2, only on ticks whose
-                    // integrator produced a step.
-                    if (vx > 0) {
-                        --vx;
-                    } else if (vx < 0) {
-                        ++vx;
-                    }
-                }
-                // Landing shatter 4AE6..4B32. The dice is
-                // (DS:78C2 + slot) mod 6 â€” a frame counter, not the RNG; the
-                // port's logicTick_ stands in for DS:78C2 (INFERRED @unevidenced:debris_shatter_dice_phase,
-                // equivalence, phase not pinned against the original).
-                if (vy > 0 && vy > kDebrisLandingShatterVyGate && code > 0x66 &&
-                    (logicTick_ + static_cast<uint32_t>(slot)) % 6u > 2u) {
-                    setObjectByte(pos, kDebrisShatterFrame);  // 4B16
-                    debrisQueue_[i].lookup = kDebrisShatterFrame;
-                    code = kDebrisShatterFrame;
-                    requestSoundCursor(kDebrisLandingShatterSoundCursor,
-                                       kDebrisLandingShatterSoundPriority);
-                }
-            }
-
-            // Move 4B35..4CB5.
-            if (delta != 0) {
-                const int dest = pos + delta;
-                if (objectByteAt(dest) == 0) {
-                    // Free move 4B61..4C1D: the fragment is materialized at
-                    // the destination in BOTH planes and erased from the
-                    // vacated cell â€” these stamps happen on every free move,
-                    // not on rest.
-                    debrisQueue_[i].restTicks = 0;  // 4B6E
-                    setObjectByte(dest, code);      // 4B7E
-                    setObjectByte(pos, 0);          // 4B89
-                    setWordCell(dest, fw);          // 4B9B
-                    setWordCell(pos, 0);            // 4BAB
-                    debrisQueue_[i].tileIndex = dest;  // 4BB5
-                    // Cascade 4BB9..4C19: a move that was not straight up
-                    // re-seeds the cell above the vacated one when its word
-                    // is live and unflagged (words 1..0x3FFF spawn a collapse
-                    // record through the same seeder).
-                    if (delta != -width) {
-                        const int above = pos - width;
-                        const uint16_t aboveWord = wordCellAt(above);
-                        if (above >= 0 && aboveWord > 0 &&
-                            aboveWord < kDamagedWordBit) {  // 4BE4..4BF5
-                            queueTileDamage(above % width, above / width);  // 4C08
-                            // Set even when the seeder is at capacity (no
-                            // DS:79C8 check at 4C0B..4C19). queueTileDamage
-                            // may reallocate the queue, so re-index.
-                            debrisQueue_[i].aux |= 0x80;
-                        }
-                    }
-                    pos = dest;
-                } else {
-                    // Blocked move 4C20..4CAC.
-                    resting = true;  // 4C20
-                    if (vy > 0) {
-                        // Bounce 4C24..4C5F: exactly these two RNG draws in
-                        // this order, then vy = 0.
-                        vx = static_cast<int8_t>(
-                            vx + static_cast<int>(randomRangeValue(0, 0x1e)) -
-                            15);  // 4C2B/4C41, stored through AL
-                        requestSoundOffset(
-                            static_cast<uint16_t>(kDebrisBounceSoundBase +
-                                                  randomRangeValue(0, 8)),
-                            kDebrisBounceSoundPriority);  // 4C4A/4C51/4C57
-                        vy = 0;                           // 4C5F
-                    }
-                    const uint16_t destWord = wordCellAt(dest);  // 4C64..4C75
-                    if (destWord == 0) {
-                        vx = 0;  // 4CAE
-                    } else {
-                        blendDebrisImpactLane(dest, destWord, vx, false);  // 4C96
-                        // X may have seeded the target. The original forces
-                        // its flag for the Y matcher at 4C99 before 4CA9.
-                        blendDebrisImpactLane(
-                            dest, static_cast<uint16_t>(destWord | kDamagedWordBit),
-                            vy, true);
-                    }
-                }
-            }
-
-            // Lane write-back 4CB9..4CEB.
-            debrisQueue_[i].velocityX = static_cast<int8_t>(vx);
-            debrisQueue_[i].velocityY = static_cast<int8_t>(vy);
-            debrisQueue_[i].subX = static_cast<int8_t>(subX);
-            debrisQueue_[i].subY = static_cast<int8_t>(subY);
-
-            // 4CF8 increments a byte; 4CFF tests equality with 100. Removal
-            // clears only the map flag, leaves the glyph, and rewinds the
-            // live loop so the shifted successor is processed this tick.
-            // The original leaves stale tail bytes; they do not stay live.
-            if (resting) ++debrisQueue_[i].restTicks;
-            if (debrisQueue_[i].restTicks == kDebrisRestRetireTicks) {
-                setWordCell(pos, static_cast<uint16_t>(wordCellAt(pos) & ~kDamagedWordBit));
-                debrisQueue_.erase(debrisQueue_.begin() + static_cast<std::ptrdiff_t>(i));
-                continue;
-            }
-            ++i;
-        }
-    }
-
-    void updateCollapseRecords() {
-        if (level_.width <= 0 || level_.tiles.empty()) return;
-        const int width = level_.width;
-        struct Contact { int cell; uint16_t word; };
-        struct Scan {
-            bool blocked = false;
-            int firstColumn = 10000;
-            int lastColumn = 0;
-            std::vector<Contact> contacts;
-        };
-        auto mapWord = [&](int cell) -> uint16_t {
-            return cell >= 0 && static_cast<size_t>(cell) < level_.wordLayer.size() ?
-                level_.wordLayer[static_cast<size_t>(cell)] : 0;
-        };
-        auto mapTile = [&](int cell) -> uint8_t {
-            return cell >= 0 && static_cast<size_t>(cell) < level_.tiles.size() ?
-                level_.tiles[static_cast<size_t>(cell)] : 1;
-        };
-        // 1000:5102 visits the records newest-first. Cascades appended during
-        // this pass start moving on the following tick.
-        for (size_t remaining = collapseQueue_.size(); remaining > 0; --remaining) {
-            const size_t slot = remaining - 1;
-            CollapseRecord record = collapseQueue_[slot];
-            int first = record.startOffsetBytes / 2;
-            int last = record.endOffsetBytes / 2;
-            int vx = static_cast<int8_t>(record.forwardPhase);
-            int vy = static_cast<int8_t>(record.reversePhase);
-            const int incomingX = vx, incomingY = vy;
-            bool moved = false;
-            auto cells = [&] {
-                std::vector<int> result;
-                for (int y = first / width; y <= last / width; ++y) {
-                    for (int x = first % width; x <= last % width; ++x) {
-                        const int cell = y * width + x;
-                        if (mapWord(cell) == record.flaggedWord) result.push_back(cell);
-                    }
-                }
-                return result;
-            };
-            auto scan = [&](int delta) {
-                Scan result;
-                for (int cell : cells()) {
-                    const int target = cell + delta;
-                    const uint16_t word = mapWord(target);
-                    if (mapTile(target) == 0 || word == record.flaggedWord) continue;
-                    result.blocked = true;
-                    result.firstColumn = std::min(result.firstColumn, target % width);
-                    result.lastColumn = std::max(result.lastColumn, target % width);
-                    if (word != 0 && std::none_of(result.contacts.begin(), result.contacts.end(),
-                        [&](const Contact& contact) { return contact.word == word; })) {
-                        result.contacts.push_back({target, word});
-                    }
-                }
-                return result;
-            };
-            auto seedAbove = [&] {
-                for (const auto& contact : scan(-width).contacts) {
-                    if (contact.word < kDamagedWordBit) {
-                        queueTileDamage(contact.cell % width, contact.cell / width, 0, 1, true);
-                    }
-                }
-            };
-            auto move = [&](int delta) {
-                Scan result = scan(delta);
-                moved = false;
-                if (result.blocked) return result;
-                auto source = cells();
-                if (delta > 0) std::reverse(source.begin(), source.end());
-                for (int cell : source) {
-                    const int target = cell + delta;
-                    level_.wordLayer[static_cast<size_t>(target)] = mapWord(cell);
-                    level_.wordLayer[static_cast<size_t>(cell)] = 0;
-                    level_.tiles[static_cast<size_t>(target)] = mapTile(cell);
-                    level_.tiles[static_cast<size_t>(cell)] = 0;
-                }
-                first += delta;
-                last += delta;
-                moved = true;
-                return result;
-            };
-            auto blend = [&](const Scan& result, int& velocity, bool reverse) {
-                int weight = record.affectedBytes;
-                int sum = velocity * weight;
-                std::vector<DamagePhaseLookup> targets;
-                for (const auto& contact : result.contacts) {
-                    if ((contact.word & kDamagedWordBit) == 0) {
-                        const size_t beforeDebris = debrisQueue_.size();
-                        const size_t beforeCollapse = collapseQueue_.size();
-                        queueTileDamage(contact.cell % width, contact.cell / width, 0, 0, true);
-                        if (beforeDebris == debrisQueue_.size() && beforeCollapse == collapseQueue_.size()) return;
-                    }
-                    auto match = resolveDamagePhase(static_cast<uint16_t>(contact.word | kDamagedWordBit), reverse);
-                    if (match.slotIndex == 0) return;
-                    const int contribution = match.debris ? 1 : collapseQueue_[match.slotIndex - 1].affectedBytes;
-                    weight += contribution;
-                    sum += contribution * static_cast<int8_t>(match.phase);
-                    targets.push_back(match);
-                }
-                if (weight == 0) return;
-                velocity = static_cast<int8_t>(sum / weight);
-                for (const auto& match : targets) {
-                    const size_t index = static_cast<size_t>(match.slotIndex - 1);
-                    if (match.debris) {
-                        if (reverse) debrisQueue_[index].velocityY = static_cast<int8_t>(velocity);
-                        else debrisQueue_[index].velocityX = static_cast<int8_t>(velocity);
-                    } else {
-                        if (reverse) collapseQueue_[index].reversePhase = static_cast<uint8_t>(velocity);
-                        else collapseQueue_[index].forwardPhase = static_cast<uint8_t>(velocity);
-                    }
-                }
-            };
-            auto integrate = [](int velocity, int8_t& fraction) {
-                int sum = fraction + velocity;
-                const bool overflow = sum > 127 || sum < -128;
-                if (sum > 127) sum -= 128;
-                else if (sum < -128) sum += 128;
-                fraction = static_cast<int8_t>(sum);
-                return overflow ? (velocity < 0 ? -1 : 1) : 0;
-            };
-            const int dx = integrate(vx, record.subX);
-            if (dx != 0) {
-                if ((record.flags & 0x80) == 0) seedAbove();
-                else record.flags &= 0x7f;
-                const auto result = move(dx);
-                if (!result.contacts.empty()) blend(result, vx, false);
-            }
-            const int dy = integrate(vy, record.subY);
-            if (dy != 0) {
-                if (dy > 0 && (record.flags & 0x80) == 0) {
-                    record.flags |= 0x80;
-                    seedAbove();
-                } else if (dy < 0) record.flags &= 0x7f;
-                const auto result = move(dy * width);
-                if (result.blocked && vy > 0) {
-                    vy = 0;
-                    cameraShakeTicks_ = 3;  // 1000:5388
-                    requestSoundOffset(static_cast<uint16_t>(kDebrisBounceSoundBase + randomRangeValue(0, 8)), 1);
-                }
-                if (!result.contacts.empty()) blend(result, vy, true);
-            }
-            const auto support = scan(width);
-            if (!support.blocked) {
-                if (vy < 123) vy += 4;
-                moved = true;
-                record.flags &= 0xfc;
-            } else {
-                const int left = first % width, right = last % width;
-                const int halfWidth = (right - left) / 2;
-                const int centerLeft = left + halfWidth, centerRight = right - halfWidth;
-                if (std::abs(vy) < 10 && std::abs(vx) < 30) {
-                    if (support.firstColumn > centerLeft && (record.flags & 2) == 0) {
-                        if (!scan(-1).blocked) { vx = -15; record.flags |= 1; }
-                        else record.flags &= 0xfc;
-                    } else if (support.lastColumn < centerRight && (record.flags & 1) == 0) {
-                        if (!scan(1).blocked) { vx = 15; record.flags |= 2; }
-                        else record.flags &= 0xfc;
-                    }
-                    if (support.firstColumn <= centerLeft && support.lastColumn >= centerRight) record.flags &= 0xfc;
-                }
-                if (vx > 0) --vx;
-                else if (vx < 0) ++vx;
-            }
-            if (moved) record.restTicks = 0;
-            ++record.restTicks;
-            const int magnitude = std::abs(vx) + std::abs(vy);
-            const bool fracture = std::abs(static_cast<int>(record.argMagnitude) - magnitude) > 63;
-            if (fracture) {
-                requestSoundOffset(0xea74, 3);
-                for (int cell : cells()) {
-                    level_.wordLayer[static_cast<size_t>(cell)] = nextCollapseFragmentWord_++;
-                    level_.tiles[static_cast<size_t>(cell)] = static_cast<uint8_t>(0x47 + (logicTick_ & 2));
-                    ++destroyed_;
-                    const auto x = static_cast<uint8_t>(incomingX + randomRangeValue(0, 20) - 10);
-                    const auto y = static_cast<uint8_t>(incomingY - randomRangeValue(0, 40));
-                    queueTileDamage(cell % width, cell / width, x, y, true);
-                }
-                // 1000:558C selects a cell backward from the bottom-right.
-                const int actorCell = last - randomRangeValue(0,
-                    static_cast<uint16_t>(last % width - first % width + 1));
-                spawnTransientActor((actorCell % width) * 8, (actorCell / width) * 8,
-                                    0, 74, 0x0b, 8, ActorAnimation::initialize(74, 79, 2, 1));
-            }
-            if (fracture || record.restTicks == 95) {
-                for (int cell : cells()) level_.wordLayer[static_cast<size_t>(cell)] &= ~kDamagedWordBit;
-                collapseQueue_.erase(collapseQueue_.begin() + static_cast<std::ptrdiff_t>(slot));
-                continue;
-            }
-            record.startOffsetBytes = static_cast<uint16_t>(first * 2);
-            record.endOffsetBytes = static_cast<uint16_t>(last * 2);
-            record.x = first % width;
-            record.y = first / width;
-            record.forwardPhase = static_cast<uint8_t>(vx);
-            record.reversePhase = static_cast<uint8_t>(vy);
-            record.argMagnitude = static_cast<uint16_t>(magnitude);
-            collapseQueue_[slot] = record;
-        }
-    }
-
-    void updateFlashes() {
-        for (Flash& f : flashes_) --f.timer;
-        flashes_.erase(std::remove_if(flashes_.begin(), flashes_.end(),
-                                      [](const Flash& f) { return f.timer <= 0; }),
-                       flashes_.end());
-        for (ExplosionEffect& e : explosionEffects_) --e.timer;
-        explosionEffects_.erase(std::remove_if(explosionEffects_.begin(), explosionEffects_.end(),
-                                               [](const ExplosionEffect& e) { return e.timer <= 0; }),
-                                explosionEffects_.end());
-        updateFlameRecords();
-        updateDebrisRecords();
-        updateCollapseRecords();
-    }
-
-    int destructionPercent() const {
-        if (level_.startingDestructibleTiles == 0) return 100;
-        return std::min(100, destroyed_ * 100 / level_.startingDestructibleTiles);
-    }
-
-    bool isComplete() const {
-        return collected_ >= level_.requiredBonus &&
-               destructionPercent() >= static_cast<int>(level_.requiredDestruction);
-    }
+    bool isComplete() const { return gameplayReplay_.isComplete(); }
 
     void adjustGameplayViewWidth(int delta) {
         gameplayViewWidth_ = std::clamp(gameplayViewWidth_ + delta, 160, kScreenW);
     }
 
     void buildBackdropBuffer() {
-        lezac::core::TurboRandom random(randomSeed_);
-        presentation_.buildBackdropBuffer(playerCount_, random);
-        randomSeed_ = random.seed();
+        lezac::core::TurboRandom random(gameplayReplay_.fixture().randomSeed_);
+        presentation_.buildBackdropBuffer(gameplayReplay_.fixture().playerCount_, random);
+        gameplayReplay_.fixture().randomSeed_ = random.seed();
     }
 
     std::vector<SharedActorEntry> prepareRenderState() {
@@ -27058,26 +24024,26 @@ private:
     }
 
     lezac::rendering::WorldRenderView worldRenderView(const std::vector<SharedActorEntry>& order) const {
-        return {level_, levelIndex_, playerCount_,
-                {{{player_, playerDead_, lives_, state2Visual_, state2Effect_},
-                  {player2_, player2Dead_, lives2_, state2Visual2_, state2Effect2_}}},
-                bombs_, monsters_, bonusDrops_, flashes_, launchPadMarkers_, transientActors_, order,
-                gameplayViewWidth_, ui_.snapshot().showBackground, cameraShakeOffset_,
-                state2VisualCursorPreview_, state2VisualRowPreview_};
+        return {gameplayReplay_.fixture().level_, gameplayReplay_.fixture().levelIndex_, gameplayReplay_.fixture().playerCount_,
+                {{{gameplayReplay_.fixture().player_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().state2Visual_, gameplayReplay_.fixture().state2Effect_},
+                  {gameplayReplay_.fixture().player2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().state2Visual2_, gameplayReplay_.fixture().state2Effect2_}}},
+                gameplayReplay_.fixture().bombs_, gameplayReplay_.fixture().monsters_, gameplayReplay_.fixture().bonusDrops_, gameplayReplay_.fixture().flashes_, gameplayReplay_.fixture().launchPadMarkers_, gameplayReplay_.fixture().transientActors_, order,
+                gameplayViewWidth_, ui_.snapshot().showBackground, gameplayReplay_.fixture().cameraShakeOffset_,
+                gameplayReplay_.fixture().state2VisualCursorPreview_, gameplayReplay_.fixture().state2VisualRowPreview_};
     }
 
     lezac::rendering::HudView hudView() const {
-        return {playerCount_,
-                {{{energy_, score_, lives_, playerDead_, bombInventory_},
-                  {energy2_, score2_, lives2_, player2Dead_, bombInventory2_}}},
-                level_.objectiveTile, level_.requiredBonus, level_.requiredDestruction,
-                collected_, presentation_.hudDestructionPercent(), isComplete(), levelFlow_.outro().active,
+        return {gameplayReplay_.fixture().playerCount_,
+                {{{gameplayReplay_.fixture().energy_, gameplayReplay_.fixture().score_, gameplayReplay_.fixture().lives_, gameplayReplay_.fixture().playerDead_, gameplayReplay_.fixture().bombInventory_},
+                  {gameplayReplay_.fixture().energy2_, gameplayReplay_.fixture().score2_, gameplayReplay_.fixture().lives2_, gameplayReplay_.fixture().player2Dead_, gameplayReplay_.fixture().bombInventory2_}}},
+                gameplayReplay_.fixture().level_.objectiveTile, gameplayReplay_.fixture().level_.requiredBonus, gameplayReplay_.fixture().level_.requiredDestruction,
+                gameplayReplay_.fixture().collected_, presentation_.hudDestructionPercent(), isComplete(), levelFlow_.outro().active,
                 presentation_.hudScores(), presentation_.hudColumnReady()};
     }
 
     lezac::rendering::MenuView menuRenderView() const {
         return {ui_.snapshot().page, ui_.snapshot().italian, recordStore_.records(), recordStore_.pending().player, recordStore_.pending().score,
-                recordStore_.pending().level, recordStore_.pending().name, playerCount_, {{score_, score2_}}};
+                recordStore_.pending().level, recordStore_.pending().name, gameplayReplay_.fixture().playerCount_, {{gameplayReplay_.fixture().score_, gameplayReplay_.fixture().score2_}}};
     }
 
     void drawWorldView(const Player& cameraPlayer, int viewX, int viewY, int viewW, int viewH) {
@@ -27107,15 +24073,15 @@ private:
 
     std::string objectiveHudText() const {
         return progressHudText() +
-               " S" + std::to_string(score_);
+               " S" + std::to_string(gameplayReplay_.fixture().score_);
     }
 
     std::string progressHudText() const {
-        return "L" + std::to_string(levelIndex_ + 1) +
-               " B" + std::to_string(collected_) + "/" +
-               std::to_string(level_.requiredBonus) +
+        return "L" + std::to_string(gameplayReplay_.fixture().levelIndex_ + 1) +
+               " B" + std::to_string(gameplayReplay_.fixture().collected_) + "/" +
+               std::to_string(gameplayReplay_.fixture().level_.requiredBonus) +
                " D" + std::to_string(destructionPercent()) + "/" +
-               std::to_string(level_.requiredDestruction);
+               std::to_string(gameplayReplay_.fixture().level_.requiredDestruction);
     }
 
     std::string playerHudText(int index, int energy, int lives, bool dead,

@@ -29,6 +29,8 @@ struct AfterActorPassAction {
     std::vector<TransientActor> appendActors;
 };
 
+enum class CompletionAction { None, UpdateOutro, NextLevel, EndRun };
+
 class GameSession {
 public:
     GameSession(const AssetCatalog& assets, sound::SoundEngine& sound, core::TurboRandom& random);
@@ -45,8 +47,19 @@ public:
     void fireAtPlayer(uint8_t index, int x, int y);
     void setFireLatch(uint8_t index, bool held);
     void startRun(int playerCount);
+    void prepareNewGame(int playerCount) { playerCount_ = playerCount; resetReserveLives(); }
+    void clearScores() { clearRunScores(); }
     void awardScore(uint8_t player, uint32_t amount) { addScore(player, amount); }
     void notifyReentryBoundary(const char* phase) const;
+    using DecodeLevelPlane = std::function<std::vector<uint8_t>(const std::vector<uint8_t>&, size_t)>;
+    void beginLevelSelection(int index, bool fromMenu, const DecodeLevelPlane& decodePlane);
+    void finishLevelSetup(int index);
+    void resetReserveLives() { lives_ = lives2_ = 3; }
+    CompletionAction advanceCompletionState(bool interactive);
+    std::vector<SharedActorEntry> renderActorOrder();
+    int destructionPercentage() const { return destructionPercent(); }
+    bool complete() const { return isComplete(); }
+    bool finalLevel() const { return isFinalLevel(); }
 
     // Typed replay operations execute the same private helpers as the live tick.
     // Slot targets and detached values never expose mutable session references.

@@ -1,18 +1,12 @@
 #include "gameplay/player_roster.hpp"
-#include "core/fixed_point.hpp"
+#include "gameplay/motion_math.hpp"
 #include "core/progress.hpp"
 #include <cmath>
 
 namespace lezac::gameplay {
 using namespace lezac::core;
-namespace {
-int16_t clampI16(int value) { return static_cast<int16_t>(std::clamp(value, -32768, 32767)); }
-void integrateAxis8_8(int& pos, uint8_t& frac, int16_t velocity) {
-    core::Fixed8_8Axis axis{pos, frac};
-    core::integrateFixed8_8(axis, velocity);
-    pos = axis.position; frac = axis.fraction;
-}
-}
+using detail::clampI16;
+using detail::integrateAxis8_8;
 
 State2VisualCursor& PlayerRoster::state2VisualCursorFor(uint8_t startMarker) {
         return startMarker == 2 && state_.playerCount_ > 1 ? state_.state2Visual2_

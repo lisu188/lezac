@@ -67,12 +67,41 @@ target_link_libraries(lezac_ui PUBLIC lezac_resources)
 add_library(lezac_ui_diagnostics STATIC src/diagnostics/ui_diagnostics.cpp)
 target_link_libraries(lezac_ui_diagnostics PUBLIC lezac_ui)
 
+add_library(lezac_gameplay STATIC
+    src/gameplay/actor_system.cpp
+    src/gameplay/game_session.cpp
+    src/gameplay/game_session_bombs.cpp
+    src/gameplay/game_session_boss.cpp
+    src/gameplay/game_session_monsters.cpp
+    src/gameplay/game_session_owner_operations.cpp
+    src/gameplay/game_session_players.cpp
+    src/gameplay/game_session_replay.cpp
+    src/gameplay/game_session_rewards.cpp
+    src/gameplay/game_session_scheduler.cpp
+    src/gameplay/game_session_terrain.cpp
+    src/gameplay/level_world.cpp
+    src/gameplay/player_roster.cpp
+    src/gameplay/terrain_effects.cpp
+)
+target_include_directories(lezac_gameplay PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(lezac_gameplay PUBLIC lezac_core lezac_resources lezac_sound)
+
+add_library(lezac_gameplay_diagnostics STATIC
+    src/diagnostics/gameplay/gameplay_replay.cpp
+    src/diagnostics/gameplay/gameplay_replay_1.cpp
+    src/diagnostics/gameplay/gameplay_replay_2.cpp
+    src/diagnostics/gameplay/gameplay_replay_3.cpp
+    src/diagnostics/gameplay/gameplay_replay_4.cpp
+)
+target_include_directories(lezac_gameplay_diagnostics PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(lezac_gameplay_diagnostics PUBLIC lezac_gameplay)
+
 add_executable(lezac_cpp src/main.cpp src/app/app.cpp src/app/sdl_runtime.cpp src/app/input_mapper.cpp
     src/diagnostics/frame_inspector.cpp)
 target_compile_definitions(lezac_cpp PRIVATE SDL_MAIN_HANDLED)
 target_include_directories(lezac_cpp PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_directories(lezac_cpp PRIVATE ${SDL2_LIBRARY_DIRS})
-target_link_libraries(lezac_cpp PRIVATE lezac_core lezac_resources lezac_sound lezac_sound_diagnostics lezac_rendering lezac_ui lezac_ui_diagnostics ${SDL2_LIBRARIES})
+target_link_libraries(lezac_cpp PRIVATE lezac_gameplay lezac_gameplay_diagnostics lezac_core lezac_resources lezac_sound lezac_sound_diagnostics lezac_rendering lezac_ui lezac_ui_diagnostics ${SDL2_LIBRARIES})
 target_compile_options(lezac_cpp PRIVATE ${SDL2_CFLAGS_OTHER})
 
 if(WIN32)
@@ -171,6 +200,14 @@ if(WIN32 AND LEZAC_SDL2_RUNTIME_DLL)
 endif()
 
 include(CTest)
+
+if(BUILD_TESTING)
+    add_executable(lezac_gameplay_api_test tests/gameplay_api_test.cpp)
+    target_link_libraries(lezac_gameplay_api_test PRIVATE lezac_gameplay_diagnostics)
+    add_test(NAME gameplay_owned_fixture_api COMMAND lezac_gameplay_api_test)
+    set_tests_properties(gameplay_owned_fixture_api PROPERTIES
+        ENVIRONMENT "SDL_VIDEODRIVER=dummy;SDL_AUDIODRIVER=dummy")
+endif()
 
 if(BUILD_TESTING)
     add_executable(lezac_ui_components_test tests/ui/ui_components_test.cpp)

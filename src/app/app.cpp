@@ -787,6 +787,7 @@ struct Player {
     uint8_t idleTicks = 0;
     uint8_t spriteIndex = 0;
     uint16_t dropTicks = 0;
+    bool singlePixelSprite = false;
 };
 
 struct SpawnerState {
@@ -2963,7 +2964,7 @@ public:
             if (boundaryIndex >= pendingBoundaries.size()) fail("unexpected lifecycle boundary " + std::string(phase));
             const auto& f = pendingBoundaries[boundaryIndex++];
             if (f.at("stage") != phase || number(f.at("frame")) != (logicTick_ & 0xffff) ||
-                number(f.at("counter")) != noActivePlayerTicks_ || f.at("gate") != "1") fail("lifecycle boundary " + std::string(phase));
+                number(f.at("counter")) != noActivePlayerTicks_ || number(f.at("gate")) != static_cast<int>(reentryGate_)) fail("lifecycle boundary " + std::string(phase));
             const auto p = bytes(f.at("p1"), 38), flags = bytes(f.at("flags"), 9), visual = bytes(f.at("visuals"), 16);
             const auto rng = bytes(f.at("rng"), 4);
             if (randomSeed_ != (le16(rng, 0) | (static_cast<uint32_t>(le16(rng, 2)) << 16))) fail("boundary RNG " + std::string(phase));
@@ -12023,155 +12024,55 @@ public:
     }
 
     void debugOriginalState2ReturnModel() {
-        struct ReturnModel {
-            struct PlayerSlot {
-                uint16_t countdown = kDeathStateTicks;
-                uint8_t status = 2;
-                uint8_t actorState = 2;
-                uint8_t energy = 100;
-                bool keyByte = false;
-                bool otherKeyByte = true;
-            };
-
-            std::array<PlayerSlot, 2> players{};
-            uint8_t activePlayers = 2;
-            uint8_t fallbackCounter = 0;
-
-            void tick(int player) {
-                --players.at(player).countdown;
-            }
-
-            bool returnActive(int player, bool gate, bool effectReady,
-                              bool placementReady) {
-                PlayerSlot& slot = players.at(player);
-                if (slot.status != 2 || !gate ||
-                    !effectReady || !placementReady) {
-                    return false;
+        load();
+        for (int marker : {1, 2}) {
+            for (bool gate : {false, true}) {
+                playerCount_ = 2; lives_ = lives2_ = 1; resetLevel(0); menu_ = false;
+                const auto originalTiles = level_.tiles;
+                if (!gate) level_.tiles.assign(level_.tiles.size(), 0);
+                auto& player = marker == 1 ? player_ : player2_;
+                auto& energy = marker == 1 ? energy_ : energy2_;
+                auto& lives = marker == 1 ? lives_ : lives2_;
+                auto& dead = marker == 1 ? playerDead_ : player2Dead_;
+                auto& timer = marker == 1 ? reentryTimer_ : reentryTimer2_;
+                auto& cooldown = marker == 1 ? damageCooldown_ : damageCooldown2_;
+                auto& supply = marker == 1 ? bombInventory_ : bombInventory2_;
+                supply.counts = {1, 2, 0, 7}; supply.selected = BombType::Super;
+                beginPlayerDeath(player, energy, lives, dead, timer, static_cast<uint8_t>(marker));
+                if (reentryGate_ != gate || timer != 60) throw std::runtime_error("death gate latch");
+                if (gate) level_.tiles.assign(level_.tiles.size(), 0);
+                else level_.tiles = originalTiles;
+                if (canReenterLevel() == gate) throw std::runtime_error("gate mutation stimulus");
+                for (int tick = 0; tick < 59; ++tick) {
+                    updateReentry(player, energy, lives, dead, timer, static_cast<uint8_t>(marker), false);
                 }
-                slot.status = 1;
-                slot.actorState = player == 0 ? 0 : 1;
-                slot.energy = 100;
-                slot.keyByte = false;
-                slot.otherKeyByte = false;
-                return true;
-            }
-
-            void markOut(int player) {
-                PlayerSlot& slot = players.at(player);
-                if (slot.status != 0 && activePlayers > 0) --activePlayers;
-                slot.status = 0;
-            }
-
-            bool fallbackNoActivePlayers() {
-                for (const PlayerSlot& slot : players) {
-                    if (slot.status == 1) {
-                        fallbackCounter = 0;
-                        return false;
-                    }
+                tryReenterPlayer(player, energy, lives, dead, timer, cooldown, static_cast<uint8_t>(marker));
+                if (!dead || timer != 1 || lives != 1 || supply.counts != std::array<int, 4>{1, 2, 0, 7}) {
+                    throw std::runtime_error("early fire or inventory restoration");
                 }
-                ++fallbackCounter;
-                if (fallbackCounter != kSharedReentryTicks) return false;
-                bool promoted = false;
-                for (PlayerSlot& slot : players) {
-                    if (slot.status == 2) {
-                        slot.status = 1;
-                        promoted = true;
-                    }
+                updateReentry(player, energy, lives, dead, timer, static_cast<uint8_t>(marker), false);
+                if (lives != 0 || supply.counts != std::array<int, 4>{100, 10, 2, 7} ||
+                    supply.selected != BombType::Super || player.singlePixelSprite == gate) {
+                    throw std::runtime_error("expiry inventory/descriptor mismatch");
                 }
-                return promoted;
+                reentryFire1_ = reentryFire2_ = true;
+                tryReenterPlayer(player, energy, lives, dead, timer, cooldown, static_cast<uint8_t>(marker));
+                if (dead == gate || reentryGate_ != gate || (gate && (reentryFire1_ || reentryFire2_))) {
+                    throw std::runtime_error("latched gate changed during waiting");
+                }
             }
-        };
-
-        ReturnModel timerModel;
-        for (int i = 0; i < 59; ++i) timerModel.tick(0);
-        uint16_t after59 = timerModel.players[0].countdown;
-        timerModel.tick(0);
-        uint16_t after60 = timerModel.players[0].countdown;
-
-        ReturnModel gateModel;
-        gateModel.players[0].countdown = 0;
-        bool gate0Blocked = !gateModel.returnActive(0, false, true, true);
-        bool effectWaitBlocked = !gateModel.returnActive(0, true, false, true);
-        bool placementBlocked = !gateModel.returnActive(0, true, true, false);
-        bool gate1Restored = gateModel.returnActive(0, true, true, true);
-
-        ReturnModel playerModel;
-        playerModel.players[0].countdown = 0;
-        playerModel.players[1].countdown = 0;
-        bool p1Restored = playerModel.returnActive(0, true, true, true);
-        bool p2Restored = playerModel.returnActive(1, true, true, true);
-
-        ReturnModel outModel;
-        outModel.markOut(1);
-        uint8_t activeAfterP2Out = outModel.activePlayers;
-        outModel.markOut(0);
-
-        ReturnModel fallbackBlockedModel;
-        fallbackBlockedModel.activePlayers = 1;
-        fallbackBlockedModel.players[1].status = 1;
-        fallbackBlockedModel.fallbackCounter = 229;
-        bool fallbackBlocked = !fallbackBlockedModel.fallbackNoActivePlayers();
-
-        ReturnModel fallbackModel;
-        fallbackModel.activePlayers = 1;
-        fallbackModel.players[0].status = 2;
-        fallbackModel.players[1].status = 0;
-        fallbackModel.players[0].actorState = 2;
-        fallbackModel.players[0].energy = 77;
-        for (int i = 0; i < 229; ++i) {
-            if (fallbackModel.fallbackNoActivePlayers()) throw std::runtime_error("early shared fallback promotion");
         }
-        bool fallbackPromoted = fallbackModel.fallbackNoActivePlayers();
-
-        if (after59 != 1 || after60 != 0 || !gate0Blocked ||
-            !effectWaitBlocked || !placementBlocked || !gate1Restored ||
-            !p1Restored || !p2Restored || playerModel.players[0].status != 1 ||
-            playerModel.players[1].status != 1 ||
-            playerModel.players[0].actorState != 0 ||
-            playerModel.players[1].actorState != 1 ||
-            playerModel.players[0].energy != 100 ||
-            playerModel.players[1].energy != 100 ||
-            playerModel.players[0].keyByte || playerModel.players[0].otherKeyByte ||
-            playerModel.players[1].keyByte || playerModel.players[1].otherKeyByte ||
-            outModel.players[1].status != 0 || activeAfterP2Out != 1 ||
-            outModel.activePlayers != 0 || !fallbackBlocked ||
-            !fallbackPromoted || fallbackModel.fallbackCounter != 230 || fallbackBlockedModel.fallbackCounter != 0 ||
-            fallbackModel.players[0].status != 1 ||
-            fallbackModel.players[0].actorState != 2 ||
-            fallbackModel.players[0].energy != 77 ||
-            fallbackModel.players[1].status != 0) {
-            throw std::runtime_error("original state-2 return model mismatch");
-        }
-
-        std::cout << "original_state2_return_model=ok timer_start=60"
-                  << " timer_after_59=" << after59
-                  << " timer_after_60=" << after60
-                  << " gate0_blocked=1 effect_wait_blocked=1"
-                  << " placement_blocked=1 gate1_restored=1"
-                  << " p1_status=" << static_cast<int>(playerModel.players[0].status)
-                  << " p1_actor_state="
-                  << static_cast<int>(playerModel.players[0].actorState)
-                  << " p1_energy=" << static_cast<int>(playerModel.players[0].energy)
-                  << " p1_cleared=1"
-                  << " p2_status=" << static_cast<int>(playerModel.players[1].status)
-                  << " p2_actor_state="
-                  << static_cast<int>(playerModel.players[1].actorState)
-                  << " p2_energy=" << static_cast<int>(playerModel.players[1].energy)
-                  << " p2_cleared=1"
-                  << " zero_life_status=" << static_cast<int>(outModel.players[1].status)
-                  << " active_players_after_p2_out="
-                  << static_cast<int>(activeAfterP2Out)
-                  << " active_players_after_both_out="
-                  << static_cast<int>(outModel.activePlayers)
-                  << " fallback_blocked_with_active=1"
-                  << " fallback_counter="
-                  << static_cast<int>(fallbackModel.fallbackCounter)
-                  << " fallback_promoted_status="
-                  << static_cast<int>(fallbackModel.players[0].status)
-                  << " fallback_actor_state_preserved="
-                  << static_cast<int>(fallbackModel.players[0].actorState)
-                  << " fallback_energy_preserved="
-                  << static_cast<int>(fallbackModel.players[0].energy) << '\n';
+        lives_ = lives2_ = 1; resetLevel(0); menu_ = false;
+        const auto originalTiles = level_.tiles;
+        level_.tiles.assign(level_.tiles.size(), 0);
+        beginPlayerDeath(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
+        if (reentryGate_) throw std::runtime_error("P1 closed gate");
+        level_.tiles = originalTiles;
+        beginPlayerDeath(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2);
+        if (!reentryGate_) throw std::runtime_error("P2 death did not update shared gate");
+        std::cout << "original_state2_return_model=ok cases=4 production=1"
+                  << " gate_latched_at_death=1 shared_gate=1 timer_start=60"
+                  << " early_fire_blocked=1 reserve_zero_playable=1\n";
     }
 
     void debugOriginalState2AnimationInit() {
@@ -16798,86 +16699,162 @@ public:
                   << '\n';
     }
 
-    void debugOriginalState2EffectPlacement() {
-        constexpr uint16_t kEffectBase = 0xc21e;
-        constexpr int kMapWidth = 60;
-        constexpr int kMapHeight = 10;
-        constexpr uint8_t kSolidTile = 0x01;
-        constexpr uint8_t kPlacementMarker = 0x4c;
-
-        struct EffectEntry {
-            uint16_t x = 24;
-            uint16_t y = 40;
+    void debugState2PrepassOriginal(const std::string& fixture) {
+        load();
+        std::ifstream input(fixture);
+        auto fail = [](const std::string& message) {
+            throw std::runtime_error("state2-prepass: " + message);
         };
-
-        struct PlacementResult {
-            uint16_t yAfter = 0;
-            int xTile = 0;
-            int yTile = 0;
-            int mapOffset = 0;
-            bool descended = false;
-            bool blocked = false;
-            bool restored = false;
+        if (!input) fail("cannot open fixture");
+        auto number = [&](const std::string& text) {
+            if (text.empty() || text.find_first_not_of("0123456789") != std::string::npos) fail("invalid integer");
+            const auto value = std::stoul(text);
+            if (value > 65535) fail("integer overflow");
+            return static_cast<int>(value);
         };
-
-        auto slotAddress = [=](int slot) {
-            return static_cast<uint16_t>(kEffectBase + 8 * slot);
-        };
-        auto blocksPlacement = [=](uint8_t tile) {
-            return tile == kSolidTile || tile == kPlacementMarker;
-        };
-        auto runPlacement = [&](EffectEntry entry,
-                                const std::array<uint8_t, kMapWidth * kMapHeight>&
-                                    map,
-                                bool actionGate) {
-            PlacementResult result;
-            result.xTile = entry.x >> 3;
-            result.yTile = ((entry.y + 7) >> 3) + 1;
-            result.mapOffset = result.yTile * kMapWidth + result.xTile;
-            bool baseBlocked = blocksPlacement(map.at(result.mapOffset));
-            bool rightBlocked = blocksPlacement(map.at(result.mapOffset + 1));
-            result.blocked = baseBlocked || rightBlocked;
-            if (!result.blocked && entry.y > 0x18) {
-                --entry.y;
-                result.descended = true;
-            }
-            result.yAfter = entry.y;
-            result.restored = actionGate && !result.blocked;
+        auto bytes = [&](const std::string& text, size_t size) {
+            if (text.size() != size * 2 || text.find_first_not_of("0123456789abcdef") != std::string::npos) fail("invalid bytes");
+            std::vector<uint8_t> result(size);
+            for (size_t i = 0; i < size; ++i) result[i] = static_cast<uint8_t>(std::stoul(text.substr(i * 2, 2), nullptr, 16));
             return result;
         };
-
-        std::array<uint8_t, kMapWidth * kMapHeight> openMap{};
-        PlacementResult open = runPlacement({24, 40}, openMap, true);
-        PlacementResult floor = runPlacement({24, 24}, openMap, true);
-        std::array<uint8_t, kMapWidth * kMapHeight> solidMap{};
-        solidMap.at(open.mapOffset) = kSolidTile;
-        PlacementResult solid = runPlacement({24, 40}, solidMap, true);
-        std::array<uint8_t, kMapWidth * kMapHeight> markerMap{};
-        markerMap.at(open.mapOffset) = kPlacementMarker;
-        PlacementResult marker = runPlacement({24, 40}, markerMap, true);
-        std::array<uint8_t, kMapWidth * kMapHeight> rightSolidMap{};
-        rightSolidMap.at(open.mapOffset + 1) = kSolidTile;
-        PlacementResult rightSolid =
-            runPlacement({24, 40}, rightSolidMap, true);
-        PlacementResult gate0 = runPlacement({24, 40}, openMap, false);
-
-        if (slotAddress(0) != 0xc21e || slotAddress(1) != 0xc226 ||
-            slotAddress(2) != 0xc22e || open.xTile != 3 || open.yTile != 6 ||
-            open.mapOffset != 363 || !open.descended || open.yAfter != 39 ||
-            floor.descended || floor.yAfter != 24 || !solid.blocked ||
-            solid.descended || !marker.blocked || marker.descended ||
-            !rightSolid.blocked || rightSolid.descended || !gate0.descended ||
-            gate0.restored) {
-            throw std::runtime_error("original state-2 effect placement mismatch");
+        auto putWord = [](std::vector<uint8_t>& raw, size_t at, uint16_t value) {
+            raw[at] = static_cast<uint8_t>(value); raw[at + 1] = static_cast<uint8_t>(value >> 8);
+        };
+        auto animation = [](const std::vector<uint8_t>& raw, size_t at) {
+            return ActorAnimation{raw[at], raw[at + 1], raw[at + 2], raw[at + 3], raw[at + 4], raw[at + 5], static_cast<int8_t>(raw[at + 6])};
+        };
+        int stage = 0, cases = 0, width = 0, height = 0;
+        bool complete = false;
+        std::vector<uint8_t> descriptors;
+        std::set<std::string> names;
+        std::string line;
+        while (std::getline(input, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty()) continue;
+            if (complete) fail("record after completion");
+            std::istringstream row(line); std::string tag, token; row >> tag;
+            std::map<std::string, std::string> f;
+            while (row >> token) {
+                const auto eq = token.find('=');
+                if (eq == std::string::npos || !f.emplace(token.substr(0, eq), token.substr(eq + 1)).second) fail("invalid fields");
+            }
+            if (tag == "capture" && stage == 0) {
+                if (f.size() != 7 || f.at("schema") != "state2_prepass_v1" || f.at("level") != "1" ||
+                    f.at("seeded") != "1" || f.at("natural") != "0" || f.at("hooks") != "7c3d,7ebb" || f.at("cases") != "54" ||
+                    f.at("exe_sha256") != "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec") fail("capture provenance");
+                stage = 1;
+            } else if (tag == "layout" && stage == 1) {
+                if (f.size() != 3) fail("layout fields");
+                width = number(f.at("width")); height = number(f.at("height"));
+                descriptors = bytes(f.at("descriptors"), 92 * 4);
+                resetLevel(0);
+                if (width != level_.width || height != level_.height) fail("map dimensions");
+                stage = 2;
+            } else if (tag == "case" && stage == 2) {
+                if (f.size() != 20 || !names.insert(f.at("name")).second || cases >= 54) fail("case fields/count");
+                const int marker = number(f.at("player"));
+                if (marker != 1 + cases / 27 || f.at("name").rfind("p" + std::to_string(marker) + "_", 0) != 0) fail("player order");
+                const auto before = bytes(f.at("before"), 38), visual = bytes(f.at("visual"), 8);
+                const auto expected = bytes(f.at("after"), 38), expectedVisual = bytes(f.at("visual_after"), 8);
+                const auto inventory = bytes(f.at("inventory"), 4), expectedInventory = bytes(f.at("inventory_after"), 4);
+                const auto states = bytes(f.at("states"), 2), keys = bytes(f.at("keys"), 2), regs = bytes(f.at("regs"), 12);
+                const int timer = number(f.at("timer")), fire = number(f.at("fire")), gate = number(f.at("gate"));
+                const int left = number(f.at("left")), right = number(f.at("right")), y = number(f.at("y"));
+                const bool leftSolid = left >= 1 && left <= 76, rightSolid = right >= 1 && right <= 76;
+                const bool endsInMap = marker == 2 && timer != 2 && !(fire && gate) && (timer == 1 || (!leftSolid && !rightSolid));
+                if (fire > 1 || gate > 1 || left > 255 || right > 255 || before[1] != marker - 1 || before[21] != 2 ||
+                    le16(before, 16) != timer || le16(visual, 0) != 24 || le16(visual, 2) != y ||
+                    le16(regs, 0) != 0x01a2 || le16(regs, 2) != 0x0c44 || le16(regs, 6) != 0x18b3 ||
+                    le16(regs, 8) != 0x3fe4 || le16(regs, 10) != 0x3ffe ||
+                    le16(regs, 4) != (endsInMap ? 0x3ea9 : 0x0c44)) fail(f.at("name") + " seed/register mismatch");
+                playerCount_ = 2; lives_ = lives2_ = 1; resetLevel(0); menu_ = false;
+                level_.tiles.assign(level_.tiles.size(), 0);
+                const uint16_t cell = static_cast<uint16_t>(((static_cast<uint16_t>(y + 7) >> 3) + 1) * width + 3);
+                if (cell + 1 >= level_.tiles.size()) fail("probe outside object plane");
+                level_.tiles[cell] = static_cast<uint8_t>(left); level_.tiles[cell + 1] = static_cast<uint8_t>(right);
+                auto& player = marker == 1 ? player_ : player2_;
+                auto& energy = marker == 1 ? energy_ : energy2_;
+                auto& countdown = marker == 1 ? reentryTimer_ : reentryTimer2_;
+                auto& supply = marker == 1 ? bombInventory_ : bombInventory2_;
+                player.x = 24; player.y = static_cast<float>(y);
+                player.vx8 = static_cast<int16_t>(le16(before, 6)); player.vy8 = static_cast<int16_t>(le16(before, 8));
+                player.fracX = before[10]; player.fracY = before[12]; player.idleTicks = before[2]; player.dropTicks = le16(before, 14);
+                player.animation = animation(before, 22); player.animationBackup = animation(before, 29);
+                bool descriptorFound = false;
+                for (size_t i = 1; i < 92; ++i) {
+                    if (std::equal(visual.begin() + 4, visual.end(), descriptors.begin() + i * 4)) {
+                        player.spriteIndex = static_cast<uint8_t>(i - 1); descriptorFound = true; break;
+                    }
+                }
+                if (!descriptorFound) fail("seed descriptor");
+                energy = before[36]; countdown = timer;
+                playerDead_ = player2Dead_ = true;
+                (marker == 1 ? lives2_ : lives_) = -1;
+                const bool dying = timer == 1 || timer == 2;
+                pendingLifeLossFor(static_cast<uint8_t>(marker)) = dying;
+                deathStateTimerFor(static_cast<uint8_t>(marker)) = dying ? timer : 0;
+                auto& cursor = state2VisualCursorFor(static_cast<uint8_t>(marker));
+                cursor = {before[22], before[23], before[24], before[25], before[26], before[27], static_cast<int8_t>(before[28]), true};
+                for (size_t i = 0; i < 4; ++i) supply.counts[i] = inventory[i];
+                reentryGate_ = gate != 0;
+                FrameControls controls; controls.p1Reenter = controls.p2Reenter = fire != 0;
+                updatePlayerReentryPrepass(controls);
+                auto actual = before;
+                actual[2] = player.idleTicks;
+                putWord(actual, 6, player.vx8); putWord(actual, 8, player.vy8);
+                putWord(actual, 10, player.fracX); putWord(actual, 12, player.fracY);
+                putWord(actual, 14, player.dropTicks); putWord(actual, 16, static_cast<uint16_t>(countdown));
+                const bool dead = marker == 1 ? playerDead_ : player2Dead_;
+                actual[21] = dead ? 2 : static_cast<uint8_t>(marker - 1); actual[36] = static_cast<uint8_t>(energy);
+                const auto activeAnimation = dead ? ActorAnimation{cursor.current, cursor.first, cursor.last, cursor.counter, cursor.delay, cursor.mode, cursor.step}.packed() : player.animation.packed();
+                std::copy(activeAnimation.begin(), activeAnimation.end(), actual.begin() + 22);
+                const auto backup = player.animationBackup.packed(); std::copy(backup.begin(), backup.end(), actual.begin() + 29);
+                auto actualVisual = visual;
+                putWord(actualVisual, 0, static_cast<uint16_t>(player.x)); putWord(actualVisual, 2, static_cast<uint16_t>(player.y));
+                std::copy_n(descriptors.begin() + (player.spriteIndex + 1) * 4, 4, actualVisual.begin() + 4);
+                if (player.singlePixelSprite) actualVisual[4] = actualVisual[5] = 1;
+                if (actual != expected || actualVisual != expectedVisual ||
+                    !std::equal(supply.counts.begin(), supply.counts.end(), expectedInventory.begin()) ||
+                    states[0] != originalPlayerState(1) || states[1] != originalPlayerState(2) ||
+                    number(f.at("lives")) != (marker == 1 ? lives_ : lives2_) ||
+                    number(f.at("gate_after")) != static_cast<int>(reentryGate_) || number(f.at("counter")) != noActivePlayerTicks_ ||
+                    keys[0] != static_cast<int>(reentryFire1_) || keys[1] != static_cast<int>(reentryFire2_)) fail(f.at("name") + " production state mismatch");
+                ++cases;
+            } else if (tag == "complete" && stage == 2) {
+                if (f.size() != 2 || f.at("cases") != "54" || f.at("whole_game_parity") != "0" || cases != 54) fail("incomplete capture");
+                complete = true;
+            } else fail("unexpected record");
         }
+        if (!complete) fail("missing completion");
+        std::cout << "state2_prepass_original=ok cases=" << cases
+                  << " players=2 production_prepass=1 seeded=1 natural=0 whole_game_parity=0\n";
+    }
 
-        std::cout << "original_state2_effect_placement=ok base=0xc21e"
-                  << " slot0=0xc21e slot1=0xc226 slot2=0xc22e"
-                  << " x_tile=" << open.xTile << " y_tile=" << open.yTile
-                  << " map_offset=" << open.mapOffset
-                  << " open_descended=1 y_after=" << open.yAfter
-                  << " floor_stops=1 solid_blocked=1 marker_blocked=1"
-                  << " right_solid_blocked=1 gate_after_descent=1\n";
+    void debugOriginalState2EffectPlacement() {
+        load(); resetLevel(0);
+        level_.width = 60; level_.height = 10;
+        struct Probe { int left, right, y, expected; };
+        const std::array<Probe, 14> probes{{
+            {0, 0, 40, 40}, {1, 0, 40, 39}, {2, 0, 40, 39},
+            {38, 0, 40, 39}, {76, 0, 40, 39}, {77, 0, 40, 40},
+            {0, 1, 40, 39}, {0, 76, 40, 39}, {0, 77, 40, 40},
+            {1, 0, 24, 23}, {0, 1, 24, 24}, {0, 1, 25, 24},
+            {1, 0, 0, 65535}, {1, 0, 65535, 65534},
+        }};
+        for (const auto& probe : probes) {
+            level_.tiles.assign(600, 0);
+            const uint16_t cell = static_cast<uint16_t>(((static_cast<uint16_t>(probe.y + 7) >> 3) + 1) * 60 + 3);
+            level_.tiles[cell] = static_cast<uint8_t>(probe.left);
+            level_.tiles[cell + 1] = static_cast<uint8_t>(probe.right);
+            player_.x = 24; player_.y = static_cast<float>(probe.y);
+            updateWaitingPlayerPlacement(player_);
+            if (player_.y != probe.expected || player_.x != 24) {
+                throw std::runtime_error("original waiting placement mismatch");
+            }
+        }
+        std::cout << "original_state2_effect_placement=ok cases=14 production=1"
+                  << " solid_range=1..76 left_unbounded=1 right_floor=24 wrap16=1\n";
     }
 
     void debugPlayerState2ReturnActive(const std::string& fixturePath = {}) {
@@ -25747,6 +25724,7 @@ private:
     int reentryTimer2_ = 0;
     bool reentryFire1_ = false;
     bool reentryFire2_ = false;
+    bool reentryGate_ = true;
     uint8_t noActivePlayerTicks_ = 0;
     bool levelRestartPromoted_ = false;
     uint32_t levelIntroFrame_ = 0;
@@ -25925,6 +25903,7 @@ private:
         reentryTimer_ = 0;
         reentryTimer2_ = 0;
         reentryFire1_ = reentryFire2_ = false;
+        reentryGate_ = true;
         noActivePlayerTicks_ = 0;
         levelRestartPromoted_ = false;
         deathStateTimer_ = 0;
@@ -26672,14 +26651,10 @@ private:
         updateWithControls(controls, dt);
     }
 
-    void updateWithControls(const FrameControls& controls, float dt) {
-        if (menu_ || paused_ || levelIntro_.active) return;
-        ++logicTick_;
-        // 1000:7A6B precedes state-2 and both actor passes. An effect that
-        // expires later this frame still occupies its slot during spawning.
-        updateMonsterSpawners();
+    void updatePlayerReentryPrepass(const FrameControls& controls) {
         // State-2 countdown precedes both actor passes (1000:7C89).
         // 1000:7E9D/7EA2 clear BOTH latches on the first successful reentry.
+        if (!reentryGate_) noActivePlayerTicks_ = kSharedReentryTicks - 1;
         reentryFire1_ = reentryFire1_ || controls.p1Reenter;
         reentryFire2_ = reentryFire2_ || controls.p2Reenter;
         if (playerDead_) {
@@ -26692,6 +26667,15 @@ private:
                           playerDead_);
             if (reentryFire2_) tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, damageCooldown2_, 2);
         }
+    }
+
+    void updateWithControls(const FrameControls& controls, float dt) {
+        if (menu_ || paused_ || levelIntro_.active) return;
+        ++logicTick_;
+        // 1000:7A6B precedes state-2 and both actor passes. An effect that
+        // expires later this frame still occupies its slot during spawning.
+        updateMonsterSpawners();
+        updatePlayerReentryPrepass(controls);
         if (menu_ || levelIntro_.active) return;
         // 1000:7ECB..7EE8 precedes the player calls at 7F59. New pickup
         // and collapse-fracture actors therefore start on the next frame.
@@ -26722,7 +26706,10 @@ private:
 
         if (playerDead_) {
             if (deathStateTimer_ > 0) {
-                if (updateState2VisualCursor(state2Visual_)) player_.spriteIndex = state2Visual_.current - 1;
+                if (updateState2VisualCursor(state2Visual_)) {
+                    player_.spriteIndex = state2Visual_.current - 1;
+                    player_.singlePixelSprite = false;
+                }
                 updateDyingPlayerMotion(player_);
             }
             refreshState2EffectEntry(player_, state2Visual_, state2Effect_);
@@ -26734,7 +26721,10 @@ private:
         if (playerCount_ > 1) {
             if (player2Dead_) {
                 if (deathStateTimer2_ > 0) {
-                    if (updateState2VisualCursor(state2Visual2_)) player2_.spriteIndex = state2Visual2_.current - 1;
+                    if (updateState2VisualCursor(state2Visual2_)) {
+                        player2_.spriteIndex = state2Visual2_.current - 1;
+                        player2_.singlePixelSprite = false;
+                    }
                     updateDyingPlayerMotion(player2_);
                 }
                 refreshState2EffectEntry(player2_, state2Visual2_, state2Effect2_);
@@ -27019,6 +27009,7 @@ private:
         player.animation = ActorAnimation::initialize(spriteBase + 17,
                                                        spriteBase + (dropping ? 19 : 18), 3, 3);
         player.spriteIndex = spriteBase + 17;
+        player.singlePixelSprite = false;
     }
 
     static void updatePlayerGravity(Player& player, bool bottom, uint8_t spriteBase, int& y) {
@@ -27043,6 +27034,7 @@ private:
                       uint8_t spriteBase, bool down = false) {
         if (player.animation.advance(player.animationBackup)) {
             player.spriteIndex = static_cast<uint8_t>(player.animation.current - 1);
+            player.singlePixelSprite = false;
         }
         const uint8_t inputFrame = player.animation.current;
         int x = static_cast<int>(player.x);
@@ -27107,6 +27099,7 @@ private:
             // descriptor is independently selected as 20 (1000:6BAD..6BD1).
             player.animation.current = 1;
             player.spriteIndex = spriteBase;
+            player.singlePixelSprite = false;
         }
         if (jump && edges.bottom && player.vy8 == 0) {
             player.vy8 = kPlayerJumpVelocity8;
@@ -28489,6 +28482,9 @@ private:
 
     void beginPlayerDeath(Player& player, int& energy, int& lives, bool& dead,
                           int& timer, uint8_t startMarker) {
+        // 1000:30C1..30F5 latches one shared gate at death. Waiting does not
+        // recompute it when objective tiles or the collected count change.
+        reentryGate_ = canReenterLevel();
         pendingLifeLossFor(startMarker) = lives >= 0;
         energy = 100;
         deathStateTimerFor(startMarker) = kDeathStateTicks;
@@ -28728,6 +28724,22 @@ private:
         throw std::runtime_error("no bomb object tile found for destruction smoke");
     }
 
+    void updateWaitingPlayerPlacement(Player& player) {
+        const uint16_t x = static_cast<uint16_t>(player.x);
+        const uint16_t y = static_cast<uint16_t>(player.y);
+        const uint16_t row = (static_cast<uint16_t>(y + 7) >> 3) + 1;
+        const uint16_t cell = static_cast<uint16_t>(row * level_.width + (x >> 3));
+        auto solid = [&](uint16_t at) {
+            const uint8_t tile = at < level_.tiles.size() ? level_.tiles[at] : 0;
+            return tile >= 1 && tile <= 76;
+        };
+        // 1000:7E41 jumps directly to DEC on the left cell. Only the right
+        // cell has the unsigned Y > 24 guard; neither branch gates fire.
+        if (solid(cell) || (solid(static_cast<uint16_t>(cell + 1)) && y > 24)) {
+            player.y = static_cast<float>(static_cast<uint16_t>(y - 1));
+        }
+    }
+
     void updateReentry(Player& player, int& energy, int& lives, bool& dead,
                        int& timer, uint8_t startMarker, bool allowLevelRestart) {
         (void)energy;
@@ -28748,10 +28760,17 @@ private:
                 }
                 player.idleTicks = 0;
                 player.spriteIndex = 0x27 - 1;
+                player.singlePixelSprite = !reentryGate_;
+                auto& inventory = startMarker == 2 ? bombInventory2_ : bombInventory_;
+                constexpr std::array<int, 3> minimum{100, 10, 2};
+                for (size_t i = 0; i < minimum.size(); ++i) {
+                    inventory.counts[i] = std::max(inventory.counts[i], minimum[i]);
+                }
             }
         }
         if (lives < 0 || menu_) return;
-        if (!canReenterLevel()) noActivePlayerTicks_ = kSharedReentryTicks - 1;
+        if (!reentryGate_) noActivePlayerTicks_ = kSharedReentryTicks - 1;
+        if (originalPlayerState(startMarker) == 2) updateWaitingPlayerPlacement(player);
     }
 
     uint8_t originalPlayerState(uint8_t player) const {
@@ -28783,7 +28802,7 @@ private:
         if (deathStateTimerFor(startMarker) > 0) return;
         finalizePendingLifeLoss(dead, lives, timer, startMarker);
         if (lives < 0) return;
-        if (!canReenterLevel()) {
+        if (!reentryGate_) {
             return;
         }
         const auto& animation = state2VisualCursorFor(startMarker);
@@ -30664,7 +30683,14 @@ private:
         if (!bank.sprites.empty()) {
             int index = player.spriteIndex;
             if (index >= static_cast<int>(bank.sprites.size())) index = 0;
-            drawSprite(bank.sprites[static_cast<size_t>(index)], x0, y0);
+            const auto& sprite = bank.sprites[static_cast<size_t>(index)];
+            if (player.singlePixelSprite) {
+                if (!sprite.pixels.empty() && sprite.pixels.front()) {
+                    pixel(x0, y0, argb(palette_, sprite.pixels.front()));
+                }
+            } else {
+                drawSprite(sprite, x0, y0);
+            }
         } else {
             rect(x0, y0, 12, 16, 0xff60e0a0u);
         }
@@ -32027,6 +32053,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-mass-original") {
             app.debugBossContinuousOriginal(argv[2], argc > 3 ? argv[3] : "", App::BossReplay::Mass);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-state2-prepass-original") {
+            app.debugState2PrepassOriginal(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-reentry-original") {

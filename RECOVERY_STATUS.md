@@ -1,8 +1,24 @@
 # Recovery Status
 
-Last reviewed: 2026-09-13
-Branch: `codex/recover-shared-death-lifecycle`
-Baseline: `origin/main` at PR #229
+Last reviewed: 2026-09-19
+Branch: `codex/recover-state2-prepass`
+Baseline: `origin/main` at PR #231
+
+## Waiting-State Prepass
+
+54 original level-1 probes now match the production P1/P2 prepass. They recover
+the 1..76 tile range, asymmetric left/right height guard, 16-bit Y wrap,
+countdown-expiry bomb minima (100/10/2), preserved fourth inventory slot,
+and closed-gate 1x1 waiting descriptor. Solid placement does not block fire.
+The reentry gate is now latched at death and shared between players, rather
+than recomputed every waiting update. The old standalone placement/return
+models have been replaced with checks of production helpers.
+
+The fixture guard rejects 206 mutations; the existing independent level-7
+fire-reentry trace still matches 140 updates and 16 normalized views with
+zero pixel differences. The new level-1 probes are seeded state observations,
+not a natural route or per-probe VGA comparison. See
+[the evidence and limits](docs/recovery/state2_prepass_runtime_2026-09-19.md).
 
 ## Shared Reentry Fallback
 
@@ -16,8 +32,9 @@ Original buffer reuse, RNG ordering and GRAN constructor bytes explain and
 fix the first resumed frame. Two complete intro images also match separately.
 See [production recovery and limits](docs/recovery/shared_death_lifecycle_runtime_2026-09-13.md)
 and [the earlier original-only observation](docs/recovery/player_reentry_wait_runtime_2026-09-13.md).
-Latched reentry gating, waiting placement, wider P1/P2 interaction, natural
-full-health boss victory and whole-game fidelity remain open.
+The waiting-state batch above resolves the basic gate and placement rules;
+wider P1/P2 interaction, natural full-health boss victory and whole-game
+fidelity remain open.
 
 ## Larger-Bomb Boss Combat
 

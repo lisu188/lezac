@@ -669,6 +669,27 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "boss_continuous_fixture=ok near=1 cases=3 samples=600 indexed_hashes=30 lf_crlf=1 truncations_rejected=2 mutations_rejected=86 no_output_files=1")
     endif()
 
+    add_test(NAME state2_prepass_original
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-state2-prepass-original
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/state2_prepass_original_level1.txt)
+    set_tests_properties(state2_prepass_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^state2_prepass_original=ok cases=54 players=2 production_prepass=1 seeded=1 natural=0 whole_game_parity=0")
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME state2_prepass_capture_self_check
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_state2_prepass.py --self-check)
+        set_tests_properties(state2_prepass_capture_self_check PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "^state2_prepass_self_check=ok cases=54 hooks=2 players=2 live=0")
+        add_test(NAME state2_prepass_fixture_guard
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_state2_prepass_fixture.py --exe $<TARGET_FILE:lezac_cpp>)
+        set_tests_properties(state2_prepass_fixture_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "^state2_prepass_fixture=ok cases=54 mutations=206 newline_variants=2 silent_children=1 whole_game_parity=0")
+    endif()
+
     add_test(NAME level1_frame_inspection_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-level1-frame-inspection)
@@ -3031,7 +3052,7 @@ if(BUILD_TESTING)
     set_tests_properties(original_state2_return_model PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "original_state2_return_model=ok timer_start=60 timer_after_59=1 timer_after_60=0 gate0_blocked=1 effect_wait_blocked=1 placement_blocked=1 gate1_restored=1 p1_status=1 p1_actor_state=0 p1_energy=100 p1_cleared=1 p2_status=1 p2_actor_state=1 p2_energy=100 p2_cleared=1 zero_life_status=0 active_players_after_p2_out=1 active_players_after_both_out=0 fallback_blocked_with_active=1 fallback_counter=230 fallback_promoted_status=1 fallback_actor_state_preserved=2 fallback_energy_preserved=77")
+            "original_state2_return_model=ok cases=4 production=1 gate_latched_at_death=1 shared_gate=1 timer_start=60 early_fire_blocked=1 reserve_zero_playable=1")
 
     add_test(NAME state2_animation_init_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-animation-init)
@@ -3763,7 +3784,7 @@ if(BUILD_TESTING)
     set_tests_properties(state2_effect_placement_model PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "original_state2_effect_placement=ok base=0xc21e slot0=0xc21e slot1=0xc226 slot2=0xc22e x_tile=3 y_tile=6 map_offset=363 open_descended=1 y_after=39 floor_stops=1 solid_blocked=1 marker_blocked=1 right_solid_blocked=1 gate_after_descent=1")
+            "original_state2_effect_placement=ok cases=14 production=1 solid_range=1..76 left_unbounded=1 right_floor=24 wrap16=1")
 
     add_test(NAME player_state2_return_active
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-player-state2-return-active)

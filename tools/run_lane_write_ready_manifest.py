@@ -265,7 +265,7 @@ def run_candidate(
 ) -> tuple[int, str, str]:
     env = os.environ.copy()
     env.setdefault("SDL_VIDEODRIVER", "dummy")
-    env.setdefault("SDL_AUDIODRIVER", "dummy")
+    env["SDL_AUDIODRIVER"] = "dummy"
     try:
         result = subprocess.run(
             command,

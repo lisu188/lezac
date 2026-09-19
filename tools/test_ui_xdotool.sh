@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export SDL_AUDIODRIVER=dummy
 
 if [[ $# -ne 1 ]]; then
     echo "usage: $0 /path/to/lezac_cpp" >&2
@@ -8,7 +9,7 @@ fi
 
 exe=$1
 
-SDL_AUDIODRIVER=dummy "$exe" &
+"$exe" &
 pid=$!
 
 cleanup() {

@@ -906,6 +906,13 @@ if(BUILD_TESTING)
             "^autoplayer=ok scenario=two_player_progression p1_moved=1 p2_death_timer=60 p2_reentered=1 p2_bomb_tile=[0-9]+,[0-9]+ p2_fire_key=kp0 p2_score=800 collected=1 frame_inspection=1")
 
     if(Python3_Interpreter_FOUND)
+        add_test(NAME silent_launcher_policy
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_silent_launchers.py)
+        set_tests_properties(silent_launcher_policy PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION
+                "^silent_launchers=ok shell_policies=13 native_policy=1 child_cases=16 grandchildren=16 games_started=0")
+
         add_test(NAME python_tool_syntax_lane_result_preflight
             COMMAND ${Python3_EXECUTABLE} -B -m py_compile
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_lane_result_runtime.py

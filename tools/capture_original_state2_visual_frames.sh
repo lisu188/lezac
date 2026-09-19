@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export SDL_AUDIODRIVER=dummy
 
 usage() {
     echo "usage: $0 out_dir [asset_dir] state2_death_table_consumption" >&2

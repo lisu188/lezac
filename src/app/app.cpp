@@ -1,3 +1,8 @@
+#include "diagnostics/frame_inspector.hpp"
+#include "rendering/game_renderer.hpp"
+#include "gameplay/actor_models.hpp"
+#include "ui/models.hpp"
+#include "rendering/presentation_state.hpp"
 #include <SDL.h>
 #include "app/sdl_runtime.hpp"
 #include "rendering/canvas.hpp"
@@ -55,6 +60,34 @@
 #include "diagnostics/sound/sound_diagnostics.hpp"
 
 namespace {
+using lezac::diagnostics::FrameInspection;
+
+using lezac::gameplay::bonusSpriteIndex;
+using lezac::gameplay::BombType;
+using lezac::gameplay::BombProfile;
+using lezac::gameplay::BombInventory;
+using lezac::gameplay::Bomb;
+using lezac::gameplay::Flash;
+using lezac::gameplay::LaunchPadMarker;
+using lezac::gameplay::ActorAnimation;
+using lezac::gameplay::TransientActor;
+using lezac::gameplay::Player;
+using lezac::gameplay::ActiveMonster;
+using lezac::gameplay::BonusType;
+using lezac::gameplay::BonusDrop;
+using lezac::gameplay::State2VisualCursor;
+using lezac::gameplay::State2VisualRow;
+using lezac::gameplay::State2EffectEntry;
+using lezac::gameplay::SharedActorKind;
+using lezac::gameplay::SharedActorEntry;
+using lezac::gameplay::bombProfile;
+using lezac::gameplay::originalState2VisualRow;
+using lezac::ui::LevelIntroPattern;
+using lezac::ui::MenuPage;
+using lezac::ui::EndReason;
+using lezac::ui::OutroLine;
+using lezac::ui::OutroSegment;
+using lezac::ui::levelIntroCaption;
 
 using namespace lezac::sound;
 
@@ -130,19 +163,15 @@ using lezac::core::kTileSize;
 
 using lezac::rendering::kScreenW;
 using lezac::rendering::kScreenH;
-// CARO.CAR tile index used by the reconstructed bottom HUD: the fixed
-// destruction-target star (verified from the original HUD icon renderer, which
-// blits 8x8 CARO tiles, not BOMOMIMK sprites, for the objective icons).
-constexpr int kHudDestructionStarTile = 117;
-constexpr int kHudLifeMarkerTile = 115;  // green walking figure
-constexpr int kNameEntryLabelX = 58;
-constexpr int kNameEntrySlotY = 120;
-constexpr int kNameEntrySlotCount = 8;
-constexpr int kNameEntrySlotAdvance = 9;
-constexpr int kNameEntryCursorBoxW = 8;
-constexpr int kNameEntryCursorBoxH = 10;
-constexpr uint32_t kNameEntryCursorBackground = 0xff90ffb0u;
-constexpr uint32_t kNameEntryCursorForeground = 0xff000000u;
+
+using lezac::ui::kNameEntryLabelX;
+using lezac::ui::kNameEntrySlotY;
+using lezac::ui::kNameEntrySlotCount;
+using lezac::ui::kNameEntrySlotAdvance;
+using lezac::ui::kNameEntryCursorBoxW;
+using lezac::ui::kNameEntryCursorBoxH;
+using lezac::ui::kNameEntryCursorBackground;
+using lezac::ui::kNameEntryCursorForeground;
 constexpr uint16_t kDamagedWordBit = 0x8000;
 constexpr uint16_t kDeferredThreshold = 0x4000;
 constexpr uint16_t kHighHalfBase = 0x4e20;
@@ -221,9 +250,9 @@ using lezac::resources::kGranRecordSize;
 constexpr int kDeathStateTicks = 0x003c;
 constexpr int kReentryTicks = kDeathStateTicks;  // Raw actor countdown, not a reentry timeout.
 constexpr uint8_t kSharedReentryTicks = 0xe6;  // 1000:7EFC compares DS:79B9 with 230.
-constexpr uint8_t kState2VisualStartFrame = 0x4a;
-constexpr uint8_t kState2VisualEndFrame = 0x4f;
-constexpr uint8_t kState2VisualDelay = 3;
+using lezac::gameplay::kState2VisualStartFrame;
+using lezac::gameplay::kState2VisualEndFrame;
+using lezac::gameplay::kState2VisualDelay;
 // UNEVIDENCED port policy (@unevidenced:damage_cooldown_ticks): no byte citation and no
 // capture fixes it. Left at its pre-governed-loop value, so its wall-clock
 // duration changed from ~0.30 s to ~0.73 s when the live loop was governed.
@@ -250,7 +279,7 @@ constexpr int kDamageCooldownTicks = 18;
 constexpr std::array<std::array<int, 2>, 5> kMonsterImpactSprites{{
     {{39, 39}}, {{47, 48}}, {{42, 42}}, {{52, 52}}, {{56, 56}},
 }};
-constexpr int kMonsterCorpseSpriteLeft = 47;
+using lezac::gameplay::kMonsterCorpseSpriteLeft;
 constexpr int kMonsterCorpseSpriteRight = 48;
 // Minimum visible duration; fatal conversion on an odd frame adds one update.
 constexpr int kMonsterDeathVisibleTicks = 49;
@@ -290,11 +319,11 @@ constexpr double kGovernedRateMeasuredFloor = 22.0;
 // tick is 40.8 ms; this allows a little over two, so ordinary scheduling
 // jitter passes while a loop that batches ticks and sleeps does not.
 constexpr long kGovernedMaxTickGapMs = 90;
-constexpr uint32_t kLevelIntroCharacterDelayMs = 81;
-constexpr int kLevelIntroCellAdvance = 11;
-constexpr int kLevelIntroTextY = 94;
-constexpr uint8_t kLevelIntroPaletteFirst = 176;
-constexpr size_t kLevelIntroPaletteCount = 7;
+using lezac::ui::kLevelIntroCharacterDelayMs;
+using lezac::ui::kLevelIntroCellAdvance;
+using lezac::ui::kLevelIntroTextY;
+using lezac::ui::kLevelIntroPaletteFirst;
+using lezac::ui::kLevelIntroPaletteCount;
 constexpr uint8_t kWeaponSwitchHoldTicks = 5;
 constexpr uint8_t kLaunchPadTile = 0x27;
 constexpr int16_t kOriginalNormalJumpVelocity = -848;
@@ -325,21 +354,15 @@ constexpr float kPlayerJumpVelocity =
     static_cast<float>(kOriginalNormalJumpVelocity) / 256.0f;
 constexpr float kLaunchPadVelocity =
     static_cast<float>(kOriginalLaunchPadVelocity) / 256.0f;
-constexpr uint8_t kLaunchPadMarkerTimer = 5;
-constexpr uint8_t kLaunchPadMarkerFrame = 0x5b;
-constexpr uint8_t kLaunchPadMarkerKind = 0x0b;
-constexpr uint8_t kLaunchPadMarkerMode = 5;
-constexpr int16_t kLaunchPadMarkerVelocityY8 = -200;
+using lezac::gameplay::kLaunchPadMarkerTimer;
+using lezac::gameplay::kLaunchPadMarkerFrame;
+using lezac::gameplay::kLaunchPadMarkerKind;
+using lezac::gameplay::kLaunchPadMarkerMode;
+using lezac::gameplay::kLaunchPadMarkerVelocityY8;
 constexpr uint16_t kPlayerDamageSoundCursor = 0x002d;
 constexpr uint8_t kPlayerDamageSoundPriority = 4;
 constexpr uint16_t kPlayerDeathSoundCursor = 0x0056;
 constexpr uint8_t kPlayerDeathSoundPriority = 5;
-
-struct LevelIntroPattern {
-    int horizontalStep = 1;
-    int verticalStep = 1;
-    std::array<Rgb, kLevelIntroPaletteCount> colors{};
-};
 
 struct LevelIntroState {
     bool active = false;
@@ -364,89 +387,11 @@ struct LevelOutroState {
 };
 
 
-enum class MenuPage {
-    Main,
-    Info,
-    Instructions,
-    Records,
-    NameEntry,
-    GameOver,
-    CompletedGame,
-};
-
-enum class EndReason {
-    GameOver,
-    CompletedGame,
-};
-
 struct PendingRecordEntry {
     uint32_t score = 0;
     uint8_t level = 0;
     uint8_t player = 1;
     EndReason reason = EndReason::GameOver;
-};
-
-enum class BombType : uint8_t {
-    Small = 0,
-    Medium = 1,
-    Large = 2,
-    Super = 3,
-};
-
-struct BombProfile {
-    uint8_t actorKind = 0x0d;
-    uint8_t spriteBase = 57;
-    // Twice the original actor +0x02 seed; placement accounts for the first
-    // update's parity. See bomb_fuse_runtime_2026-09-05.md and the eight traces.
-    int fuseTicks = 40;
-};
-
-struct BombInventory {
-    std::array<int, 4> counts{200, 20, 6, 0};
-    BombType selected = BombType::Small;
-};
-
-struct Bomb {
-    int x = 0;
-    int y = 0;
-    int timer = 40;
-    BombType type = BombType::Small;
-    int fuseTicks = 40;
-    uint8_t owner = 1;
-    int pixelX = 0;
-    int pixelY = 0;
-    int16_t vx8 = 0;
-    int16_t vy8 = 0;
-    uint8_t fracX = 0;
-    uint8_t fracY = 0;
-    // Tile-only aggregate probes represent an already-positioned blast.
-    // Every gameplay placement enables the original actor motion path.
-    bool moving = false;
-    // Actor +0x14; -1 derives the constructor value from the selected sprite.
-    int8_t hotspotY = -1;
-    uint64_t actorOrder = 0;
-    uint64_t bossVisualOrder = 0;
-};
-
-struct Flash {
-    int x = 0;
-    int y = 0;
-    int timer = 12;
-    uint8_t power = 1;
-};
-
-struct LaunchPadMarker {
-    int x = 0;
-    int y = 0;
-    uint8_t fracX = 0;
-    uint8_t fracY = 0;
-    int16_t velocityX8 = 0;
-    int16_t velocityY8 = kLaunchPadMarkerVelocityY8;
-    uint8_t timer = kLaunchPadMarkerTimer;
-    uint8_t frame = kLaunchPadMarkerFrame;
-    uint8_t kind = kLaunchPadMarkerKind;
-    uint8_t mode = kLaunchPadMarkerMode;
-    uint64_t actorOrder = 0;
 };
 
 struct ExplosionEffect {
@@ -533,87 +478,11 @@ LaneWriteTagModel laneWriteTagModelForTag(uint16_t tag) {
             static_cast<uint16_t>(reverseBase + di)};
 }
 
-struct FrameInspection {
-    size_t changedPixels = 0;
-    uint64_t hash = 0;
-};
-
-struct ActorAnimation {
-    uint8_t current = 2;
-    uint8_t first = 2;
-    uint8_t last = 9;
-    uint8_t counter = 1;
-    uint8_t delay = 1;
-    uint8_t mode = 1;
-    int8_t step = 1;
-
-    std::array<uint8_t, 7> packed() const {
-        return {current, first, last, counter, delay, mode, static_cast<uint8_t>(step)};
-    }
-
-    static ActorAnimation initialize(uint8_t first, uint8_t last, uint8_t delay, uint8_t mode) {
-        return {first, first, last, delay, delay, mode, 1};
-    }
-
-    bool advance(const ActorAnimation& backup) {
-        // 1000:6078..615A advances before the actor's behavior/input branch.
-        if (mode == 0 || ++counter <= delay) return false;
-        counter = 0;
-        current = static_cast<uint8_t>(current + step);
-        if (mode == 2) {
-            if (current >= last || current <= first) step = static_cast<int8_t>(-step);
-        } else if (current > last) {
-            current = first;
-            if (mode == 3) *this = backup;
-        }
-        return true;
-    }
-};
-
 // 1000:3FA6 seeds these low 11-byte queue records; 45FA updates them.
 struct FlameRecord {
     uint16_t cell = 0;
     int8_t vx = 0, vy = 0, subX = 0, subY = 0;
     uint8_t timer = 0, glyph = 0x75, variant = 0, mass = 1;
-};
-
-struct TransientActor {
-    int x = 0;
-    int y = 0;
-    int16_t vx8 = 0;
-    int16_t vy8 = 0;
-    uint8_t fracX = 0;
-    uint8_t fracY = 0;
-    uint8_t kind = 0x0a;
-    uint8_t timer = 12;
-    uint8_t hotspotY = 0;
-    uint8_t spriteIndex = 0;
-    ActorAnimation animation{0, 0, 0, 0, 0, 0, 1};
-    uint64_t actorOrder = 0;
-    uint64_t bossVisualOrder = 0;
-};
-
-struct Player {
-    float x = 24.0f;
-    float y = 24.0f;
-    // vx/vy are float MIRRORS of the 8.8 fixed-point velocities below, kept
-    // so the many call sites that test a sign or print a magnitude keep
-    // working. The authoritative state is vx8/vy8 plus the fractional carry;
-    // motion is integrated once per tick with integrateAxis8_8, exactly as
-    // monsters, boss links, debris and launch-pad markers already are.
-    float vx = 0.0f;
-    float vy = 0.0f;
-    int16_t vx8 = 0;
-    int16_t vy8 = 0;
-    uint8_t fracX = 0;
-    uint8_t fracY = 0;
-    bool grounded = false;
-    ActorAnimation animation;
-    ActorAnimation animationBackup{0, 0, 0, 0, 0, 0, 0};
-    uint8_t idleTicks = 0;
-    uint8_t spriteIndex = 0;
-    uint16_t dropTicks = 0;
-    bool singlePixelSprite = false;
 };
 
 struct SpawnerState {
@@ -625,75 +494,6 @@ struct SpawnerState {
     // (capture: cd=0xE5 at frame 28, first walker at frame 257, 1458/1458
     // byte transitions fit the dec-then-reload model).
     uint8_t cooldown = 0;
-};
-
-struct ActiveMonster {
-    int x = 0;
-    int y = 0;
-    int16_t vx8 = 0;
-    int16_t vy8 = 0;
-    uint8_t fracX = 0;
-    uint8_t fracY = 0;
-    uint8_t kind = 0;
-    uint8_t behavior = 0;
-    uint16_t ai0 = 0;
-    uint16_t ai1 = 0;
-    uint16_t ai2 = 0;
-    uint8_t animFrame = 0;
-    // Latched before kind changes to 0x0c; later bounces do not change the sprite.
-    uint8_t corpseSprite = kMonsterCorpseSpriteLeft;
-    uint8_t animStart = 0;
-    uint8_t animEnd = 0;
-    uint8_t animDelay = 0;
-    uint8_t animMode = 1;
-    int8_t animStep = 1;
-    // Recovered original animation cursor (actor anim struct +0x00). The
-    // per-tick advance steps THIS value; animFrame is the VISIBLE sprite (the
-    // visual-table word), rewritten only on advance ticks (1000:60E8..6103).
-    // A facing reselection resets the cursor to the new range base without
-    // touching animFrame, so the flip becomes visible at the next boundary.
-    uint8_t animCursor = 0;
-    // Original actor byte +0x14: the collision-space y is visual_y - hotspotY
-    // (1000:629D `mov al,es:[di+0x14]; cbw; ... sub`). monster.y stores the
-    // COLLISION-space y; rendering adds hotspotY back. Value 6 for kind 1 is
-    // uniquely forced by the motion lockstep (2370/2370 vs <=14/2370 for every
-    // other value 0..22); other kinds are unevidenced and keep 0.
-    int8_t hotspotY = 0;
-    // Per-tick facing-reselect request, mirroring the original's [bp-0x20]
-    // flag: seeded from wall contact at behaviour-3 dispatch (1000:7159..716B),
-    // set again on the landing snap (1000:71A0) and on the grounded vx
-    // renormalisation (1000:71F3), consumed at 1000:727D.
-    bool facingDirty = false;
-    size_t spawnerIndex = 0;
-    bool hasSpawner = false;
-    int hp = 1;
-    // Normal corpses store remaining updates, not the original half-rate byte.
-    int stateTimer = 0;
-    int motionTimer = 0;
-    // Recovered original 2x2 tile-cell edge scan, computed once per tick from
-    // the PRE-integration position by the caller (updateMonsters).
-    struct EdgeFlags { bool top = false, bottom = false, left = false, right = false; };
-    EdgeFlags edges;
-    int animTick = 0;
-    bool deathCredited = false;
-    bool deathRewardPending = false;
-    bool alive = true;
-    // Level-7 boss fields recovered from the GRAN.MST static consumer model:
-    // kind 0x1e runs the original 1000:5CB0 head brain (behavior/state 6) and
-    // kind 0x1f segments follow DS:0x79EA motion links (behavior/state 5).
-    uint8_t bossVisual = 0;
-    uint8_t bossLives = 0;
-    uint8_t bossHpByte = 0;
-    uint8_t bossBoxW = 0;
-    uint8_t bossBoxH = 0;
-    uint8_t linkA = 0;
-    uint8_t linkB = 0;
-    uint8_t linkC = 0;
-    int bossTick = 0;
-    uint64_t actorOrder = 0;
-    uint64_t bossVisualOrder = 0;
-    bool bossDebris = false;
-    uint16_t bossGroup = 0;
 };
 
 // Semantic view of one 16-byte DS:0x79EA motion-link entry from GRAN.MST.
@@ -724,30 +524,6 @@ constexpr std::array<std::array<uint8_t, 2>, 17> kBossAnimSets{{
     {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
     {41, 42}, {43, 44}, {40, 40},
 }};
-
-enum class BonusType : uint8_t {
-    Present,
-    FirstAid,
-    HotDog,
-    JollyCloud,
-    YellowBombBox,
-    GreenBombBox,
-    BigDiamond,
-};
-
-struct BonusDrop {
-    float x = 0.0f;
-    float y = 0.0f;
-    BonusType type = BonusType::Present;
-    int16_t vx8 = 0;
-    int16_t vy8 = 0;
-    uint8_t fracX = 0;
-    uint8_t fracY = 0;
-    uint8_t hotspotY = 0;
-    uint8_t timer = 100;
-    bool collected = false;
-    uint64_t actorOrder = 0;
-};
 
 int16_t clampI16(int value) {
     return static_cast<int16_t>(std::clamp(value, -32768, 32767));
@@ -850,35 +626,6 @@ class App {
         int bombTileY = 0;
     };
 
-    struct State2VisualCursor {
-        uint8_t current = kState2VisualStartFrame;
-        uint8_t first = kState2VisualStartFrame;
-        uint8_t last = kState2VisualEndFrame;
-        uint8_t counter = kState2VisualDelay;
-        uint8_t delay = kState2VisualDelay;
-        uint8_t mode = 1;
-        int8_t step = 1;
-        bool active = false;
-    };
-
-    struct State2VisualRow {
-        uint8_t frame = 0;
-        uint8_t row0 = 0;
-        uint8_t row1 = 0;
-        uint8_t row2 = 0;
-        uint8_t row3 = 0;
-    };
-
-    struct State2EffectEntry {
-        int x = 0;
-        int y = 0;
-        uint8_t visualFrame = 0;
-        uint8_t drawDx = 0;
-        uint8_t drawDy = 0;
-        uint8_t row2 = 0;
-        uint8_t spriteIndex = 0;
-        bool active = false;
-    };
 
 
     static bool sameSoundLatch(const SoundLatch& lhs, const SoundLatch& rhs) {
@@ -887,19 +634,6 @@ class App {
                lhs.latchedOffset == rhs.latchedOffset &&
                lhs.recordIndex == rhs.recordIndex &&
                lhs.directSweep == rhs.directSweep;
-    }
-
-    static bool originalState2VisualRow(uint8_t frame, State2VisualRow& row) {
-        if (frame < kState2VisualStartFrame || frame > kState2VisualEndFrame) {
-            return false;
-        }
-        row.frame = frame;
-        row.row0 = 0x10;
-        row.row1 = 0x10;
-        row.row2 = 0x7d;
-        row.row3 = static_cast<uint8_t>(
-            0x43 + (frame - kState2VisualStartFrame));
-        return true;
     }
 
 public:
@@ -1038,7 +772,7 @@ public:
 
     void loadAssets(AssetFormat format) {
         assets_ = AssetCatalog::load(format);
-        palette_ = assets_.palette();
+        presentation_.setPalette(assets_.palette());
         records_ = assets_.initialRecords();
         // Playback diagnostics currently mutate a local sound-bank copy.
     }
@@ -1052,7 +786,7 @@ public:
         } else {
             loadOriginalAssets();
         }
-        initialPalette_ = palette_;
+        presentation_.captureInitialPalette();
         buildBackdropBuffer();
     }
 
@@ -1745,7 +1479,7 @@ public:
                 throw std::runtime_error(label + " menu page not active");
             }
             FrameInspection frame = inspectRenderedFrame("menu-frame-" + label);
-            if (!regionHasVariation(30, 40, 260, 134)) {
+            if (!frameInspector_.regionHasVariation(30, 40, 260, 134)) {
                 throw std::runtime_error(label + " menu text region was not visible");
             }
             hashes.insert(frame.hash);
@@ -1784,8 +1518,8 @@ public:
         FrameInspection gameFrame =
             inspectRenderedFrame("menu-frame-game-background-on");
         if (gameFrame.hash == mainFrame.hash ||
-            !regionHasVariation(0, 0, kScreenW, 24) ||
-            !regionHasVariation(0, 24, kScreenW, kScreenH - 24)) {
+            !frameInspector_.regionHasVariation(0, 0, kScreenW, 24) ||
+            !frameInspector_.regionHasVariation(0, 24, kScreenW, kScreenH - 24)) {
             throw std::runtime_error("one-player start frame did not expose HUD/world");
         }
         press(SDLK_s);
@@ -1939,11 +1673,11 @@ public:
                 if (!map || backdrop) throw std::runtime_error("invalid render-boundary backdrop");
                 const auto original = decodeRle(fields.at("bytes"), 60000);
                 for (size_t i = 0; i < original.size(); ++i) {
-                    if ((i < static_cast<size_t>(80 * backdropPitch_) ||
-                         i >= static_cast<size_t>(162 * backdropPitch_)) && original[i] != backdropBuffer_[i])
+                    if ((i < static_cast<size_t>(80 * presentation_.backdropPitch()) ||
+                         i >= static_cast<size_t>(162 * presentation_.backdropPitch())) && original[i] != presentation_.backdropBuffer()[i])
                         throw std::runtime_error("render-boundary background gradient mismatch");
                 }
-                std::copy(original.begin(), original.end(), backdropBuffer_.begin());
+                presentation_.writeBackdropPrefix(original);
                 backdrop = true;
             } else if (line.rfind("sprites ", 0) == 0) {
                 if (!backdrop || sprites) throw std::runtime_error("invalid render-boundary descriptors");
@@ -1977,7 +1711,7 @@ public:
                      pointer("word_allocation") != base + 60000 + ((count + 23) & ~7))))
                     throw std::runtime_error("render-boundary allocation pointer mismatch");
                 for (size_t i = 0; i < originalTail.size(); ++i) {
-                    if (originalTail[i] != backdropByte(60000 + i))
+                    if (originalTail[i] != presentation_.backdropByte(60000 + i, level_.tiles))
                         throw std::runtime_error("render-boundary heap/map alias mismatch");
                 }
                 heap = true;
@@ -2018,7 +1752,7 @@ public:
                     number(fields.at("fine_x")) != (camX & 7) + shake ||
                     number(fields.at("fine_y")) != (camY & 7) ||
                     number(fields.at("map_offset")) != (camY / 8) * level_.width + camX / 8 ||
-                    number(fields.at("backdrop_stride")) != backdropPitch_ ||
+                    number(fields.at("backdrop_stride")) != presentation_.backdropPitch() ||
                     number(fields.at("backdrop_delta")) != 0 || number(fields.at("glyph_base")) != 32628)
                     throw std::runtime_error("render-boundary camera/driver mismatch");
                 if (tall) {
@@ -2029,7 +1763,7 @@ public:
                     if (mode != "level") std::fill(level_.tiles.begin(), level_.tiles.end(), 0);
                     if (mode == "alias") for (size_t i = 0; i < 512; ++i) level_.tiles[i] = static_cast<uint8_t>(1 + i % 174);
                     std::vector<uint8_t> tail(5536);
-                    for (size_t i = 0; i < tail.size(); ++i) tail[i] = backdropByte(60000 + i);
+                    for (size_t i = 0; i < tail.size(); ++i) tail[i] = presentation_.backdropByte(60000 + i, level_.tiles);
                     if (decodeRle(fields.at("tail_before"), 5536) != tail ||
                         decodeRle(fields.at("tail_after"), 5536) != tail)
                         throw std::runtime_error("render-boundary live heap/map alias mismatch");
@@ -2037,7 +1771,7 @@ public:
                 const auto expected = decodeRle(fields.at("pixels"), viewWidth * 152);
                 std::fill(fb_.begin(), fb_.end(), argb(palette_, 0));
                 drawWorldView(player_, 4, 4, viewWidth, 152);
-                resetClip();
+                canvas_.resetClip();
                 size_t different = 0;
                 uint64_t hash = 1469598103934665603ull;
                 std::vector<uint32_t> view;
@@ -2046,7 +1780,7 @@ public:
                         const uint32_t actual = fb_[(y + 4) * kScreenW + x + 4];
                         view.push_back(actual);
                         hash = (hash ^ actual) * 1099511628211ull;
-                        if (actual != backdropColor(expected[y * viewWidth + x])) ++different;
+                        if (actual != presentation_.backdropColor(expected[y * viewWidth + x])) ++different;
                     }
                 }
                 if (!outDir.empty()) {
@@ -2163,7 +1897,7 @@ public:
                 stage = 2;
             } else if (line.rfind("backdrop ", 0) == 0) {
                 if (stage != 2) throw std::runtime_error("invalid palette backdrop");
-                backdropBuffer_ = rle(fields.at("bytes"), 60000);
+                presentation_.restoreBackdrop(rle(fields.at("bytes"), 60000));
                 stage = 3;
             } else if (line.rfind("sprites ", 0) == 0) {
                 if (stage != 3) throw std::runtime_error("invalid palette descriptors");
@@ -2189,9 +1923,9 @@ public:
                     throw std::runtime_error("invalid palette case seed");
                 if (!caseIndex) {
                     // Reconstruct the natural startup history, not the observed pending phase.
-                    for (int frame = 1; frame < expectedFrame; ++frame) updateRedPalette(static_cast<uint16_t>(frame));
-                } else redPalettePhase_ = static_cast<uint8_t>(phases[caseIndex]);
-                if (redPalettePhase_ != value("phase")) throw std::runtime_error("palette initial phase mismatch");
+                    for (int frame = 1; frame < expectedFrame; ++frame) presentation_.updateRedPalette(static_cast<uint16_t>(frame));
+                } else presentation_.restoreRedPalettePhase(static_cast<uint8_t>(phases[caseIndex]));
+                if (presentation_.redPalettePhase() != value("phase")) throw std::runtime_error("palette initial phase mismatch");
                 sample = 0;
             } else if (line.rfind("view ", 0) == 0) {
                 if (caseIndex != 0 || sample || view || value("x") != (levelIndex_ == 0 ? 104 : 248) ||
@@ -2216,16 +1950,16 @@ public:
                 bytes(fields.at("indexed_sha256"), 32);
                 if (pixelDigest.empty()) pixelDigest = fields.at("indexed_sha256");
                 if (pixelDigest != fields.at("indexed_sha256")) throw std::runtime_error("palette indexed view changed");
-                if (redPalettePhase_ != value("before_phase")) throw std::runtime_error("palette pre-phase mismatch");
+                if (presentation_.redPalettePhase() != value("before_phase")) throw std::runtime_error("palette pre-phase mismatch");
                 checkDac(bytes(fields.at("before_dac"), 768));
-                updateRedPalette(static_cast<uint16_t>(expectedFrame));
+                presentation_.updateRedPalette(static_cast<uint16_t>(expectedFrame));
                 if (expectedFrame % 5 == 0) ++writes;
-                if (redPalettePhase_ != value("after_phase")) throw std::runtime_error("palette post-phase mismatch");
+                if (presentation_.redPalettePhase() != value("after_phase")) throw std::runtime_error("palette post-phase mismatch");
                 const auto dac = bytes(fields.at("after_dac"), 768);
                 checkDac(dac);
                 std::fill(fb_.begin(), fb_.end(), 0xff000000u);
                 drawWorldView(player_, 4, 4, 312, 152);
-                resetClip();
+                canvas_.resetClip();
                 size_t different = 0;
                 uint64_t hash = 1469598103934665603ull;
                 std::vector<uint32_t> pixels;
@@ -2439,7 +2173,7 @@ public:
                          "/" + std::to_string(m.vx8) + "," + std::to_string(m.vy8) + " wanted=" + std::to_string(le16(v, 0)) + "," + std::to_string(le16(v, 2)) +
                          "/" + std::to_string(static_cast<int16_t>(le16(raw, 6))) + "," + std::to_string(static_cast<int16_t>(le16(raw, 8))));
                 }
-                if (static_cast<uint8_t>(m.hotspotY) != raw[20] || monsterSpriteIndex(m) != spriteIndex(v) ||
+                if (static_cast<uint8_t>(m.hotspotY) != raw[20] || gameRenderer_.monsterSpriteIndex(m) != spriteIndex(v) ||
                     static_cast<uint8_t>(m.animCursor + 1) != raw[22] || static_cast<uint8_t>(m.animStart + 1) != raw[23] ||
                     static_cast<uint8_t>(m.animEnd + 1) != raw[24] || m.animTick != raw[25] || m.animDelay != raw[26] || m.animMode != raw[27] || m.animStep != static_cast<int8_t>(raw[28])) fail("actor " + std::to_string(index) + " animation mismatch");
                 if (m.behavior == 6 && (m.bossHpByte != raw[36] || m.bossLives != raw[2] || m.bossBoxW != raw[14] || m.bossBoxH != raw[15])) fail("head health/extents mismatch");
@@ -2489,7 +2223,7 @@ public:
             if (animation(p, 22).packed() != deathAnimation || animation(p, 29).packed() != player_.animationBackup.packed()) fail("boundary animation");
             ++boundaryCounts[phase];
             if (std::string(phase) == "intro_wait" && !outDir.empty()) {
-                drawLevelIntro(levelIntro_.levelIndex, levelIntro_.pattern, levelIntroCaption(levelIntro_.levelIndex).size());
+                gameRenderer_.drawLevelIntro(levelIntro_.levelIndex, levelIntro_.pattern, levelIntroCaption(levelIntro_.levelIndex).size());
                 writeArgbPpm(joinPath(outDir, name + "_intro.ppm"), fb_, kScreenW, kScreenH);
             }
         };
@@ -2514,7 +2248,7 @@ public:
             } else if (tag == "backdrop") {
                 if (stage != 2 || f.size() != 1) fail("misplaced backdrop"); originalBackdrop = rle(f.at("bytes"), 60000); stage = 3;
                 for (size_t i = 0; i < originalBackdrop.size(); ++i) {
-                    if ((i < 80 * 320 || i >= 162 * 320) && originalBackdrop[i] != backdropBuffer_[i]) fail("background gradient mismatch");
+                    if ((i < 80 * 320 || i >= 162 * 320) && originalBackdrop[i] != presentation_.backdropBuffer()[i]) fail("background gradient mismatch");
                 }
             } else if (tag == "sprites") {
                 if (stage != 3 || f.size() != 1) fail("misplaced sprites"); descriptors = bytes(f.at("descriptors"), 368);
@@ -2529,7 +2263,7 @@ public:
                 registers(f.at("regs"), 1);
                 for (int i = 0; i < 7; ++i) resetLevel(i);
                 menu_ = false; levelIntro_.active = false; playerCount_ = 1;
-                level_.tiles = originalMap; std::copy(originalBackdrop.begin(), originalBackdrop.end(), backdropBuffer_.begin());
+                level_.tiles = originalMap; presentation_.writeBackdropPrefix(originalBackdrop);
                 if (bombProbe) for (size_t i = 0; i < level_.wordLayer.size(); ++i) level_.wordLayer[i] = le16(originalWords, i * 2);
                 for (auto& spawner : spawnerStates_) { spawner.remaining = 0; spawner.availableSlots = 0; }
                 logicTick_ = firstFrame - 1;
@@ -2599,12 +2333,12 @@ public:
                     number(f.at("fine_x")) != (camX & 7) + cameraShakeOffset_ || number(f.at("fine_y")) != (camY & 7) ||
                     f.at("source") != "8" || f.at("destination") != "1284") fail("camera mismatch");
                 bytes(f.at("indexed_sha256"), 32); const auto expected = rle(f.at("pixels"), 312 * 152);
-                const auto currentPalette = palette_; palette_ = normalizedPalette;
-                std::fill(fb_.begin(), fb_.end(), argb(palette_, 0)); drawWorldView(player_, 4, 4, 312, 152); resetClip();
+                const auto currentPalette = palette_; presentation_.setPalette(normalizedPalette);
+                std::fill(fb_.begin(), fb_.end(), argb(palette_, 0)); drawWorldView(player_, 4, 4, 312, 152); canvas_.resetClip();
                 std::vector<uint32_t> actual; size_t different = 0;
                 for (int y = 0; y < 152; ++y) for (int x = 0; x < 312; ++x) { const auto pixel = fb_[(y + 4) * kScreenW + x + 4]; actual.push_back(pixel);
-                    if (pixel != backdropColor(expected[y * 312 + x])) ++different; }
-                palette_ = currentPalette;
+                    if (pixel != presentation_.backdropColor(expected[y * 312 + x])) ++different; }
+                presentation_.setPalette(currentPalette);
                 if (!outDir.empty()) { writeArgbPpm(joinPath(outDir, name + "_" + std::to_string(sample) + ".ppm"), actual, 312, 152);
                     manifest << name << ',' << sample << ',' << number(f.at("sample")) + firstFrame + 1 << ',' << player_.x << ',' << player_.y << ',' << energy_
                              << ',' << (monsters_.empty() ? -1 : monsters_[0].x) << ',' << (monsters_.empty() ? -1 : monsters_[0].y) << ',' << different << '\n'; }
@@ -2762,7 +2496,7 @@ public:
                 if (stage != 2 || !originalBackdrop.empty()) fail("misplaced backdrop");
                 originalBackdrop = decodeRle(fields.at("bytes"), 60000);
                 for (size_t i = 0; i < originalBackdrop.size(); ++i) {
-                    if ((i < 80 * 320 || i >= 162 * 320) && originalBackdrop[i] != backdropBuffer_[i]) fail("background gradient mismatch");
+                    if ((i < 80 * 320 || i >= 162 * 320) && originalBackdrop[i] != presentation_.backdropBuffer()[i]) fail("background gradient mismatch");
                 }
             } else if (tag == "sprites") {
                 requireFields({"descriptors"});
@@ -2785,7 +2519,7 @@ public:
                     control != (caseIndex == 6 ? "jump_down" : (caseIndex == 7 ? "idle" : "down"))) fail("invalid case seed");
                 for (int i = 0; i < level; ++i) resetLevel(i);
                 level_.tiles = originalMap;
-                std::copy(originalBackdrop.begin(), originalBackdrop.end(), backdropBuffer_.begin());
+                presentation_.writeBackdropPrefix(originalBackdrop);
                 menu_ = false; levelIntro_.active = false; playerCount_ = 1;
                 monsters_.clear(); bossLinks_.clear(); bombs_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear(); transientActors_.clear();
                 for (auto& spawner : spawnerStates_) { spawner.remaining = 0; spawner.availableSlots = 0; }
@@ -2853,16 +2587,16 @@ public:
                     fields.at("source") != "8" || fields.at("destination") != "1284") fail("camera mismatch");
                 const auto expected = decodeRle(fields.at("pixels"), 312 * 152);
                 bytes(fields.at("indexed_sha256"), 32);
-                const auto gameplayPalette = palette_; palette_ = normalizedPalette;
+                const auto gameplayPalette = palette_; presentation_.setPalette(normalizedPalette);
                 std::fill(fb_.begin(), fb_.end(), argb(palette_, 0));
-                drawWorldView(player_, 4, 4, 312, 152); resetClip();
+                drawWorldView(player_, 4, 4, 312, 152); canvas_.resetClip();
                 std::vector<uint32_t> actual;
                 size_t different = 0;
                 for (int yy = 0; yy < 152; ++yy) for (int xx = 0; xx < 312; ++xx) {
                     const auto pixel = fb_[(yy + 4) * kScreenW + xx + 4]; actual.push_back(pixel);
-                    if (pixel != backdropColor(expected[yy * 312 + xx])) ++different;
+                    if (pixel != presentation_.backdropColor(expected[yy * 312 + xx])) ++different;
                 }
-                palette_ = gameplayPalette;
+                presentation_.setPalette(gameplayPalette);
                 if (!outDir.empty()) {
                     writeArgbPpm(joinPath(outDir, name + "_" + std::to_string(sample) + ".ppm"), actual, 312, 152);
                     manifest << name << ',' << sample << ',' << firstFrame + sample + 1 << ',' << x << ',' << y << ',' << player_.vy8 << ','
@@ -2984,8 +2718,8 @@ public:
                 if (stage != 2) fail("misplaced backdrop");
                 const auto original = decodeRle(fields.at("bytes"), 60000);
                 for (size_t i = 0; i < original.size(); ++i) if ((i < static_cast<size_t>(80 * pitch) ||
-                    i >= static_cast<size_t>(162 * pitch)) && original[i] != backdropBuffer_[i]) fail("background gradient mismatch");
-                std::copy(original.begin(), original.end(), backdropBuffer_.begin());
+                    i >= static_cast<size_t>(162 * pitch)) && original[i] != presentation_.backdropBuffer()[i]) fail("background gradient mismatch");
+                presentation_.writeBackdropPrefix(original);
                 stage = 3;
             } else if (tag == "sprites") {
                 requireFields({"descriptors"});
@@ -3061,14 +2795,14 @@ public:
                 originalViews.emplace(name, expected);
                 std::fill(fb_.begin(), fb_.end(), argb(palette_, 0));
                 drawWorldView(player_, 4, 4, pitch - 8, 152);
-                resetClip();
+                canvas_.resetClip();
                 std::vector<uint32_t> actual;
                 size_t different = 0;
                 uint64_t hash = 1469598103934665603ull;
                 for (int yy = 0; yy < 152; ++yy) for (int xx = 0; xx < pitch - 8; ++xx) {
                     const auto pixel = fb_[(yy + 4) * kScreenW + xx + 4]; actual.push_back(pixel);
                     hash = (hash ^ pixel) * 1099511628211ull;
-                    if (pixel != backdropColor(expected[yy * (pitch - 8) + xx])) ++different;
+                    if (pixel != presentation_.backdropColor(expected[yy * (pitch - 8) + xx])) ++different;
                 }
                 if (!outDir.empty()) {
                     writeArgbPpm(joinPath(outDir, name + ".ppm"), actual, pitch - 8, 152);
@@ -3242,7 +2976,7 @@ public:
                         } else if (item.kind == SharedActorKind::Monster) {
                             const auto& c = monsters_[item.index]; kind = c.kind; timer = (c.stateTimer + 1) / 2;
                             x = c.x; y = c.y + c.hotspotY; vx = c.vx8; vy = c.vy8; fx = c.fracX; fy = c.fracY;
-                            hotspot = c.hotspotY; sprite = monsterSpriteIndex(c); behavior = c.behavior;
+                            hotspot = c.hotspotY; sprite = gameRenderer_.monsterSpriteIndex(c); behavior = c.behavior;
                         } else if (item.kind == SharedActorKind::Reward) {
                             const auto& r = bonusDrops_[item.index]; kind = 19 + static_cast<int>(r.type); timer = r.timer;
                             x = static_cast<int>(r.x); y = static_cast<int>(r.y); vx = r.vx8; vy = r.vy8; fx = r.fracX; fy = r.fracY;
@@ -3455,7 +3189,7 @@ public:
                             raw[0x1b] != monster.animMode || static_cast<int8_t>(raw[0x1c]) != monster.animStep ||
                             le16(raw, 6) != monster.vx8 || le16(raw, 8) != monster.vy8 || le16(raw, 10) != monster.fracX || le16(raw, 12) != monster.fracY)
                             fail("monster constructor mismatch");
-                        sprite = monsterSpriteIndex(monster);
+                        sprite = gameRenderer_.monsterSpriteIndex(monster);
                     }
                     if (!std::equal(visual.begin() + 4, visual.end(), descriptors.begin() + (sprite + 1) * 4)) fail("new actor descriptor mismatch");
                     ++accepted;
@@ -3507,10 +3241,10 @@ public:
         const uint32_t originalRed = argb(palette_, 230);
         auto tick = [&] { updateWithControls(FrameControls{}, 1.0f / 60.0f); };
         for (int i = 0; i < 4; ++i) tick();
-        if (logicTick_ != 4 || redPalettePhase_ != 0 || argb(palette_, 230) != originalRed)
+        if (logicTick_ != 4 || presentation_.redPalettePhase() != 0 || argb(palette_, 230) != originalRed)
             throw std::runtime_error("palette changed before fifth gameplay frame");
         tick();
-        if (redPalettePhase_ != 7 || argb(palette_, 230) != 0xff000000u)
+        if (presentation_.redPalettePhase() != 7 || argb(palette_, 230) != 0xff000000u)
             throw std::runtime_error("gameplay omitted first palette update");
         tick();
         tick();
@@ -3523,31 +3257,31 @@ public:
         levelIntro_.active = true;
         tick();
         levelIntro_.active = false;
-        if (logicTick_ != 7 || redPalettePhase_ != 7)
+        if (logicTick_ != 7 || presentation_.redPalettePhase() != 7)
             throw std::runtime_error("inactive gameplay advanced palette clock");
         beginLevelForPlay(1);
         spawnerStates_.clear();
-        if (logicTick_ != 7 || redPalettePhase_ != 7)
+        if (logicTick_ != 7 || presentation_.redPalettePhase() != 7)
             throw std::runtime_error("level transition reset palette history");
         for (int i = 0; i < 3; ++i) tick();
-        if (logicTick_ != 10 || redPalettePhase_ != 14 || argb(palette_, 230) != 0xff1c0000u)
+        if (logicTick_ != 10 || presentation_.redPalettePhase() != 14 || argb(palette_, 230) != 0xff1c0000u)
             throw std::runtime_error("palette cadence shifted after level transition");
         menu_ = true;
         beginLevelForPlay(0);
         menu_ = false;
-        if (logicTick_ != 0 || redPalettePhase_ != 14)
+        if (logicTick_ != 0 || presentation_.redPalettePhase() != 14)
             throw std::runtime_error("new-game palette clock/phase mismatch");
         spawnerStates_.clear();
         logicTick_ = 65534;
-        redPalettePhase_ = 62;
+        presentation_.restoreRedPalettePhase(62);
         tick();
-        if (redPalettePhase_ != 20 || argb(palette_, 230) != 0xfffb0000u)
+        if (presentation_.redPalettePhase() != 20 || argb(palette_, 230) != 0xfffb0000u)
             throw std::runtime_error("palette frame 65535 mismatch");
         tick();
-        if (redPalettePhase_ != 27 || argb(palette_, 230) != 0xff510000u)
+        if (presentation_.redPalettePhase() != 27 || argb(palette_, 230) != 0xff510000u)
             throw std::runtime_error("palette frame zero wrap mismatch");
         tick();
-        if (redPalettePhase_ != 27) throw std::runtime_error("palette updated on wrapped frame one");
+        if (presentation_.redPalettePhase() != 27) throw std::runtime_error("palette updated on wrapped frame one");
         std::cout << "red_palette_lifecycle=ok gameplay_cadence=1 pause_menu_intro_hold=1 level_frame_preserved=1"
                      " new_game_frame_reset=1 phase_preserved=1 frame_wrap=1\n";
     }
@@ -3574,13 +3308,13 @@ public:
         if (playFrame.hash == menuFrame.hash) {
             throw std::runtime_error("level1 start frame did not differ from menu frame");
         }
-        if (!regionHasVariation(0, 0, kScreenW, 16)) {
+        if (!frameInspector_.regionHasVariation(0, 0, kScreenW, 16)) {
             throw std::runtime_error("level1 HUD band did not contain visible glyphs");
         }
-        if (!regionHasVariation(0, 16, kScreenW, kScreenH - 16)) {
+        if (!frameInspector_.regionHasVariation(0, 16, kScreenW, kScreenH - 16)) {
             throw std::runtime_error("level1 world band did not contain visible pixels");
         }
-        if (!regionHasVariation(initialPlayerX - 2, initialPlayerY - 64 - 2, 16, 20)) {
+        if (!frameInspector_.regionHasVariation(initialPlayerX - 2, initialPlayerY - 64 - 2, 16, 20)) {
             throw std::runtime_error("level1 player sprite region was not visible");
         }
 
@@ -3608,7 +3342,7 @@ public:
                                   std::max(0, level_.width * 8 - viewW)) - 4;
             int camY = std::clamp(static_cast<int>(player_.y) - viewH / 2, 0,
                                   std::max(0, level_.height * 8 - viewH)) - 4;
-            if (!regionChanged(playPixels, bombTileX * kTileSize - camX,
+            if (!frameInspector_.regionChanged(playPixels, bombTileX * kTileSize - camX,
                                bombTileY * kTileSize - camY, kTileSize,
                                kTileSize)) {
                 throw std::runtime_error("level1 bomb tile region did not change after N");
@@ -3836,7 +3570,7 @@ public:
                 frame.monsterBehavior = monster.behavior;
                 frame.monsterHp = monster.hp;
                 frame.monsterSpawner = monster.hasSpawner ? static_cast<int>(monster.spawnerIndex) + 1 : 0;
-                frame.monsterSprite = monsterSpriteIndex(monster);
+                frame.monsterSprite = gameRenderer_.monsterSpriteIndex(monster);
                 frame.monsterStateTimer = monster.stateTimer;
             }
             frame.rewards = bonusDrops_.size();
@@ -4037,7 +3771,7 @@ public:
             player_.y = static_cast<float>(placed.y * kTileSize);
             randomSeed_ = 0x28148fe7u;  // Four particle draws lead to the fixed reward seed.
             uint32_t scoreBefore = score_;
-            if (monsterSpriteIndex(monsters_.front()) != 44) {
+            if (gameRenderer_.monsterSpriteIndex(monsters_.front()) != 44) {
                 throw std::runtime_error(
                     "frame sequence monster pre-impact sprite mismatch");
             }
@@ -4045,7 +3779,7 @@ public:
 
             monsters_.front().animFrame = 43;
             monsters_.front().animCursor = 43;
-            if (monsterSpriteIndex(monsters_.front()) != 43) {
+            if (gameRenderer_.monsterSpriteIndex(monsters_.front()) != 43) {
                 throw std::runtime_error(
                     "frame sequence monster last pre-fatal sprite mismatch");
             }
@@ -4062,7 +3796,7 @@ public:
                 monsters_.front().behavior != 2 ||
                 monsters_.front().kind != 0x0c ||
                 monsters_.front().stateTimer != capturedCorpseTicks ||
-                monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
+                gameRenderer_.monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error("frame sequence monster bomb did not kill monster");
             }
@@ -4073,7 +3807,7 @@ public:
                 if (monsters_.size() != 1 ||
                     monsters_.front().stateTimer !=
                         capturedCorpseTicks - frame ||
-                    monsterSpriteIndex(monsters_.front()) !=
+                    gameRenderer_.monsterSpriteIndex(monsters_.front()) !=
                         kMonsterCorpseSpriteLeft ||
                     !bonusDrops_.empty()) {
                     throw std::runtime_error(
@@ -4678,7 +4412,7 @@ public:
             head = findHead();
             if (head && head->animFrame == 0x2f - 1) {
                 sawHurtFlash = true;
-                if (monsterSpriteIndex(*head) != 0x2f - 1) {
+                if (gameRenderer_.monsterSpriteIndex(*head) != 0x2f - 1) {
                     throw std::runtime_error(
                         "boss level7 autoplayer hurt flash sprite mismatch");
                 }
@@ -4886,7 +4620,7 @@ public:
         }
         FrameInspection pauseFrame = inspectRenderedFrame("autoplayer-pause-overlay");
         if (pauseFrame.hash == armedFrame.hash ||
-            !regionChanged(armedPixels, 112, 84, 96, 28)) {
+            !frameInspector_.regionChanged(armedPixels, 112, 84, 96, 28)) {
             throw std::runtime_error("pause overlay did not change the rendered frame");
         }
 
@@ -5659,7 +5393,7 @@ public:
         player_.y = static_cast<float>(placed.y * kTileSize);
         randomSeed_ = 0x28148fe7u;  // Four particle draws lead to the fixed reward seed.
         uint32_t scoreBefore = score_;
-        if (monsterSpriteIndex(monsters_.front()) != 44) {
+        if (gameRenderer_.monsterSpriteIndex(monsters_.front()) != 44) {
             throw std::runtime_error(
                 "monster reward autoplayer pre-impact sprite mismatch");
         }
@@ -5667,7 +5401,7 @@ public:
             inspectRenderedFrame("autoplayer-monster-reward-pre-impact");
         monsters_.front().animFrame = 43;
         monsters_.front().animCursor = 43;
-        if (monsterSpriteIndex(monsters_.front()) != 43) {
+        if (gameRenderer_.monsterSpriteIndex(monsters_.front()) != 43) {
             throw std::runtime_error(
                 "monster reward autoplayer last pre-fatal sprite mismatch");
         }
@@ -5686,7 +5420,7 @@ public:
             monsters_.front().behavior != 2 ||
             monsters_.front().kind != 0x0c ||
             monsters_.front().stateTimer != corpseTicks ||
-            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
+            gameRenderer_.monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster reward autoplayer did not kill monster");
         }
@@ -5702,7 +5436,7 @@ public:
             if (monsters_.size() != 1 ||
                 monsters_.front().stateTimer !=
                     corpseTicks - frame ||
-                monsterSpriteIndex(monsters_.front()) !=
+                gameRenderer_.monsterSpriteIndex(monsters_.front()) !=
                     kMonsterCorpseSpriteLeft ||
                 !bonusDrops_.empty()) {
                 throw std::runtime_error(
@@ -5834,7 +5568,7 @@ public:
         const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().stateTimer != corpseTicks ||
-            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteRight ||
+            gameRenderer_.monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteRight ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster behavior-3 autoplayer second hit did not kill");
         }
@@ -5850,7 +5584,7 @@ public:
             if (monsters_.size() != 1 ||
                 monsters_.front().stateTimer !=
                     corpseTicks - frame ||
-                monsterSpriteIndex(monsters_.front()) !=
+                gameRenderer_.monsterSpriteIndex(monsters_.front()) !=
                     kMonsterCorpseSpriteRight ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
@@ -5977,7 +5711,7 @@ public:
         const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().stateTimer != corpseTicks ||
-            monsterSpriteIndex(monsters_.front()) != kMonsterImpactSprites[2][0] ||
+            gameRenderer_.monsterSpriteIndex(monsters_.front()) != kMonsterImpactSprites[2][0] ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster behavior-4 autoplayer bomb kill mismatch");
         }
@@ -5992,7 +5726,7 @@ public:
             if (monsters_.size() != 1 ||
                 monsters_.front().stateTimer !=
                     corpseTicks - frame ||
-                monsterSpriteIndex(monsters_.front()) !=
+                gameRenderer_.monsterSpriteIndex(monsters_.front()) !=
                     kMonsterImpactSprites[2][0] ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
@@ -6073,7 +5807,7 @@ public:
         const int corpseTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
         if (monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().stateTimer != corpseTicks ||
-            monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
+            gameRenderer_.monsterSpriteIndex(monsters_.front()) != kMonsterCorpseSpriteLeft ||
             spawnerStates_[0].availableSlots != initialSlots ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             throw std::runtime_error("monster spawner autoplayer did not release slot");
@@ -6113,7 +5847,7 @@ public:
         };
         const ActiveMonster* corpse = findCorpse();
         if (!corpse || corpse->stateTimer != corpseTicks - 1 ||
-            monsterSpriteIndex(*corpse) != kMonsterCorpseSpriteLeft ||
+            gameRenderer_.monsterSpriteIndex(*corpse) != kMonsterCorpseSpriteLeft ||
             !bonusDrops_.empty()) {
             throw std::runtime_error(
                 "monster spawner autoplayer respawn disturbed corpse playback");
@@ -6123,7 +5857,7 @@ public:
             corpse = findCorpse();
             if (!corpse ||
                 corpse->stateTimer != corpseTicks - frame ||
-                monsterSpriteIndex(*corpse) != kMonsterCorpseSpriteLeft ||
+                gameRenderer_.monsterSpriteIndex(*corpse) != kMonsterCorpseSpriteLeft ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
                     "monster spawner autoplayer corpse playback mismatch");
@@ -6772,74 +6506,7 @@ public:
 
     FrameInspection inspectRenderedFrame(const std::string& label) {
         draw();
-        if (fb_.empty()) {
-            throw std::runtime_error(label + " frame buffer is empty");
-        }
-        FrameInspection inspection;
-        uint32_t first = fb_.front();
-        uint64_t hash = 1469598103934665603ull;
-        for (uint32_t pixelValue : fb_) {
-            if (pixelValue != first) ++inspection.changedPixels;
-            hash ^= static_cast<uint64_t>(pixelValue);
-            hash *= 1099511628211ull;
-        }
-        inspection.hash = hash;
-        if (inspection.changedPixels == 0) {
-            throw std::runtime_error(label + " rendered a uniform frame");
-        }
-        return inspection;
-    }
-
-    bool regionHasVariation(int x, int y, int w, int h) const {
-        int x0 = std::clamp(x, 0, kScreenW);
-        int y0 = std::clamp(y, 0, kScreenH);
-        int x1 = std::clamp(x + w, 0, kScreenW);
-        int y1 = std::clamp(y + h, 0, kScreenH);
-        if (x0 >= x1 || y0 >= y1) return false;
-        uint32_t first = fb_[static_cast<size_t>(y0) * kScreenW + x0];
-        for (int yy = y0; yy < y1; ++yy) {
-            for (int xx = x0; xx < x1; ++xx) {
-                if (fb_[static_cast<size_t>(yy) * kScreenW + xx] != first) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    bool regionChanged(const std::vector<uint32_t>& before, int x, int y,
-                       int w, int h) const {
-        if (before.size() != fb_.size()) return false;
-        int x0 = std::clamp(x, 0, kScreenW);
-        int y0 = std::clamp(y, 0, kScreenH);
-        int x1 = std::clamp(x + w, 0, kScreenW);
-        int y1 = std::clamp(y + h, 0, kScreenH);
-        if (x0 >= x1 || y0 >= y1) return false;
-        for (int yy = y0; yy < y1; ++yy) {
-            for (int xx = x0; xx < x1; ++xx) {
-                size_t idx = static_cast<size_t>(yy) * kScreenW + xx;
-                if (fb_[idx] != before[idx]) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    size_t countColorInRegion(int x, int y, int w, int h, uint32_t color) const {
-        int x0 = std::clamp(x, 0, kScreenW);
-        int y0 = std::clamp(y, 0, kScreenH);
-        int x1 = std::clamp(x + w, 0, kScreenW);
-        int y1 = std::clamp(y + h, 0, kScreenH);
-        size_t count = 0;
-        for (int yy = y0; yy < y1; ++yy) {
-            for (int xx = x0; xx < x1; ++xx) {
-                if (fb_[static_cast<size_t>(yy) * kScreenW + xx] == color) {
-                    ++count;
-                }
-            }
-        }
-        return count;
+        return frameInspector_.inspectRenderedFrame(label);
     }
 
     void validate() {
@@ -7776,9 +7443,9 @@ public:
 
         FrameInspection emptyFrame = inspectRenderedFrame("record-name-cursor-empty");
         std::vector<uint32_t> emptyPixels = fb_;
-        int emptySlot = nameEntryCursorSlot();
-        size_t emptyCursorPixels = countColorInRegion(
-            nameEntrySlotX(emptySlot) - 1, kNameEntrySlotY - 2,
+        int emptySlot = gameRenderer_.nameEntryCursorSlot(pendingRecordName_);
+        size_t emptyCursorPixels = frameInspector_.countColorInRegion(
+            gameRenderer_.nameEntrySlotX(emptySlot) - 1, kNameEntrySlotY - 2,
             kNameEntryCursorBoxW, kNameEntryCursorBoxH,
             kNameEntryCursorBackground);
         if (emptySlot != 0 || emptyCursorPixels == 0) {
@@ -7789,14 +7456,14 @@ public:
         onKey(SDLK_a, running);
         FrameInspection oneFrame = inspectRenderedFrame("record-name-cursor-one");
         std::vector<uint32_t> onePixels = fb_;
-        int oneSlot = nameEntryCursorSlot();
-        size_t oneCursorPixels = countColorInRegion(
-            nameEntrySlotX(oneSlot) - 1, kNameEntrySlotY - 2,
+        int oneSlot = gameRenderer_.nameEntryCursorSlot(pendingRecordName_);
+        size_t oneCursorPixels = frameInspector_.countColorInRegion(
+            gameRenderer_.nameEntrySlotX(oneSlot) - 1, kNameEntrySlotY - 2,
             kNameEntryCursorBoxW, kNameEntryCursorBoxH,
             kNameEntryCursorBackground);
         if (pendingRecordName_ != "a" || oneSlot != 1 ||
             oneFrame.hash == emptyFrame.hash || oneCursorPixels == 0 ||
-            !regionChanged(emptyPixels, nameEntrySlotX(0) - 1,
+            !frameInspector_.regionChanged(emptyPixels, gameRenderer_.nameEntrySlotX(0) - 1,
                            kNameEntrySlotY - 2, kNameEntrySlotAdvance * 2,
                            kNameEntryCursorBoxH)) {
             throw std::runtime_error("name-entry cursor did not advance to slot 1");
@@ -7804,14 +7471,14 @@ public:
 
         onKey(SDLK_b, running);
         FrameInspection twoFrame = inspectRenderedFrame("record-name-cursor-two");
-        int twoSlot = nameEntryCursorSlot();
-        size_t twoCursorPixels = countColorInRegion(
-            nameEntrySlotX(twoSlot) - 1, kNameEntrySlotY - 2,
+        int twoSlot = gameRenderer_.nameEntryCursorSlot(pendingRecordName_);
+        size_t twoCursorPixels = frameInspector_.countColorInRegion(
+            gameRenderer_.nameEntrySlotX(twoSlot) - 1, kNameEntrySlotY - 2,
             kNameEntryCursorBoxW, kNameEntryCursorBoxH,
             kNameEntryCursorBackground);
         if (pendingRecordName_ != "ab" || twoSlot != 2 ||
             twoFrame.hash == oneFrame.hash || twoCursorPixels == 0 ||
-            !regionChanged(onePixels, nameEntrySlotX(1) - 1,
+            !frameInspector_.regionChanged(onePixels, gameRenderer_.nameEntrySlotX(1) - 1,
                            kNameEntrySlotY - 2, kNameEntrySlotAdvance * 2,
                            kNameEntryCursorBoxH)) {
             throw std::runtime_error("name-entry cursor did not advance to slot 2");
@@ -7820,9 +7487,9 @@ public:
         onKey(SDLK_BACKSPACE, running);
         FrameInspection backspaceFrame =
             inspectRenderedFrame("record-name-cursor-backspace");
-        int backspaceSlot = nameEntryCursorSlot();
-        size_t backspaceCursorPixels = countColorInRegion(
-            nameEntrySlotX(backspaceSlot) - 1, kNameEntrySlotY - 2,
+        int backspaceSlot = gameRenderer_.nameEntryCursorSlot(pendingRecordName_);
+        size_t backspaceCursorPixels = frameInspector_.countColorInRegion(
+            gameRenderer_.nameEntrySlotX(backspaceSlot) - 1, kNameEntrySlotY - 2,
             kNameEntryCursorBoxW, kNameEntryCursorBoxH,
             kNameEntryCursorBackground);
         if (pendingRecordName_ != "a" || backspaceSlot != 1 ||
@@ -7863,7 +7530,7 @@ public:
             pushKeyDown(SDLK_b, true);
             processEvents(running);
         }
-        if (pendingRecordName_ != "a bbb" || nameEntryCursorSlot() != 5) {
+        if (pendingRecordName_ != "a bbb" || gameRenderer_.nameEntryCursorSlot(pendingRecordName_) != 5) {
             throw std::runtime_error("repeated name-entry text was not accepted");
         }
 
@@ -7871,7 +7538,7 @@ public:
             pushKeyDown(SDLK_BACKSPACE, true);
             processEvents(running);
         }
-        if (pendingRecordName_ != "a b" || nameEntryCursorSlot() != 3) {
+        if (pendingRecordName_ != "a b" || gameRenderer_.nameEntryCursorSlot(pendingRecordName_) != 3) {
             throw std::runtime_error("repeated name-entry Backspace was not accepted");
         }
 
@@ -8122,7 +7789,7 @@ public:
         }
         FrameInspection gameOverFrame = inspectRenderedFrame("end-flow-game-over");
         if (gameOverFrame.hash == mainFrame.hash ||
-            !regionHasVariation(70, 68, 190, 112)) {
+            !frameInspector_.regionHasVariation(70, 68, 190, 112)) {
             throw std::runtime_error("game-over frame did not render title/scores");
         }
 
@@ -8160,7 +7827,7 @@ public:
             inspectRenderedFrame("end-flow-completed-game");
         if (completedFrame.hash == gameOverFrame.hash ||
             completedFrame.hash == afterGameOverFrame.hash ||
-            !regionHasVariation(50, 54, 230, 120)) {
+            !frameInspector_.regionHasVariation(50, 54, 230, 120)) {
             throw std::runtime_error("completed-game frame did not render distinct text");
         }
 
@@ -10634,9 +10301,9 @@ public:
                 throw std::runtime_error("state-2 visual preview sprite index out of range");
             }
             std::fill(fb_.begin(), fb_.end(), argb(palette_, 0));
-            resetClip();
+            canvas_.resetClip();
             const Sprite& sprite = sprites_.sprites[static_cast<size_t>(spriteIndex)];
-            drawSprite(sprite, (kScreenW - sprite.width) / 2,
+            textRenderer_.drawSprite(sprite, (kScreenW - sprite.width) / 2,
                        (kScreenH - sprite.height) / 2);
             FrameInspection inspection = inspectBuffer(file);
             writeArgbPpm(joinPath(outDir, file), fb_, kScreenW, kScreenH);
@@ -15753,7 +15420,7 @@ public:
 
     void debugSpriteBlitContract() {
         load();
-        resetClip();
+        canvas_.resetClip();
         constexpr uint32_t kSentinel = 0x11223344u;
         std::fill(fb_.begin(), fb_.end(), kSentinel);
 
@@ -15764,7 +15431,7 @@ public:
                          3, 0, 4,    0xff};
         constexpr int x0 = 5;
         constexpr int y0 = 7;
-        drawSprite(sprite, x0, y0);
+        textRenderer_.drawSprite(sprite, x0, y0);
 
         auto pixelAt = [&](int x, int y) {
             return fb_[static_cast<size_t>(y) * kScreenW + x];
@@ -16759,7 +16426,7 @@ public:
                 monsters_.front().behavior != 2 ||
                 monsters_.front().stateTimer !=
                     kMonsterDeathVisibleTicks + 1 ||
-                monsterSpriteIndex(monsters_.front()) != expectedSprite ||
+                gameRenderer_.monsterSpriteIndex(monsters_.front()) != expectedSprite ||
                 !monsters_.front().deathRewardPending ||
                 bonusDrops_.size() != dropsBefore ||
                 randomSeed_ != 0x90e25b93u) {
@@ -16780,7 +16447,7 @@ public:
                 if (monsters_.size() != 1 ||
                     monsters_.front().stateTimer !=
                         kMonsterDeathVisibleTicks - frame ||
-                    monsterSpriteIndex(monsters_.front()) != expectedSprite ||
+                    gameRenderer_.monsterSpriteIndex(monsters_.front()) != expectedSprite ||
                     bonusDrops_.size() != dropsBefore ||
                     randomSeed_ != 0x90e25b93u) {
                     throw std::runtime_error(
@@ -19108,7 +18775,7 @@ public:
             monster.animFrame = static_cast<uint8_t>(c.animFrame);
             monster.animCursor = static_cast<uint8_t>(c.animFrame);
             monsters_.push_back(monster);
-            if (monsterSpriteIndex(monsters_.front()) != c.animFrame) {
+            if (gameRenderer_.monsterSpriteIndex(monsters_.front()) != c.animFrame) {
                 throw std::runtime_error(
                     "impact sprite pre-impact frame mismatch");
             }
@@ -19121,7 +18788,7 @@ public:
             if (monsters_.size() != 1 || monsters_.front().behavior != 2) {
                 throw std::runtime_error("impact sprite unit stimulus did not kill");
             }
-            const int corpse = monsterSpriteIndex(monsters_.front());
+            const int corpse = gameRenderer_.monsterSpriteIndex(monsters_.front());
             if (corpse != c.expectedSprite) {
                 throw std::runtime_error(
                     "corpse sprite " + std::to_string(corpse) + " for walker " +
@@ -19133,7 +18800,7 @@ public:
             const int expectedTicks = kMonsterDeathVisibleTicks + static_cast<int>(logicTick_ & 1u);
             int ticks = 1;
             while (!monsters_.empty() && monsters_.front().behavior == 2) {
-                if (monsterSpriteIndex(monsters_.front()) != c.expectedSprite) {
+                if (gameRenderer_.monsterSpriteIndex(monsters_.front()) != c.expectedSprite) {
                     throw std::runtime_error(
                         "corpse sprite changed during playback");
                 }
@@ -19207,7 +18874,7 @@ public:
         // Ten particle draws and two shake draws precede the isolated reward.
         randomSeed_ = 0xa102224fu;
         uint32_t scoreBefore = score_;
-        if (monsterSpriteIndex(monsters_.front()) != 44) {
+        if (gameRenderer_.monsterSpriteIndex(monsters_.front()) != 44) {
             throw std::runtime_error(
                 "live monster bomb pre-impact sprite mismatch");
         }
@@ -19225,7 +18892,7 @@ public:
         if (!bombs_.empty() || monsters_.empty() || monsters_.front().behavior != 2 ||
             monsters_.front().kind != 0x0c || monsters_.front().hp != 0 ||
             monsters_.front().stateTimer != corpseTicks ||
-            monsterSpriteIndex(monsters_.front()) != corpseSprite ||
+            gameRenderer_.monsterSpriteIndex(monsters_.front()) != corpseSprite ||
             !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
             std::ostringstream oss;
             oss << "live bomb did not kill overlapping moving monster"
@@ -19251,7 +18918,7 @@ public:
             if (monsters_.size() != 1 ||
                 monsters_.front().stateTimer !=
                     corpseTicks - frame ||
-                monsterSpriteIndex(monsters_.front()) !=
+                gameRenderer_.monsterSpriteIndex(monsters_.front()) !=
                     corpseSprite ||
                 !bonusDrops_.empty() || randomSeed_ != 0x90e25b93u) {
                 throw std::runtime_error(
@@ -19640,8 +19307,8 @@ public:
                 inspectRenderedFrame("all-levels-render-" + std::to_string(level));
             // World band must have visible level geometry, and the HUD band must
             // render the recovered bottom panel.
-            if (!regionHasVariation(0, 0, kScreenW, hudY) ||
-                !regionHasVariation(0, hudY, kScreenW, 46)) {
+            if (!frameInspector_.regionHasVariation(0, 0, kScreenW, hudY) ||
+                !frameInspector_.regionHasVariation(0, hudY, kScreenW, 46)) {
                 throw std::runtime_error("level " + std::to_string(level) +
                                          " did not render world and HUD");
             }
@@ -21989,7 +21656,7 @@ public:
                             monster.vy8 != static_cast<int16_t>(le16(raw, 8)) ||
                             monster.fracX != le16(raw, 10) || monster.fracY != le16(raw, 12)) fail("monster");
                         if (!std::equal(visual.begin() + 4, visual.end(),
-                            descriptors.begin() + (monsterSpriteIndex(monster) + 1) * 4)) fail("monster descriptor");
+                            descriptors.begin() + (gameRenderer_.monsterSpriteIndex(monster) + 1) * 4)) fail("monster descriptor");
                         if (raw[0] == 0x0c) {
                             if (raw[2] != (monster.stateTimer + 1) / 2) fail("corpse countdown");
                             ++corpseStates;
@@ -22203,7 +21870,7 @@ public:
                 const auto raw = bytes(fields.at("target").substr(0, split), 38);
                 const auto visual = bytes(fields.at("target").substr(split + 1), 8);
                 const auto& monster = monsters_.front();
-                const int sprite = monsterSpriteIndex(monster);
+                const int sprite = gameRenderer_.monsterSpriteIndex(monster);
                 if (raw[0] != monster.kind || raw[0x15] != monster.behavior || raw[0x14] != monster.hotspotY ||
                     raw[2] != (monster.stateTimer + 1) / 2 ||
                     static_cast<int16_t>(le16(raw, 6)) != monster.vx8 || static_cast<int16_t>(le16(raw, 8)) != monster.vy8 ||
@@ -22487,7 +22154,7 @@ public:
                         const auto& corpse = monsters_[i];
                         const auto& raw = corpses[i].first;
                         const auto& visual = corpses[i].second;
-                        const int sprite = monsterSpriteIndex(corpse);
+                        const int sprite = gameRenderer_.monsterSpriteIndex(corpse);
                         if (raw[0] != corpse.kind || raw[2] != (corpse.stateTimer + 1) / 2 ||
                             raw[0x15] != corpse.behavior || raw[0x14] != corpse.hotspotY || raw[0x1b] != corpse.animMode ||
                             static_cast<int16_t>(le16(raw, 6)) != corpse.vx8 ||
@@ -23441,9 +23108,9 @@ public:
 
         const LevelIntroPattern fixture = capturedLevelIntroPattern();
         const std::string level1Caption = levelIntroCaption(0);
-        resetClip();
+        canvas_.resetClip();
         std::fill(fb_.begin(), fb_.end(), 0xff000000u);
-        drawLevelIntro(0, fixture, level1Caption.size());
+        gameRenderer_.drawLevelIntro(0, fixture, level1Caption.size());
         FrameInspection exactFrame;
         const uint32_t first = fb_.front();
         exactFrame.hash = 1469598103934665603ull;
@@ -23459,9 +23126,9 @@ public:
         if (exactFrame.hash != kCapturedFrameHash ||
             exactFrame.changedPixels != kCapturedChangedPixels ||
             first != 0xff515545u ||
-            countColorInRegion(0, 0, kScreenW, kScreenH, argb(palette_, 1)) !=
+            frameInspector_.countColorInRegion(0, 0, kScreenW, kScreenH, argb(palette_, 1)) !=
                 kCapturedBluePixels ||
-            countColorInRegion(0, 0, kScreenW, kScreenH, argb(palette_, 31)) !=
+            frameInspector_.countColorInRegion(0, 0, kScreenW, kScreenH, argb(palette_, 31)) !=
                 kCapturedWhitePixels) {
             throw std::runtime_error(
                 "level intro did not match the captured original frame");
@@ -23470,14 +23137,14 @@ public:
             writeArgbPpm(framePath, fb_, kScreenW, kScreenH);
         }
         std::vector<uint32_t> level1Pixels = fb_;
-        if (!regionHasVariation(0, 0, kScreenW, 80) ||
-            !regionHasVariation(16, 93, 282, 9)) {
+        if (!frameInspector_.regionHasVariation(0, 0, kScreenW, 80) ||
+            !frameInspector_.regionHasVariation(16, 93, 282, 9)) {
             throw std::runtime_error("level intro did not render stripes and caption");
         }
-        resetClip();
+        canvas_.resetClip();
         std::fill(fb_.begin(), fb_.end(), 0xff000000u);
-        drawLevelIntro(2, fixture, levelIntroCaption(2).size());
-        if (!regionChanged(level1Pixels, 16, 93, 282, 9)) {
+        gameRenderer_.drawLevelIntro(2, fixture, levelIntroCaption(2).size());
+        if (!frameInspector_.regionChanged(level1Pixels, 16, 93, 282, 9)) {
             throw std::runtime_error("level intro caption did not change with level");
         }
 
@@ -23556,9 +23223,9 @@ public:
         const int hudY = kScreenH - 46;
         FrameInspection first = inspectRenderedFrame("hud-stats-live-first");
         std::vector<uint32_t> firstPixels = fb_;
-        if (!regionHasVariation(0, hudY, kScreenW, 46) ||
-            !regionHasVariation(0, hudY + 18, 88, 20) ||
-            !regionHasVariation(116, hudY + 6, 64, 34)) {
+        if (!frameInspector_.regionHasVariation(0, hudY, kScreenW, 46) ||
+            !frameInspector_.regionHasVariation(0, hudY + 18, 88, 20) ||
+            !frameInspector_.regionHasVariation(116, hudY + 6, 64, 34)) {
             throw std::runtime_error("HUD stats panel did not render visible gauges/icons");
         }
 
@@ -23568,7 +23235,7 @@ public:
         bombInventory_.counts[3] = 0;
         FrameInspection second = inspectRenderedFrame("hud-stats-live-second");
         if (second.hash == first.hash ||
-            !regionChanged(firstPixels, 0, hudY, kScreenW, 46)) {
+            !frameInspector_.regionChanged(firstPixels, 0, hudY, kScreenW, 46)) {
             throw std::runtime_error("HUD stats panel did not react to player/bomb stat changes");
         }
 
@@ -23607,11 +23274,11 @@ public:
         // (left) and red (right) frames, with the doubled bottom HUD -- the
         // player-1 column at x0, the player-2 column at x180 and the shared
         // objective panel at x141 (all measured from the original capture).
-        if (!regionHasVariation(4, 4, 152, 152) ||          // p1 world
-            !regionHasVariation(164, 4, 152, 152) ||        // p2 world
-            !regionHasVariation(0, 160, 140, 40) ||         // p1 HUD column
-            !regionHasVariation(180, 160, 140, 40) ||       // p2 HUD column
-            !regionHasVariation(141, 160, 37, 39)) {        // objective panel
+        if (!frameInspector_.regionHasVariation(4, 4, 152, 152) ||          // p1 world
+            !frameInspector_.regionHasVariation(164, 4, 152, 152) ||        // p2 world
+            !frameInspector_.regionHasVariation(0, 160, 140, 40) ||         // p1 HUD column
+            !frameInspector_.regionHasVariation(180, 160, 140, 40) ||       // p2 HUD column
+            !frameInspector_.regionHasVariation(141, 160, 37, 39)) {        // objective panel
             throw std::runtime_error("two-player HUD panel did not render visible split UI");
         }
         // The right view's frame must be the original's red scheme.
@@ -23629,8 +23296,8 @@ public:
         for (int tick = 0; tick < 30; ++tick) updateWithControls(FrameControls{}, 1.0f / 60.0f);
         FrameInspection second = inspectRenderedFrame("two-player-hud-panel-second");
         if (second.hash == first.hash ||
-            !regionChanged(firstPixels, 141, 160, 37, 39) ||   // objective tallies
-            !regionChanged(firstPixels, 180, 164, 102, 3)) {   // p2 energy bar
+            !frameInspector_.regionChanged(firstPixels, 141, 160, 37, 39) ||   // objective tallies
+            !frameInspector_.regionChanged(firstPixels, 180, 164, 102, 3)) {   // p2 energy bar
             throw std::runtime_error("two-player HUD panel did not react to progress/stat changes");
         }
 
@@ -23733,13 +23400,13 @@ private:
                 {"waiting", numbers({second ? reentryTimer2_ : reentryTimer_, second ? deathStateTimer2_ : deathStateTimer_,
                     second ? pendingLifeLoss2_ : pendingLifeLoss_, second ? reentryFire2_ : reentryFire1_})},
                 {"score", std::to_string(second ? score2_ : score_)},
-                {"hud_score", numbers({hudScores_[second ? 1 : 0].value, hudScores_[second ? 1 : 0].phase,
-                    hudScores_[second ? 1 : 0].current[0], hudScores_[second ? 1 : 0].current[1], hudScores_[second ? 1 : 0].current[2],
-                    hudScores_[second ? 1 : 0].current[3], hudScores_[second ? 1 : 0].current[4], hudScores_[second ? 1 : 0].current[5],
-                    hudScores_[second ? 1 : 0].current[6], hudScores_[second ? 1 : 0].current[7], hudScores_[second ? 1 : 0].current[8],
-                    hudScores_[second ? 1 : 0].target[0], hudScores_[second ? 1 : 0].target[1], hudScores_[second ? 1 : 0].target[2],
-                    hudScores_[second ? 1 : 0].target[3], hudScores_[second ? 1 : 0].target[4], hudScores_[second ? 1 : 0].target[5],
-                    hudScores_[second ? 1 : 0].target[6], hudScores_[second ? 1 : 0].target[7], hudScores_[second ? 1 : 0].target[8]})},
+                {"hud_score", numbers({presentation_.hudScores()[second ? 1 : 0].value, presentation_.hudScores()[second ? 1 : 0].phase,
+                    presentation_.hudScores()[second ? 1 : 0].current[0], presentation_.hudScores()[second ? 1 : 0].current[1], presentation_.hudScores()[second ? 1 : 0].current[2],
+                    presentation_.hudScores()[second ? 1 : 0].current[3], presentation_.hudScores()[second ? 1 : 0].current[4], presentation_.hudScores()[second ? 1 : 0].current[5],
+                    presentation_.hudScores()[second ? 1 : 0].current[6], presentation_.hudScores()[second ? 1 : 0].current[7], presentation_.hudScores()[second ? 1 : 0].current[8],
+                    presentation_.hudScores()[second ? 1 : 0].target[0], presentation_.hudScores()[second ? 1 : 0].target[1], presentation_.hudScores()[second ? 1 : 0].target[2],
+                    presentation_.hudScores()[second ? 1 : 0].target[3], presentation_.hudScores()[second ? 1 : 0].target[4], presentation_.hudScores()[second ? 1 : 0].target[5],
+                    presentation_.hudScores()[second ? 1 : 0].target[6], presentation_.hudScores()[second ? 1 : 0].target[7], presentation_.hudScores()[second ? 1 : 0].target[8]})},
                 {"inventory", numbers({inventory.counts[0], inventory.counts[1], inventory.counts[2], inventory.counts[3],
                     static_cast<int>(inventory.selected)})},
                 {"cooldowns", numbers({second ? portalCooldown2_ : portalCooldown_, second ? triggerCooldown2_ : triggerCooldown_,
@@ -23796,12 +23463,12 @@ private:
                 levelOutro_.awaitKey, levelResetGeneration_, levelRestartPromoted_})},
             {"presentation", numbers({gameplayViewWidth_, showBackground_, menuItalian_, backdropPitch_, redPalettePhase_,
                 cameraShakeTicks_, cameraShakeOffset_})},
-            {"hud", numbers({hudPreviousCollected_, hudPreviousDestruction_, hudDestructionPercent_, hudColumnReady_[0], hudColumnReady_[1],
-                hudPaletteQueue_.count, hudPaletteQueue_.entries[0].index, hudPaletteQueue_.entries[1].index,
-                hudPaletteQueue_.entries[0].current[0], hudPaletteQueue_.entries[0].current[1], hudPaletteQueue_.entries[0].current[2],
-                hudPaletteQueue_.entries[1].current[0], hudPaletteQueue_.entries[1].current[1], hudPaletteQueue_.entries[1].current[2],
-                hudPaletteQueue_.entries[0].target[0], hudPaletteQueue_.entries[0].target[1], hudPaletteQueue_.entries[0].target[2],
-                hudPaletteQueue_.entries[1].target[0], hudPaletteQueue_.entries[1].target[1], hudPaletteQueue_.entries[1].target[2]})},
+            {"hud", numbers({presentation_.hudPreviousCollected(), presentation_.hudPreviousDestruction(), presentation_.hudDestructionPercent(), presentation_.hudColumnReady()[0], presentation_.hudColumnReady()[1],
+                presentation_.hudPaletteQueue().count, presentation_.hudPaletteQueue().entries[0].index, presentation_.hudPaletteQueue().entries[1].index,
+                presentation_.hudPaletteQueue().entries[0].current[0], presentation_.hudPaletteQueue().entries[0].current[1], presentation_.hudPaletteQueue().entries[0].current[2],
+                presentation_.hudPaletteQueue().entries[1].current[0], presentation_.hudPaletteQueue().entries[1].current[1], presentation_.hudPaletteQueue().entries[1].current[2],
+                presentation_.hudPaletteQueue().entries[0].target[0], presentation_.hudPaletteQueue().entries[0].target[1], presentation_.hudPaletteQueue().entries[0].target[2],
+                presentation_.hudPaletteQueue().entries[1].target[0], presentation_.hudPaletteQueue().entries[1].target[1], presentation_.hudPaletteQueue().entries[1].target[2]})},
             {"progress", numbers({collected_, destroyed_, level_.requiredBonus, level_.requiredDestruction, level_.fieldB,
                 completeTimer_, nextCollapseFragmentWord_})},
             {"dimensions", numbers({level_.width, level_.height})}, {"tiles_hex", quote(trace::hexBytes(level_.tiles))},
@@ -23831,16 +23498,10 @@ private:
     lezac::app::SdlRuntime sdl_;
     lezac::rendering::SdlDisplay display_;
     lezac::rendering::Canvas canvas_;
+    lezac::diagnostics::FrameInspector frameInspector_{canvas_};
     AssetCatalog assets_;
-    Palette palette_{};
-    Palette initialPalette_{};
-    std::array<lezac::core::HudScoreReel, 2> hudScores_{};
-    lezac::core::HudPaletteQueue hudPaletteQueue_{};
-    std::array<bool, 2> hudColumnReady_{};
-    int hudPreviousCollected_ = 20000;
-    int hudPreviousDestruction_ = 200;
-    int hudDestructionPercent_ = 0;
-    bool originalPlayInitialized_ = false;
+    lezac::rendering::PresentationState presentation_;
+    const Palette& palette_ = presentation_.palette();
     std::function<void()> gameplayPresentation_;
     const Palette& backgroundPalette_ = assets_.backgroundPalette();
     const IndexedImage& background_ = assets_.background();
@@ -23849,6 +23510,7 @@ private:
     const SpriteBank& altSprites_ = assets_.altSprites();
     const SpriteBank& fontSprites_ = assets_.fontSprites();
     lezac::rendering::TextRenderer textRenderer_{canvas_, palette_, fontSprites_};
+    lezac::rendering::GameRenderer gameRenderer_{canvas_, textRenderer_, assets_, presentation_};
     const SoundBank& sounds_ = assets_.sounds();
     lezac::sound::SoundEngine sound_{sounds_};
     lezac::sound::SdlAudioOutput audioOutput_;
@@ -23869,11 +23531,7 @@ private:
     bool interactiveLevelIntroEnabled_ = false;
     LevelIntroState levelIntro_;
     LevelOutroState levelOutro_;
-    std::vector<uint8_t> backdropBuffer_;
-    int backdropPitch_ = 320;
-    uint8_t redPalettePhase_ = 0;
-    std::array<uint8_t, 8> backdropHeapPadding_{};
-    size_t backdropMapTileCount_ = 0;
+
     std::vector<BonusDrop> bonusDrops_;
     std::vector<Bomb> bombs_;
     std::vector<Flash> flashes_;
@@ -24009,15 +23667,9 @@ private:
         ++levelResetGeneration_;
         // FreeMem leaves the previous map's rounded size in its alignment gap.
         // The word plane is freed first, so both frees retract the heap top.
-        if (backdropMapTileCount_ != 0) {
-            const size_t rounded = (backdropMapTileCount_ + 23) & ~size_t(7);
-            backdropHeapPadding_[4] = static_cast<uint8_t>(rounded & 15);
-            backdropHeapPadding_[6] = static_cast<uint8_t>(rounded >> 4);
-            backdropHeapPadding_[7] = static_cast<uint8_t>(rounded >> 12);
-        }
         levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
         level_ = levels_[levelIndex_];
-        backdropMapTileCount_ = static_cast<size_t>(level_.width) * level_.height;
+        presentation_.beginLevel(static_cast<size_t>(level_.width) * level_.height);
         player_ = {};
         player2_ = {};
         player2_.animation = ActorAnimation::initialize(21, 28, 1, 1);
@@ -24038,12 +23690,7 @@ private:
         nextCollapseFragmentWord_ = level_.fieldA;
         collected_ = 0;
         destroyed_ = 0;
-        hudPaletteQueue_ = {};
-        hudColumnReady_ = {};
-        hudPreviousCollected_ = 20000;
-        hudPreviousDestruction_ = 200;
-        hudDestructionPercent_ = 0;
-        for (int index : {224, 245, 246}) palette_[index] = initialPalette_[index];
+        presentation_.resetHudForLevel();
         completeTimer_ = 0;
         portalCooldown_ = 0;
         triggerCooldown_ = 0;
@@ -24106,10 +23753,6 @@ private:
         if (levelIndex_ == 6) spawnLevel7Boss();
     }
 
-    std::string levelIntroCaption(int levelIndex) const {
-        return "PREPARATI PER IL LIVELLO " + std::to_string(levelIndex + 1);
-    }
-
     LevelIntroPattern makeLevelIntroPattern() {
         LevelIntroPattern pattern;
         pattern.horizontalStep = randomInclusive(1, 80);
@@ -24151,10 +23794,7 @@ private:
     void beginLevelForPlay(int index) {
         // Original level advance jumps to file 0x7f4c, past the new-game clock reset.
         levelIntroFrame_ = menu_ ? 0 : logicTick_;
-        if (menu_ && !originalPlayInitialized_) {
-            std::fill(backdropBuffer_.begin(), backdropBuffer_.end(), 0);
-            originalPlayInitialized_ = true;
-        }
+        presentation_.beginOriginalPlay(menu_);
         if (levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("level_init");
         levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
         level_ = levels_[levelIndex_];
@@ -24162,11 +23802,7 @@ private:
         // background buffer. Decoder 082D:0000 continues through its retained
         // tail until the requested output length, ignoring compressed length.
         auto decodePlane = [&](const std::vector<uint8_t>& encoded, size_t outputSize) {
-            if (backdropBuffer_.size() != 60000 || encoded.size() > backdropBuffer_.size()) {
-                throw std::runtime_error("level decoder background buffer bounds");
-            }
-            std::copy(encoded.begin(), encoded.end(), backdropBuffer_.begin());
-            return decodeLevelRle3(backdropBuffer_, outputSize);
+            return presentation_.decodeLevelPlane(encoded, outputSize);
         };
         // JSON assets already contain decoded maps, without original input bytes.
         if (!level_.encodedTiles.empty()) {
@@ -24462,22 +24098,6 @@ private:
         return static_cast<int>(type);
     }
 
-    BombProfile bombProfile(BombType type) const {
-        switch (type) {
-            // The default (Small) bomb is the blue BOMOMIMK sprite 57, verified
-            // against the original both in the HUD selector box and as a dropped
-            // world bomb (captured under DOSBox); 58 is the green bomb.
-            // 1000:6C0A..6C25 seeds actor +0x02 with 20/30/40/200.
-            // 1000:75A7..75B0 subtracts DS:78C2 & 1. These are the maximum
-            // game-update counts, not the original byte countdown values.
-            case BombType::Small: return {0x0d, 57, 40};
-            case BombType::Medium: return {0x0e, 58, 60};
-            case BombType::Large: return {0x0f, 59, 80};
-            case BombType::Super: return {0x10, 60, 400};
-        }
-        return {0x0d, 57, 40};
-    }
-
     int explosionVisualType(BombType type) const {
         return std::clamp(bombTypeIndex(type) + 1, 1, 4);
     }
@@ -24683,33 +24303,19 @@ private:
         updateHudScores();
         updateFlashes();
         updateCameraShake();
-        hudPaletteQueue_.advance([&](uint8_t index, const std::array<uint8_t, 3>& color) {
-            palette_[index] = {vga6To8(color[0] & 63), vga6To8(color[1] & 63), vga6To8(color[2] & 63)};
-        });
-        updateRedPalette(static_cast<uint16_t>(logicTick_));
+        presentation_.advanceHudPalette();
+        presentation_.updateRedPalette(static_cast<uint16_t>(logicTick_));
         updateLevelCompletion();
         pumpSoundLatch();
     }
 
     void prepareHudObjectives() {
-        if ((static_cast<uint16_t>(logicTick_) % 30) == 0) hudDestructionPercent_ = destructionPercent();
-        if (collected_ != hudPreviousCollected_) {
-            hudPreviousCollected_ = collected_;
-            hudPaletteQueue_.request(245, {63, 63, 63}, {1, 1, 41});
-        }
-        if (hudDestructionPercent_ != hudPreviousDestruction_) {
-            hudPreviousDestruction_ = hudDestructionPercent_;
-            hudPaletteQueue_.request(246, {63, 63, 63}, {1, 1, 41});
-        }
+        presentation_.prepareHudObjectives(static_cast<uint16_t>(logicTick_), collected_, destructionPercent());
     }
 
     void updateHudScores() {
-        for (int i = 0; i < playerCount_; ++i) {
-            hudScores_[i].setValue(i == 0 ? score_ : score2_);
-            if ((i == 0 ? playerDead_ : player2Dead_) && (i == 0 ? deathStateTimer_ : deathStateTimer2_) == 0) continue;
-            hudScores_[i].advance();
-            hudColumnReady_[i] = true;
-        }
+        presentation_.updateHudScores(playerCount_, {{score_, score2_}}, {{playerDead_, player2Dead_}},
+                                      {{deathStateTimer_, deathStateTimer2_}});
     }
 
     bool activateLaunchPad(Player& player, bool down, int localY) {
@@ -24760,14 +24366,6 @@ private:
 
     // One banner line of the level-completion sequence (original routine at
     // file 0x24d3): text, glyph cell advance, palette colours and row.
-    struct OutroLine {
-        std::string text;
-        int cell;
-        uint8_t glyphColor;
-        uint8_t shadowColor;
-        int y;
-        int player;  // -1 for shared lines; 0/1 for the per-player lines
-    };
 
     // The measured original sequence: "livello completato" (cell 11, white 31
     // on grey-25 shadow, y=60), "bonus distruzione; N" (cell 9, green 244 on
@@ -24805,13 +24403,6 @@ private:
     // 500ms pause, each line typed at the original 81ms/char, and after each
     // per-player line a score count-up (100 points per 15ms tick, matching
     // the original's 15ms Delay per step) plus a 200ms pause.
-    struct OutroSegment {
-        uint32_t start;
-        uint32_t end;
-        int line;    // index into levelOutroLines(), -1 for pauses/count-ups
-        int player;  // count-up player index, -1 otherwise
-        bool typing;
-    };
 
     std::vector<OutroSegment> levelOutroSchedule() const {
         std::vector<OutroSegment> segs;
@@ -24905,41 +24496,6 @@ private:
             beginEndRun(EndReason::CompletedGame);
         } else {
             beginLevelForPlay(levelIndex_ + 1);
-        }
-    }
-
-    void drawLevelOutro() {
-        if (!levelOutro_.active) return;
-        const uint32_t elapsed = presentationMilliseconds() - levelOutro_.startedAt;
-        const std::vector<OutroLine> lines = levelOutroLines();
-        const std::vector<OutroSegment> segs = levelOutroSchedule();
-        for (const OutroSegment& seg : segs) {
-            if (!seg.typing || seg.line < 0 || elapsed <= seg.start) continue;
-            const OutroLine& line = lines[static_cast<size_t>(seg.line)];
-            size_t visible = line.text.size();
-            if (elapsed < seg.end) {
-                visible = std::min(
-                    visible, static_cast<size_t>((elapsed - seg.start) /
-                                                 kLevelIntroCharacterDelayMs));
-            }
-            // The 11px-cell headline uses the large font face; the 9px-cell
-            // lines use the small face (measured against the original banner).
-            const bool large = line.cell == 11;
-            int x = kScreenW / 2 -
-                    static_cast<int>(line.text.size()) * line.cell / 2;
-            for (size_t i = 0; i < visible; ++i, x += line.cell) {
-                const int glyphIndex = fontGlyphIndex(line.text[i], large);
-                if (glyphIndex < 0 ||
-                    glyphIndex >= static_cast<int>(fontSprites_.sprites.size())) {
-                    continue;
-                }
-                const Sprite& glyph =
-                    fontSprites_.sprites[static_cast<size_t>(glyphIndex)];
-                drawFontSprite(x - 1, line.y - 1, glyph,
-                               argb(palette_, line.shadowColor), large);
-                drawFontSprite(x, line.y, glyph,
-                               argb(palette_, line.glyphColor), large);
-            }
         }
     }
 
@@ -25232,13 +24788,6 @@ private:
         }
         return result;
     }
-
-    enum class SharedActorKind { Effect, Marker, Bomb, Monster, Reward };
-    struct SharedActorEntry {
-        uint64_t order;
-        SharedActorKind kind;
-        size_t index;
-    };
 
     std::vector<SharedActorEntry> sharedActorEntries() const {
         std::vector<SharedActorEntry> result;
@@ -26818,7 +26367,7 @@ private:
     void clearRunScores() {
         score_ = 0;
         score2_ = 0;
-        hudScores_ = {};
+        presentation_.clearHudScores();
     }
 
     bool isFinalLevel() const {
@@ -28175,753 +27724,68 @@ private:
         gameplayViewWidth_ = std::clamp(gameplayViewWidth_ + delta, 160, kScreenW);
     }
 
-    void setClip(int left, int top, int right, int bottom) {
-        canvas_.setClip(left, top, right, bottom);
+    void buildBackdropBuffer() {
+        lezac::core::TurboRandom random(randomSeed_);
+        presentation_.buildBackdropBuffer(playerCount_, random);
+        randomSeed_ = random.seed();
     }
 
-    void resetClip() {
-        canvas_.resetClip();
+    std::vector<SharedActorEntry> prepareRenderState() {
+        adoptUnorderedActors();
+        auto order = sharedActorEntries();
+        // Actor update order and the original boss visual-block order differ.
+        std::stable_sort(order.begin(), order.end(), [&](const auto& a, const auto& b) {
+            return sharedActorVisualKey(a) < sharedActorVisualKey(b);
+        });
+        return order;
     }
 
-    void pixel(int x, int y, uint32_t color) {
-        canvas_.pixel(x, y, color);
+    lezac::rendering::WorldRenderView worldRenderView(const std::vector<SharedActorEntry>& order) const {
+        return {level_, levelIndex_, playerCount_,
+                {{{player_, playerDead_, lives_, state2Visual_, state2Effect_},
+                  {player2_, player2Dead_, lives2_, state2Visual2_, state2Effect2_}}},
+                bombs_, monsters_, bonusDrops_, flashes_, launchPadMarkers_, transientActors_, order,
+                gameplayViewWidth_, showBackground_, cameraShakeOffset_,
+                state2VisualCursorPreview_, state2VisualRowPreview_};
     }
 
-    void rect(int x, int y, int w, int h, uint32_t color) {
-        canvas_.rect(x, y, w, h, color);
+    lezac::rendering::HudView hudView() const {
+        return {playerCount_,
+                {{{energy_, score_, lives_, playerDead_, bombInventory_},
+                  {energy2_, score2_, lives2_, player2Dead_, bombInventory2_}}},
+                level_.objectiveTile, level_.requiredBonus, level_.requiredDestruction,
+                collected_, presentation_.hudDestructionPercent(), isComplete(), levelOutro_.active,
+                presentation_.hudScores(), presentation_.hudColumnReady()};
+    }
+
+    lezac::rendering::MenuView menuRenderView() const {
+        return {menuPage_, menuItalian_, records_, pendingRecordPlayer_, pendingRecordScore_,
+                pendingRecordLevel_, pendingRecordName_, playerCount_, {{score_, score2_}}};
+    }
+
+    void drawWorldView(const Player& cameraPlayer, int viewX, int viewY, int viewW, int viewH) {
+        const auto order = prepareRenderState();
+        gameRenderer_.drawWorldView(worldRenderView(order), cameraPlayer, viewX, viewY, viewW, viewH);
+    }
+
+    void drawGame() {
+        const auto order = prepareRenderState();
+        gameRenderer_.drawGame(worldRenderView(order), hudView());
+        // Keep the clock sample after painting the world/HUD, as in the original call boundary.
+        if (levelOutro_.active) {
+            gameRenderer_.drawLevelOutro({true, presentationMilliseconds() - levelOutro_.startedAt,
+                                          levelOutroLines(), levelOutroSchedule()});
+        }
+        if (paused_) gameRenderer_.drawPauseOverlay();
     }
 
     void draw() {
         if (levelIntro_.active) {
-            drawLevelIntro(levelIntro_.levelIndex, levelIntro_.pattern,
+            gameRenderer_.drawLevelIntro(levelIntro_.levelIndex, levelIntro_.pattern,
                            visibleLevelIntroCharacters(presentationMilliseconds()));
-        } else if (menu_) drawMenu();
+        } else if (menu_) gameRenderer_.drawMenu(menuRenderView());
         else drawGame();
         display_.present(canvas_);
-    }
-
-    void drawBackground(int camX, int camY) {
-        // The SFONLEF.ZBG title image backing the menu. The in-game
-        // showBackground_ toggle only affects the gameplay sky (drawGradientSky),
-        // so the menu title is always drawn.
-        for (int y = 0; y < kScreenH; ++y) {
-            for (int x = 0; x < kScreenW; ++x) {
-                int bx = (x + camX / 4) % background_.width;
-                int by = (y + camY / 4) % background_.height;
-                if (bx < 0) bx += background_.width;
-                if (by < 0) by += background_.height;
-                pixel(x, y,
-                      argb(backgroundPalette_,
-                           background_.pixels[static_cast<size_t>(by) * background_.width + bx]));
-            }
-        }
-    }
-
-    // The original backdrop is a pre-rendered byte buffer (far
-    // pointer DS:0xC498) blitted under the tiles with a linear copy whose
-    // source starts at (camY/8 + vy)*pitch + camX/4 -- a 1/8 vertical and
-    // 1/4 horizontal parallax, with rows bleeding linearly into the next
-    // buffer row (recovered from the driver blit at file 0x9324 and byte
-    // dumps of the live buffer). The driver init (file 0x9252) programs DAC
-    // entries 176..214 with a computed ramp from (0,0,14) and fills the
-    // buffer with 4-row bands buffer[n] = byte(176 + n/(4*pitch)); the game then paints
-    // a city skyline (buildings of palette 176 = night blue, star dots of
-    // palette 22) from the live RNG at each game start (file 0x7f64).
-    // Pitch is latched at initialization: 320 for P1, 160 for split-screen.
-    // Later viewport narrowing does not regenerate or repack this buffer.
-
-    void buildBackdropBuffer() {
-        backdropPitch_ = playerCount_ > 1 ? 160 : 320;
-        backdropBuffer_.resize(60000);
-        // Driver init fills exactly 60000 bytes, including byte wrap past 255.
-        for (int k = 0; k < 60000; ++k) {
-            backdropBuffer_[static_cast<size_t>(k)] =
-                static_cast<uint8_t>(176 + k / (4 * backdropPitch_));
-        }
-        // City skyline: the original generates ten buildings from the live
-        // Turbo Pascal RNG on each game start (file 0x7f64). Building 1 is
-        // the fixed wide base (cols 0..160, top row 130); each of the others
-        // rolls Random(120) for its left edge, Random(20) for width-20..39,
-        // Random(50)+80 for its top row, is filled down to row 160 with the
-        // night colour (176), and gets 20 star dots (palette 22) at
-        // Random-picked interior spots. The RNG draw order matches the
-        // disassembly exactly; a runtime buffer dump verified the fill and
-        // star semantics byte-for-byte.
-        auto put = [&](int r, int c, uint8_t v) {
-            size_t n = static_cast<size_t>(r) * backdropPitch_ + static_cast<size_t>(c);
-            if (n < backdropBuffer_.size()) backdropBuffer_[n] = v;
-        };
-        for (int b = 1; b <= 10; ++b) {
-            int left = randomRangeValue(0, 120);
-            int width = randomRangeValue(0, 20);
-            int top = randomRangeValue(0, 50) + 80;
-            int right = left + 20 + width;
-            if (b == 1) {
-                left = 0;
-                right = 160;
-                top = 130;
-            }
-            for (int r = top; r <= 160; ++r) {
-                for (int c = left; c <= right; ++c) put(r, c, 176);
-            }
-            if (b == 1) continue;
-            for (int s = 0; s < 20; ++s) {
-                int sr = top + randomRangeValue(
-                                   0, static_cast<uint16_t>(160 - top));
-                int sc = left + randomRangeValue(
-                                    0, static_cast<uint16_t>(right - left));
-                put(sr, sc, 22);
-            }
-        }
-    }
-
-    // Palette lookup for backdrop bytes: DAC 176..214 use the driver's
-    // computed ramp from (0,0,14) -- component j*43/38, j*23/38, 14-j*12/38
-    // in 6-bit VGA levels -- everything else resolves through BOMPAL.
-    uint32_t backdropColor(uint8_t idx) const {
-        if (idx >= 176 && idx <= 214) {
-            const int j = idx - 176;
-            const int r6 = j * 43 / 38;
-            const int g6 = j * 23 / 38;
-            const int b6 = 14 - j * 12 / 38;
-            auto up = [](int v) {
-                return static_cast<uint32_t>(((v << 2) | (v >> 4)) & 0xff);
-            };
-            return 0xff000000u | (up(r6) << 16) | (up(g6) << 8) | up(b6);
-        }
-        return argb(palette_, idx);
-    }
-
-    uint8_t backdropByte(size_t offset) const {
-        // Original far pointer is segment:0008. Tall views overrun its 60000
-        // bytes into an 8-byte allocation gap, then the aligned live tile map.
-        const size_t address = (offset + 8) & 0xffff;
-        if (address < 8) return 0;
-        offset = address - 8;
-        if (offset < backdropBuffer_.size()) return backdropBuffer_[offset];
-        if (offset < 60008) return backdropHeapPadding_[offset - 60000];
-        const size_t tile = offset - 60008;
-        return tile < level_.tiles.size() ? level_.tiles[tile] : 0;
-    }
-
-    void updateRedPalette(uint16_t frame) {
-        if (frame % 5 != 0) return;
-        uint8_t red = redPalettePhase_;
-        for (size_t i = 230; i < 236; ++i) {
-            palette_[i] = {vga6To8(static_cast<uint8_t>(red & 63)), 0, 0};
-            red = static_cast<uint8_t>(red + 7);
-            // The writer's signed comparison differs from the unsigned phase update.
-            if (red > 63 && red < 128) red = 20;
-        }
-        redPalettePhase_ = static_cast<uint8_t>(redPalettePhase_ + 7);
-        if (redPalettePhase_ > 63) redPalettePhase_ = 20;
-    }
-
-    void drawGradientSky(int viewX, int viewY, int viewW, int viewH,
-                         int camX, int camY) {
-        if (!showBackground_) {
-            for (int y = 0; y < viewH; ++y) {
-                for (int x = 0; x < viewW; ++x) {
-                    pixel(viewX + x, viewY + y, argb(palette_, 0));
-                }
-            }
-            return;
-        }
-        if (backdropBuffer_.empty()) return;
-        for (int y = 0; y < viewH; ++y) {
-            const size_t n0 = static_cast<size_t>(camY / 8 + y) * backdropPitch_ +
-                            camX / 4;
-            for (int x = 0; x < viewW; ++x) {
-                pixel(viewX + x, viewY + y, backdropColor(backdropByte(n0 + x)));
-            }
-        }
-    }
-
-    // The original frames every gameplay viewport: a 1px outline (row y0, row
-    // y159 and the outer columns) around a 3px inner border, with the world
-    // rendered inside. Single-player uses a white outline with a grey border;
-    // in two-player the left view keeps white/grey and the right view uses a
-    // dark-red outline with a light-red border (all measured from original
-    // captures).
-    void drawViewFrame(int x0, int w, uint32_t outline, uint32_t inner) {
-        rect(x0 + 1, 1, w - 2, 3, inner);
-        rect(x0 + 1, 156, w - 2, 3, inner);
-        rect(x0 + 1, 1, 3, 158, inner);
-        rect(x0 + w - 4, 1, 3, 158, inner);
-        rect(x0, 0, w, 1, outline);
-        rect(x0, 159, w, 1, outline);
-        rect(x0, 0, 1, 160, outline);
-        rect(x0 + w - 1, 0, 1, 160, outline);
-    }
-
-    void drawGame() {
-        std::fill(fb_.begin(), fb_.end(), argb(palette_, 0));
-        if (playerCount_ > 1) {
-            // The original two-player mode is a side-by-side split: each view
-            // is a 152x152 viewport inside its own 160px-wide frame.
-            drawWorldView(player_, 4, 4, 152, 152);
-            drawWorldView(player2_, 164, 4, 152, 152);
-            resetClip();
-            drawViewFrame(0, 160, 0xffffffffu, 0xffb6b6b6u);
-            drawViewFrame(160, 160, 0xffaa0000u, 0xffff5555u);
-        } else {
-            // Single-player: one 312x152 viewport (x4..315, y4..155) inside
-            // the white/grey frame. The E/R width adjustment narrows the
-            // world view inside the frame.
-            int viewW = std::clamp(gameplayViewWidth_, 160, 312);
-            int viewX = 4 + (312 - viewW) / 2;
-            drawWorldView(player_, viewX, 4, viewW, 152);
-            resetClip();
-            if (viewW < 312) {
-                rect(viewX - 1, 16, 1, 140, 0xfff0d060u);
-                rect(viewX + viewW, 16, 1, 140, 0xfff0d060u);
-            }
-            drawViewFrame(0, kScreenW, 0xffffffffu, 0xffb6b6b6u);
-        }
-        drawHud();
-        drawLevelOutro();
-        if (paused_) drawPauseOverlay();
-    }
-
-    void drawWorldView(const Player& cameraPlayer, int viewX, int viewY, int viewW, int viewH) {
-        int worldW = level_.width * 8;
-        int worldH = level_.height * 8;
-        setClip(viewX, viewY, viewX + viewW, viewY + viewH);
-        // Camera fully decoded from the original scroll routine (file 0x3cf7,
-        // fed the player visual entry DS:0xC21E by the main loop): the
-        // routine splits the scroll into a tile-aligned coarse part
-        // (DS:0xC216/0xC218 = (x - 0x78BC) & ~7 / (y - 80) & ~7 with 0x78BC
-        // = viewW/2 - 4) and a fine part (DS:0xC20A/0xC20C = x%8 / y%8)
-        // that recombine to a CONTINUOUS, instantly-applied camera
-        // camX = x - (viewW/2 - 4), camY = y - 80. On the max clamps
-        // (coarse > DS:2094 = (Wt-40)*8 / DS:2096 = (Ht-21)*8) the fine
-        // part is forced to 7, so the effective displayed limits are
-        // worldW-313 and worldH-161 -- verified against the level-6 spawn
-        // (cam 1127/351 for clamps 1120/344) and every walk/jump capture.
-        int camX = std::clamp(static_cast<int>(cameraPlayer.x) - (viewW / 2 - 4),
-                              0, std::max(0, worldW - (viewW + 8) + 7));
-        int camY = std::clamp(static_cast<int>(cameraPlayer.y) - (viewH / 2 + 4),
-                              0, std::max(0, worldH - (viewH + 16) + 7));
-        const int fineX = (camX & 7) + cameraShakeOffset_;
-        camX += cameraShakeOffset_;  // 1000:36F6 adds to the fine X scroll.
-        int drawCamX = camX - viewX;
-        int drawCamY = camY - viewY;
-        drawGradientSky(viewX, viewY, viewW, viewH, camX, camY);
-        adoptUnorderedActors();
-        auto visualOrder = sharedActorEntries();
-        // GRAN.MST reserves a visual block whose slot order differs from its
-        // actor-update order. Stable visual keys also survive later deletions.
-        std::stable_sort(visualOrder.begin(), visualOrder.end(), [&](const auto& a, const auto& b) {
-            return sharedActorVisualKey(a) < sharedActorVisualKey(b);
-        });
-        auto drawForeground = [&](int xCamera, int yCamera) {
-            drawTiles(xCamera, yCamera);
-            drawDamageQueues(xCamera, yCamera);
-            drawFlashes(xCamera, yCamera);
-            drawExplosionEffects(xCamera, yCamera);
-            if (!playerDead_) {
-                drawPlayer(player_, xCamera, yCamera);
-            } else if (lives_ >= 0 && state2Visual_.active) {
-                drawState2PlayerVisual(player_, state2Visual_, state2Effect_, xCamera, yCamera);
-            }
-            if (playerCount_ > 1 && !player2Dead_) {
-                drawPlayer(player2_, xCamera, yCamera);
-            } else if (playerCount_ > 1 && lives2_ >= 0 && state2Visual2_.active) {
-                drawState2PlayerVisual(player2_, state2Visual2_, state2Effect2_, xCamera, yCamera);
-            }
-            // Driver 08AC:0207..02E9 draws visual slots in increasing order,
-            // with the two player slots preceding every non-player actor.
-            for (const auto& entry : visualOrder) {
-                switch (entry.kind) {
-                    case SharedActorKind::Bomb: drawBombs(xCamera, yCamera, entry.order); break;
-                    case SharedActorKind::Monster: drawMonsters(xCamera, yCamera, entry.order); break;
-                    case SharedActorKind::Reward: drawBonusDrops(xCamera, yCamera, entry.order); break;
-                    case SharedActorKind::Effect: {
-                        const auto& actor = transientActors_[entry.index];
-                        drawSprite(sprites_.sprites.at(actor.spriteIndex), actor.x - xCamera, actor.y - yCamera);
-                        break;
-                    }
-                    case SharedActorKind::Marker: {
-                        const auto& marker = launchPadMarkers_[entry.index];
-                        const auto& bank = levelIndex_ == 6 ? altSprites_ : sprites_;
-                        drawSprite(bank.sprites.at(marker.frame - 1), marker.x - xCamera, marker.y - yCamera);
-                        break;
-                    }
-                }
-            }
-        };
-        // 18AC:03C8 copies viewW pixels from a viewW+8-pitch buffer without
-        // clipping fine X after shake. Its right tail aliases the next row's
-        // left foreground; the backdrop was already copied at the fine origin.
-        const int rowPitch = viewW + 8;
-        int remaining = viewW;
-        int screenX = viewX;
-        int sourceX = fineX;
-        while (remaining > 0) {
-            const int rowCarry = sourceX / rowPitch;
-            const int span = std::min(remaining, rowPitch - sourceX % rowPitch);
-            setClip(screenX, viewY, screenX + span, viewY + viewH);
-            drawForeground(drawCamX - rowCarry * rowPitch, drawCamY + rowCarry);
-            screenX += span;
-            sourceX += span;
-            remaining -= span;
-        }
-        setClip(viewX, viewY, viewX + viewW, viewY + viewH);
-    }
-
-    void drawTiles(int camX, int camY) {
-        int sx = std::max(0, camX / 8);
-        int sy = std::max(0, camY / 8);
-        int ex = std::min(level_.width, (camX + 319) / 8 + 2);
-        int ey = std::min(level_.height, (camY + 199) / 8 + 2);
-        for (int ty = sy; ty < ey; ++ty) {
-            for (int tx = sx; tx < ex; ++tx) {
-                int id = tileAt(tx, ty);
-                const uint8_t* tile = tiles_.tile(id);
-                if (!tile || id == 0) continue;
-                int px = tx * 8 - camX;
-                int py = ty * 8 - camY;
-                for (int y = 0; y < 8; ++y) {
-                    for (int x = 0; x < 8; ++x) {
-                        uint8_t c = tile[y * 8 + x];
-                        if (c != 0) pixel(px + x, py + y, argb(palette_, c));
-                    }
-                }
-            }
-        }
-    }
-
-    void drawBombs(int camX, int camY, uint64_t onlyOrder = 0) {
-        for (const Bomb& b : bombs_) {
-            if (onlyOrder && b.actorOrder != onlyOrder) continue;
-            int x = (b.moving ? b.pixelX : b.x * 8) - camX;
-            int y = (b.moving ? b.pixelY : b.y * 8) - camY;
-            int index = static_cast<int>(bombProfile(b.type).spriteBase);
-            if (index >= 0 && index < static_cast<int>(sprites_.sprites.size())) {
-                drawSprite(sprites_.sprites[static_cast<size_t>(index)], x, y);
-                continue;
-            }
-            int flashWindow = std::clamp(b.fuseTicks / 4, 6, 28);
-            uint32_t body = b.timer <= flashWindow ? 0xfffff070u : bombColor(b.type);
-            rect(x + 1, y + 1, 6, 6, body);
-            rect(x + 3, y - 1, 2, 2, 0xffff7070u);
-        }
-    }
-
-    uint32_t bombColor(BombType type) const {
-        switch (type) {
-            case BombType::Small: return 0xff181818u;
-            case BombType::Medium: return 0xff4058d0u;
-            case BombType::Large: return 0xffd05040u;
-            case BombType::Super: return 0xff60d060u;
-        }
-        return 0xff181818u;
-    }
-
-    void drawFlashes(int camX, int camY) {
-        for (const Flash& f : flashes_) {
-            rect(f.x * 8 - camX, f.y * 8 - camY, 8, 8,
-                 f.timer & 1 ? 0xfffff070u : 0xffff5030u);
-        }
-    }
-
-    void drawDamageQueues(int camX, int camY) {
-        // Falling fragments no longer need an invented overlay: the mover
-        // stamps the carried tile code into level_.tiles on every move
-        // (1000:4B7E), so the ordinary tile renderer draws them.
-        // Collapse groups likewise move their original glyphs in the map.
-        (void)camX;
-        (void)camY;
-    }
-
-    void drawExplosionEffects(int camX, int camY) {
-        // Flame glyphs are now drawn by the ordinary object-plane renderer.
-        (void)camX;
-        (void)camY;
-    }
-
-    bool isBossActor(const ActiveMonster& monster) const {
-        return monster.behavior == 5 || monster.behavior == 6 || monster.bossDebris;
-    }
-
-    // Level 7 swaps the actor sheet to PROVA.SPR in the original (selector
-    // 1000:2C90); boss sprites index that bank.
-    const SpriteBank& monsterSpriteBank(const ActiveMonster& monster) const {
-        return isBossActor(monster) ? altSprites_ : sprites_;
-    }
-
-    int monsterSpriteIndex(const ActiveMonster& monster) const {
-        if (isBossActor(monster)) {
-            int bossIndex = monster.animFrame;
-            if (bossIndex >= 0 &&
-                bossIndex < static_cast<int>(altSprites_.sprites.size())) {
-                return bossIndex;
-            }
-            return std::min<int>(static_cast<int>(altSprites_.sprites.size()) - 1, 39);
-        }
-        int index = monster.behavior == 2 ? static_cast<int>(monster.corpseSprite)
-                                          : monster.animFrame;
-        if (index >= 0 && index < static_cast<int>(sprites_.sprites.size())) return index;
-        return std::min<int>(sprites_.sprites.size() - 1, 39);
-    }
-
-    void drawSprite(const Sprite& sprite, int x0, int y0) {
-        textRenderer_.drawSprite(sprite, x0, y0);
-    }
-
-    void drawMonsters(int camX, int camY, uint64_t onlyOrder = 0) {
-        if (sprites_.sprites.empty()) return;
-        for (const ActiveMonster& monster : monsters_) {
-            if (onlyOrder && monster.actorOrder != onlyOrder) continue;
-            if (!monster.alive) continue;
-            const SpriteBank& bank = monsterSpriteBank(monster);
-            if (bank.sprites.empty()) continue;
-            int index = monsterSpriteIndex(monster);
-            if (index < 0 || index >= static_cast<int>(bank.sprites.size())) continue;
-            // monster.y is collision-space; the sprite is drawn at the visual
-            // y = collision y + hotspot (the original re-adds actor +0x14 at
-            // write-back).
-            drawSprite(bank.sprites[static_cast<size_t>(index)],
-                       static_cast<int>(monster.x) - camX,
-                       static_cast<int>(monster.y) + monster.hotspotY - camY);
-        }
-    }
-
-    int bonusSpriteIndex(BonusType type) const {
-        switch (type) {
-            case BonusType::Present: return 61;
-            case BonusType::FirstAid: return 62;
-            case BonusType::HotDog: return 63;
-            case BonusType::JollyCloud: return 64;
-            case BonusType::YellowBombBox: return 65;
-            case BonusType::GreenBombBox: return 66;
-            case BonusType::BigDiamond: return 67;
-        }
-        return 61;
-    }
-
-    void drawBonusDrops(int camX, int camY, uint64_t onlyOrder = 0) {
-        for (const BonusDrop& drop : bonusDrops_) {
-            if (onlyOrder && drop.actorOrder != onlyOrder) continue;
-            int x = static_cast<int>(drop.x) - camX;
-            int y = static_cast<int>(drop.y) - camY;
-            int index = bonusSpriteIndex(drop.type);
-            if (index >= 0 && index < static_cast<int>(sprites_.sprites.size())) {
-                drawSprite(sprites_.sprites[static_cast<size_t>(index)], x, y);
-            } else {
-                rect(x, y, 8, 8, 0xffffe060u);
-            }
-        }
-    }
-
-    void drawPlayer(const Player& player, int camX, int camY) {
-        int x0 = static_cast<int>(player.x) - camX;
-        int y0 = static_cast<int>(player.y) - camY;
-        const SpriteBank& bank = levelIndex_ == 6 || sprites_.sprites.empty() ? altSprites_ : sprites_;
-        if (!bank.sprites.empty()) {
-            int index = player.spriteIndex;
-            if (index >= static_cast<int>(bank.sprites.size())) index = 0;
-            const auto& sprite = bank.sprites[static_cast<size_t>(index)];
-            if (player.singlePixelSprite) {
-                if (!sprite.pixels.empty() && sprite.pixels.front()) {
-                    pixel(x0, y0, argb(palette_, sprite.pixels.front()));
-                }
-            } else {
-                drawSprite(sprite, x0, y0);
-            }
-        } else {
-            rect(x0, y0, 12, 16, 0xff60e0a0u);
-        }
-    }
-
-    void drawState2PlayerVisual(const Player& player, const State2VisualCursor& cursor,
-                                const State2EffectEntry& effect,
-                                int camX, int camY) {
-        // 1000:30A3 leaves the descriptor intact; 1000:60E8 rewrites it only
-        // when animation advances, using the current level's sprite bank.
-        if (!state2VisualCursorPreview_ && !state2VisualRowPreview_) {
-            drawPlayer(player, camX, camY);
-            return;
-        }
-        int x0 = (effect.active ? effect.x : static_cast<int>(player.x)) - camX;
-        int y0 = (effect.active ? effect.y : static_cast<int>(player.y)) - camY;
-        int index = static_cast<int>(cursor.current);
-        // Retain the provisional row/cursor comparison as an explicit debug
-        // preview. Gameplay uses the observed descriptor latch above.
-        constexpr int kState2SpriteRebase = 6;
-        if (!state2VisualCursorPreview_) {
-            if (effect.active && effect.visualFrame == cursor.current) {
-                index = static_cast<int>(effect.spriteIndex) + kState2SpriteRebase;
-                x0 += static_cast<int>(effect.drawDx);
-                y0 += static_cast<int>(effect.drawDy);
-            } else {
-                State2VisualRow row;
-                if (originalState2VisualRow(cursor.current, row)) {
-                    index = static_cast<int>(row.row3) + kState2SpriteRebase;
-                    x0 += static_cast<int>(row.row0);
-                    y0 += static_cast<int>(row.row1);
-                }
-            }
-        }
-        if (index >= 0 && index < static_cast<int>(sprites_.sprites.size())) {
-            drawSprite(sprites_.sprites[static_cast<size_t>(index)], x0, y0);
-            return;
-        }
-        uint32_t color = 0xfff0c050u + ((cursor.current & 0x07u) << 8);
-        rect(x0, y0 + 4, 14, 8, color);
-        rect(x0 + 3, y0, 8, 16, 0xff703020u);
-    }
-
-    uint32_t energyColor(int energy) const {
-        if (energy >= 67) return 0xff40d060u;
-        if (energy >= 34) return 0xfff0c040u;
-        return 0xffe04838u;
-    }
-
-    void drawMeter(int x, int y, int w, int h, int value, int maxValue,
-                   uint32_t color) {
-        rect(x - 1, y - 1, w + 2, h + 2, 0xfff0d060u);
-        rect(x, y, w, h, 0xff1c1c1cu);
-        int filled = std::clamp(value, 0, maxValue) * w / std::max(1, maxValue);
-        if (filled > 0) rect(x, y, filled, h, color);
-    }
-
-    void drawBombInventoryIcons(int x, int y, const BombInventory& inventory) {
-        for (int i = 0; i < 4; ++i) {
-            BombType type = static_cast<BombType>(i);
-            int px = x + i * 34;
-            bool selected = inventory.selected == type;
-            rect(px - 1, y - 1, 30, 10, selected ? 0xfff0d060u : 0xff303030u);
-            rect(px, y, 8, 8, bombColor(type));
-            text(px + 10, y + 1, std::to_string(inventory.counts[static_cast<size_t>(i)]),
-                 selected ? 0xff000000u : 0xffffffffu);
-        }
-    }
-
-    // Blit an 8x8 CARO.CAR tile at a screen position (transparent index 0),
-    // the primitive the original HUD uses for its objective/life-marker icons.
-    bool drawHudTile8(int dx, int dy, int id) {
-        const uint8_t* tile = tiles_.tile(id);
-        if (!tile) return false;
-        for (int ty = 0; ty < 8; ++ty) {
-            for (int tx = 0; tx < 8; ++tx) {
-                uint8_t c = tile[ty * 8 + tx];
-                if (c != 0) pixel(dx + tx, dy + ty, argb(palette_, c));
-            }
-        }
-        return true;
-    }
-
-    // Draw a HUD number using CARO.CAR digit tiles 121-130 (digit v -> tile
-    // 121+v), the way the original HUD renders its numbers. 8px per digit.
-    void drawHudNumber(int x, int y, int value, int minDigits) {
-        std::string s = std::to_string(std::max(0, value));
-        while (static_cast<int>(s.size()) < minDigits) s.insert(s.begin(), '0');
-        for (size_t i = 0; i < s.size(); ++i) {
-            drawHudTile8(x + static_cast<int>(i) * 9, y, 121 + (s[i] - '0'));
-        }
-    }
-
-    void drawHudScore(int x, int y, const lezac::core::HudScoreReel& score) {
-        bool leading = true;
-        for (int digit = 8; digit >= 0; --digit) {
-            const auto offset = score.current[static_cast<size_t>(digit)];
-            if (digit != 0 && leading && offset == 0) continue;
-            leading = false;
-            const size_t source = 121 * 64 + offset;
-            if (source + 64 > tiles_.pixels.size()) throw std::runtime_error("HUD score atlas overread");
-            for (int row = 0; row < 8; ++row) {
-                for (int column = 0; column < 8; ++column) {
-                    pixel(x + (8 - digit) * 9 + column, y + row, argb(palette_, tiles_.pixels[source + row * 8 + column]));
-                }
-            }
-        }
-    }
-
-    void drawOriginalHudFigure(int x, int y, uint32_t color) {
-        // Player-life marker: the original blits CARO.CAR tile 115 (a green
-        // walking figure); fall back to a small stick glyph if unavailable.
-        if (drawHudTile8(x, y - 1, kHudLifeMarkerTile)) return;
-        static const char* kGlyph[7] = {
-            " X ", " X ", "XXX", " X ", " X ", "X X", "X X"};
-        for (int gy = 0; gy < 7; ++gy) {
-            for (int gx = 0; gx < 3; ++gx) {
-                if (kGlyph[gy][gx] == 'X') pixel(x + gx, y + gy, color);
-            }
-        }
-    }
-
-    // One player's HUD column: energy bar, score panel and life figures at
-    // `xoff`, plus the bomb-selector box and its count panel at `xoff + 119`.
-    // The original two-player HUD is exactly the single-player left column
-    // drawn twice -- player 2's copy at xoff 180 (energy track x180..281,
-    // score panel x180..267, bomb box x299..318, lives at x180..196), all
-    // measured from an original two-player capture.
-    void drawPlayerHudColumn(int xoff, int energy, uint32_t score, int lives,
-                             bool dead, const BombInventory& inventory) {
-        constexpr uint32_t kGrey = 0xffb6b6b6u;
-        constexpr uint32_t kYellow = 0xffffff55u;
-        constexpr uint32_t kBlue = 0xff0018dbu;
-        constexpr uint32_t kCyan = 0xff00aaaau;
-        constexpr uint32_t kGreen = 0xff00f300u;
-        constexpr uint32_t kBoxGrey = 0xffa2a2a2u;
-        const int y0 = kScreenH - 46;
-
-        // Energy bar: a 102x3 grey-framed track (x0..101, spanning y0+10..y0+12)
-        // with a 1px-tall yellow fill on the middle row, its width proportional
-        // to the player's energy -- full energy fills the inner 100px (x1..100).
-        // Measured pixel-for-pixel from the original level-1 frame: the grey
-        // frame (182,182,182) surrounds the yellow (255,255,85) on all sides.
-        rect(xoff, y0 + 10, 102, 3, kGrey);
-        const bool ready = hudColumnReady_[xoff == 0 ? 0 : 1];
-        int energyFill = ready ? std::clamp(dead ? 0 : energy, 0, 100) : 0;
-        if (ready) rect(xoff + 1, y0 + 11, 100, 1, argb(palette_, 1));
-        rect(xoff + 1, y0 + 11, energyFill, 1, kYellow);
-
-        // Score panel: an 88x17 cyan-framed box (x0..87, y0+18..y0+34) with a
-        // blue interior and a right-aligned green score value. The original
-        // frames the blue panel with a 1px cyan (0,170,170) border on all four
-        // sides -- not just the left edge -- measured from the level-1 frame.
-        rect(xoff, y0 + 18, 88, 17, kCyan);
-        rect(xoff + 1, y0 + 19, 86, 15, kBlue);
-        (void)score;
-        drawHudScore(xoff, y0 + 22, hudScores_[xoff == 0 ? 0 : 1]);
-
-        // Player-life figures: the original HUD shows SPARE lives (the life in
-        // play is not counted), so a fresh 3-life start draws two markers --
-        // matching every captured original level-start frame.
-        for (int i = 0; i < std::clamp(lives - 1, 0, 6); ++i) {
-            drawOriginalHudFigure(xoff + i * 9, y0 + 39, kGreen);
-        }
-
-        // Bomb selector box showing the selected bomb's actual sprite (from the
-        // BOMOMIMK bank, the same sprite the world bomb uses) and its count.
-        // Measured against the original: a 20x20 beveled grey box at (119, y0+7)
-        // -- a light 1px outer ring (162), a darker 1px inner ring (130), then a
-        // 16x16 near-black well (the pixel counts 76/68 match the two rings).
-        const int bx0 = xoff + 119;
-        rect(bx0, y0 + 7, 20, 20, kBoxGrey);
-        rect(bx0 + 1, y0 + 8, 18, 18, 0xff828282u);
-        if (!hudColumnReady_[xoff == 0 ? 0 : 1]) {
-            rect(bx0, y0 + 27, 20, 9, kBlue);
-            return;
-        }
-        rect(bx0 + 2, y0 + 9, 16, 16, 0xff202020u);
-        const int bombSprite =
-            static_cast<int>(bombProfile(inventory.selected).spriteBase);
-        if (bombSprite >= 0 &&
-            bombSprite < static_cast<int>(sprites_.sprites.size())) {
-            const Sprite& sprite = sprites_.sprites[static_cast<size_t>(bombSprite)];
-            const int bx = bx0 + 2 + (16 - sprite.width) / 2;
-            const int by = y0 + 9 + (16 - sprite.height) / 2;
-            setClip(bx0 + 2, y0 + 9, bx0 + 2 + 16, y0 + 9 + 16);
-            drawSprite(sprite, bx, by);
-            resetClip();
-        } else {
-            rect(bx0 + 2, y0 + 9, 16, 16, bombColor(inventory.selected));
-        }
-        int selCount = inventory.counts[static_cast<size_t>(inventory.selected)];
-        // Blue count panel beneath the bomb box (x119-138, matching the box
-        // width), with the ammo count drawn on it.
-        rect(bx0, y0 + 27, 20, 9, kBlue);
-        drawHudNumber(bx0 + 1, y0 + 28, std::clamp(selCount, 0, 99), 2);
-    }
-
-    void drawSinglePlayerHud() {
-        // Reconstructed from the original level-1 HUD: a solid-black bottom
-        // band beneath the view frame, a yellow energy bar and blue score
-        // panel on the left, green player-life figures beneath it, a grey
-        // bomb-selector box in the centre, and a blue/cyan panel with bomb and
-        // objective tallies on the right. Colours are sampled from the original
-        // frames (VGA palette). The grey/white rule above the band is the view
-        // frame's bottom border, drawn by drawViewFrame.
-        rect(0, 160, kScreenW, 40, 0xff000000u);
-        drawPlayerHudColumn(0, energy_, score_, lives_, playerDead_,
-                            bombInventory_);
-        drawHudObjectivePanel();
-    }
-
-    void drawHudObjectivePanel() {
-        constexpr uint32_t kBlack = 0xff000000u;
-        constexpr uint32_t kYellow = 0xffffff55u;
-        constexpr uint32_t kBlue = 0xff0018dbu;
-        constexpr uint32_t kCyan = 0xff00aaaau;
-        const int y0 = kScreenH - 46;
-        // Centre panel: bomb-count and objective (destruction target) tallies.
-        // The original panel spans y0+6..y0+44 (measured 160-198 on level 1),
-        // taller than the earlier 34px box.
-        rect(141, y0 + 6, 37, 39, argb(palette_, 224));
-        rect(141, y0 + 6, 37, 1, kCyan);
-        rect(141, y0 + 44, 37, 1, kCyan);
-        rect(141, y0 + 6, 1, 39, kCyan);
-        rect(177, y0 + 6, 1, 39, kCyan);
-        // Top row: bonus-objective icon + the level's required bonus count.
-        // Bottom row: destruction-target icon + the required destruction count.
-        // These two numbers were verified pixel-for-pixel against the original
-        // HUD across every level (L1 1/50, L2 3/60, L3 7/20, L4 3/70, L5 8/65,
-        // L7 1/10), so they must read from the level's objective data.
-        //
-        // The top icon is the level's bonus-collectible graphic: the original
-        // draws the level objectiveTile (verified because levels 1 and 3 share
-        // objectiveTile 108 and show the identical lemon; L2=grapes, L5=melon).
-        // Each tally icon sits in its own small black inset box on the panel.
-        // Rows use the original's 16px spacing: top at y0+13, bottom at y0+29
-        // (measured against the original level-1 frame).
-        // Each icon sits in an 8x8 black well framed by a 1px darker-blue border
-        // (4,4,166) against the panel blue (measured: 36px frame per box).
-        rect(143, y0 + 11, 10, 10, argb(palette_, 245));
-        rect(144, y0 + 12, 8, 8, kBlack);
-        rect(143, y0 + 27, 10, 10, argb(palette_, 246));
-        rect(144, y0 + 28, 8, 8, kBlack);
-        if (!drawHudTile8(144, y0 + 12, level_.objectiveTile)) {
-            rect(144, y0 + 12, 8, 8, kYellow);
-        }
-        // The original displays the REMAINING objective (required - current),
-        // counting down to zero as bonuses are collected / tiles destroyed.
-        int bonusRemaining =
-            std::max(0, static_cast<int>(level_.requiredBonus) - collected_);
-        drawHudNumber(159, y0 + 12, std::min(99, bonusRemaining), 2);
-        // Bottom icon: the fixed destruction-target star, CARO.CAR tile 117.
-        if (!drawHudTile8(144, y0 + 28, kHudDestructionStarTile)) {
-            rect(144, y0 + 28, 8, 8, kYellow);
-        }
-        int destRemaining = std::max(
-            0, static_cast<int>(level_.requiredDestruction) - hudDestructionPercent_);
-        drawHudNumber(159, y0 + 28, std::min(99, destRemaining), 2);
-    }
-
-    void drawHud() {
-        // The original HUD is a bottom status band (the top of the screen is
-        // gameplay sky). Two-player mode doubles the per-player column (player
-        // 2's copy shifted 180px right) around the shared centre objective
-        // panel, exactly as measured from the original two-player capture.
-        if (playerCount_ == 1) {
-            drawSinglePlayerHud();
-        } else {
-            rect(0, 160, kScreenW, 40, 0xff000000u);
-            drawPlayerHudColumn(0, energy_, score_, lives_, playerDead_,
-                                bombInventory_);
-            drawPlayerHudColumn(180, energy2_, score2_, lives2_, player2Dead_,
-                                bombInventory2_);
-            drawHudObjectivePanel();
-        }
-        if (isComplete() && !levelOutro_.active) {
-            rect(76, 84, 168, 24, 0xee000000u);
-            text(92, 92, "LEVEL COMPLETED", 0xffffe060u, false, 0xff301800u);
-        }
-    }
-
-    void drawPauseOverlay() {
-        constexpr int x = 112;
-        constexpr int y = 84;
-        constexpr int w = 96;
-        constexpr int h = 28;
-        rect(x, y, w, h, 0xdd000000u);
-        rect(x, y, w, 1, 0xfff0d060u);
-        rect(x, y + h - 1, w, 1, 0xfff0d060u);
-        rect(x, y, 1, h, 0xfff0d060u);
-        rect(x + w - 1, y, 1, h, 0xfff0d060u);
-        text(x + 27, y + 10, "PAUSED", 0xffffe060u, false, 0xff301800u);
     }
 
     std::string objectiveHudText() const {
@@ -28950,339 +27814,6 @@ private:
                (dead ? (lives < 0 ? " OUT" : " WAIT") : "");
     }
 
-    void drawLevelIntro(int levelIndex, const LevelIntroPattern& pattern,
-                        size_t visibleCharacters) {
-        resetClip();
-        int fraction = 0;
-        int phase = 0;
-        for (int i = 0; i < kScreenW * kScreenH; ++i) {
-            fraction += pattern.horizontalStep;
-            if (fraction > 100) {
-                fraction -= 100;
-                ++phase;
-            }
-            if (i % kScreenW == 0) {
-                const int sineIndex = ((i * 3) / 100) % 128;
-                const int wave = static_cast<int>(
-                    std::sin(static_cast<float>(sineIndex) * 6.28f / 128.0f) *
-                    8.0f);
-                fraction += pattern.verticalStep + wave;
-                if (fraction > 100) {
-                    fraction -= 100;
-                    ++phase;
-                }
-            }
-            const Rgb color =
-                pattern.colors[static_cast<size_t>(phase) % pattern.colors.size()];
-            pixel(i % kScreenW, i / kScreenW,
-                  0xff000000u | (static_cast<uint32_t>(color.r) << 16) |
-                      (static_cast<uint32_t>(color.g) << 8) | color.b);
-        }
-
-        const std::string caption = levelIntroCaption(levelIndex);
-        const size_t count = std::min(visibleCharacters, caption.size());
-        int x = kScreenW / 2 -
-                static_cast<int>(caption.size()) * kLevelIntroCellAdvance / 2;
-        for (size_t i = 0; i < count; ++i, x += kLevelIntroCellAdvance) {
-            const int glyphIndex = fontGlyphIndex(caption[i], false);
-            if (glyphIndex < 0 ||
-                glyphIndex >= static_cast<int>(fontSprites_.sprites.size())) {
-                continue;
-            }
-            const Sprite& glyph =
-                fontSprites_.sprites[static_cast<size_t>(glyphIndex)];
-            drawFontSprite(x - 1, kLevelIntroTextY - 1, glyph,
-                           argb(palette_, 1), false);
-            drawFontSprite(x, kLevelIntroTextY, glyph,
-                           argb(palette_, 31), false);
-        }
-    }
-
-    void drawMenu() {
-        drawBackground(0, 0);
-        if (menuPage_ == MenuPage::Main) {
-            // The original main menu is the SFONLEF.ZBG title screen with the
-            // menu options drawn directly over the art (Italian by default; L
-            // toggles English). The original source (LEZAC.EXE 0xb92a Italian,
-            // 0xc679 English) uses a contiguous glyph set where ';' displays as
-            // a colon and a trailing ':' displays as a period; rendered with the
-            // port's standard-ASCII font map that means a ':' separator and a
-            // '.' terminator -- e.g. "I: INFORMAZIONI." -- and every line ends
-            // in that period, which the earlier transcription had dropped.
-            static const char* kItalian[7] = {
-                "PREMI 1 PER UN GIOCATORE.", "PREMI 2 PER DUE GIOCATORI.",
-                "I: INFORMAZIONI.", "Z: ISTRUZIONI.", "R: VEDI RECORDS.",
-                "L: ENGLISH.", "ESC PER USCIRE."};
-            static const char* kEnglish[7] = {
-                "PRESS 1 FOR ONE PLAYER GAME.", "PRESS 2 FOR TWO PLAYERS GAME.",
-                "I: INFOS.", "Z: INSTRUCTIONS.", "R: SHOW RECORDS.",
-                "L: ITALIANO.", "ESC EXITS."};
-            const char* const* lines = menuItalian_ ? kItalian : kEnglish;
-            for (int i = 0; i < 7; ++i) {
-                const std::string line = lines[i];
-                const int x = (kScreenW - textWidth(line)) / 2;
-                // The original draws each line as a white glyph with a blue
-                // (0,0,255) shadow, centred, on a 10px pitch (measured against
-                // the original level-select frame: first line at y74, one pixel
-                // below the vertical middle of the title art).
-                text(std::max(0, x), 74 + i * 10, line, 0xffffffffu, false,
-                     0xff0000ffu);
-            }
-            return;
-        }
-        rect(0, 0, 320, 200, 0x99000000u);
-        text(84, 26, "LARAX & ZACO", 0xffffe060u, true, 0xff301800u);
-        switch (menuPage_) {
-            case MenuPage::Main:
-                drawMainMenu();
-                break;
-            case MenuPage::Info:
-                drawInfoMenu();
-                break;
-            case MenuPage::Instructions:
-                drawInstructionsMenu();
-                break;
-            case MenuPage::Records:
-                drawRecordsMenu();
-                break;
-            case MenuPage::NameEntry:
-                drawNameEntryMenu();
-                break;
-            case MenuPage::GameOver:
-                drawGameOverMenu();
-                break;
-            case MenuPage::CompletedGame:
-                drawCompletedGameMenu();
-                break;
-        }
-    }
-
-    void drawMainMenu() {
-        text(61, 43, "GHIDRA CPP RECONSTRUCTION", 0xffffffffu, false, 0xff101010u);
-        text(34, 67, "PRESS 1 FOR ONE PLAYER GAME.", 0xffffe060u, false, 0xff101010u);
-        text(34, 79, "PRESS 2 FOR TWO PLAYERS GAME.", 0xffffe060u, false, 0xff101010u);
-        text(34, 91, "I: INFOS. Z: INSTRUCTIONS.", 0xffffffffu, false, 0xff101010u);
-        text(34, 103, "R: SHOW RECORDS. ESC EXITS.", 0xffffffffu, false, 0xff101010u);
-        text(34, 115, "S: BACKGROUND.", 0xffffffffu, false, 0xff101010u);
-
-        text(88, 139, "BEST SCORES", 0xff90ffb0u, false, 0xff101010u);
-        int y = 154;
-        for (size_t i = 0; i < records_.size() && i < 4; ++i) {
-            drawRecordLine(i, y);
-            y += 10;
-        }
-    }
-
-    void drawCenteredMenuLines(const char* title, const char* const* lines,
-                               int count) {
-        const int tx = (kScreenW - static_cast<int>(std::string(title).size()) * 8) / 2;
-        text(std::max(0, tx), 40, title, 0xff90ffb0u, false, 0xff101010u);
-        for (int i = 0; i < count; ++i) {
-            const std::string line = lines[i];
-            const int x = (kScreenW - static_cast<int>(line.size()) * 8) / 2;
-            text(std::max(0, x), 60 + i * 11, line, 0xffffffffu, false, 0xff101010u);
-        }
-        const char* back = menuItalian_ ? "ESC PER TORNARE" : "ESC: BACK";
-        const int bx = (kScreenW - static_cast<int>(std::string(back).size()) * 8) / 2;
-        text(std::max(0, bx), 184, back, 0xff90ffb0u, false, 0xff101010u);
-    }
-
-    void drawInfoMenu() {
-        // Recovered from LEZAC.EXE: Italian at 1000:b000, English at 1000:bcab.
-        static const char* kIta[8] = {
-            "PER PROCEDERE NEL GIOCO DOVETE",
-            "RACCOGLIERE BONUS E SOPRATTUTTO",
-            "FAR SALTARE IN ARIA OGNI COSA",
-            "IL RIQUADRO CENTRALE VI INDICA",
-            "IL NUMERO MINIMO DI BONUS DA",
-            "RACCOGLIERE E LA PERCENTUALE DELLE",
-            "COSTRUZIONI DA DISTRUGGERE PER",
-            "COMPLETARE IL QUADRO"};
-        static const char* kEng[7] = {
-            "YOU MUST COLLECT BONUSES AND",
-            "DESTROY BUILDINGS TO PROCEED",
-            "THE CENTRAL WINDOW WILL TELL",
-            "YOU THE NUMBER OF BONUS TO",
-            "COLLECT AND THE PERCENTAGE",
-            "OF BUILDINGS YOU MUST DESTROY",
-            "TO COMPLETE THE LEVEL"};
-        if (menuItalian_) {
-            drawCenteredMenuLines("INFORMAZIONI", kIta, 8);
-        } else {
-            drawCenteredMenuLines("INFOS", kEng, 7);
-        }
-    }
-
-    void drawInstructionsMenu() {
-        // Recovered keys table + notes from LEZAC.EXE: Italian at 1000:b9xx
-        // ("tasti") / fire+weapon at 1000:aef4, English at 1000:baab / 1000:bbab.
-        struct KeyRow { const char* action; const char* p1; const char* p2; };
-        const char* title = menuItalian_ ? "ISTRUZIONI" : "INSTRUCTIONS";
-        const char* colHdr = menuItalian_ ? "GIOC:1      GIOC:2"
-                                           : "PLAYER1     PLAYER2";
-        static const KeyRow kIta[5] = {
-            {"SINISTRA", "Z", "FRECCE"}, {"DESTRA", "X", "="},
-            {"SCENDI", "C", "="}, {"SALTA", "M", "="}, {"FUOCO", "N", "0"}};
-        static const KeyRow kEng[5] = {
-            {"LEFT", "Z", "ARROWS"}, {"RIGHT", "X", "="},
-            {"DOWN", "C", "="}, {"JUMP", "M", "="}, {"FIRE", "N", "0"}};
-        static const char* kItaNotes[4] = {
-            "ESC ABBANDONA LA PARTITA",
-            "PREMI SINISTRA E DESTRA INSIEME",
-            "PER CAMBIARE BOMBA",
-            "S ATTIVA O DISATTIVA LO SFONDO"};
-        static const char* kEngNotes[4] = {
-            "ESC QUITS GAME",
-            "PRESS LEFT AND RIGHT TOGETHER",
-            "TO CHANGE YOUR WEAPON",
-            "S TOGGLES BACKGROUND"};
-        const KeyRow* rows = menuItalian_ ? kIta : kEng;
-        const char* const* notes = menuItalian_ ? kItaNotes : kEngNotes;
-
-        const int tx = (kScreenW - static_cast<int>(std::string(title).size()) * 8) / 2;
-        text(std::max(0, tx), 34, title, 0xff90ffb0u, false, 0xff101010u);
-        text(120, 52, colHdr, 0xffffe060u, false, 0xff101010u);
-        for (int i = 0; i < 5; ++i) {
-            text(32, 66 + i * 11, rows[i].action, 0xffffffffu, false, 0xff101010u);
-            text(140, 66 + i * 11, rows[i].p1, 0xffffffffu, false, 0xff101010u);
-            text(220, 66 + i * 11, rows[i].p2, 0xffffffffu, false, 0xff101010u);
-        }
-        for (int i = 0; i < 4; ++i) {
-            const std::string line = notes[i];
-            const int x = (kScreenW - static_cast<int>(line.size()) * 8) / 2;
-            text(std::max(0, x), 128 + i * 11, line, 0xffd8f0ffu, false, 0xff101010u);
-        }
-    }
-
-    void drawRecordsMenu() {
-        // Original records title: "il file dei records" (LEZAC.EXE 1000:16a7).
-        const char* title = menuItalian_ ? "IL FILE DEI RECORDS" : "BEST SCORES";
-        const int tx = (kScreenW - static_cast<int>(std::string(title).size()) * 8) / 2;
-        text(std::max(0, tx), 48, title, 0xff90ffb0u, false, 0xff101010u);
-        int y = 70;
-        for (size_t i = 0; i < records_.size(); ++i) {
-            drawRecordLine(i, y);
-            y += 12;
-        }
-        text(38, 166, "ESC: BACK", 0xff90ffb0u, false, 0xff101010u);
-    }
-
-    void drawNameEntryMenu() {
-        // Labels recovered from LEZAC.EXE: "giocatore" (1000:17f3), "punteggio
-        // finale" (1000:b3ab), "inserisci il tuo nome" (1000:1826).
-        const bool it = menuItalian_;
-        text(it ? 82 : 86, 48, it ? "NUOVO RECORD" : "NEW RECORD",
-             0xff90ffb0u, false, 0xff101010u);
-        text(58, 64,
-             (it ? "GIOCATORE " : "PLAYER ") + std::to_string(pendingRecordPlayer_),
-             0xffffffffu, false, 0xff101010u);
-        text(58, 78,
-             (it ? "PUNTEGGIO " : "SCORE ") + std::to_string(pendingRecordScore_),
-             0xffffe060u, false, 0xff101010u);
-        text(58, 94,
-             (it ? "LIVELLO " : "LEVEL ") + std::to_string(pendingRecordLevel_),
-             0xffffffffu, false, 0xff101010u);
-        text(kNameEntryLabelX, kNameEntrySlotY, it ? "NOME " : "NAME ",
-             0xffffffffu, false, 0xff101010u);
-        drawNameEntrySlots();
-        text(30, 148,
-             it ? "INSERISCI IL TUO NOME" : "TYPE LETTERS OR SPACE",
-             0xffffffffu, false, 0xff101010u);
-        text(30, 160,
-             it ? "ENTER SALVA. BACKSPACE CANCELLA" : "ENTER SAVE. BACKSPACE ERASES",
-             0xff90ffb0u, false, 0xff101010u);
-    }
-
-    int nameEntryCursorSlot() const {
-        return std::min<int>(static_cast<int>(pendingRecordName_.size()),
-                             kNameEntrySlotCount - 1);
-    }
-
-    int nameEntrySlotX(int slot) const {
-        return kNameEntryLabelX + textWidth("NAME ") +
-               slot * kNameEntrySlotAdvance;
-    }
-
-    void drawNameEntrySlots() {
-        int activeSlot = nameEntryCursorSlot();
-        for (int slot = 0; slot < kNameEntrySlotCount; ++slot) {
-            int x = nameEntrySlotX(slot);
-            bool active = slot == activeSlot;
-            if (active) {
-                rect(x - 1, kNameEntrySlotY - 2, kNameEntryCursorBoxW,
-                     kNameEntryCursorBoxH, kNameEntryCursorBackground);
-            }
-            char ch = slot < static_cast<int>(pendingRecordName_.size())
-                          ? pendingRecordName_[static_cast<size_t>(slot)]
-                          : '_';
-            text(x, kNameEntrySlotY, std::string(1, ch),
-                 active ? kNameEntryCursorForeground : 0xffffffffu,
-                 false, active ? 0 : 0xff101010u);
-        }
-    }
-
-    void drawGameOverMenu() {
-        text(111, 72, "GAME OVER", 0xffff5050u, true, 0xff301010u);
-        drawFinalScores(104);
-        text(78, 166, "ENTER: MENU", 0xff90ffb0u, false, 0xff101010u);
-    }
-
-    void drawCompletedGameMenu() {
-        text(90, 58, "ECCELLENTE>>>", 0xffffe060u, false, 0xff101010u);
-        text(54, 76, "HAI COMPLETATO IL GIOCO", 0xffffffffu, false, 0xff101010u);
-        drawFinalScores(112);
-        text(78, 166, "ENTER: MENU", 0xff90ffb0u, false, 0xff101010u);
-    }
-
-    void drawFinalScores(int y) {
-        if (score_ != 0) {
-            text(82, y, "P1 FINAL SCORE " + std::to_string(score_),
-                 0xffffe060u, false, 0xff101010u);
-            y += 12;
-        }
-        if (playerCount_ > 1 && score2_ != 0) {
-            text(82, y, "P2 FINAL SCORE " + std::to_string(score2_),
-                 0xffffe060u, false, 0xff101010u);
-        }
-    }
-
-    void drawRecordLine(size_t i, int y) {
-        text(52, y, std::to_string(i + 1) + " L" +
-                        std::to_string(records_[i].level) + " " + records_[i].name,
-             0xffffffffu, false, 0xff101010u);
-        text(178, y, std::to_string(records_[i].score), 0xffffffffu, false, 0xff101010u);
-    }
-
-    int fontGlyphIndex(char raw, bool large) const {
-        return textRenderer_.fontGlyphIndex(raw, large);
-    }
-
-    std::array<std::string, 8> fallbackGlyph(char ch) const {
-        return textRenderer_.fallbackGlyph(ch);
-    }
-
-    void drawFallbackGlyph(int x, int y, char ch, uint32_t color) {
-        textRenderer_.drawFallbackGlyph(x, y, ch, color);
-    }
-
-    void drawFontSprite(int x, int y, const Sprite& glyph, uint32_t color,
-                        bool preservePalette, bool nativePalette = false) {
-        textRenderer_.drawFontSprite(x, y, glyph, color, preservePalette, nativePalette);
-    }
-
-    int glyphAdvance(char raw, bool large = false) const {
-        return textRenderer_.glyphAdvance(raw, large);
-    }
-
-    int textWidth(const std::string& s, bool large = false) const {
-        return textRenderer_.textWidth(s, large);
-    }
-
-    void text(int x, int y, const std::string& s, uint32_t color, bool large = false,
-              uint32_t shadow = 0, int shadowDx = 1, int shadowDy = 1,
-              bool nativePalette = false) {
-        textRenderer_.text(x, y, s, color, large, shadow, shadowDx, shadowDy, nativePalette);
-    }
 };
 
 }  // namespace

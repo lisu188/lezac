@@ -48,16 +48,21 @@ target_include_directories(lezac_sound_diagnostics PUBLIC ${CMAKE_CURRENT_SOURCE
 target_link_libraries(lezac_sound_diagnostics PUBLIC lezac_sound)
 
 add_library(lezac_rendering STATIC
+    src/rendering/game_renderer.cpp
+    src/rendering/hud_renderer.cpp
+    src/rendering/menu_renderer.cpp
+    src/rendering/presentation_state.cpp
     src/rendering/canvas.cpp
     src/rendering/text_renderer.cpp
     src/rendering/sdl_display.cpp
 )
 target_include_directories(lezac_rendering PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src PRIVATE ${SDL2_INCLUDE_DIRS})
-target_link_libraries(lezac_rendering PRIVATE ${SDL2_LIBRARIES})
+target_link_libraries(lezac_rendering PUBLIC lezac_resources PRIVATE ${SDL2_LIBRARIES})
 target_link_directories(lezac_rendering PRIVATE ${SDL2_LIBRARY_DIRS})
 target_compile_options(lezac_rendering PRIVATE ${SDL2_CFLAGS_OTHER})
 
-add_executable(lezac_cpp src/main.cpp src/app/app.cpp src/app/sdl_runtime.cpp)
+add_executable(lezac_cpp src/main.cpp src/app/app.cpp src/app/sdl_runtime.cpp
+    src/diagnostics/frame_inspector.cpp)
 target_compile_definitions(lezac_cpp PRIVATE SDL_MAIN_HANDLED)
 target_include_directories(lezac_cpp PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_directories(lezac_cpp PRIVATE ${SDL2_LIBRARY_DIRS})
@@ -228,6 +233,13 @@ if(BUILD_TESTING)
     add_test(NAME resource_domain_codecs COMMAND lezac_resource_domain_codecs_test)
     set_tests_properties(resource_domain_codecs PROPERTIES
         PASS_REGULAR_EXPRESSION "^resource_domain_codecs=ok records=2 sound=2 gran=1 levels=2 malformed=14")
+
+    add_executable(lezac_render_state_boundary_test tests/rendering/render_state_boundary_test.cpp)
+    target_link_libraries(lezac_render_state_boundary_test PRIVATE lezac_rendering)
+    add_test(NAME render_state_boundary COMMAND lezac_render_state_boundary_test)
+    set_tests_properties(render_state_boundary PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^render_state_boundary=ok repeat_pixels=1 nonblank=1 rng_unchanged=1 actor_order_unchanged=1 palette_unchanged=1 live_map_alias=1")
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
 

@@ -676,6 +676,27 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "boss_continuous_fixture=ok near=1 cases=3 samples=600 indexed_hashes=30 lf_crlf=1 truncations_rejected=2 mutations_rejected=86 no_output_files=1")
     endif()
 
+    add_test(NAME key_ownership_original
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-key-ownership-original
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/key_ownership_original_level1.txt)
+    set_tests_properties(key_ownership_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^key_ownership_original=ok cases=21 samples=84 players=2 adapter=1 event_fire=1 single_player_aliases=4 whole_game_parity=0")
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME key_ownership_capture_self_check
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_key_ownership.py --self-check)
+        set_tests_properties(key_ownership_capture_self_check PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "^key_ownership_self_check=ok cases=21 samples=84 hooks=2 live=0")
+        add_test(NAME key_ownership_fixture_guard
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_key_ownership_fixture.py --exe $<TARGET_FILE:lezac_cpp>)
+        set_tests_properties(key_ownership_fixture_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "^key_ownership_fixture=ok cases=21 samples=84 mutations=114 newline_variants=2 silent_children=1")
+    endif()
+
     add_test(NAME active_fire_original
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-active-fire-original
@@ -4571,6 +4592,17 @@ if(BUILD_TESTING)
     find_program(XVFB_RUN_EXECUTABLE xvfb-run)
     find_program(XDOTOOL_EXECUTABLE xdotool)
     if(BASH_EXECUTABLE AND XVFB_RUN_EXECUTABLE AND XDOTOOL_EXECUTABLE)
+        if(Python3_Interpreter_FOUND)
+            add_test(NAME key_ownership_live_xvfb
+                COMMAND ${CMAKE_COMMAND} -E env SDL_AUDIODRIVER=dummy
+                        ${XVFB_RUN_EXECUTABLE} -a ${Python3_EXECUTABLE}
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_key_ownership_xdotool.py
+                        --exe $<TARGET_FILE:lezac_cpp>)
+            set_tests_properties(key_ownership_live_xvfb PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                TIMEOUT 60
+                PASS_REGULAR_EXPRESSION "key_ownership_live=ok cases=7 physical_keys=1 production_update=1 moving_players=2 inspected_frames=7 audio=dummy")
+        endif()
         add_test(NAME ui_xdotool_xvfb
             COMMAND ${CMAKE_COMMAND} -E env SDL_AUDIODRIVER=dummy
                     ${XVFB_RUN_EXECUTABLE} -a

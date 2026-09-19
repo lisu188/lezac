@@ -65,6 +65,12 @@ reported by the diagnostic; CTest exercises these paths on every run.
 
 ## Open Original-Evidence Items
 
+The [two-player key-ownership recovery](key_ownership_runtime_2026-09-19.md)
+checks 84 original physical-key samples and fixes reversed P1/P2 movement
+ownership in the host keyboard adapter. Seven silent live SDL movement/jump
+cases exercise the real interactive update path. These are input-specific
+checks, not whole-game or frame-aligned visual parity.
+
 These are historical fidelity follow-ups tracked in `RECOVERY_STATUS.md`.
 New [shared-capacity evidence](shared_actor_capacity_runtime_2026-09-06.md)
 covers 16 original bomb/spawner allocation boundaries and fixes spawning

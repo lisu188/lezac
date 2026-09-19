@@ -42,7 +42,12 @@
     },
     "sound": {
       "runtime": [
-        "src/app/app.cpp"
+        "src/app/app.cpp",
+        "src/sound/sound_models.hpp",
+        "src/sound/sound_engine.hpp",
+        "src/sound/sound_engine.cpp",
+        "src/sound/sdl_audio_output.hpp",
+        "src/sound/sdl_audio_output.cpp"
       ]
     },
     "rendering": {
@@ -73,7 +78,10 @@
     "diagnostics": {
       "diagnostics": [
         "src/app/app.cpp",
-        "src/diagnostics/level1_trace.hpp"
+        "src/diagnostics/level1_trace.hpp",
+        "src/diagnostics/sound/sound_diagnostics.hpp",
+        "src/diagnostics/sound/sound_synthesis_diagnostics.cpp",
+        "src/diagnostics/sound/sound_evidence_diagnostics.cpp"
       ]
     }
   }

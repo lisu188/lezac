@@ -1,8 +1,23 @@
 # Recovery Status
 
 Last reviewed: 2026-09-19
-Branch: `codex/recover-state2-prepass`
-Baseline: `origin/main` at PR #231
+Branch: `codex/recover-active-fire-input`
+Baseline: `origin/main` at PR #232
+
+## Governed Active Fire
+
+64 seeded original fire-block probes now match the production fire decision
+and bomb constructor. Empty selected ammunition preserves input and selection;
+every constructor attempt clears both fire latches, even at pool capacity.
+Success no longer auto-switches exhausted weapons or rejects same-cell bombs.
+Fire now runs after player movement input and before terrain/integration,
+with new bombs first updated on the next frame. Repeated fire makes relatch.
+
+An independent silent DOSBox recapture produced the same complete fixture.
+The guard rejects 103 mutations, and the level-7 fire-reentry replay still
+matches all 140 states and 16 normalized views without pixel differences.
+The P2 block probes use a substituted identity, not a natural simultaneous
+keyboard route. See [evidence and limits](docs/recovery/active_fire_runtime_2026-09-19.md).
 
 ## Waiting-State Prepass
 

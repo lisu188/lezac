@@ -5912,7 +5912,18 @@ public:
         }
 
         FrameControls idle;
-        int frames = 0;
+        int settlingFrames = 0;
+        while (!collapseQueue_.empty() && settlingFrames < 2048) {
+            updateWithControls(idle, 1.0f / 60.0f);
+            ++settlingFrames;
+            if (!collapseQueue_.empty() && (completeTimer_ != 0 || levelIndex_ != 0)) {
+                throw std::runtime_error("level transition advanced before collapse settled");
+            }
+        }
+        if (!collapseQueue_.empty() || !isComplete()) {
+            throw std::runtime_error("level transition terrain did not settle");
+        }
+        int frames = completeTimer_;
         while (levelIndex_ == 0 && frames <= 101) {
             updateWithControls(idle, 1.0f / 60.0f);
             ++frames;
@@ -5933,7 +5944,7 @@ public:
                   << " completed_destruction=" << requiredDestruction
                   << " transition_frames=" << frames
                   << " advanced_level=" << (levelIndex_ + 1)
-                  << " frame_inspection=1\n";
+                  << " frame_inspection=1 settling_frames=" << settlingFrames << '\n';
     }
 
     void debugAutoplayerPortalWeaponRoute(const std::string& scenario) {
@@ -27210,6 +27221,11 @@ private:
 
     void updateWithControls(const FrameControls& controls, float dt) {
         if (menu_ || paused_ || levelIntro_.active) return;
+        if (levelOutro_.active || completeTimer_ > 0) {
+            updateLevelCompletion();
+            pumpSoundLatch();
+            return;
+        }
         ++logicTick_;
         // 1000:7A6B precedes state-2 and both actor passes. An effect that
         // expires later this frame still occupies its slot during spawning.
@@ -27514,7 +27530,7 @@ private:
     }
 
     void updateLevelCompletion() {
-        if (isComplete()) {
+        if (isComplete() && collapseQueue_.empty()) {
             // Interactive play runs the recovered original completion-banner
             // sequence (typed lines, score count-up, key wait). The
             // deterministic test/autoplayer path keeps the immediate timed
@@ -31480,7 +31496,7 @@ private:
                                 bombInventory2_);
             drawHudObjectivePanel();
         }
-        if (isComplete() && !levelOutro_.active) {
+        if (isComplete() && collapseQueue_.empty() && !levelOutro_.active) {
             rect(76, 84, 168, 24, 0xee000000u);
             text(92, 92, "LEVEL COMPLETED", 0xffffe060u, false, 0xff301800u);
         }

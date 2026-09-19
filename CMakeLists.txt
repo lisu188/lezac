@@ -4600,6 +4600,25 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "level1_replay_tests=ok tests=13 integration=1 original_fidelity_claim=0")
     endif()
 
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME level1_completion_capture_contract
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_level1_completion.py --self-check)
+        set_tests_properties(level1_completion_capture_contract PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "completion_capture_self_check=ok hooks=4 cases=10 live=0")
+        foreach(mode single two)
+            add_test(NAME level1_completion_${mode}
+                COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                        ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_level1_completion.py
+                        --exe $<TARGET_FILE:lezac_cpp> --root ${CMAKE_CURRENT_SOURCE_DIR} --mode ${mode})
+            set_tests_properties(level1_completion_${mode} PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                TIMEOUT 300
+                LABELS "level1;replay;gameplay"
+                PASS_REGULAR_EXPRESSION "level1_completion_tests=ok mode=${mode} tests=6 input_only=1 original_fidelity_claim=0")
+        endforeach()
+    endif()
+
     find_program(BASH_EXECUTABLE bash)
     find_program(XVFB_RUN_EXECUTABLE xvfb-run)
     find_program(XDOTOOL_EXECUTABLE xdotool)

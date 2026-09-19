@@ -7,6 +7,7 @@
 #include <limits>
 #include <algorithm>
 #include "gameplay/actor_models.hpp"
+#include "gameplay/frame_controls.hpp"
 #include "gameplay/compatibility_constants.hpp"
 #include "resources/types.hpp"
 #include "resources/levels.hpp"
@@ -101,19 +102,6 @@ struct BossMotionLink {
     int16_t outX = 0;
     int16_t outY = 0;
     int8_t biasY = 0;
-};
-
-struct FrameControls {
-    bool p1Left = false;
-    bool p1Right = false;
-    bool p1Jump = false;
-    bool p1Down = false;
-    bool p2Left = false;
-    bool p2Right = false;
-    bool p2Jump = false;
-    bool p2Down = false;
-    bool p1Reenter = false;
-    bool p2Reenter = false;
 };
 
 struct BossHeadEdges {

@@ -1040,7 +1040,6 @@ public:
         palette_ = assets_.palette();
         records_ = assets_.initialRecords();
         // Playback diagnostics currently mutate a local sound-bank copy.
-        sounds_ = assets_.sounds();
     }
 
     void load() {
@@ -23849,7 +23848,7 @@ private:
     const SpriteBank& sprites_ = assets_.sprites();
     const SpriteBank& altSprites_ = assets_.altSprites();
     const SpriteBank& fontSprites_ = assets_.fontSprites();
-    SoundBank sounds_;
+    const SoundBank& sounds_ = assets_.sounds();
     lezac::sound::SoundEngine sound_{sounds_};
     lezac::sound::SdlAudioOutput audioOutput_;
     const GranBank& gran_ = assets_.gran();

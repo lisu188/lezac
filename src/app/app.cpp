@@ -16718,6 +16718,142 @@ public:
                   << '\n';
     }
 
+    void debugKeyOwnershipOriginal(const std::string& fixture, const std::string& outPath) {
+        auto fail = [](const std::string& message) { throw std::runtime_error("key-ownership: " + message); };
+        const std::array<std::string, 10> names{{"m", "z", "x", "n", "c", "Up", "Left", "Right", "Insert", "Down"}};
+        const std::array<SDL_Scancode, 10> scans{{SDL_SCANCODE_M, SDL_SCANCODE_Z, SDL_SCANCODE_X,
+            SDL_SCANCODE_N, SDL_SCANCODE_C, SDL_SCANCODE_UP, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT,
+            SDL_SCANCODE_INSERT, SDL_SCANCODE_DOWN}};
+        const std::array<std::string, 21> cases{{"m", "z", "x", "n", "c", "Up", "Left", "Right", "Insert", "Down",
+            "z+Right", "x+Left", "m+Up", "c+Down", "n+Insert", "x+n", "Right+Insert", "m+c", "Up+Down", "z+x", "Left+Right"}};
+        auto bytes = [&](const std::string& text, size_t count) {
+            if (text.size() != count * 2 || text.find_first_not_of("0123456789abcdef") != std::string::npos) fail("invalid bytes");
+            std::vector<uint8_t> value(count);
+            for (size_t i = 0; i < count; ++i) value[i] = static_cast<uint8_t>(std::stoul(text.substr(i * 2, 2), nullptr, 16));
+            return value;
+        };
+        std::ifstream input(fixture);
+        if (!input) fail("cannot open fixture");
+        std::vector<std::vector<uint8_t>> hardware, normalized;
+        bool header = false, complete = false;
+        int firstFrame = -1;
+        std::string line;
+        while (std::getline(input, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty()) continue;
+            if (complete) fail("record after completion");
+            std::istringstream row(line); std::string tag, token; row >> tag;
+            std::map<std::string, std::string> fields;
+            while (row >> token) {
+                const auto eq = token.find('=');
+                if (eq == std::string::npos || !fields.emplace(token.substr(0, eq), token.substr(eq + 1)).second) fail("invalid fields");
+            }
+            if (tag == "capture" && !header) {
+                if (fields.size() != 9 || fields.at("schema") != "key_ownership_v1" || fields.at("players") != "2" ||
+                    fields.at("physical_keys") != "1" || fields.at("ammo_seeded") != "1" || fields.at("actor_seeded") != "0" ||
+                    fields.at("hooks") != "616e,6245" || fields.at("cases") != "21" || fields.at("samples") != "84" ||
+                    fields.at("exe_sha256") != "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec") fail("provenance");
+                header = true;
+            } else if (tag == "sample" && header) {
+                const size_t sample = hardware.size(), player = sample % 2;
+                if (sample >= 84 || fields.size() != 10 || fields.at("case") != std::to_string(sample / 4) ||
+                    fields.at("keys") != cases[sample / 4] || fields.at("phase") != (sample % 4 < 2 ? "make" : "break") ||
+                    fields.at("player") != std::to_string(player + 1) || fields.at("regs") != "a201440c440cb318a23fee3f") fail("sample order/registers");
+                const auto& frame = fields.at("frame");
+                if (frame.empty() || frame.size() > 5 || frame.find_first_not_of("0123456789") != std::string::npos) fail("frame number");
+                if (firstFrame < 0) firstFrame = std::stoi(frame);
+                if (std::stoi(frame) != (firstFrame + static_cast<int>(sample / 2)) % 65536) fail("frame order");
+                const auto h = bytes(fields.at("hardware"), 10), n = bytes(fields.at("normalized"), 5);
+                std::vector<uint8_t> expected(10);
+                if (sample % 4 < 2) {
+                    std::istringstream keys(cases[sample / 4]); std::string key;
+                    while (std::getline(keys, key, '+')) {
+                        const auto at = std::find(names.begin(), names.end(), key);
+                        if (at == names.end()) fail("unknown key");
+                        expected[static_cast<size_t>(at - names.begin())] = 1;
+                    }
+                }
+                if (h != expected || !std::equal(n.begin(), n.end(), h.begin() + player * 5)) fail("original hardware/normalization");
+                const auto actor = bytes(fields.at("actor"), 38), visual = bytes(fields.at("visual"), 8);
+                if (actor[1] != player || actor[21] != player || visual[4] != 16 || visual[5] != 16) fail("player identity/visual");
+                hardware.push_back(h); normalized.push_back(n);
+            } else if (tag == "complete" && header) {
+                if (hardware.size() != 84 || fields.size() != 3 || fields.at("cases") != "21" ||
+                    fields.at("samples") != "84" || fields.at("whole_game_parity") != "0") fail("incomplete capture");
+                complete = true;
+            } else fail("unexpected record");
+        }
+        if (!complete) fail("missing completion");
+
+        load(); initSdl(); playerCount_ = 2; resetLevel(0); menu_ = paused_ = false;
+        bombInventory_.counts.fill(0); bombInventory2_.counts.fill(0);
+        bool running = true;
+        std::array<uint8_t, SDL_NUM_SCANCODES> keys{};
+        for (size_t sample = 0; sample < hardware.size(); sample += 2) {
+            for (size_t i = 0; i < scans.size(); ++i) {
+                const uint8_t pressed = hardware[sample][i];
+                if (keys[scans[i]] != pressed) {
+                    SDL_Event event{}; event.type = pressed ? SDL_KEYDOWN : SDL_KEYUP;
+                    event.key.keysym.sym = SDL_GetKeyFromScancode(scans[i]);
+                    event.key.keysym.scancode = scans[i];
+                    if (SDL_PushEvent(&event) != 1) fail("cannot queue key event");
+                }
+                keys[scans[i]] = pressed;
+            }
+            processEvents(running);
+            const auto controls = controlsFromKeyboard(keys.data());
+            const std::vector<uint8_t> p1{controls.p1Jump, controls.p1Left, controls.p1Right, reentryFire1_, controls.p1Down};
+            const std::vector<uint8_t> p2{controls.p2Jump, controls.p2Left, controls.p2Right, reentryFire2_, controls.p2Down};
+            if (p1 != normalized[sample] || p2 != normalized[sample + 1]) fail("C++ adapter sample " + std::to_string(sample));
+            updateWithControls(controls, 1.0f / 60.0f);
+            if (!bombs_.empty()) fail("empty inventories fired");
+        }
+        const auto frame = inspectRenderedFrame("key-ownership");
+        if (!outPath.empty()) writeArgbPpm(outPath, fb_, kScreenW, kScreenH);
+        // Port convenience aliases are deliberately separate from original evidence.
+        playerCount_ = 1;
+        for (size_t i : {size_t(0), size_t(1), size_t(2), size_t(4)}) {
+            keys.fill(0); keys[scans[i]] = 1;
+            const auto original = controlsFromKeyboard(keys.data());
+            keys.fill(0); keys[scans[i + 5]] = 1;
+            const auto alias = controlsFromKeyboard(keys.data());
+            if (alias.p1Left != original.p1Left || alias.p1Right != original.p1Right || alias.p1Jump != original.p1Jump ||
+                alias.p1Down != original.p1Down || alias.p2Left || alias.p2Right || alias.p2Jump || alias.p2Down) fail("single-player aliases");
+        }
+        std::cout << "key_ownership_original=ok cases=21 samples=84 players=2 adapter=1 event_fire=1 single_player_aliases=4"
+                  << " whole_game_parity=0 frame_hash=" << std::hex << frame.hash << std::dec << '\n';
+    }
+
+    void debugKeyOwnershipLive(const std::string& outDir) {
+        std::filesystem::create_directories(outDir);
+        std::ofstream trace(joinPath(outDir, "live.txt"));
+        if (!trace) throw std::runtime_error("key-ownership live trace unavailable");
+        uint32_t started = 0, previousTick = UINT32_MAX;
+        runInteractive([&] {
+            if (logicTick_ != previousTick) {
+                previousTick = logicTick_;
+                const auto frame = inspectRenderedFrame("key-ownership-live");
+                const std::string file = "tick_" + std::to_string(logicTick_) + ".ppm";
+                writeArgbPpm(joinPath(outDir, file), fb_, kScreenW, kScreenH);
+                const auto* keys = SDL_GetKeyboardState(nullptr);
+                trace << "sample tick=" << logicTick_ << " keys=";
+                for (auto scan : {SDL_SCANCODE_Z, SDL_SCANCODE_X, SDL_SCANCODE_M, SDL_SCANCODE_C,
+                                  SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_UP, SDL_SCANCODE_DOWN}) trace << int(keys[scan]);
+                trace << " p1x=" << player_.x << " p1y=" << player_.y << " p1vx=" << player_.vx8
+                      << " p2x=" << player2_.x << " p2y=" << player2_.y << " p2vx=" << player2_.vx8
+                      << " dead1=" << playerDead_ << " dead2=" << player2Dead_
+                      << " hash=" << std::hex << frame.hash << std::dec << " file=" << file << '\n' << std::flush;
+            }
+            return SDL_GetTicks() - started > 30000;
+        }, [&] {
+            playerCount_ = 2; resetLevel(0); menu_ = paused_ = false;
+            interactiveLevelIntroEnabled_ = false; levelIntro_ = {};
+            started = SDL_GetTicks();
+            std::cout << "key_ownership_live=ready audio=" << (SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "none") << '\n' << std::flush;
+        });
+        std::cout << "key_ownership_live=stopped ticks=" << logicTick_ << '\n';
+    }
+
     void debugActiveFireOriginal(const std::string& fixture) {
         load();
         initSdl();
@@ -26795,27 +26931,31 @@ private:
         updateWithControls(FrameControls{}, 1.0f / 60.0f);
     }
 
+    FrameControls controlsFromKeyboard(const uint8_t* keys) const {
+        FrameControls controls;
+        // Original banks at 1000:6175/61DE. Arrows remain a single-player alias.
+        controls.p1Left = keys[SDL_SCANCODE_Z] ||
+                          (playerCount_ == 1 && keys[SDL_SCANCODE_LEFT]);
+        controls.p1Right = keys[SDL_SCANCODE_X] ||
+                           (playerCount_ == 1 && keys[SDL_SCANCODE_RIGHT]);
+        controls.p1Jump = keys[SDL_SCANCODE_M] ||
+                          (playerCount_ == 1 && keys[SDL_SCANCODE_UP]);
+        controls.p1Down = keys[SDL_SCANCODE_C] ||
+                          (playerCount_ == 1 && keys[SDL_SCANCODE_DOWN]);
+        controls.p2Left = playerCount_ > 1 && keys[SDL_SCANCODE_LEFT];
+        controls.p2Right = playerCount_ > 1 && keys[SDL_SCANCODE_RIGHT];
+        controls.p2Jump = playerCount_ > 1 && keys[SDL_SCANCODE_UP];
+        controls.p2Down = playerCount_ > 1 && keys[SDL_SCANCODE_DOWN];
+        return controls;
+    }
+
     void update(float dt) {
         if (levelIntro_.active) {
             updateLevelIntro(SDL_GetTicks());
             return;
         }
         if (menu_ || paused_) return;
-        const uint8_t* keys = SDL_GetKeyboardState(nullptr);
-        FrameControls controls;
-        controls.p1Left = keys[SDL_SCANCODE_LEFT] ||
-                          (playerCount_ == 1 && keys[SDL_SCANCODE_Z]);
-        controls.p1Right = keys[SDL_SCANCODE_RIGHT] ||
-                           (playerCount_ == 1 && keys[SDL_SCANCODE_X]);
-        controls.p1Jump = keys[SDL_SCANCODE_UP] ||
-                          (playerCount_ == 1 && keys[SDL_SCANCODE_M]);
-        controls.p1Down = keys[SDL_SCANCODE_DOWN] ||
-                          (playerCount_ == 1 && keys[SDL_SCANCODE_C]);
-        controls.p2Left = playerCount_ > 1 && keys[SDL_SCANCODE_Z];
-        controls.p2Right = playerCount_ > 1 && keys[SDL_SCANCODE_X];
-        controls.p2Jump = playerCount_ > 1 && keys[SDL_SCANCODE_M];
-        controls.p2Down = playerCount_ > 1 && keys[SDL_SCANCODE_C];
-        updateWithControls(controls, dt);
+        updateWithControls(controlsFromKeyboard(SDL_GetKeyboardState(nullptr)), dt);
     }
 
     void updatePlayerReentryPrepass(const FrameControls& controls) {
@@ -32214,6 +32354,14 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-mass-original") {
             app.debugBossContinuousOriginal(argv[2], argc > 3 ? argv[3] : "", App::BossReplay::Mass);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-key-ownership-original") {
+            app.debugKeyOwnershipOriginal(argv[2], argc > 3 ? argv[3] : "");
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-key-ownership-live") {
+            app.debugKeyOwnershipLive(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-active-fire-original") {

@@ -156,6 +156,18 @@ hashes. Avoid replacing autoplayer coverage with direct player teleports unless
 the test is explicitly about rendering a state that cannot yet be reached
 through implemented gameplay.
 
+For host keyboard mapping changes, also run the original-backed
+`key_ownership_original` test and the Linux `key_ownership_live_xvfb` test.
+Direct `FrameControls` autoplayer input does not exercise SDL key ownership.
+The live helper verifies physical-key movement through the interactive loop,
+requires dummy audio, and can preserve seven rendered checkpoints:
+
+```sh
+env SDL_AUDIODRIVER=dummy xvfb-run -a \
+  python3 tools/test_key_ownership_xdotool.py --exe build/lezac_cpp \
+  --out /tmp/lezac-cpp-key-ownership
+```
+
 ## DOSBox original-game observation
 
 Use DOSBox as an oracle for original `LEZAC.EXE` behavior when disassembly is

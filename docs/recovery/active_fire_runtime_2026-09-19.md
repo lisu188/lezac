@@ -109,8 +109,7 @@ Further work includes continuous original keyboard routes with simultaneous
 inputs and typematic behavior, held-before-death interaction, natural boss
 victory/campaign progression, and the remaining renderer/gameplay gaps.
 
-The next input audit should also verify control ownership in live two-player
-play. Static normalization at 1000:6175 copies Z/X/M/N/C hardware bytes for
-behavior 0 (player identity 1), while 1000:61DE copies arrow/Insert bytes for
-behavior 1. The current C++ two-player movement adapter assigns arrows to P1
-and Z/X/M/C to P2. The new fire-block probes do not cover that adapter.
+The subsequent [key-ownership audit](key_ownership_runtime_2026-09-19.md)
+confirmed the movement adapter mismatch using live original two-player
+make/break events and corrected it. Its 84 original samples and seven live
+C++ movement cases are separate evidence from these fire-block probes.

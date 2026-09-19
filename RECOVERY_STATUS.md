@@ -1,8 +1,21 @@
 # Recovery Status
 
 Last reviewed: 2026-09-19
-Branch: `codex/recover-active-fire-input`
-Baseline: `origin/main` at PR #232
+Branch: `codex/recover-player-key-ownership`
+Baseline: `origin/main` at PR #234
+
+## Two-Player Keyboard Ownership
+
+84 original samples from 21 physical-key/chord cases confirm Z/X/M/N/C
+belong to player 1 and arrows/Insert to player 2. The C++ movement adapter
+had those players reversed; it now matches the original, with existing
+single-player arrow aliases kept separate. Fire-latch semantics are unchanged.
+
+The replay checks the production keyboard adapter and event fire latches,
+and a silent private-Xvfb test checks actual movement/jump ownership through
+the interactive loop in seven cases. The fixture guard rejects 114 mutations.
+Original and C++ screenshots were inspected and shown, without claiming
+frame alignment. See [evidence and limits](docs/recovery/key_ownership_runtime_2026-09-19.md).
 
 ## Governed Active Fire
 

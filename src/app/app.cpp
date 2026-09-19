@@ -45,7 +45,13 @@
 #include "resources/sound.hpp"
 #include "resources/gran.hpp"
 
+#include "sound/sound_engine.hpp"
+#include "sound/sdl_audio_output.hpp"
+#include "diagnostics/sound/sound_diagnostics.hpp"
+
 namespace {
+
+using namespace lezac::sound;
 
 using lezac::resources::MonsterSpawner;
 using lezac::resources::LevelPortal;
@@ -284,138 +290,8 @@ constexpr int kLevelIntroCellAdvance = 11;
 constexpr int kLevelIntroTextY = 94;
 constexpr uint8_t kLevelIntroPaletteFirst = 176;
 constexpr size_t kLevelIntroPaletteCount = 7;
-constexpr int kAudioSampleRate = 22050;
-constexpr int kAudioToneSamples = kAudioSampleRate / 28;
-using lezac::resources::kSoundStepSize;
-constexpr uint16_t kSoundStopPeriod = 0x7530;
-constexpr uint16_t kDirectSoundThreshold = 0xea60;
-constexpr uint16_t kDirectSoundPeriodBase = 0xea42;
-constexpr std::array<uint16_t, 4> kExplosionDirectSweepSoundOffsets{
-    0xea74, 0xea7e, 0xea88, 0xeace,
-};
-constexpr std::array<uint8_t, 4> kExplosionSoundSelectors{4, 5, 6, 7};
-constexpr uint16_t kBombPlaceSoundCursor = 0xea74;
-constexpr uint8_t kBombPlaceSoundPriority = 3;
-constexpr uint16_t kMonsterDeathSoundCursor = 0x003d;
-constexpr uint8_t kMonsterDeathSoundPriority = 12;
-// Level-7 boss head roar: original sets DS:0x2074=0x69, DS:0x799f=4 behind a
-// ~30% RNG gate at 1000:5E59..5E8C in the 1000:5CB0 head routine.
-constexpr uint16_t kBossHeadRoarSoundCursor = 0x0069;
-constexpr uint8_t kBossHeadRoarSoundPriority = 4;
-constexpr std::array<uint16_t, 6> kCompatibilitySoundCursors{
-    0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0027,
-};
-constexpr size_t kCompatibilityObjectivePickupSound = 0;
-constexpr size_t kCompatibilityLevelCompleteSound = 5;
-constexpr size_t kObjectivePickupCompatibilityHookSlot = 0;
-constexpr size_t kLevelCompleteCompatibilityHookSlot = 1;
-// Diagnostic-only latch seed: a pending selector no captured hook priority can
-// outrank, used to show the hooks really go through the priority latch.
-constexpr uint8_t kCompatibilityLatchRejectionSeedPriority = 0xff;
-struct RemainingSoundCompatibilityHook {
-    const char* hook;
-    size_t index;
-    const char* captureBlocker;
-    // Cursor/priority the ORIGINAL latches for this hook, captured live from
-    // DOSBox by sampling the accepted sound pair (cursor DS:0x78C0, priority
-    // DS:0x799E -- DS:0x2074/0x799F are the pending scratch, which many
-    // routines write). objective_pickup was sampled at the exact tick the
-    // objective counter DS:0x2088 went 0->1; level_complete at the tick the
-    // completion flags derived, and it also matches the static banner
-    // routine at file 0x250c..0x2517 (mov [2074],0x3d / mov [799f],0xa).
-    uint16_t capturedCursor;
-    uint8_t capturedPriority;
-};
-constexpr std::array<RemainingSoundCompatibilityHook, 2> kRemainingSoundCompatibilityHooks{{
-    {"objective_pickup", kCompatibilityObjectivePickupSound,
-     "rejected_static_candidates", 0x0000, 3},
-    {"level_complete", kCompatibilityLevelCompleteSound,
-     "no_static_candidate", 0x003d, 10},
-}};
-struct RejectedSoundCandidate {
-    uint16_t offset;
-    const char* reason;
-};
-constexpr std::array<RejectedSoundCandidate, 3> kRejectedObjectiveSoundCandidates{{
-    {0x4b2c, "collapse_playback"},
-    {0x6d75, "bomb_object_high_gate"},
-    {0x6924, "non_objective_tile_gate"},
-}};
-constexpr uint16_t kEndFlowDispatcherStart = 0x1b14;
-constexpr uint16_t kEndFlowDispatcherRet = 0x1d42;
-struct StaticSoundContext {
-    uint16_t offset;
-    uint16_t cursor;
-    uint8_t priority;
-    const char* context;
-};
-constexpr std::array<StaticSoundContext, 5> kRecordUiSoundContexts{{
-    {0x1857, 0x0078, 11, "name_entry_region"},
-    {0x1a44, 0x0008, 11, "name_entry_region"},
-    {0x1d9c, 0x003d, 10, "post_end_flow_record_region"},
-    {0x202d, 0x0021, 0, "record_table_region"},
-    {0x2083, 0x0024, 2, "record_table_region"},
-}};
-struct RuntimeSoundCaptureTarget {
-    const char* scenario;
-    uint16_t offset;
-    uint16_t cursor;
-    uint8_t priority;
-    const char* region;
-    const char* label;
-    const char* status;
-    const char* routeClass;
-    const char* captureBlocker;
-    const char* bytes;
-};
-constexpr std::array<RuntimeSoundCaptureTarget, 4> kActorContactSoundCaptureTargets{{
-    {"actor_update_runtime_cursor_0024_sound", 0x6844, 0x0024, 2,
-     "actor_update", "cursor_0024_priority2", "staged", "natural",
-     "normalized_fixture_required",
-     "c7 06 74 20 24 00 c6 06 9f 79 02 e8 08 ae"},
-    {"actor_update_runtime_cursor_0035_sound", 0x6924, 0x0035, 5,
-     "actor_update", "launch_pad", "staged", "natural",
-     "level6_route_required",
-     "c7 06 74 20 35 00 c6 06 9f 79 05 e8 28 ad"},
-    {"actor_update_runtime_cursor_0021_sound", 0x7386, 0x0021, 1,
-     "actor_update", "cursor_0021_priority1", "staged", "natural",
-     "semantic_event_unknown",
-     "c7 06 74 20 21 00 e8 cb a2"},
-    {"contact_scanner_runtime_sound", 0x5e81, 0x0069, 4,
-     "contact_scanner", "cursor_0069_priority4", "seeded_only",
-     "runtime_seeded", "shipped_actor_modes_exclude_6",
-     "c7 06 74 20 69 00 c6 06 9f 79 04 e8 cb b7"},
-}};
-constexpr std::array<uint16_t, 14> kDebugSoundCursors{
-    0x0000, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027,
-    0x002d, 0x0031, 0x0035, 0x003d, 0x0056, 0x0069, 0x0078,
-};
-constexpr std::array<uint16_t, 15> kExpectedSoundStopCursors{
-    0x0005, 0x0008, 0x0012, 0x001a, 0x0021, 0x0024, 0x0027, 0x002d,
-    0x0031, 0x0035, 0x003d, 0x0056, 0x0069, 0x0078, 0x0082,
-};
-constexpr uint16_t kBombObjectDefaultSoundCursor = 0x0000;
-constexpr uint16_t kBombObjectHighSoundCursor = 0x0012;
-constexpr uint8_t kBombObjectSoundPriority = 3;
-constexpr uint8_t kBombObjectHighSoundThreshold = 0x6c;
-constexpr uint16_t kPortalTeleportSoundCursor = 0x001a;
-constexpr uint8_t kPortalTeleportSoundPriority = 4;
-constexpr uint16_t kTileTriggerSoundCursor = 0x0027;
-constexpr uint8_t kTileTriggerSoundPriority = 6;
-constexpr uint16_t kBonusPickupSoundCursor = 0x0008;
-constexpr uint8_t kBonusPickupSoundPriority = 5;
-constexpr uint16_t kRecordNamePromptSoundCursor = 0x0078;
-constexpr uint8_t kRecordNamePromptSoundPriority = 11;
-constexpr uint16_t kRecordNameCommitSoundCursor = 0x0008;
-constexpr uint8_t kRecordNameCommitSoundPriority = 11;
-constexpr uint16_t kRecordsPageSoundCursor = 0x0024;
-constexpr uint8_t kRecordsPageSoundPriority = 2;
 constexpr uint8_t kWeaponSwitchHoldTicks = 5;
-constexpr uint16_t kWeaponSwitchSoundCursor = 0x0024;
-constexpr uint8_t kWeaponSwitchSoundPriority = 2;
 constexpr uint8_t kLaunchPadTile = 0x27;
-constexpr uint16_t kLaunchPadSoundCursor = 0x0035;
-constexpr uint8_t kLaunchPadSoundPriority = 5;
 constexpr int16_t kOriginalNormalJumpVelocity = -848;
 constexpr int16_t kOriginalLaunchPadVelocity = -2000;
 // Tick-locked original measurements (frame counter DS:0x78C2, /proc/mem):
@@ -482,13 +358,6 @@ struct LevelOutroState {
     bool awaitKey = false;
 };
 
-struct SoundLatch {
-    bool active = false;
-    uint8_t currentSelector = 0;
-    uint16_t latchedOffset = 0;
-    size_t recordIndex = 0;
-    bool directSweep = false;
-};
 
 enum class MenuPage {
     Main,
@@ -1010,10 +879,6 @@ class App {
         bool active = false;
     };
 
-    struct CompatibilitySoundAttempt {
-        size_t index = 0;
-        uint16_t cursor = 0;
-    };
 
     static bool sameSoundLatch(const SoundLatch& lhs, const SoundLatch& rhs) {
         return lhs.active == rhs.active &&
@@ -1898,13 +1763,12 @@ public:
         FrameInspection instructionsFrame =
             inspectMenuPage(MenuPage::Instructions, "instructions");
         clearSoundLatch();
-        lastPumpedSoundOffset_ = 0;
-        lastPumpedSoundSelector_ = 0;
+        sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
         press(SDLK_r);
         FrameInspection recordsFrame = inspectMenuPage(MenuPage::Records, "records");
         pumpSoundLatch();
-        if (lastPumpedSoundOffset_ != kRecordsPageSoundCursor ||
-            lastPumpedSoundSelector_ != kRecordsPageSoundPriority) {
+        if (sound_.lastPumped().offset != kRecordsPageSoundCursor ||
+            sound_.lastPumped().selector != kRecordsPageSoundPriority) {
             throw std::runtime_error("records menu frame flow did not pump records sound");
         }
 
@@ -2935,7 +2799,7 @@ public:
                 player_.idleTicks = raw[2]; player_.dropTicks = 0; player_.spriteIndex = 0;
                 syncPlayerVelocityMirror(player_);
                 logicTick_ = firstFrame - 1; lives_ = 99; energy_ = 100;
-                clearSoundLatch(); lastPumpedSoundOffset_ = 0; lastPumpedSoundSelector_ = 0;
+                clearSoundLatch(); sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
                 checkPlayer(raw);
                 // Match the original seeding boundary after the non-player
                 // pass, so odd-frame fillers are not advanced an extra time.
@@ -2968,7 +2832,7 @@ public:
                 controls.p1Jump = sample == 0 && control == "jump_down";
                 updateWithControls(controls, 1.0f / 60.0f);
                 if (player_.vy8 != static_cast<int16_t>(le16(response, 44))) fail("launch/gravity velocity mismatch");
-                if (launching && (lastPumpedSoundOffset_ != 0x35 || lastPumpedSoundSelector_ != 5 ||
+                if (launching && (sound_.lastPumped().offset != 0x35 || sound_.lastPumped().selector != 5 ||
                     number(fields.at("result")) != (initialCount < 30 ? 1 : 0))) fail("allocation/sound result mismatch");
                 checkActors(fields);
                 stage = 5;
@@ -3503,7 +3367,7 @@ public:
                 resetLevel(0);
                 menu_ = paused_ = levelIntro_.active = false;
                 monsters_.clear(); bombs_.clear(); transientActors_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear();
-                soundLatch_ = {};
+                sound_.restoreLatchForFixture({});
                 player_.x = 104; player_.y = 168; player_.vx8 = player_.vy8 = 0;
                 const std::string expectedLaunch = mode == "bomb" ? "104,168,0,0" : "0,0,0,0";
                 if (fields.at("launch") != expectedLaunch) fail("invalid launch seed");
@@ -3553,7 +3417,7 @@ public:
                 const auto expectedInventory = bytes(fields.at("inventory"), 4);
                 for (size_t i = 0; i < 4; ++i) if (bombInventory_.counts[i] != expectedInventory[i]) fail("inventory mismatch");
                 if (number(fields.at("selected")) != bombTypeIndex(bombInventory_.selected) + 1 ||
-                    number(fields.at("fire")) != (mode == "bomb" && success) || soundLatch_.active != (mode == "bomb" && success)) fail("fire side effect mismatch");
+                    number(fields.at("fire")) != (mode == "bomb" && success) || sound_.latch().active != (mode == "bomb" && success)) fail("fire side effect mismatch");
                 if (randomSeed_ != le32(bytes(fields.at("rng"), 4), 0)) fail("RNG mismatch");
                 const auto preRegs = bytes(before.at("regs"), 12), postRegs = bytes(fields.at("regs"), 12);
                 if (le16(preRegs, 2) - le16(preRegs, 0) != 0xaa2) fail("invalid runtime segments");
@@ -3917,8 +3781,8 @@ public:
             frame.bombs = bombs_.size();
             frame.flashes = flashes_.size();
             frame.launchMarkers = launchPadMarkers_.size();
-            frame.lastSoundOffset = lastPumpedSoundOffset_;
-            frame.lastSoundPriority = lastPumpedSoundSelector_;
+            frame.lastSoundOffset = sound_.lastPumped().offset;
+            frame.lastSoundPriority = sound_.lastPumped().selector;
             if (!launchPadMarkers_.empty()) {
                 const LaunchPadMarker& marker = launchPadMarkers_.front();
                 frame.launchMarkerX = marker.x;
@@ -4090,8 +3954,7 @@ public:
             player_.vy = 0.0f;
             player_.grounded = true;
             clearSoundLatch();
-            lastPumpedSoundOffset_ = 0;
-            lastPumpedSoundSelector_ = 0;
+            sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
             capture("010_level6_launch_pad_ready");
             uint64_t readyHash = captures.back().inspection.hash;
 
@@ -4099,8 +3962,8 @@ public:
             down.p1Down = true;
             updateWithControls(down, 1.0f / 60.0f);
             if (launchPadMarkers_.size() != 1 || player_.vy >= 0.0f ||
-                lastPumpedSoundOffset_ != kLaunchPadSoundCursor ||
-                lastPumpedSoundSelector_ != kLaunchPadSoundPriority) {
+                sound_.lastPumped().offset != kLaunchPadSoundCursor ||
+                sound_.lastPumped().selector != kLaunchPadSoundPriority) {
                 throw std::runtime_error("frame sequence launch-pad activation mismatch");
             }
             capture("020_level6_launch_pad_fired");
@@ -4248,13 +4111,12 @@ public:
             player_.vy = 0.0f;
             player_.grounded = true;
             clearSoundLatch();
-            lastPumpedSoundOffset_ = 0;
-            lastPumpedSoundSelector_ = 0;
+            sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
             updateWithControls(idle, 1.0f / 60.0f);
             if (!bonusDrops_.empty() || score_ - scoreBefore != 3000 ||
-                soundLatch_.active ||
-                lastPumpedSoundOffset_ != kBonusPickupSoundCursor ||
-                lastPumpedSoundSelector_ != kBonusPickupSoundPriority) {
+                sound_.latch().active ||
+                sound_.lastPumped().offset != kBonusPickupSoundCursor ||
+                sound_.lastPumped().selector != kBonusPickupSoundPriority) {
                 throw std::runtime_error("frame sequence monster reward was not collected");
             }
             capture("070_monster_bomb_reward_collected");
@@ -4628,7 +4490,7 @@ public:
         const bool savedPlayerDead = playerDead_;
         const bool savedPlayer2Dead = player2Dead_;
         const uint32_t savedRandomSeed = randomSeed_;
-        const SoundLatch savedSoundLatch = soundLatch_;
+        const SoundLatch savedSoundLatch = sound_.latch();
 
         playerCount_ = 1;
         playerDead_ = false;
@@ -4677,15 +4539,15 @@ public:
         roarProbe.vx8 = -1;
         randomSeed_ = 5;
         updateBossHead(roarProbe);
-        if (roarProbe.vx8 != 728 || !soundLatch_.active ||
-            soundLatch_.latchedOffset != kBossHeadRoarSoundCursor ||
-            soundLatch_.currentSelector != kBossHeadRoarSoundPriority) {
+        if (roarProbe.vx8 != 728 || !sound_.latch().active ||
+            sound_.latch().latchedOffset != kBossHeadRoarSoundCursor ||
+            sound_.latch().currentSelector != kBossHeadRoarSoundPriority) {
             throw std::runtime_error(
                 "boss head roar or RNG draw order mismatch");
         }
 
         logicTick_ = savedBossProbeTick;
-        soundLatch_ = savedSoundLatch;
+        sound_.restoreLatchForFixture(savedSoundLatch);
         player_ = savedPlayer;
         player2_ = savedPlayer2;
         playerCount_ = savedPlayerCount;
@@ -5535,16 +5397,15 @@ public:
         player_.x = static_cast<float>(sourceX * kTileSize);
         player_.y = static_cast<float>(sourceY * kTileSize - kTileSize);
         clearSoundLatch();
-        lastPumpedSoundOffset_ = 0;
-        lastPumpedSoundSelector_ = 0;
+        sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
         FrameControls idle;
         idle.p1Down = true;
         updateWithControls(idle, 1.0f / 60.0f);
         if (player_.x != static_cast<float>(destination->x) ||
             player_.y != static_cast<float>(destination->y) ||
-            portalCooldown_ != 30 || soundLatch_.active ||
-            lastPumpedSoundOffset_ != kPortalTeleportSoundCursor ||
-            lastPumpedSoundSelector_ != kPortalTeleportSoundPriority) {
+            portalCooldown_ != 30 || sound_.latch().active ||
+            sound_.lastPumped().offset != kPortalTeleportSoundCursor ||
+            sound_.lastPumped().selector != kPortalTeleportSoundPriority) {
             throw std::runtime_error("portal/weapon autoplayer did not trigger portal");
         }
 
@@ -5624,7 +5485,7 @@ public:
         cancelled.p1Down = true;
         updateWithControls(cancelled, 1.0f / 60.0f);
         if (!launchPadMarkers_.empty() || player_.vy < 0.0f ||
-            lastPumpedSoundOffset_ == kLaunchPadSoundCursor) {
+            sound_.lastPumped().offset == kLaunchPadSoundCursor) {
             throw std::runtime_error("launch-pad Up+Down cancellation failed");
         }
         player_.x = static_cast<float>(padX * kTileSize);
@@ -5634,16 +5495,15 @@ public:
         player_.grounded = true;
 
         clearSoundLatch();
-        lastPumpedSoundOffset_ = 0;
-        lastPumpedSoundSelector_ = 0;
+        sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
         float readyY = player_.y;
         FrameControls down;
         down.p1Down = true;
         updateWithControls(down, 1.0f / 60.0f);
         if (player_.y >= readyY || player_.vy >= 0.0f || player_.grounded ||
-            launchPadMarkers_.size() != 1 || soundLatch_.active ||
-            lastPumpedSoundOffset_ != kLaunchPadSoundCursor ||
-            lastPumpedSoundSelector_ != kLaunchPadSoundPriority) {
+            launchPadMarkers_.size() != 1 || sound_.latch().active ||
+            sound_.lastPumped().offset != kLaunchPadSoundCursor ||
+            sound_.lastPumped().selector != kLaunchPadSoundPriority) {
             throw std::runtime_error("launch-pad activation mismatch");
         }
         const LaunchPadMarker& marker = launchPadMarkers_.front();
@@ -5882,13 +5742,12 @@ public:
         player_.vy = 0.0f;
         player_.grounded = true;
         clearSoundLatch();
-        lastPumpedSoundOffset_ = 0;
-        lastPumpedSoundSelector_ = 0;
+        sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
         updateWithControls(idle, 1.0f / 60.0f);
         if (!bonusDrops_.empty() || score_ - scoreBefore != 3000 ||
-            soundLatch_.active ||
-            lastPumpedSoundOffset_ != kBonusPickupSoundCursor ||
-            lastPumpedSoundSelector_ != kBonusPickupSoundPriority) {
+            sound_.latch().active ||
+            sound_.lastPumped().offset != kBonusPickupSoundCursor ||
+            sound_.lastPumped().selector != kBonusPickupSoundPriority) {
             throw std::runtime_error("monster reward autoplayer did not collect reward");
         }
         FrameInspection collectFrame =
@@ -6014,13 +5873,11 @@ public:
         player_.vy = 0.0f;
         player_.grounded = true;
         clearSoundLatch();
-        lastPumpedSoundRecord_ = -1;
-        lastPumpedSoundOffset_ = 0;
-        lastPumpedSoundSelector_ = 0;
+        sound_.restorePlaybackForFixture({});
         updateWithControls(idle, 1.0f / 60.0f);
-        if (score_ <= scoreBefore || soundLatch_.active ||
-            lastPumpedSoundOffset_ != kBonusPickupSoundCursor ||
-            lastPumpedSoundSelector_ != kBonusPickupSoundPriority) {
+        if (score_ <= scoreBefore || sound_.latch().active ||
+            sound_.lastPumped().offset != kBonusPickupSoundCursor ||
+            sound_.lastPumped().selector != kBonusPickupSoundPriority) {
             throw std::runtime_error("monster behavior-3 autoplayer did not collect reward");
         }
         FrameInspection collectFrame =
@@ -8579,14 +8436,14 @@ public:
         soundDrop.y = collector.y;
         soundDrop.type = BonusType::Present;
         collectBonusDrop(soundDrop, collector, energy, inventory, 1);
-        if (!soundLatch_.active || soundLatch_.latchedOffset != kBonusPickupSoundCursor ||
-            soundLatch_.currentSelector != kBonusPickupSoundPriority ||
-            soundLatch_.directSweep) {
+        if (!sound_.latch().active || sound_.latch().latchedOffset != kBonusPickupSoundCursor ||
+            sound_.latch().currentSelector != kBonusPickupSoundPriority ||
+            sound_.latch().directSweep) {
             throw std::runtime_error("bonus pickup did not queue recovered sound cursor");
         }
         pumpSoundLatch();
-        if (soundLatch_.active || lastPumpedSoundOffset_ != kBonusPickupSoundCursor ||
-            lastPumpedSoundSelector_ != kBonusPickupSoundPriority) {
+        if (sound_.latch().active || sound_.lastPumped().offset != kBonusPickupSoundCursor ||
+            sound_.lastPumped().selector != kBonusPickupSoundPriority) {
             throw std::runtime_error("bonus pickup sound cursor did not pump");
         }
         std::cout << "bonuses=ok sprites=" << spriteScores.size()
@@ -8820,543 +8677,44 @@ public:
 
     void debugSounds() {
         load();
-        std::cout << "sound_record_size=" << sounds_.recordSize
-                  << " records=" << sounds_.records.size()
-                  << " steps=" << sounds_.stepCount
-                  << " words_per_record=" << (sounds_.recordSize / 2)
-                  << " six_byte_steps=" << (sounds_.payload.size() / kSoundStepSize)
-                  << '\n';
-        for (size_t i = 0; i < sounds_.records.size(); ++i) {
-            const std::vector<uint8_t>& bytes = sounds_.records[i].bytes;
-            std::cout << "sound_" << (i + 1)
-                      << "=bytes:" << bytes.size()
-                      << " zero_bytes:" << std::count(bytes.begin(), bytes.end(), 0)
-                      << " first_words:";
-            for (size_t off = 0; off + 1 < bytes.size() && off < 12; off += 2) {
-                if (off != 0) std::cout << ',';
-                std::cout << std::showbase << std::hex << le16(bytes, off)
-                          << std::dec << std::noshowbase;
-            }
-            std::cout << " first_groups:";
-            for (size_t group = 0; group < 3 && group * 5 + 4 < bytes.size(); ++group) {
-                if (group != 0) std::cout << ';';
-                for (size_t j = 0; j < 5; ++j) {
-                    if (j != 0) std::cout << '-';
-                    std::cout << std::hex << std::setw(2) << std::setfill('0')
-                              << static_cast<int>(bytes[group * 5 + j])
-                              << std::dec << std::setfill(' ');
-                }
-            }
-            std::cout << '\n';
-        }
+        lezac::diagnostics::SoundDiagnostics(sound_).debugSounds();
     }
 
     void debugSoundRender() {
         load();
-        size_t totalSamples = 0;
-        size_t totalNonZero = 0;
-        for (size_t i = 0; i < sounds_.records.size(); ++i) {
-            std::vector<int16_t> samples = synthesizeSound(i);
-            size_t nonZero = static_cast<size_t>(
-                std::count_if(samples.begin(), samples.end(),
-                              [](int16_t sample) { return sample != 0; }));
-            if (samples.empty() || nonZero == 0) {
-                throw std::runtime_error("sound " + std::to_string(i + 1) +
-                                         " rendered no audible samples");
-            }
-            totalSamples += samples.size();
-            totalNonZero += nonZero;
-            auto range = std::minmax_element(samples.begin(), samples.end());
-            std::cout << "sound_render_" << (i + 1)
-                      << "=cursor:" << std::showbase << std::hex
-                      << compatibilitySoundCursor(i) << std::dec << std::noshowbase
-                      << " samples:" << samples.size()
-                      << " nonzero:" << nonZero
-                      << " min:" << *range.first
-                      << " max:" << *range.second << '\n';
-        }
-        std::cout << "sound_render_total=samples:" << totalSamples
-                  << " nonzero:" << totalNonZero << '\n';
+        lezac::diagnostics::SoundDiagnostics(sound_).debugSoundRender();
     }
 
     void debugSoundCursorSegments() {
         load();
-        std::vector<uint16_t> stopCursors;
-        for (size_t i = 0; i < sounds_.stepCount; ++i) {
-            if (soundStepPeriodWord(i) == kSoundStopPeriod) {
-                stopCursors.push_back(static_cast<uint16_t>(i + 1));
-            }
-        }
-        if (stopCursors.size() != kExpectedSoundStopCursors.size() ||
-            !std::equal(stopCursors.begin(), stopCursors.end(),
-                        kExpectedSoundStopCursors.begin())) {
-            throw std::runtime_error("PROEFS.SON stop cursor map changed");
-        }
-
-        std::cout << "sound_cursor_segments steps=" << sounds_.stepCount
-                  << " stops=" << stopCursors.size()
-                  << " stop_cursors=";
-        for (size_t i = 0; i < stopCursors.size(); ++i) {
-            if (i != 0) std::cout << ',';
-            std::cout << std::showbase << std::hex << stopCursors[i]
-                      << std::dec << std::noshowbase;
-        }
-        std::cout << '\n';
-
-        for (uint16_t cursor : kDebugSoundCursors) {
-            uint16_t stopCursor = soundStopCursorFor(cursor);
-            std::vector<int16_t> samples = synthesizeSoundCursor(cursor);
-            if (samples.empty()) {
-                throw std::runtime_error("PROEFS.SON cursor rendered no samples");
-            }
-            std::cout << "sound_cursor cursor=" << std::showbase << std::hex
-                      << cursor << " stop=" << stopCursor
-                      << std::dec << std::noshowbase
-                      << " steps=" << (stopCursor - cursor)
-                      << " samples=" << samples.size() << '\n';
-        }
-        std::cout << "sound_cursor_segments=ok\n";
+        lezac::diagnostics::SoundDiagnostics(sound_).debugSoundCursorSegments();
     }
 
     void debugSonRawRoundtrip() {
         load();
-        auto rawBytes = readFile("PROEFS.SON");
-        if (rawBytes.size() < 2) {
-            throw std::runtime_error("PROEFS.SON is too small");
-        }
-        uint16_t stepCount = le16(rawBytes, 0);
-        size_t payloadSize = rawBytes.size() - 2;
-        if (stepCount != 0x82 || payloadSize != static_cast<size_t>(stepCount) * 6) {
-            throw std::runtime_error("PROEFS.SON raw step layout mismatch");
-        }
-        std::vector<uint8_t> jsonPayload;
-        for (const SoundEffectRecord& record : sounds_.records) {
-            jsonPayload.insert(jsonPayload.end(), record.bytes.begin(), record.bytes.end());
-        }
-        if (jsonPayload.size() != payloadSize ||
-            !std::equal(jsonPayload.begin(), jsonPayload.end(), rawBytes.begin() + 2)) {
-            throw std::runtime_error("PROEFS.SON raw/json payload mismatch");
-        }
-        std::cout << "son_raw_roundtrip=ok raw_size=" << rawBytes.size()
-                  << " step_count=" << stepCount
-                  << " payload_size=" << payloadSize
-                  << " json_chunks=" << sounds_.records.size() << '\n';
+        lezac::diagnostics::SoundDiagnostics(sound_).debugSonRawRoundtrip();
     }
 
     void debugSoundLoaderStaticModel() {
-        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
-        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
-            throw std::runtime_error("LEZAC.EXE missing MZ header");
-        }
-        uint16_t headerParagraphs = le16(exeBytes, 0x08);
-        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
-        if (imageBase != 0x0770) {
-            throw std::runtime_error("LEZAC.EXE image base changed for sound loader scan");
-        }
-        constexpr uint16_t kFilenameAnchor = 0x0625;
-        constexpr uint16_t kLoaderStart = 0x0630;
-        constexpr uint16_t kCountConstant = 0x0633;
-        constexpr uint16_t kFilenameCopy = 0x0644;
-        constexpr uint16_t kCountRead = 0x065f;
-        constexpr uint16_t kSoundBankRead = 0x0675;
-        constexpr uint16_t kCountTimesSix = 0x067b;
-        constexpr uint16_t kCloseFile = 0x0691;
-        constexpr uint16_t kLoaderRet = 0x06aa;
-
-        auto requireBytes = [&](uint16_t offset, const std::string& hex,
-                                const std::string& label) {
-            std::vector<uint8_t> expected = parseHexByteList(hex);
-            size_t p = imageBase + offset;
-            if (p + expected.size() > exeBytes.size()) {
-                throw std::runtime_error(label + " extends past LEZAC.EXE");
-            }
-            for (size_t i = 0; i < expected.size(); ++i) {
-                if (exeBytes[p + i] != expected[i]) {
-                    throw std::runtime_error(label + " bytes changed");
-                }
-            }
-        };
-        auto countBytes = [&](const std::string& hex) {
-            std::vector<uint8_t> expected = parseHexByteList(hex);
-            int count = 0;
-            auto begin = exeBytes.begin() + static_cast<long>(imageBase + kLoaderStart);
-            auto end = exeBytes.begin() + static_cast<long>(imageBase + kLoaderRet);
-            for (auto it = begin; it != end;) {
-                it = std::search(it, end, expected.begin(), expected.end());
-                if (it == end) break;
-                ++count;
-                ++it;
-            }
-            return count;
-        };
-
-        requireBytes(kFilenameAnchor, "0a 70 72 6f 65 66 73 2e 73 6f 6e",
-                     "PROEFS.SON filename anchor");
-        requireBytes(kLoaderStart, "55 89 e5", "sound loader prologue");
-        requireBytes(kCountConstant, "b8 82 00", "sound loader count constant");
-        requireBytes(0x063b, "81 ec 82 00", "sound loader local buffer size");
-        requireBytes(kFilenameCopy, "bf 25 06 0e 57 9a ca 15 20 09",
-                     "sound loader filename copy");
-        requireBytes(0x0653, "6a 01 9a f8 15 20 09", "sound loader open call");
-        requireBytes(kCountRead, "8d be 7e ff 16 57 6a 02 31 c0 50 50 9a e3 16 20 09",
-                     "sound loader count read");
-        requireBytes(kSoundBankRead, "c4 3e c0 79 06 57",
-                     "sound loader sound-bank pointer");
-        requireBytes(kCountTimesSix, "8b 86 7e ff d1 e0 8b f0 d1 e0 01 f0 50",
-                     "sound loader count times six");
-        requireBytes(0x068c, "9a e3 16 20 09", "sound loader payload read");
-        requireBytes(kCloseFile, "8d 7e 80 16 57 9a 79 16 20 09",
-                     "sound loader close call");
-        requireBytes(0x069b, "9a a2 04 20 09 09 c0 74 05 6a 01 e8 fa f9 c9 c3",
-                     "sound loader io result tail");
-
-        int readCalls = countBytes("9a e3 16 20 09");
-        if (readCalls != 2) {
-            throw std::runtime_error("sound loader read-call count changed");
-        }
-
-        std::cout << "sound_loader_static_model=ok"
-                  << " routine=" << hex4(kLoaderStart) << ".." << hex4(kLoaderRet)
-                  << " filename=proefs.son"
-                  << " filename_anchor=" << hex4(kFilenameAnchor)
-                  << " step_count=0x0082"
-                  << " step_size=6"
-                  << " payload_bytes=780"
-                  << " count_read_bytes=2"
-                  << " sound_bank_ptr=0x79c0"
-                  << " count_local=bp-0x82"
-                  << " count_times_six=1"
-                  << " read_calls=" << readCalls << '\n';
+        lezac::diagnostics::SoundDiagnostics(sound_).debugSoundLoaderStaticModel();
     }
 
     void debugSonStepFields() {
         load();
-        if (sounds_.stepCount != 0x82 ||
-            sounds_.payload.size() != sounds_.stepCount * kSoundStepSize) {
-            throw std::runtime_error("PROEFS.SON step field layout mismatch");
-        }
-
-        auto hex2 = [](uint8_t value) {
-            std::ostringstream oss;
-            oss << "0x" << std::hex << std::nouppercase << std::setw(2)
-                << std::setfill('0') << static_cast<int>(value);
-            return oss.str();
-        };
-        auto hex4 = [](uint16_t value) {
-            std::ostringstream oss;
-            oss << "0x" << std::hex << std::nouppercase << std::setw(4)
-                << std::setfill('0') << value;
-            return oss.str();
-        };
-
-        struct StepFields {
-            uint16_t periodWord = 0;
-            uint8_t gateTick = 0;
-            uint8_t periodTicks = 0;
-            uint8_t tail4 = 0;
-            uint8_t tail5 = 0;
-        };
-
-        auto step = [&](size_t stepIndex) {
-            size_t off = stepIndex * kSoundStepSize;
-            if (off + 5 >= sounds_.payload.size()) {
-                throw std::runtime_error("PROEFS.SON step index out of range");
-            }
-            return StepFields{le16(sounds_.payload, off), sounds_.payload[off + 2],
-                              sounds_.payload[off + 3], sounds_.payload[off + 4],
-                              sounds_.payload[off + 5]};
-        };
-
-        std::vector<uint16_t> stopCursors;
-        int tailPairNonzeroSteps = 0;
-        for (size_t i = 0; i < sounds_.stepCount; ++i) {
-            StepFields fields = step(i);
-            if (fields.periodWord == kSoundStopPeriod) {
-                stopCursors.push_back(static_cast<uint16_t>(i + 1));
-            }
-            if (fields.tail4 != 0 || fields.tail5 != 0) {
-                ++tailPairNonzeroSteps;
-            }
-        }
-        if (stopCursors.size() != kExpectedSoundStopCursors.size() ||
-            !std::equal(stopCursors.begin(), stopCursors.end(),
-                        kExpectedSoundStopCursors.begin())) {
-            throw std::runtime_error("PROEFS.SON step stop cursor map changed");
-        }
-
-        auto printStep = [&](const std::string& label, size_t stepIndex) {
-            StepFields fields = step(stepIndex);
-            std::cout << "son_step_fields " << label
-                      << " step_index=" << stepIndex
-                      << " cursor=" << hex4(static_cast<uint16_t>(stepIndex + 1))
-                      << " period_word=" << hex4(fields.periodWord)
-                      << " gate_tick=" << static_cast<int>(fields.gateTick)
-                      << " period_ticks=" << static_cast<int>(fields.periodTicks)
-                      << " tail4=" << hex2(fields.tail4)
-                      << " tail5=" << hex2(fields.tail5)
-                      << " stop=" << (fields.periodWord == kSoundStopPeriod ? 1 : 0)
-                      << '\n';
-        };
-
-        std::cout << "son_step_fields=summary steps=" << sounds_.stepCount
-                  << " step_size=" << kSoundStepSize
-                  << " stop_sentinels=" << stopCursors.size()
-                  << " tail_pair_nonzero_steps=" << tailPairNonzeroSteps
-                  << " period_word=bytes0-1"
-                  << " gate_tick=byte2"
-                  << " period_ticks=byte3"
-                  << " tail4=byte4"
-                  << " tail5=byte5"
-                  << " tail_behavior=preserved_playback_unused\n";
-        printStep("first", 0);
-        printStep("first_stop", stopCursors.front() - 1);
-        printStep("final_stop", stopCursors.back() - 1);
-        std::cout << "son_step_fields=ok steps=" << sounds_.stepCount
-                  << " first_period=" << hex4(step(0).periodWord)
-                  << " first_stop_cursor=" << hex4(stopCursors.front())
-                  << " final_stop_cursor=" << hex4(stopCursors.back())
-                  << " tail_pair_nonzero_steps=" << tailPairNonzeroSteps
-                  << " tail_behavior=preserved_playback_unused"
-                  << '\n';
+        lezac::diagnostics::SoundDiagnostics(sound_).debugSonStepFields();
     }
 
     void debugSonTailFieldMutation() {
         load();
-        if (sounds_.stepCount != 0x82 ||
-            sounds_.payload.size() != sounds_.stepCount * kSoundStepSize) {
-            throw std::runtime_error("PROEFS.SON step field layout mismatch");
-        }
-
-        std::vector<std::vector<int16_t>> baseline;
-        baseline.reserve(kDebugSoundCursors.size());
-        size_t baselineSamples = 0;
-        for (uint16_t cursor : kDebugSoundCursors) {
-            baseline.push_back(synthesizeSoundCursor(cursor));
-            baselineSamples += baseline.back().size();
-            if (baseline.back().empty()) {
-                throw std::runtime_error("PROEFS.SON cursor rendered no samples");
-            }
-        }
-
-        std::vector<uint8_t> originalPayload = sounds_.payload;
-        int tailPairNonzeroSteps = 0;
-        int mutatedSteps = 0;
-        for (size_t step = 0; step < sounds_.stepCount; ++step) {
-            size_t off = step * kSoundStepSize;
-            if (sounds_.payload[off + 4] != 0 || sounds_.payload[off + 5] != 0) {
-                ++tailPairNonzeroSteps;
-            }
-            sounds_.payload[off + 4] =
-                static_cast<uint8_t>(sounds_.payload[off + 4] ^ 0xffu);
-            sounds_.payload[off + 5] =
-                static_cast<uint8_t>(sounds_.payload[off + 5] ^ 0xa5u);
-            ++mutatedSteps;
-        }
-
-        size_t mutatedSamples = 0;
-        for (size_t i = 0; i < kDebugSoundCursors.size(); ++i) {
-            std::vector<int16_t> mutated = synthesizeSoundCursor(kDebugSoundCursors[i]);
-            mutatedSamples += mutated.size();
-            if (mutated != baseline[i]) {
-                std::ostringstream oss;
-                oss << "PROEFS.SON tail field mutation changed cursor 0x"
-                    << std::hex << std::setw(4) << std::setfill('0')
-                    << kDebugSoundCursors[i];
-                throw std::runtime_error(oss.str());
-            }
-        }
-        sounds_.payload = std::move(originalPayload);
-
-        std::cout << "son_tail_fields_mutation=ok steps=" << sounds_.stepCount
-                  << " mutated_steps=" << mutatedSteps
-                  << " compared_cursors=" << kDebugSoundCursors.size()
-                  << " baseline_samples=" << baselineSamples
-                  << " mutated_samples=" << mutatedSamples
-                  << " tail_pair_nonzero_steps=" << tailPairNonzeroSteps
-                  << " ignored_tail_bytes=4,5"
-                  << " tail_behavior=preserved_playback_unused\n";
+        lezac::diagnostics::SoundDiagnostics(sound_).debugSonTailFieldMutation();
     }
 
     void debugSoundTickStaticModel() {
-        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
-        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
-            throw std::runtime_error("LEZAC.EXE missing MZ header");
-        }
-        uint16_t headerParagraphs = le16(exeBytes, 0x08);
-        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
-        if (imageBase != 0x0770) {
-            throw std::runtime_error("LEZAC.EXE image base changed for sound tick scan");
-        }
-        constexpr uint16_t kTickStart = 0x0fbe;
-        constexpr uint16_t kTickRet = 0x1088;
-        constexpr uint16_t kDirectSweepBranch = 0x0fd9;
-        constexpr uint16_t kStepAdvance = 0x1014;
-        constexpr uint16_t kStepAddress = 0x1023;
-        constexpr uint16_t kStopCompare = 0x1033;
-        constexpr uint16_t kPeriodPush = 0x1053;
-        constexpr uint16_t kGateByteRead = 0x105e;
-        constexpr uint16_t kPeriodByteRead = 0x1068;
-
-        auto requireBytes = [&](uint16_t offset, const std::string& hex,
-                                const std::string& label) {
-            std::vector<uint8_t> expected = parseHexByteList(hex);
-            size_t p = imageBase + offset;
-            if (p + expected.size() > exeBytes.size()) {
-                throw std::runtime_error(label + " extends past LEZAC.EXE");
-            }
-            for (size_t i = 0; i < expected.size(); ++i) {
-                if (exeBytes[p + i] != expected[i]) {
-                    throw std::runtime_error(label + " bytes changed");
-                }
-            }
-        };
-        auto containsBytes = [&](const std::vector<uint8_t>& expected) {
-            auto begin = exeBytes.begin() + static_cast<long>(imageBase + kTickStart);
-            auto end = exeBytes.begin() + static_cast<long>(imageBase + kTickRet);
-            return std::search(begin, end, expected.begin(), expected.end()) != end;
-        };
-        auto countBytes = [&](const std::string& hex) {
-            std::vector<uint8_t> expected = parseHexByteList(hex);
-            int count = 0;
-            auto begin = exeBytes.begin() + static_cast<long>(imageBase + kTickStart);
-            auto end = exeBytes.begin() + static_cast<long>(imageBase + kTickRet);
-            for (auto it = begin; it != end;) {
-                it = std::search(it, end, expected.begin(), expected.end());
-                if (it == end) break;
-                ++count;
-                ++it;
-            }
-            return count;
-        };
-
-        requireBytes(kTickStart, "50 53 51 52 56 57 1e 06 c8 04 00 00",
-                     "sound tick prologue");
-        requireBytes(kDirectSweepBranch,
-                     "81 3e c0 78 60 ea 76 26 a1 c0 78 2d 42 ea 50",
-                     "sound tick direct sweep branch");
-        requireBytes(kStepAdvance,
-                     "ff 06 c0 78 a1 c0 78 d1 e0 8b f0 d1 e0 01 f0",
-                     "sound tick cursor stride");
-        requireBytes(kStepAddress, "c4 3e c0 79 03 f8 81 c7 fa ff",
-                     "sound tick step address");
-        requireBytes(kStopCompare, "c4 7e fc 26 81 3d 30 75",
-                     "sound tick stop compare");
-        requireBytes(kPeriodPush, "c4 7e fc 26 ff 35 9a c9 02 4a 08",
-                     "sound tick period push");
-        requireBytes(kGateByteRead, "c4 7e fc 26 8a 45 02 a2 a1 79",
-                     "sound tick gate byte read");
-        requireBytes(kPeriodByteRead, "c4 7e fc 26 8a 45 03 a2 a2 79",
-                     "sound tick period byte read");
-        requireBytes(kTickRet - 1, "c9", "sound tick leave");
-
-        int byteReads = countBytes("26 8a 45");
-        int wordReads = countBytes("26 81 3d") + countBytes("26 ff 35");
-        int tailReadPatterns = 0;
-        for (const std::string& pattern : {
-                 "26 8a 45 04", "26 8a 45 05", "26 8b 45 04",
-                 "26 8b 45 05", "26 ff 75 04", "26 ff 75 05",
-             }) {
-            if (containsBytes(parseHexByteList(pattern))) ++tailReadPatterns;
-        }
-        if (byteReads != 2 || wordReads != 2 || tailReadPatterns != 0) {
-            throw std::runtime_error("sound tick step read model changed");
-        }
-
-        std::cout << "sound_tick_static_model=ok"
-                  << " routine=" << hex4(kTickStart) << ".." << hex4(kTickRet)
-                  << " direct_sweep_threshold=0xea60"
-                  << " direct_sweep_subtract=0xea42"
-                  << " direct_sweep_step=4"
-                  << " cursor_increment=" << hex4(kStepAdvance)
-                  << " entry_stride=6"
-                  << " entry_base=sound_bank+cursor*6-6"
-                  << " stop_sentinel=0x7530"
-                  << " period_word_offsets=0"
-                  << " gate_byte_offset=2"
-                  << " period_byte_offset=3"
-                  << " word_entry_reads=" << wordReads
-                  << " byte_entry_reads=" << byteReads
-                  << " tail_read_patterns=" << tailReadPatterns
-                  << " ignored_tail_bytes=4,5"
-                  << " tail_behavior=preserved_playback_unused\n";
+        lezac::diagnostics::SoundDiagnostics(sound_).debugSoundTickStaticModel();
     }
 
     void debugSoundLatchStaticModel() {
-        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
-        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
-            throw std::runtime_error("LEZAC.EXE missing MZ header");
-        }
-        uint16_t headerParagraphs = le16(exeBytes, 0x08);
-        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
-        if (imageBase != 0x0770) {
-            throw std::runtime_error("LEZAC.EXE image base changed for sound latch scan");
-        }
-        constexpr uint16_t kLatchStart = 0x165a;
-        constexpr uint16_t kInactiveAcceptBranch = 0x165f;
-        constexpr uint16_t kRejectBranch = 0x166a;
-        constexpr uint16_t kAcceptPath = 0x166c;
-        constexpr uint16_t kRejectRet = 0x167d;
-
-        auto requireBytes = [&](uint16_t offset, const std::string& hex,
-                                const std::string& label) {
-            std::vector<uint8_t> expected = parseHexByteList(hex);
-            size_t p = imageBase + offset;
-            if (p + expected.size() > exeBytes.size()) {
-                throw std::runtime_error(label + " extends past LEZAC.EXE");
-            }
-            for (size_t i = 0; i < expected.size(); ++i) {
-                if (exeBytes[p + i] != expected[i]) {
-                    throw std::runtime_error(label + " bytes changed");
-                }
-            }
-        };
-        auto shortJumpTarget = [&](uint16_t offset, const std::string& label) {
-            size_t p = imageBase + offset;
-            if (p + 2 > exeBytes.size()) {
-                throw std::runtime_error(label + " jump extends past LEZAC.EXE");
-            }
-            uint8_t raw = exeBytes[p + 1];
-            int displacement = raw < 0x80 ? raw : static_cast<int>(raw) - 0x100;
-            return static_cast<uint16_t>(offset + 2 + displacement);
-        };
-
-        requireBytes(kLatchStart,
-                     "a0 c4 79 3c 00 74 0b a0 9e 79 fe c8 3a 06 9f 79 "
-                     "7d 11 a0 9f 79 a2 9e 79 a1 74 20 a3 c0 78 c6 06 "
-                     "c4 79 01 c3",
-                     "sound latch routine");
-        requireBytes(kLatchStart, "a0 c4 79 3c 00 74 0b",
-                     "sound latch active gate");
-        requireBytes(0x1661, "a0 9e 79 fe c8 3a 06 9f 79 7d 11",
-                     "sound latch priority compare");
-        requireBytes(kAcceptPath, "a0 9f 79 a2 9e 79",
-                     "sound latch priority copy");
-        requireBytes(0x1672, "a1 74 20 a3 c0 78",
-                     "sound latch cursor copy");
-        requireBytes(0x1678, "c6 06 c4 79 01 c3",
-                     "sound latch active flag set");
-
-        uint16_t inactiveAcceptTarget =
-            shortJumpTarget(kInactiveAcceptBranch, "sound latch inactive accept");
-        uint16_t rejectTarget = shortJumpTarget(kRejectBranch, "sound latch reject");
-        if (inactiveAcceptTarget != kAcceptPath || rejectTarget != kRejectRet) {
-            throw std::runtime_error("sound latch branch target changed");
-        }
-
-        std::cout << "sound_latch_static_model=ok"
-                  << " routine=" << hex4(kLatchStart) << ".." << hex4(kRejectRet)
-                  << " active_flag=0x79c4"
-                  << " current_priority=0x799e"
-                  << " pending_priority=0x799f"
-                  << " pending_cursor=0x2074"
-                  << " current_cursor=0x78c0"
-                  << " inactive_accept=1"
-                  << " reject_branch=" << hex4(rejectTarget)
-                  << " accept_branch=" << hex4(inactiveAcceptTarget)
-                  << " current_minus_one_compare=1"
-                  << " copies_priority=1"
-                  << " copies_cursor=1"
-                  << " sets_active=1\n";
+        lezac::diagnostics::SoundDiagnostics(sound_).debugSoundLatchStaticModel();
     }
 
     void debugGranRawRoundtrip() {
@@ -10112,369 +9470,16 @@ public:
 
     void debugSoundPriorityLatch() {
         load();
-        auto printCase = [&](const std::string& name, bool accepted) {
-            std::cout << "sound_latch case=" << name
-                      << " accepted=" << (accepted ? 1 : 0)
-                      << " active=" << (soundLatch_.active ? 1 : 0)
-                      << " priority=" << static_cast<int>(soundLatch_.currentSelector)
-                      << " offset=" << std::showbase << std::hex
-                      << soundLatch_.latchedOffset << std::dec << std::noshowbase
-                      << '\n';
-        };
-
-        clearSoundLatch();
-        printCase("inactive_accept",
-                  latchSoundRequest(kExplosionDirectSweepSoundOffsets[0], 4));
-        printCase("lower_rejected",
-                  latchSoundRequest(kExplosionDirectSweepSoundOffsets[1], 2));
-        printCase("same_refresh",
-                  latchSoundRequest(kExplosionDirectSweepSoundOffsets[2], 4));
-        printCase("higher_replaces",
-                  latchSoundRequest(kExplosionDirectSweepSoundOffsets[3], 7));
-        printCase("one_below_high_rejected",
-                  latchSoundRequest(kExplosionDirectSweepSoundOffsets[2], 6));
-        clearSoundLatch();
-        printCase("cleared_accepts",
-                  latchSoundRequest(kExplosionDirectSweepSoundOffsets[1], 1));
-
-        if (!soundLatch_.active || soundLatch_.currentSelector != 1 ||
-            soundLatch_.latchedOffset != kExplosionDirectSweepSoundOffsets[1] ||
-            !soundLatch_.directSweep) {
-            throw std::runtime_error("sound latch final state mismatch");
-        }
-        pumpSoundLatch();
-        if (soundLatch_.active || lastPumpedSoundRecord_ != 1 ||
-            lastPumpedSoundOffset_ != kExplosionDirectSweepSoundOffsets[1] ||
-            lastPumpedSoundSelector_ != 1) {
-            throw std::runtime_error("sound latch pump mismatch");
-        }
-        std::cout << "sound_pump active=" << (soundLatch_.active ? 1 : 0)
-                  << " last_record=" << lastPumpedSoundRecord_
-                  << " last_offset=" << std::showbase << std::hex
-                  << lastPumpedSoundOffset_ << std::dec << std::noshowbase
-                  << " last_selector=" << static_cast<int>(lastPumpedSoundSelector_)
-                  << '\n';
-        std::cout << "sound_latch=ok\n";
+        lezac::diagnostics::SoundDiagnostics(sound_).debugSoundPriorityLatch();
     }
 
     void debugSoundSelectorMap() {
         load();
-        std::cout << "sound_selector_map records=" << sounds_.records.size() << '\n';
-        for (uint8_t selector = 4; selector <= 7; ++selector) {
-            uint16_t offset = explosionSoundOffset(selector - 3);
-            size_t fallbackIndex = soundIndexForOffsetFallback(offset, selector);
-            std::vector<int16_t> samples = synthesizeDirectSweep(offset);
-            if (samples.empty()) {
-                throw std::runtime_error("mapped direct sweep rendered no samples");
-            }
-            std::cout << "sound_selector_map selector=" << static_cast<int>(selector)
-                      << " offset=" << std::showbase << std::hex << offset
-                      << std::dec << std::noshowbase
-                      << " direct_sweep=1"
-                      << " fallback_record_index=" << fallbackIndex
-                      << " samples=" << samples.size() << '\n';
-        }
-        if (!std::all_of(kExplosionDirectSweepSoundOffsets.begin(),
-                         kExplosionDirectSweepSoundOffsets.end(),
-                         [&](uint16_t offset) { return isDirectSoundSweep(offset); }) ||
-            soundIndexForOffsetFallback(kExplosionDirectSweepSoundOffsets[0], 4) != 0 ||
-            soundIndexForOffsetFallback(kExplosionDirectSweepSoundOffsets[1], 5) != 1 ||
-            soundIndexForOffsetFallback(kExplosionDirectSweepSoundOffsets[2], 6) != 2 ||
-            soundIndexForOffsetFallback(kExplosionDirectSweepSoundOffsets[3], 7) != 3) {
-            throw std::runtime_error("explosion selector map mismatch");
-        }
-        std::cout << "sound_selector_map=ok\n";
+        lezac::diagnostics::SoundDiagnostics(sound_).debugSoundSelectorMap();
     }
 
     void debugStaticSoundRequests() {
-        struct StaticSoundWrite {
-            uint16_t offset;
-            uint16_t cursor;
-        };
-        struct MappedStaticSoundWrite {
-            uint16_t offset;
-            const char* label;
-        };
-        struct UnresolvedStaticSoundWrite {
-            uint16_t offset;
-            const char* label;
-        };
-        static const std::array<StaticSoundWrite, 27> kExpectedWrites{{
-            {0x1857, 0x0078}, {0x1a44, 0x0008}, {0x1d9c, 0x003d},
-            {0x202d, 0x0021}, {0x2083, 0x0024}, {0x2c04, 0x0078},
-            {0x30b1, 0x0056}, {0x41a9, 0xea74}, {0x41ed, 0xea7e},
-            {0x4231, 0xea88}, {0x431d, 0xeace}, {0x49bd, 0x0027},
-            {0x4b2c, 0x0021}, {0x4d3c, 0x2710}, {0x4dd3, 0x2710},
-            {0x557b, 0xea74}, {0x575d, 0x0027}, {0x5a0e, 0x001a},
-            {0x5c9e, 0x003d}, {0x5e81, 0x0069}, {0x6844, 0x0024},
-            {0x6924, 0x0035}, {0x6e34, 0x0012}, {0x6f82, 0x0008},
-            {0x7386, 0x0021}, {0x789c, 0x0001}, {0x7f84, 0x002d},
-        }};
-        static const std::array<MappedStaticSoundWrite, 17> kMappedWrites{{
-            {0x1857, "record_name_prompt"},
-            {0x1a44, "record_name_commit"},
-            {0x2083, "records_page"},
-            {0x30b1, "player_death"},
-            {0x41a9, "explosion_small"},
-            {0x41ed, "explosion_medium"},
-            {0x4231, "explosion_large"},
-            {0x431d, "explosion_super"},
-            {0x557b, "bomb_place"},
-            {0x575d, "tile_trigger"},
-            {0x5a0e, "portal_teleport"},
-            {0x5c9e, "monster_death"},
-            {0x6844, "weapon_switch"},
-            {0x6924, "launch_pad"},
-            {0x6e34, "bomb_object_high"},
-            {0x6f82, "bonus_pickup"},
-            {0x7f84, "player_damage"},
-        }};
-        static const std::array<UnresolvedStaticSoundWrite, 10> kUnresolvedWrites{{
-            {0x1d9c, "post_end_flow_record_region"},
-            {0x202d, "record_table_cursor_only"},
-            {0x2c04, "cursor_0078_priority11"},
-            {0x49bd, "cursor_0027_priority5"},
-            {0x4b2c, "collapse_playback_rejected"},
-            {0x4d3c, "cursor_2710"},
-            {0x4dd3, "cursor_2710"},
-            {0x5e81, "cursor_0069_priority4"},
-            {0x7386, "cursor_0021_priority1"},
-            {0x789c, "cursor_0001_no_latch"},
-        }};
-
-        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
-        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
-            throw std::runtime_error("LEZAC.EXE missing MZ header");
-        }
-        uint16_t headerParagraphs = le16(exeBytes, 0x08);
-        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
-        if (imageBase != 0x0770) {
-            throw std::runtime_error("LEZAC.EXE image base changed for sound scan");
-        }
-        size_t imageSize = exeBytes.size() - imageBase;
-        std::vector<StaticSoundWrite> writes;
-        for (size_t off = 0; off + 6 <= imageSize; ++off) {
-            size_t p = imageBase + off;
-            if (exeBytes[p] == 0xc7 && exeBytes[p + 1] == 0x06 &&
-                exeBytes[p + 2] == 0x74 && exeBytes[p + 3] == 0x20) {
-                writes.push_back({
-                    static_cast<uint16_t>(off),
-                    le16(exeBytes, p + 4),
-                });
-            }
-        }
-        if (writes.size() != kExpectedWrites.size()) {
-            throw std::runtime_error("static sound request write count changed");
-        }
-        for (size_t i = 0; i < writes.size(); ++i) {
-            if (writes[i].offset != kExpectedWrites[i].offset ||
-                writes[i].cursor != kExpectedWrites[i].cursor) {
-                throw std::runtime_error("static sound request table changed");
-            }
-        }
-
-        auto nearLatchCallCount = [&](uint16_t offset) {
-            int count = 0;
-            for (size_t relOff = 0; relOff < 160; ++relOff) {
-                size_t callOff = static_cast<size_t>(offset) + relOff;
-                size_t p = imageBase + callOff;
-                if (p + 3 > exeBytes.size() || exeBytes[p] != 0xe8) continue;
-                uint16_t rawRel = le16(exeBytes, p + 1);
-                int signedRel = rawRel >= 0x8000u
-                                    ? static_cast<int>(rawRel) - 0x10000
-                                    : static_cast<int>(rawRel);
-                uint16_t target = static_cast<uint16_t>(callOff + 3 + signedRel);
-                if (target == 0x165a) ++count;
-            }
-            return count;
-        };
-        auto nearPriorityWrite = [&](uint16_t offset) {
-            for (size_t relOff = 0; relOff < 160; ++relOff) {
-                size_t p = imageBase + static_cast<size_t>(offset) + relOff;
-                if (p + 5 > exeBytes.size()) break;
-                if (exeBytes[p] == 0xc6 && exeBytes[p + 1] == 0x06 &&
-                    exeBytes[p + 2] == 0x9f && exeBytes[p + 3] == 0x79) {
-                    return true;
-                }
-            }
-            return false;
-        };
-        auto priorityAt = [&](uint16_t offset) {
-            size_t p = imageBase + offset;
-            if (p + 5 > exeBytes.size() || exeBytes[p] != 0xc6 ||
-                exeBytes[p + 1] != 0x06 || exeBytes[p + 2] != 0x9f ||
-                exeBytes[p + 3] != 0x79) {
-                throw std::runtime_error("expected static priority write missing");
-            }
-            return exeBytes[p + 4];
-        };
-
-        int latchCandidates = 0;
-        int latchRefs = 0;
-        int priorityCandidates = 0;
-        int directSweepWrites = 0;
-        int mappedWrites = 0;
-        std::ostringstream list;
-        std::ostringstream mappedLabels;
-        std::ostringstream unresolvedCandidates;
-        std::ostringstream unresolvedLabels;
-        for (size_t i = 0; i < writes.size(); ++i) {
-            int calls = nearLatchCallCount(writes[i].offset);
-            if (calls > 0) ++latchCandidates;
-            latchRefs += calls;
-            if (nearPriorityWrite(writes[i].offset)) ++priorityCandidates;
-            if (isDirectSoundSweep(writes[i].cursor)) ++directSweepWrites;
-            auto mappedIt = std::find_if(
-                kMappedWrites.begin(), kMappedWrites.end(),
-                [&](const MappedStaticSoundWrite& mapped) {
-                    return mapped.offset == writes[i].offset;
-                });
-            if (mappedIt != kMappedWrites.end()) {
-                ++mappedWrites;
-                if (mappedLabels.tellp() > 0) mappedLabels << ',';
-                mappedLabels << hex4(mappedIt->offset) << ':' << mappedIt->label;
-            } else {
-                auto unresolvedIt = std::find_if(
-                    kUnresolvedWrites.begin(), kUnresolvedWrites.end(),
-                    [&](const UnresolvedStaticSoundWrite& unresolved) {
-                        return unresolved.offset == writes[i].offset;
-                    });
-                if (unresolvedIt == kUnresolvedWrites.end()) {
-                    throw std::runtime_error("unclassified static sound write");
-                }
-                if (unresolvedCandidates.tellp() > 0) unresolvedCandidates << ',';
-                unresolvedCandidates << hex4(writes[i].offset);
-                if (unresolvedLabels.tellp() > 0) unresolvedLabels << ',';
-                unresolvedLabels << hex4(unresolvedIt->offset) << ':'
-                                 << unresolvedIt->label;
-            }
-            if (i != 0) list << ',';
-            list << hex4(writes[i].offset) << ':' << hex4(writes[i].cursor);
-        }
-        if (latchCandidates != 21 || latchRefs != 22 ||
-            priorityCandidates != 21 || directSweepWrites != 5 ||
-            mappedWrites != static_cast<int>(kMappedWrites.size()) ||
-            priorityAt(0x185d) != kRecordNamePromptSoundPriority ||
-            nearLatchCallCount(0x1857) != 1 ||
-            priorityAt(0x1a4a) != kRecordNameCommitSoundPriority ||
-            nearLatchCallCount(0x1a44) != 1 ||
-            priorityAt(0x2089) != kRecordsPageSoundPriority ||
-            nearLatchCallCount(0x2083) != 1 ||
-            priorityAt(0x5581) != kBombPlaceSoundPriority ||
-            nearLatchCallCount(0x557b) != 1 ||
-            priorityAt(0x5ca4) != kMonsterDeathSoundPriority ||
-            nearLatchCallCount(0x5c9e) != 1) {
-            throw std::runtime_error("static sound request summary changed");
-        }
-        auto remainingHookList = [] {
-            std::ostringstream out;
-            for (size_t i = 0; i < kRemainingSoundCompatibilityHooks.size(); ++i) {
-                if (i != 0) out << ',';
-                out << kRemainingSoundCompatibilityHooks[i].hook;
-            }
-            return out.str();
-        };
-        auto rejectedObjectiveCandidateList = [] {
-            std::ostringstream out;
-            for (size_t i = 0; i < kRejectedObjectiveSoundCandidates.size(); ++i) {
-                if (i != 0) out << ',';
-                const RejectedSoundCandidate& candidate =
-                    kRejectedObjectiveSoundCandidates[i];
-                out << hex4(candidate.offset) << ':' << candidate.reason;
-            }
-            return out.str();
-        };
-        auto remainingCaptureBlockerList = [] {
-            std::ostringstream out;
-            for (size_t i = 0; i < kRemainingSoundCompatibilityHooks.size(); ++i) {
-                if (i != 0) out << ',';
-                const RemainingSoundCompatibilityHook& hook =
-                    kRemainingSoundCompatibilityHooks[i];
-                out << hook.hook << ':' << hook.captureBlocker;
-            }
-            return out.str();
-        };
-        std::string remainingHooks = remainingHookList();
-        std::string rejectedObjectiveCandidates = rejectedObjectiveCandidateList();
-        std::string remainingCaptureBlockers = remainingCaptureBlockerList();
-        std::string mappedLabelList = mappedLabels.str();
-        std::string unresolvedCandidateList = unresolvedCandidates.str();
-        std::string unresolvedLabelList = unresolvedLabels.str();
-        if (remainingHooks != "objective_pickup,level_complete" ||
-            rejectedObjectiveCandidates !=
-                "0x4b2c:collapse_playback,0x6d75:bomb_object_high_gate,"
-                "0x6924:non_objective_tile_gate" ||
-            remainingCaptureBlockers !=
-                "objective_pickup:rejected_static_candidates,"
-                "level_complete:no_static_candidate") {
-            throw std::runtime_error("sound compatibility recovery notes changed");
-        }
-        if (mappedLabelList !=
-                "0x1857:record_name_prompt,0x1a44:record_name_commit,"
-                "0x2083:records_page,0x30b1:player_death,"
-                "0x41a9:explosion_small,0x41ed:explosion_medium,"
-                "0x4231:explosion_large,0x431d:explosion_super,"
-                "0x557b:bomb_place,0x575d:tile_trigger,"
-                "0x5a0e:portal_teleport,0x5c9e:monster_death,"
-                "0x6844:weapon_switch,0x6924:launch_pad,"
-                "0x6e34:bomb_object_high,0x6f82:bonus_pickup,"
-                "0x7f84:player_damage" ||
-            unresolvedCandidateList !=
-                "0x1d9c,0x202d,0x2c04,0x49bd,0x4b2c,0x4d3c,"
-                "0x4dd3,0x5e81,0x7386,0x789c") {
-            throw std::runtime_error("static sound mapping ledger changed");
-        }
-        if (unresolvedLabelList !=
-                "0x1d9c:post_end_flow_record_region,"
-                "0x202d:record_table_cursor_only,"
-                "0x2c04:cursor_0078_priority11,"
-                "0x49bd:cursor_0027_priority5,"
-                "0x4b2c:collapse_playback_rejected,"
-                "0x4d3c:cursor_2710,"
-                "0x4dd3:cursor_2710,"
-                "0x5e81:cursor_0069_priority4,"
-                "0x7386:cursor_0021_priority1,"
-                "0x789c:cursor_0001_no_latch") {
-            throw std::runtime_error("static sound unresolved labels changed");
-        }
-
-        std::cout << "static_sound_requests=ok writes=" << writes.size()
-                  << " image_base=0x0770"
-                  << " latch=0x165a"
-                  << " latch_candidates=" << latchCandidates
-                  << " latch_refs=" << latchRefs
-                  << " priority_candidates=" << priorityCandidates
-                  << " direct_sweep=" << directSweepWrites
-                  << " mapped=" << mappedWrites
-                  << " unresolved=" << (static_cast<int>(writes.size()) - mappedWrites)
-                  << " record_prompt=" << hex4(0x1857) << ':'
-                  << hex4(kRecordNamePromptSoundCursor)
-                  << "/p" << static_cast<int>(kRecordNamePromptSoundPriority)
-                  << " record_commit=" << hex4(0x1a44) << ':'
-                  << hex4(kRecordNameCommitSoundCursor)
-                  << "/p" << static_cast<int>(kRecordNameCommitSoundPriority)
-                  << " records_page=" << hex4(0x2083) << ':'
-                  << hex4(kRecordsPageSoundCursor)
-                  << "/p" << static_cast<int>(kRecordsPageSoundPriority)
-                  << " bomb_place=" << hex4(0x557b) << ':' << hex4(kBombPlaceSoundCursor)
-                  << "/p" << static_cast<int>(kBombPlaceSoundPriority)
-                  << " monster_death=" << hex4(0x5c9e) << ':'
-                  << hex4(kMonsterDeathSoundCursor)
-                  << "/p" << static_cast<int>(kMonsterDeathSoundPriority)
-                  << " weapon_switch=" << hex4(0x6844) << ':'
-                  << hex4(kWeaponSwitchSoundCursor)
-                  << "/p" << static_cast<int>(kWeaponSwitchSoundPriority)
-                  << " launch_pad=" << hex4(0x6924) << ':'
-                  << hex4(kLaunchPadSoundCursor)
-                  << "/p" << static_cast<int>(kLaunchPadSoundPriority)
-                  << " mapped_labels=" << mappedLabelList
-                  << " unresolved_candidates=" << unresolvedCandidateList
-                  << " unresolved_labels=" << unresolvedLabelList
-                  << " remaining_compat_hooks=" << remainingHooks
-                  << " capture_blockers=" << remainingCaptureBlockers
-                  << " rejected_objective_candidates="
-                  << rejectedObjectiveCandidates
-                  << " cursor_writes=" << list.str() << '\n';
+        lezac::diagnostics::SoundDiagnostics(sound_).debugStaticSoundRequests();
     }
 
     void debugInputFireKeyModel() {
@@ -10551,423 +9556,23 @@ public:
     }
 
     void debugStaticSoundContexts() {
-        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
-        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
-            throw std::runtime_error("LEZAC.EXE missing MZ header");
-        }
-        uint16_t headerParagraphs = le16(exeBytes, 0x08);
-        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
-        if (imageBase != 0x0770) {
-            throw std::runtime_error("LEZAC.EXE image base changed for sound context scan");
-        }
-
-        auto requireBytes = [&](uint16_t offset, const std::string& hex,
-                                const std::string& label) {
-            std::vector<uint8_t> expected = parseHexByteList(hex);
-            size_t p = imageBase + offset;
-            if (p + expected.size() > exeBytes.size()) {
-                throw std::runtime_error(label + " context extends past LEZAC.EXE");
-            }
-            for (size_t i = 0; i < expected.size(); ++i) {
-                if (exeBytes[p + i] != expected[i]) {
-                    throw std::runtime_error(label + " context bytes changed");
-                }
-            }
-        };
-        auto imageContainsAscii = [&](const std::string& needle) {
-            std::vector<uint8_t> bytes(needle.begin(), needle.end());
-            return std::search(exeBytes.begin() + static_cast<long>(imageBase),
-                               exeBytes.end(), bytes.begin(), bytes.end()) != exeBytes.end();
-        };
-        auto priorityString = [](uint8_t priority) {
-            if (priority == 0) return std::string("deferred");
-            return std::string("p") + std::to_string(static_cast<int>(priority));
-        };
-
-        requireBytes(0x1857, "c7 06 74 20 78 00 c6 06 9f 79 0b e8 f5 fd",
-                     "name-entry 0x1857 sound write");
-        requireBytes(0x1a44, "c7 06 74 20 08 00 c6 06 9f 79 0b e8 08 fc",
-                     "name-entry 0x1a44 sound write");
-        requireBytes(0x1d42, "c2 02 00", "end-flow dispatcher return");
-        requireBytes(0x1d45, "09 66 6f 6e 74 73 2e 73 70 72 0b 62 6f 6d 62 61 20 62 6f 6e 75 73",
-                     "post-end-flow font/bonus strings");
-        requireBytes(0x1d9c, "c7 06 74 20 3d 00 c6 06 9f 79 0a e8 b0 f8",
-                     "post-end-flow 0x1d9c sound write");
-        requireBytes(0x202d, "c7 06 74 20 21 00 e8 24 f6",
-                     "record-table 0x202d sound write");
-        requireBytes(0x2083, "c7 06 74 20 24 00 c6 06 9f 79 02 e8 c9 f5",
-                     "record-table 0x2083 sound write");
-
-        if (!imageContainsAscii("inserisci il tuo nome;") ||
-            !imageContainsAscii("punteggi migliori") ||
-            !imageContainsAscii("bomba bonus")) {
-            throw std::runtime_error("record/menu sound context strings changed");
-        }
-        for (const StaticSoundContext& context : kRecordUiSoundContexts) {
-            if (context.offset >= kEndFlowDispatcherStart &&
-                context.offset <= kEndFlowDispatcherRet) {
-                throw std::runtime_error("record UI sound context overlaps end-flow dispatcher");
-            }
-        }
-        if (!(0x1d9c > kEndFlowDispatcherRet && 0x1d9c < 0x202d)) {
-            throw std::runtime_error("post-end-flow sound context ordering changed");
-        }
-
-        std::ostringstream recordContexts;
-        for (size_t i = 0; i < kRecordUiSoundContexts.size(); ++i) {
-            if (i != 0) recordContexts << ',';
-            const StaticSoundContext& context = kRecordUiSoundContexts[i];
-            recordContexts << hex4(context.offset) << ':' << hex4(context.cursor)
-                           << '/' << priorityString(context.priority) << ':'
-                           << context.context;
-        }
-
-        std::cout << "static_sound_contexts=ok"
-                  << " image_base=0x0770"
-                  << " end_flow_dispatcher=" << hex4(kEndFlowDispatcherStart)
-                  << ".." << hex4(kEndFlowDispatcherRet)
-                  << " first_post_end_flow_sound=" << hex4(0x1d9c)
-                  << " level_complete_static_candidate=none"
-                  << " record_ui_writes=" << recordContexts.str()
-                  << " strings=inserisci_il_tuo_nome,punteggi_migliori,bomba_bonus"
-                  << " remaining_compat_hooks=objective_pickup,level_complete"
-                  << '\n';
+        lezac::diagnostics::SoundDiagnostics(sound_).debugStaticSoundContexts();
     }
 
     void debugStaticSoundUnresolvedContexts() {
-        struct UnresolvedContext {
-            uint16_t offset;
-            uint16_t cursor;
-            int priority;
-            uint16_t priorityOffset;
-            const char* priorityPlacement;
-            int expectedLocalLatchCalls;
-            const char* region;
-            const char* captureClass;
-            const char* label;
-            const char* bytes;
-        };
-        static const std::array<UnresolvedContext, 10> kContexts{{
-            {0x1d9c, 0x003d, 10, 0x1da2, "inline", 1,
-             "record_ui", "record_ui_static", "post_end_flow_record_region",
-             "c7 06 74 20 3d 00 c6 06 9f 79 0a e8 b0 f8"},
-            {0x202d, 0x0021, -1, 0x0000, "none", 1,
-             "record_ui", "record_ui_static", "record_table_cursor_only",
-             "c7 06 74 20 21 00 e8 24 f6"},
-            {0x2c04, 0x0078, 11, 0x2c0a, "inline", 1,
-             "pre_new_game_setup", "pre_new_game_static", "cursor_0078_priority11",
-             "c7 06 74 20 78 00 c6 06 9f 79 0b e8 48 ea"},
-            {0x49bd, 0x0027, 5, 0x49c3, "inline", 1,
-             "explosion_playback", "explosion_static", "cursor_0027_priority5",
-             "c7 06 74 20 27 00 c6 06 9f 79 05 e8 8f cc"},
-            {0x4b2c, 0x0021, 2, 0x4b27, "preceding", 1,
-             "explosion_playback", "explosion_static", "collapse_playback_rejected",
-             "c7 06 74 20 21 00 e8 25 cb"},
-            {0x4d3c, 0x2710, -1, 0x0000, "none", 0,
-             "effect_extent_scan", "effect_extent_static", "cursor_2710",
-             "c7 06 74 20 10 27 c7 06 72 20 00 00 c6 06 1e 66 00"},
-            {0x4dd3, 0x2710, -1, 0x0000, "none", 0,
-             "effect_extent_scan", "effect_extent_static", "cursor_2710",
-             "c7 06 74 20 10 27 c7 06 72 20 00 00 c6 06 1e 66 00"},
-            {0x5e81, 0x0069, 4, 0x5e87, "inline", 1,
-             "contact_scanner", "actor_contact_runtime", "cursor_0069_priority4",
-             "c7 06 74 20 69 00 c6 06 9f 79 04 e8 cb b7"},
-            {0x7386, 0x0021, 1, 0x7381, "preceding", 1,
-             "actor_update", "actor_contact_runtime", "cursor_0021_priority1",
-             "c7 06 74 20 21 00 e8 cb a2"},
-            {0x789c, 0x0001, -1, 0x0000, "none", 0,
-             "post_actor_update_no_latch", "post_actor_update_no_latch",
-             "cursor_0001_no_latch",
-             "c7 06 74 20 01 00 eb 04 ff 06 74 20"},
-        }};
-
-        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
-        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
-            throw std::runtime_error("LEZAC.EXE missing MZ header");
-        }
-        uint16_t headerParagraphs = le16(exeBytes, 0x08);
-        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
-        if (imageBase != 0x0770) {
-            throw std::runtime_error("LEZAC.EXE image base changed for unresolved sound scan");
-        }
-
-        auto requireBytes = [&](uint16_t offset, const std::string& hex,
-                                const std::string& label) {
-            std::vector<uint8_t> expected = parseHexByteList(hex);
-            size_t p = imageBase + offset;
-            if (p + expected.size() > exeBytes.size()) {
-                throw std::runtime_error(label + " extends past LEZAC.EXE");
-            }
-            for (size_t i = 0; i < expected.size(); ++i) {
-                if (exeBytes[p + i] != expected[i]) {
-                    throw std::runtime_error(label + " bytes changed");
-                }
-            }
-        };
-        auto localLatchCallCount = [&](uint16_t offset) {
-            int count = 0;
-            for (size_t relOff = 0; relOff < 24; ++relOff) {
-                size_t callOff = static_cast<size_t>(offset) + relOff;
-                size_t p = imageBase + callOff;
-                if (p + 3 > exeBytes.size() || exeBytes[p] != 0xe8) continue;
-                uint16_t rawRel = le16(exeBytes, p + 1);
-                int signedRel = rawRel >= 0x8000u
-                                    ? static_cast<int>(rawRel) - 0x10000
-                                    : static_cast<int>(rawRel);
-                uint16_t target = static_cast<uint16_t>(callOff + 3 + signedRel);
-                if (target == 0x165a) ++count;
-            }
-            return count;
-        };
-        auto requirePriority = [&](const UnresolvedContext& context) {
-            if (context.priority < 0) return;
-            size_t p = imageBase + context.priorityOffset;
-            if (p + 5 > exeBytes.size() || exeBytes[p] != 0xc6 ||
-                exeBytes[p + 1] != 0x06 || exeBytes[p + 2] != 0x9f ||
-                exeBytes[p + 3] != 0x79 ||
-                exeBytes[p + 4] != static_cast<uint8_t>(context.priority)) {
-                throw std::runtime_error(std::string(context.label) +
-                                         " priority bytes changed");
-            }
-        };
-
-        int localLatch = 0;
-        int localLatchRefs = 0;
-        int inlinePriority = 0;
-        int precedingPriority = 0;
-        int noPriority = 0;
-        int noLatch = 0;
-        int directSweep = 0;
-        int cursor2710 = 0;
-        std::map<std::string, int> regionCounts;
-        std::map<std::string, int> captureClassCounts;
-        std::ostringstream contexts;
-        std::ostringstream actorContactCaptureCandidates;
-        for (size_t i = 0; i < kContexts.size(); ++i) {
-            const UnresolvedContext& context = kContexts[i];
-            requireBytes(context.offset, context.bytes, context.label);
-            requirePriority(context);
-            ++regionCounts[context.region];
-            ++captureClassCounts[context.captureClass];
-            int calls = localLatchCallCount(context.offset);
-            if (calls != context.expectedLocalLatchCalls) {
-                throw std::runtime_error(std::string(context.label) +
-                                         " local latch call count changed");
-            }
-            if (calls > 0) ++localLatch;
-            else ++noLatch;
-            localLatchRefs += calls;
-            if (std::string(context.priorityPlacement) == "inline") {
-                ++inlinePriority;
-            } else if (std::string(context.priorityPlacement) == "preceding") {
-                ++precedingPriority;
-            } else {
-                ++noPriority;
-            }
-            if (isDirectSoundSweep(context.cursor)) ++directSweep;
-            if (context.cursor == 0x2710) ++cursor2710;
-            if (std::string(context.captureClass) == "actor_contact_runtime") {
-                if (actorContactCaptureCandidates.tellp() > 0) {
-                    actorContactCaptureCandidates << ',';
-                }
-                actorContactCaptureCandidates << hex4(context.offset) << ':'
-                                              << context.region;
-            }
-
-            if (i != 0) contexts << ',';
-            contexts << hex4(context.offset) << ':' << hex4(context.cursor) << '/';
-            if (context.priority >= 0) {
-                contexts << 'p' << context.priority;
-            } else {
-                contexts << "no_priority";
-            }
-            contexts << ':' << context.priorityPlacement
-                     << ":latch" << calls << ':' << context.region << ':'
-                     << context.label;
-        }
-
-        auto regionCountText = [&] {
-            std::ostringstream out;
-            bool first = true;
-            for (const auto& entry : regionCounts) {
-                if (!first) out << ',';
-                first = false;
-                out << entry.first << ':' << entry.second;
-            }
-            return out.str();
-        };
-        auto captureClassCountText = [&] {
-            std::ostringstream out;
-            bool first = true;
-            for (const auto& entry : captureClassCounts) {
-                if (!first) out << ',';
-                first = false;
-                out << entry.first << ':' << entry.second;
-            }
-            return out.str();
-        };
-        std::string contextList = contexts.str();
-        std::string regionCountsList = regionCountText();
-        std::string captureClassCountsList = captureClassCountText();
-        std::string actorContactCaptureCandidateList =
-            actorContactCaptureCandidates.str();
-        if (localLatch != 7 || localLatchRefs != 7 || inlinePriority != 4 ||
-            precedingPriority != 2 || noPriority != 4 || noLatch != 3 ||
-            directSweep != 0 || cursor2710 != 2) {
-            throw std::runtime_error("unresolved static sound context summary changed");
-        }
-        if (regionCountsList !=
-                "actor_update:1,contact_scanner:1,effect_extent_scan:2,"
-                "explosion_playback:2,post_actor_update_no_latch:1,"
-                "pre_new_game_setup:1,record_ui:2") {
-            throw std::runtime_error("unresolved static sound region counts changed");
-        }
-        if (captureClassCountsList !=
-                "actor_contact_runtime:2,effect_extent_static:2,"
-                "explosion_static:2,post_actor_update_no_latch:1,"
-                "pre_new_game_static:1,record_ui_static:2") {
-            throw std::runtime_error("unresolved static sound capture classes changed");
-        }
-        if (actorContactCaptureCandidateList !=
-                "0x5e81:contact_scanner,0x7386:actor_update") {
-            throw std::runtime_error(
-                "unresolved static sound actor/contact capture list changed");
-        }
-        if (contextList !=
-                "0x1d9c:0x003d/p10:inline:latch1:record_ui:post_end_flow_record_region,"
-                "0x202d:0x0021/no_priority:none:latch1:record_ui:record_table_cursor_only,"
-                "0x2c04:0x0078/p11:inline:latch1:pre_new_game_setup:cursor_0078_priority11,"
-                "0x49bd:0x0027/p5:inline:latch1:explosion_playback:cursor_0027_priority5,"
-                "0x4b2c:0x0021/p2:preceding:latch1:explosion_playback:collapse_playback_rejected,"
-                "0x4d3c:0x2710/no_priority:none:latch0:effect_extent_scan:cursor_2710,"
-                "0x4dd3:0x2710/no_priority:none:latch0:effect_extent_scan:cursor_2710,"
-                "0x5e81:0x0069/p4:inline:latch1:contact_scanner:cursor_0069_priority4,"
-                "0x7386:0x0021/p1:preceding:latch1:actor_update:cursor_0021_priority1,"
-                "0x789c:0x0001/no_priority:none:latch0:post_actor_update_no_latch:cursor_0001_no_latch") {
-            throw std::runtime_error("unresolved static sound context list changed");
-        }
-
-        std::cout << "static_sound_unresolved_contexts=ok"
-                  << " writes=" << kContexts.size()
-                  << " image_base=0x0770"
-                  << " latch=0x165a"
-                  << " local_latch=" << localLatch
-                  << " local_latch_refs=" << localLatchRefs
-                  << " inline_priority=" << inlinePriority
-                  << " preceding_priority=" << precedingPriority
-                  << " no_priority=" << noPriority
-                  << " no_latch=" << noLatch
-                  << " direct_sweep=" << directSweep
-                  << " cursor_2710=" << cursor2710
-                  << " region_counts=" << regionCountsList
-                  << " capture_classes=" << captureClassCountsList
-                  << " actor_contact_capture_candidates="
-                  << actorContactCaptureCandidateList
-                  << " contexts=" << contextList
-                  << '\n';
+        lezac::diagnostics::SoundDiagnostics(sound_).debugStaticSoundUnresolvedContexts();
     }
 
     void debugSoundRuntimeCaptureQueue() {
-        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
-        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
-            throw std::runtime_error("LEZAC.EXE missing MZ header");
-        }
-        uint16_t headerParagraphs = le16(exeBytes, 0x08);
-        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
-        if (imageBase != 0x0770) {
-            throw std::runtime_error("LEZAC.EXE image base changed for sound runtime queue");
-        }
-
-        auto requireBytes = [&](const RuntimeSoundCaptureTarget& target) {
-            std::vector<uint8_t> expected = parseHexByteList(target.bytes);
-            size_t p = imageBase + target.offset;
-            if (p + expected.size() > exeBytes.size()) {
-                throw std::runtime_error(std::string(target.scenario) +
-                                         " bytes extend past LEZAC.EXE");
-            }
-            for (size_t i = 0; i < expected.size(); ++i) {
-                if (exeBytes[p + i] != expected[i]) {
-                    throw std::runtime_error(std::string(target.scenario) +
-                                             " bytes changed");
-                }
-            }
-        };
-
-        std::ostringstream targets;
-        std::map<std::string, int> regionCounts;
-        std::map<std::string, int> routeClassCounts;
-        for (size_t i = 0; i < kActorContactSoundCaptureTargets.size(); ++i) {
-            const RuntimeSoundCaptureTarget& target =
-                kActorContactSoundCaptureTargets[i];
-            requireBytes(target);
-            ++regionCounts[target.region];
-            ++routeClassCounts[target.routeClass];
-            if (i != 0) targets << ',';
-            targets << target.scenario << ':' << hex4(target.offset) << ':'
-                    << hex4(target.cursor) << "/p"
-                    << static_cast<int>(target.priority) << ':' << target.region
-                    << ':' << target.label << ':' << target.status << ':'
-                    << target.routeClass << ':' << target.captureBlocker;
-        }
-
-        std::ostringstream regionText;
-        bool first = true;
-        for (const auto& entry : regionCounts) {
-            if (!first) regionText << ',';
-            first = false;
-            regionText << entry.first << ':' << entry.second;
-        }
-
-        std::ostringstream routeClassText;
-        first = true;
-        for (const auto& entry : routeClassCounts) {
-            if (!first) routeClassText << ',';
-            first = false;
-            routeClassText << entry.first << ':' << entry.second;
-        }
-
-        const std::string targetText = targets.str();
-        const std::string regionList = regionText.str();
-        const std::string routeClassList = routeClassText.str();
-        if (targetText !=
-                "actor_update_runtime_cursor_0024_sound:0x6844:0x0024/p2:actor_update:cursor_0024_priority2:staged:natural:normalized_fixture_required,"
-                "actor_update_runtime_cursor_0035_sound:0x6924:0x0035/p5:actor_update:launch_pad:staged:natural:level6_route_required,"
-                "actor_update_runtime_cursor_0021_sound:0x7386:0x0021/p1:actor_update:cursor_0021_priority1:staged:natural:semantic_event_unknown,"
-                "contact_scanner_runtime_sound:0x5e81:0x0069/p4:contact_scanner:cursor_0069_priority4:seeded_only:runtime_seeded:shipped_actor_modes_exclude_6") {
-            throw std::runtime_error("sound runtime capture target queue changed");
-        }
-        if (regionList != "actor_update:3,contact_scanner:1") {
-            throw std::runtime_error("sound runtime capture region summary changed");
-        }
-        if (routeClassList != "natural:3,runtime_seeded:1") {
-            throw std::runtime_error("sound runtime capture route classes changed");
-        }
-
-        std::cout << "sound_runtime_capture_queue=ok"
-                  << " capture_class=actor_contact_runtime"
-                  << " targets=" << kActorContactSoundCaptureTargets.size()
-                  << " first_target=actor_update_runtime_cursor_0024_sound"
-                  << " helper=tools/capture_original_sound_callsite_procmem.sh"
-                  << " route_sweep=tools/sweep_original_sound_callsite_routes.py"
-                  << " oracle=--debug-sound-callsite-oracle"
-                  << " fixture_prefix=sound_callsite_oracle_original"
-                  << " promotion_status=runtime_fixture_required"
-                  << " approval_flags=LEZAC_SOUND_CALLSITE_APPROVE_PROCMEM,"
-                  << "LEZAC_SOUND_CALLSITE_APPROVE_RUNTIME_INSTRUMENTATION"
-                  << " original_cursor_priority_claim=0"
-                  << " regions=" << regionList
-                  << " route_classes=" << routeClassList
-                  << " state6_capture_blocker=shipped_actor_modes_exclude_6"
-                  << " target_queue=" << targetText
-                  << '\n';
+        lezac::diagnostics::SoundDiagnostics(sound_).debugSoundRuntimeCaptureQueue();
     }
 
     void debugRemainingSoundCompatibilityHooks() {
         load();
         resetLevel(0);
 
-        traceCompatibilitySoundAttempts_ = true;
-        compatibilitySoundAttempts_.clear();
+        sound_.setCompatibilityTracing(true);
+        sound_.clearCompatibilityAttempts();
         std::array<int, 2> objectiveProbe = findSingleObjectiveProbeForSmoke();
         player_.x = static_cast<float>(objectiveProbe[0]);
         player_.y = static_cast<float>(objectiveProbe[1]);
@@ -10975,9 +9580,8 @@ public:
         uint32_t scoreBefore = score_;
         clearSoundLatch();
         requestRecordsPageSound();
-        SoundLatch objectiveSeedLatch = soundLatch_;
-        lastPumpedSoundOffset_ = 0;
-        lastPumpedSoundSelector_ = 0;
+        SoundLatch objectiveSeedLatch = sound_.latch();
+        sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
         collectObjectiveTiles(player_, 1);
         const RemainingSoundCompatibilityHook& objectiveHook =
             kRemainingSoundCompatibilityHooks[kObjectivePickupCompatibilityHookSlot];
@@ -10985,16 +9589,16 @@ public:
         // (selector 2), so the latch must now carry the captured pair; the
         // tick's pump then routes exactly that pair into synthesis.
         bool objectiveLatchAccepted =
-            soundLatch_.active &&
-            soundLatch_.latchedOffset == objectiveHook.capturedCursor &&
-            soundLatch_.currentSelector == objectiveHook.capturedPriority;
+            sound_.latch().active &&
+            sound_.latch().latchedOffset == objectiveHook.capturedCursor &&
+            sound_.latch().currentSelector == objectiveHook.capturedPriority;
         pumpSoundLatch();
-        uint16_t objectivePumpedCursor = lastPumpedSoundOffset_;
-        uint8_t objectivePumpedPriority = lastPumpedSoundSelector_;
-        if (compatibilitySoundAttempts_.size() != 1) {
+        uint16_t objectivePumpedCursor = sound_.lastPumped().offset;
+        uint8_t objectivePumpedPriority = sound_.lastPumped().selector;
+        if (sound_.compatibilityAttempts().size() != 1) {
             throw std::runtime_error("objective pickup compatibility sound call count mismatch");
         }
-        CompatibilitySoundAttempt objectiveAttempt = compatibilitySoundAttempts_.front();
+        CompatibilitySoundAttempt objectiveAttempt = sound_.compatibilityAttempts().front();
         if (std::string(objectiveHook.hook) != "objective_pickup" ||
             objectiveAttempt.index != objectiveHook.index ||
             objectiveAttempt.cursor != objectiveHook.capturedCursor ||
@@ -11004,7 +9608,7 @@ public:
             !objectiveLatchAccepted ||
             objectivePumpedCursor != objectiveHook.capturedCursor ||
             objectivePumpedPriority != objectiveHook.capturedPriority ||
-            soundLatch_.active) {
+            sound_.latch().active) {
             throw std::runtime_error("objective pickup compatibility sound route mismatch");
         }
         int collectedDelta = collected_ - collectedBefore;
@@ -11014,24 +9618,24 @@ public:
         // the latch must refuse it and keep the louder pending sound. This is
         // what makes the recovered priority observable in gameplay rather
         // than only in the evidence fixture.
-        compatibilitySoundAttempts_.clear();
+        sound_.clearCompatibilityAttempts();
         resetLevel(0);
         std::array<int, 2> loudObjectiveProbe = findSingleObjectiveProbeForSmoke();
         player_.x = static_cast<float>(loudObjectiveProbe[0]);
         player_.y = static_cast<float>(loudObjectiveProbe[1]);
         clearSoundLatch();
         latchSoundRequest(kRecordsPageSoundCursor, kCompatibilityLatchRejectionSeedPriority);
-        SoundLatch objectiveLoudLatch = soundLatch_;
+        SoundLatch objectiveLoudLatch = sound_.latch();
         collectObjectiveTiles(player_, 1);
         bool objectiveHighSeedRejected =
-            compatibilitySoundAttempts_.size() == 1 &&
-            sameSoundLatch(soundLatch_, objectiveLoudLatch);
+            sound_.compatibilityAttempts().size() == 1 &&
+            sameSoundLatch(sound_.latch(), objectiveLoudLatch);
         clearSoundLatch();
         if (!objectiveHighSeedRejected) {
             throw std::runtime_error("objective pickup compatibility sound ignored latch priority");
         }
 
-        traceCompatibilitySoundAttempts_ = false;
+        sound_.setCompatibilityTracing(false);
         resetLevel(0);
         collectAllObjectiveTilesForSmoke();
         damageRequiredTilesForSmoke();
@@ -11039,29 +9643,28 @@ public:
             throw std::runtime_error("level-complete compatibility fixture is incomplete");
         }
 
-        traceCompatibilitySoundAttempts_ = true;
-        compatibilitySoundAttempts_.clear();
+        sound_.setCompatibilityTracing(true);
+        sound_.clearCompatibilityAttempts();
         clearSoundLatch();
         requestRecordsPageSound();
-        SoundLatch levelSeedLatch = soundLatch_;
-        lastPumpedSoundOffset_ = 0;
-        lastPumpedSoundSelector_ = 0;
+        SoundLatch levelSeedLatch = sound_.latch();
+        sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
         int startLevel = levelIndex_;
         updateLevelCompletion();
         const RemainingSoundCompatibilityHook& levelHook =
             kRemainingSoundCompatibilityHooks[kLevelCompleteCompatibilityHookSlot];
         bool levelLatchAccepted =
-            soundLatch_.active &&
-            soundLatch_.latchedOffset == levelHook.capturedCursor &&
-            soundLatch_.currentSelector == levelHook.capturedPriority;
+            sound_.latch().active &&
+            sound_.latch().latchedOffset == levelHook.capturedCursor &&
+            sound_.latch().currentSelector == levelHook.capturedPriority;
         pumpSoundLatch();
-        uint16_t levelPumpedCursor = lastPumpedSoundOffset_;
-        uint8_t levelPumpedPriority = lastPumpedSoundSelector_;
-        size_t callsFirstTick = compatibilitySoundAttempts_.size();
+        uint16_t levelPumpedCursor = sound_.lastPumped().offset;
+        uint8_t levelPumpedPriority = sound_.lastPumped().selector;
+        size_t callsFirstTick = sound_.compatibilityAttempts().size();
         if (callsFirstTick != 1) {
             throw std::runtime_error("level-complete compatibility sound call count mismatch");
         }
-        CompatibilitySoundAttempt levelAttempt = compatibilitySoundAttempts_.front();
+        CompatibilitySoundAttempt levelAttempt = sound_.compatibilityAttempts().front();
         if (std::string(levelHook.hook) != "level_complete" ||
             levelAttempt.index != levelHook.index ||
             levelAttempt.cursor != levelHook.capturedCursor ||
@@ -11069,17 +9672,17 @@ public:
             !levelLatchAccepted ||
             levelPumpedCursor != levelHook.capturedCursor ||
             levelPumpedPriority != levelHook.capturedPriority ||
-            soundLatch_.active) {
+            sound_.latch().active) {
             throw std::runtime_error("level-complete compatibility sound route mismatch");
         }
 
-        compatibilitySoundAttempts_.clear();
+        sound_.clearCompatibilityAttempts();
         int completionTicksAfterFirst = 0;
         while (levelIndex_ == startLevel && completionTicksAfterFirst <= 120) {
             updateLevelCompletion();
             ++completionTicksAfterFirst;
         }
-        size_t repeatCalls = compatibilitySoundAttempts_.size();
+        size_t repeatCalls = sound_.compatibilityAttempts().size();
         if (repeatCalls != 0 || levelIndex_ != startLevel + 1) {
             throw std::runtime_error("level-complete compatibility sound repeat/advance mismatch");
         }
@@ -11087,23 +9690,23 @@ public:
         // Completion banner behind a louder pending request: rejected, exactly
         // like the objective pickup, so the captured priority is live here too.
         int advancedLevel = levelIndex_ + 1;
-        traceCompatibilitySoundAttempts_ = false;
+        sound_.setCompatibilityTracing(false);
         resetLevel(0);
         collectAllObjectiveTilesForSmoke();
         damageRequiredTilesForSmoke();
         if (!isComplete()) {
             throw std::runtime_error("level-complete latch-priority fixture is incomplete");
         }
-        compatibilitySoundAttempts_.clear();
+        sound_.clearCompatibilityAttempts();
         clearSoundLatch();
         latchSoundRequest(kRecordsPageSoundCursor, kCompatibilityLatchRejectionSeedPriority);
-        SoundLatch levelLoudLatch = soundLatch_;
-        traceCompatibilitySoundAttempts_ = true;
+        SoundLatch levelLoudLatch = sound_.latch();
+        sound_.setCompatibilityTracing(true);
         updateLevelCompletion();
         bool levelHighSeedRejected =
-            compatibilitySoundAttempts_.size() == 1 &&
-            sameSoundLatch(soundLatch_, levelLoudLatch);
-        traceCompatibilitySoundAttempts_ = false;
+            sound_.compatibilityAttempts().size() == 1 &&
+            sameSoundLatch(sound_.latch(), levelLoudLatch);
+        sound_.setCompatibilityTracing(false);
         clearSoundLatch();
         if (!levelHighSeedRejected) {
             throw std::runtime_error("level-complete compatibility sound ignored latch priority");
@@ -11146,23 +9749,22 @@ public:
         recordPath_ = path;
         saveRecords(recordPath_, records_);
         clearSoundLatch();
-        lastPumpedSoundOffset_ = 0;
-        lastPumpedSoundSelector_ = 0;
+        sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
 
         score_ = 999999u;
         levelIndex_ = 0;
         beginGameOver();
         if (menuPage_ != MenuPage::NameEntry ||
-            !soundLatch_.active ||
-            soundLatch_.latchedOffset != kRecordNamePromptSoundCursor ||
-            soundLatch_.currentSelector != kRecordNamePromptSoundPriority ||
-            soundLatch_.directSweep) {
+            !sound_.latch().active ||
+            sound_.latch().latchedOffset != kRecordNamePromptSoundCursor ||
+            sound_.latch().currentSelector != kRecordNamePromptSoundPriority ||
+            sound_.latch().directSweep) {
             throw std::runtime_error("record name prompt sound request mismatch");
         }
         pumpSoundLatch();
-        if (soundLatch_.active ||
-            lastPumpedSoundOffset_ != kRecordNamePromptSoundCursor ||
-            lastPumpedSoundSelector_ != kRecordNamePromptSoundPriority) {
+        if (sound_.latch().active ||
+            sound_.lastPumped().offset != kRecordNamePromptSoundCursor ||
+            sound_.lastPumped().selector != kRecordNamePromptSoundPriority) {
             throw std::runtime_error("record name prompt sound pump mismatch");
         }
 
@@ -11171,16 +9773,16 @@ public:
         onKey(SDLK_k, running);
         onKey(SDLK_RETURN, running);
         if (menuPage_ != MenuPage::Records ||
-            !soundLatch_.active ||
-            soundLatch_.latchedOffset != kRecordNameCommitSoundCursor ||
-            soundLatch_.currentSelector != kRecordNameCommitSoundPriority ||
-            soundLatch_.directSweep) {
+            !sound_.latch().active ||
+            sound_.latch().latchedOffset != kRecordNameCommitSoundCursor ||
+            sound_.latch().currentSelector != kRecordNameCommitSoundPriority ||
+            sound_.latch().directSweep) {
             throw std::runtime_error("record name commit sound request mismatch");
         }
         pumpSoundLatch();
-        if (soundLatch_.active ||
-            lastPumpedSoundOffset_ != kRecordNameCommitSoundCursor ||
-            lastPumpedSoundSelector_ != kRecordNameCommitSoundPriority) {
+        if (sound_.latch().active ||
+            sound_.lastPumped().offset != kRecordNameCommitSoundCursor ||
+            sound_.lastPumped().selector != kRecordNameCommitSoundPriority) {
             throw std::runtime_error("record name commit sound pump mismatch");
         }
 
@@ -11207,8 +9809,7 @@ public:
     void debugRecordsPageSoundRouting() {
         load();
         clearSoundLatch();
-        lastPumpedSoundOffset_ = 0;
-        lastPumpedSoundSelector_ = 0;
+        sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
 
         bool running = true;
         if (!menu_ || menuPage_ != MenuPage::Main) {
@@ -11216,16 +9817,16 @@ public:
         }
         onKey(SDLK_r, running);
         if (!running || !menu_ || menuPage_ != MenuPage::Records ||
-            !soundLatch_.active ||
-            soundLatch_.latchedOffset != kRecordsPageSoundCursor ||
-            soundLatch_.currentSelector != kRecordsPageSoundPriority ||
-            soundLatch_.directSweep) {
+            !sound_.latch().active ||
+            sound_.latch().latchedOffset != kRecordsPageSoundCursor ||
+            sound_.latch().currentSelector != kRecordsPageSoundPriority ||
+            sound_.latch().directSweep) {
             throw std::runtime_error("records page sound request mismatch");
         }
         pumpSoundLatch();
-        if (soundLatch_.active ||
-            lastPumpedSoundOffset_ != kRecordsPageSoundCursor ||
-            lastPumpedSoundSelector_ != kRecordsPageSoundPriority) {
+        if (sound_.latch().active ||
+            sound_.lastPumped().offset != kRecordsPageSoundCursor ||
+            sound_.lastPumped().selector != kRecordsPageSoundPriority) {
             throw std::runtime_error("records page sound pump mismatch");
         }
 
@@ -11245,19 +9846,18 @@ public:
         bombInventory_.selected = BombType::Small;
         grantNormalBombSet(bombInventory_);
         clearSoundLatch();
-        lastPumpedSoundOffset_ = 0;
-        lastPumpedSoundSelector_ = 0;
+        sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
 
         for (uint8_t tick = 0; tick < kWeaponSwitchHoldTicks - 1; ++tick) {
             updateWeaponSwitch(bombInventory_, weaponSwitchHoldTicks_, true);
         }
         if (weaponSwitchHoldTicks_ != kWeaponSwitchHoldTicks - 1 ||
-            bombInventory_.selected != BombType::Small || soundLatch_.active) {
+            bombInventory_.selected != BombType::Small || sound_.latch().active) {
             throw std::runtime_error("short weapon-switch chord changed state");
         }
         updateWeaponSwitch(bombInventory_, weaponSwitchHoldTicks_, false);
         if (weaponSwitchHoldTicks_ != 0 ||
-            bombInventory_.selected != BombType::Small || soundLatch_.active) {
+            bombInventory_.selected != BombType::Small || sound_.latch().active) {
             throw std::runtime_error("short weapon-switch release was not ignored");
         }
 
@@ -11265,22 +9865,22 @@ public:
             updateWeaponSwitch(bombInventory_, weaponSwitchHoldTicks_, true);
         }
         if (weaponSwitchHoldTicks_ != kWeaponSwitchHoldTicks ||
-            bombInventory_.selected != BombType::Small || soundLatch_.active) {
+            bombInventory_.selected != BombType::Small || sound_.latch().active) {
             throw std::runtime_error("held weapon-switch chord triggered before release");
         }
         updateWeaponSwitch(bombInventory_, weaponSwitchHoldTicks_, false);
         if (weaponSwitchHoldTicks_ != 0 ||
             bombInventory_.selected != BombType::Medium ||
-            !soundLatch_.active ||
-            soundLatch_.latchedOffset != kWeaponSwitchSoundCursor ||
-            soundLatch_.currentSelector != kWeaponSwitchSoundPriority ||
-            soundLatch_.directSweep) {
+            !sound_.latch().active ||
+            sound_.latch().latchedOffset != kWeaponSwitchSoundCursor ||
+            sound_.latch().currentSelector != kWeaponSwitchSoundPriority ||
+            sound_.latch().directSweep) {
             throw std::runtime_error("weapon-switch release state or sound mismatch");
         }
         pumpSoundLatch();
-        if (soundLatch_.active ||
-            lastPumpedSoundOffset_ != kWeaponSwitchSoundCursor ||
-            lastPumpedSoundSelector_ != kWeaponSwitchSoundPriority) {
+        if (sound_.latch().active ||
+            sound_.lastPumped().offset != kWeaponSwitchSoundCursor ||
+            sound_.lastPumped().selector != kWeaponSwitchSoundPriority) {
             throw std::runtime_error("weapon-switch sound cursor did not pump");
         }
 
@@ -11304,16 +9904,16 @@ public:
         placeBombAt(player_, bombInventory_, 1);
         if (bombs_.size() != beforeBombs + 1 ||
             bombInventory_.counts[0] != beforeSmallBombs - 1 ||
-            !soundLatch_.active ||
-            soundLatch_.latchedOffset != kBombPlaceSoundCursor ||
-            soundLatch_.currentSelector != kBombPlaceSoundPriority ||
-            !soundLatch_.directSweep) {
+            !sound_.latch().active ||
+            sound_.latch().latchedOffset != kBombPlaceSoundCursor ||
+            sound_.latch().currentSelector != kBombPlaceSoundPriority ||
+            !sound_.latch().directSweep) {
             throw std::runtime_error("bomb placement sound request mismatch");
         }
         pumpSoundLatch();
-        if (soundLatch_.active ||
-            lastPumpedSoundOffset_ != kBombPlaceSoundCursor ||
-            lastPumpedSoundSelector_ != kBombPlaceSoundPriority) {
+        if (sound_.latch().active ||
+            sound_.lastPumped().offset != kBombPlaceSoundCursor ||
+            sound_.lastPumped().selector != kBombPlaceSoundPriority) {
             throw std::runtime_error("bomb placement sound pump mismatch");
         }
         std::cout << "bomb_place_sound=ok cursor=" << hex4(kBombPlaceSoundCursor)
@@ -11337,16 +9937,16 @@ public:
         if (monster.behavior != 2 ||
             monster.stateTimer != kMonsterDeathVisibleTicks + 1 ||
             !monster.deathRewardPending || !bonusDrops_.empty() ||
-            !soundLatch_.active ||
-            soundLatch_.latchedOffset != kMonsterDeathSoundCursor ||
-            soundLatch_.currentSelector != kMonsterDeathSoundPriority ||
-            soundLatch_.directSweep) {
+            !sound_.latch().active ||
+            sound_.latch().latchedOffset != kMonsterDeathSoundCursor ||
+            sound_.latch().currentSelector != kMonsterDeathSoundPriority ||
+            sound_.latch().directSweep) {
             throw std::runtime_error("monster death sound request mismatch");
         }
         pumpSoundLatch();
-        if (soundLatch_.active ||
-            lastPumpedSoundOffset_ != kMonsterDeathSoundCursor ||
-            lastPumpedSoundSelector_ != kMonsterDeathSoundPriority) {
+        if (sound_.latch().active ||
+            sound_.lastPumped().offset != kMonsterDeathSoundCursor ||
+            sound_.lastPumped().selector != kMonsterDeathSoundPriority) {
             throw std::runtime_error("monster death sound pump mismatch");
         }
         std::cout << "monster_death_sound=ok cursor="
@@ -11363,22 +9963,22 @@ public:
 
         clearSoundLatch();
         bool lowAccepted = requestBombObjectScoreSound(false);
-        if (!lowAccepted || !soundLatch_.active ||
-            soundLatch_.currentSelector != kBombObjectSoundPriority ||
-            soundLatch_.latchedOffset != kBombObjectDefaultSoundCursor) {
+        if (!lowAccepted || !sound_.latch().active ||
+            sound_.latch().currentSelector != kBombObjectSoundPriority ||
+            sound_.latch().latchedOffset != kBombObjectDefaultSoundCursor) {
             throw std::runtime_error("low bomb-object sound request mismatch");
         }
         pumpSoundLatch();
-        if (soundLatch_.active || lastPumpedSoundOffset_ != kBombObjectDefaultSoundCursor ||
-            lastPumpedSoundSelector_ != kBombObjectSoundPriority) {
+        if (sound_.latch().active || sound_.lastPumped().offset != kBombObjectDefaultSoundCursor ||
+            sound_.lastPumped().selector != kBombObjectSoundPriority) {
             throw std::runtime_error("low bomb-object sound pump mismatch");
         }
 
         clearSoundLatch();
         bool highAccepted = requestBombObjectScoreSound(true);
-        if (!highAccepted || !soundLatch_.active ||
-            soundLatch_.currentSelector != kBombObjectSoundPriority ||
-            soundLatch_.latchedOffset != kBombObjectHighSoundCursor) {
+        if (!highAccepted || !sound_.latch().active ||
+            sound_.latch().currentSelector != kBombObjectSoundPriority ||
+            sound_.latch().latchedOffset != kBombObjectHighSoundCursor) {
             throw std::runtime_error("high bomb-object sound request mismatch");
         }
 
@@ -11386,9 +9986,9 @@ public:
         bool explosionAccepted = requestSoundOffset(explosionSoundOffset(1),
                                                     explosionSoundSelector(1));
         bool suppressed = !requestBombObjectScoreSound(true);
-        if (!explosionAccepted || !suppressed || !soundLatch_.active ||
-            soundLatch_.currentSelector != explosionSoundSelector(1) ||
-            soundLatch_.latchedOffset != explosionSoundOffset(1)) {
+        if (!explosionAccepted || !suppressed || !sound_.latch().active ||
+            sound_.latch().currentSelector != explosionSoundSelector(1) ||
+            sound_.latch().latchedOffset != explosionSoundOffset(1)) {
             throw std::runtime_error("bomb-object sound did not yield to explosion priority");
         }
 
@@ -11413,23 +10013,23 @@ public:
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
         if (energy_ != 99 || playerDead_ || lives_ != 3 ||
-            damageCooldown_ != 0 || !soundLatch_.active ||
-            soundLatch_.latchedOffset != kPlayerDamageSoundCursor ||
-            soundLatch_.currentSelector != kPlayerDamageSoundPriority) {
+            damageCooldown_ != 0 || !sound_.latch().active ||
+            sound_.latch().latchedOffset != kPlayerDamageSoundCursor ||
+            sound_.latch().currentSelector != kPlayerDamageSoundPriority) {
             throw std::runtime_error("player damage sound request mismatch");
         }
         int nonlethalEnergy = energy_;
         pumpSoundLatch();
-        if (soundLatch_.active || lastPumpedSoundOffset_ != kPlayerDamageSoundCursor ||
-            lastPumpedSoundSelector_ != kPlayerDamageSoundPriority) {
+        if (sound_.latch().active || sound_.lastPumped().offset != kPlayerDamageSoundCursor ||
+            sound_.lastPumped().selector != kPlayerDamageSoundPriority) {
             throw std::runtime_error("player damage sound pump mismatch");
         }
 
         clearSoundLatch();
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
-        bool secondDamageAccepted = energy_ == 98 && soundLatch_.active &&
-                                    soundLatch_.latchedOffset == kPlayerDamageSoundCursor;
+        bool secondDamageAccepted = energy_ == 98 && sound_.latch().active &&
+                                    sound_.latch().latchedOffset == kPlayerDamageSoundCursor;
         if (!secondDamageAccepted) {
             throw std::runtime_error("player damage sound did not accept second hit");
         }
@@ -11440,8 +10040,8 @@ public:
                                                          explosionSoundSelector(1));
         bool damageRefreshedSamePriority = requestPlayerDamageSound();
         if (!smallExplosionAccepted || !damageRefreshedSamePriority ||
-            !soundLatch_.active || soundLatch_.latchedOffset != kPlayerDamageSoundCursor ||
-            soundLatch_.currentSelector != kPlayerDamageSoundPriority) {
+            !sound_.latch().active || sound_.latch().latchedOffset != kPlayerDamageSoundCursor ||
+            sound_.latch().currentSelector != kPlayerDamageSoundPriority) {
             throw std::runtime_error("player damage sound same-priority latch mismatch");
         }
 
@@ -11449,9 +10049,9 @@ public:
         bool mediumExplosionAccepted = requestSoundOffset(explosionSoundOffset(2),
                                                           explosionSoundSelector(2));
         bool higherPriorityBlocked = !requestPlayerDamageSound();
-        if (!mediumExplosionAccepted || !higherPriorityBlocked || !soundLatch_.active ||
-            soundLatch_.latchedOffset != explosionSoundOffset(2) ||
-            soundLatch_.currentSelector != explosionSoundSelector(2)) {
+        if (!mediumExplosionAccepted || !higherPriorityBlocked || !sound_.latch().active ||
+            sound_.latch().latchedOffset != explosionSoundOffset(2) ||
+            sound_.latch().currentSelector != explosionSoundSelector(2)) {
             throw std::runtime_error("player damage sound priority block mismatch");
         }
 
@@ -11464,14 +10064,14 @@ public:
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
         if (energy_ != 100 || !playerDead_ || lives_ != 3 || !pendingLifeLoss_ ||
-            reentryTimer_ != kReentryTicks || !soundLatch_.active ||
-            soundLatch_.latchedOffset != kPlayerDeathSoundCursor ||
-            soundLatch_.currentSelector != kPlayerDeathSoundPriority) {
+            reentryTimer_ != kReentryTicks || !sound_.latch().active ||
+            sound_.latch().latchedOffset != kPlayerDeathSoundCursor ||
+            sound_.latch().currentSelector != kPlayerDeathSoundPriority) {
             throw std::runtime_error("player death sound did not replace hurt sound");
         }
         pumpSoundLatch();
-        if (soundLatch_.active || lastPumpedSoundOffset_ != kPlayerDeathSoundCursor ||
-            lastPumpedSoundSelector_ != kPlayerDeathSoundPriority) {
+        if (sound_.latch().active || sound_.lastPumped().offset != kPlayerDeathSoundCursor ||
+            sound_.lastPumped().selector != kPlayerDeathSoundPriority) {
             throw std::runtime_error("player death sound pump mismatch");
         }
 
@@ -11544,9 +10144,9 @@ public:
         drainPlayerDamageCounters();
         if (energy_ != 97 || energy2_ != 98 || pendingDamage_ != 0 ||
             pendingDamage2_ != 0 || playerDead_ || player2Dead_ ||
-            !soundLatch_.active ||
-            soundLatch_.latchedOffset != kPlayerDamageSoundCursor ||
-            soundLatch_.currentSelector != kPlayerDamageSoundPriority) {
+            !sound_.latch().active ||
+            sound_.latch().latchedOffset != kPlayerDamageSoundCursor ||
+            sound_.latch().currentSelector != kPlayerDamageSoundPriority) {
             throw std::runtime_error("live damage counter drain mismatch");
         }
 
@@ -11559,9 +10159,9 @@ public:
         drainPlayerDamageCounters();
         if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ || energy_ != 100 ||
             deathStateTimer_ != kDeathStateTicks || pendingDamage_ != 0 ||
-            !soundLatch_.active ||
-            soundLatch_.latchedOffset != kPlayerDeathSoundCursor ||
-            soundLatch_.currentSelector != kPlayerDeathSoundPriority) {
+            !sound_.latch().active ||
+            sound_.latch().latchedOffset != kPlayerDeathSoundCursor ||
+            sound_.latch().currentSelector != kPlayerDeathSoundPriority) {
             throw std::runtime_error("live damage counter underflow mismatch");
         }
 
@@ -11571,9 +10171,9 @@ public:
         queuePlayerDamage(1, 4);
         drainPlayerDamageCounters();
         if (energy_ != 100 || !playerDead_ || pendingDamage_ != 0 ||
-            !soundLatch_.active ||
-            soundLatch_.latchedOffset != kPlayerDamageSoundCursor ||
-            soundLatch_.currentSelector != kPlayerDamageSoundPriority) {
+            !sound_.latch().active ||
+            sound_.latch().latchedOffset != kPlayerDamageSoundCursor ||
+            sound_.latch().currentSelector != kPlayerDamageSoundPriority) {
             throw std::runtime_error("live state-2 damage counter mismatch");
         }
 
@@ -11611,8 +10211,8 @@ public:
             reentryTimer_ != kReentryTicks ||
             deathStateTimer_ != kDeathStateTicks ||
             player_.vx != 0.0f || player_.vy != 0.0f || player_.grounded ||
-            !soundLatch_.active || soundLatch_.latchedOffset != kPlayerDeathSoundCursor ||
-            soundLatch_.currentSelector != kPlayerDeathSoundPriority) {
+            !sound_.latch().active || sound_.latch().latchedOffset != kPlayerDeathSoundCursor ||
+            sound_.latch().currentSelector != kPlayerDeathSoundPriority) {
             throw std::runtime_error("player state-2 death fields mismatch");
         }
         pumpSoundLatch();
@@ -14445,415 +13045,7 @@ public:
     }
 
     int debugSoundCallsiteOracle(const std::string& path, bool expectError) {
-        auto fixtureName = [](const std::string& inputPath) {
-            size_t slash = inputPath.find_last_of("/\\");
-            std::string name =
-                slash == std::string::npos ? inputPath : inputPath.substr(slash + 1);
-            size_t dot = name.find_last_of('.');
-            if (dot != std::string::npos) name = name.substr(0, dot);
-            return name;
-        };
-        const std::string fixture = fixtureName(path);
-
-        auto bareHex4 = [](uint16_t value) {
-            std::ostringstream oss;
-            oss << std::hex << std::nouppercase << std::setw(4)
-                << std::setfill('0') << value;
-            return oss.str();
-        };
-        auto hex4 = [&](uint16_t value) { return "0x" + bareHex4(value); };
-        auto trim = [](std::string value) {
-            while (!value.empty() &&
-                   std::isspace(static_cast<unsigned char>(value.front()))) {
-                value.erase(value.begin());
-            }
-            while (!value.empty() &&
-                   std::isspace(static_cast<unsigned char>(value.back()))) {
-                value.pop_back();
-            }
-            return value;
-        };
-        auto fail = [&](const std::string& reason) {
-            throw std::runtime_error("sound_callsite_oracle=error fixture=" +
-                                     fixture + " reason=" + reason);
-        };
-        auto parseHex16 = [&](std::string token,
-                              const std::string& field) -> uint16_t {
-            token = trim(token);
-            if (token.rfind("0x", 0) == 0 || token.rfind("0X", 0) == 0) {
-                token = token.substr(2);
-            }
-            if (token.empty() || token.size() > 4 ||
-                !std::all_of(token.begin(), token.end(), [](unsigned char ch) {
-                    return std::isxdigit(ch) != 0;
-                })) {
-                fail("bad_hex16 field=" + field + " token=" + token);
-            }
-            return static_cast<uint16_t>(std::stoul(token, nullptr, 16));
-        };
-        auto parseHexByte = [&](const std::string& token,
-                                uint16_t address) -> uint8_t {
-            if (token.size() != 2 ||
-                !std::all_of(token.begin(), token.end(), [](unsigned char ch) {
-                    return std::isxdigit(ch) != 0;
-                })) {
-                fail("non_hex_byte token=" + token + " address=" +
-                     bareHex4(address));
-            }
-            return static_cast<uint8_t>(std::stoul(token, nullptr, 16));
-        };
-        auto parseIntAuto = [&](const std::string& token,
-                                const std::string& field) -> int {
-            try {
-                size_t parsed = 0;
-                long value = std::stol(token, &parsed, 0);
-                if (parsed != token.size()) {
-                    fail("bad_int field=" + field + " token=" + token);
-                }
-                return static_cast<int>(value);
-            } catch (const std::exception&) {
-                fail("bad_int field=" + field + " token=" + token);
-            }
-            return 0;
-        };
-        auto parseFields = [&](const std::string& body,
-                               const std::string& record) {
-            std::map<std::string, std::string> fields;
-            std::istringstream stream(body);
-            std::string token;
-            while (stream >> token) {
-                size_t equals = token.find('=');
-                if (equals == std::string::npos || equals == 0 ||
-                    equals + 1 >= token.size()) {
-                    fail("bad_field record=" + record + " token=" + token);
-                }
-                fields[token.substr(0, equals)] = token.substr(equals + 1);
-            }
-            return fields;
-        };
-        auto requireField = [&](const std::map<std::string, std::string>& fields,
-                                const std::string& name,
-                                const std::string& record) -> std::string {
-            auto found = fields.find(name);
-            if (found == fields.end()) {
-                fail("missing_field record=" + record + " field=" + name);
-            }
-            return found->second;
-        };
-        auto parseFarPointer = [&](const std::string& token,
-                                   const std::string& field) {
-            size_t colon = token.find(':');
-            if (colon == std::string::npos || colon == 0 ||
-                colon + 1 >= token.size()) {
-                fail("bad_far_pointer field=" + field + " token=" + token);
-            }
-            return std::pair<uint16_t, uint16_t>{
-                parseHex16(token.substr(0, colon), field + ".segment"),
-                parseHex16(token.substr(colon + 1), field + ".offset")};
-        };
-
-        struct SoundRequestRecord {
-            bool present = false;
-            std::string label;
-            uint16_t callsiteSegment = 0;
-            uint16_t callsiteOffset = 0;
-            uint16_t latchSegment = 0;
-            uint16_t latchOffset = 0;
-            uint16_t cursor = 0;
-            int priority = 0;
-            int activeBefore = 0;
-            int currentPriorityBefore = 0;
-            uint16_t pendingCursor = 0;
-            int pendingPriority = 0;
-            int accepted = 0;
-            int activeAfter = 0;
-            int currentPriorityAfter = 0;
-            uint16_t currentCursorAfter = 0;
-            int directSweep = 0;
-        };
-
-        try {
-            std::string text = readTextFile(path);
-            std::vector<uint8_t> memory(0x10000);
-            std::vector<bool> present(0x10000, false);
-            uint16_t runtimeCs = 0;
-            uint16_t runtimeDs = 0;
-            bool haveRuntimeCs = false;
-            bool haveRuntimeDs = false;
-            bool tempCopy = false;
-            bool visualClaim = false;
-            bool haveScenario = false;
-            bool haveLevel = false;
-            std::string scenario;
-            int level = 0;
-            SoundRequestRecord request;
-            std::set<uint16_t> breakOffsets;
-            int breakCount = 0;
-            int dumpBytes = 0;
-
-            std::istringstream lines(text);
-            std::string line;
-            std::regex keyRe("^([A-Za-z0-9_]+)=(.*)$");
-            std::regex breakRe(
-                "^break\\s+ghidra=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+"
-                "runtime=([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+label=([^\\s]+).*$");
-            std::regex dumpRe("^dump\\s+DS:([0-9A-Fa-f]{4}).*$");
-            std::regex rowRe("^([0-9A-Fa-f]{4}):([0-9A-Fa-f]{4})\\s+(.+)$");
-            uint16_t currentDump = 0;
-            bool inDump = false;
-            while (std::getline(lines, line)) {
-                line = trim(line);
-                if (line.empty() || line[0] == '#') continue;
-
-                std::smatch match;
-                if (std::regex_match(line, match, keyRe)) {
-                    std::string key = match[1].str();
-                    std::string value = trim(match[2].str());
-                    if (key == "runtime_cs") {
-                        runtimeCs = parseHex16(value, key);
-                        haveRuntimeCs = true;
-                    } else if (key == "runtime_ds") {
-                        runtimeDs = parseHex16(value, key);
-                        haveRuntimeDs = true;
-                    } else if (key == "temp_copy") {
-                        tempCopy = value == "1";
-                    } else if (key == "visual_claim") {
-                        visualClaim = value != "0";
-                    } else if (key == "scenario") {
-                        scenario = value;
-                        haveScenario = true;
-                    } else if (key == "level") {
-                        level = parseIntAuto(value, key);
-                        haveLevel = true;
-                    }
-                    continue;
-                }
-
-                if (line.rfind("sound_request ", 0) == 0) {
-                    auto fields = parseFields(line.substr(14), "sound_request");
-                    request.present = true;
-                    request.label = requireField(fields, "label", "sound_request");
-                    auto callsite = parseFarPointer(
-                        requireField(fields, "callsite", "sound_request"),
-                        "sound_request.callsite");
-                    request.callsiteSegment = callsite.first;
-                    request.callsiteOffset = callsite.second;
-                    auto latch = parseFarPointer(
-                        requireField(fields, "latch", "sound_request"),
-                        "sound_request.latch");
-                    request.latchSegment = latch.first;
-                    request.latchOffset = latch.second;
-                    request.cursor = parseHex16(
-                        requireField(fields, "cursor", "sound_request"),
-                        "sound_request.cursor");
-                    request.priority = parseIntAuto(
-                        requireField(fields, "priority", "sound_request"),
-                        "sound_request.priority");
-                    request.activeBefore = parseIntAuto(
-                        requireField(fields, "active_before", "sound_request"),
-                        "sound_request.active_before");
-                    request.currentPriorityBefore = parseIntAuto(
-                        requireField(fields, "current_priority_before",
-                                     "sound_request"),
-                        "sound_request.current_priority_before");
-                    request.pendingCursor = parseHex16(
-                        requireField(fields, "pending_cursor", "sound_request"),
-                        "sound_request.pending_cursor");
-                    request.pendingPriority = parseIntAuto(
-                        requireField(fields, "pending_priority", "sound_request"),
-                        "sound_request.pending_priority");
-                    request.accepted = parseIntAuto(
-                        requireField(fields, "accepted", "sound_request"),
-                        "sound_request.accepted");
-                    request.activeAfter = parseIntAuto(
-                        requireField(fields, "active_after", "sound_request"),
-                        "sound_request.active_after");
-                    request.currentPriorityAfter = parseIntAuto(
-                        requireField(fields, "current_priority_after",
-                                     "sound_request"),
-                        "sound_request.current_priority_after");
-                    request.currentCursorAfter = parseHex16(
-                        requireField(fields, "current_cursor_after", "sound_request"),
-                        "sound_request.current_cursor_after");
-                    request.directSweep = parseIntAuto(
-                        requireField(fields, "direct_sweep", "sound_request"),
-                        "sound_request.direct_sweep");
-                    continue;
-                }
-
-                if (std::regex_match(line, match, breakRe)) {
-                    if (!haveRuntimeCs) fail("runtime_cs_missing_before_break");
-                    uint16_t ghidraSegment = parseHex16(match[1].str(), "ghidra");
-                    uint16_t ghidraOffset = parseHex16(match[2].str(), "ghidra");
-                    uint16_t runtimeSegment = parseHex16(match[3].str(), "runtime");
-                    uint16_t runtimeOffset = parseHex16(match[4].str(), "runtime");
-                    if (ghidraSegment != 0x1000) {
-                        fail("breakpoint_ghidra_segment expected=0x1000 actual=" +
-                             hex4(ghidraSegment));
-                    }
-                    if (runtimeSegment != runtimeCs) {
-                        fail("breakpoint_segment_mismatch expected=" + hex4(runtimeCs) +
-                             " actual=" + hex4(runtimeSegment));
-                    }
-                    if (runtimeOffset != ghidraOffset) {
-                        fail("breakpoint_offset_mismatch expected=" +
-                             bareHex4(ghidraOffset) + " actual=" +
-                             bareHex4(runtimeOffset));
-                    }
-                    breakOffsets.insert(ghidraOffset);
-                    ++breakCount;
-                    continue;
-                }
-
-                if (std::regex_match(line, match, dumpRe)) {
-                    currentDump = parseHex16(match[1].str(), "dump");
-                    inDump = true;
-                    continue;
-                }
-
-                if (std::regex_match(line, match, rowRe)) {
-                    if (!inDump) fail("dump_row_without_header");
-                    if (!haveRuntimeDs) fail("runtime_ds_missing_before_dump");
-                    uint16_t segment = parseHex16(match[1].str(), "row_segment");
-                    uint16_t address = parseHex16(match[2].str(), "row_address");
-                    if (segment != runtimeDs) {
-                        fail("dump_segment_mismatch expected=" + hex4(runtimeDs) +
-                             " actual=" + hex4(segment) +
-                             " address=" + bareHex4(address));
-                    }
-                    if (address < currentDump) {
-                        fail("dump_address_before_header header=" + bareHex4(currentDump) +
-                             " address=" + bareHex4(address));
-                    }
-                    std::istringstream byteStream(match[3].str());
-                    std::string token;
-                    uint16_t cursor = address;
-                    while (byteStream >> token) {
-                        memory[cursor] = parseHexByte(token, cursor);
-                        present[cursor] = true;
-                        ++cursor;
-                        ++dumpBytes;
-                    }
-                    continue;
-                }
-
-                fail("unrecognized_line");
-            }
-
-            auto requireByteIfPresent = [&](uint16_t address,
-                                            uint8_t expected,
-                                            const std::string& reason) {
-                if (present[address] && memory[address] != expected) {
-                    fail(reason + " expected=" + hex4(expected) +
-                         " actual=" + hex4(memory[address]));
-                }
-            };
-            auto requireWordIfPresent = [&](uint16_t address,
-                                            uint16_t expected,
-                                            const std::string& reason) {
-                if (present[address] && present[static_cast<uint16_t>(address + 1)]) {
-                    uint16_t actual = static_cast<uint16_t>(
-                        memory[address] |
-                        (memory[static_cast<uint16_t>(address + 1)] << 8));
-                    if (actual != expected) {
-                        fail(reason + " expected=" + hex4(expected) +
-                             " actual=" + hex4(actual));
-                    }
-                }
-            };
-
-            if (!haveRuntimeCs) fail("runtime_cs_missing");
-            if (!haveRuntimeDs) fail("runtime_ds_missing");
-            if (!haveScenario) fail("scenario_missing");
-            if (!haveLevel) fail("level_missing");
-            if (visualClaim) fail("visual_claim_not_supported");
-            if (!request.present) fail("sound_request_missing");
-            if (request.callsiteSegment != 0x1000) {
-                fail("callsite_segment_not_1000 actual=" + hex4(request.callsiteSegment));
-            }
-            if (request.latchSegment != 0x1000 || request.latchOffset != 0x165a) {
-                fail("latch_address_mismatch actual=" + hex4(request.latchSegment) +
-                     ":" + bareHex4(request.latchOffset));
-            }
-            if (breakOffsets.count(request.callsiteOffset) == 0) {
-                fail("missing_breakpoint offset=" + bareHex4(request.callsiteOffset));
-            }
-            if (breakOffsets.count(request.latchOffset) == 0) {
-                fail("missing_breakpoint offset=" + bareHex4(request.latchOffset));
-            }
-            if (request.pendingCursor != request.cursor) {
-                fail("pending_cursor_mismatch expected=" + hex4(request.cursor) +
-                     " actual=" + hex4(request.pendingCursor));
-            }
-            if (request.pendingPriority != request.priority) {
-                fail("pending_priority_mismatch expected=" +
-                     std::to_string(request.priority) + " actual=" +
-                     std::to_string(request.pendingPriority));
-            }
-            if (request.accepted != 0) {
-                if (request.activeAfter == 0) fail("accepted_but_inactive_after");
-                if (request.currentPriorityAfter != request.priority) {
-                    fail("accepted_priority_mismatch expected=" +
-                         std::to_string(request.priority) + " actual=" +
-                         std::to_string(request.currentPriorityAfter));
-                }
-                if (request.currentCursorAfter != request.cursor) {
-                    fail("accepted_cursor_mismatch expected=" + hex4(request.cursor) +
-                         " actual=" + hex4(request.currentCursorAfter));
-                }
-            }
-            int expectedDirectSweep = request.cursor > 0xea60 ? 1 : 0;
-            if (request.directSweep != expectedDirectSweep) {
-                fail("direct_sweep_mismatch expected=" +
-                     std::to_string(expectedDirectSweep) + " actual=" +
-                     std::to_string(request.directSweep));
-            }
-
-            requireWordIfPresent(0x2074, request.pendingCursor,
-                                 "pending_cursor_dump_mismatch");
-            requireByteIfPresent(0x799f, static_cast<uint8_t>(request.pendingPriority),
-                                 "pending_priority_dump_mismatch");
-            requireByteIfPresent(0x799e,
-                                 static_cast<uint8_t>(request.currentPriorityAfter),
-                                 "current_priority_dump_mismatch");
-            requireWordIfPresent(0x78c0, request.currentCursorAfter,
-                                 "current_cursor_dump_mismatch");
-            requireByteIfPresent(0x79c4, static_cast<uint8_t>(request.activeAfter),
-                                 "active_flag_dump_mismatch");
-
-            std::cout << "sound_callsite_oracle=ok fixture=" << fixture
-                      << " scenario=" << scenario
-                      << " level=" << level
-                      << " runtime_cs=" << hex4(runtimeCs)
-                      << " runtime_ds=" << hex4(runtimeDs)
-                      << " label=" << request.label
-                      << " callsite=" << hex4(request.callsiteSegment) << ':'
-                      << bareHex4(request.callsiteOffset)
-                      << " latch=" << hex4(request.latchSegment) << ':'
-                      << bareHex4(request.latchOffset)
-                      << " cursor=" << hex4(request.cursor)
-                      << " priority=" << request.priority
-                      << " active_before=" << request.activeBefore
-                      << " current_priority_before=" << request.currentPriorityBefore
-                      << " accepted=" << request.accepted
-                      << " active_after=" << request.activeAfter
-                      << " current_priority_after=" << request.currentPriorityAfter
-                      << " current_cursor_after=" << hex4(request.currentCursorAfter)
-                      << " direct_sweep=" << request.directSweep
-                      << " breaks=" << breakCount
-                      << " dump_bytes=" << dumpBytes
-                      << " temp_copy=" << (tempCopy ? 1 : 0)
-                      << " visual_claim=0\n";
-            if (expectError) {
-                std::cout << "sound_callsite_oracle=error fixture=" << fixture
-                          << " reason=expected_error_missing\n";
-                return 1;
-            }
-            return 0;
-        } catch (const std::exception& e) {
-            std::cout << e.what() << '\n';
-            return expectError ? 0 : 1;
-        }
+        return lezac::diagnostics::SoundDiagnostics(sound_).debugSoundCallsiteOracle(path, expectError);
     }
 
     int debugExplosionPlaybackOracle(const std::string& path, bool expectError) {
@@ -19067,9 +17259,9 @@ public:
             if (flameRecords_.size() != 8 || explosionEffects_.size() != 1) {
                 throw std::runtime_error("bomb object explosion footprint/effect mismatch");
             }
-            if (!soundLatch_.active ||
-                soundLatch_.latchedOffset != explosionSoundOffset(1) ||
-                soundLatch_.currentSelector != explosionSoundSelector(1)) {
+            if (!sound_.latch().active ||
+                sound_.latch().latchedOffset != explosionSoundOffset(1) ||
+                sound_.latch().currentSelector != explosionSoundSelector(1)) {
                 throw std::runtime_error("bomb object explosion sound priority mismatch");
             }
 
@@ -20027,7 +18219,7 @@ public:
                 " did not consume the FIRST draw (expected " +
                 std::to_string(expectedKick) + ")");
         }
-        if (!soundLatch_.active || soundLatch_.latchedOffset != expectedSound) {
+        if (!sound_.latch().active || sound_.latch().latchedOffset != expectedSound) {
             throw std::runtime_error(
                 "bounce sound offset did not consume the SECOND draw (expected 0x" +
                 std::to_string(expectedSound) + ")");
@@ -20086,7 +18278,7 @@ public:
         std::cout << "debris_bounce_rng=ok"
                   << " draws=2 order=kick_then_sound"
                   << " kick=" << observedKick
-                  << " sound_offset=0x" << std::hex << soundLatch_.latchedOffset
+                  << " sound_offset=0x" << std::hex << sound_.latch().latchedOffset
                   << std::dec
                   << " sound_base=0x" << std::hex << kDebrisBounceSoundBase
                   << std::dec
@@ -20427,16 +18619,16 @@ public:
                     updatePortalsAndTriggers(player_, portalCooldown, triggerCooldown,
                                              false);
 
-                    if (triggerCooldown != 30 || !soundLatch_.active ||
-                        soundLatch_.latchedOffset != kTileTriggerSoundCursor ||
-                        soundLatch_.currentSelector != kTileTriggerSoundPriority) {
+                    if (triggerCooldown != 30 || !sound_.latch().active ||
+                        sound_.latch().latchedOffset != kTileTriggerSoundCursor ||
+                        sound_.latch().currentSelector != kTileTriggerSoundPriority) {
                         throw std::runtime_error("trigger sound request mismatch");
                     }
 
                     pumpSoundLatch();
-                    if (soundLatch_.active ||
-                        lastPumpedSoundOffset_ != kTileTriggerSoundCursor ||
-                        lastPumpedSoundSelector_ != kTileTriggerSoundPriority) {
+                    if (sound_.latch().active ||
+                        sound_.lastPumped().offset != kTileTriggerSoundCursor ||
+                        sound_.lastPumped().selector != kTileTriggerSoundPriority) {
                         throw std::runtime_error("trigger sound pump mismatch");
                     }
 
@@ -20484,16 +18676,16 @@ public:
                     if (portalCooldown != 30 ||
                         player_.x != static_cast<float>(destination->x) ||
                         player_.y != static_cast<float>(destination->y) ||
-                        !soundLatch_.active ||
-                        soundLatch_.latchedOffset != kPortalTeleportSoundCursor ||
-                        soundLatch_.currentSelector != kPortalTeleportSoundPriority) {
+                        !sound_.latch().active ||
+                        sound_.latch().latchedOffset != kPortalTeleportSoundCursor ||
+                        sound_.latch().currentSelector != kPortalTeleportSoundPriority) {
                         throw std::runtime_error("portal sound request mismatch");
                     }
 
                     pumpSoundLatch();
-                    if (soundLatch_.active ||
-                        lastPumpedSoundOffset_ != kPortalTeleportSoundCursor ||
-                        lastPumpedSoundSelector_ != kPortalTeleportSoundPriority) {
+                    if (sound_.latch().active ||
+                        sound_.lastPumped().offset != kPortalTeleportSoundCursor ||
+                        sound_.lastPumped().selector != kPortalTeleportSoundPriority) {
                         throw std::runtime_error("portal sound pump mismatch");
                     }
 
@@ -21099,13 +19291,12 @@ public:
         player_.vy = 0.0f;
         player_.grounded = true;
         clearSoundLatch();
-        lastPumpedSoundOffset_ = 0;
-        lastPumpedSoundSelector_ = 0;
+        sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
         updateWithControls(idle, 1.0f / 60.0f);
         if (!bonusDrops_.empty() || score_ - scoreBefore != 2000 ||
-            soundLatch_.active ||
-            lastPumpedSoundOffset_ != kBonusPickupSoundCursor ||
-            lastPumpedSoundSelector_ != kBonusPickupSoundPriority) {
+            sound_.latch().active ||
+            sound_.lastPumped().offset != kBonusPickupSoundCursor ||
+            sound_.lastPumped().selector != kBonusPickupSoundPriority) {
             throw std::runtime_error(
                 "live monster bomb reward collection mismatch");
         }
@@ -21286,8 +19477,8 @@ public:
         drainPlayerDamageCounters();
         if (pendingDamage_ != 0 || pendingDamage2_ != 0 ||
             energy_ != 98 || energy2_ != 99 || playerDead_ || player2Dead_ ||
-            !soundLatch_.active || soundLatch_.latchedOffset != kPlayerDamageSoundCursor ||
-            soundLatch_.currentSelector != kPlayerDamageSoundPriority) {
+            !sound_.latch().active || sound_.latch().latchedOffset != kPlayerDamageSoundCursor ||
+            sound_.latch().currentSelector != kPlayerDamageSoundPriority) {
             throw std::runtime_error("monster contact drain cadence changed");
         }
 
@@ -21329,8 +19520,8 @@ public:
         pendingDamage2_ = 0;
         monsters_.clear();
         pumpSoundLatch();
-        if (soundLatch_.active || lastPumpedSoundOffset_ != kPlayerDamageSoundCursor ||
-            lastPumpedSoundSelector_ != kPlayerDamageSoundPriority) {
+        if (sound_.latch().active || sound_.lastPumped().offset != kPlayerDamageSoundCursor ||
+            sound_.lastPumped().selector != kPlayerDamageSoundPriority) {
             throw std::runtime_error("monster contact hurt cue did not pump");
         }
         FrameInspection hurtFrame = inspectRenderedFrame("monster-contact-damage-hurt");
@@ -21344,7 +19535,7 @@ public:
         clearSoundLatch();
         drainPlayerDamageCounters();
         if (energy_ != 100 || !playerDead_ || pendingDamage_ != 0 ||
-            !soundLatch_.active || soundLatch_.latchedOffset != kPlayerDamageSoundCursor) {
+            !sound_.latch().active || sound_.latch().latchedOffset != kPlayerDamageSoundCursor) {
             throw std::runtime_error("state-2 contact damage did not preserve energy with hurt cue");
         }
 
@@ -21357,8 +19548,8 @@ public:
         drainPlayerDamageCounters();
         if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ || energy_ != 100 ||
             deathStateTimer_ != kDeathStateTicks || pendingDamage_ != 0 ||
-            !soundLatch_.active || soundLatch_.latchedOffset != kPlayerDeathSoundCursor ||
-            soundLatch_.currentSelector != kPlayerDeathSoundPriority) {
+            !sound_.latch().active || sound_.latch().latchedOffset != kPlayerDeathSoundCursor ||
+            sound_.latch().currentSelector != kPlayerDeathSoundPriority) {
             throw std::runtime_error("fatal monster contact did not dispatch death");
         }
 
@@ -21561,73 +19752,7 @@ public:
     // the original captured accepted-sound evidence fixture.
     void debugSoundHookEvidence(const std::string& fixturePath) {
         load();
-        std::ifstream in(fixturePath);
-        if (!in) throw std::runtime_error("cannot open " + fixturePath);
-        std::map<std::string, std::string> kv;
-        std::map<std::string, std::pair<uint16_t, int>> hooks;
-        std::string line;
-        while (std::getline(in, line)) {
-            if (!line.empty() && line.back() == '\r') line.pop_back();
-            if (line.empty() || line[0] == '#') continue;
-            if (line.rfind("hook ", 0) == 0) {
-                std::istringstream hs(line.substr(5));
-                std::string name, curTok, priTok;
-                hs >> name >> curTok >> priTok;
-                if (curTok.rfind("cursor=", 0) != 0 ||
-                    priTok.rfind("priority=", 0) != 0) {
-                    throw std::runtime_error("malformed hook row: " + line);
-                }
-                hooks[name] = {static_cast<uint16_t>(
-                                   std::stoul(curTok.substr(7), nullptr, 16)),
-                               std::stoi(priTok.substr(9))};
-                continue;
-            }
-            auto eq = line.find('=');
-            if (eq == std::string::npos) continue;
-            kv[line.substr(0, eq)] = line.substr(eq + 1);
-        }
-        auto req = [&](const char* key) -> std::string {
-            auto it = kv.find(key);
-            if (it == kv.end()) {
-                throw std::runtime_error(std::string("missing key ") + key);
-            }
-            return it->second;
-        };
-        if (req("sound_callsite_original") != "level1" ||
-            req("runtime_ds") != "0c8f" || req("visual_claim") != "0" ||
-            req("accepted_cursor_offset") != "0x78c0" ||
-            req("accepted_priority_offset") != "0x799e") {
-            throw std::runtime_error("sound hook fixture header mismatch");
-        }
-        // Every live compatibility hook must carry the captured cursor and
-        // priority; a mismatch means the port would play a different sound
-        // than the original.
-        for (const RemainingSoundCompatibilityHook& hook :
-             kRemainingSoundCompatibilityHooks) {
-            auto it = hooks.find(hook.hook);
-            if (it == hooks.end()) {
-                throw std::runtime_error(std::string("fixture lacks hook ") +
-                                         hook.hook);
-            }
-            if (hook.capturedCursor != it->second.first ||
-                static_cast<int>(hook.capturedPriority) != it->second.second) {
-                throw std::runtime_error(std::string("hook ") + hook.hook +
-                                         " diverges from captured evidence");
-            }
-            // The synthesized audio must come from the captured cursor.
-            if (synthesizeSoundCursor(hook.capturedCursor).empty() &&
-                hook.capturedCursor != 0) {
-                throw std::runtime_error(std::string("hook ") + hook.hook +
-                                         " captured cursor yields no audio");
-            }
-        }
-        std::cout << "sound_hook_evidence=ok hooks="
-                  << kRemainingSoundCompatibilityHooks.size()
-                  << " objective_pickup=" << hex4(hooks["objective_pickup"].first)
-                  << "/p" << hooks["objective_pickup"].second
-                  << " level_complete=" << hex4(hooks["level_complete"].first)
-                  << "/p" << hooks["level_complete"].second
-                  << " accepted_pair=0x78c0/0x799e visual_claim=0\n";
+        lezac::diagnostics::SoundDiagnostics(sound_).debugSoundHookEvidence(fixturePath);
     }
 
     void debugBehavior4LockstepEvidence(const std::string& fixturePath) {
@@ -25579,7 +23704,7 @@ public:
     }
 
     ~App() {
-        if (audioDevice_ != 0) SDL_CloseAudioDevice(audioDevice_);
+        audioOutput_.close();
         if (texture_) SDL_DestroyTexture(texture_);
         if (renderer_) SDL_DestroyRenderer(renderer_);
         if (window_) SDL_DestroyWindow(window_);
@@ -25725,6 +23850,8 @@ private:
     const SpriteBank& altSprites_ = assets_.altSprites();
     const SpriteBank& fontSprites_ = assets_.fontSprites();
     SoundBank sounds_;
+    lezac::sound::SoundEngine sound_{sounds_};
+    lezac::sound::SdlAudioOutput audioOutput_;
     const GranBank& gran_ = assets_.gran();
     std::vector<Record> records_;
     const std::vector<Level>& levels_ = assets_.levels();
@@ -25765,15 +23892,6 @@ private:
     SDL_Window* window_ = nullptr;
     SDL_Renderer* renderer_ = nullptr;
     SDL_Texture* texture_ = nullptr;
-    SDL_AudioDeviceID audioDevice_ = 0;
-    SDL_AudioSpec audioSpec_{};
-    bool audioEnabled_ = false;
-    SoundLatch soundLatch_;
-    int lastPumpedSoundRecord_ = -1;
-    uint16_t lastPumpedSoundOffset_ = 0;
-    uint8_t lastPumpedSoundSelector_ = 0;
-    bool traceCompatibilitySoundAttempts_ = false;
-    std::vector<CompatibilitySoundAttempt> compatibilitySoundAttempts_;
     bool menu_ = true;
     MenuPage menuPage_ = MenuPage::Main;
     bool paused_ = false;
@@ -25873,29 +23991,7 @@ private:
         initAudio();
     }
 
-    void initAudio() {
-        if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
-            SDL_ClearError();
-            return;
-        }
-        SDL_AudioSpec want{};
-        want.freq = kAudioSampleRate;
-        want.format = AUDIO_S16SYS;
-        want.channels = 1;
-        want.samples = 1024;
-        SDL_AudioSpec have{};
-        audioDevice_ = SDL_OpenAudioDevice(nullptr, 0, &want, &have,
-                                           SDL_AUDIO_ALLOW_FREQUENCY_CHANGE |
-                                               SDL_AUDIO_ALLOW_FORMAT_CHANGE |
-                                               SDL_AUDIO_ALLOW_CHANNELS_CHANGE);
-        if (audioDevice_ == 0) {
-            SDL_ClearError();
-            return;
-        }
-        audioSpec_ = have;
-        audioEnabled_ = true;
-        SDL_PauseAudioDevice(audioDevice_, 0);
-    }
+    void initAudio() { audioOutput_.open(); }
 
     void processEvents(bool& running) {
         SDL_Event e;
@@ -26294,247 +24390,32 @@ private:
         return '\0';
     }
 
-    uint16_t compatibilitySoundCursor(size_t index) const {
-        return kCompatibilitySoundCursors[index % kCompatibilitySoundCursors.size()];
-    }
-
-    uint16_t soundStepPeriodWord(size_t stepIndex) const {
-        size_t off = stepIndex * kSoundStepSize;
-        if (off + 1 >= sounds_.payload.size()) return kSoundStopPeriod;
-        return le16(sounds_.payload, off);
-    }
-
-    uint8_t soundStepGateTick(size_t stepIndex) const {
-        size_t off = stepIndex * kSoundStepSize;
-        return off + 2 < sounds_.payload.size() ? sounds_.payload[off + 2] : 0;
-    }
-
-    uint8_t soundStepPeriodTicks(size_t stepIndex) const {
-        size_t off = stepIndex * kSoundStepSize;
-        return off + 3 < sounds_.payload.size() ? sounds_.payload[off + 3] : 1;
-    }
-
-    uint16_t soundStopCursorFor(uint16_t cursor) const {
-        size_t stepIndex = cursor;
-        while (stepIndex < sounds_.stepCount) {
-            if (soundStepPeriodWord(stepIndex) == kSoundStopPeriod) {
-                return static_cast<uint16_t>(stepIndex + 1);
-            }
-            ++stepIndex;
-        }
-        return static_cast<uint16_t>(sounds_.stepCount);
-    }
-
-    void appendToneSamples(std::vector<int16_t>& samples, uint16_t period,
-                           int sampleCount, int amplitude, double& phase) const {
-        if (sampleCount <= 0) return;
-        if (period < 0x20) {
-            samples.insert(samples.end(), static_cast<size_t>(sampleCount), 0);
-            return;
-        }
-        double frequency = std::clamp(1193182.0 / static_cast<double>(period),
-                                      80.0, 4200.0);
-        double step = frequency / static_cast<double>(kAudioSampleRate);
-        for (int i = 0; i < sampleCount; ++i) {
-            phase += step;
-            if (phase >= 1.0) phase -= std::floor(phase);
-            samples.push_back(phase < 0.5 ? static_cast<int16_t>(amplitude)
-                                           : static_cast<int16_t>(-amplitude));
-        }
-    }
-
-    std::vector<int16_t> synthesizeSoundCursor(uint16_t cursor) const {
-        if (cursor > kDirectSoundThreshold) return synthesizeDirectSweep(cursor);
-        std::vector<int16_t> samples;
-        if (sounds_.payload.empty() || cursor >= sounds_.stepCount) return samples;
-
-        uint16_t stopCursor = soundStopCursorFor(cursor);
-        samples.reserve(static_cast<size_t>(std::max<int>(1, stopCursor - cursor)) *
-                        kAudioToneSamples * 2);
-        double phase = 0.0;
-        for (size_t stepIndex = cursor; stepIndex < sounds_.stepCount; ++stepIndex) {
-            uint16_t period = soundStepPeriodWord(stepIndex);
-            if (period == kSoundStopPeriod) break;
-            uint8_t gateTick = soundStepGateTick(stepIndex);
-            uint8_t periodTicksRaw = soundStepPeriodTicks(stepIndex);
-            int periodTicks = periodTicksRaw == 0 ? 256 : periodTicksRaw;
-            int audibleTicks = periodTicks;
-            if (gateTick != 0 && gateTick < periodTicks) {
-                audibleTicks = gateTick;
-            }
-            int silentTicks = std::max(0, periodTicks - audibleTicks);
-            appendToneSamples(samples, period,
-                              std::max(1, audibleTicks * kAudioToneSamples),
-                              7200, phase);
-            samples.insert(samples.end(),
-                           static_cast<size_t>(silentTicks * kAudioToneSamples), 0);
-        }
-        return samples;
-    }
-
-    std::vector<int16_t> synthesizeSound(size_t index) const {
-        if (sounds_.records.empty()) return {};
-        return synthesizeSoundCursor(compatibilitySoundCursor(index));
-    }
-
-    std::vector<int16_t> synthesizeDirectSweep(uint16_t startCursor) const {
-        std::vector<int16_t> samples;
-        if (startCursor <= kDirectSoundThreshold) return samples;
-        double phase = 0.0;
-        for (uint16_t cursor = startCursor; cursor > kDirectSoundThreshold;
-             cursor = static_cast<uint16_t>(cursor - 4)) {
-            uint16_t period = static_cast<uint16_t>(cursor - kDirectSoundPeriodBase);
-            uint16_t clampedPeriod = std::max<uint16_t>(1, period);
-            appendToneSamples(samples, clampedPeriod, kAudioToneSamples / 2, 7200, phase);
-        }
-        return samples;
-    }
-
-    size_t soundIndexForSelector(uint8_t selector) const {
-        if (sounds_.records.empty()) return 0;
-        if (selector >= 4) {
-            return static_cast<size_t>(selector - 4) % sounds_.records.size();
-        }
-        return static_cast<size_t>(selector) % sounds_.records.size();
-    }
-
-    bool isDirectSoundSweep(uint16_t offset) const {
-        return offset > kDirectSoundThreshold;
-    }
-
-    size_t soundIndexForOffsetFallback(uint16_t offset, uint8_t selector) const {
-        if (sounds_.records.empty()) return 0;
-        for (size_t i = 0; i < kExplosionDirectSweepSoundOffsets.size(); ++i) {
-            if (offset == kExplosionDirectSweepSoundOffsets[i]) {
-                return i % sounds_.records.size();
-            }
-        }
-        return soundIndexForSelector(selector);
-    }
 
     bool latchSoundRequest(uint16_t cursor, uint8_t selector) {
-        bool accept = !soundLatch_.active ||
-                      static_cast<uint8_t>(soundLatch_.currentSelector - 1u) < selector;
-        if (!accept) return false;
-        soundLatch_.active = true;
-        soundLatch_.currentSelector = selector;
-        soundLatch_.latchedOffset = cursor;
-        soundLatch_.directSweep = isDirectSoundSweep(cursor);
-        soundLatch_.recordIndex = sounds_.records.empty()
-                                      ? 0
-                                      : soundIndexForOffsetFallback(cursor, selector);
-        return true;
+        return sound_.latchSoundRequest(cursor, selector);
     }
 
     bool requestSoundCursor(uint16_t cursor, uint8_t selector) {
-        return latchSoundRequest(cursor, selector);
+        return sound_.requestSoundCursor(cursor, selector);
     }
 
     bool requestSoundOffset(uint16_t offset, uint8_t selector) {
-        return requestSoundCursor(offset, selector);
+        return sound_.requestSoundOffset(offset, selector);
     }
 
     void clearSoundLatch() {
-        soundLatch_ = {};
+        sound_.clearSoundLatch();
     }
 
     void pumpSoundLatch() {
-        if (!soundLatch_.active) return;
-        size_t recordIndex = soundLatch_.recordIndex;
-        lastPumpedSoundRecord_ = static_cast<int>(recordIndex);
-        lastPumpedSoundOffset_ = soundLatch_.latchedOffset;
-        lastPumpedSoundSelector_ = soundLatch_.currentSelector;
-        bool directSweep = soundLatch_.directSweep;
-        uint16_t offset = soundLatch_.latchedOffset;
-        clearSoundLatch();
-        if (directSweep) {
-            playSoundSamples(synthesizeDirectSweep(offset));
-        } else {
-            playSoundSamples(synthesizeSoundCursor(offset));
-        }
+        audioOutput_.playSamples(sound_.pumpSoundLatch());
     }
 
-    void playSound(size_t index) {
-        if (traceCompatibilitySoundAttempts_) {
-            compatibilitySoundAttempts_.push_back(
-                {index, compatibilitySoundCursor(index)});
-        }
-        if (!audioEnabled_ || audioDevice_ == 0 || sounds_.records.empty()) return;
-        std::vector<int16_t> samples = synthesizeSound(index % sounds_.records.size());
-        if (samples.empty()) return;
-        playSoundSamples(samples);
-    }
 
     bool playCompatibilitySound(size_t hookSlot) {
-        if (hookSlot >= kRemainingSoundCompatibilityHooks.size()) {
-            throw std::runtime_error("unknown compatibility sound hook");
-        }
-        const RemainingSoundCompatibilityHook& hook =
-            kRemainingSoundCompatibilityHooks[hookSlot];
-        // Submit the captured pair through the recovered priority latch, the
-        // same route every other in-game sound callsite uses, instead of
-        // queueing samples directly: the pair was sampled from the ACCEPTED
-        // words (cursor DS:0x78C0, priority DS:0x799E), and in the original
-        // the latch at 1000:165a is the only writer of those words, so the
-        // faithful replay is a latch submission whose priority can lose to a
-        // louder sound already pending. Cursor and priority both matter here;
-        // the index->kCompatibilitySoundCursors lookup is deliberately not
-        // used because its level-complete entry is 0x0027 while the original
-        // latches 0x003d, an audibly different sound. The table itself is
-        // left alone because the selector path and the sound_render
-        // diagnostics depend on it.
-        if (traceCompatibilitySoundAttempts_) {
-            compatibilitySoundAttempts_.push_back({hook.index, hook.capturedCursor});
-        }
-        // No audio-device early-out: the latch is game state, not audio
-        // state, so a headless run must reach the same latch as an audio run.
-        // pumpSoundLatch() performs the synthesis once per tick.
-        return requestSoundCursor(hook.capturedCursor, hook.capturedPriority);
+        return sound_.playCompatibilitySound(hookSlot);
     }
 
-    void playSoundSamples(const std::vector<int16_t>& samples) {
-        if (!audioEnabled_ || audioDevice_ == 0 || samples.empty()) return;
-        Uint32 bytes = static_cast<Uint32>(samples.size() * sizeof(int16_t));
-        if (audioSpec_.format == AUDIO_S16SYS && audioSpec_.channels == 1 &&
-            audioSpec_.freq == kAudioSampleRate) {
-            queueAudio(samples.data(), bytes);
-            return;
-        }
-
-        SDL_AudioCVT cvt{};
-        int build = SDL_BuildAudioCVT(&cvt, AUDIO_S16SYS, 1, kAudioSampleRate,
-                                      audioSpec_.format, audioSpec_.channels,
-                                      audioSpec_.freq);
-        if (build < 0) {
-            SDL_ClearError();
-            return;
-        }
-        if (build == 0) {
-            queueAudio(samples.data(), bytes);
-            return;
-        }
-
-        cvt.len = static_cast<int>(bytes);
-        std::vector<uint8_t> converted(static_cast<size_t>(cvt.len) * cvt.len_mult);
-        std::memcpy(converted.data(), samples.data(), bytes);
-        cvt.buf = converted.data();
-        if (SDL_ConvertAudio(&cvt) != 0) {
-            SDL_ClearError();
-            return;
-        }
-        queueAudio(converted.data(), static_cast<Uint32>(cvt.len_cvt));
-    }
-
-    void queueAudio(const void* data, Uint32 bytes) {
-        if (SDL_QueueAudio(audioDevice_, data, bytes) != 0) {
-            SDL_ClearError();
-            audioEnabled_ = false;
-        }
-    }
-
-    void playSoundSelector(uint8_t selector) {
-        playSound(soundIndexForSelector(selector));
-    }
 
     int tileAt(int tx, int ty) const {
         if (tx < 0 || ty < 0 || tx >= level_.width || ty >= level_.height) return 0;
@@ -27671,9 +25552,7 @@ private:
         weaponSwitchHoldTicks2_ = 0;
         logicTick_ = 0;
         clearSoundLatch();
-        lastPumpedSoundRecord_ = -1;
-        lastPumpedSoundOffset_ = 0;
-        lastPumpedSoundSelector_ = 0;
+        sound_.restorePlaybackForFixture({});
     }
 
     std::array<int, 2> monsterFrameRange(uint8_t kind) const {

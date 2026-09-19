@@ -61,12 +61,18 @@ target_link_libraries(lezac_rendering PUBLIC lezac_resources PRIVATE ${SDL2_LIBR
 target_link_directories(lezac_rendering PRIVATE ${SDL2_LIBRARY_DIRS})
 target_compile_options(lezac_rendering PRIVATE ${SDL2_CFLAGS_OTHER})
 
-add_executable(lezac_cpp src/main.cpp src/app/app.cpp src/app/sdl_runtime.cpp
+add_library(lezac_ui STATIC src/ui/record_store.cpp src/ui/ui_controller.cpp src/ui/level_flow.cpp)
+target_include_directories(lezac_ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(lezac_ui PUBLIC lezac_resources)
+add_library(lezac_ui_diagnostics STATIC src/diagnostics/ui_diagnostics.cpp)
+target_link_libraries(lezac_ui_diagnostics PUBLIC lezac_ui)
+
+add_executable(lezac_cpp src/main.cpp src/app/app.cpp src/app/sdl_runtime.cpp src/app/input_mapper.cpp
     src/diagnostics/frame_inspector.cpp)
 target_compile_definitions(lezac_cpp PRIVATE SDL_MAIN_HANDLED)
 target_include_directories(lezac_cpp PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_directories(lezac_cpp PRIVATE ${SDL2_LIBRARY_DIRS})
-target_link_libraries(lezac_cpp PRIVATE lezac_core lezac_resources lezac_sound lezac_sound_diagnostics lezac_rendering ${SDL2_LIBRARIES})
+target_link_libraries(lezac_cpp PRIVATE lezac_core lezac_resources lezac_sound lezac_sound_diagnostics lezac_rendering lezac_ui lezac_ui_diagnostics ${SDL2_LIBRARIES})
 target_compile_options(lezac_cpp PRIVATE ${SDL2_CFLAGS_OTHER})
 
 if(WIN32)
@@ -167,6 +173,10 @@ endif()
 include(CTest)
 
 if(BUILD_TESTING)
+    add_executable(lezac_ui_components_test tests/ui/ui_components_test.cpp)
+    target_link_libraries(lezac_ui_components_test PRIVATE lezac_ui)
+    add_test(NAME ui_components COMMAND lezac_ui_components_test)
+    set_tests_properties(ui_components PROPERTIES PASS_REGULAR_EXPRESSION "^ui_components=ok input=1 records=1 timing=1 callback_order=1 rng_order=1")
     add_executable(lezac_core_primitives_test tests/core/core_primitives_test.cpp)
     target_link_libraries(lezac_core_primitives_test PRIVATE lezac_core)
     add_executable(lezac_hud_test tests/core/hud_test.cpp)

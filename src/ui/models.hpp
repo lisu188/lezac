@@ -65,4 +65,46 @@ inline std::string levelIntroCaption(int levelIndex) {
     return "PREPARATI PER IL LIVELLO " + std::to_string(levelIndex + 1);
 }
 
+struct LevelIntroState {
+    bool active = false;
+    uint32_t startedAt = 0;
+    int levelIndex = 0;
+    LevelIntroPattern pattern;
+};
+
+// Level-completion banner sequence (original routine at file 0x24d3):
+// typed lines over the live gameplay frame, a score count-up per player, then
+// a blocking key wait before the level byte increments.
+struct LevelOutroState {
+    bool active = false;
+    uint32_t startedAt = 0;
+    int destBonus = 0;
+    std::array<int, 2> bombBonus{{0, 0}};
+    std::array<bool, 2> playerActive{{false, false}};
+    std::array<int, 2> awarded{{0, 0}};
+    bool typingSkipped = false;
+    uint32_t typingSkipAt = 0;
+    bool awaitKey = false;
+};
+
+struct PendingRecordEntry {
+    uint32_t score = 0;
+    uint8_t level = 0;
+    uint8_t player = 1;
+    EndReason reason = EndReason::GameOver;
+};
+
+struct PendingRecordState : PendingRecordEntry {
+    std::string name;
+};
+
+struct UiState {
+    bool menu = true;
+    MenuPage page = MenuPage::Main;
+    bool paused = false;
+    bool showBackground = true;
+    bool italian = true;
+    EndReason lastEndReason = EndReason::GameOver;
+};
+
 }

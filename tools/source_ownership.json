@@ -12,17 +12,26 @@
     },
     "resources": {
       "runtime": [
-        "src/app/app.cpp",
+        "src/resources/asset_catalog.cpp",
+        "src/resources/asset_catalog.hpp",
         "src/resources/background.cpp",
         "src/resources/background.hpp",
         "src/resources/binary.cpp",
         "src/resources/binary.hpp",
+        "src/resources/gran.cpp",
+        "src/resources/gran.hpp",
         "src/resources/io.cpp",
         "src/resources/io.hpp",
         "src/resources/json.cpp",
         "src/resources/json.hpp",
+        "src/resources/levels.cpp",
+        "src/resources/levels.hpp",
         "src/resources/palette.cpp",
         "src/resources/palette.hpp",
+        "src/resources/records.cpp",
+        "src/resources/records.hpp",
+        "src/resources/sound.cpp",
+        "src/resources/sound.hpp",
         "src/resources/sprites.cpp",
         "src/resources/sprites.hpp",
         "src/resources/tiles.cpp",
@@ -52,7 +61,8 @@
     },
     "app": {
       "runtime": [
-        "src/app/app.cpp"
+        "src/app/app.cpp",
+        "src/app/app.hpp"
       ],
       "dispatch": [
         "src/main.cpp",

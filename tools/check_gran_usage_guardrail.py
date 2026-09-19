@@ -5,10 +5,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 import tempfile
 
-from source_guardrails import source_files, function_ranges as cpp_function_ranges
+from source_guardrails import source_files, mask_cpp, function_ranges as cpp_function_ranges
 
 
 DEBUG_FUNCTIONS = (
@@ -48,11 +49,32 @@ def in_range(line_number: int, ranges: dict[str, tuple[int, int]]) -> bool:
     return any(start <= line_number <= end for start, end in ranges.values())
 
 
-def check_source(root: Path) -> tuple[int, int, int, int, int]:
+def direct_class_lines(text: str, class_name: str) -> set[int]:
+    """Lines at class member depth, excluding function/local declaration bodies."""
+    masked = mask_cpp(text)
+    match = re.search(r"\bclass\s+" + re.escape(class_name) + r"\s*\{", masked)
+    if not match:
+        return set()
+    depth = 1
+    lines = set()
+    start = match.end()
+    number = masked.count("\n", 0, start) + 1
+    for line in masked[start:].splitlines(keepends=True):
+        if depth == 1:
+            lines.add(number)
+        depth += line.count("{") - line.count("}")
+        if depth <= 0:
+            break
+        number += 1
+    return lines
+
+
+def check_source(root: Path) -> tuple[int, int, int, int, int, int, int]:
     sources = source_files(root, roles=("runtime", "diagnostics", "dispatch"))
     found_debug = set()
     found_live = set()
     source_refs = load_refs = debug_refs = member_refs = live_consumer_refs = 0
+    accessor_refs = alias_refs = json_load_refs = original_load_refs = 0
     live_refs: list[str] = []
     for source in sources:
         lines = source.text.splitlines()
@@ -62,17 +84,31 @@ def check_source(root: Path) -> tuple[int, int, int, int, int]:
             raise RuntimeError(f"{source.relative}: duplicate GRAN consumer definition")
         found_debug.update(ranges)
         found_live.update(live_ranges)
+        runtime = "runtime" in source.roles
+        catalog_header = runtime and source.relative == "src/resources/asset_catalog.hpp"
+        app_source = runtime and source.relative == "src/app/app.cpp"
+        members = direct_class_lines(source.text, "AssetCatalog" if catalog_header else "App")
+        catalog_load = {}
+        if runtime and source.relative == "src/resources/asset_catalog.cpp":
+            require(source.text, "AssetCatalog AssetCatalog::load(AssetFormat format)", "catalog:loader")
+            catalog_load = cpp_function_ranges(source.text, ("load",))
         for line_number, line in enumerate(lines, start=1):
-            if "gran_" not in line:
+            if "gran_" not in line and not re.search(r"(?:\.|->|::)\s*gran\b", line):
                 continue
             source_refs += 1
-            if "runtime" in source.roles and (
-                'gran_ = loadGran("GRAN.MST.json")' in line
-                or 'gran_ = loadRawGran("GRAN.MST")' in line
-            ):
+            declaration = line.strip()
+            if in_range(line_number, catalog_load) and declaration == 'catalog.gran_ = loadGran("GRAN.MST.json");':
                 load_refs += 1
-            elif "runtime" in source.roles and "GranBank gran_;" in line:
+                json_load_refs += 1
+            elif in_range(line_number, catalog_load) and declaration == 'catalog.gran_ = loadRawGran("GRAN.MST");':
+                load_refs += 1
+                original_load_refs += 1
+            elif catalog_header and line_number in members and declaration == "GranBank gran_;":
                 member_refs += 1
+            elif catalog_header and line_number in members and declaration == "const GranBank& gran() const { return gran_; }":
+                accessor_refs += 1
+            elif app_source and line_number in members and declaration == "const GranBank& gran_ = assets_.gran();":
+                alias_refs += 1
             elif in_range(line_number, ranges):
                 debug_refs += 1
             elif in_range(line_number, live_ranges):
@@ -89,11 +125,13 @@ def check_source(root: Path) -> tuple[int, int, int, int, int]:
 
     if live_refs:
         raise RuntimeError("unexpected live GRAN references: " + "; ".join(live_refs))
-    if load_refs != 2 or member_refs != 1:
+    if (json_load_refs, original_load_refs, member_refs, accessor_refs, alias_refs) != (1, 1, 1, 1, 1):
         raise RuntimeError(
-            f"unexpected GRAN load/member counts: load={load_refs} member={member_refs}"
+            f"unexpected GRAN catalog ownership counts: json_load={json_load_refs} "
+            f"original_load={original_load_refs} member={member_refs} "
+            f"accessor={accessor_refs} alias={alias_refs}"
         )
-    return source_refs, load_refs, debug_refs, member_refs, live_consumer_refs
+    return source_refs, load_refs, debug_refs, member_refs, live_consumer_refs, accessor_refs, alias_refs
 
 
 def check_cmake(root: Path) -> int:
@@ -131,6 +169,7 @@ def write_contract_files(root: Path) -> None:
         "owners": {
             "app": {"runtime": ["src/app/app.cpp"], "dispatch": ["src/app/app.cpp"]},
             "diagnostics": {"diagnostics": ["src/app/app.cpp"]},
+            "resources": {"runtime": ["src/resources/asset_catalog.hpp", "src/resources/asset_catalog.cpp"]},
         },
     }))
     write_text(
@@ -214,23 +253,29 @@ def write_source(root: Path, live_line: str = "", include_debug: bool = True) ->
         root / "src" / "app" / "app.cpp",
         "\n".join(
             (
-                "class Game {",
-                "    void loadAssets() {",
-                '        gran_ = loadGran("GRAN.MST.json");',
-                '        gran_ = loadRawGran("GRAN.MST");',
-                "    }",
+                "class App {",
                 "",
                 debug_functions,
                 "    void updateLive() {",
                 f"        {live_line}",
                 "    }",
                 "",
-                "    GranBank gran_;",
+                "    const GranBank& gran_ = assets_.gran();",
                 "};",
                 "",
             )
         ),
     )
+    write_text(root / "src/resources/asset_catalog.hpp", "\n".join((
+        "class AssetCatalog {", "public:",
+        "    const GranBank& gran() const { return gran_; }", "private:",
+        "    GranBank gran_;", "};", "",
+    )))
+    write_text(root / "src/resources/asset_catalog.cpp", "\n".join((
+        "AssetCatalog AssetCatalog::load(AssetFormat format) {",
+        '    catalog.gran_ = loadGran("GRAN.MST.json");',
+        '    catalog.gran_ = loadRawGran("GRAN.MST");', "}", "",
+    )))
 
 
 def self_test() -> int:
@@ -238,10 +283,10 @@ def self_test() -> int:
         root = Path(tmp)
         write_contract_files(root)
         write_source(root)
-        source_refs, load_refs, debug_refs, member_refs, live_consumer_refs = \
+        source_refs, load_refs, debug_refs, member_refs, live_consumer_refs, accessor_refs, alias_refs = \
             check_source(root)
         if (source_refs, load_refs, debug_refs, member_refs,
-                live_consumer_refs) != (13, 2, 9, 1, 1):
+                live_consumer_refs, accessor_refs, alias_refs) != (15, 2, 9, 1, 1, 1, 1):
             raise RuntimeError("selftest positive source counts mismatch")
         check_cmake(root)
         check_docs(root)
@@ -297,7 +342,7 @@ def main() -> int:
         return self_test()
 
     root = args.root.resolve()
-    source_refs, load_refs, debug_refs, member_refs, live_consumer_refs = \
+    source_refs, load_refs, debug_refs, member_refs, live_consumer_refs, accessor_refs, alias_refs = \
         check_source(root)
     ctest = check_cmake(root)
     docs = check_docs(root)
@@ -306,7 +351,8 @@ def main() -> int:
         f"source_refs={source_refs} load_refs={load_refs} "
         f"debug_refs={debug_refs} member_refs={member_refs} "
         f"live_consumer_refs={live_consumer_refs} "
-        f"live_refs=0 ctest={ctest} docs={docs}"
+        f"live_refs=0 ctest={ctest} docs={docs} "
+        f"accessor_refs={accessor_refs} alias_refs={alias_refs}"
     )
     return 0
 

@@ -289,7 +289,14 @@ if(BUILD_TESTING)
     set_tests_properties(ui_controls_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^control_smoke=ok manual_controls=s,e,r fire_keys=n,kp0,insert background_toggle=1 view_width=320->288->320 two_player_width_locked=1 frame_inspection=1")
+            "^control_smoke=ok manual_controls=s,e,r fire_keys=n,kp0,insert background_toggle=1 view_width=320->288->320 two_player_width_locked=1 frame_inspection=1 reentry_key_release=1 shared_fire_consumption=1")
+
+    add_test(NAME ui_controls_json_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy LEZAC_LOAD_JSON_ASSETS=1
+                $<TARGET_FILE:lezac_cpp> --smoke-controls)
+    set_tests_properties(ui_controls_json_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src
+        PASS_REGULAR_EXPRESSION "^control_smoke=ok .*reentry_key_release=1 shared_fire_consumption=1")
 
     add_test(NAME menu_frame_flow_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -599,6 +606,37 @@ if(BUILD_TESTING)
             ENVIRONMENT "SDL_AUDIODRIVER=dummy"
             TIMEOUT 180
             PASS_REGULAR_EXPRESSION "original_reentry_evidence=ok samples=420 increment_boundaries=230 intro=1 views=22 death=15 waiting=75 restart=304 mutations=1939 production_replay=0 whole_game_parity=0")
+    endif()
+
+    foreach(reentry_mode IN ITEMS reentry_wait zero_reserve fire_reentry)
+        string(REPLACE "_" "-" reentry_command "${reentry_mode}")
+        if(reentry_mode STREQUAL "reentry_wait")
+            set(reentry_command "reentry")
+        endif()
+        add_test(NAME boss_${reentry_mode}_original
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-boss-${reentry_command}-original
+                tests/fixtures/boss_${reentry_mode}_original_level7.txt)
+        set_tests_properties(boss_${reentry_mode}_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "boss_reentry_original=ok cases=1 samples=(420|140).*different_pixels=0.*input_reentry=[01]")
+    endforeach()
+    if(Python3_Interpreter_FOUND)
+        foreach(mode IN ITEMS zero-reserve fire-reentry)
+            add_test(NAME boss_${mode}_capture_contract
+                COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_boss_defeat.py --${mode} --self-check)
+            set_tests_properties(boss_${mode}_capture_contract PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+                PASS_REGULAR_EXPRESSION "boss_mass_capture_self_check=ok windows=50 cases=1 samples=(420|140) live=0")
+        endforeach()
+        add_test(NAME boss_reentry_fixture_guard
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_boss_reentry_fixture.py --exe $<TARGET_FILE:lezac_cpp>)
+        set_tests_properties(boss_reentry_fixture_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            TIMEOUT 360
+            PASS_REGULAR_EXPRESSION "boss_reentry_fixture=ok cases=3 samples=980 views=60 mutations=130 newline_variants=2 silent_children=1 whole_game_parity=0")
     endif()
 
     add_test(NAME boss_continuous_original
@@ -2972,24 +3010,21 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "original_damage_counters=ok p1_hits=3 p1_energy=97 p1_hurt_requests=1 p2_hits=2 p2_energy=98 p2_hurt_requests=1 zero_pass_silent=1 state2_hurt_without_subtract=1 underflow_raw=255 death_dispatch=1 live_p1_energy=97 live_p2_energy=98 live_underflow_dead=1 live_state2_energy=100 live_pending_life_loss=1")
 
-    # NOTE: reentry_timer=180 and cooldown=18 echo port constants. kReentryTicks
-    # is a port-invented fallback (the original waits on a key press at
-    # 1000:7ddf) and kDamageCooldownTicks is unevidenced
-    # (@unevidenced:damage_cooldown_ticks). This pins the death-field
-    # MECHANISM, not those durations.
+    # The raw actor countdown is 60 and wraps while waiting. Reentry adds no
+    # cooldown; the separate shared fallback counter expires at 230.
     add_test(NAME player_state2_death_fields
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-player-state2-death-fields)
     set_tests_properties(player_state2_death_fields PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "player_state2_death_fields=ok reentry_dead=1 reentry_lives_during_countdown=3 reentry_lives_after=2 reentry_energy=100 pending_life_loss=1 reentry_timer=180 death_state_timer=60 vx=0 vy=0 grounded=0 death_cursor=0x56 death_priority=5 early_reentry_blocked=1 after_59_blocked=1 reentered=1 cooldown=18 zero_lives_during_countdown=1 zero_lives_after=0 zero_timer=0 zero_death_state_after_60=0 no_gameover_with_p1=1")
+            "player_state2_death_fields=ok reentry_dead=1 reentry_lives_during_countdown=3 reentry_lives_after=2 reentry_energy=100 pending_life_loss=1 reentry_timer=60 death_state_timer=60 vx=0 vy=0 grounded=0 death_cursor=0x56 death_priority=5 early_reentry_blocked=1 after_59_blocked=1 reentered=1 cooldown=0 zero_lives_during_countdown=1 zero_lives_after=0 zero_timer=0 zero_death_state_after_60=0 no_gameover_with_p1=1")
 
     add_test(NAME original_state2_return_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-return-model)
     set_tests_properties(original_state2_return_model PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "original_state2_return_model=ok timer_start=60 timer_after_59=1 timer_after_60=0 gate0_blocked=1 effect_wait_blocked=1 placement_blocked=1 gate1_restored=1 p1_status=1 p1_actor_state=0 p1_energy=100 p1_cleared=1 p2_status=1 p2_actor_state=1 p2_energy=100 p2_cleared=1 zero_life_status=0 active_players_after_p2_out=1 active_players_after_both_out=0 fallback_blocked_with_active=1 fallback_counter=1 fallback_promoted_status=1 fallback_actor_state_preserved=2 fallback_energy_preserved=77")
+            "original_state2_return_model=ok timer_start=60 timer_after_59=1 timer_after_60=0 gate0_blocked=1 effect_wait_blocked=1 placement_blocked=1 gate1_restored=1 p1_status=1 p1_actor_state=0 p1_energy=100 p1_cleared=1 p2_status=1 p2_actor_state=1 p2_energy=100 p2_cleared=1 zero_life_status=0 active_players_after_p2_out=1 active_players_after_both_out=0 fallback_blocked_with_active=1 fallback_counter=230 fallback_promoted_status=1 fallback_actor_state_preserved=2 fallback_energy_preserved=77")
 
     add_test(NAME state2_animation_init_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-animation-init)
@@ -3728,7 +3763,7 @@ if(BUILD_TESTING)
     set_tests_properties(player_state2_return_active PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "player_state2_return_active=ok p1_death_timer=60 p1_after_59=1 p1_after_60=0 gate0_dead=1 gate0_energy=100 gate1_reentered=1 p1_energy=100 p1_cooldown=18 p1_death_timer_clear=0 p1_reentry_timer_clear=0 p2_gate1_reentered=1 p2_energy=100 p2_cooldown=18 p2_death_timer_clear=0 p2_reentry_timer_clear=0 no_gameover_with_p1=1 p2_out_stays_dead=1 p2_reenter_blocked=1 p1_alive_after_p2_out=1 both_out_gameover=1 live_fallback_shortcut=0 original_reachability=0")
+            "player_state2_return_active=ok p1_death_timer=60 p1_after_59=1 p1_after_60=0 gate0_dead=1 gate0_energy=100 gate1_reentered=1 p1_energy=100 p1_cooldown=0 p1_death_timer_clear=0 p1_reentry_timer_clear=0 p2_gate1_reentered=1 p2_energy=100 p2_cooldown=0 p2_death_timer_clear=0 p2_reentry_timer_clear=0 no_gameover_with_p1=1 p2_out_stays_dead=1 p2_reenter_blocked=1 p1_alive_after_p2_out=1 both_out_gameover=1 zero_reserve_reentered=1 live_fallback_shortcut=0 original_reachability=0")
 
     add_test(NAME ds79b9_fallback_reachability
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-player-state2-return-active
@@ -4147,7 +4182,7 @@ if(BUILD_TESTING)
     set_tests_properties(level_intro PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^level_intro=ok stripes=7 palette=176-182 exact_hash=0x85e10db60f7e89f9 exact_pixels=55025 caption_pixels=980 delay_ms=81 level_varies=1 live_flow=1 input_skip=1 escape_menu=1 frame_inspection=1")
+            "^level_intro=ok stripes=7 palette=176-182 exact_hash=0x85e10db60f7e89f9 exact_pixels=55025 caption_pixels=980 delay_ms=81 level_varies=1 live_flow=1 input_skip=1 escape_ack=1 blocking_wait=1 frame_inspection=1")
 
     add_test(NAME sound_hook_evidence
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

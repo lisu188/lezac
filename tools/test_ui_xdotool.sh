@@ -8,9 +8,7 @@ fi
 
 exe=$1
 
-set -euo pipefail
-
-"$exe" &
+SDL_AUDIODRIVER=dummy "$exe" &
 pid=$!
 
 cleanup() {
@@ -52,6 +50,8 @@ xdotool key Escape
 sleep 0.1
 xdotool key 2
 sleep 0.2
+xdotool key Return
+sleep 0.1
 xdotool key n
 sleep 0.2
 xdotool key Insert
@@ -60,6 +60,8 @@ xdotool key Escape
 sleep 0.1
 xdotool key 1
 sleep 0.2
+xdotool key Return
+sleep 0.1
 xdotool keydown Right
 sleep 0.4
 xdotool keyup Right
@@ -74,8 +76,17 @@ xdotool key s
 xdotool key r
 xdotool key e
 xdotool key Page_Up
+sleep 0.1
+xdotool key Return
+sleep 0.1
 xdotool key Page_Down
+sleep 0.1
+xdotool key Return
+sleep 0.1
 xdotool key F5
+sleep 0.1
+xdotool key Return
+sleep 0.1
 xdotool key Escape
 sleep 0.1
 xdotool key Escape

@@ -1,5 +1,9 @@
 # Shared Player-Wait Fallback
 
+Follow-up: [production lifecycle recovery](shared_death_lifecycle_runtime_2026-09-13.md)
+now replays this trace and two additional original cases. Statements below
+about the missing C++ correction describe the original-only PR #229 batch.
+
 ## Scope
 
 The original now has a complete 420-rendered-frame trace across player death,

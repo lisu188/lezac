@@ -1,18 +1,23 @@
 # Recovery Status
 
 Last reviewed: 2026-09-13
-Branch: `codex/recover-player-reentry-wait` (original evidence batch)
-Baseline: `origin/main` at PR #228
+Branch: `codex/recover-shared-death-lifecycle`
+Baseline: `origin/main` at PR #229
 
 ## Shared Reentry Fallback
 
-Two silent original runs now pass through the long death wait, the level-7
-intro and resumed gameplay. The promoted 420-frame trace records exactly 230
-shared-counter increments, preserved lives, the blocking intro keyboard call,
-and the reset map/actors. It disproves the port's per-player 180-tick timeout;
-that production correction and continuous C++ replay remain open. The new
-evidence test explicitly reports `production_replay=0`. See
-[the full boundary observation](docs/recovery/player_reentry_wait_runtime_2026-09-13.md).
+Three silent original traces now replay through production updates: timed
+restart, zero-reserve restart, and fire-key reentry. All 980 states and 60
+normalized playfields match, with 2,845,440 compared pixels and no differences.
+The port now uses a shared 230-step fallback, a raw 60-count death word that
+wraps during waiting, and reserve byte FF as out rather than zero. Restart
+preserves the clock/countdown and waits for the introduction's acknowledgement.
+Original buffer reuse, RNG ordering and GRAN constructor bytes explain and
+fix the first resumed frame. Two complete intro images also match separately.
+See [production recovery and limits](docs/recovery/shared_death_lifecycle_runtime_2026-09-13.md)
+and [the earlier original-only observation](docs/recovery/player_reentry_wait_runtime_2026-09-13.md).
+Latched reentry gating, waiting placement, wider P1/P2 interaction, natural
+full-health boss victory and whole-game fidelity remain open.
 
 ## Larger-Bomb Boss Combat
 
@@ -22,8 +27,9 @@ bomb's doubled boss-damage branch and expose player death/reentry presentation
 differences: the port now latches death sprites only on animation advances,
 uses the level's active bank, and moves the waiting player to the start
 marker at countdown expiry. The near capture matches 120 dying and 198
-waiting states. Input-driven reentry, longer-wait behavior and full-health
-natural combat remain open. See
+waiting states. The subsequent shared-lifecycle batch above covers one
+input-driven reentry and two longer waits; full-health natural combat remains
+open. See
 [the mass/death evidence](docs/recovery/boss_mass_runtime_2026-09-08.md).
 
 ## Nonfatal Boss Hit Recovery

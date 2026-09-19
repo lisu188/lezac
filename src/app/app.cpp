@@ -168,13 +168,13 @@ constexpr uint8_t kDebrisLandingShatterSoundPriority = 2;
 constexpr uint16_t kDebrisBounceSoundBase = 0xea61;  // 4C51 add ax,0xea61, priority 1
 constexpr uint8_t kDebrisBounceSoundPriority = 1;    // 4C57
 constexpr size_t kGranRecordSize = 57;
-constexpr int kReentryTicks = 180;
 constexpr int kDeathStateTicks = 0x003c;
+constexpr int kReentryTicks = kDeathStateTicks;  // Raw actor countdown, not a reentry timeout.
+constexpr uint8_t kSharedReentryTicks = 0xe6;  // 1000:7EFC compares DS:79B9 with 230.
 constexpr uint8_t kState2VisualStartFrame = 0x4a;
 constexpr uint8_t kState2VisualEndFrame = 0x4f;
 constexpr uint8_t kState2VisualDelay = 3;
-// UNEVIDENCED port policy (@unevidenced:damage_cooldown_ticks), like
-// kReentryTicks below: no byte citation and no
+// UNEVIDENCED port policy (@unevidenced:damage_cooldown_ticks): no byte citation and no
 // capture fixes it. Left at its pre-governed-loop value, so its wall-clock
 // duration changed from ~0.30 s to ~0.73 s when the live loop was governed.
 constexpr int kDamageCooldownTicks = 18;
@@ -494,6 +494,8 @@ struct Level {
     uint16_t fieldB = 0;
     std::vector<uint8_t> tiles;
     std::vector<uint16_t> wordLayer;
+    std::vector<uint8_t> encodedTiles;
+    std::vector<uint8_t> encodedWords;
     std::vector<MonsterSpawner> monsterSpawners;
     std::vector<LevelPortal> portals;
     std::vector<TileTriggerRule> tileTriggers;
@@ -1318,13 +1320,13 @@ std::vector<Level> loadRawLevels(const std::string& path) {
         level.requiredDestruction = getU8(data, off);
 
         level.tileEncodedSize = getU16(data, off);
-        std::vector<uint8_t> tileEncoded = getBytes(data, off, level.tileEncodedSize);
+        level.encodedTiles = getBytes(data, off, level.tileEncodedSize);
         size_t tileCount = static_cast<size_t>(level.width) * level.height;
-        level.tiles = decodeLevelRle3(tileEncoded, tileCount);
+        level.tiles = decodeLevelRle3(level.encodedTiles, tileCount);
 
         level.wordEncodedSize = getU16(data, off);
-        std::vector<uint8_t> wordEncoded = getBytes(data, off, level.wordEncodedSize);
-        std::vector<uint8_t> wordBytes = decodeLevelRle3(wordEncoded, tileCount * 2);
+        level.encodedWords = getBytes(data, off, level.wordEncodedSize);
+        std::vector<uint8_t> wordBytes = decodeLevelRle3(level.encodedWords, tileCount * 2);
         level.wordLayer.reserve(tileCount);
         for (size_t i = 0; i + 1 < wordBytes.size(); i += 2) {
             level.wordLayer.push_back(le16(wordBytes, i));
@@ -1451,6 +1453,8 @@ class App {
         bool p2Right = false;
         bool p2Jump = false;
         bool p2Down = false;
+        bool p1Reenter = false;
+        bool p2Reenter = false;
     };
 
     struct AutoplayRouteResult {
@@ -1847,12 +1851,13 @@ public:
         int timeoutLevel = levelIndex_;
         float player2XBeforeTimeout = player2_.x;
         float player2YBeforeTimeout = player2_.y;
-        for (int i = 0; i < kDeathStateTicks + kReentryTicks + 2; ++i) {
+        for (int i = 0; i < kDeathStateTicks + kSharedReentryTicks + 2; ++i) {
             updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
                           playerCount_ == 1 || player2Dead_);
+            if (updateSharedReentryFallback()) throw std::runtime_error("active partner did not reset shared counter");
         }
         if (levelIndex_ != timeoutLevel || !playerDead_ || player2Dead_ ||
-            reentryTimer_ != 0 || player2_.x != player2XBeforeTimeout ||
+            reentryTimer_ != static_cast<uint16_t>(-kSharedReentryTicks - 2) || noActivePlayerTicks_ != 0 || player2_.x != player2XBeforeTimeout ||
             player2_.y != player2YBeforeTimeout) {
             throw std::runtime_error("single-player reentry timeout reset two-player level");
         }
@@ -1883,8 +1888,9 @@ public:
         }
         pushKeyDown(SDLK_KP_0);
         processEvents(running);
+        updateWithControls({}, 0);
         if (player2Dead_ || energy2_ != 100 || lives2_ != 2 ||
-            bombs_.size() != beforePlayer2ReentryBombs || damageCooldown2_ <= 0) {
+            bombs_.size() != beforePlayer2ReentryBombs || damageCooldown2_ != 0) {
             throw std::runtime_error("keypad 0 did not reenter player 2 after death");
         }
         size_t afterPlayer2ReentryBombs = bombs_.size();
@@ -1898,11 +1904,11 @@ public:
 
         energy2_ = 0;
         lives_ = 3;
-        lives2_ = 1;
+        lives2_ = 0;
         damageCooldown2_ = 0;
         damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
                      damageCooldown2_, 2);
-        if (menu_ || !player2Dead_ || lives2_ != 1 || !pendingLifeLoss2_ ||
+        if (menu_ || !player2Dead_ || lives2_ != 0 || !pendingLifeLoss2_ ||
             lives_ != 3 || playerDead_) {
             throw std::runtime_error("player 2 final life did not enter state-2");
         }
@@ -1916,16 +1922,16 @@ public:
             updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
                           playerDead_);
         }
-        if (menu_ || !player2Dead_ || lives2_ != 0 || pendingLifeLoss2_) {
+        if (menu_ || !player2Dead_ || lives2_ != -1 || pendingLifeLoss2_) {
             throw std::runtime_error("player 2 final life was not consumed after state-2");
         }
 
         energy_ = 0;
-        lives_ = 1;
+        lives_ = 0;
         damageCooldown_ = 0;
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
-        if (menu_ || !playerDead_ || lives_ != 1 || !pendingLifeLoss_) {
+        if (menu_ || !playerDead_ || lives_ != 0 || !pendingLifeLoss_) {
             throw std::runtime_error("player 1 final life did not enter state-2");
         }
         for (int i = 0; i < kDeathStateTicks; ++i) {
@@ -1966,7 +1972,8 @@ public:
         }
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
-        if (playerDead_ || energy_ != 100 || lives_ != 2 || damageCooldown_ <= 0) {
+        updateWithControls({}, 0);
+        if (playerDead_ || energy_ != 100 || lives_ != 2 || damageCooldown_ != 0) {
             throw std::runtime_error("fire key did not reenter after death");
         }
 
@@ -1990,6 +1997,7 @@ public:
             updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
                           true);
         }
+        updateSharedReentryFallback();
         if (playerDead_ || lives_ != 2 ||
             remainingObjectiveTiles() != level_.startingObjectiveTiles) {
             throw std::runtime_error("fire reentered instead of restarting unwinnable level");
@@ -2136,6 +2144,57 @@ public:
             throw std::runtime_error("Escape did not return to menu");
         }
 
+        auto prepareWaitingPair = [&] {
+            playerCount_ = 2;
+            lives_ = lives2_ = 3;
+            resetLevel(0);
+            menu_ = false;
+            for (auto& spawner : spawnerStates_) spawner.remaining = 0;
+            energy_ = energy2_ = 0;
+            damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_, damageCooldown_, 1);
+            damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, damageCooldown2_, 2);
+            for (int i = 0; i < kDeathStateTicks - 1; ++i) {
+                updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1, false);
+                updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2, false);
+            }
+        };
+        prepareWaitingPair();
+        pushKeyDown(SDLK_n);
+        pushKeyDown(SDLK_KP_0);
+        SDL_Event released{};
+        released.type = SDL_KEYUP;
+        released.key.keysym.sym = SDLK_n;
+        if (SDL_PushEvent(&released) < 0) throw std::runtime_error("cannot push reentry key release");
+        processEvents(running);
+        updateWithControls({}, 0);
+        if (!playerDead_ || player2Dead_ || reentryFire1_ || reentryFire2_ || !bombs_.empty()) {
+            throw std::runtime_error("released early reentry key was retained");
+        }
+        for (int i = 0; i < 3; ++i) updateWithControls({}, 0);
+        if (!playerDead_ || noActivePlayerTicks_ != 0 || reentryTimer_ != 0xfffd) {
+            throw std::runtime_error("active partner did not keep the waiting player in place");
+        }
+        for (bool events : {false, true}) {
+            prepareWaitingPair();
+            FrameControls controls;
+            if (events) {
+                pushKeyDown(SDLK_n);
+                pushKeyDown(SDLK_KP_0);
+                processEvents(running);
+            } else {
+                controls.p1Reenter = controls.p2Reenter = true;
+            }
+            updateWithControls(controls, 0);
+            if (playerDead_ || !player2Dead_ || reentryFire1_ || reentryFire2_ || !bombs_.empty()) {
+                throw std::runtime_error("P1 reentry did not consume both fire latches");
+            }
+            updateWithControls({}, 0);
+            if (!player2Dead_ || reentryTimer2_ != 0xffff || noActivePlayerTicks_ != 0) {
+                throw std::runtime_error("consumed P2 reentry key survived into the next update");
+            }
+        }
+        menu_ = true;
+        menuPage_ = MenuPage::Main;
         pushKeyDown(SDLK_ESCAPE);
         processEvents(running);
         if (running) {
@@ -2147,7 +2206,7 @@ public:
                   << " view_width=" << viewWidth << "->" << reducedViewWidth
                   << "->" << gameplayViewWidth_
                   << " two_player_width_locked=1"
-                  << " frame_inspection=1\n";
+                  << " frame_inspection=1 reentry_key_release=1 shared_fire_consumption=1\n";
     }
 
     void smokeUi(int frames) {
@@ -2692,29 +2751,40 @@ public:
                   << " actual_dac=1 frame_wrap=1 byte_wrap=1 seeded_scene=1 natural_route=0 whole_game_parity=0\n";
     }
 
-    enum class BossReplay { Continuous, Defeat, Impact, Mass };
+    enum class BossReplay { Continuous, Defeat, Impact, Mass, Reentry, ZeroReserve, FireReentry };
 
     void debugBossContinuousOriginal(const std::string& fixture, const std::string& outDir, BossReplay mode = BossReplay::Continuous) {
         load(); initSdl();
         const auto normalizedPalette = palette_;
-        const bool mass = mode == BossReplay::Mass;
+        const bool zeroReserve = mode == BossReplay::ZeroReserve;
+        const bool fireReentry = mode == BossReplay::FireReentry;
+        const bool activeCount = zeroReserve || fireReentry;
+        const bool restartReentry = mode == BossReplay::Reentry || zeroReserve;
+        const bool reentry = restartReentry || fireReentry;
+        const bool mass = mode == BossReplay::Mass || reentry;
         const bool defeat = mode == BossReplay::Defeat, impact = mode == BossReplay::Impact || mass;
         const bool bombProbe = defeat || impact;
         const int seededWeapon = mass ? 3 : 0;
-        const std::string replay = mass ? "boss_mass" : (impact ? "boss_impact" : (defeat ? "boss_defeat" : "boss_continuous"));
-        const std::vector<std::string> names = mass ? std::vector<std::string>{"massive_even", "massive_odd"} :
+        const std::string replay = reentry ? "boss_reentry" : mass ? "boss_mass" : (impact ? "boss_impact" : (defeat ? "boss_defeat" : "boss_continuous"));
+        const std::vector<std::string> names = reentry ? std::vector<std::string>{fireReentry ? "fire_reentry_even" : zeroReserve ? "zero_reserve_even" : "massive_even"} : mass ? std::vector<std::string>{"massive_even", "massive_odd"} :
             impact ? std::vector<std::string>{"hit_even", "hit_odd"} :
             defeat ? std::vector<std::string>{"defeat_even", "defeat_odd"} :
             std::vector<std::string>{"idle_phase", "approach", "clock_wrap"};
-        const std::vector<int> viewSamples = bombProbe ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179} :
+        const std::vector<int> viewSamples = fireReentry ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 100, 101, 102, 119, 139} : reentry ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179, 199, 239, 259, 279, 319, 379, 419} : bombProbe ? std::vector<int>{0, 1, 2, 3, 5, 10, 20, 39, 59, 79, 99, 119, 139, 159, 179} :
             std::vector<int>{0, 1, 15, 16, 28, 57, 99, 139, 179, 199};
-        const int samplesPerCase = bombProbe ? 180 : 200;
+        const int samplesPerCase = fireReentry ? 140 : reentry ? 420 : bombProbe ? 180 : 200;
+        bool keyRecorded = false;
         std::string name;
         int stage = 0, caseIndex = 0, sample = 0, firstFrame = 0, views = 0;
         size_t actorStates = 0, linkStates = 0, effectStates = 0, compared = 0, differences = 0;
         size_t flameStates = 0, damageUpdates = 0, lifeLosses = 0;
         size_t dyingStates = 0, waitingStates = 0;
         int deathObjectiveCount = 0;
+        int replayResets = 0, introRecords = 0;
+        bool resetFrame = false;
+        std::vector<std::map<std::string, std::string>> pendingBoundaries;
+        size_t boundaryIndex = 0;
+        std::map<std::string, int> boundaryCounts;
         auto fail = [&](const std::string& what) {
             throw std::runtime_error("boss-continuous " + name + " sample=" + std::to_string(sample) + ": " + what);
         };
@@ -2780,13 +2850,14 @@ public:
                 player_.animation = animation(p, 22); player_.animationBackup = animation(p, 29);
                 player_.spriteIndex = static_cast<uint8_t>(spriteIndex(visual));
                 energy_ = number(fields.at("energy")); lives_ = number(fields.at("lives"));
+                reentryTimer_ = le16(p, 16);
                 syncPlayerVelocityMirror(player_);
             }
             const auto playerAnimation = playerDead_ ? std::array<uint8_t, 7>{state2Visual_.current, state2Visual_.first,
                 state2Visual_.last, state2Visual_.counter, state2Visual_.delay, state2Visual_.mode, static_cast<uint8_t>(state2Visual_.step)} : player_.animation.packed();
             if (p[0] || p[1] || (p[21] != 0 && p[21] != 2) || playerDead_ != (p[21] == 2) ||
                 fields.at("player_state") != (playerDead_ && !pendingLifeLoss_ ? "2" : "1") ||
-                energy_ != p[36] || static_cast<uint16_t>(playerDead_ && !pendingLifeLoss_ ? reentryTimer_ + 1 - kReentryTicks : deathStateTimer_) != le16(p, 16))
+                energy_ != p[36] || static_cast<uint16_t>(reentryTimer_) != le16(p, 16))
                 fail("player death/energy mismatch got=" + std::to_string(energy_) + "/" + std::to_string(deathStateTimer_));
             if (static_cast<int>(player_.x) != le16(visual, 0) || static_cast<int>(player_.y) != le16(visual, 2) ||
                 player_.vx8 != static_cast<int16_t>(le16(p, 6)) || player_.vy8 != static_cast<int16_t>(le16(p, 8)) ||
@@ -2796,7 +2867,9 @@ public:
                 player_.spriteIndex != spriteIndex(visual)) fail("player animation mismatch got sprite=" + std::to_string(player_.spriteIndex) + " wanted=" + std::to_string(spriteIndex(visual)));
             // Death helper 30A3 leaves the remaining-objective count in 2074;
             // the caller copies that scratch byte to the HUD cache at 7FC2.
-            if ((playerDead_ && deathStateTimer_ == kDeathStateTicks ? deathObjectiveCount : energy_) != number(fields.at("energy")) || lives_ != number(fields.at("lives"))) fail("player cached energy/lives mismatch");
+            if ((resetFrame ? 255 : playerDead_ && deathStateTimer_ == kDeathStateTicks ? deathObjectiveCount : energy_) != number(fields.at("energy")) || lives_ != number(fields.at("lives"))) fail("player cached energy/lives mismatch");
+            if (reentry && (number(fields.at("fallback")) != noActivePlayerTicks_ || number(fields.at("resets")) != replayResets ||
+                (activeCount && fields.at("active_players") != "1"))) fail("shared fallback state mismatch");
             if (!seed && playerDead_) { if (pendingLifeLoss_) ++dyingStates; else ++waitingStates; }
             const auto links = bytes(fields.at("links"), 96);
             for (size_t i = 0; i < bossLinks_.size(); ++i) {
@@ -2886,6 +2959,30 @@ public:
         std::ofstream manifest;
         if (!outDir.empty()) { std::filesystem::create_directories(outDir); manifest.open(joinPath(outDir, "manifest.csv"));
             if (!manifest) fail("cannot create manifest"); manifest << "case,sample,frame,p1_x,p1_y,energy,head_x,head_y,different_pixels\n"; }
+        if (reentry) debugReentryBoundaryObserver_ = [&](const char* phase) {
+            if (boundaryIndex >= pendingBoundaries.size()) fail("unexpected lifecycle boundary " + std::string(phase));
+            const auto& f = pendingBoundaries[boundaryIndex++];
+            if (f.at("stage") != phase || number(f.at("frame")) != (logicTick_ & 0xffff) ||
+                number(f.at("counter")) != noActivePlayerTicks_ || f.at("gate") != "1") fail("lifecycle boundary " + std::string(phase));
+            const auto p = bytes(f.at("p1"), 38), flags = bytes(f.at("flags"), 9), visual = bytes(f.at("visuals"), 16);
+            const auto rng = bytes(f.at("rng"), 4);
+            if (randomSeed_ != (le16(rng, 0) | (static_cast<uint32_t>(le16(rng, 2)) << 16))) fail("boundary RNG " + std::string(phase));
+            if (flags[1] != originalPlayerState(1) || flags[2] != originalPlayerState(2) || flags[5] != lives_ ||
+                p[21] != (playerDead_ ? 2 : 0) || p[36] != energy_ || le16(p, 16) != reentryTimer_ ||
+                p[2] != player_.idleTicks || static_cast<int16_t>(le16(p, 6)) != player_.vx8 ||
+                static_cast<int16_t>(le16(p, 8)) != player_.vy8 || le16(p, 10) != player_.fracX || le16(p, 12) != player_.fracY ||
+                le16(visual, 0) != static_cast<int>(player_.x) || le16(visual, 2) != static_cast<int>(player_.y) ||
+                spriteIndex(std::vector<uint8_t>(visual.begin(), visual.begin() + 8)) != player_.spriteIndex)
+                fail("boundary player " + std::string(phase));
+            const std::array<uint8_t, 7> deathAnimation{state2Visual_.current, state2Visual_.first, state2Visual_.last,
+                state2Visual_.counter, state2Visual_.delay, state2Visual_.mode, static_cast<uint8_t>(state2Visual_.step)};
+            if (animation(p, 22).packed() != deathAnimation || animation(p, 29).packed() != player_.animationBackup.packed()) fail("boundary animation");
+            ++boundaryCounts[phase];
+            if (std::string(phase) == "intro_wait" && !outDir.empty()) {
+                drawLevelIntro(levelIntro_.levelIndex, levelIntro_.pattern, levelIntroCaption(levelIntro_.levelIndex).size());
+                writeArgbPpm(joinPath(outDir, name + "_intro.ppm"), fb_, kScreenW, kScreenH);
+            }
+        };
         std::string line; bool complete = false;
         while (std::getline(input, line)) {
             if (!line.empty() && line.back() == '\r') line.pop_back();
@@ -2895,7 +2992,7 @@ public:
             if (tag.find('=') != std::string::npos) row = std::istringstream(line);
             std::map<std::string, std::string> f;
             while (row >> token) { const auto eq = token.find('='); if (eq == std::string::npos || !f.emplace(token.substr(0, eq), token.substr(eq + 1)).second) fail("invalid fields"); }
-            if (tag == "capture=" + replay + (bombProbe ? "_probe_v1" : "_original_v1")) {
+            if (tag == "capture=" + (reentry ? "boss_mass" : replay) + (bombProbe ? "_probe_v1" : "_original_v1")) {
                 if (stage || f.size() != (mass ? 10u : (bombProbe ? 9u : 7u)) || f.at("level") != "7" || f.at("temp_copy") != "1" || f.at("seeded_case_boundary") != "1" ||
                     f.at("per_tick_actor_seed") != "0" || (!bombProbe && f.at("observed_backdrop") != "1") || f.at("natural_campaign") != "0" ||
                     (mass && f.at("seeded_weapon") != "3") ||
@@ -2916,7 +3013,7 @@ public:
                     if (descriptors[at] != s.width || descriptors[at + 1] != s.height || le16(descriptors, at + 2) != offset) fail("sprite bank mismatch"); offset += s.width * s.height; }
                 stage = 4;
             } else if (tag == "case") {
-                if (stage != 4 || caseIndex >= static_cast<int>(names.size()) || f.size() != (bombProbe ? 16u : 14u) || f.at("name") != names[caseIndex]) fail("invalid case");
+                if (stage != 4 || caseIndex >= static_cast<int>(names.size()) || f.size() != (reentry ? (activeCount ? 19u : 18u) : bombProbe ? 16u : 14u) || f.at("name") != names[caseIndex]) fail("invalid case");
                 name = f.at("name"); firstFrame = number(f.at("frame")); sample = 0;
                 if (firstFrame != (caseIndex == 2 ? 65520 : 100 + caseIndex)) fail("invalid clock seed");
                 registers(f.at("regs"), 1);
@@ -2928,19 +3025,48 @@ public:
                 logicTick_ = firstFrame - 1;
                 if (bombProbe) { Bomb bomb; bomb.type = static_cast<BombType>(seededWeapon); bomb.actorOrder = claimActorOrder(); bombs_.push_back(bomb); }
                 state(f, true); stage = 5;
+            } else if (reentry && tag == "boundary") {
+                if (stage != 5 || f.size() != (activeCount ? 12u : 11u) || number(f.at("sample")) != sample) fail("misplaced lifecycle boundary");
+                const std::string phase = f.at("stage");
+                const bool intro = phase == "intro_wait" || phase == "intro_ack";
+                const auto regs = bytes(f.at("regs"), 12);
+                if (le16(regs, 0) != 0x1a2 || le16(regs, 2) != 0x0c44 || le16(regs, 6) != 0x18b3 ||
+                    le16(regs, 4) != (intro ? 0x40 : 0x0c44) || le16(regs, 8) != (intro ? 0x3de0 : phase == "level_init" ? 0x3fe2 : 0x3fe4) ||
+                    le16(regs, 10) != (intro ? 0x3ff2 : 0x3ffe)) fail("boundary registers");
+                bytes(f.at("p2"), 38);  // Inactive P2 record is original provenance, not a gameplay comparison.
+                pendingBoundaries.push_back(f);
+            } else if (fireReentry && tag == "key") {
+                if (stage != 5 || keyRecorded || sample != 100 || f != std::map<std::string, std::string>{
+                    {"sample", "100"}, {"address", "1b7b"}, {"value", "01"}, {"after_state_prepass", "1"}}) fail("invalid reentry key");
+                keyRecorded = true;
+            } else if (restartReentry && tag == "intro") {
+                if (stage != 5 || f.size() != 3 || number(f.at("sample")) != sample || introRecords || pendingBoundaries.empty() ||
+                    pendingBoundaries.back().at("stage") != "intro_wait") fail("misplaced intro capture");
+                const std::string file = f.at("file");
+                if (std::filesystem::path(file).filename().string() != file || file.find('\\') != std::string::npos) fail("invalid intro filename");
+                bytes(f.at("sha256"), 32); ++introRecords;
             } else if (tag == "tick") {
-                if (stage != 5 || sample >= samplesPerCase || f.size() != (bombProbe ? 19u : 17u) || number(f.at("sample")) != sample || number(f.at("frame")) != (firstFrame + sample + 1) % 65536) fail("nonconsecutive tick");
-                if (playerDead_) {
+                if (stage != 5 || sample >= samplesPerCase || f.size() != (reentry ? (activeCount ? 22u : 21u) : bombProbe ? 19u : 17u) || number(f.at("sample")) != sample || number(f.at("frame")) != (firstFrame + sample + 1) % 65536) fail("nonconsecutive tick");
+                const bool reenterNow = fireReentry && keyRecorded && sample == 101;
+                if (playerDead_ && !reenterNow) {
                     if (f.at("input_regs") != "-") fail("unexpected input during death");
                 } else registers(f.at("input_regs"), 2);
                 registers(f.at("regs"), 3);
                 const std::string control = name == "approach" && sample < 100 ? "left" : (name == "approach" && sample < 140 ? "right" : "idle");
                 if (f.at("control") != control) fail("input mismatch");
                 FrameControls controls; controls.p1Left = control == "left"; controls.p1Right = control == "right";
+                controls.p1Reenter = reenterNow;
                 const int oldHp = impact ? monsters_[0].bossHpByte : 0;
                 const int oldLives = impact ? monsters_[0].bossLives : 0;
                 deathObjectiveCount = remainingObjectiveTiles();
-                updateWithControls(controls, 1.0f / 60.0f); state(f, false);
+                const int generation = levelResetGeneration_;
+                boundaryIndex = 0;
+                updateWithControls(controls, 1.0f / 60.0f);
+                if (boundaryIndex != pendingBoundaries.size()) fail("missing lifecycle boundary");
+                pendingBoundaries.clear();
+                resetFrame = generation != levelResetGeneration_;
+                if (resetFrame) ++replayResets;
+                state(f, false);
                 if (impact) {
                     damageUpdates += monsters_[0].bossHpByte != oldHp;
                     lifeLosses += monsters_[0].bossLives != oldLives;
@@ -2975,20 +3101,27 @@ public:
                 differences += different; compared += expected.size(); ++views; ++sample; stage = 5;
             } else if (tag == "end") {
                 if (stage != 5 || sample != samplesPerCase || f.size() != 1 || number(f.at("samples")) != samplesPerCase) fail("incomplete case");
-                if (impact && (bossDefeated_ || monsters_[0].kind != 30 || monsters_[0].bossLives != 0 || monsters_[0].hotspotY != -4)) fail("nonfatal hit did not leave an active damaged head");
+                if (impact && (bossDefeated_ || monsters_[0].kind != 30 || monsters_[0].bossLives != (restartReentry ? 1 : 0) || monsters_[0].hotspotY != (restartReentry ? 0 : -4))) fail("unexpected final boss state");
                 ++caseIndex; stage = 4;
             } else if (tag == "complete") {
                 if (stage != 4 || caseIndex != static_cast<int>(names.size()) || f.size() != 3 || number(f.at("cases")) != caseIndex ||
-                    number(f.at("samples")) != caseIndex * samplesPerCase || f.at("views") != "30" || views != 30) fail("incomplete coverage"); complete = true;
+                    number(f.at("samples")) != caseIndex * samplesPerCase || number(f.at("views")) != static_cast<int>(names.size() * viewSamples.size()) || views != static_cast<int>(names.size() * viewSamples.size())) fail("incomplete coverage"); complete = true;
             } else fail("unknown record");
         }
         if (!complete) fail("missing completion");
+        if (restartReentry && (replayResets != 1 || introRecords != 1 || !pendingBoundaries.empty() || boundaryCounts !=
+            std::map<std::string, int>{{"fallback_increment", 230}, {"fallback_promote", 1}, {"level_init", 1}, {"intro_wait", 1}, {"intro_ack", 1}})) fail("incomplete shared restart coverage");
+        if (fireReentry && (!keyRecorded || playerDead_ || dyingStates != kDeathStateTicks || waitingStates == 0 ||
+            reentryTimer_ != static_cast<uint16_t>(-static_cast<int>(waitingStates)) || replayResets || introRecords ||
+            !pendingBoundaries.empty() || boundaryCounts != std::map<std::string, int>{{"fallback_increment", static_cast<int>(waitingStates)}})) fail("incomplete input reentry coverage");
+        debugReentryBoundaryObserver_ = {};
         if (differences) fail("pixel mismatches=" + std::to_string(differences));
         std::cout << replay << "_original=ok cases=" << caseIndex << " samples=" << caseIndex * samplesPerCase
                   << " actor_states=" << actorStates << " link_states=" << linkStates
                   << " effect_states=" << effectStates << " views=" << views << " compared_pixels=" << compared << " different_pixels=0 seeded_case_boundary=1 per_tick_actor_seed=0 whole_game_parity=0";
         if (impact) std::cout << " damage_updates=" << damageUpdates << " life_losses=" << lifeLosses << " flame_states=" << flameStates;
         if (mass) std::cout << " player_dying_states=" << dyingStates << " player_waiting_states=" << waitingStates;
+        if (reentry) std::cout << " shared_counter_steps=" << boundaryCounts["fallback_increment"] << " restarts=" << replayResets << " zero_reserve=" << zeroReserve << " input_reentry=" << fireReentry;
         std::cout << '\n';
     }
 
@@ -5339,10 +5472,8 @@ public:
         for (int i = 0; i < kDeathStateTicks; ++i) {
             updateWithControls(idle, 1.0f / 60.0f);
         }
-        pushKeyDown(SDLK_SPACE);
-        processEvents(running);
         if (playerDead_ || energy_ != 100 || lives_ != 2 ||
-            deathStateTimer_ != 0 || reentryTimer_ != 0 || damageCooldown_ <= 0) {
+            deathStateTimer_ != 0 || reentryTimer_ != 0 || damageCooldown_ != 0 || !bombs_.empty()) {
             throw std::runtime_error("death autoplayer did not reenter after countdown");
         }
 
@@ -5377,14 +5508,14 @@ public:
         FrameInspection waitDeathFrame =
             inspectRenderedFrame("autoplayer-death-wait-state2");
         int waitRestartFrames = 0;
-        for (; waitRestartFrames < kDeathStateTicks + kReentryTicks + 4;
+        for (; waitRestartFrames < kDeathStateTicks + kSharedReentryTicks + 4;
              ++waitRestartFrames) {
             updateWithControls(idle, 1.0f / 60.0f);
             if (levelResetGeneration_ > waitRestartGeneration) break;
         }
         if (levelResetGeneration_ <= waitRestartGeneration || playerDead_ ||
             lives_ != 2 || pendingLifeLoss_ || deathStateTimer_ != 0 ||
-            reentryTimer_ != 0 || !bombs_.empty() ||
+            reentryTimer_ != static_cast<uint16_t>(1 - kSharedReentryTicks) || !bombs_.empty() ||
             player_.x != waitStartX || player_.y != waitStartY) {
             std::ostringstream oss;
             oss << "death autoplayer wait did not restart level"
@@ -5420,7 +5551,7 @@ public:
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
         if (!playerDead_ || lives_ != 3 || !pendingLifeLoss_ ||
-            reentryTimer_ != 1 || deathStateTimer_ != kDeathStateTicks ||
+            reentryTimer_ != kDeathStateTicks || deathStateTimer_ != kDeathStateTicks ||
             remainingObjectiveTiles() != missingObjectiveTiles) {
             throw std::runtime_error("death autoplayer unwinnable setup failed");
         }
@@ -7074,8 +7205,9 @@ public:
         }
         pushKeyDown(SDLK_KP_0);
         processEvents(running);
+        updateWithControls(idle, 1.0f / 60.0f);
         if (player2Dead_ || lives2_ != 2 || energy2_ != 100 ||
-            damageCooldown2_ <= 0 || state2Visual2_.active) {
+            damageCooldown2_ != 0 || state2Visual2_.active) {
             throw std::runtime_error("two-player progression keypad 0 did not reenter player 2");
         }
         FrameInspection reentryFrame = inspectRenderedFrame("autoplayer-two-progress-reentry");
@@ -11846,7 +11978,7 @@ public:
                          damageCooldown_, 1);
         if (playerDead_ || lives_ != 2 || energy_ != 100 ||
             reentryTimer_ != 0 || deathStateTimer_ != 0 ||
-            damageCooldown_ != kDamageCooldownTicks || player_.vx != 0.0f ||
+            damageCooldown_ != 0 || player_.vx != 0.0f ||
             player_.vy != 0.0f || player_.grounded) {
             throw std::runtime_error("player state-2 reentry clear mismatch");
         }
@@ -11884,7 +12016,7 @@ public:
                   << kPlayerDeathSoundCursor << std::dec << std::noshowbase
                   << " death_priority=" << static_cast<int>(kPlayerDeathSoundPriority)
                   << " early_reentry_blocked=1 after_59_blocked=1 reentered=1"
-                  << " cooldown=" << kDamageCooldownTicks
+                  << " cooldown=0"
                   << " zero_lives_during_countdown=1 zero_lives_after=0"
                   << " zero_timer=0 zero_death_state_after_60=0"
                   << " no_gameover_with_p1=1\n";
@@ -11906,13 +12038,13 @@ public:
             uint8_t fallbackCounter = 0;
 
             void tick(int player) {
-                if (players.at(player).countdown > 0) --players.at(player).countdown;
+                --players.at(player).countdown;
             }
 
             bool returnActive(int player, bool gate, bool effectReady,
                               bool placementReady) {
                 PlayerSlot& slot = players.at(player);
-                if (slot.status != 2 || slot.countdown != 0 || !gate ||
+                if (slot.status != 2 || !gate ||
                     !effectReady || !placementReady) {
                     return false;
                 }
@@ -11931,8 +12063,14 @@ public:
             }
 
             bool fallbackNoActivePlayers() {
-                if (activePlayers != 0) return false;
+                for (const PlayerSlot& slot : players) {
+                    if (slot.status == 1) {
+                        fallbackCounter = 0;
+                        return false;
+                    }
+                }
                 ++fallbackCounter;
+                if (fallbackCounter != kSharedReentryTicks) return false;
                 bool promoted = false;
                 for (PlayerSlot& slot : players) {
                     if (slot.status == 2) {
@@ -11970,14 +12108,19 @@ public:
 
         ReturnModel fallbackBlockedModel;
         fallbackBlockedModel.activePlayers = 1;
+        fallbackBlockedModel.players[1].status = 1;
+        fallbackBlockedModel.fallbackCounter = 229;
         bool fallbackBlocked = !fallbackBlockedModel.fallbackNoActivePlayers();
 
         ReturnModel fallbackModel;
-        fallbackModel.activePlayers = 0;
+        fallbackModel.activePlayers = 1;
         fallbackModel.players[0].status = 2;
         fallbackModel.players[1].status = 0;
         fallbackModel.players[0].actorState = 2;
         fallbackModel.players[0].energy = 77;
+        for (int i = 0; i < 229; ++i) {
+            if (fallbackModel.fallbackNoActivePlayers()) throw std::runtime_error("early shared fallback promotion");
+        }
         bool fallbackPromoted = fallbackModel.fallbackNoActivePlayers();
 
         if (after59 != 1 || after60 != 0 || !gate0Blocked ||
@@ -11992,7 +12135,7 @@ public:
             playerModel.players[1].keyByte || playerModel.players[1].otherKeyByte ||
             outModel.players[1].status != 0 || activeAfterP2Out != 1 ||
             outModel.activePlayers != 0 || !fallbackBlocked ||
-            !fallbackPromoted || fallbackModel.fallbackCounter != 1 ||
+            !fallbackPromoted || fallbackModel.fallbackCounter != 230 || fallbackBlockedModel.fallbackCounter != 0 ||
             fallbackModel.players[0].status != 1 ||
             fallbackModel.players[0].actorState != 2 ||
             fallbackModel.players[0].energy != 77 ||
@@ -16771,7 +16914,7 @@ public:
                          damageCooldown_, 1);
         if (playerDead_ || energy_ != 100 || lives_ != 2 ||
             deathStateTimer_ != 0 || reentryTimer_ != 0 ||
-            damageCooldown_ != kDamageCooldownTicks) {
+            damageCooldown_ != 0) {
             throw std::runtime_error("player return-active gate restore mismatch");
         }
 
@@ -16798,7 +16941,7 @@ public:
                          damageCooldown2_, 2);
         if (player2Dead_ || energy2_ != 100 || lives2_ != 2 ||
             deathStateTimer2_ != 0 || reentryTimer2_ != 0 ||
-            damageCooldown2_ != kDamageCooldownTicks) {
+            damageCooldown2_ != 0) {
             throw std::runtime_error("player 2 gate restore mismatch");
         }
 
@@ -16816,17 +16959,20 @@ public:
         }
         tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
                          damageCooldown2_, 2);
-        if (menu_ || playerDead_ || !player2Dead_ || lives2_ != 0 ||
+        if (menu_ || playerDead_ || player2Dead_ || lives2_ != 0 ||
             deathStateTimer2_ != 0) {
-            throw std::runtime_error("player 2 zero-life gate mismatch");
+            throw std::runtime_error("player 2 zero-reserve reentry mismatch");
         }
-        bool p2OutStaysDead = player2Dead_ && lives2_ == 0 && deathStateTimer2_ == 0;
+        energy2_ = 0;
+        damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, damageCooldown2_, 2);
+        for (int i = 0; i < 60; ++i) updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2, false);
+        bool p2OutStaysDead = player2Dead_ && lives2_ == -1 && deathStateTimer2_ == 0;
         int p2ReentryTimerBefore = reentryTimer2_;
         int p2DamageCooldownBefore = damageCooldown2_;
         int p2EnergyBefore = energy2_;
         tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
                          damageCooldown2_, 2);
-        bool p2ReenterBlocked = player2Dead_ && lives2_ == 0 &&
+        bool p2ReenterBlocked = player2Dead_ && lives2_ == -1 &&
                                 reentryTimer2_ == p2ReentryTimerBefore &&
                                 damageCooldown2_ == p2DamageCooldownBefore &&
                                 energy2_ == p2EnergyBefore;
@@ -16835,7 +16981,7 @@ public:
             throw std::runtime_error("player 2 zero-life fallback boundary mismatch");
         }
 
-        lives_ = 1;
+        lives_ = 0;
         energy_ = 0;
         damageCooldown_ = 0;
         deathStateTimer_ = 0;
@@ -16843,7 +16989,7 @@ public:
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
         if (!playerDead_ || !pendingLifeLoss_ ||
-            deathStateTimer_ != kDeathStateTicks || lives_ != 1) {
+            deathStateTimer_ != kDeathStateTicks || lives_ != 0) {
             throw std::runtime_error("player 1 final-life state-2 setup mismatch");
         }
         for (int i = 0; i < 60; ++i) {
@@ -16860,16 +17006,17 @@ public:
                   << " p1_after_59=1 p1_after_60=0"
                   << " gate0_dead=1 gate0_energy=100"
                   << " gate1_reentered=1 p1_energy=100"
-                  << " p1_cooldown=" << kDamageCooldownTicks
+                  << " p1_cooldown=0"
                   << " p1_death_timer_clear=0 p1_reentry_timer_clear=0"
                   << " p2_gate1_reentered=1 p2_energy=100"
-                  << " p2_cooldown=" << kDamageCooldownTicks
+                  << " p2_cooldown=0"
                   << " p2_death_timer_clear=0 p2_reentry_timer_clear=0"
                   << " no_gameover_with_p1=1"
                   << " p2_out_stays_dead=1"
                   << " p2_reenter_blocked=1"
                   << " p1_alive_after_p2_out=1"
                   << " both_out_gameover=1"
+                  << " zero_reserve_reentered=1"
                   << " live_fallback_shortcut=0";
         // With an original game-over capture, confirm the DS:79B9 fallback is
         // reachable at runtime: the fixture records the counter incrementing
@@ -18845,14 +18992,14 @@ public:
         resetLevel(0);
         menu_ = false;
         energy_ = 0;
-        lives_ = 1;
+        lives_ = 0;
         damageCooldown_ = 0;
         bombs_.clear();
         flashes_.clear();
         explosionEffects_.clear();
         pushExpiredPlayerBombs();
         for (int tick = 0; tick < 10 && !playerDead_; ++tick) updateWithControls({}, 0);
-        if (menu_ || !playerDead_ || lives_ != 1 || !pendingLifeLoss_ ||
+        if (menu_ || !playerDead_ || lives_ != 0 || !pendingLifeLoss_ ||
             deathStateTimer_ != kDeathStateTicks || !bombs_.empty() ||
             flameRecords_.empty() || explosionEffects_.empty()) {
             throw std::runtime_error("final-life bomb did not enter delayed state-2");
@@ -18875,7 +19022,7 @@ public:
         flashes_.clear();
         explosionEffects_.clear();
         pushExpiredPlayerBombs();
-        for (int tick = 0; tick < 10 && !menu_; ++tick) updateWithControls({}, 0);
+        for (int tick = 0; tick < kDeathStateTicks + 10 && !menu_; ++tick) updateWithControls({}, 0);
         if (!menu_ || menuPage_ != MenuPage::GameOver || !bombs_.empty() ||
             !flameRecords_.empty() || !explosionEffects_.empty()) {
             throw std::runtime_error("stale expired bomb exploded after reset");
@@ -21140,7 +21287,7 @@ public:
         tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                          damageCooldown_, 1);
         if (playerDead_ || energy_ != 100 || lives_ != 2 ||
-            damageCooldown_ != kDamageCooldownTicks) {
+            damageCooldown_ != 0) {
             std::ostringstream oss;
             oss << "live repeated hazard did not reenter after state-2 countdown"
                 << " energy=" << energy_
@@ -25311,9 +25458,13 @@ public:
             throw std::runtime_error("level intro reveal timing ended early");
         }
         updateLevelIntro(levelIntro_.startedAt + duration);
-        if (levelIntro_.active) {
-            throw std::runtime_error("level intro reveal timing did not finish");
+        updateLevelIntro(levelIntro_.startedAt + duration + 10000);
+        if (!levelIntro_.active) {
+            throw std::runtime_error("level intro did not keep waiting for a key");
         }
+        pushKeyDown(SDLK_RETURN);
+        processEvents(running);
+        if (levelIntro_.active) throw std::runtime_error("level intro acknowledgement failed");
 
         beginLevelForPlay(1);
         pushKeyDown(SDLK_SPACE);
@@ -25324,8 +25475,8 @@ public:
         beginLevelForPlay(2);
         pushKeyDown(SDLK_ESCAPE);
         processEvents(running);
-        if (levelIntro_.active || !menu_ || menuPage_ != MenuPage::Main) {
-            throw std::runtime_error("level intro Escape did not return to menu");
+        if (levelIntro_.active || menu_ || levelIndex_ != 2) {
+            throw std::runtime_error("level intro Escape did not acknowledge the intro");
         }
         interactiveLevelIntroEnabled_ = false;
 
@@ -25339,7 +25490,7 @@ public:
                   << " caption_pixels="
                   << (kCapturedBluePixels + kCapturedWhitePixels)
                   << " delay_ms=" << kLevelIntroCharacterDelayMs
-                  << " level_varies=1 live_flow=1 input_skip=1 escape_menu=1"
+                  << " level_varies=1 live_flow=1 input_skip=1 escape_ack=1 blocking_wait=1"
                   << " frame_inspection=1\n";
     }
 
@@ -25552,6 +25703,7 @@ private:
     std::vector<ExplosionEffect> explosionEffects_;
     std::vector<FlameRecord> flameRecords_;
     std::function<void()> debugActorPassObserver_;
+    std::function<void(const char*)> debugReentryBoundaryObserver_;
     std::vector<DebrisRecord> debrisQueue_;
     std::vector<CollapseRecord> collapseQueue_;
     uint16_t nextCollapseFragmentWord_ = 0;
@@ -25593,6 +25745,11 @@ private:
     bool player2Dead_ = false;
     int reentryTimer_ = 0;
     int reentryTimer2_ = 0;
+    bool reentryFire1_ = false;
+    bool reentryFire2_ = false;
+    uint8_t noActivePlayerTicks_ = 0;
+    bool levelRestartPromoted_ = false;
+    uint32_t levelIntroFrame_ = 0;
     int deathStateTimer_ = 0;
     int deathStateTimer2_ = 0;
     bool pendingLifeLoss_ = false;
@@ -25690,6 +25847,9 @@ private:
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) {
                 running = false;
+            } else if (e.type == SDL_KEYUP) {
+                if (isPlayer1FireKey(e.key.keysym.sym)) reentryFire1_ = false;
+                if (isPlayer2FireKey(e.key.keysym.sym)) reentryFire2_ = false;
             } else if (e.type == SDL_KEYDOWN &&
                        (!e.key.repeat ||
                         shouldAcceptRepeatedNameEntryKey(e.key.keysym.sym))) {
@@ -25764,6 +25924,9 @@ private:
         player2Dead_ = false;
         reentryTimer_ = 0;
         reentryTimer2_ = 0;
+        reentryFire1_ = reentryFire2_ = false;
+        noActivePlayerTicks_ = 0;
+        levelRestartPromoted_ = false;
         deathStateTimer_ = 0;
         deathStateTimer2_ = 0;
         pendingLifeLoss_ = false;
@@ -25800,8 +25963,8 @@ private:
             player2_.y = player_.y;
         }
         if (playerCount_ > 1) {
-            playerDead_ = lives_ <= 0;
-            player2Dead_ = lives2_ <= 0;
+            playerDead_ = lives_ < 0;
+            player2Dead_ = lives2_ < 0;
         }
         bossLinks_.clear();
         bossPresent_ = false;
@@ -25855,19 +26018,51 @@ private:
 
     void beginLevelForPlay(int index) {
         // Original level advance jumps to file 0x7f4c, past the new-game clock reset.
-        const uint32_t frame = menu_ ? 0 : logicTick_;
-        if (!interactiveLevelIntroEnabled_) {
-            resetLevel(index);
-            logicTick_ = frame;
-            return;
+        levelIntroFrame_ = menu_ ? 0 : logicTick_;
+        if (levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("level_init");
+        levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
+        level_ = levels_[levelIndex_];
+        // 1000:0E34/0E90 read both compressed planes into DS:C498, the
+        // background buffer. Decoder 082D:0000 continues through its retained
+        // tail until the requested output length, ignoring compressed length.
+        auto decodePlane = [&](const std::vector<uint8_t>& encoded, size_t outputSize) {
+            if (backdropBuffer_.size() != 60000 || encoded.size() > backdropBuffer_.size()) {
+                throw std::runtime_error("level decoder background buffer bounds");
+            }
+            std::copy(encoded.begin(), encoded.end(), backdropBuffer_.begin());
+            return decodeLevelRle3(backdropBuffer_, outputSize);
+        };
+        // JSON assets already contain decoded maps, without original input bytes.
+        if (!level_.encodedTiles.empty()) {
+            level_.tiles = decodePlane(level_.encodedTiles, level_.tiles.size());
+            const auto words = decodePlane(level_.encodedWords, level_.wordLayer.size() * 2);
+            for (size_t i = 0; i < level_.wordLayer.size(); ++i) level_.wordLayer[i] = le16(words, i * 2);
         }
         LevelIntroPattern pattern = makeLevelIntroPattern();
-        resetLevel(index);
-        logicTick_ = frame;
         levelIntro_.active = true;
         levelIntro_.startedAt = SDL_GetTicks();
         levelIntro_.levelIndex = levelIndex_;
         levelIntro_.pattern = pattern;
+        if (levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("intro_wait");
+        if (!interactiveLevelIntroEnabled_) finishLevelIntro();
+    }
+
+    void finishLevelIntro() {
+        if (!levelIntro_.active) return;
+        if (levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("intro_ack");
+        const int index = levelIntro_.levelIndex;
+        const uint32_t frame = levelIntroFrame_;
+        const int countdown1 = reentryTimer_, countdown2 = reentryTimer2_;
+        const uint8_t fallback = noActivePlayerTicks_;
+        Level decodedLevel = std::move(level_);
+        resetLevel(index);
+        level_ = std::move(decodedLevel);
+        logicTick_ = frame;
+        reentryTimer_ = countdown1;
+        reentryTimer2_ = countdown2;
+        noActivePlayerTicks_ = fallback;
+        player_.animation = ActorAnimation::initialize(2, 9, 1, 1);
+        buildBackdropBuffer();
     }
 
     size_t visibleLevelIntroCharacters(uint32_t now) const {
@@ -25882,13 +26077,8 @@ private:
     }
 
     void updateLevelIntro(uint32_t now) {
-        if (!levelIntro_.active) return;
-        const uint32_t duration =
-            static_cast<uint32_t>(levelIntroCaption(levelIntro_.levelIndex).size()) *
-            kLevelIntroCharacterDelayMs;
-        if (now - levelIntro_.startedAt >= duration) {
-            levelIntro_.active = false;
-        }
+        // Text typing is time-based; original 1000:2C72 then blocks for a key.
+        (void)now;
     }
 
     const LevelPortal* findStartPortal(uint8_t marker) const {
@@ -25902,12 +26092,7 @@ private:
 
     void onKey(SDL_Keycode key, bool& running) {
         if (levelIntro_.active) {
-            levelIntro_.active = false;
-            if (key == SDLK_ESCAPE) {
-                paused_ = false;
-                menu_ = true;
-                menuPage_ = MenuPage::Main;
-            }
+            finishLevelIntro();
             return;
         }
         if (levelOutro_.active) {
@@ -25949,9 +26134,6 @@ private:
                 clearRunScores();
                 pendingRecordQueue_.clear();
                 clearPendingRecord();
-                // The original regenerates the backdrop city from the live
-                // RNG on every game start (file 0x7f64).
-                buildBackdropBuffer();
                 beginLevelForPlay(0);
                 menu_ = false;
                 menuPage_ = MenuPage::Main;
@@ -26011,8 +26193,7 @@ private:
                           int& reentryTimer, int& damageCooldown,
                           BombInventory& inventory, uint8_t playerIndex) {
         if (dead) {
-            tryReenterPlayer(player, energy, lives, dead, reentryTimer,
-                             damageCooldown, playerIndex);
+            (playerIndex == 2 ? reentryFire2_ : reentryFire1_) = true;
         } else {
             placeBombAt(player, inventory, playerIndex);
         }
@@ -26498,13 +26679,18 @@ private:
         // expires later this frame still occupies its slot during spawning.
         updateMonsterSpawners();
         // State-2 countdown precedes both actor passes (1000:7C89).
+        // 1000:7E9D/7EA2 clear BOTH latches on the first successful reentry.
+        reentryFire1_ = reentryFire1_ || controls.p1Reenter;
+        reentryFire2_ = reentryFire2_ || controls.p2Reenter;
         if (playerDead_) {
             updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
                           playerCount_ == 1 || player2Dead_);
+            if (reentryFire1_) tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_, damageCooldown_, 1);
         }
         if (playerCount_ > 1 && player2Dead_) {
             updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
                           playerDead_);
+            if (reentryFire2_) tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, damageCooldown2_, 2);
         }
         if (menu_ || levelIntro_.active) return;
         // 1000:7ECB..7EE8 precedes the player calls at 7F59. New pickup
@@ -26532,6 +26718,7 @@ private:
         updateBossLinks();
         updateOrderedActors(dt);
         if (debugActorPassObserver_) debugActorPassObserver_();
+        if (updateSharedReentryFallback()) return;
 
         if (playerDead_) {
             if (deathStateTimer_ > 0) {
@@ -26701,9 +26888,9 @@ private:
         // nothing) -- verified against a live completion (inventory 200/20/6/0
         // showed and awarded exactly 5000).
         levelOutro_.destBonus = destructionPercent() * 10;
-        levelOutro_.playerActive[0] = !playerDead_ || lives_ > 0;
+        levelOutro_.playerActive[0] = !playerDead_ || lives_ >= 0;
         levelOutro_.playerActive[1] =
-            playerCount_ > 1 && (!player2Dead_ || lives2_ > 0);
+            playerCount_ > 1 && (!player2Dead_ || lives2_ >= 0);
         auto bombScore = [](const BombInventory& inv) {
             return inv.counts[1] * 100 + inv.counts[2] * 500 +
                    inv.counts[3] * 2000;
@@ -27628,6 +27815,9 @@ private:
             link.phase = extra[6];
             link.offX = static_cast<int16_t>(extra[7] | (extra[8] << 8));
             link.offY = static_cast<int16_t>(extra[9] | (extra[10] << 8));
+            // The loader copies the complete link before the first actor pass.
+            link.outX = static_cast<int16_t>(extra[11] | (extra[12] << 8));
+            link.outY = static_cast<int16_t>(extra[13] | (extra[14] << 8));
             link.biasY = static_cast<int8_t>(extra[15]);
             bossLinks_.push_back(link);
         }
@@ -27658,14 +27848,19 @@ private:
                 actor.animStart = kBossAnimSets[animSet][0] - 1;
                 actor.animEnd = kBossAnimSets[animSet][1] - 1;
                 actor.animMode = 1;
+                actor.animCursor = actor.animStart;
+                actor.animTick = record[0x1a];
             } else {
-                actor.animStart = entrySprite - 1;
-                actor.animEnd = entrySprite - 1;
-                actor.animMode = 0;
+                // A zero animation-set selector leaves the copied bytes intact.
+                actor.animCursor = static_cast<uint8_t>(record[0x16] - 1);
+                actor.animStart = static_cast<uint8_t>(record[0x17] - 1);
+                actor.animEnd = static_cast<uint8_t>(record[0x18] - 1);
+                actor.animTick = record[0x19];
+                actor.animMode = record[0x1b];
+                actor.animStep = static_cast<int8_t>(record[0x1c]);
             }
             // GRAN.MST and the animation table carry one-based descriptors.
             actor.animFrame = entrySprite - 1;
-            actor.animCursor = actor.animStart;
             // Raw delay byte: the shared advance (1000:608F) fires when the
             // counter exceeds it, so 0 keeps the old every-tick cadence and
             // any nonzero byte means period byte+1.
@@ -28294,7 +28489,7 @@ private:
 
     void beginPlayerDeath(Player& player, int& energy, int& lives, bool& dead,
                           int& timer, uint8_t startMarker) {
-        pendingLifeLossFor(startMarker) = lives > 0;
+        pendingLifeLossFor(startMarker) = lives >= 0;
         energy = 100;
         deathStateTimerFor(startMarker) = kDeathStateTicks;
         State2VisualCursor& cursor = state2VisualCursorFor(startMarker);
@@ -28302,7 +28497,7 @@ private:
         refreshState2EffectEntry(player, cursor, state2EffectEntryFor(startMarker));
         syncPlayerVelocityMirror(player);
         player.grounded = false;
-        if (lives <= 0) {
+        if (lives < 0) {
             dead = true;
             timer = 0;
             cursor.active = false;
@@ -28312,7 +28507,7 @@ private:
             return;
         }
         dead = true;
-        timer = canReenterLevel() ? kReentryTicks : 1;
+        timer = kDeathStateTicks;
         requestPlayerDeathSound();
     }
 
@@ -28379,7 +28574,7 @@ private:
     }
 
     bool allPlayersOutOfLives() const {
-        return playerCount_ <= 1 ? lives_ <= 0 : lives_ <= 0 && lives2_ <= 0;
+        return playerCount_ <= 1 ? lives_ < 0 : lives_ < 0 && lives2_ < 0;
     }
 
     int& deathStateTimerFor(uint8_t startMarker) {
@@ -28397,8 +28592,8 @@ private:
         bool& pending = pendingLifeLossFor(startMarker);
         if (!pending) return;
         pending = false;
-        if (lives > 0) --lives;
-        if (lives <= 0) {
+        --lives;  // The original reserve byte marks out at FF, not at zero.
+        if (lives < 0) {
             dead = true;
             timer = 0;
             state2VisualCursorFor(startMarker).active = false;
@@ -28536,12 +28731,15 @@ private:
     void updateReentry(Player& player, int& energy, int& lives, bool& dead,
                        int& timer, uint8_t startMarker, bool allowLevelRestart) {
         (void)energy;
+        (void)allowLevelRestart;
+        if (!dead || lives < 0) return;
+        timer = static_cast<uint16_t>(timer - 1);
         int& deathStateTimer = deathStateTimerFor(startMarker);
-        if (deathStateTimer > 0) {
-            --deathStateTimer;
-            if (deathStateTimer > 0) return;
+        if (deathStateTimer > 0) --deathStateTimer;
+        if (timer == 0) {
+            pendingLifeLossFor(startMarker) = true;
             finalizePendingLifeLoss(dead, lives, timer, startMarker);
-            if (lives > 0) {
+            if (lives >= 0 && !menu_) {
                 // 1000:7D11 calls the start-marker locator at 056B before
                 // waiting for input; it preserves motion and animation bytes.
                 if (const LevelPortal* start = findStartPortal(startMarker)) {
@@ -28552,23 +28750,31 @@ private:
                 player.spriteIndex = 0x27 - 1;
             }
         }
-        if (lives <= 0) return;
-        if (!canReenterLevel()) {
-            restartCurrentLevelAfterDeath();
-            return;
+        if (lives < 0 || menu_) return;
+        if (!canReenterLevel()) noActivePlayerTicks_ = kSharedReentryTicks - 1;
+    }
+
+    uint8_t originalPlayerState(uint8_t player) const {
+        if (player == 2 && playerCount_ < 2) return 0;
+        const int lives = player == 2 ? lives2_ : lives_;
+        const bool dead = player == 2 ? player2Dead_ : playerDead_;
+        const bool pending = player == 2 ? pendingLifeLoss2_ : pendingLifeLoss_;
+        if (lives < 0) return 0;
+        return dead && !pending && !levelRestartPromoted_ ? 2 : 1;
+    }
+
+    bool updateSharedReentryFallback() {
+        if (originalPlayerState(1) == 1 || originalPlayerState(2) == 1) {
+            noActivePlayerTicks_ = 0;
+            return false;
         }
-        if (timer > 0) --timer;
-        if (timer <= 0) {
-            if (allowLevelRestart) {
-                restartCurrentLevelAfterDeath();
-            } else {
-                timer = 0;
-            }
-            return;
-        }
-        (void)player;
-        (void)dead;
-        (void)startMarker;
+        if (debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("fallback_increment");
+        ++noActivePlayerTicks_;
+        if (noActivePlayerTicks_ != kSharedReentryTicks) return false;
+        if (debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("fallback_promote");
+        levelRestartPromoted_ = true;
+        restartCurrentLevelAfterDeath();
+        return true;
     }
 
     void tryReenterPlayer(Player& player, int& energy, int& lives, bool& dead,
@@ -28576,18 +28782,20 @@ private:
         if (!dead) return;
         if (deathStateTimerFor(startMarker) > 0) return;
         finalizePendingLifeLoss(dead, lives, timer, startMarker);
-        if (lives <= 0) return;
+        if (lives < 0) return;
         if (!canReenterLevel()) {
-            restartCurrentLevelAfterDeath();
             return;
         }
-        respawnPlayerAtStart(player, energy, startMarker);
+        const auto& animation = state2VisualCursorFor(startMarker);
+        player.animation = ActorAnimation{animation.current, animation.first, animation.last,
+            animation.counter, animation.delay, animation.mode, animation.step};
+        energy = 100;
         deathStateTimerFor(startMarker) = 0;
         state2VisualCursorFor(startMarker).active = false;
         state2EffectEntryFor(startMarker).active = false;
-        damageCooldown = kDamageCooldownTicks;
+        (void)damageCooldown;
         dead = false;
-        timer = 0;
+        reentryFire1_ = reentryFire2_ = false;
     }
 
     void respawnPlayerAtStart(Player& player, int& energy, uint8_t startMarker) {
@@ -30251,12 +30459,12 @@ private:
             drawExplosionEffects(xCamera, yCamera);
             if (!playerDead_) {
                 drawPlayer(player_, xCamera, yCamera);
-            } else if (lives_ > 0 && state2Visual_.active) {
+            } else if (lives_ >= 0 && state2Visual_.active) {
                 drawState2PlayerVisual(player_, state2Visual_, state2Effect_, xCamera, yCamera);
             }
             if (playerCount_ > 1 && !player2Dead_) {
                 drawPlayer(player2_, xCamera, yCamera);
-            } else if (playerCount_ > 1 && lives2_ > 0 && state2Visual2_.active) {
+            } else if (playerCount_ > 1 && lives2_ >= 0 && state2Visual2_.active) {
                 drawState2PlayerVisual(player2_, state2Visual2_, state2Effect2_, xCamera, yCamera);
             }
             // Driver 08AC:0207..02E9 draws visual slots in increasing order,
@@ -30755,7 +30963,7 @@ private:
                std::to_string(inventory.counts[1]) + "/" +
                std::to_string(inventory.counts[2]) + "/" +
                std::to_string(inventory.counts[3]) +
-               (dead ? (lives <= 0 ? " OUT" : " WAIT") : "");
+               (dead ? (lives < 0 ? " OUT" : " WAIT") : "");
     }
 
     void drawLevelIntro(int levelIndex, const LevelIntroPattern& pattern,
@@ -31819,6 +32027,18 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-mass-original") {
             app.debugBossContinuousOriginal(argv[2], argc > 3 ? argv[3] : "", App::BossReplay::Mass);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-boss-reentry-original") {
+            app.debugBossContinuousOriginal(argv[2], argc > 3 ? argv[3] : "", App::BossReplay::Reentry);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-boss-zero-reserve-original") {
+            app.debugBossContinuousOriginal(argv[2], argc > 3 ? argv[3] : "", App::BossReplay::ZeroReserve);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-boss-fire-reentry-original") {
+            app.debugBossContinuousOriginal(argv[2], argc > 3 ? argv[3] : "", App::BossReplay::FireReentry);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-continuous-original") {

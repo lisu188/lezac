@@ -669,6 +669,27 @@ if(BUILD_TESTING)
             PASS_REGULAR_EXPRESSION "boss_continuous_fixture=ok near=1 cases=3 samples=600 indexed_hashes=30 lf_crlf=1 truncations_rejected=2 mutations_rejected=86 no_output_files=1")
     endif()
 
+    add_test(NAME active_fire_original
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-active-fire-original
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/active_fire_original_level1.txt)
+    set_tests_properties(active_fire_original PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^active_fire_original=ok cases=64 players=2 governed_input=1 seeded=1 natural=0 whole_game_parity=0")
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME active_fire_capture_self_check
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_active_fire.py --self-check)
+        set_tests_properties(active_fire_capture_self_check PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "^active_fire_self_check=ok cases=64 hooks=2 players=2 live=0")
+        add_test(NAME active_fire_fixture_guard
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_active_fire_fixture.py --exe $<TARGET_FILE:lezac_cpp>)
+        set_tests_properties(active_fire_fixture_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+            PASS_REGULAR_EXPRESSION "^active_fire_fixture=ok cases=64 mutations=103 newline_variants=2 silent_children=1")
+    endif()
+
     add_test(NAME state2_prepass_original
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                 $<TARGET_FILE:lezac_cpp> --debug-state2-prepass-original
@@ -714,7 +735,7 @@ if(BUILD_TESTING)
     set_tests_properties(frame_sequence_capture_monster_bomb_reward_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^frame_sequence=ok scenario=monster_bomb_reward frames=9 size=320x200 seeded_monster=1 flame_updates=3 corpse_sprite=47 corpse_ticks=50 delayed_reward=1 reward_sprite=65 reward_type=yellow_bomb_box score_delta=3000 original_runtime_claim=0 reward_motion_claim=0 visual_claim=0")
+            "^frame_sequence=ok scenario=monster_bomb_reward frames=9 size=320x200 seeded_monster=1 flame_updates=3 corpse_sprite=47 corpse_ticks=49 delayed_reward=1 reward_sprite=65 reward_type=yellow_bomb_box score_delta=3000 original_runtime_claim=0 reward_motion_claim=0 visual_claim=0")
 
     add_test(NAME frame_sequence_capture_monster_spawner_behavior4_level2_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -844,7 +865,7 @@ if(BUILD_TESTING)
     set_tests_properties(autoplayer_monster_bomb_reward_dummy PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^autoplayer=ok scenario=monster_bomb_reward monster_dead=1 seeded_monster=1 flame_updates=3 corpse_sprite=47 corpse_ticks=50 delayed_reward=1 reward_sprite=65 reward_collected=1 score_delta=3000 frames_inspected=10 frame_inspection=1 original_runtime_claim=0 reward_motion_claim=0 visual_claim=0")
+            "^autoplayer=ok scenario=monster_bomb_reward monster_dead=1 seeded_monster=1 flame_updates=3 corpse_sprite=47 corpse_ticks=49 delayed_reward=1 reward_sprite=65 reward_collected=1 score_delta=3000 frames_inspected=10 frame_inspection=1 original_runtime_claim=0 reward_motion_claim=0 visual_claim=0")
 
     add_test(NAME autoplayer_monster_behavior3_multihit_dummy
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
@@ -4178,7 +4199,7 @@ if(BUILD_TESTING)
     set_tests_properties(monster_bomb_kill_live PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         PASS_REGULAR_EXPRESSION
-            "^monster_bomb_kill_live=ok bomb_type=4 initial_hp=4 seeded_monster=1 flame_updates=14 corpse_sprite=48 corpse_ticks=49 delayed_reward=1 reward_sprite=61 killed=1 removed=1 reward=1 collected=1 score_delta=2000 frames_inspected=20 frame_inspection=1 original_runtime_claim=0 reward_motion_claim=0 visual_claim=0")
+            "^monster_bomb_kill_live=ok bomb_type=4 initial_hp=4 seeded_monster=1 flame_updates=14 corpse_sprite=48 corpse_ticks=50 delayed_reward=1 reward_sprite=61 killed=1 removed=1 reward=1 collected=1 score_delta=2000 frames_inspected=20 frame_inspection=1 original_runtime_claim=0 reward_motion_claim=0 visual_claim=0")
 
     add_test(NAME player_damage_death_live
         COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

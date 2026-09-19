@@ -179,6 +179,14 @@ velocity, collision, gravity, friction, fractional carry and sprite-height
 offsets. These focused traces do not establish complete explosion visual
 parity or unrestricted cross-gameplay lockstep.
 
+The subsequent [active-fire recovery](active_fire_runtime_2026-09-19.md)
+compares 64 seeded original fire blocks and moves gameplay fire out of SDL
+event dispatch into the governed player update. It recovers empty-ammo latch
+retention, both-latch consumption on successful and rejected construction,
+unchanged weapon selection, and multiple bombs in one cell. Repeated make
+events relatch fire. Natural simultaneous keyboard input, host/DOS repeat
+timing and held-before-death behavior remain wider verification targets.
+
 Resolved: `ds79b9_fallback_runtime_reachability` — an original last-life
 death was captured on level 1 (lives forced to 1 via `DS:0x79EA`, killed by
 own-bomb self-damage), tick-locked against `DS:0x78C2`: when the final life

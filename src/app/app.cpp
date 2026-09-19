@@ -1792,6 +1792,7 @@ public:
         int player2SmallBombs = bombInventory2_.counts[0];
         pushKeyDown(SDLK_n);
         processEvents(running);
+        updateWithControls({}, 0);
         if (bombs_.size() != twoPlayerBombs + 1 ||
             bombs_.back().owner != 1 ||
             bombs_.back().x != player1BombX || bombs_.back().y != player1BombY) {
@@ -1803,6 +1804,7 @@ public:
         }
         pushKeyDown(SDLK_KP_0);
         processEvents(running);
+        updateWithControls({}, 0);
         if (bombs_.size() != twoPlayerBombs + 2 ||
             bombs_.back().owner != 2 ||
             bombs_.back().x != player2BombX || bombs_.back().y != player2BombY) {
@@ -1821,6 +1823,7 @@ public:
         player2BombY = static_cast<int>(player2_.y) / 8;
         pushKeyDown(SDLK_INSERT);
         processEvents(running);
+        updateWithControls({}, 0);
         if (bombs_.size() != insertBombs + 1 ||
             bombs_.back().owner != 2 ||
             bombs_.back().x != player2BombX || bombs_.back().y != player2BombY) {
@@ -1898,6 +1901,7 @@ public:
         int player2BombsAfterReentry = bombInventory2_.counts[0];
         pushKeyDown(SDLK_KP_0);
         processEvents(running);
+        updateWithControls({}, 0);
         if (bombs_.size() != afterPlayer2ReentryBombs + 1 ||
             bombInventory2_.counts[0] != player2BombsAfterReentry - 1) {
             throw std::runtime_error("keypad 0 did not fire for player 2 after reentry");
@@ -2008,6 +2012,7 @@ public:
         int smallBombs = bombInventory_.counts[0];
         pushKeyDown(SDLK_n);
         processEvents(running);
+        updateWithControls({}, 0);
         if (bombs_.size() != bombCount + 1) {
             throw std::runtime_error("N key did not place a bomb");
         }
@@ -2036,8 +2041,9 @@ public:
 
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
-        if (bombs_.size() != bombCount + 1) {
-            throw std::runtime_error("duplicate bomb placed on occupied tile");
+        updateWithControls({}, 0);
+        if (bombs_.size() != bombCount + 2) {
+            throw std::runtime_error("second fire did not create another bomb in the same cell");
         }
 
         energy_ = 100;
@@ -2129,6 +2135,7 @@ public:
         size_t preResetBombs = bombs_.size();
         pushKeyDown(SDLK_n);
         processEvents(running);
+        updateWithControls({}, 0);
         if (bombs_.size() != preResetBombs + 1) {
             throw std::runtime_error("pre-reset bomb was not placed");
         }
@@ -4079,6 +4086,7 @@ public:
         int smallBombsBefore = bombInventory_.counts[0];
         pushKeyDown(SDLK_n);
         processEvents(running);
+        updateWithControls({}, 0);
         if (bombs_.size() != bombsBefore + 1 ||
             bombInventory_.counts[0] != smallBombsBefore - 1) {
             throw std::runtime_error("level1 N key did not place and consume a bomb");
@@ -4387,6 +4395,7 @@ public:
 
             pushKeyDown(SDLK_n);
             processEvents(running);
+            updateWithControls({}, 0);
             if (bombs_.empty() || bombs_.back().x != 24 || bombs_.back().y != 21) {
                 throw std::runtime_error(
                     "frame sequence N key did not place the level-1 tile 24,21 bomb");
@@ -4490,6 +4499,7 @@ public:
 
             pushKeyDown(SDLK_n);
             processEvents(running);
+            updateWithControls({}, 0);
             if (bombs_.empty() || bombs_.back().owner != 1) {
                 throw std::runtime_error("frame sequence monster bomb did not place bomb");
             }
@@ -5299,6 +5309,7 @@ public:
         int smallBombsBefore = bombInventory_.counts[0];
         pushKeyDown(SDLK_n);
         processEvents(running);
+        updateWithControls({}, 0);
         if (bombs_.size() != bombsBefore + 1 || bombs_.back().x != 24 ||
             bombs_.back().y != 21 || bombInventory_.counts[0] != smallBombsBefore - 1) {
             throw std::runtime_error("autoplayer N key did not place a level-1 route bomb");
@@ -5349,6 +5360,7 @@ public:
         int smallBombsBefore = bombInventory_.counts[0];
         pushKeyDown(SDLK_n);
         processEvents(running);
+        updateWithControls({}, 0);
         if (bombs_.size() != bombsBefore + 1 ||
             bombInventory_.counts[0] != smallBombsBefore - 1) {
             throw std::runtime_error("pause flow failed to arm a bomb before pausing");
@@ -5869,6 +5881,7 @@ public:
         int mediumBefore = bombInventory_.counts[1];
         pushKeyDown(SDLK_n);
         processEvents(running);
+        updateWithControls({}, 0);
         if (bombs_.size() != bombsBefore + 1 ||
             bombs_.back().type != BombType::Medium ||
             bombInventory_.counts[1] != mediumBefore - 1) {
@@ -6109,6 +6122,7 @@ public:
 
         pushKeyDown(SDLK_n);
         processEvents(running);
+        updateWithControls({}, 0);
         if (bombs_.empty() || bombs_.back().owner != 1) {
             throw std::runtime_error("monster reward autoplayer did not place bomb");
         }
@@ -6294,6 +6308,7 @@ public:
         player_.y = 24.0f;
         pushKeyDown(SDLK_n);
         processEvents(running);
+        updateWithControls({}, 0);
         if (bombs_.empty() || bombs_.back().type != BombType::Small) {
             throw std::runtime_error("monster behavior-3 autoplayer did not place small bomb");
         }
@@ -6451,6 +6466,7 @@ public:
         player_.y = static_cast<float>(monsters_.front().y);
         pushKeyDown(SDLK_n);
         processEvents(running);
+        updateWithControls({}, 0);
         if (bombs_.empty() || bombs_.back().type != BombType::Medium) {
             throw std::runtime_error("monster behavior-4 autoplayer did not place medium bomb");
         }
@@ -6547,6 +6563,7 @@ public:
         player_.y = static_cast<float>(monsters_.front().y);
         pushKeyDown(SDLK_n);
         processEvents(running);
+        updateWithControls({}, 0);
         if (bombs_.empty() || bombs_.back().type != BombType::Medium) {
             throw std::runtime_error("monster spawner autoplayer did not place medium bomb");
         }
@@ -6994,6 +7011,7 @@ public:
         int bombTileY = static_cast<int>(player2_.y) / kTileSize;
         pushKeyDown(SDLK_KP_0);
         processEvents(running);
+        updateWithControls({}, 0);
         if (bombs_.size() != bombsBefore + 1 || bombs_.back().owner != 2 ||
             bombs_.back().x != bombTileX || bombs_.back().y != bombTileY ||
             bombInventory2_.counts[0] != p2SmallBefore - 1) {
@@ -7222,6 +7240,7 @@ public:
         int p2BombY = static_cast<int>(player2_.y) / kTileSize;
         pushKeyDown(SDLK_KP_0);
         processEvents(running);
+        updateWithControls({}, 0);
         if (bombs_.size() != bombsBefore + 1 || bombs_.back().owner != 2 ||
             bombs_.back().x != p2BombX || bombs_.back().y != p2BombY ||
             bombInventory2_.counts[0] != p2SmallBefore - 1) {
@@ -16699,6 +16718,153 @@ public:
                   << '\n';
     }
 
+    void debugActiveFireOriginal(const std::string& fixture) {
+        load();
+        initSdl();
+        std::ifstream input(fixture);
+        auto fail = [](const std::string& message) { throw std::runtime_error("active-fire: " + message); };
+        if (!input) fail("cannot open fixture");
+        auto number = [&](const std::string& text) {
+            size_t used = 0;
+            const int value = std::stoi(text, &used);
+            if (used != text.size() || value < -32768 || value > 65535) fail("invalid integer");
+            return value;
+        };
+        auto bytes = [&](const std::string& text, size_t size) {
+            if (text.size() != size * 2 || text.find_first_not_of("0123456789abcdef") != std::string::npos) fail("invalid bytes");
+            std::vector<uint8_t> result(size);
+            for (size_t i = 0; i < size; ++i) result[i] = static_cast<uint8_t>(std::stoul(text.substr(i * 2, 2), nullptr, 16));
+            return result;
+        };
+        auto reset = [&] {
+            playerCount_ = 2; resetLevel(0); menu_ = paused_ = false;
+            monsters_.clear(); bombs_.clear(); transientActors_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear();
+            level_.monsterSpawners.clear(); spawnerStates_.clear();
+        };
+        int cases = 0;
+        bool header = false, complete = false;
+        std::string line;
+        while (std::getline(input, line)) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (line.empty()) continue;
+            if (complete) fail("record after completion");
+            std::istringstream row(line); std::string tag, token; row >> tag;
+            std::map<std::string, std::string> f;
+            while (row >> token) {
+                const auto eq = token.find('=');
+                if (eq == std::string::npos || !f.emplace(token.substr(0, eq), token.substr(eq + 1)).second) fail("invalid fields");
+            }
+            if (tag == "capture" && !header) {
+                if (f.size() != 6 || f.at("schema") != "active_fire_v1" || f.at("seeded") != "1" ||
+                    f.at("natural") != "0" || f.at("hooks") != "6bd5,6cb3" || f.at("cases") != "64" ||
+                    f.at("exe_sha256") != "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec") fail("provenance");
+                header = true;
+            } else if (tag == "case" && header) {
+                if (f.size() != 19 || cases >= 64) fail("case fields/count");
+                const int playerIndex = 1 + cases / 32, index = cases % 32;
+                const int weapon = index < 28 ? index / 7 + 1 : 1;
+                const int variant = index % 7;
+                const std::array<std::string, 7> variants{{"shot", "last", "empty", "full", "pool29", "no_fire", "same_cell"}};
+                const std::array<std::string, 4> motions{{"left_jump", "right_fall", "clamp_up", "clamp_right"}};
+                const std::string name = "p" + std::to_string(playerIndex) + "_" +
+                    (index < 28 ? "w" + std::to_string(weapon) + "_" + variants[variant] : motions[index - 28]);
+                const int pool = index >= 28 ? 0 : std::array<int, 7>{{0, 0, 0, 30, 29, 0, 1}}[variant];
+                const int fire = index < 28 && variant == 5 ? 0 : 1;
+                const int vx = index < 28 ? 0 : std::array<int, 4>{{-1023, 1023, -2047, 2047}}[index - 28];
+                const int vy = index < 28 ? 0 : std::array<int, 4>{{-848, 2047, -2000, 0}}[index - 28];
+                std::vector<uint8_t> inventory(4, 2), keys(2, 1);
+                inventory[weapon - 1] = index < 28 && variant == 1 ? 1 : index < 28 && variant == 2 ? 0 : 2;
+                keys[playerIndex - 1] = static_cast<uint8_t>(fire);
+                if (f.at("name") != name || number(f.at("player")) != playerIndex || number(f.at("weapon")) != weapon ||
+                    number(f.at("pool")) != pool || number(f.at("fire")) != fire || bytes(f.at("inventory"), 4) != inventory ||
+                    bytes(f.at("keys"), 2) != keys || number(f.at("x")) != 104 || number(f.at("y")) != 168 ||
+                    number(f.at("vx")) != vx || number(f.at("vy")) != vy || f.at("regs") != "a201440c440cb318a23fee3f") fail(name + " seed/register mismatch");
+                reset();
+                auto& player = playerIndex == 1 ? player_ : player2_;
+                auto& supply = playerIndex == 1 ? bombInventory_ : bombInventory2_;
+                player.vx8 = static_cast<int16_t>(vx); player.vy8 = static_cast<int16_t>(vy);
+                supply.selected = static_cast<BombType>(weapon - 1);
+                std::copy(inventory.begin(), inventory.end(), supply.counts.begin());
+                for (int i = 0; i < pool; ++i) {
+                    Bomb bomb; bomb.x = 13; bomb.y = 21; bomb.pixelX = 104; bomb.pixelY = 168;
+                    bomb.type = supply.selected; bomb.timer = 40; bomb.fuseTicks = 40;
+                    bomb.actorOrder = claimActorOrder(); bombs_.push_back(bomb);
+                }
+                reentryFire1_ = keys[0] != 0; reentryFire2_ = keys[1] != 0;
+                tryActivePlayerFireAt(player, 104, 168, static_cast<uint8_t>(playerIndex));
+                const auto expectedInventory = bytes(f.at("inventory_after"), 4), expectedKeys = bytes(f.at("keys_after"), 2);
+                if (number(f.at("pool_after")) != static_cast<int>(sharedActorCount()) ||
+                    !std::equal(supply.counts.begin(), supply.counts.end(), expectedInventory.begin()) ||
+                    number(f.at("weapon_after")) != bombTypeIndex(supply.selected) + 1 ||
+                    expectedKeys[0] != static_cast<int>(reentryFire1_) || expectedKeys[1] != static_cast<int>(reentryFire2_)) fail(name + " state mismatch");
+                const bool attempted = fire && inventory[weapon - 1] != 0;
+                const bool created = bombs_.size() > static_cast<size_t>(pool);
+                if (f.at("result") != (created ? "0100" : attempted ? "0000" : "5a5a")) fail(name + " constructor result");
+                const auto raw = bytes(f.at("raw"), 38), visual = bytes(f.at("visual"), 8);
+                if (created) {
+                    const auto& bomb = bombs_.back();
+                    if (raw[0] != bombTypeIndex(bomb.type) + 13 || raw[1] != pool + 2 || raw[2] != (bomb.timer + 1) / 2 ||
+                        raw[21] != 2 || raw[20] != bombHeightOffset(bomb.type) || le16(raw, 6) != static_cast<uint16_t>(bomb.vx8) ||
+                        le16(raw, 8) != static_cast<uint16_t>(bomb.vy8) || le16(raw, 10) != bomb.fracX || le16(raw, 12) != bomb.fracY ||
+                        le16(visual, 0) != bomb.pixelX || le16(visual, 2) != bomb.pixelY || bomb.owner != playerIndex || !bomb.moving) fail(name + " bomb mismatch");
+                    const auto& sprite = sprites_.sprites.at(bombProfile(bomb.type).spriteBase);
+                    if (visual[4] != sprite.width || visual[5] != sprite.height) fail(name + " sprite mismatch");
+                } else if (raw != std::vector<uint8_t>(38) || visual != std::vector<uint8_t>(8)) fail(name + " unexpected actor");
+                ++cases;
+            } else if (tag == "complete" && header) {
+                if (cases != 64 || f.size() != 2 || f.at("cases") != "64" || f.at("whole_game_parity") != "0") fail("incomplete capture");
+                complete = true;
+            } else fail("unexpected record");
+        }
+        if (!complete) fail("missing completion");
+
+        // Event/tick integration is separate from the seeded original block probes.
+        bool running = true;
+        reset();
+        pushKeyDown(SDLK_n); pushKeyDown(SDLK_KP_0); processEvents(running);
+        if (!bombs_.empty()) fail("fire ran in event handler");
+        const int p2Ammo = bombInventory2_.counts[0];
+        updateWithControls(FrameControls{}, 1.0f / 60.0f);
+        if (bombs_.size() != 1 || bombs_.front().owner != 1 || bombInventory2_.counts[0] != p2Ammo ||
+            reentryFire1_ || reentryFire2_ || bombs_.front().pixelY != 168 || bombs_.front().vy8 != -500 ||
+            bombs_.front().fracY != 0 || bombs_.front().timer != 40) fail("ordered fire/birth frame");
+        updateWithControls(FrameControls{}, 1.0f / 60.0f);
+        if (bombs_.size() != 1 || bombs_.front().timer != 39) fail("first bomb update");
+        pushKeyDown(SDLK_n, true); processEvents(running);
+        if (bombs_.size() != 1) fail("repeat ran in event handler");
+        updateWithControls(FrameControls{}, 1.0f / 60.0f);
+        if (bombs_.size() != 2 || bombs_.back().owner != 1) fail("P1 repeated make lost");
+        reset(); bombInventory_.counts[0] = 0;
+        pushKeyDown(SDLK_n); pushKeyDown(SDLK_KP_0); processEvents(running);
+        updateWithControls(FrameControls{}, 1.0f / 60.0f);
+        if (bombs_.size() != 1 || bombs_.front().owner != 2) fail("empty P1 blocked P2");
+        pushKeyDown(SDLK_KP_0, true); processEvents(running);
+        updateWithControls(FrameControls{}, 1.0f / 60.0f);
+        if (bombs_.size() != 2 || bombs_.back().owner != 2) fail("P2 repeated make lost");
+        reset(); bombInventory_.counts[0] = 0;
+        pushKeyDown(SDLK_n); processEvents(running);
+        updateWithControls(FrameControls{}, 1.0f / 60.0f);
+        if (!bombs_.empty() || !reentryFire1_ || bombInventory_.selected != BombType::Small) fail("empty latch/selection");
+        bombInventory_.counts[0] = 1;
+        updateWithControls(FrameControls{}, 1.0f / 60.0f);
+        if (bombs_.size() != 1 || reentryFire1_ || bombInventory_.selected != BombType::Small) fail("retained empty latch");
+        reset(); pushKeyDown(SDLK_n); processEvents(running);
+        SDL_Event up{}; up.type = SDL_KEYUP; up.key.keysym.sym = SDLK_n; SDL_PushEvent(&up); processEvents(running);
+        updateWithControls(FrameControls{}, 1.0f / 60.0f);
+        if (!bombs_.empty()) fail("released fire created bomb");
+        reset(); pushKeyDown(SDLK_n); processEvents(running);
+        FrameControls movement; movement.p1Right = true; movement.p1Jump = true;
+        updateWithControls(movement, 1.0f / 60.0f);
+        if (bombs_.size() != 1 || bombs_.front().vx8 != 96 || bombs_.front().vy8 != kPlayerJumpVelocity8 - 500 ||
+            bombs_.front().pixelY != 168 || player_.y >= 168) fail("post-input pre-integration launch");
+        reset(); player_.dropTicks = 4; pushKeyDown(SDLK_n); processEvents(running);
+        updateWithControls(FrameControls{}, 1.0f / 60.0f);
+        if (bombs_.size() != 1 || bombs_.front().pixelY != 170) fail("drop local Y");
+        const auto frame = inspectRenderedFrame("active_fire_drop");
+        std::cout << "active_fire_original=ok cases=" << cases
+                  << " players=2 governed_input=1 seeded=1 natural=0 whole_game_parity=0 frame_hash=" << std::hex << frame.hash << std::dec << '\n';
+    }
+
     void debugState2PrepassOriginal(const std::string& fixture) {
         load();
         std::ifstream input(fixture);
@@ -18847,8 +19013,9 @@ public:
                         }
                         bombInventory_.selected = static_cast<BombType>(weapon - 1);
                         bombInventory_.counts.fill(2);
-                        handlePlayerFire(player_, energy_, lives_, playerDead_, reentryTimer_,
-                                         damageCooldown_, bombInventory_, 1);
+                        // This fixture begins at the original constructor boundary,
+                        // after input/gravity have already produced the launch locals.
+                        placeBombAt(player_, bombInventory_, 1);
                         originalCounter = raw[2];
                         if (bombs_.size() != 1 || bombs_[0].fuseTicks != 2 * originalCounter ||
                             bombInventory_.counts[static_cast<size_t>(weapon - 1)] != 1) {
@@ -21041,6 +21208,7 @@ public:
         int superBefore = bombInventory_.counts[3];
         pushKeyDown(SDLK_n);
         processEvents(running);
+        updateWithControls({}, 0);
         if (bombs_.empty() || bombs_.back().type != BombType::Super ||
             bombInventory_.counts[3] != superBefore - 1) {
             throw std::runtime_error("live monster bomb fixture did not place a super bomb");
@@ -25830,6 +25998,9 @@ private:
                 if (isPlayer2FireKey(e.key.keysym.sym)) reentryFire2_ = false;
             } else if (e.type == SDL_KEYDOWN &&
                        (!e.key.repeat ||
+                        (!menu_ && !paused_ && !levelIntro_.active && !levelOutro_.active &&
+                         (isPlayer1FireKey(e.key.keysym.sym) ||
+                          (playerCount_ > 1 && isPlayer2FireKey(e.key.keysym.sym)))) ||
                         shouldAcceptRepeatedNameEntryKey(e.key.keysym.sym))) {
                 onKey(e.key.keysym.sym, running);
             }
@@ -26146,11 +26317,9 @@ private:
         } else if (!menu_ && paused_) {
             return;
         } else if (!menu_ && isPlayer1FireKey(key)) {
-            handlePlayerFire(player_, energy_, lives_, playerDead_, reentryTimer_,
-                             damageCooldown_, bombInventory_, 1);
+            reentryFire1_ = true;
         } else if (!menu_ && playerCount_ > 1 && isPlayer2FireKey(key)) {
-            handlePlayerFire(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
-                             damageCooldown2_, bombInventory2_, 2);
+            reentryFire2_ = true;
         } else if (!menu_ && key == SDLK_s) {
             showBackground_ = !showBackground_;
         } else if (!menu_ && key == SDLK_r && playerCount_ == 1) {
@@ -26168,14 +26337,12 @@ private:
         return key == SDLK_KP_0 || key == SDLK_INSERT;
     }
 
-    void handlePlayerFire(Player& player, int& energy, int& lives, bool& dead,
-                          int& reentryTimer, int& damageCooldown,
-                          BombInventory& inventory, uint8_t playerIndex) {
-        if (dead) {
-            (playerIndex == 2 ? reentryFire2_ : reentryFire1_) = true;
-        } else {
-            placeBombAt(player, inventory, playerIndex);
-        }
+    void tryActivePlayerFireAt(const Player& player, int x, int y, uint8_t playerIndex) {
+        if (!(playerIndex == 2 ? reentryFire2_ : reentryFire1_)) return;
+        Player launch = player;
+        launch.x = static_cast<float>(x);
+        launch.y = static_cast<float>(y);
+        placeBombAt(launch, playerIndex == 2 ? bombInventory2_ : bombInventory_, playerIndex);
     }
 
     void handleNameEntryKey(SDL_Keycode key) {
@@ -27104,6 +27271,9 @@ private:
         if (jump && edges.bottom && player.vy8 == 0) {
             player.vy8 = kPlayerJumpVelocity8;
         }
+        // 1000:6BD5 uses the updated velocity and local drop/ground Y, before
+        // terrain damage and integration. The non-player pass is already over.
+        tryActivePlayerFireAt(player, x, y, spriteBase == 19 ? 2 : 1);
         applyPlayerTerrainDamage(player, spriteBase == 19 ? energy2_ : energy_);
         integratePlayerMotion(player, x, y, edges);
     }
@@ -28940,12 +29110,12 @@ private:
     }
 
     void placeBombAt(const Player& player, BombInventory& inventory, uint8_t owner) {
-        // Original 1000:2F9F failure leaves inventory and fire side effects alone.
+        // 1000:6C00 leaves an empty selection and both fire latches unchanged.
+        if (!hasBomb(inventory, inventory.selected)) return;
+        // Both latches are consumed after a constructor attempt, even when
+        // the shared actor pool rejects it (1000:6CA9..6CAE).
+        reentryFire1_ = reentryFire2_ = false;
         if (sharedActorCount() >= 30) return;
-        if (!hasBomb(inventory, inventory.selected)) {
-            selectNextAvailableBomb(inventory);
-            if (!hasBomb(inventory, inventory.selected)) return;
-        }
         // Original pixel->tile mapping, from the blast routine at 655B..6582
         // (re-read this session: base = ((py>>3)-1)*width + (((px+4)>>3)-1))
         // plus the burn walk at 6CB8..6D1B, whose consumed 2x2 block has its
@@ -28957,33 +29127,24 @@ private:
         // coordinates from the bomb's own pixels before detonation.
         int tx = (static_cast<int>(player.x) + 4) / 8;
         int ty = static_cast<int>(player.y) / 8;
-        auto it = std::find_if(bombs_.begin(), bombs_.end(),
-                               [&](const Bomb& b) { return b.x == tx && b.y == ty; });
-        if (it == bombs_.end()) {
-            BombProfile profile = bombProfile(inventory.selected);
-            // Fire events precede the next updateWithControls increment.
-            // Original captures likewise first update the bomb on the frame
-            // after construction. Encode the odd-frame byte countdown as
-            // remaining game ticks, retaining the existing Bomb timer model.
-            int timer = profile.fuseTicks - static_cast<int>((logicTick_ + 1) & 1u);
-            const uint64_t actorOrder = claimActorOrder();
-            bombs_.push_back({tx, ty, timer, inventory.selected,
-                              profile.fuseTicks, owner});
-            Bomb& bomb = bombs_.back();
-            bomb.actorOrder = actorOrder;
-            bomb.pixelX = static_cast<int>(player.x);
-            bomb.pixelY = static_cast<int>(player.y);
-            // 6C2B..6C41 scales vx by 3/2 (signed truncation), and subtracts
-            // 500 from vy. The actor constructor clamps each to +/-0x07ff
-            // and clears both fractional accumulators.
-            bomb.vx8 = static_cast<int16_t>(std::clamp(3 * player.vx8 / 2, -0x07ff, 0x07ff));
-            bomb.vy8 = static_cast<int16_t>(std::clamp(player.vy8 - 500, -0x07ff, 0x07ff));
-            bomb.moving = true;
-            requestBombPlaceSound();
-            int& count = inventory.counts[static_cast<size_t>(bombTypeIndex(inventory.selected))];
-            count = std::max(0, count - 1);
-            if (count == 0) selectNextAvailableBomb(inventory);
-        }
+        BombProfile profile = bombProfile(inventory.selected);
+        // First update is on the frame after construction. Encode the
+        // odd-frame byte countdown as remaining game ticks.
+        int timer = profile.fuseTicks - static_cast<int>((logicTick_ + 1) & 1u);
+        const uint64_t actorOrder = claimActorOrder();
+        bombs_.push_back({tx, ty, timer, inventory.selected, profile.fuseTicks, owner});
+        Bomb& bomb = bombs_.back();
+        bomb.actorOrder = actorOrder;
+        bomb.pixelX = static_cast<int>(player.x);
+        bomb.pixelY = static_cast<int>(player.y);
+        // 6C2B..6C41 scales vx by 3/2 (signed truncation), and subtracts
+        // 500 from vy. The actor constructor clamps each to +/-0x07ff
+        // and clears both fractional accumulators.
+        bomb.vx8 = static_cast<int16_t>(std::clamp(3 * player.vx8 / 2, -0x07ff, 0x07ff));
+        bomb.vy8 = static_cast<int16_t>(std::clamp(player.vy8 - 500, -0x07ff, 0x07ff));
+        bomb.moving = true;
+        requestBombPlaceSound();
+        --inventory.counts[static_cast<size_t>(bombTypeIndex(inventory.selected))];
     }
 
     int bombHeightOffset(BombType type) const {
@@ -32053,6 +32214,10 @@ int main(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-boss-mass-original") {
             app.debugBossContinuousOriginal(argv[2], argc > 3 ? argv[3] : "", App::BossReplay::Mass);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-active-fire-original") {
+            app.debugActiveFireOriginal(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-state2-prepass-original") {

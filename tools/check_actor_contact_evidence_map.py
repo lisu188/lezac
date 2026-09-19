@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+
+from source_guardrails import diagnostic_text
 import re
 
 
@@ -299,7 +301,7 @@ def main() -> int:
         read_text(root / "docs" / "GHIDRA_NOTES.md"),
         read_text(root / "RECOVERY_STATUS.md"),
     )
-    check_source(read_text(root / "src" / "app" / "app.cpp"))
+    check_source(diagnostic_text(root))
     check_tools(root)
     check_fixtures(root)
     check_cmake(cmake)

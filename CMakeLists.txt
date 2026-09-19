@@ -180,6 +180,13 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
 
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME source_guardrails_selftest
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_source_guardrails.py)
+        set_tests_properties(source_guardrails_selftest PROPERTIES
+            PASS_REGULAR_EXPRESSION "^source_guardrails_selftest=ok")
+    endif()
+
     add_test(NAME validate_assets COMMAND $<TARGET_FILE:lezac_cpp> --validate)
     set_tests_properties(validate_assets PROPERTIES
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}

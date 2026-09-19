@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+
+from source_guardrails import diagnostic_source_text
 import re
 
 
@@ -254,7 +256,7 @@ def check_cmake_coverage(cmake_path: Path, fixture_names: set[str]) -> int:
 
 
 def check_source_contract(source_path: Path) -> None:
-    text = source_path.read_text(encoding="utf-8")
+    text = diagnostic_source_text(source_path)
     for snippet in [
         "--debug-contact-scanner-runtime-oracle",
         "debugContactScannerRuntimeOracle",
@@ -288,7 +290,7 @@ def main() -> int:
         "--source",
         type=Path,
         default=default_repo_root() / "src" / "app" / "app.cpp",
-        help="src/main.cpp path to verify command/source snippets; use '' to skip",
+        help="source path to verify command/source snippets (legacy App resolves the ownership map); use '' to skip",
     )
     args = parser.parse_args()
 

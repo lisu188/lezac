@@ -7,6 +7,8 @@ import argparse
 import json
 from pathlib import Path
 
+from source_guardrails import source_text, diagnostic_text
+
 
 CTESTS = (
     "autoplayer_records_flow_dummy",
@@ -70,9 +72,10 @@ def check_cmake(root: Path) -> tuple[int, int]:
 
 
 def check_source(root: Path) -> int:
-    source = (root / "src" / "app" / "app.cpp").read_text(encoding="utf-8")
+    source = source_text(root, "ui")
+    diagnostic = diagnostic_text(root)
     for snippet in SOURCE_ANCHORS:
-        require(source, snippet, "source")
+        require(diagnostic if snippet.startswith("debug") or "=ok" in snippet else source, snippet, "source")
     for snippet in (
         "records_.size() < 7",
         "pendingRecordQueue_",
@@ -87,7 +90,7 @@ def check_source(root: Path) -> int:
         "record_save_failure=ok",
         "end_flow_records=ok",
     ):
-        require(source, snippet, "source")
+        require(diagnostic if snippet.startswith("debug") or "=ok" in snippet else source, snippet, "source")
     return len(SOURCE_ANCHORS)
 
 

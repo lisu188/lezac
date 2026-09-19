@@ -13,7 +13,10 @@ completion claim never silently promotes original-evidence semantics.
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
+
+from source_guardrails import diagnostic_text
 import re
 import tempfile
 
@@ -28,7 +31,7 @@ def require(text: str, snippet: str, case: str) -> None:
 
 
 def parse_source(root: Path) -> tuple[list[tuple[str, str]], list[str]]:
-    text = (root / "src" / "app" / "app.cpp").read_text(encoding="utf-8")
+    text = diagnostic_text(root)
     require(text, "--debug-port-completion-status", "source:dispatch")
     require(text, "void debugPortCompletionStatus()", "source:method")
     require(text, "original_fidelity_claim=0", "source:fidelity_claim")
@@ -146,6 +149,13 @@ def write_text(path: Path, text: str) -> None:
 def write_synthetic_tree(
     root: Path, subsystems: list[tuple[str, str]], items: list[str]
 ) -> None:
+    write_text(root / "tools/source_ownership.json", json.dumps({
+        "version": 1,
+        "owners": {
+            "app": {"dispatch": ["src/app/app.cpp"]},
+            "diagnostics": {"diagnostics": ["src/app/app.cpp"]},
+        },
+    }))
     write_text(root / "src" / "app" / "app.cpp", synthetic_source(subsystems, items))
     write_text(
         root / "CMakeLists.txt",

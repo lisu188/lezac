@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
+
+from source_guardrails import source_text
 import re
 
 
@@ -145,7 +147,7 @@ def main() -> int:
     args = parser.parse_args()
 
     root = args.root.resolve()
-    source = read_text(root / "src" / "app" / "app.cpp")
+    source = source_text(root, ("sound", "gameplay"))
     cmake = read_text(root / "CMakeLists.txt")
     readme = read_text(root / "README_RECONSTRUCTION.md")
     ghidra = read_text(root / "docs" / "GHIDRA_NOTES.md")

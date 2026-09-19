@@ -1,6 +1,6 @@
 # Port Completion Status
 
-Last reviewed: 2026-09-13
+Last reviewed: 2026-09-19
 
 The C++17/SDL2 reconstruction of `LEZAC.EXE` is not yet functionally complete.
 The earlier claim was based on a subsystem inventory and compatible tests,
@@ -194,8 +194,12 @@ production updates in three level-7 traces: 980 states, 60 normalized views,
 two timed restarts (including reserve zero), and a fire-key return. The
 production per-player timeout is replaced by counter 230, state promotion,
 the blocking introduction and resumed gameplay with lives preserved. The
-diagnostic's one-increment promotion is corrected too, but its other model
-predicates are not an original runtime oracle. The older reachability
+diagnostic's one-increment promotion was corrected too. The subsequent
+[waiting-state recovery](state2_prepass_runtime_2026-09-19.md) replaces its
+remaining standalone predicates with production-path checks and compares 54
+original P1/P2 prepasses. It recovers asymmetric upward placement, countdown
+inventory minima, the latched gate, and the closed-gate 1x1 descriptor.
+These are seeded state probes, not complete natural two-player routes. The older reachability
 fixture's interpretation of life zero as game over is superseded: zero is
 still in play; byte FF marks out. See
 [the production recovery and remaining gaps](shared_death_lifecycle_runtime_2026-09-13.md).

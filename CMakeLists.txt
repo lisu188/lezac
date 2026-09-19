@@ -4588,6 +4588,18 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^two_player_hud_panel=ok split_views=2 p1_hud_visible=1 p1_world_visible=1 p2_hud_visible=1 p2_world_visible=1 objective_panel_visible=1 objective_panel_changed=1 panel_x=141 panel_w=37 p2_column_x=180 frame_inspection=1 original_art_claim=0")
 
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME level1_replay
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_level1_replay.py
+                    --exe $<TARGET_FILE:lezac_cpp> --root ${CMAKE_CURRENT_SOURCE_DIR})
+        set_tests_properties(level1_replay PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 240
+            LABELS "level1;replay;fidelity-infrastructure"
+            PASS_REGULAR_EXPRESSION "level1_replay_tests=ok tests=13 integration=1 original_fidelity_claim=0")
+    endif()
+
     find_program(BASH_EXECUTABLE bash)
     find_program(XVFB_RUN_EXECUTABLE xvfb-run)
     find_program(XDOTOOL_EXECUTABLE xdotool)

@@ -1,0 +1,32 @@
+LEZAC_LEVEL1_ROUTE_V1
+seed 305441741
+ticks 180
+step_us 40800
+event 0 down 1
+event 1 up 1
+event 3 down return
+event 4 up return
+event 5 down x
+event 23 down n
+event 24 repeat n
+event 25 up n
+event 25 up x
+event 50 down p
+event 51 up p
+event 54 down p
+event 55 up p
+event 58 down z
+event 64 up z
+event 66 down m
+event 67 up m
+event 85 down s
+event 86 up s
+event 88 down s
+event 89 up s
+event 90 down r
+event 91 up r
+event 92 down e
+event 93 up e
+event 120 down x
+event 126 up x
+end

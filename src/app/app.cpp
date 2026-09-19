@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "diagnostics/level1_trace.hpp"
 #include "core/constants.hpp"
 #include "core/fixed_point.hpp"
 #include "core/progress.hpp"
@@ -1525,6 +1526,130 @@ class App {
     }
 
 public:
+    void debugLevel1Replay(const std::string& routePath, const std::string& outDir) {
+        namespace trace = lezac::diagnostics::level1;
+        const auto route = trace::readRoute(routePath);
+        const char* json = std::getenv("LEZAC_LOAD_JSON_ASSETS");
+        const char* raw = std::getenv("LEZAC_LOAD_ORIGINAL_ASSETS");
+        if ((json && std::string(json) != "0") || (raw && std::string(raw) == "0"))
+            throw std::runtime_error("level1 replay requires original assets");
+        if (std::filesystem::exists(outDir))
+            throw std::runtime_error("level1 replay output must not already exist");
+        std::filesystem::create_directories(outDir);
+        std::ofstream output(joinPath(outDir, "trace.jsonl"));
+        output.exceptions(std::ios::failbit | std::ios::badbit);
+        trace::Fields assets;
+        for (const char* file : {"LEZAC.EXE", "LIVELS.SCH", "CARO.CAR", "BOMOMIMK.SPR", "PROVA.SPR",
+             "FONTS.SPR", "BOMPAL.PAL", "SFONLEF.ZBG", "PROEFS.SON", "GRAN.MST", "RECS.DAT"})
+            assets[file] = trace::quote(trace::fingerprint(readFile(file)));
+        output << trace::object({{"kind", trace::quote("header")},
+            {"schema", trace::quote("lezac.level1.trace.v1")}, {"source", trace::quote("cpp")},
+            {"phase_model", trace::quote("cpp-post-update-v1")},
+            {"state_scope", trace::quote("level1-observations-v1")},
+            {"input_model", trace::quote("sdl-events-keyboard-adapter-v1")},
+            {"asset_fnv1a64", trace::object(assets)},
+            {"route_fnv1a64", trace::quote(trace::fingerprint(readFile(routePath)))},
+            {"ticks", std::to_string(route.ticks)}, {"step_us", std::to_string(route.stepUs)},
+            {"seed", std::to_string(route.seed)}, {"width", "320"}, {"height", "200"},
+            {"original_fidelity_claim", "false"}}) << '\n';
+        SDL_setenv("SDL_AUDIODRIVER", "dummy", 1);
+        randomSeed_ = route.seed;
+        replayClockEnabled_ = true;
+        replayMilliseconds_ = 0;
+        std::array<uint8_t, SDL_NUM_SCANCODES> keys{};
+        const std::string oldRecordPath = recordPath_;
+        recordPath_ = joinPath(outDir, "RECS.DAT");
+        uint64_t sequence = 0;
+        uint32_t tick = 0;
+        std::vector<std::string> events;
+        bool completionObserved = false, level2Playable = false;
+        auto checkpoint = [&](const char* phase, bool frame) {
+            trace::Fields row{{"kind", trace::quote("checkpoint")}, {"seq", std::to_string(sequence++)},
+                {"tick", std::to_string(tick)}, {"phase", trace::quote(phase)},
+                {"time_ms", std::to_string(replayMilliseconds_)}, {"events", trace::array(events)},
+                {"state", level1TraceState()}};
+            if (frame) {
+                const std::string name = trace::frameName(tick);
+                writeArgbPpm(joinPath(outDir, name), fb_, kScreenW, kScreenH);
+                std::vector<uint8_t> pixels;
+                pixels.reserve(fb_.size() * 3);
+                for (uint32_t pixel : fb_) {
+                    pixels.push_back(static_cast<uint8_t>(pixel >> 16));
+                    pixels.push_back(static_cast<uint8_t>(pixel >> 8));
+                    pixels.push_back(static_cast<uint8_t>(pixel));
+                }
+                row["frame"] = trace::quote(name);
+                row["rgb_fnv1a64"] = trace::quote(trace::fingerprint(pixels));
+            }
+            output << trace::object(row) << '\n';
+        };
+        try {
+            load();
+            initSdl();
+            resetLevel(0);
+            interactiveLevelIntroEnabled_ = true;
+            replayKeyboard_ = keys.data();
+            draw();
+            checkpoint("initial", true);
+            debugActorPassObserver_ = [&] { checkpoint("after_nonplayers", false); };
+            const std::map<std::string, SDL_Keycode> keycodes{{"1", SDLK_1}, {"2", SDLK_2},
+                {"return", SDLK_RETURN}, {"escape", SDLK_ESCAPE}, {"l", SDLK_l}, {"s", SDLK_s},
+                {"e", SDLK_e}, {"r", SDLK_r}, {"p", SDLK_p}, {"z", SDLK_z}, {"x", SDLK_x},
+                {"m", SDLK_m}, {"n", SDLK_n}, {"c", SDLK_c}, {"left", SDLK_LEFT},
+                {"right", SDLK_RIGHT}, {"up", SDLK_UP}, {"down", SDLK_DOWN}, {"insert", SDLK_INSERT}};
+            size_t nextEvent = 0;
+            bool running = true;
+            for (tick = 1; tick <= route.ticks; ++tick) {
+                replayMilliseconds_ = static_cast<uint32_t>(uint64_t(tick - 1) * route.stepUs / 1000);
+                events.clear();
+                while (nextEvent < route.events.size() && route.events[nextEvent].tick == tick - 1) {
+                    const auto& event = route.events[nextEvent++];
+                    const SDL_Keycode code = keycodes.at(event.key);
+                    const SDL_Scancode scan = SDL_GetScancodeFromKey(code);
+                    if (scan <= SDL_SCANCODE_UNKNOWN || scan >= SDL_NUM_SCANCODES)
+                        throw std::runtime_error("level1 replay has an unmapped key");
+                    SDL_Event sdl{};
+                    sdl.type = event.action == "up" ? SDL_KEYUP : SDL_KEYDOWN;
+                    sdl.key.state = event.action == "up" ? SDL_RELEASED : SDL_PRESSED;
+                    sdl.key.repeat = event.action == "repeat";
+                    sdl.key.keysym.sym = code;
+                    sdl.key.keysym.scancode = scan;
+                    if (SDL_PushEvent(&sdl) != 1) throw std::runtime_error("level1 replay cannot queue event");
+                    keys[scan] = event.action != "up";
+                    events.push_back(trace::object({{"action", trace::quote(event.action)}, {"key", trace::quote(event.key)}}));
+                }
+                processEvents(running);
+                if (!running) throw std::runtime_error("level1 replay quit before route end");
+                checkpoint("input", false);
+                update(static_cast<float>(route.stepUs / 1000000.0));
+                completionObserved = completionObserved || (levelIndex_ == 0 && levelOutro_.active);
+                level2Playable = level2Playable || (completionObserved && levelIndex_ == 1 && !menu_ && !paused_ && !levelIntro_.active && !levelOutro_.active);
+                checkpoint("post_update", false);
+                draw();
+                checkpoint("present", true);
+            }
+            output << trace::object({{"kind", trace::quote("complete")},
+                {"ticks", std::to_string(route.ticks)}, {"checkpoints", std::to_string(sequence)},
+                {"frames", std::to_string(route.ticks + 1)}, {"events", std::to_string(nextEvent)},
+                {"level1_route_complete", level2Playable ? "true" : "false"},
+                {"original_fidelity_claim", "false"}, {"port_functionally_complete", "false"}}) << '\n';
+            output.flush();
+        } catch (...) {
+            debugActorPassObserver_ = {};
+            replayKeyboard_ = nullptr;
+            replayClockEnabled_ = false;
+            recordPath_ = oldRecordPath;
+            throw;
+        }
+        debugActorPassObserver_ = {};
+        replayKeyboard_ = nullptr;
+        replayClockEnabled_ = false;
+        recordPath_ = oldRecordPath;
+        std::cout << "level1_replay=ok ticks=" << route.ticks << " frames=" << route.ticks + 1
+                  << " checkpoints=" << sequence << " level1_route_complete=" << level2Playable
+                  << " original_fidelity_claim=0 audio=dummy\n";
+    }
+
     void loadJsonAssets() {
         palette_ = loadPaletteFile("BOMPAL.PAL.json");
         background_ = loadBackground("SFONLEF.ZBG.json", backgroundPalette_);
@@ -25944,6 +26069,113 @@ public:
     }
 
 private:
+    uint32_t presentationMilliseconds() const {
+        return replayClockEnabled_ ? replayMilliseconds_ : SDL_GetTicks();
+    }
+
+    std::string level1TraceState() const {
+        namespace trace = lezac::diagnostics::level1;
+        using trace::numbers;
+        using trace::quote;
+        auto animation = [](const ActorAnimation& a) {
+            return numbers({a.current, a.first, a.last, a.counter, a.delay, a.mode, a.step});
+        };
+        auto player = [&](const Player& p, int index) {
+            const bool second = index == 2;
+            const auto& inventory = second ? bombInventory2_ : bombInventory_;
+            return trace::object({{"x", std::to_string(p.x)}, {"y", std::to_string(p.y)},
+                {"vx8", std::to_string(p.vx8)}, {"vy8", std::to_string(p.vy8)},
+                {"frac_x", std::to_string(p.fracX)}, {"frac_y", std::to_string(p.fracY)},
+                {"animation", animation(p.animation)}, {"animation_backup", animation(p.animationBackup)},
+                {"sprite", numbers({p.spriteIndex, p.singlePixelSprite, p.idleTicks, p.dropTicks, p.grounded})},
+                {"health", numbers({second ? energy2_ : energy_, second ? lives2_ : lives_,
+                    second ? player2Dead_ : playerDead_, second ? damageCooldown2_ : damageCooldown_,
+                    second ? pendingDamage2_ : pendingDamage_})},
+                {"waiting", numbers({second ? reentryTimer2_ : reentryTimer_, second ? deathStateTimer2_ : deathStateTimer_,
+                    second ? pendingLifeLoss2_ : pendingLifeLoss_, second ? reentryFire2_ : reentryFire1_})},
+                {"score", std::to_string(second ? score2_ : score_)},
+                {"inventory", numbers({inventory.counts[0], inventory.counts[1], inventory.counts[2], inventory.counts[3],
+                    static_cast<int>(inventory.selected)})},
+                {"cooldowns", numbers({second ? portalCooldown2_ : portalCooldown_, second ? triggerCooldown2_ : triggerCooldown_,
+                    second ? weaponSwitchHoldTicks2_ : weaponSwitchHoldTicks_})}});
+        };
+        std::vector<uint8_t> words, colors;
+        for (auto word : level_.wordLayer) {
+            words.push_back(static_cast<uint8_t>(word));
+            words.push_back(static_cast<uint8_t>(word >> 8));
+        }
+        for (const auto& color : palette_) {
+            colors.push_back(color.r); colors.push_back(color.g); colors.push_back(color.b);
+        }
+        std::vector<std::string> bombs, monsters, rewards, effects, flames, debris, collapse, spawners, transients, markers, flashes;
+        for (const auto& b : bombs_) bombs.push_back(trace::object({
+            {"order", std::to_string(b.actorOrder)}, {"visual_order", std::to_string(b.bossVisualOrder)},
+            {"owner", std::to_string(b.owner)}, {"type", std::to_string(static_cast<int>(b.type))},
+            {"position", numbers({b.x, b.y, b.pixelX, b.pixelY, b.hotspotY})},
+            {"motion", numbers({b.vx8, b.vy8, b.fracX, b.fracY, b.moving})},
+            {"fuse", numbers({b.timer, b.fuseTicks})}}));
+        for (const auto& m : monsters_) monsters.push_back(trace::object({
+            {"order", std::to_string(m.actorOrder)}, {"visual_order", std::to_string(m.bossVisualOrder)},
+            {"position", numbers({m.x, m.y, m.hotspotY})}, {"motion", numbers({m.vx8, m.vy8, m.fracX, m.fracY})},
+            {"identity", numbers({m.kind, m.behavior, static_cast<int64_t>(m.spawnerIndex), m.hasSpawner})},
+            {"ai", numbers({m.ai0, m.ai1, m.ai2, m.facingDirty})},
+            {"animation", numbers({m.animCursor, m.animFrame, m.animStart, m.animEnd, m.animDelay, m.animMode, m.animStep, m.animTick})},
+            {"health", numbers({m.hp, m.alive, m.stateTimer, m.motionTimer, m.deathCredited, m.deathRewardPending, m.corpseSprite})},
+            {"edges", numbers({m.edges.top, m.edges.bottom, m.edges.left, m.edges.right})}}));
+        for (const auto& r : bonusDrops_) rewards.push_back(trace::object({
+            {"order", std::to_string(r.actorOrder)}, {"x", std::to_string(r.x)}, {"y", std::to_string(r.y)},
+            {"state", numbers({static_cast<int>(r.type), r.vx8, r.vy8, r.fracX, r.fracY, r.hotspotY, r.timer, r.collected})}}));
+        for (const auto& e : explosionEffects_) effects.push_back(numbers({e.x, e.y, e.visualSelector, e.dispatcherState,
+            e.slotIndex, e.sourceIndex, e.inactive, e.timer, e.totalTimer, e.soundOffset, e.soundSelector,
+            e.seedTicksByte, e.detailByte, e.variantByte, e.computedX, e.computedY, e.finalSignedOffset}));
+        for (const auto& f : flameRecords_) flames.push_back(numbers({f.cell, f.vx, f.vy, f.subX, f.subY,
+            f.timer, f.glyph, f.variant, f.mass}));
+        for (const auto& d : debrisQueue_) debris.push_back(numbers({d.tileIndex, d.flaggedWord, d.velocityX,
+            d.velocityY, d.subX, d.subY, d.restTicks, d.lookup, d.aux}));
+        for (const auto& c : collapseQueue_) collapse.push_back(numbers({c.x, c.y, c.startOffsetBytes, c.endOffsetBytes,
+            c.word, c.flaggedWord, c.forwardPhase, c.reversePhase, c.subX, c.subY, c.flags, c.restTicks,
+            c.argMagnitude, c.affectedBytes, c.count}));
+        for (const auto& s : spawnerStates_) spawners.push_back(numbers({s.remaining, s.availableSlots, s.cooldown}));
+        for (const auto& t : transientActors_) transients.push_back(trace::object({
+            {"order", std::to_string(t.actorOrder)}, {"visual_order", std::to_string(t.bossVisualOrder)},
+            {"state", numbers({t.x, t.y, t.vx8, t.vy8, t.fracX, t.fracY, t.kind, t.timer, t.hotspotY, t.spriteIndex})},
+            {"animation", animation(t.animation)}}));
+        for (const auto& m : launchPadMarkers_) markers.push_back(trace::object({
+            {"order", std::to_string(m.actorOrder)}, {"state", numbers({m.x, m.y, m.fracX, m.fracY,
+                m.velocityX8, m.velocityY8, m.timer, m.frame, m.kind, m.mode})}}));
+        for (const auto& f : flashes_) flashes.push_back(numbers({f.x, f.y, f.timer, f.power}));
+        trace::Fields state{{"level", std::to_string(levelIndex_ + 1)}, {"logic_tick", std::to_string(logicTick_)},
+            {"random_seed", std::to_string(randomSeed_)}, {"player_count", std::to_string(playerCount_)},
+            {"flow", numbers({menu_, static_cast<int>(menuPage_), paused_, levelIntro_.active, levelOutro_.active,
+                levelOutro_.awaitKey, levelResetGeneration_, levelRestartPromoted_})},
+            {"presentation", numbers({gameplayViewWidth_, showBackground_, menuItalian_, backdropPitch_, redPalettePhase_,
+                cameraShakeTicks_, cameraShakeOffset_})},
+            {"progress", numbers({collected_, destroyed_, level_.requiredBonus, level_.requiredDestruction, level_.fieldB,
+                completeTimer_, nextCollapseFragmentWord_})},
+            {"dimensions", numbers({level_.width, level_.height})}, {"tiles_hex", quote(trace::hexBytes(level_.tiles))},
+            {"words_hex", quote(trace::hexBytes(words))}, {"palette_rgb_hex", quote(trace::hexBytes(colors))},
+            {"backdrop_fnv1a64", quote(trace::fingerprint(backdropBuffer_))},
+            {"players", trace::array({player(player_, 1), player(player2_, 2)})},
+            {"reentry", numbers({reentryGate_, noActivePlayerTicks_, levelIntroFrame_})},
+            {"intro", numbers({levelIntro_.startedAt, levelIntro_.levelIndex, levelIntro_.pattern.horizontalStep,
+                levelIntro_.pattern.verticalStep})},
+            {"outro", numbers({levelOutro_.startedAt, levelOutro_.destBonus, levelOutro_.bombBonus[0], levelOutro_.bombBonus[1],
+                levelOutro_.awarded[0], levelOutro_.awarded[1], levelOutro_.playerActive[0], levelOutro_.playerActive[1],
+                levelOutro_.typingSkipped, levelOutro_.typingSkipAt})},
+            {"next_actor_order", std::to_string(nextActorOrder_)},
+            {"sound_latch", numbers({soundLatch_.active, soundLatch_.currentSelector, soundLatch_.latchedOffset,
+                static_cast<int64_t>(soundLatch_.recordIndex), soundLatch_.directSweep,
+                lastPumpedSoundRecord_, lastPumpedSoundOffset_, lastPumpedSoundSelector_})},
+            {"bombs", trace::array(bombs)}, {"monsters", trace::array(monsters)}, {"rewards", trace::array(rewards)},
+            {"effects", trace::array(effects)}, {"flames", trace::array(flames)}, {"debris", trace::array(debris)},
+            {"collapse", trace::array(collapse)}, {"spawners", trace::array(spawners)}, {"transients", trace::array(transients)},
+            {"markers", trace::array(markers)}, {"flashes", trace::array(flashes)}};
+        return trace::object(state);
+    }
+
+    bool replayClockEnabled_ = false;
+    uint32_t replayMilliseconds_ = 0;
+    const uint8_t* replayKeyboard_ = nullptr;
     Palette palette_{};
     Palette backgroundPalette_{};
     IndexedImage background_;
@@ -26326,7 +26558,7 @@ private:
         }
         LevelIntroPattern pattern = makeLevelIntroPattern();
         levelIntro_.active = true;
-        levelIntro_.startedAt = SDL_GetTicks();
+        levelIntro_.startedAt = presentationMilliseconds();
         levelIntro_.levelIndex = levelIndex_;
         levelIntro_.pattern = pattern;
         if (levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("intro_wait");
@@ -26388,7 +26620,7 @@ private:
                 // The original renderer consumes one key to finish the
                 // current line's remaining typing; jump to the end of the
                 // typing segment in progress.
-                const uint32_t elapsed = SDL_GetTicks() - levelOutro_.startedAt;
+                const uint32_t elapsed = presentationMilliseconds() - levelOutro_.startedAt;
                 for (const OutroSegment& seg : levelOutroSchedule()) {
                     if (seg.typing && elapsed >= seg.start && elapsed < seg.end) {
                         levelOutro_.startedAt -= (seg.end - elapsed);
@@ -26951,11 +27183,11 @@ private:
 
     void update(float dt) {
         if (levelIntro_.active) {
-            updateLevelIntro(SDL_GetTicks());
+            updateLevelIntro(presentationMilliseconds());
             return;
         }
         if (menu_ || paused_) return;
-        updateWithControls(controlsFromKeyboard(SDL_GetKeyboardState(nullptr)), dt);
+        updateWithControls(controlsFromKeyboard(replayKeyboard_ ? replayKeyboard_ : SDL_GetKeyboardState(nullptr)), dt);
     }
 
     void updatePlayerReentryPrepass(const FrameControls& controls) {
@@ -27179,7 +27411,7 @@ private:
     void beginLevelOutro() {
         levelOutro_ = {};
         levelOutro_.active = true;
-        levelOutro_.startedAt = SDL_GetTicks();
+        levelOutro_.startedAt = presentationMilliseconds();
         // The original scores the destruction counter x10 and the remaining
         // bombs at 100/500/2000 points for medium/big/super (smalls score
         // nothing) -- verified against a live completion (inventory 200/20/6/0
@@ -27248,7 +27480,7 @@ private:
 
     void drawLevelOutro() {
         if (!levelOutro_.active) return;
-        const uint32_t elapsed = SDL_GetTicks() - levelOutro_.startedAt;
+        const uint32_t elapsed = presentationMilliseconds() - levelOutro_.startedAt;
         const std::vector<OutroLine> lines = levelOutroLines();
         const std::vector<OutroSegment> segs = levelOutroSchedule();
         for (const OutroSegment& seg : segs) {
@@ -27289,7 +27521,7 @@ private:
             // advance.
             if (interactiveLevelIntroEnabled_) {
                 if (!levelOutro_.active) beginLevelOutro();
-                updateLevelOutro(SDL_GetTicks());
+                updateLevelOutro(presentationMilliseconds());
                 return;
             }
             if (completeTimer_ == 0) {
@@ -30542,7 +30774,7 @@ private:
     void draw() {
         if (levelIntro_.active) {
             drawLevelIntro(levelIntro_.levelIndex, levelIntro_.pattern,
-                           visibleLevelIntroCharacters(SDL_GetTicks()));
+                           visibleLevelIntroCharacters(presentationMilliseconds()));
         } else if (menu_) drawMenu();
         else drawGame();
         if (SDL_UpdateTexture(texture_, nullptr, fb_.data(),
@@ -31716,6 +31948,11 @@ private:
 int main(int argc, char** argv) {
     try {
         App app;
+        if (argc > 1 && std::string(argv[1]) == "--replay-level1") {
+            if (argc != 4) throw std::runtime_error("usage: --replay-level1 ROUTE OUTPUT_DIR");
+            app.debugLevel1Replay(argv[2], argv[3]);
+            return 0;
+        }
         if (argc > 1 && std::string(argv[1]) == "--validate") {
             app.validate();
             return 0;

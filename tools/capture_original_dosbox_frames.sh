@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export SDL_AUDIODRIVER=dummy
 
 if [[ $# -lt 1 || $# -gt 3 ]]; then
     echo "usage: $0 out_dir [asset_dir] [scenario]" >&2

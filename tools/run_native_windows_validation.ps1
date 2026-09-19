@@ -10,6 +10,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$env:SDL_AUDIODRIVER = "dummy"
 
 function Require-Path($Path, $Label) {
     if (-not (Test-Path -LiteralPath $Path)) {

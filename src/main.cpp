@@ -1,7 +1,5 @@
-#define main(...) lezac_app_main(__VA_ARGS__)
-#include "app/app.cpp"
-#undef main
+#include "app/app.hpp"
 
 int main(int argc, char** argv) {
-    return lezac_app_main(argc, argv);
+    return lezac::app::runApplication(argc, argv);
 }

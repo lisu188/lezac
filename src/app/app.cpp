@@ -1,4 +1,9 @@
 #include <SDL.h>
+#include "app/sdl_runtime.hpp"
+#include "rendering/canvas.hpp"
+#include "rendering/color.hpp"
+#include "rendering/text_renderer.hpp"
+#include "rendering/sdl_display.hpp"
 
 #include <algorithm>
 #include <array>
@@ -123,8 +128,8 @@ using lezac::core::kBackgroundH;
 using lezac::core::kBackgroundW;
 using lezac::core::kTileSize;
 
-constexpr int kScreenW = 320;
-constexpr int kScreenH = 200;
+using lezac::rendering::kScreenW;
+using lezac::rendering::kScreenH;
 // CARO.CAR tile index used by the reconstructed bottom HUD: the fixed
 // destruction-target star (verified from the original HUD icon renderer, which
 // blits 8x8 CARO tiles, not BOMOMIMK sprites, for the objective icons).
@@ -755,11 +760,7 @@ void integrateAxis8_8(int& pos, uint8_t& frac, int16_t velocity) {
     frac = axis.fraction;
 }
 
-uint32_t argb(const Palette& palette, uint8_t index) {
-    const Rgb c = palette[index];
-    return 0xff000000u | (static_cast<uint32_t>(c.r) << 16) |
-           (static_cast<uint32_t>(c.g) << 8) | c.b;
-}
+using lezac::rendering::argb;
 
 std::string hex64(uint64_t value) {
     std::ostringstream oss;
@@ -23704,10 +23705,6 @@ public:
 
     ~App() {
         audioOutput_.close();
-        if (texture_) SDL_DestroyTexture(texture_);
-        if (renderer_) SDL_DestroyRenderer(renderer_);
-        if (window_) SDL_DestroyWindow(window_);
-        SDL_Quit();
     }
 
 private:
@@ -23831,6 +23828,9 @@ private:
     bool replayClockEnabled_ = false;
     uint32_t replayMilliseconds_ = 0;
     const uint8_t* replayKeyboard_ = nullptr;
+    lezac::app::SdlRuntime sdl_;
+    lezac::rendering::SdlDisplay display_;
+    lezac::rendering::Canvas canvas_;
     AssetCatalog assets_;
     Palette palette_{};
     Palette initialPalette_{};
@@ -23848,6 +23848,7 @@ private:
     const SpriteBank& sprites_ = assets_.sprites();
     const SpriteBank& altSprites_ = assets_.altSprites();
     const SpriteBank& fontSprites_ = assets_.fontSprites();
+    lezac::rendering::TextRenderer textRenderer_{canvas_, palette_, fontSprites_};
     const SoundBank& sounds_ = assets_.sounds();
     lezac::sound::SoundEngine sound_{sounds_};
     lezac::sound::SdlAudioOutput audioOutput_;
@@ -23887,20 +23888,13 @@ private:
     std::vector<DebrisRecord> debrisQueue_;
     std::vector<CollapseRecord> collapseQueue_;
     uint16_t nextCollapseFragmentWord_ = 0;
-    std::vector<uint32_t> fb_ = std::vector<uint32_t>(kScreenW * kScreenH);
-    SDL_Window* window_ = nullptr;
-    SDL_Renderer* renderer_ = nullptr;
-    SDL_Texture* texture_ = nullptr;
+    std::vector<uint32_t>& fb_ = canvas_.pixels();
     bool menu_ = true;
     MenuPage menuPage_ = MenuPage::Main;
     bool paused_ = false;
     bool showBackground_ = true;
     bool menuItalian_ = true;  // original defaults to Italian; L toggles English
     int gameplayViewWidth_ = kScreenW;
-    int clipLeft_ = 0;
-    int clipTop_ = 0;
-    int clipRight_ = kScreenW;
-    int clipBottom_ = kScreenH;
     int collected_ = 0;
     int destroyed_ = 0;
     int completeTimer_ = 0;
@@ -23963,30 +23957,8 @@ private:
     EndReason lastEndReason_ = EndReason::GameOver;
 
     void initSdl() {
-        if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
-            throw std::runtime_error(SDL_GetError());
-        }
-        window_ = SDL_CreateWindow("Larax & Zaco C++ reconstruction",
-                                   SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                   kScreenW * 3, kScreenH * 3, SDL_WINDOW_SHOWN);
-        if (!window_) throw std::runtime_error(SDL_GetError());
-        renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED);
-        if (!renderer_) {
-            std::string acceleratedError = SDL_GetError();
-            SDL_ClearError();
-            renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_SOFTWARE);
-            if (!renderer_) {
-                throw std::runtime_error(std::string(SDL_GetError()) +
-                                         " (accelerated renderer failed: " +
-                                         acceleratedError + ")");
-            }
-        }
-        if (SDL_RenderSetLogicalSize(renderer_, kScreenW, kScreenH) != 0) {
-            throw std::runtime_error(SDL_GetError());
-        }
-        texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_ARGB8888,
-                                     SDL_TEXTUREACCESS_STREAMING, kScreenW, kScreenH);
-        if (!texture_) throw std::runtime_error(SDL_GetError());
+        sdl_.initialize();
+        display_.initialize();
         initAudio();
     }
 
@@ -28204,28 +28176,19 @@ private:
     }
 
     void setClip(int left, int top, int right, int bottom) {
-        clipLeft_ = std::clamp(left, 0, kScreenW);
-        clipTop_ = std::clamp(top, 0, kScreenH);
-        clipRight_ = std::clamp(right, clipLeft_, kScreenW);
-        clipBottom_ = std::clamp(bottom, clipTop_, kScreenH);
+        canvas_.setClip(left, top, right, bottom);
     }
 
     void resetClip() {
-        setClip(0, 0, kScreenW, kScreenH);
+        canvas_.resetClip();
     }
 
     void pixel(int x, int y, uint32_t color) {
-        if (x >= clipLeft_ && y >= clipTop_ && x < clipRight_ && y < clipBottom_) {
-            fb_[static_cast<size_t>(y) * kScreenW + x] = color;
-        }
+        canvas_.pixel(x, y, color);
     }
 
     void rect(int x, int y, int w, int h, uint32_t color) {
-        for (int yy = std::max(clipTop_, y); yy < std::min(clipBottom_, y + h); ++yy) {
-            for (int xx = std::max(clipLeft_, x); xx < std::min(clipRight_, x + w); ++xx) {
-                fb_[static_cast<size_t>(yy) * kScreenW + xx] = color;
-            }
-        }
+        canvas_.rect(x, y, w, h, color);
     }
 
     void draw() {
@@ -28234,17 +28197,7 @@ private:
                            visibleLevelIntroCharacters(presentationMilliseconds()));
         } else if (menu_) drawMenu();
         else drawGame();
-        if (SDL_UpdateTexture(texture_, nullptr, fb_.data(),
-                              kScreenW * sizeof(uint32_t)) != 0) {
-            throw std::runtime_error(SDL_GetError());
-        }
-        if (SDL_RenderClear(renderer_) != 0) {
-            throw std::runtime_error(SDL_GetError());
-        }
-        if (SDL_RenderCopy(renderer_, texture_, nullptr, nullptr) != 0) {
-            throw std::runtime_error(SDL_GetError());
-        }
-        SDL_RenderPresent(renderer_);
+        display_.present(canvas_);
     }
 
     void drawBackground(int camX, int camY) {
@@ -28613,12 +28566,7 @@ private:
     }
 
     void drawSprite(const Sprite& sprite, int x0, int y0) {
-        for (int y = 0; y < sprite.height; ++y) {
-            for (int x = 0; x < sprite.width; ++x) {
-                uint8_t c = sprite.pixels[static_cast<size_t>(y) * sprite.width + x];
-                if (c != 0) pixel(x0 + x, y0 + y, argb(palette_, c));
-            }
-        }
+        textRenderer_.drawSprite(sprite, x0, y0);
     }
 
     void drawMonsters(int camX, int camY, uint64_t onlyOrder = 0) {
@@ -29306,117 +29254,34 @@ private:
     }
 
     int fontGlyphIndex(char raw, bool large) const {
-        char ch = raw;
-        if (ch >= 'a' && ch <= 'z') ch = static_cast<char>(ch - 'a' + 'A');
-        if (ch >= 'A' && ch <= 'Z') return (large ? 0 : 26) + (ch - 'A');
-        if (ch >= '0' && ch <= '9') return 52 + (ch - '0');
-        switch (ch) {
-            case '.': return 62;
-            case ':': return 63;
-            case ';': return 64;
-            case ',': return 65;
-            case '!': return 66;
-            case '\'': return 67;
-            default: return -1;
-        }
+        return textRenderer_.fontGlyphIndex(raw, large);
     }
 
     std::array<std::string, 8> fallbackGlyph(char ch) const {
-        switch (ch) {
-            case '/':
-                return {"      # ", "     #  ", "    #   ", "   #    ",
-                        "  #     ", " #      ", "#       ", "        "};
-            case '-':
-                return {"        ", "        ", "        ", " ###### ",
-                        "        ", "        ", "        ", "        "};
-            case '_':
-                return {"        ", "        ", "        ", "        ",
-                        "        ", "        ", " ###### ", "        "};
-            case '%':
-                return {"##    # ", "##   #  ", "    #   ", "   #    ",
-                        "  #     ", " #   ## ", "#    ## ", "        "};
-            case '&':
-                return {"  ###   ", " ## ##  ", " ## #   ", "  ##    ",
-                        " ## # # ", "##  ##  ", " ### ## ", "        "};
-            case '+':
-                return {"        ", "   ##   ", "   ##   ", " ###### ",
-                        "   ##   ", "   ##   ", "        ", "        "};
-            default:
-                return {"        ", "        ", "        ", "        ",
-                        "        ", "        ", "        ", "        "};
-        }
+        return textRenderer_.fallbackGlyph(ch);
     }
 
     void drawFallbackGlyph(int x, int y, char ch, uint32_t color) {
-        const auto rows = fallbackGlyph(ch);
-        for (int yy = 0; yy < 8; ++yy) {
-            for (int xx = 0; xx < 8; ++xx) {
-                if (rows[yy][xx] != ' ') pixel(x + xx, y + yy, color);
-            }
-        }
+        textRenderer_.drawFallbackGlyph(x, y, ch, color);
     }
 
     void drawFontSprite(int x, int y, const Sprite& glyph, uint32_t color,
                         bool preservePalette, bool nativePalette = false) {
-        for (int yy = 0; yy < glyph.height; ++yy) {
-            for (int xx = 0; xx < glyph.width; ++xx) {
-                uint8_t px = glyph.pixels[static_cast<size_t>(yy) * glyph.width + xx];
-                if (px == 0) continue;
-                if (nativePalette) {
-                    // Blit every glyph index through the game palette exactly as
-                    // the original does (no recolour, no synthetic outline).
-                    pixel(x + xx, y + yy, argb(palette_, px));
-                    continue;
-                }
-                pixel(x + xx, y + yy,
-                      preservePalette && px != 1 ? argb(palette_, px) : color);
-            }
-        }
+        textRenderer_.drawFontSprite(x, y, glyph, color, preservePalette, nativePalette);
     }
 
     int glyphAdvance(char raw, bool large = false) const {
-        if (raw == ' ') return large ? 8 : 5;
-        int index = fontGlyphIndex(raw, large);
-        if (index >= 0 && index < static_cast<int>(fontSprites_.sprites.size())) {
-            return fontSprites_.sprites[static_cast<size_t>(index)].width + 1;
-        }
-        return 9;
+        return textRenderer_.glyphAdvance(raw, large);
     }
 
     int textWidth(const std::string& s, bool large = false) const {
-        int width = 0;
-        for (char raw : s) {
-            width += glyphAdvance(raw, large);
-        }
-        return width;
+        return textRenderer_.textWidth(s, large);
     }
 
     void text(int x, int y, const std::string& s, uint32_t color, bool large = false,
               uint32_t shadow = 0, int shadowDx = 1, int shadowDy = 1,
               bool nativePalette = false) {
-        int cx = x;
-        for (char raw : s) {
-            char ch = raw;
-            if (ch == ' ') {
-                cx += glyphAdvance(ch, large);
-                continue;
-            }
-            int index = fontGlyphIndex(ch, large);
-            auto drawOne = [&](int px, int py, uint32_t drawColor, bool preservePalette) {
-                if (index >= 0 && index < static_cast<int>(fontSprites_.sprites.size())) {
-                    const Sprite& glyph = fontSprites_.sprites[static_cast<size_t>(index)];
-                    drawFontSprite(px, py, glyph, drawColor, preservePalette,
-                                   nativePalette);
-                    return glyph.width + 1;
-                }
-                drawFallbackGlyph(px, py, ch, drawColor);
-                return 9;
-            };
-            if (shadow != 0 && !nativePalette) {
-                drawOne(cx + shadowDx, y + shadowDy, shadow, false);
-            }
-            cx += drawOne(cx, y, color, true);
-        }
+        textRenderer_.text(x, y, s, color, large, shadow, shadowDx, shadowDy, nativePalette);
     }
 };
 

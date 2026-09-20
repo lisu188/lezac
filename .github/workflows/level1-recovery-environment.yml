@@ -1,0 +1,40 @@
+name: Level 1 recovery environment
+on:
+  push:
+    branches: [codex/level1-original-lockstep]
+    paths: [.github/workflows/level1-recovery-environment.yml]
+permissions:
+  contents: read
+jobs:
+  environment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install capture dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dosbox xdotool libsdl2-dev
+      - name: Package isolated capture dependencies
+        run: |
+          mkdir -p environment/bin environment/lib environment/include
+          cp /usr/bin/dosbox /usr/bin/xdotool environment/bin/
+          for bin in /usr/bin/dosbox /usr/bin/xdotool; do
+            ldd "$bin" | awk '/=> \/.* / {print $3}' | while read -r lib; do
+              case "$(basename "$lib")" in libc.so*|libm.so*|libpthread.so*|libdl.so*|librt.so*) ;; *) cp -L "$lib" environment/lib/ ;; esac
+            done
+          done
+          cp -a /usr/include/SDL2 environment/include/
+          cp -a /usr/include/x86_64-linux-gnu/SDL2 environment/include/multiarch-SDL2
+          dpkg-query -W dosbox xdotool libsdl2-dev > environment/packages.txt
+          git rev-parse HEAD > environment/source-revision.txt
+          git archive --format=tar.gz --output=level1-current-source.tar.gz HEAD
+          tar -czf level1-capture-environment.tar.gz environment
+      - uses: actions/upload-artifact@v4
+        with:
+          name: level1-capture-environment
+          path: |
+            level1-capture-environment.tar.gz
+            level1-current-source.tar.gz
+          retention-days: 3
+          if-no-files-found: error

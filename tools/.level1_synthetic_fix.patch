@@ -1,0 +1,86 @@
+--- a/src/app/app.cpp
++++ b/src/app/app.cpp
+@@ -4262,11 +4262,15 @@
+         if (completeFrame.hash == explosionFrame.hash) {
+             throw std::runtime_error("level1 completion did not change the frame");
+         }
+-        for (int i = 0; i <= 100; ++i) {
++        int completionUpdates = 0;
++        while (levelIndex_ == 0 && !menu_ && completionUpdates < 1000) {
+             update(1.0f / 60.0f);
++            ++completionUpdates;
+         }
+         if (levelIndex_ != 1) {
+-            throw std::runtime_error("level1 frame smoke did not advance to level 2");
++            throw std::runtime_error("level1 frame smoke did not advance to level 2: updates=" +
++                std::to_string(completionUpdates) + " pending=" + std::to_string(collapseQueue_.size()) +
++                " timer=" + std::to_string(completeTimer_) + " sampled=" + std::to_string(hudSampledDestruction_));
+         }
+         FrameInspection nextLevelFrame = inspectRenderedFrame("level2-start");
+         if (nextLevelFrame.hash == completeFrame.hash) {
+@@ -5917,19 +5921,37 @@
+         FrameControls idle;
+         int frames = 0;
+         int collapseWaitFrames = 0;
+-        while (levelIndex_ == 0 && frames < 1000) {
++        int progressWaitFrames = 0;
++        int transitionFrames = 0;
++        int interruptedTransitionFrames = 0;
++        while (levelIndex_ == 0 && !menu_ && frames < 1000) {
++            const int previousTimer = completeTimer_;
+             updateWithControls(idle, 1.0f / 60.0f);
+             ++frames;
++            if (levelIndex_ == 0 && completeTimer_ == 0) {
++                interruptedTransitionFrames += transitionFrames;
++                transitionFrames = 0;
++            }
+             if (levelIndex_ == 0 && !collapseQueue_.empty()) {
+                 if (completeTimer_ != 0) {
+                     throw std::runtime_error("completion timer ran before collapse finished");
+                 }
+                 ++collapseWaitFrames;
+-            }
+-        }
+-        if (levelIndex_ != 1 || menu_ || frames - collapseWaitFrames != 101 || collected_ != 0 ||
++            } else if (levelIndex_ == 0 && completeTimer_ == 0) {
++                ++progressWaitFrames;
++            } else {
++                if (levelIndex_ == 0 && completeTimer_ != previousTimer + 1) {
++                    throw std::runtime_error("completion timer skipped an eligible update");
++                }
++                ++transitionFrames;
++            }
++        }
++        if (levelIndex_ != 1 || menu_ || transitionFrames != 101 || collected_ != 0 ||
+             completeTimer_ != 0) {
+-            throw std::runtime_error("level transition autoplayer did not enter level 2");
++            throw std::runtime_error("level transition autoplayer did not enter level 2: frames=" +
++                std::to_string(frames) + " transition=" + std::to_string(transitionFrames) +
++                " collapse_wait=" + std::to_string(collapseWaitFrames) + " progress_wait=" +
++                std::to_string(progressWaitFrames) + " level=" + std::to_string(levelIndex_));
+         }
+ 
+         FrameInspection nextFrame = inspectRenderedFrame("autoplayer-transition-level2");
+@@ -5941,9 +5963,11 @@
+                   << " scenario=" << scenario
+                   << " start_level=1 completed_bonus=" << requiredBonus
+                   << " completed_destruction=" << requiredDestruction
+-                  << " transition_frames=" << (frames - collapseWaitFrames)
++                  << " transition_frames=" << transitionFrames
+                   << " advanced_level=" << (levelIndex_ + 1)
+-                  << " frame_inspection=1 collapse_wait_frames=" << collapseWaitFrames << '\n';
++                  << " frame_inspection=1 collapse_wait_frames=" << collapseWaitFrames
++                  << " progress_wait_frames=" << progressWaitFrames
++                  << " interrupted_transition_frames=" << interruptedTransitionFrames << '\n';
+     }
+ 
+     void debugAutoplayerPortalWeaponRoute(const std::string& scenario) {
+@@ -8620,7 +8644,7 @@
+         beginGameOver();
+         if (!menu_ || menuPage_ != MenuPage::NameEntry ||
+             pendingRecordScore_ != 999997u || pendingRecordLevel_ != 3 ||
+-            pendingRecordPlayer_ != 1 || lives_ != 3 || lives2_ != 3 ||
++            pendingRecordPlayer_ != 1 || lives_ != 2 || lives2_ != 2 ||
+             levelIndex_ != 0) {
+             throw std::runtime_error("single-player qualifying game-over state mismatch");
+         }

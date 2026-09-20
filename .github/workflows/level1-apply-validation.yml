@@ -1,0 +1,121 @@
+name: Validate natural Level 1 recovery
+on:
+  push:
+    branches: [codex/level1-original-lockstep]
+    paths: [.github/workflows/level1-apply-validation.yml]
+permissions:
+  contents: write
+jobs:
+  recovery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      SDL_AUDIODRIVER: dummy
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: codex/level1-original-lockstep
+      - name: Verify exact implementation payload
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, json, pathlib, subprocess, zlib
+          p = pathlib.Path
+          chunks = [p(f'tools/.level1_recovery_{i}.b64').read_text().strip() for i in range(5)]
+          fixes = {0: [('TCaheBUZ+Fsw', 'TCaheVZ+Fsw'), ('vzfq9hq9fSW8', 'vzfq9hq9SW8')], 1: [('slm2/YfbXTL', 'slm2/YfbTL')], 3: [('e9PVZGJJ16', 'e9PVZGJ16')]}
+          hashes = ['75a8453241f3e8acdd219e359b3e9069788ee677e01b268f6809c775eaf59c', '7f9a29b1a36f8625a4ca368976786bd4a15265f80a99c63bcb2c432f6612a340', 'c58c8e64c5c93b3c66f0c9a95850eef30e3460a5b87a38a58e176d450b8a8f87', '9b120517499f06dbb57d1892f92853e1f747fa3f4634d88b91616d18bbd5bfee', 'e41ab1618b8cfe76aacf51932bc7fccb7287d181b9fb0cd582e0707af4adcbe2']
+          for i in range(5):
+              for before, after in fixes.get(i, []):
+                  chunks[i] = chunks[i].replace(before, after)
+              actual = hashlib.sha256(chunks[i].encode()).hexdigest()
+              assert actual == hashes[i], (i, len(chunks[i]), actual)
+          patch = zlib.decompress(base64.b64decode(''.join(chunks), validate=True))
+          assert hashlib.sha256(patch).hexdigest() == '0f99b09c5e16d3841673904ab2d1023281ec5d18f51fb7708badd7ce75e36574'
+          p('/tmp/level1-recovery.patch').write_bytes(patch)
+          subprocess.run(['git','apply','--check','/tmp/level1-recovery.patch'], check=True)
+          subprocess.run(['git','apply','/tmp/level1-recovery.patch'], check=True)
+          expected = {
+            'CMakeLists.txt':'fb61aadbcf3dd6f46a71333cdd98e8d3252c54233be3c16fa45d014c54a9a3da',
+            'RECOVERY_STATUS.md':'b0bc2fad3e45b5f5bf66361749fb392a1a711583eca315e52145d9d820132f25',
+            'docs/recovery/port_completion_status.md':'a44e614d30c724e91ef7143141c07b964341f6b464958e4f7700073e26146edb',
+            'src/app/app.cpp':'9bbd0bb9651a372925972635803c7e6676d4d5b871de391ba9d45c5af2b2fbaf',
+            'tools/source_ownership.json':'e5c3972951c67f113176a203bfe0e2ad95ceb5423fc34d2b2c01b41bf45aa165',
+            'docs/recovery/level1_natural_runtime_2026-09-20.md':'1ae29a866eb41c88616e1761725e53ccdb86fd6b667fc043b5c6cda59b8da68e',
+            'src/core/palette_fade.hpp':'f360854be9c63fc076772902771959868a6e8c63a9590ac9dbb9b231fd4797a7',
+            'src/core/score_display.hpp':'de30afe1dd92d0a91640f1b83f1034d417b74fac5b5106623fa4df83b1f2194b',
+            'tests/core/palette_fade_test.cpp':'7cc2fdafaaf2267cc18af9b3fae143f3a892be6bad1edfa0e9cb8fa965727e18',
+            'tests/core/score_display_test.cpp':'65d8549fa3f79a47379e21bcb3d55c6ee3479be4832ecd650705ed46afa91d3a',
+            'tests/routes/level1_complete_1p.route':'d5ff823600747b8efbdfb17855919ed2f12dc9304acff76d81b421b2cdbfc1f0',
+            'tools/capture_original_level1.py':'8c24a72931e01f7d3b5e7b1de7db106fcc6ced4887b8d001a731c095a869a73b',
+            'tools/level1_original_fidelity.py':'15d80df575a300dd8da191285586bc8f65e0551f801bb8519bbe9b2025398354',
+            'tools/test_level1_original_fidelity.py':'8e347523b93b81a7781e7d641a805dd34551d12313fe0970383156cabaa1ff41'}
+          for name, sha in expected.items():
+              assert hashlib.sha256(p(name).read_bytes()).hexdigest() == sha, name
+          supplement = p('tools/.level1_synthetic_fix.patch')
+          assert hashlib.sha256(supplement.read_bytes()).hexdigest() == '34f802f82ed3a825cb299ffa09a3a84a9968a91aadb4f615427543136cc46294'
+          subprocess.run(['git','apply',str(supplement)], check=True)
+          expected['src/app/app.cpp'] = '437285ae88d42e32d3edbfe4fa6894b493c5253c32fbc06c1cee7742c65493a9'
+          assert hashlib.sha256(p('src/app/app.cpp').read_bytes()).hexdigest() == expected['src/app/app.cpp']
+          p('/tmp/level1-source-hashes.json').write_text(json.dumps(expected, sort_keys=True, indent=2)+'\n')
+          PY
+      - name: Install capture and build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev python3 python3-pil dosbox xvfb xdotool
+      - name: Build recovery
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+          cmake --build build --parallel 2
+      - name: Independently record original natural completion
+        run: |
+          python3 tools/capture_original_level1.py --route tests/routes/level1_complete_1p.route --out /tmp/lezac-ci-original --updates 600 --approve-procmem --approve-runtime-instrumentation 2>&1 | tee /tmp/level1-original-capture.log
+          python3 tools/level1_original_fidelity.py pack /tmp/lezac-ci-original tests/fixtures/level1_natural_original.zip | tee /tmp/level1-pack.json
+          sha256sum tests/fixtures/level1_natural_original.zip | cut -d' ' -f1 > tests/fixtures/level1_natural_original.sha256
+      - name: Compare all original frames and state phases
+        run: |
+          python3 tools/level1_original_fidelity.py run tests/fixtures/level1_natural_original.zip --expected-sha "$(cat tests/fixtures/level1_natural_original.sha256)" --exe build/lezac_cpp --out /tmp/lezac-ci-verified | tee /tmp/level1-original-comparison.log
+      - name: Full regression suite
+        env:
+          SDL_VIDEODRIVER: dummy
+        run: ctest --test-dir build --output-on-failure --timeout 120 --parallel 2 | tee /tmp/level1-full-tests.log
+      - name: Commit only validated implementation and original evidence
+        run: |
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = 92a0cd3180ce3467f662c192d6d337c2a3b11365
+          python3 - <<'PY'
+          import hashlib, json, pathlib, subprocess
+          expected=json.loads(pathlib.Path('/tmp/level1-source-hashes.json').read_text())
+          for name, sha in expected.items():
+              assert hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest()==sha, name
+          result=json.loads(pathlib.Path('/tmp/lezac-ci-verified/comparison/comparison.json').read_text())
+          assert result['status']=='match' and result['first_divergence'] is None
+          result['fixture_sha256']=pathlib.Path('tests/fixtures/level1_natural_original.sha256').read_text().strip()
+          result['verified_source_sha256']=expected
+          report='docs/recovery/level1_natural_validation.json'
+          pathlib.Path(report).write_text(json.dumps(result,sort_keys=True,indent=2)+'\n')
+          subprocess.run(['git','add',*expected,'tests/fixtures/level1_natural_original.zip','tests/fixtures/level1_natural_original.sha256',report],check=True)
+          PY
+          git rm tools/.level1_recovery_*.b64 tools/.level1_synthetic_fix.patch .github/workflows/level1-apply-validation.yml .github/workflows/level1-recovery-environment.yml
+          git diff --cached --check
+          git config user.name 'Lezac validation'
+          git config user.email 'lezac-validation@users.noreply.github.com'
+          git commit -m 'Recover natural Level 1 gameplay and original full-frame parity'
+          git push origin HEAD:codex/level1-original-lockstep
+          git archive --format=tar.gz --output=/tmp/level1-validated-source.tar.gz HEAD
+      - name: Preserve capture and verification artifacts
+        if: always()
+        run: |
+          mkdir -p validation-artifacts
+          cp tools/.level1_recovery_*.b64 validation-artifacts/ 2>/dev/null || true
+          cp /tmp/level1-*.* validation-artifacts/ 2>/dev/null || true
+          cp tests/fixtures/level1_natural_original.* validation-artifacts/ 2>/dev/null || true
+          cp /tmp/lezac-ci-verified/comparison/comparison.json validation-artifacts/ 2>/dev/null || true
+          if test -d /tmp/lezac-ci-original; then tar -czf validation-artifacts/original-capture.tar.gz -C /tmp lezac-ci-original; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: level1-original-recovery-validation
+          path: validation-artifacts
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: error

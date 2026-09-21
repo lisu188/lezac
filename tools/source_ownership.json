@@ -5,6 +5,7 @@
       "runtime": [
         "src/core/constants.hpp",
         "src/core/fixed_point.hpp",
+        "src/core/hud.hpp",
         "src/core/progress.cpp",
         "src/core/progress.hpp",
         "src/core/random.hpp"

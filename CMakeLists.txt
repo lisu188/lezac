@@ -132,6 +132,12 @@ include(CTest)
 if(BUILD_TESTING)
     add_executable(lezac_core_primitives_test tests/core/core_primitives_test.cpp)
     target_link_libraries(lezac_core_primitives_test PRIVATE lezac_core)
+    add_executable(lezac_hud_test tests/core/hud_test.cpp)
+    target_link_libraries(lezac_hud_test PRIVATE lezac_core)
+    add_test(NAME hud_models COMMAND lezac_hud_test)
+    set_tests_properties(hud_models PROPERTIES
+        PASS_REGULAR_EXPRESSION "hud_models=ok reels=1 fades=1 capacity=1 wrap=1")
+
     add_test(NAME core_primitives COMMAND lezac_core_primitives_test)
     set_tests_properties(core_primitives PROPERTIES
         PASS_REGULAR_EXPRESSION "^core_primitives=ok constants=3 progress=1 fixed=1 random=1")
@@ -4589,6 +4595,25 @@ if(BUILD_TESTING)
             "^two_player_hud_panel=ok split_views=2 p1_hud_visible=1 p1_world_visible=1 p2_hud_visible=1 p2_world_visible=1 objective_panel_visible=1 objective_panel_changed=1 panel_x=141 panel_w=37 p2_column_x=180 frame_inspection=1 original_art_claim=0")
 
     if(Python3_Interpreter_FOUND)
+        foreach(level1_case walk bomb objective)
+            add_test(NAME level1_original_${level1_case}
+                COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                        ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_level1_original.py
+                        --exe $<TARGET_FILE:lezac_cpp> --case ${level1_case})
+            set_tests_properties(level1_original_${level1_case} PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                TIMEOUT 180 LABELS "level1;original;fullframe"
+                PASS_REGULAR_EXPRESSION "level1_original=ok case=${level1_case} frames=[0-9]+ pixels=[0-9]+ differing_pixels=0")
+        endforeach()
+        add_test(NAME level1_original_guard
+            COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                    ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_level1_original.py
+                    --exe $<TARGET_FILE:lezac_cpp>)
+        set_tests_properties(level1_original_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            TIMEOUT 180 LABELS "level1;original;evidence-guard"
+            PASS_REGULAR_EXPRESSION "level1_original_guard=ok tests=7 mutations=16 fullframe=1 late_validation=1")
+
         add_test(NAME level1_replay
             COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                     ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_level1_replay.py

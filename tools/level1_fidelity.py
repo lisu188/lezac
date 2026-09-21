@@ -125,8 +125,10 @@ def read_ppm(path: Path) -> bytes:
     return data[len(header):]
 
 
-def validate_state(state: Any) -> None:
-    require(isinstance(state, dict) and set(state) == STATE_KEYS, "invalid observation fields")
+def validate_state(state: Any, version: int = 2) -> None:
+    require(isinstance(state, dict) and set(state) == STATE_KEYS | ({"hud"} if version == 2 else set()), "invalid observation fields")
+    if version == 2:
+        require(isinstance(state["hud"], list) and len(state["hud"]) == 20 and all(type(v) is int for v in state["hud"]), "invalid HUD observations")
     for key, bounds in {"level": (1, 7), "logic_tick": (0, 2**32 - 1), "random_seed": (0, 2**32 - 1),
                         "player_count": (1, 2), "next_actor_order": (1, 2**64 - 1)}.items():
         require(integer(state[key], *bounds), f"invalid state {key}")
@@ -143,7 +145,9 @@ def validate_state(state: Any) -> None:
     require(isinstance(players, list) and len(players) == 2, "invalid player observations")
     for player in players:
         require(isinstance(player, dict) and set(player) == {"x", "y", "vx8", "vy8", "frac_x", "frac_y",
-                "animation", "animation_backup", "sprite", "health", "waiting", "score", "inventory", "cooldowns"}, "invalid player fields")
+                "animation", "animation_backup", "sprite", "health", "waiting", "score", "inventory", "cooldowns"} | ({"hud_score"} if version == 2 else set()), "invalid player fields")
+        if version == 2:
+            require(isinstance(player["hud_score"], list) and len(player["hud_score"]) == 20 and all(type(v) is int for v in player["hud_score"]), "invalid HUD score observations")
         for key in ("x", "y"):
             require(type(player[key]) in (int, float) and math.isfinite(player[key]), "invalid player position")
         for key in ("vx8", "vy8"):
@@ -175,7 +179,7 @@ def trace_rows(root: Path, manifest: dict[str, Any] | None = None) -> Iterator[d
             if header is None:
                 require(set(row) == HEADER_KEYS and row["kind"] == "header", "invalid trace header")
                 require(row["schema"] == "lezac.level1.trace.v1" and row["source"] == "cpp" and
-                        row["phase_model"] == "cpp-post-update-v1" and row["state_scope"] == "level1-observations-v1" and
+                        (row["phase_model"], row["state_scope"]) in {("cpp-post-update-v1", "level1-observations-v1"), ("cpp-pre-actors-v2", "level1-observations-v2")} and
                         row["input_model"] == "sdl-events-keyboard-adapter-v1", "unsupported trace contract")
                 require(row["original_fidelity_claim"] is False and type(row["width"]) is int and row["width"] == 320 and type(row["height"]) is int and row["height"] == 200, "invalid fidelity claim or frame size")
                 require(all(type(row[key]) is int and row[key] == value for key, value in settings.items()), "route settings differ from trace")
@@ -196,7 +200,8 @@ def trace_rows(root: Path, manifest: dict[str, Any] | None = None) -> Iterator[d
                 require(type(row["time_ms"]) is int and row["time_ms"] == max(0, tick - 1) * settings["step_us"] // 1000, "invalid clock sample")
                 expected_events = route_events.get(tick - 1, []) if tick else []
                 require(row["events"] == expected_events, "event log differs from route")
-                validate_state(row["state"])
+                version = 2 if header["state_scope"] == "level1-observations-v2" else 1
+                validate_state(row["state"], version)
                 if phase == "post_update":
                     state = row["state"]
                     completion_seen |= state["level"] == 1 and state["flow"][4] == 1
@@ -210,10 +215,13 @@ def trace_rows(root: Path, manifest: dict[str, Any] | None = None) -> Iterator[d
                         require(manifest["frames"].get(name) == sha256(path), "frame SHA-256 mismatch")
                     frame_names.add(name)
                     frames += 1
+                if phase == "initial" or (version == 1 and phase == "present") or (version == 2 and phase == "post_update"):
                     tick += 1
                     expected = "input"
                 elif phase == "input":
                     event_count += len(expected_events)
+                    expected = "present" if version == 2 else "after_nonplayers"
+                elif version == 2 and phase == "present":
                     expected = "after_nonplayers"
                 else:
                     expected = "post_update" if phase == "after_nonplayers" else "present"

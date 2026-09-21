@@ -27,6 +27,7 @@
 #include "diagnostics/level1_trace.hpp"
 #include "core/constants.hpp"
 #include "core/fixed_point.hpp"
+#include "core/hud.hpp"
 #include "core/progress.hpp"
 #include "core/random.hpp"
 #include "resources/background.hpp"
@@ -1544,8 +1545,8 @@ public:
             assets[file] = trace::quote(trace::fingerprint(readFile(file)));
         output << trace::object({{"kind", trace::quote("header")},
             {"schema", trace::quote("lezac.level1.trace.v1")}, {"source", trace::quote("cpp")},
-            {"phase_model", trace::quote("cpp-post-update-v1")},
-            {"state_scope", trace::quote("level1-observations-v1")},
+            {"phase_model", trace::quote("cpp-pre-actors-v2")},
+            {"state_scope", trace::quote("level1-observations-v2")},
             {"input_model", trace::quote("sdl-events-keyboard-adapter-v1")},
             {"asset_fnv1a64", trace::object(assets)},
             {"route_fnv1a64", trace::quote(trace::fingerprint(readFile(routePath)))},
@@ -1621,12 +1622,10 @@ public:
                 processEvents(running);
                 if (!running) throw std::runtime_error("level1 replay quit before route end");
                 checkpoint("input", false);
-                update(static_cast<float>(route.stepUs / 1000000.0));
+                tickAndPresent(static_cast<float>(route.stepUs) / 1000000.0f, [&] { checkpoint("present", true); });
                 completionObserved = completionObserved || (levelIndex_ == 0 && levelOutro_.active);
                 level2Playable = level2Playable || (completionObserved && levelIndex_ == 1 && !menu_ && !paused_ && !levelIntro_.active && !levelOutro_.active);
                 checkpoint("post_update", false);
-                draw();
-                checkpoint("present", true);
             }
             output << trace::object({{"kind", trace::quote("complete")},
                 {"ticks", std::to_string(route.ticks)}, {"checkpoints", std::to_string(sequence)},
@@ -1691,7 +1690,25 @@ public:
         } else {
             loadOriginalAssets();
         }
+        initialPalette_ = palette_;
         buildBackdropBuffer();
+    }
+
+    void tickAndPresent(float dt, const std::function<void()>& afterPresent = {}) {
+        bool presented = false;
+        gameplayPresentation_ = [&] {
+            draw();
+            presented = true;
+            if (afterPresent) afterPresent();
+        };
+        try {
+            update(dt);
+            if (!presented) gameplayPresentation_();
+        } catch (...) {
+            gameplayPresentation_ = {};
+            throw;
+        }
+        gameplayPresentation_ = {};
     }
 
     // The one implementation of the interactive cadence. Events are polled
@@ -1726,7 +1743,7 @@ public:
             bool ticked = false;
             while (tickAccumulatorMs >= kGovernedTickMs) {
                 tickAccumulatorMs -= kGovernedTickMs;
-                update(static_cast<float>(kGovernedTickMs / 1000.0));
+                tickAndPresent(static_cast<float>(kGovernedTickMs / 1000.0));
                 ++ticks;
                 ticked = true;
             }
@@ -1735,7 +1752,6 @@ public:
                 lastTickAt = now;
                 governedMaxTickGapMs_ = std::max(governedMaxTickGapMs_,
                                                  static_cast<long>(gap));
-                draw();
             }
             SDL_Delay(kEventPollDelayMs);
         }
@@ -5584,6 +5600,7 @@ public:
             throw std::runtime_error("death autoplayer failed to start one-player level 1");
         }
 
+        updateWithControls(FrameControls{}, 1.0f / 60.0f);
         FrameInspection startFrame = inspectRenderedFrame("autoplayer-death-start");
         energy_ = 0;
         lives_ = 3;
@@ -5741,6 +5758,7 @@ public:
             throw std::runtime_error("death visual autoplayer failed to start level 1");
         }
 
+        updateWithControls(FrameControls{}, 1.0f / 60.0f);
         FrameInspection startFrame = inspectRenderedFrame("autoplayer-death-visual-start");
         energy_ = 0;
         lives_ = 3;
@@ -7194,6 +7212,7 @@ public:
             return inspection;
         };
 
+        updateWithControls(FrameControls{}, 1.0f / 60.0f);
         FrameInspection startFrame =
             inspectRenderedFrame("autoplayer-two-player-death-visual-start");
         int p1StartX = static_cast<int>(player_.x);
@@ -25959,6 +25978,7 @@ public:
         bombInventory2_.selected = BombType::Super;
         bombInventory2_.counts = {188, 3, 1, 0};
 
+        for (int tick = 0; tick < 30; ++tick) updateWithControls(FrameControls{}, 1.0f / 60.0f);
         FrameInspection first = inspectRenderedFrame("two-player-hud-panel-first");
         std::vector<uint32_t> firstPixels = fb_;
         // New original layout: side-by-side 152x152 views inside white/grey
@@ -25984,6 +26004,7 @@ public:
                               destroyed_ + std::max(1, level_.startingDestructibleTiles / 5));
         score2_ += 250;
         energy2_ = 7;
+        for (int tick = 0; tick < 30; ++tick) updateWithControls(FrameControls{}, 1.0f / 60.0f);
         FrameInspection second = inspectRenderedFrame("two-player-hud-panel-second");
         if (second.hash == first.hash ||
             !regionChanged(firstPixels, 141, 160, 37, 39) ||   // objective tallies
@@ -26094,6 +26115,13 @@ private:
                 {"waiting", numbers({second ? reentryTimer2_ : reentryTimer_, second ? deathStateTimer2_ : deathStateTimer_,
                     second ? pendingLifeLoss2_ : pendingLifeLoss_, second ? reentryFire2_ : reentryFire1_})},
                 {"score", std::to_string(second ? score2_ : score_)},
+                {"hud_score", numbers({hudScores_[second ? 1 : 0].value, hudScores_[second ? 1 : 0].phase,
+                    hudScores_[second ? 1 : 0].current[0], hudScores_[second ? 1 : 0].current[1], hudScores_[second ? 1 : 0].current[2],
+                    hudScores_[second ? 1 : 0].current[3], hudScores_[second ? 1 : 0].current[4], hudScores_[second ? 1 : 0].current[5],
+                    hudScores_[second ? 1 : 0].current[6], hudScores_[second ? 1 : 0].current[7], hudScores_[second ? 1 : 0].current[8],
+                    hudScores_[second ? 1 : 0].target[0], hudScores_[second ? 1 : 0].target[1], hudScores_[second ? 1 : 0].target[2],
+                    hudScores_[second ? 1 : 0].target[3], hudScores_[second ? 1 : 0].target[4], hudScores_[second ? 1 : 0].target[5],
+                    hudScores_[second ? 1 : 0].target[6], hudScores_[second ? 1 : 0].target[7], hudScores_[second ? 1 : 0].target[8]})},
                 {"inventory", numbers({inventory.counts[0], inventory.counts[1], inventory.counts[2], inventory.counts[3],
                     static_cast<int>(inventory.selected)})},
                 {"cooldowns", numbers({second ? portalCooldown2_ : portalCooldown_, second ? triggerCooldown2_ : triggerCooldown_,
@@ -26150,6 +26178,12 @@ private:
                 levelOutro_.awaitKey, levelResetGeneration_, levelRestartPromoted_})},
             {"presentation", numbers({gameplayViewWidth_, showBackground_, menuItalian_, backdropPitch_, redPalettePhase_,
                 cameraShakeTicks_, cameraShakeOffset_})},
+            {"hud", numbers({hudPreviousCollected_, hudPreviousDestruction_, hudDestructionPercent_, hudColumnReady_[0], hudColumnReady_[1],
+                hudPaletteQueue_.count, hudPaletteQueue_.entries[0].index, hudPaletteQueue_.entries[1].index,
+                hudPaletteQueue_.entries[0].current[0], hudPaletteQueue_.entries[0].current[1], hudPaletteQueue_.entries[0].current[2],
+                hudPaletteQueue_.entries[1].current[0], hudPaletteQueue_.entries[1].current[1], hudPaletteQueue_.entries[1].current[2],
+                hudPaletteQueue_.entries[0].target[0], hudPaletteQueue_.entries[0].target[1], hudPaletteQueue_.entries[0].target[2],
+                hudPaletteQueue_.entries[1].target[0], hudPaletteQueue_.entries[1].target[1], hudPaletteQueue_.entries[1].target[2]})},
             {"progress", numbers({collected_, destroyed_, level_.requiredBonus, level_.requiredDestruction, level_.fieldB,
                 completeTimer_, nextCollapseFragmentWord_})},
             {"dimensions", numbers({level_.width, level_.height})}, {"tiles_hex", quote(trace::hexBytes(level_.tiles))},
@@ -26177,6 +26211,15 @@ private:
     uint32_t replayMilliseconds_ = 0;
     const uint8_t* replayKeyboard_ = nullptr;
     Palette palette_{};
+    Palette initialPalette_{};
+    std::array<lezac::core::HudScoreReel, 2> hudScores_{};
+    lezac::core::HudPaletteQueue hudPaletteQueue_{};
+    std::array<bool, 2> hudColumnReady_{};
+    int hudPreviousCollected_ = 20000;
+    int hudPreviousDestruction_ = 200;
+    int hudDestructionPercent_ = 0;
+    bool originalPlayInitialized_ = false;
+    std::function<void()> gameplayPresentation_;
     Palette backgroundPalette_{};
     IndexedImage background_;
     TileBank tiles_;
@@ -26430,6 +26473,12 @@ private:
         nextCollapseFragmentWord_ = level_.fieldA;
         collected_ = 0;
         destroyed_ = 0;
+        hudPaletteQueue_ = {};
+        hudColumnReady_ = {};
+        hudPreviousCollected_ = 20000;
+        hudPreviousDestruction_ = 200;
+        hudDestructionPercent_ = 0;
+        for (int index : {224, 245, 246}) palette_[index] = initialPalette_[index];
         completeTimer_ = 0;
         portalCooldown_ = 0;
         triggerCooldown_ = 0;
@@ -26537,6 +26586,10 @@ private:
     void beginLevelForPlay(int index) {
         // Original level advance jumps to file 0x7f4c, past the new-game clock reset.
         levelIntroFrame_ = menu_ ? 0 : logicTick_;
+        if (menu_ && !originalPlayInitialized_) {
+            std::fill(backdropBuffer_.begin(), backdropBuffer_.end(), 0);
+            originalPlayInitialized_ = true;
+        }
         if (levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("level_init");
         levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
         level_ = levels_[levelIndex_];
@@ -27211,6 +27264,8 @@ private:
     void updateWithControls(const FrameControls& controls, float dt) {
         if (menu_ || paused_ || levelIntro_.active) return;
         ++logicTick_;
+        prepareHudObjectives();
+        if (gameplayPresentation_) gameplayPresentation_();
         // 1000:7A6B precedes state-2 and both actor passes. An effect that
         // expires later this frame still occupies its slot during spawning.
         updateMonsterSpawners();
@@ -27275,11 +27330,36 @@ private:
             }
         }
         drainPlayerDamageCounters();
+        updateHudScores();
         updateFlashes();
         updateCameraShake();
+        hudPaletteQueue_.advance([&](uint8_t index, const std::array<uint8_t, 3>& color) {
+            palette_[index] = {vga6To8(color[0] & 63), vga6To8(color[1] & 63), vga6To8(color[2] & 63)};
+        });
         updateRedPalette(static_cast<uint16_t>(logicTick_));
         updateLevelCompletion();
         pumpSoundLatch();
+    }
+
+    void prepareHudObjectives() {
+        if ((static_cast<uint16_t>(logicTick_) % 30) == 0) hudDestructionPercent_ = destructionPercent();
+        if (collected_ != hudPreviousCollected_) {
+            hudPreviousCollected_ = collected_;
+            hudPaletteQueue_.request(245, {63, 63, 63}, {1, 1, 41});
+        }
+        if (hudDestructionPercent_ != hudPreviousDestruction_) {
+            hudPreviousDestruction_ = hudDestructionPercent_;
+            hudPaletteQueue_.request(246, {63, 63, 63}, {1, 1, 41});
+        }
+    }
+
+    void updateHudScores() {
+        for (int i = 0; i < playerCount_; ++i) {
+            hudScores_[i].setValue(i == 0 ? score_ : score2_);
+            if ((i == 0 ? playerDead_ : player2Dead_) && (i == 0 ? deathStateTimer_ : deathStateTimer2_) == 0) continue;
+            hudScores_[i].advance();
+            hudColumnReady_[i] = true;
+        }
     }
 
     bool activateLaunchPad(Player& player, bool down, int localY) {
@@ -29390,6 +29470,7 @@ private:
     void clearRunScores() {
         score_ = 0;
         score2_ = 0;
+        hudScores_ = {};
     }
 
     bool isFinalLevel() const {
@@ -31317,6 +31398,22 @@ private:
         }
     }
 
+    void drawHudScore(int x, int y, const lezac::core::HudScoreReel& score) {
+        bool leading = true;
+        for (int digit = 8; digit >= 0; --digit) {
+            const auto offset = score.current[static_cast<size_t>(digit)];
+            if (digit != 0 && leading && offset == 0) continue;
+            leading = false;
+            const size_t source = 121 * 64 + offset;
+            if (source + 64 > tiles_.pixels.size()) throw std::runtime_error("HUD score atlas overread");
+            for (int row = 0; row < 8; ++row) {
+                for (int column = 0; column < 8; ++column) {
+                    pixel(x + (8 - digit) * 9 + column, y + row, argb(palette_, tiles_.pixels[source + row * 8 + column]));
+                }
+            }
+        }
+    }
+
     void drawOriginalHudFigure(int x, int y, uint32_t color) {
         // Player-life marker: the original blits CARO.CAR tile 115 (a green
         // walking figure); fall back to a small stick glyph if unavailable.
@@ -31352,7 +31449,9 @@ private:
         // Measured pixel-for-pixel from the original level-1 frame: the grey
         // frame (182,182,182) surrounds the yellow (255,255,85) on all sides.
         rect(xoff, y0 + 10, 102, 3, kGrey);
-        int energyFill = std::clamp(dead ? 0 : energy, 0, 100);
+        const bool ready = hudColumnReady_[xoff == 0 ? 0 : 1];
+        int energyFill = ready ? std::clamp(dead ? 0 : energy, 0, 100) : 0;
+        if (ready) rect(xoff + 1, y0 + 11, 100, 1, argb(palette_, 1));
         rect(xoff + 1, y0 + 11, energyFill, 1, kYellow);
 
         // Score panel: an 88x17 cyan-framed box (x0..87, y0+18..y0+34) with a
@@ -31361,9 +31460,8 @@ private:
         // sides -- not just the left edge -- measured from the level-1 frame.
         rect(xoff, y0 + 18, 88, 17, kCyan);
         rect(xoff + 1, y0 + 19, 86, 15, kBlue);
-        int scoreDigits = static_cast<int>(std::to_string(score).size());
-        int scoreX = std::max(4, 81 - scoreDigits * 9);
-        drawHudNumber(xoff + scoreX, y0 + 22, static_cast<int>(score), 1);
+        (void)score;
+        drawHudScore(xoff, y0 + 22, hudScores_[xoff == 0 ? 0 : 1]);
 
         // Player-life figures: the original HUD shows SPARE lives (the life in
         // play is not counted), so a fresh 3-life start draws two markers --
@@ -31380,6 +31478,10 @@ private:
         const int bx0 = xoff + 119;
         rect(bx0, y0 + 7, 20, 20, kBoxGrey);
         rect(bx0 + 1, y0 + 8, 18, 18, 0xff828282u);
+        if (!hudColumnReady_[xoff == 0 ? 0 : 1]) {
+            rect(bx0, y0 + 27, 20, 9, kBlue);
+            return;
+        }
         rect(bx0 + 2, y0 + 9, 16, 16, 0xff202020u);
         const int bombSprite =
             static_cast<int>(bombProfile(inventory.selected).spriteBase);
@@ -31424,7 +31526,7 @@ private:
         // Centre panel: bomb-count and objective (destruction target) tallies.
         // The original panel spans y0+6..y0+44 (measured 160-198 on level 1),
         // taller than the earlier 34px box.
-        rect(141, y0 + 6, 37, 39, kBlue);
+        rect(141, y0 + 6, 37, 39, argb(palette_, 224));
         rect(141, y0 + 6, 37, 1, kCyan);
         rect(141, y0 + 44, 37, 1, kCyan);
         rect(141, y0 + 6, 1, 39, kCyan);
@@ -31443,10 +31545,9 @@ private:
         // (measured against the original level-1 frame).
         // Each icon sits in an 8x8 black well framed by a 1px darker-blue border
         // (4,4,166) against the panel blue (measured: 36px frame per box).
-        constexpr uint32_t kDarkBlue = 0xff0404a6u;
-        rect(143, y0 + 11, 10, 10, kDarkBlue);
+        rect(143, y0 + 11, 10, 10, argb(palette_, 245));
         rect(144, y0 + 12, 8, 8, kBlack);
-        rect(143, y0 + 27, 10, 10, kDarkBlue);
+        rect(143, y0 + 27, 10, 10, argb(palette_, 246));
         rect(144, y0 + 28, 8, 8, kBlack);
         if (!drawHudTile8(144, y0 + 12, level_.objectiveTile)) {
             rect(144, y0 + 12, 8, 8, kYellow);
@@ -31461,7 +31562,7 @@ private:
             rect(144, y0 + 28, 8, 8, kYellow);
         }
         int destRemaining = std::max(
-            0, static_cast<int>(level_.requiredDestruction) - destructionPercent());
+            0, static_cast<int>(level_.requiredDestruction) - hudDestructionPercent_);
         drawHudNumber(159, y0 + 28, std::min(99, destRemaining), 2);
     }
 

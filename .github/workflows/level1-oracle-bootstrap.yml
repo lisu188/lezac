@@ -1,0 +1,34 @@
+name: Level 1 oracle tools
+on:
+  push:
+    branches: [codex/level1-natural-recovery]
+    paths: [.github/workflows/level1-oracle-bootstrap.yml]
+permissions:
+  contents: read
+jobs:
+  oracle-tools:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package isolated oracle tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dosbox xdotool
+          mkdir -p oracle/bin oracle/lib
+          cp /usr/bin/dosbox /usr/bin/xdotool oracle/bin/
+          for exe in /usr/bin/dosbox /usr/bin/xdotool; do
+            ldd "$exe" | awk '/=> \// {print $3}' | while read -r lib; do cp -L "$lib" oracle/lib/; done
+          done
+          dpkg-query -W dosbox xdotool > oracle/versions.txt
+          sha256sum oracle/bin/* oracle/lib/* > oracle/SHA256SUMS
+          tar -czf level1-oracle-tools.tar.gz oracle
+          git archive --format=tar.gz --output=level1-main-source.tar.gz HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: level1-oracle-tools
+          path: |
+            level1-oracle-tools.tar.gz
+            level1-main-source.tar.gz
+          retention-days: 3
+          if-no-files-found: error

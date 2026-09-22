@@ -1,3 +1,5 @@
 *.sh text eol=lf
 *.py text eol=lf
+*.route text eol=lf
 .gitattributes text eol=lf
+tests/fixtures/level1_original/** -text

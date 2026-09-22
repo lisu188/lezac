@@ -1,25 +1,73 @@
-name: Temporary Level 1 Results Source
+name: Temporary Level 1 Results Delivery
 
 on:
   push:
     branches: [codex/level1-results-fidelity]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  source:
+  validate:
+    if: ${{ !contains(github.event.head_commit.message, '[validated-results]') }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Archive exact source
-        run: |
-          git rev-parse HEAD > source-revision.txt
-          git archive --format=tar.gz --output=source.tar.gz HEAD
-      - uses: actions/upload-artifact@v4
         with:
-          name: level1-results-source
+          fetch-depth: 0
+
+      - name: Verify and apply reviewed patch
+        run: |
+          test "$(sha256sum .tmp/level1-results.patch.gz.b64 | cut -d' ' -f1)" = "fcd63c2e09e6055e5c297c40749ab4eab6298c8e55d4b992b0a1cdb639014e14"
+          base64 -d .tmp/level1-results.patch.gz.b64 | gzip -d > /tmp/level1-results.patch
+          test "$(sha256sum /tmp/level1-results.patch | cut -d' ' -f1)" = "c7d629c2e4349b7cf9da5a32e7c2f3d148fec3723f3390b326352e8b54334698"
+          git apply --check /tmp/level1-results.patch
+          git apply /tmp/level1-results.patch
+          git diff --check
+          python3 tools/capture_original_level_outro_score.py --self-check
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev python3 python3-pil xvfb xdotool dosbox
+
+      - name: Build Release
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+          cmake --build build --parallel
+
+      - name: Focused regression
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: |
+          ctest --test-dir build -R '^(hud_models|level_outro|level_outro_original_code|level1_original_walk|level1_original_bomb|level1_original_objective|level1_replay|port_completion_status|port_completion_status_checker)$' --output-on-failure --timeout 120
+
+      - name: Capture original result-score lifecycle
+        env:
+          SDL_AUDIODRIVER: dummy
+        run: |
+          rm -rf /tmp/lezac-outro-original
+          mkdir -p /tmp/lezac-outro-original
+          cp LEZAC.EXE *.DAT *.SPR *.PAL *.SCH *.SON *.MST *.CAR *.ZBG *.DOC /tmp/lezac-outro-original/
+          xvfb-run -a python3 tools/capture_original_level_outro_score.py             --run-dir /tmp/lezac-outro-original             --out /tmp/level_outro_score_original.txt             --approve-procmem --approve-runtime-instrumentation
+          cp /tmp/level_outro_score_original.txt tests/fixtures/level_outro_score_original.txt
+
+      - name: Commit validated implementation and evidence
+        run: |
+          git rm .tmp/level1-results.patch.gz.b64 .github/workflows/temp-level1-results-source.yml
+          git add CMakeLists.txt src/app/app.cpp src/core/hud.hpp tests/core/hud_test.cpp tools/capture_original_level_outro_score.py tests/fixtures/level_outro_score_original.txt
+          git diff --cached --check
+          git config user.name "lezac-fidelity-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git commit -m "Recover Level 1 result score reels [validated-results]"
+          git push origin HEAD:codex/level1-results-fidelity
+
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: level1-results-evidence
           path: |
-            source-revision.txt
-            source.tar.gz
-          retention-days: 1
+            tests/fixtures/level_outro_score_original.txt
+          retention-days: 7

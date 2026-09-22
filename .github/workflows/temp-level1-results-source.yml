@@ -1,0 +1,25 @@
+name: Temporary Level 1 Results Source
+
+on:
+  push:
+    branches: [codex/level1-results-fidelity]
+
+permissions:
+  contents: read
+
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Archive exact source
+        run: |
+          git rev-parse HEAD > source-revision.txt
+          git archive --format=tar.gz --output=source.tar.gz HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: level1-results-source
+          path: |
+            source-revision.txt
+            source.tar.gz
+          retention-days: 1

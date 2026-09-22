@@ -63,6 +63,7 @@ class SourceGuardrailTests(unittest.TestCase):
             "app": {"runtime": ["src/app/app.cpp"]},
             "gameplay": {"runtime": ["src/gameplay/boss.cpp"]},
             "diagnostics": {"diagnostics": ["src/diagnostics/gran.cpp"]},
+            "resources": {"runtime": ["src/resources/asset_catalog.hpp", "src/resources/asset_catalog.cpp"]},
         })
 
     def test_qualified_definition_and_brace_literals(self):
@@ -118,8 +119,8 @@ class SourceGuardrailTests(unittest.TestCase):
 
     def test_gran_valid_relocation(self):
         self.split_gran()
-        self.assertEqual(gran.check_source(self.root), (13, 2, 9, 1, 1))
-        self.assertEqual(check_inventory(self.root), 3)
+        self.assertEqual(gran.check_source(self.root), (15, 2, 9, 1, 1, 1, 1))
+        self.assertEqual(check_inventory(self.root), 5)
 
     def test_gran_deleted_live_consumer(self):
         self.split_gran()
@@ -147,6 +148,63 @@ class SourceGuardrailTests(unittest.TestCase):
         self.split_gran()
         path = self.root / "src/diagnostics/gran.cpp"
         path.write_text(path.read_text() + "\nvoid Debug::surprise() { use(gran_); }\n")
+        with self.assertRaisesRegex(RuntimeError, "unexpected live GRAN references"):
+            gran.check_source(self.root)
+
+    def test_gran_mutable_alias_rejected(self):
+        self.split_gran()
+        path = self.root / "src/app/app.cpp"
+        path.write_text(path.read_text().replace("const GranBank& gran_", "GranBank& gran_"))
+        with self.assertRaisesRegex(RuntimeError, "unexpected live GRAN references"):
+            gran.check_source(self.root)
+
+    def test_gran_local_alias_cannot_replace_member(self):
+        self.split_gran()
+        path = self.root / "src/app/app.cpp"
+        declaration = "const GranBank& gran_ = assets_.gran();"
+        path.write_text(path.read_text().replace(declaration,
+            "void unexpected() {\n        " + declaration + "\n    }"))
+        with self.assertRaisesRegex(RuntimeError, "unexpected live GRAN references"):
+            gran.check_source(self.root)
+
+    def test_gran_catalog_access_without_alias_rejected(self):
+        self.split_gran()
+        path = self.root / "src/gameplay/boss.cpp"
+        for access in ("assets_.gran().records", "assets->gran().records", "&AssetCatalog::gran"):
+            with self.subTest(access=access):
+                original = path.read_text()
+                path.write_text(original + "\nvoid Boss::unexpected() { use(" + access + "); }\n")
+                with self.assertRaisesRegex(RuntimeError, "unexpected live GRAN references"):
+                    gran.check_source(self.root)
+                path.write_text(original)
+
+    def test_gran_catalog_declaration_counts(self):
+        self.split_gran()
+        path = self.root / "src/resources/asset_catalog.hpp"
+        source = path.read_text()
+        getter = "    const GranBank& gran() const { return gran_; }\n"
+        for replacement in ("", getter + getter):
+            with self.subTest(getters=replacement.count("gran()")):
+                path.write_text(source.replace(getter, replacement))
+                with self.assertRaisesRegex(RuntimeError, "catalog ownership counts"):
+                    gran.check_source(self.root)
+        path.write_text(source.replace("class AssetCatalog", "class OtherOwner"))
+        with self.assertRaisesRegex(RuntimeError, "unexpected live GRAN references"):
+            gran.check_source(self.root)
+
+    def test_gran_load_formats_counted_separately(self):
+        self.split_gran()
+        path = self.root / "src/resources/asset_catalog.cpp"
+        path.write_text(path.read_text().replace('loadRawGran("GRAN.MST")',
+                                                'loadGran("GRAN.MST.json")'))
+        with self.assertRaisesRegex(RuntimeError, "json_load=2 original_load=0"):
+            gran.check_source(self.root)
+
+    def test_gran_loading_outside_catalog_rejected(self):
+        self.split_gran()
+        path = self.root / "src/gameplay/boss.cpp"
+        path.write_text(path.read_text() +
+            '\nvoid Boss::unexpected() { catalog.gran_ = loadGran("GRAN.MST.json"); }\n')
         with self.assertRaisesRegex(RuntimeError, "unexpected live GRAN references"):
             gran.check_source(self.root)
 

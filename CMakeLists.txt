@@ -15,6 +15,11 @@ add_library(lezac_core STATIC
 target_include_directories(lezac_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 add_library(lezac_resources STATIC
+    src/resources/asset_catalog.cpp
+    src/resources/gran.cpp
+    src/resources/levels.cpp
+    src/resources/records.cpp
+    src/resources/sound.cpp
     src/resources/background.cpp
     src/resources/binary.cpp
     src/resources/io.cpp
@@ -24,8 +29,9 @@ add_library(lezac_resources STATIC
     src/resources/tiles.cpp
 )
 target_include_directories(lezac_resources PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(lezac_resources PUBLIC lezac_core)
 
-add_executable(lezac_cpp src/main.cpp)
+add_executable(lezac_cpp src/main.cpp src/app/app.cpp)
 target_compile_definitions(lezac_cpp PRIVATE SDL_MAIN_HANDLED)
 target_include_directories(lezac_cpp PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_directories(lezac_cpp PRIVATE ${SDL2_LIBRARY_DIRS})
@@ -183,6 +189,19 @@ if(BUILD_TESTING)
     add_test(NAME resource_background COMMAND lezac_resource_background_test)
     set_tests_properties(resource_background PROPERTIES
         PASS_REGULAR_EXPRESSION "^resource_background=ok json=4 raw=64000 palette=256 guards=4")
+
+    add_executable(lezac_resource_catalog_test tests/resources/resource_catalog_test.cpp)
+    target_link_libraries(lezac_resource_catalog_test PRIVATE lezac_resources)
+    add_test(NAME resource_catalog COMMAND lezac_resource_catalog_test)
+    set_tests_properties(resource_catalog PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^resource_catalog=ok formats=2 levels=7 sprite_banks=3 immutable_runtime_copies=3")
+
+    add_executable(lezac_resource_domain_codecs_test tests/resources/resource_domain_codecs_test.cpp)
+    target_link_libraries(lezac_resource_domain_codecs_test PRIVATE lezac_resources)
+    add_test(NAME resource_domain_codecs COMMAND lezac_resource_domain_codecs_test)
+    set_tests_properties(resource_domain_codecs PROPERTIES
+        PASS_REGULAR_EXPRESSION "^resource_domain_codecs=ok records=2 sound=2 gran=1 levels=2 malformed=14")
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
 
@@ -2441,7 +2460,7 @@ if(BUILD_TESTING)
         set_tests_properties(gran_usage_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^gran_usage_guardrail=ok source_refs=24 load_refs=2 debug_refs=20 member_refs=1 live_consumer_refs=1 live_refs=0 ctest=3 docs=3")
+                "^gran_usage_guardrail=ok source_refs=26 load_refs=2 debug_refs=20 member_refs=1 live_consumer_refs=1 live_refs=0 ctest=3 docs=3 accessor_refs=1 alias_refs=1")
 
         add_test(NAME gran_usage_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}

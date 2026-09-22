@@ -4,6 +4,18 @@ Last reviewed: 2026-09-19
 Branch: `codex/recover-player-key-ownership`
 Baseline: `origin/main` at PR #234
 
+## Level 1 Full-Frame Recovery (2026-09-21)
+
+Three fresh controlled-seed original routes now match 575 complete 320x200
+frames (36,800,000 pixels) and 1,150 present/post state observations. Production
+drawing now occurs before actor updates; score reels, objective palette fades,
+initial HUD state and the first decode's scratch tail match the original.
+The objective route collects its bonus through normal movement and jumps; the
+bomb route includes terrain changes and energy loss. Separately allocated
+DOS-resident probes replace unsafe in-segment scratch assumptions. This does
+not establish a natural complete-level victory, all actor bytes, audio timing
+or whole-game fidelity. See [scope, provenance and checks](docs/recovery/level1_fullframe_2026-09-21.md).
+
 ## Two-Player Keyboard Ownership
 
 84 original samples from 21 physical-key/chord cases confirm Z/X/M/N/C

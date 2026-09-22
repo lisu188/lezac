@@ -1,5 +1,12 @@
 # Level 1 event replay and first-divergence infrastructure
 
+## Follow-up
+
+The [2026-09-21 original full-frame recovery](level1_fullframe_2026-09-21.md)
+changes production gameplay drawing to the original pre-actor boundary and
+adds the explicit `cpp-pre-actors-v2` trace contract. The v1 description below
+is historical; validators retain v1 support without treating it as v2.
+
 ## Scope
 
 This batch adds a production-path C++ recording/replay tool, not a complete

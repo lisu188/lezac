@@ -50,6 +50,41 @@ int main() {
     require(retained == &replay.fixture().monsters_.front(),
             "replay reconciliation invalidated an unchanged fixture slot");
 
+    int position = 0;
+    int16_t velocityX = 256, velocityY = 512;
+    uint8_t fractionX = 0, fractionY = 0;
+    replay.updateTimedActorMotion(position, position, velocityX, velocityY,
+                                  fractionX, fractionY, {});
+    require(position == 3, "detached argument aliasing did not preserve y-then-x integration");
+
+    ReplayTarget<int> detachedX, detachedY;
+    ReplayTarget<int16_t> detachedVx, detachedVy;
+    ReplayTarget<uint8_t> detachedFx, detachedFy;
+    detachedVx.value = 256;
+    detachedVy.value = 512;
+    detachedY.detachedAlias = 3;  // Argument 3 has a different type, not a position.
+    bool rejected = false;
+    try {
+        session.replay_updateTimedActorMotion(detachedX, detachedY, detachedVx, detachedVy,
+                                              detachedFx, detachedFy, {});
+    } catch (const std::runtime_error&) {
+        rejected = true;
+    }
+    require(rejected && detachedX.value == 0 && detachedY.value == 0,
+            "invalid detached alias was not rejected before motion");
+    detachedY.slot = ReplaySlot::energy_;
+    detachedY.detachedAlias = 1;
+    rejected = false;
+    const int energyBefore = session.view().energy_;
+    try {
+        session.replay_updateTimedActorMotion(detachedX, detachedY, detachedVx, detachedVy,
+                                              detachedFx, detachedFy, {});
+    } catch (const std::runtime_error&) {
+        rejected = true;
+    }
+    require(rejected && session.view().energy_ == energyBefore,
+            "owned slot accepted a detached alias");
+
     AfterActorPassAction injection;
     TransientActor filler;
     filler.timer = 240;

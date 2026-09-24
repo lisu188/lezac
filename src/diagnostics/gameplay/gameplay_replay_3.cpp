@@ -58,6 +58,8 @@ void GameplayReplay::finalizePendingLifeLoss(bool& dead, int& lives, int& timer,
     auto target_dead = targetOf(&dead);
     auto target_lives = targetOf(&lives);
     auto target_timer = targetOf(&timer);
+    if (target_timer.slot == ReplaySlot::Detached && target_lives.slot == ReplaySlot::Detached &&
+        target_timer.detachedAlias == 0 && &timer == &lives) target_timer.detachedAlias = 2;
     beginCommand();
     session_.replay_finalizePendingLifeLoss(target_dead, target_lives, target_timer, startMarker);
     finishCommand();
@@ -98,6 +100,12 @@ void GameplayReplay::updateReentry(Player& player, int& energy, int& lives, bool
     auto target_lives = targetOf(&lives);
     auto target_dead = targetOf(&dead);
     auto target_timer = targetOf(&timer);
+    if (target_lives.slot == ReplaySlot::Detached && target_energy.slot == ReplaySlot::Detached &&
+        target_lives.detachedAlias == 0 && &lives == &energy) target_lives.detachedAlias = 2;
+    if (target_timer.slot == ReplaySlot::Detached && target_energy.slot == ReplaySlot::Detached &&
+        target_timer.detachedAlias == 0 && &timer == &energy) target_timer.detachedAlias = 2;
+    if (target_timer.slot == ReplaySlot::Detached && target_lives.slot == ReplaySlot::Detached &&
+        target_timer.detachedAlias == 0 && &timer == &lives) target_timer.detachedAlias = 3;
     beginCommand();
     session_.replay_updateReentry(target_player, target_energy, target_lives, target_dead, target_timer, startMarker, allowLevelRestart);
     finishCommand();
@@ -133,6 +141,18 @@ void GameplayReplay::tryReenterPlayer(Player& player, int& energy, int& lives, b
     auto target_dead = targetOf(&dead);
     auto target_timer = targetOf(&timer);
     auto target_damageCooldown = targetOf(&damageCooldown);
+    if (target_lives.slot == ReplaySlot::Detached && target_energy.slot == ReplaySlot::Detached &&
+        target_lives.detachedAlias == 0 && &lives == &energy) target_lives.detachedAlias = 2;
+    if (target_timer.slot == ReplaySlot::Detached && target_energy.slot == ReplaySlot::Detached &&
+        target_timer.detachedAlias == 0 && &timer == &energy) target_timer.detachedAlias = 2;
+    if (target_timer.slot == ReplaySlot::Detached && target_lives.slot == ReplaySlot::Detached &&
+        target_timer.detachedAlias == 0 && &timer == &lives) target_timer.detachedAlias = 3;
+    if (target_damageCooldown.slot == ReplaySlot::Detached && target_energy.slot == ReplaySlot::Detached &&
+        target_damageCooldown.detachedAlias == 0 && &damageCooldown == &energy) target_damageCooldown.detachedAlias = 2;
+    if (target_damageCooldown.slot == ReplaySlot::Detached && target_lives.slot == ReplaySlot::Detached &&
+        target_damageCooldown.detachedAlias == 0 && &damageCooldown == &lives) target_damageCooldown.detachedAlias = 3;
+    if (target_damageCooldown.slot == ReplaySlot::Detached && target_timer.slot == ReplaySlot::Detached &&
+        target_damageCooldown.detachedAlias == 0 && &damageCooldown == &timer) target_damageCooldown.detachedAlias = 5;
     beginCommand();
     session_.replay_tryReenterPlayer(target_player, target_energy, target_lives, target_dead, target_timer, target_damageCooldown, startMarker);
     finishCommand();
@@ -229,6 +249,12 @@ void GameplayReplay::updateTimedActorMotion(int& x, int& y, int16_t& vx, int16_t
     auto target_vy = targetOf(&vy);
     auto target_fracX = targetOf(&fracX);
     auto target_fracY = targetOf(&fracY);
+    if (target_y.slot == ReplaySlot::Detached && target_x.slot == ReplaySlot::Detached &&
+        target_y.detachedAlias == 0 && &y == &x) target_y.detachedAlias = 1;
+    if (target_vy.slot == ReplaySlot::Detached && target_vx.slot == ReplaySlot::Detached &&
+        target_vy.detachedAlias == 0 && &vy == &vx) target_vy.detachedAlias = 3;
+    if (target_fracY.slot == ReplaySlot::Detached && target_fracX.slot == ReplaySlot::Detached &&
+        target_fracY.detachedAlias == 0 && &fracY == &fracX) target_fracY.detachedAlias = 5;
     beginCommand();
     session_.replay_updateTimedActorMotion(target_x, target_y, target_vx, target_vy, target_fracX, target_fracY, edges);
     finishCommand();

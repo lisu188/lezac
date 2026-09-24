@@ -76,7 +76,10 @@ surviving fixture slots when the operation does not require reallocation.
 Mutable arguments are represented by `ReplayTarget<T>`: an explicit slot and
 index, or an owned detached value. Runtime references are resolved only inside
 `GameSession`; returned references are translated back into the adapter's owned
-fixture. Detached result references are rejected. There is no mutable callback
+fixture. Repeated detached arguments of the same type carry a request-local alias
+identity, so helpers retain their original reference aliasing and write order.
+Invalid alias identities and aliases on owned slots are rejected before execution.
+Detached result references are rejected. There is no mutable callback
 into runtime state and no friendship with diagnostics or the application.
 
 Read-only actor and reentry observers receive `const GameplayView&`. The launch

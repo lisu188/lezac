@@ -1,5 +1,6 @@
 #pragma once
 #include <functional>
+#include <initializer_list>
 #include <stdexcept>
 #include <type_traits>
 #include "gameplay/gameplay_fixture.hpp"
@@ -227,6 +228,19 @@ public:
     bool replay_isComplete();
 
 private:
+    template<class T> ReplayTarget<T>& bindDetachedAlias(
+        ReplayTarget<T>& target,
+        std::initializer_list<std::pair<uint16_t, ReplayTarget<T>*>> earlier) {
+        if (target.detachedAlias == 0) return target;
+        if (target.slot != ReplaySlot::Detached) {
+            throw std::runtime_error("only detached replay arguments may alias");
+        }
+        for (const auto& candidate : earlier) {
+            if (candidate.first == target.detachedAlias &&
+                candidate.second->slot == ReplaySlot::Detached) return *candidate.second;
+        }
+        throw std::runtime_error("invalid detached gameplay replay alias");
+    }
     LevelWorld level_world_;
     PlayerRoster player_roster_;
     ActorSystem actor_system_;

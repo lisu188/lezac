@@ -7,5 +7,8 @@ template<class T> struct ReplayTarget {
     ReplaySlot slot = ReplaySlot::Detached;
     size_t index = 0;
     T value{};
+    // Request-local identity of an earlier detached argument (zero means unique).
+    // This preserves C++ reference aliasing without transmitting an address.
+    uint16_t detachedAlias = 0;
 };
 }

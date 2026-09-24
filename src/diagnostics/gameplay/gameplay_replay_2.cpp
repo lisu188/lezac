@@ -46,6 +46,8 @@ void GameplayReplay::updatePortalsAndTriggers(Player& player, int& portalCooldow
     auto target_player = targetOf(&player);
     auto target_portalCooldown = targetOf(&portalCooldown);
     auto target_triggerCooldown = targetOf(&triggerCooldown);
+    if (target_triggerCooldown.slot == ReplaySlot::Detached && target_portalCooldown.slot == ReplaySlot::Detached &&
+        target_triggerCooldown.detachedAlias == 0 && &triggerCooldown == &portalCooldown) target_triggerCooldown.detachedAlias = 2;
     beginCommand();
     session_.replay_updatePortalsAndTriggers(target_player, target_portalCooldown, target_triggerCooldown, down);
     finishCommand();
@@ -331,6 +333,12 @@ void GameplayReplay::drainPlayerDamageCounter(Player& player, int& energy, int& 
     auto target_dead = targetOf(&dead);
     auto target_timer = targetOf(&timer);
     auto target_pending = targetOf(&pending);
+    if (target_lives.slot == ReplaySlot::Detached && target_energy.slot == ReplaySlot::Detached &&
+        target_lives.detachedAlias == 0 && &lives == &energy) target_lives.detachedAlias = 2;
+    if (target_timer.slot == ReplaySlot::Detached && target_energy.slot == ReplaySlot::Detached &&
+        target_timer.detachedAlias == 0 && &timer == &energy) target_timer.detachedAlias = 2;
+    if (target_timer.slot == ReplaySlot::Detached && target_lives.slot == ReplaySlot::Detached &&
+        target_timer.detachedAlias == 0 && &timer == &lives) target_timer.detachedAlias = 3;
     beginCommand();
     session_.replay_drainPlayerDamageCounter(target_player, target_energy, target_lives, target_dead, target_timer, target_pending, startMarker);
     finishCommand();
@@ -349,6 +357,18 @@ void GameplayReplay::damagePlayer(Player& player, int& energy, int& lives, bool&
     auto target_dead = targetOf(&dead);
     auto target_timer = targetOf(&timer);
     auto target_damageCooldown = targetOf(&damageCooldown);
+    if (target_lives.slot == ReplaySlot::Detached && target_energy.slot == ReplaySlot::Detached &&
+        target_lives.detachedAlias == 0 && &lives == &energy) target_lives.detachedAlias = 2;
+    if (target_timer.slot == ReplaySlot::Detached && target_energy.slot == ReplaySlot::Detached &&
+        target_timer.detachedAlias == 0 && &timer == &energy) target_timer.detachedAlias = 2;
+    if (target_timer.slot == ReplaySlot::Detached && target_lives.slot == ReplaySlot::Detached &&
+        target_timer.detachedAlias == 0 && &timer == &lives) target_timer.detachedAlias = 3;
+    if (target_damageCooldown.slot == ReplaySlot::Detached && target_energy.slot == ReplaySlot::Detached &&
+        target_damageCooldown.detachedAlias == 0 && &damageCooldown == &energy) target_damageCooldown.detachedAlias = 2;
+    if (target_damageCooldown.slot == ReplaySlot::Detached && target_lives.slot == ReplaySlot::Detached &&
+        target_damageCooldown.detachedAlias == 0 && &damageCooldown == &lives) target_damageCooldown.detachedAlias = 3;
+    if (target_damageCooldown.slot == ReplaySlot::Detached && target_timer.slot == ReplaySlot::Detached &&
+        target_damageCooldown.detachedAlias == 0 && &damageCooldown == &timer) target_damageCooldown.detachedAlias = 5;
     beginCommand();
     session_.replay_damagePlayer(target_player, target_energy, target_lives, target_dead, target_timer, target_damageCooldown, startMarker);
     finishCommand();
@@ -383,6 +403,12 @@ void GameplayReplay::beginPlayerDeath(Player& player, int& energy, int& lives, b
     auto target_lives = targetOf(&lives);
     auto target_dead = targetOf(&dead);
     auto target_timer = targetOf(&timer);
+    if (target_lives.slot == ReplaySlot::Detached && target_energy.slot == ReplaySlot::Detached &&
+        target_lives.detachedAlias == 0 && &lives == &energy) target_lives.detachedAlias = 2;
+    if (target_timer.slot == ReplaySlot::Detached && target_energy.slot == ReplaySlot::Detached &&
+        target_timer.detachedAlias == 0 && &timer == &energy) target_timer.detachedAlias = 2;
+    if (target_timer.slot == ReplaySlot::Detached && target_lives.slot == ReplaySlot::Detached &&
+        target_timer.detachedAlias == 0 && &timer == &lives) target_timer.detachedAlias = 3;
     beginCommand();
     session_.replay_beginPlayerDeath(target_player, target_energy, target_lives, target_dead, target_timer, startMarker);
     finishCommand();

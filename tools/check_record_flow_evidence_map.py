@@ -79,7 +79,7 @@ def check_source(root: Path) -> int:
     for snippet in (
         "records_.size() < 7",
         "pendingRecordQueue_",
-        "pendingRecordName_.size() < 8",
+        "pending_.name.size() < 8",
         "SDLK_BACKSPACE",
         "SDLK_RETURN",
         "SDLK_SPACE",

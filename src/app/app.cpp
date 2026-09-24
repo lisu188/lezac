@@ -52,6 +52,10 @@
 #include "app/app.hpp"
 #include "resources/levels.hpp"
 #include "resources/records.hpp"
+#include "ui/ui_controller.hpp"
+#include "ui/level_flow.hpp"
+#include "app/input_mapper.hpp"
+#include "diagnostics/ui_diagnostics.hpp"
 #include "resources/sound.hpp"
 #include "resources/gran.hpp"
 
@@ -96,6 +100,9 @@ using lezac::resources::LevelPortal;
 using lezac::resources::TileTriggerRule;
 using lezac::resources::Level;
 using lezac::resources::Record;
+using namespace lezac::ui;
+using lezac::app::InputMapper;
+using lezac::gameplay::FrameControls;
 using lezac::resources::SoundEffectRecord;
 using lezac::resources::SoundBank;
 using lezac::resources::GranRecord;
@@ -222,7 +229,7 @@ constexpr uint16_t kLaneHelperBlendZeroDivisorError = 0x00c8;
 constexpr size_t kDebrisCapacity = 0x640;
 constexpr size_t kCollapseCapacity = 0x00fa;
 // Falling-debris mover constants (1000:45FA loop 2 / seeder 1000:370E; every
-// citation re-read from LEZAC.EXE at ghidra_addr + 0x770 — see
+// citation re-read from LEZAC.EXE at ghidra_addr + 0x770 â€” see
 // docs/recovery/falling_debris_update_spec.md).
 constexpr size_t kDebrisRecordIndexBase = 0x00c7;  // DS:207E init (file 0x3319);
                                                    // inc-before-imul at 3783 makes
@@ -305,15 +312,15 @@ constexpr uint32_t kEventPollDelayMs = 4;
 // window cannot fast-forward the level on resume.
 constexpr int kMaxCatchUpTicks = 5;
 // Acceptance band for the measured interactive tick rate: the original's
-// governed 24.2..25.2 fps, widened by nothing — a loop paced any other way
+// governed 24.2..25.2 fps, widened by nothing â€” a loop paced any other way
 // (the previous 16 ms/60 fps pacing, for instance) falls outside it.
 constexpr double kGovernedRateBandMin = 24.2;
 constexpr double kGovernedRateBandMax = 25.2;
 // A wall-clock measurement on a loaded host can only ever lose ticks, never
 // gain them: once a stall exceeds the catch-up cap the missed ticks are
 // dropped for good. So the measured rate is held to the band's ceiling
-// exactly — that is the bound a too-fast loop (the old 16 ms/60 fps pacing
-// yields ~60) violates — while the floor carries slack for host scheduling.
+// exactly â€” that is the bound a too-fast loop (the old 16 ms/60 fps pacing
+// yields ~60) violates â€” while the floor carries slack for host scheduling.
 constexpr double kGovernedRateMeasuredFloor = 22.0;
 // Worst tolerated wall-clock gap between two gameplay ticks. One governed
 // tick is 40.8 ms; this allows a little over two, so ordinary scheduling
@@ -364,35 +371,6 @@ constexpr uint8_t kPlayerDamageSoundPriority = 4;
 constexpr uint16_t kPlayerDeathSoundCursor = 0x0056;
 constexpr uint8_t kPlayerDeathSoundPriority = 5;
 
-struct LevelIntroState {
-    bool active = false;
-    uint32_t startedAt = 0;
-    int levelIndex = 0;
-    LevelIntroPattern pattern;
-};
-
-// Level-completion banner sequence (original routine at file 0x24d3):
-// typed lines over the live gameplay frame, a score count-up per player, then
-// a blocking key wait before the level byte increments.
-struct LevelOutroState {
-    bool active = false;
-    uint32_t startedAt = 0;
-    int destBonus = 0;
-    std::array<int, 2> bombBonus{{0, 0}};
-    std::array<bool, 2> playerActive{{false, false}};
-    std::array<int, 2> awarded{{0, 0}};
-    bool typingSkipped = false;
-    uint32_t typingSkipAt = 0;
-    bool awaitKey = false;
-};
-
-
-struct PendingRecordEntry {
-    uint32_t score = 0;
-    uint8_t level = 0;
-    uint8_t player = 1;
-    EndReason reason = EndReason::GameOver;
-};
 
 struct ExplosionEffect {
     int x = 0;
@@ -417,7 +395,7 @@ struct ExplosionEffect {
 // One live falling fragment: the original 11-byte record at
 // DS:0x2093 + 0x0B*slot (first live slot of a level is 200; seeder 1000:370E
 // fills it at 3798/37A1/37AB/37C5/37CD/37D5/37BE/37E3/37EA, mover 1000:45FA
-// loop 2 updates it — see docs/recovery/falling_debris_update_spec.md).
+// loop 2 updates it â€” see docs/recovery/falling_debris_update_spec.md).
 struct DebrisRecord {
     int tileIndex = 0;         // +0 u16: cell index (y*width + x)
     uint16_t flaggedWord = 0;  // +2 u16: word | 0x8000 while airborne
@@ -580,41 +558,8 @@ void writeArgbPpm(const std::string& path, const std::vector<uint32_t>& pixels,
     }
 }
 
-bool insertRecord(std::vector<Record>& records, Record record, size_t maxRecords = 7) {
-    std::vector<Record> before = records;
-    records.push_back(std::move(record));
-    std::stable_sort(records.begin(), records.end(),
-                     [](const Record& a, const Record& b) {
-                         return a.score > b.score;
-                     });
-    if (records.size() > maxRecords) {
-        records.resize(maxRecords);
-    }
-    if (records.size() != before.size()) return true;
-    for (size_t i = 0; i < records.size(); ++i) {
-        if (records[i].score != before[i].score ||
-            records[i].level != before[i].level ||
-            records[i].name != before[i].name ||
-            encodedRecordName(records[i]) != encodedRecordName(before[i])) {
-            return true;
-        }
-    }
-    return false;
-}
 
 class App {
-    struct FrameControls {
-        bool p1Left = false;
-        bool p1Right = false;
-        bool p1Jump = false;
-        bool p1Down = false;
-        bool p2Left = false;
-        bool p2Right = false;
-        bool p2Jump = false;
-        bool p2Down = false;
-        bool p1Reenter = false;
-        bool p2Reenter = false;
-    };
 
     struct AutoplayRouteResult {
         int frames = 0;
@@ -671,8 +616,8 @@ public:
         replayClockEnabled_ = true;
         replayMilliseconds_ = 0;
         std::array<uint8_t, SDL_NUM_SCANCODES> keys{};
-        const std::string oldRecordPath = recordPath_;
-        recordPath_ = joinPath(outDir, "RECS.DAT");
+        const std::string oldRecordPath = recordStore_.path();
+        recordStore_.setPath(joinPath(outDir, "RECS.DAT"));
         uint64_t sequence = 0;
         uint32_t tick = 0;
         std::vector<std::string> events;
@@ -701,7 +646,7 @@ public:
             load();
             initSdl();
             resetLevel(0);
-            interactiveLevelIntroEnabled_ = true;
+            levelFlow_.setInteractiveEnabled(true);
             replayKeyboard_ = keys.data();
             draw();
             checkpoint("initial", true);
@@ -736,8 +681,8 @@ public:
                 if (!running) throw std::runtime_error("level1 replay quit before route end");
                 checkpoint("input", false);
                 tickAndPresent(static_cast<float>(route.stepUs) / 1000000.0f, [&] { checkpoint("present", true); });
-                completionObserved = completionObserved || (levelIndex_ == 0 && levelOutro_.active);
-                level2Playable = level2Playable || (completionObserved && levelIndex_ == 1 && !menu_ && !paused_ && !levelIntro_.active && !levelOutro_.active);
+                completionObserved = completionObserved || (levelIndex_ == 0 && levelFlow_.outro().active);
+                level2Playable = level2Playable || (completionObserved && levelIndex_ == 1 && !ui_.snapshot().menu && !ui_.snapshot().paused && !levelFlow_.intro().active && !levelFlow_.outro().active);
                 checkpoint("post_update", false);
             }
             output << trace::object({{"kind", trace::quote("complete")},
@@ -750,13 +695,13 @@ public:
             debugActorPassObserver_ = {};
             replayKeyboard_ = nullptr;
             replayClockEnabled_ = false;
-            recordPath_ = oldRecordPath;
+            recordStore_.setPath(oldRecordPath);
             throw;
         }
         debugActorPassObserver_ = {};
         replayKeyboard_ = nullptr;
         replayClockEnabled_ = false;
-        recordPath_ = oldRecordPath;
+        recordStore_.setPath(oldRecordPath);
         std::cout << "level1_replay=ok ticks=" << route.ticks << " frames=" << route.ticks + 1
                   << " checkpoints=" << sequence << " level1_route_complete=" << level2Playable
                   << " original_fidelity_claim=0 audio=dummy\n";
@@ -773,7 +718,7 @@ public:
     void loadAssets(AssetFormat format) {
         assets_ = AssetCatalog::load(format);
         presentation_.setPalette(assets_.palette());
-        records_ = assets_.initialRecords();
+        recordStore_.replaceRecords(assets_.initialRecords());
         // Playback diagnostics currently mutate a local sound-bank copy.
     }
 
@@ -863,7 +808,7 @@ public:
         load();
         initSdl();
         resetLevel(0);
-        interactiveLevelIntroEnabled_ = true;
+        levelFlow_.setInteractiveEnabled(true);
         onReady();
         bool running = true;
         governedRunTicks_ = pumpGovernedLoop(running, stop);
@@ -885,17 +830,17 @@ public:
                 if (governedRunDeadlineMs_ == 0) return;
                 // Measured runs drop straight into gameplay so ticks are real
                 // gameplay ticks rather than menu frames.
-                menu_ = false;
-                interactiveLevelIntroEnabled_ = false;
-                levelIntro_ = {};
+                ui_.setMenu(false);
+                levelFlow_.setInteractiveEnabled(false);
+                levelFlow_.restoreIntro({});
                 governedRunStartMs_ = SDL_GetTicks();
                 governedRunStartLogicTick_ = logicTick_;
             });
     }
 
     // Measure the realised tick rate of the interactive loop over a bounded
-    // wall-clock window. This calls pumpGovernedLoop — the same function
-    // run() drives the game with — so a regression in the live cadence fails
+    // wall-clock window. This calls pumpGovernedLoop â€” the same function
+    // run() drives the game with â€” so a regression in the live cadence fails
     // here rather than only showing up in play.
     void debugGovernedRate(double windowSeconds) {
         governedRunDeadlineMs_ =
@@ -983,31 +928,31 @@ public:
 
         pushKeyDown(SDLK_i);
         processEvents(running);
-        if (menuPage_ != MenuPage::Info) {
+        if (ui_.snapshot().page != MenuPage::Info) {
             throw std::runtime_error("info key did not open info page");
         }
 
         pushKeyDown(SDLK_z);
         processEvents(running);
-        if (menuPage_ != MenuPage::Instructions) {
+        if (ui_.snapshot().page != MenuPage::Instructions) {
             throw std::runtime_error("instructions key did not open instructions page");
         }
 
         pushKeyDown(SDLK_r);
         processEvents(running);
-        if (menuPage_ != MenuPage::Records) {
+        if (ui_.snapshot().page != MenuPage::Records) {
             throw std::runtime_error("records key did not open records page");
         }
 
         pushKeyDown(SDLK_ESCAPE);
         processEvents(running);
-        if (menuPage_ != MenuPage::Main || !menu_) {
+        if (ui_.snapshot().page != MenuPage::Main || !ui_.snapshot().menu) {
             throw std::runtime_error("Escape did not return records page to menu");
         }
 
         pushKeyDown(SDLK_2);
         processEvents(running);
-        if (menu_ || playerCount_ != 2) {
+        if (ui_.snapshot().menu || playerCount_ != 2) {
             throw std::runtime_error("two-player key did not start two-player mode");
         }
 
@@ -1073,13 +1018,13 @@ public:
 
         pushKeyDown(SDLK_ESCAPE);
         processEvents(running);
-        if (!menu_) {
+        if (!ui_.snapshot().menu) {
             throw std::runtime_error("Escape did not return two-player game to menu");
         }
 
         pushKeyDown(SDLK_2);
         processEvents(running);
-        if (menu_ || playerCount_ != 2) {
+        if (ui_.snapshot().menu || playerCount_ != 2) {
             throw std::runtime_error("two-player restart key did not leave menu");
         }
 
@@ -1113,7 +1058,7 @@ public:
         size_t beforePlayer2ReentryBombs = bombs_.size();
         damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
                      damageCooldown2_, 2);
-        if (menu_ || !player2Dead_ || lives2_ != 3 || !pendingLifeLoss2_ ||
+        if (ui_.snapshot().menu || !player2Dead_ || lives2_ != 3 || !pendingLifeLoss2_ ||
             reentryTimer2_ <= 0 || playerDead_) {
             throw std::runtime_error("player 2 death did not enter reentry state");
         }
@@ -1150,7 +1095,7 @@ public:
         damageCooldown2_ = 0;
         damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
                      damageCooldown2_, 2);
-        if (menu_ || !player2Dead_ || lives2_ != 0 || !pendingLifeLoss2_ ||
+        if (ui_.snapshot().menu || !player2Dead_ || lives2_ != 0 || !pendingLifeLoss2_ ||
             lives_ != 3 || playerDead_) {
             throw std::runtime_error("player 2 final life did not enter state-2");
         }
@@ -1164,7 +1109,7 @@ public:
             updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
                           playerDead_);
         }
-        if (menu_ || !player2Dead_ || lives2_ != -1 || pendingLifeLoss2_) {
+        if (ui_.snapshot().menu || !player2Dead_ || lives2_ != -1 || pendingLifeLoss2_) {
             throw std::runtime_error("player 2 final life was not consumed after state-2");
         }
 
@@ -1173,26 +1118,26 @@ public:
         damageCooldown_ = 0;
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
                      damageCooldown_, 1);
-        if (menu_ || !playerDead_ || lives_ != 0 || !pendingLifeLoss_) {
+        if (ui_.snapshot().menu || !playerDead_ || lives_ != 0 || !pendingLifeLoss_) {
             throw std::runtime_error("player 1 final life did not enter state-2");
         }
         for (int i = 0; i < kDeathStateTicks; ++i) {
             updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
                           true);
         }
-        if (!menu_ || menuPage_ != MenuPage::GameOver) {
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::GameOver) {
             throw std::runtime_error("both players out of lives did not end game");
         }
 
         pushKeyDown(SDLK_RETURN);
         processEvents(running);
-        if (!menu_ || menuPage_ != MenuPage::Main) {
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::Main) {
             throw std::runtime_error("game-over confirm did not return to main menu");
         }
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (menu_ || playerCount_ != 1) {
+        if (ui_.snapshot().menu || playerCount_ != 1) {
             throw std::runtime_error("start key did not leave menu");
         }
 
@@ -1303,10 +1248,10 @@ public:
 
         FrameInspection backgroundOnFrame =
             inspectRenderedFrame("controls-background-on");
-        bool background = showBackground_;
+        bool background = ui_.snapshot().showBackground;
         pushKeyDown(SDLK_s);
         processEvents(running);
-        if (showBackground_ == background) {
+        if (ui_.snapshot().showBackground == background) {
             throw std::runtime_error("background toggle key did not change state");
         }
         FrameInspection backgroundOffFrame =
@@ -1361,7 +1306,7 @@ public:
         processEvents(running);
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
             throw std::runtime_error("menu start did not reset to level 1");
         }
 
@@ -1385,7 +1330,7 @@ public:
 
         pushKeyDown(SDLK_ESCAPE);
         processEvents(running);
-        if (!menu_) {
+        if (!ui_.snapshot().menu) {
             throw std::runtime_error("Escape did not return to menu");
         }
 
@@ -1393,7 +1338,7 @@ public:
             playerCount_ = 2;
             lives_ = lives2_ = 3;
             resetLevel(0);
-            menu_ = false;
+            ui_.setMenu(false);
             for (auto& spawner : spawnerStates_) spawner.remaining = 0;
             energy_ = energy2_ = 0;
             damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_, damageCooldown_, 1);
@@ -1438,8 +1383,8 @@ public:
                 throw std::runtime_error("consumed P2 reentry key survived into the next update");
             }
         }
-        menu_ = true;
-        menuPage_ = MenuPage::Main;
+        ui_.setMenu(true);
+        ui_.setPage(MenuPage::Main);
         pushKeyDown(SDLK_ESCAPE);
         processEvents(running);
         if (running) {
@@ -1475,7 +1420,7 @@ public:
         std::set<uint64_t> hashes;
 
         auto inspectMenuPage = [&](MenuPage expected, const std::string& label) {
-            if (!menu_ || menuPage_ != expected) {
+            if (!ui_.snapshot().menu || ui_.snapshot().page != expected) {
                 throw std::runtime_error(label + " menu page not active");
             }
             FrameInspection frame = inspectRenderedFrame("menu-frame-" + label);
@@ -1507,12 +1452,12 @@ public:
         }
 
         press(SDLK_ESCAPE);
-        if (!menu_ || menuPage_ != MenuPage::Main) {
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::Main) {
             throw std::runtime_error("records menu did not return to main with Escape");
         }
-        showBackground_ = true;
+        ui_.setShowBackground(true);
         press(SDLK_1);
-        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
             throw std::runtime_error("menu frame flow did not start one-player game");
         }
         FrameInspection gameFrame =
@@ -1523,7 +1468,7 @@ public:
             throw std::runtime_error("one-player start frame did not expose HUD/world");
         }
         press(SDLK_s);
-        if (showBackground_) {
+        if (ui_.snapshot().showBackground) {
             throw std::runtime_error("gameplay background toggle did not turn off background");
         }
         FrameInspection backgroundOffFrame =
@@ -1537,7 +1482,7 @@ public:
         press(SDLK_ESCAPE);
         FrameInspection returnedMenuFrame =
             inspectMenuPage(MenuPage::Main, "return-main");
-        if (!menu_ || returnedMenuFrame.hash == backgroundOffFrame.hash) {
+        if (!ui_.snapshot().menu || returnedMenuFrame.hash == backgroundOffFrame.hash) {
             throw std::runtime_error("game Escape did not render the main menu");
         }
         press(SDLK_ESCAPE);
@@ -1743,7 +1688,7 @@ public:
                 cameraShakeOffset_ = static_cast<uint16_t>(shake);
                 const int background = number(fields.at("background"));
                 if (background != 0 && background != 1) throw std::runtime_error("invalid render-boundary toggle");
-                showBackground_ = background != 0;
+                ui_.setShowBackground(background != 0);
                 const int camX = std::clamp(static_cast<int>(player_.x) - (viewWidth / 2 - 4),
                                             0, level_.width * 8 - (viewWidth + 8) + 7);
                 const int camY = std::clamp(static_cast<int>(player_.y) - 80, 0, level_.height * 8 - 168 + 7);
@@ -2223,7 +2168,7 @@ public:
             if (animation(p, 22).packed() != deathAnimation || animation(p, 29).packed() != player_.animationBackup.packed()) fail("boundary animation");
             ++boundaryCounts[phase];
             if (std::string(phase) == "intro_wait" && !outDir.empty()) {
-                gameRenderer_.drawLevelIntro(levelIntro_.levelIndex, levelIntro_.pattern, levelIntroCaption(levelIntro_.levelIndex).size());
+                gameRenderer_.drawLevelIntro(levelFlow_.intro().levelIndex, levelFlow_.intro().pattern, levelIntroCaption(levelFlow_.intro().levelIndex).size());
                 writeArgbPpm(joinPath(outDir, name + "_intro.ppm"), fb_, kScreenW, kScreenH);
             }
         };
@@ -2262,7 +2207,7 @@ public:
                 if (firstFrame != (caseIndex == 2 ? 65520 : 100 + caseIndex)) fail("invalid clock seed");
                 registers(f.at("regs"), 1);
                 for (int i = 0; i < 7; ++i) resetLevel(i);
-                menu_ = false; levelIntro_.active = false; playerCount_ = 1;
+                ui_.setMenu(false); levelFlow_.setIntroActiveForFixture(false); playerCount_ = 1;
                 level_.tiles = originalMap; presentation_.writeBackdropPrefix(originalBackdrop);
                 if (bombProbe) for (size_t i = 0; i < level_.wordLayer.size(); ++i) level_.wordLayer[i] = le16(originalWords, i * 2);
                 for (auto& spawner : spawnerStates_) { spawner.remaining = 0; spawner.availableSlots = 0; }
@@ -2520,7 +2465,7 @@ public:
                 for (int i = 0; i < level; ++i) resetLevel(i);
                 level_.tiles = originalMap;
                 presentation_.writeBackdropPrefix(originalBackdrop);
-                menu_ = false; levelIntro_.active = false; playerCount_ = 1;
+                ui_.setMenu(false); levelFlow_.setIntroActiveForFixture(false); playerCount_ = 1;
                 monsters_.clear(); bossLinks_.clear(); bombs_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear(); transientActors_.clear();
                 for (auto& spawner : spawnerStates_) { spawner.remaining = 0; spawner.availableSlots = 0; }
                 const int padX = number(fields.at("pad_x")), padY = number(fields.at("pad_y"));
@@ -2905,7 +2850,7 @@ public:
                     fields.at("rng") != "12345678" || fields.at("samples") != "41") fail("invalid case seed");
                 name = fields.at("name"); sample = 0;
                 checkRegisters();
-                resetLevel(0); menu_ = false; levelIntro_.active = false;
+                resetLevel(0); ui_.setMenu(false); levelFlow_.setIntroActiveForFixture(false);
                 spawnerStates_.clear(); monsters_.clear(); bombs_.clear(); bonusDrops_.clear(); transientActors_.clear(); launchPadMarkers_.clear();
                 player_.x = 240; player_.y = 168; lives_ = 99;
                 level_.tiles = baseline;
@@ -3099,7 +3044,7 @@ public:
                 if (mode == "spawner" && cases == 3) name += "_expiring";
                 if (fields.at("name") != name || number(fields.at("weapon")) != weapon || number(fields.at("count")) != count) fail("invalid case seed");
                 resetLevel(0);
-                menu_ = paused_ = levelIntro_.active = false;
+                ui_.setMenu(false); ui_.setPaused(false); levelFlow_.setIntroActiveForFixture(false);
                 monsters_.clear(); bombs_.clear(); transientActors_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear();
                 sound_.restoreLatchForFixture({});
                 player_.x = 104; player_.y = 168; player_.vx8 = player_.vy8 = 0;
@@ -3236,7 +3181,7 @@ public:
         load();
         initSdl();
         resetLevel(0);
-        menu_ = false;
+        ui_.setMenu(false);
         spawnerStates_.clear();
         const uint32_t originalRed = argb(palette_, 230);
         auto tick = [&] { updateWithControls(FrameControls{}, 1.0f / 60.0f); };
@@ -3248,15 +3193,15 @@ public:
             throw std::runtime_error("gameplay omitted first palette update");
         tick();
         tick();
-        paused_ = true;
+        ui_.setPaused(true);
         tick();
-        paused_ = false;
-        menu_ = true;
+        ui_.setPaused(false);
+        ui_.setMenu(true);
         tick();
-        menu_ = false;
-        levelIntro_.active = true;
+        ui_.setMenu(false);
+        levelFlow_.setIntroActiveForFixture(true);
         tick();
-        levelIntro_.active = false;
+        levelFlow_.setIntroActiveForFixture(false);
         if (logicTick_ != 7 || presentation_.redPalettePhase() != 7)
             throw std::runtime_error("inactive gameplay advanced palette clock");
         beginLevelForPlay(1);
@@ -3266,9 +3211,9 @@ public:
         for (int i = 0; i < 3; ++i) tick();
         if (logicTick_ != 10 || presentation_.redPalettePhase() != 14 || argb(palette_, 230) != 0xff1c0000u)
             throw std::runtime_error("palette cadence shifted after level transition");
-        menu_ = true;
+        ui_.setMenu(true);
         beginLevelForPlay(0);
-        menu_ = false;
+        ui_.setMenu(false);
         if (logicTick_ != 0 || presentation_.redPalettePhase() != 14)
             throw std::runtime_error("new-game palette clock/phase mismatch");
         spawnerStates_.clear();
@@ -3297,7 +3242,7 @@ public:
         FrameInspection menuFrame = inspectRenderedFrame("level1-menu");
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (menu_ || playerCount_ != 1 || levelIndex_ != 0 ||
+        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0 ||
             level_.width != 60 || level_.height != 33 ||
             initialPlayerX != 104 || initialPlayerY != 168 ||
             bombInventory_.counts[0] != 200) {
@@ -3494,7 +3439,7 @@ public:
             frame.label = label;
             frame.file = label + ".ppm";
             frame.inspection = inspectRenderedFrame(label);
-            frame.menu = menu_ ? 1 : 0;
+            frame.menu = ui_.snapshot().menu ? 1 : 0;
             frame.level = levelIndex_ + 1;
             frame.playerCount = playerCount_;
             frame.p1x = static_cast<int>(player_.x);
@@ -3618,7 +3563,7 @@ public:
         if (scenario == "level1_bomb_route") {
             pushKeyDown(SDLK_1);
             processEvents(running);
-            if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+            if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
                 throw std::runtime_error("frame sequence failed to start one-player level 1");
             }
             capture("010_level1_start");
@@ -3660,7 +3605,7 @@ public:
             pushKeyDown(SDLK_1);
             processEvents(running);
             resetLevel(5);
-            if (menu_ || playerCount_ != 1 || levelIndex_ != 5) {
+            if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 5) {
                 throw std::runtime_error("frame sequence failed to start launch-pad route");
             }
             for (SpawnerState& state : spawnerStates_) {
@@ -3727,7 +3672,7 @@ public:
         } else if (scenario == "monster_bomb_reward") {
             pushKeyDown(SDLK_1);
             processEvents(running);
-            if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+            if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
                 throw std::runtime_error("frame sequence failed to start monster bomb route");
             }
             capture("010_monster_bomb_start");
@@ -3857,7 +3802,7 @@ public:
         } else if (scenario == "monster_spawner_behavior4_level2") {
             pushKeyDown(SDLK_1);
             processEvents(running);
-            if (menu_ || playerCount_ != 1) {
+            if (ui_.snapshot().menu || playerCount_ != 1) {
                 throw std::runtime_error("frame sequence failed to start one-player level 2");
             }
             resetLevel(1);
@@ -3912,7 +3857,7 @@ public:
         } else if (scenario == "monster_spawner_behavior4_level3") {
             pushKeyDown(SDLK_1);
             processEvents(running);
-            if (menu_ || playerCount_ != 1) {
+            if (ui_.snapshot().menu || playerCount_ != 1) {
                 throw std::runtime_error("frame sequence failed to start one-player level 3");
             }
             resetLevel(2);
@@ -3966,7 +3911,7 @@ public:
         } else if (scenario == "monster_behavior4_target_selection") {
             pushKeyDown(SDLK_2);
             processEvents(running);
-            if (menu_ || playerCount_ != 2 || playerDead_ || player2Dead_) {
+            if (ui_.snapshot().menu || playerCount_ != 2 || playerDead_ || player2Dead_) {
                 throw std::runtime_error("frame sequence failed to start two-player level 3");
             }
             resetLevel(2);
@@ -4052,7 +3997,7 @@ public:
         } else if (scenario == "boss_level7") {
             pushKeyDown(SDLK_1);
             processEvents(running);
-            if (menu_ || playerCount_ != 1) {
+            if (ui_.snapshot().menu || playerCount_ != 1) {
                 throw std::runtime_error(
                     "frame sequence failed to start one-player level 7");
             }
@@ -4189,7 +4134,7 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (menu_ || playerCount_ != 1) {
+        if (ui_.snapshot().menu || playerCount_ != 1) {
             throw std::runtime_error("boss level7 autoplayer failed to start");
         }
         resetLevel(6);
@@ -4524,7 +4469,7 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
             throw std::runtime_error("autoplayer failed to start one-player level 1");
         }
 
@@ -4585,7 +4530,7 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (menu_ || paused_ || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || ui_.snapshot().paused || playerCount_ != 1 || levelIndex_ != 0) {
             throw std::runtime_error("pause flow failed to start one-player level 1");
         }
 
@@ -4615,7 +4560,7 @@ public:
 
         pushKeyDown(SDLK_p);
         processEvents(running);
-        if (!paused_ || menu_) {
+        if (!ui_.snapshot().paused || ui_.snapshot().menu) {
             throw std::runtime_error("P key did not enter pause state");
         }
         FrameInspection pauseFrame = inspectRenderedFrame("autoplayer-pause-overlay");
@@ -4631,7 +4576,7 @@ public:
         pausedControls.p1Jump = true;
         updateWithControls(pausedControls, 1.0f / 60.0f);
         update(1.0f / 60.0f);
-        if (!paused_ || logicTick_ != logicBeforePause ||
+        if (!ui_.snapshot().paused || logicTick_ != logicBeforePause ||
             bombs_.size() != bombsArmed ||
             bombs_.back().timer != bombTimerBeforePause ||
             bombInventory_.counts[0] != smallBombsArmed ||
@@ -4644,7 +4589,7 @@ public:
 
         pushKeyDown(SDLK_p);
         processEvents(running);
-        if (paused_ || menu_) {
+        if (ui_.snapshot().paused || ui_.snapshot().menu) {
             throw std::runtime_error("P key did not leave pause state");
         }
         FrameInspection resumedFrame = inspectRenderedFrame("autoplayer-pause-resumed");
@@ -4661,12 +4606,12 @@ public:
 
         pushKeyDown(SDLK_p);
         processEvents(running);
-        if (!paused_) {
+        if (!ui_.snapshot().paused) {
             throw std::runtime_error("pause flow could not re-enter pause before escape");
         }
         pushKeyDown(SDLK_ESCAPE);
         processEvents(running);
-        if (!menu_ || menuPage_ != MenuPage::Main || paused_) {
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::Main || ui_.snapshot().paused) {
             throw std::runtime_error("escape did not clear pause and return to menu");
         }
         FrameInspection menuFrame = inspectRenderedFrame("autoplayer-pause-menu");
@@ -4689,7 +4634,7 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
             throw std::runtime_error("death autoplayer failed to start one-player level 1");
         }
 
@@ -4847,7 +4792,7 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
             throw std::runtime_error("death visual autoplayer failed to start level 1");
         }
 
@@ -5003,7 +4948,7 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
             throw std::runtime_error("level transition autoplayer failed to start level 1");
         }
 
@@ -5028,7 +4973,7 @@ public:
             updateWithControls(idle, 1.0f / 60.0f);
             ++frames;
         }
-        if (levelIndex_ != 1 || menu_ || frames != 101 || collected_ != 0 ||
+        if (levelIndex_ != 1 || ui_.snapshot().menu || frames != 101 || collected_ != 0 ||
             completeTimer_ != 0) {
             throw std::runtime_error("level transition autoplayer did not enter level 2");
         }
@@ -5055,7 +5000,7 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
             throw std::runtime_error("portal/weapon autoplayer failed to start level 1");
         }
 
@@ -5102,7 +5047,7 @@ public:
         if (portalLevel < 0) {
             throw std::runtime_error("portal/weapon autoplayer found no portal source");
         }
-        menu_ = false;
+        ui_.setMenu(false);
 
         FrameInspection startFrame = inspectRenderedFrame("autoplayer-portal-weapon-start");
         FrameControls switchControls;
@@ -5169,7 +5114,7 @@ public:
         pushKeyDown(SDLK_1);
         processEvents(running);
         resetLevel(5);
-        if (menu_ || playerCount_ != 1 || levelIndex_ != 5) {
+        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 5) {
             throw std::runtime_error("launch-pad autoplayer failed to start level 6");
         }
         for (SpawnerState& state : spawnerStates_) {
@@ -5296,8 +5241,8 @@ public:
             std::filesystem::temp_directory_path() /
             ("lezac_autoplayer_records_" + std::to_string(SDL_GetTicks()) + ".json");
         std::filesystem::remove(recordPath);
-        recordPath_ = recordPath.string();
-        saveRecords(recordPath_, records_);
+        recordStore_.setPath(recordPath.string());
+        saveRecords(recordStore_.path(), recordStore_.records());
 
         resetLevel(0);
         FrameInspection menuFrame = inspectRenderedFrame("autoplayer-record-menu");
@@ -5305,9 +5250,9 @@ public:
         score_ = 999999u;
         levelIndex_ = 2;
         beginGameOver();
-        if (!menu_ || menuPage_ != MenuPage::NameEntry ||
-            pendingRecordScore_ != 999999u || pendingRecordLevel_ != 3 ||
-            pendingRecordPlayer_ != 1) {
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::NameEntry ||
+            recordStore_.pending().score != 999999u || recordStore_.pending().level != 3 ||
+            recordStore_.pending().player != 1) {
             throw std::runtime_error("records autoplayer did not open name entry");
         }
 
@@ -5321,8 +5266,8 @@ public:
             pushKeyDown(key);
             processEvents(running);
         }
-        auto reloaded = loadRecords(recordPath_);
-        if (menuPage_ != MenuPage::Records || reloaded.empty() ||
+        auto reloaded = loadRecords(recordStore_.path());
+        if (ui_.snapshot().page != MenuPage::Records || reloaded.empty() ||
             reloaded[0].score != 999999u || reloaded[0].level != 3 ||
             reloaded[0].name != "bot") {
             throw std::runtime_error("records autoplayer did not save entered record");
@@ -5350,7 +5295,7 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
             throw std::runtime_error("monster reward autoplayer failed to start level 1");
         }
 
@@ -5758,7 +5703,7 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (menu_ || playerCount_ != 1 || levelIndex_ != 0 || spawnerStates_.empty()) {
+        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0 || spawnerStates_.empty()) {
             throw std::runtime_error("monster spawner autoplayer failed to start level 1");
         }
 
@@ -5888,7 +5833,7 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (menu_ || playerCount_ != 1) {
+        if (ui_.snapshot().menu || playerCount_ != 1) {
             throw std::runtime_error("monster behavior-4 level2 autoplayer failed to start");
         }
         resetLevel(1);
@@ -5972,7 +5917,7 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (menu_ || playerCount_ != 1) {
+        if (ui_.snapshot().menu || playerCount_ != 1) {
             throw std::runtime_error("monster behavior-4 level3 autoplayer failed to start");
         }
         resetLevel(2);
@@ -6056,7 +6001,7 @@ public:
 
         pushKeyDown(SDLK_2);
         processEvents(running);
-        if (menu_ || playerCount_ != 2 || playerDead_ || player2Dead_) {
+        if (ui_.snapshot().menu || playerCount_ != 2 || playerDead_ || player2Dead_) {
             throw std::runtime_error("monster behavior-4 target autoplayer failed to start");
         }
         resetLevel(2);
@@ -6153,7 +6098,7 @@ public:
 
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
             throw std::runtime_error("collapse autoplayer failed to start level 1");
         }
 
@@ -6213,7 +6158,7 @@ public:
 
         pushKeyDown(SDLK_2);
         processEvents(running);
-        if (menu_ || playerCount_ != 2 || playerDead_ || player2Dead_) {
+        if (ui_.snapshot().menu || playerCount_ != 2 || playerDead_ || player2Dead_) {
             throw std::runtime_error("two-player autoplayer failed to start");
         }
 
@@ -6272,7 +6217,7 @@ public:
 
         pushKeyDown(SDLK_2);
         processEvents(running);
-        if (menu_ || playerCount_ != 2 || playerDead_ || player2Dead_) {
+        if (ui_.snapshot().menu || playerCount_ != 2 || playerDead_ || player2Dead_) {
             throw std::runtime_error("two-player death visual autoplayer failed to start");
         }
 
@@ -6399,7 +6344,7 @@ public:
 
         pushKeyDown(SDLK_2);
         processEvents(running);
-        if (menu_ || playerCount_ != 2 || playerDead_ || player2Dead_) {
+        if (ui_.snapshot().menu || playerCount_ != 2 || playerDead_ || player2Dead_) {
             throw std::runtime_error("two-player progression autoplayer failed to start");
         }
 
@@ -6521,11 +6466,11 @@ public:
                   << " sound_records=" << sounds_.records.size() << '\n';
         std::cout << "gran_record_size=" << gran_.recordSize
                   << " gran_records=" << gran_.records.size() << '\n';
-        std::cout << "records=" << records_.size() << '\n';
-        for (size_t i = 0; i < records_.size(); ++i) {
-            std::cout << "record_" << (i + 1) << "=score:" << records_[i].score
-                      << " level:" << static_cast<int>(records_[i].level)
-                      << " name:" << records_[i].name << '\n';
+        std::cout << "records=" << recordStore_.records().size() << '\n';
+        for (size_t i = 0; i < recordStore_.records().size(); ++i) {
+            std::cout << "record_" << (i + 1) << "=score:" << recordStore_.records()[i].score
+                      << " level:" << static_cast<int>(recordStore_.records()[i].level)
+                      << " name:" << recordStore_.records()[i].name << '\n';
         }
         std::cout << "levels=" << levels_.size() << '\n';
         for (size_t i = 0; i < levels_.size(); ++i) {
@@ -6540,237 +6485,11 @@ public:
         }
     }
 
-    void debugRecordUpdate(const std::string& path) {
-        load();
-        std::vector<Record> testRecords = records_;
-        bool changed = insertRecord(testRecords, makeRecord(999999u, 9u, "TEST"));
-        if (!changed) {
-            throw std::runtime_error("test record was not inserted");
-        }
-        saveRecords(path, testRecords);
-        auto reloaded = loadRecords(path);
-        if (reloaded.empty() || reloaded[0].score != 999999u ||
-            reloaded[0].level != 9u || reloaded[0].name != "TEST") {
-            throw std::runtime_error("saved test record did not round-trip");
-        }
-        int binary = isJsonRecordPath(path) ? 0 : 1;
-        size_t rawSize = 0;
-        std::string encodedName = encodeRecordName(reloaded[0].name);
-        if (binary) {
-            auto bytes = readFile(path);
-            rawSize = bytes.size();
-            if (bytes.size() != 92 || bytes[0] != 7 || le32(bytes, 1) != 999999u ||
-                bytes[5] != 9u) {
-                throw std::runtime_error("saved raw test record layout changed");
-            }
-            encodedName = std::string(bytes.begin() + 6, bytes.begin() + 14);
-            if (encodedName != "TEST::::") {
-                throw std::runtime_error("saved raw test record name encoding changed");
-            }
-        }
-        std::cout << "record_update=ok top=" << reloaded[0].score
-                  << " level=" << static_cast<int>(reloaded[0].level)
-                  << " name=" << reloaded[0].name
-                  << " binary=" << binary
-                  << " raw_size=" << rawSize
-                  << " encoded=" << encodedName << '\n';
-    }
+    void debugRecordUpdate(const std::string& path) { load(); lezac::diagnostics::UiDiagnostics::debugRecordUpdate(recordStore_, path); }
 
-    void debugRecordsRawRoundtrip() {
-        load();
-        auto rawBytes = readFile("RECS.DAT");
-        constexpr size_t kRecordSize = 13;
-        if (rawBytes.empty()) {
-            throw std::runtime_error("RECS.DAT raw file is empty");
-        }
-        uint8_t rawCount = rawBytes[0];
-        if (rawCount != 7 ||
-            rawBytes.size() != 1 + static_cast<size_t>(rawCount) * kRecordSize) {
-            throw std::runtime_error("RECS.DAT raw layout mismatch");
-        }
+    void debugRecordsRawRoundtrip() { load(); lezac::diagnostics::UiDiagnostics::debugRecordsRawRoundtrip(recordStore_); }
 
-        auto jsonRecords = extractObjectArray(readTextFile("RECS.DAT.json"), "records");
-        if (jsonRecords.size() != rawCount || records_.size() != rawCount) {
-            throw std::runtime_error("RECS.DAT JSON record count mismatch");
-        }
-        auto decodeRawName = [](std::string encoded) {
-            std::replace(encoded.begin(), encoded.end(), ':', ' ');
-            while (!encoded.empty() && encoded.back() == ' ') {
-                encoded.pop_back();
-            }
-            return encoded.empty() ? std::string("nessuno") : encoded;
-        };
-
-        uint64_t scoreSum = 0;
-        int level8Count = 0;
-        int decodedAgaCount = 0;
-        int encodedColonPaddedCount = 0;
-        int byteSum = 0;
-        int weightedSum = 0;
-        uint8_t xorValue = 0;
-        uint32_t previousScore = UINT32_MAX;
-        for (size_t i = 0; i < rawBytes.size(); ++i) {
-            uint8_t byte = rawBytes[i];
-            byteSum += byte;
-            weightedSum += static_cast<int>((i + 1) * byte);
-            xorValue = static_cast<uint8_t>(xorValue ^ byte);
-        }
-
-        for (size_t i = 0; i < rawCount; ++i) {
-            size_t off = 1 + i * kRecordSize;
-            uint32_t rawScore = le32(rawBytes, off);
-            uint8_t rawLevel = rawBytes[off + 4];
-            std::string rawEncoded(rawBytes.begin() + static_cast<std::ptrdiff_t>(off + 5),
-                                   rawBytes.begin() + static_cast<std::ptrdiff_t>(off + 13));
-            std::string rawDecoded = decodeRawName(rawEncoded);
-
-            const std::string& recJson = jsonRecords[i];
-            uint32_t jsonScore = static_cast<uint32_t>(extractInt(recJson, "score"));
-            uint8_t jsonLevel = static_cast<uint8_t>(extractInt(recJson, "level"));
-            std::string jsonEncoded = extractString(recJson, "encoded_name");
-            std::string jsonDecoded = extractString(recJson, "decoded_name");
-            if (rawScore != jsonScore || rawLevel != jsonLevel ||
-                rawEncoded != jsonEncoded || rawDecoded != jsonDecoded ||
-                records_[i].score != rawScore || records_[i].level != rawLevel ||
-                records_[i].name != rawDecoded) {
-                throw std::runtime_error("RECS.DAT raw/json record mismatch");
-            }
-            if (i != 0 && rawScore > previousScore) {
-                throw std::runtime_error("RECS.DAT scores are no longer descending");
-            }
-            previousScore = rawScore;
-            scoreSum += rawScore;
-            if (rawLevel == 8) ++level8Count;
-            if (rawDecoded == "aga") ++decodedAgaCount;
-            if (rawEncoded == "aga:::::") ++encodedColonPaddedCount;
-        }
-        if (scoreSum != 3508890 || byteSum != 6047 ||
-            weightedSum != 278918 || xorValue != 0xdd ||
-            level8Count != 7 || decodedAgaCount != 7 ||
-            encodedColonPaddedCount != 7) {
-            throw std::runtime_error("RECS.DAT raw aggregate changed");
-        }
-
-        std::cout << "records_raw_roundtrip=ok raw_size=" << rawBytes.size()
-                  << " count=" << static_cast<int>(rawCount)
-                  << " record_size=" << kRecordSize
-                  << " score_sum=" << scoreSum
-                  << " top=" << records_.front().score
-                  << " cutoff=" << records_.back().score
-                  << " level8_count=" << level8Count
-                  << " decoded_aga=" << decodedAgaCount
-                  << " encoded_colon_padded=" << encodedColonPaddedCount
-                  << " byte_sum=" << byteSum
-                  << " weighted_sum=" << weightedSum
-                  << " xor=0x" << std::hex << std::setw(2) << std::setfill('0')
-                  << static_cast<int>(xorValue) << std::dec << std::setfill(' ')
-                  << '\n';
-    }
-
-    void debugRecordEntryStaticModel() {
-        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
-        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
-            throw std::runtime_error("LEZAC.EXE missing MZ header");
-        }
-        uint16_t headerParagraphs = le16(exeBytes, 0x08);
-        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
-        if (imageBase != 0x0770) {
-            throw std::runtime_error("LEZAC.EXE image base changed for record entry scan");
-        }
-        constexpr uint16_t kTemplate = 0x183c;
-        constexpr uint16_t kRoutineStart = 0x1845;
-        constexpr uint16_t kPromptSound = 0x1857;
-        constexpr uint16_t kBackspaceCheck = 0x1a07;
-        constexpr uint16_t kEnterCheck = 0x1a3a;
-        constexpr uint16_t kCommitSound = 0x1a44;
-        constexpr uint16_t kRecordShift = 0x1a76;
-        constexpr uint16_t kStoredRecordPointer = 0x1a9e;
-        constexpr uint16_t kNameCopy = 0x1aab;
-        constexpr uint16_t kScoreWrite = 0x1ac0;
-        constexpr uint16_t kRoutineRet = 0x1ad6;
-
-        auto requireBytes = [&](uint16_t offset, const std::string& hex,
-                                const std::string& label) {
-            std::vector<uint8_t> expected = parseHexByteList(hex);
-            size_t p = imageBase + offset;
-            if (p + expected.size() > exeBytes.size()) {
-                throw std::runtime_error(label + " extends past LEZAC.EXE");
-            }
-            for (size_t i = 0; i < expected.size(); ++i) {
-                if (exeBytes[p + i] != expected[i]) {
-                    throw std::runtime_error(label + " bytes changed");
-                }
-            }
-        };
-        auto countBytes = [&](const std::string& hex) {
-            std::vector<uint8_t> expected = parseHexByteList(hex);
-            int count = 0;
-            auto begin = exeBytes.begin() + static_cast<long>(imageBase + kRoutineStart);
-            auto end = exeBytes.begin() + static_cast<long>(imageBase + kRoutineRet + 1);
-            for (auto it = begin; it != end;) {
-                it = std::search(it, end, expected.begin(), expected.end());
-                if (it == end) break;
-                ++count;
-                ++it;
-            }
-            return count;
-        };
-
-        requireBytes(kTemplate, "08 3a 3a 3a 3a 3a 3a 3a 3a",
-                     "record empty-name template");
-        requireBytes(kRoutineStart, "55 89 e5 b8 10 02 9a df 04 20 09",
-                     "record entry prologue");
-        requireBytes(kPromptSound,
-                     "c7 06 74 20 78 00 c6 06 9f 79 0b e8 f5 fd",
-                     "record prompt sound request");
-        requireBytes(kBackspaceCheck, "80 3e 58 20 08",
-                     "record backspace key check");
-        requireBytes(kEnterCheck, "80 3e 58 20 0d 74 03 e9 3c ff",
-                     "record enter key check");
-        requireBytes(kCommitSound,
-                     "c7 06 74 20 08 00 c6 06 9f 79 0b e8 08 fc",
-                     "record commit sound request");
-        requireBytes(kRecordShift,
-                     "6b f8 0d 81 c7 f7 1a 1e 57 6b 3e 82 20 0d "
-                     "81 c7 f7 1a 1e 57 6a 0d 9a 0e 09 20 09",
-                     "record table shift copy");
-        requireBytes(kStoredRecordPointer, "6b f8 0d 81 c7 f7 1a",
-                     "record stored pointer stride");
-        requireBytes(kNameCopy,
-                     "8d 7e f0 16 57 c4 7e ec 81 c7 04 00 06 57 "
-                     "6a 08 9a f4 09 20 09",
-                     "record name copy");
-        requireBytes(kScoreWrite,
-                     "8b 46 08 8b 56 0a c4 7e ec 26 89 05 26 89 55 02",
-                     "record score dword write");
-        requireBytes(kRoutineRet - 3, "c9 c2 08 00", "record entry return");
-
-        int strideImulCount = countBytes("6b f8 0d");
-        int copy13Count = countBytes("6a 0d 9a 0e 09 20 09");
-        int copy8Count = countBytes("6a 08 9a f4 09 20 09");
-        if (strideImulCount != 3 || copy13Count != 1 || copy8Count != 2) {
-            throw std::runtime_error("record entry stride/copy model changed");
-        }
-
-        std::cout << "record_entry_static_model=ok"
-                  << " routine=" << hex4(kRoutineStart) << ".." << hex4(kRoutineRet)
-                  << " template=" << hex4(kTemplate)
-                  << " template_len=8"
-                  << " template_byte=0x3a"
-                  << " record_stride=13"
-                  << " stride_imuls=" << strideImulCount
-                  << " shift_copy_bytes=13"
-                  << " shift_copies=" << copy13Count
-                  << " name_offset=4"
-                  << " name_copy_bytes=8"
-                  << " name_copies=" << copy8Count
-                  << " score_offset=0"
-                  << " score_bytes=4"
-                  << " backspace_key=0x08"
-                  << " enter_key=0x0d"
-                  << " prompt_sound=0x0078/p11"
-                  << " commit_sound=0x0008/p11\n";
-    }
+    void debugRecordEntryStaticModel() { lezac::diagnostics::UiDiagnostics::debugRecordEntryStaticModel(); }
 
     void debugCoreResourceRawRoundtrip() {
         load();
@@ -7254,7 +6973,7 @@ public:
         SpriteBank jsonSprites = sprites_;
         SpriteBank jsonAltSprites = altSprites_;
         SpriteBank jsonFontSprites = fontSprites_;
-        std::vector<Record> jsonRecords = records_;
+        std::vector<Record> jsonRecords = recordStore_.records();
         SoundBank jsonSounds = sounds_;
         GranBank jsonGran = gran_;
         std::vector<Level> jsonLevels = levels_;
@@ -7275,7 +6994,7 @@ public:
         if (!sameSprites(sprites_, jsonSprites)) fail("BOMOMIMK.SPR sprites");
         if (!sameSprites(altSprites_, jsonAltSprites)) fail("PROVA.SPR sprites");
         if (!sameSprites(fontSprites_, jsonFontSprites)) fail("FONTS.SPR sprites");
-        if (!sameRecords(records_, jsonRecords)) fail("RECS.DAT records");
+        if (!sameRecords(recordStore_.records(), jsonRecords)) fail("RECS.DAT records");
         if (!sameSound(sounds_, jsonSounds)) fail("PROEFS.SON sound bank");
         if (!sameGran(gran_, jsonGran)) fail("GRAN.MST records");
         if (!sameLevels(levels_, jsonLevels)) fail("LIVELS.SCH levels");
@@ -7298,7 +7017,7 @@ public:
                   << " pixels=" << background_.pixels.size()
                   << " tiles=" << tiles_.count
                   << " sprites=" << totalSprites
-                  << " records=" << records_.size()
+                  << " records=" << recordStore_.records().size()
                   << " sound_steps=" << sounds_.stepCount
                   << " sound_chunks=" << sounds_.records.size()
                   << " gran_records=" << gran_.records.size()
@@ -7311,8 +7030,8 @@ public:
 
     void debugRecordNameEntry(const std::string& path) {
         load();
-        recordPath_ = path;
-        saveRecords(recordPath_, records_);
+        recordStore_.setPath(path);
+        saveRecords(recordStore_.path(), recordStore_.records());
         auto encodedNameAt = [](const std::string& recordPath, size_t index) {
             auto bytes = readFile(recordPath);
             constexpr size_t kRecordSize = 13;
@@ -7327,13 +7046,13 @@ public:
         score_ = 999999u;
         levelIndex_ = 0;
         beginGameOver();
-        if (menuPage_ != MenuPage::NameEntry) {
+        if (ui_.snapshot().page != MenuPage::NameEntry) {
             throw std::runtime_error("high score did not open name entry");
         }
         bool running = true;
         onKey(SDLK_ESCAPE, running);
         auto afterCancel = loadRecords(path);
-        if (menuPage_ != MenuPage::Records || pendingRecordScore_ != 0 ||
+        if (ui_.snapshot().page != MenuPage::Records || recordStore_.pending().score != 0 ||
             (!afterCancel.empty() && afterCancel[0].score == 999999u)) {
             throw std::runtime_error("Escape committed pending record instead of cancelling");
         }
@@ -7341,7 +7060,7 @@ public:
         score_ = 999999u;
         levelIndex_ = 0;
         beginGameOver();
-        if (menuPage_ != MenuPage::NameEntry) {
+        if (ui_.snapshot().page != MenuPage::NameEntry) {
             throw std::runtime_error("second high score did not open name entry");
         }
         onKey(SDLK_t, running);
@@ -7365,7 +7084,7 @@ public:
         score_ = 1000000u;
         levelIndex_ = 0;
         beginGameOver();
-        if (menuPage_ != MenuPage::NameEntry) {
+        if (ui_.snapshot().page != MenuPage::NameEntry) {
             throw std::runtime_error("third high score did not open name entry");
         }
         onKey(SDLK_a, running);
@@ -7389,7 +7108,7 @@ public:
         score_ = 1000001u;
         levelIndex_ = 0;
         beginGameOver();
-        if (menuPage_ != MenuPage::NameEntry) {
+        if (ui_.snapshot().page != MenuPage::NameEntry) {
             throw std::runtime_error("fourth high score did not open name entry");
         }
         onKey(SDLK_RETURN, running);
@@ -7403,7 +7122,7 @@ public:
         score_ = 1000002u;
         levelIndex_ = 0;
         beginGameOver();
-        if (menuPage_ != MenuPage::NameEntry) {
+        if (ui_.snapshot().page != MenuPage::NameEntry) {
             throw std::runtime_error("fifth high score did not open name entry");
         }
         onKey(SDLK_n, running);
@@ -7437,13 +7156,13 @@ public:
         score_ = 999999u;
         levelIndex_ = 0;
         beginGameOver();
-        if (menuPage_ != MenuPage::NameEntry || !pendingRecordName_.empty()) {
+        if (ui_.snapshot().page != MenuPage::NameEntry || !recordStore_.pending().name.empty()) {
             throw std::runtime_error("record name cursor fixture did not open name entry");
         }
 
         FrameInspection emptyFrame = inspectRenderedFrame("record-name-cursor-empty");
         std::vector<uint32_t> emptyPixels = fb_;
-        int emptySlot = gameRenderer_.nameEntryCursorSlot(pendingRecordName_);
+        int emptySlot = gameRenderer_.nameEntryCursorSlot(recordStore_.pending().name);
         size_t emptyCursorPixels = frameInspector_.countColorInRegion(
             gameRenderer_.nameEntrySlotX(emptySlot) - 1, kNameEntrySlotY - 2,
             kNameEntryCursorBoxW, kNameEntryCursorBoxH,
@@ -7456,12 +7175,12 @@ public:
         onKey(SDLK_a, running);
         FrameInspection oneFrame = inspectRenderedFrame("record-name-cursor-one");
         std::vector<uint32_t> onePixels = fb_;
-        int oneSlot = gameRenderer_.nameEntryCursorSlot(pendingRecordName_);
+        int oneSlot = gameRenderer_.nameEntryCursorSlot(recordStore_.pending().name);
         size_t oneCursorPixels = frameInspector_.countColorInRegion(
             gameRenderer_.nameEntrySlotX(oneSlot) - 1, kNameEntrySlotY - 2,
             kNameEntryCursorBoxW, kNameEntryCursorBoxH,
             kNameEntryCursorBackground);
-        if (pendingRecordName_ != "a" || oneSlot != 1 ||
+        if (recordStore_.pending().name != "a" || oneSlot != 1 ||
             oneFrame.hash == emptyFrame.hash || oneCursorPixels == 0 ||
             !frameInspector_.regionChanged(emptyPixels, gameRenderer_.nameEntrySlotX(0) - 1,
                            kNameEntrySlotY - 2, kNameEntrySlotAdvance * 2,
@@ -7471,12 +7190,12 @@ public:
 
         onKey(SDLK_b, running);
         FrameInspection twoFrame = inspectRenderedFrame("record-name-cursor-two");
-        int twoSlot = gameRenderer_.nameEntryCursorSlot(pendingRecordName_);
+        int twoSlot = gameRenderer_.nameEntryCursorSlot(recordStore_.pending().name);
         size_t twoCursorPixels = frameInspector_.countColorInRegion(
             gameRenderer_.nameEntrySlotX(twoSlot) - 1, kNameEntrySlotY - 2,
             kNameEntryCursorBoxW, kNameEntryCursorBoxH,
             kNameEntryCursorBackground);
-        if (pendingRecordName_ != "ab" || twoSlot != 2 ||
+        if (recordStore_.pending().name != "ab" || twoSlot != 2 ||
             twoFrame.hash == oneFrame.hash || twoCursorPixels == 0 ||
             !frameInspector_.regionChanged(onePixels, gameRenderer_.nameEntrySlotX(1) - 1,
                            kNameEntrySlotY - 2, kNameEntrySlotAdvance * 2,
@@ -7487,12 +7206,12 @@ public:
         onKey(SDLK_BACKSPACE, running);
         FrameInspection backspaceFrame =
             inspectRenderedFrame("record-name-cursor-backspace");
-        int backspaceSlot = gameRenderer_.nameEntryCursorSlot(pendingRecordName_);
+        int backspaceSlot = gameRenderer_.nameEntryCursorSlot(recordStore_.pending().name);
         size_t backspaceCursorPixels = frameInspector_.countColorInRegion(
             gameRenderer_.nameEntrySlotX(backspaceSlot) - 1, kNameEntrySlotY - 2,
             kNameEntryCursorBoxW, kNameEntryCursorBoxH,
             kNameEntryCursorBackground);
-        if (pendingRecordName_ != "a" || backspaceSlot != 1 ||
+        if (recordStore_.pending().name != "a" || backspaceSlot != 1 ||
             backspaceCursorPixels == 0 || backspaceFrame.hash != oneFrame.hash) {
             throw std::runtime_error("name-entry cursor did not return after Backspace");
         }
@@ -7511,13 +7230,13 @@ public:
 
     void debugRecordNameEntryRepeat(const std::string& path) {
         load();
-        recordPath_ = path;
-        saveRecords(recordPath_, records_);
+        recordStore_.setPath(path);
+        saveRecords(recordStore_.path(), recordStore_.records());
         initSdl();
         score_ = 999999u;
         levelIndex_ = 0;
         beginGameOver();
-        if (menuPage_ != MenuPage::NameEntry || !pendingRecordName_.empty()) {
+        if (ui_.snapshot().page != MenuPage::NameEntry || !recordStore_.pending().name.empty()) {
             throw std::runtime_error("record name repeat fixture did not open name entry");
         }
 
@@ -7530,7 +7249,7 @@ public:
             pushKeyDown(SDLK_b, true);
             processEvents(running);
         }
-        if (pendingRecordName_ != "a bbb" || gameRenderer_.nameEntryCursorSlot(pendingRecordName_) != 5) {
+        if (recordStore_.pending().name != "a bbb" || gameRenderer_.nameEntryCursorSlot(recordStore_.pending().name) != 5) {
             throw std::runtime_error("repeated name-entry text was not accepted");
         }
 
@@ -7538,18 +7257,18 @@ public:
             pushKeyDown(SDLK_BACKSPACE, true);
             processEvents(running);
         }
-        if (pendingRecordName_ != "a b" || gameRenderer_.nameEntryCursorSlot(pendingRecordName_) != 3) {
+        if (recordStore_.pending().name != "a b" || gameRenderer_.nameEntryCursorSlot(recordStore_.pending().name) != 3) {
             throw std::runtime_error("repeated name-entry Backspace was not accepted");
         }
 
         pushKeyDown(SDLK_RETURN, true);
         processEvents(running);
-        bool ignoredRepeatEnter = menuPage_ == MenuPage::NameEntry &&
-                                  pendingRecordName_ == "a b";
+        bool ignoredRepeatEnter = ui_.snapshot().page == MenuPage::NameEntry &&
+                                  recordStore_.pending().name == "a b";
         pushKeyDown(SDLK_ESCAPE, true);
         processEvents(running);
-        bool ignoredRepeatEscape = menuPage_ == MenuPage::NameEntry &&
-                                   pendingRecordName_ == "a b";
+        bool ignoredRepeatEscape = ui_.snapshot().page == MenuPage::NameEntry &&
+                                   recordStore_.pending().name == "a b";
         if (!ignoredRepeatEnter || !ignoredRepeatEscape) {
             throw std::runtime_error("repeated name-entry commit/cancel key was accepted");
         }
@@ -7557,7 +7276,7 @@ public:
         pushKeyDown(SDLK_RETURN);
         processEvents(running);
         auto reloaded = loadRecords(path);
-        if (menuPage_ != MenuPage::Records || reloaded.empty() ||
+        if (ui_.snapshot().page != MenuPage::Records || reloaded.empty() ||
             reloaded[0].score != 999999u || reloaded[0].name != "a b") {
             throw std::runtime_error("name-entry repeat record did not commit");
         }
@@ -7575,14 +7294,14 @@ public:
 
     void debugRecordSaveFailure(const std::string& path) {
         load();
-        recordPath_ = path;
+        recordStore_.setPath(path);
         score_ = 999999u;
         levelIndex_ = 0;
         beginGameOver();
-        pendingRecordName_ = "FAIL";
+        recordStore_.setPendingNameForFixture("FAIL");
         finalizePendingRecord();
-        if (menuPage_ != MenuPage::NameEntry || pendingRecordScore_ != 999999u ||
-            pendingRecordName_ != "FAIL") {
+        if (ui_.snapshot().page != MenuPage::NameEntry || recordStore_.pending().score != 999999u ||
+            recordStore_.pending().name != "FAIL") {
             throw std::runtime_error("record save failure discarded pending entry");
         }
 
@@ -7592,12 +7311,12 @@ public:
         if (retryPath.empty()) {
             retryPath = "records_save_failure_retry.dat";
         }
-        recordPath_ = retryPath.string();
-        saveRecords(recordPath_, records_);
+        recordStore_.setPath(retryPath.string());
+        saveRecords(recordStore_.path(), recordStore_.records());
         finalizePendingRecord();
-        auto reloaded = loadRecords(recordPath_);
-        if (menuPage_ != MenuPage::Records || pendingRecordScore_ != 0 ||
-            !pendingRecordName_.empty() || reloaded.empty() ||
+        auto reloaded = loadRecords(recordStore_.path());
+        if (ui_.snapshot().page != MenuPage::Records || recordStore_.pending().score != 0 ||
+            !recordStore_.pending().name.empty() || reloaded.empty() ||
             reloaded[0].score != 999999u || reloaded[0].name != "FAIL") {
             throw std::runtime_error("record save retry did not commit pending entry");
         }
@@ -7607,19 +7326,19 @@ public:
 
     void debugEndFlowRecords(const std::string& path) {
         load();
-        recordPath_ = path;
-        saveRecords(recordPath_, records_);
-        const std::vector<Record> baselineRecords = records_;
+        recordStore_.setPath(path);
+        saveRecords(recordStore_.path(), recordStore_.records());
+        const std::vector<Record> baselineRecords = recordStore_.records();
 
         auto containsRecord = [&](uint32_t score, const std::string& name) {
-            auto reloaded = loadRecords(recordPath_);
+            auto reloaded = loadRecords(recordStore_.path());
             return std::any_of(reloaded.begin(), reloaded.end(),
                                [&](const Record& record) {
                                    return record.score == score && record.name == name;
                                });
         };
         auto containsScore = [&](uint32_t score) {
-            auto reloaded = loadRecords(recordPath_);
+            auto reloaded = loadRecords(recordStore_.path());
             return std::any_of(reloaded.begin(), reloaded.end(),
                                [&](const Record& record) {
                                    return record.score == score;
@@ -7627,7 +7346,7 @@ public:
         };
 
         resetLevel(0);
-        menu_ = false;
+        ui_.setMenu(false);
         int startLevel = levelIndex_;
         collectAllObjectiveTilesForSmoke();
         damageRequiredTilesForSmoke();
@@ -7638,8 +7357,8 @@ public:
             updateLevelCompletion();
         }
         int completionLevel = levelIndex_ + 1;
-        if (levelIndex_ != startLevel + 1 || menu_ || pendingRecordScore_ != 0 ||
-            menuPage_ == MenuPage::NameEntry) {
+        if (levelIndex_ != startLevel + 1 || ui_.snapshot().menu || recordStore_.pending().score != 0 ||
+            ui_.snapshot().page == MenuPage::NameEntry) {
             throw std::runtime_error("mid-game completion entered end-flow records");
         }
 
@@ -7648,13 +7367,13 @@ public:
         score2_ = 0;
         levelIndex_ = 2;
         beginGameOver();
-        if (!menu_ || menuPage_ != MenuPage::NameEntry ||
-            pendingRecordScore_ != 999997u || pendingRecordLevel_ != 3 ||
-            pendingRecordPlayer_ != 1 || lives_ != 3 || lives2_ != 3 ||
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::NameEntry ||
+            recordStore_.pending().score != 999997u || recordStore_.pending().level != 3 ||
+            recordStore_.pending().player != 1 || lives_ != 3 || lives2_ != 3 ||
             levelIndex_ != 0) {
             throw std::runtime_error("single-player qualifying game-over state mismatch");
         }
-        pendingRecordName_ = "one";
+        recordStore_.setPendingNameForFixture("one");
         finalizePendingRecord();
         if (!containsRecord(999997u, "one")) {
             throw std::runtime_error("single-player record was not committed");
@@ -7664,25 +7383,25 @@ public:
         score2_ = 0;
         levelIndex_ = 0;
         beginGameOver();
-        if (!menu_ || menuPage_ != MenuPage::GameOver || pendingRecordScore_ != 0 ||
-            pendingRecordLevel_ != 0 || !pendingRecordName_.empty()) {
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::GameOver || recordStore_.pending().score != 0 ||
+            recordStore_.pending().level != 0 || !recordStore_.pending().name.empty()) {
             throw std::runtime_error("non-qualifying game-over did not show terminal state");
         }
         bool running = true;
         onKey(SDLK_RETURN, running);
-        if (menuPage_ != MenuPage::Main || score_ != 0 || score2_ != 0) {
+        if (ui_.snapshot().page != MenuPage::Main || score_ != 0 || score2_ != 0) {
             throw std::runtime_error("game-over confirm did not clear score state");
         }
 
-        records_ = baselineRecords;
-        saveRecords(recordPath_, records_);
+        recordStore_.replaceRecords(baselineRecords);
+        saveRecords(recordStore_.path(), recordStore_.records());
         playerCount_ = 1;
-        score_ = records_.back().score;
+        score_ = recordStore_.records().back().score;
         score2_ = 0;
         levelIndex_ = 2;
         beginGameOver();
-        if (!menu_ || menuPage_ != MenuPage::GameOver || pendingRecordScore_ != 0 ||
-            pendingRecordLevel_ != 0 || !pendingRecordName_.empty()) {
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::GameOver || recordStore_.pending().score != 0 ||
+            recordStore_.pending().level != 0 || !recordStore_.pending().name.empty()) {
             throw std::runtime_error("score equal to record cutoff qualified");
         }
 
@@ -7691,12 +7410,12 @@ public:
         score2_ = 999998u;
         levelIndex_ = 4;
         beginGameOver();
-        if (!menu_ || menuPage_ != MenuPage::NameEntry ||
-            pendingRecordScore_ != 999998u || pendingRecordLevel_ != 5 ||
-            pendingRecordPlayer_ != 2) {
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::NameEntry ||
+            recordStore_.pending().score != 999998u || recordStore_.pending().level != 5 ||
+            recordStore_.pending().player != 2) {
             throw std::runtime_error("player 2 qualifying score was not prompted");
         }
-        pendingRecordName_ = "two";
+        recordStore_.setPendingNameForFixture("two");
         finalizePendingRecord();
         if (!containsRecord(999998u, "two")) {
             throw std::runtime_error("player 2 record was not committed");
@@ -7707,48 +7426,48 @@ public:
         score2_ = 999995u;
         levelIndex_ = 5;
         beginGameOver();
-        if (menuPage_ != MenuPage::NameEntry || pendingRecordPlayer_ != 1 ||
-            pendingRecordScore_ != 999996u) {
+        if (ui_.snapshot().page != MenuPage::NameEntry || recordStore_.pending().player != 1 ||
+            recordStore_.pending().score != 999996u) {
             throw std::runtime_error("two-player double qualifier did not start with player 1");
         }
-        pendingRecordName_ = "cat";
+        recordStore_.setPendingNameForFixture("cat");
         finalizePendingRecord();
-        if (menuPage_ != MenuPage::NameEntry || pendingRecordPlayer_ != 2 ||
-            pendingRecordScore_ != 999995u) {
+        if (ui_.snapshot().page != MenuPage::NameEntry || recordStore_.pending().player != 2 ||
+            recordStore_.pending().score != 999995u) {
             throw std::runtime_error("two-player double qualifier did not continue to player 2");
         }
-        pendingRecordName_ = "dog";
+        recordStore_.setPendingNameForFixture("dog");
         finalizePendingRecord();
-        if (menuPage_ != MenuPage::Records || score_ != 0 || score2_ != 0 ||
+        if (ui_.snapshot().page != MenuPage::Records || score_ != 0 || score2_ != 0 ||
             !containsRecord(999996u, "cat") || !containsRecord(999995u, "dog")) {
             throw std::runtime_error("two-player queued records did not finish cleanly");
         }
 
-        records_ = baselineRecords;
-        saveRecords(recordPath_, records_);
-        if (records_.size() < 7 || records_[5].score <= records_[6].score + 1) {
+        recordStore_.replaceRecords(baselineRecords);
+        saveRecords(recordStore_.path(), recordStore_.records());
+        if (recordStore_.records().size() < 7 || recordStore_.records()[5].score <= recordStore_.records()[6].score + 1) {
             throw std::runtime_error("baseline records cannot exercise p2 re-check");
         }
         playerCount_ = 2;
-        score_ = records_.front().score + 1000u;
-        score2_ = records_[6].score + 1u;
+        score_ = recordStore_.records().front().score + 1000u;
+        score2_ = recordStore_.records()[6].score + 1u;
         levelIndex_ = 4;
         beginGameOver();
-        if (menuPage_ != MenuPage::NameEntry || pendingRecordPlayer_ != 1 ||
-            pendingRecordScore_ != score_) {
+        if (ui_.snapshot().page != MenuPage::NameEntry || recordStore_.pending().player != 1 ||
+            recordStore_.pending().score != score_) {
             throw std::runtime_error("threshold re-check did not start with player 1");
         }
         uint32_t recheckP2Score = score2_;
-        pendingRecordName_ = "top";
+        recordStore_.setPendingNameForFixture("top");
         finalizePendingRecord();
-        if (menuPage_ != MenuPage::Records || pendingRecordScore_ != 0 ||
+        if (ui_.snapshot().page != MenuPage::Records || recordStore_.pending().score != 0 ||
             containsScore(recheckP2Score)) {
             throw std::runtime_error("player 2 was not re-checked after player 1 insert");
         }
 
         playerCount_ = 1;
         resetLevel(static_cast<int>(levels_.size()) - 1);
-        menu_ = false;
+        ui_.setMenu(false);
         collectAllObjectiveTilesForSmoke();
         damageRequiredTilesForSmoke();
         score_ = 1u;
@@ -7756,13 +7475,13 @@ public:
         for (int i = 0; i <= 100; ++i) {
             updateLevelCompletion();
         }
-        if (!menu_ || menuPage_ != MenuPage::CompletedGame ||
-            lastEndReason_ != EndReason::CompletedGame || levelIndex_ != 0 ||
-            pendingRecordScore_ != 0) {
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::CompletedGame ||
+            ui_.snapshot().lastEndReason != EndReason::CompletedGame || levelIndex_ != 0 ||
+            recordStore_.pending().score != 0) {
             throw std::runtime_error("final level completion did not enter completed-game flow");
         }
 
-        auto finalRecords = loadRecords(recordPath_);
+        auto finalRecords = loadRecords(recordStore_.path());
         std::cout << "end_flow_records=ok completion_level=" << completionLevel
                   << " p1_record=999997 p2_record=999998 records="
                   << finalRecords.size()
@@ -7782,9 +7501,9 @@ public:
         score2_ = 2u;
         levelIndex_ = 3;
         beginGameOver();
-        if (!menu_ || menuPage_ != MenuPage::GameOver ||
-            lastEndReason_ != EndReason::GameOver ||
-            pendingRecordScore_ != 0 || score_ != 1u || score2_ != 2u) {
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::GameOver ||
+            ui_.snapshot().lastEndReason != EndReason::GameOver ||
+            recordStore_.pending().score != 0 || score_ != 1u || score2_ != 2u) {
             throw std::runtime_error("game-over frame fixture entered wrong state");
         }
         FrameInspection gameOverFrame = inspectRenderedFrame("end-flow-game-over");
@@ -7795,7 +7514,7 @@ public:
 
         pushKeyDown(SDLK_RETURN);
         processEvents(running);
-        if (!menu_ || menuPage_ != MenuPage::Main ||
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::Main ||
             score_ != 0 || score2_ != 0) {
             throw std::runtime_error("game-over confirm did not clear scores");
         }
@@ -7807,7 +7526,7 @@ public:
 
         playerCount_ = 1;
         resetLevel(static_cast<int>(levels_.size()) - 1);
-        menu_ = false;
+        ui_.setMenu(false);
         collectAllObjectiveTilesForSmoke();
         damageRequiredTilesForSmoke();
         score_ = 1u;
@@ -7818,9 +7537,9 @@ public:
         for (int i = 0; i <= 100; ++i) {
             updateLevelCompletion();
         }
-        if (!menu_ || menuPage_ != MenuPage::CompletedGame ||
-            lastEndReason_ != EndReason::CompletedGame ||
-            pendingRecordScore_ != 0 || levelIndex_ != 0 || score_ != 1u) {
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::CompletedGame ||
+            ui_.snapshot().lastEndReason != EndReason::CompletedGame ||
+            recordStore_.pending().score != 0 || levelIndex_ != 0 || score_ != 1u) {
             throw std::runtime_error("final-level completion did not show completed-game page");
         }
         FrameInspection completedFrame =
@@ -7833,7 +7552,7 @@ public:
 
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
-        if (!menu_ || menuPage_ != MenuPage::Main || score_ != 0) {
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::Main || score_ != 0) {
             throw std::runtime_error("completed-game confirm did not clear score");
         }
         FrameInspection finalMenuFrame =
@@ -7851,102 +7570,7 @@ public:
                   << " frame_inspection=1\n";
     }
 
-    void debugEndFlowStaticModel() {
-        std::vector<uint8_t> exeBytes = readFile("LEZAC.EXE");
-        if (exeBytes.size() < 0x0770 || exeBytes[0] != 'M' || exeBytes[1] != 'Z') {
-            throw std::runtime_error("LEZAC.EXE missing MZ header");
-        }
-        uint16_t headerParagraphs = le16(exeBytes, 0x08);
-        size_t imageBase = static_cast<size_t>(headerParagraphs) * 16;
-        if (imageBase != 0x0770) {
-            throw std::runtime_error("LEZAC.EXE image base changed for end-flow scan");
-        }
-
-        auto requireBytes = [&](uint16_t offset, const std::string& hex,
-                                const std::string& label) {
-            std::vector<uint8_t> expected = parseHexByteList(hex);
-            size_t p = imageBase + offset;
-            if (p + expected.size() > exeBytes.size()) {
-                throw std::runtime_error(label + " extends past LEZAC.EXE");
-            }
-            for (size_t i = 0; i < expected.size(); ++i) {
-                if (exeBytes[p + i] != expected[i]) {
-                    throw std::runtime_error(label + " bytes changed");
-                }
-            }
-        };
-        auto nearTarget = [&](uint16_t offset, const std::string& label) {
-            size_t p = imageBase + offset;
-            if (p + 3 > exeBytes.size() || exeBytes[p] != 0xe8) {
-                throw std::runtime_error(label + " is not a near call");
-            }
-            int rel = static_cast<int>(le16(exeBytes, p + 1));
-            if (rel >= 0x8000) rel -= 0x10000;
-            return static_cast<uint16_t>(offset + 3 + rel);
-        };
-
-        requireBytes(0x1ae1, "09 67 61 6d 65 20 6f 76 65 72",
-                     "game-over string");
-        requireBytes(0x1aeb, "0d 65 63 63 65 6c 6c 65 6e 74 65 3e 3e 3e",
-                     "completed-game title string");
-        requireBytes(0x1af9,
-                     "17 68 61 69 20 63 6f 6d 70 6c 65 74 61 74 6f "
-                     "20 69 6c 20 67 69 6f 63 6f",
-                     "completed-game body string");
-        requireBytes(kEndFlowDispatcherStart,
-                     "55 89 e5 b8 0c 03 9a df 04 20 09 81 ec 0c 03",
-                     "end-flow dispatcher prologue");
-        requireBytes(0x1b63,
-                     "8a 46 04 3c 01 75 1e 6a 3c 6a 4d bf e1 1a",
-                     "end-flow mode-1 branch");
-        requireBytes(0x1b88,
-                     "3c 02 75 3d 6a 3c 6a 37 bf eb 1a",
-                     "end-flow mode-2 branch");
-        requireBytes(0x1bc4, "c6 06 8c 20 01", "completed-game flag write");
-        requireBytes(0x1bf8,
-                     "c7 46 fc 01 00 eb 03 ff 46 fc 83 7e fc 01 75 13 "
-                     "b8 5a 78 8c da a3 b6 78 89 16 b8 78 c6 06 58 "
-                     "20 31 eb 11 b8 88 78 8c da a3 b6 78 89 16 b8 "
-                     "78 c6 06 58 20 32",
-                     "end-flow player score pointer setup");
-        requireBytes(0x1c4b,
-                     "83 bb f2 fe 00 7f 0f 7d 03 e9 98 00 83 bb f0 "
-                     "fe 00 77 03 e9 8e 00",
-                     "end-flow zero-score skip");
-        requireBytes(0x1cf8, "9a 0f 03 4a 08 a2 58 20",
-                     "end-flow key wait");
-        requireBytes(0x1d00, "c7 46 fc 01 00 eb 03 ff 46 fc",
-                     "end-flow record loop");
-        requireBytes(0x1d18,
-                     "3b 16 54 1b 7f 08 7c 1b 3b 06 52 1b 72 15",
-                     "end-flow seventh-record cutoff compare");
-        requireBytes(0x1d2c,
-                     "ff b3 f2 fe ff b3 f0 fe ff 76 fc 55 e8 0a fb",
-                     "end-flow record-entry call setup");
-        requireBytes(0x1d3b, "83 7e fc 02 75 c6 c9 c2 02 00",
-                     "end-flow record loop return");
-
-        uint16_t recordEntryTarget = nearTarget(0x1d38, "end-flow record-entry call");
-        if (recordEntryTarget != 0x1845) {
-            throw std::runtime_error("end-flow record-entry target changed");
-        }
-
-        std::cout << "end_flow_static_model=ok"
-                  << " routine=" << hex4(kEndFlowDispatcherStart)
-                  << ".." << hex4(kEndFlowDispatcherRet)
-                  << " game_over_string=0x1ae1"
-                  << " completed_strings=0x1aeb,0x1af9"
-                  << " mode_param=bp+4"
-                  << " completed_flag=0x208c"
-                  << " player_score_ptrs=0x785a,0x7888"
-                  << " player_markers=0x31,0x32"
-                  << " key_latch=0x2058"
-                  << " record_cutoff=0x1b52/0x1b54"
-                  << " record_stride=13"
-                  << " record_entry_call=" << hex4(recordEntryTarget)
-                  << " strict_cutoff=1"
-                  << " player_order=1,2\n";
-    }
+    void debugEndFlowStaticModel() { lezac::diagnostics::UiDiagnostics::debugEndFlowStaticModel(); }
 
     void exportBackground(const std::string& path) {
         load();
@@ -9413,15 +9037,15 @@ public:
 
     void debugRecordNameSoundRouting(const std::string& path) {
         load();
-        recordPath_ = path;
-        saveRecords(recordPath_, records_);
+        recordStore_.setPath(path);
+        saveRecords(recordStore_.path(), recordStore_.records());
         clearSoundLatch();
         sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
 
         score_ = 999999u;
         levelIndex_ = 0;
         beginGameOver();
-        if (menuPage_ != MenuPage::NameEntry ||
+        if (ui_.snapshot().page != MenuPage::NameEntry ||
             !sound_.latch().active ||
             sound_.latch().latchedOffset != kRecordNamePromptSoundCursor ||
             sound_.latch().currentSelector != kRecordNamePromptSoundPriority ||
@@ -9439,7 +9063,7 @@ public:
         onKey(SDLK_o, running);
         onKey(SDLK_k, running);
         onKey(SDLK_RETURN, running);
-        if (menuPage_ != MenuPage::Records ||
+        if (ui_.snapshot().page != MenuPage::Records ||
             !sound_.latch().active ||
             sound_.latch().latchedOffset != kRecordNameCommitSoundCursor ||
             sound_.latch().currentSelector != kRecordNameCommitSoundPriority ||
@@ -9453,7 +9077,7 @@ public:
             throw std::runtime_error("record name commit sound pump mismatch");
         }
 
-        auto reloaded = loadRecords(recordPath_);
+        auto reloaded = loadRecords(recordStore_.path());
         if (reloaded.empty() || reloaded[0].score != 999999u ||
             reloaded[0].name != "ok") {
             throw std::runtime_error("record name sound route did not commit record");
@@ -9479,11 +9103,11 @@ public:
         sound_.restorePlaybackForFixture({sound_.lastPumped().record, 0, 0});
 
         bool running = true;
-        if (!menu_ || menuPage_ != MenuPage::Main) {
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::Main) {
             throw std::runtime_error("records page sound route did not start in menu");
         }
         onKey(SDLK_r, running);
-        if (!running || !menu_ || menuPage_ != MenuPage::Records ||
+        if (!running || !ui_.snapshot().menu || ui_.snapshot().page != MenuPage::Records ||
             !sound_.latch().active ||
             sound_.latch().latchedOffset != kRecordsPageSoundCursor ||
             sound_.latch().currentSelector != kRecordsPageSoundPriority ||
@@ -9795,7 +9419,7 @@ public:
         load();
         playerCount_ = 2;
         resetLevel(0);
-        menu_ = false;
+        ui_.setMenu(false);
         energy_ = 100;
         energy2_ = 100;
         lives_ = 3;
@@ -9862,7 +9486,7 @@ public:
     void debugPlayerState2DeathFields() {
         load();
         resetLevel(0);
-        menu_ = false;
+        ui_.setMenu(false);
 
         player_.vx = 12.0f;
         player_.vy = -9.0f;
@@ -9915,13 +9539,13 @@ public:
         lives_ = 3;
         lives2_ = 1;
         resetLevel(0);
-        menu_ = false;
+        ui_.setMenu(false);
         energy2_ = 0;
         damageCooldown2_ = 0;
         deathStateTimer2_ = 0;
         damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
                      damageCooldown2_, 2);
-        if (menu_ || playerDead_ || !player2Dead_ || lives_ != 3 || lives2_ != 1 ||
+        if (ui_.snapshot().menu || playerDead_ || !player2Dead_ || lives_ != 3 || lives2_ != 1 ||
             !pendingLifeLoss2_ || energy2_ != 100 || reentryTimer2_ != kReentryTicks ||
             deathStateTimer2_ != kDeathStateTicks) {
             throw std::runtime_error("player 2 zero-life state-2 fields mismatch");
@@ -9930,7 +9554,7 @@ public:
             updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
                           playerDead_);
         }
-        if (menu_ || !player2Dead_ || lives2_ != 0 || pendingLifeLoss2_ ||
+        if (ui_.snapshot().menu || !player2Dead_ || lives2_ != 0 || pendingLifeLoss2_ ||
             deathStateTimer2_ != 0 || reentryTimer2_ != 0) {
             throw std::runtime_error("player 2 zero-life state-2 timer mismatch");
         }
@@ -9954,7 +9578,7 @@ public:
         load();
         for (int marker : {1, 2}) {
             for (bool gate : {false, true}) {
-                playerCount_ = 2; lives_ = lives2_ = 1; resetLevel(0); menu_ = false;
+                playerCount_ = 2; lives_ = lives2_ = 1; resetLevel(0); ui_.setMenu(false);
                 const auto originalTiles = level_.tiles;
                 if (!gate) level_.tiles.assign(level_.tiles.size(), 0);
                 auto& player = marker == 1 ? player_ : player2_;
@@ -9989,7 +9613,7 @@ public:
                 }
             }
         }
-        lives_ = lives2_ = 1; resetLevel(0); menu_ = false;
+        lives_ = lives2_ = 1; resetLevel(0); ui_.setMenu(false);
         const auto originalTiles = level_.tiles;
         level_.tiles.assign(level_.tiles.size(), 0);
         beginPlayerDeath(player_, energy_, lives_, playerDead_, reentryTimer_, 1);
@@ -10388,7 +10012,7 @@ public:
         load();
         resetLevel(0);
         std::filesystem::create_directories(outDir);
-        menu_ = false;
+        ui_.setMenu(false);
         playerCount_ = 1;
         gameplayViewWidth_ = kScreenW;
         player_.x = 104.0f;
@@ -14285,7 +13909,7 @@ public:
         }
         if (!complete) fail("missing completion");
 
-        load(); initSdl(); playerCount_ = 2; resetLevel(0); menu_ = paused_ = false;
+        load(); initSdl(); playerCount_ = 2; resetLevel(0); ui_.setMenu(false); ui_.setPaused(false);
         bombInventory_.counts.fill(0); bombInventory2_.counts.fill(0);
         bool running = true;
         std::array<uint8_t, SDL_NUM_SCANCODES> keys{};
@@ -14346,8 +13970,8 @@ public:
             }
             return SDL_GetTicks() - started > 30000;
         }, [&] {
-            playerCount_ = 2; resetLevel(0); menu_ = paused_ = false;
-            interactiveLevelIntroEnabled_ = false; levelIntro_ = {};
+            playerCount_ = 2; resetLevel(0); ui_.setMenu(false); ui_.setPaused(false);
+            levelFlow_.setInteractiveEnabled(false); levelFlow_.restoreIntro({});
             started = SDL_GetTicks();
             std::cout << "key_ownership_live=ready audio=" << (SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "none") << '\n' << std::flush;
         });
@@ -14373,7 +13997,7 @@ public:
             return result;
         };
         auto reset = [&] {
-            playerCount_ = 2; resetLevel(0); menu_ = paused_ = false;
+            playerCount_ = 2; resetLevel(0); ui_.setMenu(false); ui_.setPaused(false);
             monsters_.clear(); bombs_.clear(); transientActors_.clear(); bonusDrops_.clear(); launchPadMarkers_.clear();
             level_.monsterSpawners.clear(); spawnerStates_.clear();
         };
@@ -14570,7 +14194,7 @@ public:
                     le16(regs, 0) != 0x01a2 || le16(regs, 2) != 0x0c44 || le16(regs, 6) != 0x18b3 ||
                     le16(regs, 8) != 0x3fe4 || le16(regs, 10) != 0x3ffe ||
                     le16(regs, 4) != (endsInMap ? 0x3ea9 : 0x0c44)) fail(f.at("name") + " seed/register mismatch");
-                playerCount_ = 2; lives_ = lives2_ = 1; resetLevel(0); menu_ = false;
+                playerCount_ = 2; lives_ = lives2_ = 1; resetLevel(0); ui_.setMenu(false);
                 level_.tiles.assign(level_.tiles.size(), 0);
                 const uint16_t cell = static_cast<uint16_t>(((static_cast<uint16_t>(y + 7) >> 3) + 1) * width + 3);
                 if (cell + 1 >= level_.tiles.size()) fail("probe outside object plane");
@@ -14662,7 +14286,7 @@ public:
     void debugPlayerState2ReturnActive(const std::string& fixturePath = {}) {
         load();
         resetLevel(0);
-        menu_ = false;
+        ui_.setMenu(false);
         energy_ = 0;
         lives_ = 3;
         damageCooldown_ = 0;
@@ -14701,7 +14325,7 @@ public:
         lives_ = 3;
         lives2_ = 3;
         resetLevel(0);
-        menu_ = false;
+        ui_.setMenu(false);
         energy2_ = 0;
         damageCooldown2_ = 0;
         damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
@@ -14727,7 +14351,7 @@ public:
         lives_ = 3;
         lives2_ = 1;
         resetLevel(0);
-        menu_ = false;
+        ui_.setMenu(false);
         energy2_ = 0;
         damageCooldown2_ = 0;
         damagePlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
@@ -14738,7 +14362,7 @@ public:
         }
         tryReenterPlayer(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_,
                          damageCooldown2_, 2);
-        if (menu_ || playerDead_ || player2Dead_ || lives2_ != 0 ||
+        if (ui_.snapshot().menu || playerDead_ || player2Dead_ || lives2_ != 0 ||
             deathStateTimer2_ != 0) {
             throw std::runtime_error("player 2 zero-reserve reentry mismatch");
         }
@@ -14755,7 +14379,7 @@ public:
                                 reentryTimer2_ == p2ReentryTimerBefore &&
                                 damageCooldown2_ == p2DamageCooldownBefore &&
                                 energy2_ == p2EnergyBefore;
-        bool p1AliveAfterP2Out = !playerDead_ && lives_ > 0 && !menu_;
+        bool p1AliveAfterP2Out = !playerDead_ && lives_ > 0 && !ui_.snapshot().menu;
         if (!p2OutStaysDead || !p2ReenterBlocked || !p1AliveAfterP2Out) {
             throw std::runtime_error("player 2 zero-life fallback boundary mismatch");
         }
@@ -14775,8 +14399,8 @@ public:
             updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_,
                           1, player2Dead_);
         }
-        bool bothOutGameover = menu_ && menuPage_ == MenuPage::GameOver &&
-                               lastEndReason_ == EndReason::GameOver;
+        bool bothOutGameover = ui_.snapshot().menu && ui_.snapshot().page == MenuPage::GameOver &&
+                               ui_.snapshot().lastEndReason == EndReason::GameOver;
         if (!bothOutGameover) {
             throw std::runtime_error("both-out state-2 game-over mismatch");
         }
@@ -16632,7 +16256,7 @@ public:
                             throw std::runtime_error("bomb constructor identity mismatch");
                         }
                         resetLevel(0);
-                        menu_ = false;
+                        ui_.setMenu(false);
                         logicTick_ = static_cast<uint32_t>(previousFrame);
                         if (motionSuite) {
                             int x, y, vx, vy;
@@ -16665,13 +16289,13 @@ public:
                         }
                         seeded = true;
                         inspect("_armed");
-                        paused_ = true;
+                        ui_.setPaused(true);
                         const int timer = bombs_[0].timer;
                         updateWithControls(FrameControls{}, 1.0f / 60.0f);
                         if (bombs_[0].timer != timer || logicTick_ != static_cast<uint32_t>(previousFrame)) {
                             throw std::runtime_error("paused bomb advanced");
                         }
-                        paused_ = false;
+                        ui_.setPaused(false);
                     } else if (kind == "tick") {
                         if (!seeded || expired || originalCounter <= 0) {
                             throw std::runtime_error("bomb tick outside live trace");
@@ -16770,7 +16394,7 @@ public:
         };
 
         resetLevel(0);
-        menu_ = false;
+        ui_.setMenu(false);
         energy_ = 0;
         lives_ = 0;
         damageCooldown_ = 0;
@@ -16779,7 +16403,7 @@ public:
         explosionEffects_.clear();
         pushExpiredPlayerBombs();
         for (int tick = 0; tick < 10 && !playerDead_; ++tick) updateWithControls({}, 0);
-        if (menu_ || !playerDead_ || lives_ != 0 || !pendingLifeLoss_ ||
+        if (ui_.snapshot().menu || !playerDead_ || lives_ != 0 || !pendingLifeLoss_ ||
             deathStateTimer_ != kDeathStateTicks || !bombs_.empty() ||
             flameRecords_.empty() || explosionEffects_.empty()) {
             throw std::runtime_error("final-life bomb did not enter delayed state-2");
@@ -16788,13 +16412,13 @@ public:
             updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
                           true);
         }
-        if (!menu_ || menuPage_ != MenuPage::GameOver || !bombs_.empty() ||
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::GameOver || !bombs_.empty() ||
             !flameRecords_.empty() || !explosionEffects_.empty()) {
             throw std::runtime_error("final-life bomb did not reset after state-2");
         }
 
         resetLevel(0);
-        menu_ = false;
+        ui_.setMenu(false);
         energy_ = 0;
         lives_ = 0;
         damageCooldown_ = 0;
@@ -16802,8 +16426,8 @@ public:
         flashes_.clear();
         explosionEffects_.clear();
         pushExpiredPlayerBombs();
-        for (int tick = 0; tick < kDeathStateTicks + 10 && !menu_; ++tick) updateWithControls({}, 0);
-        if (!menu_ || menuPage_ != MenuPage::GameOver || !bombs_.empty() ||
+        for (int tick = 0; tick < kDeathStateTicks + 10 && !ui_.snapshot().menu; ++tick) updateWithControls({}, 0);
+        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::GameOver || !bombs_.empty() ||
             !flameRecords_.empty() || !explosionEffects_.empty()) {
             throw std::runtime_error("stale expired bomb exploded after reset");
         }
@@ -17678,8 +17302,8 @@ public:
             };
             require(cases.insert(name).second, "duplicate case");
             resetLevel(0);
-            menu_ = false;
-            levelIntro_.active = false;
+            ui_.setMenu(false);
+            levelFlow_.setIntroActiveForFixture(false);
             playerDead_ = player2Dead_ = true;
             monsters_.clear();
             debrisQueue_.clear();
@@ -18218,7 +17842,7 @@ public:
             throw std::runtime_error("level 1 high-word floor marker became passable");
         }
 
-        menu_ = false;
+        ui_.setMenu(false);
         playerCount_ = 1;
         AutoplayRouteResult route = autoplayLevel1BombRoute();
         if (route.bombTileX != 24 || route.bombTileY != 21) {
@@ -19236,7 +18860,7 @@ public:
         load();
         initSdl();
         resetLevel(0);
-        menu_ = false;
+        ui_.setMenu(false);
         playerCount_ = 1;
         constexpr int kObjectX = 17;
         constexpr int kObjectY = 22;
@@ -19275,7 +18899,7 @@ public:
         }
 
         resetLevel(0);
-        menu_ = false;
+        ui_.setMenu(false);
         AutoplayRouteResult route = autoplayLevel1BombRoute();
         if (route.bombTileX != 24 || route.bombTileY != 21) {
             throw std::runtime_error("object collision blocked level 1 bomb route");
@@ -19294,9 +18918,9 @@ public:
         // verified on levels 1-2 is locked in across all levels.
         load();
         initSdl();
-        menu_ = false;
-        paused_ = false;
-        levelIntro_ = {};
+        ui_.setMenu(false);
+        ui_.setPaused(false);
+        levelFlow_.restoreIntro({});
         playerCount_ = 1;
         const int hudY = kScreenH - 46;
         size_t rendered = 0;
@@ -19334,9 +18958,9 @@ public:
         load();
         initSdl();
         std::filesystem::create_directories(outDir);
-        menu_ = false;
-        paused_ = false;
-        levelIntro_ = {};
+        ui_.setMenu(false);
+        ui_.setPaused(false);
+        levelFlow_.restoreIntro({});
         playerCount_ = 1;
         for (size_t level = 0; level < levels_.size(); ++level) {
             resetLevel(static_cast<int>(level));
@@ -19355,9 +18979,9 @@ public:
         load();
         initSdl();
         resetLevel(0);
-        interactiveLevelIntroEnabled_ = true;
-        levelIntro_ = {};
-        menu_ = false;
+        levelFlow_.setInteractiveEnabled(true);
+        levelFlow_.restoreIntro({});
+        ui_.setMenu(false);
         collectAllObjectiveTilesForSmoke();
         damageRequiredTilesForSmoke();
         if (!isComplete()) {
@@ -19365,13 +18989,13 @@ public:
         }
         const uint32_t before = score_;
         updateLevelCompletion();
-        if (!levelOutro_.active) {
+        if (!levelFlow_.outro().active) {
             throw std::runtime_error("level outro did not activate on completion");
         }
         const int expectedBomb = bombInventory_.counts[1] * 100 +
                                  bombInventory_.counts[2] * 500 +
                                  bombInventory_.counts[3] * 2000;
-        if (levelOutro_.bombBonus[0] != expectedBomb) {
+        if (levelFlow_.outro().bombBonus[0] != expectedBomb) {
             throw std::runtime_error("level outro bomb bonus mismatch");
         }
         if (!outDir.empty()) std::filesystem::create_directories(outDir);
@@ -19381,7 +19005,7 @@ public:
         // is deterministic regardless of wall-clock time.
         const uint32_t base = SDL_GetTicks();
         auto renderAt = [&](uint32_t t, const char* name) {
-            levelOutro_.startedAt = base - t;
+            levelFlow_.setOutroStartForFixture(base - t);
             updateLevelOutro(base);
             inspectRenderedFrame(std::string("level-outro-") + name);
             if (!outDir.empty()) {
@@ -19392,18 +19016,18 @@ public:
         renderAt(400, "010_pause");
         renderAt(500 + 9 * kLevelIntroCharacterDelayMs, "020_line1_typing");
         renderAt(total, "030_full");
-        if (!levelOutro_.awaitKey) {
+        if (!levelFlow_.outro().awaitKey) {
             throw std::runtime_error("level outro did not reach key wait");
         }
         const uint32_t awarded = score_ - before;
-        const int destBonus = levelOutro_.destBonus;
+        const int destBonus = levelFlow_.outro().destBonus;
         const uint32_t expected = static_cast<uint32_t>(destBonus + expectedBomb);
         if (awarded != expected) {
             throw std::runtime_error("level outro award mismatch");
         }
         bool running = true;
         onKey(SDLK_SPACE, running);
-        if (levelOutro_.active || levelIndex_ != 1) {
+        if (levelFlow_.outro().active || levelIndex_ != 1) {
             throw std::runtime_error("level outro key did not advance the level");
         }
         std::cout << "level_outro=ok lines=4 delay_ms="
@@ -21495,7 +21119,7 @@ public:
                     fields.at("rng") != "12345678" || fields.at("cell") != "-1")
                     throw std::runtime_error("invalid flame seed");
                 resetLevel(0);
-                menu_ = false;
+                ui_.setMenu(false);
                 spawnerStates_.clear();
                 monsters_.clear();
                 baseline = level_.tiles;
@@ -21824,7 +21448,7 @@ public:
                     throw std::runtime_error("invalid monster-damage seed: " + name);
                 }
                 resetLevel(0);
-                menu_ = false;
+                ui_.setMenu(false);
                 spawnerStates_.clear();
                 monsters_.clear();
                 baselineMap = level_.tiles;
@@ -22085,7 +21709,7 @@ public:
                     throw std::runtime_error("unexpected original corpse fields: " + name);
                 }
                 resetLevel(0);
-                menu_ = false;
+                ui_.setMenu(false);
                 spawnerStates_.clear();
                 player_.x = 240;
                 player_.y = 168;
@@ -22250,7 +21874,7 @@ public:
         load();
         initSdl();
         resetLevel(0);
-        menu_ = false;
+        ui_.setMenu(false);
         if (!outDir.empty()) std::filesystem::create_directories(outDir);
         std::ifstream input(fixturePath);
         if (!input) throw std::runtime_error("cannot open " + fixturePath);
@@ -22364,7 +21988,7 @@ public:
         initSdl();
         resetLevel(0);
         prepareMonsterMotionDebugLevel(false);
-        menu_ = false;
+        ui_.setMenu(false);
         player_.x = player_.y = 16;
         auto pickups = [&] {
             tileRef(2, 2) = 0x67; tileRef(3, 2) = 0x68;
@@ -22393,13 +22017,13 @@ public:
         checkDraws(4, 0);
         monsters_.clear();
         spawnTransientActor(20, 20, -128, 80, 0x0a, 12);
-        paused_ = true;
+        ui_.setPaused(true);
         const auto seed = randomSeed_;
         updateWithControls({}, 0.0f);
         if (transientActors_.front().y != 20 || transientActors_.front().timer != 12 || randomSeed_ != seed) {
             throw std::runtime_error("paused transient changed");
         }
-        paused_ = false;
+        ui_.setPaused(false);
         cameraShakeTicks_ = 3;
         updateCameraShake();
         const auto rendered = inspectRenderedFrame("transient-limits");
@@ -22487,7 +22111,7 @@ public:
             std::ifstream input(joinPath(fixtureDir, route + ".txt"));
             if (!input) throw std::runtime_error("missing original player route " + route);
             resetLevel(0);
-            menu_ = false;
+            ui_.setMenu(false);
             bool header = false, complete = false;
             bool world = false;
             bool transientHeader = false;
@@ -22894,7 +22518,7 @@ public:
         load();
         initSdl();
         resetLevel(0);
-        menu_ = false;
+        ui_.setMenu(false);
         const float tickSeconds = static_cast<float>(kGovernedTickMs / 1000.0);
         FrameControls idle;
         for (int i = 0; i < 30; ++i) updateWithControls(idle, tickSeconds);
@@ -22981,7 +22605,7 @@ public:
         load();
         initSdl();
         resetLevel(0);
-        menu_ = false;
+        ui_.setMenu(false);
         std::filesystem::create_directories(outDir);
         energy_ = 0;
         damagePlayer(player_, energy_, lives_, playerDead_, reentryTimer_,
@@ -23006,9 +22630,9 @@ public:
     void captureTwoPlayerFrame(const std::string& outPath) {
         load();
         initSdl();
-        menu_ = false;
-        paused_ = false;
-        levelIntro_ = {};
+        ui_.setMenu(false);
+        ui_.setPaused(false);
+        levelFlow_.restoreIntro({});
         playerCount_ = 2;
         resetLevel(0);
         inspectRenderedFrame("capture-two-player");
@@ -23080,9 +22704,9 @@ public:
     void captureMenuFrame(const std::string& outPath, bool italian) {
         load();
         initSdl();
-        menu_ = true;
-        menuPage_ = MenuPage::Main;
-        menuItalian_ = italian;
+        ui_.setMenu(true);
+        ui_.setPage(MenuPage::Main);
+        ui_.setItalian(italian);
         draw();
         writeArgbPpm(outPath, fb_, kScreenW, kScreenH);
         std::cout << "capture_menu_frame=ok out=" << outPath << "\n";
@@ -23149,13 +22773,13 @@ public:
         }
 
         resetLevel(0);
-        menu_ = true;
-        interactiveLevelIntroEnabled_ = true;
+        ui_.setMenu(true);
+        levelFlow_.setInteractiveEnabled(true);
         bool running = true;
         pushKeyDown(SDLK_1);
         processEvents(running);
-        if (!levelIntro_.active || menu_ || levelIndex_ != 0 ||
-            visibleLevelIntroCharacters(levelIntro_.startedAt) != 1) {
+        if (!levelFlow_.intro().active || ui_.snapshot().menu || levelIndex_ != 0 ||
+            visibleLevelIntroCharacters(levelFlow_.intro().startedAt) != 1) {
             throw std::runtime_error("interactive menu start did not begin level intro");
         }
         const uint32_t logicBefore = logicTick_;
@@ -23165,34 +22789,34 @@ public:
         }
         const uint32_t duration =
             static_cast<uint32_t>(level1Caption.size()) * kLevelIntroCharacterDelayMs;
-        updateLevelIntro(levelIntro_.startedAt + duration - 1);
-        if (!levelIntro_.active ||
-            visibleLevelIntroCharacters(levelIntro_.startedAt + duration - 1) !=
+        updateLevelIntro(levelFlow_.intro().startedAt + duration - 1);
+        if (!levelFlow_.intro().active ||
+            visibleLevelIntroCharacters(levelFlow_.intro().startedAt + duration - 1) !=
                 level1Caption.size()) {
             throw std::runtime_error("level intro reveal timing ended early");
         }
-        updateLevelIntro(levelIntro_.startedAt + duration);
-        updateLevelIntro(levelIntro_.startedAt + duration + 10000);
-        if (!levelIntro_.active) {
+        updateLevelIntro(levelFlow_.intro().startedAt + duration);
+        updateLevelIntro(levelFlow_.intro().startedAt + duration + 10000);
+        if (!levelFlow_.intro().active) {
             throw std::runtime_error("level intro did not keep waiting for a key");
         }
         pushKeyDown(SDLK_RETURN);
         processEvents(running);
-        if (levelIntro_.active) throw std::runtime_error("level intro acknowledgement failed");
+        if (levelFlow_.intro().active) throw std::runtime_error("level intro acknowledgement failed");
 
         beginLevelForPlay(1);
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
-        if (levelIntro_.active || !bombs_.empty()) {
+        if (levelFlow_.intro().active || !bombs_.empty()) {
             throw std::runtime_error("level intro skip key leaked into gameplay");
         }
         beginLevelForPlay(2);
         pushKeyDown(SDLK_ESCAPE);
         processEvents(running);
-        if (levelIntro_.active || menu_ || levelIndex_ != 2) {
+        if (levelFlow_.intro().active || ui_.snapshot().menu || levelIndex_ != 2) {
             throw std::runtime_error("level intro Escape did not acknowledge the intro");
         }
-        interactiveLevelIntroEnabled_ = false;
+        levelFlow_.setInteractiveEnabled(false);
 
         std::cout << "level_intro=ok stripes=7"
                   << " palette=" << static_cast<int>(kLevelIntroPaletteFirst)
@@ -23212,7 +22836,7 @@ public:
         load();
         initSdl();
         resetLevel(0);
-        menu_ = false;
+        ui_.setMenu(false);
         playerCount_ = 1;
         energy_ = 73;
         lives_ = 2;
@@ -23248,7 +22872,7 @@ public:
         load();
         initSdl();
         resetLevel(0);
-        menu_ = false;
+        ui_.setMenu(false);
         playerCount_ = 2;
         player_.x = 96.0f;
         player_.y = 168.0f;
@@ -23459,9 +23083,9 @@ private:
         for (const auto& f : flashes_) flashes.push_back(numbers({f.x, f.y, f.timer, f.power}));
         trace::Fields state{{"level", std::to_string(levelIndex_ + 1)}, {"logic_tick", std::to_string(logicTick_)},
             {"random_seed", std::to_string(randomSeed_)}, {"player_count", std::to_string(playerCount_)},
-            {"flow", numbers({menu_, static_cast<int>(menuPage_), paused_, levelIntro_.active, levelOutro_.active,
-                levelOutro_.awaitKey, levelResetGeneration_, levelRestartPromoted_})},
-            {"presentation", numbers({gameplayViewWidth_, showBackground_, menuItalian_, presentation_.backdropPitch(), presentation_.redPalettePhase(),
+            {"flow", numbers({ui_.snapshot().menu, static_cast<int>(ui_.snapshot().page), ui_.snapshot().paused, levelFlow_.intro().active, levelFlow_.outro().active,
+                levelFlow_.outro().awaitKey, levelResetGeneration_, levelRestartPromoted_})},
+            {"presentation", numbers({gameplayViewWidth_, ui_.snapshot().showBackground, ui_.snapshot().italian, presentation_.backdropPitch(), presentation_.redPalettePhase(),
                 cameraShakeTicks_, cameraShakeOffset_})},
             {"hud", numbers({presentation_.hudPreviousCollected(), presentation_.hudPreviousDestruction(), presentation_.hudDestructionPercent(), presentation_.hudColumnReady()[0], presentation_.hudColumnReady()[1],
                 presentation_.hudPaletteQueue().count, presentation_.hudPaletteQueue().entries[0].index, presentation_.hudPaletteQueue().entries[1].index,
@@ -23476,11 +23100,11 @@ private:
             {"backdrop_fnv1a64", quote(trace::fingerprint(presentation_.backdropBuffer()))},
             {"players", trace::array({player(player_, 1), player(player2_, 2)})},
             {"reentry", numbers({reentryGate_, noActivePlayerTicks_, levelIntroFrame_})},
-            {"intro", numbers({levelIntro_.startedAt, levelIntro_.levelIndex, levelIntro_.pattern.horizontalStep,
-                levelIntro_.pattern.verticalStep})},
-            {"outro", numbers({levelOutro_.startedAt, levelOutro_.destBonus, levelOutro_.bombBonus[0], levelOutro_.bombBonus[1],
-                levelOutro_.awarded[0], levelOutro_.awarded[1], levelOutro_.playerActive[0], levelOutro_.playerActive[1],
-                levelOutro_.typingSkipped, levelOutro_.typingSkipAt})},
+            {"intro", numbers({levelFlow_.intro().startedAt, levelFlow_.intro().levelIndex, levelFlow_.intro().pattern.horizontalStep,
+                levelFlow_.intro().pattern.verticalStep})},
+            {"outro", numbers({levelFlow_.outro().startedAt, levelFlow_.outro().destBonus, levelFlow_.outro().bombBonus[0], levelFlow_.outro().bombBonus[1],
+                levelFlow_.outro().awarded[0], levelFlow_.outro().awarded[1], levelFlow_.outro().playerActive[0], levelFlow_.outro().playerActive[1],
+                levelFlow_.outro().typingSkipped, levelFlow_.outro().typingSkipAt})},
             {"next_actor_order", std::to_string(nextActorOrder_)},
             {"sound_latch", numbers({sound_.latch().active, sound_.latch().currentSelector, sound_.latch().latchedOffset,
                 static_cast<int64_t>(sound_.latch().recordIndex), sound_.latch().directSweep,
@@ -23499,6 +23123,9 @@ private:
     lezac::rendering::SdlDisplay display_;
     lezac::rendering::Canvas canvas_;
     lezac::diagnostics::FrameInspector frameInspector_{canvas_};
+    UiController ui_;
+    RecordStore recordStore_;
+    LevelFlow levelFlow_;
     AssetCatalog assets_;
     lezac::rendering::PresentationState presentation_;
     const Palette& palette_ = presentation_.palette();
@@ -23515,7 +23142,6 @@ private:
     lezac::sound::SoundEngine sound_{sounds_};
     lezac::sound::SdlAudioOutput audioOutput_;
     const GranBank& gran_ = assets_.gran();
-    std::vector<Record> records_;
     const std::vector<Level>& levels_ = assets_.levels();
     Level level_;
     int levelIndex_ = 0;
@@ -23528,10 +23154,6 @@ private:
     std::array<float, 128> bossSinTable_{};
     bool bossPresent_ = false;
     bool bossDefeated_ = false;
-    bool interactiveLevelIntroEnabled_ = false;
-    LevelIntroState levelIntro_;
-    LevelOutroState levelOutro_;
-
     std::vector<BonusDrop> bonusDrops_;
     std::vector<Bomb> bombs_;
     std::vector<Flash> flashes_;
@@ -23547,11 +23169,6 @@ private:
     std::vector<CollapseRecord> collapseQueue_;
     uint16_t nextCollapseFragmentWord_ = 0;
     std::vector<uint32_t>& fb_ = canvas_.pixels();
-    bool menu_ = true;
-    MenuPage menuPage_ = MenuPage::Main;
-    bool paused_ = false;
-    bool showBackground_ = true;
-    bool menuItalian_ = true;  // original defaults to Italian; L toggles English
     int gameplayViewWidth_ = kScreenW;
     int collected_ = 0;
     int destroyed_ = 0;
@@ -23605,14 +23222,6 @@ private:
     uint32_t randomSeed_ = 0x1234abcd;
     uint32_t score_ = 0;
     uint32_t score2_ = 0;
-    std::string recordPath_ = "RECS.DAT";
-    uint32_t pendingRecordScore_ = 0;
-    uint8_t pendingRecordLevel_ = 0;
-    uint8_t pendingRecordPlayer_ = 1;
-    EndReason pendingRecordReason_ = EndReason::GameOver;
-    std::string pendingRecordName_;
-    std::vector<PendingRecordEntry> pendingRecordQueue_;
-    EndReason lastEndReason_ = EndReason::GameOver;
 
     void initSdl() {
         sdl_.initialize();
@@ -23632,7 +23241,7 @@ private:
                 if (isPlayer2FireKey(e.key.keysym.sym)) reentryFire2_ = false;
             } else if (e.type == SDL_KEYDOWN &&
                        (!e.key.repeat ||
-                        (!menu_ && !paused_ && !levelIntro_.active && !levelOutro_.active &&
+                        (!ui_.snapshot().menu && !ui_.snapshot().paused && !levelFlow_.intro().active && !levelFlow_.outro().active &&
                          (isPlayer1FireKey(e.key.keysym.sym) ||
                           (playerCount_ > 1 && isPlayer2FireKey(e.key.keysym.sym)))) ||
                         shouldAcceptRepeatedNameEntryKey(e.key.keysym.sym))) {
@@ -23642,10 +23251,7 @@ private:
     }
 
     bool shouldAcceptRepeatedNameEntryKey(SDL_Keycode key) const {
-        if (!menu_ || menuPage_ != MenuPage::NameEntry) {
-            return false;
-        }
-        return key == SDLK_BACKSPACE || recordCharForKey(key) != '\0';
+        return ui_.shouldAcceptRepeatedNameEntryKey(InputMapper::key(key));
     }
 
     void pushKeyDown(SDL_Keycode key, bool repeat = false) {
@@ -23662,8 +23268,8 @@ private:
     }
 
     void resetLevel(int index) {
-        levelIntro_ = {};
-        levelOutro_ = {};
+        levelFlow_.restoreIntro({});
+        levelFlow_.restoreOutro({});
         ++levelResetGeneration_;
         // FreeMem leaves the previous map's rounded size in its alignment gap.
         // The word plane is freed first, so both frees retract the heap top.
@@ -23686,7 +23292,7 @@ private:
         flameRecords_.clear();
         debrisQueue_.clear();
         collapseQueue_.clear();
-        paused_ = false;
+        ui_.setPaused(false);
         nextCollapseFragmentWord_ = level_.fieldA;
         collected_ = 0;
         destroyed_ = 0;
@@ -23754,47 +23360,17 @@ private:
     }
 
     LevelIntroPattern makeLevelIntroPattern() {
-        LevelIntroPattern pattern;
-        pattern.horizontalStep = randomInclusive(1, 80);
-        pattern.verticalStep = randomInclusive(1, 80);
-        std::array<int, 3> starts{};
-        std::array<int, 3> deltas{};
-        for (int& start : starts) start = randomInclusive(0, 19);
-        for (int& delta : deltas) delta = randomInclusive(0, 29);
-        for (size_t i = 0; i < pattern.colors.size(); ++i) {
-            auto component = [&](size_t channel) {
-                return vga6To8(static_cast<uint8_t>(
-                    starts[channel] +
-                    deltas[channel] * static_cast<int>(i) /
-                        static_cast<int>(kLevelIntroPaletteCount)));
-            };
-            pattern.colors[i] = {component(0), component(1), component(2)};
-        }
-        return pattern;
+        return LevelFlow::makeLevelIntroPattern([this](int low, int high) { return randomInclusive(low, high); });
     }
 
     LevelIntroPattern capturedLevelIntroPattern() const {
-        LevelIntroPattern pattern;
-        pattern.horizontalStep = 37;
-        pattern.verticalStep = 77;
-        constexpr std::array<int, 3> kStarts{17, 18, 16};
-        constexpr std::array<int, 3> kDeltas{21, 23, 9};
-        for (size_t i = 0; i < pattern.colors.size(); ++i) {
-            auto component = [&](size_t channel) {
-                return vga6To8(static_cast<uint8_t>(
-                    kStarts[channel] +
-                    kDeltas[channel] * static_cast<int>(i) /
-                        static_cast<int>(kLevelIntroPaletteCount)));
-            };
-            pattern.colors[i] = {component(0), component(1), component(2)};
-        }
-        return pattern;
+        return LevelFlow::capturedLevelIntroPattern();
     }
 
     void beginLevelForPlay(int index) {
         // Original level advance jumps to file 0x7f4c, past the new-game clock reset.
-        levelIntroFrame_ = menu_ ? 0 : logicTick_;
-        presentation_.beginOriginalPlay(menu_);
+        levelIntroFrame_ = ui_.snapshot().menu ? 0 : logicTick_;
+        presentation_.beginOriginalPlay(ui_.snapshot().menu);
         if (levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("level_init");
         levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
         level_ = levels_[levelIndex_];
@@ -23811,18 +23387,15 @@ private:
             for (size_t i = 0; i < level_.wordLayer.size(); ++i) level_.wordLayer[i] = le16(words, i * 2);
         }
         LevelIntroPattern pattern = makeLevelIntroPattern();
-        levelIntro_.active = true;
-        levelIntro_.startedAt = presentationMilliseconds();
-        levelIntro_.levelIndex = levelIndex_;
-        levelIntro_.pattern = pattern;
+        levelFlow_.beginIntro(levelIndex_, std::move(pattern), presentationMilliseconds());
         if (levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("intro_wait");
-        if (!interactiveLevelIntroEnabled_) finishLevelIntro();
+        if (!levelFlow_.interactiveEnabled()) finishLevelIntro();
     }
 
     void finishLevelIntro() {
-        if (!levelIntro_.active) return;
+        if (!levelFlow_.intro().active) return;
         if (levelRestartPromoted_ && debugReentryBoundaryObserver_) debugReentryBoundaryObserver_("intro_ack");
-        const int index = levelIntro_.levelIndex;
+        const int index = levelFlow_.intro().levelIndex;
         const uint32_t frame = levelIntroFrame_;
         const int countdown1 = reentryTimer_, countdown2 = reentryTimer2_;
         const uint8_t fallback = noActivePlayerTicks_;
@@ -23838,19 +23411,11 @@ private:
     }
 
     size_t visibleLevelIntroCharacters(uint32_t now) const {
-        if (!levelIntro_.active) return 0;
-        const size_t captionSize =
-            levelIntroCaption(levelIntro_.levelIndex).size();
-        const uint32_t elapsed = now - levelIntro_.startedAt;
-        return std::min(captionSize,
-                        static_cast<size_t>(elapsed /
-                                            kLevelIntroCharacterDelayMs) +
-                            1);
+        return levelFlow_.visibleLevelIntroCharacters(now);
     }
 
     void updateLevelIntro(uint32_t now) {
-        // Text typing is time-based; original 1000:2C72 then blocks for a key.
-        (void)now;
+        levelFlow_.updateLevelIntro(now);
     }
 
     const LevelPortal* findStartPortal(uint8_t marker) const {
@@ -23862,101 +23427,38 @@ private:
         return nullptr;
     }
 
+    UiActions uiActions() {
+        return {
+            [this] { clearRunScores(); },
+            [this](int players) { playerCount_ = players; lives_ = 3; lives2_ = 3; },
+            [this](int index) { beginLevelForPlay(index); },
+            [this] { lives_ = 3; lives2_ = 3; resetLevel(0); },
+            [this] { requestRecordNamePromptSound(); },
+            [this] { requestRecordNameCommitSound(); },
+            [this] { requestRecordsPageSound(); },
+            [this](int player) {
+                (player == 2 ? reentryFire2_ : reentryFire1_) = true;
+            },
+            [this](int delta) { adjustGameplayViewWidth(delta); },
+        };
+    }
+
     void onKey(SDL_Keycode key, bool& running) {
-        if (levelIntro_.active) {
-            finishLevelIntro();
+        if (levelFlow_.intro().active) { finishLevelIntro(); return; }
+        if (levelFlow_.outro().active) {
+            if (levelFlow_.outro().awaitKey) finishLevelOutro();
+            else levelFlow_.skipOutroTyping(presentationMilliseconds(), ui_.snapshot().italian);
             return;
         }
-        if (levelOutro_.active) {
-            if (levelOutro_.awaitKey) {
-                finishLevelOutro();
-            } else {
-                // The original renderer consumes one key to finish the
-                // current line's remaining typing; jump to the end of the
-                // typing segment in progress.
-                const uint32_t elapsed = presentationMilliseconds() - levelOutro_.startedAt;
-                for (const OutroSegment& seg : levelOutroSchedule()) {
-                    if (seg.typing && elapsed >= seg.start && elapsed < seg.end) {
-                        levelOutro_.startedAt -= (seg.end - elapsed);
-                        break;
-                    }
-                }
-            }
-            return;
-        }
-        if (menu_) {
-            if (menuPage_ == MenuPage::NameEntry) {
-                handleNameEntryKey(key);
-            } else if (menuPage_ == MenuPage::GameOver ||
-                       menuPage_ == MenuPage::CompletedGame) {
-                if (key == SDLK_ESCAPE || key == SDLK_RETURN ||
-                    key == SDLK_KP_ENTER || key == SDLK_SPACE) {
-                    clearRunScores();
-                    pendingRecordQueue_.clear();
-                    clearPendingRecord();
-                    menuPage_ = MenuPage::Main;
-                }
-            } else if (key == SDLK_ESCAPE) {
-                if (menuPage_ == MenuPage::Main) running = false;
-                else menuPage_ = MenuPage::Main;
-            } else if (key == SDLK_RETURN || key == SDLK_1 || key == SDLK_2) {
-                playerCount_ = key == SDLK_2 ? 2 : 1;
-                lives_ = 3;
-                lives2_ = 3;
-                clearRunScores();
-                pendingRecordQueue_.clear();
-                clearPendingRecord();
-                beginLevelForPlay(0);
-                menu_ = false;
-                menuPage_ = MenuPage::Main;
-            } else if (key == SDLK_i) {
-                menuPage_ = MenuPage::Info;
-            } else if (key == SDLK_z) {
-                menuPage_ = MenuPage::Instructions;
-            } else if (key == SDLK_r) {
-                menuPage_ = MenuPage::Records;
-                requestRecordsPageSound();
-            } else if (key == SDLK_s) {
-                showBackground_ = !showBackground_;
-            } else if (key == SDLK_l) {
-                menuItalian_ = !menuItalian_;
-            }
-        } else if (!menu_ && key == SDLK_p) {
-            paused_ = !paused_;
-        } else if (!menu_ && key == SDLK_ESCAPE) {
-            paused_ = false;
-            menu_ = true;
-            menuPage_ = MenuPage::Main;
-        } else if (!menu_ && key == SDLK_F5) {
-            paused_ = false;
-            beginLevelForPlay(levelIndex_);
-        } else if (!menu_ && key == SDLK_PAGEUP) {
-            paused_ = false;
-            beginLevelForPlay(levelIndex_ + 1);
-        } else if (!menu_ && key == SDLK_PAGEDOWN) {
-            paused_ = false;
-            beginLevelForPlay(levelIndex_ - 1);
-        } else if (!menu_ && paused_) {
-            return;
-        } else if (!menu_ && isPlayer1FireKey(key)) {
-            reentryFire1_ = true;
-        } else if (!menu_ && playerCount_ > 1 && isPlayer2FireKey(key)) {
-            reentryFire2_ = true;
-        } else if (!menu_ && key == SDLK_s) {
-            showBackground_ = !showBackground_;
-        } else if (!menu_ && key == SDLK_r && playerCount_ == 1) {
-            adjustGameplayViewWidth(-32);
-        } else if (!menu_ && key == SDLK_e && playerCount_ == 1) {
-            adjustGameplayViewWidth(32);
-        }
+        ui_.onKey(InputMapper::key(key), running, levelIndex_, playerCount_, recordStore_, uiActions());
     }
 
     bool isPlayer1FireKey(SDL_Keycode key) const {
-        return key == SDLK_n || key == SDLK_SPACE || key == SDLK_RCTRL;
+        return UiController::isPlayer1FireKey(InputMapper::key(key));
     }
 
     bool isPlayer2FireKey(SDL_Keycode key) const {
-        return key == SDLK_KP_0 || key == SDLK_INSERT;
+        return UiController::isPlayer2FireKey(InputMapper::key(key));
     }
 
     void tryActivePlayerFireAt(const Player& player, int x, int y, uint8_t playerIndex) {
@@ -23968,33 +23470,11 @@ private:
     }
 
     void handleNameEntryKey(SDL_Keycode key) {
-        if (key == SDLK_RETURN || key == SDLK_KP_ENTER) {
-            requestRecordNameCommitSound();
-            finalizePendingRecord();
-            return;
-        }
-        if (key == SDLK_BACKSPACE) {
-            if (!pendingRecordName_.empty()) pendingRecordName_.pop_back();
-            return;
-        }
-        if (key == SDLK_ESCAPE) {
-            cancelPendingRecord();
-            return;
-        }
-        char ch = recordCharForKey(key);
-        if (ch != '\0' && pendingRecordName_.size() < 8) {
-            pendingRecordName_.push_back(ch);
-        }
+        ui_.handleNameEntryKey(InputMapper::key(key), recordStore_, uiActions());
     }
 
     char recordCharForKey(SDL_Keycode key) const {
-        if (key >= SDLK_a && key <= SDLK_z) {
-            return static_cast<char>('a' + (key - SDLK_a));
-        }
-        if (key == SDLK_SPACE) {
-            return ' ';
-        }
-        return '\0';
+        return UiController::recordCharForKey(InputMapper::key(key));
     }
 
 
@@ -24187,29 +23667,15 @@ private:
     }
 
     FrameControls controlsFromKeyboard(const uint8_t* keys) const {
-        FrameControls controls;
-        // Original banks at 1000:6175/61DE. Arrows remain a single-player alias.
-        controls.p1Left = keys[SDL_SCANCODE_Z] ||
-                          (playerCount_ == 1 && keys[SDL_SCANCODE_LEFT]);
-        controls.p1Right = keys[SDL_SCANCODE_X] ||
-                           (playerCount_ == 1 && keys[SDL_SCANCODE_RIGHT]);
-        controls.p1Jump = keys[SDL_SCANCODE_M] ||
-                          (playerCount_ == 1 && keys[SDL_SCANCODE_UP]);
-        controls.p1Down = keys[SDL_SCANCODE_C] ||
-                          (playerCount_ == 1 && keys[SDL_SCANCODE_DOWN]);
-        controls.p2Left = playerCount_ > 1 && keys[SDL_SCANCODE_LEFT];
-        controls.p2Right = playerCount_ > 1 && keys[SDL_SCANCODE_RIGHT];
-        controls.p2Jump = playerCount_ > 1 && keys[SDL_SCANCODE_UP];
-        controls.p2Down = playerCount_ > 1 && keys[SDL_SCANCODE_DOWN];
-        return controls;
+        return InputMapper::controlsFromKeyboard(keys, playerCount_);
     }
 
     void update(float dt) {
-        if (levelIntro_.active) {
+        if (levelFlow_.intro().active) {
             updateLevelIntro(presentationMilliseconds());
             return;
         }
-        if (menu_ || paused_) return;
+        if (ui_.snapshot().menu || ui_.snapshot().paused) return;
         updateWithControls(controlsFromKeyboard(replayKeyboard_ ? replayKeyboard_ : SDL_GetKeyboardState(nullptr)), dt);
     }
 
@@ -24232,7 +23698,7 @@ private:
     }
 
     void updateWithControls(const FrameControls& controls, float dt) {
-        if (menu_ || paused_ || levelIntro_.active) return;
+        if (ui_.snapshot().menu || ui_.snapshot().paused || levelFlow_.intro().active) return;
         ++logicTick_;
         prepareHudObjectives();
         if (gameplayPresentation_) gameplayPresentation_();
@@ -24240,7 +23706,7 @@ private:
         // expires later this frame still occupies its slot during spawning.
         updateMonsterSpawners();
         updatePlayerReentryPrepass(controls);
-        if (menu_ || levelIntro_.active) return;
+        if (ui_.snapshot().menu || levelFlow_.intro().active) return;
         // 1000:7ECB..7EE8 precedes the player calls at 7F59. New pickup
         // and collapse-fracture actors therefore start on the next frame.
         updateDamageCooldowns();
@@ -24376,27 +23842,7 @@ private:
     // language table at file 0xCB1A/0xCA1A/0xC91A ("bomba bonus" is an inline
     // code constant shared by both languages).
     std::vector<OutroLine> levelOutroLines() const {
-        std::vector<OutroLine> lines;
-        const bool it = menuItalian_;
-        lines.push_back({it ? "LIVELLO COMPLETATO" : "LEVEL COMPLETED",
-                         11, 31, 25, 60, -1});
-        lines.push_back({(it ? std::string("BONUS DISTRUZIONE: ")
-                             : std::string("DESTRUCTION BONUS: ")) +
-                             std::to_string(levelOutro_.destBonus),
-                         9, 244, 241, 81, -1});
-        lines.push_back({"BOMBA BONUS", 9, 244, 25, 99, -1});
-        int y = 120;
-        for (int i = 0; i < 2; ++i) {
-            if (!levelOutro_.playerActive[static_cast<size_t>(i)]) continue;
-            lines.push_back({(it ? std::string("GIOCATORE ")
-                                 : std::string("PLAYER ")) +
-                                 std::to_string(i + 1) + "   " +
-                                 std::to_string(levelOutro_.bombBonus[
-                                     static_cast<size_t>(i)]),
-                             9, 31, 13, y, i});
-            y += 11;
-        }
-        return lines;
+        return levelFlow_.levelOutroLines(ui_.snapshot().italian);
     }
 
     // Sequential phase boundaries in ms since the outro started: an initial
@@ -24405,98 +23851,26 @@ private:
     // the original's 15ms Delay per step) plus a 200ms pause.
 
     std::vector<OutroSegment> levelOutroSchedule() const {
-        std::vector<OutroSegment> segs;
-        const std::vector<OutroLine> lines = levelOutroLines();
-        uint32_t t = 500;
-        for (size_t k = 0; k < lines.size(); ++k) {
-            const uint32_t dur =
-                static_cast<uint32_t>(lines[k].text.size()) *
-                kLevelIntroCharacterDelayMs;
-            segs.push_back({t, t + dur, static_cast<int>(k), -1, true});
-            t += dur;
-            if (lines[k].player >= 0) {
-                const int total = levelOutro_.destBonus +
-                                  levelOutro_.bombBonus[
-                                      static_cast<size_t>(lines[k].player)];
-                const uint32_t count =
-                    static_cast<uint32_t>((total + 99) / 100) * 15u;
-                segs.push_back({t, t + count, -1, lines[k].player, false});
-                t += count;
-                segs.push_back({t, t + 200, -1, -1, false});
-                t += 200;
-            }
-        }
-        return segs;
+        return levelFlow_.levelOutroSchedule(ui_.snapshot().italian);
     }
 
     void beginLevelOutro() {
-        levelOutro_ = {};
-        levelOutro_.active = true;
-        levelOutro_.startedAt = presentationMilliseconds();
-        // The original scores the destruction counter x10 and the remaining
-        // bombs at 100/500/2000 points for medium/big/super (smalls score
-        // nothing) -- verified against a live completion (inventory 200/20/6/0
-        // showed and awarded exactly 5000).
-        levelOutro_.destBonus = destructionPercent() * 10;
-        levelOutro_.playerActive[0] = !playerDead_ || lives_ >= 0;
-        levelOutro_.playerActive[1] =
-            playerCount_ > 1 && (!player2Dead_ || lives2_ >= 0);
-        auto bombScore = [](const BombInventory& inv) {
-            return inv.counts[1] * 100 + inv.counts[2] * 500 +
-                   inv.counts[3] * 2000;
-        };
-        levelOutro_.bombBonus[0] = bombScore(bombInventory_);
-        levelOutro_.bombBonus[1] = bombScore(bombInventory2_);
-        // Original: sound cursor 0x3d priority 10 as the banner opens.
+        levelFlow_.beginOutro(presentationMilliseconds(), destructionPercent(),
+            {{!playerDead_ || lives_ >= 0, playerCount_ > 1 && (!player2Dead_ || lives2_ >= 0)}},
+            {{bombInventory_.counts, bombInventory2_.counts}});
         requestSoundCursor(0x3d, 10);
     }
 
     void updateLevelOutro(uint32_t now) {
-        if (!levelOutro_.active || levelOutro_.awaitKey) return;
-        const uint32_t elapsed = now - levelOutro_.startedAt;
-        const std::vector<OutroSegment> segs = levelOutroSchedule();
-        for (const OutroSegment& seg : segs) {
-            if (seg.player < 0) continue;
-            const size_t p = static_cast<size_t>(seg.player);
-            const int total = levelOutro_.destBonus + levelOutro_.bombBonus[p];
-            int target = 0;
-            if (elapsed >= seg.end) {
-                target = total;
-            } else if (elapsed > seg.start) {
-                target = std::min(
-                    total, static_cast<int>((elapsed - seg.start) / 15) * 100);
-            }
-            int delta = target - levelOutro_.awarded[p];
-            if (delta > 0) {
-                levelOutro_.awarded[p] = target;
-                if (p == 0) score_ += static_cast<uint32_t>(delta);
-                else score2_ += static_cast<uint32_t>(delta);
-                // Original: Random(4) > 2 requests sound cursor 0x21 per tick.
-                if (randomRangeValue(0, 4) > 2) requestSoundCursor(0x21, 10);
-            }
-        }
-        if (!segs.empty() && elapsed >= segs.back().end) {
-            levelOutro_.awaitKey = true;
-        }
+        levelFlow_.updateOutro(now, ui_.snapshot().italian,
+            [this](size_t p, uint32_t delta) { (p == 0 ? score_ : score2_) += delta; },
+            [this] { if (randomRangeValue(0, 4) > 2) requestSoundCursor(0x21, 10); });
     }
 
     void finishLevelOutro() {
-        // Ensure the full bonus landed even if count-up frames were skipped.
-        for (size_t p = 0; p < 2; ++p) {
-            if (!levelOutro_.playerActive[p]) continue;
-            int total = levelOutro_.destBonus + levelOutro_.bombBonus[p];
-            int delta = total - levelOutro_.awarded[p];
-            if (delta > 0) {
-                if (p == 0) score_ += static_cast<uint32_t>(delta);
-                else score2_ += static_cast<uint32_t>(delta);
-            }
-        }
-        levelOutro_ = {};
-        if (isFinalLevel()) {
-            beginEndRun(EndReason::CompletedGame);
-        } else {
-            beginLevelForPlay(levelIndex_ + 1);
-        }
+        levelFlow_.finishOutro([this](size_t p, uint32_t delta) { (p == 0 ? score_ : score2_) += delta; });
+        if (isFinalLevel()) beginEndRun(EndReason::CompletedGame);
+        else beginLevelForPlay(levelIndex_ + 1);
     }
 
     void updateLevelCompletion() {
@@ -24505,8 +23879,8 @@ private:
             // sequence (typed lines, score count-up, key wait). The
             // deterministic test/autoplayer path keeps the immediate timed
             // advance.
-            if (interactiveLevelIntroEnabled_) {
-                if (!levelOutro_.active) beginLevelOutro();
+            if (levelFlow_.interactiveEnabled()) {
+                if (!levelFlow_.outro().active) beginLevelOutro();
                 updateLevelOutro(presentationMilliseconds());
                 return;
             }
@@ -24717,7 +24091,7 @@ private:
     }
 
     AutoplayRouteResult autoplayLevel1BombRoute() {
-        if (menu_ || playerCount_ != 1 || levelIndex_ != 0) {
+        if (ui_.snapshot().menu || playerCount_ != 1 || levelIndex_ != 0) {
             throw std::runtime_error("level1 autoplayer requires active one-player level 1");
         }
 
@@ -25039,7 +24413,7 @@ private:
 
     void prepareAutoplayerMonsterFixtureLevel() {
         prepareMonsterMotionDebugLevel(false);
-        menu_ = false;
+        ui_.setMenu(false);
         // Keep long-running corpse/reward scenarios inside this synthetic
         // room instead of letting the zeroed objective defaults auto-complete
         // after 101 updates.
@@ -26270,7 +25644,7 @@ private:
         if (timer == 0) {
             pendingLifeLossFor(startMarker) = true;
             finalizePendingLifeLoss(dead, lives, timer, startMarker);
-            if (lives >= 0 && !menu_) {
+            if (lives >= 0 && !ui_.snapshot().menu) {
                 // 1000:7D11 calls the start-marker locator at 056B before
                 // waiting for input; it preserves motion and animation bytes.
                 if (const LevelPortal* start = findStartPortal(startMarker)) {
@@ -26287,7 +25661,7 @@ private:
                 }
             }
         }
-        if (lives < 0 || menu_) return;
+        if (lives < 0 || ui_.snapshot().menu) return;
         if (!reentryGate_) noActivePlayerTicks_ = kSharedReentryTicks - 1;
         if (originalPlayerState(startMarker) == 2) updateWaitingPlayerPlacement(player);
     }
@@ -26352,8 +25726,7 @@ private:
     }
 
     bool scoreQualifies(uint32_t score) const {
-        return score != 0 &&
-               (records_.size() < 7 || score > records_.back().score);
+        return recordStore_.scoreQualifies(score);
     }
 
     uint32_t& scoreForPlayer(uint8_t player) {
@@ -26376,8 +25749,7 @@ private:
     }
 
     MenuPage endMenuPage(EndReason reason) const {
-        return reason == EndReason::CompletedGame ? MenuPage::CompletedGame
-                                                  : MenuPage::GameOver;
+        return UiController::endMenuPage(reason);
     }
 
     void beginGameOver() {
@@ -26385,78 +25757,23 @@ private:
     }
 
     void beginEndRun(EndReason reason) {
-        uint8_t finalLevel = static_cast<uint8_t>(std::clamp(levelIndex_ + 1, 1, 255));
-        pendingRecordQueue_.clear();
-        if (score_ != 0) {
-            pendingRecordQueue_.push_back({score_, finalLevel, 1, reason});
-        }
-        if (playerCount_ > 1 && score2_ != 0) {
-            pendingRecordQueue_.push_back({score2_, finalLevel, 2, reason});
-        }
-        lives_ = 3;
-        lives2_ = 3;
-        menu_ = true;
-        lastEndReason_ = reason;
-        resetLevel(0);
-        if (!startNextPendingRecord()) {
-            menuPage_ = endMenuPage(reason);
-        }
+        ui_.beginEndRun(reason, levelIndex_, playerCount_, score_, score2_, recordStore_, uiActions());
     }
 
     void finalizePendingRecord() {
-        if (pendingRecordScore_ == 0) {
-            menuPage_ = MenuPage::Records;
-            return;
-        }
-        Record record = makeRecord(pendingRecordScore_, pendingRecordLevel_,
-                                   pendingRecordName_);
-        std::vector<Record> updatedRecords = records_;
-        bool changed = insertRecord(updatedRecords, record);
-        try {
-            if (changed) saveRecords(recordPath_, updatedRecords);
-        } catch (const std::exception& e) {
-            std::cerr << "warning: could not save records: " << e.what() << '\n';
-            menuPage_ = MenuPage::NameEntry;
-            return;
-        }
-        records_ = std::move(updatedRecords);
-        clearPendingRecord();
-        if (startNextPendingRecord()) return;
-        clearRunScores();
-        menuPage_ = MenuPage::Records;
+        ui_.finalizePendingRecord(recordStore_, uiActions());
     }
 
     void cancelPendingRecord() {
-        clearPendingRecord();
-        if (startNextPendingRecord()) return;
-        clearRunScores();
-        menuPage_ = MenuPage::Records;
+        ui_.cancelPendingRecord(recordStore_, uiActions());
     }
 
     void clearPendingRecord() {
-        pendingRecordScore_ = 0;
-        pendingRecordLevel_ = 0;
-        pendingRecordPlayer_ = 1;
-        pendingRecordReason_ = EndReason::GameOver;
-        pendingRecordName_.clear();
+        recordStore_.clearPendingRecord();
     }
 
     bool startNextPendingRecord() {
-        while (!pendingRecordQueue_.empty()) {
-            PendingRecordEntry entry = pendingRecordQueue_.front();
-            pendingRecordQueue_.erase(pendingRecordQueue_.begin());
-            if (!scoreQualifies(entry.score)) continue;
-            pendingRecordScore_ = entry.score;
-            pendingRecordLevel_ = entry.level;
-            pendingRecordPlayer_ = entry.player;
-            pendingRecordReason_ = entry.reason;
-            pendingRecordName_.clear();
-            menuPage_ = MenuPage::NameEntry;
-            requestRecordNamePromptSound();
-            return true;
-        }
-        clearPendingRecord();
-        return false;
+        return ui_.startNextPendingRecord(recordStore_, uiActions());
     }
 
     void placeBombAt(const Player& player, BombInventory& inventory, uint8_t owner) {
@@ -26813,7 +26130,7 @@ private:
         if (word >= kDeferredThreshold) {
             // Debris branch 374C..37F4: flags the word (3770/3780), copies the
             // object byte into the record (37B8/37BE) but never writes the
-            // object plane — the glyph stays put until the fragment's first
+            // object plane â€” the glyph stays put until the fragment's first
             // move (CONFIRMED by the L2 capture; the earlier markDamagedTile
             // call here was unfaithful). Cap check 3753: refuse once slot
             // index base + record count reaches 0x640.
@@ -27405,7 +26722,7 @@ private:
                     }
                 }
                 // Landing shatter 4AE6..4B32. The dice is
-                // (DS:78C2 + slot) mod 6 — a frame counter, not the RNG; the
+                // (DS:78C2 + slot) mod 6 â€” a frame counter, not the RNG; the
                 // port's logicTick_ stands in for DS:78C2 (INFERRED @unevidenced:debris_shatter_dice_phase,
                 // equivalence, phase not pinned against the original).
                 if (vy > 0 && vy > kDebrisLandingShatterVyGate && code > 0x66 &&
@@ -27424,7 +26741,7 @@ private:
                 if (objectByteAt(dest) == 0) {
                     // Free move 4B61..4C1D: the fragment is materialized at
                     // the destination in BOTH planes and erased from the
-                    // vacated cell — these stamps happen on every free move,
+                    // vacated cell â€” these stamps happen on every free move,
                     // not on rest.
                     debrisQueue_[i].restTicks = 0;  // 4B6E
                     setObjectByte(dest, code);      // 4B7E
@@ -27745,7 +27062,7 @@ private:
                 {{{player_, playerDead_, lives_, state2Visual_, state2Effect_},
                   {player2_, player2Dead_, lives2_, state2Visual2_, state2Effect2_}}},
                 bombs_, monsters_, bonusDrops_, flashes_, launchPadMarkers_, transientActors_, order,
-                gameplayViewWidth_, showBackground_, cameraShakeOffset_,
+                gameplayViewWidth_, ui_.snapshot().showBackground, cameraShakeOffset_,
                 state2VisualCursorPreview_, state2VisualRowPreview_};
     }
 
@@ -27754,13 +27071,13 @@ private:
                 {{{energy_, score_, lives_, playerDead_, bombInventory_},
                   {energy2_, score2_, lives2_, player2Dead_, bombInventory2_}}},
                 level_.objectiveTile, level_.requiredBonus, level_.requiredDestruction,
-                collected_, presentation_.hudDestructionPercent(), isComplete(), levelOutro_.active,
+                collected_, presentation_.hudDestructionPercent(), isComplete(), levelFlow_.outro().active,
                 presentation_.hudScores(), presentation_.hudColumnReady()};
     }
 
     lezac::rendering::MenuView menuRenderView() const {
-        return {menuPage_, menuItalian_, records_, pendingRecordPlayer_, pendingRecordScore_,
-                pendingRecordLevel_, pendingRecordName_, playerCount_, {{score_, score2_}}};
+        return {ui_.snapshot().page, ui_.snapshot().italian, recordStore_.records(), recordStore_.pending().player, recordStore_.pending().score,
+                recordStore_.pending().level, recordStore_.pending().name, playerCount_, {{score_, score2_}}};
     }
 
     void drawWorldView(const Player& cameraPlayer, int viewX, int viewY, int viewW, int viewH) {
@@ -27772,18 +27089,18 @@ private:
         const auto order = prepareRenderState();
         gameRenderer_.drawGame(worldRenderView(order), hudView());
         // Keep the clock sample after painting the world/HUD, as in the original call boundary.
-        if (levelOutro_.active) {
-            gameRenderer_.drawLevelOutro({true, presentationMilliseconds() - levelOutro_.startedAt,
+        if (levelFlow_.outro().active) {
+            gameRenderer_.drawLevelOutro({true, presentationMilliseconds() - levelFlow_.outro().startedAt,
                                           levelOutroLines(), levelOutroSchedule()});
         }
-        if (paused_) gameRenderer_.drawPauseOverlay();
+        if (ui_.snapshot().paused) gameRenderer_.drawPauseOverlay();
     }
 
     void draw() {
-        if (levelIntro_.active) {
-            gameRenderer_.drawLevelIntro(levelIntro_.levelIndex, levelIntro_.pattern,
+        if (levelFlow_.intro().active) {
+            gameRenderer_.drawLevelIntro(levelFlow_.intro().levelIndex, levelFlow_.intro().pattern,
                            visibleLevelIntroCharacters(presentationMilliseconds()));
-        } else if (menu_) gameRenderer_.drawMenu(menuRenderView());
+        } else if (ui_.snapshot().menu) gameRenderer_.drawMenu(menuRenderView());
         else drawGame();
         display_.present(canvas_);
     }

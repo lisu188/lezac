@@ -43,11 +43,11 @@
     "sound": {
       "runtime": [
         "src/app/app.cpp",
-        "src/sound/sound_models.hpp",
-        "src/sound/sound_engine.hpp",
-        "src/sound/sound_engine.cpp",
+        "src/sound/sdl_audio_output.cpp",
         "src/sound/sdl_audio_output.hpp",
-        "src/sound/sdl_audio_output.cpp"
+        "src/sound/sound_engine.cpp",
+        "src/sound/sound_engine.hpp",
+        "src/sound/sound_models.hpp"
       ]
     },
     "rendering": {
@@ -72,25 +72,35 @@
     "ui": {
       "runtime": [
         "src/app/app.cpp",
-        "src/ui/models.hpp"
+        "src/ui/input.hpp",
+        "src/ui/level_flow.cpp",
+        "src/ui/level_flow.hpp",
+        "src/ui/models.hpp",
+        "src/ui/record_store.cpp",
+        "src/ui/record_store.hpp",
+        "src/ui/ui_controller.cpp",
+        "src/ui/ui_controller.hpp"
       ]
     },
     "gameplay": {
       "runtime": [
         "src/app/app.cpp",
-        "src/gameplay/actor_models.hpp"
+        "src/gameplay/actor_models.hpp",
+        "src/gameplay/frame_controls.hpp"
       ]
     },
     "app": {
       "runtime": [
         "src/app/app.cpp",
         "src/app/app.hpp",
+        "src/app/input_mapper.cpp",
+        "src/app/input_mapper.hpp",
         "src/app/sdl_runtime.cpp",
         "src/app/sdl_runtime.hpp"
       ],
       "dispatch": [
-        "src/main.cpp",
-        "src/app/app.cpp"
+        "src/app/app.cpp",
+        "src/main.cpp"
       ]
     },
     "diagnostics": {
@@ -101,7 +111,9 @@
         "src/diagnostics/frame_inspector.hpp",
         "src/diagnostics/sound/sound_diagnostics.hpp",
         "src/diagnostics/sound/sound_evidence_diagnostics.cpp",
-        "src/diagnostics/sound/sound_synthesis_diagnostics.cpp"
+        "src/diagnostics/sound/sound_synthesis_diagnostics.cpp",
+        "src/diagnostics/ui_diagnostics.cpp",
+        "src/diagnostics/ui_diagnostics.hpp"
       ]
     }
   }

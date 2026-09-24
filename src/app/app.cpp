@@ -324,6 +324,25 @@ public:
             levelFlow_.restoreIntro({}); levelFlow_.restoreOutro({}); ui_.setPaused(false);
         };
         hooks.mapSizeChanged = [this](size_t count) { presentation_.beginLevel(count); };
+        hooks.resetHud = [this] { presentation_.resetHudForLevel(); };
+        hooks.clearHudScores = [this] { presentation_.clearHudScores(); };
+        hooks.beginLevelPresentation = [this](bool fromMenu) { presentation_.beginOriginalPlay(fromMenu); };
+        hooks.prepareHudObjectives = [this](const GameplayView& view) {
+            presentation_.prepareHudObjectives(static_cast<uint16_t>(view.logicTick_),
+                                               view.collected_, gameplay_.destructionPercentage());
+        };
+        hooks.presentGameplay = [this] {
+            if (!gameplayPresentation_) return;
+            gameplayReplay_.beginBoundary();
+            try { gameplayPresentation_(); }
+            catch (...) { gameplayReplay_.endBoundary(); throw; }
+            gameplayReplay_.endBoundary();
+        };
+        hooks.updateHudScores = [this](const GameplayView& view) {
+            presentation_.updateHudScores(view.playerCount_, {{view.score_, view.score2_}},
+                {{view.playerDead_, view.player2Dead_}}, {{view.deathStateTimer_, view.deathStateTimer2_}});
+        };
+        hooks.advanceHudPalette = [this] { presentation_.advanceHudPalette(); };
         hooks.beginLevel = [this](int index) {
             gameplayReplay_.refresh(); beginLevelForPlay(index); gameplayReplay_.commit();
         };

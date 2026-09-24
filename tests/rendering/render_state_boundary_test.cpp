@@ -52,6 +52,21 @@ int main() {
         level.objectiveTile, level.requiredBonus, level.requiredDestruction, 1,
         presentation.hudDestructionPercent(), false, false, presentation.hudScores(), presentation.hudColumnReady()};
     const auto state = presentation.snapshot();
+    // The original HUD samples the low 16-bit frame word, including wrap to
+    // zero; the 32-bit application tick is not itself the modulo-30 clock.
+    presentation.prepareHudObjectives(static_cast<uint16_t>(65535u), 1, 90);
+    if (presentation.hudDestructionPercent() != 75)
+        throw std::runtime_error("HUD sampled before frame-word wrap");
+    presentation.prepareHudObjectives(static_cast<uint16_t>(65536u), 1, 90);
+    if (presentation.hudDestructionPercent() != 90)
+        throw std::runtime_error("HUD did not sample at frame-word wrap");
+    presentation.prepareHudObjectives(static_cast<uint16_t>(65550u), 1, 10);
+    if (presentation.hudDestructionPercent() != 90)
+        throw std::runtime_error("HUD sampled the 32-bit tick instead of the frame word");
+    presentation.prepareHudObjectives(static_cast<uint16_t>(65566u), 1, 10);
+    if (presentation.hudDestructionPercent() != 10)
+        throw std::runtime_error("HUD missed the next wrapped sampling boundary");
+    presentation.restore(state);
     const auto tiles = level.tiles;
     const auto seed = random.seed();
     renderer.drawGame(world, hud);

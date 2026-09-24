@@ -102,7 +102,10 @@ uint32_t& GameSession::scoreForPlayer(uint8_t player) { return player_roster_.sc
 
 void GameSession::addScore(uint8_t player, uint32_t amount) { player_roster_.addScore(player, amount); }
 
-void GameSession::clearRunScores() { player_roster_.clearRunScores(); }
+void GameSession::clearRunScores() {
+    player_roster_.clearRunScores();
+    if (hooks_.clearHudScores) hooks_.clearHudScores();
+}
 
 bool GameSession::isBombObjectTile(uint8_t tile) const { return level_world_.isBombObjectTile(tile); }
 

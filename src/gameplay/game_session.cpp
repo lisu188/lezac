@@ -31,6 +31,7 @@ void GameSession::notifyReentryBoundary(const char* phase) const {
 void GameSession::beginLevelSelection(int index, bool fromMenu, const DecodeLevelPlane& decodePlane) {
     // Level advance skips the original new-game clock reset (file 0x7f4c).
     levelIntroFrame_ = fromMenu ? 0 : logicTick_;
+    if (hooks_.beginLevelPresentation) hooks_.beginLevelPresentation(fromMenu);
     if (levelRestartPromoted_) notifyReentryBoundary("level_init");
     levelIndex_ = (index + static_cast<int>(levels_.size())) % static_cast<int>(levels_.size());
     level_ = levels_[levelIndex_];

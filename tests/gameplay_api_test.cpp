@@ -91,12 +91,33 @@ int main() {
     injection.appendActors.push_back(filler);
     session.scheduleAfterActorPass(std::move(injection));
     bool observed = false;
+    std::vector<int> phases;
+    const auto startTick = session.view().logicTick_;
     GameplayHooks hooks;
+    hooks.prepareHudObjectives = [&](const GameplayView& view) {
+        require(view.logicTick_ == startTick + 1, "HUD sampled the previous logic clock");
+        require(view.transientActors_.empty(), "HUD objective sample followed the actor pass");
+        phases.push_back(1);
+    };
+    hooks.presentGameplay = [&] {
+        require(phases == std::vector<int>{1}, "frame presentation preceded HUD objective preparation");
+        require(session.view().transientActors_.empty(), "frame presentation followed the actor pass");
+        phases.push_back(2);
+    };
+    hooks.updateHudScores = [&](const GameplayView& view) {
+        require(view.transientActors_.size() == 1, "HUD reels advanced before non-player actors");
+        phases.push_back(4);
+    };
+    hooks.advanceHudPalette = [&] { phases.push_back(5); };
+    hooks.updateRedPalette = [&](uint16_t) { phases.push_back(6); };
+    hooks.levelCompletion = [&] { phases.push_back(7); };
+    hooks.pumpSound = [&] { phases.push_back(8); };
     hooks.actorPassObserver = [&](const GameplayView& view) {
         require(view.transientActors_.size() == 1, "phase action did not precede observer");
         require(view.transientActors_.front().timer == 240,
                 "phase action advanced in the preceding actor pass");
         observed = true;
+        phases.push_back(3);
     };
     session.setHooks(std::move(hooks));
     session.tick({}, 0);
@@ -104,4 +125,23 @@ int main() {
             "phase action did not receive a shared actor order");
     require(replay.fixture().transientActors_.empty(),
             "live tick wrote into the detached diagnostic copy");
+    require(phases == std::vector<int>({1, 2, 3, 4, 5, 6, 7, 8}),
+            "production HUD, frame, actors, palette, completion, and sound order changed");
+    hooks = {};
+    hooks.tickBlocked = [] { return true; };
+    hooks.presentGameplay = [] { throw std::runtime_error("blocked tick presented a gameplay frame"); };
+    session.setHooks(std::move(hooks));
+    session.tick({}, 0);
+    require(session.view().logicTick_ == startTick + 1, "blocked tick advanced the logic clock");
+    bool cleared = false;
+    hooks = {};
+    hooks.clearHudScores = [&] {
+        require(session.view().score_ == 0 && session.view().score2_ == 0,
+                "HUD reels reset before gameplay scores");
+        cleared = true;
+    };
+    session.setHooks(std::move(hooks));
+    session.awardScore(1, 100);
+    session.clearScores();
+    require(cleared, "clearing run scores did not reset HUD reels");
 }

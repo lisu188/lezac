@@ -17,6 +17,14 @@ struct GameplayHooks {
     std::function<bool()> reentryBlocked;
     std::function<void()> beforeReset;
     std::function<void(size_t)> mapSizeChanged;
+    std::function<void()> resetHud;
+    std::function<void()> clearHudScores;
+    std::function<void(bool)> beginLevelPresentation;
+    // Presentation runs before non-player actors, after the recovered clock step.
+    std::function<void(const GameplayView&)> prepareHudObjectives;
+    std::function<void()> presentGameplay;
+    std::function<void(const GameplayView&)> updateHudScores;
+    std::function<void()> advanceHudPalette;
     std::function<void(int)> beginLevel;
     std::function<void()> gameOver;
     std::function<void()> levelCompletion;

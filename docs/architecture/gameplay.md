@@ -36,6 +36,16 @@ intro/outro and pause state; `mapSizeChanged` calls
 `PresentationState::beginLevel`. `tick()` calls the hooks at the recovered
 boundaries, including the second UI gate after the reentry prepass.
 
+The recovered Level 1 frame boundary runs after the logic clock increments and
+HUD objectives are prepared, before spawners and the non-player actor pass.
+`presentGameplay` lets the application draw there; `tickAndPresent` supplies a
+fallback draw for UI-only ticks. HUD reels advance after pending player damage
+is drained. Palette fades advance after camera shake and before the red palette,
+completion, and sound pump. `resetHud`, `clearHudScores`, and
+`beginLevelPresentation` retain their separate level-reset, score-clear, and
+first-play decoder boundaries. PresentationState owns these presentation values;
+GameSession only schedules the synchronous callbacks.
+
 Production input uses `setFireLatch`, `prepareNewGame`, `clearScores`,
 `resetReserveLives`, `reset` and `awardScore`. The UI's prepare-new-game and
 clear-score actions remain separate to retain their existing order.

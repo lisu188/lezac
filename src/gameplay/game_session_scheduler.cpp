@@ -34,6 +34,7 @@ void GameSession::resetLevel(int index) {
         nextCollapseFragmentWord_ = level_.fieldA;
         collected_ = 0;
         destroyed_ = 0;
+        if (hooks_.resetHud) hooks_.resetHud();
         completeTimer_ = 0;
         portalCooldown_ = 0;
         triggerCooldown_ = 0;
@@ -165,6 +166,8 @@ void GameSession::updatePlayerReentryPrepass(const FrameControls& controls) {
 void GameSession::updateWithControls(const FrameControls& controls, float dt) {
         if (hooks_.tickBlocked && hooks_.tickBlocked()) return;
         ++logicTick_;
+        if (hooks_.prepareHudObjectives) hooks_.prepareHudObjectives(view());
+        if (hooks_.presentGameplay) hooks_.presentGameplay();
         // 1000:7A6B precedes state-2 and both actor passes. An effect that
         // expires later this frame still occupies its slot during spawning.
         updateMonsterSpawners();
@@ -230,8 +233,10 @@ void GameSession::updateWithControls(const FrameControls& controls, float dt) {
             }
         }
         drainPlayerDamageCounters();
+        if (hooks_.updateHudScores) hooks_.updateHudScores(view());
         updateFlashes();
         updateCameraShake();
+        if (hooks_.advanceHudPalette) hooks_.advanceHudPalette();
         if (hooks_.updateRedPalette) hooks_.updateRedPalette(static_cast<uint16_t>(logicTick_));
         if (hooks_.levelCompletion) hooks_.levelCompletion();
         if (hooks_.pumpSound) hooks_.pumpSound();

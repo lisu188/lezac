@@ -2545,7 +2545,7 @@ if(BUILD_TESTING)
         set_tests_properties(gran_usage_guardrail PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^gran_usage_guardrail=ok source_refs=26 load_refs=2 debug_refs=20 member_refs=1 live_consumer_refs=1 live_refs=0 ctest=3 docs=3 accessor_refs=1 alias_refs=1")
+                "^gran_usage_guardrail=ok source_refs=28 load_refs=2 debug_refs=20 member_refs=1 live_consumer_refs=1 live_refs=0 ctest=3 docs=3 accessor_refs=1 alias_refs=1 session_member_refs=1 session_init_refs=1")
 
         add_test(NAME gran_usage_guardrail_selftest
             COMMAND ${Python3_EXECUTABLE}
@@ -2554,7 +2554,7 @@ if(BUILD_TESTING)
         set_tests_properties(gran_usage_guardrail_selftest PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION
-                "^gran_usage_guardrail_selftest=ok positive=1 live_ref=1 missing_debug=1 docs=1")
+                "^gran_usage_guardrail_selftest=ok positive=1 live_ref=1 missing_debug=1 docs=1 composed=1 composed_mutations=6")
 
         add_test(NAME ready_fixture_provenance_contract
             COMMAND ${Python3_EXECUTABLE}

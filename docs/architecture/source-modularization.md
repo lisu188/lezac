@@ -34,7 +34,15 @@ Level reset preserves run-level lives and scores.
 Before drawing, explicitly prepare actor ordering at the existing adoption
 boundary, then render through const views. Do not normalize fixtures early.
 Backdrop simulated overflow deliberately reads padding and live map bytes;
-runtime palette state is separate from immutable asset data. Sound priority
+runtime palette state is separate from immutable asset data. `PresentationState`
+also owns score reels, HUD readiness, objective palette fades and the sampled
+destruction percentage. Objective preparation runs after the logic tick increment,
+then the frame is presented before actor updates. Reels advance after damage
+counters drain; fades advance after camera shake and before the red palette.
+Level reset clears HUD readiness/fades and restores the captured initial HUD
+palette while retaining score reels; a new run clears the reels separately.
+These lifecycle operations are explicit, and repeated rendering cannot advance
+any of them. Sound priority
 requests resolve synchronously and pumping retains its current tick boundary.
 
 Diagnostics use read snapshots, explicit typed fixture/replay operations and

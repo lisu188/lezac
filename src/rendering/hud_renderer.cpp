@@ -153,11 +153,11 @@ public:
         const int bx0 = xoff + 119;
         canvas_.rect(bx0, y0 + 7, 20, 20, kBoxGrey);
         canvas_.rect(bx0 + 1, y0 + 8, 18, 18, 0xff828282u);
-        canvas_.rect(bx0 + 2, y0 + 9, 16, 16, 0xff202020u);
         if (!hud_.columnReady[xoff == 0 ? 0 : 1]) {
             canvas_.rect(bx0, y0 + 27, 20, 9, kBlue);
             return;
         }
+        canvas_.rect(bx0 + 2, y0 + 9, 16, 16, 0xff202020u);
         const int bombSprite =
             static_cast<int>(bombProfile(inventory.selected).spriteBase);
         if (bombSprite >= 0 &&

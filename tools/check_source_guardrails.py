@@ -119,7 +119,7 @@ class SourceGuardrailTests(unittest.TestCase):
 
     def test_gran_valid_relocation(self):
         self.split_gran()
-        self.assertEqual(gran.check_source(self.root), (15, 2, 9, 1, 1, 1, 1))
+        self.assertEqual(gran.check_source(self.root), (15, 2, 9, 1, 1, 1, 1, 0, 0))
         self.assertEqual(check_inventory(self.root), 5)
 
     def test_gran_deleted_live_consumer(self):

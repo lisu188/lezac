@@ -31,11 +31,27 @@ add_library(lezac_resources STATIC
 target_include_directories(lezac_resources PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(lezac_resources PUBLIC lezac_core)
 
+add_library(lezac_sound STATIC
+    src/sound/sound_engine.cpp
+    src/sound/sdl_audio_output.cpp
+)
+target_include_directories(lezac_sound PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src ${SDL2_INCLUDE_DIRS})
+target_link_directories(lezac_sound PRIVATE ${SDL2_LIBRARY_DIRS})
+target_link_libraries(lezac_sound PUBLIC lezac_resources ${SDL2_LIBRARIES})
+target_compile_options(lezac_sound PRIVATE ${SDL2_CFLAGS_OTHER})
+
+add_library(lezac_sound_diagnostics STATIC
+    src/diagnostics/sound/sound_synthesis_diagnostics.cpp
+    src/diagnostics/sound/sound_evidence_diagnostics.cpp
+)
+target_include_directories(lezac_sound_diagnostics PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(lezac_sound_diagnostics PUBLIC lezac_sound)
+
 add_executable(lezac_cpp src/main.cpp src/app/app.cpp)
 target_compile_definitions(lezac_cpp PRIVATE SDL_MAIN_HANDLED)
 target_include_directories(lezac_cpp PRIVATE ${SDL2_INCLUDE_DIRS})
 target_link_directories(lezac_cpp PRIVATE ${SDL2_LIBRARY_DIRS})
-target_link_libraries(lezac_cpp PRIVATE lezac_core lezac_resources ${SDL2_LIBRARIES})
+target_link_libraries(lezac_cpp PRIVATE lezac_core lezac_resources lezac_sound lezac_sound_diagnostics ${SDL2_LIBRARIES})
 target_compile_options(lezac_cpp PRIVATE ${SDL2_CFLAGS_OTHER})
 
 if(WIN32)

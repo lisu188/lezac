@@ -13,7 +13,7 @@ import argparse
 import re
 from pathlib import Path
 
-from source_guardrails import source_text, diagnostic_text
+from source_guardrails import source_text, diagnostic_text, mask_cpp
 
 
 EXPECTED_LIVE_HOOKS = {
@@ -40,10 +40,11 @@ EXPECTED_HELPER_SNIPPETS = [
     # tests/fixtures/sound_callsite_original_hooks.txt.
     "uint16_t capturedCursor;",
     "uint8_t capturedPriority;",
-    "void playSound(size_t index)",
+    "std::vector<int16_t> playSound(size_t index, bool outputEnabled) {",
     "bool playCompatibilitySound(size_t hookSlot)",
     "return requestSoundCursor(hook.capturedCursor, hook.capturedPriority);",
-    "playSound(soundIndexForSelector(selector));",
+    ("if (!outputEnabled || sounds_.records.empty()) return {};\n"
+     "    std::vector<int16_t> samples = synthesizeSound(index % sounds_.records.size());"),
 ]
 
 EXPECTED_RECOVERED_HOOK_SNIPPETS = [
@@ -166,21 +167,26 @@ def check_source(root: Path) -> None:
         require(text, snippet, "source")
 
     call_lines = []
-    for lineno, line in enumerate(source_text(root, None, ("runtime", "diagnostics", "dispatch")).splitlines(), start=1):
-        if "playSound(" not in line:
+    all_source = source_text(root, None, ("runtime", "diagnostics", "dispatch"))
+    masked = mask_cpp(all_source)
+    direct_record_api = re.compile(
+        r"^\s*std::vector<int16_t> playSound\(size_t index, bool outputEnabled\)\s*[;{]\s*$"
+    )
+    for match in re.finditer(r"\bplaySound\s*\(", masked):
+        start = masked.rfind("\n", 0, match.start()) + 1
+        end = masked.find("\n", match.end())
+        if end < 0:
+            end = len(masked)
+        line = masked[start:end]
+        if direct_record_api.fullmatch(line):
             continue
-        if "void playSound(" in line:
-            continue
-        if "playSound(soundIndexForSelector(selector))" in line:
-            continue
-        call_lines.append((lineno, line.strip()))
+        lineno = masked.count("\n", 0, match.start()) + 1
+        call_lines.append((lineno, all_source[start:end].strip()))
 
-    # The compatibility hook no longer funnels through playSound(index): it
-    # synthesizes from the cursor captured off the original's accepted sound
-    # pair, because the shared index table's level-complete entry (0x0027)
-    # names a different sound than the original's 0x003d. The funnel intent
-    # is preserved -- no scattered direct playSound() calls may reappear
-    # outside the definition and the selector path.
+    # Only the engine's declaration and definition may mention the legacy
+    # direct-record API. Gameplay compatibility hooks still submit their
+    # captured cursor/priority pair through the latch; no direct call may
+    # bypass that route, including a qualified or multiline call.
     expected_lines: list[str] = []
     actual_lines = sorted(line for _, line in call_lines)
     if actual_lines != expected_lines:

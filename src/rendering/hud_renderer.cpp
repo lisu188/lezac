@@ -138,10 +138,9 @@ public:
         (void)score;
         drawHudScore(xoff, y0 + 22, hud_.scoreReels[xoff == 0 ? 0 : 1]);
 
-        // Player-life figures: the original HUD shows SPARE lives (the life in
-        // play is not counted), so a fresh 3-life start draws two markers --
-        // matching every captured original level-start frame.
-        for (int i = 0; i < std::clamp(lives - 1, 0, 6); ++i) {
+        // The stored count is already the original reserve byte: two at a
+        // fresh start, zero on the last playable life, and -1 when out.
+        for (int i = 0; i < std::clamp(lives, 0, 6); ++i) {
             drawOriginalHudFigure(xoff + i * 9, y0 + 39, kGreen);
         }
 

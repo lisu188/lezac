@@ -3176,6 +3176,14 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "original_state2_return_model=ok cases=4 production=1 gate_latched_at_death=1 shared_gate=1 timer_start=60 early_fire_blocked=1 reserve_zero_playable=1")
 
+    add_test(NAME reserve_life_lifecycle
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-reserve-life-lifecycle)
+    set_tests_properties(reserve_life_lifecycle PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION
+            "reserve_life_lifecycle=ok cases=3 start_reserves=2 deaths_per_player=3 zero_reserve_reentry=1 both_player_orders=1 menu_restart=1 hud_frames=15 damage_injected=1 natural_route=0")
+
     add_test(NAME state2_animation_init_model
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-original-state2-animation-init)
     set_tests_properties(state2_animation_init_model PROPERTIES
@@ -4679,7 +4687,7 @@ if(BUILD_TESTING)
         set_tests_properties(level1_original_guard PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 180 LABELS "level1;original;evidence-guard"
-            PASS_REGULAR_EXPRESSION "level1_original_guard=ok tests=7 mutations=16 fullframe=1 late_validation=1")
+            PASS_REGULAR_EXPRESSION "level1_original_guard=ok tests=8 mutations=16 fullframe=1 late_validation=1")
 
         add_test(NAME level1_replay
             COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

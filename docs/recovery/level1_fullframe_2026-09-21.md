@@ -2,6 +2,10 @@
 
 Baseline: main after PR #237 (`92a0cd3180ce3467f662c192d6d337c2a3b11365`).
 
+Follow-up: [reserve-life correction](reserve_lives_2026-09-24.md) removes a
+one-life offset from the C++ projection and fixes new-game reserve storage.
+The pinned original bundles and all full-frame expectations remain unchanged.
+
 ## Recovered behavior
 
 Fresh DOSBox observations exposed differences hidden by cropped viewport

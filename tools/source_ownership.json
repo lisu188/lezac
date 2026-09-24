@@ -52,23 +52,41 @@
     },
     "rendering": {
       "runtime": [
-        "src/app/app.cpp"
+        "src/app/app.cpp",
+        "src/rendering/canvas.cpp",
+        "src/rendering/canvas.hpp",
+        "src/rendering/color.hpp",
+        "src/rendering/game_renderer.cpp",
+        "src/rendering/game_renderer.hpp",
+        "src/rendering/hud_renderer.cpp",
+        "src/rendering/menu_renderer.cpp",
+        "src/rendering/presentation_state.cpp",
+        "src/rendering/presentation_state.hpp",
+        "src/rendering/render_views.hpp",
+        "src/rendering/sdl_display.cpp",
+        "src/rendering/sdl_display.hpp",
+        "src/rendering/text_renderer.cpp",
+        "src/rendering/text_renderer.hpp"
       ]
     },
     "ui": {
       "runtime": [
-        "src/app/app.cpp"
+        "src/app/app.cpp",
+        "src/ui/models.hpp"
       ]
     },
     "gameplay": {
       "runtime": [
-        "src/app/app.cpp"
+        "src/app/app.cpp",
+        "src/gameplay/actor_models.hpp"
       ]
     },
     "app": {
       "runtime": [
         "src/app/app.cpp",
-        "src/app/app.hpp"
+        "src/app/app.hpp",
+        "src/app/sdl_runtime.cpp",
+        "src/app/sdl_runtime.hpp"
       ],
       "dispatch": [
         "src/main.cpp",
@@ -79,9 +97,11 @@
       "diagnostics": [
         "src/app/app.cpp",
         "src/diagnostics/level1_trace.hpp",
+        "src/diagnostics/frame_inspector.cpp",
+        "src/diagnostics/frame_inspector.hpp",
         "src/diagnostics/sound/sound_diagnostics.hpp",
-        "src/diagnostics/sound/sound_synthesis_diagnostics.cpp",
-        "src/diagnostics/sound/sound_evidence_diagnostics.cpp"
+        "src/diagnostics/sound/sound_evidence_diagnostics.cpp",
+        "src/diagnostics/sound/sound_synthesis_diagnostics.cpp"
       ]
     }
   }

@@ -21,6 +21,7 @@ EXPECTED = {
     "walk": (41, "191010fa2371444334cfa67f208db50aeb15a5d07a721884fa1447b9dd651fcd"),
     "bomb": (297, "976f37c43b608d770d183d811893daa7ba12415b9382e7f89ecf24bedfdc3ca6"),
     "objective": (237, "57c305f8c8277e72419b473b62e2db3c4d2e90040e24e049241f0d876e6fec77"),
+    "held_fire": (497, "29fc2da3226326443e8990f85be601bbdb4acf693fc5bef09d8e50737484252f"),
 }
 EXE: Path | None = None
 
@@ -95,6 +96,59 @@ class OriginalTests(unittest.TestCase):
         for reserve in (2, 1, 0, -1):
             player["health"][1] = reserve
             self.assertEqual(original.project_cpp(state, 1)["players"][0]["reserve"], reserve & 255)
+
+    def test_original_death_hud_cache(self):
+        image = original.check_executable(ROOT / "LEZAC.EXE")
+        for offset, instructions in {
+            0x7F40: "8b3e822080bde57901",  # global state 1 gate
+            0x7F97: "8a85861b30e4a37420",  # actor energy to scratch word
+            0x30D9: "89167420",  # death helper leaves objective count
+            0x3134: "26c6452464",  # actor energy reset, independently of HUD
+            0x7FB3: "8a85eb7930e43b067420741c",  # byte cache vs whole word
+            0x7FC6: "8885eb79",  # cache low byte
+            0x568A: "8b0e742083f9647722",  # unsigned >100 skips painting
+        }.items():
+            with self.subTest(offset=hex(offset)):
+                self.assertEqual(image[offset:offset + len(instructions) // 2].hex(), instructions)
+        pinned_fixture("held_fire")
+        samples = {r["cpp_tick"]: r for r in original.reference_rows(FIXTURES / "held_fire")
+                   if r["kind"] == "sample"}
+        expected = [(4, "rendered", 0, 100, 255, 0, 2),
+                    (274, "post", 2, 100, 1, 60, 2),
+                    (275, "rendered", 2, 100, 1, 60, 2),
+                    (275, "post", 2, 100, 100, 59, 2),
+                    (334, "post", 0, 96, 96, 0, 1),
+                    (359, "post", 2, 100, 1, 60, 1),
+                    (419, "post", 0, 96, 96, 0, 0),
+                    (444, "post", 2, 100, 1, 60, 0),
+                    (500, "post", 2, 100, 100, 4, 0)]
+        for tick, phase, behavior, energy, cached, countdown, reserve in expected:
+            with self.subTest(tick=tick, phase=phase):
+                state = samples[tick][phase]
+                raw = bytes.fromhex(state["players"][0]["raw"])
+                globals_ = bytes.fromhex(state["globals"])
+                self.assertEqual((raw[21], raw[36], globals_[0x4C], original.word(raw, 16), globals_[0x4A]),
+                                 (behavior, energy, cached, countdown, reserve))
+        dying = 0
+        for tick, sample in samples.items():
+            raw = bytes.fromhex(sample["rendered"]["players"][0]["raw"])
+            cached = bytes.fromhex(sample["rendered"]["globals"])[0x4C]
+            rgb = sample["rgb"]
+            start = (165 * 320 + 1) * 3
+            bar = [rgb[i:i + 3] for i in range(start, start + 300, 3)]
+            fill = 0 if cached == 255 else cached
+            with self.subTest(tick=tick):
+                self.assertLessEqual(fill, 100)
+                self.assertEqual(bar[:fill], [b"\xff\xff\x55"] * fill)
+                self.assertEqual(sum(pixel == b"\xff\xff\x55" for pixel in bar), fill)
+                background = b"\xb6\xb6\xb6" if cached == 255 else b"\x00\x00\xaa"
+                self.assertEqual(bar[fill:], [background] * (100 - fill))
+                if raw[21] == 2:
+                    dying += 1
+                    self.assertIn(cached, (1, 100))
+                    self.assertGreaterEqual(raw[22], 0x4A)
+                    self.assertLessEqual(raw[22], 0x4F)
+        self.assertEqual((len(samples), dying), (497, 176))
 
     def test_capture_rejects_inconsistent_evidence(self):
         mutations = []

@@ -41,10 +41,9 @@ struct WorldRenderView {
 };
 
 struct PlayerHudView {
-    int energy;
+    core::HudEnergyBar energy;
     uint32_t score;
     int lives;
-    bool dead;
     const gameplay::BombInventory& inventory;
 };
 

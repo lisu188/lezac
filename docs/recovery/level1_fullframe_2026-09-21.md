@@ -4,6 +4,11 @@ Baseline: main after PR #237 (`92a0cd3180ce3467f662c192d6d337c2a3b11365`).
 
 Follow-up: [reserve-life correction](reserve_lives_2026-09-24.md) removes a
 one-life offset from the C++ projection and fixes new-game reserve storage.
+
+The [death-state HUD cache recovery](death_hud_cache_2026-09-26.md) adds an
+unchanged 497-frame held-fire capture, fixes the cached energy bar, and exports
+the effective death animation. The four pinned routes now total 1,072 matching
+full frames; the original scope limits below still apply.
 The pinned original bundles and all full-frame expectations remain unchanged.
 
 ## Recovered behavior

@@ -8,8 +8,33 @@
 int main() {
     using lezac::core::HudPaletteQueue;
     using lezac::core::HudScoreReel;
+    using lezac::core::HudEnergyBar;
     auto check = [](bool value) { if (!value) throw std::runtime_error("HUD model mismatch"); };
     try {
+        HudEnergyBar energy;
+        check(energy.cached == 255 && !energy.painted && energy.fill == 0);
+        energy.observe(255);
+        check(energy.cached == 255 && !energy.painted);
+        for (uint16_t value : {0, 1, 100}) {
+            energy.observe(value);
+            check(energy.cached == value && energy.fill == value && energy.painted);
+        }
+        for (uint16_t value : {101, 200, 255, 256, 257, 65535}) {
+            energy.observe(value);
+            check(energy.cached == static_cast<uint8_t>(value) && energy.fill == 100 && energy.painted);
+        }
+        energy.observe(257);
+        energy.observe(1);
+        check(energy.cached == 1 && energy.fill == 100);
+        energy.observe(0);
+        check(energy.cached == 0 && energy.fill == 0 && energy.painted);
+        energy = {};
+        energy.observe(256);
+        energy.observe(0);
+        check(energy.cached == 0 && !energy.painted && energy.fill == 0);
+        energy.observe(1);
+        check(energy.cached == 1 && energy.painted && energy.fill == 1);
+
         HudScoreReel score;
         check(score.value == 0 && score.phase == 2);
         score.setValue(12345678);
@@ -62,7 +87,7 @@ int main() {
         check(queue.request(245, {0,0,0}, {1,1,1}));
         for (int i = 0; i < 6; ++i) queue.advance(write);
         check(queue.count == 1 && queue.entries[0].current == std::array<uint8_t, 3>{0,0,0});
-        std::cout << "hud_models=ok reels=1 fades=1 capacity=1 wrap=1\n";
+        std::cout << "hud_models=ok reels=1 fades=1 capacity=1 wrap=1 energy_cache=1\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

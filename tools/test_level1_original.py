@@ -82,6 +82,20 @@ class OriginalTests(unittest.TestCase):
     def test_pinned_original_walk(self):
         pinned_fixture("walk")
 
+    def test_reserves_are_raw_bytes_not_total_lives(self):
+        image = original.check_executable(ROOT / "LEZAC.EXE")
+        self.assertEqual(image[0x2F5F:0x2F69].hex(), "c606ea7902c606eb7902")
+        for name in EXPECTED:
+            initial = (FIXTURES / name / "initial-ds.bin").read_bytes()
+            self.assertEqual(initial[0x79EA:0x79EC], b"\x02\x02")
+        player = dict(x=104, y=168, vx8=0, vy8=0, frac_x=0, frac_y=0,
+                      animation=[], health=[100, 2], inventory=[], hud_score=[])
+        state = dict(players=[player], logic_tick=0, random_seed=0,
+                     tiles_hex="", words_hex="", progress=[0, 0], hud=[])
+        for reserve in (2, 1, 0, -1):
+            player["health"][1] = reserve
+            self.assertEqual(original.project_cpp(state, 1)["players"][0]["reserve"], reserve & 255)
+
     def test_capture_rejects_inconsistent_evidence(self):
         mutations = []
         def case(change):
@@ -144,6 +158,13 @@ class OriginalTests(unittest.TestCase):
         fidelity.record(EXE, ROOT, self.source / "route.txt", candidate)
         report = original.compare(self.source, candidate)
         self.assertEqual((report["status"], report["frames"], report["states"], report["differing_pixels"]), ("match", 41, 82, 0))
+        cpp_rows = list(fidelity.trace_rows(candidate))
+        gameplay = next(row for row in cpp_rows if row.get("phase") == "post_update" and row["tick"] == 4)
+        self.assertEqual([p["health"][1] for p in gameplay["state"]["players"]], [2, 2])
+        projection = original.project_cpp(gameplay["state"], 1)
+        extra_life = copy.deepcopy(gameplay["state"])
+        extra_life["players"][0]["health"][1] += 1
+        self.assertNotEqual(projection, original.project_cpp(extra_life, 1))
         target = self.clone()
         rows = copy.deepcopy(self.rows)
         pixels = list(original.reference_rows(self.source))[1]["rgb"]

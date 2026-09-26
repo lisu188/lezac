@@ -254,6 +254,7 @@ constexpr uint8_t kDebrisLandingShatterSoundPriority = 2;
 constexpr uint16_t kDebrisBounceSoundBase = 0xea61;  // 4C51 add ax,0xea61, priority 1
 constexpr uint8_t kDebrisBounceSoundPriority = 1;    // 4C57
 using lezac::resources::kGranRecordSize;
+constexpr int kInitialReserveLives = 2;  // 1000:2F5F/2F64 initialize DS:79EA/79EB.
 constexpr int kDeathStateTicks = 0x003c;
 constexpr int kReentryTicks = kDeathStateTicks;  // Raw actor countdown, not a reentry timeout.
 constexpr uint8_t kSharedReentryTicks = 0xe6;  // 1000:7EFC compares DS:79B9 with 230.
@@ -7369,7 +7370,7 @@ public:
         beginGameOver();
         if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::NameEntry ||
             recordStore_.pending().score != 999997u || recordStore_.pending().level != 3 ||
-            recordStore_.pending().player != 1 || lives_ != 3 || lives2_ != 3 ||
+            recordStore_.pending().player != 1 || lives_ != 2 || lives2_ != 2 ||
             levelIndex_ != 0) {
             throw std::runtime_error("single-player qualifying game-over state mismatch");
         }
@@ -9624,6 +9625,91 @@ public:
         std::cout << "original_state2_return_model=ok cases=4 production=1"
                   << " gate_latched_at_death=1 shared_gate=1 timer_start=60"
                   << " early_fire_blocked=1 reserve_zero_playable=1\n";
+    }
+
+    void debugReserveLifeLifecycle(const std::string& outDir) {
+        load();
+        initSdl();
+        if (lives_ != 2 || lives2_ != 2) throw std::runtime_error("default reserve count");
+        if (!outDir.empty()) std::filesystem::create_directories(outDir);
+        bool running = true;
+        levelFlow_.setInteractiveEnabled(true);
+        int frames = 0;
+        auto inspectHud = [&](const std::string& label) {
+            inspectRenderedFrame(label);
+            for (int marker = 1; marker <= playerCount_; ++marker) {
+                const int reserves = marker == 1 ? lives_ : lives2_;
+                const int x = marker == 1 ? 0 : 180;
+                for (int slot = 0; slot < 3; ++slot) {
+                    if (frameInspector_.regionHasVariation(x + slot * 9, 192, 8, 8) != (slot < reserves)) {
+                        throw std::runtime_error("HUD reserve marker count: " + label);
+                    }
+                }
+            }
+            if (!outDir.empty()) {
+                writeArgbPpm(outDir + "/" + label + ".ppm", fb_, kScreenW, kScreenH);
+            }
+            ++frames;
+        };
+        // Inject fatal damage only; menu input and reserve/countdown/reentry
+        // transitions use production paths. This is not a natural playthrough.
+        for (int scenario = 0; scenario < 3; ++scenario) {
+            const int count = scenario == 0 ? 1 : 2;
+            if (ui_.snapshot().page == MenuPage::GameOver) {
+                pushKeyDown(SDLK_RETURN);
+                processEvents(running);
+            }
+            pushKeyDown(count == 1 ? SDLK_1 : SDLK_2);
+            processEvents(running);
+            if (ui_.snapshot().menu || !levelFlow_.intro().active || lives_ != 2 || lives2_ != 2) {
+                throw std::runtime_error("menu start reserve count");
+            }
+            pushKeyDown(SDLK_RETURN);
+            processEvents(running);
+            const std::string prefix = "reserve-case-" + std::to_string(scenario);
+            inspectHud(prefix + "-start");
+            for (int order = 0; order < count; ++order) {
+                const uint8_t marker = static_cast<uint8_t>(scenario == 2 ? 2 - order : 1 + order);
+                auto& player = marker == 1 ? player_ : player2_;
+                auto& energy = marker == 1 ? energy_ : energy2_;
+                auto& lives = marker == 1 ? lives_ : lives2_;
+                auto& dead = marker == 1 ? playerDead_ : player2Dead_;
+                auto& timer = marker == 1 ? reentryTimer_ : reentryTimer2_;
+                auto& cooldown = marker == 1 ? damageCooldown_ : damageCooldown2_;
+                FrameControls controls{};
+                (marker == 1 ? controls.p1Reenter : controls.p2Reenter) = true;
+                for (int death = 1; death <= 3; ++death) {
+                    energy = 0;
+                    damagePlayer(player, energy, lives, dead, timer, cooldown, marker);
+                    for (int tick = 1; tick < 60; ++tick) {
+                        updatePlayerReentryPrepass(controls);
+                        if (ui_.snapshot().menu || !dead || lives != 3 - death || timer != 60 - tick) {
+                            throw std::runtime_error("reserve consumed before countdown expiry");
+                        }
+                    }
+                    updatePlayerReentryPrepass(controls);
+                    const bool ended = death == 3 && order == count - 1;
+                    if (ended) {
+                        if (!ui_.snapshot().menu || ui_.snapshot().page != MenuPage::GameOver ||
+                            ui_.snapshot().lastEndReason != EndReason::GameOver || lives_ != 2 || lives2_ != 2) {
+                            throw std::runtime_error("third death did not end/reset the run");
+                        }
+                    } else {
+                        if (ui_.snapshot().menu || lives != 2 - death || dead != (death == 3)) {
+                            throw std::runtime_error("reserve expiry/reentry mismatch");
+                        }
+                        updatePlayerReentryPrepass(controls);
+                        if (lives != 2 - death || dead != (death == 3) || ui_.snapshot().menu) {
+                            throw std::runtime_error("duplicate loss or out-player reentry");
+                        }
+                        inspectHud(prefix + "-p" + std::to_string(marker) + "-death-" + std::to_string(death));
+                    }
+                }
+            }
+        }
+        std::cout << "reserve_life_lifecycle=ok cases=3 start_reserves=2 deaths_per_player=3"
+                  << " zero_reserve_reentry=1 both_player_orders=1 menu_restart=1"
+                  << " hud_frames=" << frames << " damage_injected=1 natural_route=0\n";
     }
 
     void debugOriginalState2AnimationInit() {
@@ -23179,8 +23265,8 @@ private:
     int triggerCooldown2_ = 0;
     int energy_ = 100;
     int energy2_ = 100;
-    int lives_ = 3;
-    int lives2_ = 3;
+    int lives_ = kInitialReserveLives;
+    int lives2_ = kInitialReserveLives;
     bool playerDead_ = false;
     bool player2Dead_ = false;
     int reentryTimer_ = 0;
@@ -23430,9 +23516,17 @@ private:
     UiActions uiActions() {
         return {
             [this] { clearRunScores(); },
-            [this](int players) { playerCount_ = players; lives_ = 3; lives2_ = 3; },
+            [this](int players) {
+                playerCount_ = players;
+                lives_ = kInitialReserveLives;
+                lives2_ = kInitialReserveLives;
+            },
             [this](int index) { beginLevelForPlay(index); },
-            [this] { lives_ = 3; lives2_ = 3; resetLevel(0); },
+            [this] {
+                lives_ = kInitialReserveLives;
+                lives2_ = kInitialReserveLives;
+                resetLevel(0);
+            },
             [this] { requestRecordNamePromptSound(); },
             [this] { requestRecordNameCommitSound(); },
             [this] { requestRecordsPageSound(); },
@@ -27358,6 +27452,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-return-model") {
             app.debugOriginalState2ReturnModel();
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-reserve-life-lifecycle") {
+            app.debugReserveLifeLifecycle(argc > 2 ? argv[2] : "");
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--debug-original-state2-animation-init") {

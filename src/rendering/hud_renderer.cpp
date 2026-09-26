@@ -108,8 +108,8 @@ public:
     // drawn twice -- player 2's copy at xoff 180 (energy track x180..281,
     // score panel x180..267, bomb box x299..318, lives at x180..196), all
     // measured from an original two-player capture.
-    void drawPlayerHudColumn(int xoff, int energy, uint32_t score, int lives,
-                             bool dead, const BombInventory& inventory) {
+    void drawPlayerHudColumn(int xoff, const core::HudEnergyBar& energy, uint32_t score, int lives,
+                             const BombInventory& inventory) {
         constexpr uint32_t kGrey = 0xffb6b6b6u;
         constexpr uint32_t kYellow = 0xffffff55u;
         constexpr uint32_t kBlue = 0xff0018dbu;
@@ -120,14 +120,14 @@ public:
 
         // Energy bar: a 102x3 grey-framed track (x0..101, spanning y0+10..y0+12)
         // with a 1px-tall yellow fill on the middle row, its width proportional
-        // to the player's energy -- full energy fills the inner 100px (x1..100).
+        // to the cached painted value, not necessarily the actor's energy.
         // Measured pixel-for-pixel from the original level-1 frame: the grey
         // frame (182,182,182) surrounds the yellow (255,255,85) on all sides.
         canvas_.rect(xoff, y0 + 10, 102, 3, kGrey);
-        const bool ready = hud_.columnReady[xoff == 0 ? 0 : 1];
-        int energyFill = ready ? std::clamp(dead ? 0 : energy, 0, 100) : 0;
-        if (ready) canvas_.rect(xoff + 1, y0 + 11, 100, 1, argb(presentation_.palette(), 1));
-        canvas_.rect(xoff + 1, y0 + 11, energyFill, 1, kYellow);
+        if (energy.painted) {
+            canvas_.rect(xoff + 1, y0 + 11, 100, 1, argb(presentation_.palette(), 1));
+            canvas_.rect(xoff + 1, y0 + 11, energy.fill, 1, kYellow);
+        }
 
         // Score panel: an 88x17 cyan-framed box (x0..87, y0+18..y0+34) with a
         // blue interior and a right-aligned green score value. The original
@@ -186,7 +186,7 @@ public:
         // frames (VGA palette). The grey/white rule above the band is the view
         // frame's bottom border, drawn by drawViewFrame.
         canvas_.rect(0, 160, kScreenW, 40, 0xff000000u);
-        drawPlayerHudColumn(0, hud_.players[0].energy, hud_.players[0].score, hud_.players[0].lives, hud_.players[0].dead,
+        drawPlayerHudColumn(0, hud_.players[0].energy, hud_.players[0].score, hud_.players[0].lives,
                             hud_.players[0].inventory);
         drawHudObjectivePanel();
     }
@@ -249,9 +249,9 @@ public:
             drawSinglePlayerHud();
         } else {
             canvas_.rect(0, 160, kScreenW, 40, 0xff000000u);
-            drawPlayerHudColumn(0, hud_.players[0].energy, hud_.players[0].score, hud_.players[0].lives, hud_.players[0].dead,
+            drawPlayerHudColumn(0, hud_.players[0].energy, hud_.players[0].score, hud_.players[0].lives,
                                 hud_.players[0].inventory);
-            drawPlayerHudColumn(180, hud_.players[1].energy, hud_.players[1].score, hud_.players[1].lives, hud_.players[1].dead,
+            drawPlayerHudColumn(180, hud_.players[1].energy, hud_.players[1].score, hud_.players[1].lives,
                                 hud_.players[1].inventory);
             drawHudObjectivePanel();
         }

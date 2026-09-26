@@ -22,6 +22,13 @@ int main() {
         throw std::runtime_error("HUD destruction sampled outside its 30-tick boundary");
     presentation.prepareHudObjectives(30, 1, 75);
     presentation.updateHudScores(2, {{123, 999}}, {{false, true}}, {{0, 0}});
+    presentation.updateHudEnergy(0, 73, 1);
+    presentation.updateHudEnergy(0, 11, 2);
+    presentation.updateHudEnergy(1, 41, 0);
+    if (presentation.hudEnergy()[0].fill != 73 || presentation.hudEnergy()[1].painted)
+        throw std::runtime_error("waiting/out player changed HUD energy");
+    presentation.updateHudEnergy(1, 41, 1);
+    presentation.updateHudEnergy(1, 257, 1);
     presentation.advanceHudPalette();
     if (presentation.hudDestructionPercent() != 75 || !presentation.hudColumnReady()[0] ||
         presentation.hudColumnReady()[1] || presentation.hudScores()[1].phase != 0)
@@ -44,11 +51,12 @@ int main() {
     std::vector<gameplay::LaunchPadMarker> markers;
     std::vector<gameplay::TransientActor> transients;
     std::vector<gameplay::SharedActorEntry> visualOrder{{0, gameplay::SharedActorKind::Bomb, 0}};
-    rendering::WorldRenderView world{level, 0, 1,
+    rendering::WorldRenderView world{level, 0, 2,
         {{{player, false, 3, cursor, effect}, {player2, false, 3, cursor, effect}}},
         bombs, monsters, rewards, flashes, markers, transients, visualOrder,
         320, true, 0, false, false};
-    rendering::HudView hud{1, {{{100, 0, 3, false, inventory}, {100, 0, 3, false, inventory}}},
+    rendering::HudView hud{2, {{{presentation.hudEnergy()[0], 0, 3, inventory},
+                              {presentation.hudEnergy()[1], 0, 3, inventory}}},
         level.objectiveTile, level.requiredBonus, level.requiredDestruction, 1,
         presentation.hudDestructionPercent(), false, false, presentation.hudScores(), presentation.hudColumnReady()};
     const auto state = presentation.snapshot();
@@ -71,6 +79,12 @@ int main() {
     const auto seed = random.seed();
     renderer.drawGame(world, hud);
     const auto first = canvas.pixels();
+    for (int playerIndex = 0; playerIndex < 2; ++playerIndex) {
+        const int start = 165 * 320 + playerIndex * 180 + 1;
+        const int fill = playerIndex == 0 ? 73 : 41;
+        if (std::count(first.begin() + start, first.begin() + start + 100, 0xffffff55u) != fill)
+            throw std::runtime_error("renderer ignored cached painted energy");
+    }
     renderer.drawGame(world, hud);
     if (first != canvas.pixels() || std::all_of(first.begin(), first.end(),
             [&](uint32_t pixel) { return pixel == first.front(); }))
@@ -95,6 +109,10 @@ int main() {
             actual.hudPaletteQueue.count != expected.hudPaletteQueue.count)
             throw std::runtime_error("HUD presentation snapshot changed");
         for (size_t i = 0; i < 2; ++i) {
+            const auto& ae = actual.hudEnergy[i];
+            const auto& ee = expected.hudEnergy[i];
+            if (ae.cached != ee.cached || ae.fill != ee.fill || ae.painted != ee.painted)
+                throw std::runtime_error("rendering changed cached energy state");
             const auto& a = actual.hudScores[i];
             const auto& e = expected.hudScores[i];
             const auto& aq = actual.hudPaletteQueue.entries[i];
@@ -106,6 +124,19 @@ int main() {
     };
     checkHud(state, after);
     presentation.resetHudForLevel();
+    for (const auto& energy : presentation.hudEnergy()) {
+        if (energy.cached != 255 || energy.fill != 0 || energy.painted)
+            throw std::runtime_error("level reset retained cached energy state");
+    }
+    hud.players[0].energy = presentation.hudEnergy()[0];
+    hud.players[1].energy = presentation.hudEnergy()[1];
+    renderer.drawHud(hud);
+    for (int playerIndex = 0; playerIndex < 2; ++playerIndex) {
+        const int start = 165 * 320 + playerIndex * 180 + 1;
+        if (!std::all_of(canvas.pixels().begin() + start, canvas.pixels().begin() + start + 100,
+                         [](uint32_t pixel) { return pixel == 0xffb6b6b6u; }))
+            throw std::runtime_error("unpainted energy row lost its initial grey fill");
+    }
     if (presentation.hudScores()[0].current != state.hudScores[0].current ||
         presentation.hudScores()[0].value != 123 || presentation.hudPaletteQueue().count != 0 ||
         presentation.hudColumnReady()[0] || presentation.palette()[245].r != state.initialPalette[245].r)

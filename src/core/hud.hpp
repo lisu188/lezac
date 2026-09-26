@@ -6,6 +6,22 @@
 
 namespace lezac::core {
 
+struct HudEnergyBar {
+    uint8_t cached = 255;
+    uint8_t fill = 0;
+    bool painted = false;
+
+    void observe(uint16_t value) {
+        // 7FAF compares the whole scratch word to the cached byte. 568A
+        // skips painting values above 100, even after the cache changed.
+        if (cached == value) return;
+        cached = static_cast<uint8_t>(value);
+        if (value > 100) return;
+        fill = static_cast<uint8_t>(value);
+        painted = true;
+    }
+};
+
 struct HudScoreReel {
     uint32_t value = 0;
     std::array<uint16_t, 9> current{};

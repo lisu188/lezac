@@ -4670,7 +4670,7 @@ if(BUILD_TESTING)
             "^two_player_hud_panel=ok split_views=2 p1_hud_visible=1 p1_world_visible=1 p2_hud_visible=1 p2_world_visible=1 objective_panel_visible=1 objective_panel_changed=1 panel_x=141 panel_w=37 p2_column_x=180 frame_inspection=1 original_art_claim=0")
 
     if(Python3_Interpreter_FOUND)
-        foreach(level1_case walk bomb objective)
+        foreach(level1_case walk bomb objective held_fire)
             add_test(NAME level1_original_${level1_case}
                 COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
                         ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_level1_original.py
@@ -4687,7 +4687,7 @@ if(BUILD_TESTING)
         set_tests_properties(level1_original_guard PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 180 LABELS "level1;original;evidence-guard"
-            PASS_REGULAR_EXPRESSION "level1_original_guard=ok tests=8 mutations=16 fullframe=1 late_validation=1")
+            PASS_REGULAR_EXPRESSION "level1_original_guard=ok tests=9 mutations=16 fullframe=1 late_validation=1")
 
         add_test(NAME level1_replay
             COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy

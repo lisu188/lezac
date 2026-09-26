@@ -110,6 +110,7 @@ void PresentationState::updateRedPalette(uint16_t frame) {
 void PresentationState::resetHudForLevel() {
     hudPaletteQueue_ = {};
     hudColumnReady_ = {};
+    hudEnergy_ = {};
     hudPreviousCollected_ = 20000;
     hudPreviousDestruction_ = 200;
     hudDestructionPercent_ = 0;
@@ -145,6 +146,11 @@ void PresentationState::updateHudScores(int playerCount, const std::array<uint32
     }
 }
 
+void PresentationState::updateHudEnergy(size_t player, uint16_t value, uint8_t globalState) {
+    // 7F40 excludes waiting and out players from the actor/HUD pass.
+    if (globalState == 1) hudEnergy_.at(player).observe(value);
+}
+
 void PresentationState::advanceHudPalette() {
     hudPaletteQueue_.advance([&](uint8_t index, const std::array<uint8_t, 3>& color) {
         palette_[index] = {vga6To8(color[0] & 63), vga6To8(color[1] & 63), vga6To8(color[2] & 63)};
@@ -177,7 +183,7 @@ void PresentationState::writeBackdropPrefix(const std::vector<uint8_t>& bytes) {
 
 PresentationSnapshot PresentationState::snapshot() const {
     return {palette_, backdropBuffer_, backdropPitch_, redPalettePhase_, backdropHeapPadding_, backdropMapTileCount_,
-            initialPalette_, hudScores_, hudPaletteQueue_, hudColumnReady_, hudPreviousCollected_,
+            initialPalette_, hudScores_, hudEnergy_, hudPaletteQueue_, hudColumnReady_, hudPreviousCollected_,
             hudPreviousDestruction_, hudDestructionPercent_, originalPlayInitialized_};
 }
 
@@ -190,6 +196,7 @@ void PresentationState::restore(const PresentationSnapshot& state) {
     backdropMapTileCount_ = state.mapTileCount;
     initialPalette_ = state.initialPalette;
     hudScores_ = state.hudScores;
+    hudEnergy_ = state.hudEnergy;
     hudPaletteQueue_ = state.hudPaletteQueue;
     hudColumnReady_ = state.hudColumnReady;
     hudPreviousCollected_ = state.hudPreviousCollected;

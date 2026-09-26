@@ -22930,6 +22930,8 @@ public:
         bombInventory_.selected = BombType::Large;
         bombInventory_.counts = {199, 7, 3, 1};
 
+        drainPlayerDamageCounters();
+        updateHudScores();
         const int hudY = kScreenH - 46;
         FrameInspection first = inspectRenderedFrame("hud-stats-live-first");
         std::vector<uint32_t> firstPixels = fb_;
@@ -22943,9 +22945,14 @@ public:
         lives_ = 1;
         bombInventory_.selected = BombType::Super;
         bombInventory_.counts[3] = 0;
+        drainPlayerDamageCounters();
         FrameInspection second = inspectRenderedFrame("hud-stats-live-second");
         if (second.hash == first.hash ||
-            !frameInspector_.regionChanged(firstPixels, 0, hudY, kScreenW, 46)) {
+            !frameInspector_.regionChanged(firstPixels, 0, hudY, kScreenW, 46) ||
+            std::count(firstPixels.begin() + 165 * kScreenW + 1,
+                       firstPixels.begin() + 165 * kScreenW + 101, 0xffffff55u) != 73 ||
+            std::count(fb_.begin() + 165 * kScreenW + 1,
+                       fb_.begin() + 165 * kScreenW + 101, 0xffffff55u) != 21) {
             throw std::runtime_error("HUD stats panel did not react to player/bomb stat changes");
         }
 
@@ -23099,10 +23106,15 @@ private:
         auto player = [&](const Player& p, int index) {
             const bool second = index == 2;
             const auto& inventory = second ? bombInventory2_ : bombInventory_;
+            const auto& cursor = second ? state2Visual2_ : state2Visual_;
+            const auto effectiveAnimation = (second ? player2Dead_ : playerDead_)
+                ? numbers({cursor.current, cursor.first, cursor.last, cursor.counter,
+                           cursor.delay, cursor.mode, cursor.step})
+                : animation(p.animation);
             return trace::object({{"x", std::to_string(p.x)}, {"y", std::to_string(p.y)},
                 {"vx8", std::to_string(p.vx8)}, {"vy8", std::to_string(p.vy8)},
                 {"frac_x", std::to_string(p.fracX)}, {"frac_y", std::to_string(p.fracY)},
-                {"animation", animation(p.animation)}, {"animation_backup", animation(p.animationBackup)},
+                {"animation", effectiveAnimation}, {"animation_backup", animation(p.animationBackup)},
                 {"sprite", numbers({p.spriteIndex, p.singlePixelSprite, p.idleTicks, p.dropTicks, p.grounded})},
                 {"health", numbers({second ? energy2_ : energy_, second ? lives2_ : lives_,
                     second ? player2Dead_ : playerDead_, second ? damageCooldown2_ : damageCooldown_,
@@ -23173,7 +23185,8 @@ private:
                 levelFlow_.outro().awaitKey, levelResetGeneration_, levelRestartPromoted_})},
             {"presentation", numbers({gameplayViewWidth_, ui_.snapshot().showBackground, ui_.snapshot().italian, presentation_.backdropPitch(), presentation_.redPalettePhase(),
                 cameraShakeTicks_, cameraShakeOffset_})},
-            {"hud", numbers({presentation_.hudPreviousCollected(), presentation_.hudPreviousDestruction(), presentation_.hudDestructionPercent(), presentation_.hudColumnReady()[0], presentation_.hudColumnReady()[1],
+            {"hud", numbers({presentation_.hudPreviousCollected(), presentation_.hudPreviousDestruction(), presentation_.hudDestructionPercent(),
+                presentation_.hudEnergy()[0].cached != 255, presentation_.hudEnergy()[1].cached != 255,
                 presentation_.hudPaletteQueue().count, presentation_.hudPaletteQueue().entries[0].index, presentation_.hudPaletteQueue().entries[1].index,
                 presentation_.hudPaletteQueue().entries[0].current[0], presentation_.hudPaletteQueue().entries[0].current[1], presentation_.hudPaletteQueue().entries[0].current[2],
                 presentation_.hudPaletteQueue().entries[1].current[0], presentation_.hudPaletteQueue().entries[1].current[1], presentation_.hudPaletteQueue().entries[1].current[2],
@@ -25423,16 +25436,25 @@ private:
     void drainPlayerDamageCounter(Player& player, int& energy, int& lives,
                                   bool& dead, int& timer, uint8_t& pending,
                                   uint8_t startMarker) {
+        const uint8_t globalState = originalPlayerState(startMarker);
         uint8_t amount = pending;
         pending = 0;
         if (amount != 0) requestPlayerDamageSound();
-        if (dead) return;
+        if (dead) {
+            presentation_.updateHudEnergy(startMarker - 1, static_cast<uint8_t>(energy), globalState);
+            return;
+        }
         uint8_t updatedEnergy =
             static_cast<uint8_t>(std::clamp(energy, 0, 255) - amount);
         energy = static_cast<int>(updatedEnergy);
+        uint16_t hudEnergy = updatedEnergy;
         if (static_cast<uint16_t>(updatedEnergy) > 0x00c8) {
+            // Death helper 30A3 leaves this count in DS:2074 while resetting
+            // the separate actor energy byte to 100 (3134).
+            hudEnergy = static_cast<uint16_t>(remainingObjectiveTiles());
             beginPlayerDeath(player, energy, lives, dead, timer, startMarker);
         }
+        presentation_.updateHudEnergy(startMarker - 1, hudEnergy, globalState);
     }
 
     void damagePlayer(Player& player, int& energy, int& lives, bool& dead,
@@ -27162,8 +27184,8 @@ private:
 
     lezac::rendering::HudView hudView() const {
         return {playerCount_,
-                {{{energy_, score_, lives_, playerDead_, bombInventory_},
-                  {energy2_, score2_, lives2_, player2Dead_, bombInventory2_}}},
+                {{{presentation_.hudEnergy()[0], score_, lives_, bombInventory_},
+                  {presentation_.hudEnergy()[1], score2_, lives2_, bombInventory2_}}},
                 level_.objectiveTile, level_.requiredBonus, level_.requiredDestruction,
                 collected_, presentation_.hudDestructionPercent(), isComplete(), levelFlow_.outro().active,
                 presentation_.hudScores(), presentation_.hudColumnReady()};

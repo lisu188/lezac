@@ -66,4 +66,7 @@ These are normalized control-bank inputs, not host typematic or physical-key
 proof. The last captured state is still dying with countdown 4, not terminal
 game over. Audio waveforms and every raw actor-pool field are not compared.
 Whole-game completion and original fidelity remain unproven; existing global
-claim flags remain false. The separate physical held-fire recorder remains WIP.
+claim flags remain false. The separate physical held-fire recorder now has
+pinned natural-input observations and a release/repress C++ lifecycle match;
+the physical held-through case remains unresolved. See
+`physical_held_fire_2026-09-30.md` for the exact scope and retained failures.

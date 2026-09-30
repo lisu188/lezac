@@ -2,6 +2,7 @@
 
 #include "core/random.hpp"
 #include "core/hud.hpp"
+#include "gameplay/actor_models.hpp"
 #include "resources/types.hpp"
 #include <array>
 #include <cstddef>
@@ -20,6 +21,7 @@ struct PresentationSnapshot {
     resources::Palette initialPalette{};
     std::array<core::HudScoreReel, 2> hudScores{};
     std::array<core::HudEnergyBar, 2> hudEnergy{};
+    std::array<gameplay::BombInventory, 2> hudInventories{};
     core::HudPaletteQueue hudPaletteQueue{};
     std::array<bool, 2> hudColumnReady{};
     int hudPreviousCollected = 20000;
@@ -47,9 +49,11 @@ public:
     void updateHudScores(int playerCount, const std::array<uint32_t, 2>& scores,
                          const std::array<bool, 2>& dead, const std::array<int, 2>& deathTimers);
     void updateHudEnergy(size_t player, uint16_t value, uint8_t globalState);
+    void sampleHudInventory(size_t player, const gameplay::BombInventory& inventory, uint8_t globalState);
     void advanceHudPalette();
     const std::array<core::HudScoreReel, 2>& hudScores() const { return hudScores_; }
     const std::array<core::HudEnergyBar, 2>& hudEnergy() const { return hudEnergy_; }
+    const std::array<gameplay::BombInventory, 2>& hudInventories() const { return hudInventories_; }
     const core::HudPaletteQueue& hudPaletteQueue() const { return hudPaletteQueue_; }
     const std::array<bool, 2>& hudColumnReady() const { return hudColumnReady_; }
     int hudPreviousCollected() const { return hudPreviousCollected_; }
@@ -67,6 +71,7 @@ private:
     resources::Palette initialPalette_{};
     std::array<core::HudScoreReel, 2> hudScores_{};
     std::array<core::HudEnergyBar, 2> hudEnergy_{};
+    std::array<gameplay::BombInventory, 2> hudInventories_{};
     core::HudPaletteQueue hudPaletteQueue_{};
     std::array<bool, 2> hudColumnReady_{};
     int hudPreviousCollected_ = 20000;

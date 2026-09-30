@@ -786,6 +786,7 @@ public:
             while (tickAccumulatorMs >= kGovernedTickMs) {
                 tickAccumulatorMs -= kGovernedTickMs;
                 tickAndPresent(static_cast<float>(kGovernedTickMs / 1000.0));
+                if (debugInteractiveTickObserver_) debugInteractiveTickObserver_();
                 ++ticks;
                 ticked = true;
             }
@@ -14064,6 +14065,63 @@ public:
         std::cout << "key_ownership_live=stopped ticks=" << logicTick_ << '\n';
     }
 
+    void debugHeldFireLive(const std::string& outDir) {
+        std::filesystem::create_directories(outDir);
+        std::ofstream trace(joinPath(outDir, "live.txt"));
+        if (!trace) throw std::runtime_error("held-fire live trace unavailable");
+        uint32_t started = 0, previousTick = UINT32_MAX;
+        int sequence = 0, makes = 0, breaks = 0, repeats = 0, previousStage = -1;
+        bool wasDead = false;
+        debugPhysicalInputObserver_ = [&](const SDL_Event& event) {
+            if ((event.type != SDL_KEYDOWN && event.type != SDL_KEYUP) || event.key.keysym.sym != SDLK_n) return;
+            if (event.type == SDL_KEYDOWN) { ++makes; repeats += event.key.repeat != 0; }
+            else ++breaks;
+            trace << "input after_seq=" << sequence << " kind=" << (event.type == SDL_KEYDOWN ? "keydown" : "keyup")
+                  << " repeat=" << int(event.key.repeat) << " makes=" << makes << " breaks=" << breaks << '\n' << std::flush;
+        };
+        debugInteractiveTickObserver_ = [&] {
+            const bool menu = ui_.snapshot().menu, intro = levelFlow_.intro().active;
+            const int stage = menu ? 0 : intro ? 1 : 2;
+            if (stage != previousStage) {
+                trace << "status menu=" << menu << " intro=" << intro << " level=" << levelIndex_ + 1 << '\n' << std::flush;
+                previousStage = stage;
+            }
+            if (menu || intro || levelFlow_.outro().active || logicTick_ == previousTick) return;
+            previousTick = logicTick_;
+            ++sequence;
+            const int state = originalPlayerState(1);
+            const std::string phase = !playerDead_ ? (wasDead ? "resumed" : "active") : state == 2 ? "waiting" : "dying";
+            const std::string file = phase + ".ppm";
+            if (!std::filesystem::exists(joinPath(outDir, file))) {
+                inspectRenderedFrame("held-fire-live-" + phase);
+                writeArgbPpm(joinPath(outDir, file), fb_, kScreenW, kScreenH);
+            }
+            wasDead = wasDead || playerDead_;
+            trace << "sample seq=" << sequence << " frame=" << logicTick_ << " makes=" << makes << " breaks=" << breaks
+                  << " repeats=" << repeats << " key=" << int(SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_N])
+                  << " latch=" << reentryFire1_ << " dead=" << playerDead_ << " state=" << state
+                  << " countdown=" << deathStateTimer_ << " lives=" << lives_ << " energy=" << energy_
+                  << " fallback=" << int(noActivePlayerTicks_) << " gate=" << reentryGate_
+                  << " level=" << levelIndex_ + 1 << " reset=" << levelResetGeneration_
+                  << " ammo=" << bombInventory_.counts[0] << " x=" << player_.x << " y=" << player_.y
+                  << " phase=" << phase << " file=" << file << '\n' << std::flush;
+        };
+        try {
+            runInteractive([&] { return SDL_GetTicks() - started > 90000; }, [&] {
+                started = SDL_GetTicks();
+                std::cout << "held_fire_live=ready audio=" << (SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "none")
+                          << " physical_keys=1 gameplay_seeded=0\n" << std::flush;
+            });
+        } catch (...) {
+            debugInteractiveTickObserver_ = {};
+            debugPhysicalInputObserver_ = {};
+            throw;
+        }
+        debugInteractiveTickObserver_ = {};
+        debugPhysicalInputObserver_ = {};
+        std::cout << "held_fire_live=stopped samples=" << sequence << '\n';
+    }
+
     void debugActiveFireOriginal(const std::string& fixture) {
         load();
         initSdl();
@@ -22932,6 +22990,7 @@ public:
 
         drainPlayerDamageCounters();
         updateHudScores();
+        presentation_.sampleHudInventory(0, bombInventory_, originalPlayerState(1));
         const int hudY = kScreenH - 46;
         FrameInspection first = inspectRenderedFrame("hud-stats-live-first");
         std::vector<uint32_t> firstPixels = fb_;
@@ -22946,6 +23005,7 @@ public:
         bombInventory_.selected = BombType::Super;
         bombInventory_.counts[3] = 0;
         drainPlayerDamageCounters();
+        presentation_.sampleHudInventory(0, bombInventory_, originalPlayerState(1));
         FrameInspection second = inspectRenderedFrame("hud-stats-live-second");
         if (second.hash == first.hash ||
             !frameInspector_.regionChanged(firstPixels, 0, hudY, kScreenW, 46) ||
@@ -23263,6 +23323,8 @@ private:
     std::vector<ExplosionEffect> explosionEffects_;
     std::vector<FlameRecord> flameRecords_;
     std::function<void()> debugActorPassObserver_;
+    std::function<void()> debugInteractiveTickObserver_;
+    std::function<void(const SDL_Event&)> debugPhysicalInputObserver_;
     std::function<void(const char*)> debugReentryBoundaryObserver_;
     std::vector<DebrisRecord> debrisQueue_;
     std::vector<CollapseRecord> collapseQueue_;
@@ -23333,6 +23395,7 @@ private:
     void processEvents(bool& running) {
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
+            if (debugPhysicalInputObserver_) debugPhysicalInputObserver_(e);
             if (e.type == SDL_QUIT) {
                 running = false;
             } else if (e.type == SDL_KEYUP) {
@@ -23792,11 +23855,13 @@ private:
         if (!reentryGate_) noActivePlayerTicks_ = kSharedReentryTicks - 1;
         reentryFire1_ = reentryFire1_ || controls.p1Reenter;
         reentryFire2_ = reentryFire2_ || controls.p2Reenter;
+        presentation_.sampleHudInventory(0, bombInventory_, originalPlayerState(1));
         if (playerDead_) {
             updateReentry(player_, energy_, lives_, playerDead_, reentryTimer_, 1,
                           playerCount_ == 1 || player2Dead_);
             if (reentryFire1_) tryReenterPlayer(player_, energy_, lives_, playerDead_, reentryTimer_, damageCooldown_, 1);
         }
+        if (playerCount_ > 1) presentation_.sampleHudInventory(1, bombInventory2_, originalPlayerState(2));
         if (playerCount_ > 1 && player2Dead_) {
             updateReentry(player2_, energy2_, lives2_, player2Dead_, reentryTimer2_, 2,
                           playerDead_);
@@ -27184,8 +27249,8 @@ private:
 
     lezac::rendering::HudView hudView() const {
         return {playerCount_,
-                {{{presentation_.hudEnergy()[0], score_, lives_, bombInventory_},
-                  {presentation_.hudEnergy()[1], score2_, lives2_, bombInventory2_}}},
+                {{{presentation_.hudEnergy()[0], score_, lives_, presentation_.hudInventories()[0]},
+                  {presentation_.hudEnergy()[1], score2_, lives2_, presentation_.hudInventories()[1]}}},
                 level_.objectiveTile, level_.requiredBonus, level_.requiredDestruction,
                 collected_, presentation_.hudDestructionPercent(), isComplete(), levelFlow_.outro().active,
                 presentation_.hudScores(), presentation_.hudColumnReady()};
@@ -27909,6 +27974,10 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-key-ownership-live") {
             app.debugKeyOwnershipLive(argv[2]);
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-held-fire-live") {
+            app.debugHeldFireLive(argv[2]);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-active-fire-original") {

@@ -22,6 +22,7 @@ EXPECTED = {
     "bomb": (297, "976f37c43b608d770d183d811893daa7ba12415b9382e7f89ecf24bedfdc3ca6"),
     "objective": (237, "57c305f8c8277e72419b473b62e2db3c4d2e90040e24e049241f0d876e6fec77"),
     "held_fire": (497, "29fc2da3226326443e8990f85be601bbdb4acf693fc5bef09d8e50737484252f"),
+    "rapid_fire": (297, "28d7f1ba6f8164d417cf85cce910d3abbd9108469e241aeb63e40bbe7408b6f8"),
 }
 EXE: Path | None = None
 
@@ -149,6 +150,35 @@ class OriginalTests(unittest.TestCase):
                     self.assertGreaterEqual(raw[22], 0x4A)
                     self.assertLessEqual(raw[22], 0x4F)
         self.assertEqual((len(samples), dying), (497, 176))
+
+    def test_original_ammunition_panel_precedes_player_fire(self):
+        image = original.check_executable(ROOT / "LEZAC.EXE")
+        for offset, instructions in {
+            0x7C49: "8b3e822080bd751b007623",  # inventory dirty gate
+            0x7C54: "8b3e822080bde579017518",  # global state 1 gate
+            0x7C74: "e8f7b5",  # call 326E before reentry and player actors
+            0x3283: "8a85731b",  # selected weapon
+            0x329D: "8a85671b",  # selected inventory byte
+            0x3327: "c685751b00",  # clear inventory dirty flag
+            0x332C: "807efe637604c646fe63",  # unsigned count clamped to 99
+        }.items():
+            with self.subTest(offset=hex(offset)):
+                self.assertEqual(image[offset:offset + len(instructions) // 2].hex(), instructions)
+        pinned_fixture("rapid_fire")
+        samples = {r["cpp_tick"]: r for r in original.reference_rows(FIXTURES / "rapid_fire")
+                   if r["kind"] == "sample"}
+        for tick, before, after in ((270, 101, 100), (271, 100, 99), (272, 99, 98), (273, 98, 97)):
+            self.assertEqual(bytes.fromhex(samples[tick]["rendered"]["inventory"])[0], before)
+            self.assertEqual(bytes.fromhex(samples[tick]["post"]["inventory"])[0], after)
+
+        def panel(tick):
+            rgb = samples[tick]["rgb"]
+            return b"".join(rgb[(y * 320 + 119) * 3:(y * 320 + 139) * 3] for y in range(181, 190))
+
+        # The stored inventory is 98 at tick 273, but the already-painted panel
+        # still has the 99 sampled before tick 272's player fire.
+        self.assertEqual(panel(272), panel(273))
+        self.assertNotEqual(panel(273), panel(274))
 
     def test_capture_rejects_inconsistent_evidence(self):
         mutations = []

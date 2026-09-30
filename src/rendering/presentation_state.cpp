@@ -111,6 +111,7 @@ void PresentationState::resetHudForLevel() {
     hudPaletteQueue_ = {};
     hudColumnReady_ = {};
     hudEnergy_ = {};
+    hudInventories_ = {};
     hudPreviousCollected_ = 20000;
     hudPreviousDestruction_ = 200;
     hudDestructionPercent_ = 0;
@@ -151,6 +152,12 @@ void PresentationState::updateHudEnergy(size_t player, uint16_t value, uint8_t g
     if (globalState == 1) hudEnergy_.at(player).observe(value);
 }
 
+void PresentationState::sampleHudInventory(size_t player, const gameplay::BombInventory& inventory, uint8_t globalState) {
+    // 7C49..7C74 samples before state-2 refill and the player fire/switch pass.
+    // Unchanged values preserve the original dirty-gated panel's pixels.
+    if (globalState == 1) hudInventories_.at(player) = inventory;
+}
+
 void PresentationState::advanceHudPalette() {
     hudPaletteQueue_.advance([&](uint8_t index, const std::array<uint8_t, 3>& color) {
         palette_[index] = {vga6To8(color[0] & 63), vga6To8(color[1] & 63), vga6To8(color[2] & 63)};
@@ -183,7 +190,7 @@ void PresentationState::writeBackdropPrefix(const std::vector<uint8_t>& bytes) {
 
 PresentationSnapshot PresentationState::snapshot() const {
     return {palette_, backdropBuffer_, backdropPitch_, redPalettePhase_, backdropHeapPadding_, backdropMapTileCount_,
-            initialPalette_, hudScores_, hudEnergy_, hudPaletteQueue_, hudColumnReady_, hudPreviousCollected_,
+            initialPalette_, hudScores_, hudEnergy_, hudInventories_, hudPaletteQueue_, hudColumnReady_, hudPreviousCollected_,
             hudPreviousDestruction_, hudDestructionPercent_, originalPlayInitialized_};
 }
 
@@ -197,6 +204,7 @@ void PresentationState::restore(const PresentationSnapshot& state) {
     initialPalette_ = state.initialPalette;
     hudScores_ = state.hudScores;
     hudEnergy_ = state.hudEnergy;
+    hudInventories_ = state.hudInventories;
     hudPaletteQueue_ = state.hudPaletteQueue;
     hudColumnReady_ = state.hudColumnReady;
     hudPreviousCollected_ = state.hudPreviousCollected;

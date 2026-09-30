@@ -816,6 +816,7 @@ public:
         initSdl();
         resetLevel(0);
         levelFlow_.setInteractiveEnabled(true);
+        ui_.beginMainMenu(presentationMilliseconds());
         onReady();
         bool running = true;
         governedRunTicks_ = pumpGovernedLoop(running, stop);
@@ -22906,6 +22907,10 @@ public:
             sampledSeed = naturalClock ? lezac::app::sampleStartupRandomSeed() : uint32_t(cx) | (uint32_t(dx) << 16);
             return sampledSeed;
         });
+        // This diagnostic samples settled startup boundaries, not menu timing.
+        UiState settledMenu = ui_.snapshot();
+        settledMenu.mainMenu.active = false;
+        ui_.restoreSnapshot(settledMenu);
         draw();
         writeArgbPpm(joinPath(outDir, "menu.ppm"), fb_, kScreenW, kScreenH);
         const uint32_t menuSeed = randomSeed_;
@@ -23700,7 +23705,11 @@ private:
             else levelFlow_.skipOutroTyping(presentationMilliseconds(), ui_.snapshot().italian);
             return;
         }
-        ui_.onKey(InputMapper::key(key), running, levelIndex_, playerCount_, recordStore_, uiActions());
+        const uint32_t now = presentationMilliseconds();
+        const bool menuSkip = ui_.snapshot().menu && ui_.snapshot().page == MenuPage::Main &&
+                              !ui_.mainMenuProgress(now).waitingForKey;
+        ui_.onKey(InputMapper::key(key), running, levelIndex_, playerCount_, recordStore_, uiActions(), now);
+        if (menuSkip) SDL_FlushEvent(SDL_KEYDOWN);
     }
 
     bool isPlayer1FireKey(SDL_Keycode key) const {
@@ -27338,8 +27347,9 @@ private:
     }
 
     lezac::rendering::MenuView menuRenderView() const {
+        const auto progress = ui_.mainMenuProgress(presentationMilliseconds());
         return {ui_.snapshot().page, ui_.snapshot().italian, recordStore_.records(), recordStore_.pending().player, recordStore_.pending().score,
-                recordStore_.pending().level, recordStore_.pending().name, playerCount_, {{score_, score2_}}};
+                recordStore_.pending().level, recordStore_.pending().name, playerCount_, {{score_, score2_}}, progress.fade, progress.steps};
     }
 
     void drawWorldView(const Player& cameraPlayer, int viewX, int viewY, int viewW, int viewH) {

@@ -179,6 +179,8 @@ def main():
             window = subprocess.check_output(["xdotool", "search", "--pid", str(child.pid), "--name", "Larax"],
                                              text=True, env=env, timeout=5).split()[-1]
             command("windowfocus", "--sync", window)
+            command("key", "--delay", "100", "space", "space")
+            time.sleep(.1)
             command("key", "1")
             wait(lambda: any(tag == "status" and row["intro"] == "1" for tag, row in records()))
             command("key", "space")
@@ -199,7 +201,7 @@ def main():
             rows = samples()
             result = validate_live(rows, events, original)
             context = objective_context()
-            command("key", "--delay", "100", "Escape", "Escape")
+            command("key", "--delay", "100", "Escape", "Escape", "Escape", "Escape")
             if child.wait(timeout=10) != 0:
                 raise RuntimeError("C++ process failed during exit")
             for phase in ("active", "dying", "resumed") + (("waiting",) if original["waiting_seq"] else ()):

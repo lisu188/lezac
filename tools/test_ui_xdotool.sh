@@ -41,6 +41,14 @@ fi
 xdotool windowfocus "$win"
 sleep 0.1
 
+skip_menu_animation() {
+    xdotool key space
+    sleep 0.1
+    xdotool key space
+    sleep 0.1
+}
+
+skip_menu_animation
 xdotool key i
 sleep 0.1
 xdotool key z
@@ -49,6 +57,7 @@ xdotool key r
 sleep 0.1
 xdotool key Escape
 sleep 0.1
+skip_menu_animation
 xdotool key 2
 sleep 0.2
 xdotool key Return
@@ -59,6 +68,7 @@ xdotool key Insert
 sleep 0.2
 xdotool key Escape
 sleep 0.1
+skip_menu_animation
 xdotool key 1
 sleep 0.2
 xdotool key Return
@@ -90,6 +100,7 @@ xdotool key Return
 sleep 0.1
 xdotool key Escape
 sleep 0.1
+skip_menu_animation
 xdotool key Escape
 sleep 0.3
 

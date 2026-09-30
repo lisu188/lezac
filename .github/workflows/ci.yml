@@ -40,6 +40,13 @@ jobs:
           name: startup-rng-linux
           path: build/startup-rng-checks/
           if-no-files-found: ignore
+      - name: Preserve live menu comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: main-menu-live-linux
+          path: build/main-menu-live-checks/
+          if-no-files-found: ignore
 
   windows:
     name: Windows build and full test suite

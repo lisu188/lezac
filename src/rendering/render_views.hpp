@@ -71,6 +71,8 @@ struct MenuView {
     const std::string& pendingName;
     int playerCount;
     std::array<uint32_t, 2> scores;
+    uint8_t mainMenuFade = 63;
+    size_t mainMenuSteps = static_cast<size_t>(-1);
 };
 
 struct OutroView {

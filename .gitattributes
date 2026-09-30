@@ -5,3 +5,4 @@
 tests/fixtures/level1_original/** -text
 tests/fixtures/startup_rng_original/** -text
 tests/fixtures/startup_held_fire_original/** -text
+tests/fixtures/main_menu_original/** -text

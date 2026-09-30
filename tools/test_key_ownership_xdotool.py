@@ -97,7 +97,8 @@ def main():
                     captures.append((f"p{player}_jump", rows[-1]["file"]))
                     print(f"key_ownership_live_case=ok name=p{player}_jump ticks={len(rows)}", flush=True)
                 subprocess.run(["xdotool", "keyup", *KEYS], check=True, env=env)
-                subprocess.run(["xdotool", "key", "--delay", "100", "Escape", "Escape"], check=True, env=env)
+                # Return to the menu, skip its fade and text, then use a fresh exit key.
+                subprocess.run(["xdotool", "key", "--delay", "100", "Escape", "Escape", "Escape", "Escape"], check=True, env=env)
                 if child.wait(timeout=10) != 0:
                     raise RuntimeError((path / "process.log").read_text())
                 if args.out:

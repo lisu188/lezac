@@ -58,7 +58,22 @@ void UiController::beginEndRun(EndReason reason, int levelIndex, int playerCount
     if (!startNextPendingRecord(records, actions)) state_.page = endMenuPage(reason);
 }
 void UiController::onKey(Key key, bool& running, int levelIndex, int playerCount,
-                         RecordStore& records, const UiActions& actions) {
+                         RecordStore& records, const UiActions& actions, uint32_t now) {
+    const bool wasMenu = state_.menu;
+    const MenuPage wasPage = state_.page;
+    const bool wasItalian = state_.italian;
+    if (state_.menu && state_.page == MenuPage::Main && !mainMenuProgress(now).waitingForKey) {
+        const uint32_t elapsed = now - state_.mainMenu.startedAt;
+        if (elapsed < state_.mainMenu.fadeEnd) {
+            // The title fade first consumes a queued key after palette step 2.
+            if (state_.mainMenu.fadeEnd == kMainMenuFadeDurationMs)
+                state_.mainMenu.fadeEnd = (elapsed < 3 * kMainMenuFadeStepMs ? 3 * kMainMenuFadeStepMs : elapsed) +
+                                         kMainMenuFadeStepMs;
+        } else {
+            state_.mainMenu.textSkipped = true;
+        }
+        return;
+    }
     if (state_.menu) {
         if (state_.page == MenuPage::NameEntry) {
             handleNameEntryKey(key, records, actions);
@@ -91,5 +106,9 @@ void UiController::onKey(Key key, bool& running, int levelIndex, int playerCount
     else if (key == Key::S) state_.showBackground = !state_.showBackground;
     else if (key == Key::R && playerCount == 1) actions.adjustViewWidth(-32);
     else if (key == Key::E && playerCount == 1) actions.adjustViewWidth(32);
+    if (state_.mainMenu.active && state_.menu && state_.page == MenuPage::Main &&
+        (!wasMenu || wasPage != MenuPage::Main || wasItalian != state_.italian)) {
+        beginMainMenu(now);
+    }
 }
 }

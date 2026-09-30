@@ -1198,6 +1198,11 @@ if(BUILD_TESTING)
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_held_fire_capture.py)
         set_tests_properties(held_fire_capture_guard PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        add_test(NAME startup_held_fire_capture_guard
+            COMMAND ${Python3_EXECUTABLE} -B
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_startup_held_fire.py)
+        set_tests_properties(startup_held_fire_capture_guard PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
         add_test(NAME startup_rng_capture_self_check
             COMMAND ${Python3_EXECUTABLE} -B

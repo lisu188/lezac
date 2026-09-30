@@ -178,6 +178,7 @@ include(CTest)
 
 if(BUILD_TESTING)
     add_executable(lezac_main_menu_test tests/ui/main_menu_test.cpp src/app/input_mapper.cpp)
+    target_compile_definitions(lezac_main_menu_test PRIVATE SDL_MAIN_HANDLED)
     target_include_directories(lezac_main_menu_test PRIVATE ${SDL2_INCLUDE_DIRS})
     target_link_libraries(lezac_main_menu_test PRIVATE lezac_ui lezac_rendering)
     add_test(NAME main_menu_models COMMAND lezac_main_menu_test)

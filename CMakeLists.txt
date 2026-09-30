@@ -182,7 +182,7 @@ if(BUILD_TESTING)
     target_include_directories(lezac_main_menu_test PRIVATE ${SDL2_INCLUDE_DIRS})
     target_link_libraries(lezac_main_menu_test PRIVATE lezac_ui lezac_rendering)
     add_test(NAME main_menu_models COMMAND lezac_main_menu_test)
-    set_tests_properties(main_menu_models PROPERTIES PASS_REGULAR_EXPRESSION "main_menu=ok cells=9 first_y=77 trail=5 languages=2 timing=1 consumed_keys=1 rollover=1 buffered_keys=1")
+    set_tests_properties(main_menu_models PROPERTIES PASS_REGULAR_EXPRESSION "main_menu=ok cells=9 first_y=77 trail=5 languages=2 timing=1 consumed_keys=1 rollover=1 buffered_keys=1 ignored_choices=33 readiness_modes=3 consumed_enter=1 fresh_choices=2 accepted_choices=7")
     add_executable(lezac_ui_components_test tests/ui/ui_components_test.cpp)
     target_link_libraries(lezac_ui_components_test PRIVATE lezac_ui)
     add_test(NAME ui_components COMMAND lezac_ui_components_test)
@@ -4787,7 +4787,7 @@ if(BUILD_TESTING)
                         --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/main-menu-live-checks)
             set_tests_properties(main_menu_live_xvfb PROPERTIES
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 60
-                PASS_REGULAR_EXPRESSION "main_menu_live=ok original_pixels=1 languages=2 queued_selection_consumed=1 escape_skips_consumed=1 fresh_start=1 fresh_exit=1 frames=6 audio=dummy modifiers_ignored=11")
+                PASS_REGULAR_EXPRESSION "main_menu_live=ok original_pixels=1 languages=2 queued_selection_consumed=1 escape_skips_consumed=1 fresh_start=1 fresh_exit=1 frames=8 audio=dummy modifiers_ignored=11 ignored_choices=14 held_return_cases=2")
             add_test(NAME key_ownership_live_xvfb
                 COMMAND ${CMAKE_COMMAND} -E env SDL_AUDIODRIVER=dummy
                         ${XVFB_RUN_EXECUTABLE} -a ${Python3_EXECUTABLE}

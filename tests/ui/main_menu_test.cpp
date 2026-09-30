@@ -12,12 +12,89 @@ namespace {
 void require(bool value, const char* message) {
     if (!value) throw std::runtime_error(message);
 }
+
+void checkMainMenuChoices() {
+    using namespace lezac::ui;
+    const auto ignored = {Key::Unknown, Key::Backspace, Key::Return, Key::Space,
+        Key::A, Key::B, Key::C, Key::D, Key::E, Key::F, Key::G, Key::H, Key::J,
+        Key::K, Key::M, Key::N, Key::O, Key::P, Key::Q, Key::S, Key::T, Key::U,
+        Key::V, Key::W, Key::X, Key::Y, Key::KeypadEnter, Key::F5, Key::PageUp,
+        Key::PageDown, Key::RightControl, Key::Keypad0, Key::Insert};
+    for (bool italian : {true, false}) {
+        for (int readiness = 0; readiness < 3; ++readiness) {
+            for (bool background : {true, false}) {
+                UiController ui;
+                RecordStore records;
+                bool running = true;
+                int callbacks = 0;
+                int players = 0;
+                UiActions actions;
+                actions.prepareNewGame = [&](int value) { players = value; ++callbacks; };
+                actions.beginLevel = [&](int) { ++callbacks; };
+                actions.clearScores = [&] { ++callbacks; };
+                actions.recordsPageSound = [&] { ++callbacks; };
+                UiState initial;
+                initial.italian = italian;
+                initial.showBackground = background;
+                ui.restoreSnapshot(initial);
+                uint32_t now = 0;
+                if (readiness != 0) {
+                    ui.beginMainMenu(100);
+                    now = 100 + kMainMenuFadeDurationMs;
+                    if (readiness == 1) {
+                        now += static_cast<uint32_t>(mainMenuStepCount(italian)) * kMainMenuCharacterDelayMs;
+                    } else {
+                        ui.onKey(Key::Return, running, 0, 1, records, actions, now);
+                        require(ui.snapshot().mainMenu.textSkipped && callbacks == 0,
+                                "typing Return was not a consumed skip");
+                    }
+                }
+                const auto before = ui.snapshot();
+                require(ui.mainMenuProgress(now).waitingForKey, "choice fixture not ready");
+                for (const auto key : ignored) {
+                    ui.onKey(key, running, 0, 1, records, actions, now);
+                    const auto after = ui.snapshot();
+                    require(running && callbacks == 0 && after.menu && after.page == MenuPage::Main &&
+                            after.italian == before.italian && after.paused == before.paused &&
+                            after.showBackground == before.showBackground && after.lastEndReason == before.lastEndReason &&
+                            after.mainMenu.active == before.mainMenu.active &&
+                            after.mainMenu.startedAt == before.mainMenu.startedAt &&
+                            after.mainMenu.fadeEnd == before.mainMenu.fadeEnd &&
+                            after.mainMenu.textSkipped == before.mainMenu.textSkipped,
+                            "unsupported ready-menu key changed state or invoked a callback");
+                }
+                for (const auto key : {Key::One, Key::Two}) {
+                    ui.restoreSnapshot(before);
+                    players = 0;
+                    const int count = callbacks;
+                    ui.onKey(key, running, 0, 1, records, actions, now);
+                    require(!ui.snapshot().menu && players == (key == Key::Two ? 2 : 1) && callbacks == count + 3,
+                            "fresh 1/2 selection failed after ignored keys");
+                }
+                for (const auto key : {Key::I, Key::Z, Key::R, Key::L, Key::Escape}) {
+                    ui.restoreSnapshot(before);
+                    running = true;
+                    const int count = callbacks;
+                    ui.onKey(key, running, 0, 1, records, actions, now);
+                    const auto page = key == Key::I ? MenuPage::Info : key == Key::Z ? MenuPage::Instructions :
+                                      key == Key::R ? MenuPage::Records : MenuPage::Main;
+                    require(ui.snapshot().menu && ui.snapshot().page == page &&
+                            running == (key != Key::Escape) &&
+                            ui.snapshot().italian == (key == Key::L ? !italian : italian) &&
+                            ui.snapshot().showBackground == background && callbacks == count + (key == Key::R ? 1 : 0),
+                            "accepted ready-menu command changed behavior");
+                }
+            }
+        }
+    }
+}
 }
 
 int main(int argc, char** argv) {
     using namespace lezac;
     using namespace ui;
     try {
+        checkMainMenuChoices();
         for (const auto key : {SDLK_UNKNOWN, SDLK_LSHIFT, SDLK_RSHIFT, SDLK_LCTRL, SDLK_RCTRL,
                               SDLK_LALT, SDLK_RALT, SDLK_LGUI, SDLK_RGUI, SDLK_CAPSLOCK,
                               SDLK_NUMLOCKCLEAR, SDLK_SCROLLLOCK})
@@ -96,7 +173,8 @@ int main(int argc, char** argv) {
                     capture(prefix + "-fade" + std::to_string(fade), italian, 0, fade);
             }
         }
-        std::cout << "main_menu=ok cells=9 first_y=77 trail=5 languages=2 timing=1 consumed_keys=1 rollover=1 buffered_keys=1\n";
+        std::cout << "main_menu=ok cells=9 first_y=77 trail=5 languages=2 timing=1 consumed_keys=1 rollover=1 buffered_keys=1"
+                     " ignored_choices=33 readiness_modes=3 consumed_enter=1 fresh_choices=2 accepted_choices=7\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

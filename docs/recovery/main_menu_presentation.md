@@ -65,6 +65,11 @@ both keys in the same SDL event batch. It checks both languages, consumed
 selection/Escape skips, a fresh game selection, menu return and a fresh exit.
 Its captures and failure diagnostics are retained by Linux CI.
 
+The ready menu's accepted choice set and unchanged Enter frames are recovered
+in `main_menu_choices_2026-10-01.md`. Unsupported ready-menu keys do not start a
+game or change the retained gameplay-background setting. This does not change
+their consumed fade/typing behavior or Enter's intro/name-entry semantics.
+
 ## Ungated timing observation
 
 `evidence/main_menu_natural_20260930.json` preserves a second, successful

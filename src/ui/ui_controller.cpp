@@ -74,6 +74,14 @@ void UiController::onKey(Key key, bool& running, int levelIndex, int playerCount
         }
         return;
     }
+    if (state_.menu && state_.page == MenuPage::Main) {
+        // 1000:23d5 dispatches only these characters after draining queued keys.
+        switch (key) {
+            case Key::One: case Key::Two: case Key::I: case Key::Z:
+            case Key::R: case Key::L: case Key::Escape: break;
+            default: return;
+        }
+    }
     if (state_.menu) {
         if (state_.page == MenuPage::NameEntry) {
             handleNameEntryKey(key, records, actions);

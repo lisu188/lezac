@@ -239,10 +239,14 @@ class OriginalTests(unittest.TestCase):
         if EXE is None:
             self.skipTest("--exe required")
         candidate = self.root / "cpp"
-        fidelity.record(EXE, ROOT, self.source / "route.txt", candidate)
+        fidelity.record(EXE, ROOT, self.source / "route.txt", candidate, original_intro_wait=True)
         report = original.compare(self.source, candidate)
         self.assertEqual((report["status"], report["frames"], report["states"], report["differing_pixels"]), ("match", 41, 82, 0))
         cpp_rows = list(fidelity.trace_rows(candidate))
+        self.assertEqual(cpp_rows[0]["input_model"], "sdl-events-original-intro-wait-v1")
+        self.assertEqual((candidate / "route.txt").read_bytes(), (self.source / "route.txt").read_bytes())
+        post = {row["tick"]: row for row in cpp_rows if row.get("phase") == "post_update"}
+        self.assertEqual([post[tick]["time_ms"] for tick in (1, 2, 3, 4)], [0, 40, 81, 122])
         gameplay = next(row for row in cpp_rows if row.get("phase") == "post_update" and row["tick"] == 4)
         self.assertEqual([p["health"][1] for p in gameplay["state"]["players"]], [2, 2])
         projection = original.project_cpp(gameplay["state"], 1)
@@ -283,7 +287,7 @@ def main() -> int:
         pinned_fixture(args.case)
         with tempfile.TemporaryDirectory(prefix="lezac-level1-parity-") as directory:
             output = Path(directory) / "cpp"
-            fidelity.record(EXE, ROOT, FIXTURES / args.case / "route.txt", output)
+            fidelity.record(EXE, ROOT, FIXTURES / args.case / "route.txt", output, original_intro_wait=True)
             report = original.compare(FIXTURES / args.case, output)
             print(json.dumps(report, sort_keys=True))
             fidelity.require(report["status"] == "match", "original Level 1 divergence")

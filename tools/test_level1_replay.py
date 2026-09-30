@@ -66,6 +66,29 @@ class RouteTests(unittest.TestCase):
             with self.subTest(data=data), self.assertRaises(ValueError):
                 fidelity.strict_json(data)
 
+    def test_original_intro_prelude_guards(self):
+        for choice in ("1", "2"):
+            events = {0: [{"action": "down", "key": choice}],
+                      1: [{"action": "up", "key": choice}],
+                      3: [{"action": "down", "key": "return"}],
+                      4: [{"action": "up", "key": "return"}, {"action": "down", "key": "x"}]}
+            fidelity.require_original_intro_prelude(events)
+            mutations = {
+                "missing-choice": lambda value: value.pop(0),
+                "wrong-choice-release": lambda value: value[1][0].update(key="return"),
+                "extra-typing-key": lambda value: value.update({2: [{"action": "down", "key": "return"}]}),
+                "extra-acknowledgement": lambda value: value[3].append({"action": "down", "key": "x"}),
+                "missing-acknowledgement": lambda value: value.pop(3),
+                "missing-acknowledgement-release": lambda value: value.pop(4),
+                "gameplay-before-release": lambda value: value[4].reverse(),
+            }
+            for name, mutate in mutations.items():
+                with self.subTest(choice=choice, mutation=name):
+                    changed = copy.deepcopy(events)
+                    mutate(changed)
+                    with self.assertRaises(fidelity.EvidenceError):
+                        fidelity.require_original_intro_prelude(changed)
+
     def test_fingerprint_and_first_difference(self):
         self.assertEqual(fidelity.fnv1a64(b""), "cbf29ce484222325")
         self.assertEqual(fidelity.fnv1a64(b"a"), "af63dc4c8601ec8c")
@@ -143,6 +166,23 @@ class ReplayTests(unittest.TestCase):
         self.set_rows(bundle, rows[:-1])
         with self.assertRaises(fidelity.EvidenceError):
             fidelity.compare(self.a, bundle)
+
+    def test_rejects_unsupported_input_adapter(self):
+        bundle = self.clone("input-adapter-mutated")
+        rows = copy.deepcopy(self.rows)
+        rows[0]["input_model"] = "unrecorded-intro-state"
+        self.set_rows(bundle, rows)
+        with self.assertRaises(fidelity.EvidenceError):
+            list(fidelity.trace_rows(bundle))
+        rows[0]["input_model"] = "sdl-events-original-intro-wait-v1"
+        self.set_rows(bundle, rows)
+        with self.assertRaises(fidelity.EvidenceError):
+            list(fidelity.trace_rows(bundle))
+
+    def test_original_intro_wait_rejects_a_different_prelude(self):
+        with self.assertRaises(fidelity.EvidenceError):
+            fidelity.record(EXE, ROOT, ROOT / "tests/routes/level1_input_smoke.route",
+                            self.root / "invalid-original-prelude", original_intro_wait=True)
 
     def test_full_frame_pixel_divergence_and_images(self):
         bundle = self.clone("pixel-mutated")

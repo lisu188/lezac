@@ -162,6 +162,14 @@ def validate_state(state: Any, version: int = 2) -> None:
         require(isinstance(state[key], list) and len(state[key]) <= 10000, f"invalid actor array {key}")
 
 
+def require_original_intro_prelude(events: dict[int, list[dict[str, str]]]) -> None:
+    require(events.get(0) in ([{"action": "down", "key": "1"}], [{"action": "down", "key": "2"}]) and
+            events.get(1) == [{"action": "up", "key": events[0][0]["key"]}] and 2 not in events and
+            events.get(3) == [{"action": "down", "key": "return"}] and
+            events.get(4, [])[:1] == [{"action": "up", "key": "return"}],
+            "original intro wait requires the captured prelude")
+
+
 def trace_rows(root: Path, manifest: dict[str, Any] | None = None) -> Iterator[dict[str, Any]]:
     settings, route_events = read_route(safe_file(root, "route.txt"))
     expected_route_hash = fnv1a64((root / "route.txt").read_bytes())
@@ -180,10 +188,12 @@ def trace_rows(root: Path, manifest: dict[str, Any] | None = None) -> Iterator[d
                 require(set(row) == HEADER_KEYS and row["kind"] == "header", "invalid trace header")
                 require(row["schema"] == "lezac.level1.trace.v1" and row["source"] == "cpp" and
                         (row["phase_model"], row["state_scope"]) in {("cpp-post-update-v1", "level1-observations-v1"), ("cpp-pre-actors-v2", "level1-observations-v2")} and
-                        row["input_model"] == "sdl-events-keyboard-adapter-v1", "unsupported trace contract")
+                        row["input_model"] in {"sdl-events-keyboard-adapter-v1", "sdl-events-original-intro-wait-v1"}, "unsupported trace contract")
                 require(row["original_fidelity_claim"] is False and type(row["width"]) is int and row["width"] == 320 and type(row["height"]) is int and row["height"] == 200, "invalid fidelity claim or frame size")
                 require(all(type(row[key]) is int and row[key] == value for key, value in settings.items()), "route settings differ from trace")
                 require(row["route_fnv1a64"] == expected_route_hash, "route fingerprint mismatch")
+                if row["input_model"] == "sdl-events-original-intro-wait-v1":
+                    require_original_intro_prelude(route_events)
                 require(isinstance(row["asset_fnv1a64"], dict) and set(row["asset_fnv1a64"]) == set(ASSETS) and
                         all(isinstance(v, str) and re.fullmatch(r"[0-9a-f]{16}", v) for v in row["asset_fnv1a64"].values()), "invalid asset fingerprints")
                 header = row
@@ -282,16 +292,22 @@ def source_version(root: Path) -> dict[str, Any]:
     return {"revision": revision or None, "dirty": bool(git("status", "--porcelain")) if revision else None}
 
 
-def record(exe: Path, root: Path, route: Path, out: Path, timeout: float = 600) -> dict[str, Any]:
+def record(exe: Path, root: Path, route: Path, out: Path, timeout: float = 600,
+           original_intro_wait: bool = False) -> dict[str, Any]:
     exe, root, route, out = exe.resolve(), root.resolve(), route.resolve(), out.resolve()
     require(not out.exists(), "output already exists")
     require(exe.is_file(), "missing C++ executable")
-    read_route(route)
+    _, events = read_route(route)
+    if original_intro_wait:
+        require_original_intro_prelude(events)
     assets = {name: sha256(safe_file(root, name)) for name in ASSETS}
     asset_fnv = {name: fnv1a64((root / name).read_bytes()) for name in ASSETS}
     environment = dict(os.environ, SDL_AUDIODRIVER="dummy", SDL_VIDEODRIVER="dummy",
                        LEZAC_LOAD_JSON_ASSETS="0", LEZAC_LOAD_ORIGINAL_ASSETS="1")
-    result = subprocess.run([str(exe), "--replay-level1", str(route), str(out)], cwd=root, env=environment,
+    command = [str(exe), "--replay-level1", str(route), str(out)]
+    if original_intro_wait:
+        command.append("--original-intro-wait")
+    result = subprocess.run(command, cwd=root, env=environment,
                             text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
     require(result.returncode == 0, f"C++ replay failed ({result.returncode}): {result.stderr.strip()}")
     (out / "stdout.txt").write_text(result.stdout, encoding="utf-8")
@@ -307,6 +323,8 @@ def record(exe: Path, root: Path, route: Path, out: Path, timeout: float = 600) 
             frames[row["frame"]] = sha256(out / row["frame"])
         footer = row
     require(header is not None and header["asset_fnv1a64"] == asset_fnv, "C++ asset provenance differs")
+    require(header["input_model"] == ("sdl-events-original-intro-wait-v1" if original_intro_wait else
+                                     "sdl-events-keyboard-adapter-v1"), "C++ intro prelude provenance differs")
     manifest = {"schema": "lezac.level1.bundle.v1", "trace_sha256": sha256(out / "trace.jsonl"),
                 "route_sha256": sha256(out / "route.txt"), "executable_sha256": sha256(exe),
                 "asset_sha256": assets, "frames": frames, "source": source_version(root),
@@ -408,6 +426,7 @@ def main() -> int:
     capture.add_argument("--route", type=Path, required=True)
     capture.add_argument("--out", type=Path, required=True)
     capture.add_argument("--timeout", type=float, default=600)
+    capture.add_argument("--original-intro-wait", action="store_true")
     verify = commands.add_parser("validate")
     verify.add_argument("bundle", type=Path)
     diff = commands.add_parser("compare")
@@ -418,7 +437,7 @@ def main() -> int:
     try:
         if args.command == "record":
             require(math.isfinite(args.timeout) and 1 <= args.timeout <= 3600, "timeout must be 1..3600 seconds")
-            report = record(args.exe, args.root, args.route, args.out, args.timeout)
+            report = record(args.exe, args.root, args.route, args.out, args.timeout, args.original_intro_wait)
         elif args.command == "validate":
             manifest = load_manifest(args.bundle)
             count = sum(1 for _ in trace_rows(args.bundle, manifest))

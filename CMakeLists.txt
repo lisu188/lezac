@@ -4764,7 +4764,7 @@ if(BUILD_TESTING)
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             TIMEOUT 240
             LABELS "level1;replay;fidelity-infrastructure"
-            PASS_REGULAR_EXPRESSION "level1_replay_tests=ok tests=13 integration=1 original_fidelity_claim=0")
+            PASS_REGULAR_EXPRESSION "level1_replay_tests=ok tests=16 integration=1 original_fidelity_claim=0")
     endif()
 
     find_program(BASH_EXECUTABLE bash)

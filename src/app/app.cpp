@@ -587,7 +587,7 @@ public:
     App() = default;
     App(const App&) = delete;
     App& operator=(const App&) = delete;
-    void debugLevel1Replay(const std::string& routePath, const std::string& outDir) {
+    void debugLevel1Replay(const std::string& routePath, const std::string& outDir, bool originalIntroWait = false) {
         namespace trace = lezac::diagnostics::level1;
         const auto route = trace::readRoute(routePath);
         const char* json = std::getenv("LEZAC_LOAD_JSON_ASSETS");
@@ -607,7 +607,7 @@ public:
             {"schema", trace::quote("lezac.level1.trace.v1")}, {"source", trace::quote("cpp")},
             {"phase_model", trace::quote("cpp-pre-actors-v2")},
             {"state_scope", trace::quote("level1-observations-v2")},
-            {"input_model", trace::quote("sdl-events-keyboard-adapter-v1")},
+            {"input_model", trace::quote(originalIntroWait ? "sdl-events-original-intro-wait-v1" : "sdl-events-keyboard-adapter-v1")},
             {"asset_fnv1a64", trace::object(assets)},
             {"route_fnv1a64", trace::quote(trace::fingerprint(readFile(routePath)))},
             {"ticks", std::to_string(route.ticks)}, {"step_us", std::to_string(route.stepUs)},
@@ -617,6 +617,7 @@ public:
         randomSeed_ = route.seed;
         replayClockEnabled_ = true;
         replayMilliseconds_ = 0;
+        replayPresentationOffset_ = 0;
         std::array<uint8_t, SDL_NUM_SCANCODES> keys{};
         const std::string oldRecordPath = recordStore_.path();
         recordStore_.setPath(joinPath(outDir, "RECS.DAT"));
@@ -663,6 +664,14 @@ public:
             for (tick = 1; tick <= route.ticks; ++tick) {
                 replayMilliseconds_ = static_cast<uint32_t>(uint64_t(tick - 1) * route.stepUs / 1000);
                 events.clear();
+                if (originalIntroWait && tick == 4) {
+                    if (!levelFlow_.intro().active)
+                        throw std::runtime_error("original replay prelude did not reach the intro");
+                    // Original captures wait for the full caption before their tick-3 acknowledgement.
+                    const uint32_t duration = static_cast<uint32_t>(levelIntroCaption(levelFlow_.intro().levelIndex).size()) * kLevelIntroCharacterDelayMs;
+                    const uint32_t elapsed = presentationMilliseconds() - levelFlow_.intro().startedAt;
+                    if (elapsed < duration) replayPresentationOffset_ += duration - elapsed;
+                }
                 while (nextEvent < route.events.size() && route.events[nextEvent].tick == tick - 1) {
                     const auto& event = route.events[nextEvent++];
                     const SDL_Keycode code = keycodes.at(event.key);
@@ -697,12 +706,14 @@ public:
             debugActorPassObserver_ = {};
             replayKeyboard_ = nullptr;
             replayClockEnabled_ = false;
+            replayPresentationOffset_ = 0;
             recordStore_.setPath(oldRecordPath);
             throw;
         }
         debugActorPassObserver_ = {};
         replayKeyboard_ = nullptr;
         replayClockEnabled_ = false;
+        replayPresentationOffset_ = 0;
         recordStore_.setPath(oldRecordPath);
         std::cout << "level1_replay=ok ticks=" << route.ticks << " frames=" << route.ticks + 1
                   << " checkpoints=" << sequence << " level1_route_complete=" << level2Playable
@@ -23311,7 +23322,7 @@ public:
 
 private:
     uint32_t presentationMilliseconds() const {
-        return replayClockEnabled_ ? replayMilliseconds_ : SDL_GetTicks();
+        return replayClockEnabled_ ? replayMilliseconds_ + replayPresentationOffset_ : SDL_GetTicks();
     }
 
     std::string level1TraceState() const {
@@ -23435,6 +23446,7 @@ private:
 
     bool replayClockEnabled_ = false;
     uint32_t replayMilliseconds_ = 0;
+    uint32_t replayPresentationOffset_ = 0;
     const uint8_t* replayKeyboard_ = nullptr;
     lezac::app::SdlRuntime sdl_;
     lezac::rendering::SdlDisplay display_;
@@ -27497,8 +27509,9 @@ int lezac::app::runApplication(int argc, char** argv) {
     try {
         App app;
         if (argc > 1 && std::string(argv[1]) == "--replay-level1") {
-            if (argc != 4) throw std::runtime_error("usage: --replay-level1 ROUTE OUTPUT_DIR");
-            app.debugLevel1Replay(argv[2], argv[3]);
+            if (argc != 4 && !(argc == 5 && std::string(argv[4]) == "--original-intro-wait"))
+                throw std::runtime_error("usage: --replay-level1 ROUTE OUTPUT_DIR [--original-intro-wait]");
+            app.debugLevel1Replay(argv[2], argv[3], argc == 5);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--validate") {

@@ -37,6 +37,7 @@ public:
     int backdropPitch() const { return backdropPitch_; }
     uint8_t redPalettePhase() const { return redPalettePhase_; }
     void setPalette(const resources::Palette& palette) { palette_ = palette; }
+    void initializeBackdropBuffer(int playerCount);
     void buildBackdropBuffer(int playerCount, core::TurboRandom& random);
     void beginLevel(size_t mapTileCount);
     std::vector<uint8_t> decodeLevelPlane(const std::vector<uint8_t>& encoded, size_t outputSize);

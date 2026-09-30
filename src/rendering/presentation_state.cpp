@@ -20,7 +20,7 @@ using resources::vga6To8;
 // palette 22) from the live RNG at each game start (file 0x7f64).
 // Pitch is latched at initialization: 320 for P1, 160 for split-screen.
 // Later viewport narrowing does not regenerate or repack this buffer.
-void PresentationState::buildBackdropBuffer(int playerCount, core::TurboRandom& random) {
+void PresentationState::initializeBackdropBuffer(int playerCount) {
     backdropPitch_ = playerCount > 1 ? 160 : 320;
     backdropBuffer_.resize(60000);
     // Driver init fills exactly 60000 bytes, including byte wrap past 255.
@@ -28,6 +28,10 @@ void PresentationState::buildBackdropBuffer(int playerCount, core::TurboRandom& 
         backdropBuffer_[static_cast<size_t>(k)] =
             static_cast<uint8_t>(176 + k / (4 * backdropPitch_));
     }
+}
+
+void PresentationState::buildBackdropBuffer(int playerCount, core::TurboRandom& random) {
+    initializeBackdropBuffer(playerCount);
     // City skyline: the original generates ten buildings from the live
     // Turbo Pascal RNG on each game start (file 0x7f64). Building 1 is
     // the fixed wide base (cols 0..160, top row 130); each of the others

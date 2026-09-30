@@ -4,6 +4,13 @@
 
 namespace lezac::core {
 
+// Randomize stores DOS GetTime's CX and DX as the low/high seed words.
+constexpr uint32_t dosTimeRandomSeed(uint8_t hour, uint8_t minute,
+                                   uint8_t second, uint8_t hundredth) {
+    return uint32_t(minute) | (uint32_t(hour) << 8) |
+           (uint32_t(hundredth) << 16) | (uint32_t(second) << 24);
+}
+
 class TurboRandom {
 public:
     explicit constexpr TurboRandom(uint32_t seed = 0) : seed_(seed) {}

@@ -76,6 +76,14 @@ pins, v4 parsing, context bounds, exact versus later counts, read-only C++
 trace summaries, partial installs and restoration. Both recorder self-checks
 also pass. A v4 self-check is registered separately in CTest.
 
+The first fresh C++ physical capture recorded a closed gate at frame 432:
+collected zero, remaining zero, required one and boundary RNG `2137609202`.
+Its incomplete result correctly retains those counts. It also exposed a
+readiness race: input could dismiss the menu before the first governed
+observer tick. The menu snapshot is now flushed before the ready signal,
+and the context validator rejects missing or invalid startup-menu RNG.
+The earlier run's null menu seed remains null, not retroactively inferred.
+
 Full builds and suites run in remote CI because the Windows backing volume
 is above the project's 90 percent usage threshold. Live captures use RAM,
 private Xvfb and forced dummy audio; no system volume setting changes.

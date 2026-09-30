@@ -14140,6 +14140,10 @@ public:
         try {
             runInteractive([&] { return SDL_GetTicks() - started > 90000; }, [&] {
                 started = SDL_GetTicks();
+                trace << "status menu=" << ui_.snapshot().menu << " intro=" << levelFlow_.intro().active
+                      << " level=" << levelIndex_ + 1;
+                objectiveContext();
+                trace << '\n' << std::flush;
                 std::cout << "held_fire_live=ready audio=" << (SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "none")
                           << " physical_keys=1 gameplay_seeded=0\n" << std::flush;
             });

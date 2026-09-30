@@ -473,6 +473,10 @@ class LiveValidationTests(unittest.TestCase):
         rows[0].pop("remaining")
         with self.assertRaisesRegex(RuntimeError, "objective context"):
             live.summarize_objective_context(rows, [], statuses)
+        rows, deaths, _ = self.context()
+        for statuses in ([], [dict(menu=1, rng=-1)], [dict(menu=1)], [dict(menu=0, rng=123)]):
+            with self.subTest(statuses=statuses), self.assertRaisesRegex(RuntimeError, "startup menu RNG"):
+                live.summarize_objective_context(rows, deaths, statuses)
 
 
 if __name__ == "__main__":

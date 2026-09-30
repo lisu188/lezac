@@ -34,7 +34,9 @@ def summarize_objective_context(rows, deaths, statuses):
     if first_death is not None and (not deaths or deaths[0]["after_seq"] + 1 != first_death["seq"]):
         raise RuntimeError("natural death lacks its exact gate boundary")
     menu = next((row for row in statuses if row.get("menu") == 1), None)
-    return dict(startup_menu_rng=menu["rng"] if menu else None,
+    if menu is None or type(menu.get("rng")) is not int or not 0 <= menu["rng"] <= 0xFFFFFFFF:
+        raise RuntimeError("startup menu RNG was not observed before input")
+    return dict(startup_menu_rng=menu["rng"],
                 first_observed={key: rows[0][key] for key in ("frame",) + fields} if rows else None,
                 death_boundaries=deaths, gate_formula_match=bool(deaths),
                 gameplay_seeded=0, frame_alignment=0, whole_game_parity=0)

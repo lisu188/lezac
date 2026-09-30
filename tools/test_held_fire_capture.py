@@ -2,6 +2,7 @@
 """Unit checks for recorder restoration, ring coherence and lifecycle rejection."""
 
 import copy
+import gzip
 import io
 import hashlib
 import json
@@ -194,6 +195,37 @@ class HookTests(unittest.TestCase):
 
 
 class ObjectiveContextTests(unittest.TestCase):
+    def test_pinned_original_v4_capture_and_mutations(self):
+        root = capture.ROOT / "tests/fixtures/held_fire_objectives_original"
+        pins = json.loads((root / "pins.json").read_text())
+        raw = (root / pins["capture"]).read_bytes()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), pins["compressed_sha256"])
+        text = gzip.decompress(raw).decode("ascii")
+        self.assertEqual(hashlib.sha256(text.encode("ascii")).hexdigest(), pins["canonical_text_sha256"])
+        self.assertFalse(pins["gameplay_seeded"])
+        self.assertFalse(pins["frame_alignment"])
+        self.assertFalse(pins["whole_game_parity"])
+        for newline in ("\n", "\r\n"):
+            result = checker.validate_text(text.replace("\n", newline))
+            for field in ("samples", "dying_seq", "waiting_seq", "resumed_seq", "makes", "breaks", "hooks_restored"):
+                self.assertEqual(result[field], pins[field])
+            self.assertEqual(result["objective_context"], 1)
+        records = checker.parse(text)
+        samples = [fields for tag, fields in records if tag == "sample"]
+        self.assertEqual(int(samples[0]["rng"]), pins["first_observed_rng"])
+        death = samples[pins["dying_seq"] - 1]
+        for field in ("death_frame", "death_rng", "death_collected", "death_remaining", "death_required", "death_gate"):
+            self.assertEqual(int(death[field]), pins[field])
+        for field, value in (("rng", "4294967296"), ("remaining", "1981"), ("death_gate", "0"),
+                             ("death_required", "2"), ("death_count", "2"), ("death_frame", "603"),
+                             ("death_player", "2"), ("death_rng", "4294967296")):
+            original = death[field]
+            death[field] = value
+            mutated = "\n".join(tag + " " + " ".join(f"{key}={value}" for key, value in fields.items()) for tag, fields in records)
+            with self.subTest(field=field), self.assertRaises(RuntimeError):
+                checker.validate_text(mutated)
+            death[field] = original
+
     def rows(self):
         rows, _ = lifecycle("hold_through")
         for row in rows:

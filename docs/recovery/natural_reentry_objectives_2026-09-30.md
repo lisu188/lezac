@@ -71,10 +71,21 @@ run remains at `/dev/shm/lezac-held-fire-objectives-original-hold-20260930`.
 
 ## Checks and limits
 
-The 24 Python guard tests pass on WSL and native Windows. They cover legacy
+The 25 Python guard tests pass on WSL and native Windows. They cover legacy
 pins, v4 parsing, context bounds, exact versus later counts, read-only C++
 trace summaries, partial installs and restoration. Both recorder self-checks
 also pass. A v4 self-check is registered separately in CTest.
+
+A later natural original held-through run completes with 599 samples,
+death at sequence 515, reentry at 575, 553 make IRQs, one break and three
+verified restorations. Its gate boundary retains collected zero, remaining
+one, required one and RNG `3844378570` at frame 599. This is preserved in
+`tests/fixtures/held_fire_objectives_original/hold_through.txt.gz` with
+separate compressed/text hashes and numeric pins. The canonical trace hash
+is `121a6155470da06e4dfe96d9cf1f9460b7acbfed06b6617ea777540d0f97a79d`.
+The real v4 trace validates with LF/CRLF and its context mutations fail.
+Both earlier closed-gate observations remain failed, not replaced by this
+successful observation. Differing natural RNG and timing prevent alignment.
 
 The first fresh C++ physical capture recorded a closed gate at frame 432:
 collected zero, remaining zero, required one and boundary RNG `2137609202`.

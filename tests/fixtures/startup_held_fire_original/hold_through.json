@@ -1,0 +1,43 @@
+{
+  "schema": "lezac_startup_held_fire_v1",
+  "status": "captured",
+  "mode": "hold_through",
+  "exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "audio": "dummy",
+  "gameplay_seeded": false,
+  "main_phase_gates": false,
+  "rng_draw_hook": false,
+  "temporary_preclock_gate": true,
+  "frame_alignment": false,
+  "whole_game_parity": false,
+  "error": null,
+  "source_sha256": "904b3ed3dd910296f3ddda8a2dfbc9d1edc89bc6c12ea843edf30919c600ad47",
+  "startup_source_sha256": "8cc38a91c875d2848e433ba7266b1f506255a452ec05c229f06b95e69cc926e2",
+  "held_source_sha256": "d49e0b0a96022aa130e36622e158de8788c035af0b068dcccf7de436f119fb56",
+  "resident_segment": 402,
+  "resident_mcb": "4d92010001000000524e475741544348",
+  "code_segment": 952,
+  "data_segment": 3674,
+  "temporary_gate_sha256": "33f358eeae0fd697d30d357c9963841763a53106a59e407689e34d24fa6ac02c",
+  "dosbox_sha256": "9213fb131e11cb195bdff40c24513740ce497c5caf1cef1900ad1faad5c5026b",
+  "clock_stub_sha256": "17a8484f6cb36d39f826c1d61e6b13cfed6dec295d4dbf70a85035be3cf4d97b",
+  "clock": {
+    "clock_calls": 1,
+    "clock_cx": 5143,
+    "clock_dx": 1309,
+    "initialized_rng": 85791767,
+    "rng": 85791767,
+    "clock_registers": {
+      "cs": 952,
+      "ds": 3674,
+      "ss": 6857,
+      "return_ip": 9654
+    }
+  },
+  "initial_clock_record": "17141d0517141d055a0ec91ab625b803",
+  "clock_hooks_restored": 1,
+  "child_exit_code": 0,
+  "trace_sha256": "3df12c8484fc780c0d4c90f9506915d38be00c2ad6cb92f7dbe159010a0452a0",
+  "final_clock_calls": 1,
+  "final_clock_record": "17141d0517141d055a0ec91ab625b803"
+}

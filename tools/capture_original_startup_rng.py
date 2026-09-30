@@ -191,7 +191,13 @@ class Session:
         frame.save(self.output / (name + ".png"))
         frame.resize((960, 600), Image.Resampling.NEAREST).save(self.output / (name + "-preview.png"))
 
-    def launch(self):
+    def launch(self, *, clock_only=False, resident_loader=None):
+        if resident_loader is not None:
+            name, payload = resident_loader
+            require(Path(name).name == name and name != "RNGWATCH.COM" and name.endswith(".COM") and len(name) <= 12 and
+                    all(c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_." for c in name) and
+                    isinstance(payload, bytes) and 0 < len(payload) <= 65536,
+                    "invalid additional resident loader")
         self.run.mkdir()
         for path in ROOT.iterdir():
             if path.suffix.upper() in {".EXE", ".DAT", ".SPR", ".PAL", ".SCH", ".SON", ".MST", ".CAR", ".ZBG", ".DOC"}:
@@ -200,11 +206,15 @@ class Session:
         gate[CLOCK_FILE:CLOCK_FILE + 5] = bytes.fromhex("ebfe909090")
         (self.run / "LEZAC.EXE").write_bytes(gate)
         (self.run / "RNGWATCH.COM").write_bytes(resident_program())
+        additional = []
+        if resident_loader is not None:
+            (self.run / name).write_bytes(payload)
+            additional = ["-c", name]
         conf = self.output / "dosbox.conf"
         conf.write_text("[sdl]\nfullscreen=false\noutput=surface\n[render]\nframeskip=0\naspect=false\nscaler=none\n[cpu]\ncore=normal\ncycles=fixed 6000\n")
         self.log = (self.output / "dosbox.log").open("xb")
         self.child = subprocess.Popen(["dosbox", "-conf", str(conf), "-c", f"mount c {self.run}",
-                                       "-c", "c:", "-c", "RNGWATCH.COM", "-c", "LEZAC.EXE"],
+                                       "-c", "c:", "-c", "RNGWATCH.COM", *additional, "-c", "LEZAC.EXE"],
                                       env=dict(os.environ, SDL_AUDIODRIVER="dummy"), stdout=self.log, stderr=self.log)
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
@@ -235,10 +245,11 @@ class Session:
         self.window = self.xdo("search", "--pid", str(self.child.pid), "--name", "DOSBox").splitlines()[-1]
         with self.stopped():
             require(self.read(self.recorder + 0x200, 0xE00) == bytes(0xE00), "recorder arena is occupied")
-            hooks = [(self.code_segment, CLOCK_IP, self.raw[CLOCK_FILE:CLOCK_FILE + 3] + struct.pack("<H", self.rtl_segment), 0x200, clock_stub(self.rtl_segment), expected_gate),
-                     (self.rtl_segment, RNG_IP, self.raw[RNG_FILE:RNG_FILE + 7], 0x300, draw_stub(self.raw[RNG_FILE:RNG_FILE + 7]), None)]
-            hooks += [(self.code_segment, at, bytes.fromhex(raw), 0x300 + stage * 0x100, phase_stub(stage, bytes.fromhex(raw)), None)
-                      for stage, (at, raw) in enumerate(PHASES, 1)]
+            hooks = [(self.code_segment, CLOCK_IP, self.raw[CLOCK_FILE:CLOCK_FILE + 3] + struct.pack("<H", self.rtl_segment), 0x200, clock_stub(self.rtl_segment), expected_gate)]
+            if not clock_only:
+                hooks += [(self.rtl_segment, RNG_IP, self.raw[RNG_FILE:RNG_FILE + 7], 0x300, draw_stub(self.raw[RNG_FILE:RNG_FILE + 7]), None)]
+                hooks += [(self.code_segment, at, bytes.fromhex(raw), 0x300 + stage * 0x100, phase_stub(stage, bytes.fromhex(raw)), None)
+                          for stage, (at, raw) in enumerate(PHASES, 1)]
             for seg, ip, original, target, code, expected in hooks:
                 address = self.base + (seg << 4) + ip
                 require(self.read(address, len(original)) == (expected or original), "runtime hook window changed")

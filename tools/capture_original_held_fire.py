@@ -286,8 +286,9 @@ def validate_lifecycle(samples, events, mode):
                 resumed_seq=resumed, makes=previous_makes, breaks=previous_breaks)
 
 
-def observe(pid, base, run_dir, output, image, mode, objective_context=False):
-    cs, ds = base + (CS << 4), base + (seeder.RUNTIME_DS << 4)
+def observe(pid, base, run_dir, output, image, mode, objective_context=False, *, code_segment=CS, prepare=None):
+    cs = base + (code_segment << 4)
+    ds = base + ((code_segment + seeder.RUNTIME_DS - CS) << 4)
     palette = (ROOT / "BOMPAL.PAL").read_bytes()
     with open(f"/proc/{pid}/mem", "r+b", buffering=0) as mem:
         def read(at, count):
@@ -376,6 +377,8 @@ def observe(pid, base, run_dir, output, image, mode, objective_context=False):
             window = subprocess.check_output(["xdotool", "search", "--pid", str(pid), "--name", "DOSBox"],
                                              text=True, timeout=5).split()[-1]
             subprocess.run(["xdotool", "windowfocus", "--sync", window], check=True, timeout=5)
+            if prepare is not None:
+                prepare()
             deadline = time.monotonic() + 60
             while time.monotonic() < deadline and sequence < 1800:
                 total = int.from_bytes(read(recorder + COUNTERS, 2), "little")

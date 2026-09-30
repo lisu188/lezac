@@ -116,6 +116,7 @@ def main():
                     "fresh player selection did not leave the menu")
             capture("fresh-selection-intro", frame)
             key("Return")
+            time.sleep(.15)
             key("Return")
             time.sleep(.15)
             key("Escape")

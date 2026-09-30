@@ -9684,6 +9684,7 @@ public:
                 throw std::runtime_error("menu start reserve count");
             }
             pushKeyDown(SDLK_RETURN);
+            processEvents(running);
             pushKeyDown(SDLK_RETURN);
             processEvents(running);
             const std::string prefix = "reserve-case-" + std::to_string(scenario);
@@ -14112,6 +14113,7 @@ public:
             if (!levelFlow_.intro().active || levelFlow_.intro().typingSkipped)
                 throw std::runtime_error("non-buffered intro modifier changed presentation");
             const uint32_t before = logicTick_;
+            pushKeyDown(choice, true);
             pushKeyDown(choice, true);
             processEvents(running);
             if (!levelFlow_.intro().active || !levelFlow_.intro().typingSkipped || logicTick_ != before)
@@ -23778,7 +23780,10 @@ private:
             !InputMapper::isBufferedMenuKey(key)) return;
         if (levelFlow_.intro().active) {
             if (levelFlow_.introWaitingForKey(presentationMilliseconds())) finishLevelIntro();
-            else levelFlow_.skipIntroTyping();
+            else {
+                levelFlow_.skipIntroTyping();
+                SDL_FlushEvent(SDL_KEYDOWN);
+            }
             return;
         }
         if (levelFlow_.outro().active) {

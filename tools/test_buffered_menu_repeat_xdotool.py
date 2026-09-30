@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import signal
 import subprocess
 import tempfile
 import time
@@ -19,6 +20,7 @@ def observe(exe, output, choice, held, expected):
     result = dict(status="capturing", exe_sha256=sha(exe.read_bytes()), harness_sha256=sha(Path(__file__).read_bytes()),
                   audio="dummy", gameplay_seeded=False, startup_timing_gated=False, physical_keys=True,
                   manual_input=False, player_choice=choice, held=held, events=[], captures=[], whole_game_parity=False)
+    result["intro_key_batch_gated"] = not held
     started = time.monotonic()
     with (output / "process.log").open("w") as log:
         child = subprocess.Popen([str(exe), "--debug-menu-repeat-live", str(output), str(choice)],
@@ -105,7 +107,14 @@ def observe(exe, output, choice, held, expected):
                 key("key", "Shift_L")
                 time.sleep(.1)
                 require(not samples() and intro(frame()) and white(frame()) < 620, "modifier skipped intro typing")
-                key("key", "space")
+                os.kill(child.pid, signal.SIGSTOP)
+                try:
+                    wait(lambda: "State:\tT" in Path(f"/proc/{child.pid}/status").read_text(), timeout=3)
+                    result["events"].append(dict(kind="queued-press", keys=["space", "Return"],
+                                                  seconds=time.monotonic() - started))
+                    xdo("key", "--delay", "0", "space", "Return")
+                finally:
+                    os.kill(child.pid, signal.SIGCONT)
                 wait(lambda: intro(frame()) and white(frame()) == 620)
                 capture("consumed-intro-skip")
                 time.sleep(2.3)

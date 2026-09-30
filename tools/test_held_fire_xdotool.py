@@ -184,6 +184,7 @@ def main():
             command("key", "1")
             wait(lambda: any(tag == "status" and row["intro"] == "1" for tag, row in records()))
             command("key", "space")
+            time.sleep(.15)
             command("key", "space")
             wait(lambda: samples() and samples()[-1]["frame"] >= first_press_after_frame)
             send("keydown", "start")

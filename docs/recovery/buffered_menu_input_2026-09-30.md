@@ -20,6 +20,15 @@ hook, without replacing clock values, setting a seed, gating delays or writing
 gameplay state. Physical X11 input is scripted, not authentic manual play.
 Both captures restored their clock hook and exited with code 0.
 
+A third capture, `evidence/intro_queued_buffer_original_20260930.json`, briefly
+stops only the owned DOSBox to enqueue Space and Return in one physical input
+batch. After resuming, both are consumed by typing; the full intro remains
+unchanged through two seconds and Shift until a fresh Return. This input batch
+is gated, unlike the first two observations; text delays and RNG are not gated
+or replaced. Its clock hook was restored and its child exited with code 0.
+The accompanying compressed observer's decompressed SHA-256 is
+`c6199fbbb65274388b902d7206a7a041939bdbfe492ee5a8954c54644b3ae1f5`.
+
 - `evidence/menu_held_choice_original_20260930.json`: one key-down of `1`
   during natural Italian menu typing, held for three seconds. The initial key
   completes the menu; later repeat input reaches live level-1 gameplay before
@@ -57,7 +66,8 @@ repeat policies, and the separately recovered name-entry policy, are unchanged.
 
 `LevelFlow` distinguishes typing from its blocking key wait. A key while typing
 reveals the whole caption and is consumed, without loading gameplay. A later
-key acknowledges the intro. Starting another intro clears the skipped flag.
+key acknowledges the intro. Pending key-downs are drained at the typing skip,
+so a queued acknowledgement does not leak through. Starting another intro clears the skipped flag.
 The inherited normalized intro delay/rendering model is not promoted to full
 phase or calibrated wall-clock parity by this input change.
 
@@ -81,7 +91,8 @@ fixture, acceptance threshold or evidence status is reseeded or relaxed.
   the physical key still held and the selected player count. Window captures
   must show actual gameplay, not merely an intro or a changed menu frame.
 - A third physical case checks that intro Space and Shift leave the fully drawn
-  intro blocking until a fresh Return. CI retains every case's event trace,
+  intro blocking until a fresh Return, including a gated Space/Return input
+  batch that must both be consumed. CI retains every case's event trace,
   screenshots, executable/harness hashes and failure records.
 
 Large local builds remain paused under the Windows disk reserve. Narrow model

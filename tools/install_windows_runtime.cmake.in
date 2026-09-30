@@ -1,0 +1,54 @@
+set(CMAKE_GET_RUNTIME_DEPENDENCIES_PLATFORM windows+pe)
+set(CMAKE_GET_RUNTIME_DEPENDENCIES_TOOL objdump)
+set(CMAKE_GET_RUNTIME_DEPENDENCIES_COMMAND [==[@CMAKE_OBJDUMP@]==])
+set(runtime_hints [==[@LEZAC_SDL2_RUNTIME_HINTS@]==])
+list(APPEND runtime_hints [==[@LEZAC_MINGW_COMPILER_DIR@]==])
+
+if(NOT EXISTS "${CMAKE_GET_RUNTIME_DEPENDENCIES_COMMAND}")
+    message(FATAL_ERROR "MinGW runtime dependency scanner not found: ${CMAKE_GET_RUNTIME_DEPENDENCIES_COMMAND}")
+endif()
+if(NOT DEFINED ENV{SystemRoot} OR "$ENV{SystemRoot}" STREQUAL "")
+    message(FATAL_ERROR "SystemRoot is required to distinguish Windows system DLLs")
+endif()
+
+# PE imports are case-insensitive; exclude only the actual Windows directory.
+file(TO_CMAKE_PATH "$ENV{SystemRoot}" system_root)
+string(TOLOWER "${system_root}" system_root)
+string(REGEX REPLACE "/+$" "" system_root "${system_root}")
+string(LENGTH "${system_root}" root_length)
+math(EXPR root_last "${root_length} - 1")
+set(system_regex "^")
+foreach(index RANGE ${root_last})
+    string(SUBSTRING "${system_root}" ${index} 1 character)
+    if(character MATCHES "[a-z]")
+        string(TOUPPER "${character}" upper)
+        string(APPEND system_regex "[${character}${upper}]")
+    elseif(character MATCHES "[0-9/: _-]")
+        string(APPEND system_regex "${character}")
+    else()
+        string(APPEND system_regex "\\${character}")
+    endif()
+endforeach()
+string(APPEND system_regex "/")
+
+file(GET_RUNTIME_DEPENDENCIES
+    EXECUTABLES "${LEZAC_RUNTIME_EXECUTABLE}"
+    DIRECTORIES ${runtime_hints}
+    RESOLVED_DEPENDENCIES_VAR resolved
+    UNRESOLVED_DEPENDENCIES_VAR unresolved
+    CONFLICTING_DEPENDENCIES_PREFIX conflicts
+    PRE_EXCLUDE_REGEXES "^api-ms-" "^ext-ms-"
+    POST_EXCLUDE_REGEXES "${system_regex}"
+)
+if(conflicts_FILENAMES)
+    message(FATAL_ERROR "Conflicting Windows runtime DLLs: ${conflicts_FILENAMES}")
+endif()
+if(unresolved)
+    message(FATAL_ERROR "Unresolved Windows runtime DLLs: ${unresolved}")
+endif()
+if(resolved)
+    file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/."
+        TYPE SHARED_LIBRARY FILES ${resolved})
+endif()
+list(LENGTH resolved runtime_count)
+message(STATUS "windows_runtime=ok bundled_dlls=${runtime_count} unresolved=0")

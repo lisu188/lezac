@@ -29,6 +29,21 @@ jobs:
           cmake --install build
       - name: Package
         run: tar -C stage -czf lezac-linux-x86_64.tar.gz lezac
+      - name: Verify extracted package and original-backed startup frames
+        env:
+          SDL_AUDIODRIVER: dummy
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          mkdir "$RUNNER_TEMP/lezac-package-extracted"
+          tar -C "$RUNNER_TEMP/lezac-package-extracted" -xzf lezac-linux-x86_64.tar.gz
+          python3 -B tools/test_startup_rng.py --isolated-package --exe "$RUNNER_TEMP/lezac-package-extracted/lezac/lezac_cpp" --out package-startup-checks
+      - name: Preserve extracted-package startup evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-startup-linux
+          path: package-startup-checks/
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: lezac-linux-x86_64
@@ -65,6 +80,23 @@ jobs:
         run: |
           cd stage
           zip -r ../lezac-windows-x86_64.zip lezac
+      - name: Verify extracted package without compiler paths
+        shell: pwsh
+        env:
+          SDL_AUDIODRIVER: dummy
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          $extracted = Join-Path $env:RUNNER_TEMP "lezac-package-extracted"
+          if (Test-Path -LiteralPath $extracted) { throw "Package extraction directory already exists" }
+          Expand-Archive -LiteralPath lezac-windows-x86_64.zip -DestinationPath $extracted
+          python -B tools/test_startup_rng.py --isolated-package --exe "$extracted/lezac/lezac_cpp.exe" --out package-startup-checks
+      - name: Preserve extracted-package startup evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-startup-windows
+          path: package-startup-checks/
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: lezac-windows-x86_64

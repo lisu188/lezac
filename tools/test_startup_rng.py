@@ -6,10 +6,11 @@ import copy
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 import capture_original_startup_rng as capture
 import level1_fidelity as fidelity
@@ -23,7 +24,45 @@ PINS = {
     "first-present.ppm": "1b22e0f69e66b1c04de30587aee2a7a0e92a038b983222c2d8c11e8db8dcce3e",
 }
 EXE = OUT = None
+ISOLATED_PACKAGE = False
 require = fidelity.require
+
+
+def startup_environment(isolated, windows=None, inherited=None):
+    env = dict(os.environ if inherited is None else inherited)
+    env.update(SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy")
+    if isolated:
+        for key in list(env):
+            if key.casefold() in ("path", "ld_library_path", "ld_preload", "lezac_load_json_assets"):
+                del env[key]
+        is_windows = os.name == "nt" if windows is None else windows
+        if is_windows:
+            root = next((value for key, value in env.items() if key.casefold() == "systemroot"), "")
+            require(PureWindowsPath(root).is_absolute(), "SystemRoot is required for isolated Windows validation")
+            env["PATH"] = str(PureWindowsPath(root) / "System32") + ";" + root
+        else:
+            env["PATH"] = "/usr/bin:/bin"
+    return env
+
+
+def validate_package_assets(directory):
+    originals = ("BOMOMIMK.SPR", "BOMPAL.PAL", "CARO.CAR", "FONTS.SPR", "GRAN.MST",
+                 "LIVELS.SCH", "PROEFS.SON", "PROVA.SPR", "RECS.DAT", "SFONLEF.ZBG")
+    checksums = {}
+    for name in originals:
+        for relative in (Path(name), Path("src") / (name + ".json")):
+            installed = directory / relative.name
+            require(installed.is_file(), "packaged asset missing: " + relative.name)
+            actual, expected = installed.read_bytes(), (ROOT / relative).read_bytes()
+            if relative.suffix == ".json":
+                matches = fidelity.strict_json(actual.decode("utf-8")) == fidelity.strict_json(expected.decode("utf-8"))
+            else:
+                matches = actual == expected
+            require(matches, "packaged asset changed: " + relative.name)
+            checksums[relative.name] = dict(sha256=hashlib.sha256(actual).hexdigest(),
+                source_sha256=hashlib.sha256(expected).hexdigest(),
+                comparison="json-values" if relative.suffix == ".json" else "original-bytes")
+    return checksums
 
 
 def advance(seed, draws):
@@ -79,6 +118,40 @@ def pinned():
 
 
 class StartupTests(unittest.TestCase):
+    def test_package_assets_reject_missing_or_changed_copies(self):
+        with mock.patch.object(Path, "is_file", return_value=True), \
+                mock.patch.object(Path, "read_bytes", side_effect=[b"raw", b"raw", b'{"asset":1}\r\n', b'{"asset":1}\n'] * 10):
+            self.assertEqual(len(validate_package_assets(Path("package"))), 20)
+        with mock.patch.object(Path, "is_file", return_value=False):
+            with self.assertRaisesRegex(fidelity.EvidenceError, "packaged asset missing"):
+                validate_package_assets(Path("package"))
+        with mock.patch.object(Path, "is_file", return_value=True), \
+                mock.patch.object(Path, "read_bytes", side_effect=[b"changed", b"original"]):
+            with self.assertRaisesRegex(fidelity.EvidenceError, "packaged asset changed"):
+                validate_package_assets(Path("package"))
+        with mock.patch.object(Path, "is_file", return_value=True), \
+                mock.patch.object(Path, "read_bytes", side_effect=[b"raw", b"raw", b'{"asset":2}', b'{"asset":1}']):
+            with self.assertRaisesRegex(fidelity.EvidenceError, "packaged asset changed"):
+                validate_package_assets(Path("package"))
+
+    def test_package_environment_cannot_inherit_compiler_paths_or_audio(self):
+        inherited = dict(SystemRoot=r"C:\Windows", Path=r"C:\msys64\mingw64\bin", PATH="compiler-bin",
+                         LD_LIBRARY_PATH="compiler-lib", LD_PRELOAD="compiler-preload", LEZAC_LOAD_JSON_ASSETS="1",
+                         SDL_AUDIODRIVER="wasapi", SDL_VIDEODRIVER="windows")
+        for windows in (False, True):
+            env = startup_environment(True, windows, inherited)
+            self.assertEqual(env["PATH"], r"C:\Windows\System32;C:\Windows" if windows else "/usr/bin:/bin")
+            self.assertNotIn("Path", env)
+            self.assertNotIn("LD_LIBRARY_PATH", env)
+            self.assertNotIn("LD_PRELOAD", env)
+            self.assertNotIn("LEZAC_LOAD_JSON_ASSETS", env)
+            self.assertEqual(env["SDL_AUDIODRIVER"], "dummy")
+            self.assertEqual(env["SDL_VIDEODRIVER"], "dummy")
+        self.assertEqual(inherited["SDL_AUDIODRIVER"], "wasapi")
+        self.assertEqual(startup_environment(False, False, inherited)["PATH"], "compiler-bin")
+        with self.assertRaises(fidelity.EvidenceError):
+            startup_environment(True, True, {})
+
     def test_pinned_original(self):
         pinned()
 
@@ -145,13 +218,25 @@ class StartupTests(unittest.TestCase):
             self.skipTest("no compiled C++ executable supplied")
         original = pinned()
         root = Path(tempfile.mkdtemp(prefix="lezac-startup-rng-", dir=OUT))
+        working_directory = EXE.parent if ISOLATED_PACKAGE else ROOT
+        identity = dict(executable=str(EXE), executable_sha256=hashlib.sha256(EXE.read_bytes()).hexdigest(),
+                        working_directory=str(working_directory), isolated_package=ISOLATED_PACKAGE)
         try:
             first = original["samples"][0]
-            env = dict(os.environ, SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy")
+            env = startup_environment(ISOLATED_PACKAGE)
+            package_assets = {}
+            if ISOLATED_PACKAGE:
+                package_assets = validate_package_assets(EXE.parent)
+                run = subprocess.run([str(EXE), "--validate"], cwd=working_directory,
+                                     env=env, text=True, capture_output=True, timeout=30)
+                (root / "package-validate.log").write_text(run.stdout + run.stderr)
+                self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+                self.assertIn("level_7=140x52 objective_tile=106 required_bonus=1 destruction=10 spawners=0 portals=2 triggers=1",
+                              run.stdout)
             artifacts = []
             for name, clocks in (("original-clock", [str(first["clock_cx"]), str(first["clock_dx"])]), ("natural-clock", [])):
                 output = root / name
-                run = subprocess.run([str(EXE), "--debug-startup-rng", str(output), *clocks], cwd=ROOT,
+                run = subprocess.run([str(EXE), "--debug-startup-rng", str(output), *clocks], cwd=working_directory,
                                      env=env, text=True, capture_output=True, timeout=30)
                 (root / (name + ".log")).write_text(run.stdout + run.stderr)
                 self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
@@ -184,11 +269,15 @@ class StartupTests(unittest.TestCase):
                 artifacts.append(dict(mode=name, summary=fields, stdout=run.stdout, stderr=run.stderr))
             (root / "comparison.json").write_text(json.dumps(dict(status="match", intro_pixels=64000,
                 first_present_pixels=64000, backdrop_bytes=60000, controlled_original_clock=True,
-                natural_clock_checked=True, whole_game_parity=False, runs=artifacts), indent=2) + "\n")
+                natural_clock_checked=True, whole_game_parity=False, runs=artifacts,
+                **identity,
+                child_path=env.get("PATH", ""), audio=env["SDL_AUDIODRIVER"], package_assets=package_assets), indent=2) + "\n")
             print(f"startup_rng_original=ok menu_draws=0 intro_draws=8 initialization_draws=398 compared_pixels=128000 backdrop_bytes=60000 natural_clock=1 whole_game_parity=0 out={root}")
+            if ISOLATED_PACKAGE:
+                print(f"isolated_package=ok resources={len(package_assets)} validate=1 compared_pixels=128000 audio=dummy whole_game_parity=0 out={root}")
         except BaseException as error:
             (root / "failure.json").write_text(json.dumps(dict(status="failed", error=str(error),
-                whole_game_parity=False), indent=2) + "\n")
+                whole_game_parity=False, **identity), indent=2) + "\n")
             print(f"startup_rng_original=failed out={root}")
             raise
 
@@ -197,7 +286,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--exe", type=Path)
     parser.add_argument("--out", type=Path)
+    parser.add_argument("--isolated-package", action="store_true")
     args = parser.parse_args()
+    if args.isolated_package and not args.exe:
+        parser.error("--isolated-package requires --exe")
+    ISOLATED_PACKAGE = args.isolated_package
     EXE = args.exe.resolve() if args.exe else None
     OUT = args.out.resolve() if args.out else None
     if OUT:

@@ -117,6 +117,8 @@ def main():
             capture("fresh-selection-intro", frame)
             key("Return")
             time.sleep(.15)
+            key("Return")
+            time.sleep(.15)
             key("Escape")
             time.sleep(.12)
             key("Escape")

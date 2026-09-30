@@ -587,7 +587,7 @@ public:
     App() = default;
     App(const App&) = delete;
     App& operator=(const App&) = delete;
-    void debugLevel1Replay(const std::string& routePath, const std::string& outDir) {
+    void debugLevel1Replay(const std::string& routePath, const std::string& outDir, bool originalIntroWait = false) {
         namespace trace = lezac::diagnostics::level1;
         const auto route = trace::readRoute(routePath);
         const char* json = std::getenv("LEZAC_LOAD_JSON_ASSETS");
@@ -607,7 +607,7 @@ public:
             {"schema", trace::quote("lezac.level1.trace.v1")}, {"source", trace::quote("cpp")},
             {"phase_model", trace::quote("cpp-pre-actors-v2")},
             {"state_scope", trace::quote("level1-observations-v2")},
-            {"input_model", trace::quote("sdl-events-keyboard-adapter-v1")},
+            {"input_model", trace::quote(originalIntroWait ? "sdl-events-original-intro-wait-v1" : "sdl-events-keyboard-adapter-v1")},
             {"asset_fnv1a64", trace::object(assets)},
             {"route_fnv1a64", trace::quote(trace::fingerprint(readFile(routePath)))},
             {"ticks", std::to_string(route.ticks)}, {"step_us", std::to_string(route.stepUs)},
@@ -617,6 +617,7 @@ public:
         randomSeed_ = route.seed;
         replayClockEnabled_ = true;
         replayMilliseconds_ = 0;
+        replayPresentationOffset_ = 0;
         std::array<uint8_t, SDL_NUM_SCANCODES> keys{};
         const std::string oldRecordPath = recordStore_.path();
         recordStore_.setPath(joinPath(outDir, "RECS.DAT"));
@@ -663,6 +664,14 @@ public:
             for (tick = 1; tick <= route.ticks; ++tick) {
                 replayMilliseconds_ = static_cast<uint32_t>(uint64_t(tick - 1) * route.stepUs / 1000);
                 events.clear();
+                if (originalIntroWait && tick == 4) {
+                    if (!levelFlow_.intro().active)
+                        throw std::runtime_error("original replay prelude did not reach the intro");
+                    // Original captures wait for the full caption before their tick-3 acknowledgement.
+                    const uint32_t duration = static_cast<uint32_t>(levelIntroCaption(levelFlow_.intro().levelIndex).size()) * kLevelIntroCharacterDelayMs;
+                    const uint32_t elapsed = presentationMilliseconds() - levelFlow_.intro().startedAt;
+                    if (elapsed < duration) replayPresentationOffset_ += duration - elapsed;
+                }
                 while (nextEvent < route.events.size() && route.events[nextEvent].tick == tick - 1) {
                     const auto& event = route.events[nextEvent++];
                     const SDL_Keycode code = keycodes.at(event.key);
@@ -697,12 +706,14 @@ public:
             debugActorPassObserver_ = {};
             replayKeyboard_ = nullptr;
             replayClockEnabled_ = false;
+            replayPresentationOffset_ = 0;
             recordStore_.setPath(oldRecordPath);
             throw;
         }
         debugActorPassObserver_ = {};
         replayKeyboard_ = nullptr;
         replayClockEnabled_ = false;
+        replayPresentationOffset_ = 0;
         recordStore_.setPath(oldRecordPath);
         std::cout << "level1_replay=ok ticks=" << route.ticks << " frames=" << route.ticks + 1
                   << " checkpoints=" << sequence << " level1_route_complete=" << level2Playable
@@ -9685,6 +9696,8 @@ public:
             }
             pushKeyDown(SDLK_RETURN);
             processEvents(running);
+            pushKeyDown(SDLK_RETURN);
+            processEvents(running);
             const std::string prefix = "reserve-case-" + std::to_string(scenario);
             inspectHud(prefix + "-start");
             for (int order = 0; order < count; ++order) {
@@ -14083,7 +14096,67 @@ public:
         std::cout << "key_ownership_live=stopped ticks=" << logicTick_ << '\n';
     }
 
-    void debugHeldFireLive(const std::string& outDir) {
+    void debugBufferedMenuRepeat() {
+        load();
+        initSdl();
+        replayClockEnabled_ = true;
+        replayMilliseconds_ = kMainMenuFadeDurationMs;
+        resetLevel(0);
+        levelFlow_.setInteractiveEnabled(true);
+        bool running = true;
+        for (const auto choice : {SDLK_1, SDLK_2}) {
+            ui_.setMenu(true);
+            ui_.setPage(MenuPage::Main);
+            ui_.beginMainMenu(0);
+            pushKeyDown(choice, true);
+            processEvents(running);
+            if (!ui_.snapshot().menu || !ui_.snapshot().mainMenu.textSkipped || levelFlow_.intro().active)
+                throw std::runtime_error("repeated choice did not remain a consumed typing skip");
+            pushKeyDown(choice, true);
+            processEvents(running);
+            if (ui_.snapshot().menu || !levelFlow_.intro().active || playerCount_ != (choice == SDLK_2 ? 2 : 1))
+                throw std::runtime_error("later repeated choice did not start the selected player mode");
+            for (const auto modifier : {SDLK_LSHIFT, SDLK_RCTRL, SDLK_CAPSLOCK, SDLK_LGUI}) {
+                pushKeyDown(modifier);
+                pushKeyDown(modifier, true);
+                processEvents(running);
+            }
+            if (!levelFlow_.intro().active || levelFlow_.intro().typingSkipped)
+                throw std::runtime_error("non-buffered intro modifier changed presentation");
+            const uint32_t before = logicTick_;
+            pushKeyDown(choice, true);
+            pushKeyDown(choice, true);
+            processEvents(running);
+            if (!levelFlow_.intro().active || !levelFlow_.intro().typingSkipped || logicTick_ != before)
+                throw std::runtime_error("intro typing repeat did not remain a consumed skip");
+            inspectRenderedFrame("buffered-menu-repeat-intro");
+            pushKeyDown(choice, true);
+            processEvents(running);
+            if (levelFlow_.intro().active || ui_.snapshot().menu || !bombs_.empty())
+                throw std::runtime_error("later repeated key did not acknowledge the intro cleanly");
+            inspectRenderedFrame("buffered-menu-repeat-gameplay");
+            pushKeyDown(SDLK_p, true);
+            pushKeyDown(SDLK_ESCAPE, true);
+            pushKeyDown(SDLK_F5, true);
+            processEvents(running);
+            if (ui_.snapshot().paused || ui_.snapshot().menu || levelFlow_.intro().active)
+                throw std::runtime_error("gameplay command repeat policy changed");
+        }
+        ui_.setMenu(true);
+        ui_.beginMainMenu(0);
+        pushKeyDown(SDLK_ESCAPE, true);
+        processEvents(running);
+        if (!running || !ui_.snapshot().mainMenu.textSkipped)
+            throw std::runtime_error("repeated Escape leaked past menu typing");
+        pushKeyDown(SDLK_ESCAPE, true);
+        processEvents(running);
+        if (running) throw std::runtime_error("later repeated Escape did not exit the settled menu");
+        replayClockEnabled_ = false;
+        std::cout << "buffered_menu_repeat=ok players=2 consumed_menu_skip=1 consumed_intro_skip=1 later_repeat_ack=1"
+                  << " modifiers_ignored=1 gameplay_commands_unchanged=1 escape_repeat=1 frame_inspection=1\n";
+    }
+
+    void debugHeldFireLive(const std::string& outDir, SDL_Keycode observedKey = SDLK_n) {
         std::filesystem::create_directories(outDir);
         std::ofstream trace(joinPath(outDir, "live.txt"));
         if (!trace) throw std::runtime_error("held-fire live trace unavailable");
@@ -14102,7 +14175,7 @@ public:
             trace << '\n' << std::flush;
         };
         debugPhysicalInputObserver_ = [&](const SDL_Event& event) {
-            if ((event.type != SDL_KEYDOWN && event.type != SDL_KEYUP) || event.key.keysym.sym != SDLK_n) return;
+            if ((event.type != SDL_KEYDOWN && event.type != SDL_KEYUP) || event.key.keysym.sym != observedKey) return;
             if (event.type == SDL_KEYDOWN) { ++makes; repeats += event.key.repeat != 0; }
             else ++breaks;
             trace << "input after_seq=" << sequence << " kind=" << (event.type == SDL_KEYDOWN ? "keydown" : "keyup")
@@ -14112,7 +14185,7 @@ public:
             const bool menu = ui_.snapshot().menu, intro = levelFlow_.intro().active;
             const int stage = menu ? 0 : intro ? 1 : 2;
             if (stage != previousStage) {
-                trace << "status menu=" << menu << " intro=" << intro << " level=" << levelIndex_ + 1;
+                trace << "status menu=" << menu << " intro=" << intro << " level=" << levelIndex_ + 1 << " players=" << playerCount_;
                 objectiveContext();
                 trace << '\n' << std::flush;
                 previousStage = stage;
@@ -14129,7 +14202,7 @@ public:
             }
             wasDead = wasDead || playerDead_;
             trace << "sample seq=" << sequence << " frame=" << logicTick_ << " makes=" << makes << " breaks=" << breaks
-                  << " repeats=" << repeats << " key=" << int(SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_N])
+                  << " repeats=" << repeats << " key=" << int(SDL_GetKeyboardState(nullptr)[SDL_GetScancodeFromKey(observedKey)])
                   << " latch=" << reentryFire1_ << " dead=" << playerDead_ << " state=" << state
                   << " countdown=" << deathStateTimer_ << " lives=" << lives_ << " energy=" << energy_
                   << " fallback=" << int(noActivePlayerTicks_) << " gate=" << reentryGate_
@@ -14142,11 +14215,11 @@ public:
             runInteractive([&] { return SDL_GetTicks() - started > 90000; }, [&] {
                 started = SDL_GetTicks();
                 trace << "status menu=" << ui_.snapshot().menu << " intro=" << levelFlow_.intro().active
-                      << " level=" << levelIndex_ + 1;
+                      << " level=" << levelIndex_ + 1 << " players=" << playerCount_;
                 objectiveContext();
                 trace << '\n' << std::flush;
                 std::cout << "held_fire_live=ready audio=" << (SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "none")
-                          << " physical_keys=1 gameplay_seeded=0\n" << std::flush;
+                          << " physical_keys=1 gameplay_seeded=0 observed_key=" << int(observedKey) << '\n' << std::flush;
             });
         } catch (...) {
             debugInteractiveTickObserver_ = {};
@@ -23003,6 +23076,8 @@ public:
         resetLevel(0);
         ui_.setMenu(true);
         levelFlow_.setInteractiveEnabled(true);
+        replayClockEnabled_ = true;
+        replayMilliseconds_ = 0;
         bool running = true;
         pushKeyDown(SDLK_1);
         processEvents(running);
@@ -23028,6 +23103,7 @@ public:
         if (!levelFlow_.intro().active) {
             throw std::runtime_error("level intro did not keep waiting for a key");
         }
+        replayMilliseconds_ = levelFlow_.intro().startedAt + duration;
         pushKeyDown(SDLK_RETURN);
         processEvents(running);
         if (levelFlow_.intro().active) throw std::runtime_error("level intro acknowledgement failed");
@@ -23035,16 +23111,25 @@ public:
         beginLevelForPlay(1);
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
-        if (levelFlow_.intro().active || !bombs_.empty()) {
+        if (!levelFlow_.intro().active || !levelFlow_.intro().typingSkipped || !bombs_.empty()) {
             throw std::runtime_error("level intro skip key leaked into gameplay");
         }
+        pushKeyDown(SDLK_SPACE);
+        processEvents(running);
+        if (levelFlow_.intro().active || !bombs_.empty())
+            throw std::runtime_error("level intro acknowledgement key leaked into gameplay");
         beginLevelForPlay(2);
+        pushKeyDown(SDLK_ESCAPE);
+        processEvents(running);
+        if (!levelFlow_.intro().active || !levelFlow_.intro().typingSkipped || ui_.snapshot().menu)
+            throw std::runtime_error("level intro typing Escape was not consumed");
         pushKeyDown(SDLK_ESCAPE);
         processEvents(running);
         if (levelFlow_.intro().active || ui_.snapshot().menu || levelIndex_ != 2) {
             throw std::runtime_error("level intro Escape did not acknowledge the intro");
         }
         levelFlow_.setInteractiveEnabled(false);
+        replayClockEnabled_ = false;
 
         std::cout << "level_intro=ok stripes=7"
                   << " palette=" << static_cast<int>(kLevelIntroPaletteFirst)
@@ -23237,7 +23322,7 @@ public:
 
 private:
     uint32_t presentationMilliseconds() const {
-        return replayClockEnabled_ ? replayMilliseconds_ : SDL_GetTicks();
+        return replayClockEnabled_ ? replayMilliseconds_ + replayPresentationOffset_ : SDL_GetTicks();
     }
 
     std::string level1TraceState() const {
@@ -23361,6 +23446,7 @@ private:
 
     bool replayClockEnabled_ = false;
     uint32_t replayMilliseconds_ = 0;
+    uint32_t replayPresentationOffset_ = 0;
     const uint8_t* replayKeyboard_ = nullptr;
     lezac::app::SdlRuntime sdl_;
     lezac::rendering::SdlDisplay display_;
@@ -23491,13 +23577,16 @@ private:
                         (!ui_.snapshot().menu && !ui_.snapshot().paused && !levelFlow_.intro().active && !levelFlow_.outro().active &&
                          (isPlayer1FireKey(e.key.keysym.sym) ||
                           (playerCount_ > 1 && isPlayer2FireKey(e.key.keysym.sym)))) ||
-                        shouldAcceptRepeatedNameEntryKey(e.key.keysym.sym))) {
+                        shouldAcceptRepeatedUiKey(e.key.keysym.sym))) {
                 onKey(e.key.keysym.sym, running);
             }
         }
     }
 
-    bool shouldAcceptRepeatedNameEntryKey(SDL_Keycode key) const {
+    bool shouldAcceptRepeatedUiKey(SDL_Keycode key) const {
+        // CRT.ReadKey accepts future typematic characters after queued keys are drained.
+        if (InputMapper::isBufferedMenuKey(key) &&
+            ((ui_.snapshot().menu && ui_.snapshot().page == MenuPage::Main) || levelFlow_.intro().active)) return true;
         return ui_.shouldAcceptRepeatedNameEntryKey(InputMapper::key(key));
     }
 
@@ -23699,9 +23788,16 @@ private:
     }
 
     void onKey(SDL_Keycode key, bool& running) {
-        if (ui_.snapshot().menu && ui_.snapshot().page == MenuPage::Main &&
+        if (((ui_.snapshot().menu && ui_.snapshot().page == MenuPage::Main) || levelFlow_.intro().active) &&
             !InputMapper::isBufferedMenuKey(key)) return;
-        if (levelFlow_.intro().active) { finishLevelIntro(); return; }
+        if (levelFlow_.intro().active) {
+            if (levelFlow_.introWaitingForKey(presentationMilliseconds())) finishLevelIntro();
+            else {
+                levelFlow_.skipIntroTyping();
+                SDL_FlushEvent(SDL_KEYDOWN);
+            }
+            return;
+        }
         if (levelFlow_.outro().active) {
             if (levelFlow_.outro().awaitKey) finishLevelOutro();
             else levelFlow_.skipOutroTyping(presentationMilliseconds(), ui_.snapshot().italian);
@@ -27413,8 +27509,9 @@ int lezac::app::runApplication(int argc, char** argv) {
     try {
         App app;
         if (argc > 1 && std::string(argv[1]) == "--replay-level1") {
-            if (argc != 4) throw std::runtime_error("usage: --replay-level1 ROUTE OUTPUT_DIR");
-            app.debugLevel1Replay(argv[2], argv[3]);
+            if (argc != 4 && !(argc == 5 && std::string(argv[4]) == "--original-intro-wait"))
+                throw std::runtime_error("usage: --replay-level1 ROUTE OUTPUT_DIR [--original-intro-wait]");
+            app.debugLevel1Replay(argv[2], argv[3], argc == 5);
             return 0;
         }
         if (argc > 1 && std::string(argv[1]) == "--validate") {
@@ -28079,6 +28176,14 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-held-fire-live") {
             app.debugHeldFireLive(argv[2]);
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-buffered-menu-repeat") {
+            app.debugBufferedMenuRepeat();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-menu-repeat-live") {
+            app.debugHeldFireLive(argv[2], argc > 3 && std::string(argv[3]) == "2" ? SDLK_2 : SDLK_1);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-active-fire-original") {

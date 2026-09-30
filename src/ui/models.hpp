@@ -126,6 +126,7 @@ struct LevelIntroState {
     uint32_t startedAt = 0;
     int levelIndex = 0;
     LevelIntroPattern pattern;
+    bool typingSkipped = false;
 };
 
 // Level-completion banner sequence (original routine at file 0x24d3):

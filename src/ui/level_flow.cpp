@@ -48,6 +48,7 @@ size_t LevelFlow::visibleLevelIntroCharacters(uint32_t now) const {
     if (!levelIntro_.active) return 0;
     const size_t captionSize =
         levelIntroCaption(levelIntro_.levelIndex).size();
+    if (levelIntro_.typingSkipped) return captionSize;
     const uint32_t elapsed = now - levelIntro_.startedAt;
     return std::min(captionSize,
                     static_cast<size_t>(elapsed /
@@ -58,6 +59,15 @@ size_t LevelFlow::visibleLevelIntroCharacters(uint32_t now) const {
 void LevelFlow::updateLevelIntro(uint32_t now) {
     // Text typing is time-based; original 1000:2C72 then blocks for a key.
     (void)now;
+}
+
+bool LevelFlow::introWaitingForKey(uint32_t now) const {
+    return levelIntro_.active && (levelIntro_.typingSkipped ||
+        now - levelIntro_.startedAt >= levelIntroCaption(levelIntro_.levelIndex).size() * kLevelIntroCharacterDelayMs);
+}
+
+void LevelFlow::skipIntroTyping() {
+    if (levelIntro_.active) levelIntro_.typingSkipped = true;
 }
 
 std::vector<OutroLine> LevelFlow::levelOutroLines(bool italian) const {
@@ -110,6 +120,7 @@ std::vector<OutroSegment> LevelFlow::levelOutroSchedule(bool italian) const {
 }
 
 void LevelFlow::beginIntro(int levelIndex, LevelIntroPattern pattern, uint32_t now) {
+    levelIntro_ = {};
     levelIntro_.active = true;
     levelIntro_.startedAt = now;
     levelIntro_.levelIndex = levelIndex;

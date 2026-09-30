@@ -142,6 +142,11 @@ glyph shapes, and one-pixel shadow coincide.
 
 ## C++ integration
 
+The input description below is historical. The later original-backed
+`buffered_menu_input_2026-09-30.md` recovery distinguishes a consumed typing skip
+from the subsequent blocking acknowledgement, admits future typematic keys,
+and ignores non-buffered modifiers. A single typing key does not start gameplay.
+
 `beginLevelForPlay` wraps interactive menu starts, manual reloads, level
 changes, and death restarts. It generates the pattern, resets the target
 level, and activates the timed intro. While active:

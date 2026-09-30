@@ -1187,6 +1187,12 @@ if(BUILD_TESTING)
         set_tests_properties(held_fire_capture_self_check PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             PASS_REGULAR_EXPRESSION "^held_fire_self_check=ok hooks=2 slots=16 stride=128 resident_bytes=4096 live=0")
+        add_test(NAME held_fire_objective_context_self_check
+            COMMAND ${Python3_EXECUTABLE} -B
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_held_fire.py --objective-context --self-check)
+        set_tests_properties(held_fire_objective_context_self_check PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "^held_fire_self_check=ok hooks=3 slots=16 stride=128 resident_bytes=4096 live=0")
         add_test(NAME held_fire_capture_guard
             COMMAND ${Python3_EXECUTABLE} -B
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_held_fire_capture.py)

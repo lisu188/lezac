@@ -88,6 +88,23 @@ remains incomplete. The successful probe waits 200 ms before `L`; the normal
 SDL test likewise waits beyond the modeled final delay before selecting a
 language. The original's drawn frame and input-readiness boundary are distinct.
 
+## Modifier Input
+
+`evidence/main_menu_modifiers_20260930.json` and its compressed observer snapshot
+record nine real modifier/lock key presses during ungated original typing:
+left/right Shift, Control and Alt, plus Caps Lock, Num Lock and Scroll Lock.
+None skipped the original text. Typing reached the full menu about 12 seconds
+after the first press, with the natural RNG unchanged and the clock hook
+restored. The initial C++ package incorrectly skipped on standalone Shift;
+its negative live test is preserved separately.
+
+`InputMapper::isBufferedMenuKey` now excludes those non-character keys (and
+host GUI/unknown keys) at the main-menu boundary. Gameplay mappings are not
+changed. Adapter tests keep characters, keypad keys and buffered extended
+function/arrow keys eligible; the live normal-app test checks eleven ignored
+modifier/lock/GUI keys. This is not a claim that every extended or host-specific
+key has original DOS behavior on every page.
+
 ## Remaining scope
 
 This menu recovery does not change the outstanding campaign, actor contact,

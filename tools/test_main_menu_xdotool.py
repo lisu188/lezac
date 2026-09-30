@@ -73,6 +73,15 @@ def main():
             # Natural startup reaches an original text checkpoint without injected skips.
             name, frame = wait_frame(["italian-line0-step02", "italian-line0-step06", "italian-line0-step30"])
             capture("natural-" + name, frame)
+            for modifier in ("Shift_L", "Shift_R", "Control_L", "Control_R", "Alt_L", "Alt_R",
+                             "Super_L", "Super_R", "Caps_Lock", "Num_Lock", "Scroll_Lock"):
+                key(modifier)
+                time.sleep(.12)
+                observed = pixels()
+                if observed == expected["italian-full"][len(HEADER):]:
+                    capture("unexpected-modifier-" + modifier, observed)
+                require(observed != expected["italian-full"][len(HEADER):],
+                        "standalone modifier skipped menu typing: " + modifier)
             _, frame = wait_frame(["italian-full"])
             capture("italian-full", frame)
             # Full pixels precede readiness by the final character delay.
@@ -119,7 +128,7 @@ def main():
             require(child.wait(timeout=5) == 0, "fresh Escape failed to exit")
             result = dict(status="observed", exe_sha256=sha(args.exe.read_bytes()), audio="dummy",
                           normal_entry_point=True, gameplay_seeded=False, queued_key_check_gated=True,
-                          startup_timing_gated=False, captures=captures, events=events,
+                          startup_timing_gated=False, modifiers_ignored=11, captures=captures, events=events,
                           whole_game_parity=False)
         except Exception as error:
             (output / "failure.json").write_text(json.dumps(dict(status="failed", error=str(error),
@@ -134,7 +143,7 @@ def main():
                     child.kill()
                     child.wait(timeout=5)
     (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
-    print("main_menu_live=ok original_pixels=1 languages=2 queued_selection_consumed=1 escape_skips_consumed=1 fresh_start=1 fresh_exit=1 frames=6 audio=dummy")
+    print("main_menu_live=ok original_pixels=1 languages=2 queued_selection_consumed=1 escape_skips_consumed=1 fresh_start=1 fresh_exit=1 frames=6 audio=dummy modifiers_ignored=11")
 
 
 if __name__ == "__main__":

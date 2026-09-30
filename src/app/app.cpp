@@ -23699,6 +23699,8 @@ private:
     }
 
     void onKey(SDL_Keycode key, bool& running) {
+        if (ui_.snapshot().menu && ui_.snapshot().page == MenuPage::Main &&
+            !InputMapper::isBufferedMenuKey(key)) return;
         if (levelFlow_.intro().active) { finishLevelIntro(); return; }
         if (levelFlow_.outro().active) {
             if (levelFlow_.outro().awaitKey) finishLevelOutro();

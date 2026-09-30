@@ -1,4 +1,5 @@
 #include "rendering/game_renderer.hpp"
+#include "app/input_mapper.hpp"
 #include "resources/asset_catalog.hpp"
 #include "ui/ui_controller.hpp"
 
@@ -17,6 +18,12 @@ int main(int argc, char** argv) {
     using namespace lezac;
     using namespace ui;
     try {
+        for (const auto key : {SDLK_UNKNOWN, SDLK_LSHIFT, SDLK_RSHIFT, SDLK_LCTRL, SDLK_RCTRL,
+                              SDLK_LALT, SDLK_RALT, SDLK_LGUI, SDLK_RGUI, SDLK_CAPSLOCK,
+                              SDLK_NUMLOCKCLEAR, SDLK_SCROLLLOCK})
+            require(!app::InputMapper::isBufferedMenuKey(key), "non-buffered key accepted");
+        for (const auto key : {SDLK_1, SDLK_2, SDLK_l, SDLK_ESCAPE, SDLK_SPACE, SDLK_F1, SDLK_LEFT, SDLK_KP_0})
+            require(app::InputMapper::isBufferedMenuKey(key), "buffered menu key rejected");
         UiController ui;
         RecordStore records;
         int games = 0;
@@ -89,7 +96,7 @@ int main(int argc, char** argv) {
                     capture(prefix + "-fade" + std::to_string(fade), italian, 0, fade);
             }
         }
-        std::cout << "main_menu=ok cells=9 first_y=77 trail=5 languages=2 timing=1 consumed_keys=1 rollover=1\n";
+        std::cout << "main_menu=ok cells=9 first_y=77 trail=5 languages=2 timing=1 consumed_keys=1 rollover=1 buffered_keys=1\n";
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

@@ -1184,6 +1184,19 @@ if(BUILD_TESTING)
         set_tests_properties(held_fire_capture_guard PROPERTIES
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+        add_test(NAME startup_rng_capture_self_check
+            COMMAND ${Python3_EXECUTABLE} -B
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/capture_original_startup_rng.py --self-check)
+        set_tests_properties(startup_rng_capture_self_check PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "^startup_rng_self_check=ok hooks=6 first_draws=32 resident_bytes=4096 live=0")
+        add_test(NAME startup_rng_original
+            COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_startup_rng.py
+                    --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/startup-rng-checks)
+        set_tests_properties(startup_rng_original PROPERTIES
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "startup_rng_original=ok menu_draws=0 intro_draws=8 initialization_draws=398 compared_pixels=128000 backdrop_bytes=60000 natural_clock=1 whole_game_parity=0")
+
         add_test(NAME seed_original_level_self_check
             COMMAND ${Python3_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/tools/seed_original_level.py --self-check)

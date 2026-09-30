@@ -11,6 +11,15 @@ int main() {
     const auto assets = resources::AssetCatalog::load(resources::AssetFormat::Original);
     rendering::PresentationState presentation;
     presentation.setPalette(assets.palette());
+    for (int players : {2, 1}) {
+        presentation.initializeBackdropBuffer(players);
+        const int pitch = players == 2 ? 160 : 320;
+        if (presentation.backdropPitch() != pitch || presentation.backdropBuffer().size() != 60000)
+            throw std::runtime_error("startup gradient dimensions changed");
+        for (size_t i = 0; i < 60000; ++i)
+            if (presentation.backdropBuffer()[i] != static_cast<uint8_t>(176 + i / (4 * pitch)))
+                throw std::runtime_error("startup gradient bytes changed");
+    }
     core::TurboRandom random(0x1234abcd);
     presentation.buildBackdropBuffer(1, random);
     presentation.captureInitialPalette();

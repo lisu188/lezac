@@ -5,6 +5,7 @@
 #include "rendering/presentation_state.hpp"
 #include <SDL.h>
 #include "app/sdl_runtime.hpp"
+#include "app/startup_clock.hpp"
 #include "rendering/canvas.hpp"
 #include "rendering/color.hpp"
 #include "rendering/text_renderer.hpp"
@@ -723,7 +724,7 @@ public:
         // Playback diagnostics currently mutate a local sound-bank copy.
     }
 
-    void load() {
+    void load(bool buildPreviewBackdrop = true) {
         const char* jsonAssets = std::getenv("LEZAC_LOAD_JSON_ASSETS");
         const char* originalAssets = std::getenv("LEZAC_LOAD_ORIGINAL_ASSETS");
         if ((jsonAssets != nullptr && std::string(jsonAssets) != "0") ||
@@ -733,7 +734,8 @@ public:
             loadOriginalAssets();
         }
         presentation_.captureInitialPalette();
-        buildBackdropBuffer();
+        if (buildPreviewBackdrop) buildBackdropBuffer();
+        else presentation_.initializeBackdropBuffer(playerCount_);
     }
 
     void tickAndPresent(float dt, const std::function<void()>& afterPresent = {}) {
@@ -806,8 +808,11 @@ public:
     // one -- so the live loop's cadence is what gets measured, rather than a
     // second copy of it that could drift out of agreement.
     template <typename StopFn, typename ReadyFn>
-    long runInteractive(StopFn stop, ReadyFn onReady) {
-        load();
+    long runInteractive(StopFn stop, ReadyFn onReady,
+                        const std::function<uint32_t()>& readStartupClock = lezac::app::sampleStartupRandomSeed) {
+        // Original 25B1 seeds once before the menu; no city draws precede play.
+        load(false);
+        randomSeed_ = readStartupClock();
         initSdl();
         resetLevel(0);
         levelFlow_.setInteractiveEnabled(true);
@@ -22856,6 +22861,48 @@ public:
         std::cout << "capture_menu_frame=ok out=" << outPath << "\n";
     }
 
+    void debugStartupRng(const std::string& outDir, uint16_t cx, uint16_t dx, bool naturalClock) {
+        if (std::filesystem::exists(outDir)) throw std::runtime_error("startup RNG output already exists");
+        std::filesystem::create_directories(outDir);
+        uint32_t sampledSeed = 0;
+        int clockCalls = 0;
+        runInteractive([] { return true; }, [&] {
+            if (!ui_.snapshot().menu || randomSeed_ != sampledSeed)
+                throw std::runtime_error("startup consumed RNG before the menu");
+        }, [&] {
+            ++clockCalls;
+            sampledSeed = naturalClock ? lezac::app::sampleStartupRandomSeed() : uint32_t(cx) | (uint32_t(dx) << 16);
+            return sampledSeed;
+        });
+        draw();
+        writeArgbPpm(joinPath(outDir, "menu.ppm"), fb_, kScreenW, kScreenH);
+        const uint32_t menuSeed = randomSeed_;
+        replayClockEnabled_ = true;
+        replayMilliseconds_ = 0;
+        bool running = true;
+        onKey(SDLK_1, running);
+        const uint32_t introSeed = randomSeed_;
+        replayMilliseconds_ = 4000;
+        draw();
+        writeArgbPpm(joinPath(outDir, "intro.ppm"), fb_, kScreenW, kScreenH);
+        onKey(SDLK_RETURN, running);
+        const uint32_t gameplaySeed = randomSeed_;
+        tickAndPresent(static_cast<float>(kGovernedTickMs / 1000.0));
+        writeArgbPpm(joinPath(outDir, "first-present.ppm"), fb_, kScreenW, kScreenH);
+        const auto& backdrop = presentation_.backdropBuffer();
+        std::ofstream background(joinPath(outDir, "backdrop.bin"), std::ios::binary);
+        background.exceptions(std::ios::failbit | std::ios::badbit);
+        background.write(reinterpret_cast<const char*>(backdrop.data()), static_cast<std::streamsize>(backdrop.size()));
+        background.close();
+        if (clockCalls != 1 || randomSeed_ != gameplaySeed)
+            throw std::runtime_error("startup clock resampled or first frame consumed RNG");
+        replayClockEnabled_ = false;
+        std::cout << "startup_rng=ok natural_clock=" << naturalClock << " clock_calls=" << clockCalls
+                  << " initial_seed=" << sampledSeed << " menu_seed=" << menuSeed << " intro_seed=" << introSeed
+                  << " gameplay_seed=" << gameplaySeed << " first_present_seed=" << randomSeed_
+                  << " frame_inspection=1 whole_game_parity=0\n";
+    }
+
     void debugLevelIntro(const std::string& framePath = {}) {
         load();
         initSdl();
@@ -27865,6 +27912,14 @@ int lezac::app::runApplication(int argc, char** argv) {
         if (argc > 2 && std::string(argv[1]) == "--capture-menu-frame") {
             bool italian = !(argc > 3 && std::string(argv[3]) == "english");
             app.captureMenuFrame(argv[2], italian);
+            return 0;
+        }
+        if ((argc == 3 || argc == 5) && std::string(argv[1]) == "--debug-startup-rng") {
+            const uint16_t cx = argc == 5 ? static_cast<uint16_t>(lezac::diagnostics::level1::decimal(argv[3], 65535)) : 0;
+            const uint16_t dx = argc == 5 ? static_cast<uint16_t>(lezac::diagnostics::level1::decimal(argv[4], 65535)) : 0;
+            if (argc == 5 && ((cx >> 8) >= 24 || (cx & 255) >= 60 || (dx >> 8) >= 60 || (dx & 255) >= 100))
+                throw std::runtime_error("startup RNG clock fields out of range");
+            app.debugStartupRng(argv[2], cx, dx, argc == 3);
             return 0;
         }
         if (argc > 3 && std::string(argv[1]) == "--export-level-world") {

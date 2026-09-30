@@ -96,7 +96,8 @@
         "src/app/input_mapper.cpp",
         "src/app/input_mapper.hpp",
         "src/app/sdl_runtime.cpp",
-        "src/app/sdl_runtime.hpp"
+        "src/app/sdl_runtime.hpp",
+        "src/app/startup_clock.hpp"
       ],
       "dispatch": [
         "src/app/app.cpp",

@@ -42,6 +42,18 @@ int main() {
     gameplay::State2VisualCursor cursor;
     gameplay::State2EffectEntry effect;
     gameplay::BombInventory inventory;
+    inventory.counts = {98, 7, 3, 1};
+    presentation.sampleHudInventory(0, inventory, 1);
+    --inventory.counts[0];
+    inventory.selected = gameplay::BombType::Large;
+    presentation.sampleHudInventory(0, inventory, 2);
+    presentation.sampleHudInventory(0, inventory, 0);
+    presentation.sampleHudInventory(1, inventory, 1);
+    if (presentation.hudInventories()[0].counts[0] != 98 ||
+        presentation.hudInventories()[0].selected != gameplay::BombType::Small ||
+        presentation.hudInventories()[1].counts[0] != 97 ||
+        presentation.hudInventories()[1].selected != gameplay::BombType::Large)
+        throw std::runtime_error("HUD inventory did not retain its pre-player sample");
     std::vector<gameplay::Bomb> bombs(1);
     bombs[0].x = 5; bombs[0].y = 6;
     // Intentionally leave an unadopted actor. Rendering must not assign order.
@@ -55,8 +67,8 @@ int main() {
         {{{player, false, 3, cursor, effect}, {player2, false, 3, cursor, effect}}},
         bombs, monsters, rewards, flashes, markers, transients, visualOrder,
         320, true, 0, false, false};
-    rendering::HudView hud{2, {{{presentation.hudEnergy()[0], 0, 3, inventory},
-                              {presentation.hudEnergy()[1], 0, 3, inventory}}},
+    rendering::HudView hud{2, {{{presentation.hudEnergy()[0], 0, 3, presentation.hudInventories()[0]},
+                              {presentation.hudEnergy()[1], 0, 3, presentation.hudInventories()[1]}}},
         level.objectiveTile, level.requiredBonus, level.requiredDestruction, 1,
         presentation.hudDestructionPercent(), false, false, presentation.hudScores(), presentation.hudColumnReady()};
     const auto state = presentation.snapshot();
@@ -79,6 +91,8 @@ int main() {
     const auto seed = random.seed();
     renderer.drawGame(world, hud);
     const auto first = canvas.pixels();
+    inventory.counts.fill(0);
+    inventory.selected = gameplay::BombType::Super;
     for (int playerIndex = 0; playerIndex < 2; ++playerIndex) {
         const int start = 165 * 320 + playerIndex * 180 + 1;
         const int fill = playerIndex == 0 ? 73 : 41;
@@ -109,6 +123,9 @@ int main() {
             actual.hudPaletteQueue.count != expected.hudPaletteQueue.count)
             throw std::runtime_error("HUD presentation snapshot changed");
         for (size_t i = 0; i < 2; ++i) {
+            if (actual.hudInventories[i].counts != expected.hudInventories[i].counts ||
+                actual.hudInventories[i].selected != expected.hudInventories[i].selected)
+                throw std::runtime_error("rendering changed sampled HUD inventory");
             const auto& ae = actual.hudEnergy[i];
             const auto& ee = expected.hudEnergy[i];
             if (ae.cached != ee.cached || ae.fill != ee.fill || ae.painted != ee.painted)
@@ -124,6 +141,10 @@ int main() {
     };
     checkHud(state, after);
     presentation.resetHudForLevel();
+    for (const auto& cached : presentation.hudInventories()) {
+        if (cached.counts != gameplay::BombInventory{}.counts || cached.selected != gameplay::BombType::Small)
+            throw std::runtime_error("level reset retained sampled ammunition");
+    }
     for (const auto& energy : presentation.hudEnergy()) {
         if (energy.cached != 255 || energy.fill != 0 || energy.painted)
             throw std::runtime_error("level reset retained cached energy state");

@@ -37,6 +37,7 @@ Guarded: live runs require --approve-procmem and --approve-runtime-instrumentati
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import time
@@ -311,6 +312,14 @@ def run_live(args) -> int:
     run_dir = Path(args.run_dir).resolve()
     if not (run_dir / "LEZAC.EXE").is_file():
         raise RuntimeError(f"missing {run_dir / 'LEZAC.EXE'}")
+    loader = getattr(args, "resident_loader", None)
+    prelaunch = []
+    if loader is not None:
+        if (Path(loader).name != loader or not loader.lower().endswith(".com") or
+                any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_." for c in loader) or
+                not (run_dir / loader).is_file()):
+            raise RuntimeError("resident loader must name an existing COM file in the temporary run directory")
+        prelaunch = ["-c", loader]
 
     conf = run_dir / "dosbox-seed.conf"
     conf.write_text(
@@ -321,7 +330,8 @@ def run_live(args) -> int:
     )
     dosbox = subprocess.Popen(
         ["dosbox", "-conf", str(conf), "-c", f"mount c {run_dir}",
-         "-c", "c:", "-c", "LEZAC.EXE"],
+         "-c", "c:", *prelaunch, "-c", "LEZAC.EXE"],
+        env=dict(os.environ, SDL_AUDIODRIVER="dummy"),
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     try:
@@ -637,6 +647,7 @@ def main() -> int:
     parser.add_argument("--self-check", action="store_true",
                         help="static contract check against LEZAC.EXE (no DOSBox)")
     parser.add_argument("--run-dir", help="directory with LEZAC.EXE + assets")
+    parser.add_argument("--resident-loader", help="COM recorder loader in the temporary run directory, run before LEZAC.EXE")
     parser.add_argument("--start-key", default="1")
     parser.add_argument("--start-taps", type=int, default=2)
     parser.add_argument("--startup-seconds", type=float, default=6.0)

@@ -23,6 +23,7 @@ FIELDS = {
 
 def parse(text):
     records = []
+    objective_context = False
     for line in text.splitlines():
         parts = line.split()
         if not parts or parts[0] not in FIELDS:
@@ -33,7 +34,14 @@ def parse(text):
             if not separator or not value or key in values:
                 raise RuntimeError("invalid or duplicate capture field")
             values[key] = value
-        if set(values) != set(FIELDS[tag].split()):
+        if not records and tag == "capture":
+            objective_context = values.get("schema") == "held_fire_irq_v4"
+        expected_fields = set(FIELDS[tag].split())
+        if objective_context and tag == "capture":
+            expected_fields.add("death_sha256")
+        if objective_context and tag == "sample":
+            expected_fields.update(capture.CONTEXT_FIELDS)
+        if set(values) != expected_fields:
             raise RuntimeError(f"invalid {tag} fields")
         records.append((tag, values))
     return records
@@ -44,13 +52,17 @@ def validate_text(text):
     if not records or records[0][0] != "capture" or records[-1][0] != "complete":
         raise RuntimeError("capture is incomplete")
     header = records[0][1]
-    expected = dict(schema="held_fire_irq_v3", level="1", physical_keys="1", gameplay_seeded="0",
+    objective_context = header["schema"] == "held_fire_irq_v4"
+    expected = dict(schema="held_fire_irq_v4" if objective_context else "held_fire_irq_v3", level="1", physical_keys="1", gameplay_seeded="0",
                     main_loop_wait="0", irq_masked_during_record="1", exe_sha256=capture.EXE_SHA256,
-                    hooks="10a1,7a57", slots="16", stride="128")
+                    hooks="10a1,7a57,30f6" if objective_context else "10a1,7a57", slots="16", stride="128")
     if any(header[key] != value for key, value in expected.items()):
         raise RuntimeError("capture provenance contract mismatch")
     image = (capture.ROOT / "LEZAC.EXE").read_bytes()[0x770:]
-    for name, stub in (("irq", capture.irq_stub(image)), ("frame", capture.frame_stub(image))):
+    stubs = [("irq", capture.irq_stub(image)), ("frame", capture.frame_stub(image, objective_context))]
+    if objective_context:
+        stubs.append(("death", capture.death_stub(image)))
+    for name, stub in stubs:
         if header[name + "_sha256"] != hashlib.sha256(stub).hexdigest():
             raise RuntimeError("instrumentation stub identity mismatch")
     for key in ("source_sha256", "dosbox_sha256"):
@@ -104,17 +116,21 @@ def validate_text(text):
         else:
             raise RuntimeError("duplicate header or completion")
     result = capture.validate_lifecycle(samples, events, header["mode"])
+    if objective_context:
+        capture.validate_objective_context(samples)
     if observed != result or screenshots != ["dying", "resumed", "final"]:
         raise RuntimeError("observation summary or preview set mismatch")
+    hooks = capture.HOOKS + ((capture.CONTEXT_HOOK,) if objective_context else ())
     expected_restored = [dict(hook=f"{entry:04x}", bytes=image[entry:entry + length].hex())
-                         for entry, length, _ in capture.HOOKS]
+                         for entry, length, _ in hooks]
     if restored != expected_restored:
         raise RuntimeError("missing or incorrect original hook restoration")
     complete = records[-1][1]
-    expected_complete = dict(result, hooks_restored=2, game_process_exited=1, whole_game_parity=0)
+    expected_complete = dict(result, hooks_restored=len(hooks), game_process_exited=1, whole_game_parity=0)
     if complete != {key: str(value) for key, value in expected_complete.items()}:
         raise RuntimeError("completion summary mismatch")
-    return dict(result, mode=header["mode"], input_events=len(events), previews=len(screenshots))
+    return dict(result, mode=header["mode"], input_events=len(events), previews=len(screenshots),
+                objective_context=int(objective_context), hooks_restored=len(hooks))
 
 
 def main():
@@ -123,7 +139,7 @@ def main():
     args = parser.parse_args()
     result = validate_text(args.capture.read_text(encoding="ascii"))
     print("held_fire_observation=ok " + " ".join(f"{key}={value}" for key, value in result.items()) +
-          " hooks_restored=2 game_process_exited=1 cpp_parity=0")
+          " game_process_exited=1 cpp_parity=0")
 
 
 if __name__ == "__main__":

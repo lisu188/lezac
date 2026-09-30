@@ -2,6 +2,7 @@
 """Unit checks for recorder restoration, ring coherence and lifecycle rejection."""
 
 import copy
+import gzip
 import io
 import hashlib
 import json
@@ -56,6 +57,8 @@ class HookTests(unittest.TestCase):
         self.memory = bytearray(0xA0000)
         for at, original in capture.WINDOWS.items():
             self.memory[self.cs + at:self.cs + at + len(original)] = original
+        for at, original in ((0x30C1, capture.CONTEXT_WINDOW), (0x30F6, IMAGE[0x30F6:0x30FB])):
+            self.memory[self.cs + at:self.cs + at + len(original)] = original
         self.calls, self.stopped = [], False
 
     def read(self, at, size):
@@ -72,9 +75,9 @@ class HookTests(unittest.TestCase):
     def resume(self):
         self.stopped = False
 
-    def hooks(self, write=None, read=None):
+    def hooks(self, write=None, read=None, objective_context=False):
         return capture.runtime_hooks(read or self.read, write or self.write, self.stop, self.resume,
-                                     self.cs, self.recorder, self.segment, IMAGE)
+                                     self.cs, self.recorder, self.segment, IMAGE, objective_context)
 
     def assert_restored(self):
         for entry, length, _ in capture.HOOKS:
@@ -154,6 +157,147 @@ class HookTests(unittest.TestCase):
                        lambda at, size: raw if size == capture.STRIDE else b"\0\0"):
             with self.assertRaises(RuntimeError):
                 capture.read_record(reader, 0, 0, 1)
+
+    def test_context_hook_and_every_partial_write_restore(self):
+        for fail_index in range(6):
+            with self.subTest(write=fail_index):
+                self.setUp()
+                calls = 0
+
+                def partial(at, data):
+                    nonlocal calls
+                    index, calls = calls, calls + 1
+                    if index == fail_index:
+                        self.write(at, data[:2])
+                        raise OSError("partial context write")
+                    self.write(at, data)
+
+                with self.assertRaisesRegex(OSError, "partial context write"):
+                    with self.hooks(write=partial, objective_context=True):
+                        self.fail("partial hook reached observation")
+                self.assert_restored()
+                self.assertEqual(self.read(self.cs + 0x30F6, 5), IMAGE[0x30F6:0x30FB])
+        self.setUp()
+        with self.hooks(objective_context=True) as restored:
+            self.assertFalse(self.stopped)
+        self.assertEqual(len(restored), 3)
+        self.assert_restored()
+
+    def test_context_guard_is_checked_before_writes(self):
+        for offset in (0x30C1, 0x30F6):
+            self.setUp()
+            self.memory[self.cs + offset] = 0
+            with self.assertRaisesRegex(RuntimeError, "runtime objective guard"):
+                with self.hooks(objective_context=True):
+                    self.fail("invalid original gate accepted")
+            self.assertEqual(self.calls, [])
+            self.assertFalse(self.stopped)
+
+
+class ObjectiveContextTests(unittest.TestCase):
+    def test_pinned_original_v4_capture_and_mutations(self):
+        root = capture.ROOT / "tests/fixtures/held_fire_objectives_original"
+        pins = json.loads((root / "pins.json").read_text())
+        raw = (root / pins["capture"]).read_bytes()
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), pins["compressed_sha256"])
+        text = gzip.decompress(raw).decode("ascii")
+        self.assertEqual(hashlib.sha256(text.encode("ascii")).hexdigest(), pins["canonical_text_sha256"])
+        self.assertFalse(pins["gameplay_seeded"])
+        self.assertFalse(pins["frame_alignment"])
+        self.assertFalse(pins["whole_game_parity"])
+        for newline in ("\n", "\r\n"):
+            result = checker.validate_text(text.replace("\n", newline))
+            for field in ("samples", "dying_seq", "waiting_seq", "resumed_seq", "makes", "breaks", "hooks_restored"):
+                self.assertEqual(result[field], pins[field])
+            self.assertEqual(result["objective_context"], 1)
+        records = checker.parse(text)
+        samples = [fields for tag, fields in records if tag == "sample"]
+        self.assertEqual(int(samples[0]["rng"]), pins["first_observed_rng"])
+        death = samples[pins["dying_seq"] - 1]
+        for field in ("death_frame", "death_rng", "death_collected", "death_remaining", "death_required", "death_gate"):
+            self.assertEqual(int(death[field]), pins[field])
+        for field, value in (("rng", "4294967296"), ("remaining", "1981"), ("death_gate", "0"),
+                             ("death_required", "2"), ("death_count", "2"), ("death_frame", "603"),
+                             ("death_player", "2"), ("death_rng", "4294967296")):
+            original = death[field]
+            death[field] = value
+            mutated = "\n".join(tag + " " + " ".join(f"{key}={value}" for key, value in fields.items()) for tag, fields in records)
+            with self.subTest(field=field), self.assertRaises(RuntimeError):
+                checker.validate_text(mutated)
+            death[field] = original
+
+    def rows(self):
+        rows, _ = lifecycle("hold_through")
+        for row in rows:
+            death = row["seq"] >= 30
+            row.update(rng=1234 + row["seq"], required=8, collected=1 if death else 0,
+                       remaining=7 if death else 8, objective=108,
+                       death_count=int(death), death_frame=rows[28]["frame"] if death else 0,
+                       death_rng=5678 if death else 0, death_required=8 if death else 0,
+                       death_collected=0, death_remaining=8 if death else 0,
+                       death_objective=108 if death else 0, death_gate=int(death), death_player=int(death))
+        return rows
+
+    def test_binary_context_fits_existing_ring(self):
+        row = self.rows()[29]
+        raw = bytes(99) + struct.pack("<IHHHBHHIHHHBBB", *(row[key] for key in capture.CONTEXT_FIELDS)) + b"\0"
+        self.assertEqual(len(raw), capture.STRIDE)
+        self.assertEqual(capture.objective_context_from_record(raw), {key: row[key] for key in capture.CONTEXT_FIELDS})
+        with self.assertRaises(RuntimeError):
+            capture.objective_context_from_record(raw[:-1])
+        self.assertLess(0x300 + len(capture.frame_stub(IMAGE, True)), 0x500)
+        self.assertLess(0x500 + len(capture.death_stub(IMAGE)), capture.DEATH_CONTEXT)
+        self.assertIn(bytes.fromhex("538a16b4798b0eba7831db1ec536e0c1ac38d0750143e2f81f89d8ab5b"), capture.frame_stub(IMAGE, True))
+
+    def test_exact_boundary_not_recomputed_from_later_counts(self):
+        rows = self.rows()
+        rows[30]["remaining"] = 0
+        capture.validate_objective_context(rows)
+
+    def test_context_mutations_fail(self):
+        for field, value in (("death_count", 2), ("death_gate", 0), ("death_player", 2),
+                             ("death_required", 9), ("death_frame", 123), ("rng", -1),
+                             ("remaining", 1981), ("death_rng", 0x100000000), ("collected", "1")):
+            rows = self.rows()
+            rows[30][field] = value
+            with self.subTest(field=field), self.assertRaises(RuntimeError):
+                capture.validate_objective_context(rows)
+        rows = self.rows()
+        rows[0]["death_remaining"] = 8
+        with self.assertRaises(RuntimeError):
+            capture.validate_objective_context(rows)
+
+    def test_v4_parser_keeps_v3_fixture_unchanged(self):
+        original = (capture.ROOT / "tests/fixtures/held_fire_original/hold_through.txt").read_text(encoding="ascii")
+        records = checker.parse(original)
+        header = records[0][1]
+        header.update(schema="held_fire_irq_v4", hooks="10a1,7a57,30f6",
+                      frame_sha256=hashlib.sha256(capture.frame_stub(IMAGE, True)).hexdigest(),
+                      death_sha256=hashlib.sha256(capture.death_stub(IMAGE)).hexdigest())
+        dying = next(fields for tag, fields in records if tag == "sample" and bytes.fromhex(fields["p1"])[21] == 2)
+        death_seq, death_frame = int(dying["seq"]), int(dying["frame"])
+        for tag, fields in records:
+            if tag != "sample":
+                continue
+            death = int(fields["seq"]) >= death_seq
+            context = dict(rng=1234, required=8, collected=0, remaining=8, objective=108,
+                           death_count=int(death), death_frame=(death_frame - 1) % 65536 if death else 0,
+                           death_rng=5678 if death else 0, death_required=8 if death else 0,
+                           death_collected=0, death_remaining=8 if death else 0,
+                           death_objective=108 if death else 0, death_gate=int(death), death_player=int(death))
+            fields.update({key: str(value) for key, value in context.items()})
+        records.insert(-1, ("restored", dict(hook="30f6", bytes=IMAGE[0x30F6:0x30FB].hex())))
+        records[-1][1]["hooks_restored"] = "3"
+
+        def text():
+            return "\n".join(tag + " " + " ".join(f"{key}={value}" for key, value in fields.items()) for tag, fields in records)
+
+        # Synthetic extension for parser coverage, not a new original capture.
+        self.assertEqual(checker.validate_text(text())["objective_context"], 1)
+        header["death_sha256"] = "0" * 64
+        with self.assertRaisesRegex(RuntimeError, "stub identity"):
+            checker.validate_text(text())
+        self.assertEqual(checker.validate_text(original)["objective_context"], 0)
 
 
 class LifecycleTests(unittest.TestCase):
@@ -327,6 +471,44 @@ class LiveValidationTests(unittest.TestCase):
             events.pop()
             with self.assertRaises(RuntimeError):
                 live.validate_live(rows, events, reference)
+
+    def context(self, gate=1):
+        rows, _, _ = self.converted("hold_through")
+        for row in rows:
+            row.update(rng=1234, collected=0, remaining=8 if gate else 7, required=8, objective=108)
+            if row["seq"] >= 30:
+                row["gate"] = gate
+        death = dict(after_seq=29, frame=30, player=1, gate=gate, level=1, reset=2,
+                     rng=5678, collected=0, remaining=8 if gate else 7, required=8, objective=108)
+        return rows, [death], [dict(menu=1, rng=91011)]
+
+    def test_live_context_reports_open_and_closed_gates_without_parity(self):
+        for gate in (0, 1):
+            rows, deaths, statuses = self.context(gate)
+            rows[30]["remaining"] = 0
+            result = live.summarize_objective_context(rows, deaths, statuses)
+            self.assertEqual(result["death_boundaries"][0]["gate"], gate)
+            self.assertEqual(result["startup_menu_rng"], 91011)
+            self.assertEqual(result["whole_game_parity"], 0)
+            self.assertTrue(result["gate_formula_match"])
+
+    def test_live_context_rejects_missing_or_detached_boundaries(self):
+        for field, value in (("after_seq", 30), ("frame", 31), ("gate", 0),
+                             ("remaining", 7), ("player", 2), ("reset", 3), ("rng", -1)):
+            rows, deaths, statuses = self.context()
+            deaths[0][field] = value
+            with self.subTest(field=field), self.assertRaises(RuntimeError):
+                live.summarize_objective_context(rows, deaths, statuses)
+        rows, _, statuses = self.context()
+        with self.assertRaisesRegex(RuntimeError, "exact gate boundary"):
+            live.summarize_objective_context(rows, [], statuses)
+        rows[0].pop("remaining")
+        with self.assertRaisesRegex(RuntimeError, "objective context"):
+            live.summarize_objective_context(rows, [], statuses)
+        rows, deaths, _ = self.context()
+        for statuses in ([], [dict(menu=1, rng=-1)], [dict(menu=1)], [dict(menu=0, rng=123)]):
+            with self.subTest(statuses=statuses), self.assertRaisesRegex(RuntimeError, "startup menu RNG"):
+                live.summarize_objective_context(rows, deaths, statuses)
 
 
 if __name__ == "__main__":

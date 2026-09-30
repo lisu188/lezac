@@ -2,6 +2,7 @@
 """Compare natural held-fire lifecycle semantics using real SDL/XTEST input."""
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,34 @@ import time
 from check_held_fire_capture import parse, validate_text
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def summarize_objective_context(rows, deaths, statuses):
+    fields = ("rng", "collected", "remaining", "required", "objective")
+    for row in rows + deaths:
+        if any(type(row.get(key)) is not int for key in fields) or not (
+                0 <= row["rng"] <= 0xFFFFFFFF and 0 <= row["collected"] <= 65535 and
+                0 <= row["remaining"] <= 1980 and 0 <= row["required"] <= 65535 and
+                0 <= row["objective"] <= 255):
+            raise RuntimeError("missing or invalid read-only objective context")
+    for death in deaths:
+        if death["player"] != 1 or death["level"] != 1 or not rows or death["reset"] != rows[0]["reset"]:
+            raise RuntimeError("unexpected objective death boundary")
+        if death["gate"] != int(death["collected"] + death["remaining"] >= death["required"]):
+            raise RuntimeError("latched death gate differs from its objective counts")
+        sampled = next((row for row in rows if row["seq"] == death["after_seq"] + 1), None)
+        if sampled is None or sampled["frame"] != death["frame"] or not sampled["dead"] or sampled["gate"] != death["gate"]:
+            raise RuntimeError("death context is not tied to its gameplay update")
+    first_death = next((row for row in rows if row["dead"]), None)
+    if first_death is not None and (not deaths or deaths[0]["after_seq"] + 1 != first_death["seq"]):
+        raise RuntimeError("natural death lacks its exact gate boundary")
+    menu = next((row for row in statuses if row.get("menu") == 1), None)
+    if menu is None or type(menu.get("rng")) is not int or not 0 <= menu["rng"] <= 0xFFFFFFFF:
+        raise RuntimeError("startup menu RNG was not observed before input")
+    return dict(startup_menu_rng=menu["rng"],
+                first_observed={key: rows[0][key] for key in ("frame",) + fields} if rows else None,
+                death_boundaries=deaths, gate_formula_match=bool(deaths),
+                gameplay_seeded=0, frame_alignment=0, whole_game_parity=0)
 
 
 def validate_live(rows, events, original):
@@ -98,6 +127,12 @@ def main():
     first_press_after_frame = first_frame + start_after - 1
     args.out.mkdir(parents=True, exist_ok=False)
     env = dict(os.environ, SDL_AUDIODRIVER="dummy", SDL_VIDEODRIVER="x11")
+    identity = dict(exe_sha256=hashlib.sha256(args.exe.read_bytes()).hexdigest(),
+                    observer_source_sha256=hashlib.sha256((ROOT / "src/app/app.cpp").read_bytes()).hexdigest(),
+                    harness_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                    original_capture_sha256=hashlib.sha256(original_text.encode("ascii")).hexdigest(),
+                    cwd=str(ROOT), audio="dummy", physical_keys=1, gameplay_seeded=0)
+    (args.out / "identity.json").write_text(json.dumps(identity, indent=2) + "\n")
     events = []
     with (args.out / "process.log").open("w") as log:
         child = subprocess.Popen([str(args.exe.resolve()), "--debug-held-fire-live", str(args.out.resolve())],
@@ -113,6 +148,12 @@ def main():
             def samples():
                 return [{k: v if k in ("phase", "file") else float(v) if k in ("x", "y") else int(v)
                          for k, v in row.items()} for tag, row in records() if tag == "sample"]
+
+            def objective_context():
+                trace = records()
+                deaths = [{key: int(value) for key, value in row.items()} for tag, row in trace if tag == "death"]
+                statuses = [{key: int(value) for key, value in row.items()} for tag, row in trace if tag == "status"]
+                return summarize_objective_context(samples(), deaths, statuses)
 
             def wait(predicate, timeout=65):
                 deadline = time.monotonic() + timeout
@@ -157,6 +198,7 @@ def main():
             wait(lambda: samples()[-1]["seq"] >= resumed["seq"] + 24)
             rows = samples()
             result = validate_live(rows, events, original)
+            context = objective_context()
             command("key", "--delay", "100", "Escape", "Escape")
             if child.wait(timeout=10) != 0:
                 raise RuntimeError("C++ process failed during exit")
@@ -166,8 +208,12 @@ def main():
                     raise RuntimeError("missing or blank gameplay checkpoint")
         except BaseException as error:
             try:
-                (args.out / "failure.json").write_text(json.dumps(dict(
-                    status="incomplete", error=str(error), events=events, whole_game_parity=False), indent=2) + "\n")
+                failure = dict(status="incomplete", error=str(error), events=events, whole_game_parity=False)
+                try:
+                    failure["objective_context"] = objective_context()
+                except Exception as context_error:
+                    failure["objective_context_error"] = str(context_error)
+                (args.out / "failure.json").write_text(json.dumps(failure, indent=2) + "\n")
             except OSError:
                 pass
             raise
@@ -182,7 +228,7 @@ def main():
                     except subprocess.TimeoutExpired:
                         child.kill()
                         child.wait(timeout=5)
-    (args.out / "result.json").write_text(json.dumps(dict(result, events=events), indent=2) + "\n")
+    (args.out / "result.json").write_text(json.dumps(dict(result, events=events, objective_context=context), indent=2) + "\n")
     print("held_fire_sdl=ok " + " ".join(f"{k}={v}" for k, v in result.items()), flush=True)
 
 

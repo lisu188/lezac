@@ -9596,7 +9596,19 @@ public:
                 auto& cooldown = marker == 1 ? damageCooldown_ : damageCooldown2_;
                 auto& supply = marker == 1 ? bombInventory_ : bombInventory2_;
                 supply.counts = {1, 2, 0, 7}; supply.selected = BombType::Super;
+                int gateObservations = 0;
+                const auto seedBeforeDeath = randomSeed_;
+                debugDeathGateObserver_ = [&](uint8_t observedMarker) {
+                    if (observedMarker != marker || reentryGate_ != gate || playerDead_ || player2Dead_ ||
+                        randomSeed_ != seedBeforeDeath || energy != 100 ||
+                        (collected_ + remainingObjectiveTiles() >= level_.requiredBonus) != gate) {
+                        throw std::runtime_error("read-only death gate boundary");
+                    }
+                    ++gateObservations;
+                };
                 beginPlayerDeath(player, energy, lives, dead, timer, static_cast<uint8_t>(marker));
+                debugDeathGateObserver_ = {};
+                if (gateObservations != 1 || randomSeed_ != seedBeforeDeath) throw std::runtime_error("death gate observation count/RNG");
                 if (reentryGate_ != gate || timer != 60) throw std::runtime_error("death gate latch");
                 if (gate) level_.tiles.assign(level_.tiles.size(), 0);
                 else level_.tiles = originalTiles;
@@ -14077,6 +14089,17 @@ public:
         uint32_t started = 0, previousTick = UINT32_MAX;
         int sequence = 0, makes = 0, breaks = 0, repeats = 0, previousStage = -1;
         bool wasDead = false;
+        auto objectiveContext = [&] {
+            trace << " rng=" << randomSeed_ << " collected=" << collected_
+                  << " remaining=" << remainingObjectiveTiles() << " required=" << level_.requiredBonus
+                  << " objective=" << int(level_.objectiveTile);
+        };
+        debugDeathGateObserver_ = [&](uint8_t marker) {
+            trace << "death after_seq=" << sequence << " frame=" << logicTick_ << " player=" << int(marker)
+                  << " gate=" << reentryGate_ << " level=" << levelIndex_ + 1 << " reset=" << levelResetGeneration_;
+            objectiveContext();
+            trace << '\n' << std::flush;
+        };
         debugPhysicalInputObserver_ = [&](const SDL_Event& event) {
             if ((event.type != SDL_KEYDOWN && event.type != SDL_KEYUP) || event.key.keysym.sym != SDLK_n) return;
             if (event.type == SDL_KEYDOWN) { ++makes; repeats += event.key.repeat != 0; }
@@ -14088,7 +14111,9 @@ public:
             const bool menu = ui_.snapshot().menu, intro = levelFlow_.intro().active;
             const int stage = menu ? 0 : intro ? 1 : 2;
             if (stage != previousStage) {
-                trace << "status menu=" << menu << " intro=" << intro << " level=" << levelIndex_ + 1 << '\n' << std::flush;
+                trace << "status menu=" << menu << " intro=" << intro << " level=" << levelIndex_ + 1;
+                objectiveContext();
+                trace << '\n' << std::flush;
                 previousStage = stage;
             }
             if (menu || intro || levelFlow_.outro().active || logicTick_ == previousTick) return;
@@ -14108,22 +14133,29 @@ public:
                   << " countdown=" << deathStateTimer_ << " lives=" << lives_ << " energy=" << energy_
                   << " fallback=" << int(noActivePlayerTicks_) << " gate=" << reentryGate_
                   << " level=" << levelIndex_ + 1 << " reset=" << levelResetGeneration_
-                  << " ammo=" << bombInventory_.counts[0] << " x=" << player_.x << " y=" << player_.y
-                  << " phase=" << phase << " file=" << file << '\n' << std::flush;
+                  << " ammo=" << bombInventory_.counts[0] << " x=" << player_.x << " y=" << player_.y;
+            objectiveContext();
+            trace << " phase=" << phase << " file=" << file << '\n' << std::flush;
         };
         try {
             runInteractive([&] { return SDL_GetTicks() - started > 90000; }, [&] {
                 started = SDL_GetTicks();
+                trace << "status menu=" << ui_.snapshot().menu << " intro=" << levelFlow_.intro().active
+                      << " level=" << levelIndex_ + 1;
+                objectiveContext();
+                trace << '\n' << std::flush;
                 std::cout << "held_fire_live=ready audio=" << (SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "none")
                           << " physical_keys=1 gameplay_seeded=0\n" << std::flush;
             });
         } catch (...) {
             debugInteractiveTickObserver_ = {};
             debugPhysicalInputObserver_ = {};
+            debugDeathGateObserver_ = {};
             throw;
         }
         debugInteractiveTickObserver_ = {};
         debugPhysicalInputObserver_ = {};
+        debugDeathGateObserver_ = {};
         std::cout << "held_fire_live=stopped samples=" << sequence << '\n';
     }
 
@@ -23372,6 +23404,7 @@ private:
     std::function<void()> debugActorPassObserver_;
     std::function<void()> debugInteractiveTickObserver_;
     std::function<void(const SDL_Event&)> debugPhysicalInputObserver_;
+    std::function<void(uint8_t)> debugDeathGateObserver_;
     std::function<void(const char*)> debugReentryBoundaryObserver_;
     std::vector<DebrisRecord> debrisQueue_;
     std::vector<CollapseRecord> collapseQueue_;
@@ -25606,6 +25639,7 @@ private:
         // 1000:30C1..30F5 latches one shared gate at death. Waiting does not
         // recompute it when objective tiles or the collected count change.
         reentryGate_ = canReenterLevel();
+        if (debugDeathGateObserver_) debugDeathGateObserver_(startMarker);
         pendingLifeLossFor(startMarker) = lives >= 0;
         energy = 100;
         deathStateTimerFor(startMarker) = kDeathStateTicks;

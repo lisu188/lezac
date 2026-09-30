@@ -26,6 +26,12 @@ ROOT = Path(__file__).resolve().parent.parent
 EXE_SHA256 = "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec"
 CS, COUNTERS, RING, STRIDE, SLOTS = 0x01ED, 0x7F0, 0x800, 128, 16
 HOOKS = ((0x10A1, 6, 0x200), (0x7A57, 5, 0x300))
+CONTEXT_HOOK = (0x30F6, 5, 0x500)
+DEATH_CONTEXT, DEATH_CONTEXT_SIZE = 0x700, 17
+CONTEXT_FIELDS = "rng required collected remaining objective death_count death_frame death_rng death_required death_collected death_remaining death_objective death_gate death_player".split()
+CONTEXT_WINDOW = bytes.fromhex(
+    "8a1eb4798b0eba7831d21e8e1efec1ac38d8750142e2f81f89167420"
+    "a18820030674203b0686207207c606ca7901eb05c606ca7900")
 WINDOWS = {0x10A1: bytes.fromhex("e460b4013c2c"),
            0x10BD: bytes.fromhex("3c31750488267b1b"),
            0x110F: bytes.fromhex("3cb1750488267b1b"),
@@ -44,7 +50,7 @@ def irq_stub(image):
     return bytes(code + b"\x9d" + image[entry + 4:entry + length] + b"\xcb")
 
 
-def frame_stub(image):
+def frame_stub(image, objective_context=False):
     entry, length, target = HOOKS[1]
     # Preserve flags/registers/ES and briefly mask IRQs for a coherent record.
     code = bytearray.fromhex("9cfa6006fc8cc88ec0")
@@ -60,15 +66,77 @@ def frame_stub(image):
     for address in (COUNTERS + 2, COUNTERS + 4):
         code += b"\x2e\xa1" + struct.pack("<H", address) + b"\xab"
     code += bytes.fromhex("a0b779aa")
+    if objective_context:
+        for address, count in ((0x1AFE, 4), (0x2086, 4)):
+            code += b"\xbe" + struct.pack("<H", address) + b"\xb9" + struct.pack("<H", count) + b"\xf3\xa4"
+        # Read the current tile plane; the death hook separately retains the
+        # original's own DS:2074 count at the exact latched-gate boundary.
+        # BX holds the ring slot's commit address outside this scan.
+        code += bytes.fromhex("538a16b4798b0eba7831db1ec536e0c1ac38d0750143e2f81f89d8ab5b")
+        code += bytes.fromhex("a0b479aa1e0e1fbe") + struct.pack("<H", DEATH_CONTEXT)
+        code += b"\xb9" + struct.pack("<H", DEATH_CONTEXT_SIZE) + bytes.fromhex("f3a41f")
     code += bytes.fromhex("58268907") + b"\x2e\xa3" + struct.pack("<H", COUNTERS)
     code += bytes.fromhex("07619d") + image[entry:entry + length] + b"\xcb"
-    if target + len(code) > COUNTERS:
+    if target + len(code) > (CONTEXT_HOOK[2] if objective_context else COUNTERS):
         raise RuntimeError("frame recorder overlaps counters")
     return bytes(code)
 
 
+def death_stub(image):
+    entry, length, target = CONTEXT_HOOK
+    code = bytearray.fromhex("9cfa6006fc8cc88ec0bf") + struct.pack("<H", DEATH_CONTEXT + 2)
+    for address, count in ((0x78C2, 2), (0x1AFE, 4), (0x2086, 4), (0x2074, 2),
+                           (0x79B4, 1), (0x79CA, 1)):
+        code += b"\xbe" + struct.pack("<H", address) + b"\xb9" + struct.pack("<H", count) + b"\xf3\xa4"
+    code += bytes.fromhex("8a4604aa2eff06") + struct.pack("<H", DEATH_CONTEXT)
+    code += bytes.fromhex("07619d") + image[entry:entry + length] + b"\xcb"
+    if target + len(code) > DEATH_CONTEXT:
+        raise RuntimeError("death recorder overlaps context")
+    return bytes(code)
+
+
+def objective_context_from_record(raw):
+    if len(raw) != STRIDE:
+        raise RuntimeError("invalid objective-context record size")
+    values = struct.unpack_from("<IHHHBHHIHHHBBB", raw, 99)
+    return dict(zip(CONTEXT_FIELDS, values))
+
+
+def validate_objective_context(rows):
+    previous_count, previous_death = 0, None
+    for row in rows:
+        if any(type(row[key]) is not int for key in CONTEXT_FIELDS):
+            raise RuntimeError("invalid objective-context number")
+        for prefix in ("", "death_"):
+            if not (0 <= row[prefix + "rng"] <= 0xFFFFFFFF and
+                    0 <= row[prefix + "required"] <= 65535 and
+                    0 <= row[prefix + "collected"] <= 65535 and
+                    0 <= row[prefix + "remaining"] <= 1980 and
+                    0 <= row[prefix + "objective"] <= 255):
+                raise RuntimeError("objective-context bounds")
+        count = row["death_count"]
+        if count not in (previous_count, previous_count + 1) or count > 1:
+            raise RuntimeError("multiple or missing objective death boundaries")
+        death = tuple(row[key] for key in CONTEXT_FIELDS if key.startswith("death_"))
+        if not count:
+            if any(death):
+                raise RuntimeError("uninitialized death context")
+        else:
+            gate = int(((row["death_collected"] + row["death_remaining"]) & 65535) >= row["death_required"])
+            if row["death_gate"] != gate or row["gate"] != gate or row["death_player"] != 1:
+                raise RuntimeError("objective death gate formula mismatch")
+            if count == previous_count and death != previous_death:
+                raise RuntimeError("death context changed after latching")
+            if count > previous_count and (row["p1"][21] != 2 or
+                                           row["death_frame"] not in (row["frame"], (row["frame"] - 1) % 65536)):
+                raise RuntimeError("objective death context is outside its frame boundary")
+        previous_count, previous_death = count, death
+    if previous_count != 1:
+        raise RuntimeError("missing objective death boundary")
+
+
 @contextmanager
-def runtime_hooks(read, write, stop, resume, cs, recorder, segment, image):
+def runtime_hooks(read, write, stop, resume, cs, recorder, segment, image, objective_context=False):
     """Restore every attempted patch, including a partially written CALL."""
     attempted, restored = [], []
     try:
@@ -77,10 +145,15 @@ def runtime_hooks(read, write, stop, resume, cs, recorder, segment, image):
             for at, expected in WINDOWS.items():
                 if read(cs + at, len(expected)) != expected:
                     raise RuntimeError(f"runtime guard {at:04x}")
+            if objective_context:
+                for at, expected in ((0x30C1, CONTEXT_WINDOW), (CONTEXT_HOOK[0], bytes.fromhex("8a460430e4"))):
+                    if read(cs + at, len(expected)) != expected:
+                        raise RuntimeError(f"runtime objective guard {at:04x}")
             if read(recorder + 0x200, 0xE00) != bytes(0xE00):
                 raise RuntimeError("recorder arena is occupied")
-            for index, (entry, length, target) in enumerate(HOOKS):
-                stub = irq_stub(image) if index == 0 else frame_stub(image)
+            hooks = HOOKS + ((CONTEXT_HOOK,) if objective_context else ())
+            for index, (entry, length, target) in enumerate(hooks):
+                stub = irq_stub(image) if index == 0 else frame_stub(image, objective_context) if index == 1 else death_stub(image)
                 write(recorder + target, stub)
                 if read(recorder + target, len(stub)) != stub:
                     raise RuntimeError("recorder stub verification failed")
@@ -213,7 +286,7 @@ def validate_lifecycle(samples, events, mode):
                 resumed_seq=resumed, makes=previous_makes, breaks=previous_breaks)
 
 
-def observe(pid, base, run_dir, output, image, mode):
+def observe(pid, base, run_dir, output, image, mode, objective_context=False):
     cs, ds = base + (CS << 4), base + (seeder.RUNTIME_DS << 4)
     palette = (ROOT / "BOMPAL.PAL").read_bytes()
     with open(f"/proc/{pid}/mem", "r+b", buffering=0) as mem:
@@ -248,11 +321,15 @@ def observe(pid, base, run_dir, output, image, mode):
         recorder, segment, mcb = residents[0]
         if cs < recorder + RESIDENT_PARAGRAPHS * 16:
             raise RuntimeError("recorder overlaps original executable")
-        lines = [f"capture schema=held_fire_irq_v3 mode={mode} level=1 physical_keys=1 gameplay_seeded=0 main_loop_wait=0"
-                 f" irq_masked_during_record=1 exe_sha256={EXE_SHA256} hooks=10a1,7a57 slots={SLOTS} stride={STRIDE}"
+        schema = "held_fire_irq_v4" if objective_context else "held_fire_irq_v3"
+        hooks_text = "10a1,7a57,30f6" if objective_context else "10a1,7a57"
+        lines = [f"capture schema={schema} mode={mode} level=1 physical_keys=1 gameplay_seeded=0 main_loop_wait=0"
+                 f" irq_masked_during_record=1 exe_sha256={EXE_SHA256} hooks={hooks_text} slots={SLOTS} stride={STRIDE}"
                  f" resident={segment:04x} mcb={mcb.hex()} source_sha256={hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}"
-                 f" irq_sha256={hashlib.sha256(irq_stub(image)).hexdigest()} frame_sha256={hashlib.sha256(frame_stub(image)).hexdigest()}"
+                 f" irq_sha256={hashlib.sha256(irq_stub(image)).hexdigest()} frame_sha256={hashlib.sha256(frame_stub(image, objective_context)).hexdigest()}"
                  f" dosbox_sha256={hashlib.sha256(Path(f'/proc/{pid}/exe').read_bytes()).hexdigest()}"]
+        if objective_context:
+            lines[0] += f" death_sha256={hashlib.sha256(death_stub(image)).hexdigest()}"
         sequence, dead, waiting, resumed, released = 0, None, None, None, None
         first_frame = None
         made, repress = False, False
@@ -295,7 +372,7 @@ def observe(pid, base, run_dir, output, image, mode):
 
         try:
             restored = stack.enter_context(runtime_hooks(
-                read, write, stop, lambda: os.kill(pid, signal.SIGCONT), cs, recorder, segment, image))
+                read, write, stop, lambda: os.kill(pid, signal.SIGCONT), cs, recorder, segment, image, objective_context))
             window = subprocess.check_output(["xdotool", "search", "--pid", str(pid), "--name", "DOSBox"],
                                              text=True, timeout=5).split()[-1]
             subprocess.run(["xdotool", "windowfocus", "--sync", window], check=True, timeout=5)
@@ -327,6 +404,10 @@ def observe(pid, base, run_dir, output, image, mode):
                                  f" hardware={raw[16:26].hex()} ammo={raw[26:34].hex()} selected={raw[34:36].hex()}"
                                  f" p1={actor.hex()} visual={raw[74:82].hex()} flags={flags.hex()} gate={raw[91]}"
                                  f" fallback={raw[92]} count={raw[93]} level={raw[98]} regs={raw[2:14].hex()}")
+                    if objective_context:
+                        context = objective_context_from_record(raw)
+                        samples[-1].update(context)
+                        lines[-1] += " " + " ".join(f"{key}={value}" for key, value in context.items())
                     if pending is not None and sequence > pending["after_seq"]:
                         counter = "makes" if pending["kind"] == "keydown" else "breaks"
                         before = samples[pending["after_seq"] - 1][counter]
@@ -368,6 +449,8 @@ def observe(pid, base, run_dir, output, image, mode):
                     break
                 time.sleep(0.002)
             result = validate_lifecycle(samples, events, mode)
+            if objective_context:
+                validate_objective_context(samples)
             screenshot("final")
             lines.append("observed " + " ".join(f"{key}={value}" for key, value in result.items()))
             flush()
@@ -383,10 +466,10 @@ def observe(pid, base, run_dir, output, image, mode):
         return dict(result, hooks_restored=len(restored))
 
 
-def complete_capture(run, output, observations):
+def complete_capture(run, output, observations, objective_context=False):
     try:
         code = run()
-        if code != 0 or len(observations) != 1 or observations[0].get("hooks_restored") != len(HOOKS):
+        if code != 0 or len(observations) != 1 or observations[0].get("hooks_restored") != len(HOOKS) + int(objective_context):
             raise RuntimeError("owned DOSBox run or hook cleanup did not complete")
         result = observations[0]
         with output.open("a", encoding="ascii") as stream:
@@ -409,6 +492,7 @@ def main():
     parser.add_argument("--out", type=Path)
     parser.add_argument("--mode", choices=("hold_through", "release_repress"), default="hold_through")
     parser.add_argument("--self-check", action="store_true")
+    parser.add_argument("--objective-context", action="store_true", help="also observe RNG, objective counts and the exact death gate boundary")
     parser.add_argument("--approve-procmem", action="store_true")
     parser.add_argument("--approve-runtime-instrumentation", action="store_true")
     args = parser.parse_args()
@@ -419,9 +503,13 @@ def main():
     for at, expected in WINDOWS.items():
         if image[at:at + len(expected)] != expected:
             raise RuntimeError(f"static guard {at:04x}")
-    irq_stub(image); frame_stub(image)
+    irq_stub(image); frame_stub(image, args.objective_context)
+    if args.objective_context:
+        if image[0x30C1:0x30C1 + len(CONTEXT_WINDOW)] != CONTEXT_WINDOW or image[0x30F6:0x30FB] != bytes.fromhex("8a460430e4"):
+            raise RuntimeError("static objective-context guard")
+        death_stub(image)
     if args.self_check:
-        print(f"held_fire_self_check=ok hooks=2 slots={SLOTS} stride={STRIDE} resident_bytes={RESIDENT_PARAGRAPHS * 16} live=0")
+        print(f"held_fire_self_check=ok hooks={len(HOOKS) + int(args.objective_context)} slots={SLOTS} stride={STRIDE} resident_bytes={RESIDENT_PARAGRAPHS * 16} live=0")
         return 0
     if not (args.run_dir and args.out and args.approve_procmem and args.approve_runtime_instrumentation):
         parser.error("temporary run directory, fresh output and both instrumentation approvals required")
@@ -440,7 +528,7 @@ def main():
 
     def hook(run_dir, pid, base, state, phase):
         if phase == "pre_capture":
-            observations.append(observe(pid, base, run_dir, args.out, image, args.mode))
+            observations.append(observe(pid, base, run_dir, args.out, image, args.mode, args.objective_context))
         return original(run_dir, pid, base, state, phase)
 
     seeder.write_runtime_state_snapshot = hook
@@ -449,7 +537,7 @@ def main():
                 "--startup-seconds", "10", "--intro-seconds", "8", "--level-start-seconds", "5",
                 "--approve-procmem", "--approve-runtime-instrumentation", "--dump-runtime-state"]
     try:
-        return complete_capture(seeder.main, args.out, observations)
+        return complete_capture(seeder.main, args.out, observations, args.objective_context)
     finally:
         seeder.write_runtime_state_snapshot = original
 

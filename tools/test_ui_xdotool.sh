@@ -61,6 +61,7 @@ skip_menu_animation
 xdotool key 2
 sleep 0.2
 xdotool key Return
+xdotool key Return
 sleep 0.1
 xdotool key n
 sleep 0.2
@@ -71,6 +72,7 @@ sleep 0.1
 skip_menu_animation
 xdotool key 1
 sleep 0.2
+xdotool key Return
 xdotool key Return
 sleep 0.1
 xdotool keydown Right

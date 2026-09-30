@@ -74,6 +74,15 @@ int main() {
             "intro shared RNG draw order changed");
         flow.beginIntro(0, pattern, UINT32_MAX - 40);
         require(flow.visibleLevelIntroCharacters(40) == 2, "intro clock rollover changed");
+        const uint32_t introDuration = static_cast<uint32_t>(levelIntroCaption(0).size()) * kLevelIntroCharacterDelayMs;
+        require(!flow.introWaitingForKey(40) &&
+                !flow.introWaitingForKey(UINT32_MAX - 40 + introDuration - 1) &&
+                flow.introWaitingForKey(UINT32_MAX - 40 + introDuration), "intro final delay boundary changed");
+        flow.skipIntroTyping();
+        require(flow.intro().active && flow.introWaitingForKey(40) &&
+                flow.visibleLevelIntroCharacters(40) == levelIntroCaption(0).size(), "intro skip ended blocking wait");
+        flow.beginIntro(1, pattern, 100);
+        require(!flow.intro().typingSkipped && !flow.introWaitingForKey(100), "intro skip leaked to next level");
         flow.beginOutro(0, 10, {{true, true}}, {{{{0, 2, 0, 0}}, {{0, 3, 0, 0}}}});
         const auto schedule = flow.levelOutroSchedule(true);
         events.clear();

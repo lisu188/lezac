@@ -9684,6 +9684,7 @@ public:
                 throw std::runtime_error("menu start reserve count");
             }
             pushKeyDown(SDLK_RETURN);
+            pushKeyDown(SDLK_RETURN);
             processEvents(running);
             const std::string prefix = "reserve-case-" + std::to_string(scenario);
             inspectHud(prefix + "-start");
@@ -14083,7 +14084,66 @@ public:
         std::cout << "key_ownership_live=stopped ticks=" << logicTick_ << '\n';
     }
 
-    void debugHeldFireLive(const std::string& outDir) {
+    void debugBufferedMenuRepeat() {
+        load();
+        initSdl();
+        replayClockEnabled_ = true;
+        replayMilliseconds_ = kMainMenuFadeDurationMs;
+        resetLevel(0);
+        levelFlow_.setInteractiveEnabled(true);
+        bool running = true;
+        for (const auto choice : {SDLK_1, SDLK_2}) {
+            ui_.setMenu(true);
+            ui_.setPage(MenuPage::Main);
+            ui_.beginMainMenu(0);
+            pushKeyDown(choice, true);
+            processEvents(running);
+            if (!ui_.snapshot().menu || !ui_.snapshot().mainMenu.textSkipped || levelFlow_.intro().active)
+                throw std::runtime_error("repeated choice did not remain a consumed typing skip");
+            pushKeyDown(choice, true);
+            processEvents(running);
+            if (ui_.snapshot().menu || !levelFlow_.intro().active || playerCount_ != (choice == SDLK_2 ? 2 : 1))
+                throw std::runtime_error("later repeated choice did not start the selected player mode");
+            for (const auto modifier : {SDLK_LSHIFT, SDLK_RCTRL, SDLK_CAPSLOCK, SDLK_LGUI}) {
+                pushKeyDown(modifier);
+                pushKeyDown(modifier, true);
+                processEvents(running);
+            }
+            if (!levelFlow_.intro().active || levelFlow_.intro().typingSkipped)
+                throw std::runtime_error("non-buffered intro modifier changed presentation");
+            const uint32_t before = logicTick_;
+            pushKeyDown(choice, true);
+            processEvents(running);
+            if (!levelFlow_.intro().active || !levelFlow_.intro().typingSkipped || logicTick_ != before)
+                throw std::runtime_error("intro typing repeat did not remain a consumed skip");
+            inspectRenderedFrame("buffered-menu-repeat-intro");
+            pushKeyDown(choice, true);
+            processEvents(running);
+            if (levelFlow_.intro().active || ui_.snapshot().menu || !bombs_.empty())
+                throw std::runtime_error("later repeated key did not acknowledge the intro cleanly");
+            inspectRenderedFrame("buffered-menu-repeat-gameplay");
+            pushKeyDown(SDLK_p, true);
+            pushKeyDown(SDLK_ESCAPE, true);
+            pushKeyDown(SDLK_F5, true);
+            processEvents(running);
+            if (ui_.snapshot().paused || ui_.snapshot().menu || levelFlow_.intro().active)
+                throw std::runtime_error("gameplay command repeat policy changed");
+        }
+        ui_.setMenu(true);
+        ui_.beginMainMenu(0);
+        pushKeyDown(SDLK_ESCAPE, true);
+        processEvents(running);
+        if (!running || !ui_.snapshot().mainMenu.textSkipped)
+            throw std::runtime_error("repeated Escape leaked past menu typing");
+        pushKeyDown(SDLK_ESCAPE, true);
+        processEvents(running);
+        if (running) throw std::runtime_error("later repeated Escape did not exit the settled menu");
+        replayClockEnabled_ = false;
+        std::cout << "buffered_menu_repeat=ok players=2 consumed_menu_skip=1 consumed_intro_skip=1 later_repeat_ack=1"
+                  << " modifiers_ignored=1 gameplay_commands_unchanged=1 escape_repeat=1 frame_inspection=1\n";
+    }
+
+    void debugHeldFireLive(const std::string& outDir, SDL_Keycode observedKey = SDLK_n) {
         std::filesystem::create_directories(outDir);
         std::ofstream trace(joinPath(outDir, "live.txt"));
         if (!trace) throw std::runtime_error("held-fire live trace unavailable");
@@ -14102,7 +14162,7 @@ public:
             trace << '\n' << std::flush;
         };
         debugPhysicalInputObserver_ = [&](const SDL_Event& event) {
-            if ((event.type != SDL_KEYDOWN && event.type != SDL_KEYUP) || event.key.keysym.sym != SDLK_n) return;
+            if ((event.type != SDL_KEYDOWN && event.type != SDL_KEYUP) || event.key.keysym.sym != observedKey) return;
             if (event.type == SDL_KEYDOWN) { ++makes; repeats += event.key.repeat != 0; }
             else ++breaks;
             trace << "input after_seq=" << sequence << " kind=" << (event.type == SDL_KEYDOWN ? "keydown" : "keyup")
@@ -14112,7 +14172,7 @@ public:
             const bool menu = ui_.snapshot().menu, intro = levelFlow_.intro().active;
             const int stage = menu ? 0 : intro ? 1 : 2;
             if (stage != previousStage) {
-                trace << "status menu=" << menu << " intro=" << intro << " level=" << levelIndex_ + 1;
+                trace << "status menu=" << menu << " intro=" << intro << " level=" << levelIndex_ + 1 << " players=" << playerCount_;
                 objectiveContext();
                 trace << '\n' << std::flush;
                 previousStage = stage;
@@ -14129,7 +14189,7 @@ public:
             }
             wasDead = wasDead || playerDead_;
             trace << "sample seq=" << sequence << " frame=" << logicTick_ << " makes=" << makes << " breaks=" << breaks
-                  << " repeats=" << repeats << " key=" << int(SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_N])
+                  << " repeats=" << repeats << " key=" << int(SDL_GetKeyboardState(nullptr)[SDL_GetScancodeFromKey(observedKey)])
                   << " latch=" << reentryFire1_ << " dead=" << playerDead_ << " state=" << state
                   << " countdown=" << deathStateTimer_ << " lives=" << lives_ << " energy=" << energy_
                   << " fallback=" << int(noActivePlayerTicks_) << " gate=" << reentryGate_
@@ -14142,11 +14202,11 @@ public:
             runInteractive([&] { return SDL_GetTicks() - started > 90000; }, [&] {
                 started = SDL_GetTicks();
                 trace << "status menu=" << ui_.snapshot().menu << " intro=" << levelFlow_.intro().active
-                      << " level=" << levelIndex_ + 1;
+                      << " level=" << levelIndex_ + 1 << " players=" << playerCount_;
                 objectiveContext();
                 trace << '\n' << std::flush;
                 std::cout << "held_fire_live=ready audio=" << (SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "none")
-                          << " physical_keys=1 gameplay_seeded=0\n" << std::flush;
+                          << " physical_keys=1 gameplay_seeded=0 observed_key=" << int(observedKey) << '\n' << std::flush;
             });
         } catch (...) {
             debugInteractiveTickObserver_ = {};
@@ -23003,6 +23063,8 @@ public:
         resetLevel(0);
         ui_.setMenu(true);
         levelFlow_.setInteractiveEnabled(true);
+        replayClockEnabled_ = true;
+        replayMilliseconds_ = 0;
         bool running = true;
         pushKeyDown(SDLK_1);
         processEvents(running);
@@ -23028,6 +23090,7 @@ public:
         if (!levelFlow_.intro().active) {
             throw std::runtime_error("level intro did not keep waiting for a key");
         }
+        replayMilliseconds_ = levelFlow_.intro().startedAt + duration;
         pushKeyDown(SDLK_RETURN);
         processEvents(running);
         if (levelFlow_.intro().active) throw std::runtime_error("level intro acknowledgement failed");
@@ -23035,16 +23098,25 @@ public:
         beginLevelForPlay(1);
         pushKeyDown(SDLK_SPACE);
         processEvents(running);
-        if (levelFlow_.intro().active || !bombs_.empty()) {
+        if (!levelFlow_.intro().active || !levelFlow_.intro().typingSkipped || !bombs_.empty()) {
             throw std::runtime_error("level intro skip key leaked into gameplay");
         }
+        pushKeyDown(SDLK_SPACE);
+        processEvents(running);
+        if (levelFlow_.intro().active || !bombs_.empty())
+            throw std::runtime_error("level intro acknowledgement key leaked into gameplay");
         beginLevelForPlay(2);
+        pushKeyDown(SDLK_ESCAPE);
+        processEvents(running);
+        if (!levelFlow_.intro().active || !levelFlow_.intro().typingSkipped || ui_.snapshot().menu)
+            throw std::runtime_error("level intro typing Escape was not consumed");
         pushKeyDown(SDLK_ESCAPE);
         processEvents(running);
         if (levelFlow_.intro().active || ui_.snapshot().menu || levelIndex_ != 2) {
             throw std::runtime_error("level intro Escape did not acknowledge the intro");
         }
         levelFlow_.setInteractiveEnabled(false);
+        replayClockEnabled_ = false;
 
         std::cout << "level_intro=ok stripes=7"
                   << " palette=" << static_cast<int>(kLevelIntroPaletteFirst)
@@ -23491,13 +23563,16 @@ private:
                         (!ui_.snapshot().menu && !ui_.snapshot().paused && !levelFlow_.intro().active && !levelFlow_.outro().active &&
                          (isPlayer1FireKey(e.key.keysym.sym) ||
                           (playerCount_ > 1 && isPlayer2FireKey(e.key.keysym.sym)))) ||
-                        shouldAcceptRepeatedNameEntryKey(e.key.keysym.sym))) {
+                        shouldAcceptRepeatedUiKey(e.key.keysym.sym))) {
                 onKey(e.key.keysym.sym, running);
             }
         }
     }
 
-    bool shouldAcceptRepeatedNameEntryKey(SDL_Keycode key) const {
+    bool shouldAcceptRepeatedUiKey(SDL_Keycode key) const {
+        // CRT.ReadKey accepts future typematic characters after queued keys are drained.
+        if (InputMapper::isBufferedMenuKey(key) &&
+            ((ui_.snapshot().menu && ui_.snapshot().page == MenuPage::Main) || levelFlow_.intro().active)) return true;
         return ui_.shouldAcceptRepeatedNameEntryKey(InputMapper::key(key));
     }
 
@@ -23699,9 +23774,13 @@ private:
     }
 
     void onKey(SDL_Keycode key, bool& running) {
-        if (ui_.snapshot().menu && ui_.snapshot().page == MenuPage::Main &&
+        if (((ui_.snapshot().menu && ui_.snapshot().page == MenuPage::Main) || levelFlow_.intro().active) &&
             !InputMapper::isBufferedMenuKey(key)) return;
-        if (levelFlow_.intro().active) { finishLevelIntro(); return; }
+        if (levelFlow_.intro().active) {
+            if (levelFlow_.introWaitingForKey(presentationMilliseconds())) finishLevelIntro();
+            else levelFlow_.skipIntroTyping();
+            return;
+        }
         if (levelFlow_.outro().active) {
             if (levelFlow_.outro().awaitKey) finishLevelOutro();
             else levelFlow_.skipOutroTyping(presentationMilliseconds(), ui_.snapshot().italian);
@@ -28079,6 +28158,14 @@ int lezac::app::runApplication(int argc, char** argv) {
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-held-fire-live") {
             app.debugHeldFireLive(argv[2]);
+            return 0;
+        }
+        if (argc > 1 && std::string(argv[1]) == "--debug-buffered-menu-repeat") {
+            app.debugBufferedMenuRepeat();
+            return 0;
+        }
+        if (argc > 2 && std::string(argv[1]) == "--debug-menu-repeat-live") {
+            app.debugHeldFireLive(argv[2], argc > 3 && std::string(argv[3]) == "2" ? SDLK_2 : SDLK_1);
             return 0;
         }
         if (argc > 2 && std::string(argv[1]) == "--debug-active-fire-original") {

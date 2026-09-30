@@ -1,0 +1,94 @@
+{
+  "status": "observed",
+  "audio": "dummy",
+  "gameplay_seeded": false,
+  "delay_gates": false,
+  "physical_keys": true,
+  "manual_input": false,
+  "captures": [
+    {
+      "name": "menu-ready",
+      "intro": false,
+      "white_pixels": 3827,
+      "pixel_sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+    },
+    {
+      "name": "intro-typing",
+      "intro": true,
+      "white_pixels": 31,
+      "pixel_sha256": "5eb160fa4f107c77194368e23b026a910449b212d871179ac1a55209af4f7ede"
+    },
+    {
+      "name": "after-typing-key",
+      "intro": true,
+      "white_pixels": 620,
+      "pixel_sha256": "33993e7ce0a873860eee4db36245a60014a2bcfec473e9f7d0f80f165ea7b431"
+    },
+    {
+      "name": "after-wait",
+      "intro": true,
+      "white_pixels": 620,
+      "pixel_sha256": "33993e7ce0a873860eee4db36245a60014a2bcfec473e9f7d0f80f165ea7b431"
+    },
+    {
+      "name": "after-modifier",
+      "intro": true,
+      "white_pixels": 620,
+      "pixel_sha256": "33993e7ce0a873860eee4db36245a60014a2bcfec473e9f7d0f80f165ea7b431"
+    },
+    {
+      "name": "after-fresh-ack",
+      "intro": false,
+      "white_pixels": 964,
+      "pixel_sha256": "6ca289189628d6e583ec98be79fd094dcd1f6162a08f68f8c1e2645d93c83b9a"
+    }
+  ],
+  "events": [
+    {
+      "kind": "press",
+      "key": "1",
+      "seconds": 14.84867984399898
+    },
+    {
+      "kind": "press",
+      "key": "space",
+      "seconds": 15.62305640199338
+    },
+    {
+      "kind": "press",
+      "key": "Shift_L",
+      "seconds": 17.860819319990696
+    },
+    {
+      "kind": "press",
+      "key": "Return",
+      "seconds": 18.077606873004697
+    }
+  ],
+  "observer_sha256": "41c08a95ddc7abe6d80f36ed854ec105c3f2c19ea88fce52af2d78582d5d4b32",
+  "resident_segment": 402,
+  "resident_mcb": "4d92010001000000524e475741544348",
+  "code_segment": 685,
+  "data_segment": 3407,
+  "temporary_gate_sha256": "33f358eeae0fd697d30d357c9963841763a53106a59e407689e34d24fa6ac02c",
+  "dosbox_sha256": "9213fb131e11cb195bdff40c24513740ce497c5caf1cef1900ad1faad5c5026b",
+  "before_rng": {
+    "phase": "before-intro-choice",
+    "clock_calls": 1,
+    "draws": 0,
+    "rng": 36837150,
+    "clock_cx": 5918,
+    "clock_dx": 562,
+    "initialized_rng": 36837150,
+    "clock_registers": {
+      "cs": 685,
+      "ds": 3407,
+      "ss": 6590,
+      "return_ip": 9654
+    },
+    "phase_registers": [],
+    "first_draws": []
+  },
+  "hooks_restored": 1,
+  "child_exit_code": 0
+}

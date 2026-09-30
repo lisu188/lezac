@@ -107,6 +107,10 @@ key has original DOS behavior on every page.
 
 ## Remaining scope
 
+Future typematic input and the intro's consumed typing-key boundary are covered
+separately in `buffered_menu_input_2026-09-30.md`. The initial presentation
+recovery dropped held menu choices; its negative capture remains preserved.
+
 This menu recovery does not change the outstanding campaign, actor contact,
 collapse, two-player or manual acceptance gaps. In particular, pixel equality
 at these sixteen phases is not proof of full-game parity or exact unmodified

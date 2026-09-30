@@ -21,6 +21,8 @@ public:
     static LevelIntroPattern capturedLevelIntroPattern();
     void beginIntro(int levelIndex, LevelIntroPattern pattern, uint32_t now);
     size_t visibleLevelIntroCharacters(uint32_t now) const;
+    bool introWaitingForKey(uint32_t now) const;
+    void skipIntroTyping();
     void updateLevelIntro(uint32_t now);
     std::vector<OutroLine> levelOutroLines(bool italian) const;
     std::vector<OutroSegment> levelOutroSchedule(bool italian) const;

@@ -47,6 +47,13 @@ jobs:
           name: main-menu-live-linux
           path: build/main-menu-live-checks/
           if-no-files-found: ignore
+      - name: Preserve buffered menu input comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: buffered-menu-live-linux
+          path: build/buffered-menu-live-checks/
+          if-no-files-found: ignore
 
   windows:
     name: Windows build and full test suite

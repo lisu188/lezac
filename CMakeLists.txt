@@ -410,6 +410,13 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^menu_frame_flow=ok pages=main,info,instructions,records unique_frames=[0-9]+ gameplay_background_toggle=1 records_sound_cursor=0x0024 records_sound_priority=2 start_game=1 escape_exit=1 frame_inspection=1")
 
+    add_test(NAME buffered_menu_repeat_dummy
+        COMMAND ${CMAKE_COMMAND} -E env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy
+                $<TARGET_FILE:lezac_cpp> --debug-buffered-menu-repeat)
+    set_tests_properties(buffered_menu_repeat_dummy PROPERTIES
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        PASS_REGULAR_EXPRESSION "^buffered_menu_repeat=ok players=2 consumed_menu_skip=1 consumed_intro_skip=1 later_repeat_ack=1 modifiers_ignored=1 gameplay_commands_unchanged=1 escape_repeat=1 frame_inspection=1")
+
     foreach(render_mode IN ITEMS single split)
         if(render_mode STREQUAL "single")
             set(render_fixture render_boundary_original.txt)
@@ -4765,6 +4772,14 @@ if(BUILD_TESTING)
     find_program(XDOTOOL_EXECUTABLE xdotool)
     if(BASH_EXECUTABLE AND XVFB_RUN_EXECUTABLE AND XDOTOOL_EXECUTABLE)
         if(Python3_Interpreter_FOUND)
+            add_test(NAME buffered_menu_repeat_live_xvfb
+                COMMAND ${CMAKE_COMMAND} -E env SDL_AUDIODRIVER=dummy
+                        ${XVFB_RUN_EXECUTABLE} -a ${Python3_EXECUTABLE} -B
+                        ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_buffered_menu_repeat_xdotool.py
+                        --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/buffered-menu-live-checks)
+            set_tests_properties(buffered_menu_repeat_live_xvfb PROPERTIES
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} TIMEOUT 90
+                PASS_REGULAR_EXPRESSION "buffered_menu_live=ok held_choices=2 consumed_intro_skip=1 modifiers_ignored=1 gameplay_observed=3 audio=dummy gameplay_seeded=0 whole_game_parity=0")
             add_test(NAME main_menu_live_xvfb
                 COMMAND ${CMAKE_COMMAND} -E env SDL_AUDIODRIVER=dummy
                         ${XVFB_RUN_EXECUTABLE} -a ${Python3_EXECUTABLE} -B

@@ -4,6 +4,8 @@ ticks 240
 step_us 40800
 event 0 down 1
 event 1 up 1
+event 1 down return
+event 2 up return
 event 3 down return
 event 4 up return
 event 4 down x

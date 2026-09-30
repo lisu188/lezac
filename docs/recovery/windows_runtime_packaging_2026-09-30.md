@@ -78,3 +78,18 @@ changed assets, inherited compiler paths, and audible audio settings.
 No gameplay, original assets, original fixture pins, or incomplete physical
 reentry evidence was changed. Standalone packaging does not establish full
 campaign fidelity, physical input parity, or whole-game completion.
+
+## First package audit and correction
+
+The first packaging head, 2203faf, built and passed the extracted-package
+pixel checks on both release runners and on this Windows machine. Independent
+inspection nevertheless found 12 Windows system DLLs in its zip alongside
+SDL2 and the three MinGW runtimes. This artifact is retained for diagnostics;
+it is not the accepted standalone deliverable and was not merged.
+
+The system-root filter now handles both Windows path separators and letter
+case, normalizes one Windows path without treating it as a PATH list, and
+checks the resolved list again before any dependency installation. An escaped
+system DLL is fatal. The 36-case CMake regression runs on both host platforms
+and checks mixed separators/case, root boundaries, and regex punctuation.
+Fresh CI and native package acceptance are required for the corrected head.

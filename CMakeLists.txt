@@ -296,6 +296,11 @@ if(BUILD_TESTING)
         PASS_REGULAR_EXPRESSION
             "^install_layout=ok resources=20 sdl2_runtime=[01] validate=1")
 
+    add_test(NAME windows_runtime_policy
+        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/tools/check_windows_runtime_policy.cmake)
+    set_tests_properties(windows_runtime_policy PROPERTIES
+        PASS_REGULAR_EXPRESSION "^windows_runtime_policy=ok cases=36 separators=2 case_insensitive=1 exact_root=1")
+
     add_test(NAME core_resource_raw_roundtrip
         COMMAND $<TARGET_FILE:lezac_cpp> --debug-core-resource-raw-roundtrip)
     set_tests_properties(core_resource_raw_roundtrip PROPERTIES

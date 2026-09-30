@@ -5,3 +5,6 @@
 tests/fixtures/level1_original/** -text
 tests/fixtures/startup_rng_original/** -text
 tests/fixtures/startup_held_fire_original/** -text
+tests/fixtures/main_menu_original/** -text
+docs/recovery/evidence/main_menu_natural_20260930.json -text
+docs/recovery/evidence/main_menu_modifiers_20260930.json -text

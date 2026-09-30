@@ -1,5 +1,6 @@
 #include "rendering/game_renderer.hpp"
 #include "rendering/color.hpp"
+#include "resources/palette.hpp"
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -21,6 +22,16 @@ public:
         // The SFONLEF.ZBG title image backing the menu. The in-game
         // showBackground_ toggle only affects the gameplay sky (drawGradientSky),
         // so the menu title is always drawn.
+        Palette palette = assets_.backgroundPalette();
+        if (menu_.page == MenuPage::Main && menu_.mainMenuFade < 63) {
+            for (size_t i = 0; i < palette.size(); ++i) {
+                if (i == 10) continue;
+                auto fade = [&](uint8_t value) {
+                    return vga6To8(static_cast<uint8_t>((value >> 2) * menu_.mainMenuFade / 63));
+                };
+                palette[i] = {fade(palette[i].r), fade(palette[i].g), fade(palette[i].b)};
+            }
+        }
         for (int y = 0; y < kScreenH; ++y) {
             for (int x = 0; x < kScreenW; ++x) {
                 int bx = (x + camX / 4) % assets_.background().width;
@@ -28,7 +39,7 @@ public:
                 if (bx < 0) bx += assets_.background().width;
                 if (by < 0) by += assets_.background().height;
                 canvas_.pixel(x, y,
-                      argb(assets_.backgroundPalette(),
+                      argb(palette,
                            assets_.background().pixels[static_cast<size_t>(by) * assets_.background().width + bx]));
             }
         }
@@ -45,24 +56,24 @@ public:
             // port's standard-ASCII font map that means a ':' separator and a
             // '.' terminator -- e.g. "I: INFORMAZIONI." -- and every line ends
             // in that period, which the earlier transcription had dropped.
-            static const char* kItalian[7] = {
-                "PREMI 1 PER UN GIOCATORE.", "PREMI 2 PER DUE GIOCATORI.",
-                "I: INFORMAZIONI.", "Z: ISTRUZIONI.", "R: VEDI RECORDS.",
-                "L: ENGLISH.", "ESC PER USCIRE."};
-            static const char* kEnglish[7] = {
-                "PRESS 1 FOR ONE PLAYER GAME.", "PRESS 2 FOR TWO PLAYERS GAME.",
-                "I: INFOS.", "Z: INSTRUCTIONS.", "R: SHOW RECORDS.",
-                "L: ITALIANO.", "ESC EXITS."};
-            const char* const* lines = menu_.italian ? kItalian : kEnglish;
-            for (int i = 0; i < 7; ++i) {
-                const std::string line = lines[i];
-                const int x = (kScreenW - text_.textWidth(line)) / 2;
-                // The original draws each line as a white glyph with a blue
-                // (0,0,255) shadow, centred, on a 10px pitch (measured against
-                // the original level-select frame: first line at y74, one pixel
-                // below the vertical middle of the title art).
-                text_.text(std::max(0, x), 74 + i * 10, line, 0xffffffffu, false,
-                     0xff0000ffu);
+            const auto& lines = mainMenuLines(menu_.italian);
+            size_t remaining = menu_.mainMenuSteps;
+            for (size_t i = 0; i < lines.size() && remaining != 0; ++i) {
+                const auto line = lines[i];
+                const size_t lineSteps = line.size() + kMainMenuTrailSteps;
+                const size_t iteration = std::min(remaining, lineSteps);
+                const int x = kScreenW / 2 - static_cast<int>(line.size()) * kMainMenuCellAdvance / 2;
+                for (size_t j = 0; j < line.size() && j + 2 <= iteration; ++j) {
+                    const int glyphIndex = text_.fontGlyphIndex(line[j], false);
+                    if (glyphIndex < 0 || glyphIndex >= static_cast<int>(assets_.fontSprites().sprites.size())) continue;
+                    const Sprite& glyph = assets_.fontSprites().sprites[static_cast<size_t>(glyphIndex)];
+                    const int px = x + static_cast<int>(j) * kMainMenuCellAdvance;
+                    const int y = kMainMenuTextY + static_cast<int>(i) * kMainMenuLinePitch;
+                    const auto color = static_cast<uint8_t>(std::min<size_t>(10, 6 + iteration - j - 2));
+                    text_.drawFontSprite(px - 1, y - 1, glyph, argb(assets_.backgroundPalette(), 6), false);
+                    text_.drawFontSprite(px, y, glyph, argb(assets_.backgroundPalette(), color), false);
+                }
+                remaining -= iteration;
             }
             return;
         }

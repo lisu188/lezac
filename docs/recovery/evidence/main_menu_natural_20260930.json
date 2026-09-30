@@ -1,0 +1,124 @@
+{
+  "status": "observed",
+  "audio": "dummy",
+  "delay_gates": false,
+  "clock_forced": false,
+  "gameplay_seeded": false,
+  "whole_game_parity": false,
+  "samples": [
+    {
+      "language": "italian",
+      "delay_word": 81,
+      "observations": [
+        {
+          "name": "italian-line0-step02",
+          "first": 3.1991455540119205,
+          "previous": 3.19389984200825,
+          "last": 3.277229753002757,
+          "sha256": "7d1bc09d43fab7db08fcd2e9370ce96840a8a1693075dec7aa424b85c10bde17"
+        },
+        {
+          "name": "italian-line0-step06",
+          "first": 3.5139732180105057,
+          "previous": 3.5087237270199694,
+          "last": 3.571240037010284,
+          "sha256": "262a264357582a0f87f81e27e2751990890d1c24f36fea2fe018a2198e05a621"
+        },
+        {
+          "name": "italian-line0-step30",
+          "first": 5.364644476008834,
+          "previous": 5.359402244008379,
+          "last": 5.50839902201551,
+          "sha256": "895b03535b5b5e72f138b970675cd3ba86d9b93c4f0b47c6027e047ae40ca1a0"
+        },
+        {
+          "name": "italian-full",
+          "first": 15.264938993001124,
+          "previous": 15.259696968016215,
+          "last": 15.268455754005117,
+          "sha256": "a6e2f9867be3fac329c8862529e751aedffd76f84d846c1c70700eb42bb3a914"
+        }
+      ]
+    },
+    {
+      "language": "english",
+      "delay_word": 81,
+      "observations": [
+        {
+          "name": "english-line0-step02",
+          "first": 1.771220988011919,
+          "previous": 1.765972660999978,
+          "last": 1.8286554910009727,
+          "sha256": "860d46d9f1cb6e2f52e57bf1f4f19c955228cb1cd11a4121b4a222813fd21172"
+        },
+        {
+          "name": "english-line0-step06",
+          "first": 2.0657418750051875,
+          "previous": 2.060491706011817,
+          "last": 2.1488284670049325,
+          "sha256": "1444a1c13fd8890be0632b1251a1120ff83ec0a6f5158f4aa081ac5764ecf020"
+        },
+        {
+          "name": "english-line0-step33",
+          "first": 4.165979848999996,
+          "previous": 4.160737149009947,
+          "last": 4.315921163011808,
+          "sha256": "61b4fca13995f2935bde6a8f792bf0f51c548a200115f6d88dc16bc99a89ebb1"
+        },
+        {
+          "name": "english-full",
+          "first": 13.60035878099734,
+          "previous": 13.595094290009001,
+          "last": 13.60367728798883,
+          "sha256": "1ba172f477005a57a01132e42042e54a5d1454f5b7361ceba9cab8b36a715b58"
+        }
+      ]
+    }
+  ],
+  "rng_samples": [
+    {
+      "phase": "italian-full",
+      "clock_calls": 1,
+      "draws": 0,
+      "rng": 842339875,
+      "clock_cx": 5667,
+      "clock_dx": 12853,
+      "initialized_rng": 842339875,
+      "clock_registers": {
+        "cs": 685,
+        "ds": 3407,
+        "ss": 6590,
+        "return_ip": 9654
+      },
+      "phase_registers": [],
+      "first_draws": []
+    },
+    {
+      "phase": "english-full",
+      "clock_calls": 1,
+      "draws": 0,
+      "rng": 842339875,
+      "clock_cx": 5667,
+      "clock_dx": 12853,
+      "initialized_rng": 842339875,
+      "clock_registers": {
+        "cs": 685,
+        "ds": 3407,
+        "ss": 6590,
+        "return_ip": 9654
+      },
+      "phase_registers": [],
+      "first_draws": []
+    }
+  ],
+  "observer_sha256": "33dab1a1f1ece2f469be5b5ac08e86845530822bcdcb498de6f2f2ffaf2ee7ef",
+  "original_exe_sha256": "7579255148c2cb540b26f70dc8181c50b218b6808d8fa5208c832391bafa53ec",
+  "resident_segment": 402,
+  "resident_mcb": "4d92010001000000524e475741544348",
+  "code_segment": 685,
+  "data_segment": 3407,
+  "temporary_gate_sha256": "33f358eeae0fd697d30d357c9963841763a53106a59e407689e34d24fa6ac02c",
+  "dosbox_sha256": "9213fb131e11cb195bdff40c24513740ce497c5caf1cef1900ad1faad5c5026b",
+  "hooks_restored": 1,
+  "child_exit_code": 0
+}

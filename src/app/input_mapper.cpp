@@ -1,5 +1,19 @@
 #include "app/input_mapper.hpp"
 namespace lezac::app {
+bool InputMapper::isBufferedMenuKey(SDL_Keycode key) {
+    // Modifiers and locks do not add a character to the original BIOS buffer.
+    switch (key) {
+        case SDLK_UNKNOWN:
+        case SDLK_LSHIFT: case SDLK_RSHIFT:
+        case SDLK_LCTRL: case SDLK_RCTRL:
+        case SDLK_LALT: case SDLK_RALT:
+        case SDLK_LGUI: case SDLK_RGUI:
+        case SDLK_CAPSLOCK: case SDLK_NUMLOCKCLEAR: case SDLK_SCROLLLOCK:
+            return false;
+        default:
+            return true;
+    }
+}
 ui::Key InputMapper::key(SDL_Keycode key) {
     if (key >= SDLK_a && key <= SDLK_z) return static_cast<ui::Key>(static_cast<int>(ui::Key::A) + key - SDLK_a);
     switch (key) {

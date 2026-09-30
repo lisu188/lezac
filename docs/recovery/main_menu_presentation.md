@@ -65,6 +65,29 @@ both keys in the same SDL event batch. It checks both languages, consumed
 selection/Escape skips, a fresh game selection, menu return and a fresh exit.
 Its captures and failure diagnostics are retained by Linux CI.
 
+## Ungated timing observation
+
+`evidence/main_menu_natural_20260930.json` preserves a second, successful
+observation with no fade or text-delay gates. The compressed observer snapshot
+beside it is the exact source identified by the recorded SHA-256; it is an
+archived one-off probe, not a production entry point. Both menus matched the
+phase fixtures and retained the natural seed, with zero draws, one clock hook
+restored and an owned-child exit code of 0.
+
+The first fully white menu was seen at about 15.265 seconds after sampling began
+for startup Italian, and 13.600 seconds for the English redraw. Startup includes
+the original load/calibration work. First-glyph to fifth-glyph checkpoint
+differences were about 315 ms and 295 ms respectively. Pixel matches sample
+presentation, not the precise entry time of every CRT call; these observations
+do not justify silently replacing the normalized timing with a host-specific
+fitted constant.
+
+The earlier probe sent `L` as soon as full pixels appeared and failed to switch
+language: the final text delay had not finished, so `L` was consumed. That run
+remains incomplete. The successful probe waits 200 ms before `L`; the normal
+SDL test likewise waits beyond the modeled final delay before selecting a
+language. The original's drawn frame and input-readiness boundary are distinct.
+
 ## Remaining scope
 
 This menu recovery does not change the outstanding campaign, actor contact,

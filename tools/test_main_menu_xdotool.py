@@ -75,6 +75,8 @@ def main():
             capture("natural-" + name, frame)
             _, frame = wait_frame(["italian-full"])
             capture("italian-full", frame)
+            # Full pixels precede readiness by the final character delay.
+            time.sleep(.15)
             key("l")
             time.sleep(.12)
             key("1")  # Fade skip, including the final 22 ms delay.

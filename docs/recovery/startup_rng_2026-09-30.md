@@ -91,6 +91,17 @@ and fresh full suites are pending CI. Local builds and large replay batches
 were deferred while the Windows volume exceeded the project's 90% guard.
 Do not infer completion of those checks from this document.
 
+The first Linux CI run exposed a test-selection bug: a `skipUnless(EXE)`
+decorator was evaluated before CLI parsing, so the native case stayed skipped
+even with `--exe`. Its green CTest result did not prove pixel parity and its
+upload had no screenshots. The corrected test checks executable availability
+at runtime, and CTest now requires the explicit native success marker.
+An independent silent run against CI-built production commit `c76a426`
+then passed all six cases, with zero differences across 128000 RGB pixels and
+all 60000 backdrop bytes, including a separate real local-clock run. That
+bounded check used RAM-backed output while the disk guard remained active.
+Fresh full suites after this harness correction are still required.
+
 This correction does not establish identical host typematic timing, physical
 held-through trajectory, every results-screen RNG consumer, complete campaign
 fidelity or whole-game parity. The previously failed physical held-through

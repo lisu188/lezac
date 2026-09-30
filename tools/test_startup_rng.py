@@ -140,8 +140,9 @@ class StartupTests(unittest.TestCase):
         self.assertEqual(session.restored, [2])
         self.assertEqual(session.memory[2], b"second")
 
-    @unittest.skipUnless(EXE, "no compiled C++ executable supplied")
     def test_production_startup_boundary_and_original_pixels(self):
+        if EXE is None:
+            self.skipTest("no compiled C++ executable supplied")
         original = pinned()
         root = Path(tempfile.mkdtemp(prefix="lezac-startup-rng-", dir=OUT))
         try:

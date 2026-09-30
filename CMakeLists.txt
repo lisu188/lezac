@@ -1194,7 +1194,8 @@ if(BUILD_TESTING)
             COMMAND ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/tools/test_startup_rng.py
                     --exe $<TARGET_FILE:lezac_cpp> --out ${CMAKE_CURRENT_BINARY_DIR}/startup-rng-checks)
         set_tests_properties(startup_rng_original PROPERTIES
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            PASS_REGULAR_EXPRESSION "startup_rng_original=ok menu_draws=0 intro_draws=8 initialization_draws=398 compared_pixels=128000 backdrop_bytes=60000 natural_clock=1 whole_game_parity=0")
 
         add_test(NAME seed_original_level_self_check
             COMMAND ${Python3_EXECUTABLE}

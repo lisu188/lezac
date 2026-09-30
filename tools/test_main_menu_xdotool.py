@@ -26,6 +26,10 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     captures = []
     events = []
+    result = dict(status="capturing", exe_sha256=sha(args.exe.read_bytes()),
+                  harness_sha256=sha(Path(__file__).read_bytes()), audio="dummy",
+                  normal_entry_point=True, gameplay_seeded=False, queued_key_check_gated=True,
+                  startup_timing_gated=False, captures=captures, events=events, whole_game_parity=False)
     started = time.monotonic()
     with (output / "process.log").open("w") as log:
         child = subprocess.Popen([str(args.exe.resolve())], cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT)
@@ -53,6 +57,8 @@ def main():
 
             def capture(name, data):
                 (output / (name + ".ppm")).write_bytes(HEADER + data)
+                Image.frombytes("RGB", (320, 200), data).resize((960, 600), Image.Resampling.NEAREST).save(
+                    output / (name + "-preview.png"))
                 captures.append(dict(name=name, pixel_sha256=sha(data), seconds=time.monotonic() - started))
 
             def wait_frame(names, timeout=18):
@@ -70,6 +76,29 @@ def main():
                 events.append(dict(keys=keys, seconds=time.monotonic() - started))
                 xdo("key", "--delay", "0", *keys)
 
+            def ignored_choices(language):
+                expected_pixels = expected[language + "-full"][len(HEADER):]
+                for value in ("Return", "KP_Enter", "s", "space", "F5", "Prior", "Next"):
+                    key(value)
+                    time.sleep(.1)
+                    observed = pixels()
+                    if observed != expected_pixels:
+                        capture(language + "-unexpected-choice-" + value, observed)
+                    require(observed == expected_pixels, "ready menu changed after " + value)
+                events.append(dict(kind="keydown", keys=["Return"], seconds=time.monotonic() - started))
+                xdo("keydown", "Return")
+                try:
+                    for _ in range(9):
+                        time.sleep(.1)
+                        observed = pixels()
+                        if observed != expected_pixels:
+                            capture(language + "-unexpected-held-return", observed)
+                        require(observed == expected_pixels, "held Return changed ready menu")
+                finally:
+                    xdo("keyup", "Return")
+                    events.append(dict(kind="keyup", keys=["Return"], seconds=time.monotonic() - started))
+                capture(language + "-unsupported-choices-ignored", observed)
+
             # Natural startup reaches an original text checkpoint without injected skips.
             name, frame = wait_frame(["italian-line0-step02", "italian-line0-step06", "italian-line0-step30"])
             capture("natural-" + name, frame)
@@ -86,6 +115,7 @@ def main():
             capture("italian-full", frame)
             # Full pixels precede readiness by the final character delay.
             time.sleep(.15)
+            ignored_choices("italian")
             key("l")
             time.sleep(.12)
             key("1")  # Fade skip, including the final 22 ms delay.
@@ -102,6 +132,7 @@ def main():
                 os.kill(child.pid, signal.SIGCONT)
             _, frame = wait_frame(["english-full"], 3)
             capture("english-queued-selection-consumed", frame)
+            ignored_choices("english")
             key("l")
             time.sleep(.12)
             key("Escape")
@@ -128,13 +159,9 @@ def main():
             capture("game-return-menu", frame)
             key("Escape")
             require(child.wait(timeout=5) == 0, "fresh Escape failed to exit")
-            result = dict(status="observed", exe_sha256=sha(args.exe.read_bytes()), audio="dummy",
-                          normal_entry_point=True, gameplay_seeded=False, queued_key_check_gated=True,
-                          startup_timing_gated=False, modifiers_ignored=11, captures=captures, events=events,
-                          whole_game_parity=False)
+            result.update(status="observed", modifiers_ignored=11, ignored_choices=14, held_return_cases=2)
         except Exception as error:
-            (output / "failure.json").write_text(json.dumps(dict(status="failed", error=str(error),
-                                                                 captures=captures, events=events), indent=2) + "\n")
+            result.update(status="failed", error=str(error))
             raise
         finally:
             if child.poll() is None:
@@ -144,8 +171,10 @@ def main():
                 except subprocess.TimeoutExpired:
                     child.kill()
                     child.wait(timeout=5)
-    (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
-    print("main_menu_live=ok original_pixels=1 languages=2 queued_selection_consumed=1 escape_skips_consumed=1 fresh_start=1 fresh_exit=1 frames=6 audio=dummy modifiers_ignored=11")
+            result["child_exit_code"] = child.returncode
+            name = "result.json" if result["status"] == "observed" else "failure.json"
+            (output / name).write_text(json.dumps(result, indent=2) + "\n")
+    print("main_menu_live=ok original_pixels=1 languages=2 queued_selection_consumed=1 escape_skips_consumed=1 fresh_start=1 fresh_exit=1 frames=8 audio=dummy modifiers_ignored=11 ignored_choices=14 held_return_cases=2")
 
 
 if __name__ == "__main__":

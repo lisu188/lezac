@@ -12,3 +12,6 @@ docs/recovery/evidence/menu_held_choice_original_20260930.json -text
 docs/recovery/evidence/intro_buffer_original_20260930.json -text
 docs/recovery/evidence/intro_queued_buffer_original_20260930.json -text
 docs/recovery/evidence/menu_held_two_original_20260930.json -text
+docs/recovery/evidence/main_menu_return_original_20261001.json -text
+docs/recovery/evidence/main_menu_return_cpp_20261001.json -text
+docs/recovery/evidence/main_menu_return_cpp_negative_20261001.json -text
